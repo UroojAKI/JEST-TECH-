@@ -1,0 +1,127 @@
+import {
+  Controller,
+  Get,
+  Post,
+  Delete,
+  Param,
+  Body,
+  UseGuards,
+  UseInterceptors,
+  UploadedFile,
+  Res,
+  Ip,
+  HttpStatus,
+} from '@nestjs/common';
+import { ApiBearerAuth, ApiConsumes, ApiTags } from '@nestjs/swagger';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
+import { CurrentUser } from '../../auth/decorators/current-user.decorator';
+import type { RequestUser } from '../../auth/decorators/current-user.decorator';
+import { DocumentService } from '../services/document.service';
+import * as express from 'express';
+
+@ApiTags('Documents')
+@ApiBearerAuth()
+@UseGuards(JwtAuthGuard)
+@Controller('documents')
+export class DocumentsController {
+  constructor(private readonly documentService: DocumentService) {}
+
+  @Post('upload')
+  @ApiConsumes('multipart/form-data')
+  @UseInterceptors(FileInterceptor('file'))
+  async uploadDocument(
+    @UploadedFile() file: Express.Multer.File,
+    @Body('name') name: string,
+    @Body('entityType') entityType: string,
+    @Body('entityId') entityId: string,
+    @Body('category') category: string,
+    @Body('expiryDate') expiryDate: string,
+    @Body('tags') tags: string,
+    @CurrentUser() user: RequestUser,
+    @Ip() ipAddress: string,
+  ) {
+    const parsedTags = tags ? tags.split(',').map((t) => t.trim()) : [];
+    const parsedExpiry = expiryDate ? new Date(expiryDate) : undefined;
+
+    return this.documentService.uploadDocument({
+      file,
+      name,
+      entityType,
+      entityId,
+      uploadedById: user.id,
+      category,
+      expiryDate: parsedExpiry,
+      tags: parsedTags,
+      ipAddress,
+    });
+  }
+
+  @Post(':id/replace')
+  @ApiConsumes('multipart/form-data')
+  @UseInterceptors(FileInterceptor('file'))
+  async replaceDocument(
+    @Param('id') id: string,
+    @UploadedFile() file: Express.Multer.File,
+    @CurrentUser() user: RequestUser,
+    @Ip() ipAddress: string,
+  ) {
+    return this.documentService.replaceDocument(id, file, user.id, ipAddress);
+  }
+
+  @Get('entity/:entityType/:entityId')
+  async getEntityDocuments(
+    @Param('entityType') entityType: string,
+    @Param('entityId') entityId: string,
+  ) {
+    return this.documentService.getEntityDocuments(entityType, entityId);
+  }
+
+  @Get(':id')
+  async getDocumentDetails(@Param('id') id: string) {
+    return this.documentService.getDocumentDetails(id);
+  }
+
+  @Delete(':id')
+  async deleteDocument(
+    @Param('id') id: string,
+    @CurrentUser() user: RequestUser,
+    @Ip() ipAddress: string,
+  ) {
+    await this.documentService.softDeleteDocument(id, user.id, ipAddress);
+    return { success: true, message: 'Document soft-deleted' };
+  }
+
+  @Post(':id/restore')
+  async restoreDocument(
+    @Param('id') id: string,
+    @CurrentUser() user: RequestUser,
+    @Ip() ipAddress: string,
+  ) {
+    await this.documentService.restoreDocument(id, user.id, ipAddress);
+    return { success: true, message: 'Document restored' };
+  }
+
+  @Get(':id/history')
+  async getDocumentHistory(@Param('id') id: string) {
+    return this.documentService.getAccessLogs(id);
+  }
+
+  @Get(':id/download')
+  async downloadDocument(
+    @Param('id') id: string,
+    @CurrentUser() user: RequestUser,
+    @Ip() ipAddress: string,
+    @Res() res: express.Response,
+  ) {
+    const { fileBuffer, originalFileName, mimeType } = await this.documentService.downloadDocument(
+      id,
+      user.id,
+      ipAddress,
+    );
+
+    res.setHeader('Content-Type', mimeType);
+    res.setHeader('Content-Disposition', `attachment; filename="${originalFileName}"`);
+    res.status(HttpStatus.OK).send(fileBuffer);
+  }
+}
