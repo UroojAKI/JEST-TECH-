@@ -1,0 +1,40 @@
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Turbo
+.turbo/
+**/.turbo/
+
+# Next.js
+.next/
+**/.next/
+
+# NestJS
+dist/
+**/dist/
+
+# Environment
+.env
+.env.*
+
+# Logs
+*.log
+
+# Coverage
+coverage/
+**/coverage/
+
+# Uploads
+uploads/
+**/uploads/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+.turbo/
+**/.turbo/
