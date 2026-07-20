@@ -20,7 +20,7 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: '10'
+          version: '10.34.4'
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -74,7 +74,7 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: '10'
+          version: '10.34.4'
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -88,6 +88,29 @@ jobs:
       - name: Generate Prisma client
         run: pnpm --filter api exec prisma generate
 
+      - name: Wait for Postgres
+        run: |
+          # Prefer pg_isready if available, otherwise fall back to nc
+          if command -v pg_isready >/dev/null 2>&1; then
+            for i in {1..30}; do
+              if pg_isready -h localhost -p 5432 -U postgres -q; then
+                echo "Postgres is ready"
+                break
+              fi
+              echo "Waiting for Postgres... ($i)"
+              sleep 1
+            done
+          else
+            for i in {1..30}; do
+              if nc -z localhost 5432; then
+                echo "Postgres port open"
+                break
+              fi
+              echo "Waiting for Postgres port... ($i)"
+              sleep 1
+            done
+          fi
+
       - name: Run database migrations
         run: pnpm --filter api exec prisma migrate deploy
 
@@ -98,7 +121,9 @@ jobs:
         uses: codecov/codecov-action@v4
         if: always()
         with:
-          directory: apps/api/coverage
+          directory: apps/coverage
+          token: ${{ secrets.CODECOV_TOKEN }}
+        continue-on-error: true
 
   build:
     name: Build
@@ -111,7 +136,7 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: '10'
+          version: '10.34.4'
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
