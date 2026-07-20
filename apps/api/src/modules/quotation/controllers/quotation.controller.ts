@@ -71,8 +71,8 @@ export class QuotationController {
     RoleType.FINANCE,
     RoleType.SUPPORT,
   )
-  findAll() {
-    return this.getQuotationService.executeAll();
+  findAll(@CurrentUser() user: RequestUser) {
+    return this.getQuotationService.executeAll(user);
   }
 
   @Get(':id')
@@ -88,8 +88,8 @@ export class QuotationController {
     RoleType.FINANCE,
     RoleType.SUPPORT,
   )
-  findOne(@Param('id') id: string) {
-    return this.getQuotationService.executeOne(id);
+  findOne(@Param('id') id: string, @CurrentUser() user: RequestUser) {
+    return this.getQuotationService.executeOne(id, user);
   }
 
   @Get(':id/history')

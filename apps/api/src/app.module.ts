@@ -1,13 +1,15 @@
 import { Module, NestModule, MiddlewareConsumer } from '@nestjs/common';
-import { ConfigModule, ConfigService } from '@nestjs/config';
+import { CacheModule as NestCacheModule } from '@nestjs/cache-manager';
+import { redisStore } from 'cache-manager-redis-yet';
+import { ThrottlerModule } from '@nestjs/throttler';
+import { ThrottlerStorageRedisService } from 'nestjs-throttler-storage-redis';
+
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { ScheduleModule } from '@nestjs/schedule';
-import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
-import { ThrottlerStorageRedisService } from 'nestjs-throttler-storage-redis';
-import { APP_GUARD } from '@nestjs/core';
-
-import configuration from './config/configuration';
-import { validationSchema } from './config/validation';
+import { ConfigurationModule } from './modules/platform/configuration/configuration.module';
+import { RateLimitingModule } from './modules/platform/rate-limiting/rate-limiting.module';
+import { ObservabilityModule } from './modules/platform/observability/observability.module';
+import { CacheModule } from './modules/platform/cache/cache.module';
 
 import { DatabaseModule } from './database/database.module';
 import { HealthModule } from './modules/health/health.module';
@@ -30,28 +32,52 @@ import { WarehouseModule } from './modules/warehouse/warehouse.module';
 import { BusinessIntelligenceModule } from './modules/business-intelligence/business-intelligence.module';
 import { ReportsModule } from './modules/platform/reporting/reports.module';
 import { CorrelationIdMiddleware } from './common/middleware/correlation-id.middleware';
+import { RequestLoggerMiddleware } from './common/middleware/request-logger.middleware';
 import { AuditModule } from './modules/platform/audit/audit.module';
 import { QueueModule } from './modules/platform/queue/queue.module';
 import { SearchModule } from './modules/platform/search/search.module';
 import { WorkflowModule } from './modules/platform/workflow/workflow.module';
+import { AdministrationModule } from './modules/administration/administration.module';
+import { AccountingModule } from './modules/finance/accounting/accounting.module';
+import { RevenueModule } from './modules/finance/revenue/revenue.module';
+import { CommissionModule } from './modules/finance/commission/commission.module';
+import { Customer360Module } from './modules/customer/customer-360/customer-360.module';
+import { CommunicationModule } from './modules/customer/communication/communication.module';
+import { AnalyticsModule as CustomerAnalyticsModule } from './modules/customer/analytics/analytics.module';
+import { DataWarehouseModule } from './modules/bi/data-warehouse/data-warehouse.module';
+import { DashboardsModule } from './modules/bi/dashboards/dashboards.module';
+import { ForecastingModule } from './modules/bi/forecasting/forecasting.module';
+import { IntegrationsModule } from './modules/platform/integrations/integrations.module';
 
 @Module({
   imports: [
-    ConfigModule.forRoot({
+    ConfigurationModule,
+    RateLimitingModule,
+    ObservabilityModule,
+    CacheModule,
+    NestCacheModule.registerAsync({
       isGlobal: true,
-      load: [configuration],
-      validationSchema,
+      useFactory: async () => ({
+        store: await redisStore({
+          url: process.env.REDIS_URL || 'redis://localhost:6379',
+          ttl: 60 * 1000,
+        }) as any,
+      }),
+    }),
+    ThrottlerModule.forRootAsync({
+      useFactory: () => ({
+        throttlers: [
+          {
+            name: 'default',
+            ttl: 60000,
+            limit: 120, // 120 requests per minute by default
+          },
+        ],
+        storage: new ThrottlerStorageRedisService(process.env.REDIS_URL || 'redis://localhost:6379'),
+      }),
     }),
     EventEmitterModule.forRoot(),
     ScheduleModule.forRoot(),
-    ThrottlerModule.forRootAsync({
-      imports: [ConfigModule],
-      inject: [ConfigService],
-      useFactory: (config: ConfigService) => ({
-        throttlers: [{ name: 'default', ttl: 60000, limit: 100 }],
-        storage: new ThrottlerStorageRedisService(config.get<string>('redis.url')),
-      }),
-    }),
 
     DatabaseModule,
     HealthModule,
@@ -66,6 +92,7 @@ import { WorkflowModule } from './modules/platform/workflow/workflow.module';
     DashboardModule,
     NotificationsModule,
     AnalyticsModule,
+    CustomerAnalyticsModule,
     DocumentsModule,
     MotorAdminModule,
     ProposalModule,
@@ -77,11 +104,21 @@ import { WorkflowModule } from './modules/platform/workflow/workflow.module';
     QueueModule,
     SearchModule,
     WorkflowModule,
+    AdministrationModule,
+    AccountingModule,
+    RevenueModule,
+    CommissionModule,
+    Customer360Module,
+    CommunicationModule,
+    DataWarehouseModule,
+    DashboardsModule,
+    ForecastingModule,
+    IntegrationsModule,
   ],
-  providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
+  providers: [],
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
-    consumer.apply(CorrelationIdMiddleware).forRoutes('*');
+    consumer.apply(CorrelationIdMiddleware, RequestLoggerMiddleware).forRoutes('*');
   }
 }

@@ -1,158 +1,145 @@
 import { Injectable } from '@nestjs/common';
-import { Prisma, Lead, Note, Activity } from '@prisma/client';
-
+import { Prisma, Note, Activity } from '@prisma/client';
 import { PrismaService } from '../../../database/prisma.service';
-
+import { BaseRepository, TransactionClient } from '../../../common/base/base.repository';
 import { checkOptimisticLock } from '../../../common/utils/optimistic-lock';
 
-const leadWithRelations = Prisma.validator<Prisma.LeadDefaultArgs>()({
-  include: {
-    contact: true,
-    account: true,
-    assignedTo: true,
-    notes: {
-      where: {
-        deletedAt: null,
-      },
-      orderBy: {
-        createdAt: 'desc',
-      },
+export const leadBasicSelect = Prisma.validator<Prisma.LeadSelect>()({
+  id: true,
+  leadCode: true,
+  title: true,
+  description: true,
+  status: true,
+  source: true,
+  createdAt: true,
+  updatedAt: true,
+  version: true,
+  deletedAt: true,
+  contactId: true,
+  accountId: true,
+  assignedToId: true,
+  createdById: true,
+  updatedById: true,
+  contact: {
+    select: {
+      id: true,
+      firstName: true,
+      lastName: true,
+      email: true,
+      phone: true,
     },
-    activities: {
-      where: {
-        deletedAt: null,
-      },
-      orderBy: {
-        dueDate: 'asc',
-      },
+  },
+  account: {
+    select: {
+      id: true,
+      name: true,
+      accountCode: true,
+    },
+  },
+  assignedTo: {
+    select: {
+      id: true,
+      firstName: true,
+      lastName: true,
     },
   },
 });
 
-export type LeadWithRelations = Prisma.LeadGetPayload<typeof leadWithRelations>;
+export const leadDetailSelect = Prisma.validator<Prisma.LeadSelect>()({
+  ...leadBasicSelect,
+  description: true,
+  notes: {
+    where: { deletedAt: null },
+    orderBy: { createdAt: 'desc' },
+    select: {
+      id: true,
+      content: true,
+      createdAt: true,
+      createdById: true,
+      createdBy: {
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+        },
+      },
+    },
+  },
+  activities: {
+    where: { deletedAt: null },
+    orderBy: { dueDate: 'asc' },
+    select: {
+      id: true,
+      type: true,
+      subject: true,
+      description: true,
+      dueDate: true,
+      status: true,
+      completedAt: true,
+      assignedToId: true,
+      createdById: true,
+      createdAt: true,
+    },
+  },
+});
+
+export type LeadBasic = Prisma.LeadGetPayload<{ select: typeof leadBasicSelect }>;
+export type LeadDetail = Prisma.LeadGetPayload<{ select: typeof leadDetailSelect }>;
+// Backwards compatibility for existing code that uses LeadWithRelations
+export type LeadWithRelations = LeadDetail;
 
 @Injectable()
-export class LeadRepository {
-  constructor(private readonly prisma: PrismaService) {}
+export class LeadRepository extends BaseRepository<Prisma.LeadDelegate, LeadBasic, LeadDetail> {
+  protected get basicArgs() {
+    return { select: leadBasicSelect };
+  }
 
-  async generateLeadCode(): Promise<string> {
-    const result = await this.prisma.$queryRaw<[{ nextval: bigint }]>`
+  protected get detailArgs() {
+    return { select: leadDetailSelect };
+  }
+
+  constructor(private readonly prismaService: PrismaService) {
+    super(prismaService.lead);
+  }
+
+  async generateLeadCode(tx?: TransactionClient): Promise<string> {
+    const result = await (tx || this.prismaService).$queryRaw<[{ nextval: bigint }]>`
       SELECT nextval('lead_number_seq')`;
     return `LEAD-${result[0].nextval.toString().padStart(6, '0')}`;
   }
 
-  async create(data: Prisma.LeadCreateInput): Promise<LeadWithRelations> {
-    return this.prisma.lead.create({
+  async create(data: Prisma.LeadCreateInput, tx?: TransactionClient): Promise<LeadDetail> {
+    return this.getClient(tx).create({
       data,
-      include: {
-        contact: true,
-        account: true,
-        assignedTo: true,
-        notes: {
-          where: { deletedAt: null },
-          orderBy: { createdAt: 'desc' },
-        },
-        activities: {
-          where: { deletedAt: null },
-          orderBy: { dueDate: 'asc' },
-        },
-      },
+      ...this.detailArgs,
     });
   }
 
-  async findAll(where?: Prisma.LeadWhereInput): Promise<LeadWithRelations[]> {
-    return this.prisma.lead.findMany({
+  async update(id: string, data: Prisma.LeadUpdateInput, expectedVersion?: number, tx?: TransactionClient): Promise<LeadDetail> {
+    if (expectedVersion !== undefined) {
+      const nextVersion = await checkOptimisticLock(this.prismaService.lead, id, expectedVersion);
+      data.version = nextVersion;
+    }
+    return this.getClient(tx).update({
+      where: { id },
+      data,
+      ...this.detailArgs,
+    });
+  }
+
+  async findAll(where?: Prisma.LeadWhereInput, tx?: TransactionClient): Promise<LeadDetail[]> {
+    return this.getClient(tx).findMany({
       where: {
         ...where,
         deletedAt: null,
       },
-      include: {
-        contact: true,
-        account: true,
-        assignedTo: true,
-        notes: {
-          where: { deletedAt: null },
-          orderBy: { createdAt: 'desc' },
-        },
-        activities: {
-          where: { deletedAt: null },
-          orderBy: { dueDate: 'asc' },
-        },
-      },
-      orderBy: {
-        createdAt: 'desc',
-      },
+      ...this.detailArgs,
+      orderBy: { createdAt: 'desc' },
     });
   }
 
-  async findById(id: string): Promise<LeadWithRelations | null> {
-    return this.prisma.lead.findFirst({
-      where: { id, deletedAt: null },
-      include: {
-        contact: true,
-        account: true,
-        assignedTo: true,
-        notes: {
-          where: { deletedAt: null },
-          orderBy: { createdAt: 'desc' },
-        },
-        activities: {
-          where: { deletedAt: null },
-          orderBy: { dueDate: 'asc' },
-        },
-      },
-    });
-  }
-
-  async update(id: string, data: Prisma.LeadUpdateInput, expectedVersion?: number): Promise<LeadWithRelations> {
-    if (expectedVersion !== undefined) {
-      const nextVersion = await checkOptimisticLock(this.prisma.lead, id, expectedVersion);
-      data.version = nextVersion;
-    }
-    return this.prisma.lead.update({
-      where: { id },
-      data,
-      include: {
-        contact: true,
-        account: true,
-        assignedTo: true,
-        notes: {
-          where: { deletedAt: null },
-          orderBy: { createdAt: 'desc' },
-        },
-        activities: {
-          where: { deletedAt: null },
-          orderBy: { dueDate: 'asc' },
-        },
-      },
-    });
-  }
-
-  async softDelete(id: string, deletedById: string): Promise<LeadWithRelations> {
-    return this.prisma.lead.update({
-      where: { id },
-      data: {
-        deletedAt: new Date(),
-        updatedById: deletedById,
-      },
-      include: {
-        contact: true,
-        account: true,
-        assignedTo: true,
-        notes: {
-          where: { deletedAt: null },
-          orderBy: { createdAt: 'desc' },
-        },
-        activities: {
-          where: { deletedAt: null },
-          orderBy: { dueDate: 'asc' },
-        },
-      },
-    });
-  }
-
-  async addNote(leadId: string, content: string, createdById: string): Promise<Note> {
-    return this.prisma.note.create({
+  async addNote(leadId: string, content: string, createdById: string, tx?: TransactionClient): Promise<Note> {
+    return (tx || this.prismaService).note.create({
       data: {
         content,
         lead: { connect: { id: leadId } },
@@ -161,8 +148,8 @@ export class LeadRepository {
     });
   }
 
-  async createActivity(leadId: string, data: Prisma.ActivityCreateWithoutLeadInput): Promise<Activity> {
-    return this.prisma.activity.create({
+  async createActivity(leadId: string, data: Prisma.ActivityCreateWithoutLeadInput, tx?: TransactionClient): Promise<Activity> {
+    return (tx || this.prismaService).activity.create({
       data: {
         ...data,
         lead: { connect: { id: leadId } },

@@ -51,7 +51,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   const unreadCount = countData?.count || 0;
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try {
+      await api.post('/auth/logout');
+    } catch (e) {
+      // ignore
+    }
     logout();
     router.push('/login');
   };
@@ -97,6 +102,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               {!collapsed && <span>JEST CRM</span>}
             </Link>
             <button
+              aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
               onClick={() => setCollapsed(!collapsed)}
               className="hidden md:flex rounded-lg p-1.5 hover:bg-slate-900 text-slate-400 hover:text-white"
             >
@@ -159,6 +165,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <header className="glass h-16 border-b border-slate-900 px-6 flex items-center justify-between shrink-0">
             <div className="flex items-center gap-4">
               <button
+                aria-label="Open navigation menu"
+                aria-expanded={mobileOpen}
                 onClick={() => setMobileOpen(!mobileOpen)}
                 className="md:hidden rounded-lg p-2 hover:bg-slate-900 text-slate-400 hover:text-white"
               >
@@ -183,6 +191,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <div className="flex items-center gap-4">
               {/* Notification Bell UI */}
               <button
+                aria-label={`Notifications${unreadCount > 0 ? `, ${unreadCount} unread` : ''}`}
                 onClick={() => setDrawerOpen(true)}
                 className="relative rounded-lg p-2 hover:bg-slate-900 text-slate-400 hover:text-white transition-all cursor-pointer"
               >

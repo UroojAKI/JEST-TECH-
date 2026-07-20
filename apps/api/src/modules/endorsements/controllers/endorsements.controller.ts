@@ -45,7 +45,7 @@ export class EndorsementsController {
   }
 
   @Post(':id/approve')
-  @Roles(RoleType.ADMIN, RoleType.SUPER_ADMIN)
+  @Roles(RoleType.ADMIN, RoleType.SUPER_ADMIN, RoleType.UNDERWRITER)
   approveEndorsement(
     @Param('id') id: string,
     @Body('comments') comments: string,

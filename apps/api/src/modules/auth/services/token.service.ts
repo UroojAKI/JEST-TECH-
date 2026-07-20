@@ -1,12 +1,12 @@
 import { Injectable } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
+import { ConfigurationService } from '../../platform/configuration/configuration.service';
 import { JwtService } from '@nestjs/jwt';
 
 @Injectable()
 export class TokenService {
   constructor(
     private readonly jwtService: JwtService,
-    private readonly config: ConfigService,
+    private readonly config: ConfigurationService,
   ) {}
 
   async generateAccessToken(payload: Record<string, unknown>): Promise<string> {
@@ -16,8 +16,14 @@ export class TokenService {
 
   async generateRefreshToken(payload: Record<string, unknown>): Promise<string> {
     return this.jwtService.signAsync(payload, {
-      secret: this.config.get<string>('jwt.refreshSecret'),
-      expiresIn: this.config.get<string>('jwt.refreshExpiresIn') as `${number}${'s' | 'm' | 'h' | 'd'}`,
+      secret: this.config.jwtRefreshSecret,
+      expiresIn: this.config.jwtRefreshExpiresIn as any,
+    });
+  }
+
+  async verifyRefreshToken(token: string): Promise<Record<string, unknown>> {
+    return this.jwtService.verifyAsync(token, {
+      secret: this.config.jwtRefreshSecret,
     });
   }
 }

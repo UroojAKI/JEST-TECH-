@@ -39,8 +39,8 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       success: false,
       error: {
         statusCode: status,
-        message: errorBody.message || 'Internal server error',
-        details: errorBody.error || errorBody.message || errorBody,
+        message: status >= 500 ? 'Internal server error' : (errorBody.message || 'Internal server error'),
+        details: status >= 500 ? undefined : (errorBody.error || errorBody.message),
       },
       meta: {
         requestId: correlationId,

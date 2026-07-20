@@ -95,6 +95,56 @@ export class AuthService {
     };
   }
 
+  async refresh(refreshToken: string) {
+    if (!refreshToken) {
+      throw new UnauthorizedException('Refresh token missing');
+    }
+
+    let payload: any;
+    try {
+      payload = await this.tokenService.verifyRefreshToken(refreshToken);
+    } catch {
+      throw new UnauthorizedException('Invalid or expired refresh token');
+    }
+
+    const user = await this.usersService.findByEmailForAuth(payload.email);
+    if (!user) {
+      throw new UnauthorizedException('User no longer exists');
+    }
+
+    const permissions = user.role.permissions
+      ? user.role.permissions.map((p) => p.permission.code)
+      : [];
+
+    const newPayload = {
+      sub: user.id,
+      email: user.email,
+      role: user.role.code,
+      permissions,
+    };
+
+    const [newAccessToken, newRefreshToken] = await Promise.all([
+      this.tokenService.generateAccessToken(newPayload),
+      this.tokenService.generateRefreshToken(newPayload),
+    ]);
+
+    const refreshExpiresIn = this.config.get<string>('jwt.refreshExpiresIn') ?? '30d';
+    const expiresAt = this.parseExpiry(refreshExpiresIn);
+    const tokenHash = await argon2.hash(newRefreshToken);
+
+    await this.usersService.storeRefreshToken({
+      userId: user.id,
+      tokenHash,
+      expiresAt,
+    });
+
+    return {
+      accessToken: newAccessToken,
+      refreshToken: newRefreshToken,
+      expiresIn: this.config.get<string>('jwt.expiresIn'),
+    };
+  }
+
   // ---------------------------------------------------------------------------
   // Parses duration strings like "15m", "30d", "1h" into a future Date.
   // Used to store the refresh token expiry in the database.

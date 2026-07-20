@@ -1,11 +1,12 @@
-import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
+import { Injectable, BadRequestException, NotFoundException, Inject } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { WorkflowEntityType, WorkflowModule as PrismaWorkflowModule } from '@prisma/client';
 import { PrismaService } from '../../../../database/prisma.service';
 import { WorkflowAdapterRegistry } from './workflow-adapter-registry.service';
 import { WorkflowStateMachine } from './workflow-state-machine.service';
 import { AuditService } from '../../audit/services/audit.service';
-import { NotificationDispatcher } from '../../notifications/services/notification-dispatcher.service';
+import { JobType } from '@prisma/client';
+import { QUEUE_PROVIDER_TOKEN, type QueueProvider } from '../../queue/interfaces/queue-provider.interface';
 
 @Injectable()
 export class WorkflowEngineService {
@@ -15,7 +16,7 @@ export class WorkflowEngineService {
     private readonly stateMachine: WorkflowStateMachine,
     private readonly eventEmitter: EventEmitter2,
     private readonly auditService: AuditService,
-    private readonly notificationDispatcher: NotificationDispatcher,
+    @Inject(QUEUE_PROVIDER_TOKEN) private readonly queueProvider: QueueProvider,
   ) {}
 
   async getAvailableTransitions(
@@ -211,8 +212,7 @@ export class WorkflowEngineService {
           const title = config.title || 'Workflow Update';
           const content = config.content || `Entity ${entityId} transitioned.`;
           const recipientId = config.recipientId || userId;
-          
-          await this.notificationDispatcher.dispatch({
+          await this.queueProvider.enqueue(JobType.NOTIFICATION, {
             userId: recipientId,
             type: 'SYSTEM',
             title,

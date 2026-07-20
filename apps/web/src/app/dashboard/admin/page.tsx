@@ -536,8 +536,9 @@ export default function AdminPortalPage() {
               <Play className="h-4 w-4 text-indigo-400" /> Premium Sandbox Calculator
             </h3>
             <div className="space-y-3">
-              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Vehicle Variant</label>
+              <label htmlFor="calcVariantId" className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Vehicle Variant</label>
               <select
+                id="calcVariantId"
                 value={calcVariantId}
                 onChange={(e) => setCalcVariantId(e.target.value)}
                 className="w-full rounded-lg bg-slate-950 py-2 px-3 text-xs text-white border border-slate-900 focus:border-indigo-500 focus:outline-none"
@@ -550,8 +551,9 @@ export default function AdminPortalPage() {
                 ))}
               </select>
 
-              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Insurer Partner</label>
+              <label htmlFor="calcInsurerId" className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Insurer Partner</label>
               <select
+                id="calcInsurerId"
                 value={calcInsurerId}
                 onChange={(e) => setCalcInsurerId(e.target.value)}
                 className="w-full rounded-lg bg-slate-950 py-2 px-3 text-xs text-white border border-slate-900 focus:border-indigo-500 focus:outline-none"
@@ -562,8 +564,9 @@ export default function AdminPortalPage() {
                 ))}
               </select>
 
-              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Product Line</label>
+              <label htmlFor="calcProductId" className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Product Line</label>
               <select
+                id="calcProductId"
                 value={calcProductId}
                 onChange={(e) => setCalcProductId(e.target.value)}
                 className="w-full rounded-lg bg-slate-950 py-2 px-3 text-xs text-white border border-slate-900 focus:border-indigo-500 focus:outline-none"
@@ -576,8 +579,9 @@ export default function AdminPortalPage() {
 
               <div className="flex gap-4">
                 <div className="flex-1">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Vehicle Age (Years)</label>
+                  <label htmlFor="calcAge" className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Vehicle Age (Years)</label>
                   <input
+                    id="calcAge"
                     type="number"
                     value={calcAge}
                     onChange={(e) => setCalcAge(e.target.value)}
@@ -585,8 +589,9 @@ export default function AdminPortalPage() {
                   />
                 </div>
                 <div className="flex-1">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">NCB Discount (%)</label>
+                  <label htmlFor="calcNcb" className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">NCB Discount (%)</label>
                   <select
+                    id="calcNcb"
                     value={calcNcb}
                     onChange={(e) => setCalcNcb(e.target.value)}
                     className="w-full rounded-lg bg-slate-950 py-2 px-3 text-xs text-white border border-slate-900 focus:border-indigo-500"
@@ -603,8 +608,9 @@ export default function AdminPortalPage() {
 
               <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Add-ons Covers</label>
               <div className="flex gap-4">
-                <label className="flex items-center gap-2 text-xs text-slate-300">
+                <label htmlFor="addonZeroDep" className="flex items-center gap-2 text-xs text-slate-300">
                   <input
+                    id="addonZeroDep"
                     type="checkbox"
                     checked={calcAddons.includes('ZERO_DEP')}
                     onChange={() => toggleAddon('ZERO_DEP')}
@@ -612,8 +618,9 @@ export default function AdminPortalPage() {
                   />
                   Zero Depreciation
                 </label>
-                <label className="flex items-center gap-2 text-xs text-slate-300">
+                <label htmlFor="addonEngineProtect" className="flex items-center gap-2 text-xs text-slate-300">
                   <input
+                    id="addonEngineProtect"
                     type="checkbox"
                     checked={calcAddons.includes('ENGINE_PROTECT')}
                     onChange={() => toggleAddon('ENGINE_PROTECT')}

@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../../database/prisma.service';
 import { WarehouseService } from '../../warehouse/services/warehouse.service';
+import { Parser } from 'expr-eval';
 
 export interface ConversionMetrics {
   totalLeads: number;
@@ -289,21 +290,11 @@ export class BiService {
     return kpis.map((kpi) => {
       let value = 0;
       try {
-        // Safe formula evaluation: replace metric keys with values
-        let expr = kpi.formula;
-        for (const [key, val] of Object.entries(metricRegistry)) {
-          expr = expr.replace(new RegExp(`\\b${key}\\b`, 'g'), String(val));
-        }
-        
-        // Remove spaces
-        const sanitizedExpr = expr.replace(/\s+/g, '');
-        // Strict validation: only allow numbers and basic math operators
-        if (/^[0-9+\-*/().%]+$/.test(sanitizedExpr)) {
-          value = Function(`"use strict"; return (${sanitizedExpr})`)() ?? 0;
-          value = Math.round(value * 100) / 100;
-        } else {
-          value = 0;
-        }
+        // Strict safe formula evaluation using expr-eval
+        const parser = new Parser();
+        const expr = parser.parse(kpi.formula);
+        value = expr.evaluate(metricRegistry);
+        value = Math.round(value * 100) / 100;
       } catch {
         value = 0;
       }

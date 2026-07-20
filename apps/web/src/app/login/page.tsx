@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation';
 import { useAuthStore, Role } from '@/store/auth';
 import { Shield, Key, Mail, Sparkles } from 'lucide-react';
 
+import { api } from '@/lib/api';
+
 const QUICK_PROFILES = [
   { email: 'superadmin@jest.com', role: 'SUPER_ADMIN' as Role, label: 'Super Admin', color: 'from-pink-500 to-rose-500' },
   { email: 'admin@jest.com', role: 'ADMIN' as Role, label: 'Admin', color: 'from-amber-500 to-orange-500' },
@@ -20,60 +22,37 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError('');
 
-    // Mock verification
-    setTimeout(() => {
-      let matchedRole: Role = 'SALES_AGENT';
-      let firstName = 'Sales';
-      let lastName = 'Agent';
-
-      if (email.includes('superadmin')) {
-        matchedRole = 'SUPER_ADMIN';
-        firstName = 'Super';
-        lastName = 'Admin';
-      } else if (email.includes('admin')) {
-        matchedRole = 'ADMIN';
-        firstName = 'System';
-        lastName = 'Administrator';
-      } else if (email.includes('manager')) {
-        matchedRole = 'BRANCH_MANAGER';
-        firstName = 'Branch';
-        lastName = 'Manager';
-      }
-
-      setAuth('mock-jwt-token-sprint10', {
-        id: `usr-${Math.random().toString(36).substr(2, 9)}`,
-        email,
-        firstName,
-        lastName,
-        role: matchedRole,
-      });
-
+    try {
+      const response = await api.post('/auth/login', { email, password });
+      setAuth(response.data.user);
       router.push('/dashboard');
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Invalid email or password');
+    } finally {
       setLoading(false);
-    }, 800);
+    }
   };
 
-  const handleQuickLogin = (profile: typeof QUICK_PROFILES[0]) => {
+  const handleQuickLogin = async (profile: typeof QUICK_PROFILES[0]) => {
     setEmail(profile.email);
     setPassword('Password123!');
     setLoading(true);
+    setError('');
 
-    setTimeout(() => {
-      setAuth('mock-jwt-token-sprint10', {
-        id: `usr-${profile.role.toLowerCase()}`,
-        email: profile.email,
-        firstName: profile.label.split(' ')[0],
-        lastName: profile.label.split(' ')[1] || 'User',
-        role: profile.role,
-      });
+    try {
+      const response = await api.post('/auth/login', { email: profile.email, password: 'Password123!' });
+      setAuth(response.data.user);
       router.push('/dashboard');
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Invalid email or password');
+    } finally {
       setLoading(false);
-    }, 500);
+    }
   };
 
   return (
@@ -97,10 +76,11 @@ export default function LoginPage() {
 
         <form onSubmit={handleLogin} className="space-y-5">
           <div className="space-y-2">
-            <label className="text-xs font-semibold uppercase tracking-wider text-slate-400">Email Address</label>
+            <label htmlFor="email" className="text-xs font-semibold uppercase tracking-wider text-slate-400">Email Address</label>
             <div className="relative">
               <Mail className="absolute left-3 top-3 h-5 w-5 text-slate-500" />
               <input
+                id="email"
                 type="email"
                 required
                 value={email}
@@ -112,10 +92,11 @@ export default function LoginPage() {
           </div>
 
           <div className="space-y-2">
-            <label className="text-xs font-semibold uppercase tracking-wider text-slate-400">Password</label>
+            <label htmlFor="password" className="text-xs font-semibold uppercase tracking-wider text-slate-400">Password</label>
             <div className="relative">
               <Key className="absolute left-3 top-3 h-5 w-5 text-slate-500" />
               <input
+                id="password"
                 type="password"
                 required
                 value={password}

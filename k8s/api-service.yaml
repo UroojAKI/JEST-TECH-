@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: jest-api-service
+  namespace: jest-policy
+spec:
+  type: ClusterIP
+  selector:
+    app: jest-api
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 3000

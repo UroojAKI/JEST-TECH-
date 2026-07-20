@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+// import removed
 import { Prisma, Policy, PolicyRenewal, PolicyPayment, PolicyDocument, PolicyHistory } from '@prisma/client';
 import { BaseRepository } from '../../../common/base/base.repository';
 import { PrismaService } from '../../../database/prisma.service';
@@ -21,8 +21,15 @@ export const policyWithRelations = Prisma.validator<Prisma.PolicyDefaultArgs>()(
 
 export type PolicyWithRelations = Prisma.PolicyGetPayload<typeof policyWithRelations>;
 
+import { Injectable } from '@nestjs/common';
 @Injectable()
-export class PolicyRepository extends BaseRepository<Policy, Prisma.PolicyDelegate<any>> {
+export class PolicyRepository extends BaseRepository<Prisma.PolicyDelegate, Policy, PolicyWithRelations> {
+  protected get basicArgs() {
+    return { include: policyWithRelations.include };
+  }
+  protected get detailArgs() {
+    return { include: policyWithRelations.include };
+  }
   constructor(protected readonly prisma: PrismaService) {
     super(prisma.policy);
   }
@@ -84,14 +91,13 @@ export class PolicyRepository extends BaseRepository<Policy, Prisma.PolicyDelega
     });
   }
 
-  async softDelete(id: string, deletedById: string): Promise<PolicyWithRelations> {
-    return this.prisma.policy.update({
+  async softDelete(id: string, deletedById: string): Promise<void> {
+    await this.prisma.policy.update({
       where: { id },
       data: {
         deletedAt: new Date(),
         updatedById: deletedById,
       },
-      include: policyWithRelations.include,
     });
   }
 

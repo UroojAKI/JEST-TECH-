@@ -1,35 +1,36 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
-import request from 'supertest';
-import { App } from 'supertest/types';
+import * as request from 'supertest';
 import { AppModule } from './../src/app.module';
-import { AppController } from './../src/app.controller';
-import { AppService } from './../src/app.service';
+import helmet from 'helmet';
 
 describe('AppController (e2e)', () => {
-  let app: INestApplication<App>;
+  let app: INestApplication;
 
-  beforeEach(async () => {
+  beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
-      controllers: [AppController],
-      providers: [AppService],
     }).compile();
 
     app = moduleFixture.createNestApplication();
+    app.use(helmet());
+    app.setGlobalPrefix('api/v1');
     await app.init();
   });
 
-  it('/ (GET)', () => {
-    return request(app.getHttpServer())
-      .get('/')
-      .expect(200)
-      .expect((res) => {
-        expect(res.body.application).toBe('JEST Policy CRM');
-      });
+  afterAll(async () => {
+    await app.close();
   });
 
-  afterEach(async () => {
-    await app.close();
+  it('/api/v1/health (GET)', () => {
+    return request(app.getHttpServer())
+      .get('/api/v1/health')
+      .expect(200);
+  });
+
+  it('should include helmet security headers', async () => {
+    const response = await request(app.getHttpServer()).get('/api/v1/health');
+    expect(response.headers['x-dns-prefetch-control']).toBeDefined();
+    expect(response.headers['x-frame-options']).toBeDefined();
   });
 });

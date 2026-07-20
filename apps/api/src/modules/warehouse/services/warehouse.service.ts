@@ -82,7 +82,7 @@ export interface ReportingRenewal {
 export class WarehouseService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async getReportingContacts(filters?: { from?: Date; to?: Date; type?: string }): Promise<ReportingContact[]> {
+  async getReportingContacts(filters?: { from?: Date; to?: Date; type?: string }, cursor?: string, take = 1000): Promise<ReportingContact[]> {
     const contacts = await this.prisma.contact.findMany({
       where: {
         deletedAt: null,
@@ -96,8 +96,9 @@ export class WarehouseService {
             }
           : {}),
       },
-      take: 1000,
-      orderBy: { createdAt: 'desc' },
+      take,
+      ...(cursor && { cursor: { id: cursor }, skip: 1 }),
+      orderBy: { createdAt: 'asc' },
     });
 
     return contacts.map((c) => ({
@@ -113,7 +114,7 @@ export class WarehouseService {
     }));
   }
 
-  async getReportingLeads(filters?: { from?: Date; to?: Date; status?: string; agentId?: string }): Promise<ReportingLead[]> {
+  async getReportingLeads(filters?: { from?: Date; to?: Date; status?: string; agentId?: string }, cursor?: string, take = 1000): Promise<ReportingLead[]> {
     const leads = await this.prisma.lead.findMany({
       where: {
         deletedAt: null,
@@ -127,8 +128,9 @@ export class WarehouseService {
         contact: true,
         assignedTo: { select: { firstName: true, lastName: true } },
       },
-      take: 1000,
-      orderBy: { createdAt: 'desc' },
+      take,
+      ...(cursor && { cursor: { id: cursor }, skip: 1 }),
+      orderBy: { createdAt: 'asc' },
     });
 
     return leads.map((l) => ({
@@ -146,7 +148,7 @@ export class WarehouseService {
     }));
   }
 
-  async getReportingPolicies(filters?: { from?: Date; to?: Date; status?: string; agentId?: string }): Promise<ReportingPolicy[]> {
+  async getReportingPolicies(filters?: { from?: Date; to?: Date; status?: string; agentId?: string }, cursor?: string, take = 1000): Promise<ReportingPolicy[]> {
     const policies = await this.prisma.policy.findMany({
       where: {
         deletedAt: null,
@@ -159,8 +161,9 @@ export class WarehouseService {
         contact: true,
         quotation: { select: { insurerName: true, productType: true, totalPremium: true } },
       },
-      take: 1000,
-      orderBy: { createdAt: 'desc' },
+      take,
+      ...(cursor && { cursor: { id: cursor }, skip: 1 }),
+      orderBy: { createdAt: 'asc' },
     });
 
     return policies.map((p) => ({
@@ -179,7 +182,7 @@ export class WarehouseService {
     }));
   }
 
-  async getReportingClaims(filters?: { from?: Date; to?: Date; status?: string }): Promise<ReportingClaim[]> {
+  async getReportingClaims(filters?: { from?: Date; to?: Date; status?: string }, cursor?: string, take = 1000): Promise<ReportingClaim[]> {
     const claims = await this.prisma.claim.findMany({
       where: {
         ...(filters?.status && { status: filters.status as any }),
@@ -191,8 +194,9 @@ export class WarehouseService {
         policy: { select: { policyNumber: true } },
         contact: { select: { firstName: true, lastName: true } },
       },
-      take: 1000,
-      orderBy: { reportedDate: 'desc' },
+      take,
+      ...(cursor && { cursor: { id: cursor }, skip: 1 }),
+      orderBy: { reportedDate: 'asc' },
     });
 
     return claims.map((c) => ({
@@ -208,7 +212,7 @@ export class WarehouseService {
     }));
   }
 
-  async getReportingRevenue(filters?: { from?: Date; to?: Date }): Promise<ReportingRevenue[]> {
+  async getReportingRevenue(filters?: { from?: Date; to?: Date }, cursor?: string, take = 1000): Promise<ReportingRevenue[]> {
     const payments = await this.prisma.policyPayment.findMany({
       where: {
         ...(filters?.from || filters?.to
@@ -225,8 +229,9 @@ export class WarehouseService {
           },
         },
       },
-      take: 1000,
-      orderBy: { paymentDate: 'desc' },
+      take,
+      ...(cursor && { cursor: { id: cursor }, skip: 1 }),
+      orderBy: { paymentDate: 'asc' },
     });
 
     return payments.map((p) => ({
@@ -242,7 +247,7 @@ export class WarehouseService {
     }));
   }
 
-  async getReportingRenewals(): Promise<ReportingRenewal[]> {
+  async getReportingRenewals(cursor?: string, take = 1000): Promise<ReportingRenewal[]> {
     const now = new Date();
     const in45 = new Date(now.getTime() + 45 * 24 * 60 * 60 * 1000);
 
@@ -255,7 +260,8 @@ export class WarehouseService {
         contact: { select: { firstName: true, lastName: true, phone: true } },
         quotation: { select: { insurerName: true, totalPremium: true } },
       },
-      take: 1000,
+      take,
+      ...(cursor && { cursor: { id: cursor }, skip: 1 }),
       orderBy: { expiryDate: 'asc' },
     });
 

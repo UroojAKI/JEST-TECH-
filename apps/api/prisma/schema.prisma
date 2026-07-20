@@ -240,7 +240,7 @@ model User {
 
   designation String?
 
-  department String?
+  legacyDepartment String?
 
   status UserStatus @default(PENDING_VERIFICATION)
 
@@ -249,6 +249,17 @@ model User {
   isPhoneVerified Boolean @default(false)
 
   lastLoginAt DateTime?
+
+  teamId String?
+  departmentId String?
+  branchId String?
+
+  team Team? @relation(fields: [teamId], references: [id])
+  department Department? @relation(fields: [departmentId], references: [id])
+  branch Branch? @relation(fields: [branchId], references: [id])
+
+  queueMembers QueueMember[]
+  commissions Commission[]
 
   roleId String
 
@@ -463,6 +474,11 @@ model Contact {
 
   deletedAt DateTime?
 
+  analytics CustomerAnalytics?
+  communications CommunicationLog[]
+  familyMembers FamilyMember[]
+  vehicles VehicleAsset[]
+
   @@index([phone])
 
   @@index([email])
@@ -574,6 +590,16 @@ model Lead {
   updatedById String?
   createdBy   User?      @relation("LeadCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
   updatedBy   User?      @relation("LeadUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  score           Int       @default(0)
+  priority        String?   // 'HIGH', 'MEDIUM', 'LOW'
+  firstResponseAt DateTime?
+  slaStatus       String?   // 'IN_SLA', 'BREACHED', 'COMPLETED'
+  isDuplicate     Boolean   @default(false)
+  duplicateOfId   String?
+  duplicateOf     Lead?     @relation("LeadDuplicates", fields: [duplicateOfId], references: [id], onDelete: SetNull)
+  duplicates      Lead[]    @relation("LeadDuplicates")
+
 
   notes       Note[]
   activities  Activity[]
@@ -2055,3 +2081,683 @@ model BackgroundJob {
   @@index([jobId])
 }
 
+// ==========================================
+// ORGANIZATION MANAGEMENT
+// Hierarchy: Company -> Region -> Zone -> Branch -> Department -> Team
+// ==========================================
+
+model Company {
+  id          String   @id @default(uuid())
+  name        String
+  code        String   @unique
+  logoUrl     String?
+  address     String?
+  taxId       String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  regions     Region[]
+}
+
+model Region {
+  id          String   @id @default(uuid())
+  companyId   String
+  name        String
+  code        String   @unique
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  company     Company  @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  zones       Zone[]
+}
+
+model Zone {
+  id          String   @id @default(uuid())
+  regionId    String
+  name        String
+  code        String   @unique
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  region      Region   @relation(fields: [regionId], references: [id], onDelete: Restrict)
+  branches    Branch[]
+}
+
+model Branch {
+  id          String   @id @default(uuid())
+  zoneId      String
+  name        String
+  code        String   @unique
+  address     String?
+  city        String?
+  state       String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  zone        Zone     @relation(fields: [zoneId], references: [id], onDelete: Restrict)
+  departments Department[]
+  users       User[]
+}
+
+model Department {
+  id          String   @id @default(uuid())
+  branchId    String
+  name        String
+  code        String
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  branch      Branch   @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  teams       Team[]
+  users       User[]
+
+  @@unique([branchId, code])
+}
+
+model Team {
+  id          String   @id @default(uuid())
+  departmentId String
+  name        String
+  code        String
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  department  Department @relation(fields: [departmentId], references: [id], onDelete: Restrict)
+  users       User[]
+
+  @@unique([departmentId, code])
+}
+
+// ==========================================
+// SYSTEM CONFIGURATION & FEATURE FLAGS
+// ==========================================
+
+model SystemConfig {
+  key         String   @id
+  value       String   // JSON stringified value or scalar
+  valueType   String   // 'STRING', 'NUMBER', 'BOOLEAN', 'JSON'
+  description String?
+  isPublic    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model FeatureFlag {
+  key         String   @id
+  isEnabled   Boolean  @default(false)
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// ==========================================
+// NUMBERING ENGINE
+// ==========================================
+
+model NumberingFormat {
+  entityType  String   @id // e.g. 'POLICY', 'CLAIM', 'LEAD'
+  prefix      String
+  format      String   // e.g. '{PREFIX}-{YYYY}-{MM}-{SEQUENCE}'
+  padding     Int      @default(6) // e.g. 6 means 000001
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model NumberingSequence {
+  entityType  String
+  year        Int
+  month       Int
+  sequence    Int      @default(0)
+  
+  @@id([entityType, year, month])
+}
+
+// ==========================================
+// LOOKUP FRAMEWORK (Hierarchical)
+// ==========================================
+
+model LookupCategory {
+  id          String   @id @default(uuid())
+  code        String   @unique
+  name        String
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  values      LookupValue[]
+}
+
+model LookupValue {
+  id          String   @id @default(uuid())
+  categoryId  String
+  parentId    String?
+  code        String
+  name        String
+  description String?
+  orderIndex  Int      @default(0)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  category    LookupCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  parent      LookupValue?   @relation("LookupHierarchy", fields: [parentId], references: [id], onDelete: Restrict)
+  children    LookupValue[]  @relation("LookupHierarchy")
+
+  @@unique([categoryId, code])
+}
+
+// ==========================================
+// BUSINESS CALENDAR
+// ==========================================
+
+model Holiday {
+  id          String   @id @default(uuid())
+  date        DateTime
+  name        String
+  isGlobal    Boolean  @default(true)
+  branchId    String?  // If not global, applies to specific branch
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([date, branchId])
+}
+
+model WorkingHours {
+  id          String   @id @default(uuid())
+  dayOfWeek   Int      // 0 = Sunday, 1 = Monday, etc.
+  startTime   String   // '09:00'
+  endTime     String   // '18:00'
+  isWorkingDay Boolean @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([dayOfWeek])
+}
+// ==========================================
+// LEAD INTELLIGENCE ENGINE (EPIC 14.2)
+// ==========================================
+
+model LeadScoreRule {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  condition   String   // JSON string or expression (e.g., source == "WEBSITE")
+  points      Int      // Points to add/subtract
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model LeadScoreLog {
+  id          String   @id @default(uuid())
+  leadId      String
+  ruleId      String
+  points      Int
+  createdAt   DateTime @default(now())
+
+  @@index([leadId])
+}
+
+model AssignmentRule {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  condition   String   // JSON string or expression (e.g., zipCode == "590001")
+  queueId     String
+  priority    Int      @default(0) // Higher priority rules evaluated first
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model RoutingQueue {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  strategy    String   // 'ROUND_ROBIN', 'LOAD_BALANCED', 'SKILL_BASED'
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  members     QueueMember[]
+}
+
+model QueueMember {
+  id          String   @id @default(uuid())
+  queueId     String
+  userId      String
+  isAvailable Boolean  @default(true) // For presence/status routing
+  capacity    Int      @default(10)   // Max concurrent leads
+  currentLoad Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  queue       RoutingQueue @relation(fields: [queueId], references: [id], onDelete: Cascade)
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([queueId, userId])
+}
+
+model SlaPolicy {
+  id               String   @id @default(uuid())
+  name             String
+  description      String?
+  targetEntity     String   // 'LEAD', 'CLAIM'
+  priority         String?  // 'HIGH', 'MEDIUM', 'LOW'
+  firstResponseMin Int?     // Minutes to first response
+  resolutionMin    Int?     // Minutes to resolution
+  isActive         Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
+
+model SlaViolation {
+  id          String   @id @default(uuid())
+  entityType  String   // 'LEAD', 'CLAIM'
+  entityId    String
+  policyId    String
+  breachType  String   // 'FIRST_RESPONSE', 'RESOLUTION'
+  breachedAt  DateTime @default(now())
+  isResolved  Boolean  @default(false)
+  resolvedAt  DateTime?
+
+  @@index([entityType, entityId])
+}
+// ==========================================
+// FINANCE & ACCOUNTING (EPIC 15)
+// ==========================================
+
+model ChartOfAccount {
+  id          String   @id @default(uuid())
+  code        String   @unique
+  name        String
+  type        String   // 'ASSET', 'LIABILITY', 'EQUITY', 'REVENUE', 'EXPENSE'
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  journalLines JournalLine[]
+}
+
+model JournalEntry {
+  id          String   @id @default(uuid())
+  entryNumber String   @unique
+  date        DateTime
+  description String
+  referenceId String?  // ID of the invoice, receipt, etc.
+  referenceType String? // 'INVOICE', 'RECEIPT', 'COMMISSION'
+  status      String   @default("POSTED") // 'DRAFT', 'POSTED', 'VOIDED'
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  lines       JournalLine[]
+
+  @@index([date])
+  @@index([referenceId, referenceType])
+}
+
+model JournalLine {
+  id              String   @id @default(uuid())
+  journalEntryId  String
+  accountId       String
+  debit           Decimal  @default(0) @db.Decimal(19, 4)
+  credit          Decimal  @default(0) @db.Decimal(19, 4)
+  description     String?
+  createdAt       DateTime @default(now())
+
+  journalEntry    JournalEntry   @relation(fields: [journalEntryId], references: [id], onDelete: Cascade)
+  account         ChartOfAccount @relation(fields: [accountId], references: [id], onDelete: Restrict)
+
+  @@index([journalEntryId])
+  @@index([accountId])
+}
+
+model Invoice {
+  id          String   @id @default(uuid())
+  invoiceNum  String   @unique
+  date        DateTime @default(now())
+  dueDate     DateTime
+  totalAmount Decimal  @db.Decimal(19, 4)
+  status      String   @default("UNPAID") // 'UNPAID', 'PARTIAL', 'PAID', 'VOID'
+  entityId    String   // Policy ID
+  entityType  String   @default("POLICY")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  allocations PaymentAllocation[]
+
+  @@index([status])
+  @@index([entityId, entityType])
+}
+
+model Receipt {
+  id          String   @id @default(uuid())
+  receiptNum  String   @unique
+  date        DateTime @default(now())
+  amount      Decimal  @db.Decimal(19, 4)
+  paymentMode String   // 'CASH', 'BANK_TRANSFER', 'CHEQUE', 'CARD'
+  reference   String?  // Cheque No, UTR No
+  status      String   @default("CLEARED") // 'PENDING', 'CLEARED', 'BOUNCED'
+  customerId  String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  allocations PaymentAllocation[]
+
+  @@index([customerId])
+}
+
+model PaymentAllocation {
+  id          String   @id @default(uuid())
+  receiptId   String
+  invoiceId   String
+  amount      Decimal  @db.Decimal(19, 4)
+  createdAt   DateTime @default(now())
+
+  receipt     Receipt @relation(fields: [receiptId], references: [id], onDelete: Restrict)
+  invoice     Invoice @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
+
+  @@index([receiptId])
+  @@index([invoiceId])
+}
+
+model CommissionPlan {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  rules       String   // JSON containing slab, product, tier logic
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Commission {
+  id          String   @id @default(uuid())
+  policyId    String
+  userId      String   // Agent or Manager getting the commission
+  roleTier    String   // 'AGENT', 'BRANCH_MANAGER', 'ZONAL_MANAGER'
+  amount      Decimal  @db.Decimal(19, 4)
+  status      String   @default("ACCRUED") // 'ACCRUED', 'REALIZED', 'PAID', 'CANCELLED'
+  planId      String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user        User     @relation(fields: [userId], references: [id])
+
+  @@index([policyId])
+  @@index([userId])
+  @@index([status])
+}
+
+model Settlement {
+  id          String   @id @default(uuid())
+  batchNumber String   @unique
+  date        DateTime @default(now())
+  totalAmount Decimal  @db.Decimal(19, 4)
+  status      String   @default("PENDING") // 'PENDING', 'APPROVED', 'PROCESSED'
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+// ==========================================
+// CUSTOMER EXPERIENCE & 360 (EPIC 16)
+// ==========================================
+
+model CustomerAnalytics {
+  id                 String   @id @default(uuid())
+  contactId          String   @unique
+  lifetimePremium    Decimal  @default(0) @db.Decimal(19, 4)
+  lifetimeClaims     Decimal  @default(0) @db.Decimal(19, 4)
+  lifetimeValue      Decimal  @default(0) @db.Decimal(19, 4)
+  
+  renewalProbability Int      @default(0) // 0-100%
+  customerRiskScore  Int      @default(0) // 0-100 (higher is riskier)
+  crossSellScore     Int      @default(0) // 0-100 (propensity to buy more)
+  healthScore        Int      @default(100) // 0-100
+  churnProbability   Int      @default(0) // 0-100%
+
+  activePolicies     Int      @default(0)
+  expiredPolicies    Int      @default(0)
+  claimRatio         Decimal  @default(0) @db.Decimal(5, 2) // Total claims / Total premium
+
+  lastCalculatedAt   DateTime @default(now())
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  contact            Contact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
+}
+
+model CommunicationLog {
+  id                 String   @id @default(uuid())
+  channel            String   // 'EMAIL', 'SMS', 'WHATSAPP', 'CALL', 'PUSH'
+  direction          String   // 'INBOUND', 'OUTBOUND'
+  status             String   // 'SENT', 'DELIVERED', 'READ', 'FAILED'
+  
+  contactId          String
+  entityType         String?  // 'LEAD', 'POLICY', 'CLAIM'
+  entityId           String?
+  
+  provider           String?  // 'TWILIO', 'KARIX', 'AWS_SES'
+  providerMessageId  String?
+  templateId         String?
+
+  subject            String?
+  messagePreview     String?
+  messageBody        String?  @db.Text
+
+  sentAt             DateTime?
+  deliveredAt        DateTime?
+  readAt             DateTime?
+  failedAt           DateTime?
+  errorCode          String?
+  correlationId      String?
+
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  contact            Contact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  @@index([contactId])
+  @@index([entityId, entityType])
+  @@index([providerMessageId])
+}
+
+model FamilyMember {
+  id          String   @id @default(uuid())
+  contactId   String
+  firstName   String
+  lastName    String
+  relationship String  // 'SPOUSE', 'CHILD', 'PARENT'
+  dateOfBirth DateTime?
+  gender      String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  contact     Contact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  @@index([contactId])
+}
+
+model VehicleAsset {
+  id              String   @id @default(uuid())
+  contactId       String
+  registrationNum String   @unique
+  make            String
+  model           String
+  variant         String?
+  year            Int
+  engineNumber    String?
+  chassisNumber   String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  contact         Contact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  @@index([contactId])
+}
+// ==========================================
+// BUSINESS INTELLIGENCE (EPIC 17)
+// Data Warehouse & Dashboards
+// ==========================================
+
+// Dimensions
+model DimBranch {
+  id        String   @id // Copied from Branch
+  name      String
+  zone      String?
+  region    String?
+}
+
+model DimAgent {
+  id        String   @id // Copied from User
+  name      String
+  role      String
+  branchId  String
+}
+
+model DimCustomer {
+  id        String   @id // Copied from Contact
+  name      String
+  type      String
+  city      String?
+  state     String?
+}
+
+model DimProduct {
+  id        String   @id
+  name      String
+  category  String
+  insurer   String
+}
+
+model DimDate {
+  dateId    String   @id // e.g. "2026-07-20"
+  date      DateTime
+  year      Int
+  month     Int
+  day       Int
+  quarter   Int
+  dayOfWeek Int
+}
+
+// Facts
+model FactPolicy {
+  id             String   @id // Policy ID
+  dateId         String   // Connects to DimDate
+  branchId       String
+  agentId        String
+  customerId     String
+  productId      String
+  premiumAmount  Decimal  @db.Decimal(19, 4)
+  commissionAmt  Decimal  @db.Decimal(19, 4)
+  status         String
+  createdAt      DateTime @default(now())
+}
+
+model FactClaim {
+  id             String   @id // Claim ID
+  dateId         String
+  policyId       String
+  branchId       String
+  customerId     String
+  amountClaimed  Decimal  @db.Decimal(19, 4)
+  amountSettled  Decimal  @db.Decimal(19, 4)
+  status         String
+  createdAt      DateTime @default(now())
+}
+
+model FactRevenue {
+  id             String   @id // Receipt/Invoice ID
+  dateId         String
+  branchId       String
+  agentId        String
+  customerId     String
+  amount         Decimal  @db.Decimal(19, 4)
+  type           String   // 'PREMIUM', 'COMMISSION_REALIZED'
+  createdAt      DateTime @default(now())
+}
+
+// Dashboards
+model Dashboard {
+  id          String   @id @default(uuid())
+  name        String
+  roleTarget  String   // 'CEO', 'BRANCH_MANAGER', 'AGENT'
+  isActive    Boolean  @default(true)
+  widgets     DashboardWidget[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Widget {
+  id          String   @id @default(uuid())
+  name        String
+  type        String   // 'BAR', 'LINE', 'PIE', 'METRIC'
+  config      String   @db.Text // JSON configuration
+  dashboards  DashboardWidget[]
+  createdAt   DateTime @default(now())
+}
+
+model DashboardWidget {
+  dashboardId String
+  widgetId    String
+  x           Int
+  y           Int
+  w           Int
+  h           Int
+
+  dashboard   Dashboard @relation(fields: [dashboardId], references: [id], onDelete: Cascade)
+  widget      Widget    @relation(fields: [widgetId], references: [id], onDelete: Cascade)
+
+  @@id([dashboardId, widgetId])
+}
+
+// Forecasts
+model ForecastResult {
+  id          String   @id @default(uuid())
+  metric      String   // 'REVENUE', 'RENEWALS', 'LEADS'
+  targetDate  DateTime // The future month/date being forecasted
+  branchId    String?  // Optional, if forecasting per branch
+  value       Decimal  @db.Decimal(19, 4)
+  lowerBound  Decimal? @db.Decimal(19, 4)
+  upperBound  Decimal? @db.Decimal(19, 4)
+  modelUsed   String   // 'STATISTICAL_MA', 'XGBOOST'
+  calculatedAt DateTime @default(now())
+}
+// ==========================================
+// INTEGRATIONS (EPIC 19)
+// Platform Integration & Webhooks
+// ==========================================
+
+model IntegrationProvider {
+  id              String   @id @default(uuid())
+  name            String   // e.g. 'Razorpay', 'Twilio'
+  type            String   // 'SMS', 'EMAIL', 'PAYMENT', 'VEHICLE', 'OCR'
+  status          String   @default("ACTIVE") // 'ACTIVE', 'INACTIVE'
+  isPrimary       Boolean  @default(false)
+  priority        Int      @default(1)
+  config          String   @db.Text // JSON with encrypted credentials
+  failureCount    Int      @default(0)
+  successRate     Decimal? @db.Decimal(5, 2)
+  averageLatency  Int?     // in ms
+  lastHeartbeat   DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model WebhookAuditLog {
+  id              String   @id @default(uuid())
+  provider        String   // 'razorpay', 'twilio'
+  providerEventId String   @unique // The ID sent by the provider for idempotency
+  eventType       String
+  payload         String   @db.Text
+  status          String   @default("PROCESSED") // 'PROCESSED', 'FAILED', 'IGNORED'
+  errorMessage    String?  @db.Text
+  createdAt       DateTime @default(now())
+}

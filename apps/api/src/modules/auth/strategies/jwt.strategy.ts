@@ -1,17 +1,25 @@
 import { Injectable } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
-import { ConfigService } from '@nestjs/config';
+import { ConfigurationService } from '../../platform/configuration/configuration.service';
 import { ExtractJwt, Strategy } from 'passport-jwt';
+
+import { Request } from 'express';
+
+const cookieExtractor = (req: Request) => {
+  let token = null;
+  if (req && req.cookies) {
+    token = req.cookies['access_token'];
+  }
+  return token;
+};
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
-  constructor(config: ConfigService) {
+  constructor(config: ConfigurationService) {
     super({
-      jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
+      jwtFromRequest: cookieExtractor,
       ignoreExpiration: false,
-      // Non-null assertion is safe: Joi validation at startup guarantees
-      // JWT_SECRET is present before the application binds to a port.
-      secretOrKey: config.get<string>('jwt.secret')!,
+      secretOrKey: config.jwtSecret,
     });
   }
 

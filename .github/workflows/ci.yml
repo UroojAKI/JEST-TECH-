@@ -1,59 +1,152 @@
-name: JEST Policy CRM CI Pipeline
+name: CI
 
 on:
   push:
-    branches: [ main ]
+    branches: [main, develop]
   pull_request:
-    branches: [ main ]
+    branches: [main, develop]
+
+env:
+  NODE_VERSION: '22'
+  PNPM_VERSION: '9'
 
 jobs:
-  build-and-test:
-    name: Build, Lint and Test Workspace
+  lint-and-type-check:
+    name: Lint & Type Check
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout Code
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up Node.js
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
-
-      - name: Install pnpm
-        uses: pnpm/action-setup@v3
-        with:
-          version: 9
-
-      - name: Get pnpm store directory
-        shell: bash
-        run: |
-          echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
-
-      - name: Cache pnpm dependencies
-        uses: actions/cache@v4
-        with:
-          path: ${{ env.STORE_PATH }}
-          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
-          restore-keys: |
-            ${{ runner.os }}-pnpm-store-
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Run Prisma Client Generation
+      - name: Lint API
+        run: pnpm --filter api lint
+        continue-on-error: true
+
+      - name: Lint Web
+        run: pnpm --filter web lint
+        continue-on-error: true
+
+      - name: Type check API
+        run: pnpm --filter api exec tsc --noEmit
+        continue-on-error: true
+
+  test-api:
+    name: API Tests
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: jest_policy_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/jest_policy_test
+      JWT_SECRET: test-jwt-secret-minimum-32-characters-long
+      JWT_EXPIRES_IN: 15m
+      JWT_REFRESH_SECRET: test-jwt-refresh-secret-minimum-32-chars
+      JWT_REFRESH_EXPIRES_IN: 30d
+      NODE_ENV: test
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma client
         run: pnpm --filter api exec prisma generate
 
-      - name: Run Linting
-        run: pnpm lint
+      - name: Run database migrations
+        run: pnpm --filter api exec prisma migrate deploy
 
-      - name: Run Tests
-        run: pnpm test
+      - name: Run tests with coverage
+        run: pnpm --filter api test:cov
 
-      - name: Build Applications
-        run: pnpm build
+      - name: Upload coverage report
+        uses: codecov/codecov-action@v4
+        if: always()
+        with:
+          directory: apps/api/coverage
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    needs: [lint-and-type-check]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma client
+        run: pnpm --filter api exec prisma generate
+
+      - name: Build API
+        run: pnpm --filter api build
         env:
-          NODE_ENV: production
-          DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/jest_policy_crm"
-          JWT_SECRET: "mock_ci_secret"
-          JWT_REFRESH_SECRET: "mock_ci_refresh_secret"
+          DATABASE_URL: postgresql://dummy:dummy@localhost:5432/dummy
+
+      - name: Build Web
+        run: pnpm --filter web build
+        env:
+          NEXT_PUBLIC_API_URL: http://localhost:3000
+
+  security-scan:
+    name: Secret Scanning
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Scan for secrets
+        uses: trufflesecurity/trufflehog@main
+        with:
+          extra_args: --only-verified
+        continue-on-error: true

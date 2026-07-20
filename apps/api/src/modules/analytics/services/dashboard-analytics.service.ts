@@ -1,4 +1,6 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Inject } from '@nestjs/common';
+import { CACHE_PROVIDER_TOKEN, ICacheProvider } from '../../platform/cache/cache.provider';
+import { RedisCacheService } from '../../platform/cache/redis-cache.service';
 import { ContactAnalyticsService } from './contact-analytics.service';
 import { LeadAnalyticsService } from './lead-analytics.service';
 import { QuotationAnalyticsService } from './quotation-analytics.service';
@@ -19,6 +21,7 @@ export class DashboardAnalyticsService {
     private readonly claimAnalytics: ClaimAnalyticsService,
     private readonly renewalAnalytics: RenewalAnalyticsService,
     private readonly revenueAnalytics: RevenueAnalyticsService,
+    @Inject(CACHE_PROVIDER_TOKEN) private readonly cache: RedisCacheService,
   ) {}
 
   async getDashboardData(role: string, userId: string) {
@@ -57,6 +60,7 @@ export class DashboardAnalyticsService {
 
       const auditCount = await this.prisma.auditLog.count();
       const userCount = await this.prisma.user.count();
+      const redisPing = await this.cache.ping();
 
       return {
         role,
@@ -64,7 +68,7 @@ export class DashboardAnalyticsService {
           apiHealth: '99.98%',
           dbStatus: 'HEALTHY',
           dbPing: `${dbPing}ms`,
-          redisStatus: 'HEALTHY',
+          redisStatus: redisPing >= 0 ? 'HEALTHY' : 'DOWN',
           activeSessions,
           auditEvents: auditCount,
           systemUsers: userCount,

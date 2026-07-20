@@ -1,0 +1,56 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: jest-api
+  namespace: jest-policy
+  labels:
+    app: jest-api
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: jest-api
+  template:
+    metadata:
+      labels:
+        app: jest-api
+    spec:
+      containers:
+        - name: jest-api
+          image: ghcr.io/jestpolicy/api:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 3000
+          envFrom:
+            - configMapRef:
+                name: jest-api-config
+            - secretRef:
+                name: jest-api-secrets
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "512Mi"
+            limits:
+              cpu: "1000m"
+              memory: "1024Mi"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3000
+            initialDelaySeconds: 30
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 3000
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            timeoutSeconds: 3
+            successThreshold: 1
+            failureThreshold: 3
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1001
+            readOnlyRootFilesystem: false # Required by NestJS dynamic modules/dist in some cases, ideally set to true if temp dirs are mounted

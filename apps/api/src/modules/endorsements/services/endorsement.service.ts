@@ -43,27 +43,29 @@ export class EndorsementService {
 
     const endorsementNumber = this.generateEndNumber();
 
-    const end = await this.prisma.endorsement.create({
-      data: {
-        endorsementNumber,
-        policyId,
-        type,
-        status: EndorsementStatus.REQUESTED,
-        requestedById: userId,
-        reason,
-      },
-    });
+    return this.prisma.$transaction(async (tx) => {
+      const end = await tx.endorsement.create({
+        data: {
+          endorsementNumber,
+          policyId,
+          type,
+          status: EndorsementStatus.REQUESTED,
+          requestedById: userId,
+          reason,
+        },
+      });
 
-    await this.prisma.endorsementHistory.create({
-      data: {
-        endorsementId: end.id,
-        status: EndorsementStatus.REQUESTED,
-        comments: `Endorsement requested: ${type}`,
-        performedById: userId,
-      },
-    });
+      await tx.endorsementHistory.create({
+        data: {
+          endorsementId: end.id,
+          status: EndorsementStatus.REQUESTED,
+          comments: `Endorsement requested: ${type}`,
+          performedById: userId,
+        },
+      });
 
-    return end;
+      return end;
+    });
   }
 
   async attachDocument(endorsementId: string, documentId: string) {

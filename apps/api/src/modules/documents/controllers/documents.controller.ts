@@ -12,6 +12,7 @@ import {
   Ip,
   HttpStatus,
   BadRequestException,
+  ParseUUIDPipe,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiConsumes, ApiTags } from '@nestjs/swagger';
 import { FileInterceptor } from '@nestjs/platform-express';
@@ -65,13 +66,18 @@ export class DocumentsController {
     @UploadedFile() file: Express.Multer.File,
     @Body('name') name: string,
     @Body('entityType') entityType: string,
-    @Body('entityId') entityId: string,
+    @Body('entityId', ParseUUIDPipe) entityId: string,
     @Body('category') category: string,
     @Body('expiryDate') expiryDate: string,
     @Body('tags') tags: string,
     @CurrentUser() user: RequestUser,
     @Ip() ipAddress: string,
   ) {
+    const validEntityTypes = ['ACCOUNT', 'LEAD', 'POLICY', 'QUOTATION', 'CLAIM', 'ENDORSEMENT'];
+    if (!validEntityTypes.includes(entityType)) {
+      throw new BadRequestException(`Invalid entityType. Must be one of: ${validEntityTypes.join(', ')}`);
+    }
+
     const parsedTags = tags ? tags.split(',').map((t) => t.trim()) : [];
     const parsedExpiry = expiryDate ? new Date(expiryDate) : undefined;
 
@@ -103,8 +109,12 @@ export class DocumentsController {
   @Get('entity/:entityType/:entityId')
   async getEntityDocuments(
     @Param('entityType') entityType: string,
-    @Param('entityId') entityId: string,
+    @Param('entityId', ParseUUIDPipe) entityId: string,
   ) {
+    const validEntityTypes = ['ACCOUNT', 'LEAD', 'POLICY', 'QUOTATION', 'CLAIM', 'ENDORSEMENT'];
+    if (!validEntityTypes.includes(entityType)) {
+      throw new BadRequestException(`Invalid entityType. Must be one of: ${validEntityTypes.join(', ')}`);
+    }
     return this.documentService.getEntityDocuments(entityType, entityId);
   }
 

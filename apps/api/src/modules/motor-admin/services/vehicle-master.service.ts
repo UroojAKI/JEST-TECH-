@@ -98,16 +98,26 @@ export class VehicleMasterService {
 
     // Batch-fetch all models
     const uniqueModelCodes = Array.from(new Set(parsedRows.map((r) => r.modelCode)));
-    const models = await this.prisma.vehicleModel.findMany({
-      where: { code: { in: uniqueModelCodes } },
-    });
+    const models: any[] = [];
+    for (let i = 0; i < uniqueModelCodes.length; i += 1000) {
+      models.push(
+        ...(await this.prisma.vehicleModel.findMany({
+          where: { code: { in: uniqueModelCodes.slice(i, i + 1000) } },
+        })),
+      );
+    }
     const modelMap = new Map(models.map((m) => [m.code, m.id]));
 
     // Batch-fetch all existing variants
     const uniqueVariantCodes = Array.from(new Set(parsedRows.map((r) => r.variantCode)));
-    const existingVariants = await this.prisma.vehicleVariant.findMany({
-      where: { code: { in: uniqueVariantCodes } },
-    });
+    const existingVariants: any[] = [];
+    for (let i = 0; i < uniqueVariantCodes.length; i += 1000) {
+      existingVariants.push(
+        ...(await this.prisma.vehicleVariant.findMany({
+          where: { code: { in: uniqueVariantCodes.slice(i, i + 1000) } },
+        })),
+      );
+    }
     const existingMap = new Map(existingVariants.map((v) => [v.code, v]));
 
     const toCreate: any[] = [];
@@ -138,21 +148,31 @@ export class VehicleMasterService {
 
     // Execute database operations in batch
     await this.prisma.$transaction(async (tx) => {
-      if (toCreate.length > 0) {
+      // Chunk creates
+      const CREATE_BATCH_SIZE = 1000;
+      for (let i = 0; i < toCreate.length; i += CREATE_BATCH_SIZE) {
+        const batch = toCreate.slice(i, i + CREATE_BATCH_SIZE);
         await tx.vehicleVariant.createMany({
-          data: toCreate,
+          data: batch,
           skipDuplicates: true,
         });
       }
 
-      for (const updateItem of toUpdate) {
-        await tx.vehicleVariant.update({
-          where: { code: updateItem.code },
-          data: {
-            exShowroomPrice: new Prisma.Decimal(updateItem.price),
-            engineCapacity: updateItem.cc,
-          },
-        });
+      // Chunk updates
+      const UPDATE_BATCH_SIZE = 500;
+      for (let i = 0; i < toUpdate.length; i += UPDATE_BATCH_SIZE) {
+        const batch = toUpdate.slice(i, i + UPDATE_BATCH_SIZE);
+        await Promise.all(
+          batch.map((updateItem) =>
+            tx.vehicleVariant.update({
+              where: { code: updateItem.code },
+              data: {
+                exShowroomPrice: new Prisma.Decimal(updateItem.price),
+                engineCapacity: updateItem.cc,
+              },
+            }),
+          ),
+        );
       }
     });
 

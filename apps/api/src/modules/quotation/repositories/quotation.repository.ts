@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+// import removed
 import { Prisma, Quotation, QuotationVersion, QuotationHistory, QuotationDocument } from '@prisma/client';
 import { BaseRepository } from '../../../common/base/base.repository';
 import { PrismaService } from '../../../database/prisma.service';
@@ -19,8 +19,15 @@ export const quotationWithRelations = Prisma.validator<Prisma.QuotationDefaultAr
 
 export type QuotationWithRelations = Prisma.QuotationGetPayload<typeof quotationWithRelations>;
 
+import { Injectable } from '@nestjs/common';
 @Injectable()
-export class QuotationRepository extends BaseRepository<Quotation, Prisma.QuotationDelegate<any>> {
+export class QuotationRepository extends BaseRepository<Prisma.QuotationDelegate, Quotation, QuotationWithRelations> {
+  protected get basicArgs() {
+    return { include: quotationWithRelations.include };
+  }
+  protected get detailArgs() {
+    return { include: quotationWithRelations.include };
+  }
   constructor(protected readonly prisma: PrismaService) {
     super(prisma.quotation);
   }
@@ -74,14 +81,13 @@ export class QuotationRepository extends BaseRepository<Quotation, Prisma.Quotat
     });
   }
 
-  async softDelete(id: string, deletedById: string): Promise<QuotationWithRelations> {
-    return this.prisma.quotation.update({
+  async softDelete(id: string, deletedById: string): Promise<void> {
+    await this.prisma.quotation.update({
       where: { id },
       data: {
         deletedAt: new Date(),
         updatedById: deletedById,
       },
-      include: quotationWithRelations.include,
     });
   }
 

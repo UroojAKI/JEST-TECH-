@@ -10,7 +10,7 @@ export class UserMapper {
       phone: user.phone,
       employeeCode: user.employeeCode,
       designation: user.designation,
-      department: user.department,
+      department: user.legacyDepartment,
       status: user.status,
       role: {
         id: user.role.id,

@@ -7,37 +7,14 @@ export class PolicyAnalyticsService {
   constructor(private readonly prisma: PrismaService) {}
 
   async getOverview() {
-    const total = await this.prisma.policy.count({ where: { deletedAt: null } });
-    const active = await this.prisma.policy.count({
-      where: { status: PolicyStatus.ACTIVE, deletedAt: null },
-    });
-    const cancelled = await this.prisma.policy.count({
-      where: { status: PolicyStatus.CANCELLED, deletedAt: null },
-    });
-    const pendingRenewal = await this.prisma.policy.count({
-      where: { status: PolicyStatus.PENDING_RENEWAL, deletedAt: null },
-    });
-
-    // Top Insurers & Products distribution queries using Prisma group-bys
-    const insurerGroup = await this.prisma.quotation.groupBy({
-      by: ['insurerName'],
-      _count: {
-        id: true,
-      },
-      where: {
-        policy: { isNot: null },
-      },
-    });
-
-    const productGroup = await this.prisma.quotation.groupBy({
-      by: ['productType'],
-      _count: {
-        id: true,
-      },
-      where: {
-        policy: { isNot: null },
-      },
-    });
+    const [total, active, cancelled, pendingRenewal, insurerGroup, productGroup] = await Promise.all([
+      this.prisma.policy.count({ where: { deletedAt: null } }),
+      this.prisma.policy.count({ where: { status: PolicyStatus.ACTIVE, deletedAt: null } }),
+      this.prisma.policy.count({ where: { status: PolicyStatus.CANCELLED, deletedAt: null } }),
+      this.prisma.policy.count({ where: { status: PolicyStatus.PENDING_RENEWAL, deletedAt: null } }),
+      this.prisma.quotation.groupBy({ by: ['insurerName'], _count: { id: true }, where: { policy: { isNot: null } } }),
+      this.prisma.quotation.groupBy({ by: ['productType'], _count: { id: true }, where: { policy: { isNot: null } } }),
+    ]);
 
     const topInsurers = insurerGroup.map((g) => ({
       insurer: g.insurerName,
