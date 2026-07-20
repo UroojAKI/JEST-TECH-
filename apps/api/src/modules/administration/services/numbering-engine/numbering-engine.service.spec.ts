@@ -47,7 +47,9 @@ describe('NumberingEngineService', () => {
 
     const result = await service.generateNext('POLICY');
     const expectedYear = new Date().getFullYear().toString();
-    const expectedMonth = (new Date().getMonth() + 1).toString().padStart(2, '0');
+    const expectedMonth = (new Date().getMonth() + 1)
+      .toString()
+      .padStart(2, '0');
     expect(result).toEqual(`POL-${expectedYear}-${expectedMonth}-000042`);
   });
 

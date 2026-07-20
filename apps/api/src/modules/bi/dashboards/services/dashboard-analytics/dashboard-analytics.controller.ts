@@ -1,4 +1,10 @@
-import { Controller, Get, Param, UseInterceptors, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Param,
+  UseInterceptors,
+  UseGuards,
+} from '@nestjs/common';
 import { CacheInterceptor, CacheKey, CacheTTL } from '@nestjs/cache-manager';
 import { DashboardAnalyticsService } from './dashboard-analytics.service';
 import { JwtAuthGuard } from '../../../../auth/guards/jwt-auth.guard';

@@ -73,9 +73,18 @@ export class DocumentsController {
     @CurrentUser() user: RequestUser,
     @Ip() ipAddress: string,
   ) {
-    const validEntityTypes = ['ACCOUNT', 'LEAD', 'POLICY', 'QUOTATION', 'CLAIM', 'ENDORSEMENT'];
+    const validEntityTypes = [
+      'ACCOUNT',
+      'LEAD',
+      'POLICY',
+      'QUOTATION',
+      'CLAIM',
+      'ENDORSEMENT',
+    ];
     if (!validEntityTypes.includes(entityType)) {
-      throw new BadRequestException(`Invalid entityType. Must be one of: ${validEntityTypes.join(', ')}`);
+      throw new BadRequestException(
+        `Invalid entityType. Must be one of: ${validEntityTypes.join(', ')}`,
+      );
     }
 
     const parsedTags = tags ? tags.split(',').map((t) => t.trim()) : [];
@@ -111,9 +120,18 @@ export class DocumentsController {
     @Param('entityType') entityType: string,
     @Param('entityId', ParseUUIDPipe) entityId: string,
   ) {
-    const validEntityTypes = ['ACCOUNT', 'LEAD', 'POLICY', 'QUOTATION', 'CLAIM', 'ENDORSEMENT'];
+    const validEntityTypes = [
+      'ACCOUNT',
+      'LEAD',
+      'POLICY',
+      'QUOTATION',
+      'CLAIM',
+      'ENDORSEMENT',
+    ];
     if (!validEntityTypes.includes(entityType)) {
-      throw new BadRequestException(`Invalid entityType. Must be one of: ${validEntityTypes.join(', ')}`);
+      throw new BadRequestException(
+        `Invalid entityType. Must be one of: ${validEntityTypes.join(', ')}`,
+      );
     }
     return this.documentService.getEntityDocuments(entityType, entityId);
   }
@@ -155,11 +173,8 @@ export class DocumentsController {
     @Ip() ipAddress: string,
     @Res() res: express.Response,
   ) {
-    const { fileBuffer, originalFileName, mimeType } = await this.documentService.downloadDocument(
-      id,
-      user.id,
-      ipAddress,
-    );
+    const { fileBuffer, originalFileName, mimeType } =
+      await this.documentService.downloadDocument(id, user.id, ipAddress);
 
     // Sanitize filename to prevent Content-Disposition injection / header injection
     const safe = path

@@ -22,7 +22,10 @@ export class StructuredLoggerService extends ConsoleLogger {
     if (message && typeof message === 'object') {
       Object.assign(logObject, message);
       if (message.message !== undefined) {
-        logObject.message = typeof message.message === 'object' ? JSON.stringify(message.message) : String(message.message);
+        logObject.message =
+          typeof message.message === 'object'
+            ? JSON.stringify(message.message)
+            : String(message.message);
       }
     } else {
       logObject.message = String(message);

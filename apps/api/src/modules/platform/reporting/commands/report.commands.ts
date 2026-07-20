@@ -1,4 +1,9 @@
-import { CreateReportDto, UpdateReportDto, CreateScheduleDto, UpdateScheduleDto } from '../dto/report.dto';
+import {
+  CreateReportDto,
+  UpdateReportDto,
+  CreateScheduleDto,
+  UpdateScheduleDto,
+} from '../dto/report.dto';
 
 export class CreateReportCommand {
   constructor(
@@ -45,7 +50,5 @@ export class UpdateScheduleCommand {
 }
 
 export class DeleteScheduleCommand {
-  constructor(
-    public readonly id: string,
-  ) {}
+  constructor(public readonly id: string) {}
 }

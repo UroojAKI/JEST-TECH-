@@ -1,4 +1,8 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { QuotationStatus } from '@prisma/client';
 
 import { QuotationRepository } from '../../repositories/quotation.repository';
@@ -14,7 +18,10 @@ export class RejectQuotationService {
       throw new NotFoundException(`Quotation with ID ${id} not found`);
     }
 
-    if (existing.status !== QuotationStatus.PENDING_APPROVAL && existing.status !== QuotationStatus.DRAFT) {
+    if (
+      existing.status !== QuotationStatus.PENDING_APPROVAL &&
+      existing.status !== QuotationStatus.DRAFT
+    ) {
       throw new BadRequestException(
         `Cannot reject quotation in status ${existing.status}. Must be DRAFT or PENDING_APPROVAL.`,
       );

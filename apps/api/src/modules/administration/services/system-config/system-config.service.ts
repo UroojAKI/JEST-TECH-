@@ -48,7 +48,11 @@ export class SystemConfigService {
     return parsedValue;
   }
 
-  async setValue(key: SystemConfigKey, value: any, valueType: 'STRING' | 'NUMBER' | 'BOOLEAN' | 'JSON'): Promise<void> {
+  async setValue(
+    key: SystemConfigKey,
+    value: any,
+    valueType: 'STRING' | 'NUMBER' | 'BOOLEAN' | 'JSON',
+  ): Promise<void> {
     let stringValue = String(value);
     if (valueType === 'JSON') {
       stringValue = JSON.stringify(value);

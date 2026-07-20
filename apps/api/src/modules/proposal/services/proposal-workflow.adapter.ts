@@ -1,5 +1,9 @@
 import { Injectable } from '@nestjs/common';
-import { WorkflowEntityType, ProposalStatus, PolicyStatus } from '@prisma/client';
+import {
+  WorkflowEntityType,
+  ProposalStatus,
+  PolicyStatus,
+} from '@prisma/client';
 import { WorkflowEntityAdapter } from '../../platform/workflow/interfaces/workflow-entity-adapter.interface';
 import { PrismaService } from '../../../database/prisma.service';
 
@@ -20,13 +24,17 @@ export class ProposalWorkflowAdapter implements WorkflowEntityAdapter {
     return prop.status;
   }
 
-  async updateState(entityId: string, stateCode: string, tx?: any): Promise<void> {
+  async updateState(
+    entityId: string,
+    stateCode: string,
+    tx?: any,
+  ): Promise<void> {
     const prismaTx = tx || this.prisma;
     const status = stateCode as ProposalStatus;
 
     const currentProp = await prismaTx.proposal.findUnique({
       where: { id: entityId },
-      select: { version: true }
+      select: { version: true },
     });
     const nextVersion = ((currentProp?.version || 1) as number) + 1;
 
@@ -37,8 +45,9 @@ export class ProposalWorkflowAdapter implements WorkflowEntityAdapter {
       });
       if (!prop) throw new Error(`Proposal with ID ${entityId} not found`);
 
-      const result = await prismaTx.$queryRaw`SELECT nextval('policy_number_seq')`;
-      const nextval = (result as any)[0].nextval;
+      const result =
+        await prismaTx.$queryRaw`SELECT nextval('policy_number_seq')`;
+      const nextval = result[0].nextval;
       const policyNumber = `POL-${nextval.toString().padStart(6, '0')}`;
 
       await prismaTx.policy.create({

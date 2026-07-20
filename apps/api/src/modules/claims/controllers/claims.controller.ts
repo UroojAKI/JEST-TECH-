@@ -1,4 +1,13 @@
-import { Body, Controller, Get, Param, Post, UseGuards, HttpCode, HttpStatus } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Post,
+  UseGuards,
+  HttpCode,
+  HttpStatus,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { RoleType } from '@prisma/client';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
@@ -95,7 +104,13 @@ export class ClaimsController {
   )
   uploadDocument(
     @Param('id') id: string,
-    @Body() dto: { documentType: string; fileKey: string; fileName: string; fileSize: number },
+    @Body()
+    dto: {
+      documentType: string;
+      fileKey: string;
+      fileName: string;
+      fileSize: number;
+    },
     @CurrentUser() user: RequestUser,
   ) {
     return this.uploadClaimDocumentService.execute(id, dto, user.id);

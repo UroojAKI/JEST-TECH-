@@ -1,5 +1,9 @@
 import { Injectable, OnModuleInit } from '@nestjs/common';
-import { ReportDataProvider, ReportParameters, ReportResult } from '../../reporting/interfaces/report-provider.interface';
+import {
+  ReportDataProvider,
+  ReportParameters,
+  ReportResult,
+} from '../../reporting/interfaces/report-provider.interface';
 import { ReportDataProviderRegistry } from '../../reporting/services/report-data-provider-registry.service';
 import { PrismaService } from '../../../../database/prisma.service';
 
@@ -42,7 +46,9 @@ export class AuditReportProvider implements ReportDataProvider, OnModuleInit {
       module: log.module || '',
       entity: log.entity,
       entityId: log.entityId,
-      username: log.user ? `${log.user.firstName} ${log.user.lastName}` : 'system',
+      username: log.user
+        ? `${log.user.firstName} ${log.user.lastName}`
+        : 'system',
       ipAddress: log.ipAddress || '',
       userAgent: log.userAgent || '',
       correlationId: log.correlationId || '',

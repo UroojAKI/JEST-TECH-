@@ -4,7 +4,9 @@ import { AccountResponseDto } from '../dto/account-response.dto';
 import { ContactMapper } from '../../contacts/mappers/contact.mapper';
 
 export class AccountMapper {
-  static toResponse(account: AccountWithContacts | Account): AccountResponseDto {
+  static toResponse(
+    account: AccountWithContacts | Account,
+  ): AccountResponseDto {
     const response = new AccountResponseDto();
     response.id = account.id;
     response.accountCode = account.accountCode;
@@ -16,7 +18,9 @@ export class AccountMapper {
     response.phone = account.phone;
     response.gstNumber = account.gstNumber;
     response.panNumber = account.panNumber;
-    response.annualRevenue = account.annualRevenue ? Number(account.annualRevenue) : null;
+    response.annualRevenue = account.annualRevenue
+      ? Number(account.annualRevenue)
+      : null;
     response.employeeCount = account.employeeCount;
     response.description = account.description;
     response.status = account.status;
@@ -36,7 +40,9 @@ export class AccountMapper {
     return response;
   }
 
-  static toResponseList(accounts: (AccountWithContacts | Account)[]): AccountResponseDto[] {
+  static toResponseList(
+    accounts: (AccountWithContacts | Account)[],
+  ): AccountResponseDto[] {
     return accounts.map((a) => this.toResponse(a));
   }
 }

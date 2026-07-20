@@ -1,4 +1,12 @@
-import { Controller, Get, Put, Body, Param, UseGuards, BadRequestException } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Put,
+  Body,
+  Param,
+  UseGuards,
+  BadRequestException,
+} from '@nestjs/common';
 import { SystemConfigService } from '../../services/system-config/system-config.service';
 import { SystemConfigKey } from '../../constants/system-config-key.enum';
 import { JwtAuthGuard } from '../../../auth/guards/jwt-auth.guard';
@@ -32,7 +40,7 @@ export class SystemConfigController {
     if (!Object.values(SystemConfigKey).includes(key as SystemConfigKey)) {
       throw new BadRequestException('Invalid configuration key');
     }
-    const value = await this.systemConfigService.getValue(key as SystemConfigKey);
+    const value = await this.systemConfigService.getValue(key);
     return { key, value };
   }
 
@@ -45,7 +53,7 @@ export class SystemConfigController {
     if (!Object.values(SystemConfigKey).includes(key as SystemConfigKey)) {
       throw new BadRequestException('Invalid configuration key');
     }
-    await this.systemConfigService.setValue(key as SystemConfigKey, dto.value, dto.valueType);
+    await this.systemConfigService.setValue(key, dto.value, dto.valueType);
     return { success: true, key };
   }
 }

@@ -34,15 +34,19 @@ describe('IntegrationHttpClient', () => {
     (httpService.get as jest.Mock).mockReturnValue(of({ data: responseData }));
 
     const result = await service.get('http://test.com', {}, 'test_provider');
-    
+
     expect(httpService.get).toHaveBeenCalledWith('http://test.com', {});
     expect(result).toEqual(responseData);
   });
 
   it('should retry a failed GET request and then throw', async () => {
-    (httpService.get as jest.Mock).mockReturnValue(throwError(() => new Error('Network Error')));
+    (httpService.get as jest.Mock).mockReturnValue(
+      throwError(() => new Error('Network Error')),
+    );
 
-    await expect(service.get('http://fail.com', {}, 'test_provider')).rejects.toThrow('Network Error');
+    await expect(
+      service.get('http://fail.com', {}, 'test_provider'),
+    ).rejects.toThrow('Network Error');
     // Note: Since retry(3) is used, it actually retries 3 times internally before failing.
     // The opossum circuit breaker will record this failure.
   });

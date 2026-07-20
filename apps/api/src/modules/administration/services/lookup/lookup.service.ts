@@ -32,7 +32,9 @@ export class LookupService {
     });
 
     if (!category || !category.isActive) {
-      throw new NotFoundException(`Lookup category ${categoryCode} not found or inactive.`);
+      throw new NotFoundException(
+        `Lookup category ${categoryCode} not found or inactive.`,
+      );
     }
 
     // Build hierarchy
@@ -43,7 +45,10 @@ export class LookupService {
     return hierarchy;
   }
 
-  private buildHierarchy(allValues: LookupValue[], parentId: string | null): any[] {
+  private buildHierarchy(
+    allValues: LookupValue[],
+    parentId: string | null,
+  ): any[] {
     return allValues
       .filter((v) => v.parentId === parentId)
       .map((v) => ({

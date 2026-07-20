@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { ClaimRepository } from '../../repositories/claim.repository';
 import { ClaimMapper } from '../../mappers/claim.mapper';
 import type { RequestUser } from '../../../auth/decorators/current-user.decorator';
@@ -15,7 +19,9 @@ export class GetClaimsService {
 
     // BOLA ownership verification
     if (user.role === 'SALES_AGENT' && claim.createdById !== user.id) {
-      throw new ForbiddenException('You do not have permission to access this claim');
+      throw new ForbiddenException(
+        'You do not have permission to access this claim',
+      );
     }
 
     return ClaimMapper.toResponse(claim);

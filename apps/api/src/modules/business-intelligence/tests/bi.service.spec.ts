@@ -23,12 +23,21 @@ describe('BiService', () => {
       findMany: jest.fn().mockResolvedValue([]),
     },
     claim: {
-      aggregate: jest.fn().mockResolvedValue({ _sum: { approvedAmount: 50000 } }),
+      aggregate: jest
+        .fn()
+        .mockResolvedValue({ _sum: { approvedAmount: 50000 } }),
     },
     policyRenewal: { count: jest.fn().mockResolvedValue(10) },
     kpiDefinition: {
       findMany: jest.fn().mockResolvedValue([
-        { key: 'conversion_rate', name: 'Conversion Rate', formula: 'leads_converted / leads_total * 100', unit: 'PERCENTAGE', description: 'Overall conversion', category: 'sales' },
+        {
+          key: 'conversion_rate',
+          name: 'Conversion Rate',
+          formula: 'leads_converted / leads_total * 100',
+          unit: 'PERCENTAGE',
+          description: 'Overall conversion',
+          category: 'sales',
+        },
       ]),
     },
   };

@@ -2,7 +2,12 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { AppModule } from '../src/app.module';
 import { ProposalService } from '../src/modules/proposal/services/proposal.service';
 import { PrismaService } from '../src/database/prisma.service';
-import { ProposalStatus, PolicyStatus, ContactType, Prisma } from '@prisma/client';
+import {
+  ProposalStatus,
+  PolicyStatus,
+  ContactType,
+  Prisma,
+} from '@prisma/client';
 
 describe('Workflow & Proposal Integration', () => {
   let moduleRef: TestingModule;
@@ -26,18 +31,53 @@ describe('Workflow & Proposal Integration', () => {
     await app.init();
 
     // Ensure all custom sequences exist in database
-    await prisma.$executeRaw(Prisma.raw(`CREATE SEQUENCE IF NOT EXISTS policy_number_seq START 1 INCREMENT 1;`));
-    await prisma.$executeRaw(Prisma.raw(`CREATE SEQUENCE IF NOT EXISTS claim_number_seq START 1 INCREMENT 1;`));
-    await prisma.$executeRaw(Prisma.raw(`CREATE SEQUENCE IF NOT EXISTS quotation_number_seq START 1 INCREMENT 1;`));
-    await prisma.$executeRaw(Prisma.raw(`CREATE SEQUENCE IF NOT EXISTS contact_number_seq START 1 INCREMENT 1;`));
-    await prisma.$executeRaw(Prisma.raw(`CREATE SEQUENCE IF NOT EXISTS account_number_seq START 1 INCREMENT 1;`));
-    await prisma.$executeRaw(Prisma.raw(`CREATE SEQUENCE IF NOT EXISTS lead_number_seq START 1 INCREMENT 1;`));
-    await prisma.$executeRaw(Prisma.raw(`CREATE SEQUENCE IF NOT EXISTS endorsement_number_seq START 1 INCREMENT 1;`));
-    await prisma.$executeRaw(Prisma.raw(`CREATE SEQUENCE IF NOT EXISTS proposal_number_seq START 1 INCREMENT 1;`));
+    await prisma.$executeRaw(
+      Prisma.raw(
+        `CREATE SEQUENCE IF NOT EXISTS policy_number_seq START 1 INCREMENT 1;`,
+      ),
+    );
+    await prisma.$executeRaw(
+      Prisma.raw(
+        `CREATE SEQUENCE IF NOT EXISTS claim_number_seq START 1 INCREMENT 1;`,
+      ),
+    );
+    await prisma.$executeRaw(
+      Prisma.raw(
+        `CREATE SEQUENCE IF NOT EXISTS quotation_number_seq START 1 INCREMENT 1;`,
+      ),
+    );
+    await prisma.$executeRaw(
+      Prisma.raw(
+        `CREATE SEQUENCE IF NOT EXISTS contact_number_seq START 1 INCREMENT 1;`,
+      ),
+    );
+    await prisma.$executeRaw(
+      Prisma.raw(
+        `CREATE SEQUENCE IF NOT EXISTS account_number_seq START 1 INCREMENT 1;`,
+      ),
+    );
+    await prisma.$executeRaw(
+      Prisma.raw(
+        `CREATE SEQUENCE IF NOT EXISTS lead_number_seq START 1 INCREMENT 1;`,
+      ),
+    );
+    await prisma.$executeRaw(
+      Prisma.raw(
+        `CREATE SEQUENCE IF NOT EXISTS endorsement_number_seq START 1 INCREMENT 1;`,
+      ),
+    );
+    await prisma.$executeRaw(
+      Prisma.raw(
+        `CREATE SEQUENCE IF NOT EXISTS proposal_number_seq START 1 INCREMENT 1;`,
+      ),
+    );
 
     // Fetch a user from the seeded database
     const user = await prisma.user.findFirst();
-    if (!user) throw new Error('No user found in seeded database. Please seed database first.');
+    if (!user)
+      throw new Error(
+        'No user found in seeded database. Please seed database first.',
+      );
     testUserId = user.id;
   });
 
@@ -45,9 +85,15 @@ describe('Workflow & Proposal Integration', () => {
     // Cleanup created test proposal and related records
     if (testProposalId) {
       await prisma.policy.deleteMany({ where: { proposalId: testProposalId } });
-      await prisma.proposalDocument.deleteMany({ where: { proposalId: testProposalId } });
-      await prisma.proposalHistory.deleteMany({ where: { proposalId: testProposalId } });
-      await prisma.workflowHistory.deleteMany({ where: { entityId: testProposalId } });
+      await prisma.proposalDocument.deleteMany({
+        where: { proposalId: testProposalId },
+      });
+      await prisma.proposalHistory.deleteMany({
+        where: { proposalId: testProposalId },
+      });
+      await prisma.workflowHistory.deleteMany({
+        where: { entityId: testProposalId },
+      });
       await prisma.proposal.delete({ where: { id: testProposalId } });
     }
     if (testQuotationId) {
@@ -95,7 +141,10 @@ describe('Workflow & Proposal Integration', () => {
     testQuotationId = quotation.id;
 
     // 3. Create a proposal in DRAFT state
-    const proposal = await proposalService.createProposal(quotation.id, testUserId);
+    const proposal = await proposalService.createProposal(
+      quotation.id,
+      testUserId,
+    );
     testProposalId = proposal.id;
     expect(proposal.status).toBe(ProposalStatus.DRAFT);
 
@@ -103,7 +152,7 @@ describe('Workflow & Proposal Integration', () => {
     const documents = await prisma.proposalDocument.findMany({
       where: { proposalId: proposal.id },
     });
-    
+
     // Create a dummy document record in DB
     const dummyDoc = await prisma.document.create({
       data: {
@@ -122,24 +171,44 @@ describe('Workflow & Proposal Integration', () => {
     });
 
     for (const doc of documents) {
-      await proposalService.attachDocument(proposal.id, doc.id, dummyDoc.id, testUserId);
+      await proposalService.attachDocument(
+        proposal.id,
+        doc.id,
+        dummyDoc.id,
+        testUserId,
+      );
     }
 
     // 4. Submit proposal
-    const submitted = await proposalService.submitProposal(proposal.id, testUserId);
+    const submitted = await proposalService.submitProposal(
+      proposal.id,
+      testUserId,
+    );
     expect(submitted!.status).toBe(ProposalStatus.SUBMITTED);
 
     // 5. Start review (transitions SUBMITTED -> UNDER_REVIEW)
-    const reviewStartResult = await proposalService.reviewProposal(proposal.id, true, 'Starting review', testUserId);
-    expect(reviewStartResult!.proposal!.status).toBe(ProposalStatus.UNDER_REVIEW);
+    const reviewStartResult = await proposalService.reviewProposal(
+      proposal.id,
+      true,
+      'Starting review',
+      testUserId,
+    );
+    expect(reviewStartResult.proposal!.status).toBe(
+      ProposalStatus.UNDER_REVIEW,
+    );
 
     // 6. Review and Approve proposal (transitions UNDER_REVIEW -> APPROVED -> POLICY_ISSUED)
-    const reviewResult = await proposalService.reviewProposal(proposal.id, true, 'Looks good', testUserId);
-    
-    expect(reviewResult!.proposal!.status).toBe(ProposalStatus.POLICY_ISSUED);
-    expect(reviewResult!.policy).toBeDefined();
-    expect(reviewResult!.policy!.status).toBe(PolicyStatus.ACTIVE);
-    expect(Number(reviewResult!.policy!.premiumAmount)).toBe(11800);
+    const reviewResult = await proposalService.reviewProposal(
+      proposal.id,
+      true,
+      'Looks good',
+      testUserId,
+    );
+
+    expect(reviewResult.proposal!.status).toBe(ProposalStatus.POLICY_ISSUED);
+    expect(reviewResult.policy).toBeDefined();
+    expect(reviewResult.policy!.status).toBe(PolicyStatus.ACTIVE);
+    expect(Number(reviewResult.policy!.premiumAmount)).toBe(11800);
 
     // Cleanup the dummy doc
     await prisma.document.delete({ where: { id: dummyDoc.id } });

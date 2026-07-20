@@ -56,7 +56,9 @@ export class RatingEngineService {
     });
 
     // Compute Own Damage (OD) Base Premium
-    const baseRateRule = rules.find((r) => r.ruleType === RatingRuleType.BASE_RATE);
+    const baseRateRule = rules.find(
+      (r) => r.ruleType === RatingRuleType.BASE_RATE,
+    );
     let odRate = 0.025; // 2.5% default Own Damage rate
     if (baseRateRule) {
       const rateVal = (baseRateRule.formulaOrRate as any).rate;
@@ -66,28 +68,36 @@ export class RatingEngineService {
     let baseOdPremium = idv * odRate;
 
     // Apply age loading if rule exists
-    const ageRule = rules.find((r) => r.ruleType === RatingRuleType.AGE_LOADING);
+    const ageRule = rules.find(
+      (r) => r.ruleType === RatingRuleType.AGE_LOADING,
+    );
     if (ageRule && vehicleAgeYears > 5) {
       const loadingPct = (ageRule.formulaOrRate as any).loadingPct || 0.1;
       baseOdPremium += baseOdPremium * Number(loadingPct);
     }
 
     // Apply own damage discounts
-    const odDiscountRule = rules.find((r) => r.ruleType === RatingRuleType.OD_DISCOUNT);
+    const odDiscountRule = rules.find(
+      (r) => r.ruleType === RatingRuleType.OD_DISCOUNT,
+    );
     let odDiscountFactor = 0;
     if (odDiscountRule) {
       const discount = (odDiscountRule.formulaOrRate as any).discountPct;
       if (discount) odDiscountFactor = Number(discount);
     }
-    let odDiscountAmount = baseOdPremium * odDiscountFactor;
+    const odDiscountAmount = baseOdPremium * odDiscountFactor;
 
     // Apply NCB Discount (on OD premium after basic discounts)
     let ncbDiscountAmount = 0;
     if (ncbPercentage > 0) {
-      ncbDiscountAmount = (baseOdPremium - odDiscountAmount) * (ncbPercentage / 100);
+      ncbDiscountAmount =
+        (baseOdPremium - odDiscountAmount) * (ncbPercentage / 100);
     }
 
-    const finalOdPremium = Math.max(baseOdPremium - odDiscountAmount - ncbDiscountAmount, 0);
+    const finalOdPremium = Math.max(
+      baseOdPremium - odDiscountAmount - ncbDiscountAmount,
+      0,
+    );
 
     // Compute Third Party (TP) Premium based on engine capacity (cc)
     const cc = variant.engineCapacity;
@@ -107,7 +117,10 @@ export class RatingEngineService {
       const zeroDepRate = 0.005; // 0.5% of IDV
       const zeroDepVal = idv * zeroDepRate;
       addonPremium += zeroDepVal;
-      addonDetails.push({ name: 'Zero Depreciation Cover', premium: Number(zeroDepVal.toFixed(0)) });
+      addonDetails.push({
+        name: 'Zero Depreciation Cover',
+        premium: Number(zeroDepVal.toFixed(0)),
+      });
     }
 
     const engineProtectActive = selectedAddons.includes('ENGINE_PROTECT');
@@ -115,7 +128,10 @@ export class RatingEngineService {
       const engineRate = 0.0015; // 0.15% of IDV
       const engineVal = idv * engineRate;
       addonPremium += engineVal;
-      addonDetails.push({ name: 'Engine Protection Cover', premium: Number(engineVal.toFixed(0)) });
+      addonDetails.push({
+        name: 'Engine Protection Cover',
+        premium: Number(engineVal.toFixed(0)),
+      });
     }
 
     // Consolidation

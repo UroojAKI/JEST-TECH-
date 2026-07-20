@@ -24,7 +24,9 @@ export class SlaMonitorService {
       if (!policy.firstResponseMin) continue;
 
       const breachThreshold = new Date();
-      breachThreshold.setMinutes(breachThreshold.getMinutes() - policy.firstResponseMin);
+      breachThreshold.setMinutes(
+        breachThreshold.getMinutes() - policy.firstResponseMin,
+      );
 
       // Find leads created before breachThreshold that don't have firstResponseAt set
       const breachedLeads = await this.prisma.lead.findMany({
@@ -36,7 +38,9 @@ export class SlaMonitorService {
       });
 
       for (const lead of breachedLeads) {
-        this.logger.warn(`Lead ${lead.id} breached SLA for policy ${policy.name}`);
+        this.logger.warn(
+          `Lead ${lead.id} breached SLA for policy ${policy.name}`,
+        );
 
         await this.prisma.$transaction([
           this.prisma.slaViolation.create({

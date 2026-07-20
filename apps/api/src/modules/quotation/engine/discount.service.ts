@@ -22,7 +22,7 @@ export class DiscountService {
 
       // Prevent discounts from dropping premium below 0
       applied = Math.min(applied, currentPremium);
-      
+
       currentPremium -= applied;
       totalDiscountAmount += applied;
     }

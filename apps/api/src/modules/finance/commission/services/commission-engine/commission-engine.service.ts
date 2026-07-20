@@ -12,7 +12,12 @@ export class CommissionEngineService {
    * Calculates and accrues commissions for a policy based on the agent's commission plan.
    * Also calculates hierarchical manager overrides.
    */
-  async accrueCommissions(policyId: string, agentId: string, premiumAmountStr: string, planId: string) {
+  async accrueCommissions(
+    policyId: string,
+    agentId: string,
+    premiumAmountStr: string,
+    planId: string,
+  ) {
     const premiumAmount = new Decimal(premiumAmountStr);
 
     const plan = await this.prisma.commissionPlan.findUnique({
@@ -39,10 +44,12 @@ export class CommissionEngineService {
     //   ]
     // }
 
-    const agentCommissionAmt = premiumAmount.mul(new Decimal(rules.agentPercent)).div(100);
+    const agentCommissionAmt = premiumAmount
+      .mul(new Decimal(rules.agentPercent))
+      .div(100);
 
     const commissionsData = [];
-    
+
     // Agent Commission
     commissionsData.push({
       policyId,
@@ -56,7 +63,9 @@ export class CommissionEngineService {
     // Manager Overrides
     if (rules.overrides && Array.isArray(rules.overrides)) {
       for (const override of rules.overrides) {
-        const overrideAmt = premiumAmount.mul(new Decimal(override.percent)).div(100);
+        const overrideAmt = premiumAmount
+          .mul(new Decimal(override.percent))
+          .div(100);
         commissionsData.push({
           policyId,
           userId: override.userId, // The specific manager
@@ -73,7 +82,9 @@ export class CommissionEngineService {
       data: commissionsData,
     });
 
-    this.logger.log(`Accrued ${commissionsData.length} commissions for policy ${policyId}`);
+    this.logger.log(
+      `Accrued ${commissionsData.length} commissions for policy ${policyId}`,
+    );
     return commissionsData;
   }
 
@@ -88,10 +99,12 @@ export class CommissionEngineService {
       },
       data: {
         status: 'REALIZED',
-      }
+      },
     });
 
-    this.logger.log(`Realized ${result.count} commissions for policy ${policyId}`);
+    this.logger.log(
+      `Realized ${result.count} commissions for policy ${policyId}`,
+    );
     return result.count;
   }
 }

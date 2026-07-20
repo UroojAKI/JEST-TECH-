@@ -2,7 +2,10 @@ import { ClaimStatus } from '@prisma/client';
 import { BadRequestException } from '@nestjs/common';
 
 export class ClaimStateMachine {
-  private static readonly ALLOWED_TRANSITIONS: Record<ClaimStatus, ClaimStatus[]> = {
+  private static readonly ALLOWED_TRANSITIONS: Record<
+    ClaimStatus,
+    ClaimStatus[]
+  > = {
     [ClaimStatus.REPORTED]: [
       ClaimStatus.REGISTERED,
       ClaimStatus.REJECTED,
@@ -29,20 +32,16 @@ export class ClaimStateMachine {
       ClaimStatus.SETTLED,
       ClaimStatus.CLOSED,
     ],
-    [ClaimStatus.REJECTED]: [
-      ClaimStatus.CLOSED,
-    ],
-    [ClaimStatus.PAYMENT_PENDING]: [
-      ClaimStatus.SETTLED,
-      ClaimStatus.CLOSED,
-    ],
-    [ClaimStatus.SETTLED]: [
-      ClaimStatus.CLOSED,
-    ],
+    [ClaimStatus.REJECTED]: [ClaimStatus.CLOSED],
+    [ClaimStatus.PAYMENT_PENDING]: [ClaimStatus.SETTLED, ClaimStatus.CLOSED],
+    [ClaimStatus.SETTLED]: [ClaimStatus.CLOSED],
     [ClaimStatus.CLOSED]: [], // Terminal state
   };
 
-  static validateTransition(currentStatus: ClaimStatus, targetStatus: ClaimStatus): void {
+  static validateTransition(
+    currentStatus: ClaimStatus,
+    targetStatus: ClaimStatus,
+  ): void {
     if (currentStatus === targetStatus) {
       return;
     }

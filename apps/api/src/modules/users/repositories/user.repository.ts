@@ -110,7 +110,10 @@ export class UserRepository {
     });
   }
 
-  async update(id: string, data: Prisma.UserUpdateInput): Promise<UserWithRole> {
+  async update(
+    id: string,
+    data: Prisma.UserUpdateInput,
+  ): Promise<UserWithRole> {
     return this.prisma.user.update({
       where: { id },
       data,

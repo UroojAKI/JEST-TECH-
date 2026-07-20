@@ -1,6 +1,9 @@
 import { Injectable, NotFoundException, Inject } from '@nestjs/common';
 import { PrismaService } from '../../../../database/prisma.service';
-import { QUEUE_PROVIDER_TOKEN, type QueueProvider } from '../interfaces/queue-provider.interface';
+import {
+  QUEUE_PROVIDER_TOKEN,
+  type QueueProvider,
+} from '../interfaces/queue-provider.interface';
 import { JobStatus } from '@prisma/client';
 
 @Injectable()
@@ -12,7 +15,7 @@ export class QueueDashboardService {
 
   async getJobs(skip: number = 0, take: number = 20, status?: JobStatus) {
     const where = status ? { status } : {};
-    
+
     const [total, jobs] = await Promise.all([
       this.prisma.backgroundJob.count({ where }),
       this.prisma.backgroundJob.findMany({
@@ -57,9 +60,9 @@ export class QueueDashboardService {
   async deleteJob(id: string) {
     const job = await this.getJobDetails(id);
     if (job.jobId) {
-       await this.queueProvider.remove(job.jobId);
+      await this.queueProvider.remove(job.jobId);
     } else {
-       await this.prisma.backgroundJob.delete({ where: { id } });
+      await this.prisma.backgroundJob.delete({ where: { id } });
     }
     return { success: true };
   }

@@ -48,7 +48,11 @@ export class NotificationDispatcher {
     let allowed = true;
     if (type.startsWith('POLICY_RENEWAL_')) {
       allowed = preference.renewals;
-    } else if (type.startsWith('POLICY_') || type === 'POLICY_ISSUED' || type === 'POLICY_CANCELLED') {
+    } else if (
+      type.startsWith('POLICY_') ||
+      type === 'POLICY_ISSUED' ||
+      type === 'POLICY_CANCELLED'
+    ) {
       allowed = preference.policies;
     } else if (type.startsWith('CLAIM_')) {
       allowed = preference.claims;
@@ -57,7 +61,9 @@ export class NotificationDispatcher {
     }
 
     if (!allowed) {
-      this.logger.log(`Notifications for type ${type} disabled by preferences for user ${userId}`);
+      this.logger.log(
+        `Notifications for type ${type} disabled by preferences for user ${userId}`,
+      );
       return;
     }
 
@@ -89,13 +95,17 @@ export class NotificationDispatcher {
 
     // Stubs for future channel adapters
     if (preference.email) {
-      this.logger.log(`[Email Dispatch Stub] Sent email to ${userId}: ${title}`);
+      this.logger.log(
+        `[Email Dispatch Stub] Sent email to ${userId}: ${title}`,
+      );
     }
     if (preference.sms) {
       this.logger.log(`[SMS Dispatch Stub] Sent SMS to ${userId}: ${title}`);
     }
     if (preference.whatsapp) {
-      this.logger.log(`[WhatsApp Dispatch Stub] Sent WhatsApp to ${userId}: ${title}`);
+      this.logger.log(
+        `[WhatsApp Dispatch Stub] Sent WhatsApp to ${userId}: ${title}`,
+      );
     }
   }
 }

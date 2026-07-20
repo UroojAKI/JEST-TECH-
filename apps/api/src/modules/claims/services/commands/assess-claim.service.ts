@@ -16,7 +16,10 @@ export class AssessClaimService {
     }
 
     // Validate state transition using ClaimStateMachine
-    ClaimStateMachine.validateTransition(claim.status, ClaimStatus.UNDER_ASSESSMENT);
+    ClaimStateMachine.validateTransition(
+      claim.status,
+      ClaimStatus.UNDER_ASSESSMENT,
+    );
 
     // Create assessment record
     await this.claimRepository.addAssessment({

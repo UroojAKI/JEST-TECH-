@@ -40,38 +40,65 @@ describe('WebhookGatewayController', () => {
 
   it('should process a valid webhook and emit an event', async () => {
     const payload = { id: 'evt_123', event: 'payment.captured' };
-    const headers = { 'x-razorpay-event-id': 'evt_123', 'x-razorpay-signature': 'valid_sig' };
+    const headers = {
+      'x-razorpay-event-id': 'evt_123',
+      'x-razorpay-signature': 'valid_sig',
+    };
 
     (prisma.webhookAuditLog.findUnique as jest.Mock).mockResolvedValue(null);
 
-    const result = await controller.handleWebhook('razorpay', payload, headers, {});
+    const result = await controller.handleWebhook(
+      'razorpay',
+      payload,
+      headers,
+      {},
+    );
 
-    expect(prisma.webhookAuditLog.findUnique).toHaveBeenCalledWith({ where: { providerEventId: 'evt_123' } });
+    expect(prisma.webhookAuditLog.findUnique).toHaveBeenCalledWith({
+      where: { providerEventId: 'evt_123' },
+    });
     expect(prisma.webhookAuditLog.create).toHaveBeenCalled();
-    expect(eventEmitter.emit).toHaveBeenCalledWith('integration.webhook.razorpay.payment.captured', payload);
+    expect(eventEmitter.emit).toHaveBeenCalledWith(
+      'integration.webhook.razorpay.payment.captured',
+      payload,
+    );
     expect(result).toEqual({ status: 'success' });
   });
 
   it('should ignore a duplicate webhook (idempotency)', async () => {
     const payload = { id: 'evt_123', event: 'payment.captured' };
-    const headers = { 'x-razorpay-event-id': 'evt_123', 'x-razorpay-signature': 'valid_sig' };
+    const headers = {
+      'x-razorpay-event-id': 'evt_123',
+      'x-razorpay-signature': 'valid_sig',
+    };
 
     // Simulate existing log
-    (prisma.webhookAuditLog.findUnique as jest.Mock).mockResolvedValue({ id: 'log_1', providerEventId: 'evt_123' });
+    (prisma.webhookAuditLog.findUnique as jest.Mock).mockResolvedValue({
+      id: 'log_1',
+      providerEventId: 'evt_123',
+    });
 
-    const result = await controller.handleWebhook('razorpay', payload, headers, {});
+    const result = await controller.handleWebhook(
+      'razorpay',
+      payload,
+      headers,
+      {},
+    );
 
-    expect(prisma.webhookAuditLog.findUnique).toHaveBeenCalledWith({ where: { providerEventId: 'evt_123' } });
+    expect(prisma.webhookAuditLog.findUnique).toHaveBeenCalledWith({
+      where: { providerEventId: 'evt_123' },
+    });
     expect(prisma.webhookAuditLog.create).not.toHaveBeenCalled(); // Should not create a new log
     expect(eventEmitter.emit).not.toHaveBeenCalled(); // Should not emit event
     expect(result).toEqual({ status: 'ignored', reason: 'already_processed' });
   });
 
   it('should throw BadRequestException if idempotency key is missing', async () => {
-    const payload = { }; // Missing id
-    const headers = { }; // Missing custom header
+    const payload = {}; // Missing id
+    const headers = {}; // Missing custom header
 
-    await expect(controller.handleWebhook('unknown', payload, headers, {}))
-      .rejects.toThrow(BadRequestException);
+    await expect(
+      controller.handleWebhook('unknown', payload, headers, {}),
+    ).rejects.toThrow(BadRequestException);
   });
 });

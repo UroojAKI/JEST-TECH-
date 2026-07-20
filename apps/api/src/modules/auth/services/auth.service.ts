@@ -1,7 +1,4 @@
-import {
-  Injectable,
-  UnauthorizedException,
-} from '@nestjs/common';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
 import * as argon2 from 'argon2';
 import { ConfigService } from '@nestjs/config';
 import { AuditAction } from '@prisma/client';
@@ -28,10 +25,7 @@ export class AuthService {
     }
 
     // ── 2. Verify password ───────────────────────────────────────────────────
-    const passwordValid = await argon2.verify(
-      user.passwordHash,
-      dto.password,
-    );
+    const passwordValid = await argon2.verify(user.passwordHash, dto.password);
 
     if (!passwordValid) {
       throw new UnauthorizedException('Invalid email or password');
@@ -56,7 +50,8 @@ export class AuthService {
     ]);
 
     // ── 5. Compute refresh token expiry for DB storage ───────────────────────
-    const refreshExpiresIn = this.config.get<string>('jwt.refreshExpiresIn') ?? '30d';
+    const refreshExpiresIn =
+      this.config.get<string>('jwt.refreshExpiresIn') ?? '30d';
     const expiresAt = this.parseExpiry(refreshExpiresIn);
 
     // ── 6. Persist refresh token hash (never store the raw token) ───────────
@@ -128,7 +123,8 @@ export class AuthService {
       this.tokenService.generateRefreshToken(newPayload),
     ]);
 
-    const refreshExpiresIn = this.config.get<string>('jwt.refreshExpiresIn') ?? '30d';
+    const refreshExpiresIn =
+      this.config.get<string>('jwt.refreshExpiresIn') ?? '30d';
     const expiresAt = this.parseExpiry(refreshExpiresIn);
     const tokenHash = await argon2.hash(newRefreshToken);
 
@@ -152,12 +148,13 @@ export class AuthService {
   private parseExpiry(duration: string): Date {
     const unit = duration.slice(-1);
     const value = parseInt(duration.slice(0, -1), 10);
-    const ms = {
-      s: 1_000,
-      m: 60_000,
-      h: 3_600_000,
-      d: 86_400_000,
-    }[unit] ?? 86_400_000;
+    const ms =
+      {
+        s: 1_000,
+        m: 60_000,
+        h: 3_600_000,
+        d: 86_400_000,
+      }[unit] ?? 86_400_000;
 
     return new Date(Date.now() + value * ms);
   }

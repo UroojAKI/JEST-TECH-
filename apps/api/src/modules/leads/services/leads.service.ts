@@ -43,7 +43,9 @@ export class LeadsService {
     if (dto.assignedToId) {
       const user = await this.usersService.findById(dto.assignedToId);
       if (!user) {
-        throw new NotFoundException(`User with ID ${dto.assignedToId} not found`);
+        throw new NotFoundException(
+          `User with ID ${dto.assignedToId} not found`,
+        );
       }
     }
 
@@ -73,9 +75,10 @@ export class LeadsService {
   }
 
   async findAll(user: RequestUser) {
-    const where: Prisma.LeadWhereInput = user.role === 'SALES_AGENT' 
-      ? { OR: [{ assignedToId: user.id }, { createdById: user.id }] } 
-      : {};
+    const where: Prisma.LeadWhereInput =
+      user.role === 'SALES_AGENT'
+        ? { OR: [{ assignedToId: user.id }, { createdById: user.id }] }
+        : {};
     const leads = await this.leadRepository.findAll(where);
     return LeadMapper.toResponseList(leads);
   }
@@ -87,8 +90,14 @@ export class LeadsService {
     }
 
     // BOLA ownership verification
-    if (user.role === 'SALES_AGENT' && lead.assignedToId !== user.id && lead.createdById !== user.id) {
-      throw new ForbiddenException('You do not have permission to access this lead');
+    if (
+      user.role === 'SALES_AGENT' &&
+      lead.assignedToId !== user.id &&
+      lead.createdById !== user.id
+    ) {
+      throw new ForbiddenException(
+        'You do not have permission to access this lead',
+      );
     }
 
     return LeadMapper.toResponse(lead);
@@ -101,8 +110,14 @@ export class LeadsService {
     }
 
     // BOLA ownership verification
-    if (user.role === 'SALES_AGENT' && existing.assignedToId !== user.id && existing.createdById !== user.id) {
-      throw new ForbiddenException('You do not have permission to update this lead');
+    if (
+      user.role === 'SALES_AGENT' &&
+      existing.assignedToId !== user.id &&
+      existing.createdById !== user.id
+    ) {
+      throw new ForbiddenException(
+        'You do not have permission to update this lead',
+      );
     }
 
     // Validate Contact exists if provided
@@ -119,7 +134,9 @@ export class LeadsService {
     if (dto.assignedToId && dto.assignedToId !== existing.assignedToId) {
       const user = await this.usersService.findById(dto.assignedToId);
       if (!user) {
-        throw new NotFoundException(`User with ID ${dto.assignedToId} not found`);
+        throw new NotFoundException(
+          `User with ID ${dto.assignedToId} not found`,
+        );
       }
     }
 
@@ -196,7 +213,11 @@ export class LeadsService {
     return LeadMapper.toResponse(updatedLead!);
   }
 
-  async createActivity(id: string, dto: CreateActivityDto, createdById: string) {
+  async createActivity(
+    id: string,
+    dto: CreateActivityDto,
+    createdById: string,
+  ) {
     const existing = await this.leadRepository.findById(id);
     if (!existing || existing.deletedAt) {
       throw new NotFoundException(`Lead with ID ${id} not found`);
@@ -205,7 +226,9 @@ export class LeadsService {
     if (dto.assignedToId) {
       const user = await this.usersService.findById(dto.assignedToId);
       if (!user) {
-        throw new NotFoundException(`User with ID ${dto.assignedToId} not found`);
+        throw new NotFoundException(
+          `User with ID ${dto.assignedToId} not found`,
+        );
       }
     }
 
@@ -246,7 +269,10 @@ export class LeadsService {
     const responseDto = LeadMapper.toResponse(updated);
 
     // Emit event asynchronously
-    this.eventEmitter.emit('lead.converted', new LeadConvertedEvent(responseDto));
+    this.eventEmitter.emit(
+      'lead.converted',
+      new LeadConvertedEvent(responseDto),
+    );
 
     return {
       message: `Lead ${existing.leadCode} converted successfully to quotation.`,

@@ -25,7 +25,7 @@ export class SystemQueueProcessor extends WorkerHost {
 
   async process(job: Job<any, any, string>): Promise<any> {
     this.logger.log(`Processing job type: ${job.name} with id: ${job.id}`);
-    
+
     switch (job.name) {
       case JobType.NOTIFICATION:
       case JobType.EMAIL:
@@ -46,12 +46,16 @@ export class SystemQueueProcessor extends WorkerHost {
         await this.auditWorker.process(job);
         break;
       default:
-        this.logger.warn(`No specific worker defined for job type: ${job.name}`);
+        this.logger.warn(
+          `No specific worker defined for job type: ${job.name}`,
+        );
         // Fallback or generic processing
-        await new Promise(resolve => setTimeout(resolve, 500));
+        await new Promise((resolve) => setTimeout(resolve, 500));
         break;
     }
 
-    this.logger.log(`Successfully completed job [${job.name}] with id: ${job.id}`);
+    this.logger.log(
+      `Successfully completed job [${job.name}] with id: ${job.id}`,
+    );
   }
 }

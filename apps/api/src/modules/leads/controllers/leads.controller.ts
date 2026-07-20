@@ -40,10 +40,7 @@ export class LeadsController {
     RoleType.TEAM_LEADER,
     RoleType.SALES_AGENT,
   )
-  create(
-    @Body() dto: CreateLeadDto,
-    @CurrentUser() user: RequestUser,
-  ) {
+  create(@Body() dto: CreateLeadDto, @CurrentUser() user: RequestUser) {
     return this.leadsService.create(dto, user.id);
   }
 
@@ -92,10 +89,7 @@ export class LeadsController {
   @Delete(':id')
   @HttpCode(HttpStatus.OK)
   @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN)
-  remove(
-    @Param('id') id: string,
-    @CurrentUser() user: RequestUser,
-  ) {
+  remove(@Param('id') id: string, @CurrentUser() user: RequestUser) {
     return this.leadsService.remove(id, user.id);
   }
 
@@ -154,10 +148,7 @@ export class LeadsController {
     RoleType.TEAM_LEADER,
     RoleType.SALES_AGENT,
   )
-  convert(
-    @Param('id') id: string,
-    @CurrentUser() user: RequestUser,
-  ) {
+  convert(@Param('id') id: string, @CurrentUser() user: RequestUser) {
     return this.leadsService.convert(id, user.id);
   }
 }

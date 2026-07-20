@@ -44,22 +44,46 @@ describe('LeadRoutingEngineService', () => {
       {
         id: 'rule-1',
         queueId: 'queue-1',
-        condition: JSON.stringify({ field: 'source', operator: 'EQUALS', value: 'WEBSITE' }),
+        condition: JSON.stringify({
+          field: 'source',
+          operator: 'EQUALS',
+          value: 'WEBSITE',
+        }),
         priority: 10,
         name: 'Website Rule',
         description: '',
         isActive: true,
         createdAt: new Date(),
         updatedAt: new Date(),
-      }
+      },
     ]);
 
     jest.spyOn(prisma.queueMember, 'findMany').mockResolvedValue([
-      { id: 'member-1', userId: 'user-1', currentLoad: 5, queueId: 'queue-1', isAvailable: true, capacity: 10, createdAt: new Date(), updatedAt: new Date() },
-      { id: 'member-2', userId: 'user-2', currentLoad: 2, queueId: 'queue-1', isAvailable: true, capacity: 10, createdAt: new Date(), updatedAt: new Date() }, // Lowest load
+      {
+        id: 'member-1',
+        userId: 'user-1',
+        currentLoad: 5,
+        queueId: 'queue-1',
+        isAvailable: true,
+        capacity: 10,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+      {
+        id: 'member-2',
+        userId: 'user-2',
+        currentLoad: 2,
+        queueId: 'queue-1',
+        isAvailable: true,
+        capacity: 10,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      }, // Lowest load
     ]);
 
-    jest.spyOn(prisma.lead, 'update').mockResolvedValue({ id: 'lead-1', assignedToId: 'user-1' } as any);
+    jest
+      .spyOn(prisma.lead, 'update')
+      .mockResolvedValue({ id: 'lead-1', assignedToId: 'user-1' } as any);
 
     const result = await service.routeLead('lead-1');
 

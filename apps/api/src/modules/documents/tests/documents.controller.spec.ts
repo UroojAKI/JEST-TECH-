@@ -2,7 +2,11 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { DocumentsController } from '../controllers/documents.controller';
 import { DocumentService } from '../services/document.service';
 import { RequestUser } from '../../auth/decorators/current-user.decorator';
-import { RoleType, DocumentStatus, DocumentVerificationStatus } from '@prisma/client';
+import {
+  RoleType,
+  DocumentStatus,
+  DocumentVerificationStatus,
+} from '@prisma/client';
 
 describe('DocumentsController', () => {
   let controller: DocumentsController;
@@ -40,7 +44,9 @@ describe('DocumentsController', () => {
           provide: DocumentService,
           useValue: {
             uploadDocument: jest.fn().mockResolvedValue(mockDoc),
-            replaceDocument: jest.fn().mockResolvedValue({ ...mockDoc, version: 2 }),
+            replaceDocument: jest
+              .fn()
+              .mockResolvedValue({ ...mockDoc, version: 2 }),
             getEntityDocuments: jest.fn().mockResolvedValue([mockDoc]),
             getDocumentDetails: jest.fn().mockResolvedValue(mockDoc),
             softDeleteDocument: jest.fn().mockResolvedValue(undefined),
@@ -88,15 +94,32 @@ describe('DocumentsController', () => {
     });
 
     it('should get entity documents', async () => {
-      const result = await controller.getEntityDocuments('POLICY', 'policy-123');
+      const result = await controller.getEntityDocuments(
+        'POLICY',
+        'policy-123',
+      );
       expect(result).toEqual([mockDoc]);
-      expect(service.getEntityDocuments).toHaveBeenCalledWith('POLICY', 'policy-123');
+      expect(service.getEntityDocuments).toHaveBeenCalledWith(
+        'POLICY',
+        'policy-123',
+      );
     });
 
     it('should soft delete document', async () => {
-      const result = await controller.deleteDocument('doc-123', mockUser, '127.0.0.1');
-      expect(result).toEqual({ success: true, message: 'Document soft-deleted' });
-      expect(service.softDeleteDocument).toHaveBeenCalledWith('doc-123', mockUser.id, '127.0.0.1');
+      const result = await controller.deleteDocument(
+        'doc-123',
+        mockUser,
+        '127.0.0.1',
+      );
+      expect(result).toEqual({
+        success: true,
+        message: 'Document soft-deleted',
+      });
+      expect(service.softDeleteDocument).toHaveBeenCalledWith(
+        'doc-123',
+        mockUser.id,
+        '127.0.0.1',
+      );
     });
   });
 });

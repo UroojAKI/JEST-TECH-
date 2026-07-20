@@ -1,6 +1,11 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
+import {
+  S3Client,
+  PutObjectCommand,
+  GetObjectCommand,
+  DeleteObjectCommand,
+} from '@aws-sdk/client-s3';
 import { StorageProvider } from './storage-provider.interface';
 
 @Injectable()
@@ -14,7 +19,8 @@ export class S3StorageProvider implements StorageProvider {
     const accessKeyId = this.config.get<string>('STORAGE_ACCESS_KEY');
     const secretAccessKey = this.config.get<string>('STORAGE_SECRET_KEY');
     const endpoint = this.config.get<string>('STORAGE_ENDPOINT');
-    this.bucket = this.config.get<string>('STORAGE_BUCKET') || 'jest-policy-crm';
+    this.bucket =
+      this.config.get<string>('STORAGE_BUCKET') || 'jest-policy-crm';
 
     this.client = new S3Client({
       region,
@@ -32,7 +38,11 @@ export class S3StorageProvider implements StorageProvider {
     return provider === 'MINIO' ? 'MINIO' : 'S3';
   }
 
-  async uploadFile(fileBuffer: Buffer, key: string, mimeType: string): Promise<string> {
+  async uploadFile(
+    fileBuffer: Buffer,
+    key: string,
+    mimeType: string,
+  ): Promise<string> {
     this.logger.log(`Uploading file [${key}] to S3 bucket [${this.bucket}]`);
     await this.client.send(
       new PutObjectCommand({
@@ -46,14 +56,16 @@ export class S3StorageProvider implements StorageProvider {
   }
 
   async downloadFile(key: string): Promise<Buffer> {
-    this.logger.log(`Downloading file [${key}] from S3 bucket [${this.bucket}]`);
+    this.logger.log(
+      `Downloading file [${key}] from S3 bucket [${this.bucket}]`,
+    );
     const response = await this.client.send(
       new GetObjectCommand({
         Bucket: this.bucket,
         Key: key,
       }),
     );
-    
+
     const streamToBuffer = (stream: any): Promise<Buffer> =>
       new Promise((resolve, reject) => {
         const chunks: any[] = [];

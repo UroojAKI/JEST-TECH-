@@ -25,7 +25,9 @@ describe('StatisticalPredictionService', () => {
       ],
     }).compile();
 
-    service = module.get<StatisticalPredictionService>(StatisticalPredictionService);
+    service = module.get<StatisticalPredictionService>(
+      StatisticalPredictionService,
+    );
     prisma = module.get<PrismaService>(PrismaService);
   });
 
@@ -33,12 +35,12 @@ describe('StatisticalPredictionService', () => {
     it('should calculate revenue forecast based on 6-month average plus growth', async () => {
       // 6 months total = 60000 => average 10000/month
       jest.spyOn(prisma.factRevenue, 'aggregate').mockResolvedValue({
-        _sum: { amount: new Decimal(60000) }
+        _sum: { amount: new Decimal(60000) },
       } as any);
 
       // 1 month ahead => 1% growth
       const forecast = await service.forecastRevenue(1);
-      
+
       expect(forecast.toNumber()).toBe(10100); // 10000 * 1.01
       expect(prisma.factRevenue.aggregate).toHaveBeenCalled();
     });
@@ -47,7 +49,7 @@ describe('StatisticalPredictionService', () => {
   describe('predictCustomerRisk', () => {
     it('should return churn probability from analytics', async () => {
       jest.spyOn(prisma.customerAnalytics, 'findUnique').mockResolvedValue({
-        churnProbability: 75
+        churnProbability: 75,
       } as any);
 
       const risk = await service.predictCustomerRisk('cust-1');
@@ -55,7 +57,9 @@ describe('StatisticalPredictionService', () => {
     });
 
     it('should default to 50 if no analytics found', async () => {
-      jest.spyOn(prisma.customerAnalytics, 'findUnique').mockResolvedValue(null);
+      jest
+        .spyOn(prisma.customerAnalytics, 'findUnique')
+        .mockResolvedValue(null);
 
       const risk = await service.predictCustomerRisk('cust-2');
       expect(risk).toBe(50);

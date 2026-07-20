@@ -1,5 +1,12 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsDateString, IsNotEmpty, IsNumber, IsPositive, IsString, MinLength } from 'class-validator';
+import {
+  IsDateString,
+  IsNotEmpty,
+  IsNumber,
+  IsPositive,
+  IsString,
+  MinLength,
+} from 'class-validator';
 
 export class ReportClaimDto {
   @ApiProperty({ example: 'policy-id-uuid' })
@@ -18,7 +25,7 @@ export class ReportClaimDto {
   @MinLength(10)
   description: string;
 
-  @ApiProperty({ example: 25000.00 })
+  @ApiProperty({ example: 25000.0 })
   @IsNotEmpty()
   @IsNumber()
   @IsPositive()

@@ -15,5 +15,7 @@ export interface ReportResult {
 export interface ReportDataProvider {
   supports(reportCode: string): boolean;
   execute(params: ReportParameters): Promise<ReportResult>;
-  stream?(params: ReportParameters): AsyncGenerator<Record<string, any>, void, unknown>;
+  stream?(
+    params: ReportParameters,
+  ): AsyncGenerator<Record<string, any>, void, unknown>;
 }

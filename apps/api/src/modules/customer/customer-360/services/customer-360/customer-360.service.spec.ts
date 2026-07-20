@@ -39,7 +39,9 @@ describe('Customer360Service', () => {
     it('should throw if customer not found', async () => {
       jest.spyOn(prisma.contact, 'findUnique').mockResolvedValue(null);
 
-      await expect(service.getCustomer360('contact-1')).rejects.toThrow(NotFoundException);
+      await expect(service.getCustomer360('contact-1')).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('should aggregate profile, analytics, assets, operational data, and timeline', async () => {
@@ -51,13 +53,21 @@ describe('Customer360Service', () => {
         phone: '1234567890',
         analytics: { lifetimeValue: 5000 },
         familyMembers: [{ id: 'fam-1', firstName: 'Jane' }],
-        vehicles: [{ id: 'veh-1', make: 'Honda' }]
+        vehicles: [{ id: 'veh-1', make: 'Honda' }],
       };
 
-      jest.spyOn(prisma.contact, 'findUnique').mockResolvedValue(mockContact as any);
-      jest.spyOn(prisma.policy, 'findMany').mockResolvedValue([{ id: 'pol-1' }] as any);
-      jest.spyOn(prisma.claim, 'findMany').mockResolvedValue([{ id: 'claim-1' }] as any);
-      jest.spyOn(prisma.communicationLog, 'findMany').mockResolvedValue([{ id: 'log-1' }] as any);
+      jest
+        .spyOn(prisma.contact, 'findUnique')
+        .mockResolvedValue(mockContact as any);
+      jest
+        .spyOn(prisma.policy, 'findMany')
+        .mockResolvedValue([{ id: 'pol-1' }] as any);
+      jest
+        .spyOn(prisma.claim, 'findMany')
+        .mockResolvedValue([{ id: 'claim-1' }] as any);
+      jest
+        .spyOn(prisma.communicationLog, 'findMany')
+        .mockResolvedValue([{ id: 'log-1' }] as any);
 
       const result = await service.getCustomer360('contact-1');
 

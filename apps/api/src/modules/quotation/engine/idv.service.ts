@@ -5,7 +5,7 @@ export class IdvService {
   /**
    * Calculates the Insured Declared Value (IDV) of a vehicle based on
    * ex-showroom price and vehicle age (current year - purchase year).
-   * 
+   *
    * Indian Tariff Depreciation Rules:
    * - Age < 6 months: 5%
    * - Age 6 months to 1 year: 15%
@@ -22,15 +22,15 @@ export class IdvService {
     let depreciationPercentage = 0.05;
 
     if (age >= 1 && age < 2) {
-      depreciationPercentage = 0.20;
+      depreciationPercentage = 0.2;
     } else if (age >= 2 && age < 3) {
-      depreciationPercentage = 0.30;
+      depreciationPercentage = 0.3;
     } else if (age >= 3 && age < 4) {
-      depreciationPercentage = 0.40;
+      depreciationPercentage = 0.4;
     } else if (age >= 4 && age <= 5) {
-      depreciationPercentage = 0.50;
+      depreciationPercentage = 0.5;
     } else if (age > 5) {
-      depreciationPercentage = 0.60;
+      depreciationPercentage = 0.6;
     }
 
     const calculatedIdv = exShowroomPrice * (1 - depreciationPercentage);

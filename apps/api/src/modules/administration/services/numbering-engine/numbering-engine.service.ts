@@ -20,7 +20,9 @@ export class NumberingEngineService {
     });
 
     if (!formatConfig) {
-      throw new InternalServerErrorException(`Numbering format for ${entityType} is not configured.`);
+      throw new InternalServerErrorException(
+        `Numbering format for ${entityType} is not configured.`,
+      );
     }
 
     // Atomically increment the sequence or create if it doesn't exist for this month/year
@@ -45,9 +47,11 @@ export class NumberingEngineService {
 
     // Construct the formatted string
     // e.g. format: '{PREFIX}-{YYYY}-{MM}-{SEQUENCE}'
-    const paddedSequence = sequenceRecord.sequence.toString().padStart(formatConfig.padding, '0');
+    const paddedSequence = sequenceRecord.sequence
+      .toString()
+      .padStart(formatConfig.padding, '0');
     const monthStr = month.toString().padStart(2, '0');
-    
+
     let result = formatConfig.format;
     result = result.replace('{PREFIX}', formatConfig.prefix);
     result = result.replace('{YYYY}', year.toString());

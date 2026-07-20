@@ -31,16 +31,18 @@ export class GlobalExceptionFilter implements ExceptionFilter {
         : { message: exception.message || 'Internal server error' };
 
     const errorBody: any =
-      typeof rawResponse === 'object'
-        ? rawResponse
-        : { message: rawResponse };
+      typeof rawResponse === 'object' ? rawResponse : { message: rawResponse };
 
     const errorResponse = {
       success: false,
       error: {
         statusCode: status,
-        message: status >= 500 ? 'Internal server error' : (errorBody.message || 'Internal server error'),
-        details: status >= 500 ? undefined : (errorBody.error || errorBody.message),
+        message:
+          status >= 500
+            ? 'Internal server error'
+            : errorBody.message || 'Internal server error',
+        details:
+          status >= 500 ? undefined : errorBody.error || errorBody.message,
       },
       meta: {
         requestId: correlationId,

@@ -18,7 +18,12 @@ import { DatabaseModule } from '../../database/database.module';
     MinioStorageProvider,
     {
       provide: STORAGE_PROVIDER_TOKEN,
-      useFactory: (config: ConfigService, local: LocalStorageProvider, s3: S3StorageProvider, minio: MinioStorageProvider) => {
+      useFactory: (
+        config: ConfigService,
+        local: LocalStorageProvider,
+        s3: S3StorageProvider,
+        minio: MinioStorageProvider,
+      ) => {
         const provider = config.get<string>('STORAGE_PROVIDER', 'LOCAL');
         if (provider === 'MINIO') {
           return minio;
@@ -28,7 +33,12 @@ import { DatabaseModule } from '../../database/database.module';
         }
         return local;
       },
-      inject: [ConfigService, LocalStorageProvider, S3StorageProvider, MinioStorageProvider],
+      inject: [
+        ConfigService,
+        LocalStorageProvider,
+        S3StorageProvider,
+        MinioStorageProvider,
+      ],
     },
   ],
   exports: [DocumentService],

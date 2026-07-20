@@ -2,6 +2,6 @@ import { Module } from '@nestjs/common';
 import { LedgerService } from './services/ledger/ledger.service';
 
 @Module({
-  providers: [LedgerService]
+  providers: [LedgerService],
 })
 export class AccountingModule {}

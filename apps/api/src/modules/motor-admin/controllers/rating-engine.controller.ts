@@ -31,7 +31,13 @@ export class RatingEngineController {
     @Body('contactDetails') contactDetails?: any,
     @Body('logoUrl') logoUrl?: string,
   ) {
-    return this.insurerProductService.createInsurer(name, code, rating, contactDetails, logoUrl);
+    return this.insurerProductService.createInsurer(
+      name,
+      code,
+      rating,
+      contactDetails,
+      logoUrl,
+    );
   }
 
   @Get('products')
@@ -48,11 +54,20 @@ export class RatingEngineController {
     @Body('baseCommissionRate') baseCommissionRate: number,
     @Body('description') description?: string,
   ) {
-    return this.insurerProductService.createProduct(name, code, type, baseCommissionRate, description);
+    return this.insurerProductService.createProduct(
+      name,
+      code,
+      type,
+      baseCommissionRate,
+      description,
+    );
   }
 
   @Get('rules')
-  getRatingRules(@Query('insurerId') insurerId?: string, @Query('productId') productId?: string) {
+  getRatingRules(
+    @Query('insurerId') insurerId?: string,
+    @Query('productId') productId?: string,
+  ) {
     return this.insurerProductService.getRatingRules(insurerId, productId);
   }
 

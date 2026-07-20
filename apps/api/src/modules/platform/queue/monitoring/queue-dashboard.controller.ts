@@ -1,4 +1,12 @@
-import { Controller, Get, Post, Delete, Param, Query, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Delete,
+  Param,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { QueueDashboardService } from './queue-dashboard.service';
 import { JwtAuthGuard } from '../../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../../auth/guards/roles.guard';

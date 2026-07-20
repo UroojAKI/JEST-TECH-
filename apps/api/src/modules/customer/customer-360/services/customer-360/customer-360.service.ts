@@ -17,7 +17,7 @@ export class Customer360Service {
         analytics: true,
         familyMembers: true,
         vehicles: true,
-      }
+      },
     });
 
     if (!contact) {
@@ -28,25 +28,25 @@ export class Customer360Service {
     const activePoliciesPromise = this.prisma.policy.findMany({
       where: { contactId, status: 'ACTIVE' },
       take: 5,
-      orderBy: { createdAt: 'desc' }
+      orderBy: { createdAt: 'desc' },
     });
 
     const openClaimsPromise = this.prisma.claim.findMany({
       where: { contactId, status: 'OPEN' }, // assuming 'OPEN' status exists
       take: 5,
-      orderBy: { createdAt: 'desc' }
+      orderBy: { createdAt: 'desc' },
     });
 
     const recentCommsPromise = this.prisma.communicationLog.findMany({
       where: { contactId },
       take: 5,
-      orderBy: { createdAt: 'desc' }
+      orderBy: { createdAt: 'desc' },
     });
 
     const [activePolicies, openClaims, recentComms] = await Promise.all([
       activePoliciesPromise,
       openClaimsPromise,
-      recentCommsPromise
+      recentCommsPromise,
     ]);
 
     // 2. Assemble 360 View
@@ -75,7 +75,7 @@ export class Customer360Service {
       },
       timeline: {
         recentCommunications: recentComms,
-      }
+      },
     };
   }
 }

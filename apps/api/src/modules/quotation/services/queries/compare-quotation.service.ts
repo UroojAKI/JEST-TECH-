@@ -1,4 +1,8 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 
 import { QuotationRepository } from '../../repositories/quotation.repository';
 import { QuotationMapper } from '../../mappers/quotation.mapper';
@@ -13,7 +17,9 @@ export class CompareQuotationService {
 
   async execute(ids: string[]) {
     if (!ids || ids.length === 0) {
-      throw new BadRequestException('At least one quotation ID must be provided for comparison');
+      throw new BadRequestException(
+        'At least one quotation ID must be provided for comparison',
+      );
     }
 
     const quotations = await Promise.all(

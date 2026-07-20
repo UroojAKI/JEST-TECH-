@@ -11,7 +11,9 @@ export class NotificationsListener {
 
   @OnEvent('claim.registered')
   async handleClaimRegistered(event: { claim: any; createdById: string }) {
-    this.logger.log(`Handling claim.registered event for claim ID: ${event.claim.id}`);
+    this.logger.log(
+      `Handling claim.registered event for claim ID: ${event.claim.id}`,
+    );
     const agentId = event.claim.createdById || event.createdById;
     if (!agentId) return;
 
@@ -28,8 +30,14 @@ export class NotificationsListener {
   }
 
   @OnEvent('claim.approved')
-  async handleClaimApproved(event: { claim: any; updatedById: string; comments?: string }) {
-    this.logger.log(`Handling claim.approved event for claim ID: ${event.claim.id}`);
+  async handleClaimApproved(event: {
+    claim: any;
+    updatedById: string;
+    comments?: string;
+  }) {
+    this.logger.log(
+      `Handling claim.approved event for claim ID: ${event.claim.id}`,
+    );
     const agentId = event.claim.createdById || event.updatedById;
     if (!agentId) return;
 
@@ -46,8 +54,14 @@ export class NotificationsListener {
   }
 
   @OnEvent('claim.rejected')
-  async handleClaimRejected(event: { claim: any; updatedById: string; comments?: string }) {
-    this.logger.log(`Handling claim.rejected event for claim ID: ${event.claim.id}`);
+  async handleClaimRejected(event: {
+    claim: any;
+    updatedById: string;
+    comments?: string;
+  }) {
+    this.logger.log(
+      `Handling claim.rejected event for claim ID: ${event.claim.id}`,
+    );
     const agentId = event.claim.createdById || event.updatedById;
     if (!agentId) return;
 

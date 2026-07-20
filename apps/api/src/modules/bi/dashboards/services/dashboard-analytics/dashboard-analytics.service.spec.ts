@@ -34,7 +34,9 @@ describe('DashboardAnalyticsService', () => {
     it('should throw if dashboard not found', async () => {
       jest.spyOn(prisma.dashboard, 'findUnique').mockResolvedValue(null);
 
-      await expect(service.getDashboardData('dash-1')).rejects.toThrow(NotFoundException);
+      await expect(service.getDashboardData('dash-1')).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('should process widget configs and query facts', async () => {
@@ -43,19 +45,22 @@ describe('DashboardAnalyticsService', () => {
         name: 'CEO Dashboard',
         widgets: [
           {
-            x: 0, y: 0, w: 2, h: 2,
+            x: 0,
+            y: 0,
+            w: 2,
+            h: 2,
             widget: {
               id: 'widget-1',
               name: 'Total Revenue',
               type: 'METRIC',
-              config: JSON.stringify({ metric: 'TOTAL_REVENUE' })
-            }
-          }
-        ]
+              config: JSON.stringify({ metric: 'TOTAL_REVENUE' }),
+            },
+          },
+        ],
       } as any);
 
       jest.spyOn(prisma.factRevenue, 'aggregate').mockResolvedValue({
-        _sum: { amount: new Decimal(5000000) }
+        _sum: { amount: new Decimal(5000000) },
       } as any);
 
       const result = await service.getDashboardData('dash-1');
@@ -63,7 +68,7 @@ describe('DashboardAnalyticsService', () => {
       expect(result.name).toBe('CEO Dashboard');
       expect(result.widgets.length).toBe(1);
       expect(result.widgets[0].data.toNumber()).toBe(5000000);
-      
+
       expect(prisma.factRevenue.aggregate).toHaveBeenCalled();
     });
   });

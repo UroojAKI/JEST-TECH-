@@ -15,7 +15,16 @@ import { RoutingModule } from './routing/routing.module';
 import { SlaModule } from './sla/sla.module';
 
 @Module({
-  imports: [ContactsModule, AccountsModule, UsersModule, ReportsModule, ScoringModule, DeduplicationModule, RoutingModule, SlaModule],
+  imports: [
+    ContactsModule,
+    AccountsModule,
+    UsersModule,
+    ReportsModule,
+    ScoringModule,
+    DeduplicationModule,
+    RoutingModule,
+    SlaModule,
+  ],
   controllers: [LeadsController],
   providers: [LeadsService, LeadRepository, LeadReportProvider],
   exports: [LeadsService, LeadRepository, LeadReportProvider],

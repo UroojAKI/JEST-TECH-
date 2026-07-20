@@ -1,5 +1,8 @@
 import { Injectable, Inject } from '@nestjs/common';
-import { CACHE_PROVIDER_TOKEN, ICacheProvider } from '../../platform/cache/cache.provider';
+import {
+  CACHE_PROVIDER_TOKEN,
+  ICacheProvider,
+} from '../../platform/cache/cache.provider';
 import { RedisCacheService } from '../../platform/cache/redis-cache.service';
 import { ContactAnalyticsService } from './contact-analytics.service';
 import { LeadAnalyticsService } from './lead-analytics.service';
@@ -25,14 +28,15 @@ export class DashboardAnalyticsService {
   ) {}
 
   async getDashboardData(role: string, userId: string) {
-    const [revenue, leads, policies, claims, renewals, quotations] = await Promise.all([
-      this.revenueAnalytics.getOverview(),
-      this.leadAnalytics.getOverview(),
-      this.policyAnalytics.getOverview(),
-      this.claimAnalytics.getOverview(),
-      this.renewalAnalytics.getOverview(),
-      this.quotationAnalytics.getOverview(),
-    ]);
+    const [revenue, leads, policies, claims, renewals, quotations] =
+      await Promise.all([
+        this.revenueAnalytics.getOverview(),
+        this.leadAnalytics.getOverview(),
+        this.policyAnalytics.getOverview(),
+        this.claimAnalytics.getOverview(),
+        this.renewalAnalytics.getOverview(),
+        this.quotationAnalytics.getOverview(),
+      ]);
 
     // Fetch activities from the database to replace mock logs
     const recentActivities = await this.prisma.activity.findMany({
@@ -80,8 +84,16 @@ export class DashboardAnalyticsService {
           activities: mappedActivities,
         },
         quickActions: [
-          { action: 'CREATE_USER', label: 'Create System User', icon: 'UserPlus' },
-          { action: 'VIEW_AUDITS', label: 'View Audit Logs', icon: 'FileSpreadsheet' },
+          {
+            action: 'CREATE_USER',
+            label: 'Create System User',
+            icon: 'UserPlus',
+          },
+          {
+            action: 'VIEW_AUDITS',
+            label: 'View Audit Logs',
+            icon: 'FileSpreadsheet',
+          },
         ],
       };
     }
@@ -106,7 +118,11 @@ export class DashboardAnalyticsService {
         },
         quickActions: [
           { action: 'NEW_POLICY', label: 'Issue Policy', icon: 'ShieldCheck' },
-          { action: 'VIEW_REPORTS', label: 'View Financials', icon: 'BarChart3' },
+          {
+            action: 'VIEW_REPORTS',
+            label: 'View Financials',
+            icon: 'BarChart3',
+          },
         ],
       };
     }
@@ -118,7 +134,8 @@ export class DashboardAnalyticsService {
           branchRevenue: revenue.thisMonth,
           conversionRate: `${leads.conversionRate}%`,
           pendingApprovals: quotations.pendingApproval,
-          branchClaims: claims.byStatus.underAssessment + claims.byStatus.approved,
+          branchClaims:
+            claims.byStatus.underAssessment + claims.byStatus.approved,
           renewalRate: '82.5%',
         },
         charts: {
@@ -129,8 +146,16 @@ export class DashboardAnalyticsService {
           activities: mappedActivities,
         },
         quickActions: [
-          { action: 'APPROVE_QUOTE', label: 'Approve Quotation', icon: 'FileCheck' },
-          { action: 'REPORT_CLAIM', label: 'Report Incident', icon: 'AlertOctagon' },
+          {
+            action: 'APPROVE_QUOTE',
+            label: 'Approve Quotation',
+            icon: 'FileCheck',
+          },
+          {
+            action: 'REPORT_CLAIM',
+            label: 'Report Incident',
+            icon: 'AlertOctagon',
+          },
         ],
       };
     }

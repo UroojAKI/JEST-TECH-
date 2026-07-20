@@ -47,7 +47,7 @@ describe('EtlService', () => {
   describe('extractAndLoadPolicy', () => {
     it('should transform a Policy into Star Schema', async () => {
       const mockDate = new Date('2026-07-20T00:00:00.000Z');
-      
+
       jest.spyOn(prisma.policy, 'findUnique').mockResolvedValue({
         id: 'pol-1',
         createdAt: mockDate,
@@ -60,18 +60,18 @@ describe('EtlService', () => {
           firstName: 'Agent',
           lastName: 'One',
           branchId: 'branch-1',
-          branch: { name: 'HQ', regionId: 'REG-1' }
+          branch: { name: 'HQ', regionId: 'REG-1' },
         },
         contact: {
           firstName: 'John',
           lastName: 'Doe',
-          type: 'INDIVIDUAL'
+          type: 'INDIVIDUAL',
         },
         product: {
           name: 'Health Plan',
           category: 'HEALTH',
-          insurer: { name: 'XYZ Insurance' }
-        }
+          insurer: { name: 'XYZ Insurance' },
+        },
       } as any);
 
       jest.spyOn(prisma.dimDate, 'findUnique').mockResolvedValue(null);
@@ -80,15 +80,17 @@ describe('EtlService', () => {
 
       // Verify Dimensions
       expect(prisma.dimDate.create).toHaveBeenCalledWith(
-        expect.objectContaining({ data: expect.objectContaining({ dateId: '2026-07-20' }) })
+        expect.objectContaining({
+          data: expect.objectContaining({ dateId: '2026-07-20' }),
+        }),
       );
-      
+
       expect(prisma.dimBranch.upsert).toHaveBeenCalledWith(
-        expect.objectContaining({ where: { id: 'branch-1' } })
+        expect.objectContaining({ where: { id: 'branch-1' } }),
       );
-      
+
       expect(prisma.dimCustomer.upsert).toHaveBeenCalledWith(
-        expect.objectContaining({ where: { id: 'cust-1' } })
+        expect.objectContaining({ where: { id: 'cust-1' } }),
       );
 
       // Verify Fact
@@ -101,9 +103,9 @@ describe('EtlService', () => {
             agentId: 'agent-1',
             customerId: 'cust-1',
             productId: 'prod-1',
-            status: 'ACTIVE'
-          })
-        })
+            status: 'ACTIVE',
+          }),
+        }),
       );
     });
   });

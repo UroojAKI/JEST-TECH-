@@ -65,19 +65,35 @@ describe('QuotationController', () => {
       providers: [
         {
           provide: GenerateQuotationService,
-          useValue: { execute: jest.fn().mockResolvedValue(mockQuotationResponse) },
+          useValue: {
+            execute: jest.fn().mockResolvedValue(mockQuotationResponse),
+          },
         },
         {
           provide: ApproveQuotationService,
-          useValue: { execute: jest.fn().mockResolvedValue({ ...mockQuotationResponse, status: QuotationStatus.APPROVED }) },
+          useValue: {
+            execute: jest.fn().mockResolvedValue({
+              ...mockQuotationResponse,
+              status: QuotationStatus.APPROVED,
+            }),
+          },
         },
         {
           provide: RejectQuotationService,
-          useValue: { execute: jest.fn().mockResolvedValue({ ...mockQuotationResponse, status: QuotationStatus.REJECTED }) },
+          useValue: {
+            execute: jest.fn().mockResolvedValue({
+              ...mockQuotationResponse,
+              status: QuotationStatus.REJECTED,
+            }),
+          },
         },
         {
           provide: ConvertQuotationService,
-          useValue: { execute: jest.fn().mockResolvedValue({ message: 'Success', policyStub: {} }) },
+          useValue: {
+            execute: jest
+              .fn()
+              .mockResolvedValue({ message: 'Success', policyStub: {} }),
+          },
         },
         {
           provide: GetQuotationService,
@@ -88,7 +104,11 @@ describe('QuotationController', () => {
         },
         {
           provide: CompareQuotationService,
-          useValue: { execute: jest.fn().mockResolvedValue({ comparisonCode: 'COMP-123', items: [] }) },
+          useValue: {
+            execute: jest
+              .fn()
+              .mockResolvedValue({ comparisonCode: 'COMP-123', items: [] }),
+          },
         },
         {
           provide: GetQuotationHistoryService,
@@ -98,13 +118,23 @@ describe('QuotationController', () => {
     }).compile();
 
     controller = module.get<QuotationController>(QuotationController);
-    generateService = module.get<GenerateQuotationService>(GenerateQuotationService);
-    approveService = module.get<ApproveQuotationService>(ApproveQuotationService);
+    generateService = module.get<GenerateQuotationService>(
+      GenerateQuotationService,
+    );
+    approveService = module.get<ApproveQuotationService>(
+      ApproveQuotationService,
+    );
     rejectService = module.get<RejectQuotationService>(RejectQuotationService);
-    convertService = module.get<ConvertQuotationService>(ConvertQuotationService);
+    convertService = module.get<ConvertQuotationService>(
+      ConvertQuotationService,
+    );
     getService = module.get<GetQuotationService>(GetQuotationService);
-    compareService = module.get<CompareQuotationService>(CompareQuotationService);
-    historyService = module.get<GetQuotationHistoryService>(GetQuotationHistoryService);
+    compareService = module.get<CompareQuotationService>(
+      CompareQuotationService,
+    );
+    historyService = module.get<GetQuotationHistoryService>(
+      GetQuotationHistoryService,
+    );
   });
 
   // 1. Happy Path
@@ -130,55 +160,87 @@ describe('QuotationController', () => {
     });
 
     it('should approve a quotation', async () => {
-      const result = await controller.approve('quote-123', 'Approving quote', mockUser);
+      const result = await controller.approve(
+        'quote-123',
+        'Approving quote',
+        mockUser,
+      );
       expect(result.status).toEqual(QuotationStatus.APPROVED);
-      expect(approveService.execute).toHaveBeenCalledWith('quote-123', 'Approving quote', mockUser.id);
+      expect(approveService.execute).toHaveBeenCalledWith(
+        'quote-123',
+        'Approving quote',
+        mockUser.id,
+      );
     });
   });
 
   // 2. Validation Failure
   describe('Validation Failure', () => {
     it('should throw BadRequestException for missing required parameters', async () => {
-      jest.spyOn(generateService, 'execute').mockRejectedValueOnce(new BadRequestException('Validation failed'));
+      jest
+        .spyOn(generateService, 'execute')
+        .mockRejectedValueOnce(new BadRequestException('Validation failed'));
       const invalidDto = new CreateQuotationDto();
 
-      await expect(controller.create(invalidDto, mockUser)).rejects.toThrow(BadRequestException);
+      await expect(controller.create(invalidDto, mockUser)).rejects.toThrow(
+        BadRequestException,
+      );
     });
   });
 
   // 3. Unauthorized
   describe('Unauthorized', () => {
     it('should throw UnauthorizedException when credentials are invalid', async () => {
-      jest.spyOn(getService, 'executeOne').mockRejectedValueOnce(new UnauthorizedException('Unauthorized access'));
+      jest
+        .spyOn(getService, 'executeOne')
+        .mockRejectedValueOnce(
+          new UnauthorizedException('Unauthorized access'),
+        );
 
-      await expect(controller.findOne('quote-123')).rejects.toThrow(UnauthorizedException);
+      await expect(controller.findOne('quote-123')).rejects.toThrow(
+        UnauthorizedException,
+      );
     });
   });
 
   // 4. Forbidden
   describe('Forbidden', () => {
     it('should throw ForbiddenException when user role lacks permissions', async () => {
-      jest.spyOn(approveService, 'execute').mockRejectedValueOnce(new ForbiddenException('Access denied'));
+      jest
+        .spyOn(approveService, 'execute')
+        .mockRejectedValueOnce(new ForbiddenException('Access denied'));
 
-      await expect(controller.approve('quote-123', 'Comments', mockUser)).rejects.toThrow(ForbiddenException);
+      await expect(
+        controller.approve('quote-123', 'Comments', mockUser),
+      ).rejects.toThrow(ForbiddenException);
     });
   });
 
   // 5. Not Found
   describe('Not Found', () => {
     it('should throw NotFoundException when quotation does not exist', async () => {
-      jest.spyOn(getService, 'executeOne').mockRejectedValueOnce(new NotFoundException('Quotation not found'));
+      jest
+        .spyOn(getService, 'executeOne')
+        .mockRejectedValueOnce(new NotFoundException('Quotation not found'));
 
-      await expect(controller.findOne('quote-nonexistent')).rejects.toThrow(NotFoundException);
+      await expect(controller.findOne('quote-nonexistent')).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 
   // 6. Conflict
   describe('Conflict', () => {
     it('should throw ConflictException for transition conflicts', async () => {
-      jest.spyOn(approveService, 'execute').mockRejectedValueOnce(new ConflictException('Quotation in invalid state'));
+      jest
+        .spyOn(approveService, 'execute')
+        .mockRejectedValueOnce(
+          new ConflictException('Quotation in invalid state'),
+        );
 
-      await expect(controller.approve('quote-123', 'Comments', mockUser)).rejects.toThrow(ConflictException);
+      await expect(
+        controller.approve('quote-123', 'Comments', mockUser),
+      ).rejects.toThrow(ConflictException);
     });
   });
 });

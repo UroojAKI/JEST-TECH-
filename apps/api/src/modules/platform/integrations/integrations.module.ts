@@ -3,6 +3,6 @@ import { CoreModule } from './core/core.module';
 import { WebhooksModule } from './webhooks/webhooks.module';
 
 @Module({
-  imports: [CoreModule, WebhooksModule]
+  imports: [CoreModule, WebhooksModule],
 })
 export class IntegrationsModule {}

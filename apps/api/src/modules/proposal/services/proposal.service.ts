@@ -1,4 +1,9 @@
-import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { PrismaService } from '../../../database/prisma.service';
 import { ProposalStatus, PolicyStatus } from '@prisma/client';
 import type { RequestUser } from '../../auth/decorators/current-user.decorator';
@@ -32,7 +37,11 @@ export class ProposalService {
         contact: true,
         quotation: true,
         documents: { include: { document: true } },
-        histories: { include: { performedBy: { select: { firstName: true, lastName: true } } } },
+        histories: {
+          include: {
+            performedBy: { select: { firstName: true, lastName: true } },
+          },
+        },
       },
     });
     if (!prop) {
@@ -41,7 +50,9 @@ export class ProposalService {
 
     // BOLA ownership verification
     if (user.role === 'SALES_AGENT' && prop.submittedById !== user.id) {
-      throw new ForbiddenException('You do not have permission to access this proposal');
+      throw new ForbiddenException(
+        'You do not have permission to access this proposal',
+      );
     }
 
     return prop;
@@ -70,7 +81,13 @@ export class ProposalService {
       });
 
       // Seed mandatory documents list
-      const mandatoryDocs = ['RC', 'Previous Policy', 'Driving Licence', 'PAN', 'Aadhaar'];
+      const mandatoryDocs = [
+        'RC',
+        'Previous Policy',
+        'Driving Licence',
+        'PAN',
+        'Aadhaar',
+      ];
       for (const docName of mandatoryDocs) {
         await tx.proposalDocument.create({
           data: {
@@ -96,7 +113,12 @@ export class ProposalService {
     });
   }
 
-  async attachDocument(proposalId: string, checklistItemId: string, documentId: string, userId: string) {
+  async attachDocument(
+    proposalId: string,
+    checklistItemId: string,
+    documentId: string,
+    userId: string,
+  ) {
     const propDoc = await this.prisma.proposalDocument.findUnique({
       where: { id: checklistItemId },
     });
@@ -126,9 +148,13 @@ export class ProposalService {
       throw new NotFoundException('Proposal not found');
     }
 
-    const missingDocs = prop.documents.filter((d) => d.mandatory && !d.documentId);
+    const missingDocs = prop.documents.filter(
+      (d) => d.mandatory && !d.documentId,
+    );
     if (missingDocs.length > 0) {
-      throw new BadRequestException(`Cannot submit proposal. Mandatory documents are missing: ${missingDocs.map(m => m.remarks).join(', ')}`);
+      throw new BadRequestException(
+        `Cannot submit proposal. Mandatory documents are missing: ${missingDocs.map((m) => m.remarks).join(', ')}`,
+      );
     }
 
     if (expectedVersion !== undefined) {
@@ -139,17 +165,19 @@ export class ProposalService {
       where: { module: 'PROPOSALS', active: true },
       include: {
         transitions: {
-          include: { fromState: true, toState: true }
-        }
-      }
+          include: { fromState: true, toState: true },
+        },
+      },
     });
 
     if (!workflow) {
-      throw new BadRequestException('Proposal workflow configuration not found');
+      throw new BadRequestException(
+        'Proposal workflow configuration not found',
+      );
     }
 
     const transition = workflow.transitions.find(
-      (t) => t.fromState?.code === 'DRAFT' && t.toState.code === 'SUBMITTED'
+      (t) => t.fromState?.code === 'DRAFT' && t.toState.code === 'SUBMITTED',
     );
 
     if (!transition) {
@@ -170,7 +198,13 @@ export class ProposalService {
     });
   }
 
-  async reviewProposal(id: string, approve: boolean, remarks: string, reviewerId: string, expectedVersion?: number) {
+  async reviewProposal(
+    id: string,
+    approve: boolean,
+    remarks: string,
+    reviewerId: string,
+    expectedVersion?: number,
+  ) {
     const prop = await this.prisma.proposal.findUnique({
       where: { id },
       include: { quotation: true },
@@ -185,7 +219,9 @@ export class ProposalService {
       prop.status === ProposalStatus.APPROVED ||
       prop.status === ProposalStatus.REJECTED
     ) {
-      throw new BadRequestException(`Cannot review a proposal in status: ${prop.status}`);
+      throw new BadRequestException(
+        `Cannot review a proposal in status: ${prop.status}`,
+      );
     }
 
     if (expectedVersion !== undefined) {
@@ -196,13 +232,15 @@ export class ProposalService {
       where: { module: 'PROPOSALS', active: true },
       include: {
         transitions: {
-          include: { fromState: true, toState: true }
-        }
-      }
+          include: { fromState: true, toState: true },
+        },
+      },
     });
 
     if (!workflow) {
-      throw new BadRequestException('Proposal workflow configuration not found');
+      throw new BadRequestException(
+        'Proposal workflow configuration not found',
+      );
     }
 
     const variables = {
@@ -215,20 +253,26 @@ export class ProposalService {
     if (prop.status === ProposalStatus.SUBMITTED) {
       // Direct transition using Start Review
       transitionToExecute = workflow.transitions.find(
-        (t) => t.fromState?.code === 'SUBMITTED' && t.toState.code === 'UNDER_REVIEW'
+        (t) =>
+          t.fromState?.code === 'SUBMITTED' &&
+          t.toState.code === 'UNDER_REVIEW',
       );
     } else if (prop.status === ProposalStatus.UNDER_REVIEW) {
       if (approve) {
         transitionToExecute = workflow.transitions.find((t) => {
-          if (t.fromState?.code !== 'UNDER_REVIEW' || t.toState.code !== 'APPROVED') return false;
-          
+          if (
+            t.fromState?.code !== 'UNDER_REVIEW' ||
+            t.toState.code !== 'APPROVED'
+          )
+            return false;
+
           const conditions = t.conditions as any;
           if (!conditions) return true;
-          
+
           const logic = conditions.logic || 'AND';
           const rules = conditions.rules || [];
           if (rules.length === 0) return true;
-          
+
           if (logic === 'AND') {
             return rules.every((rule: any) => {
               const val = variables[rule.field];
@@ -241,13 +285,17 @@ export class ProposalService {
         });
       } else {
         transitionToExecute = workflow.transitions.find(
-          (t) => t.fromState?.code === 'UNDER_REVIEW' && t.toState.code === 'REJECTED'
+          (t) =>
+            t.fromState?.code === 'UNDER_REVIEW' &&
+            t.toState.code === 'REJECTED',
         );
       }
     }
 
     if (!transitionToExecute) {
-      throw new BadRequestException(`No valid transition path found for proposal in status ${prop.status}`);
+      throw new BadRequestException(
+        `No valid transition path found for proposal in status ${prop.status}`,
+      );
     }
 
     await this.workflowEngine.transition(

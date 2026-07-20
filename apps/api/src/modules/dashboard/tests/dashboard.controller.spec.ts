@@ -27,7 +27,13 @@ describe('DashboardController', () => {
       funnel: [],
     },
     widgets: {
-      renewals: { expiring20: 0, expiring30: 0, expiring45: 0, expired: 0, renewed: 0 },
+      renewals: {
+        expiring20: 0,
+        expiring30: 0,
+        expiring45: 0,
+        expired: 0,
+        renewed: 0,
+      },
       activities: [],
     },
     layout: [],
@@ -54,13 +60,19 @@ describe('DashboardController', () => {
     it('should return role-specific dashboard data for the active user', async () => {
       const result = await controller.getDashboard(mockUser);
       expect(result).toEqual(mockDashboardData);
-      expect(service.getDashboard).toHaveBeenCalledWith(mockUser.role, mockUser.id);
+      expect(service.getDashboard).toHaveBeenCalledWith(
+        mockUser.role,
+        mockUser.id,
+      );
     });
 
     it('should return super-admin dashboard data', async () => {
       const result = await controller.getSuperAdminDashboard(mockUser);
       expect(result).toEqual(mockDashboardData);
-      expect(service.getDashboard).toHaveBeenCalledWith(RoleType.SUPER_ADMIN, mockUser.id);
+      expect(service.getDashboard).toHaveBeenCalledWith(
+        RoleType.SUPER_ADMIN,
+        mockUser.id,
+      );
     });
   });
 });

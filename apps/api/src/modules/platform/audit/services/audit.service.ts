@@ -22,9 +22,7 @@ export class AuditService {
 
   async log(options: AuditLogOptions): Promise<void> {
     const resolvedCorrelationId =
-      options.correlationId ||
-      correlationStorage.getStore() ||
-      'system';
+      options.correlationId || correlationStorage.getStore() || 'system';
 
     await this.prisma.auditLog.create({
       data: {
@@ -33,8 +31,12 @@ export class AuditService {
         entity: options.entity,
         entityId: options.entityId,
         action: options.action,
-        oldValue: options.oldValue ? JSON.parse(JSON.stringify(options.oldValue)) : null,
-        newValue: options.newValue ? JSON.parse(JSON.stringify(options.newValue)) : null,
+        oldValue: options.oldValue
+          ? JSON.parse(JSON.stringify(options.oldValue))
+          : null,
+        newValue: options.newValue
+          ? JSON.parse(JSON.stringify(options.newValue))
+          : null,
         ipAddress: options.ipAddress || null,
         userAgent: options.userAgent || null,
         correlationId: resolvedCorrelationId,

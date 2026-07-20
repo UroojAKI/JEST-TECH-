@@ -1,4 +1,8 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { QuotationStatus } from '@prisma/client';
 
 import { QuotationRepository } from '../../repositories/quotation.repository';

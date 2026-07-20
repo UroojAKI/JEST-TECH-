@@ -1,7 +1,4 @@
-import {
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import * as argon2 from 'argon2';
 
 import { AuditAction, RoleType } from '@prisma/client';
@@ -12,14 +9,10 @@ import { UserRepository } from '../repositories/user.repository';
 
 @Injectable()
 export class UsersService {
-  constructor(
-    private readonly userRepository: UserRepository,
-  ) {}
+  constructor(private readonly userRepository: UserRepository) {}
 
   async create(dto: CreateUserDto) {
-    const role = await this.userRepository.findRoleByType(
-      dto.role,
-    );
+    const role = await this.userRepository.findRoleByType(dto.role);
 
     if (!role) {
       throw new NotFoundException('Role not found');

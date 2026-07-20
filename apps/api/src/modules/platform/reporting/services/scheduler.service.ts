@@ -26,8 +26,10 @@ export class SchedulerService {
 
     for (const schedule of schedules) {
       try {
-        this.logger.log(`Running scheduled report: ${schedule.report.name} (${schedule.report.id})`);
-        
+        this.logger.log(
+          `Running scheduled report: ${schedule.report.name} (${schedule.report.id})`,
+        );
+
         // Execute the report (default system user or null for system runs)
         const command = new ExecuteReportCommand(schedule.reportId, {}, null);
         await this.commands.handleExecuteReport(command, 'csv');
@@ -37,9 +39,10 @@ export class SchedulerService {
           where: { id: schedule.id },
           data: { nextRun: new Date(Date.now() + 24 * 60 * 60 * 1000) }, // mock next run in 24 hours
         });
-
       } catch (err: any) {
-        this.logger.error(`Scheduled run failed for report ${schedule.report.name}: ${err.message}`);
+        this.logger.error(
+          `Scheduled run failed for report ${schedule.report.name}: ${err.message}`,
+        );
       }
     }
   }

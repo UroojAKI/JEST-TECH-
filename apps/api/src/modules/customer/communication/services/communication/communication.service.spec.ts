@@ -28,7 +28,9 @@ describe('CommunicationService', () => {
 
   describe('logOutboundMessage', () => {
     it('should create a log entry with OUTBOUND direction and SENT status', async () => {
-      jest.spyOn(prisma.communicationLog, 'create').mockResolvedValue({ id: 'log-1' } as any);
+      jest
+        .spyOn(prisma.communicationLog, 'create')
+        .mockResolvedValue({ id: 'log-1' } as any);
 
       const result = await service.logOutboundMessage({
         channel: 'WHATSAPP',
@@ -47,15 +49,17 @@ describe('CommunicationService', () => {
             status: 'SENT',
             channel: 'WHATSAPP',
             providerMessageId: 'msg-123',
-          })
-        })
+          }),
+        }),
       );
     });
   });
 
   describe('updateDeliveryStatus', () => {
     it('should map provider DELIVERED to JEST DELIVERED and set deliveredAt', async () => {
-      jest.spyOn(prisma.communicationLog, 'updateMany').mockResolvedValue({ count: 1 } as any);
+      jest
+        .spyOn(prisma.communicationLog, 'updateMany')
+        .mockResolvedValue({ count: 1 });
 
       const result = await service.updateDeliveryStatus('msg-123', 'Delivered');
 
@@ -65,12 +69,14 @@ describe('CommunicationService', () => {
         data: expect.objectContaining({
           status: 'DELIVERED',
           deliveredAt: expect.any(Date),
-        })
+        }),
       });
     });
 
     it('should map provider UNDELIVERED to JEST FAILED and set failedAt', async () => {
-      jest.spyOn(prisma.communicationLog, 'updateMany').mockResolvedValue({ count: 1 } as any);
+      jest
+        .spyOn(prisma.communicationLog, 'updateMany')
+        .mockResolvedValue({ count: 1 });
 
       await service.updateDeliveryStatus('msg-123', 'Undelivered', 'ERR_500');
 
@@ -80,7 +86,7 @@ describe('CommunicationService', () => {
           status: 'FAILED',
           failedAt: expect.any(Date),
           errorCode: 'ERR_500',
-        })
+        }),
       });
     });
   });

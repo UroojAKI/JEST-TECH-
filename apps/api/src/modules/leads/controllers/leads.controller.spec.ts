@@ -28,9 +28,7 @@ describe('LeadsController', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       controllers: [LeadsController],
-      providers: [
-        { provide: LeadsService, useValue: service },
-      ],
+      providers: [{ provide: LeadsService, useValue: service }],
     }).compile();
 
     controller = module.get<LeadsController>(LeadsController);
@@ -47,7 +45,7 @@ describe('LeadsController', () => {
       service.create.mockResolvedValue(expectedResult as any);
 
       const result = await controller.create(dto, mockUser);
-      
+
       expect(service.create).toHaveBeenCalledWith(dto, mockUser.id);
       expect(result).toEqual(expectedResult);
     });
@@ -59,7 +57,7 @@ describe('LeadsController', () => {
       service.findAll.mockResolvedValue(expectedResult as any);
 
       const result = await controller.findAll(mockUser);
-      
+
       expect(service.findAll).toHaveBeenCalledWith(mockUser);
       expect(result).toEqual(expectedResult);
     });
@@ -71,7 +69,7 @@ describe('LeadsController', () => {
       service.findById.mockResolvedValue(expectedResult as any);
 
       const result = await controller.findOne('lead-1', mockUser);
-      
+
       expect(service.findById).toHaveBeenCalledWith('lead-1', mockUser);
       expect(result).toEqual(expectedResult);
     });
@@ -84,7 +82,7 @@ describe('LeadsController', () => {
       service.update.mockResolvedValue(expectedResult as any);
 
       const result = await controller.update('lead-1', dto, mockUser);
-      
+
       expect(service.update).toHaveBeenCalledWith('lead-1', dto, mockUser);
       expect(result).toEqual(expectedResult);
     });
@@ -96,7 +94,7 @@ describe('LeadsController', () => {
       service.remove.mockResolvedValue(expectedResult as any);
 
       const result = await controller.remove('lead-1', mockUser);
-      
+
       expect(service.remove).toHaveBeenCalledWith('lead-1', mockUser.id);
       expect(result).toEqual(expectedResult);
     });

@@ -1,29 +1,44 @@
 // import removed
-import { Prisma, Policy, PolicyRenewal, PolicyPayment, PolicyDocument, PolicyHistory } from '@prisma/client';
+import {
+  Prisma,
+  Policy,
+  PolicyRenewal,
+  PolicyPayment,
+  PolicyDocument,
+  PolicyHistory,
+} from '@prisma/client';
 import { BaseRepository } from '../../../common/base/base.repository';
 import { PrismaService } from '../../../database/prisma.service';
 
 import { checkOptimisticLock } from '../../../common/utils/optimistic-lock';
 
-export const policyWithRelations = Prisma.validator<Prisma.PolicyDefaultArgs>()({
-  include: {
-    contact: true,
-    account: true,
-    quotation: true,
-    members: true,
-    nominees: true,
-    renewals: { orderBy: { renewalNumber: 'desc' } },
-    payments: { orderBy: { paymentDate: 'desc' } },
-    documents: true,
-    histories: { orderBy: { createdAt: 'desc' } },
+export const policyWithRelations = Prisma.validator<Prisma.PolicyDefaultArgs>()(
+  {
+    include: {
+      contact: true,
+      account: true,
+      quotation: true,
+      members: true,
+      nominees: true,
+      renewals: { orderBy: { renewalNumber: 'desc' } },
+      payments: { orderBy: { paymentDate: 'desc' } },
+      documents: true,
+      histories: { orderBy: { createdAt: 'desc' } },
+    },
   },
-});
+);
 
-export type PolicyWithRelations = Prisma.PolicyGetPayload<typeof policyWithRelations>;
+export type PolicyWithRelations = Prisma.PolicyGetPayload<
+  typeof policyWithRelations
+>;
 
 import { Injectable } from '@nestjs/common';
 @Injectable()
-export class PolicyRepository extends BaseRepository<Prisma.PolicyDelegate, Policy, PolicyWithRelations> {
+export class PolicyRepository extends BaseRepository<
+  Prisma.PolicyDelegate,
+  Policy,
+  PolicyWithRelations
+> {
   protected get basicArgs() {
     return { include: policyWithRelations.include };
   }
@@ -40,7 +55,10 @@ export class PolicyRepository extends BaseRepository<Prisma.PolicyDelegate, Poli
     return `POL-${result[0].nextval.toString().padStart(6, '0')}`;
   }
 
-  async create(data: Prisma.PolicyCreateInput, tx?: Prisma.TransactionClient): Promise<PolicyWithRelations> {
+  async create(
+    data: Prisma.PolicyCreateInput,
+    tx?: Prisma.TransactionClient,
+  ): Promise<PolicyWithRelations> {
     const client = tx || this.prisma;
     return client.policy.create({
       data,
@@ -59,14 +77,18 @@ export class PolicyRepository extends BaseRepository<Prisma.PolicyDelegate, Poli
     });
   }
 
-  async findByPolicyNumber(policyNumber: string): Promise<PolicyWithRelations | null> {
+  async findByPolicyNumber(
+    policyNumber: string,
+  ): Promise<PolicyWithRelations | null> {
     return this.prisma.policy.findUnique({
       where: { policyNumber },
       include: policyWithRelations.include,
     });
   }
 
-  async findByQuotationId(quotationId: string): Promise<PolicyWithRelations | null> {
+  async findByQuotationId(
+    quotationId: string,
+  ): Promise<PolicyWithRelations | null> {
     return this.prisma.policy.findUnique({
       where: { quotationId },
       include: policyWithRelations.include,
@@ -81,7 +103,11 @@ export class PolicyRepository extends BaseRepository<Prisma.PolicyDelegate, Poli
   ): Promise<PolicyWithRelations> {
     const client = tx || this.prisma;
     if (expectedVersion !== undefined) {
-      const nextVersion = await checkOptimisticLock(client.policy, id, expectedVersion);
+      const nextVersion = await checkOptimisticLock(
+        client.policy,
+        id,
+        expectedVersion,
+      );
       data.version = nextVersion;
     }
     return client.policy.update({
@@ -101,15 +127,22 @@ export class PolicyRepository extends BaseRepository<Prisma.PolicyDelegate, Poli
     });
   }
 
-  async createRenewal(data: Prisma.PolicyRenewalCreateInput): Promise<PolicyRenewal> {
+  async createRenewal(
+    data: Prisma.PolicyRenewalCreateInput,
+  ): Promise<PolicyRenewal> {
     return this.prisma.policyRenewal.create({ data });
   }
 
-  async addPayment(data: Prisma.PolicyPaymentCreateInput): Promise<PolicyPayment> {
+  async addPayment(
+    data: Prisma.PolicyPaymentCreateInput,
+  ): Promise<PolicyPayment> {
     return this.prisma.policyPayment.create({ data });
   }
 
-  async addDocument(data: Prisma.PolicyDocumentCreateInput, tx?: Prisma.TransactionClient): Promise<PolicyDocument> {
+  async addDocument(
+    data: Prisma.PolicyDocumentCreateInput,
+    tx?: Prisma.TransactionClient,
+  ): Promise<PolicyDocument> {
     const client = tx || this.prisma;
     return client.policyDocument.create({ data });
   }

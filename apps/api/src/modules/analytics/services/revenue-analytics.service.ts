@@ -46,14 +46,15 @@ export class RevenueAnalyticsService {
     const startOfYear = new Date(now.getFullYear(), 0, 1);
     const startOfLastYear = new Date(now.getFullYear() - 1, 0, 1);
 
-    const [today, yesterday, thisWeek, thisMonth, thisYear, lastYear] = await Promise.all([
-      this.getSum(startOfToday),
-      this.getSum(startOfYesterday, startOfToday),
-      this.getSum(startOfWeek),
-      this.getSum(startOfMonth),
-      this.getSum(startOfYear),
-      this.getSum(startOfLastYear, startOfYear),
-    ]);
+    const [today, yesterday, thisWeek, thisMonth, thisYear, lastYear] =
+      await Promise.all([
+        this.getSum(startOfToday),
+        this.getSum(startOfYesterday, startOfToday),
+        this.getSum(startOfWeek),
+        this.getSum(startOfMonth),
+        this.getSum(startOfYear),
+        this.getSum(startOfLastYear, startOfYear),
+      ]);
 
     return {
       today,

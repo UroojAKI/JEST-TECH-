@@ -6,7 +6,11 @@ export class PdfService {
    * Stub generator simulating quotation PDF file generation.
    * Returns metadata indicating document key, name, and size.
    */
-  generatePdfStub(quotationCode: string): { fileName: string; fileKey: string; fileSize: number } {
+  generatePdfStub(quotationCode: string): {
+    fileName: string;
+    fileKey: string;
+    fileSize: number;
+  } {
     const cleanCode = quotationCode.replace(/[^a-zA-Z0-9]/g, '_');
     return {
       fileName: `quotation_${cleanCode}.pdf`,

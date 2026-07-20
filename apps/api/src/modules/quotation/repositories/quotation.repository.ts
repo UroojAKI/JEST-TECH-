@@ -1,27 +1,40 @@
 // import removed
-import { Prisma, Quotation, QuotationVersion, QuotationHistory, QuotationDocument } from '@prisma/client';
+import {
+  Prisma,
+  Quotation,
+  QuotationVersion,
+  QuotationHistory,
+  QuotationDocument,
+} from '@prisma/client';
 import { BaseRepository } from '../../../common/base/base.repository';
 import { PrismaService } from '../../../database/prisma.service';
 import { checkOptimisticLock } from '../../../common/utils/optimistic-lock';
 
-export const quotationWithRelations = Prisma.validator<Prisma.QuotationDefaultArgs>()({
-  include: {
-    contact: true,
-    account: true,
-    lead: true,
-    versions: { orderBy: { versionNumber: 'desc' } },
-    addons: true,
-    discounts: true,
-    histories: { orderBy: { createdAt: 'desc' } },
-    documents: true,
-  },
-});
+export const quotationWithRelations =
+  Prisma.validator<Prisma.QuotationDefaultArgs>()({
+    include: {
+      contact: true,
+      account: true,
+      lead: true,
+      versions: { orderBy: { versionNumber: 'desc' } },
+      addons: true,
+      discounts: true,
+      histories: { orderBy: { createdAt: 'desc' } },
+      documents: true,
+    },
+  });
 
-export type QuotationWithRelations = Prisma.QuotationGetPayload<typeof quotationWithRelations>;
+export type QuotationWithRelations = Prisma.QuotationGetPayload<
+  typeof quotationWithRelations
+>;
 
 import { Injectable } from '@nestjs/common';
 @Injectable()
-export class QuotationRepository extends BaseRepository<Prisma.QuotationDelegate, Quotation, QuotationWithRelations> {
+export class QuotationRepository extends BaseRepository<
+  Prisma.QuotationDelegate,
+  Quotation,
+  QuotationWithRelations
+> {
   protected get basicArgs() {
     return { include: quotationWithRelations.include };
   }
@@ -38,7 +51,9 @@ export class QuotationRepository extends BaseRepository<Prisma.QuotationDelegate
     return `QTN-${result[0].nextval.toString().padStart(6, '0')}`;
   }
 
-  async create(data: Prisma.QuotationCreateInput): Promise<QuotationWithRelations> {
+  async create(
+    data: Prisma.QuotationCreateInput,
+  ): Promise<QuotationWithRelations> {
     return this.prisma.quotation.create({
       data,
       include: quotationWithRelations.include,
@@ -56,7 +71,9 @@ export class QuotationRepository extends BaseRepository<Prisma.QuotationDelegate
     });
   }
 
-  async findByQuotationCode(quotationCode: string): Promise<QuotationWithRelations | null> {
+  async findByQuotationCode(
+    quotationCode: string,
+  ): Promise<QuotationWithRelations | null> {
     return this.prisma.quotation.findUnique({
       where: { quotationCode },
       include: quotationWithRelations.include,
@@ -71,7 +88,11 @@ export class QuotationRepository extends BaseRepository<Prisma.QuotationDelegate
   ): Promise<QuotationWithRelations> {
     const client = tx || this.prisma;
     if (expectedVersion !== undefined) {
-      const nextVersion = await checkOptimisticLock(client.quotation, id, expectedVersion);
+      const nextVersion = await checkOptimisticLock(
+        client.quotation,
+        id,
+        expectedVersion,
+      );
       data.version = nextVersion;
     }
     return client.quotation.update({
@@ -91,7 +112,9 @@ export class QuotationRepository extends BaseRepository<Prisma.QuotationDelegate
     });
   }
 
-  async createVersion(data: Prisma.QuotationVersionCreateInput): Promise<QuotationVersion> {
+  async createVersion(
+    data: Prisma.QuotationVersionCreateInput,
+  ): Promise<QuotationVersion> {
     return this.prisma.quotationVersion.create({ data });
   }
 

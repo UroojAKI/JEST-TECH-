@@ -1,5 +1,12 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { Prisma, Report, ReportColumn, ReportFilter, ReportExecution, ReportSchedule } from '@prisma/client';
+import {
+  Prisma,
+  Report,
+  ReportColumn,
+  ReportFilter,
+  ReportExecution,
+  ReportSchedule,
+} from '@prisma/client';
 import { PrismaService } from '../../../../database/prisma.service';
 
 const reportWithRelations = Prisma.validator<Prisma.ReportDefaultArgs>()({
@@ -10,7 +17,9 @@ const reportWithRelations = Prisma.validator<Prisma.ReportDefaultArgs>()({
   },
 });
 
-export type ReportWithRelations = Prisma.ReportGetPayload<typeof reportWithRelations>;
+export type ReportWithRelations = Prisma.ReportGetPayload<
+  typeof reportWithRelations
+>;
 
 @Injectable()
 export class ReportsRepository {
@@ -28,8 +37,22 @@ export class ReportsRepository {
     shared?: boolean;
     parentId?: string;
     createdById?: string;
-    columns: { field: string; label: string; type: string; sortable?: boolean; filterable?: boolean; visible?: boolean; order?: number; configuration?: any }[];
-    filters?: { field: string; operator: any; defaultValue?: any; required?: boolean }[];
+    columns: {
+      field: string;
+      label: string;
+      type: string;
+      sortable?: boolean;
+      filterable?: boolean;
+      visible?: boolean;
+      order?: number;
+      configuration?: any;
+    }[];
+    filters?: {
+      field: string;
+      operator: any;
+      defaultValue?: any;
+      required?: boolean;
+    }[];
   }): Promise<ReportWithRelations> {
     return this.prisma.$transaction(async (tx) => {
       const report = await tx.report.create({
@@ -61,7 +84,8 @@ export class ReportsRepository {
             create: (data.filters || []).map((f) => ({
               field: f.field,
               operator: f.operator,
-              defaultValue: f.defaultValue !== undefined ? f.defaultValue : Prisma.JsonNull,
+              defaultValue:
+                f.defaultValue !== undefined ? f.defaultValue : Prisma.JsonNull,
               required: f.required || false,
             })),
           },
@@ -88,15 +112,30 @@ export class ReportsRepository {
       shared?: boolean;
       parentId?: string;
       updatedById?: string;
-      columns?: { field: string; label: string; type: string; sortable?: boolean; filterable?: boolean; visible?: boolean; order?: number; configuration?: any }[];
-      filters?: { field: string; operator: any; defaultValue?: any; required?: boolean }[];
+      columns?: {
+        field: string;
+        label: string;
+        type: string;
+        sortable?: boolean;
+        filterable?: boolean;
+        visible?: boolean;
+        order?: number;
+        configuration?: any;
+      }[];
+      filters?: {
+        field: string;
+        operator: any;
+        defaultValue?: any;
+        required?: boolean;
+      }[];
     },
   ): Promise<ReportWithRelations> {
     return this.prisma.$transaction(async (tx) => {
       const existing = await tx.report.findUnique({
         where: { id },
       });
-      if (!existing) throw new NotFoundException(`Report with ID ${id} not found`);
+      if (!existing)
+        throw new NotFoundException(`Report with ID ${id} not found`);
 
       // Update basic fields
       const updateData: Prisma.ReportUpdateInput = {
@@ -107,9 +146,16 @@ export class ReportsRepository {
         type: data.type,
         status: data.status,
         shared: data.shared,
-        parent: data.parentId === null ? { disconnect: true } : (data.parentId ? { connect: { id: data.parentId } } : undefined),
+        parent:
+          data.parentId === null
+            ? { disconnect: true }
+            : data.parentId
+              ? { connect: { id: data.parentId } }
+              : undefined,
         version: { increment: 1 },
-        updatedBy: data.updatedById ? { connect: { id: data.updatedById } } : undefined,
+        updatedBy: data.updatedById
+          ? { connect: { id: data.updatedById } }
+          : undefined,
       };
 
       if (data.columns) {
@@ -136,7 +182,8 @@ export class ReportsRepository {
           create: data.filters.map((f) => ({
             field: f.field,
             operator: f.operator,
-            defaultValue: f.defaultValue !== undefined ? f.defaultValue : Prisma.JsonNull,
+            defaultValue:
+              f.defaultValue !== undefined ? f.defaultValue : Prisma.JsonNull,
             required: f.required || false,
           })),
         };
@@ -210,7 +257,8 @@ export class ReportsRepository {
   async softDelete(id: string): Promise<void> {
     const report = await this.prisma.report.findUnique({ where: { id } });
     if (!report) throw new NotFoundException(`Report with ID ${id} not found`);
-    if (report.isSystem) throw new Error('Cannot delete a system-defined report template.');
+    if (report.isSystem)
+      throw new Error('Cannot delete a system-defined report template.');
     await this.prisma.report.update({
       where: { id },
       data: { deletedAt: new Date() },
@@ -304,11 +352,14 @@ export class ReportsRepository {
   }
 
   async updateStats(reportId: string, duration: number): Promise<void> {
-    const report = await this.prisma.report.findUnique({ where: { id: reportId } });
+    const report = await this.prisma.report.findUnique({
+      where: { id: reportId },
+    });
     if (!report) return;
 
     const count = report.executionCount + 1;
-    const newAverage = (report.averageDuration * report.executionCount + duration) / count;
+    const newAverage =
+      (report.averageDuration * report.executionCount + duration) / count;
 
     await this.prisma.report.update({
       where: { id: reportId },
@@ -361,7 +412,12 @@ export class ReportsRepository {
   }
 
   // --- Saved Filters ---
-  async saveFilter(reportId: string, userId: string, name: string, filters: any) {
+  async saveFilter(
+    reportId: string,
+    userId: string,
+    name: string,
+    filters: any,
+  ) {
     return this.prisma.savedFilter.upsert({
       where: {
         userId_name_reportId: { userId, name, reportId },
@@ -389,8 +445,10 @@ export class ReportsRepository {
     const filter = await this.prisma.savedFilter.findUnique({
       where: { id: filterId },
     });
-    if (!filter) throw new NotFoundException(`Saved filter with ID ${filterId} not found`);
-    if (filter.userId !== userId) throw new NotFoundException(`Saved filter with ID ${filterId} not found`);
+    if (!filter)
+      throw new NotFoundException(`Saved filter with ID ${filterId} not found`);
+    if (filter.userId !== userId)
+      throw new NotFoundException(`Saved filter with ID ${filterId} not found`);
 
     await this.prisma.savedFilter.delete({
       where: { id: filterId },

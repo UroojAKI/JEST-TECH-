@@ -1,4 +1,15 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, Query, Res, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Put,
+  Delete,
+  Body,
+  Param,
+  Query,
+  Res,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import * as express from 'express';
 import { JwtAuthGuard } from '../../../auth/guards/jwt-auth.guard';
@@ -49,21 +60,31 @@ export class ReportsController {
 
   @Post()
   @RequirePermissions('REPORT_CREATE')
-  async createReport(@Body() dto: CreateReportDto, @CurrentUser() user: RequestUser) {
+  async createReport(
+    @Body() dto: CreateReportDto,
+    @CurrentUser() user: RequestUser,
+  ) {
     const command = new CreateReportCommand(dto, user.id);
     return this.commands.handleCreateReport(command);
   }
 
   @Put(':id')
   @RequirePermissions('REPORT_CREATE')
-  async updateReport(@Param('id') id: string, @Body() dto: UpdateReportDto, @CurrentUser() user: RequestUser) {
+  async updateReport(
+    @Param('id') id: string,
+    @Body() dto: UpdateReportDto,
+    @CurrentUser() user: RequestUser,
+  ) {
     const command = new UpdateReportCommand(id, dto, user.id);
     return this.commands.handleUpdateReport(command);
   }
 
   @Delete(':id')
   @RequirePermissions('REPORT_CREATE')
-  async deleteReport(@Param('id') id: string, @CurrentUser() user: RequestUser) {
+  async deleteReport(
+    @Param('id') id: string,
+    @CurrentUser() user: RequestUser,
+  ) {
     const command = new DeleteReportCommand(id, user.id);
     return this.commands.handleDeleteReport(command);
   }
@@ -126,7 +147,10 @@ export class ReportsController {
         const filtersList = report.filters.map((f) => ({
           field: f.field,
           operator: f.operator,
-          value: dto.parameters?.[f.field] !== undefined ? dto.parameters[f.field] : f.defaultValue,
+          value:
+            dto.parameters?.[f.field] !== undefined
+              ? dto.parameters[f.field]
+              : f.defaultValue,
         }));
 
         const generator = provider.stream({
@@ -136,7 +160,10 @@ export class ReportsController {
         });
 
         res.setHeader('Content-Type', 'text/csv');
-        res.setHeader('Content-Disposition', `attachment; filename="${report.code.toLowerCase()}_stream.csv"`);
+        res.setHeader(
+          'Content-Disposition',
+          `attachment; filename="${report.code.toLowerCase()}_stream.csv"`,
+        );
 
         const csvStream = this.exporter.streamCsv(generator, report.columns);
         csvStream.pipe(res);
@@ -148,16 +175,16 @@ export class ReportsController {
     const result = await this.commands.handleExecuteReport(command, format);
 
     res.setHeader('Content-Type', result.mimeType);
-    res.setHeader('Content-Disposition', `attachment; filename="${result.filename}"`);
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="${result.filename}"`,
+    );
     res.send(result.buffer);
   }
 
   @Post(':id/preview')
   @RequirePermissions('REPORT_VIEW')
-  async previewReport(
-    @Param('id') id: string,
-    @Body() dto: ExecuteReportDto,
-  ) {
+  async previewReport(@Param('id') id: string, @Body() dto: ExecuteReportDto) {
     const query = new PreviewReportQuery(id, dto.parameters || {}, dto.search);
     return this.queries.handlePreviewReport(query);
   }
@@ -166,10 +193,14 @@ export class ReportsController {
   @RequirePermissions('REPORT_VIEW')
   async drilldownReport(
     @Param('id') id: string,
-    @Body() dto: { field: string; value: any; parameters?: Record<string, any> },
+    @Body()
+    dto: { field: string; value: any; parameters?: Record<string, any> },
   ) {
     const report = await this.queries.handleGetReport(new GetReportQuery(id));
-    const combinedParams = { ...(dto.parameters || {}), [dto.field]: dto.value };
+    const combinedParams = {
+      ...(dto.parameters || {}),
+      [dto.field]: dto.value,
+    };
     const query = new PreviewReportQuery(report.id, combinedParams);
     return this.queries.handlePreviewReport(query);
   }
@@ -185,14 +216,20 @@ export class ReportsController {
 
   @Post(':id/schedules')
   @RequirePermissions('REPORT_SCHEDULE')
-  async createSchedule(@Param('id') id: string, @Body() dto: CreateScheduleDto) {
+  async createSchedule(
+    @Param('id') id: string,
+    @Body() dto: CreateScheduleDto,
+  ) {
     const command = new CreateScheduleCommand(id, dto);
     return this.commands.handleCreateSchedule(command);
   }
 
   @Put('schedules/:scheduleId')
   @RequirePermissions('REPORT_SCHEDULE')
-  async updateSchedule(@Param('scheduleId') scheduleId: string, @Body() dto: UpdateScheduleDto) {
+  async updateSchedule(
+    @Param('scheduleId') scheduleId: string,
+    @Body() dto: UpdateScheduleDto,
+  ) {
     const command = new UpdateScheduleCommand(scheduleId, dto);
     return this.commands.handleUpdateSchedule(command);
   }
@@ -208,13 +245,19 @@ export class ReportsController {
 
   @Post(':id/favorite')
   @RequirePermissions('REPORT_VIEW')
-  async favoriteReport(@Param('id') id: string, @CurrentUser() user: RequestUser) {
+  async favoriteReport(
+    @Param('id') id: string,
+    @CurrentUser() user: RequestUser,
+  ) {
     return this.queries.favoriteReport(id, user.id);
   }
 
   @Delete(':id/favorite')
   @RequirePermissions('REPORT_VIEW')
-  async unfavoriteReport(@Param('id') id: string, @CurrentUser() user: RequestUser) {
+  async unfavoriteReport(
+    @Param('id') id: string,
+    @CurrentUser() user: RequestUser,
+  ) {
     return this.queries.unfavoriteReport(id, user.id);
   }
 
@@ -232,13 +275,19 @@ export class ReportsController {
 
   @Get(':id/filters')
   @RequirePermissions('REPORT_VIEW')
-  async getSavedFilters(@Param('id') id: string, @CurrentUser() user: RequestUser) {
+  async getSavedFilters(
+    @Param('id') id: string,
+    @CurrentUser() user: RequestUser,
+  ) {
     return this.queries.getSavedFilters(id, user.id);
   }
 
   @Delete('filters/:filterId')
   @RequirePermissions('REPORT_VIEW')
-  async deleteSavedFilter(@Param('filterId') filterId: string, @CurrentUser() user: RequestUser) {
+  async deleteSavedFilter(
+    @Param('filterId') filterId: string,
+    @CurrentUser() user: RequestUser,
+  ) {
     return this.queries.deleteSavedFilter(filterId, user.id);
   }
 }

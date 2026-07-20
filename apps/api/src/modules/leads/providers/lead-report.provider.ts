@@ -1,5 +1,9 @@
 import { Injectable, OnModuleInit } from '@nestjs/common';
-import { ReportDataProvider, ReportParameters, ReportResult } from '../../platform/reporting/interfaces/report-provider.interface';
+import {
+  ReportDataProvider,
+  ReportParameters,
+  ReportResult,
+} from '../../platform/reporting/interfaces/report-provider.interface';
 import { ReportDataProviderRegistry } from '../../platform/reporting/services/report-data-provider-registry.service';
 import { PrismaService } from '../../../database/prisma.service';
 
@@ -15,7 +19,9 @@ export class LeadReportProvider implements ReportDataProvider, OnModuleInit {
   }
 
   supports(reportCode: string): boolean {
-    return ['LEAD_SUMMARY', 'LEAD_CONVERSION'].includes(reportCode.toUpperCase());
+    return ['LEAD_SUMMARY', 'LEAD_CONVERSION'].includes(
+      reportCode.toUpperCase(),
+    );
   }
 
   async execute(params: ReportParameters): Promise<ReportResult> {
@@ -27,7 +33,9 @@ export class LeadReportProvider implements ReportDataProvider, OnModuleInit {
     return this.executeLeadSummary(params);
   }
 
-  private async executeLeadSummary(params: ReportParameters): Promise<ReportResult> {
+  private async executeLeadSummary(
+    params: ReportParameters,
+  ): Promise<ReportResult> {
     const leads = await this.prisma.lead.findMany({
       where: { deletedAt: null },
       include: {
@@ -39,9 +47,13 @@ export class LeadReportProvider implements ReportDataProvider, OnModuleInit {
 
     const rows = leads.map((l) => ({
       leadCode: l.leadCode,
-      contactName: l.contact ? `${l.contact.firstName} ${l.contact.lastName}` : '',
+      contactName: l.contact
+        ? `${l.contact.firstName} ${l.contact.lastName}`
+        : '',
       source: l.source,
-      assignedAgentName: l.assignedTo ? `${l.assignedTo.firstName} ${l.assignedTo.lastName}` : '',
+      assignedAgentName: l.assignedTo
+        ? `${l.assignedTo.firstName} ${l.assignedTo.lastName}`
+        : '',
       status: l.status,
       createdAt: l.createdAt,
       lastActivityAt: l.updatedAt,
@@ -51,7 +63,9 @@ export class LeadReportProvider implements ReportDataProvider, OnModuleInit {
     return { rows };
   }
 
-  private async executeLeadConversion(params: ReportParameters): Promise<ReportResult> {
+  private async executeLeadConversion(
+    params: ReportParameters,
+  ): Promise<ReportResult> {
     const leads = await this.prisma.lead.findMany({
       where: { deletedAt: null },
     });
@@ -60,7 +74,8 @@ export class LeadReportProvider implements ReportDataProvider, OnModuleInit {
     const qualifiedLeads = leads.filter((l) => l.status === 'QUALIFIED').length;
     const convertedLeads = leads.filter((l) => l.status === 'CONVERTED').length;
     const lostLeads = leads.filter((l) => l.status === 'LOST').length;
-    const conversionRate = totalLeads > 0 ? (convertedLeads / totalLeads) * 100 : 0;
+    const conversionRate =
+      totalLeads > 0 ? (convertedLeads / totalLeads) * 100 : 0;
 
     return {
       rows: [
@@ -97,9 +112,13 @@ export class LeadReportProvider implements ReportDataProvider, OnModuleInit {
     for (const l of leads) {
       yield {
         leadCode: l.leadCode,
-        contactName: l.contact ? `${l.contact.firstName} ${l.contact.lastName}` : '',
+        contactName: l.contact
+          ? `${l.contact.firstName} ${l.contact.lastName}`
+          : '',
         source: l.source,
-        assignedAgentName: l.assignedTo ? `${l.assignedTo.firstName} ${l.assignedTo.lastName}` : '',
+        assignedAgentName: l.assignedTo
+          ? `${l.assignedTo.firstName} ${l.assignedTo.lastName}`
+          : '',
         status: l.status,
         createdAt: l.createdAt,
         lastActivityAt: l.updatedAt,

@@ -33,8 +33,14 @@ describe('ProposalsController', () => {
             getProposalDetails: jest.fn().mockResolvedValue(mockProposal),
             createProposal: jest.fn().mockResolvedValue(mockProposal),
             attachDocument: jest.fn().mockResolvedValue(mockProposal),
-            submitProposal: jest.fn().mockResolvedValue({ ...mockProposal, status: ProposalStatus.SUBMITTED }),
-            reviewProposal: jest.fn().mockResolvedValue({ proposal: mockProposal, message: 'APPROVED' }),
+            submitProposal: jest.fn().mockResolvedValue({
+              ...mockProposal,
+              status: ProposalStatus.SUBMITTED,
+            }),
+            reviewProposal: jest.fn().mockResolvedValue({
+              proposal: mockProposal,
+              message: 'APPROVED',
+            }),
           },
         },
       ],
@@ -48,13 +54,19 @@ describe('ProposalsController', () => {
     it('should create proposal draft', async () => {
       const result = await controller.createProposal('quote-123', mockUser);
       expect(result).toEqual(mockProposal);
-      expect(service.createProposal).toHaveBeenCalledWith('quote-123', mockUser.id);
+      expect(service.createProposal).toHaveBeenCalledWith(
+        'quote-123',
+        mockUser.id,
+      );
     });
 
     it('should submit proposal', async () => {
       const result = await controller.submitProposal('prop-123', mockUser);
       expect(result.status).toBe(ProposalStatus.SUBMITTED);
-      expect(service.submitProposal).toHaveBeenCalledWith('prop-123', mockUser.id);
+      expect(service.submitProposal).toHaveBeenCalledWith(
+        'prop-123',
+        mockUser.id,
+      );
     });
   });
 });

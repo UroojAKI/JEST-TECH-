@@ -49,7 +49,9 @@ export class LeadRoutingEngineService {
     });
 
     if (availableAgents.length === 0) {
-      this.logger.warn(`No available agents in queue ${targetQueueId} for lead ${lead.id}`);
+      this.logger.warn(
+        `No available agents in queue ${targetQueueId} for lead ${lead.id}`,
+      );
       return lead;
     }
 

@@ -1,5 +1,15 @@
 import { Injectable } from '@nestjs/common';
-import { Prisma, Claim, ClaimDocument, ClaimAssessment, ClaimPayment, ClaimReserve, ClaimHistory, ClaimCommunication, ClaimStatus } from '@prisma/client';
+import {
+  Prisma,
+  Claim,
+  ClaimDocument,
+  ClaimAssessment,
+  ClaimPayment,
+  ClaimReserve,
+  ClaimHistory,
+  ClaimCommunication,
+  ClaimStatus,
+} from '@prisma/client';
 import { PrismaService } from '../../../database/prisma.service';
 
 import { checkOptimisticLock } from '../../../common/utils/optimistic-lock';
@@ -18,7 +28,9 @@ const claimWithRelations = Prisma.validator<Prisma.ClaimDefaultArgs>()({
   },
 });
 
-export type ClaimWithRelations = Prisma.ClaimGetPayload<typeof claimWithRelations>;
+export type ClaimWithRelations = Prisma.ClaimGetPayload<
+  typeof claimWithRelations
+>;
 
 @Injectable()
 export class ClaimRepository {
@@ -30,7 +42,10 @@ export class ClaimRepository {
     return `CLM-${result[0].nextval.toString().padStart(6, '0')}`;
   }
 
-  async create(data: Prisma.ClaimCreateInput, tx?: Prisma.TransactionClient): Promise<ClaimWithRelations> {
+  async create(
+    data: Prisma.ClaimCreateInput,
+    tx?: Prisma.TransactionClient,
+  ): Promise<ClaimWithRelations> {
     const client = tx || this.prisma;
     return client.claim.create({
       data,
@@ -65,7 +80,9 @@ export class ClaimRepository {
     });
   }
 
-  async findByClaimNumber(claimNumber: string): Promise<ClaimWithRelations | null> {
+  async findByClaimNumber(
+    claimNumber: string,
+  ): Promise<ClaimWithRelations | null> {
     return this.prisma.claim.findUnique({
       where: { claimNumber },
       include: {
@@ -108,7 +125,11 @@ export class ClaimRepository {
   ): Promise<ClaimWithRelations> {
     const client = tx || this.prisma;
     if (expectedVersion !== undefined) {
-      const nextVersion = await checkOptimisticLock(client.claim, id, expectedVersion);
+      const nextVersion = await checkOptimisticLock(
+        client.claim,
+        id,
+        expectedVersion,
+      );
       data.version = nextVersion;
     }
     return client.claim.update({
@@ -128,19 +149,28 @@ export class ClaimRepository {
     });
   }
 
-  async addDocument(data: Prisma.ClaimDocumentCreateInput): Promise<ClaimDocument> {
+  async addDocument(
+    data: Prisma.ClaimDocumentCreateInput,
+  ): Promise<ClaimDocument> {
     return this.prisma.claimDocument.create({ data });
   }
 
-  async addAssessment(data: Prisma.ClaimAssessmentCreateInput): Promise<ClaimAssessment> {
+  async addAssessment(
+    data: Prisma.ClaimAssessmentCreateInput,
+  ): Promise<ClaimAssessment> {
     return this.prisma.claimAssessment.create({ data });
   }
 
-  async addPayment(data: Prisma.ClaimPaymentCreateInput): Promise<ClaimPayment> {
+  async addPayment(
+    data: Prisma.ClaimPaymentCreateInput,
+  ): Promise<ClaimPayment> {
     return this.prisma.claimPayment.create({ data });
   }
 
-  async addReserve(data: Prisma.ClaimReserveCreateInput, tx?: Prisma.TransactionClient): Promise<ClaimReserve> {
+  async addReserve(
+    data: Prisma.ClaimReserveCreateInput,
+    tx?: Prisma.TransactionClient,
+  ): Promise<ClaimReserve> {
     const client = tx || this.prisma;
     return client.claimReserve.create({ data });
   }
@@ -168,7 +198,10 @@ export class ClaimRepository {
     return client.claimHistory.create({ data });
   }
 
-  async addCommunication(data: Prisma.ClaimCommunicationCreateInput, tx?: Prisma.TransactionClient): Promise<ClaimCommunication> {
+  async addCommunication(
+    data: Prisma.ClaimCommunicationCreateInput,
+    tx?: Prisma.TransactionClient,
+  ): Promise<ClaimCommunication> {
     const client = tx || this.prisma;
     return client.claimCommunication.create({ data });
   }

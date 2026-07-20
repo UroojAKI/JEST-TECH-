@@ -105,10 +105,20 @@ describe('WorkflowEngineService', () => {
     mockRegistry.getAdapter.mockReturnValue(mockAdapter);
     jest.spyOn(mockStateMachine, 'validateTransition').mockReturnValue(true);
 
-    await service.transition('PROPOSAL', entityId, transitionId, userId, 'Test comments');
+    await service.transition(
+      'PROPOSAL',
+      entityId,
+      transitionId,
+      userId,
+      'Test comments',
+    );
 
     expect(mockAdapter.getCurrentState).toHaveBeenCalledWith(entityId);
-    expect(mockAdapter.updateState).toHaveBeenCalledWith(entityId, 'SUBMITTED', expect.any(Object));
+    expect(mockAdapter.updateState).toHaveBeenCalledWith(
+      entityId,
+      'SUBMITTED',
+      expect.any(Object),
+    );
     expect(mockPrisma.workflowHistory.create).toHaveBeenCalledWith({
       data: {
         workflowId: 'w1',
@@ -155,7 +165,13 @@ describe('WorkflowEngineService', () => {
     jest.spyOn(mockStateMachine, 'validateTransition').mockReturnValue(false);
 
     await expect(
-      service.transition('PROPOSAL', entityId, transitionId, userId, 'Test comments')
+      service.transition(
+        'PROPOSAL',
+        entityId,
+        transitionId,
+        userId,
+        'Test comments',
+      ),
     ).rejects.toThrow(BadRequestException);
   });
 });

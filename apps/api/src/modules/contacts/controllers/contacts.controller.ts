@@ -38,10 +38,7 @@ export class ContactsController {
     RoleType.TEAM_LEADER,
     RoleType.SALES_AGENT,
   )
-  create(
-    @Body() dto: CreateContactDto,
-    @CurrentUser() user: RequestUser,
-  ) {
+  create(@Body() dto: CreateContactDto, @CurrentUser() user: RequestUser) {
     return this.contactsService.create(dto, user.id);
   }
 
@@ -90,10 +87,7 @@ export class ContactsController {
   @Delete(':id')
   @HttpCode(HttpStatus.OK)
   @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN)
-  remove(
-    @Param('id') id: string,
-    @CurrentUser() user: RequestUser,
-  ) {
+  remove(@Param('id') id: string, @CurrentUser() user: RequestUser) {
     return this.contactsService.remove(id, user.id);
   }
 }

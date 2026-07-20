@@ -28,11 +28,17 @@ export class MinioStorageProvider implements StorageProvider, OnModuleInit {
         this.logger.log(`Created MinIO bucket: ${this.bucket}`);
       }
     } catch (error: any) {
-      this.logger.warn(`MinIO initialization failed: ${error.message}. Falling back to local storage.`);
+      this.logger.warn(
+        `MinIO initialization failed: ${error.message}. Falling back to local storage.`,
+      );
     }
   }
 
-  async uploadFile(buffer: Buffer, key: string, mimeType: string): Promise<string> {
+  async uploadFile(
+    buffer: Buffer,
+    key: string,
+    mimeType: string,
+  ): Promise<string> {
     await this.client.putObject(this.bucket, key, buffer, buffer.length, {
       'Content-Type': mimeType,
     });

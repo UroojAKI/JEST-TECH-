@@ -1,4 +1,8 @@
-import { BadRequestException, ConflictException, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+} from '@nestjs/common';
 import { PolicyStatus, QuotationStatus } from '@prisma/client';
 import { PolicyStateMachine } from './policy-state-machine';
 import { Money } from '../../../common/domain/value-objects/money.value-object';
@@ -9,7 +13,11 @@ export class PolicyDomainService {
    * Domain rules for issuing a policy from an approved quotation.
    */
   validateIssuance(
-    quotation: { status: QuotationStatus; deletedAt?: Date | null; totalPremium: any },
+    quotation: {
+      status: QuotationStatus;
+      deletedAt?: Date | null;
+      totalPremium: any;
+    },
     nominees: { percentage: number }[],
     hasExistingPolicy: boolean,
   ): void {
@@ -22,13 +30,17 @@ export class PolicyDomainService {
 
     // 2. Duplicate Policy check
     if (hasExistingPolicy) {
-      throw new ConflictException('A policy has already been issued for this quotation');
+      throw new ConflictException(
+        'A policy has already been issued for this quotation',
+      );
     }
 
     // 3. Nominees allocation percentages check
     const totalPercentage = nominees.reduce((sum, n) => sum + n.percentage, 0);
     if (totalPercentage !== 100) {
-      throw new BadRequestException('Nominee allocation percentages must sum to exactly 100%');
+      throw new BadRequestException(
+        'Nominee allocation percentages must sum to exactly 100%',
+      );
     }
   }
 
@@ -36,7 +48,10 @@ export class PolicyDomainService {
    * Domain rules for cancelling a policy.
    */
   validateCancellation(currentStatus: PolicyStatus): void {
-    PolicyStateMachine.validateTransition(currentStatus, PolicyStatus.CANCELLED);
+    PolicyStateMachine.validateTransition(
+      currentStatus,
+      PolicyStatus.CANCELLED,
+    );
   }
 
   /**
@@ -53,13 +68,17 @@ export class PolicyDomainService {
 
     // 2. Expiry dates validation
     if (newExpiry <= previousExpiry) {
-      throw new BadRequestException('New expiry date must be after previous expiry date');
+      throw new BadRequestException(
+        'New expiry date must be after previous expiry date',
+      );
     }
 
     // 3. Premium amount validation using Money value object
     const moneyPremium = Money.from(premiumAmount);
     if (moneyPremium.toNumber() <= 0) {
-      throw new BadRequestException('Premium amount for renewal must be greater than zero');
+      throw new BadRequestException(
+        'Premium amount for renewal must be greater than zero',
+      );
     }
   }
 }

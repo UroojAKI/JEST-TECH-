@@ -4,7 +4,12 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Prisma, PolicyStatus, QuotationStatus, PaymentStatus } from '@prisma/client';
+import {
+  Prisma,
+  PolicyStatus,
+  QuotationStatus,
+  PaymentStatus,
+} from '@prisma/client';
 
 import { PolicyRepository } from '../../repositories/policy.repository';
 import { PolicyMapper } from '../../mappers/policy.mapper';
@@ -30,14 +35,22 @@ export class IssuePolicyService {
     // 1. Validate Quotation exists
     const quotation = await this.quotationRepository.findById(dto.quotationId);
     if (!quotation || quotation.deletedAt) {
-      throw new NotFoundException(`Quotation with ID ${dto.quotationId} not found`);
+      throw new NotFoundException(
+        `Quotation with ID ${dto.quotationId} not found`,
+      );
     }
 
     // 2. Check if policy has already been issued for this quotation
-    const existingPolicy = await this.policyRepository.findByQuotationId(dto.quotationId);
+    const existingPolicy = await this.policyRepository.findByQuotationId(
+      dto.quotationId,
+    );
 
     // 3. Delegate to Domain Service for business rule validations
-    this.policyDomainService.validateIssuance(quotation, dto.nominees, !!existingPolicy);
+    this.policyDomainService.validateIssuance(
+      quotation,
+      dto.nominees,
+      !!existingPolicy,
+    );
 
     // 5. Generate Policy Number
     const policyNumber = await this.policyRepository.generatePolicyNumber();
@@ -96,30 +109,42 @@ export class IssuePolicyService {
       const newPolicy = await this.policyRepository.create(policyData, tx);
 
       // Transition Quotation status
-      await this.quotationRepository.update(dto.quotationId, {
-        status: QuotationStatus.CONVERTED_TO_POLICY,
-      }, tx);
+      await this.quotationRepository.update(
+        dto.quotationId,
+        {
+          status: QuotationStatus.CONVERTED_TO_POLICY,
+        },
+        tx,
+      );
 
       // Generate Policy documents stubs
       const schedulePdf = this.pdfService.generatePdfStub(policyNumber);
-      const taxCertificatePdf = this.pdfService.generatePdfStub(`${policyNumber}_TAX`);
+      const taxCertificatePdf = this.pdfService.generatePdfStub(
+        `${policyNumber}_TAX`,
+      );
 
       await Promise.all([
-        this.policyRepository.addDocument({
-          policy: { connect: { id: newPolicy.id } },
-          documentType: 'POLICY_SCHEDULE',
-          fileKey: schedulePdf.fileKey,
-          fileName: schedulePdf.fileName,
-          fileSize: schedulePdf.fileSize,
-        }, tx),
+        this.policyRepository.addDocument(
+          {
+            policy: { connect: { id: newPolicy.id } },
+            documentType: 'POLICY_SCHEDULE',
+            fileKey: schedulePdf.fileKey,
+            fileName: schedulePdf.fileName,
+            fileSize: schedulePdf.fileSize,
+          },
+          tx,
+        ),
 
-        this.policyRepository.addDocument({
-          policy: { connect: { id: newPolicy.id } },
-          documentType: 'TAX_CERTIFICATE',
-          fileKey: taxCertificatePdf.fileKey,
-          fileName: taxCertificatePdf.fileName,
-          fileSize: taxCertificatePdf.fileSize,
-        }, tx),
+        this.policyRepository.addDocument(
+          {
+            policy: { connect: { id: newPolicy.id } },
+            documentType: 'TAX_CERTIFICATE',
+            fileKey: taxCertificatePdf.fileKey,
+            fileName: taxCertificatePdf.fileName,
+            fileSize: taxCertificatePdf.fileSize,
+          },
+          tx,
+        ),
 
         this.policyRepository.addHistoryEntry(
           newPolicy.id,

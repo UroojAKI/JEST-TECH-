@@ -1,7 +1,12 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { ReportsRepository } from '../repositories/reports.repository';
 import { ReportBuilderService } from '../services/report-builder.service';
-import { GetReportQuery, GetReportsQuery, PreviewReportQuery, GetExecutionHistoryQuery } from './report.queries';
+import {
+  GetReportQuery,
+  GetReportsQuery,
+  PreviewReportQuery,
+  GetExecutionHistoryQuery,
+} from './report.queries';
 
 @Injectable()
 export class ReportQueriesService {
@@ -16,7 +21,9 @@ export class ReportQueriesService {
       report = await this.repository.findByCode(query.idOrCode);
     }
     if (!report) {
-      throw new NotFoundException(`Report with ID or Code '${query.idOrCode}' not found`);
+      throw new NotFoundException(
+        `Report with ID or Code '${query.idOrCode}' not found`,
+      );
     }
     return report;
   }
@@ -53,7 +60,12 @@ export class ReportQueriesService {
     return this.repository.getFavorites(userId);
   }
 
-  async saveFilter(reportId: string, userId: string, name: string, filters: any) {
+  async saveFilter(
+    reportId: string,
+    userId: string,
+    name: string,
+    filters: any,
+  ) {
     return this.repository.saveFilter(reportId, userId, name, filters);
   }
 

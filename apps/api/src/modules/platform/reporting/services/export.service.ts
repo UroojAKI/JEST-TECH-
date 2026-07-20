@@ -48,7 +48,7 @@ export class ExportService implements ExportProvider {
     async function* csvGenerator() {
       // Header row
       yield columns.map((c) => c.label).join(',') + '\n';
-      
+
       for await (const row of generator) {
         yield columns
           .map((col) => {
@@ -75,7 +75,11 @@ export class ExportService implements ExportProvider {
     );
   }
 
-  private exportCsv(data: Record<string, any>[], columns: { field: string; label: string }[], reportName: string): ExportResult {
+  private exportCsv(
+    data: Record<string, any>[],
+    columns: { field: string; label: string }[],
+    reportName: string,
+  ): ExportResult {
     const header = columns.map((c) => c.label).join(',');
     const rows = data.map((row) =>
       columns
@@ -96,7 +100,11 @@ export class ExportService implements ExportProvider {
     };
   }
 
-  private async exportExcel(data: Record<string, any>[], columns: { field: string; label: string }[], reportName: string): Promise<ExportResult> {
+  private async exportExcel(
+    data: Record<string, any>[],
+    columns: { field: string; label: string }[],
+    reportName: string,
+  ): Promise<ExportResult> {
     const workbook = new ExcelJS.Workbook();
     workbook.creator = 'JEST Policy CRM';
     workbook.created = new Date();
@@ -107,7 +115,11 @@ export class ExportService implements ExportProvider {
     sheet.addRow(columns.map((c) => c.label));
     const headerRow = sheet.getRow(1);
     headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' } };
-    headerRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4F46E5' } };
+    headerRow.fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: 'FF4F46E5' },
+    };
     headerRow.alignment = { vertical: 'middle' };
     headerRow.height = 22;
 
@@ -142,17 +154,26 @@ export class ExportService implements ExportProvider {
     }
 
     // Totals row for numeric columns
-    const numericCols = columns.filter((col) => data.length > 0 && typeof data[0][col.field] === 'number');
+    const numericCols = columns.filter(
+      (col) => data.length > 0 && typeof data[0][col.field] === 'number',
+    );
     if (numericCols.length > 0) {
       const totals = columns.map((col) => {
         if (numericCols.some((nc) => nc.field === col.field)) {
-          return data.reduce((sum, row) => sum + (Number(row[col.field]) || 0), 0);
+          return data.reduce(
+            (sum, row) => sum + (Number(row[col.field]) || 0),
+            0,
+          );
         }
         return col === columns[0] ? 'TOTAL' : '';
       });
       const totalRow = sheet.addRow(totals);
       totalRow.font = { bold: true };
-      totalRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } };
+      totalRow.fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FFF1F5F9' },
+      };
 
       columns.forEach((col, idx) => {
         if (this.isCurrencyField(col.field)) {
@@ -167,14 +188,18 @@ export class ExportService implements ExportProvider {
     const buffer = Buffer.from(await workbook.xlsx.writeBuffer());
     return {
       buffer,
-      mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      mimeType:
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
       extension: 'xlsx',
       filename: `${this.slugify(reportName)}_${this.dateStamp()}.xlsx`,
     };
   }
 
-  private async exportPdf(data: Record<string, any>[], columns: { field: string; label: string }[], reportName: string): Promise<ExportResult> {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
+  private async exportPdf(
+    data: Record<string, any>[],
+    columns: { field: string; label: string }[],
+    reportName: string,
+  ): Promise<ExportResult> {
     const PdfPrinter = require('pdfmake');
     const fonts = {
       Helvetica: {
@@ -206,8 +231,14 @@ export class ExportService implements ExportProvider {
           let str = '';
           if (val instanceof Date) {
             str = val.toLocaleDateString('en-IN');
-          } else if (typeof val === 'number' && this.isCurrencyField(col.field)) {
-            str = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(val);
+          } else if (
+            typeof val === 'number' &&
+            this.isCurrencyField(col.field)
+          ) {
+            str = new Intl.NumberFormat('en-IN', {
+              style: 'currency',
+              currency: 'INR',
+            }).format(val);
           } else {
             str = String(val ?? '');
           }
@@ -242,8 +273,15 @@ export class ExportService implements ExportProvider {
       },
       content: [
         { text: reportName, style: 'header' },
-        { text: `Generated: ${new Date().toLocaleString('en-IN')}`, style: 'subheader' },
-        { text: `Total Records: ${data.length}`, style: 'subheader', margin: [0, 0, 0, 15] },
+        {
+          text: `Generated: ${new Date().toLocaleString('en-IN')}`,
+          style: 'subheader',
+        },
+        {
+          text: `Total Records: ${data.length}`,
+          style: 'subheader',
+          margin: [0, 0, 0, 15],
+        },
         {
           table: {
             headerRows: 1,
@@ -287,7 +325,10 @@ export class ExportService implements ExportProvider {
   }
 
   private slugify(name: string): string {
-    return name.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
+    return name
+      .toLowerCase()
+      .replace(/\s+/g, '_')
+      .replace(/[^a-z0-9_]/g, '');
   }
 
   private dateStamp(): string {

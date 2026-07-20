@@ -1,8 +1,13 @@
 import { Controller, Get, ServiceUnavailableException } from '@nestjs/common';
-import { HealthCheck, HealthCheckService, PrismaHealthIndicator, DiskHealthIndicator, MemoryHealthIndicator } from '@nestjs/terminus';
+import {
+  HealthCheck,
+  HealthCheckService,
+  PrismaHealthIndicator,
+  DiskHealthIndicator,
+  MemoryHealthIndicator,
+} from '@nestjs/terminus';
 import { PrismaService } from '../../database/prisma.service';
 import { HealthService } from './health.service';
-
 
 @Controller('health')
 export class HealthController {
@@ -29,7 +34,11 @@ export class HealthController {
   checkTerminus() {
     return this.healthCheck.check([
       () => this.db.pingCheck('database', this.prisma),
-      () => this.disk.checkStorage('disk', { path: process.platform === 'win32' ? 'C:\\' : '/', thresholdPercent: 0.9 }),
+      () =>
+        this.disk.checkStorage('disk', {
+          path: process.platform === 'win32' ? 'C:\\' : '/',
+          thresholdPercent: 0.9,
+        }),
       () => this.memory.checkHeap('memory_heap', 512 * 1024 * 1024),
       () => this.memory.checkRSS('memory_rss', 512 * 1024 * 1024),
     ]);
@@ -37,7 +46,11 @@ export class HealthController {
 
   @Get('live')
   async live() {
-    return { status: 'alive', uptime: process.uptime(), timestamp: new Date().toISOString() };
+    return {
+      status: 'alive',
+      uptime: process.uptime(),
+      timestamp: new Date().toISOString(),
+    };
   }
 
   @Get('ready')

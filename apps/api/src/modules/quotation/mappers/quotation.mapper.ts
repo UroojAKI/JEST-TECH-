@@ -84,7 +84,9 @@ export class QuotationMapper {
     return dto;
   }
 
-  static toResponseList(quotations: QuotationWithRelations[]): QuotationResponseDto[] {
+  static toResponseList(
+    quotations: QuotationWithRelations[],
+  ): QuotationResponseDto[] {
     return quotations.map((q) => this.toResponse(q));
   }
 }

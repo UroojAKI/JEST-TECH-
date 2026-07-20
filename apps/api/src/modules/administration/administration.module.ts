@@ -11,8 +11,22 @@ import { DatabaseModule } from '../../database/database.module';
 
 @Module({
   imports: [DatabaseModule],
-  providers: [SystemConfigService, LookupService, NumberingEngineService, OrganizationService],
-  controllers: [SystemConfigController, LookupController, OrganizationController],
-  exports: [SystemConfigService, LookupService, NumberingEngineService, OrganizationService],
+  providers: [
+    SystemConfigService,
+    LookupService,
+    NumberingEngineService,
+    OrganizationService,
+  ],
+  controllers: [
+    SystemConfigController,
+    LookupController,
+    OrganizationController,
+  ],
+  exports: [
+    SystemConfigService,
+    LookupService,
+    NumberingEngineService,
+    OrganizationService,
+  ],
 })
 export class AdministrationModule {}

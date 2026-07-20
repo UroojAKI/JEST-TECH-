@@ -1,4 +1,12 @@
-import { Controller, Get, Patch, Delete, Param, Body, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Patch,
+  Delete,
+  Param,
+  Body,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../../../auth/decorators/current-user.decorator';
@@ -38,7 +46,10 @@ export class NotificationsController {
   }
 
   @Delete(':id')
-  deleteNotification(@Param('id') id: string, @CurrentUser() user: RequestUser) {
+  deleteNotification(
+    @Param('id') id: string,
+    @CurrentUser() user: RequestUser,
+  ) {
     return this.notificationService.deleteNotification(id, user.id);
   }
 

@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { ReportsRepository } from '../repositories/reports.repository';
 import { ReportBuilderService } from '../services/report-builder.service';
@@ -25,7 +29,9 @@ export class ReportCommandsService {
   async handleCreateReport(command: CreateReportCommand) {
     const existing = await this.repository.findByCode(command.dto.code);
     if (existing) {
-      throw new BadRequestException(`Report template with code '${command.dto.code}' already exists`);
+      throw new BadRequestException(
+        `Report template with code '${command.dto.code}' already exists`,
+      );
     }
 
     return this.repository.create({
@@ -45,10 +51,15 @@ export class ReportCommandsService {
     return this.repository.softDelete(command.id);
   }
 
-  async handleExecuteReport(command: ExecuteReportCommand, format: 'csv' | 'excel' | 'pdf' = 'csv') {
+  async handleExecuteReport(
+    command: ExecuteReportCommand,
+    format: 'csv' | 'excel' | 'pdf' = 'csv',
+  ) {
     const report = await this.repository.findById(command.reportId);
     if (!report) {
-      throw new NotFoundException(`Report with ID ${command.reportId} not found`);
+      throw new NotFoundException(
+        `Report with ID ${command.reportId} not found`,
+      );
     }
 
     const execution = await this.repository.createExecution({
@@ -62,10 +73,18 @@ export class ReportCommandsService {
 
     try {
       // Build data using builder service
-      const { rows, columns } = await this.builder.buildReportData(report, command.parameters);
+      const { rows, columns } = await this.builder.buildReportData(
+        report,
+        command.parameters,
+      );
 
       // Export using export service
-      const exported = await this.exporter.export(rows, columns, report.name, format);
+      const exported = await this.exporter.export(
+        rows,
+        columns,
+        report.name,
+        format,
+      );
 
       const duration = Date.now() - startTime;
 
@@ -107,7 +126,9 @@ export class ReportCommandsService {
   async handleCreateSchedule(command: CreateScheduleCommand) {
     const report = await this.repository.findById(command.reportId);
     if (!report) {
-      throw new NotFoundException(`Report with ID ${command.reportId} not found`);
+      throw new NotFoundException(
+        `Report with ID ${command.reportId} not found`,
+      );
     }
 
     return this.repository.createSchedule({

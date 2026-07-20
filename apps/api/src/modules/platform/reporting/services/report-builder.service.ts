@@ -1,4 +1,8 @@
-import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  BadRequestException,
+  NotFoundException,
+} from '@nestjs/common';
 import { ReportFilterOperator } from '@prisma/client';
 import { WarehouseService } from '../../../warehouse/services/warehouse.service';
 import { ReportWithRelations } from '../repositories/reports.repository';
@@ -11,7 +15,10 @@ export class ReportBuilderService {
     private readonly registry: ReportDataProviderRegistry,
   ) {}
 
-  async fetchRawData(module: string, filters: any): Promise<Record<string, any>[]> {
+  async fetchRawData(
+    module: string,
+    filters: any,
+  ): Promise<Record<string, any>[]> {
     // Parse standard parameters from incoming filters
     const parsedFilters = {
       from: filters.from ? new Date(filters.from) : undefined,
@@ -45,7 +52,10 @@ export class ReportBuilderService {
     report: ReportWithRelations,
     inputParams: Record<string, any> = {},
     options: { limit?: number; search?: string } = {},
-  ): Promise<{ rows: Record<string, any>[]; columns: { field: string; label: string; type: string }[] }> {
+  ): Promise<{
+    rows: Record<string, any>[];
+    columns: { field: string; label: string; type: string }[];
+  }> {
     let rows: Record<string, any>[] = [];
     const provider = this.registry.getProvider(report.code);
 
@@ -53,7 +63,10 @@ export class ReportBuilderService {
       const filtersList = report.filters.map((f) => ({
         field: f.field,
         operator: f.operator,
-        value: inputParams[f.field] !== undefined ? inputParams[f.field] : f.defaultValue,
+        value:
+          inputParams[f.field] !== undefined
+            ? inputParams[f.field]
+            : f.defaultValue,
       }));
 
       const res = await provider.execute({
@@ -74,11 +87,14 @@ export class ReportBuilderService {
       const req = filterConfig.required;
       const defVal = filterConfig.defaultValue;
 
-      let paramValue = inputParams[field] !== undefined ? inputParams[field] : defVal;
+      const paramValue =
+        inputParams[field] !== undefined ? inputParams[field] : defVal;
 
       if (paramValue === undefined || paramValue === null) {
         if (req) {
-          throw new BadRequestException(`Filter parameter '${field}' is required for this report.`);
+          throw new BadRequestException(
+            `Filter parameter '${field}' is required for this report.`,
+          );
         }
         continue; // Skip filtering if not provided
       }
@@ -93,11 +109,17 @@ export class ReportBuilderService {
     // Apply Global Search across all visible columns
     if (options.search) {
       const query = options.search.toLowerCase();
-      const visibleFields = report.columns.filter((c) => c.visible).map((c) => c.field);
+      const visibleFields = report.columns
+        .filter((c) => c.visible)
+        .map((c) => c.field);
       rows = rows.filter((row) => {
         return visibleFields.some((field) => {
           const val = this.getFieldValue(row, field);
-          return val !== null && val !== undefined && String(val).toLowerCase().includes(query);
+          return (
+            val !== null &&
+            val !== undefined &&
+            String(val).toLowerCase().includes(query)
+          );
         });
       });
     }
@@ -118,7 +140,9 @@ export class ReportBuilderService {
     });
 
     // Apply Limit (useful for preview mode)
-    const limitedRows = options.limit ? projectedRows.slice(0, options.limit) : projectedRows;
+    const limitedRows = options.limit
+      ? projectedRows.slice(0, options.limit)
+      : projectedRows;
 
     return {
       rows: limitedRows,
@@ -137,7 +161,11 @@ export class ReportBuilderService {
     return current;
   }
 
-  private evaluateOperator(rowValue: any, operator: ReportFilterOperator, paramValue: any): boolean {
+  private evaluateOperator(
+    rowValue: any,
+    operator: ReportFilterOperator,
+    paramValue: any,
+  ): boolean {
     if (operator === ReportFilterOperator.NULL) {
       return rowValue === null || rowValue === undefined;
     }
@@ -149,16 +177,24 @@ export class ReportBuilderService {
 
     switch (operator) {
       case ReportFilterOperator.EQUALS:
-        return String(rowValue).toLowerCase() === String(paramValue).toLowerCase();
+        return (
+          String(rowValue).toLowerCase() === String(paramValue).toLowerCase()
+        );
 
       case ReportFilterOperator.CONTAINS:
-        return String(rowValue).toLowerCase().includes(String(paramValue).toLowerCase());
+        return String(rowValue)
+          .toLowerCase()
+          .includes(String(paramValue).toLowerCase());
 
       case ReportFilterOperator.STARTS_WITH:
-        return String(rowValue).toLowerCase().startsWith(String(paramValue).toLowerCase());
+        return String(rowValue)
+          .toLowerCase()
+          .startsWith(String(paramValue).toLowerCase());
 
       case ReportFilterOperator.ENDS_WITH:
-        return String(rowValue).toLowerCase().endsWith(String(paramValue).toLowerCase());
+        return String(rowValue)
+          .toLowerCase()
+          .endsWith(String(paramValue).toLowerCase());
 
       case ReportFilterOperator.GREATER_THAN:
         return Number(rowValue) > Number(paramValue);
@@ -172,7 +208,10 @@ export class ReportBuilderService {
           range = paramValue.split(',').map((s) => s.trim());
         }
         if (Array.isArray(range) && range.length === 2) {
-          const val = typeof rowValue === 'object' && rowValue instanceof Date ? rowValue.getTime() : new Date(rowValue).getTime();
+          const val =
+            typeof rowValue === 'object' && rowValue instanceof Date
+              ? rowValue.getTime()
+              : new Date(rowValue).getTime();
           const min = new Date(range[0]).getTime();
           const max = new Date(range[1]).getTime();
           return val >= min && val <= max;
@@ -186,7 +225,9 @@ export class ReportBuilderService {
           inList = paramValue.split(',').map((s) => s.trim());
         }
         if (Array.isArray(inList)) {
-          return inList.map((v) => String(v).toLowerCase()).includes(String(rowValue).toLowerCase());
+          return inList
+            .map((v) => String(v).toLowerCase())
+            .includes(String(rowValue).toLowerCase());
         }
         return false;
       }
@@ -197,7 +238,9 @@ export class ReportBuilderService {
           notInList = paramValue.split(',').map((s) => s.trim());
         }
         if (Array.isArray(notInList)) {
-          return !notInList.map((v) => String(v).toLowerCase()).includes(String(rowValue).toLowerCase());
+          return !notInList
+            .map((v) => String(v).toLowerCase())
+            .includes(String(rowValue).toLowerCase());
         }
         return true;
       }
@@ -209,20 +252,29 @@ export class ReportBuilderService {
 
   aggregateData(
     rows: Record<string, any>[],
-    columns: { field: string; type: string; aggregation?: 'SUM' | 'AVG' | 'COUNT' | 'MIN' | 'MAX' }[],
+    columns: {
+      field: string;
+      type: string;
+      aggregation?: 'SUM' | 'AVG' | 'COUNT' | 'MIN' | 'MAX';
+    }[],
     groupByField?: string,
   ): any {
     if (!groupByField) {
       const summary: Record<string, any> = {};
       for (const col of columns) {
         if (!col.aggregation) continue;
-        const vals = rows.map((r) => Number(r[col.field])).filter((v) => !isNaN(v));
+        const vals = rows
+          .map((r) => Number(r[col.field]))
+          .filter((v) => !isNaN(v));
         switch (col.aggregation) {
           case 'SUM':
             summary[col.field] = vals.reduce((a, b) => a + b, 0);
             break;
           case 'AVG':
-            summary[col.field] = vals.length > 0 ? vals.reduce((a, b) => a + b, 0) / vals.length : 0;
+            summary[col.field] =
+              vals.length > 0
+                ? vals.reduce((a, b) => a + b, 0) / vals.length
+                : 0;
             break;
           case 'COUNT':
             summary[col.field] = rows.length;
@@ -249,14 +301,19 @@ export class ReportBuilderService {
       const groupRes: Record<string, any> = { [groupByField]: key };
       for (const col of columns) {
         if (col.field === groupByField) continue;
-        const vals = groupRows.map((r) => Number(r[col.field])).filter((v) => !isNaN(v));
+        const vals = groupRows
+          .map((r) => Number(r[col.field]))
+          .filter((v) => !isNaN(v));
         if (col.aggregation) {
           switch (col.aggregation) {
             case 'SUM':
               groupRes[col.field] = vals.reduce((a, b) => a + b, 0);
               break;
             case 'AVG':
-              groupRes[col.field] = vals.length > 0 ? vals.reduce((a, b) => a + b, 0) / vals.length : 0;
+              groupRes[col.field] =
+                vals.length > 0
+                  ? vals.reduce((a, b) => a + b, 0) / vals.length
+                  : 0;
               break;
             case 'COUNT':
               groupRes[col.field] = groupRows.length;

@@ -2,7 +2,7 @@ import { ApiProperty } from '@nestjs/swagger';
 import { IsNotEmpty, IsNumber, IsPositive, IsString } from 'class-validator';
 
 export class PayClaimDto {
-  @ApiProperty({ example: 22000.00 })
+  @ApiProperty({ example: 22000.0 })
   @IsNotEmpty()
   @IsNumber()
   @IsPositive()

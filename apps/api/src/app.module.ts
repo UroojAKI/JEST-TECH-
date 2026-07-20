@@ -58,10 +58,10 @@ import { IntegrationsModule } from './modules/platform/integrations/integrations
     NestCacheModule.registerAsync({
       isGlobal: true,
       useFactory: async () => ({
-        store: await redisStore({
+        store: (await redisStore({
           url: process.env.REDIS_URL || 'redis://localhost:6379',
           ttl: 60 * 1000,
-        }) as any,
+        })) as any,
       }),
     }),
     ThrottlerModule.forRootAsync({
@@ -73,7 +73,9 @@ import { IntegrationsModule } from './modules/platform/integrations/integrations
             limit: 120, // 120 requests per minute by default
           },
         ],
-        storage: new ThrottlerStorageRedisService(process.env.REDIS_URL || 'redis://localhost:6379'),
+        storage: new ThrottlerStorageRedisService(
+          process.env.REDIS_URL || 'redis://localhost:6379',
+        ),
       }),
     }),
     EventEmitterModule.forRoot(),
@@ -119,6 +121,8 @@ import { IntegrationsModule } from './modules/platform/integrations/integrations
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
-    consumer.apply(CorrelationIdMiddleware, RequestLoggerMiddleware).forRoutes('*');
+    consumer
+      .apply(CorrelationIdMiddleware, RequestLoggerMiddleware)
+      .forRoutes('*');
   }
 }

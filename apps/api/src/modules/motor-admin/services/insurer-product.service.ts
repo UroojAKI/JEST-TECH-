@@ -13,7 +13,13 @@ export class InsurerProductService {
     });
   }
 
-  async createInsurer(name: string, code: string, rating?: number, contactDetails?: any, logoUrl?: string) {
+  async createInsurer(
+    name: string,
+    code: string,
+    rating?: number,
+    contactDetails?: any,
+    logoUrl?: string,
+  ) {
     return this.prisma.insurer.create({
       data: { name, code, rating, contactDetails, logoUrl },
     });
@@ -26,7 +32,13 @@ export class InsurerProductService {
     });
   }
 
-  async createProduct(name: string, code: string, type: ProductType, commission: number, description?: string) {
+  async createProduct(
+    name: string,
+    code: string,
+    type: ProductType,
+    commission: number,
+    description?: string,
+  ) {
     return this.prisma.product.create({
       data: { name, code, type, baseCommissionRate: commission, description },
     });

@@ -1,6 +1,22 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { ReportCategory, ReportModule, ReportType, ReportStatus, ReportFilterOperator, ReportScheduleFrequency } from '@prisma/client';
-import { IsString, IsEnum, IsBoolean, IsOptional, IsInt, IsArray, ValidateNested, IsNotEmpty } from 'class-validator';
+import {
+  ReportCategory,
+  ReportModule,
+  ReportType,
+  ReportStatus,
+  ReportFilterOperator,
+  ReportScheduleFrequency,
+} from '@prisma/client';
+import {
+  IsString,
+  IsEnum,
+  IsBoolean,
+  IsOptional,
+  IsInt,
+  IsArray,
+  ValidateNested,
+  IsNotEmpty,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class CreateReportColumnDto {
@@ -88,12 +104,20 @@ export class CreateReportDto {
   @IsEnum(ReportModule)
   module: ReportModule;
 
-  @ApiProperty({ enum: ReportType, required: false, default: ReportType.TABULAR })
+  @ApiProperty({
+    enum: ReportType,
+    required: false,
+    default: ReportType.TABULAR,
+  })
   @IsEnum(ReportType)
   @IsOptional()
   type?: ReportType;
 
-  @ApiProperty({ enum: ReportStatus, required: false, default: ReportStatus.ACTIVE })
+  @ApiProperty({
+    enum: ReportStatus,
+    required: false,
+    default: ReportStatus.ACTIVE,
+  })
   @IsEnum(ReportStatus)
   @IsOptional()
   status?: ReportStatus;
@@ -183,7 +207,11 @@ export class ExecuteReportDto {
   @IsOptional()
   parameters?: Record<string, any>;
 
-  @ApiProperty({ required: false, example: 'excel', enum: ['csv', 'excel', 'pdf'] })
+  @ApiProperty({
+    required: false,
+    example: 'excel',
+    enum: ['csv', 'excel', 'pdf'],
+  })
   @IsString()
   @IsOptional()
   format?: 'csv' | 'excel' | 'pdf';

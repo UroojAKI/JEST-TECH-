@@ -1,5 +1,9 @@
 import { Injectable, OnModuleInit } from '@nestjs/common';
-import { ReportDataProvider, ReportParameters, ReportResult } from '../../platform/reporting/interfaces/report-provider.interface';
+import {
+  ReportDataProvider,
+  ReportParameters,
+  ReportResult,
+} from '../../platform/reporting/interfaces/report-provider.interface';
 import { ReportDataProviderRegistry } from '../../platform/reporting/services/report-data-provider-registry.service';
 import { PrismaService } from '../../../database/prisma.service';
 
@@ -11,11 +15,17 @@ export class RevenueReportProvider implements ReportDataProvider, OnModuleInit {
   ) {}
 
   onModuleInit() {
-    this.registry.register(this, ['REVENUE_REPORT', 'PREMIUM_COLLECTION', 'RENEWAL_REVENUE']);
+    this.registry.register(this, [
+      'REVENUE_REPORT',
+      'PREMIUM_COLLECTION',
+      'RENEWAL_REVENUE',
+    ]);
   }
 
   supports(reportCode: string): boolean {
-    return ['REVENUE_REPORT', 'PREMIUM_COLLECTION', 'RENEWAL_REVENUE'].includes(reportCode.toUpperCase());
+    return ['REVENUE_REPORT', 'PREMIUM_COLLECTION', 'RENEWAL_REVENUE'].includes(
+      reportCode.toUpperCase(),
+    );
   }
 
   async execute(params: ReportParameters): Promise<ReportResult> {
@@ -30,7 +40,9 @@ export class RevenueReportProvider implements ReportDataProvider, OnModuleInit {
     return this.executePremiumCollection(params);
   }
 
-  private async executeRevenueReport(params: ReportParameters): Promise<ReportResult> {
+  private async executeRevenueReport(
+    params: ReportParameters,
+  ): Promise<ReportResult> {
     const period = params.parameters?.period || 'month';
     const now = new Date();
     const startDate = new Date();
@@ -56,7 +68,8 @@ export class RevenueReportProvider implements ReportDataProvider, OnModuleInit {
 
     const totalRevenue = payments.reduce((sum, p) => sum + Number(p.amount), 0);
     const transactionCount = payments.length;
-    const averageTransaction = transactionCount > 0 ? totalRevenue / transactionCount : 0;
+    const averageTransaction =
+      transactionCount > 0 ? totalRevenue / transactionCount : 0;
 
     return {
       rows: [
@@ -70,7 +83,9 @@ export class RevenueReportProvider implements ReportDataProvider, OnModuleInit {
     };
   }
 
-  private async executePremiumCollection(params: ReportParameters): Promise<ReportResult> {
+  private async executePremiumCollection(
+    params: ReportParameters,
+  ): Promise<ReportResult> {
     const payments = await this.prisma.policyPayment.findMany({
       include: {
         policy: {
@@ -85,7 +100,9 @@ export class RevenueReportProvider implements ReportDataProvider, OnModuleInit {
     const rows = payments.map((p) => ({
       paymentId: p.id,
       policyNumber: p.policy.policyNumber,
-      clientName: p.policy.contact ? `${p.policy.contact.firstName} ${p.policy.contact.lastName}` : '',
+      clientName: p.policy.contact
+        ? `${p.policy.contact.firstName} ${p.policy.contact.lastName}`
+        : '',
       amount: Number(p.amount),
       paymentMethod: p.paymentMethod,
       transactionId: p.transactionId,
@@ -96,7 +113,9 @@ export class RevenueReportProvider implements ReportDataProvider, OnModuleInit {
     return { rows };
   }
 
-  private async executeRenewalRevenue(params: ReportParameters): Promise<ReportResult> {
+  private async executeRenewalRevenue(
+    params: ReportParameters,
+  ): Promise<ReportResult> {
     const renewals = await this.prisma.policyRenewal.findMany({
       include: {
         policy: {
@@ -111,7 +130,9 @@ export class RevenueReportProvider implements ReportDataProvider, OnModuleInit {
     const rows = renewals.map((r) => ({
       renewalNumber: r.renewalNumber,
       policyNumber: r.policy.policyNumber,
-      clientName: r.policy.contact ? `${r.policy.contact.firstName} ${r.policy.contact.lastName}` : '',
+      clientName: r.policy.contact
+        ? `${r.policy.contact.firstName} ${r.policy.contact.lastName}`
+        : '',
       premiumAmount: Number(r.premiumAmount),
       status: 'COMPLETED',
       renewalDate: r.createdAt,

@@ -6,7 +6,18 @@ describe('WarehouseService', () => {
   let service: WarehouseService;
 
   const mockContacts = [
-    { id: '1', firstName: 'Rahul', lastName: 'Sharma', email: 'rahul@jest.com', phone: '9876543210', type: 'INDIVIDUAL', status: 'ACTIVE', city: 'Mumbai', state: 'Maharashtra', createdAt: new Date() },
+    {
+      id: '1',
+      firstName: 'Rahul',
+      lastName: 'Sharma',
+      email: 'rahul@jest.com',
+      phone: '9876543210',
+      type: 'INDIVIDUAL',
+      status: 'ACTIVE',
+      city: 'Mumbai',
+      state: 'Maharashtra',
+      createdAt: new Date(),
+    },
   ];
 
   const mockPrisma = {

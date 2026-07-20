@@ -1,7 +1,5 @@
 export class GetReportQuery {
-  constructor(
-    public readonly idOrCode: string,
-  ) {}
+  constructor(public readonly idOrCode: string) {}
 }
 
 export class GetReportsQuery {
@@ -25,7 +23,5 @@ export class PreviewReportQuery {
 }
 
 export class GetExecutionHistoryQuery {
-  constructor(
-    public readonly reportId: string,
-  ) {}
+  constructor(public readonly reportId: string) {}
 }

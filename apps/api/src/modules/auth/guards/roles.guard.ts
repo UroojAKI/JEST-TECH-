@@ -17,7 +17,7 @@ export class RolesGuard implements CanActivate {
       ROLES_KEY,
       [
         context.getHandler(), // method-level decorator wins
-        context.getClass(),   // fallback to class-level decorator
+        context.getClass(), // fallback to class-level decorator
       ],
     );
 

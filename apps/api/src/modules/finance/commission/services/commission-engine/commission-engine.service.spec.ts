@@ -39,20 +39,27 @@ describe('CommissionEngineService', () => {
           overrides: [
             { roleTier: 'BRANCH_MANAGER', percent: 2, userId: 'bm-1' },
             { roleTier: 'ZONAL_MANAGER', percent: 0.5, userId: 'zm-1' },
-          ]
-        })
+          ],
+        }),
       } as any);
 
-      jest.spyOn(prisma.commission, 'createMany').mockResolvedValue({ count: 3 } as any);
+      jest
+        .spyOn(prisma.commission, 'createMany')
+        .mockResolvedValue({ count: 3 });
 
-      const result = await service.accrueCommissions('pol-1', 'agent-1', '50000', 'plan-1');
+      const result = await service.accrueCommissions(
+        'pol-1',
+        'agent-1',
+        '50000',
+        'plan-1',
+      );
 
       expect(prisma.commission.createMany).toHaveBeenCalled();
-      
+
       // We know there are 3 items: agent (10%), bm (2%), zm (0.5%) of 50,000
       // Agent = 5000, BM = 1000, ZM = 250
       expect(result.length).toBe(3);
-      
+
       expect(result[0].roleTier).toBe('AGENT');
       expect(result[0].amount.toNumber()).toBe(5000);
 
@@ -66,14 +73,16 @@ describe('CommissionEngineService', () => {
 
   describe('realizeCommissions', () => {
     it('should update status from ACCRUED to REALIZED', async () => {
-      jest.spyOn(prisma.commission, 'updateMany').mockResolvedValue({ count: 2 } as any);
+      jest
+        .spyOn(prisma.commission, 'updateMany')
+        .mockResolvedValue({ count: 2 });
 
       const count = await service.realizeCommissions('pol-1');
 
       expect(count).toBe(2);
       expect(prisma.commission.updateMany).toHaveBeenCalledWith({
         where: { policyId: 'pol-1', status: 'ACCRUED' },
-        data: { status: 'REALIZED' }
+        data: { status: 'REALIZED' },
       });
     });
   });

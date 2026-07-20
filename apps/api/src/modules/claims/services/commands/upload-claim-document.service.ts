@@ -8,7 +8,12 @@ export class UploadClaimDocumentService {
 
   async execute(
     claimId: string,
-    dto: { documentType: string; fileKey: string; fileName: string; fileSize: number },
+    dto: {
+      documentType: string;
+      fileKey: string;
+      fileName: string;
+      fileSize: number;
+    },
     uploadedById: string,
   ) {
     const claim = await this.claimRepository.findById(claimId);

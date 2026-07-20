@@ -16,31 +16,65 @@ export class EndorsementsController {
   constructor(private readonly endorsementService: EndorsementService) {}
 
   @Get()
-  @Roles(RoleType.ADMIN, RoleType.SUPER_ADMIN, RoleType.UNDERWRITER, RoleType.OPERATIONS, RoleType.SALES_AGENT, RoleType.BRANCH_MANAGER, RoleType.TEAM_LEADER)
+  @Roles(
+    RoleType.ADMIN,
+    RoleType.SUPER_ADMIN,
+    RoleType.UNDERWRITER,
+    RoleType.OPERATIONS,
+    RoleType.SALES_AGENT,
+    RoleType.BRANCH_MANAGER,
+    RoleType.TEAM_LEADER,
+  )
   getEndorsements() {
     return this.endorsementService.getEndorsements();
   }
 
   @Get(':id')
-  @Roles(RoleType.ADMIN, RoleType.SUPER_ADMIN, RoleType.UNDERWRITER, RoleType.OPERATIONS, RoleType.SALES_AGENT, RoleType.BRANCH_MANAGER, RoleType.TEAM_LEADER)
+  @Roles(
+    RoleType.ADMIN,
+    RoleType.SUPER_ADMIN,
+    RoleType.UNDERWRITER,
+    RoleType.OPERATIONS,
+    RoleType.SALES_AGENT,
+    RoleType.BRANCH_MANAGER,
+    RoleType.TEAM_LEADER,
+  )
   getEndorsementDetails(@Param('id') id: string) {
     return this.endorsementService.getEndorsementDetails(id);
   }
 
   @Post()
-  @Roles(RoleType.ADMIN, RoleType.SUPER_ADMIN, RoleType.OPERATIONS, RoleType.SALES_AGENT)
+  @Roles(
+    RoleType.ADMIN,
+    RoleType.SUPER_ADMIN,
+    RoleType.OPERATIONS,
+    RoleType.SALES_AGENT,
+  )
   createEndorsement(
     @Body('policyId') policyId: string,
     @Body('type') type: EndorsementType,
     @Body('reason') reason: string,
     @CurrentUser() user: RequestUser,
   ) {
-    return this.endorsementService.createEndorsement(policyId, type, reason, user.id);
+    return this.endorsementService.createEndorsement(
+      policyId,
+      type,
+      reason,
+      user.id,
+    );
   }
 
   @Post(':id/attach')
-  @Roles(RoleType.ADMIN, RoleType.SUPER_ADMIN, RoleType.OPERATIONS, RoleType.SALES_AGENT)
-  attachDocument(@Param('id') id: string, @Body('documentId') documentId: string) {
+  @Roles(
+    RoleType.ADMIN,
+    RoleType.SUPER_ADMIN,
+    RoleType.OPERATIONS,
+    RoleType.SALES_AGENT,
+  )
+  attachDocument(
+    @Param('id') id: string,
+    @Body('documentId') documentId: string,
+  ) {
     return this.endorsementService.attachDocument(id, documentId);
   }
 

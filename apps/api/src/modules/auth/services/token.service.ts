@@ -14,7 +14,9 @@ export class TokenService {
     // secret and expiresIn come from JwtModule.registerAsync in auth.module.ts
   }
 
-  async generateRefreshToken(payload: Record<string, unknown>): Promise<string> {
+  async generateRefreshToken(
+    payload: Record<string, unknown>,
+  ): Promise<string> {
     return this.jwtService.signAsync(payload, {
       secret: this.config.jwtRefreshSecret,
       expiresIn: this.config.jwtRefreshExpiresIn as any,

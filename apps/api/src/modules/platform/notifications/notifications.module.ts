@@ -13,9 +13,6 @@ import { NotificationsListener } from './listeners/notifications.listener';
     RenewalScheduler,
     NotificationsListener,
   ],
-  exports: [
-    NotificationService,
-    NotificationDispatcher,
-  ],
+  exports: [NotificationService, NotificationDispatcher],
 })
 export class NotificationsModule {}

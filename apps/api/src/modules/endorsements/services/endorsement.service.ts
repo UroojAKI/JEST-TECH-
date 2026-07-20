@@ -12,7 +12,10 @@ export class EndorsementService {
 
   async getEndorsements() {
     return this.prisma.endorsement.findMany({
-      include: { policy: true, requestedBy: { select: { firstName: true, lastName: true } } },
+      include: {
+        policy: true,
+        requestedBy: { select: { firstName: true, lastName: true } },
+      },
       orderBy: { createdAt: 'desc' },
     });
   }
@@ -23,7 +26,11 @@ export class EndorsementService {
       include: {
         policy: true,
         documents: { include: { document: true } },
-        histories: { include: { performedBy: { select: { firstName: true, lastName: true } } } },
+        histories: {
+          include: {
+            performedBy: { select: { firstName: true, lastName: true } },
+          },
+        },
       },
     });
     if (!end) {
@@ -32,7 +39,12 @@ export class EndorsementService {
     return end;
   }
 
-  async createEndorsement(policyId: string, type: EndorsementType, reason: string, userId: string) {
+  async createEndorsement(
+    policyId: string,
+    type: EndorsementType,
+    reason: string,
+    userId: string,
+  ) {
     const policy = await this.prisma.policy.findUnique({
       where: { id: policyId },
     });

@@ -1,4 +1,9 @@
-import { Injectable, OnModuleInit, OnModuleDestroy, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  OnModuleInit,
+  OnModuleDestroy,
+  Logger,
+} from '@nestjs/common';
 import { QueueEvents } from 'bullmq';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../../../database/prisma.service';
@@ -20,20 +25,27 @@ export class QueueEventsListener implements OnModuleInit, OnModuleDestroy {
     });
 
     this.queueEvents.on('active', async ({ jobId }) => {
-      await this.updateJobStatus(jobId, JobStatus.RUNNING, { startedAt: new Date() });
+      await this.updateJobStatus(jobId, JobStatus.RUNNING, {
+        startedAt: new Date(),
+      });
     });
 
     this.queueEvents.on('completed', async ({ jobId, returnvalue }) => {
-      await this.updateJobStatus(jobId, JobStatus.COMPLETED, { completedAt: new Date() });
+      await this.updateJobStatus(jobId, JobStatus.COMPLETED, {
+        completedAt: new Date(),
+      });
     });
 
     this.queueEvents.on('failed', async ({ jobId, failedReason }) => {
       // Find current attempts from DB
-      const job = await this.prisma.backgroundJob.findUnique({ where: { id: jobId } });
+      const job = await this.prisma.backgroundJob.findUnique({
+        where: { id: jobId },
+      });
       if (!job) return;
 
       const attempts = job.attempts + 1;
-      const status = attempts >= job.maxAttempts ? JobStatus.FAILED : JobStatus.RETRYING;
+      const status =
+        attempts >= job.maxAttempts ? JobStatus.FAILED : JobStatus.RETRYING;
 
       await this.updateJobStatus(jobId, status, {
         attempts,
@@ -55,7 +67,11 @@ export class QueueEventsListener implements OnModuleInit, OnModuleDestroy {
     }
   }
 
-  private async updateJobStatus(jobId: string, status: JobStatus, additionalData: any = {}) {
+  private async updateJobStatus(
+    jobId: string,
+    status: JobStatus,
+    additionalData: any = {},
+  ) {
     try {
       await this.prisma.backgroundJob.updateMany({
         where: { id: jobId },
@@ -65,7 +81,9 @@ export class QueueEventsListener implements OnModuleInit, OnModuleDestroy {
         },
       });
     } catch (error: any) {
-      this.logger.error(`Failed to update background job ${jobId} status to ${status}: ${error.message}`);
+      this.logger.error(
+        `Failed to update background job ${jobId} status to ${status}: ${error.message}`,
+      );
     }
   }
 }

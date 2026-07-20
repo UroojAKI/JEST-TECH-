@@ -15,9 +15,6 @@ import { WorkflowsController } from './controllers/workflows.controller';
     WorkflowStateMachine,
     WorkflowEngineService,
   ],
-  exports: [
-    WorkflowAdapterRegistry,
-    WorkflowEngineService,
-  ],
+  exports: [WorkflowAdapterRegistry, WorkflowEngineService],
 })
 export class WorkflowModule {}

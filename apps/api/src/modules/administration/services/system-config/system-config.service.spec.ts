@@ -42,9 +42,9 @@ describe('SystemConfigService', () => {
 
   it('should return cached value if it exists', async () => {
     cacheManager.get.mockResolvedValue(42);
-    
+
     const result = await service.getValue(SystemConfigKey.SESSION_TIMEOUT);
-    
+
     expect(result).toBe(42);
     expect(prisma.systemConfig.findUnique).not.toHaveBeenCalled();
   });
@@ -62,10 +62,14 @@ describe('SystemConfigService', () => {
     });
 
     const result = await service.getValue(SystemConfigKey.SESSION_TIMEOUT);
-    
+
     expect(result).toBe(30);
     expect(prisma.systemConfig.findUnique).toHaveBeenCalled();
-    expect(cacheManager.set).toHaveBeenCalledWith('system_config_SESSION_TIMEOUT', 30, 3600000);
+    expect(cacheManager.set).toHaveBeenCalledWith(
+      'system_config_SESSION_TIMEOUT',
+      30,
+      3600000,
+    );
   });
 
   it('should parse JSON correctly', async () => {
@@ -81,7 +85,7 @@ describe('SystemConfigService', () => {
     });
 
     const result = await service.getValue(SystemConfigKey.DEFAULT_LANGUAGE);
-    
+
     expect(result).toEqual({ lang: 'en' });
   });
 
@@ -91,6 +95,8 @@ describe('SystemConfigService', () => {
     await service.setValue(SystemConfigKey.SESSION_TIMEOUT, 60, 'NUMBER');
 
     expect(prisma.systemConfig.upsert).toHaveBeenCalled();
-    expect(cacheManager.del).toHaveBeenCalledWith('system_config_SESSION_TIMEOUT');
+    expect(cacheManager.del).toHaveBeenCalledWith(
+      'system_config_SESSION_TIMEOUT',
+    );
   });
 });

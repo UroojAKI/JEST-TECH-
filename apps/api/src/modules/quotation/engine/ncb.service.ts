@@ -5,7 +5,7 @@ export class NcbService {
   /**
    * Calculates the No Claim Bonus (NCB) percentage based on prior claim history
    * and consecutive years without claims.
-   * 
+   *
    * Indian Tariff NCB Grid:
    * - 1st year claim-free: 20%
    * - 2nd year claim-free: 25%
@@ -14,7 +14,10 @@ export class NcbService {
    * - 5th year claim-free: 50%
    * - Any claim: 0%
    */
-  calculateNcbPercentage(yearsWithoutClaim: number, claimsCount: number): number {
+  calculateNcbPercentage(
+    yearsWithoutClaim: number,
+    claimsCount: number,
+  ): number {
     if (claimsCount > 0) {
       return 0;
     }

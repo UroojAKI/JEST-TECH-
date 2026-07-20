@@ -57,9 +57,7 @@ export class SearchService {
       // Search Policies
       this.prisma.policy.findMany({
         where: {
-          OR: [
-            { policyNumber: { contains: term, mode: 'insensitive' } },
-          ],
+          OR: [{ policyNumber: { contains: term, mode: 'insensitive' } }],
           deletedAt: null,
         },
         take: 10,
@@ -80,9 +78,7 @@ export class SearchService {
       // Search Proposals
       this.prisma.proposal.findMany({
         where: {
-          OR: [
-            { proposalNumber: { contains: term, mode: 'insensitive' } },
-          ],
+          OR: [{ proposalNumber: { contains: term, mode: 'insensitive' } }],
         },
         take: 10,
       }),

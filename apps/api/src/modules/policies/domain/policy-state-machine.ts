@@ -2,7 +2,10 @@ import { PolicyStatus } from '@prisma/client';
 import { BadRequestException } from '@nestjs/common';
 
 export class PolicyStateMachine {
-  private static readonly ALLOWED_TRANSITIONS: Record<PolicyStatus, PolicyStatus[]> = {
+  private static readonly ALLOWED_TRANSITIONS: Record<
+    PolicyStatus,
+    PolicyStatus[]
+  > = {
     [PolicyStatus.ACTIVE]: [
       PolicyStatus.PENDING_RENEWAL,
       PolicyStatus.LAPSED,
@@ -13,14 +16,14 @@ export class PolicyStateMachine {
       PolicyStatus.LAPSED,
       PolicyStatus.CANCELLED,
     ],
-    [PolicyStatus.LAPSED]: [
-      PolicyStatus.ACTIVE,
-      PolicyStatus.CANCELLED,
-    ],
+    [PolicyStatus.LAPSED]: [PolicyStatus.ACTIVE, PolicyStatus.CANCELLED],
     [PolicyStatus.CANCELLED]: [], // Terminal state
   };
 
-  static validateTransition(currentStatus: PolicyStatus, targetStatus: PolicyStatus): void {
+  static validateTransition(
+    currentStatus: PolicyStatus,
+    targetStatus: PolicyStatus,
+  ): void {
     if (currentStatus === targetStatus) {
       return;
     }

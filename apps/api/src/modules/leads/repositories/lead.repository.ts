@@ -1,7 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma, Note, Activity } from '@prisma/client';
 import { PrismaService } from '../../../database/prisma.service';
-import { BaseRepository, TransactionClient } from '../../../common/base/base.repository';
+import {
+  BaseRepository,
+  TransactionClient,
+} from '../../../common/base/base.repository';
 import { checkOptimisticLock } from '../../../common/utils/optimistic-lock';
 
 export const leadBasicSelect = Prisma.validator<Prisma.LeadSelect>()({
@@ -83,13 +86,21 @@ export const leadDetailSelect = Prisma.validator<Prisma.LeadSelect>()({
   },
 });
 
-export type LeadBasic = Prisma.LeadGetPayload<{ select: typeof leadBasicSelect }>;
-export type LeadDetail = Prisma.LeadGetPayload<{ select: typeof leadDetailSelect }>;
+export type LeadBasic = Prisma.LeadGetPayload<{
+  select: typeof leadBasicSelect;
+}>;
+export type LeadDetail = Prisma.LeadGetPayload<{
+  select: typeof leadDetailSelect;
+}>;
 // Backwards compatibility for existing code that uses LeadWithRelations
 export type LeadWithRelations = LeadDetail;
 
 @Injectable()
-export class LeadRepository extends BaseRepository<Prisma.LeadDelegate, LeadBasic, LeadDetail> {
+export class LeadRepository extends BaseRepository<
+  Prisma.LeadDelegate,
+  LeadBasic,
+  LeadDetail
+> {
   protected get basicArgs() {
     return { select: leadBasicSelect };
   }
@@ -103,21 +114,35 @@ export class LeadRepository extends BaseRepository<Prisma.LeadDelegate, LeadBasi
   }
 
   async generateLeadCode(tx?: TransactionClient): Promise<string> {
-    const result = await (tx || this.prismaService).$queryRaw<[{ nextval: bigint }]>`
+    const result = await (tx || this.prismaService).$queryRaw<
+      [{ nextval: bigint }]
+    >`
       SELECT nextval('lead_number_seq')`;
     return `LEAD-${result[0].nextval.toString().padStart(6, '0')}`;
   }
 
-  async create(data: Prisma.LeadCreateInput, tx?: TransactionClient): Promise<LeadDetail> {
+  async create(
+    data: Prisma.LeadCreateInput,
+    tx?: TransactionClient,
+  ): Promise<LeadDetail> {
     return this.getClient(tx).create({
       data,
       ...this.detailArgs,
     });
   }
 
-  async update(id: string, data: Prisma.LeadUpdateInput, expectedVersion?: number, tx?: TransactionClient): Promise<LeadDetail> {
+  async update(
+    id: string,
+    data: Prisma.LeadUpdateInput,
+    expectedVersion?: number,
+    tx?: TransactionClient,
+  ): Promise<LeadDetail> {
     if (expectedVersion !== undefined) {
-      const nextVersion = await checkOptimisticLock(this.prismaService.lead, id, expectedVersion);
+      const nextVersion = await checkOptimisticLock(
+        this.prismaService.lead,
+        id,
+        expectedVersion,
+      );
       data.version = nextVersion;
     }
     return this.getClient(tx).update({
@@ -127,7 +152,10 @@ export class LeadRepository extends BaseRepository<Prisma.LeadDelegate, LeadBasi
     });
   }
 
-  async findAll(where?: Prisma.LeadWhereInput, tx?: TransactionClient): Promise<LeadDetail[]> {
+  async findAll(
+    where?: Prisma.LeadWhereInput,
+    tx?: TransactionClient,
+  ): Promise<LeadDetail[]> {
     return this.getClient(tx).findMany({
       where: {
         ...where,
@@ -138,7 +166,12 @@ export class LeadRepository extends BaseRepository<Prisma.LeadDelegate, LeadBasi
     });
   }
 
-  async addNote(leadId: string, content: string, createdById: string, tx?: TransactionClient): Promise<Note> {
+  async addNote(
+    leadId: string,
+    content: string,
+    createdById: string,
+    tx?: TransactionClient,
+  ): Promise<Note> {
     return (tx || this.prismaService).note.create({
       data: {
         content,
@@ -148,7 +181,11 @@ export class LeadRepository extends BaseRepository<Prisma.LeadDelegate, LeadBasi
     });
   }
 
-  async createActivity(leadId: string, data: Prisma.ActivityCreateWithoutLeadInput, tx?: TransactionClient): Promise<Activity> {
+  async createActivity(
+    leadId: string,
+    data: Prisma.ActivityCreateWithoutLeadInput,
+    tx?: TransactionClient,
+  ): Promise<Activity> {
     return (tx || this.prismaService).activity.create({
       data: {
         ...data,

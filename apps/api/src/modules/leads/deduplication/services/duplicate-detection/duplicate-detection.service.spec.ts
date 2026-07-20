@@ -32,10 +32,14 @@ describe('DuplicateDetectionService', () => {
   });
 
   it('should return duplicate ID if a match is found', async () => {
-    jest.spyOn(prisma.lead, 'findFirst').mockResolvedValue({ id: 'duplicate-123' } as any);
+    jest
+      .spyOn(prisma.lead, 'findFirst')
+      .mockResolvedValue({ id: 'duplicate-123' } as any);
 
-    const result = await service.detectDuplicates({ email: 'test@example.com' });
-    
+    const result = await service.detectDuplicates({
+      email: 'test@example.com',
+    });
+
     expect(result).toBe('duplicate-123');
     expect(prisma.lead.findFirst).toHaveBeenCalledWith({
       where: {
@@ -48,8 +52,11 @@ describe('DuplicateDetectionService', () => {
   it('should search using multiple fields if provided', async () => {
     jest.spyOn(prisma.lead, 'findFirst').mockResolvedValue(null);
 
-    await service.detectDuplicates({ email: 'test@example.com', phone: '1234567890' });
-    
+    await service.detectDuplicates({
+      email: 'test@example.com',
+      phone: '1234567890',
+    });
+
     expect(prisma.lead.findFirst).toHaveBeenCalledWith({
       where: {
         OR: [

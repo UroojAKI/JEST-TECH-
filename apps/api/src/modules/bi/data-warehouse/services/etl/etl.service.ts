@@ -18,7 +18,7 @@ export class EtlService {
         contact: true,
         user: { include: { branch: true } }, // Agent
         product: { include: { insurer: true } },
-      }
+      },
     });
 
     if (!policy) return;
@@ -34,30 +34,60 @@ export class EtlService {
     if (policy.user?.branch) {
       await this.prisma.dimBranch.upsert({
         where: { id: branchId },
-        create: { id: branchId, name: policy.user.branch.name, region: policy.user.branch.regionId },
-        update: { name: policy.user.branch.name, region: policy.user.branch.regionId }
+        create: {
+          id: branchId,
+          name: policy.user.branch.name,
+          region: policy.user.branch.regionId,
+        },
+        update: {
+          name: policy.user.branch.name,
+          region: policy.user.branch.regionId,
+        },
       });
     }
 
     // Agent Dimension
     await this.prisma.dimAgent.upsert({
       where: { id: policy.userId },
-      create: { id: policy.userId, name: `${policy.user?.firstName || ''} ${policy.user?.lastName || ''}`, role: 'AGENT', branchId },
-      update: { name: `${policy.user?.firstName || ''} ${policy.user?.lastName || ''}` }
+      create: {
+        id: policy.userId,
+        name: `${policy.user?.firstName || ''} ${policy.user?.lastName || ''}`,
+        role: 'AGENT',
+        branchId,
+      },
+      update: {
+        name: `${policy.user?.firstName || ''} ${policy.user?.lastName || ''}`,
+      },
     });
 
     // Customer Dimension
     await this.prisma.dimCustomer.upsert({
       where: { id: policy.contactId },
-      create: { id: policy.contactId, name: `${policy.contact.firstName} ${policy.contact.lastName}`, type: policy.contact.type },
-      update: { name: `${policy.contact.firstName} ${policy.contact.lastName}`, type: policy.contact.type }
+      create: {
+        id: policy.contactId,
+        name: `${policy.contact.firstName} ${policy.contact.lastName}`,
+        type: policy.contact.type,
+      },
+      update: {
+        name: `${policy.contact.firstName} ${policy.contact.lastName}`,
+        type: policy.contact.type,
+      },
     });
 
     // Product Dimension
     await this.prisma.dimProduct.upsert({
       where: { id: policy.productId },
-      create: { id: policy.productId, name: policy.product.name, category: policy.product.category, insurer: policy.product.insurer.name },
-      update: { name: policy.product.name, category: policy.product.category, insurer: policy.product.insurer.name }
+      create: {
+        id: policy.productId,
+        name: policy.product.name,
+        category: policy.product.category,
+        insurer: policy.product.insurer.name,
+      },
+      update: {
+        name: policy.product.name,
+        category: policy.product.category,
+        insurer: policy.product.insurer.name,
+      },
     });
 
     // 2. Load Fact
@@ -77,14 +107,16 @@ export class EtlService {
       update: {
         status: policy.status,
         premiumAmount: policy.premiumAmount,
-      }
+      },
     });
 
     this.logger.log(`ETL processed FactPolicy for ${policy.id}`);
   }
 
   private async ensureDimDate(dateId: string, date: Date) {
-    const existing = await this.prisma.dimDate.findUnique({ where: { dateId } });
+    const existing = await this.prisma.dimDate.findUnique({
+      where: { dateId },
+    });
     if (!existing) {
       await this.prisma.dimDate.create({
         data: {
@@ -95,7 +127,7 @@ export class EtlService {
           day: date.getDate(),
           quarter: Math.floor(date.getMonth() / 3) + 1,
           dayOfWeek: date.getDay(),
-        }
+        },
       });
     }
   }

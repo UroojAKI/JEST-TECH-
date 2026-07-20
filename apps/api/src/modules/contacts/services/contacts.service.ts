@@ -13,9 +13,7 @@ import { UpdateContactDto } from '../dto/update-contact.dto';
 
 @Injectable()
 export class ContactsService {
-  constructor(
-    private readonly contactRepository: ContactRepository,
-  ) {}
+  constructor(private readonly contactRepository: ContactRepository) {}
 
   async create(dto: CreateContactDto, createdById: string) {
     // Enforce phone uniqueness at the service layer for a clear error message
@@ -47,7 +45,9 @@ export class ContactsService {
       middleName: restDto.middleName,
       lastName: restDto.lastName,
       gender: restDto.gender,
-      dateOfBirth: restDto.dateOfBirth ? new Date(restDto.dateOfBirth) : undefined,
+      dateOfBirth: restDto.dateOfBirth
+        ? new Date(restDto.dateOfBirth)
+        : undefined,
       companyName: restDto.companyName,
       email: restDto.email,
       phone: restDto.phone,
@@ -121,7 +121,9 @@ export class ContactsService {
       middleName: restDto.middleName,
       lastName: restDto.lastName,
       gender: restDto.gender,
-      dateOfBirth: restDto.dateOfBirth ? new Date(restDto.dateOfBirth) : undefined,
+      dateOfBirth: restDto.dateOfBirth
+        ? new Date(restDto.dateOfBirth)
+        : undefined,
       companyName: restDto.companyName,
       email: restDto.email,
       phone: restDto.phone,

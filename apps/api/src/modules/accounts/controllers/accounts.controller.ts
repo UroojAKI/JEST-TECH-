@@ -38,10 +38,7 @@ export class AccountsController {
     RoleType.TEAM_LEADER,
     RoleType.SALES_AGENT,
   )
-  create(
-    @Body() dto: CreateAccountDto,
-    @CurrentUser() user: RequestUser,
-  ) {
+  create(@Body() dto: CreateAccountDto, @CurrentUser() user: RequestUser) {
     return this.accountsService.create(dto, user.id);
   }
 
@@ -90,10 +87,7 @@ export class AccountsController {
   @Delete(':id')
   @HttpCode(HttpStatus.OK)
   @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN)
-  remove(
-    @Param('id') id: string,
-    @CurrentUser() user: RequestUser,
-  ) {
+  remove(@Param('id') id: string, @CurrentUser() user: RequestUser) {
     return this.accountsService.remove(id, user.id);
   }
 }

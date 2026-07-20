@@ -2,7 +2,12 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { PrismaService } from '../../../../database/prisma.service';
 import { NotificationDispatcher } from './notification-dispatcher.service';
-import { NotificationPriority, NotificationType, PolicyStatus, RenewalTaskStatus } from '@prisma/client';
+import {
+  NotificationPriority,
+  NotificationType,
+  PolicyStatus,
+  RenewalTaskStatus,
+} from '@prisma/client';
 
 @Injectable()
 export class RenewalScheduler {
@@ -46,7 +51,9 @@ export class RenewalScheduler {
       },
     });
 
-    this.logger.log(`Found ${policies.length} policies expiring in ${days} days.`);
+    this.logger.log(
+      `Found ${policies.length} policies expiring in ${days} days.`,
+    );
 
     for (const policy of policies) {
       const agentId = policy.createdById || (await this.getDefaultAgentId());
@@ -58,7 +65,8 @@ export class RenewalScheduler {
       await this.dispatcher.dispatch({
         userId: agentId,
         type,
-        priority: days <= 20 ? NotificationPriority.HIGH : NotificationPriority.MEDIUM,
+        priority:
+          days <= 20 ? NotificationPriority.HIGH : NotificationPriority.MEDIUM,
         title,
         message,
         entityId: policy.id,
@@ -72,7 +80,10 @@ export class RenewalScheduler {
           agentId,
           dueDate: policy.expiryDate,
           status: RenewalTaskStatus.PENDING,
-          priority: days <= 20 ? NotificationPriority.HIGH : NotificationPriority.MEDIUM,
+          priority:
+            days <= 20
+              ? NotificationPriority.HIGH
+              : NotificationPriority.MEDIUM,
         },
       });
 
@@ -85,7 +96,7 @@ export class RenewalScheduler {
           newValue: {
             reminderDays: days,
             policyNumber: policy.policyNumber,
-            message: `System automatically registered renewal task and alert for policy ${policy.policyNumber} (${days} days to expiry).`
+            message: `System automatically registered renewal task and alert for policy ${policy.policyNumber} (${days} days to expiry).`,
           },
           ipAddress: '127.0.0.1',
         },

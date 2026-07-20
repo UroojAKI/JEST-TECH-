@@ -4,7 +4,9 @@ import { ConfigurationService } from '../configuration/configuration.service';
 import Redis from 'ioredis';
 
 @Injectable()
-export class RedisCacheService implements ICacheProvider, OnModuleInit, OnModuleDestroy {
+export class RedisCacheService
+  implements ICacheProvider, OnModuleInit, OnModuleDestroy
+{
   private client: Redis;
 
   constructor(private readonly config: ConfigurationService) {}
@@ -31,7 +33,11 @@ export class RedisCacheService implements ICacheProvider, OnModuleInit, OnModule
     }
   }
 
-  async set<T>(key: string, value: T, ttlSeconds: number = 3600): Promise<void> {
+  async set<T>(
+    key: string,
+    value: T,
+    ttlSeconds: number = 3600,
+  ): Promise<void> {
     const data = JSON.stringify(value);
     await this.client.set(key, data, 'EX', ttlSeconds);
   }

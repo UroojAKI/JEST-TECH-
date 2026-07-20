@@ -1,12 +1,23 @@
-import { Injectable, BadRequestException, NotFoundException, Inject } from '@nestjs/common';
+import {
+  Injectable,
+  BadRequestException,
+  NotFoundException,
+  Inject,
+} from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import { WorkflowEntityType, WorkflowModule as PrismaWorkflowModule } from '@prisma/client';
+import {
+  WorkflowEntityType,
+  WorkflowModule as PrismaWorkflowModule,
+} from '@prisma/client';
 import { PrismaService } from '../../../../database/prisma.service';
 import { WorkflowAdapterRegistry } from './workflow-adapter-registry.service';
 import { WorkflowStateMachine } from './workflow-state-machine.service';
 import { AuditService } from '../../audit/services/audit.service';
 import { JobType } from '@prisma/client';
-import { QUEUE_PROVIDER_TOKEN, type QueueProvider } from '../../queue/interfaces/queue-provider.interface';
+import {
+  QUEUE_PROVIDER_TOKEN,
+  type QueueProvider,
+} from '../../queue/interfaces/queue-provider.interface';
 
 @Injectable()
 export class WorkflowEngineService {
@@ -26,11 +37,13 @@ export class WorkflowEngineService {
   ): Promise<any[]> {
     const adapter = this.registry.getAdapter(entityType);
     if (!adapter) {
-      throw new NotFoundException(`No workflow adapter registered for ${entityType}`);
+      throw new NotFoundException(
+        `No workflow adapter registered for ${entityType}`,
+      );
     }
 
     const currentStateCode = await adapter.getCurrentState(entityId);
-    
+
     const prismaModule = this.mapEntityTypeToModule(entityType);
     const workflow = await this.prisma.workflow.findFirst({
       where: { module: prismaModule, active: true },
@@ -49,12 +62,18 @@ export class WorkflowEngineService {
     if (!workflow) return [];
 
     const variables = await adapter.getVariables(entityId);
-    
+
     const available = workflow.transitions.filter((t) => {
-      const isValidPath = this.stateMachine.validateTransition(currentStateCode, t);
+      const isValidPath = this.stateMachine.validateTransition(
+        currentStateCode,
+        t,
+      );
       if (!isValidPath) return false;
 
-      const conditionsMet = this.stateMachine.evaluateConditions(t.conditions, variables);
+      const conditionsMet = this.stateMachine.evaluateConditions(
+        t.conditions,
+        variables,
+      );
       return conditionsMet;
     });
 
@@ -70,7 +89,9 @@ export class WorkflowEngineService {
   ): Promise<void> {
     const adapter = this.registry.getAdapter(entityType);
     if (!adapter) {
-      throw new BadRequestException(`No workflow adapter registered for ${entityType}`);
+      throw new BadRequestException(
+        `No workflow adapter registered for ${entityType}`,
+      );
     }
 
     await this.prisma.$transaction(async (tx) => {
@@ -88,12 +109,17 @@ export class WorkflowEngineService {
       });
 
       if (!transition) {
-        throw new NotFoundException(`Workflow transition with ID ${transitionId} not found`);
+        throw new NotFoundException(
+          `Workflow transition with ID ${transitionId} not found`,
+        );
       }
 
       const workflow = transition.workflow;
 
-      const isValidPath = this.stateMachine.validateTransition(currentStateCode, transition);
+      const isValidPath = this.stateMachine.validateTransition(
+        currentStateCode,
+        transition,
+      );
       if (!isValidPath) {
         throw new BadRequestException(
           `Invalid state transition path from '${currentStateCode}' using transition '${transition.name}'`,
@@ -102,9 +128,14 @@ export class WorkflowEngineService {
 
       const variables = await adapter.getVariables(entityId);
 
-      const conditionsMet = this.stateMachine.evaluateConditions(transition.conditions, variables);
+      const conditionsMet = this.stateMachine.evaluateConditions(
+        transition.conditions,
+        variables,
+      );
       if (!conditionsMet) {
-        throw new BadRequestException(`Workflow transition conditions are not satisfied for this entity`);
+        throw new BadRequestException(
+          `Workflow transition conditions are not satisfied for this entity`,
+        );
       }
 
       if (transition.assignments && transition.assignments.length > 0) {
@@ -115,12 +146,15 @@ export class WorkflowEngineService {
 
         const isAuthorized = transition.assignments.some((assignment) => {
           if (assignment.userId === userId) return true;
-          if (assignment.roleId && assignment.roleId === user.roleId) return true;
+          if (assignment.roleId && assignment.roleId === user.roleId)
+            return true;
           return false;
         });
 
         if (!isAuthorized) {
-          throw new BadRequestException('User is not authorized to execute this transition');
+          throw new BadRequestException(
+            'User is not authorized to execute this transition',
+          );
         }
       }
 
@@ -140,7 +174,12 @@ export class WorkflowEngineService {
         },
       });
 
-      await this.runWorkflowActions(transition.actions, entityId, variables, userId);
+      await this.runWorkflowActions(
+        transition.actions,
+        entityId,
+        variables,
+        userId,
+      );
 
       this.eventEmitter.emit('workflow.transitioned', {
         workflowId: workflow.id,
@@ -171,7 +210,9 @@ export class WorkflowEngineService {
     });
   }
 
-  private mapEntityTypeToModule(entityType: WorkflowEntityType): PrismaWorkflowModule {
+  private mapEntityTypeToModule(
+    entityType: WorkflowEntityType,
+  ): PrismaWorkflowModule {
     switch (entityType) {
       case WorkflowEntityType.PROPOSAL:
         return PrismaWorkflowModule.PROPOSALS;

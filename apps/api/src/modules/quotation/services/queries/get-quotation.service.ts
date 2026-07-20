@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+} from '@nestjs/common';
 import type { RequestUser } from '../../../auth/decorators/current-user.decorator';
 
 import { QuotationRepository } from '../../repositories/quotation.repository';
@@ -15,14 +19,20 @@ export class GetQuotationService {
     }
 
     if (user.role === 'SALES_AGENT' && quotation.createdById !== user.id) {
-      throw new ForbiddenException('You do not have permission to access this quotation');
+      throw new ForbiddenException(
+        'You do not have permission to access this quotation',
+      );
     }
 
     return QuotationMapper.toResponse(quotation);
   }
 
   async executeAll(user: RequestUser) {
-    const whereClause = user.role === 'SALES_AGENT' ? { createdById: user.id } : {};
-    return this.quotationRepository.findPaginated({ page: 1, limit: 100 }, whereClause);
+    const whereClause =
+      user.role === 'SALES_AGENT' ? { createdById: user.id } : {};
+    return this.quotationRepository.findPaginated(
+      { page: 1, limit: 100 },
+      whereClause,
+    );
   }
 }

@@ -12,7 +12,12 @@ export class ApproveClaimService {
     private readonly eventEmitter: EventEmitter2,
   ) {}
 
-  async execute(claimId: string, approve: boolean, comments: string, updatedById: string) {
+  async execute(
+    claimId: string,
+    approve: boolean,
+    comments: string,
+    updatedById: string,
+  ) {
     const claim = await this.claimRepository.findById(claimId);
     if (!claim || claim.deletedAt) {
       throw new NotFoundException(`Claim with ID ${claimId} not found`);
@@ -34,15 +39,26 @@ export class ApproveClaimService {
       claimId,
       targetStatus,
       approve ? 'APPROVE_CLAIM' : 'REJECT_CLAIM',
-      comments || (approve ? 'Claim approved by claims officer.' : 'Claim rejected by claims officer.'),
+      comments ||
+        (approve
+          ? 'Claim approved by claims officer.'
+          : 'Claim rejected by claims officer.'),
       updatedById,
     );
 
     // Emit Event
     if (approve) {
-      this.eventEmitter.emit('claim.approved', { claim: updated, updatedById, comments });
+      this.eventEmitter.emit('claim.approved', {
+        claim: updated,
+        updatedById,
+        comments,
+      });
     } else {
-      this.eventEmitter.emit('claim.rejected', { claim: updated, updatedById, comments });
+      this.eventEmitter.emit('claim.rejected', {
+        claim: updated,
+        updatedById,
+        comments,
+      });
     }
 
     const finalClaim = await this.claimRepository.findById(claimId);

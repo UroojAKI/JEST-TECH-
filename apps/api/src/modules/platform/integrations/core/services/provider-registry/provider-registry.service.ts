@@ -26,7 +26,9 @@ export class ProviderRegistryService implements OnModuleInit {
       }
       this.cache.get(provider.type)?.push(provider);
     }
-    this.logger.log(`Provider registry cache refreshed. Found ${providers.length} active providers.`);
+    this.logger.log(
+      `Provider registry cache refreshed. Found ${providers.length} active providers.`,
+    );
   }
 
   getPrimaryProvider(type: string): IntegrationProvider | null {
@@ -39,11 +41,14 @@ export class ProviderRegistryService implements OnModuleInit {
     return providers[0];
   }
 
-  getFallbackProvider(type: string, failedProviderId: string): IntegrationProvider | null {
+  getFallbackProvider(
+    type: string,
+    failedProviderId: string,
+  ): IntegrationProvider | null {
     const providers = this.cache.get(type);
     if (!providers) return null;
 
-    const fallback = providers.find(p => p.id !== failedProviderId);
+    const fallback = providers.find((p) => p.id !== failedProviderId);
     return fallback || null;
   }
 

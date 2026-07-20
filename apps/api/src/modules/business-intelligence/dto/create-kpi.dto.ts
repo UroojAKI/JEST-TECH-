@@ -1,4 +1,11 @@
-import { IsString, IsNotEmpty, IsOptional, IsIn, Matches, IsNumber } from 'class-validator';
+import {
+  IsString,
+  IsNotEmpty,
+  IsOptional,
+  IsIn,
+  Matches,
+  IsNumber,
+} from 'class-validator';
 
 export class CreateKpiDto {
   @IsString()
@@ -15,7 +22,9 @@ export class CreateKpiDto {
 
   @IsString()
   @IsNotEmpty()
-  @Matches(/^[a-z0-9_\s+\-*/().^%]+$/i, { message: 'Formula contains invalid characters' })
+  @Matches(/^[a-z0-9_\s+\-*/().^%]+$/i, {
+    message: 'Formula contains invalid characters',
+  })
   formula: string;
 
   @IsString()

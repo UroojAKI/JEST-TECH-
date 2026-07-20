@@ -18,9 +18,10 @@ export interface StandardResponse<T> {
 }
 
 @Injectable()
-export class ResponseInterceptor<T>
-  implements NestInterceptor<T, StandardResponse<T> | T>
-{
+export class ResponseInterceptor<T> implements NestInterceptor<
+  T,
+  StandardResponse<T> | T
+> {
   intercept(
     context: ExecutionContext,
     next: CallHandler,
@@ -37,7 +38,11 @@ export class ResponseInterceptor<T>
         }
 
         // If response headers are already sent or this is a stream/buffer download, bypass mapping
-        if (response.headersSent || data instanceof Buffer || (data && typeof data.pipe === 'function')) {
+        if (
+          response.headersSent ||
+          data instanceof Buffer ||
+          (data && typeof data.pipe === 'function')
+        ) {
           return data;
         }
 

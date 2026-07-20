@@ -1,4 +1,9 @@
-import { CanActivate, ExecutionContext, Injectable, BadRequestException } from '@nestjs/common';
+import {
+  CanActivate,
+  ExecutionContext,
+  Injectable,
+  BadRequestException,
+} from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { SetMetadata } from '@nestjs/common';
 import { FeatureFlags } from '../../config/features.config';
@@ -18,10 +23,9 @@ export class FeatureFlagGuard implements CanActivate {
   constructor(private readonly reflector: Reflector) {}
 
   canActivate(context: ExecutionContext): boolean {
-    const flagName = this.reflector.getAllAndOverride<keyof typeof FeatureFlags>(
-      FEATURE_FLAG_KEY,
-      [context.getHandler(), context.getClass()],
-    );
+    const flagName = this.reflector.getAllAndOverride<
+      keyof typeof FeatureFlags
+    >(FEATURE_FLAG_KEY, [context.getHandler(), context.getClass()]);
 
     if (!flagName) {
       return true;
@@ -29,7 +33,9 @@ export class FeatureFlagGuard implements CanActivate {
 
     const isEnabled = FeatureFlags[flagName];
     if (!isEnabled) {
-      throw new BadRequestException(`Feature '${flagName}' is currently disabled.`);
+      throw new BadRequestException(
+        `Feature '${flagName}' is currently disabled.`,
+      );
     }
 
     return true;

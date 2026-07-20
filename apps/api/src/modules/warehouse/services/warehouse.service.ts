@@ -82,7 +82,11 @@ export interface ReportingRenewal {
 export class WarehouseService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async getReportingContacts(filters?: { from?: Date; to?: Date; type?: string }, cursor?: string, take = 1000): Promise<ReportingContact[]> {
+  async getReportingContacts(
+    filters?: { from?: Date; to?: Date; type?: string },
+    cursor?: string,
+    take = 1000,
+  ): Promise<ReportingContact[]> {
     const contacts = await this.prisma.contact.findMany({
       where: {
         deletedAt: null,
@@ -114,14 +118,23 @@ export class WarehouseService {
     }));
   }
 
-  async getReportingLeads(filters?: { from?: Date; to?: Date; status?: string; agentId?: string }, cursor?: string, take = 1000): Promise<ReportingLead[]> {
+  async getReportingLeads(
+    filters?: { from?: Date; to?: Date; status?: string; agentId?: string },
+    cursor?: string,
+    take = 1000,
+  ): Promise<ReportingLead[]> {
     const leads = await this.prisma.lead.findMany({
       where: {
         deletedAt: null,
         ...(filters?.status && { status: filters.status as any }),
         ...(filters?.agentId && { assignedToId: filters.agentId }),
         ...(filters?.from || filters?.to
-          ? { createdAt: { ...(filters.from && { gte: filters.from }), ...(filters.to && { lte: filters.to }) } }
+          ? {
+              createdAt: {
+                ...(filters.from && { gte: filters.from }),
+                ...(filters.to && { lte: filters.to }),
+              },
+            }
           : {}),
       },
       include: {
@@ -141,25 +154,38 @@ export class WarehouseService {
       status: l.status,
       source: l.source,
       productType: null,
-      assignedAgentName: l.assignedTo ? `${l.assignedTo.firstName} ${l.assignedTo.lastName}` : 'Unassigned',
+      assignedAgentName: l.assignedTo
+        ? `${l.assignedTo.firstName} ${l.assignedTo.lastName}`
+        : 'Unassigned',
       assignedManagerName: null,
       createdAt: l.createdAt,
       convertedAt: null,
     }));
   }
 
-  async getReportingPolicies(filters?: { from?: Date; to?: Date; status?: string; agentId?: string }, cursor?: string, take = 1000): Promise<ReportingPolicy[]> {
+  async getReportingPolicies(
+    filters?: { from?: Date; to?: Date; status?: string; agentId?: string },
+    cursor?: string,
+    take = 1000,
+  ): Promise<ReportingPolicy[]> {
     const policies = await this.prisma.policy.findMany({
       where: {
         deletedAt: null,
         ...(filters?.status && { status: filters.status as any }),
         ...(filters?.from || filters?.to
-          ? { createdAt: { ...(filters.from && { gte: filters.from }), ...(filters.to && { lte: filters.to }) } }
+          ? {
+              createdAt: {
+                ...(filters.from && { gte: filters.from }),
+                ...(filters.to && { lte: filters.to }),
+              },
+            }
           : {}),
       },
       include: {
         contact: true,
-        quotation: { select: { insurerName: true, productType: true, totalPremium: true } },
+        quotation: {
+          select: { insurerName: true, productType: true, totalPremium: true },
+        },
       },
       take,
       ...(cursor && { cursor: { id: cursor }, skip: 1 }),
@@ -182,12 +208,21 @@ export class WarehouseService {
     }));
   }
 
-  async getReportingClaims(filters?: { from?: Date; to?: Date; status?: string }, cursor?: string, take = 1000): Promise<ReportingClaim[]> {
+  async getReportingClaims(
+    filters?: { from?: Date; to?: Date; status?: string },
+    cursor?: string,
+    take = 1000,
+  ): Promise<ReportingClaim[]> {
     const claims = await this.prisma.claim.findMany({
       where: {
         ...(filters?.status && { status: filters.status as any }),
         ...(filters?.from || filters?.to
-          ? { reportedDate: { ...(filters.from && { gte: filters.from }), ...(filters.to && { lte: filters.to }) } }
+          ? {
+              reportedDate: {
+                ...(filters.from && { gte: filters.from }),
+                ...(filters.to && { lte: filters.to }),
+              },
+            }
           : {}),
       },
       include: {
@@ -212,11 +247,20 @@ export class WarehouseService {
     }));
   }
 
-  async getReportingRevenue(filters?: { from?: Date; to?: Date }, cursor?: string, take = 1000): Promise<ReportingRevenue[]> {
+  async getReportingRevenue(
+    filters?: { from?: Date; to?: Date },
+    cursor?: string,
+    take = 1000,
+  ): Promise<ReportingRevenue[]> {
     const payments = await this.prisma.policyPayment.findMany({
       where: {
         ...(filters?.from || filters?.to
-          ? { paymentDate: { ...(filters.from && { gte: filters.from }), ...(filters.to && { lte: filters.to }) } }
+          ? {
+              paymentDate: {
+                ...(filters.from && { gte: filters.from }),
+                ...(filters.to && { lte: filters.to }),
+              },
+            }
           : {}),
       },
       include: {
@@ -247,7 +291,10 @@ export class WarehouseService {
     }));
   }
 
-  async getReportingRenewals(cursor?: string, take = 1000): Promise<ReportingRenewal[]> {
+  async getReportingRenewals(
+    cursor?: string,
+    take = 1000,
+  ): Promise<ReportingRenewal[]> {
     const now = new Date();
     const in45 = new Date(now.getTime() + 45 * 24 * 60 * 60 * 1000);
 
@@ -267,7 +314,9 @@ export class WarehouseService {
 
     return policies.map((p) => {
       const expiry = p.expiryDate ? new Date(p.expiryDate) : null;
-      const daysToExpiry = expiry ? Math.ceil((expiry.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)) : -1;
+      const daysToExpiry = expiry
+        ? Math.ceil((expiry.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+        : -1;
       return {
         id: p.id,
         policyNumber: p.policyNumber,

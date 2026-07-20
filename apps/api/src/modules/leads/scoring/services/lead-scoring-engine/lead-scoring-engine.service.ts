@@ -26,7 +26,7 @@ export class LeadScoringEngineService {
 
     for (const rule of rules) {
       const isMatch = this.evaluateCondition(rule.condition, lead);
-      
+
       if (isMatch) {
         totalScore += rule.points;
         logs.push({
@@ -68,7 +68,10 @@ export class LeadScoringEngineService {
           case 'NOT_EQUALS':
             return actualValue !== condition.value;
           case 'CONTAINS':
-            return typeof actualValue === 'string' && actualValue.includes(condition.value);
+            return (
+              typeof actualValue === 'string' &&
+              actualValue.includes(condition.value)
+            );
         }
       }
       return false;

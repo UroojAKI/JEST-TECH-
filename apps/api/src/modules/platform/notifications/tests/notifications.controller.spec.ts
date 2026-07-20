@@ -33,10 +33,16 @@ describe('NotificationsController', () => {
         {
           provide: NotificationService,
           useValue: {
-            getUserNotifications: jest.fn().mockResolvedValue(mockNotifications),
-            getUnreadNotifications: jest.fn().mockResolvedValue(mockNotifications),
+            getUserNotifications: jest
+              .fn()
+              .mockResolvedValue(mockNotifications),
+            getUnreadNotifications: jest
+              .fn()
+              .mockResolvedValue(mockNotifications),
             getUnreadCount: jest.fn().mockResolvedValue({ count: 1 }),
-            markAsRead: jest.fn().mockResolvedValue({ id: 'notif-1', isRead: true }),
+            markAsRead: jest
+              .fn()
+              .mockResolvedValue({ id: 'notif-1', isRead: true }),
             markAllAsRead: jest.fn().mockResolvedValue({ count: 1 }),
             deleteNotification: jest.fn().mockResolvedValue({ id: 'notif-1' }),
             getPreferences: jest.fn().mockResolvedValue({ inApp: true }),

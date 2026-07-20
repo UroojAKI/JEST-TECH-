@@ -12,13 +12,21 @@ export class ClaimListener {
   @OnEvent('claim.registered')
   async handleClaimRegistered(event: { claim: any; createdById: string }) {
     const { claim } = event;
-    this.logger.log(`Claim ${claim.claimNumber} registered successfully. Database transaction completed.`);
+    this.logger.log(
+      `Claim ${claim.claimNumber} registered successfully. Database transaction completed.`,
+    );
   }
 
   @OnEvent('claim.approved')
-  async handleClaimApproved(event: { claim: any; updatedById: string; comments: string }) {
+  async handleClaimApproved(event: {
+    claim: any;
+    updatedById: string;
+    comments: string;
+  }) {
     const { claim, updatedById, comments } = event;
-    this.logger.log(`Processing claim.approved event for claim number: ${claim.claimNumber}`);
+    this.logger.log(
+      `Processing claim.approved event for claim number: ${claim.claimNumber}`,
+    );
 
     try {
       // 1. Create ADJUSTED/RELEASED Claim Reserve
@@ -39,9 +47,13 @@ export class ClaimListener {
         body: `Hello, we are pleased to inform you that your claim ${claim.claimNumber} has been approved for payment of ${claim.approvedAmount}. Comments: ${comments}`,
       });
 
-      this.logger.log(`Successfully completed approval handler for claim ${claim.claimNumber}`);
+      this.logger.log(
+        `Successfully completed approval handler for claim ${claim.claimNumber}`,
+      );
     } catch (error: any) {
-      this.logger.error(`Failed to execute approval logic for claim ${claim.claimNumber}: ${error.message}`);
+      this.logger.error(
+        `Failed to execute approval logic for claim ${claim.claimNumber}: ${error.message}`,
+      );
     }
   }
 }

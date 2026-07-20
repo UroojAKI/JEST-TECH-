@@ -14,12 +14,15 @@ export class HealthService {
   async checkReady(): Promise<boolean> {
     try {
       await this.prisma.$queryRaw`SELECT 1`;
-      
-      const redis = new Redis(this.config.redisUrl, { maxRetriesPerRequest: 1, lazyConnect: true });
+
+      const redis = new Redis(this.config.redisUrl, {
+        maxRetriesPerRequest: 1,
+        lazyConnect: true,
+      });
       await redis.connect();
       await redis.ping();
       await redis.quit();
-      
+
       return true;
     } catch {
       return false;
@@ -42,7 +45,10 @@ export class HealthService {
     let redisLatencyMs = 0;
     try {
       const start = Date.now();
-      const redis = new Redis(this.config.redisUrl, { maxRetriesPerRequest: 1, lazyConnect: true });
+      const redis = new Redis(this.config.redisUrl, {
+        maxRetriesPerRequest: 1,
+        lazyConnect: true,
+      });
       await redis.connect();
       await redis.ping();
       await redis.quit();
@@ -56,8 +62,10 @@ export class HealthService {
     let activeUsers = 0;
     let activeJobs = 0;
     if (dbStatus === 'connected') {
-        activeUsers = await this.prisma.user.count().catch(() => 0);
-        activeJobs = await this.prisma.backgroundJob.count({ where: { status: { in: ['QUEUED', 'RUNNING'] } } }).catch(() => 0);
+      activeUsers = await this.prisma.user.count().catch(() => 0);
+      activeJobs = await this.prisma.backgroundJob
+        .count({ where: { status: { in: ['QUEUED', 'RUNNING'] } } })
+        .catch(() => 0);
     }
 
     const isHealthy = dbStatus === 'connected' && redisStatus === 'connected';

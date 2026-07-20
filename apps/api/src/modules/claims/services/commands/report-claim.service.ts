@@ -1,6 +1,11 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import { ClaimStatus, ReserveType, CommunicationChannel, Prisma } from '@prisma/client';
+import {
+  ClaimStatus,
+  ReserveType,
+  CommunicationChannel,
+  Prisma,
+} from '@prisma/client';
 import { ClaimRepository } from '../../repositories/claim.repository';
 import { PolicyRepository } from '../../../policies/repositories/policy.repository';
 import { ReportClaimDto } from '../../dto/report-claim.dto';
@@ -49,13 +54,16 @@ export class ReportClaimService {
       const createdClaim = await this.claimRepository.create(claimData, tx);
 
       // 4.2 Create Initial Claim Reserve
-      await this.claimRepository.addReserve({
-        claim: { connect: { id: createdClaim.id } },
-        amount: createdClaim.claimAmount,
-        type: ReserveType.INITIAL,
-        comments: 'Initial reserve set to claim amount on registration.',
-        createdBy: { connect: { id: createdById } },
-      }, tx);
+      await this.claimRepository.addReserve(
+        {
+          claim: { connect: { id: createdClaim.id } },
+          amount: createdClaim.claimAmount,
+          type: ReserveType.INITIAL,
+          comments: 'Initial reserve set to claim amount on registration.',
+          createdBy: { connect: { id: createdById } },
+        },
+        tx,
+      );
 
       // 4.3 Add history entry for registration
       await this.claimRepository.addHistoryEntry(
@@ -68,24 +76,34 @@ export class ReportClaimService {
       );
 
       // 4.4 Update Status to REGISTERED
-      const updatedClaim = await this.claimRepository.update(createdClaim.id, {
-        status: ClaimStatus.REGISTERED,
-      }, tx);
+      const updatedClaim = await this.claimRepository.update(
+        createdClaim.id,
+        {
+          status: ClaimStatus.REGISTERED,
+        },
+        tx,
+      );
 
       // 4.5 Log Communication stub
-      await this.claimRepository.addCommunication({
-        claim: { connect: { id: createdClaim.id } },
-        recipient: 'customer@example.com',
-        channel: CommunicationChannel.EMAIL,
-        subject: `Claim Registered - ${claimNumber}`,
-        body: `Hello, your claim ${claimNumber} has been successfully registered. We are reviewing the details and will assign an assessor shortly.`,
-      }, tx);
+      await this.claimRepository.addCommunication(
+        {
+          claim: { connect: { id: createdClaim.id } },
+          recipient: 'customer@example.com',
+          channel: CommunicationChannel.EMAIL,
+          subject: `Claim Registered - ${claimNumber}`,
+          body: `Hello, your claim ${claimNumber} has been successfully registered. We are reviewing the details and will assign an assessor shortly.`,
+        },
+        tx,
+      );
 
       return updatedClaim;
     });
 
     // 5. Emit Event after transaction commits
-    await this.eventEmitter.emitAsync('claim.registered', { claim, createdById });
+    await this.eventEmitter.emitAsync('claim.registered', {
+      claim,
+      createdById,
+    });
 
     return ClaimMapper.toResponse(claim);
   }

@@ -4,13 +4,18 @@ import { WorkflowEntityAdapter } from '../interfaces/workflow-entity-adapter.int
 
 @Injectable()
 export class WorkflowAdapterRegistry {
-  private readonly adapters = new Map<WorkflowEntityType, WorkflowEntityAdapter>();
+  private readonly adapters = new Map<
+    WorkflowEntityType,
+    WorkflowEntityAdapter
+  >();
 
   register(entityType: WorkflowEntityType, adapter: WorkflowEntityAdapter) {
     this.adapters.set(entityType, adapter);
   }
 
-  getAdapter(entityType: WorkflowEntityType): WorkflowEntityAdapter | undefined {
+  getAdapter(
+    entityType: WorkflowEntityType,
+  ): WorkflowEntityAdapter | undefined {
     return this.adapters.get(entityType);
   }
 }

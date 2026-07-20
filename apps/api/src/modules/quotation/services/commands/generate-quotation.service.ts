@@ -55,7 +55,8 @@ export class GenerateQuotationService {
     const totalPremium = netPremium + gstAmount;
 
     // 3. Generate Code
-    const quotationCode = await this.quotationRepository.generateQuotationCode();
+    const quotationCode =
+      await this.quotationRepository.generateQuotationCode();
 
     // 4. Map DB Create Input
     const createData: Prisma.QuotationCreateInput = {
@@ -139,7 +140,9 @@ export class GenerateQuotationService {
     ]);
 
     // 7. Fetch updated details with versions and documents
-    const finalQuotation = await this.quotationRepository.findDetail(quotation.id);
+    const finalQuotation = await this.quotationRepository.findDetail(
+      quotation.id,
+    );
     return QuotationMapper.toResponse(finalQuotation!);
   }
 }

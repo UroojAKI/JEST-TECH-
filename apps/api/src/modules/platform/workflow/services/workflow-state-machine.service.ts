@@ -4,7 +4,10 @@ import { Injectable } from '@nestjs/common';
 export class WorkflowStateMachine {
   validateTransition(
     currentStateCode: string,
-    transition: { fromState: { code: string } | null; toState: { code: string } },
+    transition: {
+      fromState: { code: string } | null;
+      toState: { code: string };
+    },
   ): boolean {
     const fromCode = transition.fromState ? transition.fromState.code : 'DRAFT';
     return fromCode.toUpperCase() === currentStateCode.toUpperCase();

@@ -1,5 +1,9 @@
 import { Injectable, OnModuleInit } from '@nestjs/common';
-import { ReportDataProvider, ReportParameters, ReportResult } from '../../platform/reporting/interfaces/report-provider.interface';
+import {
+  ReportDataProvider,
+  ReportParameters,
+  ReportResult,
+} from '../../platform/reporting/interfaces/report-provider.interface';
 import { ReportDataProviderRegistry } from '../../platform/reporting/services/report-data-provider-registry.service';
 import { PrismaService } from '../../../database/prisma.service';
 
@@ -11,11 +15,17 @@ export class ClaimReportProvider implements ReportDataProvider, OnModuleInit {
   ) {}
 
   onModuleInit() {
-    this.registry.register(this, ['CLAIMS_REGISTER', 'CLAIMS_PENDING', 'LOSS_RATIO']);
+    this.registry.register(this, [
+      'CLAIMS_REGISTER',
+      'CLAIMS_PENDING',
+      'LOSS_RATIO',
+    ]);
   }
 
   supports(reportCode: string): boolean {
-    return ['CLAIMS_REGISTER', 'CLAIMS_PENDING', 'LOSS_RATIO'].includes(reportCode.toUpperCase());
+    return ['CLAIMS_REGISTER', 'CLAIMS_PENDING', 'LOSS_RATIO'].includes(
+      reportCode.toUpperCase(),
+    );
   }
 
   async execute(params: ReportParameters): Promise<ReportResult> {
@@ -29,7 +39,13 @@ export class ClaimReportProvider implements ReportDataProvider, OnModuleInit {
 
     if (reportCode === 'CLAIMS_PENDING') {
       whereClause.status = {
-        in: ['REPORTED', 'REGISTERED', 'SURVEYOR_ASSIGNED', 'UNDER_ASSESSMENT', 'PAYMENT_PENDING'],
+        in: [
+          'REPORTED',
+          'REGISTERED',
+          'SURVEYOR_ASSIGNED',
+          'UNDER_ASSESSMENT',
+          'PAYMENT_PENDING',
+        ],
       };
     }
 
@@ -45,7 +61,9 @@ export class ClaimReportProvider implements ReportDataProvider, OnModuleInit {
     const rows = claims.map((c) => ({
       claimNumber: c.claimNumber,
       policyNumber: c.policy.policyNumber,
-      contactName: c.contact ? `${c.contact.firstName} ${c.contact.lastName}` : '',
+      contactName: c.contact
+        ? `${c.contact.firstName} ${c.contact.lastName}`
+        : '',
       status: c.status,
       claimAmount: Number(c.claimAmount || 0),
       surveyorName: c.surveyorName || '',
@@ -55,21 +73,30 @@ export class ClaimReportProvider implements ReportDataProvider, OnModuleInit {
     return { rows };
   }
 
-  private async executeLossRatio(params: ReportParameters): Promise<ReportResult> {
+  private async executeLossRatio(
+    params: ReportParameters,
+  ): Promise<ReportResult> {
     const claims = await this.prisma.claim.findMany({
       where: {
         status: { in: ['SETTLED', 'APPROVED'] },
         deletedAt: null,
       },
     });
-    const claimsPaid = claims.reduce((sum, c) => sum + Number(c.approvedAmount || 0), 0);
+    const claimsPaid = claims.reduce(
+      (sum, c) => sum + Number(c.approvedAmount || 0),
+      0,
+    );
 
     const payments = await this.prisma.policyPayment.findMany({
       where: { status: 'SUCCESS' },
     });
-    const premiumCollected = payments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
+    const premiumCollected = payments.reduce(
+      (sum, p) => sum + Number(p.amount || 0),
+      0,
+    );
 
-    const lossRatio = premiumCollected > 0 ? (claimsPaid / premiumCollected) * 100 : 0;
+    const lossRatio =
+      premiumCollected > 0 ? (claimsPaid / premiumCollected) * 100 : 0;
 
     return {
       rows: [

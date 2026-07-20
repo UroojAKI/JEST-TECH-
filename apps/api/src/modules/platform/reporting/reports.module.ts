@@ -22,6 +22,11 @@ import { ReportDataProviderRegistry } from './services/report-data-provider-regi
     ReportQueriesService,
     ReportDataProviderRegistry,
   ],
-  exports: [ReportsRepository, ReportBuilderService, ExportService, ReportDataProviderRegistry],
+  exports: [
+    ReportsRepository,
+    ReportBuilderService,
+    ExportService,
+    ReportDataProviderRegistry,
+  ],
 })
 export class ReportsModule {}

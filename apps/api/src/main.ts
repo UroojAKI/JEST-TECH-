@@ -20,14 +20,17 @@ async function bootstrap() {
   app.setGlobalPrefix('api/v1');
 
   // 4. API Documentation (Swagger)
-  if (process.env.NODE_ENV !== 'production' || process.env.ENABLE_SWAGGER === 'true') {
+  if (
+    process.env.NODE_ENV !== 'production' ||
+    process.env.ENABLE_SWAGGER === 'true'
+  ) {
     const config = new DocumentBuilder()
       .setTitle('JEST Policy CRM API')
       .setDescription('The API documentation for the enterprise insurance CRM')
       .setVersion('1.0')
       .addBearerAuth()
       .build();
-    
+
     const document = SwaggerModule.createDocument(app, config);
     SwaggerModule.setup('api/docs', app, document);
   }

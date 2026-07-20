@@ -26,14 +26,19 @@ export class LocalStorageProvider implements StorageProvider {
     const resolved = path.resolve(this.uploadDir, key);
     const uploadDirResolved = path.resolve(this.uploadDir);
     const relative = path.relative(uploadDirResolved, resolved);
-    const isSafe = relative && !relative.startsWith('..') && !path.isAbsolute(relative);
+    const isSafe =
+      relative && !relative.startsWith('..') && !path.isAbsolute(relative);
     if (!isSafe) {
       throw new BadRequestException('Invalid storage path');
     }
     return resolved;
   }
 
-  async uploadFile(fileBuffer: Buffer, key: string, mimeType: string): Promise<string> {
+  async uploadFile(
+    fileBuffer: Buffer,
+    key: string,
+    mimeType: string,
+  ): Promise<string> {
     const filePath = this.safePath(key);
     const parentDir = path.dirname(filePath);
     if (!fs.existsSync(parentDir)) {

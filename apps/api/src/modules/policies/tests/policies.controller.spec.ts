@@ -54,15 +54,24 @@ describe('PoliciesController', () => {
       providers: [
         {
           provide: IssuePolicyService,
-          useValue: { execute: jest.fn().mockResolvedValue(mockPolicyResponse) },
+          useValue: {
+            execute: jest.fn().mockResolvedValue(mockPolicyResponse),
+          },
         },
         {
           provide: CancelPolicyService,
-          useValue: { execute: jest.fn().mockResolvedValue({ ...mockPolicyResponse, status: PolicyStatus.CANCELLED }) },
+          useValue: {
+            execute: jest.fn().mockResolvedValue({
+              ...mockPolicyResponse,
+              status: PolicyStatus.CANCELLED,
+            }),
+          },
         },
         {
           provide: RenewPolicyService,
-          useValue: { execute: jest.fn().mockResolvedValue(mockPolicyResponse) },
+          useValue: {
+            execute: jest.fn().mockResolvedValue(mockPolicyResponse),
+          },
         },
         {
           provide: GetPolicyService,
@@ -83,7 +92,9 @@ describe('PoliciesController', () => {
     cancelService = module.get<CancelPolicyService>(CancelPolicyService);
     renewService = module.get<RenewPolicyService>(RenewPolicyService);
     getService = module.get<GetPolicyService>(GetPolicyService);
-    historyService = module.get<GetPolicyHistoryService>(GetPolicyHistoryService);
+    historyService = module.get<GetPolicyHistoryService>(
+      GetPolicyHistoryService,
+    );
   });
 
   // 1. Happy Path
@@ -91,8 +102,19 @@ describe('PoliciesController', () => {
     it('should issue a policy', async () => {
       const dto = new CreatePolicyDto();
       dto.quotationId = 'quote-123';
-      dto.nominees = [{ firstName: 'Nominee', lastName: 'User', relation: 'Spouse', percentage: 100 }];
-      dto.payment = { amount: 11800, transactionId: 'TXN-123', paymentMethod: 'UPI' };
+      dto.nominees = [
+        {
+          firstName: 'Nominee',
+          lastName: 'User',
+          relation: 'Spouse',
+          percentage: 100,
+        },
+      ];
+      dto.payment = {
+        amount: 11800,
+        transactionId: 'TXN-123',
+        paymentMethod: 'UPI',
+      };
 
       const result = await controller.create(dto, mockUser);
       expect(result).toEqual(mockPolicyResponse);
@@ -102,60 +124,93 @@ describe('PoliciesController', () => {
     it('should find one policy', async () => {
       const result = await controller.findOne('policy-123');
       expect(result).toEqual(mockPolicyResponse);
-      expect(getService.executeOne).toHaveBeenCalledWith('policy-123', undefined);
+      expect(getService.executeOne).toHaveBeenCalledWith(
+        'policy-123',
+        undefined,
+      );
     });
 
     it('should cancel a policy', async () => {
-      const result = await controller.cancel('policy-123', 'Customer request', mockUser);
+      const result = await controller.cancel(
+        'policy-123',
+        'Customer request',
+        mockUser,
+      );
       expect(result.status).toEqual(PolicyStatus.CANCELLED);
-      expect(cancelService.execute).toHaveBeenCalledWith('policy-123', 'Customer request', mockUser.id);
+      expect(cancelService.execute).toHaveBeenCalledWith(
+        'policy-123',
+        'Customer request',
+        mockUser.id,
+      );
     });
   });
 
   // 2. Validation Failure
   describe('Validation Failure', () => {
     it('should throw BadRequestException for incorrect allocations', async () => {
-      jest.spyOn(issueService, 'execute').mockRejectedValueOnce(new BadRequestException('Validation failed'));
+      jest
+        .spyOn(issueService, 'execute')
+        .mockRejectedValueOnce(new BadRequestException('Validation failed'));
       const invalidDto = new CreatePolicyDto();
 
-      await expect(controller.create(invalidDto, mockUser)).rejects.toThrow(BadRequestException);
+      await expect(controller.create(invalidDto, mockUser)).rejects.toThrow(
+        BadRequestException,
+      );
     });
   });
 
   // 3. Unauthorized
   describe('Unauthorized', () => {
     it('should throw UnauthorizedException when credentials fail', async () => {
-      jest.spyOn(getService, 'executeOne').mockRejectedValueOnce(new UnauthorizedException('Unauthorized access'));
+      jest
+        .spyOn(getService, 'executeOne')
+        .mockRejectedValueOnce(
+          new UnauthorizedException('Unauthorized access'),
+        );
 
-      await expect(controller.findOne('policy-123')).rejects.toThrow(UnauthorizedException);
+      await expect(controller.findOne('policy-123')).rejects.toThrow(
+        UnauthorizedException,
+      );
     });
   });
 
   // 4. Forbidden
   describe('Forbidden', () => {
     it('should throw ForbiddenException when user cannot perform action', async () => {
-      jest.spyOn(cancelService, 'execute').mockRejectedValueOnce(new ForbiddenException('Access denied'));
+      jest
+        .spyOn(cancelService, 'execute')
+        .mockRejectedValueOnce(new ForbiddenException('Access denied'));
 
-      await expect(controller.cancel('policy-123', 'Comments', mockUser)).rejects.toThrow(ForbiddenException);
+      await expect(
+        controller.cancel('policy-123', 'Comments', mockUser),
+      ).rejects.toThrow(ForbiddenException);
     });
   });
 
   // 5. Not Found
   describe('Not Found', () => {
     it('should throw NotFoundException when policy is missing', async () => {
-      jest.spyOn(getService, 'executeOne').mockRejectedValueOnce(new NotFoundException('Policy not found'));
+      jest
+        .spyOn(getService, 'executeOne')
+        .mockRejectedValueOnce(new NotFoundException('Policy not found'));
 
-      await expect(controller.findOne('policy-nonexistent')).rejects.toThrow(NotFoundException);
+      await expect(controller.findOne('policy-nonexistent')).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 
   // 6. Conflict
   describe('Conflict', () => {
     it('should throw ConflictException when policy has duplicate quotation link', async () => {
-      jest.spyOn(issueService, 'execute').mockRejectedValueOnce(new ConflictException('Policy already issued'));
+      jest
+        .spyOn(issueService, 'execute')
+        .mockRejectedValueOnce(new ConflictException('Policy already issued'));
       const dto = new CreatePolicyDto();
 
-      await expect(controller.create(dto, mockUser)).rejects.toThrow(ConflictException);
+      await expect(controller.create(dto, mockUser)).rejects.toThrow(
+        ConflictException,
+      );
     });
   });
 });

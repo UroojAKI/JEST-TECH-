@@ -67,7 +67,9 @@ describe('AuthService', () => {
     it('should throw UnauthorizedException when password is invalid', async () => {
       usersService.findByEmailForAuth!.mockResolvedValue(mockUser as any);
 
-      jest.mock('argon2', () => ({ verify: jest.fn().mockResolvedValue(false) }));
+      jest.mock('argon2', () => ({
+        verify: jest.fn().mockResolvedValue(false),
+      }));
 
       await expect(
         service.login({ email: 'test@jest.com', password: 'wrongpassword' }),
@@ -76,20 +78,27 @@ describe('AuthService', () => {
 
     it('should return access token and user data on valid login', async () => {
       usersService.findByEmailForAuth!.mockResolvedValue(mockUser as any);
-      
-      const result = await service.login({
-        email: 'test@jest.com',
-        password: 'password',
-      }).catch(() => null);
 
-      expect(usersService.findByEmailForAuth).toHaveBeenCalledWith('test@jest.com');
+      const result = await service
+        .login({
+          email: 'test@jest.com',
+          password: 'password',
+        })
+        .catch(() => null);
+
+      expect(usersService.findByEmailForAuth).toHaveBeenCalledWith(
+        'test@jest.com',
+      );
     });
 
     it('login error messages do not reveal whether email or password was wrong', async () => {
       usersService.findByEmailForAuth!.mockResolvedValue(null);
 
       try {
-        await service.login({ email: 'unknown@test.com', password: 'password' });
+        await service.login({
+          email: 'unknown@test.com',
+          password: 'password',
+        });
         fail('Should have thrown');
       } catch (e: any) {
         expect(e).toBeInstanceOf(UnauthorizedException);

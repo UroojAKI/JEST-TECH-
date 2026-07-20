@@ -40,17 +40,23 @@ export class CommunicationService {
         messagePreview: dto.messagePreview,
         messageBody: dto.messageBody, // We store the body for important business comms
         sentAt: new Date(),
-      }
+      },
     });
 
-    this.logger.log(`Logged outbound ${dto.channel} message for contact ${dto.contactId}`);
+    this.logger.log(
+      `Logged outbound ${dto.channel} message for contact ${dto.contactId}`,
+    );
     return log;
   }
 
   /**
    * Handles delivery callbacks from providers (e.g. Twilio webhook).
    */
-  async updateDeliveryStatus(providerMessageId: string, status: string, errorCode?: string) {
+  async updateDeliveryStatus(
+    providerMessageId: string,
+    status: string,
+    errorCode?: string,
+  ) {
     // Map provider statuses to standard JEST statuses
     let mappedStatus = status;
     if (['DELIVERED', 'READ'].includes(status.toUpperCase())) {

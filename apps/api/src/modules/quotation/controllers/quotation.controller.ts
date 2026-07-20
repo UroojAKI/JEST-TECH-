@@ -51,10 +51,7 @@ export class QuotationController {
     RoleType.TEAM_LEADER,
     RoleType.SALES_AGENT,
   )
-  create(
-    @Body() dto: CreateQuotationDto,
-    @CurrentUser() user: RequestUser,
-  ) {
+  create(@Body() dto: CreateQuotationDto, @CurrentUser() user: RequestUser) {
     return this.generateQuotationService.execute(dto, user.id);
   }
 
@@ -150,10 +147,7 @@ export class QuotationController {
     RoleType.TEAM_LEADER,
     RoleType.SALES_AGENT,
   )
-  convert(
-    @Param('id') id: string,
-    @CurrentUser() user: RequestUser,
-  ) {
+  convert(@Param('id') id: string, @CurrentUser() user: RequestUser) {
     return this.convertQuotationService.execute(id, user.id);
   }
 }

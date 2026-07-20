@@ -26,7 +26,9 @@ export class LedgerService {
    */
   async postEntry(data: CreateJournalEntryDto): Promise<JournalEntry> {
     if (!data.lines || data.lines.length < 2) {
-      throw new BadRequestException('A journal entry must have at least two lines.');
+      throw new BadRequestException(
+        'A journal entry must have at least two lines.',
+      );
     }
 
     let totalDebit = new Decimal(0);
@@ -34,18 +36,24 @@ export class LedgerService {
 
     for (const line of data.lines) {
       if (line.debit < 0 || line.credit < 0) {
-        throw new BadRequestException('Debits and Credits must be positive values.');
+        throw new BadRequestException(
+          'Debits and Credits must be positive values.',
+        );
       }
       if (line.debit > 0 && line.credit > 0) {
-        throw new BadRequestException('A single line cannot have both a debit and a credit.');
+        throw new BadRequestException(
+          'A single line cannot have both a debit and a credit.',
+        );
       }
-      
+
       totalDebit = totalDebit.add(line.debit);
       totalCredit = totalCredit.add(line.credit);
     }
 
     if (!totalDebit.equals(totalCredit)) {
-      throw new BadRequestException(`Journal entry is unbalanced. Debits: ${totalDebit}, Credits: ${totalCredit}`);
+      throw new BadRequestException(
+        `Journal entry is unbalanced. Debits: ${totalDebit}, Credits: ${totalCredit}`,
+      );
     }
 
     // Generate unique entry number
@@ -60,17 +68,17 @@ export class LedgerService {
         referenceType: data.referenceType,
         status: 'POSTED',
         lines: {
-          create: data.lines.map(line => ({
+          create: data.lines.map((line) => ({
             accountId: line.accountId,
             debit: line.debit,
             credit: line.credit,
             description: line.description,
-          }))
-        }
+          })),
+        },
       },
       include: {
-        lines: true
-      }
+        lines: true,
+      },
     });
   }
 
@@ -95,7 +103,7 @@ export class LedgerService {
       _sum: {
         debit: true,
         credit: true,
-      }
+      },
     });
 
     const totalDebit = result._sum.debit || new Decimal(0);

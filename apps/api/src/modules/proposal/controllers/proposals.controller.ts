@@ -17,17 +17,24 @@ export class ProposalsController {
 
   @Get()
   getProposals(@CurrentUser() user: RequestUser) {
-    const filterUserId = user.role === RoleType.SALES_AGENT ? user.id : undefined;
+    const filterUserId =
+      user.role === RoleType.SALES_AGENT ? user.id : undefined;
     return this.proposalService.getProposals(filterUserId);
   }
 
   @Get(':id')
-  getProposalDetails(@Param('id') id: string, @CurrentUser() user: RequestUser) {
+  getProposalDetails(
+    @Param('id') id: string,
+    @CurrentUser() user: RequestUser,
+  ) {
     return this.proposalService.getProposalDetails(id, user);
   }
 
   @Post()
-  createProposal(@Body('quotationId') quotationId: string, @CurrentUser() user: RequestUser) {
+  createProposal(
+    @Body('quotationId') quotationId: string,
+    @CurrentUser() user: RequestUser,
+  ) {
     return this.proposalService.createProposal(quotationId, user.id);
   }
 
@@ -38,7 +45,12 @@ export class ProposalsController {
     @Body('documentId') documentId: string,
     @CurrentUser() user: RequestUser,
   ) {
-    return this.proposalService.attachDocument(id, checklistItemId, documentId, user.id);
+    return this.proposalService.attachDocument(
+      id,
+      checklistItemId,
+      documentId,
+      user.id,
+    );
   }
 
   @Post(':id/submit')

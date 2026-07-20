@@ -10,7 +10,16 @@ export class PaymentService {
   /**
    * Records a receipt and allocates it against an outstanding invoice.
    */
-  async processPayment(invoiceId: string, amountStr: string, mode: string, reference?: string): Promise<{ receipt: Receipt, allocation: PaymentAllocation, invoice: Invoice }> {
+  async processPayment(
+    invoiceId: string,
+    amountStr: string,
+    mode: string,
+    reference?: string,
+  ): Promise<{
+    receipt: Receipt;
+    allocation: PaymentAllocation;
+    invoice: Invoice;
+  }> {
     const amount = new Decimal(amountStr);
 
     if (amount.lte(0)) {
@@ -32,7 +41,9 @@ export class PaymentService {
     const outstanding = invoice.totalAmount.sub(paidAmount);
 
     if (amount.gt(outstanding)) {
-      throw new BadRequestException(`Payment amount (${amount}) exceeds outstanding balance (${outstanding})`);
+      throw new BadRequestException(
+        `Payment amount (${amount}) exceeds outstanding balance (${outstanding})`,
+      );
     }
 
     const receiptNum = `RCPT-${Date.now()}`;
@@ -46,7 +57,7 @@ export class PaymentService {
           paymentMode: mode,
           reference,
           customerId: 'customer-1', // Assuming tied to customer, simplified for now
-        }
+        },
       });
 
       const allocation = await tx.paymentAllocation.create({
@@ -54,7 +65,7 @@ export class PaymentService {
           receiptId: receipt.id,
           invoiceId: invoice.id,
           amount,
-        }
+        },
       });
 
       const newPaidAmount = paidAmount.add(amount);

@@ -1,6 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../../database/prisma.service';
-import { FuelType, TransmissionType, VehicleType, Prisma } from '@prisma/client';
+import {
+  FuelType,
+  TransmissionType,
+  VehicleType,
+  Prisma,
+} from '@prisma/client';
 
 @Injectable()
 export class VehicleMasterService {
@@ -29,7 +34,12 @@ export class VehicleMasterService {
     });
   }
 
-  async createModel(manufacturerId: string, name: string, code: string, type: VehicleType) {
+  async createModel(
+    manufacturerId: string,
+    name: string,
+    code: string,
+    type: VehicleType,
+  ) {
     return this.prisma.vehicleModel.create({
       data: { manufacturerId, name, code, vehicleType: type },
     });
@@ -80,7 +90,15 @@ export class VehicleMasterService {
       const parts = line.split(',');
       if (parts.length < 7) continue;
 
-      const [modelCode, variantName, variantCode, fuel, transmission, cc, price] = parts.map((p) => p.trim());
+      const [
+        modelCode,
+        variantName,
+        variantCode,
+        fuel,
+        transmission,
+        cc,
+        price,
+      ] = parts.map((p) => p.trim());
       parsedRows.push({
         modelCode,
         variantName,
@@ -97,7 +115,9 @@ export class VehicleMasterService {
     }
 
     // Batch-fetch all models
-    const uniqueModelCodes = Array.from(new Set(parsedRows.map((r) => r.modelCode)));
+    const uniqueModelCodes = Array.from(
+      new Set(parsedRows.map((r) => r.modelCode)),
+    );
     const models: any[] = [];
     for (let i = 0; i < uniqueModelCodes.length; i += 1000) {
       models.push(
@@ -109,7 +129,9 @@ export class VehicleMasterService {
     const modelMap = new Map(models.map((m) => [m.code, m.id]));
 
     // Batch-fetch all existing variants
-    const uniqueVariantCodes = Array.from(new Set(parsedRows.map((r) => r.variantCode)));
+    const uniqueVariantCodes = Array.from(
+      new Set(parsedRows.map((r) => r.variantCode)),
+    );
     const existingVariants: any[] = [];
     for (let i = 0; i < uniqueVariantCodes.length; i += 1000) {
       existingVariants.push(

@@ -4,7 +4,9 @@ import { EnvConfig } from './env.schema';
 
 @Injectable()
 export class ConfigurationService {
-  constructor(private readonly configService: NestConfigService<EnvConfig, true>) {}
+  constructor(
+    private readonly configService: NestConfigService<EnvConfig, true>,
+  ) {}
 
   get isProduction(): boolean {
     return this.configService.get('NODE_ENV') === 'production';

@@ -1,4 +1,9 @@
-import { LeadSource, LeadStatus, ActivityType, ActivityStatus } from '@prisma/client';
+import {
+  LeadSource,
+  LeadStatus,
+  ActivityType,
+  ActivityStatus,
+} from '@prisma/client';
 
 export class LeadNoteResponseDto {
   id: string;

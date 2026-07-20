@@ -1,8 +1,17 @@
-import { Injectable, NotFoundException, BadRequestException, Inject } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+  Inject,
+} from '@nestjs/common';
 import { PrismaService } from '../../../database/prisma.service';
 import { STORAGE_PROVIDER_TOKEN } from '../storage/storage-provider.interface';
 import type { StorageProvider } from '../storage/storage-provider.interface';
-import { DocumentStatus, DocumentAccessAction, DocumentVerificationStatus } from '@prisma/client';
+import {
+  DocumentStatus,
+  DocumentAccessAction,
+  DocumentVerificationStatus,
+} from '@prisma/client';
 import * as crypto from 'crypto';
 
 @Injectable()
@@ -31,7 +40,17 @@ export class DocumentService {
     tags?: string[];
     ipAddress?: string;
   }) {
-    const { file, name, entityType, entityId, uploadedById, category, expiryDate, tags = [], ipAddress } = params;
+    const {
+      file,
+      name,
+      entityType,
+      entityId,
+      uploadedById,
+      category,
+      expiryDate,
+      tags = [],
+      ipAddress,
+    } = params;
 
     if (!file) {
       throw new BadRequestException('No file provided');
@@ -42,7 +61,11 @@ export class DocumentService {
     const uniqueId = crypto.randomUUID();
     const storageKey = `${entityType}/${entityId}/${uniqueId}-${file.originalname}`;
 
-    const key = await this.storage.uploadFile(file.buffer, storageKey, file.mimetype);
+    const key = await this.storage.uploadFile(
+      file.buffer,
+      storageKey,
+      file.mimetype,
+    );
 
     const doc = await this.prisma.document.create({
       data: {
@@ -89,7 +112,12 @@ export class DocumentService {
     return doc;
   }
 
-  async replaceDocument(id: string, file: Express.Multer.File, userId: string, ipAddress?: string) {
+  async replaceDocument(
+    id: string,
+    file: Express.Multer.File,
+    userId: string,
+    ipAddress?: string,
+  ) {
     const doc = await this.prisma.document.findUnique({
       where: { id },
     });
@@ -103,7 +131,11 @@ export class DocumentService {
     const storageKey = `${doc.entityType}/${doc.entityId}/${uniqueId}-${file.originalname}`;
     const newVersion = doc.version + 1;
 
-    const key = await this.storage.uploadFile(file.buffer, storageKey, file.mimetype);
+    const key = await this.storage.uploadFile(
+      file.buffer,
+      storageKey,
+      file.mimetype,
+    );
 
     const updated = await this.prisma.document.update({
       where: { id },

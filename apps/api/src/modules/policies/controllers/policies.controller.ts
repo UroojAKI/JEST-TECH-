@@ -48,10 +48,7 @@ export class PoliciesController {
     RoleType.TEAM_LEADER,
     RoleType.SALES_AGENT,
   )
-  create(
-    @Body() dto: CreatePolicyDto,
-    @CurrentUser() user: RequestUser,
-  ) {
+  create(@Body() dto: CreatePolicyDto, @CurrentUser() user: RequestUser) {
     return this.issuePolicyService.execute(dto, user.id);
   }
 

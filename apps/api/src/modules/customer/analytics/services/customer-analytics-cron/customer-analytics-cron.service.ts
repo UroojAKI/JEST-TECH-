@@ -14,7 +14,7 @@ export class CustomerAnalyticsCronService {
     this.logger.log('Starting nightly Customer Analytics recalculation...');
 
     const contacts = await this.prisma.contact.findMany({
-      select: { id: true }
+      select: { id: true },
     });
 
     for (const contact of contacts) {
@@ -27,38 +27,38 @@ export class CustomerAnalyticsCronService {
   async calculateMetricsForCustomer(contactId: string) {
     // 1. Fetch related data
     const activePolicies = await this.prisma.policy.count({
-      where: { contactId, status: 'ACTIVE' }
+      where: { contactId, status: 'ACTIVE' },
     });
 
     const expiredPolicies = await this.prisma.policy.count({
-      where: { contactId, status: 'EXPIRED' }
+      where: { contactId, status: 'EXPIRED' },
     });
 
     const policies = await this.prisma.policy.findMany({
       where: { contactId },
-      select: { premiumAmount: true }
+      select: { premiumAmount: true },
     });
 
     const claims = await this.prisma.claim.findMany({
       where: { contactId },
-      select: { amount: true }
+      select: { amount: true },
     });
 
     // 2. Compute Lifetime values
     let lifetimePremium = new Decimal(0);
-    policies.forEach(p => {
+    policies.forEach((p) => {
       lifetimePremium = lifetimePremium.add(p.premiumAmount);
     });
 
     let lifetimeClaims = new Decimal(0);
-    claims.forEach(c => {
+    claims.forEach((c) => {
       lifetimeClaims = lifetimeClaims.add(c.amount);
     });
 
-    // Lifetime Value: In a brokerage, this is usually total commissions earned. 
+    // Lifetime Value: In a brokerage, this is usually total commissions earned.
     // Simplified here as a rough net metric, or could be fetched from Finance module.
     // Assuming LTV is 15% of lifetime premium for illustration.
-    const lifetimeValue = lifetimePremium.mul(0.15); 
+    const lifetimeValue = lifetimePremium.mul(0.15);
 
     let claimRatio = new Decimal(0);
     if (lifetimePremium.gt(0)) {
@@ -111,7 +111,7 @@ export class CustomerAnalyticsCronService {
         customerRiskScore: churnProbability,
         healthScore: renewalProbability,
         lastCalculatedAt: new Date(),
-      }
+      },
     });
   }
 }

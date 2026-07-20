@@ -16,9 +16,9 @@ export class DashboardAnalyticsService {
       where: { id: dashboardId },
       include: {
         widgets: {
-          include: { widget: true }
-        }
-      }
+          include: { widget: true },
+        },
+      },
     });
 
     if (!dashboard) {
@@ -34,33 +34,43 @@ export class DashboardAnalyticsService {
 
       try {
         const config = JSON.parse(widget.config);
-        
+
         // Naive query executor for MVP demonstration
         if (config.metric === 'TOTAL_REVENUE') {
-          const res = await this.prisma.factRevenue.aggregate({ _sum: { amount: true } });
+          const res = await this.prisma.factRevenue.aggregate({
+            _sum: { amount: true },
+          });
           data = res._sum.amount;
         } else if (config.metric === 'CLAIMS_PAID') {
-          const res = await this.prisma.factClaim.aggregate({ _sum: { amountSettled: true } });
+          const res = await this.prisma.factClaim.aggregate({
+            _sum: { amountSettled: true },
+          });
           data = res._sum.amountSettled;
         }
-
       } catch (e) {
-        this.logger.error(`Failed to process widget ${widget.id}: ${e.message}`);
+        this.logger.error(
+          `Failed to process widget ${widget.id}: ${e.message}`,
+        );
       }
 
       results.push({
         widgetId: widget.id,
         name: widget.name,
         type: widget.type,
-        layout: { x: dashboardWidget.x, y: dashboardWidget.y, w: dashboardWidget.w, h: dashboardWidget.h },
-        data
+        layout: {
+          x: dashboardWidget.x,
+          y: dashboardWidget.y,
+          w: dashboardWidget.w,
+          h: dashboardWidget.h,
+        },
+        data,
       });
     }
 
     return {
       dashboardId: dashboard.id,
       name: dashboard.name,
-      widgets: results
+      widgets: results,
     };
   }
 }

@@ -16,7 +16,10 @@ export class AssignSurveyorService {
     }
 
     // Validate state transition using ClaimStateMachine
-    ClaimStateMachine.validateTransition(claim.status, ClaimStatus.SURVEYOR_ASSIGNED);
+    ClaimStateMachine.validateTransition(
+      claim.status,
+      ClaimStatus.SURVEYOR_ASSIGNED,
+    );
 
     // Update claim
     const updated = await this.claimRepository.update(claimId, {

@@ -126,8 +126,12 @@ describe('ClaimsController', () => {
 
     controller = module.get<ClaimsController>(ClaimsController);
     reportClaimService = module.get<ReportClaimService>(ReportClaimService);
-    uploadClaimDocumentService = module.get<UploadClaimDocumentService>(UploadClaimDocumentService);
-    assignSurveyorService = module.get<AssignSurveyorService>(AssignSurveyorService);
+    uploadClaimDocumentService = module.get<UploadClaimDocumentService>(
+      UploadClaimDocumentService,
+    );
+    assignSurveyorService = module.get<AssignSurveyorService>(
+      AssignSurveyorService,
+    );
     assessClaimService = module.get<AssessClaimService>(AssessClaimService);
     approveClaimService = module.get<ApproveClaimService>(ApproveClaimService);
     payClaimService = module.get<PayClaimService>(PayClaimService);
@@ -157,7 +161,10 @@ describe('ClaimsController', () => {
     it('should find one claim', async () => {
       const result = await controller.findOne('claim-123');
       expect(result).toEqual(mockClaimResponse);
-      expect(getClaimsService.executeOne).toHaveBeenCalledWith('claim-123', undefined);
+      expect(getClaimsService.executeOne).toHaveBeenCalledWith(
+        'claim-123',
+        undefined,
+      );
     });
 
     it('should assign a surveyor', async () => {
@@ -165,9 +172,17 @@ describe('ClaimsController', () => {
       dto.surveyorName = 'John Doe';
       dto.surveyorDetails = 'License S-123';
 
-      const result = await controller.assignSurveyor('claim-123', dto, mockUser);
+      const result = await controller.assignSurveyor(
+        'claim-123',
+        dto,
+        mockUser,
+      );
       expect(result.status).toEqual(ClaimStatus.SURVEYOR_ASSIGNED);
-      expect(assignSurveyorService.execute).toHaveBeenCalledWith('claim-123', dto, mockUser.id);
+      expect(assignSurveyorService.execute).toHaveBeenCalledWith(
+        'claim-123',
+        dto,
+        mockUser.id,
+      );
     });
 
     it('should assess a claim', async () => {
@@ -178,13 +193,27 @@ describe('ClaimsController', () => {
 
       const result = await controller.assess('claim-123', dto, mockUser);
       expect(result.status).toEqual(ClaimStatus.UNDER_ASSESSMENT);
-      expect(assessClaimService.execute).toHaveBeenCalledWith('claim-123', dto, mockUser.id);
+      expect(assessClaimService.execute).toHaveBeenCalledWith(
+        'claim-123',
+        dto,
+        mockUser.id,
+      );
     });
 
     it('should approve a claim', async () => {
-      const result = await controller.approve('claim-123', true, 'Approved by Claims Officer', mockUser);
+      const result = await controller.approve(
+        'claim-123',
+        true,
+        'Approved by Claims Officer',
+        mockUser,
+      );
       expect(result.status).toEqual(ClaimStatus.APPROVED);
-      expect(approveClaimService.execute).toHaveBeenCalledWith('claim-123', true, 'Approved by Claims Officer', mockUser.id);
+      expect(approveClaimService.execute).toHaveBeenCalledWith(
+        'claim-123',
+        true,
+        'Approved by Claims Officer',
+        mockUser.id,
+      );
     });
 
     it('should pay a claim', async () => {
@@ -196,26 +225,46 @@ describe('ClaimsController', () => {
 
       const result = await controller.pay('claim-123', dto, mockUser);
       expect(result.status).toEqual(ClaimStatus.SETTLED);
-      expect(payClaimService.execute).toHaveBeenCalledWith('claim-123', dto, mockUser.id);
+      expect(payClaimService.execute).toHaveBeenCalledWith(
+        'claim-123',
+        dto,
+        mockUser.id,
+      );
     });
 
     it('should close a claim', async () => {
-      const result = await controller.close('claim-123', 'Closed after settlement', mockUser);
+      const result = await controller.close(
+        'claim-123',
+        'Closed after settlement',
+        mockUser,
+      );
       expect(result.status).toEqual(ClaimStatus.CLOSED);
-      expect(closeClaimService.execute).toHaveBeenCalledWith('claim-123', 'Closed after settlement', mockUser.id);
+      expect(closeClaimService.execute).toHaveBeenCalledWith(
+        'claim-123',
+        'Closed after settlement',
+        mockUser.id,
+      );
     });
   });
 
   describe('Exception Handling', () => {
     it('should propagate NotFoundException when claim is missing', async () => {
-      jest.spyOn(getClaimsService, 'executeOne').mockRejectedValueOnce(new NotFoundException('Claim not found'));
-      await expect(controller.findOne('claim-nonexistent')).rejects.toThrow(NotFoundException);
+      jest
+        .spyOn(getClaimsService, 'executeOne')
+        .mockRejectedValueOnce(new NotFoundException('Claim not found'));
+      await expect(controller.findOne('claim-nonexistent')).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('should propagate BadRequestException on invalid state transition', async () => {
-      jest.spyOn(assignSurveyorService, 'execute').mockRejectedValueOnce(new BadRequestException('Invalid transition'));
+      jest
+        .spyOn(assignSurveyorService, 'execute')
+        .mockRejectedValueOnce(new BadRequestException('Invalid transition'));
       const dto = new AssignSurveyorDto();
-      await expect(controller.assignSurveyor('claim-123', dto, mockUser)).rejects.toThrow(BadRequestException);
+      await expect(
+        controller.assignSurveyor('claim-123', dto, mockUser),
+      ).rejects.toThrow(BadRequestException);
     });
   });
 });

@@ -21,24 +21,34 @@ export class AccountsService {
   async create(dto: CreateAccountDto, createdById: string) {
     // Rule 1: Duplicate GST -> Reject
     if (dto.gstNumber) {
-      const existingGst = await this.accountRepository.findByGstNumber(dto.gstNumber);
+      const existingGst = await this.accountRepository.findByGstNumber(
+        dto.gstNumber,
+      );
       if (existingGst) {
-        throw new ConflictException(`An account with GST number ${dto.gstNumber} already exists`);
+        throw new ConflictException(
+          `An account with GST number ${dto.gstNumber} already exists`,
+        );
       }
     }
 
     // Rule 2: Duplicate PAN -> Reject
     if (dto.panNumber) {
-      const existingPan = await this.accountRepository.findByPanNumber(dto.panNumber);
+      const existingPan = await this.accountRepository.findByPanNumber(
+        dto.panNumber,
+      );
       if (existingPan) {
-        throw new ConflictException(`An account with PAN number ${dto.panNumber} already exists`);
+        throw new ConflictException(
+          `An account with PAN number ${dto.panNumber} already exists`,
+        );
       }
     }
 
     // Rule 3: Duplicate Company Name -> Warn (configurable)
     const existingName = await this.accountRepository.findByName(dto.name);
     if (existingName) {
-      this.logger.warn(`Potential duplicate account name detected: "${dto.name}"`);
+      this.logger.warn(
+        `Potential duplicate account name detected: "${dto.name}"`,
+      );
     }
 
     const accountCode = await this.accountRepository.generateAccountCode();
@@ -53,13 +63,17 @@ export class AccountsService {
       phone: dto.phone,
       gstNumber: dto.gstNumber,
       panNumber: dto.panNumber,
-      annualRevenue: dto.annualRevenue ? new Prisma.Decimal(dto.annualRevenue) : undefined,
+      annualRevenue: dto.annualRevenue
+        ? new Prisma.Decimal(dto.annualRevenue)
+        : undefined,
       employeeCount: dto.employeeCount,
       description: dto.description,
       preferredCommunication: dto.preferredCommunication,
       preferredLanguage: dto.preferredLanguage,
       kycStatus: dto.kycStatus,
-      kycCompletedAt: dto.kycCompletedAt ? new Date(dto.kycCompletedAt) : undefined,
+      kycCompletedAt: dto.kycCompletedAt
+        ? new Date(dto.kycCompletedAt)
+        : undefined,
       createdBy: { connect: { id: createdById } },
       updatedBy: { connect: { id: createdById } },
     });
@@ -88,17 +102,25 @@ export class AccountsService {
 
     // Rule 1: Duplicate GST -> Reject
     if (dto.gstNumber && dto.gstNumber !== existing.gstNumber) {
-      const existingGst = await this.accountRepository.findByGstNumber(dto.gstNumber);
+      const existingGst = await this.accountRepository.findByGstNumber(
+        dto.gstNumber,
+      );
       if (existingGst) {
-        throw new ConflictException(`An account with GST number ${dto.gstNumber} already exists`);
+        throw new ConflictException(
+          `An account with GST number ${dto.gstNumber} already exists`,
+        );
       }
     }
 
     // Rule 2: Duplicate PAN -> Reject
     if (dto.panNumber && dto.panNumber !== existing.panNumber) {
-      const existingPan = await this.accountRepository.findByPanNumber(dto.panNumber);
+      const existingPan = await this.accountRepository.findByPanNumber(
+        dto.panNumber,
+      );
       if (existingPan) {
-        throw new ConflictException(`An account with PAN number ${dto.panNumber} already exists`);
+        throw new ConflictException(
+          `An account with PAN number ${dto.panNumber} already exists`,
+        );
       }
     }
 
@@ -106,7 +128,9 @@ export class AccountsService {
     if (dto.name && dto.name !== existing.name) {
       const existingName = await this.accountRepository.findByName(dto.name);
       if (existingName) {
-        this.logger.warn(`Potential duplicate account name detected: "${dto.name}"`);
+        this.logger.warn(
+          `Potential duplicate account name detected: "${dto.name}"`,
+        );
       }
     }
 
@@ -119,13 +143,23 @@ export class AccountsService {
       phone: dto.phone,
       gstNumber: dto.gstNumber,
       panNumber: dto.panNumber,
-      annualRevenue: dto.annualRevenue !== undefined ? (dto.annualRevenue ? new Prisma.Decimal(dto.annualRevenue) : null) : undefined,
+      annualRevenue:
+        dto.annualRevenue !== undefined
+          ? dto.annualRevenue
+            ? new Prisma.Decimal(dto.annualRevenue)
+            : null
+          : undefined,
       employeeCount: dto.employeeCount,
       description: dto.description,
       preferredCommunication: dto.preferredCommunication,
       preferredLanguage: dto.preferredLanguage,
       kycStatus: dto.kycStatus,
-      kycCompletedAt: dto.kycCompletedAt !== undefined ? (dto.kycCompletedAt ? new Date(dto.kycCompletedAt) : null) : undefined,
+      kycCompletedAt:
+        dto.kycCompletedAt !== undefined
+          ? dto.kycCompletedAt
+            ? new Date(dto.kycCompletedAt)
+            : null
+          : undefined,
       updatedBy: { connect: { id: updatedById } },
     });
 
@@ -140,7 +174,9 @@ export class AccountsService {
 
     // Rule 5: Cannot delete an Account that still has active Contacts.
     if (existing.contacts && existing.contacts.length > 0) {
-      throw new BadRequestException('Cannot delete account with active contacts.');
+      throw new BadRequestException(
+        'Cannot delete account with active contacts.',
+      );
     }
 
     await this.accountRepository.softDelete(id, deletedById);

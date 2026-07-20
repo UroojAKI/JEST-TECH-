@@ -1,10 +1,25 @@
-import { Controller, Get, Post, Body, Query, UseGuards, UseInterceptors, UploadedFile, BadRequestException } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Query,
+  UseGuards,
+  UseInterceptors,
+  UploadedFile,
+  BadRequestException,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiConsumes, ApiTags } from '@nestjs/swagger';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
 import { Roles } from '../../auth/decorators/roles.decorator';
-import { RoleType, FuelType, TransmissionType, VehicleType } from '@prisma/client';
+import {
+  RoleType,
+  FuelType,
+  TransmissionType,
+  VehicleType,
+} from '@prisma/client';
 import { VehicleMasterService } from '../services/vehicle-master.service';
 
 @ApiTags('Motor Admin - Vehicles')

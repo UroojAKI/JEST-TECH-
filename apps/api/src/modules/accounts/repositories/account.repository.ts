@@ -1,7 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../../database/prisma.service';
-import { BaseRepository, TransactionClient } from '../../../common/base/base.repository';
+import {
+  BaseRepository,
+  TransactionClient,
+} from '../../../common/base/base.repository';
 
 export const accountBasicSelect = Prisma.validator<Prisma.AccountSelect>()({
   id: true,
@@ -61,13 +64,21 @@ export const accountDetailSelect = Prisma.validator<Prisma.AccountSelect>()({
   },
 });
 
-export type AccountBasic = Prisma.AccountGetPayload<{ select: typeof accountBasicSelect }>;
-export type AccountDetail = Prisma.AccountGetPayload<{ select: typeof accountDetailSelect }>;
+export type AccountBasic = Prisma.AccountGetPayload<{
+  select: typeof accountBasicSelect;
+}>;
+export type AccountDetail = Prisma.AccountGetPayload<{
+  select: typeof accountDetailSelect;
+}>;
 // Backwards compatibility for existing code that uses AccountWithContacts
 export type AccountWithContacts = AccountDetail;
 
 @Injectable()
-export class AccountRepository extends BaseRepository<Prisma.AccountDelegate, AccountBasic, AccountDetail> {
+export class AccountRepository extends BaseRepository<
+  Prisma.AccountDelegate,
+  AccountBasic,
+  AccountDetail
+> {
   protected get basicArgs() {
     return { select: accountBasicSelect };
   }
@@ -81,19 +92,28 @@ export class AccountRepository extends BaseRepository<Prisma.AccountDelegate, Ac
   }
 
   async generateAccountCode(tx?: TransactionClient): Promise<string> {
-    const result = await (tx || this.prismaService).$queryRaw<[{ nextval: bigint }]>`
+    const result = await (tx || this.prismaService).$queryRaw<
+      [{ nextval: bigint }]
+    >`
       SELECT nextval('account_number_seq')`;
     return `ACC-${result[0].nextval.toString().padStart(6, '0')}`;
   }
 
-  async create(data: Prisma.AccountCreateInput, tx?: TransactionClient): Promise<AccountDetail> {
+  async create(
+    data: Prisma.AccountCreateInput,
+    tx?: TransactionClient,
+  ): Promise<AccountDetail> {
     return this.getClient(tx).create({
       data,
       ...this.detailArgs,
     });
   }
 
-  async update(id: string, data: Prisma.AccountUpdateInput, tx?: TransactionClient): Promise<AccountDetail> {
+  async update(
+    id: string,
+    data: Prisma.AccountUpdateInput,
+    tx?: TransactionClient,
+  ): Promise<AccountDetail> {
     return this.getClient(tx).update({
       where: { id },
       data,
@@ -110,21 +130,30 @@ export class AccountRepository extends BaseRepository<Prisma.AccountDelegate, Ac
   }
 
   // Find methods specific to Account
-  async findByGstNumber(gstNumber: string, tx?: TransactionClient): Promise<AccountDetail | null> {
+  async findByGstNumber(
+    gstNumber: string,
+    tx?: TransactionClient,
+  ): Promise<AccountDetail | null> {
     return this.getClient(tx).findFirst({
       where: { gstNumber, deletedAt: null },
       ...this.detailArgs,
     });
   }
 
-  async findByPanNumber(panNumber: string, tx?: TransactionClient): Promise<AccountDetail | null> {
+  async findByPanNumber(
+    panNumber: string,
+    tx?: TransactionClient,
+  ): Promise<AccountDetail | null> {
     return this.getClient(tx).findFirst({
       where: { panNumber, deletedAt: null },
       ...this.detailArgs,
     });
   }
 
-  async findByName(name: string, tx?: TransactionClient): Promise<AccountDetail | null> {
+  async findByName(
+    name: string,
+    tx?: TransactionClient,
+  ): Promise<AccountDetail | null> {
     return this.getClient(tx).findFirst({
       where: { name, deletedAt: null },
       ...this.detailArgs,
