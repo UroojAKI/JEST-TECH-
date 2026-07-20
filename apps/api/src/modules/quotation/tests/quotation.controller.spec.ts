@@ -154,9 +154,9 @@ describe('QuotationController', () => {
     });
 
     it('should find one quotation', async () => {
-      const result = await controller.findOne('quote-123');
+      const result = await controller.findOne('quote-123', mockUser);
       expect(result).toEqual(mockQuotationResponse);
-      expect(getService.executeOne).toHaveBeenCalledWith('quote-123');
+      expect(getService.executeOne).toHaveBeenCalledWith('quote-123', mockUser);
     });
 
     it('should approve a quotation', async () => {
@@ -197,7 +197,7 @@ describe('QuotationController', () => {
           new UnauthorizedException('Unauthorized access'),
         );
 
-      await expect(controller.findOne('quote-123')).rejects.toThrow(
+      await expect(controller.findOne('quote-123', mockUser)).rejects.toThrow(
         UnauthorizedException,
       );
     });
@@ -223,7 +223,7 @@ describe('QuotationController', () => {
         .spyOn(getService, 'executeOne')
         .mockRejectedValueOnce(new NotFoundException('Quotation not found'));
 
-      await expect(controller.findOne('quote-nonexistent')).rejects.toThrow(
+      await expect(controller.findOne('quote-nonexistent', mockUser)).rejects.toThrow(
         NotFoundException,
       );
     });

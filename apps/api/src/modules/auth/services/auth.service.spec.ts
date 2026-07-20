@@ -1,9 +1,15 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { UnauthorizedException } from '@nestjs/common';
+import * as argon2 from 'argon2';
 import { ConfigService } from '@nestjs/config';
 import { AuthService } from './auth.service';
 import { UsersService } from '../../users/services/users.service';
 import { TokenService } from './token.service';
+
+jest.mock('argon2', () => ({
+  verify: jest.fn(),
+  hash: jest.fn(),
+}));
 
 describe('AuthService', () => {
   let service: AuthService;
@@ -67,9 +73,7 @@ describe('AuthService', () => {
     it('should throw UnauthorizedException when password is invalid', async () => {
       usersService.findByEmailForAuth!.mockResolvedValue(mockUser as any);
 
-      jest.mock('argon2', () => ({
-        verify: jest.fn().mockResolvedValue(false),
-      }));
+      (argon2.verify as jest.Mock).mockResolvedValue(false);
 
       await expect(
         service.login({ email: 'test@jest.com', password: 'wrongpassword' }),
@@ -78,6 +82,8 @@ describe('AuthService', () => {
 
     it('should return access token and user data on valid login', async () => {
       usersService.findByEmailForAuth!.mockResolvedValue(mockUser as any);
+
+      (argon2.verify as jest.Mock).mockResolvedValue(true);
 
       const result = await service
         .login({

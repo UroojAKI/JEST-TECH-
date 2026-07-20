@@ -64,6 +64,7 @@ describe('WorkflowEngineService', () => {
         { provide: AuditService, useValue: mockAudit },
         { provide: NotificationDispatcher, useValue: mockNotification },
         { provide: EventEmitter2, useValue: mockEventEmitter },
+        { provide: 'QUEUE_PROVIDER_TOKEN', useValue: {} },
       ],
     }).compile();
 

@@ -3,6 +3,7 @@ import { DashboardController } from '../controllers/dashboard.controller';
 import { DashboardService } from '../services/dashboard.service';
 import { RoleType } from '@prisma/client';
 import { RequestUser } from '../../auth/decorators/current-user.decorator';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
 
 describe('DashboardController', () => {
   let controller: DashboardController;
@@ -49,6 +50,7 @@ describe('DashboardController', () => {
             getDashboard: jest.fn().mockResolvedValue(mockDashboardData),
           },
         },
+        { provide: CACHE_MANAGER, useValue: {} },
       ],
     }).compile();
 
