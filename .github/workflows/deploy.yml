@@ -72,6 +72,13 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Sanitize and set IMAGE_NAME
+        shell: bash
+        run: |
+          repo=$(echo "$GITHUB_REPOSITORY" | tr '[:upper:]' '[:lower:]' | sed 's/-*$//')
+          echo "IMAGE_NAME=$repo/api" >> $GITHUB_ENV
+          echo "Sanitized IMAGE_NAME=$repo/api"
+
       - name: Extract metadata (tags, labels) for Docker
         id: meta
         uses: docker/metadata-action@v5
