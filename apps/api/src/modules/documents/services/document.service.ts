@@ -1,6 +1,7 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, Inject } from '@nestjs/common';
 import { PrismaService } from '../../../database/prisma.service';
-import { LocalStorageProvider } from '../storage/local-storage.provider';
+import { STORAGE_PROVIDER_TOKEN } from '../storage/storage-provider.interface';
+import type { StorageProvider } from '../storage/storage-provider.interface';
 import { DocumentStatus, DocumentAccessAction, DocumentVerificationStatus } from '@prisma/client';
 import * as crypto from 'crypto';
 
@@ -8,7 +9,7 @@ import * as crypto from 'crypto';
 export class DocumentService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly storage: LocalStorageProvider,
+    @Inject(STORAGE_PROVIDER_TOKEN) private readonly storage: StorageProvider,
   ) {}
 
   private calculateHash(buffer: Buffer): string {
@@ -51,7 +52,7 @@ export class DocumentService {
         mimeType: file.mimetype,
         size: file.size,
         storageKey: key,
-        storageProvider: 'LOCAL',
+        storageProvider: this.storage.getProviderName(),
         hash,
         entityType,
         entityId,

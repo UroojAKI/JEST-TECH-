@@ -56,8 +56,8 @@ export class LeadsController {
     RoleType.SALES_AGENT,
     RoleType.OPERATIONS,
   )
-  findAll() {
-    return this.leadsService.findAll();
+  findAll(@CurrentUser() user: RequestUser) {
+    return this.leadsService.findAll(user);
   }
 
   @Get(':id')
@@ -69,8 +69,8 @@ export class LeadsController {
     RoleType.SALES_AGENT,
     RoleType.OPERATIONS,
   )
-  findOne(@Param('id') id: string) {
-    return this.leadsService.findById(id);
+  findOne(@Param('id') id: string, @CurrentUser() user: RequestUser) {
+    return this.leadsService.findById(id, user);
   }
 
   @Patch(':id')
@@ -86,7 +86,7 @@ export class LeadsController {
     @Body() dto: UpdateLeadDto,
     @CurrentUser() user: RequestUser,
   ) {
-    return this.leadsService.update(id, dto, user.id);
+    return this.leadsService.update(id, dto, user);
   }
 
   @Delete(':id')

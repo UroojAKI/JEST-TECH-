@@ -8,6 +8,8 @@ import type { RequestUser } from '../../auth/decorators/current-user.decorator';
 import { RoleType } from '@prisma/client';
 import { BiService } from '../services/bi.service';
 import { KpiService } from '../services/kpi.service';
+import { CreateKpiDto } from '../dto/create-kpi.dto';
+import { UpdateKpiDto } from '../dto/update-kpi.dto';
 
 @ApiTags('Business Intelligence')
 @ApiBearerAuth()
@@ -62,14 +64,14 @@ export class BiController {
 
   @Post('kpi/definitions')
   @Roles(RoleType.ADMIN, RoleType.SUPER_ADMIN)
-  createKpi(@Body() body: any, @CurrentUser() user: RequestUser) {
-    return this.kpiService.createKpi({ ...body, userId: user.id });
+  createKpi(@Body() dto: CreateKpiDto, @CurrentUser() user: RequestUser) {
+    return this.kpiService.createKpi({ ...dto, userId: user.id });
   }
 
   @Patch('kpi/definitions/:id')
   @Roles(RoleType.ADMIN, RoleType.SUPER_ADMIN)
-  updateKpi(@Param('id') id: string, @Body() body: any) {
-    return this.kpiService.updateKpi(id, body);
+  updateKpi(@Param('id') id: string, @Body() dto: UpdateKpiDto) {
+    return this.kpiService.updateKpi(id, dto);
   }
 
   @Delete('kpi/definitions/:id')

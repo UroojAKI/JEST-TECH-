@@ -292,11 +292,18 @@ export class BiService {
         // Safe formula evaluation: replace metric keys with values
         let expr = kpi.formula;
         for (const [key, val] of Object.entries(metricRegistry)) {
-          expr = expr.replace(new RegExp(key, 'g'), String(val));
+          expr = expr.replace(new RegExp(`\\b${key}\\b`, 'g'), String(val));
         }
-        // Evaluate only safe arithmetic
-        value = Function(`"use strict"; return (${expr})`)() ?? 0;
-        value = Math.round(value * 100) / 100;
+        
+        // Remove spaces
+        const sanitizedExpr = expr.replace(/\s+/g, '');
+        // Strict validation: only allow numbers and basic math operators
+        if (/^[0-9+\-*/().%]+$/.test(sanitizedExpr)) {
+          value = Function(`"use strict"; return (${sanitizedExpr})`)() ?? 0;
+          value = Math.round(value * 100) / 100;
+        } else {
+          value = 0;
+        }
       } catch {
         value = 0;
       }

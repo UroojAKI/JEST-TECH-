@@ -85,45 +85,47 @@ export class EndorsementService {
       throw new NotFoundException('Endorsement not found');
     }
 
-    await this.prisma.endorsement.update({
-      where: { id },
-      data: {
-        status: EndorsementStatus.APPROVED,
-        approvedById: reviewerId,
-      },
-    });
+    return this.prisma.$transaction(async (tx) => {
+      await tx.endorsement.update({
+        where: { id },
+        data: {
+          status: EndorsementStatus.APPROVED,
+          approvedById: reviewerId,
+        },
+      });
 
-    await this.prisma.endorsementHistory.create({
-      data: {
-        endorsementId: id,
-        status: EndorsementStatus.APPROVED,
-        comments: comments || 'Endorsement approved',
-        performedById: reviewerId,
-      },
-    });
+      await tx.endorsementHistory.create({
+        data: {
+          endorsementId: id,
+          status: EndorsementStatus.APPROVED,
+          comments: comments || 'Endorsement approved',
+          performedById: reviewerId,
+        },
+      });
 
-    await this.prisma.policyHistory.create({
-      data: {
-        policyId: end.policyId,
-        status: 'ENDORSED',
-        comments: `Schedule version archived due to endorsement ${end.endorsementNumber} (${end.type})`,
-      },
-    });
+      await tx.policyHistory.create({
+        data: {
+          policyId: end.policyId,
+          status: 'ENDORSED',
+          comments: `Schedule version archived due to endorsement ${end.endorsementNumber} (${end.type})`,
+        },
+      });
 
-    await this.prisma.endorsement.update({
-      where: { id },
-      data: { status: EndorsementStatus.COMPLETED },
-    });
+      const updated = await tx.endorsement.update({
+        where: { id },
+        data: { status: EndorsementStatus.COMPLETED },
+      });
 
-    await this.prisma.endorsementHistory.create({
-      data: {
-        endorsementId: id,
-        status: EndorsementStatus.COMPLETED,
-        comments: 'Endorsement completed. Policy schedule regenerated.',
-        performedById: reviewerId,
-      },
-    });
+      await tx.endorsementHistory.create({
+        data: {
+          endorsementId: id,
+          status: EndorsementStatus.COMPLETED,
+          comments: 'Endorsement completed. Policy schedule regenerated.',
+          performedById: reviewerId,
+        },
+      });
 
-    return { endorsement: end, status: 'COMPLETED' };
+      return { endorsement: updated, status: 'COMPLETED' };
+    });
   }
 }

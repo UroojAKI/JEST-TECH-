@@ -22,12 +22,14 @@ export class DashboardAnalyticsService {
   ) {}
 
   async getDashboardData(role: string, userId: string) {
-    const revenue = await this.revenueAnalytics.getOverview();
-    const leads = await this.leadAnalytics.getOverview();
-    const policies = await this.policyAnalytics.getOverview();
-    const claims = await this.claimAnalytics.getOverview();
-    const renewals = await this.renewalAnalytics.getOverview();
-    const quotations = await this.quotationAnalytics.getOverview();
+    const [revenue, leads, policies, claims, renewals, quotations] = await Promise.all([
+      this.revenueAnalytics.getOverview(),
+      this.leadAnalytics.getOverview(),
+      this.policyAnalytics.getOverview(),
+      this.claimAnalytics.getOverview(),
+      this.renewalAnalytics.getOverview(),
+      this.quotationAnalytics.getOverview(),
+    ]);
 
     // Fetch activities from the database to replace mock logs
     const recentActivities = await this.prisma.activity.findMany({

@@ -38,10 +38,15 @@ export class AuthService {
     }
 
     // ── 3. Build JWT payload ─────────────────────────────────────────────────
+    const permissions = user.role.permissions
+      ? user.role.permissions.map((p) => p.permission.code)
+      : [];
+
     const payload = {
       sub: user.id,
       email: user.email,
       role: user.role.code,
+      permissions,
     };
 
     // ── 4. Generate tokens ───────────────────────────────────────────────────

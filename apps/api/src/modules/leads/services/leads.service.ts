@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Injectable,
   NotFoundException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { Prisma, LeadStatus } from '@prisma/client';
 
@@ -17,6 +18,7 @@ import { AccountsService } from '../../accounts/services/accounts.service';
 import { UsersService } from '../../users/services/users.service';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { LeadConvertedEvent } from '../events/lead-converted.event';
+import type { RequestUser } from '../../auth/decorators/current-user.decorator';
 
 @Injectable()
 export class LeadsService {
@@ -70,23 +72,37 @@ export class LeadsService {
     return LeadMapper.toResponse(lead);
   }
 
-  async findAll() {
-    const leads = await this.leadRepository.findAll();
+  async findAll(user: RequestUser) {
+    const where: Prisma.LeadWhereInput = user.role === 'SALES_AGENT' 
+      ? { OR: [{ assignedToId: user.id }, { createdById: user.id }] } 
+      : {};
+    const leads = await this.leadRepository.findAll(where);
     return LeadMapper.toResponseList(leads);
   }
 
-  async findById(id: string) {
+  async findById(id: string, user: RequestUser) {
     const lead = await this.leadRepository.findById(id);
     if (!lead || lead.deletedAt) {
       throw new NotFoundException(`Lead with ID ${id} not found`);
     }
+
+    // BOLA ownership verification
+    if (user.role === 'SALES_AGENT' && lead.assignedToId !== user.id && lead.createdById !== user.id) {
+      throw new ForbiddenException('You do not have permission to access this lead');
+    }
+
     return LeadMapper.toResponse(lead);
   }
 
-  async update(id: string, dto: UpdateLeadDto, updatedById: string) {
+  async update(id: string, dto: UpdateLeadDto, user: RequestUser) {
     const existing = await this.leadRepository.findById(id);
     if (!existing || existing.deletedAt) {
       throw new NotFoundException(`Lead with ID ${id} not found`);
+    }
+
+    // BOLA ownership verification
+    if (user.role === 'SALES_AGENT' && existing.assignedToId !== user.id && existing.createdById !== user.id) {
+      throw new ForbiddenException('You do not have permission to update this lead');
     }
 
     // Validate Contact exists if provided
@@ -111,7 +127,7 @@ export class LeadsService {
 
     const leadData: Prisma.LeadUpdateInput = {
       ...restDto,
-      updatedBy: { connect: { id: updatedById } },
+      updatedBy: { connect: { id: user.id } },
     };
 
     if (contactId) {
@@ -134,7 +150,7 @@ export class LeadsService {
       }
     }
 
-    const updated = await this.leadRepository.update(id, leadData);
+    const updated = await this.leadRepository.update(id, leadData, dto.version);
     return LeadMapper.toResponse(updated);
   }
 

@@ -1,9 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma, Quotation, QuotationVersion, QuotationHistory, QuotationDocument } from '@prisma/client';
-
+import { BaseRepository } from '../../../common/base/base.repository';
 import { PrismaService } from '../../../database/prisma.service';
+import { checkOptimisticLock } from '../../../common/utils/optimistic-lock';
 
-const quotationWithRelations = Prisma.validator<Prisma.QuotationDefaultArgs>()({
+export const quotationWithRelations = Prisma.validator<Prisma.QuotationDefaultArgs>()({
   include: {
     contact: true,
     account: true,
@@ -19,77 +20,57 @@ const quotationWithRelations = Prisma.validator<Prisma.QuotationDefaultArgs>()({
 export type QuotationWithRelations = Prisma.QuotationGetPayload<typeof quotationWithRelations>;
 
 @Injectable()
-export class QuotationRepository {
-  constructor(private readonly prisma: PrismaService) {}
+export class QuotationRepository extends BaseRepository<Quotation, Prisma.QuotationDelegate<any>> {
+  constructor(protected readonly prisma: PrismaService) {
+    super(prisma.quotation);
+  }
 
   async generateQuotationCode(): Promise<string> {
-    const total = await this.prisma.quotation.count();
-    return `QT-${(total + 1).toString().padStart(6, '0')}`;
+    const result = await this.prisma.$queryRaw<[{ nextval: bigint }]>`
+      SELECT nextval('quotation_number_seq')`;
+    return `QTN-${result[0].nextval.toString().padStart(6, '0')}`;
   }
 
   async create(data: Prisma.QuotationCreateInput): Promise<QuotationWithRelations> {
     return this.prisma.quotation.create({
       data,
-      include: {
-        contact: true,
-        account: true,
-        lead: true,
-        versions: { orderBy: { versionNumber: 'desc' } },
-        addons: true,
-        discounts: true,
-        histories: { orderBy: { createdAt: 'desc' } },
-        documents: true,
-      },
+      include: quotationWithRelations.include,
     });
   }
 
-  async findById(id: string): Promise<QuotationWithRelations | null> {
+  async findBasic(id: string): Promise<Quotation | null> {
+    return super.findById(id);
+  }
+
+  async findDetail(id: string): Promise<QuotationWithRelations | null> {
+    return this.prisma.quotation.findFirst({
+      where: { id, deletedAt: null },
+      include: quotationWithRelations.include,
+    });
+  }
+
+  async findByQuotationCode(quotationCode: string): Promise<QuotationWithRelations | null> {
     return this.prisma.quotation.findUnique({
-      where: { id },
-      include: {
-        contact: true,
-        account: true,
-        lead: true,
-        versions: { orderBy: { versionNumber: 'desc' } },
-        addons: true,
-        discounts: true,
-        histories: { orderBy: { createdAt: 'desc' } },
-        documents: true,
-      },
+      where: { quotationCode },
+      include: quotationWithRelations.include,
     });
   }
 
-  async findAll(): Promise<QuotationWithRelations[]> {
-    return this.prisma.quotation.findMany({
-      where: { deletedAt: null },
-      include: {
-        contact: true,
-        account: true,
-        lead: true,
-        versions: { orderBy: { versionNumber: 'desc' } },
-        addons: true,
-        discounts: true,
-        histories: { orderBy: { createdAt: 'desc' } },
-        documents: true,
-      },
-      orderBy: { createdAt: 'desc' },
-    });
-  }
-
-  async update(id: string, data: Prisma.QuotationUpdateInput): Promise<QuotationWithRelations> {
-    return this.prisma.quotation.update({
+  async update(
+    id: string,
+    data: Prisma.QuotationUpdateInput,
+    tx?: Prisma.TransactionClient,
+    expectedVersion?: number,
+  ): Promise<QuotationWithRelations> {
+    const client = tx || this.prisma;
+    if (expectedVersion !== undefined) {
+      const nextVersion = await checkOptimisticLock(client.quotation, id, expectedVersion);
+      data.version = nextVersion;
+    }
+    return client.quotation.update({
       where: { id },
       data,
-      include: {
-        contact: true,
-        account: true,
-        lead: true,
-        versions: { orderBy: { versionNumber: 'desc' } },
-        addons: true,
-        discounts: true,
-        histories: { orderBy: { createdAt: 'desc' } },
-        documents: true,
-      },
+      include: quotationWithRelations.include,
     });
   }
 
@@ -100,16 +81,7 @@ export class QuotationRepository {
         deletedAt: new Date(),
         updatedById: deletedById,
       },
-      include: {
-        contact: true,
-        account: true,
-        lead: true,
-        versions: { orderBy: { versionNumber: 'desc' } },
-        addons: true,
-        discounts: true,
-        histories: { orderBy: { createdAt: 'desc' } },
-        documents: true,
-      },
+      include: quotationWithRelations.include,
     });
   }
 

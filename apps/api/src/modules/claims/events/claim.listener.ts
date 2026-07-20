@@ -11,46 +11,8 @@ export class ClaimListener {
 
   @OnEvent('claim.registered')
   async handleClaimRegistered(event: { claim: any; createdById: string }) {
-    const { claim, createdById } = event;
-    this.logger.log(`Processing claim.registered event for claim number: ${claim.claimNumber}`);
-
-    try {
-      // 1. Create Initial Claim Reserve
-      await this.claimRepository.addReserve({
-        claim: { connect: { id: claim.id } },
-        amount: claim.claimAmount,
-        type: ReserveType.INITIAL,
-        comments: 'Initial reserve set to claim amount on registration.',
-        createdBy: { connect: { id: createdById } },
-      });
-
-      // 2. Add history entry for registration
-      await this.claimRepository.addHistoryEntry(
-        claim.id,
-        ClaimStatus.REGISTERED,
-        'REGISTER_CLAIM',
-        `Claim registered and initial reserve of ${claim.claimAmount} set.`,
-        createdById,
-      );
-
-      // 3. Update Status to REGISTERED
-      await this.claimRepository.update(claim.id, {
-        status: ClaimStatus.REGISTERED,
-      });
-
-      // 4. Log Communication stub (e.g. mock email notification)
-      await this.claimRepository.addCommunication({
-        claim: { connect: { id: claim.id } },
-        recipient: 'customer@example.com',
-        channel: CommunicationChannel.EMAIL,
-        subject: `Claim Registered - ${claim.claimNumber}`,
-        body: `Hello, your claim ${claim.claimNumber} has been successfully registered. We are reviewing the details and will assign an assessor shortly.`,
-      });
-
-      this.logger.log(`Successfully completed registration handler for claim ${claim.claimNumber}`);
-    } catch (error: any) {
-      this.logger.error(`Failed to execute registration logic for claim ${claim.claimNumber}: ${error.message}`);
-    }
+    const { claim } = event;
+    this.logger.log(`Claim ${claim.claimNumber} registered successfully. Database transaction completed.`);
   }
 
   @OnEvent('claim.approved')

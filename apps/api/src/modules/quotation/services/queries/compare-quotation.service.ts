@@ -18,8 +18,8 @@ export class CompareQuotationService {
 
     const quotations = await Promise.all(
       ids.map(async (id) => {
-        const q = await this.quotationRepository.findById(id);
-        if (!q || q.deletedAt) {
+        const q = await this.quotationRepository.findDetail(id);
+        if (!q) {
           throw new NotFoundException(`Quotation with ID ${id} not found`);
         }
         return QuotationMapper.toResponse(q);

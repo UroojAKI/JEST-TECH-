@@ -18,4 +18,6 @@ export const validationSchema = Joi.object({
 
   JWT_REFRESH_EXPIRES_IN: Joi.string().required(),
 
+  REDIS_URL: Joi.string().uri().default('redis://localhost:6379'),
+
 });

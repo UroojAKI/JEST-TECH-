@@ -157,7 +157,7 @@ describe('ClaimsController', () => {
     it('should find one claim', async () => {
       const result = await controller.findOne('claim-123');
       expect(result).toEqual(mockClaimResponse);
-      expect(getClaimsService.executeOne).toHaveBeenCalledWith('claim-123');
+      expect(getClaimsService.executeOne).toHaveBeenCalledWith('claim-123', undefined);
     });
 
     it('should assign a surveyor', async () => {

@@ -12,8 +12,9 @@ export class ContactRepository {
   // Uses the total count (including soft-deleted) to avoid code collisions on delete.
   // ---------------------------------------------------------------------------
   async generateContactCode(): Promise<string> {
-    const total = await this.prisma.contact.count();
-    return `CONT-${(total + 1).toString().padStart(6, '0')}`;
+    const result = await this.prisma.$queryRaw<[{ nextval: bigint }]>`
+      SELECT nextval('contact_number_seq')`;
+    return `CONT-${result[0].nextval.toString().padStart(6, '0')}`;
   }
 
   async create(data: Prisma.ContactCreateInput): Promise<Contact> {
@@ -28,8 +29,8 @@ export class ContactRepository {
   }
 
   async findById(id: string): Promise<Contact | null> {
-    return this.prisma.contact.findUnique({
-      where: { id },
+    return this.prisma.contact.findFirst({
+      where: { id, deletedAt: null },
     });
   }
 

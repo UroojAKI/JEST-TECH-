@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { useAuthStore } from '@/store/auth';
+import { toast } from 'sonner';
 import {
   Sliders,
   Plus,
@@ -95,7 +96,7 @@ export default function EndorsementsPage() {
       setComments('');
       setSelectedEndId(null);
       queryClient.invalidateQueries({ queryKey: ['endorsements'] });
-      alert('Endorsement completed and policy schedule version updated!');
+      toast.success('Endorsement completed and policy schedule version updated!');
     },
   });
 
@@ -217,7 +218,14 @@ export default function EndorsementsPage() {
                     <tr
                       key={end.id}
                       onClick={() => setSelectedEndId(end.id)}
-                      className="hover:bg-slate-900/20 cursor-pointer transition-colors"
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          setSelectedEndId(end.id);
+                        }
+                      }}
+                      tabIndex={0}
+                      role="button"
+                      className="hover:bg-slate-900/20 cursor-pointer transition-colors focus:bg-slate-900/40 focus:outline-none"
                     >
                       <td className="py-4 px-6 font-bold text-indigo-400">{end.endorsementNumber}</td>
                       <td className="py-4 px-6">{end.policy?.policyNumber}</td>

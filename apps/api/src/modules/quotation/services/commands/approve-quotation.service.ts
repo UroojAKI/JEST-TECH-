@@ -32,7 +32,7 @@ export class ApproveQuotationService {
       approvedById,
     );
 
-    const finalQuotation = await this.quotationRepository.findById(id);
+    const finalQuotation = await this.quotationRepository.findDetail(id);
     return QuotationMapper.toResponse(finalQuotation!);
   }
 }

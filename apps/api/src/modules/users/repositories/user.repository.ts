@@ -10,7 +10,17 @@ import { PrismaService } from '../../../database/prisma.service';
 // manual duplication.
 // ---------------------------------------------------------------------------
 const userWithRole = Prisma.validator<Prisma.UserDefaultArgs>()({
-  include: { role: true },
+  include: {
+    role: {
+      include: {
+        permissions: {
+          include: {
+            permission: true,
+          },
+        },
+      },
+    },
+  },
 });
 
 export type UserWithRole = Prisma.UserGetPayload<typeof userWithRole>;
@@ -23,7 +33,15 @@ export class UserRepository {
     return this.prisma.user.create({
       data,
       include: {
-        role: true,
+        role: {
+          include: {
+            permissions: {
+              include: {
+                permission: true,
+              },
+            },
+          },
+        },
       },
     });
   }
@@ -42,7 +60,15 @@ export class UserRepository {
         deletedAt: null,
       },
       include: {
-        role: true,
+        role: {
+          include: {
+            permissions: {
+              include: {
+                permission: true,
+              },
+            },
+          },
+        },
       },
       orderBy: {
         createdAt: 'desc',
@@ -54,7 +80,15 @@ export class UserRepository {
     return this.prisma.user.findUnique({
       where: { id },
       include: {
-        role: true,
+        role: {
+          include: {
+            permissions: {
+              include: {
+                permission: true,
+              },
+            },
+          },
+        },
       },
     });
   }
@@ -63,7 +97,15 @@ export class UserRepository {
     return this.prisma.user.findUnique({
       where: { email },
       include: {
-        role: true,
+        role: {
+          include: {
+            permissions: {
+              include: {
+                permission: true,
+              },
+            },
+          },
+        },
       },
     });
   }
@@ -73,7 +115,15 @@ export class UserRepository {
       where: { id },
       data,
       include: {
-        role: true,
+        role: {
+          include: {
+            permissions: {
+              include: {
+                permission: true,
+              },
+            },
+          },
+        },
       },
     });
   }
@@ -85,7 +135,15 @@ export class UserRepository {
         deletedAt: new Date(),
       },
       include: {
-        role: true,
+        role: {
+          include: {
+            permissions: {
+              include: {
+                permission: true,
+              },
+            },
+          },
+        },
       },
     });
   }

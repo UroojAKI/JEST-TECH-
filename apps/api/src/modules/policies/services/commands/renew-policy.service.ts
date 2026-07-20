@@ -55,7 +55,7 @@ export class RenewPolicyService {
       renewedById,
     );
 
-    const finalPolicy = await this.policyRepository.findById(id);
+    const finalPolicy = await this.policyRepository.findDetail(id);
     return PolicyMapper.toResponse(finalPolicy!);
   }
 }

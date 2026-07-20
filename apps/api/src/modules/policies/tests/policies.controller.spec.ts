@@ -102,7 +102,7 @@ describe('PoliciesController', () => {
     it('should find one policy', async () => {
       const result = await controller.findOne('policy-123');
       expect(result).toEqual(mockPolicyResponse);
-      expect(getService.executeOne).toHaveBeenCalledWith('policy-123');
+      expect(getService.executeOne).toHaveBeenCalledWith('policy-123', undefined);
     });
 
     it('should cancel a policy', async () => {

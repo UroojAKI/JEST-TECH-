@@ -64,8 +64,8 @@ export class ClaimsController {
     RoleType.FINANCE,
     RoleType.SUPPORT,
   )
-  findAll() {
-    return this.getClaimsService.executeAll();
+  findAll(@CurrentUser() user: RequestUser) {
+    return this.getClaimsService.executeAll(user);
   }
 
   @Get(':id')
@@ -81,8 +81,8 @@ export class ClaimsController {
     RoleType.FINANCE,
     RoleType.SUPPORT,
   )
-  findOne(@Param('id') id: string) {
-    return this.getClaimsService.executeOne(id);
+  findOne(@Param('id') id: string, @CurrentUser() user: RequestUser) {
+    return this.getClaimsService.executeOne(id, user);
   }
 
   @Post(':id/documents')

@@ -11,14 +11,45 @@ import {
   Res,
   Ip,
   HttpStatus,
+  BadRequestException,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiConsumes, ApiTags } from '@nestjs/swagger';
 import { FileInterceptor } from '@nestjs/platform-express';
+import * as path from 'path';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import type { RequestUser } from '../../auth/decorators/current-user.decorator';
 import { DocumentService } from '../services/document.service';
 import * as express from 'express';
+
+const ALLOWED_MIME_TYPES = [
+  'application/pdf',
+  'image/jpeg',
+  'image/jpg',
+  'image/png',
+  'image/gif',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/vnd.ms-excel',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+];
+
+const fileInterceptorOptions = {
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB
+  fileFilter: (
+    req: any,
+    file: Express.Multer.File,
+    cb: (error: Error | null, acceptFile: boolean) => void,
+  ) => {
+    if (!ALLOWED_MIME_TYPES.includes(file.mimetype)) {
+      return cb(
+        new BadRequestException(`File type ${file.mimetype} is not allowed`),
+        false,
+      );
+    }
+    cb(null, true);
+  },
+};
 
 @ApiTags('Documents')
 @ApiBearerAuth()
@@ -29,7 +60,7 @@ export class DocumentsController {
 
   @Post('upload')
   @ApiConsumes('multipart/form-data')
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(FileInterceptor('file', fileInterceptorOptions))
   async uploadDocument(
     @UploadedFile() file: Express.Multer.File,
     @Body('name') name: string,
@@ -59,7 +90,7 @@ export class DocumentsController {
 
   @Post(':id/replace')
   @ApiConsumes('multipart/form-data')
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(FileInterceptor('file', fileInterceptorOptions))
   async replaceDocument(
     @Param('id') id: string,
     @UploadedFile() file: Express.Multer.File,
@@ -120,8 +151,14 @@ export class DocumentsController {
       ipAddress,
     );
 
+    // Sanitize filename to prevent Content-Disposition injection / header injection
+    const safe = path
+      .basename(originalFileName)
+      .replace(/[^\w\s.\-]/g, '_')
+      .substring(0, 255);
+
     res.setHeader('Content-Type', mimeType);
-    res.setHeader('Content-Disposition', `attachment; filename="${originalFileName}"`);
+    res.setHeader('Content-Disposition', `attachment; filename="${safe}"`);
     res.status(HttpStatus.OK).send(fileBuffer);
   }
 }

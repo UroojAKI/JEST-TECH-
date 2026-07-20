@@ -1,9 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma, Policy, PolicyRenewal, PolicyPayment, PolicyDocument, PolicyHistory } from '@prisma/client';
-
+import { BaseRepository } from '../../../common/base/base.repository';
 import { PrismaService } from '../../../database/prisma.service';
 
-const policyWithRelations = Prisma.validator<Prisma.PolicyDefaultArgs>()({
+import { checkOptimisticLock } from '../../../common/utils/optimistic-lock';
+
+export const policyWithRelations = Prisma.validator<Prisma.PolicyDefaultArgs>()({
   include: {
     contact: true,
     account: true,
@@ -20,115 +22,65 @@ const policyWithRelations = Prisma.validator<Prisma.PolicyDefaultArgs>()({
 export type PolicyWithRelations = Prisma.PolicyGetPayload<typeof policyWithRelations>;
 
 @Injectable()
-export class PolicyRepository {
-  constructor(private readonly prisma: PrismaService) {}
-
-  async generatePolicyNumber(): Promise<string> {
-    const total = await this.prisma.policy.count();
-    return `POL-${(total + 1).toString().padStart(6, '0')}`;
+export class PolicyRepository extends BaseRepository<Policy, Prisma.PolicyDelegate<any>> {
+  constructor(protected readonly prisma: PrismaService) {
+    super(prisma.policy);
   }
 
-  async create(data: Prisma.PolicyCreateInput): Promise<PolicyWithRelations> {
-    return this.prisma.policy.create({
+  async generatePolicyNumber(): Promise<string> {
+    const result = await this.prisma.$queryRaw<[{ nextval: bigint }]>`
+      SELECT nextval('policy_number_seq')`;
+    return `POL-${result[0].nextval.toString().padStart(6, '0')}`;
+  }
+
+  async create(data: Prisma.PolicyCreateInput, tx?: Prisma.TransactionClient): Promise<PolicyWithRelations> {
+    const client = tx || this.prisma;
+    return client.policy.create({
       data,
-      include: {
-        contact: true,
-        account: true,
-        quotation: true,
-        members: true,
-        nominees: true,
-        renewals: { orderBy: { renewalNumber: 'desc' } },
-        payments: { orderBy: { paymentDate: 'desc' } },
-        documents: true,
-        histories: { orderBy: { createdAt: 'desc' } },
-      },
+      include: policyWithRelations.include,
     });
   }
 
-  async findById(id: string): Promise<PolicyWithRelations | null> {
-    return this.prisma.policy.findUnique({
-      where: { id },
-      include: {
-        contact: true,
-        account: true,
-        quotation: true,
-        members: true,
-        nominees: true,
-        renewals: { orderBy: { renewalNumber: 'desc' } },
-        payments: { orderBy: { paymentDate: 'desc' } },
-        documents: true,
-        histories: { orderBy: { createdAt: 'desc' } },
-      },
+  async findBasic(id: string): Promise<Policy | null> {
+    return super.findById(id);
+  }
+
+  async findDetail(id: string): Promise<PolicyWithRelations | null> {
+    return this.prisma.policy.findFirst({
+      where: { id, deletedAt: null },
+      include: policyWithRelations.include,
     });
   }
 
   async findByPolicyNumber(policyNumber: string): Promise<PolicyWithRelations | null> {
     return this.prisma.policy.findUnique({
       where: { policyNumber },
-      include: {
-        contact: true,
-        account: true,
-        quotation: true,
-        members: true,
-        nominees: true,
-        renewals: { orderBy: { renewalNumber: 'desc' } },
-        payments: { orderBy: { paymentDate: 'desc' } },
-        documents: true,
-        histories: { orderBy: { createdAt: 'desc' } },
-      },
+      include: policyWithRelations.include,
     });
   }
 
   async findByQuotationId(quotationId: string): Promise<PolicyWithRelations | null> {
     return this.prisma.policy.findUnique({
       where: { quotationId },
-      include: {
-        contact: true,
-        account: true,
-        quotation: true,
-        members: true,
-        nominees: true,
-        renewals: { orderBy: { renewalNumber: 'desc' } },
-        payments: { orderBy: { paymentDate: 'desc' } },
-        documents: true,
-        histories: { orderBy: { createdAt: 'desc' } },
-      },
+      include: policyWithRelations.include,
     });
   }
 
-  async findAll(): Promise<PolicyWithRelations[]> {
-    return this.prisma.policy.findMany({
-      where: { deletedAt: null },
-      include: {
-        contact: true,
-        account: true,
-        quotation: true,
-        members: true,
-        nominees: true,
-        renewals: { orderBy: { renewalNumber: 'desc' } },
-        payments: { orderBy: { paymentDate: 'desc' } },
-        documents: true,
-        histories: { orderBy: { createdAt: 'desc' } },
-      },
-      orderBy: { createdAt: 'desc' },
-    });
-  }
-
-  async update(id: string, data: Prisma.PolicyUpdateInput): Promise<PolicyWithRelations> {
-    return this.prisma.policy.update({
+  async update(
+    id: string,
+    data: Prisma.PolicyUpdateInput,
+    tx?: Prisma.TransactionClient,
+    expectedVersion?: number,
+  ): Promise<PolicyWithRelations> {
+    const client = tx || this.prisma;
+    if (expectedVersion !== undefined) {
+      const nextVersion = await checkOptimisticLock(client.policy, id, expectedVersion);
+      data.version = nextVersion;
+    }
+    return client.policy.update({
       where: { id },
       data,
-      include: {
-        contact: true,
-        account: true,
-        quotation: true,
-        members: true,
-        nominees: true,
-        renewals: { orderBy: { renewalNumber: 'desc' } },
-        payments: { orderBy: { paymentDate: 'desc' } },
-        documents: true,
-        histories: { orderBy: { createdAt: 'desc' } },
-      },
+      include: policyWithRelations.include,
     });
   }
 
@@ -139,17 +91,7 @@ export class PolicyRepository {
         deletedAt: new Date(),
         updatedById: deletedById,
       },
-      include: {
-        contact: true,
-        account: true,
-        quotation: true,
-        members: true,
-        nominees: true,
-        renewals: { orderBy: { renewalNumber: 'desc' } },
-        payments: { orderBy: { paymentDate: 'desc' } },
-        documents: true,
-        histories: { orderBy: { createdAt: 'desc' } },
-      },
+      include: policyWithRelations.include,
     });
   }
 
@@ -161,8 +103,9 @@ export class PolicyRepository {
     return this.prisma.policyPayment.create({ data });
   }
 
-  async addDocument(data: Prisma.PolicyDocumentCreateInput): Promise<PolicyDocument> {
-    return this.prisma.policyDocument.create({ data });
+  async addDocument(data: Prisma.PolicyDocumentCreateInput, tx?: Prisma.TransactionClient): Promise<PolicyDocument> {
+    const client = tx || this.prisma;
+    return client.policyDocument.create({ data });
   }
 
   async addHistoryEntry(
@@ -170,7 +113,9 @@ export class PolicyRepository {
     status: string,
     comments?: string,
     createdById?: string,
+    tx?: Prisma.TransactionClient,
   ): Promise<PolicyHistory> {
+    const client = tx || this.prisma;
     const data: Prisma.PolicyHistoryCreateInput = {
       status,
       comments,
@@ -181,7 +126,7 @@ export class PolicyRepository {
       data.createdBy = { connect: { id: createdById } };
     }
 
-    return this.prisma.policyHistory.create({ data });
+    return client.policyHistory.create({ data });
   }
 
   async findHistory(policyId: string): Promise<PolicyHistory[]> {

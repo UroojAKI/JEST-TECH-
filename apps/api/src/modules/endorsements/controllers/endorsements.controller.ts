@@ -16,16 +16,19 @@ export class EndorsementsController {
   constructor(private readonly endorsementService: EndorsementService) {}
 
   @Get()
+  @Roles(RoleType.ADMIN, RoleType.SUPER_ADMIN, RoleType.UNDERWRITER, RoleType.OPERATIONS, RoleType.SALES_AGENT, RoleType.BRANCH_MANAGER, RoleType.TEAM_LEADER)
   getEndorsements() {
     return this.endorsementService.getEndorsements();
   }
 
   @Get(':id')
+  @Roles(RoleType.ADMIN, RoleType.SUPER_ADMIN, RoleType.UNDERWRITER, RoleType.OPERATIONS, RoleType.SALES_AGENT, RoleType.BRANCH_MANAGER, RoleType.TEAM_LEADER)
   getEndorsementDetails(@Param('id') id: string) {
     return this.endorsementService.getEndorsementDetails(id);
   }
 
   @Post()
+  @Roles(RoleType.ADMIN, RoleType.SUPER_ADMIN, RoleType.OPERATIONS, RoleType.SALES_AGENT)
   createEndorsement(
     @Body('policyId') policyId: string,
     @Body('type') type: EndorsementType,
@@ -36,6 +39,7 @@ export class EndorsementsController {
   }
 
   @Post(':id/attach')
+  @Roles(RoleType.ADMIN, RoleType.SUPER_ADMIN, RoleType.OPERATIONS, RoleType.SALES_AGENT)
   attachDocument(@Param('id') id: string, @Body('documentId') documentId: string) {
     return this.endorsementService.attachDocument(id, documentId);
   }

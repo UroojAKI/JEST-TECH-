@@ -33,7 +33,7 @@ export class CancelPolicyService {
       cancelledById,
     );
 
-    const finalPolicy = await this.policyRepository.findById(id);
+    const finalPolicy = await this.policyRepository.findDetail(id);
     return PolicyMapper.toResponse(finalPolicy!);
   }
 }

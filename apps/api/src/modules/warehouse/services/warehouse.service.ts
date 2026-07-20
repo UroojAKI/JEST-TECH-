@@ -9,6 +9,7 @@ export interface ReportingContact {
   email: string | null;
   phone: string;
   type: string;
+  status: string;
   createdAt: Date;
 }
 
@@ -95,6 +96,7 @@ export class WarehouseService {
             }
           : {}),
       },
+      take: 1000,
       orderBy: { createdAt: 'desc' },
     });
 
@@ -106,6 +108,7 @@ export class WarehouseService {
       email: c.email,
       phone: c.phone,
       type: c.type,
+      status: 'ACTIVE',
       createdAt: c.createdAt,
     }));
   }
@@ -124,6 +127,7 @@ export class WarehouseService {
         contact: true,
         assignedTo: { select: { firstName: true, lastName: true } },
       },
+      take: 1000,
       orderBy: { createdAt: 'desc' },
     });
 
@@ -145,6 +149,7 @@ export class WarehouseService {
   async getReportingPolicies(filters?: { from?: Date; to?: Date; status?: string; agentId?: string }): Promise<ReportingPolicy[]> {
     const policies = await this.prisma.policy.findMany({
       where: {
+        deletedAt: null,
         ...(filters?.status && { status: filters.status as any }),
         ...(filters?.from || filters?.to
           ? { createdAt: { ...(filters.from && { gte: filters.from }), ...(filters.to && { lte: filters.to }) } }
@@ -154,6 +159,7 @@ export class WarehouseService {
         contact: true,
         quotation: { select: { insurerName: true, productType: true, totalPremium: true } },
       },
+      take: 1000,
       orderBy: { createdAt: 'desc' },
     });
 
@@ -185,6 +191,7 @@ export class WarehouseService {
         policy: { select: { policyNumber: true } },
         contact: { select: { firstName: true, lastName: true } },
       },
+      take: 1000,
       orderBy: { reportedDate: 'desc' },
     });
 
@@ -218,6 +225,7 @@ export class WarehouseService {
           },
         },
       },
+      take: 1000,
       orderBy: { paymentDate: 'desc' },
     });
 
@@ -247,6 +255,7 @@ export class WarehouseService {
         contact: { select: { firstName: true, lastName: true, phone: true } },
         quotation: { select: { insurerName: true, totalPremium: true } },
       },
+      take: 1000,
       orderBy: { expiryDate: 'asc' },
     });
 

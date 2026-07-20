@@ -8,15 +8,14 @@ export class GetQuotationService {
   constructor(private readonly quotationRepository: QuotationRepository) {}
 
   async executeOne(id: string) {
-    const quotation = await this.quotationRepository.findById(id);
-    if (!quotation || quotation.deletedAt) {
+    const quotation = await this.quotationRepository.findDetail(id);
+    if (!quotation) {
       throw new NotFoundException(`Quotation with ID ${id} not found`);
     }
     return QuotationMapper.toResponse(quotation);
   }
 
   async executeAll() {
-    const list = await this.quotationRepository.findAll();
-    return QuotationMapper.toResponseList(list);
+    return this.quotationRepository.findPaginated({ page: 1, limit: 100 });
   }
 }

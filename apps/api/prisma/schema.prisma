@@ -1,5 +1,6 @@
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  previewFeatures = ["fullTextSearchPostgres"]
 }
 
 datasource db {
@@ -43,6 +44,7 @@ enum PermissionCategory {
   POLICY
   CLAIM
   REPORT
+  WORKFLOW
   DOCUMENT
   DASHBOARD
 }
@@ -161,6 +163,7 @@ model Role {
 
   users       User[]
   permissions RolePermission[]
+  workflowAssignments WorkflowAssignment[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -309,6 +312,13 @@ model User {
   savedReports            SavedReport[]         @relation("SavedReportCreatedBy")
   reportRuns              ReportRun[]           @relation("ReportRunTriggeredBy")
   kpiDefinitions          KpiDefinition[]       @relation("KpiDefinitionCreatedBy")
+  reportsCreated          Report[]              @relation("ReportCreatedBy")
+  reportsUpdated          Report[]              @relation("ReportUpdatedBy")
+  reportExecutionsRequested ReportExecution[]     @relation("ReportExecutionRequestedBy")
+  savedFilters              SavedFilter[]
+  favoriteReports           FavoriteReport[]
+  workflowHistories         WorkflowHistory[]
+  workflowAssignments       WorkflowAssignment[]
 
   createdAt DateTime @default(now())
 
@@ -346,6 +356,7 @@ model RefreshToken {
   createdAt DateTime @default(now())
 
   @@index([userId])
+  @@index([expiresAt])
   @@map("refresh_tokens")
 }
 
@@ -374,11 +385,16 @@ model AuditLog {
 
   user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
 
+  correlationId String?
+
+  module String?
+
   createdAt DateTime @default(now())
 
   @@index([entity])
   @@index([entityId])
   @@index([action])
+  @@index([entity, entityId])
   @@map("audit_logs")
 }
 
@@ -567,6 +583,7 @@ model Lead {
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
   deletedAt   DateTime?
+  version     Int        @default(1)
 
   @@index([leadCode])
   @@index([status])
@@ -674,6 +691,7 @@ model Quotation {
   createdAt     DateTime        @default(now())
   updatedAt     DateTime        @updatedAt
   deletedAt     DateTime?
+  version       Int             @default(1)
 
   @@index([quotationCode])
   @@index([status])
@@ -812,9 +830,14 @@ model Policy {
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
   deletedAt      DateTime?
+  version        Int          @default(1)
 
   @@index([policyNumber])
   @@index([status])
+  @@index([contactId])
+  @@index([expiryDate])
+  @@index([accountId])
+  @@index([deletedAt])
   @@map("policies")
 }
 
@@ -855,6 +878,7 @@ model PolicyRenewal {
   createdAt      DateTime  @default(now())
 
   @@index([policyId])
+  @@unique([policyId, renewalNumber])
   @@map("policy_renewals")
 }
 
@@ -962,10 +986,14 @@ model Claim {
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @updatedAt
   deletedAt      DateTime?
+  version        Int             @default(1)
 
   @@index([claimNumber])
   @@index([status])
   @@index([policyId])
+  @@index([contactId])
+  @@index([incidentDate])
+  @@index([accountId])
   @@map("claims")
 }
 
@@ -1133,6 +1161,7 @@ model Notification {
 
   @@index([userId])
   @@index([isRead])
+  @@index([userId, isRead])
   @@map("notifications")
 }
 
@@ -1196,6 +1225,9 @@ model RenewalTask {
 
   @@index([policyId])
   @@index([agentId])
+  @@index([status])
+  @@index([dueDate])
+  @@index([agentId, status])
   @@map("renewal_tasks")
 }
 
@@ -1270,6 +1302,7 @@ model DocumentVersion {
   uploadedAt       DateTime @default(now())
 
   @@index([documentId])
+  @@unique([documentId, version])
   @@map("document_versions")
 }
 
@@ -1421,6 +1454,7 @@ model RatingRule {
 
   @@index([productId])
   @@index([insurerId])
+  @@index([productId, insurerId, isActive])
   @@map("rating_rules")
 }
 
@@ -1459,6 +1493,7 @@ model Proposal {
   approvedAt     DateTime?
   createdAt      DateTime           @default(now())
   updatedAt      DateTime           @updatedAt
+  version        Int                @default(1)
 
   documents      ProposalDocument[]
   histories      ProposalHistory[]
@@ -1474,14 +1509,13 @@ model ProposalDocument {
   id         String   @id @default(uuid())
   proposalId String
   proposal   Proposal @relation(fields: [proposalId], references: [id], onDelete: Cascade)
-  documentId String
-  document   Document @relation(fields: [documentId], references: [id])
+  documentId String?
+  document   Document? @relation(fields: [documentId], references: [id])
   mandatory  Boolean  @default(true)
   verified   Boolean  @default(false)
   remarks    String?
 
   @@index([proposalId])
-  @@index([documentId])
   @@map("proposal_documents")
 }
 
@@ -1589,13 +1623,14 @@ enum KpiUnit {
 }
 
 enum ReportCategory {
-  CRM
   SALES
+  UNDERWRITING
   CLAIMS
-  RENEWALS
+  POLICY
+  CRM
   FINANCE
-  OPERATIONS
-  COMPLIANCE
+  AUDIT
+  CUSTOM
 }
 
 model SavedReport {
@@ -1666,3 +1701,357 @@ model KpiDefinition {
   @@index([category])
   @@map("kpi_definitions")
 }
+
+enum ReportModule {
+  LEADS
+  CONTACTS
+  QUOTATIONS
+  POLICIES
+  CLAIMS
+  REPORTS
+}
+
+enum ReportType {
+  TABULAR
+  SUMMARY
+  CHART
+  MATRIX
+}
+
+enum ReportStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum ReportFilterOperator {
+  EQUALS
+  CONTAINS
+  STARTS_WITH
+  ENDS_WITH
+  BETWEEN
+  GREATER_THAN
+  LESS_THAN
+  IN
+  NOT_IN
+  NULL
+  NOT_NULL
+}
+
+enum ReportExecutionStatus {
+  RUNNING
+  COMPLETED
+  FAILED
+}
+
+enum ReportScheduleFrequency {
+  DAILY
+  WEEKLY
+  MONTHLY
+}
+
+model Report {
+  id             String         @id @default(uuid())
+  name           String
+  code           String         @unique
+  description    String?
+  category       ReportCategory
+  module         ReportModule
+  type           ReportType     @default(TABULAR)
+  status         ReportStatus   @default(ACTIVE)
+  version        Int            @default(1)
+  isSystem       Boolean        @default(false)
+  shared         Boolean        @default(false)
+  
+  parentId       String?
+  parent         Report?        @relation("ReportHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  children       Report[]       @relation("ReportHierarchy")
+
+  // Statistics
+  executionCount  Int           @default(0)
+  lastExecutedAt  DateTime?
+  averageDuration Float         @default(0.0)
+
+  createdById    String?
+  createdBy      User?          @relation("ReportCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedById    String?
+  updatedBy      User?          @relation("ReportUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  deletedAt      DateTime?
+
+  columns        ReportColumn[]
+  filters        ReportFilter[]
+  executions     ReportExecution[]
+  schedules      ReportSchedule[]
+  savedFilters   SavedFilter[]
+  favorites      FavoriteReport[]
+
+  @@map("reports")
+}
+
+model ReportColumn {
+  id            String   @id @default(uuid())
+  reportId      String
+  report        Report   @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  field         String
+  label         String
+  type          String
+  sortable      Boolean  @default(true)
+  filterable    Boolean  @default(true)
+  visible       Boolean  @default(true)
+  order         Int      @default(0)
+  configuration Json?
+
+  @@map("report_columns")
+}
+
+model ReportFilter {
+  id           String               @id @default(uuid())
+  reportId     String
+  report       Report               @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  field        String
+  operator     ReportFilterOperator
+  defaultValue Json?
+  required     Boolean              @default(false)
+
+  @@map("report_filters")
+}
+
+model ReportExecution {
+  id            String                @id @default(uuid())
+  reportId      String
+  report        Report                @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  requestedById String?
+  requestedBy   User?                 @relation("ReportExecutionRequestedBy", fields: [requestedById], references: [id], onDelete: SetNull)
+  status        ReportExecutionStatus
+  startedAt     DateTime              @default(now())
+  completedAt   DateTime?
+  duration      Int?
+  filePath      String?
+  recordCount   Int                   @default(0)
+  parameters    Json?
+
+  @@map("report_executions")
+}
+
+model ReportSchedule {
+  id             String                  @id @default(uuid())
+  reportId       String
+  report         Report                  @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  cronExpression String
+  frequency      ReportScheduleFrequency
+  timezone       String                  @default("UTC")
+  active         Boolean                 @default(true)
+  nextRun        DateTime?
+
+  @@map("report_schedules")
+}
+
+model SavedFilter {
+  id          String   @id @default(uuid())
+  name        String
+  reportId    String
+  report      Report   @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  filters     Json     // key-value pair of filter values passed by user
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([userId, name, reportId])
+  @@map("saved_report_filters")
+}
+
+model FavoriteReport {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  reportId  String
+  report    Report   @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, reportId])
+  @@map("favorite_reports")
+}
+
+enum WorkflowModule {
+  LEADS
+  PROPOSALS
+  ENDORSEMENTS
+  POLICIES
+  CLAIMS
+  QUOTATIONS
+}
+
+enum WorkflowEntityType {
+  LEAD
+  PROPOSAL
+  POLICY
+  ENDORSEMENT
+  CLAIM
+  QUOTATION
+}
+
+enum WorkflowApprovalType {
+  ANY
+  ALL
+  SEQUENTIAL
+}
+
+model Workflow {
+  id          String         @id @default(uuid())
+  name        String
+  code        String         @unique
+  module      WorkflowModule
+  description String?
+  active      Boolean        @default(true)
+  version     Int            @default(1)
+  isSystem    Boolean        @default(false)
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  deletedAt   DateTime?
+
+  states      WorkflowState[]
+  transitions WorkflowTransition[]
+  histories   WorkflowHistory[]
+
+  @@map("workflows")
+}
+
+model WorkflowState {
+  id               String               @id @default(uuid())
+  workflowId       String
+  workflow         Workflow             @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  name             String
+  code             String
+  isInitial        Boolean              @default(false)
+  isTerminal       Boolean              @default(false)
+  slaMinutes       Int?
+  escalationRoleId String?
+  
+  incomingTransitions WorkflowTransition[] @relation("TransitionToState")
+  outgoingTransitions WorkflowTransition[] @relation("TransitionFromState")
+  assignments         WorkflowAssignment[]
+  actions             WorkflowAction[]
+
+  @@unique([workflowId, code])
+  @@map("workflow_states")
+}
+
+model WorkflowTransition {
+  id          String               @id @default(uuid())
+  workflowId  String
+  workflow    Workflow             @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  fromStateId String?
+  fromState   WorkflowState?       @relation("TransitionFromState", fields: [fromStateId], references: [id], onDelete: SetNull)
+  toStateId   String
+  toState     WorkflowState        @relation("TransitionToState", fields: [toStateId], references: [id], onDelete: Cascade)
+  name        String
+  triggerType String               @default("MANUAL") // MANUAL, AUTOMATIC
+  conditions  Json?                // { "logic": "AND", "rules": [...] }
+
+  assignments WorkflowAssignment[]
+  actions     WorkflowAction[]
+
+  @@map("workflow_transitions")
+}
+
+model WorkflowAction {
+  id           String              @id @default(uuid())
+  stateId      String?
+  state        WorkflowState?      @relation(fields: [stateId], references: [id], onDelete: Cascade)
+  transitionId String?
+  transition   WorkflowTransition? @relation(fields: [transitionId], references: [id], onDelete: Cascade)
+  type         String              // NOTIFICATION, EVENT, DOCUMENT_GENERATION, AUDIT
+  configuration Json?
+
+  @@map("workflow_actions")
+}
+
+model WorkflowAssignment {
+  id           String              @id @default(uuid())
+  stateId      String?
+  state        WorkflowState?      @relation(fields: [stateId], references: [id], onDelete: Cascade)
+  transitionId String?
+  transition   WorkflowTransition? @relation(fields: [transitionId], references: [id], onDelete: Cascade)
+  roleId       String?
+  role         Role?               @relation(fields: [roleId], references: [id], onDelete: SetNull)
+  userId       String?
+  user         User?               @relation(fields: [userId], references: [id], onDelete: SetNull)
+  departmentId String?
+  branchId     String?
+  order        Int                 @default(0)
+  required     Boolean             @default(true)
+  approvalType WorkflowApprovalType @default(ANY)
+
+  @@map("workflow_assignments")
+}
+
+model WorkflowHistory {
+  id              String             @id @default(uuid())
+  workflowId      String
+  workflow        Workflow           @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  workflowVersion Int
+  entityId        String
+  entityType      WorkflowEntityType
+  fromStateId     String?
+  toStateId       String
+  performedById   String?
+  performedBy     User?              @relation(fields: [performedById], references: [id], onDelete: SetNull)
+  comments        String?
+  duration        Int?               // In seconds
+  result          Json?
+  variables       Json?
+  createdAt       DateTime           @default(now())
+
+  @@map("workflow_histories")
+}
+
+
+
+enum JobType {
+  NOTIFICATION
+  RENEWAL
+  REPORT
+  WORKFLOW
+  DOCUMENT
+  AUDIT
+  SEARCH
+  EMAIL
+  SMS
+  WHATSAPP
+}
+
+enum JobStatus {
+  QUEUED
+  RUNNING
+  COMPLETED
+  FAILED
+  CANCELLED
+  RETRYING
+  DELAYED
+}
+
+model BackgroundJob {
+  id            String    @id @default(uuid())
+  queue         String
+  jobId         String?   @unique
+  type          JobType
+  status        JobStatus @default(QUEUED)
+  payload       Json?
+  attempts      Int       @default(0)
+  maxAttempts   Int       @default(3)
+  startedAt     DateTime?
+  completedAt   DateTime?
+  error         String?   @db.Text
+  createdBy     String?
+  correlationId String?
+
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([queue, status])
+  @@index([type])
+  @@index([jobId])
+}
+

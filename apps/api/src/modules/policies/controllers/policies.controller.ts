@@ -68,8 +68,8 @@ export class PoliciesController {
     RoleType.FINANCE,
     RoleType.SUPPORT,
   )
-  findAll() {
-    return this.getPolicyService.executeAll();
+  findAll(@CurrentUser() user: RequestUser) {
+    return this.getPolicyService.executeAll(user);
   }
 
   @Get(':id')
@@ -85,8 +85,8 @@ export class PoliciesController {
     RoleType.FINANCE,
     RoleType.SUPPORT,
   )
-  findOne(@Param('id') id: string) {
-    return this.getPolicyService.executeOne(id);
+  findOne(@Param('id') id: string, @CurrentUser() user: RequestUser) {
+    return this.getPolicyService.executeOne(id, user);
   }
 
   @Get(':id/history')

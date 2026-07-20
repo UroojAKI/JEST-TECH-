@@ -32,8 +32,8 @@ export class ConvertQuotationService {
       convertedById,
     );
 
-    const finalQuotation = await this.quotationRepository.findById(id);
-    const mappedResponse = QuotationMapper.toResponse(finalQuotation!);
+    const quotation = await this.quotationRepository.findDetail(id);
+    const mappedResponse = QuotationMapper.toResponse(quotation!);
 
     return {
       message: `Quotation ${existing.quotationCode} converted successfully to Policy.`,

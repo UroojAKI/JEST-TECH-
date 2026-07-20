@@ -22,8 +22,8 @@ export class ProposalsController {
   }
 
   @Get(':id')
-  getProposalDetails(@Param('id') id: string) {
-    return this.proposalService.getProposalDetails(id);
+  getProposalDetails(@Param('id') id: string, @CurrentUser() user: RequestUser) {
+    return this.proposalService.getProposalDetails(id, user);
   }
 
   @Post()

@@ -3,6 +3,8 @@ import { Prisma, Lead, Note, Activity } from '@prisma/client';
 
 import { PrismaService } from '../../../database/prisma.service';
 
+import { checkOptimisticLock } from '../../../common/utils/optimistic-lock';
+
 const leadWithRelations = Prisma.validator<Prisma.LeadDefaultArgs>()({
   include: {
     contact: true,
@@ -34,8 +36,9 @@ export class LeadRepository {
   constructor(private readonly prisma: PrismaService) {}
 
   async generateLeadCode(): Promise<string> {
-    const total = await this.prisma.lead.count();
-    return `LEAD-${(total + 1).toString().padStart(6, '0')}`;
+    const result = await this.prisma.$queryRaw<[{ nextval: bigint }]>`
+      SELECT nextval('lead_number_seq')`;
+    return `LEAD-${result[0].nextval.toString().padStart(6, '0')}`;
   }
 
   async create(data: Prisma.LeadCreateInput): Promise<LeadWithRelations> {
@@ -57,9 +60,10 @@ export class LeadRepository {
     });
   }
 
-  async findAll(): Promise<LeadWithRelations[]> {
+  async findAll(where?: Prisma.LeadWhereInput): Promise<LeadWithRelations[]> {
     return this.prisma.lead.findMany({
       where: {
+        ...where,
         deletedAt: null,
       },
       include: {
@@ -82,8 +86,8 @@ export class LeadRepository {
   }
 
   async findById(id: string): Promise<LeadWithRelations | null> {
-    return this.prisma.lead.findUnique({
-      where: { id },
+    return this.prisma.lead.findFirst({
+      where: { id, deletedAt: null },
       include: {
         contact: true,
         account: true,
@@ -100,7 +104,11 @@ export class LeadRepository {
     });
   }
 
-  async update(id: string, data: Prisma.LeadUpdateInput): Promise<LeadWithRelations> {
+  async update(id: string, data: Prisma.LeadUpdateInput, expectedVersion?: number): Promise<LeadWithRelations> {
+    if (expectedVersion !== undefined) {
+      const nextVersion = await checkOptimisticLock(this.prisma.lead, id, expectedVersion);
+      data.version = nextVersion;
+    }
     return this.prisma.lead.update({
       where: { id },
       data,

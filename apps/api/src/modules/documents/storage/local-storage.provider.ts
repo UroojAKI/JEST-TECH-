@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, BadRequestException } from '@nestjs/common';
 import { StorageProvider } from './storage-provider.interface';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -14,8 +14,27 @@ export class LocalStorageProvider implements StorageProvider {
     }
   }
 
+  getProviderName(): string {
+    return 'LOCAL';
+  }
+
+  /**
+   * Resolves and validates that the given key stays within the upload directory.
+   * Throws BadRequestException if a path traversal attempt is detected.
+   */
+  private safePath(key: string): string {
+    const resolved = path.resolve(this.uploadDir, key);
+    const uploadDirResolved = path.resolve(this.uploadDir);
+    const relative = path.relative(uploadDirResolved, resolved);
+    const isSafe = relative && !relative.startsWith('..') && !path.isAbsolute(relative);
+    if (!isSafe) {
+      throw new BadRequestException('Invalid storage path');
+    }
+    return resolved;
+  }
+
   async uploadFile(fileBuffer: Buffer, key: string, mimeType: string): Promise<string> {
-    const filePath = path.join(this.uploadDir, key);
+    const filePath = this.safePath(key);
     const parentDir = path.dirname(filePath);
     if (!fs.existsSync(parentDir)) {
       fs.mkdirSync(parentDir, { recursive: true });
@@ -26,7 +45,7 @@ export class LocalStorageProvider implements StorageProvider {
   }
 
   async downloadFile(key: string): Promise<Buffer> {
-    const filePath = path.join(this.uploadDir, key);
+    const filePath = this.safePath(key);
     if (!fs.existsSync(filePath)) {
       throw new Error(`File not found: ${filePath}`);
     }
@@ -34,7 +53,7 @@ export class LocalStorageProvider implements StorageProvider {
   }
 
   async deleteFile(key: string): Promise<void> {
-    const filePath = path.join(this.uploadDir, key);
+    const filePath = this.safePath(key);
     if (fs.existsSync(filePath)) {
       await fs.promises.unlink(filePath);
       this.logger.log(`Deleted file: ${filePath}`);

@@ -139,7 +139,7 @@ export class GenerateQuotationService {
     ]);
 
     // 7. Fetch updated details with versions and documents
-    const finalQuotation = await this.quotationRepository.findById(quotation.id);
+    const finalQuotation = await this.quotationRepository.findDetail(quotation.id);
     return QuotationMapper.toResponse(finalQuotation!);
   }
 }

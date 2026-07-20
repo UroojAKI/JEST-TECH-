@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { useAuthStore } from '@/store/auth';
+import { toast } from 'sonner';
 import {
   FileText,
   Plus,
@@ -90,9 +91,10 @@ export default function ProposalsPage() {
       setNewQuotationId('');
       queryClient.invalidateQueries({ queryKey: ['proposals'] });
       setSelectedPropId(res.data.id);
+      toast.success('Proposal initialized successfully!');
     },
     onError: () => {
-      alert('Error initializing proposal. Make sure the quotation exists and is not already converted.');
+      toast.error('Error initializing proposal. Make sure the quotation exists and is not already converted.');
     },
   });
 
@@ -119,6 +121,10 @@ export default function ProposalsPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['proposal-details', selectedPropId] });
+      toast.success('Document uploaded and checklist item updated!');
+    },
+    onError: () => {
+      toast.error('Failed to upload document.');
     },
   });
 
@@ -128,10 +134,10 @@ export default function ProposalsPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['proposals'] });
       queryClient.invalidateQueries({ queryKey: ['proposal-details', selectedPropId] });
-      alert('Proposal submitted for underwriting review!');
+      toast.success('Proposal submitted for underwriting review!');
     },
     onError: (err: any) => {
-      alert(err.response?.data?.message || 'Checklist is incomplete');
+      toast.error(err.response?.data?.message || 'Checklist is incomplete');
     },
   });
 
@@ -146,7 +152,10 @@ export default function ProposalsPage() {
       setReviewComments('');
       queryClient.invalidateQueries({ queryKey: ['proposals'] });
       queryClient.invalidateQueries({ queryKey: ['proposal-details', selectedPropId] });
-      alert('Review action completed!');
+      toast.success('Review action completed!');
+    },
+    onError: (err: any) => {
+      toast.error(err.response?.data?.message || 'Review failed.');
     },
   });
 
@@ -262,7 +271,14 @@ export default function ProposalsPage() {
                     <tr
                       key={prop.id}
                       onClick={() => setSelectedPropId(prop.id)}
-                      className="hover:bg-slate-900/20 cursor-pointer transition-colors"
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          setSelectedPropId(prop.id);
+                        }
+                      }}
+                      tabIndex={0}
+                      role="button"
+                      className="hover:bg-slate-900/20 cursor-pointer transition-colors focus:bg-slate-900/40 focus:outline-none"
                     >
                       <td className="py-4 px-6 font-bold text-indigo-400 hover:underline">{prop.proposalNumber}</td>
                       <td className="py-4 px-6">

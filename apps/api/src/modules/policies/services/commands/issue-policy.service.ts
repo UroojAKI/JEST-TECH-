@@ -14,6 +14,7 @@ import { QuotationRepository } from '../../../quotation/repositories/quotation.r
 import { PdfService } from '../../../quotation/engine/pdf.service';
 import { PolicyDomainService } from '../../domain/policy.domain-service';
 import { Money } from '../../../../common/domain/value-objects/money.value-object';
+import { PrismaService } from '../../../../database/prisma.service';
 
 @Injectable()
 export class IssuePolicyService {
@@ -22,6 +23,7 @@ export class IssuePolicyService {
     private readonly quotationRepository: QuotationRepository,
     private readonly pdfService: PdfService,
     private readonly policyDomainService: PolicyDomainService,
+    private readonly prisma: PrismaService,
   ) {}
 
   async execute(dto: CreatePolicyDto, createdById: string) {
@@ -88,43 +90,50 @@ export class IssuePolicyService {
       ],
     };
 
-    // 7. Write to database & transition Quotation status
-    const policy = await this.policyRepository.create(policyData);
+    // 7. Execute in transaction
+    const policy = await this.prisma.$transaction(async (tx) => {
+      // Create Policy
+      const newPolicy = await this.policyRepository.create(policyData, tx);
 
-    await this.quotationRepository.update(dto.quotationId, {
-      status: QuotationStatus.CONVERTED_TO_POLICY,
+      // Transition Quotation status
+      await this.quotationRepository.update(dto.quotationId, {
+        status: QuotationStatus.CONVERTED_TO_POLICY,
+      }, tx);
+
+      // Generate Policy documents stubs
+      const schedulePdf = this.pdfService.generatePdfStub(policyNumber);
+      const taxCertificatePdf = this.pdfService.generatePdfStub(`${policyNumber}_TAX`);
+
+      await Promise.all([
+        this.policyRepository.addDocument({
+          policy: { connect: { id: newPolicy.id } },
+          documentType: 'POLICY_SCHEDULE',
+          fileKey: schedulePdf.fileKey,
+          fileName: schedulePdf.fileName,
+          fileSize: schedulePdf.fileSize,
+        }, tx),
+
+        this.policyRepository.addDocument({
+          policy: { connect: { id: newPolicy.id } },
+          documentType: 'TAX_CERTIFICATE',
+          fileKey: taxCertificatePdf.fileKey,
+          fileName: taxCertificatePdf.fileName,
+          fileSize: taxCertificatePdf.fileSize,
+        }, tx),
+
+        this.policyRepository.addHistoryEntry(
+          newPolicy.id,
+          PolicyStatus.ACTIVE,
+          `Policy issued successfully under number ${policyNumber}. Initial premium payment received.`,
+          createdById,
+          tx,
+        ),
+      ]);
+
+      return newPolicy;
     });
 
-    // 8. Generate Policy documents stubs
-    const schedulePdf = this.pdfService.generatePdfStub(policyNumber);
-    const taxCertificatePdf = this.pdfService.generatePdfStub(`${policyNumber}_TAX`);
-
-    await Promise.all([
-      this.policyRepository.addDocument({
-        policy: { connect: { id: policy.id } },
-        documentType: 'POLICY_SCHEDULE',
-        fileKey: schedulePdf.fileKey,
-        fileName: schedulePdf.fileName,
-        fileSize: schedulePdf.fileSize,
-      }),
-
-      this.policyRepository.addDocument({
-        policy: { connect: { id: policy.id } },
-        documentType: 'TAX_CERTIFICATE',
-        fileKey: taxCertificatePdf.fileKey,
-        fileName: taxCertificatePdf.fileName,
-        fileSize: taxCertificatePdf.fileSize,
-      }),
-
-      this.policyRepository.addHistoryEntry(
-        policy.id,
-        PolicyStatus.ACTIVE,
-        `Policy issued successfully under number ${policyNumber}. Initial premium payment received.`,
-        createdById,
-      ),
-    ]);
-
-    const finalPolicy = await this.policyRepository.findById(policy.id);
+    const finalPolicy = await this.policyRepository.findDetail(policy.id);
     return PolicyMapper.toResponse(finalPolicy!);
   }
 }

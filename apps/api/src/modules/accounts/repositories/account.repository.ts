@@ -20,8 +20,9 @@ export class AccountRepository {
   constructor(private readonly prisma: PrismaService) {}
 
   async generateAccountCode(): Promise<string> {
-    const total = await this.prisma.account.count();
-    return `ACC-${(total + 1).toString().padStart(6, '0')}`;
+    const result = await this.prisma.$queryRaw<[{ nextval: bigint }]>`
+      SELECT nextval('account_number_seq')`;
+    return `ACC-${result[0].nextval.toString().padStart(6, '0')}`;
   }
 
   async create(data: Prisma.AccountCreateInput): Promise<AccountWithContacts> {
@@ -56,8 +57,8 @@ export class AccountRepository {
   }
 
   async findById(id: string): Promise<AccountWithContacts | null> {
-    return this.prisma.account.findUnique({
-      where: { id },
+    return this.prisma.account.findFirst({
+      where: { id, deletedAt: null },
       include: {
         contacts: {
           where: {

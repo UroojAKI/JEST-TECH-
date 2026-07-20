@@ -30,9 +30,10 @@ describe('QuotationController', () => {
   let historyService: GetQuotationHistoryService;
 
   const mockUser: RequestUser = {
-    id: 'user-123',
-    email: 'agent@jestpolicy.com',
+    id: 'user-1',
+    email: 'test@example.com',
     role: RoleType.SALES_AGENT,
+    permissions: [],
   };
 
   const mockQuotationResponse = {

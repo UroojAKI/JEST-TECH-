@@ -30,17 +30,23 @@ export class GlobalExceptionFilter implements ExceptionFilter {
         ? exception.getResponse()
         : { message: exception.message || 'Internal server error' };
 
-    const errorBody =
+    const errorBody: any =
       typeof rawResponse === 'object'
         ? rawResponse
         : { message: rawResponse };
 
     const errorResponse = {
-      statusCode: status,
-      timestamp: new Date().toISOString(),
-      path: request.url,
-      correlationId,
-      ...errorBody,
+      success: false,
+      error: {
+        statusCode: status,
+        message: errorBody.message || 'Internal server error',
+        details: errorBody.error || errorBody.message || errorBody,
+      },
+      meta: {
+        requestId: correlationId,
+        timestamp: new Date().toISOString(),
+        version: 'v1',
+      },
     };
 
     this.logger.error(
