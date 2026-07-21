@@ -49,7 +49,6 @@ USER nestjs
 COPY --from=installer /app/apps/api/dist ./dist
 COPY --from=installer /app/apps/api/package.json ./package.json
 COPY --from=installer /app/node_modules ./node_modules
-COPY --from=installer /app/apps/api/node_modules ./apps/api/node_modules
 # Prisma engines are heavy but required
 COPY --from=installer /app/apps/api/prisma ./prisma
 
