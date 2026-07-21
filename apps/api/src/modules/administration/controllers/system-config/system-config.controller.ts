@@ -40,7 +40,8 @@ export class SystemConfigController {
     if (!Object.values(SystemConfigKey).includes(key as SystemConfigKey)) {
       throw new BadRequestException('Invalid configuration key');
     }
-    const value = await this.systemConfigService.getValue(key);
+    const configKey = key as SystemConfigKey;
+    const value = await this.systemConfigService.getValue(configKey);
     return { key, value };
   }
 
@@ -53,7 +54,8 @@ export class SystemConfigController {
     if (!Object.values(SystemConfigKey).includes(key as SystemConfigKey)) {
       throw new BadRequestException('Invalid configuration key');
     }
-    await this.systemConfigService.setValue(key, dto.value, dto.valueType);
+    const configKey = key as SystemConfigKey;
+    await this.systemConfigService.setValue(configKey, dto.value, dto.valueType);
     return { success: true, key };
   }
 }

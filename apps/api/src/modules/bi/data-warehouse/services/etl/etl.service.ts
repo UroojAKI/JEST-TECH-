@@ -16,51 +16,53 @@ export class EtlService {
       where: { id: policyId },
       include: {
         contact: true,
-        user: { include: { branch: true } }, // Agent
-        product: { include: { insurer: true } },
+        createdBy: { include: { branch: true } },
+        quotation: true,
       },
     });
 
     if (!policy) return;
 
+    const agent = policy.createdBy;
+    const agentId = policy.createdById ?? 'UNKNOWN';
+    const productId = policy.quotationId;
+
     // 1. Ensure Dimensions Exist
-    // Date Dimension
     const date = policy.createdAt;
-    const dateId = date.toISOString().split('T')[0]; // YYYY-MM-DD
+    const dateId = date.toISOString().split('T')[0];
     await this.ensureDimDate(dateId, date);
 
-    // Branch Dimension
-    const branchId = policy.user?.branchId || 'UNKNOWN';
-    if (policy.user?.branch) {
+    const branchId = agent?.branchId ?? 'UNKNOWN';
+    if (agent?.branch) {
       await this.prisma.dimBranch.upsert({
         where: { id: branchId },
         create: {
           id: branchId,
-          name: policy.user.branch.name,
-          region: policy.user.branch.regionId,
+          name: agent.branch.name,
+          region: agent.branch.zoneId ?? undefined,
         },
         update: {
-          name: policy.user.branch.name,
-          region: policy.user.branch.regionId,
+          name: agent.branch.name,
+          region: agent.branch.zoneId ?? undefined,
         },
       });
     }
 
-    // Agent Dimension
-    await this.prisma.dimAgent.upsert({
-      where: { id: policy.userId },
-      create: {
-        id: policy.userId,
-        name: `${policy.user?.firstName || ''} ${policy.user?.lastName || ''}`,
-        role: 'AGENT',
-        branchId,
-      },
-      update: {
-        name: `${policy.user?.firstName || ''} ${policy.user?.lastName || ''}`,
-      },
-    });
+    if (policy.createdById && agent) {
+      await this.prisma.dimAgent.upsert({
+        where: { id: policy.createdById },
+        create: {
+          id: policy.createdById,
+          name: `${agent.firstName} ${agent.lastName}`.trim(),
+          role: 'AGENT',
+          branchId,
+        },
+        update: {
+          name: `${agent.firstName} ${agent.lastName}`.trim(),
+        },
+      });
+    }
 
-    // Customer Dimension
     await this.prisma.dimCustomer.upsert({
       where: { id: policy.contactId },
       create: {
@@ -74,19 +76,18 @@ export class EtlService {
       },
     });
 
-    // Product Dimension
     await this.prisma.dimProduct.upsert({
-      where: { id: policy.productId },
+      where: { id: productId },
       create: {
-        id: policy.productId,
-        name: policy.product.name,
-        category: policy.product.category,
-        insurer: policy.product.insurer.name,
+        id: productId,
+        name: policy.quotation.productType,
+        category: policy.quotation.productType,
+        insurer: policy.quotation.insurerName,
       },
       update: {
-        name: policy.product.name,
-        category: policy.product.category,
-        insurer: policy.product.insurer.name,
+        name: policy.quotation.productType,
+        category: policy.quotation.productType,
+        insurer: policy.quotation.insurerName,
       },
     });
 
@@ -97,11 +98,11 @@ export class EtlService {
         id: policy.id,
         dateId,
         branchId,
-        agentId: policy.userId,
+        agentId,
         customerId: policy.contactId,
-        productId: policy.productId,
+        productId,
         premiumAmount: policy.premiumAmount,
-        commissionAmt: new Decimal(0), // Would come from commission logic
+        commissionAmt: new Decimal(0),
         status: policy.status,
       },
       update: {

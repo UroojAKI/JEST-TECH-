@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
+import { Lead, Prisma } from '@prisma/client';
 import { PrismaService } from '../../../../../database/prisma.service';
-import { Lead } from '@prisma/client';
 
 @Injectable()
 export class LeadScoringEngineService {
@@ -22,7 +22,7 @@ export class LeadScoringEngineService {
     });
 
     let totalScore = 0;
-    const logs = [];
+    const logs: Prisma.LeadScoreLogCreateManyInput[] = [];
 
     for (const rule of rules) {
       const isMatch = this.evaluateCondition(rule.condition, lead);

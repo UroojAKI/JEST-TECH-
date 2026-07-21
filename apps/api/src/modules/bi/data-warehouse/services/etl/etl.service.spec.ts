@@ -51,26 +51,25 @@ describe('EtlService', () => {
       jest.spyOn(prisma.policy, 'findUnique').mockResolvedValue({
         id: 'pol-1',
         createdAt: mockDate,
-        userId: 'agent-1',
+        createdById: 'agent-1',
         contactId: 'cust-1',
-        productId: 'prod-1',
+        quotationId: 'prod-1',
         premiumAmount: 10000,
         status: 'ACTIVE',
-        user: {
+        createdBy: {
           firstName: 'Agent',
           lastName: 'One',
           branchId: 'branch-1',
-          branch: { name: 'HQ', regionId: 'REG-1' },
+          branch: { name: 'HQ', zoneId: 'REG-1' },
         },
         contact: {
           firstName: 'John',
           lastName: 'Doe',
           type: 'INDIVIDUAL',
         },
-        product: {
-          name: 'Health Plan',
-          category: 'HEALTH',
-          insurer: { name: 'XYZ Insurance' },
+        quotation: {
+          productType: 'HEALTH',
+          insurerName: 'XYZ Insurance',
         },
       } as any);
 

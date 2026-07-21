@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../../../../database/prisma.service';
 
 @Injectable()
@@ -16,7 +17,7 @@ export class DuplicateDetectionService {
     aadhaarNumber?: string;
     gstNumber?: string;
   }): Promise<string | null> {
-    const OR_CONDITIONS = [];
+    const OR_CONDITIONS: Prisma.LeadWhereInput[] = [];
 
     if (leadData.email)
       OR_CONDITIONS.push({ contact: { email: leadData.email } });

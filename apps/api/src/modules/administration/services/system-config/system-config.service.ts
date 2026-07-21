@@ -1,8 +1,8 @@
 import { Injectable, Inject, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../../../database/prisma.service';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
-import { Cache } from 'cache-manager';
-import { SystemConfigKey } from '../../../constants/system-config-key.enum';
+import type { Cache } from 'cache-manager';
+import { SystemConfigKey } from '../../constants/system-config-key.enum';
 
 @Injectable()
 export class SystemConfigService {

@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { ClaimStatus } from '@prisma/client';
 import { PrismaService } from '../../../../../database/prisma.service';
 
 @Injectable()
@@ -32,7 +33,12 @@ export class Customer360Service {
     });
 
     const openClaimsPromise = this.prisma.claim.findMany({
-      where: { contactId, status: 'OPEN' }, // assuming 'OPEN' status exists
+      where: {
+        contactId,
+        status: {
+          notIn: [ClaimStatus.SETTLED, ClaimStatus.CLOSED, ClaimStatus.REJECTED],
+        },
+      },
       take: 5,
       orderBy: { createdAt: 'desc' },
     });

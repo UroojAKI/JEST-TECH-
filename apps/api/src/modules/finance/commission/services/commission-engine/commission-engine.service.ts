@@ -1,4 +1,5 @@
 import { Injectable, Logger, BadRequestException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../../../../database/prisma.service';
 import { Decimal } from '@prisma/client/runtime/library';
 
@@ -48,7 +49,7 @@ export class CommissionEngineService {
       .mul(new Decimal(rules.agentPercent))
       .div(100);
 
-    const commissionsData = [];
+    const commissionsData: Prisma.CommissionCreateManyInput[] = [];
 
     // Agent Commission
     commissionsData.push({

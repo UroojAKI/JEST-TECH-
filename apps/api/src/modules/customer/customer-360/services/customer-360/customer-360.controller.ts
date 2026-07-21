@@ -19,6 +19,6 @@ export class Customer360Controller {
   @CacheKey('customer_360')
   @CacheTTL(120000) // 2 minutes TTL
   async getCustomer360(@Param('id') id: string) {
-    return this.customer360Service.getCustomerProfile(id);
+    return this.customer360Service.getCustomer360(id);
   }
 }

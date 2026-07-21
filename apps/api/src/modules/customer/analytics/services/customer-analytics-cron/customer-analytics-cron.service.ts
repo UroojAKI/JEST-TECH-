@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
+import { PolicyStatus } from '@prisma/client';
 import { PrismaService } from '../../../../../database/prisma.service';
 import { Decimal } from '@prisma/client/runtime/library';
 
@@ -31,7 +32,7 @@ export class CustomerAnalyticsCronService {
     });
 
     const expiredPolicies = await this.prisma.policy.count({
-      where: { contactId, status: 'EXPIRED' },
+      where: { contactId, status: PolicyStatus.LAPSED },
     });
 
     const policies = await this.prisma.policy.findMany({
@@ -41,7 +42,7 @@ export class CustomerAnalyticsCronService {
 
     const claims = await this.prisma.claim.findMany({
       where: { contactId },
-      select: { amount: true },
+      select: { claimAmount: true },
     });
 
     // 2. Compute Lifetime values
@@ -52,7 +53,7 @@ export class CustomerAnalyticsCronService {
 
     let lifetimeClaims = new Decimal(0);
     claims.forEach((c) => {
-      lifetimeClaims = lifetimeClaims.add(c.amount);
+      lifetimeClaims = lifetimeClaims.add(c.claimAmount);
     });
 
     // Lifetime Value: In a brokerage, this is usually total commissions earned.

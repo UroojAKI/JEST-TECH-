@@ -1,10 +1,34 @@
-node_modules
-dist
+# Git
 .git
-.env
-.DS_Store
+.gitignore
+
+# Dependencies
+node_modules
+**/node_modules
+
+# Build outputs
+dist
+**/dist
+.next
+**/.next
+.turbo
+**/.turbo
 coverage
+**/coverage
+
+# Environment
+.env
+.env.*
+
+# Logs
+*.log
 logs
-docker-compose.yml
-Dockerfile
-.dockerignore
+
+# OS / IDE
+.vscode
+.idea
+.DS_Store
+
+# Local uploads
+uploads
+**/uploads

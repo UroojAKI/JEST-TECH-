@@ -44,7 +44,7 @@ describe('CustomerAnalyticsCronService', () => {
         .spyOn(prisma.policy, 'count')
         .mockImplementation(async ({ where }: any) => {
           if (where.status === 'ACTIVE') return 2;
-          if (where.status === 'EXPIRED') return 1;
+          if (where.status === 'LAPSED') return 1;
           return 0;
         });
 
@@ -57,7 +57,7 @@ describe('CustomerAnalyticsCronService', () => {
 
       jest
         .spyOn(prisma.claim, 'findMany')
-        .mockResolvedValue([{ amount: new Decimal(5000) }] as any);
+        .mockResolvedValue([{ claimAmount: new Decimal(5000) }] as any);
 
       jest
         .spyOn(prisma.customerAnalytics, 'upsert')
@@ -86,7 +86,7 @@ describe('CustomerAnalyticsCronService', () => {
         .mockResolvedValue([{ premiumAmount: new Decimal(10000) }] as any);
       jest
         .spyOn(prisma.claim, 'findMany')
-        .mockResolvedValue([{ amount: new Decimal(15000) }] as any); // 150% ratio
+        .mockResolvedValue([{ claimAmount: new Decimal(15000) }] as any); // 150% ratio
 
       await service.calculateMetricsForCustomer('contact-1');
 

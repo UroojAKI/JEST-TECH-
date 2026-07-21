@@ -1,5 +1,6 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../../../../database/prisma.service';
+import { Decimal } from '@prisma/client/runtime/library';
 
 @Injectable()
 export class DashboardAnalyticsService {
@@ -25,27 +26,31 @@ export class DashboardAnalyticsService {
       throw new NotFoundException('Dashboard not found');
     }
 
-    const results = [];
+    const results: Array<{
+      widgetId: string;
+      name: string;
+      type: string;
+      layout: { x: number; y: number; w: number; h: number };
+      data: Decimal | null;
+    }> = [];
 
-    // In a real scenario, this would use a robust query builder translating JSON config to SQL.
     for (const dashboardWidget of dashboard.widgets) {
       const widget = dashboardWidget.widget;
-      let data = null;
+      let data: Decimal | null = null;
 
       try {
         const config = JSON.parse(widget.config);
 
-        // Naive query executor for MVP demonstration
         if (config.metric === 'TOTAL_REVENUE') {
           const res = await this.prisma.factRevenue.aggregate({
             _sum: { amount: true },
           });
-          data = res._sum.amount;
+          data = res._sum.amount ?? null;
         } else if (config.metric === 'CLAIMS_PAID') {
           const res = await this.prisma.factClaim.aggregate({
             _sum: { amountSettled: true },
           });
-          data = res._sum.amountSettled;
+          data = res._sum.amountSettled ?? null;
         }
       } catch (e) {
         this.logger.error(

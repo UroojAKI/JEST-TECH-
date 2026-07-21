@@ -20,6 +20,10 @@ export class MinioStorageProvider implements StorageProvider, OnModuleInit {
     });
   }
 
+  getProviderName(): string {
+    return 'MINIO';
+  }
+
   async onModuleInit() {
     try {
       const exists = await this.client.bucketExists(this.bucket);
@@ -46,14 +50,12 @@ export class MinioStorageProvider implements StorageProvider, OnModuleInit {
   }
 
   async downloadFile(key: string): Promise<Buffer> {
+    const stream = await this.client.getObject(this.bucket, key);
+    const chunks: Buffer[] = [];
     return new Promise((resolve, reject) => {
-      const chunks: Buffer[] = [];
-      this.client.getObject(this.bucket, key, (err, stream) => {
-        if (err) return reject(err);
-        stream.on('data', (chunk: Buffer) => chunks.push(chunk));
-        stream.on('end', () => resolve(Buffer.concat(chunks)));
-        stream.on('error', reject);
-      });
+      stream.on('data', (chunk: Buffer) => chunks.push(chunk));
+      stream.on('end', () => resolve(Buffer.concat(chunks)));
+      stream.on('error', reject);
     });
   }
 
