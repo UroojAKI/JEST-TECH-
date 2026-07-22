@@ -8,8 +8,6 @@ import { Shield, Key, Mail, Sparkles } from 'lucide-react';
 const QUICK_PROFILES = [
   { email: 'superadmin@jest.com', label: 'Super Admin' },
   { email: 'admin@jest.com', label: 'Admin' },
-  { email: 'agent@jest.com', label: 'Sales Agent' },
-  { email: 'underwriter@jest.com', label: 'Underwriter' },
 ];
 
 export default function LoginPage() {
@@ -24,8 +22,8 @@ export default function LoginPage() {
 
   const handleQuickLogin = (email: string) => {
     setEmail(email);
-    setPassword('Password123!');
-    login({ email, password: 'Password123!' });
+    setPassword('Password@123');
+    login({ email, password: 'Password@123' });
   };
 
   return (
@@ -52,7 +50,7 @@ export default function LoginPage() {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="agent@jestpolicy.com"
+                placeholder="admin@jest.com"
                 className="w-full rounded-lg border bg-background py-2 pl-9 pr-3 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
               />
             </div>
