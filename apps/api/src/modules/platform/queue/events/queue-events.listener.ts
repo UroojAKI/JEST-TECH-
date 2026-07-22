@@ -20,8 +20,14 @@ export class QueueEventsListener implements OnModuleInit, OnModuleDestroy {
   ) {}
 
   onModuleInit() {
+    const redisUrl =
+      this.configService.get<string>('REDIS_URL') ||
+      this.configService.get<string>('redis.url') ||
+      process.env.REDIS_URL ||
+      'redis://localhost:6380';
+
     this.queueEvents = new QueueEvents('system-queue', {
-      connection: { url: this.configService.get<string>('redis.url') },
+      connection: { url: redisUrl },
     });
 
     this.queueEvents.on('active', async ({ jobId }) => {

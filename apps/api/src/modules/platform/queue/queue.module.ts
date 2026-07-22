@@ -23,7 +23,7 @@ import { QueueDashboardService } from './monitoring/queue-dashboard.service';
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
         connection: {
-          url: config.get<string>('redis.url'),
+          url: config.get<string>('REDIS_URL') || config.get<string>('redis.url') || process.env.REDIS_URL || 'redis://localhost:6380',
         },
       }),
     }),
