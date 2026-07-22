@@ -2,15 +2,18 @@
 
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Search, User, ShieldCheck, FileText, Users, X, ArrowRight } from 'lucide-react';
+import { Search, User, ShieldCheck, FileText, X, ArrowRight, Loader2 } from 'lucide-react';
 import { useUIStore } from '../../store/ui-store';
 import { useCustomerContext } from '../../store/customer-context';
+import { useSearch } from '../../hooks/useSearch';
 
 export function CommandPalette() {
   const router = useRouter();
   const { isCommandPaletteOpen, setCommandPaletteOpen } = useUIStore();
   const { setActiveCustomer } = useCustomerContext();
   const [query, setQuery] = useState('');
+
+  const { results, isLoading } = useSearch(query);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -29,19 +32,14 @@ export function CommandPalette() {
 
   if (!isCommandPaletteOpen) return null;
 
-  const sampleResults = [
-    { type: 'CUSTOMER', id: 'cust-101', title: 'Acme Corp', subtitle: 'Corporate Account • GST: 27AAAAA0000A1Z5', link: '/crm/accounts' },
-    { type: 'POLICY', id: 'pol-552', title: 'POL-001048', subtitle: 'Health Insurance • Active • Premium: ₹45,000', link: '/policies' },
-    { type: 'CLAIM', id: 'clm-882', title: 'CLM-000492', subtitle: 'Motor Claim • Under Review • Claim: ₹75,000', link: '/claims' },
-    { type: 'LEAD', id: 'lead-301', title: 'Rahul Sharma', subtitle: 'Lead • Motor Insurance Interest', link: '/crm/leads' },
-  ].filter((r) => r.title.toLowerCase().includes(query.toLowerCase()) || r.subtitle.toLowerCase().includes(query.toLowerCase()));
-
-  const handleSelect = (item: typeof sampleResults[0]) => {
+  const handleSelect = (item: any) => {
     if (item.type === 'CUSTOMER') {
       setActiveCustomer(item.id, item.title, 'CORPORATE');
     }
     setCommandPaletteOpen(false);
-    router.push(item.link);
+    if (item.link) {
+      router.push(item.link);
+    }
   };
 
   return (
@@ -58,6 +56,7 @@ export function CommandPalette() {
             className="w-full py-3.5 text-sm bg-transparent border-none focus:outline-none placeholder:text-muted-foreground"
             autoFocus
           />
+          {isLoading && <Loader2 className="h-4 w-4 text-primary animate-spin mr-2" />}
           <button
             onClick={() => setCommandPaletteOpen(false)}
             className="p-1 text-muted-foreground hover:bg-accent rounded-md"
@@ -68,12 +67,16 @@ export function CommandPalette() {
 
         {/* Results Container */}
         <div className="p-2 max-h-80 overflow-y-auto space-y-1">
-          {sampleResults.length === 0 ? (
+          {query.trim().length < 2 ? (
             <div className="py-8 text-center text-xs text-muted-foreground">
-              No matching records found.
+              Type at least 2 characters to search across live database...
+            </div>
+          ) : results.length === 0 && !isLoading ? (
+            <div className="py-8 text-center text-xs text-muted-foreground">
+              No records found matching "{query}".
             </div>
           ) : (
-            sampleResults.map((item) => (
+            results.map((item) => (
               <button
                 key={item.id}
                 onClick={() => handleSelect(item)}
@@ -99,7 +102,7 @@ export function CommandPalette() {
 
         {/* Quick Navigation Footer */}
         <div className="px-4 py-2 bg-muted/40 border-t flex justify-between items-center text-[10px] text-muted-foreground">
-          <span>Tip: Select a customer to switch active application context.</span>
+          <span>Live Search connected to NestJS backend engine.</span>
           <div className="flex items-center space-x-2">
             <span>Press <kbd className="px-1 py-0.5 rounded border bg-background font-mono">ESC</kbd> to exit</span>
           </div>

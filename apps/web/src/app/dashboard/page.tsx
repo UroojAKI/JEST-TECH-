@@ -2,26 +2,23 @@
 
 import React from 'react';
 import { AppShell } from '../../components/layout/app-shell';
+import { DashboardFilterBar } from '../../components/dashboard/dashboard-filter-bar';
+import { RoleQuickActionsWidget } from '../../components/dashboard/widgets/RoleQuickActionsWidget';
+import { RevenueTrendWidget } from '../../components/dashboard/widgets/RevenueTrendWidget';
+import { LeadFunnelWidget } from '../../components/dashboard/widgets/LeadFunnelWidget';
+import { FilteredActivityTimelineWidget } from '../../components/dashboard/widgets/FilteredActivityTimelineWidget';
 import { KpiCard } from '../../components/ui/kpi-card';
 import { StatusBadge } from '../../components/ui/status-badge';
-import { UnifiedChart } from '../../components/charts/unified-chart';
 import { EnterpriseTable } from '../../components/table/enterprise-table';
-import { ShieldCheck, FileText, TrendingUp, Users } from 'lucide-react';
+import { useAuthStore } from '../../store/auth-store';
+import { useCustomerContext } from '../../store/customer-context';
+import { useDashboardWidget } from '../../hooks/useDashboard';
+import { ShieldCheck, FileText, TrendingUp, Users, Building2 } from 'lucide-react';
 
-const REVENUE_DATA = [
-  { name: 'Jan', revenue: 450000 },
-  { name: 'Feb', revenue: 520000 },
-  { name: 'Mar', revenue: 610000 },
-  { name: 'Apr', revenue: 580000 },
-  { name: 'May', revenue: 730000 },
-  { name: 'Jun', revenue: 890000 },
-];
-
-const SAMPLE_POLICIES = [
-  { id: 'pol-101', policyNumber: 'POL-001048', customer: 'Acme Corp', productType: 'MOTOR', premiumAmount: '₹45,000', status: 'ACTIVE' },
-  { id: 'pol-102', policyNumber: 'POL-001049', customer: 'Rahul Sharma', productType: 'HEALTH', premiumAmount: '₹18,500', status: 'ACTIVE' },
-  { id: 'pol-103', policyNumber: 'POL-001050', customer: 'Global Logistics Ltd', productType: 'COMMERCIAL', premiumAmount: '₹1,20,000', status: 'LAPSED' },
-  { id: 'pol-104', policyNumber: 'POL-001051', customer: 'Priya Patel', productType: 'LIFE', premiumAmount: '₹25,000', status: 'ACTIVE' },
+const RECENT_POLICIES = [
+  { id: '1', policyNumber: 'POL-001048', customer: 'Acme Corp', productType: 'MOTOR', premiumAmount: '₹45,000', status: 'ACTIVE' },
+  { id: '2', policyNumber: 'POL-001049', customer: 'Rahul Sharma', productType: 'HEALTH', premiumAmount: '₹18,500', status: 'ACTIVE' },
+  { id: '3', policyNumber: 'POL-001050', customer: 'Global Logistics Ltd', productType: 'COMMERCIAL', premiumAmount: '₹1,20,000', status: 'LAPSED' },
 ];
 
 const COLUMNS = [
@@ -37,57 +34,88 @@ const COLUMNS = [
 ];
 
 export default function DashboardPage() {
+  const { user } = useAuthStore();
+  const { activeCustomerId, activeCustomerName } = useCustomerContext();
+  const { data, isLoading } = useDashboardWidget(user?.roles?.[0]);
+
   return (
     <AppShell>
-      {/* Page Header */}
-      <div className="flex justify-between items-center">
+      {/* Header & Role Indicator */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
         <div>
-          <h1 className="text-xl font-bold tracking-tight">Executive Dashboard</h1>
-          <p className="text-xs text-muted-foreground">Real-time enterprise metrics & policy overview</p>
+          <h1 className="text-xl font-bold tracking-tight">
+            {activeCustomerName ? `Customer 360: ${activeCustomerName}` : 'Enterprise Executive Dashboard'}
+          </h1>
+          <p className="text-xs text-muted-foreground">
+            {user?.roles?.[0] || 'User'} Command Center • Live telemetry & analytics
+          </p>
         </div>
+
+        {activeCustomerName && (
+          <div className="flex items-center space-x-2 text-xs bg-primary/10 text-primary px-3 py-1.5 rounded-lg border border-primary/20">
+            <Building2 className="h-4 w-4" />
+            <span>Viewing contextual 360 overview for <strong>{activeCustomerName}</strong></span>
+          </div>
+        )}
       </div>
 
-      {/* KPI Cards Grid */}
+      {/* Global Dashboard Filters */}
+      <DashboardFilterBar />
+
+      {/* Role-Based Quick Actions Toolbar */}
+      <RoleQuickActionsWidget />
+
+      {/* KPI Cards Summary */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <KpiCard
           title="Gross Written Premium"
-          value="₹8.9M"
+          value={data?.metrics?.grossPremium ? `₹${(data.metrics.grossPremium / 100000).toFixed(1)}L` : '₹8.9M'}
           change={18.4}
+          changeLabel="vs last month"
           icon={<TrendingUp className="h-5 w-5" />}
         />
         <KpiCard
           title="Active Policies"
-          value="1,248"
+          value={data?.metrics?.activePolicies ?? 1248}
           change={12.1}
+          changeLabel="vs last month"
           icon={<ShieldCheck className="h-5 w-5" />}
         />
         <KpiCard
-          title="Claims Filed (MTD)"
-          value="42"
+          title="Claims Settled (MTD)"
+          value={data?.metrics?.settledClaims ?? 42}
           change={-4.5}
+          changeLabel="vs last month"
           icon={<FileText className="h-5 w-5" />}
         />
         <KpiCard
           title="Lead Conversion Rate"
-          value="34.2%"
+          value={data?.metrics?.conversionRate ? `${data.metrics.conversionRate}%` : '34.2%'}
           change={6.8}
+          changeLabel="vs last month"
           icon={<Users className="h-5 w-5" />}
         />
       </div>
 
-      {/* Chart Section */}
-      <div className="rounded-xl border bg-card p-5 shadow-sm space-y-4">
-        <div className="flex justify-between items-center">
-          <h3 className="text-sm font-bold">Monthly Revenue Collections</h3>
-          <span className="text-xs text-muted-foreground">Jan - Jun 2026</span>
+      {/* Main Charts Row */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <div className="lg:col-span-7">
+          <RevenueTrendWidget isLoading={isLoading} />
         </div>
-        <UnifiedChart type="AREA" data={REVENUE_DATA} dataKey="revenue" categoryKey="name" height={280} />
+        <div className="lg:col-span-5">
+          <LeadFunnelWidget />
+        </div>
       </div>
 
-      {/* Recent Activity Table */}
-      <div className="space-y-3">
-        <h3 className="text-sm font-bold">Recent Issued Policies</h3>
-        <EnterpriseTable data={SAMPLE_POLICIES} columns={COLUMNS} />
+      {/* Operational Timeline & Recent Activity */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <div className="lg:col-span-8">
+          <FilteredActivityTimelineWidget />
+        </div>
+        <div className="lg:col-span-4 space-y-3">
+          <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Recent Policy Issuances</h3>
+          <EnterpriseTable data={RECENT_POLICIES} columns={COLUMNS} />
+        </div>
       </div>
     </AppShell>
   );

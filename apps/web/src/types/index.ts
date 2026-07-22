@@ -1,6 +1,8 @@
 export type RoleType =
   | 'SUPER_ADMIN'
   | 'ADMIN'
+  | 'BRANCH_MANAGER'
+  | 'TEAM_LEADER'
   | 'UNDERWRITER'
   | 'SALES_AGENT'
   | 'CLAIMS_HANDLER'

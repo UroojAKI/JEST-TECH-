@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useState } from 'react';
-import { X, Bell, AlertTriangle, Info, CheckCircle2, Clock } from 'lucide-react';
+import Link from 'next/link';
+import { X, Bell, Clock, ShieldCheck, FileText, ArrowRight } from 'lucide-react';
 import { useUIStore } from '../../store/ui-store';
 import { NotificationItem } from '../../types';
 
@@ -14,6 +15,7 @@ const MOCK_NOTIFICATIONS: NotificationItem[] = [
     priority: 'CRITICAL',
     createdAt: '10 mins ago',
     isRead: false,
+    linkUrl: '/claims',
   },
   {
     id: 'n2',
@@ -23,6 +25,7 @@ const MOCK_NOTIFICATIONS: NotificationItem[] = [
     priority: 'HIGH',
     createdAt: '1 hour ago',
     isRead: false,
+    linkUrl: '/policies',
   },
   {
     id: 'n3',
@@ -32,6 +35,7 @@ const MOCK_NOTIFICATIONS: NotificationItem[] = [
     priority: 'MEDIUM',
     createdAt: '3 hours ago',
     isRead: true,
+    linkUrl: '/finance/ledger',
   },
 ];
 
@@ -96,13 +100,20 @@ export function NotificationDrawer() {
                 </span>
               </div>
               <p className="text-muted-foreground">{item.message}</p>
+              
+              {/* Action Triggers */}
               <div className="flex items-center justify-between pt-1">
                 <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-muted">
                   {item.category}
                 </span>
-                <button className="text-primary font-semibold hover:underline text-[11px]">
-                  Take Action →
-                </button>
+                <Link
+                  href={item.linkUrl || '#'}
+                  onClick={() => setNotificationDrawerOpen(false)}
+                  className="inline-flex items-center space-x-1 text-primary font-semibold hover:underline text-[11px]"
+                >
+                  <span>Action Item</span>
+                  <ArrowRight className="h-3 w-3" />
+                </Link>
               </div>
             </div>
           ))}
