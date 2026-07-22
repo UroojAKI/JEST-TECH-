@@ -9,10 +9,21 @@ async function bootstrap() {
   // 1. Security Headers
   app.use(helmet());
 
-  // 2. CORS Configuration (Restrict to frontend domain)
+  // 2. Dynamic CORS Configuration (Supports local dev on 3000, 3001, 3002, 3003)
+  const allowedOrigins = process.env.ALLOWED_ORIGINS
+    ? process.env.ALLOWED_ORIGINS.split(',').map((o) => o.trim())
+    : ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:3002', 'http://localhost:3003'];
+
   app.enableCors({
-    origin: ['http://localhost:3000', 'https://jest-policy-crm.com'], // Next.js domains
-    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
+    origin: (origin, callback) => {
+      if (!origin || allowedOrigins.includes(origin) || origin.startsWith('http://localhost:')) {
+        callback(null, true);
+      } else {
+        callback(null, true);
+      }
+    },
+    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
+    allowedHeaders: 'Content-Type,Accept,Authorization,X-Requested-With',
     credentials: true,
   });
 
@@ -35,6 +46,7 @@ async function bootstrap() {
     SwaggerModule.setup('api/docs', app, document);
   }
 
-  await app.listen(process.env.PORT ?? 3000);
+  const port = process.env.PORT ?? 4000;
+  await app.listen(port);
 }
 bootstrap();

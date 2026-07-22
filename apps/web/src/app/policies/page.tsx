@@ -90,13 +90,13 @@ export default function PoliciesRegisterPage() {
     {
       accessorKey: 'idvValue',
       header: 'IDV Value',
-      cell: ({ row }: any) => `₹${row.original.idvValue.toLocaleString()}`,
+      cell: ({ row }: any) => `₹${row.original.idvValue.toLocaleString('en-IN')}`,
     },
     {
       accessorKey: 'totalPremium',
       header: 'Premium',
       cell: ({ row }: any) => (
-        <strong className="text-emerald-600 font-extrabold">₹{row.original.totalPremium.toLocaleString()}</strong>
+        <strong className="text-emerald-600 font-extrabold">₹{row.original.totalPremium.toLocaleString('en-IN')}</strong>
       ),
     },
     {
