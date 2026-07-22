@@ -5,29 +5,34 @@ import { policiesRepository } from '../repositories/policies.repository';
 import { PaginationParams } from '../types';
 import { toast } from 'sonner';
 
-export function usePolicies(params?: PaginationParams) {
-  const queryClient = useQueryClient();
-
-  const policiesQuery = useQuery({
+export function usePolicies(params?: PaginationParams & { status?: string }) {
+  const query = useQuery({
     queryKey: ['policies', params],
     queryFn: () => policiesRepository.getPolicies(params),
   });
 
-  const issuePolicyMutation = useMutation({
-    mutationFn: policiesRepository.issuePolicy,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['policies'] });
-      toast.success('Policy issued successfully!');
-    },
-    onError: (err: any) => {
-      toast.error(err.response?.data?.message || 'Failed to issue policy');
-    },
+  return {
+    policies: query.data?.data || [],
+    total: query.data?.total || 0,
+    isLoading: query.isLoading,
+    isError: query.isError,
+  };
+}
+
+export function usePolicyWorkspace(id: string) {
+  const queryClient = useQueryClient();
+
+  const query = useQuery({
+    queryKey: ['policy-workspace', id],
+    queryFn: () => policiesRepository.getPolicyWorkspace(id),
+    enabled: !!id,
   });
 
-  const renewPolicyMutation = useMutation({
-    mutationFn: policiesRepository.renewPolicy,
+  const renewMutation = useMutation({
+    mutationFn: (data: any) => policiesRepository.renewPolicy(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['policies'] });
+      queryClient.invalidateQueries({ queryKey: ['policy-workspace', id] });
       toast.success('Policy renewed successfully!');
     },
     onError: (err: any) => {
@@ -35,14 +40,24 @@ export function usePolicies(params?: PaginationParams) {
     },
   });
 
+  const cancelMutation = useMutation({
+    mutationFn: (comments: string) => policiesRepository.cancelPolicy(id, comments),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['policies'] });
+      toast.success('Policy cancelled');
+    },
+    onError: (err: any) => {
+      toast.error(err.response?.data?.message || 'Failed to cancel policy');
+    },
+  });
+
   return {
-    policies: policiesQuery.data?.data || [],
-    total: policiesQuery.data?.total || 0,
-    isLoading: policiesQuery.isLoading,
-    isError: policiesQuery.isError,
-    issuePolicy: issuePolicyMutation.mutate,
-    isIssuing: issuePolicyMutation.isPending,
-    renewPolicy: renewPolicyMutation.mutate,
-    isRenewing: renewPolicyMutation.isPending,
+    policy: query.data,
+    isLoading: query.isLoading,
+    isError: query.isError,
+    renewPolicy: renewMutation.mutate,
+    cancelPolicy: cancelMutation.mutate,
+    isRenewing: renewMutation.isPending,
+    isCancelling: cancelMutation.isPending,
   };
 }

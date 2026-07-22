@@ -1,37 +1,46 @@
 import { apiClient } from '../lib/api-client';
 import { PaginatedResult, PaginationParams } from '../types';
 
-export interface Policy {
+export interface PolicyItem {
   id: string;
   policyNumber: string;
-  contactId: string;
-  productType: string;
+  contactName: string;
+  productLine: string;
   insurerName: string;
-  premiumAmount: number;
-  status: 'ACTIVE' | 'LAPSED' | 'EXPIRED' | 'CANCELLED';
+  idvValue: number;
+  totalPremium: number;
+  status: 'ACTIVE' | 'RENEWAL_DUE' | 'GRACE_PERIOD' | 'EXPIRED' | 'CANCELLED';
   startDate: string;
-  endDate: string;
-  createdById: string;
+  expiryDate: string;
+  renewalExecutive: string;
+  healthScore: number;
+  claimsCount: number;
+  createdAt: string;
 }
 
 export const policiesRepository = {
-  async getPolicies(params?: PaginationParams): Promise<PaginatedResult<Policy>> {
+  async getPolicies(params?: PaginationParams & { status?: string }): Promise<PaginatedResult<PolicyItem>> {
     const response = await apiClient.get('/policies', { params });
     return response.data;
   },
 
-  async getPolicyById(id: string): Promise<Policy> {
+  async getPolicyWorkspace(id: string): Promise<PolicyItem & { health: any; financial: any; campaign: any }> {
     const response = await apiClient.get(`/policies/${id}`);
     return response.data;
   },
 
-  async issuePolicy(quotationId: string): Promise<Policy> {
-    const response = await apiClient.post('/policies/issue', { quotationId });
+  async getPolicyHistory(id: string): Promise<any[]> {
+    const response = await apiClient.get(`/policies/${id}/history`);
     return response.data;
   },
 
-  async renewPolicy(policyId: string): Promise<Policy> {
-    const response = await apiClient.post(`/policies/${policyId}/renew`);
+  async renewPolicy(id: string, data: any): Promise<PolicyItem> {
+    const response = await apiClient.post(`/policies/${id}/renew`, data);
+    return response.data;
+  },
+
+  async cancelPolicy(id: string, comments: string): Promise<PolicyItem> {
+    const response = await apiClient.post(`/policies/${id}/cancel`, { comments });
     return response.data;
   },
 };
