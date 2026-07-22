@@ -59,7 +59,7 @@ import { IntegrationsModule } from './modules/platform/integrations/integrations
       isGlobal: true,
       useFactory: async () => ({
         store: (await redisStore({
-          url: process.env.REDIS_URL || 'redis://localhost:6379',
+          url: process.env.REDIS_URL || 'redis://localhost:6380',
           ttl: 60 * 1000,
         })) as any,
       }),
@@ -74,11 +74,14 @@ import { IntegrationsModule } from './modules/platform/integrations/integrations
           },
         ],
         storage: new ThrottlerStorageRedisService(
-          process.env.REDIS_URL || 'redis://localhost:6379',
+          process.env.REDIS_URL || 'redis://localhost:6380',
         ),
       }),
     }),
-    EventEmitterModule.forRoot(),
+    EventEmitterModule.forRoot({
+      maxListeners: 25,
+      verboseMemoryLeak: true,
+    }),
     ScheduleModule.forRoot(),
 
     DatabaseModule,
