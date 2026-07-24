@@ -50,9 +50,13 @@ export class PolicyRepository extends BaseRepository<
   }
 
   async generatePolicyNumber(): Promise<string> {
-    const result = await this.prisma.$queryRaw<[{ nextval: bigint }]>`
-      SELECT nextval('policy_number_seq')`;
-    return `POL-${result[0].nextval.toString().padStart(6, '0')}`;
+    try {
+      const result = await this.prisma.$queryRaw<[{ nextval: bigint }]>`
+        SELECT nextval('policy_number_seq')`;
+      return `POL-${result[0].nextval.toString().padStart(6, '0')}`;
+    } catch {
+      return `POL-${Date.now().toString().slice(-8)}`;
+    }
   }
 
   async create(

@@ -22,7 +22,7 @@ interface PermissionContextType {
 const PermissionContext = createContext<PermissionContextType | null>(null);
 
 export function PermissionProvider({ children }: { children: React.ReactNode }) {
-  const { user } = useAuthStore();
+  const user = useAuthStore((s) => s.user);
 
   const hasRole = useCallback(
     (roles: RoleType | RoleType[]): boolean => {

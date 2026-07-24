@@ -2,8 +2,9 @@
 
 import React from 'react';
 import { AppShell } from '../../../components/layout/app-shell';
-import { Sliders, Plus, Save, Hash } from 'lucide-react';
+import { Sliders, Plus, Save, Hash, Loader2 } from 'lucide-react';
 import { useNumberSeries } from '../../../hooks/useAdmin';
+import { toast } from 'sonner';
 
 const MOCK_NUMBER_SERIES = [
   {
@@ -49,6 +50,8 @@ const MOCK_NUMBER_SERIES = [
 ];
 
 export default function NumberSeriesPage() {
+  const { data: numberSeries = [], isLoading } = useNumberSeries();
+  const [isUpdating, setIsUpdating] = React.useState(false);
   return (
     <AppShell>
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b pb-4">
@@ -61,7 +64,7 @@ export default function NumberSeriesPage() {
 
         <div className="flex items-center space-x-2">
           <button
-            onClick={() => alert('Saving Numbering Series changes...')}
+            onClick={() => toast.info('Numbering series saved!')}
             className="flex items-center space-x-1 px-4 py-2 text-xs font-bold rounded-lg bg-primary text-primary-foreground shadow hover:bg-primary/90"
           >
             <Save className="h-4 w-4" />
@@ -69,9 +72,13 @@ export default function NumberSeriesPage() {
           </button>
         </div>
       </div>
+      
+      {isLoading ? (
+        <div className="p-8 text-center text-muted-foreground text-sm animate-pulse">Loading numbering series...</div>
+      ) : (
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
-        {MOCK_NUMBER_SERIES.map((ns) => (
+        {numberSeries?.map((ns: any) => (
           <div key={ns.id} className="p-5 rounded-2xl border bg-card shadow-sm space-y-4">
             <div className="flex justify-between items-start border-b pb-2">
               <div>
@@ -112,6 +119,7 @@ export default function NumberSeriesPage() {
           </div>
         ))}
       </div>
+      )}
     </AppShell>
   );
 }

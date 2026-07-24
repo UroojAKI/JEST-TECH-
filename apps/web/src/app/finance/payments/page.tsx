@@ -6,12 +6,18 @@ import { CreditCard, Download } from 'lucide-react';
 import { usePayments } from '../../../hooks/useFinance';
 import { StatusBadge } from '../../../components/ui/status-badge';
 import { VoucherPreviewModal, VoucherData } from '../../../components/finance/vouchers/VoucherPreviewModal';
+import { toast } from 'sonner';
 
 export default function PaymentsRegisterPage() {
   const [typeFilter, setTypeFilter] = useState<string>('ALL');
   const [selectedVoucher, setSelectedVoucher] = useState<VoucherData | null>(null);
 
-  const { data: payments = [] } = usePayments(typeFilter);
+  const { data: payments = [], isLoading, isError } = usePayments(typeFilter);
+
+  const handleExport = () => {
+    window.open('/api/v1/finance/payments/export?format=csv', '_blank');
+    toast.success('Export started!');
+  };
 
   return (
     <AppShell>
@@ -25,7 +31,7 @@ export default function PaymentsRegisterPage() {
 
         <div className="flex items-center space-x-2">
           <button
-            onClick={() => alert('Exporting Payment Register CSV...')}
+            onClick={handleExport}
             className="flex items-center space-x-1 px-3 py-2 text-xs font-semibold rounded-lg border bg-card hover:bg-accent"
           >
             <Download className="h-3.5 w-3.5" />
@@ -34,7 +40,7 @@ export default function PaymentsRegisterPage() {
         </div>
       </div>
 
-      <div className="flex border-b text-xs overflow-x-auto p-1 bg-card rounded-lg border space-x-1">
+      <div className="flex border-b text-xs overflow-x-auto p-1 bg-card rounded-lg border space-x-1 my-4">
         {[
           { id: 'ALL', label: 'All Payments' },
           { id: 'INSURER_SETTLEMENT', label: 'Insurer Settlements' },
@@ -55,62 +61,76 @@ export default function PaymentsRegisterPage() {
         ))}
       </div>
 
-      <div className="border rounded-xl overflow-hidden bg-card text-xs">
-        <table className="w-full text-left border-collapse">
-          <thead>
-            <tr className="bg-muted/40 text-[10px] text-muted-foreground font-bold border-b uppercase">
-              <th className="p-3">Payment No.</th>
-              <th className="p-3">Payee / Beneficiary</th>
-              <th className="p-3">Type</th>
-              <th className="p-3">Amount</th>
-              <th className="p-3">Disbursal Mode</th>
-              <th className="p-3">Status</th>
-              <th className="p-3">Date</th>
-              <th className="p-3 text-right">Voucher</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y">
-            {payments.map((p) => (
-              <tr key={p.id} className="hover:bg-accent/40">
-                <td className="p-3 font-bold text-primary font-mono">{p.paymentNumber}</td>
-                <td className="p-3 font-semibold">{p.payee}</td>
-                <td className="p-3 font-semibold text-muted-foreground">{p.type}</td>
-                <td className="p-3 font-extrabold text-foreground font-mono">₹{p.amount.toLocaleString('en-IN')}</td>
-                <td className="p-3 text-muted-foreground">{p.mode}</td>
-                <td className="p-3"><StatusBadge status={p.status} /></td>
-                <td className="p-3 text-muted-foreground">{p.date}</td>
-                <td className="p-3 text-right">
-                  <button
-                    onClick={() =>
-                      setSelectedVoucher({
-                        title: 'Disbursal Payment Voucher',
-                        voucherNumber: p.paymentNumber,
-                        date: p.date,
-                        type: 'INVOICE',
-                        partyName: p.payee,
-                        amount: p.amount,
-                        paymentMode: p.mode,
-                        details: [
-                          { label: `Payment Purpose (${p.type})`, value: p.amount },
-                          { label: 'Bank Disbursal Mode', value: p.mode },
-                        ],
-                      })
-                    }
-                    className="px-2.5 py-1 rounded border bg-background hover:bg-accent font-semibold text-[10px]"
-                  >
-                    View Voucher
-                  </button>
-                </td>
+      {isLoading ? (
+        <div className="p-8 text-center text-muted-foreground animate-pulse mt-4">Loading payments...</div>
+      ) : isError ? (
+        <div className="p-8 text-center text-destructive mt-4">Error loading payments. Please try again.</div>
+      ) : (
+        <div className="border rounded-xl overflow-hidden bg-card text-xs mt-4">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="bg-muted/40 text-[10px] text-muted-foreground font-bold border-b uppercase">
+                <th className="p-3">Payment No.</th>
+                <th className="p-3">Payee / Beneficiary</th>
+                <th className="p-3">Type</th>
+                <th className="p-3">Amount</th>
+                <th className="p-3">Disbursal Mode</th>
+                <th className="p-3">Status</th>
+                <th className="p-3">Date</th>
+                <th className="p-3 text-right">Voucher</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody className="divide-y">
+              {payments.length === 0 ? (
+                <tr>
+                  <td colSpan={8} className="p-8 text-center text-muted-foreground">
+                    No payments found.
+                  </td>
+                </tr>
+              ) : (
+                payments.map((p: any) => (
+                  <tr key={p.id} className="hover:bg-accent/40">
+                    <td className="p-3 font-bold text-primary font-mono">{p.paymentNumber}</td>
+                    <td className="p-3 font-semibold">{p.payee}</td>
+                    <td className="p-3 font-semibold text-muted-foreground">{p.type}</td>
+                    <td className="p-3 font-extrabold text-foreground font-mono">₹{p.amount?.toLocaleString('en-IN') || 0}</td>
+                    <td className="p-3 text-muted-foreground">{p.mode}</td>
+                    <td className="p-3"><StatusBadge status={p.status} /></td>
+                    <td className="p-3 text-muted-foreground">{p.date}</td>
+                    <td className="p-3 text-right">
+                      <button
+                        onClick={() =>
+                          setSelectedVoucher({
+                            title: 'Disbursal Payment Voucher',
+                            voucherNumber: p.paymentNumber,
+                            date: p.date,
+                            type: 'INVOICE',
+                            partyName: p.payee,
+                            amount: p.amount,
+                            paymentMode: p.mode,
+                            details: [
+                              { label: `Payment Purpose (${p.type})`, value: p.amount },
+                              { label: 'Bank Disbursal Mode', value: p.mode },
+                            ],
+                          })
+                        }
+                        className="px-2.5 py-1 rounded border bg-background hover:bg-accent font-semibold text-[10px]"
+                      >
+                        View Voucher
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      )}
 
       <VoucherPreviewModal
         isOpen={!!selectedVoucher}
         onClose={() => setSelectedVoucher(null)}
-        voucher={selectedVoucher}
+        voucher={selectedVoucher!}
       />
     </AppShell>
   );

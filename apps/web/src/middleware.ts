@@ -33,6 +33,18 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL('/dashboard', request.url));
   }
 
+  // Role check for admin paths — decode JWT and verify role
+  if (pathname.startsWith('/admin') && token) {
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      if (!['SUPER_ADMIN', 'ADMIN'].includes(payload.role)) {
+        return NextResponse.redirect(new URL('/unauthorized', request.url));
+      }
+    } catch (e) {
+      return NextResponse.redirect(new URL('/login', request.url));
+    }
+  }
+
   return NextResponse.next();
 }
 

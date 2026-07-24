@@ -8,9 +8,13 @@ import {
 import { CacheInterceptor, CacheKey, CacheTTL } from '@nestjs/cache-manager';
 import { Customer360Service } from './customer-360.service';
 import { JwtAuthGuard } from '../../../../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../../../../auth/guards/roles.guard';
+import { Roles } from '../../../../auth/decorators/roles.decorator';
+import { RoleType } from '@prisma/client';
 
 @Controller('customer-360')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN)
 @UseInterceptors(CacheInterceptor)
 export class Customer360Controller {
   constructor(private readonly customer360Service: Customer360Service) {}

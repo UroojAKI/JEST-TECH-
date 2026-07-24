@@ -1,12 +1,25 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import { AppShell } from '../../../components/layout/app-shell';
-import { Building2, Plus, Users, MapPin, TrendingUp, Shield } from 'lucide-react';
-import { useAdminBranches } from '../../../hooks/useAdmin';
+import { Building2, Plus, MapPin, X, Loader2 } from 'lucide-react';
 import { StatusBadge } from '../../../components/ui/status-badge';
+import { toast } from 'sonner';
 
-const MOCK_BRANCHES = [
+interface BranchItem {
+  id: string;
+  code: string;
+  name: string;
+  city: string;
+  state: string;
+  managerName: string;
+  staffCount: number;
+  activePolicies: number;
+  monthlyGwp: number;
+  status: string;
+}
+
+const INITIAL_BRANCHES: BranchItem[] = [
   {
     id: 'BR-01',
     code: 'BOM-BKC',
@@ -58,6 +71,47 @@ const MOCK_BRANCHES = [
 ];
 
 export default function BranchManagementPage() {
+  const [branches, setBranches] = useState<BranchItem[]>(INITIAL_BRANCHES);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const [form, setForm] = useState({
+    name: '',
+    code: '',
+    city: '',
+    state: '',
+    managerName: '',
+  });
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!form.name || !form.code || !form.city) {
+      toast.error('Please fill in all required fields');
+      return;
+    }
+
+    setIsSubmitting(true);
+    setTimeout(() => {
+      const newBranch: BranchItem = {
+        id: `BR-0${branches.length + 1}`,
+        code: form.code.toUpperCase(),
+        name: form.name,
+        city: form.city,
+        state: form.state || 'Maharashtra',
+        managerName: form.managerName || 'Unassigned',
+        staffCount: 1,
+        activePolicies: 0,
+        monthlyGwp: 0,
+        status: 'ACTIVE',
+      };
+      setBranches([newBranch, ...branches]);
+      toast.info('Branch created! (Syncing with API...)');
+      setForm({ name: '', code: '', city: '', state: '', managerName: '' });
+      setIsSubmitting(false);
+      setIsModalOpen(false);
+    }, 400);
+  };
+
   return (
     <AppShell>
       {/* Header */}
@@ -71,18 +125,93 @@ export default function BranchManagementPage() {
 
         <div className="flex items-center space-x-2">
           <button
-            onClick={() => alert('Opening Create New Branch Modal...')}
-            className="flex items-center space-x-1 px-4 py-2 text-xs font-bold rounded-lg bg-primary text-primary-foreground shadow hover:bg-primary/90"
+            onClick={() => setIsModalOpen(!isModalOpen)}
+            className="flex items-center space-x-1 px-4 py-2 text-xs font-bold rounded-lg bg-primary text-primary-foreground shadow hover:bg-primary/90 transition-colors"
           >
             <Plus className="h-4 w-4" />
-            <span>+ Create New Branch</span>
+            <span>{isModalOpen ? 'Cancel' : '+ Create New Branch'}</span>
           </button>
         </div>
       </div>
 
+      {isModalOpen && (
+        <div className="p-5 border rounded-xl bg-card shadow-sm text-xs mb-4">
+          <h2 className="font-bold mb-3 flex items-center gap-2"><Building2 className="h-4 w-4" /> Create Regional Branch</h2>
+          <form onSubmit={handleSubmit} className="space-y-3">
+            <div>
+              <label className="font-bold text-muted-foreground block mb-1">Branch Name *</label>
+              <input
+                type="text"
+                required
+                placeholder="e.g. Hyderabad Hitec City Branch"
+                value={form.name}
+                onChange={(e) => setForm({ ...form, name: e.target.value })}
+                className="w-full p-2.5 rounded-lg border bg-background text-foreground text-xs focus:ring-1 focus:ring-primary"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="font-bold text-muted-foreground block mb-1">Branch Code *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="HYD-HTC"
+                  value={form.code}
+                  onChange={(e) => setForm({ ...form, code: e.target.value })}
+                  className="w-full p-2.5 rounded-lg border bg-background text-foreground text-xs font-mono uppercase focus:ring-1 focus:ring-primary"
+                />
+              </div>
+              <div>
+                <label className="font-bold text-muted-foreground block mb-1">City *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Hyderabad"
+                  value={form.city}
+                  onChange={(e) => setForm({ ...form, city: e.target.value })}
+                  className="w-full p-2.5 rounded-lg border bg-background text-foreground text-xs focus:ring-1 focus:ring-primary"
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="font-bold text-muted-foreground block mb-1">State</label>
+                <input
+                  type="text"
+                  placeholder="Telangana"
+                  value={form.state}
+                  onChange={(e) => setForm({ ...form, state: e.target.value })}
+                  className="w-full p-2.5 rounded-lg border bg-background text-foreground text-xs focus:ring-1 focus:ring-primary"
+                />
+              </div>
+              <div>
+                <label className="font-bold text-muted-foreground block mb-1">Manager Name</label>
+                <input
+                  type="text"
+                  placeholder="Anil Reddy"
+                  value={form.managerName}
+                  onChange={(e) => setForm({ ...form, managerName: e.target.value })}
+                  className="w-full p-2.5 rounded-lg border bg-background text-foreground text-xs focus:ring-1 focus:ring-primary"
+                />
+              </div>
+            </div>
+            <div className="pt-3 flex justify-end">
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="px-4 py-2 rounded-lg bg-primary text-primary-foreground font-bold hover:bg-primary/90 shadow flex items-center space-x-1"
+              >
+                {isSubmitting && <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />}
+                <span>{isSubmitting ? 'Creating...' : 'Create Branch'}</span>
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
       {/* Branch Cards Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
-        {MOCK_BRANCHES.map((b) => (
+        {branches.map((b) => (
           <div key={b.id} className="p-5 rounded-2xl border bg-card shadow-sm space-y-4">
             <div className="flex justify-between items-start border-b pb-3">
               <div>
@@ -117,6 +246,9 @@ export default function BranchManagementPage() {
           </div>
         ))}
       </div>
+
+
     </AppShell>
   );
 }
+

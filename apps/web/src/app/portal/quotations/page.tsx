@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { AppShell } from '../../../components/layout/app-shell';
 import { Zap, Shield, Send, CheckCircle2, DollarSign } from 'lucide-react';
+import { toast } from 'sonner';
 
 const MOCK_QUOTES = [
   { insurerCode: 'ICICI_LOM', insurerName: 'ICICI Lombard General Insurance', rating: 4.8, idvAmount: 1685000, basePremium: 12450, addonsPremium: 1800, gstAmount: 2565, totalPremium: 16815 },
@@ -25,7 +26,7 @@ export default function AgentQuotationsPage() {
       </div>
 
       {/* Inputs */}
-      <div className="p-4 rounded-xl border bg-card shadow-sm grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+      <div className="p-4 rounded-xl border bg-card shadow-sm grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs mt-4">
         <div>
           <label className="font-bold text-muted-foreground text-[10px] uppercase">Vehicle IDV (Sum Insured)</label>
           <input
@@ -45,7 +46,7 @@ export default function AgentQuotationsPage() {
         </div>
         <div className="flex items-end">
           <button
-            onClick={() => alert('Recalculating quotes across 14 partner insurers...')}
+            onClick={() => toast.info('Recalculating quotes across partner insurers...')}
             className="w-full py-2 rounded-lg bg-primary text-primary-foreground font-bold text-xs shadow hover:bg-primary/90"
           >
             Calculate Insurer Quotes
@@ -54,7 +55,7 @@ export default function AgentQuotationsPage() {
       </div>
 
       {/* Quote Comparison Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs mt-4">
         {MOCK_QUOTES.map((q) => (
           <div key={q.insurerCode} className="p-5 rounded-2xl border bg-card shadow-sm space-y-4">
             <div className="flex justify-between items-start border-b pb-2">
@@ -78,7 +79,7 @@ export default function AgentQuotationsPage() {
             </div>
 
             <button
-              onClick={() => alert(`Shared quote for ${q.insurerName} via WhatsApp!`)}
+              onClick={() => toast.success('Quote shared via WhatsApp!')}
               className="w-full py-2 rounded-lg bg-emerald-600 text-white font-bold text-xs flex items-center justify-center space-x-1 shadow hover:bg-emerald-700"
             >
               <Send className="h-3.5 w-3.5" />

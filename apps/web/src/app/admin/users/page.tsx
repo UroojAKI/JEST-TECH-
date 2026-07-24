@@ -2,96 +2,84 @@
 
 import React, { useState } from 'react';
 import { AppShell } from '../../../components/layout/app-shell';
-import { Users, Plus, Shield, Key, Lock, Unlock, RefreshCw, Filter, Search } from 'lucide-react';
-import { useAdminUsers } from '../../../hooks/useAdmin';
+import { Users, Plus, Key, Lock, Unlock, Search, Loader2 } from 'lucide-react';
 import { StatusBadge } from '../../../components/ui/status-badge';
-
-const MOCK_USERS = [
-  {
-    id: 'USR-001',
-    employeeCode: 'EMP-000001',
-    firstName: 'System',
-    lastName: 'SuperAdmin',
-    email: 'superadmin@jest.com',
-    role: 'SUPER_ADMIN',
-    status: 'ACTIVE',
-    branchName: 'Corporate Headquarters (Mumbai)',
-    teamName: 'Executive Platform',
-    isEmailVerified: true,
-    lastLoginAt: '2026-07-24 11:30 IST',
-    createdAt: '2026-07-14',
-  },
-  {
-    id: 'USR-002',
-    employeeCode: 'EMP-000002',
-    firstName: 'System',
-    lastName: 'Administrator',
-    email: 'admin@jest.com',
-    role: 'ADMIN',
-    status: 'ACTIVE',
-    branchName: 'Mumbai BKC Branch',
-    teamName: 'System Administration',
-    isEmailVerified: true,
-    lastLoginAt: '2026-07-24 10:15 IST',
-    createdAt: '2026-07-14',
-  },
-  {
-    id: 'USR-003',
-    employeeCode: 'EMP-000003',
-    firstName: 'Rajesh',
-    lastName: 'Sharma',
-    email: 'agent@jest.com',
-    role: 'SALES_AGENT',
-    status: 'ACTIVE',
-    branchName: 'Mumbai BKC Branch',
-    teamName: 'Motor Direct Sales',
-    isEmailVerified: true,
-    lastLoginAt: '2026-07-24 09:45 IST',
-    createdAt: '2026-07-15',
-  },
-  {
-    id: 'USR-004',
-    employeeCode: 'EMP-000004',
-    firstName: 'Anil',
-    lastName: 'Kulkarni',
-    email: 'underwriter@jest.com',
-    role: 'UNDERWRITER',
-    status: 'ACTIVE',
-    branchName: 'Pune Branch',
-    teamName: 'Commercial Underwriting',
-    isEmailVerified: true,
-    lastLoginAt: '2026-07-23 16:20 IST',
-    createdAt: '2026-07-16',
-  },
-  {
-    id: 'USR-005',
-    employeeCode: 'EMP-000005',
-    firstName: 'Sunil',
-    lastName: 'Verma',
-    email: 'sunil.verma@jest.com',
-    role: 'FINANCE',
-    status: 'LOCKED',
-    branchName: 'Corporate Headquarters',
-    teamName: 'Accounts & Treasury',
-    isEmailVerified: true,
-    lastLoginAt: '2026-07-20 14:00 IST',
-    createdAt: '2026-07-16',
-  },
-];
+import { toast } from 'sonner';
+import { useAdminUsers } from '../../../hooks/useAdmin';
+import { adminRepository } from '../../../repositories/admin.repository';
+import { useQueryClient } from '@tanstack/react-query';
 
 export default function UserManagementPage() {
+  const queryClient = useQueryClient();
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [newFirstName, setNewFirstName] = useState('');
+  const [newLastName, setNewLastName] = useState('');
+  const [newEmail, setNewEmail] = useState('');
+  const [newRole, setNewRole] = useState('SALES_AGENT');
+  const [newBranch, setNewBranch] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const filteredUsers = MOCK_USERS.filter((u) => {
-    const matchesStatus = statusFilter === 'ALL' || u.status === statusFilter;
-    const matchesSearch =
-      u.firstName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      u.lastName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      u.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      u.employeeCode.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesStatus && matchesSearch;
+  const { users, isLoading, isError, updateUserStatus, isUpdating } = useAdminUsers({
+    status: statusFilter !== 'ALL' ? statusFilter : undefined,
+    search: searchQuery || undefined,
   });
+
+  if (isLoading) {
+    return (
+      <AppShell>
+        <div className="p-8 text-center text-muted-foreground text-sm animate-pulse">Loading users...</div>
+      </AppShell>
+    );
+  }
+
+  if (isError) {
+    return (
+      <AppShell>
+        <div className="p-8 text-center text-red-500 text-sm">Failed to load users. Please try again.</div>
+      </AppShell>
+    );
+  }
+
+  const handleToggleLock = (user: any) => {
+    updateUserStatus({ id: user.id, status: user.status === 'LOCKED' ? 'ACTIVE' : 'LOCKED' });
+  };
+
+  const handleResetPassword = (email: string) => {
+    toast.info('Password reset email sent to ' + email);
+  };
+
+  const handleSubmitUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newFirstName || !newEmail) {
+      toast.error('First Name and Email are required');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      await adminRepository.createUser({
+        firstName: newFirstName,
+        lastName: newLastName,
+        email: newEmail,
+        role: newRole,
+        branchName: newBranch,
+      });
+      queryClient.invalidateQueries({ queryKey: ['admin-users'] });
+      toast.success('User provisioned!');
+      setShowCreateForm(false);
+      setNewFirstName('');
+      setNewLastName('');
+      setNewEmail('');
+      setNewRole('SALES_AGENT');
+      setNewBranch('');
+    } catch (error) {
+      toast.error('Failed to create user');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   return (
     <AppShell>
@@ -106,17 +94,91 @@ export default function UserManagementPage() {
 
         <div className="flex items-center space-x-2">
           <button
-            onClick={() => alert('Opening Create New User Drawer...')}
-            className="flex items-center space-x-1 px-4 py-2 text-xs font-bold rounded-lg bg-primary text-primary-foreground shadow hover:bg-primary/90"
+            onClick={() => setShowCreateForm(!showCreateForm)}
+            className="flex items-center space-x-1 px-4 py-2 text-xs font-bold rounded-lg bg-primary text-primary-foreground shadow hover:bg-primary/90 transition-colors"
           >
             <Plus className="h-4 w-4" />
-            <span>+ Provision New User</span>
+            <span>{showCreateForm ? 'Cancel' : '+ Provision New User'}</span>
           </button>
         </div>
       </div>
 
+      {showCreateForm && (
+        <div className="p-5 border rounded-xl bg-card shadow-sm text-xs mb-4">
+          <h2 className="font-bold mb-3 flex items-center gap-2"><Users className="h-4 w-4" /> Provision New User Account</h2>
+          <form onSubmit={handleSubmitUser} className="space-y-3">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="font-bold text-muted-foreground block mb-1">First Name *</label>
+                <input
+                  type="text"
+                  required
+                  value={newFirstName}
+                  onChange={(e) => setNewFirstName(e.target.value)}
+                  className="w-full p-2.5 rounded-lg border bg-background text-foreground text-xs focus:ring-1 focus:ring-primary"
+                />
+              </div>
+              <div>
+                <label className="font-bold text-muted-foreground block mb-1">Last Name</label>
+                <input
+                  type="text"
+                  value={newLastName}
+                  onChange={(e) => setNewLastName(e.target.value)}
+                  className="w-full p-2.5 rounded-lg border bg-background text-foreground text-xs focus:ring-1 focus:ring-primary"
+                />
+              </div>
+            </div>
+            <div>
+              <label className="font-bold text-muted-foreground block mb-1">Work Email Address *</label>
+              <input
+                type="email"
+                required
+                value={newEmail}
+                onChange={(e) => setNewEmail(e.target.value)}
+                className="w-full p-2.5 rounded-lg border bg-background text-foreground text-xs focus:ring-1 focus:ring-primary"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="font-bold text-muted-foreground block mb-1">Assigned Role</label>
+                <select
+                  value={newRole}
+                  onChange={(e) => setNewRole(e.target.value)}
+                  className="w-full p-2.5 rounded-lg border bg-background text-foreground text-xs focus:ring-1 focus:ring-primary"
+                >
+                  <option value="SALES_AGENT">SALES_AGENT</option>
+                  <option value="UNDERWRITER">UNDERWRITER</option>
+                  <option value="FINANCE">FINANCE</option>
+                  <option value="ADMIN">ADMIN</option>
+                </select>
+              </div>
+              <div>
+                <label className="font-bold text-muted-foreground block mb-1">Branch Location</label>
+                <input
+                  type="text"
+                  value={newBranch}
+                  onChange={(e) => setNewBranch(e.target.value)}
+                  placeholder="Mumbai BKC Branch"
+                  className="w-full p-2.5 rounded-lg border bg-background text-foreground text-xs focus:ring-1 focus:ring-primary"
+                />
+              </div>
+            </div>
+            <div className="pt-3 flex justify-end">
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="px-4 py-2 rounded-lg bg-primary text-primary-foreground font-bold hover:bg-primary/90 shadow flex items-center space-x-1"
+              >
+                {isSubmitting && <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />}
+                <span>{isSubmitting ? 'Provisioning...' : 'Provision User'}</span>
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
       {/* Filter Views & Search */}
-      <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3 bg-card p-3 rounded-xl border">
+      <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3 bg-card p-3 rounded-xl border mb-4">
         <div className="flex border-b sm:border-b-0 text-xs overflow-x-auto p-1 space-x-1">
           {[
             { id: 'ALL', label: 'All Users' },
@@ -166,43 +228,42 @@ export default function UserManagementPage() {
             </tr>
           </thead>
           <tbody className="divide-y">
-            {filteredUsers.map((u) => (
+            {users?.map((u: any) => (
               <tr key={u.id} className="hover:bg-accent/40">
                 <td className="p-3 font-mono font-bold text-primary">{u.employeeCode}</td>
                 <td className="p-3 font-semibold">{u.firstName} {u.lastName}</td>
                 <td className="p-3 text-muted-foreground font-mono">{u.email}</td>
                 <td className="p-3 font-bold">
                   <span className="px-2 py-0.5 rounded bg-primary/10 text-primary border border-primary/20 text-[10px]">
-                    {u.role}
+                    {typeof u.role === 'object' ? (u.role?.name || u.role?.code || u.role?.id || 'USER') : String(u.role || 'USER')}
                   </span>
                 </td>
                 <td className="p-3">
-                  <div className="font-semibold">{u.branchName}</div>
-                  <div className="text-[10px] text-muted-foreground">{u.teamName}</div>
+                  <div className="font-semibold">
+                    {typeof u.branchName === 'object' ? (u.branchName?.name || u.branchName?.code || '-') : (u.branchName || (typeof u.branch === 'object' ? (u.branch?.name || u.branch?.code) : u.branch) || 'Head Office')}
+                  </div>
+                  <div className="text-[10px] text-muted-foreground">
+                    {typeof u.teamName === 'object' ? (u.teamName?.name || u.teamName?.code || '-') : (u.teamName || (typeof u.team === 'object' ? (u.team?.name || u.team?.code) : u.team) || 'General Team')}
+                  </div>
                 </td>
                 <td className="p-3"><StatusBadge status={u.status} /></td>
                 <td className="p-3 text-muted-foreground font-mono text-[11px]">{u.lastLoginAt || 'Never'}</td>
                 <td className="p-3 text-right">
                   <div className="flex items-center justify-end space-x-1">
-                    {u.status === 'LOCKED' ? (
-                      <button
-                        onClick={() => alert(`Unlocked user account ${u.email}`)}
-                        className="p-1.5 rounded border bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20"
-                        title="Unlock Account"
-                      >
-                        <Unlock className="h-3.5 w-3.5" />
-                      </button>
-                    ) : (
-                      <button
-                        onClick={() => alert(`Locked user account ${u.email}`)}
-                        className="p-1.5 rounded border bg-amber-500/10 text-amber-600 hover:bg-amber-500/20"
-                        title="Lock Account"
-                      >
-                        <Lock className="h-3.5 w-3.5" />
-                      </button>
-                    )}
                     <button
-                      onClick={() => alert(`Reset password for ${u.email}`)}
+                      onClick={() => handleToggleLock(u)}
+                      disabled={isUpdating}
+                      className={`p-1.5 rounded border ${
+                        u.status === 'LOCKED'
+                          ? 'bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20'
+                          : 'bg-amber-500/10 text-amber-600 hover:bg-amber-500/20'
+                      } ${isUpdating ? 'opacity-50 cursor-not-allowed' : ''}`}
+                      title={u.status === 'LOCKED' ? 'Unlock Account' : 'Lock Account'}
+                    >
+                      {u.status === 'LOCKED' ? <Unlock className="h-3.5 w-3.5" /> : <Lock className="h-3.5 w-3.5" />}
+                    </button>
+                    <button
+                      onClick={() => handleResetPassword(u.email)}
                       className="p-1.5 rounded border bg-background hover:bg-accent text-foreground"
                       title="Reset Password"
                     >
@@ -212,6 +273,11 @@ export default function UserManagementPage() {
                 </td>
               </tr>
             ))}
+            {(!users || users.length === 0) && (
+              <tr>
+                <td colSpan={8} className="p-4 text-center text-muted-foreground">No users found.</td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>

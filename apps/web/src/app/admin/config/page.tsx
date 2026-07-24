@@ -1,9 +1,10 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { AppShell } from '../../../components/layout/app-shell';
-import { Sliders, Save, ToggleLeft, ToggleRight, Building, ShieldCheck } from 'lucide-react';
+import { Sliders, Save, ToggleLeft, ToggleRight, Loader2 } from 'lucide-react';
 import { useSystemConfig, useFeatureFlags } from '../../../hooks/useAdmin';
+import { toast } from 'sonner';
 
 const MOCK_FLAGS = [
   { id: 'FF-01', key: 'ENABLE_WHATSAPP_DISPATCH', name: 'Automated WhatsApp Policy Dispatch', description: 'Trigger PDF policy schedules via WhatsApp Business API', isEnabled: true, environment: 'PRODUCTION', rolloutPercentage: 100 },
@@ -12,12 +13,48 @@ const MOCK_FLAGS = [
 ];
 
 export default function SystemConfigPage() {
+  const { config, isLoading, updateConfig, isUpdating } = useSystemConfig();
   const [flags, setFlags] = useState(MOCK_FLAGS);
   const [activeTab, setActiveTab] = useState<'PROFILE' | 'FLAGS'>('PROFILE');
+  const [formData, setFormData] = useState<any>({
+    companyName: '',
+    gstin: '',
+    financialYear: '',
+    sessionTimeoutMinutes: 60
+  });
+
+  useEffect(() => {
+    if (config) {
+      setFormData({
+        companyName: config.companyName || '',
+        gstin: config.gstin || '',
+        financialYear: config.financialYear || '',
+        sessionTimeoutMinutes: config.sessionTimeoutMinutes || 60
+      });
+    }
+  }, [config]);
 
   const handleToggleFlag = (id: string) => {
     setFlags(flags.map((f) => (f.id === id ? { ...f, isEnabled: !f.isEnabled } : f)));
   };
+
+  const handleSave = async () => {
+    try {
+      await updateConfig(formData);
+    } catch (e) {
+      toast.error('Failed to save configuration');
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <AppShell>
+        <div className="p-8 text-center text-muted-foreground text-sm animate-pulse">Loading configuration...</div>
+      </AppShell>
+    );
+  }
+
+
 
   return (
     <AppShell>
@@ -31,16 +68,17 @@ export default function SystemConfigPage() {
 
         <div className="flex items-center space-x-2">
           <button
-            onClick={() => alert('Saved system parameters!')}
-            className="flex items-center space-x-1 px-4 py-2 text-xs font-bold rounded-lg bg-primary text-primary-foreground shadow hover:bg-primary/90"
+            onClick={handleSave}
+            disabled={isUpdating}
+            className="flex items-center space-x-1 px-4 py-2 text-xs font-bold rounded-lg bg-primary text-primary-foreground shadow hover:bg-primary/90 transition-colors"
           >
-            <Save className="h-4 w-4" />
-            <span>Save Configuration</span>
+            {isUpdating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+            <span>{isUpdating ? 'Saving...' : 'Save Configuration'}</span>
           </button>
         </div>
       </div>
 
-      <div className="flex border-b text-xs overflow-x-auto p-1 bg-card rounded-xl border space-x-1">
+      <div className="flex border-b text-xs overflow-x-auto p-1 bg-card rounded-xl border space-x-1 mb-4 mt-4">
         <button
           onClick={() => setActiveTab('PROFILE')}
           className={`px-3.5 py-2 rounded-lg font-bold transition-colors ${
@@ -68,22 +106,42 @@ export default function SystemConfigPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-1">
               <label className="font-bold text-muted-foreground text-[10px] uppercase">Registered Company Name</label>
-              <input type="text" defaultValue="JEST Insurance Brokering Pvt Ltd" className="w-full p-2.5 rounded-lg border bg-background font-bold text-xs" />
+              <input 
+                type="text" 
+                value={formData.companyName}
+                onChange={(e) => setFormData({...formData, companyName: e.target.value})}
+                className="w-full p-2.5 rounded-lg border bg-background font-bold text-xs" 
+              />
             </div>
 
             <div className="space-y-1">
               <label className="font-bold text-muted-foreground text-[10px] uppercase">Corporate GSTIN Number</label>
-              <input type="text" defaultValue="27AAAAA0000A1Z5" className="w-full p-2.5 rounded-lg border bg-background font-mono font-bold text-xs" />
+              <input 
+                type="text" 
+                value={formData.gstin}
+                onChange={(e) => setFormData({...formData, gstin: e.target.value})}
+                className="w-full p-2.5 rounded-lg border bg-background font-mono font-bold text-xs" 
+              />
             </div>
 
             <div className="space-y-1">
               <label className="font-bold text-muted-foreground text-[10px] uppercase">Financial Year Cycle</label>
-              <input type="text" defaultValue="2026-2027 (Apr 1 - Mar 31)" className="w-full p-2.5 rounded-lg border bg-background font-semibold text-xs" />
+              <input 
+                type="text" 
+                value={formData.financialYear}
+                onChange={(e) => setFormData({...formData, financialYear: e.target.value})}
+                className="w-full p-2.5 rounded-lg border bg-background font-semibold text-xs" 
+              />
             </div>
 
             <div className="space-y-1">
               <label className="font-bold text-muted-foreground text-[10px] uppercase">Session Timeout (Minutes)</label>
-              <input type="number" defaultValue={60} className="w-full p-2.5 rounded-lg border bg-background font-mono font-bold text-xs" />
+              <input 
+                type="number" 
+                value={formData.sessionTimeoutMinutes}
+                onChange={(e) => setFormData({...formData, sessionTimeoutMinutes: Number(e.target.value)})}
+                className="w-full p-2.5 rounded-lg border bg-background font-mono font-bold text-xs" 
+              />
             </div>
           </div>
         </div>

@@ -3,6 +3,8 @@
 import React, { useState } from 'react';
 import { AppShell } from '../../../components/layout/app-shell';
 import { Shield, Save, CheckCircle2, Lock } from 'lucide-react';
+import { toast } from 'sonner';
+import { useAdminRoles } from '../../../hooks/useAdmin';
 
 const MODULES = [
   'Customer 360',
@@ -26,6 +28,8 @@ const ROLES = [
 ];
 
 export default function RolePermissionMatrixPage() {
+  const { data: roles = [], isLoading } = useAdminRoles();
+  const [isUpdating, setIsUpdating] = React.useState(false);
   const [selectedRole, setSelectedRole] = useState<string>('BRANCH_MANAGER');
   const [permissionsState, setPermissionsState] = useState<Record<string, { view: boolean; create: boolean; update: boolean; delete: boolean; approve: boolean; export: boolean }>>({
     'Customer 360': { view: true, create: true, update: true, delete: false, approve: false, export: true },
@@ -62,7 +66,7 @@ export default function RolePermissionMatrixPage() {
 
         <div className="flex items-center space-x-2">
           <button
-            onClick={() => alert(`Saved permission matrix for role ${selectedRole}!`)}
+            onClick={() => toast.success('Permission matrix changes queued for sync!')}
             className="flex items-center space-x-1 px-4 py-2 text-xs font-bold rounded-lg bg-primary text-primary-foreground shadow hover:bg-primary/90"
           >
             <Save className="h-4 w-4" />

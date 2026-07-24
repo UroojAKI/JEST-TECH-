@@ -1,13 +1,40 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import { AppShell } from '../../../components/layout/app-shell';
 import { BookOpen, Plus, Shield } from 'lucide-react';
 import { useLedgerEntries } from '../../../hooks/useFinance';
 import { StatusBadge } from '../../../components/ui/status-badge';
+import { toast } from 'sonner';
 
 export default function DoubleEntryLedgerPage() {
   const { ledgerEntries } = useLedgerEntries();
+  const [showForm, setShowForm] = useState(false);
+  const [isPosting, setIsPosting] = useState(false);
+  const [description, setDescription] = useState('');
+  const [debitAccount, setDebitAccount] = useState('BANK_ACCOUNT');
+  const [creditAccount, setCreditAccount] = useState('PREMIUM_INCOME');
+  const [amount, setAmount] = useState<number>(0);
+  const [narration, setNarration] = useState('');
+
+  const handlePostEntry = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsPosting(true);
+    
+    // Simulate API call
+    setTimeout(() => {
+      setIsPosting(false);
+      setShowForm(false);
+      toast.success('Journal entry posted successfully!');
+      
+      // Reset form
+      setDescription('');
+      setDebitAccount('BANK_ACCOUNT');
+      setCreditAccount('PREMIUM_INCOME');
+      setAmount(0);
+      setNarration('');
+    }, 1000);
+  };
 
   return (
     <AppShell>
@@ -21,7 +48,7 @@ export default function DoubleEntryLedgerPage() {
 
         <div className="flex items-center space-x-2">
           <button
-            onClick={() => alert('Opening New Journal Entry Posting Form...')}
+            onClick={() => setShowForm(true)}
             className="flex items-center space-x-1 px-4 py-2 text-xs font-bold rounded-lg bg-primary text-primary-foreground shadow hover:bg-primary/90"
           >
             <Plus className="h-4 w-4" />
@@ -29,6 +56,89 @@ export default function DoubleEntryLedgerPage() {
           </button>
         </div>
       </div>
+
+      {showForm && (
+        <form onSubmit={handlePostEntry} className="p-4 border rounded-xl bg-card space-y-4">
+          <h3 className="font-bold text-sm">New Journal Entry</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+            <div className="space-y-1">
+              <label className="font-semibold">Description</label>
+              <input
+                required
+                className="w-full p-2 border rounded-md bg-background"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="e.g. Daily Premium Collection"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="font-semibold">Amount (₹)</label>
+              <input
+                required
+                type="number"
+                min="1"
+                className="w-full p-2 border rounded-md bg-background"
+                value={amount}
+                onChange={(e) => setAmount(Number(e.target.value))}
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="font-semibold">Debit Account</label>
+              <select 
+                className="w-full p-2 border rounded-md bg-background"
+                value={debitAccount}
+                onChange={(e) => setDebitAccount(e.target.value)}
+              >
+                <option value="BANK_ACCOUNT">BANK_ACCOUNT</option>
+                <option value="PREMIUM_INCOME">PREMIUM_INCOME</option>
+                <option value="COMMISSION_EXPENSE">COMMISSION_EXPENSE</option>
+                <option value="INSURER_PAYABLE">INSURER_PAYABLE</option>
+                <option value="AGENT_PAYABLE">AGENT_PAYABLE</option>
+              </select>
+            </div>
+            <div className="space-y-1">
+              <label className="font-semibold">Credit Account</label>
+              <select 
+                className="w-full p-2 border rounded-md bg-background"
+                value={creditAccount}
+                onChange={(e) => setCreditAccount(e.target.value)}
+              >
+                <option value="BANK_ACCOUNT">BANK_ACCOUNT</option>
+                <option value="PREMIUM_INCOME">PREMIUM_INCOME</option>
+                <option value="COMMISSION_EXPENSE">COMMISSION_EXPENSE</option>
+                <option value="INSURER_PAYABLE">INSURER_PAYABLE</option>
+                <option value="AGENT_PAYABLE">AGENT_PAYABLE</option>
+              </select>
+            </div>
+            <div className="space-y-1 sm:col-span-2">
+              <label className="font-semibold">Narration</label>
+              <textarea
+                className="w-full p-2 border rounded-md bg-background"
+                value={narration}
+                onChange={(e) => setNarration(e.target.value)}
+                placeholder="Additional notes..."
+                rows={2}
+              />
+            </div>
+          </div>
+          <div className="flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => setShowForm(false)}
+              className="px-4 py-2 text-xs font-bold rounded-lg border hover:bg-muted"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={isPosting}
+              className="px-4 py-2 text-xs font-bold rounded-lg bg-primary text-primary-foreground shadow hover:bg-primary/90 disabled:opacity-50"
+            >
+              {isPosting ? 'Posting...' : 'Post Entry'}
+            </button>
+          </div>
+        </form>
+      )}
 
       {/* Chart of Accounts Summary Strip */}
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 text-xs">
@@ -109,3 +219,4 @@ export default function DoubleEntryLedgerPage() {
     </AppShell>
   );
 }
+

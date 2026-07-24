@@ -20,13 +20,11 @@ import { BreadcrumbNav } from './breadcrumb-nav';
 
 export function AppHeader() {
   const { theme, setTheme } = useTheme();
-  const { user } = useAuthStore();
-  const {
-    toggleSidebar,
-    setCommandPaletteOpen,
-    setNotificationDrawerOpen,
-    setProfileDrawerOpen,
-  } = useUIStore();
+  const user = useAuthStore((s) => s.user);
+  const toggleSidebar = useUIStore((s) => s.toggleSidebar);
+  const setCommandPaletteOpen = useUIStore((s) => s.setCommandPaletteOpen);
+  const setNotificationDrawerOpen = useUIStore((s) => s.setNotificationDrawerOpen);
+  const setProfileDrawerOpen = useUIStore((s) => s.setProfileDrawerOpen);
   const { activeCustomerName, clearActiveCustomer } = useCustomerContext();
 
   return (

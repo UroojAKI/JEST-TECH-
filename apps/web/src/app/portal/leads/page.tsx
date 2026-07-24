@@ -5,16 +5,31 @@ import { AppShell } from '../../../components/layout/app-shell';
 import { Plus, Filter, Phone, ArrowRight, CheckCircle2 } from 'lucide-react';
 import { useAgentLeads } from '../../../hooks/usePortal';
 
-const MOCK_LEADS = [
-  { id: 'LEAD-8812', customerName: 'Vikas Sharma', mobile: '+91 98200 99881', productLine: 'Motor Comprehensive (Thar LX)', estimatedGwp: 16850, status: 'QUOTE_SENT', createdAt: '2026-07-24' },
-  { id: 'LEAD-8813', customerName: 'Meena Iyer', mobile: '+91 98920 11223', productLine: 'Group Health Optima', estimatedGwp: 45000, status: 'NEGOTIATION', createdAt: '2026-07-23' },
-  { id: 'LEAD-8814', customerName: 'Karan Malhotra', mobile: '+91 98190 33445', productLine: 'Two Wheeler Comprehensive', estimatedGwp: 2850, status: 'NEW', createdAt: '2026-07-24' },
-];
-
 export default function AgentLeadsPage() {
   const [statusFilter, setStatusFilter] = useState('ALL');
+  const [showForm, setShowForm] = useState(false);
+  
+  const [customerName, setCustomerName] = useState('');
+  const [phone, setPhone] = useState('');
+  const [email, setEmail] = useState('');
+  const [productInterest, setProductInterest] = useState('MOTOR');
+  const [notes, setNotes] = useState('');
 
-  const filteredLeads = MOCK_LEADS.filter((l) => statusFilter === 'ALL' || l.status === statusFilter);
+  const { leads, isLoading, createLead, isCreating } = useAgentLeads(statusFilter === 'ALL' ? undefined : statusFilter);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    createLead({ customerName, phone, email, productInterest, notes }, {
+      onSuccess: () => {
+        setShowForm(false);
+        setCustomerName('');
+        setPhone('');
+        setEmail('');
+        setProductInterest('MOTOR');
+        setNotes('');
+      }
+    });
+  };
 
   return (
     <AppShell>
@@ -25,7 +40,7 @@ export default function AgentLeadsPage() {
         </div>
 
         <button
-          onClick={() => alert('Opening New Lead Form...')}
+          onClick={() => setShowForm(true)}
           className="flex items-center space-x-1 px-4 py-2 text-xs font-bold rounded-lg bg-primary text-primary-foreground shadow hover:bg-primary/90"
         >
           <Plus className="h-4 w-4" />
@@ -33,7 +48,81 @@ export default function AgentLeadsPage() {
         </button>
       </div>
 
-      <div className="flex border-b text-xs overflow-x-auto p-1 bg-card rounded-xl border space-x-1">
+      {showForm && (
+        <form onSubmit={handleSubmit} className="p-4 border rounded-xl bg-card space-y-4 my-4">
+          <h3 className="font-bold text-sm">New Lead</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+            <div className="space-y-1">
+              <label className="font-semibold">Customer Name</label>
+              <input
+                required
+                className="w-full p-2 border rounded-md bg-background"
+                value={customerName}
+                onChange={(e) => setCustomerName(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="font-semibold">Phone</label>
+              <input
+                required
+                className="w-full p-2 border rounded-md bg-background"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="font-semibold">Email</label>
+              <input
+                type="email"
+                className="w-full p-2 border rounded-md bg-background"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="font-semibold">Product Interest</label>
+              <select
+                className="w-full p-2 border rounded-md bg-background"
+                value={productInterest}
+                onChange={(e) => setProductInterest(e.target.value)}
+              >
+                <option value="MOTOR">MOTOR</option>
+                <option value="HEALTH">HEALTH</option>
+                <option value="LIFE">LIFE</option>
+                <option value="PROPERTY">PROPERTY</option>
+                <option value="TRAVEL">TRAVEL</option>
+              </select>
+            </div>
+            <div className="space-y-1 sm:col-span-2">
+              <label className="font-semibold">Notes</label>
+              <textarea
+                className="w-full p-2 border rounded-md bg-background"
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                rows={2}
+              />
+            </div>
+          </div>
+          <div className="flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => setShowForm(false)}
+              className="px-4 py-2 text-xs font-bold rounded-lg border hover:bg-muted"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={isCreating}
+              className="px-4 py-2 text-xs font-bold rounded-lg bg-primary text-primary-foreground shadow hover:bg-primary/90 disabled:opacity-50"
+            >
+              {isCreating ? 'Saving...' : 'Save Lead'}
+            </button>
+          </div>
+        </form>
+      )}
+
+      <div className="flex border-b text-xs overflow-x-auto p-1 bg-card rounded-xl border space-x-1 my-4">
         {['ALL', 'NEW', 'QUOTE_SENT', 'NEGOTIATION', 'ISSUED'].map((st) => (
           <button
             key={st}
@@ -47,25 +136,33 @@ export default function AgentLeadsPage() {
         ))}
       </div>
 
-      <div className="space-y-3 text-xs">
-        {filteredLeads.map((lead) => (
-          <div key={lead.id} className="p-4 rounded-xl border bg-card shadow-sm flex items-center justify-between">
-            <div className="space-y-1">
-              <div className="flex items-center space-x-2">
-                <span className="font-mono font-bold text-primary">{lead.id}</span>
-                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-primary/10 text-primary border">{lead.status}</span>
-              </div>
-              <h4 className="font-extrabold text-sm text-foreground">{lead.customerName} ({lead.mobile})</h4>
-              <p className="text-muted-foreground text-xs">{lead.productLine}</p>
-            </div>
+      {isLoading ? (
+        <div className="p-8 text-center text-muted-foreground animate-pulse">Loading leads...</div>
+      ) : (
+        <div className="space-y-3 text-xs">
+          {leads.length === 0 ? (
+            <div className="p-8 text-center text-muted-foreground bg-card border rounded-xl">No leads found.</div>
+          ) : (
+            leads.map((lead: any) => (
+              <div key={lead.id} className="p-4 rounded-xl border bg-card shadow-sm flex items-center justify-between">
+                <div className="space-y-1">
+                  <div className="flex items-center space-x-2">
+                    <span className="font-mono font-bold text-primary">{lead.id || lead.leadNumber}</span>
+                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-primary/10 text-primary border">{lead.status}</span>
+                  </div>
+                  <h4 className="font-extrabold text-sm text-foreground">{lead.customerName} ({lead.mobile || lead.phone})</h4>
+                  <p className="text-muted-foreground text-xs">{lead.productLine || lead.productInterest}</p>
+                </div>
 
-            <div className="text-right">
-              <div className="font-mono font-black text-emerald-600 text-sm">Est. ₹{lead.estimatedGwp.toLocaleString('en-IN')}</div>
-              <span className="text-[10px] text-muted-foreground">Created {lead.createdAt}</span>
-            </div>
-          </div>
-        ))}
-      </div>
+                <div className="text-right">
+                  <div className="font-mono font-black text-emerald-600 text-sm">Est. ₹{(lead.estimatedGwp || 0).toLocaleString('en-IN')}</div>
+                  <span className="text-[10px] text-muted-foreground">Created {lead.createdAt?.split('T')[0] || 'Recently'}</span>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      )}
     </AppShell>
   );
 }

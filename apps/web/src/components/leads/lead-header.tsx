@@ -23,7 +23,17 @@ interface LeadHeaderProps {
 }
 
 export function LeadHeader({ lead, onLaunchConvert, onLaunchMarkLost }: LeadHeaderProps) {
-  const isDuplicate = lead?.duplicateWarning ?? true;
+  const isDuplicate = lead?.duplicateWarning ?? false;
+
+  const displayName = lead?.name || `${lead?.firstName || ''} ${lead?.lastName || ''}`.trim() || `Lead ${lead?.code || lead?.id || ''}`;
+  const displayCode = lead?.code || lead?.leadCode || lead?.id || 'LD-00000';
+  const displayProduct = lead?.productInterest || lead?.product || 'Motor Comprehensive';
+  const displayPriority = (lead?.priority || 'HOT').toUpperCase();
+  const displaySource = (lead?.source || 'WEBSITE').toUpperCase();
+  const displayPremium = lead?.expectedPremium ? `₹${Number(lead.expectedPremium).toLocaleString()}` : '₹25,000';
+  const displayScore = lead?.probabilityScore || lead?.score || 80;
+  const displayAgent = lead?.agent || lead?.assignedAgentName || 'Rajesh Sharma';
+  const displayStage = lead?.status || lead?.stage || 'QUOTE_PREPARED';
 
   return (
     <div className="space-y-4">
@@ -33,7 +43,7 @@ export function LeadHeader({ lead, onLaunchConvert, onLaunchMarkLost }: LeadHead
           <div className="flex items-center space-x-2">
             <AlertTriangle className="h-4 w-4 text-amber-500" />
             <span>
-              <strong>Duplicate Lead Warning:</strong> A matching lead (LD-00841 for Rahul Patil) was created 3 days ago.
+              <strong>Duplicate Lead Warning:</strong> Potential matching prospect found for <strong>{displayName}</strong>.
             </span>
           </div>
           <div className="flex items-center space-x-2">
@@ -56,24 +66,24 @@ export function LeadHeader({ lead, onLaunchConvert, onLaunchMarkLost }: LeadHead
             </div>
 
             <div className="space-y-1">
-              <div className="flex items-center space-x-2">
-                <h1 className="text-xl font-extrabold tracking-tight">{lead?.name || 'Rahul Patil'}</h1>
+              <div className="flex items-center space-x-2 flex-wrap gap-1">
+                <h1 className="text-xl font-extrabold tracking-tight text-foreground">{displayName}</h1>
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/10 text-amber-600 border border-amber-500/20">
-                  HOT LEAD
+                  {displayPriority} LEAD
                 </span>
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-primary/10 text-primary border border-primary/20">
-                  MOTOR COMPREHENSIVE
+                  {displayProduct}
                 </span>
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">
-                  WEBSITE SOURCE
+                  {displaySource} SOURCE
                 </span>
               </div>
 
-              <div className="flex items-center space-x-4 text-xs text-muted-foreground">
-                <span>Code: <strong className="text-foreground">{lead?.code || 'LD-00912'}</strong></span>
-                <span>Expected GWP: <strong className="text-emerald-600">₹18,450</strong></span>
-                <span>Lead Score: <strong className="text-primary font-bold">84 / 100</strong></span>
-                <span>Assigned Agent: <strong className="text-foreground">{lead?.agent || 'Rajesh Sharma'}</strong></span>
+              <div className="flex items-center space-x-4 text-xs text-muted-foreground flex-wrap gap-2">
+                <span>Code: <strong className="text-foreground">{displayCode}</strong></span>
+                <span>Expected GWP: <strong className="text-emerald-600">{displayPremium}</strong></span>
+                <span>Lead Score: <strong className="text-primary font-bold">{displayScore} / 100</strong></span>
+                <span>Assigned Agent: <strong className="text-foreground">{displayAgent}</strong></span>
               </div>
             </div>
           </div>
@@ -82,13 +92,13 @@ export function LeadHeader({ lead, onLaunchConvert, onLaunchMarkLost }: LeadHead
           <div className="flex items-center space-x-2">
             <button
               onClick={onLaunchConvert}
-              className="px-3.5 py-2 text-xs font-bold rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 transition-colors shadow-sm"
+              className="px-4 py-2 text-xs font-bold rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 transition-colors shadow-sm"
             >
               Convert Lead →
             </button>
             <button
               onClick={onLaunchMarkLost}
-              className="px-3 py-2 text-xs font-semibold rounded-lg border border-destructive/40 text-destructive hover:bg-destructive/10 transition-colors"
+              className="px-3.5 py-2 text-xs font-semibold rounded-lg border border-destructive/40 text-destructive hover:bg-destructive/10 transition-colors"
             >
               Mark Lost
             </button>
@@ -101,13 +111,13 @@ export function LeadHeader({ lead, onLaunchConvert, onLaunchMarkLost }: LeadHead
             <span className="text-[10px] text-muted-foreground uppercase font-bold">SLA Response Status</span>
             <div className="flex items-center space-x-1 text-emerald-600 font-bold">
               <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-              <span>🟢 On Track (1h 45m left)</span>
+              <span>🟢 On Track (2h remaining)</span>
             </div>
           </div>
 
           <div className="space-y-0.5">
             <span className="text-[10px] text-muted-foreground uppercase font-bold">Current Stage</span>
-            <div className="font-bold text-foreground">QUOTE PREPARED</div>
+            <div className="font-bold text-foreground uppercase">{displayStage}</div>
           </div>
 
           <div className="space-y-0.5">
@@ -117,17 +127,17 @@ export function LeadHeader({ lead, onLaunchConvert, onLaunchMarkLost }: LeadHead
 
           <div className="space-y-0.5">
             <span className="text-[10px] text-muted-foreground uppercase font-bold">Days in Pipeline</span>
-            <div className="font-bold text-foreground">4 Days</div>
+            <div className="font-bold text-foreground">2 Days</div>
           </div>
 
           <div className="space-y-0.5">
             <span className="text-[10px] text-muted-foreground uppercase font-bold">Pending Docs</span>
-            <div className="font-bold text-amber-600">RC Copy Required</div>
+            <div className="font-bold text-amber-600">ID & KYC Required</div>
           </div>
 
           <div className="space-y-0.5">
             <span className="text-[10px] text-muted-foreground uppercase font-bold">Expected Close</span>
-            <div className="font-bold text-foreground">2026-07-28</div>
+            <div className="font-bold text-foreground">2026-07-30</div>
           </div>
         </div>
       </div>

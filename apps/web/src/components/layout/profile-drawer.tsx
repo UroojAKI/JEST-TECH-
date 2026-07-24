@@ -7,8 +7,9 @@ import { useAuthStore } from '../../store/auth-store';
 import { useAuth } from '../../hooks/useAuth';
 
 export function ProfileDrawer() {
-  const { isProfileDrawerOpen, setProfileDrawerOpen } = useUIStore();
-  const { user } = useAuthStore();
+  const isProfileDrawerOpen = useUIStore((s) => s.isProfileDrawerOpen);
+  const setProfileDrawerOpen = useUIStore((s) => s.setProfileDrawerOpen);
+  const user = useAuthStore((s) => s.user);
   const { logout, isLoggingOut } = useAuth();
 
   if (!isProfileDrawerOpen) return null;

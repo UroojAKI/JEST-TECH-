@@ -21,69 +21,16 @@ import {
 } from 'lucide-react';
 import { useReports } from '../../../hooks/useReports';
 
-const REPORT_TEMPLATES = [
-  {
-    id: 'RPT-001',
-    name: 'Gross Written Premium (GWP) by Product Line',
-    category: 'POLICIES',
-    description: 'Breakdown of active policy count, IDV, and total premium grouped by insurance product line.',
-    isFavorite: true,
-    lastRun: '2026-07-24 10:15 IST',
-    rowCount: 148,
-  },
-  {
-    id: 'RPT-002',
-    name: 'Lead Conversion & Sales Pipeline Velocity',
-    category: 'SALES',
-    description: 'Stage conversion metrics, lead score distribution, win ratios, and agent performance.',
-    isFavorite: true,
-    lastRun: '2026-07-23 16:40 IST',
-    rowCount: 92,
-  },
-  {
-    id: 'RPT-003',
-    name: '45-Day Renewal Retention & Expiry Cockpit',
-    category: 'RENEWALS',
-    description: 'Upcoming expiry countdown tracking, campaign status, and grace period recovery rates.',
-    isFavorite: true,
-    lastRun: '2026-07-24 09:00 IST',
-    rowCount: 34,
-  },
-  {
-    id: 'RPT-004',
-    name: 'Claims Settlement Duration & Reserve Exposure',
-    category: 'CLAIMS',
-    description: 'Claim severity, settlement turnaround times, reserve exposure, and surveyor assessment logs.',
-    isFavorite: false,
-    lastRun: '2026-07-22 14:20 IST',
-    rowCount: 18,
-  },
-  {
-    id: 'RPT-005',
-    name: 'Agent Commission & Manager Override Ledger',
-    category: 'FINANCE',
-    description: 'Accrued vs realized brokerage commission, multi-tier manager override payouts, and status.',
-    isFavorite: false,
-    lastRun: '2026-07-20 11:10 IST',
-    rowCount: 210,
-  },
-  {
-    id: 'RPT-006',
-    name: 'Insurer Net Settlement & Brokerage Retained',
-    category: 'FINANCE',
-    description: 'Gross premium collected vs commission retained and net payable calculations per insurer.',
-    isFavorite: false,
-    lastRun: '2026-07-21 17:30 IST',
-    rowCount: 12,
-  },
-];
+import { toast } from 'sonner';
 
 export default function ReportsHubPage() {
   const router = useRouter();
   const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
   const [searchQuery, setSearchQuery] = useState<string>('');
 
-  const filteredReports = REPORT_TEMPLATES.filter((r) => {
+  const { data: reports = [] } = useReports();
+
+  const filteredReports = (reports || []).filter((r: any) => {
     const matchesCategory = selectedCategory === 'ALL' || r.category === selectedCategory;
     const matchesSearch = r.name.toLowerCase().includes(searchQuery.toLowerCase()) || r.description.toLowerCase().includes(searchQuery.toLowerCase());
     return matchesCategory && matchesSearch;
@@ -170,7 +117,7 @@ export default function ReportsHubPage() {
 
       {/* Reports Catalog Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-xs">
-        {filteredReports.map((report) => (
+        {filteredReports.map((report: any) => (
           <div
             key={report.id}
             className="p-5 rounded-2xl border bg-card hover:border-primary/40 transition-all shadow-sm flex flex-col justify-between space-y-4"
@@ -181,7 +128,7 @@ export default function ReportsHubPage() {
                   {report.category}
                 </span>
                 <button
-                  onClick={() => alert(`Toggled favorite for ${report.name}`)}
+                  onClick={() => toast.success('Added to favourites!')}
                   className="text-amber-500 hover:scale-110 transition-transform"
                 >
                   <Star className={`h-4 w-4 ${report.isFavorite ? 'fill-amber-500' : 'text-muted-foreground'}`} />
@@ -210,7 +157,7 @@ export default function ReportsHubPage() {
                 </button>
 
                 <button
-                  onClick={() => alert(`Exporting ${report.name} PDF...`)}
+                  onClick={() => window.open(`/api/v1/reports/${report.id}/export?format=pdf`, '_blank')}
                   className="p-2 rounded-lg border bg-background hover:bg-accent text-foreground"
                   title="Export PDF"
                 >

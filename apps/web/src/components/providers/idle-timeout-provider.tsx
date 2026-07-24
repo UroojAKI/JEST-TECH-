@@ -1,19 +1,20 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { useAuthStore } from '../../store/auth-store';
 
 const IDLE_TIMEOUT_MS = 15 * 60 * 1000; // 15 minutes
 
 export function IdleTimeoutProvider({ children }: { children: React.ReactNode }) {
-  const { touchLastActive, lastActiveTimestamp, setIdleWarningVisible, isAuthenticated, logout } =
-    useAuthStore();
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const setIdleWarningVisible = useAuthStore((s) => s.setIdleWarningVisible);
+  const lastActiveRef = useRef<number>(Date.now());
 
   useEffect(() => {
     if (!isAuthenticated) return;
 
     const handleUserActivity = () => {
-      touchLastActive();
+      lastActiveRef.current = Date.now();
     };
 
     window.addEventListener('mousemove', handleUserActivity);
@@ -22,7 +23,7 @@ export function IdleTimeoutProvider({ children }: { children: React.ReactNode })
     window.addEventListener('scroll', handleUserActivity);
 
     const interval = setInterval(() => {
-      const elapsed = Date.now() - lastActiveTimestamp;
+      const elapsed = Date.now() - lastActiveRef.current;
       if (elapsed >= IDLE_TIMEOUT_MS) {
         setIdleWarningVisible(true);
       }
@@ -35,7 +36,8 @@ export function IdleTimeoutProvider({ children }: { children: React.ReactNode })
       window.removeEventListener('scroll', handleUserActivity);
       clearInterval(interval);
     };
-  }, [isAuthenticated, lastActiveTimestamp, touchLastActive, setIdleWarningVisible]);
+  }, [isAuthenticated, setIdleWarningVisible]);
 
   return <>{children}</>;
 }
+

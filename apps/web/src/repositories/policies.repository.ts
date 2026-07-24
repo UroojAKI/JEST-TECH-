@@ -43,4 +43,9 @@ export const policiesRepository = {
     const response = await apiClient.post(`/policies/${id}/cancel`, { comments });
     return response.data;
   },
+
+  async issuePolicy(data: any): Promise<PolicyItem> {
+    const response = await apiClient.post('/policies/issue', data);
+    return response.data;
+  },
 };

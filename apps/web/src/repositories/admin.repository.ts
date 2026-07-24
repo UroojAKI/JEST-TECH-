@@ -140,7 +140,9 @@ export const adminRepository = {
   },
 
   async updateUserStatus(id: string, status: string): Promise<UserItem> {
-    const response = await apiClient.patch(`/users/${id}/status`, { status });
+    const response = status === 'LOCKED' 
+      ? await apiClient.post(`/users/${id}/lock`)
+      : await apiClient.post(`/users/${id}/unlock`);
     return response.data;
   },
 
@@ -155,7 +157,7 @@ export const adminRepository = {
   },
 
   async getLookups(type?: string): Promise<LookupItem[]> {
-    const response = await apiClient.get('/admin/lookups', { params: { type } });
+    const response = type ? await apiClient.get(`/admin/lookups/${type}`) : await apiClient.get('/admin/lookups');
     return response.data;
   },
 

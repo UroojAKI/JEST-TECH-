@@ -4,57 +4,22 @@ import React, { useState } from 'react';
 import { AppShell } from '../../../components/layout/app-shell';
 import { MessageSquare, PhoneCall, Mail, MessageCircle, FileText, Send, Download, Filter, UserCheck } from 'lucide-react';
 import { useCommunications } from '../../../hooks/useCommunications';
+import { toast } from 'sonner';
 import { StatusBadge } from '../../../components/ui/status-badge';
-
-const MOCK_COMMS = [
-  {
-    id: 'COMM-881',
-    customerName: 'Rahul Patil',
-    customerId: 'CUST-00104',
-    channel: 'WHATSAPP',
-    direction: 'OUTBOUND',
-    category: 'SYSTEM_GENERATED',
-    sender: 'JEST Policy Bot',
-    recipient: '+91 98201 12345',
-    messageContent: 'Dear Rahul Patil, your Motor Policy POL-001048 has been issued! Total Premium: ₹16,545.',
-    status: 'READ',
-    relatedEntity: { type: 'POLICY', number: 'POL-001048' },
-    timestamp: '2026-07-24 10:15 IST',
-  },
-  {
-    id: 'COMM-882',
-    customerName: 'Acme Logistics Pvt Ltd',
-    customerId: 'CUST-00105',
-    channel: 'EMAIL',
-    direction: 'INBOUND',
-    category: 'CUSTOMER_REPLY',
-    sender: 'claims@acmelogistics.com',
-    recipient: 'support@jest.com',
-    messageContent: 'Re: Claim CLM-2026-0042. Attaching surveyor inspection report and workshop invoice.',
-    status: 'DELIVERED',
-    relatedEntity: { type: 'CLAIM', number: 'CLM-2026-0042' },
-    timestamp: '2026-07-24 09:30 IST',
-  },
-  {
-    id: 'COMM-883',
-    customerName: 'Sunita Kulkarni',
-    customerId: 'CUST-00106',
-    channel: 'PHONE_CALL',
-    direction: 'OUTBOUND',
-    category: 'MANUAL',
-    sender: 'Rajesh Sharma (Sales Agent)',
-    recipient: '+91 98920 54321',
-    messageContent: 'Call Note: Discussed Health Optima policy renewal. Customer requested quote recalculation with ₹10L sum insured.',
-    status: 'DELIVERED',
-    relatedEntity: { type: 'RENEWAL', number: 'POL-001050' },
-    timestamp: '2026-07-23 16:45 IST',
-  },
-];
 
 export default function CommunicationHubPage() {
   const [selectedChannel, setSelectedChannel] = useState<string>('ALL');
+  const [showSendForm, setShowSendForm] = useState(false);
+  const [channel, setChannel] = useState('WHATSAPP');
+  const [customerId, setCustomerId] = useState('');
+  const [subject, setSubject] = useState('');
+  const [message, setMessage] = useState('');
 
-  const filteredComms = MOCK_COMMS.filter((c) => {
+  const { communications, sendMessage, isSending } = useCommunications({
+    channel: selectedChannel !== 'ALL' ? selectedChannel : undefined,
+  });
+
+  const filteredComms = communications.filter((c: any) => {
     if (selectedChannel === 'ALL') return true;
     return c.channel === selectedChannel;
   });
@@ -72,7 +37,7 @@ export default function CommunicationHubPage() {
 
         <div className="flex items-center space-x-2">
           <button
-            onClick={() => alert('Opening Send Communication Drawer...')}
+            onClick={() => setShowSendForm(true)}
             className="flex items-center space-x-1 px-4 py-2 text-xs font-bold rounded-lg bg-primary text-primary-foreground shadow hover:bg-primary/90"
           >
             <Send className="h-4 w-4" />
@@ -81,11 +46,64 @@ export default function CommunicationHubPage() {
         </div>
       </div>
 
+      {showSendForm && (
+        <div className="p-4 rounded-xl border bg-card shadow-sm space-y-4 mb-4">
+          <h2 className="text-sm font-bold">Send Communication</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-bold mb-1">Channel</label>
+              <select className="w-full p-2 border rounded" value={channel} onChange={(e) => setChannel(e.target.value)}>
+                <option value="WHATSAPP">WhatsApp</option>
+                <option value="EMAIL">Email</option>
+                <option value="SMS">SMS</option>
+                <option value="PHONE_CALL">Phone Call</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-bold mb-1">Customer ID</label>
+              <input type="text" className="w-full p-2 border rounded" value={customerId} onChange={(e) => setCustomerId(e.target.value)} placeholder="e.g. CUST-123" />
+            </div>
+            {channel === 'EMAIL' && (
+              <div className="sm:col-span-2">
+                <label className="block text-xs font-bold mb-1">Subject</label>
+                <input type="text" className="w-full p-2 border rounded" value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="Subject..." />
+              </div>
+            )}
+            <div className="sm:col-span-2">
+              <label className="block text-xs font-bold mb-1">Message</label>
+              <textarea className="w-full p-2 border rounded" value={message} onChange={(e) => setMessage(e.target.value)} placeholder="Type your message..."></textarea>
+            </div>
+          </div>
+          <div className="flex space-x-2">
+            <button
+              disabled={isSending}
+              onClick={() => {
+                sendMessage({ channel, customerId, subject, messageContent: message }, {
+                  onSuccess: () => {
+                    toast.success('Message sent!');
+                    setShowSendForm(false);
+                    setCustomerId('');
+                    setSubject('');
+                    setMessage('');
+                  }
+                });
+              }}
+              className="px-4 py-2 text-xs font-bold rounded-lg bg-primary text-primary-foreground shadow"
+            >
+              {isSending ? 'Sending...' : 'Send'}
+            </button>
+            <button onClick={() => setShowSendForm(false)} className="px-4 py-2 text-xs font-bold rounded-lg border bg-background hover:bg-accent text-foreground">
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Communication Analytics Strip */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
         <div className="p-3.5 rounded-xl border bg-card space-y-1">
           <span className="text-[10px] font-bold text-muted-foreground uppercase">Messages Today</span>
-          <div className="text-lg font-black text-foreground">1,480</div>
+          <div className="text-lg font-black text-foreground">{communications.length}</div>
           <span className="text-[10px] text-emerald-600 font-semibold">98.4% Delivered</span>
         </div>
 
@@ -133,7 +151,7 @@ export default function CommunicationHubPage() {
 
       {/* Timeline Stream */}
       <div className="space-y-3 text-xs">
-        {filteredComms.map((c) => (
+        {filteredComms.map((c: any) => (
           <div key={c.id} className="p-4 rounded-xl border bg-card shadow-sm space-y-2">
             <div className="flex justify-between items-center border-b pb-2">
               <div className="flex items-center space-x-2">
@@ -143,9 +161,9 @@ export default function CommunicationHubPage() {
                 <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-muted text-foreground border">
                   {c.category}
                 </span>
-                <span className="font-bold text-foreground text-sm">{c.customerName}</span>
+                <span className="font-bold text-foreground text-sm">{c.customerName || c.customerId}</span>
               </div>
-              <span className="text-muted-foreground font-mono text-[11px]">{c.timestamp}</span>
+              <span className="text-muted-foreground font-mono text-[11px]">{c.timestamp || new Date(c.createdAt).toLocaleString()}</span>
             </div>
 
             <p className="text-foreground text-xs leading-relaxed">{c.messageContent}</p>
@@ -153,10 +171,10 @@ export default function CommunicationHubPage() {
             <div className="flex justify-between items-center pt-2 border-t text-[11px]">
               <div className="flex items-center space-x-2 text-muted-foreground">
                 <span>From: <strong>{c.sender}</strong></span>
-                <span>To: <strong>{c.recipient}</strong></span>
+                <span>To: <strong>{c.recipient || c.customerId}</strong></span>
               </div>
               <div className="flex items-center space-x-2 font-mono">
-                <span className="text-primary font-bold">{c.relatedEntity.type} #{c.relatedEntity.number}</span>
+                {c.relatedEntity && <span className="text-primary font-bold">{c.relatedEntity.type} #{c.relatedEntity.number}</span>}
                 <StatusBadge status={c.status} />
               </div>
             </div>

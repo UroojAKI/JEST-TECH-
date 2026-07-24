@@ -9,7 +9,8 @@ import { useSearch } from '../../hooks/useSearch';
 
 export function CommandPalette() {
   const router = useRouter();
-  const { isCommandPaletteOpen, setCommandPaletteOpen } = useUIStore();
+  const isCommandPaletteOpen = useUIStore((s) => s.isCommandPaletteOpen);
+  const setCommandPaletteOpen = useUIStore((s) => s.setCommandPaletteOpen);
   const { setActiveCustomer } = useCustomerContext();
   const [query, setQuery] = useState('');
 

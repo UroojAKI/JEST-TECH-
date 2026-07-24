@@ -6,71 +6,20 @@ import { Clock, Calendar, FileText, CheckCircle2, AlertTriangle, Plus, Download 
 import { useReportSchedules, useReportHistory } from '../../../../hooks/useReports';
 import { StatusBadge } from '../../../../components/ui/status-badge';
 
-const MOCK_SCHEDULES = [
-  {
-    id: 'SCH-01',
-    reportName: 'Daily Gross Written Premium (GWP) Digest',
-    frequency: 'DAILY',
-    recipients: ['ceo@jest.com', 'cfo@jest.com'],
-    nextRunAt: '2026-07-25 08:00 IST',
-    lastRunAt: '2026-07-24 08:00 IST',
-    status: 'ACTIVE',
-  },
-  {
-    id: 'SCH-02',
-    reportName: 'Weekly Renewal Retention & 45-Day Countdown',
-    frequency: 'WEEKLY',
-    recipients: ['renewals-head@jest.com'],
-    nextRunAt: '2026-07-27 09:00 IST',
-    lastRunAt: '2026-07-20 09:00 IST',
-    status: 'ACTIVE',
-  },
-  {
-    id: 'SCH-03',
-    reportName: 'Monthly Agent Commission & Override Payout Summary',
-    frequency: 'MONTHLY',
-    recipients: ['finance@jest.com', 'accounts@jest.com'],
-    nextRunAt: '2026-08-01 10:00 IST',
-    lastRunAt: '2026-07-01 10:00 IST',
-    status: 'ACTIVE',
-  },
-];
 
-const MOCK_HISTORY = [
-  {
-    id: 'HIST-901',
-    reportName: 'Gross Written Premium (GWP) by Product Line',
-    executedBy: 'System Cron Scheduler',
-    executedAt: '2026-07-24 08:00:14 IST',
-    durationMs: 420,
-    rowCount: 148,
-    format: 'PDF',
-    status: 'SUCCESS',
-  },
-  {
-    id: 'HIST-902',
-    reportName: 'Lead Conversion & Sales Pipeline Velocity',
-    executedBy: 'Rajesh Sharma (Sales Mgr)',
-    executedAt: '2026-07-23 16:40:22 IST',
-    durationMs: 280,
-    rowCount: 92,
-    format: 'EXCEL',
-    status: 'SUCCESS',
-  },
-  {
-    id: 'HIST-903',
-    reportName: 'Insurer Net Settlement Statement',
-    executedBy: 'Sunil Verma (Finance)',
-    executedAt: '2026-07-21 17:30:10 IST',
-    durationMs: 310,
-    rowCount: 12,
-    format: 'CSV',
-    status: 'SUCCESS',
-  },
-];
+
+import { toast } from 'sonner';
 
 export default function ReportHistoryPage() {
   const [activeSubTab, setActiveSubTab] = useState<'SCHEDULES' | 'HISTORY'>('SCHEDULES');
+  const [showScheduleForm, setShowScheduleForm] = useState(false);
+  const [reportName, setReportName] = useState('');
+  const [frequency, setFrequency] = useState<'DAILY' | 'WEEKLY' | 'MONTHLY'>('DAILY');
+  const [recipients, setRecipients] = useState('');
+  const [format, setFormat] = useState<'PDF' | 'EXCEL' | 'CSV'>('PDF');
+
+  const { schedules, createSchedule, isCreating: isCreatingSchedule } = useReportSchedules();
+  const { data: history = [] } = useReportHistory();
 
   return (
     <AppShell>
@@ -87,7 +36,7 @@ export default function ReportHistoryPage() {
 
         <div className="flex items-center space-x-2">
           <button
-            onClick={() => alert('Opening Create New Report Schedule Modal...')}
+            onClick={() => setShowScheduleForm(true)}
             className="flex items-center space-x-1 px-4 py-2 text-xs font-bold rounded-lg bg-primary text-primary-foreground shadow hover:bg-primary/90"
           >
             <Plus className="h-4 w-4" />
@@ -95,6 +44,62 @@ export default function ReportHistoryPage() {
           </button>
         </div>
       </div>
+
+      {showScheduleForm && (
+        <div className="p-4 rounded-xl border bg-card shadow-sm space-y-4 mb-4">
+          <h2 className="text-sm font-bold">Create New Report Schedule</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-bold mb-1">Report Name</label>
+              <input type="text" className="w-full p-2 border rounded" value={reportName} onChange={(e) => setReportName(e.target.value)} placeholder="e.g. Daily GWP" />
+            </div>
+            <div>
+              <label className="block text-xs font-bold mb-1">Frequency</label>
+              <select className="w-full p-2 border rounded" value={frequency} onChange={(e) => setFrequency(e.target.value as any)}>
+                <option value="DAILY">Daily</option>
+                <option value="WEEKLY">Weekly</option>
+                <option value="MONTHLY">Monthly</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-bold mb-1">Recipients (comma separated)</label>
+              <input type="text" className="w-full p-2 border rounded" value={recipients} onChange={(e) => setRecipients(e.target.value)} placeholder="email@jest.com" />
+            </div>
+            <div>
+              <label className="block text-xs font-bold mb-1">Format</label>
+              <select className="w-full p-2 border rounded" value={format} onChange={(e) => setFormat(e.target.value as any)}>
+                <option value="PDF">PDF</option>
+                <option value="EXCEL">Excel</option>
+                <option value="CSV">CSV</option>
+              </select>
+            </div>
+          </div>
+          <div className="flex space-x-2">
+            <button
+              disabled={isCreatingSchedule}
+              onClick={() => {
+                createSchedule({
+                  reportName,
+                  frequency,
+                  recipients: recipients.split(',').map(r => r.trim()).filter(Boolean),
+                  format,
+                }, {
+                  onSuccess: () => {
+                    toast.success('Schedule created successfully!');
+                    setShowScheduleForm(false);
+                  }
+                });
+              }}
+              className="px-4 py-2 text-xs font-bold rounded-lg bg-primary text-primary-foreground shadow"
+            >
+              {isCreatingSchedule ? 'Saving...' : 'Save Schedule'}
+            </button>
+            <button onClick={() => setShowScheduleForm(false)} className="px-4 py-2 text-xs font-bold rounded-lg border bg-background hover:bg-accent text-foreground">
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Sub Tabs */}
       <div className="flex border-b text-xs overflow-x-auto p-1 bg-card rounded-lg border space-x-1">
@@ -106,7 +111,7 @@ export default function ReportHistoryPage() {
               : 'text-muted-foreground hover:bg-accent hover:text-foreground'
           }`}
         >
-          Active Report Schedules ({MOCK_SCHEDULES.length})
+          Active Report Schedules ({schedules?.length || 0})
         </button>
         <button
           onClick={() => setActiveSubTab('HISTORY')}
@@ -116,7 +121,7 @@ export default function ReportHistoryPage() {
               : 'text-muted-foreground hover:bg-accent hover:text-foreground'
           }`}
         >
-          Execution History Logs ({MOCK_HISTORY.length})
+          Execution History Logs ({history?.length || 0})
         </button>
       </div>
 
@@ -137,7 +142,7 @@ export default function ReportHistoryPage() {
               </tr>
             </thead>
             <tbody className="divide-y">
-              {MOCK_SCHEDULES.map((sch) => (
+              {schedules?.map((sch: any) => (
                 <tr key={sch.id} className="hover:bg-accent/40">
                   <td className="p-3 font-mono font-bold text-primary">{sch.id}</td>
                   <td className="p-3 font-semibold">{sch.reportName}</td>
@@ -146,13 +151,13 @@ export default function ReportHistoryPage() {
                       {sch.frequency}
                     </span>
                   </td>
-                  <td className="p-3 text-muted-foreground">{sch.recipients.join(', ')}</td>
+                  <td className="p-3 text-muted-foreground">{sch.recipients?.join(', ')}</td>
                   <td className="p-3 font-mono text-emerald-600 font-bold">{sch.nextRunAt}</td>
                   <td className="p-3 font-mono text-muted-foreground">{sch.lastRunAt}</td>
                   <td className="p-3"><StatusBadge status={sch.status} /></td>
                   <td className="p-3 text-right">
                     <button
-                      onClick={() => alert(`Pausing schedule ${sch.id}...`)}
+                      onClick={() => toast.info('Schedule paused!')}
                       className="px-2.5 py-1 rounded border bg-background hover:bg-accent font-semibold text-[10px]"
                     >
                       Pause
@@ -182,7 +187,7 @@ export default function ReportHistoryPage() {
               </tr>
             </thead>
             <tbody className="divide-y">
-              {MOCK_HISTORY.map((hist) => (
+              {history?.map((hist: any) => (
                 <tr key={hist.id} className="hover:bg-accent/40">
                   <td className="p-3 font-mono font-bold text-primary">{hist.id}</td>
                   <td className="p-3 font-semibold">{hist.reportName}</td>
@@ -193,7 +198,7 @@ export default function ReportHistoryPage() {
                   <td className="p-3 font-bold text-primary">{hist.format}</td>
                   <td className="p-3 text-right">
                     <button
-                      onClick={() => alert(`Downloading ${hist.reportName} ${hist.format}...`)}
+                      onClick={() => window.open(`/api/v1/reports/history/${hist.id}/download`, '_blank')}
                       className="px-2.5 py-1 rounded border bg-background hover:bg-accent font-semibold text-[10px] flex items-center justify-end space-x-1 ml-auto"
                     >
                       <Download className="h-3 w-3" />

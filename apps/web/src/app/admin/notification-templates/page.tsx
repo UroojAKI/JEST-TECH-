@@ -2,8 +2,9 @@
 
 import React, { useState } from 'react';
 import { AppShell } from '../../../components/layout/app-shell';
-import { Mail, Save, Eye, Sparkles, MessageSquare } from 'lucide-react';
+import { Mail, Save, Eye, Sparkles, MessageSquare, Loader2 } from 'lucide-react';
 import { useNotificationTemplates } from '../../../hooks/useCommunications';
+import { toast } from 'sonner';
 
 const MOCK_TEMPLATES = [
   {
@@ -55,13 +56,23 @@ const MOCK_TEMPLATES = [
 ];
 
 export default function NotificationTemplatesPage() {
-  const [selectedTemplate, setSelectedTemplate] = useState(MOCK_TEMPLATES[0]);
-  const [editedBody, setEditedBody] = useState(MOCK_TEMPLATES[0].bodyTemplate);
+  const { templates, isLoading, updateTemplate } = useNotificationTemplates();
+  const [isUpdating, setIsUpdating] = React.useState(false);
+  const [selectedTemplate, setSelectedTemplate] = useState<any>(null);
+  const [editedBody, setEditedBody] = useState<string>('');
+
+  React.useEffect(() => {
+    if (templates && templates.length > 0 && !selectedTemplate) {
+      setSelectedTemplate(templates[0]);
+      setEditedBody(templates[0].bodyTemplate);
+    }
+  }, [templates, selectedTemplate]);
 
   const renderLivePreview = () => {
+    if (!selectedTemplate || !selectedTemplate.sampleData) return editedBody;
     let text = editedBody;
     Object.entries(selectedTemplate.sampleData).forEach(([key, val]) => {
-      text = text.replace(new RegExp(`{{${key}}}`, 'g'), val);
+      text = text.replace(new RegExp(`{{${key}}}`, 'g'), String(val));
     });
     return text;
   };
@@ -79,11 +90,17 @@ export default function NotificationTemplatesPage() {
 
         <div className="flex items-center space-x-2">
           <button
-            onClick={() => alert(`Saved template ${selectedTemplate.code}!`)}
+            onClick={async () => {
+              if (selectedTemplate) {
+                await updateTemplate({ id: selectedTemplate.id, bodyTemplate: editedBody });
+                toast.success(`Saved template ${selectedTemplate.code}!`);
+              }
+            }}
+            disabled={isUpdating}
             className="flex items-center space-x-1 px-4 py-2 text-xs font-bold rounded-lg bg-primary text-primary-foreground shadow hover:bg-primary/90"
           >
-            <Save className="h-4 w-4" />
-            <span>Save Template</span>
+            {isUpdating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+            <span>{isUpdating ? 'Saving...' : 'Save Template'}</span>
           </button>
         </div>
       </div>
@@ -93,7 +110,9 @@ export default function NotificationTemplatesPage() {
         <div className="lg:col-span-4 space-y-3">
           <h3 className="font-bold text-xs uppercase text-muted-foreground">Notification Templates</h3>
           <div className="space-y-2">
-            {MOCK_TEMPLATES.map((tmpl) => (
+            {isLoading ? (
+              <div className="text-muted-foreground animate-pulse">Loading templates...</div>
+            ) : templates?.map((tmpl: any) => (
               <div
                 key={tmpl.id}
                 onClick={() => {
@@ -101,7 +120,7 @@ export default function NotificationTemplatesPage() {
                   setEditedBody(tmpl.bodyTemplate);
                 }}
                 className={`p-3.5 rounded-xl border cursor-pointer transition-all shadow-sm ${
-                  selectedTemplate.id === tmpl.id
+                  selectedTemplate?.id === tmpl.id
                     ? 'bg-primary/10 border-primary font-bold text-primary'
                     : 'bg-card hover:bg-accent'
                 }`}
@@ -121,17 +140,16 @@ export default function NotificationTemplatesPage() {
           {/* Template Editor */}
           <div className="p-4 rounded-xl border bg-card shadow-sm space-y-3">
             <div className="flex justify-between items-center border-b pb-2">
-              <h3 className="font-bold text-sm text-foreground">Edit Template: {selectedTemplate.name}</h3>
+              <h3 className="font-bold text-sm text-foreground">Edit Template: {selectedTemplate?.name || 'Select a template'}</h3>
               <span className="text-[10px] font-bold text-primary bg-primary/10 px-2 py-0.5 rounded border border-primary/20">
-                {selectedTemplate.channel}
+                {selectedTemplate?.channel || 'N/A'}
               </span>
             </div>
 
-            {/* Merge Variable Buttons */}
             <div className="space-y-1">
               <span className="text-[10px] font-bold text-muted-foreground uppercase">Insert Merge Variables:</span>
               <div className="flex flex-wrap gap-1.5 pt-1">
-                {Object.keys(selectedTemplate.sampleData).map((varKey) => (
+                {selectedTemplate?.sampleData && Object.keys(selectedTemplate.sampleData).map((varKey) => (
                   <button
                     key={varKey}
                     onClick={() => setEditedBody(editedBody + ` {{${varKey}}}`)}

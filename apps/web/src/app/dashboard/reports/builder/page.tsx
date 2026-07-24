@@ -1,6 +1,9 @@
 'use client';
 
 import React, { useState } from 'react';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { reportsRepository } from '../../../../repositories/reports.repository';
+import { toast } from 'sonner';
 import { AppShell } from '../../../../components/layout/app-shell';
 import {
   Wand2,
@@ -117,6 +120,17 @@ export default function VisualReportBuilderPage() {
   ]);
   const [isPreviewExecuted, setIsPreviewExecuted] = useState<boolean>(true);
 
+  const queryClient = useQueryClient();
+
+  const { mutate: saveReport, isPending: isSaving } = useMutation({
+    mutationFn: (data: any) => reportsRepository.createReport(data),
+    onSuccess: () => {
+      toast.success(`Report "${reportTitle}" saved successfully!`);
+      queryClient.invalidateQueries({ queryKey: ['reports'] });
+    },
+    onError: () => toast.error('Failed to save report')
+  });
+
   const dataset = DATASETS.find((d) => d.key === selectedDatasetKey) || DATASETS[0];
 
   const handleToggleColumn = (colKey: string) => {
@@ -161,11 +175,23 @@ export default function VisualReportBuilderPage() {
             <span>Run Preview</span>
           </button>
           <button
-            onClick={() => alert(`Report "${reportTitle}" saved successfully!`)}
+            disabled={isSaving}
+            onClick={() => {
+              saveReport({
+                name: reportTitle,
+                category: dataset.category.toUpperCase() as any,
+                module: dataset.key,
+                providerKey: dataset.key,
+                isSystem: false,
+                status: 'ACTIVE',
+                columns: activeColumns,
+                description: 'Custom report created from builder',
+              });
+            }}
             className="flex items-center space-x-1 px-4 py-2 text-xs font-bold rounded-lg bg-primary text-primary-foreground shadow hover:bg-primary/90"
           >
             <Save className="h-3.5 w-3.5" />
-            <span>Save Report Template</span>
+            <span>{isSaving ? 'Saving...' : 'Save Report Template'}</span>
           </button>
         </div>
       </div>

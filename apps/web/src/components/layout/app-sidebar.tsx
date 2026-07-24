@@ -37,7 +37,7 @@ const ICON_MAP: Record<string, React.ReactNode> = {
 export function AppSidebar() {
   const pathname = usePathname();
   const { canAccess } = usePermissions();
-  const { isSidebarOpen } = useUIStore();
+  const isSidebarOpen = useUIStore((s) => s.isSidebarOpen);
   const [openChildren, setOpenChildren] = useState<Record<string, boolean>>({
     crm: true,
     sales: true,

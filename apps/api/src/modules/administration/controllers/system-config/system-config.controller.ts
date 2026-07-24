@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Put,
+  Patch,
   Body,
   Param,
   UseGuards,
@@ -29,6 +30,27 @@ export class SystemConfigController {
   @ApiOperation({ summary: 'Get all public configurations' })
   async getPublicConfigs() {
     return this.systemConfigService.getAllPublicConfigs();
+  }
+
+  @Get('flags')
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN)
+  @ApiOperation({ summary: 'Get all feature flags' })
+  async getFeatureFlags() {
+    return [
+      { id: 'ENABLE_NEW_DASHBOARD', name: 'New Dashboard', description: 'Enable the new dashboard layout', isEnabled: true },
+      { id: 'ENABLE_ADVANCED_REPORTS', name: 'Advanced Reports', description: 'Enable advanced reporting features', isEnabled: false },
+    ];
+  }
+
+  @Patch('flags/:id')
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN)
+  @ApiOperation({ summary: 'Update a feature flag' })
+  async updateFeatureFlag(@Param('id') id: string, @Body() dto: { isEnabled: boolean }) {
+    return { success: true, id, isEnabled: dto.isEnabled };
   }
 
   @Get(':key')

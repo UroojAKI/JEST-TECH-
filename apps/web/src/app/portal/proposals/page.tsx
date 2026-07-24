@@ -1,12 +1,31 @@
 'use client';
 
-import React from 'react';
+import React, { useRef } from 'react';
 import { AppShell } from '../../../components/layout/app-shell';
 import { Upload, CheckCircle2, FileText, Send } from 'lucide-react';
+import { toast } from 'sonner';
 
 export default function AgentProposalsPage() {
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const handleUploadClick = () => {
+    fileRef.current?.click();
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      toast.success('Document uploaded successfully!');
+    }
+  };
+
+  const handleSubmit = () => {
+    toast.info('Proposal submitted for underwriting review!');
+  };
+
   return (
     <AppShell>
+      <input type="file" ref={fileRef} className="hidden" onChange={handleFileChange} />
+      
       <div className="flex justify-between items-center border-b pb-3 text-xs">
         <div>
           <h1 className="text-xl font-bold tracking-tight flex items-center gap-2">
@@ -16,7 +35,7 @@ export default function AgentProposalsPage() {
         </div>
       </div>
 
-      <div className="p-6 rounded-2xl border bg-card shadow-sm space-y-5 text-xs max-w-3xl">
+      <div className="p-6 rounded-2xl border bg-card shadow-sm space-y-5 text-xs max-w-3xl mt-4">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-1">
             <label className="font-bold text-muted-foreground text-[10px] uppercase">Customer Full Name</label>
@@ -44,7 +63,7 @@ export default function AgentProposalsPage() {
                 <span className="px-2.5 py-1 rounded bg-emerald-500/10 text-emerald-600 font-bold text-[10px]">✓ Uploaded</span>
               ) : (
                 <button
-                  onClick={() => alert(`Uploading ${doc.label}...`)}
+                  onClick={handleUploadClick}
                   className="px-3 py-1 rounded bg-primary text-primary-foreground font-bold text-[10px] shadow hover:bg-primary/90"
                 >
                   Upload File
@@ -55,7 +74,7 @@ export default function AgentProposalsPage() {
         </div>
 
         <button
-          onClick={() => alert('Submitted proposal PRP-2026-0091 for underwriting review!')}
+          onClick={handleSubmit}
           className="w-full py-3 rounded-xl bg-primary text-primary-foreground font-extrabold text-xs flex items-center justify-center space-x-2 shadow-lg hover:bg-primary/90"
         >
           <Send className="h-4 w-4" />

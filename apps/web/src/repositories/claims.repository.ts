@@ -30,7 +30,21 @@ export const claimsRepository = {
   },
 
   async updateClaimStatus(id: string, status: string, approvedAmount?: number): Promise<Claim> {
-    const response = await apiClient.patch(`/claims/${id}/status`, { status, approvedAmount });
+    let response;
+    if (status === 'UNDER_REVIEW') {
+      response = await apiClient.post(`/claims/${id}/assign-surveyor`, { surveyorId: 'default' });
+    } else if (status === 'APPROVED') {
+      if (approvedAmount !== undefined) {
+        await apiClient.post(`/claims/${id}/assess`, { assessmentAmount: approvedAmount, assessmentNotes: 'Auto assessed' });
+      }
+      response = await apiClient.post(`/claims/${id}/approve`, { approve: true, comments: 'Approved' });
+    } else if (status === 'REJECTED') {
+      response = await apiClient.post(`/claims/${id}/approve`, { approve: false, comments: 'Rejected' });
+    } else if (status === 'PAID') {
+      response = await apiClient.post(`/claims/${id}/pay`, { amount: approvedAmount || 0, paymentReference: 'CRM', paymentNotes: 'Paid' });
+    } else {
+      throw new Error('Unsupported status mapping');
+    }
     return response.data;
   },
 };

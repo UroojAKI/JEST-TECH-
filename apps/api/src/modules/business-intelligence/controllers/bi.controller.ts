@@ -31,42 +31,50 @@ export class BiController {
   ) {}
 
   @Get('conversion')
+  @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN)
   getConversion() {
     return this.biService.getConversionMetrics();
   }
 
   @Get('revenue')
+  @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN)
   getRevenue() {
     return this.biService.getRevenueMetrics();
   }
 
   @Get('loss-ratio')
+  @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN)
   getLossRatio() {
     return this.biService.getLossRatioMetrics();
   }
 
   @Get('renewal')
+  @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN)
   getRenewal() {
     return this.biService.getRenewalMetrics();
   }
 
   @Get('sales')
+  @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN)
   getSales() {
     return this.biService.getSalesMetrics();
   }
 
   @Get('growth')
+  @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN)
   getGrowth() {
     return this.biService.getGrowthMetrics();
   }
 
   @Get('kpi')
+  @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN)
   getKpiValues() {
     return this.biService.getKpiValues();
   }
 
   // KPI Management
   @Get('kpi/definitions')
+  @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN)
   listKpiDefinitions() {
     return this.kpiService.listKpis();
   }

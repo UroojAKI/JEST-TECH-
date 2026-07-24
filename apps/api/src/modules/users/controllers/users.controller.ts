@@ -1,5 +1,5 @@
 import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
-import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiTags, ApiOperation } from '@nestjs/swagger';
 import { RoleType } from '@prisma/client';
 
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
@@ -20,6 +20,21 @@ export class UsersController {
   @Post()
   create(@Body() dto: CreateUserDto) {
     return this.usersService.create(dto);
+  }
+
+  @Get('roles')
+  @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN)
+  @ApiOperation({ summary: 'Get all available system roles' })
+  async getAvailableRoles() {
+    return [
+      { id: 'SUPER_ADMIN', name: 'Super Administrator', description: 'Full system access' },
+      { id: 'ADMIN', name: 'Administrator', description: 'Branch and user management' },
+      { id: 'BRANCH_MANAGER', name: 'Branch Manager', description: 'Branch operations oversight' },
+      { id: 'UNDERWRITER', name: 'Underwriter', description: 'Policy underwriting and approval' },
+      { id: 'SALES_AGENT', name: 'Sales Agent', description: 'Lead and policy sales' },
+      { id: 'FINANCE', name: 'Finance Officer', description: 'Financial operations' },
+      { id: 'CLAIMS_OFFICER', name: 'Claims Officer', description: 'Claims processing and settlement' },
+    ];
   }
 
   @Get()

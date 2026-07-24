@@ -40,7 +40,8 @@ const MOCK_NOTIFICATIONS: NotificationItem[] = [
 ];
 
 export function NotificationDrawer() {
-  const { isNotificationDrawerOpen, setNotificationDrawerOpen } = useUIStore();
+  const isNotificationDrawerOpen = useUIStore((s) => s.isNotificationDrawerOpen);
+  const setNotificationDrawerOpen = useUIStore((s) => s.setNotificationDrawerOpen);
   const [activeTab, setActiveTab] = useState<string>('ALL');
 
   if (!isNotificationDrawerOpen) return null;

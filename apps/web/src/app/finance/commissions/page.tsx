@@ -5,9 +5,36 @@ import { AppShell } from '../../../components/layout/app-shell';
 import { Award, CheckCircle2, Shield } from 'lucide-react';
 import { useCommissions } from '../../../hooks/useFinance';
 import { StatusBadge } from '../../../components/ui/status-badge';
+import { toast } from 'sonner';
 
 export default function CommissionsWorkspacePage() {
-  const { commissions = [], approveCommission } = useCommissions();
+  const { commissions = [], approveCommission, isLoading, isError, isApproving } = useCommissions();
+
+  const handleBulkApprove = () => {
+    const pendingCommissions = commissions.filter((c: any) => c.payoutStatus === 'PENDING_APPROVAL');
+    if (pendingCommissions.length === 0) {
+      toast.info('No pending commissions to approve.');
+      return;
+    }
+    pendingCommissions.forEach((c: any) => approveCommission(c.id));
+    toast.success(`Bulk approval started for ${pendingCommissions.length} commissions.`);
+  };
+
+  if (isLoading) {
+    return (
+      <AppShell>
+        <div className="p-8 text-center text-muted-foreground animate-pulse">Loading commissions...</div>
+      </AppShell>
+    );
+  }
+
+  if (isError) {
+    return (
+      <AppShell>
+        <div className="p-8 text-center text-destructive">Error loading commissions. Please try again.</div>
+      </AppShell>
+    );
+  }
 
   return (
     <AppShell>
@@ -21,16 +48,17 @@ export default function CommissionsWorkspacePage() {
 
         <div className="flex items-center space-x-2">
           <button
-            onClick={() => alert('Processing bulk commission approvals...')}
-            className="flex items-center space-x-1 px-4 py-2 text-xs font-bold rounded-lg bg-emerald-600 text-white shadow hover:bg-emerald-700"
+            onClick={handleBulkApprove}
+            disabled={isApproving}
+            className="flex items-center space-x-1 px-4 py-2 text-xs font-bold rounded-lg bg-emerald-600 text-white shadow hover:bg-emerald-700 disabled:opacity-50"
           >
             <CheckCircle2 className="h-4 w-4" />
-            <span>✓ Bulk Approve Payouts</span>
+            <span>{isApproving ? 'Approving...' : '✓ Bulk Approve Payouts'}</span>
           </button>
         </div>
       </div>
 
-      <div className="border rounded-xl overflow-hidden bg-card text-xs">
+      <div className="border rounded-xl overflow-hidden bg-card text-xs mt-4">
         <table className="w-full text-left border-collapse">
           <thead>
             <tr className="bg-muted/40 text-[10px] text-muted-foreground font-bold border-b uppercase">
@@ -46,36 +74,45 @@ export default function CommissionsWorkspacePage() {
             </tr>
           </thead>
           <tbody className="divide-y">
-            {commissions.map((c) => (
-              <tr key={c.id} className="hover:bg-accent/40">
-                <td className="p-3 font-mono font-bold text-primary">{c.policyNumber}</td>
-                <td className="p-3 font-semibold">{c.agentName}</td>
-                <td className="p-3 font-bold">
-                  <span className="px-2 py-0.5 rounded bg-muted text-foreground border text-[10px]">
-                    {c.roleTier}
-                  </span>
-                </td>
-                <td className="p-3 font-mono">₹{c.grossPremium.toLocaleString('en-IN')}</td>
-                <td className="p-3 font-bold text-primary">{c.commissionPercent}%</td>
-                <td className="p-3 font-extrabold text-emerald-600 font-mono">
-                  ₹{c.commissionAmount.toLocaleString('en-IN')}
-                </td>
-                <td className="p-3"><StatusBadge status={c.status} /></td>
-                <td className="p-3"><StatusBadge status={c.payoutStatus} /></td>
-                <td className="p-3 text-right">
-                  {c.payoutStatus === 'PENDING_APPROVAL' ? (
-                    <button
-                      onClick={() => approveCommission(c.id)}
-                      className="px-3 py-1.5 rounded bg-emerald-600 text-white font-bold text-[10px] hover:bg-emerald-700 shadow"
-                    >
-                      Approve Payout
-                    </button>
-                  ) : (
-                    <span className="text-emerald-600 font-bold text-[10px]">✓ Disbursed</span>
-                  )}
+            {commissions.length === 0 ? (
+              <tr>
+                <td colSpan={9} className="p-8 text-center text-muted-foreground">
+                  No commissions found.
                 </td>
               </tr>
-            ))}
+            ) : (
+              commissions.map((c: any) => (
+                <tr key={c.id} className="hover:bg-accent/40">
+                  <td className="p-3 font-mono font-bold text-primary">{c.policyNumber}</td>
+                  <td className="p-3 font-semibold">{c.agentName}</td>
+                  <td className="p-3 font-bold">
+                    <span className="px-2 py-0.5 rounded bg-muted text-foreground border text-[10px]">
+                      {c.roleTier}
+                    </span>
+                  </td>
+                  <td className="p-3 font-mono">₹{c.grossPremium?.toLocaleString('en-IN') || 0}</td>
+                  <td className="p-3 font-bold text-primary">{c.commissionPercent}%</td>
+                  <td className="p-3 font-extrabold text-emerald-600 font-mono">
+                    ₹{c.commissionAmount?.toLocaleString('en-IN') || 0}
+                  </td>
+                  <td className="p-3"><StatusBadge status={c.status} /></td>
+                  <td className="p-3"><StatusBadge status={c.payoutStatus} /></td>
+                  <td className="p-3 text-right">
+                    {c.payoutStatus === 'PENDING_APPROVAL' ? (
+                      <button
+                        onClick={() => approveCommission(c.id)}
+                        disabled={isApproving}
+                        className="px-3 py-1.5 rounded bg-emerald-600 text-white font-bold text-[10px] hover:bg-emerald-700 shadow disabled:opacity-50"
+                      >
+                        Approve Payout
+                      </button>
+                    ) : (
+                      <span className="text-emerald-600 font-bold text-[10px]">✓ Disbursed</span>
+                    )}
+                  </td>
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
       </div>
