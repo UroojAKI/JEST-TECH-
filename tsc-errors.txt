@@ -1,7 +1,0 @@
-﻿error TS2688: Cannot find type definition file for 'uuid'.
-  The file is in the program because:
-    Entry point for implicit type library 'uuid'
-error TS5103: Invalid value for '--ignoreDeprecations'.
-undefined
-E:\JEST TECH\JEST POLICY\jest-policy-crm\apps\api:
-ΓÇëERR_PNPM_RECURSIVE_EXEC_FIRST_FAILΓÇë Command failed with exit code 1: tsc -p tsconfig.build.json --noEmit

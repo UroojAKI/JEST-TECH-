@@ -107,6 +107,25 @@ export class AuthService {
       throw new UnauthorizedException('User no longer exists');
     }
 
+    // Verify token against stored database hashes to ensure it hasn't been revoked
+    const activeTokens = await this.usersService.findActiveRefreshTokens(user.id);
+    let matchedTokenId: string | null = null;
+
+    for (const record of activeTokens) {
+      const isMatch = await argon2.verify(record.tokenHash, refreshToken);
+      if (isMatch) {
+        matchedTokenId = record.id;
+        break;
+      }
+    }
+
+    if (!matchedTokenId) {
+      throw new UnauthorizedException('Refresh token has been revoked or is invalid');
+    }
+
+    // Revoke the old token (rotation)
+    await this.usersService.revokeRefreshToken(matchedTokenId);
+
     const permissions = user.role.permissions
       ? user.role.permissions.map((p) => p.permission.code)
       : [];
@@ -140,6 +159,13 @@ export class AuthService {
       expiresIn: this.config.get<string>('jwt.expiresIn'),
     };
   }
+
+  async logout(userId: string): Promise<void> {
+    if (userId) {
+      await this.usersService.revokeAllUserRefreshTokens(userId);
+    }
+  }
+
 
   // ---------------------------------------------------------------------------
   // Parses duration strings like "15m", "30d", "1h" into a future Date.

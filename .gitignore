@@ -20,8 +20,11 @@ dist/
 .env.*.local
 .env.*
 
-# Logs
+# Logs and debug output files
 *.log
+*-output.txt
+*-errors.txt
+
 
 # Coverage
 coverage/

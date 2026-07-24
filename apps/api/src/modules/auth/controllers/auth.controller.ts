@@ -75,9 +75,17 @@ export class AuthController {
   }
 
   @Post('logout')
-  logout(@Res({ passthrough: true }) res: Response) {
+  async logout(
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const user = (req as any).user;
+    if (user?.id) {
+      await this.authService.logout(user.id);
+    }
     res.clearCookie('access_token');
     res.clearCookie('refresh_token');
     return { success: true };
   }
 }
+

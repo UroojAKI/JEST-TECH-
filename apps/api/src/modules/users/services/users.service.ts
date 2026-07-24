@@ -83,6 +83,19 @@ export class UsersService {
     return this.userRepository.storeRefreshToken(data);
   }
 
+  async findActiveRefreshTokens(userId: string) {
+    return this.userRepository.findActiveRefreshTokens(userId);
+  }
+
+  async revokeRefreshToken(tokenId: string): Promise<void> {
+    return this.userRepository.revokeRefreshToken(tokenId);
+  }
+
+  async revokeAllUserRefreshTokens(userId: string): Promise<void> {
+    return this.userRepository.revokeAllUserRefreshTokens(userId);
+  }
+
+
   /**
    * FOR AUTHENTICATION USE ONLY.
    * Writes an audit log entry for the given action.
