@@ -2,9 +2,14 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import helmet from 'helmet';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
+import cookieParser from 'cookie-parser';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+
+  // 0. Cookie Parser — MUST be registered before any route handlers
+  //    so req.cookies is populated for the JWT cookieExtractor strategy.
+  app.use(cookieParser());
 
   // 1. Security Headers
   app.use(helmet());

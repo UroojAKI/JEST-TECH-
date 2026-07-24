@@ -14,8 +14,16 @@ export function useAuth() {
   const loginMutation = useMutation({
     mutationFn: authRepository.login,
     onSuccess: (data) => {
-      setUser(data.user);
-      toast.success(`Welcome back, ${data.user.firstName}!`);
+      // Normalize API response: API returns `role` (string), but UserSession expects
+      // `roles` (array) and `permissions` (array). Map them here.
+      const rawUser = data.user as any;
+      const normalizedUser = {
+        ...rawUser,
+        roles: rawUser.roles ?? (rawUser.role ? [rawUser.role] : []),
+        permissions: rawUser.permissions ?? [],
+      };
+      setUser(normalizedUser);
+      toast.success(`Welcome back, ${normalizedUser.firstName}!`);
       router.push('/dashboard');
     },
     onError: (error: any) => {

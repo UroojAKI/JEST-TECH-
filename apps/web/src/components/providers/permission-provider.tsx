@@ -26,20 +26,24 @@ export function PermissionProvider({ children }: { children: React.ReactNode }) 
 
   const hasRole = (roles: RoleType | RoleType[]): boolean => {
     if (!user) return false;
+    const userRoles: string[] = user.roles ?? [];
     const requiredRoles = Array.isArray(roles) ? roles : [roles];
-    return requiredRoles.some((r) => user.roles.includes(r));
+    return requiredRoles.some((r) => userRoles.includes(r));
   };
 
   const hasPermission = (permissions: Permission | Permission[]): boolean => {
     if (!user) return false;
+    const userRoles: string[] = user.roles ?? [];
+    const userPermissions: string[] = user.permissions ?? [];
     // SUPER_ADMIN has global permissions
-    if (user.roles.includes('SUPER_ADMIN')) return true;
+    if (userRoles.includes('SUPER_ADMIN')) return true;
     const requiredPermissions = Array.isArray(permissions) ? permissions : [permissions];
-    return requiredPermissions.some((p) => user.permissions.includes(p));
+    return requiredPermissions.some((p) => userPermissions.includes(p));
   };
 
   const canAccess = (check: AuthorizationCheck): boolean => {
     if (!user) return false;
+    const userRoles: string[] = user.roles ?? [];
 
     // 1. Role check
     if (check.roles && check.roles.length > 0 && !hasRole(check.roles)) {
@@ -53,19 +57,19 @@ export function PermissionProvider({ children }: { children: React.ReactNode }) 
 
     // 3. Organizational Scoping check (Branch, Department, Team)
     if (check.branchId && user.branchId && check.branchId !== user.branchId) {
-      if (!user.roles.includes('SUPER_ADMIN') && !user.roles.includes('ADMIN')) {
+      if (!userRoles.includes('SUPER_ADMIN') && !userRoles.includes('ADMIN')) {
         return false;
       }
     }
 
     if (check.departmentId && user.departmentId && check.departmentId !== user.departmentId) {
-      if (!user.roles.includes('SUPER_ADMIN') && !user.roles.includes('ADMIN')) {
+      if (!userRoles.includes('SUPER_ADMIN') && !userRoles.includes('ADMIN')) {
         return false;
       }
     }
 
     if (check.teamId && user.teamId && check.teamId !== user.teamId) {
-      if (!user.roles.includes('SUPER_ADMIN') && !user.roles.includes('ADMIN')) {
+      if (!userRoles.includes('SUPER_ADMIN') && !userRoles.includes('ADMIN')) {
         return false;
       }
     }
