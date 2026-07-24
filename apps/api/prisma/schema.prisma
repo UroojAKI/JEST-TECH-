@@ -896,7 +896,7 @@ model PolicyNominee {
 model PolicyRenewal {
   id             String    @id @default(uuid())
   policyId       String
-  policy         Policy    @relation(fields: [policyId], references: [id], onDelete: Cascade)
+  policy         Policy    @relation(fields: [policyId], references: [id], onDelete: Restrict)
   renewalNumber  Int
   previousExpiry DateTime
   newExpiry      DateTime
@@ -911,7 +911,7 @@ model PolicyRenewal {
 model PolicyPayment {
   id            String        @id @default(uuid())
   policyId      String
-  policy        Policy        @relation(fields: [policyId], references: [id], onDelete: Cascade)
+  policy        Policy        @relation(fields: [policyId], references: [id], onDelete: Restrict)
   amount        Decimal
   paymentDate   DateTime      @default(now())
   transactionId String        @unique
@@ -1042,7 +1042,7 @@ model ClaimDocument {
 model ClaimAssessment {
   id             String    @id @default(uuid())
   claimId        String
-  claim          Claim     @relation(fields: [claimId], references: [id], onDelete: Cascade)
+  claim          Claim     @relation(fields: [claimId], references: [id], onDelete: Restrict)
   assessorId     String?
   assessor       User?     @relation("ClaimAssessor", fields: [assessorId], references: [id], onDelete: SetNull)
   assessmentDate DateTime  @default(now())
@@ -1060,11 +1060,11 @@ model ClaimAssessment {
 model ClaimPayment {
   id             String        @id @default(uuid())
   claimId        String
-  claim          Claim         @relation(fields: [claimId], references: [id], onDelete: Cascade)
+  claim          Claim         @relation(fields: [claimId], references: [id], onDelete: Restrict)
   amount         Decimal
   paymentDate    DateTime      @default(now())
   transactionId  String        @unique
-  paymentMethod  String
+  paymentMethod String
   status         PaymentStatus @default(PENDING)
   recipientDetails String
   
@@ -1077,7 +1077,7 @@ model ClaimPayment {
 model ClaimReserve {
   id           String      @id @default(uuid())
   claimId      String
-  claim        Claim       @relation(fields: [claimId], references: [id], onDelete: Cascade)
+  claim        Claim       @relation(fields: [claimId], references: [id], onDelete: Restrict)
   amount       Decimal
   type         ReserveType @default(INITIAL)
   comments     String?

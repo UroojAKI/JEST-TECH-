@@ -13,14 +13,16 @@ export default function ProtectedRoute({ children, allowedRoles }: ProtectedRout
   const router = useRouter();
   const { isAuthenticated, user, _hasHydrated } = useAuthStore();
 
+  const hasAllowedRole = !allowedRoles || (user && user.roles && allowedRoles.some((r) => user.roles.includes(r as any)));
+
   useEffect(() => {
     if (!_hasHydrated) return;
     if (!isAuthenticated) {
       router.push('/login');
-    } else if (allowedRoles && user && !allowedRoles.includes(user.role)) {
+    } else if (!hasAllowedRole) {
       router.push('/unauthorized');
     }
-  }, [isAuthenticated, user, allowedRoles, router, _hasHydrated]);
+  }, [isAuthenticated, user, allowedRoles, router, _hasHydrated, hasAllowedRole]);
 
   if (!_hasHydrated) {
     return (
@@ -44,9 +46,10 @@ export default function ProtectedRoute({ children, allowedRoles }: ProtectedRout
     );
   }
 
-  if (allowedRoles && user && !allowedRoles.includes(user.role)) {
+  if (!hasAllowedRole) {
     return null;
   }
+
 
   return <>{children}</>;
 }

@@ -408,7 +408,7 @@ export default function ProposalsPage() {
                 )}
 
                 {/* Underwriter Approval Decisions */}
-                {details.status === 'SUBMITTED' && (user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN') && (
+                {details.status === 'SUBMITTED' && (user?.roles?.includes('ADMIN') || user?.roles?.includes('SUPER_ADMIN')) && (
                   <div className="glass p-6 rounded-xl border border-slate-900 space-y-4">
                     <h3 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-2">
                       <UserCheck className="h-4 w-4 text-indigo-400" /> Underwriting Assessment
@@ -438,7 +438,8 @@ export default function ProposalsPage() {
                 )}
 
                 {/* Review locked for non-admins */}
-                {details.status === 'SUBMITTED' && !(user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN') && (
+                {details.status === 'SUBMITTED' && !(user?.roles?.includes('ADMIN') || user?.roles?.includes('SUPER_ADMIN')) && (
+
                   <div className="glass p-6 rounded-xl border border-slate-900 text-center py-8">
                     <Lock className="h-6 w-6 text-slate-600 mx-auto mb-2" />
                     <p className="text-xs font-bold text-slate-400">Review Pending</p>

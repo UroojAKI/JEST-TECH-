@@ -268,7 +268,8 @@ export default function EndorsementsPage() {
                 </div>
 
                 {/* Manager Actions */}
-                {details.status === 'REQUESTED' && (user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN') && (
+                {details.status === 'REQUESTED' && (user?.roles?.includes('ADMIN') || user?.roles?.includes('SUPER_ADMIN')) && (
+
                   <div className="border-t border-slate-900 pt-4 space-y-3">
                     <h4 className="text-[10px] font-bold text-white uppercase">Approve & Regenerate Schedule</h4>
                     <textarea
@@ -288,7 +289,8 @@ export default function EndorsementsPage() {
                 )}
 
                 {/* Review status locked */}
-                {details.status === 'REQUESTED' && !(user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN') && (
+                {details.status === 'REQUESTED' && !(user?.roles?.includes('ADMIN') || user?.roles?.includes('SUPER_ADMIN')) && (
+
                   <div className="border-t border-slate-900 pt-4 text-center py-6">
                     <Lock className="h-5 w-5 text-slate-600 mx-auto mb-2" />
                     <p className="text-[10px] text-slate-500">Waiting for manager approval and version update.</p>

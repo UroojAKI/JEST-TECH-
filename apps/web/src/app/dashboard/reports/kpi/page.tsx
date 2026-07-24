@@ -51,7 +51,8 @@ const METRIC_REGISTRY = [
 export default function KpiManagerPage() {
   const { user } = useAuthStore();
   const queryClient = useQueryClient();
-  const isAdmin = user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN';
+  const isAdmin = Boolean(user?.roles?.includes('ADMIN') || user?.roles?.includes('SUPER_ADMIN'));
+
 
   const [showCreate, setShowCreate] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);

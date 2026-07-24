@@ -82,9 +82,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     { label: 'History', icon: History, href: '/dashboard/reports/history' },
   ];
 
-  if (user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN') {
+  if (user?.roles?.includes('ADMIN') || user?.roles?.includes('SUPER_ADMIN')) {
     navItems.push({ label: 'Admin Settings', icon: Settings, href: '/dashboard/admin' });
   }
+
 
   return (
     <ProtectedRoute>
@@ -144,7 +145,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     {user?.firstName} {user?.lastName}
                   </p>
                   <p className="text-[10px] text-slate-500 uppercase tracking-wider">
-                    {user?.role?.replace('_', ' ') || 'User'}
+                    {user?.roles?.[0]?.replace('_', ' ') || 'User'}
                   </p>
                 </div>
               )}
@@ -173,7 +174,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 <Menu className="h-6 w-6" />
               </button>
               <h2 className="text-lg font-bold text-white tracking-tight hidden sm:block">
-                {user?.role ? `${user.role.replace('_', ' ')} Portal` : 'Dashboard'}
+                {user?.roles?.[0] ? `${user.roles[0].replace('_', ' ')} Portal` : 'Dashboard'}
               </h2>
 
               {/* Search Bar */}
