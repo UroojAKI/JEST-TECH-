@@ -31,4 +31,15 @@ export class UsersController {
   findOne(@Param('id') id: string) {
     return this.usersService.findById(id);
   }
+
+  @Post(':id/lock')
+  lock(@Param('id') id: string) {
+    return this.usersService.lockUser(id);
+  }
+
+  @Post(':id/unlock')
+  unlock(@Param('id') id: string) {
+    return this.usersService.unlockUser(id);
+  }
 }
+

@@ -282,4 +282,21 @@ export class FinanceController {
       },
     ];
   }
+
+  @Get('vouchers/:id')
+  @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN, RoleType.FINANCE, RoleType.BRANCH_MANAGER)
+  @ApiOperation({ summary: 'Get voucher details by ID' })
+  async getVoucher(@Param('id') id: string) {
+    return {
+      id,
+      voucherNumber: id,
+      date: new Date().toISOString().split('T')[0],
+      type: 'PAYMENT_VOUCHER',
+      status: 'APPROVED',
+      amount: 45000,
+      payee: 'System Partner',
+      narration: `Voucher reference details for ${id}`,
+    };
+  }
 }
+

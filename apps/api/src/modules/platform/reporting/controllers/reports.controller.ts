@@ -128,7 +128,26 @@ export class ReportsController {
     return this.queries.handleGetReport(query);
   }
 
-  // --- Execute & Preview ---
+  @Get(':id/export')
+  @RequirePermissions('REPORT_EXECUTE')
+  async exportReport(
+    @Param('id') id: string,
+    @Query('format') format: string,
+    @CurrentUser() user: RequestUser,
+    @Res() res: express.Response,
+  ) {
+    const fmt = (format as 'pdf' | 'excel' | 'csv') || 'pdf';
+    const command = new ExecuteReportCommand(id, {}, user.id);
+    const result = await this.commands.handleExecuteReport(command, fmt);
+
+
+    res.setHeader('Content-Type', result.mimeType);
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="${result.filename}"`,
+    );
+    res.send(result.buffer);
+  }
 
   @Post(':id/execute')
   @RequirePermissions('REPORT_EXECUTE')
@@ -138,6 +157,7 @@ export class ReportsController {
     @CurrentUser() user: RequestUser,
     @Res() res: express.Response,
   ) {
+
     const format = dto.format || 'csv';
 
     if (dto.stream && format === 'csv') {

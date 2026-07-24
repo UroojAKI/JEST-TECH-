@@ -93,6 +93,25 @@ export class UserRepository {
     });
   }
 
+  async updateStatus(id: string, status: any): Promise<UserWithRole> {
+    return this.prisma.user.update({
+      where: { id },
+      data: { status },
+      include: {
+        role: {
+          include: {
+            permissions: {
+              include: {
+                permission: true,
+              },
+            },
+          },
+        },
+      },
+    });
+  }
+
+
   async findByEmail(email: string): Promise<UserWithRole | null> {
     return this.prisma.user.findUnique({
       where: { email },

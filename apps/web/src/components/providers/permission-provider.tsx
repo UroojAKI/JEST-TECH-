@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext } from 'react';
+import React, { createContext, useContext, useCallback, useMemo } from 'react';
 import { useAuthStore } from '../../store/auth-store';
 import { RoleType, Permission } from '../../types';
 
@@ -24,65 +24,76 @@ const PermissionContext = createContext<PermissionContextType | null>(null);
 export function PermissionProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuthStore();
 
-  const hasRole = (roles: RoleType | RoleType[]): boolean => {
-    if (!user) return false;
-    const userRoles: string[] = user.roles ?? [];
-    const requiredRoles = Array.isArray(roles) ? roles : [roles];
-    return requiredRoles.some((r) => userRoles.includes(r));
-  };
+  const hasRole = useCallback(
+    (roles: RoleType | RoleType[]): boolean => {
+      if (!user) return false;
+      const userRoles: string[] = user.roles ?? [];
+      const requiredRoles = Array.isArray(roles) ? roles : [roles];
+      return requiredRoles.some((r) => userRoles.includes(r));
+    },
+    [user]
+  );
 
-  const hasPermission = (permissions: Permission | Permission[]): boolean => {
-    if (!user) return false;
-    const userRoles: string[] = user.roles ?? [];
-    const userPermissions: string[] = user.permissions ?? [];
-    // SUPER_ADMIN has global permissions
-    if (userRoles.includes('SUPER_ADMIN')) return true;
-    const requiredPermissions = Array.isArray(permissions) ? permissions : [permissions];
-    return requiredPermissions.some((p) => userPermissions.includes(p));
-  };
+  const hasPermission = useCallback(
+    (permissions: Permission | Permission[]): boolean => {
+      if (!user) return false;
+      const userRoles: string[] = user.roles ?? [];
+      const userPermissions: string[] = user.permissions ?? [];
+      if (userRoles.includes('SUPER_ADMIN')) return true;
+      const requiredPermissions = Array.isArray(permissions) ? permissions : [permissions];
+      return requiredPermissions.some((p) => userPermissions.includes(p));
+    },
+    [user]
+  );
 
-  const canAccess = (check: AuthorizationCheck): boolean => {
-    if (!user) return false;
-    const userRoles: string[] = user.roles ?? [];
+  const canAccess = useCallback(
+    (check: AuthorizationCheck): boolean => {
+      if (!user) return false;
+      const userRoles: string[] = user.roles ?? [];
 
-    // 1. Role check
-    if (check.roles && check.roles.length > 0 && !hasRole(check.roles)) {
-      return false;
-    }
-
-    // 2. Permission check
-    if (check.permissions && check.permissions.length > 0 && !hasPermission(check.permissions)) {
-      return false;
-    }
-
-    // 3. Organizational Scoping check (Branch, Department, Team)
-    if (check.branchId && user.branchId && check.branchId !== user.branchId) {
-      if (!userRoles.includes('SUPER_ADMIN') && !userRoles.includes('ADMIN')) {
+      if (check.roles && check.roles.length > 0 && !hasRole(check.roles)) {
         return false;
       }
-    }
 
-    if (check.departmentId && user.departmentId && check.departmentId !== user.departmentId) {
-      if (!userRoles.includes('SUPER_ADMIN') && !userRoles.includes('ADMIN')) {
+      if (check.permissions && check.permissions.length > 0 && !hasPermission(check.permissions)) {
         return false;
       }
-    }
 
-    if (check.teamId && user.teamId && check.teamId !== user.teamId) {
-      if (!userRoles.includes('SUPER_ADMIN') && !userRoles.includes('ADMIN')) {
-        return false;
+      if (check.branchId && user.branchId && check.branchId !== user.branchId) {
+        if (!userRoles.includes('SUPER_ADMIN') && !userRoles.includes('ADMIN')) {
+          return false;
+        }
       }
-    }
 
-    return true;
-  };
+      if (check.departmentId && user.departmentId && check.departmentId !== user.departmentId) {
+        if (!userRoles.includes('SUPER_ADMIN') && !userRoles.includes('ADMIN')) {
+          return false;
+        }
+      }
+
+      if (check.teamId && user.teamId && check.teamId !== user.teamId) {
+        if (!userRoles.includes('SUPER_ADMIN') && !userRoles.includes('ADMIN')) {
+          return false;
+        }
+      }
+
+      return true;
+    },
+    [user, hasRole, hasPermission]
+  );
+
+  const value = useMemo(
+    () => ({ canAccess, hasRole, hasPermission }),
+    [canAccess, hasRole, hasPermission]
+  );
 
   return (
-    <PermissionContext.Provider value={{ canAccess, hasRole, hasPermission }}>
+    <PermissionContext.Provider value={value}>
       {children}
     </PermissionContext.Provider>
   );
 }
+
 
 export function usePermissions() {
   const context = useContext(PermissionContext);

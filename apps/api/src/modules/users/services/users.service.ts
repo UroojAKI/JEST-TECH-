@@ -52,6 +52,19 @@ export class UsersService {
     return UserMapper.toResponse(user);
   }
 
+  async lockUser(id: string) {
+    await this.findById(id);
+    const updated = await this.userRepository.updateStatus(id, 'SUSPENDED');
+    return UserMapper.toResponse(updated);
+  }
+
+  async unlockUser(id: string) {
+    await this.findById(id);
+    const updated = await this.userRepository.updateStatus(id, 'ACTIVE');
+    return UserMapper.toResponse(updated);
+  }
+
+
   /**
    * FOR AUTHENTICATION USE ONLY.
    * Returns the raw user entity including passwordHash.

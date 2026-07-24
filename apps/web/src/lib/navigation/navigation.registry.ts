@@ -57,14 +57,16 @@ export const navigationRegistry: NavigationItem[] = [
   {
     id: 'reports',
     title: 'Reports & BI',
-    href: '/reports',
+    href: '/dashboard/reports',
     icon: 'BarChart3',
     permissions: ['report:read'],
     children: [
-      { id: 'builder', title: 'Report Builder', href: '/reports/builder', permissions: ['report:read'] },
-      { id: 'warehouse', title: 'Data Warehouse', href: '/reports/warehouse', permissions: ['report:export'] },
+      { id: 'builder', title: 'Report Builder', href: '/dashboard/reports/builder', permissions: ['report:read'] },
+      { id: 'kpi', title: 'KPI Manager', href: '/dashboard/reports/kpi', permissions: ['report:read'] },
+      { id: 'history', title: 'Report History', href: '/dashboard/reports/history', permissions: ['report:export'] },
     ],
   },
+
   {
     id: 'administration',
     title: 'Administration',
