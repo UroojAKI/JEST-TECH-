@@ -3,5 +3,6 @@ import { CommissionEngineService } from './services/commission-engine/commission
 
 @Module({
   providers: [CommissionEngineService],
+  exports: [CommissionEngineService],
 })
 export class CommissionModule {}

@@ -1,19 +1,21 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../../../../database/prisma.service';
-import { JournalEntry, JournalLine } from '@prisma/client';
+import { JournalEntry } from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime/library';
 
-export interface CreateJournalEntryDto {
+export class CreateJournalEntryLineDto {
+  accountId: string;
+  debit: number;
+  credit: number;
+  description?: string;
+}
+
+export class CreateJournalEntryDto {
   date: Date;
   description: string;
   referenceId?: string;
   referenceType?: string;
-  lines: {
-    accountId: string;
-    debit: number;
-    credit: number;
-    description?: string;
-  }[];
+  lines: CreateJournalEntryLineDto[];
 }
 
 @Injectable()
