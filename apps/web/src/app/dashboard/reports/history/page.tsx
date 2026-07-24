@@ -1,109 +1,211 @@
 'use client';
 
-import React from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { api } from '@/lib/api';
-import { History, CheckCircle2, XCircle, Loader2, Clock, BookOpen } from 'lucide-react';
-import Link from 'next/link';
+import React, { useState } from 'react';
+import { AppShell } from '../../../../components/layout/app-shell';
+import { Clock, Calendar, FileText, CheckCircle2, AlertTriangle, Plus, Download } from 'lucide-react';
+import { useReportSchedules, useReportHistory } from '../../../../hooks/useReports';
+import { StatusBadge } from '../../../../components/ui/status-badge';
 
-interface SavedReport {
-  id: string;
-  name: string;
-  category: string;
-  dataSource: string;
-  createdAt: string;
-  _count: { runs: number };
-}
+const MOCK_SCHEDULES = [
+  {
+    id: 'SCH-01',
+    reportName: 'Daily Gross Written Premium (GWP) Digest',
+    frequency: 'DAILY',
+    recipients: ['ceo@jest.com', 'cfo@jest.com'],
+    nextRunAt: '2026-07-25 08:00 IST',
+    lastRunAt: '2026-07-24 08:00 IST',
+    status: 'ACTIVE',
+  },
+  {
+    id: 'SCH-02',
+    reportName: 'Weekly Renewal Retention & 45-Day Countdown',
+    frequency: 'WEEKLY',
+    recipients: ['renewals-head@jest.com'],
+    nextRunAt: '2026-07-27 09:00 IST',
+    lastRunAt: '2026-07-20 09:00 IST',
+    status: 'ACTIVE',
+  },
+  {
+    id: 'SCH-03',
+    reportName: 'Monthly Agent Commission & Override Payout Summary',
+    frequency: 'MONTHLY',
+    recipients: ['finance@jest.com', 'accounts@jest.com'],
+    nextRunAt: '2026-08-01 10:00 IST',
+    lastRunAt: '2026-07-01 10:00 IST',
+    status: 'ACTIVE',
+  },
+];
+
+const MOCK_HISTORY = [
+  {
+    id: 'HIST-901',
+    reportName: 'Gross Written Premium (GWP) by Product Line',
+    executedBy: 'System Cron Scheduler',
+    executedAt: '2026-07-24 08:00:14 IST',
+    durationMs: 420,
+    rowCount: 148,
+    format: 'PDF',
+    status: 'SUCCESS',
+  },
+  {
+    id: 'HIST-902',
+    reportName: 'Lead Conversion & Sales Pipeline Velocity',
+    executedBy: 'Rajesh Sharma (Sales Mgr)',
+    executedAt: '2026-07-23 16:40:22 IST',
+    durationMs: 280,
+    rowCount: 92,
+    format: 'EXCEL',
+    status: 'SUCCESS',
+  },
+  {
+    id: 'HIST-903',
+    reportName: 'Insurer Net Settlement Statement',
+    executedBy: 'Sunil Verma (Finance)',
+    executedAt: '2026-07-21 17:30:10 IST',
+    durationMs: 310,
+    rowCount: 12,
+    format: 'CSV',
+    status: 'SUCCESS',
+  },
+];
 
 export default function ReportHistoryPage() {
-  const { data: savedReports = [], isLoading } = useQuery<SavedReport[]>({
-    queryKey: ['saved-reports'],
-    queryFn: () => api.get('/reports/saved').then((r) => r.data),
-  });
-
-  const categoryColors: Record<string, string> = {
-    CRM: 'bg-blue-500/15 text-blue-400',
-    SALES: 'bg-indigo-500/15 text-indigo-400',
-    CLAIMS: 'bg-rose-500/15 text-rose-400',
-    RENEWALS: 'bg-amber-500/15 text-amber-400',
-    FINANCE: 'bg-emerald-500/15 text-emerald-400',
-    OPERATIONS: 'bg-purple-500/15 text-purple-400',
-    COMPLIANCE: 'bg-slate-500/15 text-slate-400',
-  };
+  const [activeSubTab, setActiveSubTab] = useState<'SCHEDULES' | 'HISTORY'>('SCHEDULES');
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-xl font-bold text-white flex items-center gap-2">
-          <History className="h-5 w-5 text-indigo-400" /> Saved Reports & History
-        </h1>
-        <p className="text-xs text-slate-400 mt-1">
-          All custom reports built with the Report Builder. Run, re-run, or re-configure at any time.
-        </p>
+    <AppShell>
+      {/* Top Header */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b pb-4">
+        <div>
+          <h1 className="text-xl font-bold tracking-tight flex items-center gap-2">
+            <Clock className="h-5 w-5 text-primary" /> Scheduled Reports & Execution Audit History
+          </h1>
+          <p className="text-xs text-muted-foreground">
+            Manage automated recurring report dispatches (Daily, Weekly, Monthly) and review execution logs
+          </p>
+        </div>
+
+        <div className="flex items-center space-x-2">
+          <button
+            onClick={() => alert('Opening Create New Report Schedule Modal...')}
+            className="flex items-center space-x-1 px-4 py-2 text-xs font-bold rounded-lg bg-primary text-primary-foreground shadow hover:bg-primary/90"
+          >
+            <Plus className="h-4 w-4" />
+            <span>+ Create Schedule</span>
+          </button>
+        </div>
       </div>
 
-      {isLoading ? (
-        <div className="glass rounded-xl border border-slate-900 p-16 text-center">
-          <Loader2 className="h-6 w-6 animate-spin text-indigo-500 mx-auto" />
-        </div>
-      ) : savedReports.length === 0 ? (
-        <div className="glass rounded-xl border border-slate-900 p-16 text-center">
-          <History className="h-8 w-8 text-slate-700 mx-auto mb-3" />
-          <p className="text-sm font-bold text-slate-400">No saved reports yet.</p>
-          <p className="text-xs text-slate-500 mt-1 mb-4">Use the Report Builder to create and save your first custom report.</p>
-          <Link href="/dashboard/reports/builder"
-            className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-xs font-bold text-white hover:bg-indigo-500 transition-colors">
-            <BookOpen className="h-3.5 w-3.5" /> Open Report Builder
-          </Link>
-        </div>
-      ) : (
-        <div className="glass rounded-xl border border-slate-900 overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="border-b border-slate-900 bg-slate-950/20 text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-                  <th className="py-3.5 px-5">Report Name</th>
-                  <th className="py-3.5 px-5">Category</th>
-                  <th className="py-3.5 px-5">Data Source</th>
-                  <th className="py-3.5 px-5">Runs</th>
-                  <th className="py-3.5 px-5">Created</th>
-                  <th className="py-3.5 px-5">Actions</th>
+      {/* Sub Tabs */}
+      <div className="flex border-b text-xs overflow-x-auto p-1 bg-card rounded-lg border space-x-1">
+        <button
+          onClick={() => setActiveSubTab('SCHEDULES')}
+          className={`px-3 py-1.5 rounded-md font-semibold transition-colors ${
+            activeSubTab === 'SCHEDULES'
+              ? 'bg-primary text-primary-foreground shadow'
+              : 'text-muted-foreground hover:bg-accent hover:text-foreground'
+          }`}
+        >
+          Active Report Schedules ({MOCK_SCHEDULES.length})
+        </button>
+        <button
+          onClick={() => setActiveSubTab('HISTORY')}
+          className={`px-3 py-1.5 rounded-md font-semibold transition-colors ${
+            activeSubTab === 'HISTORY'
+              ? 'bg-primary text-primary-foreground shadow'
+              : 'text-muted-foreground hover:bg-accent hover:text-foreground'
+          }`}
+        >
+          Execution History Logs ({MOCK_HISTORY.length})
+        </button>
+      </div>
+
+      {/* SCHEDULES TAB */}
+      {activeSubTab === 'SCHEDULES' && (
+        <div className="border rounded-xl overflow-hidden bg-card text-xs">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="bg-muted/40 text-[10px] text-muted-foreground font-bold border-b uppercase">
+                <th className="p-3">Schedule ID</th>
+                <th className="p-3">Report Name</th>
+                <th className="p-3">Frequency</th>
+                <th className="p-3">Recipients</th>
+                <th className="p-3">Next Run</th>
+                <th className="p-3">Last Run</th>
+                <th className="p-3">Status</th>
+                <th className="p-3 text-right">Action</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y">
+              {MOCK_SCHEDULES.map((sch) => (
+                <tr key={sch.id} className="hover:bg-accent/40">
+                  <td className="p-3 font-mono font-bold text-primary">{sch.id}</td>
+                  <td className="p-3 font-semibold">{sch.reportName}</td>
+                  <td className="p-3 font-bold">
+                    <span className="px-2 py-0.5 rounded bg-muted text-foreground border text-[10px]">
+                      {sch.frequency}
+                    </span>
+                  </td>
+                  <td className="p-3 text-muted-foreground">{sch.recipients.join(', ')}</td>
+                  <td className="p-3 font-mono text-emerald-600 font-bold">{sch.nextRunAt}</td>
+                  <td className="p-3 font-mono text-muted-foreground">{sch.lastRunAt}</td>
+                  <td className="p-3"><StatusBadge status={sch.status} /></td>
+                  <td className="p-3 text-right">
+                    <button
+                      onClick={() => alert(`Pausing schedule ${sch.id}...`)}
+                      className="px-2.5 py-1 rounded border bg-background hover:bg-accent font-semibold text-[10px]"
+                    >
+                      Pause
+                    </button>
+                  </td>
                 </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-900 text-xs text-slate-300">
-                {savedReports.map((report) => (
-                  <tr key={report.id} className="hover:bg-slate-900/20 transition-colors">
-                    <td className="py-3.5 px-5">
-                      <p className="font-bold text-white">{report.name}</p>
-                    </td>
-                    <td className="py-3.5 px-5">
-                      <span className={`inline-block rounded px-2 py-0.5 text-[9px] font-bold ${categoryColors[report.category] ?? 'bg-slate-800 text-slate-400'}`}>
-                        {report.category}
-                      </span>
-                    </td>
-                    <td className="py-3.5 px-5 text-slate-400 capitalize">{report.dataSource}</td>
-                    <td className="py-3.5 px-5">
-                      <span className="flex items-center gap-1">
-                        <Clock className="h-3 w-3 text-slate-600" />
-                        {report._count.runs}
-                      </span>
-                    </td>
-                    <td className="py-3.5 px-5 text-slate-500">
-                      {new Date(report.createdAt).toLocaleDateString('en-IN')}
-                    </td>
-                    <td className="py-3.5 px-5">
-                      <Link href={`/dashboard/reports/${report.id}`}
-                        className="text-indigo-400 hover:underline text-[10px] font-bold">
-                        Run →
-                      </Link>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
-    </div>
+
+      {/* HISTORY TAB */}
+      {activeSubTab === 'HISTORY' && (
+        <div className="border rounded-xl overflow-hidden bg-card text-xs">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="bg-muted/40 text-[10px] text-muted-foreground font-bold border-b uppercase">
+                <th className="p-3">Log ID</th>
+                <th className="p-3">Report Executed</th>
+                <th className="p-3">Executed By</th>
+                <th className="p-3">Execution Time</th>
+                <th className="p-3">Duration</th>
+                <th className="p-3">Rows</th>
+                <th className="p-3">Format</th>
+                <th className="p-3 text-right">Download</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y">
+              {MOCK_HISTORY.map((hist) => (
+                <tr key={hist.id} className="hover:bg-accent/40">
+                  <td className="p-3 font-mono font-bold text-primary">{hist.id}</td>
+                  <td className="p-3 font-semibold">{hist.reportName}</td>
+                  <td className="p-3 text-muted-foreground">{hist.executedBy}</td>
+                  <td className="p-3 font-mono">{hist.executedAt}</td>
+                  <td className="p-3 font-mono text-muted-foreground">{hist.durationMs}ms</td>
+                  <td className="p-3 font-mono font-bold">{hist.rowCount}</td>
+                  <td className="p-3 font-bold text-primary">{hist.format}</td>
+                  <td className="p-3 text-right">
+                    <button
+                      onClick={() => alert(`Downloading ${hist.reportName} ${hist.format}...`)}
+                      className="px-2.5 py-1 rounded border bg-background hover:bg-accent font-semibold text-[10px] flex items-center justify-end space-x-1 ml-auto"
+                    >
+                      <Download className="h-3 w-3" />
+                      <span>Download</span>
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </AppShell>
   );
 }

@@ -1,345 +1,208 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { useParams } from 'next/navigation';
-import Link from 'next/link';
-import { api } from '@/lib/api';
+import React, { useState } from 'react';
+import { useParams, useRouter } from 'next/navigation';
+import { AppShell } from '../../../../components/layout/app-shell';
 import {
-  useReactTable,
-  getCoreRowModel,
-  getSortedRowModel,
-  getFilteredRowModel,
-  getPaginationRowModel,
-  flexRender,
-  type SortingState,
-  type ColumnDef,
-} from '@tanstack/react-table';
-import {
-  BarChart, Bar, LineChart, Line, PieChart, Pie, Cell,
-  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
-} from 'recharts';
-import {
-  ArrowLeft, Download, BarChart2, TableProperties, ChevronLeft,
-  ChevronRight, ChevronsLeft, ChevronsRight, ArrowUpDown, Search, Loader2,
+  FileText,
+  Download,
+  Filter,
+  RefreshCw,
+  ChevronRight,
+  ArrowLeft,
+  Calendar,
+  Layers,
+  Shield,
+  FileSpreadsheet,
 } from 'lucide-react';
+import { VisualizationStudio } from '../../../../components/reports/VisualizationStudio';
 
-interface ReportResult {
-  templateId: string;
-  name: string;
-  columns: string[];
-  rows: Record<string, any>[];
-  rowCount: number;
-  generatedAt: string;
-}
-
-const COLORS = ['#6366f1', '#8b5cf6', '#06b6d4', '#10b981', '#f59e0b', '#ef4444', '#ec4899'];
-
-function formatColHeader(col: string) {
-  return col.replace(/([A-Z])/g, ' $1').replace(/^./, (s) => s.toUpperCase()).trim();
-}
-
-function formatCellValue(val: any): string {
-  if (val === null || val === undefined) return '—';
-  if (val instanceof Date || (typeof val === 'string' && /^\d{4}-\d{2}-\d{2}T/.test(val))) {
-    return new Date(val).toLocaleDateString('en-IN');
-  }
-  if (typeof val === 'number') return val.toLocaleString('en-IN');
-  return String(val);
-}
+const MOCK_REPORT_EXECUTION = {
+  id: 'RPT-001',
+  name: 'Gross Written Premium (GWP) by Product Line & Insurer',
+  category: 'POLICIES',
+  description: 'Live breakdown of active policy count, IDV, and total premium grouped by insurance product line and partner insurer.',
+  executedAt: '2026-07-24 11:45:00 IST',
+  rowCount: 3,
+  columns: [
+    { key: 'insurerName', label: 'Insurer Partner', dataType: 'STRING' },
+    { key: 'productLine', label: 'Product Line', dataType: 'STRING' },
+    { key: 'policyCount', label: 'Active Policies', dataType: 'NUMBER' },
+    { key: 'totalPremium', label: 'Total Premium (₹)', dataType: 'CURRENCY' },
+    { key: 'commission', label: 'Retained Brokerage (₹)', dataType: 'CURRENCY' },
+  ],
+  data: [
+    {
+      insurerName: 'ICICI Lombard',
+      productLine: 'Motor Comprehensive',
+      policyCount: 142,
+      totalPremium: 2350000,
+      commission: 235000,
+    },
+    {
+      insurerName: 'HDFC ERGO',
+      productLine: 'Group Health Optima',
+      policyCount: 48,
+      totalPremium: 1850000,
+      commission: 185000,
+    },
+    {
+      insurerName: 'Star Health',
+      productLine: 'Health Family Optima',
+      policyCount: 32,
+      totalPremium: 650000,
+      commission: 65000,
+    },
+  ],
+};
 
 export default function ReportViewerPage() {
   const params = useParams();
-  const templateId = params.id as string;
-  const [view, setView] = useState<'table' | 'chart'>('table');
-  const [sorting, setSorting] = useState<SortingState>([]);
-  const [globalFilter, setGlobalFilter] = useState('');
-  const [chartType, setChartType] = useState<'bar' | 'line' | 'pie'>('bar');
-  const [filters, setFilters] = useState({ from: '', to: '', status: '' });
+  const router = useRouter();
+  const reportId = (params?.id as string) || 'RPT-001';
 
-  const queryParams = new URLSearchParams();
-  if (filters.from) queryParams.set('from', filters.from);
-  if (filters.to) queryParams.set('to', filters.to);
-  if (filters.status) queryParams.set('status', filters.status);
+  const [drillBreadcrumbs, setDrillBreadcrumbs] = useState<string[]>([
+    'All Revenue',
+    'Insurer Partners',
+  ]);
+  const [selectedStatusFilter, setSelectedStatusFilter] = useState<string>('ACTIVE');
 
-  const { data, isLoading, refetch } = useQuery<ReportResult>({
-    queryKey: ['report-run', templateId, filters],
-    queryFn: () => api.get(`/reports/run/${templateId}?${queryParams.toString()}`).then((r) => r.data),
-    enabled: !!templateId,
-  });
-
-  const columns = useMemo<ColumnDef<Record<string, any>>[]>(() => {
-    if (!data?.columns) return [];
-    return data.columns.map((col) => ({
-      accessorKey: col,
-      header: ({ column }) => (
-        <button
-          onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
-          className="flex items-center gap-1 text-[10px] font-bold text-slate-500 uppercase tracking-wider hover:text-slate-300 transition-colors"
-        >
-          {formatColHeader(col)}
-          <ArrowUpDown className="h-2.5 w-2.5" />
-        </button>
-      ),
-      cell: ({ getValue }) => (
-        <span className="text-xs text-slate-300">{formatCellValue(getValue())}</span>
-      ),
-    }));
-  }, [data?.columns]);
-
-  const table = useReactTable({
-    data: data?.rows ?? [],
-    columns,
-    state: { sorting, globalFilter },
-    onSortingChange: setSorting,
-    onGlobalFilterChange: setGlobalFilter,
-    getCoreRowModel: getCoreRowModel(),
-    getSortedRowModel: getSortedRowModel(),
-    getFilteredRowModel: getFilteredRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
-    initialState: { pagination: { pageSize: 25 } },
-  });
-
-  // Compute totals for numeric columns
-  const totals = useMemo(() => {
-    if (!data) return {};
-    const tots: Record<string, number> = {};
-    for (const col of data.columns) {
-      const vals = data.rows.map((r) => Number(r[col])).filter((v) => !isNaN(v) && v > 0);
-      if (vals.length === data.rows.length && vals.length > 0) {
-        tots[col] = vals.reduce((a, b) => a + b, 0);
-      }
-    }
-    return tots;
-  }, [data]);
-
-  // Chart data: first string col as label, first numeric col as value
-  const chartData = useMemo(() => {
-    if (!data?.rows.length) return [];
-    const numericCol = data.columns.find((c) => typeof data.rows[0][c] === 'number');
-    const labelCol = data.columns.find((c) => typeof data.rows[0][c] === 'string');
-    if (!numericCol || !labelCol) return [];
-    return data.rows.slice(0, 20).map((r) => ({ name: String(r[labelCol]).substring(0, 18), value: Number(r[numericCol]) }));
-  }, [data]);
-
-  const apiBase = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001/api';
+  const handleDrillDown = (level: string) => {
+    setDrillBreadcrumbs([...drillBreadcrumbs, level]);
+  };
 
   return (
-    <div className="space-y-5">
-      {/* Header */}
-      <div className="flex items-start justify-between gap-4 flex-wrap">
-        <div className="flex items-center gap-3">
-          <Link href="/dashboard/reports" className="text-slate-500 hover:text-white transition-colors">
-            <ArrowLeft className="h-4 w-4" />
-          </Link>
-          <div>
-            <h1 className="text-lg font-bold text-white">{data?.name ?? 'Loading Report...'}</h1>
-            {data && (
-              <p className="text-[10px] text-slate-500 mt-0.5">
-                {data.rowCount.toLocaleString()} records · Generated {new Date(data.generatedAt).toLocaleTimeString('en-IN')}
-              </p>
-            )}
-          </div>
+    <AppShell>
+      {/* Top Header */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b pb-4">
+        <div className="space-y-1">
+          <button
+            onClick={() => router.push('/dashboard/reports')}
+            className="text-xs font-semibold text-muted-foreground hover:text-foreground flex items-center gap-1 mb-1"
+          >
+            <ArrowLeft className="h-3.5 w-3.5" /> Back to Reports Catalog
+          </button>
+
+          <h1 className="text-xl font-extrabold tracking-tight flex items-center gap-2">
+            <FileText className="h-5 w-5 text-primary" /> {MOCK_REPORT_EXECUTION.name}
+          </h1>
+          <p className="text-xs text-muted-foreground">{MOCK_REPORT_EXECUTION.description}</p>
         </div>
-        <div className="flex items-center gap-2">
+
+        {/* Export Bar */}
+        <div className="flex items-center space-x-2">
           <button
-            onClick={() => setView('table')}
-            className={`rounded-lg px-3 py-1.5 text-[10px] font-bold flex items-center gap-1.5 transition-colors cursor-pointer ${view === 'table' ? 'bg-indigo-600 text-white' : 'bg-slate-900 text-slate-400 hover:text-white'}`}
+            onClick={() => alert('Exporting report as PDF...')}
+            className="flex items-center space-x-1 px-3 py-2 text-xs font-semibold rounded-lg border bg-card hover:bg-accent shadow-sm"
           >
-            <TableProperties className="h-3 w-3" /> Table
+            <Download className="h-3.5 w-3.5 text-red-500" />
+            <span>PDF Export</span>
           </button>
+
           <button
-            onClick={() => setView('chart')}
-            className={`rounded-lg px-3 py-1.5 text-[10px] font-bold flex items-center gap-1.5 transition-colors cursor-pointer ${view === 'chart' ? 'bg-indigo-600 text-white' : 'bg-slate-900 text-slate-400 hover:text-white'}`}
+            onClick={() => alert('Exporting report as Excel...')}
+            className="flex items-center space-x-1 px-3 py-2 text-xs font-semibold rounded-lg border bg-card hover:bg-accent shadow-sm"
           >
-            <BarChart2 className="h-3 w-3" /> Chart
+            <FileSpreadsheet className="h-3.5 w-3.5 text-emerald-500" />
+            <span>Excel Export</span>
           </button>
-          <div className="w-px h-5 bg-slate-800" />
-          <a
-            href={`${apiBase}/reports/export/${templateId}?format=csv&${queryParams.toString()}`}
-            className="rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-white px-3 py-1.5 text-[10px] font-bold flex items-center gap-1.5 transition-colors"
-          >
-            <Download className="h-3 w-3" /> CSV
-          </a>
-          <a
-            href={`${apiBase}/reports/export/${templateId}?format=excel&${queryParams.toString()}`}
-            className="rounded-lg bg-emerald-600/15 hover:bg-emerald-600/25 text-emerald-400 px-3 py-1.5 text-[10px] font-bold flex items-center gap-1.5 transition-colors"
-          >
-            <Download className="h-3 w-3" /> Excel
-          </a>
-          <a
-            href={`${apiBase}/reports/export/${templateId}?format=pdf&${queryParams.toString()}`}
-            className="rounded-lg bg-rose-600/15 hover:bg-rose-600/25 text-rose-400 px-3 py-1.5 text-[10px] font-bold flex items-center gap-1.5 transition-colors"
-          >
-            <Download className="h-3 w-3" /> PDF
-          </a>
         </div>
       </div>
 
-      {/* Filter Bar */}
-      <div className="glass rounded-xl border border-slate-900 p-4 flex flex-wrap gap-3 items-end">
-        <div>
-          <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">From Date</label>
-          <input type="date" value={filters.from} onChange={(e) => setFilters((f) => ({ ...f, from: e.target.value }))}
-            className="rounded-lg bg-slate-950 px-3 py-1.5 text-xs text-white border border-slate-800 focus:border-indigo-500 focus:outline-none" />
-        </div>
-        <div>
-          <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">To Date</label>
-          <input type="date" value={filters.to} onChange={(e) => setFilters((f) => ({ ...f, to: e.target.value }))}
-            className="rounded-lg bg-slate-950 px-3 py-1.5 text-xs text-white border border-slate-800 focus:border-indigo-500 focus:outline-none" />
-        </div>
-        <div>
-          <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Status Filter</label>
-          <input type="text" placeholder="e.g. ACTIVE" value={filters.status} onChange={(e) => setFilters((f) => ({ ...f, status: e.target.value }))}
-            className="rounded-lg bg-slate-950 px-3 py-1.5 text-xs text-white border border-slate-800 focus:border-indigo-500 focus:outline-none w-28" />
-        </div>
-        <button onClick={() => refetch()}
-          className="rounded-lg bg-indigo-600 px-4 py-1.5 text-xs font-bold text-white hover:bg-indigo-500 transition-colors cursor-pointer">
-          Apply
-        </button>
-        <button onClick={() => setFilters({ from: '', to: '', status: '' })}
-          className="rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-bold text-slate-400 hover:text-white transition-colors cursor-pointer">
-          Clear
-        </button>
-      </div>
-
-      {isLoading ? (
-        <div className="glass rounded-xl border border-slate-900 p-16 text-center">
-          <Loader2 className="h-6 w-6 animate-spin text-indigo-500 mx-auto mb-3" />
-          <p className="text-xs text-slate-400">Running report from data warehouse...</p>
-        </div>
-      ) : view === 'table' ? (
-        /* Enterprise Data Grid */
-        <div className="glass rounded-xl border border-slate-900 overflow-hidden">
-          {/* Search + pagination info */}
-          <div className="p-4 flex justify-between items-center border-b border-slate-900">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3 w-3 text-slate-500" />
-              <input
-                value={globalFilter}
-                onChange={(e) => setGlobalFilter(e.target.value)}
-                placeholder="Search all columns..."
-                className="pl-8 pr-3 py-1.5 rounded-lg bg-slate-950 text-xs text-white border border-slate-800 focus:border-indigo-500 focus:outline-none w-56"
-              />
-            </div>
-            <p className="text-[10px] text-slate-500">
-              Showing {table.getState().pagination.pageIndex * table.getState().pagination.pageSize + 1}–
-              {Math.min((table.getState().pagination.pageIndex + 1) * table.getState().pagination.pageSize, table.getFilteredRowModel().rows.length)} of {table.getFilteredRowModel().rows.length} rows
-            </p>
-          </div>
-
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                {table.getHeaderGroups().map((hg) => (
-                  <tr key={hg.id} className="border-b border-slate-900 bg-slate-950/30">
-                    {hg.headers.map((header) => (
-                      <th key={header.id} className="py-3 px-4">
-                        {flexRender(header.column.columnDef.header, header.getContext())}
-                      </th>
-                    ))}
-                  </tr>
-                ))}
-              </thead>
-              <tbody className="divide-y divide-slate-900/50">
-                {table.getRowModel().rows.map((row, i) => (
-                  <tr key={row.id} className={`hover:bg-slate-900/30 transition-colors ${i % 2 === 0 ? '' : 'bg-slate-950/20'}`}>
-                    {row.getVisibleCells().map((cell) => (
-                      <td key={cell.id} className="py-2.5 px-4">
-                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                      </td>
-                    ))}
-                  </tr>
-                ))}
-                {/* Totals row */}
-                {Object.keys(totals).length > 0 && (
-                  <tr className="border-t-2 border-indigo-500/30 bg-indigo-950/20">
-                    {(data?.columns ?? []).map((col, i) => (
-                      <td key={col} className="py-3 px-4 text-xs font-bold text-white">
-                        {i === 0 ? 'TOTAL' : totals[col] ? totals[col].toLocaleString('en-IN') : ''}
-                      </td>
-                    ))}
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Pagination */}
-          <div className="p-4 border-t border-slate-900 flex items-center justify-between">
-            <div className="flex items-center gap-1">
-              <button onClick={() => table.setPageIndex(0)} disabled={!table.getCanPreviousPage()} className="rounded p-1 text-slate-500 hover:text-white disabled:opacity-30 cursor-pointer">
-                <ChevronsLeft className="h-3.5 w-3.5" />
-              </button>
-              <button onClick={() => table.previousPage()} disabled={!table.getCanPreviousPage()} className="rounded p-1 text-slate-500 hover:text-white disabled:opacity-30 cursor-pointer">
-                <ChevronLeft className="h-3.5 w-3.5" />
-              </button>
-              <span className="text-[10px] text-slate-400 px-2">
-                Page {table.getState().pagination.pageIndex + 1} of {table.getPageCount()}
+      {/* Multilevel Drill-Down Breadcrumb Trail */}
+      <div className="flex items-center space-x-2 p-3 rounded-xl border bg-muted/20 text-xs">
+        <span className="font-bold text-muted-foreground uppercase text-[10px]">Drill-Down Path:</span>
+        <div className="flex items-center space-x-1 overflow-x-auto">
+          {drillBreadcrumbs.map((crumb, idx) => (
+            <React.Fragment key={crumb}>
+              {idx > 0 && <ChevronRight className="h-3 w-3 text-muted-foreground/40" />}
+              <span
+                onClick={() => setDrillBreadcrumbs(drillBreadcrumbs.slice(0, idx + 1))}
+                className={`cursor-pointer px-2 py-0.5 rounded font-semibold ${
+                  idx === drillBreadcrumbs.length - 1
+                    ? 'bg-primary text-primary-foreground font-bold'
+                    : 'text-muted-foreground hover:bg-accent hover:text-foreground'
+                }`}
+              >
+                {crumb}
               </span>
-              <button onClick={() => table.nextPage()} disabled={!table.getCanNextPage()} className="rounded p-1 text-slate-500 hover:text-white disabled:opacity-30 cursor-pointer">
-                <ChevronRight className="h-3.5 w-3.5" />
-              </button>
-              <button onClick={() => table.setPageIndex(table.getPageCount() - 1)} disabled={!table.getCanNextPage()} className="rounded p-1 text-slate-500 hover:text-white disabled:opacity-30 cursor-pointer">
-                <ChevronsRight className="h-3.5 w-3.5" />
-              </button>
-            </div>
-            <select
-              value={table.getState().pagination.pageSize}
-              onChange={(e) => table.setPageSize(Number(e.target.value))}
-              className="rounded bg-slate-900 text-xs text-slate-400 px-2 py-1 border border-slate-800"
-            >
-              {[10, 25, 50, 100].map((s) => <option key={s} value={s}>{s} rows</option>)}
-            </select>
-          </div>
+            </React.Fragment>
+          ))}
         </div>
-      ) : (
-        /* Chart View */
-        <div className="glass rounded-xl border border-slate-900 p-6 space-y-4">
-          <div className="flex gap-2">
-            {(['bar', 'line', 'pie'] as const).map((ct) => (
-              <button key={ct} onClick={() => setChartType(ct)}
-                className={`px-3 py-1.5 rounded-lg text-[10px] font-bold capitalize transition-colors cursor-pointer ${chartType === ct ? 'bg-indigo-600 text-white' : 'bg-slate-900 text-slate-400 hover:text-white'}`}>
-                {ct} Chart
-              </button>
-            ))}
-          </div>
+      </div>
 
-          {chartData.length === 0 ? (
-            <p className="text-xs text-slate-500 text-center py-12">Not enough numeric data to render chart for this report.</p>
-          ) : (
-            <div className="h-80">
-              <ResponsiveContainer width="100%" height="100%">
-                {chartType === 'bar' ? (
-                  <BarChart data={chartData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-                    <XAxis dataKey="name" tick={{ fill: '#64748b', fontSize: 10 }} />
-                    <YAxis tick={{ fill: '#64748b', fontSize: 10 }} />
-                    <Tooltip contentStyle={{ background: '#0f172a', border: '1px solid #1e293b', borderRadius: '8px', fontSize: '11px' }} />
-                    <Bar dataKey="value" fill="#6366f1" radius={[4, 4, 0, 0]} />
-                  </BarChart>
-                ) : chartType === 'line' ? (
-                  <LineChart data={chartData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-                    <XAxis dataKey="name" tick={{ fill: '#64748b', fontSize: 10 }} />
-                    <YAxis tick={{ fill: '#64748b', fontSize: 10 }} />
-                    <Tooltip contentStyle={{ background: '#0f172a', border: '1px solid #1e293b', borderRadius: '8px', fontSize: '11px' }} />
-                    <Line type="monotone" dataKey="value" stroke="#6366f1" strokeWidth={2} dot={{ fill: '#6366f1', r: 4 }} />
-                  </LineChart>
-                ) : (
-                  <PieChart>
-                    <Pie data={chartData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={120} label={({ name, percent }) => `${name} ${((percent ?? 0) * 100).toFixed(0)}%`}>
-                      {chartData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
-                    </Pie>
-                    <Tooltip contentStyle={{ background: '#0f172a', border: '1px solid #1e293b', borderRadius: '8px', fontSize: '11px' }} />
-                    <Legend />
-                  </PieChart>
-                )}
-              </ResponsiveContainer>
-            </div>
-          )}
+      {/* Filter Bar & Execution Metadata */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 p-3 rounded-xl border bg-card text-xs">
+        <div className="flex items-center space-x-3">
+          <span className="font-bold uppercase text-[10px] text-muted-foreground flex items-center gap-1">
+            <Filter className="h-3.5 w-3.5 text-primary" /> Active Filters:
+          </span>
+          <select
+            value={selectedStatusFilter}
+            onChange={(e) => setSelectedStatusFilter(e.target.value)}
+            className="p-1.5 rounded border bg-background font-semibold text-xs"
+          >
+            <option value="ACTIVE">Policy Status: Active Only</option>
+            <option value="ALL">Policy Status: All Statuses</option>
+            <option value="RENEWAL_DUE">Policy Status: Renewals Due</option>
+          </select>
         </div>
-      )}
-    </div>
+
+        <div className="flex items-center space-x-4 text-[11px] text-muted-foreground">
+          <span>Executed At: <strong>{MOCK_REPORT_EXECUTION.executedAt}</strong></span>
+          <span>Rows: <strong className="text-primary font-bold">{MOCK_REPORT_EXECUTION.rowCount}</strong></span>
+        </div>
+      </div>
+
+      {/* Visualization Studio */}
+      <VisualizationStudio
+        data={MOCK_REPORT_EXECUTION.data}
+        columns={MOCK_REPORT_EXECUTION.columns}
+        title={MOCK_REPORT_EXECUTION.name}
+        categoryKey="insurerName"
+        valueKey="totalPremium"
+      />
+
+      {/* Data Table Grid with Clickable Drill-down Rows */}
+      <div className="p-5 rounded-2xl border bg-card shadow-sm space-y-3 text-xs">
+        <div className="flex justify-between items-center border-b pb-2">
+          <h3 className="font-bold text-sm">Detailed Data Table Grid (Click Row to Drill Down)</h3>
+          <span className="text-[10px] text-muted-foreground font-semibold">
+            {MOCK_REPORT_EXECUTION.rowCount} Total Records
+          </span>
+        </div>
+
+        <div className="border rounded-xl overflow-hidden">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="bg-muted/40 text-[10px] text-muted-foreground font-bold border-b uppercase">
+                <th className="p-3">Insurer Partner</th>
+                <th className="p-3">Product Line</th>
+                <th className="p-3">Active Policies</th>
+                <th className="p-3">Total Premium</th>
+                <th className="p-3">Retained Brokerage</th>
+                <th className="p-3 text-right">Drill-Down Action</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y">
+              {MOCK_REPORT_EXECUTION.data.map((row, idx) => (
+                <tr key={idx} className="hover:bg-accent/40 cursor-pointer" onClick={() => handleDrillDown(row.insurerName)}>
+                  <td className="p-3 font-bold text-primary">{row.insurerName}</td>
+                  <td className="p-3 font-semibold">{row.productLine}</td>
+                  <td className="p-3 font-mono font-bold">{row.policyCount}</td>
+                  <td className="p-3 font-mono font-bold text-emerald-600">₹{row.totalPremium.toLocaleString('en-IN')}</td>
+                  <td className="p-3 font-mono font-extrabold text-foreground">₹{row.commission.toLocaleString('en-IN')}</td>
+                  <td className="p-3 text-right">
+                    <span className="text-[10px] text-primary font-bold hover:underline flex items-center justify-end gap-0.5">
+                      Drill to Agents <ChevronRight className="h-3 w-3" />
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </AppShell>
   );
 }
