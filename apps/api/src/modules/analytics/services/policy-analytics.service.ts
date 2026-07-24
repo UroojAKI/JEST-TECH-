@@ -27,12 +27,12 @@ export class PolicyAnalyticsService {
       }),
       this.prisma.quotation.groupBy({
         by: ['insurerName'],
-        _count: { id: true },
+        _count: { quotationCode: true },
         where: { policy: { isNot: null } },
       }),
       this.prisma.quotation.groupBy({
         by: ['productType'],
-        _count: { id: true },
+        _count: { quotationCode: true },
         where: { policy: { isNot: null } },
       }),
     ]);
@@ -40,16 +40,17 @@ export class PolicyAnalyticsService {
     const topInsurers = insurerGroup
       .map((g) => ({
         insurer: g.insurerName,
-        count: g._count.id,
+        count: g._count.quotationCode,
       }))
       .sort((a, b) => b.count - a.count);
 
     const topProducts = productGroup
       .map((g) => ({
         product: g.productType,
-        count: g._count.id,
+        count: g._count.quotationCode,
       }))
       .sort((a, b) => b.count - a.count);
+
 
     return {
       total,
