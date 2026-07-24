@@ -11,7 +11,7 @@ const QUICK_PROFILES = [
 ];
 
 export default function LoginPage() {
-  const { login, isLoggingIn } = useAuth();
+  const { login, isLoggingIn, loginError } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
@@ -39,7 +39,15 @@ export default function LoginPage() {
           <p className="mt-2 text-xs text-muted-foreground">Enterprise Insurance Infrastructure</p>
         </div>
 
+        {loginError && (
+          <div className="mb-4 rounded-lg bg-destructive/10 border border-destructive/20 p-3 text-xs text-destructive font-semibold flex items-center gap-2">
+            <Shield className="h-4 w-4 shrink-0" />
+            <span>{loginError}</span>
+          </div>
+        )}
+
         <form onSubmit={handleSubmit} className="space-y-4">
+
           <div className="space-y-1.5">
             <label htmlFor="email" className="text-xs font-semibold uppercase text-muted-foreground">Email Address</label>
             <div className="relative">

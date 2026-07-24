@@ -51,7 +51,9 @@ export function useAuth() {
     isLoading,
     login: loginMutation.mutate,
     isLoggingIn: loginMutation.isPending,
+    loginError: loginMutation.error ? (loginMutation.error as any).response?.data?.message || 'Invalid email or password' : null,
     logout: logoutMutation.mutate,
     isLoggingOut: logoutMutation.isPending,
   };
+
 }
