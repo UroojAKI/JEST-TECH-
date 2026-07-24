@@ -121,7 +121,7 @@ jobs:
         uses: codecov/codecov-action@v4
         if: always()
         with:
-          directory: apps/coverage
+          directory: apps/api/coverage
           token: ${{ secrets.CODECOV_TOKEN }}
         continue-on-error: true
 
