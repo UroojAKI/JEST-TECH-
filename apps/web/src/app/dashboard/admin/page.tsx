@@ -224,13 +224,37 @@ export default function AdminPortalPage() {
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-xl font-bold text-white flex items-center gap-2">
-            <Settings className="h-5 w-5 text-indigo-400" /> JEST Settings & Configurations
+            <Settings className="h-5 w-5 text-indigo-400" /> JEST Enterprise Control Center & Administration Console
           </h1>
           <p className="text-xs text-slate-400 mt-1">
-            Motor administration platform: manage master registers, dynamic rating, and premium rules.
+            Configure system parameters, RBAC user provisioning, master registers, and infrastructure health gauges.
           </p>
         </div>
       </div>
+
+      {/* Enterprise Administration Control Cockpit Navigation Grid */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2 text-xs">
+        {[
+          { label: 'Users', path: '/admin/users' },
+          { label: 'Role Matrix', path: '/admin/roles' },
+          { label: 'Branches', path: '/admin/branches' },
+          { label: 'Lookups', path: '/admin/lookups' },
+          { label: 'Numbering', path: '/admin/numbering' },
+          { label: 'System Config', path: '/admin/config' },
+          { label: 'Audit Log', path: '/admin/audit' },
+          { label: 'Health Gauge', path: '/admin/health' },
+        ].map((item, idx) => (
+          <a
+            key={idx}
+            href={item.path}
+            className="p-2.5 rounded-lg border border-slate-800 bg-slate-900/60 hover:bg-slate-800 hover:border-indigo-500 text-center font-bold text-slate-200 transition-colors"
+          >
+            {item.label}
+          </a>
+        ))}
+      </div>
+
+
 
       {/* Tabs */}
       <div className="flex gap-2 border-b border-slate-900 pb-2">
