@@ -11,9 +11,11 @@ export function useProposals(params?: PaginationParams) {
     queryFn: () => proposalsRepository.getProposals(params),
   });
 
+  const list = Array.isArray(query.data) ? query.data : (query.data?.data || []);
+
   return {
-    proposals: query.data?.data || [],
-    total: query.data?.total || 0,
+    proposals: list,
+    total: Array.isArray(query.data) ? query.data.length : (query.data?.total || list.length),
     isLoading: query.isLoading,
     isError: query.isError,
   };

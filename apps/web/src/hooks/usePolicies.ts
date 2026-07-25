@@ -11,9 +11,11 @@ export function usePolicies(params?: Partial<PaginationParams> & { status?: stri
     queryFn: () => policiesRepository.getPolicies(params),
   });
 
+  const list = Array.isArray(query.data) ? query.data : (query.data?.data || []);
+
   return {
-    policies: query.data?.data || [],
-    total: query.data?.total || 0,
+    policies: list,
+    total: Array.isArray(query.data) ? query.data.length : (query.data?.total || list.length),
     isLoading: query.isLoading,
     isError: query.isError,
     refetch: query.refetch,

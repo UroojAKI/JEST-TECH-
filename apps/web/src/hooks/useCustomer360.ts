@@ -26,9 +26,11 @@ export function useCustomers(params?: PaginationParams & { tag?: string }) {
     queryFn: () => customerRepository.getContacts(params),
   });
 
+  const list = Array.isArray(query.data) ? query.data : (query.data?.data || []);
+
   return {
-    customers: query.data?.data || [],
-    total: query.data?.total || 0,
+    customers: list,
+    total: Array.isArray(query.data) ? query.data.length : (query.data?.total || list.length),
     isLoading: query.isLoading,
     isError: query.isError,
   };

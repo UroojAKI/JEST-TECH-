@@ -13,6 +13,7 @@ import { EnterpriseTable } from '../../components/table/enterprise-table';
 import { useAuthStore } from '../../store/auth-store';
 import { useCustomerContext } from '../../store/customer-context';
 import { useDashboardWidget } from '../../hooks/useDashboard';
+import { useLeads } from '../../hooks/useLeads';
 import { ShieldCheck, FileText, TrendingUp, Users, Building2 } from 'lucide-react';
 
 const RECENT_POLICIES = [
@@ -35,8 +36,13 @@ const COLUMNS = [
 
 export default function DashboardPage() {
   const { user } = useAuthStore();
-  const { activeCustomerId, activeCustomerName } = useCustomerContext();
+  const { activeCustomerName } = useCustomerContext();
   const { data, isLoading } = useDashboardWidget(user?.roles?.[0]);
+  const { leads } = useLeads();
+
+  const totalLeads = leads.length;
+  const convertedLeads = leads.filter((l: any) => l.status === 'CONVERTED' || l.status === 'POLICY_ISSUED').length;
+  const liveConversionRate = totalLeads > 0 ? `${((convertedLeads / totalLeads) * 100).toFixed(1)}%` : '34.2%';
 
   return (
     <AppShell>
@@ -89,8 +95,8 @@ export default function DashboardPage() {
           icon={<FileText className="h-5 w-5" />}
         />
         <KpiCard
-          title="Lead Conversion Rate"
-          value={data?.metrics?.conversionRate ? `${data.metrics.conversionRate}%` : '34.2%'}
+          title="Live Leads Count"
+          value={totalLeads > 0 ? `${totalLeads} Leads (${liveConversionRate})` : '34.2%'}
           change={6.8}
           changeLabel="vs last month"
           icon={<Users className="h-5 w-5" />}

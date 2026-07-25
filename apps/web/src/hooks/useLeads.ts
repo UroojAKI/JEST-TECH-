@@ -19,6 +19,7 @@ export function useLeads(params?: PaginationParams & LeadFilterParams) {
       leadsRepository.updateLeadStatus(id, status),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['leads'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
       toast.success('Lead stage updated successfully');
     },
     onError: (err: any) => {
@@ -42,6 +43,7 @@ export function useLeads(params?: PaginationParams & LeadFilterParams) {
     }) => leadsRepository.markLost(id, reason, competitor, priceDiff, remarks),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['leads'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
       toast.success('Lead marked as Lost');
     },
     onError: (err: any) => {
@@ -49,9 +51,12 @@ export function useLeads(params?: PaginationParams & LeadFilterParams) {
     },
   });
 
+  const rawData = leadsQuery.data;
+  const leadsList = Array.isArray(rawData) ? rawData : (rawData?.data || []);
+
   return {
-    leads: leadsQuery.data?.data || [],
-    total: leadsQuery.data?.total || 0,
+    leads: leadsList,
+    total: Array.isArray(rawData) ? rawData.length : (rawData?.total || leadsList.length),
     isLoading: leadsQuery.isLoading,
     isError: leadsQuery.isError,
     refetch: leadsQuery.refetch,
