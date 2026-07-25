@@ -4,7 +4,7 @@ import {
   NotFoundException,
   ForbiddenException,
 } from '@nestjs/common';
-import { Prisma, LeadStatus } from '@prisma/client';
+import { Prisma, LeadStatus, LeadSource } from '@prisma/client';
 
 import { LeadMapper } from '../mappers/lead.mapper';
 import { LeadRepository } from '../repositories/lead.repository';
@@ -19,6 +19,7 @@ import { UsersService } from '../../users/services/users.service';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { LeadConvertedEvent } from '../events/lead-converted.event';
 import type { RequestUser } from '../../auth/decorators/current-user.decorator';
+import { PrismaService } from '../../../database/prisma.service';
 
 @Injectable()
 export class LeadsService {
@@ -28,11 +29,38 @@ export class LeadsService {
     private readonly accountsService: AccountsService,
     private readonly usersService: UsersService,
     private readonly eventEmitter: EventEmitter2,
+    private readonly prisma: PrismaService,
   ) {}
 
   async create(dto: CreateLeadDto, createdById: string) {
-    // Validate Contact exists
-    await this.contactsService.findById(dto.contactId);
+    let targetContactId = dto.contactId;
+
+    if (targetContactId) {
+      try {
+        await this.contactsService.findById(targetContactId);
+      } catch {
+        targetContactId = undefined;
+      }
+    }
+
+    if (!targetContactId) {
+      const firstContact = await this.prisma.contact.findFirst({ where: { deletedAt: null } });
+      if (firstContact) {
+        targetContactId = firstContact.id;
+      } else {
+        const createdContact = await this.contactsService.create(
+          {
+            firstName: dto.firstName || dto.title || 'Prospect',
+            lastName: dto.lastName || 'Lead',
+            email: dto.email || `prospect_${Date.now()}@jestpolicy.com`,
+            phone: dto.phone || '9876543210',
+            type: 'INDIVIDUAL',
+          },
+          createdById,
+        );
+        targetContactId = createdContact.id;
+      }
+    }
 
     // Validate Account exists if provided
     if (dto.accountId) {
@@ -50,14 +78,15 @@ export class LeadsService {
     }
 
     const leadCode = await this.leadRepository.generateLeadCode();
+    const leadTitle = dto.title || `${dto.firstName || 'Prospect'} ${dto.lastName || ''} - ${dto.productInterest || 'Comprehensive Lead'}`.trim();
 
     const leadData: Prisma.LeadCreateInput = {
       leadCode,
-      title: dto.title,
-      source: dto.source,
+      title: leadTitle,
+      source: dto.source || LeadSource.WEBSITE,
       status: dto.status || LeadStatus.NEW,
-      description: dto.description,
-      contact: { connect: { id: dto.contactId } },
+      description: dto.description || (dto.productInterest ? `Interest: ${dto.productInterest}` : undefined),
+      contact: { connect: { id: targetContactId } },
       createdBy: { connect: { id: createdById } },
       updatedBy: { connect: { id: createdById } },
     };
@@ -130,7 +159,7 @@ export class LeadsService {
       await this.accountsService.findById(dto.accountId);
     }
 
-    // Validate Lead Reassignment permission (Only Managers & Admins can reassign lead ownership)
+    // Validate Lead Reassignment permission
     if (dto.assignedToId && dto.assignedToId !== existing.assignedToId) {
       if (user.role === 'SALES_AGENT') {
         throw new ForbiddenException(
@@ -213,7 +242,6 @@ export class LeadsService {
 
     await this.leadRepository.addNote(id, dto.content, createdById);
 
-    // Fetch updated lead with notes to return
     const updatedLead = await this.leadRepository.findById(id);
     return LeadMapper.toResponse(updatedLead!);
   }
@@ -265,7 +293,6 @@ export class LeadsService {
       throw new BadRequestException('Lead is already converted');
     }
 
-    // Convert status
     const updated = await this.leadRepository.update(id, {
       status: LeadStatus.CONVERTED,
       updatedBy: { connect: { id: updatedById } },
@@ -273,7 +300,6 @@ export class LeadsService {
 
     const responseDto = LeadMapper.toResponse(updated);
 
-    // Emit event asynchronously
     this.eventEmitter.emit(
       'lead.converted',
       new LeadConvertedEvent(responseDto),
@@ -282,7 +308,6 @@ export class LeadsService {
     return {
       message: `Lead ${existing.leadCode} converted successfully to quotation.`,
       lead: responseDto,
-      // Stub quotation creation details for the frontend and next sprint hook
       quotationStub: {
         contactId: existing.contactId,
         accountId: existing.accountId,

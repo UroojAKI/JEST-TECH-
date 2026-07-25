@@ -2,12 +2,13 @@ import { IsEnum, IsNotEmpty, IsOptional, IsString } from 'class-validator';
 import { LeadSource, LeadStatus } from '@prisma/client';
 
 export class CreateLeadDto {
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  title: string;
+  title?: string;
 
+  @IsOptional()
   @IsEnum(LeadSource)
-  source: LeadSource;
+  source?: LeadSource;
 
   @IsOptional()
   @IsEnum(LeadStatus)
@@ -17,9 +18,32 @@ export class CreateLeadDto {
   @IsString()
   description?: string;
 
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  contactId: string;
+  contactId?: string;
+
+  @IsOptional()
+  @IsString()
+  firstName?: string;
+
+  @IsOptional()
+  @IsString()
+  lastName?: string;
+
+  @IsOptional()
+  @IsString()
+  email?: string;
+
+  @IsOptional()
+  @IsString()
+  phone?: string;
+
+  @IsOptional()
+  @IsString()
+  productInterest?: string;
+
+  @IsOptional()
+  expectedPremium?: number;
 
   @IsOptional()
   @IsString()
