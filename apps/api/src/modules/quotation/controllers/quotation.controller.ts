@@ -12,6 +12,8 @@ import {
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { RoleType } from '@prisma/client';
 
+import { SkipThrottle } from '@nestjs/throttler';
+
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
 import { Roles } from '../../auth/decorators/roles.decorator';
@@ -45,6 +47,7 @@ export class QuotationController {
     private readonly comparisonEngine: ComparisonService,
   ) {}
 
+  @SkipThrottle()
   @Post('calculate')
   @HttpCode(HttpStatus.OK)
   @Roles(
