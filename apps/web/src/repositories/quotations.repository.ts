@@ -22,7 +22,7 @@ export interface QuotationItem {
 }
 
 export const quotationsRepository = {
-  async getQuotations(params?: PaginationParams & { status?: string }): Promise<PaginatedResult<QuotationItem>> {
+  async getQuotations(params?: Partial<PaginationParams> & { status?: string }): Promise<PaginatedResult<QuotationItem>> {
     const response = await apiClient.get('/quotations', { params });
     return response.data;
   },

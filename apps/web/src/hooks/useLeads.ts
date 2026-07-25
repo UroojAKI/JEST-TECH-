@@ -54,6 +54,7 @@ export function useLeads(params?: PaginationParams & LeadFilterParams) {
     total: leadsQuery.data?.total || 0,
     isLoading: leadsQuery.isLoading,
     isError: leadsQuery.isError,
+    refetch: leadsQuery.refetch,
     updateStatus: updateStatusMutation.mutate,
     markLost: markLostMutation.mutate,
     isUpdating: updateStatusMutation.isPending || markLostMutation.isPending,

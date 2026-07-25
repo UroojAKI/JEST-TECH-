@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { AppShell } from '../../../components/layout/app-shell';
 import { EnterpriseTable } from '../../../components/table/enterprise-table';
@@ -10,8 +10,7 @@ import { LeadItem, LeadStatus } from '../../../types/leads';
 import { useLeads } from '../../../hooks/useLeads';
 import { leadsRepository } from '../../../repositories/leads.repository';
 import { toast } from 'sonner';
-
-const STORAGE_KEY = 'jest_crm_leads_v3';
+import { formatCurrency } from '../../../lib/formatters';
 
 const STAGES: { status: LeadStatus; label: string }[] = [
   { status: 'NEW', label: '1. NEW' },
@@ -30,63 +29,7 @@ export default function LeadsWorkspacePage() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const { leads: apiLeads, updateStatus } = useLeads();
-  const [storedLeads, setStoredLeads] = useState<LeadItem[]>([]);
-  const [isMounted, setIsMounted] = useState(false);
-
-  // Load from localStorage on client mount (start EMPTY if no user created items exist)
-  useEffect(() => {
-    setIsMounted(true);
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) {
-        setStoredLeads(JSON.parse(saved));
-      } else {
-        setStoredLeads([]);
-      }
-    } catch (e) {
-      setStoredLeads([]);
-    }
-  }, []);
-
-  // Sync state to localStorage whenever storedLeads changes
-  const saveLeadsToStorage = (updated: LeadItem[]) => {
-    setStoredLeads(updated);
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-    } catch (e) {
-      // ignore
-    }
-  };
-
-  // Combine storedLeads with API leads (NO hardcoded default mock items)
-  const leadsMap = new Map<string, LeadItem>();
-  storedLeads.forEach((l) => leadsMap.set(l.id, l));
-  (apiLeads || []).forEach((l: any) => {
-    if (!leadsMap.has(l.id)) {
-      leadsMap.set(l.id, {
-        id: l.id,
-        leadCode: l.leadCode || l.id,
-        firstName: l.firstName || 'Prospect',
-        lastName: l.lastName || '',
-        email: l.email || '',
-        phone: l.phone || '',
-        status: l.status || 'NEW',
-        source: l.source || 'CRM',
-        productInterest: l.productInterest || 'General Insurance',
-        priority: l.priority || 'WARM',
-        expectedPremium: l.expectedPremium || 0,
-        probabilityScore: l.probabilityScore || 70,
-        assignedAgentName: l.assignedAgentName || 'Sales Agent',
-        tags: l.tags || ['NEW'],
-        slaStatus: 'ON_TRACK',
-        slaTimeRemaining: '2h',
-        daysInPipeline: 1,
-        createdAt: l.createdAt || new Date().toISOString(),
-      });
-    }
-  });
-  const combinedLeads = Array.from(leadsMap.values());
+  const { leads: apiLeads, isLoading, isError, refetch, updateStatus } = useLeads();
 
   const [formData, setFormData] = useState({
     firstName: '',
@@ -108,63 +51,51 @@ export default function LeadsWorkspacePage() {
 
     setIsSubmitting(true);
     try {
-      const created = await leadsRepository.createLead(formData as any);
-      const newLead: LeadItem = {
-        id: created.id || `LD-${Date.now().toString().slice(-5)}`,
-        leadCode: created.leadCode || `LD-${Date.now().toString().slice(-5)}`,
+      const created = await leadsRepository.createLead({
         firstName: formData.firstName,
         lastName: formData.lastName,
         email: formData.email,
         phone: formData.phone,
-        status: 'NEW',
-        source: formData.source as any,
         productInterest: formData.productInterest,
-        priority: formData.priority as any,
         expectedPremium: Number(formData.expectedPremium),
-        probabilityScore: formData.priority === 'HOT' ? 85 : 60,
-        assignedAgentName: 'Rajesh Sharma',
-        tags: [formData.priority, 'NEW_PROSPECT'] as any[],
-        slaStatus: 'ON_TRACK',
-        slaTimeRemaining: '4h 00m',
-        daysInPipeline: 0,
-        createdAt: new Date().toISOString().split('T')[0],
-      };
+        priority: formData.priority as any,
+        source: formData.source as any,
+      });
 
-      saveLeadsToStorage([newLead, ...storedLeads]);
-      toast.success(`Lead "${formData.firstName} ${formData.lastName}" created and saved!`);
+      toast.success(`Lead "${formData.firstName} ${formData.lastName}" created successfully!`);
       setShowAddModal(false);
       setFormData({ firstName: '', lastName: '', email: '', phone: '', productInterest: 'Motor Comprehensive', expectedPremium: 25000, priority: 'HOT', source: 'WEBSITE' });
+      refetch();
     } catch (err: any) {
-      const newLead: LeadItem = {
-        id: `LD-${Date.now().toString().slice(-5)}`,
-        leadCode: `LD-${Date.now().toString().slice(-5)}`,
-        firstName: formData.firstName,
-        lastName: formData.lastName,
-        email: formData.email,
-        phone: formData.phone,
-        status: 'NEW',
-        source: formData.source as any,
-        productInterest: formData.productInterest,
-        priority: formData.priority as any,
-        expectedPremium: Number(formData.expectedPremium),
-        probabilityScore: 80,
-        assignedAgentName: 'Rajesh Sharma',
-        tags: [formData.priority, 'NEW_PROSPECT'] as any[],
-        slaStatus: 'ON_TRACK',
-        slaTimeRemaining: '4h 00m',
-        daysInPipeline: 0,
-        createdAt: new Date().toISOString().split('T')[0],
-      };
-      saveLeadsToStorage([newLead, ...storedLeads]);
-      toast.success(`Lead "${formData.firstName} ${formData.lastName}" created and saved!`);
-      setShowAddModal(false);
-      setFormData({ firstName: '', lastName: '', email: '', phone: '', productInterest: 'Motor Comprehensive', expectedPremium: 25000, priority: 'HOT', source: 'WEBSITE' });
+      const errorMessage = err?.response?.data?.message || err.message || 'Failed to create lead via API';
+      toast.error(errorMessage);
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const filteredData = combinedLeads.filter((l) => {
+  const leadsList: LeadItem[] = (apiLeads || []).map((l: any) => ({
+    id: l.id,
+    leadCode: l.leadCode || l.id,
+    firstName: l.firstName || 'Prospect',
+    lastName: l.lastName || '',
+    email: l.email || '',
+    phone: l.phone || '',
+    status: l.status || 'NEW',
+    source: l.source || 'CRM',
+    productInterest: l.productInterest || 'General Insurance',
+    priority: l.priority || 'WARM',
+    expectedPremium: l.expectedPremium || 0,
+    probabilityScore: l.probabilityScore || 70,
+    assignedAgentName: l.assignedAgentName || 'Sales Agent',
+    tags: l.tags || ['NEW'],
+    slaStatus: 'ON_TRACK',
+    slaTimeRemaining: '2h',
+    daysInPipeline: 1,
+    createdAt: l.createdAt || new Date().toISOString(),
+  }));
+
+  const filteredData = leadsList.filter((l) => {
     if (savedView === 'MY_WORK') return true;
     if (savedView === 'TODAY_FOLLOWUPS') return l.priority === 'HOT';
     if (savedView === 'LOST') return l.status === 'LOST';
@@ -187,13 +118,15 @@ export default function LeadsWorkspacePage() {
     {
       accessorKey: 'name',
       header: 'Prospect Name',
-      cell: ({ row }: any) => `${row.original.firstName} ${row.original.lastName}`,
+      cell: ({ row }: any) => `${row.original.firstName} ${row.original.lastName}`.trim(),
     },
     { accessorKey: 'productInterest', header: 'Product' },
     {
       accessorKey: 'expectedPremium',
       header: 'Expected Premium',
-      cell: ({ row }: any) => `₹${Number(row.original.expectedPremium || 0).toLocaleString('en-US')}`,
+      cell: ({ row }: any) => (
+        <span suppressHydrationWarning>{formatCurrency(row.original.expectedPremium)}</span>
+      ),
     },
     {
       accessorKey: 'probabilityScore',
@@ -411,8 +344,11 @@ export default function LeadsWorkspacePage() {
         ))}
       </div>
 
-      {/* View Rendering */}
-      {viewMode === 'KANBAN' ? (
+      {isLoading ? (
+        <div className="p-8 text-center text-xs text-muted-foreground animate-pulse">Loading lead pipeline from API...</div>
+      ) : isError ? (
+        <div className="p-8 text-center text-xs text-red-500">Failed to load leads from API.</div>
+      ) : viewMode === 'KANBAN' ? (
         <div className="flex gap-4 overflow-x-auto pb-4 pt-2 snap-x">
           {STAGES.map((stage) => {
             const stageLeads = filteredData.filter((l) => l.status === stage.status);
@@ -430,7 +366,7 @@ export default function LeadsWorkspacePage() {
                 <div className="text-[10px] text-muted-foreground font-semibold flex justify-between items-center">
                   <span>Expected GWP:</span>
                   <span className="font-bold text-emerald-600" suppressHydrationWarning>
-                    ₹{isMounted ? totalGwp.toLocaleString('en-US') : totalGwp}
+                    {formatCurrency(totalGwp)}
                   </span>
                 </div>
 
@@ -454,26 +390,28 @@ export default function LeadsWorkspacePage() {
 
                       <div className="flex justify-between items-center pt-2 border-t text-[11px]">
                         <span className="font-extrabold text-emerald-600" suppressHydrationWarning>
-                          ₹{isMounted ? (item.expectedPremium || 0).toLocaleString('en-US') : item.expectedPremium}
+                          {formatCurrency(item.expectedPremium)}
                         </span>
                         <span className="text-primary font-bold text-[10px] bg-primary/10 px-1.5 py-0.5 rounded">
                           Score: {item.probabilityScore}/100
                         </span>
                       </div>
 
-                      {/* Advance Stage Business Flow Button */}
                       <div className="flex justify-between items-center pt-2 border-t text-[10px]">
                         <span className="text-muted-foreground font-mono">{item.slaTimeRemaining}</span>
                         <button
-                          onClick={(e) => {
+                          onClick={async (e) => {
                             e.stopPropagation();
                             const stageIndex = STAGES.findIndex((s) => s.status === item.status);
                             if (stageIndex < STAGES.length - 1) {
                               const nextStage = STAGES[stageIndex + 1].status;
-                              const updated = storedLeads.map((l) => (l.id === item.id ? { ...l, status: nextStage } : l));
-                              saveLeadsToStorage(updated);
-                              updateStatus({ id: item.id, status: nextStage });
-                              toast.success(`Advanced lead to stage: ${STAGES[stageIndex + 1].label}`);
+                              try {
+                                await updateStatus({ id: item.id, status: nextStage });
+                                toast.success(`Advanced lead to stage: ${STAGES[stageIndex + 1].label}`);
+                                refetch();
+                              } catch (err: any) {
+                                toast.error(err?.message || 'Failed to update stage');
+                              }
                             } else {
                               toast.info('Lead has reached final Policy Issued stage!');
                             }

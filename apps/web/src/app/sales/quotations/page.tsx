@@ -1,100 +1,62 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { AppShell } from '../../../components/layout/app-shell';
 import { EnterpriseTable } from '../../../components/table/enterprise-table';
 import { StatusBadge } from '../../../components/ui/status-badge';
-import { FileSpreadsheet, Plus, X, Calculator, ShieldCheck, Download, Send, CheckCircle2, Loader2 } from 'lucide-react';
+import { FileSpreadsheet, Plus, X, Calculator, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
-
-interface QuotationItem {
-  id: string;
-  quotationNumber: string;
-  version: number;
-  contactName: string;
-  productLine: string;
-  insurerName: string;
-  idvValue: number;
-  totalPremium: number;
-  status: string;
-  expiryDate: string;
-  createdAt: string;
-}
-
-const STORAGE_KEY = 'jest_global_quotations_v3';
+import { useQuotations } from '../../../hooks/useQuotations';
+import { quotationsRepository } from '../../../repositories/quotations.repository';
+import { formatCurrency } from '../../../lib/formatters';
 
 export default function QuotationsRegisterPage() {
   const router = useRouter();
   const [savedView, setSavedView] = useState<string>('ALL');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [quotations, setQuotations] = useState<QuotationItem[]>([]);
 
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) {
-        setQuotations(JSON.parse(saved));
-      } else {
-        setQuotations([]);
-      }
-    } catch (e) {
-      setQuotations([]);
-    }
-  }, []);
-
-  const saveQuotationsToStorage = (updated: QuotationItem[]) => {
-    setQuotations(updated);
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-    } catch (e) {
-      // ignore
-    }
-  };
+  const { quotations: quotationsList, isLoading, isError, refetch } = useQuotations({
+    status: savedView !== 'ALL' ? savedView : undefined,
+  });
 
   const [form, setForm] = useState({
     contactName: '',
     productLine: 'Motor Comprehensive',
     insurerName: 'ICICI Lombard',
     totalPremium: 18500,
+    idvValue: 850000,
   });
 
-  const handleCreateQuotation = (e: React.FormEvent) => {
+  const handleCreateQuotation = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.contactName) {
-      toast.error('Customer name is required');
+      toast.error('Customer / Prospect name is required');
       return;
     }
 
     setIsSubmitting(true);
-    const qtNum = `QT-2026-${Math.floor(1000 + Math.random() * 9000)}`;
-    const newQt: QuotationItem = {
-      id: qtNum,
-      quotationNumber: qtNum,
-      version: 1,
-      contactName: form.contactName,
-      productLine: form.productLine,
-      insurerName: form.insurerName,
-      idvValue: 850000,
-      totalPremium: Number(form.totalPremium),
-      status: 'SHARED',
-      expiryDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-      createdAt: new Date().toISOString().split('T')[0],
-    };
+    try {
+      const created = await quotationsRepository.createQuotation({
+        contactName: form.contactName,
+        productLine: form.productLine,
+        insurerName: form.insurerName,
+        totalPremium: Number(form.totalPremium),
+        idvValue: Number(form.idvValue),
+      });
 
-    saveQuotationsToStorage([newQt, ...quotations]);
-    toast.success(`Quotation ${qtNum} created for ${form.contactName}!`);
-    setIsModalOpen(false);
-    setForm({ contactName: '', productLine: 'Motor Comprehensive', insurerName: 'ICICI Lombard', totalPremium: 18500 });
-    setIsSubmitting(false);
+      toast.success(`Quotation ${created.quotationNumber || created.id || 'record'} generated successfully!`);
+      setIsModalOpen(false);
+      setForm({ contactName: '', productLine: 'Motor Comprehensive', insurerName: 'ICICI Lombard', totalPremium: 18500, idvValue: 850000 });
+      refetch();
+    } catch (err: any) {
+      const errorMessage = err?.response?.data?.message || err.message || 'Failed to generate quotation via API';
+      toast.error(errorMessage);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
-
-  const filteredData = quotations.filter((q) => {
-    if (savedView === 'ACCEPTED') return q.status === 'ACCEPTED';
-    if (savedView === 'SHARED') return q.status === 'SHARED';
-    return true;
-  });
 
   const columns = [
     {
@@ -105,7 +67,7 @@ export default function QuotationsRegisterPage() {
           onClick={() => router.push(`/sales/quotations/${row.original.id}`)}
           className="cursor-pointer hover:text-primary font-bold text-primary font-mono"
         >
-          {row.original.quotationNumber}
+          {row.original.quotationNumber || row.original.id}
         </span>
       ),
     },
@@ -116,8 +78,8 @@ export default function QuotationsRegisterPage() {
       accessorKey: 'totalPremium',
       header: 'Total Premium',
       cell: ({ row }: any) => (
-        <span className="font-extrabold text-emerald-600 font-mono">
-          ₹{Number(row.original.totalPremium || 0).toLocaleString()}
+        <span className="font-extrabold text-emerald-600 font-mono" suppressHydrationWarning>
+          {formatCurrency(row.original.totalPremium)}
         </span>
       ),
     },
@@ -204,6 +166,17 @@ export default function QuotationsRegisterPage() {
               </div>
 
               <div>
+                <label className="font-bold text-muted-foreground block mb-1">Insured Value IDV (₹)</label>
+                <input
+                  type="number"
+                  required
+                  value={form.idvValue}
+                  onChange={(e) => setForm({ ...form, idvValue: Number(e.target.value) })}
+                  className="w-full p-2.5 rounded-lg border bg-background text-foreground text-xs"
+                />
+              </div>
+
+              <div>
                 <label className="font-bold text-muted-foreground block mb-1">Quoted Premium (₹)</label>
                 <input
                   type="number"
@@ -219,8 +192,9 @@ export default function QuotationsRegisterPage() {
               <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 rounded-lg border bg-background">
                 Cancel
               </button>
-              <button type="submit" disabled={isSubmitting} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground font-bold shadow">
-                {isSubmitting ? 'Generating...' : 'Generate Quote'}
+              <button type="submit" disabled={isSubmitting} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground font-bold shadow flex items-center space-x-1">
+                {isSubmitting && <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />}
+                <span>{isSubmitting ? 'Generating...' : 'Generate Quote'}</span>
               </button>
             </div>
           </form>
@@ -246,7 +220,13 @@ export default function QuotationsRegisterPage() {
         ))}
       </div>
 
-      <EnterpriseTable data={filteredData} columns={columns} />
+      {isLoading ? (
+        <div className="p-8 text-center text-xs text-muted-foreground animate-pulse">Loading quotations from API...</div>
+      ) : isError ? (
+        <div className="p-8 text-center text-xs text-red-500">Failed to load quotation register from API.</div>
+      ) : (
+        <EnterpriseTable data={quotationsList} columns={columns} />
+      )}
     </AppShell>
   );
 }

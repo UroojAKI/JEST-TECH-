@@ -5,17 +5,18 @@ import { quotationsRepository } from '../repositories/quotations.repository';
 import { PaginationParams } from '../types';
 import { toast } from 'sonner';
 
-export function useQuotations(params?: PaginationParams & { status?: string }) {
+export function useQuotations(params?: Partial<PaginationParams> & { status?: string }) {
   const query = useQuery({
     queryKey: ['quotations', params],
     queryFn: () => quotationsRepository.getQuotations(params),
   });
 
   return {
-    quotations: query.data?.data || [],
-    total: query.data?.total || 0,
+    quotations: Array.isArray(query.data) ? query.data : (query.data as any)?.data || [],
+    total: (query.data as any)?.total || 0,
     isLoading: query.isLoading,
     isError: query.isError,
+    refetch: query.refetch,
   };
 }
 

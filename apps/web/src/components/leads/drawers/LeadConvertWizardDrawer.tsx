@@ -4,7 +4,9 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { X, CheckCircle2, ChevronRight, UserCheck, Loader2, ShieldCheck, Check } from 'lucide-react';
 import { policiesRepository } from '../../../repositories/policies.repository';
+import { quotationsRepository } from '../../../repositories/quotations.repository';
 import { toast } from 'sonner';
+import { formatCurrency } from '../../../lib/formatters';
 
 interface LeadConvertWizardDrawerProps {
   isOpen: boolean;
@@ -13,105 +15,85 @@ interface LeadConvertWizardDrawerProps {
   onClose: () => void;
 }
 
-const POLICIES_STORAGE_KEY = 'jest_crm_policies_v3';
-const LEADS_STORAGE_KEY = 'jest_crm_leads_v3';
-
 export function LeadConvertWizardDrawer({ isOpen, leadId, lead, onClose }: LeadConvertWizardDrawerProps) {
   const router = useRouter();
   const [step, setStep] = useState<number>(1);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
-  // Dynamic quotes list loaded from per-lead + global quotations storage
   const [availableQuotes, setAvailableQuotes] = useState<any[]>([]);
   const [selectedQuoteIndex, setSelectedQuoteIndex] = useState<number>(0);
+  const [isLoadingQuotes, setIsLoadingQuotes] = useState<boolean>(false);
 
   useEffect(() => {
-    if (!isOpen) return;
-    try {
-      // Load per-lead quotes
-      const perLeadQuotes = JSON.parse(localStorage.getItem(`jest_lead_activities_${leadId}`) || '[]');
-      const leadQuotes = JSON.parse(localStorage.getItem(`jest_lead_quotes_${leadId}`) || '[]');
+    if (!isOpen || !leadId) return;
 
-      // Load global quotes matching leadId
-      const globalQuotes = JSON.parse(localStorage.getItem('jest_global_quotations_v3') || '[]')
-        .filter((q: any) => q.leadId === leadId || q.contactName === (lead?.name || ''));
+    async function fetchLeadQuotes() {
+      setIsLoadingQuotes(true);
+      try {
+        const res = await quotationsRepository.getQuotations({ limit: 50 });
+        const items = Array.isArray(res) ? res : (res as any)?.items || [];
+        const matching = items.filter(
+          (q: any) =>
+            q.leadId === leadId ||
+            (q.contactName && lead?.name && q.contactName.trim().toLowerCase() === lead.name.trim().toLowerCase()),
+        );
 
-      const combined = [...leadQuotes, ...globalQuotes];
-
-      if (combined.length > 0) {
-        setAvailableQuotes(combined);
-      } else {
-        // Fallback default quote based on actual lead expected Premium & product
+        if (matching.length > 0) {
+          setAvailableQuotes(matching);
+        } else {
+          setAvailableQuotes([
+            {
+              id: `QT-${leadId.slice(-4)}`,
+              insurerName: lead?.productInterest || 'Motor Comprehensive',
+              totalPremium: lead?.expectedPremium || 25000,
+              idvValue: lead?.expectedPremium ? Math.round(lead.expectedPremium * 25) : 850000,
+              status: 'DRAFT',
+            },
+          ]);
+        }
+      } catch (err) {
         setAvailableQuotes([
           {
-            id: `QT-${Date.now().toString().slice(-4)}`,
-            insurer: lead?.productInterest || 'Motor Comprehensive',
-            amount: lead?.expectedPremium || 25000,
-            idv: '₹8,50,000',
-            status: 'Generated',
+            id: `QT-${leadId.slice(-4)}`,
+            insurerName: lead?.productInterest || 'Motor Comprehensive',
+            totalPremium: lead?.expectedPremium || 25000,
+            idvValue: 850000,
+            status: 'DRAFT',
           },
         ]);
+      } finally {
+        setIsLoadingQuotes(false);
       }
-    } catch (e) {
-      setAvailableQuotes([]);
     }
+
+    fetchLeadQuotes();
   }, [isOpen, leadId, lead]);
 
   if (!isOpen) return null;
 
-  const leadName = lead?.name || `${lead?.firstName || ''} ${lead?.lastName || ''}`.trim() || `Prospect (${leadId})`;
-  const leadPhone = lead?.phone || '+91 98765 43210';
-  const leadEmail = lead?.email || 'prospect@domain.com';
+  const leadName = lead?.name || `${lead?.firstName || ''} ${lead?.lastName || ''}`.trim() || `Lead Prospect`;
+  const leadPhone = lead?.phone || '-';
+  const leadEmail = lead?.email || '-';
   const selectedQuote = availableQuotes[selectedQuoteIndex] || availableQuotes[0];
 
   const handleIssuePolicy = async () => {
+    setIsSubmitting(true);
     try {
-      setIsSubmitting(true);
-
-      const polNum = `POL-2026-${Math.floor(100000 + Math.random() * 900000)}`;
-
-      // 1. Create permanent policy record
-      const newPolicy = {
-        id: polNum,
-        policyNumber: polNum,
-        contactName: leadName,
-        productLine: selectedQuote?.insurer || lead?.productInterest || 'General Policy',
-        insurerName: selectedQuote?.insurer || 'Partner Insurer',
-        idvValue: 850000,
-        totalPremium: selectedQuote?.amount || lead?.expectedPremium || 25000,
-        status: 'ACTIVE',
-        startDate: new Date().toISOString().split('T')[0],
-        expiryDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-        renewalExecutive: lead?.agent || 'Rajesh Sharma',
-        healthScore: 95,
-        claimsCount: 0,
-        createdAt: new Date().toISOString().split('T')[0],
+      const res = await policiesRepository.issuePolicy({
         leadId,
-      };
+        quotationId: selectedQuote?.id,
+        contactName: leadName,
+        productLine: selectedQuote?.insurerName || lead?.productInterest || 'Insurance Policy',
+        totalPremium: Number(selectedQuote?.totalPremium || lead?.expectedPremium || 25000),
+        idvValue: Number(selectedQuote?.idvValue || 850000),
+      });
 
-      // Save to localStorage
-      const existingPolicies = JSON.parse(localStorage.getItem(POLICIES_STORAGE_KEY) || '[]');
-      localStorage.setItem(POLICIES_STORAGE_KEY, JSON.stringify([newPolicy, ...existingPolicies]));
-
-      // 2. Update lead status to POLICY_ISSUED
-      const existingLeads = JSON.parse(localStorage.getItem(LEADS_STORAGE_KEY) || '[]');
-      const updatedLeads = existingLeads.map((l: any) =>
-        l.id === leadId || l.leadCode === leadId ? { ...l, status: 'POLICY_ISSUED' } : l
-      );
-      localStorage.setItem(LEADS_STORAGE_KEY, JSON.stringify(updatedLeads));
-
-      // Call API backend
-      try {
-        await policiesRepository.issuePolicy({ leadId });
-      } catch (e) {
-        // ignore fallback
-      }
-
-      toast.success(`Policy ${polNum} issued successfully for ${leadName}!`);
+      toast.success(`Policy ${res?.policyNumber || res?.id || ''} issued successfully for ${leadName}!`);
       onClose();
       router.push('/policies');
     } catch (err: any) {
-      toast.error('Failed to issue policy');
+      const errorMessage = err?.response?.data?.message || err.message || 'Failed to issue policy via API';
+      toast.error(errorMessage);
     } finally {
       setIsSubmitting(false);
     }
@@ -173,7 +155,7 @@ export function LeadConvertWizardDrawer({ isOpen, leadId, lead, onClose }: LeadC
                 <div>Customer Name: <strong className="text-foreground text-sm">{leadName}</strong></div>
                 <div>Phone Number: <strong className="text-foreground">{leadPhone}</strong></div>
                 <div>Email Address: <strong className="text-foreground">{leadEmail}</strong></div>
-                <div>Lead Code: <strong className="text-primary">{leadId}</strong></div>
+                <div>Lead Reference Code: <strong className="text-primary font-mono">{leadId}</strong></div>
               </div>
             </div>
           )}
@@ -183,32 +165,36 @@ export function LeadConvertWizardDrawer({ isOpen, leadId, lead, onClose }: LeadC
               <h4 className="font-bold text-sm">Step 2: Select Quotation ({availableQuotes.length} Available)</h4>
               <p className="text-muted-foreground">Select the binding quote option agreed upon by the prospect:</p>
 
-              <div className="space-y-2">
-                {availableQuotes.map((q, idx) => (
-                  <div
-                    key={idx}
-                    onClick={() => setSelectedQuoteIndex(idx)}
-                    className={`p-4 rounded-xl border cursor-pointer transition-all flex justify-between items-center ${
-                      selectedQuoteIndex === idx
-                        ? 'border-emerald-500 bg-emerald-500/10 shadow-sm'
-                        : 'border-border bg-card hover:border-muted-foreground'
-                    }`}
-                  >
-                    <div className="space-y-1">
-                      <div className="font-bold text-foreground text-sm flex items-center gap-1.5">
-                        {q.insurer || 'Partner Insurer'}
-                        {selectedQuoteIndex === idx && <Check className="h-4 w-4 text-emerald-600" />}
+              {isLoadingQuotes ? (
+                <div className="p-4 text-center text-muted-foreground animate-pulse">Loading quotes...</div>
+              ) : (
+                <div className="space-y-2">
+                  {availableQuotes.map((q, idx) => (
+                    <div
+                      key={idx}
+                      onClick={() => setSelectedQuoteIndex(idx)}
+                      className={`p-4 rounded-xl border cursor-pointer transition-all flex justify-between items-center ${
+                        selectedQuoteIndex === idx
+                          ? 'border-emerald-500 bg-emerald-500/10 shadow-sm'
+                          : 'border-border bg-card hover:border-muted-foreground'
+                      }`}
+                    >
+                      <div className="space-y-1">
+                        <div className="font-bold text-foreground text-sm flex items-center gap-1.5">
+                          {q.insurerName || q.insurer || 'Partner Insurer'}
+                          {selectedQuoteIndex === idx && <Check className="h-4 w-4 text-emerald-600" />}
+                        </div>
+                        <div className="text-muted-foreground text-[11px]">
+                          IDV: {formatCurrency(q.idvValue || 850000)} • Premium: <strong className="text-emerald-600" suppressHydrationWarning>{formatCurrency(q.totalPremium || q.amount)}</strong>
+                        </div>
                       </div>
-                      <div className="text-muted-foreground text-[11px]">
-                        IDV: {q.idv || '₹8,50,000'} • Premium: <strong className="text-emerald-600">₹{(q.amount || 0).toLocaleString()}</strong>
+                      <div className="font-black text-sm text-emerald-600" suppressHydrationWarning>
+                        {formatCurrency(q.totalPremium || q.amount)}
                       </div>
                     </div>
-                    <div className="font-black text-sm text-emerald-600">
-                      ₹{(q.amount || 0).toLocaleString()}
-                    </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
@@ -221,8 +207,8 @@ export function LeadConvertWizardDrawer({ isOpen, leadId, lead, onClose }: LeadC
                   <ShieldCheck className="h-5 w-5" />
                   <span>Auto-Underwriting Approval Granted</span>
                 </div>
-                <p className="text-[11px] font-normal text-muted-foreground pt-1">
-                  Selected Quote: <strong>{selectedQuote?.insurer}</strong> — Net Premium: <strong>₹{(selectedQuote?.amount || 0).toLocaleString()}</strong>
+                <p className="text-[11px] font-normal text-muted-foreground pt-1" suppressHydrationWarning>
+                  Selected Plan: <strong>{selectedQuote?.insurerName || selectedQuote?.insurer}</strong> — Net Premium: <strong>{formatCurrency(selectedQuote?.totalPremium || selectedQuote?.amount)}</strong>
                 </p>
               </div>
             </div>
@@ -231,13 +217,12 @@ export function LeadConvertWizardDrawer({ isOpen, leadId, lead, onClose }: LeadC
           {step === 4 && (
             <div className="space-y-3">
               <h4 className="font-bold text-sm">Step 4: Issue Policy & Generate Certificate</h4>
-              <p className="text-muted-foreground">Finalize payment confirmation and issue active policy record.</p>
+              <p className="text-muted-foreground">Finalize payment confirmation and issue active policy record via API backend.</p>
               <div className="p-4 rounded-xl border bg-muted/20 space-y-1.5 font-mono text-xs">
                 <div>Lead Reference: <strong className="text-foreground">{leadId}</strong></div>
                 <div>Customer Name: <strong className="text-foreground">{leadName}</strong></div>
-                <div>Plan / Product: <strong className="text-foreground">{selectedQuote?.insurer || lead?.productInterest}</strong></div>
-                <div>Total Annual Premium: <strong className="text-emerald-600">₹{(selectedQuote?.amount || lead?.expectedPremium || 0).toLocaleString()}</strong></div>
-                <div>Effective Date: <strong className="text-foreground">{new Date().toISOString().split('T')[0]}</strong></div>
+                <div>Plan / Product: <strong className="text-foreground">{selectedQuote?.insurerName || lead?.productInterest}</strong></div>
+                <div>Total Annual Premium: <strong className="text-emerald-600" suppressHydrationWarning>{formatCurrency(selectedQuote?.totalPremium || lead?.expectedPremium)}</strong></div>
               </div>
             </div>
           )}

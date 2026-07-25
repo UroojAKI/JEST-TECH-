@@ -5,7 +5,7 @@ import { policiesRepository } from '../repositories/policies.repository';
 import { PaginationParams } from '../types';
 import { toast } from 'sonner';
 
-export function usePolicies(params?: PaginationParams & { status?: string }) {
+export function usePolicies(params?: Partial<PaginationParams> & { status?: string }) {
   const query = useQuery({
     queryKey: ['policies', params],
     queryFn: () => policiesRepository.getPolicies(params),
@@ -16,6 +16,7 @@ export function usePolicies(params?: PaginationParams & { status?: string }) {
     total: query.data?.total || 0,
     isLoading: query.isLoading,
     isError: query.isError,
+    refetch: query.refetch,
   };
 }
 

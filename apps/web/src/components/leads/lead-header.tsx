@@ -15,6 +15,7 @@ import {
   TrendingUp,
 } from 'lucide-react';
 import { StatusBadge } from '../ui/status-badge';
+import { formatCurrency } from '../../lib/formatters';
 
 interface LeadHeaderProps {
   lead: any;
@@ -30,7 +31,7 @@ export function LeadHeader({ lead, onLaunchConvert, onLaunchMarkLost }: LeadHead
   const displayProduct = lead?.productInterest || lead?.product || 'Motor Comprehensive';
   const displayPriority = (lead?.priority || 'HOT').toUpperCase();
   const displaySource = (lead?.source || 'WEBSITE').toUpperCase();
-  const displayPremium = lead?.expectedPremium ? `₹${Number(lead.expectedPremium).toLocaleString()}` : '₹25,000';
+  const displayPremium = formatCurrency(lead?.expectedPremium || 25000);
   const displayScore = lead?.probabilityScore || lead?.score || 80;
   const displayAgent = lead?.agent || lead?.assignedAgentName || 'Rajesh Sharma';
   const displayStage = lead?.status || lead?.stage || 'QUOTE_PREPARED';

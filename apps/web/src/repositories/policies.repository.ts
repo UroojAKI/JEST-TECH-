@@ -19,7 +19,7 @@ export interface PolicyItem {
 }
 
 export const policiesRepository = {
-  async getPolicies(params?: PaginationParams & { status?: string }): Promise<PaginatedResult<PolicyItem>> {
+  async getPolicies(params?: Partial<PaginationParams> & { status?: string }): Promise<PaginatedResult<PolicyItem>> {
     const response = await apiClient.get('/policies', { params });
     return response.data;
   },
@@ -31,6 +31,11 @@ export const policiesRepository = {
 
   async getPolicyHistory(id: string): Promise<any[]> {
     const response = await apiClient.get(`/policies/${id}/history`);
+    return response.data;
+  },
+
+  async createPolicy(data: any): Promise<PolicyItem> {
+    const response = await apiClient.post('/policies', data);
     return response.data;
   },
 

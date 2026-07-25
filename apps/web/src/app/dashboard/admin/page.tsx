@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
+import { formatCurrency, formatNumber } from '@/lib/formatters';
 import {
   Settings,
   Car,
@@ -415,7 +416,7 @@ export default function AdminPortalPage() {
                       <td className="py-4 px-6">{v.model?.name}</td>
                       <td className="py-4 px-6 text-slate-400">{v.name} ({v.fuelType})</td>
                       <td className="py-4 px-6 text-slate-400">{v.engineCapacity} CC</td>
-                      <td className="py-4 px-6 font-semibold text-slate-200">₹{Number(v.exShowroomPrice).toLocaleString()}</td>
+                      <td className="py-4 px-6 font-semibold text-slate-200" suppressHydrationWarning>{formatCurrency(v.exShowroomPrice)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -674,47 +675,47 @@ export default function AdminPortalPage() {
                   <div className="grid grid-cols-2 gap-4 border-b border-slate-900 pb-3">
                     <div>
                       <p className="text-[10px] text-slate-500 uppercase tracking-wider">Calculated IDV</p>
-                      <p className="text-lg font-bold text-white">₹{calcResult.idv.toLocaleString()}</p>
+                      <p className="text-lg font-bold text-white" suppressHydrationWarning>{formatCurrency(calcResult.idv)}</p>
                     </div>
                     <div>
                       <p className="text-[10px] text-slate-500 uppercase tracking-wider">Ex-Showroom Price</p>
-                      <p className="text-lg font-bold text-slate-400">₹{calcResult.exShowroom.toLocaleString()}</p>
+                      <p className="text-lg font-bold text-slate-400" suppressHydrationWarning>{formatCurrency(calcResult.exShowroom)}</p>
                     </div>
                   </div>
 
                   <div className="space-y-2">
                     <div className="flex justify-between text-xs">
                       <span className="text-slate-400">Own Damage Base Premium</span>
-                      <span className="text-white font-medium">₹{calcResult.calculations.ownDamage.base.toLocaleString()}</span>
+                      <span className="text-white font-medium" suppressHydrationWarning>{formatCurrency(calcResult.calculations.ownDamage.base)}</span>
                     </div>
                     <div className="flex justify-between text-xs text-rose-400">
                       <span>NCB Discount Deductions</span>
-                      <span>-₹{calcResult.calculations.ownDamage.ncbDiscount.toLocaleString()}</span>
+                      <span suppressHydrationWarning>-{formatCurrency(calcResult.calculations.ownDamage.ncbDiscount)}</span>
                     </div>
                     <div className="flex justify-between text-xs">
                       <span className="text-slate-400">Third Party Fixed Premium</span>
-                      <span className="text-white font-medium">₹{calcResult.calculations.thirdParty.toLocaleString()}</span>
+                      <span className="text-white font-medium" suppressHydrationWarning>{formatCurrency(calcResult.calculations.thirdParty)}</span>
                     </div>
                     {calcResult.calculations.addons.breakdown.map((add: any, idx: number) => (
                       <div key={idx} className="flex justify-between text-xs text-indigo-400">
                         <span>{add.name}</span>
-                        <span>₹{add.premium.toLocaleString()}</span>
+                        <span suppressHydrationWarning>{formatCurrency(add.premium)}</span>
                       </div>
                     ))}
                     <div className="flex justify-between text-xs border-t border-slate-900 pt-2 font-bold text-slate-200">
                       <span>Net Premium</span>
-                      <span>₹{calcResult.calculations.netPremium.toLocaleString()}</span>
+                      <span suppressHydrationWarning>{formatCurrency(calcResult.calculations.netPremium)}</span>
                     </div>
                     <div className="flex justify-between text-xs text-slate-400">
                       <span>GST Taxes (18%)</span>
-                      <span>₹{calcResult.calculations.gst.toLocaleString()}</span>
+                      <span suppressHydrationWarning>{formatCurrency(calcResult.calculations.gst)}</span>
                     </div>
                   </div>
 
                   <div className="border-t border-slate-900 pt-4 flex justify-between items-center bg-indigo-600/5 p-4 rounded-xl border border-indigo-500/10 mt-6">
                     <div>
                       <p className="text-[10px] text-indigo-400 font-bold uppercase tracking-wider">Total Premium Due</p>
-                      <p className="text-xl font-black text-white">₹{calcResult.calculations.totalPremium.toLocaleString()}</p>
+                      <p className="text-xl font-black text-white" suppressHydrationWarning>{formatCurrency(calcResult.calculations.totalPremium)}</p>
                     </div>
                     <span className="bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-wider">
                       Premium Live

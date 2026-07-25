@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { AppShell } from '../../components/layout/app-shell';
 import { EnterpriseTable } from '../../components/table/enterprise-table';
@@ -8,109 +8,55 @@ import { StatusBadge } from '../../components/ui/status-badge';
 import { ShieldCheck, Plus, X, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { usePolicies } from '../../hooks/usePolicies';
-
-const STORAGE_KEY = 'jest_crm_policies_v3';
+import { policiesRepository } from '../../repositories/policies.repository';
+import { formatCurrency } from '../../lib/formatters';
 
 export default function PolicyRegisterPage() {
   const router = useRouter();
   const [savedView, setSavedView] = useState<string>('ALL');
   const [showAddModal, setShowAddModal] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [storedPolicies, setStoredPolicies] = useState<any[]>([]);
 
-  const { policies: apiPolicies } = usePolicies();
-
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) {
-        setStoredPolicies(JSON.parse(saved));
-      } else {
-        setStoredPolicies([]);
-      }
-    } catch (e) {
-      setStoredPolicies([]);
-    }
-  }, []);
-
-  const savePoliciesToStorage = (updated: any[]) => {
-    setStoredPolicies(updated);
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-    } catch (e) {
-      // ignore
-    }
-  };
-
-  const policiesMap = new Map<string, any>();
-  storedPolicies.forEach((p) => policiesMap.set(p.id, p));
-  (apiPolicies || []).forEach((p: any) => {
-    if (!policiesMap.has(p.id)) {
-      policiesMap.set(p.id, {
-        id: p.id,
-        policyNumber: p.policyNumber || p.id,
-        contactName: p.contactName || p.customerName || 'Policy Holder',
-        productLine: p.productLine || p.product || 'Insurance Policy',
-        insurerName: p.insurerName || 'Partner Insurer',
-        idvValue: p.idvValue || 500000,
-        totalPremium: p.totalPremium || p.premium || 20000,
-        status: p.status || 'ACTIVE',
-        startDate: p.startDate || new Date().toISOString().split('T')[0],
-        expiryDate: p.expiryDate || new Date(Date.now() + 365*24*60*60*1000).toISOString().split('T')[0],
-        renewalExecutive: p.renewalExecutive || 'Rajesh Sharma',
-        healthScore: 90,
-        claimsCount: 0,
-        createdAt: p.createdAt || new Date().toISOString().split('T')[0],
-      });
-    }
+  const { policies, isLoading, isError, refetch } = usePolicies({
+    status: savedView !== 'ALL' ? savedView : undefined,
   });
-  const combinedPolicies = Array.from(policiesMap.values());
 
   const [formData, setFormData] = useState({
     contactName: '',
     productLine: 'Motor Comprehensive',
     insurerName: 'ICICI Lombard',
     totalPremium: 25000,
+    idvValue: 850000,
   });
 
-  const handleCreatePolicy = (e: React.FormEvent) => {
+  const handleCreatePolicy = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.contactName) {
-      toast.error('Customer name is required');
+      toast.error('Policy holder name is required');
       return;
     }
 
     setIsSubmitting(true);
-    const polNum = `POL-2026-${Math.floor(100000 + Math.random() * 900000)}`;
-    const newPol = {
-      id: polNum,
-      policyNumber: polNum,
-      contactName: formData.contactName,
-      productLine: formData.productLine,
-      insurerName: formData.insurerName,
-      idvValue: 850000,
-      totalPremium: Number(formData.totalPremium),
-      status: 'ACTIVE',
-      startDate: new Date().toISOString().split('T')[0],
-      expiryDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-      renewalExecutive: 'Rajesh Sharma',
-      healthScore: 95,
-      claimsCount: 0,
-      createdAt: new Date().toISOString().split('T')[0],
-    };
+    try {
+      const created = await policiesRepository.createPolicy({
+        contactName: formData.contactName,
+        productLine: formData.productLine,
+        insurerName: formData.insurerName,
+        totalPremium: Number(formData.totalPremium),
+        idvValue: Number(formData.idvValue),
+      });
 
-    savePoliciesToStorage([newPol, ...storedPolicies]);
-    toast.success(`Policy ${polNum} issued for ${formData.contactName}!`);
-    setShowAddModal(false);
-    setFormData({ contactName: '', productLine: 'Motor Comprehensive', insurerName: 'ICICI Lombard', totalPremium: 25000 });
-    setIsSubmitting(false);
+      toast.success(`Policy ${created.policyNumber || created.id || 'record'} issued successfully!`);
+      setShowAddModal(false);
+      setFormData({ contactName: '', productLine: 'Motor Comprehensive', insurerName: 'ICICI Lombard', totalPremium: 25000, idvValue: 850000 });
+      refetch();
+    } catch (err: any) {
+      const errorMessage = err?.response?.data?.message || err.message || 'Failed to issue policy via API';
+      toast.error(errorMessage);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
-
-  const filteredData = combinedPolicies.filter((p) => {
-    if (savedView === 'ACTIVE') return p.status === 'ACTIVE';
-    if (savedView === 'RENEWAL') return p.status === 'RENEWAL_DUE';
-    return true;
-  });
 
   const columns = [
     {
@@ -132,8 +78,8 @@ export default function PolicyRegisterPage() {
       accessorKey: 'totalPremium',
       header: 'Total Premium',
       cell: ({ row }: any) => (
-        <span className="font-extrabold text-emerald-600 font-mono">
-          ₹{Number(row.original.totalPremium || 0).toLocaleString()}
+        <span className="font-extrabold text-emerald-600 font-mono" suppressHydrationWarning>
+          {formatCurrency(row.original.totalPremium)}
         </span>
       ),
     },
@@ -219,6 +165,17 @@ export default function PolicyRegisterPage() {
               </div>
 
               <div>
+                <label className="font-bold text-muted-foreground block mb-1">Insured Value IDV (₹)</label>
+                <input
+                  type="number"
+                  required
+                  value={formData.idvValue}
+                  onChange={(e) => setFormData({ ...formData, idvValue: Number(e.target.value) })}
+                  className="w-full p-2.5 rounded-lg border bg-background text-foreground text-xs"
+                />
+              </div>
+
+              <div>
                 <label className="font-bold text-muted-foreground block mb-1">Total Annual Premium (₹)</label>
                 <input
                   type="number"
@@ -234,8 +191,9 @@ export default function PolicyRegisterPage() {
               <button type="button" onClick={() => setShowAddModal(false)} className="px-4 py-2 rounded-lg border bg-background">
                 Cancel
               </button>
-              <button type="submit" disabled={isSubmitting} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground font-bold shadow">
-                {isSubmitting ? 'Issuing...' : 'Issue Policy'}
+              <button type="submit" disabled={isSubmitting} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground font-bold shadow flex items-center space-x-1">
+                {isSubmitting && <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />}
+                <span>{isSubmitting ? 'Issuing...' : 'Issue Policy'}</span>
               </button>
             </div>
           </form>
@@ -247,7 +205,7 @@ export default function PolicyRegisterPage() {
         {[
           { id: 'ALL', label: 'All Active Policies' },
           { id: 'ACTIVE', label: 'In-Force Policies' },
-          { id: 'RENEWAL', label: 'Renewal Due' },
+          { id: 'RENEWAL_DUE', label: 'Renewal Due' },
         ].map((view) => (
           <button
             key={view.id}
@@ -261,7 +219,13 @@ export default function PolicyRegisterPage() {
         ))}
       </div>
 
-      <EnterpriseTable data={filteredData} columns={columns} />
+      {isLoading ? (
+        <div className="p-8 text-center text-xs text-muted-foreground animate-pulse">Loading policies from API...</div>
+      ) : isError ? (
+        <div className="p-8 text-center text-xs text-red-500">Failed to load policy register from API.</div>
+      ) : (
+        <EnterpriseTable data={policies || []} columns={columns} />
+      )}
     </AppShell>
   );
 }
