@@ -33,15 +33,12 @@ jobs:
 
       - name: Lint API
         run: pnpm --filter api lint
-        continue-on-error: true
 
       - name: Lint Web
         run: pnpm --filter web lint
-        continue-on-error: true
 
       - name: Type check API
         run: pnpm --filter api exec tsc --noEmit
-        continue-on-error: true
 
   test-api:
     name: API Tests

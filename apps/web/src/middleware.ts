@@ -10,6 +10,7 @@ const PROTECTED_PREFIXES = [
   '/finance',
   '/reports',
   '/admin',
+  '/portal',
   '/settings',
 ];
 
@@ -58,6 +59,7 @@ export const config = {
     '/finance/:path*',
     '/reports/:path*',
     '/admin/:path*',
+    '/portal/:path*',
     '/settings/:path*',
     '/login',
   ],

@@ -48,6 +48,8 @@ import { DataWarehouseModule } from './modules/bi/data-warehouse/data-warehouse.
 import { DashboardsModule } from './modules/bi/dashboards/dashboards.module';
 import { ForecastingModule } from './modules/bi/forecasting/forecasting.module';
 import { IntegrationsModule } from './modules/platform/integrations/integrations.module';
+import { AppController } from './app.controller';
+import { AppService } from './app.service';
 
 @Module({
   imports: [
@@ -120,7 +122,8 @@ import { IntegrationsModule } from './modules/platform/integrations/integrations
     ForecastingModule,
     IntegrationsModule,
   ],
-  providers: [],
+  controllers: [AppController],
+  providers: [AppService],
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
