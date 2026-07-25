@@ -11,7 +11,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
-import * as express from 'express';
+import type { Response } from 'express';
 import { JwtAuthGuard } from '../../../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../../auth/guards/permissions.guard';
 import { RequirePermissions } from '../../../auth/decorators/permissions.decorator';
@@ -156,7 +156,7 @@ export class ReportsController {
     @Param('id') id: string,
     @Query('format') format: string,
     @CurrentUser() user: RequestUser,
-    @Res() res: express.Response,
+    @Res() res: Response,
   ) {
     const fmt = (format as 'pdf' | 'excel' | 'csv') || 'pdf';
     const command = new ExecuteReportCommand(id, {}, user.id);
@@ -177,7 +177,7 @@ export class ReportsController {
     @Param('id') id: string,
     @Body() dto: ExecuteReportDto,
     @CurrentUser() user: RequestUser,
-    @Res() res: express.Response,
+    @Res() res: Response,
   ) {
 
     const format = dto.format || 'csv';

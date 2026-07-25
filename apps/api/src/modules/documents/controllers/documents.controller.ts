@@ -21,7 +21,7 @@ import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import type { RequestUser } from '../../auth/decorators/current-user.decorator';
 import { DocumentService } from '../services/document.service';
-import * as express from 'express';
+import type { Response } from 'express';
 
 const ALLOWED_MIME_TYPES = [
   'application/pdf',
@@ -171,7 +171,7 @@ export class DocumentsController {
     @Param('id') id: string,
     @CurrentUser() user: RequestUser,
     @Ip() ipAddress: string,
-    @Res() res: express.Response,
+    @Res() res: Response,
   ) {
     const { fileBuffer, originalFileName, mimeType } =
       await this.documentService.downloadDocument(id, user.id, ipAddress);
