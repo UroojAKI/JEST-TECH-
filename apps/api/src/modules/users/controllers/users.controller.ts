@@ -50,7 +50,15 @@ export class UsersController {
   }
 
   @Get()
-  @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN)
+  @Roles(
+    RoleType.SUPER_ADMIN,
+    RoleType.ADMIN,
+    RoleType.BRANCH_MANAGER,
+    RoleType.TEAM_LEADER,
+    RoleType.SALES_AGENT,
+    RoleType.UNDERWRITER,
+    RoleType.OPERATIONS,
+  )
   findAll() {
     return this.usersService.findAll();
   }

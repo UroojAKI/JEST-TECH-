@@ -1,14 +1,15 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { AppShell } from '../../../components/layout/app-shell';
 import { EnterpriseTable } from '../../../components/table/enterprise-table';
 import { StatusBadge } from '../../../components/ui/status-badge';
-import { Users, Plus, LayoutGrid, List, Flame, Sparkles, Loader2, X, ArrowRight } from 'lucide-react';
+import { Users, Plus, LayoutGrid, List, Flame, Sparkles, Loader2, X, ArrowRight, UserCheck } from 'lucide-react';
 import { LeadItem, LeadStatus } from '../../../types/leads';
 import { useLeads } from '../../../hooks/useLeads';
 import { leadsRepository } from '../../../repositories/leads.repository';
+import { adminRepository, UserItem } from '../../../repositories/admin.repository';
 import { toast } from 'sonner';
 import { formatCurrency } from '../../../lib/formatters';
 
@@ -28,8 +29,20 @@ export default function LeadsWorkspacePage() {
   const [savedView, setSavedView] = useState<string>('MY_WORK');
   const [showAddModal, setShowAddModal] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [agentsList, setAgentsList] = useState<UserItem[]>([]);
 
   const { leads: apiLeads, isLoading, isError, refetch, updateStatus } = useLeads();
+
+  useEffect(() => {
+    adminRepository.getUsers().then((data) => {
+      if (Array.isArray(data)) {
+        setAgentsList(data);
+      }
+    }).catch(() => {
+      // Fallback
+      setAgentsList([]);
+    });
+  }, []);
 
   const [formData, setFormData] = useState({
     firstName: '',
@@ -40,6 +53,7 @@ export default function LeadsWorkspacePage() {
     expectedPremium: 25000,
     priority: 'HOT',
     source: 'WEBSITE',
+    assignedAgentId: '',
   });
 
   const handleAddLeadSubmit = async (e: React.FormEvent) => {
@@ -296,6 +310,22 @@ export default function LeadsWorkspacePage() {
                   <option value="WHATSAPP">WHATSAPP</option>
                   <option value="REFERRAL">REFERRAL</option>
                   <option value="WALK_IN">WALK_IN</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="font-bold text-muted-foreground block mb-1">Assigned Sales Agent</label>
+                <select
+                  value={formData.assignedAgentId}
+                  onChange={(e) => setFormData({ ...formData, assignedAgentId: e.target.value })}
+                  className="w-full p-2.5 rounded-lg border bg-background text-foreground text-xs focus:ring-1 focus:ring-primary font-semibold"
+                >
+                  <option value="">Auto-Assign / Unassigned</option>
+                  {agentsList.map((ag) => (
+                    <option key={ag.id} value={ag.id}>
+                      {ag.firstName} {ag.lastName} ({ag.role || 'AGENT'})
+                    </option>
+                  ))}
                 </select>
               </div>
             </div>

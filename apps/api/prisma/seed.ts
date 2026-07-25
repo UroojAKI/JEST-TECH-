@@ -147,7 +147,103 @@ async function main() {
         employeeCode: "EMP-000002",
       },
     });
-    console.log("- Seeded default administration user accounts.");
+
+    // Sales Agent user
+    const agentRole = seededRoles["SALES_AGENT"];
+    if (agentRole) {
+      await tx.user.upsert({
+        where: { email: "agent@jest.com" },
+        update: {},
+        create: {
+          email: "agent@jest.com",
+          firstName: "Rajesh",
+          lastName: "Sharma",
+          passwordHash,
+          status: UserStatus.ACTIVE,
+          isEmailVerified: true,
+          roleId: agentRole.id,
+          employeeCode: "EMP-000003",
+        },
+      });
+    }
+
+    // Underwriter user
+    const underwriterRole = seededRoles["UNDERWRITER"];
+    if (underwriterRole) {
+      await tx.user.upsert({
+        where: { email: "underwriter@jest.com" },
+        update: {},
+        create: {
+          email: "underwriter@jest.com",
+          firstName: "Vikram",
+          lastName: "Mehta",
+          passwordHash,
+          status: UserStatus.ACTIVE,
+          isEmailVerified: true,
+          roleId: underwriterRole.id,
+          employeeCode: "EMP-000004",
+        },
+      });
+    }
+
+    // Claims Officer user
+    const claimsRole = seededRoles["CLAIMS_OFFICER"];
+    if (claimsRole) {
+      await tx.user.upsert({
+        where: { email: "claims@jest.com" },
+        update: {},
+        create: {
+          email: "claims@jest.com",
+          firstName: "Anish",
+          lastName: "Deshmukh",
+          passwordHash,
+          status: UserStatus.ACTIVE,
+          isEmailVerified: true,
+          roleId: claimsRole.id,
+          employeeCode: "EMP-000005",
+        },
+      });
+    }
+
+    // Finance Officer user
+    const financeRole = seededRoles["FINANCE"];
+    if (financeRole) {
+      await tx.user.upsert({
+        where: { email: "finance@jest.com" },
+        update: {},
+        create: {
+          email: "finance@jest.com",
+          firstName: "Priya",
+          lastName: "Nair",
+          passwordHash,
+          status: UserStatus.ACTIVE,
+          isEmailVerified: true,
+          roleId: financeRole.id,
+          employeeCode: "EMP-000006",
+        },
+      });
+    }
+
+    // Branch Manager user
+    const managerRole = seededRoles["BRANCH_MANAGER"];
+    if (managerRole) {
+      await tx.user.upsert({
+        where: { email: "manager@jest.com" },
+        update: {},
+        create: {
+          email: "manager@jest.com",
+          firstName: "Sanjay",
+          lastName: "Kulkarni",
+          passwordHash,
+          status: UserStatus.ACTIVE,
+          isEmailVerified: true,
+          roleId: managerRole.id,
+          employeeCode: "EMP-000007",
+        },
+      });
+    }
+
+    console.log("- Seeded default administration and role-specific user accounts.");
 
     // -------------------------------------------------------------------------
     // 5. SEED VEHICLE MASTER DATA
