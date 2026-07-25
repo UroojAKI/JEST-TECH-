@@ -149,7 +149,15 @@ export default function CustomerRegisterPage() {
     { accessorKey: 'type', header: 'Type' },
     { accessorKey: 'phone', header: 'Phone' },
     { accessorKey: 'email', header: 'Email' },
-    { accessorKey: 'branch', header: 'Branch' },
+    {
+      accessorKey: 'branch',
+      header: 'Branch',
+      cell: ({ row }: any) => {
+        const b = row.original.branch;
+        if (typeof b === 'object' && b !== null) return b.name || b.code || 'Main Branch';
+        return b || 'Main Branch';
+      },
+    },
     {
       accessorKey: 'tag',
       header: 'Tags',

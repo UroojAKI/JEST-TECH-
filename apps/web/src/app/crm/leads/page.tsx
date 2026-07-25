@@ -78,7 +78,7 @@ export default function LeadsWorkspacePage() {
 
       toast.success(`Lead "${formData.firstName} ${formData.lastName}" created successfully!`);
       setShowAddModal(false);
-      setFormData({ firstName: '', lastName: '', email: '', phone: '', productInterest: 'Motor Comprehensive', expectedPremium: 25000, priority: 'HOT', source: 'WEBSITE' });
+      setFormData({ firstName: '', lastName: '', email: '', phone: '', productInterest: 'Motor Comprehensive', expectedPremium: 25000, priority: 'HOT', source: 'WEBSITE', assignedAgentId: '' });
       refetch();
     } catch (err: any) {
       const errorMessage = err?.response?.data?.message || err.message || 'Failed to create lead via API';
@@ -321,11 +321,14 @@ export default function LeadsWorkspacePage() {
                   className="w-full p-2.5 rounded-lg border bg-background text-foreground text-xs focus:ring-1 focus:ring-primary font-semibold"
                 >
                   <option value="">Auto-Assign / Unassigned</option>
-                  {agentsList.map((ag) => (
-                    <option key={ag.id} value={ag.id}>
-                      {ag.firstName} {ag.lastName} ({ag.role || 'AGENT'})
-                    </option>
-                  ))}
+                  {agentsList.map((ag: any) => {
+                    const roleStr = typeof ag.role === 'object' ? (ag.role?.name || ag.role?.code || 'AGENT') : String(ag.role || 'AGENT');
+                    return (
+                      <option key={ag.id} value={ag.id}>
+                        {ag.firstName} {ag.lastName} ({roleStr})
+                      </option>
+                    );
+                  })}
                 </select>
               </div>
             </div>

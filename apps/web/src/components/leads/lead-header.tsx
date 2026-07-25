@@ -1,3 +1,5 @@
+'use client';
+
 import React, { useState, useEffect } from 'react';
 import {
   User,
@@ -196,6 +198,66 @@ export function LeadHeader({ lead, onLaunchConvert, onLaunchMarkLost }: LeadHead
           </div>
         </div>
       </div>
+
+      {/* Reassign Agent Modal */}
+      {isAssignModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
+          <div className="w-full max-w-md bg-card border rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150 text-xs">
+            <div className="p-4 border-b flex justify-between items-center bg-muted/20">
+              <h2 className="font-bold text-sm flex items-center gap-2">
+                <User className="h-4 w-4 text-primary" /> Reassign Lead to Active Agent
+              </h2>
+              <button onClick={() => setIsAssignModalOpen(false)} className="p-1 rounded text-muted-foreground hover:bg-accent">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <form onSubmit={handleReassignSubmit} className="p-5 space-y-4">
+              <div>
+                <span className="text-muted-foreground block mb-1 font-semibold">Target Prospect Lead</span>
+                <div className="p-2.5 rounded-lg border bg-muted/20 font-bold text-xs">{displayName} ({displayCode})</div>
+              </div>
+
+              <div>
+                <label className="font-bold text-muted-foreground block mb-1">Select Sales Agent from User Directory *</label>
+                <select
+                  required
+                  value={selectedAgentId}
+                  onChange={(e) => setSelectedAgentId(e.target.value)}
+                  className="w-full p-2.5 rounded-lg border bg-background text-foreground text-xs font-semibold focus:ring-1 focus:ring-primary"
+                >
+                  <option value="">-- Choose Agent --</option>
+                  {usersList.map((u: any) => {
+                    const roleStr = typeof u.role === 'object' ? (u.role?.name || u.role?.code || 'AGENT') : String(u.role || 'AGENT');
+                    return (
+                      <option key={u.id} value={u.id}>
+                        {u.firstName} {u.lastName} ({roleStr} - {u.employeeCode || 'ACTIVE'})
+                      </option>
+                    );
+                  })}
+                </select>
+              </div>
+
+              <div className="pt-3 flex justify-end space-x-2 border-t">
+                <button
+                  type="button"
+                  onClick={() => setIsAssignModalOpen(false)}
+                  className="px-4 py-2 rounded-lg border bg-background font-semibold hover:bg-accent"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="px-4 py-2 rounded-lg bg-primary text-primary-foreground font-bold hover:bg-primary/90 shadow flex items-center space-x-1"
+                >
+                  {isSubmitting && <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />}
+                  <span>{isSubmitting ? 'Assigning...' : 'Assign Agent'}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

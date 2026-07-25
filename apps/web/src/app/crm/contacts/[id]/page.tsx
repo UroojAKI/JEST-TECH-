@@ -42,8 +42,8 @@ export default function CustomerWorkspacePage() {
     pan: contact?.panNumber || contact?.pan || 'XXXXX1234F',
     gst: contact?.gstNumber || contact?.gst || 'N/A',
     address: contact?.address || 'Mumbai, Maharashtra',
-    agent: contact?.assignedAgentName || contact?.agent || 'Assigned Agent',
-    branch: contact?.branchName || contact?.branch || 'Main Branch',
+    agent: typeof contact?.agent === 'object' ? (contact.agent?.name || contact.agent?.firstName || 'Assigned Agent') : (contact?.assignedAgentName || contact?.agent || 'Assigned Agent'),
+    branch: typeof contact?.branch === 'object' ? (contact.branch?.name || contact.branch?.code || 'Main Branch') : (contact?.branchName || contact?.branch || 'Main Branch'),
   };
 
   return (

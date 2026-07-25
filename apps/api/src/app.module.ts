@@ -62,7 +62,7 @@ import { AppService } from './app.service';
       useFactory: async () => ({
         store: (await redisStore({
           url: process.env.REDIS_URL || 'redis://localhost:6380',
-          ttl: 60 * 1000,
+          ttl: 60, // 60 seconds
         })) as any,
       }),
     }),
@@ -72,7 +72,7 @@ import { AppService } from './app.service';
           {
             name: 'default',
             ttl: 60000,
-            limit: 120, // 120 requests per minute by default
+            limit: 1000, // 1000 requests per minute
           },
         ],
         storage: new ThrottlerStorageRedisService(
