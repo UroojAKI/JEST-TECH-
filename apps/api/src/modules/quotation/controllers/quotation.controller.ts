@@ -27,6 +27,7 @@ import { ConvertQuotationService } from '../services/commands/convert-quotation.
 import { GetQuotationService } from '../services/queries/get-quotation.service';
 import { CompareQuotationService } from '../services/queries/compare-quotation.service';
 import { GetQuotationHistoryService } from '../services/queries/get-quotation-history.service';
+import { ComparisonService } from '../engine/comparison.service';
 
 @ApiTags('Quotations')
 @ApiBearerAuth()
@@ -41,7 +42,22 @@ export class QuotationController {
     private readonly getQuotationService: GetQuotationService,
     private readonly compareQuotationService: CompareQuotationService,
     private readonly getQuotationHistoryService: GetQuotationHistoryService,
+    private readonly comparisonEngine: ComparisonService,
   ) {}
+
+  @Post('calculate')
+  @HttpCode(HttpStatus.OK)
+  @Roles(
+    RoleType.SUPER_ADMIN,
+    RoleType.ADMIN,
+    RoleType.BRANCH_MANAGER,
+    RoleType.TEAM_LEADER,
+    RoleType.SALES_AGENT,
+    RoleType.OPERATIONS,
+  )
+  calculate(@Body() dto: any) {
+    return this.comparisonEngine.generateComparativeQuotes(dto);
+  }
 
   @Post()
   @Roles(

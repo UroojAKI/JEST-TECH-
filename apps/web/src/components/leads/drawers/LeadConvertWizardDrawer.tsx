@@ -2,9 +2,9 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { X, CheckCircle2, ChevronRight, UserCheck, Loader2, ShieldCheck, Check } from 'lucide-react';
+import { X, CheckCircle2, ChevronRight, UserCheck, Loader2, ShieldCheck, Check, Calculator, Sparkles } from 'lucide-react';
 import { policiesRepository } from '../../../repositories/policies.repository';
-import { quotationsRepository } from '../../../repositories/quotations.repository';
+import { apiClient } from '../../../lib/api-client';
 import { toast } from 'sonner';
 import { formatCurrency } from '../../../lib/formatters';
 
@@ -20,72 +20,76 @@ export function LeadConvertWizardDrawer({ isOpen, leadId, lead, onClose }: LeadC
   const [step, setStep] = useState<number>(1);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
-  const [availableQuotes, setAvailableQuotes] = useState<any[]>([]);
+  // Motor Quotation Pricing Engine State
+  const [coverType, setCoverType] = useState<'COMPREHENSIVE' | 'STANDALONE_OD' | 'THIRD_PARTY'>('COMPREHENSIVE');
+  const [exShowroomPrice, setExShowroomPrice] = useState<number>(1000000);
+  const [registrationYear, setRegistrationYear] = useState<number>(new Date().getFullYear() - 1);
+  const [engineCc, setEngineCc] = useState<number>(1197);
+  const [ncbPercentage, setNcbPercentage] = useState<number>(20);
+  const [manualIdv, setManualIdv] = useState<number | undefined>(undefined);
+
+  const [selectedAddons, setSelectedAddons] = useState({
+    zeroDepreciation: true,
+    engineProtection: false,
+    consumables: false,
+    returnToInvoice: false,
+    roadsideAssistance: true,
+    keyReplacement: false,
+    ncbProtect: false,
+  });
+
+  const [idvDetails, setIdvDetails] = useState<any>(null);
+  const [comparativeQuotes, setComparativeQuotes] = useState<any[]>([]);
   const [selectedQuoteIndex, setSelectedQuoteIndex] = useState<number>(0);
-  const [isLoadingQuotes, setIsLoadingQuotes] = useState<boolean>(false);
+  const [isCalculating, setIsCalculating] = useState<boolean>(false);
 
   useEffect(() => {
-    if (!isOpen || !leadId) return;
+    if (!isOpen) return;
 
-    async function fetchLeadQuotes() {
-      setIsLoadingQuotes(true);
+    async function calculateMotorQuotes() {
+      setIsCalculating(true);
       try {
-        const res = await quotationsRepository.getQuotations({ limit: 50 });
-        const items = Array.isArray(res) ? res : (res as any)?.items || [];
-        const matching = items.filter(
-          (q: any) =>
-            q.leadId === leadId ||
-            (q.contactName && lead?.name && q.contactName.trim().toLowerCase() === lead.name.trim().toLowerCase()),
-        );
+        const response = await apiClient.post('/quotations/calculate', {
+          coverType,
+          exShowroomPrice,
+          registrationYear,
+          engineCc,
+          ncbPercentage,
+          manualOverrideIdv: manualIdv,
+          selectedAddons,
+        });
 
-        if (matching.length > 0) {
-          setAvailableQuotes(matching);
-        } else {
-          setAvailableQuotes([
-            {
-              id: `QT-${leadId.slice(-4)}`,
-              insurerName: lead?.productInterest || 'Motor Comprehensive',
-              totalPremium: lead?.expectedPremium || 25000,
-              idvValue: lead?.expectedPremium ? Math.round(lead.expectedPremium * 25) : 850000,
-              status: 'DRAFT',
-            },
-          ]);
+        if (response.data) {
+          setIdvDetails(response.data.idvDetails);
+          setComparativeQuotes(response.data.comparativeQuotes || []);
         }
-      } catch (err) {
-        setAvailableQuotes([
-          {
-            id: `QT-${leadId.slice(-4)}`,
-            insurerName: lead?.productInterest || 'Motor Comprehensive',
-            totalPremium: lead?.expectedPremium || 25000,
-            idvValue: 850000,
-            status: 'DRAFT',
-          },
-        ]);
+      } catch (err: any) {
+        toast.error('Failed to calculate live quotation engine rates');
       } finally {
-        setIsLoadingQuotes(false);
+        setIsCalculating(false);
       }
     }
 
-    fetchLeadQuotes();
-  }, [isOpen, leadId, lead]);
+    calculateMotorQuotes();
+  }, [isOpen, coverType, exShowroomPrice, registrationYear, engineCc, ncbPercentage, manualIdv, selectedAddons]);
 
   if (!isOpen) return null;
 
   const leadName = lead?.name || `${lead?.firstName || ''} ${lead?.lastName || ''}`.trim() || `Lead Prospect`;
   const leadPhone = lead?.phone || '-';
   const leadEmail = lead?.email || '-';
-  const selectedQuote = availableQuotes[selectedQuoteIndex] || availableQuotes[0];
+  const selectedQuote = comparativeQuotes[selectedQuoteIndex] || comparativeQuotes[0];
 
   const handleIssuePolicy = async () => {
     setIsSubmitting(true);
     try {
       const res = await policiesRepository.issuePolicy({
         leadId,
-        quotationId: selectedQuote?.id,
+        quotationId: selectedQuote?.insurerId || `QT-${leadId.slice(-4)}`,
         contactName: leadName,
-        productLine: selectedQuote?.insurerName || lead?.productInterest || 'Insurance Policy',
-        totalPremium: Number(selectedQuote?.totalPremium || lead?.expectedPremium || 25000),
-        idvValue: Number(selectedQuote?.idvValue || 850000),
+        productLine: selectedQuote?.insurerName || lead?.productInterest || 'Motor Comprehensive',
+        totalPremium: Number(selectedQuote?.totalPremium || 25000),
+        idvValue: Number(selectedQuote?.idv || idvDetails?.finalIdv || 850000),
       });
 
       toast.success(`Policy ${res?.policyNumber || res?.id || ''} issued successfully for ${leadName}!`);
@@ -101,14 +105,14 @@ export function LeadConvertWizardDrawer({ isOpen, leadId, lead, onClose }: LeadC
 
   const steps = [
     { num: 1, title: 'Verify Customer' },
-    { num: 2, title: 'Confirm Quote' },
+    { num: 2, title: 'Motor Pricing Engine' },
     { num: 3, title: 'Proposal Approval' },
     { num: 4, title: 'Issue Policy' },
   ];
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end bg-background/80 backdrop-blur-sm">
-      <div className="w-full max-w-lg bg-card border-l h-full shadow-2xl flex flex-col justify-between animate-in slide-in-from-right duration-200">
+      <div className="w-full max-w-2xl bg-card border-l h-full shadow-2xl flex flex-col justify-between animate-in slide-in-from-right duration-200">
         {/* Header */}
         <div className="p-4 border-b flex items-center justify-between">
           <div className="flex items-center space-x-2">
@@ -161,40 +165,191 @@ export function LeadConvertWizardDrawer({ isOpen, leadId, lead, onClose }: LeadC
           )}
 
           {step === 2 && (
-            <div className="space-y-3">
-              <h4 className="font-bold text-sm">Step 2: Select Quotation ({availableQuotes.length} Available)</h4>
-              <p className="text-muted-foreground">Select the binding quote option agreed upon by the prospect:</p>
+            <div className="space-y-5">
+              <div className="flex justify-between items-center border-b pb-2">
+                <div>
+                  <h4 className="font-bold text-sm flex items-center gap-1.5 text-foreground">
+                    <Calculator className="h-4 w-4 text-emerald-600" /> Step 2: Motor Quotation & Premium Calculator
+                  </h4>
+                  <p className="text-[11px] text-muted-foreground">Configure IDV, OD, TP, NCB, and Add-ons to generate binding partner quotes.</p>
+                </div>
+              </div>
 
-              {isLoadingQuotes ? (
-                <div className="p-4 text-center text-muted-foreground animate-pulse">Loading quotes...</div>
-              ) : (
-                <div className="space-y-2">
-                  {availableQuotes.map((q, idx) => (
-                    <div
-                      key={idx}
-                      onClick={() => setSelectedQuoteIndex(idx)}
-                      className={`p-4 rounded-xl border cursor-pointer transition-all flex justify-between items-center ${
-                        selectedQuoteIndex === idx
-                          ? 'border-emerald-500 bg-emerald-500/10 shadow-sm'
-                          : 'border-border bg-card hover:border-muted-foreground'
+              {/* 1. Cover Type Selection */}
+              <div className="space-y-1.5">
+                <label className="font-bold text-muted-foreground block">1. Cover Type Selection</label>
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    { id: 'COMPREHENSIVE', label: 'Comprehensive (OD + TP)' },
+                    { id: 'STANDALONE_OD', label: 'Standalone OD' },
+                    { id: 'THIRD_PARTY', label: 'Third Party Only (TP)' },
+                  ].map((ct) => (
+                    <button
+                      key={ct.id}
+                      type="button"
+                      onClick={() => setCoverType(ct.id as any)}
+                      className={`p-2.5 rounded-lg border text-[11px] font-bold text-center transition-all ${
+                        coverType === ct.id ? 'bg-primary text-primary-foreground border-primary shadow-sm' : 'bg-background hover:bg-accent'
                       }`}
                     >
-                      <div className="space-y-1">
-                        <div className="font-bold text-foreground text-sm flex items-center gap-1.5">
-                          {q.insurerName || q.insurer || 'Partner Insurer'}
-                          {selectedQuoteIndex === idx && <Check className="h-4 w-4 text-emerald-600" />}
-                        </div>
-                        <div className="text-muted-foreground text-[11px]">
-                          IDV: {formatCurrency(q.idvValue || 850000)} • Premium: <strong className="text-emerald-600" suppressHydrationWarning>{formatCurrency(q.totalPremium || q.amount)}</strong>
-                        </div>
-                      </div>
-                      <div className="font-black text-sm text-emerald-600" suppressHydrationWarning>
-                        {formatCurrency(q.totalPremium || q.amount)}
-                      </div>
-                    </div>
+                      {ct.label}
+                    </button>
                   ))}
                 </div>
-              )}
+              </div>
+
+              {/* 2. Vehicle Master & IDV Calculator */}
+              <div className="p-3.5 rounded-xl border bg-muted/20 space-y-3">
+                <h5 className="font-bold text-xs text-foreground flex items-center gap-1">
+                  <Sparkles className="h-3.5 w-3.5 text-primary" /> Vehicle Details & IDV Calculation
+                </h5>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div>
+                    <label className="font-bold text-muted-foreground block mb-1">Ex-Showroom Price (₹)</label>
+                    <input
+                      type="number"
+                      value={exShowroomPrice}
+                      onChange={(e) => setExShowroomPrice(Number(e.target.value))}
+                      className="w-full p-2 rounded-md border bg-background text-foreground text-xs font-semibold"
+                    />
+                  </div>
+                  <div>
+                    <label className="font-bold text-muted-foreground block mb-1">Reg. Year</label>
+                    <select
+                      value={registrationYear}
+                      onChange={(e) => setRegistrationYear(Number(e.target.value))}
+                      className="w-full p-2 rounded-md border bg-background text-foreground text-xs font-semibold"
+                    >
+                      {[2026, 2025, 2024, 2023, 2022, 2021, 2020, 2019, 2018].map((y) => (
+                        <option key={y} value={y}>{y}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="font-bold text-muted-foreground block mb-1">Engine CC</label>
+                    <input
+                      type="number"
+                      value={engineCc}
+                      onChange={(e) => setEngineCc(Number(e.target.value))}
+                      className="w-full p-2 rounded-md border bg-background text-foreground text-xs font-semibold"
+                    />
+                  </div>
+                </div>
+
+                {idvDetails && (
+                  <div className="p-2.5 rounded-lg bg-card border flex justify-between items-center text-[11px]">
+                    <div>
+                      <span>Calculated IDV ({idvDetails.depreciationPercent}% Dep.): </span>
+                      <strong className="text-foreground">{formatCurrency(idvDetails.calculatedIdv)}</strong>
+                    </div>
+                    <div>
+                      <span>Manual Override IDV: </span>
+                      <input
+                        type="number"
+                        placeholder={formatCurrency(idvDetails.calculatedIdv)}
+                        value={manualIdv || ''}
+                        onChange={(e) => setManualIdv(e.target.value ? Number(e.target.value) : undefined)}
+                        className="w-28 p-1 ml-1 rounded border bg-background text-foreground text-xs text-right font-bold"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* 3. NCB & Addons Grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {/* NCB Discount Selection */}
+                <div className="p-3.5 rounded-xl border bg-card space-y-2">
+                  <label className="font-bold text-muted-foreground block">No Claim Bonus (NCB)</label>
+                  <select
+                    value={ncbPercentage}
+                    onChange={(e) => setNcbPercentage(Number(e.target.value))}
+                    className="w-full p-2 rounded-md border bg-background text-foreground text-xs font-bold"
+                  >
+                    <option value={0}>0% NCB (New / Prior Claim)</option>
+                    <option value={20}>20% NCB (1 Claim-Free Year)</option>
+                    <option value={25}>25% NCB (2 Claim-Free Years)</option>
+                    <option value={35}>35% NCB (3 Claim-Free Years)</option>
+                    <option value={45}>45% NCB (4 Claim-Free Years)</option>
+                    <option value={50}>50% NCB (5+ Claim-Free Years)</option>
+                  </select>
+                </div>
+
+                {/* Add-ons Selection */}
+                <div className="p-3.5 rounded-xl border bg-card space-y-2">
+                  <label className="font-bold text-muted-foreground block">Riders & Add-on Covers</label>
+                  <div className="grid grid-cols-2 gap-1.5 text-[10px]">
+                    {[
+                      { key: 'zeroDepreciation', label: 'Zero Dep' },
+                      { key: 'engineProtection', label: 'Engine Protect' },
+                      { key: 'consumables', label: 'Consumables' },
+                      { key: 'returnToInvoice', label: 'Return to Invoice' },
+                      { key: 'roadsideAssistance', label: '24x7 RSA' },
+                      { key: 'keyReplacement', label: 'Key Replace' },
+                      { key: 'ncbProtect', label: 'NCB Protect' },
+                    ].map((a) => (
+                      <label key={a.key} className="flex items-center space-x-1 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={(selectedAddons as any)[a.key]}
+                          onChange={(e) =>
+                            setSelectedAddons({ ...selectedAddons, [a.key]: e.target.checked })
+                          }
+                          className="rounded text-primary focus:ring-primary h-3.5 w-3.5"
+                        />
+                        <span>{a.label}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* 4. Comparative Insurer Quotes List */}
+              <div className="space-y-2">
+                <label className="font-bold text-muted-foreground block flex justify-between items-center">
+                  <span>Comparative Partner Insurer Quotes ({comparativeQuotes.length})</span>
+                  {isCalculating && <span className="text-primary animate-pulse">Calculating live rates...</span>}
+                </label>
+
+                {comparativeQuotes.map((q, idx) => (
+                  <div
+                    key={q.insurerId || idx}
+                    onClick={() => setSelectedQuoteIndex(idx)}
+                    className={`p-3.5 rounded-xl border cursor-pointer transition-all space-y-2 ${
+                      selectedQuoteIndex === idx
+                        ? 'border-emerald-500 bg-emerald-500/10 shadow-md ring-1 ring-emerald-500'
+                        : 'border-border bg-card hover:border-muted-foreground'
+                    }`}
+                  >
+                    <div className="flex justify-between items-center">
+                      <div className="font-bold text-sm text-foreground flex items-center gap-1.5">
+                        <span className="px-2 py-0.5 rounded bg-muted text-xs">{q.logo}</span>
+                        <span>{q.insurerName}</span>
+                        {q.isRecommended && (
+                          <span className="text-[10px] bg-emerald-500/20 text-emerald-600 px-1.5 py-0.5 rounded font-bold">
+                            Recommended
+                          </span>
+                        )}
+                        {selectedQuoteIndex === idx && <Check className="h-4 w-4 text-emerald-600 ml-1" />}
+                      </div>
+                      <div className="text-right">
+                        <div className="font-black text-base text-emerald-600" suppressHydrationWarning>
+                          {formatCurrency(q.totalPremium)}
+                        </div>
+                        <div className="text-[10px] text-muted-foreground font-mono">incl. 18% GST ({formatCurrency(q.gstTotal)})</div>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-4 gap-2 pt-2 border-t text-[10px] text-muted-foreground font-mono">
+                      <div>OD: <strong className="text-foreground">{formatCurrency(q.odPremium)}</strong></div>
+                      <div>NCB Disc: <strong className="text-emerald-600">-{formatCurrency(q.ncbDiscount)}</strong></div>
+                      <div>TP Premium: <strong className="text-foreground">{formatCurrency(q.tpPremium)}</strong></div>
+                      <div>Add-ons: <strong className="text-foreground">{formatCurrency(q.addonsPremium)}</strong></div>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
 
@@ -208,7 +363,7 @@ export function LeadConvertWizardDrawer({ isOpen, leadId, lead, onClose }: LeadC
                   <span>Auto-Underwriting Approval Granted</span>
                 </div>
                 <p className="text-[11px] font-normal text-muted-foreground pt-1" suppressHydrationWarning>
-                  Selected Plan: <strong>{selectedQuote?.insurerName || selectedQuote?.insurer}</strong> — Net Premium: <strong>{formatCurrency(selectedQuote?.totalPremium || selectedQuote?.amount)}</strong>
+                  Selected Insurer: <strong>{selectedQuote?.insurerName}</strong> — Final Net Payable Premium: <strong>{formatCurrency(selectedQuote?.totalPremium)}</strong> (IDV: {formatCurrency(selectedQuote?.idv || idvDetails?.finalIdv)})
                 </p>
               </div>
             </div>
@@ -221,8 +376,9 @@ export function LeadConvertWizardDrawer({ isOpen, leadId, lead, onClose }: LeadC
               <div className="p-4 rounded-xl border bg-muted/20 space-y-1.5 font-mono text-xs">
                 <div>Lead Reference: <strong className="text-foreground">{leadId}</strong></div>
                 <div>Customer Name: <strong className="text-foreground">{leadName}</strong></div>
-                <div>Plan / Product: <strong className="text-foreground">{selectedQuote?.insurerName || lead?.productInterest}</strong></div>
-                <div>Total Annual Premium: <strong className="text-emerald-600" suppressHydrationWarning>{formatCurrency(selectedQuote?.totalPremium || lead?.expectedPremium)}</strong></div>
+                <div>Selected Partner Insurer: <strong className="text-foreground">{selectedQuote?.insurerName}</strong></div>
+                <div>Insured Declared Value (IDV): <strong className="text-foreground">{formatCurrency(selectedQuote?.idv || idvDetails?.finalIdv)}</strong></div>
+                <div>Total Annual Payable Premium: <strong className="text-emerald-600" suppressHydrationWarning>{formatCurrency(selectedQuote?.totalPremium)}</strong></div>
               </div>
             </div>
           )}

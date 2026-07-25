@@ -2,42 +2,94 @@
 > web@0.1.0 build E:\JEST TECH\JEST POLICY\jest-policy-crm\apps\web
 > next build
 
-⚠ Warning: Next.js inferred your workspace root, but it may not be correct.
- We detected multiple lockfiles and selected the directory of E:\JEST TECH\JEST POLICY\jest-policy-crm\pnpm-workspace.yaml as the root directory.
- To silence this warning, set `turbopack.root` in your Next.js config, or consider removing one of the lockfiles if it's not needed.
-   See https://nextjs.org/docs/app/api-reference/config/next-config-js/turbopack#root-directory for more information.
- Detected additional lockfiles: 
-   * E:\JEST TECH\JEST POLICY\jest-policy-crm\apps\web\pnpm-workspace.yaml
-
 ▲ Next.js 16.2.10 (Turbopack)
 
+⚠ The "middleware" file convention is deprecated. Please use "proxy" instead. Learn more: https://nextjs.org/docs/messages/middleware-to-proxy
   Creating an optimized production build ...
-✓ Compiled successfully in 7.6s
+✓ Compiled successfully in 6.8s
   Running TypeScript ...
-  Finished TypeScript in 8.9s ...
+  Finished TypeScript in 9.2s ...
   Collecting page data using 15 workers ...
-  Generating static pages using 15 workers (0/14) ...
-  Generating static pages using 15 workers (3/14) 
-  Generating static pages using 15 workers (6/14) 
-  Generating static pages using 15 workers (10/14) 
-✓ Generating static pages using 15 workers (14/14) in 624ms
+  Generating static pages using 15 workers (0/65) ...
+  Generating static pages using 15 workers (16/65) 
+  Generating static pages using 15 workers (32/65) 
+  Generating static pages using 15 workers (48/65) 
+✓ Generating static pages using 15 workers (65/65) in 721ms
   Finalizing page optimization ...
 
 Route (app)
 ┌ ○ /
 ├ ○ /_not-found
+├ ○ /admin
+├ ○ /admin/audit
+├ ○ /admin/branches
+├ ○ /admin/config
+├ ○ /admin/delivery-monitor
+├ ○ /admin/health
+├ ○ /admin/lookups
+├ ○ /admin/notification-templates
+├ ○ /admin/numbering
+├ ○ /admin/production-readiness
+├ ○ /admin/roles
+├ ○ /admin/sla
+├ ○ /admin/users
+├ ○ /admin/workflows
+├ ƒ /api/health
+├ ○ /claims
+├ ○ /crm
+├ ○ /crm/accounts
+├ ○ /crm/contacts
+├ ƒ /crm/contacts/[id]
+├ ○ /crm/leads
+├ ƒ /crm/leads/[id]
 ├ ○ /dashboard
+├ ○ /dashboard/activity
 ├ ○ /dashboard/admin
+├ ○ /dashboard/approvals
+├ ○ /dashboard/communications
 ├ ○ /dashboard/endorsements
+├ ○ /dashboard/notifications
 ├ ○ /dashboard/proposals
 ├ ○ /dashboard/reports
 ├ ƒ /dashboard/reports/[id]
 ├ ○ /dashboard/reports/builder
+├ ○ /dashboard/reports/executive
 ├ ○ /dashboard/reports/history
 ├ ○ /dashboard/reports/kpi
+├ ○ /dashboard/reports/warehouse
+├ ○ /dashboard/uat
+├ ○ /finance
+├ ○ /finance/commissions
+├ ○ /finance/ledger
+├ ○ /finance/payments
+├ ○ /finance/receipts
+├ ○ /finance/settlements
 ├ ○ /login
+├ ○ /policies
+├ ƒ /policies/[id]
+├ ○ /portal
+├ ○ /portal/branch-manager
+├ ○ /portal/claims
+├ ○ /portal/commissions
+├ ○ /portal/customers
+├ ○ /portal/downloads
+├ ○ /portal/leads
+├ ○ /portal/performance
+├ ○ /portal/policies
+├ ○ /portal/proposals
+├ ○ /portal/quotations
+├ ○ /portal/renewals
+├ ○ /portal/support
+├ ○ /sales
+├ ○ /sales/proposals
+├ ƒ /sales/proposals/[id]
+├ ○ /sales/quotations
+├ ƒ /sales/quotations/[id]
+├ ○ /settings
 └ ○ /unauthorized
 
+
+ƒ Proxy (Middleware)
 
 ○  (Static)   prerendered as static content
 ƒ  (Dynamic)  server-rendered on demand

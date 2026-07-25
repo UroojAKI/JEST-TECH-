@@ -18,7 +18,10 @@ export class GetClaimsService {
     }
 
     // BOLA ownership verification
-    if (user.role === 'SALES_AGENT' && claim.createdById !== user.id) {
+    if (
+      (user.role === 'SALES_AGENT' || user.role === 'CUSTOMER') &&
+      claim.createdById !== user.id
+    ) {
       throw new ForbiddenException(
         'You do not have permission to access this claim',
       );
@@ -28,7 +31,10 @@ export class GetClaimsService {
   }
 
   async executeAll(user: RequestUser) {
-    const where = user.role === 'SALES_AGENT' ? { createdById: user.id } : {};
+    const where =
+      user.role === 'SALES_AGENT' || user.role === 'CUSTOMER'
+        ? { createdById: user.id }
+        : {};
     const claims = await this.claimRepository.findAll(where);
     return ClaimMapper.toResponseList(claims);
   }

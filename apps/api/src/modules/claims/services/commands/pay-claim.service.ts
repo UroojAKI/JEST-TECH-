@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { ClaimStatus, PaymentStatus, Prisma } from '@prisma/client';
 import { ClaimRepository } from '../../repositories/claim.repository';
 import { ClaimStateMachine } from '../../domain/claim-state-machine';
@@ -17,6 +17,13 @@ export class PayClaimService {
 
     // Validate state transition using ClaimStateMachine
     ClaimStateMachine.validateTransition(claim.status, ClaimStatus.SETTLED);
+
+    // Validate payment amount against approved loss reserve
+    if (claim.approvedAmount && dto.amount > Number(claim.approvedAmount)) {
+      throw new BadRequestException(
+        `Payment amount (${dto.amount}) cannot exceed the approved claim reserve (${claim.approvedAmount})`,
+      );
+    }
 
     // Create payment record
     await this.claimRepository.addPayment({

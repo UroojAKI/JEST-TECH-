@@ -1,39 +1,53 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, BadRequestException } from '@nestjs/common';
 
 @Injectable()
 export class IdvService {
   /**
-   * Calculates the Insured Declared Value (IDV) of a vehicle based on
-   * ex-showroom price and vehicle age (current year - purchase year).
-   *
-   * Indian Tariff Depreciation Rules:
-   * - Age < 6 months: 5%
-   * - Age 6 months to 1 year: 15%
-   * - Age 1 to 2 years: 20%
-   * - Age 2 to 3 years: 30%
-   * - Age 3 to 4 years: 40%
-   * - Age 4 to 5 years: 50%
-   * - Age > 5 years: 60%
+   * Calculates the Insured Declared Value (IDV) based on IRDAI Depreciation Rules.
+   * Allows manual override within IRDAI permitted +/- 15% range.
    */
-  calculateIdv(exShowroomPrice: number, purchaseYear: number): number {
+  calculateIdv(
+    exShowroomPrice: number,
+    registrationYear: number,
+    manualOverrideIdv?: number,
+  ): {
+    calculatedIdv: number;
+    recommendedMinIdv: number;
+    recommendedMaxIdv: number;
+    depreciationPercent: number;
+    finalIdv: number;
+  } {
     const currentYear = new Date().getFullYear();
-    const age = Math.max(0, currentYear - purchaseYear);
+    const vehicleAgeYears = Math.max(0, currentYear - registrationYear);
 
-    let depreciationPercentage = 0.05;
+    let depreciationPercent = 5;
+    if (vehicleAgeYears === 1) depreciationPercent = 15;
+    else if (vehicleAgeYears === 2) depreciationPercent = 20;
+    else if (vehicleAgeYears === 3) depreciationPercent = 30;
+    else if (vehicleAgeYears === 4) depreciationPercent = 40;
+    else if (vehicleAgeYears >= 5) depreciationPercent = 50;
 
-    if (age >= 1 && age < 2) {
-      depreciationPercentage = 0.2;
-    } else if (age >= 2 && age < 3) {
-      depreciationPercentage = 0.3;
-    } else if (age >= 3 && age < 4) {
-      depreciationPercentage = 0.4;
-    } else if (age >= 4 && age <= 5) {
-      depreciationPercentage = 0.5;
-    } else if (age > 5) {
-      depreciationPercentage = 0.6;
+    const calculatedIdv = Math.round(exShowroomPrice * (1 - depreciationPercent / 100));
+    const recommendedMinIdv = Math.round(calculatedIdv * 0.85);
+    const recommendedMaxIdv = Math.round(calculatedIdv * 1.15);
+
+    let finalIdv = calculatedIdv;
+
+    if (manualOverrideIdv !== undefined && manualOverrideIdv > 0) {
+      if (manualOverrideIdv < recommendedMinIdv || manualOverrideIdv > recommendedMaxIdv) {
+        throw new BadRequestException(
+          `Manual IDV override ₹${manualOverrideIdv.toLocaleString()} is outside IRDAI allowed boundary (₹${recommendedMinIdv.toLocaleString()} - ₹${recommendedMaxIdv.toLocaleString()})`,
+        );
+      }
+      finalIdv = manualOverrideIdv;
     }
 
-    const calculatedIdv = exShowroomPrice * (1 - depreciationPercentage);
-    return Math.round(calculatedIdv * 100) / 100;
+    return {
+      calculatedIdv,
+      recommendedMinIdv,
+      recommendedMaxIdv,
+      depreciationPercent,
+      finalIdv,
+    };
   }
 }

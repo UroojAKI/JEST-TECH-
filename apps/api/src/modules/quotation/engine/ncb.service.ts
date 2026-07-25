@@ -3,39 +3,32 @@ import { Injectable } from '@nestjs/common';
 @Injectable()
 export class NcbService {
   /**
-   * Calculates the No Claim Bonus (NCB) percentage based on prior claim history
-   * and consecutive years without claims.
-   *
-   * Indian Tariff NCB Grid:
-   * - 1st year claim-free: 20%
-   * - 2nd year claim-free: 25%
-   * - 3rd year claim-free: 35%
-   * - 4th year claim-free: 45%
-   * - 5th year claim-free: 50%
-   * - Any claim: 0%
+   * IRDAI No Claim Bonus (NCB) Discount Calculator.
+   * Tiers: 0%, 20%, 25%, 35%, 45%, 50%.
+   * Applied strictly on Own Damage (OD) premium.
    */
-  calculateNcbPercentage(
-    yearsWithoutClaim: number,
-    claimsCount: number,
-  ): number {
-    if (claimsCount > 0) {
-      return 0;
+  calculateNcbDiscount(
+    baseOdPremium: number,
+    ncbPercentage: number,
+    hadClaimInPreviousYear = false,
+  ): {
+    applicableNcbPercent: number;
+    ncbDiscountAmount: number;
+  } {
+    if (hadClaimInPreviousYear) {
+      return { applicableNcbPercent: 0, ncbDiscountAmount: 0 };
     }
 
-    if (yearsWithoutClaim <= 0) {
-      return 0;
-    }
+    const validPercentages = [0, 20, 25, 35, 45, 50];
+    const applicableNcbPercent = validPercentages.includes(ncbPercentage)
+      ? ncbPercentage
+      : 0;
 
-    if (yearsWithoutClaim === 1) {
-      return 20;
-    } else if (yearsWithoutClaim === 2) {
-      return 25;
-    } else if (yearsWithoutClaim === 3) {
-      return 35;
-    } else if (yearsWithoutClaim === 4) {
-      return 45;
-    } else {
-      return 50;
-    }
+    const ncbDiscountAmount = Math.round(baseOdPremium * (applicableNcbPercent / 100));
+
+    return {
+      applicableNcbPercent,
+      ncbDiscountAmount,
+    };
   }
 }
