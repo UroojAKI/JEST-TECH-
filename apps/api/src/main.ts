@@ -51,7 +51,8 @@ async function bootstrap() {
     SwaggerModule.setup('api/docs', app, document);
   }
 
-  const port = process.env.PORT ?? 4000;
+  const port = process.env.PORT || 4000;
   await app.listen(port);
+  console.log(`[NestJS API] Server listening on http://localhost:${port}/api/v1`);
 }
 bootstrap();
