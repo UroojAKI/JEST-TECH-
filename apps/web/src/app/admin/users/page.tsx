@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { AppShell } from '../../../components/layout/app-shell';
-import { Users, Plus, Key, Lock, Unlock, Search, Loader2 } from 'lucide-react';
+import { Users, Plus, Key, Lock, Unlock, Search, Loader2, CheckCircle2, Copy } from 'lucide-react';
 import { StatusBadge } from '../../../components/ui/status-badge';
 import { toast } from 'sonner';
 import { useAdminUsers } from '../../../hooks/useAdmin';
@@ -17,9 +17,18 @@ export default function UserManagementPage() {
   const [newFirstName, setNewFirstName] = useState('');
   const [newLastName, setNewLastName] = useState('');
   const [newEmail, setNewEmail] = useState('');
+  const [newPassword, setNewPassword] = useState('JestPolicy2026!');
   const [newRole, setNewRole] = useState('SALES_AGENT');
   const [newBranch, setNewBranch] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Success Modal state
+  const [createdCredentials, setCreatedCredentials] = useState<{ email: string; password: string } | null>(null);
+
+  // Reset Password Modal state
+  const [resetModalUser, setResetModalUser] = useState<any | null>(null);
+  const [customResetPassword, setCustomResetPassword] = useState('JestPolicy2026!');
+  const [isResetting, setIsResetting] = useState(false);
 
   const { users, isLoading, isError, updateUserStatus, isUpdating } = useAdminUsers({
     status: statusFilter !== 'ALL' ? statusFilter : undefined,
@@ -46,8 +55,24 @@ export default function UserManagementPage() {
     updateUserStatus({ id: user.id, status: user.status === 'LOCKED' ? 'ACTIVE' : 'LOCKED' });
   };
 
-  const handleResetPassword = (email: string) => {
-    toast.info('Password reset email sent to ' + email);
+  const handleOpenResetModal = (user: any) => {
+    setResetModalUser(user);
+    setCustomResetPassword('JestPolicy2026!');
+  };
+
+  const handleConfirmResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!resetModalUser) return;
+    setIsResetting(true);
+    try {
+      const res = await adminRepository.resetUserPassword(resetModalUser.id, customResetPassword);
+      toast.success(`Password for ${resetModalUser.email} updated to: ${res.newPassword || customResetPassword}`);
+      setResetModalUser(null);
+    } catch (err: any) {
+      toast.error('Failed to reset password');
+    } finally {
+      setIsResetting(false);
+    }
   };
 
   const handleSubmitUser = async (e: React.FormEvent) => {
@@ -59,26 +84,42 @@ export default function UserManagementPage() {
 
     setIsSubmitting(true);
     try {
-      await adminRepository.createUser({
+      const res: any = await adminRepository.createUser({
         firstName: newFirstName,
         lastName: newLastName,
         email: newEmail,
+        password: newPassword,
         role: newRole,
         branchName: newBranch,
       });
+
       queryClient.invalidateQueries({ queryKey: ['admin-users'] });
-      toast.success('User provisioned!');
+      toast.success('User account provisioned successfully!');
+      
+      setCreatedCredentials({
+        email: newEmail,
+        password: res?.initialPassword || newPassword,
+      });
+
       setShowCreateForm(false);
       setNewFirstName('');
       setNewLastName('');
       setNewEmail('');
+      setNewPassword('JestPolicy2026!');
       setNewRole('SALES_AGENT');
       setNewBranch('');
-    } catch (error) {
-      toast.error('Failed to create user');
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || 'Failed to create user');
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handleCopyCredentials = () => {
+    if (!createdCredentials) return;
+    const text = `JEST Policy CRM Login:\nEmail: ${createdCredentials.email}\nPassword: ${createdCredentials.password}`;
+    navigator.clipboard.writeText(text);
+    toast.success('Credentials copied to clipboard!');
   };
 
   return (
@@ -89,7 +130,7 @@ export default function UserManagementPage() {
           <h1 className="text-xl font-bold tracking-tight flex items-center gap-2">
             <Users className="h-5 w-5 text-primary" /> User Account Management & RBAC Provisioning
           </h1>
-          <p className="text-xs text-muted-foreground">Manage system users, employee codes, role assignments, branch scoping, and account security locks</p>
+          <p className="text-xs text-muted-foreground">Manage system users, employee codes, role assignments, branch scoping, and account security passwords</p>
         </div>
 
         <div className="flex items-center space-x-2">
@@ -103,6 +144,44 @@ export default function UserManagementPage() {
         </div>
       </div>
 
+      {/* Success Credentials Banner */}
+      {createdCredentials && (
+        <div className="p-4 border border-emerald-500/30 bg-emerald-500/10 rounded-xl mb-4 text-xs space-y-2">
+          <div className="flex justify-between items-center">
+            <div className="flex items-center space-x-2 font-bold text-emerald-600">
+              <CheckCircle2 className="h-4 w-4" />
+              <span>User Account Created Successfully!</span>
+            </div>
+            <button
+              onClick={() => setCreatedCredentials(null)}
+              className="text-muted-foreground hover:text-foreground font-bold"
+            >
+              ✕
+            </button>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 bg-background p-3 rounded-lg border font-mono">
+            <div>
+              <span className="text-muted-foreground block text-[10px] uppercase font-sans">Login Email:</span>
+              <strong className="text-primary">{createdCredentials.email}</strong>
+            </div>
+            <div>
+              <span className="text-muted-foreground block text-[10px] uppercase font-sans">Initial Password:</span>
+              <strong className="text-emerald-500">{createdCredentials.password}</strong>
+            </div>
+          </div>
+          <div className="flex justify-end">
+            <button
+              onClick={handleCopyCredentials}
+              className="flex items-center space-x-1 px-3 py-1.5 text-[11px] font-bold rounded bg-emerald-600 text-white hover:bg-emerald-700 shadow transition-colors"
+            >
+              <Copy className="h-3.5 w-3.5" />
+              <span>Copy Login Credentials</span>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Inline User Creation Form */}
       {showCreateForm && (
         <div className="p-5 border rounded-xl bg-card shadow-sm text-xs mb-4">
           <h2 className="font-bold mb-3 flex items-center gap-2"><Users className="h-4 w-4" /> Provision New User Account</h2>
@@ -128,15 +207,27 @@ export default function UserManagementPage() {
                 />
               </div>
             </div>
-            <div>
-              <label className="font-bold text-muted-foreground block mb-1">Work Email Address *</label>
-              <input
-                type="email"
-                required
-                value={newEmail}
-                onChange={(e) => setNewEmail(e.target.value)}
-                className="w-full p-2.5 rounded-lg border bg-background text-foreground text-xs focus:ring-1 focus:ring-primary"
-              />
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="font-bold text-muted-foreground block mb-1">Work Email Address *</label>
+                <input
+                  type="email"
+                  required
+                  value={newEmail}
+                  onChange={(e) => setNewEmail(e.target.value)}
+                  className="w-full p-2.5 rounded-lg border bg-background text-foreground text-xs focus:ring-1 focus:ring-primary"
+                />
+              </div>
+              <div>
+                <label className="font-bold text-muted-foreground block mb-1">Initial Password *</label>
+                <input
+                  type="text"
+                  required
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  className="w-full p-2.5 rounded-lg border bg-background text-foreground text-xs font-mono focus:ring-1 focus:ring-primary"
+                />
+              </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
@@ -149,6 +240,7 @@ export default function UserManagementPage() {
                   <option value="SALES_AGENT">SALES_AGENT</option>
                   <option value="UNDERWRITER">UNDERWRITER</option>
                   <option value="FINANCE">FINANCE</option>
+                  <option value="BRANCH_MANAGER">BRANCH_MANAGER</option>
                   <option value="ADMIN">ADMIN</option>
                 </select>
               </div>
@@ -263,11 +355,11 @@ export default function UserManagementPage() {
                       {u.status === 'LOCKED' ? <Unlock className="h-3.5 w-3.5" /> : <Lock className="h-3.5 w-3.5" />}
                     </button>
                     <button
-                      onClick={() => handleResetPassword(u.email)}
+                      onClick={() => handleOpenResetModal(u)}
                       className="p-1.5 rounded border bg-background hover:bg-accent text-foreground"
-                      title="Reset Password"
+                      title="Set / Reset Password"
                     >
-                      <Key className="h-3.5 w-3.5" />
+                      <Key className="h-3.5 w-3.5 text-amber-500" />
                     </button>
                   </div>
                 </td>
@@ -281,6 +373,49 @@ export default function UserManagementPage() {
           </tbody>
         </table>
       </div>
+
+      {/* Admin Reset Password Modal */}
+      {resetModalUser && (
+        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-card border rounded-xl shadow-xl max-w-md w-full p-6 space-y-4 text-xs">
+            <h3 className="text-sm font-bold flex items-center gap-2">
+              <Key className="h-4 w-4 text-amber-500" /> Reset User Password
+            </h3>
+            <p className="text-muted-foreground">
+              Set a new password for user <strong>{resetModalUser.firstName} {resetModalUser.lastName}</strong> ({resetModalUser.email}).
+            </p>
+            <form onSubmit={handleConfirmResetPassword} className="space-y-3">
+              <div>
+                <label className="font-bold text-muted-foreground block mb-1">New Password *</label>
+                <input
+                  type="text"
+                  required
+                  value={customResetPassword}
+                  onChange={(e) => setCustomResetPassword(e.target.value)}
+                  className="w-full p-2.5 rounded-lg border bg-background text-foreground text-xs font-mono focus:ring-1 focus:ring-primary"
+                />
+              </div>
+              <div className="flex justify-end space-x-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setResetModalUser(null)}
+                  className="px-3 py-1.5 rounded-lg border hover:bg-accent text-muted-foreground"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isResetting}
+                  className="px-4 py-1.5 rounded-lg bg-primary text-primary-foreground font-bold hover:bg-primary/90 shadow flex items-center space-x-1"
+                >
+                  {isResetting && <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />}
+                  <span>{isResetting ? 'Saving...' : 'Set New Password'}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </AppShell>
   );
 }

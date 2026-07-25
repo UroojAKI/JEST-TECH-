@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import * as argon2 from 'argon2';
 
 import { AuditAction, RoleType } from '@prisma/client';
@@ -32,7 +32,8 @@ export class UsersService {
       }
     }
 
-    const passwordHash = await argon2.hash(dto.password || 'JestPolicy2026!');
+    const initialPassword = dto.password || 'JestPolicy2026!';
+    const passwordHash = await argon2.hash(initialPassword);
     const empCode = dto.employeeCode || `EMP-${Date.now().toString().slice(-6)}`;
 
     const user = await this.userRepository.create({
@@ -51,7 +52,38 @@ export class UsersService {
       },
     });
 
-    return UserMapper.toResponse(user);
+    const response: any = UserMapper.toResponse(user);
+    response.initialPassword = initialPassword;
+    return response;
+  }
+
+  async adminResetPassword(userId: string, newPassword?: string) {
+    await this.findById(userId);
+    const password = newPassword || 'JestPolicy2026!';
+    const passwordHash = await argon2.hash(password);
+    await this.userRepository.update(userId, { passwordHash });
+    return { success: true, message: 'Password reset successfully', newPassword: password };
+  }
+
+  async changePassword(userId: string, currentPassword?: string, newPassword?: string) {
+    const user = await this.userRepository.findById(userId);
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+    if (!newPassword || newPassword.length < 6) {
+      throw new BadRequestException('New password must be at least 6 characters long');
+    }
+
+    if (currentPassword) {
+      const isValid = await argon2.verify(user.passwordHash, currentPassword);
+      if (!isValid) {
+        throw new BadRequestException('Current password is incorrect');
+      }
+    }
+
+    const passwordHash = await argon2.hash(newPassword);
+    await this.userRepository.update(userId, { passwordHash });
+    return { success: true, message: 'Password changed successfully' };
   }
 
   async findAll() {

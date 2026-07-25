@@ -19,6 +19,7 @@ export interface UserItem {
   firstName: string;
   lastName: string;
   email: string;
+  password?: string;
   role: string;
   status: 'ACTIVE' | 'LOCKED' | 'DISABLED';
   branchName: string;
@@ -143,6 +144,16 @@ export const adminRepository = {
     const response = status === 'LOCKED' 
       ? await apiClient.post(`/users/${id}/lock`)
       : await apiClient.post(`/users/${id}/unlock`);
+    return response.data;
+  },
+
+  async resetUserPassword(id: string, newPassword?: string): Promise<{ success: boolean; message: string; newPassword?: string }> {
+    const response = await apiClient.post(`/users/${id}/reset-password`, { newPassword });
+    return response.data;
+  },
+
+  async changePassword(newPassword: string, currentPassword?: string): Promise<{ success: boolean; message: string }> {
+    const response = await apiClient.post('/users/change-password', { currentPassword, newPassword });
     return response.data;
   },
 

@@ -107,7 +107,7 @@ export default function ReportViewerPage() {
                 ['Month,New Policies,Gross Premium,Claim Ratio,Brokerage Revenue']
                   .concat(
                     MOCK_REPORT_EXECUTION.data.map(
-                      (d) => `${d.month},${d.policies},"${d.gwp}","${d.claims}","${d.commission}"`
+                      (d: any) => `${d.insurerName || d.month},${d.policyCount || d.policies},"${d.totalPremium || d.gwp}","${d.commission || d.claims}"`
                     )
                   )
                   .join('\n');
