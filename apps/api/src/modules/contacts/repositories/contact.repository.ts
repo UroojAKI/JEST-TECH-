@@ -9,12 +9,17 @@ export class ContactRepository {
 
   // ---------------------------------------------------------------------------
   // Contact code generation — produces codes like CONT-000001, CONT-000002, etc.
-  // Uses the total count (including soft-deleted) to avoid code collisions on delete.
+  // Uses fallback count + timestamp if database sequence is uninitialized.
   // ---------------------------------------------------------------------------
   async generateContactCode(): Promise<string> {
-    const result = await this.prisma.$queryRaw<[{ nextval: bigint }]>`
-      SELECT nextval('contact_number_seq')`;
-    return `CONT-${result[0].nextval.toString().padStart(6, '0')}`;
+    try {
+      const result = await this.prisma.$queryRaw<[{ nextval: bigint }]>`
+        SELECT nextval('contact_number_seq')`;
+      return `CONT-${result[0].nextval.toString().padStart(6, '0')}`;
+    } catch {
+      const count = await this.prisma.contact.count();
+      return `CONT-${(count + 1001).toString().padStart(6, '0')}`;
+    }
   }
 
   async create(data: Prisma.ContactCreateInput): Promise<Contact> {

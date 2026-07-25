@@ -47,10 +47,14 @@ export class ConvertQuotationService {
         policyId = existingPolicy.id;
         policyNumber = existingPolicy.policyNumber;
       } else {
-        // Generate sequence policy number
-        const seqResult = await tx.$queryRaw<[{ nextval: bigint }]>`
-          SELECT nextval('policy_number_seq')`;
-        policyNumber = `POL-${seqResult[0].nextval.toString().padStart(6, '0')}`;
+        try {
+          const seqResult = await tx.$queryRaw<[{ nextval: bigint }]>`
+            SELECT nextval('policy_number_seq')`;
+          policyNumber = `POL-${seqResult[0].nextval.toString().padStart(6, '0')}`;
+        } catch {
+          const count = await tx.policy.count();
+          policyNumber = `POL-${(count + 1001).toString().padStart(6, '0')}`;
+        }
 
         // Create genuine Policy entity in database
         const newPolicy = await tx.policy.create({

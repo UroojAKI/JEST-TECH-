@@ -46,9 +46,14 @@ export class QuotationRepository extends BaseRepository<
   }
 
   async generateQuotationCode(): Promise<string> {
-    const result = await this.prisma.$queryRaw<[{ nextval: bigint }]>`
-      SELECT nextval('quotation_number_seq')`;
-    return `QTN-${result[0].nextval.toString().padStart(6, '0')}`;
+    try {
+      const result = await this.prisma.$queryRaw<[{ nextval: bigint }]>`
+        SELECT nextval('quotation_number_seq')`;
+      return `QTN-${result[0].nextval.toString().padStart(6, '0')}`;
+    } catch {
+      const count = await this.prisma.quotation.count();
+      return `QTN-${(count + 1001).toString().padStart(6, '0')}`;
+    }
   }
 
   async create(

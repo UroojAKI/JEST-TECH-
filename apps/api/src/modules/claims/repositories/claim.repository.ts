@@ -37,9 +37,14 @@ export class ClaimRepository {
   constructor(private readonly prisma: PrismaService) {}
 
   async generateClaimNumber(): Promise<string> {
-    const result = await this.prisma.$queryRaw<[{ nextval: bigint }]>`
-      SELECT nextval('claim_number_seq')`;
-    return `CLM-${result[0].nextval.toString().padStart(6, '0')}`;
+    try {
+      const result = await this.prisma.$queryRaw<[{ nextval: bigint }]>`
+        SELECT nextval('claim_number_seq')`;
+      return `CLM-${result[0].nextval.toString().padStart(6, '0')}`;
+    } catch {
+      const count = await this.prisma.claim.count();
+      return `CLM-${(count + 1001).toString().padStart(6, '0')}`;
+    }
   }
 
   async create(

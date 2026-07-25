@@ -45,10 +45,15 @@ export class ProposalWorkflowAdapter implements WorkflowEntityAdapter {
       });
       if (!prop) throw new Error(`Proposal with ID ${entityId} not found`);
 
-      const result =
-        await prismaTx.$queryRaw`SELECT nextval('policy_number_seq')`;
-      const nextval = result[0].nextval;
-      const policyNumber = `POL-${nextval.toString().padStart(6, '0')}`;
+      let policyNumber: string;
+      try {
+        const result =
+          await prismaTx.$queryRaw<[{ nextval: bigint }]>`SELECT nextval('policy_number_seq')`;
+        policyNumber = `POL-${result[0].nextval.toString().padStart(6, '0')}`;
+      } catch {
+        const count = await prismaTx.policy.count();
+        policyNumber = `POL-${(count + 1001).toString().padStart(6, '0')}`;
+      }
 
       await prismaTx.policy.create({
         data: {

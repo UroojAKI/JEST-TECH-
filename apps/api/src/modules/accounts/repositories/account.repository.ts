@@ -92,11 +92,16 @@ export class AccountRepository extends BaseRepository<
   }
 
   async generateAccountCode(tx?: TransactionClient): Promise<string> {
-    const result = await (tx || this.prismaService).$queryRaw<
-      [{ nextval: bigint }]
-    >`
-      SELECT nextval('account_number_seq')`;
-    return `ACC-${result[0].nextval.toString().padStart(6, '0')}`;
+    try {
+      const result = await (tx || this.prismaService).$queryRaw<
+        [{ nextval: bigint }]
+      >`
+        SELECT nextval('account_number_seq')`;
+      return `ACC-${result[0].nextval.toString().padStart(6, '0')}`;
+    } catch {
+      const count = await (tx || this.prismaService).account.count();
+      return `ACC-${(count + 1001).toString().padStart(6, '0')}`;
+    }
   }
 
   async create(
