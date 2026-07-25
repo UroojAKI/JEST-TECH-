@@ -9,37 +9,56 @@ import { CustomerHealthStepper } from '../../../../components/customer/customer-
 import { CustomerTabsContainer } from '../../../../components/customer/tabs/CustomerTabsContainer';
 import { SideWizardDrawer } from '../../../../components/customer/wizards/side-wizard-drawer';
 import { useCustomerContext } from '../../../../store/customer-context';
+import { useCustomerWorkspace } from '../../../../hooks/useCustomer360';
 
 export default function CustomerWorkspacePage() {
   const params = useParams();
-  const customerId = (params?.id as string) || 'CUST-001928';
+  const customerId = (params?.id as string) || '';
   const { setActiveCustomer } = useCustomerContext();
   const [activeWizard, setActiveWizard] = useState<string | null>(null);
 
+  const { workspace, isLoading, isError } = useCustomerWorkspace(customerId);
+
+  const contact = workspace?.contact || workspace;
+
+  const customerName = contact
+    ? contact.name || `${contact.firstName || ''} ${contact.lastName || ''}`.trim() || `Customer (${customerId})`
+    : `Customer (${customerId})`;
+
+  const customerType = contact?.type || 'INDIVIDUAL';
+
   useEffect(() => {
-    setActiveCustomer(customerId, 'Acme Logistics Pvt Ltd', 'CORPORATE');
-  }, [customerId, setActiveCustomer]);
+    if (customerId && customerName) {
+      setActiveCustomer(customerId, customerName, customerType);
+    }
+  }, [customerId, customerName, customerType, setActiveCustomer]);
 
   const customerData = {
     id: customerId,
-    name: 'Acme Logistics Pvt Ltd',
-    type: 'CORPORATE',
-    phone: '+91 98765 43210',
-    email: 'contact@acme.com',
-    pan: 'ABCDE1234F',
-    gst: '27AAAAA0000A1Z5',
-    address: 'BKC, Mumbai 400051',
-    agent: 'Rajesh Sharma',
-    branch: 'Mumbai HQ',
+    name: customerName,
+    type: customerType,
+    phone: contact?.phone || '-',
+    email: contact?.email || '-',
+    pan: contact?.panNumber || contact?.pan || 'XXXXX1234F',
+    gst: contact?.gstNumber || contact?.gst || 'N/A',
+    address: contact?.address || 'Mumbai, Maharashtra',
+    agent: contact?.assignedAgentName || contact?.agent || 'Assigned Agent',
+    branch: contact?.branchName || contact?.branch || 'Main Branch',
   };
 
   return (
     <AppShell>
       {/* 1. Customer Header */}
-      <CustomerHeader
-        customer={customerData}
-        onLaunchWizard={(type) => setActiveWizard(type)}
-      />
+      {isLoading ? (
+        <div className="p-8 text-center text-xs text-muted-foreground animate-pulse">Loading Customer 360 Workspace from API...</div>
+      ) : isError ? (
+        <div className="p-8 text-center text-xs text-red-500">Failed to load customer workspace.</div>
+      ) : (
+        <CustomerHeader
+          customer={customerData}
+          onLaunchWizard={(type) => setActiveWizard(type)}
+        />
+      )}
 
       {/* 2. Active Alerts & Workspace Tasks Queue */}
       <CustomerAlertsQueue />

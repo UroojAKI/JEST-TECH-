@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { ChunkedFileUploader } from '../../upload/chunked-file-uploader';
 import { toast } from 'sonner';
+import { formatCurrency } from '../../../lib/formatters';
 
 interface FollowUpItem {
   id: string;
@@ -376,7 +377,7 @@ export function LeadTabsContainer({ leadId }: { leadId: string }) {
                 <div key={q.id} className="p-4 rounded-xl border bg-card space-y-2">
                   <div className="flex justify-between items-center">
                     <span className="font-bold text-sm">{q.insurer}</span>
-                    <span className="font-bold text-emerald-600">₹{q.amount.toLocaleString()}</span>
+                    <span className="font-bold text-emerald-600" suppressHydrationWarning>{formatCurrency(q.amount)}</span>
                   </div>
                   <p className="text-muted-foreground text-[11px]">IDV: {q.idv} • Status: {q.status}</p>
                 </div>

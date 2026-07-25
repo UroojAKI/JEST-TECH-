@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { formatCurrency } from '../../../lib/formatters';
 import { AppShell } from '../../../components/layout/app-shell';
 import { EnterpriseTable } from '../../../components/table/enterprise-table';
 import { StatusBadge } from '../../../components/ui/status-badge';
@@ -63,7 +64,7 @@ export default function ProposalsRegisterPage() {
       accessorKey: 'totalPremium',
       header: 'Total Premium',
       cell: ({ row }: any) => (
-        <strong className="text-emerald-600 font-extrabold">₹{row.original.totalPremium.toLocaleString()}</strong>
+        <strong className="text-emerald-600 font-extrabold" suppressHydrationWarning>{formatCurrency(row.original.totalPremium)}</strong>
       ),
     },
     {

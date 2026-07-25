@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
+import { formatCurrency } from '@/lib/formatters';
 import { useAuthStore } from '@/store/auth';
 import { toast } from 'sonner';
 import {
@@ -292,7 +293,7 @@ export default function ProposalsPage() {
                         <div className="text-[10px] text-slate-500">{prop.quotation.productType}</div>
                       </td>
                       <td className="py-4 px-6 font-semibold text-slate-200">
-                        ₹{Number(prop.quotation.totalPremium).toLocaleString()}
+                        <span suppressHydrationWarning>{formatCurrency(prop.quotation?.totalPremium)}</span>
                       </td>
                       <td className="py-4 px-6">
                         <span className={`inline-block rounded px-2 py-0.5 text-[9px] font-bold ${getStatusColor(prop.status)}`}>
@@ -340,7 +341,7 @@ export default function ProposalsPage() {
                     <div>
                       <span className="text-slate-500">Carrier Pricing details</span>
                       <p className="font-bold text-indigo-400 mt-1">{details.quotation.insurerName}</p>
-                      <p className="text-slate-300 mt-0.5">₹{Number(details.quotation.totalPremium).toLocaleString()}</p>
+                      <p className="text-slate-300 mt-0.5" suppressHydrationWarning>{formatCurrency(details.quotation?.totalPremium)}</p>
                     </div>
                   </div>
                 </div>

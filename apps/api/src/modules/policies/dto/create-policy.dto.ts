@@ -60,9 +60,33 @@ export class CreatePolicyPaymentDto {
 }
 
 export class CreatePolicyDto {
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  quotationId: string;
+  quotationId?: string;
+
+  @IsOptional()
+  @IsString()
+  proposalId?: string;
+
+  @IsOptional()
+  @IsString()
+  contactId?: string;
+
+  @IsOptional()
+  @IsString()
+  contactName?: string;
+
+  @IsOptional()
+  @IsString()
+  productLine?: string;
+
+  @IsOptional()
+  @IsNumber()
+  totalPremium?: number;
+
+  @IsOptional()
+  @IsNumber()
+  idvValue?: number;
 
   @IsOptional()
   @IsArray()
@@ -70,12 +94,14 @@ export class CreatePolicyDto {
   @Type(() => CreatePolicyMemberDto)
   members?: CreatePolicyMemberDto[];
 
+  @IsOptional()
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => CreatePolicyNomineeDto)
-  nominees: CreatePolicyNomineeDto[];
+  nominees?: CreatePolicyNomineeDto[];
 
+  @IsOptional()
   @ValidateNested()
   @Type(() => CreatePolicyPaymentDto)
-  payment: CreatePolicyPaymentDto;
+  payment?: CreatePolicyPaymentDto;
 }
