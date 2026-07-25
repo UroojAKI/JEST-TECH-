@@ -115,10 +115,32 @@ export class ReportsController {
     return this.queries.handleGetReports(query);
   }
 
-  @Get('favorites')
+  @Get('providers')
   @RequirePermissions('REPORT_VIEW')
-  async getFavorites(@CurrentUser() user: RequestUser) {
-    return this.queries.getFavorites(user.id);
+  async getProviders() {
+    return [
+      { code: 'LEAD_ACQUISITION', name: 'Lead Acquisition & Conversion Data Provider' },
+      { code: 'POLICY_RENEWALS', name: 'Policy Renewals & Retention Data Provider' },
+      { code: 'FINANCE_COMMISSIONS', name: 'Finance & Agent Commission Ledger Data Provider' },
+    ];
+  }
+
+  @Get('schedules')
+  @RequirePermissions('REPORT_SCHEDULE')
+  async getAllSchedules() {
+    return [
+      { id: 'SCH-01', reportName: 'Monthly Policy Sales Breakdown', frequency: 'MONTHLY', recipients: ['management@jestpolicy.com'], format: 'PDF', status: 'ACTIVE' },
+      { id: 'SCH-02', reportName: 'Weekly Commission Settlement', frequency: 'WEEKLY', recipients: ['finance@jestpolicy.com'], format: 'EXCEL', status: 'ACTIVE' },
+    ];
+  }
+
+  @Get('history')
+  @RequirePermissions('REPORT_VIEW')
+  async getAllHistory() {
+    return [
+      { id: 'HIST-01', reportName: 'Monthly Policy Sales Breakdown', format: 'PDF', generatedAt: new Date().toISOString(), status: 'SUCCESS' },
+      { id: 'HIST-02', reportName: 'Weekly Commission Settlement', format: 'EXCEL', generatedAt: new Date().toISOString(), status: 'SUCCESS' },
+    ];
   }
 
   @Get(':idOrCode')

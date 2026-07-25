@@ -1,12 +1,6 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
 import "./globals.css";
 import { AppProviders } from "../components/providers/app-providers";
-
-const inter = Inter({
-  subsets: ["latin"],
-  variable: "--font-inter",
-});
 
 export const metadata: Metadata = {
   title: "JEST Policy CRM | Enterprise Insurance Platform",
@@ -19,7 +13,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning className={`${inter.variable} h-full antialiased`}>
+    <html lang="en" suppressHydrationWarning className="h-full antialiased font-sans">
       <body className="min-h-full flex flex-col font-sans">
         <AppProviders>{children}</AppProviders>
       </body>

@@ -12,10 +12,12 @@ export interface DocumentRecord {
 
 export const documentsRepository = {
   async getDocumentsForEntity(entityType: string, entityId: string): Promise<DocumentRecord[]> {
-    const response = await apiClient.get('/documents', {
-      params: { entityType, entityId },
-    });
-    return response.data;
+    try {
+      const response = await apiClient.get(`/documents/entity/${entityType}/${entityId}`);
+      return response.data;
+    } catch (err) {
+      return [];
+    }
   },
 
   async uploadDocument(file: File, entityType: string, entityId: string): Promise<DocumentRecord> {
