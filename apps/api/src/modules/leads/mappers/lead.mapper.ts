@@ -18,6 +18,19 @@ export class LeadMapper {
     response.createdAt = lead.createdAt;
     response.updatedAt = lead.updatedAt;
 
+    if (lead.contact) {
+      response.firstName = lead.contact.firstName;
+      response.lastName = lead.contact.lastName;
+      response.email = lead.contact.email || undefined;
+      response.phone = lead.contact.phone;
+      response.contactName = `${lead.contact.firstName} ${lead.contact.lastName}`.trim();
+    } else {
+      const nameParts = (lead.title || '').split(' - ')[0].trim().split(' ');
+      response.firstName = nameParts[0] || 'Prospect';
+      response.lastName = nameParts.slice(1).join(' ') || '';
+      response.contactName = lead.title;
+    }
+
     if (lead.notes) {
       response.notes = lead.notes.map((n) => ({
         id: n.id,

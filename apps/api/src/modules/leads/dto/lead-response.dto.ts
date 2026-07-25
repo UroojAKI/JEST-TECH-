@@ -40,6 +40,12 @@ export class LeadResponseDto {
   createdAt: Date;
   updatedAt: Date;
 
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  phone?: string;
+  contactName?: string;
+
   notes?: LeadNoteResponseDto[];
   activities?: LeadActivityResponseDto[];
 }

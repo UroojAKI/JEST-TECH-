@@ -44,16 +44,27 @@ export class LeadsService {
     }
 
     if (!targetContactId) {
-      const firstContact = await this.prisma.contact.findFirst({ where: { deletedAt: null } });
-      if (firstContact) {
-        targetContactId = firstContact.id;
+      let existingContact: any = null;
+      if (dto.phone) {
+        existingContact = await this.prisma.contact.findFirst({
+          where: { phone: dto.phone, deletedAt: null },
+        });
+      }
+      if (!existingContact && dto.email) {
+        existingContact = await this.prisma.contact.findFirst({
+          where: { email: dto.email, deletedAt: null },
+        });
+      }
+
+      if (existingContact) {
+        targetContactId = existingContact.id;
       } else {
         const createdContact = await this.contactsService.create(
           {
-            firstName: dto.firstName || dto.title || 'Prospect',
-            lastName: dto.lastName || 'Lead',
+            firstName: dto.firstName || (dto.title ? dto.title.split(' ')[0] : 'Prospect'),
+            lastName: dto.lastName || '',
             email: dto.email || `prospect_${Date.now()}@jestpolicy.com`,
-            phone: dto.phone || '9876543210',
+            phone: dto.phone || `${Math.floor(1000000000 + Math.random() * 9000000000)}`,
             type: 'INDIVIDUAL',
           },
           createdById,
