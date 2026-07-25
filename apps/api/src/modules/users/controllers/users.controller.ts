@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags, ApiOperation } from '@nestjs/swagger';
 import { RoleType } from '@prisma/client';
 
@@ -7,12 +7,13 @@ import { RolesGuard } from '../../auth/guards/roles.guard';
 import { Roles } from '../../auth/decorators/roles.decorator';
 
 import { CreateUserDto } from '../dto/create-user.dto';
+import { UpdateUserDto } from '../dto/update-user.dto';
 import { UsersService } from '../services/users.service';
 
 @ApiTags('Users')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles(RoleType.SUPER_ADMIN)
+@Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN)
 @Controller('users')
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
@@ -23,7 +24,6 @@ export class UsersController {
   }
 
   @Get('roles')
-  @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN)
   @ApiOperation({ summary: 'Get all available system roles' })
   async getAvailableRoles() {
     return [
@@ -47,6 +47,18 @@ export class UsersController {
     return this.usersService.findById(id);
   }
 
+  @Patch(':id')
+  @ApiOperation({ summary: 'Update user profile, role, or branch assignment' })
+  update(@Param('id') id: string, @Body() dto: UpdateUserDto) {
+    return this.usersService.update(id, dto);
+  }
+
+  @Delete(':id')
+  @ApiOperation({ summary: 'Soft delete / offboard user account' })
+  remove(@Param('id') id: string) {
+    return this.usersService.delete(id);
+  }
+
   @Post(':id/lock')
   lock(@Param('id') id: string) {
     return this.usersService.lockUser(id);
@@ -57,4 +69,3 @@ export class UsersController {
     return this.usersService.unlockUser(id);
   }
 }
-

@@ -1,18 +1,14 @@
 import { Contact } from '@prisma/client';
 import { ContactResponseDto } from '../dto/contact-response.dto';
+import { EncryptionUtil } from '../../../common/utils/encryption.util';
 
-/**
- * ContactMapper — the only place that converts a Prisma Contact entity
- * into the public-facing ContactResponseDto.
- *
- * Rule: No Prisma model is ever returned directly from a controller.
- * All data must pass through this mapper first.
- *
- * When Contact gains relations (leads, policies, etc.), add them to
- * ContactWithRelations and extend toResponse() accordingly.
- */
 export class ContactMapper {
-  static toResponse(contact: Contact): ContactResponseDto {
+  static toResponse(
+    contact: Contact,
+    options?: { unmaskSensitive?: boolean },
+  ): ContactResponseDto {
+    const shouldUnmask = options?.unmaskSensitive ?? false;
+
     return {
       id: contact.id,
       contactCode: contact.contactCode,
@@ -28,8 +24,13 @@ export class ContactMapper {
       alternatePhone: contact.alternatePhone,
       whatsappNumber: contact.whatsappNumber,
       occupation: contact.occupation,
-      panNumber: contact.panNumber,
-      aadhaarNumber: contact.aadhaarNumber,
+      // Enforce data masking for Aadhaar and PAN unless explicitly authorized
+      panNumber: shouldUnmask
+        ? contact.panNumber
+        : EncryptionUtil.maskPan(contact.panNumber),
+      aadhaarNumber: shouldUnmask
+        ? contact.aadhaarNumber
+        : EncryptionUtil.maskAadhaar(contact.aadhaarNumber),
       gstNumber: contact.gstNumber,
       createdById: contact.createdById,
       updatedById: contact.updatedById,
@@ -39,7 +40,10 @@ export class ContactMapper {
     };
   }
 
-  static toResponseList(contacts: Contact[]): ContactResponseDto[] {
-    return contacts.map((c) => this.toResponse(c));
+  static toResponseList(
+    contacts: Contact[],
+    options?: { unmaskSensitive?: boolean },
+  ): ContactResponseDto[] {
+    return contacts.map((c) => this.toResponse(c, options));
   }
 }

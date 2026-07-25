@@ -130,10 +130,15 @@ export class LeadsService {
       await this.accountsService.findById(dto.accountId);
     }
 
-    // Validate Assigned User exists if provided
+    // Validate Lead Reassignment permission (Only Managers & Admins can reassign lead ownership)
     if (dto.assignedToId && dto.assignedToId !== existing.assignedToId) {
-      const user = await this.usersService.findById(dto.assignedToId);
-      if (!user) {
+      if (user.role === 'SALES_AGENT') {
+        throw new ForbiddenException(
+          'Sales agents are not authorized to reassign lead ownership. Lead reassignment requires Branch Manager or Admin role.',
+        );
+      }
+      const targetUser = await this.usersService.findById(dto.assignedToId);
+      if (!targetUser) {
         throw new NotFoundException(
           `User with ID ${dto.assignedToId} not found`,
         );

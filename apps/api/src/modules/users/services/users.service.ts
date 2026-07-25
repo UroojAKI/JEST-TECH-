@@ -64,6 +64,30 @@ export class UsersService {
     return UserMapper.toResponse(updated);
   }
 
+  async update(id: string, dto: any) {
+    await this.findById(id);
+    const updateData: any = {};
+    if (dto.firstName) updateData.firstName = dto.firstName;
+    if (dto.lastName) updateData.lastName = dto.lastName;
+    if (dto.phone) updateData.phone = dto.phone;
+    if (dto.email) updateData.email = dto.email;
+    if (dto.status) updateData.status = dto.status;
+    if (dto.role) {
+      const role = await this.userRepository.findRoleByType(dto.role);
+      if (role) {
+        updateData.role = { connect: { id: role.id } };
+      }
+    }
+    const updated = await this.userRepository.update(id, updateData);
+    return UserMapper.toResponse(updated);
+  }
+
+  async delete(id: string) {
+    await this.findById(id);
+    const deleted = await this.userRepository.softDelete(id);
+    return UserMapper.toResponse(deleted);
+  }
+
 
   /**
    * FOR AUTHENTICATION USE ONLY.
