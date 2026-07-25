@@ -92,10 +92,11 @@ export default function DocumentsTab({ entityType, entityId }: DocumentsTabProps
       setDocName('');
       setExpiryDate('');
       queryClient.invalidateQueries({ queryKey: ['documents', entityType, entityId] });
+      toast.success('Document uploaded successfully!');
     },
     onError: () => {
       setUploadProgress(false);
-      alert('Upload failed');
+      toast.error('Upload failed');
     },
   });
 
@@ -108,7 +109,7 @@ export default function DocumentsTab({ entityType, entityId }: DocumentsTabProps
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['documents', entityType, entityId] });
-      alert('Version updated successfully!');
+      toast.success('Version updated successfully!');
     },
   });
 
@@ -119,6 +120,7 @@ export default function DocumentsTab({ entityType, entityId }: DocumentsTabProps
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['documents', entityType, entityId] });
+      toast.success('Document deleted');
     },
   });
 
@@ -164,7 +166,7 @@ export default function DocumentsTab({ entityType, entityId }: DocumentsTabProps
       const url = URL.createObjectURL(response.data);
       setPreviewBlobUrl(url);
     } catch (err) {
-      alert('Error fetching file preview');
+      toast.error('Error fetching file preview');
       setPreviewDoc(null);
     }
   };

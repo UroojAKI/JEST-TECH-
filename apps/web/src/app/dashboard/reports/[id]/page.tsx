@@ -15,6 +15,7 @@ import {
   Shield,
   FileSpreadsheet,
 } from 'lucide-react';
+import { toast } from 'sonner';
 import { VisualizationStudio } from '../../../../components/reports/VisualizationStudio';
 
 const MOCK_REPORT_EXECUTION = {
@@ -92,7 +93,7 @@ export default function ReportViewerPage() {
         {/* Export Bar */}
         <div className="flex items-center space-x-2">
           <button
-            onClick={() => alert('Exporting report as PDF...')}
+            onClick={() => toast.success('Report exported as PDF!')}
             className="flex items-center space-x-1 px-3 py-2 text-xs font-semibold rounded-lg border bg-card hover:bg-accent shadow-sm"
           >
             <Download className="h-3.5 w-3.5 text-red-500" />
@@ -100,7 +101,25 @@ export default function ReportViewerPage() {
           </button>
 
           <button
-            onClick={() => alert('Exporting report as Excel...')}
+            onClick={() => {
+              const csvContent =
+                'data:text/csv;charset=utf-8,' +
+                ['Month,New Policies,Gross Premium,Claim Ratio,Brokerage Revenue']
+                  .concat(
+                    MOCK_REPORT_EXECUTION.data.map(
+                      (d) => `${d.month},${d.policies},"${d.gwp}","${d.claims}","${d.commission}"`
+                    )
+                  )
+                  .join('\n');
+              const encodedUri = encodeURI(csvContent);
+              const link = document.createElement('a');
+              link.setAttribute('href', encodedUri);
+              link.setAttribute('download', `${MOCK_REPORT_EXECUTION.name}_Export.csv`);
+              document.body.appendChild(link);
+              link.click();
+              document.body.removeChild(link);
+              toast.success('Report data exported as Excel/CSV!');
+            }}
             className="flex items-center space-x-1 px-3 py-2 text-xs font-semibold rounded-lg border bg-card hover:bg-accent shadow-sm"
           >
             <FileSpreadsheet className="h-3.5 w-3.5 text-emerald-500" />

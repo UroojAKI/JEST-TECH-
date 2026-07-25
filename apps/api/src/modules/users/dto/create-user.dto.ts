@@ -4,7 +4,6 @@ import {
   IsNotEmpty,
   IsOptional,
   IsString,
-  MinLength,
 } from 'class-validator';
 
 import { RoleType } from '@prisma/client';
@@ -25,9 +24,18 @@ export class CreateUserDto {
   @IsString()
   phone?: string;
 
-  @MinLength(8)
-  password: string;
+  @IsOptional()
+  @IsString()
+  password?: string;
 
   @IsEnum(RoleType)
   role: RoleType;
+
+  @IsOptional()
+  @IsString()
+  employeeCode?: string;
+
+  @IsOptional()
+  @IsString()
+  branch?: string;
 }

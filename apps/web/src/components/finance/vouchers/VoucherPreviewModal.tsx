@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { X, FileText, Download, Printer, Shield, CheckCircle2 } from 'lucide-react';
+import { toast } from 'sonner';
 
 export interface VoucherData {
   title: string;
@@ -35,7 +36,7 @@ export function VoucherPreviewModal({ isOpen, onClose, voucher }: VoucherPreview
           </div>
           <div className="flex items-center space-x-2">
             <button
-              onClick={() => alert(`Downloading voucher ${voucher.voucherNumber} PDF...`)}
+              onClick={() => toast.success(`Downloading voucher ${voucher.voucherNumber} PDF...`)}
               className="flex items-center space-x-1 px-3 py-1.5 rounded-lg border bg-background hover:bg-accent text-xs font-semibold"
             >
               <Download className="h-3.5 w-3.5" />

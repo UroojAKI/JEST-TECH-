@@ -3,6 +3,7 @@
 import React from 'react';
 import { X, UserPlus, FileSpreadsheet, ShieldCheck, FileText, UploadCloud } from 'lucide-react';
 import { ChunkedFileUploader } from '../../upload/chunked-file-uploader';
+import { toast } from 'sonner';
 
 interface SideWizardDrawerProps {
   type: string | null;
@@ -69,7 +70,7 @@ export function SideWizardDrawer({ type, customerId, onClose }: SideWizardDrawer
 
               <button
                 onClick={() => {
-                  alert(`${config.title} submitted successfully!`);
+                  toast.success(`${config.title} submitted successfully!`);
                   onClose();
                 }}
                 className="w-full py-2.5 rounded-lg bg-primary text-primary-foreground font-bold text-xs shadow hover:bg-primary/90 transition-colors"

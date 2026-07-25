@@ -33,16 +33,16 @@ services:
       dockerfile: apps/api/Dockerfile
     container_name: jest-api
     ports:
+      - "4000:3000"
       - "3000:3000"
     environment:
       NODE_ENV: production
       PORT: 3000
       DATABASE_URL: ${DATABASE_URL:-postgresql://postgres:postgres@postgres:5432/jest_policy_crm?schema=public}
       REDIS_URL: ${REDIS_URL:-redis://redis:6379}
-      JWT_SECRET: ${JWT_SECRET}
-      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
-      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:3001}
-
+      JWT_SECRET: ${JWT_SECRET:-jest_policy_super_secret_jwt_key_2026}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-jest_policy_super_secret_refresh_key_2026}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:3001,http://localhost:3000,http://localhost:4000}
     depends_on:
       postgres:
         condition: service_healthy

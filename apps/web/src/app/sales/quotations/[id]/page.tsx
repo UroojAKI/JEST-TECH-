@@ -17,6 +17,7 @@ import {
   ChevronRight,
 } from 'lucide-react';
 import { useQuotations, useQuotationWorkspace } from '../../../../hooks/useQuotations';
+import { toast } from 'sonner';
 
 export default function QuotationWorkspacePage() {
   const params = useParams();
@@ -272,7 +273,7 @@ export default function QuotationWorkspacePage() {
                     <td className="p-3 text-right">
                       <button
                         onClick={() => {
-                          alert(`Selected ${ins.name} quote (₹${total.toLocaleString()})`);
+                          toast.success(`Selected ${ins.name} quote (₹${total.toLocaleString('en-IN')}) for proposal conversion!`);
                         }}
                         className={`px-3 py-1.5 rounded-lg text-[11px] font-bold transition-colors ${
                           ins.recommended

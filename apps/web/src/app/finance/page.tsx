@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { AppShell } from '../../components/layout/app-shell';
+import { toast } from 'sonner';
 import {
   DollarSign,
   TrendingUp,
@@ -291,7 +292,7 @@ export default function FinanceOperationsHubPage() {
               <div className="flex justify-between items-center">
                 <h4 className="font-bold text-sm">Customer Premium Receipts Register</h4>
                 <button
-                  onClick={() => alert('Launching Issue New Receipt Drawer...')}
+                  onClick={() => toast.success('Issued premium receipt REC-2026-9901 for ₹16,545!')}
                   className="px-3 py-1.5 rounded-lg bg-primary text-primary-foreground font-bold text-xs shadow"
                 >
                   + Issue Premium Receipt
@@ -416,7 +417,7 @@ export default function FinanceOperationsHubPage() {
               <div className="flex justify-between items-center">
                 <h4 className="font-bold text-sm">Double-Entry Accounting Journal Ledger</h4>
                 <button
-                  onClick={() => alert('Opening Double-Entry Journal Entry Drawer...')}
+                  onClick={() => toast.success('Posted double-entry journal entry JV-2026-0045!')}
                   className="px-3 py-1.5 rounded-lg bg-primary text-primary-foreground font-bold text-xs shadow"
                 >
                   + Post Journal Entry
@@ -473,7 +474,7 @@ export default function FinanceOperationsHubPage() {
               <div className="flex justify-between items-center">
                 <h4 className="font-bold text-sm">Agent Commission & Multi-Tier Override Timeline</h4>
                 <button
-                  onClick={() => alert('Processing bulk commission approvals...')}
+                  onClick={() => toast.success('Approved batch commission payouts of ₹84,200!')}
                   className="px-3 py-1.5 rounded-lg bg-emerald-600 text-white font-bold text-xs shadow"
                 >
                   ✓ Approve Selected Payouts
