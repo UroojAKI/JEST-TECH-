@@ -102,7 +102,7 @@ export class InsurerProductService {
     return this.prisma.insurer.delete({ where: { id } });
   }
 
-  // Insurance Products
+  // Insurance Products CRUD
   async getInsuranceProducts(insurerId?: string) {
     return this.prisma.insuranceProduct.findMany({
       where: insurerId ? { insurerId } : {},
@@ -127,6 +127,26 @@ export class InsurerProductService {
         policyType: data.policyType || 'COMPREHENSIVE',
       },
     });
+  }
+
+  async updateInsuranceProduct(id: string, data: any) {
+    return this.prisma.insuranceProduct.update({
+      where: { id },
+      data,
+    });
+  }
+
+  async toggleProductStatus(id: string) {
+    const product = await this.prisma.insuranceProduct.findUnique({ where: { id } });
+    if (!product) throw new NotFoundException(`Product '${id}' not found`);
+    return this.prisma.insuranceProduct.update({
+      where: { id },
+      data: { isActive: !product.isActive },
+    });
+  }
+
+  async deleteInsuranceProduct(id: string) {
+    return this.prisma.insuranceProduct.delete({ where: { id } });
   }
 
   // Discount Rules
