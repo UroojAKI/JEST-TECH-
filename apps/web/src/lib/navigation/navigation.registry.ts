@@ -76,6 +76,7 @@ export const navigationRegistry: NavigationItem[] = [
     roles: ['SUPER_ADMIN', 'ADMIN'],
     children: [
       { id: 'users', title: 'User Management', href: '/admin/users', roles: ['SUPER_ADMIN', 'ADMIN'] },
+      { id: 'insurers', title: 'Insurer Master', href: '/admin/insurers', roles: ['SUPER_ADMIN', 'ADMIN'] },
       { id: 'system-config', title: 'System Configurations', href: '/admin/config', roles: ['SUPER_ADMIN'] },
       { id: 'numbering', title: 'Numbering Sequences', href: '/admin/numbering', roles: ['SUPER_ADMIN'] },
     ],

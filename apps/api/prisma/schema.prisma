@@ -1617,18 +1617,123 @@ model VehicleVariant {
 }
 
 model Insurer {
-  id             String       @id @default(uuid())
-  name           String       @unique
-  code           String       @unique
-  rating         Decimal?
-  isActive       Boolean      @default(true)
-  contactDetails Json?
-  logoUrl        String?
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
-  rules          RatingRule[]
+  id                      String       @id @default(uuid())
+  name                    String       @unique
+  code                    String       @unique
+  logoUrl                 String?
+  irdaiRegistrationNumber String?
+  contactEmail            String?
+  contactPhone            String?
+  address                 String?
+  rating                  Decimal?
+  supportedVehicleTypes   Json?
+  supportedPolicyTypes    Json?
+  supportedAddons         Json?
+  supportsZeroDep         Boolean      @default(true)
+  supportsRTI             Boolean      @default(true)
+  supportsEngineProtect   Boolean      @default(true)
+  supportsRSA             Boolean      @default(true)
+  supportsNCBProtection   Boolean      @default(true)
+  supportsConsumables     Boolean      @default(true)
+  supportsKeyProtect      Boolean      @default(true)
+  supportsTyreProtect     Boolean      @default(true)
+  isActive                Boolean      @default(true)
+  contactDetails          Json?
+  createdAt               DateTime     @default(now())
+  updatedAt               DateTime     @updatedAt
+
+  rules                 RatingRule[]
+  products              InsuranceProduct[]
+  discountRules         DiscountRule[]
+  commissionMatrices    CommissionMatrix[]
+  underwritingQuestions UnderwritingQuestion[]
+  addonRules            AddOnRule[]
 
   @@map("insurers")
+}
+
+model InsuranceProduct {
+  id          String   @id @default(uuid())
+  insurerId   String
+  productName String
+  code        String   @unique
+  vehicleType String   @default("FOUR_WHEELER")
+  policyType  String   @default("COMPREHENSIVE")
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  insurer Insurer @relation(fields: [insurerId], references: [id], onDelete: Cascade)
+
+  @@index([insurerId])
+  @@map("insurance_products")
+}
+
+model DiscountRule {
+  id                              String   @id @default(uuid())
+  insurerId                       String
+  vehicleType                     String   @default("FOUR_WHEELER")
+  policyType                      String   @default("COMPREHENSIVE")
+  maxDiscountPercent              Decimal  @default(70.0) @db.Decimal(5, 2)
+  minDiscountPercent              Decimal  @default(0.0) @db.Decimal(5, 2)
+  managerApprovalThresholdPercent Decimal  @default(15.0) @db.Decimal(5, 2)
+  isActive                        Boolean  @default(true)
+  createdAt                       DateTime @default(now())
+  updatedAt                       DateTime @updatedAt
+
+  insurer Insurer @relation(fields: [insurerId], references: [id], onDelete: Cascade)
+
+  @@index([insurerId])
+  @@map("discount_rules")
+}
+
+model CommissionMatrix {
+  id                  String   @id @default(uuid())
+  insurerId           String
+  productType         String   @default("MOTOR")
+  odCommissionPercent Decimal  @default(15.0) @db.Decimal(5, 2)
+  tpCommissionPercent Decimal  @default(2.5) @db.Decimal(5, 2)
+  brokeragePercent    Decimal  @default(17.5) @db.Decimal(5, 2)
+  tdsPercent          Decimal  @default(5.0) @db.Decimal(5, 2)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  insurer Insurer @relation(fields: [insurerId], references: [id], onDelete: Cascade)
+
+  @@index([insurerId])
+  @@map("commission_matrices")
+}
+
+model UnderwritingQuestion {
+  id           String   @id @default(uuid())
+  insurerId    String
+  questionText String
+  answerType   String   @default("BOOLEAN") // BOOLEAN, TEXT, NUMBER, SELECT
+  isRequired   Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  insurer Insurer @relation(fields: [insurerId], references: [id], onDelete: Cascade)
+
+  @@index([insurerId])
+  @@map("underwriting_questions")
+}
+
+model AddOnRule {
+  id                String   @id @default(uuid())
+  insurerId         String
+  addonCode         String
+  addonName         String
+  maxVehicleAgeYears Int     @default(5)
+  allowedFuelTypes  Json?
+  premiumFormula    Json?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  insurer Insurer @relation(fields: [insurerId], references: [id], onDelete: Cascade)
+
+  @@index([insurerId])
+  @@map("add_on_rules")
 }
 
 model Product {
