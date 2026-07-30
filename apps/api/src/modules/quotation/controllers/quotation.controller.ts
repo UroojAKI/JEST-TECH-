@@ -9,7 +9,7 @@ import {
   Post,
   UseGuards,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiTags, ApiOperation } from '@nestjs/swagger';
 import { RoleType } from '@prisma/client';
 
 import { SkipThrottle } from '@nestjs/throttler';
@@ -30,8 +30,9 @@ import { GetQuotationService } from '../services/queries/get-quotation.service';
 import { CompareQuotationService } from '../services/queries/compare-quotation.service';
 import { GetQuotationHistoryService } from '../services/queries/get-quotation-history.service';
 import { ComparisonService } from '../engine/comparison.service';
+import { PrismaService } from '../../../database/prisma.service';
 
-@ApiTags('Quotations')
+@ApiTags('Quotations & Motor Wizard')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('quotations')
@@ -45,6 +46,7 @@ export class QuotationController {
     private readonly compareQuotationService: CompareQuotationService,
     private readonly getQuotationHistoryService: GetQuotationHistoryService,
     private readonly comparisonEngine: ComparisonService,
+    private readonly prisma: PrismaService,
   ) {}
 
   @SkipThrottle()
@@ -60,6 +62,96 @@ export class QuotationController {
   )
   calculate(@Body() dto: any) {
     return this.comparisonEngine.generateComparativeQuotes(dto);
+  }
+
+  @Post('wizard/issue-policy')
+  @HttpCode(HttpStatus.OK)
+  @Roles(
+    RoleType.SUPER_ADMIN,
+    RoleType.ADMIN,
+    RoleType.BRANCH_MANAGER,
+    RoleType.TEAM_LEADER,
+    RoleType.SALES_AGENT,
+  )
+  @ApiOperation({ summary: 'Issue Motor Policy & Auto-Schedule Renewal Reminder' })
+  async issuePolicyAndScheduleRenewal(
+    @Body() dto: {
+      contactId: string;
+      leadId?: string;
+      insurerName: string;
+      totalPremium: number;
+      registrationNumber?: string;
+    },
+    @CurrentUser() user: RequestUser
+  ) {
+    const policyNumber = `POL-${Date.now().toString().slice(-8)}`;
+    const effectiveDate = new Date();
+    const expiryDate = new Date();
+    expiryDate.setFullYear(expiryDate.getFullYear() + 1);
+
+    // Create or find dummy quotation to bind
+    let quotationId = dto.leadId;
+    if (!quotationId) {
+      const q = await this.prisma.quotation.create({
+        data: {
+          quotationCode: `Q-${Date.now().toString().slice(-6)}`,
+          title: `Motor Quote ${policyNumber}`,
+          contactId: dto.contactId,
+          insurerName: dto.insurerName || 'Partner Insurer',
+          productType: 'MOTOR',
+          sumInsured: 500000,
+          basePremium: dto.totalPremium ? dto.totalPremium * 0.85 : 15000,
+          gstAmount: dto.totalPremium ? dto.totalPremium * 0.15 : 2700,
+          totalPremium: dto.totalPremium || 17700,
+          expiryDate: new Date(Date.now() + 30 * 86400000),
+          createdById: user.id,
+        },
+      });
+      quotationId = q.id;
+    }
+
+    // 1. Issue Policy
+    const policy = await this.prisma.policy.create({
+      data: {
+        policyNumber,
+        status: 'ACTIVE',
+        quotationId: quotationId,
+        contactId: dto.contactId,
+        premiumAmount: dto.totalPremium || 17700,
+        effectiveDate,
+        expiryDate,
+        createdById: user.id,
+      },
+    });
+
+    // 2. Auto-Provision Renewal Task for Agent
+    const renewalTask = await this.prisma.renewalTask.create({
+      data: {
+        policyId: policy.id,
+        agentId: user.id,
+        dueDate: expiryDate,
+        status: 'PENDING',
+        priority: 'HIGH',
+      },
+    });
+
+    // 3. Update Lead Status if available
+    if (dto.leadId) {
+      await this.prisma.lead.update({
+        where: { id: dto.leadId },
+        data: {
+          currentWorkflowStep: 'ISSUED',
+          status: 'POLICY_ISSUED',
+        },
+      });
+    }
+
+    return {
+      message: 'Policy issued successfully and renewal task auto-scheduled!',
+      policy,
+      renewalTask,
+      downloadUrl: `/api/v1/policies/${policy.id}/document`,
+    };
   }
 
   @Post()
