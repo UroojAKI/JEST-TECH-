@@ -1,8 +1,8 @@
 'use client';
 
 import React from 'react';
-import { DashboardRenderer } from '../../../components/dashboard/DashboardRenderer';
+import { SalesDashboard } from '../../../components/workspaces/sales/SalesDashboard';
 
 export default function SalesWorkspacePage() {
-  return <DashboardRenderer />;
+  return <SalesDashboard />;
 }

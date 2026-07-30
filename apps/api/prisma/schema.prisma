@@ -293,10 +293,20 @@ model User {
   accountsUpdated Account[] @relation("AccountUpdatedBy")
 
   leadsAssigned Lead[] @relation("LeadAssignedTo")
+  leadsManaged  Lead[] @relation("LeadAssignedManager")
 
   leadsCreated Lead[] @relation("LeadCreatedBy")
 
   leadsUpdated Lead[] @relation("LeadUpdatedBy")
+
+  stageHistoryPerformer LeadStageHistory[] @relation("StageHistoryUser")
+  assignmentsReceived   LeadAssignment[]   @relation("AssignmentToUser")
+  assignmentsGiven      LeadAssignment[]   @relation("AssignmentByUser")
+  referralsAssigned     Referral[]         @relation("ReferralAssignedTo")
+  salesTargets          SalesTarget[]
+  salesPerformances     SalesPerformance[]
+  callLogs              CallLog[]
+  meetingLogs           MeetingLog[]
 
   notesCreated Note[] @relation("NoteCreatedBy")
 
@@ -616,10 +626,26 @@ model Lead {
   duplicates      Lead[]    @relation("LeadDuplicates")
 
 
+  currentWorkflowStep String   @default("ASSIGNED") // ASSIGNED, CONTACTED, NEED_ANALYSIS, QUOTATION, PROPOSAL, NEGOTIATION, PAYMENT, ISSUED, REFERRAL, CRM_UPDATED
+  crmUpdatedAt        DateTime?
+  nextFollowup        DateTime?
+  estimatedPremium    Decimal?   @db.Decimal(12, 2)
+  noReferralReason    String?
+
+  assignedManagerId String?
+  assignedManager   User?       @relation("LeadAssignedManager", fields: [assignedManagerId], references: [id])
+
   notes       Note[]
   activities  Activity[]
 
   quotations  Quotation[]
+
+  stageHistory LeadStageHistory[]
+  assignments  LeadAssignment[]
+  referrals    Referral[]        @relation("LeadSourceReferrals")
+  createdFromReferrals Referral[] @relation("LeadCreatedReferral")
+  callLogs     CallLog[]
+  meetingLogs  MeetingLog[]
 
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
@@ -628,9 +654,151 @@ model Lead {
 
   @@index([leadCode])
   @@index([status])
+  @@index([currentWorkflowStep])
   @@index([contactId])
   @@index([assignedToId])
   @@map("leads")
+}
+
+model LeadStageHistory {
+  id               String   @id @default(uuid())
+  leadId           String
+  fromStage        String
+  toStage          String
+  performedById    String
+  performerRole    String
+  isOverride       Boolean  @default(false)
+  overrideReason   String?
+  remarks          String?
+  prerequisitesMet Json?
+  createdAt        DateTime @default(now())
+
+  lead        Lead @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  performedBy User @relation("StageHistoryUser", fields: [performedById], references: [id])
+
+  @@index([leadId])
+  @@index([createdAt])
+  @@map("lead_stage_history")
+}
+
+model LeadAssignment {
+  id           String   @id @default(uuid())
+  leadId       String
+  assignedToId String
+  assignedById String
+  reason       String?
+  assignedAt   DateTime @default(now())
+
+  lead       Lead @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  assignedTo User @relation("AssignmentToUser", fields: [assignedToId], references: [id])
+  assignedBy User @relation("AssignmentByUser", fields: [assignedById], references: [id])
+
+  @@index([leadId])
+  @@index([assignedToId])
+  @@map("lead_assignments")
+}
+
+model Referral {
+  id                String   @id @default(uuid())
+  sourceLeadId      String?
+  referrerContactId String?
+  referralName      String
+  phone             String
+  email             String?
+  relationship      String?
+  interestedProduct String?
+  status            String   @default("NEW") // NEW, CONTACTED, CONVERTED, REJECTED
+  assignedToId      String?
+  createdLeadId     String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  sourceLead Lead? @relation("LeadSourceReferrals", fields: [sourceLeadId], references: [id], onDelete: SetNull)
+  createdLead Lead? @relation("LeadCreatedReferral", fields: [createdLeadId], references: [id], onDelete: SetNull)
+  assignedTo User? @relation("ReferralAssignedTo", fields: [assignedToId], references: [id])
+
+  @@index([sourceLeadId])
+  @@index([phone])
+  @@map("referrals")
+}
+
+model SalesTarget {
+  id                   String   @id @default(uuid())
+  userId               String
+  year                 Int
+  month                Int
+  targetGwp            Decimal  @db.Decimal(12, 2)
+  targetPolicies       Int
+  targetConversionRate Decimal  @default(30.0) @db.Decimal(5, 2)
+  achievedGwp          Decimal  @default(0) @db.Decimal(12, 2)
+  achievedPolicies     Int      @default(0)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, year, month])
+  @@map("sales_targets")
+}
+
+model SalesPerformance {
+  id             String   @id @default(uuid())
+  userId         String
+  date           DateTime @default(now())
+  leadsAssigned  Int      @default(0)
+  callsMade      Int      @default(0)
+  meetingsHeld   Int      @default(0)
+  quotesGenerated Int     @default(0)
+  proposalsSent  Int      @default(0)
+  policiesIssued Int      @default(0)
+  totalRevenue   Decimal  @default(0) @db.Decimal(12, 2)
+  createdAt      DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, date])
+  @@map("sales_performance")
+}
+
+model CallLog {
+  id                String    @id @default(uuid())
+  leadId            String?
+  contactId         String?
+  userId            String
+  callType          String    @default("OUTBOUND") // OUTBOUND, INBOUND
+  callOutcome       String    // CONNECTED, NO_ANSWER, BUSY, SCHEDULED_CALLBACK, INTERESTED, NOT_INTERESTED
+  durationSeconds   Int       @default(0)
+  notes             String?
+  scheduledFollowup DateTime?
+  createdAt         DateTime  @default(now())
+
+  lead Lead? @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([leadId])
+  @@index([userId])
+  @@map("call_logs")
+}
+
+model MeetingLog {
+  id           String    @id @default(uuid())
+  leadId       String?
+  contactId    String?
+  userId       String
+  meetingType  String    @default("IN_PERSON") // IN_PERSON, ONLINE_DEMO
+  location     String?
+  status       String    @default("SCHEDULED") // SCHEDULED, COMPLETED, CANCELLED
+  scheduledAt  DateTime
+  completedAt  DateTime?
+  summary      String?
+  createdAt    DateTime  @default(now())
+
+  lead Lead? @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([leadId])
+  @@index([userId])
+  @@map("meeting_logs")
 }
 
 //////////////////////////////////////////////////////////
