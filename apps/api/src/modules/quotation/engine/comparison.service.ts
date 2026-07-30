@@ -213,6 +213,40 @@ export class ComparisonService {
     };
   }
 
+  getComparisonMatrix(input: QuotationInput) {
+    const res = this.generateComparativeQuotes(input);
+    const features = [
+      { key: 'premium', label: 'Premium Payable' },
+      { key: 'idv', label: 'Insured Declared Value (IDV)' },
+      { key: 'ncbDiscount', label: 'NCB Discount (35%)' },
+      { key: 'zeroDep', label: 'Zero Depreciation Cover' },
+      { key: 'engineProtect', label: 'Engine Protector' },
+      { key: 'rsa', label: 'Roadside Assistance (RSA)' },
+      { key: 'consumables', label: 'Consumables Cover' },
+      { key: 'claimSettlement', label: 'Claim Settlement Ratio' },
+    ];
+
+    const matrix = res.comparativeQuotes.map((q) => ({
+      insurerId: q.insurerId,
+      insurerName: q.insurerName,
+      logo: q.logo,
+      premium: `₹${q.totalPremium}`,
+      idv: `₹${q.idv}`,
+      ncbDiscount: `₹${q.ncbDiscount}`,
+      zeroDep: true,
+      engineProtect: true,
+      rsa: true,
+      consumables: true,
+      claimSettlement: '98.5%',
+      finalPremium: `₹${q.totalPremium}`,
+    }));
+
+    return {
+      features,
+      quotes: matrix,
+    };
+  }
+
   compare(quotations: any[]) {
     return {
       comparedCount: quotations.length,
