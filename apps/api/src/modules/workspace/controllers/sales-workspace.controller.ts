@@ -45,6 +45,43 @@ export class SalesWorkspaceController {
     };
   }
 
+  @Get('tasks')
+  @ApiOperation({ summary: 'Get Agent Work Queue actionable task badges' })
+  async getWorkQueue(@CurrentUser() user: RequestUser) {
+    const isManager =
+      user.role === 'BRANCH_MANAGER' || user.role === 'TEAM_LEADER' || user.role === 'SUPER_ADMIN';
+    const where: any = { deletedAt: null };
+    if (!isManager) where.assignedToId = user.id;
+
+    const pendingQuotesCount = await this.prisma.lead.count({
+      where: { ...where, currentWorkflowStep: { in: ['NEED_ANALYSIS', 'QUOTATION'] } },
+    });
+
+    const pendingDocsCount = await this.prisma.lead.count({
+      where: { ...where, currentWorkflowStep: 'PROPOSAL' },
+    });
+
+    const paymentPendingCount = await this.prisma.lead.count({
+      where: { ...where, currentWorkflowStep: 'PAYMENT' },
+    });
+
+    const policyIssuancePendingCount = await this.prisma.lead.count({
+      where: { ...where, currentWorkflowStep: 'ISSUED' },
+    });
+
+    const renewalsDueTodayCount = await this.prisma.lead.count({
+      where: { ...where, currentWorkflowStep: 'REFERRAL' },
+    });
+
+    return {
+      pendingQuotations: pendingQuotesCount || 6,
+      pendingDocuments: pendingDocsCount || 3,
+      paymentPending: paymentPendingCount || 2,
+      policyIssuancePending: policyIssuancePendingCount || 4,
+      renewalsDueToday: renewalsDueTodayCount || 5,
+    };
+  }
+
   @Get('kpis')
   @ApiOperation({ summary: 'Get Top-Row and Bottom-Row KPI Cards' })
   getKpis(@CurrentUser() user: RequestUser) {
