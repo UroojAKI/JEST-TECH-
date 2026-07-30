@@ -270,6 +270,16 @@ model User {
 
   role Role @relation(fields: [roleId], references: [id])
 
+  jobRoleId String?
+  jobRole JobRole? @relation(fields: [jobRoleId], references: [id])
+
+  managerId String?
+  manager User? @relation("UserHierarchy", fields: [managerId], references: [id])
+  reports User[] @relation("UserHierarchy")
+
+  workspacePreference WorkspacePreference?
+  dashboardPreference String?
+
   refreshTokens RefreshToken[]
 
   auditLogs AuditLog[]
@@ -2149,19 +2159,74 @@ model Branch {
 }
 
 model Department {
-  id          String   @id @default(uuid())
-  branchId    String
+  id          String    @id @default(uuid())
+  branchId    String?
   name        String
-  code        String
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  code        String    @unique
+  description String?
+  displayOrder Int      @default(0)
+  status      String    @default("ACTIVE")
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
-  branch      Branch   @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  branch      Branch?   @relation(fields: [branchId], references: [id], onDelete: Restrict)
   teams       Team[]
   users       User[]
+  jobRoles    JobRole[]
+}
 
-  @@unique([branchId, code])
+model JobRole {
+  id              String            @id @default(uuid())
+  code            String            @unique
+  name            String
+  description     String?
+  departmentId    String
+  defaultRoleType RoleType          @default(SALES_AGENT)
+  parentRoleId    String?
+  displayOrder    Int               @default(0)
+  status          String            @default("ACTIVE")
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  department      Department        @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  parentRole      JobRole?          @relation("RoleHierarchy", fields: [parentRoleId], references: [id])
+  subRoles        JobRole[]         @relation("RoleHierarchy")
+  users           User[]
+  dashboards      DashboardRegistry[]
+}
+
+model DashboardRegistry {
+  id            String   @id @default(uuid())
+  jobRoleId     String
+  dashboardCode String   @unique
+  workspaceCode String
+  title         String
+  subtitle      String?
+  layout        Json
+  navigation    Json
+  widgets       Json
+  quickActions  Json
+  permissions   Json
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  jobRole       JobRole  @relation(fields: [jobRoleId], references: [id], onDelete: Cascade)
+}
+
+model WorkspacePreference {
+  id              String   @id @default(uuid())
+  userId          String   @unique
+  theme           String   @default("system")
+  layout          String   @default("default")
+  favoriteWidgets Json?
+  collapsedMenus  Json?
+  language        String   @default("en")
+  timezone        String   @default("Asia/Kolkata")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model Team {

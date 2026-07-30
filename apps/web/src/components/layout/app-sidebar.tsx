@@ -20,6 +20,7 @@ import {
 import { navigationRegistry } from '../../lib/navigation/navigation.registry';
 import { usePermissions } from '../providers/permission-provider';
 import { useUIStore } from '../../store/ui-store';
+import { useWorkspace } from '../../hooks/useWorkspace';
 import { NavigationItem } from '../../types';
 
 const ICON_MAP: Record<string, React.ReactNode> = {
@@ -38,6 +39,7 @@ export function AppSidebar() {
   const pathname = usePathname();
   const { canAccess } = usePermissions();
   const isSidebarOpen = useUIStore((s) => s.isSidebarOpen);
+  const { navigation: dynamicNav, jobRole, department } = useWorkspace();
   const [openChildren, setOpenChildren] = useState<Record<string, boolean>>({
     crm: true,
     sales: true,
@@ -48,7 +50,9 @@ export function AppSidebar() {
     setOpenChildren((prev) => ({ ...prev, [id]: !prev[id] }));
   };
 
-  const filteredNav = navigationRegistry.filter((item) =>
+  const navSource = dynamicNav && dynamicNav.length > 0 ? dynamicNav : navigationRegistry;
+
+  const filteredNav = navSource.filter((item) =>
     canAccess({
       roles: item.roles,
       permissions: item.permissions,

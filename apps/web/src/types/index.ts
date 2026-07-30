@@ -94,3 +94,59 @@ export interface PaginatedResult<T> {
   limit: number;
   totalPages: number;
 }
+
+export interface DepartmentItem {
+  id: string;
+  code: string;
+  name: string;
+  description?: string;
+  displayOrder?: number;
+  status?: string;
+}
+
+export interface JobRoleItem {
+  id: string;
+  code: string;
+  name: string;
+  description?: string;
+  departmentId: string;
+  defaultRoleType: RoleType;
+  department?: DepartmentItem;
+}
+
+export interface DashboardRegistryItem {
+  id: string;
+  jobRoleId: string;
+  dashboardCode: string;
+  workspaceCode: string;
+  title: string;
+  subtitle?: string;
+  layout: any;
+  navigation: NavigationItem[];
+  widgets: any[];
+  quickActions: any[];
+  permissions: any[];
+}
+
+export interface WorkspaceData {
+  user: {
+    id: string;
+    employeeCode: string | null;
+    firstName: string;
+    lastName: string;
+    email: string;
+    designation: string | null;
+    status: string;
+  };
+  jobRole: JobRoleItem | null;
+  department: DepartmentItem | null;
+  dashboardCode: string;
+  workspaceCode: string;
+  title: string;
+  subtitle: string | null;
+  navigation: NavigationItem[];
+  widgets: any[];
+  quickActions: any[];
+  permissions: any[];
+  preferences?: any;
+}

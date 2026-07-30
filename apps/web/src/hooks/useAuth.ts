@@ -24,7 +24,7 @@ export function useAuth() {
       };
       setUser(normalizedUser);
       toast.success(`Welcome back, ${normalizedUser.firstName}!`);
-      router.push('/dashboard');
+      router.push('/workspace');
     },
     onError: (error: any) => {
       toast.error(error.response?.data?.message || 'Invalid email or password');

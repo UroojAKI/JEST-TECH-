@@ -48,6 +48,9 @@ import { DataWarehouseModule } from './modules/bi/data-warehouse/data-warehouse.
 import { DashboardsModule } from './modules/bi/dashboards/dashboards.module';
 import { ForecastingModule } from './modules/bi/forecasting/forecasting.module';
 import { IntegrationsModule } from './modules/platform/integrations/integrations.module';
+import { OrganizationModule } from './modules/organization/organization.module';
+import { DashboardRegistryModule } from './modules/dashboard-registry/dashboard-registry.module';
+import { WorkspaceModule } from './modules/workspace/workspace.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 
@@ -121,6 +124,9 @@ import { AppService } from './app.service';
     DashboardsModule,
     ForecastingModule,
     IntegrationsModule,
+    OrganizationModule,
+    DashboardRegistryModule,
+    WorkspaceModule,
   ],
   controllers: [AppController],
   providers: [AppService],
