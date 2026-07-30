@@ -1616,6 +1616,22 @@ model VehicleVariant {
   @@map("vehicle_variants")
 }
 
+model RtoMaster {
+  id            String   @id @default(uuid())
+  code          String   @unique
+  state         String
+  district      String
+  rtoOfficeName String
+  rtoZone       String   @default("ZONE_A") // ZONE_A, ZONE_B
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([code])
+  @@index([state])
+  @@map("rto_masters")
+}
+
 model Insurer {
   id                      String       @id @default(uuid())
   name                    String       @unique

@@ -2,6 +2,9 @@ import {
   Controller,
   Get,
   Post,
+  Put,
+  Delete,
+  Param,
   Body,
   Query,
   UseGuards,
@@ -9,7 +12,7 @@ import {
   UploadedFile,
   BadRequestException,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiConsumes, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiConsumes, ApiTags, ApiOperation } from '@nestjs/swagger';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
@@ -22,13 +25,48 @@ import {
 } from '@prisma/client';
 import { VehicleMasterService } from '../services/vehicle-master.service';
 
-@ApiTags('Motor Admin - Vehicles')
+@ApiTags('Motor Admin - Vehicles & RTO')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('motor/vehicles')
 export class VehicleMasterController {
   constructor(private readonly vehicleService: VehicleMasterService) {}
 
+  // RTO Endpoints
+  @Get('rto')
+  @ApiOperation({ summary: 'Search and filter RTO Code master records' })
+  getRtos(@Query('search') search?: string, @Query('state') state?: string) {
+    return this.vehicleService.getRtos(search, state);
+  }
+
+  @Get('rto/:code')
+  @ApiOperation({ summary: 'Get RTO master record by RTO Code (e.g. MH12, KA01)' })
+  getRtoByCode(@Param('code') code: string) {
+    return this.vehicleService.getRtoByCode(code.toUpperCase());
+  }
+
+  @Post('rto')
+  @Roles(RoleType.ADMIN, RoleType.SUPER_ADMIN)
+  @ApiOperation({ summary: 'Create new RTO master record' })
+  createRto(@Body() data: { code: string; state: string; district: string; rtoOfficeName: string; rtoZone?: string }) {
+    return this.vehicleService.createRto(data);
+  }
+
+  @Put('rto/:id')
+  @Roles(RoleType.ADMIN, RoleType.SUPER_ADMIN)
+  @ApiOperation({ summary: 'Update RTO master record' })
+  updateRto(@Param('id') id: string, @Body() data: any) {
+    return this.vehicleService.updateRto(id, data);
+  }
+
+  @Delete('rto/:id')
+  @Roles(RoleType.ADMIN, RoleType.SUPER_ADMIN)
+  @ApiOperation({ summary: 'Delete RTO master record' })
+  deleteRto(@Param('id') id: string) {
+    return this.vehicleService.deleteRto(id);
+  }
+
+  // Manufacturer Endpoints
   @Get('manufacturers')
   getManufacturers() {
     return this.vehicleService.getManufacturers();
@@ -40,6 +78,7 @@ export class VehicleMasterController {
     return this.vehicleService.createManufacturer(name, code);
   }
 
+  // Model Endpoints
   @Get('models')
   getModels(@Query('manufacturerId') manufacturerId?: string) {
     return this.vehicleService.getModels(manufacturerId);
@@ -56,6 +95,7 @@ export class VehicleMasterController {
     return this.vehicleService.createModel(manufacturerId, name, code, type);
   }
 
+  // Variant Endpoints
   @Get('variants')
   getVariants(@Query('modelId') modelId?: string) {
     return this.vehicleService.getVariants(modelId);

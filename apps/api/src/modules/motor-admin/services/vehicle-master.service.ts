@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../../database/prisma.service';
 import {
   FuelType,
@@ -11,6 +11,58 @@ import {
 export class VehicleMasterService {
   constructor(private readonly prisma: PrismaService) {}
 
+  // RTO Master CRUD
+  async getRtos(search?: string, state?: string) {
+    const where: any = { isActive: true };
+    if (state) where.state = state;
+    if (search) {
+      where.OR = [
+        { code: { contains: search, mode: 'insensitive' } },
+        { rtoOfficeName: { contains: search, mode: 'insensitive' } },
+        { district: { contains: search, mode: 'insensitive' } },
+      ];
+    }
+    return this.prisma.rtoMaster.findMany({
+      where,
+      orderBy: { code: 'asc' },
+    });
+  }
+
+  async getRtoByCode(code: string) {
+    const rto = await this.prisma.rtoMaster.findUnique({ where: { code } });
+    if (!rto) throw new NotFoundException(`RTO with code '${code}' not found`);
+    return rto;
+  }
+
+  async createRto(data: {
+    code: string;
+    state: string;
+    district: string;
+    rtoOfficeName: string;
+    rtoZone?: string;
+  }) {
+    return this.prisma.rtoMaster.create({
+      data: {
+        code: data.code.toUpperCase(),
+        state: data.state,
+        district: data.district,
+        rtoOfficeName: data.rtoOfficeName,
+        rtoZone: data.rtoZone || 'ZONE_A',
+      },
+    });
+  }
+
+  async updateRto(id: string, data: any) {
+    return this.prisma.rtoMaster.update({
+      where: { id },
+      data,
+    });
+  }
+
+  async deleteRto(id: string) {
+    return this.prisma.rtoMaster.delete({ where: { id } });
+  }
+
   // Manufacturer CRUD
   async getManufacturers() {
     return this.prisma.vehicleManufacturer.findMany({
@@ -20,7 +72,7 @@ export class VehicleMasterService {
 
   async createManufacturer(name: string, code: string) {
     return this.prisma.vehicleManufacturer.create({
-      data: { name, code },
+      data: { name, code: code.toUpperCase() },
     });
   }
 
@@ -41,7 +93,7 @@ export class VehicleMasterService {
     type: VehicleType,
   ) {
     return this.prisma.vehicleModel.create({
-      data: { manufacturerId, name, code, vehicleType: type },
+      data: { manufacturerId, name, code: code.toUpperCase(), vehicleType: type },
     });
   }
 
@@ -65,7 +117,15 @@ export class VehicleMasterService {
     exShowroomPrice: number;
   }) {
     return this.prisma.vehicleVariant.create({
-      data: params,
+      data: {
+        modelId: params.modelId,
+        name: params.name,
+        code: params.code.toUpperCase(),
+        fuelType: params.fuelType,
+        transmissionType: params.transmissionType,
+        engineCapacity: params.engineCapacity,
+        exShowroomPrice: new Prisma.Decimal(params.exShowroomPrice),
+      },
     });
   }
 
@@ -82,7 +142,6 @@ export class VehicleMasterService {
       price: number;
     }> = [];
 
-    // Parse all rows first
     for (let i = 1; i < lines.length; i++) {
       const line = lines[i].trim();
       if (!line) continue;
@@ -114,7 +173,6 @@ export class VehicleMasterService {
       return { count: 0, status: 'SUCCESS' };
     }
 
-    // Batch-fetch all models
     const uniqueModelCodes = Array.from(
       new Set(parsedRows.map((r) => r.modelCode)),
     );
@@ -128,7 +186,6 @@ export class VehicleMasterService {
     }
     const modelMap = new Map(models.map((m) => [m.code, m.id]));
 
-    // Batch-fetch all existing variants
     const uniqueVariantCodes = Array.from(
       new Set(parsedRows.map((r) => r.variantCode)),
     );
@@ -147,7 +204,7 @@ export class VehicleMasterService {
 
     for (const row of parsedRows) {
       const modelId = modelMap.get(row.modelCode);
-      if (!modelId) continue; // Skip if model doesn't exist
+      if (!modelId) continue;
 
       if (existingMap.has(row.variantCode)) {
         toUpdate.push({
@@ -168,9 +225,7 @@ export class VehicleMasterService {
       }
     }
 
-    // Execute database operations in batch
     await this.prisma.$transaction(async (tx) => {
-      // Chunk creates
       const CREATE_BATCH_SIZE = 1000;
       for (let i = 0; i < toCreate.length; i += CREATE_BATCH_SIZE) {
         const batch = toCreate.slice(i, i + CREATE_BATCH_SIZE);
@@ -180,7 +235,6 @@ export class VehicleMasterService {
         });
       }
 
-      // Chunk updates
       const UPDATE_BATCH_SIZE = 500;
       for (let i = 0; i < toUpdate.length; i += UPDATE_BATCH_SIZE) {
         const batch = toUpdate.slice(i, i + UPDATE_BATCH_SIZE);
