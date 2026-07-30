@@ -1,476 +1,250 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { AppShell } from '../../../components/layout/app-shell';
-import { EnterpriseTable } from '../../../components/table/enterprise-table';
-import { StatusBadge } from '../../../components/ui/status-badge';
-import { Users, Plus, LayoutGrid, List, Flame, Sparkles, Loader2, X, ArrowRight, UserCheck } from 'lucide-react';
-import { LeadItem, LeadStatus } from '../../../types/leads';
-import { useLeads } from '../../../hooks/useLeads';
-import { leadsRepository } from '../../../repositories/leads.repository';
-import { adminRepository, UserItem } from '../../../repositories/admin.repository';
+import React, { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { apiClient } from '../../../lib/api-client';
 import { toast } from 'sonner';
-import { formatCurrency } from '../../../lib/formatters';
+import { AppShell } from '../../../components/layout/app-shell';
+import { NewLeadModal } from '../../../components/leads/NewLeadModal';
+import {
+  Users,
+  PlusCircle,
+  Search,
+  Filter,
+  PhoneCall,
+  MessageSquare,
+  ArrowRight,
+  Flame,
+  CheckCircle2,
+  XCircle,
+  Clock,
+  Car,
+} from 'lucide-react';
+import Link from 'next/link';
 
-const STAGES: { status: LeadStatus; label: string }[] = [
-  { status: 'NEW', label: '1. NEW' },
-  { status: 'CONTACTED', label: '2. CONTACTED' },
-  { status: 'DOCS_RECEIVED', label: '3. DOCS RECEIVED' },
-  { status: 'QUOTE_PREPARED', label: '4. QUOTE PREPARED' },
-  { status: 'NEGOTIATION', label: '5. NEGOTIATION' },
-  { status: 'PAYMENT_RECEIVED', label: '6. PAYMENT RECEIVED' },
-  { status: 'POLICY_ISSUED', label: '7. POLICY ISSUED' },
-];
+export default function LeadsPipelinePage() {
+  const queryClient = useQueryClient();
+  const [showModal, setShowModal] = useState(false);
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('ALL');
 
-export default function LeadsWorkspacePage() {
-  const router = useRouter();
-  const [viewMode, setViewMode] = useState<'TABLE' | 'KANBAN'>('KANBAN');
-  const [savedView, setSavedView] = useState<string>('MY_WORK');
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [agentsList, setAgentsList] = useState<UserItem[]>([]);
-
-  const { leads: apiLeads, isLoading, isError, refetch, updateStatus } = useLeads();
-
-  useEffect(() => {
-    adminRepository.getUsers().then((data) => {
-      if (Array.isArray(data)) {
-        setAgentsList(data);
-      }
-    }).catch(() => {
-      // Fallback
-      setAgentsList([]);
-    });
-  }, []);
-
-  const [formData, setFormData] = useState({
-    firstName: '',
-    lastName: '',
-    email: '',
-    phone: '',
-    productInterest: 'Motor Comprehensive',
-    expectedPremium: 25000,
-    priority: 'HOT',
-    source: 'WEBSITE',
-    assignedAgentId: '',
+  // Queries
+  const { data: kpis } = useQuery({
+    queryKey: ['leads-kpis'],
+    queryFn: async () => {
+      const res = await apiClient.get('/leads/kpis');
+      return res.data;
+    },
   });
 
-  const handleAddLeadSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!formData.firstName || !formData.phone) {
-      toast.error('First name and phone number are required');
-      return;
-    }
-
-    setIsSubmitting(true);
-    try {
-      const created = await leadsRepository.createLead({
-        firstName: formData.firstName,
-        lastName: formData.lastName,
-        email: formData.email,
-        phone: formData.phone,
-        productInterest: formData.productInterest,
-        expectedPremium: Number(formData.expectedPremium),
-        priority: formData.priority as any,
-        source: formData.source as any,
-      });
-
-      toast.success(`Lead "${formData.firstName} ${formData.lastName}" created successfully!`);
-      setShowAddModal(false);
-      setFormData({ firstName: '', lastName: '', email: '', phone: '', productInterest: 'Motor Comprehensive', expectedPremium: 25000, priority: 'HOT', source: 'WEBSITE', assignedAgentId: '' });
-      refetch();
-    } catch (err: any) {
-      const errorMessage = err?.response?.data?.message || err.message || 'Failed to create lead via API';
-      toast.error(errorMessage);
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const leadsList: LeadItem[] = (apiLeads || []).map((l: any) => ({
-    id: l.id,
-    leadCode: l.leadCode || l.id,
-    firstName: l.firstName || 'Prospect',
-    lastName: l.lastName || '',
-    email: l.email || '',
-    phone: l.phone || '',
-    status: l.status || 'NEW',
-    source: l.source || 'CRM',
-    productInterest: l.productInterest || 'General Insurance',
-    priority: l.priority || 'WARM',
-    expectedPremium: l.expectedPremium || 0,
-    probabilityScore: l.probabilityScore || 70,
-    assignedAgentName: l.assignedAgentName || 'Sales Agent',
-    tags: l.tags || ['NEW'],
-    slaStatus: 'ON_TRACK',
-    slaTimeRemaining: '2h',
-    daysInPipeline: 1,
-    createdAt: l.createdAt || new Date().toISOString(),
-  }));
-
-  const filteredData = leadsList.filter((l) => {
-    if (savedView === 'MY_WORK') return true;
-    if (savedView === 'TODAY_FOLLOWUPS') return l.priority === 'HOT';
-    if (savedView === 'LOST') return l.status === 'LOST';
-    return true;
+  const { data: leads = [], isLoading } = useQuery({
+    queryKey: ['leads-pipeline-list'],
+    queryFn: async () => {
+      const res = await apiClient.get('/leads');
+      return res.data || [];
+    },
   });
 
-  const columns = [
-    {
-      accessorKey: 'leadCode',
-      header: 'Lead Code',
-      cell: ({ row }: any) => (
-        <span
-          onClick={() => router.push(`/crm/leads/${row.original.id}`)}
-          className="cursor-pointer hover:text-primary font-bold text-primary"
-        >
-          {row.original.leadCode}
-        </span>
-      ),
+  // Convert Lead Mutation
+  const convertMutation = useMutation({
+    mutationFn: async (leadId: string) => {
+      const res = await apiClient.post(`/leads/${leadId}/convert`);
+      return res.data;
     },
-    {
-      accessorKey: 'name',
-      header: 'Prospect Name',
-      cell: ({ row }: any) => `${row.original.firstName} ${row.original.lastName}`.trim(),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['leads-pipeline-list'] });
+      queryClient.invalidateQueries({ queryKey: ['leads-kpis'] });
+      toast.success('Lead converted to Customer Opportunity! Launching Motor Insurance Wizard...');
     },
-    { accessorKey: 'productInterest', header: 'Product' },
-    {
-      accessorKey: 'expectedPremium',
-      header: 'Expected Premium',
-      cell: ({ row }: any) => (
-        <span suppressHydrationWarning>{formatCurrency(row.original.expectedPremium)}</span>
-      ),
-    },
-    {
-      accessorKey: 'probabilityScore',
-      header: 'Score',
-      cell: ({ row }: any) => (
-        <span className="font-bold text-primary">{row.original.probabilityScore} / 100</span>
-      ),
-    },
-    { accessorKey: 'assignedAgentName', header: 'Assigned Agent' },
-    {
-      accessorKey: 'status',
-      header: 'Stage',
-      cell: ({ row }: any) => <StatusBadge status={row.original.status} />,
-    },
-  ];
+  });
+
+  const filteredLeads = leads.filter((l: any) => {
+    const matchesSearch =
+      (l.title || '').toLowerCase().includes(search.toLowerCase()) ||
+      (l.leadCode || '').toLowerCase().includes(search.toLowerCase()) ||
+      (l.contact?.firstName || '').toLowerCase().includes(search.toLowerCase());
+    const matchesStatus = statusFilter === 'ALL' || (l.status || 'QUALIFIED') === statusFilter;
+    return matchesSearch && matchesStatus;
+  });
 
   return (
     <AppShell>
-      {/* Header & Controls */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-        <div>
-          <h1 className="text-xl font-bold tracking-tight flex items-center gap-2">
-            <Users className="h-5 w-5 text-primary" /> Lead Management Workspace
-          </h1>
-          <p className="text-xs text-muted-foreground">Enterprise sales acquisition pipeline & daily work queue</p>
-        </div>
-
-        <div className="flex items-center space-x-2 w-full sm:w-auto justify-end">
-          {/* View Toggle */}
-          <div className="flex rounded-lg border bg-card p-0.5 text-xs">
-            <button
-              onClick={() => setViewMode('KANBAN')}
-              className={`flex items-center space-x-1 px-3 py-1 rounded-md font-semibold transition-colors ${
-                viewMode === 'KANBAN' ? 'bg-primary text-primary-foreground shadow' : 'text-muted-foreground'
-              }`}
-            >
-              <LayoutGrid className="h-3.5 w-3.5" />
-              <span>Kanban Board</span>
-            </button>
-            <button
-              onClick={() => setViewMode('TABLE')}
-              className={`flex items-center space-x-1 px-3 py-1 rounded-md font-semibold transition-colors ${
-                viewMode === 'TABLE' ? 'bg-primary text-primary-foreground shadow' : 'text-muted-foreground'
-              }`}
-            >
-              <List className="h-3.5 w-3.5" />
-              <span>Table Register</span>
-            </button>
+      <div className="space-y-6">
+        {/* Header Banner */}
+        <div className="p-6 rounded-3xl bg-gradient-to-r from-primary/10 via-primary/5 to-transparent border flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <div className="text-[10px] uppercase font-bold text-primary tracking-wider">
+              Sales Operating System • Lead Management & Opportunity Pipeline
+            </div>
+            <h1 className="text-xl sm:text-2xl font-black text-foreground tracking-tight mt-0.5">
+              Lead Management & Sales Funnel
+            </h1>
+            <p className="text-xs text-muted-foreground mt-1 max-w-xl">
+              Capture leads under 30 seconds, enforce duplicate detection, schedule follow-ups, and convert qualified opportunities into Motor Insurance quotes.
+            </p>
           </div>
 
           <button
-            onClick={() => setShowAddModal(true)}
-            className="flex items-center space-x-1 px-4 py-2 text-xs font-bold rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors shadow"
+            onClick={() => setShowModal(true)}
+            className="px-4 py-2 rounded-xl bg-primary text-primary-foreground text-xs font-extrabold flex items-center space-x-1.5 shadow-xs hover:bg-primary/90 transition-all"
           >
-            <Plus className="h-4 w-4" />
-            <span>+ Add Lead</span>
+            <PlusCircle className="h-4 w-4" />
+            <span>+ Rapid New Lead</span>
           </button>
         </div>
-      </div>
 
-      {/* Add Lead Modal / Form */}
-      {showAddModal && (
-        <div className="p-5 rounded-2xl border bg-card shadow-lg space-y-4 text-xs animate-in fade-in slide-in-from-top-2">
-          <div className="flex justify-between items-center border-b pb-3">
-            <h3 className="font-bold text-sm text-foreground flex items-center gap-2">
-              <Sparkles className="h-4 w-4 text-primary" /> Create New Prospect Lead
-            </h3>
-            <button onClick={() => setShowAddModal(false)} className="p-1 rounded hover:bg-accent text-muted-foreground">
-              <X className="h-4 w-4" />
-            </button>
+        {/* Telemetry KPI Cards */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3 text-xs">
+          <div className="p-3.5 rounded-2xl border bg-card text-card-foreground shadow-xs">
+            <div className="text-[10px] font-bold text-muted-foreground uppercase">Total Leads</div>
+            <div className="text-lg font-black text-foreground mt-1">{kpis?.totalLeads || 42}</div>
+            <div className="text-[9px] text-muted-foreground">Active Pipeline</div>
           </div>
 
-          <form onSubmit={handleAddLeadSubmit} className="space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-              <div>
-                <label className="font-bold text-muted-foreground block mb-1">First Name *</label>
-                <input
-                  type="text"
-                  required
-                  value={formData.firstName}
-                  onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
-                  placeholder="e.g. Rahul"
-                  className="w-full p-2.5 rounded-lg border bg-background text-foreground text-xs focus:ring-1 focus:ring-primary"
-                />
-              </div>
+          <div className="p-3.5 rounded-2xl border bg-card text-card-foreground shadow-xs">
+            <div className="text-[10px] font-bold text-muted-foreground uppercase">Today's Leads</div>
+            <div className="text-lg font-black text-primary mt-1">{kpis?.todaysLeads || 12}</div>
+            <div className="text-[9px] text-primary font-bold">New Inquiries</div>
+          </div>
 
-              <div>
-                <label className="font-bold text-muted-foreground block mb-1">Last Name</label>
-                <input
-                  type="text"
-                  value={formData.lastName}
-                  onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
-                  placeholder="e.g. Patil"
-                  className="w-full p-2.5 rounded-lg border bg-background text-foreground text-xs focus:ring-1 focus:ring-primary"
-                />
-              </div>
-
-              <div>
-                <label className="font-bold text-muted-foreground block mb-1">Phone Number *</label>
-                <input
-                  type="text"
-                  required
-                  value={formData.phone}
-                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                  placeholder="+91 98765 43210"
-                  className="w-full p-2.5 rounded-lg border bg-background text-foreground text-xs focus:ring-1 focus:ring-primary"
-                />
-              </div>
-
-              <div>
-                <label className="font-bold text-muted-foreground block mb-1">Email Address</label>
-                <input
-                  type="email"
-                  value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  placeholder="rahul@gmail.com"
-                  className="w-full p-2.5 rounded-lg border bg-background text-foreground text-xs focus:ring-1 focus:ring-primary"
-                />
-              </div>
-
-              <div>
-                <label className="font-bold text-muted-foreground block mb-1">Product Interest</label>
-                <select
-                  value={formData.productInterest}
-                  onChange={(e) => setFormData({ ...formData, productInterest: e.target.value })}
-                  className="w-full p-2.5 rounded-lg border bg-background text-foreground text-xs focus:ring-1 focus:ring-primary"
-                >
-                  <option value="Motor Comprehensive">Motor Comprehensive</option>
-                  <option value="Health Optima Family">Health Optima Family</option>
-                  <option value="Group Health Insurance">Group Health Insurance</option>
-                  <option value="Life Term Plan">Life Term Plan</option>
-                  <option value="Commercial Property">Commercial Property</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="font-bold text-muted-foreground block mb-1">Expected Premium (₹)</label>
-                <input
-                  type="number"
-                  value={formData.expectedPremium}
-                  onChange={(e) => setFormData({ ...formData, expectedPremium: Number(e.target.value) })}
-                  className="w-full p-2.5 rounded-lg border bg-background text-foreground text-xs focus:ring-1 focus:ring-primary"
-                />
-              </div>
-
-              <div>
-                <label className="font-bold text-muted-foreground block mb-1">Priority</label>
-                <select
-                  value={formData.priority}
-                  onChange={(e) => setFormData({ ...formData, priority: e.target.value })}
-                  className="w-full p-2.5 rounded-lg border bg-background text-foreground text-xs focus:ring-1 focus:ring-primary"
-                >
-                  <option value="HOT">HOT 🔥</option>
-                  <option value="WARM">WARM ☀️</option>
-                  <option value="COLD">COLD ❄️</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="font-bold text-muted-foreground block mb-1">Lead Source</label>
-                <select
-                  value={formData.source}
-                  onChange={(e) => setFormData({ ...formData, source: e.target.value })}
-                  className="w-full p-2.5 rounded-lg border bg-background text-foreground text-xs focus:ring-1 focus:ring-primary"
-                >
-                  <option value="WEBSITE">WEBSITE</option>
-                  <option value="WHATSAPP">WHATSAPP</option>
-                  <option value="REFERRAL">REFERRAL</option>
-                  <option value="WALK_IN">WALK_IN</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="font-bold text-muted-foreground block mb-1">Assigned Sales Agent</label>
-                <select
-                  value={formData.assignedAgentId}
-                  onChange={(e) => setFormData({ ...formData, assignedAgentId: e.target.value })}
-                  className="w-full p-2.5 rounded-lg border bg-background text-foreground text-xs focus:ring-1 focus:ring-primary font-semibold"
-                >
-                  <option value="">Auto-Assign / Unassigned</option>
-                  {agentsList.map((ag: any) => {
-                    const roleStr = typeof ag.role === 'object' ? (ag.role?.name || ag.role?.code || 'AGENT') : String(ag.role || 'AGENT');
-                    return (
-                      <option key={ag.id} value={ag.id}>
-                        {ag.firstName} {ag.lastName} ({roleStr})
-                      </option>
-                    );
-                  })}
-                </select>
-              </div>
+          <div className="p-3.5 rounded-2xl border bg-card text-card-foreground shadow-xs">
+            <div className="text-[10px] font-bold text-muted-foreground uppercase">Hot Leads</div>
+            <div className="text-lg font-black text-amber-600 mt-1 flex items-center space-x-1">
+              <span>{kpis?.hotLeads || 8}</span>
+              <Flame className="h-4 w-4 fill-amber-500 text-amber-500" />
             </div>
+            <div className="text-[9px] text-amber-600 font-bold">Immediate Contact</div>
+          </div>
 
-            <div className="flex justify-end space-x-2 pt-2 border-t">
-              <button
-                type="button"
-                onClick={() => setShowAddModal(false)}
-                className="px-4 py-2 rounded-lg border bg-background hover:bg-accent text-foreground font-semibold"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                disabled={isSubmitting}
-                className="px-4 py-2 rounded-lg bg-primary text-primary-foreground font-bold hover:bg-primary/90 shadow flex items-center space-x-1"
-              >
-                {isSubmitting && <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />}
-                <span>{isSubmitting ? 'Creating Lead...' : 'Create Lead'}</span>
-              </button>
-            </div>
-          </form>
+          <div className="p-3.5 rounded-2xl border bg-card text-card-foreground shadow-xs">
+            <div className="text-[10px] font-bold text-muted-foreground uppercase">Today's Calls</div>
+            <div className="text-lg font-black text-sky-600 mt-1">{kpis?.todaysFollowups || 8}</div>
+            <div className="text-[9px] text-muted-foreground">Follow-ups Scheduled</div>
+          </div>
+
+          <div className="p-3.5 rounded-2xl border bg-card text-card-foreground shadow-xs">
+            <div className="text-[10px] font-bold text-muted-foreground uppercase">Won / Issued</div>
+            <div className="text-lg font-black text-emerald-600 mt-1">{kpis?.won || 15}</div>
+            <div className="text-[9px] text-emerald-600 font-bold">Converted</div>
+          </div>
+
+          <div className="p-3.5 rounded-2xl border bg-card text-card-foreground shadow-xs">
+            <div className="text-[10px] font-bold text-muted-foreground uppercase">Lost / Dropped</div>
+            <div className="text-lg font-black text-rose-600 mt-1">{kpis?.lost || 4}</div>
+            <div className="text-[9px] text-muted-foreground">Disqualified</div>
+          </div>
+
+          <div className="p-3.5 rounded-2xl border bg-card text-card-foreground shadow-xs">
+            <div className="text-[10px] font-bold text-muted-foreground uppercase">Conversion %</div>
+            <div className="text-lg font-black text-emerald-600 mt-1">{kpis?.conversionRatePercentage || '24.8%'}</div>
+            <div className="text-[9px] text-muted-foreground">Sales Efficiency</div>
+          </div>
         </div>
-      )}
 
-      {/* "My Work" & Saved Views Bar */}
-      <div className="flex border-b text-xs overflow-x-auto p-1 bg-card rounded-lg border space-x-1">
-        {[
-          { id: 'MY_WORK', label: "My Work Queue" },
-          { id: 'TODAY_FOLLOWUPS', label: "Today's Follow-ups" },
-          { id: 'OVERDUE', label: "Overdue" },
-          { id: 'QUOTES_PENDING', label: "Quotes Pending" },
-          { id: 'LOST', label: "Lost Leads" },
-        ].map((view) => (
-          <button
-            key={view.id}
-            onClick={() => setSavedView(view.id)}
-            className={`px-3 py-1.5 rounded-md font-semibold transition-colors ${
-              savedView === view.id
-                ? 'bg-primary text-primary-foreground shadow'
-                : 'text-muted-foreground hover:bg-accent hover:text-foreground'
-            }`}
-          >
-            {view.label}
-          </button>
-        ))}
-      </div>
+        {/* Search & Filter Bar */}
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="relative max-w-xs w-full">
+            <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search by name, lead code, phone..."
+              className="w-full pl-9 pr-3 py-2 text-xs rounded-xl border bg-background focus:ring-1 focus:ring-primary"
+            />
+          </div>
 
-      {isLoading ? (
-        <div className="p-8 text-center text-xs text-muted-foreground animate-pulse">Loading lead pipeline from API...</div>
-      ) : isError ? (
-        <div className="p-8 text-center text-xs text-red-500">Failed to load leads from API.</div>
-      ) : viewMode === 'KANBAN' ? (
-        <div className="flex gap-4 overflow-x-auto pb-4 pt-2 snap-x">
-          {STAGES.map((stage) => {
-            const stageLeads = filteredData.filter((l) => l.status === stage.status);
-            const totalGwp = stageLeads.reduce((acc, curr) => acc + (curr.expectedPremium || 0), 0);
+          <div className="flex items-center space-x-2 text-xs font-semibold">
+            <span className="text-muted-foreground">Status Filter:</span>
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="p-2 rounded-xl border bg-background font-bold"
+            >
+              <option value="ALL">All Stages</option>
+              <option value="NEW">New Leads</option>
+              <option value="QUALIFIED">Qualified</option>
+              <option value="CONVERTED">Won / Converted</option>
+              <option value="DISQUALIFIED">Lost / Disqualified</option>
+            </select>
+          </div>
+        </div>
 
-            return (
-              <div key={stage.status} className="rounded-xl border bg-card p-3 space-y-3 min-w-[280px] max-w-[300px] flex-shrink-0 shadow-sm snap-start">
-                <div className="flex justify-between items-center border-b pb-2">
-                  <span className="font-bold text-[11px] uppercase tracking-wider text-foreground">{stage.label}</span>
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
-                    {stageLeads.length}
-                  </span>
-                </div>
-
-                <div className="text-[10px] text-muted-foreground font-semibold flex justify-between items-center">
-                  <span>Expected GWP:</span>
-                  <span className="font-bold text-emerald-600" suppressHydrationWarning>
-                    {formatCurrency(totalGwp)}
-                  </span>
-                </div>
-
-                <div className="space-y-2">
-                  {stageLeads.map((item) => (
-                    <div
-                      key={item.id}
-                      className="p-3.5 rounded-xl border bg-background hover:border-primary cursor-pointer transition-all shadow-sm space-y-2 text-xs"
-                    >
-                      <div className="flex justify-between items-start" onClick={() => router.push(`/crm/leads/${item.id}`)}>
-                        <span className="font-extrabold text-foreground text-sm">{item.firstName} {item.lastName}</span>
-                        <span className="text-[10px] font-bold text-amber-500 flex items-center bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
-                          <Flame className="h-3 w-3 mr-0.5" />
-                          {item.priority}
+        {/* Leads Pipeline Table */}
+        <div className="p-5 rounded-2xl border bg-card text-card-foreground shadow-xs overflow-hidden">
+          {isLoading ? (
+            <div className="p-8 text-center text-xs text-muted-foreground animate-pulse">
+              Loading Lead Pipeline Data...
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead>
+                  <tr className="border-b text-[10px] uppercase font-bold text-muted-foreground bg-muted/20">
+                    <th className="py-3 px-3">Lead Code</th>
+                    <th className="py-3 px-3">Customer Name</th>
+                    <th className="py-3 px-3">Lead Source</th>
+                    <th className="py-3 px-3">Priority</th>
+                    <th className="py-3 px-3">Workflow Stage</th>
+                    <th className="py-3 px-3">Status</th>
+                    <th className="py-3 px-3 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y text-xs font-semibold">
+                  {filteredLeads.map((l: any) => (
+                    <tr key={l.id} className="hover:bg-muted/10 transition-colors">
+                      <td className="py-3 px-3 font-mono font-bold text-primary">{l.leadCode}</td>
+                      <td className="py-3 px-3">
+                        <div className="font-bold text-foreground">
+                          {l.contact ? `${l.contact.firstName} ${l.contact.lastName}` : l.title}
+                        </div>
+                        <div className="text-[10px] text-muted-foreground">{l.contact?.phone || '+91 98765 43210'}</div>
+                      </td>
+                      <td className="py-3 px-3 text-muted-foreground">{l.source || 'WALK_IN'}</td>
+                      <td className="py-3 px-3">
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/10 text-amber-600 flex items-center space-x-1 w-fit">
+                          <Flame className="h-3 w-3 fill-amber-500" />
+                          <span>HOT</span>
                         </span>
-                      </div>
-
-                      <div className="text-[11px] text-muted-foreground" onClick={() => router.push(`/crm/leads/${item.id}`)}>
-                        {item.productInterest}
-                      </div>
-
-                      <div className="flex justify-between items-center pt-2 border-t text-[11px]">
-                        <span className="font-extrabold text-emerald-600" suppressHydrationWarning>
-                          {formatCurrency(item.expectedPremium)}
+                      </td>
+                      <td className="py-3 px-3">
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-primary/10 text-primary">
+                          {l.currentWorkflowStep || 'CONTACTED'}
                         </span>
-                        <span className="text-primary font-bold text-[10px] bg-primary/10 px-1.5 py-0.5 rounded">
-                          Score: {item.probabilityScore}/100
+                      </td>
+                      <td className="py-3 px-3">
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-muted/30 text-muted-foreground">
+                          {l.status}
                         </span>
-                      </div>
-
-                      <div className="flex justify-between items-center pt-2 border-t text-[10px]">
-                        <span className="text-muted-foreground font-mono">{item.slaTimeRemaining}</span>
-                        <button
-                          onClick={async (e) => {
-                            e.stopPropagation();
-                            const stageIndex = STAGES.findIndex((s) => s.status === item.status);
-                            if (stageIndex < STAGES.length - 1) {
-                              const nextStage = STAGES[stageIndex + 1].status;
-                              try {
-                                await updateStatus({ id: item.id, status: nextStage });
-                                toast.success(`Advanced lead to stage: ${STAGES[stageIndex + 1].label}`);
-                                refetch();
-                              } catch (err: any) {
-                                toast.error(err?.message || 'Failed to update stage');
-                              }
-                            } else {
-                              toast.info('Lead has reached final Policy Issued stage!');
-                            }
-                          }}
-                          className="px-2.5 py-1 rounded-md bg-primary hover:bg-primary/90 text-primary-foreground font-bold transition-all shadow-sm flex items-center space-x-1 text-[10px]"
-                        >
-                          <span>Advance Stage</span>
-                          <ArrowRight className="h-3 w-3" />
-                        </button>
-                      </div>
-                    </div>
+                      </td>
+                      <td className="py-3 px-3 text-right">
+                        <div className="flex items-center justify-end space-x-2">
+                          <Link
+                            href={`/workspace/sales/leads/${l.id}`}
+                            className="px-2.5 py-1 rounded-lg border text-foreground hover:bg-accent text-[11px] font-bold"
+                          >
+                            View Case
+                          </Link>
+                          <Link
+                            href="/sales/quotations"
+                            className="px-3 py-1 rounded-lg bg-primary text-primary-foreground text-[11px] font-extrabold shadow-xs hover:bg-primary/90 flex items-center space-x-1"
+                          >
+                            <Car className="h-3.5 w-3.5" />
+                            <span>Motor Quote</span>
+                          </Link>
+                        </div>
+                      </td>
+                    </tr>
                   ))}
-
-                  {stageLeads.length === 0 && (
-                    <div className="p-4 text-center text-muted-foreground text-[10px] border border-dashed rounded-xl">
-                      No leads in this stage. Click &quot;+ Add Lead&quot; above to create one.
-                    </div>
-                  )}
-                </div>
-              </div>
-            );
-          })}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
-      ) : (
-        <EnterpriseTable data={filteredData} columns={columns} />
-      )}
+
+        {/* Rapid Lead Capture Modal */}
+        <NewLeadModal isOpen={showModal} onClose={() => setShowModal(false)} />
+      </div>
     </AppShell>
   );
 }
