@@ -17,6 +17,11 @@ import {
   ArrowRight,
   User,
   Calendar,
+  Briefcase,
+  Settings,
+  RefreshCw,
+  DollarSign,
+  ShieldAlert,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -47,8 +52,37 @@ export function SalesDashboard() {
     ? leadsList.filter((l: any) => (l.currentWorkflowStep || 'ASSIGNED') === activeFilter)
     : leadsList;
 
+  const workspaces = [
+    { label: 'Sales Workspace', href: '/workspace/sales', icon: Briefcase, active: true },
+    { label: 'Operations Workspace', href: '/workspace/operations', icon: Settings, active: false },
+    { label: 'Renewal Workspace', href: '/workspace/renewal', icon: RefreshCw, active: false },
+    { label: 'Finance Workspace', href: '/workspace/finance', icon: DollarSign, active: false },
+    { label: 'Admin Workspace', href: '/workspace/admin', icon: ShieldAlert, active: false },
+  ];
+
   return (
     <div className="space-y-6">
+      {/* 5 Core Enterprise Workspaces Selector Bar */}
+      <div className="flex border-b text-xs font-semibold overflow-x-auto space-x-2 pb-2">
+        {workspaces.map((w, idx) => {
+          const Icon = w.icon;
+          return (
+            <Link
+              key={idx}
+              href={w.href}
+              className={`px-3.5 py-2 rounded-xl flex items-center space-x-2 transition-all whitespace-nowrap ${
+                w.active
+                  ? 'bg-primary text-primary-foreground font-black shadow-xs'
+                  : 'bg-card border text-muted-foreground hover:text-foreground hover:bg-accent'
+              }`}
+            >
+              <Icon className="h-4 w-4 shrink-0" />
+              <span>{w.label}</span>
+            </Link>
+          );
+        })}
+      </div>
+
       {/* 1. Header Banner */}
       <div className="p-6 rounded-3xl bg-gradient-to-r from-primary/10 via-primary/5 to-transparent border flex flex-wrap items-center justify-between gap-4">
         <div>
