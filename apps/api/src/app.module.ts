@@ -2,7 +2,6 @@ import { Module, NestModule, MiddlewareConsumer } from '@nestjs/common';
 import { CacheModule as NestCacheModule } from '@nestjs/cache-manager';
 import { redisStore } from 'cache-manager-redis-yet';
 import { ThrottlerModule } from '@nestjs/throttler';
-import { ThrottlerStorageRedisService } from 'nestjs-throttler-storage-redis';
 
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { ScheduleModule } from '@nestjs/schedule';
@@ -62,12 +61,20 @@ import { AppService } from './app.service';
     CacheModule,
     NestCacheModule.registerAsync({
       isGlobal: true,
-      useFactory: async () => ({
-        store: (await redisStore({
-          url: process.env.REDIS_URL || 'redis://localhost:6380',
-          ttl: 60, // 60 seconds
-        })) as any,
-      }),
+      useFactory: async () => {
+        if (process.env.REDIS_ENABLED === 'true') {
+          try {
+            const store = await redisStore({
+              url: process.env.REDIS_URL || 'redis://localhost:6380',
+              ttl: 60,
+            });
+            return { store: store as any };
+          } catch (err) {
+            console.warn('[CacheModule] Redis connection failed, falling back to in-memory store.');
+          }
+        }
+        return { ttl: 60 };
+      },
     }),
     ThrottlerModule.forRootAsync({
       useFactory: () => ({
@@ -75,12 +82,9 @@ import { AppService } from './app.service';
           {
             name: 'default',
             ttl: 60000,
-            limit: 1000, // 1000 requests per minute
+            limit: 1000,
           },
         ],
-        storage: new ThrottlerStorageRedisService(
-          process.env.REDIS_URL || 'redis://localhost:6380',
-        ),
       }),
     }),
     EventEmitterModule.forRoot({
@@ -102,7 +106,6 @@ import { AppService } from './app.service';
     DashboardModule,
     NotificationsModule,
     AnalyticsModule,
-    CustomerAnalyticsModule,
     DocumentsModule,
     MotorAdminModule,
     ProposalModule,
@@ -120,6 +123,7 @@ import { AppService } from './app.service';
     CommissionModule,
     Customer360Module,
     CommunicationModule,
+    CustomerAnalyticsModule,
     DataWarehouseModule,
     DashboardsModule,
     ForecastingModule,

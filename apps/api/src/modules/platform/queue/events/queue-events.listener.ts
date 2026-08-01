@@ -12,7 +12,7 @@ import { JobStatus } from '@prisma/client';
 @Injectable()
 export class QueueEventsListener implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(QueueEventsListener.name);
-  private queueEvents: QueueEvents;
+  private queueEvents?: QueueEvents;
 
   constructor(
     private readonly configService: ConfigService,
@@ -26,50 +26,61 @@ export class QueueEventsListener implements OnModuleInit, OnModuleDestroy {
       process.env.REDIS_URL ||
       'redis://localhost:6380';
 
-    this.queueEvents = new QueueEvents('system-queue', {
-      connection: { url: redisUrl },
-    });
-
-    this.queueEvents.on('active', async ({ jobId }) => {
-      await this.updateJobStatus(jobId, JobStatus.RUNNING, {
-        startedAt: new Date(),
+    try {
+      this.queueEvents = new QueueEvents('system-queue', {
+        connection: { url: redisUrl, maxRetriesPerRequest: null },
       });
-    });
 
-    this.queueEvents.on('completed', async ({ jobId, returnvalue }) => {
-      await this.updateJobStatus(jobId, JobStatus.COMPLETED, {
-        completedAt: new Date(),
+      this.queueEvents.on('error', (err) => {
+        this.logger.warn(`BullMQ Redis Connection Warning: ${err.message}`);
       });
-    });
 
-    this.queueEvents.on('failed', async ({ jobId, failedReason }) => {
-      // Find current attempts from DB
-      const job = await this.prisma.backgroundJob.findUnique({
-        where: { id: jobId },
+      this.queueEvents.on('active', async ({ jobId }) => {
+        await this.updateJobStatus(jobId, JobStatus.RUNNING, {
+          startedAt: new Date(),
+        });
       });
-      if (!job) return;
 
-      const attempts = job.attempts + 1;
-      const status =
-        attempts >= job.maxAttempts ? JobStatus.FAILED : JobStatus.RETRYING;
-
-      await this.updateJobStatus(jobId, status, {
-        attempts,
-        error: failedReason,
-        ...(status === JobStatus.FAILED ? { completedAt: new Date() } : {}),
+      this.queueEvents.on('completed', async ({ jobId, returnvalue }) => {
+        await this.updateJobStatus(jobId, JobStatus.COMPLETED, {
+          completedAt: new Date(),
+        });
       });
-    });
 
-    this.queueEvents.on('delayed', async ({ jobId, delay }) => {
-      await this.updateJobStatus(jobId, JobStatus.DELAYED);
-    });
+      this.queueEvents.on('failed', async ({ jobId, failedReason }) => {
+        const job = await this.prisma.backgroundJob.findUnique({
+          where: { id: jobId },
+        });
+        if (!job) return;
 
-    this.logger.log('Started listening to BullMQ events');
+        const attempts = job.attempts + 1;
+        const status =
+          attempts >= job.maxAttempts ? JobStatus.FAILED : JobStatus.RETRYING;
+
+        await this.updateJobStatus(jobId, status, {
+          attempts,
+          error: failedReason,
+          ...(status === JobStatus.FAILED ? { completedAt: new Date() } : {}),
+        });
+      });
+
+      this.queueEvents.on('delayed', async ({ jobId, delay }) => {
+        await this.updateJobStatus(jobId, JobStatus.DELAYED);
+      });
+
+      this.logger.log('Started listening to BullMQ events');
+    } catch (err: any) {
+      this.logger.warn(`Could not initialize QueueEvents: ${err.message}`);
+    }
   }
 
   async onModuleDestroy() {
     if (this.queueEvents) {
-      await this.queueEvents.close();
+      try {
+        await this.queueEvents.close();
+      } catch (err) {
+        // Ignore close errors
+      }
     }
   }
 
