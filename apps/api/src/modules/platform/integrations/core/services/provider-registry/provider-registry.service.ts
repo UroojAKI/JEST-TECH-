@@ -14,21 +14,27 @@ export class ProviderRegistryService implements OnModuleInit {
   }
 
   async refreshCache() {
-    const providers = await this.prisma.integrationProvider.findMany({
-      where: { status: 'ACTIVE' },
-      orderBy: { priority: 'asc' },
-    });
+    try {
+      const providers = await this.prisma.integrationProvider.findMany({
+        where: { status: 'ACTIVE' },
+        orderBy: { priority: 'asc' },
+      });
 
-    this.cache.clear();
-    for (const provider of providers) {
-      if (!this.cache.has(provider.type)) {
-        this.cache.set(provider.type, []);
+      this.cache.clear();
+      for (const provider of providers) {
+        if (!this.cache.has(provider.type)) {
+          this.cache.set(provider.type, []);
+        }
+        this.cache.get(provider.type)?.push(provider);
       }
-      this.cache.get(provider.type)?.push(provider);
+      this.logger.log(
+        `Provider registry cache refreshed. Found ${providers.length} active providers.`,
+      );
+    } catch (err: any) {
+      this.logger.warn(
+        `Provider registry cache refresh skipped (database offline or initializing): ${err.message}`,
+      );
     }
-    this.logger.log(
-      `Provider registry cache refreshed. Found ${providers.length} active providers.`,
-    );
   }
 
   getPrimaryProvider(type: string): IntegrationProvider | null {
@@ -37,7 +43,6 @@ export class ProviderRegistryService implements OnModuleInit {
       this.logger.warn(`No active providers found for type: ${type}`);
       return null;
     }
-    // Assume sorted by priority (1 is highest)
     return providers[0];
   }
 
@@ -53,14 +58,17 @@ export class ProviderRegistryService implements OnModuleInit {
   }
 
   async recordFailure(providerId: string) {
-    await this.prisma.integrationProvider.update({
-      where: { id: providerId },
-      data: { failureCount: { increment: 1 } },
-    });
+    try {
+      await this.prisma.integrationProvider.update({
+        where: { id: providerId },
+        data: { failureCount: { increment: 1 } },
+      });
+    } catch (err: any) {
+      this.logger.warn(`Failed to record provider failure: ${err.message}`);
+    }
   }
 
   async recordSuccess(providerId: string) {
     // Basic moving average simulation or just tick success
-    // A robust impl would store metrics in a time series
   }
 }
