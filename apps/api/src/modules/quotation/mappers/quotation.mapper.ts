@@ -24,69 +24,29 @@ export class QuotationMapper {
     dto.updatedById = q.updatedById;
     dto.createdAt = q.createdAt;
     dto.updatedAt = q.updatedAt;
+    dto.vehicleCategory = q.vehicleCategory;
+    dto.policyType = q.policyType;
+    dto.registrationNumber = q.registrationNumber;
+    dto.motorMetadata = q.motorMetadata;
+    dto.workflowState = q.workflowState;
+    dto.issuanceStatus = q.issuanceStatus;
+    dto.calculationSnapshot = q.calculationSnapshot;
 
-    if (q.versions) {
-      dto.versions = q.versions.map((v) => ({
-        id: v.id,
-        versionNumber: v.versionNumber,
-        sumInsured: Number(v.sumInsured),
-        basePremium: Number(v.basePremium),
-        gstAmount: Number(v.gstAmount),
-        totalPremium: Number(v.totalPremium),
-        discountAmount: Number(v.discountAmount),
-        metadata: v.metadata,
-        createdById: v.createdById,
-        createdAt: v.createdAt,
-      }));
-    }
+    if (q.versions) dto.versions = q.versions.map((v) => ({
+      id: v.id, versionNumber: v.versionNumber, sumInsured: Number(v.sumInsured),
+      basePremium: Number(v.basePremium), gstAmount: Number(v.gstAmount), totalPremium: Number(v.totalPremium),
+      discountAmount: Number(v.discountAmount), metadata: v.metadata, createdById: v.createdById, createdAt: v.createdAt,
+    }));
 
-    if (q.addons) {
-      dto.addons = q.addons.map((a) => ({
-        id: a.id,
-        addonCode: a.addonCode,
-        addonName: a.addonName,
-        premium: Number(a.premium),
-        description: a.description,
-      }));
-    }
-
-    if (q.discounts) {
-      dto.discounts = q.discounts.map((d) => ({
-        id: d.id,
-        discountType: d.discountType,
-        percentage: d.percentage ? Number(d.percentage) : null,
-        amount: Number(d.amount),
-        description: d.description,
-      }));
-    }
-
-    if (q.histories) {
-      dto.histories = q.histories.map((h) => ({
-        id: h.id,
-        status: h.status,
-        comments: h.comments,
-        createdById: h.createdById,
-        createdAt: h.createdAt,
-      }));
-    }
-
-    if (q.documents) {
-      dto.documents = q.documents.map((doc) => ({
-        id: doc.id,
-        documentType: doc.documentType,
-        fileKey: doc.fileKey,
-        fileName: doc.fileName,
-        fileSize: doc.fileSize,
-        createdAt: doc.createdAt,
-      }));
-    }
+    if (q.addons) dto.addons = q.addons.map((a) => ({ id: a.id, addonCode: a.addonCode, addonName: a.addonName, premium: Number(a.premium), description: a.description }));
+    if (q.discounts) dto.discounts = q.discounts.map((d) => ({ id: d.id, discountType: d.discountType, percentage: d.percentage ? Number(d.percentage) : null, amount: Number(d.amount), description: d.description }));
+    if (q.histories) dto.histories = q.histories.map((h) => ({ id: h.id, status: h.status, comments: h.comments, createdById: h.createdById, createdAt: h.createdAt }));
+    if (q.documents) dto.documents = q.documents.map((doc) => ({ id: doc.id, documentType: doc.documentType, fileKey: doc.fileKey, fileName: doc.fileName, fileSize: doc.fileSize, createdAt: doc.createdAt }));
 
     return dto;
   }
 
-  static toResponseList(
-    quotations: QuotationWithRelations[],
-  ): QuotationResponseDto[] {
+  static toResponseList(quotations: QuotationWithRelations[]): QuotationResponseDto[] {
     return quotations.map((q) => this.toResponse(q));
   }
 }
