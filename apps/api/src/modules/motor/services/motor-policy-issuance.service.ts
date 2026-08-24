@@ -1,4 +1,5 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { AuditAction } from '@prisma/client';
 import { PrismaService } from '../../../database/prisma.service';
 import { IssueMotorPolicyDto } from '../dto/issue-motor-policy.dto';
 import { MotorPaymentTrackingService } from './motor-payment-tracking.service';
@@ -8,12 +9,7 @@ export interface IssuingUser {
   role: string;
 }
 
-const ISSUANCE_ROLES = new Set([
-  'SUPER_ADMIN',
-  'ADMIN',
-  'OPERATIONS',
-  'POLICY_ISSUANCE_EXECUTIVE',
-]);
+const ISSUANCE_ROLES = new Set(['SUPER_ADMIN', 'ADMIN', 'OPERATIONS', 'POLICY_ISSUANCE_EXECUTIVE']);
 
 @Injectable()
 export class MotorPolicyIssuanceService {
@@ -32,16 +28,11 @@ export class MotorPolicyIssuanceService {
     if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) {
       throw new BadRequestException('Valid policy start and end dates are required');
     }
-    if (endDate < startDate) {
-      throw new BadRequestException('Policy end date cannot be before policy start date');
-    }
+    if (endDate < startDate) throw new BadRequestException('Policy end date cannot be before policy start date');
 
     const gate = await this.paymentService.canProceedToPolicy(quotationId);
     if (!gate.allowed) {
-      throw new ConflictException({
-        message: 'Policy issuance is blocked by the Motor workflow gate',
-        blockers: gate.blockers,
-      });
+      throw new ConflictException({ message: 'Policy issuance is blocked by the Motor workflow gate', blockers: gate.blockers });
     }
 
     return this.prisma.$transaction(async (tx) => {
@@ -52,9 +43,7 @@ export class MotorPolicyIssuanceService {
 
       if (!quote) throw new NotFoundException(`Quotation ${quotationId} not found`);
       if (quote.policy) throw new ConflictException('A policy already exists for this quotation');
-      if (quote.workflowState !== 'PAYMENT_DONE') {
-        throw new ConflictException('Quotation is not in PAYMENT_DONE state');
-      }
+      if (quote.workflowState !== 'PAYMENT_DONE') throw new ConflictException('Quotation is not in PAYMENT_DONE state');
 
       const snapshot = (quote.calculationSnapshot as any) || {};
       const inputs = snapshot.inputs || {};
@@ -78,9 +67,7 @@ export class MotorPolicyIssuanceService {
         }
       }
 
-      const effectiveExpiry = [odExpiry, tpExpiry, endDate]
-        .filter(Boolean)
-        .sort((a, b) => a!.getTime() - b!.getTime())[0] || endDate;
+      const effectiveExpiry = [odExpiry, tpExpiry, endDate].filter(Boolean).sort((a, b) => a!.getTime() - b!.getTime())[0] || endDate;
 
       const policy = await tx.policy.create({
         data: {
@@ -112,18 +99,14 @@ export class MotorPolicyIssuanceService {
           activeTpExpiryDate: quote.activeTpExpiryDate || undefined,
           createdById: user.id,
           updatedById: user.id,
-          ...(dto.documentFileKey && dto.documentFileName && dto.documentFileSize !== undefined
-            ? {
-                documents: {
-                  create: {
-                    documentType: 'POLICY_SCHEDULE',
-                    fileKey: dto.documentFileKey,
-                    fileName: dto.documentFileName,
-                    fileSize: dto.documentFileSize,
-                  },
-                },
-              }
-            : {}),
+          ...(dto.documentFileKey && dto.documentFileName && dto.documentFileSize !== undefined ? {
+            documents: { create: {
+              documentType: 'POLICY_SCHEDULE',
+              fileKey: dto.documentFileKey,
+              fileName: dto.documentFileName,
+              fileSize: dto.documentFileSize,
+            } },
+          } : {}),
           histories: {
             create: {
               status: 'ACTIVE',
@@ -136,12 +119,7 @@ export class MotorPolicyIssuanceService {
 
       await tx.quotation.update({
         where: { id: quote.id },
-        data: {
-          issuanceStatus: 'ISSUED',
-          status: 'CONVERTED_TO_POLICY',
-          workflowState: 'ISSUED',
-          updatedById: user.id,
-        },
+        data: { issuanceStatus: 'ISSUED', status: 'CONVERTED_TO_POLICY', workflowState: 'ACTIVE', updatedById: user.id },
       });
 
       await tx.quotationHistory.create({
@@ -157,13 +135,8 @@ export class MotorPolicyIssuanceService {
         const fromLead = quote.lead?.currentWorkflowStep || 'PAYMENT';
         await tx.lead.update({
           where: { id: quote.leadId },
-          data: {
-            status: 'POLICY_ISSUED',
-            currentWorkflowStep: 'ISSUED',
-            updatedById: user.id,
-          },
+          data: { status: 'POLICY_ISSUED', currentWorkflowStep: 'ISSUED', updatedById: user.id },
         });
-
         await tx.leadStageHistory.create({
           data: {
             leadId: quote.leadId,
@@ -186,6 +159,26 @@ export class MotorPolicyIssuanceService {
           dueDate: renewalDueDate,
           status: 'PENDING',
           priority: 'HIGH',
+        },
+      });
+
+      await tx.auditLog.create({
+        data: {
+          action: AuditAction.CREATE,
+          entity: 'Policy',
+          entityId: policy.id,
+          entityType: 'MOTOR_POLICY_ISSUANCE',
+          performedById: user.id,
+          userId: user.id,
+          module: 'MOTOR',
+          metadata: {
+            quotationId: quote.id,
+            leadId: quote.leadId,
+            policyNumber: policy.policyNumber,
+            policyType,
+            odExpiryDate: odExpiry?.toISOString() || null,
+            tpExpiryDate: tpExpiry?.toISOString() || null,
+          },
         },
       });
 
