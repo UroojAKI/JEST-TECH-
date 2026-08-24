@@ -6,6 +6,7 @@ export class PolicyStateMachine {
     PolicyStatus,
     PolicyStatus[]
   > = {
+    [PolicyStatus.DRAFT]: [PolicyStatus.ACTIVE, PolicyStatus.CANCELLED],
     [PolicyStatus.ACTIVE]: [
       PolicyStatus.PENDING_RENEWAL,
       PolicyStatus.LAPSED,
@@ -15,18 +16,18 @@ export class PolicyStateMachine {
       PolicyStatus.ACTIVE,
       PolicyStatus.LAPSED,
       PolicyStatus.CANCELLED,
+      PolicyStatus.RENEWED,
     ],
     [PolicyStatus.LAPSED]: [PolicyStatus.ACTIVE, PolicyStatus.CANCELLED],
-    [PolicyStatus.CANCELLED]: [], // Terminal state
+    [PolicyStatus.CANCELLED]: [],
+    [PolicyStatus.RENEWED]: [],
   };
 
   static validateTransition(
     currentStatus: PolicyStatus,
     targetStatus: PolicyStatus,
   ): void {
-    if (currentStatus === targetStatus) {
-      return;
-    }
+    if (currentStatus === targetStatus) return;
     const allowed = this.ALLOWED_TRANSITIONS[currentStatus];
     if (!allowed || !allowed.includes(targetStatus)) {
       throw new BadRequestException(
