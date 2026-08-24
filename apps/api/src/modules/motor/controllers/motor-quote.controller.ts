@@ -1,5 +1,5 @@
 import { Controller, Post, Param, Body, UseGuards } from '@nestjs/common';
-import { JwtAuthGuard } from '../../../auth/guards/jwt-auth.guard';
+import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { MotorCalculationService } from '../services/motor-calculation.service';
 import { PrismaService } from '../../../database/prisma.service';
 import { MotorCalculationInputDto } from '../dto/motor-calculation.dto';
@@ -60,8 +60,8 @@ export class MotorQuoteController {
     // Parse snapshot to get policy type for OD/TP dates logic
     const snapshot = quote.calculationSnapshot as any;
     const policyType = snapshot?.inputs?.policyType;
-    let odExpiry = null;
-    let tpExpiry = null;
+    let odExpiry: Date | null = null;
+    let tpExpiry: Date | null = null;
 
     if (body.endDate) {
       const parsedEndDate = new Date(body.endDate);
@@ -91,18 +91,17 @@ export class MotorQuoteController {
         actualPolicyNumber: body.actualPolicyNumber,
         contact: { connect: { id: quote.contactId } },
         quotation: { connect: { id: quoteId } },
-        insurerName: quote.insurerName,
-        productType: quote.productType,
-        basePremium: quote.basePremium,
-        totalPremium: quote.totalPremium,
+        premiumAmount: quote.totalPremium,
         actualPremium: body.actualPremium || quote.totalPremium,
         startDate: new Date(body.startDate),
         endDate: new Date(body.endDate),
+        effectiveDate: new Date(body.startDate),
+        expiryDate: new Date(body.endDate),
         odExpiryDate: odExpiry,
         tpExpiryDate: tpExpiry,
-        paymentStatus: 'PAID',
-        issuanceStatus: 'ISSUED',
-        createdById: quote.createdById,
+        paymentStatus: 'PAID' as any,
+        status: 'ACTIVE' as any,
+        ...(quote.createdById ? { createdBy: { connect: { id: quote.createdById } } } : {}),
         // Lead relation
         ...(quote.leadId ? { lead: { connect: { id: quote.leadId } } } : {})
       }

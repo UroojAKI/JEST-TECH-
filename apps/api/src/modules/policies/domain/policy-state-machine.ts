@@ -18,6 +18,8 @@ export class PolicyStateMachine {
     ],
     [PolicyStatus.LAPSED]: [PolicyStatus.ACTIVE, PolicyStatus.CANCELLED],
     [PolicyStatus.CANCELLED]: [], // Terminal state
+    [PolicyStatus.DRAFT]: [PolicyStatus.ACTIVE, PolicyStatus.CANCELLED],
+    [PolicyStatus.RENEWED]: [],
   };
 
   static validateTransition(

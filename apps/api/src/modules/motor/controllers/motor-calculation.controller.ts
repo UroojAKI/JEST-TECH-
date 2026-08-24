@@ -1,5 +1,5 @@
 import { Controller, Post, Body, UseGuards } from '@nestjs/common';
-import { JwtAuthGuard } from '../../../auth/guards/jwt-auth.guard';
+import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { MotorCalculationService } from '../services/motor-calculation.service';
 import { MotorCalculationInputDto } from '../dto/motor-calculation.dto';
 

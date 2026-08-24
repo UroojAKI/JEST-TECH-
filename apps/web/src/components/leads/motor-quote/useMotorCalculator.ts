@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import apiClient from '@/lib/api-client';
+import { apiClient } from '@/lib/api-client';
 
 export function useMotorCalculator(inputData: any) {
   const [loading, setLoading] = useState(false);

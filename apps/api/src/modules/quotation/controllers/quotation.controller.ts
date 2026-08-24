@@ -284,11 +284,11 @@ export class QuotationController {
         policyNumber,
         status: 'ACTIVE',
         quotation: { connect: { id: quotationId } },
-        contactId: dto.contactId,
+        contact: { connect: { id: dto.contactId } },
         premiumAmount: dto.totalPremium || 17700,
         effectiveDate,
         expiryDate,
-        createdById: user.id,
+        createdBy: { connect: { id: user.id } },
       },
     });
 
