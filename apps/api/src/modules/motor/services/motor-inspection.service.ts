@@ -52,9 +52,6 @@ export class MotorInspectionService {
         inspectionDate: dto.inspectionDate ? new Date(dto.inspectionDate) : null,
         inspectionTime: dto.inspectionTime,
         createdById: dto.createdById,
-        // Mock flow: inject dummy keys so completeInspection doesn't fail
-        frontImageKey: 'mock', backImageKey: 'mock', leftImageKey: 'mock',
-        rightImageKey: 'mock', windshieldImageKey: 'mock', chassisImageKey: 'mock', odometerImageKey: 'mock',
       },
     });
 
@@ -63,6 +60,8 @@ export class MotorInspectionService {
   }
 
   async recordPhoto(inspectionId: string, photoType: InspectionPhotoType, storageKey: string) {
+    if (!storageKey?.trim()) throw new BadRequestException('A real storage key is required for an inspection photo');
+
     const fieldMap: Record<InspectionPhotoType, string> = {
       front: 'frontImageKey',
       back: 'backImageKey',
@@ -73,10 +72,11 @@ export class MotorInspectionService {
       odometer: 'odometerImageKey',
     };
 
-    const field = fieldMap[photoType];
+    if (!fieldMap[photoType]) throw new BadRequestException(`Unsupported inspection photo type: ${photoType}`);
+
     const inspection = await this.prisma.motorInspection.update({
       where: { id: inspectionId },
-      data: { [field]: storageKey, status: InspectionStatus.IN_PROGRESS },
+      data: { [fieldMap[photoType]]: storageKey, status: InspectionStatus.IN_PROGRESS },
     });
 
     this.logger.log(`Photo [${photoType}] recorded for inspection ${inspectionId}`);
@@ -87,7 +87,6 @@ export class MotorInspectionService {
     const inspection = await this.prisma.motorInspection.findUnique({ where: { id: inspectionId } });
     if (!inspection) throw new NotFoundException(`Inspection ${inspectionId} not found`);
 
-    // Validate all 7 photos are uploaded
     const requiredPhotos = [
       'frontImageKey',
       'backImageKey',
@@ -114,7 +113,6 @@ export class MotorInspectionService {
       },
     });
 
-    // Update quotation workflow state
     const quotation = await this.prisma.quotation.findUnique({ where: { id: inspection.quotationId } });
     const meta = quotation?.motorMetadata as Record<string, any> || {};
     await this.prisma.quotation.update({
