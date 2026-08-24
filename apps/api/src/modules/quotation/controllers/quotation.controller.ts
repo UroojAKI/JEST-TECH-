@@ -1,7 +1,6 @@
 import {
   Body,
   Controller,
-  Delete,
   Get,
   HttpCode,
   HttpStatus,
@@ -13,7 +12,6 @@ import {
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags, ApiOperation } from '@nestjs/swagger';
 import { RoleType } from '@prisma/client';
-
 import { SkipThrottle } from '@nestjs/throttler';
 
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
@@ -28,13 +26,13 @@ import { GenerateQuotationService } from '../services/commands/generate-quotatio
 import { ApproveQuotationService } from '../services/commands/approve-quotation.service';
 import { RejectQuotationService } from '../services/commands/reject-quotation.service';
 import { ConvertQuotationService } from '../services/commands/convert-quotation.service';
-
 import { GetQuotationService } from '../services/queries/get-quotation.service';
 import { CompareQuotationService } from '../services/queries/compare-quotation.service';
 import { GetQuotationHistoryService } from '../services/queries/get-quotation-history.service';
 import { ComparisonService } from '../engine/comparison.service';
 import { PrismaService } from '../../../database/prisma.service';
 import { PaginationDto } from '../../../common/pagination/pagination.dto';
+import { MotorCalculationService } from '../../motor/services/motor-calculation.service';
 
 @ApiTags('Quotations & Motor Wizard')
 @ApiBearerAuth()
@@ -51,12 +49,9 @@ export class QuotationController {
     private readonly getQuotationHistoryService: GetQuotationHistoryService,
     private readonly comparisonEngine: ComparisonService,
     private readonly prisma: PrismaService,
+    private readonly motorCalculationService: MotorCalculationService,
   ) {}
 
-  // -----------------------------------------------------------------------
-  // Motor Insurance CRM — 8-Category Data Capture Form Save
-  // POST /quotations/motor-capture
-  // -----------------------------------------------------------------------
   @Post('motor-capture')
   @HttpCode(HttpStatus.CREATED)
   @Roles(
@@ -65,35 +60,32 @@ export class QuotationController {
     RoleType.BRANCH_MANAGER,
     RoleType.TEAM_LEADER,
     RoleType.SALES_AGENT,
+    RoleType.SALES_MANAGER,
+    RoleType.SALES_EXECUTIVE,
     RoleType.OPERATIONS,
     RoleType.POSP_ADVISOR,
     RoleType.RENEWAL_EXECUTIVE,
   )
-  @ApiOperation({ summary: 'Save Motor Insurance CRM data capture form (8 vehicle categories × 3 policy types)' })
+  @ApiOperation({ summary: 'Capture a Motor quotation using an authoritative backend calculation.' })
   async motorCapture(
     @Body() dto: CreateMotorCaptureDto,
     @CurrentUser() user: RequestUser,
   ) {
     const quotationCode = `MQ-${dto.vehicleCategory?.slice(0, 3).toUpperCase()}-${Date.now().toString().slice(-8)}`;
 
-    // Resolve contactId: from dto or find by leadId
     let contactId = dto.contactId;
     if (!contactId && dto.leadId) {
-      const lead = await this.prisma.lead.findUnique({
-        where: { id: dto.leadId },
-        select: { contactId: true },
-      });
+      const lead = await this.prisma.lead.findUnique({ where: { id: dto.leadId }, select: { contactId: true } });
       contactId = lead?.contactId || undefined;
     }
 
-    // Attempt to match existing contact by proposer phone or email
     const proposer = dto.proposerDetails || {};
     if (!contactId && proposer['mobileNumber']) {
       const existingByPhone = await this.prisma.contact.findFirst({
         where: { phone: String(proposer['mobileNumber']).trim() },
         select: { id: true },
       });
-      if (existingByPhone) contactId = existingByPhone.id;
+      contactId = existingByPhone?.id;
     }
 
     if (!contactId && proposer['emailId']) {
@@ -101,10 +93,9 @@ export class QuotationController {
         where: { email: String(proposer['emailId']).trim() },
         select: { id: true },
       });
-      if (existingByEmail) contactId = existingByEmail.id;
+      contactId = existingByEmail?.id;
     }
 
-    // If still no contactId, create a minimal contact from proposer details
     if (!contactId) {
       const [firstName, ...rest] = (proposer['customerName'] || 'Motor Customer').split(' ');
       const newContact = await this.prisma.contact.create({
@@ -122,9 +113,40 @@ export class QuotationController {
       contactId = newContact.id;
     }
 
-    const totalPremium = dto.totalPremium || 0;
-    const basePremium = totalPremium / 1.18; // strip GST
-    const gstAmount = totalPremium - basePremium;
+    const policyDetails = (dto.policyDetails || {}) as any;
+    const vehicleDetails = (dto.vehicleDetails || {}) as any;
+    const saodVerification = (dto.saodVerification || {}) as any;
+    const policyTypeMap: Record<string, 'THIRD_PARTY_ONLY' | 'STANDALONE_OD' | 'PACKAGE_COMPREHENSIVE'> = {
+      TP_ONLY: 'THIRD_PARTY_ONLY',
+      SAOD: 'STANDALONE_OD',
+      PACKAGE: 'PACKAGE_COMPREHENSIVE',
+      THIRD_PARTY_ONLY: 'THIRD_PARTY_ONLY',
+      STANDALONE_OD: 'STANDALONE_OD',
+      PACKAGE_COMPREHENSIVE: 'PACKAGE_COMPREHENSIVE',
+    };
+
+    const calculationInput: any = {
+      vehicleCategory: dto.vehicleCategory,
+      vehicleSubType: vehicleDetails.vehicleSubType || vehicleDetails.vehicleType,
+      vehicleStatus: vehicleDetails.vehicleStatus === 'NEW' ? 'NEW' : 'EXISTING',
+      policyType: policyTypeMap[dto.policyType] || 'PACKAGE_COMPREHENSIVE',
+      policyTenure: Number(policyDetails.policyTenure || 1) || 1,
+      idv: dto.idv || Number(policyDetails.insuredDeclaredValue || 0) || undefined,
+      ncbPercent: Number(dto.ncbPercentage || policyDetails.ncbPercentage || 0),
+      claimInExpiringPolicy: String(policyDetails.claimInExpiringPolicy || '').toLowerCase() === 'yes',
+      paCover: Boolean(policyDetails.paCoverOwner),
+      paidDriverLiability: String(policyDetails.legalLiabilityPaidDriver || '').toLowerCase() === 'yes',
+      addons: Array.isArray(policyDetails.addonsSelected)
+        ? policyDetails.addonsSelected.map((addon: any) => ({
+            addonCode: typeof addon === 'string' ? addon : addon.addonCode || addon.code,
+            ...(typeof addon === 'object' && addon.manualPrice !== undefined ? { manualPrice: Number(addon.manualPrice) } : {}),
+          })).filter((addon: any) => addon.addonCode)
+        : [],
+      activeTpPolicyNumber: saodVerification.tpPolicyNumber || policyDetails.activeTPPolicyNumberValidity || undefined,
+      activeTpExpiryDate: saodVerification.tpExpiryDate || undefined,
+    };
+
+    const calcResult = await this.motorCalculationService.calculate(calculationInput);
 
     const motorMetadata = {
       vehicleCategory: dto.vehicleCategory,
@@ -135,7 +157,7 @@ export class QuotationController {
       policyDetails: dto.policyDetails,
       saodVerification: dto.saodVerification,
       documents: dto.documents,
-      workflowStatus: dto.status,
+      workflowStatus: 'READY_FOR_PROPOSAL',
       capturedBy: user.id,
       capturedAt: new Date().toISOString(),
     };
@@ -147,13 +169,18 @@ export class QuotationController {
         productType: 'MOTOR',
         insurerName: dto.insurerName,
         sumInsured: dto.idv || 0,
-        basePremium,
-        gstAmount,
-        totalPremium,
-        ncbPercentage: dto.ncbPercentage || 0,
+        basePremium: calcResult.outputs.baseOdPremium + calcResult.outputs.baseTpPremium,
+        gstAmount: calcResult.outputs.totalGst,
+        totalPremium: calcResult.outputs.totalPremium,
+        ncbPercentage: calcResult.inputs.effectiveNcb,
         vehicleCategory: dto.vehicleCategory as any,
         policyType: dto.policyType,
         registrationNumber: dto.registrationNumber || null,
+        policyTenure: calcResult.inputs.tpTenure,
+        calculationSnapshot: calcResult as any,
+        calculationVersion: calcResult.calculationVersion,
+        rateConfigurationVersion: calcResult.rateConfigurationVersion,
+        issuanceStatus: 'PROPOSAL_READY',
         motorMetadata,
         expiryDate: new Date(Date.now() + 30 * 86400000),
         contactId,
@@ -163,7 +190,7 @@ export class QuotationController {
     });
 
     return {
-      message: 'Motor insurance quote captured successfully',
+      message: 'Motor insurance quote captured using authoritative backend pricing',
       quotationCode: quotation.quotationCode,
       id: quotation.id,
       vehicleCategory: quotation.vehicleCategory,
@@ -171,7 +198,8 @@ export class QuotationController {
       registrationNumber: quotation.registrationNumber,
       totalPremium: Number(quotation.totalPremium),
       idv: Number(quotation.sumInsured),
-      status: dto.status || quotation.status,
+      ncbPercentage: Number(quotation.ncbPercentage),
+      status: 'READY_FOR_PROPOSAL',
       createdAt: quotation.createdAt,
     };
   }
@@ -180,18 +208,9 @@ export class QuotationController {
   @Post('calculate')
   @HttpCode(HttpStatus.OK)
   @Roles(
-    RoleType.SUPER_ADMIN,
-    RoleType.ADMIN,
-    RoleType.BRANCH_MANAGER,
-    RoleType.TEAM_LEADER,
-    RoleType.SALES_AGENT,
-    RoleType.OPERATIONS,
-    RoleType.POSP_ADVISOR,
-    RoleType.RENEWAL_EXECUTIVE,
-    RoleType.MD_CEO,
-    RoleType.MARKETING_DIRECTOR,
-    RoleType.UNDERWRITER,
-    RoleType.CHIEF_FINANCE_OFFICER,
+    RoleType.SUPER_ADMIN, RoleType.ADMIN, RoleType.BRANCH_MANAGER, RoleType.TEAM_LEADER,
+    RoleType.SALES_AGENT, RoleType.OPERATIONS, RoleType.POSP_ADVISOR, RoleType.RENEWAL_EXECUTIVE,
+    RoleType.MD_CEO, RoleType.MARKETING_DIRECTOR, RoleType.UNDERWRITER, RoleType.CHIEF_FINANCE_OFFICER,
   )
   calculate(@Body() dto: any) {
     return this.comparisonEngine.generateComparativeQuotes(dto);
@@ -201,151 +220,43 @@ export class QuotationController {
   @Post('enterprise-compare')
   @HttpCode(HttpStatus.OK)
   @Roles(
-    RoleType.SUPER_ADMIN,
-    RoleType.ADMIN,
-    RoleType.BRANCH_MANAGER,
-    RoleType.TEAM_LEADER,
-    RoleType.SALES_AGENT,
-    RoleType.OPERATIONS,
-    RoleType.POSP_ADVISOR,
-    RoleType.RENEWAL_EXECUTIVE,
-    RoleType.MD_CEO,
-    RoleType.MARKETING_DIRECTOR,
-    RoleType.UNDERWRITER,
-    RoleType.CHIEF_FINANCE_OFFICER,
+    RoleType.SUPER_ADMIN, RoleType.ADMIN, RoleType.BRANCH_MANAGER, RoleType.TEAM_LEADER,
+    RoleType.SALES_AGENT, RoleType.OPERATIONS, RoleType.POSP_ADVISOR, RoleType.RENEWAL_EXECUTIVE,
+    RoleType.MD_CEO, RoleType.MARKETING_DIRECTOR, RoleType.UNDERWRITER, RoleType.CHIEF_FINANCE_OFFICER,
   )
-  @ApiOperation({ summary: 'Enterprise Multi-Insurer Quotation Gateway with Arbitrary Precision & SLA Fallback' })
+  @ApiOperation({ summary: 'Enterprise Multi-Insurer Quotation Gateway' })
   enterpriseCompare(@Body() dto: any) {
     return this.comparisonEngine.generateEnterpriseInsurerComparisons(dto);
   }
 
-
+  /**
+   * Retired intentionally. Motor issuance is now owned by POST /motor/quotes/:id/issue
+   * and can only be executed after the backend workflow gate passes.
+   */
   @Post('wizard/issue-policy')
-
-  @HttpCode(HttpStatus.OK)
+  @HttpCode(HttpStatus.GONE)
   @Roles(
-    RoleType.SUPER_ADMIN,
-    RoleType.ADMIN,
-    RoleType.BRANCH_MANAGER,
-    RoleType.TEAM_LEADER,
-    RoleType.SALES_AGENT,
+    RoleType.SUPER_ADMIN, RoleType.ADMIN, RoleType.BRANCH_MANAGER,
+    RoleType.TEAM_LEADER, RoleType.SALES_AGENT, RoleType.SALES_MANAGER,
+    RoleType.SALES_EXECUTIVE, RoleType.OPERATIONS, RoleType.POLICY_ISSUANCE_EXECUTIVE,
   )
-  @ApiOperation({ summary: 'Issue Motor Policy & Auto-Schedule Renewal Reminder' })
-  async issuePolicyAndScheduleRenewal(
-    @Body() dto: {
-      contactId: string;
-      leadId?: string;
-      insurerName: string;
-      totalPremium: number;
-      registrationNumber?: string;
-    },
-    @CurrentUser() user: RequestUser
-  ) {
-    const policyNumber = `POL-${Date.now().toString().slice(-8)}`;
-    const effectiveDate = new Date();
-    const expiryDate = new Date();
-    expiryDate.setFullYear(expiryDate.getFullYear() + 1);
-
-    // Create or find dummy quotation to bind
-    let quotationId = dto.leadId;
-    if (!quotationId) {
-      const q = await this.prisma.quotation.create({
-        data: {
-          quotationCode: `Q-${Date.now().toString().slice(-6)}`,
-          title: `Motor Quote ${policyNumber}`,
-          contactId: dto.contactId,
-          insurerName: dto.insurerName || 'Partner Insurer',
-          productType: 'MOTOR',
-          sumInsured: 500000,
-          basePremium: dto.totalPremium ? dto.totalPremium * 0.85 : 15000,
-          gstAmount: dto.totalPremium ? dto.totalPremium * 0.15 : 2700,
-          totalPremium: dto.totalPremium || 17700,
-          expiryDate: new Date(Date.now() + 30 * 86400000),
-          createdById: user.id,
-        },
-      });
-      quotationId = q.id;
-    }
-
-    if (quotationId) {
-      const qRec = await this.prisma.quotation.findUnique({ where: { id: quotationId } });
-      if (qRec && !dto.contactId) {
-        dto.contactId = qRec.contactId;
-      }
-    }
-
-    if (!dto.contactId) {
-      throw new Error('Contact ID is required to issue a policy.');
-    }
-
-    // 1. Issue Policy
-    const policy = await this.prisma.policy.create({
-      data: {
-        policyNumber,
-        status: 'ACTIVE',
-        quotation: { connect: { id: quotationId } },
-        contactId: dto.contactId,
-        premiumAmount: dto.totalPremium || 17700,
-        effectiveDate,
-        expiryDate,
-        createdById: user.id,
-      },
-    });
-
-    // 2. Auto-Provision Renewal Task for Agent
-    const renewalTask = await this.prisma.renewalTask.create({
-      data: {
-        policyId: policy.id,
-        agentId: user.id,
-        dueDate: expiryDate,
-        status: 'PENDING',
-        priority: 'HIGH',
-      },
-    });
-
-    // 3. Update Lead Status if available
-    if (dto.leadId) {
-      await this.prisma.lead.update({
-        where: { id: dto.leadId },
-        data: {
-          currentWorkflowStep: 'ISSUED',
-          status: 'POLICY_ISSUED',
-        },
-      });
-    }
-
+  retiredMotorIssuanceEndpoint() {
     return {
-      message: 'Policy issued successfully and renewal task auto-scheduled!',
-      policy,
-      renewalTask,
-      downloadUrl: `/api/v1/policies/${policy.id}/document`,
+      message: 'This issuance endpoint is retired. Use POST /motor/quotes/:id/issue after payment and workflow gates pass.',
     };
   }
 
   @Post()
-  @Roles(
-    RoleType.SUPER_ADMIN,
-    RoleType.ADMIN,
-    RoleType.BRANCH_MANAGER,
-    RoleType.TEAM_LEADER,
-    RoleType.SALES_AGENT,
-  )
+  @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN, RoleType.BRANCH_MANAGER, RoleType.TEAM_LEADER, RoleType.SALES_AGENT)
   create(@Body() dto: CreateQuotationDto, @CurrentUser() user: RequestUser) {
     return this.generateQuotationService.execute(dto, user.id);
   }
 
   @Get()
   @Roles(
-    RoleType.SUPER_ADMIN,
-    RoleType.ADMIN,
-    RoleType.BRANCH_MANAGER,
-    RoleType.TEAM_LEADER,
-    RoleType.SALES_AGENT,
-    RoleType.OPERATIONS,
-    RoleType.UNDERWRITER,
-    RoleType.CLAIMS_OFFICER,
-    RoleType.FINANCE,
-    RoleType.SUPPORT,
+    RoleType.SUPER_ADMIN, RoleType.ADMIN, RoleType.BRANCH_MANAGER, RoleType.TEAM_LEADER,
+    RoleType.SALES_AGENT, RoleType.OPERATIONS, RoleType.UNDERWRITER, RoleType.CLAIMS_OFFICER,
+    RoleType.FINANCE, RoleType.SUPPORT,
   )
   findAll(@CurrentUser() user: RequestUser, @Query() pagination: PaginationDto) {
     return this.getQuotationService.executeAll(user, pagination);
@@ -353,44 +264,23 @@ export class QuotationController {
 
   @Get(':id')
   @Roles(
-    RoleType.SUPER_ADMIN,
-    RoleType.ADMIN,
-    RoleType.BRANCH_MANAGER,
-    RoleType.TEAM_LEADER,
-    RoleType.SALES_AGENT,
-    RoleType.OPERATIONS,
-    RoleType.UNDERWRITER,
-    RoleType.CLAIMS_OFFICER,
-    RoleType.FINANCE,
-    RoleType.SUPPORT,
+    RoleType.SUPER_ADMIN, RoleType.ADMIN, RoleType.BRANCH_MANAGER, RoleType.TEAM_LEADER,
+    RoleType.SALES_AGENT, RoleType.OPERATIONS, RoleType.UNDERWRITER, RoleType.CLAIMS_OFFICER,
+    RoleType.FINANCE, RoleType.SUPPORT,
   )
   findOne(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: RequestUser) {
     return this.getQuotationService.executeOne(id, user);
   }
 
   @Get(':id/history')
-  @Roles(
-    RoleType.SUPER_ADMIN,
-    RoleType.ADMIN,
-    RoleType.BRANCH_MANAGER,
-    RoleType.TEAM_LEADER,
-    RoleType.OPERATIONS,
-    RoleType.UNDERWRITER,
-  )
+  @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN, RoleType.BRANCH_MANAGER, RoleType.TEAM_LEADER, RoleType.OPERATIONS, RoleType.UNDERWRITER)
   getHistory(@Param('id', ParseUUIDPipe) id: string) {
     return this.getQuotationHistoryService.execute(id);
   }
 
   @Post('compare')
   @HttpCode(HttpStatus.OK)
-  @Roles(
-    RoleType.SUPER_ADMIN,
-    RoleType.ADMIN,
-    RoleType.BRANCH_MANAGER,
-    RoleType.TEAM_LEADER,
-    RoleType.SALES_AGENT,
-    RoleType.OPERATIONS,
-  )
+  @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN, RoleType.BRANCH_MANAGER, RoleType.TEAM_LEADER, RoleType.SALES_AGENT, RoleType.OPERATIONS)
   compare(@Body('ids') ids: string[]) {
     return this.compareQuotationService.execute(ids);
   }
@@ -398,34 +288,20 @@ export class QuotationController {
   @Post(':id/approve')
   @HttpCode(HttpStatus.OK)
   @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN, RoleType.UNDERWRITER)
-  approve(
-    @Param('id', ParseUUIDPipe) id: string,
-    @Body('comments') comments: string,
-    @CurrentUser() user: RequestUser,
-  ) {
+  approve(@Param('id', ParseUUIDPipe) id: string, @Body('comments') comments: string, @CurrentUser() user: RequestUser) {
     return this.approveQuotationService.execute(id, comments, user.id);
   }
 
   @Post(':id/reject')
   @HttpCode(HttpStatus.OK)
   @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN, RoleType.UNDERWRITER)
-  reject(
-    @Param('id', ParseUUIDPipe) id: string,
-    @Body('comments') comments: string,
-    @CurrentUser() user: RequestUser,
-  ) {
+  reject(@Param('id', ParseUUIDPipe) id: string, @Body('comments') comments: string, @CurrentUser() user: RequestUser) {
     return this.rejectQuotationService.execute(id, comments, user.id);
   }
 
   @Post(':id/convert')
   @HttpCode(HttpStatus.OK)
-  @Roles(
-    RoleType.SUPER_ADMIN,
-    RoleType.ADMIN,
-    RoleType.BRANCH_MANAGER,
-    RoleType.TEAM_LEADER,
-    RoleType.SALES_AGENT,
-  )
+  @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN, RoleType.BRANCH_MANAGER, RoleType.TEAM_LEADER, RoleType.SALES_AGENT)
   convert(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: RequestUser) {
     return this.convertQuotationService.execute(id, user.id);
   }
