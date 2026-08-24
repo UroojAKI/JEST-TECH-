@@ -32,17 +32,11 @@ export class MotorPaymentTrackingService {
     const existing = await this.prisma.motorPaymentRecord.findUnique({ where: { quotationId: dto.quotationId } });
     const current = existing?.status || 'NOT_DONE';
     const allowed = PAYMENT_TRANSITIONS[current] || [];
-    if (!allowed.includes(dto.status)) {
-      throw new BadRequestException(`Invalid payment transition: ${current} -> ${dto.status}`);
-    }
+    if (!allowed.includes(dto.status)) throw new BadRequestException(`Invalid payment transition: ${current} -> ${dto.status}`);
 
     if (dto.status === 'PAID') {
-      if (!dto.amount || dto.amount <= 0) {
-        throw new BadRequestException('A positive payment amount is required before marking payment as PAID');
-      }
-      if (!dto.referenceNumber?.trim()) {
-        throw new BadRequestException('Payment reference number is required before marking payment as PAID');
-      }
+      if (!dto.amount || dto.amount <= 0) throw new BadRequestException('A positive payment amount is required before marking payment as PAID');
+      if (!dto.referenceNumber?.trim()) throw new BadRequestException('Payment reference number is required before marking payment as PAID');
     }
 
     const payment = await this.prisma.motorPaymentRecord.upsert({
@@ -68,15 +62,18 @@ export class MotorPaymentTrackingService {
       },
     });
 
-    const workflowState =
-      dto.status === 'PAID' ? 'PAYMENT_DONE' :
-      dto.status === 'UNDER_PROCESS' ? 'PAYMENT_UNDER_PROCESS' : 'PAYMENT_PENDING';
+    const workflowState = dto.status === 'PAID' ? 'PAYMENT_DONE' : dto.status === 'UNDER_PROCESS' ? 'PAYMENT_UNDER_PROCESS' : 'PAYMENT_PENDING';
+    const metadata = (quotation.motorMetadata as any) || {};
 
     await this.prisma.quotation.update({
       where: { id: dto.quotationId },
       data: {
         workflowState: workflowState as any,
         issuanceStatus: dto.status === 'PAID' ? 'ISSUANCE_PENDING' : 'PAYMENT_PENDING',
+        motorMetadata: {
+          ...metadata,
+          workflowStatus: dto.status === 'PAID' ? 'PENDING_ISSUANCE' : dto.status === 'UNDER_PROCESS' ? 'PAYMENT_UNDER_PROCESS' : 'PAYMENT_PENDING',
+        },
       },
     });
 
@@ -95,7 +92,6 @@ export class MotorPaymentTrackingService {
     if (!quotation) return { allowed: false, blockers: ['QUOTATION_NOT_FOUND'] };
 
     const blockers: string[] = [];
-
     if (!quotation.calculationSnapshot) blockers.push('CALCULATION_NOT_FINALIZED');
     if (quotation.issuanceStatus !== 'ISSUANCE_PENDING') blockers.push('QUOTATION_NOT_READY_FOR_ISSUANCE');
     if (quotation.workflowState !== 'PAYMENT_DONE') blockers.push('PAYMENT_WORKFLOW_NOT_COMPLETE');
@@ -104,16 +100,12 @@ export class MotorPaymentTrackingService {
     const inspectionRequired = Boolean(evaluation?.inspectionRequired);
     if (!evaluation) {
       const metadata = (quotation.motorMetadata as any) || {};
-      const vehicleStatus = metadata?.vehicleDetails?.vehicleStatus;
-      if (vehicleStatus !== 'NEW') blockers.push('RULE_EVALUATION_REQUIRED');
+      if (metadata?.vehicleDetails?.vehicleStatus !== 'NEW') blockers.push('RULE_EVALUATION_REQUIRED');
     }
 
     if (inspectionRequired) {
-      if (!inspection) {
-        blockers.push('INSPECTION_REQUIRED');
-      } else if (inspection.status !== 'COMPLETED') {
-        blockers.push(`INSPECTION_${inspection.status}`);
-      }
+      if (!inspection) blockers.push('INSPECTION_REQUIRED');
+      else if (inspection.status !== 'COMPLETED') blockers.push(`INSPECTION_${inspection.status}`);
     }
 
     return { allowed: blockers.length === 0, blockers };
