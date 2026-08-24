@@ -26,10 +26,10 @@ export function MotorIssuanceQueue() {
   const loadQueue = async () => {
     setLoading(true);
     try {
-      const res = await apiClient.get('/quotations', { params: { productType: 'MOTOR' } });
+      const res = await apiClient.get('/quotations', { params: { productType: 'MOTOR', limit: 100 } });
       const list = res.data?.data || res.data?.items || res.data || [];
       const mapped = (Array.isArray(list) ? list : [])
-        .filter((q: any) => q.productType === 'MOTOR' && (q.workflowState === 'PAYMENT_DONE' || q.issuanceStatus === 'ISSUANCE_PENDING'))
+        .filter((q: any) => q.productType === 'MOTOR' && q.workflowState === 'PAYMENT_DONE' && q.issuanceStatus === 'ISSUANCE_PENDING')
         .map((q: any) => ({
           id: q.id,
           quotationCode: q.quotationCode,
@@ -50,9 +50,7 @@ export function MotorIssuanceQueue() {
     }
   };
 
-  useEffect(() => {
-    void loadQueue();
-  }, []);
+  useEffect(() => { void loadQueue(); }, []);
 
   return (
     <div className="space-y-5">
@@ -80,17 +78,11 @@ export function MotorIssuanceQueue() {
                   <span className="font-semibold">{quote.proposerDetails?.customerName || 'Customer'}</span>
                   <span className="text-xs rounded-full bg-amber-500/10 text-amber-700 px-2 py-1">PAYMENT DONE</span>
                 </div>
-                <div className="text-xs text-muted-foreground mt-1">
-                  {quote.quotationCode} · {quote.registrationNumber || 'New Vehicle'} · {quote.policyType || 'Motor'} · {quote.insurerName || 'Insurer'}
-                </div>
+                <div className="text-xs text-muted-foreground mt-1">{quote.quotationCode} · {quote.registrationNumber || 'New Vehicle'} · {quote.policyType || 'Motor'} · {quote.insurerName || 'Insurer'}</div>
                 <div className="text-sm font-semibold mt-2">₹{quote.totalPremium.toLocaleString('en-IN')}</div>
               </div>
-              <button
-                onClick={() => setSelectedQuote(quote.id)}
-                className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-md bg-primary text-primary-foreground text-sm font-semibold"
-              >
-                <CheckCircle2 className="h-4 w-4" />
-                Enter Issued Policy Details
+              <button onClick={() => setSelectedQuote(quote.id)} className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-md bg-primary text-primary-foreground text-sm font-semibold">
+                <CheckCircle2 className="h-4 w-4" />Enter Issued Policy Details
               </button>
             </div>
           ))}
@@ -102,11 +94,7 @@ export function MotorIssuanceQueue() {
           isOpen={Boolean(selectedQuote)}
           quotationId={selectedQuote}
           onClose={() => setSelectedQuote(null)}
-          onSaved={() => {
-            setSelectedQuote(null);
-            toast.success('Motor policy issued successfully');
-            void loadQueue();
-          }}
+          onSaved={() => { setSelectedQuote(null); toast.success('Motor policy issued successfully'); void loadQueue(); }}
         />
       )}
     </div>
