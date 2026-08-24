@@ -1,10 +1,10 @@
-﻿import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { RequestUser } from '../auth/decorators/current-user.decorator';
 import { MotorQuoteWorkflowService, CapturePreviousPolicyDto } from './services/motor-quote-workflow.service';
-import { MotorInspectionService, CreateInspectionDto } from './services/motor-inspection.service';
+import { MotorInspectionService, CreateInspectionDto, InspectionPhotoType } from './services/motor-inspection.service';
 import { MotorPaymentTrackingService, RecordPaymentDto } from './services/motor-payment-tracking.service';
 
 @ApiTags('Motor — Workflow')
@@ -18,10 +18,8 @@ export class MotorWorkflowController {
     private readonly paymentService: MotorPaymentTrackingService,
   ) {}
 
-  // ─── Previous Policy + Rule Engine ───────────────────────────────────────
-
   @Post('quotations/:id/previous-policy')
-  @ApiOperation({ summary: 'Capture previous policy and run the Motor Rule Engine. Returns NCB decision and inspection requirement.' })
+  @ApiOperation({ summary: 'Capture previous policy and run the Motor Rule Engine.' })
   async capturePreviousPolicy(
     @Param('id') quotationId: string,
     @Body() dto: Omit<CapturePreviousPolicyDto, 'quotationId'>,
@@ -30,15 +28,13 @@ export class MotorWorkflowController {
   }
 
   @Get('quotations/:id/rule-evaluation')
-  @ApiOperation({ summary: 'Re-run rule engine from stored context — always recalculated, never trusts stored result alone.' })
+  @ApiOperation({ summary: 'Re-run the Motor Rule Engine from stored source context.' })
   async getRuleEvaluation(@Param('id') quotationId: string) {
     return this.workflowService.reEvaluate(quotationId);
   }
 
-  // ─── Inspection ──────────────────────────────────────────────────────────
-
   @Post('inspections')
-  @ApiOperation({ summary: 'Create inspection record for a quotation.' })
+  @ApiOperation({ summary: 'Create an inspection record. No placeholder evidence is created.' })
   async createInspection(
     @Body() dto: Omit<CreateInspectionDto, 'createdById'>,
     @CurrentUser() user: RequestUser,
@@ -52,8 +48,17 @@ export class MotorWorkflowController {
     return this.inspectionService.getInspection(quotationId);
   }
 
+  @Post('inspections/:id/photos')
+  @ApiOperation({ summary: 'Record one real inspection photo storage key.' })
+  async recordInspectionPhoto(
+    @Param('id') inspectionId: string,
+    @Body() body: { photoType: InspectionPhotoType; storageKey: string },
+  ) {
+    return this.inspectionService.recordPhoto(inspectionId, body.photoType, body.storageKey);
+  }
+
   @Post('inspections/:id/complete')
-  @ApiOperation({ summary: 'Mark inspection as completed. Validates all 7 photos are uploaded.' })
+  @ApiOperation({ summary: 'Complete an inspection only after all 7 required photos exist.' })
   async completeInspection(
     @Param('id') inspectionId: string,
     @Body() body: { pdfKey?: string; pdfUrl?: string },
@@ -70,10 +75,8 @@ export class MotorWorkflowController {
     return this.inspectionService.rejectInspection(inspectionId, reason);
   }
 
-  // ─── Payment ─────────────────────────────────────────────────────────────
-
   @Post('quotations/:id/payment')
-  @ApiOperation({ summary: 'Record payment status (NOT_DONE / UNDER_PROCESS / PAID). No gateway — tracking only.' })
+  @ApiOperation({ summary: 'Record payment tracking state. PAID requires amount and reference.' })
   async recordPayment(
     @Param('id') quotationId: string,
     @Body() dto: Omit<RecordPaymentDto, 'quotationId' | 'recordedById'>,
@@ -89,7 +92,7 @@ export class MotorWorkflowController {
   }
 
   @Get('quotations/:id/policy-gate')
-  @ApiOperation({ summary: 'Check if all conditions are met for policy creation. Backend-enforced gate.' })
+  @ApiOperation({ summary: 'Check the server-side policy issuance gate.' })
   async policyCreationGate(@Param('id') quotationId: string) {
     return this.paymentService.canProceedToPolicy(quotationId);
   }
