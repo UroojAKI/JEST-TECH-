@@ -31,9 +31,7 @@ export class MotorPolicyIssuanceService {
 
   async issuePolicy(quotationId: string, dto: IssueMotorPolicyDto, user: IssuingUser) {
     if (!ISSUANCE_ROLES.has(user.role)) {
-      throw new ForbiddenException(
-        'Only Back Office / Policy Issuance roles can issue a motor policy',
-      );
+      throw new ForbiddenException('Only Back Office / Policy Issuance roles can issue a motor policy');
     }
 
     const startDate = new Date(dto.startDate);
@@ -60,15 +58,9 @@ export class MotorPolicyIssuanceService {
       });
 
       if (!quote) throw new NotFoundException(`Quotation ${quotationId} not found`);
-      if (quote.policy) {
-        throw new ConflictException('A policy already exists for this quotation');
-      }
-      if (quote.workflowState !== 'PAYMENT_DONE') {
-        throw new ConflictException('Quotation is not in PAYMENT_DONE state');
-      }
-      if (!quote.calculationSnapshot) {
-        throw new ConflictException('Authoritative calculation snapshot is required before issuance');
-      }
+      if (quote.policy) throw new ConflictException('A policy already exists for this quotation');
+      if (quote.workflowState !== 'PAYMENT_DONE') throw new ConflictException('Quotation is not in PAYMENT_DONE state');
+      if (!quote.calculationSnapshot) throw new ConflictException('Authoritative calculation snapshot is required before issuance');
 
       const snapshot = (quote.calculationSnapshot as Record<string, any>) || {};
       const inputs = snapshot.inputs || {};
@@ -92,18 +84,17 @@ export class MotorPolicyIssuanceService {
         }
       }
 
-      const effectiveExpiry =
-        [odExpiry, tpExpiry, endDate]
-          .filter((date): date is Date => Boolean(date))
-          .sort((a, b) => a.getTime() - b.getTime())[0] || endDate;
+      const effectiveExpiry = [odExpiry, tpExpiry, endDate]
+        .filter((date): date is Date => Boolean(date))
+        .sort((a, b) => a.getTime() - b.getTime())[0] || endDate;
 
       const policy = await tx.policy.create({
         data: {
           policyNumber: dto.actualPolicyNumber,
           actualPolicyNumber: dto.actualPolicyNumber,
-          quotation: { connect: { id: quote.id } },
-          contact: { connect: { id: quote.contactId } },
-          ...(quote.accountId ? { account: { connect: { id: quote.accountId } } } : {}),
+          quotationId: quote.id,
+          contactId: quote.contactId,
+          accountId: quote.accountId || undefined,
           status: 'ACTIVE',
           premiumAmount: quote.totalPremium,
           effectiveDate: startDate,
@@ -118,34 +109,24 @@ export class MotorPolicyIssuanceService {
           tpExpiryDate: tpExpiry,
           actualPremium: dto.actualPremium,
           paymentStatus: 'SUCCESS',
-          vehicle: quote.vehicleId ? { connect: { id: quote.vehicleId } } : undefined,
+          vehicleId: quote.vehicleId || undefined,
           vehicleCategory: quote.vehicleCategory || undefined,
           policyType: policyType || undefined,
           motorMetadata: quote.motorMetadata || undefined,
           activeTpInsurer: quote.activeTpInsurer || undefined,
           activeTpPolicyNumber: quote.activeTpPolicyNumber || undefined,
           activeTpExpiryDate: quote.activeTpExpiryDate || undefined,
-          createdBy: { connect: { id: user.id } },
-          updatedBy: { connect: { id: user.id } },
-          ...(dto.documentFileKey && dto.documentFileName && dto.documentFileSize !== undefined
-            ? {
-                documents: {
-                  create: {
-                    documentType: 'POLICY_SCHEDULE',
-                    fileKey: dto.documentFileKey,
-                    fileName: dto.documentFileName,
-                    fileSize: dto.documentFileSize,
-                  },
-                },
-              }
-            : {}),
-          histories: {
-            create: {
-              status: 'ACTIVE',
-              comments: `Motor policy issued from quotation ${quote.quotationCode} by ${user.role}.`,
-              createdBy: { connect: { id: user.id } },
-            },
-          },
+          createdById: user.id,
+          updatedById: user.id,
+        },
+      });
+
+      await tx.policyHistory.create({
+        data: {
+          policyId: policy.id,
+          status: 'ACTIVE',
+          comments: `Motor policy issued from quotation ${quote.quotationCode} by ${user.role}.`,
+          createdById: user.id,
         },
       });
 
@@ -192,10 +173,9 @@ export class MotorPolicyIssuanceService {
         });
       }
 
-      const renewalDueDate =
-        [odExpiry, tpExpiry]
-          .filter((date): date is Date => Boolean(date))
-          .sort((a, b) => a.getTime() - b.getTime())[0] || endDate;
+      const renewalDueDate = [odExpiry, tpExpiry]
+        .filter((date): date is Date => Boolean(date))
+        .sort((a, b) => a.getTime() - b.getTime())[0] || endDate;
       await tx.renewalTask.create({
         data: {
           policyId: policy.id,
