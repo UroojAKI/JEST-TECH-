@@ -4,8 +4,11 @@ import React from 'react';
 import { getPolicyTenureOptions, INSURER_OPTIONS } from './motorFormConfig';
 import type { VehicleCategory, PolicyFormTPOnly } from './motorFormTypes';
 
+import { useMotorCalculator } from './useMotorCalculator';
+
 interface Props {
   category: VehicleCategory;
+  vehicleStatus: 'NEW' | 'EXISTING';
   data: PolicyFormTPOnly;
   onChange: (data: PolicyFormTPOnly) => void;
 }
@@ -39,11 +42,31 @@ function FieldRow({ label, mandatory, conditional, children, hint, formula }: {
   );
 }
 
-export function PolicyFormTPOnlyForm({ category, data, onChange }: Props) {
+export function PolicyFormTPOnlyForm({ category, vehicleStatus, data, onChange }: Props) {
   const set = (key: keyof PolicyFormTPOnly) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
     onChange({ ...data, [key]: e.target.value });
   const setBool = (key: keyof PolicyFormTPOnly) => (e: React.ChangeEvent<HTMLInputElement>) =>
     onChange({ ...data, [key]: e.target.checked });
+
+  const { result, loading, error } = useMotorCalculator({
+    vehicleCategory: category,
+    vehicleStatus: vehicleStatus,
+    policyType: 'THIRD_PARTY_ONLY',
+    policyTenure: parseInt(data.policyTenure || '1'),
+    paCover: !!data.paCoverOwner,
+    paidDriverLiability: data.legalLiabilityPaidDriver === 'Yes'
+  });
+
+  React.useEffect(() => {
+    if (result && result.outputs) {
+      onChange({ 
+        ...data, 
+        thirdPartyPremium: result.outputs.netTpPremium.toString(),
+        totalPremiumInclGST: result.outputs.totalPremium.toString(),
+        calculatedResult: result 
+      });
+    }
+  }, [result]);
 
   const tenureOptions = getPolicyTenureOptions(category, 'TP_ONLY');
 
@@ -143,28 +166,19 @@ export function PolicyFormTPOnlyForm({ category, data, onChange }: Props) {
 
       {/* Premium Split */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <FieldRow label="Base Premium (TP + PA + Legal) ₹" mandatory hint="Enter total premium before GST">
+        <FieldRow label="Total Premium (incl. GST) ₹" hint="Calculated by backend rule engine">
           <input
             type="number"
-            value={data.totalPremiumInclGST ? Math.round(parseFloat(data.totalPremiumInclGST) / 1.18) : ''}
-            onChange={(e) => {
-              const base = parseFloat(e.target.value);
-              if (isNaN(base)) {
-                set('totalPremiumInclGST')({ target: { value: '' } } as any);
-              } else {
-                const total = Math.round(base * 1.18).toString();
-                set('totalPremiumInclGST')({ target: { value: total } } as any);
-              }
-            }}
-            placeholder="e.g. 5000"
-            className={mandatoryInput(data.totalPremiumInclGST)}
+            value={data.totalPremiumInclGST || ''}
+            readOnly
+            className="w-full p-2 rounded-lg border text-xs font-semibold bg-muted focus:outline-none focus:ring-1 focus:ring-primary transition-colors border-border opacity-70"
           />
         </FieldRow>
-        <FieldRow label="Total Premium (incl. 18% GST) ₹" hint="Auto-calculated">
+        <FieldRow label="Premium Breakdown" hint="Auto-calculated">
           <div className="p-2 rounded-lg border border-sky-200 bg-sky-50 text-sky-800 font-bold text-sm">
             {data.totalPremiumInclGST ? `₹${data.totalPremiumInclGST}` : '₹0'}
             <span className="text-[10px] ml-2 text-sky-600 font-normal">
-              (GST: ₹{data.totalPremiumInclGST ? Math.round(parseFloat(data.totalPremiumInclGST) - (parseFloat(data.totalPremiumInclGST) / 1.18)) : 0})
+              (TP: ₹{data.calculatedResult?.outputs?.netTpPremium || 0} | GST: ₹{data.calculatedResult?.outputs?.totalGst || 0})
             </span>
           </div>
         </FieldRow>

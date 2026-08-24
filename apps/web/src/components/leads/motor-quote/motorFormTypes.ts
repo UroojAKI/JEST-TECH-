@@ -163,6 +163,7 @@ export interface PolicyFormTPOnly {
   policyStartDate: string;       // N
   policyEndDate: string;         // N
   commissionDiscountCalc: string; // Y — free text employee
+  calculatedResult?: any;
 }
 
 export type SaodVerificationMethod =
@@ -217,6 +218,7 @@ export interface PolicyFormSAOD {
   odCommissionPercent: string;   // Employee enters insurer commission %
   commissionAmount: string;      // Auto-calc: odPremium × commission%
   commissionDiscountCalc: string; // Y — free text employee notes
+  calculatedResult?: any;
 }
 
 
@@ -232,12 +234,14 @@ export interface PolicyFormPackage {
   thirdPartyPremium: string;     // Y
   paCoverOwner: boolean;         // Y
   addonsSelected: string[];      // N
+  addonPrices?: Record<string, string>; // User entered manual prices
   totalPremiumInclGST: string;   // Y
   policyStartDate: string;       // N
   policyEndDate: string;         // N
   tpCommissionCalc: string;      // Y — free text employee
   odCommissionCalc: string;      // Y — free text employee
   finalCommissionCalc: string;   // Y — free text employee
+  calculatedResult?: any;
 }
 
 export type PolicyDetails = PolicyFormTPOnly | PolicyFormSAOD | PolicyFormPackage;

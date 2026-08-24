@@ -33,7 +33,81 @@ export class MotorQuoteController {
         issuanceStatus: 'PROPOSAL_READY'
       }
     });
-
     return quote;
+  }
+
+  @Post(':id/issue')
+  async issuePolicy(
+    @Param('id') quoteId: string,
+    @Body() body: { actualPolicyNumber: string; actualPremium: number; startDate: string; endDate: string; documentUrl?: string; }
+  ) {
+    const quote = await this.prisma.quotation.findUnique({
+      where: { id: quoteId },
+      include: { contact: true, lead: true }
+    });
+
+    if (!quote) throw new Error('Quotation not found');
+
+    // Update Quotation Status
+    await this.prisma.quotation.update({
+      where: { id: quoteId },
+      data: {
+        issuanceStatus: 'ISSUED',
+        status: 'CONVERTED_TO_POLICY'
+      }
+    });
+    
+    // Parse snapshot to get policy type for OD/TP dates logic
+    const snapshot = quote.calculationSnapshot as any;
+    const policyType = snapshot?.inputs?.policyType;
+    let odExpiry = null;
+    let tpExpiry = null;
+
+    if (body.endDate) {
+      const parsedEndDate = new Date(body.endDate);
+      if (policyType === 'THIRD_PARTY_ONLY') {
+        tpExpiry = parsedEndDate;
+      } else if (policyType === 'SAOD') {
+        odExpiry = parsedEndDate;
+      } else {
+        // PACKAGE
+        odExpiry = parsedEndDate;
+        // Check if tenure is multi-year (e.g. 3yr TP)
+        const tenure = snapshot?.inputs?.policyTenure || 1;
+        if (tenure > 1) {
+          const tpEndDate = new Date(body.startDate);
+          tpEndDate.setFullYear(tpEndDate.getFullYear() + tenure);
+          tpExpiry = tpEndDate;
+        } else {
+          tpExpiry = parsedEndDate;
+        }
+      }
+    }
+
+    // Create or update the actual Policy record
+    const policy = await this.prisma.policy.create({
+      data: {
+        policyNumber: body.actualPolicyNumber || `POL-${Date.now()}`,
+        actualPolicyNumber: body.actualPolicyNumber,
+        contact: { connect: { id: quote.contactId } },
+        quotation: { connect: { id: quoteId } },
+        insurerName: quote.insurerName,
+        productType: quote.productType,
+        basePremium: quote.basePremium,
+        totalPremium: quote.totalPremium,
+        actualPremium: body.actualPremium || quote.totalPremium,
+        startDate: new Date(body.startDate),
+        endDate: new Date(body.endDate),
+        odExpiryDate: odExpiry,
+        tpExpiryDate: tpExpiry,
+        paymentStatus: 'PAID',
+        issuanceStatus: 'ISSUED',
+        createdById: quote.createdById,
+        // Lead relation
+        ...(quote.leadId ? { lead: { connect: { id: quote.leadId } } } : {})
+      }
+    });
+
+    return policy;
   }
 }

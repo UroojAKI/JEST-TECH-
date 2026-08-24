@@ -575,13 +575,13 @@ export function MotorQuoteWizard({ isOpen, leadId, initialCategory, cloneQuoteDa
               <div className="space-y-4">
                 <h3 className="text-sm font-bold text-foreground border-b pb-2">Premium & Coverages</h3>
                 {policyType === 'TP_ONLY' && (
-                  <PolicyFormTPOnlyForm category={vehicleCategory} data={tpForm} onChange={setTpForm} />
+                  <PolicyFormTPOnlyForm category={vehicleCategory} vehicleStatus={vehicleDetails.vehicleStatus === 'NEW' ? 'NEW' : 'EXISTING'} data={tpForm} onChange={setTpForm} />
                 )}
                 {policyType === 'SAOD' && (
                   <PolicyFormSAODForm data={saodForm} onChange={setSaodForm} />
                 )}
                 {policyType === 'PACKAGE' && (
-                  <PolicyFormPackageForm category={vehicleCategory} data={packageForm} onChange={setPackageForm} />
+                  <PolicyFormPackageForm category={vehicleCategory} vehicleStatus={vehicleDetails.vehicleStatus === 'NEW' ? 'NEW' : 'EXISTING'} data={packageForm} onChange={setPackageForm} />
                 )}
               </div>
             )}

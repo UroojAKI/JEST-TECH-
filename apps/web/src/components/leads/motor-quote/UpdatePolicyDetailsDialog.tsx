@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { X, UploadCloud, CheckCircle } from 'lucide-react';
+import apiClient from '@/lib/api-client';
 
 interface Props {
   isOpen: boolean;
@@ -23,7 +24,12 @@ export function UpdatePolicyDetailsDialog({ isOpen, onClose, quotationId, onSave
     e.preventDefault();
     setLoading(true);
     try {
-      // API call to update policy details
+      await apiClient.post(`/motor/quotes/${quotationId}/issue`, {
+        actualPolicyNumber,
+        actualPremium: parseFloat(actualPremium),
+        startDate,
+        endDate
+      });
       onSaved();
     } catch (e) {
       console.error(e);

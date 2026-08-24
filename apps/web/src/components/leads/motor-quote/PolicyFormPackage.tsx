@@ -1,11 +1,13 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { getPolicyTenureOptions, INSURER_OPTIONS, NCB_OPTIONS, ADDON_OPTIONS } from './motorFormConfig';
 import type { VehicleCategory, PolicyFormPackage } from './motorFormTypes';
+import { useMotorCalculator } from './useMotorCalculator';
 
 interface Props {
   category: VehicleCategory;
+  vehicleStatus: 'NEW' | 'EXISTING';
   data: PolicyFormPackage;
   onChange: (data: PolicyFormPackage) => void;
 }
@@ -39,11 +41,37 @@ function FieldRow({ label, mandatory, conditional, children, hint, formula }: {
   );
 }
 
-export function PolicyFormPackageForm({ category, data, onChange }: Props) {
+export function PolicyFormPackageForm({ category, vehicleStatus, data, onChange }: Props) {
   const set = (key: keyof PolicyFormPackage) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
     onChange({ ...data, [key]: e.target.value });
   const setBool = (key: keyof PolicyFormPackage) => (e: React.ChangeEvent<HTMLInputElement>) =>
     onChange({ ...data, [key]: e.target.checked });
+
+  const { result, loading, error } = useMotorCalculator({
+    vehicleCategory: category,
+    vehicleStatus: vehicleStatus,
+    policyType: 'PACKAGE_COMPREHENSIVE',
+    policyTenure: parseInt(data.policyTenure || '1'),
+    idv: parseFloat(data.insuredDeclaredValue || '0'),
+    ncbPercent: parseInt(data.ncbPercentage || '0'),
+    claimInExpiringPolicy: data.claimInExpiringPolicy === 'Yes',
+    paCover: true,
+    paidDriverLiability: false,
+    addons: (data.addonsSelected || []).map(a => ({
+      addonCode: a,
+      manualPrice: data.addonPrices?.[a] ? parseFloat(data.addonPrices[a]) : undefined
+    }))
+  });
+
+  useEffect(() => {
+    if (result && result.outputs) {
+      onChange({ 
+        ...data, 
+        totalPremiumInclGST: result.outputs.totalPremium.toString(),
+        calculatedResult: result 
+      });
+    }
+  }, [result]);
 
   const handleClaimChange = (val: string) => {
     const updated = { ...data, claimInExpiringPolicy: val };
@@ -71,6 +99,8 @@ export function PolicyFormPackageForm({ category, data, onChange }: Props) {
             {isCommercial ? 'Note: TP GST (12%) and OD GST (18%) are calculated separately' : 'Single policy covers both Own Damage and Third Party liability'}
           </div>
         </div>
+        {loading && <div className="ml-auto text-xs text-primary animate-pulse">Calculating...</div>}
+        {error && <div className="ml-auto text-xs text-destructive">{error}</div>}
       </div>
 
       {isCommercial && (
@@ -179,45 +209,50 @@ export function PolicyFormPackageForm({ category, data, onChange }: Props) {
         <label className="text-[11px] font-bold text-foreground block">
           Add-ons Selected <span className="text-muted-foreground text-[9px] ml-1">(Optional)</span>
         </label>
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-          {ADDON_OPTIONS.map((a) => (
-            <label key={a.key} className="flex items-center gap-2 text-[11px] font-semibold cursor-pointer p-2 rounded-lg border hover:bg-accent transition-colors">
-              <input
-                type="checkbox"
-                checked={(data.addonsSelected || []).includes(a.key)}
-                onChange={() => toggleAddon(a.key)}
-                className="h-3.5 w-3.5 rounded text-primary"
-              />
-              {a.label}
-            </label>
-          ))}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+          {ADDON_OPTIONS.map((a) => {
+            const isSelected = (data.addonsSelected || []).includes(a.key);
+            return (
+              <div key={a.key} className={`flex flex-col gap-1 p-2 rounded-lg border transition-colors ${isSelected ? 'bg-accent border-primary/50' : 'hover:bg-accent/50'}`}>
+                <label className="flex items-center gap-2 text-[11px] font-semibold cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={isSelected}
+                    onChange={() => toggleAddon(a.key)}
+                    className="h-3.5 w-3.5 rounded text-primary"
+                  />
+                  {a.label}
+                </label>
+                {isSelected && (
+                  <input
+                    type="number"
+                    placeholder="Manual Price (₹) - Optional"
+                    value={data.addonPrices?.[a.key] || ''}
+                    onChange={(e) => onChange({ ...data, addonPrices: { ...data.addonPrices, [a.key]: e.target.value } })}
+                    className="mt-1 w-full p-1.5 rounded-md border text-[10px] bg-background focus:outline-none focus:ring-1 focus:ring-primary"
+                  />
+                )}
+              </div>
+            );
+          })}
         </div>
       </div>
 
       {/* Premium Split */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <FieldRow label="Base Premium (OD + TP + PA + Add-ons) ₹" mandatory hint="Enter total premium before GST">
+        <FieldRow label="Total Premium (incl. GST) ₹" hint="Calculated by backend rule engine">
           <input
             type="number"
-            value={data.totalPremiumInclGST ? Math.round(parseFloat(data.totalPremiumInclGST) / 1.18) : ''}
-            onChange={(e) => {
-              const base = parseFloat(e.target.value);
-              if (isNaN(base)) {
-                set('totalPremiumInclGST')({ target: { value: '' } } as any);
-              } else {
-                const total = Math.round(base * 1.18).toString();
-                set('totalPremiumInclGST')({ target: { value: total } } as any);
-              }
-            }}
-            placeholder="e.g. 15000"
-            className={mandatoryInput(data.totalPremiumInclGST)}
+            value={data.totalPremiumInclGST || ''}
+            readOnly
+            className="w-full p-2 rounded-lg border text-xs font-semibold bg-muted focus:outline-none focus:ring-1 focus:ring-primary transition-colors border-border opacity-70"
           />
         </FieldRow>
-        <FieldRow label="Total Premium (incl. 18% GST) ₹" hint="Auto-calculated">
+        <FieldRow label="Premium Breakdown" hint="Auto-calculated">
           <div className="p-2 rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-800 font-bold text-sm">
             {data.totalPremiumInclGST ? `₹${data.totalPremiumInclGST}` : '₹0'}
             <span className="text-[10px] ml-2 text-emerald-600 font-normal">
-              (GST: ₹{data.totalPremiumInclGST ? Math.round(parseFloat(data.totalPremiumInclGST) - (parseFloat(data.totalPremiumInclGST) / 1.18)) : 0})
+              (OD: ₹{data.calculatedResult?.outputs?.netOdPremium || 0} | TP: ₹{data.calculatedResult?.outputs?.netTpPremium || 0} | GST: ₹{data.calculatedResult?.outputs?.totalGst || 0})
             </span>
           </div>
         </FieldRow>
