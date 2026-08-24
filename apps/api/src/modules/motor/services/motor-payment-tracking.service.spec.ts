@@ -3,20 +3,10 @@ import { MotorPaymentTrackingService } from './motor-payment-tracking.service';
 
 describe('MotorPaymentTrackingService', () => {
   const prisma = {
-    quotation: {
-      findUnique: jest.fn(),
-      update: jest.fn(),
-    },
-    motorPaymentRecord: {
-      findUnique: jest.fn(),
-      upsert: jest.fn(),
-    },
-    motorInspection: {
-      findUnique: jest.fn(),
-    },
-    motorRuleEvaluation: {
-      findUnique: jest.fn(),
-    },
+    quotation: { findUnique: jest.fn(), update: jest.fn() },
+    motorPaymentRecord: { findUnique: jest.fn(), upsert: jest.fn() },
+    motorInspection: { findUnique: jest.fn() },
+    motorRuleEvaluation: { findUnique: jest.fn() },
   } as any;
 
   let service: MotorPaymentTrackingService;
@@ -31,9 +21,7 @@ describe('MotorPaymentTrackingService', () => {
     prisma.motorPaymentRecord.findUnique.mockResolvedValue(null);
 
     await expect(service.recordPayment({
-      quotationId: 'q1',
-      status: 'PAID',
-      referenceNumber: 'UTR-1',
+      quotationId: 'q1', status: 'PAID', referenceNumber: 'UTR-1',
     })).rejects.toBeInstanceOf(BadRequestException);
   });
 
@@ -42,18 +30,14 @@ describe('MotorPaymentTrackingService', () => {
     prisma.motorPaymentRecord.findUnique.mockResolvedValue({ status: 'PAID' });
 
     await expect(service.recordPayment({
-      quotationId: 'q1',
-      status: 'UNDER_PROCESS',
-      quotationId: 'q1',
-    } as any)).rejects.toBeInstanceOf(BadRequestException);
+      quotationId: 'q1', status: 'UNDER_PROCESS',
+    })).rejects.toBeInstanceOf(BadRequestException);
   });
 
   it('blocks issuance when inspection is required but incomplete', async () => {
     prisma.quotation.findUnique.mockResolvedValue({
-      id: 'q1',
-      calculationSnapshot: { outputs: { totalPremium: 1000 } },
-      issuanceStatus: 'ISSUANCE_PENDING',
-      workflowState: 'PAYMENT_DONE',
+      id: 'q1', calculationSnapshot: { outputs: { totalPremium: 1000 } },
+      issuanceStatus: 'ISSUANCE_PENDING', workflowState: 'PAYMENT_DONE',
       motorMetadata: { vehicleDetails: { vehicleStatus: 'EXISTING' } },
     });
     prisma.motorInspection.findUnique.mockResolvedValue({ status: 'IN_PROGRESS' });
@@ -61,8 +45,7 @@ describe('MotorPaymentTrackingService', () => {
     prisma.motorRuleEvaluation.findUnique.mockResolvedValue({ inspectionRequired: true });
 
     await expect(service.canProceedToPolicy('q1')).resolves.toEqual({
-      allowed: false,
-      blockers: ['INSPECTION_IN_PROGRESS'],
+      allowed: false, blockers: ['INSPECTION_IN_PROGRESS'],
     });
   });
 });
