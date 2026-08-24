@@ -126,11 +126,28 @@ export class AccountRepository extends BaseRepository<
     });
   }
 
-  async findAll(tx?: TransactionClient): Promise<AccountDetail[]> {
+  async findAll(
+    where?: Prisma.AccountWhereInput,
+    skip?: number,
+    take?: number,
+    orderBy?: Prisma.AccountOrderByWithRelationInput,
+    tx?: TransactionClient,
+  ): Promise<AccountDetail[]> {
     return this.getClient(tx).findMany({
-      where: { deletedAt: null },
+      where: { ...where, deletedAt: null },
+      skip,
+      take,
       ...this.detailArgs,
-      orderBy: { createdAt: 'desc' },
+      orderBy: orderBy || { createdAt: 'desc' },
+    });
+  }
+
+  async count(
+    where?: Prisma.AccountWhereInput,
+    tx?: TransactionClient,
+  ): Promise<number> {
+    return this.getClient(tx).count({
+      where: { ...where, deletedAt: null },
     });
   }
 

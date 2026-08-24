@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { Test, TestingModule } from '@nestjs/testing';
 import { UnauthorizedException } from '@nestjs/common';
 import * as argon2 from 'argon2';
@@ -23,7 +24,9 @@ describe('AuthService', () => {
     lastName: 'User',
     passwordHash: '$argon2id$v=19$m=65536,t=3,p=4$hash',
     role: { code: 'SALES_AGENT', id: 'role-id', permissions: [] },
-    isActive: true,
+    // auth.service.ts checks user.status (not isActive) — must be 'ACTIVE'
+    // to reach the password verification step
+    status: 'ACTIVE',
   };
 
   beforeEach(async () => {

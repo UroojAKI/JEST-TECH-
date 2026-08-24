@@ -8,6 +8,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
@@ -22,6 +23,8 @@ import type { RequestUser } from '../../auth/decorators/current-user.decorator';
 import { CreateAccountDto } from '../dto/create-account.dto';
 import { UpdateAccountDto } from '../dto/update-account.dto';
 import { AccountsService } from '../services/accounts.service';
+import { ParseUUIDPipe } from '../../../common/utils/parse-uuid.pipe';
+import { PaginationDto } from '../../../common/pagination/pagination.dto';
 
 @ApiTags('Accounts')
 @ApiBearerAuth()
@@ -51,8 +54,8 @@ export class AccountsController {
     RoleType.SALES_AGENT,
     RoleType.OPERATIONS,
   )
-  findAll() {
-    return this.accountsService.findAll();
+  findAll(@Query() pagination: PaginationDto) {
+    return this.accountsService.findAll(pagination);
   }
 
   @Get(':id')
@@ -64,7 +67,7 @@ export class AccountsController {
     RoleType.SALES_AGENT,
     RoleType.OPERATIONS,
   )
-  findOne(@Param('id') id: string) {
+  findOne(@Param('id', ParseUUIDPipe) id: string) {
     return this.accountsService.findById(id);
   }
 
@@ -77,7 +80,7 @@ export class AccountsController {
     RoleType.SALES_AGENT,
   )
   update(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateAccountDto,
     @CurrentUser() user: RequestUser,
   ) {
@@ -87,7 +90,7 @@ export class AccountsController {
   @Delete(':id')
   @HttpCode(HttpStatus.OK)
   @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN)
-  remove(@Param('id') id: string, @CurrentUser() user: RequestUser) {
+  remove(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: RequestUser) {
     return this.accountsService.remove(id, user.id);
   }
 }

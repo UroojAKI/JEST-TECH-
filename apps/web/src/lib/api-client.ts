@@ -1,6 +1,9 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1';
+const defaultApiUrl = typeof window !== 'undefined' ? '/api/v1' : 'http://localhost:4000/api/v1';
+const API_URL = (typeof window !== 'undefined' && (process.env.NEXT_PUBLIC_API_URL === 'http://localhost:4000/api/v1' || !process.env.NEXT_PUBLIC_API_URL))
+  ? '/api/v1'
+  : (process.env.NEXT_PUBLIC_API_URL || defaultApiUrl);
 
 export const apiClient = axios.create({
   baseURL: API_URL,
@@ -8,6 +11,16 @@ export const apiClient = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
+});
+
+apiClient.interceptors.request.use((config) => {
+  if (typeof window !== 'undefined') {
+    const token = localStorage.getItem('jest_access_token');
+    if (token && !config.headers.Authorization) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+  }
+  return config;
 });
 
 let isRefreshing = false;
@@ -29,7 +42,19 @@ const processQueue = (error: AxiosError | null) => {
 
 // Response Interceptor for 401 Automatic Token Refresh
 apiClient.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    // Automatically unwrap the standard { success, data, meta } envelope
+    // used by the NestJS API's global response interceptor
+    if (
+      response.data &&
+      typeof response.data === 'object' &&
+      'success' in response.data &&
+      'data' in response.data
+    ) {
+      response.data = response.data.data;
+    }
+    return response;
+  },
   async (error: AxiosError) => {
     const originalRequest = error.config as InternalAxiosRequestConfig & {
       _retry?: boolean;
@@ -52,11 +77,15 @@ apiClient.interceptors.response.use(
       isRefreshing = true;
 
       try {
-        await axios.post(
+        const refreshRes = await axios.post(
           `${API_URL}/auth/refresh`,
           {},
           { withCredentials: true }
         );
+        if (typeof window !== 'undefined' && refreshRes.data?.accessToken) {
+          document.cookie = `access_token=${refreshRes.data.accessToken}; path=/; max-age=900; SameSite=Lax`;
+          localStorage.setItem('jest_access_token', refreshRes.data.accessToken);
+        }
         processQueue(null);
         return apiClient(originalRequest);
       } catch (refreshError) {

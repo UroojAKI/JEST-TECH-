@@ -1,7 +1,10 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import * as argon2 from 'argon2';
 
-import { AuditAction, RoleType } from '@prisma/client';
+import { AuditAction, RoleType, Prisma } from '@prisma/client';
+
+import { PaginationDto } from '../../../common/pagination/pagination.dto';
+import { PaginatedResponseDto } from '../../../common/pagination/paginated-response.dto';
 
 import { UserMapper } from '../mappers/user.mapper';
 import { CreateUserDto } from '../dto/create-user.dto';
@@ -86,10 +89,37 @@ export class UsersService {
     return { success: true, message: 'Password changed successfully' };
   }
 
-  async findAll() {
-    const users = await this.userRepository.findAll();
+  async findAll(pagination: PaginationDto) {
+    const page = pagination.page || 1;
+    const limit = pagination.limit || 10;
+    const skip = (page - 1) * limit;
+    
+    const where: Prisma.UserWhereInput = {};
+    if (pagination.search) {
+      where.OR = [
+        { firstName: { contains: pagination.search, mode: 'insensitive' } },
+        { lastName: { contains: pagination.search, mode: 'insensitive' } },
+        { email: { contains: pagination.search, mode: 'insensitive' } },
+      ];
+    }
+    
+    const orderBy = pagination.sortBy
+      ? { [pagination.sortBy]: pagination.sortOrder || 'asc' } as any
+      : { createdAt: 'desc' };
 
-    return UserMapper.toResponseList(users);
+    const [users, total] = await Promise.all([
+      this.prisma.user.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy,
+        include: { role: true },
+      }),
+      this.prisma.user.count({ where }),
+    ]);
+
+    const data = UserMapper.toResponseList(users);
+    return new PaginatedResponseDto(data, total, page, limit);
   }
 
   async findById(id: string) {

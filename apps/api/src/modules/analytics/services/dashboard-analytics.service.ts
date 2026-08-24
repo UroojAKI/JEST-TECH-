@@ -28,6 +28,20 @@ export class DashboardAnalyticsService {
   ) {}
 
   async getDashboardData(role: string, userId: string) {
+    const cacheKey = `dashboard:analytics:${userId}:${role}`;
+    const cached = await this.cache.get(cacheKey);
+    if (cached) return cached;
+
+    const result = await this.computeDashboardData(role, userId);
+    await this.cache.set(cacheKey, result, 300); // 5 min TTL
+    return result;
+  }
+
+  async clearDashboardCache(userId: string) {
+    await this.cache.clear(`dashboard:analytics:${userId}`);
+  }
+
+  private async computeDashboardData(role: string, userId: string) {
     const [revenue, leads, policies, claims, renewals, quotations] =
       await Promise.all([
         this.revenueAnalytics.getOverview(),

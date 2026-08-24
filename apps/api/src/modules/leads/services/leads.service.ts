@@ -20,6 +20,8 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { LeadConvertedEvent } from '../events/lead-converted.event';
 import type { RequestUser } from '../../auth/decorators/current-user.decorator';
 import { PrismaService } from '../../../database/prisma.service';
+import { PaginationDto } from '../../../common/pagination/pagination.dto';
+import { PaginatedResponseDto } from '../../../common/pagination/paginated-response.dto';
 
 @Injectable()
 export class LeadsService {
@@ -91,12 +93,36 @@ export class LeadsService {
     const leadCode = await this.leadRepository.generateLeadCode();
     const leadTitle = dto.title || `${dto.firstName || 'Prospect'} ${dto.lastName || ''} - ${dto.productInterest || 'Comprehensive Lead'}`.trim();
 
+    const validSources: Record<string, LeadSource> = {
+      WALK_IN: LeadSource.WALK_IN,
+      REFERRAL: LeadSource.REFERRAL,
+      WEBSITE: LeadSource.DIGITAL,
+      FACEBOOK: LeadSource.DIGITAL,
+      GOOGLE: LeadSource.CAMPAIGN,
+      WHATSAPP: LeadSource.DIGITAL,
+      EXISTING_CUSTOMER: LeadSource.CROSS_SELL,
+      DEALER: LeadSource.ADVISOR,
+      COLD_CALL: LeadSource.OTHER,
+      SOCIAL_MEDIA: LeadSource.DIGITAL,
+      CAMPAIGN: LeadSource.CAMPAIGN,
+      PARTNER: LeadSource.ADVISOR,
+      OTHER: LeadSource.OTHER,
+    };
+    const mappedSource = dto.source
+      ? validSources[String(dto.source).toUpperCase()] || LeadSource.OTHER
+      : LeadSource.DIGITAL;
+
     const leadData: Prisma.LeadCreateInput = {
       leadCode,
       title: leadTitle,
-      source: dto.source || LeadSource.WEBSITE,
+      source: mappedSource,
       status: dto.status || LeadStatus.NEW,
-      description: dto.description || (dto.productInterest ? `Interest: ${dto.productInterest}` : undefined),
+      description: dto.description || [
+        dto.remarks ? `Remarks: ${dto.remarks}` : '',
+        dto.city ? `City: ${dto.city}` : '',
+        dto.productInterest ? `Interest: ${dto.productInterest}` : '',
+        dto.source ? `Orig. Source: ${dto.source}` : ''
+      ].filter(Boolean).join(' | ') || undefined,
       contact: { connect: { id: targetContactId } },
       createdBy: { connect: { id: createdById } },
       updatedBy: { connect: { id: createdById } },
@@ -114,13 +140,35 @@ export class LeadsService {
     return LeadMapper.toResponse(lead);
   }
 
-  async findAll(user: RequestUser) {
-    const where: Prisma.LeadWhereInput =
+  async findAll(user: RequestUser, pagination: PaginationDto) {
+    const { page = 1, limit = 10, search, sortBy = 'createdAt', sortOrder = 'desc' } = pagination;
+    const skip = (page - 1) * limit;
+
+    const baseWhere: Prisma.LeadWhereInput =
       user.role === 'SALES_AGENT'
         ? { OR: [{ assignedToId: user.id }, { createdById: user.id }] }
         : {};
-    const leads = await this.leadRepository.findAll(where);
-    return LeadMapper.toResponseList(leads);
+
+    const searchWhere: Prisma.LeadWhereInput = search
+      ? {
+          OR: [
+            { title: { contains: search, mode: 'insensitive' } },
+            { description: { contains: search, mode: 'insensitive' } },
+          ],
+        }
+      : {};
+
+    const where: Prisma.LeadWhereInput = {
+      ...baseWhere,
+      ...searchWhere,
+    };
+
+    const [leads, total] = await Promise.all([
+      this.leadRepository.findAll(where, skip, limit, { [sortBy]: sortOrder }),
+      this.leadRepository.count(where),
+    ]);
+
+    return new PaginatedResponseDto(LeadMapper.toResponseList(leads), total, page, limit);
   }
 
   async findById(id: string, user: RequestUser) {
@@ -185,12 +233,38 @@ export class LeadsService {
       }
     }
 
-    const { contactId, accountId, assignedToId, ...restDto } = dto;
+    const { contactId, accountId, assignedToId, city, remarks, source, ...restDto } = dto;
 
     const leadData: Prisma.LeadUpdateInput = {
       ...restDto,
       updatedBy: { connect: { id: user.id } },
     };
+
+    if (source !== undefined) {
+      const validSources: Record<string, LeadSource> = {
+        WALK_IN: LeadSource.WALK_IN,
+        REFERRAL: LeadSource.REFERRAL,
+        WEBSITE: LeadSource.DIGITAL,
+        FACEBOOK: LeadSource.DIGITAL,
+        GOOGLE: LeadSource.CAMPAIGN,
+        WHATSAPP: LeadSource.DIGITAL,
+        EXISTING_CUSTOMER: LeadSource.CROSS_SELL,
+        DEALER: LeadSource.ADVISOR,
+        COLD_CALL: LeadSource.OTHER,
+        SOCIAL_MEDIA: LeadSource.DIGITAL,
+        CAMPAIGN: LeadSource.CAMPAIGN,
+        PARTNER: LeadSource.ADVISOR,
+        OTHER: LeadSource.OTHER,
+      };
+      leadData.source = validSources[String(source).toUpperCase()] || LeadSource.OTHER;
+    }
+
+    if (remarks !== undefined || city !== undefined) {
+      const extraInfo = [remarks ? `Remarks: ${remarks}` : '', city ? `City: ${city}` : ''].filter(Boolean).join(' | ');
+      if (extraInfo) {
+        leadData.description = restDto.description ? `${restDto.description} | ${extraInfo}` : extraInfo;
+      }
+    }
 
     if (contactId) {
       leadData.contact = { connect: { id: contactId } };

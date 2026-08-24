@@ -11,6 +11,8 @@ import { AccountMapper } from '../mappers/account.mapper';
 import { AccountRepository } from '../repositories/account.repository';
 import { CreateAccountDto } from '../dto/create-account.dto';
 import { UpdateAccountDto } from '../dto/update-account.dto';
+import { PaginationDto } from '../../../common/pagination/pagination.dto';
+import { PaginatedResponseDto } from '../../../common/pagination/paginated-response.dto';
 
 @Injectable()
 export class AccountsService {
@@ -81,9 +83,26 @@ export class AccountsService {
     return AccountMapper.toResponse(account);
   }
 
-  async findAll() {
-    const accounts = await this.accountRepository.findAll();
-    return AccountMapper.toResponseList(accounts);
+  async findAll(pagination: PaginationDto) {
+    const { page = 1, limit = 10, search, sortBy = 'createdAt', sortOrder = 'desc' } = pagination;
+    const skip = (page - 1) * limit;
+
+    const where: Prisma.AccountWhereInput = search
+      ? {
+          OR: [
+            { name: { contains: search, mode: 'insensitive' } },
+            { email: { contains: search, mode: 'insensitive' } },
+            { phone: { contains: search, mode: 'insensitive' } },
+          ],
+        }
+      : {};
+
+    const [accounts, total] = await Promise.all([
+      this.accountRepository.findAll(where, skip, limit, { [sortBy]: sortOrder }),
+      this.accountRepository.count(where),
+    ]);
+
+    return new PaginatedResponseDto(AccountMapper.toResponseList(accounts), total, page, limit);
   }
 
   async findById(id: string) {

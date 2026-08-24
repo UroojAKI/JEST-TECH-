@@ -18,7 +18,10 @@ import { ConfigurationService } from '../configuration/configuration.service';
           { name: 'upload', ttl: 3600000, limit: 200 },
           { name: 'report', ttl: 3600000, limit: 100 },
         ],
-        storage: new ThrottlerStorageRedisService(config.redisUrl),
+        storage:
+          process.env.REDIS_ENABLED === 'true'
+            ? new ThrottlerStorageRedisService(config.redisUrl)
+            : undefined, // Falls back to ThrottlerStorageMemoryService
       }),
     }),
   ],
@@ -30,3 +33,4 @@ import { ConfigurationService } from '../configuration/configuration.service';
   ],
 })
 export class RateLimitingModule {}
+

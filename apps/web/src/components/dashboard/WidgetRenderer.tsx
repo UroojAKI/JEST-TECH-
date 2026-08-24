@@ -41,19 +41,19 @@ export function WidgetRenderer({ widget }: WidgetProps) {
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div className="p-3 rounded-xl bg-primary/5 border border-primary/10">
             <div className="text-[10px] font-semibold text-muted-foreground">Gross Written Premium</div>
-            <div className="text-lg font-black text-primary mt-1">₹48,25,000</div>
+            <div className="text-lg font-black text-primary mt-1">₹{widget.data?.myPremium?.toLocaleString('en-IN') || '0'}</div>
             <div className="text-[10px] text-emerald-600 font-bold flex items-center mt-1">
-              <TrendingUp className="h-3 w-3 mr-0.5" /> +14.2% vs last month
+              <TrendingUp className="h-3 w-3 mr-0.5" /> Dynamic Data
             </div>
           </div>
           <div className="p-3 rounded-xl bg-emerald-500/5 border border-emerald-500/10">
             <div className="text-[10px] font-semibold text-muted-foreground">Policies Issued</div>
-            <div className="text-lg font-black text-emerald-600 mt-1">1,248</div>
+            <div className="text-lg font-black text-emerald-600 mt-1">{widget.data?.policiesIssued || 0}</div>
             <div className="text-[10px] text-muted-foreground font-medium mt-1">Motor & Health</div>
           </div>
           <div className="p-3 rounded-xl bg-amber-500/5 border border-amber-500/10">
             <div className="text-[10px] font-semibold text-muted-foreground">Conversion Ratio</div>
-            <div className="text-lg font-black text-amber-600 mt-1">32.4%</div>
+            <div className="text-lg font-black text-amber-600 mt-1">{widget.data?.conversionRatio || '0'}%</div>
             <div className="text-[10px] text-amber-600 font-bold mt-1">Target: 30%</div>
           </div>
         </div>
@@ -95,6 +95,42 @@ export function WidgetRenderer({ widget }: WidgetProps) {
             <div className="h-2 w-2 rounded-full bg-amber-500" />
             <span className="font-semibold">Corporate Fleet Quote Approval</span>
           </div>
+        </div>
+      )}
+      {widget.type === 'METRIC' && (
+        <div className="flex flex-col items-center justify-center p-4 bg-primary/5 rounded-xl border border-primary/10">
+          <div className="text-3xl font-black text-primary">85%</div>
+          <div className="text-xs font-semibold text-muted-foreground mt-1">Target Achievement</div>
+        </div>
+      )}
+
+      {widget.type === 'TIMELINE' && (
+        <div className="space-y-3">
+          <div className="flex items-start space-x-3">
+            <div className="h-2 w-2 mt-1.5 rounded-full bg-primary" />
+            <div className="flex flex-col">
+              <span className="text-xs font-semibold">User logged in</span>
+              <span className="text-[10px] text-muted-foreground">2 mins ago</span>
+            </div>
+          </div>
+          <div className="flex items-start space-x-3">
+            <div className="h-2 w-2 mt-1.5 rounded-full bg-muted-foreground" />
+            <div className="flex flex-col">
+              <span className="text-xs font-semibold">Policy issued</span>
+              <span className="text-[10px] text-muted-foreground">1 hour ago</span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {widget.type === 'ACTIONS' && (
+        <div className="grid grid-cols-2 gap-2">
+          <button className="flex items-center justify-center space-x-2 bg-primary text-primary-foreground text-xs font-semibold py-2 px-3 rounded-lg hover:bg-primary/90 transition-colors">
+            <span>Action 1</span>
+          </button>
+          <button className="flex items-center justify-center space-x-2 bg-muted text-foreground text-xs font-semibold py-2 px-3 rounded-lg hover:bg-muted/80 transition-colors">
+            <span>Action 2</span>
+          </button>
         </div>
       )}
     </div>

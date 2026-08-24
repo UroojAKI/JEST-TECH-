@@ -112,7 +112,7 @@ export default function NotificationTemplatesPage() {
           <div className="space-y-2">
             {isLoading ? (
               <div className="text-muted-foreground animate-pulse">Loading templates...</div>
-            ) : templates?.map((tmpl: any) => (
+            ) : (Array.isArray(templates) ? templates : (templates?.data || templates?.items || [])).map((tmpl: any) => (
               <div
                 key={tmpl.id}
                 onClick={() => {

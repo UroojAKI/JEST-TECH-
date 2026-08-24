@@ -43,7 +43,10 @@ export function NewLeadModal({ isOpen, onClose }: NewLeadModalProps) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['leads'] });
+      queryClient.invalidateQueries({ queryKey: ['leads-pipeline-list'] });
       queryClient.invalidateQueries({ queryKey: ['leads-kpis'] });
+      queryClient.invalidateQueries({ queryKey: ['workspace-sales-pipeline'] });
+      queryClient.invalidateQueries(); // Ensure all active tables and KPIs refresh instantly
       toast.success('Lead captured in under 30 seconds!');
       onClose();
       setName('');

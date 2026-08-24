@@ -117,7 +117,7 @@ export default function VehicleMasterAdminPage() {
     });
   };
 
-  const filteredRtos = rtos.filter(
+  const filteredRtos = (Array.isArray(rtos) ? rtos : (rtos?.data || rtos?.items || [])).filter(
     (r: any) =>
       r.code.toLowerCase().includes(search.toLowerCase()) ||
       r.rtoOfficeName.toLowerCase().includes(search.toLowerCase()) ||
@@ -250,13 +250,15 @@ export default function VehicleMasterAdminPage() {
         )}
 
         {/* Makes Master Table */}
-        {activeTab === 'MAKES' && (
+        {activeTab === 'MAKES' && (() => {
+          const safeMakes = Array.isArray(makes) ? makes : ((makes as any)?.items || (makes as any)?.data || []);
+          return (
           <div className="p-5 rounded-2xl border bg-card text-card-foreground shadow-xs overflow-hidden">
             {isMakesLoading ? (
               <div className="p-8 text-center text-xs text-muted-foreground animate-pulse">
                 Loading Vehicle Makes...
               </div>
-            ) : makes.length === 0 ? (
+            ) : safeMakes.length === 0 ? (
               <div className="p-12 text-center space-y-3">
                 <Car className="h-10 w-10 text-muted-foreground mx-auto" />
                 <h3 className="text-sm font-bold text-foreground">No Vehicle Makes Found</h3>
@@ -273,7 +275,7 @@ export default function VehicleMasterAdminPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y text-xs font-semibold">
-                    {makes.map((m: any) => (
+                    {safeMakes.map((m: any) => (
                       <tr key={m.id} className="hover:bg-muted/10 transition-colors">
                         <td className="py-3 px-3 font-mono font-bold text-primary">{m.code}</td>
                         <td className="py-3 px-3 text-foreground font-bold">{m.name}</td>
@@ -289,7 +291,8 @@ export default function VehicleMasterAdminPage() {
               </div>
             )}
           </div>
-        )}
+          );
+        })()}
 
         {/* Add RTO Modal */}
         {showRtoModal && (

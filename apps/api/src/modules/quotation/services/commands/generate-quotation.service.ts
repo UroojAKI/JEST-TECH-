@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { Prisma, QuotationStatus } from '@prisma/client';
+import { Prisma, QuotationStatus, AddonCode } from '@prisma/client';
 
 import { QuotationRepository } from '../../repositories/quotation.repository';
 import { QuotationMapper } from '../../mappers/quotation.mapper';
@@ -39,9 +39,9 @@ export class GenerateQuotationService {
     let targetContactId = dto.contactId;
 
     if (!targetContactId) {
-      const contacts = await this.contactsService.findAll();
-      if (contacts && contacts.length > 0) {
-        targetContactId = contacts[0].id;
+      const contacts = await this.contactsService.findAll({ page: 1, limit: 1 });
+      if (contacts && contacts.data && contacts.data.length > 0) {
+        targetContactId = contacts.data[0].id;
       } else {
         const newContact = await this.contactsService.create(
           {
@@ -103,8 +103,15 @@ export class GenerateQuotationService {
       contact: { connect: { id: targetContactId } },
       createdBy: { connect: { id: createdById } },
       updatedBy: { connect: { id: createdById } },
+      vehicleCategory: dto.vehicleCategory as any,
+      registrationNumber: dto.registrationNumber,
+      policyTenure: dto.policyTenure || 1,
+      activeTpInsurer: dto.activeTpInsurer,
+      activeTpPolicyNumber: dto.activeTpPolicyNumber,
+      activeTpExpiryDate: dto.activeTpExpiryDate ? new Date(dto.activeTpExpiryDate) : undefined,
     };
 
+    // vehicleId legacy block removed pending 8-category mapping logic
     if (dto.leadId) {
       createData.lead = { connect: { id: dto.leadId } };
     }
@@ -116,7 +123,7 @@ export class GenerateQuotationService {
     if (dto.addons && dto.addons.length > 0) {
       createData.addons = {
         create: dto.addons.map((a) => ({
-          addonCode: a.addonCode,
+          addonCode: a.addonCode as AddonCode,
           addonName: a.addonName,
           premium: new Prisma.Decimal(a.premium || 0),
         })),

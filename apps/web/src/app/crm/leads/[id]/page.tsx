@@ -54,7 +54,15 @@ export default function LeadWorkspacePage() {
       />
 
       {/* 2. 9 Workspace Tabs Container */}
-      <LeadTabsContainer leadId={leadId} />
+      <LeadTabsContainer
+        leadId={leadId}
+        leadContact={{
+          name: leadData.name,
+          phone: leadData.phone,
+          email: leadData.email,
+          rm: leadData.agent,
+        }}
+      />
 
       {/* 3. Mark Lost Modal */}
       <MarkLostModal

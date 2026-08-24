@@ -39,7 +39,7 @@ export default function ProposalsRegisterPage() {
   const router = useRouter();
   const [savedView, setSavedView] = useState<string>('ALL');
 
-  const filteredData = PROPOSALS_DATA.filter((p) => {
+  const filteredData = (Array.isArray(PROPOSALS_DATA) ? PROPOSALS_DATA : (((PROPOSALS_DATA as any)?.data || (PROPOSALS_DATA as any)?.items || []))).filter((p: any) => {
     if (savedView === 'APPROVED') return p.status === 'APPROVED';
     if (savedView === 'UNDER_REVIEW') return p.status === 'UNDER_REVIEW';
     return true;

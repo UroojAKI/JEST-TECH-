@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
-import { ClaimStatus, ReserveType, CommunicationChannel } from '@prisma/client';
+import { ClaimStatus, CommunicationChannel } from '@prisma/client';
 import { ClaimRepository } from '../repositories/claim.repository';
 
 @Injectable()
@@ -29,14 +29,14 @@ export class ClaimListener {
     );
 
     try {
-      // 1. Create ADJUSTED/RELEASED Claim Reserve
-      await this.claimRepository.addReserve({
-        claim: { connect: { id: claim.id } },
-        amount: claim.approvedAmount,
-        type: ReserveType.RELEASED,
-        comments: `Reserve released based on approved amount. Comments: ${comments}`,
-        createdBy: { connect: { id: updatedById } },
-      });
+      // 1. Record approval history entry
+      await this.claimRepository.addHistoryEntry(
+        claim.id,
+        ClaimStatus.APPROVED,
+        'INSURER_DECISION_APPROVED',
+        `Claim approved for amount ${claim.approvedAmount}. Comments: ${comments}`,
+        updatedById,
+      );
 
       // 2. Log Communication stub
       await this.claimRepository.addCommunication({

@@ -14,6 +14,14 @@ export class RedisCacheService
   onModuleInit() {
     this.client = new Redis(this.config.redisUrl, {
       keyPrefix: 'jest:cache:',
+      enableOfflineQueue: false,
+      maxRetriesPerRequest: 1,
+      retryStrategy(times) {
+        return Math.min(times * 100, 3000);
+      },
+    });
+    this.client.on('error', () => {
+      // Suppress unhandled error log spam when Redis is offline
     });
   }
 
@@ -24,9 +32,9 @@ export class RedisCacheService
   }
 
   async get<T>(key: string): Promise<T | null> {
-    const data = await this.client.get(key);
-    if (!data) return null;
     try {
+      const data = await this.client.get(key);
+      if (!data) return null;
       return JSON.parse(data) as T;
     } catch {
       return null;
@@ -38,28 +46,42 @@ export class RedisCacheService
     value: T,
     ttlSeconds: number = 3600,
   ): Promise<void> {
-    const data = JSON.stringify(value);
-    await this.client.set(key, data, 'EX', ttlSeconds);
+    try {
+      const data = JSON.stringify(value);
+      await this.client.set(key, data, 'EX', ttlSeconds);
+    } catch {
+      // Fallback: omit cache on write error
+    }
   }
 
   async delete(key: string): Promise<void> {
-    await this.client.del(key);
+    try {
+      await this.client.del(key);
+    } catch {
+      // Fallback
+    }
   }
 
   async clear(prefix: string): Promise<void> {
-    const keys = await this.client.keys(`jest:cache:${prefix}*`);
-    if (keys.length > 0) {
-      // Remove prefix manually since keys() returns keys WITH the prefix,
-      // and del() automatically prepends the prefix again.
-      const keysWithoutPrefix = keys.map((k) => k.replace('jest:cache:', ''));
-      await this.client.del(...keysWithoutPrefix);
+    try {
+      const keys = await this.client.keys(`jest:cache:${prefix}*`);
+      if (keys.length > 0) {
+        const keysWithoutPrefix = keys.map((k) => k.replace('jest:cache:', ''));
+        await this.client.del(...keysWithoutPrefix);
+      }
+    } catch {
+      // Fallback
     }
   }
 
   async ping(): Promise<number> {
     if (!this.client) return -1;
-    const start = Date.now();
-    await this.client.ping();
-    return Date.now() - start;
+    try {
+      const start = Date.now();
+      await this.client.ping();
+      return Date.now() - start;
+    } catch {
+      return -1;
+    }
   }
 }

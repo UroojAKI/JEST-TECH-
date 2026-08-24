@@ -2,7 +2,6 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import {
   ClaimStatus,
-  ReserveType,
   CommunicationChannel,
   Prisma,
 } from '@prisma/client';
@@ -11,6 +10,9 @@ import { PolicyRepository } from '../../../policies/repositories/policy.reposito
 import { ReportClaimDto } from '../../dto/report-claim.dto';
 import { ClaimMapper } from '../../mappers/claim.mapper';
 import { PrismaService } from '../../../../database/prisma.service';
+import { CACHE_PROVIDER_TOKEN } from '../../../platform/cache/cache.provider';
+import { RedisCacheService } from '../../../platform/cache/redis-cache.service';
+import { Inject } from '@nestjs/common';
 
 @Injectable()
 export class ReportClaimService {
@@ -19,6 +21,7 @@ export class ReportClaimService {
     private readonly policyRepository: PolicyRepository,
     private readonly eventEmitter: EventEmitter2,
     private readonly prisma: PrismaService,
+    @Inject(CACHE_PROVIDER_TOKEN) private readonly cache: RedisCacheService,
   ) {}
 
   async execute(dto: ReportClaimDto, createdById: string) {
@@ -53,24 +56,12 @@ export class ReportClaimService {
       // 4.1 Create the Claim
       const createdClaim = await this.claimRepository.create(claimData, tx);
 
-      // 4.2 Create Initial Claim Reserve
-      await this.claimRepository.addReserve(
-        {
-          claim: { connect: { id: createdClaim.id } },
-          amount: createdClaim.claimAmount,
-          type: ReserveType.INITIAL,
-          comments: 'Initial reserve set to claim amount on registration.',
-          createdBy: { connect: { id: createdById } },
-        },
-        tx,
-      );
-
-      // 4.3 Add history entry for registration
+      // 4.2 Add history entry for registration
       await this.claimRepository.addHistoryEntry(
         createdClaim.id,
         ClaimStatus.REGISTERED,
         'REGISTER_CLAIM',
-        `Claim registered and initial reserve of ${createdClaim.claimAmount} set.`,
+        `Claim ${claimNumber} reported and registered.`,
         createdById,
         tx,
       );

@@ -1,13 +1,49 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
+import { PrismaService } from '../../../database/prisma.service';
+import { PaginationDto } from '../../../common/pagination/pagination.dto';
+import { PaginatedResponseDto } from '../../../common/pagination/paginated-response.dto';
 import { OrganizationRepository } from '../repositories/organization.repository';
 import { CreateDepartmentDto, UpdateDepartmentDto, CreateJobRoleDto, UpdateJobRoleDto } from '../dto/organization.dto';
 
 @Injectable()
 export class OrganizationService {
-  constructor(private readonly repository: OrganizationRepository) {}
+  constructor(
+    private readonly repository: OrganizationRepository,
+    private readonly prisma: PrismaService,
+  ) {}
 
-  async getDepartments() {
-    return this.repository.findAllDepartments();
+  async getDepartments(pagination: PaginationDto) {
+    const page = pagination.page || 1;
+    const limit = pagination.limit || 10;
+    const skip = (page - 1) * limit;
+    const where: Prisma.DepartmentWhereInput = {};
+    if (pagination.search) {
+      where.OR = [
+        { name: { contains: pagination.search, mode: 'insensitive' } },
+        { code: { contains: pagination.search, mode: 'insensitive' } },
+      ];
+    }
+    const orderBy = pagination.sortBy
+      ? { [pagination.sortBy]: pagination.sortOrder || 'asc' } as any
+      : { displayOrder: 'asc' };
+
+    const [data, total] = await Promise.all([
+      this.prisma.department.findMany({
+        skip,
+        take: limit,
+        where,
+        orderBy,
+        include: {
+          jobRoles: {
+            orderBy: { displayOrder: 'asc' },
+          },
+        },
+      }),
+      this.prisma.department.count({ where }),
+    ]);
+
+    return new PaginatedResponseDto(data, total, page, limit);
   }
 
   async getDepartmentById(id: string) {
@@ -32,8 +68,37 @@ export class OrganizationService {
     return this.repository.deleteDepartment(id);
   }
 
-  async getJobRoles() {
-    return this.repository.findAllJobRoles();
+  async getJobRoles(pagination: PaginationDto) {
+    const page = pagination.page || 1;
+    const limit = pagination.limit || 10;
+    const skip = (page - 1) * limit;
+    const where: Prisma.JobRoleWhereInput = {};
+    if (pagination.search) {
+      where.OR = [
+        { name: { contains: pagination.search, mode: 'insensitive' } },
+        { code: { contains: pagination.search, mode: 'insensitive' } },
+      ];
+    }
+    const orderBy = pagination.sortBy
+      ? { [pagination.sortBy]: pagination.sortOrder || 'asc' } as any
+      : { displayOrder: 'asc' };
+
+    const [data, total] = await Promise.all([
+      this.prisma.jobRole.findMany({
+        skip,
+        take: limit,
+        where,
+        orderBy,
+        include: {
+          department: true,
+          parentRole: true,
+          dashboards: true,
+        },
+      }),
+      this.prisma.jobRole.count({ where }),
+    ]);
+
+    return new PaginatedResponseDto(data, total, page, limit);
   }
 
   async getJobRoleById(id: string) {

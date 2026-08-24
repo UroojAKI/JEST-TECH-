@@ -11,4 +11,6 @@ export class RenewPolicyDto {
 
   @IsDateString()
   newExpiry: string;
+
+  switchInsurer?: boolean;
 }

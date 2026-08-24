@@ -25,6 +25,7 @@ import { NotificationsModule } from './modules/platform/notifications/notificati
 import { AnalyticsModule } from './modules/analytics/analytics.module';
 import { DocumentsModule } from './modules/documents/documents.module';
 import { MotorAdminModule } from './modules/motor-admin/motor-admin.module';
+import { MotorModule } from './modules/motor/motor.module';
 import { ProposalModule } from './modules/proposal/proposal.module';
 import { EndorsementModule } from './modules/endorsements/endorsements.module';
 import { WarehouseModule } from './modules/warehouse/warehouse.module';
@@ -108,6 +109,7 @@ import { AppService } from './app.service';
     AnalyticsModule,
     DocumentsModule,
     MotorAdminModule,
+    MotorModule,
     ProposalModule,
     EndorsementModule,
     WarehouseModule,

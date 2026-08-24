@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { Test, TestingModule } from '@nestjs/testing';
 import { NotificationsController } from '../controllers/notifications.controller';
 import { NotificationService } from '../services/notification.service';

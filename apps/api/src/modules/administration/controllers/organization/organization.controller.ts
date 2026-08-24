@@ -1,5 +1,7 @@
-import { Controller, Get, Param, UseGuards, Post, Body } from '@nestjs/common';
+import { Controller, Get, Param, UseGuards, Post, Body, Query } from '@nestjs/common';
 import { OrganizationService } from '../../services/organization/organization.service';
+import { PaginationDto } from '../../../../common/pagination/pagination.dto';
+import { ParseUUIDPipe } from '../../../../common/utils/parse-uuid.pipe';
 import { JwtAuthGuard } from '../../../auth/guards/jwt-auth.guard';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { RolesGuard } from '../../../auth/guards/roles.guard';
@@ -26,20 +28,26 @@ export class OrganizationController {
 
   @Get('branches')
   @ApiOperation({ summary: 'Get all branches' })
-  async getBranches() {
-    return this.organizationService.getBranches();
+  async getBranches(@Query() pagination: PaginationDto) {
+    return this.organizationService.getBranches(pagination);
   }
 
   @Get('branches/:branchId/departments')
   @ApiOperation({ summary: 'Get departments for a branch' })
-  async getDepartments(@Param('branchId') branchId: string) {
-    return this.organizationService.getDepartments(branchId);
+  async getDepartments(
+    @Param('branchId', ParseUUIDPipe) branchId: string,
+    @Query() pagination: PaginationDto,
+  ) {
+    return this.organizationService.getDepartments(pagination, branchId);
   }
 
   @Get('departments/:departmentId/teams')
   @ApiOperation({ summary: 'Get teams for a department' })
-  async getTeams(@Param('departmentId') departmentId: string) {
-    return this.organizationService.getTeams(departmentId);
+  async getTeams(
+    @Param('departmentId', ParseUUIDPipe) departmentId: string,
+    @Query() pagination: PaginationDto,
+  ) {
+    return this.organizationService.getTeams(pagination, departmentId);
   }
 
   @Post('assign-team')

@@ -20,20 +20,23 @@ export function useDashboardWidget(
   const query = useQuery({
     queryKey: ['dashboard', role, params],
     queryFn: async () => {
-      if (role === 'SUPER_ADMIN') {
+      if (!role) return dashboardRepository.getDashboardData(params);
+      const r = String(role).toUpperCase();
+      if (r === 'SUPER_ADMIN' || r === 'ADMIN' || r === 'MD_CEO') {
         return dashboardRepository.getSuperAdminDashboard(params);
       }
-      if (role === 'ADMIN') {
+      if (r === 'SALES_DIRECTOR' || r === 'CHIEF_FINANCE_OFFICER' || r === 'UNDERWRITING_MANAGER') {
         return dashboardRepository.getAdminDashboard(params);
       }
-      if (role === 'BRANCH_MANAGER') {
+      if (r === 'BRANCH_MANAGER' || r === 'TEAM_LEADER') {
         return dashboardRepository.getManagerDashboard(params);
       }
-      if (role === 'SALES_AGENT') {
+      if (r === 'SALES_AGENT' || r === 'POSP_ADVISOR' || r === 'RENEWAL_EXECUTIVE' || r === 'CLAIMS_EXECUTIVE' || r === 'FINANCE_EXECUTIVE' || r === 'CUSTOMER_SERVICE_EXECUTIVE') {
         return dashboardRepository.getAgentDashboard(params);
       }
       return dashboardRepository.getDashboardData(params);
     },
+
     refetchInterval,
     staleTime: 15000,
     retry: 2,

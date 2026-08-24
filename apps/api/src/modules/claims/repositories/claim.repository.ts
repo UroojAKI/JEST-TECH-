@@ -3,9 +3,6 @@ import {
   Prisma,
   Claim,
   ClaimDocument,
-  ClaimAssessment,
-  ClaimPayment,
-  ClaimReserve,
   ClaimHistory,
   ClaimCommunication,
   ClaimStatus,
@@ -20,9 +17,6 @@ const claimWithRelations = Prisma.validator<Prisma.ClaimDefaultArgs>()({
     contact: true,
     account: true,
     documents: true,
-    assessments: true,
-    payments: true,
-    reserves: { orderBy: { createdAt: 'desc' } },
     histories: { orderBy: { createdAt: 'desc' } },
     communications: { orderBy: { sentAt: 'desc' } },
   },
@@ -59,9 +53,6 @@ export class ClaimRepository {
         contact: true,
         account: true,
         documents: true,
-        assessments: true,
-        payments: true,
-        reserves: { orderBy: { createdAt: 'desc' } },
         histories: { orderBy: { createdAt: 'desc' } },
         communications: { orderBy: { sentAt: 'desc' } },
       },
@@ -76,9 +67,6 @@ export class ClaimRepository {
         contact: true,
         account: true,
         documents: true,
-        assessments: true,
-        payments: true,
-        reserves: { orderBy: { createdAt: 'desc' } },
         histories: { orderBy: { createdAt: 'desc' } },
         communications: { orderBy: { sentAt: 'desc' } },
       },
@@ -95,30 +83,37 @@ export class ClaimRepository {
         contact: true,
         account: true,
         documents: true,
-        assessments: true,
-        payments: true,
-        reserves: { orderBy: { createdAt: 'desc' } },
         histories: { orderBy: { createdAt: 'desc' } },
         communications: { orderBy: { sentAt: 'desc' } },
       },
     });
   }
 
-  async findAll(where?: Prisma.ClaimWhereInput): Promise<ClaimWithRelations[]> {
+  async findAll(
+    skip?: number,
+    take?: number,
+    where?: Prisma.ClaimWhereInput,
+    orderBy?: Prisma.ClaimOrderByWithRelationInput,
+  ): Promise<ClaimWithRelations[]> {
     return this.prisma.claim.findMany({
+      skip,
+      take,
       where: { ...where, deletedAt: null },
       include: {
         policy: true,
         contact: true,
         account: true,
         documents: true,
-        assessments: true,
-        payments: true,
-        reserves: { orderBy: { createdAt: 'desc' } },
         histories: { orderBy: { createdAt: 'desc' } },
         communications: { orderBy: { sentAt: 'desc' } },
       },
-      orderBy: { createdAt: 'desc' },
+      orderBy: orderBy || { createdAt: 'desc' },
+    });
+  }
+
+  async count(where?: Prisma.ClaimWhereInput): Promise<number> {
+    return this.prisma.claim.count({
+      where: { ...where, deletedAt: null },
     });
   }
 
@@ -145,9 +140,6 @@ export class ClaimRepository {
         contact: true,
         account: true,
         documents: true,
-        assessments: true,
-        payments: true,
-        reserves: { orderBy: { createdAt: 'desc' } },
         histories: { orderBy: { createdAt: 'desc' } },
         communications: { orderBy: { sentAt: 'desc' } },
       },
@@ -158,26 +150,6 @@ export class ClaimRepository {
     data: Prisma.ClaimDocumentCreateInput,
   ): Promise<ClaimDocument> {
     return this.prisma.claimDocument.create({ data });
-  }
-
-  async addAssessment(
-    data: Prisma.ClaimAssessmentCreateInput,
-  ): Promise<ClaimAssessment> {
-    return this.prisma.claimAssessment.create({ data });
-  }
-
-  async addPayment(
-    data: Prisma.ClaimPaymentCreateInput,
-  ): Promise<ClaimPayment> {
-    return this.prisma.claimPayment.create({ data });
-  }
-
-  async addReserve(
-    data: Prisma.ClaimReserveCreateInput,
-    tx?: Prisma.TransactionClient,
-  ): Promise<ClaimReserve> {
-    const client = tx || this.prisma;
-    return client.claimReserve.create({ data });
   }
 
   async addHistoryEntry(
@@ -201,6 +173,39 @@ export class ClaimRepository {
     }
 
     return client.claimHistory.create({ data });
+  }
+
+  async recordInsurerDecision(
+    claimId: string,
+    decision: 'APPROVED' | 'REJECTED',
+    reason: string,
+    approvedAmount: number | null,
+    userId: string,
+    tx?: Prisma.TransactionClient,
+  ): Promise<ClaimHistory> {
+    const client = tx || this.prisma;
+    const claim = await client.claim.findUnique({ where: { id: claimId } });
+    if (!claim) throw new Error(`Claim ${claimId} not found`);
+
+    // Map decision to ClaimStatus
+    const newStatus: ClaimStatus = decision === 'APPROVED' ? 'APPROVED' : 'REJECTED';
+
+    await client.claim.update({
+      where: { id: claimId },
+      data: {
+        status: newStatus,
+        ...(approvedAmount !== null && decision === 'APPROVED' ? { approvedAmount } : {}),
+      },
+    });
+
+    return this.addHistoryEntry(
+      claimId,
+      newStatus,
+      `Insurer decision recorded: ${decision}. Reason: ${reason}`,
+      reason,
+      userId,
+      client,
+    );
   }
 
   async addCommunication(

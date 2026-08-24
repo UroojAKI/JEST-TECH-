@@ -166,7 +166,7 @@ export default function LookupMastersPage() {
               </tr>
             </thead>
             <tbody className="divide-y">
-              {lookups?.map((item: any) => (
+              {(Array.isArray(lookups) ? lookups : (lookups?.data || lookups?.items || [])).map((item: any) => (
                 <tr key={item.id} className="hover:bg-accent/40">
                   <td className="p-3.5 font-mono font-bold text-primary">{item.code}</td>
                   <td className="p-3.5 font-semibold text-foreground">{item.name}</td>

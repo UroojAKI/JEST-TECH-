@@ -33,42 +33,6 @@ export class ClaimMapper {
       }));
     }
 
-    if (c.assessments) {
-      dto.assessments = c.assessments.map((a) => ({
-        id: a.id,
-        assessorId: a.assessorId,
-        assessmentDate: a.assessmentDate,
-        findings: a.findings,
-        estimatedLoss: Number(a.estimatedLoss),
-        approvedAmount: Number(a.approvedAmount),
-        status: a.status,
-        createdAt: a.createdAt,
-      }));
-    }
-
-    if (c.payments) {
-      dto.payments = c.payments.map((p) => ({
-        id: p.id,
-        amount: Number(p.amount),
-        paymentDate: p.paymentDate,
-        transactionId: p.transactionId,
-        paymentMethod: p.paymentMethod,
-        status: p.status,
-        recipientDetails: p.recipientDetails,
-        createdAt: p.createdAt,
-      }));
-    }
-
-    if (c.reserves) {
-      dto.reserves = c.reserves.map((r) => ({
-        id: r.id,
-        amount: Number(r.amount),
-        type: r.type,
-        comments: r.comments,
-        createdById: r.createdById,
-        createdAt: r.createdAt,
-      }));
-    }
 
     if (c.histories) {
       dto.histories = c.histories.map((h) => ({

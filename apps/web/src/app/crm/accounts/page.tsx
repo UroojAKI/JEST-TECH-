@@ -37,7 +37,7 @@ export default function CorporateAccountsPage() {
     relationshipManager: 'Rajesh Sharma',
   });
 
-  const filteredData = accounts.filter((acc) => {
+  const filteredData = (Array.isArray(accounts) ? accounts : (((accounts as any)?.data || (accounts as any)?.items || []))).filter((acc: any) => {
     if (savedView === 'ACTIVE') return acc.status === 'ACTIVE';
     if (savedView === 'LAPSED') return acc.status === 'LAPSED';
     return true;

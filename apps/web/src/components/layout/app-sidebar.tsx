@@ -16,6 +16,27 @@ import {
   ChevronDown,
   ChevronRight,
   ShieldAlert,
+  Building2,
+  Shield,
+  GitMerge,
+  Activity,
+  UserPlus,
+  RotateCw,
+  Clock,
+  Send,
+  UserCheck,
+  LifeBuoy,
+  HelpCircle,
+  Megaphone,
+  Calendar,
+  BookOpen,
+  TrendingUp,
+  Percent,
+  CheckSquare,
+  FilePlus,
+  FileDown,
+  User,
+  PlusCircle,
 } from 'lucide-react';
 import { navigationRegistry } from '../../lib/navigation/navigation.registry';
 import { usePermissions } from '../providers/permission-provider';
@@ -33,6 +54,28 @@ const ICON_MAP: Record<string, React.ReactNode> = {
   BarChart3: <BarChart3 className="h-4 w-4" />,
   Settings: <Settings className="h-4 w-4" />,
   Sliders: <Sliders className="h-4 w-4" />,
+  Building2: <Building2 className="h-4 w-4" />,
+  Shield: <Shield className="h-4 w-4" />,
+  GitMerge: <GitMerge className="h-4 w-4" />,
+  Activity: <Activity className="h-4 w-4" />,
+  UserPlus: <UserPlus className="h-4 w-4" />,
+  RotateCw: <RotateCw className="h-4 w-4" />,
+  Clock: <Clock className="h-4 w-4" />,
+  Send: <Send className="h-4 w-4" />,
+  UserCheck: <UserCheck className="h-4 w-4" />,
+  LifeBuoy: <LifeBuoy className="h-4 w-4" />,
+  HelpCircle: <HelpCircle className="h-4 w-4" />,
+  Megaphone: <Megaphone className="h-4 w-4" />,
+  Calendar: <Calendar className="h-4 w-4" />,
+  BookOpen: <BookOpen className="h-4 w-4" />,
+  TrendingUp: <TrendingUp className="h-4 w-4" />,
+  Percent: <Percent className="h-4 w-4" />,
+  CheckSquare: <CheckSquare className="h-4 w-4" />,
+  FilePlus: <FilePlus className="h-4 w-4" />,
+  FileDown: <FileDown className="h-4 w-4" />,
+  User: <User className="h-4 w-4" />,
+  PlusCircle: <PlusCircle className="h-4 w-4" />,
+  ShieldAlert: <ShieldAlert className="h-4 w-4" />,
 };
 
 export function AppSidebar() {
@@ -104,7 +147,7 @@ export function AppSidebar() {
                   }`}
                 >
                   <div className="flex items-center space-x-2.5">
-                    {ICON_MAP[item.icon || ''] || <ShieldAlert className="h-4 w-4" />}
+                    {ICON_MAP[item.icon || ''] || <HelpCircle className="h-4 w-4" />}
                     <span>{item.title}</span>
                   </div>
                   {isExpanded ? (

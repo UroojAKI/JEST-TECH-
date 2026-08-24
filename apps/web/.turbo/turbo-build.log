@@ -6,91 +6,19 @@
 
 ⚠ The "middleware" file convention is deprecated. Please use "proxy" instead. Learn more: https://nextjs.org/docs/messages/middleware-to-proxy
   Creating an optimized production build ...
-✓ Compiled successfully in 7.4s
+✓ Compiled successfully in 10.5s
   Running TypeScript ...
-  Finished TypeScript in 8.4s ...
-  Collecting page data using 15 workers ...
-  Generating static pages using 15 workers (0/65) ...
-  Generating static pages using 15 workers (16/65) 
-  Generating static pages using 15 workers (32/65) 
-  Generating static pages using 15 workers (48/65) 
-✓ Generating static pages using 15 workers (65/65) in 837ms
-  Finalizing page optimization ...
+Failed to type check.
 
-Route (app)
-┌ ○ /
-├ ○ /_not-found
-├ ○ /admin
-├ ○ /admin/audit
-├ ○ /admin/branches
-├ ○ /admin/config
-├ ○ /admin/delivery-monitor
-├ ○ /admin/health
-├ ○ /admin/lookups
-├ ○ /admin/notification-templates
-├ ○ /admin/numbering
-├ ○ /admin/production-readiness
-├ ○ /admin/roles
-├ ○ /admin/sla
-├ ○ /admin/users
-├ ○ /admin/workflows
-├ ƒ /api/health
-├ ○ /claims
-├ ○ /crm
-├ ○ /crm/accounts
-├ ○ /crm/contacts
-├ ƒ /crm/contacts/[id]
-├ ○ /crm/leads
-├ ƒ /crm/leads/[id]
-├ ○ /dashboard
-├ ○ /dashboard/activity
-├ ○ /dashboard/admin
-├ ○ /dashboard/approvals
-├ ○ /dashboard/communications
-├ ○ /dashboard/endorsements
-├ ○ /dashboard/notifications
-├ ○ /dashboard/proposals
-├ ○ /dashboard/reports
-├ ƒ /dashboard/reports/[id]
-├ ○ /dashboard/reports/builder
-├ ○ /dashboard/reports/executive
-├ ○ /dashboard/reports/history
-├ ○ /dashboard/reports/kpi
-├ ○ /dashboard/reports/warehouse
-├ ○ /dashboard/uat
-├ ○ /finance
-├ ○ /finance/commissions
-├ ○ /finance/ledger
-├ ○ /finance/payments
-├ ○ /finance/receipts
-├ ○ /finance/settlements
-├ ○ /login
-├ ○ /policies
-├ ƒ /policies/[id]
-├ ○ /portal
-├ ○ /portal/branch-manager
-├ ○ /portal/claims
-├ ○ /portal/commissions
-├ ○ /portal/customers
-├ ○ /portal/downloads
-├ ○ /portal/leads
-├ ○ /portal/performance
-├ ○ /portal/policies
-├ ○ /portal/proposals
-├ ○ /portal/quotations
-├ ○ /portal/renewals
-├ ○ /portal/support
-├ ○ /sales
-├ ○ /sales/proposals
-├ ƒ /sales/proposals/[id]
-├ ○ /sales/quotations
-├ ƒ /sales/quotations/[id]
-├ ○ /settings
-└ ○ /unauthorized
+.next/dev/types/validator.ts:845:1
+Type error: Cannot find name 'er'.
 
-
-ƒ Proxy (Middleware)
-
-○  (Static)   prerendered as static content
-ƒ  (Dynamic)  server-rendered on demand
-
+  [90m843 |[0m   [36mtype[0m __Unused = __Check
+  [90m844 |[0m }
+[31m[1m>[0m [90m845 |[0m er>
+  [90m    |[0m [31m[1m^[0m
+  [90m846 |[0m   [90m// @ts-ignore[0m
+  [90m847 |[0m   [36mtype[0m __Unused = __Check
+  [90m848 |[0m }
+Next.js build worker exited with code: 1 and signal: null
+ ELIFECYCLE  Command failed with exit code 1.

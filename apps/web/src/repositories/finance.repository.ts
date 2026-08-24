@@ -95,6 +95,15 @@ export interface IncentiveItem {
   status: 'PENDING' | 'APPROVED' | 'DISBURSED';
 }
 
+/** Safely normalize any API response to an array */
+function toArray<T>(raw: any): T[] {
+  if (Array.isArray(raw)) return raw;
+  if (raw && Array.isArray(raw.items)) return raw.items;
+  if (raw && Array.isArray(raw.data)) return raw.data;
+  if (raw && Array.isArray(raw.results)) return raw.results;
+  return [];
+}
+
 export const financeRepository = {
   async getDashboardMetrics(): Promise<FinanceDashboardMetrics> {
     const response = await apiClient.get('/finance/dashboard');
@@ -103,17 +112,17 @@ export const financeRepository = {
 
   async getReceipts(status?: string): Promise<ReceiptItem[]> {
     const response = await apiClient.get('/finance/receipts', { params: { status } });
-    return response.data;
+    return toArray<ReceiptItem>(response.data);
   },
 
   async getPayments(type?: string): Promise<PaymentItem[]> {
     const response = await apiClient.get('/finance/payments', { params: { type } });
-    return response.data;
+    return toArray<PaymentItem>(response.data);
   },
 
   async getLedgerEntries(): Promise<LedgerEntryItem[]> {
     const response = await apiClient.get('/finance/ledger');
-    return response.data;
+    return toArray<LedgerEntryItem>(response.data);
   },
 
   async postJournalEntry(data: any): Promise<LedgerEntryItem> {
@@ -123,7 +132,7 @@ export const financeRepository = {
 
   async getCommissions(): Promise<CommissionItem[]> {
     const response = await apiClient.get('/finance/commissions');
-    return response.data;
+    return toArray<CommissionItem>(response.data);
   },
 
   async approveCommission(id: string): Promise<any> {
@@ -133,11 +142,11 @@ export const financeRepository = {
 
   async getSettlements(): Promise<SettlementItem[]> {
     const response = await apiClient.get('/finance/settlements');
-    return response.data;
+    return toArray<SettlementItem>(response.data);
   },
 
   async getIncentives(): Promise<IncentiveItem[]> {
     const response = await apiClient.get('/finance/incentives');
-    return response.data;
+    return toArray<IncentiveItem>(response.data);
   },
 };

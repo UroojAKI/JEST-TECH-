@@ -1,4 +1,4 @@
-import { ClaimStatus, ReserveType } from '@prisma/client';
+import { ClaimStatus } from '@prisma/client';
 
 export class ClaimResponseDto {
   id: string;
@@ -28,36 +28,6 @@ export class ClaimResponseDto {
     createdAt: Date;
   }[];
 
-  assessments?: {
-    id: string;
-    assessorId: string | null;
-    assessmentDate: Date;
-    findings: string;
-    estimatedLoss: number;
-    approvedAmount: number;
-    status: string;
-    createdAt: Date;
-  }[];
-
-  payments?: {
-    id: string;
-    amount: number;
-    paymentDate: Date;
-    transactionId: string;
-    paymentMethod: string;
-    status: string;
-    recipientDetails: string;
-    createdAt: Date;
-  }[];
-
-  reserves?: {
-    id: string;
-    amount: number;
-    type: ReserveType;
-    comments: string | null;
-    createdById: string | null;
-    createdAt: Date;
-  }[];
 
   histories?: {
     id: string;

@@ -1,6 +1,5 @@
 import { Injectable } from '@nestjs/common';
-
-export type CoverType = 'COMPREHENSIVE' | 'STANDALONE_OD' | 'THIRD_PARTY';
+import { ProductType } from '@prisma/client';
 
 @Injectable()
 export class PremiumService {
@@ -8,7 +7,7 @@ export class PremiumService {
    * Calculates Own Damage (OD), Third Party (TP), and PA Cover components.
    */
   calculateMotorPremium(
-    coverType: CoverType,
+    coverType: ProductType,
     idv: number,
     engineCc: number,
     rtoZone: 'ZONE_A' | 'ZONE_B' = 'ZONE_A',
@@ -23,7 +22,7 @@ export class PremiumService {
     let paCoverPremium = includePaCover ? 330 : 0;
 
     // 1. Own Damage (OD) Calculation
-    if (coverType === 'COMPREHENSIVE' || coverType === 'STANDALONE_OD') {
+    if (coverType === ProductType.PACKAGE_COMPREHENSIVE || coverType === ProductType.STANDALONE_OWN_DAMAGE) {
       const baseOdRate = rtoZone === 'ZONE_A' ? 0.03127 : 0.03082;
       let ccMultiplier = 1.0;
       if (engineCc > 1500) ccMultiplier = 1.3;
@@ -33,7 +32,7 @@ export class PremiumService {
     }
 
     // 2. Third Party (TP) IRDAI Tariff Table Calculation
-    if (coverType === 'COMPREHENSIVE' || coverType === 'THIRD_PARTY') {
+    if (coverType === ProductType.PACKAGE_COMPREHENSIVE || coverType === ProductType.THIRD_PARTY_ONLY) {
       if (engineCc > 1500) {
         tpPremium = 7897;
       } else if (engineCc > 1000) {

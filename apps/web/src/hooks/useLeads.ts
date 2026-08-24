@@ -51,12 +51,22 @@ export function useLeads(params?: PaginationParams & LeadFilterParams) {
     },
   });
 
-  const rawData = leadsQuery.data;
-  const leadsList = Array.isArray(rawData) ? rawData : (rawData?.data || []);
+  const rawData = leadsQuery.data as any;
+  const leadsList = Array.isArray(rawData)
+    ? rawData
+    : Array.isArray(rawData?.items)
+    ? rawData.items
+    : Array.isArray(rawData?.data?.items)
+    ? rawData.data.items
+    : Array.isArray(rawData?.data)
+    ? rawData.data
+    : [];
+
 
   return {
     leads: leadsList,
-    total: Array.isArray(rawData) ? rawData.length : (rawData?.total || leadsList.length),
+    total: Array.isArray(rawData) ? rawData.length : (rawData?.total || rawData?.data?.total || leadsList.length),
+
     isLoading: leadsQuery.isLoading,
     isError: leadsQuery.isError,
     refetch: leadsQuery.refetch,

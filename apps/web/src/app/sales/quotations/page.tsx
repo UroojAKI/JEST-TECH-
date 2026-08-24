@@ -2,12 +2,12 @@
 
 import React from 'react';
 import { AppShell } from '../../../components/layout/app-shell';
-import { MotorProposalWizard } from '../../../components/sales/MotorProposalWizard';
+import { MotorQuotationsWorkspace } from '../../../components/sales/MotorQuotationsWorkspace';
 
-export default function MotorProposalWizardPage() {
+export default function QuotationsPage() {
   return (
     <AppShell>
-      <MotorProposalWizard />
+      <MotorQuotationsWorkspace />
     </AppShell>
   );
 }

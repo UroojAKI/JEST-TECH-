@@ -3,7 +3,7 @@ import { PrismaService } from '../../database/prisma.service';
 import { ConfigurationService } from '../platform/configuration/configuration.service';
 import Redis from 'ioredis';
 import * as os from 'os';
-
+import * as fs from 'fs';
 @Injectable()
 export class HealthService {
   constructor(
@@ -104,6 +104,69 @@ export class HealthService {
       metrics: {
         activeUsers,
       },
+    };
+  }
+  async checkV2() {
+    let dbStatus = 'down';
+    let dbLatencyMs = 0;
+    try {
+      const start = Date.now();
+      await this.prisma.$queryRaw`SELECT 1`;
+      dbLatencyMs = Date.now() - start;
+      dbStatus = 'ok';
+    } catch (err) {
+      dbStatus = 'down';
+    }
+
+    let redisStatus = 'down';
+    let redisLatencyMs = 0;
+    try {
+      const start = Date.now();
+      const redis = new Redis(this.config.redisUrl, {
+        maxRetriesPerRequest: 1,
+        lazyConnect: true,
+      });
+      await redis.connect();
+      await redis.ping();
+      await redis.quit();
+      redisLatencyMs = Date.now() - start;
+      redisStatus = 'ok';
+    } catch (err) {
+      redisStatus = 'down';
+    }
+
+    const memoryUsage = process.memoryUsage();
+    const heapUsedMB = Math.round(memoryUsage.heapUsed / 1024 / 1024);
+    const heapLimitMB = 512;
+    const memoryStatus = heapUsedMB > heapLimitMB ? 'degraded' : 'ok';
+
+    let diskStatus = 'ok';
+    try {
+      fs.statSync('/');
+    } catch (err) {
+      diskStatus = 'down';
+    }
+
+    const checks = {
+      database: { status: dbStatus, latencyMs: dbLatencyMs },
+      redis: { status: redisStatus, latencyMs: redisLatencyMs },
+      memory: { status: memoryStatus, heapUsedMB, heapLimitMB },
+      disk: { status: diskStatus }
+    };
+
+    let overallStatus = 'ok';
+    const checkStatuses = Object.values(checks).map((c) => c.status);
+    if (checkStatuses.includes('down')) {
+      overallStatus = 'down';
+    } else if (checkStatuses.includes('degraded')) {
+      overallStatus = 'degraded';
+    }
+
+    return {
+      status: overallStatus,
+      timestamp: new Date().toISOString(),
+      uptime: process.uptime(),
+      checks,
     };
   }
 }

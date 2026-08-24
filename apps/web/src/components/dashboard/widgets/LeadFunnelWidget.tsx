@@ -7,11 +7,12 @@ import { useLeads } from '../../../hooks/useLeads';
 
 export function LeadFunnelWidget() {
   const { leads, isLoading } = useLeads();
+  const leadsList = Array.isArray(leads) ? leads : [];
 
-  const newCount = leads.filter((l: any) => l.status === 'NEW').length;
-  const contactedCount = leads.filter((l: any) => l.status === 'CONTACTED' || l.status === 'DOCS_RECEIVED').length;
-  const quotedCount = leads.filter((l: any) => l.status === 'QUOTE_PREPARED' || l.status === 'NEGOTIATION').length;
-  const convertedCount = leads.filter((l: any) => l.status === 'POLICY_ISSUED' || l.status === 'PAYMENT_RECEIVED' || l.status === 'CONVERTED').length;
+  const newCount = leadsList.filter((l: any) => l.status === 'NEW').length;
+  const contactedCount = leadsList.filter((l: any) => l.status === 'CONTACTED' || l.status === 'DOCS_RECEIVED').length;
+  const quotedCount = leadsList.filter((l: any) => l.status === 'QUOTE_PREPARED' || l.status === 'NEGOTIATION').length;
+  const convertedCount = leadsList.filter((l: any) => l.status === 'POLICY_ISSUED' || l.status === 'PAYMENT_RECEIVED' || l.status === 'CONVERTED').length;
 
   const funnelData = [
     { stage: 'New Leads', count: newCount || 1 },
@@ -20,8 +21,9 @@ export function LeadFunnelWidget() {
     { stage: 'Converted', count: convertedCount || 0 },
   ];
 
-  const totalLeads = leads.length || 1;
+  const totalLeads = leadsList.length || 1;
   const conversionPct = ((convertedCount / totalLeads) * 100).toFixed(1);
+
 
   return (
     <div className="rounded-xl border bg-card p-5 shadow-sm space-y-4">

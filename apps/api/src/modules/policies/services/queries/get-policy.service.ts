@@ -7,6 +7,7 @@ import {
 import { PolicyRepository } from '../../repositories/policy.repository';
 import { PolicyMapper } from '../../mappers/policy.mapper';
 import type { RequestUser } from '../../../auth/decorators/current-user.decorator';
+import { PaginationDto } from '../../../../common/pagination/pagination.dto';
 
 @Injectable()
 export class GetPolicyService {
@@ -28,11 +29,11 @@ export class GetPolicyService {
     return PolicyMapper.toResponse(policy);
   }
 
-  async executeAll(user: RequestUser) {
+  async executeAll(pagination: PaginationDto, user: RequestUser) {
     const whereClause =
       user.role === 'SALES_AGENT' ? { createdById: user.id } : {};
     return this.policyRepository.findPaginated(
-      { page: 1, limit: 100 },
+      pagination,
       whereClause,
     );
   }

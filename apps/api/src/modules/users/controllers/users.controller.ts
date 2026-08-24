@@ -1,6 +1,9 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, UseGuards, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags, ApiOperation } from '@nestjs/swagger';
 import { RoleType } from '@prisma/client';
+
+import { PaginationDto } from '../../../common/pagination/pagination.dto';
+import { ParseUUIDPipe } from '../../../common/utils/parse-uuid.pipe';
 
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
@@ -59,39 +62,39 @@ export class UsersController {
     RoleType.UNDERWRITER,
     RoleType.OPERATIONS,
   )
-  findAll() {
-    return this.usersService.findAll();
+  findAll(@Query() pagination: PaginationDto) {
+    return this.usersService.findAll(pagination);
   }
 
   @Get(':id')
   @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN)
-  findOne(@Param('id') id: string) {
+  findOne(@Param('id', ParseUUIDPipe) id: string) {
     return this.usersService.findById(id);
   }
 
   @Patch(':id')
   @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN)
   @ApiOperation({ summary: 'Update user profile, role, or branch assignment' })
-  update(@Param('id') id: string, @Body() dto: UpdateUserDto) {
+  update(@Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdateUserDto) {
     return this.usersService.update(id, dto);
   }
 
   @Delete(':id')
   @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN)
   @ApiOperation({ summary: 'Soft delete / offboard user account' })
-  remove(@Param('id') id: string) {
+  remove(@Param('id', ParseUUIDPipe) id: string) {
     return this.usersService.delete(id);
   }
 
   @Post(':id/lock')
   @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN)
-  lock(@Param('id') id: string) {
+  lock(@Param('id', ParseUUIDPipe) id: string) {
     return this.usersService.lockUser(id);
   }
 
   @Post(':id/unlock')
   @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN)
-  unlock(@Param('id') id: string) {
+  unlock(@Param('id', ParseUUIDPipe) id: string) {
     return this.usersService.unlockUser(id);
   }
 
@@ -99,7 +102,7 @@ export class UsersController {
   @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN)
   @ApiOperation({ summary: 'Admin reset user password' })
   resetPassword(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: { newPassword?: string },
   ) {
     return this.usersService.adminResetPassword(id, dto.newPassword);

@@ -24,8 +24,19 @@ import { PolicyDomainService } from './domain/policy.domain-service';
 import { PolicyReportProvider } from './providers/policy-report.provider';
 import { RevenueReportProvider } from './providers/revenue-report.provider';
 
+import { BullModule } from '@nestjs/bullmq';
+import { RenewalEngineService } from './services/renewal-engine.service';
+import { RenewalReminderProcessor } from './processors/renewal-reminder.processor';
+import { RenewalSchedulerCron } from './crons/renewal-scheduler.cron';
+
 @Module({
-  imports: [QuotationModule, ContactsModule, AccountsModule, ReportsModule],
+  imports: [
+    QuotationModule, 
+    ContactsModule, 
+    AccountsModule, 
+    ReportsModule,
+    BullModule.registerQueue({ name: 'renewal-reminders' }),
+  ],
   controllers: [PoliciesController],
   providers: [
     PolicyRepository,
@@ -40,6 +51,10 @@ import { RevenueReportProvider } from './providers/revenue-report.provider';
     // Report Providers
     PolicyReportProvider,
     RevenueReportProvider,
+    // Renewal Automation
+    RenewalEngineService,
+    RenewalReminderProcessor,
+    RenewalSchedulerCron,
   ],
   exports: [
     GetPolicyService,

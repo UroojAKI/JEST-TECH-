@@ -38,6 +38,13 @@ export default function FinanceOperationsHubPage() {
   const { data: settlements = [] } = useSettlements();
   const { data: incentives = [] } = useIncentives();
 
+  const safeReceipts = Array.isArray(receipts) ? receipts : (receipts?.items || receipts?.data || []);
+  const safePayments = Array.isArray(payments) ? payments : (payments?.items || payments?.data || []);
+  const safeLedgerEntries = Array.isArray(ledgerEntries) ? ledgerEntries : (ledgerEntries?.items || ledgerEntries?.data || []);
+  const safeCommissions = Array.isArray(commissions) ? commissions : (commissions?.items || commissions?.data || []);
+  const safeIncentives = Array.isArray(incentives) ? incentives : (incentives?.items || incentives?.data || []);
+  const safeSettlements = Array.isArray(settlements) ? settlements : (settlements?.items || settlements?.data || []);
+
   const handleOpenVoucher = (v: VoucherData) => {
     setSelectedVoucher(v);
   };
@@ -314,7 +321,7 @@ export default function FinanceOperationsHubPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y text-xs">
-                    {receipts.map((r) => (
+                    {safeReceipts.map((r) => (
                       <tr key={r.id} className="hover:bg-accent/40">
                         <td className="p-3 font-bold text-primary font-mono">{r.receiptNumber}</td>
                         <td className="p-3 font-semibold">{r.customerName}</td>
@@ -373,7 +380,7 @@ export default function FinanceOperationsHubPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y text-xs">
-                    {payments.map((p) => (
+                    {safePayments.map((p) => (
                       <tr key={p.id} className="hover:bg-accent/40">
                         <td className="p-3 font-bold text-primary font-mono">{p.paymentNumber}</td>
                         <td className="p-3 font-semibold">{p.payee}</td>
@@ -425,7 +432,7 @@ export default function FinanceOperationsHubPage() {
               </div>
 
               <div className="space-y-3">
-                {ledgerEntries.map((je) => (
+                {safeLedgerEntries.map((je) => (
                   <div key={je.id} className="p-4 rounded-xl border bg-card space-y-3">
                     <div className="flex justify-between items-center border-b pb-2">
                       <div>
@@ -497,7 +504,7 @@ export default function FinanceOperationsHubPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y text-xs">
-                    {commissions.map((c) => (
+                    {safeCommissions.map((c) => (
                       <tr key={c.id} className="hover:bg-accent/40">
                         <td className="p-3 font-mono font-bold text-primary">{c.policyNumber}</td>
                         <td className="p-3 font-semibold">{c.agentName}</td>
@@ -538,7 +545,7 @@ export default function FinanceOperationsHubPage() {
             <div className="space-y-4">
               <h4 className="font-bold text-sm">Employee Target & Retention Incentive Engine</h4>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {incentives.map((inc) => (
+                {safeIncentives.map((inc) => (
                   <div key={inc.id} className="p-4 rounded-xl border bg-card space-y-2">
                     <div className="flex justify-between items-center border-b pb-2">
                       <div>
@@ -579,7 +586,7 @@ export default function FinanceOperationsHubPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y text-xs">
-                    {settlements.map((s) => (
+                    {safeSettlements.map((s) => (
                       <tr key={s.id} className="hover:bg-accent/40">
                         <td className="p-3 font-bold text-foreground">{s.insurerName}</td>
                         <td className="p-3 text-muted-foreground">{s.period}</td>

@@ -1,4 +1,4 @@
-import { Controller, Get, UseGuards, UseInterceptors } from '@nestjs/common';
+import { Controller, Get, UseGuards, UseInterceptors, Query } from '@nestjs/common';
 import { CacheInterceptor, CacheTTL } from '@nestjs/cache-manager';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { RoleType } from '@prisma/client';
@@ -19,8 +19,9 @@ export class DashboardController {
   constructor(private readonly dashboardService: DashboardService) {}
 
   @Get()
-  getDashboard(@CurrentUser() user: RequestUser) {
-    return this.dashboardService.getDashboard(user.role, user.id);
+  getDashboard(@CurrentUser() user: RequestUser, @Query('role') simulatedRole?: string) {
+    const roleToUse = simulatedRole || user.role;
+    return this.dashboardService.getDashboard(roleToUse, user.id);
   }
 
   @Get('super-admin')

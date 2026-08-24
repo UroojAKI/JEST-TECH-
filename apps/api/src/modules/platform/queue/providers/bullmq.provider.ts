@@ -46,23 +46,37 @@ export class BullMQProvider implements QueueProvider, OnApplicationShutdown {
       },
     });
 
-    // 2. Add to BullMQ
-    const job = await this.systemQueue.add(type, payload, {
-      jobId: id,
-      attempts: options?.attempts || 3,
-      delay: options?.delay,
-      priority: options?.priority,
-      backoff: options?.backoff,
-      removeOnComplete: true, // we track in DB, no need to bloat Redis
-      removeOnFail: false, // keep for manual retry / dead letter
-    });
+    // 2. Add to BullMQ if Redis is active
+    if (process.env.REDIS_ENABLED === 'true') {
+      try {
+        const job = await this.systemQueue.add(type, payload, {
+          jobId: id,
+          attempts: options?.attempts || 3,
+          delay: options?.delay,
+          priority: options?.priority,
+          backoff: options?.backoff,
+          removeOnComplete: true,
+          removeOnFail: false,
+        });
 
-    // 3. Update job with Redis jobId just in case (should match)
-    if (job.id && job.id !== id) {
-      await this.prisma.backgroundJob.update({
-        where: { id },
-        data: { jobId: job.id.toString() },
-      });
+        if (job && job.id && job.id !== id) {
+          await this.prisma.backgroundJob.update({
+            where: { id },
+            data: { jobId: job.id.toString() },
+          });
+        } else {
+          await this.prisma.backgroundJob.update({
+            where: { id },
+            data: { jobId: id },
+          });
+        }
+      } catch (err: any) {
+        this.logger.warn(`BullMQ offline fallback: ${err.message}. Job recorded in Postgres only.`);
+        await this.prisma.backgroundJob.update({
+          where: { id },
+          data: { jobId: id },
+        });
+      }
     } else {
       await this.prisma.backgroundJob.update({
         where: { id },
@@ -73,6 +87,7 @@ export class BullMQProvider implements QueueProvider, OnApplicationShutdown {
     this.logger.debug(`Enqueued job ${id} of type ${type}`);
     return id;
   }
+
 
   async schedule(
     type: JobType,

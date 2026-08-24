@@ -132,7 +132,12 @@ export const adminRepository = {
 
   async getUsers(params?: { status?: string; role?: string; search?: string }): Promise<UserItem[]> {
     const response = await apiClient.get('/users', { params });
-    return response.data;
+    // Handle both flat array and paginated { items/data: [], total, page } responses
+    const raw = response.data;
+    if (Array.isArray(raw)) return raw;
+    if (Array.isArray(raw?.items)) return raw.items;
+    if (Array.isArray(raw?.data)) return raw.data;
+    return [];
   },
 
   async createUser(data: Partial<UserItem>): Promise<UserItem> {

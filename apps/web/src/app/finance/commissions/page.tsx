@@ -11,7 +11,7 @@ export default function CommissionsWorkspacePage() {
   const { commissions = [], approveCommission, isLoading, isError, isApproving } = useCommissions();
 
   const handleBulkApprove = () => {
-    const pendingCommissions = commissions.filter((c: any) => c.payoutStatus === 'PENDING_APPROVAL');
+    const pendingCommissions = (Array.isArray(commissions) ? commissions : (((commissions as any)?.data || (commissions as any)?.items || []))).filter((c: any) => c.payoutStatus === 'PENDING_APPROVAL');
     if (pendingCommissions.length === 0) {
       toast.info('No pending commissions to approve.');
       return;

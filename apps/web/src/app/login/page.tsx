@@ -8,6 +8,11 @@ import { Shield, Key, Mail, Sparkles } from 'lucide-react';
 const QUICK_PROFILES = [
   { email: 'superadmin@jest.com', label: 'Super Admin' },
   { email: 'admin@jest.com', label: 'Admin' },
+  { email: 'manager@jest.com', label: 'Branch Manager' },
+  { email: 'agent@jest.com', label: 'Sales Agent (Motor)' },
+  { email: 'underwriter@jest.com', label: 'Underwriter' },
+  { email: 'claims@jest.com', label: 'Claims Officer' },
+  { email: 'finance@jest.com', label: 'Finance Officer' },
 ];
 
 export default function LoginPage() {
@@ -91,7 +96,7 @@ export default function LoginPage() {
 
         <div className="mt-8 border-t pt-6">
           <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider text-center mb-3">Quick Testing Access</p>
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
             {QUICK_PROFILES.map((p) => (
               <button
                 key={p.email}

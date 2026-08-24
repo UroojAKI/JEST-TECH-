@@ -6,6 +6,8 @@ import {
 import { ClaimRepository } from '../../repositories/claim.repository';
 import { ClaimMapper } from '../../mappers/claim.mapper';
 import type { RequestUser } from '../../../auth/decorators/current-user.decorator';
+import { PaginationDto } from '../../../../common/pagination/pagination.dto';
+import { PaginatedResponseDto } from '../../../../common/pagination/paginated-response.dto';
 
 @Injectable()
 export class GetClaimsService {
@@ -30,12 +32,18 @@ export class GetClaimsService {
     return ClaimMapper.toResponse(claim);
   }
 
-  async executeAll(user: RequestUser) {
+  async executeAll(pagination: PaginationDto, user: RequestUser) {
+    const { page = 1, limit = 10, sortBy = 'createdAt', sortOrder = 'desc' } = pagination;
+    const skip = (page - 1) * limit;
+    
     const where =
       user.role === 'SALES_AGENT' || user.role === 'CUSTOMER'
         ? { createdById: user.id }
         : {};
-    const claims = await this.claimRepository.findAll(where);
-    return ClaimMapper.toResponseList(claims);
+        
+    const claims = await this.claimRepository.findAll(skip, limit, where, { [sortBy]: sortOrder });
+    const total = await this.claimRepository.count(where);
+    
+    return new PaginatedResponseDto(ClaimMapper.toResponseList(claims), total, page, limit);
   }
 }

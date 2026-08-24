@@ -78,7 +78,7 @@ export default function NumberSeriesPage() {
       ) : (
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
-        {numberSeries?.map((ns: any) => (
+        {(Array.isArray(numberSeries) ? numberSeries : (numberSeries?.data || numberSeries?.items || [])).map((ns: any) => (
           <div key={ns.id} className="p-5 rounded-2xl border bg-card shadow-sm space-y-4">
             <div className="flex justify-between items-start border-b pb-2">
               <div>

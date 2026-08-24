@@ -9,6 +9,8 @@ import { ProposalStatus, PolicyStatus } from '@prisma/client';
 import type { RequestUser } from '../../auth/decorators/current-user.decorator';
 import { checkOptimisticLock } from '../../../common/utils/optimistic-lock';
 import { WorkflowEngineService } from '../../platform/workflow/services/workflow-engine.service';
+import { PaginationDto } from '../../../common/pagination/pagination.dto';
+import { PaginatedResponseDto } from '../../../common/pagination/paginated-response.dto';
 
 @Injectable()
 export class ProposalService {
@@ -21,13 +23,24 @@ export class ProposalService {
     return `PROP-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
   }
 
-  async getProposals(userId?: string) {
+  async getProposals(userId?: string, pagination?: PaginationDto) {
+    const page = pagination?.page || 1;
+    const limit = pagination?.limit || 10;
+    const sortBy = pagination?.sortBy || 'createdAt';
+    const sortOrder = pagination?.sortOrder || 'desc';
+    const skip = (page - 1) * limit;
+
     const where = userId ? { submittedById: userId } : {};
-    return this.prisma.proposal.findMany({
+    const data = await this.prisma.proposal.findMany({
+      skip,
+      take: limit,
       where,
       include: { contact: true, quotation: true },
-      orderBy: { createdAt: 'desc' },
+      orderBy: { [sortBy]: sortOrder },
     });
+    const total = await this.prisma.proposal.count({ where });
+
+    return new PaginatedResponseDto(data, total, page, limit);
   }
 
   async getProposalDetails(id: string, user: RequestUser) {

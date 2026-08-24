@@ -16,6 +16,11 @@ export const salesWorkspaceRepository = {
     return response.data;
   },
 
+  async getAnalytics(): Promise<any> {
+    const response = await apiClient.get('/dashboards/sales');
+    return response.data;
+  },
+
   async moveStage(leadId: string, targetStage: string, overrideReason?: string, remarks?: string): Promise<any> {
     const response = await apiClient.post(`/workspace/sales/lead/${leadId}/move-stage`, {
       targetStage,

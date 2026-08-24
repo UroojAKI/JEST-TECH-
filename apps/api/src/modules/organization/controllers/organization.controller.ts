@@ -1,9 +1,13 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Body, Param, UseGuards, Query } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { RoleType } from '@prisma/client';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
 import { Roles } from '../../auth/decorators/roles.decorator';
+
+import { PaginationDto } from '../../../common/pagination/pagination.dto';
+import { ParseUUIDPipe } from '../../../common/utils/parse-uuid.pipe';
+
 import { OrganizationService } from '../services/organization.service';
 import { CreateDepartmentDto, UpdateDepartmentDto, CreateJobRoleDto, UpdateJobRoleDto } from '../dto/organization.dto';
 
@@ -16,13 +20,13 @@ export class OrganizationController {
 
   @Get('departments')
   @ApiOperation({ summary: 'Get all organization departments' })
-  getDepartments() {
-    return this.organizationService.getDepartments();
+  getDepartments(@Query() pagination: PaginationDto) {
+    return this.organizationService.getDepartments(pagination);
   }
 
   @Get('departments/:id')
   @ApiOperation({ summary: 'Get department details' })
-  getDepartmentById(@Param('id') id: string) {
+  getDepartmentById(@Param('id', ParseUUIDPipe) id: string) {
     return this.organizationService.getDepartmentById(id);
   }
 
@@ -36,26 +40,26 @@ export class OrganizationController {
   @Put('departments/:id')
   @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN)
   @ApiOperation({ summary: 'Update department' })
-  updateDepartment(@Param('id') id: string, @Body() dto: UpdateDepartmentDto) {
+  updateDepartment(@Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdateDepartmentDto) {
     return this.organizationService.updateDepartment(id, dto);
   }
 
   @Delete('departments/:id')
   @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN)
   @ApiOperation({ summary: 'Delete department' })
-  deleteDepartment(@Param('id') id: string) {
+  deleteDepartment(@Param('id', ParseUUIDPipe) id: string) {
     return this.organizationService.deleteDepartment(id);
   }
 
   @Get('job-roles')
   @ApiOperation({ summary: 'Get all job roles' })
-  getJobRoles() {
-    return this.organizationService.getJobRoles();
+  getJobRoles(@Query() pagination: PaginationDto) {
+    return this.organizationService.getJobRoles(pagination);
   }
 
   @Get('job-roles/:id')
   @ApiOperation({ summary: 'Get job role details' })
-  getJobRoleById(@Param('id') id: string) {
+  getJobRoleById(@Param('id', ParseUUIDPipe) id: string) {
     return this.organizationService.getJobRoleById(id);
   }
 
@@ -69,14 +73,14 @@ export class OrganizationController {
   @Put('job-role/:id')
   @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN)
   @ApiOperation({ summary: 'Update job role' })
-  updateJobRole(@Param('id') id: string, @Body() dto: UpdateJobRoleDto) {
+  updateJobRole(@Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdateJobRoleDto) {
     return this.organizationService.updateJobRole(id, dto);
   }
 
   @Delete('job-role/:id')
   @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN)
   @ApiOperation({ summary: 'Delete job role' })
-  deleteJobRole(@Param('id') id: string) {
+  deleteJobRole(@Param('id', ParseUUIDPipe) id: string) {
     return this.organizationService.deleteJobRole(id);
   }
 

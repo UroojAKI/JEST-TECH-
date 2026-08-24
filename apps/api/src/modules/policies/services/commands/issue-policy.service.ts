@@ -20,6 +20,9 @@ import { PdfService } from '../../../quotation/engine/pdf.service';
 import { PolicyDomainService } from '../../domain/policy.domain-service';
 import { Money } from '../../../../common/domain/value-objects/money.value-object';
 import { PrismaService } from '../../../../database/prisma.service';
+import { CACHE_PROVIDER_TOKEN } from '../../../platform/cache/cache.provider';
+import { RedisCacheService } from '../../../platform/cache/redis-cache.service';
+import { Inject } from '@nestjs/common';
 
 @Injectable()
 export class IssuePolicyService {
@@ -29,6 +32,7 @@ export class IssuePolicyService {
     private readonly pdfService: PdfService,
     private readonly policyDomainService: PolicyDomainService,
     private readonly prisma: PrismaService,
+    @Inject(CACHE_PROVIDER_TOKEN) private readonly cache: RedisCacheService,
   ) {}
 
   async execute(dto: CreatePolicyDto, createdById: string) {

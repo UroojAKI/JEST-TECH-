@@ -9,8 +9,14 @@ export class LocalStorageProvider implements StorageProvider {
   private readonly uploadDir = path.join(process.cwd(), 'uploads');
 
   constructor() {
-    if (!fs.existsSync(this.uploadDir)) {
-      fs.mkdirSync(this.uploadDir, { recursive: true });
+    try {
+      if (!fs.existsSync(this.uploadDir)) {
+        fs.mkdirSync(this.uploadDir, { recursive: true });
+      }
+    } catch (err: any) {
+      this.logger.warn(
+        `Could not create upload directory ${this.uploadDir}: ${err.message}`,
+      );
     }
   }
 
@@ -41,11 +47,16 @@ export class LocalStorageProvider implements StorageProvider {
   ): Promise<string> {
     const filePath = this.safePath(key);
     const parentDir = path.dirname(filePath);
-    if (!fs.existsSync(parentDir)) {
-      fs.mkdirSync(parentDir, { recursive: true });
+    try {
+      if (!fs.existsSync(parentDir)) {
+        fs.mkdirSync(parentDir, { recursive: true });
+      }
+      await fs.promises.writeFile(filePath, fileBuffer);
+      this.logger.log(`File uploaded successfully to: ${filePath}`);
+    } catch (err: any) {
+      this.logger.error(`Failed to write file to ${filePath}: ${err.message}`);
+      throw new BadRequestException('Failed to upload document to storage');
     }
-    await fs.promises.writeFile(filePath, fileBuffer);
-    this.logger.log(`File uploaded successfully to: ${filePath}`);
     return key;
   }
 

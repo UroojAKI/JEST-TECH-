@@ -13,6 +13,8 @@ import {
   DocumentVerificationStatus,
 } from '@prisma/client';
 import * as crypto from 'crypto';
+import { PaginationDto } from '../../../common/pagination/pagination.dto';
+import { PaginatedResponseDto } from '../../../common/pagination/paginated-response.dto';
 
 @Injectable()
 export class DocumentService {
@@ -199,15 +201,28 @@ export class DocumentService {
     };
   }
 
-  async getEntityDocuments(entityType: string, entityId: string) {
-    return this.prisma.document.findMany({
-      where: {
-        entityType,
-        entityId,
-        status: { not: DocumentStatus.DELETED },
-      },
-      orderBy: { createdAt: 'desc' },
+  async getEntityDocuments(entityType: string, entityId: string, pagination?: PaginationDto) {
+    const page = pagination?.page || 1;
+    const limit = pagination?.limit || 10;
+    const sortBy = pagination?.sortBy || 'createdAt';
+    const sortOrder = pagination?.sortOrder || 'desc';
+    const skip = (page - 1) * limit;
+
+    const where = {
+      entityType,
+      entityId,
+      status: { not: DocumentStatus.DELETED },
+    };
+
+    const data = await this.prisma.document.findMany({
+      skip,
+      take: limit,
+      where,
+      orderBy: { [sortBy]: sortOrder },
     });
+    const total = await this.prisma.document.count({ where });
+
+    return new PaginatedResponseDto(data, total, page, limit);
   }
 
   async getDocumentDetails(id: string) {

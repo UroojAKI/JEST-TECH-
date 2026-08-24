@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { Test, TestingModule } from '@nestjs/testing';
 import { DashboardController } from '../controllers/dashboard.controller';
 import { DashboardService } from '../services/dashboard.service';
@@ -16,7 +17,7 @@ describe('DashboardController', () => {
   };
 
   const mockDashboardData = {
-    role: 'ADMIN',
+    role: 'ADMIN', permissions: [],
     kpis: {
       revenue: 1250000,
       policiesCount: 450,

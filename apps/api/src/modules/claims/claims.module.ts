@@ -9,9 +9,6 @@ import { ClaimListener } from './events/claim.listener';
 import { ReportClaimService } from './services/commands/report-claim.service';
 import { UploadClaimDocumentService } from './services/commands/upload-claim-document.service';
 import { AssignSurveyorService } from './services/commands/assign-surveyor.service';
-import { AssessClaimService } from './services/commands/assess-claim.service';
-import { ApproveClaimService } from './services/commands/approve-claim.service';
-import { PayClaimService } from './services/commands/pay-claim.service';
 import { CloseClaimService } from './services/commands/close-claim.service';
 
 // CQRS Queries
@@ -30,9 +27,6 @@ import { ClaimReportProvider } from './providers/claim-report.provider';
     ReportClaimService,
     UploadClaimDocumentService,
     AssignSurveyorService,
-    AssessClaimService,
-    ApproveClaimService,
-    PayClaimService,
     CloseClaimService,
     // CQRS Queries
     GetClaimsService,

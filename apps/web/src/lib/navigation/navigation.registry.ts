@@ -5,7 +5,10 @@ export const navigationRegistry: NavigationItem[] = [
     id: 'dashboard',
     title: 'Dashboard',
     href: '/dashboard',
-    icon: 'LayoutDashboard',
+    children: [
+      { id: 'dashboard-home', title: 'Main Dashboard', href: '/dashboard' },
+      { id: 'motor-command-center', title: '🚗 Motor Command Center', href: '/workspace/sales' },
+    ],
   },
   {
     id: 'crm',

@@ -22,6 +22,11 @@ export function useSalesWorkspace() {
     queryFn: () => salesWorkspaceRepository.getPipeline(),
   });
 
+  const analyticsQuery = useQuery({
+    queryKey: ['sales-workspace-analytics'],
+    queryFn: () => salesWorkspaceRepository.getAnalytics(),
+  });
+
   const moveStageMutation = useMutation({
     mutationFn: ({ leadId, targetStage, overrideReason, remarks }: { leadId: string; targetStage: string; overrideReason?: string; remarks?: string }) =>
       salesWorkspaceRepository.moveStage(leadId, targetStage, overrideReason, remarks),
@@ -54,8 +59,9 @@ export function useSalesWorkspace() {
 
   return {
     dashboard: dashboardQuery.data,
-    isDashboardLoading: dashboardQuery.isLoading,
+    isDashboardLoading: dashboardQuery.isLoading || analyticsQuery.isLoading,
     kpis: kpisQuery.data,
+    analytics: analyticsQuery.data,
     pipeline: pipelineQuery.data,
     isPipelineLoading: pipelineQuery.isLoading,
     moveStage: moveStageMutation.mutate,

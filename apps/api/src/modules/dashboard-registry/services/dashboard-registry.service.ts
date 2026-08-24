@@ -1,13 +1,18 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { DashboardRegistryRepository } from '../repositories/dashboard-registry.repository';
 import { CreateDashboardRegistryDto, UpdateDashboardRegistryDto } from '../dto/dashboard-registry.dto';
+import { PaginationDto } from '../../../common/pagination/pagination.dto';
+import { PaginatedResponseDto } from '../../../common/pagination/paginated-response.dto';
 
 @Injectable()
 export class DashboardRegistryService {
   constructor(private readonly repository: DashboardRegistryRepository) {}
 
-  async getAll() {
-    return this.repository.findAll();
+  async getAll(pagination: PaginationDto) {
+    const page = pagination.page || 1;
+    const limit = pagination.limit || 10;
+    const { data, total } = await this.repository.findAll({ ...pagination, page, limit });
+    return new PaginatedResponseDto(data, total, page, limit);
   }
 
   async getByCode(dashboardCode: string) {

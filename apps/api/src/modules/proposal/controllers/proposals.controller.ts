@@ -1,5 +1,6 @@
-import { Controller, Get, Post, Body, Param, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, UseGuards, Query, ParseUUIDPipe } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import { PaginationDto } from '../../../common/pagination/pagination.dto';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
 import { Roles } from '../../auth/decorators/roles.decorator';
@@ -16,15 +17,15 @@ export class ProposalsController {
   constructor(private readonly proposalService: ProposalService) {}
 
   @Get()
-  getProposals(@CurrentUser() user: RequestUser) {
+  getProposals(@CurrentUser() user: RequestUser, @Query() pagination: PaginationDto) {
     const filterUserId =
       user.role === RoleType.SALES_AGENT ? user.id : undefined;
-    return this.proposalService.getProposals(filterUserId);
+    return this.proposalService.getProposals(filterUserId, pagination);
   }
 
   @Get(':id')
   getProposalDetails(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser() user: RequestUser,
   ) {
     return this.proposalService.getProposalDetails(id, user);
@@ -40,7 +41,7 @@ export class ProposalsController {
 
   @Post(':id/attach')
   attachDocument(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Body('checklistItemId') checklistItemId: string,
     @Body('documentId') documentId: string,
     @CurrentUser() user: RequestUser,
@@ -54,14 +55,14 @@ export class ProposalsController {
   }
 
   @Post(':id/submit')
-  submitProposal(@Param('id') id: string, @CurrentUser() user: RequestUser) {
+  submitProposal(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: RequestUser) {
     return this.proposalService.submitProposal(id, user.id);
   }
 
   @Post(':id/review')
   @Roles(RoleType.ADMIN, RoleType.SUPER_ADMIN)
   reviewProposal(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Body('approve') approve: boolean,
     @Body('remarks') remarks: string,
     @CurrentUser() user: RequestUser,

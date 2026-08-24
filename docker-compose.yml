@@ -4,6 +4,7 @@ services:
     container_name: jest-postgres
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      # SECURITY: Override POSTGRES_PASSWORD via .env file or environment variable.
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
       POSTGRES_DB: ${POSTGRES_DB:-jest_policy_crm}
     ports:
@@ -15,17 +16,23 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+    restart: unless-stopped
 
   redis:
     image: redis:7-alpine
     container_name: jest-redis
     ports:
       - "6380:6379"
+    volumes:
+      # Persistent Redis storage — prevents job queue and cache loss on container restart
+      - redis_data:/data
+    command: redis-server --appendonly yes
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
       timeout: 5s
       retries: 5
+    restart: unless-stopped
 
   api:
     build:
@@ -33,22 +40,22 @@ services:
       dockerfile: apps/api/Dockerfile
     container_name: jest-api
     ports:
-      - "4000:3000"
-      - "3000:3000"
+      - "4001:3000"
     environment:
       NODE_ENV: production
       PORT: 3000
       DATABASE_URL: ${DATABASE_URL:-postgresql://postgres:postgres@postgres:5432/jest_policy_crm?schema=public}
       REDIS_URL: ${REDIS_URL:-redis://redis:6379}
-      JWT_SECRET: ${JWT_SECRET:-jest_policy_super_secret_jwt_key_2026}
-      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-jest_policy_super_secret_refresh_key_2026}
-      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:3001,http://localhost:3000,http://localhost:4000}
+      REDIS_ENABLED: ${REDIS_ENABLED:-true}
+      JWT_SECRET: ${JWT_SECRET:-JEST_POLICY_SUPER_SECRET_KEY_CHANGE_IN_PRODUCTION_2026}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-JEST_POLICY_REFRESH_SECRET_KEY_CHANGE_IN_PRODUCTION_2026}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:3001,http://localhost:4000}
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
-    restart: always
+    restart: unless-stopped
 
   web:
     build:
@@ -56,14 +63,16 @@ services:
       dockerfile: apps/web/Dockerfile
     container_name: jest-web
     ports:
-      - "3001:3000"
+      - "3000:3000"
     environment:
       NODE_ENV: production
       PORT: 3000
-      NEXT_PUBLIC_API_URL: http://localhost:3000/api/v1
+      NEXT_PUBLIC_API_URL: http://localhost:4000/api/v1
     depends_on:
       - api
-    restart: always
+    restart: unless-stopped
 
 volumes:
   postgres_data:
+  redis_data:
+

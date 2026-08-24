@@ -24,8 +24,12 @@ import { CreateLeadDto } from '../dto/create-lead.dto';
 import { UpdateLeadDto } from '../dto/update-lead.dto';
 import { CreateNoteDto } from '../dto/create-note.dto';
 import { CreateActivityDto } from '../dto/create-activity.dto';
+import { GetLeadsQueryDto } from '../dto/get-leads-query.dto';
 import { LeadsService } from '../services/leads.service';
 import { PrismaService } from '../../../database/prisma.service';
+import { ParseUUIDPipe } from '../../../common/utils/parse-uuid.pipe';
+import { PaginationDto } from '../../../common/pagination/pagination.dto';
+
 
 @ApiTags('Leads & Opportunity Pipeline')
 @ApiBearerAuth()
@@ -48,8 +52,8 @@ export class LeadsController {
 
     const totalLeads = await this.prisma.lead.count({ where });
     const wonLeads = await this.prisma.lead.count({ where: { ...where, status: 'CONVERTED' } });
-    const lostLeads = await this.prisma.lead.count({ where: { ...where, status: 'DISQUALIFIED' } });
-    const pendingLeads = await this.prisma.lead.count({ where: { ...where, status: 'QUALIFIED' } });
+    const lostLeads = await this.prisma.lead.count({ where: { ...where, status: { in: ['LOST', 'UNQUALIFIED'] } } });
+    const pendingLeads = await this.prisma.lead.count({ where: { ...where, status: { in: ['NEW', 'CONTACTED', 'QUALIFIED', 'DOCS_RECEIVED', 'QUOTE_PREPARED', 'NEGOTIATION'] } } });
 
     const conversionRate = totalLeads > 0 ? ((wonLeads / totalLeads) * 100).toFixed(1) : '24.8';
 
@@ -115,8 +119,11 @@ export class LeadsController {
     RoleType.SALES_AGENT,
     RoleType.OPERATIONS,
   )
-  findAll(@CurrentUser() user: RequestUser) {
-    return this.leadsService.findAll(user);
+  findAll(
+    @Query() pagination: GetLeadsQueryDto,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.leadsService.findAll(user, pagination);
   }
 
   @Get(':id')
@@ -128,7 +135,7 @@ export class LeadsController {
     RoleType.SALES_AGENT,
     RoleType.OPERATIONS,
   )
-  findOne(@Param('id') id: string, @CurrentUser() user: RequestUser) {
+  findOne(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: RequestUser) {
     return this.leadsService.findById(id, user);
   }
 
@@ -141,7 +148,7 @@ export class LeadsController {
     RoleType.SALES_AGENT,
   )
   update(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateLeadDto,
     @CurrentUser() user: RequestUser,
   ) {
@@ -151,7 +158,7 @@ export class LeadsController {
   @Delete(':id')
   @HttpCode(HttpStatus.OK)
   @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN)
-  remove(@Param('id') id: string, @CurrentUser() user: RequestUser) {
+  remove(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: RequestUser) {
     return this.leadsService.remove(id, user.id);
   }
 
@@ -163,7 +170,7 @@ export class LeadsController {
     RoleType.TEAM_LEADER,
   )
   assign(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Body('assignedToId') assignedToId: string,
     @CurrentUser() user: RequestUser,
   ) {
@@ -179,7 +186,7 @@ export class LeadsController {
     RoleType.SALES_AGENT,
   )
   addNote(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: CreateNoteDto,
     @CurrentUser() user: RequestUser,
   ) {
@@ -195,7 +202,7 @@ export class LeadsController {
     RoleType.SALES_AGENT,
   )
   createActivity(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: CreateActivityDto,
     @CurrentUser() user: RequestUser,
   ) {
@@ -210,7 +217,7 @@ export class LeadsController {
     RoleType.TEAM_LEADER,
     RoleType.SALES_AGENT,
   )
-  convert(@Param('id') id: string, @CurrentUser() user: RequestUser) {
+  convert(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: RequestUser) {
     return this.leadsService.convert(id, user.id);
   }
 }

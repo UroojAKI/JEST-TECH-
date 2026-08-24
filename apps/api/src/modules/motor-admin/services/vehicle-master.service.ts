@@ -7,6 +7,9 @@ import {
   Prisma,
 } from '@prisma/client';
 
+import { PaginationDto } from '../../../common/pagination/pagination.dto';
+import { PaginatedResponseDto } from '../../../common/pagination/paginated-response.dto';
+
 @Injectable()
 export class VehicleMasterService {
   constructor(private readonly prisma: PrismaService) {}
@@ -64,10 +67,32 @@ export class VehicleMasterService {
   }
 
   // Manufacturer CRUD
-  async getManufacturers() {
-    return this.prisma.vehicleManufacturer.findMany({
-      orderBy: { name: 'asc' },
-    });
+  async getManufacturers(pagination: PaginationDto) {
+    const page = pagination.page || 1;
+    const limit = pagination.limit || 10;
+    const skip = (page - 1) * limit;
+    const where: Prisma.VehicleManufacturerWhereInput = {};
+    if (pagination.search) {
+      where.OR = [
+        { name: { contains: pagination.search, mode: 'insensitive' } },
+        { code: { contains: pagination.search, mode: 'insensitive' } },
+      ];
+    }
+    const orderBy = pagination.sortBy
+      ? { [pagination.sortBy]: pagination.sortOrder || 'asc' } as any
+      : { name: 'asc' };
+
+    const [data, total] = await Promise.all([
+      this.prisma.vehicleManufacturer.findMany({
+        skip,
+        take: limit,
+        where,
+        orderBy,
+      }),
+      this.prisma.vehicleManufacturer.count({ where }),
+    ]);
+
+    return new PaginatedResponseDto(data, total, page, limit);
   }
 
   async createManufacturer(name: string, code: string) {
@@ -77,13 +102,33 @@ export class VehicleMasterService {
   }
 
   // Model CRUD
-  async getModels(manufacturerId?: string) {
-    const where = manufacturerId ? { manufacturerId } : {};
-    return this.prisma.vehicleModel.findMany({
-      where,
-      include: { manufacturer: true },
-      orderBy: { name: 'asc' },
-    });
+  async getModels(pagination: PaginationDto, manufacturerId?: string) {
+    const page = pagination.page || 1;
+    const limit = pagination.limit || 10;
+    const skip = (page - 1) * limit;
+    const where: Prisma.VehicleModelWhereInput = manufacturerId ? { manufacturerId } : {};
+    if (pagination.search) {
+      where.OR = [
+        { name: { contains: pagination.search, mode: 'insensitive' } },
+        { code: { contains: pagination.search, mode: 'insensitive' } },
+      ];
+    }
+    const orderBy = pagination.sortBy
+      ? { [pagination.sortBy]: pagination.sortOrder || 'asc' } as any
+      : { name: 'asc' };
+
+    const [data, total] = await Promise.all([
+      this.prisma.vehicleModel.findMany({
+        skip,
+        take: limit,
+        where,
+        orderBy,
+        include: { manufacturer: true },
+      }),
+      this.prisma.vehicleModel.count({ where }),
+    ]);
+
+    return new PaginatedResponseDto(data, total, page, limit);
   }
 
   async createModel(
@@ -98,13 +143,33 @@ export class VehicleMasterService {
   }
 
   // Variant CRUD
-  async getVariants(modelId?: string) {
-    const where = modelId ? { modelId } : {};
-    return this.prisma.vehicleVariant.findMany({
-      where,
-      include: { model: { include: { manufacturer: true } } },
-      orderBy: { name: 'asc' },
-    });
+  async getVariants(pagination: PaginationDto, modelId?: string) {
+    const page = pagination.page || 1;
+    const limit = pagination.limit || 10;
+    const skip = (page - 1) * limit;
+    const where: Prisma.VehicleVariantWhereInput = modelId ? { modelId } : {};
+    if (pagination.search) {
+      where.OR = [
+        { name: { contains: pagination.search, mode: 'insensitive' } },
+        { code: { contains: pagination.search, mode: 'insensitive' } },
+      ];
+    }
+    const orderBy = pagination.sortBy
+      ? { [pagination.sortBy]: pagination.sortOrder || 'asc' } as any
+      : { name: 'asc' };
+
+    const [data, total] = await Promise.all([
+      this.prisma.vehicleVariant.findMany({
+        skip,
+        take: limit,
+        where,
+        orderBy,
+        include: { model: { include: { manufacturer: true } } },
+      }),
+      this.prisma.vehicleVariant.count({ where }),
+    ]);
+
+    return new PaginatedResponseDto(data, total, page, limit);
   }
 
   async createVariant(params: {

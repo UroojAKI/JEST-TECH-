@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, ForbiddenException } from '@nestjs/common';
 import * as argon2 from 'argon2';
 import { ConfigService } from '@nestjs/config';
 import { AuditAction } from '@prisma/client';
@@ -22,6 +22,10 @@ export class AuthService {
     if (!user) {
       // Identical message for both failures — prevents user enumeration
       throw new UnauthorizedException('Invalid email or password');
+    }
+
+    if (user.status !== 'ACTIVE') {
+      throw new ForbiddenException('User account is inactive or locked');
     }
 
     // ── 2. Verify password ───────────────────────────────────────────────────

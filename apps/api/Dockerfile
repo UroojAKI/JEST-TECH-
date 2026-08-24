@@ -52,7 +52,9 @@ ENV PORT=3000
 
 # Create non-root user
 RUN addgroup -S nodejs && \
-    adduser -S nestjs -G nodejs
+    adduser -S nestjs -G nodejs && \
+    mkdir -p /app/uploads && \
+    chown -R nestjs:nodejs /app/uploads
 
 # Copy entire built workspace with all node_modules and symlinks
 COPY --from=installer --chown=nestjs:nodejs /app ./

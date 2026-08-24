@@ -10,27 +10,24 @@ import { ContactMapper } from '../mappers/contact.mapper';
 import { ContactRepository } from '../repositories/contact.repository';
 import { CreateContactDto } from '../dto/create-contact.dto';
 import { UpdateContactDto } from '../dto/update-contact.dto';
+import { PaginationDto } from '../../../common/pagination/pagination.dto';
+import { PaginatedResponseDto } from '../../../common/pagination/paginated-response.dto';
 
 @Injectable()
 export class ContactsService {
   constructor(private readonly contactRepository: ContactRepository) {}
 
   async create(dto: CreateContactDto, createdById: string) {
-    // Enforce phone uniqueness at the service layer for a clear error message
+    // Gracefully reuse existing contact by phone or email for CRM data capture & quotation workflows
     const existingPhone = await this.contactRepository.findByPhone(dto.phone);
     if (existingPhone) {
-      throw new ConflictException(
-        `A contact with phone ${dto.phone} already exists`,
-      );
+      return existingPhone;
     }
 
-    // Enforce email uniqueness if provided
     if (dto.email) {
       const existingEmail = await this.contactRepository.findByEmail(dto.email);
       if (existingEmail) {
-        throw new ConflictException(
-          `A contact with email ${dto.email} already exists`,
-        );
+        return existingEmail;
       }
     }
 
@@ -70,9 +67,27 @@ export class ContactsService {
     return ContactMapper.toResponse(contact);
   }
 
-  async findAll() {
-    const contacts = await this.contactRepository.findAll();
-    return ContactMapper.toResponseList(contacts);
+  async findAll(pagination: PaginationDto) {
+    const { page = 1, limit = 10, search, sortBy = 'createdAt', sortOrder = 'desc' } = pagination;
+    const skip = (page - 1) * limit;
+
+    const where: Prisma.ContactWhereInput = search
+      ? {
+          OR: [
+            { firstName: { contains: search, mode: 'insensitive' } },
+            { lastName: { contains: search, mode: 'insensitive' } },
+            { email: { contains: search, mode: 'insensitive' } },
+            { phone: { contains: search, mode: 'insensitive' } },
+          ],
+        }
+      : {};
+
+    const [contacts, total] = await Promise.all([
+      this.contactRepository.findAll(where, skip, limit, { [sortBy]: sortOrder }),
+      this.contactRepository.count(where),
+    ]);
+
+    return new PaginatedResponseDto(ContactMapper.toResponseList(contacts), total, page, limit);
   }
 
   async findById(id: string) {

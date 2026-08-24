@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { useQuery, useMutation } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../../lib/api-client';
 import { toast } from 'sonner';
 import {
@@ -20,6 +20,8 @@ import {
   Zap,
   Building,
   Award,
+  PlusCircle,
+  X,
 } from 'lucide-react';
 
 const WIZARD_STEPS = [
@@ -37,7 +39,49 @@ const WIZARD_STEPS = [
 ];
 
 export function MotorProposalWizard() {
+  const queryClient = useQueryClient();
   const [currentStep, setCurrentStep] = useState(1);
+
+  // Add Customer Modal State
+  const [showAddCustomerModal, setShowAddCustomerModal] = useState(false);
+  const [newCustName, setNewCustName] = useState('');
+  const [newCustPhone, setNewCustPhone] = useState('');
+  const [newCustEmail, setNewCustEmail] = useState('');
+  const [newCustType, setNewCustType] = useState('INDIVIDUAL');
+  const [isCreatingCust, setIsCreatingCust] = useState(false);
+
+  const handleCreateCustomer = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newCustName || !newCustPhone) {
+      toast.error('Name and mobile number are required');
+      return;
+    }
+    setIsCreatingCust(true);
+    try {
+      const parts = newCustName.trim().split(' ');
+      const firstName = parts[0] || 'Customer';
+      const lastName = parts.slice(1).join(' ').trim() || 'Record';
+      const res = await apiClient.post('/contacts', {
+        type: newCustType,
+        firstName,
+        lastName,
+        phone: newCustPhone,
+        email: newCustEmail || `customer_${Date.now()}@jestpolicy.com`,
+      });
+      toast.success(`Customer "${newCustName}" created successfully!`);
+      queryClient.invalidateQueries({ queryKey: ['contacts-wizard-lookup'] });
+      queryClient.invalidateQueries({ queryKey: ['contacts'] });
+      setSelectedContact(res.data || { id: `CUST-${Date.now()}`, firstName, lastName, phone: newCustPhone, email: newCustEmail });
+      setShowAddCustomerModal(false);
+      setNewCustName('');
+      setNewCustPhone('');
+      setNewCustEmail('');
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Failed to create customer record');
+    } finally {
+      setIsCreatingCust(false);
+    }
+  };
 
   // Form State
   const [selectedContact, setSelectedContact] = useState<any>(null);
@@ -84,21 +128,42 @@ export function MotorProposalWizard() {
   const [issuedPolicyData, setIssuedPolicyData] = useState<any>(null);
 
   // Queries
-  const { data: contacts = [] } = useQuery({
+  const { data: contactsRaw } = useQuery({
     queryKey: ['contacts-wizard-lookup'],
     queryFn: async () => {
       const res = await apiClient.get('/contacts');
-      return res.data || [];
+      return res.data;
     },
   });
 
-  const { data: makes = [] } = useQuery({
+  const contacts = Array.isArray(contactsRaw)
+    ? contactsRaw
+    : Array.isArray(contactsRaw?.data?.items)
+    ? contactsRaw.data.items
+    : Array.isArray(contactsRaw?.items)
+    ? contactsRaw.items
+    : Array.isArray(contactsRaw?.data)
+    ? contactsRaw.data
+    : [];
+
+  const { data: makesRaw } = useQuery({
     queryKey: ['makes-wizard-lookup'],
     queryFn: async () => {
       const res = await apiClient.get('/motor/vehicles/manufacturers');
-      return res.data || [];
+      return res.data;
     },
   });
+
+  const makes = Array.isArray(makesRaw)
+    ? makesRaw
+    : Array.isArray(makesRaw?.data?.items)
+    ? makesRaw.data.items
+    : Array.isArray(makesRaw?.items)
+    ? makesRaw.items
+    : Array.isArray(makesRaw?.data)
+    ? makesRaw.data
+    : [];
+
 
   // Calculate Quotes Mutation
   const calculateQuotesMutation = useMutation({
@@ -217,7 +282,20 @@ export function MotorProposalWizard() {
         {/* Step 1: Customer Selection */}
         {currentStep === 1 && (
           <div className="space-y-4 text-xs">
-            <h3 className="text-sm font-extrabold text-foreground">Step 1: Select or Create Customer</h3>
+            <div className="flex items-center justify-between border-b pb-3 mb-2">
+              <div>
+                <h3 className="text-sm font-extrabold text-foreground">Step 1: Select or Create Customer</h3>
+                <p className="text-xs text-muted-foreground mt-0.5">Select from active CRM records or register a new policyholder.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowAddCustomerModal(true)}
+                className="px-3.5 py-2 rounded-xl bg-primary text-primary-foreground text-xs font-black flex items-center space-x-1.5 shadow-xs hover:bg-primary/90 transition-all shrink-0"
+              >
+                <PlusCircle className="h-4 w-4" />
+                <span>+ New Customer</span>
+              </button>
+            </div>
             <div className="max-w-md">
               <label className="font-bold text-foreground block mb-1">Search Customer (Mobile / Code / Name)</label>
               <input
@@ -232,7 +310,7 @@ export function MotorProposalWizard() {
             <div className="space-y-2 pt-2">
               <span className="font-bold text-muted-foreground block text-[10px]">Select Customer Record</span>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-60 overflow-y-auto">
-                {contacts.slice(0, 6).map((c: any) => {
+                {(Array.isArray(contacts) ? contacts : []).slice(0, 6).map((c: any) => {
                   const isSel = selectedContact?.id === c.id;
                   return (
                     <div
@@ -587,6 +665,93 @@ export function MotorProposalWizard() {
           </div>
         )}
       </div>
+
+      {/* Inline Register Customer Modal */}
+      {showAddCustomerModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
+          <div className="bg-card w-full max-w-md rounded-3xl border shadow-2xl p-6 text-card-foreground animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between border-b pb-3 mb-4">
+              <div>
+                <h3 className="text-base font-black tracking-tight">Register New Customer</h3>
+                <p className="text-xs text-muted-foreground mt-0.5">Instant registration for Motor Insurance proposal</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowAddCustomerModal(false)}
+                className="p-1 rounded-lg hover:bg-accent transition-colors"
+              >
+                <X className="h-5 w-5 text-muted-foreground" />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateCustomer} className="space-y-4 text-xs">
+              <div>
+                <label className="font-bold text-foreground block mb-1">Customer Type *</label>
+                <select
+                  value={newCustType}
+                  onChange={(e) => setNewCustType(e.target.value)}
+                  className="w-full p-2.5 rounded-xl border bg-background font-semibold"
+                >
+                  <option value="INDIVIDUAL">Individual Policyholder</option>
+                  <option value="CORPORATE">Corporate / Commercial</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="font-bold text-foreground block mb-1">Full Name *</label>
+                <input
+                  required
+                  type="text"
+                  value={newCustName}
+                  onChange={(e) => setNewCustName(e.target.value)}
+                  placeholder="e.g. Vikramaditya Patil"
+                  className="w-full p-2.5 rounded-xl border bg-background"
+                />
+              </div>
+
+              <div>
+                <label className="font-bold text-foreground block mb-1">Mobile Number *</label>
+                <input
+                  required
+                  type="text"
+                  value={newCustPhone}
+                  onChange={(e) => setNewCustPhone(e.target.value)}
+                  placeholder="+91 98765 43210"
+                  className="w-full p-2.5 rounded-xl border bg-background font-mono"
+                />
+              </div>
+
+              <div>
+                <label className="font-bold text-foreground block mb-1">Email Address (Optional)</label>
+                <input
+                  type="email"
+                  value={newCustEmail}
+                  onChange={(e) => setNewCustEmail(e.target.value)}
+                  placeholder="vikram@jestpolicy.com"
+                  className="w-full p-2.5 rounded-xl border bg-background"
+                />
+              </div>
+
+              <div className="flex justify-end space-x-3 pt-4 border-t">
+                <button
+                  type="button"
+                  onClick={() => setShowAddCustomerModal(false)}
+                  className="px-4 py-2 rounded-xl border font-bold text-foreground hover:bg-accent transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isCreatingCust}
+                  className="px-5 py-2 rounded-xl bg-primary text-primary-foreground font-extrabold shadow-sm hover:bg-primary/90 disabled:opacity-50 transition-all"
+                >
+                  {isCreatingCust ? 'Creating...' : 'Create & Select Customer'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

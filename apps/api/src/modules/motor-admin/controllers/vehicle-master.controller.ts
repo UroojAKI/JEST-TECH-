@@ -23,6 +23,10 @@ import {
   TransmissionType,
   VehicleType,
 } from '@prisma/client';
+
+import { PaginationDto } from '../../../common/pagination/pagination.dto';
+import { ParseUUIDPipe } from '../../../common/utils/parse-uuid.pipe';
+
 import { VehicleMasterService } from '../services/vehicle-master.service';
 
 @ApiTags('Motor Admin - Vehicles & RTO')
@@ -55,21 +59,21 @@ export class VehicleMasterController {
   @Put('rto/:id')
   @Roles(RoleType.ADMIN, RoleType.SUPER_ADMIN)
   @ApiOperation({ summary: 'Update RTO master record' })
-  updateRto(@Param('id') id: string, @Body() data: any) {
+  updateRto(@Param('id', ParseUUIDPipe) id: string, @Body() data: any) {
     return this.vehicleService.updateRto(id, data);
   }
 
   @Delete('rto/:id')
   @Roles(RoleType.ADMIN, RoleType.SUPER_ADMIN)
   @ApiOperation({ summary: 'Delete RTO master record' })
-  deleteRto(@Param('id') id: string) {
+  deleteRto(@Param('id', ParseUUIDPipe) id: string) {
     return this.vehicleService.deleteRto(id);
   }
 
   // Manufacturer Endpoints
   @Get('manufacturers')
-  getManufacturers() {
-    return this.vehicleService.getManufacturers();
+  getManufacturers(@Query() pagination: PaginationDto) {
+    return this.vehicleService.getManufacturers(pagination);
   }
 
   @Post('manufacturers')
@@ -80,8 +84,11 @@ export class VehicleMasterController {
 
   // Model Endpoints
   @Get('models')
-  getModels(@Query('manufacturerId') manufacturerId?: string) {
-    return this.vehicleService.getModels(manufacturerId);
+  getModels(
+    @Query() pagination: PaginationDto,
+    @Query('manufacturerId') manufacturerId?: string,
+  ) {
+    return this.vehicleService.getModels(pagination, manufacturerId);
   }
 
   @Post('models')
@@ -97,8 +104,11 @@ export class VehicleMasterController {
 
   // Variant Endpoints
   @Get('variants')
-  getVariants(@Query('modelId') modelId?: string) {
-    return this.vehicleService.getVariants(modelId);
+  getVariants(
+    @Query() pagination: PaginationDto,
+    @Query('modelId') modelId?: string,
+  ) {
+    return this.vehicleService.getVariants(pagination, modelId);
   }
 
   @Post('variants')

@@ -7,8 +7,8 @@ export class CreateLeadDto {
   title?: string;
 
   @IsOptional()
-  @IsEnum(LeadSource)
-  source?: LeadSource;
+  @IsString()
+  source?: string;
 
   @IsOptional()
   @IsEnum(LeadStatus)
@@ -41,6 +41,14 @@ export class CreateLeadDto {
   @IsOptional()
   @IsString()
   productInterest?: string;
+
+  @IsOptional()
+  @IsString()
+  city?: string;
+
+  @IsOptional()
+  @IsString()
+  remarks?: string;
 
   @IsOptional()
   expectedPremium?: number;

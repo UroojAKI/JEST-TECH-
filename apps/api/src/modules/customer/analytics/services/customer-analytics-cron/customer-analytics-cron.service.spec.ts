@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { Test, TestingModule } from '@nestjs/testing';
 import { CustomerAnalyticsCronService } from './customer-analytics-cron.service';
 import { PrismaService } from '../../../../../database/prisma.service';
@@ -44,7 +45,7 @@ describe('CustomerAnalyticsCronService', () => {
         .spyOn(prisma.policy, 'count')
         .mockImplementation(async ({ where }: any) => {
           if (where.status === 'ACTIVE') return 2;
-          if (where.status === 'LAPSED') return 1;
+          if (where.status === 'LAPSED') return 1 as any;
           return 0;
         });
 

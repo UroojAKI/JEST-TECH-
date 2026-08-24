@@ -224,7 +224,7 @@ export default function PolicyRegisterPage() {
       ) : isError ? (
         <div className="p-8 text-center text-xs text-red-500">Failed to load policy register from API.</div>
       ) : (
-        <EnterpriseTable data={policies || []} columns={columns} />
+        <EnterpriseTable data={Array.isArray(policies) ? policies : ((policies as any)?.items || (policies as any)?.data || [])} columns={columns} />
       )}
     </AppShell>
   );

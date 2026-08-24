@@ -8,6 +8,7 @@ import { LeadAssignmentService } from '../services/lead-assignment.service';
 import { ReferralService } from '../services/referral.service';
 import { PerformanceService } from '../services/performance.service';
 import { PrismaService } from '../../../database/prisma.service';
+import { ParseUUIDPipe } from '../../../common/utils/parse-uuid.pipe';
 
 @ApiTags('Sales Workspace')
 @ApiBearerAuth()
@@ -101,7 +102,7 @@ export class SalesWorkspaceController {
   @Post('lead/:id/move-stage')
   @ApiOperation({ summary: 'Transition lead workflow step via Controlled Sequential Workflow engine' })
   moveStage(
-    @Param('id') leadId: string,
+    @Param('id', ParseUUIDPipe) leadId: string,
     @Body() dto: { targetStage: WorkflowStage; overrideReason?: string; remarks?: string },
     @CurrentUser() user: RequestUser
   ) {
@@ -116,14 +117,14 @@ export class SalesWorkspaceController {
 
   @Get('lead/:id/stage-history')
   @ApiOperation({ summary: 'Get stage transition audit trail for a lead' })
-  getStageHistory(@Param('id') leadId: string) {
+  getStageHistory(@Param('id', ParseUUIDPipe) leadId: string) {
     return this.workflowService.getStageHistory(leadId);
   }
 
   @Post('lead/:id/referral')
   @ApiOperation({ summary: 'Capture customer referral and auto-provision linked lead' })
   createReferral(
-    @Param('id') leadId: string,
+    @Param('id', ParseUUIDPipe) leadId: string,
     @Body() dto: { referralName: string; phone: string; email?: string; relationship?: string; interestedProduct?: string },
     @CurrentUser() user: RequestUser
   ) {
@@ -142,14 +143,14 @@ export class SalesWorkspaceController {
 
   @Post('lead/:id/no-referral')
   @ApiOperation({ summary: 'Mark lead with explicit No Referral reason' })
-  markNoReferral(@Param('id') leadId: string, @Body() dto: { reason: string }) {
+  markNoReferral(@Param('id', ParseUUIDPipe) leadId: string, @Body() dto: { reason: string }) {
     return this.referralService.markNoReferral(leadId, dto.reason);
   }
 
   @Post('lead/:id/calls')
   @ApiOperation({ summary: 'Log call interaction for a lead' })
   async logCall(
-    @Param('id') leadId: string,
+    @Param('id', ParseUUIDPipe) leadId: string,
     @Body() dto: { callOutcome: string; notes?: string; scheduledFollowup?: string },
     @CurrentUser() user: RequestUser
   ) {
@@ -175,7 +176,7 @@ export class SalesWorkspaceController {
 
   @Post('lead/:id/crm-update')
   @ApiOperation({ summary: 'Complete final CRM update checklist' })
-  async crmUpdate(@Param('id') leadId: string, @CurrentUser() user: RequestUser) {
+  async crmUpdate(@Param('id', ParseUUIDPipe) leadId: string, @CurrentUser() user: RequestUser) {
     return this.workflowService.transitionStage(
       leadId,
       'CRM_UPDATED',

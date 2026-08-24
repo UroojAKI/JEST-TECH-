@@ -10,7 +10,7 @@ export default function RootPage() {
 
   useEffect(() => {
     if (isAuthenticated) {
-      router.push('/dashboard');
+      router.push('/workspace');
     } else {
       router.push('/login');
     }

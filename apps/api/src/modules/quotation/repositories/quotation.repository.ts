@@ -76,6 +76,12 @@ export class QuotationRepository extends BaseRepository<
     });
   }
 
+  async findAll(skip: number, take: number, where: Prisma.QuotationWhereInput, orderBy: Prisma.QuotationOrderByWithRelationInput): Promise<[QuotationWithRelations[], number]> {
+    const data = await this.prisma.quotation.findMany({ skip, take, where, orderBy, include: quotationWithRelations.include });
+    const total = await this.prisma.quotation.count({ where });
+    return [data, total];
+  }
+
   async findByQuotationCode(
     quotationCode: string,
   ): Promise<QuotationWithRelations | null> {

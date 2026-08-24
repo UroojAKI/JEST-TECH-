@@ -58,7 +58,8 @@ export default function LeadsPipelinePage() {
     },
   });
 
-  const filteredLeads = leads.filter((l: any) => {
+  const leadsList = Array.isArray(leads) ? leads : ((leads as any)?.items || (leads as any)?.data || []);
+  const filteredLeads = leadsList.filter((l: any) => {
     const matchesSearch =
       (l.title || '').toLowerCase().includes(search.toLowerCase()) ||
       (l.leadCode || '').toLowerCase().includes(search.toLowerCase()) ||
@@ -66,6 +67,7 @@ export default function LeadsPipelinePage() {
     const matchesStatus = statusFilter === 'ALL' || (l.status || 'QUALIFIED') === statusFilter;
     return matchesSearch && matchesStatus;
   });
+
 
   return (
     <AppShell>
@@ -165,7 +167,7 @@ export default function LeadsPipelinePage() {
               <option value="NEW">New Leads</option>
               <option value="QUALIFIED">Qualified</option>
               <option value="CONVERTED">Won / Converted</option>
-              <option value="DISQUALIFIED">Lost / Disqualified</option>
+              <option value="LOST">Lost / Disqualified</option>
             </select>
           </div>
         </div>

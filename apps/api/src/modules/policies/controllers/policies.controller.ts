@@ -8,6 +8,7 @@ import {
   Post,
   Query,
   UseGuards,
+  ParseUUIDPipe,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags, ApiOperation } from '@nestjs/swagger';
 import { RoleType } from '@prisma/client';
@@ -17,6 +18,7 @@ import { RolesGuard } from '../../auth/guards/roles.guard';
 import { Roles } from '../../auth/decorators/roles.decorator';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import type { RequestUser } from '../../auth/decorators/current-user.decorator';
+import { PaginationDto } from '../../../common/pagination/pagination.dto';
 
 import { CreatePolicyDto } from '../dto/create-policy.dto';
 import { RenewPolicyDto } from '../dto/renew-policy.dto';
@@ -28,6 +30,9 @@ import { RenewPolicyService } from '../services/commands/renew-policy.service';
 import { GetPolicyService } from '../services/queries/get-policy.service';
 import { GetPolicyHistoryService } from '../services/queries/get-policy-history.service';
 import { PrismaService } from '../../../database/prisma.service';
+
+import { RenewalEngineService } from '../services/renewal-engine.service';
+import { RenewalSchedulerCron } from '../crons/renewal-scheduler.cron';
 
 @ApiTags('Policies & Renewal Engine')
 @ApiBearerAuth()
@@ -41,6 +46,8 @@ export class PoliciesController {
     private readonly getPolicyService: GetPolicyService,
     private readonly getPolicyHistoryService: GetPolicyHistoryService,
     private readonly prisma: PrismaService,
+    private readonly renewalEngineService: RenewalEngineService,
+    private readonly renewalSchedulerCron: RenewalSchedulerCron,
   ) {}
 
   @Get('renewals/kpis')
@@ -97,7 +104,7 @@ export class PoliciesController {
   @Post('renewals/:id/lost')
   @ApiOperation({ summary: 'Capture lost renewal reason analysis' })
   async captureLostReason(
-    @Param('id') taskId: string,
+    @Param('id', ParseUUIDPipe) taskId: string,
     @Body() dto: { reason: string; competitorName?: string; notes?: string }
   ) {
     return this.prisma.renewalTask.update({
@@ -106,6 +113,21 @@ export class PoliciesController {
         status: 'CANCELLED',
       },
     });
+  }
+
+  @Get('renewal/pipeline')
+  @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN, RoleType.BRANCH_MANAGER, RoleType.TEAM_LEADER, RoleType.SALES_AGENT)
+  async getRenewalPipeline(
+    @Query() pagination: PaginationDto,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.renewalEngineService.getRenewalPipeline(user, pagination);
+  }
+
+  @Post('renewal/trigger-scan')
+  @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN)
+  async triggerRenewalScan() {
+    return this.renewalSchedulerCron.runManually();
   }
 
   @Post()
@@ -133,8 +155,11 @@ export class PoliciesController {
     RoleType.FINANCE,
     RoleType.SUPPORT,
   )
-  findAll(@CurrentUser() user: RequestUser) {
-    return this.getPolicyService.executeAll(user);
+  findAll(
+    @Query() pagination: PaginationDto,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.getPolicyService.executeAll(pagination, user);
   }
 
   @Get(':id')
@@ -150,7 +175,7 @@ export class PoliciesController {
     RoleType.FINANCE,
     RoleType.SUPPORT,
   )
-  findOne(@Param('id') id: string, @CurrentUser() user: RequestUser) {
+  findOne(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: RequestUser) {
     return this.getPolicyService.executeOne(id, user);
   }
 
@@ -163,7 +188,7 @@ export class PoliciesController {
     RoleType.OPERATIONS,
     RoleType.UNDERWRITER,
   )
-  getHistory(@Param('id') id: string) {
+  getHistory(@Param('id', ParseUUIDPipe) id: string) {
     return this.getPolicyHistoryService.execute(id);
   }
 
@@ -177,7 +202,7 @@ export class PoliciesController {
     RoleType.SALES_AGENT,
   )
   renew(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: RenewPolicyDto,
     @CurrentUser() user: RequestUser,
   ) {
@@ -188,7 +213,7 @@ export class PoliciesController {
   @HttpCode(HttpStatus.OK)
   @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN, RoleType.UNDERWRITER)
   cancel(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Body('comments') comments: string,
     @CurrentUser() user: RequestUser,
   ) {

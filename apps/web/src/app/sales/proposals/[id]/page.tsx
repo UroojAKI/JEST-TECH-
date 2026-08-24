@@ -198,7 +198,7 @@ export default function ProposalWorkspacePage() {
           </h3>
           <div className="space-y-2 text-xs">
             <div>Expected Next Renewal Date: <strong className="text-foreground">2027-07-22</strong></div>
-            <div>Assigned Renewal Executive: <strong className="text-foreground">Rajesh Sharma</strong></div>
+            <div>Assigned Renewal Executive: <strong className="text-foreground">Assigned Executive</strong></div>
             <div>Renewal Campaign Group: <strong className="text-primary font-bold">VIP Retention 2027</strong></div>
           </div>
         </div>

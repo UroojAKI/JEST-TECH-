@@ -22,6 +22,19 @@ async function main() {
       { name: "Finance", code: "FINANCE", type: RoleType.FINANCE, isSystem: false },
       { name: "Support", code: "SUPPORT", type: RoleType.SUPPORT, isSystem: false },
       { name: "Customer", code: "CUSTOMER", type: RoleType.CUSTOMER, isSystem: false },
+      // Enterprise Brokerage SOP Roles (SDP Volume 2)
+      { name: "Managing Director & CEO", code: "MD_CEO", type: RoleType.MD_CEO, isSystem: true },
+      { name: "Chief Finance Officer", code: "CHIEF_FINANCE_OFFICER", type: RoleType.CHIEF_FINANCE_OFFICER, isSystem: true },
+      { name: "Sales Manager", code: "SALES_MANAGER", type: RoleType.SALES_MANAGER, isSystem: false },
+      { name: "Sales Executive", code: "SALES_EXECUTIVE", type: RoleType.SALES_EXECUTIVE, isSystem: false },
+      { name: "Policy Issuance Executive", code: "POLICY_ISSUANCE_EXECUTIVE", type: RoleType.POLICY_ISSUANCE_EXECUTIVE, isSystem: false },
+      { name: "Renewal Executive", code: "RENEWAL_EXECUTIVE", type: RoleType.RENEWAL_EXECUTIVE, isSystem: false },
+      { name: "Customer Service Executive", code: "CUSTOMER_SERVICE_EXECUTIVE", type: RoleType.CUSTOMER_SERVICE_EXECUTIVE, isSystem: false },
+      { name: "Finance Accounts Executive", code: "FINANCE_ACCOUNTS_EXECUTIVE", type: RoleType.FINANCE_ACCOUNTS_EXECUTIVE, isSystem: false },
+      { name: "System Administrator", code: "SYSTEM_ADMINISTRATOR", type: RoleType.SYSTEM_ADMINISTRATOR, isSystem: true },
+      { name: "POSP Advisor", code: "POSP_ADVISOR", type: RoleType.POSP_ADVISOR, isSystem: false },
+      { name: "Agent Manager", code: "AGENT_MANAGER", type: RoleType.AGENT_MANAGER, isSystem: false },
+      { name: "Marketing Director", code: "MARKETING_DIRECTOR", type: RoleType.MARKETING_DIRECTOR, isSystem: false },
     ];
 
     const seededRoles: Record<string, any> = {};
@@ -110,140 +123,113 @@ async function main() {
     console.log("- Mapped permissions to system administrative roles.");
 
     // -------------------------------------------------------------------------
-    // 4. SEED SUPER ADMIN AND ADMIN USERS
+    // 4. SEED DEPARTMENTS & JOB ROLES & DASHBOARDS
+    // -------------------------------------------------------------------------
+    const departments = [
+      { code: "EXEC", name: "Executive Office" },
+      { code: "SALES", name: "Sales & Distribution" },
+      { code: "RENEWAL", name: "Retention & Renewals" },
+      { code: "AGENT", name: "Agent Management" },
+      { code: "CUSTOMER", name: "Customer Service" },
+      { code: "OPS", name: "Back Office Operations" },
+      { code: "FINANCE", name: "Accounts & Finance" },
+      { code: "MARKETING", name: "Marketing" },
+      { code: "IT", name: "Technology & Admin" }
+    ];
+
+    const seededDepts: Record<string, any> = {};
+    for (const d of departments) {
+      seededDepts[d.code] = await tx.department.upsert({
+        where: { code: d.code }, update: {}, create: d,
+      });
+    }
+
+    const jobRoles = [
+      { code: "CEO", name: "Managing Director", dept: "EXEC", role: "MD_CEO", dbCode: "executive-dashboard", wsCode: "executive", title: "Executive Strategy Command Center" },
+      { code: "SM", name: "Sales Manager", dept: "SALES", role: "SALES_MANAGER", dbCode: "branch-dashboard", wsCode: "sales", title: "Branch Management Command Center" },
+      { code: "AGENT", name: "POSP Advisor", dept: "SALES", role: "POSP_ADVISOR", dbCode: "sales-dashboard", wsCode: "sales", title: "POSP Advisor & Sales Workspace" },
+      { code: "RENEWAL", name: "Renewal Executive", dept: "RENEWAL", role: "RENEWAL_EXECUTIVE", dbCode: "renewal-dashboard", wsCode: "renewal", title: "Renewals & Retention Workspace" },
+      { code: "CRE", name: "Customer Relationship Executive", dept: "CUSTOMER", role: "CUSTOMER_SERVICE_EXECUTIVE", dbCode: "customer-dashboard", wsCode: "customer", title: "Customer Support & Service Workspace" },
+      { code: "ARM", name: "Agent Relationship Manager", dept: "AGENT", role: "AGENT_MANAGER", dbCode: "agent-dashboard", wsCode: "agent", title: "Agent & POSP Management Workspace" },
+      { code: "OPS", name: "Policy Issuance Executive", dept: "OPS", role: "POLICY_ISSUANCE_EXECUTIVE", dbCode: "operations-dashboard", wsCode: "operations", title: "Operations & Underwriting Workspace" },
+      { code: "FIN", name: "Accounts Executive", dept: "FINANCE", role: "FINANCE_ACCOUNTS_EXECUTIVE", dbCode: "finance-dashboard", wsCode: "finance", title: "Finance & Accounting Workspace" },
+      { code: "MKTG", name: "Marketing Executive", dept: "MARKETING", role: "MARKETING_DIRECTOR", dbCode: "marketing-dashboard", wsCode: "marketing", title: "Marketing & Campaigns Workspace" },
+      { code: "ADMIN", name: "CRM Administrator", dept: "IT", role: "SYSTEM_ADMINISTRATOR", dbCode: "admin-dashboard", wsCode: "admin", title: "Administrator Command Center" }
+    ];
+
+    const seededJobRoles: Record<string, any> = {};
+    for (const jr of jobRoles) {
+      const dbJr = await tx.jobRole.upsert({
+        where: { code: jr.code },
+        update: {},
+        create: {
+          code: jr.code,
+          name: jr.name,
+          departmentId: seededDepts[jr.dept].id,
+          defaultRoleType: jr.role as RoleType,
+        },
+      });
+      seededJobRoles[jr.code] = dbJr;
+
+      // Seed Dashboard Registry for this JobRole
+      await tx.dashboardRegistry.upsert({
+        where: { dashboardCode: jr.dbCode },
+        update: { jobRoleId: dbJr.id, workspaceCode: jr.wsCode, title: jr.title },
+        create: {
+          jobRoleId: dbJr.id,
+          dashboardCode: jr.dbCode,
+          workspaceCode: jr.wsCode,
+          title: jr.title,
+          layout: [],
+          navigation: [],
+          widgets: [],
+          quickActions: [],
+          permissions: [],
+        },
+      });
+    }
+
+    // -------------------------------------------------------------------------
+    // 5. SEED USERS FOR 10 ROLES
     // -------------------------------------------------------------------------
     const passwordHash = await argon2.hash("Password@123");
+    
+    const users = [
+      { email: "md@jest.com", fn: "Executive", ln: "Managing Director", role: "MD_CEO", jr: "CEO" },
+      { email: "sm@jest.com", fn: "Regional", ln: "Sales Manager", role: "SALES_MANAGER", jr: "SM" },
+      { email: "agent@jest.com", fn: "Rajesh", ln: "Sharma", role: "POSP_ADVISOR", jr: "AGENT" },
+      { email: "renewal@jest.com", fn: "Retention", ln: "Renewal Executive", role: "RENEWAL_EXECUTIVE", jr: "RENEWAL" },
+      { email: "cre@jest.com", fn: "Support", ln: "Customer Exec", role: "CUSTOMER_SERVICE_EXECUTIVE", jr: "CRE" },
+      { email: "arm@jest.com", fn: "Network", ln: "Agent Manager", role: "AGENT_MANAGER", jr: "ARM" },
+      { backoffice: true, email: "backoffice@jest.com", fn: "Backend", ln: "Issuance Officer", role: "POLICY_ISSUANCE_EXECUTIVE", jr: "OPS" },
+      { email: "accounts@jest.com", fn: "Priya", ln: "Finance", role: "FINANCE_ACCOUNTS_EXECUTIVE", jr: "FIN" },
+      { email: "marketing@jest.com", fn: "Digital", ln: "Marketing", role: "MARKETING_DIRECTOR", jr: "MKTG" },
+      { email: "admin@jest.com", fn: "System", ln: "Administrator", role: "SYSTEM_ADMINISTRATOR", jr: "ADMIN" }
+    ];
 
-    // Super Admin user
-    const superAdminRole = seededRoles["SUPER_ADMIN"];
-    await tx.user.upsert({
-      where: { email: "superadmin@jest.com" },
-      update: {},
-      create: {
-        email: "superadmin@jest.com",
-        firstName: "System",
-        lastName: "SuperAdmin",
-        passwordHash,
-        status: UserStatus.ACTIVE,
-        isEmailVerified: true,
-        roleId: superAdminRole.id,
-        employeeCode: "EMP-000001",
-      },
-    });
-
-    // Admin user
-    const adminRole = seededRoles["ADMIN"];
-    await tx.user.upsert({
-      where: { email: "admin@jest.com" },
-      update: {},
-      create: {
-        email: "admin@jest.com",
-        firstName: "System",
-        lastName: "Administrator",
-        passwordHash,
-        status: UserStatus.ACTIVE,
-        isEmailVerified: true,
-        roleId: adminRole.id,
-        employeeCode: "EMP-000002",
-      },
-    });
-
-    // Sales Agent user
-    const agentRole = seededRoles["SALES_AGENT"];
-    if (agentRole) {
-      await tx.user.upsert({
-        where: { email: "agent@jest.com" },
-        update: {},
-        create: {
-          email: "agent@jest.com",
-          firstName: "Rajesh",
-          lastName: "Sharma",
-          passwordHash,
-          status: UserStatus.ACTIVE,
-          isEmailVerified: true,
-          roleId: agentRole.id,
-          employeeCode: "EMP-000003",
-        },
-      });
+    let empCounter = Math.floor(Date.now() / 1000);
+    for (const u of users) {
+      const r = seededRoles[u.role];
+      if (r) {
+        await tx.user.upsert({
+          where: { email: u.email },
+          update: { roleId: r.id, jobRoleId: seededJobRoles[u.jr].id, departmentId: seededJobRoles[u.jr].departmentId },
+          create: {
+            email: u.email,
+            firstName: u.fn,
+            lastName: u.ln,
+            passwordHash,
+            status: UserStatus.ACTIVE,
+            isEmailVerified: true,
+            roleId: r.id,
+            jobRoleId: seededJobRoles[u.jr].id,
+            departmentId: seededJobRoles[u.jr].departmentId,
+            employeeCode: `EMP-${String(empCounter++).padStart(6, '0')}`,
+          }
+        });
+      }
     }
-
-    // Underwriter user
-    const underwriterRole = seededRoles["UNDERWRITER"];
-    if (underwriterRole) {
-      await tx.user.upsert({
-        where: { email: "underwriter@jest.com" },
-        update: {},
-        create: {
-          email: "underwriter@jest.com",
-          firstName: "Vikram",
-          lastName: "Mehta",
-          passwordHash,
-          status: UserStatus.ACTIVE,
-          isEmailVerified: true,
-          roleId: underwriterRole.id,
-          employeeCode: "EMP-000004",
-        },
-      });
-    }
-
-    // Claims Officer user
-    const claimsRole = seededRoles["CLAIMS_OFFICER"];
-    if (claimsRole) {
-      await tx.user.upsert({
-        where: { email: "claims@jest.com" },
-        update: {},
-        create: {
-          email: "claims@jest.com",
-          firstName: "Anish",
-          lastName: "Deshmukh",
-          passwordHash,
-          status: UserStatus.ACTIVE,
-          isEmailVerified: true,
-          roleId: claimsRole.id,
-          employeeCode: "EMP-000005",
-        },
-      });
-    }
-
-    // Finance Officer user
-    const financeRole = seededRoles["FINANCE"];
-    if (financeRole) {
-      await tx.user.upsert({
-        where: { email: "finance@jest.com" },
-        update: {},
-        create: {
-          email: "finance@jest.com",
-          firstName: "Priya",
-          lastName: "Nair",
-          passwordHash,
-          status: UserStatus.ACTIVE,
-          isEmailVerified: true,
-          roleId: financeRole.id,
-          employeeCode: "EMP-000006",
-        },
-      });
-    }
-
-    // Branch Manager user
-    const managerRole = seededRoles["BRANCH_MANAGER"];
-    if (managerRole) {
-      await tx.user.upsert({
-        where: { email: "manager@jest.com" },
-        update: {},
-        create: {
-          email: "manager@jest.com",
-          firstName: "Sanjay",
-          lastName: "Kulkarni",
-          passwordHash,
-          status: UserStatus.ACTIVE,
-          isEmailVerified: true,
-          roleId: managerRole.id,
-          employeeCode: "EMP-000007",
-        },
-      });
-    }
-
-    console.log("- Seeded default administration and role-specific user accounts.");
+    console.log("- Seeded 10 organizational job roles, dashboards, and demo users.");
 
     // -------------------------------------------------------------------------
     // 5. SEED VEHICLE MASTER DATA
@@ -252,6 +238,9 @@ async function main() {
       { name: "Maruti Suzuki", code: "MSIL" },
       { name: "Hyundai Motors", code: "HYUN" },
       { name: "Honda Cars", code: "HOND" },
+      { name: "Tata Motors EV", code: "TATA_EV" },
+      { name: "Royal Enfield", code: "ROYAL_ENFIELD" },
+      { name: "Ashok Leyland Commercial", code: "ASHOK_LEYLAND" },
     ];
 
     for (const m of manufacturers) {
@@ -261,43 +250,180 @@ async function main() {
         create: m,
       });
 
-      // Add a default model for each mfg
+      // Add a default model for each mfg utilizing 8-Category Taxonomy
       if (m.code === "MSIL") {
         await tx.vehicleModel.upsert({
           where: { code: "SWIFT" },
           update: {},
           create: {
-            name: "Swift Hatchback",
+            name: "Swift Hatchback 1.2",
             code: "SWIFT",
-            vehicleType: "FOUR_WHEELER",
+            vehicleType: "FOUR_WHEELER" as any,
             manufacturerId: dbMfg.id,
           },
         });
       } else if (m.code === "HYUN") {
         await tx.vehicleModel.upsert({
-          where: { code: "I20" },
+          where: { code: "CRETA" },
           update: {},
           create: {
-            name: "i20 Elite",
-            code: "I20",
-            vehicleType: "FOUR_WHEELER",
+            name: "Creta SX Diesel",
+            code: "CRETA",
+            vehicleType: "FOUR_WHEELER" as any,
             manufacturerId: dbMfg.id,
           },
         });
-      } else if (m.code === "HOND") {
+      } else if (m.code === "TATA_EV") {
         await tx.vehicleModel.upsert({
-          where: { code: "CITY" },
+          where: { code: "NEXON_EV" },
           update: {},
           create: {
-            name: "City Sedan",
-            code: "CITY",
-            vehicleType: "FOUR_WHEELER",
+            name: "Nexon EV Max",
+            code: "NEXON_EV",
+            vehicleType: "FOUR_WHEELER" as any,
+            manufacturerId: dbMfg.id,
+          },
+        });
+      } else if (m.code === "ROYAL_ENFIELD") {
+        await tx.vehicleModel.upsert({
+          where: { code: "CLASSIC_350" },
+          update: {},
+          create: {
+            name: "Classic 350 Bullet",
+            code: "CLASSIC_350",
+            vehicleType: "TWO_WHEELER" as any,
+            manufacturerId: dbMfg.id,
+          },
+        });
+      } else if (m.code === "ASHOK_LEYLAND") {
+        await tx.vehicleModel.upsert({
+          where: { code: "DOST_PLUS" },
+          update: {},
+          create: {
+            name: "Dost+ Commercial Truck",
+            code: "DOST_PLUS",
+            vehicleType: "COMMERCIAL_GCV" as any,
             manufacturerId: dbMfg.id,
           },
         });
       }
     }
-    console.log("- Seeded master vehicle manufacturers & models.");
+    console.log("- Seeded master vehicle manufacturers & models across 8-category statutory taxonomy.");
+
+    // -------------------------------------------------------------------------
+    // 5.5. SEED DOCUMENT CHECKLIST ITEMS
+    // -------------------------------------------------------------------------
+    const checklistItems = [
+      // BIKE
+      { category: 'BIKE', documentName: 'Copy of Registration Certificate (RC)', isMandatory: true },
+      { category: 'BIKE', documentName: 'Previous Policy Copy', isMandatory: false },
+      { category: 'BIKE', documentName: 'Valid Driving License', isMandatory: true },
+      { category: 'BIKE', documentName: 'Vehicle Inspection Report / Photographs', isMandatory: false, condition: 'break-in or SAOD cases' },
+      { category: 'BIKE', documentName: 'KYC - PAN Card', isMandatory: true },
+      { category: 'BIKE', documentName: 'KYC - Address Proof', isMandatory: true },
+      { category: 'BIKE', documentName: 'Invoice & Form 21/22', isMandatory: false, condition: 'new vehicle' },
+      // PRIVATE_CAR
+      { category: 'PRIVATE_CAR', documentName: 'Copy of Registration Certificate (RC)', isMandatory: true },
+      { category: 'PRIVATE_CAR', documentName: 'Previous Policy Copy', isMandatory: false },
+      { category: 'PRIVATE_CAR', documentName: 'Valid Driving License', isMandatory: true },
+      { category: 'PRIVATE_CAR', documentName: 'Vehicle Inspection Report / Photographs', isMandatory: false, condition: 'break-in or SAOD cases' },
+      { category: 'PRIVATE_CAR', documentName: 'KYC - PAN Card', isMandatory: true },
+      { category: 'PRIVATE_CAR', documentName: 'KYC - Address Proof', isMandatory: true },
+      { category: 'PRIVATE_CAR', documentName: 'Invoice & Form 21/22', isMandatory: false, condition: 'new vehicle' },
+      { category: 'PRIVATE_CAR', documentName: 'Hypothecation / NOC Letter', isMandatory: false, condition: 'if vehicle is financed' },
+      // GCV
+      { category: 'GCV', documentName: 'Copy of Registration Certificate (RC)', isMandatory: true },
+      { category: 'GCV', documentName: 'Previous Policy Copy', isMandatory: false },
+      { category: 'GCV', documentName: 'Valid Driving License', isMandatory: true },
+      { category: 'GCV', documentName: 'Vehicle Inspection Report / Photographs', isMandatory: false, condition: 'break-in or SAOD cases' },
+      { category: 'GCV', documentName: 'KYC - PAN Card', isMandatory: true },
+      { category: 'GCV', documentName: 'KYC - Address Proof', isMandatory: true },
+      { category: 'GCV', documentName: 'Route Permit Copy', isMandatory: true },
+      { category: 'GCV', documentName: 'Fitness Certificate', isMandatory: true },
+      { category: 'GCV', documentName: 'National Permit', isMandatory: false, condition: 'if applicable' },
+      { category: 'GCV', documentName: 'Pollution Under Control (PUC) Certificate', isMandatory: true },
+      { category: 'GCV', documentName: 'Goods Carrying Permit', isMandatory: true },
+      // TRACTOR
+      { category: 'TRACTOR', documentName: 'Copy of Registration Certificate (RC)', isMandatory: true },
+      { category: 'TRACTOR', documentName: 'Previous Policy Copy', isMandatory: false },
+      { category: 'TRACTOR', documentName: 'Valid Driving License', isMandatory: true },
+      { category: 'TRACTOR', documentName: 'Vehicle Inspection Report / Photographs', isMandatory: false, condition: 'break-in or SAOD cases' },
+      { category: 'TRACTOR', documentName: 'KYC - PAN Card', isMandatory: true },
+      { category: 'TRACTOR', documentName: 'KYC - Address Proof', isMandatory: true },
+      { category: 'TRACTOR', documentName: 'Agricultural Usage Certificate', isMandatory: false, condition: 'if claiming agri tariff' },
+      // AUTO
+      { category: 'AUTO', documentName: 'Copy of Registration Certificate (RC)', isMandatory: true },
+      { category: 'AUTO', documentName: 'Previous Policy Copy', isMandatory: false },
+      { category: 'AUTO', documentName: 'Valid Driving License', isMandatory: true },
+      { category: 'AUTO', documentName: 'Vehicle Inspection Report / Photographs', isMandatory: false, condition: 'break-in or SAOD cases' },
+      { category: 'AUTO', documentName: 'KYC - PAN Card', isMandatory: true },
+      { category: 'AUTO', documentName: 'KYC - Address Proof', isMandatory: true },
+      { category: 'AUTO', documentName: 'Permit Copy', isMandatory: true },
+      { category: 'AUTO', documentName: 'Pollution Under Control (PUC) Certificate', isMandatory: true },
+      // TAXI
+      { category: 'TAXI', documentName: 'Copy of Registration Certificate (RC)', isMandatory: true },
+      { category: 'TAXI', documentName: 'Previous Policy Copy', isMandatory: false },
+      { category: 'TAXI', documentName: 'Valid Driving License', isMandatory: true },
+      { category: 'TAXI', documentName: 'Vehicle Inspection Report / Photographs', isMandatory: false, condition: 'break-in or SAOD cases' },
+      { category: 'TAXI', documentName: 'KYC - PAN Card', isMandatory: true },
+      { category: 'TAXI', documentName: 'KYC - Address Proof', isMandatory: true },
+      { category: 'TAXI', documentName: 'Permit Copy (Contract Carriage / Tourist)', isMandatory: true },
+      { category: 'TAXI', documentName: 'Aggregator Agreement', isMandatory: false, condition: 'if applicable' },
+      { category: 'TAXI', documentName: 'Pollution Under Control (PUC) Certificate', isMandatory: true },
+      { category: 'TAXI', documentName: 'Commercial (Badge) Driving License', isMandatory: true },
+      // BUS_COACH
+      { category: 'BUS_COACH', documentName: 'Copy of Registration Certificate (RC)', isMandatory: true },
+      { category: 'BUS_COACH', documentName: 'Previous Policy Copy', isMandatory: false },
+      { category: 'BUS_COACH', documentName: 'Valid Driving License', isMandatory: true },
+      { category: 'BUS_COACH', documentName: 'Vehicle Inspection Report / Photographs', isMandatory: false, condition: 'break-in or SAOD cases' },
+      { category: 'BUS_COACH', documentName: 'KYC - PAN Card', isMandatory: true },
+      { category: 'BUS_COACH', documentName: 'KYC - Address Proof', isMandatory: true },
+      { category: 'BUS_COACH', documentName: 'Route Permit Copy', isMandatory: true },
+      { category: 'BUS_COACH', documentName: 'Fitness Certificate', isMandatory: true },
+      { category: 'BUS_COACH', documentName: 'School Bus Compliance Certificate', isMandatory: false, condition: 'mandatory for school bus subtype' },
+      { category: 'BUS_COACH', documentName: 'Pollution Under Control (PUC) Certificate', isMandatory: true },
+      // MISC_CLASS_D
+      { category: 'MISC_CLASS_D', documentName: 'Copy of Registration Certificate (RC)', isMandatory: true },
+      { category: 'MISC_CLASS_D', documentName: 'Previous Policy Copy', isMandatory: false },
+      { category: 'MISC_CLASS_D', documentName: 'Valid Driving License', isMandatory: true },
+      { category: 'MISC_CLASS_D', documentName: 'Vehicle Inspection Report / Photographs', isMandatory: false, condition: 'break-in or SAOD cases' },
+      { category: 'MISC_CLASS_D', documentName: 'KYC - PAN Card', isMandatory: true },
+      { category: 'MISC_CLASS_D', documentName: 'KYC - Address Proof', isMandatory: true },
+      { category: 'MISC_CLASS_D', documentName: 'Purpose-Specific Operating Certification', isMandatory: true },
+      { category: 'MISC_CLASS_D', documentName: 'Fitness Certificate', isMandatory: true },
+    ];
+
+    // DocumentChecklistItem has no unique constraint on (category, documentName),
+    // so use createMany with skipDuplicates to safely re-run the seed.
+    await tx.documentChecklistItem.createMany({
+      data: checklistItems.map((item) => ({
+        category: item.category as any,
+        documentName: item.documentName,
+        isMandatory: item.isMandatory,
+        condition: (item as any).condition ?? null,
+      })),
+      skipDuplicates: true,
+    });
+    console.log(`✅ DocumentChecklistItem seeded: ${checklistItems.length} items across 8 vehicle categories`);
+
+    // ── Renewal Configuration ─────────────────────────────────────────────────
+    const existingRenewalConfig = await tx.renewalConfiguration.findFirst({
+      where: { isActive: true },
+    });
+    if (!existingRenewalConfig) {
+      await tx.renewalConfiguration.create({
+        data: {
+          name: 'Default Motor Renewal Configuration',
+          policyType: 'MOTOR',
+          vehicleCategory: null,
+          lookAheadDays: 60,
+          reminderOffsets: [30, 7, 1],
+          escalationDays: 3,
+          isActive: true,
+        },
+      });
+    }
+    console.log('✅ RenewalConfiguration seeded');
 
     // -------------------------------------------------------------------------
     // 6. SEED NOTIFICATION TEMPLATES

@@ -26,10 +26,23 @@ export class ContactRepository {
     return this.prisma.contact.create({ data });
   }
 
-  async findAll(): Promise<Contact[]> {
+  async findAll(
+    where?: Prisma.ContactWhereInput,
+    skip?: number,
+    take?: number,
+    orderBy?: Prisma.ContactOrderByWithRelationInput,
+  ): Promise<Contact[]> {
     return this.prisma.contact.findMany({
-      where: { deletedAt: null },
-      orderBy: { createdAt: 'desc' },
+      where: { ...where, deletedAt: null },
+      skip,
+      take,
+      orderBy: orderBy || { createdAt: 'desc' },
+    });
+  }
+
+  async count(where?: Prisma.ContactWhereInput): Promise<number> {
+    return this.prisma.contact.count({
+      where: { ...where, deletedAt: null },
     });
   }
 

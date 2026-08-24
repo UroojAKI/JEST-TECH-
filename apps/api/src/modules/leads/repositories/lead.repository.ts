@@ -159,6 +159,9 @@ export class LeadRepository extends BaseRepository<
 
   async findAll(
     where?: Prisma.LeadWhereInput,
+    skip?: number,
+    take?: number,
+    orderBy?: Prisma.LeadOrderByWithRelationInput,
     tx?: TransactionClient,
   ): Promise<LeadDetail[]> {
     return this.getClient(tx).findMany({
@@ -166,8 +169,22 @@ export class LeadRepository extends BaseRepository<
         ...where,
         deletedAt: null,
       },
+      skip,
+      take,
       ...this.detailArgs,
-      orderBy: { createdAt: 'desc' },
+      orderBy: orderBy || { createdAt: 'desc' },
+    });
+  }
+
+  async count(
+    where?: Prisma.LeadWhereInput,
+    tx?: TransactionClient,
+  ): Promise<number> {
+    return this.getClient(tx).count({
+      where: {
+        ...where,
+        deletedAt: null,
+      }
     });
   }
 

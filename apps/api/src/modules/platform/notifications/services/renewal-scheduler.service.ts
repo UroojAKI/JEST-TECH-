@@ -3,11 +3,10 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 import { PrismaService } from '../../../../database/prisma.service';
 import { NotificationDispatcher } from './notification-dispatcher.service';
 import {
-  NotificationPriority,
-  NotificationType,
   PolicyStatus,
   RenewalTaskStatus,
 } from '@prisma/client';
+
 
 @Injectable()
 export class RenewalScheduler {
@@ -21,92 +20,120 @@ export class RenewalScheduler {
   @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
   async handleRenewalReminders() {
     this.logger.log('Starting daily policy renewals expiry scan...');
-    await this.scanAndAlert(45, NotificationType.POLICY_RENEWAL_45);
-    await this.scanAndAlert(30, NotificationType.POLICY_RENEWAL_30);
-    await this.scanAndAlert(20, NotificationType.POLICY_RENEWAL_20);
+    // Run catch-up scheduler with config-driven offsets
+    await this.runRenewalScheduler();
+    
+    // Escalate overdue pending tasks
+    await this.handleEscalations();
+    
     this.logger.log('Daily renewals check finished.');
   }
 
-  async scanAndAlert(days: number, type: NotificationType) {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+  async runRenewalScheduler() {
+    const config = await this.prisma.renewalConfiguration.findFirst({
+      where: { isActive: true },
+      orderBy: { createdAt: 'asc' },
+    });
+    const lookAheadDays = config?.lookAheadDays ?? 60;
+    const reminderOffsets: number[] = (config?.reminderOffsets as number[]) ?? [30, 7, 1];
 
-    const targetDateStart = new Date(today);
-    targetDateStart.setDate(targetDateStart.getDate() + days);
-    const targetDateEnd = new Date(targetDateStart);
-    targetDateEnd.setDate(targetDateEnd.getDate() + 1);
+    const now = new Date();
+    const lookAheadDate = new Date(now);
+    lookAheadDate.setDate(lookAheadDate.getDate() + lookAheadDays);
 
+    // Catch-up query: get ALL active policies expiring within the window
     const policies = await this.prisma.policy.findMany({
       where: {
         status: PolicyStatus.ACTIVE,
-        expiryDate: {
-          gte: targetDateStart,
-          lt: targetDateEnd,
-        },
+        expiryDate: { gte: now, lte: lookAheadDate },
         deletedAt: null,
       },
-      include: {
-        createdBy: true,
-        contact: true,
-      },
+      include: { contact: true },
     });
 
-    this.logger.log(
-      `Found ${policies.length} policies expiring in ${days} days.`,
-    );
-
+    let tasksCreated = 0;
     for (const policy of policies) {
-      const agentId = policy.createdById || (await this.getDefaultAgentId());
-      if (!agentId) continue;
+      for (const offset of reminderOffsets) {
+        const dueDate = new Date(policy.expiryDate);
+        dueDate.setDate(dueDate.getDate() - offset);
 
-      const title = `Policy Expiration Alert (${days} Days)`;
-      const message = `Policy ${policy.policyNumber} for ${policy.contact.firstName} ${policy.contact.lastName} is expiring in ${days} days on ${policy.expiryDate.toLocaleDateString()}. Please initiate the renewal discussion.`;
+        // Only create task if one doesn't already exist for this policy+dueDate
+        const existing = await this.prisma.renewalTask.findFirst({
+          where: { policyId: policy.id, dueDate },
+        });
+
+        if (!existing) {
+          // Find the assigned agent — use createdById or a default assignment logic
+          const agentId = policy.createdById;
+          if (!agentId) continue;
+
+          await this.prisma.renewalTask.create({
+            data: {
+              policyId: policy.id,
+              agentId,
+              dueDate,
+              status: RenewalTaskStatus.PENDING,
+              priority: offset <= 7 ? 'HIGH' : 'MEDIUM',
+            },
+          });
+          tasksCreated++;
+        }
+      }
+    }
+    this.logger.log(`Renewal scheduler: ${tasksCreated} new tasks created across ${policies.length} expiring policies.`);
+  }
+
+  async handleEscalations() {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const overdueTasks = await this.prisma.renewalTask.findMany({
+      where: {
+        status: RenewalTaskStatus.PENDING,
+        dueDate: { lt: today },
+      },
+      include: {
+        policy: { include: { contact: true } },
+        agent: { include: { manager: true } }
+      }
+    });
+
+    for (const task of overdueTasks) {
+      // Find the manager to escalate to, fallback to system admin
+      const escalateToId = task.agent?.managerId || await this.getDefaultAgentId();
+      if (!escalateToId) continue;
 
       await this.dispatcher.dispatch({
-        userId: agentId,
-        type,
-        priority:
-          days <= 20 ? NotificationPriority.HIGH : NotificationPriority.MEDIUM,
-        title,
-        message,
-        entityId: policy.id,
+        userId: escalateToId,
+        type: 'POLICY_RENEWAL_30' as any, // Escalation reuses renewal notification type
+        priority: 'HIGH' as any,
+        title: `URGENT: Overdue Renewal Escalation`,
+        message: `Agent ${task.agent?.firstName} has an overdue renewal for Policy ${task.policy?.policyNumber}. Please review immediately.`,
+        entityId: task.policyId,
         entityType: 'POLICY',
-        actionUrl: `/dashboard?policyId=${policy.id}`,
+        actionUrl: `/policies/${task.policyId}`,
       });
 
-      await this.prisma.renewalTask.create({
-        data: {
-          policyId: policy.id,
-          agentId,
-          dueDate: policy.expiryDate,
-          status: RenewalTaskStatus.PENDING,
-          priority:
-            days <= 20
-              ? NotificationPriority.HIGH
-              : NotificationPriority.MEDIUM,
-        },
+      // Update task priority to high
+      await this.prisma.renewalTask.update({
+        where: { id: task.id },
+        data: { priority: 'HIGH' }
       });
+    }
 
-      await this.prisma.auditLog.create({
-        data: {
-          userId: agentId,
-          action: 'UPDATE',
-          entity: 'POLICY',
-          entityId: policy.id,
-          newValue: {
-            reminderDays: days,
-            policyNumber: policy.policyNumber,
-            message: `System automatically registered renewal task and alert for policy ${policy.policyNumber} (${days} days to expiry).`,
-          },
-          ipAddress: '127.0.0.1',
-        },
-      });
+    if (overdueTasks.length > 0) {
+      this.logger.warn(`Escalated ${overdueTasks.length} overdue renewal tasks.`);
     }
   }
 
   private async getDefaultAgentId(): Promise<string | null> {
+    // Look for a Sales Manager or System Administrator instead of random user
     const user = await this.prisma.user.findFirst({
-      where: { deletedAt: null },
+      where: { 
+        deletedAt: null,
+        role: { code: { in: ['SALES_MANAGER', 'SYSTEM_ADMINISTRATOR'] } }
+      },
+      orderBy: { createdAt: 'asc' }
     });
     return user ? user.id : null;
   }

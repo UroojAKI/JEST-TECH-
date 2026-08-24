@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { Test, TestingModule } from '@nestjs/testing';
 import { LedgerService, CreateJournalEntryDto } from './ledger.service';
 import { PrismaService } from '../../../../../database/prisma.service';

@@ -23,11 +23,11 @@ describe('AppController (e2e)', () => {
   });
 
   it('/api/v1/health (GET)', () => {
-    return request(app.getHttpServer()).get('/api/v1/health').expect(200);
+    return (request as any)(app.getHttpServer()).get('/api/v1/health').expect(200);
   });
 
   it('should include helmet security headers', async () => {
-    const response = await request(app.getHttpServer()).get('/api/v1/health');
+    const response = await (request as any)(app.getHttpServer()).get('/api/v1/health');
     expect(response.headers['x-dns-prefetch-control']).toBeDefined();
     expect(response.headers['x-frame-options']).toBeDefined();
   });

@@ -3,11 +3,13 @@
 import React from 'react';
 import Link from 'next/link';
 import { useWorkspace } from '../../hooks/useWorkspace';
+import { usePermissions } from '../providers/permission-provider';
 import { WidgetRenderer } from './WidgetRenderer';
 import * as Icons from 'lucide-react';
 
 export function DashboardRenderer() {
   const { workspace, widgets, quickActions, jobRole, department } = useWorkspace();
+  const { canAccess } = usePermissions();
 
   const getIcon = (iconName?: string) => {
     if (!iconName) return Icons.Zap;
@@ -37,7 +39,9 @@ export function DashboardRenderer() {
           {/* Quick Actions Triggers */}
           {quickActions && quickActions.length > 0 && (
             <div className="flex flex-wrap items-center gap-2">
-              {quickActions.map((action: any) => {
+              {quickActions
+                .filter((action: any) => canAccess({ permissions: action.permissions || [] }))
+                .map((action: any) => {
                 const Icon = getIcon(action.icon);
                 return (
                   <Link

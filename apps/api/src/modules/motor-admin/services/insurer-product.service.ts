@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../../database/prisma.service';
-import { ProductType, RatingRuleType } from '@prisma/client';
+import { ProductType, RatingRuleType, VehicleType } from '@prisma/client';
 
 @Injectable()
 export class InsurerProductService {
@@ -66,8 +66,8 @@ export class InsurerProductService {
         contactPhone: data.contactPhone,
         address: data.address,
         rating: data.rating,
-        supportedVehicleTypes: data.supportedVehicleTypes || ['FOUR_WHEELER', 'TWO_WHEELER'],
-        supportedPolicyTypes: data.supportedPolicyTypes || ['COMPREHENSIVE', 'STANDALONE_OD', 'THIRD_PARTY'],
+        supportedVehicleTypes: data.supportedVehicleTypes || [VehicleType.FOUR_WHEELER, VehicleType.TWO_WHEELER],
+        supportedPolicyTypes: data.supportedPolicyTypes || [ProductType.PACKAGE_COMPREHENSIVE, ProductType.STANDALONE_OWN_DAMAGE, ProductType.THIRD_PARTY_ONLY],
         supportsZeroDep: data.supportsZeroDep ?? true,
         supportsRTI: data.supportsRTI ?? true,
         supportsEngineProtect: data.supportsEngineProtect ?? true,
@@ -123,8 +123,8 @@ export class InsurerProductService {
         insurerId: data.insurerId,
         productName: data.productName,
         code: data.code.toUpperCase(),
-        vehicleType: data.vehicleType || 'FOUR_WHEELER',
-        policyType: data.policyType || 'COMPREHENSIVE',
+        vehicleType: data.vehicleType || VehicleType.FOUR_WHEELER,
+        policyType: data.policyType || ProductType.PACKAGE_COMPREHENSIVE,
       },
     });
   }
@@ -168,8 +168,8 @@ export class InsurerProductService {
     return this.prisma.discountRule.create({
       data: {
         insurerId: data.insurerId,
-        vehicleType: data.vehicleType || 'FOUR_WHEELER',
-        policyType: data.policyType || 'COMPREHENSIVE',
+        vehicleType: data.vehicleType || VehicleType.FOUR_WHEELER,
+        policyType: data.policyType || ProductType.PACKAGE_COMPREHENSIVE,
         maxDiscountPercent: data.maxDiscountPercent,
         minDiscountPercent: data.minDiscountPercent || 0,
         managerApprovalThresholdPercent: data.managerApprovalThresholdPercent || 15,

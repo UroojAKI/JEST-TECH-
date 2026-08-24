@@ -46,19 +46,40 @@ export class WorkspaceService {
 
     let workspaceConfig: any;
 
-    if (registry) {
+    const isRegistryUsable = (reg: any, currentJobRole: any) => {
+      if (!reg) return false;
+      if (reg.isActive === false) return false;
+      if (!reg.widgets || reg.widgets.length === 0) return false;
+      
+      // Fix: Handle both string '[]' and actual array [] for Prisma Json fields
+      let navLength = 0;
+      if (Array.isArray(reg.navigation)) {
+        navLength = reg.navigation.length;
+      } else if (typeof reg.navigation === 'string') {
+        try { navLength = JSON.parse(reg.navigation).length; } catch(e) {}
+      } else if (reg.navigation && typeof reg.navigation === 'object') {
+        navLength = Object.keys(reg.navigation).length;
+      }
+      if (navLength === 0) return false;
+
+      if (currentJobRole && reg.jobRoleId && reg.jobRoleId !== currentJobRole.id) return false;
+      return true;
+    };
+
+    if (isRegistryUsable(registry, jobRole)) {
       workspaceConfig = {
         dashboardCode: registry.dashboardCode,
         workspaceCode: registry.workspaceCode,
         title: registry.title,
         subtitle: registry.subtitle,
-        navigation: registry.navigation || [],
-        widgets: registry.widgets || [],
+        navigation: typeof registry.navigation === 'string' ? JSON.parse(registry.navigation) : registry.navigation,
+        widgets: typeof registry.widgets === 'string' ? JSON.parse(registry.widgets) : registry.widgets,
         quickActions: registry.quickActions || [],
         permissions: registry.permissions || [],
       };
     } else {
-      workspaceConfig = this.workspaceFactory.createDefaultWorkspace(roleCode, jobRole?.name);
+      // Force valid fallback
+      workspaceConfig = this.workspaceFactory.createDefaultWorkspace(jobRole?.code || 'AGENT', roleCode || 'SALES_AGENT', jobRole?.name || 'Sales Agent');
     }
 
     return {

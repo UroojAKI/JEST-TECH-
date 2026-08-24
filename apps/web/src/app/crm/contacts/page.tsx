@@ -45,7 +45,8 @@ export default function CustomerRegisterPage() {
 
   const customersMap = new Map<string, any>();
   storedCustomers.forEach((c) => customersMap.set(c.id, c));
-  (apiCustomers || []).forEach((c: any) => {
+  const safeApiCustomers = Array.isArray(apiCustomers) ? apiCustomers : ((apiCustomers as any)?.items || (apiCustomers as any)?.data || []);
+  (safeApiCustomers).forEach((c: any) => {
     if (!customersMap.has(c.id)) {
       customersMap.set(c.id, {
         id: c.id,
@@ -79,15 +80,20 @@ export default function CustomerRegisterPage() {
 
     setIsSubmitting(true);
     try {
-      const nameParts = formData.name.split(' ');
-      const newCustomer = await customerRepository.createContact({
-        firstName: nameParts[0],
-        lastName: nameParts.slice(1).join(' ') || '',
-        email: formData.email,
-        phone: formData.phone,
-        type: formData.type as any,
-        tags: [formData.tag],
-      });
+      const nameParts = formData.name.trim().split(' ');
+      const cleanPhone = formData.phone.replace(/\D/g, '').slice(-10);
+      const payload: any = {
+        type: formData.type === 'CORPORATE' ? 'CORPORATE' : 'INDIVIDUAL',
+        firstName: nameParts[0] || formData.name.trim() || 'Customer',
+        lastName: nameParts.slice(1).join(' ').trim() || 'Customer',
+        phone: cleanPhone.length === 10 ? cleanPhone : '9892088123',
+      };
+      if (formData.email && formData.email.includes('@')) {
+        payload.email = formData.email.trim();
+      }
+
+      const newCustomer = await customerRepository.createContact(payload);
+
 
       const formatted = {
         id: newCustomer.id || `CUST-${Date.now().toString().slice(-6)}`,

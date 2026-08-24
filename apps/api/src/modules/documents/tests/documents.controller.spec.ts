@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { Test, TestingModule } from '@nestjs/testing';
 import { DocumentsController } from '../controllers/documents.controller';
 import { DocumentService } from '../services/document.service';

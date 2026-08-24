@@ -13,8 +13,10 @@ import {
   HttpStatus,
   BadRequestException,
   ParseUUIDPipe,
+  Query,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiConsumes, ApiTags } from '@nestjs/swagger';
+import { PaginationDto } from '../../../common/pagination/pagination.dto';
 import { FileInterceptor } from '@nestjs/platform-express';
 import * as path from 'path';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
@@ -107,7 +109,7 @@ export class DocumentsController {
   @ApiConsumes('multipart/form-data')
   @UseInterceptors(FileInterceptor('file', fileInterceptorOptions))
   async replaceDocument(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @UploadedFile() file: Express.Multer.File,
     @CurrentUser() user: RequestUser,
     @Ip() ipAddress: string,
@@ -119,6 +121,7 @@ export class DocumentsController {
   async getEntityDocuments(
     @Param('entityType') entityType: string,
     @Param('entityId', ParseUUIDPipe) entityId: string,
+    @Query() pagination: PaginationDto,
   ) {
     const validEntityTypes = [
       'ACCOUNT',
@@ -133,17 +136,17 @@ export class DocumentsController {
         `Invalid entityType. Must be one of: ${validEntityTypes.join(', ')}`,
       );
     }
-    return this.documentService.getEntityDocuments(entityType, entityId);
+    return this.documentService.getEntityDocuments(entityType, entityId, pagination);
   }
 
   @Get(':id')
-  async getDocumentDetails(@Param('id') id: string) {
+  async getDocumentDetails(@Param('id', ParseUUIDPipe) id: string) {
     return this.documentService.getDocumentDetails(id);
   }
 
   @Delete(':id')
   async deleteDocument(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser() user: RequestUser,
     @Ip() ipAddress: string,
   ) {
@@ -153,7 +156,7 @@ export class DocumentsController {
 
   @Post(':id/restore')
   async restoreDocument(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser() user: RequestUser,
     @Ip() ipAddress: string,
   ) {
@@ -162,13 +165,13 @@ export class DocumentsController {
   }
 
   @Get(':id/history')
-  async getDocumentHistory(@Param('id') id: string) {
+  async getDocumentHistory(@Param('id', ParseUUIDPipe) id: string) {
     return this.documentService.getAccessLogs(id);
   }
 
   @Get(':id/download')
   async downloadDocument(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser() user: RequestUser,
     @Ip() ipAddress: string,
     @Res() res: Response,

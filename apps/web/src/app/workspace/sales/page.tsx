@@ -1,8 +1,8 @@
 'use client';
 
 import React from 'react';
-import { SalesDashboard } from '../../../components/workspaces/sales/SalesDashboard';
+import { MotorQuotationsWorkspace } from '../../../components/sales/MotorQuotationsWorkspace';
 
 export default function SalesWorkspacePage() {
-  return <SalesDashboard />;
+  return <MotorQuotationsWorkspace />;
 }

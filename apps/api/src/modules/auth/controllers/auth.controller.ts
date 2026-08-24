@@ -41,9 +41,10 @@ export class AuthController {
       maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
     });
 
-    // Don't send tokens in body anymore
     return {
       user: result.user,
+      accessToken: result.accessToken,
+      refreshToken: result.refreshToken,
       expiresIn: result.expiresIn,
     };
   }
@@ -71,7 +72,12 @@ export class AuthController {
       maxAge: 30 * 24 * 60 * 60 * 1000,
     });
 
-    return { success: true, expiresIn: result.expiresIn };
+    return {
+      success: true,
+      accessToken: result.accessToken,
+      refreshToken: result.refreshToken,
+      expiresIn: result.expiresIn,
+    };
   }
 
   @Post('logout')

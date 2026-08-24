@@ -10,7 +10,7 @@ import { PolicyMapper } from '../../mappers/policy.mapper';
 import { RenewPolicyDto } from '../../dto/renew-policy.dto';
 import { PolicyDomainService } from '../../domain/policy.domain-service';
 import { Money } from '../../../../common/domain/value-objects/money.value-object';
-
+import { RenewalEngineService } from '../renewal-engine.service';
 import { PrismaService } from '../../../../database/prisma.service';
 
 @Injectable()
@@ -19,12 +19,14 @@ export class RenewPolicyService {
     private readonly policyRepository: PolicyRepository,
     private readonly policyDomainService: PolicyDomainService,
     private readonly prisma: PrismaService,
+    private readonly renewalEngineService: RenewalEngineService,
   ) {}
 
   async execute(id: string, dto: RenewPolicyDto, renewedById: string) {
     return this.prisma.$transaction(async (tx) => {
       const existing = await tx.policy.findFirst({
         where: { id, deletedAt: null },
+        include: { quotation: true }
       });
       if (!existing) {
         throw new NotFoundException(`Policy with ID ${id} not found`);
@@ -40,6 +42,15 @@ export class RenewPolicyService {
         newExpiryDate,
         dto.premiumAmount,
       );
+
+      let nextNcb = 0;
+      let ncbAppliedStr = '';
+      if (existing.quotation && typeof existing.quotation.ncbPercentage === 'number') {
+         nextNcb = this.renewalEngineService.calculateNextNCBSlab(existing.quotation.ncbPercentage);
+         ncbAppliedStr = ` [NCB_APPLIED: ${nextNcb}%]`;
+      }
+      
+      let insurerSwitchStr = dto.switchInsurer ? ' [INSURER_SWITCH]' : '';
 
       // 1. Update Policy Expiry, Status and Increment Version
       await tx.policy.update({
@@ -68,7 +79,7 @@ export class RenewPolicyService {
         data: {
           policyId: id,
           status: 'RENEWAL',
-          comments: `Policy renewed successfully. Renewal Number: ${dto.renewalNumber}. New Expiry: ${newExpiryDate.toISOString()}`,
+          comments: `Policy renewed successfully. Renewal Number: ${dto.renewalNumber}. New Expiry: ${newExpiryDate.toISOString()}${ncbAppliedStr}${insurerSwitchStr}`,
           createdById: renewedById,
         },
       });
@@ -78,4 +89,3 @@ export class RenewPolicyService {
     });
   }
 }
-

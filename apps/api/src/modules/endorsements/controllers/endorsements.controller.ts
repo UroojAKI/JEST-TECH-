@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Param, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, UseGuards, Query, ParseUUIDPipe } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
@@ -7,6 +7,7 @@ import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import type { RequestUser } from '../../auth/decorators/current-user.decorator';
 import { RoleType, EndorsementType } from '@prisma/client';
 import { EndorsementService } from '../services/endorsement.service';
+import { PaginationDto } from '../../../common/pagination/pagination.dto';
 
 @ApiTags('Endorsements')
 @ApiBearerAuth()
@@ -25,8 +26,8 @@ export class EndorsementsController {
     RoleType.BRANCH_MANAGER,
     RoleType.TEAM_LEADER,
   )
-  getEndorsements() {
-    return this.endorsementService.getEndorsements();
+  getEndorsements(@Query() pagination: PaginationDto) {
+    return this.endorsementService.getEndorsements(pagination);
   }
 
   @Get(':id')
@@ -39,7 +40,7 @@ export class EndorsementsController {
     RoleType.BRANCH_MANAGER,
     RoleType.TEAM_LEADER,
   )
-  getEndorsementDetails(@Param('id') id: string) {
+  getEndorsementDetails(@Param('id', ParseUUIDPipe) id: string) {
     return this.endorsementService.getEndorsementDetails(id);
   }
 
@@ -72,7 +73,7 @@ export class EndorsementsController {
     RoleType.SALES_AGENT,
   )
   attachDocument(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Body('documentId') documentId: string,
   ) {
     return this.endorsementService.attachDocument(id, documentId);
@@ -81,7 +82,7 @@ export class EndorsementsController {
   @Post(':id/approve')
   @Roles(RoleType.ADMIN, RoleType.SUPER_ADMIN, RoleType.UNDERWRITER)
   approveEndorsement(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Body('comments') comments: string,
     @CurrentUser() user: RequestUser,
   ) {

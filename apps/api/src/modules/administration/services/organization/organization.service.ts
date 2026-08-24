@@ -3,7 +3,10 @@ import {
   NotFoundException,
   BadRequestException,
 } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../../../database/prisma.service';
+import { PaginationDto } from '../../../../common/pagination/pagination.dto';
+import { PaginatedResponseDto } from '../../../../common/pagination/paginated-response.dto';
 
 @Injectable()
 export class OrganizationService {
@@ -40,29 +43,95 @@ export class OrganizationService {
     });
   }
 
-  async getBranches() {
-    return this.prisma.branch.findMany({
-      where: { isActive: true },
-      include: {
-        zone: {
-          include: {
-            region: true,
+  async getBranches(pagination: PaginationDto) {
+    const page = pagination.page || 1;
+    const limit = pagination.limit || 10;
+    const skip = (page - 1) * limit;
+    const where: Prisma.BranchWhereInput = { isActive: true };
+    if (pagination.search) {
+      where.OR = [
+        { name: { contains: pagination.search, mode: 'insensitive' } },
+        { code: { contains: pagination.search, mode: 'insensitive' } },
+      ];
+    }
+    const orderBy = pagination.sortBy
+      ? { [pagination.sortBy]: pagination.sortOrder || 'asc' } as any
+      : { displayOrder: 'asc' };
+
+    const [data, total] = await Promise.all([
+      this.prisma.branch.findMany({
+        skip,
+        take: limit,
+        where,
+        orderBy,
+        include: {
+          zone: {
+            include: {
+              region: true,
+            },
           },
         },
-      },
-    });
+      }),
+      this.prisma.branch.count({ where }),
+    ]);
+
+    return new PaginatedResponseDto(data, total, page, limit);
   }
 
-  async getDepartments(branchId: string) {
-    return this.prisma.department.findMany({
-      where: { branchId, isActive: true },
-    });
+  async getDepartments(pagination: PaginationDto, branchId: string) {
+    const page = pagination.page || 1;
+    const limit = pagination.limit || 10;
+    const skip = (page - 1) * limit;
+    const where: Prisma.DepartmentWhereInput = { branchId, isActive: true };
+    if (pagination.search) {
+      where.OR = [
+        { name: { contains: pagination.search, mode: 'insensitive' } },
+        { code: { contains: pagination.search, mode: 'insensitive' } },
+      ];
+    }
+    const orderBy = pagination.sortBy
+      ? { [pagination.sortBy]: pagination.sortOrder || 'asc' } as any
+      : { displayOrder: 'asc' };
+
+    const [data, total] = await Promise.all([
+      this.prisma.department.findMany({
+        skip,
+        take: limit,
+        where,
+        orderBy,
+      }),
+      this.prisma.department.count({ where }),
+    ]);
+
+    return new PaginatedResponseDto(data, total, page, limit);
   }
 
-  async getTeams(departmentId: string) {
-    return this.prisma.team.findMany({
-      where: { departmentId, isActive: true },
-    });
+  async getTeams(pagination: PaginationDto, departmentId: string) {
+    const page = pagination.page || 1;
+    const limit = pagination.limit || 10;
+    const skip = (page - 1) * limit;
+    const where: Prisma.TeamWhereInput = { departmentId, isActive: true };
+    if (pagination.search) {
+      where.OR = [
+        { name: { contains: pagination.search, mode: 'insensitive' } },
+        { code: { contains: pagination.search, mode: 'insensitive' } },
+      ];
+    }
+    const orderBy = pagination.sortBy
+      ? { [pagination.sortBy]: pagination.sortOrder || 'asc' } as any
+      : { name: 'asc' };
+
+    const [data, total] = await Promise.all([
+      this.prisma.team.findMany({
+        skip,
+        take: limit,
+        where,
+        orderBy,
+      }),
+      this.prisma.team.count({ where }),
+    ]);
+
+    return new PaginatedResponseDto(data, total, page, limit);
   }
 
   async assignUserToTeam(userId: string, teamId: string) {

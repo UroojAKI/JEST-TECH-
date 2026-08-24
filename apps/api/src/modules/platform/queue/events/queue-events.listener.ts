@@ -20,6 +20,11 @@ export class QueueEventsListener implements OnModuleInit, OnModuleDestroy {
   ) {}
 
   onModuleInit() {
+    if (process.env.REDIS_ENABLED !== 'true') {
+      this.logger.warn('Redis disabled or offline (REDIS_ENABLED != true). Bypassing BullMQ QueueEvents initialization.');
+      return;
+    }
+
     const redisUrl =
       this.configService.get<string>('REDIS_URL') ||
       this.configService.get<string>('redis.url') ||
@@ -28,8 +33,13 @@ export class QueueEventsListener implements OnModuleInit, OnModuleDestroy {
 
     try {
       this.queueEvents = new QueueEvents('system-queue', {
-        connection: { url: redisUrl, maxRetriesPerRequest: null },
+        connection: {
+          url: redisUrl,
+          maxRetriesPerRequest: null,
+          retryStrategy: (times: number) => (times > 3 ? null : Math.min(times * 500, 3000)),
+        },
       });
+
 
       this.queueEvents.on('error', (err) => {
         this.logger.warn(`BullMQ Redis Connection Warning: ${err.message}`);

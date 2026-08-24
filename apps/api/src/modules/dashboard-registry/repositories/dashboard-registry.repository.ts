@@ -6,10 +6,28 @@ import { CreateDashboardRegistryDto, UpdateDashboardRegistryDto } from '../dto/d
 export class DashboardRegistryRepository {
   constructor(private readonly prisma: PrismaService) {}
 
-  async findAll() {
-    return this.prisma.dashboardRegistry.findMany({
-      include: { jobRole: { include: { department: true } } },
-    });
+  async findAll(pagination: import('../../../common/pagination/pagination.dto').PaginationDto) {
+    const page = pagination.page || 1;
+    const limit = pagination.limit || 10;
+    const skip = (page - 1) * limit;
+    
+    const where = {};
+    if (pagination.search) {
+      where['dashboardCode'] = { contains: pagination.search, mode: 'insensitive' };
+    }
+
+    const [data, total] = await Promise.all([
+      this.prisma.dashboardRegistry.findMany({
+        skip,
+        take: limit,
+        where,
+        orderBy: pagination.sortBy ? { [pagination.sortBy]: pagination.sortOrder || 'asc' } as any : undefined,
+        include: { jobRole: { include: { department: true } } },
+      }),
+      this.prisma.dashboardRegistry.count({ where }),
+    ]);
+
+    return { data, total };
   }
 
   async findByDashboardCode(dashboardCode: string) {

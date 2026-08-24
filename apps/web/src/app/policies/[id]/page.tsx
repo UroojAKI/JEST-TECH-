@@ -44,7 +44,7 @@ export default function PolicyWorkspacePage() {
               <span>Customer: <strong className="text-foreground">Rahul Patil</strong></span>
               <span>Insurer: <strong className="text-foreground">ICICI Lombard</strong></span>
               <span>Vehicle: <strong className="text-foreground">MH-12-AB-1234</strong></span>
-              <span>Renewal Executive: <strong className="text-foreground">Rajesh Sharma</strong></span>
+              <span>Renewal Executive: <strong className="text-foreground">Assigned Executive</strong></span>
             </div>
           </div>
 
