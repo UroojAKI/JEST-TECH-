@@ -1,10 +1,10 @@
 import { Body, Controller, Param, Post, UseGuards } from '@nestjs/common';
 import { RoleType } from '@prisma/client';
-import { JwtAuthGuard } from '../../../auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../../../auth/guards/roles.guard';
-import { Roles } from '../../../auth/decorators/roles.decorator';
-import { CurrentUser } from '../../../auth/decorators/current-user.decorator';
-import type { RequestUser } from '../../../auth/decorators/current-user.decorator';
+import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../../auth/guards/roles.guard';
+import { Roles } from '../../auth/decorators/roles.decorator';
+import { CurrentUser } from '../../auth/decorators/current-user.decorator';
+import type { RequestUser } from '../../auth/decorators/current-user.decorator';
 import { MotorCalculationService } from '../services/motor-calculation.service';
 import { MotorPolicyIssuanceService } from '../services/motor-policy-issuance.service';
 import { PrismaService } from '../../../database/prisma.service';
