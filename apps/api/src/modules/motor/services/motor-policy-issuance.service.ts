@@ -73,10 +73,10 @@ export class MotorPolicyIssuanceService {
         data: {
           policyNumber: dto.actualPolicyNumber,
           actualPolicyNumber: dto.actualPolicyNumber,
+          quotationId: quote.id,
+          contactId: quote.contactId,
+          ...(quote.accountId ? { accountId: quote.accountId } : {}),
           status: 'ACTIVE',
-          quotation: { connect: { id: quote.id } },
-          contact: { connect: { id: quote.contactId } },
-          ...(quote.accountId ? { account: { connect: { id: quote.accountId } } } : {}),
           premiumAmount: quote.totalPremium,
           effectiveDate: startDate,
           expiryDate: effectiveExpiry,
