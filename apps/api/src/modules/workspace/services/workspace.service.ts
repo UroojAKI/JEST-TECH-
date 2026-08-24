@@ -15,57 +15,45 @@ export class WorkspaceService {
       where: { id: userId },
       include: {
         role: true,
-        jobRole: {
-          include: {
-            department: true,
-            dashboards: true,
-          },
-        },
+        jobRole: { include: { department: true, dashboards: true } },
         department: true,
         workspacePreference: true,
       },
     });
 
-    if (!user) {
-      throw new NotFoundException(`User with ID '${userId}' not found`);
-    }
+    if (!user) throw new NotFoundException(`User with ID '${userId}' not found`);
 
     const roleCode = user.role?.code || 'SALES_AGENT';
     const jobRole = user.jobRole;
     const department = user.department || user.jobRole?.department || null;
-
     let registry: any = null;
 
-    if (jobRole && jobRole.dashboards && jobRole.dashboards.length > 0) {
+    if (jobRole?.dashboards?.length) {
       registry = jobRole.dashboards[0];
     } else if (jobRole) {
-      registry = await this.prisma.dashboardRegistry.findFirst({
-        where: { jobRoleId: jobRole.id },
-      });
+      registry = await this.prisma.dashboardRegistry.findFirst({ where: { jobRoleId: jobRole.id } });
     }
 
-    let workspaceConfig: any;
-
     const isRegistryUsable = (reg: any, currentJobRole: any) => {
-      if (!reg) return false;
-      if (reg.isActive === false) return false;
-      if (!reg.widgets || reg.widgets.length === 0) return false;
-      
-      // Fix: Handle both string '[]' and actual array [] for Prisma Json fields
+      if (!reg || reg.isActive === false || !reg.widgets || reg.widgets.length === 0) return false;
       let navLength = 0;
-      if (Array.isArray(reg.navigation)) {
-        navLength = reg.navigation.length;
-      } else if (typeof reg.navigation === 'string') {
-        try { navLength = JSON.parse(reg.navigation).length; } catch(e) {}
+      if (Array.isArray(reg.navigation)) navLength = reg.navigation.length;
+      else if (typeof reg.navigation === 'string') {
+        try {
+          const parsed = JSON.parse(reg.navigation);
+          navLength = Array.isArray(parsed) ? parsed.length : Object.keys(parsed || {}).length;
+        } catch {
+          navLength = 0;
+        }
       } else if (reg.navigation && typeof reg.navigation === 'object') {
         navLength = Object.keys(reg.navigation).length;
       }
       if (navLength === 0) return false;
-
       if (currentJobRole && reg.jobRoleId && reg.jobRoleId !== currentJobRole.id) return false;
       return true;
     };
 
+    let workspaceConfig: any;
     if (isRegistryUsable(registry, jobRole)) {
       workspaceConfig = {
         dashboardCode: registry.dashboardCode,
@@ -78,8 +66,11 @@ export class WorkspaceService {
         permissions: registry.permissions || [],
       };
     } else {
-      // Force valid fallback
-      workspaceConfig = this.workspaceFactory.createDefaultWorkspace(jobRole?.code || 'AGENT', roleCode || 'SALES_AGENT', jobRole?.name || 'Sales Agent');
+      workspaceConfig = this.workspaceFactory.createDefaultWorkspace(
+        jobRole?.code || 'AGENT',
+        roleCode,
+        jobRole?.name || 'Sales Agent',
+      );
     }
 
     return {
@@ -92,22 +83,14 @@ export class WorkspaceService {
         designation: user.designation,
         status: user.status,
       },
-      jobRole: jobRole
-        ? {
-            id: jobRole.id,
-            code: jobRole.code,
-            name: jobRole.name,
-            defaultRoleType: jobRole.defaultRoleType,
-            description: jobRole.description,
-          }
-        : null,
-      department: department
-        ? {
-            id: department.id,
-            code: department.code,
-            name: department.name,
-          }
-        : null,
+      jobRole: jobRole ? {
+        id: jobRole.id,
+        code: jobRole.code,
+        name: jobRole.name,
+        defaultRoleType: jobRole.defaultRoleType,
+        description: jobRole.description,
+      } : null,
+      department: department ? { id: department.id, code: department.code, name: department.name } : null,
       dashboardCode: workspaceConfig.dashboardCode,
       workspaceCode: workspaceConfig.workspaceCode,
       title: workspaceConfig.title,
@@ -121,34 +104,20 @@ export class WorkspaceService {
   }
 
   async getNavigation(userId: string) {
-    const ws = await this.getWorkspaceForUser(userId);
-    return ws.navigation;
+    return (await this.getWorkspaceForUser(userId)).navigation;
   }
 
   async getWidgets(userId: string) {
-    const ws = await this.getWorkspaceForUser(userId);
-    return ws.widgets;
+    return (await this.getWorkspaceForUser(userId)).widgets;
   }
 
   async getDashboard(userId: string) {
     const ws = await this.getWorkspaceForUser(userId);
-    return {
-      dashboardCode: ws.dashboardCode,
-      workspaceCode: ws.workspaceCode,
-      title: ws.title,
-      subtitle: ws.subtitle,
-      widgets: ws.widgets,
-      quickActions: ws.quickActions,
-    };
+    return { dashboardCode: ws.dashboardCode, workspaceCode: ws.workspaceCode, title: ws.title, subtitle: ws.subtitle, widgets: ws.widgets, quickActions: ws.quickActions };
   }
 
   async getProfile(userId: string) {
     const ws = await this.getWorkspaceForUser(userId);
-    return {
-      user: ws.user,
-      jobRole: ws.jobRole,
-      department: ws.department,
-      preferences: ws.preferences,
-    };
+    return { user: ws.user, jobRole: ws.jobRole, department: ws.department, preferences: ws.preferences };
   }
 }
