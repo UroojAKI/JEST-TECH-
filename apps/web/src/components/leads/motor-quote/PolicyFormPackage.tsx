@@ -74,26 +74,21 @@ export function PolicyFormPackageForm({ category, vehicleStatus, data, onChange 
   }, [result]);
 
   useEffect(() => {
-    // Auto-calculate final commission
+    // Auto-calculate final commission based on percentage inputs
     const od = data.calculatedResult?.outputs?.netOdPremium || 0;
     const tp = data.calculatedResult?.outputs?.netTpPremium || 0;
     const pa = data.paCoverOwner ? 275 : 0;
     
-    let tpComm = parseFloat(data.tpCommissionCalc) || 0;
-    let odComm = parseFloat(data.odCommissionCalc) || 0;
+    const tpPct = parseFloat(data.tpCommissionCalc) || 0;
+    const odPct = parseFloat(data.odCommissionCalc) || 0;
 
-    if (typeof data.tpCommissionCalc === 'string' && data.tpCommissionCalc.includes('%')) {
-      tpComm = (tp + pa) * (parseFloat(data.tpCommissionCalc) / 100);
-    }
-    if (typeof data.odCommissionCalc === 'string' && data.odCommissionCalc.includes('%')) {
-      odComm = od * (parseFloat(data.odCommissionCalc) / 100);
-    }
+    const tpCommAmount = (tp + pa) * (tpPct / 100);
+    const odCommAmount = od * (odPct / 100);
 
-    const totalNet = od + tp + pa;
-    const finalVal = totalNet - (tpComm + odComm);
+    const totalCommissionAmount = tpCommAmount + odCommAmount;
 
-    if (tpComm > 0 || odComm > 0) {
-      const finalStr = finalVal.toFixed(2);
+    if (data.tpCommissionCalc || data.odCommissionCalc) {
+      const finalStr = totalCommissionAmount.toFixed(2);
       if (data.finalCommissionCalc !== finalStr) {
         onChange({ ...data, finalCommissionCalc: finalStr });
       }
@@ -290,40 +285,40 @@ export function PolicyFormPackageForm({ category, vehicleStatus, data, onChange 
         <p className="text-[11px] font-black text-foreground">Commission / Discount Calculators</p>
 
         <FieldRow
-          label="TP Commission / Discount Calculator ₹"
+          label="TP Commission / Discount Percentage (%)"
           mandatory
-          hint="Filled by employee"
-          formula="(TP Premium + PA Cover) × D% − (TP + PA Cover)"
+          hint="Enter the percentage value"
+          formula="(TP Premium + PA Cover) × D%"
         >
           <textarea
             rows={1}
             value={data.tpCommissionCalc}
             onChange={set('tpCommissionCalc')}
-            placeholder="TP commission calculation..."
+            placeholder="e.g. 5"
             className={`${mandatoryInput(data.tpCommissionCalc)} resize-none`}
           />
         </FieldRow>
 
         <FieldRow
-          label="OD Commission / Discount Calculator ₹"
+          label="OD Commission / Discount Percentage (%)"
           mandatory
-          hint="Filled by employee"
-          formula="OD Premium × D% − OD Premium"
+          hint="Enter the percentage value"
+          formula="OD Premium × D%"
         >
           <textarea
             rows={1}
             value={data.odCommissionCalc}
             onChange={set('odCommissionCalc')}
-            placeholder="OD commission calculation..."
+            placeholder="e.g. 10"
             className={`${mandatoryInput(data.odCommissionCalc)} resize-none`}
           />
         </FieldRow>
 
         <FieldRow
-          label="Final Commission / Discount Calculator ₹"
+          label="Final Commission / Discount Amount (₹)"
           mandatory
-          hint="Filled by employee"
-          formula="(OD + TP + PA) − (TP Commission + OD Commission)"
+          hint="Auto-calculated total commission amount"
+          formula="TP Commission Amount + OD Commission Amount"
         >
           <textarea
             rows={1}
