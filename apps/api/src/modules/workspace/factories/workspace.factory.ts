@@ -161,9 +161,9 @@ export class WorkspaceFactory {
       subtitle: 'My leads, my calls, pending quotes, and follow-ups',
       navigation: [
         { id: 'sales-dash', title: 'Sales Workspace', href: '/workspace/sales', icon: 'LayoutDashboard' },
-        { id: 'my-leads', title: 'My Leads', href: '/sales/leads', icon: 'Users' },
+        { id: 'my-leads', title: 'My Leads', href: '/crm/leads', icon: 'Users' },
         { id: 'my-quotes', title: 'My Quotations', href: '/sales/quotations', icon: 'FileText' },
-        { id: 'follow-ups', title: 'Scheduled Follow-ups', href: '/sales/follow-ups', icon: 'Clock' },
+        { id: 'follow-ups', title: 'Scheduled Follow-ups', href: '/crm/leads', icon: 'Clock' },
       ],
       widgets: [
         { id: 'my-kpis', type: 'KPI', title: 'My Performance (Premium & Sales)', colSpan: 12 },
@@ -171,7 +171,7 @@ export class WorkspaceFactory {
         { id: 'pending-docs', type: 'LIST', title: 'Pending Documents', colSpan: 4 },
       ],
       quickActions: [
-        { id: 'new-lead', title: 'Add Lead', href: '/sales/leads/new', icon: 'UserPlus' },
+        { id: 'new-lead', title: 'Add Lead', href: '/crm/leads/new', icon: 'UserPlus' },
         { id: 'new-quote', title: 'Create Quote', href: '/sales/quotations/new', icon: 'FilePlus' },
       ],
       permissions: ['lead:read', 'lead:create', 'quote:read', 'quote:create', 'policy:read'],
