@@ -132,9 +132,9 @@ export function MotorQuotationsWorkspace() {
         key = q.proposerDetails?.mobileNumber?.trim() || q.leadId || q.id;
       }
       
-      key = (key || 'UNKNOWN_VEHICLE').toUpperCase();
+      let keyStr = String(key || 'UNKNOWN_VEHICLE').toUpperCase();
 
-      (acc[key] ||= []).push(q);
+      (acc[keyStr] ||= []).push(q);
       return acc;
     }, {} as Record<string, SavedMotorQuote[]>);
   }, [activeFiltered, renewalsFiltered, activeTab]);
