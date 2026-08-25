@@ -123,9 +123,17 @@ export function MotorQuotationsWorkspace() {
   const groupedQuotes = useMemo(() => {
     const target = activeTab === 'ACTIVE' ? activeFiltered : renewalsFiltered;
     return target.reduce((acc, q) => {
-      const leadKey = q.leadId || q.proposerDetails?.mobileNumber || q.id;
-      const vehicleKey = q.registrationNumber || 'NEW_VEHICLE';
-      const key = `${leadKey}___${vehicleKey}`;
+      // 1. Group by registration number if available (unique vehicle)
+      // 2. If new vehicle, group by mobile number
+      // 3. Fallback to leadId or quote id
+      let key = q.registrationNumber?.trim();
+      
+      if (!key) {
+        key = q.proposerDetails?.mobileNumber?.trim() || q.leadId || q.id;
+      }
+      
+      key = (key || 'UNKNOWN_VEHICLE').toUpperCase();
+
       (acc[key] ||= []).push(q);
       return acc;
     }, {} as Record<string, SavedMotorQuote[]>);
