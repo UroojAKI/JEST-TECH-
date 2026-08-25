@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { X, UploadCloud, CheckCircle } from 'lucide-react';
+import { X, CheckCircle, Upload } from 'lucide-react';
 import { apiClient } from '@/lib/api-client';
 
 interface Props {
@@ -17,6 +17,11 @@ export function UpdatePolicyDetailsDialog({ isOpen, onClose, quotationId, onSave
   const [actualPremium, setActualPremium] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+  const [odStartDate, setOdStartDate] = useState('');
+  const [odExpiryDate, setOdExpiryDate] = useState('');
+  const [tpStartDate, setTpStartDate] = useState('');
+  const [tpExpiryDate, setTpExpiryDate] = useState('');
+  const [policyPdf, setPolicyPdf] = useState<File | null>(null);
 
   if (!isOpen) return null;
 
@@ -24,87 +29,74 @@ export function UpdatePolicyDetailsDialog({ isOpen, onClose, quotationId, onSave
     e.preventDefault();
     setLoading(true);
     try {
+      let documentFields: Record<string, unknown> = {};
+      if (policyPdf) {
+        const formData = new FormData();
+        formData.append('file', policyPdf);
+        formData.append('name', `Issued Motor Policy - ${actualPolicyNumber}`);
+        formData.append('entityType', 'QUOTATION');
+        formData.append('entityId', quotationId);
+        formData.append('category', 'MOTOR_POLICY_SCHEDULE');
+        formData.append('tags', 'motor,policy,issued');
+
+        const upload = await apiClient.post('/documents/upload', formData, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        });
+        const storageKey = upload.data?.storageKey;
+        if (!storageKey) throw new Error('Policy document upload did not return a storage key');
+        documentFields = {
+          documentFileKey: storageKey,
+          documentFileName: policyPdf.name,
+          documentFileSize: policyPdf.size,
+        };
+      }
+
       await apiClient.post(`/motor/quotes/${quotationId}/issue`, {
         actualPolicyNumber,
         actualPremium: parseFloat(actualPremium),
         startDate,
-        endDate
+        endDate,
+        odStartDate: odStartDate || undefined,
+        odExpiryDate: odExpiryDate || undefined,
+        tpStartDate: tpStartDate || undefined,
+        tpExpiryDate: tpExpiryDate || undefined,
+        ...documentFields,
       });
       onSaved();
-    } catch (e) {
-      console.error(e);
+    } catch (error: any) {
+      console.error(error);
+      const blockers = error?.response?.data?.blockers;
+      alert(blockers?.length ? `Policy issuance blocked: ${blockers.join(', ')}` : 'Unable to issue policy. Please verify the quotation and payment state.');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
-      <div className="bg-card w-full max-w-md rounded-lg shadow-xl border overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
+      <div className="bg-card w-full max-w-lg rounded-lg shadow-xl border overflow-hidden">
         <div className="flex items-center justify-between px-4 py-3 border-b bg-muted/30">
-          <h3 className="font-semibold">Update Issued Policy Details</h3>
+          <div><h3 className="font-semibold">Update Issued Policy Details</h3><p className="text-xs text-muted-foreground mt-0.5">Back Office only · server-side issuance gate enforced</p></div>
           <button onClick={onClose} className="p-1 rounded-md hover:bg-muted"><X className="h-4 w-4" /></button>
         </div>
-        <form onSubmit={handleSubmit} className="p-4 space-y-4">
-          <div>
-            <label className="block text-xs font-medium mb-1">Actual Policy Number</label>
-            <input 
-              required
-              type="text" 
-              value={actualPolicyNumber}
-              onChange={e => setActualPolicyNumber(e.target.value)}
-              className="w-full px-3 py-2 border rounded-md text-sm" 
-              placeholder="e.g. POL-123456789"
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-medium mb-1">Actual Premium (₹)</label>
-            <input 
-              required
-              type="number" 
-              value={actualPremium}
-              onChange={e => setActualPremium(e.target.value)}
-              className="w-full px-3 py-2 border rounded-md text-sm" 
-            />
-          </div>
+
+        <form onSubmit={handleSubmit} className="p-4 space-y-4 max-h-[80vh] overflow-y-auto">
+          <div><label className="block text-xs font-medium mb-1">Actual Policy Number *</label><input required type="text" value={actualPolicyNumber} onChange={e => setActualPolicyNumber(e.target.value)} className="w-full px-3 py-2 border rounded-md text-sm" placeholder="e.g. POL-123456789" /></div>
+          <div><label className="block text-xs font-medium mb-1">Actual Premium (₹) *</label><input required min="0" step="0.01" type="number" value={actualPremium} onChange={e => setActualPremium(e.target.value)} className="w-full px-3 py-2 border rounded-md text-sm" /></div>
+
           <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-medium mb-1">Policy Start Date</label>
-              <input 
-                required
-                type="date" 
-                value={startDate}
-                onChange={e => setStartDate(e.target.value)}
-                className="w-full px-3 py-2 border rounded-md text-sm" 
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium mb-1">Policy End Date</label>
-              <input 
-                required
-                type="date" 
-                value={endDate}
-                onChange={e => setEndDate(e.target.value)}
-                className="w-full px-3 py-2 border rounded-md text-sm" 
-              />
-            </div>
-          </div>
-          
-          <div className="border-2 border-dashed rounded-lg p-6 flex flex-col items-center justify-center bg-muted/10 cursor-pointer hover:bg-muted/30 transition-colors">
-            <UploadCloud className="h-8 w-8 text-muted-foreground mb-2" />
-            <span className="text-sm font-medium text-primary">Upload Policy PDF</span>
-            <span className="text-xs text-muted-foreground mt-1">Maximum file size 5MB</span>
+            <div><label className="block text-xs font-medium mb-1">Policy Start Date *</label><input required type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="w-full px-3 py-2 border rounded-md text-sm" /></div>
+            <div><label className="block text-xs font-medium mb-1">Policy End Date *</label><input required type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="w-full px-3 py-2 border rounded-md text-sm" /></div>
           </div>
 
-          <div className="flex justify-end pt-4">
-            <button
-              type="submit"
-              disabled={loading}
-              className="px-4 py-2 bg-primary text-primary-foreground rounded-md text-sm font-medium hover:bg-primary/90 flex items-center gap-2"
-            >
-              {loading ? 'Saving...' : <><CheckCircle className="h-4 w-4" /> Save Policy Details</>}
-            </button>
-          </div>
+          <div className="border rounded-lg p-3 space-y-3"><div className="text-xs font-semibold">Motor OD dates</div><div className="grid grid-cols-2 gap-4"><input type="date" value={odStartDate} onChange={e => setOdStartDate(e.target.value)} className="w-full px-3 py-2 border rounded-md text-sm" aria-label="OD start date" /><input type="date" value={odExpiryDate} onChange={e => setOdExpiryDate(e.target.value)} className="w-full px-3 py-2 border rounded-md text-sm" aria-label="OD expiry date" /></div></div>
+          <div className="border rounded-lg p-3 space-y-3"><div className="text-xs font-semibold">Motor TP dates</div><div className="grid grid-cols-2 gap-4"><input type="date" value={tpStartDate} onChange={e => setTpStartDate(e.target.value)} className="w-full px-3 py-2 border rounded-md text-sm" aria-label="TP start date" /><input type="date" value={tpExpiryDate} onChange={e => setTpExpiryDate(e.target.value)} className="w-full px-3 py-2 border rounded-md text-sm" aria-label="TP expiry date" /></div></div>
+
+          <div className="border rounded-lg p-3 space-y-2"><div className="text-xs font-semibold">Issued Policy PDF</div><label className="flex items-center gap-2 px-3 py-2 border border-dashed rounded-md cursor-pointer hover:bg-muted text-sm"><Upload className="h-4 w-4" />{policyPdf ? policyPdf.name : 'Upload insurer policy schedule (PDF)'}<input type="file" accept="application/pdf" className="hidden" onChange={e => setPolicyPdf(e.target.files?.[0] || null)} /></label></div>
+
+          <p className="text-xs text-muted-foreground rounded-md border bg-muted/20 p-3">The backend re-checks payment, calculation snapshot, rule evaluation and inspection requirements before creating the Policy.</p>
+
+          <div className="flex justify-end pt-2"><button type="submit" disabled={loading} className="px-4 py-2 bg-primary text-primary-foreground rounded-md text-sm font-medium hover:bg-primary/90 flex items-center gap-2 disabled:opacity-50">{loading ? 'Issuing...' : <><CheckCircle className="h-4 w-4" /> Issue Policy</>}</button></div>
         </form>
       </div>
     </div>

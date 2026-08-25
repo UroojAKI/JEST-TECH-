@@ -320,7 +320,7 @@ export default function UserManagementPage() {
             </tr>
           </thead>
           <tbody className="divide-y">
-            {(Array.isArray(users) ? users : (users?.data || users?.items || [])).map((u: any) => (
+            {(Array.isArray(users) ? users : ((users as any)?.data || (users as any)?.items || [])).map((u: any) => (
               <tr key={u.id} className="hover:bg-accent/40">
                 <td className="p-3 font-mono font-bold text-primary">{u.employeeCode}</td>
                 <td className="p-3 font-semibold">{u.firstName} {u.lastName}</td>

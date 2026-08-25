@@ -68,6 +68,15 @@ export class QuotationResponseDto {
   createdAt: Date;
   updatedAt: Date;
 
+  // Motor-specific workflow fields are intentionally exposed so clients cannot infer state from stale UI metadata.
+  vehicleCategory?: string | null;
+  policyType?: string | null;
+  registrationNumber?: string | null;
+  motorMetadata?: any;
+  workflowState?: string | null;
+  issuanceStatus?: string | null;
+  calculationSnapshot?: any;
+
   versions?: QuotationVersionResponseDto[];
   addons?: QuotationAddonResponseDto[];
   discounts?: QuotationDiscountResponseDto[];

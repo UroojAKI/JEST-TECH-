@@ -78,7 +78,7 @@ export default function ProductMasterAdminPage() {
     });
   };
 
-  const filteredProducts = (Array.isArray(products) ? products : (products?.data || products?.items || [])).filter(
+  const filteredProducts = (Array.isArray(products) ? products : ((products as any)?.data || (products as any)?.items || [])).filter(
     (p: any) =>
       p.productName.toLowerCase().includes(search.toLowerCase()) ||
       p.code.toLowerCase().includes(search.toLowerCase()) ||

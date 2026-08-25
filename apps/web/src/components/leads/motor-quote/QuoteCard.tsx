@@ -16,6 +16,9 @@ const STATUS_CONFIG: Record<string, { icon: React.ReactNode; cls: string; label:
   DRAFT: { icon: <Clock className="h-3 w-3" />, cls: 'bg-muted/40 text-muted-foreground', label: 'DRAFT' },
   PENDING_INSPECTION: { icon: <AlertCircle className="h-3 w-3" />, cls: 'bg-amber-500/10 text-amber-600 border border-amber-200', label: 'INSPECTION REQ.' },
   READY_FOR_PROPOSAL: { icon: <CheckCircle2 className="h-3 w-3" />, cls: 'bg-blue-500/10 text-blue-600 border border-blue-200', label: 'READY' },
+  PAYMENT_UNDER_PROCESS: { icon: <Clock className="h-3 w-3" />, cls: 'bg-amber-500/10 text-amber-700 border border-amber-200', label: 'PAYMENT UNDER PROCESS' },
+  PAYMENT_DONE: { icon: <CheckCircle2 className="h-3 w-3" />, cls: 'bg-blue-500/10 text-blue-700 border border-blue-200', label: 'AWAITING ISSUANCE' },
+  PENDING_ISSUANCE: { icon: <Clock className="h-3 w-3" />, cls: 'bg-blue-500/10 text-blue-700 border border-blue-200', label: 'AWAITING ISSUANCE' },
   ISSUED: { icon: <CheckCircle2 className="h-3 w-3" />, cls: 'bg-emerald-500/10 text-emerald-600 border border-emerald-200', label: 'ISSUED' },
   APPROVED: { icon: <CheckCircle2 className="h-3 w-3" />, cls: 'bg-emerald-500/10 text-emerald-600', label: 'APPROVED' },
   REJECTED: { icon: <XCircle className="h-3 w-3" />, cls: 'bg-rose-500/10 text-rose-600', label: 'REJECTED' },
@@ -34,13 +37,12 @@ const CAT_ICONS: Record<string, string> = {
 };
 
 export function QuoteCard({ quote, onUploadQuote, onConductInspection, onCompleteProposal }: Props) {
-  const status = STATUS_CONFIG[quote.status] || STATUS_CONFIG['DRAFT'];
-  const ptStyle = POLICY_TYPE_STYLE[quote.policyType] || POLICY_TYPE_STYLE['PACKAGE'];
+  const status = STATUS_CONFIG[quote.status] || STATUS_CONFIG.DRAFT;
+  const ptStyle = POLICY_TYPE_STYLE[quote.policyType] || POLICY_TYPE_STYLE.PACKAGE;
 
   return (
     <div className="p-4 rounded-xl border bg-card hover:shadow-sm transition-all space-y-3 flex flex-col justify-between">
       <div>
-        {/* Top Row */}
         <div className="flex items-start justify-between gap-2">
           <div className="flex items-center gap-2 min-w-0">
             <span className="text-xl flex-shrink-0">{CAT_ICONS[quote.vehicleCategory] || '🚘'}</span>
@@ -58,13 +60,10 @@ export function QuoteCard({ quote, onUploadQuote, onConductInspection, onComplet
             </div>
           </div>
           <div className="text-right flex-shrink-0">
-            <div className="font-bold text-sm text-foreground">
-              ₹{Number(quote.totalPremium || 0).toLocaleString('en-IN')}
-            </div>
+            <div className="font-bold text-sm text-foreground">₹{Number(quote.totalPremium || 0).toLocaleString('en-IN')}</div>
           </div>
         </div>
 
-        {/* Vehicle Reg */}
         {quote.registrationNumber && (
           <div className="flex items-center gap-1.5 font-mono text-[10px] font-bold text-muted-foreground mt-2">
             <Car className="h-3 w-3" />
@@ -72,7 +71,6 @@ export function QuoteCard({ quote, onUploadQuote, onConductInspection, onComplet
           </div>
         )}
 
-        {/* Stats Row */}
         <div className="grid grid-cols-3 gap-2 text-[10px] mt-3">
           <div className="text-center p-1.5 rounded bg-muted/30 border border-border/50">
             <div className="text-muted-foreground font-medium">IDV</div>
@@ -89,7 +87,6 @@ export function QuoteCard({ quote, onUploadQuote, onConductInspection, onComplet
         </div>
       </div>
 
-      {/* Footer & Actions */}
       <div className="pt-3 border-t mt-3 flex flex-col gap-2">
         <div className="flex items-center justify-between">
           <div className={`flex items-center gap-1 text-[9px] font-bold px-2 py-0.5 rounded ${status.cls}`}>
@@ -104,26 +101,25 @@ export function QuoteCard({ quote, onUploadQuote, onConductInspection, onComplet
             </span>
           </label>
         </div>
-        
-        {/* Call to Action Buttons */}
+
         {quote.status === 'PENDING_INSPECTION' && onConductInspection && (
-          <button
-            onClick={() => onConductInspection(quote.id)}
-            className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 text-xs font-semibold transition-colors mt-1"
-          >
+          <button onClick={() => onConductInspection(quote.id)} className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 text-xs font-semibold transition-colors mt-1">
             <ShieldCheck className="h-3.5 w-3.5" />
             Complete Inspection
           </button>
         )}
-        
+
         {quote.status === 'READY_FOR_PROPOSAL' && onCompleteProposal && (
-          <button
-            onClick={() => onCompleteProposal(quote)}
-            className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold transition-colors mt-1"
-          >
+          <button onClick={() => onCompleteProposal(quote)} className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold transition-colors mt-1">
             <FileText className="h-3.5 w-3.5" />
-            Complete Proposal
+            Complete Proposal & Payment
           </button>
+        )}
+
+        {(quote.status === 'PAYMENT_DONE' || quote.status === 'PENDING_ISSUANCE') && (
+          <div className="text-[10px] text-blue-700 bg-blue-500/10 border border-blue-200 rounded px-2 py-1.5 text-center font-medium">
+            Payment confirmed · waiting for Back Office issuance
+          </div>
         )}
       </div>
     </div>

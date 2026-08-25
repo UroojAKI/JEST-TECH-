@@ -107,7 +107,7 @@ export default function InsurerMasterAdminPage() {
     });
   };
 
-  const filteredInsurers = (Array.isArray(insurers) ? insurers : (insurers?.data || insurers?.items || [])).filter(
+  const filteredInsurers = (Array.isArray(insurers) ? insurers : ((insurers as any)?.data || (insurers as any)?.items || [])).filter(
     (ins: any) =>
       ins.name.toLowerCase().includes(search.toLowerCase()) ||
       ins.code.toLowerCase().includes(search.toLowerCase())

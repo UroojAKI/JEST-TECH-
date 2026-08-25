@@ -238,7 +238,7 @@ export function MotorQuoteWizard({ isOpen, leadId, initialCategory, cloneQuoteDa
             inspectionRequired: false,
             inspectionReasons: [],
             ncb: 0,
-            ncbReason: 'NEW_VEHICLE',
+            ncbReason: 'NEW_VEHICLE' as any,
             eligibleNcb: 0,
             tpVerificationRequired: false,
             policyTransferRequired: false,
@@ -261,7 +261,7 @@ export function MotorQuoteWizard({ isOpen, leadId, initialCategory, cloneQuoteDa
           
           setRuleResult({
             inspectionRequired,
-            inspectionReasons: inspectionRequired ? ['SYSTEM_EVALUATED'] : [],
+            inspectionReasons: inspectionRequired ? ['SYSTEM_EVALUATED' as any] : [],
             ncb: ncbLocked ? 0 : previousPolicy.eligibleNcbPercentage,
             ncbReason: previousPolicy.claimInPreviousYear ? 'CLAIM_IN_PREVIOUS_YEAR'
               : previousPolicy.ownershipTransfer ? 'OWNERSHIP_TRANSFER'

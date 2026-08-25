@@ -117,7 +117,7 @@ export default function VehicleMasterAdminPage() {
     });
   };
 
-  const filteredRtos = (Array.isArray(rtos) ? rtos : (rtos?.data || rtos?.items || [])).filter(
+  const filteredRtos = (Array.isArray(rtos) ? rtos : ((rtos as any)?.data || (rtos as any)?.items || [])).filter(
     (r: any) =>
       r.code.toLowerCase().includes(search.toLowerCase()) ||
       r.rtoOfficeName.toLowerCase().includes(search.toLowerCase()) ||

@@ -26,6 +26,12 @@ export class ConvertQuotationService {
         throw new NotFoundException(`Quotation with ID ${id} not found`);
       }
 
+      if (existing.productType === 'MOTOR') {
+        throw new BadRequestException(
+          'Motor quotations cannot be converted through the generic quotation endpoint. Complete payment, then issue through the Back Office Motor issuance workflow.',
+        );
+      }
+
       if (
         existing.status !== QuotationStatus.APPROVED &&
         existing.status !== QuotationStatus.DRAFT
@@ -35,10 +41,7 @@ export class ConvertQuotationService {
         );
       }
 
-      // Check if policy already exists for this quotation
-      const existingPolicy = await tx.policy.findFirst({
-        where: { quotationId: id },
-      });
+      const existingPolicy = await tx.policy.findFirst({ where: { quotationId: id } });
 
       let policyId: string;
       let policyNumber: string;
@@ -56,46 +59,38 @@ export class ConvertQuotationService {
           policyNumber = `POL-${(count + 1001).toString().padStart(6, '0')}`;
         }
 
-        // Create genuine Policy entity in database
         const newPolicy = await tx.policy.create({
           data: {
             policyNumber,
             status: PolicyStatus.ACTIVE,
             quotation: { connect: { id } },
             contact: { connect: { id: existing.contactId } },
-            account: existing.accountId
-              ? { connect: { id: existing.accountId } }
-              : undefined,
+            account: existing.accountId ? { connect: { id: existing.accountId } } : undefined,
             premiumAmount: existing.totalPremium,
             effectiveDate: new Date(),
             expiryDate: existing.expiryDate,
             createdBy: { connect: { id: convertedById } },
             updatedBy: { connect: { id: convertedById } },
             payments: {
-              create: [
-                {
-                  amount: existing.totalPremium,
-                  transactionId: `TXN-${policyNumber}`,
-                  paymentMethod: 'ONLINE',
-                  status: PaymentStatus.SUCCESS,
-                },
-              ],
+              create: [{
+                amount: existing.totalPremium,
+                transactionId: `TXN-${policyNumber}`,
+                paymentMethod: 'ONLINE',
+                status: PaymentStatus.SUCCESS,
+              }],
             },
             histories: {
-              create: [
-                {
-                  status: PolicyStatus.ACTIVE,
-                  comments: `Policy issued from converted quotation ${existing.quotationCode}.`,
-                  createdById: convertedById,
-                },
-              ],
+              create: [{
+                status: PolicyStatus.ACTIVE,
+                comments: `Policy issued from converted quotation ${existing.quotationCode}.`,
+                createdById: convertedById,
+              }],
             },
           },
         });
         policyId = newPolicy.id;
       }
 
-      // Transition Quotation status
       await tx.quotation.update({
         where: { id },
         data: {

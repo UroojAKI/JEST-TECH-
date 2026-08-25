@@ -11,13 +11,14 @@ import { MotorQuoteWorkflowService } from './services/motor-quote-workflow.servi
 import { MotorInspectionService } from './services/motor-inspection.service';
 import { MotorPaymentTrackingService } from './services/motor-payment-tracking.service';
 import { MotorCalculationService } from './services/motor-calculation.service';
+import { MotorPolicyIssuanceService } from './services/motor-policy-issuance.service';
 
 @Module({
   controllers: [
-    MotorController, 
-    MotorWorkflowController, 
+    MotorController,
+    MotorWorkflowController,
     MotorCalculationController,
-    MotorQuoteController
+    MotorQuoteController,
   ],
   providers: [
     MotorTariffService,
@@ -26,13 +27,15 @@ import { MotorCalculationService } from './services/motor-calculation.service';
     MotorQuoteWorkflowService,
     MotorInspectionService,
     MotorPaymentTrackingService,
-    MotorCalculationService
+    MotorCalculationService,
+    MotorPolicyIssuanceService,
   ],
   exports: [
-    MotorRuleEngineService, 
-    MotorInspectionService, 
+    MotorRuleEngineService,
+    MotorInspectionService,
     MotorPaymentTrackingService,
-    MotorCalculationService
+    MotorCalculationService,
+    MotorPolicyIssuanceService,
   ],
 })
 export class MotorModule {}
