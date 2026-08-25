@@ -73,6 +73,33 @@ export function PolicyFormPackageForm({ category, vehicleStatus, data, onChange 
     }
   }, [result]);
 
+  useEffect(() => {
+    // Auto-calculate final commission
+    const od = data.calculatedResult?.outputs?.netOdPremium || 0;
+    const tp = data.calculatedResult?.outputs?.netTpPremium || 0;
+    const pa = data.paCoverOwner ? 275 : 0;
+    
+    let tpComm = parseFloat(data.tpCommissionCalc) || 0;
+    let odComm = parseFloat(data.odCommissionCalc) || 0;
+
+    if (typeof data.tpCommissionCalc === 'string' && data.tpCommissionCalc.includes('%')) {
+      tpComm = (tp + pa) * (parseFloat(data.tpCommissionCalc) / 100);
+    }
+    if (typeof data.odCommissionCalc === 'string' && data.odCommissionCalc.includes('%')) {
+      odComm = od * (parseFloat(data.odCommissionCalc) / 100);
+    }
+
+    const totalNet = od + tp + pa;
+    const finalVal = totalNet - (tpComm + odComm);
+
+    if (tpComm > 0 || odComm > 0) {
+      const finalStr = finalVal.toFixed(2);
+      if (data.finalCommissionCalc !== finalStr) {
+        onChange({ ...data, finalCommissionCalc: finalStr });
+      }
+    }
+  }, [data.tpCommissionCalc, data.odCommissionCalc, data.calculatedResult]);
+
   const handleClaimChange = (val: string) => {
     const updated = { ...data, claimInExpiringPolicy: val };
     if (val === 'Yes') updated.ncbPercentage = '0';

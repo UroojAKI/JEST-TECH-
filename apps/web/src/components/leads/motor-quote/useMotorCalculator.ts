@@ -13,6 +13,14 @@ export function useMotorCalculator(inputData: any) {
       return;
     }
 
+    if (['STANDALONE_OD', 'PACKAGE_COMPREHENSIVE'].includes(inputData.policyType)) {
+      if (!inputData.idv || inputData.idv < 50000) {
+        setResult(null);
+        setError(null);
+        return;
+      }
+    }
+
     const abortController = new AbortController();
     abortControllerRef.current = abortController;
 
