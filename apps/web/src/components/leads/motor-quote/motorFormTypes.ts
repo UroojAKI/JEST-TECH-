@@ -241,6 +241,8 @@ export interface PolicyFormPackage {
   tpCommissionCalc: string;      // Y — free text employee
   odCommissionCalc: string;      // Y — free text employee
   finalCommissionCalc: string;   // Y — free text employee
+  finalPayableAmount?: string;   // Net premium payable after discount + GST
+  finalGstAmount?: string;       // Re-calculated GST after discount
   calculatedResult?: any;
 }
 

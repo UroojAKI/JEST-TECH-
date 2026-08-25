@@ -89,8 +89,31 @@ export function PolicyFormPackageForm({ category, vehicleStatus, data, onChange 
 
     if (data.tpCommissionCalc || data.odCommissionCalc) {
       const finalStr = totalCommissionAmount.toFixed(2);
-      if (data.finalCommissionCalc !== finalStr) {
-        onChange({ ...data, finalCommissionCalc: finalStr });
+      
+      // Calculate revised GST (18%) on discounted base premium
+      const totalBase = od + tp + pa;
+      const discountedBasePremium = totalBase - totalCommissionAmount;
+      // Assuming 18% standard GST for non-commercial. If commercial, TP is 12%, OD is 18%.
+      // We will compute accurate GST if we know the split:
+      const isCommercial = !['BIKE', 'PRIVATE_CAR'].includes(category);
+      let gst = 0;
+      if (isCommercial) {
+        const discountedOd = od - odCommAmount;
+        const discountedTp = (tp + pa) - tpCommAmount;
+        gst = (discountedOd * 0.18) + (discountedTp * 0.12);
+      } else {
+        gst = discountedBasePremium * 0.18;
+      }
+      
+      const finalPayable = discountedBasePremium + gst;
+
+      if (data.finalCommissionCalc !== finalStr || data.finalPayableAmount !== finalPayable.toFixed(2)) {
+        onChange({ 
+          ...data, 
+          finalCommissionCalc: finalStr,
+          finalPayableAmount: finalPayable.toFixed(2),
+          finalGstAmount: gst.toFixed(2)
+        });
       }
     }
   }, [data.tpCommissionCalc, data.odCommissionCalc, data.calculatedResult]);

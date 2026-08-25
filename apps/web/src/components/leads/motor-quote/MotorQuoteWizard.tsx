@@ -321,6 +321,18 @@ export function MotorQuoteWizard({ isOpen, leadId, initialCategory, cloneQuoteDa
     return parseFloat(pd.totalPremiumInclGST || '0') || 0;
   };
 
+  const getNetPayable = () => {
+    const pd = getPolicyDetails() as any;
+    return parseFloat(pd.finalPayableAmount || '0') || 0;
+  };
+
+  const getGst = () => {
+    const pd = getPolicyDetails() as any;
+    // Fallback to original calculated GST if finalGstAmount is not set
+    if (pd.finalGstAmount) return parseFloat(pd.finalGstAmount);
+    return parseFloat(pd.calculatedResult?.outputs?.totalGst || '0') || 0;
+  };
+
   const getIDV = () => {
     const pd = getPolicyDetails() as any;
     return parseFloat(pd.insuredDeclaredValue || '0') || 0;
@@ -355,7 +367,7 @@ export function MotorQuoteWizard({ isOpen, leadId, initialCategory, cloneQuoteDa
         registrationNumber: registrationNumber || '',
         insurerName: insurerName || 'Partner Insurer',
         leadId: leadId || undefined,
-        totalPremium: getTotalPremium(),
+        totalPremium: getNetPayable() > 0 ? getNetPayable() : getTotalPremium(),
         idv: getIDV(),
         ncbPercentage: getNCB(),
         proposerDetails: proposer,
@@ -390,7 +402,7 @@ export function MotorQuoteWizard({ isOpen, leadId, initialCategory, cloneQuoteDa
         policyType,
         registrationNumber: registrationNumber || '',
         insurerName: insurerName || 'Partner Insurer',
-        totalPremium: getTotalPremium(),
+        totalPremium: getNetPayable() > 0 ? getNetPayable() : getTotalPremium(),
         idv: getIDV(),
         ncbPercentage: getNCB(),
         status: ruleResult?.inspectionRequired ? 'PENDING_INSPECTION' : 'READY_FOR_PROPOSAL',
@@ -602,7 +614,15 @@ export function MotorQuoteWizard({ isOpen, leadId, initialCategory, cloneQuoteDa
           <div className="flex items-center gap-4">
             {getTotalPremium() > 0 && (
               <div className="hidden sm:flex items-center gap-2 text-xs font-medium px-3 py-1.5 rounded bg-muted">
-                <span className="text-foreground">Total: ₹{getTotalPremium().toLocaleString('en-IN')}</span>
+                {getNetPayable() > 0 ? (
+                  <>
+                    <span className="text-foreground font-bold">Net Payable: ₹{getNetPayable().toLocaleString('en-IN')}</span>
+                    <span className="text-muted-foreground border-l pl-2">Tax: ₹{getGst().toLocaleString('en-IN')}</span>
+                    <span className="text-muted-foreground border-l pl-2 line-through">Total: ₹{getTotalPremium().toLocaleString('en-IN')}</span>
+                  </>
+                ) : (
+                  <span className="text-foreground">Total: ₹{getTotalPremium().toLocaleString('en-IN')}</span>
+                )}
                 {getIDV() > 0 && <span className="text-muted-foreground border-l pl-2">IDV: ₹{getIDV().toLocaleString('en-IN')}</span>}
               </div>
             )}
