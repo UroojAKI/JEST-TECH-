@@ -19,6 +19,7 @@ import { RolesGuard } from '../../auth/guards/roles.guard';
 import { Roles } from '../../auth/decorators/roles.decorator';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import type { RequestUser } from '../../auth/decorators/current-user.decorator';
+import { ActorContext } from '../../../common/interfaces/actor-context.interface';
 
 import { CreateLeadDto } from '../dto/create-lead.dto';
 import { UpdateLeadDto } from '../dto/update-lead.dto';
@@ -26,10 +27,10 @@ import { CreateNoteDto } from '../dto/create-note.dto';
 import { CreateActivityDto } from '../dto/create-activity.dto';
 import { GetLeadsQueryDto } from '../dto/get-leads-query.dto';
 import { LeadsService } from '../services/leads.service';
+import { LeadAssignmentService } from '../services/lead-assignment.service';
 import { PrismaService } from '../../../database/prisma.service';
 import { ParseUUIDPipe } from '../../../common/utils/parse-uuid.pipe';
 import { PaginationDto } from '../../../common/pagination/pagination.dto';
-
 
 @ApiTags('Leads & Opportunity Pipeline')
 @ApiBearerAuth()
@@ -38,6 +39,7 @@ import { PaginationDto } from '../../../common/pagination/pagination.dto';
 export class LeadsController {
   constructor(
     private readonly leadsService: LeadsService,
+    private readonly leadAssignmentService: LeadAssignmentService,
     private readonly prisma: PrismaService,
   ) {}
 
@@ -168,13 +170,64 @@ export class LeadsController {
     RoleType.ADMIN,
     RoleType.BRANCH_MANAGER,
     RoleType.TEAM_LEADER,
+    RoleType.SALES_MANAGER,
   )
+  @ApiOperation({ summary: 'Assign or reassign lead to a sales agent with branch/team boundary validation' })
   assign(
     @Param('id', ParseUUIDPipe) id: string,
     @Body('assignedToId') assignedToId: string,
-    @CurrentUser() user: RequestUser,
+    @CurrentUser() actor: ActorContext,
   ) {
-    return this.leadsService.assign(id, assignedToId, user.id);
+    return this.leadAssignmentService.assignLead(id, assignedToId, actor);
+  }
+
+  @Post(':id/auto-assign')
+  @Roles(
+    RoleType.SUPER_ADMIN,
+    RoleType.ADMIN,
+    RoleType.BRANCH_MANAGER,
+    RoleType.TEAM_LEADER,
+    RoleType.SALES_MANAGER,
+  )
+  @ApiOperation({ summary: 'Auto-assign lead to agent with lowest active load (Round-Robin)' })
+  autoAssign(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() actor: ActorContext,
+  ) {
+    return this.leadAssignmentService.autoAssignRoundRobin(id, actor);
+  }
+
+  @Post('bulk-assign')
+  @Roles(
+    RoleType.SUPER_ADMIN,
+    RoleType.ADMIN,
+    RoleType.BRANCH_MANAGER,
+    RoleType.TEAM_LEADER,
+    RoleType.SALES_MANAGER,
+  )
+  @ApiOperation({ summary: 'Bulk reassign leads to a target agent within branch/team scope' })
+  bulkAssign(
+    @Body() body: { leadIds: string[]; targetAgentId: string },
+    @CurrentUser() actor: ActorContext,
+  ) {
+    return this.leadAssignmentService.bulkAssign(
+      body.leadIds,
+      body.targetAgentId,
+      actor,
+    );
+  }
+
+  @Get('queues/workload')
+  @Roles(
+    RoleType.SUPER_ADMIN,
+    RoleType.ADMIN,
+    RoleType.BRANCH_MANAGER,
+    RoleType.TEAM_LEADER,
+    RoleType.SALES_MANAGER,
+  )
+  @ApiOperation({ summary: 'Get active workload telemetry for agents within authorized scope' })
+  getWorkload(@CurrentUser() actor: ActorContext) {
+    return this.leadAssignmentService.getAgentWorkloadQueue(actor);
   }
 
   @Post(':id/notes')

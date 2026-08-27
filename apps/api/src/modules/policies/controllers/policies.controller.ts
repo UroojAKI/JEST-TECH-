@@ -59,22 +59,72 @@ export class PoliciesController {
     const where: any = {};
     if (!isManager) where.agentId = user.id;
 
-    const totalTasks = await this.prisma.renewalTask.count({ where });
-    const pendingTasks = await this.prisma.renewalTask.count({ where: { ...where, status: 'PENDING' } });
-    const completedTasks = await this.prisma.renewalTask.count({ where: { ...where, status: 'COMPLETED' } });
-    const cancelledTasks = await this.prisma.renewalTask.count({ where: { ...where, status: 'CANCELLED' } });
+    const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
 
-    const conversionRate = totalTasks > 0 ? ((completedTasks / totalTasks) * 100).toFixed(1) : '82.5';
+    const in7 = new Date(startOfToday);
+    in7.setDate(in7.getDate() + 7);
+
+    const in15 = new Date(startOfToday);
+    in15.setDate(in15.getDate() + 15);
+
+    const in30 = new Date(startOfToday);
+    in30.setDate(in30.getDate() + 30);
+
+    const [
+      dueToday,
+      in7Days,
+      in15Days,
+      in30Days,
+      overdue,
+      completedRenewals,
+      totalTasks,
+      completedTasks,
+    ] = await Promise.all([
+      this.prisma.renewalTask.count({
+        where: { ...where, status: 'PENDING', dueDate: { gte: startOfToday, lte: endOfToday } },
+      }),
+      this.prisma.renewalTask.count({
+        where: { ...where, status: 'PENDING', dueDate: { gte: startOfToday, lte: in7 } },
+      }),
+      this.prisma.renewalTask.count({
+        where: { ...where, status: 'PENDING', dueDate: { gt: in7, lte: in15 } },
+      }),
+      this.prisma.renewalTask.count({
+        where: { ...where, status: 'PENDING', dueDate: { gt: in15, lte: in30 } },
+      }),
+      this.prisma.renewalTask.count({
+        where: { ...where, status: 'PENDING', dueDate: { lt: startOfToday } },
+      }),
+      this.prisma.policyRenewal.findMany({
+        select: { premiumAmount: true },
+        take: 100,
+      }),
+      this.prisma.renewalTask.count({
+        where: { ...where },
+      }),
+      this.prisma.renewalTask.count({
+        where: { ...where, status: 'COMPLETED' },
+      }),
+    ]);
+
+    const recoveredSum = completedRenewals.reduce(
+      (sum, p) => sum + Number(p.premiumAmount || 0),
+      0,
+    );
+    const conversionRate =
+      totalTasks > 0 ? ((completedTasks / totalTasks) * 100).toFixed(1) : '0';
 
     return {
-      dueToday: 5,
-      in7Days: 12,
-      in15Days: 18,
-      in30Days: 24,
-      overdue: 3,
-      completed: completedTasks || 14,
+      dueToday,
+      in7Days,
+      in15Days,
+      in30Days,
+      overdue,
+      completed: completedTasks,
       conversionPercentage: `${conversionRate}%`,
-      recoveredRevenue: '₹3,42,500',
+      recoveredRevenue: `₹${recoveredSum.toLocaleString('en-IN')}`,
     };
   }
 

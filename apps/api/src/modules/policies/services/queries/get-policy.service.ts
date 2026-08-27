@@ -1,40 +1,41 @@
 import {
   Injectable,
   NotFoundException,
-  ForbiddenException,
 } from '@nestjs/common';
 
 import { PolicyRepository } from '../../repositories/policy.repository';
 import { PolicyMapper } from '../../mappers/policy.mapper';
-import type { RequestUser } from '../../../auth/decorators/current-user.decorator';
+import { ActorContext } from '../../../../common/interfaces/actor-context.interface';
+import { ResourceAuthorizationService } from '../../../../common/services/resource-authorization.service';
+import { ScopeResolver } from '../../../../common/services/scope-resolver.service';
 import { PaginationDto } from '../../../../common/pagination/pagination.dto';
 
 @Injectable()
 export class GetPolicyService {
-  constructor(private readonly policyRepository: PolicyRepository) {}
+  constructor(
+    private readonly policyRepository: PolicyRepository,
+    private readonly authzService: ResourceAuthorizationService,
+    private readonly scopeResolver: ScopeResolver,
+  ) {}
 
-  async executeOne(id: string, user: RequestUser) {
+  async executeOne(id: string, user: ActorContext) {
     const policy = await this.policyRepository.findDetail(id);
     if (!policy || policy.deletedAt) {
       throw new NotFoundException(`Policy with ID ${id} not found`);
     }
 
-    // BOLA ownership verification
-    if (user.role === 'SALES_AGENT' && policy.createdById !== user.id) {
-      throw new ForbiddenException(
-        'You do not have permission to access this policy',
-      );
-    }
+    // Authoritative Universal Resource Authorization check
+    this.authzService.authorize(user, 'POLICY', 'READ', policy);
 
     return PolicyMapper.toResponse(policy);
   }
 
-  async executeAll(pagination: PaginationDto, user: RequestUser) {
-    const whereClause =
-      user.role === 'SALES_AGENT' ? { createdById: user.id } : {};
+  async executeAll(pagination: PaginationDto, user: ActorContext) {
+    const scopedFilter = this.scopeResolver.resolveScopeFilter(user, 'POLICY');
     return this.policyRepository.findPaginated(
       pagination,
-      whereClause,
+      scopedFilter,
     );
   }
 }
+

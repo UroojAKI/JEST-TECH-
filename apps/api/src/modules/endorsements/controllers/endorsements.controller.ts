@@ -55,6 +55,7 @@ export class EndorsementsController {
     @Body('policyId') policyId: string,
     @Body('type') type: EndorsementType,
     @Body('reason') reason: string,
+    @Body('requestedChanges') requestedChanges: Record<string, any>,
     @CurrentUser() user: RequestUser,
   ) {
     return this.endorsementService.createEndorsement(
@@ -62,6 +63,26 @@ export class EndorsementsController {
       type,
       reason,
       user.id,
+      requestedChanges,
+    );
+  }
+
+  @Post('policies/:policyId/calculate-prorata')
+  @Roles(
+    RoleType.ADMIN,
+    RoleType.SUPER_ADMIN,
+    RoleType.UNDERWRITER,
+    RoleType.OPERATIONS,
+    RoleType.SALES_AGENT,
+    RoleType.BRANCH_MANAGER,
+  )
+  calculateProRata(
+    @Param('policyId', ParseUUIDPipe) policyId: string,
+    @Body('newAnnualPremium') newAnnualPremium: number,
+  ) {
+    return this.endorsementService.calculateProRataPremium(
+      policyId,
+      newAnnualPremium,
     );
   }
 
@@ -80,12 +101,22 @@ export class EndorsementsController {
   }
 
   @Post(':id/approve')
-  @Roles(RoleType.ADMIN, RoleType.SUPER_ADMIN, RoleType.UNDERWRITER)
+  @Roles(RoleType.ADMIN, RoleType.SUPER_ADMIN, RoleType.UNDERWRITER, RoleType.OPERATIONS)
   approveEndorsement(
     @Param('id', ParseUUIDPipe) id: string,
     @Body('comments') comments: string,
     @CurrentUser() user: RequestUser,
   ) {
     return this.endorsementService.approveEndorsement(id, comments, user.id);
+  }
+
+  @Post(':id/reject')
+  @Roles(RoleType.ADMIN, RoleType.SUPER_ADMIN, RoleType.UNDERWRITER, RoleType.OPERATIONS)
+  rejectEndorsement(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body('reason') reason: string,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.endorsementService.rejectEndorsement(id, reason, user.id);
   }
 }

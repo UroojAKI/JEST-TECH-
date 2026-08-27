@@ -1,21 +1,27 @@
 import { createParamDecorator, ExecutionContext } from '@nestjs/common';
+import { ActorContext } from '../../../common/interfaces/actor-context.interface';
 
-export interface RequestUser {
+export interface RequestUser extends ActorContext {
   id: string;
-  email: string;
-  role: string;
-  permissions: string[];
 }
 
 /**
- * Extracts the authenticated user from the JWT payload attached
+ * Extracts the authenticated ActorContext from the JWT payload attached
  * to request.user by JwtStrategy.validate().
  *
  * Usage: @CurrentUser() user: RequestUser
+ *    or: @Actor() actor: ActorContext
  */
 export const CurrentUser = createParamDecorator(
   (_data: unknown, ctx: ExecutionContext): RequestUser => {
     const request = ctx.switchToHttp().getRequest();
-    return request.user as RequestUser;
+    const user = request.user || {};
+    return {
+      id: user.userId || user.id,
+      ...user,
+    } as RequestUser;
   },
 );
+
+export const Actor = CurrentUser;
+

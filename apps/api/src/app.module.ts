@@ -53,10 +53,12 @@ import { DashboardRegistryModule } from './modules/dashboard-registry/dashboard-
 import { WorkspaceModule } from './modules/workspace/workspace.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
+import { AuthorizationModule } from './common/authorization.module';
 
 @Module({
   imports: [
     ConfigurationModule,
+    AuthorizationModule,
     RateLimitingModule,
     ObservabilityModule,
     CacheModule,

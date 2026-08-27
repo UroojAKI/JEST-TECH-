@@ -1,9 +1,10 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { ConfigurationService } from '../../platform/configuration/configuration.service';
 import { ExtractJwt, Strategy } from 'passport-jwt';
-
 import { Request } from 'express';
+import { ActorContext } from '../../../common/interfaces/actor-context.interface';
+import { RoleType, UserStatus } from '@prisma/client';
 
 const cookieExtractor = (req: Request) => {
   let token = null;
@@ -30,14 +31,43 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     sub: string;
     email: string;
     role: string;
+    roles?: string[];
     permissions?: string[];
-  }) {
-    // The object returned here is attached to request.user by Passport
+    organizationId?: string;
+    branchId?: string;
+    branchCode?: string;
+    departmentId?: string;
+    teamId?: string;
+    firstName?: string;
+    lastName?: string;
+    status?: UserStatus;
+  }): Promise<ActorContext> {
+    if (!payload.sub) {
+      throw new UnauthorizedException('Invalid token claims');
+    }
+
+    const primaryRole = (payload.role as RoleType) || RoleType.SALES_AGENT;
+    const allRoles = payload.roles
+      ? (payload.roles as RoleType[])
+      : [primaryRole];
+
     return {
-      id: payload.sub,
+      userId: payload.sub,
       email: payload.email,
-      role: payload.role,
+      firstName: payload.firstName || '',
+      lastName: payload.lastName || '',
+      organizationId: payload.organizationId || 'DEFAULT_ORG',
+      companyId: payload.organizationId || 'DEFAULT_ORG',
+      branchId: payload.branchId,
+      branchCode: payload.branchCode,
+      departmentId: payload.departmentId,
+      teamId: payload.teamId,
+      role: primaryRole,
+      roles: allRoles,
       permissions: payload.permissions || [],
+      workspaces: [],
+      status: payload.status || UserStatus.ACTIVE,
     };
   }
 }
+

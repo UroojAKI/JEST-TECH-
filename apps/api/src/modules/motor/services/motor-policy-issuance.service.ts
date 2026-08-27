@@ -5,34 +5,28 @@ import {
   NotFoundException,
   ForbiddenException,
 } from '@nestjs/common';
-import { AuditAction } from '@prisma/client';
+import { AuditAction, RoleType } from '@prisma/client';
 import { PrismaService } from '../../../database/prisma.service';
 import { IssueMotorPolicyDto } from '../dto/issue-motor-policy.dto';
 import { MotorPaymentTrackingService } from './motor-payment-tracking.service';
-
-export interface IssuingUser {
-  id: string;
-  role: string;
-}
-
-const ISSUANCE_ROLES = new Set([
-  'SUPER_ADMIN',
-  'ADMIN',
-  'OPERATIONS',
-  'POLICY_ISSUANCE_EXECUTIVE',
-]);
+import { ActorContext } from '../../../common/interfaces/actor-context.interface';
+import { ResourceAuthorizationService } from '../../../common/services/resource-authorization.service';
 
 @Injectable()
 export class MotorPolicyIssuanceService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly paymentService: MotorPaymentTrackingService,
+    private readonly authzService: ResourceAuthorizationService,
   ) {}
 
-  async issuePolicy(quotationId: string, dto: IssueMotorPolicyDto, user: IssuingUser) {
-    if (!ISSUANCE_ROLES.has(user.role)) {
-      throw new ForbiddenException('Only Back Office / Policy Issuance roles can issue a motor policy');
-    }
+  async issuePolicy(
+    quotationId: string,
+    dto: IssueMotorPolicyDto,
+    actor: ActorContext,
+  ) {
+    // 1. Authoritative Resource Authorization Check
+    this.authzService.authorize(actor, 'POLICY', 'ISSUE');
 
     const startDate = new Date(dto.startDate);
     const endDate = new Date(dto.endDate);
@@ -50,6 +44,8 @@ export class MotorPolicyIssuanceService {
         blockers: gate.blockers,
       });
     }
+
+    const actorId = actor.userId || (actor as any).id;
 
     return this.prisma.$transaction(async (tx) => {
       const quote = await tx.quotation.findUnique({
@@ -116,8 +112,8 @@ export class MotorPolicyIssuanceService {
           activeTpInsurer: quote.activeTpInsurer || undefined,
           activeTpPolicyNumber: quote.activeTpPolicyNumber || undefined,
           activeTpExpiryDate: quote.activeTpExpiryDate || undefined,
-          createdById: user.id,
-          updatedById: user.id,
+          createdById: actorId,
+          updatedById: actorId,
         },
       });
 
@@ -125,8 +121,8 @@ export class MotorPolicyIssuanceService {
         data: {
           policyId: policy.id,
           status: 'ACTIVE',
-          comments: `Motor policy issued from quotation ${quote.quotationCode} by ${user.role}.`,
-          createdById: user.id,
+          comments: `Motor policy issued from quotation ${quote.quotationCode} by ${actor.role}.`,
+          createdById: actorId,
         },
       });
 
@@ -136,7 +132,7 @@ export class MotorPolicyIssuanceService {
           issuanceStatus: 'ISSUED',
           status: 'CONVERTED_TO_POLICY',
           workflowState: 'ACTIVE',
-          updatedById: user.id,
+          updatedById: actorId,
         },
       });
 
@@ -144,8 +140,8 @@ export class MotorPolicyIssuanceService {
         data: {
           quotationId: quote.id,
           status: 'CONVERTED_TO_POLICY',
-          comments: `Motor policy ${policy.policyNumber} issued by ${user.role}.`,
-          createdById: user.id,
+          comments: `Motor policy ${policy.policyNumber} issued by ${actor.role}.`,
+          createdById: actorId,
         },
       });
 
@@ -156,7 +152,7 @@ export class MotorPolicyIssuanceService {
           data: {
             status: 'POLICY_ISSUED',
             currentWorkflowStep: 'ISSUED',
-            updatedById: user.id,
+            updatedById: actorId,
           },
         });
         await tx.leadStageHistory.create({
@@ -164,8 +160,8 @@ export class MotorPolicyIssuanceService {
             leadId: quote.leadId,
             fromStage: fromLead,
             toStage: 'ISSUED',
-            performedById: user.id,
-            performerRole: user.role,
+            performedById: actorId,
+            performerRole: actor.role,
             isOverride: false,
             prerequisitesMet: { quotationId: quote.id, policyId: policy.id },
             remarks: `Lead completed automatically after Motor policy issuance ${policy.policyNumber}.`,
@@ -173,13 +169,14 @@ export class MotorPolicyIssuanceService {
         });
       }
 
-      const renewalDueDate = [odExpiry, tpExpiry]
-        .filter((date): date is Date => Boolean(date))
-        .sort((a, b) => a.getTime() - b.getTime())[0] || endDate;
+      // Schedule renewal reminder 30 days BEFORE expiry (not on expiry day)
+      const renewalDueDate = new Date(effectiveExpiry);
+      renewalDueDate.setDate(renewalDueDate.getDate() - 30);
+
       await tx.renewalTask.create({
         data: {
           policyId: policy.id,
-          agentId: quote.lead?.assignedToId || user.id,
+          agentId: quote.lead?.assignedToId || actorId,
           dueDate: renewalDueDate,
           status: 'PENDING',
           priority: 'HIGH',
@@ -192,16 +189,13 @@ export class MotorPolicyIssuanceService {
           entity: 'Policy',
           entityId: policy.id,
           entityType: 'MOTOR_POLICY_ISSUANCE',
-          performedById: user.id,
-          userId: user.id,
+          performedById: actorId,
+          userId: actorId,
           module: 'MOTOR',
           metadata: {
             quotationId: quote.id,
             leadId: quote.leadId,
             policyNumber: policy.policyNumber,
-            policyType,
-            odExpiryDate: odExpiry?.toISOString() || null,
-            tpExpiryDate: tpExpiry?.toISOString() || null,
           },
         },
       });

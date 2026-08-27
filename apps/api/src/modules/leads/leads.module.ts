@@ -13,6 +13,7 @@ import { ScoringModule } from './scoring/scoring.module';
 import { DeduplicationModule } from './deduplication/deduplication.module';
 import { RoutingModule } from './routing/routing.module';
 import { SlaModule } from './sla/sla.module';
+import { LeadAssignmentService } from './services/lead-assignment.service';
 
 @Module({
   imports: [
@@ -26,7 +27,7 @@ import { SlaModule } from './sla/sla.module';
     SlaModule,
   ],
   controllers: [LeadsController],
-  providers: [LeadsService, LeadRepository, LeadReportProvider],
-  exports: [LeadsService, LeadRepository, LeadReportProvider],
+  providers: [LeadsService, LeadAssignmentService, LeadRepository, LeadReportProvider],
+  exports: [LeadsService, LeadAssignmentService, LeadRepository, LeadReportProvider],
 })
 export class LeadsModule {}

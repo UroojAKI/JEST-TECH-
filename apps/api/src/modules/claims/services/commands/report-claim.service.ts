@@ -1,8 +1,13 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import {
   ClaimStatus,
   CommunicationChannel,
+  PolicyStatus,
   Prisma,
 } from '@prisma/client';
 import { ClaimRepository } from '../../repositories/claim.repository';
@@ -31,16 +36,50 @@ export class ReportClaimService {
       throw new NotFoundException(`Policy with ID ${dto.policyId} not found`);
     }
 
-    // 2. Generate Claim Number
+    // 2. Policy Status Gate: Only ACTIVE or PENDING_RENEWAL policies can have claims registered
+    if (
+      policy.status !== PolicyStatus.ACTIVE &&
+      policy.status !== PolicyStatus.PENDING_RENEWAL
+    ) {
+      throw new BadRequestException(
+        `Claims cannot be filed against policy ${policy.policyNumber} with status ${policy.status}`,
+      );
+    }
+
+    // 3. Coverage Period Invariant: incidentDate must fall strictly between effectiveDate and expiryDate
+    const incidentDate = new Date(dto.incidentDate);
+    if (incidentDate < policy.effectiveDate || incidentDate > policy.expiryDate) {
+      throw new BadRequestException(
+        `Claim incident date ${dto.incidentDate} falls outside policy coverage dates (${policy.effectiveDate.toISOString()} to ${policy.expiryDate.toISOString()})`,
+      );
+    }
+
+    // 4. Duplicate Active Claim Invariant
+    const existingClaim = await this.prisma.claim.findFirst({
+      where: {
+        policyId: dto.policyId,
+        incidentDate,
+        status: { not: ClaimStatus.CLOSED },
+        deletedAt: null,
+      },
+    });
+
+    if (existingClaim) {
+      throw new BadRequestException(
+        `A claim has already been registered for policy ${policy.policyNumber} on the incident date ${dto.incidentDate}`,
+      );
+    }
+
+    // 5. Generate Claim Number
     const claimNumber = await this.claimRepository.generateClaimNumber();
 
-    // 3. Map create payload
+    // 6. Map create payload
     const claimData: Prisma.ClaimCreateInput = {
       claimNumber,
       status: ClaimStatus.REPORTED,
       policy: { connect: { id: dto.policyId } },
       contact: { connect: { id: policy.contactId } },
-      incidentDate: new Date(dto.incidentDate),
+      incidentDate,
       description: dto.description,
       claimAmount: new Prisma.Decimal(dto.claimAmount),
       createdBy: { connect: { id: createdById } },
@@ -51,22 +90,22 @@ export class ReportClaimService {
       claimData.account = { connect: { id: policy.accountId } };
     }
 
-    // 4. Save to database in a single transaction
+    // 7. Save to database in a single atomic transaction
     const claim = await this.prisma.$transaction(async (tx) => {
-      // 4.1 Create the Claim
+      // 7.1 Create the Claim
       const createdClaim = await this.claimRepository.create(claimData, tx);
 
-      // 4.2 Add history entry for registration
+      // 7.2 Add history entry for registration
       await this.claimRepository.addHistoryEntry(
         createdClaim.id,
         ClaimStatus.REGISTERED,
         'REGISTER_CLAIM',
-        `Claim ${claimNumber} reported and registered.`,
+        `Claim ${claimNumber} reported and registered. Incident date: ${incidentDate.toISOString()}`,
         createdById,
         tx,
       );
 
-      // 4.4 Update Status to REGISTERED
+      // 7.3 Update Status to REGISTERED
       const updatedClaim = await this.claimRepository.update(
         createdClaim.id,
         {
@@ -75,14 +114,19 @@ export class ReportClaimService {
         tx,
       );
 
-      // 4.5 Log Communication stub
+      // 7.4 Log Customer Communication
+      const contact = await tx.contact.findUnique({
+        where: { id: policy.contactId },
+      });
+      const recipientEmail = contact?.email || 'customer@example.com';
+
       await this.claimRepository.addCommunication(
         {
           claim: { connect: { id: createdClaim.id } },
-          recipient: 'customer@example.com',
+          recipient: recipientEmail,
           channel: CommunicationChannel.EMAIL,
           subject: `Claim Registered - ${claimNumber}`,
-          body: `Hello, your claim ${claimNumber} has been successfully registered. We are reviewing the details and will assign an assessor shortly.`,
+          body: `Hello, your claim ${claimNumber} for policy ${policy.policyNumber} has been successfully registered. We are reviewing the details and will assign an assessor shortly.`,
         },
         tx,
       );
@@ -90,7 +134,7 @@ export class ReportClaimService {
       return updatedClaim;
     });
 
-    // 5. Emit Event after transaction commits
+    // 8. Emit Event after transaction commits
     await this.eventEmitter.emitAsync('claim.registered', {
       claim,
       createdById,

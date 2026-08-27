@@ -56,31 +56,36 @@ export class GenerateQuotationService {
       }
     }
 
-    // 2. Perform engine pricing calculations
-    let basePremiumCalculated = Number(
-      (dto as any).basePremium ?? (dto as any).odPremium ?? 0,
-    );
-
-    if (!basePremiumCalculated || basePremiumCalculated === 0) {
-      basePremiumCalculated = Math.round(sumInsuredNum * 0.02);
+    // 2. Perform authoritative engine pricing calculations
+    let baseOd = Number((dto as any).odPremium || 0);
+    if (!baseOd || baseOd === 0) {
+      baseOd = Math.round(sumInsuredNum * 0.03127);
     }
+
+    const ncbPercent = Number(dto.ncbPercentage || 0);
+    const ncbDiscount = Math.round(baseOd * (ncbPercent / 100));
+    const odAfterNcb = Math.max(0, baseOd - ncbDiscount);
+
+    let discountPercent = Number((dto as any).discountPercent || 0);
+    if (!discountPercent && dto.discounts && dto.discounts.length > 0) {
+      discountPercent = dto.discounts[0].percentage || 0;
+    }
+    const specialOdDiscount = Math.round(odAfterNcb * (discountPercent / 100));
+    const netOd = Math.max(0, odAfterNcb - specialOdDiscount);
 
     const addonsTotal = dto.addons
       ? this.addonsService.calculateAddonsTotal(dto.addons)
       : 0;
 
-    const subtotal = basePremiumCalculated + addonsTotal;
+    let baseTp = Number((dto as any).tpPremium || 0);
+    if (!baseTp && productTypeStr.toUpperCase().includes('MOTOR')) {
+      baseTp = 3416;
+    }
 
-    const discountResult = dto.discounts
-      ? this.discountService.applyDiscounts(subtotal, dto.discounts)
-      : { totalDiscountAmount: 0, discountedPremium: subtotal };
-
-    const netPremium = discountResult.discountedPremium;
-    const gstAmount =
-      Number((dto as any).gstAmount) ||
-      this.gstService.calculateGst(netPremium);
-    const totalPremium =
-      Number((dto as any).totalPremium) || netPremium + gstAmount;
+    const netPreTaxPremium = netOd + addonsTotal + baseTp;
+    const totalDiscountAmount = ncbDiscount + specialOdDiscount;
+    const gstAmount = Math.round(netPreTaxPremium * 0.18);
+    const totalPremium = netPreTaxPremium + gstAmount;
 
     // 3. Generate Code
     const quotationCode =
@@ -94,11 +99,11 @@ export class GenerateQuotationService {
       insurerName: insurerNameStr,
       productType: productTypeStr,
       sumInsured: new Prisma.Decimal(sumInsuredNum),
-      basePremium: new Prisma.Decimal(basePremiumCalculated),
+      basePremium: new Prisma.Decimal(netPreTaxPremium),
       gstAmount: new Prisma.Decimal(gstAmount),
       totalPremium: new Prisma.Decimal(totalPremium),
       ncbPercentage: dto.ncbPercentage || 0,
-      discountAmount: new Prisma.Decimal(discountResult.totalDiscountAmount || 0),
+      discountAmount: new Prisma.Decimal(totalDiscountAmount || 0),
       expiryDate: dto.expiryDate ? new Date(dto.expiryDate) : new Date(Date.now() + 30 * 86400000),
       contact: { connect: { id: targetContactId } },
       createdBy: { connect: { id: createdById } },

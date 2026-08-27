@@ -2,7 +2,6 @@ import {
   BadRequestException,
   Injectable,
   NotFoundException,
-  ForbiddenException,
 } from '@nestjs/common';
 import { Prisma, LeadStatus, LeadSource } from '@prisma/client';
 
@@ -18,7 +17,9 @@ import { AccountsService } from '../../accounts/services/accounts.service';
 import { UsersService } from '../../users/services/users.service';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { LeadConvertedEvent } from '../events/lead-converted.event';
-import type { RequestUser } from '../../auth/decorators/current-user.decorator';
+import { ActorContext } from '../../../common/interfaces/actor-context.interface';
+import { ResourceAuthorizationService } from '../../../common/services/resource-authorization.service';
+import { ScopeResolver } from '../../../common/services/scope-resolver.service';
 import { PrismaService } from '../../../database/prisma.service';
 import { PaginationDto } from '../../../common/pagination/pagination.dto';
 import { PaginatedResponseDto } from '../../../common/pagination/paginated-response.dto';
@@ -32,6 +33,8 @@ export class LeadsService {
     private readonly usersService: UsersService,
     private readonly eventEmitter: EventEmitter2,
     private readonly prisma: PrismaService,
+    private readonly authzService: ResourceAuthorizationService,
+    private readonly scopeResolver: ScopeResolver,
   ) {}
 
   async create(dto: CreateLeadDto, createdById: string) {
@@ -140,14 +143,11 @@ export class LeadsService {
     return LeadMapper.toResponse(lead);
   }
 
-  async findAll(user: RequestUser, pagination: PaginationDto) {
+  async findAll(user: ActorContext, pagination: PaginationDto) {
     const { page = 1, limit = 10, search, sortBy = 'createdAt', sortOrder = 'desc' } = pagination;
     const skip = (page - 1) * limit;
 
-    const baseWhere: Prisma.LeadWhereInput =
-      user.role === 'SALES_AGENT'
-        ? { OR: [{ assignedToId: user.id }, { createdById: user.id }] }
-        : {};
+    const scopedFilter = this.scopeResolver.resolveScopeFilter(user, 'LEAD');
 
     const searchWhere: Prisma.LeadWhereInput = search
       ? {
@@ -159,7 +159,7 @@ export class LeadsService {
       : {};
 
     const where: Prisma.LeadWhereInput = {
-      ...baseWhere,
+      ...scopedFilter,
       ...searchWhere,
     };
 
@@ -171,42 +171,26 @@ export class LeadsService {
     return new PaginatedResponseDto(LeadMapper.toResponseList(leads), total, page, limit);
   }
 
-  async findById(id: string, user: RequestUser) {
+  async findById(id: string, user: ActorContext) {
     const lead = await this.leadRepository.findById(id);
     if (!lead || lead.deletedAt) {
       throw new NotFoundException(`Lead with ID ${id} not found`);
     }
 
-    // BOLA ownership verification
-    if (
-      user.role === 'SALES_AGENT' &&
-      lead.assignedToId !== user.id &&
-      lead.createdById !== user.id
-    ) {
-      throw new ForbiddenException(
-        'You do not have permission to access this lead',
-      );
-    }
+    // Authoritative Universal Resource Authorization check
+    this.authzService.authorize(user, 'LEAD', 'READ', lead);
 
     return LeadMapper.toResponse(lead);
   }
 
-  async update(id: string, dto: UpdateLeadDto, user: RequestUser) {
+  async update(id: string, dto: UpdateLeadDto, user: ActorContext) {
     const existing = await this.leadRepository.findById(id);
     if (!existing || existing.deletedAt) {
       throw new NotFoundException(`Lead with ID ${id} not found`);
     }
 
-    // BOLA ownership verification
-    if (
-      user.role === 'SALES_AGENT' &&
-      existing.assignedToId !== user.id &&
-      existing.createdById !== user.id
-    ) {
-      throw new ForbiddenException(
-        'You do not have permission to update this lead',
-      );
-    }
+    // Authoritative Universal Resource Authorization check
+    this.authzService.authorize(user, 'LEAD', 'UPDATE', existing);
 
     // Validate Contact exists if provided
     if (dto.contactId && dto.contactId !== existing.contactId) {
@@ -220,11 +204,7 @@ export class LeadsService {
 
     // Validate Lead Reassignment permission
     if (dto.assignedToId && dto.assignedToId !== existing.assignedToId) {
-      if (user.role === 'SALES_AGENT') {
-        throw new ForbiddenException(
-          'Sales agents are not authorized to reassign lead ownership. Lead reassignment requires Branch Manager or Admin role.',
-        );
-      }
+      this.authzService.authorize(user, 'LEAD', 'ASSIGN', existing);
       const targetUser = await this.usersService.findById(dto.assignedToId);
       if (!targetUser) {
         throw new NotFoundException(
@@ -234,10 +214,11 @@ export class LeadsService {
     }
 
     const { contactId, accountId, assignedToId, city, remarks, source, ...restDto } = dto;
+    const actorId = user.userId || (user as any).id;
 
     const leadData: Prisma.LeadUpdateInput = {
       ...restDto,
-      updatedBy: { connect: { id: user.id } },
+      updatedBy: { connect: { id: actorId } },
     };
 
     if (source !== undefined) {

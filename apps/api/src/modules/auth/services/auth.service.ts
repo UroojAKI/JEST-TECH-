@@ -40,11 +40,23 @@ export class AuthService {
       ? user.role.permissions.map((p) => p.permission.code)
       : [];
 
+    const orgId = (user as any).branch?.zone?.region?.company?.id || 'DEFAULT_ORG';
+    const roleType = user.role.type || user.role.code;
+
     const payload = {
       sub: user.id,
       email: user.email,
-      role: user.role.code,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      role: roleType,
+      roles: [roleType],
       permissions,
+      organizationId: orgId,
+      branchId: user.branchId || undefined,
+      branchCode: (user as any).branch?.code || undefined,
+      departmentId: user.departmentId || undefined,
+      teamId: user.teamId || undefined,
+      status: user.status,
     };
 
     // ── 4. Generate tokens ───────────────────────────────────────────────────
@@ -134,11 +146,23 @@ export class AuthService {
       ? user.role.permissions.map((p) => p.permission.code)
       : [];
 
+    const orgId = (user as any).branch?.zone?.region?.company?.id || 'DEFAULT_ORG';
+    const roleType = user.role.type || user.role.code;
+
     const newPayload = {
       sub: user.id,
       email: user.email,
-      role: user.role.code,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      role: roleType,
+      roles: [roleType],
       permissions,
+      organizationId: orgId,
+      branchId: user.branchId || undefined,
+      branchCode: (user as any).branch?.code || undefined,
+      departmentId: user.departmentId || undefined,
+      teamId: user.teamId || undefined,
+      status: user.status,
     };
 
     const [newAccessToken, newRefreshToken] = await Promise.all([

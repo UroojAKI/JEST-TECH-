@@ -80,6 +80,29 @@ export class ProposalService {
       throw new NotFoundException('Quotation not found');
     }
 
+    if (quotation.expiryDate && new Date(quotation.expiryDate) < new Date()) {
+      throw new BadRequestException(
+        'Quotation has expired. Please regenerate quotation with current tariff rates.',
+      );
+    }
+
+    const inspection = await this.prisma.motorInspection.findUnique({
+      where: { quotationId },
+    });
+
+    if (inspection) {
+      const isApproved =
+        inspection.status === ('COMPLETED' as any) ||
+        inspection.status === ('APPROVED' as any) ||
+        inspection.status === ('WAIVED' as any);
+
+      if (!isApproved) {
+        throw new BadRequestException(
+          `Vehicle inspection is required and must be completed/approved prior to proposal generation (current inspection status: ${inspection.status}).`,
+        );
+      }
+    }
+
     const proposalNumber = this.generatePropNumber();
 
     return this.prisma.$transaction(async (tx) => {

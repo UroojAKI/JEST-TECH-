@@ -4,6 +4,7 @@ import { MotorController } from './motor.controller';
 import { MotorWorkflowController } from './motor-workflow.controller';
 import { MotorCalculationController } from './controllers/motor-calculation.controller';
 import { MotorQuoteController } from './controllers/motor-quote.controller';
+import { MotorInspectionController } from './controllers/motor-inspection.controller';
 import { MotorTariffService } from './services/motor-tariff.service';
 import { SaodVerificationService } from './services/saod-verification.service';
 import { MotorRuleEngineService } from './services/motor-rule-engine.service';
@@ -19,6 +20,7 @@ import { MotorPolicyIssuanceService } from './services/motor-policy-issuance.ser
     MotorWorkflowController,
     MotorCalculationController,
     MotorQuoteController,
+    MotorInspectionController,
   ],
   providers: [
     MotorTariffService,

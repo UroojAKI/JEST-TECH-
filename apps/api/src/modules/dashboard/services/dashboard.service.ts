@@ -45,4 +45,16 @@ export class DashboardService {
       layout,
     };
   }
+
+  async getBranchGwpBreakdown() {
+    return this.dashboardAnalytics.getBranchGwpBreakdown();
+  }
+
+  async getInsurerMarketShare() {
+    return this.dashboardAnalytics.getInsurerMarketShare();
+  }
+
+  async getSalesLeaderboard(limit = 10) {
+    return this.dashboardAnalytics.getSalesLeaderboard(limit);
+  }
 }

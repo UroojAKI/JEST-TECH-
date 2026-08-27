@@ -3,6 +3,7 @@ import { Cron } from '@nestjs/schedule';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { PrismaService } from '../../../database/prisma.service';
+import { PolicyStatus } from '@prisma/client';
 
 @Injectable()
 export class RenewalSchedulerCron {
@@ -19,54 +20,76 @@ export class RenewalSchedulerCron {
   }
 
   async runManually() {
-    this.logger.log('Starting daily renewal scheduler scan...');
+    this.logger.log('Starting multi-offset renewal scheduler scan...');
     try {
-      const targetDate = new Date();
-      targetDate.setDate(targetDate.getDate() + 60);
+      const now = new Date();
+      let totalQueued = 0;
 
-      const policies = await this.prisma.policy.findMany({
-        where: {
-          status: 'ACTIVE',
-          expiryDate: {
-            lte: targetDate,
-            gte: new Date(),
-          },
-        },
-      });
+      // 1. Scan for policies in multiple offset tiers: [45, 30, 15, 7, 0, -1]
+      const offsets = [45, 30, 15, 7, 0, -1];
 
-      let queuedCount = 0;
+      for (const offset of offsets) {
+        let policies: any[] = [];
 
-      for (const policy of policies) {
-        const existingTask = await this.prisma.renewalTask.findFirst({
-          where: { policyId: policy.id, status: 'PENDING' },
-        });
-
-        if (!existingTask && policy.createdById) {
-          await this.prisma.renewalTask.create({
-            data: {
-              policyId: policy.id,
-              agentId: policy.createdById,
-              dueDate: policy.expiryDate,
-              status: 'PENDING',
-              priority: 'MEDIUM',
+        if (offset === -1) {
+          // Overdue: expired policies not yet marked LAPSED
+          policies = await this.prisma.policy.findMany({
+            where: {
+              status: { in: [PolicyStatus.ACTIVE, PolicyStatus.PENDING_RENEWAL] },
+              expiryDate: { lt: now },
             },
           });
-          
+        } else {
+          // Future expiring window for this specific offset
+          const windowStart = new Date(now);
+          windowStart.setDate(windowStart.getDate() + Math.max(0, offset - 2));
+          const windowEnd = new Date(now);
+          windowEnd.setDate(windowEnd.getDate() + offset + 2);
+
+          policies = await this.prisma.policy.findMany({
+            where: {
+              status: { in: [PolicyStatus.ACTIVE, PolicyStatus.PENDING_RENEWAL] },
+              expiryDate: { gte: windowStart, lte: windowEnd },
+            },
+          });
+        }
+
+        for (const policy of policies) {
+          // Ensure RenewalTask exists if within 30 days
+          if (offset <= 30 && offset >= 0 && policy.createdById) {
+            const existingTask = await this.prisma.renewalTask.findFirst({
+              where: { policyId: policy.id, status: 'PENDING' },
+            });
+
+            if (!existingTask) {
+              await this.prisma.renewalTask.create({
+                data: {
+                  policyId: policy.id,
+                  agentId: policy.createdById,
+                  dueDate: policy.expiryDate,
+                  status: 'PENDING',
+                  priority: offset <= 7 ? 'HIGH' : 'MEDIUM',
+                },
+              });
+            }
+          }
+
+          // Enqueue reminder job
           await this.renewalQueue.add('send-renewal-reminder', {
             policyId: policy.id,
             policyNumber: policy.policyNumber,
             expiryDate: policy.expiryDate,
             customerId: policy.contactId,
             agentId: policy.createdById,
-            daysBefore: 60,
+            daysBefore: offset,
           });
 
-          queuedCount++;
+          totalQueued++;
         }
       }
 
-      this.logger.log(`Renewal scan completed. Queued ${queuedCount} reminders.`);
-      return { success: true, queuedCount };
+      this.logger.log(`Multi-offset renewal scan completed. Queued ${totalQueued} jobs.`);
+      return { success: true, totalQueued };
     } catch (error: any) {
       this.logger.error('Failed to run renewal scheduler scan', error);
       return { success: false, error: error.message };

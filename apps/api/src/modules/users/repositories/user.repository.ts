@@ -9,18 +9,36 @@ import { PrismaService } from '../../../database/prisma.service';
 // accounts for every field returned by `include: { role: true }` without
 // manual duplication.
 // ---------------------------------------------------------------------------
-const userWithRole = Prisma.validator<Prisma.UserDefaultArgs>()({
-  include: {
-    role: {
-      include: {
-        permissions: {
-          include: {
-            permission: true,
+const userIncludeClause = {
+  role: {
+    include: {
+      permissions: {
+        include: {
+          permission: true,
+        },
+      },
+    },
+  },
+  branch: {
+    include: {
+      zone: {
+        include: {
+          region: {
+            include: {
+              company: true,
+            },
           },
         },
       },
     },
   },
+  department: true,
+  team: true,
+  jobRole: true,
+};
+
+const userWithRole = Prisma.validator<Prisma.UserDefaultArgs>()({
+  include: userIncludeClause,
 });
 
 export type UserWithRole = Prisma.UserGetPayload<typeof userWithRole>;
@@ -32,17 +50,7 @@ export class UserRepository {
   create(data: Prisma.UserCreateInput): Promise<UserWithRole> {
     return this.prisma.user.create({
       data,
-      include: {
-        role: {
-          include: {
-            permissions: {
-              include: {
-                permission: true,
-              },
-            },
-          },
-        },
-      },
+      include: userIncludeClause,
     });
   }
 
@@ -59,17 +67,7 @@ export class UserRepository {
       where: {
         deletedAt: null,
       },
-      include: {
-        role: {
-          include: {
-            permissions: {
-              include: {
-                permission: true,
-              },
-            },
-          },
-        },
-      },
+      include: userIncludeClause,
       orderBy: {
         createdAt: 'desc',
       },
@@ -79,17 +77,7 @@ export class UserRepository {
   async findById(id: string): Promise<UserWithRole | null> {
     return this.prisma.user.findUnique({
       where: { id },
-      include: {
-        role: {
-          include: {
-            permissions: {
-              include: {
-                permission: true,
-              },
-            },
-          },
-        },
-      },
+      include: userIncludeClause,
     });
   }
 
@@ -97,35 +85,14 @@ export class UserRepository {
     return this.prisma.user.update({
       where: { id },
       data: { status },
-      include: {
-        role: {
-          include: {
-            permissions: {
-              include: {
-                permission: true,
-              },
-            },
-          },
-        },
-      },
+      include: userIncludeClause,
     });
   }
-
 
   async findByEmail(email: string): Promise<UserWithRole | null> {
     return this.prisma.user.findUnique({
       where: { email },
-      include: {
-        role: {
-          include: {
-            permissions: {
-              include: {
-                permission: true,
-              },
-            },
-          },
-        },
-      },
+      include: userIncludeClause,
     });
   }
 
@@ -136,17 +103,7 @@ export class UserRepository {
     return this.prisma.user.update({
       where: { id },
       data,
-      include: {
-        role: {
-          include: {
-            permissions: {
-              include: {
-                permission: true,
-              },
-            },
-          },
-        },
-      },
+      include: userIncludeClause,
     });
   }
 
@@ -156,17 +113,7 @@ export class UserRepository {
       data: {
         deletedAt: new Date(),
       },
-      include: {
-        role: {
-          include: {
-            permissions: {
-              include: {
-                permission: true,
-              },
-            },
-          },
-        },
-      },
+      include: userIncludeClause,
     });
   }
 

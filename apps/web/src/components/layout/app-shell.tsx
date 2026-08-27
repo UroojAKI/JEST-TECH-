@@ -8,7 +8,13 @@ import { NotificationDrawer } from './notification-drawer';
 import { ProfileDrawer } from './profile-drawer';
 import { CommandPalette } from '../search/command-palette';
 
-export function AppShell({ children }: { children: React.ReactNode }) {
+export function AppShell({
+  children,
+  activeWorkspace,
+}: {
+  children: React.ReactNode;
+  activeWorkspace?: string;
+}) {
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col antialiased selection:bg-primary selection:text-primary-foreground">
       {/* Global Command Palette */}

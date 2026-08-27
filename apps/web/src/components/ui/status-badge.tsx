@@ -29,9 +29,19 @@ const STATUS_CONFIG: Record<DomainStatus, { label: string; className: string }> 
   PENDING: { label: 'Pending', className: 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20' },
 };
 
-export function StatusBadge({ status }: { status: DomainStatus | string }) {
-  const config = STATUS_CONFIG[status as DomainStatus] || {
-    label: status,
+export function StatusBadge({ status }: { status: DomainStatus | string | any }) {
+  const statusKey =
+    typeof status === 'object' && status !== null
+      ? status.value || status.label || 'UNKNOWN'
+      : String(status || 'UNKNOWN');
+
+  const statusLabel =
+    typeof status === 'object' && status !== null
+      ? status.label || status.value || 'UNKNOWN'
+      : String(status || 'UNKNOWN');
+
+  const config = STATUS_CONFIG[statusKey as DomainStatus] || {
+    label: statusLabel,
     className: 'bg-muted text-muted-foreground border-border',
   };
 

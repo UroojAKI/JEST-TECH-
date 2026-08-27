@@ -47,4 +47,22 @@ export class DashboardController {
   getAgentDashboard(@CurrentUser() user: RequestUser) {
     return this.dashboardService.getDashboard(RoleType.SALES_AGENT, user.id);
   }
+
+  @Get('management/branch-gwp')
+  @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN, RoleType.BRANCH_MANAGER, RoleType.SALES_MANAGER)
+  getBranchGwpBreakdown() {
+    return this.dashboardService.getBranchGwpBreakdown();
+  }
+
+  @Get('management/insurers')
+  @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN, RoleType.BRANCH_MANAGER, RoleType.SALES_MANAGER)
+  getInsurerMarketShare() {
+    return this.dashboardService.getInsurerMarketShare();
+  }
+
+  @Get('management/leaderboard')
+  @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN, RoleType.BRANCH_MANAGER, RoleType.TEAM_LEADER, RoleType.SALES_MANAGER)
+  getSalesLeaderboard(@Query('limit') limit?: string) {
+    return this.dashboardService.getSalesLeaderboard(limit ? parseInt(limit, 10) : 10);
+  }
 }
