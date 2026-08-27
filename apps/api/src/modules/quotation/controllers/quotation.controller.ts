@@ -26,6 +26,8 @@ import { GenerateQuotationService } from '../services/commands/generate-quotatio
 import { ApproveQuotationService } from '../services/commands/approve-quotation.service';
 import { RejectQuotationService } from '../services/commands/reject-quotation.service';
 import { ConvertQuotationService } from '../services/commands/convert-quotation.service';
+import { AcceptQuotationService } from '../services/commands/accept-quotation.service';
+import { CreateQuotationVersionService, CreateQuotationVersionInputDto } from '../services/commands/create-quotation-version.service';
 import { GetQuotationService } from '../services/queries/get-quotation.service';
 import { CompareQuotationService } from '../services/queries/compare-quotation.service';
 import { GetQuotationHistoryService } from '../services/queries/get-quotation-history.service';
@@ -44,6 +46,8 @@ export class QuotationController {
     private readonly approveQuotationService: ApproveQuotationService,
     private readonly rejectQuotationService: RejectQuotationService,
     private readonly convertQuotationService: ConvertQuotationService,
+    private readonly acceptQuotationService: AcceptQuotationService,
+    private readonly createQuotationVersionService: CreateQuotationVersionService,
     private readonly getQuotationService: GetQuotationService,
     private readonly compareQuotationService: CompareQuotationService,
     private readonly getQuotationHistoryService: GetQuotationHistoryService,
@@ -304,5 +308,51 @@ export class QuotationController {
   @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN, RoleType.BRANCH_MANAGER, RoleType.TEAM_LEADER, RoleType.SALES_AGENT)
   convert(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: RequestUser) {
     return this.convertQuotationService.execute(id, user.id);
+  }
+
+  @Post(':id/accept')
+  @HttpCode(HttpStatus.OK)
+  @Roles(
+    RoleType.SUPER_ADMIN, RoleType.ADMIN, RoleType.BRANCH_MANAGER,
+    RoleType.TEAM_LEADER, RoleType.SALES_AGENT, RoleType.SALES_MANAGER,
+    RoleType.OPERATIONS,
+  )
+  @ApiOperation({ summary: 'Customer accepts a quotation version (locks version, qualifies lead, supersedes competing drafts)' })
+  accept(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body('comments') comments: string,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.acceptQuotationService.execute(id, user.id, comments);
+  }
+
+  @Post(':id/versions')
+  @HttpCode(HttpStatus.CREATED)
+  @Roles(
+    RoleType.SUPER_ADMIN, RoleType.ADMIN, RoleType.BRANCH_MANAGER,
+    RoleType.TEAM_LEADER, RoleType.SALES_AGENT, RoleType.SALES_MANAGER,
+  )
+  @ApiOperation({ summary: 'Create an immutable revision version (V2, V3...) under an existing quotation' })
+  createVersion(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: CreateQuotationVersionInputDto,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.createQuotationVersionService.execute(id, dto, user.id);
+  }
+
+  @Get(':id/versions')
+  @Roles(
+    RoleType.SUPER_ADMIN, RoleType.ADMIN, RoleType.BRANCH_MANAGER,
+    RoleType.TEAM_LEADER, RoleType.SALES_AGENT, RoleType.OPERATIONS,
+    RoleType.UNDERWRITER,
+  )
+  @ApiOperation({ summary: 'List all revision version snapshots for a quotation' })
+  async getVersions(@Param('id', ParseUUIDPipe) id: string) {
+    return this.prisma.quotationVersion.findMany({
+      where: { quotationId: id },
+      orderBy: { versionNumber: 'desc' },
+      include: { createdBy: { select: { id: true, firstName: true, lastName: true } } },
+    });
   }
 }

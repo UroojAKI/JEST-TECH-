@@ -86,6 +86,13 @@ export class MotorCalculationService {
           }
         }
 
+        // G018: Zero-premium addon prevention
+        if (price <= 0) {
+          throw new BadRequestException(
+            `Selected add-on "${addon.addonCode}" has zero or negative calculated premium (₹${price}). Zero-premium add-ons are prohibited per IRDAI compliance. Please provide a valid rate or deselect this add-on.`,
+          );
+        }
+
         addonPremium += price;
         itemizedAddons.push({
           addonCode: addon.addonCode,

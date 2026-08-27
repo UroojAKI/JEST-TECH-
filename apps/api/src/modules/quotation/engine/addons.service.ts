@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, BadRequestException } from '@nestjs/common';
 
 export interface SelectedAddons {
   zeroDepreciation?: boolean;
@@ -97,5 +97,18 @@ export class AddonsService {
   calculateAddonsTotal(addons: { premium: number }[]): number {
     const total = (addons || []).reduce((sum, addon) => sum + (addon.premium || 0), 0);
     return Math.round(total * 100) / 100;
+  }
+
+  /**
+   * Enforces IRDAI rule prohibiting zero-premium add-ons (G018).
+   */
+  validateAddons(addons: { addonName?: string; addonCode?: string; premium?: number }[]): void {
+    for (const addon of addons || []) {
+      if (addon.premium !== undefined && addon.premium <= 0) {
+        throw new BadRequestException(
+          `Addon "${addon.addonName || addon.addonCode}" cannot have zero or negative premium (₹${addon.premium}). Zero-premium add-ons are prohibited.`,
+        );
+      }
+    }
   }
 }

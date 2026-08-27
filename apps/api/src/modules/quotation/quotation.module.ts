@@ -20,6 +20,8 @@ import { GenerateQuotationService } from './services/commands/generate-quotation
 import { ApproveQuotationService } from './services/commands/approve-quotation.service';
 import { RejectQuotationService } from './services/commands/reject-quotation.service';
 import { ConvertQuotationService } from './services/commands/convert-quotation.service';
+import { AcceptQuotationService } from './services/commands/accept-quotation.service';
+import { CreateQuotationVersionService } from './services/commands/create-quotation-version.service';
 
 import { GetQuotationService } from './services/queries/get-quotation.service';
 import { CompareQuotationService } from './services/queries/compare-quotation.service';
@@ -43,6 +45,8 @@ import { QuotationListener } from './events/quotation.listener';
     ApproveQuotationService,
     RejectQuotationService,
     ConvertQuotationService,
+    AcceptQuotationService,
+    CreateQuotationVersionService,
     GetQuotationService,
     CompareQuotationService,
     GetQuotationHistoryService,
@@ -51,6 +55,8 @@ import { QuotationListener } from './events/quotation.listener';
   exports: [
     GenerateQuotationService,
     GetQuotationService,
+    AcceptQuotationService,
+    CreateQuotationVersionService,
     QuotationRepository,
     PdfService,
   ],

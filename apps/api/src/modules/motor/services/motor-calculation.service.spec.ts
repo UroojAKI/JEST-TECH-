@@ -22,7 +22,7 @@ describe('MotorCalculationService (Iteration 5 Financial Math)', () => {
 
   describe('Comprehensive Private Car Calculation', () => {
     it('should correctly calculate OD, TP, NCB, Special Discount, GST, and Total Premium', async () => {
-      const result = await service.calculate({
+      const result: any = await service.calculate({
         vehicleCategory: 'PRIVATE_CAR',
         vehicleStatus: 'EXISTING',
         policyType: 'PACKAGE_COMPREHENSIVE',
@@ -67,7 +67,7 @@ describe('MotorCalculationService (Iteration 5 Financial Math)', () => {
     });
 
     it('should compute Add-ons correctly as percentage of IDV and fixed amounts', async () => {
-      const result = await service.calculate({
+      const result: any = await service.calculate({
         vehicleCategory: 'PRIVATE_CAR',
         vehicleStatus: 'EXISTING',
         policyType: 'PACKAGE_COMPREHENSIVE',
@@ -100,7 +100,7 @@ describe('MotorCalculationService (Iteration 5 Financial Math)', () => {
     });
 
     it('should reset NCB to 0 if there was a claim in expiring policy', async () => {
-      const result = await service.calculate({
+      const result: any = await service.calculate({
         vehicleCategory: 'PRIVATE_CAR',
         vehicleStatus: 'EXISTING',
         policyType: 'PACKAGE_COMPREHENSIVE',
@@ -111,6 +111,20 @@ describe('MotorCalculationService (Iteration 5 Financial Math)', () => {
 
       expect(result.inputs.effectiveNcb).toBe(0);
       expect(result.outputs.ncbDiscount).toBe(0);
+    });
+
+    it('should reject zero-premium addon selection per IRDAI compliance (G018)', async () => {
+      await expect(
+        service.calculate({
+          vehicleCategory: 'PRIVATE_CAR',
+          vehicleStatus: 'EXISTING',
+          policyType: 'PACKAGE_COMPREHENSIVE',
+          idv: 500000,
+          addons: [
+            { addonCode: 'UNKNOWN_CUSTOM_ADDON' },
+          ],
+        }),
+      ).rejects.toThrow(BadRequestException);
     });
   });
 });

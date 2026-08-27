@@ -61,4 +61,19 @@ export const quotationsRepository = {
     const response = await apiClient.post(`/quotations/${id}/convert`);
     return response.data;
   },
+
+  async acceptQuotation(id: string, comments?: string): Promise<QuotationItem> {
+    const response = await apiClient.post(`/quotations/${id}/accept`, { comments });
+    return response.data;
+  },
+
+  async createQuotationVersion(id: string, data: any): Promise<QuotationItem> {
+    const response = await apiClient.post(`/quotations/${id}/versions`, data);
+    return response.data;
+  },
+
+  async getQuotationVersions(id: string): Promise<any[]> {
+    const response = await apiClient.get(`/quotations/${id}/versions`);
+    return response.data;
+  },
 };
