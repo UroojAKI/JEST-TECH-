@@ -28,6 +28,8 @@ import { BullModule } from '@nestjs/bullmq';
 import { RenewalEngineService } from './services/renewal-engine.service';
 import { RenewalReminderProcessor } from './processors/renewal-reminder.processor';
 import { RenewalSchedulerCron } from './crons/renewal-scheduler.cron';
+import { BackOfficeController } from './controllers/back-office.controller';
+import { BackOfficeQueueService } from './services/queries/back-office-queue.service';
 
 @Module({
   imports: [
@@ -37,10 +39,11 @@ import { RenewalSchedulerCron } from './crons/renewal-scheduler.cron';
     ReportsModule,
     BullModule.registerQueue({ name: 'renewal-reminders' }),
   ],
-  controllers: [PoliciesController],
+  controllers: [PoliciesController, BackOfficeController],
   providers: [
     PolicyRepository,
     PolicyDomainService,
+    BackOfficeQueueService,
     // CQRS Commands
     IssuePolicyService,
     CancelPolicyService,

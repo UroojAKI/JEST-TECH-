@@ -53,4 +53,14 @@ export const policiesRepository = {
     const response = await apiClient.post('/policies/issue', data);
     return response.data;
   },
+
+  async getBackOfficeQueue(params?: { search?: string; status?: string }): Promise<any> {
+    const response = await apiClient.get('/back-office/queue', { params });
+    return response.data;
+  },
+
+  async issueFromQueue(quotationId: string): Promise<any> {
+    const response = await apiClient.post(`/back-office/issue/${quotationId}`);
+    return response.data;
+  },
 };
