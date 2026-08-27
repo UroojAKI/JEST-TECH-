@@ -54,6 +54,8 @@ import { WorkspaceModule } from './modules/workspace/workspace.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AuthorizationModule } from './common/authorization.module';
+import { APP_INTERCEPTOR } from '@nestjs/core';
+import { IdempotencyInterceptor } from './common/interceptors/idempotency.interceptor';
 
 @Module({
   imports: [
@@ -137,7 +139,13 @@ import { AuthorizationModule } from './common/authorization.module';
     WorkspaceModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [
+    AppService,
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: IdempotencyInterceptor,
+    },
+  ],
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
