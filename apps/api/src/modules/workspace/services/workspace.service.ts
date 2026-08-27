@@ -1,7 +1,10 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { RoleType } from '@prisma/client';
 import { PrismaService } from '../../../database/prisma.service';
 import { WorkspaceFactory } from '../factories/workspace.factory';
 import { WorkspaceResponseDto } from '../dto/workspace.dto';
+import { resolvePermittedWorkspaces } from '../../../common/guards/workspace-access.guard';
+import { ActorContext } from '../../../common/interfaces/actor-context.interface';
 
 @Injectable()
 export class WorkspaceService {
@@ -119,5 +122,90 @@ export class WorkspaceService {
   async getProfile(userId: string) {
     const ws = await this.getWorkspaceForUser(userId);
     return { user: ws.user, jobRole: ws.jobRole, department: ws.department, preferences: ws.preferences };
+  }
+
+  async getUserWorkspaces(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        role: { include: { permissions: { include: { permission: true } } } },
+      },
+    });
+    if (!user) throw new NotFoundException(`User with ID '${userId}' not found`);
+
+    const roleType = (user.role.type || user.role.code) as RoleType;
+    const permissions = user.role.permissions?.map((p: any) => p.permission.code) || [];
+
+    const actor: ActorContext = {
+      userId: user.id,
+      email: user.email,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      organizationId: 'DEFAULT_ORG',
+      companyId: 'DEFAULT_ORG',
+      role: roleType,
+      roles: [roleType],
+      permissions,
+      workspaces: [],
+      status: user.status,
+    };
+
+    const permittedCodes = resolvePermittedWorkspaces(actor);
+
+    const WORKSPACE_DEFINITIONS: Record<string, { code: string; title: string; href: string; icon: string; description: string }> = {
+      SALES: {
+        code: 'SALES',
+        title: 'Sales & Distribution',
+        href: '/workspace/sales',
+        icon: 'TrendingUp',
+        description: 'Leads, opportunities, motor quotations and sales pipelines',
+      },
+      FINANCE: {
+        code: 'FINANCE',
+        title: 'Finance & Accounts',
+        href: '/workspace/finance',
+        icon: 'DollarSign',
+        description: 'Receipts, bank reconciliation, payment verification & commissions',
+      },
+      BACK_OFFICE: {
+        code: 'BACK_OFFICE',
+        title: 'Operations & Issuance',
+        href: '/workspace/operations',
+        icon: 'Briefcase',
+        description: 'Document verification, inspection review & policy issuance',
+      },
+      RENEWALS: {
+        code: 'RENEWALS',
+        title: 'Renewals & Retention',
+        href: '/workspace/renewal',
+        icon: 'RotateCcw',
+        description: 'Expiring policies, renewal tasks, reminder cadence & requoting',
+      },
+      CLAIMS: {
+        code: 'CLAIMS',
+        title: 'Claims Management',
+        href: '/claims',
+        icon: 'ShieldAlert',
+        description: 'First Notice of Loss (FNOL), survey management & settlements',
+      },
+      MANAGEMENT: {
+        code: 'MANAGEMENT',
+        title: 'Executive Management',
+        href: '/workspace/executive',
+        icon: 'BarChart3',
+        description: 'Organizational KPIs, gross premium, branch ranking & growth',
+      },
+      ADMINISTRATION: {
+        code: 'ADMINISTRATION',
+        title: 'System Administration',
+        href: '/workspace/admin',
+        icon: 'Settings',
+        description: 'User provisioning, RBAC configuration, numbering & audit logs',
+      },
+    };
+
+    return permittedCodes
+      .filter((code) => WORKSPACE_DEFINITIONS[code])
+      .map((code) => WORKSPACE_DEFINITIONS[code]);
   }
 }

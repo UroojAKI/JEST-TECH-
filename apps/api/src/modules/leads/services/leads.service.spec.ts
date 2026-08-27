@@ -10,6 +10,8 @@ import { PrismaService } from '../../../database/prisma.service';
 import { LeadStatus } from '@prisma/client';
 import { NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
 import { LeadConvertedEvent } from '../events/lead-converted.event';
+import { ResourceAuthorizationService } from '../../../common/services/resource-authorization.service';
+import { ScopeResolver } from '../../../common/services/scope-resolver.service';
 
 describe('LeadsService', () => {
   let service: LeadsService;
@@ -65,6 +67,8 @@ describe('LeadsService', () => {
         { provide: UsersService, useValue: mockUsersService },
         { provide: EventEmitter2, useValue: mockEventEmitter },
         { provide: PrismaService, useValue: mockPrismaService },
+        ResourceAuthorizationService,
+        ScopeResolver,
       ],
     }).compile();
 
@@ -81,7 +85,7 @@ describe('LeadsService', () => {
 
   describe('findAll', () => {
     it('SUPER_ADMIN user returns all leads paginated', async () => {
-      const superAdminUser = { id: 'user-1', role: 'SUPER_ADMIN' } as any;
+      const superAdminUser = { id: 'user-1', userId: 'user-1', role: 'SUPER_ADMIN', roles: ['SUPER_ADMIN'], status: 'ACTIVE' } as any;
       mockLeadRepository.findAll.mockResolvedValue([]);
       mockLeadRepository.count.mockResolvedValue(0);
 
@@ -97,7 +101,7 @@ describe('LeadsService', () => {
     });
 
     it('SALES_AGENT user returns only their leads', async () => {
-      const agentUser = { id: 'agent-1', role: 'SALES_AGENT' } as any;
+      const agentUser = { id: 'agent-1', userId: 'agent-1', role: 'SALES_AGENT', roles: ['SALES_AGENT'], status: 'ACTIVE' } as any;
       mockLeadRepository.findAll.mockResolvedValue([]);
       mockLeadRepository.count.mockResolvedValue(0);
 
@@ -116,7 +120,7 @@ describe('LeadsService', () => {
 
   describe('findById', () => {
     it('SALES_AGENT accessing own lead -> success', async () => {
-      const agentUser = { id: 'agent-1', role: 'SALES_AGENT' } as any;
+      const agentUser = { id: 'agent-1', userId: 'agent-1', role: 'SALES_AGENT', roles: ['SALES_AGENT'], status: 'ACTIVE' } as any;
       const mockLead = { id: 'lead-1', assignedToId: 'agent-1' };
       mockLeadRepository.findById.mockResolvedValue(mockLead as any);
 
@@ -126,7 +130,7 @@ describe('LeadsService', () => {
     });
 
     it('SALES_AGENT accessing another agents lead -> throws ForbiddenException', async () => {
-      const agentUser = { id: 'agent-1', role: 'SALES_AGENT' } as any;
+      const agentUser = { id: 'agent-1', userId: 'agent-1', role: 'SALES_AGENT', roles: ['SALES_AGENT'], status: 'ACTIVE' } as any;
       const mockLead = { id: 'lead-1', assignedToId: 'agent-2', createdById: 'agent-2' };
       mockLeadRepository.findById.mockResolvedValue(mockLead as any);
 
@@ -134,7 +138,7 @@ describe('LeadsService', () => {
     });
 
     it('non-existent id -> throws NotFoundException', async () => {
-      const agentUser = { id: 'agent-1', role: 'SALES_AGENT' } as any;
+      const agentUser = { id: 'agent-1', userId: 'agent-1', role: 'SALES_AGENT', roles: ['SALES_AGENT'], status: 'ACTIVE' } as any;
       mockLeadRepository.findById.mockResolvedValue(null);
 
       await expect(service.findById('unknown', agentUser)).rejects.toThrow(NotFoundException);

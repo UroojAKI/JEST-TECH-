@@ -41,4 +41,10 @@ export class WorkspaceController {
   getProfile(@CurrentUser() user: RequestUser) {
     return this.workspaceService.getProfile(user.id);
   }
+
+  @Get('user-workspaces')
+  @ApiOperation({ summary: 'Get all permitted workspaces for the current user' })
+  getUserWorkspaces(@CurrentUser() user: RequestUser) {
+    return this.workspaceService.getUserWorkspaces(user.id);
+  }
 }

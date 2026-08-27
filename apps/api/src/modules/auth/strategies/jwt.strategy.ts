@@ -5,6 +5,7 @@ import { ExtractJwt, Strategy } from 'passport-jwt';
 import { Request } from 'express';
 import { ActorContext } from '../../../common/interfaces/actor-context.interface';
 import { RoleType, UserStatus } from '@prisma/client';
+import { resolvePermittedWorkspaces } from '../../../common/guards/workspace-access.guard';
 
 const cookieExtractor = (req: Request) => {
   let token = null;
@@ -51,7 +52,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       ? (payload.roles as RoleType[])
       : [primaryRole];
 
-    return {
+    const actor: ActorContext = {
       userId: payload.sub,
       email: payload.email,
       firstName: payload.firstName || '',
@@ -68,6 +69,9 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       workspaces: [],
       status: payload.status || UserStatus.ACTIVE,
     };
+
+    actor.workspaces = resolvePermittedWorkspaces(actor);
+    return actor;
   }
 }
 

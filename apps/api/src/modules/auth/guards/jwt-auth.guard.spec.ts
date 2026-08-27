@@ -70,7 +70,7 @@ describe('JwtAuthGuard & ActorContext (Iteration 1 Baseline)', () => {
         role: RoleType.SALES_AGENT,
         roles: [RoleType.SALES_AGENT],
         permissions: ['quotation.create', 'quotation.read'],
-        workspaces: [],
+        workspaces: ['SALES', 'RENEWALS', 'PORTAL'],
         status: UserStatus.ACTIVE,
       });
     });

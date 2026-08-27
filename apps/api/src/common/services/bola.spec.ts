@@ -8,7 +8,7 @@ import { LeadsService } from '../../modules/leads/services/leads.service';
 import { GetClaimsService } from '../../modules/claims/services/queries/get-claims.service';
 import { ActorContext } from '../interfaces/actor-context.interface';
 
-describe('BOLA & Multi-Tenant Security Suite (Iteration 4)', () => {
+describe('BOLA & Multi-User Authorization Suite (R1 Exit Gate)', () => {
   let authzService: ResourceAuthorizationService;
   let scopeResolver: ScopeResolver;
   let getQuotationService: GetQuotationService;
@@ -186,7 +186,157 @@ describe('BOLA & Multi-Tenant Security Suite (Iteration 4)', () => {
     });
   });
 
-  describe('5. Multi-Tenant Cross-Organization Isolation', () => {
+  describe('5. Document & Payment BOLA Prevention', () => {
+    it('should reject Agent A attempting to read Agent B document', () => {
+      const agentA = createActor({ userId: 'usr-agent-1' });
+      const docB = { id: 'doc-200', createdById: 'usr-agent-2', organizationId: 'org-mumbai' };
+
+      expect(() => {
+        authzService.authorize(agentA, 'DOCUMENT', 'READ', docB);
+      }).toThrow(ForbiddenException);
+    });
+
+    it('should reject Agent A attempting to read Agent B payment', () => {
+      const agentA = createActor({ userId: 'usr-agent-1' });
+      const paymentB = { id: 'pay-200', createdById: 'usr-agent-2', organizationId: 'org-mumbai' };
+
+      expect(() => {
+        authzService.authorize(agentA, 'PAYMENT', 'READ', paymentB);
+      }).toThrow(ForbiddenException);
+    });
+
+    it('should reject Agent A attempting to read Agent B renewal task', () => {
+      const agentA = createActor({ userId: 'usr-agent-1' });
+      const renewalB = { id: 'ren-200', assignedToId: 'usr-agent-2', organizationId: 'org-mumbai' };
+
+      expect(() => {
+        authzService.authorize(agentA, 'RENEWAL_TASK', 'READ', renewalB);
+      }).toThrow(ForbiddenException);
+    });
+  });
+
+  describe('6. Cross-Role Operation Boundary Enforcement', () => {
+    it('should forbid Finance Executive from issuing a policy', () => {
+      const financeUser = createActor({
+        userId: 'usr-fin-1',
+        role: RoleType.FINANCE_ACCOUNTS_EXECUTIVE,
+        roles: [RoleType.FINANCE_ACCOUNTS_EXECUTIVE],
+      });
+
+      expect(() => {
+        authzService.authorize(financeUser, 'POLICY', 'ISSUE', {});
+      }).toThrow(ForbiddenException);
+    });
+
+    it('should forbid Finance Executive from creating quotations', () => {
+      const financeUser = createActor({
+        userId: 'usr-fin-1',
+        role: RoleType.FINANCE_ACCOUNTS_EXECUTIVE,
+        roles: [RoleType.FINANCE_ACCOUNTS_EXECUTIVE],
+      });
+
+      expect(authzService.canCreate(financeUser, 'QUOTATION')).toBe(false);
+    });
+
+    it('should forbid Sales Agent from reconciling payments', () => {
+      const salesAgent = createActor({
+        userId: 'usr-agent-1',
+        role: RoleType.SALES_AGENT,
+        roles: [RoleType.SALES_AGENT],
+      });
+
+      expect(() => {
+        authzService.authorize(salesAgent, 'PAYMENT', 'RECONCILE', {});
+      }).toThrow(ForbiddenException);
+    });
+
+    it('should forbid Renewal Executive from reconciling payments', () => {
+      const renewalExec = createActor({
+        userId: 'usr-ren-1',
+        role: RoleType.RENEWAL_EXECUTIVE,
+        roles: [RoleType.RENEWAL_EXECUTIVE],
+      });
+
+      expect(() => {
+        authzService.authorize(renewalExec, 'PAYMENT', 'RECONCILE', {});
+      }).toThrow(ForbiddenException);
+    });
+
+    it('should forbid Operations from approving quotations (Sales Manager only)', () => {
+      const opsUser = createActor({
+        userId: 'usr-ops-1',
+        role: RoleType.OPERATIONS,
+        roles: [RoleType.OPERATIONS],
+      });
+
+      expect(() => {
+        authzService.authorize(opsUser, 'QUOTATION', 'APPROVE', {});
+      }).toThrow(ForbiddenException);
+    });
+  });
+
+  describe('7. Multi-User Hierarchical Scoping (Branch & Team)', () => {
+    it('should reject Branch Manager accessing resource of another branch', () => {
+      const branchManagerAndheri = createActor({
+        userId: 'usr-mgr-andheri',
+        role: RoleType.BRANCH_MANAGER,
+        roles: [RoleType.BRANCH_MANAGER],
+        branchId: 'br-andheri',
+      });
+
+      const bandraResource = {
+        id: 'res-bandra-1',
+        branchId: 'br-bandra',
+        organizationId: 'org-mumbai',
+      };
+
+      expect(() => {
+        authzService.authorize(branchManagerAndheri, 'LEAD', 'READ', bandraResource);
+      }).toThrow(ForbiddenException);
+    });
+
+    it('should reject Team Leader accessing resource of another team in a different branch', () => {
+      const teamLeadAlpha = createActor({
+        userId: 'usr-tl-alpha',
+        role: RoleType.TEAM_LEADER,
+        roles: [RoleType.TEAM_LEADER],
+        branchId: 'br-andheri',
+        teamId: 'team-alpha',
+      });
+
+      const otherBranchTeamResource = {
+        id: 'res-beta-1',
+        branchId: 'br-bandra',
+        teamId: 'team-beta',
+        organizationId: 'org-mumbai',
+      };
+
+      expect(() => {
+        authzService.authorize(teamLeadAlpha, 'LEAD', 'READ', otherBranchTeamResource);
+      }).toThrow(ForbiddenException);
+    });
+  });
+
+  describe('8. Account Status & Authentication Validation', () => {
+    it('should reject suspended user from accessing any resource', () => {
+      const suspendedUser = createActor({
+        userId: 'usr-suspended-1',
+        status: UserStatus.SUSPENDED,
+      });
+
+      expect(() => {
+        authzService.authorize(suspendedUser, 'LEAD', 'READ', { id: 'l-1' });
+      }).toThrow(ForbiddenException);
+    });
+
+    it('should reject unauthenticated actor without userId', () => {
+      expect(() => {
+        authzService.authorize({} as any, 'LEAD', 'READ', { id: 'l-1' });
+      }).toThrow(ForbiddenException);
+    });
+  });
+
+  describe('9. Multi-Tenant Cross-Organization Isolation', () => {
     it('should strictly reject Admin attempting to access resource of another organization', async () => {
       const adminOrgA = createActor({
         userId: 'usr-admin-a',

@@ -1,11 +1,12 @@
 import { Injectable, UnauthorizedException, ForbiddenException } from '@nestjs/common';
 import * as argon2 from 'argon2';
 import { ConfigService } from '@nestjs/config';
-import { AuditAction } from '@prisma/client';
+import { AuditAction, RoleType } from '@prisma/client';
 
 import { UsersService } from '../../users/services/users.service';
 import { TokenService } from './token.service';
 import { LoginDto } from '../dto/login.dto';
+import { resolvePermittedWorkspaces } from '../../../common/guards/workspace-access.guard';
 
 @Injectable()
 export class AuthService {
@@ -91,6 +92,24 @@ export class AuthService {
       }),
     ]);
 
+    const permittedWorkspaces = resolvePermittedWorkspaces({
+      userId: user.id,
+      email: user.email,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      organizationId: orgId,
+      companyId: orgId,
+      branchId: user.branchId || undefined,
+      teamId: user.teamId || undefined,
+      role: roleType,
+      roles: [roleType],
+      permissions,
+      workspaces: [],
+      status: user.status,
+    });
+
+    const landingWorkspace = this.resolveDefaultLandingWorkspace(roleType);
+
     // ── 8. Return secure login response ─────────────────────────────────────
     return {
       accessToken,
@@ -102,8 +121,38 @@ export class AuthService {
         lastName: user.lastName,
         email: user.email,
         role: user.role.code,
+        roles: [roleType],
+        permissions,
+        organizationId: orgId,
+        branchId: user.branchId,
+        teamId: user.teamId,
       },
+      workspaces: permittedWorkspaces,
+      landingWorkspace,
     };
+  }
+
+  resolveDefaultLandingWorkspace(role: RoleType | string): string {
+    const r = (role || '').toString().toUpperCase();
+    if (r.includes('SUPER_ADMIN') || r.includes('ADMIN')) return '/workspace/admin';
+    if (r.includes('MD_CEO') || r.includes('MANAGEMENT') || r.includes('DIRECTOR')) return '/workspace/executive';
+    if (r.includes('BRANCH_MANAGER')) return '/workspace/executive';
+    if (r.includes('SALES_MANAGER') || r.includes('TEAM_LEADER')) return '/workspace/sales-manager';
+    if (r.includes('SALES') || r.includes('POSP') || r.includes('AGENT')) return '/workspace/sales';
+    if (r.includes('FINANCE') || r.includes('ACCOUNTS')) return '/workspace/finance';
+    if (
+      r.includes('OPERATIONS') ||
+      r.includes('POLICY_ISSUANCE') ||
+      r.includes('UNDERWRITER') ||
+      r.includes('BACK_OFFICE') ||
+      r.includes('INSPECTOR')
+    ) {
+      return '/workspace/operations';
+    }
+    if (r.includes('RENEWAL')) return '/workspace/renewal';
+    if (r.includes('CLAIMS') || r.includes('SUPPORT')) return '/claims';
+    if (r.includes('COMPLIANCE')) return '/admin/audit';
+    return '/workspace';
   }
 
   async refresh(refreshToken: string) {
@@ -181,10 +230,42 @@ export class AuthService {
       expiresAt,
     });
 
+    const permittedWorkspaces = resolvePermittedWorkspaces({
+      userId: user.id,
+      email: user.email,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      organizationId: orgId,
+      companyId: orgId,
+      branchId: user.branchId || undefined,
+      teamId: user.teamId || undefined,
+      role: roleType,
+      roles: [roleType],
+      permissions,
+      workspaces: [],
+      status: user.status,
+    });
+
+    const landingWorkspace = this.resolveDefaultLandingWorkspace(roleType);
+
     return {
       accessToken: newAccessToken,
       refreshToken: newRefreshToken,
       expiresIn: this.config.get<string>('jwt.expiresIn'),
+      user: {
+        id: user.id,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        email: user.email,
+        role: user.role.code,
+        roles: [roleType],
+        permissions,
+        organizationId: orgId,
+        branchId: user.branchId,
+        teamId: user.teamId,
+      },
+      workspaces: permittedWorkspaces,
+      landingWorkspace,
     };
   }
 

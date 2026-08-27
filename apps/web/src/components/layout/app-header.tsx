@@ -17,6 +17,7 @@ import { useUIStore } from '../../store/ui-store';
 import { useAuthStore } from '../../store/auth-store';
 import { useCustomerContext } from '../../store/customer-context';
 import { BreadcrumbNav } from './breadcrumb-nav';
+import { WorkspaceSwitcher } from './workspace-switcher';
 
 export function AppHeader() {
   const { theme, setTheme } = useTheme();
@@ -29,8 +30,8 @@ export function AppHeader() {
 
   return (
     <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b bg-background/95 px-4 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      {/* Left section: Mobile menu + Breadcrumbs */}
-      <div className="flex items-center space-x-3">
+      {/* Left section: Mobile menu + Workspace Switcher + Breadcrumbs */}
+      <div className="flex items-center space-x-2.5">
         <button
           onClick={toggleSidebar}
           className="rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
@@ -38,6 +39,8 @@ export function AppHeader() {
         >
           <Menu className="h-5 w-5" />
         </button>
+        <WorkspaceSwitcher />
+        <div className="hidden sm:block h-4 w-[1px] bg-border" />
         <BreadcrumbNav />
       </div>
 

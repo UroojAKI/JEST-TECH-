@@ -26,4 +26,9 @@ export const workspaceRepository = {
     const response = await apiClient.get('/workspace/profile');
     return response.data;
   },
+
+  async getUserWorkspaces(): Promise<Array<{ code: string; title: string; href: string; icon: string; description: string }>> {
+    const response = await apiClient.get('/workspace/user-workspaces');
+    return response.data;
+  },
 };

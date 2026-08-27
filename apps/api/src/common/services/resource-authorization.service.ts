@@ -24,7 +24,8 @@ export type ResourceAction =
   | 'ASSIGN'
   | 'ISSUE'
   | 'RECONCILE'
-  | 'VERIFY';
+  | 'VERIFY'
+  | 'APPROVE';
 
 export type AccessScope =
   | 'OWN'
@@ -105,6 +106,21 @@ const DOC_VERIFIERS: RoleType[] = [
   RoleType.SUPER_ADMIN,
 ];
 
+const QUOTE_APPROVERS: RoleType[] = [
+  RoleType.SALES_MANAGER,
+  RoleType.BRANCH_MANAGER,
+  RoleType.TEAM_LEADER,
+  RoleType.ADMIN,
+  RoleType.SUPER_ADMIN,
+];
+
+const CLAIM_APPROVERS: RoleType[] = [
+  RoleType.CLAIMS_OFFICER,
+  RoleType.BRANCH_MANAGER,
+  RoleType.ADMIN,
+  RoleType.SUPER_ADMIN,
+];
+
 @Injectable()
 export class ResourceAuthorizationService {
   authorize(
@@ -157,6 +173,10 @@ export class ResourceAuthorizationService {
         return this.canReconcile(actor, resource);
       case 'VERIFY':
         return this.canVerifyDocument(actor, resource);
+      case 'APPROVE':
+        return this.canApprove(actor, resource, resourceType);
+      case 'TRANSITION':
+        return this.canTransition(actor, resource, resourceType);
       default:
         return this.canRead(actor, resource, resourceType);
     }
@@ -280,5 +300,39 @@ export class ResourceAuthorizationService {
       );
     }
     return true;
+  }
+
+  canApprove(actor: ActorContext, _resource: any, resourceType: ResourceType): boolean {
+    const actorRoles: RoleType[] = actor.roles || [actor.role];
+    const isAdmin = actorRoles.some((r) => ADMIN_ROLES.includes(r));
+    if (isAdmin) return true;
+
+    switch (resourceType) {
+      case 'QUOTATION':
+      case 'LEAD':
+        if (!actorRoles.some((r) => QUOTE_APPROVERS.includes(r))) {
+          throw new ForbiddenException('Only Sales Managers or Branch Managers can approve quotations or leads');
+        }
+        return true;
+
+      case 'CLAIM':
+        if (!actorRoles.some((r) => CLAIM_APPROVERS.includes(r))) {
+          throw new ForbiddenException('Only Claims Officers or Branch Managers can approve claims');
+        }
+        return true;
+
+      case 'POLICY':
+        if (!actorRoles.some((r) => POLICY_ISSUERS.includes(r))) {
+          throw new ForbiddenException('Only Operations and Underwriters can approve policies');
+        }
+        return true;
+
+      default:
+        return true;
+    }
+  }
+
+  canTransition(actor: ActorContext, resource: any, resourceType: ResourceType): boolean {
+    return this.canUpdate(actor, resource, resourceType);
   }
 }

@@ -39,10 +39,12 @@ export function useAuth() {
       }
       setUser(normalizedUser);
       toast.success(`Welcome back, ${normalizedUser.firstName}!`);
+      const landingWorkspace = data?.landingWorkspace || (responseData as any).landingWorkspace;
+      const destination = landingWorkspace || '/workspace';
       if (typeof window !== 'undefined') {
-        window.location.href = '/workspace';
+        window.location.href = destination;
       } else {
-        router.push('/workspace');
+        router.push(destination);
       }
     },
     onError: (error: any) => {
