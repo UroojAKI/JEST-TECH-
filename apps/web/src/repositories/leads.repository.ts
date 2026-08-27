@@ -58,4 +58,19 @@ export const leadsRepository = {
     const response = await apiClient.post(`/leads/${id}/convert`);
     return response.data;
   },
+
+  async getLeadContext(id: string): Promise<any> {
+    const response = await apiClient.get(`/leads/${id}/context`);
+    return response.data;
+  },
+
+  async checkDuplicates(params: {
+    phone?: string;
+    email?: string;
+    panNumber?: string;
+    registrationNumber?: string;
+  }): Promise<any> {
+    const response = await apiClient.post('/leads/check-duplicate', params);
+    return response.data;
+  },
 };

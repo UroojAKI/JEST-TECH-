@@ -184,6 +184,75 @@ describe('LeadsService', () => {
 
       await expect(service.convert('lead-1', 'user-1')).rejects.toThrow(BadRequestException);
     });
+
+    it('lost lead -> throws BadRequestException on conversion', async () => {
+      const mockLead = { id: 'lead-1', status: LeadStatus.LOST };
+      mockLeadRepository.findById.mockResolvedValue(mockLead as any);
+
+      await expect(service.convert('lead-1', 'user-1')).rejects.toThrow(BadRequestException);
+    });
+  });
+
+  describe('update - state machine', () => {
+    it('invalid transition -> throws BadRequestException', async () => {
+      const existingLead = { id: 'lead-1', status: LeadStatus.LOST, assignedToId: 'agent-1', createdById: 'agent-1' };
+      mockLeadRepository.findById.mockResolvedValue(existingLead as any);
+
+      const agentUser = { id: 'agent-1', userId: 'agent-1', role: 'SALES_AGENT', roles: ['SALES_AGENT'], status: 'ACTIVE' } as any;
+
+      // LOST cannot directly transition to QUALIFIED
+      await expect(
+        service.update('lead-1', { status: LeadStatus.QUALIFIED } as any, agentUser),
+      ).rejects.toThrow(BadRequestException);
+    });
+  });
+
+  describe('getLeadContext', () => {
+    it('returns structured prefill data for motor quote wizard', async () => {
+      const mockLead = {
+        id: 'lead-100',
+        leadCode: 'LEAD-000100',
+        title: 'Honda City Comprehensive',
+        status: LeadStatus.QUALIFIED,
+        source: 'DIGITAL',
+        description: 'Remarks: VIP Customer | City: Mumbai',
+        createdById: 'agent-1',
+        assignedToId: 'agent-1',
+        contact: {
+          id: 'con-1',
+          contactCode: 'CON-0001',
+          firstName: 'Vikram',
+          lastName: 'Malhotra',
+          email: 'vikram@example.com',
+          phone: '9876543210',
+          panNumber: 'ABCDE1234F',
+          vehicles: [
+            {
+              id: 'veh-1',
+              registrationNumber: 'MH02CB1234',
+              category: 'PRIVATE_CAR',
+              makeModel: 'Honda City ZX CVT',
+              fuelType: 'PETROL',
+              manufactureYearMonth: '2022-04',
+            },
+          ],
+        },
+        account: null,
+        assignedTo: { id: 'agent-1', firstName: 'Agent', lastName: 'One' },
+      };
+
+      mockPrismaService.lead = {
+        findUnique: jest.fn().mockResolvedValue(mockLead),
+      };
+
+      const agentUser = { id: 'agent-1', userId: 'agent-1', role: 'SALES_AGENT', roles: ['SALES_AGENT'], status: 'ACTIVE' } as any;
+      const context = await service.getLeadContext('lead-100', agentUser);
+
+      expect(context.leadId).toBe('lead-100');
+      expect(context.contact?.fullName).toBe('Vikram Malhotra');
+      expect(context.vehicle?.registrationNumber).toBe('MH02CB1234');
+      expect(context.vehicle?.makeModel).toBe('Honda City ZX CVT');
+    });
   });
 
   describe('remove', () => {

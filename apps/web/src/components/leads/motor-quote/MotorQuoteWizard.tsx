@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { X, ChevronRight, ChevronLeft, Save, Loader2, Car, Shield } from 'lucide-react';
 import { toast } from 'sonner';
 import { apiClient } from '../../../lib/api-client';
+import { leadsRepository } from '../../../repositories/leads.repository';
 
 import { VehicleCategorySelector } from './VehicleCategorySelector';
 import { VehicleDetailsForm } from './VehicleDetailsForm';
@@ -168,6 +169,8 @@ export function MotorQuoteWizard({ isOpen, leadId, initialCategory, cloneQuoteDa
   const [packageForm, setPackageForm] = useState<PolicyFormPackage>(emptyPackage());
   
   const [savedQuotationId, setSavedQuotationId] = useState<string | null>(null);
+  const [isContextLoading, setIsContextLoading] = useState(false);
+  const [prefilledFromLeadCode, setPrefilledFromLeadCode] = useState<string | null>(null);
 
   useEffect(() => {
     if (isOpen) {
@@ -196,8 +199,52 @@ export function MotorQuoteWizard({ isOpen, leadId, initialCategory, cloneQuoteDa
       setSaodForm(emptySAOD());
       setPackageForm(emptyPackage());
       setSavedQuotationId(null);
+      setPrefilledFromLeadCode(null);
+
+      // Automatically fetch authoritative Lead Context when leadId is provided
+      if (leadId && !cloneQuoteData) {
+        setIsContextLoading(true);
+        leadsRepository
+          .getLeadContext(leadId)
+          .then((ctx) => {
+            if (ctx) {
+              setPrefilledFromLeadCode(ctx.leadCode);
+              setProposer((prev) => ({
+                ...prev,
+                customerName: ctx.contact?.fullName || ctx.title || prev.customerName,
+                mobileNumber: ctx.contact?.phone || prev.mobileNumber,
+                emailId: ctx.contact?.email || prev.emailId,
+                panNumber: ctx.contact?.panNumber || prev.panNumber,
+                relationshipManager: ctx.assignedTo ? `${ctx.assignedTo.firstName} ${ctx.assignedTo.lastName}` : prev.relationshipManager,
+                leadSource: ctx.source || prev.leadSource,
+              }));
+
+              if (ctx.vehicle) {
+                setVehicleDetails((prev) => ({
+                  ...prev,
+                  registrationNumber: ctx.vehicle.registrationNumber || '',
+                  make: ctx.vehicle.make || '',
+                  model: ctx.vehicle.model || '',
+                  variant: ctx.vehicle.variant || '',
+                  fuelType: ctx.vehicle.fuelType || '',
+                  manufacturingYear: ctx.vehicle.manufacturingYear ? String(ctx.vehicle.manufacturingYear) : '',
+                  engineNumber: ctx.vehicle.engineNumber || '',
+                  chassisNumber: ctx.vehicle.chassisNumber || '',
+                  rtoCode: ctx.vehicle.rtoCode || '',
+                }));
+              }
+              toast.info(`Prefilled customer & vehicle data from Lead ${ctx.leadCode}`);
+            }
+          })
+          .catch((err) => {
+            console.warn('Failed to load lead context for prefill:', err);
+          })
+          .finally(() => {
+            setIsContextLoading(false);
+          });
+      }
     }
-  }, [isOpen, initialCategory, cloneQuoteData, leadContact]);
+  }, [isOpen, initialCategory, cloneQuoteData, leadContact, leadId]);
 
   if (!isOpen) return null;
 

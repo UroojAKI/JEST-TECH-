@@ -32,6 +32,8 @@ import { PrismaService } from '../../../database/prisma.service';
 import { ParseUUIDPipe } from '../../../common/utils/parse-uuid.pipe';
 import { PaginationDto } from '../../../common/pagination/pagination.dto';
 
+import { DuplicateDetectionService } from '../deduplication/services/duplicate-detection/duplicate-detection.service';
+
 @ApiTags('Leads & Opportunity Pipeline')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -41,6 +43,7 @@ export class LeadsController {
     private readonly leadsService: LeadsService,
     private readonly leadAssignmentService: LeadAssignmentService,
     private readonly prisma: PrismaService,
+    private readonly duplicateDetectionService: DuplicateDetectionService,
   ) {}
 
   @Get('kpis')
@@ -72,32 +75,32 @@ export class LeadsController {
   }
 
   @Get('check-duplicate')
-  @ApiOperation({ summary: 'Check mobile/email duplicate customer/lead matches' })
+  @ApiOperation({ summary: 'Check mobile, email, PAN, and vehicle registration duplicate matches' })
   async checkDuplicate(
     @Query('phone') phone?: string,
-    @Query('email') email?: string
+    @Query('email') email?: string,
+    @Query('panNumber') panNumber?: string,
+    @Query('registrationNumber') registrationNumber?: string,
   ) {
-    if (!phone && !email) return { exists: false };
-
-    const existingContact = await this.prisma.contact.findFirst({
-      where: {
-        OR: [
-          phone ? { phone } : undefined,
-          email ? { email } : undefined,
-        ].filter(Boolean) as any,
-      },
+    return this.duplicateDetectionService.checkDuplicates({
+      phone,
+      email,
+      panNumber,
+      registrationNumber,
     });
+  }
 
-    if (existingContact) {
-      return {
-        exists: true,
-        type: 'CUSTOMER',
-        contact: existingContact,
-        message: `Existing customer record found for ${existingContact.firstName} ${existingContact.lastName} (${existingContact.phone}).`,
-      };
-    }
-
-    return { exists: false };
+  @Post('check-duplicate')
+  @ApiOperation({ summary: 'Check duplicate customer/lead/vehicle matches via POST payload' })
+  async checkDuplicatePost(
+    @Body() body: {
+      phone?: string;
+      email?: string;
+      panNumber?: string;
+      registrationNumber?: string;
+    },
+  ) {
+    return this.duplicateDetectionService.checkDuplicates(body);
   }
 
   @Post()
@@ -139,6 +142,23 @@ export class LeadsController {
   )
   findOne(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: RequestUser) {
     return this.leadsService.findById(id, user);
+  }
+
+  @Get(':id/context')
+  @Roles(
+    RoleType.SUPER_ADMIN,
+    RoleType.ADMIN,
+    RoleType.BRANCH_MANAGER,
+    RoleType.TEAM_LEADER,
+    RoleType.SALES_AGENT,
+    RoleType.OPERATIONS,
+  )
+  @ApiOperation({ summary: 'Get prefill context for Motor / Quotation wizard from Lead' })
+  getLeadContext(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() actor: ActorContext,
+  ) {
+    return this.leadsService.getLeadContext(id, actor);
   }
 
   @Patch(':id')

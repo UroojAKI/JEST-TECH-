@@ -192,6 +192,24 @@ export class LeadsService {
     // Authoritative Universal Resource Authorization check
     this.authzService.authorize(user, 'LEAD', 'UPDATE', existing);
 
+    // State machine transition validation (Contract 02 §1)
+    if (dto.status && dto.status !== existing.status) {
+      const allowedTransitions: Record<string, string[]> = {
+        NEW: ['CONTACTED', 'QUALIFIED', 'LOST', 'UNQUALIFIED'],
+        CONTACTED: ['QUALIFIED', 'LOST', 'UNQUALIFIED'],
+        QUALIFIED: ['CONVERTED', 'LOST', 'CONTACTED'],
+        CONVERTED: [],
+        LOST: ['NEW'],
+        UNQUALIFIED: ['NEW'],
+      };
+      const allowed = allowedTransitions[existing.status] || [];
+      if (!allowed.includes(dto.status)) {
+        throw new BadRequestException(
+          `Invalid state transition from ${existing.status} to ${dto.status}. Allowed transitions: ${allowed.join(', ') || 'none (terminal state)'}`,
+        );
+      }
+    }
+
     // Validate Contact exists if provided
     if (dto.contactId && dto.contactId !== existing.contactId) {
       await this.contactsService.findById(dto.contactId);
@@ -359,6 +377,10 @@ export class LeadsService {
       throw new BadRequestException('Lead is already converted');
     }
 
+    if (existing.status === LeadStatus.LOST || existing.status === LeadStatus.UNQUALIFIED) {
+      throw new BadRequestException(`Cannot convert a lead in ${existing.status} state. Only active leads can be converted.`);
+    }
+
     const updated = await this.leadRepository.update(id, {
       status: LeadStatus.CONVERTED,
       updatedBy: { connect: { id: updatedById } },
@@ -380,6 +402,89 @@ export class LeadsService {
         assignedToId: existing.assignedToId,
         source: existing.source,
       },
+    };
+  }
+
+  async getLeadContext(id: string, user: ActorContext) {
+    const lead = await this.prisma.lead.findUnique({
+      where: { id },
+      include: {
+        contact: {
+          include: {
+            vehicles: {
+              where: { deletedAt: null },
+              orderBy: { createdAt: 'desc' },
+            },
+          },
+        },
+        account: true,
+        assignedTo: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            phone: true,
+          },
+        },
+      },
+    });
+
+    if (!lead || lead.deletedAt) {
+      throw new NotFoundException(`Lead with ID ${id} not found`);
+    }
+
+    this.authzService.authorize(user, 'LEAD', 'READ', lead);
+
+    const vehicle = lead.contact?.vehicles?.[0] || null;
+
+    return {
+      leadId: lead.id,
+      leadCode: lead.leadCode,
+      title: lead.title,
+      status: lead.status,
+      source: lead.source,
+      description: lead.description,
+      contact: lead.contact
+        ? {
+            id: lead.contact.id,
+            contactCode: lead.contact.contactCode,
+            firstName: lead.contact.firstName,
+            middleName: lead.contact.middleName,
+            lastName: lead.contact.lastName,
+            fullName: `${lead.contact.firstName || ''} ${lead.contact.lastName || ''}`.trim(),
+            email: lead.contact.email,
+            phone: lead.contact.phone,
+            panNumber: lead.contact.panNumber,
+            gender: lead.contact.gender,
+            dateOfBirth: lead.contact.dateOfBirth,
+          }
+        : null,
+      account: lead.account
+        ? {
+            id: lead.account.id,
+            accountCode: lead.account.accountCode,
+            name: lead.account.name,
+            gstNumber: lead.account.gstNumber,
+            panNumber: lead.account.panNumber,
+          }
+        : null,
+      vehicle: vehicle
+        ? {
+            id: vehicle.id,
+            registrationNumber: vehicle.registrationNumber,
+            category: vehicle.category,
+            makeModel: vehicle.makeModel,
+            fuelType: vehicle.fuelType,
+            manufactureYearMonth: vehicle.manufactureYearMonth,
+            dateOfRegistration: vehicle.dateOfRegistration,
+            engineNumber: vehicle.engineNumber,
+            chassisNumber: vehicle.chassisNumber,
+            rtoLocation: vehicle.rtoLocation,
+            categorySpecificData: vehicle.categorySpecificData,
+          }
+        : null,
+      assignedTo: lead.assignedTo,
     };
   }
 }
