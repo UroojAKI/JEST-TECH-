@@ -120,9 +120,9 @@ export const financeRepository = {
     return toArray<PaymentItem>(response.data);
   },
 
-  async getLedgerEntries(): Promise<LedgerEntryItem[]> {
-    const response = await apiClient.get('/finance/ledger');
-    return toArray<LedgerEntryItem>(response.data);
+  async getLedgerEntries(params?: { search?: string; referenceType?: string; page?: number; limit?: number }): Promise<any> {
+    const response = await apiClient.get('/finance/ledger', { params });
+    return response.data;
   },
 
   async postJournalEntry(data: any): Promise<LedgerEntryItem> {

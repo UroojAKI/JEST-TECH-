@@ -137,8 +137,20 @@ export class FinanceController {
   @Get('ledger')
   @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN, RoleType.FINANCE, RoleType.BRANCH_MANAGER)
   @ApiOperation({ summary: 'Get double-entry ledger journal entries' })
-  async getLedgerEntries() {
-    return []; // TODO: Add LedgerEntry to Prisma schema
+  async getLedgerEntries(
+    @Query('search') search?: string,
+    @Query('referenceType') referenceType?: string,
+    @Query('accountId') accountId?: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.ledgerService.getLedgerEntries({
+      search,
+      referenceType,
+      accountId,
+      page: page ? parseInt(page) : undefined,
+      limit: limit ? parseInt(limit) : undefined,
+    });
   }
 
   @Post('ledger/journal')

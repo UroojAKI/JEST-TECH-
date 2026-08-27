@@ -126,4 +126,57 @@ describe('LedgerService', () => {
       expect(balance.toNumber()).toBe(400); // 500 - 100
     });
   });
+
+  describe('getLedgerEntries', () => {
+    it('should return paginated journal entries with balanced flag', async () => {
+      (prisma.journalEntry as any).count = jest.fn().mockResolvedValue(1);
+      (prisma.journalEntry as any).findMany = jest.fn().mockResolvedValue([
+        {
+          id: 'je-1',
+          entryNumber: 'JE-1001',
+          date: new Date('2026-08-27'),
+          description: 'Policy Issuance AR/Payable Split',
+          referenceId: 'POL-1',
+          referenceType: 'POLICY',
+          status: 'POSTED',
+          lines: [
+            {
+              id: 'jl-1',
+              accountId: 'acc-ar',
+              debit: new Decimal(25000),
+              credit: new Decimal(0),
+              description: 'Customer Receivable',
+              account: { id: 'acc-ar', code: '1001', name: 'Accounts Receivable', type: 'ASSET' },
+            },
+            {
+              id: 'jl-2',
+              accountId: 'acc-ap',
+              debit: new Decimal(0),
+              credit: new Decimal(21250),
+              description: 'Insurer Premium Payable',
+              account: { id: 'acc-ap', code: '2001', name: 'Insurer Payable', type: 'LIABILITY' },
+            },
+            {
+              id: 'jl-3',
+              accountId: 'acc-rev',
+              debit: new Decimal(0),
+              credit: new Decimal(3750),
+              description: 'Brokerage Commission Income',
+              account: { id: 'acc-rev', code: '4001', name: 'Commission Revenue', type: 'REVENUE' },
+            },
+          ],
+        },
+      ]);
+
+      const result = await service.getLedgerEntries();
+
+      expect(result.data).toHaveLength(1);
+      const entry = result.data[0];
+      expect(entry.totalDebit).toBe(25000);
+      expect(entry.totalCredit).toBe(25000);
+      expect(entry.isBalanced).toBe(true);
+      expect(entry.lines).toHaveLength(3);
+      expect(result.meta.total).toBe(1);
+    });
+  });
 });

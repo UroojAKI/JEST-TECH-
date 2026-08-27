@@ -25,12 +25,12 @@ export function usePayments(type?: string) {
   });
 }
 
-export function useLedgerEntries() {
+export function useLedgerEntries(params?: { search?: string; referenceType?: string; page?: number }) {
   const queryClient = useQueryClient();
 
   const query = useQuery({
-    queryKey: ['finance-ledger'],
-    queryFn: () => financeRepository.getLedgerEntries(),
+    queryKey: ['finance-ledger', params],
+    queryFn: () => financeRepository.getLedgerEntries(params),
   });
 
   const postJournalMutation = useMutation({
@@ -45,11 +45,16 @@ export function useLedgerEntries() {
     },
   });
 
+  const raw = query.data;
+  const entries = Array.isArray(raw) ? raw : raw?.data || [];
+  const meta = raw?.meta || { total: entries.length };
+
   return {
-    ledgerEntries: query.data || [],
+    ledgerEntries: entries,
+    meta,
     isLoading: query.isLoading,
     isError: query.isError,
-    postJournalEntry: postJournalMutation.mutate,
+    postJournalEntry: postJournalMutation.mutateAsync,
     isPosting: postJournalMutation.isPending,
   };
 }

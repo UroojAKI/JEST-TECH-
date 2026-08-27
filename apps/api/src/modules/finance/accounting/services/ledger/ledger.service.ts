@@ -117,4 +117,102 @@ export class LedgerService {
       return totalCredit.sub(totalDebit);
     }
   }
+
+  /**
+   * Retrieves paginated double-entry ledger journal entries with balanced validation.
+   */
+  async getLedgerEntries(params?: {
+    search?: string;
+    accountId?: string;
+    referenceType?: string;
+    page?: number;
+    limit?: number;
+  }) {
+    const page = Math.max(1, Number(params?.page) || 1);
+    const limit = Math.min(100, Math.max(1, Number(params?.limit) || 20));
+    const skip = (page - 1) * limit;
+
+    const where: any = {};
+    if (params?.referenceType && params.referenceType !== 'ALL') {
+      where.referenceType = params.referenceType;
+    }
+    if (params?.search && params.search.trim()) {
+      const q = params.search.trim();
+      where.OR = [
+        { entryNumber: { contains: q, mode: 'insensitive' } },
+        { description: { contains: q, mode: 'insensitive' } },
+        { referenceId: { contains: q, mode: 'insensitive' } },
+      ];
+    }
+    if (params?.accountId) {
+      where.lines = {
+        some: { accountId: params.accountId },
+      };
+    }
+
+    const [total, entries] = await Promise.all([
+      this.prisma.journalEntry.count({ where }),
+      this.prisma.journalEntry.findMany({
+        where,
+        include: {
+          lines: {
+            include: {
+              account: {
+                select: { id: true, code: true, name: true, type: true },
+              },
+            },
+          },
+        },
+        orderBy: { date: 'desc' },
+        skip,
+        take: limit,
+      }),
+    ]);
+
+    const formatted = entries.map((entry) => {
+      let debitSum = 0;
+      let creditSum = 0;
+
+      const lines = entry.lines.map((l) => {
+        const d = Number(l.debit || 0);
+        const c = Number(l.credit || 0);
+        debitSum += d;
+        creditSum += c;
+        return {
+          id: l.id,
+          accountId: l.accountId,
+          accountCode: l.account?.code || 'N/A',
+          accountName: l.account?.name || 'Unknown Account',
+          accountType: l.account?.type || 'ASSET',
+          debit: d,
+          credit: c,
+          description: l.description,
+        };
+      });
+
+      return {
+        id: entry.id,
+        entryNumber: entry.entryNumber,
+        date: entry.date.toISOString(),
+        description: entry.description,
+        referenceId: entry.referenceId,
+        referenceType: entry.referenceType,
+        status: entry.status,
+        totalDebit: debitSum,
+        totalCredit: creditSum,
+        isBalanced: Math.abs(debitSum - creditSum) < 0.01,
+        lines,
+      };
+    });
+
+    return {
+      data: formatted,
+      meta: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit) || 1,
+      },
+    };
+  }
 }
