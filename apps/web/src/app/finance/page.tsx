@@ -21,7 +21,16 @@ import {
   Layers,
   Clock,
 } from 'lucide-react';
-import { useFinanceDashboard, useReceipts, usePayments, useLedgerEntries, useCommissions, useSettlements, useIncentives } from '../../hooks/useFinance';
+import {
+  useFinanceDashboard,
+  useReceipts,
+  usePayments,
+  useLedgerEntries,
+  useCommissions,
+  useSettlements,
+  useIncentives,
+  useReconciliationQueue,
+} from '../../hooks/useFinance';
 import { VoucherPreviewModal, VoucherData } from '../../components/finance/vouchers/VoucherPreviewModal';
 import { EnterpriseTable } from '../../components/table/enterprise-table';
 import { StatusBadge } from '../../components/ui/status-badge';
@@ -37,6 +46,14 @@ export default function FinanceOperationsHubPage() {
   const { commissions = [], approveCommission } = useCommissions();
   const { data: settlements = [] } = useSettlements();
   const { data: incentives = [] } = useIncentives();
+  const {
+    data: reconQueue = [],
+    summary: reconSummary,
+    reconcilePayment,
+    flagDiscrepancy,
+    isReconciling,
+    isFlagging,
+  } = useReconciliationQueue();
 
   const safeReceipts = (Array.isArray(receipts) ? receipts : ((receipts as any)?.items || ((receipts as any)?.data) || [])) as any[];
   const safePayments = (Array.isArray(payments) ? payments : ((payments as any)?.items || ((payments as any)?.data) || [])) as any[];
@@ -176,12 +193,17 @@ export default function FinanceOperationsHubPage() {
               {metrics?.myWorkQueue.commissionApproval || 6} Payouts
             </div>
           </div>
-          <div className="p-3 rounded-xl border bg-muted/10 space-y-0.5">
+          <button
+            type="button"
+            onClick={() => setActiveTab('RECONCILIATION')}
+            className="p-3 rounded-xl border bg-muted/10 hover:bg-muted/30 transition text-left space-y-0.5"
+          >
             <span className="text-[10px] text-muted-foreground uppercase font-bold">Bank Reconciliation Queue</span>
-            <div className="font-extrabold text-foreground text-sm">
-              {metrics?.myWorkQueue.reconciliationQueue || 3} Batches
+            <div className="font-extrabold text-foreground text-sm flex items-center justify-between">
+              <span>{reconSummary?.pendingCount ?? (metrics?.myWorkQueue.reconciliationQueue || 0)} Pending</span>
+              <span className="text-[10px] text-primary underline font-medium">View Queue →</span>
             </div>
-          </div>
+          </button>
         </div>
       </div>
 
@@ -190,6 +212,7 @@ export default function FinanceOperationsHubPage() {
         <div className="flex border-b text-xs overflow-x-auto p-1.5 bg-muted/20 space-x-1">
           {[
             { id: 'OVERVIEW', label: 'Finance Hub' },
+            { id: 'RECONCILIATION', label: 'Reconciliation Queue (G020)', badge: reconQueue.length },
             { id: 'RECEIPTS', label: 'Receipts Register', badge: receipts.length },
             { id: 'PAYMENTS', label: 'Payment Register', badge: payments.length },
             { id: 'LEDGER', label: 'Double-Entry Ledger' },
@@ -293,7 +316,173 @@ export default function FinanceOperationsHubPage() {
             </div>
           )}
 
-          {/* 4.2 RECEIPTS REGISTER */}
+          {/* 4.2 RECONCILIATION QUEUE (G020) */}
+          {activeTab === 'RECONCILIATION' && (
+            <div className="space-y-4">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+                <div>
+                  <h4 className="font-bold text-sm flex items-center gap-2">
+                    <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                    Bank & Payment Reconciliation Queue (Contract 04 / G020)
+                  </h4>
+                  <p className="text-[11px] text-muted-foreground">
+                    Authoritative queue of recorded premium payments requiring bank statement confirmation before policy issuance.
+                  </p>
+                </div>
+              </div>
+
+              {/* Reconciliation Summary Cards */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="p-3.5 rounded-xl border bg-amber-500/5 border-amber-500/20 space-y-1">
+                  <div className="text-[10px] uppercase font-bold text-amber-600">Pending Bank Clearance</div>
+                  <div className="text-xl font-extrabold text-amber-700">
+                    {reconSummary?.pendingCount || 0}
+                    <span className="text-xs font-normal text-muted-foreground ml-1.5">
+                      (₹{(reconSummary?.totalPendingAmount || 0).toLocaleString('en-IN')})
+                    </span>
+                  </div>
+                </div>
+                <div className="p-3.5 rounded-xl border bg-emerald-500/5 border-emerald-500/20 space-y-1">
+                  <div className="text-[10px] uppercase font-bold text-emerald-600">Reconciled & Cleared</div>
+                  <div className="text-xl font-extrabold text-emerald-700">
+                    {reconSummary?.reconciledCount || 0}
+                    <span className="text-xs font-normal text-muted-foreground ml-1.5">
+                      (₹{(reconSummary?.totalReconciledAmount || 0).toLocaleString('en-IN')})
+                    </span>
+                  </div>
+                </div>
+                <div className="p-3.5 rounded-xl border bg-red-500/5 border-red-500/20 space-y-1">
+                  <div className="text-[10px] uppercase font-bold text-red-600">Active Discrepancies</div>
+                  <div className="text-xl font-extrabold text-red-700">
+                    {reconSummary?.discrepancyCount || 0}
+                  </div>
+                </div>
+              </div>
+
+              {/* Reconciliation Table */}
+              <div className="border rounded-xl overflow-hidden">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="bg-muted/40 text-[10px] text-muted-foreground font-bold border-b uppercase">
+                      <th className="p-3">Quote / Customer</th>
+                      <th className="p-3">Payable vs Paid</th>
+                      <th className="p-3">Reference / UTR</th>
+                      <th className="p-3">Method</th>
+                      <th className="p-3">Aging / Urgency</th>
+                      <th className="p-3">Reconciliation Status</th>
+                      <th className="p-3 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y text-xs">
+                    {reconQueue.length === 0 ? (
+                      <tr>
+                        <td colSpan={7} className="p-8 text-center text-muted-foreground">
+                          No pending payments in reconciliation queue. All bank statements are reconciled!
+                        </td>
+                      </tr>
+                    ) : (
+                      reconQueue.map((item: any) => (
+                        <tr key={item.id} className="hover:bg-accent/40">
+                          <td className="p-3">
+                            <div className="font-bold text-primary font-mono">{item.quotationCode}</div>
+                            <div className="font-semibold text-foreground">{item.customerName}</div>
+                            <div className="text-[10px] text-muted-foreground">{item.productType} • {item.insurerName}</div>
+                          </td>
+                          <td className="p-3 font-mono">
+                            <div className="font-bold text-foreground">₹{item.paidAmount?.toLocaleString('en-IN')}</div>
+                            <div className="text-[10px] text-muted-foreground">Req: ₹{item.totalPayableAmount?.toLocaleString('en-IN')}</div>
+                            {item.variance !== 0 && (
+                              <span className={`text-[10px] font-bold ${item.variance < 0 ? 'text-red-500' : 'text-emerald-600'}`}>
+                                {item.variance > 0 ? `+₹${item.variance}` : `-₹${Math.abs(item.variance)}`}
+                              </span>
+                            )}
+                          </td>
+                          <td className="p-3 font-mono text-muted-foreground">
+                            {item.referenceNumber}
+                          </td>
+                          <td className="p-3">
+                            <span className="px-2 py-0.5 rounded bg-muted text-[10px] font-semibold">
+                              {item.paymentMethod}
+                            </span>
+                          </td>
+                          <td className="p-3">
+                            <div className="flex items-center space-x-1.5">
+                              <span
+                                className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+                                  item.urgency === 'HIGH'
+                                    ? 'bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300'
+                                    : item.urgency === 'MEDIUM'
+                                      ? 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300'
+                                      : 'bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300'
+                                }`}
+                              >
+                                {item.urgency}
+                              </span>
+                              <span className="text-[10px] text-muted-foreground">
+                                {item.agingHours}h ago
+                              </span>
+                            </div>
+                          </td>
+                          <td className="p-3">
+                            <StatusBadge status={item.reconciliationStatus} />
+                            {item.discrepancyReason && (
+                              <div className="text-[10px] text-red-600 mt-1 font-medium max-w-[180px] truncate" title={item.discrepancyReason}>
+                                {item.discrepancyReason}
+                              </div>
+                            )}
+                          </td>
+                          <td className="p-3 text-right">
+                            {item.reconciliationStatus === 'PENDING_RECONCILIATION' || item.reconciliationStatus === 'UNDER_PROCESS' ? (
+                              <div className="flex items-center justify-end space-x-1.5">
+                                <button
+                                  type="button"
+                                  disabled={isReconciling}
+                                  onClick={() => {
+                                    const bankRef = window.prompt('Enter Bank Statement UTR / Reference Number:', item.referenceNumber);
+                                    if (bankRef) {
+                                      reconcilePayment({
+                                        id: item.id,
+                                        data: { bankReference: bankRef, notes: 'Confirmed with Bank Statement' },
+                                      });
+                                    }
+                                  }}
+                                  className="px-2.5 py-1 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] shadow-sm transition"
+                                >
+                                  Reconcile
+                                </button>
+                                <button
+                                  type="button"
+                                  disabled={isFlagging}
+                                  onClick={() => {
+                                    const reason = window.prompt('Reason for discrepancy (e.g. amount mismatch, UTR invalid):');
+                                    if (reason) {
+                                      flagDiscrepancy({
+                                        id: item.id,
+                                        data: { reason },
+                                      });
+                                    }
+                                  }}
+                                  className="px-2 py-1 rounded-md border border-red-300 hover:bg-red-50 text-red-600 dark:hover:bg-red-950/50 font-semibold text-[11px] transition"
+                                >
+                                  Discrepancy
+                                </button>
+                              </div>
+                            ) : (
+                              <span className="text-[10px] text-muted-foreground italic">
+                                {item.reconciliationStatus === 'RECONCILED' ? 'Cleared' : 'Flagged'}
+                              </span>
+                            )}
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* 4.3 RECEIPTS REGISTER */}
           {activeTab === 'RECEIPTS' && (
             <div className="space-y-4">
               <div className="flex justify-between items-center">

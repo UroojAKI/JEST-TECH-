@@ -96,3 +96,50 @@ export function useIncentives() {
     queryFn: () => financeRepository.getIncentives(),
   });
 }
+
+export function useReconciliationQueue(params?: { status?: string; search?: string; page?: number; limit?: number }) {
+  const queryClient = useQueryClient();
+
+  const query = useQuery({
+    queryKey: ['finance-reconciliation-queue', params],
+    queryFn: () => financeRepository.getReconciliationQueue(params),
+  });
+
+  const reconcileMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: any }) =>
+      financeRepository.reconcilePayment(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['finance-reconciliation-queue'] });
+      queryClient.invalidateQueries({ queryKey: ['finance-dashboard'] });
+      toast.success('Payment successfully reconciled with bank statement!');
+    },
+    onError: (err: any) => {
+      toast.error(err.response?.data?.message || 'Failed to reconcile payment');
+    },
+  });
+
+  const discrepancyMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: any }) =>
+      financeRepository.flagDiscrepancy(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['finance-reconciliation-queue'] });
+      queryClient.invalidateQueries({ queryKey: ['finance-dashboard'] });
+      toast.success('Discrepancy flagged and recorded.');
+    },
+    onError: (err: any) => {
+      toast.error(err.response?.data?.message || 'Failed to flag discrepancy');
+    },
+  });
+
+  return {
+    data: query.data?.data || [],
+    meta: query.data?.meta,
+    summary: query.data?.summary,
+    isLoading: query.isLoading,
+    isError: query.isError,
+    reconcilePayment: reconcileMutation.mutate,
+    isReconciling: reconcileMutation.isPending,
+    flagDiscrepancy: discrepancyMutation.mutate,
+    isFlagging: discrepancyMutation.isPending,
+  };
+}

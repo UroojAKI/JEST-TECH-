@@ -15,7 +15,11 @@ import { RoleType } from '@prisma/client';
 import { LedgerService, CreateJournalEntryDto } from '../accounting/services/ledger/ledger.service';
 import { CommissionEngineService } from '../commission/services/commission-engine/commission-engine.service';
 import { PaymentService } from '../revenue/services/payment/payment.service';
+import { FinanceReconciliationService, ReconcilePaymentDto, DiscrepancyDto } from '../services/finance-reconciliation.service';
 import { PrismaService } from '../../../database/prisma.service';
+import { CurrentUser } from '../../auth/decorators/current-user.decorator';
+import type { RequestUser } from '../../auth/decorators/current-user.decorator';
+import { PaymentTrackingStatus } from '@prisma/client';
 
 @ApiTags('Finance')
 @ApiBearerAuth()
@@ -26,6 +30,7 @@ export class FinanceController {
     private readonly ledgerService: LedgerService,
     private readonly commissionEngineService: CommissionEngineService,
     private readonly paymentService: PaymentService,
+    private readonly reconciliationService: FinanceReconciliationService,
     private readonly prisma: PrismaService,
   ) {}
 
@@ -34,10 +39,11 @@ export class FinanceController {
   @ApiOperation({ summary: 'Get aggregated finance operations dashboard metrics' })
   async getDashboardMetrics() {
     try {
-      const [receiptsCount, commissionsCount, settlementsCount] = await Promise.all([
+      const [receiptsCount, commissionsCount, settlementsCount, reconciliationCount] = await Promise.all([
         this.prisma.receipt.count(),
         this.prisma.commission.count(),
         this.prisma.settlement.count(),
+        this.prisma.motorPaymentRecord.count({ where: { status: PaymentTrackingStatus.PAID } }),
       ]);
 
       return {
@@ -55,12 +61,51 @@ export class FinanceController {
           pendingVerification: 4,
           settlementsPending: settlementsCount,
           commissionApproval: commissionsCount,
-          reconciliationQueue: 3,
+          reconciliationQueue: reconciliationCount,
         },
       };
     } catch (error) {
       return { error: 'Failed to fetch dashboard metrics' };
     }
+  }
+
+  @Get('reconciliation-queue')
+  @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN, RoleType.FINANCE, RoleType.BRANCH_MANAGER)
+  @ApiOperation({ summary: 'Get finance reconciliation queue sorted by urgency (G020)' })
+  async getReconciliationQueue(
+    @Query('status') status?: string,
+    @Query('search') search?: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.reconciliationService.getReconciliationQueue({
+      status,
+      search,
+      page: page ? parseInt(page) : undefined,
+      limit: limit ? parseInt(limit) : undefined,
+    });
+  }
+
+  @Post('reconciliation-queue/:id/reconcile')
+  @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN, RoleType.FINANCE)
+  @ApiOperation({ summary: 'Reconcile payment item against bank statement (advances quote to PAYMENT_CONFIRMED)' })
+  async reconcilePayment(
+    @Param('id') id: string,
+    @Body() dto: ReconcilePaymentDto,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.reconciliationService.reconcilePayment(id, user.id, dto);
+  }
+
+  @Post('reconciliation-queue/:id/discrepancy')
+  @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN, RoleType.FINANCE)
+  @ApiOperation({ summary: 'Flag discrepancy on payment item with mandatory reason' })
+  async flagDiscrepancy(
+    @Param('id') id: string,
+    @Body() dto: DiscrepancyDto,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.reconciliationService.flagDiscrepancy(id, user.id, dto);
   }
 
   @Get('receipts')

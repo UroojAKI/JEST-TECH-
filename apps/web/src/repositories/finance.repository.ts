@@ -149,4 +149,19 @@ export const financeRepository = {
     const response = await apiClient.get('/finance/incentives');
     return toArray<IncentiveItem>(response.data);
   },
+
+  async getReconciliationQueue(params?: { status?: string; search?: string; page?: number; limit?: number }) {
+    const response = await apiClient.get('/finance/reconciliation-queue', { params });
+    return response.data;
+  },
+
+  async reconcilePayment(id: string, data: { bankReference?: string; bankTransactionDate?: string; notes?: string }) {
+    const response = await apiClient.post(`/finance/reconciliation-queue/${id}/reconcile`, data);
+    return response.data;
+  },
+
+  async flagDiscrepancy(id: string, data: { reason: string; notes?: string }) {
+    const response = await apiClient.post(`/finance/reconciliation-queue/${id}/discrepancy`, data);
+    return response.data;
+  },
 };
