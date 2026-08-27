@@ -40,6 +40,11 @@ export class AnalyticsController {
     return this.revenueAnalytics.getOverview();
   }
 
+  @Get('revenue/trend')
+  getRevenueTrend() {
+    return this.revenueAnalytics.getMonthlyTrend();
+  }
+
   @Get('renewals')
   getRenewalsAnalytics() {
     return this.renewalAnalytics.getOverview();

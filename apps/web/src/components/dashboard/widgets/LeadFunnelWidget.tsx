@@ -15,14 +15,14 @@ export function LeadFunnelWidget() {
   const convertedCount = leadsList.filter((l: any) => l.status === 'POLICY_ISSUED' || l.status === 'PAYMENT_RECEIVED' || l.status === 'CONVERTED').length;
 
   const funnelData = [
-    { stage: 'New Leads', count: newCount || 1 },
-    { stage: 'Contacted', count: contactedCount || 0 },
-    { stage: 'Quoted', count: quotedCount || 0 },
-    { stage: 'Converted', count: convertedCount || 0 },
+    { stage: 'New Leads', count: newCount },
+    { stage: 'Contacted', count: contactedCount },
+    { stage: 'Quoted', count: quotedCount },
+    { stage: 'Converted', count: convertedCount },
   ];
 
-  const totalLeads = leadsList.length || 1;
-  const conversionPct = ((convertedCount / totalLeads) * 100).toFixed(1);
+  const totalLeads = leadsList.length;
+  const conversionPct = totalLeads > 0 ? ((convertedCount / totalLeads) * 100).toFixed(1) : '0.0';
 
 
   return (

@@ -65,4 +65,33 @@ export class RevenueAnalyticsService {
       lastYear,
     };
   }
+
+  async getMonthlyTrend() {
+    const months: { month: string; GWP: number }[] = [];
+    const now = new Date();
+
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const startOfMonth = new Date(d.getFullYear(), d.getMonth(), 1);
+      const endOfMonth = new Date(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 59);
+
+      const monthLabel = d.toLocaleString('en-IN', { month: 'short', year: 'numeric' });
+
+      const sum = await this.prisma.policy.aggregate({
+        _sum: { premiumAmount: true },
+        where: {
+          status: { in: ['ACTIVE', 'RENEWED', 'PENDING_RENEWAL'] },
+          effectiveDate: { gte: startOfMonth, lte: endOfMonth },
+          deletedAt: null,
+        },
+      });
+
+      months.push({
+        month: monthLabel,
+        GWP: sum._sum.premiumAmount ? Number(sum._sum.premiumAmount) : 0,
+      });
+    }
+
+    return months;
+  }
 }
