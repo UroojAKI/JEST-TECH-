@@ -359,4 +359,107 @@ describe('BOLA & Multi-User Authorization Suite (R1 Exit Gate)', () => {
       ).rejects.toThrow(ForbiddenException);
     });
   });
+
+  describe('10. Assignment Boundary Enforcement', () => {
+    it('should reject Sales Agent attempting to assign a lead', () => {
+      const salesAgent = createActor({
+        userId: 'usr-agent-1',
+        role: RoleType.SALES_AGENT,
+        roles: [RoleType.SALES_AGENT],
+      });
+
+      expect(() => {
+        authzService.authorize(salesAgent, 'LEAD', 'ASSIGN', { id: 'lead-1' });
+      }).toThrow(ForbiddenException);
+    });
+
+    it('should reject Team Leader attempting to assign a lead outside their team', () => {
+      const teamLeaderAlpha = createActor({
+        userId: 'usr-tl-alpha',
+        role: RoleType.TEAM_LEADER,
+        roles: [RoleType.TEAM_LEADER],
+        teamId: 'team-alpha',
+      });
+
+      const leadBeta = { id: 'lead-beta', teamId: 'team-beta', organizationId: 'org-mumbai' };
+
+      expect(() => {
+        authzService.authorize(teamLeaderAlpha, 'LEAD', 'ASSIGN', leadBeta);
+      }).toThrow(ForbiddenException);
+    });
+
+    it('should reject Branch Manager attempting to assign a lead outside their branch', () => {
+      const branchManagerAndheri = createActor({
+        userId: 'usr-bm-andheri',
+        role: RoleType.BRANCH_MANAGER,
+        roles: [RoleType.BRANCH_MANAGER],
+        branchId: 'br-andheri',
+      });
+
+      const leadBandra = { id: 'lead-bandra', branchId: 'br-bandra', organizationId: 'org-mumbai' };
+
+      expect(() => {
+        authzService.authorize(branchManagerAndheri, 'LEAD', 'ASSIGN', leadBandra);
+      }).toThrow(ForbiddenException);
+    });
+
+    it('should allow Branch Manager to assign a lead within their branch', () => {
+      const branchManagerAndheri = createActor({
+        userId: 'usr-bm-andheri',
+        role: RoleType.BRANCH_MANAGER,
+        roles: [RoleType.BRANCH_MANAGER],
+        branchId: 'br-andheri',
+      });
+
+      const leadAndheri = { id: 'lead-andheri', branchId: 'br-andheri', organizationId: 'org-mumbai' };
+
+      expect(authzService.authorize(branchManagerAndheri, 'LEAD', 'ASSIGN', leadAndheri)).toBe(true);
+    });
+  });
+
+  describe('11. ScopeResolver Multi-Tenant Anchoring', () => {
+    it('should anchor organizationId for Admin when actor.organizationId is present', () => {
+      const admin = createActor({
+        userId: 'usr-admin-1',
+        role: RoleType.ADMIN,
+        roles: [RoleType.ADMIN],
+        organizationId: 'org-mumbai',
+      });
+
+      const filter = scopeResolver.resolveScopeFilter(admin, 'LEAD');
+      expect(filter).toEqual({ organizationId: 'org-mumbai' });
+    });
+
+    it('should anchor organizationId for Sales Agent in Lead filter', () => {
+      const agent = createActor({
+        userId: 'usr-agent-1',
+        role: RoleType.SALES_AGENT,
+        roles: [RoleType.SALES_AGENT],
+        organizationId: 'org-mumbai',
+      });
+
+      const filter = scopeResolver.resolveScopeFilter(agent, 'LEAD');
+      expect(filter).toEqual({
+        organizationId: 'org-mumbai',
+        OR: [
+          { assignedToId: 'usr-agent-1' },
+          { createdById: 'usr-agent-1' },
+        ],
+      });
+    });
+  });
+
+  describe('12. Nested Relation Ownership Authorization', () => {
+    it('should allow Sales Agent to view quotation when agent is the assigned lead owner', () => {
+      const agent = createActor({ userId: 'usr-agent-1' });
+      const quotation = {
+        id: 'q-nested-1',
+        createdById: 'usr-agent-other',
+        organizationId: 'org-mumbai',
+        lead: { assignedToId: 'usr-agent-1' },
+      };
+
+      expect(authzService.authorize(agent, 'QUOTATION', 'READ', quotation)).toBe(true);
+    });
+  });
 });

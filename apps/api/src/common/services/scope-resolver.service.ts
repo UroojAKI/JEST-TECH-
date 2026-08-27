@@ -39,20 +39,23 @@ export class ScopeResolver {
     }
 
     const actorRoles: RoleType[] = actor.roles || [actor.role];
+    const base: Record<string, any> = actor.organizationId ? { organizationId: actor.organizationId } : {};
 
     if (actorRoles.some((r) => ADMIN_ROLES.includes(r))) {
-      return {};
+      return base;
     }
 
     if (actorRoles.some((r) => OPERATIONAL_ROLES.includes(r))) {
-      return {};
+      return base;
     }
 
     if (actorRoles.some((r) => BRANCH_ROLES.includes(r)) && actor.branchId) {
       return {
+        ...base,
         OR: [
           { branchId: actor.branchId },
           { createdBy: { branchId: actor.branchId } },
+          { assignedTo: { branchId: actor.branchId } },
           { createdById: actor.userId },
         ],
       };
@@ -60,9 +63,11 @@ export class ScopeResolver {
 
     if (actorRoles.some((r) => TEAM_ROLES.includes(r)) && actor.teamId) {
       return {
+        ...base,
         OR: [
           { teamId: actor.teamId },
           { createdBy: { teamId: actor.teamId } },
+          { assignedTo: { teamId: actor.teamId } },
           { createdById: actor.userId },
         ],
       };
@@ -71,6 +76,7 @@ export class ScopeResolver {
     switch (resourceType) {
       case 'LEAD':
         return {
+          ...base,
           OR: [
             { assignedToId: actor.userId },
             { createdById: actor.userId },
@@ -78,6 +84,7 @@ export class ScopeResolver {
         };
       case 'QUOTATION':
         return {
+          ...base,
           OR: [
             { createdById: actor.userId },
             { lead: { assignedToId: actor.userId } },
@@ -85,6 +92,7 @@ export class ScopeResolver {
         };
       case 'POLICY':
         return {
+          ...base,
           OR: [
             { createdById: actor.userId },
             { quotation: { createdById: actor.userId } },
@@ -92,6 +100,7 @@ export class ScopeResolver {
         };
       case 'CLAIM':
         return {
+          ...base,
           OR: [
             { createdById: actor.userId },
             { policy: { createdById: actor.userId } },
@@ -99,6 +108,7 @@ export class ScopeResolver {
         };
       case 'RENEWAL_TASK':
         return {
+          ...base,
           OR: [
             { agentId: actor.userId },
             { policy: { createdById: actor.userId } },
@@ -106,6 +116,7 @@ export class ScopeResolver {
         };
       default:
         return {
+          ...base,
           createdById: actor.userId,
         };
     }

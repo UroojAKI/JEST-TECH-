@@ -212,7 +212,10 @@ export class ResourceAuthorizationService {
       resource.createdById === actor.userId ||
       resource.assignedToId === actor.userId ||
       resource.agentId === actor.userId ||
-      resource.userId === actor.userId;
+      resource.userId === actor.userId ||
+      (resource.lead && (resource.lead.assignedToId === actor.userId || resource.lead.createdById === actor.userId)) ||
+      (resource.quotation && resource.quotation.createdById === actor.userId) ||
+      (resource.policy && resource.policy.createdById === actor.userId);
 
     if (isOwner) {
       return true;
@@ -260,12 +263,27 @@ export class ResourceAuthorizationService {
     return true;
   }
 
-  canAssign(actor: ActorContext, _resource: any, _resourceType: ResourceType): boolean {
+  canAssign(actor: ActorContext, resource: any, _resourceType: ResourceType): boolean {
     const actorRoles: RoleType[] = actor.roles || [actor.role];
     const canAssign = actorRoles.some((r) => ASSIGNERS.includes(r));
     if (!canAssign) {
       throw new ForbiddenException('Only Managers and Administrators can assign records');
     }
+
+    // Cross-team assignment restriction for Team Leaders
+    if (actorRoles.includes(RoleType.TEAM_LEADER) && !actorRoles.some((r) => ADMIN_ROLES.includes(r) || r === RoleType.BRANCH_MANAGER)) {
+      if (resource && resource.teamId && actor.teamId && resource.teamId !== actor.teamId) {
+        throw new ForbiddenException('Team Leaders cannot assign records outside their team');
+      }
+    }
+
+    // Cross-branch assignment restriction for Branch Managers
+    if (actorRoles.includes(RoleType.BRANCH_MANAGER) && !actorRoles.some((r) => ADMIN_ROLES.includes(r))) {
+      if (resource && resource.branchId && actor.branchId && resource.branchId !== actor.branchId) {
+        throw new ForbiddenException('Branch Managers cannot assign records outside their branch');
+      }
+    }
+
     return true;
   }
 

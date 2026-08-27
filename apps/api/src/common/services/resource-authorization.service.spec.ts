@@ -160,11 +160,12 @@ describe('ResourceAuthorizationService & ScopeResolver (Iteration 3)', () => {
   });
 
   describe('ScopeResolver Filter Generation', () => {
-    it('should generate strict OWN filter for Sales Agents', () => {
+    it('should generate strict OWN filter for Sales Agents with tenant isolation', () => {
       const salesActor = createActor({ userId: 'usr-agent-a' });
       const filter = scopeResolver.resolveScopeFilter(salesActor, 'QUOTATION');
 
       expect(filter).toEqual({
+        organizationId: 'org-mumbai',
         OR: [
           { createdById: 'usr-agent-a' },
           { lead: { assignedToId: 'usr-agent-a' } },
@@ -172,12 +173,17 @@ describe('ResourceAuthorizationService & ScopeResolver (Iteration 3)', () => {
       });
     });
 
-    it('should generate empty (unrestricted) filter for Admins and Operations', () => {
+    it('should generate organization-scoped filter for Admins and Operations', () => {
       const admin = createActor({ role: RoleType.ADMIN, roles: [RoleType.ADMIN] });
       const ops = createActor({ role: RoleType.OPERATIONS, roles: [RoleType.OPERATIONS] });
 
-      expect(scopeResolver.resolveScopeFilter(admin, 'QUOTATION')).toEqual({});
-      expect(scopeResolver.resolveScopeFilter(ops, 'POLICY')).toEqual({});
+      expect(scopeResolver.resolveScopeFilter(admin, 'QUOTATION')).toEqual({ organizationId: 'org-mumbai' });
+      expect(scopeResolver.resolveScopeFilter(ops, 'POLICY')).toEqual({ organizationId: 'org-mumbai' });
+    });
+
+    it('should generate completely empty filter only for Super Admin without organizationId', () => {
+      const globalSuperAdmin = createActor({ organizationId: undefined, role: RoleType.SUPER_ADMIN, roles: [RoleType.SUPER_ADMIN] });
+      expect(scopeResolver.resolveScopeFilter(globalSuperAdmin, 'QUOTATION')).toEqual({});
     });
   });
 });
