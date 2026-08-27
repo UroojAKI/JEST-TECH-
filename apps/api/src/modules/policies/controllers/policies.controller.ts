@@ -174,6 +174,64 @@ export class PoliciesController {
     return this.renewalEngineService.getRenewalPipeline(user, pagination);
   }
 
+  @Get('renewals/queue')
+  @Roles(
+    RoleType.SUPER_ADMIN,
+    RoleType.ADMIN,
+    RoleType.BRANCH_MANAGER,
+    RoleType.TEAM_LEADER,
+    RoleType.SALES_AGENT,
+    RoleType.RENEWAL_EXECUTIVE,
+  )
+  @ApiOperation({ summary: 'Get authoritative Renewal Executive Queue with NCB roll-over and urgency breakdown' })
+  async getRenewalQueue(
+    @Query('search') search?: string,
+    @Query('urgency') urgency?: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.renewalEngineService.getRenewalQueue({
+      search,
+      urgency,
+      page: page ? parseInt(page) : undefined,
+      limit: limit ? parseInt(limit) : undefined,
+    });
+  }
+
+  @Post('renewals/:id/remind')
+  @Roles(
+    RoleType.SUPER_ADMIN,
+    RoleType.ADMIN,
+    RoleType.BRANCH_MANAGER,
+    RoleType.TEAM_LEADER,
+    RoleType.SALES_AGENT,
+    RoleType.RENEWAL_EXECUTIVE,
+  )
+  @ApiOperation({ summary: 'Dispatch on-demand renewal reminder to customer' })
+  async triggerManualReminder(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.renewalEngineService.triggerManualReminder(id, user.id);
+  }
+
+  @Post('renewals/:id/escalate')
+  @Roles(
+    RoleType.SUPER_ADMIN,
+    RoleType.ADMIN,
+    RoleType.BRANCH_MANAGER,
+    RoleType.TEAM_LEADER,
+    RoleType.SALES_AGENT,
+    RoleType.RENEWAL_EXECUTIVE,
+  )
+  @ApiOperation({ summary: 'Escalate critical expiring renewal to Branch Management' })
+  async escalateRenewal(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.renewalEngineService.escalateRenewal(id, user.id);
+  }
+
   @Post('renewal/trigger-scan')
   @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN)
   async triggerRenewalScan() {

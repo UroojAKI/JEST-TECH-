@@ -63,4 +63,24 @@ export const policiesRepository = {
     const response = await apiClient.post(`/back-office/issue/${quotationId}`);
     return response.data;
   },
+
+  async getRenewalQueue(params?: { search?: string; urgency?: string; page?: number; limit?: number }): Promise<any> {
+    const response = await apiClient.get('/policies/renewals/queue', { params });
+    return response.data;
+  },
+
+  async sendRenewalReminder(policyId: string): Promise<any> {
+    const response = await apiClient.post(`/policies/renewals/${policyId}/remind`);
+    return response.data;
+  },
+
+  async escalateRenewal(policyId: string): Promise<any> {
+    const response = await apiClient.post(`/policies/renewals/${policyId}/escalate`);
+    return response.data;
+  },
+
+  async getRenewalKpis(): Promise<any> {
+    const response = await apiClient.get('/policies/renewals/kpis');
+    return response.data;
+  },
 };

@@ -87,4 +87,82 @@ describe('RenewalEngineService (Iteration 10)', () => {
       });
     });
   });
+
+  describe('getRenewalQueue', () => {
+    it('should calculate rolled-over NCB and mark urgency correctly', async () => {
+      const now = new Date();
+      const in5Days = new Date(now.getTime() + 5 * 86400000);
+
+      const mockPolicies = [
+        {
+          id: 'pol-10',
+          policyNumber: 'POL-M-10',
+          premiumAmount: 20000,
+          expiryDate: in5Days,
+          contact: { firstName: 'Amit', lastName: 'Patel', phone: '9876543210' },
+          claims: [], // No claims
+          quotation: { ncbPercentage: 20, insurerName: 'Tata AIG' },
+          renewalTasks: [],
+        },
+      ];
+
+      prisma.policy.findMany.mockResolvedValue(mockPolicies);
+
+      const result = await service.getRenewalQueue();
+
+      expect(result.data).toHaveLength(1);
+      const item = result.data[0];
+      expect(item.urgency).toBe('CRITICAL'); // <= 7 days
+      expect(item.currentNcb).toBe(20);
+      expect(item.nextNcb).toBe(25); // incremented from 20 to 25
+      expect(item.estimatedRenewalPremium).toBe(15000); // 20000 * (1 - 0.25)
+      expect(result.summary.criticalCount).toBe(1);
+    });
+
+    it('should reset NCB to 0 if claims are reported in prior year', async () => {
+      const now = new Date();
+      const in20Days = new Date(now.getTime() + 20 * 86400000);
+
+      const mockPolicies = [
+        {
+          id: 'pol-11',
+          policyNumber: 'POL-M-11',
+          premiumAmount: 20000,
+          expiryDate: in20Days,
+          contact: { firstName: 'Sara', lastName: 'Ali' },
+          claims: [{ id: 'clm-1', status: 'SETTLED' }], // Claim reported!
+          quotation: { ncbPercentage: 35 },
+          renewalTasks: [],
+        },
+      ];
+
+      prisma.policy.findMany.mockResolvedValue(mockPolicies);
+
+      const result = await service.getRenewalQueue();
+
+      const item = result.data[0];
+      expect(item.urgency).toBe('MEDIUM'); // 20 days
+      expect(item.nextNcb).toBe(0); // Reset to 0 due to claim!
+      expect(item.estimatedRenewalPremium).toBe(20000);
+    });
+  });
+
+  describe('triggerManualReminder', () => {
+    it('should add immediate reminder job to BullMQ queue', async () => {
+      prisma.policy.findUnique.mockResolvedValue({
+        id: 'pol-1',
+        policyNumber: 'POL-1',
+        expiryDate: new Date(),
+        contactId: 'c-1',
+      });
+
+      const result = await service.triggerManualReminder('pol-1', 'agent-1');
+
+      expect(result.success).toBe(true);
+      expect(queue.add).toHaveBeenCalledWith('send-renewal-reminder', expect.objectContaining({
+        policyId: 'pol-1',
+        isManualTrigger: true,
+      }));
+    });
+  });
 });
