@@ -10,6 +10,9 @@ import { ReportClaimService } from './services/commands/report-claim.service';
 import { UploadClaimDocumentService } from './services/commands/upload-claim-document.service';
 import { AssignSurveyorService } from './services/commands/assign-surveyor.service';
 import { CloseClaimService } from './services/commands/close-claim.service';
+import { ApproveClaimService } from './services/commands/approve-claim.service';
+import { SettleClaimService } from './services/commands/settle-claim.service';
+import { RejectClaimService } from './services/commands/reject-claim.service';
 
 // CQRS Queries
 import { GetClaimsService } from './services/queries/get-claims.service';
@@ -28,11 +31,21 @@ import { ClaimReportProvider } from './providers/claim-report.provider';
     UploadClaimDocumentService,
     AssignSurveyorService,
     CloseClaimService,
+    ApproveClaimService,
+    SettleClaimService,
+    RejectClaimService,
     // CQRS Queries
     GetClaimsService,
     // Report Provider
     ClaimReportProvider,
   ],
-  exports: [ClaimRepository, GetClaimsService, ClaimReportProvider],
+  exports: [
+    ClaimRepository,
+    GetClaimsService,
+    ClaimReportProvider,
+    ApproveClaimService,
+    SettleClaimService,
+    RejectClaimService,
+  ],
 })
 export class ClaimsModule {}

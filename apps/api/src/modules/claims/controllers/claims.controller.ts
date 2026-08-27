@@ -26,8 +26,10 @@ import { AssignSurveyorDto } from '../dto/assign-surveyor.dto';
 import { ReportClaimService } from '../services/commands/report-claim.service';
 import { UploadClaimDocumentService } from '../services/commands/upload-claim-document.service';
 import { AssignSurveyorService } from '../services/commands/assign-surveyor.service';
-
 import { CloseClaimService } from '../services/commands/close-claim.service';
+import { ApproveClaimService, ApproveClaimDto } from '../services/commands/approve-claim.service';
+import { SettleClaimService, SettleClaimDto } from '../services/commands/settle-claim.service';
+import { RejectClaimService, RejectClaimDto } from '../services/commands/reject-claim.service';
 import { GetClaimsService } from '../services/queries/get-claims.service';
 
 @ApiTags('Claims')
@@ -39,7 +41,9 @@ export class ClaimsController {
     private readonly reportClaimService: ReportClaimService,
     private readonly uploadClaimDocumentService: UploadClaimDocumentService,
     private readonly assignSurveyorService: AssignSurveyorService,
-
+    private readonly approveClaimService: ApproveClaimService,
+    private readonly settleClaimService: SettleClaimService,
+    private readonly rejectClaimService: RejectClaimService,
     private readonly closeClaimService: CloseClaimService,
     private readonly getClaimsService: GetClaimsService,
   ) {}
@@ -135,6 +139,39 @@ export class ClaimsController {
   }
 
 
+
+  @Post(':id/approve')
+  @HttpCode(HttpStatus.OK)
+  @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN, RoleType.CLAIMS_OFFICER, RoleType.OPERATIONS)
+  approve(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: ApproveClaimDto,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.approveClaimService.execute(id, dto, user.id);
+  }
+
+  @Post(':id/settle')
+  @HttpCode(HttpStatus.OK)
+  @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN, RoleType.CLAIMS_OFFICER, RoleType.FINANCE)
+  settle(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: SettleClaimDto,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.settleClaimService.execute(id, dto, user.id);
+  }
+
+  @Post(':id/reject')
+  @HttpCode(HttpStatus.OK)
+  @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN, RoleType.CLAIMS_OFFICER)
+  reject(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: RejectClaimDto,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.rejectClaimService.execute(id, dto, user.id);
+  }
 
   @Post(':id/close')
   @HttpCode(HttpStatus.OK)

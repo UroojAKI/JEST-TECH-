@@ -29,19 +29,36 @@ export const claimsRepository = {
     return response.data;
   },
 
+  async approveClaim(id: string, data: { approvedAmount: number; comments?: string }): Promise<Claim> {
+    const response = await apiClient.post(`/claims/${id}/approve`, data);
+    return response.data;
+  },
+
+  async settleClaim(id: string, data: { settlementAmount: number; paymentReference: string; paymentMethod: string; bankName?: string; comments?: string }): Promise<Claim> {
+    const response = await apiClient.post(`/claims/${id}/settle`, data);
+    return response.data;
+  },
+
+  async rejectClaim(id: string, data: { reason: string; comments?: string }): Promise<Claim> {
+    const response = await apiClient.post(`/claims/${id}/reject`, data);
+    return response.data;
+  },
+
   async updateClaimStatus(id: string, status: string, approvedAmount?: number): Promise<Claim> {
     let response;
     if (status === 'UNDER_REVIEW') {
       response = await apiClient.post(`/claims/${id}/assign-surveyor`, { surveyorId: 'default' });
     } else if (status === 'APPROVED') {
-      if (approvedAmount !== undefined) {
-        await apiClient.post(`/claims/${id}/assess`, { assessmentAmount: approvedAmount, assessmentNotes: 'Auto assessed' });
-      }
-      response = await apiClient.post(`/claims/${id}/approve`, { approve: true, comments: 'Approved' });
+      response = await apiClient.post(`/claims/${id}/approve`, { approvedAmount: approvedAmount || 10000, comments: 'Approved' });
     } else if (status === 'REJECTED') {
-      response = await apiClient.post(`/claims/${id}/approve`, { approve: false, comments: 'Rejected' });
-    } else if (status === 'PAID') {
-      response = await apiClient.post(`/claims/${id}/pay`, { amount: approvedAmount || 0, paymentReference: 'CRM', paymentNotes: 'Paid' });
+      response = await apiClient.post(`/claims/${id}/reject`, { reason: 'Claim rejected by underwriter', comments: 'Rejected' });
+    } else if (status === 'PAID' || status === 'SETTLED') {
+      response = await apiClient.post(`/claims/${id}/settle`, {
+        settlementAmount: approvedAmount || 10000,
+        paymentReference: `SETTLE_${Date.now()}`,
+        paymentMethod: 'NEFT',
+        comments: 'Settled',
+      });
     } else {
       throw new Error('Unsupported status mapping');
     }
