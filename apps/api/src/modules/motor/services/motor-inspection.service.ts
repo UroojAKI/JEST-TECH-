@@ -1,4 +1,4 @@
-import { Injectable, Logger, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../../../database/prisma.service';
 import { InspectionStatus, InspectionConductedBy } from '@prisma/client';
 
@@ -83,9 +83,16 @@ export class MotorInspectionService {
     return inspection;
   }
 
-  async completeInspection(inspectionId: string, pdfKey?: string, pdfUrl?: string) {
+  async completeInspection(inspectionId: string, pdfKey?: string, pdfUrl?: string, approverId?: string) {
     const inspection = await this.prisma.motorInspection.findUnique({ where: { id: inspectionId } });
     if (!inspection) throw new NotFoundException(`Inspection ${inspectionId} not found`);
+
+    const quotation = await this.prisma.quotation.findUnique({ where: { id: inspection.quotationId } });
+    if (approverId && quotation && quotation.createdById === approverId) {
+      throw new ForbiddenException(
+        'Segregation of duties violation: The user who created the quotation cannot approve its inspection. An underwriter or operations officer must sign off.',
+      );
+    }
 
     const requiredPhotos = [
       'frontImageKey',
@@ -113,8 +120,7 @@ export class MotorInspectionService {
       },
     });
 
-    const quotation = await this.prisma.quotation.findUnique({ where: { id: inspection.quotationId } });
-    const meta = quotation?.motorMetadata as Record<string, any> || {};
+    const meta = (quotation?.motorMetadata as Record<string, any>) || {};
     await this.prisma.quotation.update({
       where: { id: inspection.quotationId },
       data: {

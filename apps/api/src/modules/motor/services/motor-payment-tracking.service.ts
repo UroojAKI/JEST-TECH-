@@ -84,6 +84,23 @@ export class MotorPaymentTrackingService {
           `Underpayment rejected: Received ₹${paidAmount.toLocaleString('en-IN')} but required total payable is ₹${authoritativePayable.toLocaleString('en-IN')}. Underpayment is not allowed.`,
         );
       }
+
+      // ── Inspection Gate Check ─────────────────────────────────────────────
+      const inspection = await this.prisma.motorInspection.findUnique({
+        where: { quotationId: dto.quotationId },
+      });
+      const ruleEval = await this.prisma.motorRuleEvaluation.findUnique({
+        where: { quotationId: dto.quotationId },
+      });
+
+      if (
+        (ruleEval?.inspectionRequired || quotation.workflowState === 'INSPECTION_REQUIRED') &&
+        inspection?.status !== InspectionStatus.COMPLETED
+      ) {
+        throw new BadRequestException(
+          'Vehicle inspection is required for this quotation before payment can be recorded. Please complete and sign off the inspection first.',
+        );
+      }
     }
 
     const payment = await this.prisma.motorPaymentRecord.upsert({

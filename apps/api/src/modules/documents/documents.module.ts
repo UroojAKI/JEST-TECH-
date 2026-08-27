@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { DocumentsController } from './controllers/documents.controller';
 import { DocumentService } from './services/document.service';
+import { DocumentVerificationService } from './services/document-verification.service';
 import { LocalStorageProvider } from './storage/local-storage.provider';
 import { S3StorageProvider } from './storage/s3-storage.provider';
 import { MinioStorageProvider } from './storage/minio-storage.provider';
@@ -13,6 +14,7 @@ import { DatabaseModule } from '../../database/database.module';
   controllers: [DocumentsController],
   providers: [
     DocumentService,
+    DocumentVerificationService,
     LocalStorageProvider,
     S3StorageProvider,
     MinioStorageProvider,
@@ -41,6 +43,6 @@ import { DatabaseModule } from '../../database/database.module';
       ],
     },
   ],
-  exports: [DocumentService],
+  exports: [DocumentService, DocumentVerificationService],
 })
 export class DocumentsModule {}

@@ -86,6 +86,25 @@ describe('MotorPaymentTrackingService & Reconciliation (Iteration 7)', () => {
       ).rejects.toThrow(BadRequestException);
     });
 
+    it('should reject payment if inspection is required and not completed', async () => {
+      prisma.quotation.findUnique.mockResolvedValue({
+        ...mockQuote,
+        workflowState: 'INSPECTION_REQUIRED',
+      });
+      prisma.motorPaymentRecord.findUnique.mockResolvedValue(null);
+      prisma.motorRuleEvaluation.findUnique.mockResolvedValue({ inspectionRequired: true });
+      prisma.motorInspection.findUnique.mockResolvedValue({ status: 'IN_PROGRESS' });
+
+      await expect(
+        service.recordPayment({
+          quotationId: 'q-10',
+          status: 'PAID',
+          amount: 17638.88,
+          referenceNumber: 'REF-PAID-001',
+        }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
     it('should return existing payment idempotently when same reference is re-submitted', async () => {
       prisma.quotation.findUnique.mockResolvedValue(mockQuote);
       const existingPaid = {

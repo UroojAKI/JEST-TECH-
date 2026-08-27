@@ -23,6 +23,7 @@ import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import type { RequestUser } from '../../auth/decorators/current-user.decorator';
 import { DocumentService } from '../services/document.service';
+import { DocumentVerificationService, VerifyDocumentDto } from '../services/document-verification.service';
 import type { Response } from 'express';
 
 const ALLOWED_MIME_TYPES = [
@@ -59,7 +60,10 @@ const fileInterceptorOptions = {
 @UseGuards(JwtAuthGuard)
 @Controller('documents')
 export class DocumentsController {
-  constructor(private readonly documentService: DocumentService) {}
+  constructor(
+    private readonly documentService: DocumentService,
+    private readonly documentVerificationService: DocumentVerificationService,
+  ) {}
 
   @Post('upload')
   @ApiConsumes('multipart/form-data')
@@ -188,5 +192,29 @@ export class DocumentsController {
     res.setHeader('Content-Type', mimeType);
     res.setHeader('Content-Disposition', `attachment; filename="${safe}"`);
     res.status(HttpStatus.OK).send(fileBuffer);
+  }
+
+  @Post(':id/review')
+  async startReview(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: RequestUser,
+    @Ip() ipAddress: string,
+  ) {
+    return this.documentVerificationService.startReview(id, user.id, ipAddress);
+  }
+
+  @Post(':id/verify')
+  async verifyDocument(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: VerifyDocumentDto,
+    @CurrentUser() user: RequestUser,
+    @Ip() ipAddress: string,
+  ) {
+    return this.documentVerificationService.submitVerification(id, dto, user.id, ipAddress);
+  }
+
+  @Get(':id/verification')
+  async getVerificationStatus(@Param('id', ParseUUIDPipe) id: string) {
+    return this.documentVerificationService.getVerificationStatus(id);
   }
 }

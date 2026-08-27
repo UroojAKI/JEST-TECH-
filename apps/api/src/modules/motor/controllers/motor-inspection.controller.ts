@@ -9,6 +9,9 @@ import {
 } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../../auth/guards/roles.guard';
+import { Roles } from '../../auth/decorators/roles.decorator';
+import { RoleType } from '@prisma/client';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import { ActorContext } from '../../../common/interfaces/actor-context.interface';
 import {
@@ -19,7 +22,7 @@ import {
 
 @ApiTags('Motor Inspection')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('motor/inspections')
 export class MotorInspectionController {
   constructor(private readonly inspectionService: MotorInspectionService) {}
@@ -63,21 +66,34 @@ export class MotorInspectionController {
   async completeInspection(
     @Param('id') inspectionId: string,
     @Body() body: { reportPdfKey?: string; reportPdfUrl?: string },
+    @CurrentUser() actor: ActorContext,
   ) {
     return this.inspectionService.completeInspection(
       inspectionId,
       body.reportPdfKey,
       body.reportPdfUrl,
+      actor.userId,
     );
   }
 
   @Post(':id/approve')
+  @Roles(
+    RoleType.SUPER_ADMIN,
+    RoleType.ADMIN,
+    RoleType.UNDERWRITER,
+    RoleType.OPERATIONS,
+  )
   @ApiOperation({ summary: 'Approve vehicle inspection (Back-Office / Underwriter)' })
   async approveInspection(
     @Param('id') inspectionId: string,
     @CurrentUser() actor: ActorContext,
   ) {
-    return this.inspectionService.completeInspection(inspectionId);
+    return this.inspectionService.completeInspection(
+      inspectionId,
+      undefined,
+      undefined,
+      actor.userId,
+    );
   }
 
   @Post(':id/reject')

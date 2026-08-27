@@ -43,4 +43,22 @@ export const documentsRepository = {
     const response = await apiClient.delete(`/documents/${documentId}`);
     return response.data;
   },
+
+  async startReview(documentId: string): Promise<any> {
+    const response = await apiClient.post(`/documents/${documentId}/review`);
+    return response.data;
+  },
+
+  async verifyDocument(
+    documentId: string,
+    data: { status: 'VERIFIED' | 'REJECTED'; rejectionReason?: string; notes?: string },
+  ): Promise<any> {
+    const response = await apiClient.post(`/documents/${documentId}/verify`, data);
+    return response.data;
+  },
+
+  async getVerificationStatus(documentId: string): Promise<any> {
+    const response = await apiClient.get(`/documents/${documentId}/verification`);
+    return response.data;
+  },
 };
