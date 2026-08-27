@@ -13,6 +13,7 @@ import { MotorInspectionService } from './services/motor-inspection.service';
 import { MotorPaymentTrackingService } from './services/motor-payment-tracking.service';
 import { MotorCalculationService } from './services/motor-calculation.service';
 import { MotorPolicyIssuanceService } from './services/motor-policy-issuance.service';
+import { VehicleDataService } from './services/vehicle-data.service';
 
 @Module({
   controllers: [
@@ -31,6 +32,7 @@ import { MotorPolicyIssuanceService } from './services/motor-policy-issuance.ser
     MotorPaymentTrackingService,
     MotorCalculationService,
     MotorPolicyIssuanceService,
+    VehicleDataService,
   ],
   exports: [
     MotorRuleEngineService,
@@ -38,6 +40,7 @@ import { MotorPolicyIssuanceService } from './services/motor-policy-issuance.ser
     MotorPaymentTrackingService,
     MotorCalculationService,
     MotorPolicyIssuanceService,
+    VehicleDataService,
   ],
 })
 export class MotorModule {}

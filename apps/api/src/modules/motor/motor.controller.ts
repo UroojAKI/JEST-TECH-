@@ -5,6 +5,7 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { RequestUser } from '../auth/decorators/current-user.decorator';
 import { MotorTariffService, TariffLookupParams } from './services/motor-tariff.service';
 import { SaodVerificationService, CreateSaodVerificationDto } from './services/saod-verification.service';
+import { VehicleDataService, UpsertVehicleDto } from './services/vehicle-data.service';
 import { VehicleCategory } from '@prisma/client';
 
 @ApiTags('Motor')
@@ -15,6 +16,7 @@ export class MotorController {
   constructor(
     private readonly tariffService: MotorTariffService,
     private readonly saodService: SaodVerificationService,
+    private readonly vehicleDataService: VehicleDataService,
   ) {}
 
   @Get('tariff/lookup')
@@ -46,5 +48,36 @@ export class MotorController {
       ...body,
       verifiedById: user.id,
     });
+  }
+
+  @Post('vehicles/normalize-registration')
+  normalizeRegistration(@Body('registrationNumber') registrationNumber: string) {
+    return this.vehicleDataService.normalizeRegistrationNumber(registrationNumber);
+  }
+
+  @Post('vehicles/validate-specs')
+  validateVehicleSpecs(
+    @Body('category') category: VehicleCategory,
+    @Body('specs') specs: Record<string, any>,
+  ) {
+    return this.vehicleDataService.validateVehicleSpecs(category, specs);
+  }
+
+  @Post('vehicles')
+  upsertVehicle(
+    @Body() dto: UpsertVehicleDto,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.vehicleDataService.upsertVehicle(dto, user.id);
+  }
+
+  @Get('vehicles/lookup/:regNumber')
+  lookupVehicleByPlate(@Query('regNumber') regNumber: string) {
+    return this.vehicleDataService.findByRegistration(regNumber);
+  }
+
+  @Get('vehicles/by-contact/:contactId')
+  getVehiclesByContact(@Query('contactId') contactId: string) {
+    return this.vehicleDataService.findByContact(contactId);
   }
 }

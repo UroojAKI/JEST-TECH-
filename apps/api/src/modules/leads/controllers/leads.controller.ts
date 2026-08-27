@@ -33,6 +33,7 @@ import { ParseUUIDPipe } from '../../../common/utils/parse-uuid.pipe';
 import { PaginationDto } from '../../../common/pagination/pagination.dto';
 
 import { DuplicateDetectionService } from '../deduplication/services/duplicate-detection/duplicate-detection.service';
+import { LeadCompletionService } from '../services/lead-completion.service';
 
 @ApiTags('Leads & Opportunity Pipeline')
 @ApiBearerAuth()
@@ -44,6 +45,7 @@ export class LeadsController {
     private readonly leadAssignmentService: LeadAssignmentService,
     private readonly prisma: PrismaService,
     private readonly duplicateDetectionService: DuplicateDetectionService,
+    private readonly leadCompletionService: LeadCompletionService,
   ) {}
 
   @Get('kpis')
@@ -159,6 +161,20 @@ export class LeadsController {
     @CurrentUser() actor: ActorContext,
   ) {
     return this.leadsService.getLeadContext(id, actor);
+  }
+
+  @Get(':id/completion')
+  @Roles(
+    RoleType.SUPER_ADMIN,
+    RoleType.ADMIN,
+    RoleType.BRANCH_MANAGER,
+    RoleType.TEAM_LEADER,
+    RoleType.SALES_AGENT,
+    RoleType.OPERATIONS,
+  )
+  @ApiOperation({ summary: 'Get 5-stage lead completion score and quotation gate readiness' })
+  getLeadCompletion(@Param('id', ParseUUIDPipe) id: string) {
+    return this.leadCompletionService.computeCompletionStatus(id);
   }
 
   @Patch(':id')

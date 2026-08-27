@@ -3,6 +3,7 @@
 import React, { useEffect } from 'react';
 import { AlertTriangle, Lock, CheckCircle2, Info } from 'lucide-react';
 import type { PreviousPolicyDetails, PreviousPolicyType } from './motorFormTypes';
+import { NCB_OPTIONS } from './motorFormConfig';
 
 interface Props {
   value: PreviousPolicyDetails;
@@ -10,7 +11,6 @@ interface Props {
   newPolicyType?: 'TP_ONLY' | 'SAOD' | 'PACKAGE' | null;
 }
 
-const NCB_OPTIONS = [0, 20, 25, 35, 45, 50];
 
 const INSURER_LIST = [
   'ICICI Lombard', 'HDFC ERGO', 'Bajaj Allianz', 'Tata AIG', 'New India Assurance',
@@ -299,20 +299,23 @@ export function PreviousPolicyForm({ value, onChange, newPolicyType }: Props) {
           <div className="space-y-2">
             <label className="text-xs font-medium text-muted-foreground">Eligible NCB % (Previous Year)</label>
             <div className="flex flex-wrap gap-2">
-              {NCB_OPTIONS.map((n) => (
-                <button
-                  key={n}
-                  type="button"
-                  onClick={() => update({ eligibleNcbPercentage: n })}
-                  className={`py-1.5 px-3 rounded-md text-xs font-semibold border transition-colors ${
-                    value.eligibleNcbPercentage === n
-                      ? 'bg-primary text-primary-foreground border-primary'
-                      : 'bg-background hover:bg-muted border-border'
-                  }`}
-                >
-                  {n}%
-                </button>
-              ))}
+              {NCB_OPTIONS.map((n) => {
+                const ncbVal = Number(n.value);
+                return (
+                  <button
+                    key={n.value}
+                    type="button"
+                    onClick={() => update({ eligibleNcbPercentage: ncbVal })}
+                    className={`py-1.5 px-3 rounded-md text-xs font-semibold border transition-colors ${
+                      value.eligibleNcbPercentage === ncbVal
+                        ? 'bg-primary text-primary-foreground border-primary'
+                        : 'bg-background hover:bg-muted border-border'
+                    }`}
+                  >
+                    {ncbVal}%
+                  </button>
+                );
+              })}
             </div>
           </div>
         )}
