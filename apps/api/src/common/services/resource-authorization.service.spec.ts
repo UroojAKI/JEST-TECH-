@@ -160,12 +160,12 @@ describe('ResourceAuthorizationService & ScopeResolver (Iteration 3)', () => {
   });
 
   describe('ScopeResolver Filter Generation', () => {
-    it('should generate strict OWN filter for Sales Agents with tenant isolation', () => {
+    it('should generate strict OWN filter for Sales Agents (no organizationId on Quotation model)', () => {
       const salesActor = createActor({ userId: 'usr-agent-a' });
       const filter = scopeResolver.resolveScopeFilter(salesActor, 'QUOTATION');
 
+      // Quotation model has NO organizationId column — scoping via ownership only
       expect(filter).toEqual({
-        organizationId: 'org-mumbai',
         OR: [
           { createdById: 'usr-agent-a' },
           { lead: { assignedToId: 'usr-agent-a' } },
@@ -173,12 +173,13 @@ describe('ResourceAuthorizationService & ScopeResolver (Iteration 3)', () => {
       });
     });
 
-    it('should generate organization-scoped filter for Admins and Operations', () => {
+    it('should generate unrestricted filter for Admins and Operations (no organizationId on Lead/Policy models)', () => {
       const admin = createActor({ role: RoleType.ADMIN, roles: [RoleType.ADMIN] });
       const ops = createActor({ role: RoleType.OPERATIONS, roles: [RoleType.OPERATIONS] });
 
-      expect(scopeResolver.resolveScopeFilter(admin, 'QUOTATION')).toEqual({ organizationId: 'org-mumbai' });
-      expect(scopeResolver.resolveScopeFilter(ops, 'POLICY')).toEqual({ organizationId: 'org-mumbai' });
+      // Quotation and Policy models have NO organizationId column — admin/ops see everything
+      expect(scopeResolver.resolveScopeFilter(admin, 'QUOTATION')).toEqual({});
+      expect(scopeResolver.resolveScopeFilter(ops, 'POLICY')).toEqual({});
     });
 
     it('should generate completely empty filter only for Super Admin without organizationId', () => {

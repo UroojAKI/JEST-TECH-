@@ -31,29 +31,42 @@ const TEAM_ROLES: RoleType[] = [
   RoleType.SALES_MANAGER,
 ];
 
+/**
+ * Models that DO NOT have a direct organizationId column.
+ * Scoping for these is through ownership (createdById / assignedToId) only.
+ */
+const MODELS_WITHOUT_ORGANIZATION_ID: ResourceType[] = [
+  'LEAD',
+  'QUOTATION',
+  'POLICY',
+  'CLAIM',
+  'RENEWAL_TASK',
+];
+
 @Injectable()
 export class ScopeResolver {
   resolveScopeFilter(actor: ActorContext, resourceType: ResourceType): Record<string, any> {
     if (!actor || !actor.userId) {
-      return { id: 'UNAUTHORIZED_ACCESS_BLOCKED' };
+      // Block unauthorized access by returning an impossible filter
+      return { id: '__UNAUTHORIZED_ACCESS_BLOCKED__' };
     }
 
     const actorRoles: RoleType[] = actor.roles || [actor.role];
-    const base: Record<string, any> = actor.organizationId ? { organizationId: actor.organizationId } : {};
 
+    // Super-admins and system admins see everything — no filter
     if (actorRoles.some((r) => ADMIN_ROLES.includes(r))) {
-      return base;
+      return {};
     }
 
+    // Operational roles see everything in the system — no ownership filter
     if (actorRoles.some((r) => OPERATIONAL_ROLES.includes(r))) {
-      return base;
+      return {};
     }
 
+    // Branch managers: filter by branch via relation (createdBy.branchId)
     if (actorRoles.some((r) => BRANCH_ROLES.includes(r)) && actor.branchId) {
       return {
-        ...base,
         OR: [
-          { branchId: actor.branchId },
           { createdBy: { branchId: actor.branchId } },
           { assignedTo: { branchId: actor.branchId } },
           { createdById: actor.userId },
@@ -61,11 +74,10 @@ export class ScopeResolver {
       };
     }
 
+    // Team leaders / sales managers: filter by team via relation
     if (actorRoles.some((r) => TEAM_ROLES.includes(r)) && actor.teamId) {
       return {
-        ...base,
         OR: [
-          { teamId: actor.teamId },
           { createdBy: { teamId: actor.teamId } },
           { assignedTo: { teamId: actor.teamId } },
           { createdById: actor.userId },
@@ -73,10 +85,10 @@ export class ScopeResolver {
       };
     }
 
+    // Default: ownership-based filter for agents and customer-facing roles
     switch (resourceType) {
       case 'LEAD':
         return {
-          ...base,
           OR: [
             { assignedToId: actor.userId },
             { createdById: actor.userId },
@@ -84,7 +96,6 @@ export class ScopeResolver {
         };
       case 'QUOTATION':
         return {
-          ...base,
           OR: [
             { createdById: actor.userId },
             { lead: { assignedToId: actor.userId } },
@@ -92,7 +103,6 @@ export class ScopeResolver {
         };
       case 'POLICY':
         return {
-          ...base,
           OR: [
             { createdById: actor.userId },
             { quotation: { createdById: actor.userId } },
@@ -100,7 +110,6 @@ export class ScopeResolver {
         };
       case 'CLAIM':
         return {
-          ...base,
           OR: [
             { createdById: actor.userId },
             { policy: { createdById: actor.userId } },
@@ -108,7 +117,6 @@ export class ScopeResolver {
         };
       case 'RENEWAL_TASK':
         return {
-          ...base,
           OR: [
             { agentId: actor.userId },
             { policy: { createdById: actor.userId } },
@@ -116,7 +124,6 @@ export class ScopeResolver {
         };
       default:
         return {
-          ...base,
           createdById: actor.userId,
         };
     }

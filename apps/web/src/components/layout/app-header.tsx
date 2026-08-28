@@ -17,7 +17,13 @@ import { useUIStore } from '../../store/ui-store';
 import { useAuthStore } from '../../store/auth-store';
 import { useCustomerContext } from '../../store/customer-context';
 import { BreadcrumbNav } from './breadcrumb-nav';
-import { WorkspaceSwitcher } from './workspace-switcher';
+import dynamic from 'next/dynamic';
+
+const WorkspaceSwitcher = dynamic(
+  () => import('./workspace-switcher').then((m) => ({ default: m.WorkspaceSwitcher })),
+  { ssr: false, loading: () => null }
+);
+
 
 export function AppHeader() {
   const { theme, setTheme } = useTheme();
