@@ -1,13 +1,12 @@
-'use client';
+﻿'use client';
 import React from 'react';
-import { AppShell } from '../../../components/layout/app-shell';
 import { DynamicWorkspace } from '../../../components/workspaces/DynamicWorkspace';
 import { MotorIssuanceQueue } from '../../../components/operations/MotorIssuanceQueue';
 import { Briefcase } from 'lucide-react';
 
 export default function OperationsWorkspacePage() {
   return (
-    <AppShell>
+    <div className="space-y-6">
       <div className="space-y-8">
         <MotorIssuanceQueue />
         <DynamicWorkspace
@@ -15,6 +14,6 @@ export default function OperationsWorkspacePage() {
           roleIcon={<Briefcase className="h-6 w-6" />}
         />
       </div>
-    </AppShell>
+    </div>
   );
 }

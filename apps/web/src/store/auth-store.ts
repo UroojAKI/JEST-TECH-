@@ -46,13 +46,20 @@ export const useAuthStore = create<AuthStore>()(
 
       touchLastActive: () => set({ lastActiveTimestamp: Date.now() }),
 
-      logout: () =>
+      logout: () => {
+        if (typeof window !== 'undefined') {
+          document.cookie = 'access_token=; path=/; max-age=0; SameSite=Lax';
+          document.cookie = 'refresh_token=; path=/; max-age=0; SameSite=Lax';
+          localStorage.removeItem('jest_access_token');
+          localStorage.removeItem('jest_refresh_token');
+        }
         set({
           user: null,
           isAuthenticated: false,
           isLoading: false,
           idleWarningVisible: false,
-        }),
+        });
+      },
 
       setHasHydrated: (state) => set({ _hasHydrated: state }),
     }),

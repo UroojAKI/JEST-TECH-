@@ -64,7 +64,10 @@ export function WorkspaceHeader() {
           </div>
 
           <button
-            onClick={() => logout()}
+            onClick={() => {
+              logout();
+              window.location.href = '/login';
+            }}
             title="Log Out"
             className="p-1.5 rounded-lg text-muted-foreground hover:text-rose-600 hover:bg-rose-500/10 transition-colors"
           >

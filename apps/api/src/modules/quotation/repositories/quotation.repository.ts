@@ -77,8 +77,9 @@ export class QuotationRepository extends BaseRepository<
   }
 
   async findAll(skip: number, take: number, where: Prisma.QuotationWhereInput, orderBy: Prisma.QuotationOrderByWithRelationInput): Promise<[QuotationWithRelations[], number]> {
-    const data = await this.prisma.quotation.findMany({ skip, take, where, orderBy, include: quotationWithRelations.include });
-    const total = await this.prisma.quotation.count({ where });
+    const { organizationId, ...safeWhere } = (where || {}) as any;
+    const data = await this.prisma.quotation.findMany({ skip, take, where: safeWhere, orderBy, include: quotationWithRelations.include });
+    const total = await this.prisma.quotation.count({ where: safeWhere });
     return [data, total];
   }
 

@@ -30,11 +30,7 @@ export function middleware(request: NextRequest) {
   //   return NextResponse.redirect(loginUrl);
   // }
 
-  // If authenticated user visits /login, redirect to /dashboard
-  if (pathname === '/login' && token) {
-    return NextResponse.redirect(new URL('/dashboard', request.url));
-  }
-
+  // Allow direct access to /login so users can switch accounts or re-authenticate
   return NextResponse.next();
 }
 

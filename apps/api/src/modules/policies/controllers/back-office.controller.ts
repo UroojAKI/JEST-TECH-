@@ -66,9 +66,6 @@ export class BackOfficeController {
       {
         quotationId,
         productLine: 'Motor Policy',
-        policyType: 'COMPREHENSIVE',
-        effectiveDate: new Date().toISOString(),
-        expiryDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
       },
       user.id,
     );

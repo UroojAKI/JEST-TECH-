@@ -164,9 +164,10 @@ export class LeadRepository extends BaseRepository<
     orderBy?: Prisma.LeadOrderByWithRelationInput,
     tx?: TransactionClient,
   ): Promise<LeadDetail[]> {
+    const { organizationId, ...safeWhere } = (where || {}) as any;
     return this.getClient(tx).findMany({
       where: {
-        ...where,
+        ...safeWhere,
         deletedAt: null,
       },
       skip,
@@ -180,9 +181,10 @@ export class LeadRepository extends BaseRepository<
     where?: Prisma.LeadWhereInput,
     tx?: TransactionClient,
   ): Promise<number> {
+    const { organizationId, ...safeWhere } = (where || {}) as any;
     return this.getClient(tx).count({
       where: {
-        ...where,
+        ...safeWhere,
         deletedAt: null,
       }
     });

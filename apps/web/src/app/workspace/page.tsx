@@ -19,7 +19,6 @@ import {
 } from 'lucide-react';
 import { workspaceRepository } from '../../repositories/workspace.repository';
 import { useAuthStore } from '../../store/auth-store';
-import { AppShell } from '../../components/layout/app-shell';
 
 const ICON_MAP: Record<string, React.ReactNode> = {
   TrendingUp: <TrendingUp className="h-6 w-6 text-emerald-500" />,
@@ -71,75 +70,73 @@ export default function WorkspaceHubPage() {
   }
 
   return (
-    <AppShell>
-      <div className="max-w-6xl mx-auto py-8 px-4 sm:px-6">
-        {/* Header */}
-        <div className="mb-8">
-          <div className="flex items-center space-x-2 text-primary text-xs font-bold uppercase tracking-wider mb-2">
-            <ShieldCheck className="h-4 w-4" />
-            <span>Multi-User Role Routing</span>
-          </div>
-          <h1 className="text-3xl font-black tracking-tight flex items-center gap-2">
-            Enterprise Workspaces <Sparkles className="h-5 w-5 text-primary" />
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1 max-w-2xl">
-            Welcome back, <strong className="text-foreground">{user?.firstName} {user?.lastName}</strong>.
-            Select an authorized department workbench to begin your operational workflow.
+    <div className="max-w-6xl mx-auto py-8 px-4 sm:px-6">
+      {/* Header */}
+      <div className="mb-8">
+        <div className="flex items-center space-x-2 text-primary text-xs font-bold uppercase tracking-wider mb-2">
+          <ShieldCheck className="h-4 w-4" />
+          <span>Multi-User Role Routing</span>
+        </div>
+        <h1 className="text-3xl font-black tracking-tight flex items-center gap-2">
+          Enterprise Workspaces <Sparkles className="h-5 w-5 text-primary" />
+        </h1>
+        <p className="text-sm text-muted-foreground mt-1 max-w-2xl">
+          Welcome back, <strong className="text-foreground">{user?.firstName} {user?.lastName}</strong>.
+          Select an authorized department workbench to begin your operational workflow.
+        </p>
+      </div>
+
+      {/* Workspaces Card Grid */}
+      {workspaces.length === 0 ? (
+        <div className="rounded-2xl border border-dashed p-12 text-center">
+          <Layers className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
+          <h3 className="text-base font-bold">No Authorized Workspaces</h3>
+          <p className="text-xs text-muted-foreground mt-1">
+            Your account has not been assigned to any functional workspace. Please contact your system administrator.
           </p>
         </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {workspaces.map((ws) => {
+            const colors = COLOR_MAP[ws.code] || {
+              border: 'hover:border-primary/50',
+              bg: 'bg-primary/10',
+              badge: 'bg-primary/15 text-primary',
+            };
 
-        {/* Workspaces Card Grid */}
-        {workspaces.length === 0 ? (
-          <div className="rounded-2xl border border-dashed p-12 text-center">
-            <Layers className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
-            <h3 className="text-base font-bold">No Authorized Workspaces</h3>
-            <p className="text-xs text-muted-foreground mt-1">
-              Your account has not been assigned to any functional workspace. Please contact your system administrator.
-            </p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {workspaces.map((ws) => {
-              const colors = COLOR_MAP[ws.code] || {
-                border: 'hover:border-primary/50',
-                bg: 'bg-primary/10',
-                badge: 'bg-primary/15 text-primary',
-              };
-
-              return (
-                <div
-                  key={ws.code}
-                  onClick={() => router.push(ws.href)}
-                  className={`group relative rounded-2xl border bg-card p-6 shadow-xs hover:shadow-lg transition-all duration-200 cursor-pointer flex flex-col justify-between ${colors.border}`}
-                >
-                  <div>
-                    <div className="flex items-start justify-between mb-4">
-                      <div className={`h-12 w-12 rounded-xl flex items-center justify-center ${colors.bg}`}>
-                        {ICON_MAP[ws.icon] || <Layers className="h-6 w-6 text-primary" />}
-                      </div>
-                      <span className={`text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full ${colors.badge}`}>
-                        {ws.code}
-                      </span>
+            return (
+              <div
+                key={ws.code}
+                onClick={() => router.push(ws.href)}
+                className={`group relative rounded-2xl border bg-card p-6 shadow-xs hover:shadow-lg transition-all duration-200 cursor-pointer flex flex-col justify-between ${colors.border}`}
+              >
+                <div>
+                  <div className="flex items-start justify-between mb-4">
+                    <div className={`h-12 w-12 rounded-xl flex items-center justify-center ${colors.bg}`}>
+                      {ICON_MAP[ws.icon] || <Layers className="h-6 w-6 text-primary" />}
                     </div>
-
-                    <h3 className="text-lg font-bold text-card-foreground group-hover:text-primary transition-colors">
-                      {ws.title}
-                    </h3>
-                    <p className="text-xs text-muted-foreground mt-2 leading-relaxed">
-                      {ws.description}
-                    </p>
+                    <span className={`text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full ${colors.badge}`}>
+                      {ws.code}
+                    </span>
                   </div>
 
-                  <div className="mt-6 pt-4 border-t flex items-center justify-between text-xs font-semibold text-primary">
-                    <span>Enter Workspace</span>
-                    <ArrowRight className="h-4 w-4 transform group-hover:translate-x-1 transition-transform" />
-                  </div>
+                  <h3 className="text-lg font-bold text-card-foreground group-hover:text-primary transition-colors">
+                    {ws.title}
+                  </h3>
+                  <p className="text-xs text-muted-foreground mt-2 leading-relaxed">
+                    {ws.description}
+                  </p>
                 </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
-    </AppShell>
+
+                <div className="mt-6 pt-4 border-t flex items-center justify-between text-xs font-semibold text-primary">
+                  <span>Enter Workspace</span>
+                  <ArrowRight className="h-4 w-4 transform group-hover:translate-x-1 transition-transform" />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
   );
 }

@@ -10,6 +10,7 @@ import { PersistentStepTracker } from './PersistentStepTracker';
 import { MotorProductCards } from './MotorProductCards';
 import { MotorDashboardWidgets } from './MotorDashboardWidgets';
 import { useSalesWorkspace } from '../../../hooks/useSalesWorkspace';
+import { useAuthStore } from '../../../store/auth-store';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../../../lib/api-client';
 import {
@@ -32,10 +33,16 @@ import { toast } from 'sonner';
 
 export function SalesDashboard() {
   const { kpis, pipeline, isDashboardLoading, analytics } = useSalesWorkspace();
+  const user = useAuthStore((s) => s.user);
   const [activeFilter, setActiveFilter] = useState('');
   const [selectedContact, setSelectedContact] = useState<any>(null);
   const [globalSearch, setGlobalSearch] = useState('');
   const [activeStepIndex, setActiveStepIndex] = useState(4); // Default to 'Quotation' step
+
+  const userName = user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'Agent' : 'Agent';
+  const userBranch = (user as any)?.branch?.name || (user as any)?.branchName || '';
+  const userRole = user?.roles?.[0] || (user as any)?.role || 'Executive';
+  const todayStr = new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
 
   // Fetch Agent Tasks / Work Queue counts
   const { data: tasks } = useQuery({
@@ -112,22 +119,24 @@ export function SalesDashboard() {
               <span>JEST Policy CRM • Motor Insurance Operational Command Center</span>
             </div>
             <h1 className="text-xl sm:text-2xl font-black text-foreground tracking-tight mt-0.5">
-              Welcome, Ahmed Khan
+              Welcome, {userName}
             </h1>
             <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground mt-1 font-semibold">
-              <span className="flex items-center space-x-1">
-                <MapPin className="h-3.5 w-3.5 text-primary" />
-                <span>Branch: Belagavi</span>
-              </span>
-              <span>•</span>
+              {userBranch && (
+                <span className="flex items-center space-x-1">
+                  <MapPin className="h-3.5 w-3.5 text-primary" />
+                  <span>Branch: {userBranch}</span>
+                </span>
+              )}
+              {userBranch && <span>•</span>}
               <span className="flex items-center space-x-1">
                 <Shield className="h-3.5 w-3.5 text-emerald-600" />
-                <span>Executive: Motor Insurance</span>
+                <span>{userRole.replace(/_/g, ' ')}</span>
               </span>
               <span>•</span>
               <span className="flex items-center space-x-1">
                 <CalendarIcon className="h-3.5 w-3.5 text-amber-600" />
-                <span>Date: 02 Aug 2026</span>
+                <span>Date: {todayStr}</span>
               </span>
             </div>
           </div>

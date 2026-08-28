@@ -16,8 +16,9 @@ import { RoleType } from '@prisma/client';
   RoleType.SUPER_ADMIN,
   RoleType.ADMIN,
   RoleType.BRANCH_MANAGER,
+  RoleType.TEAM_LEADER,
+  RoleType.SALES_MANAGER,
   RoleType.SALES_AGENT,
-  RoleType.RELATIONSHIP_MANAGER,
   RoleType.UNDERWRITER,
   RoleType.FINANCE,
 )
