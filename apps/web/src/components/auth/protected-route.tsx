@@ -13,7 +13,9 @@ export default function ProtectedRoute({ children, allowedRoles }: ProtectedRout
   const router = useRouter();
   const { isAuthenticated, user, _hasHydrated } = useAuthStore();
 
-  const hasAllowedRole = !allowedRoles || (user && user.roles && allowedRoles.some((r) => user.roles.includes(r as any)));
+  const userRoles = user?.roles || (user?.role ? [user.role] : []);
+  const hasAllowedRole =
+    !allowedRoles || allowedRoles.some((r) => userRoles.includes(r as any));
 
   useEffect(() => {
     if (!_hasHydrated) return;

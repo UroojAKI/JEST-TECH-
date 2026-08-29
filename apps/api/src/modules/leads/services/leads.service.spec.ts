@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { Test, TestingModule } from '@nestjs/testing';
 import { LeadsService } from './leads.service';
 import { LeadRepository } from '../repositories/lead.repository';
@@ -8,7 +7,11 @@ import { UsersService } from '../../users/services/users.service';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { PrismaService } from '../../../database/prisma.service';
 import { LeadStatus } from '@prisma/client';
-import { NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
+import {
+  NotFoundException,
+  ForbiddenException,
+  BadRequestException,
+} from '@nestjs/common';
 import { LeadConvertedEvent } from '../events/lead-converted.event';
 import { ResourceAuthorizationService } from '../../../common/services/resource-authorization.service';
 import { ScopeResolver } from '../../../common/services/scope-resolver.service';
@@ -51,9 +54,12 @@ describe('LeadsService', () => {
     emit: jest.fn(),
   };
 
-  const mockPrismaService = {
+  const mockPrismaService: any = {
     contact: {
       findFirst: jest.fn(),
+    },
+    lead: {
+      findUnique: jest.fn(),
     },
   };
 
@@ -85,23 +91,35 @@ describe('LeadsService', () => {
 
   describe('findAll', () => {
     it('SUPER_ADMIN user returns all leads paginated', async () => {
-      const superAdminUser = { id: 'user-1', userId: 'user-1', role: 'SUPER_ADMIN', roles: ['SUPER_ADMIN'], status: 'ACTIVE' } as any;
+      const superAdminUser = {
+        id: 'user-1',
+        userId: 'user-1',
+        role: 'SUPER_ADMIN',
+        roles: ['SUPER_ADMIN'],
+        status: 'ACTIVE',
+      } as any;
       mockLeadRepository.findAll.mockResolvedValue([]);
       mockLeadRepository.count.mockResolvedValue(0);
 
-      const result = await service.findAll(superAdminUser, { page: 1, limit: 10 });
+      const result = await service.findAll(superAdminUser, {
+        page: 1,
+        limit: 10,
+      });
 
-      expect(mockLeadRepository.findAll).toHaveBeenCalledWith(
-        {}, 
-        0, 
-        10, 
-        { createdAt: 'desc' }
-      );
+      expect(mockLeadRepository.findAll).toHaveBeenCalledWith({}, 0, 10, {
+        createdAt: 'desc',
+      });
       expect(result.data).toEqual([]);
     });
 
     it('SALES_AGENT user returns only their leads', async () => {
-      const agentUser = { id: 'agent-1', userId: 'agent-1', role: 'SALES_AGENT', roles: ['SALES_AGENT'], status: 'ACTIVE' } as any;
+      const agentUser = {
+        id: 'agent-1',
+        userId: 'agent-1',
+        role: 'SALES_AGENT',
+        roles: ['SALES_AGENT'],
+        status: 'ACTIVE',
+      } as any;
       mockLeadRepository.findAll.mockResolvedValue([]);
       mockLeadRepository.count.mockResolvedValue(0);
 
@@ -109,18 +127,24 @@ describe('LeadsService', () => {
 
       expect(mockLeadRepository.findAll).toHaveBeenCalledWith(
         expect.objectContaining({
-          OR: [{ assignedToId: 'agent-1' }, { createdById: 'agent-1' }]
+          OR: [{ assignedToId: 'agent-1' }, { createdById: 'agent-1' }],
         }),
         0,
         10,
-        { createdAt: 'desc' }
+        { createdAt: 'desc' },
       );
     });
   });
 
   describe('findById', () => {
     it('SALES_AGENT accessing own lead -> success', async () => {
-      const agentUser = { id: 'agent-1', userId: 'agent-1', role: 'SALES_AGENT', roles: ['SALES_AGENT'], status: 'ACTIVE' } as any;
+      const agentUser = {
+        id: 'agent-1',
+        userId: 'agent-1',
+        role: 'SALES_AGENT',
+        roles: ['SALES_AGENT'],
+        status: 'ACTIVE',
+      } as any;
       const mockLead = { id: 'lead-1', assignedToId: 'agent-1' };
       mockLeadRepository.findById.mockResolvedValue(mockLead as any);
 
@@ -130,27 +154,52 @@ describe('LeadsService', () => {
     });
 
     it('SALES_AGENT accessing another agents lead -> throws ForbiddenException', async () => {
-      const agentUser = { id: 'agent-1', userId: 'agent-1', role: 'SALES_AGENT', roles: ['SALES_AGENT'], status: 'ACTIVE' } as any;
-      const mockLead = { id: 'lead-1', assignedToId: 'agent-2', createdById: 'agent-2' };
+      const agentUser = {
+        id: 'agent-1',
+        userId: 'agent-1',
+        role: 'SALES_AGENT',
+        roles: ['SALES_AGENT'],
+        status: 'ACTIVE',
+      } as any;
+      const mockLead = {
+        id: 'lead-1',
+        assignedToId: 'agent-2',
+        createdById: 'agent-2',
+      };
       mockLeadRepository.findById.mockResolvedValue(mockLead as any);
 
-      await expect(service.findById('lead-1', agentUser)).rejects.toThrow(ForbiddenException);
+      await expect(service.findById('lead-1', agentUser)).rejects.toThrow(
+        ForbiddenException,
+      );
     });
 
     it('non-existent id -> throws NotFoundException', async () => {
-      const agentUser = { id: 'agent-1', userId: 'agent-1', role: 'SALES_AGENT', roles: ['SALES_AGENT'], status: 'ACTIVE' } as any;
+      const agentUser = {
+        id: 'agent-1',
+        userId: 'agent-1',
+        role: 'SALES_AGENT',
+        roles: ['SALES_AGENT'],
+        status: 'ACTIVE',
+      } as any;
       mockLeadRepository.findById.mockResolvedValue(null);
 
-      await expect(service.findById('unknown', agentUser)).rejects.toThrow(NotFoundException);
+      await expect(service.findById('unknown', agentUser)).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 
   describe('create', () => {
     it('valid DTO -> creates lead and returns response', async () => {
       const dto = { title: 'Test Lead', contactId: 'contact-1' } as any;
-      mockContactsService.findById.mockResolvedValue({ id: 'contact-1' } as any);
+      mockContactsService.findById.mockResolvedValue({
+        id: 'contact-1',
+      } as any);
       mockLeadRepository.generateLeadCode.mockResolvedValue('LD-0001');
-      mockLeadRepository.create.mockResolvedValue({ id: 'lead-1', title: 'Test Lead' } as any);
+      mockLeadRepository.create.mockResolvedValue({
+        id: 'lead-1',
+        title: 'Test Lead',
+      } as any);
 
       const result = await service.create(dto, 'user-1');
 
@@ -161,9 +210,16 @@ describe('LeadsService', () => {
 
   describe('convert', () => {
     it('valid lead -> updates status to CONVERTED and emits event', async () => {
-      const mockLead = { id: 'lead-1', status: LeadStatus.NEW, leadCode: 'LD-0001' };
+      const mockLead = {
+        id: 'lead-1',
+        status: LeadStatus.NEW,
+        leadCode: 'LD-0001',
+      };
       mockLeadRepository.findById.mockResolvedValue(mockLead as any);
-      mockLeadRepository.update.mockResolvedValue({ ...mockLead, status: LeadStatus.CONVERTED } as any);
+      mockLeadRepository.update.mockResolvedValue({
+        ...mockLead,
+        status: LeadStatus.CONVERTED,
+      } as any);
 
       const result = await service.convert('lead-1', 'user-1');
 
@@ -174,7 +230,7 @@ describe('LeadsService', () => {
       });
       expect(mockEventEmitter.emit).toHaveBeenCalledWith(
         'lead.converted',
-        expect.any(LeadConvertedEvent)
+        expect.any(LeadConvertedEvent),
       );
     });
 
@@ -182,27 +238,46 @@ describe('LeadsService', () => {
       const mockLead = { id: 'lead-1', status: LeadStatus.CONVERTED };
       mockLeadRepository.findById.mockResolvedValue(mockLead as any);
 
-      await expect(service.convert('lead-1', 'user-1')).rejects.toThrow(BadRequestException);
+      await expect(service.convert('lead-1', 'user-1')).rejects.toThrow(
+        BadRequestException,
+      );
     });
 
     it('lost lead -> throws BadRequestException on conversion', async () => {
       const mockLead = { id: 'lead-1', status: LeadStatus.LOST };
       mockLeadRepository.findById.mockResolvedValue(mockLead as any);
 
-      await expect(service.convert('lead-1', 'user-1')).rejects.toThrow(BadRequestException);
+      await expect(service.convert('lead-1', 'user-1')).rejects.toThrow(
+        BadRequestException,
+      );
     });
   });
 
   describe('update - state machine', () => {
     it('invalid transition -> throws BadRequestException', async () => {
-      const existingLead = { id: 'lead-1', status: LeadStatus.LOST, assignedToId: 'agent-1', createdById: 'agent-1' };
+      const existingLead = {
+        id: 'lead-1',
+        status: LeadStatus.LOST,
+        assignedToId: 'agent-1',
+        createdById: 'agent-1',
+      };
       mockLeadRepository.findById.mockResolvedValue(existingLead as any);
 
-      const agentUser = { id: 'agent-1', userId: 'agent-1', role: 'SALES_AGENT', roles: ['SALES_AGENT'], status: 'ACTIVE' } as any;
+      const agentUser = {
+        id: 'agent-1',
+        userId: 'agent-1',
+        role: 'SALES_AGENT',
+        roles: ['SALES_AGENT'],
+        status: 'ACTIVE',
+      } as any;
 
       // LOST cannot directly transition to QUALIFIED
       await expect(
-        service.update('lead-1', { status: LeadStatus.QUALIFIED } as any, agentUser),
+        service.update(
+          'lead-1',
+          { status: LeadStatus.QUALIFIED } as any,
+          agentUser,
+        ),
       ).rejects.toThrow(BadRequestException);
     });
   });
@@ -245,7 +320,13 @@ describe('LeadsService', () => {
         findUnique: jest.fn().mockResolvedValue(mockLead),
       };
 
-      const agentUser = { id: 'agent-1', userId: 'agent-1', role: 'SALES_AGENT', roles: ['SALES_AGENT'], status: 'ACTIVE' } as any;
+      const agentUser = {
+        id: 'agent-1',
+        userId: 'agent-1',
+        role: 'SALES_AGENT',
+        roles: ['SALES_AGENT'],
+        status: 'ACTIVE',
+      } as any;
       const context = await service.getLeadContext('lead-100', agentUser);
 
       expect(context.leadId).toBe('lead-100');
@@ -259,7 +340,9 @@ describe('LeadsService', () => {
     it('non-existent id -> throws NotFoundException', async () => {
       mockLeadRepository.findById.mockResolvedValue(null);
 
-      await expect(service.remove('unknown', 'user-1')).rejects.toThrow(NotFoundException);
+      await expect(service.remove('unknown', 'user-1')).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 });

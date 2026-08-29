@@ -21,7 +21,7 @@ export interface RecordPaymentDto {
 const PAYMENT_TRANSITIONS: Record<string, string[]> = {
   NOT_DONE: ['NOT_DONE', 'UNDER_PROCESS', 'PAID'],
   UNDER_PROCESS: ['UNDER_PROCESS', 'PAID'],
-  PAID: ['PAID'],
+  PAID: [], // PAID is an immutable terminal financial state
 };
 
 @Injectable()
@@ -42,17 +42,21 @@ export class MotorPaymentTrackingService {
       where: { quotationId: dto.quotationId },
     });
 
-    // Idempotency: If exact same reference number already processed and status is PAID, return existing
-    if (
-      existing &&
-      existing.status === 'PAID' &&
-      existing.referenceNumber === dto.referenceNumber &&
-      dto.status === 'PAID'
-    ) {
-      this.logger.log(
-        `Idempotent duplicate payment ignored for quotation ${dto.quotationId}, ref: ${dto.referenceNumber}`,
+    // ── Idempotency Check on already PAID records ────────────────────────────
+    if (existing?.status === 'PAID') {
+      if (
+        dto.status === 'PAID' &&
+        existing.referenceNumber === dto.referenceNumber &&
+        Number(existing.amount) === Number(dto.amount)
+      ) {
+        this.logger.log(
+          `Idempotent duplicate payment verified for quotation ${dto.quotationId}, ref: ${dto.referenceNumber}`,
+        );
+        return existing;
+      }
+      throw new BadRequestException(
+        `Financial immutability violation: Payment for quotation ${dto.quotationId} is already verified and marked as PAID. Reconciled payments are strictly immutable.`,
       );
-      return existing;
     }
 
     const current = existing?.status || 'NOT_DONE';
@@ -75,13 +79,13 @@ export class MotorPaymentTrackingService {
         );
       }
 
-      // ── Strict Financial Reconciliation Invariant (Amendment 2) ───────────
+      // ── Strict Financial Exact Reconciliation ──────────────────────────────
       const authoritativePayable = Number(quotation.totalPremium);
       const paidAmount = Number(dto.amount);
 
-      if (paidAmount < authoritativePayable) {
+      if (paidAmount !== authoritativePayable) {
         throw new BadRequestException(
-          `Underpayment rejected: Received ₹${paidAmount.toLocaleString('en-IN')} but required total payable is ₹${authoritativePayable.toLocaleString('en-IN')}. Underpayment is not allowed.`,
+          `Financial reconciliation failure: Received amount ₹${paidAmount.toLocaleString('en-IN')} does not match authoritative payable amount ₹${authoritativePayable.toLocaleString('en-IN')}. Exact reconciliation is mandatory (neither underpayment nor overpayment is permitted).`,
         );
       }
 
@@ -94,7 +98,8 @@ export class MotorPaymentTrackingService {
       });
 
       if (
-        (ruleEval?.inspectionRequired || quotation.workflowState === 'INSPECTION_REQUIRED') &&
+        (ruleEval?.inspectionRequired ||
+          quotation.workflowState === 'INSPECTION_REQUIRED') &&
         inspection?.status !== InspectionStatus.COMPLETED
       ) {
         throw new BadRequestException(
@@ -103,61 +108,65 @@ export class MotorPaymentTrackingService {
       }
     }
 
-    const payment = await this.prisma.motorPaymentRecord.upsert({
-      where: { quotationId: dto.quotationId },
-      create: {
-        quotationId: dto.quotationId,
-        status: dto.status as PaymentTrackingStatus,
-        amount: dto.amount,
-        paymentMethod: dto.paymentMethod,
-        referenceNumber: dto.referenceNumber,
-        paidAt: dto.paidAt
-          ? new Date(dto.paidAt)
-          : dto.status === 'PAID'
-            ? new Date()
-            : undefined,
-        notes: dto.notes,
-        recordedById: dto.recordedById,
-      },
-      update: {
-        status: dto.status as PaymentTrackingStatus,
-        amount: dto.amount,
-        paymentMethod: dto.paymentMethod,
-        referenceNumber: dto.referenceNumber,
-        paidAt: dto.paidAt
-          ? new Date(dto.paidAt)
-          : dto.status === 'PAID'
-            ? new Date()
-            : undefined,
-        notes: dto.notes,
-        recordedById: dto.recordedById,
-      },
-    });
-
-    const workflowState =
-      dto.status === 'PAID'
-        ? 'PAYMENT_DONE'
-        : dto.status === 'UNDER_PROCESS'
-          ? 'PAYMENT_UNDER_PROCESS'
-          : 'PAYMENT_PENDING';
-    const metadata = (quotation.motorMetadata as any) || {};
-
-    await this.prisma.quotation.update({
-      where: { id: dto.quotationId },
-      data: {
-        workflowState: workflowState as any,
-        issuanceStatus:
-          dto.status === 'PAID' ? 'ISSUANCE_PENDING' : 'PAYMENT_PENDING',
-        motorMetadata: {
-          ...metadata,
-          workflowStatus:
-            dto.status === 'PAID'
-              ? 'PENDING_ISSUANCE'
-              : dto.status === 'UNDER_PROCESS'
-                ? 'PAYMENT_UNDER_PROCESS'
-                : 'PAYMENT_PENDING',
+    const payment = await this.prisma.$transaction(async (tx) => {
+      const paymentRecord = await tx.motorPaymentRecord.upsert({
+        where: { quotationId: dto.quotationId },
+        create: {
+          quotationId: dto.quotationId,
+          status: dto.status,
+          amount: dto.amount,
+          paymentMethod: dto.paymentMethod,
+          referenceNumber: dto.referenceNumber,
+          paidAt: dto.paidAt
+            ? new Date(dto.paidAt)
+            : dto.status === 'PAID'
+              ? new Date()
+              : undefined,
+          notes: dto.notes,
+          recordedById: dto.recordedById,
         },
-      },
+        update: {
+          status: dto.status,
+          amount: dto.amount,
+          paymentMethod: dto.paymentMethod,
+          referenceNumber: dto.referenceNumber,
+          paidAt: dto.paidAt
+            ? new Date(dto.paidAt)
+            : dto.status === 'PAID'
+              ? new Date()
+              : undefined,
+          notes: dto.notes,
+          recordedById: dto.recordedById,
+        },
+      });
+
+      const workflowState =
+        dto.status === 'PAID'
+          ? 'PAYMENT_DONE'
+          : dto.status === 'UNDER_PROCESS'
+            ? 'PAYMENT_UNDER_PROCESS'
+            : 'PAYMENT_PENDING';
+      const metadata = (quotation.motorMetadata as any) || {};
+
+      await tx.quotation.update({
+        where: { id: dto.quotationId },
+        data: {
+          workflowState: workflowState as any,
+          issuanceStatus:
+            dto.status === 'PAID' ? 'ISSUANCE_PENDING' : 'PAYMENT_PENDING',
+          motorMetadata: {
+            ...metadata,
+            workflowStatus:
+              dto.status === 'PAID'
+                ? 'PENDING_ISSUANCE'
+                : dto.status === 'UNDER_PROCESS'
+                  ? 'PAYMENT_UNDER_PROCESS'
+                  : 'PAYMENT_PENDING',
+          },
+        },
+      });
+
+      return paymentRecord;
     });
 
     this.logger.log(
@@ -179,7 +188,8 @@ export class MotorPaymentTrackingService {
       this.prisma.motorRuleEvaluation.findUnique({ where: { quotationId } }),
     ]);
 
-    if (!quotation) return { allowed: false, blockers: ['QUOTATION_NOT_FOUND'] };
+    if (!quotation)
+      return { allowed: false, blockers: ['QUOTATION_NOT_FOUND'] };
 
     const blockers: string[] = [];
     if (!quotation.calculationSnapshot)

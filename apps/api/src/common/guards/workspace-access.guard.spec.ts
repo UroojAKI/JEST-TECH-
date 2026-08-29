@@ -1,7 +1,10 @@
 import { ExecutionContext, ForbiddenException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { RoleType, UserStatus } from '@prisma/client';
-import { WorkspaceAccessGuard, resolvePermittedWorkspaces } from './workspace-access.guard';
+import {
+  WorkspaceAccessGuard,
+  resolvePermittedWorkspaces,
+} from './workspace-access.guard';
 import { ActorContext } from '../interfaces/actor-context.interface';
 
 describe('WorkspaceAccessGuard & Matrix (Iteration 2)', () => {
@@ -13,8 +16,13 @@ describe('WorkspaceAccessGuard & Matrix (Iteration 2)', () => {
     guard = new WorkspaceAccessGuard(reflector);
   });
 
-  const createMockContext = (actor: Partial<ActorContext>, requiredWorkspace?: string): ExecutionContext => {
-    jest.spyOn(reflector, 'getAllAndOverride').mockReturnValue(requiredWorkspace);
+  const createMockContext = (
+    actor: Partial<ActorContext>,
+    requiredWorkspace?: string,
+  ): ExecutionContext => {
+    jest
+      .spyOn(reflector, 'getAllAndOverride')
+      .mockReturnValue(requiredWorkspace);
     return {
       switchToHttp: () => ({
         getRequest: () => ({
@@ -51,24 +59,36 @@ describe('WorkspaceAccessGuard & Matrix (Iteration 2)', () => {
     });
 
     it('should allow FINANCE_ACCOUNTS_EXECUTIVE to access FINANCE workspace', () => {
-      const ctx = createMockContext({ role: RoleType.FINANCE_ACCOUNTS_EXECUTIVE }, 'FINANCE');
+      const ctx = createMockContext(
+        { role: RoleType.FINANCE_ACCOUNTS_EXECUTIVE },
+        'FINANCE',
+      );
       expect(guard.canActivate(ctx)).toBe(true);
     });
 
     it('should allow OPERATIONS and POLICY_ISSUANCE_EXECUTIVE to access BACK_OFFICE workspace', () => {
-      const ctx = createMockContext({ role: RoleType.POLICY_ISSUANCE_EXECUTIVE }, 'BACK_OFFICE');
+      const ctx = createMockContext(
+        { role: RoleType.POLICY_ISSUANCE_EXECUTIVE },
+        'BACK_OFFICE',
+      );
       expect(guard.canActivate(ctx)).toBe(true);
     });
 
     it('should allow RENEWAL_EXECUTIVE to access RENEWALS workspace', () => {
-      const ctx = createMockContext({ role: RoleType.RENEWAL_EXECUTIVE }, 'RENEWALS');
+      const ctx = createMockContext(
+        { role: RoleType.RENEWAL_EXECUTIVE },
+        'RENEWALS',
+      );
       expect(guard.canActivate(ctx)).toBe(true);
     });
 
     it('should allow SUPER_ADMIN access to any workspace', () => {
       const ctx1 = createMockContext({ role: RoleType.SUPER_ADMIN }, 'SALES');
       const ctx2 = createMockContext({ role: RoleType.SUPER_ADMIN }, 'FINANCE');
-      const ctx3 = createMockContext({ role: RoleType.SUPER_ADMIN }, 'ADMINISTRATION');
+      const ctx3 = createMockContext(
+        { role: RoleType.SUPER_ADMIN },
+        'ADMINISTRATION',
+      );
 
       expect(guard.canActivate(ctx1)).toBe(true);
       expect(guard.canActivate(ctx2)).toBe(true);

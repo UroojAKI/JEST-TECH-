@@ -1,9 +1,20 @@
-import { Controller, Get, Post, Body, Param, Query, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Param,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import type { RequestUser } from '../../auth/decorators/current-user.decorator';
-import { LeadWorkflowService, WorkflowStage } from '../services/lead-workflow.service';
+import {
+  LeadWorkflowService,
+  WorkflowStage,
+} from '../services/lead-workflow.service';
 import { LeadAssignmentService } from '../services/lead-assignment.service';
 import { ReferralService } from '../services/referral.service';
 import { PerformanceService } from '../services/performance.service';
@@ -20,17 +31,21 @@ export class SalesWorkspaceController {
     private readonly assignmentService: LeadAssignmentService,
     private readonly referralService: ReferralService,
     private readonly performanceService: PerformanceService,
-    private readonly prisma: PrismaService
+    private readonly prisma: PrismaService,
   ) {}
 
   @Get('dashboard')
   @ApiOperation({ summary: 'Get Sales Workspace aggregated dashboard payload' })
   async getDashboard(@CurrentUser() user: RequestUser) {
     const isManager =
-      user.role === 'BRANCH_MANAGER' || user.role === 'TEAM_LEADER' || user.role === 'SUPER_ADMIN';
+      user.role === 'BRANCH_MANAGER' ||
+      user.role === 'TEAM_LEADER' ||
+      user.role === 'SUPER_ADMIN';
 
     const kpis = await this.performanceService.getSalesKpis(user.id, isManager);
-    const pipeline = await this.performanceService.getSalesPipeline(isManager ? undefined : user.id);
+    const pipeline = await this.performanceService.getSalesPipeline(
+      isManager ? undefined : user.id,
+    );
 
     const todayCalls = await this.prisma.callLog.findMany({
       where: isManager ? {} : { userId: user.id },
@@ -50,12 +65,17 @@ export class SalesWorkspaceController {
   @ApiOperation({ summary: 'Get Agent Work Queue actionable task badges' })
   async getWorkQueue(@CurrentUser() user: RequestUser) {
     const isManager =
-      user.role === 'BRANCH_MANAGER' || user.role === 'TEAM_LEADER' || user.role === 'SUPER_ADMIN';
+      user.role === 'BRANCH_MANAGER' ||
+      user.role === 'TEAM_LEADER' ||
+      user.role === 'SUPER_ADMIN';
     const where: any = { deletedAt: null };
     if (!isManager) where.assignedToId = user.id;
 
     const pendingQuotesCount = await this.prisma.lead.count({
-      where: { ...where, currentWorkflowStep: { in: ['NEED_ANALYSIS', 'QUOTATION'] } },
+      where: {
+        ...where,
+        currentWorkflowStep: { in: ['NEED_ANALYSIS', 'QUOTATION'] },
+      },
     });
 
     const pendingDocsCount = await this.prisma.lead.count({
@@ -87,7 +107,9 @@ export class SalesWorkspaceController {
   @ApiOperation({ summary: 'Get Top-Row and Bottom-Row KPI Cards' })
   getKpis(@CurrentUser() user: RequestUser) {
     const isManager =
-      user.role === 'BRANCH_MANAGER' || user.role === 'TEAM_LEADER' || user.role === 'SUPER_ADMIN';
+      user.role === 'BRANCH_MANAGER' ||
+      user.role === 'TEAM_LEADER' ||
+      user.role === 'SUPER_ADMIN';
     return this.performanceService.getSalesKpis(user.id, isManager);
   }
 
@@ -95,23 +117,35 @@ export class SalesWorkspaceController {
   @ApiOperation({ summary: 'Get Lead Pipeline distribution & stage leads' })
   getPipeline(@CurrentUser() user: RequestUser) {
     const isManager =
-      user.role === 'BRANCH_MANAGER' || user.role === 'TEAM_LEADER' || user.role === 'SUPER_ADMIN';
-    return this.performanceService.getSalesPipeline(isManager ? undefined : user.id);
+      user.role === 'BRANCH_MANAGER' ||
+      user.role === 'TEAM_LEADER' ||
+      user.role === 'SUPER_ADMIN';
+    return this.performanceService.getSalesPipeline(
+      isManager ? undefined : user.id,
+    );
   }
 
   @Post('lead/:id/move-stage')
-  @ApiOperation({ summary: 'Transition lead workflow step via Controlled Sequential Workflow engine' })
+  @ApiOperation({
+    summary:
+      'Transition lead workflow step via Controlled Sequential Workflow engine',
+  })
   moveStage(
     @Param('id', ParseUUIDPipe) leadId: string,
-    @Body() dto: { targetStage: WorkflowStage; overrideReason?: string; remarks?: string },
-    @CurrentUser() user: RequestUser
+    @Body()
+    dto: {
+      targetStage: WorkflowStage;
+      overrideReason?: string;
+      remarks?: string;
+    },
+    @CurrentUser() user: RequestUser,
   ) {
     return this.workflowService.transitionStage(
       leadId,
       dto.targetStage,
       { id: user.id, role: user.role },
       dto.overrideReason,
-      dto.remarks
+      dto.remarks,
     );
   }
 
@@ -122,11 +156,20 @@ export class SalesWorkspaceController {
   }
 
   @Post('lead/:id/referral')
-  @ApiOperation({ summary: 'Capture customer referral and auto-provision linked lead' })
+  @ApiOperation({
+    summary: 'Capture customer referral and auto-provision linked lead',
+  })
   createReferral(
     @Param('id', ParseUUIDPipe) leadId: string,
-    @Body() dto: { referralName: string; phone: string; email?: string; relationship?: string; interestedProduct?: string },
-    @CurrentUser() user: RequestUser
+    @Body()
+    dto: {
+      referralName: string;
+      phone: string;
+      email?: string;
+      relationship?: string;
+      interestedProduct?: string;
+    },
+    @CurrentUser() user: RequestUser,
   ) {
     return this.referralService.createReferral(
       {
@@ -137,13 +180,16 @@ export class SalesWorkspaceController {
         relationship: dto.relationship,
         interestedProduct: dto.interestedProduct,
       },
-      user.id
+      user.id,
     );
   }
 
   @Post('lead/:id/no-referral')
   @ApiOperation({ summary: 'Mark lead with explicit No Referral reason' })
-  markNoReferral(@Param('id', ParseUUIDPipe) leadId: string, @Body() dto: { reason: string }) {
+  markNoReferral(
+    @Param('id', ParseUUIDPipe) leadId: string,
+    @Body() dto: { reason: string },
+  ) {
     return this.referralService.markNoReferral(leadId, dto.reason);
   }
 
@@ -151,8 +197,9 @@ export class SalesWorkspaceController {
   @ApiOperation({ summary: 'Log call interaction for a lead' })
   async logCall(
     @Param('id', ParseUUIDPipe) leadId: string,
-    @Body() dto: { callOutcome: string; notes?: string; scheduledFollowup?: string },
-    @CurrentUser() user: RequestUser
+    @Body()
+    dto: { callOutcome: string; notes?: string; scheduledFollowup?: string },
+    @CurrentUser() user: RequestUser,
   ) {
     const call = await this.prisma.callLog.create({
       data: {
@@ -160,7 +207,9 @@ export class SalesWorkspaceController {
         userId: user.id,
         callOutcome: dto.callOutcome,
         notes: dto.notes,
-        scheduledFollowup: dto.scheduledFollowup ? new Date(dto.scheduledFollowup) : null,
+        scheduledFollowup: dto.scheduledFollowup
+          ? new Date(dto.scheduledFollowup)
+          : null,
       },
     });
 
@@ -176,13 +225,16 @@ export class SalesWorkspaceController {
 
   @Post('lead/:id/crm-update')
   @ApiOperation({ summary: 'Complete final CRM update checklist' })
-  async crmUpdate(@Param('id', ParseUUIDPipe) leadId: string, @CurrentUser() user: RequestUser) {
+  async crmUpdate(
+    @Param('id', ParseUUIDPipe) leadId: string,
+    @CurrentUser() user: RequestUser,
+  ) {
     return this.workflowService.transitionStage(
       leadId,
       'CRM_UPDATED',
       { id: user.id, role: user.role },
       undefined,
-      'CRM updated checklist completed'
+      'CRM updated checklist completed',
     );
   }
 }

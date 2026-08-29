@@ -1,4 +1,9 @@
-import { Controller, Get, Res, ServiceUnavailableException } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Res,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import { Response } from 'express';
 import {
   HealthCheck,

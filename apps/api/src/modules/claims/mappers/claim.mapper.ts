@@ -33,7 +33,6 @@ export class ClaimMapper {
       }));
     }
 
-
     if (c.histories) {
       dto.histories = c.histories.map((h) => ({
         id: h.id,

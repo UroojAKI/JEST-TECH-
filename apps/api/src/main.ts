@@ -10,7 +10,9 @@ import { MetricsInterceptor } from './common/interceptors/metrics.interceptor';
 
 async function bootstrap() {
   if (!process.env.JWT_SECRET || !process.env.JWT_REFRESH_SECRET) {
-    throw new Error('CRITICAL: JWT_SECRET and JWT_REFRESH_SECRET must be set in environment variables.');
+    throw new Error(
+      'CRITICAL: JWT_SECRET and JWT_REFRESH_SECRET must be set in environment variables.',
+    );
   }
 
   const app = await NestFactory.create(AppModule);
@@ -26,7 +28,14 @@ async function bootstrap() {
   const isDev = process.env.NODE_ENV !== 'production';
   const allowedOrigins = process.env.ALLOWED_ORIGINS
     ? process.env.ALLOWED_ORIGINS.split(',').map((o) => o.trim())
-    : (isDev ? ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:3002', 'http://localhost:3003'] : []);
+    : isDev
+      ? [
+          'http://localhost:3000',
+          'http://localhost:3001',
+          'http://localhost:3002',
+          'http://localhost:3003',
+        ]
+      : [];
 
   app.enableCors({
     origin: (origin, callback) => {
@@ -35,7 +44,10 @@ async function bootstrap() {
       // Authentication (JWT + RBAC) handles authorization for all non-browser clients.
       if (!origin) return callback(null, true);
 
-      if (allowedOrigins.includes(origin) || (isDev && origin.startsWith('http://localhost:'))) {
+      if (
+        allowedOrigins.includes(origin) ||
+        (isDev && origin.startsWith('http://localhost:'))
+      ) {
         callback(null, true);
       } else {
         callback(new Error(`Origin ${origin} not allowed by CORS`));
@@ -93,7 +105,8 @@ async function bootstrap() {
 
   const port = process.env.PORT || 4000;
   await app.listen(port, '0.0.0.0');
-  console.log(`[NestJS API] Server listening on http://localhost:${port}/api/v1`);
-
+  console.log(
+    `[NestJS API] Server listening on http://localhost:${port}/api/v1`,
+  );
 }
 bootstrap();

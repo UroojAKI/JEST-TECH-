@@ -102,10 +102,14 @@ export class WebhookGatewayController {
    * Cryptographic HMAC SHA256 Webhook Signature Verification
    */
   private validateSignature(provider: string, payload: any, headers: any) {
-    const signature = headers['x-razorpay-signature'] || headers['x-twilio-signature'] || headers['x-webhook-signature'];
-    
+    const signature =
+      headers['x-razorpay-signature'] ||
+      headers['x-twilio-signature'] ||
+      headers['x-webhook-signature'];
+
     if (provider === 'razorpay') {
-      const razorpaySecret = process.env.RAZORPAY_WEBHOOK_SECRET || 'rzp_webhook_secret_key';
+      const razorpaySecret =
+        process.env.RAZORPAY_WEBHOOK_SECRET || 'rzp_webhook_secret_key';
       if (!signature) {
         throw new UnauthorizedException('Missing x-razorpay-signature header');
       }
@@ -118,7 +122,10 @@ export class WebhookGatewayController {
       // Secure constant-time string comparison
       if (
         signature.length !== expectedSignature.length ||
-        !crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expectedSignature))
+        !crypto.timingSafeEqual(
+          Buffer.from(signature),
+          Buffer.from(expectedSignature),
+        )
       ) {
         // In development/test mode without live secret set, allow fallback if matching secret hash string
         if (process.env.NODE_ENV === 'production') {

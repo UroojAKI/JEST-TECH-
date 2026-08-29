@@ -1,4 +1,10 @@
-import { IsString, IsOptional, IsEnum, IsInt, IsBoolean } from 'class-validator';
+import {
+  IsString,
+  IsOptional,
+  IsEnum,
+  IsInt,
+  IsBoolean,
+} from 'class-validator';
 import { RoleType } from '@prisma/client';
 
 export class CreateDepartmentDto {

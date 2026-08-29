@@ -1,8 +1,7 @@
-// @ts-nocheck
 import { Test, TestingModule } from '@nestjs/testing';
 import { DashboardController } from '../controllers/dashboard.controller';
 import { DashboardService } from '../services/dashboard.service';
-import { RoleType } from '@prisma/client';
+import { RoleType, UserStatus } from '@prisma/client';
 import { RequestUser } from '../../auth/decorators/current-user.decorator';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 
@@ -12,12 +11,22 @@ describe('DashboardController', () => {
 
   const mockUser: RequestUser = {
     id: 'user-123',
+    userId: 'user-123',
     email: 'admin@jestpolicy.com',
     role: RoleType.ADMIN,
+    firstName: 'Admin',
+    lastName: 'User',
+    organizationId: 'org-1',
+    companyId: 'org-1',
+    roles: [RoleType.ADMIN],
+    permissions: ['*'],
+    workspaces: ['ADMIN'],
+    status: UserStatus.ACTIVE,
   };
 
   const mockDashboardData = {
-    role: 'ADMIN', permissions: [],
+    role: 'ADMIN',
+    permissions: [],
     kpis: {
       revenue: 1250000,
       policiesCount: 450,

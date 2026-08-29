@@ -25,7 +25,10 @@ export class SaodVerificationService {
    * Called by QuotationService before saving any SAOD quote.
    * Throws BadRequestException if validation fails.
    */
-  async validateSaodEligibility(quotationId: string, quotationDate: Date): Promise<void> {
+  async validateSaodEligibility(
+    quotationId: string,
+    quotationDate: Date,
+  ): Promise<void> {
     const verification = await this.prisma.saodTpVerification.findUnique({
       where: { quotationId },
     });
@@ -49,7 +52,9 @@ export class SaodVerificationService {
       );
     }
 
-    this.logger.log(`SAOD eligibility validated for quotation ${quotationId}. TP: ${verification.tpPolicyNumber}, expires: ${verification.tpExpiryDate}`);
+    this.logger.log(
+      `SAOD eligibility validated for quotation ${quotationId}. TP: ${verification.tpPolicyNumber}, expires: ${verification.tpExpiryDate}`,
+    );
   }
 
   /**
@@ -60,7 +65,9 @@ export class SaodVerificationService {
     const tpExpiryDate = new Date(dto.tpExpiryDate);
 
     if (tpExpiryDate <= new Date()) {
-      throw new BadRequestException('The TP policy expiry date must be in the future for SAOD eligibility.');
+      throw new BadRequestException(
+        'The TP policy expiry date must be in the future for SAOD eligibility.',
+      );
     }
 
     const verification = await this.prisma.saodTpVerification.upsert({
@@ -114,7 +121,9 @@ export class SaodVerificationService {
       },
     });
 
-    this.logger.log(`SAOD TP verification recorded for quotation ${dto.quotationId} by user ${dto.verifiedById}`);
+    this.logger.log(
+      `SAOD TP verification recorded for quotation ${dto.quotationId} by user ${dto.verifiedById}`,
+    );
     return verification;
   }
 }

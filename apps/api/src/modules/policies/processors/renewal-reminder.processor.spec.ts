@@ -1,7 +1,11 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { RenewalReminderProcessor } from './renewal-reminder.processor';
 import { PrismaService } from '../../../database/prisma.service';
-import { NotificationType, NotificationPriority, PolicyStatus } from '@prisma/client';
+import {
+  NotificationType,
+  NotificationPriority,
+  PolicyStatus,
+} from '@prisma/client';
 
 describe('RenewalReminderProcessor (Iteration 12)', () => {
   let processor: RenewalReminderProcessor;
@@ -88,7 +92,10 @@ describe('RenewalReminderProcessor (Iteration 12)', () => {
 
   it('should transition policy status to PENDING_RENEWAL when daysBefore is 30', async () => {
     prisma.auditLog.findFirst.mockResolvedValue(null);
-    prisma.contact.findUnique.mockResolvedValue({ id: 'cust-1', firstName: 'Anita' });
+    prisma.contact.findUnique.mockResolvedValue({
+      id: 'cust-1',
+      firstName: 'Anita',
+    });
 
     const job = mockJob(30);
     await processor.process(job as any);
@@ -101,7 +108,10 @@ describe('RenewalReminderProcessor (Iteration 12)', () => {
 
   it('should transition policy status to LAPSED when daysBefore is -1 (overdue)', async () => {
     prisma.auditLog.findFirst.mockResolvedValue(null);
-    prisma.contact.findUnique.mockResolvedValue({ id: 'cust-1', firstName: 'Vikram' });
+    prisma.contact.findUnique.mockResolvedValue({
+      id: 'cust-1',
+      firstName: 'Vikram',
+    });
 
     const job = mockJob(-1);
     await processor.process(job as any);

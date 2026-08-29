@@ -41,7 +41,9 @@ export class ConvertQuotationService {
         );
       }
 
-      const existingPolicy = await tx.policy.findFirst({ where: { quotationId: id } });
+      const existingPolicy = await tx.policy.findFirst({
+        where: { quotationId: id },
+      });
 
       let policyId: string;
       let policyNumber: string;
@@ -65,26 +67,32 @@ export class ConvertQuotationService {
             status: PolicyStatus.ACTIVE,
             quotation: { connect: { id } },
             contact: { connect: { id: existing.contactId } },
-            account: existing.accountId ? { connect: { id: existing.accountId } } : undefined,
+            account: existing.accountId
+              ? { connect: { id: existing.accountId } }
+              : undefined,
             premiumAmount: existing.totalPremium,
             effectiveDate: new Date(),
             expiryDate: existing.expiryDate,
             createdBy: { connect: { id: convertedById } },
             updatedBy: { connect: { id: convertedById } },
             payments: {
-              create: [{
-                amount: existing.totalPremium,
-                transactionId: `TXN-${policyNumber}`,
-                paymentMethod: 'ONLINE',
-                status: PaymentStatus.SUCCESS,
-              }],
+              create: [
+                {
+                  amount: existing.totalPremium,
+                  transactionId: `TXN-${policyNumber}`,
+                  paymentMethod: 'ONLINE',
+                  status: PaymentStatus.SUCCESS,
+                },
+              ],
             },
             histories: {
-              create: [{
-                status: PolicyStatus.ACTIVE,
-                comments: `Policy issued from converted quotation ${existing.quotationCode}.`,
-                createdById: convertedById,
-              }],
+              create: [
+                {
+                  status: PolicyStatus.ACTIVE,
+                  comments: `Policy issued from converted quotation ${existing.quotationCode}.`,
+                  createdById: convertedById,
+                },
+              ],
             },
           },
         });

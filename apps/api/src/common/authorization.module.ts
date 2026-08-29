@@ -10,10 +10,6 @@ import { WorkspaceAccessGuard } from './guards/workspace-access.guard';
     ScopeResolver,
     WorkspaceAccessGuard,
   ],
-  exports: [
-    ResourceAuthorizationService,
-    ScopeResolver,
-    WorkspaceAccessGuard,
-  ],
+  exports: [ResourceAuthorizationService, ScopeResolver, WorkspaceAccessGuard],
 })
 export class AuthorizationModule {}

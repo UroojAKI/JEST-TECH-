@@ -17,8 +17,12 @@ export class ContactRepository {
         SELECT nextval('contact_number_seq')`;
       return `CONT-${result[0].nextval.toString().padStart(6, '0')}`;
     } catch {
-      const count = await this.prisma.contact.count();
-      return `CONT-${(count + 1001).toString().padStart(6, '0')}`;
+      await this.prisma.$executeRawUnsafe(
+        `CREATE SEQUENCE IF NOT EXISTS contact_number_seq START 1;`,
+      );
+      const retry = await this.prisma.$queryRaw<[{ nextval: bigint }]>`
+        SELECT nextval('contact_number_seq')`;
+      return `CONT-${retry[0].nextval.toString().padStart(6, '0')}`;
     }
   }
 

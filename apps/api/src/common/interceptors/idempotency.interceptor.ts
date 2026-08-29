@@ -64,11 +64,7 @@ export class IdempotencyInterceptor implements NestInterceptor {
       tap({
         next: async (data) => {
           // Store completed response for 24 hours (86400s)
-          await this.cache.set(
-            cacheKey,
-            { status: 'COMPLETED', data },
-            86400,
-          );
+          await this.cache.set(cacheKey, { status: 'COMPLETED', data }, 86400);
         },
         error: async () => {
           // In case of execution error, clear the lock so client can safely retry

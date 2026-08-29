@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { PrismaService } from '../../../database/prisma.service';
 import { RatingRuleType, Prisma } from '@prisma/client';
 
@@ -32,7 +36,9 @@ export class RatingEngineService {
     // NCB Validation
     const validNcbSlabs = [0, 20, 25, 35, 45, 50];
     if (!validNcbSlabs.includes(ncbPercentage)) {
-      throw new BadRequestException(`Invalid NCB Percentage. Must be one of: ${validNcbSlabs.join(', ')}`);
+      throw new BadRequestException(
+        `Invalid NCB Percentage. Must be one of: ${validNcbSlabs.join(', ')}`,
+      );
     }
 
     const variant = await this.prisma.vehicleVariant.findUnique({
@@ -50,7 +56,9 @@ export class RatingEngineService {
     let idv = 0;
     if (vehicleAgeYears > 5) {
       if (!manualIdv) {
-        throw new BadRequestException('Manual IDV is required for vehicles older than 5 years');
+        throw new BadRequestException(
+          'Manual IDV is required for vehicles older than 5 years',
+        );
       }
       idv = manualIdv;
     } else {
@@ -120,17 +128,34 @@ export class RatingEngineService {
     // Entire block is try/catch: covers DB failure, network timeout, AND JSON parse errors
     let tpPremium = 0;
     try {
-      const tpConfig = await this.prisma.systemConfig.findUnique({ where: { key: 'tp_rates' } });
+      const tpConfig = await this.prisma.systemConfig.findUnique({
+        where: { key: 'tp_rates' },
+      });
       if (tpConfig && tpConfig.value) {
         const parsed = JSON.parse(tpConfig.value);
         const cc = variant.engineCapacity; // also used as GVW for CVs
         const vType = variant.model.vehicleType as string;
-        const is4W = ['FOUR_WHEELER', 'PRIVATE_CAR_1YR', 'PRIVATE_CAR_3YR_MANDATORY_TP', 'ELECTRIC_VEHICLE_EV_SPECIAL', 'MISCELLANEOUS_VEHICLE_SPECIAL'].includes(vType);
-        const is2W = ['TWO_WHEELER', 'TWO_WHEELER_1YR', 'TWO_WHEELER_5YR_MANDATORY_TP'].includes(vType);
-        const isCV = ['COMMERCIAL', 'GOODS_CARRYING_COMMERCIAL_GCV', 'PASSENGER_CARRYING_COMMERCIAL_PCV'].includes(vType);
+        const is4W = [
+          'FOUR_WHEELER',
+          'PRIVATE_CAR_1YR',
+          'PRIVATE_CAR_3YR_MANDATORY_TP',
+          'ELECTRIC_VEHICLE_EV_SPECIAL',
+          'MISCELLANEOUS_VEHICLE_SPECIAL',
+        ].includes(vType);
+        const is2W = [
+          'TWO_WHEELER',
+          'TWO_WHEELER_1YR',
+          'TWO_WHEELER_5YR_MANDATORY_TP',
+        ].includes(vType);
+        const isCV = [
+          'COMMERCIAL',
+          'GOODS_CARRYING_COMMERCIAL_GCV',
+          'PASSENGER_CARRYING_COMMERCIAL_PCV',
+        ].includes(vType);
         if (is4W) {
           if (cc <= 1000) tpPremium = parsed.pc?.upto_1000cc || 2094;
-          else if (cc <= 1500) tpPremium = parsed.pc?.['1001_to_1500cc'] || 3416;
+          else if (cc <= 1500)
+            tpPremium = parsed.pc?.['1001_to_1500cc'] || 3416;
           else tpPremium = parsed.pc?.above_1500cc || 7897;
         } else if (is2W) {
           if (cc <= 75) tpPremium = parsed.tw?.upto_75cc || 538;
@@ -139,9 +164,12 @@ export class RatingEngineService {
           else tpPremium = parsed.tw?.above_350cc || 2804;
         } else if (isCV) {
           if (cc <= 7500) tpPremium = parsed.cv?.upto_7500kg || 16049;
-          else if (cc <= 12000) tpPremium = parsed.cv?.['7501_to_12000kg'] || 27186;
-          else if (cc <= 20000) tpPremium = parsed.cv?.['12001_to_20000kg'] || 35313;
-          else if (cc <= 40000) tpPremium = parsed.cv?.['20001_to_40000kg'] || 43950;
+          else if (cc <= 12000)
+            tpPremium = parsed.cv?.['7501_to_12000kg'] || 27186;
+          else if (cc <= 20000)
+            tpPremium = parsed.cv?.['12001_to_20000kg'] || 35313;
+          else if (cc <= 40000)
+            tpPremium = parsed.cv?.['20001_to_40000kg'] || 43950;
           else tpPremium = parsed.cv?.above_40000kg || 44242;
         }
       }
@@ -149,17 +177,23 @@ export class RatingEngineService {
       // DB or parse failure — tpPremium stays 0, hardcoded fallback applies below
     }
     if (tpPremium === 0) {
-       // Graceful degradation fallback (IRDAI mandated rates)
-       const cc = variant.engineCapacity;
-       const vType = variant.model.vehicleType as string;
-       const is4W = ['FOUR_WHEELER', 'PRIVATE_CAR_1YR', 'PRIVATE_CAR_3YR_MANDATORY_TP', 'ELECTRIC_VEHICLE_EV_SPECIAL', 'MISCELLANEOUS_VEHICLE_SPECIAL'].includes(vType);
-       if (is4W) {
-         if (cc <= 1000) tpPremium = 2094;
-         else if (cc <= 1500) tpPremium = 3416;
-         else tpPremium = 7897;
-       } else {
-         tpPremium = 2099; // generic fallback for 2W/CV
-       }
+      // Graceful degradation fallback (IRDAI mandated rates)
+      const cc = variant.engineCapacity;
+      const vType = variant.model.vehicleType as string;
+      const is4W = [
+        'FOUR_WHEELER',
+        'PRIVATE_CAR_1YR',
+        'PRIVATE_CAR_3YR_MANDATORY_TP',
+        'ELECTRIC_VEHICLE_EV_SPECIAL',
+        'MISCELLANEOUS_VEHICLE_SPECIAL',
+      ].includes(vType);
+      if (is4W) {
+        if (cc <= 1000) tpPremium = 2094;
+        else if (cc <= 1500) tpPremium = 3416;
+        else tpPremium = 7897;
+      } else {
+        tpPremium = 2099; // generic fallback for 2W/CV
+      }
     }
 
     // Compute CPA Premium
@@ -167,7 +201,9 @@ export class RatingEngineService {
     if (isOwnerDriver) {
       cpaPremium = 788; // Hardcoded fallback (IRDAI mandated ₹788)
       try {
-        const cpaConfig = await this.prisma.systemConfig.findUnique({ where: { key: 'cpa_premium' } });
+        const cpaConfig = await this.prisma.systemConfig.findUnique({
+          where: { key: 'cpa_premium' },
+        });
         if (cpaConfig && cpaConfig.value) {
           cpaPremium = Number(cpaConfig.value) || 788;
         }
@@ -203,10 +239,16 @@ export class RatingEngineService {
     }
 
     // Consolidation and Segregated GST Calculation
-    const isCommercial = ['COMMERCIAL_GCV', 'TAXI', 'BUS_COACH', 'MISC_CLASS_D', 'AUTO_RICKSHAW'].includes(variant.model.vehicleType);
-    
+    const isCommercial = [
+      'COMMERCIAL_GCV',
+      'TAXI',
+      'BUS_COACH',
+      'MISC_CLASS_D',
+      'AUTO_RICKSHAW',
+    ].includes(variant.model.vehicleType);
+
     // Default rates
-    let odGstRate = 0.18;
+    const odGstRate = 0.18;
     let tpGstRate = 0.18;
 
     // Apply different tax rates for commercial vehicles if needed based on business rules
@@ -222,7 +264,7 @@ export class RatingEngineService {
     const odGst = odNetPremium * odGstRate;
     const tpGst = tpNetPremium * tpGstRate;
     const totalGst = odGst + tpGst;
-    
+
     const netPremium = odNetPremium + tpNetPremium;
     const totalPremium = netPremium + totalGst;
 
@@ -270,23 +312,40 @@ export class RatingEngineService {
     totalTaxGst: Prisma.Decimal;
     netCustomerPayablePremium: Prisma.Decimal;
   } {
-    const { exShowroomPrice, depreciationPercentage, cubicCapacity, vehicleCategory } = payload;
-    
+    const {
+      exShowroomPrice,
+      depreciationPercentage,
+      cubicCapacity,
+      vehicleCategory,
+    } = payload;
+
     // Calculate exact IDV after statutory depreciation (Banker's Rounding)
-    const depFactor = new Prisma.Decimal('1').sub(depreciationPercentage.div(100));
-    const insuredDeclaredValue = exShowroomPrice.mul(depFactor).toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_EVEN);
+    const depFactor = new Prisma.Decimal('1').sub(
+      depreciationPercentage.div(100),
+    );
+    const insuredDeclaredValue = exShowroomPrice
+      .mul(depFactor)
+      .toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_EVEN);
 
     // Compute basic OD premium at standard statutory rate (e.g. 2.5% of IDV)
     const odRate = new Prisma.Decimal('0.025');
-    const netOwnDamagePremium = insuredDeclaredValue.mul(odRate).toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_EVEN);
+    const netOwnDamagePremium = insuredDeclaredValue
+      .mul(odRate)
+      .toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_EVEN);
 
     // Compute statutory TP mandatory premium based on vehicle category and engine capacity
     let tpValue = new Prisma.Decimal('2094.00'); // default 1yr < 1000cc
-    if (vehicleCategory.includes('3YR_MANDATORY_TP') || vehicleCategory === 'PRIVATE_CAR_3YR_MANDATORY_TP') {
+    if (
+      vehicleCategory.includes('3YR_MANDATORY_TP') ||
+      vehicleCategory === 'PRIVATE_CAR_3YR_MANDATORY_TP'
+    ) {
       if (cubicCapacity <= 1000) tpValue = new Prisma.Decimal('6521.00');
       else if (cubicCapacity <= 1500) tpValue = new Prisma.Decimal('10640.00');
       else tpValue = new Prisma.Decimal('24596.00');
-    } else if (vehicleCategory.includes('5YR_MANDATORY_TP') || vehicleCategory === 'TWO_WHEELER_5YR_MANDATORY_TP') {
+    } else if (
+      vehicleCategory.includes('5YR_MANDATORY_TP') ||
+      vehicleCategory === 'TWO_WHEELER_5YR_MANDATORY_TP'
+    ) {
       if (cubicCapacity <= 75) tpValue = new Prisma.Decimal('2901.00');
       else if (cubicCapacity <= 150) tpValue = new Prisma.Decimal('3851.00');
       else if (cubicCapacity <= 350) tpValue = new Prisma.Decimal('7365.00');
@@ -300,11 +359,17 @@ export class RatingEngineService {
 
     // Segregated tax ledgers (18% GST)
     const gstRate = new Prisma.Decimal('0.18');
-    const ownDamageTaxGst = netOwnDamagePremium.mul(gstRate).toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_EVEN);
-    const thirdPartyTaxGst = netThirdPartyPremium.mul(gstRate).toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_EVEN);
+    const ownDamageTaxGst = netOwnDamagePremium
+      .mul(gstRate)
+      .toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_EVEN);
+    const thirdPartyTaxGst = netThirdPartyPremium
+      .mul(gstRate)
+      .toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_EVEN);
     const totalTaxGst = ownDamageTaxGst.add(thirdPartyTaxGst);
 
-    const netCustomerPayablePremium = netOwnDamagePremium.add(netThirdPartyPremium).add(totalTaxGst);
+    const netCustomerPayablePremium = netOwnDamagePremium
+      .add(netThirdPartyPremium)
+      .add(totalTaxGst);
 
     return {
       insuredDeclaredValue,

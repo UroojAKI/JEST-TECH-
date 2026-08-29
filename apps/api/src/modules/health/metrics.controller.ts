@@ -1,12 +1,19 @@
 import { Controller, Get, Header } from '@nestjs/common';
-import { register, collectDefaultMetrics, Counter, Histogram } from 'prom-client';
+import {
+  register,
+  collectDefaultMetrics,
+  Counter,
+  Histogram,
+} from 'prom-client';
 
 if (!register.getSingleMetric('process_cpu_user_seconds_total')) {
   collectDefaultMetrics();
 }
 
 export const leadCreatedCounter =
-  (register.getSingleMetric('jest_crm_lead_created_total') as Counter<string>) ||
+  (register.getSingleMetric(
+    'jest_crm_lead_created_total',
+  ) as Counter<string>) ||
   new Counter({
     name: 'jest_crm_lead_created_total',
     help: 'Total number of leads created',
@@ -14,7 +21,9 @@ export const leadCreatedCounter =
   });
 
 export const apiDurationHistogram =
-  (register.getSingleMetric('jest_crm_api_request_duration_ms') as Histogram<string>) ||
+  (register.getSingleMetric(
+    'jest_crm_api_request_duration_ms',
+  ) as Histogram<string>) ||
   new Histogram({
     name: 'jest_crm_api_request_duration_ms',
     help: 'API request duration in milliseconds',

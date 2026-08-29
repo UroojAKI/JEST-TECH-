@@ -31,10 +31,14 @@ export class MotorPolicyIssuanceService {
     const startDate = new Date(dto.startDate);
     const endDate = new Date(dto.endDate);
     if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) {
-      throw new BadRequestException('Valid policy start and end dates are required');
+      throw new BadRequestException(
+        'Valid policy start and end dates are required',
+      );
     }
     if (endDate < startDate) {
-      throw new BadRequestException('Policy end date cannot be before policy start date');
+      throw new BadRequestException(
+        'Policy end date cannot be before policy start date',
+      );
     }
 
     const gate = await this.paymentService.canProceedToPolicy(quotationId);
@@ -53,10 +57,18 @@ export class MotorPolicyIssuanceService {
         include: { contact: true, lead: true, policy: true },
       });
 
-      if (!quote) throw new NotFoundException(`Quotation ${quotationId} not found`);
-      if (quote.policy) throw new ConflictException('A policy already exists for this quotation');
-      if (quote.workflowState !== 'PAYMENT_DONE') throw new ConflictException('Quotation is not in PAYMENT_DONE state');
-      if (!quote.calculationSnapshot) throw new ConflictException('Authoritative calculation snapshot is required before issuance');
+      if (!quote)
+        throw new NotFoundException(`Quotation ${quotationId} not found`);
+      if (quote.policy)
+        throw new ConflictException(
+          'A policy already exists for this quotation',
+        );
+      if (quote.workflowState !== 'PAYMENT_DONE')
+        throw new ConflictException('Quotation is not in PAYMENT_DONE state');
+      if (!quote.calculationSnapshot)
+        throw new ConflictException(
+          'Authoritative calculation snapshot is required before issuance',
+        );
 
       const snapshot = (quote.calculationSnapshot as Record<string, any>) || {};
       const inputs = snapshot.inputs || {};
@@ -80,9 +92,10 @@ export class MotorPolicyIssuanceService {
         }
       }
 
-      const effectiveExpiry = [odExpiry, tpExpiry, endDate]
-        .filter((date): date is Date => Boolean(date))
-        .sort((a, b) => a.getTime() - b.getTime())[0] || endDate;
+      const effectiveExpiry =
+        [odExpiry, tpExpiry, endDate]
+          .filter((date): date is Date => Boolean(date))
+          .sort((a, b) => a.getTime() - b.getTime())[0] || endDate;
 
       const policy = await tx.policy.create({
         data: {

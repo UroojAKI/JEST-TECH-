@@ -19,10 +19,13 @@ export class PremiumService {
   } {
     let odPremium = 0;
     let tpPremium = 0;
-    let paCoverPremium = includePaCover ? 330 : 0;
+    const paCoverPremium = includePaCover ? 330 : 0;
 
     // 1. Own Damage (OD) Calculation
-    if (coverType === ProductType.PACKAGE_COMPREHENSIVE || coverType === ProductType.STANDALONE_OWN_DAMAGE) {
+    if (
+      coverType === ProductType.PACKAGE_COMPREHENSIVE ||
+      coverType === ProductType.STANDALONE_OWN_DAMAGE
+    ) {
       const baseOdRate = rtoZone === 'ZONE_A' ? 0.03127 : 0.03082;
       let ccMultiplier = 1.0;
       if (engineCc > 1500) ccMultiplier = 1.3;
@@ -32,7 +35,10 @@ export class PremiumService {
     }
 
     // 2. Third Party (TP) IRDAI Tariff Table Calculation
-    if (coverType === ProductType.PACKAGE_COMPREHENSIVE || coverType === ProductType.THIRD_PARTY_ONLY) {
+    if (
+      coverType === ProductType.PACKAGE_COMPREHENSIVE ||
+      coverType === ProductType.THIRD_PARTY_ONLY
+    ) {
       if (engineCc > 1500) {
         tpPremium = 7897;
       } else if (engineCc > 1000) {

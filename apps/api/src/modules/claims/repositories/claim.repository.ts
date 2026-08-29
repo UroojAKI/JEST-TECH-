@@ -36,8 +36,12 @@ export class ClaimRepository {
         SELECT nextval('claim_number_seq')`;
       return `CLM-${result[0].nextval.toString().padStart(6, '0')}`;
     } catch {
-      const count = await this.prisma.claim.count();
-      return `CLM-${(count + 1001).toString().padStart(6, '0')}`;
+      await this.prisma.$executeRawUnsafe(
+        `CREATE SEQUENCE IF NOT EXISTS claim_number_seq START 1;`,
+      );
+      const retry = await this.prisma.$queryRaw<[{ nextval: bigint }]>`
+        SELECT nextval('claim_number_seq')`;
+      return `CLM-${retry[0].nextval.toString().padStart(6, '0')}`;
     }
   }
 
@@ -188,13 +192,16 @@ export class ClaimRepository {
     if (!claim) throw new Error(`Claim ${claimId} not found`);
 
     // Map decision to ClaimStatus
-    const newStatus: ClaimStatus = decision === 'APPROVED' ? 'APPROVED' : 'REJECTED';
+    const newStatus: ClaimStatus =
+      decision === 'APPROVED' ? 'APPROVED' : 'REJECTED';
 
     await client.claim.update({
       where: { id: claimId },
       data: {
         status: newStatus,
-        ...(approvedAmount !== null && decision === 'APPROVED' ? { approvedAmount } : {}),
+        ...(approvedAmount !== null && decision === 'APPROVED'
+          ? { approvedAmount }
+          : {}),
       },
     });
 

@@ -57,10 +57,42 @@ export class SystemConfigController {
   @ApiOperation({ summary: 'Get numbering series rules' })
   async getNumberingSeries() {
     return [
-      { id: '1', entityType: 'LEAD', prefix: 'LD-', suffix: '', nextNumber: 10042, paddingLength: 6, isAutoIncrement: true },
-      { id: '2', entityType: 'QUOTATION', prefix: 'QT-2026-', suffix: '', nextNumber: 840, paddingLength: 4, isAutoIncrement: true },
-      { id: '3', entityType: 'POLICY', prefix: 'POL-2026-', suffix: '', nextNumber: 1052, paddingLength: 6, isAutoIncrement: true },
-      { id: '4', entityType: 'CLAIM', prefix: 'CLM-2026-', suffix: '', nextNumber: 42, paddingLength: 4, isAutoIncrement: true },
+      {
+        id: '1',
+        entityType: 'LEAD',
+        prefix: 'LD-',
+        suffix: '',
+        nextNumber: 10042,
+        paddingLength: 6,
+        isAutoIncrement: true,
+      },
+      {
+        id: '2',
+        entityType: 'QUOTATION',
+        prefix: 'QT-2026-',
+        suffix: '',
+        nextNumber: 840,
+        paddingLength: 4,
+        isAutoIncrement: true,
+      },
+      {
+        id: '3',
+        entityType: 'POLICY',
+        prefix: 'POL-2026-',
+        suffix: '',
+        nextNumber: 1052,
+        paddingLength: 6,
+        isAutoIncrement: true,
+      },
+      {
+        id: '4',
+        entityType: 'CLAIM',
+        prefix: 'CLM-2026-',
+        suffix: '',
+        nextNumber: 42,
+        paddingLength: 4,
+        isAutoIncrement: true,
+      },
     ];
   }
 
@@ -85,8 +117,18 @@ export class SystemConfigController {
   @ApiOperation({ summary: 'Get all feature flags' })
   async getFeatureFlags() {
     return [
-      { id: 'ENABLE_NEW_DASHBOARD', name: 'New Dashboard', description: 'Enable the new dashboard layout', isEnabled: true },
-      { id: 'ENABLE_ADVANCED_REPORTS', name: 'Advanced Reports', description: 'Enable advanced reporting features', isEnabled: false },
+      {
+        id: 'ENABLE_NEW_DASHBOARD',
+        name: 'New Dashboard',
+        description: 'Enable the new dashboard layout',
+        isEnabled: true,
+      },
+      {
+        id: 'ENABLE_ADVANCED_REPORTS',
+        name: 'Advanced Reports',
+        description: 'Enable advanced reporting features',
+        isEnabled: false,
+      },
     ];
   }
 
@@ -95,7 +137,10 @@ export class SystemConfigController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN)
   @ApiOperation({ summary: 'Update a feature flag' })
-  async updateFeatureFlag(@Param('id') id: string, @Body() dto: { isEnabled: boolean }) {
+  async updateFeatureFlag(
+    @Param('id') id: string,
+    @Body() dto: { isEnabled: boolean },
+  ) {
     return { success: true, id, isEnabled: dto.isEnabled };
   }
 
@@ -123,7 +168,11 @@ export class SystemConfigController {
       throw new BadRequestException('Invalid configuration key');
     }
     const configKey = key as SystemConfigKey;
-    await this.systemConfigService.setValue(configKey, dto.value, dto.valueType);
+    await this.systemConfigService.setValue(
+      configKey,
+      dto.value,
+      dto.valueType,
+    );
     return { success: true, key };
   }
 }

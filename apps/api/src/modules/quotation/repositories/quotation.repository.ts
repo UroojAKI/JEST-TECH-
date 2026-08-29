@@ -51,8 +51,12 @@ export class QuotationRepository extends BaseRepository<
         SELECT nextval('quotation_number_seq')`;
       return `QTN-${result[0].nextval.toString().padStart(6, '0')}`;
     } catch {
-      const count = await this.prisma.quotation.count();
-      return `QTN-${(count + 1001).toString().padStart(6, '0')}`;
+      await this.prisma.$executeRawUnsafe(
+        `CREATE SEQUENCE IF NOT EXISTS quotation_number_seq START 1;`,
+      );
+      const retry = await this.prisma.$queryRaw<[{ nextval: bigint }]>`
+        SELECT nextval('quotation_number_seq')`;
+      return `QTN-${retry[0].nextval.toString().padStart(6, '0')}`;
     }
   }
 
@@ -76,9 +80,20 @@ export class QuotationRepository extends BaseRepository<
     });
   }
 
-  async findAll(skip: number, take: number, where: Prisma.QuotationWhereInput, orderBy: Prisma.QuotationOrderByWithRelationInput): Promise<[QuotationWithRelations[], number]> {
+  async findAll(
+    skip: number,
+    take: number,
+    where: Prisma.QuotationWhereInput,
+    orderBy: Prisma.QuotationOrderByWithRelationInput,
+  ): Promise<[QuotationWithRelations[], number]> {
     const { organizationId, ...safeWhere } = (where || {}) as any;
-    const data = await this.prisma.quotation.findMany({ skip, take, where: safeWhere, orderBy, include: quotationWithRelations.include });
+    const data = await this.prisma.quotation.findMany({
+      skip,
+      take,
+      where: safeWhere,
+      orderBy,
+      include: quotationWithRelations.include,
+    });
     const total = await this.prisma.quotation.count({ where: safeWhere });
     return [data, total];
   }

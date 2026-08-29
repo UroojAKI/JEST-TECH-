@@ -35,6 +35,7 @@ export interface UserSession {
   firstName: string;
   lastName: string;
   roles: RoleType[];
+  role?: string;
   permissions: Permission[];
   branchId?: string;
   departmentId?: string;

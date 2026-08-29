@@ -24,4 +24,3 @@ export const CurrentUser = createParamDecorator(
 );
 
 export const Actor = CurrentUser;
-

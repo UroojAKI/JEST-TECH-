@@ -25,6 +25,22 @@ export class RenewalSchedulerCron {
       const now = new Date();
       let totalQueued = 0;
 
+      // 0. Auto-activate any ISSUED policies that reached their effectiveDate
+      const activated = await this.prisma.policy.updateMany({
+        where: {
+          status: PolicyStatus.ISSUED,
+          effectiveDate: { lte: now },
+        },
+        data: {
+          status: PolicyStatus.ACTIVE,
+        },
+      });
+      if (activated.count > 0) {
+        this.logger.log(
+          `Auto-activated ${activated.count} ISSUED policies whose effectiveDate was reached.`,
+        );
+      }
+
       // 1. Scan for policies in multiple offset tiers: [45, 30, 15, 7, 0, -1]
       const offsets = [45, 30, 15, 7, 0, -1];
 
@@ -35,7 +51,9 @@ export class RenewalSchedulerCron {
           // Overdue: expired policies not yet marked LAPSED
           policies = await this.prisma.policy.findMany({
             where: {
-              status: { in: [PolicyStatus.ACTIVE, PolicyStatus.PENDING_RENEWAL] },
+              status: {
+                in: [PolicyStatus.ACTIVE, PolicyStatus.PENDING_RENEWAL],
+              },
               expiryDate: { lt: now },
             },
           });
@@ -48,7 +66,9 @@ export class RenewalSchedulerCron {
 
           policies = await this.prisma.policy.findMany({
             where: {
-              status: { in: [PolicyStatus.ACTIVE, PolicyStatus.PENDING_RENEWAL] },
+              status: {
+                in: [PolicyStatus.ACTIVE, PolicyStatus.PENDING_RENEWAL],
+              },
               expiryDate: { gte: windowStart, lte: windowEnd },
             },
           });
@@ -57,38 +77,47 @@ export class RenewalSchedulerCron {
         for (const policy of policies) {
           // Ensure RenewalTask exists if within 30 days
           if (offset <= 30 && offset >= 0 && policy.createdById) {
-            const existingTask = await this.prisma.renewalTask.findFirst({
-              where: { policyId: policy.id, status: 'PENDING' },
-            });
-
-            if (!existingTask) {
-              await this.prisma.renewalTask.create({
-                data: {
+            await this.prisma.renewalTask.upsert({
+              where: {
+                policyId_offsetDays: {
                   policyId: policy.id,
-                  agentId: policy.createdById,
-                  dueDate: policy.expiryDate,
-                  status: 'PENDING',
-                  priority: offset <= 7 ? 'HIGH' : 'MEDIUM',
+                  offsetDays: offset,
                 },
-              });
-            }
+              },
+              update: {},
+              create: {
+                policyId: policy.id,
+                offsetDays: offset,
+                agentId: policy.createdById,
+                dueDate: policy.expiryDate,
+                status: 'PENDING',
+                priority: offset <= 7 ? 'HIGH' : 'MEDIUM',
+              },
+            });
           }
 
-          // Enqueue reminder job
-          await this.renewalQueue.add('send-renewal-reminder', {
-            policyId: policy.id,
-            policyNumber: policy.policyNumber,
-            expiryDate: policy.expiryDate,
-            customerId: policy.contactId,
-            agentId: policy.createdById,
-            daysBefore: offset,
-          });
+          // Enqueue reminder job with deterministic jobId to guarantee zero duplicates
+          const jobId = `renewal-${policy.id}-${offset}`;
+          await this.renewalQueue.add(
+            'send-renewal-reminder',
+            {
+              policyId: policy.id,
+              policyNumber: policy.policyNumber,
+              expiryDate: policy.expiryDate,
+              customerId: policy.contactId,
+              agentId: policy.createdById,
+              daysBefore: offset,
+            },
+            { jobId, removeOnComplete: true },
+          );
 
           totalQueued++;
         }
       }
 
-      this.logger.log(`Multi-offset renewal scan completed. Queued ${totalQueued} jobs.`);
+      this.logger.log(
+        `Multi-offset renewal scan completed. Queued ${totalQueued} jobs.`,
+      );
       return { success: true, totalQueued };
     } catch (error: any) {
       this.logger.error('Failed to run renewal scheduler scan', error);

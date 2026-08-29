@@ -51,7 +51,6 @@ export class PolicyAnalyticsService {
       }))
       .sort((a, b) => b.count - a.count);
 
-
     return {
       total,
       active,

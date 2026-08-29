@@ -18,52 +18,23 @@ import {
 import { useWorkflows, useWorkflowInstances } from '../../../hooks/useWorkflows';
 import { StatusBadge } from '../../../components/ui/status-badge';
 
-const MOCK_GRAPH_NODES = [
-  { id: 'draft', name: '1. Draft Proposal', role: 'Sales Agent', queue: 14, avgTime: '45m', sla: '4h', escalatesTo: 'Team Leader' },
-  { id: 'underwriting', name: '2. Underwriting Review', role: 'Underwriter', queue: 8, avgTime: '3h 12m', sla: '8h', escalatesTo: 'Chief Underwriter' },
-  { id: 'manager_approval', name: '3. Manager Approval', role: 'Branch Manager', queue: 4, avgTime: '1h 30m', sla: '6h', escalatesTo: 'Zonal Head' },
-  { id: 'policy_issuance', name: '4. Policy Issuance', role: 'Operations', queue: 2, avgTime: '15m', sla: '2h', escalatesTo: 'Ops Lead' },
-  { id: 'completed', name: '5. Issued & Active', role: 'System', queue: 0, avgTime: 'Instant', sla: 'None', escalatesTo: 'None' },
-];
-
-const MOCK_RUNNING_INSTANCES = [
-  {
-    id: 'WFI-99101',
-    entityNumber: 'PRP-2026-0091',
-    customerName: 'Rahul Patil',
-    module: 'PROPOSALS',
-    currentState: 'Underwriting Review',
-    assignedApprover: 'Anil Kulkarni (Underwriter)',
-    previousStates: ['Draft Proposal'],
-    timeSpent: '2h 45m',
-    slaDueDate: '2026-07-24 16:00 IST',
-    isOverdue: false,
-    timeline: [
-      { state: 'Draft Proposal', action: 'SUBMITTED', performedBy: 'Rajesh Sharma', timestamp: '2026-07-24 09:00 IST', comments: 'High IDV Commercial Motor Quote' },
-      { state: 'Underwriting Review', action: 'ASSIGNED', performedBy: 'System Auto-Assign', timestamp: '2026-07-24 09:05 IST' },
-    ],
-  },
-  {
-    id: 'WFI-99102',
-    entityNumber: 'CLM-2026-0042',
-    customerName: 'Acme Logistics Pvt Ltd',
-    module: 'CLAIMS',
-    currentState: 'Manager Approval',
-    assignedApprover: 'Sunil Verma (Branch Manager)',
-    previousStates: ['Claim Raised', 'Surveyor Assessment'],
-    timeSpent: '5h 10m',
-    slaDueDate: '2026-07-24 12:00 IST',
-    isOverdue: true,
-    timeline: [
-      { state: 'Claim Raised', action: 'SUBMITTED', performedBy: 'Priya Nair', timestamp: '2026-07-23 14:00 IST' },
-      { state: 'Surveyor Assessment', action: 'APPROVED', performedBy: 'Surv. R. K. Gupta', timestamp: '2026-07-24 08:30 IST', comments: 'Vehicle Inspection Verified' },
-    ],
-  },
-];
-
-export default function WorkflowsPage() {
+export default function WorkflowAdminPage() {
   const [activeTab, setActiveTab] = useState<'DESIGNER' | 'INSTANCES' | 'ANALYTICS'>('DESIGNER');
   const [selectedInstance, setSelectedInstance] = useState<any | null>(null);
+
+  const { data: workflowsData, isLoading: isLoadingWorkflows } = useWorkflows();
+  const { data: instancesData, isLoading: isLoadingInstances, refetch: refetchInstances } = useWorkflowInstances();
+
+  const workflows = Array.isArray(workflowsData) ? workflowsData : (workflowsData as any)?.data || [];
+  const instances = Array.isArray(instancesData) ? instancesData : (instancesData as any)?.data || [];
+
+  const defaultNodes = [
+    { id: 'draft', name: '1. Draft Proposal', role: 'Sales Agent', sla: '4h', escalatesTo: 'Team Leader' },
+    { id: 'underwriting', name: '2. Underwriting Review', role: 'Underwriter', sla: '8h', escalatesTo: 'Chief Underwriter' },
+    { id: 'manager_approval', name: '3. Manager Approval', role: 'Branch Manager', sla: '6h', escalatesTo: 'Zonal Head' },
+    { id: 'policy_issuance', name: '4. Policy Issuance', role: 'Operations', sla: '2h', escalatesTo: 'Ops Lead' },
+    { id: 'completed', name: '5. Issued & Active', role: 'System', sla: 'None', escalatesTo: 'None' },
+  ];
 
   return (
     <AppShell>
@@ -82,7 +53,7 @@ export default function WorkflowsPage() {
         <div className="flex items-center space-x-1 border rounded-lg p-1 bg-card text-xs">
           {[
             { id: 'DESIGNER', label: 'Workflow Designer & Node Graph' },
-            { id: 'INSTANCES', label: `Running Instances (${MOCK_RUNNING_INSTANCES.length})` },
+            { id: 'INSTANCES', label: `Running Instances (${instances.length})` },
             { id: 'ANALYTICS', label: 'Workflow Bottleneck Analytics' },
           ].map((tab) => (
             <button
@@ -111,13 +82,13 @@ export default function WorkflowsPage() {
                 <h3 className="font-bold text-sm">Underwriting & Proposal Approval Node Graph</h3>
               </div>
               <span className="text-[10px] font-bold text-emerald-600 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
-                Live State Monitoring Active
+                Authoritative Node Architecture
               </span>
             </div>
 
             {/* Nodes Container */}
             <div className="grid grid-cols-1 md:grid-cols-5 gap-3 relative pt-2">
-              {MOCK_GRAPH_NODES.map((node, idx) => (
+              {defaultNodes.map((node) => (
                 <div
                   key={node.id}
                   className="p-4 rounded-xl border bg-muted/10 hover:border-primary/50 transition-all space-y-2 relative"
@@ -126,14 +97,6 @@ export default function WorkflowsPage() {
                   <div className="text-[10px] text-primary font-bold">{node.role}</div>
 
                   <div className="pt-2 border-t space-y-1 text-[10px]">
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Queue:</span>
-                      <strong className="text-amber-600 font-mono">{node.queue} Pending</strong>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Avg Time:</span>
-                      <strong>{node.avgTime}</strong>
-                    </div>
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">SLA Limit:</span>
                       <strong className="text-foreground">{node.sla}</strong>
@@ -153,52 +116,36 @@ export default function WorkflowsPage() {
       {/* 2. RUNNING WORKFLOW INSTANCES */}
       {activeTab === 'INSTANCES' && (
         <div className="border rounded-xl overflow-hidden bg-card text-xs shadow-sm">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-muted/40 text-[10px] text-muted-foreground font-bold border-b uppercase">
-                <th className="p-3">Instance ID</th>
-                <th className="p-3">Entity No.</th>
-                <th className="p-3">Customer Name</th>
-                <th className="p-3">Current State</th>
-                <th className="p-3">Assigned Approver</th>
-                <th className="p-3">Time Spent</th>
-                <th className="p-3">SLA Status</th>
-                <th className="p-3 text-right">Details</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y">
-              {MOCK_RUNNING_INSTANCES.map((inst) => (
-                <tr key={inst.id} className="hover:bg-accent/40">
-                  <td className="p-3 font-mono font-bold text-primary">{inst.id}</td>
-                  <td className="p-3 font-mono font-semibold">{inst.entityNumber}</td>
-                  <td className="p-3 font-bold">{inst.customerName}</td>
-                  <td className="p-3 font-bold text-emerald-600">{inst.currentState}</td>
-                  <td className="p-3 text-muted-foreground">{inst.assignedApprover}</td>
-                  <td className="p-3 font-mono">{inst.timeSpent}</td>
-                  <td className="p-3">
-                    {inst.isOverdue ? (
-                      <span className="px-2 py-0.5 rounded bg-red-500/10 text-red-600 border border-red-500/20 font-bold text-[10px]">
-                        ⚠️ SLA Breached
-                      </span>
-                    ) : (
-                      <span className="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 font-bold text-[10px]">
-                        ✓ Within SLA
-                      </span>
-                    )}
-                  </td>
-                  <td className="p-3 text-right">
-                    <button
-                      onClick={() => setSelectedInstance(inst)}
-                      className="px-2.5 py-1 rounded border bg-background hover:bg-accent font-semibold text-[10px] flex items-center justify-end space-x-1 ml-auto"
-                    >
-                      <Eye className="h-3 w-3" />
-                      <span>Inspect Instance</span>
-                    </button>
-                  </td>
+          {instances.length === 0 ? (
+            <div className="p-12 text-center space-y-2">
+              <GitFork className="h-8 w-8 text-muted-foreground/50 mx-auto" />
+              <h3 className="text-sm font-bold text-foreground">No Running Workflow Instances</h3>
+              <p className="text-xs text-muted-foreground max-w-sm mx-auto">
+                All workflows have been settled or are waiting for next trigger.
+              </p>
+            </div>
+          ) : (
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-muted/40 text-[10px] text-muted-foreground font-bold border-b uppercase">
+                  <th className="p-3">Instance ID</th>
+                  <th className="p-3">Entity No.</th>
+                  <th className="p-3">Current State</th>
+                  <th className="p-3">SLA Status</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y">
+                {instances.map((inst: any) => (
+                  <tr key={inst.id} className="hover:bg-accent/40">
+                    <td className="p-3 font-mono font-bold text-primary">{inst.id}</td>
+                    <td className="p-3 font-mono">{inst.entityNumber || inst.entityId}</td>
+                    <td className="p-3 font-bold text-emerald-600">{inst.currentState || inst.status}</td>
+                    <td className="p-3 text-muted-foreground">{inst.slaStatus || 'ON_TRACK'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
       )}
 

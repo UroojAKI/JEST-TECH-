@@ -1,4 +1,10 @@
-import { IsString, IsOptional, IsNumber, IsArray, IsObject } from 'class-validator';
+import {
+  IsString,
+  IsOptional,
+  IsNumber,
+  IsArray,
+  IsObject,
+} from 'class-validator';
 
 export class CreateMotorCaptureDto {
   @IsString()

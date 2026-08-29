@@ -8,10 +8,11 @@ const IDLE_TIMEOUT_MS = 15 * 60 * 1000; // 15 minutes
 export function IdleTimeoutProvider({ children }: { children: React.ReactNode }) {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const setIdleWarningVisible = useAuthStore((s) => s.setIdleWarningVisible);
-  const lastActiveRef = useRef<number>(Date.now());
+  const lastActiveRef = useRef<number>(0);
 
   useEffect(() => {
     if (!isAuthenticated) return;
+    lastActiveRef.current = Date.now();
 
     const handleUserActivity = () => {
       lastActiveRef.current = Date.now();

@@ -68,7 +68,13 @@ export class ContactsService {
   }
 
   async findAll(pagination: PaginationDto) {
-    const { page = 1, limit = 10, search, sortBy = 'createdAt', sortOrder = 'desc' } = pagination;
+    const {
+      page = 1,
+      limit = 10,
+      search,
+      sortBy = 'createdAt',
+      sortOrder = 'desc',
+    } = pagination;
     const skip = (page - 1) * limit;
 
     const where: Prisma.ContactWhereInput = search
@@ -83,11 +89,18 @@ export class ContactsService {
       : {};
 
     const [contacts, total] = await Promise.all([
-      this.contactRepository.findAll(where, skip, limit, { [sortBy]: sortOrder }),
+      this.contactRepository.findAll(where, skip, limit, {
+        [sortBy]: sortOrder,
+      }),
       this.contactRepository.count(where),
     ]);
 
-    return new PaginatedResponseDto(ContactMapper.toResponseList(contacts), total, page, limit);
+    return new PaginatedResponseDto(
+      ContactMapper.toResponseList(contacts),
+      total,
+      page,
+      limit,
+    );
   }
 
   async findById(id: string) {

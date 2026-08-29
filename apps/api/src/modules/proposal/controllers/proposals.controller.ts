@@ -1,4 +1,13 @@
-import { Controller, Get, Post, Body, Param, UseGuards, Query, ParseUUIDPipe } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Param,
+  UseGuards,
+  Query,
+  ParseUUIDPipe,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { PaginationDto } from '../../../common/pagination/pagination.dto';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
@@ -17,7 +26,10 @@ export class ProposalsController {
   constructor(private readonly proposalService: ProposalService) {}
 
   @Get()
-  getProposals(@CurrentUser() user: RequestUser, @Query() pagination: PaginationDto) {
+  getProposals(
+    @CurrentUser() user: RequestUser,
+    @Query() pagination: PaginationDto,
+  ) {
     const filterUserId =
       user.role === RoleType.SALES_AGENT ? user.id : undefined;
     return this.proposalService.getProposals(filterUserId, pagination);
@@ -55,7 +67,10 @@ export class ProposalsController {
   }
 
   @Post(':id/submit')
-  submitProposal(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: RequestUser) {
+  submitProposal(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: RequestUser,
+  ) {
     return this.proposalService.submitProposal(id, user.id);
   }
 

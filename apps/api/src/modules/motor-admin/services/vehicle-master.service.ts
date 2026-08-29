@@ -79,7 +79,7 @@ export class VehicleMasterService {
       ];
     }
     const orderBy = pagination.sortBy
-      ? { [pagination.sortBy]: pagination.sortOrder || 'asc' } as any
+      ? ({ [pagination.sortBy]: pagination.sortOrder || 'asc' } as any)
       : { name: 'asc' };
 
     const [data, total] = await Promise.all([
@@ -106,7 +106,9 @@ export class VehicleMasterService {
     const page = pagination.page || 1;
     const limit = pagination.limit || 10;
     const skip = (page - 1) * limit;
-    const where: Prisma.VehicleModelWhereInput = manufacturerId ? { manufacturerId } : {};
+    const where: Prisma.VehicleModelWhereInput = manufacturerId
+      ? { manufacturerId }
+      : {};
     if (pagination.search) {
       where.OR = [
         { name: { contains: pagination.search, mode: 'insensitive' } },
@@ -114,7 +116,7 @@ export class VehicleMasterService {
       ];
     }
     const orderBy = pagination.sortBy
-      ? { [pagination.sortBy]: pagination.sortOrder || 'asc' } as any
+      ? ({ [pagination.sortBy]: pagination.sortOrder || 'asc' } as any)
       : { name: 'asc' };
 
     const [data, total] = await Promise.all([
@@ -138,7 +140,12 @@ export class VehicleMasterService {
     type: VehicleType,
   ) {
     return this.prisma.vehicleModel.create({
-      data: { manufacturerId, name, code: code.toUpperCase(), vehicleType: type },
+      data: {
+        manufacturerId,
+        name,
+        code: code.toUpperCase(),
+        vehicleType: type,
+      },
     });
   }
 
@@ -155,7 +162,7 @@ export class VehicleMasterService {
       ];
     }
     const orderBy = pagination.sortBy
-      ? { [pagination.sortBy]: pagination.sortOrder || 'asc' } as any
+      ? ({ [pagination.sortBy]: pagination.sortOrder || 'asc' } as any)
       : { name: 'asc' };
 
     const [data, total] = await Promise.all([

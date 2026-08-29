@@ -41,7 +41,8 @@ export class MotorQuoteController {
       where: { id },
       data: {
         totalPremium: calcResult.outputs.totalPremium,
-        basePremium: calcResult.outputs.baseOdPremium + calcResult.outputs.baseTpPremium,
+        basePremium:
+          calcResult.outputs.baseOdPremium + calcResult.outputs.baseTpPremium,
         gstAmount: calcResult.outputs.totalGst,
         calculationSnapshot: calcResult as any,
         calculationVersion: calcResult.calculationVersion,

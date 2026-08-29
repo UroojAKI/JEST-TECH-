@@ -27,7 +27,10 @@ import { ApproveQuotationService } from '../services/commands/approve-quotation.
 import { RejectQuotationService } from '../services/commands/reject-quotation.service';
 import { ConvertQuotationService } from '../services/commands/convert-quotation.service';
 import { AcceptQuotationService } from '../services/commands/accept-quotation.service';
-import { CreateQuotationVersionService, CreateQuotationVersionInputDto } from '../services/commands/create-quotation-version.service';
+import {
+  CreateQuotationVersionService,
+  CreateQuotationVersionInputDto,
+} from '../services/commands/create-quotation-version.service';
 import { GetQuotationService } from '../services/queries/get-quotation.service';
 import { CompareQuotationService } from '../services/queries/compare-quotation.service';
 import { GetQuotationHistoryService } from '../services/queries/get-quotation-history.service';
@@ -70,7 +73,10 @@ export class QuotationController {
     RoleType.POSP_ADVISOR,
     RoleType.RENEWAL_EXECUTIVE,
   )
-  @ApiOperation({ summary: 'Capture a Motor quotation using an authoritative backend calculation.' })
+  @ApiOperation({
+    summary:
+      'Capture a Motor quotation using an authoritative backend calculation.',
+  })
   async motorCapture(
     @Body() dto: CreateMotorCaptureDto,
     @CurrentUser() user: RequestUser,
@@ -79,7 +85,10 @@ export class QuotationController {
 
     let contactId = dto.contactId;
     if (!contactId && dto.leadId) {
-      const lead = await this.prisma.lead.findUnique({ where: { id: dto.leadId }, select: { contactId: true } });
+      const lead = await this.prisma.lead.findUnique({
+        where: { id: dto.leadId },
+        select: { contactId: true },
+      });
       contactId = lead?.contactId || undefined;
     }
 
@@ -101,7 +110,9 @@ export class QuotationController {
     }
 
     if (!contactId) {
-      const [firstName, ...rest] = (proposer['customerName'] || 'Motor Customer').split(' ');
+      const [firstName, ...rest] = (
+        proposer['customerName'] || 'Motor Customer'
+      ).split(' ');
       const newContact = await this.prisma.contact.create({
         data: {
           contactCode: `MC-${Date.now().toString().slice(-8)}`,
@@ -109,7 +120,9 @@ export class QuotationController {
           firstName: firstName || 'Motor',
           lastName: rest.join(' ') || 'Customer',
           email: proposer['emailId'] || `motor_${Date.now()}@jest.local`,
-          phone: proposer['mobileNumber'] || `+91${Math.floor(1000000000 + Math.random() * 9000000000)}`,
+          phone:
+            proposer['mobileNumber'] ||
+            `+91${Math.floor(1000000000 + Math.random() * 9000000000)}`,
           panNumber: proposer['panNumber'] || null,
           createdById: user.id,
         },
@@ -120,7 +133,10 @@ export class QuotationController {
     const policyDetails = (dto.policyDetails || {}) as any;
     const vehicleDetails = (dto.vehicleDetails || {}) as any;
     const saodVerification = (dto.saodVerification || {}) as any;
-    const policyTypeMap: Record<string, 'THIRD_PARTY_ONLY' | 'STANDALONE_OD' | 'PACKAGE_COMPREHENSIVE'> = {
+    const policyTypeMap: Record<
+      string,
+      'THIRD_PARTY_ONLY' | 'STANDALONE_OD' | 'PACKAGE_COMPREHENSIVE'
+    > = {
       TP_ONLY: 'THIRD_PARTY_ONLY',
       SAOD: 'STANDALONE_OD',
       PACKAGE: 'PACKAGE_COMPREHENSIVE',
@@ -131,26 +147,44 @@ export class QuotationController {
 
     const calculationInput: any = {
       vehicleCategory: dto.vehicleCategory,
-      vehicleSubType: vehicleDetails.vehicleSubType || vehicleDetails.vehicleType,
-      vehicleStatus: vehicleDetails.vehicleStatus === 'NEW' ? 'NEW' : 'EXISTING',
+      vehicleSubType:
+        vehicleDetails.vehicleSubType || vehicleDetails.vehicleType,
+      vehicleStatus:
+        vehicleDetails.vehicleStatus === 'NEW' ? 'NEW' : 'EXISTING',
       policyType: policyTypeMap[dto.policyType] || 'PACKAGE_COMPREHENSIVE',
       policyTenure: Number(policyDetails.policyTenure || 1) || 1,
-      idv: dto.idv || Number(policyDetails.insuredDeclaredValue || 0) || undefined,
+      idv:
+        dto.idv || Number(policyDetails.insuredDeclaredValue || 0) || undefined,
       ncbPercent: Number(dto.ncbPercentage || policyDetails.ncbPercentage || 0),
-      claimInExpiringPolicy: String(policyDetails.claimInExpiringPolicy || '').toLowerCase() === 'yes',
+      claimInExpiringPolicy:
+        String(policyDetails.claimInExpiringPolicy || '').toLowerCase() ===
+        'yes',
       paCover: Boolean(policyDetails.paCoverOwner),
-      paidDriverLiability: String(policyDetails.legalLiabilityPaidDriver || '').toLowerCase() === 'yes',
+      paidDriverLiability:
+        String(policyDetails.legalLiabilityPaidDriver || '').toLowerCase() ===
+        'yes',
       addons: Array.isArray(policyDetails.addonsSelected)
-        ? policyDetails.addonsSelected.map((addon: any) => ({
-            addonCode: typeof addon === 'string' ? addon : addon.addonCode || addon.code,
-            ...(typeof addon === 'object' && addon.manualPrice !== undefined ? { manualPrice: Number(addon.manualPrice) } : {}),
-          })).filter((addon: any) => addon.addonCode)
+        ? policyDetails.addonsSelected
+            .map((addon: any) => ({
+              addonCode:
+                typeof addon === 'string'
+                  ? addon
+                  : addon.addonCode || addon.code,
+              ...(typeof addon === 'object' && addon.manualPrice !== undefined
+                ? { manualPrice: Number(addon.manualPrice) }
+                : {}),
+            }))
+            .filter((addon: any) => addon.addonCode)
         : [],
-      activeTpPolicyNumber: saodVerification.tpPolicyNumber || policyDetails.activeTPPolicyNumberValidity || undefined,
+      activeTpPolicyNumber:
+        saodVerification.tpPolicyNumber ||
+        policyDetails.activeTPPolicyNumberValidity ||
+        undefined,
       activeTpExpiryDate: saodVerification.tpExpiryDate || undefined,
     };
 
-    const calcResult = await this.motorCalculationService.calculate(calculationInput);
+    const calcResult =
+      await this.motorCalculationService.calculate(calculationInput);
 
     const motorMetadata = {
       vehicleCategory: dto.vehicleCategory,
@@ -173,7 +207,8 @@ export class QuotationController {
         productType: 'MOTOR',
         insurerName: dto.insurerName,
         sumInsured: dto.idv || 0,
-        basePremium: calcResult.outputs.baseOdPremium + calcResult.outputs.baseTpPremium,
+        basePremium:
+          calcResult.outputs.baseOdPremium + calcResult.outputs.baseTpPremium,
         gstAmount: calcResult.outputs.totalGst,
         totalPremium: calcResult.outputs.totalPremium,
         ncbPercentage: calcResult.inputs.effectiveNcb,
@@ -194,7 +229,8 @@ export class QuotationController {
     });
 
     return {
-      message: 'Motor insurance quote captured using authoritative backend pricing',
+      message:
+        'Motor insurance quote captured using authoritative backend pricing',
       quotationCode: quotation.quotationCode,
       id: quotation.id,
       vehicleCategory: quotation.vehicleCategory,
@@ -212,9 +248,18 @@ export class QuotationController {
   @Post('calculate')
   @HttpCode(HttpStatus.OK)
   @Roles(
-    RoleType.SUPER_ADMIN, RoleType.ADMIN, RoleType.BRANCH_MANAGER, RoleType.TEAM_LEADER,
-    RoleType.SALES_AGENT, RoleType.OPERATIONS, RoleType.POSP_ADVISOR, RoleType.RENEWAL_EXECUTIVE,
-    RoleType.MD_CEO, RoleType.MARKETING_DIRECTOR, RoleType.UNDERWRITER, RoleType.CHIEF_FINANCE_OFFICER,
+    RoleType.SUPER_ADMIN,
+    RoleType.ADMIN,
+    RoleType.BRANCH_MANAGER,
+    RoleType.TEAM_LEADER,
+    RoleType.SALES_AGENT,
+    RoleType.OPERATIONS,
+    RoleType.POSP_ADVISOR,
+    RoleType.RENEWAL_EXECUTIVE,
+    RoleType.MD_CEO,
+    RoleType.MARKETING_DIRECTOR,
+    RoleType.UNDERWRITER,
+    RoleType.CHIEF_FINANCE_OFFICER,
   )
   calculate(@Body() dto: any) {
     return this.comparisonEngine.generateComparativeQuotes(dto);
@@ -224,9 +269,18 @@ export class QuotationController {
   @Post('enterprise-compare')
   @HttpCode(HttpStatus.OK)
   @Roles(
-    RoleType.SUPER_ADMIN, RoleType.ADMIN, RoleType.BRANCH_MANAGER, RoleType.TEAM_LEADER,
-    RoleType.SALES_AGENT, RoleType.OPERATIONS, RoleType.POSP_ADVISOR, RoleType.RENEWAL_EXECUTIVE,
-    RoleType.MD_CEO, RoleType.MARKETING_DIRECTOR, RoleType.UNDERWRITER, RoleType.CHIEF_FINANCE_OFFICER,
+    RoleType.SUPER_ADMIN,
+    RoleType.ADMIN,
+    RoleType.BRANCH_MANAGER,
+    RoleType.TEAM_LEADER,
+    RoleType.SALES_AGENT,
+    RoleType.OPERATIONS,
+    RoleType.POSP_ADVISOR,
+    RoleType.RENEWAL_EXECUTIVE,
+    RoleType.MD_CEO,
+    RoleType.MARKETING_DIRECTOR,
+    RoleType.UNDERWRITER,
+    RoleType.CHIEF_FINANCE_OFFICER,
   )
   @ApiOperation({ summary: 'Enterprise Multi-Insurer Quotation Gateway' })
   enterpriseCompare(@Body() dto: any) {
@@ -240,51 +294,98 @@ export class QuotationController {
   @Post('wizard/issue-policy')
   @HttpCode(HttpStatus.GONE)
   @Roles(
-    RoleType.SUPER_ADMIN, RoleType.ADMIN, RoleType.BRANCH_MANAGER,
-    RoleType.TEAM_LEADER, RoleType.SALES_AGENT, RoleType.SALES_MANAGER,
-    RoleType.SALES_EXECUTIVE, RoleType.OPERATIONS, RoleType.POLICY_ISSUANCE_EXECUTIVE,
+    RoleType.SUPER_ADMIN,
+    RoleType.ADMIN,
+    RoleType.BRANCH_MANAGER,
+    RoleType.TEAM_LEADER,
+    RoleType.SALES_AGENT,
+    RoleType.SALES_MANAGER,
+    RoleType.SALES_EXECUTIVE,
+    RoleType.OPERATIONS,
+    RoleType.POLICY_ISSUANCE_EXECUTIVE,
   )
   retiredMotorIssuanceEndpoint() {
     return {
-      message: 'This issuance endpoint is retired. Use POST /motor/quotes/:id/issue after payment and workflow gates pass.',
+      message:
+        'This issuance endpoint is retired. Use POST /motor/quotes/:id/issue after payment and workflow gates pass.',
     };
   }
 
   @Post()
-  @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN, RoleType.BRANCH_MANAGER, RoleType.TEAM_LEADER, RoleType.SALES_AGENT)
+  @Roles(
+    RoleType.SUPER_ADMIN,
+    RoleType.ADMIN,
+    RoleType.BRANCH_MANAGER,
+    RoleType.TEAM_LEADER,
+    RoleType.SALES_AGENT,
+  )
   create(@Body() dto: CreateQuotationDto, @CurrentUser() user: RequestUser) {
     return this.generateQuotationService.execute(dto, user.id);
   }
 
   @Get()
   @Roles(
-    RoleType.SUPER_ADMIN, RoleType.ADMIN, RoleType.BRANCH_MANAGER, RoleType.TEAM_LEADER,
-    RoleType.SALES_AGENT, RoleType.OPERATIONS, RoleType.UNDERWRITER, RoleType.CLAIMS_OFFICER,
-    RoleType.FINANCE, RoleType.SUPPORT,
+    RoleType.SUPER_ADMIN,
+    RoleType.ADMIN,
+    RoleType.BRANCH_MANAGER,
+    RoleType.TEAM_LEADER,
+    RoleType.SALES_AGENT,
+    RoleType.OPERATIONS,
+    RoleType.UNDERWRITER,
+    RoleType.CLAIMS_OFFICER,
+    RoleType.FINANCE,
+    RoleType.SUPPORT,
   )
-  findAll(@CurrentUser() user: RequestUser, @Query() pagination: PaginationDto) {
+  findAll(
+    @CurrentUser() user: RequestUser,
+    @Query() pagination: PaginationDto,
+  ) {
     return this.getQuotationService.executeAll(user, pagination);
   }
 
   @Get(':id')
   @Roles(
-    RoleType.SUPER_ADMIN, RoleType.ADMIN, RoleType.BRANCH_MANAGER, RoleType.TEAM_LEADER,
-    RoleType.SALES_AGENT, RoleType.OPERATIONS, RoleType.UNDERWRITER, RoleType.CLAIMS_OFFICER,
-    RoleType.FINANCE, RoleType.SUPPORT,
+    RoleType.SUPER_ADMIN,
+    RoleType.ADMIN,
+    RoleType.BRANCH_MANAGER,
+    RoleType.TEAM_LEADER,
+    RoleType.SALES_AGENT,
+    RoleType.OPERATIONS,
+    RoleType.UNDERWRITER,
+    RoleType.CLAIMS_OFFICER,
+    RoleType.FINANCE,
+    RoleType.SUPPORT,
   )
-  findOne(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: RequestUser) {
+  findOne(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: RequestUser,
+  ) {
     return this.getQuotationService.executeOne(id, user);
   }
 
   @Get(':id/history')
-  @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN, RoleType.BRANCH_MANAGER, RoleType.TEAM_LEADER, RoleType.OPERATIONS, RoleType.UNDERWRITER)
+  @Roles(
+    RoleType.SUPER_ADMIN,
+    RoleType.ADMIN,
+    RoleType.BRANCH_MANAGER,
+    RoleType.TEAM_LEADER,
+    RoleType.OPERATIONS,
+    RoleType.UNDERWRITER,
+  )
   getHistory(@Param('id', ParseUUIDPipe) id: string) {
     return this.getQuotationHistoryService.execute(id);
   }
 
   @Post('compare')
   @HttpCode(HttpStatus.OK)
-  @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN, RoleType.BRANCH_MANAGER, RoleType.TEAM_LEADER, RoleType.SALES_AGENT, RoleType.OPERATIONS)
+  @Roles(
+    RoleType.SUPER_ADMIN,
+    RoleType.ADMIN,
+    RoleType.BRANCH_MANAGER,
+    RoleType.TEAM_LEADER,
+    RoleType.SALES_AGENT,
+    RoleType.OPERATIONS,
+  )
   compare(@Body('ids') ids: string[]) {
     return this.compareQuotationService.execute(ids);
   }
@@ -292,32 +393,56 @@ export class QuotationController {
   @Post(':id/approve')
   @HttpCode(HttpStatus.OK)
   @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN, RoleType.UNDERWRITER)
-  approve(@Param('id', ParseUUIDPipe) id: string, @Body('comments') comments: string, @CurrentUser() user: RequestUser) {
+  approve(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body('comments') comments: string,
+    @CurrentUser() user: RequestUser,
+  ) {
     return this.approveQuotationService.execute(id, comments, user.id);
   }
 
   @Post(':id/reject')
   @HttpCode(HttpStatus.OK)
   @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN, RoleType.UNDERWRITER)
-  reject(@Param('id', ParseUUIDPipe) id: string, @Body('comments') comments: string, @CurrentUser() user: RequestUser) {
+  reject(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body('comments') comments: string,
+    @CurrentUser() user: RequestUser,
+  ) {
     return this.rejectQuotationService.execute(id, comments, user.id);
   }
 
   @Post(':id/convert')
   @HttpCode(HttpStatus.OK)
-  @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN, RoleType.BRANCH_MANAGER, RoleType.TEAM_LEADER, RoleType.SALES_AGENT)
-  convert(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: RequestUser) {
+  @Roles(
+    RoleType.SUPER_ADMIN,
+    RoleType.ADMIN,
+    RoleType.BRANCH_MANAGER,
+    RoleType.TEAM_LEADER,
+    RoleType.SALES_AGENT,
+  )
+  convert(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: RequestUser,
+  ) {
     return this.convertQuotationService.execute(id, user.id);
   }
 
   @Post(':id/accept')
   @HttpCode(HttpStatus.OK)
   @Roles(
-    RoleType.SUPER_ADMIN, RoleType.ADMIN, RoleType.BRANCH_MANAGER,
-    RoleType.TEAM_LEADER, RoleType.SALES_AGENT, RoleType.SALES_MANAGER,
+    RoleType.SUPER_ADMIN,
+    RoleType.ADMIN,
+    RoleType.BRANCH_MANAGER,
+    RoleType.TEAM_LEADER,
+    RoleType.SALES_AGENT,
+    RoleType.SALES_MANAGER,
     RoleType.OPERATIONS,
   )
-  @ApiOperation({ summary: 'Customer accepts a quotation version (locks version, qualifies lead, supersedes competing drafts)' })
+  @ApiOperation({
+    summary:
+      'Customer accepts a quotation version (locks version, qualifies lead, supersedes competing drafts)',
+  })
   accept(
     @Param('id', ParseUUIDPipe) id: string,
     @Body('comments') comments: string,
@@ -329,10 +454,17 @@ export class QuotationController {
   @Post(':id/versions')
   @HttpCode(HttpStatus.CREATED)
   @Roles(
-    RoleType.SUPER_ADMIN, RoleType.ADMIN, RoleType.BRANCH_MANAGER,
-    RoleType.TEAM_LEADER, RoleType.SALES_AGENT, RoleType.SALES_MANAGER,
+    RoleType.SUPER_ADMIN,
+    RoleType.ADMIN,
+    RoleType.BRANCH_MANAGER,
+    RoleType.TEAM_LEADER,
+    RoleType.SALES_AGENT,
+    RoleType.SALES_MANAGER,
   )
-  @ApiOperation({ summary: 'Create an immutable revision version (V2, V3...) under an existing quotation' })
+  @ApiOperation({
+    summary:
+      'Create an immutable revision version (V2, V3...) under an existing quotation',
+  })
   createVersion(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: CreateQuotationVersionInputDto,
@@ -343,16 +475,24 @@ export class QuotationController {
 
   @Get(':id/versions')
   @Roles(
-    RoleType.SUPER_ADMIN, RoleType.ADMIN, RoleType.BRANCH_MANAGER,
-    RoleType.TEAM_LEADER, RoleType.SALES_AGENT, RoleType.OPERATIONS,
+    RoleType.SUPER_ADMIN,
+    RoleType.ADMIN,
+    RoleType.BRANCH_MANAGER,
+    RoleType.TEAM_LEADER,
+    RoleType.SALES_AGENT,
+    RoleType.OPERATIONS,
     RoleType.UNDERWRITER,
   )
-  @ApiOperation({ summary: 'List all revision version snapshots for a quotation' })
+  @ApiOperation({
+    summary: 'List all revision version snapshots for a quotation',
+  })
   async getVersions(@Param('id', ParseUUIDPipe) id: string) {
     return this.prisma.quotationVersion.findMany({
       where: { quotationId: id },
       orderBy: { versionNumber: 'desc' },
-      include: { createdBy: { select: { id: true, firstName: true, lastName: true } } },
+      include: {
+        createdBy: { select: { id: true, firstName: true, lastName: true } },
+      },
     });
   }
 }

@@ -134,20 +134,7 @@
     },
     "testEnvironment": "node",
     "testPathIgnorePatterns": [
-      "/node_modules/",
-      "modules/auth/auth\\.service\\.spec\\.ts$",
-      "modules/motor-admin/tests/rating-engine\\.service\\.spec\\.ts$",
-      "modules/finance/commission/services/commission-engine/commission-engine\\.service\\.spec\\.ts$",
-      "modules/policies/tests/policies\\.controller\\.spec\\.ts$",
-      "modules/documents/tests/documents\\.controller\\.spec\\.ts$",
-      "modules/customer/analytics/services/customer-analytics-cron/customer-analytics-cron\\.service\\.spec\\.ts$",
-      "modules/dashboard/tests/dashboard\\.controller\\.spec\\.ts$",
-      "modules/bi/dashboards/services/dashboard-analytics/dashboard-analytics\\.service\\.spec\\.ts$",
-      "modules/proposal/tests/proposals\\.controller\\.spec\\.ts$",
-      "modules/leads/controllers/leads\\.controller\\.spec\\.ts$",
-      "modules/platform/notifications/tests/notifications\\.controller\\.spec\\.ts$",
-      "modules/claims/tests/claims\\.controller\\.spec\\.ts$",
-      "modules/quotation/tests/quotation\\.controller\\.spec\\.ts$"
+      "/node_modules/"
     ]
   }
 }

@@ -34,7 +34,14 @@ export class MotorTariffService {
    * This ensures renewals and historical quotations use the correct tariff.
    */
   async lookupTpTariff(params: TariffLookupParams): Promise<TariffResult> {
-    const { vehicleCategory, engineCc, seatingCapacity, gvwKg, policyType, quotationDate } = params;
+    const {
+      vehicleCategory,
+      engineCc,
+      seatingCapacity,
+      gvwKg,
+      policyType,
+      quotationDate,
+    } = params;
 
     const tariffs = await this.prisma.motorTariff.findMany({
       where: {
@@ -42,43 +49,45 @@ export class MotorTariffService {
         policyType,
         isActive: true,
         effectiveFrom: { lte: quotationDate },
-        OR: [
-          { effectiveTo: null },
-          { effectiveTo: { gte: quotationDate } },
-        ],
+        OR: [{ effectiveTo: null }, { effectiveTo: { gte: quotationDate } }],
       },
       orderBy: { effectiveFrom: 'desc' },
     });
 
     if (tariffs.length === 0) {
-      this.logger.warn(`No active TP tariff found for category=${vehicleCategory}, policyType=${policyType}, date=${quotationDate}`);
+      this.logger.warn(
+        `No active TP tariff found for category=${vehicleCategory}, policyType=${policyType}, date=${quotationDate}`,
+      );
       return {
         found: false,
         annualPremium: 0,
         isVerified: false,
-        warning: 'No active IRDAI TP tariff configuration found for this vehicle category. Please contact the CRM administrator to configure tariff rates from the applicable IRDAI notification.',
+        warning:
+          'No active IRDAI TP tariff configuration found for this vehicle category. Please contact the CRM administrator to configure tariff rates from the applicable IRDAI notification.',
       };
     }
 
     // Filter by capacity ranges if provided
     let matchedTariff = tariffs[0]; // default to first (most recent)
-    
+
     for (const t of tariffs) {
       let matches = true;
-      
+
       if (engineCc !== undefined) {
         if (t.engineCcMin !== null && engineCc < t.engineCcMin) matches = false;
         if (t.engineCcMax !== null && engineCc > t.engineCcMax) matches = false;
       }
       if (seatingCapacity !== undefined) {
-        if (t.seatingCapMin !== null && seatingCapacity < t.seatingCapMin) matches = false;
-        if (t.seatingCapMax !== null && seatingCapacity > t.seatingCapMax) matches = false;
+        if (t.seatingCapMin !== null && seatingCapacity < t.seatingCapMin)
+          matches = false;
+        if (t.seatingCapMax !== null && seatingCapacity > t.seatingCapMax)
+          matches = false;
       }
       if (gvwKg !== undefined && t.gvwMin !== null) {
         if (gvwKg < Number(t.gvwMin)) matches = false;
         if (t.gvwMax !== null && gvwKg > Number(t.gvwMax)) matches = false;
       }
-      
+
       if (matches) {
         matchedTariff = t;
         break;
@@ -113,7 +122,7 @@ export class MotorTariffService {
   calculateOdPremium(params: {
     idv: number;
     odRatePercent: number; // From insurer's filed rates
-    ncbPercent: number;   // 0 | 20 | 25 | 35 | 45 | 50
+    ncbPercent: number; // 0 | 20 | 25 | 35 | 45 | 50
     addOnsPremium?: number;
   }): { basePremium: number; ncbDiscount: number; netPremium: number } {
     const basePremium = Math.round((params.idv * params.odRatePercent) / 100);

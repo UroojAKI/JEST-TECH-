@@ -47,7 +47,11 @@ describe('SettleClaimService (Claims Settlement & Payment Confirmation)', () => 
     await expect(
       service.execute(
         'claim-2',
-        { settlementAmount: 45000, paymentReference: '', paymentMethod: 'NEFT' },
+        {
+          settlementAmount: 45000,
+          paymentReference: '',
+          paymentMethod: 'NEFT',
+        },
         'finance-officer-1',
       ),
     ).rejects.toThrow(BadRequestException);

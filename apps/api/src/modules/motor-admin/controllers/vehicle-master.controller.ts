@@ -12,7 +12,12 @@ import {
   UploadedFile,
   BadRequestException,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiConsumes, ApiTags, ApiOperation } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiConsumes,
+  ApiTags,
+  ApiOperation,
+} from '@nestjs/swagger';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
@@ -44,7 +49,9 @@ export class VehicleMasterController {
   }
 
   @Get('rto/:code')
-  @ApiOperation({ summary: 'Get RTO master record by RTO Code (e.g. MH12, KA01)' })
+  @ApiOperation({
+    summary: 'Get RTO master record by RTO Code (e.g. MH12, KA01)',
+  })
   getRtoByCode(@Param('code') code: string) {
     return this.vehicleService.getRtoByCode(code.toUpperCase());
   }
@@ -52,7 +59,16 @@ export class VehicleMasterController {
   @Post('rto')
   @Roles(RoleType.ADMIN, RoleType.SUPER_ADMIN)
   @ApiOperation({ summary: 'Create new RTO master record' })
-  createRto(@Body() data: { code: string; state: string; district: string; rtoOfficeName: string; rtoZone?: string }) {
+  createRto(
+    @Body()
+    data: {
+      code: string;
+      state: string;
+      district: string;
+      rtoOfficeName: string;
+      rtoZone?: string;
+    },
+  ) {
     return this.vehicleService.createRto(data);
   }
 

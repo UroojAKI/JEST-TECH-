@@ -11,7 +11,11 @@ describe('checkOptimisticLock (G028 Optimistic Concurrency Control)', () => {
   });
 
   it('should return 1 and bypass check if expectedVersion is undefined', async () => {
-    const nextVersion = await checkOptimisticLock(mockDelegate, 'rec-1', undefined);
+    const nextVersion = await checkOptimisticLock(
+      mockDelegate,
+      'rec-1',
+      undefined,
+    );
     expect(nextVersion).toBe(1);
     expect(mockDelegate.findFirst).not.toHaveBeenCalled();
   });
@@ -19,9 +23,9 @@ describe('checkOptimisticLock (G028 Optimistic Concurrency Control)', () => {
   it('should throw NotFoundException if record does not exist', async () => {
     mockDelegate.findFirst.mockResolvedValue(null);
 
-    await expect(checkOptimisticLock(mockDelegate, 'rec-404', 2)).rejects.toThrow(
-      NotFoundException,
-    );
+    await expect(
+      checkOptimisticLock(mockDelegate, 'rec-404', 2),
+    ).rejects.toThrow(NotFoundException);
     expect(mockDelegate.findFirst).toHaveBeenCalledWith({
       where: { id: 'rec-404' },
       select: { version: true },

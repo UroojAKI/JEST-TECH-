@@ -121,8 +121,13 @@ export class LeadRepository extends BaseRepository<
         SELECT nextval('lead_number_seq')`;
       return `LEAD-${result[0].nextval.toString().padStart(6, '0')}`;
     } catch {
-      const count = await (tx || this.prismaService).lead.count();
-      return `LEAD-${(count + 1001).toString().padStart(6, '0')}`;
+      const client = tx || this.prismaService;
+      await client.$executeRawUnsafe(
+        `CREATE SEQUENCE IF NOT EXISTS lead_number_seq START 1;`,
+      );
+      const retry = await client.$queryRaw<[{ nextval: bigint }]>`
+        SELECT nextval('lead_number_seq')`;
+      return `LEAD-${retry[0].nextval.toString().padStart(6, '0')}`;
     }
   }
 
@@ -186,7 +191,7 @@ export class LeadRepository extends BaseRepository<
       where: {
         ...safeWhere,
         deletedAt: null,
-      }
+      },
     });
   }
 

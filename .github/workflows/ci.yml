@@ -36,11 +36,9 @@ jobs:
 
       - name: Lint API
         run: pnpm --filter api lint
-        continue-on-error: true
 
       - name: Lint Web
         run: pnpm --filter web lint
-        continue-on-error: true
 
       - name: Build API
         run: pnpm --filter api build
@@ -51,9 +49,11 @@ jobs:
       - name: Run API tests
         run: pnpm --filter api test
 
+      - name: Run Web tests
+        run: pnpm --filter web test
+
       - name: Security audit
         run: pnpm audit --audit-level moderate
-        continue-on-error: true
 
       - name: Prisma schema validation
         run: cd apps/api && npx prisma validate

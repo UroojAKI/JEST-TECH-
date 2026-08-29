@@ -201,7 +201,11 @@ export class DocumentService {
     };
   }
 
-  async getEntityDocuments(entityType: string, entityId: string, pagination?: PaginationDto) {
+  async getEntityDocuments(
+    entityType: string,
+    entityId: string,
+    pagination?: PaginationDto,
+  ) {
     const page = pagination?.page || 1;
     const limit = pagination?.limit || 10;
     const sortBy = pagination?.sortBy || 'createdAt';
@@ -297,5 +301,23 @@ export class DocumentService {
       },
       orderBy: { createdAt: 'desc' },
     });
+  }
+
+  async findAll(pagination: PaginationDto) {
+    const page = pagination.page || 1;
+    const limit = pagination.limit || 20;
+    const skip = (page - 1) * limit;
+
+    const [data, total] = await Promise.all([
+      this.prisma.document.findMany({
+        where: { deletedAt: null },
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limit,
+      }),
+      this.prisma.document.count({ where: { deletedAt: null } }),
+    ]);
+
+    return new PaginatedResponseDto(data, total, page, limit);
   }
 }

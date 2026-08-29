@@ -5,25 +5,13 @@ import { AppShell } from '../../../components/layout/app-shell';
 import { Activity, Server, CheckCircle2, AlertTriangle, RefreshCw, Filter, Search } from 'lucide-react';
 import { useDeliveryLogs, useEventStream } from '../../../hooks/useCommunications';
 
-const MOCK_DELIVERY_LOGS = [
-  { id: 'LOG-991', recipient: '+91 98201 12345', channel: 'WHATSAPP', status: 'READ', retryCount: 0, provider: 'Meta Business Cloud API', latencyMs: 142, timestamp: '2026-07-24 10:15:02 IST' },
-  { id: 'LOG-992', recipient: 'claims@acmelogistics.com', channel: 'EMAIL', status: 'DELIVERED', retryCount: 0, provider: 'AWS SES / SendGrid API', latencyMs: 285, timestamp: '2026-07-24 09:30:15 IST' },
-  { id: 'LOG-993', recipient: '+91 98920 54321', channel: 'SMS', status: 'DELIVERED', retryCount: 1, provider: 'Twilio / DLT SMS Gateway', latencyMs: 410, timestamp: '2026-07-23 16:45:10 IST' },
-];
-
-const MOCK_EVENT_STREAM = [
-  { id: 'EVT-1001', eventType: 'workflow.transitioned', category: 'WORKFLOW', sourceModule: 'ProposalsModule', summary: 'Proposal PRP-2026-0091 moved from Draft to Underwriting Review', userEmail: 'agent@jest.com', timestamp: '2026-07-24 09:05 IST' },
-  { id: 'EVT-1002', eventType: 'claim.registered', category: 'CLAIMS', sourceModule: 'ClaimsModule', summary: 'Claim CLM-2026-0042 registered for Acme Logistics (Reserve ₹3.84L)', userEmail: 'claims.exec@jest.com', timestamp: '2026-07-24 09:30 IST' },
-  { id: 'EVT-1003', eventType: 'notification.sent', category: 'NOTIFICATION', sourceModule: 'NotificationModule', summary: 'Policy Issuance SMS dispatched to +91 98201 12345', userEmail: 'system@jest.com', timestamp: '2026-07-24 10:15 IST' },
-];
-
 export default function DeliveryMonitorPage() {
   const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
+  const { data: deliveryLogs = [] } = useDeliveryLogs();
+  const { data: eventStream = [] } = useEventStream(selectedCategory === 'ALL' ? undefined : selectedCategory);
 
-  const filteredEvents = MOCK_EVENT_STREAM.filter((e) => {
-    if (selectedCategory === 'ALL') return true;
-    return e.category === selectedCategory;
-  });
+  const filteredEvents = Array.isArray(eventStream) ? eventStream : [];
+  const logs = Array.isArray(deliveryLogs) ? deliveryLogs : [];
 
   return (
     <AppShell>
@@ -55,18 +43,24 @@ export default function DeliveryMonitorPage() {
               </tr>
             </thead>
             <tbody className="divide-y">
-              {MOCK_DELIVERY_LOGS.map((log) => (
-                <tr key={log.id} className="hover:bg-accent/40">
-                  <td className="p-3 font-mono font-bold text-primary">{log.id}</td>
-                  <td className="p-3 font-semibold">{log.recipient}</td>
-                  <td className="p-3 font-bold text-[10px] uppercase text-muted-foreground">{log.channel}</td>
-                  <td className="p-3 font-bold text-emerald-600">{log.status}</td>
-                  <td className="p-3 font-mono">{log.retryCount}</td>
-                  <td className="p-3 text-muted-foreground">{log.provider}</td>
-                  <td className="p-3 font-mono">{log.latencyMs}ms</td>
-                  <td className="p-3 font-mono text-[11px]">{log.timestamp}</td>
+              {logs.length === 0 ? (
+                <tr>
+                  <td colSpan={8} className="p-4 text-center text-muted-foreground">No channel delivery logs recorded.</td>
                 </tr>
-              ))}
+              ) : (
+                logs.map((log: any) => (
+                  <tr key={log.id} className="hover:bg-accent/40">
+                    <td className="p-3 font-mono font-bold text-primary">{log.id}</td>
+                    <td className="p-3 font-semibold">{log.recipient}</td>
+                    <td className="p-3 font-bold text-[10px] uppercase text-muted-foreground">{log.channel}</td>
+                    <td className="p-3 font-bold text-emerald-600">{log.status}</td>
+                    <td className="p-3 font-mono">{log.retryCount || 0}</td>
+                    <td className="p-3 text-muted-foreground">{log.provider || 'Gateway'}</td>
+                    <td className="p-3 font-mono">{log.latencyMs || 0}ms</td>
+                    <td className="p-3 font-mono text-[11px]">{log.timestamp ? new Date(log.timestamp).toLocaleString() : 'N/A'}</td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>

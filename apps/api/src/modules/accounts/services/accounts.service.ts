@@ -84,7 +84,13 @@ export class AccountsService {
   }
 
   async findAll(pagination: PaginationDto) {
-    const { page = 1, limit = 10, search, sortBy = 'createdAt', sortOrder = 'desc' } = pagination;
+    const {
+      page = 1,
+      limit = 10,
+      search,
+      sortBy = 'createdAt',
+      sortOrder = 'desc',
+    } = pagination;
     const skip = (page - 1) * limit;
 
     const where: Prisma.AccountWhereInput = search
@@ -98,11 +104,18 @@ export class AccountsService {
       : {};
 
     const [accounts, total] = await Promise.all([
-      this.accountRepository.findAll(where, skip, limit, { [sortBy]: sortOrder }),
+      this.accountRepository.findAll(where, skip, limit, {
+        [sortBy]: sortOrder,
+      }),
       this.accountRepository.count(where),
     ]);
 
-    return new PaginatedResponseDto(AccountMapper.toResponseList(accounts), total, page, limit);
+    return new PaginatedResponseDto(
+      AccountMapper.toResponseList(accounts),
+      total,
+      page,
+      limit,
+    );
   }
 
   async findById(id: string) {

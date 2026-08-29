@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { Test, TestingModule } from '@nestjs/testing';
 import { CommissionEngineService } from './commission-engine.service';
 import { PrismaService } from '../../../../../database/prisma.service';
@@ -62,13 +61,13 @@ describe('CommissionEngineService', () => {
       expect(result.length).toBe(3);
 
       expect(result[0].roleTier).toBe('AGENT');
-      expect(result[0].amount as any).toBe(5000);
+      expect(Number(result[0].amount)).toBe(5000);
 
       expect(result[1].roleTier).toBe('BRANCH_MANAGER');
-      expect(result[1].amount as any).toBe(1000);
+      expect(Number(result[1].amount)).toBe(1000);
 
       expect(result[2].roleTier).toBe('ZONAL_MANAGER');
-      expect(result[2].amount as any).toBe(250);
+      expect(Number(result[2].amount)).toBe(250);
     });
   });
 

@@ -132,7 +132,7 @@ export function MotorQuotationsWorkspace() {
         key = q.proposerDetails?.mobileNumber?.trim() || q.leadId || q.id;
       }
       
-      let keyStr = String(key || 'UNKNOWN_VEHICLE').toUpperCase();
+      const keyStr = String(key || 'UNKNOWN_VEHICLE').toUpperCase();
 
       (acc[keyStr] ||= []).push(q);
       return acc;

@@ -27,14 +27,19 @@ export class IdvService {
     else if (vehicleAgeYears === 4) depreciationPercent = 40;
     else if (vehicleAgeYears >= 5) depreciationPercent = 50;
 
-    const calculatedIdv = Math.round(exShowroomPrice * (1 - depreciationPercent / 100));
+    const calculatedIdv = Math.round(
+      exShowroomPrice * (1 - depreciationPercent / 100),
+    );
     const recommendedMinIdv = Math.round(calculatedIdv * 0.85);
     const recommendedMaxIdv = Math.round(calculatedIdv * 1.15);
 
     let finalIdv = calculatedIdv;
 
     if (manualOverrideIdv !== undefined && manualOverrideIdv > 0) {
-      if (manualOverrideIdv < recommendedMinIdv || manualOverrideIdv > recommendedMaxIdv) {
+      if (
+        manualOverrideIdv < recommendedMinIdv ||
+        manualOverrideIdv > recommendedMaxIdv
+      ) {
         throw new BadRequestException(
           `Manual IDV override ₹${manualOverrideIdv.toLocaleString()} is outside IRDAI allowed boundary (₹${recommendedMinIdv.toLocaleString()} - ₹${recommendedMaxIdv.toLocaleString()})`,
         );

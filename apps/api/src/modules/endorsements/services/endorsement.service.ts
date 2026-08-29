@@ -45,9 +45,11 @@ export class EndorsementService {
     const currentBase = Number(policy.premiumAmount || 0);
     const annualDiff = newAnnualPremium - currentBase;
 
-    const proRataNetDifferential = Math.round(annualDiff * proRataFactor * 100) / 100;
+    const proRataNetDifferential =
+      Math.round(annualDiff * proRataFactor * 100) / 100;
     const gstAmount = Math.round(proRataNetDifferential * 0.18 * 100) / 100;
-    const totalPayable = Math.round((proRataNetDifferential + gstAmount) * 100) / 100;
+    const totalPayable =
+      Math.round((proRataNetDifferential + gstAmount) * 100) / 100;
 
     return {
       policyId,
@@ -172,7 +174,8 @@ export class EndorsementService {
 
         const validated = {
           newContactId: requestedChanges.newContactId,
-          transferDate: requestedChanges.transferDate || new Date().toISOString(),
+          transferDate:
+            requestedChanges.transferDate || new Date().toISOString(),
           ncbPercentage: newNcb,
           ncbResetApplied: !hasNcbRetentionCert,
           unearnedNcbRecoveryRequired: !hasNcbRetentionCert,
@@ -375,7 +378,7 @@ export class EndorsementService {
     if (end.requestedChanges) {
       requestedChanges =
         typeof end.requestedChanges === 'string'
-          ? JSON.parse(end.requestedChanges as string)
+          ? JSON.parse(end.requestedChanges)
           : (end.requestedChanges as Record<string, any>);
     }
 

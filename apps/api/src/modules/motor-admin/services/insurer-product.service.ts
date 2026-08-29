@@ -31,7 +31,8 @@ export class InsurerProductService {
         addonRules: true,
       },
     });
-    if (!insurer) throw new NotFoundException(`Insurer with ID '${id}' not found`);
+    if (!insurer)
+      throw new NotFoundException(`Insurer with ID '${id}' not found`);
     return insurer;
   }
 
@@ -66,8 +67,15 @@ export class InsurerProductService {
         contactPhone: data.contactPhone,
         address: data.address,
         rating: data.rating,
-        supportedVehicleTypes: data.supportedVehicleTypes || [VehicleType.FOUR_WHEELER, VehicleType.TWO_WHEELER],
-        supportedPolicyTypes: data.supportedPolicyTypes || [ProductType.PACKAGE_COMPREHENSIVE, ProductType.STANDALONE_OWN_DAMAGE, ProductType.THIRD_PARTY_ONLY],
+        supportedVehicleTypes: data.supportedVehicleTypes || [
+          VehicleType.FOUR_WHEELER,
+          VehicleType.TWO_WHEELER,
+        ],
+        supportedPolicyTypes: data.supportedPolicyTypes || [
+          ProductType.PACKAGE_COMPREHENSIVE,
+          ProductType.STANDALONE_OWN_DAMAGE,
+          ProductType.THIRD_PARTY_ONLY,
+        ],
         supportsZeroDep: data.supportsZeroDep ?? true,
         supportsRTI: data.supportsRTI ?? true,
         supportsEngineProtect: data.supportsEngineProtect ?? true,
@@ -137,7 +145,9 @@ export class InsurerProductService {
   }
 
   async toggleProductStatus(id: string) {
-    const product = await this.prisma.insuranceProduct.findUnique({ where: { id } });
+    const product = await this.prisma.insuranceProduct.findUnique({
+      where: { id },
+    });
     if (!product) throw new NotFoundException(`Product '${id}' not found`);
     return this.prisma.insuranceProduct.update({
       where: { id },
@@ -172,7 +182,8 @@ export class InsurerProductService {
         policyType: data.policyType || ProductType.PACKAGE_COMPREHENSIVE,
         maxDiscountPercent: data.maxDiscountPercent,
         minDiscountPercent: data.minDiscountPercent || 0,
-        managerApprovalThresholdPercent: data.managerApprovalThresholdPercent || 15,
+        managerApprovalThresholdPercent:
+          data.managerApprovalThresholdPercent || 15,
       },
     });
   }
@@ -210,7 +221,13 @@ export class InsurerProductService {
     return this.prisma.product.findMany({ orderBy: { name: 'asc' } });
   }
 
-  async createProduct(name: string, code: string, type: ProductType, commission: number, description?: string) {
+  async createProduct(
+    name: string,
+    code: string,
+    type: ProductType,
+    commission: number,
+    description?: string,
+  ) {
     return this.prisma.product.create({
       data: { name, code, type, baseCommissionRate: commission, description },
     });

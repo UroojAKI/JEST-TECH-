@@ -119,9 +119,18 @@ export class ReportsController {
   @RequirePermissions('REPORT_VIEW')
   async getProviders() {
     return [
-      { code: 'LEAD_ACQUISITION', name: 'Lead Acquisition & Conversion Data Provider' },
-      { code: 'POLICY_RENEWALS', name: 'Policy Renewals & Retention Data Provider' },
-      { code: 'FINANCE_COMMISSIONS', name: 'Finance & Agent Commission Ledger Data Provider' },
+      {
+        code: 'LEAD_ACQUISITION',
+        name: 'Lead Acquisition & Conversion Data Provider',
+      },
+      {
+        code: 'POLICY_RENEWALS',
+        name: 'Policy Renewals & Retention Data Provider',
+      },
+      {
+        code: 'FINANCE_COMMISSIONS',
+        name: 'Finance & Agent Commission Ledger Data Provider',
+      },
     ];
   }
 
@@ -129,8 +138,22 @@ export class ReportsController {
   @RequirePermissions('REPORT_SCHEDULE')
   async getAllSchedules() {
     return [
-      { id: 'SCH-01', reportName: 'Monthly Policy Sales Breakdown', frequency: 'MONTHLY', recipients: ['management@jestpolicy.com'], format: 'PDF', status: 'ACTIVE' },
-      { id: 'SCH-02', reportName: 'Weekly Commission Settlement', frequency: 'WEEKLY', recipients: ['finance@jestpolicy.com'], format: 'EXCEL', status: 'ACTIVE' },
+      {
+        id: 'SCH-01',
+        reportName: 'Monthly Policy Sales Breakdown',
+        frequency: 'MONTHLY',
+        recipients: ['management@jestpolicy.com'],
+        format: 'PDF',
+        status: 'ACTIVE',
+      },
+      {
+        id: 'SCH-02',
+        reportName: 'Weekly Commission Settlement',
+        frequency: 'WEEKLY',
+        recipients: ['finance@jestpolicy.com'],
+        format: 'EXCEL',
+        status: 'ACTIVE',
+      },
     ];
   }
 
@@ -138,8 +161,20 @@ export class ReportsController {
   @RequirePermissions('REPORT_VIEW')
   async getAllHistory() {
     return [
-      { id: 'HIST-01', reportName: 'Monthly Policy Sales Breakdown', format: 'PDF', generatedAt: new Date().toISOString(), status: 'SUCCESS' },
-      { id: 'HIST-02', reportName: 'Weekly Commission Settlement', format: 'EXCEL', generatedAt: new Date().toISOString(), status: 'SUCCESS' },
+      {
+        id: 'HIST-01',
+        reportName: 'Monthly Policy Sales Breakdown',
+        format: 'PDF',
+        generatedAt: new Date().toISOString(),
+        status: 'SUCCESS',
+      },
+      {
+        id: 'HIST-02',
+        reportName: 'Weekly Commission Settlement',
+        format: 'EXCEL',
+        generatedAt: new Date().toISOString(),
+        status: 'SUCCESS',
+      },
     ];
   }
 
@@ -162,7 +197,6 @@ export class ReportsController {
     const command = new ExecuteReportCommand(id, {}, user.id);
     const result = await this.commands.handleExecuteReport(command, fmt);
 
-
     res.setHeader('Content-Type', result.mimeType);
     res.setHeader(
       'Content-Disposition',
@@ -179,7 +213,6 @@ export class ReportsController {
     @CurrentUser() user: RequestUser,
     @Res() res: Response,
   ) {
-
     const format = dto.format || 'csv';
 
     if (dto.stream && format === 'csv') {

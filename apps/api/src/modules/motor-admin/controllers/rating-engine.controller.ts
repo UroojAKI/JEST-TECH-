@@ -1,4 +1,15 @@
-import { Controller, Get, Post, Put, Delete, Patch, Body, Param, Query, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Put,
+  Delete,
+  Patch,
+  Body,
+  Param,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiTags, ApiOperation } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
@@ -104,8 +115,14 @@ export class RatingEngineController {
     @Body('code') code: string,
     @Body('type') type: ProductType,
     @Body('commission') commission: number,
-    @Body('description') description?: string
+    @Body('description') description?: string,
   ) {
-    return this.insurerProductService.createProduct(name, code, type, commission, description);
+    return this.insurerProductService.createProduct(
+      name,
+      code,
+      type,
+      commission,
+      description,
+    );
   }
 }

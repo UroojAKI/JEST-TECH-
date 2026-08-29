@@ -73,13 +73,19 @@ describe('EndorsementService (Iteration 15)', () => {
       expect(result.totalDays).toBeGreaterThan(result.remainingDays);
       expect(result.proRataFactor).toBeGreaterThan(0.4);
       expect(result.proRataFactor).toBeLessThan(0.6);
-      expect(result.gstAmount).toBe(Number((result.proRataNetDifferential * 0.18).toFixed(2)));
-      expect(result.totalPayable).toBe(Number((result.proRataNetDifferential + result.gstAmount).toFixed(2)));
+      expect(result.gstAmount).toBe(
+        Number((result.proRataNetDifferential * 0.18).toFixed(2)),
+      );
+      expect(result.totalPayable).toBe(
+        Number((result.proRataNetDifferential + result.gstAmount).toFixed(2)),
+      );
     });
 
     it('should throw NotFoundException if policy does not exist', async () => {
       prisma.policy.findUnique.mockResolvedValue(null);
-      await expect(service.calculateProRataPremium('pol-999', 15000)).rejects.toThrow(NotFoundException);
+      await expect(
+        service.calculateProRataPremium('pol-999', 15000),
+      ).rejects.toThrow(NotFoundException);
     });
   });
 
@@ -106,7 +112,10 @@ describe('EndorsementService (Iteration 15)', () => {
         requestedById: 'user-agent-1',
         status: EndorsementStatus.REQUESTED,
         type: EndorsementType.CONTACT_CHANGE,
-        requestedChanges: JSON.stringify({ phone: '+919876543210', firstName: 'Rohit' }),
+        requestedChanges: JSON.stringify({
+          phone: '+919876543210',
+          firstName: 'Rohit',
+        }),
         policy: { id: 'pol-1', contactId: 'cont-1' },
       });
 
@@ -122,7 +131,11 @@ describe('EndorsementService (Iteration 15)', () => {
         status: EndorsementStatus.COMPLETED,
       });
 
-      const result = await service.approveEndorsement('end-1', 'Approved by underwriting', 'user-underwriter-2');
+      const result = await service.approveEndorsement(
+        'end-1',
+        'Approved by underwriting',
+        'user-underwriter-2',
+      );
 
       expect(prisma.contact.update).toHaveBeenCalledWith({
         where: { id: 'cont-1' },
@@ -163,7 +176,11 @@ describe('EndorsementService (Iteration 15)', () => {
         status: EndorsementStatus.COMPLETED,
       });
 
-      await service.approveEndorsement('end-2', 'Ownership transfer approved', 'user-underwriter-2');
+      await service.approveEndorsement(
+        'end-2',
+        'Ownership transfer approved',
+        'user-underwriter-2',
+      );
 
       expect(prisma.policy.update).toHaveBeenCalledWith({
         where: { id: 'pol-1' },
@@ -202,7 +219,11 @@ describe('EndorsementService (Iteration 15)', () => {
         status: EndorsementStatus.REJECTED,
       });
 
-      const result = await service.rejectEndorsement('end-3', 'Incomplete KYC documents', 'user-underwriter-2');
+      const result = await service.rejectEndorsement(
+        'end-3',
+        'Incomplete KYC documents',
+        'user-underwriter-2',
+      );
 
       expect(result.status).toBe(EndorsementStatus.REJECTED);
       expect(prisma.endorsementHistory.create).toHaveBeenCalledWith({

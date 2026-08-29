@@ -35,7 +35,9 @@ export class ApproveClaimService {
     }
 
     if (!dto.approvedAmount || dto.approvedAmount <= 0) {
-      throw new BadRequestException('Approved claim amount must be greater than zero');
+      throw new BadRequestException(
+        'Approved claim amount must be greater than zero',
+      );
     }
 
     const maxCover = Number(claim.policy?.quotation?.sumInsured || 0);
@@ -63,7 +65,9 @@ export class ApproveClaimService {
           claimId,
           status: ClaimStatus.APPROVED,
           action: 'APPROVE',
-          comments: dto.comments || `Claim approved for payout amount of ₹${dto.approvedAmount.toLocaleString('en-IN')}`,
+          comments:
+            dto.comments ||
+            `Claim approved for payout amount of ₹${dto.approvedAmount.toLocaleString('en-IN')}`,
           createdById: actorId,
         },
       });

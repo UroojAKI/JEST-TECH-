@@ -43,7 +43,10 @@ export class RenewalReminderProcessor extends WorkerHost {
         },
       });
 
-      if (recentReminder && (recentReminder.newValue as any)?.daysBefore === daysBefore) {
+      if (
+        recentReminder &&
+        (recentReminder.newValue as any)?.daysBefore === daysBefore
+      ) {
         this.logger.warn(
           `Skipping duplicate renewal reminder for policy ${policyNumber} (offset ${daysBefore}d already sent within 24h)`,
         );
@@ -53,8 +56,10 @@ export class RenewalReminderProcessor extends WorkerHost {
       // 2. Determine Notification Priority & Type for Agent
       let notifType: NotificationType = NotificationType.SYSTEM;
       if (daysBefore === 45) notifType = NotificationType.POLICY_RENEWAL_45;
-      else if (daysBefore === 30) notifType = NotificationType.POLICY_RENEWAL_30;
-      else if (daysBefore <= 20 && daysBefore > 0) notifType = NotificationType.POLICY_RENEWAL_20;
+      else if (daysBefore === 30)
+        notifType = NotificationType.POLICY_RENEWAL_30;
+      else if (daysBefore <= 20 && daysBefore > 0)
+        notifType = NotificationType.POLICY_RENEWAL_20;
 
       let priority: NotificationPriority = NotificationPriority.MEDIUM;
       if (daysBefore <= 7) priority = NotificationPriority.CRITICAL;
@@ -88,7 +93,8 @@ export class RenewalReminderProcessor extends WorkerHost {
         });
 
         if (contact) {
-          const customerName = `${contact.firstName || 'Valued'} ${contact.lastName || 'Customer'}`.trim();
+          const customerName =
+            `${contact.firstName || 'Valued'} ${contact.lastName || 'Customer'}`.trim();
           const messageBody =
             daysBefore <= 0
               ? `Dear ${customerName}, your insurance policy ${policyNumber} expired on ${formattedExpiry}. Please renew immediately to avoid loss of coverage and break-in penalty.`

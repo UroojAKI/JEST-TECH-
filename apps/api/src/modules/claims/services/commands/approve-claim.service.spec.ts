@@ -2,7 +2,11 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { ApproveClaimService } from './approve-claim.service';
 import { PrismaService } from '../../../../database/prisma.service';
 import { ClaimStatus, Prisma } from '@prisma/client';
-import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
 
 describe('ApproveClaimService (Claims Lifecycle Assessment & Approval)', () => {
   let service: ApproveClaimService;
@@ -50,7 +54,11 @@ describe('ApproveClaimService (Claims Lifecycle Assessment & Approval)', () => {
     mockPrisma.claim.findUnique.mockResolvedValue(baseClaim);
 
     await expect(
-      service.execute('claim-1', { approvedAmount: 45000, comments: 'Approved' }, 'agent-1'),
+      service.execute(
+        'claim-1',
+        { approvedAmount: 45000, comments: 'Approved' },
+        'agent-1',
+      ),
     ).rejects.toThrow(ForbiddenException);
   });
 
@@ -58,7 +66,11 @@ describe('ApproveClaimService (Claims Lifecycle Assessment & Approval)', () => {
     mockPrisma.claim.findUnique.mockResolvedValue(baseClaim);
 
     await expect(
-      service.execute('claim-1', { approvedAmount: 600000, comments: 'Approved' }, 'claims-officer-1'),
+      service.execute(
+        'claim-1',
+        { approvedAmount: 600000, comments: 'Approved' },
+        'claims-officer-1',
+      ),
     ).rejects.toThrow(BadRequestException);
   });
 

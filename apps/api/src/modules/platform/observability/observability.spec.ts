@@ -1,5 +1,8 @@
 import { MetricsInterceptor } from '../../../common/interceptors/metrics.interceptor';
-import { MetricsController, apiDurationHistogram } from '../../health/metrics.controller';
+import {
+  MetricsController,
+  apiDurationHistogram,
+} from '../../health/metrics.controller';
 import { ExecutionContext, CallHandler } from '@nestjs/common';
 import { of, throwError } from 'rxjs';
 
@@ -12,7 +15,11 @@ describe('Observability & Prometheus Telemetry (Iteration 18)', () => {
     controller = new MetricsController();
   });
 
-  const mockContext = (method = 'GET', url = '/api/v1/policies', statusCode = 200) => {
+  const mockContext = (
+    method = 'GET',
+    url = '/api/v1/policies',
+    statusCode = 200,
+  ) => {
     const request = { method, url, route: { path: url } };
     const response = { statusCode };
     return {
@@ -48,7 +55,8 @@ describe('Observability & Prometheus Telemetry (Iteration 18)', () => {
   it('should observe request duration with error status code on exception', (done) => {
     const context = mockContext('POST', '/api/v1/policies', 500);
     const next: CallHandler = {
-      handle: () => throwError(() => ({ status: 400, message: 'Invalid payload' })),
+      handle: () =>
+        throwError(() => ({ status: 400, message: 'Invalid payload' })),
     };
 
     const spy = jest.spyOn(apiDurationHistogram, 'labels');

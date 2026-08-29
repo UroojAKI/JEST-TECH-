@@ -19,7 +19,9 @@ describe('ReportClaimService (Iteration 14)', () => {
   beforeEach(async () => {
     claimRepo = {
       generateClaimNumber: jest.fn().mockResolvedValue('CLM-2026-0001'),
-      create: jest.fn().mockResolvedValue({ id: 'claim-1', claimNumber: 'CLM-2026-0001' }),
+      create: jest
+        .fn()
+        .mockResolvedValue({ id: 'claim-1', claimNumber: 'CLM-2026-0001' }),
       addHistoryEntry: jest.fn(),
       update: jest.fn().mockResolvedValue({
         id: 'claim-1',
@@ -42,7 +44,9 @@ describe('ReportClaimService (Iteration 14)', () => {
         findFirst: jest.fn(),
       },
       contact: {
-        findUnique: jest.fn().mockResolvedValue({ id: 'cont-1', email: 'user@jest.com' }),
+        findUnique: jest
+          .fn()
+          .mockResolvedValue({ id: 'cont-1', email: 'user@jest.com' }),
       },
       $transaction: jest.fn((callback) => callback(prisma)),
     };
@@ -92,7 +96,10 @@ describe('ReportClaimService (Iteration 14)', () => {
     expect(result.claimNumber).toBe('CLM-2026-0001');
     expect(result.status).toBe(ClaimStatus.REGISTERED);
     expect(claimRepo.addCommunication).toHaveBeenCalled();
-    expect(eventEmitter.emitAsync).toHaveBeenCalledWith('claim.registered', expect.any(Object));
+    expect(eventEmitter.emitAsync).toHaveBeenCalledWith(
+      'claim.registered',
+      expect.any(Object),
+    );
   });
 
   it('should reject claim when policy status is LAPSED', async () => {
@@ -105,7 +112,9 @@ describe('ReportClaimService (Iteration 14)', () => {
       claimAmount: 20000,
     };
 
-    await expect(service.execute(dto, 'usr-1')).rejects.toThrow(BadRequestException);
+    await expect(service.execute(dto, 'usr-1')).rejects.toThrow(
+      BadRequestException,
+    );
   });
 
   it('should reject claim when policy status is CANCELLED', async () => {
@@ -118,7 +127,9 @@ describe('ReportClaimService (Iteration 14)', () => {
       claimAmount: 20000,
     };
 
-    await expect(service.execute(dto, 'usr-1')).rejects.toThrow(BadRequestException);
+    await expect(service.execute(dto, 'usr-1')).rejects.toThrow(
+      BadRequestException,
+    );
   });
 
   it('should reject claim when incident date is prior to policy effective date', async () => {
@@ -131,7 +142,9 @@ describe('ReportClaimService (Iteration 14)', () => {
       claimAmount: 15000,
     };
 
-    await expect(service.execute(dto, 'usr-1')).rejects.toThrow(BadRequestException);
+    await expect(service.execute(dto, 'usr-1')).rejects.toThrow(
+      BadRequestException,
+    );
   });
 
   it('should reject claim when incident date is after policy expiry date', async () => {
@@ -144,7 +157,9 @@ describe('ReportClaimService (Iteration 14)', () => {
       claimAmount: 15000,
     };
 
-    await expect(service.execute(dto, 'usr-1')).rejects.toThrow(BadRequestException);
+    await expect(service.execute(dto, 'usr-1')).rejects.toThrow(
+      BadRequestException,
+    );
   });
 
   it('should reject duplicate active claim on same incident date', async () => {
@@ -158,6 +173,8 @@ describe('ReportClaimService (Iteration 14)', () => {
       claimAmount: 25000,
     };
 
-    await expect(service.execute(dto, 'usr-1')).rejects.toThrow(BadRequestException);
+    await expect(service.execute(dto, 'usr-1')).rejects.toThrow(
+      BadRequestException,
+    );
   });
 });

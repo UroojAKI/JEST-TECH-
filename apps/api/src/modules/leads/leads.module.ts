@@ -28,7 +28,19 @@ import { LeadCompletionService } from './services/lead-completion.service';
     SlaModule,
   ],
   controllers: [LeadsController],
-  providers: [LeadsService, LeadAssignmentService, LeadCompletionService, LeadRepository, LeadReportProvider],
-  exports: [LeadsService, LeadAssignmentService, LeadCompletionService, LeadRepository, LeadReportProvider],
+  providers: [
+    LeadsService,
+    LeadAssignmentService,
+    LeadCompletionService,
+    LeadRepository,
+    LeadReportProvider,
+  ],
+  exports: [
+    LeadsService,
+    LeadAssignmentService,
+    LeadCompletionService,
+    LeadRepository,
+    LeadReportProvider,
+  ],
 })
 export class LeadsModule {}

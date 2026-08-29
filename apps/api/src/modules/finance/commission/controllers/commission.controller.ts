@@ -11,13 +11,28 @@ import { CommissionEngineService } from '../services/commission-engine/commissio
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('finance/commissions')
 export class CommissionController {
-  constructor(private readonly commissionEngineService: CommissionEngineService) {}
+  constructor(
+    private readonly commissionEngineService: CommissionEngineService,
+  ) {}
 
   @Post('accrue')
-  @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN, RoleType.FINANCE, RoleType.BRANCH_MANAGER)
-  @ApiOperation({ summary: 'Calculate and accrue commission structure for a policy' })
+  @Roles(
+    RoleType.SUPER_ADMIN,
+    RoleType.ADMIN,
+    RoleType.FINANCE,
+    RoleType.BRANCH_MANAGER,
+  )
+  @ApiOperation({
+    summary: 'Calculate and accrue commission structure for a policy',
+  })
   async accrue(
-    @Body() dto: { policyId: string; agentId: string; premiumAmount: string; planId: string },
+    @Body()
+    dto: {
+      policyId: string;
+      agentId: string;
+      premiumAmount: string;
+      planId: string;
+    },
   ) {
     return this.commissionEngineService.accrueCommissions(
       dto.policyId,
@@ -29,9 +44,13 @@ export class CommissionController {
 
   @Post('realize/:policyId')
   @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN, RoleType.FINANCE)
-  @ApiOperation({ summary: 'Mark accrued commissions as realized upon policy payment confirmation' })
+  @ApiOperation({
+    summary:
+      'Mark accrued commissions as realized upon policy payment confirmation',
+  })
   async realize(@Param('policyId') policyId: string) {
-    const count = await this.commissionEngineService.realizeCommissions(policyId);
+    const count =
+      await this.commissionEngineService.realizeCommissions(policyId);
     return { status: 'success', realizedCount: count };
   }
 }

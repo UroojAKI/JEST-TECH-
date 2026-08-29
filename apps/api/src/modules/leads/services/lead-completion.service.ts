@@ -76,7 +76,9 @@ export class LeadCompletionService {
       missingFields: stage1Missing,
     });
     if (stage1Score < 15) {
-      blockingReasons.push('Customer identity incomplete (Name, Phone, and Email required).');
+      blockingReasons.push(
+        'Customer identity incomplete (Name, Phone, and Email required).',
+      );
     }
 
     // Stage 2: Assignment & Opportunity (Max 20 pts)
@@ -112,7 +114,8 @@ export class LeadCompletionService {
       if (vehicle.category) stage3Score += 5;
       else stage3Missing.push('Vehicle Category (IRDAI Class)');
 
-      if (vehicle.registrationNumber || vehicle.status === 'NEW') stage3Score += 5;
+      if (vehicle.registrationNumber || vehicle.status === 'NEW')
+        stage3Score += 5;
       else stage3Missing.push('Registration Number (or Mark as Brand New)');
 
       if (vehicle.makeModel) stage3Score += 5;
@@ -133,7 +136,9 @@ export class LeadCompletionService {
       missingFields: stage3Missing,
     });
     if (stage3Score < 15) {
-      blockingReasons.push('Incomplete vehicle details (Category, Registration/NEW, Make/Model, and Fuel required).');
+      blockingReasons.push(
+        'Incomplete vehicle details (Category, Registration/NEW, Make/Model, and Fuel required).',
+      );
     }
 
     // Stage 4: Previous Policy / Expiry Details (Max 20 pts)
@@ -141,12 +146,18 @@ export class LeadCompletionService {
     let stage4Score = 0;
     // Check if description or lead metadata notes contain previous policy info
     const desc = (lead.description || '').toLowerCase();
-    const hasPreviousPolicy = desc.includes('policy') || desc.includes('expiry') || desc.includes('ncb') || desc.includes('previous');
+    const hasPreviousPolicy =
+      desc.includes('policy') ||
+      desc.includes('expiry') ||
+      desc.includes('ncb') ||
+      desc.includes('previous');
 
     if (hasPreviousPolicy || vehicle?.status === 'NEW') {
       stage4Score = 20;
     } else {
-      stage4Missing.push('Previous policy status, expiry date, or NCB declaration');
+      stage4Missing.push(
+        'Previous policy status, expiry date, or NCB declaration',
+      );
       stage4Score = 10; // Partial
     }
 
@@ -197,13 +208,17 @@ export class LeadCompletionService {
 
     let recommendedNextStep = 'Lead is ready for motor quotation comparison';
     if (!stages[0].isComplete) {
-      recommendedNextStep = 'Complete customer identity: mobile number and email';
+      recommendedNextStep =
+        'Complete customer identity: mobile number and email';
     } else if (!stages[1].isComplete) {
-      recommendedNextStep = 'Assign lead to an active sales relationship manager';
+      recommendedNextStep =
+        'Assign lead to an active sales relationship manager';
     } else if (!stages[2].isComplete) {
-      recommendedNextStep = 'Capture vehicle specs: category, make/model, and plate number';
+      recommendedNextStep =
+        'Capture vehicle specs: category, make/model, and plate number';
     } else if (totalScore < 60) {
-      recommendedNextStep = 'Add previous policy details or upload RC document to qualify';
+      recommendedNextStep =
+        'Add previous policy details or upload RC document to qualify';
     }
 
     return {

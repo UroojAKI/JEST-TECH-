@@ -29,7 +29,9 @@ describe('FinanceReconciliationService (G020 Reconciliation Queue)', () => {
       ],
     }).compile();
 
-    service = module.get<FinanceReconciliationService>(FinanceReconciliationService);
+    service = module.get<FinanceReconciliationService>(
+      FinanceReconciliationService,
+    );
     prisma = module.get<PrismaService>(PrismaService);
   });
 
@@ -63,7 +65,10 @@ describe('FinanceReconciliationService (G020 Reconciliation Queue)', () => {
 
       mockPrisma.motorPaymentRecord.findMany.mockResolvedValue(mockPayments);
 
-      const result = await service.getReconciliationQueue({ page: 1, limit: 10 });
+      const result = await service.getReconciliationQueue({
+        page: 1,
+        limit: 10,
+      });
 
       expect(result.data).toHaveLength(1);
       const item = result.data[0];

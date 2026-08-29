@@ -6,15 +6,9 @@ import { Sliders, Save, ToggleLeft, ToggleRight, Loader2 } from 'lucide-react';
 import { useSystemConfig, useFeatureFlags } from '../../../hooks/useAdmin';
 import { toast } from 'sonner';
 
-const MOCK_FLAGS = [
-  { id: 'FF-01', key: 'ENABLE_WHATSAPP_DISPATCH', name: 'Automated WhatsApp Policy Dispatch', description: 'Trigger PDF policy schedules via WhatsApp Business API', isEnabled: true, environment: 'PRODUCTION', rolloutPercentage: 100 },
-  { id: 'FF-02', key: 'ENABLE_RAZORPAY_AUTOPAY', name: 'Razorpay Recurring Auto-Debit', description: 'Support automated monthly premium collection via mandate', isEnabled: true, environment: 'PRODUCTION', rolloutPercentage: 100 },
-  { id: 'FF-03', key: 'ENABLE_AI_SURVEYOR_OCR', name: 'AI Motor Claim Damage Detection', description: 'Enable computer vision for instant vehicle damage estimation', isEnabled: false, environment: 'STAGING', rolloutPercentage: 25 },
-];
-
 export default function SystemConfigPage() {
   const { config, isLoading, updateConfig, isUpdating } = useSystemConfig();
-  const [flags, setFlags] = useState(MOCK_FLAGS);
+  const { flags = [], toggleFlag } = useFeatureFlags();
   const [activeTab, setActiveTab] = useState<'PROFILE' | 'FLAGS'>('PROFILE');
   const [formData, setFormData] = useState<any>({
     companyName: '',
@@ -34,8 +28,8 @@ export default function SystemConfigPage() {
     }
   }, [config]);
 
-  const handleToggleFlag = (id: string) => {
-    setFlags(flags.map((f) => (f.id === id ? { ...f, isEnabled: !f.isEnabled } : f)));
+  const handleToggleFlag = (id: string, isEnabled: boolean) => {
+    toggleFlag({ id, isEnabled: !isEnabled });
   };
 
   const handleSave = async () => {
@@ -160,7 +154,7 @@ export default function SystemConfigPage() {
                 <p className="text-muted-foreground text-xs">{flag.description}</p>
               </div>
 
-              <button onClick={() => handleToggleFlag(flag.id)} className="p-2">
+              <button onClick={() => handleToggleFlag(flag.id, flag.isEnabled)} className="p-2">
                 {flag.isEnabled ? (
                   <ToggleRight className="h-8 w-8 text-emerald-500" />
                 ) : (

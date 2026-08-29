@@ -1,7 +1,4 @@
-import {
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { ClaimRepository } from '../../repositories/claim.repository';
 import { ClaimMapper } from '../../mappers/claim.mapper';
 import { ActorContext } from '../../../../common/interfaces/actor-context.interface';
@@ -31,14 +28,28 @@ export class GetClaimsService {
   }
 
   async executeAll(pagination: PaginationDto, user: ActorContext) {
-    const { page = 1, limit = 10, sortBy = 'createdAt', sortOrder = 'desc' } = pagination;
+    const {
+      page = 1,
+      limit = 10,
+      sortBy = 'createdAt',
+      sortOrder = 'desc',
+    } = pagination;
     const skip = (page - 1) * limit;
-    
+
     const scopedFilter = this.scopeResolver.resolveScopeFilter(user, 'CLAIM');
-    const claims = await this.claimRepository.findAll(skip, limit, scopedFilter, { [sortBy]: sortOrder });
+    const claims = await this.claimRepository.findAll(
+      skip,
+      limit,
+      scopedFilter,
+      { [sortBy]: sortOrder },
+    );
     const total = await this.claimRepository.count(scopedFilter);
-    
-    return new PaginatedResponseDto(ClaimMapper.toResponseList(claims), total, page, limit);
+
+    return new PaginatedResponseDto(
+      ClaimMapper.toResponseList(claims),
+      total,
+      page,
+      limit,
+    );
   }
 }
-

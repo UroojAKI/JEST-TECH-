@@ -15,7 +15,9 @@ export class PerformanceService {
     const interestedLeads = await this.prisma.lead.count({
       where: {
         ...whereClause,
-        currentWorkflowStep: { in: ['NEED_ANALYSIS', 'QUOTATION', 'PROPOSAL', 'NEGOTIATION'] },
+        currentWorkflowStep: {
+          in: ['NEED_ANALYSIS', 'QUOTATION', 'PROPOSAL', 'NEGOTIATION'],
+        },
       },
     });
 
@@ -55,7 +57,8 @@ export class PerformanceService {
       where: userId && !isManager ? { assignedToId: userId } : {},
     });
 
-    const conversionPercentage = totalLeads > 0 ? ((policiesSold / totalLeads) * 100).toFixed(1) : '0.0';
+    const conversionPercentage =
+      totalLeads > 0 ? ((policiesSold / totalLeads) * 100).toFixed(1) : '0.0';
 
     return {
       topRow: {
@@ -109,10 +112,15 @@ export class PerformanceService {
       'CRM_UPDATED',
     ];
 
-    const distribution = stages.reduce((acc, stage) => {
-      acc[stage] = leads.filter((l) => (l.currentWorkflowStep || 'ASSIGNED') === stage).length;
-      return acc;
-    }, {} as Record<string, number>);
+    const distribution = stages.reduce(
+      (acc, stage) => {
+        acc[stage] = leads.filter(
+          (l) => (l.currentWorkflowStep || 'ASSIGNED') === stage,
+        ).length;
+        return acc;
+      },
+      {} as Record<string, number>,
+    );
 
     return {
       distribution,

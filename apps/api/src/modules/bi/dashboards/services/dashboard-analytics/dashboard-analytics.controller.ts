@@ -18,7 +18,10 @@ export class DashboardAnalyticsController {
   @Get('sales-manager')
   @Roles('SALES_MANAGER', 'BRANCH_MANAGER')
   async getSalesManagerDashboard(@Req() req) {
-    return this.dashboardService.getSalesManagerMetrics(req.user.id, req.user.branchId);
+    return this.dashboardService.getSalesManagerMetrics(
+      req.user.id,
+      req.user.branchId,
+    );
   }
 
   @Get('renewals')

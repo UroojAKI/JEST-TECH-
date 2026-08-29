@@ -83,7 +83,9 @@ describe('DuplicateDetectionService', () => {
         status: 'NEW',
       });
 
-      const result = await service.checkDuplicates({ email: 'rahul@example.com' });
+      const result = await service.checkDuplicates({
+        email: 'rahul@example.com',
+      });
 
       expect(result.hasDuplicate).toBe(true);
       expect(result.existingLeadId).toBe('lead-456');
@@ -99,7 +101,9 @@ describe('DuplicateDetectionService', () => {
         contactId: 'con-123',
       });
 
-      const result = await service.checkDuplicates({ registrationNumber: 'MH 02 CB 1234' });
+      const result = await service.checkDuplicates({
+        registrationNumber: 'MH 02 CB 1234',
+      });
 
       expect(result.hasDuplicate).toBe(true);
       expect(result.matches[0].entityType).toBe('VEHICLE');

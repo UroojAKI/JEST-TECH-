@@ -1,7 +1,4 @@
-import {
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { ActorContext } from '../../../../common/interfaces/actor-context.interface';
 import { ResourceAuthorizationService } from '../../../../common/services/resource-authorization.service';
 import { ScopeResolver } from '../../../../common/services/scope-resolver.service';
@@ -32,10 +29,20 @@ export class GetQuotationService {
   }
 
   async executeAll(user: ActorContext, pagination: PaginationDto) {
-    const { page = 1, limit = 10, search, sortBy = 'createdAt', sortOrder = 'desc', productType } = pagination;
+    const {
+      page = 1,
+      limit = 10,
+      search,
+      sortBy = 'createdAt',
+      sortOrder = 'desc',
+      productType,
+    } = pagination;
     const skip = (page - 1) * limit;
 
-    const scopedFilter = this.scopeResolver.resolveScopeFilter(user, 'QUOTATION');
+    const scopedFilter = this.scopeResolver.resolveScopeFilter(
+      user,
+      'QUOTATION',
+    );
     const whereClause: any = { ...scopedFilter };
 
     if (productType) {

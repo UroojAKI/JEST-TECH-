@@ -1,22 +1,31 @@
-import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  BadRequestException,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '../../../database/prisma.service';
 
 @Injectable()
 export class ReferralService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async createReferral(dto: {
-    sourceLeadId?: string;
-    referrerContactId?: string;
-    referralName: string;
-    phone: string;
-    email?: string;
-    relationship?: string;
-    interestedProduct?: string;
-    assignedToId?: string;
-  }, userId: string) {
+  async createReferral(
+    dto: {
+      sourceLeadId?: string;
+      referrerContactId?: string;
+      referralName: string;
+      phone: string;
+      email?: string;
+      relationship?: string;
+      interestedProduct?: string;
+      assignedToId?: string;
+    },
+    userId: string,
+  ) {
     if (!dto.referralName || !dto.phone) {
-      throw new BadRequestException('Referral name and phone number are required');
+      throw new BadRequestException(
+        'Referral name and phone number are required',
+      );
     }
 
     // 1. Create Referral Record
@@ -48,7 +57,8 @@ export class ReferralService {
           contactCode,
           type: 'INDIVIDUAL',
           firstName: dto.referralName.split(' ')[0] || dto.referralName,
-          lastName: dto.referralName.split(' ').slice(1).join(' ') || 'Customer',
+          lastName:
+            dto.referralName.split(' ').slice(1).join(' ') || 'Customer',
           phone: dto.phone,
           email: dto.email,
           createdById: userId,

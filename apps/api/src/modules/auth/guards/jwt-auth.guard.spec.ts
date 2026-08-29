@@ -19,10 +19,12 @@ describe('JwtAuthGuard & ActorContext (Iteration 1 Baseline)', () => {
   describe('JwtAuthGuard', () => {
     it('should throw UnauthorizedException when passport authentication fails (no superadmin fallback)', async () => {
       // Mock super.canActivate returning false
-      jest.spyOn(JwtAuthGuard.prototype, 'canActivate').mockImplementation(async (context: ExecutionContext) => {
-        // Direct test of guard logic
-        throw new UnauthorizedException('Authentication required');
-      });
+      jest
+        .spyOn(JwtAuthGuard.prototype, 'canActivate')
+        .mockImplementation(async (context: ExecutionContext) => {
+          // Direct test of guard logic
+          throw new UnauthorizedException('Authentication required');
+        });
 
       const mockContext = {
         switchToHttp: () => ({

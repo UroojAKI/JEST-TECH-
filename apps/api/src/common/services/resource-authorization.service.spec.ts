@@ -35,14 +35,24 @@ describe('ResourceAuthorizationService & ScopeResolver (Iteration 3)', () => {
   describe('Cross-Agent Quotation Access (BOLA Elimination)', () => {
     it('should allow Sales Agent A to read own quotation', () => {
       const actorA = createActor({ userId: 'usr-agent-a' });
-      const quoteA = { id: 'quote-1', createdById: 'usr-agent-a', organizationId: 'org-mumbai' };
+      const quoteA = {
+        id: 'quote-1',
+        createdById: 'usr-agent-a',
+        organizationId: 'org-mumbai',
+      };
 
-      expect(authzService.authorize(actorA, 'QUOTATION', 'READ', quoteA)).toBe(true);
+      expect(authzService.authorize(actorA, 'QUOTATION', 'READ', quoteA)).toBe(
+        true,
+      );
     });
 
     it('should reject Sales Agent A from reading Sales Agent B quotation (BOLA Attack)', () => {
       const actorA = createActor({ userId: 'usr-agent-a' });
-      const quoteB = { id: 'quote-2', createdById: 'usr-agent-b', organizationId: 'org-mumbai' };
+      const quoteB = {
+        id: 'quote-2',
+        createdById: 'usr-agent-b',
+        organizationId: 'org-mumbai',
+      };
 
       expect(() =>
         authzService.authorize(actorA, 'QUOTATION', 'READ', quoteB),
@@ -58,9 +68,15 @@ describe('ResourceAuthorizationService & ScopeResolver (Iteration 3)', () => {
         roles: [RoleType.TEAM_LEADER],
         teamId: 'team-motor-a',
       });
-      const quoteInTeam = { id: 'quote-3', createdById: 'usr-agent-a', teamId: 'team-motor-a' };
+      const quoteInTeam = {
+        id: 'quote-3',
+        createdById: 'usr-agent-a',
+        teamId: 'team-motor-a',
+      };
 
-      expect(authzService.authorize(leaderA, 'QUOTATION', 'READ', quoteInTeam)).toBe(true);
+      expect(
+        authzService.authorize(leaderA, 'QUOTATION', 'READ', quoteInTeam),
+      ).toBe(true);
     });
 
     it('should reject Team Leader from accessing quotes from another team', () => {
@@ -92,7 +108,14 @@ describe('ResourceAuthorizationService & ScopeResolver (Iteration 3)', () => {
       });
       const quoteInBranch = { id: 'quote-5', branchId: 'branch-andheri' };
 
-      expect(authzService.authorize(branchManager, 'QUOTATION', 'READ', quoteInBranch)).toBe(true);
+      expect(
+        authzService.authorize(
+          branchManager,
+          'QUOTATION',
+          'READ',
+          quoteInBranch,
+        ),
+      ).toBe(true);
     });
 
     it('should allow Admin to access any record in the organization', () => {
@@ -103,7 +126,9 @@ describe('ResourceAuthorizationService & ScopeResolver (Iteration 3)', () => {
       });
       const anyQuote = { id: 'quote-6', createdById: 'usr-agent-z' };
 
-      expect(authzService.authorize(admin, 'QUOTATION', 'READ', anyQuote)).toBe(true);
+      expect(authzService.authorize(admin, 'QUOTATION', 'READ', anyQuote)).toBe(
+        true,
+      );
     });
 
     it('should reject cross-tenant access when organizationId differs', () => {
@@ -136,10 +161,12 @@ describe('ResourceAuthorizationService & ScopeResolver (Iteration 3)', () => {
         roles: [RoleType.SALES_AGENT],
       });
 
-      expect(authzService.authorize(operationsActor, 'POLICY', 'ISSUE')).toBe(true);
-      expect(() => authzService.authorize(salesActor, 'POLICY', 'ISSUE')).toThrow(
-        ForbiddenException,
+      expect(authzService.authorize(operationsActor, 'POLICY', 'ISSUE')).toBe(
+        true,
       );
+      expect(() =>
+        authzService.authorize(salesActor, 'POLICY', 'ISSUE'),
+      ).toThrow(ForbiddenException);
     });
 
     it('should allow FINANCE to reconcile payments and reject SALES_AGENT', () => {
@@ -152,10 +179,12 @@ describe('ResourceAuthorizationService & ScopeResolver (Iteration 3)', () => {
         roles: [RoleType.SALES_AGENT],
       });
 
-      expect(authzService.authorize(financeActor, 'PAYMENT', 'RECONCILE')).toBe(true);
-      expect(() => authzService.authorize(salesActor, 'PAYMENT', 'RECONCILE')).toThrow(
-        ForbiddenException,
+      expect(authzService.authorize(financeActor, 'PAYMENT', 'RECONCILE')).toBe(
+        true,
       );
+      expect(() =>
+        authzService.authorize(salesActor, 'PAYMENT', 'RECONCILE'),
+      ).toThrow(ForbiddenException);
     });
   });
 
@@ -174,8 +203,14 @@ describe('ResourceAuthorizationService & ScopeResolver (Iteration 3)', () => {
     });
 
     it('should generate unrestricted filter for Admins and Operations (no organizationId on Lead/Policy models)', () => {
-      const admin = createActor({ role: RoleType.ADMIN, roles: [RoleType.ADMIN] });
-      const ops = createActor({ role: RoleType.OPERATIONS, roles: [RoleType.OPERATIONS] });
+      const admin = createActor({
+        role: RoleType.ADMIN,
+        roles: [RoleType.ADMIN],
+      });
+      const ops = createActor({
+        role: RoleType.OPERATIONS,
+        roles: [RoleType.OPERATIONS],
+      });
 
       // Quotation and Policy models have NO organizationId column — admin/ops see everything
       expect(scopeResolver.resolveScopeFilter(admin, 'QUOTATION')).toEqual({});
@@ -183,8 +218,14 @@ describe('ResourceAuthorizationService & ScopeResolver (Iteration 3)', () => {
     });
 
     it('should generate completely empty filter only for Super Admin without organizationId', () => {
-      const globalSuperAdmin = createActor({ organizationId: undefined, role: RoleType.SUPER_ADMIN, roles: [RoleType.SUPER_ADMIN] });
-      expect(scopeResolver.resolveScopeFilter(globalSuperAdmin, 'QUOTATION')).toEqual({});
+      const globalSuperAdmin = createActor({
+        organizationId: undefined,
+        role: RoleType.SUPER_ADMIN,
+        roles: [RoleType.SUPER_ADMIN],
+      });
+      expect(
+        scopeResolver.resolveScopeFilter(globalSuperAdmin, 'QUOTATION'),
+      ).toEqual({});
     });
   });
 });

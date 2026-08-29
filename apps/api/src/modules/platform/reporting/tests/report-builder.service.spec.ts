@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { Test, TestingModule } from '@nestjs/testing';
 import { ReportFilterOperator } from '@prisma/client';
 import { ReportBuilderService } from '../services/report-builder.service';

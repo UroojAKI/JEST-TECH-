@@ -101,13 +101,17 @@ describe('LeadCompletionService (G019 Stage-Gate Enforcement)', () => {
     const result = await service.computeCompletionStatus('lead-2');
 
     expect(result.isQualifiedForQuotation).toBe(false);
-    expect(result.blockingReasons.some((r) => r.includes('vehicle'))).toBe(true);
+    expect(result.blockingReasons.some((r) => r.includes('vehicle'))).toBe(
+      true,
+    );
     expect(result.stages.find((s) => s.stage === 3)?.isComplete).toBe(false);
   });
 
   it('throws NotFoundException for unknown lead', async () => {
     mockPrisma.lead.findUnique.mockResolvedValue(null);
 
-    await expect(service.computeCompletionStatus('unknown-id')).rejects.toThrow(NotFoundException);
+    await expect(service.computeCompletionStatus('unknown-id')).rejects.toThrow(
+      NotFoundException,
+    );
   });
 });

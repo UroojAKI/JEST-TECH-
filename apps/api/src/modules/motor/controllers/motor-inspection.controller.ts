@@ -28,7 +28,9 @@ export class MotorInspectionController {
   constructor(private readonly inspectionService: MotorInspectionService) {}
 
   @Post()
-  @ApiOperation({ summary: 'Create or initialize a vehicle inspection record for quotation' })
+  @ApiOperation({
+    summary: 'Create or initialize a vehicle inspection record for quotation',
+  })
   async createInspection(
     @Body() dto: CreateInspectionDto,
     @CurrentUser() actor: ActorContext,
@@ -46,7 +48,9 @@ export class MotorInspectionController {
   }
 
   @Post(':id/photos')
-  @ApiOperation({ summary: 'Record uploaded photo key for a specific vehicle view' })
+  @ApiOperation({
+    summary: 'Record uploaded photo key for a specific vehicle view',
+  })
   async recordPhoto(
     @Param('id') inspectionId: string,
     @Body() body: { photoType: InspectionPhotoType; storageKey: string },
@@ -62,7 +66,9 @@ export class MotorInspectionController {
   }
 
   @Post(':id/complete')
-  @ApiOperation({ summary: 'Submit inspection once all 7 mandatory photographs are uploaded' })
+  @ApiOperation({
+    summary: 'Submit inspection once all 7 mandatory photographs are uploaded',
+  })
   async completeInspection(
     @Param('id') inspectionId: string,
     @Body() body: { reportPdfKey?: string; reportPdfUrl?: string },
@@ -70,9 +76,9 @@ export class MotorInspectionController {
   ) {
     return this.inspectionService.completeInspection(
       inspectionId,
+      actor.userId,
       body.reportPdfKey,
       body.reportPdfUrl,
-      actor.userId,
     );
   }
 
@@ -83,15 +89,15 @@ export class MotorInspectionController {
     RoleType.UNDERWRITER,
     RoleType.OPERATIONS,
   )
-  @ApiOperation({ summary: 'Approve vehicle inspection (Back-Office / Underwriter)' })
+  @ApiOperation({
+    summary: 'Approve vehicle inspection (Back-Office / Underwriter)',
+  })
   async approveInspection(
     @Param('id') inspectionId: string,
     @CurrentUser() actor: ActorContext,
   ) {
     return this.inspectionService.completeInspection(
       inspectionId,
-      undefined,
-      undefined,
       actor.userId,
     );
   }

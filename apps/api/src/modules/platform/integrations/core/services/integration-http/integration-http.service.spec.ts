@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { Test, TestingModule } from '@nestjs/testing';
 import { IntegrationHttpClient } from './integration-http.service';
 import { HttpService } from '@nestjs/axios';

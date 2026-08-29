@@ -122,7 +122,13 @@ export class AuditService {
         where,
         include: {
           user: {
-            select: { id: true, firstName: true, lastName: true, email: true, role: true },
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+              role: true,
+            },
           },
         },
         orderBy: { createdAt: 'desc' },
@@ -147,7 +153,11 @@ export class AuditService {
    * Prevents any runtime attempt to update or delete audit logs.
    */
   assertImmutableOperation(operation: string): void {
-    if (['update', 'updatemany', 'delete', 'deletemany', 'upsert'].includes(operation.toLowerCase())) {
+    if (
+      ['update', 'updatemany', 'delete', 'deletemany', 'upsert'].includes(
+        operation.toLowerCase(),
+      )
+    ) {
       throw new ForbiddenException(
         'Audit logs are append-only and strictly immutable under IRDAI regulations (G023). Updates and deletions are forbidden.',
       );

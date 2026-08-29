@@ -3,7 +3,11 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { QuotationStatus, MotorWorkflowState, IssuanceStatus } from '@prisma/client';
+import {
+  QuotationStatus,
+  MotorWorkflowState,
+  IssuanceStatus,
+} from '@prisma/client';
 import { PrismaService } from '../../../../database/prisma.service';
 import { QuotationRepository } from '../../repositories/quotation.repository';
 import { QuotationMapper } from '../../mappers/quotation.mapper';
@@ -30,14 +34,19 @@ export class AcceptQuotationService {
         throw new NotFoundException(`Quotation with ID ${id} not found`);
       }
 
-      if (quotation.status === QuotationStatus.REJECTED || quotation.status === QuotationStatus.EXPIRED) {
+      if (
+        quotation.status === QuotationStatus.REJECTED ||
+        quotation.status === QuotationStatus.EXPIRED
+      ) {
         throw new BadRequestException(
           `Cannot accept quotation in ${quotation.status} state. Only active draft quotations can be accepted.`,
         );
       }
 
       if (quotation.status === QuotationStatus.CONVERTED_TO_POLICY) {
-        throw new BadRequestException('Quotation has already been converted to a policy.');
+        throw new BadRequestException(
+          'Quotation has already been converted to a policy.',
+        );
       }
 
       // If already accepted, return idempotently
@@ -71,7 +80,9 @@ export class AcceptQuotationService {
           where: {
             leadId: quotation.leadId,
             id: { not: quotation.id },
-            status: { in: [QuotationStatus.DRAFT, QuotationStatus.PENDING_APPROVAL] },
+            status: {
+              in: [QuotationStatus.DRAFT, QuotationStatus.PENDING_APPROVAL],
+            },
             deletedAt: null,
           },
           data: {
@@ -106,7 +117,9 @@ export class AcceptQuotationService {
         data: {
           quotationId: id,
           status: QuotationStatus.APPROVED,
-          comments: comments || 'Customer accepted quotation version. Opportunity qualified.',
+          comments:
+            comments ||
+            'Customer accepted quotation version. Opportunity qualified.',
           createdById: actorId,
         },
       });

@@ -63,11 +63,21 @@ describe('AuditService (G022 Transactional & G023 Immutable Audit Trails)', () =
 
   describe('assertImmutableOperation (G023)', () => {
     it('throws ForbiddenException when attempting update or delete operations on audit logs', () => {
-      expect(() => service.assertImmutableOperation('update')).toThrow(ForbiddenException);
-      expect(() => service.assertImmutableOperation('updateMany')).toThrow(ForbiddenException);
-      expect(() => service.assertImmutableOperation('delete')).toThrow(ForbiddenException);
-      expect(() => service.assertImmutableOperation('deleteMany')).toThrow(ForbiddenException);
-      expect(() => service.assertImmutableOperation('upsert')).toThrow(ForbiddenException);
+      expect(() => service.assertImmutableOperation('update')).toThrow(
+        ForbiddenException,
+      );
+      expect(() => service.assertImmutableOperation('updateMany')).toThrow(
+        ForbiddenException,
+      );
+      expect(() => service.assertImmutableOperation('delete')).toThrow(
+        ForbiddenException,
+      );
+      expect(() => service.assertImmutableOperation('deleteMany')).toThrow(
+        ForbiddenException,
+      );
+      expect(() => service.assertImmutableOperation('upsert')).toThrow(
+        ForbiddenException,
+      );
     });
 
     it('allows append operations (create)', () => {

@@ -24,7 +24,8 @@ export class WorkspaceService {
       },
     });
 
-    if (!user) throw new NotFoundException(`User with ID '${userId}' not found`);
+    if (!user)
+      throw new NotFoundException(`User with ID '${userId}' not found`);
 
     const roleCode = user.role?.code || 'SALES_AGENT';
     const jobRole = user.jobRole;
@@ -34,17 +35,27 @@ export class WorkspaceService {
     if (jobRole?.dashboards?.length) {
       registry = jobRole.dashboards[0];
     } else if (jobRole) {
-      registry = await this.prisma.dashboardRegistry.findFirst({ where: { jobRoleId: jobRole.id } });
+      registry = await this.prisma.dashboardRegistry.findFirst({
+        where: { jobRoleId: jobRole.id },
+      });
     }
 
     const isRegistryUsable = (reg: any, currentJobRole: any) => {
-      if (!reg || reg.isActive === false || !reg.widgets || reg.widgets.length === 0) return false;
+      if (
+        !reg ||
+        reg.isActive === false ||
+        !reg.widgets ||
+        reg.widgets.length === 0
+      )
+        return false;
       let navLength = 0;
       if (Array.isArray(reg.navigation)) navLength = reg.navigation.length;
       else if (typeof reg.navigation === 'string') {
         try {
           const parsed = JSON.parse(reg.navigation);
-          navLength = Array.isArray(parsed) ? parsed.length : Object.keys(parsed || {}).length;
+          navLength = Array.isArray(parsed)
+            ? parsed.length
+            : Object.keys(parsed || {}).length;
         } catch {
           navLength = 0;
         }
@@ -52,7 +63,12 @@ export class WorkspaceService {
         navLength = Object.keys(reg.navigation).length;
       }
       if (navLength === 0) return false;
-      if (currentJobRole && reg.jobRoleId && reg.jobRoleId !== currentJobRole.id) return false;
+      if (
+        currentJobRole &&
+        reg.jobRoleId &&
+        reg.jobRoleId !== currentJobRole.id
+      )
+        return false;
       return true;
     };
 
@@ -63,8 +79,14 @@ export class WorkspaceService {
         workspaceCode: registry.workspaceCode,
         title: registry.title,
         subtitle: registry.subtitle,
-        navigation: typeof registry.navigation === 'string' ? JSON.parse(registry.navigation) : registry.navigation,
-        widgets: typeof registry.widgets === 'string' ? JSON.parse(registry.widgets) : registry.widgets,
+        navigation:
+          typeof registry.navigation === 'string'
+            ? JSON.parse(registry.navigation)
+            : registry.navigation,
+        widgets:
+          typeof registry.widgets === 'string'
+            ? JSON.parse(registry.widgets)
+            : registry.widgets,
         quickActions: registry.quickActions || [],
         permissions: registry.permissions || [],
       };
@@ -86,14 +108,18 @@ export class WorkspaceService {
         designation: user.designation,
         status: user.status,
       },
-      jobRole: jobRole ? {
-        id: jobRole.id,
-        code: jobRole.code,
-        name: jobRole.name,
-        defaultRoleType: jobRole.defaultRoleType,
-        description: jobRole.description,
-      } : null,
-      department: department ? { id: department.id, code: department.code, name: department.name } : null,
+      jobRole: jobRole
+        ? {
+            id: jobRole.id,
+            code: jobRole.code,
+            name: jobRole.name,
+            defaultRoleType: jobRole.defaultRoleType,
+            description: jobRole.description,
+          }
+        : null,
+      department: department
+        ? { id: department.id, code: department.code, name: department.name }
+        : null,
       dashboardCode: workspaceConfig.dashboardCode,
       workspaceCode: workspaceConfig.workspaceCode,
       title: workspaceConfig.title,
@@ -116,12 +142,24 @@ export class WorkspaceService {
 
   async getDashboard(userId: string) {
     const ws = await this.getWorkspaceForUser(userId);
-    return { dashboardCode: ws.dashboardCode, workspaceCode: ws.workspaceCode, title: ws.title, subtitle: ws.subtitle, widgets: ws.widgets, quickActions: ws.quickActions };
+    return {
+      dashboardCode: ws.dashboardCode,
+      workspaceCode: ws.workspaceCode,
+      title: ws.title,
+      subtitle: ws.subtitle,
+      widgets: ws.widgets,
+      quickActions: ws.quickActions,
+    };
   }
 
   async getProfile(userId: string) {
     const ws = await this.getWorkspaceForUser(userId);
-    return { user: ws.user, jobRole: ws.jobRole, department: ws.department, preferences: ws.preferences };
+    return {
+      user: ws.user,
+      jobRole: ws.jobRole,
+      department: ws.department,
+      preferences: ws.preferences,
+    };
   }
 
   async getUserWorkspaces(userId: string) {
@@ -131,10 +169,12 @@ export class WorkspaceService {
         role: { include: { permissions: { include: { permission: true } } } },
       },
     });
-    if (!user) throw new NotFoundException(`User with ID '${userId}' not found`);
+    if (!user)
+      throw new NotFoundException(`User with ID '${userId}' not found`);
 
-    const roleType = (user.role.type || user.role.code) as RoleType;
-    const permissions = user.role.permissions?.map((p: any) => p.permission.code) || [];
+    const roleType = user.role.type || user.role.code;
+    const permissions =
+      user.role.permissions?.map((p: any) => p.permission.code) || [];
 
     const actor: ActorContext = {
       userId: user.id,
@@ -152,55 +192,71 @@ export class WorkspaceService {
 
     const permittedCodes = resolvePermittedWorkspaces(actor);
 
-    const WORKSPACE_DEFINITIONS: Record<string, { code: string; title: string; href: string; icon: string; description: string }> = {
+    const WORKSPACE_DEFINITIONS: Record<
+      string,
+      {
+        code: string;
+        title: string;
+        href: string;
+        icon: string;
+        description: string;
+      }
+    > = {
       SALES: {
         code: 'SALES',
         title: 'Sales & Distribution',
         href: '/workspace/sales',
         icon: 'TrendingUp',
-        description: 'Leads, opportunities, motor quotations and sales pipelines',
+        description:
+          'Leads, opportunities, motor quotations and sales pipelines',
       },
       FINANCE: {
         code: 'FINANCE',
         title: 'Finance & Accounts',
         href: '/workspace/finance',
         icon: 'DollarSign',
-        description: 'Receipts, bank reconciliation, payment verification & commissions',
+        description:
+          'Receipts, bank reconciliation, payment verification & commissions',
       },
       BACK_OFFICE: {
         code: 'BACK_OFFICE',
         title: 'Operations & Issuance',
         href: '/workspace/operations',
         icon: 'Briefcase',
-        description: 'Document verification, inspection review & policy issuance',
+        description:
+          'Document verification, inspection review & policy issuance',
       },
       RENEWALS: {
         code: 'RENEWALS',
         title: 'Renewals & Retention',
         href: '/workspace/renewal',
         icon: 'RotateCcw',
-        description: 'Expiring policies, renewal tasks, reminder cadence & requoting',
+        description:
+          'Expiring policies, renewal tasks, reminder cadence & requoting',
       },
       CLAIMS: {
         code: 'CLAIMS',
         title: 'Claims Management',
         href: '/claims',
         icon: 'ShieldAlert',
-        description: 'First Notice of Loss (FNOL), survey management & settlements',
+        description:
+          'First Notice of Loss (FNOL), survey management & settlements',
       },
       MANAGEMENT: {
         code: 'MANAGEMENT',
         title: 'Executive Management',
         href: '/workspace/executive',
         icon: 'BarChart3',
-        description: 'Organizational KPIs, gross premium, branch ranking & growth',
+        description:
+          'Organizational KPIs, gross premium, branch ranking & growth',
       },
       ADMINISTRATION: {
         code: 'ADMINISTRATION',
         title: 'System Administration',
         href: '/workspace/admin',
         icon: 'Settings',
-        description: 'User provisioning, RBAC configuration, numbering & audit logs',
+        description:
+          'User provisioning, RBAC configuration, numbering & audit logs',
       },
     };
 

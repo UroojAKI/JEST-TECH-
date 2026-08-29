@@ -3,7 +3,13 @@ import { PrismaService } from '../../../../../database/prisma.service';
 
 export interface DuplicateMatch {
   entityType: 'CONTACT' | 'ACCOUNT' | 'VEHICLE' | 'LEAD';
-  field: 'phone' | 'email' | 'panNumber' | 'registrationNumber' | 'aadhaarNumber' | 'gstNumber';
+  field:
+    | 'phone'
+    | 'email'
+    | 'panNumber'
+    | 'registrationNumber'
+    | 'aadhaarNumber'
+    | 'gstNumber';
   value: string;
   id: string;
   name?: string;
@@ -41,7 +47,13 @@ export class DuplicateDetectionService {
       const normalizedPhone = data.phone.trim();
       const existingContact = await this.prisma.contact.findFirst({
         where: { phone: normalizedPhone, deletedAt: null },
-        select: { id: true, firstName: true, lastName: true, phone: true, contactCode: true },
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          phone: true,
+          contactCode: true,
+        },
       });
       if (existingContact) {
         matches.push({
@@ -65,7 +77,10 @@ export class DuplicateDetectionService {
           value: normalizedPhone,
           id: existingLead.id,
           name: existingLead.title,
-          details: { leadCode: existingLead.leadCode, status: existingLead.status },
+          details: {
+            leadCode: existingLead.leadCode,
+            status: existingLead.status,
+          },
         });
       }
     }
@@ -74,8 +89,17 @@ export class DuplicateDetectionService {
     if (data.email) {
       const normalizedEmail = data.email.trim().toLowerCase();
       const existingContact = await this.prisma.contact.findFirst({
-        where: { email: { equals: normalizedEmail, mode: 'insensitive' }, deletedAt: null },
-        select: { id: true, firstName: true, lastName: true, email: true, contactCode: true },
+        where: {
+          email: { equals: normalizedEmail, mode: 'insensitive' },
+          deletedAt: null,
+        },
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          email: true,
+          contactCode: true,
+        },
       });
       if (existingContact) {
         matches.push({
@@ -89,7 +113,10 @@ export class DuplicateDetectionService {
       }
 
       const existingLead = await this.prisma.lead.findFirst({
-        where: { contact: { email: { equals: normalizedEmail, mode: 'insensitive' } }, deletedAt: null },
+        where: {
+          contact: { email: { equals: normalizedEmail, mode: 'insensitive' } },
+          deletedAt: null,
+        },
         select: { id: true, leadCode: true, title: true, status: true },
       });
       if (existingLead) {
@@ -99,7 +126,10 @@ export class DuplicateDetectionService {
           value: normalizedEmail,
           id: existingLead.id,
           name: existingLead.title,
-          details: { leadCode: existingLead.leadCode, status: existingLead.status },
+          details: {
+            leadCode: existingLead.leadCode,
+            status: existingLead.status,
+          },
         });
       }
     }
@@ -139,13 +169,21 @@ export class DuplicateDetectionService {
 
     // 4. Check Vehicle Registration Number
     if (data.registrationNumber) {
-      const normalizedReg = data.registrationNumber.trim().toUpperCase().replace(/\s+/g, '');
+      const normalizedReg = data.registrationNumber
+        .trim()
+        .toUpperCase()
+        .replace(/\s+/g, '');
       const existingVehicle = await this.prisma.vehicle.findFirst({
         where: {
           registrationNumber: { equals: normalizedReg, mode: 'insensitive' },
           deletedAt: null,
         },
-        select: { id: true, registrationNumber: true, makeModel: true, contactId: true },
+        select: {
+          id: true,
+          registrationNumber: true,
+          makeModel: true,
+          contactId: true,
+        },
       });
       if (existingVehicle) {
         matches.push({

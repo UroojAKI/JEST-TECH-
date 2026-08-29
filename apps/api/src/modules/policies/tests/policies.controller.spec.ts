@@ -1,27 +1,23 @@
-// @ts-nocheck
 import { Test, TestingModule } from '@nestjs/testing';
 import {
-  BadRequestException,
-  ConflictException,
   ForbiddenException,
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
-import { PolicyStatus, RoleType } from '@prisma/client';
+import { PolicyStatus, RoleType, UserStatus } from '@prisma/client';
 
 import { PoliciesController } from '../controllers/policies.controller';
-import { IssuePolicyService } from '../services/commands/issue-policy.service';
 import { CancelPolicyService } from '../services/commands/cancel-policy.service';
 import { RenewPolicyService } from '../services/commands/renew-policy.service';
 import { GetPolicyService } from '../services/queries/get-policy.service';
 import { GetPolicyHistoryService } from '../services/queries/get-policy-history.service';
-import { CreatePolicyDto } from '../dto/create-policy.dto';
-import { RenewPolicyDto } from '../dto/renew-policy.dto';
+import { PrismaService } from '../../../database/prisma.service';
+import { RenewalEngineService } from '../services/renewal-engine.service';
+import { RenewalSchedulerCron } from '../crons/renewal-scheduler.cron';
 import { RequestUser } from '../../auth/decorators/current-user.decorator';
 
 describe('PoliciesController', () => {
   let controller: PoliciesController;
-  let issueService: IssuePolicyService;
   let cancelService: CancelPolicyService;
   let renewService: RenewPolicyService;
   let getService: GetPolicyService;
@@ -29,8 +25,19 @@ describe('PoliciesController', () => {
 
   const mockUser: RequestUser = {
     id: 'user-123',
+    userId: 'user-123',
     email: 'underwriter@jestpolicy.com',
     role: RoleType.UNDERWRITER,
+    firstName: 'Test',
+    lastName: 'Underwriter',
+    organizationId: 'org-1',
+    companyId: 'org-1',
+    branchId: 'branch-1',
+    teamId: 'team-1',
+    roles: [RoleType.UNDERWRITER],
+    permissions: ['POLICIES_READ', 'POLICIES_WRITE'],
+    workspaces: ['OPERATIONS'],
+    status: UserStatus.ACTIVE,
   };
 
   const mockPolicyResponse = {
@@ -53,12 +60,6 @@ describe('PoliciesController', () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [PoliciesController],
       providers: [
-        {
-          provide: IssuePolicyService,
-          useValue: {
-            execute: jest.fn().mockResolvedValue(mockPolicyResponse),
-          },
-        },
         {
           provide: CancelPolicyService,
           useValue: {
@@ -85,11 +86,37 @@ describe('PoliciesController', () => {
           provide: GetPolicyHistoryService,
           useValue: { execute: jest.fn().mockResolvedValue([]) },
         },
+        {
+          provide: PrismaService,
+          useValue: {
+            policy: {
+              findMany: jest.fn().mockResolvedValue([mockPolicyResponse]),
+              count: jest.fn().mockResolvedValue(1),
+            },
+          },
+        },
+        {
+          provide: RenewalEngineService,
+          useValue: {
+            getRenewalKpis: jest.fn().mockResolvedValue({}),
+            getRenewalQueue: jest.fn().mockResolvedValue([]),
+            getRenewalPipeline: jest.fn().mockResolvedValue([]),
+            triggerManualReminder: jest
+              .fn()
+              .mockResolvedValue({ success: true }),
+            escalateRenewal: jest.fn().mockResolvedValue({ success: true }),
+          },
+        },
+        {
+          provide: RenewalSchedulerCron,
+          useValue: {
+            runManually: jest.fn().mockResolvedValue({ triggered: true }),
+          },
+        },
       ],
     }).compile();
 
     controller = module.get<PoliciesController>(PoliciesController);
-    issueService = module.get<IssuePolicyService>(IssuePolicyService);
     cancelService = module.get<CancelPolicyService>(CancelPolicyService);
     renewService = module.get<RenewPolicyService>(RenewPolicyService);
     getService = module.get<GetPolicyService>(GetPolicyService);
@@ -98,36 +125,13 @@ describe('PoliciesController', () => {
     );
   });
 
-  // 1. Happy Path
   describe('Happy Path', () => {
-    it('should issue a policy', async () => {
-      const dto = new CreatePolicyDto();
-      dto.quotationId = 'quote-123';
-      dto.nominees = [
-        {
-          firstName: 'Nominee',
-          lastName: 'User',
-          relation: 'Spouse',
-          percentage: 100,
-        },
-      ];
-      dto.payment = {
-        amount: 11800,
-        transactionId: 'TXN-123',
-        paymentMethod: 'UPI',
-      };
-
-      const result = await controller.create(dto, mockUser);
-      expect(result).toEqual(mockPolicyResponse);
-      expect(issueService.execute).toHaveBeenCalledWith(dto, mockUser.id);
-    });
-
     it('should find one policy', async () => {
-      const result = await controller.findOne('policy-123');
+      const result = await controller.findOne('policy-123', mockUser);
       expect(result).toEqual(mockPolicyResponse);
       expect(getService.executeOne).toHaveBeenCalledWith(
         'policy-123',
-        undefined,
+        mockUser,
       );
     });
 
@@ -146,21 +150,6 @@ describe('PoliciesController', () => {
     });
   });
 
-  // 2. Validation Failure
-  describe('Validation Failure', () => {
-    it('should throw BadRequestException for incorrect allocations', async () => {
-      jest
-        .spyOn(issueService, 'execute')
-        .mockRejectedValueOnce(new BadRequestException('Validation failed'));
-      const invalidDto = new CreatePolicyDto();
-
-      await expect(controller.create(invalidDto, mockUser)).rejects.toThrow(
-        BadRequestException,
-      );
-    });
-  });
-
-  // 3. Unauthorized
   describe('Unauthorized', () => {
     it('should throw UnauthorizedException when credentials fail', async () => {
       jest
@@ -169,13 +158,12 @@ describe('PoliciesController', () => {
           new UnauthorizedException('Unauthorized access'),
         );
 
-      await expect(controller.findOne('policy-123')).rejects.toThrow(
+      await expect(controller.findOne('policy-123', mockUser)).rejects.toThrow(
         UnauthorizedException,
       );
     });
   });
 
-  // 4. Forbidden
   describe('Forbidden', () => {
     it('should throw ForbiddenException when user cannot perform action', async () => {
       jest
@@ -188,30 +176,15 @@ describe('PoliciesController', () => {
     });
   });
 
-  // 5. Not Found
   describe('Not Found', () => {
     it('should throw NotFoundException when policy is missing', async () => {
       jest
         .spyOn(getService, 'executeOne')
         .mockRejectedValueOnce(new NotFoundException('Policy not found'));
 
-      await expect(controller.findOne('policy-nonexistent')).rejects.toThrow(
-        NotFoundException,
-      );
-    });
-  });
-
-  // 6. Conflict
-  describe('Conflict', () => {
-    it('should throw ConflictException when policy has duplicate quotation link', async () => {
-      jest
-        .spyOn(issueService, 'execute')
-        .mockRejectedValueOnce(new ConflictException('Policy already issued'));
-      const dto = new CreatePolicyDto();
-
-      await expect(controller.create(dto, mockUser)).rejects.toThrow(
-        ConflictException,
-      );
+      await expect(
+        controller.findOne('policy-nonexistent', mockUser),
+      ).rejects.toThrow(NotFoundException);
     });
   });
 });

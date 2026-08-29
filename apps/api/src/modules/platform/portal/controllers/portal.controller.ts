@@ -19,9 +19,13 @@ export class PortalController {
   @ApiOperation({ summary: 'Get agent portal performance metrics' })
   async getAgentMetrics(@CurrentUser() user: RequestUser) {
     const totalLeads = await this.prisma.lead.count();
-    const activePolicies = await this.prisma.policy.count({ where: { status: 'ACTIVE' } });
-    const pendingQuotes = await this.prisma.quotation.count({ where: { status: 'DRAFT' } });
-    
+    const activePolicies = await this.prisma.policy.count({
+      where: { status: 'ACTIVE' },
+    });
+    const pendingQuotes = await this.prisma.quotation.count({
+      where: { status: 'DRAFT' },
+    });
+
     return {
       activePolicies,
       totalLeads,
@@ -61,8 +65,10 @@ export class PortalController {
   @ApiOperation({ summary: 'Create new agent lead' })
   async createAgentLead(@Body() dto: any, @CurrentUser() user: RequestUser) {
     const leadCode = `LD-${Date.now().toString().slice(-6)}`;
-    const firstContact = await this.prisma.contact.findFirst({ where: { deletedAt: null } });
-    
+    const firstContact = await this.prisma.contact.findFirst({
+      where: { deletedAt: null },
+    });
+
     if (!firstContact) {
       return { id: leadCode, leadCode, status: 'NEW' };
     }
@@ -115,8 +121,20 @@ export class PortalController {
   @ApiOperation({ summary: 'Get agent earned commissions' })
   async getAgentCommissions() {
     return [
-      { id: 'COMM-101', policyNumber: 'POL-2026-001042', amount: 3750, status: 'PAID', date: new Date().toISOString() },
-      { id: 'COMM-102', policyNumber: 'POL-2026-001043', amount: 4800, status: 'ACCRUED', date: new Date().toISOString() },
+      {
+        id: 'COMM-101',
+        policyNumber: 'POL-2026-001042',
+        amount: 3750,
+        status: 'PAID',
+        date: new Date().toISOString(),
+      },
+      {
+        id: 'COMM-102',
+        policyNumber: 'POL-2026-001043',
+        amount: 4800,
+        status: 'ACCRUED',
+        date: new Date().toISOString(),
+      },
     ];
   }
 

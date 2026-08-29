@@ -25,7 +25,9 @@ describe('AcceptQuotationService (R5 Multi-Version & Single Accepted Rule)', () 
   };
 
   const mockPrisma = {
-    $transaction: jest.fn().mockImplementation(async (callback) => callback(mockTx)),
+    $transaction: jest
+      .fn()
+      .mockImplementation(async (callback) => callback(mockTx)),
   };
 
   const mockRepo = {
@@ -78,7 +80,11 @@ describe('AcceptQuotationService (R5 Multi-Version & Single Accepted Rule)', () 
       status: QuotationStatus.APPROVED,
     });
 
-    const result = await service.execute('q-v1', 'user-1', 'Customer accepted quote V1');
+    const result = await service.execute(
+      'q-v1',
+      'user-1',
+      'Customer accepted quote V1',
+    );
 
     expect(result.status).toBe(QuotationStatus.APPROVED);
     // Competing open quotes under the lead are superseded/rejected
@@ -86,7 +92,9 @@ describe('AcceptQuotationService (R5 Multi-Version & Single Accepted Rule)', () 
       where: {
         leadId: 'lead-123',
         id: { not: 'q-v1' },
-        status: { in: [QuotationStatus.DRAFT, QuotationStatus.PENDING_APPROVAL] },
+        status: {
+          in: [QuotationStatus.DRAFT, QuotationStatus.PENDING_APPROVAL],
+        },
         deletedAt: null,
       },
       data: {
@@ -123,9 +131,9 @@ describe('AcceptQuotationService (R5 Multi-Version & Single Accepted Rule)', () 
       .mockResolvedValueOnce(targetQuote)
       .mockResolvedValueOnce(competingAccepted); // Already accepted quote exists!
 
-    await expect(
-      service.execute('q-v2', 'user-1'),
-    ).rejects.toThrow(BadRequestException);
+    await expect(service.execute('q-v2', 'user-1')).rejects.toThrow(
+      BadRequestException,
+    );
   });
 
   it('rejects acceptance if quotation is already expired or rejected', async () => {
@@ -134,8 +142,8 @@ describe('AcceptQuotationService (R5 Multi-Version & Single Accepted Rule)', () 
       status: QuotationStatus.EXPIRED,
     });
 
-    await expect(
-      service.execute('q-expired', 'user-1'),
-    ).rejects.toThrow(BadRequestException);
+    await expect(service.execute('q-expired', 'user-1')).rejects.toThrow(
+      BadRequestException,
+    );
   });
 });

@@ -1,4 +1,9 @@
-import { Injectable, BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  BadRequestException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '../../../database/prisma.service';
 
 export const WORKFLOW_STAGES = [
@@ -14,7 +19,7 @@ export const WORKFLOW_STAGES = [
   'CRM_UPDATED',
 ] as const;
 
-export type WorkflowStage = typeof WORKFLOW_STAGES[number];
+export type WorkflowStage = (typeof WORKFLOW_STAGES)[number];
 
 @Injectable()
 export class LeadWorkflowService {
@@ -23,7 +28,10 @@ export class LeadWorkflowService {
   /**
    * Validate stage prerequisites according to standard SOP rules.
    */
-  async validateStagePrerequisites(leadId: string, targetStage: WorkflowStage): Promise<{ isMet: boolean; missingRules: string[] }> {
+  async validateStagePrerequisites(
+    leadId: string,
+    targetStage: WorkflowStage,
+  ): Promise<{ isMet: boolean; missingRules: string[] }> {
     const lead = await this.prisma.lead.findUnique({
       where: { id: leadId },
       include: {
@@ -49,60 +57,92 @@ export class LeadWorkflowService {
           lead.meetingLogs.length > 0 ||
           lead.activities.length > 0;
         if (!hasInteractions) {
-          missingRules.push('At least one call, meeting, or activity log must be recorded before moving to CONTACTED');
+          missingRules.push(
+            'At least one call, meeting, or activity log must be recorded before moving to CONTACTED',
+          );
         }
         break;
       }
       case 'NEED_ANALYSIS': {
         if (!lead.contact?.phone && !lead.contact?.email) {
-          missingRules.push('Customer phone or email is required for NEED_ANALYSIS');
+          missingRules.push(
+            'Customer phone or email is required for NEED_ANALYSIS',
+          );
         }
         break;
       }
       case 'QUOTATION': {
         const hasQuotes = lead.quotations && lead.quotations.length > 0;
         if (!hasQuotes) {
-          missingRules.push('At least one quotation must be generated before moving to QUOTATION stage');
+          missingRules.push(
+            'At least one quotation must be generated before moving to QUOTATION stage',
+          );
         }
         break;
       }
       case 'PROPOSAL': {
-        const validQuote = lead.quotations.find((q) => q.status === 'APPROVED' || q.status === 'DRAFT');
+        const validQuote = lead.quotations.find(
+          (q) => q.status === 'APPROVED' || q.status === 'DRAFT',
+        );
         if (!validQuote) {
-          missingRules.push('A valid prepared quotation must be available before generating a PROPOSAL');
+          missingRules.push(
+            'A valid prepared quotation must be available before generating a PROPOSAL',
+          );
         }
         break;
       }
       case 'NEGOTIATION': {
-        const hasNotes = lead.activities.some((a) => a.type === 'MEETING' || a.type === 'CALL') || (lead.notes && lead.notes.length > 0);
+        const hasNotes =
+          lead.activities.some(
+            (a) => a.type === 'MEETING' || a.type === 'CALL',
+          ) ||
+          (lead.notes && lead.notes.length > 0);
         if (!hasNotes) {
-          missingRules.push('Negotiation notes or follow-up activity must be recorded');
+          missingRules.push(
+            'Negotiation notes or follow-up activity must be recorded',
+          );
         }
         break;
       }
       case 'PAYMENT': {
         if (lead.status === 'UNQUALIFIED' || lead.status === 'LOST') {
-          missingRules.push('Cannot process payment for an unqualified or lost lead');
+          missingRules.push(
+            'Cannot process payment for an unqualified or lost lead',
+          );
         }
         break;
       }
       case 'ISSUED': {
-        const paid = lead.status === 'PAYMENT_RECEIVED' || lead.status === 'POLICY_ISSUED' || lead.currentWorkflowStep === 'PAYMENT';
+        const paid =
+          lead.status === 'PAYMENT_RECEIVED' ||
+          lead.status === 'POLICY_ISSUED' ||
+          lead.currentWorkflowStep === 'PAYMENT';
         if (!paid) {
-          missingRules.push('Payment verification is required before policy issuance');
+          missingRules.push(
+            'Payment verification is required before policy issuance',
+          );
         }
         break;
       }
       case 'REFERRAL': {
-        const hasReferralOrExemption = lead.referrals.length > 0 || !!lead.noReferralReason;
+        const hasReferralOrExemption =
+          lead.referrals.length > 0 || !!lead.noReferralReason;
         if (!hasReferralOrExemption) {
-          missingRules.push('Referral must be captured or explicitly marked "No Referral" with a reason');
+          missingRules.push(
+            'Referral must be captured or explicitly marked "No Referral" with a reason',
+          );
         }
         break;
       }
       case 'CRM_UPDATED': {
-        if (!lead.crmUpdatedAt && lead.currentWorkflowStep !== 'REFERRAL' && lead.currentWorkflowStep !== 'ISSUED') {
-          missingRules.push('Policy issuance and referral review must be completed prior to final CRM update');
+        if (
+          !lead.crmUpdatedAt &&
+          lead.currentWorkflowStep !== 'REFERRAL' &&
+          lead.currentWorkflowStep !== 'ISSUED'
+        ) {
+          missingRules.push(
+            'Policy issuance and referral review must be completed prior to final CRM update',
+          );
         }
         break;
       }
@@ -126,20 +166,24 @@ export class LeadWorkflowService {
     targetStage: WorkflowStage,
     user: { id: string; role: string },
     overrideReason?: string,
-    remarks?: string
+    remarks?: string,
   ) {
     const lead = await this.prisma.lead.findUnique({
       where: { id: leadId },
     });
 
-    if (!lead) throw new NotFoundException(`Lead with ID '${leadId}' not found`);
+    if (!lead)
+      throw new NotFoundException(`Lead with ID '${leadId}' not found`);
 
-    const currentStage = (lead.currentWorkflowStep || 'ASSIGNED') as WorkflowStage;
+    const currentStage = (lead.currentWorkflowStep ||
+      'ASSIGNED') as WorkflowStage;
     const currentIndex = WORKFLOW_STAGES.indexOf(currentStage);
     const targetIndex = WORKFLOW_STAGES.indexOf(targetStage);
 
     if (targetIndex === -1) {
-      throw new BadRequestException(`Invalid target workflow stage '${targetStage}'`);
+      throw new BadRequestException(
+        `Invalid target workflow stage '${targetStage}'`,
+      );
     }
 
     const isSalesAgent = user.role === 'SALES_AGENT';
@@ -157,7 +201,7 @@ export class LeadWorkflowService {
         throw new ForbiddenException(
           `Sales Executives can only move sequentially to the immediate next step (${
             WORKFLOW_STAGES[currentIndex + 1] || 'COMPLETED'
-          }). Skipping or backward transitions require Sales Manager override.`
+          }). Skipping or backward transitions require Sales Manager override.`,
         );
       }
     } else if (isManagerOrAdmin) {
@@ -165,7 +209,7 @@ export class LeadWorkflowService {
         isOverride = true;
         if (!overrideReason || overrideReason.trim().length < 5) {
           throw new BadRequestException(
-            `Sales Manager override requires a mandatory override reason (minimum 5 characters).`
+            `Sales Manager override requires a mandatory override reason (minimum 5 characters).`,
           );
         }
       }
@@ -175,7 +219,7 @@ export class LeadWorkflowService {
     const prereqs = await this.validateStagePrerequisites(leadId, targetStage);
     if (!prereqs.isMet && !isOverride) {
       throw new BadRequestException(
-        `Stage prerequisites not met: ${prereqs.missingRules.join('; ')}`
+        `Stage prerequisites not met: ${prereqs.missingRules.join('; ')}`,
       );
     }
 
@@ -184,15 +228,16 @@ export class LeadWorkflowService {
       where: { id: leadId },
       data: {
         currentWorkflowStep: targetStage,
-        crmUpdatedAt: targetStage === 'CRM_UPDATED' ? new Date() : lead.crmUpdatedAt,
+        crmUpdatedAt:
+          targetStage === 'CRM_UPDATED' ? new Date() : lead.crmUpdatedAt,
         status:
           targetStage === 'ISSUED' || targetStage === 'CRM_UPDATED'
             ? 'POLICY_ISSUED'
             : targetStage === 'PAYMENT'
-            ? 'PAYMENT_RECEIVED'
-            : targetStage === 'QUOTATION' || targetStage === 'PROPOSAL'
-            ? 'QUOTE_PREPARED'
-            : lead.status,
+              ? 'PAYMENT_RECEIVED'
+              : targetStage === 'QUOTATION' || targetStage === 'PROPOSAL'
+                ? 'QUOTE_PREPARED'
+                : lead.status,
       },
     });
 
@@ -206,7 +251,9 @@ export class LeadWorkflowService {
         isOverride,
         overrideReason: isOverride ? overrideReason : null,
         remarks: remarks || null,
-        prerequisitesMet: prereqs.isMet ? { met: true } : { met: false, missing: prereqs.missingRules },
+        prerequisitesMet: prereqs.isMet
+          ? { met: true }
+          : { met: false, missing: prereqs.missingRules },
       },
     });
 
@@ -225,7 +272,12 @@ export class LeadWorkflowService {
       orderBy: { createdAt: 'desc' },
       include: {
         performedBy: {
-          select: { id: true, firstName: true, lastName: true, designation: true },
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            designation: true,
+          },
         },
       },
     });

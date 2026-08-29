@@ -159,9 +159,9 @@ describe('BOLA & Multi-User Authorization Suite (R1 Exit Gate)', () => {
         organizationId: 'org-mumbai',
       });
 
-      await expect(
-        leadsService.findById('lead-888', actor),
-      ).rejects.toThrow(ForbiddenException);
+      await expect(leadsService.findById('lead-888', actor)).rejects.toThrow(
+        ForbiddenException,
+      );
 
       await expect(
         leadsService.update('lead-888', {} as any, actor),
@@ -189,7 +189,11 @@ describe('BOLA & Multi-User Authorization Suite (R1 Exit Gate)', () => {
   describe('5. Document & Payment BOLA Prevention', () => {
     it('should reject Agent A attempting to read Agent B document', () => {
       const agentA = createActor({ userId: 'usr-agent-1' });
-      const docB = { id: 'doc-200', createdById: 'usr-agent-2', organizationId: 'org-mumbai' };
+      const docB = {
+        id: 'doc-200',
+        createdById: 'usr-agent-2',
+        organizationId: 'org-mumbai',
+      };
 
       expect(() => {
         authzService.authorize(agentA, 'DOCUMENT', 'READ', docB);
@@ -198,7 +202,11 @@ describe('BOLA & Multi-User Authorization Suite (R1 Exit Gate)', () => {
 
     it('should reject Agent A attempting to read Agent B payment', () => {
       const agentA = createActor({ userId: 'usr-agent-1' });
-      const paymentB = { id: 'pay-200', createdById: 'usr-agent-2', organizationId: 'org-mumbai' };
+      const paymentB = {
+        id: 'pay-200',
+        createdById: 'usr-agent-2',
+        organizationId: 'org-mumbai',
+      };
 
       expect(() => {
         authzService.authorize(agentA, 'PAYMENT', 'READ', paymentB);
@@ -207,7 +215,11 @@ describe('BOLA & Multi-User Authorization Suite (R1 Exit Gate)', () => {
 
     it('should reject Agent A attempting to read Agent B renewal task', () => {
       const agentA = createActor({ userId: 'usr-agent-1' });
-      const renewalB = { id: 'ren-200', assignedToId: 'usr-agent-2', organizationId: 'org-mumbai' };
+      const renewalB = {
+        id: 'ren-200',
+        assignedToId: 'usr-agent-2',
+        organizationId: 'org-mumbai',
+      };
 
       expect(() => {
         authzService.authorize(agentA, 'RENEWAL_TASK', 'READ', renewalB);
@@ -291,7 +303,12 @@ describe('BOLA & Multi-User Authorization Suite (R1 Exit Gate)', () => {
       };
 
       expect(() => {
-        authzService.authorize(branchManagerAndheri, 'LEAD', 'READ', bandraResource);
+        authzService.authorize(
+          branchManagerAndheri,
+          'LEAD',
+          'READ',
+          bandraResource,
+        );
       }).toThrow(ForbiddenException);
     });
 
@@ -312,7 +329,12 @@ describe('BOLA & Multi-User Authorization Suite (R1 Exit Gate)', () => {
       };
 
       expect(() => {
-        authzService.authorize(teamLeadAlpha, 'LEAD', 'READ', otherBranchTeamResource);
+        authzService.authorize(
+          teamLeadAlpha,
+          'LEAD',
+          'READ',
+          otherBranchTeamResource,
+        );
       }).toThrow(ForbiddenException);
     });
   });
@@ -381,7 +403,11 @@ describe('BOLA & Multi-User Authorization Suite (R1 Exit Gate)', () => {
         teamId: 'team-alpha',
       });
 
-      const leadBeta = { id: 'lead-beta', teamId: 'team-beta', organizationId: 'org-mumbai' };
+      const leadBeta = {
+        id: 'lead-beta',
+        teamId: 'team-beta',
+        organizationId: 'org-mumbai',
+      };
 
       expect(() => {
         authzService.authorize(teamLeaderAlpha, 'LEAD', 'ASSIGN', leadBeta);
@@ -396,10 +422,19 @@ describe('BOLA & Multi-User Authorization Suite (R1 Exit Gate)', () => {
         branchId: 'br-andheri',
       });
 
-      const leadBandra = { id: 'lead-bandra', branchId: 'br-bandra', organizationId: 'org-mumbai' };
+      const leadBandra = {
+        id: 'lead-bandra',
+        branchId: 'br-bandra',
+        organizationId: 'org-mumbai',
+      };
 
       expect(() => {
-        authzService.authorize(branchManagerAndheri, 'LEAD', 'ASSIGN', leadBandra);
+        authzService.authorize(
+          branchManagerAndheri,
+          'LEAD',
+          'ASSIGN',
+          leadBandra,
+        );
       }).toThrow(ForbiddenException);
     });
 
@@ -411,9 +446,20 @@ describe('BOLA & Multi-User Authorization Suite (R1 Exit Gate)', () => {
         branchId: 'br-andheri',
       });
 
-      const leadAndheri = { id: 'lead-andheri', branchId: 'br-andheri', organizationId: 'org-mumbai' };
+      const leadAndheri = {
+        id: 'lead-andheri',
+        branchId: 'br-andheri',
+        organizationId: 'org-mumbai',
+      };
 
-      expect(authzService.authorize(branchManagerAndheri, 'LEAD', 'ASSIGN', leadAndheri)).toBe(true);
+      expect(
+        authzService.authorize(
+          branchManagerAndheri,
+          'LEAD',
+          'ASSIGN',
+          leadAndheri,
+        ),
+      ).toBe(true);
     });
   });
 
@@ -442,10 +488,7 @@ describe('BOLA & Multi-User Authorization Suite (R1 Exit Gate)', () => {
       // Lead model has NO organizationId column — scoping via ownership only
       const filter = scopeResolver.resolveScopeFilter(agent, 'LEAD');
       expect(filter).toEqual({
-        OR: [
-          { assignedToId: 'usr-agent-1' },
-          { createdById: 'usr-agent-1' },
-        ],
+        OR: [{ assignedToId: 'usr-agent-1' }, { createdById: 'usr-agent-1' }],
       });
     });
   });
@@ -460,7 +503,9 @@ describe('BOLA & Multi-User Authorization Suite (R1 Exit Gate)', () => {
         lead: { assignedToId: 'usr-agent-1' },
       };
 
-      expect(authzService.authorize(agent, 'QUOTATION', 'READ', quotation)).toBe(true);
+      expect(
+        authzService.authorize(agent, 'QUOTATION', 'READ', quotation),
+      ).toBe(true);
     });
   });
 });

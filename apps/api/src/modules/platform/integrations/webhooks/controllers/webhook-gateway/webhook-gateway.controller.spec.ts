@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { Test, TestingModule } from '@nestjs/testing';
 import { WebhookGatewayController } from './webhook-gateway.controller';
 import { EventEmitter2 } from '@nestjs/event-emitter';

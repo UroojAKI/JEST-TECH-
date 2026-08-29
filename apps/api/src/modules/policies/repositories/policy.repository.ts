@@ -55,7 +55,12 @@ export class PolicyRepository extends BaseRepository<
         SELECT nextval('policy_number_seq')`;
       return `POL-${result[0].nextval.toString().padStart(6, '0')}`;
     } catch {
-      return `POL-${Date.now().toString().slice(-8)}`;
+      await this.prisma.$executeRawUnsafe(
+        `CREATE SEQUENCE IF NOT EXISTS policy_number_seq START 1;`,
+      );
+      const retry = await this.prisma.$queryRaw<[{ nextval: bigint }]>`
+        SELECT nextval('policy_number_seq')`;
+      return `POL-${retry[0].nextval.toString().padStart(6, '0')}`;
     }
   }
 

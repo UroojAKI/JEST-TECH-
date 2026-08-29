@@ -1,4 +1,8 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import * as argon2 from 'argon2';
 
 import { AuditAction, RoleType, Prisma } from '@prisma/client';
@@ -37,7 +41,8 @@ export class UsersService {
 
     const initialPassword = dto.password || 'JestPolicy2026!';
     const passwordHash = await argon2.hash(initialPassword);
-    const empCode = dto.employeeCode || `EMP-${Date.now().toString().slice(-6)}`;
+    const empCode =
+      dto.employeeCode || `EMP-${Date.now().toString().slice(-6)}`;
 
     const user = await this.userRepository.create({
       employeeCode: empCode,
@@ -65,16 +70,26 @@ export class UsersService {
     const password = newPassword || 'JestPolicy2026!';
     const passwordHash = await argon2.hash(password);
     await this.userRepository.update(userId, { passwordHash });
-    return { success: true, message: 'Password reset successfully', newPassword: password };
+    return {
+      success: true,
+      message: 'Password reset successfully',
+      newPassword: password,
+    };
   }
 
-  async changePassword(userId: string, currentPassword?: string, newPassword?: string) {
+  async changePassword(
+    userId: string,
+    currentPassword?: string,
+    newPassword?: string,
+  ) {
     const user = await this.userRepository.findById(userId);
     if (!user) {
       throw new NotFoundException('User not found');
     }
     if (!newPassword || newPassword.length < 6) {
-      throw new BadRequestException('New password must be at least 6 characters long');
+      throw new BadRequestException(
+        'New password must be at least 6 characters long',
+      );
     }
 
     if (currentPassword) {
@@ -93,7 +108,7 @@ export class UsersService {
     const page = pagination.page || 1;
     const limit = pagination.limit || 10;
     const skip = (page - 1) * limit;
-    
+
     const where: Prisma.UserWhereInput = {};
     if (pagination.search) {
       where.OR = [
@@ -102,9 +117,9 @@ export class UsersService {
         { email: { contains: pagination.search, mode: 'insensitive' } },
       ];
     }
-    
+
     const orderBy = pagination.sortBy
-      ? { [pagination.sortBy]: pagination.sortOrder || 'asc' } as any
+      ? ({ [pagination.sortBy]: pagination.sortOrder || 'asc' } as any)
       : { createdAt: 'desc' };
 
     const [users, total] = await Promise.all([

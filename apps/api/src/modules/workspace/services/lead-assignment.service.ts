@@ -5,7 +5,12 @@ import { PrismaService } from '../../../database/prisma.service';
 export class LeadAssignmentService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async assignLead(leadId: string, assignedToId: string, assignedById: string, reason?: string) {
+  async assignLead(
+    leadId: string,
+    assignedToId: string,
+    assignedById: string,
+    reason?: string,
+  ) {
     const lead = await this.prisma.lead.findUnique({ where: { id: leadId } });
     if (!lead) throw new NotFoundException(`Lead '${leadId}' not found`);
 
@@ -34,8 +39,12 @@ export class LeadAssignmentService {
       where: { leadId },
       orderBy: { assignedAt: 'desc' },
       include: {
-        assignedTo: { select: { id: true, firstName: true, lastName: true, email: true } },
-        assignedBy: { select: { id: true, firstName: true, lastName: true, email: true } },
+        assignedTo: {
+          select: { id: true, firstName: true, lastName: true, email: true },
+        },
+        assignedBy: {
+          select: { id: true, firstName: true, lastName: true, email: true },
+        },
       },
     });
   }

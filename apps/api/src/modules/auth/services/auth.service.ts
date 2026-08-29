@@ -1,4 +1,8 @@
-import { Injectable, UnauthorizedException, ForbiddenException } from '@nestjs/common';
+import {
+  Injectable,
+  UnauthorizedException,
+  ForbiddenException,
+} from '@nestjs/common';
 import * as argon2 from 'argon2';
 import { ConfigService } from '@nestjs/config';
 import { AuditAction, RoleType } from '@prisma/client';
@@ -41,7 +45,8 @@ export class AuthService {
       ? user.role.permissions.map((p) => p.permission.code)
       : [];
 
-    const orgId = (user as any).branch?.zone?.region?.company?.id || 'DEFAULT_ORG';
+    const orgId =
+      (user as any).branch?.zone?.region?.company?.id || 'DEFAULT_ORG';
     const roleType = user.role.type || user.role.code;
 
     const payload = {
@@ -134,12 +139,21 @@ export class AuthService {
 
   resolveDefaultLandingWorkspace(role: RoleType | string): string {
     const r = (role || '').toString().toUpperCase();
-    if (r.includes('SUPER_ADMIN') || r.includes('ADMIN')) return '/workspace/admin';
-    if (r.includes('MD_CEO') || r.includes('MANAGEMENT') || r.includes('DIRECTOR')) return '/workspace/executive';
+    if (r.includes('SUPER_ADMIN') || r.includes('ADMIN'))
+      return '/workspace/admin';
+    if (
+      r.includes('MD_CEO') ||
+      r.includes('MANAGEMENT') ||
+      r.includes('DIRECTOR')
+    )
+      return '/workspace/executive';
     if (r.includes('BRANCH_MANAGER')) return '/workspace/executive';
-    if (r.includes('SALES_MANAGER') || r.includes('TEAM_LEADER')) return '/workspace/sales-manager';
-    if (r.includes('SALES') || r.includes('POSP') || r.includes('AGENT')) return '/workspace/sales';
-    if (r.includes('FINANCE') || r.includes('ACCOUNTS')) return '/workspace/finance';
+    if (r.includes('SALES_MANAGER') || r.includes('TEAM_LEADER'))
+      return '/workspace/sales-manager';
+    if (r.includes('SALES') || r.includes('POSP') || r.includes('AGENT'))
+      return '/workspace/sales';
+    if (r.includes('FINANCE') || r.includes('ACCOUNTS'))
+      return '/workspace/finance';
     if (
       r.includes('OPERATIONS') ||
       r.includes('POLICY_ISSUANCE') ||
@@ -173,7 +187,9 @@ export class AuthService {
     }
 
     // Verify token against stored database hashes to ensure it hasn't been revoked
-    const activeTokens = await this.usersService.findActiveRefreshTokens(user.id);
+    const activeTokens = await this.usersService.findActiveRefreshTokens(
+      user.id,
+    );
     let matchedTokenId: string | null = null;
 
     for (const record of activeTokens) {
@@ -185,7 +201,9 @@ export class AuthService {
     }
 
     if (!matchedTokenId) {
-      throw new UnauthorizedException('Refresh token has been revoked or is invalid');
+      throw new UnauthorizedException(
+        'Refresh token has been revoked or is invalid',
+      );
     }
 
     // Revoke the old token (rotation)
@@ -195,7 +213,8 @@ export class AuthService {
       ? user.role.permissions.map((p) => p.permission.code)
       : [];
 
-    const orgId = (user as any).branch?.zone?.region?.company?.id || 'DEFAULT_ORG';
+    const orgId =
+      (user as any).branch?.zone?.region?.company?.id || 'DEFAULT_ORG';
     const roleType = user.role.type || user.role.code;
 
     const newPayload = {
@@ -274,7 +293,6 @@ export class AuthService {
       await this.usersService.revokeAllUserRefreshTokens(userId);
     }
   }
-
 
   // ---------------------------------------------------------------------------
   // Parses duration strings like "15m", "30d", "1h" into a future Date.

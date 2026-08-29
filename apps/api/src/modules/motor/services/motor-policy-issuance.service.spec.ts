@@ -4,7 +4,11 @@ import { MotorPaymentTrackingService } from './motor-payment-tracking.service';
 import { ResourceAuthorizationService } from '../../../common/services/resource-authorization.service';
 import { PrismaService } from '../../../database/prisma.service';
 import { RoleType, UserStatus } from '@prisma/client';
-import { ForbiddenException, ConflictException, BadRequestException } from '@nestjs/common';
+import {
+  ForbiddenException,
+  ConflictException,
+  BadRequestException,
+} from '@nestjs/common';
 import { ActorContext } from '../../../common/interfaces/actor-context.interface';
 
 describe('MotorPolicyIssuanceService (Iteration 8)', () => {
@@ -50,7 +54,9 @@ describe('MotorPolicyIssuanceService (Iteration 8)', () => {
       ],
     }).compile();
 
-    service = module.get<MotorPolicyIssuanceService>(MotorPolicyIssuanceService);
+    service = module.get<MotorPolicyIssuanceService>(
+      MotorPolicyIssuanceService,
+    );
   });
 
   const createActor = (role: RoleType): ActorContext => ({
@@ -81,13 +87,18 @@ describe('MotorPolicyIssuanceService (Iteration 8)', () => {
     totalPremium: 17638.88,
     policy: null,
     workflowState: 'PAYMENT_DONE',
-    calculationSnapshot: { inputs: { policyType: 'PACKAGE_COMPREHENSIVE', tpTenure: 1 } },
+    calculationSnapshot: {
+      inputs: { policyType: 'PACKAGE_COMPREHENSIVE', tpTenure: 1 },
+    },
   };
 
   describe('issuePolicy', () => {
     it('should successfully issue policy and schedule renewal when called by OPERATIONS', async () => {
       const opsActor = createActor(RoleType.POLICY_ISSUANCE_EXECUTIVE);
-      paymentService.canProceedToPolicy.mockResolvedValue({ allowed: true, blockers: [] });
+      paymentService.canProceedToPolicy.mockResolvedValue({
+        allowed: true,
+        blockers: [],
+      });
       prisma.quotation.findUnique.mockResolvedValue(validQuote);
       prisma.policy.create.mockResolvedValue({
         id: 'pol-1',

@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { Test, TestingModule } from '@nestjs/testing';
 import { LedgerService, CreateJournalEntryDto } from './ledger.service';
 import { PrismaService } from '../../../../../database/prisma.service';
@@ -146,7 +145,12 @@ describe('LedgerService', () => {
               debit: new Decimal(25000),
               credit: new Decimal(0),
               description: 'Customer Receivable',
-              account: { id: 'acc-ar', code: '1001', name: 'Accounts Receivable', type: 'ASSET' },
+              account: {
+                id: 'acc-ar',
+                code: '1001',
+                name: 'Accounts Receivable',
+                type: 'ASSET',
+              },
             },
             {
               id: 'jl-2',
@@ -154,7 +158,12 @@ describe('LedgerService', () => {
               debit: new Decimal(0),
               credit: new Decimal(21250),
               description: 'Insurer Premium Payable',
-              account: { id: 'acc-ap', code: '2001', name: 'Insurer Payable', type: 'LIABILITY' },
+              account: {
+                id: 'acc-ap',
+                code: '2001',
+                name: 'Insurer Payable',
+                type: 'LIABILITY',
+              },
             },
             {
               id: 'jl-3',
@@ -162,7 +171,12 @@ describe('LedgerService', () => {
               debit: new Decimal(0),
               credit: new Decimal(3750),
               description: 'Brokerage Commission Income',
-              account: { id: 'acc-rev', code: '4001', name: 'Commission Revenue', type: 'REVENUE' },
+              account: {
+                id: 'acc-rev',
+                code: '4001',
+                name: 'Commission Revenue',
+                type: 'REVENUE',
+              },
             },
           ],
         },

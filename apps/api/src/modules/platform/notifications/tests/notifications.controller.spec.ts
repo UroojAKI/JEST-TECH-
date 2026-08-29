@@ -1,9 +1,8 @@
-// @ts-nocheck
 import { Test, TestingModule } from '@nestjs/testing';
 import { NotificationsController } from '../controllers/notifications.controller';
 import { NotificationService } from '../services/notification.service';
 import { RequestUser } from '../../../auth/decorators/current-user.decorator';
-import { RoleType } from '@prisma/client';
+import { RoleType, UserStatus } from '@prisma/client';
 
 describe('NotificationsController', () => {
   let controller: NotificationsController;
@@ -11,8 +10,17 @@ describe('NotificationsController', () => {
 
   const mockUser: RequestUser = {
     id: 'user-123',
+    userId: 'user-123',
     email: 'agent@jestpolicy.com',
     role: RoleType.SALES_AGENT,
+    firstName: 'Agent',
+    lastName: 'One',
+    organizationId: 'org-1',
+    companyId: 'org-1',
+    roles: [RoleType.SALES_AGENT],
+    permissions: ['NOTIFICATIONS_READ', 'NOTIFICATIONS_WRITE'],
+    workspaces: ['SALES'],
+    status: UserStatus.ACTIVE,
   };
 
   const mockNotifications = [

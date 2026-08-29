@@ -26,7 +26,7 @@ export class RenewPolicyService {
     return this.prisma.$transaction(async (tx) => {
       const existing = await tx.policy.findFirst({
         where: { id, deletedAt: null },
-        include: { quotation: true }
+        include: { quotation: true },
       });
       if (!existing) {
         throw new NotFoundException(`Policy with ID ${id} not found`);
@@ -45,12 +45,17 @@ export class RenewPolicyService {
 
       let nextNcb = 0;
       let ncbAppliedStr = '';
-      if (existing.quotation && typeof existing.quotation.ncbPercentage === 'number') {
-         nextNcb = this.renewalEngineService.calculateNextNCBSlab(existing.quotation.ncbPercentage);
-         ncbAppliedStr = ` [NCB_APPLIED: ${nextNcb}%]`;
+      if (
+        existing.quotation &&
+        typeof existing.quotation.ncbPercentage === 'number'
+      ) {
+        nextNcb = this.renewalEngineService.calculateNextNCBSlab(
+          existing.quotation.ncbPercentage,
+        );
+        ncbAppliedStr = ` [NCB_APPLIED: ${nextNcb}%]`;
       }
-      
-      let insurerSwitchStr = dto.switchInsurer ? ' [INSURER_SWITCH]' : '';
+
+      const insurerSwitchStr = dto.switchInsurer ? ' [INSURER_SWITCH]' : '';
 
       // 1. Update Policy Expiry, Status and Increment Version
       await tx.policy.update({

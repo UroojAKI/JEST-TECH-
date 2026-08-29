@@ -11,7 +11,8 @@ import {
   DocumentAccessAction,
 } from '@prisma/client';
 
-export type DocumentLifecycleState = 'UPLOADED' | 'UNDER_REVIEW' | 'VERIFIED' | 'REJECTED';
+export type DocumentLifecycleState =
+  'UPLOADED' | 'UNDER_REVIEW' | 'VERIFIED' | 'REJECTED';
 
 export interface VerifyDocumentDto {
   status: 'VERIFIED' | 'REJECTED';
@@ -27,7 +28,11 @@ export class DocumentVerificationService {
    * Transitions a document to UNDER_REVIEW.
    * G017: Uploading a file does not equal verified; explicit under-review gate.
    */
-  async startReview(documentId: string, reviewerId: string, ipAddress?: string) {
+  async startReview(
+    documentId: string,
+    reviewerId: string,
+    ipAddress?: string,
+  ) {
     const doc = await this.prisma.document.findFirst({
       where: { id: documentId, deletedAt: null },
     });
@@ -37,7 +42,8 @@ export class DocumentVerificationService {
     }
 
     const metadata = (doc.metadata as Record<string, any>) || {};
-    const currentState: DocumentLifecycleState = metadata.lifecycleState || 'UPLOADED';
+    const currentState: DocumentLifecycleState =
+      metadata.lifecycleState || 'UPLOADED';
 
     if (currentState !== 'UPLOADED' && currentState !== 'REJECTED') {
       throw new BadRequestException(
@@ -102,7 +108,8 @@ export class DocumentVerificationService {
     }
 
     const metadata = (doc.metadata as Record<string, any>) || {};
-    const currentState: DocumentLifecycleState = metadata.lifecycleState || 'UPLOADED';
+    const currentState: DocumentLifecycleState =
+      metadata.lifecycleState || 'UPLOADED';
 
     if (currentState !== 'UNDER_REVIEW') {
       throw new BadRequestException(
@@ -110,8 +117,13 @@ export class DocumentVerificationService {
       );
     }
 
-    if (dto.status === 'REJECTED' && (!dto.rejectionReason || !dto.rejectionReason.trim())) {
-      throw new BadRequestException('A non-empty rejectionReason is mandatory when rejecting a document.');
+    if (
+      dto.status === 'REJECTED' &&
+      (!dto.rejectionReason || !dto.rejectionReason.trim())
+    ) {
+      throw new BadRequestException(
+        'A non-empty rejectionReason is mandatory when rejecting a document.',
+      );
     }
 
     const newVerificationStatus =
@@ -152,7 +164,10 @@ export class DocumentVerificationService {
       verificationStatus: updated.verificationStatus,
       verifierId,
       rejectionReason: dto.rejectionReason,
-      message: dto.status === 'VERIFIED' ? 'Document verified successfully.' : 'Document rejected.',
+      message:
+        dto.status === 'VERIFIED'
+          ? 'Document verified successfully.'
+          : 'Document rejected.',
     };
   }
 
@@ -163,7 +178,9 @@ export class DocumentVerificationService {
     const doc = await this.prisma.document.findFirst({
       where: { id: documentId, deletedAt: null },
       include: {
-        uploadedBy: { select: { id: true, firstName: true, lastName: true, email: true } },
+        uploadedBy: {
+          select: { id: true, firstName: true, lastName: true, email: true },
+        },
       },
     });
 

@@ -32,7 +32,11 @@ export class RolesGuard implements CanActivate {
     }
 
     // Super Admin, Admin, System Administrator, and MD/CEO bypass role restrictions
-    if (['SUPER_ADMIN', 'ADMIN', 'SYSTEM_ADMINISTRATOR', 'MD_CEO'].includes(user.role)) {
+    if (
+      ['SUPER_ADMIN', 'ADMIN', 'SYSTEM_ADMINISTRATOR', 'MD_CEO'].includes(
+        user.role,
+      )
+    ) {
       return true;
     }
 
@@ -42,15 +46,31 @@ export class RolesGuard implements CanActivate {
 
     // Grant internal staff access to general employee endpoints across departments
     const employeeRoles = [
-      'BRANCH_MANAGER', 'TEAM_LEADER', 'SALES_AGENT', 'OPERATIONS',
-      'UNDERWRITER', 'CLAIMS_OFFICER', 'FINANCE', 'SUPPORT',
-      'CHIEF_FINANCE_OFFICER', 'SALES_MANAGER', 'SALES_EXECUTIVE',
-      'POLICY_ISSUANCE_EXECUTIVE', 'RENEWAL_EXECUTIVE',
-      'CUSTOMER_SERVICE_EXECUTIVE', 'FINANCE_ACCOUNTS_EXECUTIVE',
-      'POSP_ADVISOR', 'AGENT_MANAGER', 'MARKETING_DIRECTOR', 'RENEWAL_AGENT', 'CRM_AGENT',
+      'BRANCH_MANAGER',
+      'TEAM_LEADER',
+      'SALES_AGENT',
+      'OPERATIONS',
+      'UNDERWRITER',
+      'CLAIMS_OFFICER',
+      'FINANCE',
+      'SUPPORT',
+      'CHIEF_FINANCE_OFFICER',
+      'SALES_MANAGER',
+      'SALES_EXECUTIVE',
+      'POLICY_ISSUANCE_EXECUTIVE',
+      'RENEWAL_EXECUTIVE',
+      'CUSTOMER_SERVICE_EXECUTIVE',
+      'FINANCE_ACCOUNTS_EXECUTIVE',
+      'POSP_ADVISOR',
+      'AGENT_MANAGER',
+      'MARKETING_DIRECTOR',
+      'RENEWAL_AGENT',
+      'CRM_AGENT',
     ];
 
-    const allowsAnyEmployee = requiredRoles.some((r) => employeeRoles.includes(r));
+    const allowsAnyEmployee = requiredRoles.some((r) =>
+      employeeRoles.includes(r),
+    );
     const userIsEmployee = employeeRoles.includes(user.role);
 
     if (allowsAnyEmployee && userIsEmployee) {

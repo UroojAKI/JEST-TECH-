@@ -47,8 +47,9 @@ export class ProposalWorkflowAdapter implements WorkflowEntityAdapter {
 
       let policyNumber: string;
       try {
-        const result =
-          await prismaTx.$queryRaw<[{ nextval: bigint }]>`SELECT nextval('policy_number_seq')`;
+        const result = await prismaTx.$queryRaw<
+          [{ nextval: bigint }]
+        >`SELECT nextval('policy_number_seq')`;
         policyNumber = `POL-${result[0].nextval.toString().padStart(6, '0')}`;
       } catch {
         const count = await prismaTx.policy.count();

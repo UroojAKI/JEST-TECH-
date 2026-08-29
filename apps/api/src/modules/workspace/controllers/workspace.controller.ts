@@ -13,7 +13,10 @@ export class WorkspaceController {
   constructor(private readonly workspaceService: WorkspaceService) {}
 
   @Get()
-  @ApiOperation({ summary: 'Resolve active user enterprise workspace, navigation, dashboard & widgets' })
+  @ApiOperation({
+    summary:
+      'Resolve active user enterprise workspace, navigation, dashboard & widgets',
+  })
   getWorkspace(@CurrentUser() user: RequestUser) {
     return this.workspaceService.getWorkspaceForUser(user.id);
   }
@@ -43,7 +46,9 @@ export class WorkspaceController {
   }
 
   @Get('user-workspaces')
-  @ApiOperation({ summary: 'Get all permitted workspaces for the current user' })
+  @ApiOperation({
+    summary: 'Get all permitted workspaces for the current user',
+  })
   getUserWorkspaces(@CurrentUser() user: RequestUser) {
     return this.workspaceService.getUserWorkspaces(user.id);
   }

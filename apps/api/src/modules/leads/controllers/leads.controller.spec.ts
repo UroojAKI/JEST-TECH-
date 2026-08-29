@@ -1,8 +1,13 @@
-// @ts-nocheck
 import { Test, TestingModule } from '@nestjs/testing';
 import { LeadsController } from './leads.controller';
 import { LeadsService } from '../services/leads.service';
+import { LeadAssignmentService } from '../services/lead-assignment.service';
+import { PrismaService } from '../../../database/prisma.service';
+import { DuplicateDetectionService } from '../deduplication/services/duplicate-detection/duplicate-detection.service';
+import { LeadCompletionService } from '../services/lead-completion.service';
 import { RequestUser } from '../../auth/decorators/current-user.decorator';
+import { RoleType, UserStatus } from '@prisma/client';
+import { GetLeadsQueryDto } from '../dto/get-leads-query.dto';
 
 describe('LeadsController', () => {
   let controller: LeadsController;
@@ -10,8 +15,17 @@ describe('LeadsController', () => {
 
   const mockUser: RequestUser = {
     id: 'user-1',
+    userId: 'user-1',
     email: 'test@jest.com',
-    role: { code: 'SALES_AGENT', id: 'role-1', name: 'Sales Agent' },
+    role: RoleType.SALES_AGENT,
+    firstName: 'Sales',
+    lastName: 'Agent',
+    organizationId: 'org-1',
+    companyId: 'org-1',
+    roles: [RoleType.SALES_AGENT],
+    permissions: ['LEADS_READ', 'LEADS_WRITE'],
+    workspaces: ['SALES'],
+    status: UserStatus.ACTIVE,
   };
 
   beforeEach(async () => {
@@ -29,7 +43,36 @@ describe('LeadsController', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       controllers: [LeadsController],
-      providers: [{ provide: LeadsService, useValue: service }],
+      providers: [
+        { provide: LeadsService, useValue: service },
+        {
+          provide: LeadAssignmentService,
+          useValue: { assignLead: jest.fn() },
+        },
+        {
+          provide: PrismaService,
+          useValue: {
+            lead: { count: jest.fn().mockResolvedValue(0) },
+            policy: {
+              aggregate: jest
+                .fn()
+                .mockResolvedValue({ _sum: { premiumAmount: 0 } }),
+            },
+          },
+        },
+        {
+          provide: DuplicateDetectionService,
+          useValue: {
+            checkDuplicates: jest
+              .fn()
+              .mockResolvedValue({ isDuplicate: false }),
+          },
+        },
+        {
+          provide: LeadCompletionService,
+          useValue: { completeLead: jest.fn() },
+        },
+      ],
     }).compile();
 
     controller = module.get<LeadsController>(LeadsController);
@@ -53,13 +96,14 @@ describe('LeadsController', () => {
   });
 
   describe('findAll', () => {
-    it('should call service.findAll with user', async () => {
-      const expectedResult = [{ id: 'lead-1' }];
+    it('should call service.findAll with user and query', async () => {
+      const query = new GetLeadsQueryDto();
+      const expectedResult = { data: [{ id: 'lead-1' }], total: 1 };
       service.findAll.mockResolvedValue(expectedResult as any);
 
-      const result = await controller.findAll(mockUser);
+      const result = await controller.findAll(query, mockUser);
 
-      expect(service.findAll).toHaveBeenCalledWith(mockUser);
+      expect(service.findAll).toHaveBeenCalledWith(mockUser, query);
       expect(result).toEqual(expectedResult);
     });
   });

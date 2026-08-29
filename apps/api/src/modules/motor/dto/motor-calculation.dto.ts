@@ -1,4 +1,14 @@
-import { IsString, IsNumber, IsOptional, IsBoolean, IsArray, IsEnum, Min, Max, ValidateNested } from 'class-validator';
+import {
+  IsString,
+  IsNumber,
+  IsOptional,
+  IsBoolean,
+  IsArray,
+  IsEnum,
+  Min,
+  Max,
+  ValidateNested,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 import { VehicleCategory } from '@prisma/client';
 
@@ -68,7 +78,7 @@ export class MotorCalculationInputDto {
   @IsOptional()
   @IsString()
   activeTpPolicyNumber?: string;
-  
+
   @IsOptional()
   @IsString()
   activeTpExpiryDate?: string;

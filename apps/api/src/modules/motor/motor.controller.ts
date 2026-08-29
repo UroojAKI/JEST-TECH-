@@ -3,9 +3,18 @@ import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { RequestUser } from '../auth/decorators/current-user.decorator';
-import { MotorTariffService, TariffLookupParams } from './services/motor-tariff.service';
-import { SaodVerificationService, CreateSaodVerificationDto } from './services/saod-verification.service';
-import { VehicleDataService, UpsertVehicleDto } from './services/vehicle-data.service';
+import {
+  MotorTariffService,
+  TariffLookupParams,
+} from './services/motor-tariff.service';
+import {
+  SaodVerificationService,
+  CreateSaodVerificationDto,
+} from './services/saod-verification.service';
+import {
+  VehicleDataService,
+  UpsertVehicleDto,
+} from './services/vehicle-data.service';
 import { VehicleCategory } from '@prisma/client';
 
 @ApiTags('Motor')
@@ -51,8 +60,12 @@ export class MotorController {
   }
 
   @Post('vehicles/normalize-registration')
-  normalizeRegistration(@Body('registrationNumber') registrationNumber: string) {
-    return this.vehicleDataService.normalizeRegistrationNumber(registrationNumber);
+  normalizeRegistration(
+    @Body('registrationNumber') registrationNumber: string,
+  ) {
+    return this.vehicleDataService.normalizeRegistrationNumber(
+      registrationNumber,
+    );
   }
 
   @Post('vehicles/validate-specs')

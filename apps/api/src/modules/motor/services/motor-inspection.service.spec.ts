@@ -2,13 +2,20 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { MotorInspectionService } from './motor-inspection.service';
 import { PrismaService } from '../../../database/prisma.service';
 import { InspectionStatus } from '@prisma/client';
-import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
 
 describe('MotorInspectionService (R6 Break-in Underwriting & Inspection Engine)', () => {
   let service: MotorInspectionService;
   let prisma: PrismaService;
 
   const mockPrisma = {
+    $transaction: jest.fn(async (cb) =>
+      typeof cb === 'function' ? cb(mockPrisma) : Promise.all(cb),
+    ),
     quotation: {
       findUnique: jest.fn(),
       update: jest.fn(),
@@ -49,14 +56,21 @@ describe('MotorInspectionService (R6 Break-in Underwriting & Inspection Engine)'
     };
 
     it('rejects inspection approval if approver is the quotation creator (segregation of duties)', async () => {
-      mockPrisma.motorInspection.findUnique.mockResolvedValue(completePhotosInspection);
+      mockPrisma.motorInspection.findUnique.mockResolvedValue(
+        completePhotosInspection,
+      );
       mockPrisma.quotation.findUnique.mockResolvedValue({
         id: 'q-100',
         createdById: 'agent-1',
       });
 
       await expect(
-        service.completeInspection('ins-1', 'pdf/report.pdf', 'https://s3/report.pdf', 'agent-1'),
+        service.completeInspection(
+          'ins-1',
+          'agent-1',
+          'pdf/report.pdf',
+          'https://s3/report.pdf',
+        ),
       ).rejects.toThrow(ForbiddenException);
     });
 
@@ -66,19 +80,28 @@ describe('MotorInspectionService (R6 Break-in Underwriting & Inspection Engine)'
         windshieldImageKey: null,
       };
 
-      mockPrisma.motorInspection.findUnique.mockResolvedValue(incompleteInspection);
+      mockPrisma.motorInspection.findUnique.mockResolvedValue(
+        incompleteInspection,
+      );
       mockPrisma.quotation.findUnique.mockResolvedValue({
         id: 'q-100',
         createdById: 'agent-1',
       });
 
       await expect(
-        service.completeInspection('ins-1', 'pdf/report.pdf', 'https://s3/report.pdf', 'underwriter-1'),
+        service.completeInspection(
+          'ins-1',
+          'underwriter-1',
+          'pdf/report.pdf',
+          'https://s3/report.pdf',
+        ),
       ).rejects.toThrow(BadRequestException);
     });
 
     it('successfully completes inspection and advances quotation workflowState to INSPECTION_COMPLETED', async () => {
-      mockPrisma.motorInspection.findUnique.mockResolvedValue(completePhotosInspection);
+      mockPrisma.motorInspection.findUnique.mockResolvedValue(
+        completePhotosInspection,
+      );
       mockPrisma.quotation.findUnique.mockResolvedValue({
         id: 'q-100',
         createdById: 'agent-1',
@@ -91,9 +114,9 @@ describe('MotorInspectionService (R6 Break-in Underwriting & Inspection Engine)'
 
       const result = await service.completeInspection(
         'ins-1',
+        'underwriter-1',
         'pdf/report.pdf',
         'https://s3/report.pdf',
-        'underwriter-1',
       );
 
       expect(result.status).toBe(InspectionStatus.COMPLETED);

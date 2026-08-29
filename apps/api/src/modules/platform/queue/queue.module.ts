@@ -23,7 +23,11 @@ import { QueueDashboardService } from './monitoring/queue-dashboard.service';
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
         connection: {
-          url: config.get<string>('REDIS_URL') || config.get<string>('redis.url') || process.env.REDIS_URL || 'redis://localhost:6380',
+          url:
+            config.get<string>('REDIS_URL') ||
+            config.get<string>('redis.url') ||
+            process.env.REDIS_URL ||
+            'redis://localhost:6380',
           maxRetriesPerRequest: null,
           retryStrategy: (times: number) => {
             if (process.env.REDIS_ENABLED !== 'true' || times > 3) {
@@ -37,7 +41,6 @@ import { QueueDashboardService } from './monitoring/queue-dashboard.service';
     BullModule.registerQueue({
       name: 'system-queue',
     }),
-
   ],
   controllers: [QueueDashboardController],
   providers: [

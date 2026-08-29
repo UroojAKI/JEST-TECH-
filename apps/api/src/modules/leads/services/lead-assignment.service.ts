@@ -30,11 +30,7 @@ export class LeadAssignmentService {
   /**
    * Assigns or reassigns a lead to a target agent enforcing team/branch boundaries.
    */
-  async assignLead(
-    leadId: string,
-    targetAgentId: string,
-    actor: ActorContext,
-  ) {
+  async assignLead(leadId: string, targetAgentId: string, actor: ActorContext) {
     this.authzService.authorize(actor, 'LEAD', 'ASSIGN');
 
     const lead = await this.prisma.lead.findUnique({
@@ -48,7 +44,9 @@ export class LeadAssignmentService {
       where: { id: targetAgentId },
     });
     if (!targetAgent || targetAgent.deletedAt) {
-      throw new NotFoundException(`Target agent with ID ${targetAgentId} not found`);
+      throw new NotFoundException(
+        `Target agent with ID ${targetAgentId} not found`,
+      );
     }
 
     if (targetAgent.status !== UserStatus.ACTIVE) {
@@ -137,7 +135,14 @@ export class LeadAssignmentService {
         leadsAssigned: {
           where: {
             status: {
-              in: ['NEW', 'CONTACTED', 'QUALIFIED', 'DOCS_RECEIVED', 'QUOTE_PREPARED', 'NEGOTIATION'] as any,
+              in: [
+                'NEW',
+                'CONTACTED',
+                'QUALIFIED',
+                'DOCS_RECEIVED',
+                'QUOTE_PREPARED',
+                'NEGOTIATION',
+              ] as any,
             },
             deletedAt: null,
           },
@@ -147,7 +152,9 @@ export class LeadAssignmentService {
     });
 
     if (agents.length === 0) {
-      throw new BadRequestException('No active sales agents available in the designated scope for round-robin assignment');
+      throw new BadRequestException(
+        'No active sales agents available in the designated scope for round-robin assignment',
+      );
     }
 
     // Sort by lowest active lead count
@@ -196,7 +203,9 @@ export class LeadAssignmentService {
       where: { id: targetAgentId },
     });
     if (!targetAgent || targetAgent.deletedAt) {
-      throw new NotFoundException(`Target agent with ID ${targetAgentId} not found`);
+      throw new NotFoundException(
+        `Target agent with ID ${targetAgentId} not found`,
+      );
     }
 
     if (targetAgent.status !== UserStatus.ACTIVE) {
@@ -248,7 +257,13 @@ export class LeadAssignmentService {
   async getAgentWorkloadQueue(actor: ActorContext): Promise<WorkloadItem[]> {
     const userWhere: any = {
       status: UserStatus.ACTIVE,
-      role: { in: [RoleType.SALES_AGENT, RoleType.SALES_EXECUTIVE, RoleType.POSP_ADVISOR] },
+      role: {
+        in: [
+          RoleType.SALES_AGENT,
+          RoleType.SALES_EXECUTIVE,
+          RoleType.POSP_ADVISOR,
+        ],
+      },
       deletedAt: null,
     };
 
@@ -271,7 +286,14 @@ export class LeadAssignmentService {
         leadsAssigned: {
           where: {
             status: {
-              in: ['NEW', 'CONTACTED', 'QUALIFIED', 'DOCS_RECEIVED', 'QUOTE_PREPARED', 'NEGOTIATION'] as any,
+              in: [
+                'NEW',
+                'CONTACTED',
+                'QUALIFIED',
+                'DOCS_RECEIVED',
+                'QUOTE_PREPARED',
+                'NEGOTIATION',
+              ] as any,
             },
             deletedAt: null,
           },
@@ -298,7 +320,11 @@ export class LeadAssignmentService {
   }
 
   private validateHierarchyBoundary(actor: ActorContext, targetAgent: any) {
-    if (actor.role === RoleType.SUPER_ADMIN || actor.role === RoleType.ADMIN || actor.role === RoleType.SALES_MANAGER) {
+    if (
+      actor.role === RoleType.SUPER_ADMIN ||
+      actor.role === RoleType.ADMIN ||
+      actor.role === RoleType.SALES_MANAGER
+    ) {
       return; // Global assignment authority
     }
 

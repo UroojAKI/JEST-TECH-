@@ -15,7 +15,9 @@ export class AuditController {
   constructor(private readonly auditService: AuditService) {}
 
   @Get()
-  @ApiOperation({ summary: 'Get system audit trail logs with filtering & pagination' })
+  @ApiOperation({
+    summary: 'Get system audit trail logs with filtering & pagination',
+  })
   async getAuditLogs(
     @Query('entity') entity?: string,
     @Query('action') action?: string,

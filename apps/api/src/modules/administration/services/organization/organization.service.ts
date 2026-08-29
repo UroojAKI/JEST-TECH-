@@ -55,7 +55,7 @@ export class OrganizationService {
       ];
     }
     const orderBy = pagination.sortBy
-      ? { [pagination.sortBy]: pagination.sortOrder || 'asc' } as any
+      ? ({ [pagination.sortBy]: pagination.sortOrder || 'asc' } as any)
       : { displayOrder: 'asc' };
 
     const [data, total] = await Promise.all([
@@ -90,7 +90,7 @@ export class OrganizationService {
       ];
     }
     const orderBy = pagination.sortBy
-      ? { [pagination.sortBy]: pagination.sortOrder || 'asc' } as any
+      ? ({ [pagination.sortBy]: pagination.sortOrder || 'asc' } as any)
       : { displayOrder: 'asc' };
 
     const [data, total] = await Promise.all([
@@ -118,7 +118,7 @@ export class OrganizationService {
       ];
     }
     const orderBy = pagination.sortBy
-      ? { [pagination.sortBy]: pagination.sortOrder || 'asc' } as any
+      ? ({ [pagination.sortBy]: pagination.sortOrder || 'asc' } as any)
       : { name: 'asc' };
 
     const [data, total] = await Promise.all([

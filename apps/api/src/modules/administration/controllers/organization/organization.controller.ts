@@ -1,4 +1,12 @@
-import { Controller, Get, Param, UseGuards, Post, Body, Query } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Param,
+  UseGuards,
+  Post,
+  Body,
+  Query,
+} from '@nestjs/common';
 import { OrganizationService } from '../../services/organization/organization.service';
 import { PaginationDto } from '../../../../common/pagination/pagination.dto';
 import { ParseUUIDPipe } from '../../../../common/utils/parse-uuid.pipe';

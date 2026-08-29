@@ -66,10 +66,14 @@ export class LeadsService {
       } else {
         const createdContact = await this.contactsService.create(
           {
-            firstName: dto.firstName || (dto.title ? dto.title.split(' ')[0] : 'Prospect'),
+            firstName:
+              dto.firstName ||
+              (dto.title ? dto.title.split(' ')[0] : 'Prospect'),
             lastName: dto.lastName || '',
             email: dto.email || `prospect_${Date.now()}@jestpolicy.com`,
-            phone: dto.phone || `${Math.floor(1000000000 + Math.random() * 9000000000)}`,
+            phone:
+              dto.phone ||
+              `${Math.floor(1000000000 + Math.random() * 9000000000)}`,
             type: 'INDIVIDUAL',
           },
           createdById,
@@ -94,7 +98,9 @@ export class LeadsService {
     }
 
     const leadCode = await this.leadRepository.generateLeadCode();
-    const leadTitle = dto.title || `${dto.firstName || 'Prospect'} ${dto.lastName || ''} - ${dto.productInterest || 'Comprehensive Lead'}`.trim();
+    const leadTitle =
+      dto.title ||
+      `${dto.firstName || 'Prospect'} ${dto.lastName || ''} - ${dto.productInterest || 'Comprehensive Lead'}`.trim();
 
     const validSources: Record<string, LeadSource> = {
       WALK_IN: LeadSource.WALK_IN,
@@ -120,12 +126,17 @@ export class LeadsService {
       title: leadTitle,
       source: mappedSource,
       status: dto.status || LeadStatus.NEW,
-      description: dto.description || [
-        dto.remarks ? `Remarks: ${dto.remarks}` : '',
-        dto.city ? `City: ${dto.city}` : '',
-        dto.productInterest ? `Interest: ${dto.productInterest}` : '',
-        dto.source ? `Orig. Source: ${dto.source}` : ''
-      ].filter(Boolean).join(' | ') || undefined,
+      description:
+        dto.description ||
+        [
+          dto.remarks ? `Remarks: ${dto.remarks}` : '',
+          dto.city ? `City: ${dto.city}` : '',
+          dto.productInterest ? `Interest: ${dto.productInterest}` : '',
+          dto.source ? `Orig. Source: ${dto.source}` : '',
+        ]
+          .filter(Boolean)
+          .join(' | ') ||
+        undefined,
       contact: { connect: { id: targetContactId } },
       createdBy: { connect: { id: createdById } },
       updatedBy: { connect: { id: createdById } },
@@ -144,7 +155,13 @@ export class LeadsService {
   }
 
   async findAll(user: ActorContext, pagination: PaginationDto) {
-    const { page = 1, limit = 10, search, sortBy = 'createdAt', sortOrder = 'desc' } = pagination;
+    const {
+      page = 1,
+      limit = 10,
+      search,
+      sortBy = 'createdAt',
+      sortOrder = 'desc',
+    } = pagination;
     const skip = (page - 1) * limit;
 
     const scopedFilter = this.scopeResolver.resolveScopeFilter(user, 'LEAD');
@@ -168,7 +185,12 @@ export class LeadsService {
       this.leadRepository.count(where),
     ]);
 
-    return new PaginatedResponseDto(LeadMapper.toResponseList(leads), total, page, limit);
+    return new PaginatedResponseDto(
+      LeadMapper.toResponseList(leads),
+      total,
+      page,
+      limit,
+    );
   }
 
   async findById(id: string, user: ActorContext) {
@@ -231,7 +253,15 @@ export class LeadsService {
       }
     }
 
-    const { contactId, accountId, assignedToId, city, remarks, source, ...restDto } = dto;
+    const {
+      contactId,
+      accountId,
+      assignedToId,
+      city,
+      remarks,
+      source,
+      ...restDto
+    } = dto;
     const actorId = user.userId || (user as any).id;
 
     const leadData: Prisma.LeadUpdateInput = {
@@ -255,13 +285,21 @@ export class LeadsService {
         PARTNER: LeadSource.ADVISOR,
         OTHER: LeadSource.OTHER,
       };
-      leadData.source = validSources[String(source).toUpperCase()] || LeadSource.OTHER;
+      leadData.source =
+        validSources[String(source).toUpperCase()] || LeadSource.OTHER;
     }
 
     if (remarks !== undefined || city !== undefined) {
-      const extraInfo = [remarks ? `Remarks: ${remarks}` : '', city ? `City: ${city}` : ''].filter(Boolean).join(' | ');
+      const extraInfo = [
+        remarks ? `Remarks: ${remarks}` : '',
+        city ? `City: ${city}` : '',
+      ]
+        .filter(Boolean)
+        .join(' | ');
       if (extraInfo) {
-        leadData.description = restDto.description ? `${restDto.description} | ${extraInfo}` : extraInfo;
+        leadData.description = restDto.description
+          ? `${restDto.description} | ${extraInfo}`
+          : extraInfo;
       }
     }
 
@@ -377,8 +415,13 @@ export class LeadsService {
       throw new BadRequestException('Lead is already converted');
     }
 
-    if (existing.status === LeadStatus.LOST || existing.status === LeadStatus.UNQUALIFIED) {
-      throw new BadRequestException(`Cannot convert a lead in ${existing.status} state. Only active leads can be converted.`);
+    if (
+      existing.status === LeadStatus.LOST ||
+      existing.status === LeadStatus.UNQUALIFIED
+    ) {
+      throw new BadRequestException(
+        `Cannot convert a lead in ${existing.status} state. Only active leads can be converted.`,
+      );
     }
 
     const updated = await this.leadRepository.update(id, {
@@ -452,7 +495,8 @@ export class LeadsService {
             firstName: lead.contact.firstName,
             middleName: lead.contact.middleName,
             lastName: lead.contact.lastName,
-            fullName: `${lead.contact.firstName || ''} ${lead.contact.lastName || ''}`.trim(),
+            fullName:
+              `${lead.contact.firstName || ''} ${lead.contact.lastName || ''}`.trim(),
             email: lead.contact.email,
             phone: lead.contact.phone,
             panNumber: lead.contact.panNumber,

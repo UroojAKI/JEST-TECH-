@@ -1,4 +1,14 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, UseGuards, Query } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Put,
+  Delete,
+  Body,
+  Param,
+  UseGuards,
+  Query,
+} from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { RoleType } from '@prisma/client';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
@@ -9,7 +19,12 @@ import { PaginationDto } from '../../../common/pagination/pagination.dto';
 import { ParseUUIDPipe } from '../../../common/utils/parse-uuid.pipe';
 
 import { OrganizationService } from '../services/organization.service';
-import { CreateDepartmentDto, UpdateDepartmentDto, CreateJobRoleDto, UpdateJobRoleDto } from '../dto/organization.dto';
+import {
+  CreateDepartmentDto,
+  UpdateDepartmentDto,
+  CreateJobRoleDto,
+  UpdateJobRoleDto,
+} from '../dto/organization.dto';
 
 @ApiTags('Organization')
 @ApiBearerAuth()
@@ -40,7 +55,10 @@ export class OrganizationController {
   @Put('departments/:id')
   @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN)
   @ApiOperation({ summary: 'Update department' })
-  updateDepartment(@Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdateDepartmentDto) {
+  updateDepartment(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateDepartmentDto,
+  ) {
     return this.organizationService.updateDepartment(id, dto);
   }
 
@@ -73,7 +91,10 @@ export class OrganizationController {
   @Put('job-role/:id')
   @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN)
   @ApiOperation({ summary: 'Update job role' })
-  updateJobRole(@Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdateJobRoleDto) {
+  updateJobRole(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateJobRoleDto,
+  ) {
     return this.organizationService.updateJobRole(id, dto);
   }
 

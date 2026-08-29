@@ -27,7 +27,9 @@ export class RejectClaimService {
     }
 
     if (!dto.reason || !dto.reason.trim()) {
-      throw new BadRequestException('A non-empty rejection reason is mandatory when rejecting a claim');
+      throw new BadRequestException(
+        'A non-empty rejection reason is mandatory when rejecting a claim',
+      );
     }
 
     // Segregation of duties: The person who reported the claim cannot reject it

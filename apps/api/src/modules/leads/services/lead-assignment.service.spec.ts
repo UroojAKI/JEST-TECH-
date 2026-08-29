@@ -4,7 +4,11 @@ import { PrismaService } from '../../../database/prisma.service';
 import { ResourceAuthorizationService } from '../../../common/services/resource-authorization.service';
 import { ActorContext } from '../../../common/interfaces/actor-context.interface';
 import { RoleType, UserStatus } from '@prisma/client';
-import { ForbiddenException, BadRequestException, NotFoundException } from '@nestjs/common';
+import {
+  ForbiddenException,
+  BadRequestException,
+  NotFoundException,
+} from '@nestjs/common';
 
 describe('LeadAssignmentService (Iteration 11)', () => {
   let service: LeadAssignmentService;
@@ -43,7 +47,11 @@ describe('LeadAssignmentService (Iteration 11)', () => {
     service = module.get<LeadAssignmentService>(LeadAssignmentService);
   });
 
-  const createActor = (role: RoleType, branchId = 'branch-1', teamId = 'team-1'): ActorContext => ({
+  const createActor = (
+    role: RoleType,
+    branchId = 'branch-1',
+    teamId = 'team-1',
+  ): ActorContext => ({
     userId: 'usr-manager-1',
     email: 'manager@jest.com',
     firstName: 'Manager',
@@ -80,7 +88,10 @@ describe('LeadAssignmentService (Iteration 11)', () => {
 
       prisma.lead.findUnique.mockResolvedValue(mockLead);
       prisma.user.findUnique.mockResolvedValue(targetAgent);
-      prisma.lead.update.mockResolvedValue({ ...mockLead, assignedToId: 'agent-1' });
+      prisma.lead.update.mockResolvedValue({
+        ...mockLead,
+        assignedToId: 'agent-1',
+      });
 
       const result = await service.assignLead('lead-1', 'agent-1', actor);
 
@@ -107,7 +118,11 @@ describe('LeadAssignmentService (Iteration 11)', () => {
     });
 
     it('should successfully assign lead when Branch Manager assigns to any agent in same branch', async () => {
-      const actor = createActor(RoleType.BRANCH_MANAGER, 'branch-1', null as any);
+      const actor = createActor(
+        RoleType.BRANCH_MANAGER,
+        'branch-1',
+        null as any,
+      );
       const targetAgent = {
         id: 'agent-3',
         firstName: 'Sarah',
@@ -119,14 +134,21 @@ describe('LeadAssignmentService (Iteration 11)', () => {
 
       prisma.lead.findUnique.mockResolvedValue(mockLead);
       prisma.user.findUnique.mockResolvedValue(targetAgent);
-      prisma.lead.update.mockResolvedValue({ ...mockLead, assignedToId: 'agent-3' });
+      prisma.lead.update.mockResolvedValue({
+        ...mockLead,
+        assignedToId: 'agent-3',
+      });
 
       const result = await service.assignLead('lead-1', 'agent-3', actor);
       expect(result.assignedToId).toBe('agent-3');
     });
 
     it('should reject assignment when Branch Manager assigns to agent in different branch', async () => {
-      const actor = createActor(RoleType.BRANCH_MANAGER, 'branch-1', null as any);
+      const actor = createActor(
+        RoleType.BRANCH_MANAGER,
+        'branch-1',
+        null as any,
+      );
       const targetAgent = {
         id: 'agent-4',
         branchId: 'branch-2', // Different branch!
@@ -142,7 +164,11 @@ describe('LeadAssignmentService (Iteration 11)', () => {
     });
 
     it('should reject assignment when target agent is inactive', async () => {
-      const actor = createActor(RoleType.BRANCH_MANAGER, 'branch-1', null as any);
+      const actor = createActor(
+        RoleType.BRANCH_MANAGER,
+        'branch-1',
+        null as any,
+      );
       const targetAgent = {
         id: 'agent-5',
         branchId: 'branch-1',
@@ -160,7 +186,11 @@ describe('LeadAssignmentService (Iteration 11)', () => {
 
   describe('autoAssignRoundRobin', () => {
     it('should select the agent with lowest active workload in the branch', async () => {
-      const actor = createActor(RoleType.BRANCH_MANAGER, 'branch-1', null as any);
+      const actor = createActor(
+        RoleType.BRANCH_MANAGER,
+        'branch-1',
+        null as any,
+      );
       const agentBusy = {
         id: 'agent-busy',
         firstName: 'Busy',
@@ -176,7 +206,10 @@ describe('LeadAssignmentService (Iteration 11)', () => {
 
       prisma.lead.findUnique.mockResolvedValue(mockLead);
       prisma.user.findMany.mockResolvedValue([agentBusy, agentFree]);
-      prisma.lead.update.mockResolvedValue({ ...mockLead, assignedToId: 'agent-free' });
+      prisma.lead.update.mockResolvedValue({
+        ...mockLead,
+        assignedToId: 'agent-free',
+      });
 
       const result = await service.autoAssignRoundRobin('lead-1', actor);
 
@@ -191,7 +224,11 @@ describe('LeadAssignmentService (Iteration 11)', () => {
 
   describe('bulkAssign', () => {
     it('should update all leads atomically and log audit event', async () => {
-      const actor = createActor(RoleType.BRANCH_MANAGER, 'branch-1', null as any);
+      const actor = createActor(
+        RoleType.BRANCH_MANAGER,
+        'branch-1',
+        null as any,
+      );
       const targetAgent = {
         id: 'agent-bulk',
         firstName: 'Bulk',
@@ -203,7 +240,11 @@ describe('LeadAssignmentService (Iteration 11)', () => {
       prisma.user.findUnique.mockResolvedValue(targetAgent);
       prisma.lead.updateMany.mockResolvedValue({ count: 5 });
 
-      const result = await service.bulkAssign(['l1', 'l2', 'l3', 'l4', 'l5'], 'agent-bulk', actor);
+      const result = await service.bulkAssign(
+        ['l1', 'l2', 'l3', 'l4', 'l5'],
+        'agent-bulk',
+        actor,
+      );
 
       expect(result.reassignedCount).toBe(5);
       expect(prisma.lead.updateMany).toHaveBeenCalledWith({

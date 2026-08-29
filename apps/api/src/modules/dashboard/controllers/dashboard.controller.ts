@@ -1,4 +1,10 @@
-import { Controller, Get, UseGuards, UseInterceptors, Query } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  UseGuards,
+  UseInterceptors,
+  Query,
+} from '@nestjs/common';
 import { CacheInterceptor, CacheTTL } from '@nestjs/cache-manager';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { RoleType } from '@prisma/client';
@@ -19,7 +25,10 @@ export class DashboardController {
   constructor(private readonly dashboardService: DashboardService) {}
 
   @Get()
-  getDashboard(@CurrentUser() user: RequestUser, @Query('role') simulatedRole?: string) {
+  getDashboard(
+    @CurrentUser() user: RequestUser,
+    @Query('role') simulatedRole?: string,
+  ) {
     const roleToUse = simulatedRole || user.role;
     return this.dashboardService.getDashboard(roleToUse, user.id);
   }
@@ -49,20 +58,38 @@ export class DashboardController {
   }
 
   @Get('management/branch-gwp')
-  @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN, RoleType.BRANCH_MANAGER, RoleType.SALES_MANAGER)
+  @Roles(
+    RoleType.SUPER_ADMIN,
+    RoleType.ADMIN,
+    RoleType.BRANCH_MANAGER,
+    RoleType.SALES_MANAGER,
+  )
   getBranchGwpBreakdown() {
     return this.dashboardService.getBranchGwpBreakdown();
   }
 
   @Get('management/insurers')
-  @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN, RoleType.BRANCH_MANAGER, RoleType.SALES_MANAGER)
+  @Roles(
+    RoleType.SUPER_ADMIN,
+    RoleType.ADMIN,
+    RoleType.BRANCH_MANAGER,
+    RoleType.SALES_MANAGER,
+  )
   getInsurerMarketShare() {
     return this.dashboardService.getInsurerMarketShare();
   }
 
   @Get('management/leaderboard')
-  @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN, RoleType.BRANCH_MANAGER, RoleType.TEAM_LEADER, RoleType.SALES_MANAGER)
+  @Roles(
+    RoleType.SUPER_ADMIN,
+    RoleType.ADMIN,
+    RoleType.BRANCH_MANAGER,
+    RoleType.TEAM_LEADER,
+    RoleType.SALES_MANAGER,
+  )
   getSalesLeaderboard(@Query('limit') limit?: string) {
-    return this.dashboardService.getSalesLeaderboard(limit ? parseInt(limit, 10) : 10);
+    return this.dashboardService.getSalesLeaderboard(
+      limit ? parseInt(limit, 10) : 10,
+    );
   }
 }

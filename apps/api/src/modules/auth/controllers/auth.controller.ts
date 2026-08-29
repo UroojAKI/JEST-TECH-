@@ -81,10 +81,7 @@ export class AuthController {
   }
 
   @Post('logout')
-  async logout(
-    @Req() req: Request,
-    @Res({ passthrough: true }) res: Response,
-  ) {
+  async logout(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
     const user = (req as any).user;
     if (user?.id) {
       await this.authService.logout(user.id);
@@ -94,4 +91,3 @@ export class AuthController {
     return { success: true };
   }
 }
-

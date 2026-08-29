@@ -73,9 +73,19 @@ export class RevenueAnalyticsService {
     for (let i = 5; i >= 0; i--) {
       const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
       const startOfMonth = new Date(d.getFullYear(), d.getMonth(), 1);
-      const endOfMonth = new Date(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 59);
+      const endOfMonth = new Date(
+        d.getFullYear(),
+        d.getMonth() + 1,
+        0,
+        23,
+        59,
+        59,
+      );
 
-      const monthLabel = d.toLocaleString('en-IN', { month: 'short', year: 'numeric' });
+      const monthLabel = d.toLocaleString('en-IN', {
+        month: 'short',
+        year: 'numeric',
+      });
 
       const sum = await this.prisma.policy.aggregate({
         _sum: { premiumAmount: true },

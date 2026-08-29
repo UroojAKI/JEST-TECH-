@@ -99,7 +99,11 @@ describe('RenewalEngineService (Iteration 10)', () => {
           policyNumber: 'POL-M-10',
           premiumAmount: 20000,
           expiryDate: in5Days,
-          contact: { firstName: 'Amit', lastName: 'Patel', phone: '9876543210' },
+          contact: {
+            firstName: 'Amit',
+            lastName: 'Patel',
+            phone: '9876543210',
+          },
           claims: [], // No claims
           quotation: { ncbPercentage: 20, insurerName: 'Tata AIG' },
           renewalTasks: [],
@@ -159,10 +163,13 @@ describe('RenewalEngineService (Iteration 10)', () => {
       const result = await service.triggerManualReminder('pol-1', 'agent-1');
 
       expect(result.success).toBe(true);
-      expect(queue.add).toHaveBeenCalledWith('send-renewal-reminder', expect.objectContaining({
-        policyId: 'pol-1',
-        isManualTrigger: true,
-      }));
+      expect(queue.add).toHaveBeenCalledWith(
+        'send-renewal-reminder',
+        expect.objectContaining({
+          policyId: 'pol-1',
+          isManualTrigger: true,
+        }),
+      );
     });
   });
 });

@@ -120,9 +120,7 @@ describe('MotorCalculationService (Iteration 5 Financial Math)', () => {
           vehicleStatus: 'EXISTING',
           policyType: 'PACKAGE_COMPREHENSIVE',
           idv: 500000,
-          addons: [
-            { addonCode: 'UNKNOWN_CUSTOM_ADDON' },
-          ],
+          addons: [{ addonCode: 'UNKNOWN_CUSTOM_ADDON' }],
         }),
       ).rejects.toThrow(BadRequestException);
     });

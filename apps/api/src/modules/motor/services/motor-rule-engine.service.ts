@@ -7,7 +7,8 @@ export interface MotorRuleContext {
   ownershipTransfer: boolean;
   previousPolicyTransferred?: boolean; // Was the previous policy transferred to new owner?
   claimInPreviousYear: boolean;
-  previousPolicyType?: 'COMPREHENSIVE' | 'THIRD_PARTY' | 'SAOD' | 'NOT_AVAILABLE' | null;
+  previousPolicyType?:
+    'COMPREHENSIVE' | 'THIRD_PARTY' | 'SAOD' | 'NOT_AVAILABLE' | null;
 
   // New policy being quoted
   newPolicyType: 'TP_ONLY' | 'SAOD' | 'PACKAGE';
@@ -30,8 +31,12 @@ export interface MotorRuleResult {
   inspectionRequired: boolean;
   inspectionReasons: string[];
   ncb: number;
-  ncbReason: 'CLAIM_IN_PREVIOUS_YEAR' | 'OWNERSHIP_TRANSFER' | 'POLICY_EXPIRED_MORE_THAN_90_DAYS' | 'ELIGIBLE';
-  eligibleNcb: number;            // NCB that would apply without any resets
+  ncbReason:
+    | 'CLAIM_IN_PREVIOUS_YEAR'
+    | 'OWNERSHIP_TRANSFER'
+    | 'POLICY_EXPIRED_MORE_THAN_90_DAYS'
+    | 'ELIGIBLE';
+  eligibleNcb: number; // NCB that would apply without any resets
   tpVerificationRequired: boolean;
   policyTransferRequired: boolean;
   saodTpValid: boolean;
@@ -76,12 +81,14 @@ export class MotorRuleEngineService {
       policyExpired = ctx.policyExpiryDate < today;
     }
     // expiredMoreThan90Days is authoritative from input (computed from expiry date)
-    const expiredMoreThan90Days = ctx.expiredMoreThan90Days || (() => {
-      if (!ctx.policyExpiryDate) return false;
-      const ninetyDaysAgo = new Date(today);
-      ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
-      return ctx.policyExpiryDate < ninetyDaysAgo;
-    })();
+    const expiredMoreThan90Days =
+      ctx.expiredMoreThan90Days ||
+      (() => {
+        if (!ctx.policyExpiryDate) return false;
+        const ninetyDaysAgo = new Date(today);
+        ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+        return ctx.policyExpiryDate < ninetyDaysAgo;
+      })();
 
     // ─── Step 2: NCB calculation (priority hierarchy) ───
     let ncb: number;
@@ -113,7 +120,8 @@ export class MotorRuleEngineService {
     // Rule: Expired > 90 days → inspection (always, even with ownership transfer)
     if (expiredMoreThan90Days) {
       inspectionRequired = true;
-      if (!reasons.includes('POLICY_EXPIRED')) reasons.push('POLICY_EXPIRED_MORE_THAN_90_DAYS');
+      if (!reasons.includes('POLICY_EXPIRED'))
+        reasons.push('POLICY_EXPIRED_MORE_THAN_90_DAYS');
     }
 
     // Rule: Ownership transfer matrix
@@ -143,7 +151,11 @@ export class MotorRuleEngineService {
     }
 
     // Rule: SAOD — OD expired → inspection
-    if (ctx.newPolicyType === 'SAOD' && ctx.odExpiryDate && ctx.odExpiryDate < today) {
+    if (
+      ctx.newPolicyType === 'SAOD' &&
+      ctx.odExpiryDate &&
+      ctx.odExpiryDate < today
+    ) {
       inspectionRequired = true;
       reasons.push('SAOD_OD_POLICY_EXPIRED');
     }

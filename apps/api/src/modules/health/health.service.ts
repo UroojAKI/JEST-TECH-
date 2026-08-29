@@ -151,7 +151,7 @@ export class HealthService {
       database: { status: dbStatus, latencyMs: dbLatencyMs },
       redis: { status: redisStatus, latencyMs: redisLatencyMs },
       memory: { status: memoryStatus, heapUsedMB, heapLimitMB },
-      disk: { status: diskStatus }
+      disk: { status: diskStatus },
     };
 
     let overallStatus = 'ok';

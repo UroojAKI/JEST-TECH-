@@ -9,6 +9,7 @@ import { ConfigurationModule } from './modules/platform/configuration/configurat
 import { RateLimitingModule } from './modules/platform/rate-limiting/rate-limiting.module';
 import { ObservabilityModule } from './modules/platform/observability/observability.module';
 import { CacheModule } from './modules/platform/cache/cache.module';
+import { OutboxModule } from './modules/platform/outbox/outbox.module';
 
 import { DatabaseModule } from './database/database.module';
 import { HealthModule } from './modules/health/health.module';
@@ -64,6 +65,7 @@ import { IdempotencyInterceptor } from './common/interceptors/idempotency.interc
     RateLimitingModule,
     ObservabilityModule,
     CacheModule,
+    OutboxModule,
     NestCacheModule.registerAsync({
       isGlobal: true,
       useFactory: async () => {
@@ -73,9 +75,11 @@ import { IdempotencyInterceptor } from './common/interceptors/idempotency.interc
               url: process.env.REDIS_URL || 'redis://localhost:6380',
               ttl: 60,
             });
-            return { store: store as any };
+            return { store: store };
           } catch (err) {
-            console.warn('[CacheModule] Redis connection failed, falling back to in-memory store.');
+            console.warn(
+              '[CacheModule] Redis connection failed, falling back to in-memory store.',
+            );
           }
         }
         return { ttl: 60 };

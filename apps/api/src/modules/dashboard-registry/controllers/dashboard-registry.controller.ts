@@ -1,11 +1,23 @@
-import { Controller, Get, Post, Put, Body, Param, UseGuards, Query } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Put,
+  Body,
+  Param,
+  UseGuards,
+  Query,
+} from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { RoleType } from '@prisma/client';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
 import { Roles } from '../../auth/decorators/roles.decorator';
 import { DashboardRegistryService } from '../services/dashboard-registry.service';
-import { CreateDashboardRegistryDto, UpdateDashboardRegistryDto } from '../dto/dashboard-registry.dto';
+import {
+  CreateDashboardRegistryDto,
+  UpdateDashboardRegistryDto,
+} from '../dto/dashboard-registry.dto';
 import { PaginationDto } from '../../../common/pagination/pagination.dto';
 import { ParseUUIDPipe } from '../../../common/utils/parse-uuid.pipe';
 

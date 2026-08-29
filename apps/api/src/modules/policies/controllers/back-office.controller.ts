@@ -38,7 +38,10 @@ export class BackOfficeController {
     RoleType.POLICY_ISSUANCE_EXECUTIVE,
     RoleType.BRANCH_MANAGER,
   )
-  @ApiOperation({ summary: 'Get Back-Office policy issuance workbench queue with multi-gate validation (G021)' })
+  @ApiOperation({
+    summary:
+      'Get Back-Office policy issuance workbench queue with multi-gate validation (G021)',
+  })
   async getQueue(
     @Query('search') search?: string,
     @Query('status') status?: string,
@@ -53,7 +56,9 @@ export class BackOfficeController {
     RoleType.OPERATIONS,
     RoleType.POLICY_ISSUANCE_EXECUTIVE,
   )
-  @ApiOperation({ summary: 'Validate multi-gates and execute transactional policy issuance' })
+  @ApiOperation({
+    summary: 'Validate multi-gates and execute transactional policy issuance',
+  })
   async issuePolicy(
     @Param('quotationId', ParseUUIDPipe) quotationId: string,
     @CurrentUser() user: RequestUser,

@@ -40,8 +40,20 @@ export class WorkflowsController {
     });
     if (list.length > 0) return list;
     return [
-      { id: 'WF-1', name: 'High-Value Lead Escalation', trigger: 'EXPECTED_GWP > 100000', status: 'ACTIVE', executionCount: 142 },
-      { id: 'WF-2', name: 'Policy Cancellation Approval', trigger: 'CANCEL_REQUEST', status: 'ACTIVE', executionCount: 18 },
+      {
+        id: 'WF-1',
+        name: 'High-Value Lead Escalation',
+        trigger: 'EXPECTED_GWP > 100000',
+        status: 'ACTIVE',
+        executionCount: 142,
+      },
+      {
+        id: 'WF-2',
+        name: 'Policy Cancellation Approval',
+        trigger: 'CANCEL_REQUEST',
+        status: 'ACTIVE',
+        executionCount: 18,
+      },
     ];
   }
 
@@ -50,31 +62,73 @@ export class WorkflowsController {
   @ApiOperation({ summary: 'Get active workflow instances' })
   async getInstances() {
     return [
-      { id: 'INST-01', workflowName: 'High-Value Lead Escalation', entityId: 'LD-00912', entityType: 'LEAD', currentState: 'IN_REVIEW', startedAt: new Date().toISOString() },
+      {
+        id: 'INST-01',
+        workflowName: 'High-Value Lead Escalation',
+        entityId: 'LD-00912',
+        entityType: 'LEAD',
+        currentState: 'IN_REVIEW',
+        startedAt: new Date().toISOString(),
+      },
     ];
   }
 
   @Get('approvals')
-  @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN, RoleType.BRANCH_MANAGER, RoleType.UNDERWRITER)
+  @Roles(
+    RoleType.SUPER_ADMIN,
+    RoleType.ADMIN,
+    RoleType.BRANCH_MANAGER,
+    RoleType.UNDERWRITER,
+  )
   @ApiOperation({ summary: 'Get pending manager/underwriter approvals' })
   async getApprovals() {
     return [
-      { id: 'APP-01', title: 'High-Value Quote Discount (>15%)', requesterName: 'Rajesh Sharma', entityType: 'QUOTATION', entityId: 'QT-2026-0084', amount: 48500, priority: 'HIGH', status: 'PENDING', createdAt: new Date().toISOString() },
-      { id: 'APP-02', title: 'Policy Cancellation Refund Approval', requesterName: 'Priya Verma', entityType: 'POLICY', entityId: 'POL-2026-001042', amount: 12000, priority: 'URGENT', status: 'PENDING', createdAt: new Date().toISOString() },
+      {
+        id: 'APP-01',
+        title: 'High-Value Quote Discount (>15%)',
+        requesterName: 'Rajesh Sharma',
+        entityType: 'QUOTATION',
+        entityId: 'QT-2026-0084',
+        amount: 48500,
+        priority: 'HIGH',
+        status: 'PENDING',
+        createdAt: new Date().toISOString(),
+      },
+      {
+        id: 'APP-02',
+        title: 'Policy Cancellation Refund Approval',
+        requesterName: 'Priya Verma',
+        entityType: 'POLICY',
+        entityId: 'POL-2026-001042',
+        amount: 12000,
+        priority: 'URGENT',
+        status: 'PENDING',
+        createdAt: new Date().toISOString(),
+      },
     ];
   }
 
   @Post('approvals/:id/action')
-  @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN, RoleType.BRANCH_MANAGER, RoleType.UNDERWRITER)
+  @Roles(
+    RoleType.SUPER_ADMIN,
+    RoleType.ADMIN,
+    RoleType.BRANCH_MANAGER,
+    RoleType.UNDERWRITER,
+  )
   @ApiOperation({ summary: 'Approve or reject a workflow approval request' })
-  async handleApprovalAction(@Param('id') id: string, @Body() body: { action: 'APPROVE' | 'REJECT'; remarks?: string }) {
+  async handleApprovalAction(
+    @Param('id') id: string,
+    @Body() body: { action: 'APPROVE' | 'REJECT'; remarks?: string },
+  ) {
     return { success: true, id, action: body.action, remarks: body.remarks };
   }
 
   @Post('approvals/bulk')
   @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN, RoleType.BRANCH_MANAGER)
   @ApiOperation({ summary: 'Bulk approve/reject workflow requests' })
-  async handleBulkApprovals(@Body() body: { ids: string[]; action: 'APPROVE' | 'REJECT' }) {
+  async handleBulkApprovals(
+    @Body() body: { ids: string[]; action: 'APPROVE' | 'REJECT' },
+  ) {
     return { success: true, count: body.ids?.length || 0, action: body.action };
   }
 

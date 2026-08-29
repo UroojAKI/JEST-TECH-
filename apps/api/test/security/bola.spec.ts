@@ -159,9 +159,9 @@ describe('BOLA & Multi-Tenant Security Suite (Iteration 4)', () => {
         organizationId: 'org-mumbai',
       });
 
-      await expect(
-        leadsService.findById('lead-888', actor),
-      ).rejects.toThrow(ForbiddenException);
+      await expect(leadsService.findById('lead-888', actor)).rejects.toThrow(
+        ForbiddenException,
+      );
 
       await expect(
         leadsService.update('lead-888', {} as any, actor),

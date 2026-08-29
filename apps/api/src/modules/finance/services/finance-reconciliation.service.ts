@@ -25,7 +25,8 @@ export interface ReconciliationQueueItem {
   recordedAt: string;
   agingHours: number;
   urgency: 'HIGH' | 'MEDIUM' | 'LOW';
-  reconciliationStatus: 'PENDING_RECONCILIATION' | 'RECONCILED' | 'DISCREPANCY' | 'UNDER_PROCESS';
+  reconciliationStatus:
+    'PENDING_RECONCILIATION' | 'RECONCILED' | 'DISCREPANCY' | 'UNDER_PROCESS';
   reconciledBy?: string;
   reconciledAt?: string;
   discrepancyReason?: string;
@@ -61,7 +62,9 @@ export class FinanceReconciliationService {
 
     const payments = await this.prisma.motorPaymentRecord.findMany({
       where: {
-        status: { in: [PaymentTrackingStatus.PAID, PaymentTrackingStatus.UNDER_PROCESS] },
+        status: {
+          in: [PaymentTrackingStatus.PAID, PaymentTrackingStatus.UNDER_PROCESS],
+        },
       },
       include: {
         quotation: {
@@ -99,7 +102,7 @@ export class FinanceReconciliationService {
         }
       }
 
-      let reconStatus: ReconciliationQueueItem['reconciliationStatus'] =
+      const reconStatus: ReconciliationQueueItem['reconciliationStatus'] =
         parsedNotes.reconciliationStatus ||
         (p.status === PaymentTrackingStatus.PAID
           ? 'PENDING_RECONCILIATION'
@@ -200,7 +203,11 @@ export class FinanceReconciliationService {
   /**
    * Reconciles a payment against bank credit statement.
    */
-  async reconcilePayment(id: string, actorId: string, dto: ReconcilePaymentDto) {
+  async reconcilePayment(
+    id: string,
+    actorId: string,
+    dto: ReconcilePaymentDto,
+  ) {
     const payment = await this.prisma.motorPaymentRecord.findUnique({
       where: { id },
       include: { quotation: true },
@@ -256,7 +263,8 @@ export class FinanceReconciliationService {
       status: 'RECONCILED',
       reconciledBy: actorId,
       reconciledAt: updatedNotes.reconciledAt,
-      message: 'Payment successfully reconciled with bank statement. Quotation ready for policy issuance.',
+      message:
+        'Payment successfully reconciled with bank statement. Quotation ready for policy issuance.',
     };
   }
 
@@ -273,7 +281,9 @@ export class FinanceReconciliationService {
     }
 
     if (!dto.reason || !dto.reason.trim()) {
-      throw new BadRequestException('A non-empty discrepancy reason is required.');
+      throw new BadRequestException(
+        'A non-empty discrepancy reason is required.',
+      );
     }
 
     let existingNotes: Record<string, any> = {};
@@ -307,7 +317,8 @@ export class FinanceReconciliationService {
       status: 'DISCREPANCY',
       reason: dto.reason,
       flaggedBy: actorId,
-      message: 'Payment discrepancy recorded. Policy issuance blocked until resolved.',
+      message:
+        'Payment discrepancy recorded. Policy issuance blocked until resolved.',
     };
   }
 }

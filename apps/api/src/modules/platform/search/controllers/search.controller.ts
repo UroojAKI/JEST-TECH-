@@ -1,5 +1,10 @@
 import { Controller, Get, Query, UseGuards } from '@nestjs/common';
-import { ApiBearerAuth, ApiTags, ApiQuery, ApiOperation } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiTags,
+  ApiQuery,
+  ApiOperation,
+} from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../../auth/guards/roles.guard';
 import { Roles } from '../../../auth/decorators/roles.decorator';
@@ -26,7 +31,10 @@ export class SearchController {
   constructor(private readonly searchService: SearchService) {}
 
   @Get()
-  @ApiOperation({ summary: 'Global Search across Customers, Policies, Vehicles, Leads, and Quotes' })
+  @ApiOperation({
+    summary:
+      'Global Search across Customers, Policies, Vehicles, Leads, and Quotes',
+  })
   @ApiQuery({ name: 'q', required: true, type: String })
   search(@Query('q') query: string): Promise<SearchResult> {
     return this.searchService.search(query);

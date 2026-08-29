@@ -1,4 +1,13 @@
-import { Body, Controller, Get, Param, Post, Put, Query, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Post,
+  Put,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { RoleType } from '@prisma/client';
 import { JwtAuthGuard } from '../../../auth/guards/jwt-auth.guard';
@@ -21,14 +30,40 @@ export class CommunicationController {
   @ApiOperation({ summary: 'Get outgoing and incoming communications' })
   async getCommunications(@Query('channel') channel?: string) {
     return [
-      { id: 'COMM-001', channel: channel || 'WHATSAPP', customerId: 'CUST-101', customerName: 'Sunita Kulkarni', subject: 'Policy Renewal Reminder', messageContent: 'Your policy is due in 15 days.', status: 'DELIVERED', createdAt: new Date().toISOString() },
-      { id: 'COMM-002', channel: channel || 'EMAIL', customerId: 'CUST-102', customerName: 'Acme Logistics', subject: 'Quotation Shared', messageContent: 'Here is your policy quote for Motor Comprehensive.', status: 'SENT', createdAt: new Date().toISOString() },
+      {
+        id: 'COMM-001',
+        channel: channel || 'WHATSAPP',
+        customerId: 'CUST-101',
+        customerName: 'Sunita Kulkarni',
+        subject: 'Policy Renewal Reminder',
+        messageContent: 'Your policy is due in 15 days.',
+        status: 'DELIVERED',
+        createdAt: new Date().toISOString(),
+      },
+      {
+        id: 'COMM-002',
+        channel: channel || 'EMAIL',
+        customerId: 'CUST-102',
+        customerName: 'Acme Logistics',
+        subject: 'Quotation Shared',
+        messageContent: 'Here is your policy quote for Motor Comprehensive.',
+        status: 'SENT',
+        createdAt: new Date().toISOString(),
+      },
     ];
   }
 
   @Post('communications')
   @ApiOperation({ summary: 'Send message via email, SMS, or WhatsApp' })
-  async sendMessage(@Body() dto: { channel: string; customerId: string; subject?: string; messageContent: string }) {
+  async sendMessage(
+    @Body()
+    dto: {
+      channel: string;
+      customerId: string;
+      subject?: string;
+      messageContent: string;
+    },
+  ) {
     return {
       id: `COMM-${Date.now().toString().slice(-6)}`,
       channel: dto.channel,
@@ -45,8 +80,22 @@ export class CommunicationController {
   @ApiOperation({ summary: 'Get notification templates' })
   async getTemplates() {
     return [
-      { id: 'TPL-01', code: 'RENEWAL_REMINDER_WA', channel: 'WHATSAPP', subject: 'Policy Renewal Notice', bodyTemplate: 'Dear {{customerName}}, your policy {{policyNumber}} is due on {{expiryDate}}.' },
-      { id: 'TPL-02', code: 'POLICY_ISSUED_EMAIL', channel: 'EMAIL', subject: 'Policy Document Enclosed', bodyTemplate: 'Dear {{customerName}}, thank you for choosing JEST Policy. Schedule is attached.' },
+      {
+        id: 'TPL-01',
+        code: 'RENEWAL_REMINDER_WA',
+        channel: 'WHATSAPP',
+        subject: 'Policy Renewal Notice',
+        bodyTemplate:
+          'Dear {{customerName}}, your policy {{policyNumber}} is due on {{expiryDate}}.',
+      },
+      {
+        id: 'TPL-02',
+        code: 'POLICY_ISSUED_EMAIL',
+        channel: 'EMAIL',
+        subject: 'Policy Document Enclosed',
+        bodyTemplate:
+          'Dear {{customerName}}, thank you for choosing JEST Policy. Schedule is attached.',
+      },
     ];
   }
 
@@ -62,8 +111,20 @@ export class CommunicationController {
   @ApiOperation({ summary: 'Get notification delivery logs' })
   async getDeliveryLogs() {
     return [
-      { id: 'LOG-001', recipient: '+919876543210', channel: 'WHATSAPP', status: 'DELIVERED', timestamp: new Date().toISOString() },
-      { id: 'LOG-002', recipient: 'client@gmail.com', channel: 'EMAIL', status: 'OPENED', timestamp: new Date().toISOString() },
+      {
+        id: 'LOG-001',
+        recipient: '+919876543210',
+        channel: 'WHATSAPP',
+        status: 'DELIVERED',
+        timestamp: new Date().toISOString(),
+      },
+      {
+        id: 'LOG-002',
+        recipient: 'client@gmail.com',
+        channel: 'EMAIL',
+        status: 'OPENED',
+        timestamp: new Date().toISOString(),
+      },
     ];
   }
 

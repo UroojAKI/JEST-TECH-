@@ -48,7 +48,10 @@ export class ReportClaimService {
 
     // 3. Coverage Period Invariant: incidentDate must fall strictly between effectiveDate and expiryDate
     const incidentDate = new Date(dto.incidentDate);
-    if (incidentDate < policy.effectiveDate || incidentDate > policy.expiryDate) {
+    if (
+      incidentDate < policy.effectiveDate ||
+      incidentDate > policy.expiryDate
+    ) {
       throw new BadRequestException(
         `Claim incident date ${dto.incidentDate} falls outside policy coverage dates (${policy.effectiveDate.toISOString()} to ${policy.expiryDate.toISOString()})`,
       );

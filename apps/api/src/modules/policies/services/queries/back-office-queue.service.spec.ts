@@ -148,8 +148,8 @@ describe('BackOfficeQueueService (G021 Multi-Gate Policy Issuance Queue)', () =>
     mockPrisma.quotation.findMany.mockResolvedValue([unpaidQuote]);
     mockPrisma.document.findMany.mockResolvedValue([]);
 
-    await expect(
-      service.validateIssuanceGates('quote-100'),
-    ).rejects.toThrow(BadRequestException);
+    await expect(service.validateIssuanceGates('quote-100')).rejects.toThrow(
+      BadRequestException,
+    );
   });
 });

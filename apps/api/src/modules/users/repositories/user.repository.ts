@@ -170,8 +170,6 @@ export class UserRepository {
     });
   }
 
-
-
   async createAuditLog(data: {
     userId: string;
     action: AuditAction;

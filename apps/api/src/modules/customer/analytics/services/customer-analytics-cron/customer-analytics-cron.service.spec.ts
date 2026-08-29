@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { Test, TestingModule } from '@nestjs/testing';
 import { CustomerAnalyticsCronService } from './customer-analytics-cron.service';
 import { PrismaService } from '../../../../../database/prisma.service';
@@ -41,13 +40,13 @@ describe('CustomerAnalyticsCronService', () => {
 
   describe('calculateMetricsForCustomer', () => {
     it('should correctly aggregate premiums and calculate LTV', async () => {
-      jest
-        .spyOn(prisma.policy, 'count')
-        .mockImplementation(async ({ where }: any) => {
-          if (where.status === 'ACTIVE') return 2;
-          if (where.status === 'LAPSED') return 1 as any;
-          return 0;
-        });
+      jest.spyOn(prisma.policy, 'count').mockImplementation((async ({
+        where,
+      }: any) => {
+        if (where.status === 'ACTIVE') return 2;
+        if (where.status === 'LAPSED') return 1;
+        return 0;
+      }) as any);
 
       jest
         .spyOn(prisma.policy, 'findMany')

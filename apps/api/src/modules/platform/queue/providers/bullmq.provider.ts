@@ -71,7 +71,9 @@ export class BullMQProvider implements QueueProvider, OnApplicationShutdown {
           });
         }
       } catch (err: any) {
-        this.logger.warn(`BullMQ offline fallback: ${err.message}. Job recorded in Postgres only.`);
+        this.logger.warn(
+          `BullMQ offline fallback: ${err.message}. Job recorded in Postgres only.`,
+        );
         await this.prisma.backgroundJob.update({
           where: { id },
           data: { jobId: id },
@@ -87,7 +89,6 @@ export class BullMQProvider implements QueueProvider, OnApplicationShutdown {
     this.logger.debug(`Enqueued job ${id} of type ${type}`);
     return id;
   }
-
 
   async schedule(
     type: JobType,

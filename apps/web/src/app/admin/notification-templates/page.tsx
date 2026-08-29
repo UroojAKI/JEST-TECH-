@@ -6,55 +6,6 @@ import { Mail, Save, Eye, Sparkles, MessageSquare, Loader2 } from 'lucide-react'
 import { useNotificationTemplates } from '../../../hooks/useCommunications';
 import { toast } from 'sonner';
 
-const MOCK_TEMPLATES = [
-  {
-    id: 'TMPL-01',
-    code: 'POLICY_ISSUED_SMS',
-    name: 'Policy Issuance Confirmation SMS',
-    channel: 'SMS',
-    category: 'POLICIES',
-    bodyTemplate: 'Dear {{customerName}}, your {{productLine}} policy #{{policyNumber}} with {{insurerName}} is issued! Total Premium: ₹{{premiumAmount}}.',
-    sampleData: {
-      customerName: 'Rahul Patil',
-      productLine: 'Motor Comprehensive',
-      policyNumber: 'POL-001048',
-      insurerName: 'ICICI Lombard',
-      premiumAmount: '16,545',
-    },
-  },
-  {
-    id: 'TMPL-02',
-    code: 'RENEWAL_REMINDER_WA',
-    name: '45-Day Renewal Expiry Reminder WhatsApp',
-    channel: 'WHATSAPP',
-    category: 'RENEWALS',
-    bodyTemplate: 'Hello {{customerName}}, your {{productLine}} policy #{{policyNumber}} expires on {{expiryDate}}. Click to renew with 0% penalty: {{renewalLink}}',
-    sampleData: {
-      customerName: 'Acme Logistics Pvt Ltd',
-      productLine: 'Group Health Optima',
-      policyNumber: 'POL-001049',
-      expiryDate: '15-Aug-2026',
-      renewalLink: 'https://jestpolicy.com/renew/POL-001049',
-    },
-  },
-  {
-    id: 'TMPL-03',
-    code: 'CLAIM_APPROVED_EMAIL',
-    name: 'Claim Settlement Approval Email',
-    channel: 'EMAIL',
-    category: 'CLAIMS',
-    subject: 'Claim #{{claimNumber}} Approved for {{customerName}}',
-    bodyTemplate: 'Dear {{customerName}},\n\nWe are pleased to inform you that Claim #{{claimNumber}} for Policy #{{policyNumber}} has been approved for ₹{{approvedAmount}}.\n\nDisbursal Mode: {{disbursalMode}}.\n\nRegards,\nJEST Claims Team',
-    sampleData: {
-      customerName: 'Sunita Kulkarni',
-      claimNumber: 'CLM-2026-0042',
-      policyNumber: 'POL-001050',
-      approvedAmount: '28,000',
-      disbursalMode: 'NEFT Direct Transfer',
-    },
-  },
-];
-
 export default function NotificationTemplatesPage() {
   const { templates, isLoading, updateTemplate } = useNotificationTemplates();
   const [isUpdating, setIsUpdating] = React.useState(false);

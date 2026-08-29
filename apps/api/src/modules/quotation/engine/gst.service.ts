@@ -56,19 +56,23 @@ export class GstService {
     igst: Prisma.Decimal;
     netPayableTotal: Prisma.Decimal;
   } {
-    const { 
-      netOwnDamagePremium, 
-      netThirdPartyPremium, 
+    const {
+      netOwnDamagePremium,
+      netThirdPartyPremium,
       isInterState = false,
       odGstRate = 0.18,
-      tpGstRate = 0.18
+      tpGstRate = 0.18,
     } = params;
-    
+
     const odRate = new Prisma.Decimal(odGstRate.toString());
     const tpRate = new Prisma.Decimal(tpGstRate.toString());
 
-    const odGst = netOwnDamagePremium.mul(odRate).toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_EVEN);
-    const tpGst = netThirdPartyPremium.mul(tpRate).toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_EVEN);
+    const odGst = netOwnDamagePremium
+      .mul(odRate)
+      .toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_EVEN);
+    const tpGst = netThirdPartyPremium
+      .mul(tpRate)
+      .toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_EVEN);
     const totalGst = odGst.add(tpGst);
 
     let cgst = new Prisma.Decimal(0);
@@ -79,13 +83,19 @@ export class GstService {
       igst = totalGst;
     } else {
       // Split each component exactly by 2 instead of blending
-      const odCgst = odGst.div(2).toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_EVEN);
-      const tpCgst = tpGst.div(2).toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_EVEN);
+      const odCgst = odGst
+        .div(2)
+        .toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_EVEN);
+      const tpCgst = tpGst
+        .div(2)
+        .toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_EVEN);
       cgst = odCgst.add(tpCgst);
       sgst = totalGst.sub(cgst);
     }
 
-    const netPayableTotal = netOwnDamagePremium.add(netThirdPartyPremium).add(totalGst);
+    const netPayableTotal = netOwnDamagePremium
+      .add(netThirdPartyPremium)
+      .add(totalGst);
 
     return {
       odGst,
@@ -98,4 +108,3 @@ export class GstService {
     };
   }
 }
-

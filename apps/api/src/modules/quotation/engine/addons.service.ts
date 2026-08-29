@@ -82,11 +82,14 @@ export class AddonsService {
       breakup.push({
         code: 'NCB_PROTECT',
         name: 'NCB Protection Cover',
-        premium: Math.round(idv * 0.0020),
+        premium: Math.round(idv * 0.002),
       });
     }
 
-    const totalAddonsPremium = breakup.reduce((sum, item) => sum + item.premium, 0);
+    const totalAddonsPremium = breakup.reduce(
+      (sum, item) => sum + item.premium,
+      0,
+    );
 
     return {
       breakup,
@@ -95,14 +98,19 @@ export class AddonsService {
   }
 
   calculateAddonsTotal(addons: { premium: number }[]): number {
-    const total = (addons || []).reduce((sum, addon) => sum + (addon.premium || 0), 0);
+    const total = (addons || []).reduce(
+      (sum, addon) => sum + (addon.premium || 0),
+      0,
+    );
     return Math.round(total * 100) / 100;
   }
 
   /**
    * Enforces IRDAI rule prohibiting zero-premium add-ons (G018).
    */
-  validateAddons(addons: { addonName?: string; addonCode?: string; premium?: number }[]): void {
+  validateAddons(
+    addons: { addonName?: string; addonCode?: string; premium?: number }[],
+  ): void {
     for (const addon of addons || []) {
       if (addon.premium !== undefined && addon.premium <= 0) {
         throw new BadRequestException(

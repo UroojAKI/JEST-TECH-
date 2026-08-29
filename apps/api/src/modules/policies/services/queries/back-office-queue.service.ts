@@ -91,18 +91,22 @@ export class BackOfficeQueueService {
       const customerGate: GateStatus = {
         passed: hasCustomer && hasContactDetails,
         status: hasCustomer && hasContactDetails ? 'PASSED' : 'FAILED',
-        detail: hasCustomer && hasContactDetails
-          ? 'Customer details complete'
-          : 'Missing customer contact phone/email',
+        detail:
+          hasCustomer && hasContactDetails
+            ? 'Customer details complete'
+            : 'Missing customer contact phone/email',
       };
 
       // 2. Vehicle Integrity Gate
       const vehicleMetadata = (q.motorMetadata as Record<string, any>) || {};
-      const regNumber = vehicleMetadata.registrationNumber || vehicleMetadata.vehicleNumber;
+      const regNumber =
+        vehicleMetadata.registrationNumber || vehicleMetadata.vehicleNumber;
       const vehicleGate: GateStatus = {
         passed: !!regNumber,
-        status: !!regNumber ? 'PASSED' : 'FAILED',
-        detail: regNumber ? `Vehicle plate ${regNumber} valid` : 'Missing vehicle registration plate',
+        status: regNumber ? 'PASSED' : 'FAILED',
+        detail: regNumber
+          ? `Vehicle plate ${regNumber} valid`
+          : 'Missing vehicle registration plate',
       };
 
       // 3. Inspection Gate
@@ -205,7 +209,10 @@ export class BackOfficeQueueService {
       // SLA Countdown (IRDAI target 24h from quotation approval / payment)
       const quoteTime = new Date(q.updatedAt || q.createdAt).getTime();
       const elapsedHours = (now - quoteTime) / 3600000;
-      const slaRemainingHours = Math.max(0, Math.round((24 - elapsedHours) * 10) / 10);
+      const slaRemainingHours = Math.max(
+        0,
+        Math.round((24 - elapsedHours) * 10) / 10,
+      );
 
       let slaStatus: 'CRITICAL' | 'WARNING' | 'ON_TRACK' = 'ON_TRACK';
       if (slaRemainingHours <= 4) {
@@ -281,16 +288,23 @@ export class BackOfficeQueueService {
     const item = queueResult.data.find((q) => q.id === quotationId);
 
     if (!item) {
-      throw new NotFoundException(`Quotation ${quotationId} not found in Back-Office queue`);
+      throw new NotFoundException(
+        `Quotation ${quotationId} not found in Back-Office queue`,
+      );
     }
 
     if (!item.allGatesPassed) {
       const blockers: string[] = [];
-      if (!item.gates.customer.passed) blockers.push(`Customer Gate: ${item.gates.customer.detail}`);
-      if (!item.gates.vehicle.passed) blockers.push(`Vehicle Gate: ${item.gates.vehicle.detail}`);
-      if (!item.gates.inspection.passed) blockers.push(`Inspection Gate: ${item.gates.inspection.detail}`);
-      if (!item.gates.payment.passed) blockers.push(`Payment Gate: ${item.gates.payment.detail}`);
-      if (!item.gates.documents.passed) blockers.push(`Documents Gate: ${item.gates.documents.detail}`);
+      if (!item.gates.customer.passed)
+        blockers.push(`Customer Gate: ${item.gates.customer.detail}`);
+      if (!item.gates.vehicle.passed)
+        blockers.push(`Vehicle Gate: ${item.gates.vehicle.detail}`);
+      if (!item.gates.inspection.passed)
+        blockers.push(`Inspection Gate: ${item.gates.inspection.detail}`);
+      if (!item.gates.payment.passed)
+        blockers.push(`Payment Gate: ${item.gates.payment.detail}`);
+      if (!item.gates.documents.passed)
+        blockers.push(`Documents Gate: ${item.gates.documents.detail}`);
 
       throw new BadRequestException(
         `Policy issuance blocked by gate validator: ${blockers.join(' | ')}`,

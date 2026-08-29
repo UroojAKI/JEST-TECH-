@@ -43,7 +43,10 @@ describe('Customer360Service (Iteration 9 Real Aggregation)', () => {
             clear: jest.fn().mockResolvedValue(undefined),
           },
         },
-        { provide: ResourceAuthorizationService, useValue: new ResourceAuthorizationService() },
+        {
+          provide: ResourceAuthorizationService,
+          useValue: new ResourceAuthorizationService(),
+        },
       ],
     }).compile();
 
@@ -76,7 +79,11 @@ describe('Customer360Service (Iteration 9 Real Aggregation)', () => {
           policyNumber: 'POL-1001',
           status: 'ACTIVE',
           premiumAmount: 18500,
-          motorMetadata: { registrationNumber: 'MH12AB1234', make: 'Hyundai', model: 'Creta' },
+          motorMetadata: {
+            registrationNumber: 'MH12AB1234',
+            make: 'Hyundai',
+            model: 'Creta',
+          },
           createdAt: new Date('2026-01-15'),
         },
       ];

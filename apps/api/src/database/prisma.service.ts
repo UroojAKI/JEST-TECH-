@@ -1,4 +1,10 @@
-import { INestApplication, Injectable, Logger, OnModuleInit, ForbiddenException } from '@nestjs/common';
+import {
+  INestApplication,
+  Injectable,
+  Logger,
+  OnModuleInit,
+  ForbiddenException,
+} from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 
 @Injectable()
@@ -10,7 +16,13 @@ export class PrismaService extends PrismaClient implements OnModuleInit {
     // Enforce AuditLog immutability / append-only at the database client level (G023)
     (this as any).$use?.(async (params: any, next: any) => {
       if (params.model === 'AuditLog') {
-        const forbiddenActions = ['update', 'updateMany', 'delete', 'deleteMany', 'upsert'];
+        const forbiddenActions = [
+          'update',
+          'updateMany',
+          'delete',
+          'deleteMany',
+          'upsert',
+        ];
         if (forbiddenActions.includes(params.action)) {
           throw new ForbiddenException(
             'Audit logs are append-only and strictly immutable under IRDAI regulations (G023). Updates and deletions are forbidden.',
@@ -26,7 +38,9 @@ export class PrismaService extends PrismaClient implements OnModuleInit {
       await this.$connect();
       this.logger.log('Prisma Database Client connected successfully.');
     } catch (err: any) {
-      this.logger.warn(`[PrismaService] Database connection warning: ${err.message}. Ensure PostgreSQL is running on port 5432.`);
+      this.logger.warn(
+        `[PrismaService] Database connection warning: ${err.message}. Ensure PostgreSQL is running on port 5432.`,
+      );
     }
   }
 

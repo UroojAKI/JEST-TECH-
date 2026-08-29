@@ -31,12 +31,15 @@ import { RenewalSchedulerCron } from './crons/renewal-scheduler.cron';
 import { BackOfficeController } from './controllers/back-office.controller';
 import { BackOfficeQueueService } from './services/queries/back-office-queue.service';
 
+import { OutboxModule } from '../platform/outbox/outbox.module';
+
 @Module({
   imports: [
-    QuotationModule, 
-    ContactsModule, 
-    AccountsModule, 
+    QuotationModule,
+    ContactsModule,
+    AccountsModule,
     ReportsModule,
+    OutboxModule,
     BullModule.registerQueue({ name: 'renewal-reminders' }),
   ],
   controllers: [PoliciesController, BackOfficeController],

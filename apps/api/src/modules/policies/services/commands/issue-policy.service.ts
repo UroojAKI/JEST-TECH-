@@ -22,6 +22,7 @@ import { Money } from '../../../../common/domain/value-objects/money.value-objec
 import { PrismaService } from '../../../../database/prisma.service';
 import { CACHE_PROVIDER_TOKEN } from '../../../platform/cache/cache.provider';
 import { RedisCacheService } from '../../../platform/cache/redis-cache.service';
+import { OutboxService } from '../../../platform/outbox/outbox.service';
 import { Inject } from '@nestjs/common';
 
 @Injectable()
@@ -32,70 +33,100 @@ export class IssuePolicyService {
     private readonly pdfService: PdfService,
     private readonly policyDomainService: PolicyDomainService,
     private readonly prisma: PrismaService,
+    private readonly outboxService: OutboxService,
     @Inject(CACHE_PROVIDER_TOKEN) private readonly cache: RedisCacheService,
   ) {}
 
   async execute(dto: CreatePolicyDto, createdById: string) {
-    let quotation: any = null;
-
-    // 1. Try to find quotation if quotationId provided
-    if (dto.quotationId) {
-      quotation = await this.quotationRepository.findById(dto.quotationId);
+    if (!dto.quotationId) {
+      throw new BadRequestException(
+        'Authoritative quotationId is mandatory for policy issuance. Direct manual policy issuance without a quotation is forbidden.',
+      );
     }
 
-    // 2. If no quotation found, create or select a fallback binding quotation
+    // 1. Fetch authoritative quotation
+    const quotation = await this.quotationRepository.findById(dto.quotationId);
     if (!quotation) {
-      const firstContact = await this.prisma.contact.findFirst({ where: { deletedAt: null } });
-      const contactId = dto.contactId || firstContact?.id;
-
-      if (!contactId) {
-        throw new NotFoundException('No valid contact found to associate policy with');
-      }
-
-      // Create a completed quotation stub for issuance
-      const quoteNumber = `QT-${Date.now().toString().slice(-6)}`;
-      const totalPrem = dto.totalPremium || 25000;
-      quotation = await this.prisma.quotation.create({
-        data: {
-          quotationCode: quoteNumber,
-          title: dto.productLine || 'Motor Comprehensive Policy Quote',
-          contact: { connect: { id: contactId } },
-          insurerName: 'ICICI Lombard',
-          productType: dto.productLine || 'Motor Comprehensive',
-          sumInsured: new Prisma.Decimal(dto.idvValue || 850000),
-          basePremium: new Prisma.Decimal(Math.round(totalPrem * 0.82)),
-          gstAmount: new Prisma.Decimal(Math.round(totalPrem * 0.18)),
-          totalPremium: new Prisma.Decimal(totalPrem),
-          status: QuotationStatus.APPROVED,
-          expiryDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
-          createdBy: { connect: { id: createdById } },
-          updatedBy: { connect: { id: createdById } },
-        },
-      });
+      throw new NotFoundException(
+        `Quotation with ID ${dto.quotationId} not found. Cannot issue policy.`,
+      );
     }
 
-    // 3. Default nominees if missing
-    const nominees = dto.nominees && dto.nominees.length > 0 ? dto.nominees : [
-      { firstName: 'Primary', lastName: 'Nominee', relation: 'Spouse', percentage: 100 }
-    ];
+    // 2. Validate quotation status
+    if (
+      quotation.status !== QuotationStatus.APPROVED &&
+      quotation.status !== QuotationStatus.ACCEPTED
+    ) {
+      throw new BadRequestException(
+        `Quotation must be in APPROVED or ACCEPTED status before issuance. Current status: ${quotation.status}`,
+      );
+    }
 
-    // 4. Default payment if missing
-    const paymentAmount = dto.payment?.amount || dto.totalPremium || Number(quotation.totalPremium) || 25000;
-    const paymentTxn = dto.payment?.transactionId || `TXN_${Date.now()}`;
-    const paymentMethod = dto.payment?.paymentMethod || 'ONLINE_UPI';
+    // 3. Verify authoritative payment reconciliation (no manufactured payments)
+    const paymentRecord = await this.prisma.motorPaymentRecord.findUnique({
+      where: { quotationId: quotation.id },
+    });
 
-    // 5. Generate Policy Number
+    const authoritativePayable = Number(quotation.totalPremium);
+    let paymentAmount = authoritativePayable;
+    let paymentTxn = `TXN_${quotation.quotationCode}`;
+    let paymentMethod = 'ONLINE_UPI';
+
+    if (paymentRecord && paymentRecord.status === 'PAID') {
+      const recAmount = Number(paymentRecord.amount);
+      if (Math.abs(recAmount - authoritativePayable) > 0.01) {
+        throw new BadRequestException(
+          `Payment reconciliation mismatch: Recorded ₹${recAmount} vs authoritative payable ₹${authoritativePayable}. Exact match required.`,
+        );
+      }
+      paymentAmount = recAmount;
+      paymentTxn = paymentRecord.referenceNumber || paymentTxn;
+      paymentMethod = paymentRecord.paymentMethod || paymentMethod;
+    } else if (dto.payment?.transactionId && dto.payment?.amount) {
+      const received = Number(dto.payment.amount);
+      if (Math.abs(received - authoritativePayable) > 0.01) {
+        throw new BadRequestException(
+          `Payment reconciliation failure: Received ₹${received} but authoritative payable is ₹${authoritativePayable}. Exact match required.`,
+        );
+      }
+      paymentAmount = received;
+      paymentTxn = dto.payment.transactionId;
+      paymentMethod = dto.payment.paymentMethod || paymentMethod;
+    } else {
+      throw new BadRequestException(
+        'Cannot issue policy without authoritative reconciled payment (PAID status required). Manufacture of fake payment is blocked.',
+      );
+    }
+
+    // 4. Default nominees if missing
+    const nominees =
+      dto.nominees && dto.nominees.length > 0
+        ? dto.nominees
+        : [
+            {
+              firstName: 'Primary',
+              lastName: 'Nominee',
+              relation: 'Spouse',
+              percentage: 100,
+            },
+          ];
+
+    // 5. Generate Policy Number via authoritative sequence
     const policyNumber = await this.policyRepository.generatePolicyNumber();
+    const effectiveDate = new Date();
+    const isAlreadyEffective = effectiveDate >= new Date();
 
     // 6. Map create payload
     const policyData: Prisma.PolicyCreateInput = {
       policyNumber,
-      status: PolicyStatus.ACTIVE,
+      status: isAlreadyEffective ? PolicyStatus.ACTIVE : PolicyStatus.ISSUED,
       quotation: { connect: { id: quotation.id } },
       contact: { connect: { id: quotation.contactId } },
       premiumAmount: new Prisma.Decimal(paymentAmount),
-      effectiveDate: new Date(),
-      expiryDate: quotation.expiryDate || new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
+      effectiveDate,
+      expiryDate:
+        quotation.expiryDate ||
+        new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
       createdBy: { connect: { id: createdById } },
       updatedBy: { connect: { id: createdById } },
     };
@@ -180,12 +211,40 @@ export class IssuePolicyService {
 
         this.policyRepository.addHistoryEntry(
           newPolicy.id,
-          PolicyStatus.ACTIVE,
+          newPolicy.status,
           `Policy issued successfully under number ${policyNumber}. Initial premium payment received.`,
           createdById,
           tx,
         ),
       ]);
+
+      // 8. Record Insurer Policy Details if external reference supplied
+      if (dto.insurerPolicyNumber || dto.insurerQuoteId) {
+        await tx.insurerPolicyDetail.create({
+          data: {
+            policyId: newPolicy.id,
+            insurerPolicyNumber: dto.insurerPolicyNumber,
+            insurerQuoteId: dto.insurerQuoteId,
+            issuedAt: new Date(),
+          },
+        });
+      }
+
+      // 9. Transactional Outbox Event
+      await this.outboxService.recordEvent(tx, {
+        aggregateType: 'POLICY',
+        aggregateId: newPolicy.id,
+        eventType: 'POLICY_ISSUED',
+        payload: {
+          policyId: newPolicy.id,
+          policyNumber: newPolicy.policyNumber,
+          status: newPolicy.status,
+          contactId: newPolicy.contactId,
+          premiumAmount: paymentAmount,
+          effectiveDate: newPolicy.effectiveDate,
+          issuedAt: new Date(),
+        },
+      });
 
       return newPolicy;
     });

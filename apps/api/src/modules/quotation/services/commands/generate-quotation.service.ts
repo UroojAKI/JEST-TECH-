@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, BadRequestException } from '@nestjs/common';
 import { Prisma, QuotationStatus, AddonCode } from '@prisma/client';
 
 import { QuotationRepository } from '../../repositories/quotation.repository';
@@ -28,33 +28,32 @@ export class GenerateQuotationService {
   ) {}
 
   async execute(dto: CreateQuotationDto, createdById: string) {
-    const sumInsuredNum = Number(
-      dto.sumInsured ?? (dto as any).idvValue ?? (dto as any).idv ?? 850000,
-    );
-    const productTypeStr = dto.productType || 'MOTOR';
-    const titleStr = dto.title || 'Motor Insurance Quotation';
-    const insurerNameStr = dto.insurerName || 'HDFC ERGO General Insurance';
-
-    // 1. Resolve Contact ID fallback safely
-    let targetContactId = dto.contactId;
-
-    if (!targetContactId) {
-      const contacts = await this.contactsService.findAll({ page: 1, limit: 1 });
-      if (contacts && contacts.data && contacts.data.length > 0) {
-        targetContactId = contacts.data[0].id;
-      } else {
-        const newContact = await this.contactsService.create(
-          {
-            firstName: 'Prospect',
-            lastName: 'Customer',
-            email: 'prospect@jestpolicy.com',
-            phone: '+919876543210',
-          } as any,
-          createdById,
-        );
-        targetContactId = newContact.id;
-      }
+    if (!dto.contactId) {
+      throw new BadRequestException(
+        'contactId is required to generate quotation. Manufacture of fake prospect customer is forbidden in production.',
+      );
     }
+
+    const sumInsuredRaw =
+      dto.sumInsured ?? (dto as any).idvValue ?? (dto as any).idv;
+    if (!sumInsuredRaw || Number(sumInsuredRaw) <= 0) {
+      throw new BadRequestException(
+        'sumInsured (IDV) must be a positive number to calculate an authoritative quotation.',
+      );
+    }
+
+    if (!dto.insurerName?.trim()) {
+      throw new BadRequestException(
+        'insurerName is required to bind quotation to an authoritative insurer partner.',
+      );
+    }
+
+    const sumInsuredNum = Number(sumInsuredRaw);
+    const productTypeStr = dto.productType || 'MOTOR';
+    const titleStr =
+      dto.title || `${dto.insurerName} ${productTypeStr} Insurance Quotation`;
+    const insurerNameStr = dto.insurerName;
+    const targetContactId = dto.contactId;
 
     // 2. Perform authoritative engine pricing calculations
     let baseOd = Number((dto as any).odPremium || 0);
@@ -104,7 +103,9 @@ export class GenerateQuotationService {
       totalPremium: new Prisma.Decimal(totalPremium),
       ncbPercentage: dto.ncbPercentage || 0,
       discountAmount: new Prisma.Decimal(totalDiscountAmount || 0),
-      expiryDate: dto.expiryDate ? new Date(dto.expiryDate) : new Date(Date.now() + 30 * 86400000),
+      expiryDate: dto.expiryDate
+        ? new Date(dto.expiryDate)
+        : new Date(Date.now() + 30 * 86400000),
       contact: { connect: { id: targetContactId } },
       createdBy: { connect: { id: createdById } },
       updatedBy: { connect: { id: createdById } },
@@ -113,7 +114,9 @@ export class GenerateQuotationService {
       policyTenure: dto.policyTenure || 1,
       activeTpInsurer: dto.activeTpInsurer,
       activeTpPolicyNumber: dto.activeTpPolicyNumber,
-      activeTpExpiryDate: dto.activeTpExpiryDate ? new Date(dto.activeTpExpiryDate) : undefined,
+      activeTpExpiryDate: dto.activeTpExpiryDate
+        ? new Date(dto.activeTpExpiryDate)
+        : undefined,
     };
 
     // vehicleId legacy block removed pending 8-category mapping logic

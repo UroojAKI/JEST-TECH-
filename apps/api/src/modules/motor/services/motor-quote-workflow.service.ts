@@ -1,12 +1,17 @@
-﻿import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { InspectionStatus } from '@prisma/client';
 import { PrismaService } from '../../../database/prisma.service';
-import { MotorRuleEngineService, MotorRuleContext } from './motor-rule-engine.service';
+import {
+  MotorRuleEngineService,
+  MotorRuleContext,
+} from './motor-rule-engine.service';
 
 export interface CapturePreviousPolicyDto {
   quotationId: string;
   policyExpiryDate?: string; // ISO date string
   ownershipTransfer: boolean;
-  previousPolicyType?: 'COMPREHENSIVE' | 'THIRD_PARTY' | 'SAOD' | 'NOT_AVAILABLE';
+  previousPolicyType?:
+    'COMPREHENSIVE' | 'THIRD_PARTY' | 'SAOD' | 'NOT_AVAILABLE';
   previousInsurerName?: string;
   previousPolicyNumber?: string;
   previousOdInsurerName?: string;
@@ -41,13 +46,18 @@ export class MotorQuoteWorkflowService {
     const quotation = await this.prisma.quotation.findUnique({
       where: { id: dto.quotationId },
     });
-    if (!quotation) throw new NotFoundException(`Quotation ${dto.quotationId} not found`);
+    if (!quotation)
+      throw new NotFoundException(`Quotation ${dto.quotationId} not found`);
 
     const today = new Date();
-    const expiryDate = dto.policyExpiryDate ? new Date(dto.policyExpiryDate) : null;
+    const expiryDate = dto.policyExpiryDate
+      ? new Date(dto.policyExpiryDate)
+      : null;
     const ninetyDaysAgo = new Date(today);
     ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
-    const expiredMoreThan90Days = expiryDate ? expiryDate < ninetyDaysAgo : false;
+    const expiredMoreThan90Days = expiryDate
+      ? expiryDate < ninetyDaysAgo
+      : false;
 
     // 1. Save or update the previous policy record
     const prevPolicy = await this.prisma.motorPreviousPolicy.upsert({
@@ -96,7 +106,7 @@ export class MotorQuoteWorkflowService {
       ownershipTransfer: dto.ownershipTransfer,
       previousPolicyTransferred: dto.previousPolicyTransferred,
       claimInPreviousYear: dto.claimInPreviousYear,
-      previousPolicyType: dto.previousPolicyType as any,
+      previousPolicyType: dto.previousPolicyType,
       newPolicyType: dto.newPolicyType,
       newInsurerName: dto.newInsurerName,
       previousInsurerName: dto.previousInsurerName,
@@ -110,50 +120,74 @@ export class MotorQuoteWorkflowService {
     // 3. Run the rule engine — backend is SOLE authority
     const result = this.ruleEngine.evaluateQuotation(context);
 
-    // 4. Persist the evaluation (audit record — not the source of truth)
-    await this.prisma.motorRuleEvaluation.upsert({
-      where: { quotationId: dto.quotationId },
-      create: {
-        quotationId: dto.quotationId,
-        previousPolicyId: prevPolicy.id,
-        inspectionRequired: result.inspectionRequired,
-        inspectionReasons: result.inspectionReasons,
-        ncb: result.ncb,
-        ncbReason: result.ncbReason as any,
-        eligibleNcb: result.eligibleNcb,
-        tpVerificationRequired: result.tpVerificationRequired,
-        policyTransferRequired: result.policyTransferRequired,
-        saodTpValid: result.saodTpValid,
-        missingDocuments: result.missingDocuments,
-        nextStep: result.nextStep,
-        evaluationContext: context as any,
-      },
-      update: {
-        inspectionRequired: result.inspectionRequired,
-        inspectionReasons: result.inspectionReasons,
-        ncb: result.ncb,
-        ncbReason: result.ncbReason as any,
-        eligibleNcb: result.eligibleNcb,
-        tpVerificationRequired: result.tpVerificationRequired,
-        policyTransferRequired: result.policyTransferRequired,
-        saodTpValid: result.saodTpValid,
-        missingDocuments: result.missingDocuments,
-        nextStep: result.nextStep,
-        evaluationContext: context as any,
-        evaluatedAt: new Date(),
-      },
+    // 4. Persist evaluation and atomically create inspection record if required
+    await this.prisma.$transaction(async (tx) => {
+      await tx.motorRuleEvaluation.upsert({
+        where: { quotationId: dto.quotationId },
+        create: {
+          quotationId: dto.quotationId,
+          previousPolicyId: prevPolicy.id,
+          inspectionRequired: result.inspectionRequired,
+          inspectionReasons: result.inspectionReasons,
+          ncb: result.ncb,
+          ncbReason: result.ncbReason as any,
+          eligibleNcb: result.eligibleNcb,
+          tpVerificationRequired: result.tpVerificationRequired,
+          policyTransferRequired: result.policyTransferRequired,
+          saodTpValid: result.saodTpValid,
+          missingDocuments: result.missingDocuments,
+          nextStep: result.nextStep,
+          evaluationContext: context as any,
+        },
+        update: {
+          inspectionRequired: result.inspectionRequired,
+          inspectionReasons: result.inspectionReasons,
+          ncb: result.ncb,
+          ncbReason: result.ncbReason as any,
+          eligibleNcb: result.eligibleNcb,
+          tpVerificationRequired: result.tpVerificationRequired,
+          policyTransferRequired: result.policyTransferRequired,
+          saodTpValid: result.saodTpValid,
+          missingDocuments: result.missingDocuments,
+          nextStep: result.nextStep,
+          evaluationContext: context as any,
+          evaluatedAt: new Date(),
+        },
+      });
+
+      if (result.inspectionRequired) {
+        const existingInspection = await tx.motorInspection.findUnique({
+          where: { quotationId: dto.quotationId },
+        });
+
+        if (!existingInspection) {
+          const inspectionCode = `INSP-${Date.now().toString().slice(-6)}`;
+          await tx.motorInspection.create({
+            data: {
+              quotationId: dto.quotationId,
+              inspectionCode,
+              status: InspectionStatus.REQUIRED,
+              inspectorCompany: 'JEST Inspection Network',
+            },
+          });
+        }
+      }
+
+      // Update quotation workflow state
+      await tx.quotation.update({
+        where: { id: dto.quotationId },
+        data: {
+          workflowState: result.inspectionRequired
+            ? 'INSPECTION_REQUIRED'
+            : 'RULES_EVALUATED',
+          ncbPercentage: result.ncb,
+        },
+      });
     });
 
-    // 5. Update quotation workflow state
-    await this.prisma.quotation.update({
-      where: { id: dto.quotationId },
-      data: {
-        workflowState: result.inspectionRequired ? 'INSPECTION_REQUIRED' : 'RULES_EVALUATED',
-        ncbPercentage: result.ncb,
-      },
-    });
-
-    this.logger.log(`Previous policy captured and rules evaluated for quotation ${dto.quotationId}`);
+    this.logger.log(
+      `Previous policy captured and rules evaluated for quotation ${dto.quotationId}`,
+    );
     return { previousPolicy: prevPolicy, ruleEvaluation: result };
   }
 
@@ -166,20 +200,34 @@ export class MotorQuoteWorkflowService {
       where: { quotationId },
       include: { ruleEvaluation: true },
     });
-    if (!prevPolicy) throw new NotFoundException(`No previous policy found for quotation ${quotationId}`);
+    if (!prevPolicy)
+      throw new NotFoundException(
+        `No previous policy found for quotation ${quotationId}`,
+      );
 
-    const quotation = await this.prisma.quotation.findUnique({ where: { id: quotationId } });
-    if (!quotation) throw new NotFoundException(`Quotation ${quotationId} not found`);
+    const quotation = await this.prisma.quotation.findUnique({
+      where: { id: quotationId },
+    });
+    if (!quotation)
+      throw new NotFoundException(`Quotation ${quotationId} not found`);
 
-    const evaluationContext = prevPolicy.ruleEvaluation?.evaluationContext as any;
-    if (!evaluationContext) throw new NotFoundException(`No evaluation context found`);
+    const evaluationContext = prevPolicy.ruleEvaluation
+      ?.evaluationContext as any;
+    if (!evaluationContext)
+      throw new NotFoundException(`No evaluation context found`);
 
     // Rebuild context from stored snapshot and re-run
     const context: MotorRuleContext = {
       ...evaluationContext,
-      policyExpiryDate: evaluationContext.policyExpiryDate ? new Date(evaluationContext.policyExpiryDate) : null,
-      tpExpiryDate: evaluationContext.tpExpiryDate ? new Date(evaluationContext.tpExpiryDate) : null,
-      odExpiryDate: evaluationContext.odExpiryDate ? new Date(evaluationContext.odExpiryDate) : null,
+      policyExpiryDate: evaluationContext.policyExpiryDate
+        ? new Date(evaluationContext.policyExpiryDate)
+        : null,
+      tpExpiryDate: evaluationContext.tpExpiryDate
+        ? new Date(evaluationContext.tpExpiryDate)
+        : null,
+      odExpiryDate: evaluationContext.odExpiryDate
+        ? new Date(evaluationContext.odExpiryDate)
+        : null,
       quotationDate: new Date(),
     };
 

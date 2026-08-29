@@ -65,8 +65,14 @@ export class CreateQuotationVersionService {
       const basePremium = new Prisma.Decimal(dto.basePremium);
       const discountAmount = new Prisma.Decimal(dto.discountAmount || 0);
       const netBase = Math.max(0, dto.basePremium - (dto.discountAmount || 0));
-      const gstAmount = dto.gstAmount !== undefined ? new Prisma.Decimal(dto.gstAmount) : new Prisma.Decimal(Math.round(netBase * 0.18));
-      const totalPremium = dto.totalPremium !== undefined ? new Prisma.Decimal(dto.totalPremium) : new Prisma.Decimal(netBase + Number(gstAmount));
+      const gstAmount =
+        dto.gstAmount !== undefined
+          ? new Prisma.Decimal(dto.gstAmount)
+          : new Prisma.Decimal(Math.round(netBase * 0.18));
+      const totalPremium =
+        dto.totalPremium !== undefined
+          ? new Prisma.Decimal(dto.totalPremium)
+          : new Prisma.Decimal(netBase + Number(gstAmount));
 
       // 1. Create immutable QuotationVersion row
       await tx.quotationVersion.create({

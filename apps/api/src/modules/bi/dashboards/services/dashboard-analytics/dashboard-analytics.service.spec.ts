@@ -1,76 +1,71 @@
-// @ts-nocheck
 import { Test, TestingModule } from '@nestjs/testing';
 import { DashboardAnalyticsService } from './dashboard-analytics.service';
 import { PrismaService } from '../../../../../database/prisma.service';
-import { NotFoundException } from '@nestjs/common';
-import { Decimal } from '@prisma/client/runtime/library';
 
 describe('DashboardAnalyticsService', () => {
   let service: DashboardAnalyticsService;
-  let prisma: PrismaService;
+  let prisma: any;
 
   beforeEach(async () => {
+    prisma = {
+      lead: {
+        count: jest.fn().mockResolvedValue(5),
+        findMany: jest.fn().mockResolvedValue([]),
+      },
+      policy: {
+        count: jest.fn().mockResolvedValue(3),
+        findMany: jest.fn().mockResolvedValue([
+          {
+            policyNumber: 'POL-001',
+            premiumAmount: 25000,
+            contact: { firstName: 'Rahul', lastName: 'Sharma' },
+          },
+        ]),
+      },
+      factRevenue: {
+        aggregate: jest.fn().mockResolvedValue({ _sum: { amount: 50000 } }),
+      },
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         DashboardAnalyticsService,
-        {
-          provide: PrismaService,
-          useValue: {
-            dashboard: {
-              findUnique: jest.fn(),
-            },
-            factRevenue: {
-              aggregate: jest.fn(),
-            },
-          },
-        },
+        { provide: PrismaService, useValue: prisma },
       ],
     }).compile();
 
     service = module.get<DashboardAnalyticsService>(DashboardAnalyticsService);
-    prisma = module.get<PrismaService>(PrismaService);
   });
 
-  describe('getDashboardData', () => {
-    it('should throw if dashboard not found', async () => {
-      jest.spyOn(prisma.dashboard, 'findUnique').mockResolvedValue(null);
+  describe('getSalesMetrics', () => {
+    it('should aggregate sales metrics, policies, and leads correctly', async () => {
+      const result = await service.getSalesMetrics('user-1');
 
-      await expect(service.getDashboardData('dash-1')).rejects.toThrow(
-        NotFoundException,
-      );
+      expect(result.kpi.myLeads).toBe(5);
+      expect(result.kpi.myPremium).toBe(50000);
+      expect(result.kpi.policiesIssued).toBe(3);
+      expect(result.table).toHaveLength(1);
+      expect(result.table[0].reference).toBe('POL-001');
+      expect(result.table[0].entity).toBe('Rahul Sharma');
     });
+  });
 
-    it('should process widget configs and query facts', async () => {
-      jest.spyOn(prisma.dashboard, 'findUnique').mockResolvedValue({
-        id: 'dash-1',
-        name: 'CEO Dashboard',
-        widgets: [
-          {
-            x: 0,
-            y: 0,
-            w: 2,
-            h: 2,
-            widget: {
-              id: 'widget-1',
-              name: 'Total Revenue',
-              type: 'METRIC',
-              config: JSON.stringify({ metric: 'TOTAL_REVENUE' }),
-            },
-          },
-        ],
-      } as any);
+  describe('getSalesManagerMetrics', () => {
+    it('should aggregate team metrics across branch', async () => {
+      const result = await service.getSalesManagerMetrics('user-1', 'branch-1');
 
-      jest.spyOn(prisma.factRevenue, 'aggregate').mockResolvedValue({
-        _sum: { amount: new Decimal(5000000) },
-      } as any);
+      expect(result.kpi.teamLeads).toBe(5);
+      expect(result.kpi.teamPremium).toBe(50000);
+      expect(result.kpi.policiesIssued).toBe(3);
+    });
+  });
 
-      const result = await service.getDashboardData('dash-1');
+  describe('getRenewalMetrics', () => {
+    it('should count policies expiring within 30 days', async () => {
+      prisma.policy.count.mockResolvedValue(7);
+      const result = await service.getRenewalMetrics('user-1');
 
-      expect(result.name).toBe('CEO Dashboard');
-      expect(result.widgets.length).toBe(1);
-      expect(result.widgets[0].data.toNumber()).toBe(5000000);
-
-      expect(prisma.factRevenue.aggregate).toHaveBeenCalled();
+      expect(result.kpi.expiring30d).toBe(7);
     });
   });
 });

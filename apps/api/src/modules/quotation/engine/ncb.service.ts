@@ -24,7 +24,9 @@ export class NcbService {
       ? ncbPercentage
       : 0;
 
-    const ncbDiscountAmount = Math.round(baseOdPremium * (applicableNcbPercent / 100));
+    const ncbDiscountAmount = Math.round(
+      baseOdPremium * (applicableNcbPercent / 100),
+    );
 
     return {
       applicableNcbPercent,

@@ -1,7 +1,4 @@
-import {
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 
 import { PolicyRepository } from '../../repositories/policy.repository';
 import { PolicyMapper } from '../../mappers/policy.mapper';
@@ -32,10 +29,6 @@ export class GetPolicyService {
 
   async executeAll(pagination: PaginationDto, user: ActorContext) {
     const scopedFilter = this.scopeResolver.resolveScopeFilter(user, 'POLICY');
-    return this.policyRepository.findPaginated(
-      pagination,
-      scopedFilter,
-    );
+    return this.policyRepository.findPaginated(pagination, scopedFilter);
   }
 }
-

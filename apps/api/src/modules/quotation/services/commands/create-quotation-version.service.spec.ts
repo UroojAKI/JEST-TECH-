@@ -24,7 +24,9 @@ describe('CreateQuotationVersionService (R5 Versioning Engine)', () => {
   };
 
   const mockPrisma = {
-    $transaction: jest.fn().mockImplementation(async (callback) => callback(mockTx)),
+    $transaction: jest
+      .fn()
+      .mockImplementation(async (callback) => callback(mockTx)),
   };
 
   const mockRepo = {};
@@ -40,7 +42,9 @@ describe('CreateQuotationVersionService (R5 Versioning Engine)', () => {
       ],
     }).compile();
 
-    service = module.get<CreateQuotationVersionService>(CreateQuotationVersionService);
+    service = module.get<CreateQuotationVersionService>(
+      CreateQuotationVersionService,
+    );
     prisma = module.get<PrismaService>(PrismaService);
   });
 
@@ -69,7 +73,10 @@ describe('CreateQuotationVersionService (R5 Versioning Engine)', () => {
         documents: [],
       });
 
-    mockTx.quotationVersion.create.mockResolvedValue({ id: 'ver-2', versionNumber: 2 });
+    mockTx.quotationVersion.create.mockResolvedValue({
+      id: 'ver-2',
+      versionNumber: 2,
+    });
     mockTx.quotation.update.mockResolvedValue({ id: 'q-100', version: 2 });
 
     const result = await service.execute(
@@ -100,7 +107,11 @@ describe('CreateQuotationVersionService (R5 Versioning Engine)', () => {
     });
 
     await expect(
-      service.execute('q-approved', { sumInsured: 900000, basePremium: 28000 }, 'user-1'),
+      service.execute(
+        'q-approved',
+        { sumInsured: 900000, basePremium: 28000 },
+        'user-1',
+      ),
     ).rejects.toThrow(BadRequestException);
   });
 });

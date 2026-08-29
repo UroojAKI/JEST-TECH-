@@ -9,6 +9,9 @@ describe('MotorPaymentTrackingService & Reconciliation (Iteration 7)', () => {
 
   beforeEach(async () => {
     prisma = {
+      $transaction: jest.fn(async (cb) =>
+        typeof cb === 'function' ? cb(prisma) : Promise.all(cb),
+      ),
       quotation: {
         findUnique: jest.fn(),
         update: jest.fn(),
@@ -32,7 +35,9 @@ describe('MotorPaymentTrackingService & Reconciliation (Iteration 7)', () => {
       ],
     }).compile();
 
-    service = module.get<MotorPaymentTrackingService>(MotorPaymentTrackingService);
+    service = module.get<MotorPaymentTrackingService>(
+      MotorPaymentTrackingService,
+    );
   });
 
   describe('recordPayment', () => {
@@ -86,14 +91,32 @@ describe('MotorPaymentTrackingService & Reconciliation (Iteration 7)', () => {
       ).rejects.toThrow(BadRequestException);
     });
 
+    it('should reject overpayment when paid amount exceeds total premium', async () => {
+      prisma.quotation.findUnique.mockResolvedValue(mockQuote);
+      prisma.motorPaymentRecord.findUnique.mockResolvedValue(null);
+
+      await expect(
+        service.recordPayment({
+          quotationId: 'q-10',
+          status: 'PAID',
+          amount: 20000, // Overpayment (required: 17638.88)
+          referenceNumber: 'REF-OVERPAY-123',
+        }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
     it('should reject payment if inspection is required and not completed', async () => {
       prisma.quotation.findUnique.mockResolvedValue({
         ...mockQuote,
         workflowState: 'INSPECTION_REQUIRED',
       });
       prisma.motorPaymentRecord.findUnique.mockResolvedValue(null);
-      prisma.motorRuleEvaluation.findUnique.mockResolvedValue({ inspectionRequired: true });
-      prisma.motorInspection.findUnique.mockResolvedValue({ status: 'IN_PROGRESS' });
+      prisma.motorRuleEvaluation.findUnique.mockResolvedValue({
+        inspectionRequired: true,
+      });
+      prisma.motorInspection.findUnique.mockResolvedValue({
+        status: 'IN_PROGRESS',
+      });
 
       await expect(
         service.recordPayment({

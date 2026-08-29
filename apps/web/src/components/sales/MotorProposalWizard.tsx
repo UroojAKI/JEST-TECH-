@@ -66,12 +66,14 @@ export function MotorProposalWizard() {
         firstName,
         lastName,
         phone: newCustPhone,
-        email: newCustEmail || `customer_${Date.now()}@jestpolicy.com`,
+        email: newCustEmail || undefined,
       });
       toast.success(`Customer "${newCustName}" created successfully!`);
       queryClient.invalidateQueries({ queryKey: ['contacts-wizard-lookup'] });
       queryClient.invalidateQueries({ queryKey: ['contacts'] });
-      setSelectedContact(res.data || { id: `CUST-${Date.now()}`, firstName, lastName, phone: newCustPhone, email: newCustEmail });
+      if (res.data) {
+        setSelectedContact(res.data);
+      }
       setShowAddCustomerModal(false);
       setNewCustName('');
       setNewCustPhone('');

@@ -28,12 +28,7 @@ export type ResourceAction =
   | 'APPROVE';
 
 export type AccessScope =
-  | 'OWN'
-  | 'ASSIGNED'
-  | 'TEAM'
-  | 'BRANCH'
-  | 'ORGANIZATION'
-  | 'GLOBAL';
+  'OWN' | 'ASSIGNED' | 'TEAM' | 'BRANCH' | 'ORGANIZATION' | 'GLOBAL';
 
 const ADMIN_ROLES: RoleType[] = [
   RoleType.ADMIN,
@@ -47,10 +42,7 @@ const BRANCH_ROLES: RoleType[] = [
   RoleType.MARKETING_DIRECTOR,
 ];
 
-const TEAM_ROLES: RoleType[] = [
-  RoleType.TEAM_LEADER,
-  RoleType.SALES_MANAGER,
-];
+const TEAM_ROLES: RoleType[] = [RoleType.TEAM_LEADER, RoleType.SALES_MANAGER];
 
 const OPERATIONAL_ROLES: RoleType[] = [
   RoleType.OPERATIONS,
@@ -133,8 +125,13 @@ export class ResourceAuthorizationService {
       throw new ForbiddenException('Unauthenticated actor context');
     }
 
-    if (actor.status === UserStatus.SUSPENDED || actor.status === UserStatus.INACTIVE) {
-      throw new ForbiddenException(`User account is ${actor.status.toLowerCase()}`);
+    if (
+      actor.status === UserStatus.SUSPENDED ||
+      actor.status === UserStatus.INACTIVE
+    ) {
+      throw new ForbiddenException(
+        `User account is ${actor.status.toLowerCase()}`,
+      );
     }
 
     if (
@@ -153,7 +150,9 @@ export class ResourceAuthorizationService {
       resource.organizationId !== 'DEFAULT_ORG' &&
       actor.organizationId !== 'DEFAULT_ORG'
     ) {
-      throw new ForbiddenException('Cross-organization access is strictly prohibited');
+      throw new ForbiddenException(
+        'Cross-organization access is strictly prohibited',
+      );
     }
 
     switch (action) {
@@ -182,7 +181,11 @@ export class ResourceAuthorizationService {
     }
   }
 
-  canRead(actor: ActorContext, resource: any, resourceType: ResourceType): boolean {
+  canRead(
+    actor: ActorContext,
+    resource: any,
+    resourceType: ResourceType,
+  ): boolean {
     if (!resource) return true;
 
     const actorRoles: RoleType[] = actor.roles || [actor.role];
@@ -200,7 +203,12 @@ export class ResourceAuthorizationService {
     if (actorRoles.some((r) => TEAM_ROLES.includes(r))) {
       if (!actor.teamId || !resource.teamId) return true;
       if (actor.teamId === resource.teamId) return true;
-      if (actor.branchId && resource.branchId && actor.branchId === resource.branchId) return true;
+      if (
+        actor.branchId &&
+        resource.branchId &&
+        actor.branchId === resource.branchId
+      )
+        return true;
       throw new ForbiddenException('Resource belongs to another sales team');
     }
 
@@ -213,7 +221,9 @@ export class ResourceAuthorizationService {
       resource.assignedToId === actor.userId ||
       resource.agentId === actor.userId ||
       resource.userId === actor.userId ||
-      (resource.lead && (resource.lead.assignedToId === actor.userId || resource.lead.createdById === actor.userId)) ||
+      (resource.lead &&
+        (resource.lead.assignedToId === actor.userId ||
+          resource.lead.createdById === actor.userId)) ||
       (resource.quotation && resource.quotation.createdById === actor.userId) ||
       (resource.policy && resource.policy.createdById === actor.userId);
 
@@ -239,7 +249,11 @@ export class ResourceAuthorizationService {
 
       case 'PAYMENT':
         return actorRoles.some((r) =>
-          [...FINANCE_ROLES, RoleType.SALES_AGENT, RoleType.SALES_EXECUTIVE].includes(r),
+          [
+            ...FINANCE_ROLES,
+            RoleType.SALES_AGENT,
+            RoleType.SALES_EXECUTIVE,
+          ].includes(r),
         );
 
       case 'CLAIM':
@@ -250,11 +264,19 @@ export class ResourceAuthorizationService {
     }
   }
 
-  canUpdate(actor: ActorContext, resource: any, resourceType: ResourceType): boolean {
+  canUpdate(
+    actor: ActorContext,
+    resource: any,
+    resourceType: ResourceType,
+  ): boolean {
     return this.canRead(actor, resource, resourceType);
   }
 
-  canDelete(actor: ActorContext, _resource: any, _resourceType: ResourceType): boolean {
+  canDelete(
+    actor: ActorContext,
+    _resource: any,
+    _resourceType: ResourceType,
+  ): boolean {
     const actorRoles: RoleType[] = actor.roles || [actor.role];
     const isAdmin = actorRoles.some((r) => ADMIN_ROLES.includes(r));
     if (!isAdmin) {
@@ -263,24 +285,52 @@ export class ResourceAuthorizationService {
     return true;
   }
 
-  canAssign(actor: ActorContext, resource: any, _resourceType: ResourceType): boolean {
+  canAssign(
+    actor: ActorContext,
+    resource: any,
+    _resourceType: ResourceType,
+  ): boolean {
     const actorRoles: RoleType[] = actor.roles || [actor.role];
     const canAssign = actorRoles.some((r) => ASSIGNERS.includes(r));
     if (!canAssign) {
-      throw new ForbiddenException('Only Managers and Administrators can assign records');
+      throw new ForbiddenException(
+        'Only Managers and Administrators can assign records',
+      );
     }
 
     // Cross-team assignment restriction for Team Leaders
-    if (actorRoles.includes(RoleType.TEAM_LEADER) && !actorRoles.some((r) => ADMIN_ROLES.includes(r) || r === RoleType.BRANCH_MANAGER)) {
-      if (resource && resource.teamId && actor.teamId && resource.teamId !== actor.teamId) {
-        throw new ForbiddenException('Team Leaders cannot assign records outside their team');
+    if (
+      actorRoles.includes(RoleType.TEAM_LEADER) &&
+      !actorRoles.some(
+        (r) => ADMIN_ROLES.includes(r) || r === RoleType.BRANCH_MANAGER,
+      )
+    ) {
+      if (
+        resource &&
+        resource.teamId &&
+        actor.teamId &&
+        resource.teamId !== actor.teamId
+      ) {
+        throw new ForbiddenException(
+          'Team Leaders cannot assign records outside their team',
+        );
       }
     }
 
     // Cross-branch assignment restriction for Branch Managers
-    if (actorRoles.includes(RoleType.BRANCH_MANAGER) && !actorRoles.some((r) => ADMIN_ROLES.includes(r))) {
-      if (resource && resource.branchId && actor.branchId && resource.branchId !== actor.branchId) {
-        throw new ForbiddenException('Branch Managers cannot assign records outside their branch');
+    if (
+      actorRoles.includes(RoleType.BRANCH_MANAGER) &&
+      !actorRoles.some((r) => ADMIN_ROLES.includes(r))
+    ) {
+      if (
+        resource &&
+        resource.branchId &&
+        actor.branchId &&
+        resource.branchId !== actor.branchId
+      ) {
+        throw new ForbiddenException(
+          'Branch Managers cannot assign records outside their branch',
+        );
       }
     }
 
@@ -320,7 +370,11 @@ export class ResourceAuthorizationService {
     return true;
   }
 
-  canApprove(actor: ActorContext, _resource: any, resourceType: ResourceType): boolean {
+  canApprove(
+    actor: ActorContext,
+    _resource: any,
+    resourceType: ResourceType,
+  ): boolean {
     const actorRoles: RoleType[] = actor.roles || [actor.role];
     const isAdmin = actorRoles.some((r) => ADMIN_ROLES.includes(r));
     if (isAdmin) return true;
@@ -329,19 +383,25 @@ export class ResourceAuthorizationService {
       case 'QUOTATION':
       case 'LEAD':
         if (!actorRoles.some((r) => QUOTE_APPROVERS.includes(r))) {
-          throw new ForbiddenException('Only Sales Managers or Branch Managers can approve quotations or leads');
+          throw new ForbiddenException(
+            'Only Sales Managers or Branch Managers can approve quotations or leads',
+          );
         }
         return true;
 
       case 'CLAIM':
         if (!actorRoles.some((r) => CLAIM_APPROVERS.includes(r))) {
-          throw new ForbiddenException('Only Claims Officers or Branch Managers can approve claims');
+          throw new ForbiddenException(
+            'Only Claims Officers or Branch Managers can approve claims',
+          );
         }
         return true;
 
       case 'POLICY':
         if (!actorRoles.some((r) => POLICY_ISSUERS.includes(r))) {
-          throw new ForbiddenException('Only Operations and Underwriters can approve policies');
+          throw new ForbiddenException(
+            'Only Operations and Underwriters can approve policies',
+          );
         }
         return true;
 
@@ -350,7 +410,11 @@ export class ResourceAuthorizationService {
     }
   }
 
-  canTransition(actor: ActorContext, resource: any, resourceType: ResourceType): boolean {
+  canTransition(
+    actor: ActorContext,
+    resource: any,
+    resourceType: ResourceType,
+  ): boolean {
     return this.canUpdate(actor, resource, resourceType);
   }
 }

@@ -1,13 +1,15 @@
-// @ts-nocheck
 import { Test, TestingModule } from '@nestjs/testing';
 import { DocumentsController } from '../controllers/documents.controller';
 import { DocumentService } from '../services/document.service';
+import { DocumentVerificationService } from '../services/document-verification.service';
 import { RequestUser } from '../../auth/decorators/current-user.decorator';
 import {
   RoleType,
+  UserStatus,
   DocumentStatus,
   DocumentVerificationStatus,
 } from '@prisma/client';
+import { PaginationDto } from '../../../common/pagination/pagination.dto';
 
 describe('DocumentsController', () => {
   let controller: DocumentsController;
@@ -15,8 +17,17 @@ describe('DocumentsController', () => {
 
   const mockUser: RequestUser = {
     id: 'user-123',
+    userId: 'user-123',
     email: 'agent@jestpolicy.com',
     role: RoleType.SALES_AGENT,
+    firstName: 'Agent',
+    lastName: 'One',
+    organizationId: 'org-1',
+    companyId: 'org-1',
+    roles: [RoleType.SALES_AGENT],
+    permissions: ['DOCUMENTS_READ', 'DOCUMENTS_WRITE'],
+    workspaces: ['SALES'],
+    status: UserStatus.ACTIVE,
   };
 
   const mockDoc = {
@@ -60,6 +71,12 @@ describe('DocumentsController', () => {
             }),
           },
         },
+        {
+          provide: DocumentVerificationService,
+          useValue: {
+            verifyDocument: jest.fn().mockResolvedValue({ status: 'VERIFIED' }),
+          },
+        },
       ],
     }).compile();
 
@@ -95,14 +112,17 @@ describe('DocumentsController', () => {
     });
 
     it('should get entity documents', async () => {
+      const pagination = new PaginationDto();
       const result = await controller.getEntityDocuments(
         'POLICY',
         'policy-123',
+        pagination,
       );
       expect(result).toEqual([mockDoc]);
       expect(service.getEntityDocuments).toHaveBeenCalledWith(
         'POLICY',
         'policy-123',
+        pagination,
       );
     });
 

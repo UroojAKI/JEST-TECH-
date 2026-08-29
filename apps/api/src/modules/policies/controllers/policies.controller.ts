@@ -23,7 +23,6 @@ import { PaginationDto } from '../../../common/pagination/pagination.dto';
 import { CreatePolicyDto } from '../dto/create-policy.dto';
 import { RenewPolicyDto } from '../dto/renew-policy.dto';
 
-import { IssuePolicyService } from '../services/commands/issue-policy.service';
 import { CancelPolicyService } from '../services/commands/cancel-policy.service';
 import { RenewPolicyService } from '../services/commands/renew-policy.service';
 
@@ -40,7 +39,6 @@ import { RenewalSchedulerCron } from '../crons/renewal-scheduler.cron';
 @Controller('policies')
 export class PoliciesController {
   constructor(
-    private readonly issuePolicyService: IssuePolicyService,
     private readonly cancelPolicyService: CancelPolicyService,
     private readonly renewPolicyService: RenewPolicyService,
     private readonly getPolicyService: GetPolicyService,
@@ -54,14 +52,27 @@ export class PoliciesController {
   @ApiOperation({ summary: 'Get Renewal Engine KPIs and Conversion Telemetry' })
   async getRenewalKpis(@CurrentUser() user: RequestUser) {
     const isManager =
-      user.role === 'BRANCH_MANAGER' || user.role === 'TEAM_LEADER' || user.role === 'SUPER_ADMIN';
+      user.role === 'BRANCH_MANAGER' ||
+      user.role === 'TEAM_LEADER' ||
+      user.role === 'SUPER_ADMIN';
 
     const where: any = {};
     if (!isManager) where.agentId = user.id;
 
     const now = new Date();
-    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
+    const startOfToday = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate(),
+    );
+    const endOfToday = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate(),
+      23,
+      59,
+      59,
+    );
 
     const in7 = new Date(startOfToday);
     in7.setDate(in7.getDate() + 7);
@@ -83,16 +94,28 @@ export class PoliciesController {
       completedTasks,
     ] = await Promise.all([
       this.prisma.renewalTask.count({
-        where: { ...where, status: 'PENDING', dueDate: { gte: startOfToday, lte: endOfToday } },
+        where: {
+          ...where,
+          status: 'PENDING',
+          dueDate: { gte: startOfToday, lte: endOfToday },
+        },
       }),
       this.prisma.renewalTask.count({
-        where: { ...where, status: 'PENDING', dueDate: { gte: startOfToday, lte: in7 } },
+        where: {
+          ...where,
+          status: 'PENDING',
+          dueDate: { gte: startOfToday, lte: in7 },
+        },
       }),
       this.prisma.renewalTask.count({
         where: { ...where, status: 'PENDING', dueDate: { gt: in7, lte: in15 } },
       }),
       this.prisma.renewalTask.count({
-        where: { ...where, status: 'PENDING', dueDate: { gt: in15, lte: in30 } },
+        where: {
+          ...where,
+          status: 'PENDING',
+          dueDate: { gt: in15, lte: in30 },
+        },
       }),
       this.prisma.renewalTask.count({
         where: { ...where, status: 'PENDING', dueDate: { lt: startOfToday } },
@@ -129,13 +152,17 @@ export class PoliciesController {
   }
 
   @Get('renewals/upcoming')
-  @ApiOperation({ summary: 'Get upcoming renewals worklist by priority and days range' })
+  @ApiOperation({
+    summary: 'Get upcoming renewals worklist by priority and days range',
+  })
   async getUpcomingRenewals(
     @Query('range') range?: string,
-    @CurrentUser() user?: RequestUser
+    @CurrentUser() user?: RequestUser,
   ) {
     const isManager =
-      user?.role === 'BRANCH_MANAGER' || user?.role === 'TEAM_LEADER' || user?.role === 'SUPER_ADMIN';
+      user?.role === 'BRANCH_MANAGER' ||
+      user?.role === 'TEAM_LEADER' ||
+      user?.role === 'SUPER_ADMIN';
 
     const tasks = await this.prisma.renewalTask.findMany({
       where: isManager ? {} : { agentId: user?.id },
@@ -155,7 +182,7 @@ export class PoliciesController {
   @ApiOperation({ summary: 'Capture lost renewal reason analysis' })
   async captureLostReason(
     @Param('id', ParseUUIDPipe) taskId: string,
-    @Body() dto: { reason: string; competitorName?: string; notes?: string }
+    @Body() dto: { reason: string; competitorName?: string; notes?: string },
   ) {
     return this.prisma.renewalTask.update({
       where: { id: taskId },
@@ -166,7 +193,13 @@ export class PoliciesController {
   }
 
   @Get('renewal/pipeline')
-  @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN, RoleType.BRANCH_MANAGER, RoleType.TEAM_LEADER, RoleType.SALES_AGENT)
+  @Roles(
+    RoleType.SUPER_ADMIN,
+    RoleType.ADMIN,
+    RoleType.BRANCH_MANAGER,
+    RoleType.TEAM_LEADER,
+    RoleType.SALES_AGENT,
+  )
   async getRenewalPipeline(
     @Query() pagination: PaginationDto,
     @CurrentUser() user: RequestUser,
@@ -183,7 +216,10 @@ export class PoliciesController {
     RoleType.SALES_AGENT,
     RoleType.RENEWAL_EXECUTIVE,
   )
-  @ApiOperation({ summary: 'Get authoritative Renewal Executive Queue with NCB roll-over and urgency breakdown' })
+  @ApiOperation({
+    summary:
+      'Get authoritative Renewal Executive Queue with NCB roll-over and urgency breakdown',
+  })
   async getRenewalQueue(
     @Query('search') search?: string,
     @Query('urgency') urgency?: string,
@@ -224,7 +260,9 @@ export class PoliciesController {
     RoleType.SALES_AGENT,
     RoleType.RENEWAL_EXECUTIVE,
   )
-  @ApiOperation({ summary: 'Escalate critical expiring renewal to Branch Management' })
+  @ApiOperation({
+    summary: 'Escalate critical expiring renewal to Branch Management',
+  })
   async escalateRenewal(
     @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser() user: RequestUser,
@@ -236,18 +274,6 @@ export class PoliciesController {
   @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN)
   async triggerRenewalScan() {
     return this.renewalSchedulerCron.runManually();
-  }
-
-  @Post()
-  @Roles(
-    RoleType.SUPER_ADMIN,
-    RoleType.ADMIN,
-    RoleType.BRANCH_MANAGER,
-    RoleType.TEAM_LEADER,
-    RoleType.SALES_AGENT,
-  )
-  create(@Body() dto: CreatePolicyDto, @CurrentUser() user: RequestUser) {
-    return this.issuePolicyService.execute(dto, user.id);
   }
 
   @Get()
@@ -283,7 +309,10 @@ export class PoliciesController {
     RoleType.FINANCE,
     RoleType.SUPPORT,
   )
-  findOne(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: RequestUser) {
+  findOne(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: RequestUser,
+  ) {
     return this.getPolicyService.executeOne(id, user);
   }
 

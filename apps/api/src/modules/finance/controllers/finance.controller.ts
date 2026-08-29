@@ -12,10 +12,17 @@ import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
 import { Roles } from '../../auth/decorators/roles.decorator';
 import { RoleType } from '@prisma/client';
-import { LedgerService, CreateJournalEntryDto } from '../accounting/services/ledger/ledger.service';
+import {
+  LedgerService,
+  CreateJournalEntryDto,
+} from '../accounting/services/ledger/ledger.service';
 import { CommissionEngineService } from '../commission/services/commission-engine/commission-engine.service';
 import { PaymentService } from '../revenue/services/payment/payment.service';
-import { FinanceReconciliationService, ReconcilePaymentDto, DiscrepancyDto } from '../services/finance-reconciliation.service';
+import {
+  FinanceReconciliationService,
+  ReconcilePaymentDto,
+  DiscrepancyDto,
+} from '../services/finance-reconciliation.service';
 import { PrismaService } from '../../../database/prisma.service';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import type { RequestUser } from '../../auth/decorators/current-user.decorator';
@@ -35,15 +42,29 @@ export class FinanceController {
   ) {}
 
   @Get('dashboard')
-  @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN, RoleType.FINANCE, RoleType.BRANCH_MANAGER)
-  @ApiOperation({ summary: 'Get aggregated finance operations dashboard metrics' })
+  @Roles(
+    RoleType.SUPER_ADMIN,
+    RoleType.ADMIN,
+    RoleType.FINANCE,
+    RoleType.BRANCH_MANAGER,
+  )
+  @ApiOperation({
+    summary: 'Get aggregated finance operations dashboard metrics',
+  })
   async getDashboardMetrics() {
     try {
-      const [receiptsCount, commissionsCount, settlementsCount, reconciliationCount] = await Promise.all([
+      const [
+        receiptsCount,
+        commissionsCount,
+        settlementsCount,
+        reconciliationCount,
+      ] = await Promise.all([
         this.prisma.receipt.count(),
         this.prisma.commission.count(),
         this.prisma.settlement.count(),
-        this.prisma.motorPaymentRecord.count({ where: { status: PaymentTrackingStatus.PAID } }),
+        this.prisma.motorPaymentRecord.count({
+          where: { status: PaymentTrackingStatus.PAID },
+        }),
       ]);
 
       return {
@@ -70,8 +91,15 @@ export class FinanceController {
   }
 
   @Get('reconciliation-queue')
-  @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN, RoleType.FINANCE, RoleType.BRANCH_MANAGER)
-  @ApiOperation({ summary: 'Get finance reconciliation queue sorted by urgency (G020)' })
+  @Roles(
+    RoleType.SUPER_ADMIN,
+    RoleType.ADMIN,
+    RoleType.FINANCE,
+    RoleType.BRANCH_MANAGER,
+  )
+  @ApiOperation({
+    summary: 'Get finance reconciliation queue sorted by urgency (G020)',
+  })
   async getReconciliationQueue(
     @Query('status') status?: string,
     @Query('search') search?: string,
@@ -88,7 +116,10 @@ export class FinanceController {
 
   @Post('reconciliation-queue/:id/reconcile')
   @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN, RoleType.FINANCE)
-  @ApiOperation({ summary: 'Reconcile payment item against bank statement (advances quote to PAYMENT_CONFIRMED)' })
+  @ApiOperation({
+    summary:
+      'Reconcile payment item against bank statement (advances quote to PAYMENT_CONFIRMED)',
+  })
   async reconcilePayment(
     @Param('id') id: string,
     @Body() dto: ReconcilePaymentDto,
@@ -99,7 +130,9 @@ export class FinanceController {
 
   @Post('reconciliation-queue/:id/discrepancy')
   @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN, RoleType.FINANCE)
-  @ApiOperation({ summary: 'Flag discrepancy on payment item with mandatory reason' })
+  @ApiOperation({
+    summary: 'Flag discrepancy on payment item with mandatory reason',
+  })
   async flagDiscrepancy(
     @Param('id') id: string,
     @Body() dto: DiscrepancyDto,
@@ -109,7 +142,13 @@ export class FinanceController {
   }
 
   @Get('receipts')
-  @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN, RoleType.FINANCE, RoleType.BRANCH_MANAGER, RoleType.SALES_AGENT)
+  @Roles(
+    RoleType.SUPER_ADMIN,
+    RoleType.ADMIN,
+    RoleType.FINANCE,
+    RoleType.BRANCH_MANAGER,
+    RoleType.SALES_AGENT,
+  )
   @ApiOperation({ summary: 'Get receipts register' })
   async getReceipts(@Query('status') status?: string) {
     try {
@@ -128,14 +167,24 @@ export class FinanceController {
   }
 
   @Get('payments')
-  @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN, RoleType.FINANCE, RoleType.BRANCH_MANAGER)
+  @Roles(
+    RoleType.SUPER_ADMIN,
+    RoleType.ADMIN,
+    RoleType.FINANCE,
+    RoleType.BRANCH_MANAGER,
+  )
   @ApiOperation({ summary: 'Get payments register' })
   async getPayments(@Query('type') type?: string) {
     return []; // TODO: Add Payment to Prisma schema
   }
 
   @Get('ledger')
-  @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN, RoleType.FINANCE, RoleType.BRANCH_MANAGER)
+  @Roles(
+    RoleType.SUPER_ADMIN,
+    RoleType.ADMIN,
+    RoleType.FINANCE,
+    RoleType.BRANCH_MANAGER,
+  )
   @ApiOperation({ summary: 'Get double-entry ledger journal entries' })
   async getLedgerEntries(
     @Query('search') search?: string,
@@ -161,8 +210,16 @@ export class FinanceController {
   }
 
   @Get('commissions')
-  @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN, RoleType.FINANCE, RoleType.BRANCH_MANAGER, RoleType.SALES_AGENT)
-  @ApiOperation({ summary: 'Get commission register and manager override breakdown' })
+  @Roles(
+    RoleType.SUPER_ADMIN,
+    RoleType.ADMIN,
+    RoleType.FINANCE,
+    RoleType.BRANCH_MANAGER,
+    RoleType.SALES_AGENT,
+  )
+  @ApiOperation({
+    summary: 'Get commission register and manager override breakdown',
+  })
   async getCommissions() {
     try {
       return await this.prisma.commission.findMany({
@@ -175,14 +232,24 @@ export class FinanceController {
   }
 
   @Post('commissions/:id/approve')
-  @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN, RoleType.FINANCE, RoleType.BRANCH_MANAGER)
+  @Roles(
+    RoleType.SUPER_ADMIN,
+    RoleType.ADMIN,
+    RoleType.FINANCE,
+    RoleType.BRANCH_MANAGER,
+  )
   @ApiOperation({ summary: 'Approve commission payout' })
   async approveCommission(@Param('id') id: string) {
     return { id, status: 'APPROVED', approvedAt: new Date().toISOString() };
   }
 
   @Get('settlements')
-  @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN, RoleType.FINANCE, RoleType.BRANCH_MANAGER)
+  @Roles(
+    RoleType.SUPER_ADMIN,
+    RoleType.ADMIN,
+    RoleType.FINANCE,
+    RoleType.BRANCH_MANAGER,
+  )
   @ApiOperation({ summary: 'Get insurer settlement statements' })
   async getSettlements() {
     try {
@@ -196,17 +263,27 @@ export class FinanceController {
   }
 
   @Get('incentives')
-  @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN, RoleType.FINANCE, RoleType.BRANCH_MANAGER, RoleType.SALES_AGENT)
+  @Roles(
+    RoleType.SUPER_ADMIN,
+    RoleType.ADMIN,
+    RoleType.FINANCE,
+    RoleType.BRANCH_MANAGER,
+    RoleType.SALES_AGENT,
+  )
   @ApiOperation({ summary: 'Get employee sales & renewal incentives' })
   async getIncentives() {
     return []; // TODO: Add Incentive to Prisma schema
   }
 
   @Get('vouchers/:id')
-  @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN, RoleType.FINANCE, RoleType.BRANCH_MANAGER)
+  @Roles(
+    RoleType.SUPER_ADMIN,
+    RoleType.ADMIN,
+    RoleType.FINANCE,
+    RoleType.BRANCH_MANAGER,
+  )
   @ApiOperation({ summary: 'Get voucher details by ID' })
   async getVoucher(@Param('id') id: string) {
     return []; // TODO: Add Voucher to Prisma schema
   }
 }
-

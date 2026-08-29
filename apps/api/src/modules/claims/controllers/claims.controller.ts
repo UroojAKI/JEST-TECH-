@@ -22,14 +22,22 @@ import { PaginationDto } from '../../../common/pagination/pagination.dto';
 import { ReportClaimDto } from '../dto/report-claim.dto';
 import { AssignSurveyorDto } from '../dto/assign-surveyor.dto';
 
-
 import { ReportClaimService } from '../services/commands/report-claim.service';
 import { UploadClaimDocumentService } from '../services/commands/upload-claim-document.service';
 import { AssignSurveyorService } from '../services/commands/assign-surveyor.service';
 import { CloseClaimService } from '../services/commands/close-claim.service';
-import { ApproveClaimService, ApproveClaimDto } from '../services/commands/approve-claim.service';
-import { SettleClaimService, SettleClaimDto } from '../services/commands/settle-claim.service';
-import { RejectClaimService, RejectClaimDto } from '../services/commands/reject-claim.service';
+import {
+  ApproveClaimService,
+  ApproveClaimDto,
+} from '../services/commands/approve-claim.service';
+import {
+  SettleClaimService,
+  SettleClaimDto,
+} from '../services/commands/settle-claim.service';
+import {
+  RejectClaimService,
+  RejectClaimDto,
+} from '../services/commands/reject-claim.service';
 import { GetClaimsService } from '../services/queries/get-claims.service';
 
 @ApiTags('Claims')
@@ -95,7 +103,10 @@ export class ClaimsController {
     RoleType.FINANCE,
     RoleType.SUPPORT,
   )
-  findOne(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: RequestUser) {
+  findOne(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: RequestUser,
+  ) {
     return this.getClaimsService.executeOne(id, user);
   }
 
@@ -138,11 +149,14 @@ export class ClaimsController {
     return this.assignSurveyorService.execute(id, dto, user.id);
   }
 
-
-
   @Post(':id/approve')
   @HttpCode(HttpStatus.OK)
-  @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN, RoleType.CLAIMS_OFFICER, RoleType.OPERATIONS)
+  @Roles(
+    RoleType.SUPER_ADMIN,
+    RoleType.ADMIN,
+    RoleType.CLAIMS_OFFICER,
+    RoleType.OPERATIONS,
+  )
   approve(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: ApproveClaimDto,
@@ -153,7 +167,12 @@ export class ClaimsController {
 
   @Post(':id/settle')
   @HttpCode(HttpStatus.OK)
-  @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN, RoleType.CLAIMS_OFFICER, RoleType.FINANCE)
+  @Roles(
+    RoleType.SUPER_ADMIN,
+    RoleType.ADMIN,
+    RoleType.CLAIMS_OFFICER,
+    RoleType.FINANCE,
+  )
   settle(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: SettleClaimDto,

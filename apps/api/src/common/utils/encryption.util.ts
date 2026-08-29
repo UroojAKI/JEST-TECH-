@@ -1,7 +1,8 @@
 import * as crypto from 'crypto';
 
 const ALGORITHM = 'aes-256-gcm';
-const SECRET_KEY = process.env.PII_ENCRYPTION_KEY || 'jest-crm-production-pii-secret-32b'; // 32-byte key fallback
+const SECRET_KEY =
+  process.env.PII_ENCRYPTION_KEY || 'jest-crm-production-pii-secret-32b'; // 32-byte key fallback
 const IV_LENGTH = 12;
 
 export class EncryptionUtil {

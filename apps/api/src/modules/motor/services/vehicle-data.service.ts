@@ -1,4 +1,8 @@
-import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  BadRequestException,
+  NotFoundException,
+} from '@nestjs/common';
 import { VehicleCategory, VehicleStatus } from '@prisma/client';
 import { PrismaService } from '../../../database/prisma.service';
 
@@ -156,46 +160,71 @@ export class VehicleDataService {
 
     const allowedCategories = Object.values(VehicleCategory);
     if (!allowedCategories.includes(category)) {
-      errors.push(`Invalid vehicle category "${category}". Must be one of: ${allowedCategories.join(', ')}`);
-      return { isValid: false, category, missingFields, errors, sanitizedSpecs: specs };
+      errors.push(
+        `Invalid vehicle category "${category}". Must be one of: ${allowedCategories.join(', ')}`,
+      );
+      return {
+        isValid: false,
+        category,
+        missingFields,
+        errors,
+        sanitizedSpecs: specs,
+      };
     }
 
     switch (category) {
       case VehicleCategory.BIKE:
-        if (!specs.vehicleSubType) missingFields.push('vehicleSubType (Scooter/Motorcycle/Moped/Electric)');
-        if (!specs.engineCapacityCcOrKw && !specs.engineCapacity) missingFields.push('engineCapacityCcOrKw');
+        if (!specs.vehicleSubType)
+          missingFields.push(
+            'vehicleSubType (Scooter/Motorcycle/Moped/Electric)',
+          );
+        if (!specs.engineCapacityCcOrKw && !specs.engineCapacity)
+          missingFields.push('engineCapacityCcOrKw');
         break;
 
       case VehicleCategory.PRIVATE_CAR:
-        if (!specs.vehicleSubType) missingFields.push('vehicleSubType (Hatchback/Sedan/SUV/MPV/Electric)');
-        if (!specs.engineCapacityCcOrKw && !specs.engineCapacity) missingFields.push('engineCapacityCcOrKw');
+        if (!specs.vehicleSubType)
+          missingFields.push(
+            'vehicleSubType (Hatchback/Sedan/SUV/MPV/Electric)',
+          );
+        if (!specs.engineCapacityCcOrKw && !specs.engineCapacity)
+          missingFields.push('engineCapacityCcOrKw');
         break;
 
       case VehicleCategory.GCV:
-        if (!specs.grossVehicleWeightKg && !specs.gvwKg) missingFields.push('grossVehicleWeightKg');
-        if (!specs.carryingCapacityTonnes && !specs.carryingCapacity) missingFields.push('carryingCapacityTonnes');
+        if (!specs.grossVehicleWeightKg && !specs.gvwKg)
+          missingFields.push('grossVehicleWeightKg');
+        if (!specs.carryingCapacityTonnes && !specs.carryingCapacity)
+          missingFields.push('carryingCapacityTonnes');
         break;
 
       case VehicleCategory.TRACTOR:
-        if (!specs.horsePowerHp && !specs.hp) missingFields.push('horsePowerHp');
+        if (!specs.horsePowerHp && !specs.hp)
+          missingFields.push('horsePowerHp');
         break;
 
       case VehicleCategory.AUTO:
-        if (!specs.seatingOrLoadCapacity && !specs.seatingCapacity) missingFields.push('seatingOrLoadCapacity');
+        if (!specs.seatingOrLoadCapacity && !specs.seatingCapacity)
+          missingFields.push('seatingOrLoadCapacity');
         break;
 
       case VehicleCategory.TAXI:
         if (!specs.seatingCapacity) missingFields.push('seatingCapacity');
-        if (!specs.permitType) missingFields.push('permitType (Local/All India/State)');
+        if (!specs.permitType)
+          missingFields.push('permitType (Local/All India/State)');
         break;
 
       case VehicleCategory.BUS_COACH:
         if (!specs.seatingCapacity) missingFields.push('seatingCapacity');
-        if (!specs.routePermitType) missingFields.push('routePermitType (School/Staff/Stage Carriage/Contract Carriage)');
+        if (!specs.routePermitType)
+          missingFields.push(
+            'routePermitType (School/Staff/Stage Carriage/Contract Carriage)',
+          );
         break;
 
       case VehicleCategory.MISC_CLASS_D:
-        if (!specs.purposeOfUse && !specs.specialClassType) missingFields.push('purposeOfUse (Ambulance/Hearse/Crane/Special)');
+        if (!specs.purposeOfUse && !specs.specialClassType)
+          missingFields.push('purposeOfUse (Ambulance/Hearse/Crane/Special)');
         break;
     }
 
@@ -217,7 +246,10 @@ export class VehicleDataService {
   async findByRegistration(registrationNumber: string) {
     const norm = this.normalizeRegistrationNumber(registrationNumber);
     if (!norm.isValid || norm.isNewVehicle) {
-      throw new BadRequestException(norm.errorMessage || 'Cannot lookup unregistered or invalid vehicle plate');
+      throw new BadRequestException(
+        norm.errorMessage ||
+          'Cannot lookup unregistered or invalid vehicle plate',
+      );
     }
 
     const vehicle = await this.prisma.vehicle.findFirst({
@@ -240,7 +272,9 @@ export class VehicleDataService {
     });
 
     if (!vehicle) {
-      throw new NotFoundException(`No vehicle record found for registration number ${norm.normalized}`);
+      throw new NotFoundException(
+        `No vehicle record found for registration number ${norm.normalized}`,
+      );
     }
 
     return vehicle;
@@ -267,7 +301,9 @@ export class VehicleDataService {
       }
       normalizedPlate = norm.normalized === 'NEW' ? null : norm.normalized;
       if (norm.rtoCode && !rtoLoc) {
-        const stateName = norm.stateCode ? INDIAN_STATE_NAMES[norm.stateCode] || norm.stateCode : '';
+        const stateName = norm.stateCode
+          ? INDIAN_STATE_NAMES[norm.stateCode] || norm.stateCode
+          : '';
         rtoLoc = `${norm.rtoCode} (${stateName})`;
       }
     }
@@ -297,8 +333,11 @@ export class VehicleDataService {
           category: dto.category,
           makeModel: dto.makeModel || existingVehicle.makeModel,
           fuelType: dto.fuelType || existingVehicle.fuelType,
-          manufactureYearMonth: dto.manufactureYearMonth || existingVehicle.manufactureYearMonth,
-          dateOfRegistration: dto.dateOfRegistration ? new Date(dto.dateOfRegistration) : existingVehicle.dateOfRegistration,
+          manufactureYearMonth:
+            dto.manufactureYearMonth || existingVehicle.manufactureYearMonth,
+          dateOfRegistration: dto.dateOfRegistration
+            ? new Date(dto.dateOfRegistration)
+            : existingVehicle.dateOfRegistration,
           engineNumber: dto.engineNumber || existingVehicle.engineNumber,
           chassisNumber: dto.chassisNumber || existingVehicle.chassisNumber,
           rtoLocation: rtoLoc || existingVehicle.rtoLocation,
@@ -321,7 +360,9 @@ export class VehicleDataService {
         makeModel: dto.makeModel,
         fuelType: dto.fuelType,
         manufactureYearMonth: dto.manufactureYearMonth,
-        dateOfRegistration: dto.dateOfRegistration ? new Date(dto.dateOfRegistration) : undefined,
+        dateOfRegistration: dto.dateOfRegistration
+          ? new Date(dto.dateOfRegistration)
+          : undefined,
         engineNumber: dto.engineNumber,
         chassisNumber: dto.chassisNumber,
         rtoLocation: rtoLoc,

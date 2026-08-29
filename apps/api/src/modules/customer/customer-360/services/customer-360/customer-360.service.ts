@@ -23,7 +23,10 @@ export class Customer360Service {
     await this.cache.clear(`customer360:${contactId}`);
   }
 
-  private async buildCustomer360Profile(contactId: string, actor?: ActorContext) {
+  private async buildCustomer360Profile(
+    contactId: string,
+    actor?: ActorContext,
+  ) {
     const contact = await this.prisma.contact.findUnique({
       where: { id: contactId },
       include: {
@@ -104,9 +107,16 @@ export class Customer360Service {
     }
 
     // 3. Compute Real Financial Metrics
-    const activePolicies = policies.filter((p) => p.status === PolicyStatus.ACTIVE);
+    const activePolicies = policies.filter(
+      (p) => p.status === PolicyStatus.ACTIVE,
+    );
     const totalPremiumPaid = policies
-      .filter((p) => p.status === PolicyStatus.ACTIVE || p.status === PolicyStatus.RENEWED || p.status === PolicyStatus.LAPSED)
+      .filter(
+        (p) =>
+          p.status === PolicyStatus.ACTIVE ||
+          p.status === PolicyStatus.RENEWED ||
+          p.status === PolicyStatus.LAPSED,
+      )
       .reduce((sum, p) => sum + Number(p.premiumAmount || 0), 0);
 
     const openClaims = claims.filter(
@@ -118,7 +128,10 @@ export class Customer360Service {
 
     const totalClaimsSettled = claims
       .filter((c) => c.status === ClaimStatus.SETTLED)
-      .reduce((sum, c) => sum + Number(c.approvedAmount || c.claimAmount || 0), 0);
+      .reduce(
+        (sum, c) => sum + Number(c.approvedAmount || c.claimAmount || 0),
+        0,
+      );
 
     // 4. Assemble Unified Chronological Timeline
     const timeline: Array<{
@@ -134,7 +147,11 @@ export class Customer360Service {
         date: c.createdAt,
         type: 'COMMUNICATION',
         title: `${c.channel} - ${c.direction}`,
-        description: c.messageBody || c.messagePreview || c.subject || 'Logged communication',
+        description:
+          c.messageBody ||
+          c.messagePreview ||
+          c.subject ||
+          'Logged communication',
       });
     }
 
@@ -168,7 +185,9 @@ export class Customer360Service {
       });
     }
 
-    timeline.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    timeline.sort(
+      (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
+    );
 
     return {
       profile: {
@@ -180,7 +199,9 @@ export class Customer360Service {
         phone: contact.phone,
         type: contact.type,
         panNumber: contact.panNumber || 'NOT_PROVIDED',
-        aadhaarNumber: contact.aadhaarNumber ? `•••• •••• ${contact.aadhaarNumber.slice(-4)}` : 'NOT_PROVIDED',
+        aadhaarNumber: contact.aadhaarNumber
+          ? `•••• •••• ${contact.aadhaarNumber.slice(-4)}`
+          : 'NOT_PROVIDED',
       },
       analytics: {
         totalPremiumPaid,

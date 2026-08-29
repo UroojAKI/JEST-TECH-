@@ -1,4 +1,13 @@
-import { Controller, Get, Post, Body, Param, UseGuards, Query, ParseUUIDPipe } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Param,
+  UseGuards,
+  Query,
+  ParseUUIDPipe,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
@@ -101,7 +110,12 @@ export class EndorsementsController {
   }
 
   @Post(':id/approve')
-  @Roles(RoleType.ADMIN, RoleType.SUPER_ADMIN, RoleType.UNDERWRITER, RoleType.OPERATIONS)
+  @Roles(
+    RoleType.ADMIN,
+    RoleType.SUPER_ADMIN,
+    RoleType.UNDERWRITER,
+    RoleType.OPERATIONS,
+  )
   approveEndorsement(
     @Param('id', ParseUUIDPipe) id: string,
     @Body('comments') comments: string,
@@ -111,7 +125,12 @@ export class EndorsementsController {
   }
 
   @Post(':id/reject')
-  @Roles(RoleType.ADMIN, RoleType.SUPER_ADMIN, RoleType.UNDERWRITER, RoleType.OPERATIONS)
+  @Roles(
+    RoleType.ADMIN,
+    RoleType.SUPER_ADMIN,
+    RoleType.UNDERWRITER,
+    RoleType.OPERATIONS,
+  )
   rejectEndorsement(
     @Param('id', ParseUUIDPipe) id: string,
     @Body('reason') reason: string,

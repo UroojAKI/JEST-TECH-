@@ -1,5 +1,9 @@
 import { IdempotencyInterceptor } from './idempotency.interceptor';
-import { ExecutionContext, CallHandler, ConflictException } from '@nestjs/common';
+import {
+  ExecutionContext,
+  CallHandler,
+  ConflictException,
+} from '@nestjs/common';
 import { of, throwError } from 'rxjs';
 
 describe('IdempotencyInterceptor (Iteration 16)', () => {
@@ -15,7 +19,10 @@ describe('IdempotencyInterceptor (Iteration 16)', () => {
     interceptor = new IdempotencyInterceptor(cache);
   });
 
-  const mockContext = (method: string, headers: Record<string, string> = {}) => {
+  const mockContext = (
+    method: string,
+    headers: Record<string, string> = {},
+  ) => {
     const request = { method, headers };
     const response = { setHeader: jest.fn() };
     return {
@@ -55,16 +62,22 @@ describe('IdempotencyInterceptor (Iteration 16)', () => {
   });
 
   it('should throw ConflictException if request with same key is currently IN_FLIGHT', async () => {
-    const context = mockContext('POST', { 'x-idempotency-key': 'key-parallel' });
+    const context = mockContext('POST', {
+      'x-idempotency-key': 'key-parallel',
+    });
     const next = mockHandler({ ok: true });
 
     cache.get.mockResolvedValue({ status: 'IN_FLIGHT' });
 
-    await expect(interceptor.intercept(context, next)).rejects.toThrow(ConflictException);
+    await expect(interceptor.intercept(context, next)).rejects.toThrow(
+      ConflictException,
+    );
   });
 
   it('should return cached response and set X-Cache-Lookup: HIT if key is COMPLETED', async () => {
-    const context = mockContext('POST', { 'x-idempotency-key': 'key-completed' });
+    const context = mockContext('POST', {
+      'x-idempotency-key': 'key-completed',
+    });
     const next = mockHandler({ fresh: true });
 
     cache.get.mockResolvedValue({
@@ -79,7 +92,10 @@ describe('IdempotencyInterceptor (Iteration 16)', () => {
     expect(emitted).toEqual({ cachedResult: 'already_processed' });
     const res = context.switchToHttp().getResponse();
     expect(res.setHeader).toHaveBeenCalledWith('X-Cache-Lookup', 'HIT');
-    expect(res.setHeader).toHaveBeenCalledWith('X-Idempotency-Key', 'key-completed');
+    expect(res.setHeader).toHaveBeenCalledWith(
+      'X-Idempotency-Key',
+      'key-completed',
+    );
   });
 
   it('should clean up in-flight lock if handler throws an error', async () => {
@@ -91,7 +107,11 @@ describe('IdempotencyInterceptor (Iteration 16)', () => {
     cache.get.mockResolvedValue(null);
 
     const result = await interceptor.intercept(context, next);
-    expect(cache.set).toHaveBeenCalledWith('idempotency:key-fail', { status: 'IN_FLIGHT' }, 60);
+    expect(cache.set).toHaveBeenCalledWith(
+      'idempotency:key-fail',
+      { status: 'IN_FLIGHT' },
+      60,
+    );
 
     result.subscribe({
       error: async () => {

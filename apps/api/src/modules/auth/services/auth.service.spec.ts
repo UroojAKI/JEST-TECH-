@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { Test, TestingModule } from '@nestjs/testing';
 import { UnauthorizedException } from '@nestjs/common';
 import * as argon2 from 'argon2';
@@ -42,7 +41,9 @@ describe('AuthService', () => {
     tokenService = {
       generateAccessToken: jest.fn().mockResolvedValue('mock-access-token'),
       generateRefreshToken: jest.fn().mockResolvedValue('mock-refresh-token'),
-      verifyRefreshToken: jest.fn().mockResolvedValue({ email: 'test@jest.com', sub: 'user-id-1' }),
+      verifyRefreshToken: jest
+        .fn()
+        .mockResolvedValue({ email: 'test@jest.com', sub: 'user-id-1' }),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -95,7 +96,9 @@ describe('AuthService', () => {
         password: 'password',
       });
 
-      expect(usersService.findByEmailForAuth).toHaveBeenCalledWith('test@jest.com');
+      expect(usersService.findByEmailForAuth).toHaveBeenCalledWith(
+        'test@jest.com',
+      );
       expect(result.accessToken).toBe('mock-access-token');
     });
 

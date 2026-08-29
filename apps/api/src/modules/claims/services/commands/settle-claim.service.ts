@@ -30,11 +30,15 @@ export class SettleClaimService {
     }
 
     if (!dto.paymentReference || !dto.paymentReference.trim()) {
-      throw new BadRequestException('A valid payment reference / UTR is mandatory to settle a claim');
+      throw new BadRequestException(
+        'A valid payment reference / UTR is mandatory to settle a claim',
+      );
     }
 
     if (!dto.settlementAmount || dto.settlementAmount <= 0) {
-      throw new BadRequestException('Settlement amount must be greater than zero');
+      throw new BadRequestException(
+        'Settlement amount must be greater than zero',
+      );
     }
 
     // Validate state transition

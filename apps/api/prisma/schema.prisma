@@ -147,6 +147,7 @@ enum QuotationStatus {
   DRAFT
   PENDING_APPROVAL
   APPROVED
+  ACCEPTED
   REJECTED
   EXPIRED
   CONVERTED_TO_POLICY
@@ -172,6 +173,7 @@ enum CrmCompletionStatus {
 
 enum PolicyStatus {
   DRAFT
+  ISSUED
   ACTIVE
   LAPSED
   RENEWED
@@ -1112,6 +1114,7 @@ model QuotationVersion {
 
   createdAt DateTime @default(now())
 
+  @@unique([quotationId, versionNumber])
   @@index([quotationId])
   @@index([createdById])
   @@map("quotation_versions")
@@ -1195,7 +1198,7 @@ model QuotationDocument {
 model Policy {
   id           String       @id @default(uuid())
   policyNumber String       @unique
-  status       PolicyStatus @default(ACTIVE)
+  status       PolicyStatus @default(DRAFT)
 
   quotationId String    @unique
   quotation   Quotation @relation(fields: [quotationId], references: [id])
@@ -1253,6 +1256,7 @@ model Policy {
   proposalId   String?          @unique
   proposal     Proposal?        @relation(fields: [proposalId], references: [id])
   endorsements Endorsement[]
+  insurerDetail InsurerPolicyDetail?
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
@@ -1272,6 +1276,24 @@ model Policy {
   @@index([proposalId])
   @@index([vehicleId])
   @@map("policies")
+}
+
+model InsurerPolicyDetail {
+  id                  String    @id @default(uuid())
+  policyId            String    @unique
+  policy              Policy    @relation(fields: [policyId], references: [id], onDelete: Cascade)
+  insurerPolicyNumber String?
+  insurerQuoteId      String?
+  insurerProposalId   String?
+  submissionPayload   Json?
+  responsePayload     Json?
+  issuedAt            DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  @@index([policyId])
+  @@index([insurerPolicyNumber])
+  @@map("insurer_policy_details")
 }
 
 model PolicyMember {
@@ -1596,17 +1618,19 @@ model NotificationHistory {
 }
 
 model RenewalTask {
-  id        String               @id @default(uuid())
-  policyId  String
-  policy    Policy               @relation(fields: [policyId], references: [id], onDelete: Cascade)
-  agentId   String
-  agent     User                 @relation(fields: [agentId], references: [id], onDelete: Cascade)
-  dueDate   DateTime
-  status    RenewalTaskStatus    @default(PENDING)
-  priority  NotificationPriority @default(MEDIUM)
-  createdAt DateTime             @default(now())
-  updatedAt DateTime             @updatedAt
+  id         String               @id @default(uuid())
+  policyId   String
+  policy     Policy               @relation(fields: [policyId], references: [id], onDelete: Cascade)
+  agentId    String
+  agent      User                 @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  dueDate    DateTime
+  offsetDays Int                  @default(30)
+  status     RenewalTaskStatus    @default(PENDING)
+  priority   NotificationPriority @default(MEDIUM)
+  createdAt  DateTime             @default(now())
+  updatedAt  DateTime             @updatedAt
 
+  @@unique([policyId, offsetDays])
   @@index([policyId])
   @@index([agentId])
   @@index([status])
@@ -3770,3 +3794,32 @@ model MotorRateConfiguration {
   @@index([addonCode])
   @@map("motor_rate_configurations")
 }
+
+//////////////////////////////////////////////////////////
+// TRANSACTIONAL OUTBOX
+//////////////////////////////////////////////////////////
+
+enum OutboxStatus {
+  PENDING
+  PROCESSING
+  PUBLISHED
+  FAILED
+}
+
+model OutboxEvent {
+  id            String       @id @default(uuid())
+  aggregateType String
+  aggregateId   String
+  eventType     String
+  payload       Json
+  status        OutboxStatus @default(PENDING)
+  attempts      Int          @default(0)
+  lastError     String?      @db.Text
+  createdAt     DateTime     @default(now())
+  processedAt   DateTime?
+
+  @@index([status, createdAt])
+  @@index([aggregateType, aggregateId])
+  @@map("outbox_events")
+}
+

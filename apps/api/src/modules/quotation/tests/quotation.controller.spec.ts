@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { Test, TestingModule } from '@nestjs/testing';
 import {
   BadRequestException,
@@ -7,16 +6,21 @@ import {
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
-import { QuotationStatus, RoleType } from '@prisma/client';
+import { QuotationStatus, RoleType, UserStatus } from '@prisma/client';
 
 import { QuotationController } from '../controllers/quotation.controller';
 import { GenerateQuotationService } from '../services/commands/generate-quotation.service';
 import { ApproveQuotationService } from '../services/commands/approve-quotation.service';
 import { RejectQuotationService } from '../services/commands/reject-quotation.service';
 import { ConvertQuotationService } from '../services/commands/convert-quotation.service';
+import { AcceptQuotationService } from '../services/commands/accept-quotation.service';
+import { CreateQuotationVersionService } from '../services/commands/create-quotation-version.service';
 import { GetQuotationService } from '../services/queries/get-quotation.service';
 import { CompareQuotationService } from '../services/queries/compare-quotation.service';
 import { GetQuotationHistoryService } from '../services/queries/get-quotation-history.service';
+import { ComparisonService } from '../engine/comparison.service';
+import { PrismaService } from '../../../database/prisma.service';
+import { MotorCalculationService } from '../../motor/services/motor-calculation.service';
 import { CreateQuotationDto } from '../dto/create-quotation.dto';
 import { RequestUser } from '../../auth/decorators/current-user.decorator';
 
@@ -32,9 +36,17 @@ describe('QuotationController', () => {
 
   const mockUser: RequestUser = {
     id: 'user-1',
+    userId: 'user-1',
     email: 'test@example.com',
     role: RoleType.SALES_AGENT,
-    permissions: [],
+    firstName: 'Agent',
+    lastName: 'One',
+    organizationId: 'org-1',
+    companyId: 'org-1',
+    roles: [RoleType.SALES_AGENT],
+    permissions: ['QUOTATIONS_READ', 'QUOTATIONS_WRITE'],
+    workspaces: ['SALES'],
+    status: UserStatus.ACTIVE,
   };
 
   const mockQuotationResponse = {
@@ -97,6 +109,21 @@ describe('QuotationController', () => {
           },
         },
         {
+          provide: AcceptQuotationService,
+          useValue: {
+            execute: jest.fn().mockResolvedValue({
+              ...mockQuotationResponse,
+              status: QuotationStatus.APPROVED,
+            }),
+          },
+        },
+        {
+          provide: CreateQuotationVersionService,
+          useValue: {
+            execute: jest.fn().mockResolvedValue({}),
+          },
+        },
+        {
           provide: GetQuotationService,
           useValue: {
             executeOne: jest.fn().mockResolvedValue(mockQuotationResponse),
@@ -114,6 +141,23 @@ describe('QuotationController', () => {
         {
           provide: GetQuotationHistoryService,
           useValue: { execute: jest.fn().mockResolvedValue([]) },
+        },
+        {
+          provide: ComparisonService,
+          useValue: { compare: jest.fn().mockReturnValue([]) },
+        },
+        {
+          provide: PrismaService,
+          useValue: {
+            quotation: {
+              findMany: jest.fn().mockResolvedValue([mockQuotationResponse]),
+              count: jest.fn().mockResolvedValue(1),
+            },
+          },
+        },
+        {
+          provide: MotorCalculationService,
+          useValue: { calculatePremium: jest.fn().mockReturnValue({}) },
         },
       ],
     }).compile();
@@ -224,9 +268,9 @@ describe('QuotationController', () => {
         .spyOn(getService, 'executeOne')
         .mockRejectedValueOnce(new NotFoundException('Quotation not found'));
 
-      await expect(controller.findOne('quote-nonexistent', mockUser)).rejects.toThrow(
-        NotFoundException,
-      );
+      await expect(
+        controller.findOne('quote-nonexistent', mockUser),
+      ).rejects.toThrow(NotFoundException);
     });
   });
 

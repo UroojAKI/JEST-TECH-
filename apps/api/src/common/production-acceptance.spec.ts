@@ -1,4 +1,10 @@
-import { RoleType, UserStatus, PolicyStatus, ClaimStatus, EndorsementStatus } from '@prisma/client';
+import {
+  RoleType,
+  UserStatus,
+  PolicyStatus,
+  ClaimStatus,
+  EndorsementStatus,
+} from '@prisma/client';
 
 describe('Production Acceptance Certification Gate (Iteration 20)', () => {
   describe('Phase 1 Certification: Security & Boundary Isolation', () => {

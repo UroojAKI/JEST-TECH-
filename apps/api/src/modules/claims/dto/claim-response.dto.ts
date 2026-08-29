@@ -28,7 +28,6 @@ export class ClaimResponseDto {
     createdAt: Date;
   }[];
 
-
   histories?: {
     id: string;
     status: ClaimStatus;

@@ -23,7 +23,10 @@ import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import type { RequestUser } from '../../auth/decorators/current-user.decorator';
 import { DocumentService } from '../services/document.service';
-import { DocumentVerificationService, VerifyDocumentDto } from '../services/document-verification.service';
+import {
+  DocumentVerificationService,
+  VerifyDocumentDto,
+} from '../services/document-verification.service';
 import type { Response } from 'express';
 
 const ALLOWED_MIME_TYPES = [
@@ -64,6 +67,11 @@ export class DocumentsController {
     private readonly documentService: DocumentService,
     private readonly documentVerificationService: DocumentVerificationService,
   ) {}
+
+  @Get()
+  async getAllDocuments(@Query() pagination: PaginationDto) {
+    return this.documentService.findAll(pagination);
+  }
 
   @Post('upload')
   @ApiConsumes('multipart/form-data')
@@ -140,7 +148,11 @@ export class DocumentsController {
         `Invalid entityType. Must be one of: ${validEntityTypes.join(', ')}`,
       );
     }
-    return this.documentService.getEntityDocuments(entityType, entityId, pagination);
+    return this.documentService.getEntityDocuments(
+      entityType,
+      entityId,
+      pagination,
+    );
   }
 
   @Get(':id')
@@ -210,7 +222,12 @@ export class DocumentsController {
     @CurrentUser() user: RequestUser,
     @Ip() ipAddress: string,
   ) {
-    return this.documentVerificationService.submitVerification(id, dto, user.id, ipAddress);
+    return this.documentVerificationService.submitVerification(
+      id,
+      dto,
+      user.id,
+      ipAddress,
+    );
   }
 
   @Get(':id/verification')

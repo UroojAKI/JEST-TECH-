@@ -21,12 +21,16 @@ export class MetricsInterceptor implements NestInterceptor {
         next: () => {
           const res = context.switchToHttp().getResponse();
           const duration = Date.now() - start;
-          apiDurationHistogram.labels(method, path, res.statusCode.toString()).observe(duration);
+          apiDurationHistogram
+            .labels(method, path, res.statusCode.toString())
+            .observe(duration);
         },
         error: (err) => {
           const status = err.status || 500;
           const duration = Date.now() - start;
-          apiDurationHistogram.labels(method, path, status.toString()).observe(duration);
+          apiDurationHistogram
+            .labels(method, path, status.toString())
+            .observe(duration);
         },
       }),
     );

@@ -1,38 +1,45 @@
-// @ts-nocheck
 import { Test, TestingModule } from '@nestjs/testing';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
-import { ClaimStatus, RoleType } from '@prisma/client';
+import { ClaimStatus, RoleType, UserStatus } from '@prisma/client';
 
 import { ClaimsController } from '../controllers/claims.controller';
 import { ReportClaimService } from '../services/commands/report-claim.service';
 import { UploadClaimDocumentService } from '../services/commands/upload-claim-document.service';
 import { AssignSurveyorService } from '../services/commands/assign-surveyor.service';
-import { AssessClaimService } from '../services/commands/assess-claim.service';
 import { ApproveClaimService } from '../services/commands/approve-claim.service';
-import { PayClaimService } from '../services/commands/pay-claim.service';
+import { SettleClaimService } from '../services/commands/settle-claim.service';
+import { RejectClaimService } from '../services/commands/reject-claim.service';
 import { CloseClaimService } from '../services/commands/close-claim.service';
 import { GetClaimsService } from '../services/queries/get-claims.service';
 import { ReportClaimDto } from '../dto/report-claim.dto';
 import { AssignSurveyorDto } from '../dto/assign-surveyor.dto';
-import { AssessClaimDto } from '../dto/assess-claim.dto';
-import { PayClaimDto } from '../dto/pay-claim.dto';
 import { RequestUser } from '../../auth/decorators/current-user.decorator';
+import { PaginationDto } from '../../../common/pagination/pagination.dto';
 
 describe('ClaimsController', () => {
   let controller: ClaimsController;
   let reportClaimService: ReportClaimService;
   let uploadClaimDocumentService: UploadClaimDocumentService;
   let assignSurveyorService: AssignSurveyorService;
-  let assessClaimService: AssessClaimService;
   let approveClaimService: ApproveClaimService;
-  let payClaimService: PayClaimService;
+  let settleClaimService: SettleClaimService;
+  let rejectClaimService: RejectClaimService;
   let closeClaimService: CloseClaimService;
   let getClaimsService: GetClaimsService;
 
   const mockUser: RequestUser = {
     id: 'user-123',
+    userId: 'user-123',
     email: 'claims_officer@jestpolicy.com',
     role: RoleType.CLAIMS_OFFICER,
+    firstName: 'Claims',
+    lastName: 'Officer',
+    organizationId: 'org-1',
+    companyId: 'org-1',
+    roles: [RoleType.CLAIMS_OFFICER],
+    permissions: ['CLAIMS_READ', 'CLAIMS_WRITE'],
+    workspaces: ['OPERATIONS'],
+    status: UserStatus.ACTIVE,
   };
 
   const mockClaimResponse = {
@@ -79,16 +86,6 @@ describe('ClaimsController', () => {
           },
         },
         {
-          provide: AssessClaimService,
-          useValue: {
-            execute: jest.fn().mockResolvedValue({
-              ...mockClaimResponse,
-              status: ClaimStatus.UNDER_ASSESSMENT,
-              approvedAmount: 22000,
-            }),
-          },
-        },
-        {
           provide: ApproveClaimService,
           useValue: {
             execute: jest.fn().mockResolvedValue({
@@ -98,11 +95,20 @@ describe('ClaimsController', () => {
           },
         },
         {
-          provide: PayClaimService,
+          provide: SettleClaimService,
           useValue: {
             execute: jest.fn().mockResolvedValue({
               ...mockClaimResponse,
               status: ClaimStatus.SETTLED,
+            }),
+          },
+        },
+        {
+          provide: RejectClaimService,
+          useValue: {
+            execute: jest.fn().mockResolvedValue({
+              ...mockClaimResponse,
+              status: ClaimStatus.REJECTED,
             }),
           },
         },
@@ -133,9 +139,9 @@ describe('ClaimsController', () => {
     assignSurveyorService = module.get<AssignSurveyorService>(
       AssignSurveyorService,
     );
-    assessClaimService = module.get<AssessClaimService>(AssessClaimService);
     approveClaimService = module.get<ApproveClaimService>(ApproveClaimService);
-    payClaimService = module.get<PayClaimService>(PayClaimService);
+    settleClaimService = module.get<SettleClaimService>(SettleClaimService);
+    rejectClaimService = module.get<RejectClaimService>(RejectClaimService);
     closeClaimService = module.get<CloseClaimService>(CloseClaimService);
     getClaimsService = module.get<GetClaimsService>(GetClaimsService);
   });
@@ -154,17 +160,21 @@ describe('ClaimsController', () => {
     });
 
     it('should find all claims', async () => {
-      const result = await controller.findAll();
+      const pagination = new PaginationDto();
+      const result = await controller.findAll(pagination, mockUser);
       expect(result).toEqual([mockClaimResponse]);
-      expect(getClaimsService.executeAll).toHaveBeenCalled();
+      expect(getClaimsService.executeAll).toHaveBeenCalledWith(
+        pagination,
+        mockUser,
+      );
     });
 
     it('should find one claim', async () => {
-      const result = await controller.findOne('claim-123');
+      const result = await controller.findOne('claim-123', mockUser);
       expect(result).toEqual(mockClaimResponse);
       expect(getClaimsService.executeOne).toHaveBeenCalledWith(
         'claim-123',
-        undefined,
+        mockUser,
       );
     });
 
@@ -186,47 +196,30 @@ describe('ClaimsController', () => {
       );
     });
 
-    it('should assess a claim', async () => {
-      const dto = new AssessClaimDto();
-      dto.findings = 'Verified bumper damage';
-      dto.estimatedLoss = 25000;
-      dto.approvedAmount = 22000;
-
-      const result = await controller.assess('claim-123', dto, mockUser);
-      expect(result.status).toEqual(ClaimStatus.UNDER_ASSESSMENT);
-      expect(assessClaimService.execute).toHaveBeenCalledWith(
+    it('should approve a claim', async () => {
+      const dto = { approvedAmount: 22000, approvalNotes: 'Verified' };
+      const result = await controller.approve(
+        'claim-123',
+        dto as any,
+        mockUser,
+      );
+      expect(result.status).toEqual(ClaimStatus.APPROVED);
+      expect(approveClaimService.execute).toHaveBeenCalledWith(
         'claim-123',
         dto,
         mockUser.id,
       );
     });
 
-    it('should approve a claim', async () => {
-      const result = await controller.approve(
-        'claim-123',
-        true,
-        'Approved by Claims Officer',
-        mockUser,
-      );
-      expect(result.status).toEqual(ClaimStatus.APPROVED);
-      expect(approveClaimService.execute).toHaveBeenCalledWith(
-        'claim-123',
-        true,
-        'Approved by Claims Officer',
-        mockUser.id,
-      );
-    });
-
-    it('should pay a claim', async () => {
-      const dto = new PayClaimDto();
-      dto.amount = 22000;
-      dto.transactionId = 'TXN-987654';
-      dto.paymentMethod = 'BANK_TRANSFER';
-      dto.recipientDetails = 'John Doe - Bank of India';
-
-      const result = await controller.pay('claim-123', dto, mockUser);
+    it('should settle a claim', async () => {
+      const dto = {
+        settlementAmount: 22000,
+        settlementReference: 'TXN-123',
+        settlementNotes: 'Settled',
+      };
+      const result = await controller.settle('claim-123', dto as any, mockUser);
       expect(result.status).toEqual(ClaimStatus.SETTLED);
-      expect(payClaimService.execute).toHaveBeenCalledWith(
+      expect(settleClaimService.execute).toHaveBeenCalledWith(
         'claim-123',
         dto,
         mockUser.id,
@@ -253,9 +246,9 @@ describe('ClaimsController', () => {
       jest
         .spyOn(getClaimsService, 'executeOne')
         .mockRejectedValueOnce(new NotFoundException('Claim not found'));
-      await expect(controller.findOne('claim-nonexistent')).rejects.toThrow(
-        NotFoundException,
-      );
+      await expect(
+        controller.findOne('claim-nonexistent', mockUser),
+      ).rejects.toThrow(NotFoundException);
     });
 
     it('should propagate BadRequestException on invalid state transition', async () => {

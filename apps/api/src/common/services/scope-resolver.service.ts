@@ -26,10 +26,7 @@ const BRANCH_ROLES: RoleType[] = [
   RoleType.MARKETING_DIRECTOR,
 ];
 
-const TEAM_ROLES: RoleType[] = [
-  RoleType.TEAM_LEADER,
-  RoleType.SALES_MANAGER,
-];
+const TEAM_ROLES: RoleType[] = [RoleType.TEAM_LEADER, RoleType.SALES_MANAGER];
 
 /**
  * Models that DO NOT have a direct organizationId column.
@@ -45,7 +42,10 @@ const MODELS_WITHOUT_ORGANIZATION_ID: ResourceType[] = [
 
 @Injectable()
 export class ScopeResolver {
-  resolveScopeFilter(actor: ActorContext, resourceType: ResourceType): Record<string, any> {
+  resolveScopeFilter(
+    actor: ActorContext,
+    resourceType: ResourceType,
+  ): Record<string, any> {
     if (!actor || !actor.userId) {
       // Block unauthorized access by returning an impossible filter
       return { id: '__UNAUTHORIZED_ACCESS_BLOCKED__' };
@@ -89,10 +89,7 @@ export class ScopeResolver {
     switch (resourceType) {
       case 'LEAD':
         return {
-          OR: [
-            { assignedToId: actor.userId },
-            { createdById: actor.userId },
-          ],
+          OR: [{ assignedToId: actor.userId }, { createdById: actor.userId }],
         };
       case 'QUOTATION':
         return {

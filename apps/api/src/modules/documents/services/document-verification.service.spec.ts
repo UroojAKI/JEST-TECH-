@@ -1,10 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { DocumentVerificationService } from './document-verification.service';
 import { PrismaService } from '../../../database/prisma.service';
-import {
-  DocumentStatus,
-  DocumentVerificationStatus,
-} from '@prisma/client';
+import { DocumentStatus, DocumentVerificationStatus } from '@prisma/client';
 import {
   BadRequestException,
   ForbiddenException,
@@ -35,7 +32,9 @@ describe('DocumentVerificationService (G017 Lifecycle & Segregation of Duties)',
       ],
     }).compile();
 
-    service = module.get<DocumentVerificationService>(DocumentVerificationService);
+    service = module.get<DocumentVerificationService>(
+      DocumentVerificationService,
+    );
     prisma = module.get<PrismaService>(PrismaService);
   });
 
@@ -132,7 +131,9 @@ describe('DocumentVerificationService (G017 Lifecycle & Segregation of Duties)',
       );
 
       expect(result.lifecycleState).toBe('VERIFIED');
-      expect(result.verificationStatus).toBe(DocumentVerificationStatus.VERIFIED);
+      expect(result.verificationStatus).toBe(
+        DocumentVerificationStatus.VERIFIED,
+      );
       expect(mockPrisma.documentAccessLog.create).toHaveBeenCalled();
     });
 

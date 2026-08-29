@@ -6,7 +6,10 @@ import {
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { RoleType } from '@prisma/client';
-import { WORKSPACE_KEY, WorkspaceCode } from '../decorators/require-workspace.decorator';
+import {
+  WORKSPACE_KEY,
+  WorkspaceCode,
+} from '../decorators/require-workspace.decorator';
 import { ActorContext } from '../interfaces/actor-context.interface';
 
 export const WORKSPACE_ROLE_MATRIX: Record<WorkspaceCode, RoleType[]> = {
@@ -69,17 +72,15 @@ export const WORKSPACE_ROLE_MATRIX: Record<WorkspaceCode, RoleType[]> = {
     RoleType.ADMIN,
     RoleType.SYSTEM_ADMINISTRATOR,
   ],
-  PORTAL: [
-    RoleType.CUSTOMER,
-    RoleType.POSP_ADVISOR,
-    RoleType.SALES_AGENT,
-  ],
+  PORTAL: [RoleType.CUSTOMER, RoleType.POSP_ADVISOR, RoleType.SALES_AGENT],
 };
 
 /**
  * Resolves all permitted workspaces for a given ActorContext.
  */
-export function resolvePermittedWorkspaces(actor: ActorContext): WorkspaceCode[] {
+export function resolvePermittedWorkspaces(
+  actor: ActorContext,
+): WorkspaceCode[] {
   if (
     actor.roles?.includes(RoleType.SUPER_ADMIN) ||
     actor.role === RoleType.SUPER_ADMIN ||
@@ -99,9 +100,14 @@ export function resolvePermittedWorkspaces(actor: ActorContext): WorkspaceCode[]
   const actorRoles = actor.roles || [actor.role];
   const workspaces: WorkspaceCode[] = [];
 
-  for (const [workspace, roles] of Object.entries(WORKSPACE_ROLE_MATRIX) as [WorkspaceCode, RoleType[]][]) {
+  for (const [workspace, roles] of Object.entries(WORKSPACE_ROLE_MATRIX) as [
+    WorkspaceCode,
+    RoleType[],
+  ][]) {
     const hasRole = actorRoles.some((r) => roles.includes(r));
-    const hasPerm = actor.permissions?.includes(`workspace.${workspace.toLowerCase()}`);
+    const hasPerm = actor.permissions?.includes(
+      `workspace.${workspace.toLowerCase()}`,
+    );
     if (hasRole || hasPerm) {
       workspaces.push(workspace);
     }
@@ -128,7 +134,9 @@ export class WorkspaceAccessGuard implements CanActivate {
     const actor: ActorContext = request.user;
 
     if (!actor || !actor.userId) {
-      throw new ForbiddenException('Actor context required for workspace access');
+      throw new ForbiddenException(
+        'Actor context required for workspace access',
+      );
     }
 
     // Super Admin has universal workspace access
@@ -145,7 +153,9 @@ export class WorkspaceAccessGuard implements CanActivate {
     const hasRoleAccess = actorRoles.some((r) => allowedRoles.includes(r));
     const hasPermissionOverride =
       actor.permissions?.includes('*') ||
-      actor.permissions?.includes(`workspace.${requiredWorkspace.toLowerCase()}`);
+      actor.permissions?.includes(
+        `workspace.${requiredWorkspace.toLowerCase()}`,
+      );
 
     if (!hasRoleAccess && !hasPermissionOverride) {
       throw new ForbiddenException(

@@ -6,49 +6,6 @@ import { Sliders, Plus, Save, Hash, Loader2 } from 'lucide-react';
 import { useNumberSeries } from '../../../hooks/useAdmin';
 import { toast } from 'sonner';
 
-const MOCK_NUMBER_SERIES = [
-  {
-    id: 'NS-01',
-    entityType: 'Policy Schedule Number',
-    prefix: 'POL-',
-    suffix: '',
-    currentSequence: 1048,
-    paddingDigits: 6,
-    financialYearReset: true,
-    previewSample: 'POL-001048',
-  },
-  {
-    id: 'NS-02',
-    entityType: 'Claim Registration Number',
-    prefix: 'CLM-2026-',
-    suffix: '',
-    currentSequence: 42,
-    paddingDigits: 4,
-    financialYearReset: true,
-    previewSample: 'CLM-2026-0042',
-  },
-  {
-    id: 'NS-03',
-    entityType: 'Customer Premium Receipt Number',
-    prefix: 'RCT-',
-    suffix: '',
-    currentSequence: 2045,
-    paddingDigits: 6,
-    financialYearReset: true,
-    previewSample: 'RCT-002045',
-  },
-  {
-    id: 'NS-04',
-    entityType: 'Payment Disbursal Voucher Number',
-    prefix: 'PAY-',
-    suffix: '',
-    currentSequence: 103,
-    paddingDigits: 5,
-    financialYearReset: true,
-    previewSample: 'PAY-00103',
-  },
-];
-
 export default function NumberSeriesPage() {
   const { data: numberSeries = [], isLoading } = useNumberSeries();
   const [isUpdating, setIsUpdating] = React.useState(false);
