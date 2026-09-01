@@ -19,52 +19,61 @@ const OPERATIONAL_ROLES: RoleType[] = [
   RoleType.CHIEF_FINANCE_OFFICER,
   RoleType.CLAIMS_OFFICER,
   RoleType.RENEWAL_EXECUTIVE,
+  RoleType.CUSTOMER_SERVICE_EXECUTIVE,
 ];
 
-const BRANCH_ROLES: RoleType[] = [
-  RoleType.BRANCH_MANAGER,
-  RoleType.MARKETING_DIRECTOR,
-];
-
+const BRANCH_ROLES: RoleType[] = [RoleType.BRANCH_MANAGER, RoleType.MARKETING_DIRECTOR];
 const TEAM_ROLES: RoleType[] = [RoleType.TEAM_LEADER, RoleType.SALES_MANAGER];
 
 /**
- * Models that DO NOT have a direct organizationId column.
- * Scoping for these is through ownership (createdById / assignedToId) only.
+ * Models without a direct organizationId are scoped through the owning user.
+ * The owner -> branch -> zone -> region -> company hierarchy is the canonical
+ * organizational path in the current schema.
  */
-const MODELS_WITHOUT_ORGANIZATION_ID: ResourceType[] = [
-  'LEAD',
-  'QUOTATION',
-  'POLICY',
-  'CLAIM',
-  'RENEWAL_TASK',
-];
+const organizationOwnerFilter = (organizationId: string) => ({
+  createdBy: {
+    branch: {
+      zone: {
+        region: {
+          company: { id: organizationId },
+        },
+      },
+    },
+  },
+});
 
 @Injectable()
 export class ScopeResolver {
-  resolveScopeFilter(
-    actor: ActorContext,
-    resourceType: ResourceType,
-  ): Record<string, any> {
-    if (!actor || !actor.userId) {
-      // Block unauthorized access by returning an impossible filter
+  resolveScopeFilter(actor: ActorContext, resourceType: ResourceType): Record<string, any> {
+    if (!actor?.userId || !actor.organizationId) {
       return { id: '__UNAUTHORIZED_ACCESS_BLOCKED__' };
     }
 
-    const actorRoles: RoleType[] = actor.roles || [actor.role];
+    const roles = actor.roles?.length ? actor.roles : [actor.role];
 
-    // Super-admins and system admins see everything — no filter
-    if (actorRoles.some((r) => ADMIN_ROLES.includes(r))) {
-      return {};
+    // Admin visibility remains organization-wide in the current single-org product model.
+    if (roles.some((r) => ADMIN_ROLES.includes(r))) return {};
+
+    // Operational teams need organization-wide operational visibility, but never
+    // cross-organization visibility. Use the canonical owner hierarchy rather than {}.
+    if (roles.some((r) => OPERATIONAL_ROLES.includes(r))) {
+      const orgFilter = organizationOwnerFilter(actor.organizationId);
+      switch (resourceType) {
+        case 'LEAD':
+        case 'QUOTATION':
+        case 'POLICY':
+        case 'CLAIM':
+        case 'RENEWAL_TASK':
+        case 'ACCOUNT':
+        case 'CONTACT':
+          return orgFilter;
+        default:
+          return orgFilter;
+      }
     }
 
-    // Operational roles see everything in the system — no ownership filter
-    if (actorRoles.some((r) => OPERATIONAL_ROLES.includes(r))) {
-      return {};
-    }
-
-    // Branch managers: filter by branch via relation (createdBy.branchId)
-    if (actorRoles.some((r) => BRANCH_ROLES.includes(r)) && actor.branchId) {
+    if (roles.some((r) => BRANCH_ROLES.includes(r))) {
+      if (!actor.branchId) return { id: '__BRANCH_CONTEXT_REQUIRED__' };
       return {
         OR: [
           { createdBy: { branchId: actor.branchId } },
@@ -74,8 +83,8 @@ export class ScopeResolver {
       };
     }
 
-    // Team leaders / sales managers: filter by team via relation
-    if (actorRoles.some((r) => TEAM_ROLES.includes(r)) && actor.teamId) {
+    if (roles.some((r) => TEAM_ROLES.includes(r))) {
+      if (!actor.teamId) return { id: '__TEAM_CONTEXT_REQUIRED__' };
       return {
         OR: [
           { createdBy: { teamId: actor.teamId } },
@@ -85,44 +94,19 @@ export class ScopeResolver {
       };
     }
 
-    // Default: ownership-based filter for agents and customer-facing roles
     switch (resourceType) {
       case 'LEAD':
-        return {
-          OR: [{ assignedToId: actor.userId }, { createdById: actor.userId }],
-        };
+        return { OR: [{ assignedToId: actor.userId }, { createdById: actor.userId }] };
       case 'QUOTATION':
-        return {
-          OR: [
-            { createdById: actor.userId },
-            { lead: { assignedToId: actor.userId } },
-          ],
-        };
+        return { OR: [{ createdById: actor.userId }, { lead: { assignedToId: actor.userId } }] };
       case 'POLICY':
-        return {
-          OR: [
-            { createdById: actor.userId },
-            { quotation: { createdById: actor.userId } },
-          ],
-        };
+        return { OR: [{ createdById: actor.userId }, { quotation: { createdById: actor.userId } }] };
       case 'CLAIM':
-        return {
-          OR: [
-            { createdById: actor.userId },
-            { policy: { createdById: actor.userId } },
-          ],
-        };
+        return { OR: [{ createdById: actor.userId }, { policy: { createdById: actor.userId } }] };
       case 'RENEWAL_TASK':
-        return {
-          OR: [
-            { agentId: actor.userId },
-            { policy: { createdById: actor.userId } },
-          ],
-        };
+        return { OR: [{ agentId: actor.userId }, { policy: { createdById: actor.userId } }] };
       default:
-        return {
-          createdById: actor.userId,
-        };
+        return { createdById: actor.userId };
     }
   }
 }
