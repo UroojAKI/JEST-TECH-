@@ -9,7 +9,6 @@ import { PolicyRepository } from '../../repositories/policy.repository';
 import { PolicyMapper } from '../../mappers/policy.mapper';
 import { RenewPolicyDto } from '../../dto/renew-policy.dto';
 import { PolicyDomainService } from '../../domain/policy.domain-service';
-import { Money } from '../../../../common/domain/value-objects/money.value-object';
 import { RenewalEngineService } from '../renewal-engine.service';
 import { PrismaService } from '../../../../database/prisma.service';
 
@@ -28,36 +27,44 @@ export class RenewPolicyService {
         where: { id, deletedAt: null },
         include: { quotation: true },
       });
-      if (!existing) {
-        throw new NotFoundException(`Policy with ID ${id} not found`);
+      if (!existing) throw new NotFoundException(`Policy with ID ${id} not found`);
+
+      if (existing.status !== PolicyStatus.ACTIVE && existing.status !== PolicyStatus.PENDING_RENEWAL) {
+        throw new BadRequestException(`Only ACTIVE or PENDING_RENEWAL policies can be renewed. Current status: ${existing.status}`);
+      }
+
+      if (dto.switchInsurer) {
+        throw new BadRequestException(
+          'Insurer switching cannot be represented by a history note. Create a new renewal quotation with the target insurer before completing renewal.',
+        );
       }
 
       const previousExpiry = existing.expiryDate;
       const newExpiryDate = new Date(dto.newExpiry);
+      if (Number.isNaN(newExpiryDate.getTime())) {
+        throw new BadRequestException('newExpiry must be a valid date');
+      }
 
-      // Delegate validation to PolicyDomainService
+      // Premium is an authoritative server value. The client cannot set the renewal premium.
+      const authoritativePremium = new Prisma.Decimal(existing.premiumAmount);
+      if (dto.premiumAmount !== undefined && Math.abs(Number(dto.premiumAmount) - Number(authoritativePremium)) > 0.01) {
+        throw new BadRequestException(
+          `Renewal premium mismatch. Client supplied ₹${dto.premiumAmount}, but the authoritative policy snapshot is ₹${authoritativePremium.toString()}. A renewal quotation must be created for any repricing.`,
+        );
+      }
+
       this.policyDomainService.validateRenewal(
         existing.status,
         previousExpiry,
         newExpiryDate,
-        dto.premiumAmount,
+        Number(authoritativePremium),
       );
 
       let nextNcb = 0;
-      let ncbAppliedStr = '';
-      if (
-        existing.quotation &&
-        typeof existing.quotation.ncbPercentage === 'number'
-      ) {
-        nextNcb = this.renewalEngineService.calculateNextNCBSlab(
-          existing.quotation.ncbPercentage,
-        );
-        ncbAppliedStr = ` [NCB_APPLIED: ${nextNcb}%]`;
+      if (existing.quotation && typeof existing.quotation.ncbPercentage === 'number') {
+        nextNcb = this.renewalEngineService.calculateNextNCBSlab(existing.quotation.ncbPercentage);
       }
 
-      const insurerSwitchStr = dto.switchInsurer ? ' [INSURER_SWITCH]' : '';
-
-      // 1. Update Policy Expiry, Status and Increment Version
       await tx.policy.update({
         where: { id },
         data: {
@@ -68,23 +75,21 @@ export class RenewPolicyService {
         },
       });
 
-      // 2. Add PolicyRenewal Record
       await tx.policyRenewal.create({
         data: {
           policyId: id,
           renewalNumber: dto.renewalNumber,
           previousExpiry,
           newExpiry: newExpiryDate,
-          premiumAmount: Money.from(dto.premiumAmount).value,
+          premiumAmount: authoritativePremium,
         },
       });
 
-      // 3. Log History Entry
       await tx.policyHistory.create({
         data: {
           policyId: id,
           status: 'RENEWAL',
-          comments: `Policy renewed successfully. Renewal Number: ${dto.renewalNumber}. New Expiry: ${newExpiryDate.toISOString()}${ncbAppliedStr}${insurerSwitchStr}`,
+          comments: `Policy renewed successfully. Renewal Number: ${dto.renewalNumber}. New Expiry: ${newExpiryDate.toISOString()} [AUTHORITATIVE_PREMIUM: ${authoritativePremium.toString()}] [NEXT_NCB: ${nextNcb}%]`,
           createdById: renewedById,
         },
       });
