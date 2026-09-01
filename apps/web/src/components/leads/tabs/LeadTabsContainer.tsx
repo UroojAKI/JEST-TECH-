@@ -53,11 +53,6 @@ export function LeadTabsContainer({
 }) {
   const [activeTab, setActiveTab] = useState<string>('ACTIVITIES');
 
-  // Per-lead storage keys
-  const activitiesKey = `jest_lead_activities_${leadId}`;
-  const notesKey = `jest_lead_notes_${leadId}`;
-  const localQuotesKey = `jest_motor_quotes_${leadId}`;
-
   const [activities, setActivities] = useState<FollowUpItem[]>([]);
   const [notes, setNotes] = useState<NoteItem[]>([]);
   const [motorQuotes, setMotorQuotes] = useState<SavedMotorQuote[]>([]);
@@ -68,20 +63,44 @@ export function LeadTabsContainer({
   const [showAddActivity, setShowAddActivity] = useState(false);
   const [showAddNote, setShowAddNote] = useState(false);
 
-  // Load per-lead items on mount
-  useEffect(() => {
+  // Load activities & notes from authoritative backend API
+  const loadActivitiesAndNotes = useCallback(async () => {
     try {
-      const savedActs = localStorage.getItem(activitiesKey);
-      setActivities(savedActs ? JSON.parse(savedActs) : []);
-      const savedNotes = localStorage.getItem(notesKey);
-      setNotes(savedNotes ? JSON.parse(savedNotes) : []);
+      const res = await apiClient.get(`/leads/${leadId}`);
+      const leadData = res.data;
+      if (leadData?.activities) {
+        setActivities(
+          leadData.activities.map((a: any) => ({
+            id: a.id,
+            type: a.type || 'TASK',
+            text: a.subject || a.description || 'Follow-up',
+            time: a.dueDate ? new Date(a.dueDate).toLocaleDateString() : 'Scheduled',
+            status: a.status || 'PENDING',
+          })),
+        );
+      }
+      if (leadData?.notes) {
+        setNotes(
+          leadData.notes.map((n: any) => ({
+            id: n.id,
+            author: n.createdById || 'Agent',
+            text: n.content,
+            isPinned: false,
+            createdAt: new Date(n.createdAt).toLocaleDateString(),
+          })),
+        );
+      }
     } catch {
       setActivities([]);
       setNotes([]);
     }
-  }, [leadId, activitiesKey, notesKey]);
+  }, [leadId]);
 
-  // Load motor quotes: API first, then merge with localStorage
+  useEffect(() => {
+    loadActivitiesAndNotes();
+  }, [loadActivitiesAndNotes]);
+
+  // Load motor quotes: API first
   const loadMotorQuotes = useCallback(async () => {
     setIsLoadingQuotes(true);
     try {
@@ -104,24 +123,13 @@ export function LeadTabsContainer({
           createdAt: q.createdAt,
         }));
 
-      // Merge with localStorage quotes (remove those already in API)
-      const localRaw = JSON.parse(localStorage.getItem(localQuotesKey) || '[]');
-      const apiIds = new Set(apiQuotes.map((q) => q.id));
-      const localOnly = localRaw.filter((q: any) => q.id?.startsWith('local-') && !apiIds.has(q.id));
-
-      setMotorQuotes([...apiQuotes, ...localOnly]);
+      setMotorQuotes(apiQuotes);
     } catch {
-      // Fallback to localStorage entirely
-      try {
-        const localRaw = JSON.parse(localStorage.getItem(localQuotesKey) || '[]');
-        setMotorQuotes(localRaw);
-      } catch {
-        setMotorQuotes([]);
-      }
+      setMotorQuotes([]);
     } finally {
       setIsLoadingQuotes(false);
     }
-  }, [leadId, localQuotesKey]);
+  }, [leadId]);
 
   useEffect(() => {
     if (activeTab === 'QUOTATIONS') {
@@ -134,40 +142,46 @@ export function LeadTabsContainer({
   const [actText, setActText] = useState('');
   const [noteText, setNoteText] = useState('');
 
-  const handleAddActivity = (e: React.FormEvent) => {
+  const handleAddActivity = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!actText) return;
-    const newAct: FollowUpItem = {
-      id: `ACT-${Date.now().toString().slice(-4)}`,
-      type: actType,
-      text: actText,
-      time: 'Just now',
-      status: 'Scheduled',
-    };
-    const updated = [newAct, ...activities];
-    setActivities(updated);
-    localStorage.setItem(activitiesKey, JSON.stringify(updated));
-    toast.success('Follow-up activity scheduled!');
-    setActText('');
-    setShowAddActivity(false);
+    try {
+      const typeNormalized =
+        actType.toUpperCase() === 'CALL'
+          ? 'CALL'
+          : actType.toUpperCase() === 'EMAIL'
+            ? 'EMAIL'
+            : actType.toUpperCase() === 'MEETING'
+              ? 'MEETING'
+              : 'TASK';
+      await apiClient.post(`/leads/${leadId}/activities`, {
+        type: typeNormalized,
+        subject: actText,
+        dueDate: new Date(),
+      });
+      toast.success('Follow-up activity scheduled!');
+      setActText('');
+      setShowAddActivity(false);
+      await loadActivitiesAndNotes();
+    } catch (err: any) {
+      toast.error(`Failed to schedule activity: ${err.message || 'Error'}`);
+    }
   };
 
-  const handleAddNote = (e: React.FormEvent) => {
+  const handleAddNote = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!noteText) return;
-    const newNote: NoteItem = {
-      id: `NOTE-${Date.now().toString().slice(-4)}`,
-      author: 'Active User',
-      text: noteText,
-      isPinned: true,
-      createdAt: 'Just now',
-    };
-    const updated = [newNote, ...notes];
-    setNotes(updated);
-    localStorage.setItem(notesKey, JSON.stringify(updated));
-    toast.success('Note added to lead!');
-    setNoteText('');
-    setShowAddNote(false);
+    try {
+      await apiClient.post(`/leads/${leadId}/notes`, {
+        content: noteText,
+      });
+      toast.success('Note added to lead!');
+      setNoteText('');
+      setShowAddNote(false);
+      await loadActivitiesAndNotes();
+    } catch (err: any) {
+      toast.error(`Failed to save note: ${err.message || 'Error'}`);
+    }
   };
 
   const handleQuoteSaved = (quote: any) => {

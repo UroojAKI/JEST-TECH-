@@ -4,6 +4,10 @@ import * as argon2 from 'argon2';
 const prisma = new PrismaClient();
 
 async function main() {
+  if (process.env.NODE_ENV === 'production' && !process.env.ALLOW_PRODUCTION_SEED) {
+    throw new Error('FATAL: Seed execution prohibited in production environment (AUTH-004).');
+  }
+
   console.log("🌱 Starting atomic database seeding...");
 
   await prisma.$transaction(async (tx) => {
@@ -190,21 +194,113 @@ async function main() {
     }
 
     // -------------------------------------------------------------------------
-    // 5. SEED USERS FOR 10 ROLES
+    // 4b. SEED COMPANY, REGION, ZONE, AND BRANCHES
+    // -------------------------------------------------------------------------
+    const company = await tx.company.upsert({
+      where: { code: "JEST_INDIA" },
+      update: {},
+      create: {
+        code: "JEST_INDIA",
+        name: "JEST Insurance Brokers Pvt Ltd",
+        isActive: true,
+      },
+    });
+
+    const region = await tx.region.upsert({
+      where: { code: "WEST" },
+      update: {},
+      create: {
+        code: "WEST",
+        name: "Western Region",
+        companyId: company.id,
+        isActive: true,
+      },
+    });
+
+    const zone = await tx.zone.upsert({
+      where: { code: "MAH" },
+      update: {},
+      create: {
+        code: "MAH",
+        name: "Maharashtra Zone",
+        regionId: region.id,
+        isActive: true,
+      },
+    });
+
+    const branchBkc = await tx.branch.upsert({
+      where: { code: "BOM-BKC" },
+      update: {},
+      create: {
+        code: "BOM-BKC",
+        name: "Mumbai BKC Flagship Branch",
+        city: "Mumbai",
+        state: "Maharashtra",
+        zoneId: zone.id,
+        isActive: true,
+      },
+    });
+
+    await tx.branch.upsert({
+      where: { code: "PUN-SHV" },
+      update: {},
+      create: {
+        code: "PUN-SHV",
+        name: "Pune Shivajinagar Branch",
+        city: "Pune",
+        state: "Maharashtra",
+        zoneId: zone.id,
+        isActive: true,
+      },
+    });
+
+    await tx.branch.upsert({
+      where: { code: "BLR-IND" },
+      update: {},
+      create: {
+        code: "BLR-IND",
+        name: "Bengaluru Indiranagar Branch",
+        city: "Bengaluru",
+        state: "Karnataka",
+        zoneId: zone.id,
+        isActive: true,
+      },
+    });
+
+    await tx.branch.upsert({
+      where: { code: "DEL-CP" },
+      update: {},
+      create: {
+        code: "DEL-CP",
+        name: "Delhi Connaught Place Branch",
+        city: "New Delhi",
+        state: "Delhi",
+        zoneId: zone.id,
+        isActive: true,
+      },
+    });
+
+    // -------------------------------------------------------------------------
+    // 5. SEED USERS FOR CANONICAL PERSONAS
     // -------------------------------------------------------------------------
     const passwordHash = await argon2.hash("Password@123");
     
     const users = [
+      { email: "superadmin@jest.com", fn: "Super", ln: "Administrator", role: "SUPER_ADMIN", jr: "ADMIN" },
+      { email: "admin@jest.com", fn: "System", ln: "Administrator", role: "SYSTEM_ADMINISTRATOR", jr: "ADMIN" },
+      { email: "manager@jest.com", fn: "Sunil", ln: "Verma", role: "BRANCH_MANAGER", jr: "SM" },
+      { email: "agent@jest.com", fn: "Rajesh", ln: "Sharma", role: "POSP_ADVISOR", jr: "AGENT" },
+      { email: "underwriter@jest.com", fn: "Anjali", ln: "Deshmukh", role: "UNDERWRITER", jr: "OPS" },
+      { email: "claims@jest.com", fn: "Vikram", ln: "Mehta", role: "CLAIMS_OFFICER", jr: "CRE" },
+      { email: "finance@jest.com", fn: "Priya", ln: "Nair", role: "FINANCE", jr: "FIN" },
       { email: "md@jest.com", fn: "Executive", ln: "Managing Director", role: "MD_CEO", jr: "CEO" },
       { email: "sm@jest.com", fn: "Regional", ln: "Sales Manager", role: "SALES_MANAGER", jr: "SM" },
-      { email: "agent@jest.com", fn: "Rajesh", ln: "Sharma", role: "POSP_ADVISOR", jr: "AGENT" },
       { email: "renewal@jest.com", fn: "Retention", ln: "Renewal Executive", role: "RENEWAL_EXECUTIVE", jr: "RENEWAL" },
       { email: "cre@jest.com", fn: "Support", ln: "Customer Exec", role: "CUSTOMER_SERVICE_EXECUTIVE", jr: "CRE" },
       { email: "arm@jest.com", fn: "Network", ln: "Agent Manager", role: "AGENT_MANAGER", jr: "ARM" },
       { backoffice: true, email: "backoffice@jest.com", fn: "Backend", ln: "Issuance Officer", role: "POLICY_ISSUANCE_EXECUTIVE", jr: "OPS" },
       { email: "accounts@jest.com", fn: "Priya", ln: "Finance", role: "FINANCE_ACCOUNTS_EXECUTIVE", jr: "FIN" },
-      { email: "marketing@jest.com", fn: "Digital", ln: "Marketing", role: "MARKETING_DIRECTOR", jr: "MKTG" },
-      { email: "admin@jest.com", fn: "System", ln: "Administrator", role: "SYSTEM_ADMINISTRATOR", jr: "ADMIN" }
+      { email: "marketing@jest.com", fn: "Digital", ln: "Marketing", role: "MARKETING_DIRECTOR", jr: "MKTG" }
     ];
 
     let empCounter = Math.floor(Date.now() / 1000);
@@ -213,7 +309,12 @@ async function main() {
       if (r) {
         await tx.user.upsert({
           where: { email: u.email },
-          update: { roleId: r.id, jobRoleId: seededJobRoles[u.jr].id, departmentId: seededJobRoles[u.jr].departmentId },
+          update: { 
+            roleId: r.id, 
+            jobRoleId: seededJobRoles[u.jr].id, 
+            departmentId: seededJobRoles[u.jr].departmentId,
+            branchId: branchBkc.id,
+          },
           create: {
             email: u.email,
             firstName: u.fn,
@@ -224,6 +325,7 @@ async function main() {
             roleId: r.id,
             jobRoleId: seededJobRoles[u.jr].id,
             departmentId: seededJobRoles[u.jr].departmentId,
+            branchId: branchBkc.id,
             employeeCode: `EMP-${String(empCounter++).padStart(6, '0')}`,
           }
         });

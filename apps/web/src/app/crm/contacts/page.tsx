@@ -10,57 +10,28 @@ import { useCustomers } from '../../../hooks/useCustomer360';
 import { customerRepository } from '../../../repositories/customer.repository';
 import { toast } from 'sonner';
 
-const STORAGE_KEY = 'jest_crm_customers_v3';
-
 export default function CustomerRegisterPage() {
   const router = useNav();
   const [savedView, setSavedView] = useState<string>('ALL');
   const [showAddModal, setShowAddModal] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [storedCustomers, setStoredCustomers] = useState<any[]>([]);
 
-  const { customers: apiCustomers } = useCustomers();
+  const { customers: apiCustomers, refetch } = useCustomers();
 
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) {
-        setStoredCustomers(JSON.parse(saved));
-      } else {
-        setStoredCustomers([]);
-      }
-    } catch (e) {
-      setStoredCustomers([]);
-    }
-  }, []);
+  const safeApiCustomers = Array.isArray(apiCustomers)
+    ? apiCustomers
+    : ((apiCustomers as any)?.items || (apiCustomers as any)?.data || []);
 
-  const saveCustomersToStorage = (updated: any[]) => {
-    setStoredCustomers(updated);
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-    } catch (e) {
-      // ignore
-    }
-  };
-
-  const customersMap = new Map<string, any>();
-  storedCustomers.forEach((c) => customersMap.set(c.id, c));
-  const safeApiCustomers = Array.isArray(apiCustomers) ? apiCustomers : ((apiCustomers as any)?.items || (apiCustomers as any)?.data || []);
-  (safeApiCustomers).forEach((c: any) => {
-    if (!customersMap.has(c.id)) {
-      customersMap.set(c.id, {
-        id: c.id,
-        name: `${c.firstName || ''} ${c.lastName || ''}`.trim() || c.name || 'Unnamed Client',
-        type: c.type || 'INDIVIDUAL',
-        phone: c.phone || '-',
-        email: c.email || '-',
-        branch: c.branchId || 'Head Office',
-        tag: c.tags?.[0] || 'NEW',
-        status: 'ACTIVE',
-      });
-    }
-  });
-  const combinedCustomers = Array.from(customersMap.values());
+  const combinedCustomers = safeApiCustomers.map((c: any) => ({
+    id: c.id,
+    name: `${c.firstName || ''} ${c.lastName || ''}`.trim() || c.name || 'Unnamed Client',
+    type: c.type || 'INDIVIDUAL',
+    phone: c.phone || '-',
+    email: c.email || '-',
+    branch: c.branchId || 'Head Office',
+    tag: c.tags?.[0] || 'NEW',
+    status: 'ACTIVE',
+  }));
 
   const [formData, setFormData] = useState({
     name: '',
@@ -92,39 +63,22 @@ export default function CustomerRegisterPage() {
         payload.email = formData.email.trim();
       }
 
-      const newCustomer = await customerRepository.createContact(payload);
-
-
-      const formatted = {
-        id: newCustomer.id || `CUST-${Date.now().toString().slice(-6)}`,
-        name: formData.name,
-        type: formData.type,
-        phone: formData.phone,
-        email: formData.email || 'n/a',
-        branch: formData.branch,
-        tag: formData.tag,
-        status: 'ACTIVE',
-      };
-
-      saveCustomersToStorage([formatted, ...storedCustomers]);
-      toast.success(`Customer "${formData.name}" registered and saved!`);
+      await customerRepository.createContact(payload);
+      await refetch();
+      toast.success(`Customer "${formData.name}" registered successfully!`);
       setShowAddModal(false);
-      setFormData({ name: '', type: 'INDIVIDUAL', phone: '', email: '', branch: 'Mumbai BKC', tag: 'REGULAR' });
+      setFormData({
+        name: '',
+        type: 'INDIVIDUAL',
+        phone: '',
+        email: '',
+        branch: 'Mumbai BKC',
+        tag: 'REGULAR',
+      });
     } catch (err: any) {
-      const formatted = {
-        id: `CUST-${Date.now().toString().slice(-6)}`,
-        name: formData.name,
-        type: formData.type,
-        phone: formData.phone,
-        email: formData.email || 'n/a',
-        branch: formData.branch,
-        tag: formData.tag,
-        status: 'ACTIVE',
-      };
-      saveCustomersToStorage([formatted, ...storedCustomers]);
-      toast.success(`Customer "${formData.name}" registered and saved!`);
-      setShowAddModal(false);
-      setFormData({ name: '', type: 'INDIVIDUAL', phone: '', email: '', branch: 'Mumbai BKC', tag: 'REGULAR' });
+      toast.error(
+        `Failed to register customer: ${err.message || 'Server error'}`,
+      );
     } finally {
       setIsSubmitting(false);
     }

@@ -38,4 +38,20 @@ export class CreateUserDto {
   @IsOptional()
   @IsString()
   branch?: string;
+
+  @IsOptional()
+  @IsString()
+  branchId?: string;
+
+  @IsOptional()
+  @IsString()
+  jobRole?: string;
+
+  @IsOptional()
+  @IsString()
+  department?: string;
+
+  @IsOptional()
+  @IsString()
+  teamId?: string;
 }

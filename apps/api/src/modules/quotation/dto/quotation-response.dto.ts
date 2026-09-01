@@ -73,7 +73,19 @@ export class QuotationResponseDto {
   policyType?: string | null;
   registrationNumber?: string | null;
   motorMetadata?: any;
-  workflowState?: string | null;
+  workflowState?:
+    | {
+        status: string;
+        ownerId: string | null;
+        ownerName: string | null;
+        waitingFor: string;
+        nextAction: string;
+        blocker: string | null;
+        dueAt: Date | null;
+        lastTransitionAt: Date;
+      }
+    | string
+    | null;
   issuanceStatus?: string | null;
   calculationSnapshot?: any;
 

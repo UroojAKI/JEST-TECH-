@@ -35,6 +35,11 @@ export const policiesRepository = {
   },
 
   async createPolicy(data: any): Promise<PolicyItem> {
+    const quotationId = data?.quotationId || data?.quoteId;
+    if (quotationId) {
+      const response = await apiClient.post(`/back-office/issue/${quotationId}`, data);
+      return response.data;
+    }
     const response = await apiClient.post('/policies', data);
     return response.data;
   },
@@ -50,6 +55,11 @@ export const policiesRepository = {
   },
 
   async issuePolicy(data: any): Promise<PolicyItem> {
+    const quotationId = data?.quotationId || data?.quoteId;
+    if (quotationId) {
+      const response = await apiClient.post(`/back-office/issue/${quotationId}`, data);
+      return response.data;
+    }
     const response = await apiClient.post('/policies/issue', data);
     return response.data;
   },

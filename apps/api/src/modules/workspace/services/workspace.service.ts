@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { RoleType } from '@prisma/client';
 import { PrismaService } from '../../../database/prisma.service';
 import { WorkspaceFactory } from '../factories/workspace.factory';
@@ -167,10 +171,35 @@ export class WorkspaceService {
       where: { id: userId },
       include: {
         role: { include: { permissions: { include: { permission: true } } } },
+        branch: {
+          include: {
+            zone: {
+              include: {
+                region: {
+                  include: {
+                    company: true,
+                  },
+                },
+              },
+            },
+          },
+        },
       },
     });
     if (!user)
       throw new NotFoundException(`User with ID '${userId}' not found`);
+
+    let orgId = (user as any).branch?.zone?.region?.company?.id;
+    if (!orgId) {
+      const primaryCompany = await this.prisma.company.findFirst({
+        where: { isActive: true },
+        select: { id: true },
+      });
+      orgId = primaryCompany?.id;
+    }
+    if (!orgId) {
+      throw new UnauthorizedException('Missing organizational tenant context');
+    }
 
     const roleType = user.role.type || user.role.code;
     const permissions =
@@ -181,8 +210,9 @@ export class WorkspaceService {
       email: user.email,
       firstName: user.firstName,
       lastName: user.lastName,
-      organizationId: 'DEFAULT_ORG',
-      companyId: 'DEFAULT_ORG',
+      organizationId: orgId,
+      companyId: orgId,
+      branchId: user.branchId || undefined,
       role: roleType,
       roles: [roleType],
       permissions,

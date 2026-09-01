@@ -8,6 +8,7 @@ import {
   QuotationStatus,
   InspectionStatus,
   DocumentVerificationStatus,
+  Prisma,
 } from '@prisma/client';
 
 export interface GateStatus {
@@ -49,11 +50,18 @@ export class BackOfficeQueueService {
   /**
    * Retrieves the Back-Office Policy Issuance Queue with multi-gate validation (G021).
    */
-  async getBackOfficeQueue(params?: { search?: string; status?: string }) {
+  async getBackOfficeQueue(params?: {
+    search?: string;
+    status?: string;
+    quotationId?: string;
+  }) {
+    const where: Prisma.QuotationWhereInput = {
+      status: { in: [QuotationStatus.APPROVED, QuotationStatus.ACCEPTED] },
+      ...(params?.quotationId ? { id: params.quotationId } : {}),
+    };
+
     const quotations = await this.prisma.quotation.findMany({
-      where: {
-        status: QuotationStatus.APPROVED,
-      },
+      where,
       include: {
         contact: true,
         createdBy: {
@@ -284,12 +292,12 @@ export class BackOfficeQueueService {
    * Throws BadRequestException detailing blockers if any gate fails.
    */
   async validateIssuanceGates(quotationId: string) {
-    const queueResult = await this.getBackOfficeQueue();
+    const queueResult = await this.getBackOfficeQueue({ quotationId });
     const item = queueResult.data.find((q) => q.id === quotationId);
 
     if (!item) {
       throw new NotFoundException(
-        `Quotation ${quotationId} not found in Back-Office queue`,
+        `Quotation ${quotationId} not found in Back-Office queue or not in APPROVED/ACCEPTED status`,
       );
     }
 

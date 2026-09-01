@@ -2,85 +2,40 @@
 
 import React, { useState } from 'react';
 import { AppShell } from '../../../components/layout/app-shell';
-import { Building2, Plus, MapPin, X, Loader2 } from 'lucide-react';
+import { Building2, Plus, MapPin, Loader2, AlertCircle } from 'lucide-react';
 import { StatusBadge } from '../../../components/ui/status-badge';
 import { toast } from 'sonner';
-
-interface BranchItem {
-  id: string;
-  code: string;
-  name: string;
-  city: string;
-  state: string;
-  managerName: string;
-  staffCount: number;
-  activePolicies: number;
-  monthlyGwp: number;
-  status: string;
-}
-
-const INITIAL_BRANCHES: BranchItem[] = [
-  {
-    id: 'BR-01',
-    code: 'BOM-BKC',
-    name: 'Mumbai BKC Flagship Branch',
-    city: 'Mumbai',
-    state: 'Maharashtra',
-    managerName: 'Sunil Verma',
-    staffCount: 42,
-    activePolicies: 4850,
-    monthlyGwp: 18400000,
-    status: 'ACTIVE',
-  },
-  {
-    id: 'BR-02',
-    code: 'PUN-SHV',
-    name: 'Pune Shivajinagar Branch',
-    city: 'Pune',
-    state: 'Maharashtra',
-    managerName: 'Rajesh Sharma',
-    staffCount: 28,
-    activePolicies: 3200,
-    monthlyGwp: 14200000,
-    status: 'ACTIVE',
-  },
-  {
-    id: 'BR-03',
-    code: 'BLR-IND',
-    name: 'Bengaluru Indiranagar Tech Branch',
-    city: 'Bengaluru',
-    state: 'Karnataka',
-    managerName: 'Priya Nair',
-    staffCount: 24,
-    activePolicies: 2800,
-    monthlyGwp: 10500000,
-    status: 'ACTIVE',
-  },
-  {
-    id: 'BR-04',
-    code: 'DEL-CP',
-    name: 'Delhi Connaught Place Branch',
-    city: 'New Delhi',
-    state: 'Delhi',
-    managerName: 'Vikram Mehta',
-    staffCount: 16,
-    activePolicies: 1630,
-    monthlyGwp: 5400000,
-    status: 'ACTIVE',
-  },
-];
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { adminRepository, BranchItem } from '../../../repositories/admin.repository';
 
 export default function BranchManagementPage() {
-  const [branches, setBranches] = useState<BranchItem[]>(INITIAL_BRANCHES);
+  const queryClient = useQueryClient();
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [form, setForm] = useState({
     name: '',
     code: '',
     city: '',
     state: '',
-    managerName: '',
+    address: '',
+  });
+
+  const { data: branches = [], isLoading, isError, refetch } = useQuery<BranchItem[]>({
+    queryKey: ['admin-branches'],
+    queryFn: adminRepository.getBranches,
+  });
+
+  const createMutation = useMutation({
+    mutationFn: adminRepository.createBranch,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-branches'] });
+      toast.success('Branch created and synchronized successfully with database');
+      setForm({ name: '', code: '', city: '', state: '', address: '' });
+      setIsModalOpen(false);
+    },
+    onError: (err: any) => {
+      toast.error(err?.response?.data?.message || 'Failed to create branch');
+    },
   });
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -90,26 +45,13 @@ export default function BranchManagementPage() {
       return;
     }
 
-    setIsSubmitting(true);
-    setTimeout(() => {
-      const newBranch: BranchItem = {
-        id: `BR-0${branches.length + 1}`,
-        code: form.code.toUpperCase(),
-        name: form.name,
-        city: form.city,
-        state: form.state || 'Maharashtra',
-        managerName: form.managerName || 'Unassigned',
-        staffCount: 1,
-        activePolicies: 0,
-        monthlyGwp: 0,
-        status: 'ACTIVE',
-      };
-      setBranches([newBranch, ...branches]);
-      toast.info('Branch created! (Syncing with API...)');
-      setForm({ name: '', code: '', city: '', state: '', managerName: '' });
-      setIsSubmitting(false);
-      setIsModalOpen(false);
-    }, 400);
+    createMutation.mutate({
+      name: form.name,
+      code: form.code.toUpperCase(),
+      city: form.city,
+      state: form.state || 'Maharashtra',
+      address: form.address,
+    });
   };
 
   return (
@@ -185,12 +127,12 @@ export default function BranchManagementPage() {
                 />
               </div>
               <div>
-                <label className="font-bold text-muted-foreground block mb-1">Manager Name</label>
+                <label className="font-bold text-muted-foreground block mb-1">Address / Street</label>
                 <input
                   type="text"
-                  placeholder="Anil Reddy"
-                  value={form.managerName}
-                  onChange={(e) => setForm({ ...form, managerName: e.target.value })}
+                  placeholder="Madhapur Main Road"
+                  value={form.address}
+                  onChange={(e) => setForm({ ...form, address: e.target.value })}
                   className="w-full p-2.5 rounded-lg border bg-background text-foreground text-xs focus:ring-1 focus:ring-primary"
                 />
               </div>
@@ -198,56 +140,82 @@ export default function BranchManagementPage() {
             <div className="pt-3 flex justify-end">
               <button
                 type="submit"
-                disabled={isSubmitting}
+                disabled={createMutation.isPending}
                 className="px-4 py-2 rounded-lg bg-primary text-primary-foreground font-bold hover:bg-primary/90 shadow flex items-center space-x-1"
               >
-                {isSubmitting && <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />}
-                <span>{isSubmitting ? 'Creating...' : 'Create Branch'}</span>
+                {createMutation.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />}
+                <span>{createMutation.isPending ? 'Creating...' : 'Create Branch'}</span>
               </button>
             </div>
           </form>
         </div>
       )}
 
-      {/* Branch Cards Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
-        {branches.map((b) => (
-          <div key={b.id} className="p-5 rounded-2xl border bg-card shadow-sm space-y-4">
-            <div className="flex justify-between items-start border-b pb-3">
-              <div>
-                <span className="font-mono font-bold text-[10px] text-primary">{b.code}</span>
-                <h3 className="font-extrabold text-sm text-foreground">{b.name}</h3>
-                <span className="text-[11px] text-muted-foreground flex items-center gap-1 mt-0.5">
-                  <MapPin className="h-3 w-3" /> {b.city}, {b.state}
-                </span>
-              </div>
-              <StatusBadge status={b.status} />
-            </div>
+      {/* Loading & Error States */}
+      {isLoading && (
+        <div className="flex items-center justify-center p-12 text-muted-foreground gap-2 text-xs">
+          <Loader2 className="h-4 w-4 animate-spin text-primary" />
+          <span>Loading authoritative branch registry...</span>
+        </div>
+      )}
 
-            <div className="grid grid-cols-3 gap-2">
-              <div className="p-2.5 rounded-lg border bg-muted/10">
-                <span className="text-[10px] font-bold text-muted-foreground uppercase">Branch Head</span>
-                <div className="font-bold text-foreground truncate">{b.managerName}</div>
-              </div>
-              <div className="p-2.5 rounded-lg border bg-muted/10">
-                <span className="text-[10px] font-bold text-muted-foreground uppercase">Staff Count</span>
-                <div className="font-bold text-primary">{b.staffCount} Execs</div>
-              </div>
-              <div className="p-2.5 rounded-lg border bg-muted/10">
-                <span className="text-[10px] font-bold text-muted-foreground uppercase">Active Policies</span>
-                <div className="font-bold text-emerald-600">{b.activePolicies.toLocaleString('en-IN')}</div>
-              </div>
-            </div>
-
-            <div className="p-3 rounded-xl border bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 flex justify-between items-center font-bold">
-              <span>Monthly GWP Contribution:</span>
-              <span className="text-sm font-mono font-black">₹{b.monthlyGwp.toLocaleString('en-IN')}</span>
-            </div>
+      {isError && (
+        <div className="flex items-center justify-between p-4 border border-destructive/30 rounded-xl bg-destructive/10 text-destructive text-xs mb-4">
+          <div className="flex items-center gap-2">
+            <AlertCircle className="h-4 w-4" />
+            <span>Failed to load branch records from database.</span>
           </div>
-        ))}
-      </div>
+          <button onClick={() => refetch()} className="underline font-bold">Retry</button>
+        </div>
+      )}
 
+      {/* Branch Cards Grid */}
+      {!isLoading && !isError && branches.length === 0 && (
+        <div className="p-12 text-center border rounded-2xl bg-card text-muted-foreground text-xs">
+          <Building2 className="h-8 w-8 mx-auto mb-2 opacity-40" />
+          <p className="font-bold">No branches found in database.</p>
+          <p className="mt-1">Click "+ Create New Branch" to provision your first regional branch.</p>
+        </div>
+      )}
 
+      {!isLoading && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+          {branches.map((b) => (
+            <div key={b.id} className="p-5 rounded-2xl border bg-card shadow-sm space-y-4">
+              <div className="flex justify-between items-start border-b pb-3">
+                <div>
+                  <span className="font-mono font-bold text-[10px] text-primary">{b.code}</span>
+                  <h3 className="font-extrabold text-sm text-foreground">{b.name}</h3>
+                  <span className="text-[11px] text-muted-foreground flex items-center gap-1 mt-0.5">
+                    <MapPin className="h-3 w-3" /> {b.city}{b.state ? `, ${b.state}` : ''}
+                  </span>
+                </div>
+                <StatusBadge status={b.status || (b.isActive ? 'ACTIVE' : 'INACTIVE')} />
+              </div>
+
+              <div className="grid grid-cols-3 gap-2">
+                <div className="p-2.5 rounded-lg border bg-muted/10">
+                  <span className="text-[10px] font-bold text-muted-foreground uppercase">Zone / Region</span>
+                  <div className="font-bold text-foreground truncate">{(b as any).zone?.name || 'Western Zone'}</div>
+                </div>
+                <div className="p-2.5 rounded-lg border bg-muted/10">
+                  <span className="text-[10px] font-bold text-muted-foreground uppercase">Staff Count</span>
+                  <div className="font-bold text-primary">{b.staffCount ?? (b as any).users?.length ?? 1} Execs</div>
+                </div>
+                <div className="p-2.5 rounded-lg border bg-muted/10">
+                  <span className="text-[10px] font-bold text-muted-foreground uppercase">Active Policies</span>
+                  <div className="font-bold text-emerald-600">{(b.activePolicies ?? 0).toLocaleString('en-IN')}</div>
+                </div>
+              </div>
+
+              <div className="p-3 rounded-xl border bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 flex justify-between items-center font-bold">
+                <span>Monthly GWP Contribution:</span>
+                <span className="text-sm font-mono font-black">₹{(b.monthlyGwp ?? 0).toLocaleString('en-IN')}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </AppShell>
   );
 }

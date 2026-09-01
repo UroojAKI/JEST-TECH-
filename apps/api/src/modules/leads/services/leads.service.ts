@@ -531,4 +531,75 @@ export class LeadsService {
       assignedTo: lead.assignedTo,
     };
   }
+
+  /**
+   * Consolidates duplicate leads by migrating all quotations, activities, and notes
+   * to the target lead and marking the source lead as merged (LEAD-002).
+   */
+  async mergeLeads(
+    targetLeadId: string,
+    sourceLeadId: string,
+    actorId: string,
+  ) {
+    if (targetLeadId === sourceLeadId) {
+      throw new BadRequestException('Cannot merge a lead into itself.');
+    }
+
+    const [targetLead, sourceLead] = await Promise.all([
+      this.leadRepository.findById(targetLeadId),
+      this.leadRepository.findById(sourceLeadId),
+    ]);
+
+    if (!targetLead || targetLead.deletedAt) {
+      throw new NotFoundException(`Target lead ${targetLeadId} not found`);
+    }
+    if (!sourceLead || sourceLead.deletedAt) {
+      throw new NotFoundException(`Source lead ${sourceLeadId} not found`);
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      // Re-link quotations from source to target
+      await tx.quotation.updateMany({
+        where: { leadId: sourceLeadId },
+        data: { leadId: targetLeadId },
+      });
+
+      // Re-link activities from source to target
+      await tx.activity.updateMany({
+        where: { leadId: sourceLeadId },
+        data: { leadId: targetLeadId },
+      });
+
+      // Re-link notes from source to target
+      await tx.note.updateMany({
+        where: { leadId: sourceLeadId },
+        data: { leadId: targetLeadId },
+      });
+
+      // Mark source lead as merged / soft-deleted
+      await tx.lead.update({
+        where: { id: sourceLeadId },
+        data: {
+          status: LeadStatus.LOST,
+          description: `${sourceLead.description || ''} [Merged into ${targetLead.leadCode}]`.trim(),
+          deletedAt: new Date(),
+        },
+      });
+
+      // Record history on target lead
+      await tx.activity.create({
+        data: {
+          leadId: targetLeadId,
+          type: 'TASK',
+          subject: 'Lead Deduplication Merge',
+          description: `Consolidated record by merging duplicate lead ${sourceLead.leadCode} (${sourceLead.title}) into this record.`,
+          dueDate: new Date(),
+          createdById: actorId,
+        },
+      });
+    });
+
+    const consolidated = await this.leadRepository.findById(targetLeadId);
+    return LeadMapper.toResponse(consolidated!);
+  }
 }

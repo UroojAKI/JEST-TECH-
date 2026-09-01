@@ -21,26 +21,6 @@ export function MotorQuotationsWorkspace() {
   const [inspectionQuoteId, setInspectionQuoteId] = useState<string | null>(null);
   const [proposalQuote, setProposalQuote] = useState<SavedMotorQuote | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [localQuotes, setLocalQuotes] = useState<SavedMotorQuote[]>([]);
-
-  useEffect(() => {
-    const loadLocal = () => {
-      try {
-        const raw = localStorage.getItem('jest_motor_quotes_global');
-        if (raw) {
-          const parsed = JSON.parse(raw);
-          const validQuotes = parsed.filter((q: any) => !q.id?.toString().startsWith('temp-'));
-          setLocalQuotes(validQuotes);
-          if (validQuotes.length !== parsed.length) localStorage.setItem('jest_motor_quotes_global', JSON.stringify(validQuotes));
-        }
-      } catch (error) {
-        console.error('Failed to parse local motor quotes', error);
-      }
-    };
-    loadLocal();
-    window.addEventListener('storage', loadLocal);
-    return () => window.removeEventListener('storage', loadLocal);
-  }, []);
 
   const { data: apiQuotes = [], isLoading, refetch } = useQuery({
     queryKey: ['motor-quotations-all'],
@@ -81,7 +61,7 @@ export function MotorQuotationsWorkspace() {
 
   const allQuotes = useMemo(() => {
     const seen = new Set<string>();
-    return [...localQuotes, ...(Array.isArray(apiQuotes) ? apiQuotes : [])]
+    return (Array.isArray(apiQuotes) ? apiQuotes : [])
       .filter((q) => {
         const key = q.quotationCode || q.id;
         if (seen.has(key)) return false;
@@ -89,7 +69,7 @@ export function MotorQuotationsWorkspace() {
         return true;
       })
       .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
-  }, [apiQuotes, localQuotes]);
+  }, [apiQuotes]);
 
   const { activeFiltered, renewalsFiltered } = useMemo(() => {
     const matched = allQuotes.filter((q) => {
@@ -216,15 +196,15 @@ export function MotorQuotationsWorkspace() {
         initialCategory={initialCategory || undefined}
         cloneQuoteData={cloneQuoteData}
         onClose={() => setIsWizardOpen(false)}
-        onSaved={(newQuote) => {
-          setLocalQuotes((prev) => [newQuote, ...prev.filter((q) => q.quotationCode !== newQuote.quotationCode && q.id !== newQuote.id)]);
+        onSaved={() => {
           void refetch();
+          setIsWizardOpen(false);
         }}
       />
 
       {inspectionQuoteId && <InspectionDialog isOpen quotationId={inspectionQuoteId} onClose={() => setInspectionQuoteId(null)} onSuccess={() => { setInspectionQuoteId(null); void refetch(); }} />}
 
-      {proposalQuote && <MotorProposalWizard isOpen quote={proposalQuote} onClose={() => setProposalQuote(null)} onSuccess={(updatedQuote) => { setProposalQuote(null); setLocalQuotes((prev) => prev.map(q => q.id === updatedQuote.id ? updatedQuote : q)); void refetch(); }} />}
+      {proposalQuote && <MotorProposalWizard isOpen quote={proposalQuote} onClose={() => setProposalQuote(null)} onSuccess={() => { setProposalQuote(null); void refetch(); }} />}
     </div>
   );
 }

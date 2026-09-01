@@ -239,6 +239,27 @@ describe('ClaimsController', () => {
         mockUser.id,
       );
     });
+
+    it('should withdraw claim and delegate to closeClaimService with reason', async () => {
+      const closeSpy = jest
+        .spyOn(closeClaimService, 'execute')
+        .mockResolvedValueOnce({
+          ...mockClaimResponse,
+          status: ClaimStatus.CLOSED,
+        } as any);
+
+      const result = await controller.withdraw(
+        'claim-123',
+        'Duplicate report',
+        mockUser,
+      );
+      expect(closeSpy).toHaveBeenCalledWith(
+        'claim-123',
+        'WITHDRAWN: Duplicate report',
+        mockUser.id,
+      );
+      expect(result.status).toBe(ClaimStatus.CLOSED);
+    });
   });
 
   describe('Exception Handling', () => {

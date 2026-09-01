@@ -81,6 +81,43 @@ export class PolicyMapper {
       }));
     }
 
+    const policyNextActions: Record<
+      string,
+      { waitingFor: string; nextAction: string }
+    > = {
+      ISSUED: {
+        waitingFor: 'Policy Inception Date',
+        nextAction: 'Awaiting coverage effective date',
+      },
+      ACTIVE: {
+        waitingFor: 'Renewal Window',
+        nextAction:
+          'Policy currently active; monitor for endorsements or renewal',
+      },
+      CANCELLED: {
+        waitingFor: 'None',
+        nextAction: 'Policy terminated and archived',
+      },
+      EXPIRED: {
+        waitingFor: 'Customer Renewal Action',
+        nextAction: 'Engage customer for lapsed renewal recovery',
+      },
+    };
+    const pAction = policyNextActions[p.status] || {
+      waitingFor: 'Review',
+      nextAction: 'Monitor policy status',
+    };
+    dto.workflowState = {
+      status: p.status,
+      ownerId: p.createdById,
+      ownerName: null,
+      waitingFor: pAction.waitingFor,
+      nextAction: pAction.nextAction,
+      blocker: null,
+      dueAt: p.expiryDate,
+      lastTransitionAt: p.updatedAt,
+    };
+
     return dto;
   }
 

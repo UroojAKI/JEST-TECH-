@@ -7,7 +7,7 @@ import { StatusBadge } from '../../../components/ui/status-badge';
 import { toast } from 'sonner';
 import { useAdminUsers } from '../../../hooks/useAdmin';
 import { adminRepository } from '../../../repositories/admin.repository';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQueryClient, useQuery } from '@tanstack/react-query';
 
 export default function UserManagementPage() {
   const queryClient = useQueryClient();
@@ -17,17 +17,27 @@ export default function UserManagementPage() {
   const [newFirstName, setNewFirstName] = useState('');
   const [newLastName, setNewLastName] = useState('');
   const [newEmail, setNewEmail] = useState('');
-  const [newPassword, setNewPassword] = useState('JestPolicy2026!');
+  const [newPassword, setNewPassword] = useState('');
   const [newRole, setNewRole] = useState('SALES_AGENT');
-  const [newBranch, setNewBranch] = useState('');
+  const [newBranchId, setNewBranchId] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const { data: branches = [] } = useQuery({
+    queryKey: ['admin-branches'],
+    queryFn: adminRepository.getBranches,
+  });
+
+  const { data: roles = [] } = useQuery({
+    queryKey: ['admin-roles'],
+    queryFn: adminRepository.getRoles,
+  });
 
   // Success Modal state
   const [createdCredentials, setCreatedCredentials] = useState<{ email: string; password: string } | null>(null);
 
   // Reset Password Modal state
   const [resetModalUser, setResetModalUser] = useState<any | null>(null);
-  const [customResetPassword, setCustomResetPassword] = useState('JestPolicy2026!');
+  const [customResetPassword, setCustomResetPassword] = useState('');
   const [isResetting, setIsResetting] = useState(false);
 
   const { users, isLoading, isError, updateUserStatus, isUpdating } = useAdminUsers({
@@ -57,7 +67,7 @@ export default function UserManagementPage() {
 
   const handleOpenResetModal = (user: any) => {
     setResetModalUser(user);
-    setCustomResetPassword('JestPolicy2026!');
+    setCustomResetPassword('');
   };
 
   const handleConfirmResetPassword = async (e: React.FormEvent) => {
@@ -65,37 +75,34 @@ export default function UserManagementPage() {
     if (!resetModalUser) return;
     setIsResetting(true);
     try {
-      const res = await adminRepository.resetUserPassword(resetModalUser.id, customResetPassword);
-      toast.success(`Password for ${resetModalUser.email} updated to: ${res.newPassword || customResetPassword}`);
+      const res = await adminRepository.resetUserPassword(resetModalUser.id, customResetPassword || undefined);
+      toast.success(`Password reset successfully for ${resetModalUser.email}`);
+      setCreatedCredentials({
+        email: resetModalUser.email,
+        password: res?.newPassword || customResetPassword,
+      });
       setResetModalUser(null);
-    } catch (err: any) {
-      toast.error('Failed to reset password');
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || 'Failed to reset password');
     } finally {
       setIsResetting(false);
     }
   };
 
-  const handleSubmitUser = async (e: React.FormEvent) => {
+  const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newFirstName || !newEmail) {
-      toast.error('First Name and Email are required');
-      return;
-    }
-
     setIsSubmitting(true);
     try {
-      const res: any = await adminRepository.createUser({
+      const res = await adminRepository.createUser({
         firstName: newFirstName,
         lastName: newLastName,
         email: newEmail,
-        password: newPassword,
+        password: newPassword || undefined,
         role: newRole,
-        branchName: newBranch,
+        branchId: newBranchId || undefined,
       });
 
-      queryClient.invalidateQueries({ queryKey: ['admin-users'] });
-      toast.success('User account provisioned successfully!');
-      
+      toast.success('User created successfully');
       setCreatedCredentials({
         email: newEmail,
         password: res?.initialPassword || newPassword,
@@ -105,9 +112,9 @@ export default function UserManagementPage() {
       setNewFirstName('');
       setNewLastName('');
       setNewEmail('');
-      setNewPassword('JestPolicy2026!');
+      setNewPassword('');
       setNewRole('SALES_AGENT');
-      setNewBranch('');
+      setNewBranchId('');
     } catch (error: any) {
       toast.error(error?.response?.data?.message || 'Failed to create user');
     } finally {
@@ -198,9 +205,10 @@ export default function UserManagementPage() {
                 />
               </div>
               <div>
-                <label className="font-bold text-muted-foreground block mb-1">Last Name</label>
+                <label className="font-bold text-muted-foreground block mb-1">Last Name *</label>
                 <input
                   type="text"
+                  required
                   value={newLastName}
                   onChange={(e) => setNewLastName(e.target.value)}
                   className="w-full p-2.5 rounded-lg border bg-background text-foreground text-xs focus:ring-1 focus:ring-primary"
@@ -231,28 +239,46 @@ export default function UserManagementPage() {
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="font-bold text-muted-foreground block mb-1">Assigned Role</label>
+                <label className="font-bold text-muted-foreground block mb-1">Assigned Role *</label>
                 <select
                   value={newRole}
                   onChange={(e) => setNewRole(e.target.value)}
                   className="w-full p-2.5 rounded-lg border bg-background text-foreground text-xs focus:ring-1 focus:ring-primary"
                 >
-                  <option value="SALES_AGENT">SALES_AGENT</option>
-                  <option value="UNDERWRITER">UNDERWRITER</option>
-                  <option value="FINANCE">FINANCE</option>
-                  <option value="BRANCH_MANAGER">BRANCH_MANAGER</option>
-                  <option value="ADMIN">ADMIN</option>
+                  {roles.length > 0 ? (
+                    roles.map((r: any) => (
+                      <option key={r.code || r.roleId || r.id} value={r.code || r.type || r.roleName}>
+                        {r.name || r.roleName || r.displayName || r.code}
+                      </option>
+                    ))
+                  ) : (
+                    <>
+                      <option value="SALES_AGENT">Sales Agent</option>
+                      <option value="UNDERWRITER">Underwriter</option>
+                      <option value="FINANCE">Finance</option>
+                      <option value="BRANCH_MANAGER">Branch Manager</option>
+                      <option value="ADMIN">Administrator</option>
+                      <option value="SUPER_ADMIN">Super Administrator</option>
+                      <option value="CLAIMS_OFFICER">Claims Officer</option>
+                      <option value="OPERATIONS">Operations</option>
+                    </>
+                  )}
                 </select>
               </div>
               <div>
                 <label className="font-bold text-muted-foreground block mb-1">Branch Location</label>
-                <input
-                  type="text"
-                  value={newBranch}
-                  onChange={(e) => setNewBranch(e.target.value)}
-                  placeholder="Mumbai BKC Branch"
+                <select
+                  value={newBranchId}
+                  onChange={(e) => setNewBranchId(e.target.value)}
                   className="w-full p-2.5 rounded-lg border bg-background text-foreground text-xs focus:ring-1 focus:ring-primary"
-                />
+                >
+                  <option value="">-- Select Regional Branch --</option>
+                  {branches.map((b: any) => (
+                    <option key={b.id} value={b.id}>
+                      {b.name} ({b.code})
+                    </option>
+                  ))}
+                </select>
               </div>
             </div>
             <div className="pt-3 flex justify-end">

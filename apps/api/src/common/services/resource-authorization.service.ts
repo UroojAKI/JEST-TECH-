@@ -146,9 +146,7 @@ export class ResourceAuthorizationService {
       resource &&
       resource.organizationId &&
       actor.organizationId &&
-      resource.organizationId !== actor.organizationId &&
-      resource.organizationId !== 'DEFAULT_ORG' &&
-      actor.organizationId !== 'DEFAULT_ORG'
+      resource.organizationId !== actor.organizationId
     ) {
       throw new ForbiddenException(
         'Cross-organization access is strictly prohibited',

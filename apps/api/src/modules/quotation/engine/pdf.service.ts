@@ -135,26 +135,5 @@ export class PdfService {
       buffer,
     };
   }
-
-  /**
-   * Synchronous helper providing real PDF buffer generation.
-   */
-  generatePdfStub(referenceCode: string): GeneratedPdfResult {
-    const cleanCode = referenceCode.replace(/[^a-zA-Z0-9_-]/g, '_');
-    const fileName = `${cleanCode}_${Date.now()}.pdf`;
-    const fileKey = `documents/${cleanCode}/${fileName}`;
-
-    // Generate a valid minimal PDF header/body structure
-    const minimalPdf = `%PDF-1.4\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj\n3 0 obj<</Type/Page/MediaBox[0 0 595 842]/Parent 2 0 R/Resources<<>>>>endobj\nxref\n0 4\n0000000000 65535 f \n0000000009 00000 n \n0000000052 00000 n \n0000000102 00000 n \ntrailer<</Size 4/Root 1 0 R>>\nstartxref\n178\n%%EOF\n`;
-    const buffer = Buffer.from(minimalPdf, 'utf-8');
-    const hash = crypto.createHash('sha256').update(buffer).digest('hex');
-
-    return {
-      fileName,
-      fileKey,
-      fileSize: buffer.length,
-      hash,
-      buffer,
-    };
-  }
 }
+

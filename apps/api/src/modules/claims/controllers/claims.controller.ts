@@ -70,6 +70,20 @@ export class ClaimsController {
     return this.reportClaimService.execute(dto, user.id);
   }
 
+  @Post()
+  @Roles(
+    RoleType.SUPER_ADMIN,
+    RoleType.ADMIN,
+    RoleType.BRANCH_MANAGER,
+    RoleType.TEAM_LEADER,
+    RoleType.SALES_AGENT,
+    RoleType.SUPPORT,
+    RoleType.CUSTOMER,
+  )
+  create(@Body() dto: ReportClaimDto, @CurrentUser() user: RequestUser) {
+    return this.reportClaimService.execute(dto, user.id);
+  }
+
   @Get()
   @Roles(
     RoleType.SUPER_ADMIN,
@@ -201,5 +215,28 @@ export class ClaimsController {
     @CurrentUser() user: RequestUser,
   ) {
     return this.closeClaimService.execute(id, comments, user.id);
+  }
+
+  @Post(':id/withdraw')
+  @HttpCode(HttpStatus.OK)
+  @Roles(
+    RoleType.SUPER_ADMIN,
+    RoleType.ADMIN,
+    RoleType.CLAIMS_OFFICER,
+    RoleType.BRANCH_MANAGER,
+    RoleType.CUSTOMER,
+    RoleType.SUPPORT,
+    RoleType.SALES_AGENT,
+  )
+  withdraw(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body('reason') reason: string,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.closeClaimService.execute(
+      id,
+      `WITHDRAWN: ${reason?.trim() || 'Claim voluntarily withdrawn by applicant'}`,
+      user.id,
+    );
   }
 }

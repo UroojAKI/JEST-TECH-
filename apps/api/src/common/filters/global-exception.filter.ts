@@ -18,17 +18,24 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     const response = ctx.getResponse<Response>();
     const request = ctx.getRequest<Request>();
 
-    const status =
+    let status =
       exception instanceof HttpException
         ? exception.getStatus()
         : HttpStatus.INTERNAL_SERVER_ERROR;
+
+    // Map Prisma P2002 (Unique constraint violation) to HTTP 409 Conflict
+    if (exception?.code === 'P2002') {
+      status = HttpStatus.CONFLICT;
+    }
 
     const correlationId = correlationStorage.getStore() || 'system';
 
     const rawResponse =
       exception instanceof HttpException
         ? exception.getResponse()
-        : { message: exception.message || 'Internal server error' };
+        : exception?.code === 'P2002'
+          ? { message: `Unique constraint conflict on field: ${exception.meta?.target || 'resource'}` }
+          : { message: exception.message || 'Internal server error' };
 
     const errorBody: any =
       typeof rawResponse === 'object' ? rawResponse : { message: rawResponse };

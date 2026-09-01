@@ -19,7 +19,7 @@ api.interceptors.response.use(
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
       try {
-        await axios.post(`${API_URL}/auth/refresh`, {}, { withCredentials: true });
+        await api.post('/auth/refresh', {}, { withCredentials: true });
         // Retry the original request
         return api(originalRequest);
       } catch (refreshError) {

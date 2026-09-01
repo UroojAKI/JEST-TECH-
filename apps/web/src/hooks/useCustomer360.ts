@@ -33,5 +33,6 @@ export function useCustomers(params?: PaginationParams & { tag?: string }) {
     total: Array.isArray(query.data) ? query.data.length : (query.data?.total || list.length),
     isLoading: query.isLoading,
     isError: query.isError,
+    refetch: query.refetch,
   };
 }

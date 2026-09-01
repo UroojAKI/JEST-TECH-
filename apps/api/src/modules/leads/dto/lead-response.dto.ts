@@ -48,4 +48,15 @@ export class LeadResponseDto {
 
   notes?: LeadNoteResponseDto[];
   activities?: LeadActivityResponseDto[];
+
+  workflowState?: {
+    status: string;
+    ownerId: string | null;
+    ownerName: string | null;
+    waitingFor: string;
+    nextAction: string;
+    blocker: string | null;
+    dueAt: Date | null;
+    lastTransitionAt: Date;
+  };
 }

@@ -22,7 +22,7 @@ export class AuditService {
   constructor(private readonly prisma: PrismaService) {}
 
   /**
-   * Logs an audit record asynchronously.
+   * Logs an audit record asynchronously with PII & secret redaction (SEC-002).
    */
   async log(options: AuditLogOptions): Promise<void> {
     const resolvedCorrelationId =
@@ -36,12 +36,14 @@ export class AuditService {
         entityId: options.entityId,
         action: options.action,
         oldValue: options.oldValue
-          ? JSON.parse(JSON.stringify(options.oldValue))
+          ? this.sanitizeAuditPayload(JSON.parse(JSON.stringify(options.oldValue)))
           : null,
         newValue: options.newValue
-          ? JSON.parse(JSON.stringify(options.newValue))
+          ? this.sanitizeAuditPayload(JSON.parse(JSON.stringify(options.newValue)))
           : null,
-        ...(options.metadata ? { metadata: options.metadata } : {}),
+        ...(options.metadata
+          ? { metadata: this.sanitizeAuditPayload(options.metadata) }
+          : {}),
         ipAddress: options.ipAddress || null,
         userAgent: options.userAgent || null,
         correlationId: resolvedCorrelationId,
@@ -50,7 +52,7 @@ export class AuditService {
   }
 
   /**
-   * Enforces transactional audit logging (G022).
+   * Enforces transactional audit logging (G022) with PII & secret redaction (SEC-002).
    * Executes audit record creation inside the caller's Prisma transaction client.
    * If the business mutation rolls back, the audit log rolls back atomically.
    */
@@ -69,17 +71,70 @@ export class AuditService {
         entityId: options.entityId,
         action: options.action,
         oldValue: options.oldValue
-          ? JSON.parse(JSON.stringify(options.oldValue))
+          ? this.sanitizeAuditPayload(JSON.parse(JSON.stringify(options.oldValue)))
           : null,
         newValue: options.newValue
-          ? JSON.parse(JSON.stringify(options.newValue))
+          ? this.sanitizeAuditPayload(JSON.parse(JSON.stringify(options.newValue)))
           : null,
-        ...(options.metadata ? { metadata: options.metadata } : {}),
+        ...(options.metadata
+          ? { metadata: this.sanitizeAuditPayload(options.metadata) }
+          : {}),
         ipAddress: options.ipAddress || null,
         userAgent: options.userAgent || null,
         correlationId: resolvedCorrelationId,
       },
     });
+  }
+
+  /**
+   * Redacts passwords, tokens, API keys and masks Aadhaar, PAN, and Bank Account numbers (SEC-002).
+   */
+  private sanitizeAuditPayload(data: any): any {
+    if (!data || typeof data !== 'object') return data;
+    if (Array.isArray(data)) {
+      return data.map((item) => this.sanitizeAuditPayload(item));
+    }
+
+    const sanitized: Record<string, any> = {};
+    const secretKeys = [
+      'password',
+      'passwordhash',
+      'token',
+      'refreshtoken',
+      'secret',
+      'jwt',
+      'apikey',
+      'authorization',
+    ];
+
+    for (const [key, value] of Object.entries(data)) {
+      const lowerKey = key.toLowerCase();
+
+      if (secretKeys.some((s) => lowerKey.includes(s))) {
+        sanitized[key] = '[REDACTED]';
+      } else if (lowerKey.includes('aadhaar') && typeof value === 'string') {
+        sanitized[key] =
+          value.length >= 4 ? `XXXXXXXX${value.slice(-4)}` : '[REDACTED]';
+      } else if (
+        lowerKey.includes('pan') &&
+        typeof value === 'string' &&
+        value.length === 10
+      ) {
+        sanitized[key] = `XXXXX${value.slice(5, 9)}X`;
+      } else if (
+        (lowerKey.includes('bankaccount') ||
+          lowerKey.includes('accountnumber')) &&
+        typeof value === 'string'
+      ) {
+        sanitized[key] =
+          value.length >= 4 ? `XXXXXX${value.slice(-4)}` : '[REDACTED]';
+      } else if (value && typeof value === 'object') {
+        sanitized[key] = this.sanitizeAuditPayload(value);
+      } else {
+        sanitized[key] = value;
+      }
+    }
+    return sanitized;
   }
 
   /**

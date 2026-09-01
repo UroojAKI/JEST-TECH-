@@ -71,6 +71,7 @@
 - [x] 0 dead-end KPIs (every KPI is clickable and connects to live views)
 - [x] 0 unexplained or orphaned status values
 - [x] 0 mock/dummy/sample data in production components (all pages wired to TanStack Query live APIs)
+- [x] 0 404 API routes: 185/185 endpoints across all web repositories and pages verified mapped to active NestJS controller handlers
 - [x] All loading, empty, and error states implemented
 
 ## G11 — DASHBOARD ACTIONS

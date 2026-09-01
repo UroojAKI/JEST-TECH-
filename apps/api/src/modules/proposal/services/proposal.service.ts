@@ -40,7 +40,8 @@ export class ProposalService {
     });
     const total = await this.prisma.proposal.count({ where });
 
-    return new PaginatedResponseDto(data, total, page, limit);
+    const mapped = data.map((prop) => this.attachWorkflowState(prop));
+    return new PaginatedResponseDto(mapped, total, page, limit);
   }
 
   async getProposalDetails(id: string, user: RequestUser) {
@@ -68,7 +69,53 @@ export class ProposalService {
       );
     }
 
-    return prop;
+    return this.attachWorkflowState(prop);
+  }
+
+  private attachWorkflowState(prop: any) {
+    const proposalNextActions: Record<
+      string,
+      { waitingFor: string; nextAction: string }
+    > = {
+      DRAFT: {
+        waitingFor: 'Document Upload & Customer Signature',
+        nextAction: 'Upload KYC documents and sign proposal form',
+      },
+      SUBMITTED: {
+        waitingFor: 'Underwriting Verification',
+        nextAction: 'Underwriter review and risk verification',
+      },
+      UNDER_REVIEW: {
+        waitingFor: 'Underwriting Approval',
+        nextAction: 'Approve or reject proposal terms',
+      },
+      APPROVED: {
+        waitingFor: 'Premium Payment',
+        nextAction: 'Collect premium payment for policy conversion',
+      },
+      REJECTED: { waitingFor: 'None', nextAction: 'Proposal rejected' },
+      POLICY_ISSUED: {
+        waitingFor: 'None',
+        nextAction: 'Policy issued successfully',
+      },
+    };
+    const prAction = proposalNextActions[prop.status] || {
+      waitingFor: 'Review',
+      nextAction: 'Assess proposal',
+    };
+    return {
+      ...prop,
+      workflowState: {
+        status: prop.status,
+        ownerId: prop.submittedById,
+        ownerName: null,
+        waitingFor: prAction.waitingFor,
+        nextAction: prAction.nextAction,
+        blocker: null,
+        dueAt: null,
+        lastTransitionAt: prop.updatedAt,
+      },
+    };
   }
 
   async createProposal(quotationId: string, userId: string) {

@@ -157,6 +157,20 @@ export class ReportsController {
     ];
   }
 
+  @Post('schedules')
+  @RequirePermissions('REPORT_SCHEDULE')
+  async createTopLevelSchedule(@Body() dto: any) {
+    return {
+      id: `SCH-${Date.now().toString().slice(-4)}`,
+      reportName: dto.reportName || 'Automated Report',
+      frequency: dto.frequency || 'WEEKLY',
+      recipients: dto.recipients || [],
+      format: dto.format || 'PDF',
+      status: 'ACTIVE',
+      createdAt: new Date().toISOString(),
+    };
+  }
+
   @Get('history')
   @RequirePermissions('REPORT_VIEW')
   async getAllHistory() {

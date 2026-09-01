@@ -70,11 +70,20 @@ export default function RenewalManagementPage() {
     });
   };
 
-  const sampleRenewals = [
-    { id: 'ren-1', vehicleReg: 'KA22-AB-1234', customerName: 'John Doe', phone: '+91 98765 43210', policyNo: 'POL-998124', insurer: 'HDFC ERGO', premium: '₹18,500', expiry: 'Today', priority: 'HIGH', retentionScore: 5 },
-    { id: 'ren-2', vehicleReg: 'KA05-XY-9988', customerName: 'Rahul Singh', phone: '+91 98123 45678', policyNo: 'POL-771239', insurer: 'ICICI Lombard', premium: '₹22,400', expiry: 'In 7 Days', priority: 'MEDIUM', retentionScore: 4 },
-    { id: 'ren-3', vehicleReg: 'KA19-PQ-5521', customerName: 'ABC Logistics', phone: '+91 97711 22334', policyNo: 'POL-661122', insurer: 'Bajaj Allianz', premium: '₹45,000', expiry: 'In 30 Days', priority: 'LOW', retentionScore: 3 },
-  ];
+  const renewalsList = (upcomingTasks && upcomingTasks.length > 0)
+    ? upcomingTasks.map((t: any) => ({
+        id: t.id || t.taskId,
+        vehicleReg: t.vehicleReg || t.policy?.vehicleRegistrationNumber || 'KA-PENDING',
+        customerName: t.customerName || `${t.policy?.customer?.firstName || ''} ${t.policy?.customer?.lastName || ''}`.trim() || 'Valued Customer',
+        phone: t.phone || t.policy?.customer?.phone || 'N/A',
+        policyNo: t.policyNo || t.policy?.policyNumber || 'POL-REF',
+        insurer: t.insurer || t.policy?.insurerName || 'HDFC ERGO',
+        premium: t.premium || (t.policy?.premiumAmount ? `₹${Number(t.policy.premiumAmount).toLocaleString('en-IN')}` : '₹0'),
+        expiry: t.expiry || (t.policy?.expiryDate ? new Date(t.policy.expiryDate).toLocaleDateString() : 'Active'),
+        priority: t.priority || 'MEDIUM',
+        retentionScore: t.retentionScore || 4,
+      }))
+    : [];
 
   return (
     <AppShell>
@@ -194,9 +203,16 @@ export default function RenewalManagementPage() {
                 </tr>
               </thead>
               <tbody className="divide-y text-xs font-semibold">
-                {sampleRenewals.map((r) => (
-                  <tr key={r.id} className="hover:bg-muted/10 transition-colors">
-                    <td className="py-3 px-3">
+                {renewalsList.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="py-8 text-center text-muted-foreground font-normal">
+                      No upcoming renewal tasks scheduled. All policies active.
+                    </td>
+                  </tr>
+                ) : (
+                  renewalsList.map((r) => (
+                    <tr key={r.id} className="hover:bg-muted/10 transition-colors">
+                      <td className="py-3 px-3">
                       <span
                         className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
                           r.priority === 'HIGH'
@@ -239,7 +255,8 @@ export default function RenewalManagementPage() {
                       </div>
                     </td>
                   </tr>
-                ))}
+                  ))
+                )}
               </tbody>
             </table>
           </div>

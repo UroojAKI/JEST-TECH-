@@ -86,4 +86,23 @@ describe('SettleClaimService (Claims Settlement & Payment Confirmation)', () => 
       }),
     );
   });
+
+  it('rejects settlement if actor is the same user who reported the claim (SoD)', async () => {
+    mockPrisma.claim.findUnique.mockResolvedValue({
+      ...approvedClaim,
+      createdById: 'agent-1',
+    });
+
+    await expect(
+      service.execute(
+        'claim-2',
+        {
+          settlementAmount: 45000,
+          paymentReference: 'NEFT-12345',
+          paymentMethod: 'NEFT',
+        },
+        'agent-1',
+      ),
+    ).rejects.toThrow('Segregation of duties violation');
+  });
 });

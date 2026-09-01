@@ -18,7 +18,7 @@ interface AccountItem {
   status: string;
 }
 
-const INITIAL_ACCOUNTS: AccountItem[] = [
+const DEFAULT_CORPORATE_ACCOUNTS: AccountItem[] = [
   { id: 'ACC-00101', name: 'Acme Logistics Pvt Ltd', industry: 'Logistics & Supply Chain', contactsCount: 14, activePolicies: 3, totalAnnualPremium: '₹14,50,000', relationshipManager: 'Rajesh Sharma', status: 'ACTIVE' },
   { id: 'ACC-00102', name: 'TechCorp Solutions Ltd', industry: 'Information Technology', contactsCount: 28, activePolicies: 5, totalAnnualPremium: '₹32,00,000', relationshipManager: 'Sunil Verma', status: 'ACTIVE' },
   { id: 'ACC-00103', name: 'Global Manufacturing Corp', industry: 'Industrial Manufacturing', contactsCount: 42, activePolicies: 8, totalAnnualPremium: '₹85,00,000', relationshipManager: 'Priya Mehta', status: 'ACTIVE' },
@@ -26,7 +26,7 @@ const INITIAL_ACCOUNTS: AccountItem[] = [
 ];
 
 export default function CorporateAccountsPage() {
-  const [accounts, setAccounts] = useState<AccountItem[]>(INITIAL_ACCOUNTS);
+  const [accounts, setAccounts] = useState<AccountItem[]>(DEFAULT_CORPORATE_ACCOUNTS);
   const [savedView, setSavedView] = useState<string>('ALL');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);

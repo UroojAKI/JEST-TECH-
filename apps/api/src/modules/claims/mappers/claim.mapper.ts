@@ -56,6 +56,62 @@ export class ClaimMapper {
       }));
     }
 
+    const claimNextActions: Record<
+      string,
+      { waitingFor: string; nextAction: string }
+    > = {
+      REPORTED: {
+        waitingFor: 'Claims Registration & Surveyor Assignment',
+        nextAction: 'Assign claims surveyor for damage survey',
+      },
+      REGISTERED: {
+        waitingFor: 'Surveyor Report',
+        nextAction: 'Surveyor to inspect vehicle damage',
+      },
+      SURVEYOR_ASSIGNED: {
+        waitingFor: 'Inspection Assessment',
+        nextAction: 'Complete physical inspection of damaged vehicle',
+      },
+      UNDER_ASSESSMENT: {
+        waitingFor: 'Claims Officer Approval',
+        nextAction: 'Review assessment report and approve claim',
+      },
+      APPROVED: {
+        waitingFor: 'Finance Settlement',
+        nextAction: 'Disburse claim payment to customer',
+      },
+      REJECTED: {
+        waitingFor: 'Closure Notice',
+        nextAction: 'Send repudiation letter to customer',
+      },
+      PAYMENT_PENDING: {
+        waitingFor: 'Bank UTR Confirmation',
+        nextAction: 'Process bank transfer UTR',
+      },
+      SETTLED: {
+        waitingFor: 'File Archival',
+        nextAction: 'Close claim file',
+      },
+      CLOSED: {
+        waitingFor: 'None',
+        nextAction: 'Claim finalized and archived',
+      },
+    };
+    const cAction = claimNextActions[c.status] || {
+      waitingFor: 'Review',
+      nextAction: 'Process claim',
+    };
+    dto.workflowState = {
+      status: c.status,
+      ownerId: c.updatedById || c.createdById,
+      ownerName: c.surveyorName || null,
+      waitingFor: cAction.waitingFor,
+      nextAction: cAction.nextAction,
+      blocker: null,
+      dueAt: null,
+      lastTransitionAt: c.updatedAt,
+    };
+
     return dto;
   }
 

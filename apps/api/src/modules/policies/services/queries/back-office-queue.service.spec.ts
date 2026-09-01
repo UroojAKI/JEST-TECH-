@@ -139,7 +139,7 @@ describe('BackOfficeQueueService (G021 Multi-Gate Policy Issuance Queue)', () =>
     expect(item.nextAction).toContain('Payment');
   });
 
-  it('validateIssuanceGates throws BadRequestException when gates fail', async () => {
+  it('validateIssuanceGates throws BadRequestException when payment gate fails', async () => {
     const unpaidQuote = {
       ...baseQuote,
       motorPaymentRecord: null,
@@ -149,7 +149,72 @@ describe('BackOfficeQueueService (G021 Multi-Gate Policy Issuance Queue)', () =>
     mockPrisma.document.findMany.mockResolvedValue([]);
 
     await expect(service.validateIssuanceGates('quote-100')).rejects.toThrow(
-      BadRequestException,
+      /Payment Gate/,
     );
+  });
+
+  it('validateIssuanceGates throws BadRequestException when customer KYC gate fails', async () => {
+    const missingKycQuote = {
+      ...baseQuote,
+      contact: { ...baseQuote.contact, phone: null, email: null },
+    };
+
+    mockPrisma.quotation.findMany.mockResolvedValue([missingKycQuote]);
+    mockPrisma.document.findMany.mockResolvedValue([]);
+
+    await expect(service.validateIssuanceGates('quote-100')).rejects.toThrow(
+      /Customer Gate/,
+    );
+  });
+
+  it('validateIssuanceGates throws BadRequestException when vehicle plate gate fails', async () => {
+    const missingVehicleQuote = {
+      ...baseQuote,
+      motorMetadata: {},
+    };
+
+    mockPrisma.quotation.findMany.mockResolvedValue([missingVehicleQuote]);
+    mockPrisma.document.findMany.mockResolvedValue([]);
+
+    await expect(service.validateIssuanceGates('quote-100')).rejects.toThrow(
+      /Vehicle Gate/,
+    );
+  });
+
+  it('validateIssuanceGates throws BadRequestException when inspection gate fails', async () => {
+    const inspectionQuote = {
+      ...baseQuote,
+      workflowState: 'INSPECTION_REQUIRED',
+      motorInspection: { status: InspectionStatus.PENDING },
+    };
+
+    mockPrisma.quotation.findMany.mockResolvedValue([inspectionQuote]);
+    mockPrisma.document.findMany.mockResolvedValue([]);
+
+    await expect(service.validateIssuanceGates('quote-100')).rejects.toThrow(
+      /Inspection Gate/,
+    );
+  });
+
+  it('validateIssuanceGates throws BadRequestException when document gate fails', async () => {
+    mockPrisma.quotation.findMany.mockResolvedValue([baseQuote]);
+    mockPrisma.document.findMany.mockResolvedValue([
+      { id: 'doc-1', verificationStatus: DocumentVerificationStatus.PENDING },
+    ]);
+
+    await expect(service.validateIssuanceGates('quote-100')).rejects.toThrow(
+      /Documents Gate/,
+    );
+  });
+
+  it('validateIssuanceGates succeeds when all 5 gates pass', async () => {
+    mockPrisma.quotation.findMany.mockResolvedValue([baseQuote]);
+    mockPrisma.document.findMany.mockResolvedValue([
+      { id: 'doc-1', verificationStatus: DocumentVerificationStatus.VERIFIED },
+    ]);
+
+    const result = await service.validateIssuanceGates('quote-100');
+    expect(result.allowed).toBe(true);
+    expect(result.quotationCode).toBe(baseQuote.quotationCode);
   });
 });

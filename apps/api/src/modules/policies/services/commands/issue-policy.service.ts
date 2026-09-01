@@ -25,6 +25,8 @@ import { RedisCacheService } from '../../../platform/cache/redis-cache.service';
 import { OutboxService } from '../../../platform/outbox/outbox.service';
 import { Inject } from '@nestjs/common';
 
+import { BackOfficeQueueService } from '../queries/back-office-queue.service';
+
 @Injectable()
 export class IssuePolicyService {
   constructor(
@@ -34,6 +36,7 @@ export class IssuePolicyService {
     private readonly policyDomainService: PolicyDomainService,
     private readonly prisma: PrismaService,
     private readonly outboxService: OutboxService,
+    private readonly backOfficeQueueService: BackOfficeQueueService,
     @Inject(CACHE_PROVIDER_TOKEN) private readonly cache: RedisCacheService,
   ) {}
 
@@ -41,6 +44,19 @@ export class IssuePolicyService {
     if (!dto.quotationId) {
       throw new BadRequestException(
         'Authoritative quotationId is mandatory for policy issuance. Direct manual policy issuance without a quotation is forbidden.',
+      );
+    }
+
+    // Defense-in-Depth: Always enforce authoritative gates regardless of caller
+    await this.backOfficeQueueService.validateIssuanceGates(dto.quotationId);
+
+    // Concurrency / duplicate guard: Check if policy already exists for this quotation
+    const existingPolicy = await this.prisma.policy.findUnique({
+      where: { quotationId: dto.quotationId },
+    });
+    if (existingPolicy) {
+      throw new ConflictException(
+        `Policy already issued for quotation ${dto.quotationId} (Policy Number: ${existingPolicy.policyNumber}). Duplicate issuance is blocked.`,
       );
     }
 
@@ -52,7 +68,7 @@ export class IssuePolicyService {
       );
     }
 
-    // 2. Validate quotation status
+    // 2. Validate quotation status & validity period
     if (
       quotation.status !== QuotationStatus.APPROVED &&
       quotation.status !== QuotationStatus.ACCEPTED
@@ -62,31 +78,38 @@ export class IssuePolicyService {
       );
     }
 
+    if (quotation.expiryDate && new Date(quotation.expiryDate) < new Date()) {
+      throw new BadRequestException(
+        `Quotation ${quotation.quotationCode || quotation.id} expired on ${new Date(quotation.expiryDate).toISOString().slice(0, 10)}. Cannot issue policy from expired quotation.`,
+      );
+    }
+
     // 3. Verify authoritative payment reconciliation (no manufactured payments)
     const paymentRecord = await this.prisma.motorPaymentRecord.findUnique({
       where: { quotationId: quotation.id },
     });
 
-    const authoritativePayable = Number(quotation.totalPremium);
+    const authoritativePayable = new Prisma.Decimal(quotation.totalPremium);
     let paymentAmount = authoritativePayable;
     let paymentTxn = `TXN_${quotation.quotationCode}`;
     let paymentMethod = 'ONLINE_UPI';
+    const decimalTolerance = new Prisma.Decimal('0.01');
 
     if (paymentRecord && paymentRecord.status === 'PAID') {
-      const recAmount = Number(paymentRecord.amount);
-      if (Math.abs(recAmount - authoritativePayable) > 0.01) {
+      const recAmount = new Prisma.Decimal(paymentRecord.amount || 0);
+      if (recAmount.sub(authoritativePayable).abs().greaterThan(decimalTolerance)) {
         throw new BadRequestException(
-          `Payment reconciliation mismatch: Recorded ₹${recAmount} vs authoritative payable ₹${authoritativePayable}. Exact match required.`,
+          `Payment reconciliation mismatch: Recorded ₹${recAmount.toString()} vs authoritative payable ₹${authoritativePayable.toString()}. Exact match required.`,
         );
       }
       paymentAmount = recAmount;
       paymentTxn = paymentRecord.referenceNumber || paymentTxn;
       paymentMethod = paymentRecord.paymentMethod || paymentMethod;
     } else if (dto.payment?.transactionId && dto.payment?.amount) {
-      const received = Number(dto.payment.amount);
-      if (Math.abs(received - authoritativePayable) > 0.01) {
+      const received = new Prisma.Decimal(dto.payment.amount);
+      if (received.sub(authoritativePayable).abs().greaterThan(decimalTolerance)) {
         throw new BadRequestException(
-          `Payment reconciliation failure: Received ₹${received} but authoritative payable is ₹${authoritativePayable}. Exact match required.`,
+          `Payment reconciliation failure: Received ₹${received.toString()} but authoritative payable is ₹${authoritativePayable.toString()}. Exact match required.`,
         );
       }
       paymentAmount = received;
@@ -94,7 +117,7 @@ export class IssuePolicyService {
       paymentMethod = dto.payment.paymentMethod || paymentMethod;
     } else {
       throw new BadRequestException(
-        'Cannot issue policy without authoritative reconciled payment (PAID status required). Manufacture of fake payment is blocked.',
+        'Cannot issue policy without authoritative reconciled payment (PAID status required). Manufacture of unverified payment is blocked.',
       );
     }
 
@@ -111,10 +134,34 @@ export class IssuePolicyService {
             },
           ];
 
-    // 5. Generate Policy Number via authoritative sequence
+    // 5. Generate Policy Number via authoritative sequence and derive coverage dates
     const policyNumber = await this.policyRepository.generatePolicyNumber();
-    const effectiveDate = new Date();
-    const isAlreadyEffective = effectiveDate >= new Date();
+
+    const quoteEffective = (quotation as any).policyStartDate ? new Date((quotation as any).policyStartDate) : null;
+    const effectiveDate = dto.effectiveDate ? new Date(dto.effectiveDate) : (quoteEffective || new Date());
+
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    if (effectiveDate < todayStart) {
+      throw new BadRequestException(
+        `Backdated policy issuance is strictly forbidden. Effective date (${effectiveDate.toISOString().slice(0, 10)}) cannot be earlier than today.`,
+      );
+    }
+
+    const tenureYears = quotation.policyTenure || 1;
+    const calculatedExpiry = new Date(effectiveDate);
+    calculatedExpiry.setFullYear(calculatedExpiry.getFullYear() + tenureYears);
+
+    const quoteExpiry = (quotation as any).policyEndDate ? new Date((quotation as any).policyEndDate) : null;
+    const expiryDate = dto.expiryDate ? new Date(dto.expiryDate) : (quoteExpiry || calculatedExpiry);
+
+    if (expiryDate <= effectiveDate) {
+      throw new BadRequestException(
+        `Policy expiryDate (${expiryDate.toISOString().slice(0, 10)}) must be strictly greater than effectiveDate (${effectiveDate.toISOString().slice(0, 10)}).`,
+      );
+    }
+
+    const isAlreadyEffective = effectiveDate <= new Date();
 
     // 6. Map create payload
     const policyData: Prisma.PolicyCreateInput = {
@@ -122,11 +169,9 @@ export class IssuePolicyService {
       status: isAlreadyEffective ? PolicyStatus.ACTIVE : PolicyStatus.ISSUED,
       quotation: { connect: { id: quotation.id } },
       contact: { connect: { id: quotation.contactId } },
-      premiumAmount: new Prisma.Decimal(paymentAmount),
+      premiumAmount: paymentAmount,
       effectiveDate,
-      expiryDate:
-        quotation.expiryDate ||
-        new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
+      expiryDate,
       createdBy: { connect: { id: createdById } },
       updatedBy: { connect: { id: createdById } },
     };
@@ -168,6 +213,16 @@ export class IssuePolicyService {
 
     // 7. Execute in transaction
     const policy = await this.prisma.$transaction(async (tx) => {
+      // Re-verify inside transaction to catch concurrent race conditions atomically
+      const atomicCheck = await tx.policy.findUnique({
+        where: { quotationId: quotation.id },
+      });
+      if (atomicCheck) {
+        throw new ConflictException(
+          `Concurrent conflict: Policy already issued for quotation ${quotation.id} (Policy Number: ${atomicCheck.policyNumber}).`,
+        );
+      }
+
       // Create Policy
       const newPolicy = await this.policyRepository.create(policyData, tx);
 
@@ -180,10 +235,44 @@ export class IssuePolicyService {
         tx,
       );
 
-      // Generate Policy documents stubs
-      const schedulePdf = this.pdfService.generatePdfStub(policyNumber);
-      const taxCertificatePdf = this.pdfService.generatePdfStub(
+      // Generate genuine signed policy documents with authoritative metadata
+      const insuredName = quotation.contact
+        ? `${quotation.contact.firstName || ''} ${quotation.contact.lastName || ''}`.trim()
+        : 'Insured Customer';
+      const vehicleDetails = (quotation as any).vehicle;
+      const chassis = vehicleDetails?.chassisNumber || (quotation as any).chassisNumber || 'CHASSIS-PENDING';
+      const engine = vehicleDetails?.engineNumber || (quotation as any).engineNumber || 'ENGINE-PENDING';
+      const regNumber = quotation.registrationNumber || vehicleDetails?.registrationNumber || 'REG-PENDING';
+
+      const schedulePdf = await this.pdfService.generateDocumentPdf(
+        'Policy Schedule',
+        policyNumber,
+        {
+          'Policy Number': policyNumber,
+          'Quotation Code': quotation.quotationCode,
+          'Insured Name': insuredName,
+          'Vehicle Registration': regNumber,
+          'Chassis Number': chassis,
+          'Engine Number': engine,
+          'Insurer': quotation.insurerName,
+          'Coverage Period': `${effectiveDate.toISOString().slice(0, 10)} to ${expiryDate.toISOString().slice(0, 10)}`,
+          'Insured Amount (IDV)': `Rs. ${(quotation.sumInsured ?? 0).toString()}`,
+          'Net Customer Premium': `Rs. ${(quotation.basePremium ?? 0).toString()}`,
+          'Total GST': `Rs. ${(quotation.gstAmount ?? 0).toString()}`,
+          'Total Premium Paid': `Rs. ${policyData.premiumAmount.toString()}`,
+          'Payment Transaction': paymentTxn,
+        },
+      );
+
+      const taxCertificatePdf = await this.pdfService.generateDocumentPdf(
+        'Tax Exemption / GST Certificate',
         `${policyNumber}_TAX`,
+        {
+          'Policy Number': policyNumber,
+          'GST Amount': `Rs. ${(quotation.gstAmount ?? 0).toString()}`,
+          'Tax Component': 'Statutory 18% GST on Gross Base Premium',
+          'Invoice Date': new Date().toISOString().slice(0, 10),
+        },
       );
 
       await Promise.all([

@@ -45,8 +45,13 @@ export class AuthService {
       ? user.role.permissions.map((p) => p.permission.code)
       : [];
 
-    const orgId =
-      (user as any).branch?.zone?.region?.company?.id || 'DEFAULT_ORG';
+    let orgId = (user as any).branch?.zone?.region?.company?.id;
+    if (!orgId) {
+      orgId = await this.usersService.getPrimaryOrganizationId();
+    }
+    if (!orgId) {
+      throw new UnauthorizedException('Missing organizational tenant context. User must belong to an active organization.');
+    }
     const roleType = user.role.type || user.role.code;
 
     const payload = {
@@ -213,8 +218,13 @@ export class AuthService {
       ? user.role.permissions.map((p) => p.permission.code)
       : [];
 
-    const orgId =
-      (user as any).branch?.zone?.region?.company?.id || 'DEFAULT_ORG';
+    let orgId = (user as any).branch?.zone?.region?.company?.id;
+    if (!orgId) {
+      orgId = await this.usersService.getPrimaryOrganizationId();
+    }
+    if (!orgId) {
+      throw new UnauthorizedException('Missing organizational tenant context. User must belong to an active organization.');
+    }
     const roleType = user.role.type || user.role.code;
 
     const newPayload = {

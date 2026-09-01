@@ -153,9 +153,15 @@ export class MotorCalculationService {
     const totalDiscountAmount = round2(
       ncbDiscountAmount + specialDiscountAmount,
     );
-    const netPreTaxPremium = round2(netOdPremium + netTpPremium);
+    const netCustomerPremium = round2(
+      Math.max(0, baseOdPremium - ncbDiscountAmount - specialDiscountAmount) +
+        addonPremium +
+        baseTpPremium +
+        paPremium +
+        paidDriverPremium,
+    );
 
-    // 8. Calculate GST (Strictly on pre-tax net amount, post discount)
+    // 8. Calculate Statutory GST (Option A: Strictly on GROSS pre-tax premium; discounts NEVER reduce tax)
     let gstRate = 0.18;
     if (
       input.vehicleCategory === 'GCV' &&
@@ -164,12 +170,12 @@ export class MotorCalculationService {
       gstRate = 0.12;
     }
 
-    const odGst = round2(netOdPremium * gstRate);
-    const tpGst = round2(netTpPremium * gstRate);
-    const totalGst = round2(netPreTaxPremium * gstRate);
+    const totalGst = round2(grossBasePremium * gstRate);
+    const cgst = round2(totalGst / 2);
+    const sgst = round2(totalGst - cgst);
 
-    // 9. Final Total Payable Amount
-    const finalPayableAmount = round2(netPreTaxPremium + totalGst);
+    // 9. Final Total Payable Amount (Option A: Net Customer Premium + Total Statutory GST)
+    const finalPayableAmount = round2(netCustomerPremium + totalGst);
 
     return {
       inputs: {
@@ -196,13 +202,14 @@ export class MotorCalculationService {
         // Combined Totals
         grossBasePremium,
         totalDiscount: totalDiscountAmount,
-        netPreTaxPremium,
-        basePremium: netPreTaxPremium, // Clear pre-tax net amount
+        netCustomerPremium,
+        netPreTaxPremium: netCustomerPremium,
+        basePremium: netCustomerPremium,
 
         // Tax Breakdown
         gstRate: gstRate * 100,
-        odGst,
-        tpGst,
+        cgst,
+        sgst,
         totalGst,
         gstAmount: totalGst,
 
@@ -210,7 +217,7 @@ export class MotorCalculationService {
         totalPremium: finalPayableAmount,
         finalPayableAmount,
       },
-      calculationVersion: 'motor-v3-irda',
+      calculationVersion: 'motor-v3-option-a',
       rateConfigurationVersion: 1,
     };
   }
@@ -225,6 +232,21 @@ export class MotorCalculationService {
       if (new Date(input.activeTpExpiryDate) <= new Date()) {
         throw new BadRequestException(
           'Active TP Policy has expired, cannot issue SAOD',
+        );
+      }
+    }
+
+    if (input.discountPercent !== undefined && input.discountPercent > 0) {
+      const standardLimit = 20;
+      const absoluteLimit = 50;
+      if (input.discountPercent > absoluteLimit) {
+        throw new BadRequestException(
+          `Requested discount (${input.discountPercent}%) exceeds absolute statutory ceiling of ${absoluteLimit}%. Disallowed.`,
+        );
+      }
+      if (input.discountPercent > standardLimit && !input.approvalReference) {
+        throw new BadRequestException(
+          `Requested discount (${input.discountPercent}%) exceeds standard authority limit (${standardLimit}%). An approved escalation approvalReference UUID is required.`,
         );
       }
     }

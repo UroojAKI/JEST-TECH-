@@ -146,6 +146,22 @@ export class LeadsController {
     return this.leadsService.create(dto, user.id);
   }
 
+  @Post(':id/merge')
+  @Roles(
+    RoleType.SUPER_ADMIN,
+    RoleType.ADMIN,
+    RoleType.BRANCH_MANAGER,
+    RoleType.TEAM_LEADER,
+    RoleType.SALES_AGENT,
+  )
+  merge(
+    @Param('id') targetId: string,
+    @Body('sourceLeadId') sourceLeadId: string,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.leadsService.mergeLeads(targetId, sourceLeadId, user.id);
+  }
+
   @Get()
   @Roles(
     RoleType.SUPER_ADMIN,

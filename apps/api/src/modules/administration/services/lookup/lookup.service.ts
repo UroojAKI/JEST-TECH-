@@ -60,7 +60,35 @@ export class LookupService {
       }));
   }
 
+  async getAll(): Promise<any[]> {
+    const cacheKey = 'lookup_categories_all';
+    const cached = await this.cacheManager.get<any[]>(cacheKey);
+    if (cached) return cached;
+
+    const categories = await this.prisma.lookupCategory.findMany({
+      where: { isActive: true },
+      include: {
+        values: {
+          where: { isActive: true },
+          orderBy: { orderIndex: 'asc' },
+        },
+      },
+    });
+
+    const result = categories.map((cat) => ({
+      id: cat.id,
+      code: cat.code,
+      name: cat.name,
+      description: cat.description,
+      values: this.buildHierarchy(cat.values, null),
+    }));
+
+    await this.cacheManager.set(cacheKey, result, 3600 * 1000);
+    return result;
+  }
+
   async invalidateCache(categoryCode: string) {
     await this.cacheManager.del(`lookup_category_${categoryCode}`);
+    await this.cacheManager.del('lookup_categories_all');
   }
 }

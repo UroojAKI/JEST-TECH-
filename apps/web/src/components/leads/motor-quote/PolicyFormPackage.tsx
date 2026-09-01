@@ -57,6 +57,7 @@ export function PolicyFormPackageForm({ category, vehicleStatus, data, onChange 
     claimInExpiringPolicy: data.claimInExpiringPolicy === 'Yes',
     paCover: true,
     paidDriverLiability: false,
+    discountPercent: parseFloat(data.odCommissionCalc || '0'),
     addons: (data.addonsSelected || []).map(a => ({
       addonCode: a,
       manualPrice: data.addonPrices?.[a] ? parseFloat(data.addonPrices[a]) : undefined
@@ -67,50 +68,14 @@ export function PolicyFormPackageForm({ category, vehicleStatus, data, onChange 
     if (result && result.outputs) {
       onChange({ 
         ...data, 
-        totalPremiumInclGST: result.outputs.totalPremium.toString(),
+        totalPremiumInclGST: (result.outputs.finalPayableAmount ?? result.outputs.totalPremium ?? 0).toString(),
+        finalCommissionCalc: (result.outputs.totalDiscount ?? 0).toString(),
+        finalPayableAmount: (result.outputs.finalPayableAmount ?? result.outputs.totalPremium ?? 0).toString(),
+        finalGstAmount: (result.outputs.totalGst ?? 0).toString(),
         calculatedResult: result 
       });
     }
   }, [result]);
-
-  useEffect(() => {
-    const rawOd = data.calculatedResult?.outputs?.netOdPremium || 0;
-    const rawTp = data.calculatedResult?.outputs?.netTpPremium || 0;
-    
-    const odDiscountPct = parseFloat(data.odCommissionCalc) || 0;
-    const tpDiscountPct = parseFloat(data.tpCommissionCalc) || 0;
-
-    const odDiscountAmt = Math.round(rawOd * (odDiscountPct / 100) * 100) / 100;
-    const tpDiscountAmt = Math.round(rawTp * (tpDiscountPct / 100) * 100) / 100;
-    const totalDiscountAmt = Math.round((odDiscountAmt + tpDiscountAmt) * 100) / 100;
-
-    const discountedOd = Math.max(0, rawOd - odDiscountAmt);
-    const discountedTp = Math.max(0, rawTp - tpDiscountAmt);
-    const preTaxNetBase = Math.round((discountedOd + discountedTp) * 100) / 100;
-
-    const isCommercial = !['BIKE', 'PRIVATE_CAR'].includes(category);
-    let totalGst = 0;
-    if (isCommercial) {
-      totalGst = Math.round(((discountedOd * 0.18) + (discountedTp * 0.12)) * 100) / 100;
-    } else {
-      totalGst = Math.round((preTaxNetBase * 0.18) * 100) / 100;
-    }
-
-    const finalPayable = Math.round((preTaxNetBase + totalGst) * 100) / 100;
-
-    if (
-      data.finalCommissionCalc !== totalDiscountAmt.toFixed(2) ||
-      data.finalPayableAmount !== finalPayable.toFixed(2) ||
-      data.finalGstAmount !== totalGst.toFixed(2)
-    ) {
-      onChange({ 
-        ...data, 
-        finalCommissionCalc: totalDiscountAmt.toFixed(2),
-        finalPayableAmount: finalPayable.toFixed(2),
-        finalGstAmount: totalGst.toFixed(2)
-      });
-    }
-  }, [data.tpCommissionCalc, data.odCommissionCalc, data.calculatedResult, category]);
 
   const handleClaimChange = (val: string) => {
     const updated = { ...data, claimInExpiringPolicy: val };
@@ -127,13 +92,15 @@ export function PolicyFormPackageForm({ category, vehicleStatus, data, onChange 
   const tenureOptions = getPolicyTenureOptions(category, 'PACKAGE');
   const isCommercial = !['BIKE', 'PRIVATE_CAR'].includes(category);
 
-  const rawOd = data.calculatedResult?.outputs?.netOdPremium || 0;
-  const rawTp = data.calculatedResult?.outputs?.netTpPremium || 0;
-  const grossBase = rawOd + rawTp;
-  const discountAmt = parseFloat(data.finalCommissionCalc || '0');
-  const netBase = Math.max(0, grossBase - discountAmt);
-  const gstAmt = parseFloat(data.finalGstAmount || (netBase * 0.18).toFixed(2));
-  const finalPayable = parseFloat(data.finalPayableAmount || (netBase + gstAmt).toFixed(2));
+  // Authoritative Backend Calculation Outputs (Single Source of Truth)
+  const outputs = data.calculatedResult?.outputs || {};
+  const rawOd = outputs.baseOdPremium ?? 0;
+  const rawTp = outputs.baseTpPremium ?? 0;
+  const grossBase = outputs.grossBasePremium ?? (rawOd + rawTp);
+  const discountAmt = outputs.totalDiscount ?? 0;
+  const netBase = outputs.netCustomerPremium ?? outputs.netPreTaxPremium ?? (grossBase - discountAmt);
+  const gstAmt = outputs.totalGst ?? outputs.gstAmount ?? 0;
+  const finalPayable = outputs.finalPayableAmount ?? outputs.totalPremium ?? 0;
 
   return (
     <div className="space-y-4">
@@ -297,15 +264,15 @@ export function PolicyFormPackageForm({ category, vehicleStatus, data, onChange 
             </div>
 
             <div className="p-2.5 rounded-xl border bg-muted/10">
-              <span className="text-[10px] text-muted-foreground block font-medium">Pre-Tax Net Premium</span>
+              <span className="text-[10px] text-muted-foreground block font-medium">Net Customer Premium</span>
               <span className="text-sm font-bold text-foreground">₹{netBase.toLocaleString('en-IN')}</span>
-              <span className="text-[9px] text-muted-foreground block">Taxable Base</span>
+              <span className="text-[9px] text-muted-foreground block">Gross minus discounts</span>
             </div>
 
             <div className="p-2.5 rounded-xl border bg-muted/10">
-              <span className="text-[10px] text-muted-foreground block font-medium">GST / Tax (18%)</span>
+              <span className="text-[10px] text-muted-foreground block font-medium">Statutory GST (18%)</span>
               <span className="text-sm font-bold text-foreground">+₹{gstAmt.toLocaleString('en-IN')}</span>
-              <span className="text-[9px] text-muted-foreground block">Post-discount</span>
+              <span className="text-[9px] text-muted-foreground block">Calculated on Gross Base</span>
             </div>
           </div>
 
@@ -316,7 +283,7 @@ export function PolicyFormPackageForm({ category, vehicleStatus, data, onChange 
                 Final Total Payable Amount
               </span>
               <span className="text-[10px] text-muted-foreground">
-                Authoritative amount to be collected from customer (Net Base + GST)
+                Authoritative amount to be collected from customer (Net Customer Premium + Statutory GST)
               </span>
             </div>
             <div className="text-2xl font-black text-emerald-700 dark:text-emerald-400">

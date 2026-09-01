@@ -14,6 +14,8 @@ import { GetPolicyHistoryService } from '../services/queries/get-policy-history.
 import { PrismaService } from '../../../database/prisma.service';
 import { RenewalEngineService } from '../services/renewal-engine.service';
 import { RenewalSchedulerCron } from '../crons/renewal-scheduler.cron';
+import { IssuePolicyService } from '../services/commands/issue-policy.service';
+import { BackOfficeQueueService } from '../services/queries/back-office-queue.service';
 import { RequestUser } from '../../auth/decorators/current-user.decorator';
 
 describe('PoliciesController', () => {
@@ -22,6 +24,8 @@ describe('PoliciesController', () => {
   let renewService: RenewPolicyService;
   let getService: GetPolicyService;
   let historyService: GetPolicyHistoryService;
+  let backOfficeQueueService: BackOfficeQueueService;
+  let issuePolicyService: IssuePolicyService;
 
   const mockUser: RequestUser = {
     id: 'user-123',
@@ -113,6 +117,18 @@ describe('PoliciesController', () => {
             runManually: jest.fn().mockResolvedValue({ triggered: true }),
           },
         },
+        {
+          provide: IssuePolicyService,
+          useValue: {
+            execute: jest.fn().mockResolvedValue(mockPolicyResponse),
+          },
+        },
+        {
+          provide: BackOfficeQueueService,
+          useValue: {
+            validateIssuanceGates: jest.fn().mockResolvedValue({ allowed: true }),
+          },
+        },
       ],
     }).compile();
 
@@ -122,6 +138,12 @@ describe('PoliciesController', () => {
     getService = module.get<GetPolicyService>(GetPolicyService);
     historyService = module.get<GetPolicyHistoryService>(
       GetPolicyHistoryService,
+    );
+    backOfficeQueueService = module.get<BackOfficeQueueService>(
+      BackOfficeQueueService,
+    );
+    issuePolicyService = module.get<IssuePolicyService>(
+      IssuePolicyService,
     );
   });
 
@@ -141,12 +163,35 @@ describe('PoliciesController', () => {
         'Customer request',
         mockUser,
       );
-      expect(result.status).toEqual(PolicyStatus.CANCELLED);
       expect(cancelService.execute).toHaveBeenCalledWith(
         'policy-123',
         'Customer request',
         mockUser.id,
       );
+    });
+
+    it('should issue policy directly through validateIssuanceGates and IssuePolicyService via POST /policies/issue', async () => {
+      const dto = { quotationId: 'quote-100', issueSource: 'DIRECT_ISSUANCE' };
+
+      const result = await controller.issuePolicyDirect(dto, mockUser);
+      expect(backOfficeQueueService.validateIssuanceGates).toHaveBeenCalledWith('quote-100');
+      expect(issuePolicyService.execute).toHaveBeenCalledWith(
+        expect.objectContaining({ quotationId: 'quote-100' }),
+        mockUser.id,
+      );
+      expect(result).toEqual(mockPolicyResponse);
+    });
+
+    it('should create policy through validateIssuanceGates and IssuePolicyService via POST /policies', async () => {
+      const dto = { quotationId: 'quote-100' };
+
+      const result = await controller.createPolicyRoot(dto, mockUser);
+      expect(backOfficeQueueService.validateIssuanceGates).toHaveBeenCalledWith('quote-100');
+      expect(issuePolicyService.execute).toHaveBeenCalledWith(
+        expect.objectContaining({ quotationId: 'quote-100', issueSource: 'POLICY_CONVERSION' }),
+        mockUser.id,
+      );
+      expect(result).toEqual(mockPolicyResponse);
     });
   });
 

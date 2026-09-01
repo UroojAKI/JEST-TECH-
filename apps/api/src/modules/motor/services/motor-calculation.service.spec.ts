@@ -52,18 +52,58 @@ describe('MotorCalculationService (Iteration 5 Financial Math)', () => {
       expect(outputs.paPremium).toBe(275);
       expect(outputs.netTpPremium).toBe(3691);
 
-      // Pre-tax Base Premium = Net OD (11257.2) + Net TP (3691) = 14948.2
+      // Gross Base Premium = Base OD (15635) + Base TP (3416) + PA (275) = 19326
+      expect(outputs.grossBasePremium).toBe(19326);
+
+      // Net Customer Premium = Net OD (11257.2) + Net TP (3691) = 14948.2
+      expect(outputs.netCustomerPremium).toBe(14948.2);
       expect(outputs.basePremium).toBe(14948.2);
 
-      // GST 18% = 14948.2 * 0.18 = 2690.68
-      expect(outputs.totalGst).toBe(2690.68);
+      // Option A Statutory GST (18% on GROSS ₹19,326, discounts NEVER reduce tax) = 3478.68
+      expect(outputs.totalGst).toBe(3478.68);
 
-      // Final Payable = 14948.2 + 2690.68 = 17638.88
-      expect(outputs.totalPremium).toBe(17638.88);
-      expect(outputs.finalPayableAmount).toBe(17638.88);
+      // Final Payable = Net Customer Premium (14948.2) + Statutory GST (3478.68) = 18426.88
+      expect(outputs.totalPremium).toBe(18426.88);
+      expect(outputs.finalPayableAmount).toBe(18426.88);
 
       // Verify that base premium is strictly different from total payable
       expect(outputs.basePremium).not.toBe(outputs.totalPremium);
+    });
+
+    it('should reject discount exceeding absolute ceiling (50%)', async () => {
+      await expect(
+        service.calculate({
+          vehicleCategory: 'PRIVATE_CAR',
+          vehicleStatus: 'EXISTING',
+          policyType: 'PACKAGE_COMPREHENSIVE',
+          idv: 500000,
+          discountPercent: 55,
+        }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should reject discount exceeding standard authority (20%) without approvalReference', async () => {
+      await expect(
+        service.calculate({
+          vehicleCategory: 'PRIVATE_CAR',
+          vehicleStatus: 'EXISTING',
+          policyType: 'PACKAGE_COMPREHENSIVE',
+          idv: 500000,
+          discountPercent: 25,
+        }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should allow discount exceeding standard authority (20%) with valid approvalReference', async () => {
+      const result: any = await service.calculate({
+        vehicleCategory: 'PRIVATE_CAR',
+        vehicleStatus: 'EXISTING',
+        policyType: 'PACKAGE_COMPREHENSIVE',
+        idv: 500000,
+        discountPercent: 25,
+        approvalReference: 'APP-REF-12345',
+      });
+      expect(result.outputs.specialDiscount).toBeGreaterThan(0);
     });
 
     it('should compute Add-ons correctly as percentage of IDV and fixed amounts', async () => {

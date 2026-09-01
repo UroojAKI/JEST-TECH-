@@ -72,4 +72,15 @@ export class PolicyResponseDto {
   payments?: PolicyPaymentResponseDto[];
   documents?: PolicyDocumentResponseDto[];
   histories?: PolicyHistoryResponseDto[];
+
+  workflowState?: {
+    status: string;
+    ownerId: string | null;
+    ownerName: string | null;
+    waitingFor: string;
+    nextAction: string;
+    blocker: string | null;
+    dueAt: Date | null;
+    lastTransitionAt: Date;
+  };
 }

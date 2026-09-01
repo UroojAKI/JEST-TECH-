@@ -39,6 +39,7 @@ describe('LeadsController', () => {
       addNote: jest.fn(),
       createActivity: jest.fn(),
       convert: jest.fn(),
+      mergeLeads: jest.fn(),
     } as any;
 
     const module: TestingModule = await Test.createTestingModule({
@@ -141,6 +142,22 @@ describe('LeadsController', () => {
       const result = await controller.remove('lead-1', mockUser);
 
       expect(service.remove).toHaveBeenCalledWith('lead-1', mockUser.id);
+      expect(result).toEqual(expectedResult);
+    });
+  });
+
+  describe('merge', () => {
+    it('should call service.mergeLeads with targetId, sourceLeadId, and userId', async () => {
+      const expectedResult = { id: 'lead-1', title: 'Target Lead' };
+      service.mergeLeads.mockResolvedValue(expectedResult as any);
+
+      const result = await controller.merge('lead-1', 'lead-2', mockUser);
+
+      expect(service.mergeLeads).toHaveBeenCalledWith(
+        'lead-1',
+        'lead-2',
+        mockUser.id,
+      );
       expect(result).toEqual(expectedResult);
     });
   });

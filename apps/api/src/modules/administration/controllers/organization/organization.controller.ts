@@ -21,6 +21,15 @@ class AssignTeamDto {
   teamId: string;
 }
 
+class CreateBranchDto {
+  name: string;
+  code: string;
+  city: string;
+  state?: string;
+  address?: string;
+  zoneId?: string;
+}
+
 @ApiTags('Administration - Organization')
 @Controller('admin/organization')
 @ApiBearerAuth()
@@ -38,6 +47,13 @@ export class OrganizationController {
   @ApiOperation({ summary: 'Get all branches' })
   async getBranches(@Query() pagination: PaginationDto) {
     return this.organizationService.getBranches(pagination);
+  }
+
+  @Post('branches')
+  @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN)
+  @ApiOperation({ summary: 'Create a new branch' })
+  async createBranch(@Body() dto: CreateBranchDto) {
+    return this.organizationService.createBranch(dto);
   }
 
   @Get('branches/:branchId/departments')

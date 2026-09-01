@@ -52,13 +52,17 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       ? (payload.roles as RoleType[])
       : [primaryRole];
 
+    if (!payload.organizationId) {
+      throw new UnauthorizedException('Missing organization context — access denied.');
+    }
+
     const actor: ActorContext = {
       userId: payload.sub,
       email: payload.email,
       firstName: payload.firstName || '',
       lastName: payload.lastName || '',
-      organizationId: payload.organizationId || 'DEFAULT_ORG',
-      companyId: payload.organizationId || 'DEFAULT_ORG',
+      organizationId: payload.organizationId,
+      companyId: payload.organizationId,
       branchId: payload.branchId,
       branchCode: payload.branchCode,
       departmentId: payload.departmentId,

@@ -18,8 +18,13 @@ describe('IssuePolicyService', () => {
 
   const mockQuotation = {
     id: 'quote-123',
+    quotationCode: 'QUO-2026-0001',
     status: QuotationStatus.APPROVED,
+    insurerName: 'HDFC ERGO General Insurance',
     totalPremium: 15000,
+    sumInsured: 500000,
+    basePremium: 12711.86,
+    gstAmount: 2288.14,
     contactId: 'contact-123',
     expiryDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
   };
@@ -53,6 +58,9 @@ describe('IssuePolicyService', () => {
     };
 
     const mockPrisma = {
+      policy: {
+        findUnique: jest.fn().mockResolvedValue(null),
+      },
       motorPaymentRecord: {
         findUnique: jest.fn().mockResolvedValue({
           id: 'pay-1',
@@ -64,6 +72,7 @@ describe('IssuePolicyService', () => {
       },
       $transaction: jest.fn(async (cb) => {
         const tx = {
+          policy: { findUnique: jest.fn().mockResolvedValue(null) },
           outboxEvent: { create: jest.fn() },
           insurerPolicyDetail: { create: jest.fn() },
         };
@@ -79,16 +88,23 @@ describe('IssuePolicyService', () => {
         {
           provide: PdfService,
           useValue: {
-            generatePdfStub: jest.fn().mockReturnValue({
+            generateDocumentPdf: jest.fn().mockResolvedValue({
               fileKey: 'key',
               fileName: 'doc.pdf',
               fileSize: 1024,
+              hash: 'mock-sha256',
             }),
           },
         },
         { provide: PolicyDomainService, useValue: {} },
         { provide: PrismaService, useValue: mockPrisma },
         { provide: OutboxService, useValue: outboxService },
+        {
+          provide: require('../queries/back-office-queue.service').BackOfficeQueueService,
+          useValue: {
+            validateIssuanceGates: jest.fn().mockResolvedValue({ allowed: true }),
+          },
+        },
         {
           provide: CACHE_PROVIDER_TOKEN,
           useValue: { get: jest.fn(), set: jest.fn() },

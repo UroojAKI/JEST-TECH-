@@ -195,8 +195,11 @@ export function MotorProposalWizard() {
   // Issue Policy Mutation
   const issuePolicyMutation = useMutation({
     mutationFn: async () => {
+      if (!selectedContact?.id) {
+        throw new Error('Authoritative contact is required before issuing policy.');
+      }
       const res = await apiClient.post('/quotations/wizard/issue-policy', {
-        contactId: selectedContact?.id || 'demo-contact-id',
+        contactId: selectedContact.id,
         insurerName: selectedQuote?.insurerName || 'HDFC ERGO General Insurance',
         totalPremium: selectedQuote?.totalPremium || 18500,
         registrationNumber: regNo,

@@ -30,7 +30,7 @@ export class GenerateQuotationService {
   async execute(dto: CreateQuotationDto, createdById: string) {
     if (!dto.contactId) {
       throw new BadRequestException(
-        'contactId is required to generate quotation. Manufacture of fake prospect customer is forbidden in production.',
+        'contactId is required to generate quotation. Manufacture of unverified customer is forbidden in production.',
       );
     }
 
@@ -81,10 +81,12 @@ export class GenerateQuotationService {
       baseTp = 3416;
     }
 
-    const netPreTaxPremium = netOd + addonsTotal + baseTp;
+    // Option A: Gross Pre-Tax -> GST on Gross -> Discounts on premium components -> Net Customer Premium + unchanged GST = Final Payable
+    const grossPreTaxPremium = baseOd + addonsTotal + baseTp;
     const totalDiscountAmount = ncbDiscount + specialOdDiscount;
-    const gstAmount = Math.round(netPreTaxPremium * 0.18);
-    const totalPremium = netPreTaxPremium + gstAmount;
+    const netCustomerPremium = netOd + addonsTotal + baseTp;
+    const gstAmount = Math.round(grossPreTaxPremium * 0.18);
+    const totalPremium = netCustomerPremium + gstAmount;
 
     // 3. Generate Code
     const quotationCode =
@@ -98,7 +100,7 @@ export class GenerateQuotationService {
       insurerName: insurerNameStr,
       productType: productTypeStr,
       sumInsured: new Prisma.Decimal(sumInsuredNum),
-      basePremium: new Prisma.Decimal(netPreTaxPremium),
+      basePremium: new Prisma.Decimal(netCustomerPremium),
       gstAmount: new Prisma.Decimal(gstAmount),
       totalPremium: new Prisma.Decimal(totalPremium),
       ncbPercentage: dto.ncbPercentage || 0,
@@ -151,8 +153,22 @@ export class GenerateQuotationService {
     // 5. Create Quotation in Database
     const quotation = await this.quotationRepository.create(createData);
 
-    // 6. Write Side-effects
-    const pdfStub = this.pdfService.generatePdfStub(quotationCode);
+    // 6. Write Side-effects (Authoritative signed PDF)
+    const pdfDoc = await this.pdfService.generateDocumentPdf(
+      'Motor Insurance Quotation',
+      quotationCode,
+      {
+        'Quotation Code': quotationCode,
+        'Insurer': quotation.insurerName,
+        'Product': quotation.productType,
+        'Sum Insured (IDV)': `Rs. ${quotation.sumInsured.toString()}`,
+        'Net Customer Premium': `Rs. ${quotation.basePremium.toString()}`,
+        'Statutory GST (18%)': `Rs. ${quotation.gstAmount.toString()}`,
+        'Final Payable Total': `Rs. ${quotation.totalPremium.toString()}`,
+        'Discount Applied': `Rs. ${quotation.discountAmount.toString()}`,
+        'NCB Percentage': `${quotation.ncbPercentage}%`,
+      },
+    );
 
     await Promise.all([
       this.quotationRepository.createVersion({
@@ -176,9 +192,9 @@ export class GenerateQuotationService {
       this.quotationRepository.addDocument(
         quotation.id,
         'QUOTE_PDF',
-        pdfStub.fileKey,
-        pdfStub.fileName,
-        pdfStub.fileSize,
+        pdfDoc.fileKey,
+        pdfDoc.fileName,
+        pdfDoc.fileSize,
       ),
     ]);
 

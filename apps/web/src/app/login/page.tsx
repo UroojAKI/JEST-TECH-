@@ -15,6 +15,10 @@ const QUICK_PROFILES = [
   { email: 'finance@jest.com', label: 'Finance Officer' },
 ];
 
+const isDevQuickLoginEnabled =
+  process.env.NODE_ENV !== 'production' &&
+  process.env.NEXT_PUBLIC_ENABLE_QUICK_LOGIN === 'true';
+
 export default function LoginPage() {
   const { login, isLoggingIn, loginError } = useAuth();
   const [email, setEmail] = useState('');
@@ -25,10 +29,8 @@ export default function LoginPage() {
     login({ email, password });
   };
 
-  const handleQuickLogin = (email: string) => {
-    setEmail(email);
-    setPassword('Password@123');
-    login({ email, password: 'Password@123' });
+  const handleQuickLogin = (selectedEmail: string) => {
+    setEmail(selectedEmail);
   };
 
   return (
@@ -94,22 +96,24 @@ export default function LoginPage() {
           </button>
         </form>
 
-        <div className="mt-8 border-t pt-6">
-          <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider text-center mb-3">Quick Testing Access</p>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-            {QUICK_PROFILES.map((p) => (
-              <button
-                key={p.email}
-                onClick={() => handleQuickLogin(p.email)}
-                disabled={isLoggingIn}
-                className="p-2.5 rounded-lg border text-left hover:bg-accent text-xs transition-colors"
-              >
-                <div className="font-bold">{p.label}</div>
-                <div className="text-[10px] text-muted-foreground truncate">{p.email}</div>
-              </button>
-            ))}
+        {isDevQuickLoginEnabled && (
+          <div className="mt-8 border-t pt-6">
+            <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider text-center mb-3">Quick Testing Access</p>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+              {QUICK_PROFILES.map((p) => (
+                <button
+                  key={p.email}
+                  onClick={() => handleQuickLogin(p.email)}
+                  disabled={isLoggingIn}
+                  className="p-2.5 rounded-lg border text-left hover:bg-accent text-xs transition-colors"
+                >
+                  <div className="font-bold">{p.label}</div>
+                  <div className="text-[10px] text-muted-foreground truncate">{p.email}</div>
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );

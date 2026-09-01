@@ -142,14 +142,25 @@ export class HealthService {
 
     let diskStatus = 'ok';
     try {
-      fs.statSync('/');
+      fs.statSync(process.platform === 'win32' ? process.cwd() : '/');
     } catch (err) {
       diskStatus = 'down';
+    }
+
+    let outboxStatus = 'ok';
+    let pendingOutboxEvents = 0;
+    try {
+      pendingOutboxEvents = await this.prisma.outboxEvent.count({
+        where: { status: 'PENDING' },
+      });
+    } catch {
+      outboxStatus = 'down';
     }
 
     const checks = {
       database: { status: dbStatus, latencyMs: dbLatencyMs },
       redis: { status: redisStatus, latencyMs: redisLatencyMs },
+      outbox: { status: outboxStatus, pendingEvents: pendingOutboxEvents },
       memory: { status: memoryStatus, heapUsedMB, heapLimitMB },
       disk: { status: diskStatus },
     };

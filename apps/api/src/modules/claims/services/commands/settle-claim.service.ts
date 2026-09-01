@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { PrismaService } from '../../../../database/prisma.service';
 import { ClaimStatus, Prisma } from '@prisma/client';
@@ -27,6 +28,13 @@ export class SettleClaimService {
 
     if (!claim) {
       throw new NotFoundException(`Claim with ID ${claimId} not found`);
+    }
+
+    // Segregation of duties: The person who reported the claim cannot settle it
+    if (claim.createdById === actorId) {
+      throw new ForbiddenException(
+        'Segregation of duties violation: The user who reported the claim cannot settle it. An independent finance officer must process settlement.',
+      );
     }
 
     if (!dto.paymentReference || !dto.paymentReference.trim()) {

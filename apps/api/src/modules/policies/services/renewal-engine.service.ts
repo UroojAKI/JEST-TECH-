@@ -67,9 +67,17 @@ export class RenewalEngineService {
     });
     if (!policy) return;
 
-    const daysList = [60, 45, 30, 15, 7, 0, -7];
+    // RENEW-001: Configuration-driven renewal reminder schedule with canonical fallbacks
+    const config = await this.prisma.renewalConfiguration.findFirst({
+      where: { isActive: true },
+      orderBy: { createdAt: 'asc' },
+    });
+    const reminderOffsets: number[] = (config?.reminderOffsets as number[]) ?? [
+      45, 30, 15, 7, 5, 3, 2, 1,
+    ];
+    const escalationOffsets = [7, 3, 1];
 
-    for (const days of daysList) {
+    for (const days of reminderOffsets) {
       const reminderDate = new Date(expiryDate);
       reminderDate.setDate(reminderDate.getDate() - days);
 
@@ -85,8 +93,12 @@ export class RenewalEngineService {
             customerId: policy.contactId,
             agentId: policy.createdById,
             daysBefore: days,
+            isEscalation: escalationOffsets.includes(days),
           },
-          { delay },
+          {
+            delay,
+            jobId: `renewal-reminder:${policy.id}:${days}`,
+          },
         );
       }
     }

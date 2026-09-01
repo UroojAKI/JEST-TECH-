@@ -33,6 +33,10 @@ import { PrismaService } from '../../../database/prisma.service';
 import { RenewalEngineService } from '../services/renewal-engine.service';
 import { RenewalSchedulerCron } from '../crons/renewal-scheduler.cron';
 
+import { IssuePolicyService } from '../services/commands/issue-policy.service';
+import { BackOfficeQueueService } from '../services/queries/back-office-queue.service';
+import { BadRequestException } from '@nestjs/common';
+
 @ApiTags('Policies & Renewal Engine')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -46,7 +50,75 @@ export class PoliciesController {
     private readonly prisma: PrismaService,
     private readonly renewalEngineService: RenewalEngineService,
     private readonly renewalSchedulerCron: RenewalSchedulerCron,
+    private readonly issuePolicyService: IssuePolicyService,
+    private readonly backOfficeQueueService: BackOfficeQueueService,
   ) {}
+
+  @Post('issue')
+  @Roles(
+    RoleType.SUPER_ADMIN,
+    RoleType.ADMIN,
+    RoleType.OPERATIONS,
+    RoleType.POLICY_ISSUANCE_EXECUTIVE,
+    RoleType.BRANCH_MANAGER,
+    RoleType.TEAM_LEADER,
+    RoleType.SALES_AGENT,
+  )
+  @ApiOperation({
+    summary: 'Issue policy from quotation with validation gates',
+  })
+  async issuePolicyDirect(@Body() dto: any, @CurrentUser() user: RequestUser) {
+    const quotationId = dto.quotationId || dto.quoteId;
+    if (!quotationId) {
+      throw new BadRequestException('quotationId is required to issue a policy.');
+    }
+    // Enforce all 5 authoritative gates (Customer KYC, Vehicle plate, Inspection, Payment, Documents) before issuance
+    await this.backOfficeQueueService.validateIssuanceGates(quotationId);
+    return this.issuePolicyService.execute(
+      {
+        quotationId,
+        issueSource: dto.issueSource || 'DIRECT_ISSUANCE',
+        ...dto,
+      },
+      user.id,
+    );
+  }
+
+  @Post()
+  @Roles(
+    RoleType.SUPER_ADMIN,
+    RoleType.ADMIN,
+    RoleType.OPERATIONS,
+    RoleType.POLICY_ISSUANCE_EXECUTIVE,
+    RoleType.BRANCH_MANAGER,
+    RoleType.TEAM_LEADER,
+    RoleType.SALES_AGENT,
+  )
+  @ApiOperation({
+    summary: 'Create policy from quotation or proposal with validation gates',
+  })
+  async createPolicyRoot(@Body() dto: any, @CurrentUser() user: RequestUser) {
+    let quotationId = dto.quotationId || dto.quoteId;
+    if (!quotationId && dto.proposalId) {
+      const proposal = await this.prisma.proposal.findUnique({
+        where: { id: dto.proposalId },
+      });
+      if (proposal?.quotationId) quotationId = proposal.quotationId;
+    }
+    if (!quotationId) {
+      throw new BadRequestException('A valid quotationId or proposalId is required to create a policy.');
+    }
+    // Enforce all 5 authoritative gates (Customer KYC, Vehicle plate, Inspection, Payment, Documents) before issuance
+    await this.backOfficeQueueService.validateIssuanceGates(quotationId);
+    return this.issuePolicyService.execute(
+      {
+        quotationId,
+        issueSource: 'POLICY_CONVERSION',
+        ...dto,
+      },
+      user.id,
+    );
+  }
 
   @Get('renewals/kpis')
   @ApiOperation({ summary: 'Get Renewal Engine KPIs and Conversion Telemetry' })

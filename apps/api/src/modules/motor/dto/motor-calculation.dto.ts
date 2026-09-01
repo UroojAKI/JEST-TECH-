@@ -82,4 +82,8 @@ export class MotorCalculationInputDto {
   @IsOptional()
   @IsString()
   activeTpExpiryDate?: string;
+
+  @IsOptional()
+  @IsString()
+  approvalReference?: string;
 }

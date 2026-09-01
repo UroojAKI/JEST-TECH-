@@ -28,7 +28,51 @@ export class QuotationMapper {
     dto.policyType = q.policyType;
     dto.registrationNumber = q.registrationNumber;
     dto.motorMetadata = q.motorMetadata;
-    dto.workflowState = q.workflowState;
+
+    const quoteNextActions: Record<
+      string,
+      { waitingFor: string; nextAction: string }
+    > = {
+      DRAFT: {
+        waitingFor: 'Underwriting Review',
+        nextAction: 'Review risk rating and approve quotation',
+      },
+      APPROVED: {
+        waitingFor: 'Customer Acceptance',
+        nextAction: 'Share quotation package with customer',
+      },
+      ACCEPTED: {
+        waitingFor: 'Payment Collection',
+        nextAction: 'Customer accepted; collect premium payment',
+      },
+      REJECTED: {
+        waitingFor: 'None',
+        nextAction: 'Quotation rejected by underwriter or customer',
+      },
+      EXPIRED: {
+        waitingFor: 'Re-quote Action',
+        nextAction: 'Quotation validity expired; generate re-quote',
+      },
+      CONVERTED_TO_POLICY: {
+        waitingFor: 'Policy Active',
+        nextAction: 'Policy issued successfully',
+      },
+    };
+    const qAction = quoteNextActions[q.status] || {
+      waitingFor: 'Review',
+      nextAction: 'Assess quotation',
+    };
+    dto.workflowState = {
+      status: q.status,
+      ownerId: q.createdById,
+      ownerName: null,
+      waitingFor: qAction.waitingFor,
+      nextAction: qAction.nextAction,
+      blocker: null,
+      dueAt: q.expiryDate,
+      lastTransitionAt: q.updatedAt,
+    };
+
     dto.issuanceStatus = q.issuanceStatus;
     dto.calculationSnapshot = q.calculationSnapshot;
 

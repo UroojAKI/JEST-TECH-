@@ -11,6 +11,14 @@ import { RoleType } from '@prisma/client';
 export class LookupController {
   constructor(private readonly lookupService: LookupService) {}
 
+  @Get()
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: 'Get all active lookup categories and values' })
+  async getAllLookups() {
+    return this.lookupService.getAll();
+  }
+
   @Get(':categoryCode')
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard)

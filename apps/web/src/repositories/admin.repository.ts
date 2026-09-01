@@ -22,8 +22,9 @@ export interface UserItem {
   password?: string;
   role: string;
   status: 'ACTIVE' | 'LOCKED' | 'DISABLED';
-  branchName: string;
-  teamName: string;
+  branchName?: string;
+  branchId?: string;
+  teamName?: string;
   isEmailVerified: boolean;
   lastLoginAt: string | null;
   createdAt: string;
@@ -48,13 +49,14 @@ export interface BranchItem {
   id: string;
   code: string;
   name: string;
-  city: string;
-  state: string;
-  managerName: string;
-  staffCount: number;
-  activePolicies: number;
-  monthlyGwp: number;
-  status: 'ACTIVE' | 'INACTIVE';
+  city?: string;
+  state?: string;
+  managerName?: string;
+  staffCount?: number;
+  activePolicies?: number;
+  monthlyGwp?: number;
+  status?: string;
+  isActive?: boolean;
 }
 
 export interface LookupItem {
@@ -168,7 +170,12 @@ export const adminRepository = {
   },
 
   async getBranches(): Promise<BranchItem[]> {
-    const response = await apiClient.get('/admin/organization/branches');
+    const response = await apiClient.get('/admin/organization/branches?limit=100');
+    return Array.isArray(response.data) ? response.data : (response.data.data || []);
+  },
+
+  async createBranch(data: { name: string; code: string; city: string; state?: string; address?: string }): Promise<BranchItem> {
+    const response = await apiClient.post('/admin/organization/branches', data);
     return response.data;
   },
 

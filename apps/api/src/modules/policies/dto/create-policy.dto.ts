@@ -112,4 +112,12 @@ export class CreatePolicyDto {
   @ValidateNested()
   @Type(() => CreatePolicyPaymentDto)
   payment?: CreatePolicyPaymentDto;
+
+  @IsOptional()
+  @IsDateString()
+  effectiveDate?: string;
+
+  @IsOptional()
+  @IsDateString()
+  expiryDate?: string;
 }

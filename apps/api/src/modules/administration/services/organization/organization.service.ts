@@ -153,4 +153,41 @@ export class OrganizationService {
       },
     });
   }
+
+  async createBranch(dto: {
+    name: string;
+    code: string;
+    city: string;
+    state?: string;
+    address?: string;
+    zoneId?: string;
+  }) {
+    let zoneId = dto.zoneId;
+    if (!zoneId) {
+      const zone = await this.prisma.zone.findFirst({ where: { isActive: true } });
+      if (!zone) {
+        throw new BadRequestException('No active zone configured to attach branch');
+      }
+      zoneId = zone.id;
+    }
+
+    return this.prisma.branch.create({
+      data: {
+        name: dto.name,
+        code: dto.code.toUpperCase(),
+        city: dto.city,
+        state: dto.state || 'Maharashtra',
+        address: dto.address || null,
+        zoneId,
+        isActive: true,
+      },
+      include: {
+        zone: {
+          include: {
+            region: true,
+          },
+        },
+      },
+    });
+  }
 }

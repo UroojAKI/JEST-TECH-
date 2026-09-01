@@ -94,6 +94,12 @@ export class PortalController {
     ];
   }
 
+  @Post('quotations/compare')
+  @ApiOperation({ summary: 'Compare quotations via POST' })
+  async compareQuotationsPost(@Body() data?: any) {
+    return this.compareQuotations();
+  }
+
   @Get('policies')
   @ApiOperation({ summary: 'Get agent portfolio active policies' })
   async getAgentPolicies() {

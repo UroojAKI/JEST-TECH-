@@ -32,7 +32,7 @@ export class RenewalScheduler {
     });
     const lookAheadDays = config?.lookAheadDays ?? 60;
     const reminderOffsets: number[] = (config?.reminderOffsets as number[]) ?? [
-      30, 7, 1,
+      45, 30, 15, 7, 5, 3, 2, 1,
     ];
 
     const now = new Date();

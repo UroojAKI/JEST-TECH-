@@ -67,6 +67,25 @@ export class NotificationDispatcher {
       return;
     }
 
+    // NOTIFY-002: Deterministic deduplication check (24-hour window)
+    if (entityId) {
+      const existing = await this.prisma.notification.findFirst({
+        where: {
+          userId,
+          type,
+          entityId,
+          createdAt: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) },
+        },
+      });
+
+      if (existing) {
+        this.logger.warn(
+          `[NOTIFY-002] Duplicate notification dropped for user ${userId}, type ${type}, entity ${entityId}.`,
+        );
+        return;
+      }
+    }
+
     // Dispatch to In-App if active
     if (preference.inApp) {
       const notification = await this.prisma.notification.create({

@@ -52,6 +52,7 @@ import { IntegrationsModule } from './modules/platform/integrations/integrations
 import { OrganizationModule } from './modules/organization/organization.module';
 import { DashboardRegistryModule } from './modules/dashboard-registry/dashboard-registry.module';
 import { WorkspaceModule } from './modules/workspace/workspace.module';
+import { PortalModule } from './modules/platform/portal/portal.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AuthorizationModule } from './common/authorization.module';
@@ -141,6 +142,7 @@ import { IdempotencyInterceptor } from './common/interceptors/idempotency.interc
     OrganizationModule,
     DashboardRegistryModule,
     WorkspaceModule,
+    PortalModule,
   ],
   controllers: [AppController],
   providers: [

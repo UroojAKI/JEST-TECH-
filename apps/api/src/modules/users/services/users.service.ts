@@ -4,8 +4,9 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import * as argon2 from 'argon2';
+import * as crypto from 'crypto';
 
-import { AuditAction, RoleType, Prisma } from '@prisma/client';
+import { AuditAction, RoleType, UserStatus, Prisma } from '@prisma/client';
 
 import { PaginationDto } from '../../../common/pagination/pagination.dto';
 import { PaginatedResponseDto } from '../../../common/pagination/paginated-response.dto';
@@ -21,6 +22,14 @@ export class UsersService {
     private readonly userRepository: UserRepository,
     private readonly prisma: PrismaService,
   ) {}
+
+  async getPrimaryOrganizationId(): Promise<string | null> {
+    const company = await this.prisma.company.findFirst({
+      where: { isActive: true },
+      select: { id: true },
+    });
+    return company?.id || null;
+  }
 
   async create(dto: CreateUserDto) {
     let role = await this.userRepository.findRoleByType(dto.role);
@@ -39,25 +48,49 @@ export class UsersService {
       }
     }
 
-    const initialPassword = dto.password || 'JestPolicy2026!';
+    const initialPassword =
+      dto.password ||
+      `Jp$${crypto.randomBytes(6).toString('hex')}!${Math.floor(10 + Math.random() * 90)}`;
     const passwordHash = await argon2.hash(initialPassword);
     const empCode =
       dto.employeeCode || `EMP-${Date.now().toString().slice(-6)}`;
 
+    const targetBranchId = dto.branchId || dto.branch;
+    let branchConnect: any = undefined;
+    if (targetBranchId) {
+      const isUUID =
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+          targetBranchId,
+        );
+      if (isUUID) {
+        branchConnect = { connect: { id: targetBranchId } };
+      }
+    }
+
+    const targetDepartmentId = (dto as any).departmentId || dto.department;
+    let departmentConnect: any = undefined;
+    if (targetDepartmentId) {
+      const isUUID =
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+          targetDepartmentId,
+        );
+      if (isUUID) {
+        departmentConnect = { connect: { id: targetDepartmentId } };
+      }
+    }
+
     const user = await this.userRepository.create({
-      employeeCode: empCode,
+      email: dto.email,
+      passwordHash,
       firstName: dto.firstName,
       lastName: dto.lastName,
-      email: dto.email,
-      phone: dto.phone || null,
-      passwordHash,
-      status: 'ACTIVE',
-      isEmailVerified: true,
-      role: {
-        connect: {
-          id: role.id,
-        },
-      },
+      phone: dto.phone,
+      employeeCode: empCode,
+      designation: (dto as any).designation,
+      role: { connect: { id: role.id } },
+      status: (dto as any).status || UserStatus.ACTIVE,
+      branch: branchConnect,
+      department: departmentConnect,
     });
 
     const response: any = UserMapper.toResponse(user);
@@ -67,7 +100,9 @@ export class UsersService {
 
   async adminResetPassword(userId: string, newPassword?: string) {
     await this.findById(userId);
-    const password = newPassword || 'JestPolicy2026!';
+    const password =
+      newPassword ||
+      `Jp$${crypto.randomBytes(6).toString('hex')}!${Math.floor(10 + Math.random() * 90)}`;
     const passwordHash = await argon2.hash(password);
     await this.userRepository.update(userId, { passwordHash });
     return {

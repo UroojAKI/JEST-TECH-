@@ -46,4 +46,15 @@ export class ClaimResponseDto {
     body: string;
     sentAt: Date;
   }[];
+
+  workflowState?: {
+    status: string;
+    ownerId: string | null;
+    ownerName: string | null;
+    waitingFor: string;
+    nextAction: string;
+    blocker: string | null;
+    dueAt: Date | null;
+    lastTransitionAt: Date;
+  };
 }

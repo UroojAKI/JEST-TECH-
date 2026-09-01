@@ -31,6 +31,7 @@ describe('AuthService', () => {
   beforeEach(async () => {
     usersService = {
       findByEmailForAuth: jest.fn(),
+      getPrimaryOrganizationId: jest.fn().mockResolvedValue('org-test-123'),
       updateLastLogin: jest.fn().mockResolvedValue(undefined),
       storeRefreshToken: jest.fn().mockResolvedValue(undefined),
       findActiveRefreshTokens: jest.fn().mockResolvedValue([]),

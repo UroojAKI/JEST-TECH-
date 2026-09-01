@@ -56,6 +56,30 @@ export class LeadMapper {
       }));
     }
 
+    const nextActions: Record<string, { waitingFor: string; nextAction: string }> = {
+      NEW: { waitingFor: 'Sales Agent Contact', nextAction: 'Initiate discovery call with customer' },
+      CONTACTED: { waitingFor: 'Needs Analysis', nextAction: 'Capture vehicle details and previous policy history' },
+      QUALIFIED: { waitingFor: 'Quotation Preparation', nextAction: 'Generate authoritative motor insurance quote' },
+      QUOTATION_SHARED: { waitingFor: 'Customer Decision', nextAction: 'Follow up on proposed quotation package' },
+      NEGOTIATION: { waitingFor: 'Commercial Approval', nextAction: 'Authorize discount or adjust add-ons' },
+      PAYMENT_PENDING: { waitingFor: 'Customer Payment', nextAction: 'Collect and reconcile premium payment' },
+      CONVERTED: { waitingFor: 'Policy Issuance', nextAction: 'Policy issued and active in system' },
+      LOST: { waitingFor: 'None', nextAction: 'Lead closed as lost / unqualified' },
+    };
+
+    const actionMeta = nextActions[lead.status] || { waitingFor: 'Review', nextAction: 'Assess lead' };
+
+    response.workflowState = {
+      status: lead.status,
+      ownerId: lead.assignedToId || lead.createdById,
+      ownerName: lead.assignedTo ? `${lead.assignedTo.firstName} ${lead.assignedTo.lastName}`.trim() : null,
+      waitingFor: actionMeta.waitingFor,
+      nextAction: actionMeta.nextAction,
+      blocker: null,
+      dueAt: lead.activities?.[0]?.dueDate || null,
+      lastTransitionAt: lead.updatedAt,
+    };
+
     return response;
   }
 
