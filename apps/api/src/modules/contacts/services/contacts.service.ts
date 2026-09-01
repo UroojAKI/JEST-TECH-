@@ -72,7 +72,7 @@ export class ContactsService {
     this.assertActor(actor);
     const roles = actor.roles?.length ? actor.roles : [actor.role];
     if (roles.some((role) => GLOBAL_ROLES.includes(role))) return;
-    const owner = contact.createdBy;
+    const owner = contact?.createdBy;
     const ownerCompanyId = owner?.branch?.zone?.region?.company?.id;
     if (!ownerCompanyId || ownerCompanyId !== actor.organizationId) throw new ForbiddenException('Contact organizational context is unavailable or invalid');
     if (roles.includes(RoleType.BRANCH_MANAGER) || roles.includes(RoleType.MARKETING_DIRECTOR)) {
@@ -118,9 +118,11 @@ export class ContactsService {
   }
 
   async remove(id: string, deletedById: string, actor?: ActorContext) {
-    if (actor) this.assertRecordAccess(await this.contactRepository.findById(id), actor);
     const existing = await this.contactRepository.findById(id);
     if (!existing || existing.deletedAt) throw new NotFoundException(`Contact ${id} not found`);
+    if (!actor) throw new ForbiddenException('Authenticated actor context is required to delete contacts');
+    this.assertRecordAccess(existing, actor);
+    if (deletedById !== actor.userId) throw new ForbiddenException('Contact deleter must match authenticated user');
     await this.contactRepository.softDelete(id, deletedById);
     return { message: `Contact ${id} has been deleted` };
   }
