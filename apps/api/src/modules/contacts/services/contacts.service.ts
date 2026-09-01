@@ -18,21 +18,19 @@ export class ContactsService {
   constructor(private readonly contactRepository: ContactRepository) {}
 
   async create(dto: CreateContactDto, createdById: string) {
-    // Gracefully reuse existing contact by phone or email for CRM data capture & quotation workflows
     const existingPhone = await this.contactRepository.findByPhone(dto.phone);
     if (existingPhone) {
-      return existingPhone;
+      throw new ConflictException('A contact with this phone number already exists');
     }
 
     if (dto.email) {
       const existingEmail = await this.contactRepository.findByEmail(dto.email);
       if (existingEmail) {
-        return existingEmail;
+        throw new ConflictException('A contact with this email already exists');
       }
     }
 
     const contactCode = await this.contactRepository.generateContactCode();
-
     const { accountId, ...restDto } = dto;
 
     const contactData: Prisma.ContactCreateInput = {
@@ -42,9 +40,7 @@ export class ContactsService {
       middleName: restDto.middleName,
       lastName: restDto.lastName,
       gender: restDto.gender,
-      dateOfBirth: restDto.dateOfBirth
-        ? new Date(restDto.dateOfBirth)
-        : undefined,
+      dateOfBirth: restDto.dateOfBirth ? new Date(restDto.dateOfBirth) : undefined,
       companyName: restDto.companyName,
       email: restDto.email,
       phone: restDto.phone,
@@ -63,7 +59,6 @@ export class ContactsService {
     }
 
     const contact = await this.contactRepository.create(contactData);
-
     return ContactMapper.toResponse(contact);
   }
 
@@ -89,9 +84,7 @@ export class ContactsService {
       : {};
 
     const [contacts, total] = await Promise.all([
-      this.contactRepository.findAll(where, skip, limit, {
-        [sortBy]: sortOrder,
-      }),
+      this.contactRepository.findAll(where, skip, limit, { [sortBy]: sortOrder }),
       this.contactRepository.count(where),
     ]);
 
@@ -105,53 +98,40 @@ export class ContactsService {
 
   async findById(id: string) {
     const contact = await this.contactRepository.findById(id);
-
     if (!contact || contact.deletedAt) {
       throw new NotFoundException(`Contact ${id} not found`);
     }
-
     return ContactMapper.toResponse(contact);
   }
 
   async update(id: string, dto: UpdateContactDto, updatedById: string) {
-    // Verify contact exists and is not deleted
     const existing = await this.contactRepository.findById(id);
-
     if (!existing || existing.deletedAt) {
       throw new NotFoundException(`Contact ${id} not found`);
     }
 
-    // If phone is changing, enforce uniqueness
     if (dto.phone && dto.phone !== existing.phone) {
       const phoneConflict = await this.contactRepository.findByPhone(dto.phone);
       if (phoneConflict) {
-        throw new ConflictException(
-          `A contact with phone ${dto.phone} already exists`,
-        );
+        throw new ConflictException('A contact with this phone number already exists');
       }
     }
 
-    // If email is changing, enforce uniqueness
     if (dto.email && dto.email !== existing.email) {
       const emailConflict = await this.contactRepository.findByEmail(dto.email);
       if (emailConflict) {
-        throw new ConflictException(
-          `A contact with email ${dto.email} already exists`,
-        );
+        throw new ConflictException('A contact with this email already exists');
       }
     }
 
     const { accountId, ...restDto } = dto;
-
     const updateData: Prisma.ContactUpdateInput = {
       type: restDto.type,
       firstName: restDto.firstName,
       middleName: restDto.middleName,
       lastName: restDto.lastName,
       gender: restDto.gender,
-      dateOfBirth: restDto.dateOfBirth
-        ? new Date(restDto.dateOfBirth)
-        : undefined,
+      dateOfBirth: restDto.dateOfBirth ? new Date(restDto.dateOfBirth) : undefined,
       companyName: restDto.companyName,
       email: restDto.email,
       phone: restDto.phone,
@@ -165,27 +145,22 @@ export class ContactsService {
     };
 
     if (accountId !== undefined) {
-      if (accountId) {
-        updateData.account = { connect: { id: accountId } };
-      } else {
-        updateData.account = { disconnect: true };
-      }
+      updateData.account = accountId
+        ? { connect: { id: accountId } }
+        : { disconnect: true };
     }
 
     const updated = await this.contactRepository.update(id, updateData);
-
     return ContactMapper.toResponse(updated);
   }
 
   async remove(id: string, deletedById: string) {
     const existing = await this.contactRepository.findById(id);
-
     if (!existing || existing.deletedAt) {
       throw new NotFoundException(`Contact ${id} not found`);
     }
 
     await this.contactRepository.softDelete(id, deletedById);
-
     return { message: `Contact ${id} has been deleted` };
   }
 }
