@@ -1,4 +1,5 @@
 import {
+  ForbiddenException,
   Injectable,
   NotFoundException,
   UnauthorizedException,
@@ -201,7 +202,7 @@ export class WorkspaceService {
       // Never fall back to an arbitrary active company. Doing so can cross a
       // tenant boundary when a user's organizational assignment is corrupt or
       // incomplete. Fail closed instead.
-      throw new UnauthorizedException('Missing organizational tenant context');
+      throw new ForbiddenException('Missing organizational tenant context');
     }
 
     const roleType = user.role?.type || user.role?.code;
