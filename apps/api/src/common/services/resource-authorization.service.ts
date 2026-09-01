@@ -3,416 +3,204 @@ import { RoleType, UserStatus } from '@prisma/client';
 import { ActorContext } from '../interfaces/actor-context.interface';
 
 export type ResourceType =
-  | 'LEAD'
-  | 'QUOTATION'
-  | 'POLICY'
-  | 'PAYMENT'
-  | 'DOCUMENT'
-  | 'RENEWAL_TASK'
-  | 'CLAIM'
-  | 'CONTACT'
-  | 'ACCOUNT'
-  | 'CUSTOMER_360'
-  | 'REPORT';
+  | 'LEAD' | 'QUOTATION' | 'POLICY' | 'PAYMENT' | 'DOCUMENT'
+  | 'RENEWAL_TASK' | 'CLAIM' | 'CONTACT' | 'ACCOUNT' | 'CUSTOMER_360' | 'REPORT';
 
 export type ResourceAction =
-  | 'READ'
-  | 'CREATE'
-  | 'UPDATE'
-  | 'DELETE'
-  | 'TRANSITION'
-  | 'ASSIGN'
-  | 'ISSUE'
-  | 'RECONCILE'
-  | 'VERIFY'
-  | 'APPROVE';
+  | 'READ' | 'CREATE' | 'UPDATE' | 'DELETE' | 'TRANSITION'
+  | 'ASSIGN' | 'ISSUE' | 'RECONCILE' | 'VERIFY' | 'APPROVE';
 
-export type AccessScope =
-  'OWN' | 'ASSIGNED' | 'TEAM' | 'BRANCH' | 'ORGANIZATION' | 'GLOBAL';
+export type AccessScope = 'OWN' | 'ASSIGNED' | 'TEAM' | 'BRANCH' | 'ORGANIZATION' | 'GLOBAL';
 
 const ADMIN_ROLES: RoleType[] = [
-  RoleType.ADMIN,
-  RoleType.SUPER_ADMIN,
-  RoleType.MD_CEO,
-  RoleType.SYSTEM_ADMINISTRATOR,
+  RoleType.ADMIN, RoleType.SUPER_ADMIN, RoleType.MD_CEO, RoleType.SYSTEM_ADMINISTRATOR,
 ];
-
-const BRANCH_ROLES: RoleType[] = [
-  RoleType.BRANCH_MANAGER,
-  RoleType.MARKETING_DIRECTOR,
-];
-
+const BRANCH_ROLES: RoleType[] = [RoleType.BRANCH_MANAGER, RoleType.MARKETING_DIRECTOR];
 const TEAM_ROLES: RoleType[] = [RoleType.TEAM_LEADER, RoleType.SALES_MANAGER];
-
 const OPERATIONAL_ROLES: RoleType[] = [
-  RoleType.OPERATIONS,
-  RoleType.POLICY_ISSUANCE_EXECUTIVE,
-  RoleType.UNDERWRITER,
-  RoleType.FINANCE,
-  RoleType.FINANCE_ACCOUNTS_EXECUTIVE,
-  RoleType.CHIEF_FINANCE_OFFICER,
-  RoleType.CLAIMS_OFFICER,
-  RoleType.RENEWAL_EXECUTIVE,
+  RoleType.OPERATIONS, RoleType.POLICY_ISSUANCE_EXECUTIVE, RoleType.UNDERWRITER,
+  RoleType.FINANCE, RoleType.FINANCE_ACCOUNTS_EXECUTIVE, RoleType.CHIEF_FINANCE_OFFICER,
+  RoleType.CLAIMS_OFFICER, RoleType.RENEWAL_EXECUTIVE, RoleType.CUSTOMER_SERVICE_EXECUTIVE,
 ];
-
 const SALES_CREATORS: RoleType[] = [
-  RoleType.SALES_AGENT,
-  RoleType.SALES_EXECUTIVE,
-  RoleType.SALES_MANAGER,
-  RoleType.POSP_ADVISOR,
-  RoleType.AGENT_MANAGER,
-  RoleType.ADMIN,
-  RoleType.SUPER_ADMIN,
+  RoleType.SALES_AGENT, RoleType.SALES_EXECUTIVE, RoleType.SALES_MANAGER,
+  RoleType.POSP_ADVISOR, RoleType.AGENT_MANAGER, RoleType.ADMIN, RoleType.SUPER_ADMIN,
 ];
-
 const POLICY_ISSUERS: RoleType[] = [
-  RoleType.OPERATIONS,
-  RoleType.POLICY_ISSUANCE_EXECUTIVE,
-  RoleType.UNDERWRITER,
-  RoleType.ADMIN,
-  RoleType.SUPER_ADMIN,
+  RoleType.OPERATIONS, RoleType.POLICY_ISSUANCE_EXECUTIVE, RoleType.UNDERWRITER,
+  RoleType.ADMIN, RoleType.SUPER_ADMIN,
 ];
-
 const FINANCE_ROLES: RoleType[] = [
-  RoleType.FINANCE,
-  RoleType.FINANCE_ACCOUNTS_EXECUTIVE,
-  RoleType.CHIEF_FINANCE_OFFICER,
-  RoleType.ADMIN,
-  RoleType.SUPER_ADMIN,
+  RoleType.FINANCE, RoleType.FINANCE_ACCOUNTS_EXECUTIVE, RoleType.CHIEF_FINANCE_OFFICER,
+  RoleType.ADMIN, RoleType.SUPER_ADMIN,
 ];
-
 const ASSIGNERS: RoleType[] = [
-  RoleType.ADMIN,
-  RoleType.SUPER_ADMIN,
-  RoleType.MD_CEO,
-  RoleType.SALES_MANAGER,
-  RoleType.BRANCH_MANAGER,
-  RoleType.TEAM_LEADER,
+  RoleType.ADMIN, RoleType.SUPER_ADMIN, RoleType.MD_CEO,
+  RoleType.SALES_MANAGER, RoleType.BRANCH_MANAGER, RoleType.TEAM_LEADER,
 ];
-
 const DOC_VERIFIERS: RoleType[] = [
-  RoleType.OPERATIONS,
-  RoleType.POLICY_ISSUANCE_EXECUTIVE,
-  RoleType.UNDERWRITER,
-  RoleType.ADMIN,
-  RoleType.SUPER_ADMIN,
+  RoleType.OPERATIONS, RoleType.POLICY_ISSUANCE_EXECUTIVE, RoleType.UNDERWRITER,
+  RoleType.ADMIN, RoleType.SUPER_ADMIN,
 ];
-
 const QUOTE_APPROVERS: RoleType[] = [
-  RoleType.SALES_MANAGER,
-  RoleType.BRANCH_MANAGER,
-  RoleType.TEAM_LEADER,
-  RoleType.ADMIN,
-  RoleType.SUPER_ADMIN,
+  RoleType.SALES_MANAGER, RoleType.BRANCH_MANAGER, RoleType.TEAM_LEADER,
+  RoleType.ADMIN, RoleType.SUPER_ADMIN,
 ];
-
 const CLAIM_APPROVERS: RoleType[] = [
-  RoleType.CLAIMS_OFFICER,
-  RoleType.BRANCH_MANAGER,
-  RoleType.ADMIN,
-  RoleType.SUPER_ADMIN,
+  RoleType.CLAIMS_OFFICER, RoleType.BRANCH_MANAGER, RoleType.ADMIN, RoleType.SUPER_ADMIN,
 ];
 
 @Injectable()
 export class ResourceAuthorizationService {
-  authorize(
-    actor: ActorContext,
-    resourceType: ResourceType,
-    action: ResourceAction,
-    resource?: any,
-  ): boolean {
-    if (!actor || !actor.userId) {
-      throw new ForbiddenException('Unauthenticated actor context');
+  authorize(actor: ActorContext, resourceType: ResourceType, action: ResourceAction, resource?: any): boolean {
+    if (!actor?.userId || !actor.organizationId) {
+      throw new ForbiddenException('Actor organizational context is required');
+    }
+    if (actor.status === UserStatus.SUSPENDED || actor.status === UserStatus.INACTIVE) {
+      throw new ForbiddenException(`User account is ${actor.status.toLowerCase()}`);
     }
 
-    if (
-      actor.status === UserStatus.SUSPENDED ||
-      actor.status === UserStatus.INACTIVE
-    ) {
-      throw new ForbiddenException(
-        `User account is ${actor.status.toLowerCase()}`,
-      );
-    }
+    // Tenant validation must happen before administrative role shortcuts.
+    if (resource) this.assertSameOrganization(actor, resource);
 
-    if (
-      actor.roles?.includes(RoleType.SUPER_ADMIN) ||
-      actor.role === RoleType.SUPER_ADMIN ||
-      actor.permissions?.includes('*')
-    ) {
-      return true;
-    }
-
-    if (
-      resource &&
-      resource.organizationId &&
-      actor.organizationId &&
-      resource.organizationId !== actor.organizationId
-    ) {
-      throw new ForbiddenException(
-        'Cross-organization access is strictly prohibited',
-      );
-    }
+    const roles = actor.roles?.length ? actor.roles : [actor.role];
+    if (roles.includes(RoleType.SUPER_ADMIN) || actor.permissions?.includes('*')) return true;
 
     switch (action) {
-      case 'READ':
-        return this.canRead(actor, resource, resourceType);
-      case 'CREATE':
-        return this.canCreate(actor, resourceType);
-      case 'UPDATE':
-        return this.canUpdate(actor, resource, resourceType);
-      case 'DELETE':
-        return this.canDelete(actor, resource, resourceType);
-      case 'ASSIGN':
-        return this.canAssign(actor, resource, resourceType);
-      case 'ISSUE':
-        return this.canIssue(actor, resource);
-      case 'RECONCILE':
-        return this.canReconcile(actor, resource);
-      case 'VERIFY':
-        return this.canVerifyDocument(actor, resource);
-      case 'APPROVE':
-        return this.canApprove(actor, resource, resourceType);
-      case 'TRANSITION':
-        return this.canTransition(actor, resource, resourceType);
-      default:
-        return this.canRead(actor, resource, resourceType);
+      case 'READ': return this.canRead(actor, resource, resourceType);
+      case 'CREATE': return this.canCreate(actor, resourceType);
+      case 'UPDATE': return this.canUpdate(actor, resource, resourceType);
+      case 'DELETE': return this.canDelete(actor);
+      case 'ASSIGN': return this.canAssign(actor, resource);
+      case 'ISSUE': return this.canIssue(actor);
+      case 'RECONCILE': return this.canReconcile(actor);
+      case 'VERIFY': return this.canVerifyDocument(actor);
+      case 'APPROVE': return this.canApprove(actor, resourceType);
+      case 'TRANSITION': return this.canUpdate(actor, resource, resourceType);
+      default: throw new ForbiddenException('Unsupported authorization action');
     }
   }
 
-  canRead(
-    actor: ActorContext,
-    resource: any,
-    resourceType: ResourceType,
-  ): boolean {
-    if (!resource) return true;
+  private assertSameOrganization(actor: ActorContext, resource: any): void {
+    const resourceOrg = resource.organizationId ?? resource.companyId;
+    if (resourceOrg && resourceOrg !== actor.organizationId) {
+      throw new ForbiddenException('Cross-organization access is strictly prohibited');
+    }
+    // For models without a direct tenant column, an already-hydrated creator/owner
+    // may provide the tenant boundary. If neither is available, fail closed.
+    const relatedOrg =
+      resource.createdBy?.organizationId ?? resource.createdBy?.companyId ??
+      resource.assignedTo?.organizationId ?? resource.assignedTo?.companyId;
+    const ownerKnown = resource.createdById || resource.assignedToId || resource.agentId || resource.userId;
+    if (!resourceOrg && !relatedOrg && !ownerKnown) {
+      throw new ForbiddenException('Resource organizational context is unavailable');
+    }
+    if (relatedOrg && relatedOrg !== actor.organizationId) {
+      throw new ForbiddenException('Cross-organization access is strictly prohibited');
+    }
+  }
 
-    const actorRoles: RoleType[] = actor.roles || [actor.role];
+  canRead(actor: ActorContext, resource: any, resourceType: ResourceType): boolean {
+    if (!resource) throw new ForbiddenException('Resource is required for authorization');
+    const roles = actor.roles?.length ? actor.roles : [actor.role];
 
-    if (actorRoles.some((r) => ADMIN_ROLES.includes(r))) {
+    if (roles.some((r) => ADMIN_ROLES.includes(r))) return true;
+
+    if (roles.some((r) => BRANCH_ROLES.includes(r))) {
+      if (!actor.branchId || !resource.branchId) {
+        throw new ForbiddenException('Branch context is required for branch-scoped access');
+      }
+      if (actor.branchId !== resource.branchId) throw new ForbiddenException('Resource belongs to another branch');
       return true;
     }
 
-    if (actorRoles.some((r) => BRANCH_ROLES.includes(r))) {
-      if (!actor.branchId || !resource.branchId) return true;
-      if (actor.branchId === resource.branchId) return true;
-      throw new ForbiddenException('Resource belongs to another branch');
-    }
-
-    if (actorRoles.some((r) => TEAM_ROLES.includes(r))) {
-      if (!actor.teamId || !resource.teamId) return true;
-      if (actor.teamId === resource.teamId) return true;
-      if (
-        actor.branchId &&
-        resource.branchId &&
-        actor.branchId === resource.branchId
-      )
-        return true;
-      throw new ForbiddenException('Resource belongs to another sales team');
-    }
-
-    if (actorRoles.some((r) => OPERATIONAL_ROLES.includes(r))) {
+    if (roles.some((r) => TEAM_ROLES.includes(r))) {
+      if (!actor.teamId || !resource.teamId) {
+        throw new ForbiddenException('Team context is required for team-scoped access');
+      }
+      if (actor.teamId !== resource.teamId) throw new ForbiddenException('Resource belongs to another sales team');
       return true;
     }
+
+    // Operational users are organization-scoped, never globally scoped. Tenant
+    // validation above is mandatory; resource queries must also use ScopeResolver.
+    if (roles.some((r) => OPERATIONAL_ROLES.includes(r))) return true;
 
     const isOwner =
-      resource.createdById === actor.userId ||
-      resource.assignedToId === actor.userId ||
-      resource.agentId === actor.userId ||
-      resource.userId === actor.userId ||
-      (resource.lead &&
-        (resource.lead.assignedToId === actor.userId ||
-          resource.lead.createdById === actor.userId)) ||
-      (resource.quotation && resource.quotation.createdById === actor.userId) ||
-      (resource.policy && resource.policy.createdById === actor.userId);
-
-    if (isOwner) {
-      return true;
-    }
-
-    throw new ForbiddenException(
-      `You do not have permission to access this ${resourceType.toLowerCase()}`,
-    );
+      resource.createdById === actor.userId || resource.assignedToId === actor.userId ||
+      resource.agentId === actor.userId || resource.userId === actor.userId ||
+      resource.lead?.assignedToId === actor.userId || resource.lead?.createdById === actor.userId ||
+      resource.quotation?.createdById === actor.userId || resource.policy?.createdById === actor.userId;
+    if (isOwner) return true;
+    throw new ForbiddenException(`You do not have permission to access this ${resourceType.toLowerCase()}`);
   }
 
   canCreate(actor: ActorContext, resourceType: ResourceType): boolean {
-    const actorRoles: RoleType[] = actor.roles || [actor.role];
-
+    const roles = actor.roles?.length ? actor.roles : [actor.role];
     switch (resourceType) {
-      case 'QUOTATION':
-      case 'LEAD':
-        return actorRoles.some((r) => SALES_CREATORS.includes(r));
-
-      case 'POLICY':
-        return actorRoles.some((r) => POLICY_ISSUERS.includes(r));
-
-      case 'PAYMENT':
-        return actorRoles.some((r) =>
-          [
-            ...FINANCE_ROLES,
-            RoleType.SALES_AGENT,
-            RoleType.SALES_EXECUTIVE,
-          ].includes(r),
-        );
-
-      case 'CLAIM':
-        return true;
-
-      default:
-        return true;
+      case 'QUOTATION': case 'LEAD': return roles.some((r) => SALES_CREATORS.includes(r));
+      case 'POLICY': return roles.some((r) => POLICY_ISSUERS.includes(r));
+      case 'PAYMENT': return roles.some((r) => [...FINANCE_ROLES, RoleType.SALES_AGENT, RoleType.SALES_EXECUTIVE].includes(r));
+      case 'CLAIM': return roles.some((r) => [RoleType.CLAIMS_OFFICER, RoleType.SALES_AGENT, RoleType.SALES_EXECUTIVE, RoleType.CUSTOMER_SERVICE_EXECUTIVE, RoleType.ADMIN, RoleType.SUPER_ADMIN].includes(r));
+      default: return roles.some((r) => ![RoleType.CUSTOMER].includes(r));
     }
   }
 
-  canUpdate(
-    actor: ActorContext,
-    resource: any,
-    resourceType: ResourceType,
-  ): boolean {
+  canUpdate(actor: ActorContext, resource: any, resourceType: ResourceType): boolean {
     return this.canRead(actor, resource, resourceType);
   }
 
-  canDelete(
-    actor: ActorContext,
-    _resource: any,
-    _resourceType: ResourceType,
-  ): boolean {
-    const actorRoles: RoleType[] = actor.roles || [actor.role];
-    const isAdmin = actorRoles.some((r) => ADMIN_ROLES.includes(r));
-    if (!isAdmin) {
-      throw new ForbiddenException('Only Administrators can delete records');
+  canDelete(actor: ActorContext): boolean {
+    const roles = actor.roles?.length ? actor.roles : [actor.role];
+    if (!roles.some((r) => ADMIN_ROLES.includes(r))) throw new ForbiddenException('Only Administrators can delete records');
+    return true;
+  }
+
+  canAssign(actor: ActorContext, resource: any): boolean {
+    const roles = actor.roles?.length ? actor.roles : [actor.role];
+    if (!roles.some((r) => ASSIGNERS.includes(r))) throw new ForbiddenException('Only Managers and Administrators can assign records');
+    if (roles.includes(RoleType.TEAM_LEADER) && !roles.some((r) => ADMIN_ROLES.includes(r) || r === RoleType.BRANCH_MANAGER)) {
+      if (!actor.teamId || resource?.teamId !== actor.teamId) throw new ForbiddenException('Team Leaders cannot assign records outside their team');
+    }
+    if (roles.includes(RoleType.BRANCH_MANAGER) && !roles.some((r) => ADMIN_ROLES.includes(r))) {
+      if (!actor.branchId || resource?.branchId !== actor.branchId) throw new ForbiddenException('Branch Managers cannot assign records outside their branch');
     }
     return true;
   }
 
-  canAssign(
-    actor: ActorContext,
-    resource: any,
-    _resourceType: ResourceType,
-  ): boolean {
-    const actorRoles: RoleType[] = actor.roles || [actor.role];
-    const canAssign = actorRoles.some((r) => ASSIGNERS.includes(r));
-    if (!canAssign) {
-      throw new ForbiddenException(
-        'Only Managers and Administrators can assign records',
-      );
-    }
-
-    // Cross-team assignment restriction for Team Leaders
-    if (
-      actorRoles.includes(RoleType.TEAM_LEADER) &&
-      !actorRoles.some(
-        (r) => ADMIN_ROLES.includes(r) || r === RoleType.BRANCH_MANAGER,
-      )
-    ) {
-      if (
-        resource &&
-        resource.teamId &&
-        actor.teamId &&
-        resource.teamId !== actor.teamId
-      ) {
-        throw new ForbiddenException(
-          'Team Leaders cannot assign records outside their team',
-        );
-      }
-    }
-
-    // Cross-branch assignment restriction for Branch Managers
-    if (
-      actorRoles.includes(RoleType.BRANCH_MANAGER) &&
-      !actorRoles.some((r) => ADMIN_ROLES.includes(r))
-    ) {
-      if (
-        resource &&
-        resource.branchId &&
-        actor.branchId &&
-        resource.branchId !== actor.branchId
-      ) {
-        throw new ForbiddenException(
-          'Branch Managers cannot assign records outside their branch',
-        );
-      }
-    }
-
+  canIssue(actor: ActorContext): boolean {
+    const roles = actor.roles?.length ? actor.roles : [actor.role];
+    if (!roles.some((r) => POLICY_ISSUERS.includes(r))) throw new ForbiddenException('Only Back Office Operations and Policy Issuance Executives can issue policies');
     return true;
   }
 
-  canIssue(actor: ActorContext, _resource: any): boolean {
-    const actorRoles: RoleType[] = actor.roles || [actor.role];
-    const canIssue = actorRoles.some((r) => POLICY_ISSUERS.includes(r));
-    if (!canIssue) {
-      throw new ForbiddenException(
-        'Only Back Office Operations and Policy Issuance Executives can issue policies',
-      );
-    }
+  canReconcile(actor: ActorContext): boolean {
+    const roles = actor.roles?.length ? actor.roles : [actor.role];
+    if (!roles.some((r) => FINANCE_ROLES.includes(r))) throw new ForbiddenException('Only Finance & Accounts personnel can reconcile payments');
     return true;
   }
 
-  canReconcile(actor: ActorContext, _payment: any): boolean {
-    const actorRoles: RoleType[] = actor.roles || [actor.role];
-    const canRecon = actorRoles.some((r) => FINANCE_ROLES.includes(r));
-    if (!canRecon) {
-      throw new ForbiddenException(
-        'Only Finance & Accounts personnel can reconcile payments',
-      );
-    }
+  canVerifyDocument(actor: ActorContext): boolean {
+    const roles = actor.roles?.length ? actor.roles : [actor.role];
+    if (!roles.some((r) => DOC_VERIFIERS.includes(r))) throw new ForbiddenException('Only Back Office Operations and Underwriters can verify documents');
     return true;
   }
 
-  canVerifyDocument(actor: ActorContext, _doc: any): boolean {
-    const actorRoles: RoleType[] = actor.roles || [actor.role];
-    const canVerify = actorRoles.some((r) => DOC_VERIFIERS.includes(r));
-    if (!canVerify) {
-      throw new ForbiddenException(
-        'Only Back Office Operations and Underwriters can verify documents',
-      );
+  canApprove(actor: ActorContext, resourceType: ResourceType): boolean {
+    const roles = actor.roles?.length ? actor.roles : [actor.role];
+    if (roles.some((r) => ADMIN_ROLES.includes(r))) return true;
+    if (resourceType === 'QUOTATION' || resourceType === 'LEAD') {
+      if (!roles.some((r) => QUOTE_APPROVERS.includes(r))) throw new ForbiddenException('Only Sales Managers or Branch Managers can approve quotations or leads');
+      return true;
     }
-    return true;
-  }
-
-  canApprove(
-    actor: ActorContext,
-    _resource: any,
-    resourceType: ResourceType,
-  ): boolean {
-    const actorRoles: RoleType[] = actor.roles || [actor.role];
-    const isAdmin = actorRoles.some((r) => ADMIN_ROLES.includes(r));
-    if (isAdmin) return true;
-
-    switch (resourceType) {
-      case 'QUOTATION':
-      case 'LEAD':
-        if (!actorRoles.some((r) => QUOTE_APPROVERS.includes(r))) {
-          throw new ForbiddenException(
-            'Only Sales Managers or Branch Managers can approve quotations or leads',
-          );
-        }
-        return true;
-
-      case 'CLAIM':
-        if (!actorRoles.some((r) => CLAIM_APPROVERS.includes(r))) {
-          throw new ForbiddenException(
-            'Only Claims Officers or Branch Managers can approve claims',
-          );
-        }
-        return true;
-
-      case 'POLICY':
-        if (!actorRoles.some((r) => POLICY_ISSUERS.includes(r))) {
-          throw new ForbiddenException(
-            'Only Operations and Underwriters can approve policies',
-          );
-        }
-        return true;
-
-      default:
-        return true;
+    if (resourceType === 'CLAIM') {
+      if (!roles.some((r) => CLAIM_APPROVERS.includes(r))) throw new ForbiddenException('Only Claims Officers or Branch Managers can approve claims');
+      return true;
     }
-  }
-
-  canTransition(
-    actor: ActorContext,
-    resource: any,
-    resourceType: ResourceType,
-  ): boolean {
-    return this.canUpdate(actor, resource, resourceType);
+    if (resourceType === 'POLICY') {
+      if (!roles.some((r) => POLICY_ISSUERS.includes(r))) throw new ForbiddenException('Only Operations and Underwriters can approve policies');
+      return true;
+    }
+    throw new ForbiddenException(`Approval is not defined for ${resourceType}`);
   }
 }
