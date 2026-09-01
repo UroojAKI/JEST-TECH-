@@ -2,12 +2,23 @@ import { apiClient } from '../lib/api-client';
 import { UserSession } from '../types';
 
 export const authRepository = {
-  async login(credentials: { email: string; password: string }): Promise<{ user: UserSession; expiresIn: number; accessToken?: string; refreshToken?: string }> {
+  async login(credentials: { email: string; password: string }): Promise<{
+    user: UserSession;
+    expiresIn: number | string;
+    workspaces?: string[];
+    landingWorkspace?: string;
+  }> {
     const response = await apiClient.post('/auth/login', credentials);
     return response.data?.data || response.data;
   },
 
-  async refresh(): Promise<{ success: boolean; expiresIn: number; accessToken?: string; refreshToken?: string }> {
+  async refresh(): Promise<{
+    success: boolean;
+    expiresIn: number | string;
+    user?: UserSession;
+    workspaces?: string[];
+    landingWorkspace?: string;
+  }> {
     const response = await apiClient.post('/auth/refresh');
     return response.data?.data || response.data;
   },
