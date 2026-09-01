@@ -15,14 +15,13 @@ export class RolesGuard implements CanActivate {
   canActivate(context: ExecutionContext): boolean {
     const requiredRoles = this.reflector.getAllAndOverride<string[]>(
       ROLES_KEY,
-      [
-        context.getHandler(), // method-level decorator wins
-        context.getClass(), // fallback to class-level decorator
-      ],
+      [context.getHandler(), context.getClass()],
     );
 
-    // No @Roles() applied — route is accessible to any authenticated user
-    if (!requiredRoles) {
+    // A route without an explicit role requirement is intentionally available
+    // to any already-authenticated user. Authentication and permission guards
+    // remain responsible for protecting such routes.
+    if (!requiredRoles || requiredRoles.length === 0) {
       return true;
     }
 
@@ -31,7 +30,8 @@ export class RolesGuard implements CanActivate {
       return false;
     }
 
-    // Super Admin, Admin, System Administrator, and MD/CEO bypass role restrictions
+    // Privileged system roles are explicitly defined as global role bypasses.
+    // Do not extend this list based on a generic "employee" classification.
     if (
       ['SUPER_ADMIN', 'ADMIN', 'SYSTEM_ADMINISTRATOR', 'MD_CEO'].includes(
         user.role,
@@ -40,40 +40,9 @@ export class RolesGuard implements CanActivate {
       return true;
     }
 
+    // Exact role matching is required. In particular, one operational or
+    // sales role must never satisfy an endpoint requiring a different role.
     if (requiredRoles.includes(user.role)) {
-      return true;
-    }
-
-    // Grant internal staff access to general employee endpoints across departments
-    const employeeRoles = [
-      'BRANCH_MANAGER',
-      'TEAM_LEADER',
-      'SALES_AGENT',
-      'OPERATIONS',
-      'UNDERWRITER',
-      'CLAIMS_OFFICER',
-      'FINANCE',
-      'SUPPORT',
-      'CHIEF_FINANCE_OFFICER',
-      'SALES_MANAGER',
-      'SALES_EXECUTIVE',
-      'POLICY_ISSUANCE_EXECUTIVE',
-      'RENEWAL_EXECUTIVE',
-      'CUSTOMER_SERVICE_EXECUTIVE',
-      'FINANCE_ACCOUNTS_EXECUTIVE',
-      'POSP_ADVISOR',
-      'AGENT_MANAGER',
-      'MARKETING_DIRECTOR',
-      'RENEWAL_AGENT',
-      'CRM_AGENT',
-    ];
-
-    const allowsAnyEmployee = requiredRoles.some((r) =>
-      employeeRoles.includes(r),
-    );
-    const userIsEmployee = employeeRoles.includes(user.role);
-
-    if (allowsAnyEmployee && userIsEmployee) {
       return true;
     }
 
