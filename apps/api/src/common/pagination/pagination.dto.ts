@@ -30,4 +30,8 @@ export class PaginationDto {
   @IsOptional()
   @IsString()
   productType?: string;
+
+  @IsOptional()
+  @IsString()
+  tag?: string;
 }
