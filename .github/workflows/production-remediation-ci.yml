@@ -9,6 +9,9 @@ on:
 permissions:
   contents: read
 
+env:
+  DATABASE_URL: ${{ secrets.DATABASE_URL }}
+
 jobs:
   verify:
     runs-on: ubuntu-latest
