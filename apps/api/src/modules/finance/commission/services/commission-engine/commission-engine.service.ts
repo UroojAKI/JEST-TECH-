@@ -53,7 +53,6 @@ export class CommissionEngineService {
       throw new BadRequestException('Commission Plan agentPercent must be between 0 and 100');
     }
 
-    // Validate the earning recipient before calculating or writing money records.
     const agent = await this.prisma.user.findUnique({
       where: { id: agentId },
       select: { id: true, status: true },
@@ -115,8 +114,6 @@ export class CommissionEngineService {
       }
     }
 
-    // PostgreSQL advisory transaction lock makes the read/check/write sequence
-    // safe when policy issuance is retried concurrently.
     const result = await this.prisma.$transaction(async (tx) => {
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${policyId}))`;
 
@@ -132,9 +129,7 @@ export class CommissionEngineService {
         return existing;
       }
 
-      await tx.commission.createMany({
-        data: commissionsData,
-      });
+      await tx.commission.createMany({ data: commissionsData });
 
       return tx.commission.findMany({
         where: { policyId },
@@ -149,13 +144,13 @@ export class CommissionEngineService {
   }
 
   /**
-   * Called when a policy is fully paid. Moves ACCRUED commissions to REALIZED.
+   * Called when a policy is fully paid. Only approved commissions can become realized.
    */
   async realizeCommissions(policyId: string) {
     const result = await this.prisma.commission.updateMany({
       where: {
         policyId,
-        status: 'ACCRUED',
+        status: 'APPROVED',
       },
       data: {
         status: 'REALIZED',
@@ -163,7 +158,7 @@ export class CommissionEngineService {
     });
 
     this.logger.log(
-      `Realized ${result.count} commissions for policy ${policyId}`,
+      `Realized ${result.count} approved commissions for policy ${policyId}`,
     );
     return result.count;
   }
