@@ -1,5 +1,6 @@
 import {
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -12,6 +13,14 @@ import { CreateContactDto } from '../dto/create-contact.dto';
 import { UpdateContactDto } from '../dto/update-contact.dto';
 import { PaginationDto } from '../../../common/pagination/pagination.dto';
 import { PaginatedResponseDto } from '../../../common/pagination/paginated-response.dto';
+import { ActorContext } from '../../../common/interfaces/actor-context.interface';
+
+const GLOBAL_ROLES = new Set([
+  'SUPER_ADMIN',
+  'ADMIN',
+  'SYSTEM_ADMINISTRATOR',
+  'MD_CEO',
+]);
 
 @Injectable()
 export class ContactsService {
@@ -62,7 +71,7 @@ export class ContactsService {
     return ContactMapper.toResponse(contact);
   }
 
-  async findAll(pagination: PaginationDto) {
+  async findAll(pagination: PaginationDto, actor: ActorContext) {
     const {
       page = 1,
       limit = 10,
@@ -82,6 +91,25 @@ export class ContactsService {
           ],
         }
       : {};
+
+    const roles = actor.roles?.length ? actor.roles : [actor.role];
+    if (!roles.some((role) => GLOBAL_ROLES.has(role))) {
+      if (roles.includes('BRANCH_MANAGER') || roles.includes('MARKETING_DIRECTOR')) {
+        if (!actor.branchId) throw new ForbiddenException('Branch context is required');
+        where.OR = [
+          { createdBy: { branchId: actor.branchId } },
+          { updatedBy: { branchId: actor.branchId } },
+        ];
+      } else if (roles.includes('TEAM_LEADER') || roles.includes('SALES_MANAGER')) {
+        if (!actor.teamId) throw new ForbiddenException('Team context is required');
+        where.OR = [
+          { createdBy: { teamId: actor.teamId } },
+          { updatedBy: { teamId: actor.teamId } },
+        ];
+      } else {
+        where.OR = [{ createdById: actor.userId }, { updatedById: actor.userId }];
+      }
+    }
 
     const [contacts, total] = await Promise.all([
       this.contactRepository.findAll(where, skip, limit, { [sortBy]: sortOrder }),
