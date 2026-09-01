@@ -12,6 +12,7 @@ import {
   IsEnum,
   IsIn,
   ValidateNested,
+  ValidateIf,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { IMTEndorsement } from '../../motor-admin/enums/imt-endorsement.enum';
@@ -35,14 +36,16 @@ export class CreateQuotationDiscountDto {
   @IsNotEmpty()
   discountType: string;
 
-  @IsOptional()
+  @ValidateIf((dto) => dto.amount === undefined)
   @IsNumber()
   @Min(0)
+  @Max(100)
   percentage?: number;
 
+  @ValidateIf((dto) => dto.percentage === undefined)
   @IsNumber()
   @Min(0)
-  amount: number;
+  amount?: number;
 }
 
 export class CreateQuotationDto {
@@ -94,9 +97,8 @@ export class CreateQuotationDto {
   @IsDateString()
   expiryDate: string;
 
-  // Vehicle Reference & Details
-  @IsOptional()
   @IsString()
+  @IsNotEmpty()
   vehicleId?: string;
 
   @IsOptional()
@@ -108,12 +110,10 @@ export class CreateQuotationDto {
   @Min(0)
   idv?: number;
 
-  @IsOptional()
   @IsInt()
   @Min(1)
-  policyTenure?: number;
+  policyTenure: number;
 
-  // Vehicle RC Book mandatory fields
   @IsOptional()
   @IsString()
   registrationNumber?: string;
@@ -126,7 +126,6 @@ export class CreateQuotationDto {
   @IsString()
   engineNumber?: string;
 
-  // SAOD Eligibility Verification Fields
   @IsOptional()
   @IsString()
   activeTpInsurer?: string;
@@ -139,7 +138,6 @@ export class CreateQuotationDto {
   @IsDateString()
   activeTpExpiryDate?: string;
 
-  // Hypothecation (loan on vehicle)
   @IsOptional()
   @IsBoolean()
   isHypothecated?: boolean;
@@ -152,7 +150,6 @@ export class CreateQuotationDto {
   @IsString()
   hypothecationBranch?: string;
 
-  // KYC
   @IsOptional()
   @IsEnum(['PAN', 'AADHAAR', 'CKYC', 'FORM60'])
   kycType?: string;
@@ -161,7 +158,6 @@ export class CreateQuotationDto {
   @IsString()
   kycNumber?: string;
 
-  // Co-passenger PA
   @IsOptional()
   @IsBoolean()
   coPassengerPACover?: boolean;
@@ -172,13 +168,11 @@ export class CreateQuotationDto {
   @Max(6)
   coPassengerCount?: number;
 
-  // IMT Endorsements
   @IsOptional()
   @IsArray()
   @IsEnum(IMTEndorsement, { each: true })
   imtEndorsements?: IMTEndorsement[];
 
-  // CPA Cover
   @IsOptional()
   @IsBoolean()
   cpaWaiver?: boolean;
