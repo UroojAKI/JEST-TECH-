@@ -1,5 +1,5 @@
-import { IsEnum, IsNotEmpty, IsOptional, IsString } from 'class-validator';
-import { LeadSource, LeadStatus } from '@prisma/client';
+import { IsEnum, IsNotEmpty, IsOptional, IsString, Matches, ValidateIf } from 'class-validator';
+import { LeadStatus } from '@prisma/client';
 
 export class CreateLeadDto {
   @IsOptional()
@@ -22,20 +22,24 @@ export class CreateLeadDto {
   @IsString()
   contactId?: string;
 
-  @IsOptional()
+  @ValidateIf((dto) => !dto.contactId)
   @IsString()
+  @IsNotEmpty()
   firstName?: string;
 
-  @IsOptional()
+  @ValidateIf((dto) => !dto.contactId)
   @IsString()
+  @IsNotEmpty()
   lastName?: string;
 
   @IsOptional()
   @IsString()
   email?: string;
 
-  @IsOptional()
+  @ValidateIf((dto) => !dto.contactId)
   @IsString()
+  @IsNotEmpty()
+  @Matches(/^[6-9]\d{9}$/)
   phone?: string;
 
   @IsOptional()
