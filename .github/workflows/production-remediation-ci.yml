@@ -1,0 +1,63 @@
+name: Production Remediation CI
+
+on:
+  push:
+    branches: [production-rebuild-2026]
+  pull_request:
+    branches: [main, production-rebuild-2026]
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.34.4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma client
+        working-directory: apps/api
+        run: pnpm exec prisma generate
+
+      - name: Validate Prisma schema
+        working-directory: apps/api
+        run: pnpm exec prisma validate
+
+      - name: API unit tests
+        working-directory: apps/api
+        run: pnpm test -- --runInBand
+
+      - name: API build
+        working-directory: apps/api
+        run: pnpm build
+
+      - name: Web build
+        working-directory: apps/web
+        run: pnpm build
+
+      - name: Production source safety scan
+        shell: bash
+        run: |
+          set -euo pipefail
+          if grep -RIn --exclude-dir=node_modules --exclude-dir=.next --exclude-dir=dist \
+            -E 'generatePdfStub|localStorage\.(setItem|getItem|removeItem)\([^)]*(quotation|policy|lead|branch|financial|workflow)|jest_(access|refresh)_token' \
+            apps/web apps/api; then
+            echo 'Production safety scan found a prohibited authoritative-data/token pattern.'
+            exit 1
+          fi
