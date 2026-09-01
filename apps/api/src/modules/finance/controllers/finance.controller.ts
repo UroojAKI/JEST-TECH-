@@ -9,6 +9,7 @@ import {
   InternalServerErrorException,
   NotFoundException,
   BadRequestException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
@@ -277,9 +278,17 @@ export class FinanceController {
   @ApiOperation({
     summary: 'Get commission register and manager override breakdown',
   })
-  async getCommissions() {
+  async getCommissions(@CurrentUser() user: RequestUser) {
     try {
+      const where =
+        user.role === RoleType.SALES_AGENT
+          ? { userId: user.id }
+          : user.role === RoleType.BRANCH_MANAGER
+            ? { user: { branchId: user.branchId ?? '__NO_BRANCH_SCOPE__' } }
+            : {};
+
       return await this.prisma.commission.findMany({
+        where,
         orderBy: { createdAt: 'desc' },
         take: 50,
       });
@@ -302,10 +311,21 @@ export class FinanceController {
   ) {
     const commission = await this.prisma.commission.findUnique({
       where: { id },
+      include: {
+        user: {
+          select: { branchId: true },
+        },
+      },
     });
 
     if (!commission) {
       throw new NotFoundException(`Commission ${id} not found`);
+    }
+
+    if (user.role === RoleType.BRANCH_MANAGER) {
+      if (!user.branchId || commission.user.branchId !== user.branchId) {
+        throw new ForbiddenException('Commission is outside the actor branch scope');
+      }
     }
 
     if (commission.status !== 'ACCRUED') {
