@@ -97,8 +97,8 @@ export class CreateQuotationDto {
   @IsDateString()
   expiryDate: string;
 
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
   vehicleId?: string;
 
   @IsOptional()
