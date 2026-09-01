@@ -8,6 +8,7 @@ import {
   UseGuards,
   InternalServerErrorException,
   NotFoundException,
+  BadRequestException,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
@@ -109,15 +110,10 @@ export class FinanceController {
 
       const todayCollections = Number(todayReceipts._sum.amount || 0);
       const monthlyCollections = Number(monthlyReceipts._sum.amount || 0);
-      const totalCommissionAccrued = Number(
-        accruedCommission._sum.amount || 0,
-      );
-      const totalCommissionRealized = Number(
-        realizedCommission._sum.amount || 0,
-      );
+      const totalCommissionAccrued = Number(accruedCommission._sum.amount || 0);
+      const totalCommissionRealized = Number(realizedCommission._sum.amount || 0);
 
       return {
-        // These values are derived from persisted financial records.
         todayCollections,
         monthlyCollections,
         monthlyGwp: null,
@@ -144,7 +140,7 @@ export class FinanceController {
           reconciliationQueue: pendingVerification,
         },
       };
-    } catch (error) {
+    } catch {
       throw new InternalServerErrorException(
         'Unable to load authoritative finance dashboard metrics',
       );
@@ -214,9 +210,7 @@ export class FinanceController {
   async getReceipts(@Query('status') status?: string) {
     try {
       const whereClause: any = {};
-      if (status && status !== 'ALL') {
-        whereClause.status = status;
-      }
+      if (status && status !== 'ALL') whereClause.status = status;
       return await this.prisma.receipt.findMany({
         where: whereClause,
         orderBy: { createdAt: 'desc' },
@@ -236,8 +230,6 @@ export class FinanceController {
   )
   @ApiOperation({ summary: 'Get payments register' })
   async getPayments(@Query('type') type?: string) {
-    // The current Prisma schema does not expose a first-class Payment model.
-    // Do not pretend this endpoint is implemented until the authoritative model exists.
     throw new NotFoundException(
       'Payment register is not implemented in the current financial schema',
     );
@@ -317,17 +309,15 @@ export class FinanceController {
     }
 
     if (commission.status !== 'ACCRUED') {
-      throw new InternalServerErrorException(
+      throw new BadRequestException(
         `Commission ${id} is not eligible for approval from status ${commission.status}`,
       );
     }
 
-    // Current schema has no dedicated APPROVED state. REALIZED is the next
-    // persisted financial state and is therefore used only after explicit approval.
     const approved = await this.prisma.$transaction(async (tx) => {
       const updated = await tx.commission.update({
         where: { id },
-        data: { status: 'REALIZED' },
+        data: { status: 'APPROVED' },
       });
 
       await tx.auditLog.create({
