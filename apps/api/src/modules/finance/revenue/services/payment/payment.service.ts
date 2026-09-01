@@ -9,6 +9,8 @@ export class PaymentService {
 
   /**
    * Records a receipt and allocates it against an outstanding invoice.
+   * The invoice row is locked and re-read inside the transaction so two
+   * concurrent payment requests cannot both spend the same outstanding balance.
    */
   async processPayment(
     invoiceId: string,
@@ -26,37 +28,87 @@ export class PaymentService {
       throw new BadRequestException('Payment amount must be greater than zero');
     }
 
-    const invoice = await this.prisma.invoice.findUnique({
-      where: { id: invoiceId },
-      include: { allocations: true },
-    });
-
-    if (!invoice) throw new BadRequestException('Invoice not found');
-
-    // Calculate outstanding
-    let paidAmount = new Decimal(0);
-    for (const alloc of invoice.allocations) {
-      paidAmount = paidAmount.add(alloc.amount);
-    }
-    const outstanding = invoice.totalAmount.sub(paidAmount);
-
-    if (amount.gt(outstanding)) {
-      throw new BadRequestException(
-        `Payment amount (${amount}) exceeds outstanding balance (${outstanding})`,
-      );
+    if (!mode?.trim()) {
+      throw new BadRequestException('Payment mode is required');
     }
 
-    const receiptNum = `RCPT-${Date.now()}`;
-
-    // Transaction to create receipt, allocate, and update invoice status
     const result = await this.prisma.$transaction(async (tx) => {
+      // Pessimistically lock the authoritative invoice row for this transaction.
+      const lockedRows = await tx.$queryRaw<Array<{ id: string }>>`
+        SELECT id FROM "Invoice" WHERE id = ${invoiceId} FOR UPDATE
+      `;
+
+      if (!lockedRows.length) {
+        throw new BadRequestException('Invoice not found');
+      }
+
+      const invoice = await tx.invoice.findUnique({
+        where: { id: invoiceId },
+        include: { allocations: true },
+      });
+
+      if (!invoice) throw new BadRequestException('Invoice not found');
+
+      if (invoice.status === 'PAID' || invoice.status === 'VOID') {
+        throw new BadRequestException(
+          `Invoice is not payable in ${invoice.status} status`,
+        );
+      }
+
+      let paidAmount = new Decimal(0);
+      for (const allocation of invoice.allocations) {
+        paidAmount = paidAmount.add(allocation.amount);
+      }
+
+      const outstanding = invoice.totalAmount.sub(paidAmount);
+
+      if (outstanding.lte(0)) {
+        throw new BadRequestException('Invoice has no outstanding balance');
+      }
+
+      if (amount.gt(outstanding)) {
+        throw new BadRequestException(
+          `Payment amount (${amount}) exceeds outstanding balance (${outstanding})`,
+        );
+      }
+
+      // The invoice is authoritative for the commercial entity. In the current
+      // schema invoices are linked to policies via entityId, and policies carry
+      // the authoritative customer/contact relationship.
+      if (invoice.entityType !== 'POLICY') {
+        throw new BadRequestException(
+          `Unsupported invoice entity type: ${invoice.entityType}`,
+        );
+      }
+
+      const policy = await tx.policy.findUnique({
+        where: { id: invoice.entityId },
+        select: { id: true, contactId: true },
+      });
+
+      if (!policy?.contactId) {
+        throw new BadRequestException(
+          'Invoice is not linked to a valid policy customer',
+        );
+      }
+
+      const sequenceRows = await tx.$queryRaw<Array<{ nextval: bigint }>>`
+        SELECT nextval('receipt_number_seq')
+      `;
+      const sequenceNumber = sequenceRows[0]?.nextval;
+      if (sequenceNumber === undefined) {
+        throw new BadRequestException('Unable to allocate receipt number');
+      }
+
+      const receiptNum = `RCPT-${sequenceNumber.toString().padStart(8, '0')}`;
+
       const receipt = await tx.receipt.create({
         data: {
           receiptNum,
           amount,
-          paymentMode: mode,
+          paymentMode: mode.trim(),
           reference,
-          customerId: 'customer-1', // Assuming tied to customer, simplified for now
+          customerId: policy.contactId,
         },
       });
 
@@ -69,17 +121,40 @@ export class PaymentService {
       });
 
       const newPaidAmount = paidAmount.add(amount);
-      let status = 'PARTIAL';
-      if (newPaidAmount.equals(invoice.totalAmount)) {
-        status = 'PAID';
-      }
+      const status = newPaidAmount.equals(invoice.totalAmount)
+        ? 'PAID'
+        : 'PARTIAL';
 
       const updatedInvoice = await tx.invoice.update({
         where: { id: invoice.id },
         data: { status },
       });
 
-      return { receipt, allocation, invoice: updatedInvoice };
+      await tx.auditLog.create({
+        data: {
+          action: 'CREATE',
+          entity: 'Receipt',
+          entityId: receipt.id,
+          module: 'FINANCE',
+          metadata: {
+            invoiceId: invoice.id,
+            policyId: policy.id,
+            customerId: policy.contactId,
+            amount: amount.toString(),
+            paymentMode: mode.trim(),
+          },
+          newValue: {
+            receiptId: receipt.id,
+            invoiceStatus: status,
+          },
+        },
+      });
+
+      return {
+        receipt,
+        allocation,
+        invoice: updatedInvoice,
+      };
     });
 
     return result;
