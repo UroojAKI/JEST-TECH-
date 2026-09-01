@@ -4,7 +4,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from '../../../database/prisma.service';
-import { PaymentTrackingStatus, QuotationStatus } from '@prisma/client';
+import { PaymentTrackingStatus } from '@prisma/client';
 
 export interface ReconciliationQueueItem {
   id: string;
@@ -26,7 +26,10 @@ export interface ReconciliationQueueItem {
   agingHours: number;
   urgency: 'HIGH' | 'MEDIUM' | 'LOW';
   reconciliationStatus:
-    'PENDING_RECONCILIATION' | 'RECONCILED' | 'DISCREPANCY' | 'UNDER_PROCESS';
+    | 'PENDING_RECONCILIATION'
+    | 'RECONCILED'
+    | 'DISCREPANCY'
+    | 'UNDER_PROCESS';
   reconciledBy?: string;
   reconciledAt?: string;
   discrepancyReason?: string;
@@ -80,7 +83,7 @@ export class FinanceReconciliationService {
           },
         },
       },
-      orderBy: { createdAt: 'asc' }, // Oldest first for SLA urgency
+      orderBy: { createdAt: 'asc' },
     });
 
     const now = Date.now();
@@ -111,7 +114,8 @@ export class FinanceReconciliationService {
       const paidAmt = Number(p.amount || 0);
       const payableAmt = Number(p.quotation?.totalPremium || 0);
       const variance = Math.round((paidAmt - payableAmt) * 100) / 100;
-      const isExactMatch = paidAmt >= payableAmt && payableAmt > 0;
+      // Exact means equal, not greater-than-or-equal. Overpayments are discrepancies.
+      const isExactMatch = payableAmt > 0 && Math.abs(variance) < 0.01;
 
       const createdTime = new Date(p.paidAt || p.createdAt).getTime();
       const agingHours = Math.max(0, Math.round((now - createdTime) / 3600000));
@@ -123,7 +127,6 @@ export class FinanceReconciliationService {
         urgency = 'MEDIUM';
       }
 
-      // Aggregate counters
       if (reconStatus === 'RECONCILED') {
         reconciledCount++;
         totalReconciledAmount += paidAmt;
@@ -144,7 +147,7 @@ export class FinanceReconciliationService {
         customerPhone: p.quotation?.contact?.phone || undefined,
         customerEmail: p.quotation?.contact?.email || undefined,
         productType: p.quotation?.productType || 'MOTOR',
-        insurerName: p.quotation?.insurerName || 'HDFC ERGO',
+        insurerName: p.quotation?.insurerName || 'UNKNOWN',
         totalPayableAmount: payableAmt,
         paidAmount: paidAmt,
         variance,
@@ -161,12 +164,10 @@ export class FinanceReconciliationService {
         discrepancyReason: parsedNotes.discrepancyReason,
       };
 
-      // Filter by status if provided
       if (params.status && params.status !== 'ALL') {
         if (item.reconciliationStatus !== params.status) continue;
       }
 
-      // Filter by search query if provided
       if (params.search && params.search.trim()) {
         const query = params.search.toLowerCase().trim();
         const matches =
@@ -202,6 +203,7 @@ export class FinanceReconciliationService {
 
   /**
    * Reconciles a payment against bank credit statement.
+   * Payment and quotation state changes are atomic and audited together.
    */
   async reconcilePayment(
     id: string,
@@ -232,37 +234,91 @@ export class FinanceReconciliationService {
       }
     }
 
+    if (existingNotes.reconciliationStatus === 'RECONCILED') {
+      throw new BadRequestException('Payment has already been reconciled.');
+    }
+
+    if (existingNotes.reconciliationStatus === 'DISCREPANCY') {
+      throw new BadRequestException(
+        'Payment has an unresolved discrepancy and cannot be reconciled.',
+      );
+    }
+
+    const paidAmount = Number(payment.amount || 0);
+    const payableAmount = Number(payment.quotation?.totalPremium || 0);
+    const variance = Math.round((paidAmount - payableAmount) * 100) / 100;
+
+    if (payableAmount <= 0) {
+      throw new BadRequestException(
+        'Cannot reconcile a payment against a quotation with no payable premium.',
+      );
+    }
+
+    if (Math.abs(variance) >= 0.01) {
+      throw new BadRequestException(
+        `Payment amount does not exactly match payable premium. Variance: ${variance}`,
+      );
+    }
+
+    if (dto.bankTransactionDate && Number.isNaN(new Date(dto.bankTransactionDate).getTime())) {
+      throw new BadRequestException('Bank transaction date is invalid.');
+    }
+
+    const reconciledAt = new Date().toISOString();
     const updatedNotes = {
       ...existingNotes,
       reconciliationStatus: 'RECONCILED',
       reconciledBy: actorId,
-      reconciledAt: new Date().toISOString(),
+      reconciledAt,
       bankReference: dto.bankReference || payment.referenceNumber,
-      bankTransactionDate: dto.bankTransactionDate || new Date().toISOString(),
+      bankTransactionDate:
+        dto.bankTransactionDate || new Date().toISOString(),
       financeNotes: dto.notes,
     };
 
-    const updated = await this.prisma.motorPaymentRecord.update({
-      where: { id },
-      data: {
-        notes: JSON.stringify(updatedNotes),
-      },
-    });
+    const result = await this.prisma.$transaction(async (tx) => {
+      const updated = await tx.motorPaymentRecord.update({
+        where: { id },
+        data: { notes: JSON.stringify(updatedNotes) },
+      });
 
-    // Advance quotation issuanceStatus to READY_FOR_ISSUANCE
-    await this.prisma.quotation.update({
-      where: { id: payment.quotationId },
-      data: {
-        issuanceStatus: 'PAYMENT_CONFIRMED',
-      },
+      await tx.quotation.update({
+        where: { id: payment.quotationId },
+        data: { issuanceStatus: 'PAYMENT_CONFIRMED' },
+      });
+
+      await tx.auditLog.create({
+        data: {
+          action: 'UPDATE',
+          entity: 'MotorPaymentRecord',
+          entityId: id,
+          userId: actorId,
+          performedById: actorId,
+          module: 'FINANCE',
+          oldValue: {
+            reconciliationStatus: existingNotes.reconciliationStatus || 'PENDING_RECONCILIATION',
+          },
+          newValue: {
+            reconciliationStatus: 'RECONCILED',
+            quotationIssuanceStatus: 'PAYMENT_CONFIRMED',
+          },
+          metadata: {
+            bankReference: updatedNotes.bankReference,
+            bankTransactionDate: updatedNotes.bankTransactionDate,
+            variance,
+          },
+        },
+      });
+
+      return updated;
     });
 
     return {
-      id: updated.id,
-      quotationId: updated.quotationId,
+      id: result.id,
+      quotationId: result.quotationId,
       status: 'RECONCILED',
       reconciledBy: actorId,
-      reconciledAt: updatedNotes.reconciledAt,
+      reconciledAt,
       message:
         'Payment successfully reconciled with bank statement. Quotation ready for policy issuance.',
     };
@@ -295,27 +351,54 @@ export class FinanceReconciliationService {
       }
     }
 
+    if (existingNotes.reconciliationStatus === 'RECONCILED') {
+      throw new BadRequestException(
+        'A reconciled payment cannot be flagged as a new discrepancy.',
+      );
+    }
+
+    const flaggedAt = new Date().toISOString();
     const updatedNotes = {
       ...existingNotes,
       reconciliationStatus: 'DISCREPANCY',
       flaggedBy: actorId,
-      flaggedAt: new Date().toISOString(),
-      discrepancyReason: dto.reason,
+      flaggedAt,
+      discrepancyReason: dto.reason.trim(),
       financeNotes: dto.notes,
     };
 
-    const updated = await this.prisma.motorPaymentRecord.update({
-      where: { id },
-      data: {
-        notes: JSON.stringify(updatedNotes),
-      },
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const record = await tx.motorPaymentRecord.update({
+        where: { id },
+        data: { notes: JSON.stringify(updatedNotes) },
+      });
+
+      await tx.auditLog.create({
+        data: {
+          action: 'UPDATE',
+          entity: 'MotorPaymentRecord',
+          entityId: id,
+          userId: actorId,
+          performedById: actorId,
+          module: 'FINANCE',
+          oldValue: {
+            reconciliationStatus: existingNotes.reconciliationStatus || 'PENDING_RECONCILIATION',
+          },
+          newValue: {
+            reconciliationStatus: 'DISCREPANCY',
+            discrepancyReason: dto.reason.trim(),
+          },
+        },
+      });
+
+      return record;
     });
 
     return {
       id: updated.id,
       quotationId: updated.quotationId,
       status: 'DISCREPANCY',
-      reason: dto.reason,
+      reason: dto.reason.trim(),
       flaggedBy: actorId,
       message:
         'Payment discrepancy recorded. Policy issuance blocked until resolved.',
