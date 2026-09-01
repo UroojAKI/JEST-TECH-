@@ -54,8 +54,11 @@ export class ContactsController {
     RoleType.SALES_AGENT,
     RoleType.OPERATIONS,
   )
-  findAll(@Query() pagination: PaginationDto) {
-    return this.contactsService.findAll(pagination);
+  findAll(
+    @Query() pagination: PaginationDto,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.contactsService.findAll(pagination, user);
   }
 
   @Get(':id')
