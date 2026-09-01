@@ -13,7 +13,36 @@ describe('JwtAuthGuard & ActorContext (Iteration 1 Baseline)', () => {
     const mockConfig = {
       jwtSecret: 'test-secret',
     } as unknown as ConfigurationService;
-    strategy = new JwtStrategy(mockConfig, {} as any);
+    const mockPrisma = {
+      user: {
+        findUnique: jest.fn().mockResolvedValue({
+          id: 'usr-101',
+          email: 'agent.rahul@jest.com',
+          firstName: 'Rahul',
+          lastName: 'Sharma',
+          status: UserStatus.ACTIVE,
+          teamId: 'team-alpha',
+          departmentId: 'dept-motor-sales',
+          branchId: 'br-andheri',
+          role: {
+            type: RoleType.SALES_AGENT,
+            permissions: [
+              { permission: { code: 'quotation.create' } },
+              { permission: { code: 'quotation.read' } },
+            ],
+          },
+          branch: {
+            code: 'ANDHERI_MAIN',
+            zone: {
+              region: {
+                company: { id: 'org-mumbai-01' },
+              },
+            },
+          },
+        }),
+      },
+    };
+    strategy = new JwtStrategy(mockConfig, mockPrisma as any);
   });
 
   describe('JwtAuthGuard', () => {

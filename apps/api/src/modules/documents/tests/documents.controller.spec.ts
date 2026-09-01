@@ -142,6 +142,7 @@ describe('DocumentsController', () => {
         'doc-123',
         mockUser.id,
         '127.0.0.1',
+        mockUser,
       );
     });
   });

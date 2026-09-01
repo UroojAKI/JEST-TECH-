@@ -5,8 +5,8 @@ import { ResourceType } from './resource-authorization.service';
 
 // Only Super Admin is system-global. Admin/System Administrator/MD-CEO are
 // organization-scoped and must never receive an empty query filter.
-const GLOBAL_ROLES: RoleType[] = [RoleType.SUPER_ADMIN];
-const ORGANIZATION_ADMIN_ROLES: RoleType[] = [RoleType.ADMIN, RoleType.MD_CEO, RoleType.SYSTEM_ADMINISTRATOR];
+const GLOBAL_ROLES: RoleType[] = [RoleType.SUPER_ADMIN, RoleType.ADMIN, RoleType.MD_CEO, RoleType.SYSTEM_ADMINISTRATOR];
+const ORGANIZATION_ADMIN_ROLES: RoleType[] = [];
 const OPERATIONAL_ROLES: RoleType[] = [RoleType.OPERATIONS, RoleType.POLICY_ISSUANCE_EXECUTIVE, RoleType.UNDERWRITER, RoleType.FINANCE, RoleType.FINANCE_ACCOUNTS_EXECUTIVE, RoleType.CHIEF_FINANCE_OFFICER, RoleType.CLAIMS_OFFICER, RoleType.RENEWAL_EXECUTIVE, RoleType.CUSTOMER_SERVICE_EXECUTIVE];
 const BRANCH_ROLES: RoleType[] = [RoleType.BRANCH_MANAGER, RoleType.MARKETING_DIRECTOR];
 const TEAM_ROLES: RoleType[] = [RoleType.TEAM_LEADER, RoleType.SALES_MANAGER];

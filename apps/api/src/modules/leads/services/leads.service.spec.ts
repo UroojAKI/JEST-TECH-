@@ -97,6 +97,8 @@ describe('LeadsService', () => {
         role: 'SUPER_ADMIN',
         roles: ['SUPER_ADMIN'],
         status: 'ACTIVE',
+        organizationId: 'org-1',
+        companyId: 'org-1',
       } as any;
       mockLeadRepository.findAll.mockResolvedValue([]);
       mockLeadRepository.count.mockResolvedValue(0);
@@ -119,6 +121,8 @@ describe('LeadsService', () => {
         role: 'SALES_AGENT',
         roles: ['SALES_AGENT'],
         status: 'ACTIVE',
+        organizationId: 'org-1',
+        companyId: 'org-1',
       } as any;
       mockLeadRepository.findAll.mockResolvedValue([]);
       mockLeadRepository.count.mockResolvedValue(0);
@@ -144,8 +148,10 @@ describe('LeadsService', () => {
         role: 'SALES_AGENT',
         roles: ['SALES_AGENT'],
         status: 'ACTIVE',
+        organizationId: 'org-1',
+        companyId: 'org-1',
       } as any;
-      const mockLead = { id: 'lead-1', assignedToId: 'agent-1' };
+      const mockLead = { id: 'lead-1', assignedToId: 'agent-1', organizationId: 'org-1', companyId: 'org-1' };
       mockLeadRepository.findById.mockResolvedValue(mockLead as any);
 
       const result = await service.findById('lead-1', agentUser);
@@ -160,11 +166,15 @@ describe('LeadsService', () => {
         role: 'SALES_AGENT',
         roles: ['SALES_AGENT'],
         status: 'ACTIVE',
+        organizationId: 'org-1',
+        companyId: 'org-1',
       } as any;
       const mockLead = {
         id: 'lead-1',
         assignedToId: 'agent-2',
         createdById: 'agent-2',
+        organizationId: 'org-1',
+        companyId: 'org-1',
       };
       mockLeadRepository.findById.mockResolvedValue(mockLead as any);
 
@@ -180,6 +190,8 @@ describe('LeadsService', () => {
         role: 'SALES_AGENT',
         roles: ['SALES_AGENT'],
         status: 'ACTIVE',
+        organizationId: 'org-1',
+        companyId: 'org-1',
       } as any;
       mockLeadRepository.findById.mockResolvedValue(null);
 
@@ -260,6 +272,8 @@ describe('LeadsService', () => {
         status: LeadStatus.LOST,
         assignedToId: 'agent-1',
         createdById: 'agent-1',
+        organizationId: 'org-1',
+        companyId: 'org-1',
       };
       mockLeadRepository.findById.mockResolvedValue(existingLead as any);
 
@@ -269,6 +283,8 @@ describe('LeadsService', () => {
         role: 'SALES_AGENT',
         roles: ['SALES_AGENT'],
         status: 'ACTIVE',
+        organizationId: 'org-1',
+        companyId: 'org-1',
       } as any;
 
       // LOST cannot directly transition to QUALIFIED
@@ -293,6 +309,8 @@ describe('LeadsService', () => {
         description: 'Remarks: VIP Customer | City: Mumbai',
         createdById: 'agent-1',
         assignedToId: 'agent-1',
+        organizationId: 'org-1',
+        companyId: 'org-1',
         contact: {
           id: 'con-1',
           contactCode: 'CON-0001',
@@ -326,6 +344,8 @@ describe('LeadsService', () => {
         role: 'SALES_AGENT',
         roles: ['SALES_AGENT'],
         status: 'ACTIVE',
+        organizationId: 'org-1',
+        companyId: 'org-1',
       } as any;
       const context = await service.getLeadContext('lead-100', agentUser);
 

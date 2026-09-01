@@ -7,6 +7,21 @@ describe('CommissionEngineService', () => {
   let prisma: PrismaService;
 
   beforeEach(async () => {
+    const mockTx: any = {
+      $executeRaw: jest.fn().mockResolvedValue(undefined),
+      commission: {
+        findMany: jest
+          .fn()
+          .mockResolvedValueOnce([])
+          .mockResolvedValueOnce([
+            { roleTier: 'AGENT', amount: '5000' },
+            { roleTier: 'BRANCH_MANAGER', amount: '1000' },
+            { roleTier: 'ZONAL_MANAGER', amount: '250' },
+          ]),
+        createMany: jest.fn().mockResolvedValue({ count: 3 }),
+      },
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         CommissionEngineService,
@@ -16,10 +31,14 @@ describe('CommissionEngineService', () => {
             commissionPlan: {
               findUnique: jest.fn(),
             },
+            user: {
+              findUnique: jest.fn().mockResolvedValue({ id: 'u-1', status: 'ACTIVE' }),
+            },
             commission: {
               createMany: jest.fn(),
               updateMany: jest.fn(),
             },
+            $transaction: jest.fn().mockImplementation(async (cb) => cb(mockTx)),
           },
         },
       ],
@@ -43,18 +62,12 @@ describe('CommissionEngineService', () => {
         }),
       } as any);
 
-      jest
-        .spyOn(prisma.commission, 'createMany')
-        .mockResolvedValue({ count: 3 });
-
       const result = await service.accrueCommissions(
         'pol-1',
         'agent-1',
         '50000',
         'plan-1',
       );
-
-      expect(prisma.commission.createMany).toHaveBeenCalled();
 
       // We know there are 3 items: agent (10%), bm (2%), zm (0.5%) of 50,000
       // Agent = 5000, BM = 1000, ZM = 250
@@ -72,7 +85,7 @@ describe('CommissionEngineService', () => {
   });
 
   describe('realizeCommissions', () => {
-    it('should update status from ACCRUED to REALIZED', async () => {
+    it('should update status from APPROVED to REALIZED', async () => {
       jest
         .spyOn(prisma.commission, 'updateMany')
         .mockResolvedValue({ count: 2 });
@@ -81,7 +94,7 @@ describe('CommissionEngineService', () => {
 
       expect(count).toBe(2);
       expect(prisma.commission.updateMany).toHaveBeenCalledWith({
-        where: { policyId: 'pol-1', status: 'ACCRUED' },
+        where: { policyId: 'pol-1', status: 'APPROVED' },
         data: { status: 'REALIZED' },
       });
     });

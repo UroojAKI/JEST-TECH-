@@ -50,8 +50,14 @@ export class ResourceAuthorizationService {
     if (relatedOrg !== actor.organizationId) throw new ForbiddenException('Cross-organization access is strictly prohibited');
   }
 
-  private resourceBranchId(resource: any): string | undefined { return resource.branchId ?? resource.createdBy?.branchId ?? resource.assignedTo?.branchId ?? resource.agent?.branchId ?? resource.lead?.createdBy?.branchId; }
-  private resourceTeamId(resource: any): string | undefined { return resource.teamId ?? resource.createdBy?.teamId ?? resource.assignedTo?.teamId ?? resource.agent?.teamId ?? resource.lead?.createdBy?.teamId; }
+  private resourceBranchId(resource: any): string | undefined {
+    if (!resource || typeof resource !== 'object') return undefined;
+    return resource.branchId ?? resource.createdBy?.branchId ?? resource.assignedTo?.branchId ?? resource.agent?.branchId ?? resource.lead?.createdBy?.branchId;
+  }
+  private resourceTeamId(resource: any): string | undefined {
+    if (!resource || typeof resource !== 'object') return undefined;
+    return resource.teamId ?? resource.createdBy?.teamId ?? resource.assignedTo?.teamId ?? resource.agent?.teamId ?? resource.lead?.createdBy?.teamId;
+  }
 
   canRead(actor: ActorContext, resource: any, resourceType: ResourceType): boolean {
     if (!resource) throw new ForbiddenException('Resource is required for authorization');
@@ -77,11 +83,19 @@ export class ResourceAuthorizationService {
   }
   canUpdate(actor: ActorContext, resource: any, resourceType: ResourceType): boolean { return this.canRead(actor, resource, resourceType); }
   canDelete(actor: ActorContext): boolean { const roles = actor.roles?.length ? actor.roles : [actor.role]; if (!roles.some((r) => [...GLOBAL_ROLES, ...ORGANIZATION_ADMIN_ROLES].includes(r))) throw new ForbiddenException('Only Administrators can delete records'); return true; }
-  canAssign(actor: ActorContext, resource: any): boolean {
+  canAssign(actor: ActorContext, resource?: any): boolean {
     const roles = actor.roles?.length ? actor.roles : [actor.role];
     if (!roles.some((r) => ASSIGNERS.includes(r))) throw new ForbiddenException('Only Managers and Administrators can assign records');
-    if (roles.includes(RoleType.TEAM_LEADER) && !roles.some((r) => [...GLOBAL_ROLES, ...ORGANIZATION_ADMIN_ROLES, RoleType.BRANCH_MANAGER].includes(r))) { if (!actor.teamId || this.resourceTeamId(resource) !== actor.teamId) throw new ForbiddenException('Team Leaders cannot assign records outside their team'); }
-    if (roles.includes(RoleType.BRANCH_MANAGER) && !roles.some((r) => [...GLOBAL_ROLES, ...ORGANIZATION_ADMIN_ROLES].includes(r))) { if (!actor.branchId || this.resourceBranchId(resource) !== actor.branchId) throw new ForbiddenException('Branch Managers cannot assign records outside their branch'); }
+    if (resource) {
+      const resTeamId = this.resourceTeamId(resource);
+      if (resTeamId && roles.includes(RoleType.TEAM_LEADER) && !roles.some((r) => [...GLOBAL_ROLES, ...ORGANIZATION_ADMIN_ROLES, RoleType.BRANCH_MANAGER].includes(r))) {
+        if (!actor.teamId || resTeamId !== actor.teamId) throw new ForbiddenException('Team Leaders cannot assign records outside their team');
+      }
+      const resBranchId = this.resourceBranchId(resource);
+      if (resBranchId && roles.includes(RoleType.BRANCH_MANAGER) && !roles.some((r) => [...GLOBAL_ROLES, ...ORGANIZATION_ADMIN_ROLES].includes(r))) {
+        if (!actor.branchId || resBranchId !== actor.branchId) throw new ForbiddenException('Branch Managers cannot assign records outside their branch');
+      }
+    }
     return true;
   }
   canIssue(actor: ActorContext): boolean { const roles = actor.roles?.length ? actor.roles : [actor.role]; if (!roles.some((r) => POLICY_ISSUERS.includes(r))) throw new ForbiddenException('Only Back Office Operations and Policy Issuance Executives can issue policies'); return true; }

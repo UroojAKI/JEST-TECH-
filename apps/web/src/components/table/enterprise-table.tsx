@@ -91,7 +91,7 @@ export function EnterpriseTable<TData>({
     const headers = columns.map((c) => (c.header as string) || '').join(',');
     const rows = data.map((row: any) =>
       columns.map((c) => {
-        const value = row[c.id as string] ?? row[c.accessorKey as string];
+        const value = row[(c as any).id as string] ?? row[(c as any).accessorKey as string];
         return value === undefined || value === null ? '' : `"${String(value).replaceAll('"', '""')}"`;
       }).join(','),
     );

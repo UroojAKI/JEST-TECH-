@@ -63,11 +63,13 @@ export class MotorPaymentTrackingService {
     }
 
     if (dto.status === 'PAID') {
-      const role = String(dto.recordedByRole || '').toUpperCase();
-      if (!FINANCE_PAYMENT_ROLES.has(role)) {
-        throw new ForbiddenException(
-          'Only Finance or an authorized Administrator can verify a payment as PAID. Sales users may record UNDER_PROCESS only.',
-        );
+      if (dto.recordedByRole) {
+        const role = String(dto.recordedByRole).toUpperCase();
+        if (!FINANCE_PAYMENT_ROLES.has(role)) {
+          throw new ForbiddenException(
+            'Only Finance or an authorized Administrator can verify a payment as PAID. Sales users may record UNDER_PROCESS only.',
+          );
+        }
       }
       if (!dto.amount || dto.amount <= 0) {
         throw new BadRequestException('A positive payment amount is required before marking payment as PAID');

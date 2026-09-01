@@ -17,6 +17,10 @@ describe('FinanceReconciliationService (G020 Reconciliation Queue)', () => {
     quotation: {
       update: jest.fn(),
     },
+    auditLog: {
+      create: jest.fn(),
+    },
+    $transaction: jest.fn(async (cb) => cb(mockPrisma)),
   };
 
   beforeEach(async () => {
@@ -88,8 +92,12 @@ describe('FinanceReconciliationService (G020 Reconciliation Queue)', () => {
         id: 'pay-1',
         quotationId: 'q-1',
         status: PaymentTrackingStatus.PAID,
+        amount: new Prisma.Decimal(15000),
         referenceNumber: 'UTR-111222',
         notes: null,
+        quotation: {
+          totalPremium: new Prisma.Decimal(15000),
+        },
       });
 
       mockPrisma.motorPaymentRecord.update.mockResolvedValue({

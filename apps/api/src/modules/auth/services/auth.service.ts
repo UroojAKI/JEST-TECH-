@@ -12,7 +12,7 @@ export class AuthService {
   constructor(private readonly usersService: UsersService, private readonly tokenService: TokenService, private readonly config: ConfigService) {}
 
   private requireOrganization(user: any): string {
-    const orgId = user?.branch?.zone?.region?.company?.id;
+    const orgId = user?.branch?.zone?.region?.company?.id ?? user?.organizationId ?? user?.companyId;
     if (!orgId) throw new UnauthorizedException('Missing organizational tenant context. User must belong to an active organization.');
     return orgId;
   }

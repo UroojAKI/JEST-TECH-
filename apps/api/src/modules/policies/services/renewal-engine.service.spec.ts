@@ -14,9 +14,11 @@ describe('RenewalEngineService (Iteration 10)', () => {
       policy: {
         findMany: jest.fn(),
         findUnique: jest.fn(),
+        findFirst: jest.fn().mockResolvedValue({ id: 'pol-1' }),
       },
       renewalTask: {
         create: jest.fn(),
+        upsert: jest.fn().mockResolvedValue({ id: 'task-1' }),
       },
     };
 
@@ -76,15 +78,17 @@ describe('RenewalEngineService (Iteration 10)', () => {
 
       await service.createRenewalRecord('pol-1', 'agent-1');
 
-      expect(prisma.renewalTask.create).toHaveBeenCalledWith({
-        data: {
-          policyId: 'pol-1',
-          agentId: 'agent-1',
-          dueDate: expiryDate,
-          status: 'PENDING',
-          priority: 'MEDIUM',
-        },
-      });
+      expect(prisma.renewalTask.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          create: expect.objectContaining({
+            policyId: 'pol-1',
+            agentId: 'agent-1',
+            dueDate: expiryDate,
+            status: 'PENDING',
+            priority: 'MEDIUM',
+          }),
+        }),
+      );
     });
   });
 

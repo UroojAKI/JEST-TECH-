@@ -12,26 +12,87 @@ import { AccountsService } from '../services/accounts.service';
 import { ParseUUIDPipe } from '../../../common/utils/parse-uuid.pipe';
 import { PaginationDto } from '../../../common/pagination/pagination.dto';
 
+const ACCOUNT_VIEW_ROLES: RoleType[] = [
+  RoleType.SUPER_ADMIN,
+  RoleType.ADMIN,
+  RoleType.SYSTEM_ADMINISTRATOR,
+  RoleType.MD_CEO,
+  RoleType.BRANCH_MANAGER,
+  RoleType.MARKETING_DIRECTOR,
+  RoleType.TEAM_LEADER,
+  RoleType.SALES_MANAGER,
+  RoleType.SALES_AGENT,
+  RoleType.SALES_EXECUTIVE,
+  RoleType.POSP_ADVISOR,
+  RoleType.AGENT_MANAGER,
+  RoleType.OPERATIONS,
+  RoleType.POLICY_ISSUANCE_EXECUTIVE,
+  RoleType.UNDERWRITER,
+  RoleType.CLAIMS_OFFICER,
+  RoleType.RENEWAL_EXECUTIVE,
+  RoleType.CUSTOMER_SERVICE_EXECUTIVE,
+  RoleType.FINANCE,
+  RoleType.FINANCE_ACCOUNTS_EXECUTIVE,
+  RoleType.CHIEF_FINANCE_OFFICER,
+  RoleType.SUPPORT,
+];
+
+const ACCOUNT_MANAGE_ROLES: RoleType[] = [
+  RoleType.SUPER_ADMIN,
+  RoleType.ADMIN,
+  RoleType.SYSTEM_ADMINISTRATOR,
+  RoleType.MD_CEO,
+  RoleType.BRANCH_MANAGER,
+  RoleType.MARKETING_DIRECTOR,
+  RoleType.TEAM_LEADER,
+  RoleType.SALES_MANAGER,
+  RoleType.SALES_AGENT,
+  RoleType.SALES_EXECUTIVE,
+  RoleType.POSP_ADVISOR,
+  RoleType.AGENT_MANAGER,
+  RoleType.OPERATIONS,
+  RoleType.POLICY_ISSUANCE_EXECUTIVE,
+  RoleType.UNDERWRITER,
+  RoleType.RENEWAL_EXECUTIVE,
+  RoleType.CUSTOMER_SERVICE_EXECUTIVE,
+  RoleType.SUPPORT,
+];
+
 @ApiTags('Accounts')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('accounts')
 export class AccountsController {
   constructor(private readonly accountsService: AccountsService) {}
+
   @Post()
-  @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN, RoleType.BRANCH_MANAGER, RoleType.TEAM_LEADER, RoleType.SALES_AGENT)
-  create(@Body() dto: CreateAccountDto, @CurrentUser() user: RequestUser) { return this.accountsService.create(dto, user.id, user); }
+  @Roles(...ACCOUNT_MANAGE_ROLES)
+  create(@Body() dto: CreateAccountDto, @CurrentUser() user: RequestUser) {
+    return this.accountsService.create(dto, user.id, user);
+  }
+
   @Get()
-  @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN, RoleType.BRANCH_MANAGER, RoleType.TEAM_LEADER, RoleType.SALES_AGENT, RoleType.OPERATIONS)
-  findAll(@Query() pagination: PaginationDto, @CurrentUser() user: RequestUser) { return this.accountsService.findAll(pagination, user); }
+  @Roles(...ACCOUNT_VIEW_ROLES)
+  findAll(@Query() pagination: PaginationDto, @CurrentUser() user: RequestUser) {
+    return this.accountsService.findAll(pagination, user);
+  }
+
   @Get(':id')
-  @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN, RoleType.BRANCH_MANAGER, RoleType.TEAM_LEADER, RoleType.SALES_AGENT, RoleType.OPERATIONS)
-  findOne(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: RequestUser) { return this.accountsService.findById(id, user); }
+  @Roles(...ACCOUNT_VIEW_ROLES)
+  findOne(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: RequestUser) {
+    return this.accountsService.findById(id, user);
+  }
+
   @Patch(':id')
-  @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN, RoleType.BRANCH_MANAGER, RoleType.TEAM_LEADER, RoleType.SALES_AGENT)
-  update(@Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdateAccountDto, @CurrentUser() user: RequestUser) { return this.accountsService.update(id, dto, user.id, user); }
+  @Roles(...ACCOUNT_MANAGE_ROLES)
+  update(@Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdateAccountDto, @CurrentUser() user: RequestUser) {
+    return this.accountsService.update(id, dto, user.id, user);
+  }
+
   @Delete(':id')
   @HttpCode(HttpStatus.OK)
-  @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN)
-  remove(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: RequestUser) { return this.accountsService.remove(id, user.id, user); }
+  @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN, RoleType.SYSTEM_ADMINISTRATOR, RoleType.MD_CEO)
+  remove(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: RequestUser) {
+    return this.accountsService.remove(id, user.id, user);
+  }
 }

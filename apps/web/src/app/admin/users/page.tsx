@@ -105,7 +105,7 @@ export default function UserManagementPage() {
       toast.success('User created successfully');
       setCreatedCredentials({
         email: newEmail,
-        password: res?.initialPassword || newPassword,
+        password: (res as any)?.initialPassword || newPassword,
       });
 
       setShowCreateForm(false);
@@ -192,7 +192,7 @@ export default function UserManagementPage() {
       {showCreateForm && (
         <div className="p-5 border rounded-xl bg-card shadow-sm text-xs mb-4">
           <h2 className="font-bold mb-3 flex items-center gap-2"><Users className="h-4 w-4" /> Provision New User Account</h2>
-          <form onSubmit={handleSubmitUser} className="space-y-3">
+          <form onSubmit={handleCreateUser} className="space-y-3">
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="font-bold text-muted-foreground block mb-1">First Name *</label>

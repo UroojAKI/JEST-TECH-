@@ -19,12 +19,19 @@ describe('PaymentService', () => {
               findUnique: jest.fn(),
               update: jest.fn(),
             },
+            policy: {
+              findUnique: jest.fn().mockResolvedValue({ id: 'pol-1', contactId: 'con-1' }),
+            },
             receipt: {
               create: jest.fn(),
             },
             paymentAllocation: {
               create: jest.fn(),
             },
+            auditLog: {
+              create: jest.fn(),
+            },
+            $queryRaw: jest.fn().mockResolvedValue([{ id: 'inv-1', nextval: 1n }]),
             $transaction: jest.fn().mockImplementation((cb) => cb(prisma)),
           },
         },
@@ -47,6 +54,8 @@ describe('PaymentService', () => {
   it('should throw if payment exceeds outstanding balance', async () => {
     jest.spyOn(prisma.invoice, 'findUnique').mockResolvedValue({
       id: 'inv-1',
+      entityType: 'POLICY',
+      entityId: 'pol-1',
       totalAmount: new Decimal(1000),
       allocations: [
         { amount: new Decimal(600) }, // 400 outstanding
@@ -61,6 +70,8 @@ describe('PaymentService', () => {
   it('should mark invoice as PARTIAL if payment is less than outstanding', async () => {
     jest.spyOn(prisma.invoice, 'findUnique').mockResolvedValue({
       id: 'inv-1',
+      entityType: 'POLICY',
+      entityId: 'pol-1',
       totalAmount: new Decimal(1000),
       allocations: [],
     } as any);
@@ -88,6 +99,8 @@ describe('PaymentService', () => {
   it('should mark invoice as PAID if payment completes the balance', async () => {
     jest.spyOn(prisma.invoice, 'findUnique').mockResolvedValue({
       id: 'inv-1',
+      entityType: 'POLICY',
+      entityId: 'pol-1',
       totalAmount: new Decimal(1000),
       allocations: [
         { amount: new Decimal(600) }, // 400 outstanding

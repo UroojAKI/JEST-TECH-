@@ -26,7 +26,12 @@ describe('IssuePolicyService', () => {
     basePremium: 12711.86,
     gstAmount: 2288.14,
     contactId: 'contact-123',
-    expiryDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
+    chassisNumber: 'MAT1234567890ABCD',
+    engineNumber: 'ENG9876543210',
+    registrationNumber: 'MH02CB1234',
+    policyStartDate: new Date(),
+    policyEndDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
+    expiryDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
   };
 
   const mockCreatedPolicy = {
@@ -174,6 +179,9 @@ describe('IssuePolicyService', () => {
         },
         insurerPolicyNumber: 'INS-POL-999',
         insurerQuoteId: 'INS-Q-888',
+        nominees: [
+          { firstName: 'Ayesha', lastName: 'Khan', relation: 'SPOUSE', percentage: 100 },
+        ],
       },
       'user-1',
     );

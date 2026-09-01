@@ -12,26 +12,87 @@ import { ContactsService } from '../services/contacts.service';
 import { ParseUUIDPipe } from '../../../common/utils/parse-uuid.pipe';
 import { PaginationDto } from '../../../common/pagination/pagination.dto';
 
+const CONTACT_VIEW_ROLES: RoleType[] = [
+  RoleType.SUPER_ADMIN,
+  RoleType.ADMIN,
+  RoleType.SYSTEM_ADMINISTRATOR,
+  RoleType.MD_CEO,
+  RoleType.BRANCH_MANAGER,
+  RoleType.MARKETING_DIRECTOR,
+  RoleType.TEAM_LEADER,
+  RoleType.SALES_MANAGER,
+  RoleType.SALES_AGENT,
+  RoleType.SALES_EXECUTIVE,
+  RoleType.POSP_ADVISOR,
+  RoleType.AGENT_MANAGER,
+  RoleType.OPERATIONS,
+  RoleType.POLICY_ISSUANCE_EXECUTIVE,
+  RoleType.UNDERWRITER,
+  RoleType.CLAIMS_OFFICER,
+  RoleType.RENEWAL_EXECUTIVE,
+  RoleType.CUSTOMER_SERVICE_EXECUTIVE,
+  RoleType.FINANCE,
+  RoleType.FINANCE_ACCOUNTS_EXECUTIVE,
+  RoleType.CHIEF_FINANCE_OFFICER,
+  RoleType.SUPPORT,
+];
+
+const CONTACT_MANAGE_ROLES: RoleType[] = [
+  RoleType.SUPER_ADMIN,
+  RoleType.ADMIN,
+  RoleType.SYSTEM_ADMINISTRATOR,
+  RoleType.MD_CEO,
+  RoleType.BRANCH_MANAGER,
+  RoleType.MARKETING_DIRECTOR,
+  RoleType.TEAM_LEADER,
+  RoleType.SALES_MANAGER,
+  RoleType.SALES_AGENT,
+  RoleType.SALES_EXECUTIVE,
+  RoleType.POSP_ADVISOR,
+  RoleType.AGENT_MANAGER,
+  RoleType.OPERATIONS,
+  RoleType.POLICY_ISSUANCE_EXECUTIVE,
+  RoleType.UNDERWRITER,
+  RoleType.RENEWAL_EXECUTIVE,
+  RoleType.CUSTOMER_SERVICE_EXECUTIVE,
+  RoleType.SUPPORT,
+];
+
 @ApiTags('Contacts')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('contacts')
 export class ContactsController {
   constructor(private readonly contactsService: ContactsService) {}
+
   @Post()
-  @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN, RoleType.BRANCH_MANAGER, RoleType.TEAM_LEADER, RoleType.SALES_AGENT)
-  create(@Body() dto: CreateContactDto, @CurrentUser() user: RequestUser) { return this.contactsService.create(dto, user.id, user); }
+  @Roles(...CONTACT_MANAGE_ROLES)
+  create(@Body() dto: CreateContactDto, @CurrentUser() user: RequestUser) {
+    return this.contactsService.create(dto, user.id, user);
+  }
+
   @Get()
-  @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN, RoleType.BRANCH_MANAGER, RoleType.TEAM_LEADER, RoleType.SALES_AGENT, RoleType.OPERATIONS)
-  findAll(@Query() pagination: PaginationDto, @CurrentUser() user: RequestUser) { return this.contactsService.findAll(pagination, user); }
+  @Roles(...CONTACT_VIEW_ROLES)
+  findAll(@Query() pagination: PaginationDto, @CurrentUser() user: RequestUser) {
+    return this.contactsService.findAll(pagination, user);
+  }
+
   @Get(':id')
-  @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN, RoleType.BRANCH_MANAGER, RoleType.TEAM_LEADER, RoleType.SALES_AGENT, RoleType.OPERATIONS)
-  findOne(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: RequestUser) { return this.contactsService.findById(id, user); }
+  @Roles(...CONTACT_VIEW_ROLES)
+  findOne(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: RequestUser) {
+    return this.contactsService.findById(id, user);
+  }
+
   @Patch(':id')
-  @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN, RoleType.BRANCH_MANAGER, RoleType.TEAM_LEADER, RoleType.SALES_AGENT)
-  update(@Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdateContactDto, @CurrentUser() user: RequestUser) { return this.contactsService.update(id, dto, user.id, user); }
+  @Roles(...CONTACT_MANAGE_ROLES)
+  update(@Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdateContactDto, @CurrentUser() user: RequestUser) {
+    return this.contactsService.update(id, dto, user.id, user);
+  }
+
   @Delete(':id')
   @HttpCode(HttpStatus.OK)
-  @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN)
-  remove(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: RequestUser) { return this.contactsService.remove(id, user.id, user); }
+  @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN, RoleType.SYSTEM_ADMINISTRATOR, RoleType.MD_CEO)
+  remove(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: RequestUser) {
+    return this.contactsService.remove(id, user.id, user);
+  }
 }

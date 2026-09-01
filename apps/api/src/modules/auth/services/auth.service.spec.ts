@@ -23,6 +23,7 @@ describe('AuthService', () => {
     lastName: 'User',
     passwordHash: '$argon2id$v=19$m=65536,t=3,p=4$hash',
     role: { code: 'SALES_AGENT', id: 'role-id', permissions: [] },
+    organizationId: 'org-test-123',
     // auth.service.ts checks user.status (not isActive) — must be 'ACTIVE'
     // to reach the password verification step
     status: 'ACTIVE',

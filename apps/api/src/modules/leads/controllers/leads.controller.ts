@@ -35,6 +35,42 @@ import { ParseUUIDPipe } from '../../../common/utils/parse-uuid.pipe';
 import { DuplicateDetectionService } from '../deduplication/services/duplicate-detection/duplicate-detection.service';
 import { LeadCompletionService } from '../services/lead-completion.service';
 
+const LEAD_VIEW_ROLES: RoleType[] = [
+  RoleType.SUPER_ADMIN,
+  RoleType.ADMIN,
+  RoleType.SYSTEM_ADMINISTRATOR,
+  RoleType.MD_CEO,
+  RoleType.BRANCH_MANAGER,
+  RoleType.MARKETING_DIRECTOR,
+  RoleType.TEAM_LEADER,
+  RoleType.SALES_MANAGER,
+  RoleType.SALES_AGENT,
+  RoleType.SALES_EXECUTIVE,
+  RoleType.POSP_ADVISOR,
+  RoleType.AGENT_MANAGER,
+  RoleType.OPERATIONS,
+  RoleType.UNDERWRITER,
+  RoleType.RENEWAL_EXECUTIVE,
+  RoleType.CUSTOMER_SERVICE_EXECUTIVE,
+];
+
+const LEAD_MANAGE_ROLES: RoleType[] = [
+  RoleType.SUPER_ADMIN,
+  RoleType.ADMIN,
+  RoleType.SYSTEM_ADMINISTRATOR,
+  RoleType.MD_CEO,
+  RoleType.BRANCH_MANAGER,
+  RoleType.MARKETING_DIRECTOR,
+  RoleType.TEAM_LEADER,
+  RoleType.SALES_MANAGER,
+  RoleType.SALES_AGENT,
+  RoleType.SALES_EXECUTIVE,
+  RoleType.POSP_ADVISOR,
+  RoleType.AGENT_MANAGER,
+  RoleType.OPERATIONS,
+  RoleType.CUSTOMER_SERVICE_EXECUTIVE,
+];
+
 @ApiTags('Leads & Opportunity Pipeline')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -93,98 +129,98 @@ export class LeadsController {
   }
 
   @Post()
-  @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN, RoleType.BRANCH_MANAGER, RoleType.TEAM_LEADER, RoleType.SALES_AGENT)
+  @Roles(...LEAD_MANAGE_ROLES)
   create(@Body() dto: CreateLeadDto, @CurrentUser() user: RequestUser) {
     return this.leadsService.create(dto, user.id);
   }
 
   @Post(':id/merge')
-  @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN, RoleType.BRANCH_MANAGER, RoleType.TEAM_LEADER, RoleType.SALES_AGENT)
+  @Roles(...LEAD_MANAGE_ROLES)
   merge(@Param('id') targetId: string, @Body('sourceLeadId') sourceLeadId: string, @CurrentUser() user: RequestUser) {
     return this.leadsService.mergeLeads(targetId, sourceLeadId, user.id);
   }
 
   @Get()
-  @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN, RoleType.BRANCH_MANAGER, RoleType.TEAM_LEADER, RoleType.SALES_AGENT, RoleType.OPERATIONS)
+  @Roles(...LEAD_VIEW_ROLES)
   findAll(@Query() pagination: GetLeadsQueryDto, @CurrentUser() user: RequestUser) {
     return this.leadsService.findAll(user, pagination);
   }
 
   @Get(':id')
-  @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN, RoleType.BRANCH_MANAGER, RoleType.TEAM_LEADER, RoleType.SALES_AGENT, RoleType.OPERATIONS)
+  @Roles(...LEAD_VIEW_ROLES)
   findOne(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: RequestUser) {
     return this.leadsService.findById(id, user);
   }
 
   @Get(':id/context')
-  @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN, RoleType.BRANCH_MANAGER, RoleType.TEAM_LEADER, RoleType.SALES_AGENT, RoleType.OPERATIONS)
+  @Roles(...LEAD_VIEW_ROLES)
   @ApiOperation({ summary: 'Get prefill context for Motor / Quotation wizard from Lead' })
   getLeadContext(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() actor: ActorContext) {
     return this.leadsService.getLeadContext(id, actor);
   }
 
   @Get(':id/completion')
-  @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN, RoleType.BRANCH_MANAGER, RoleType.TEAM_LEADER, RoleType.SALES_AGENT, RoleType.OPERATIONS)
+  @Roles(...LEAD_VIEW_ROLES)
   @ApiOperation({ summary: 'Get 5-stage lead completion score and quotation gate readiness' })
   getLeadCompletion(@Param('id', ParseUUIDPipe) id: string) {
     return this.leadCompletionService.computeCompletionStatus(id);
   }
 
   @Patch(':id')
-  @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN, RoleType.BRANCH_MANAGER, RoleType.TEAM_LEADER, RoleType.SALES_AGENT)
+  @Roles(...LEAD_MANAGE_ROLES)
   update(@Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdateLeadDto, @CurrentUser() user: RequestUser) {
     return this.leadsService.update(id, dto, user);
   }
 
   @Delete(':id')
   @HttpCode(HttpStatus.OK)
-  @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN)
+  @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN, RoleType.SYSTEM_ADMINISTRATOR, RoleType.MD_CEO)
   remove(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: RequestUser) {
     return this.leadsService.remove(id, user.id);
   }
 
   @Post(':id/assign')
-  @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN, RoleType.BRANCH_MANAGER, RoleType.TEAM_LEADER, RoleType.SALES_MANAGER)
+  @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN, RoleType.BRANCH_MANAGER, RoleType.TEAM_LEADER, RoleType.SALES_MANAGER, RoleType.MD_CEO, RoleType.SYSTEM_ADMINISTRATOR)
   @ApiOperation({ summary: 'Assign or reassign lead to a sales agent with branch/team boundary validation' })
   assign(@Param('id', ParseUUIDPipe) id: string, @Body('assignedToId') assignedToId: string, @CurrentUser() actor: ActorContext) {
     return this.leadAssignmentService.assignLead(id, assignedToId, actor);
   }
 
   @Post(':id/auto-assign')
-  @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN, RoleType.BRANCH_MANAGER, RoleType.TEAM_LEADER, RoleType.SALES_MANAGER)
+  @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN, RoleType.BRANCH_MANAGER, RoleType.TEAM_LEADER, RoleType.SALES_MANAGER, RoleType.MD_CEO, RoleType.SYSTEM_ADMINISTRATOR)
   @ApiOperation({ summary: 'Auto-assign lead to agent with lowest active load (Round-Robin)' })
   autoAssign(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() actor: ActorContext) {
     return this.leadAssignmentService.autoAssignRoundRobin(id, actor);
   }
 
   @Post('bulk-assign')
-  @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN, RoleType.BRANCH_MANAGER, RoleType.TEAM_LEADER, RoleType.SALES_MANAGER)
+  @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN, RoleType.BRANCH_MANAGER, RoleType.TEAM_LEADER, RoleType.SALES_MANAGER, RoleType.MD_CEO, RoleType.SYSTEM_ADMINISTRATOR)
   @ApiOperation({ summary: 'Bulk reassign leads to a target agent within branch/team scope' })
   bulkAssign(@Body() body: { leadIds: string[]; targetAgentId: string }, @CurrentUser() actor: ActorContext) {
     return this.leadAssignmentService.bulkAssign(body.leadIds, body.targetAgentId, actor);
   }
 
   @Get('queues/workload')
-  @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN, RoleType.BRANCH_MANAGER, RoleType.TEAM_LEADER, RoleType.SALES_MANAGER)
+  @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN, RoleType.BRANCH_MANAGER, RoleType.TEAM_LEADER, RoleType.SALES_MANAGER, RoleType.MD_CEO, RoleType.SYSTEM_ADMINISTRATOR)
   @ApiOperation({ summary: 'Get active workload telemetry for agents within authorized scope' })
   getWorkload(@CurrentUser() actor: ActorContext) {
     return this.leadAssignmentService.getAgentWorkloadQueue(actor);
   }
 
   @Post(':id/notes')
-  @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN, RoleType.BRANCH_MANAGER, RoleType.TEAM_LEADER, RoleType.SALES_AGENT)
+  @Roles(...LEAD_MANAGE_ROLES)
   addNote(@Param('id', ParseUUIDPipe) id: string, @Body() dto: CreateNoteDto, @CurrentUser() user: RequestUser) {
     return this.leadsService.addNote(id, dto, user.id);
   }
 
   @Post(':id/activities')
-  @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN, RoleType.BRANCH_MANAGER, RoleType.TEAM_LEADER, RoleType.SALES_AGENT)
+  @Roles(...LEAD_MANAGE_ROLES)
   createActivity(@Param('id', ParseUUIDPipe) id: string, @Body() dto: CreateActivityDto, @CurrentUser() user: RequestUser) {
     return this.leadsService.createActivity(id, dto, user.id);
   }
 
   @Post(':id/convert')
-  @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN, RoleType.BRANCH_MANAGER, RoleType.TEAM_LEADER, RoleType.SALES_AGENT)
+  @Roles(...LEAD_MANAGE_ROLES)
   async convert(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: RequestUser) {
     const completion = await this.leadCompletionService.computeCompletionStatus(id);
     if (!completion.isQualifiedForQuotation) {

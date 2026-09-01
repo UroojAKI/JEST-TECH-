@@ -16,6 +16,9 @@ describe('SettleClaimService (Claims Settlement & Payment Confirmation)', () => 
     claimHistory: {
       create: jest.fn(),
     },
+    settlement: {
+      upsert: jest.fn().mockResolvedValue({ id: 'set-1' }),
+    },
     $transaction: jest.fn((cb) => cb(mockPrisma)),
   };
 
@@ -57,11 +60,11 @@ describe('SettleClaimService (Claims Settlement & Payment Confirmation)', () => 
     ).rejects.toThrow(BadRequestException);
   });
 
-  it('successfully settles claim and transitions status to SETTLED', async () => {
+  it('successfully requests settlement and transitions status to PAYMENT_PENDING', async () => {
     mockPrisma.claim.findUnique.mockResolvedValue(approvedClaim);
     mockPrisma.claim.update.mockResolvedValue({
       ...approvedClaim,
-      status: ClaimStatus.SETTLED,
+      status: ClaimStatus.PAYMENT_PENDING,
     });
 
     const result = await service.execute(
@@ -75,12 +78,12 @@ describe('SettleClaimService (Claims Settlement & Payment Confirmation)', () => 
       'finance-officer-1',
     );
 
-    expect(result.status).toBe(ClaimStatus.SETTLED);
+    expect(result.status).toBe(ClaimStatus.PAYMENT_PENDING);
     expect(mockPrisma.claimHistory.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
           claimId: 'claim-2',
-          status: ClaimStatus.SETTLED,
+          status: ClaimStatus.PAYMENT_PENDING,
           createdById: 'finance-officer-1',
         }),
       }),

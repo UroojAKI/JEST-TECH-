@@ -2,7 +2,7 @@ import { ForbiddenException, Injectable } from '@nestjs/common';
 import { PrismaService } from '../../../database/prisma.service';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
-import { Policy, PolicyStatus, RoleType } from '@prisma/client';
+import { Policy, PolicyStatus, RoleType, UserStatus } from '@prisma/client';
 import { ActorContext } from '../../../common/interfaces/actor-context.interface';
 
 const GLOBAL_ROLES: RoleType[] = [
@@ -95,17 +95,31 @@ export class RenewalEngineService {
     if (!actor) {
       return {
         userId: 'system',
+        email: 'system@jestpolicy.com',
+        firstName: 'System',
+        lastName: 'Scheduler',
         role: RoleType.SUPER_ADMIN,
-        organizationId: 'system',
         roles: [RoleType.SUPER_ADMIN],
+        organizationId: 'system',
+        companyId: 'system',
+        permissions: [],
+        workspaces: ['ADMIN'],
+        status: UserStatus.ACTIVE,
       };
     }
     if (typeof actor === 'string') {
       return {
         userId: actor,
+        email: 'user@jestpolicy.com',
+        firstName: 'System',
+        lastName: 'User',
         role: RoleType.SUPER_ADMIN,
-        organizationId: 'system',
         roles: [RoleType.SUPER_ADMIN],
+        organizationId: 'system',
+        companyId: 'system',
+        permissions: [],
+        workspaces: ['ADMIN'],
+        status: UserStatus.ACTIVE,
       };
     }
     return actor;

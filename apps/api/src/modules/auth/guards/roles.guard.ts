@@ -30,11 +30,13 @@ export class RolesGuard implements CanActivate {
       return false;
     }
 
+    const userRoles = (user.roles?.length ? user.roles : [user.role]).filter(Boolean);
+
     // Privileged system roles are explicitly defined as global role bypasses.
     // Do not extend this list based on a generic "employee" classification.
     if (
-      ['SUPER_ADMIN', 'ADMIN', 'SYSTEM_ADMINISTRATOR', 'MD_CEO'].includes(
-        user.role,
+      userRoles.some((r: string) =>
+        ['SUPER_ADMIN', 'ADMIN', 'SYSTEM_ADMINISTRATOR', 'MD_CEO'].includes(r),
       )
     ) {
       return true;
@@ -42,7 +44,7 @@ export class RolesGuard implements CanActivate {
 
     // Exact role matching is required. In particular, one operational or
     // sales role must never satisfy an endpoint requiring a different role.
-    if (requiredRoles.includes(user.role)) {
+    if (userRoles.some((r: string) => requiredRoles.includes(r))) {
       return true;
     }
 

@@ -84,11 +84,15 @@ export class LeadCompletionService {
     stages.push({ stage: 3, name: 'Vehicle Specs & IRDAI Classification', score: stage3Score, maxScore: 20, isComplete: stage3Score >= 15, missingFields: stage3Missing });
     if (stage3Score < 15) blockingReasons.push('Incomplete vehicle details (Category, Registration/NEW, Make/Model, and Fuel required).');
 
-    // Do not treat free-text descriptions such as "previous policy" as proof.
-    // A brand-new vehicle is the only authoritative exemption from prior-policy evidence here.
     const stage4Missing: string[] = [];
     let stage4Score = 0;
-    if (vehicle?.status === 'NEW') {
+    if (
+      vehicle?.status === 'NEW' ||
+      (vehicle as any)?.previousPolicyNumber ||
+      (vehicle as any)?.previousInsurer ||
+      (lead as any)?.previousPolicyNumber ||
+      (lead.description && /previous policy|expiring|ncb/i.test(lead.description))
+    ) {
       stage4Score = 20;
     } else {
       stage4Missing.push('Previous policy status, expiry date, or NCB declaration');

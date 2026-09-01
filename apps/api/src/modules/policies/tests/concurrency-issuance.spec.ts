@@ -54,7 +54,12 @@ describe('100-Concurrent Policy Issuance Stress & Atomic Conflict Guarantee', ()
         id: 'quote-conc-100',
         quotationCode: 'QTN-CONC-100',
         status: QuotationStatus.APPROVED,
+        policyStartDate: new Date(),
+        policyEndDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
         expiryDate: new Date(Date.now() + 86400000),
+        chassisNumber: 'MAT1234567890ABCD',
+        engineNumber: 'ENG9876543210',
+        registrationNumber: 'MH02CB1234',
         totalPremium: 25000,
         basePremium: 21186.44,
         gstAmount: 3813.56,
@@ -130,6 +135,9 @@ describe('100-Concurrent Policy Issuance Stress & Atomic Conflict Guarantee', ()
                   transactionId: 'TXN-CONC-100',
                   paymentMethod: 'NET_BANKING',
                 },
+                nominees: [
+                  { firstName: 'Ayesha', lastName: 'Khan', relation: 'SPOUSE', percentage: 100 },
+                ],
               } as any,
               'user-concurrency-runner',
             );

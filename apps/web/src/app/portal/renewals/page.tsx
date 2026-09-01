@@ -210,7 +210,7 @@ export default function RenewalManagementPage() {
                     </td>
                   </tr>
                 ) : (
-                  renewalsList.map((r) => (
+                  renewalsList.map((r: any) => (
                     <tr key={r.id} className="hover:bg-muted/10 transition-colors">
                       <td className="py-3 px-3">
                       <span
