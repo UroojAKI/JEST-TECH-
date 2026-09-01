@@ -3,7 +3,6 @@ import {
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
-import { RoleType } from '@prisma/client';
 import { PrismaService } from '../../../database/prisma.service';
 import { WorkspaceFactory } from '../factories/workspace.factory';
 import { WorkspaceResponseDto } from '../dto/workspace.dto';
@@ -28,10 +27,17 @@ export class WorkspaceService {
       },
     });
 
-    if (!user)
+    if (!user) {
       throw new NotFoundException(`User with ID '${userId}' not found`);
+    }
 
-    const roleCode = user.role?.code || 'SALES_AGENT';
+    // Workspace identity is authoritative. Never silently elevate or invent
+    // a role when the persisted authorization model is incomplete.
+    const roleCode = user.role?.code;
+    if (!roleCode) {
+      throw new UnauthorizedException('Missing user role authorization context');
+    }
+
     const jobRole = user.jobRole;
     const department = user.department || user.jobRole?.department || null;
     let registry: any = null;
@@ -186,22 +192,23 @@ export class WorkspaceService {
         },
       },
     });
-    if (!user)
+    if (!user) {
       throw new NotFoundException(`User with ID '${userId}' not found`);
-
-    let orgId = (user as any).branch?.zone?.region?.company?.id;
-    if (!orgId) {
-      const primaryCompany = await this.prisma.company.findFirst({
-        where: { isActive: true },
-        select: { id: true },
-      });
-      orgId = primaryCompany?.id;
     }
+
+    const orgId = (user as any).branch?.zone?.region?.company?.id;
     if (!orgId) {
+      // Never fall back to an arbitrary active company. Doing so can cross a
+      // tenant boundary when a user's organizational assignment is corrupt or
+      // incomplete. Fail closed instead.
       throw new UnauthorizedException('Missing organizational tenant context');
     }
 
-    const roleType = user.role.type || user.role.code;
+    const roleType = user.role?.type || user.role?.code;
+    if (!roleType) {
+      throw new UnauthorizedException('Missing user role authorization context');
+    }
+
     const permissions =
       user.role.permissions?.map((p: any) => p.permission.code) || [];
 
