@@ -9,6 +9,7 @@ import {
   HttpStatus,
   Query,
   ParseUUIDPipe,
+  BadRequestException,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { RoleType } from '@prisma/client';
@@ -193,6 +194,24 @@ export class ClaimsController {
     @CurrentUser() user: RequestUser,
   ) {
     return this.settleClaimService.execute(id, dto, user.id);
+  }
+
+  @Post(':id/settlement/verify')
+  @HttpCode(HttpStatus.OK)
+  @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN, RoleType.FINANCE)
+  verifySettlement(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body('verificationReference') verificationReference: string,
+    @CurrentUser() user: RequestUser,
+  ) {
+    if (!verificationReference?.trim()) {
+      throw new BadRequestException('Finance verification reference is mandatory');
+    }
+    return this.settleClaimService.verifySettlement(
+      id,
+      verificationReference.trim(),
+      user.id,
+    );
   }
 
   @Post(':id/reject')
