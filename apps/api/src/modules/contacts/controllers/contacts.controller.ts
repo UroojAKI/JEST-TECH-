@@ -20,7 +20,7 @@ export class ContactsController {
   constructor(private readonly contactsService: ContactsService) {}
   @Post()
   @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN, RoleType.BRANCH_MANAGER, RoleType.TEAM_LEADER, RoleType.SALES_AGENT)
-  create(@Body() dto: CreateContactDto, @CurrentUser() user: RequestUser) { return this.contactsService.create(dto, user.id); }
+  create(@Body() dto: CreateContactDto, @CurrentUser() user: RequestUser) { return this.contactsService.create(dto, user.id, user); }
   @Get()
   @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN, RoleType.BRANCH_MANAGER, RoleType.TEAM_LEADER, RoleType.SALES_AGENT, RoleType.OPERATIONS)
   findAll(@Query() pagination: PaginationDto, @CurrentUser() user: RequestUser) { return this.contactsService.findAll(pagination, user); }
@@ -33,5 +33,5 @@ export class ContactsController {
   @Delete(':id')
   @HttpCode(HttpStatus.OK)
   @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN)
-  remove(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: RequestUser) { return this.contactsService.remove(id, user.id); }
+  remove(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: RequestUser) { return this.contactsService.remove(id, user.id, user); }
 }
