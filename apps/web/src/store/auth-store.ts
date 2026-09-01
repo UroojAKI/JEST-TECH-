@@ -9,7 +9,6 @@ interface AuthStore {
   _hasHydrated: boolean;
   idleWarningVisible: boolean;
   lastActiveTimestamp: number;
-
   setUser: (user: UserSession | null) => void;
   setAuth: (user: UserSession) => void;
   setIdleWarningVisible: (visible: boolean) => void;
@@ -28,46 +27,24 @@ export const useAuthStore = create<AuthStore>()(
       idleWarningVisible: false,
       lastActiveTimestamp: Date.now(),
 
-      setUser: (user) =>
-        set({
-          user,
-          isAuthenticated: !!user,
-          isLoading: false,
-        }),
-
-      setAuth: (user) =>
-        set({
-          user,
-          isAuthenticated: true,
-          isLoading: false,
-        }),
-
+      setUser: (user) => set({ user, isAuthenticated: !!user, isLoading: false }),
+      setAuth: (user) => set({ user, isAuthenticated: true, isLoading: false }),
       setIdleWarningVisible: (visible) => set({ idleWarningVisible: visible }),
-
       touchLastActive: () => set({ lastActiveTimestamp: Date.now() }),
-
-      logout: () => {
-        if (typeof window !== 'undefined') {
-          document.cookie = 'access_token=; path=/; max-age=0; SameSite=Lax';
-          document.cookie = 'refresh_token=; path=/; max-age=0; SameSite=Lax';
-          localStorage.removeItem('jest_access_token');
-          localStorage.removeItem('jest_refresh_token');
-        }
-        set({
-          user: null,
-          isAuthenticated: false,
-          isLoading: false,
-          idleWarningVisible: false,
-        });
-      },
-
+      logout: () => set({
+        user: null,
+        isAuthenticated: false,
+        isLoading: false,
+        idleWarningVisible: false,
+      }),
       setHasHydrated: (state) => set({ _hasHydrated: state }),
     }),
     {
       name: 'jest-auth-storage',
-      onRehydrateStorage: () => (state) => {
-        state?.setHasHydrated(true);
-      },
-    }
-  )
+      // This store may persist non-secret UI/session identity, but never stores
+      // access or refresh credentials. The API cookies remain authoritative.
+      partialize: (state) => ({ user: state.user, isAuthenticated: state.isAuthenticated }),
+      onRehydrateStorage: () => (state) => state?.setHasHydrated(true),
+    },
+  ),
 );
