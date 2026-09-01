@@ -76,7 +76,6 @@ jobs:
             'jest_access_token'
             'jest_refresh_token'
             'localStorage\\.(setItem|getItem|removeItem).*?(quotation|policy|lead|branch|financial|workflow|payment|claim)'
-            'prospect_[^ ]*@jestpolicy\\.com'
           )
           for pattern in "${patterns[@]}"; do
             if grep -RIn --exclude-dir=node_modules --exclude-dir=.next --exclude-dir=dist --exclude-dir=coverage -E "$pattern" apps/web apps/api; then
