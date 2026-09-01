@@ -15,7 +15,14 @@ const duplicateContactError = (existingContactId: string, matchedBy: 'PHONE' | '
 export class ContactsService {
   constructor(private readonly contactRepository: ContactRepository) {}
 
-  async create(dto: CreateContactDto, createdById: string) {
+  private assertActor(actor?: ActorContext): void {
+    if (!actor?.userId || !actor.organizationId) throw new ForbiddenException('Authenticated organizational context is required to create contacts');
+    if (actor.status === 'SUSPENDED' || actor.status === 'INACTIVE') throw new ForbiddenException('Inactive users cannot create contacts');
+  }
+
+  async create(dto: CreateContactDto, createdById: string, actor?: ActorContext) {
+    this.assertActor(actor);
+    if (actor && actor.userId !== createdById) throw new ForbiddenException('Contact creator must match authenticated user');
     const existingPhone = await this.contactRepository.findByPhone(dto.phone);
     if (existingPhone) throw duplicateContactError(existingPhone.id, 'PHONE');
     if (dto.email) {
@@ -25,11 +32,10 @@ export class ContactsService {
     const contactCode = await this.contactRepository.generateContactCode();
     const { accountId, ...restDto } = dto;
     const contactData: Prisma.ContactCreateInput = {
-      contactCode, type: restDto.type, firstName: restDto.firstName, middleName: restDto.middleName,
-      lastName: restDto.lastName, gender: restDto.gender, dateOfBirth: restDto.dateOfBirth ? new Date(restDto.dateOfBirth) : undefined,
-      companyName: restDto.companyName, email: restDto.email, phone: restDto.phone, alternatePhone: restDto.alternatePhone,
-      whatsappNumber: restDto.whatsappNumber, occupation: restDto.occupation, panNumber: restDto.panNumber,
-      aadhaarNumber: restDto.aadhaarNumber, gstNumber: restDto.gstNumber,
+      contactCode, type: restDto.type, firstName: restDto.firstName, middleName: restDto.middleName, lastName: restDto.lastName,
+      gender: restDto.gender, dateOfBirth: restDto.dateOfBirth ? new Date(restDto.dateOfBirth) : undefined, companyName: restDto.companyName,
+      email: restDto.email, phone: restDto.phone, alternatePhone: restDto.alternatePhone, whatsappNumber: restDto.whatsappNumber,
+      occupation: restDto.occupation, panNumber: restDto.panNumber, aadhaarNumber: restDto.aadhaarNumber, gstNumber: restDto.gstNumber,
       createdBy: { connect: { id: createdById } }, updatedBy: { connect: { id: createdById } },
     };
     if (accountId) contactData.account = { connect: { id: accountId } };
@@ -39,11 +45,12 @@ export class ContactsService {
   async findAll(pagination: PaginationDto, actor: ActorContext) {
     const { page = 1, limit = 10, search, sortBy = 'createdAt', sortOrder = 'desc' } = pagination;
     const skip = (page - 1) * limit;
+    this.assertActor(actor);
+    const roles = actor.roles?.length ? actor.roles : [actor.role];
     const searchWhere: Prisma.ContactWhereInput = search ? { OR: [
       { firstName: { contains: search, mode: 'insensitive' } }, { lastName: { contains: search, mode: 'insensitive' } },
       { email: { contains: search, mode: 'insensitive' } }, { phone: { contains: search, mode: 'insensitive' } },
     ] } : {};
-    const roles = actor.roles?.length ? actor.roles : [actor.role];
     const scopeWhere: Prisma.ContactWhereInput = {};
     if (!roles.some((role) => GLOBAL_ROLES.includes(role))) {
       if (roles.includes(RoleType.BRANCH_MANAGER) || roles.includes(RoleType.MARKETING_DIRECTOR)) {
@@ -52,20 +59,17 @@ export class ContactsService {
       } else if (roles.includes(RoleType.TEAM_LEADER) || roles.includes(RoleType.SALES_MANAGER)) {
         if (!actor.teamId) throw new ForbiddenException('Team context is required');
         scopeWhere.createdBy = { teamId: actor.teamId };
-      } else {
-        scopeWhere.createdById = actor.userId;
-      }
+      } else scopeWhere.createdById = actor.userId;
     }
     const where: Prisma.ContactWhereInput = Object.keys(scopeWhere).length ? { AND: [searchWhere, scopeWhere] } : searchWhere;
     const [contacts, total] = await Promise.all([
-      this.contactRepository.findAll(where, skip, limit, { [sortBy]: sortOrder }),
-      this.contactRepository.count(where),
+      this.contactRepository.findAll(where, skip, limit, { [sortBy]: sortOrder }), this.contactRepository.count(where),
     ]);
     return new PaginatedResponseDto(ContactMapper.toResponseList(contacts), total, page, limit);
   }
 
   private assertRecordAccess(contact: any, actor: ActorContext): void {
-    if (!actor?.userId || !actor.organizationId) throw new ForbiddenException('Actor organizational context is required');
+    this.assertActor(actor);
     const roles = actor.roles?.length ? actor.roles : [actor.role];
     if (roles.some((role) => GLOBAL_ROLES.includes(role))) return;
     const owner = contact.createdBy;
@@ -93,6 +97,7 @@ export class ContactsService {
     const existing = await this.contactRepository.findById(id);
     if (!existing || existing.deletedAt) throw new NotFoundException(`Contact ${id} not found`);
     this.assertRecordAccess(existing, actor);
+    if (updatedById !== actor.userId) throw new ForbiddenException('Contact updater must match authenticated user');
     if (dto.phone && dto.phone !== existing.phone) {
       const conflict = await this.contactRepository.findByPhone(dto.phone);
       if (conflict) throw duplicateContactError(conflict.id, 'PHONE');
@@ -103,17 +108,17 @@ export class ContactsService {
     }
     const { accountId, ...restDto } = dto;
     const updateData: Prisma.ContactUpdateInput = {
-      type: restDto.type, firstName: restDto.firstName, middleName: restDto.middleName, lastName: restDto.lastName,
-      gender: restDto.gender, dateOfBirth: restDto.dateOfBirth ? new Date(restDto.dateOfBirth) : undefined,
-      companyName: restDto.companyName, email: restDto.email, phone: restDto.phone, alternatePhone: restDto.alternatePhone,
-      whatsappNumber: restDto.whatsappNumber, occupation: restDto.occupation, panNumber: restDto.panNumber,
-      aadhaarNumber: restDto.aadhaarNumber, gstNumber: restDto.gstNumber, updatedBy: { connect: { id: updatedById } },
+      type: restDto.type, firstName: restDto.firstName, middleName: restDto.middleName, lastName: restDto.lastName, gender: restDto.gender,
+      dateOfBirth: restDto.dateOfBirth ? new Date(restDto.dateOfBirth) : undefined, companyName: restDto.companyName, email: restDto.email,
+      phone: restDto.phone, alternatePhone: restDto.alternatePhone, whatsappNumber: restDto.whatsappNumber, occupation: restDto.occupation,
+      panNumber: restDto.panNumber, aadhaarNumber: restDto.aadhaarNumber, gstNumber: restDto.gstNumber, updatedBy: { connect: { id: updatedById } },
     };
     if (accountId !== undefined) updateData.account = accountId ? { connect: { id: accountId } } : { disconnect: true };
     return ContactMapper.toResponse(await this.contactRepository.update(id, updateData));
   }
 
-  async remove(id: string, deletedById: string) {
+  async remove(id: string, deletedById: string, actor?: ActorContext) {
+    if (actor) this.assertRecordAccess(await this.contactRepository.findById(id), actor);
     const existing = await this.contactRepository.findById(id);
     if (!existing || existing.deletedAt) throw new NotFoundException(`Contact ${id} not found`);
     await this.contactRepository.softDelete(id, deletedById);
