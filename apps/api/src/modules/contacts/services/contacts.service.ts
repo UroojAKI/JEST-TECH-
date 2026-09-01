@@ -5,7 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 
-import { Prisma } from '@prisma/client';
+import { Prisma, RoleType } from '@prisma/client';
 
 import { ContactMapper } from '../mappers/contact.mapper';
 import { ContactRepository } from '../repositories/contact.repository';
@@ -15,12 +15,12 @@ import { PaginationDto } from '../../../common/pagination/pagination.dto';
 import { PaginatedResponseDto } from '../../../common/pagination/paginated-response.dto';
 import { ActorContext } from '../../../common/interfaces/actor-context.interface';
 
-const GLOBAL_ROLES = new Set([
-  'SUPER_ADMIN',
-  'ADMIN',
-  'SYSTEM_ADMINISTRATOR',
-  'MD_CEO',
-]);
+const GLOBAL_ROLES: RoleType[] = [
+  RoleType.SUPER_ADMIN,
+  RoleType.ADMIN,
+  RoleType.SYSTEM_ADMINISTRATOR,
+  RoleType.MD_CEO,
+];
 
 @Injectable()
 export class ContactsService {
@@ -81,7 +81,7 @@ export class ContactsService {
     } = pagination;
     const skip = (page - 1) * limit;
 
-    const where: Prisma.ContactWhereInput = search
+    const searchWhere: Prisma.ContactWhereInput = search
       ? {
           OR: [
             { firstName: { contains: search, mode: 'insensitive' } },
@@ -93,23 +93,31 @@ export class ContactsService {
       : {};
 
     const roles = actor.roles?.length ? actor.roles : [actor.role];
-    if (!roles.some((role) => GLOBAL_ROLES.has(role))) {
-      if (roles.includes('BRANCH_MANAGER') || roles.includes('MARKETING_DIRECTOR')) {
+    const isGlobal = roles.some((role) => GLOBAL_ROLES.includes(role));
+    const scopeWhere: Prisma.ContactWhereInput = {};
+
+    if (!isGlobal) {
+      if (roles.includes(RoleType.BRANCH_MANAGER) || roles.includes(RoleType.MARKETING_DIRECTOR)) {
         if (!actor.branchId) throw new ForbiddenException('Branch context is required');
-        where.OR = [
+        scopeWhere.OR = [
           { createdBy: { branchId: actor.branchId } },
           { updatedBy: { branchId: actor.branchId } },
         ];
-      } else if (roles.includes('TEAM_LEADER') || roles.includes('SALES_MANAGER')) {
+      } else if (roles.includes(RoleType.TEAM_LEADER) || roles.includes(RoleType.SALES_MANAGER)) {
         if (!actor.teamId) throw new ForbiddenException('Team context is required');
-        where.OR = [
+        scopeWhere.OR = [
           { createdBy: { teamId: actor.teamId } },
           { updatedBy: { teamId: actor.teamId } },
         ];
       } else {
-        where.OR = [{ createdById: actor.userId }, { updatedById: actor.userId }];
+        scopeWhere.OR = [{ createdById: actor.userId }, { updatedById: actor.userId }];
       }
     }
+
+    const where: Prisma.ContactWhereInput =
+      Object.keys(scopeWhere).length > 0
+        ? { AND: [searchWhere, scopeWhere] }
+        : searchWhere;
 
     const [contacts, total] = await Promise.all([
       this.contactRepository.findAll(where, skip, limit, { [sortBy]: sortOrder }),
