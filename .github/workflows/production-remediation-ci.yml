@@ -12,7 +12,7 @@ permissions:
 jobs:
   verify:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -21,11 +21,12 @@ jobs:
         uses: pnpm/action-setup@v4
         with:
           version: 10.34.4
+          run_install: false
 
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
           cache: pnpm
 
       - name: Install dependencies
@@ -39,8 +40,20 @@ jobs:
         working-directory: apps/api
         run: pnpm exec prisma validate
 
+      - name: API typecheck
+        working-directory: apps/api
+        run: pnpm exec tsc --noEmit
+
+      - name: Web typecheck
+        working-directory: apps/web
+        run: pnpm exec tsc --noEmit
+
       - name: API unit tests
         working-directory: apps/api
+        run: pnpm test -- --runInBand
+
+      - name: Web tests
+        working-directory: apps/web
         run: pnpm test -- --runInBand
 
       - name: API build
@@ -51,13 +64,26 @@ jobs:
         working-directory: apps/web
         run: pnpm build
 
+      - name: Dependency security audit
+        run: pnpm audit --audit-level moderate
+
       - name: Production source safety scan
         shell: bash
         run: |
           set -euo pipefail
-          if grep -RIn --exclude-dir=node_modules --exclude-dir=.next --exclude-dir=dist \
-            -E 'generatePdfStub|localStorage\.(setItem|getItem|removeItem)\([^)]*(quotation|policy|lead|branch|financial|workflow)|jest_(access|refresh)_token' \
-            apps/web apps/api; then
-            echo 'Production safety scan found a prohibited authoritative-data/token pattern.'
-            exit 1
-          fi
+          patterns=(
+            'generatePdfStub'
+            'jest_access_token'
+            'jest_refresh_token'
+            'localStorage\\.(setItem|getItem|removeItem).*?(quotation|policy|lead|branch|financial|workflow|payment|claim)'
+            'Math\\.random\\('
+            'example\\.com'
+            'customer@example\\.com'
+            'Head Office'
+          )
+          for pattern in "${patterns[@]}"; do
+            if grep -RIn --exclude-dir=node_modules --exclude-dir=.next --exclude-dir=dist --exclude-dir=coverage -E "$pattern" apps/web apps/api; then
+              echo "Production safety scan found prohibited pattern: $pattern"
+              exit 1
+            fi
+          done
