@@ -29,22 +29,19 @@ export class ClaimStateMachine {
     ],
     [ClaimStatus.APPROVED]: [
       ClaimStatus.PAYMENT_PENDING,
-      ClaimStatus.SETTLED,
       ClaimStatus.CLOSED,
     ],
     [ClaimStatus.REJECTED]: [ClaimStatus.CLOSED],
     [ClaimStatus.PAYMENT_PENDING]: [ClaimStatus.SETTLED, ClaimStatus.CLOSED],
     [ClaimStatus.SETTLED]: [ClaimStatus.CLOSED],
-    [ClaimStatus.CLOSED]: [], // Terminal state
+    [ClaimStatus.CLOSED]: [],
   };
 
   static validateTransition(
     currentStatus: ClaimStatus,
     targetStatus: ClaimStatus,
   ): void {
-    if (currentStatus === targetStatus) {
-      return;
-    }
+    if (currentStatus === targetStatus) return;
     const allowed = this.ALLOWED_TRANSITIONS[currentStatus];
     if (!allowed || !allowed.includes(targetStatus)) {
       throw new BadRequestException(
