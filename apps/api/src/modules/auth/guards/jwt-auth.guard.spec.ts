@@ -13,7 +13,7 @@ describe('JwtAuthGuard & ActorContext (Iteration 1 Baseline)', () => {
     const mockConfig = {
       jwtSecret: 'test-secret',
     } as unknown as ConfigurationService;
-    strategy = new JwtStrategy(mockConfig);
+    strategy = new JwtStrategy(mockConfig, {} as any);
   });
 
   describe('JwtAuthGuard', () => {

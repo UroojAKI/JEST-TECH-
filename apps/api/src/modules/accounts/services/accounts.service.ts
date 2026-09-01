@@ -64,8 +64,8 @@ export class AccountsService {
     return new PaginatedResponseDto(AccountMapper.toResponseList(accounts), total, page, limit);
   }
 
-  async findById(id: string, actor: ActorContext) {
-    const scope = this.scope(actor);
+  async findById(id: string, actor?: ActorContext) {
+    const scope = actor ? this.scope(actor) : {};
     const accounts = await this.accountRepository.findAll({ AND: [{ id }, scope] }, 0, 1);
     const account = accounts[0];
     if (!account) throw new NotFoundException(`Account with ID ${id} not found`);

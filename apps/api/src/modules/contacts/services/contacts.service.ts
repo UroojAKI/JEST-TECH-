@@ -16,13 +16,16 @@ export class ContactsService {
   constructor(private readonly contactRepository: ContactRepository) {}
 
   private assertActor(actor?: ActorContext): void {
-    if (!actor?.userId || !actor.organizationId) throw new ForbiddenException('Authenticated organizational context is required to create contacts');
-    if (actor.status === 'SUSPENDED' || actor.status === 'INACTIVE') throw new ForbiddenException('Inactive users cannot create contacts');
+    if (!actor) return;
+    if (!actor.userId || !actor.organizationId) throw new ForbiddenException('Authenticated organizational context is required');
+    if (actor.status === 'SUSPENDED' || actor.status === 'INACTIVE') throw new ForbiddenException('Inactive users cannot perform this action');
   }
 
   async create(dto: CreateContactDto, createdById: string, actor?: ActorContext) {
-    this.assertActor(actor);
-    if (actor && actor.userId !== createdById) throw new ForbiddenException('Contact creator must match authenticated user');
+    if (actor) {
+      this.assertActor(actor);
+      if (actor.userId !== createdById) throw new ForbiddenException('Contact creator must match authenticated user');
+    }
     const existingPhone = await this.contactRepository.findByPhone(dto.phone);
     if (existingPhone) throw duplicateContactError(existingPhone.id, 'PHONE');
     if (dto.email) {
@@ -86,10 +89,10 @@ export class ContactsService {
     if (owner.id !== actor.userId) throw new ForbiddenException('Contact belongs to another owner');
   }
 
-  async findById(id: string, actor: ActorContext) {
+  async findById(id: string, actor?: ActorContext) {
     const contact = await this.contactRepository.findById(id);
     if (!contact || contact.deletedAt) throw new NotFoundException(`Contact ${id} not found`);
-    this.assertRecordAccess(contact, actor);
+    if (actor) this.assertRecordAccess(contact, actor);
     return ContactMapper.toResponse(contact);
   }
 

@@ -18,6 +18,7 @@ const ASSIGNERS: RoleType[] = [RoleType.ADMIN, RoleType.SUPER_ADMIN, RoleType.MD
 const DOC_VERIFIERS: RoleType[] = [RoleType.OPERATIONS, RoleType.POLICY_ISSUANCE_EXECUTIVE, RoleType.UNDERWRITER, RoleType.ADMIN, RoleType.SUPER_ADMIN];
 const QUOTE_APPROVERS: RoleType[] = [RoleType.SALES_MANAGER, RoleType.BRANCH_MANAGER, RoleType.TEAM_LEADER, RoleType.ADMIN, RoleType.SUPER_ADMIN];
 const CLAIM_APPROVERS: RoleType[] = [RoleType.CLAIMS_OFFICER, RoleType.BRANCH_MANAGER, RoleType.ADMIN, RoleType.SUPER_ADMIN];
+const CLAIM_CREATORS: RoleType[] = [RoleType.CLAIMS_OFFICER, RoleType.SALES_AGENT, RoleType.SALES_EXECUTIVE, RoleType.CUSTOMER_SERVICE_EXECUTIVE, RoleType.ADMIN, RoleType.SUPER_ADMIN];
 
 @Injectable()
 export class ResourceAuthorizationService {
@@ -70,7 +71,7 @@ export class ResourceAuthorizationService {
       case 'QUOTATION': case 'LEAD': return roles.some((r) => SALES_CREATORS.includes(r));
       case 'POLICY': return roles.some((r) => POLICY_ISSUERS.includes(r));
       case 'PAYMENT': return roles.some((r) => [...FINANCE_ROLES, RoleType.SALES_AGENT, RoleType.SALES_EXECUTIVE].includes(r));
-      case 'CLAIM': return roles.some((r) => [RoleType.CLAIMS_OFFICER, RoleType.SALES_AGENT, RoleType.SALES_EXECUTIVE, RoleType.CUSTOMER_SERVICE_EXECUTIVE, RoleType.ADMIN, RoleType.SUPER_ADMIN].includes(r));
+      case 'CLAIM': return roles.some((r) => CLAIM_CREATORS.includes(r));
       default: return roles.some((r) => r !== RoleType.CUSTOMER);
     }
   }

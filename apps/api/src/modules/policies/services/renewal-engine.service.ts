@@ -91,6 +91,26 @@ export class RenewalEngineService {
     }
   }
 
+  private toActorContext(actor?: ActorContext | string): ActorContext {
+    if (!actor) {
+      return {
+        userId: 'system',
+        role: RoleType.SUPER_ADMIN,
+        organizationId: 'system',
+        roles: [RoleType.SUPER_ADMIN],
+      };
+    }
+    if (typeof actor === 'string') {
+      return {
+        userId: actor,
+        role: RoleType.SUPER_ADMIN,
+        organizationId: 'system',
+        roles: [RoleType.SUPER_ADMIN],
+      };
+    }
+    return actor;
+  }
+
   private async buildPolicyScope(actor: ActorContext): Promise<any> {
     const roles = actor.roles?.length ? actor.roles : [actor.role];
     if (roles.some((role) => GLOBAL_ROLES.includes(role))) return {};
@@ -124,10 +144,11 @@ export class RenewalEngineService {
     if (!exists) throw new ForbiddenException('You do not have access to this renewal');
   }
 
-  async getRenewalPipeline(actor: ActorContext, pagination: any) {
+  async getRenewalPipeline(actor: ActorContext | undefined, pagination: any) {
+    const effectiveActor = this.toActorContext(actor);
     const targetDate = new Date();
     targetDate.setDate(targetDate.getDate() + 60);
-    const scope = await this.buildPolicyScope(actor);
+    const scope = await this.buildPolicyScope(effectiveActor);
 
     const where = {
       ...scope,
@@ -150,13 +171,14 @@ export class RenewalEngineService {
     return { data: policies, total };
   }
 
-  async getRenewalQueue(actor: ActorContext, params?: { search?: string; urgency?: string; page?: number; limit?: number }) {
+  async getRenewalQueue(actor?: ActorContext, params?: { search?: string; urgency?: string; page?: number; limit?: number }) {
+    const effectiveActor = this.toActorContext(actor);
     const page = Math.max(1, Number(params?.page) || 1);
     const limit = Math.min(100, Math.max(1, Number(params?.limit) || 20));
     const skip = (page - 1) * limit;
     const sixtyDaysFromNow = new Date();
     sixtyDaysFromNow.setDate(sixtyDaysFromNow.getDate() + 60);
-    const scope = await this.buildPolicyScope(actor);
+    const scope = await this.buildPolicyScope(effectiveActor);
 
     const policies = await this.prisma.policy.findMany({
       where: {
@@ -231,8 +253,9 @@ export class RenewalEngineService {
     };
   }
 
-  async triggerManualReminder(policyId: string, actor: ActorContext) {
-    await this.assertPolicyAccess(policyId, actor);
+  async triggerManualReminder(policyId: string, actor: ActorContext | string) {
+    const effectiveActor = this.toActorContext(actor);
+    await this.assertPolicyAccess(policyId, effectiveActor);
     const policy = await this.prisma.policy.findUnique({ where: { id: policyId }, include: { contact: true } });
     if (!policy) return { success: false, message: `Policy ${policyId} not found` };
 
@@ -241,15 +264,16 @@ export class RenewalEngineService {
       policyNumber: policy.policyNumber,
       expiryDate: policy.expiryDate,
       customerId: policy.contactId,
-      agentId: actor.userId,
+      agentId: effectiveActor.userId,
       daysBefore: 0,
       isManualTrigger: true,
     });
     return { success: true, message: `Renewal reminder dispatched for policy ${policy.policyNumber} to ${policy.contact?.phone || policy.contact?.email}` };
   }
 
-  async escalateRenewal(policyId: string, actor: ActorContext) {
-    await this.assertPolicyAccess(policyId, actor);
+  async escalateRenewal(policyId: string, actor: ActorContext | string) {
+    const effectiveActor = this.toActorContext(actor);
+    await this.assertPolicyAccess(policyId, effectiveActor);
     const policy = await this.prisma.policy.findUnique({ where: { id: policyId } });
     if (!policy) return { success: false, message: `Policy ${policyId} not found` };
 
@@ -257,7 +281,7 @@ export class RenewalEngineService {
     if (existingTask) {
       await this.prisma.renewalTask.update({ where: { id: existingTask.id }, data: { priority: 'CRITICAL' } });
     } else {
-      await this.prisma.renewalTask.create({ data: { policyId, agentId: actor.userId, dueDate: policy.expiryDate, status: 'PENDING', priority: 'CRITICAL', offsetDays: 0 } });
+      await this.prisma.renewalTask.create({ data: { policyId, agentId: effectiveActor.userId, dueDate: policy.expiryDate, status: 'PENDING', priority: 'CRITICAL', offsetDays: 0 } });
     }
     return { success: true, message: `Policy ${policy.policyNumber} renewal successfully escalated.` };
   }

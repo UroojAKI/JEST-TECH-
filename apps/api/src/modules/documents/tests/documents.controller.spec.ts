@@ -117,12 +117,14 @@ describe('DocumentsController', () => {
         'POLICY',
         'policy-123',
         pagination,
+        mockUser,
       );
       expect(result).toEqual([mockDoc]);
       expect(service.getEntityDocuments).toHaveBeenCalledWith(
         'POLICY',
         'policy-123',
         pagination,
+        mockUser,
       );
     });
 

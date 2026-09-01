@@ -31,6 +31,13 @@ import { RenewalSchedulerCron } from '../crons/renewal-scheduler.cron';
 import { IssuePolicyService } from '../services/commands/issue-policy.service';
 import { BackOfficeQueueService } from '../services/queries/back-office-queue.service';
 
+const GLOBAL_ADMIN_ROLES: RoleType[] = [
+  RoleType.SUPER_ADMIN,
+  RoleType.ADMIN,
+  RoleType.SYSTEM_ADMINISTRATOR,
+  RoleType.MD_CEO,
+];
+
 @ApiTags('Policies & Renewal Engine')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -76,7 +83,7 @@ export class PoliciesController {
   @ApiOperation({ summary: 'Get Renewal Engine KPIs and Conversion Telemetry' })
   async getRenewalKpis(@CurrentUser() user: RequestUser) {
     const roles = user.roles?.length ? user.roles : [user.role];
-    const global = roles.some((r) => [RoleType.SUPER_ADMIN, RoleType.ADMIN, RoleType.SYSTEM_ADMINISTRATOR, RoleType.MD_CEO].includes(r));
+    const global = roles.some((r) => GLOBAL_ADMIN_ROLES.includes(r as RoleType));
     const taskWhere: any = global ? {} : { agentId: user.id };
 
     const now = new Date();
@@ -107,7 +114,7 @@ export class PoliciesController {
   @ApiOperation({ summary: 'Get upcoming renewals worklist by priority and days range' })
   async getUpcomingRenewals(@Query('range') range?: string, @CurrentUser() user?: RequestUser) {
     const roles = user?.roles?.length ? user.roles : [user?.role];
-    const global = roles.some((r) => [RoleType.SUPER_ADMIN, RoleType.ADMIN, RoleType.SYSTEM_ADMINISTRATOR, RoleType.MD_CEO].includes(r as RoleType));
+    const global = roles.some((r) => GLOBAL_ADMIN_ROLES.includes(r as RoleType));
     const where = global ? {} : { agentId: user?.id };
     return this.prisma.renewalTask.findMany({ where, take: 50, orderBy: { dueDate: 'asc' }, include: { policy: { include: { contact: true } } } });
   }
@@ -118,7 +125,7 @@ export class PoliciesController {
   async captureLostReason(@Param('id', ParseUUIDPipe) taskId: string, @Body() dto: { reason: string; competitorName?: string; notes?: string }, @CurrentUser() user: RequestUser) {
     if (!dto.reason?.trim()) throw new BadRequestException('Lost renewal reason is mandatory');
     const roles = user.roles?.length ? user.roles : [user.role];
-    const global = roles.some((r) => [RoleType.SUPER_ADMIN, RoleType.ADMIN, RoleType.SYSTEM_ADMINISTRATOR, RoleType.MD_CEO].includes(r));
+    const global = roles.some((r) => GLOBAL_ADMIN_ROLES.includes(r as RoleType));
     const task = await this.prisma.renewalTask.findFirst({ where: global ? { id: taskId } : { id: taskId, agentId: user.id } });
     if (!task) throw new BadRequestException('Renewal task not found or not accessible');
     return this.prisma.renewalTask.update({ where: { id: taskId }, data: { status: 'CANCELLED' } });

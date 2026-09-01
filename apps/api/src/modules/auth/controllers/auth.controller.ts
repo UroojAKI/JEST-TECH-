@@ -4,8 +4,8 @@ import {
   Post,
   Res,
   Req,
-  Throttle,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import type { Response, Request } from 'express';
 
 import { LoginDto } from '../dto/login.dto';
