@@ -6,6 +6,8 @@ import {
   Param,
   Query,
   UseGuards,
+  InternalServerErrorException,
+  NotFoundException,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
@@ -49,44 +51,103 @@ export class FinanceController {
     RoleType.BRANCH_MANAGER,
   )
   @ApiOperation({
-    summary: 'Get aggregated finance operations dashboard metrics',
+    summary: 'Get finance dashboard metrics from authoritative records',
   })
   async getDashboardMetrics() {
     try {
+      const now = new Date();
+      const startOfDay = new Date(now);
+      startOfDay.setHours(0, 0, 0, 0);
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
       const [
-        receiptsCount,
-        commissionsCount,
-        settlementsCount,
-        reconciliationCount,
+        todayReceipts,
+        monthlyReceipts,
+        accruedCommission,
+        realizedCommission,
+        accruedCommissionCount,
+        pendingVerification,
+        invoices,
       ] = await Promise.all([
-        this.prisma.receipt.count(),
-        this.prisma.commission.count(),
-        this.prisma.settlement.count(),
+        this.prisma.receipt.aggregate({
+          where: { createdAt: { gte: startOfDay } },
+          _sum: { amount: true },
+        }),
+        this.prisma.receipt.aggregate({
+          where: { createdAt: { gte: startOfMonth } },
+          _sum: { amount: true },
+        }),
+        this.prisma.commission.aggregate({
+          where: { status: 'ACCRUED' },
+          _sum: { amount: true },
+        }),
+        this.prisma.commission.aggregate({
+          where: { status: 'REALIZED' },
+          _sum: { amount: true },
+        }),
+        this.prisma.commission.count({ where: { status: 'ACCRUED' } }),
         this.prisma.motorPaymentRecord.count({
-          where: { status: PaymentTrackingStatus.PAID },
+          where: { status: PaymentTrackingStatus.UNDER_PROCESS },
+        }),
+        this.prisma.invoice.findMany({
+          select: {
+            id: true,
+            totalAmount: true,
+            allocations: { select: { amount: true } },
+          },
         }),
       ]);
 
+      let outstandingPremium = 0;
+      for (const invoice of invoices) {
+        const paid = invoice.allocations.reduce(
+          (sum, allocation) => sum + Number(allocation.amount || 0),
+          0,
+        );
+        outstandingPremium += Math.max(0, Number(invoice.totalAmount || 0) - paid);
+      }
+
+      const todayCollections = Number(todayReceipts._sum.amount || 0);
+      const monthlyCollections = Number(monthlyReceipts._sum.amount || 0);
+      const totalCommissionAccrued = Number(
+        accruedCommission._sum.amount || 0,
+      );
+      const totalCommissionRealized = Number(
+        realizedCommission._sum.amount || 0,
+      );
+
       return {
-        todayCollections: receiptsCount * 1000,
-        monthlyGwp: 4850000,
-        outstandingPremium: 185000,
-        totalCommissionAccrued: commissionsCount * 1000,
-        totalCommissionPaid: 390000,
-        netProfitToday: 68500,
-        payables: 310000,
-        receivables: 185000,
-        cashFlow: 1250000,
-        ledgerBalance: 18450000,
+        // These values are derived from persisted financial records.
+        todayCollections,
+        monthlyCollections,
+        monthlyGwp: null,
+        outstandingPremium: Math.round(outstandingPremium * 100) / 100,
+        totalCommissionAccrued,
+        totalCommissionRealized,
+        totalCommissionPaid: null,
+        netProfitToday: null,
+        payables: null,
+        receivables: Math.round(outstandingPremium * 100) / 100,
+        cashFlow: todayCollections,
+        ledgerBalance: null,
+        dataQuality: {
+          monthlyGwp: 'NOT_AVAILABLE_FROM_CURRENT_AUTHORITATIVE_MODEL',
+          totalCommissionPaid: 'NOT_AVAILABLE_FROM_CURRENT_AUTHORITATIVE_MODEL',
+          netProfitToday: 'REQUIRES_ACCOUNT_MAPPING',
+          payables: 'NOT_AVAILABLE_FROM_CURRENT_AUTHORITATIVE_MODEL',
+          ledgerBalance: 'REQUIRES_ACCOUNT_BALANCE_MAPPING',
+        },
         myWorkQueue: {
-          pendingVerification: 4,
-          settlementsPending: settlementsCount,
-          commissionApproval: commissionsCount,
-          reconciliationQueue: reconciliationCount,
+          pendingVerification,
+          settlementsPending: null,
+          commissionApproval: accruedCommissionCount,
+          reconciliationQueue: pendingVerification,
         },
       };
     } catch (error) {
-      return { error: 'Failed to fetch dashboard metrics' };
+      throw new InternalServerErrorException(
+        'Unable to load authoritative finance dashboard metrics',
+      );
     }
   }
 
@@ -161,8 +222,8 @@ export class FinanceController {
         orderBy: { createdAt: 'desc' },
         take: 50,
       });
-    } catch (error) {
-      return [];
+    } catch {
+      throw new InternalServerErrorException('Unable to load receipt register');
     }
   }
 
@@ -175,7 +236,11 @@ export class FinanceController {
   )
   @ApiOperation({ summary: 'Get payments register' })
   async getPayments(@Query('type') type?: string) {
-    return []; // TODO: Add Payment to Prisma schema
+    // The current Prisma schema does not expose a first-class Payment model.
+    // Do not pretend this endpoint is implemented until the authoritative model exists.
+    throw new NotFoundException(
+      'Payment register is not implemented in the current financial schema',
+    );
   }
 
   @Get('ledger')
@@ -226,8 +291,8 @@ export class FinanceController {
         orderBy: { createdAt: 'desc' },
         take: 50,
       });
-    } catch (error) {
-      return [];
+    } catch {
+      throw new InternalServerErrorException('Unable to load commission register');
     }
   }
 
@@ -239,8 +304,53 @@ export class FinanceController {
     RoleType.BRANCH_MANAGER,
   )
   @ApiOperation({ summary: 'Approve commission payout' })
-  async approveCommission(@Param('id') id: string) {
-    return { id, status: 'APPROVED', approvedAt: new Date().toISOString() };
+  async approveCommission(
+    @Param('id') id: string,
+    @CurrentUser() user: RequestUser,
+  ) {
+    const commission = await this.prisma.commission.findUnique({
+      where: { id },
+    });
+
+    if (!commission) {
+      throw new NotFoundException(`Commission ${id} not found`);
+    }
+
+    if (commission.status !== 'ACCRUED') {
+      throw new InternalServerErrorException(
+        `Commission ${id} is not eligible for approval from status ${commission.status}`,
+      );
+    }
+
+    // Current schema has no dedicated APPROVED state. REALIZED is the next
+    // persisted financial state and is therefore used only after explicit approval.
+    const approved = await this.prisma.$transaction(async (tx) => {
+      const updated = await tx.commission.update({
+        where: { id },
+        data: { status: 'REALIZED' },
+      });
+
+      await tx.auditLog.create({
+        data: {
+          action: 'APPROVE',
+          entity: 'Commission',
+          entityId: id,
+          userId: user.id,
+          performedById: user.id,
+          module: 'FINANCE',
+          oldValue: { status: commission.status },
+          newValue: { status: updated.status },
+        },
+      });
+
+      return updated;
+    });
+
+    return {
+      id: approved.id,
+      status: approved.status,
+      approvedAt: approved.updatedAt.toISOString(),
+    };
   }
 
   @Get('settlements')
@@ -257,8 +367,8 @@ export class FinanceController {
         orderBy: { createdAt: 'desc' },
         take: 50,
       });
-    } catch (error) {
-      return [];
+    } catch {
+      throw new InternalServerErrorException('Unable to load settlement register');
     }
   }
 
@@ -272,7 +382,9 @@ export class FinanceController {
   )
   @ApiOperation({ summary: 'Get employee sales & renewal incentives' })
   async getIncentives() {
-    return []; // TODO: Add Incentive to Prisma schema
+    throw new NotFoundException(
+      'Incentive register is not implemented in the current financial schema',
+    );
   }
 
   @Get('vouchers/:id')
@@ -284,6 +396,8 @@ export class FinanceController {
   )
   @ApiOperation({ summary: 'Get voucher details by ID' })
   async getVoucher(@Param('id') id: string) {
-    return []; // TODO: Add Voucher to Prisma schema
+    throw new NotFoundException(
+      `Voucher ${id} is not implemented in the current financial schema`,
+    );
   }
 }
