@@ -1,7 +1,6 @@
 import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { RoleType } from '@prisma/client';
-
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
 import { Roles } from '../../auth/decorators/roles.decorator';
@@ -19,25 +18,20 @@ import { PaginationDto } from '../../../common/pagination/pagination.dto';
 @Controller('accounts')
 export class AccountsController {
   constructor(private readonly accountsService: AccountsService) {}
-
   @Post()
   @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN, RoleType.BRANCH_MANAGER, RoleType.TEAM_LEADER, RoleType.SALES_AGENT)
-  create(@Body() dto: CreateAccountDto, @CurrentUser() user: RequestUser) { return this.accountsService.create(dto, user.id); }
-
+  create(@Body() dto: CreateAccountDto, @CurrentUser() user: RequestUser) { return this.accountsService.create(dto, user.id, user); }
   @Get()
   @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN, RoleType.BRANCH_MANAGER, RoleType.TEAM_LEADER, RoleType.SALES_AGENT, RoleType.OPERATIONS)
   findAll(@Query() pagination: PaginationDto, @CurrentUser() user: RequestUser) { return this.accountsService.findAll(pagination, user); }
-
   @Get(':id')
   @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN, RoleType.BRANCH_MANAGER, RoleType.TEAM_LEADER, RoleType.SALES_AGENT, RoleType.OPERATIONS)
-  findOne(@Param('id', ParseUUIDPipe) id: string) { return this.accountsService.findById(id); }
-
+  findOne(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: RequestUser) { return this.accountsService.findById(id, user); }
   @Patch(':id')
   @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN, RoleType.BRANCH_MANAGER, RoleType.TEAM_LEADER, RoleType.SALES_AGENT)
-  update(@Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdateAccountDto, @CurrentUser() user: RequestUser) { return this.accountsService.update(id, dto, user.id); }
-
+  update(@Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdateAccountDto, @CurrentUser() user: RequestUser) { return this.accountsService.update(id, dto, user.id, user); }
   @Delete(':id')
   @HttpCode(HttpStatus.OK)
   @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN)
-  remove(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: RequestUser) { return this.accountsService.remove(id, user.id); }
+  remove(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: RequestUser) { return this.accountsService.remove(id, user.id, user); }
 }
