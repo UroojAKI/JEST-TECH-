@@ -6,9 +6,15 @@ on:
       - main
       - staging
 
+permissions:
+  contents: read
+  id-token: write
+  packages: write
+
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}/api
+  AWS_REGION: ap-south-1
 
 jobs:
   lint-and-test:
@@ -25,17 +31,13 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
+          version: 10.34.4
           run_install: false
 
-      - name: Get pnpm store directory
-        shell: bash
-        run: |
-          echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
-
       - name: Setup pnpm cache
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
-          path: ${{ env.STORE_PATH }}
+          path: ~/.local/share/pnpm/store
           key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
           restore-keys: |
             ${{ runner.os }}-pnpm-store-
@@ -52,76 +54,133 @@ jobs:
       - name: Test
         run: pnpm turbo run test --filter=api
 
+      - name: Build API
+        run: pnpm turbo run build --filter=api
+
   build-and-push:
     needs: lint-and-test
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
+    outputs:
+      image_uri: ${{ steps.image.outputs.image_uri }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Log in to the Container registry
+      - name: Log in to GitHub Container Registry
         uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Sanitize and set IMAGE_NAME
+      - name: Set image URI
+        id: image
         shell: bash
         run: |
           repo=$(echo "$GITHUB_REPOSITORY" | tr '[:upper:]' '[:lower:]' | sed 's/-*$//')
-          echo "IMAGE_NAME=$repo/api" >> $GITHUB_ENV
-          echo "Sanitized IMAGE_NAME=$repo/api"
-
-      - name: Extract metadata (tags, labels) for Docker
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-          tags: |
-            type=ref,event=branch
-            type=semver,pattern={{version}}
-            type=sha,format=long
+          image_uri="$REGISTRY/$repo/api:${GITHUB_SHA}"
+          echo "image_uri=$image_uri" >> "$GITHUB_OUTPUT"
 
       - name: Build and push Docker image
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v6
         with:
           context: .
           file: apps/api/Dockerfile
           push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
+          tags: ${{ steps.image.outputs.image_uri }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
   deploy:
     needs: build-and-push
     runs-on: ubuntu-latest
-    # Assuming deployment to a cluster via kubectl or similar tool
+    environment: ${{ github.ref_name == 'main' && 'production' || 'staging' }}
+    permissions:
+      contents: read
+      id-token: write
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - name: Require ECS deployment configuration
+        shell: bash
+        env:
+          AWS_DEPLOY_ROLE_ARN: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          ECS_CLUSTER: ${{ secrets.ECS_CLUSTER }}
+          ECS_SERVICE: ${{ secrets.ECS_SERVICE }}
+          ECS_CONTAINER_NAME: ${{ secrets.ECS_CONTAINER_NAME }}
+        run: |
+          test -n "$AWS_DEPLOY_ROLE_ARN" || { echo 'Missing AWS_DEPLOY_ROLE_ARN'; exit 1; }
+          test -n "$ECS_CLUSTER" || { echo 'Missing ECS_CLUSTER'; exit 1; }
+          test -n "$ECS_SERVICE" || { echo 'Missing ECS_SERVICE'; exit 1; }
+          test -n "$ECS_CONTAINER_NAME" || { echo 'Missing ECS_CONTAINER_NAME'; exit 1; }
 
-      # Placeholder for Kubeconfig setup
-      # - name: Set up kubernetes context
-      #   uses: azure/k8s-set-context@v3
-      #   with:
-      #     kubeconfig: ${{ secrets.KUBE_CONFIG }}
-      
-      # - name: Apply Kubernetes manifests
-      #   run: |
-      #     kubectl apply -f k8s/api-configmap.yaml
-      #     kubectl apply -f k8s/api-secret.yaml
-      #     kubectl apply -f k8s/api-deployment.yaml
-      #     kubectl apply -f k8s/api-service.yaml
-      #     kubectl apply -f k8s/api-hpa.yaml
-      #     kubectl apply -f k8s/api-ingress.yaml
-      
-      - name: Deployment Success
-        run: echo "Deployed successfully (simulated)!"
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Render new ECS task definition
+        id: task-definition
+        shell: bash
+        env:
+          ECS_SERVICE: ${{ secrets.ECS_SERVICE }}
+          ECS_CONTAINER_NAME: ${{ secrets.ECS_CONTAINER_NAME }}
+          IMAGE_URI: ${{ needs.build-and-push.outputs.image_uri }}
+        run: |
+          aws ecs describe-services \
+            --cluster "${{ secrets.ECS_CLUSTER }}" \
+            --services "$ECS_SERVICE" \
+            --query 'services[0].taskDefinition' \
+            --output text > current-task-definition-arn.txt
+
+          test "$(cat current-task-definition-arn.txt)" != "None" || { echo 'ECS service/task definition not found'; exit 1; }
+
+          aws ecs describe-task-definition \
+            --task-definition "$(cat current-task-definition-arn.txt)" \
+            --query taskDefinition > task-definition.json
+
+          jq --arg name "$ECS_CONTAINER_NAME" --arg image "$IMAGE_URI" \
+            '(.containerDefinitions[] | select(.name == $name)).image = $image |
+             del(.taskDefinitionArn,.revision,.status,.requiresAttributes,.compatibilities,.registeredAt,.registeredBy)' \
+            task-definition.json > rendered-task-definition.json
+
+          jq -e --arg name "$ECS_CONTAINER_NAME" 'any(.containerDefinitions[]; .name == $name)' rendered-task-definition.json >/dev/null
+
+          aws ecs register-task-definition \
+            --cli-input-json file://rendered-task-definition.json \
+            --query 'taskDefinition.taskDefinitionArn' \
+            --output text > new-task-definition-arn.txt
+
+          test -s new-task-definition-arn.txt || { echo 'Failed to register ECS task definition'; exit 1; }
+
+      - name: Deploy ECS service with rollback enabled
+        shell: bash
+        env:
+          ECS_CLUSTER: ${{ secrets.ECS_CLUSTER }}
+          ECS_SERVICE: ${{ secrets.ECS_SERVICE }}
+        run: |
+          aws ecs update-service \
+            --cluster "$ECS_CLUSTER" \
+            --service "$ECS_SERVICE" \
+            --task-definition "$(cat new-task-definition-arn.txt)" \
+            --deployment-configuration 'deploymentCircuitBreaker={enable=true,rollback=true}' \
+            --force-new-deployment >/dev/null
+
+          aws ecs wait services-stable \
+            --cluster "$ECS_CLUSTER" \
+            --services "$ECS_SERVICE"
+
+      - name: Verify deployed task image
+        shell: bash
+        env:
+          ECS_CLUSTER: ${{ secrets.ECS_CLUSTER }}
+          ECS_SERVICE: ${{ secrets.ECS_SERVICE }}
+          ECS_CONTAINER_NAME: ${{ secrets.ECS_CONTAINER_NAME }}
+          IMAGE_URI: ${{ needs.build-and-push.outputs.image_uri }}
+        run: |
+          running_task=$(aws ecs list-tasks --cluster "$ECS_CLUSTER" --service-name "$ECS_SERVICE" --desired-status RUNNING --query 'taskArns[0]' --output text)
+          test "$running_task" != "None" || { echo 'No running ECS task found after deployment'; exit 1; }
+          deployed_image=$(aws ecs describe-tasks --cluster "$ECS_CLUSTER" --tasks "$running_task" --query "tasks[0].containers[?name=='$ECS_CONTAINER_NAME'].image | [0]" --output text)
+          test "$deployed_image" = "$IMAGE_URI" || { echo "Expected $IMAGE_URI but found $deployed_image"; exit 1; }
