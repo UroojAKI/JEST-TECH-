@@ -1,0 +1,1 @@
+This file exists only to trigger the production-domain-hardening workflow on production-rebuild-2026. The workflow removes this file as part of its one-time remediation commit.
