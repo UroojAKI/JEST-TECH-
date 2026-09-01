@@ -6,6 +6,7 @@ import { Request } from 'express';
 import { ActorContext } from '../../../common/interfaces/actor-context.interface';
 import { RoleType, UserStatus } from '@prisma/client';
 import { resolvePermittedWorkspaces } from '../../../common/guards/workspace-access.guard';
+import { PrismaService } from '../../../database/prisma.service';
 
 const cookieExtractor = (req: Request) => {
   let token = null;
@@ -17,7 +18,10 @@ const cookieExtractor = (req: Request) => {
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
-  constructor(config: ConfigurationService) {
+  constructor(
+    config: ConfigurationService,
+    private readonly prisma: PrismaService,
+  ) {
     super({
       jwtFromRequest: ExtractJwt.fromExtractors([
         cookieExtractor,
@@ -47,31 +51,91 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       throw new UnauthorizedException('Invalid token claims');
     }
 
-    const primaryRole = (payload.role as RoleType) || RoleType.SALES_AGENT;
-    const allRoles = payload.roles
-      ? (payload.roles as RoleType[])
-      : [primaryRole];
+    // JWT proves possession of the session token; current authorization state
+    // is loaded from the database so role/status/branch changes take effect
+    // without waiting for an old access token to expire.
+    const user = await this.prisma.user.findUnique({
+      where: { id: payload.sub },
+      select: {
+        id: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+        status: true,
+        teamId: true,
+        departmentId: true,
+        branchId: true,
+        role: {
+          select: {
+            type: true,
+            permissions: {
+              select: {
+                permission: { select: { code: true } },
+              },
+            },
+          },
+        },
+        branch: {
+          select: {
+            code: true,
+            zone: {
+              select: {
+                region: {
+                  select: {
+                    company: { select: { id: true } },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
 
-    if (!payload.organizationId) {
-      throw new UnauthorizedException('Missing organization context — access denied.');
+    if (!user) {
+      throw new UnauthorizedException('User account no longer exists');
     }
 
+    if (user.status !== UserStatus.ACTIVE) {
+      throw new UnauthorizedException(
+        `User account is ${user.status.toLowerCase()}`,
+      );
+    }
+
+    const primaryRole = user.role?.type || (payload.role as RoleType);
+    if (!primaryRole) {
+      throw new UnauthorizedException('User role is not configured');
+    }
+
+    const organizationId =
+      user.branch?.zone?.region?.company?.id || payload.organizationId;
+
+    if (!organizationId) {
+      throw new UnauthorizedException(
+        'Missing organization context — access denied.',
+      );
+    }
+
+    const permissions = user.role?.permissions
+      ?.map((entry) => entry.permission.code)
+      .filter(Boolean) || [];
+
     const actor: ActorContext = {
-      userId: payload.sub,
-      email: payload.email,
-      firstName: payload.firstName || '',
-      lastName: payload.lastName || '',
-      organizationId: payload.organizationId,
-      companyId: payload.organizationId,
-      branchId: payload.branchId,
-      branchCode: payload.branchCode,
-      departmentId: payload.departmentId,
-      teamId: payload.teamId,
+      userId: user.id,
+      email: user.email,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      organizationId,
+      companyId: organizationId,
+      branchId: user.branchId || undefined,
+      branchCode: user.branch?.code || undefined,
+      departmentId: user.departmentId || undefined,
+      teamId: user.teamId || undefined,
       role: primaryRole,
-      roles: allRoles,
-      permissions: payload.permissions || [],
+      roles: [primaryRole],
+      permissions,
       workspaces: [],
-      status: payload.status || UserStatus.ACTIVE,
+      status: user.status,
     };
 
     actor.workspaces = resolvePermittedWorkspaces(actor);
