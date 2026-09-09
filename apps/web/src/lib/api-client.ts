@@ -102,22 +102,24 @@ apiClient.interceptors.response.use(
       'success' in response.data &&
       'data' in response.data
     ) {
-      if (response.data.meta && typeof response.data.meta === 'object') {
+      const payload = response.data.data;
+      if (
+        payload &&
+        typeof payload === 'object' &&
+        !Array.isArray(payload) &&
+        payload.meta &&
+        typeof payload.meta === 'object' &&
+        ('total' in payload.meta || 'totalPages' in payload.meta)
+      ) {
         response.data = {
-          data: response.data.data,
-          items: response.data.data,
-          ...response.data.meta,
-          total:
-            response.data.meta.total ??
-            (Array.isArray(response.data.data)
-              ? response.data.data.length
-              : 0),
-          totalPages: response.data.meta.totalPages ?? 1,
-          page: response.data.meta.page ?? 1,
-          limit: response.data.meta.limit ?? 25,
+          ...payload,
+          total: payload.meta.total ?? (Array.isArray(payload.data) ? payload.data.length : 0),
+          totalPages: payload.meta.totalPages ?? 1,
+          page: payload.meta.page ?? 1,
+          limit: payload.meta.limit ?? 25,
         };
       } else {
-        response.data = response.data.data;
+        response.data = payload;
       }
     }
     return response;

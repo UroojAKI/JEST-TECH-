@@ -36,12 +36,21 @@ export function WorkspaceSwitcher() {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  const { data: workspaces = [], isLoading } = useQuery({
+  const { data: rawWorkspaces, isLoading } = useQuery({
     queryKey: ['user-workspaces'],
     queryFn: () => workspaceRepository.getUserWorkspaces(),
     enabled: isAuthenticated,
     staleTime: 5 * 60 * 1000,
   });
+
+  const workspaces: Array<{ code: string; title: string; href: string; icon: string; description: string }> =
+    Array.isArray(rawWorkspaces)
+      ? rawWorkspaces
+      : Array.isArray((rawWorkspaces as any)?.data)
+        ? (rawWorkspaces as any).data
+        : Array.isArray((rawWorkspaces as any)?.items)
+          ? (rawWorkspaces as any).items
+          : [];
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -56,13 +65,13 @@ export function WorkspaceSwitcher() {
 
   // Determine active workspace from pathname
   const getActiveWorkspace = () => {
-    if (!workspaces || workspaces.length === 0) return null;
+    if (!Array.isArray(workspaces) || workspaces.length === 0) return null;
     return workspaces.find((w) => pathname === w.href || pathname.startsWith(w.href + '/')) || workspaces[0];
   };
 
   const activeWorkspace = getActiveWorkspace();
 
-  if (isLoading || !workspaces || workspaces.length === 0) {
+  if (isLoading || !Array.isArray(workspaces) || workspaces.length === 0) {
     return null;
   }
 
