@@ -1,5 +1,5 @@
 import { BadRequestException, ConflictException, Injectable, Logger, NotFoundException } from '@nestjs/common';
-import { Prisma, RoleType } from '@prisma/client';
+import { Prisma, RoleType, AuditAction } from '@prisma/client';
 import { AccountMapper } from '../mappers/account.mapper';
 import { AccountRepository } from '../repositories/account.repository';
 import { CreateAccountDto } from '../dto/create-account.dto';
@@ -7,13 +7,17 @@ import { UpdateAccountDto } from '../dto/update-account.dto';
 import { PaginationDto } from '../../../common/pagination/pagination.dto';
 import { PaginatedResponseDto } from '../../../common/pagination/paginated-response.dto';
 import { ActorContext } from '../../../common/interfaces/actor-context.interface';
+import { PrismaService } from '../../../database/prisma.service';
 
 const GLOBAL_ROLES: RoleType[] = [RoleType.SUPER_ADMIN, RoleType.ADMIN, RoleType.SYSTEM_ADMINISTRATOR, RoleType.MD_CEO];
 
 @Injectable()
 export class AccountsService {
   private readonly logger = new Logger(AccountsService.name);
-  constructor(private readonly accountRepository: AccountRepository) {}
+  constructor(
+    private readonly accountRepository: AccountRepository,
+    private readonly prisma: PrismaService,
+  ) {}
 
   private scope(actor: ActorContext): Prisma.AccountWhereInput {
     if (!actor?.userId || !actor.organizationId) throw new BadRequestException('Actor organizational context is required');
@@ -75,6 +79,32 @@ export class AccountsService {
     const account = accounts[0];
     if (!account) throw new NotFoundException(`Account with ID ${id} not found`);
     return AccountMapper.toResponse(account);
+  }
+
+  async unmask(id: string, reason: string, actor: ActorContext) {
+    const scope = actor ? this.scope(actor) : {};
+    const accounts = await this.accountRepository.findAll({ AND: [{ id }, scope] }, 0, 1);
+    const account = accounts[0];
+    if (!account) throw new NotFoundException(`Account with ID ${id} not found`);
+
+    await this.prisma.auditLog.create({
+      data: {
+        action: AuditAction.UPDATE,
+        entity: 'Account',
+        entityId: id,
+        userId: actor.userId,
+        performedById: actor.userId,
+        module: 'ACCOUNTS',
+        metadata: {
+          type: 'PII_UNMASK',
+          reason: reason || 'Authorized business need',
+          unmaskedFields: ['panNumber'],
+          timestamp: new Date().toISOString(),
+        },
+      },
+    });
+
+    return AccountMapper.toResponse(account, { unmaskPii: true });
   }
 
   async update(id: string, dto: UpdateAccountDto, updatedById: string, actor: ActorContext) {

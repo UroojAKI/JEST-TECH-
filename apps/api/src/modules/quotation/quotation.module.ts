@@ -28,8 +28,11 @@ import { CompareQuotationService } from './services/queries/compare-quotation.se
 import { GetQuotationHistoryService } from './services/queries/get-quotation-history.service';
 import { QuotationListener } from './events/quotation.listener';
 
+import { QuotationCompletionService } from './services/queries/quotation-completion.service';
+import { AdministrationModule } from '../administration/administration.module';
+
 @Module({
-  imports: [ContactsModule, AccountsModule, MotorModule],
+  imports: [ContactsModule, AccountsModule, MotorModule, AdministrationModule],
   controllers: [QuotationController],
   providers: [
     QuotationRepository,
@@ -48,6 +51,7 @@ import { QuotationListener } from './events/quotation.listener';
     AcceptQuotationService,
     CreateQuotationVersionService,
     GetQuotationService,
+    QuotationCompletionService,
     CompareQuotationService,
     GetQuotationHistoryService,
     QuotationListener,
@@ -55,6 +59,7 @@ import { QuotationListener } from './events/quotation.listener';
   exports: [
     GenerateQuotationService,
     GetQuotationService,
+    QuotationCompletionService,
     AcceptQuotationService,
     CreateQuotationVersionService,
     QuotationRepository,

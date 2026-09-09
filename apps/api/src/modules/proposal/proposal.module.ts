@@ -6,8 +6,10 @@ import { WorkflowModule } from '../platform/workflow/workflow.module';
 import { WorkflowAdapterRegistry } from '../platform/workflow/services/workflow-adapter-registry.service';
 import { ProposalWorkflowAdapter } from './services/proposal-workflow.adapter';
 
+import { AdministrationModule } from '../administration/administration.module';
+
 @Module({
-  imports: [DatabaseModule, WorkflowModule],
+  imports: [DatabaseModule, WorkflowModule, AdministrationModule],
   controllers: [ProposalsController],
   providers: [ProposalService, ProposalWorkflowAdapter],
   exports: [ProposalService, ProposalWorkflowAdapter],

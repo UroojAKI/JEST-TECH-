@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { PrismaService } from '../../../../database/prisma.service';
 import { NotificationDispatcher } from './notification-dispatcher.service';
-import { PolicyStatus, RenewalTaskStatus } from '@prisma/client';
+import { NotificationPriority, PolicyStatus, RenewalTaskStatus } from '@prisma/client';
 
 @Injectable()
 export class RenewalScheduler {
@@ -32,7 +32,7 @@ export class RenewalScheduler {
     });
     const lookAheadDays = config?.lookAheadDays ?? 60;
     const reminderOffsets: number[] = (config?.reminderOffsets as number[]) ?? [
-      45, 30, 15, 7, 5, 3, 2, 1,
+      45, 30, 15, 7, 0, -1,
     ];
 
     const now = new Date();
@@ -55,9 +55,14 @@ export class RenewalScheduler {
         const dueDate = new Date(policy.expiryDate);
         dueDate.setDate(dueDate.getDate() - offset);
 
-        // Only create task if one doesn't already exist for this policy+dueDate
-        const existing = await this.prisma.renewalTask.findFirst({
-          where: { policyId: policy.id, dueDate },
+        // Deterministic unique check on [policyId, offsetDays]
+        const existing = await this.prisma.renewalTask.findUnique({
+          where: {
+            policyId_offsetDays: {
+              policyId: policy.id,
+              offsetDays: offset,
+            },
+          },
         });
 
         if (!existing) {
@@ -70,8 +75,14 @@ export class RenewalScheduler {
               policyId: policy.id,
               agentId,
               dueDate,
+              offsetDays: offset,
               status: RenewalTaskStatus.PENDING,
-              priority: offset <= 7 ? 'HIGH' : 'MEDIUM',
+              priority:
+                offset <= 0
+                  ? NotificationPriority.CRITICAL
+                  : offset <= 7
+                  ? NotificationPriority.HIGH
+                  : NotificationPriority.MEDIUM,
             },
           });
           tasksCreated++;

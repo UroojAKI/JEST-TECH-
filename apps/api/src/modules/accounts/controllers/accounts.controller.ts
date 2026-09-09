@@ -83,6 +83,28 @@ export class AccountsController {
     return this.accountsService.findById(id, user);
   }
 
+  @Post(':id/unmask')
+  @HttpCode(HttpStatus.OK)
+  @Roles(
+    RoleType.SUPER_ADMIN,
+    RoleType.ADMIN,
+    RoleType.SYSTEM_ADMINISTRATOR,
+    RoleType.MD_CEO,
+    RoleType.BRANCH_MANAGER,
+    RoleType.OPERATIONS,
+    RoleType.UNDERWRITER,
+    RoleType.POLICY_ISSUANCE_EXECUTIVE,
+    RoleType.FINANCE,
+    RoleType.CHIEF_FINANCE_OFFICER,
+  )
+  unmask(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body('reason') reason: string,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.accountsService.unmask(id, reason, user);
+  }
+
   @Patch(':id')
   @Roles(...ACCOUNT_MANAGE_ROLES)
   update(@Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdateAccountDto, @CurrentUser() user: RequestUser) {

@@ -228,7 +228,7 @@ export default function LeadsPipelinePage() {
                             View Case
                           </Link>
                           <Link
-                            href="/sales/quotations"
+                            href={`/sales/quotations?leadId=${l.id}&openQuote=1`}
                             className="px-3 py-1 rounded-lg bg-primary text-primary-foreground text-[11px] font-extrabold shadow-xs hover:bg-primary/90 flex items-center space-x-1"
                           >
                             <Car className="h-3.5 w-3.5" />

@@ -12,8 +12,8 @@ export class PaginationDto {
   @Type(() => Number)
   @IsInt()
   @Min(1)
-  @Max(100)
-  limit?: number = 10;
+  @Max(100, { message: 'limit cannot exceed 100' })
+  limit?: number = 25;
 
   @IsOptional()
   @IsString()
@@ -34,4 +34,12 @@ export class PaginationDto {
   @IsOptional()
   @IsString()
   tag?: string;
+
+  @IsOptional()
+  @IsString()
+  status?: string;
+
+  @IsOptional()
+  @IsString()
+  leadId?: string;
 }

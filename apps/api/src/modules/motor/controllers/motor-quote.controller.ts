@@ -56,6 +56,9 @@ export class MotorQuoteController {
   @Roles(
     RoleType.SUPER_ADMIN,
     RoleType.ADMIN,
+    RoleType.SYSTEM_ADMINISTRATOR,
+    RoleType.MD_CEO,
+    RoleType.BRANCH_MANAGER,
     RoleType.OPERATIONS,
     RoleType.POLICY_ISSUANCE_EXECUTIVE,
   )

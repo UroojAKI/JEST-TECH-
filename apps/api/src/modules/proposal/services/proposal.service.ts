@@ -12,25 +12,31 @@ import { WorkflowEngineService } from '../../platform/workflow/services/workflow
 import { PaginationDto } from '../../../common/pagination/pagination.dto';
 import { PaginatedResponseDto } from '../../../common/pagination/paginated-response.dto';
 
+import { NumberingEngineService } from '../../administration/services/numbering-engine/numbering-engine.service';
+
 @Injectable()
 export class ProposalService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly workflowEngine: WorkflowEngineService,
+    private readonly numberingEngine: NumberingEngineService,
   ) {}
 
-  private generatePropNumber(): string {
-    return `PROP-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+  private async generatePropNumber(): Promise<string> {
+    return this.numberingEngine.generateNext('PROPOSAL');
   }
 
   async getProposals(userId?: string, pagination?: PaginationDto) {
     const page = pagination?.page || 1;
-    const limit = pagination?.limit || 10;
+    const limit = pagination?.limit || 25;
     const sortBy = pagination?.sortBy || 'createdAt';
     const sortOrder = pagination?.sortOrder || 'desc';
     const skip = (page - 1) * limit;
 
-    const where = userId ? { submittedById: userId } : {};
+    const where: any = userId ? { submittedById: userId } : {};
+    if (pagination?.status) {
+      where.status = pagination.status;
+    }
     const data = await this.prisma.proposal.findMany({
       skip,
       take: limit,
@@ -160,7 +166,7 @@ export class ProposalService {
       }
     }
 
-    const proposalNumber = this.generatePropNumber();
+    const proposalNumber = await this.generatePropNumber();
 
     return this.prisma.$transaction(async (tx) => {
       const proposal = await tx.proposal.create({

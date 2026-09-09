@@ -8,13 +8,17 @@ import { PrismaService } from '../../../database/prisma.service';
 import { EndorsementType, EndorsementStatus, Prisma } from '@prisma/client';
 import { PaginationDto } from '../../../common/pagination/pagination.dto';
 import { PaginatedResponseDto } from '../../../common/pagination/paginated-response.dto';
+import { NumberingEngineService } from '../../administration/services/numbering-engine/numbering-engine.service';
 
 @Injectable()
 export class EndorsementService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly numberingEngine: NumberingEngineService,
+  ) {}
 
-  private generateEndNumber(): string {
-    return `END-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+  private async generateEndNumber(): Promise<string> {
+    return this.numberingEngine.generateNext('ENDORSEMENT');
   }
 
   /**
@@ -253,7 +257,7 @@ export class EndorsementService {
   async getEndorsements(pagination: PaginationDto) {
     const {
       page = 1,
-      limit = 10,
+      limit = 25,
       sortBy = 'createdAt',
       sortOrder = 'desc',
     } = pagination;
@@ -319,7 +323,7 @@ export class EndorsementService {
       throw new BadRequestException('A reason is mandatory when requesting an endorsement.');
     }
 
-    const endorsementNumber = this.generateEndNumber();
+    const endorsementNumber = await this.generateEndNumber();
 
     return this.prisma.$transaction(async (tx) => {
       const end = await tx.endorsement.create({

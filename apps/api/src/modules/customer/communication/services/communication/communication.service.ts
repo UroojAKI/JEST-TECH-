@@ -25,11 +25,12 @@ export class CommunicationService {
    * This represents the "Hybrid" storage strategy where we keep metadata + body in JEST.
    */
   async logOutboundMessage(dto: SendMessageDto) {
+    const initialStatus = dto.providerMessageId ? 'PROVIDER_ACCEPTED' : 'QUEUED';
     const log = await this.prisma.communicationLog.create({
       data: {
         channel: dto.channel,
         direction: 'OUTBOUND',
-        status: 'SENT',
+        status: initialStatus,
         contactId: dto.contactId,
         entityType: dto.entityType,
         entityId: dto.entityId,
@@ -39,29 +40,30 @@ export class CommunicationService {
         subject: dto.subject,
         messagePreview: dto.messagePreview,
         messageBody: dto.messageBody, // We store the body for important business comms
-        sentAt: new Date(),
+        sentAt: null, // Will be set when provider confirms dispatch (SENT status)
       },
     });
 
     this.logger.log(
-      `Logged outbound ${dto.channel} message for contact ${dto.contactId}`,
+      `Logged outbound ${dto.channel} message for contact ${dto.contactId} with status ${initialStatus}`,
     );
     return log;
   }
 
   /**
-   * Handles delivery callbacks from providers (e.g. Twilio webhook).
+   * Handles delivery callbacks from providers (e.g. Twilio/SendGrid webhooks).
    */
   async updateDeliveryStatus(
     providerMessageId: string,
     status: string,
     errorCode?: string,
   ) {
-    // Map provider statuses to standard JEST statuses
-    let mappedStatus = status;
-    if (['DELIVERED', 'READ'].includes(status.toUpperCase())) {
-      mappedStatus = status.toUpperCase();
-    } else if (['FAILED', 'UNDELIVERED'].includes(status.toUpperCase())) {
+    // Map provider statuses to standard JEST statuses: QUEUED -> PROCESSING -> PROVIDER_ACCEPTED -> SENT -> DELIVERED
+    const upper = status.toUpperCase();
+    let mappedStatus = upper;
+    if (['SENT', 'DELIVERED', 'READ', 'QUEUED', 'PROCESSING', 'PROVIDER_ACCEPTED'].includes(upper)) {
+      mappedStatus = upper;
+    } else if (['FAILED', 'UNDELIVERED', 'BOUNCED'].includes(upper)) {
       mappedStatus = 'FAILED';
     }
 
@@ -69,6 +71,7 @@ export class CommunicationService {
       status: mappedStatus,
     };
 
+    if (mappedStatus === 'SENT') updateData.sentAt = new Date();
     if (mappedStatus === 'DELIVERED') updateData.deliveredAt = new Date();
     if (mappedStatus === 'READ') updateData.readAt = new Date();
     if (mappedStatus === 'FAILED') {

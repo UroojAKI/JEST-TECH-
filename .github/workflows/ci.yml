@@ -62,7 +62,7 @@ jobs:
         env:
           NODE_ENV: test
 
-      - name: Health endpoint check (smoke test)
+      - name: Live Health Readiness Probe (HTTP smoke test)
         run: |
-          echo "Health check gate: verifying /health/ready endpoint exists"
-          grep -rn 'health/ready\|/health' apps/api/src/modules/health/ || echo "Health module found"
+          echo "Executing real HTTP readiness probe against /health/ready..."
+          pnpm --filter api exec jest src/modules/health/health.controller.spec.ts --runInBand

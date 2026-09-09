@@ -1,10 +1,12 @@
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
+import { useSearchParams } from 'next/navigation';
+import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../../lib/api-client';
 import { toast } from 'sonner';
-import { Car, Plus, Search, RefreshCw, FileSpreadsheet, Award, AlertTriangle, History } from 'lucide-react';
+import { Car, Plus, Search, RefreshCw, FileSpreadsheet, Award, AlertTriangle, History, ArrowLeft, CheckCircle2 } from 'lucide-react';
 
 import { MotorQuoteWizard } from '../leads/motor-quote/MotorQuoteWizard';
 import { QuoteCard } from '../leads/motor-quote/QuoteCard';
@@ -14,6 +16,11 @@ import type { VehicleCategory, SavedMotorQuote } from '../leads/motor-quote/moto
 import { MotorProductCards } from '../workspaces/sales/MotorProductCards';
 
 export function MotorQuotationsWorkspace() {
+  const searchParams = useSearchParams();
+  const leadIdParam = searchParams?.get('leadId') || undefined;
+  const openQuoteParam = searchParams?.get('openQuote');
+  const [leadFilterActive, setLeadFilterActive] = useState<boolean>(!!leadIdParam);
+
   const [activeTab, setActiveTab] = useState<'ACTIVE' | 'RENEWALS'>('ACTIVE');
   const [isWizardOpen, setIsWizardOpen] = useState(false);
   const [initialCategory, setInitialCategory] = useState<VehicleCategory | null>(null);
@@ -21,6 +28,39 @@ export function MotorQuotationsWorkspace() {
   const [inspectionQuoteId, setInspectionQuoteId] = useState<string | null>(null);
   const [proposalQuote, setProposalQuote] = useState<SavedMotorQuote | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Fetch linked lead context if leadId is provided in URL
+  const { data: linkedLead } = useQuery({
+    queryKey: ['linked-lead-context', leadIdParam],
+    queryFn: async () => {
+      try {
+        const res = await apiClient.get(`/leads/${leadIdParam}/context`);
+        return res.data;
+      } catch {
+        return null;
+      }
+    },
+    enabled: !!leadIdParam,
+  });
+
+  const leadContact = useMemo(() => {
+    if (!linkedLead?.contact) return undefined;
+    const c = linkedLead.contact;
+    return {
+      name: c.fullName || `${c.firstName || ''} ${c.lastName || ''}`.trim(),
+      phone: c.phone || '',
+      email: c.email || '',
+      address: c.address || '',
+      pan: c.panNumber || '',
+    };
+  }, [linkedLead]);
+
+  // Auto-launch wizard if requested via URL
+  useEffect(() => {
+    if (openQuoteParam === '1' && leadIdParam) {
+      setIsWizardOpen(true);
+    }
+  }, [openQuoteParam, leadIdParam]);
 
   const { data: apiQuotes = [], isLoading, refetch } = useQuery({
     queryKey: ['motor-quotations-all'],
@@ -101,7 +141,10 @@ export function MotorQuotationsWorkspace() {
   }, [allQuotes, searchQuery]);
 
   const groupedQuotes = useMemo(() => {
-    const target = activeTab === 'ACTIVE' ? activeFiltered : renewalsFiltered;
+    let target = activeTab === 'ACTIVE' ? activeFiltered : renewalsFiltered;
+    if (leadFilterActive && leadIdParam) {
+      target = target.filter((q) => q.leadId === leadIdParam);
+    }
     return target.reduce((acc, q) => {
       // 1. Group by registration number if available (unique vehicle)
       // 2. If new vehicle, group by mobile number
@@ -117,7 +160,7 @@ export function MotorQuotationsWorkspace() {
       (acc[keyStr] ||= []).push(q);
       return acc;
     }, {} as Record<string, SavedMotorQuote[]>);
-  }, [activeFiltered, renewalsFiltered, activeTab]);
+  }, [activeFiltered, renewalsFiltered, activeTab, leadFilterActive, leadIdParam]);
 
   const handleOpenWizard = (category?: VehicleCategory | string, cloneData?: any) => {
     let finalCat = category as VehicleCategory | undefined;
@@ -146,6 +189,59 @@ export function MotorQuotationsWorkspace() {
           <button onClick={() => handleOpenWizard()} className="px-5 py-2.5 rounded-md bg-foreground text-background font-semibold text-sm flex items-center gap-2"><Plus className="h-4 w-4" />New Quotation</button>
         </div>
       </div>
+
+      {/* Linked Lead Context Banner */}
+      {leadIdParam && (
+        <div className="p-4 rounded-xl border border-primary/30 bg-primary/5 flex flex-wrap items-center justify-between gap-3 shadow-xs">
+          <div className="flex items-center space-x-3">
+            <div className="h-10 w-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center font-black">
+              <Car className="h-5 w-5" />
+            </div>
+            <div>
+              <div className="flex items-center space-x-2">
+                <span className="text-[10px] font-extrabold uppercase tracking-wider text-primary">Active Lead Context</span>
+                <span className="font-mono text-xs font-black text-primary bg-primary/10 px-2 py-0.5 rounded-full">
+                  {linkedLead?.leadCode || 'LEAD'}
+                </span>
+              </div>
+              <div className="text-sm font-black text-foreground mt-0.5">
+                {linkedLead?.contact?.fullName || linkedLead?.title || 'Prospect Customer'}
+                {linkedLead?.contact?.phone && (
+                  <span className="text-xs font-semibold text-muted-foreground ml-2">
+                    • {linkedLead.contact.phone}
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Quotations created will attach to this lead record and advance workflow to Quotation Prepared.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center space-x-2">
+            <Link
+              href={`/workspace/sales/leads/${leadIdParam}`}
+              className="px-3 py-1.5 rounded-lg border bg-background hover:bg-muted text-xs font-bold transition-colors"
+            >
+              ← Back to Lead Case
+            </Link>
+            {leadFilterActive ? (
+              <button
+                onClick={() => setLeadFilterActive(false)}
+                className="px-3 py-1.5 rounded-lg border bg-background hover:bg-muted text-xs font-medium text-muted-foreground transition-colors"
+              >
+                Show All Quotes
+              </button>
+            ) : (
+              <button
+                onClick={() => setLeadFilterActive(true)}
+                className="px-3 py-1.5 rounded-lg border bg-primary/10 text-primary text-xs font-bold transition-colors"
+              >
+                Filter to This Lead
+              </button>
+            )}
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         <div className="p-4 rounded-xl border bg-card"><div className="flex items-center gap-2"><FileSpreadsheet className="h-4 w-4" /><span className="text-xs">Total Quotes</span></div><div className="text-lg font-bold mt-1">{allQuotes.length}</div></div>
@@ -193,12 +289,15 @@ export function MotorQuotationsWorkspace() {
 
       <MotorQuoteWizard
         isOpen={isWizardOpen}
+        leadId={leadIdParam}
+        leadContact={leadContact}
         initialCategory={initialCategory || undefined}
         cloneQuoteData={cloneQuoteData}
         onClose={() => setIsWizardOpen(false)}
-        onSaved={() => {
+        onSaved={(saved) => {
           void refetch();
           setIsWizardOpen(false);
+          toast.success(`Quotation ${saved?.quotationCode || ''} saved and linked to lead!`);
         }}
       />
 

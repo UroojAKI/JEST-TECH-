@@ -70,6 +70,10 @@ export class CreatePolicyDto {
 
   @IsOptional()
   @IsString()
+  issueSource?: string;
+
+  @IsOptional()
+  @IsString()
   insurerPolicyNumber?: string;
 
   @IsOptional()

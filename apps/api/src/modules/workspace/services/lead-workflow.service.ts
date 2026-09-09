@@ -186,12 +186,19 @@ export class LeadWorkflowService {
       );
     }
 
-    const isSalesAgent = user.role === 'SALES_AGENT';
+    const isSalesAgent =
+      user.role === 'SALES_AGENT' ||
+      user.role === 'SALES_EXECUTIVE' ||
+      user.role === 'POSP_ADVISOR';
     const isManagerOrAdmin =
       user.role === 'BRANCH_MANAGER' ||
       user.role === 'TEAM_LEADER' ||
       user.role === 'SUPER_ADMIN' ||
-      user.role === 'ADMIN';
+      user.role === 'ADMIN' ||
+      user.role === 'SYSTEM_ADMINISTRATOR' ||
+      user.role === 'MD_CEO' ||
+      user.role === 'SALES_MANAGER' ||
+      user.role === 'MARKETING_DIRECTOR';
 
     let isOverride = false;
 
@@ -205,9 +212,9 @@ export class LeadWorkflowService {
         );
       }
     } else if (isManagerOrAdmin) {
-      if (targetIndex !== currentIndex + 1) {
+      if (targetIndex !== currentIndex + 1 || overrideReason) {
         isOverride = true;
-        if (!overrideReason || overrideReason.trim().length < 5) {
+        if (targetIndex !== currentIndex + 1 && (!overrideReason || overrideReason.trim().length < 5)) {
           throw new BadRequestException(
             `Sales Manager override requires a mandatory override reason (minimum 5 characters).`,
           );

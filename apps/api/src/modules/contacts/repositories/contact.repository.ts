@@ -3,6 +3,8 @@ import { Contact, Prisma } from '@prisma/client';
 import { PrismaService } from '../../../database/prisma.service';
 
 const contactOwnerInclude = {
+  branch: true,
+  company: true,
   createdBy: {
     include: {
       branch: {

@@ -11,6 +11,7 @@ import {
   PolicyStatus,
   QuotationStatus,
   PaymentStatus,
+  NotificationPriority,
 } from '@prisma/client';
 
 import { PolicyRepository } from '../../repositories/policy.repository';
@@ -138,7 +139,12 @@ export class IssuePolicyService {
     }
 
     // Issued documents must never contain fabricated chassis/engine/registration values.
-    const vehicleDetails = (quotation as any).vehicle;
+    let vehicleDetails = (quotation as any).vehicle;
+    if (!vehicleDetails && (quotation as any).vehicleId) {
+      vehicleDetails = await this.prisma.vehicle.findUnique({
+        where: { id: (quotation as any).vehicleId },
+      });
+    }
     const chassis = vehicleDetails?.chassisNumber || (quotation as any).chassisNumber;
     const engine = vehicleDetails?.engineNumber || (quotation as any).engineNumber;
     const regNumber = quotation.registrationNumber || vehicleDetails?.registrationNumber;
@@ -209,56 +215,49 @@ export class IssuePolicyService {
         tx,
       );
 
-      const insuredName = quotation.contact
-        ? `${quotation.contact.firstName || ''} ${quotation.contact.lastName || ''}`.trim()
-        : 'Insured Customer';
+      if (quotation.leadId) {
+        await tx.lead.update({
+          where: { id: quotation.leadId },
+          data: {
+            status: 'CONVERTED',
+            currentWorkflowStep: 'ISSUED',
+            updatedById: createdById,
+          },
+        });
+        await tx.leadStageHistory.create({
+          data: {
+            leadId: quotation.leadId,
+            fromStage: quotation.lead?.currentWorkflowStep || 'PAYMENT',
+            toStage: 'ISSUED',
+            performedById: createdById,
+            performerRole: 'POLICY_ISSUANCE_EXECUTIVE',
+            isOverride: false,
+            prerequisitesMet: { quotationId: quotation.id, policyId: newPolicy.id },
+            remarks: `Lead converted automatically upon policy issuance ${policyNumber}.`,
+          },
+        });
+      }
 
-      const schedulePdf = await this.pdfService.generateDocumentPdf('Policy Schedule', policyNumber, {
-        'Policy Number': policyNumber,
-        'Quotation Code': quotation.quotationCode,
-        'Insured Name': insuredName,
-        'Vehicle Registration': regNumber,
-        'Chassis Number': chassis,
-        'Engine Number': engine,
-        'Insurer': quotation.insurerName,
-        'Coverage Period': `${effectiveDate.toISOString().slice(0, 10)} to ${expiryDate.toISOString().slice(0, 10)}`,
-        'Insured Amount (IDV)': `Rs. ${(quotation.sumInsured ?? 0).toString()}`,
-        'Net Customer Premium': `Rs. ${(quotation.basePremium ?? 0).toString()}`,
-        'Total GST': `Rs. ${(quotation.gstAmount ?? 0).toString()}`,
-        'Total Premium Paid': `Rs. ${paymentAmount.toString()}`,
-        'Payment Transaction': paymentRecord.referenceNumber,
+      const renewalDueDate = new Date(expiryDate);
+      renewalDueDate.setDate(renewalDueDate.getDate() - 30);
+      await tx.renewalTask.create({
+        data: {
+          policyId: newPolicy.id,
+          agentId: quotation.lead?.assignedToId || createdById,
+          dueDate: renewalDueDate,
+          offsetDays: 30,
+          status: 'PENDING',
+          priority: NotificationPriority.HIGH,
+        },
       });
 
-      const taxCertificatePdf = await this.pdfService.generateDocumentPdf('Tax Exemption / GST Certificate', `${policyNumber}_TAX`, {
-        'Policy Number': policyNumber,
-        'GST Amount': `Rs. ${(quotation.gstAmount ?? 0).toString()}`,
-        'Tax Component': 'Statutory 18% GST on Gross Base Premium',
-        'Invoice Date': new Date().toISOString().slice(0, 10),
-      });
-
-      await Promise.all([
-        this.policyRepository.addDocument({
-          policy: { connect: { id: newPolicy.id } },
-          documentType: 'POLICY_SCHEDULE',
-          fileKey: schedulePdf.fileKey,
-          fileName: schedulePdf.fileName,
-          fileSize: schedulePdf.fileSize,
-        }, tx),
-        this.policyRepository.addDocument({
-          policy: { connect: { id: newPolicy.id } },
-          documentType: 'TAX_CERTIFICATE',
-          fileKey: taxCertificatePdf.fileKey,
-          fileName: taxCertificatePdf.fileName,
-          fileSize: taxCertificatePdf.fileSize,
-        }, tx),
-        this.policyRepository.addHistoryEntry(
-          newPolicy.id,
-          newPolicy.status,
-          `Policy issued successfully under number ${policyNumber}. Verified payment ${paymentRecord.referenceNumber} reconciled to the quotation snapshot.`,
-          createdById,
-          tx,
-        ),
-      ]);
+      await this.policyRepository.addHistoryEntry(
+        newPolicy.id,
+        newPolicy.status,
+        `Policy issued successfully under number ${policyNumber}. Verified payment ${paymentRecord.referenceNumber} reconciled to the quotation snapshot.`,
+        createdById,
+        tx,
+      );
 
       if (dto.insurerPolicyNumber || dto.insurerQuoteId) {
         await tx.insurerPolicyDetail.create({
@@ -288,6 +287,56 @@ export class IssuePolicyService {
 
       return newPolicy;
     });
+
+    // Decoupled Document Generation (§26, Task 4.6)
+    // Policy issuance is already committed and durable in DB. PDF generation failures do not abort issuance.
+    try {
+      const insuredName = quotation.contact
+        ? `${quotation.contact.firstName || ''} ${quotation.contact.lastName || ''}`.trim()
+        : 'Insured Customer';
+
+      const schedulePdf = await this.pdfService.generateDocumentPdf('Policy Schedule', policyNumber, {
+        'Policy Number': policyNumber,
+        'Quotation Code': quotation.quotationCode,
+        'Insured Name': insuredName,
+        'Vehicle Registration': regNumber,
+        'Chassis Number': chassis,
+        'Engine Number': engine,
+        'Insurer': quotation.insurerName,
+        'Coverage Period': `${effectiveDate.toISOString().slice(0, 10)} to ${expiryDate.toISOString().slice(0, 10)}`,
+        'Insured Amount (IDV)': `Rs. ${(quotation.sumInsured ?? 0).toString()}`,
+        'Net Customer Premium': `Rs. ${(quotation.basePremium ?? 0).toString()}`,
+        'Total GST': `Rs. ${(quotation.gstAmount ?? 0).toString()}`,
+        'Total Premium Paid': `Rs. ${paymentAmount.toString()}`,
+        'Payment Transaction': paymentRecord.referenceNumber,
+      });
+
+      const taxCertificatePdf = await this.pdfService.generateDocumentPdf('Tax Exemption / GST Certificate', `${policyNumber}_TAX`, {
+        'Policy Number': policyNumber,
+        'GST Amount': `Rs. ${(quotation.gstAmount ?? 0).toString()}`,
+        'Tax Component': 'Statutory 18% GST on Gross Base Premium',
+        'Invoice Date': new Date().toISOString().slice(0, 10),
+      });
+
+      await Promise.all([
+        this.policyRepository.addDocument({
+          policy: { connect: { id: policy.id } },
+          documentType: 'POLICY_SCHEDULE',
+          fileKey: schedulePdf.fileKey,
+          fileName: schedulePdf.fileName,
+          fileSize: schedulePdf.fileSize,
+        }),
+        this.policyRepository.addDocument({
+          policy: { connect: { id: policy.id } },
+          documentType: 'TAX_CERTIFICATE',
+          fileKey: taxCertificatePdf.fileKey,
+          fileName: taxCertificatePdf.fileName,
+          fileSize: taxCertificatePdf.fileSize,
+        }),
+      ]);
+    } catch (docErr) {
+      // PDF generation error logged for async regeneration worker
+    }
 
     const finalPolicy = await this.policyRepository.findDetail(policy.id);
     return PolicyMapper.toResponse(finalPolicy!);

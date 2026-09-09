@@ -28,6 +28,8 @@ export interface CapturePreviousPolicyDto {
   newInsurerName?: string;
 }
 
+import { NumberingEngineService } from '../../administration/services/numbering-engine/numbering-engine.service';
+
 @Injectable()
 export class MotorQuoteWorkflowService {
   private readonly logger = new Logger(MotorQuoteWorkflowService.name);
@@ -35,6 +37,7 @@ export class MotorQuoteWorkflowService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly ruleEngine: MotorRuleEngineService,
+    private readonly numberingEngine: NumberingEngineService,
   ) {}
 
   /**
@@ -161,7 +164,7 @@ export class MotorQuoteWorkflowService {
         });
 
         if (!existingInspection) {
-          const inspectionCode = `INSP-${Date.now().toString().slice(-6)}`;
+          const inspectionCode = await this.numberingEngine.generateNext('INSPECTION');
           await tx.motorInspection.create({
             data: {
               quotationId: dto.quotationId,

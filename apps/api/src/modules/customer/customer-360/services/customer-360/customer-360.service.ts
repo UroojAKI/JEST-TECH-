@@ -192,6 +192,7 @@ export class Customer360Service {
     return {
       profile: {
         id: contact.id,
+        contactCode: contact.contactCode,
         name: `${contact.firstName} ${contact.lastName}`,
         firstName: contact.firstName,
         lastName: contact.lastName,

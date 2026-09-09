@@ -42,6 +42,15 @@ describe('100-Concurrent Policy Issuance Stress & Atomic Conflict Guarantee', ()
           policy: {
             findUnique: jest.fn().mockResolvedValue(null),
           },
+          lead: {
+            update: jest.fn().mockResolvedValue({}),
+          },
+          leadStageHistory: {
+            create: jest.fn().mockResolvedValue({}),
+          },
+          renewalTask: {
+            create: jest.fn().mockResolvedValue({}),
+          },
           outboxEvent: { create: jest.fn().mockResolvedValue({}) },
           insurerPolicyDetail: { create: jest.fn().mockResolvedValue({}) },
         };

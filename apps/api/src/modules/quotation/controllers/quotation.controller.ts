@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Get,
@@ -22,6 +23,8 @@ import type { RequestUser } from '../../auth/decorators/current-user.decorator';
 
 import { CreateQuotationDto } from '../dto/create-quotation.dto';
 import { CreateMotorCaptureDto } from '../dto/create-motor-capture.dto';
+import { ContactsService } from '../../contacts/services/contacts.service';
+import { NumberingEngineService } from '../../administration/services/numbering-engine/numbering-engine.service';
 import { GenerateQuotationService } from '../services/commands/generate-quotation.service';
 import { ApproveQuotationService } from '../services/commands/approve-quotation.service';
 import { RejectQuotationService } from '../services/commands/reject-quotation.service';
@@ -38,6 +41,7 @@ import { ComparisonService } from '../engine/comparison.service';
 import { PrismaService } from '../../../database/prisma.service';
 import { PaginationDto } from '../../../common/pagination/pagination.dto';
 import { MotorCalculationService } from '../../motor/services/motor-calculation.service';
+import { QuotationCompletionService } from '../services/queries/quotation-completion.service';
 
 @ApiTags('Quotations & Motor Wizard')
 @ApiBearerAuth()
@@ -57,6 +61,9 @@ export class QuotationController {
     private readonly comparisonEngine: ComparisonService,
     private readonly prisma: PrismaService,
     private readonly motorCalculationService: MotorCalculationService,
+    private readonly contactsService: ContactsService,
+    private readonly numberingEngine: NumberingEngineService,
+    private readonly quotationCompletionService: QuotationCompletionService,
   ) {}
 
   @Post('motor-capture')
@@ -81,7 +88,7 @@ export class QuotationController {
     @Body() dto: CreateMotorCaptureDto,
     @CurrentUser() user: RequestUser,
   ) {
-    const quotationCode = `MQ-${dto.vehicleCategory?.slice(0, 3).toUpperCase()}-${Date.now().toString().slice(-8)}`;
+    const quotationCode = await this.numberingEngine.generateNext('QUOTATION');
 
     let contactId = dto.contactId;
     if (!contactId && dto.leadId) {
@@ -110,23 +117,26 @@ export class QuotationController {
     }
 
     if (!contactId) {
+      const mobileNumber = String(proposer['mobileNumber'] || '').trim();
+      if (!mobileNumber) {
+        throw new BadRequestException(
+          'Proposer mobile number is required to link or create a customer contact.',
+        );
+      }
       const [firstName, ...rest] = (
         proposer['customerName'] || 'Motor Customer'
       ).split(' ');
-      const newContact = await this.prisma.contact.create({
-        data: {
-          contactCode: `MC-${Date.now().toString().slice(-8)}`,
+      const newContact = await this.contactsService.create(
+        {
+          firstName: firstName || 'Customer',
+          lastName: rest.join(' ') || '',
+          email: proposer['emailId'] ? String(proposer['emailId']).trim() : undefined,
+          phone: mobileNumber,
+          panNumber: proposer['panNumber'] ? String(proposer['panNumber']).trim() : undefined,
           type: 'INDIVIDUAL',
-          firstName: firstName || 'Motor',
-          lastName: rest.join(' ') || 'Customer',
-          email: proposer['emailId'] || `motor_${Date.now()}@jest.local`,
-          phone:
-            proposer['mobileNumber'] ||
-            `+91${Math.floor(1000000000 + Math.random() * 9000000000)}`,
-          panNumber: proposer['panNumber'] || null,
-          createdById: user.id,
         },
-      });
+        user.id,
+      );
       contactId = newContact.id;
     }
 
@@ -228,6 +238,20 @@ export class QuotationController {
       },
     });
 
+    if (dto.leadId) {
+      await this.prisma.lead
+        .update({
+          where: { id: dto.leadId },
+          data: {
+            status: 'QUOTE_PREPARED',
+            currentWorkflowStep: 'QUOTATION',
+          },
+        })
+        .catch((err) => {
+          console.warn(`Lead update after quote capture:`, err.message);
+        });
+    }
+
     return {
       message:
         'Motor insurance quote captured using authoritative backend pricing',
@@ -315,9 +339,19 @@ export class QuotationController {
   @Roles(
     RoleType.SUPER_ADMIN,
     RoleType.ADMIN,
+    RoleType.SYSTEM_ADMINISTRATOR,
+    RoleType.MD_CEO,
     RoleType.BRANCH_MANAGER,
     RoleType.TEAM_LEADER,
+    RoleType.SALES_MANAGER,
     RoleType.SALES_AGENT,
+    RoleType.SALES_EXECUTIVE,
+    RoleType.POSP_ADVISOR,
+    RoleType.AGENT_MANAGER,
+    RoleType.OPERATIONS,
+    RoleType.POLICY_ISSUANCE_EXECUTIVE,
+    RoleType.UNDERWRITER,
+    RoleType.RENEWAL_EXECUTIVE,
   )
   create(@Body() dto: CreateQuotationDto, @CurrentUser() user: RequestUser) {
     return this.generateQuotationService.execute(dto, user.id);
@@ -327,13 +361,25 @@ export class QuotationController {
   @Roles(
     RoleType.SUPER_ADMIN,
     RoleType.ADMIN,
+    RoleType.SYSTEM_ADMINISTRATOR,
+    RoleType.MD_CEO,
     RoleType.BRANCH_MANAGER,
+    RoleType.MARKETING_DIRECTOR,
     RoleType.TEAM_LEADER,
+    RoleType.SALES_MANAGER,
     RoleType.SALES_AGENT,
+    RoleType.SALES_EXECUTIVE,
+    RoleType.POSP_ADVISOR,
+    RoleType.AGENT_MANAGER,
     RoleType.OPERATIONS,
+    RoleType.POLICY_ISSUANCE_EXECUTIVE,
     RoleType.UNDERWRITER,
     RoleType.CLAIMS_OFFICER,
+    RoleType.RENEWAL_EXECUTIVE,
+    RoleType.CUSTOMER_SERVICE_EXECUTIVE,
     RoleType.FINANCE,
+    RoleType.FINANCE_ACCOUNTS_EXECUTIVE,
+    RoleType.CHIEF_FINANCE_OFFICER,
     RoleType.SUPPORT,
   )
   findAll(
@@ -343,17 +389,61 @@ export class QuotationController {
     return this.getQuotationService.executeAll(user, pagination);
   }
 
+  @Get(':id/completion')
+  @Roles(
+    RoleType.SUPER_ADMIN,
+    RoleType.ADMIN,
+    RoleType.SYSTEM_ADMINISTRATOR,
+    RoleType.MD_CEO,
+    RoleType.BRANCH_MANAGER,
+    RoleType.MARKETING_DIRECTOR,
+    RoleType.TEAM_LEADER,
+    RoleType.SALES_MANAGER,
+    RoleType.SALES_AGENT,
+    RoleType.SALES_EXECUTIVE,
+    RoleType.POSP_ADVISOR,
+    RoleType.AGENT_MANAGER,
+    RoleType.OPERATIONS,
+    RoleType.POLICY_ISSUANCE_EXECUTIVE,
+    RoleType.UNDERWRITER,
+    RoleType.CLAIMS_OFFICER,
+    RoleType.RENEWAL_EXECUTIVE,
+    RoleType.CUSTOMER_SERVICE_EXECUTIVE,
+    RoleType.FINANCE,
+    RoleType.FINANCE_ACCOUNTS_EXECUTIVE,
+    RoleType.CHIEF_FINANCE_OFFICER,
+    RoleType.SUPPORT,
+  )
+  @ApiOperation({
+    summary: 'Evaluate dynamic checklist and progressive quotation completion percentage (§24, AUD-033)',
+  })
+  getCompletion(@Param('id') id: string) {
+    return this.quotationCompletionService.getCompletion(id);
+  }
+
   @Get(':id')
   @Roles(
     RoleType.SUPER_ADMIN,
     RoleType.ADMIN,
+    RoleType.SYSTEM_ADMINISTRATOR,
+    RoleType.MD_CEO,
     RoleType.BRANCH_MANAGER,
+    RoleType.MARKETING_DIRECTOR,
     RoleType.TEAM_LEADER,
+    RoleType.SALES_MANAGER,
     RoleType.SALES_AGENT,
+    RoleType.SALES_EXECUTIVE,
+    RoleType.POSP_ADVISOR,
+    RoleType.AGENT_MANAGER,
     RoleType.OPERATIONS,
+    RoleType.POLICY_ISSUANCE_EXECUTIVE,
     RoleType.UNDERWRITER,
     RoleType.CLAIMS_OFFICER,
+    RoleType.RENEWAL_EXECUTIVE,
+    RoleType.CUSTOMER_SERVICE_EXECUTIVE,
     RoleType.FINANCE,
+    RoleType.FINANCE_ACCOUNTS_EXECUTIVE,
+    RoleType.CHIEF_FINANCE_OFFICER,
     RoleType.SUPPORT,
   )
   findOne(

@@ -30,3 +30,28 @@ export interface WorkspaceResponseDto {
   permissions: any[];
   preferences?: any;
 }
+
+export class MoveStageDto {
+  targetStage: string;
+  overrideReason?: string;
+  remarks?: string;
+}
+
+export class CreateReferralDto {
+  referralName: string;
+  phone: string;
+  email?: string;
+  relationship?: string;
+  interestedProduct?: string;
+}
+
+export class NoReferralDto {
+  reason: string;
+}
+
+export class LogCallDto {
+  callOutcome: string;
+  notes?: string;
+  scheduledFollowup?: string;
+}
+

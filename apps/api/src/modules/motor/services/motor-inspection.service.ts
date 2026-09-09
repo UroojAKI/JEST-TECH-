@@ -22,6 +22,8 @@ export interface CreateInspectionDto {
   createdById?: string;
 }
 
+import { NumberingEngineService } from '../../administration/services/numbering-engine/numbering-engine.service';
+
 export type InspectionPhotoType =
   'front' | 'back' | 'left' | 'right' | 'windshield' | 'chassis' | 'odometer';
 
@@ -29,12 +31,13 @@ export type InspectionPhotoType =
 export class MotorInspectionService {
   private readonly logger = new Logger(MotorInspectionService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly numberingEngine: NumberingEngineService,
+  ) {}
 
-  private generateCode(): string {
-    const ts = Date.now().toString(36).toUpperCase();
-    const rand = Math.random().toString(36).slice(2, 5).toUpperCase();
-    return `INS-${ts}-${rand}`;
+  private async generateCode(): Promise<string> {
+    return this.numberingEngine.generateNext('INSPECTION');
   }
 
   async createInspection(dto: CreateInspectionDto) {
@@ -49,9 +52,10 @@ export class MotorInspectionService {
     });
     if (existing) return existing;
 
+    const inspectionCode = await this.generateCode();
     const inspection = await this.prisma.motorInspection.create({
       data: {
-        inspectionCode: this.generateCode(),
+        inspectionCode,
         quotationId: dto.quotationId,
         status: InspectionStatus.PENDING,
         conductedByType: dto.conductedByType,

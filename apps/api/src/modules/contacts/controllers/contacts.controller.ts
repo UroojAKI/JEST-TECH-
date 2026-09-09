@@ -83,6 +83,28 @@ export class ContactsController {
     return this.contactsService.findById(id, user);
   }
 
+  @Post(':id/unmask')
+  @HttpCode(HttpStatus.OK)
+  @Roles(
+    RoleType.SUPER_ADMIN,
+    RoleType.ADMIN,
+    RoleType.SYSTEM_ADMINISTRATOR,
+    RoleType.MD_CEO,
+    RoleType.BRANCH_MANAGER,
+    RoleType.OPERATIONS,
+    RoleType.UNDERWRITER,
+    RoleType.POLICY_ISSUANCE_EXECUTIVE,
+    RoleType.FINANCE,
+    RoleType.CHIEF_FINANCE_OFFICER,
+  )
+  unmask(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body('reason') reason: string,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.contactsService.unmask(id, reason, user);
+  }
+
   @Patch(':id')
   @Roles(...CONTACT_MANAGE_ROLES)
   update(@Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdateContactDto, @CurrentUser() user: RequestUser) {

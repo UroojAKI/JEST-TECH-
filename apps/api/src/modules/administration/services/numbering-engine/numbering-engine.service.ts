@@ -14,15 +14,41 @@ export class NumberingEngineService {
     const year = now.getFullYear();
     const month = now.getMonth() + 1; // 1-12
 
-    // First fetch the format
-    const formatConfig = await this.prisma.numberingFormat.findUnique({
+    let formatConfig = await this.prisma.numberingFormat.findUnique({
       where: { entityType },
     });
 
     if (!formatConfig) {
-      throw new InternalServerErrorException(
-        `Numbering format for ${entityType} is not configured.`,
-      );
+      const DEFAULT_FORMATS: Record<
+        string,
+        { prefix: string; format: string; padding: number }
+      > = {
+        POLICY: { prefix: 'POL', format: '{PREFIX}-{YYYY}-{MM}-{SEQUENCE}', padding: 6 },
+        CLAIM: { prefix: 'CLM', format: '{PREFIX}-{YYYY}-{MM}-{SEQUENCE}', padding: 6 },
+        PROPOSAL: { prefix: 'PROP', format: '{PREFIX}-{YYYY}-{MM}-{SEQUENCE}', padding: 6 },
+        ENDORSEMENT: { prefix: 'END', format: '{PREFIX}-{YYYY}-{MM}-{SEQUENCE}', padding: 6 },
+        INSPECTION: { prefix: 'INS', format: '{PREFIX}-{YYYY}-{MM}-{SEQUENCE}', padding: 6 },
+        QUOTATION: { prefix: 'QT', format: '{PREFIX}-{YYYY}-{MM}-{SEQUENCE}', padding: 6 },
+        CONTACT: { prefix: 'CONT', format: '{PREFIX}-{YYYY}-{MM}-{SEQUENCE}', padding: 6 },
+        LEAD: { prefix: 'LEAD', format: '{PREFIX}-{YYYY}-{MM}-{SEQUENCE}', padding: 6 },
+      };
+
+      const defaultCfg = DEFAULT_FORMATS[entityType.toUpperCase()] || {
+        prefix: entityType.slice(0, 4).toUpperCase(),
+        format: '{PREFIX}-{YYYY}-{MM}-{SEQUENCE}',
+        padding: 6,
+      };
+
+      formatConfig = await this.prisma.numberingFormat.upsert({
+        where: { entityType },
+        create: {
+          entityType,
+          prefix: defaultCfg.prefix,
+          format: defaultCfg.format,
+          padding: defaultCfg.padding,
+        },
+        update: {},
+      });
     }
 
     // Atomically increment the sequence or create if it doesn't exist for this month/year

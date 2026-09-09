@@ -442,28 +442,11 @@ export function MotorQuoteWizard({ isOpen, leadId, initialCategory, cloneQuoteDa
       onSaved(saved);
       onClose();
     } catch (err: any) {
-      const localQuote: SavedMotorQuote = {
-        id: err.response?.data?.id || `temp-${Date.now()}`,
-        quotationCode: err.response?.data?.quotationCode || `QT-MTR-${Math.floor(Math.random() * 10000)}`,
-        vehicleCategory,
-        policyType,
-        registrationNumber: registrationNumber || '',
-        insurerName: insurerName || 'Partner Insurer',
-        totalPremium: getNetPayable() > 0 ? getNetPayable() : getTotalPremium(),
-        idv: getIDV(),
-        ncbPercentage: getNCB(),
-        status: ruleResult?.inspectionRequired ? 'PENDING_INSPECTION' : 'READY_FOR_PROPOSAL',
-        createdAt: new Date().toISOString(),
-        policyStartDate: (getPolicyDetails() as any).policyStartDate,
-        policyEndDate: (getPolicyDetails() as any).policyEndDate,
-        proposerDetails: proposer,
-        vehicleDetails,
-        policyDetails: getPolicyDetails(),
-        leadId,
-      };
-      toast.success('Quote saved locally (API offline/fallback).');
-      onSaved(localQuote);
-      onClose();
+      const errorMsg =
+        err.response?.data?.message ||
+        err.message ||
+        'Failed to generate quotation. Please verify required fields and try again.';
+      toast.error(Array.isArray(errorMsg) ? errorMsg.join(' | ') : errorMsg);
     } finally {
       setIsSaving(false);
     }

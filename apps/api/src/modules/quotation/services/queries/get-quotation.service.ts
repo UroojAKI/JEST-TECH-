@@ -49,6 +49,14 @@ export class GetQuotationService {
       whereClause.productType = productType;
     }
 
+    if (pagination.leadId) {
+      whereClause.leadId = pagination.leadId;
+    }
+
+    if (pagination.status) {
+      whereClause.status = pagination.status;
+    }
+
     if (search) {
       whereClause.AND = [
         ...(whereClause.AND || []),

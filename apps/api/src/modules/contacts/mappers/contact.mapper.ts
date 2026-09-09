@@ -3,7 +3,10 @@ import { ContactResponseDto } from '../dto/contact-response.dto';
 import { EncryptionUtil } from '../../../common/utils/encryption.util';
 
 export class ContactMapper {
-  static toResponse(contact: Contact & { createdBy?: { branch?: { id: string; name: string; code: string } | null } | null }, options?: { unmaskSensitive?: boolean }): ContactResponseDto {
+  static toResponse(
+    contact: any,
+    options?: { unmaskSensitive?: boolean },
+  ): ContactResponseDto {
     const shouldUnmask = options?.unmaskSensitive ?? false;
     return {
       id: contact.id,
@@ -26,13 +29,19 @@ export class ContactMapper {
       createdById: contact.createdById,
       updatedById: contact.updatedById,
       accountId: contact.accountId,
-      branch: contact.createdBy?.branch ?? null,
+      branchId: (contact as any).branchId ?? contact.branch?.id ?? contact.createdBy?.branch?.id ?? null,
+      companyId: (contact as any).companyId ?? contact.company?.id ?? null,
+      branch: contact.branch ?? contact.createdBy?.branch ?? null,
+      status: contact.deletedAt ? 'INACTIVE' : 'ACTIVE',
       createdAt: contact.createdAt,
       updatedAt: contact.updatedAt,
     };
   }
 
-  static toResponseList(contacts: Array<Contact & { createdBy?: { branch?: { id: string; name: string; code: string } | null } | null }>, options?: { unmaskSensitive?: boolean }): ContactResponseDto[] {
-    return contacts.map((contact) => this.toResponse(contact, options));
+  static toResponseList(
+    contacts: any[],
+    options?: { unmaskSensitive?: boolean },
+  ): ContactResponseDto[] {
+    return (contacts || []).map((contact) => this.toResponse(contact, options));
   }
 }

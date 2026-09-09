@@ -64,6 +64,7 @@ export class BackOfficeQueueService {
       where,
       include: {
         contact: true,
+        vehicle: true,
         createdBy: {
           select: { id: true, firstName: true, lastName: true, email: true },
         },
@@ -108,7 +109,10 @@ export class BackOfficeQueueService {
       // 2. Vehicle Integrity Gate
       const vehicleMetadata = (q.motorMetadata as Record<string, any>) || {};
       const regNumber =
-        vehicleMetadata.registrationNumber || vehicleMetadata.vehicleNumber;
+        (q as any).registrationNumber ||
+        vehicleMetadata.registrationNumber ||
+        vehicleMetadata.vehicleNumber ||
+        (q as any).vehicle?.registrationNumber;
       const vehicleGate: GateStatus = {
         passed: !!regNumber,
         status: regNumber ? 'PASSED' : 'FAILED',

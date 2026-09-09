@@ -19,11 +19,18 @@ export default function CustomerWorkspacePage() {
 
   const { workspace, isLoading, isError } = useCustomerWorkspace(customerId);
 
-  const contact = workspace?.contact || workspace;
+  const contact = workspace?.profile || workspace?.contact || workspace;
+
+  const contactCode =
+    contact?.contactCode ||
+    contact?.code ||
+    `CUST-${customerId.slice(0, 6).toUpperCase()}`;
 
   const customerName = contact
-    ? contact.name || `${contact.firstName || ''} ${contact.lastName || ''}`.trim() || `Customer (${customerId})`
-    : `Customer (${customerId})`;
+    ? contact.name ||
+      `${contact.firstName || ''} ${contact.lastName || ''}`.trim() ||
+      `Customer (${contactCode})`
+    : `Customer (${contactCode})`;
 
   const customerType = contact?.type || 'INDIVIDUAL';
 
@@ -34,7 +41,9 @@ export default function CustomerWorkspacePage() {
   }, [customerId, customerName, customerType, setActiveCustomer]);
 
   const customerData = {
-    id: customerId,
+    id: contactCode,
+    contactCode,
+    rawId: customerId,
     name: customerName,
     type: customerType,
     phone: contact?.phone || '-',
@@ -42,8 +51,14 @@ export default function CustomerWorkspacePage() {
     pan: contact?.panNumber || contact?.pan || 'XXXXX1234F',
     gst: contact?.gstNumber || contact?.gst || 'N/A',
     address: contact?.address || 'Mumbai, Maharashtra',
-    agent: typeof contact?.agent === 'object' ? (contact.agent?.name || contact.agent?.firstName || 'Assigned Agent') : (contact?.assignedAgentName || contact?.agent || 'Assigned Agent'),
-    branch: typeof contact?.branch === 'object' ? (contact.branch?.name || contact.branch?.code || 'Main Branch') : (contact?.branchName || contact?.branch || 'Main Branch'),
+    agent:
+      typeof contact?.agent === 'object'
+        ? contact.agent?.name || contact.agent?.firstName || 'Assigned Agent'
+        : contact?.assignedAgentName || contact?.agent || 'Assigned Agent',
+    branch:
+      typeof contact?.branch === 'object'
+        ? contact.branch?.name || contact.branch?.code || 'Main Branch'
+        : contact?.branchName || contact?.branch || 'Main Branch',
   };
 
   return (

@@ -33,6 +33,8 @@ export class BackOfficeController {
   @Roles(
     RoleType.SUPER_ADMIN,
     RoleType.ADMIN,
+    RoleType.SYSTEM_ADMINISTRATOR,
+    RoleType.MD_CEO,
     RoleType.OPERATIONS,
     RoleType.UNDERWRITER,
     RoleType.POLICY_ISSUANCE_EXECUTIVE,
@@ -53,6 +55,8 @@ export class BackOfficeController {
   @Roles(
     RoleType.SUPER_ADMIN,
     RoleType.ADMIN,
+    RoleType.SYSTEM_ADMINISTRATOR,
+    RoleType.MD_CEO,
     RoleType.OPERATIONS,
     RoleType.POLICY_ISSUANCE_EXECUTIVE,
   )

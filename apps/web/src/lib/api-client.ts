@@ -25,12 +25,16 @@ function generateCorrelationId(): string {
   if (typeof crypto !== 'undefined' && crypto.randomUUID) {
     return crypto.randomUUID();
   }
-  // Fallback for environments without crypto.randomUUID
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
-    const r = (Math.random() * 16) | 0;
-    const v = c === 'x' ? r : (r & 0x3) | 0x8;
-    return v.toString(16);
-  });
+  if (typeof crypto !== 'undefined' && typeof crypto.getRandomValues === 'function') {
+    const bytes = new Uint8Array(16);
+    crypto.getRandomValues(bytes);
+    bytes[6] = (bytes[6] & 0x0f) | 0x40;
+    bytes[8] = (bytes[8] & 0x3f) | 0x80;
+    return Array.from(bytes, (b) => b.toString(16).padStart(2, '0'))
+      .join('')
+      .replace(/^(.{8})(.{4})(.{4})(.{4})(.{12})$/, '$1-$2-$3-$4-$5');
+  }
+  return 'corr-' + Date.now().toString(36);
 }
 
 // ── Client ───────────────────────────────────────────────────────────────────
@@ -91,14 +95,30 @@ const processQueue = (error: AxiosError | null) => {
 
 apiClient.interceptors.response.use(
   (response) => {
-    // Transparently unwrap the standard { success: true, data: ... } envelope.
+    // Transparently unwrap the standard { success: true, data: ..., meta: ... } envelope.
     if (
       response.data &&
       typeof response.data === 'object' &&
       'success' in response.data &&
       'data' in response.data
     ) {
-      response.data = response.data.data;
+      if (response.data.meta && typeof response.data.meta === 'object') {
+        response.data = {
+          data: response.data.data,
+          items: response.data.data,
+          ...response.data.meta,
+          total:
+            response.data.meta.total ??
+            (Array.isArray(response.data.data)
+              ? response.data.data.length
+              : 0),
+          totalPages: response.data.meta.totalPages ?? 1,
+          page: response.data.meta.page ?? 1,
+          limit: response.data.meta.limit ?? 25,
+        };
+      } else {
+        response.data = response.data.data;
+      }
     }
     return response;
   },

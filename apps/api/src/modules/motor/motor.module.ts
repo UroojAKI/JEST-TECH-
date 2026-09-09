@@ -14,8 +14,10 @@ import { MotorPaymentTrackingService } from './services/motor-payment-tracking.s
 import { MotorCalculationService } from './services/motor-calculation.service';
 import { MotorPolicyIssuanceService } from './services/motor-policy-issuance.service';
 import { VehicleDataService } from './services/vehicle-data.service';
+import { AdministrationModule } from '../administration/administration.module';
 
 @Module({
+  imports: [AdministrationModule],
   controllers: [
     MotorController,
     MotorWorkflowController,

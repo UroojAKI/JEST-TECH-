@@ -1,13 +1,16 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ResourceAuthorizationService } from './resource-authorization.service';
 import { ScopeResolver } from './scope-resolver.service';
-import { RoleType, UserStatus, InspectionStatus } from '@prisma/client';
-import { ForbiddenException, BadRequestException } from '@nestjs/common';
+import { RoleType, UserStatus, InspectionStatus, AuditAction } from '@prisma/client';
+import { ForbiddenException, BadRequestException, NotFoundException } from '@nestjs/common';
 import { ProposalService } from '../../modules/proposal/services/proposal.service';
 import { MotorPaymentTrackingService } from '../../modules/motor/services/motor-payment-tracking.service';
 import { WorkflowEngineService } from '../../modules/platform/workflow/services/workflow-engine.service';
 import { PrismaService } from '../../database/prisma.service';
 import { ActorContext } from '../interfaces/actor-context.interface';
+import { ContactMapper } from '../../modules/contacts/mappers/contact.mapper';
+import { ContactsService } from '../../modules/contacts/services/contacts.service';
+import { ContactRepository } from '../../modules/contacts/repositories/contact.repository';
 
 describe('Forensic Security Abuse & BOLA Suite (Iteration 17)', () => {
   let authzService: ResourceAuthorizationService;
@@ -178,11 +181,119 @@ describe('Forensic Security Abuse & BOLA Suite (Iteration 17)', () => {
       const proposalService = new ProposalService(
         prisma,
         {} as WorkflowEngineService,
+        { generateNext: jest.fn().mockResolvedValue('PROP-2026-000001') } as any,
       );
 
       await expect(
         proposalService.createProposal('q-breakin', 'usr-agent-a'),
       ).rejects.toThrow(BadRequestException);
+    });
+  });
+
+  describe('Attack Vector 6: PII Masking & Audited Unmask Enforcement', () => {
+    const rawContact = {
+      id: 'contact-pii-1',
+      contactCode: 'CNT-2026-000001',
+      type: 'INDIVIDUAL',
+      firstName: 'Rahul',
+      lastName: 'Sharma',
+      phone: '9876543210',
+      panNumber: 'ABCDE1234F',
+      aadhaarNumber: '123456789012',
+      branchId: 'branch-andheri',
+      companyId: 'org-mumbai',
+      createdById: 'usr-agent-a',
+      deletedAt: null,
+      createdBy: {
+        id: 'usr-agent-a',
+        branchId: 'branch-andheri',
+        teamId: 'team-motor-a',
+        branch: {
+          id: 'branch-andheri',
+          zone: {
+            id: 'zone-west',
+            region: {
+              id: 'region-mh',
+              company: {
+                id: 'org-mumbai',
+              },
+            },
+          },
+        },
+      },
+    };
+
+    it('should mask PAN and Aadhaar by default when viewing contact', () => {
+      const response = ContactMapper.toResponse(rawContact);
+      expect(response.panNumber).toBe('XXXXX1234F');
+      expect(response.aadhaarNumber).toBe('XXXX-XXXX-9012');
+    });
+
+    it('should allow authorized actor to unmask PII and record audit log with UPDATE and PII_UNMASK', async () => {
+      const auditCreateMock = jest.fn().mockResolvedValue({ id: 'audit-1' });
+      const mockPrisma: any = {
+        auditLog: {
+          create: auditCreateMock,
+        },
+      };
+
+      const mockRepo: any = {
+        findById: jest.fn().mockResolvedValue(rawContact),
+      };
+
+      const contactsService = new ContactsService(mockRepo, mockPrisma);
+
+      const authorizedActor = createActor({
+        userId: 'usr-agent-a',
+        branchId: 'branch-andheri',
+        teamId: 'team-motor-a',
+      });
+
+      const result = await contactsService.unmask('contact-pii-1', 'KYC Verification', authorizedActor);
+
+      expect(result.panNumber).toBe('ABCDE1234F');
+      expect(result.aadhaarNumber).toBe('123456789012');
+      expect(auditCreateMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            action: AuditAction.UPDATE,
+            entity: 'Contact',
+            entityId: 'contact-pii-1',
+            userId: 'usr-agent-a',
+            performedById: 'usr-agent-a',
+            module: 'CONTACTS',
+            metadata: expect.objectContaining({
+              type: 'PII_UNMASK',
+              reason: 'KYC Verification',
+              unmaskedFields: ['panNumber', 'aadhaarNumber'],
+            }),
+          }),
+        }),
+      );
+    });
+
+    it('should block unauthorized actor from another branch from unmasking contact PII', async () => {
+      const mockPrisma: any = {
+        auditLog: { create: jest.fn() },
+      };
+
+      const mockRepo: any = {
+        findById: jest.fn().mockResolvedValue(rawContact),
+      };
+
+      const contactsService = new ContactsService(mockRepo, mockPrisma);
+
+      const rogueActor = createActor({
+        userId: 'usr-agent-other',
+        branchId: 'branch-bandra',
+        teamId: 'team-motor-b',
+        role: RoleType.BRANCH_MANAGER,
+        roles: [RoleType.BRANCH_MANAGER],
+      });
+
+      await expect(
+        contactsService.unmask('contact-pii-1', 'Snooping attempt', rogueActor),
+      ).rejects.toThrow(ForbiddenException);
     });
   });
 });

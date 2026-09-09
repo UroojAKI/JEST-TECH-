@@ -4,6 +4,7 @@ import React from 'react';
 import { CATEGORY_LABEL, POLICY_TYPE_LABEL } from './motorFormConfig';
 import type { SavedMotorQuote } from './motorFormTypes';
 import { Car, Upload, Clock, CheckCircle2, XCircle, AlertCircle, Shield, Wrench, ShieldCheck, FileText } from 'lucide-react';
+import { QuotationCompletionView } from './QuotationCompletionView';
 
 interface Props {
   quote: SavedMotorQuote;
@@ -84,6 +85,15 @@ export function QuoteCard({ quote, onUploadQuote, onConductInspection, onComplet
             <div className="text-muted-foreground font-medium">Code</div>
             <div className="font-semibold text-muted-foreground font-mono truncate">{quote.quotationCode}</div>
           </div>
+        </div>
+
+        <div className="mt-3 pt-2.5 border-t">
+          <QuotationCompletionView
+            quotationId={quote.id}
+            quotationCode={quote.quotationCode}
+            onProceedToProposal={onCompleteProposal ? () => onCompleteProposal(quote) : undefined}
+            onConductInspection={onConductInspection ? () => onConductInspection(quote.id) : undefined}
+          />
         </div>
       </div>
 

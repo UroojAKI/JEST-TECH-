@@ -20,6 +20,7 @@ import { Roles } from '../../auth/decorators/roles.decorator';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import type { RequestUser } from '../../auth/decorators/current-user.decorator';
 import { PaginationDto } from '../../../common/pagination/pagination.dto';
+import { CreatePolicyDto } from '../dto/create-policy.dto';
 import { RenewPolicyDto } from '../dto/renew-policy.dto';
 import { CancelPolicyService } from '../services/commands/cancel-policy.service';
 import { RenewPolicyService } from '../services/commands/renew-policy.service';
@@ -104,25 +105,25 @@ export class PoliciesController {
   @Post('issue')
   @Roles(...POLICY_MANAGE_ROLES)
   @ApiOperation({ summary: 'Issue policy from quotation with validation gates' })
-  async issuePolicyDirect(@Body() dto: any, @CurrentUser() user: RequestUser) {
-    const quotationId = dto.quotationId || dto.quoteId;
+  async issuePolicyDirect(@Body() dto: CreatePolicyDto, @CurrentUser() user: RequestUser) {
+    const quotationId = dto.quotationId;
     if (!quotationId) throw new BadRequestException('quotationId is required to issue a policy.');
     await this.backOfficeQueueService.validateIssuanceGates(quotationId);
-    return this.issuePolicyService.execute({ quotationId, issueSource: dto.issueSource || 'DIRECT_ISSUANCE', ...dto }, user.id);
+    return this.issuePolicyService.execute({ ...dto, quotationId, issueSource: dto.issueSource || 'DIRECT_ISSUANCE' }, user.id);
   }
 
   @Post()
   @Roles(...POLICY_MANAGE_ROLES)
   @ApiOperation({ summary: 'Create policy from quotation or proposal with validation gates' })
-  async createPolicyRoot(@Body() dto: any, @CurrentUser() user: RequestUser) {
-    let quotationId = dto.quotationId || dto.quoteId;
+  async createPolicyRoot(@Body() dto: CreatePolicyDto, @CurrentUser() user: RequestUser) {
+    let quotationId = dto.quotationId;
     if (!quotationId && dto.proposalId) {
       const proposal = await this.prisma.proposal.findUnique({ where: { id: dto.proposalId } });
       if (proposal?.quotationId) quotationId = proposal.quotationId;
     }
     if (!quotationId) throw new BadRequestException('A valid quotationId or proposalId is required to create a policy.');
     await this.backOfficeQueueService.validateIssuanceGates(quotationId);
-    return this.issuePolicyService.execute({ quotationId, issueSource: 'POLICY_CONVERSION', ...dto }, user.id);
+    return this.issuePolicyService.execute({ ...dto, quotationId, issueSource: 'POLICY_CONVERSION' }, user.id);
   }
 
   @Get('renewals/kpis')

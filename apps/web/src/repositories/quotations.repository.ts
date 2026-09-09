@@ -76,4 +76,38 @@ export const quotationsRepository = {
     const response = await apiClient.get(`/quotations/${id}/versions`);
     return response.data;
   },
+
+  async getQuotationCompletion(id: string): Promise<QuotationCompletionResult> {
+    const response = await apiClient.get(`/quotations/${id}/completion`);
+    return response.data;
+  },
 };
+
+export interface MissingFieldItem {
+  field: string;
+  label: string;
+  requiredFor: 'QUOTATION_CREATION' | 'APPROVAL' | 'POLICY_ISSUANCE';
+  condition?: string;
+  value?: any;
+}
+
+export interface CompletionSection {
+  section: string;
+  label: string;
+  complete: boolean;
+  applicableCount: number;
+  completedCount: number;
+  missing: MissingFieldItem[];
+}
+
+export interface QuotationCompletionResult {
+  quotationId: string;
+  quotationCode: string;
+  status: 'COMPLETE' | 'INCOMPLETE';
+  completionPercentage: number;
+  canApprove: boolean;
+  canIssuePolicy: boolean;
+  workflowState: string | null;
+  sections: CompletionSection[];
+}
+

@@ -26,15 +26,25 @@ export abstract class BaseRepository<ModelDelegate, BasicType, DetailType> {
   ): Promise<PaginatedResponseDto<BasicType>> {
     const {
       page = 1,
-      limit = 10,
+      limit = 25,
       sortBy = 'createdAt',
       sortOrder = 'desc',
+      status,
     } = paginationDto;
     const skip = (page - 1) * limit;
 
+    const whereClause = { ...where };
+    if (status && !whereClause.status) {
+      if (status.toUpperCase() === 'RENEWAL_DUE') {
+        whereClause.status = 'PENDING_RENEWAL';
+      } else {
+        whereClause.status = status;
+      }
+    }
+
     const [data, total] = await Promise.all([
       (this.model as any).findMany({
-        where,
+        where: whereClause,
         ...this.basicArgs,
         skip,
         take: limit,
@@ -42,7 +52,7 @@ export abstract class BaseRepository<ModelDelegate, BasicType, DetailType> {
           [sortBy]: sortOrder,
         },
       }),
-      (this.model as any).count({ where }),
+      (this.model as any).count({ where: whereClause }),
     ]);
 
     return new PaginatedResponseDto<BasicType>(data, total, page, limit);

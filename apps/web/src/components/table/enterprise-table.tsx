@@ -21,6 +21,7 @@ interface EnterpriseTableProps<TData> {
   totalRows?: number;
   pageSize?: number;
   onPageChange?: (page: number) => void;
+  onPageSizeChange?: (pageSize: number) => void;
   pageIndex?: number;
   pageCount?: number;
   manualPagination?: boolean;
@@ -36,6 +37,7 @@ export function EnterpriseTable<TData>({
   totalRows,
   pageSize = 10,
   onPageChange,
+  onPageSizeChange,
   pageIndex = 0,
   pageCount,
   manualPagination = false,
@@ -133,8 +135,26 @@ export function EnterpriseTable<TData>({
           </table>
         </div>
 
-        <div className="flex items-center justify-between px-4 py-3 border-t bg-muted/20 text-xs text-muted-foreground">
-          <div>Showing {visibleStart} to {visibleEnd} of {totalRows ?? data.length} entries</div>
+        <div className="flex flex-col sm:flex-row items-center justify-between px-4 py-3 border-t bg-muted/20 text-xs text-muted-foreground gap-3">
+          <div className="flex items-center gap-3">
+            <div>Showing {visibleStart} to {visibleEnd} of {totalRows ?? data.length} entries</div>
+            {onPageSizeChange && (
+              <div className="flex items-center gap-1.5 pl-2 border-l border-border">
+                <span>Rows:</span>
+                <select
+                  value={pageSize}
+                  onChange={(e) => onPageSizeChange(Number(e.target.value))}
+                  className="px-1.5 py-0.5 rounded border bg-background text-foreground font-semibold"
+                >
+                  {[10, 25, 50, 100].map((size) => (
+                    <option key={size} value={size}>
+                      {size}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+          </div>
           <div className="flex items-center space-x-2">
             <button onClick={() => goToPage(currentPage - 1)} disabled={currentPage <= 0} className="p-1 rounded border disabled:opacity-40 hover:bg-accent"><ChevronLeft className="h-4 w-4" /></button>
             <span className="font-semibold text-foreground">Page {currentPage + 1} of {currentPageCount}</span>

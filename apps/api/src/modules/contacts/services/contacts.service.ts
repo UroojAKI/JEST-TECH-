@@ -10,7 +10,15 @@ import { ActorContext } from '../../../common/interfaces/actor-context.interface
 import { PrismaService } from '../../../database/prisma.service';
 
 const GLOBAL_ROLES: RoleType[] = [RoleType.SUPER_ADMIN, RoleType.ADMIN, RoleType.SYSTEM_ADMINISTRATOR, RoleType.MD_CEO];
-const duplicateContactError = (existingContactId: string, matchedBy: 'PHONE' | 'EMAIL') => new ConflictException({ code: 'DUPLICATE_CONTACT', message: `A contact with this ${matchedBy.toLowerCase()} already exists`, existingContactId, matchedBy });
+const duplicateContactError = (existingContactId: string, matchedBy: 'PHONE' | 'EMAIL', contactCode?: string, customerName?: string) =>
+  new ConflictException({
+    code: 'DUPLICATE_CONTACT',
+    message: `A contact with this ${matchedBy.toLowerCase()} already exists`,
+    existingContactId,
+    matchedBy,
+    contactCode,
+    customerName,
+  });
 
 @Injectable()
 export class ContactsService {
@@ -31,28 +39,81 @@ export class ContactsService {
       if (actor.userId !== createdById) throw new ForbiddenException('Contact creator must match authenticated user');
     }
     const existingPhone = await this.contactRepository.findByPhone(dto.phone);
-    if (existingPhone) throw duplicateContactError(existingPhone.id, 'PHONE');
+    if (existingPhone) {
+      throw duplicateContactError(
+        existingPhone.id,
+        'PHONE',
+        existingPhone.contactCode,
+        `${existingPhone.firstName} ${existingPhone.lastName}`.trim(),
+      );
+    }
     if (dto.email) {
       const existingEmail = await this.contactRepository.findByEmail(dto.email);
-      if (existingEmail) throw duplicateContactError(existingEmail.id, 'EMAIL');
+      if (existingEmail) {
+        throw duplicateContactError(
+          existingEmail.id,
+          'EMAIL',
+          existingEmail.contactCode,
+          `${existingEmail.firstName} ${existingEmail.lastName}`.trim(),
+        );
+      }
     }
     const contactCode = await this.contactRepository.generateContactCode();
+
+    // Authoritative organizational hierarchy resolution (§5 & §6)
+    let targetBranchId: string | null = null;
+    let targetCompanyId: string | null = null;
+
+    const creator = await this.prisma.user.findUnique({
+      where: { id: createdById },
+      include: {
+        branch: {
+          include: {
+            zone: {
+              include: {
+                region: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (creator) {
+      targetBranchId = creator.branchId || null;
+      targetCompanyId = creator.branch?.zone?.region?.companyId || null;
+    }
+
+    // Privileged administrator branch assignment
+    const adminRoles = ['SUPER_ADMIN', 'ADMIN', 'SYSTEM_ADMINISTRATOR', 'MD_CEO'];
+    const isAdmin = actor?.role && adminRoles.includes(actor.role as any);
+    if (isAdmin && (dto as any).branchId) {
+      const explicitBranch = await this.prisma.branch.findUnique({
+        where: { id: (dto as any).branchId },
+        include: { zone: { include: { region: true } } },
+      });
+      if (explicitBranch) {
+        targetBranchId = explicitBranch.id;
+        targetCompanyId = explicitBranch.zone?.region?.companyId || targetCompanyId;
+      }
+    }
+
     const { accountId, ...restDto } = dto;
     const contactData: Prisma.ContactCreateInput = {
-      // @ts-ignore
-      status: 'ACTIVE',
       contactCode, type: restDto.type, firstName: restDto.firstName, middleName: restDto.middleName, lastName: restDto.lastName,
       gender: restDto.gender, dateOfBirth: restDto.dateOfBirth ? new Date(restDto.dateOfBirth) : undefined, companyName: restDto.companyName,
       email: restDto.email, phone: restDto.phone, alternatePhone: restDto.alternatePhone, whatsappNumber: restDto.whatsappNumber,
       occupation: restDto.occupation, panNumber: restDto.panNumber, aadhaarNumber: restDto.aadhaarNumber, gstNumber: restDto.gstNumber,
       createdBy: { connect: { id: createdById } }, updatedBy: { connect: { id: createdById } },
     };
+    if (targetBranchId) contactData.branch = { connect: { id: targetBranchId } };
+    if (targetCompanyId) contactData.company = { connect: { id: targetCompanyId } };
     if (accountId) contactData.account = { connect: { id: accountId } };
     return ContactMapper.toResponse(await this.contactRepository.create(contactData));
   }
 
   async findAll(pagination: PaginationDto, actor: ActorContext) {
-    const { page = 1, limit = 10, search, sortBy = 'createdAt', sortOrder = 'desc' } = pagination;
+    const { page = 1, limit = 25, search, sortBy = 'createdAt', sortOrder = 'desc' } = pagination;
     const skip = (page - 1) * limit;
     this.assertActor(actor);
     const roles = actor.roles?.length ? actor.roles : [actor.role];
@@ -101,6 +162,31 @@ export class ContactsService {
     if (!contact || contact.deletedAt) throw new NotFoundException(`Contact ${id} not found`);
     if (actor) this.assertRecordAccess(contact, actor);
     return ContactMapper.toResponse(contact);
+  }
+
+  async unmask(id: string, reason: string, actor: ActorContext) {
+    const contact = await this.contactRepository.findById(id);
+    if (!contact || contact.deletedAt) throw new NotFoundException(`Contact ${id} not found`);
+    this.assertRecordAccess(contact, actor);
+
+    await this.prisma.auditLog.create({
+      data: {
+        action: AuditAction.UPDATE,
+        entity: 'Contact',
+        entityId: id,
+        userId: actor.userId,
+        performedById: actor.userId,
+        module: 'CONTACTS',
+        metadata: {
+          type: 'PII_UNMASK',
+          reason: reason || 'Authorized business need',
+          unmaskedFields: ['panNumber', 'aadhaarNumber'],
+          timestamp: new Date().toISOString(),
+        },
+      },
+    });
+
+    return ContactMapper.toResponse(contact, { unmaskSensitive: true });
   }
 
   async update(id: string, dto: UpdateContactDto, updatedById: string, actor: ActorContext) {

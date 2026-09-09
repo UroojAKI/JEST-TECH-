@@ -16,6 +16,7 @@ export const quotationWithRelations =
       contact: true,
       account: true,
       lead: true,
+      vehicle: true,
       versions: { orderBy: { versionNumber: 'desc' } },
       addons: true,
       discounts: true,

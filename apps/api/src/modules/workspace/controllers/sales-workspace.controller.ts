@@ -20,6 +20,12 @@ import { ReferralService } from '../services/referral.service';
 import { PerformanceService } from '../services/performance.service';
 import { PrismaService } from '../../../database/prisma.service';
 import { ParseUUIDPipe } from '../../../common/utils/parse-uuid.pipe';
+import {
+  MoveStageDto,
+  CreateReferralDto,
+  NoReferralDto,
+  LogCallDto,
+} from '../dto/workspace.dto';
 
 @ApiTags('Sales Workspace')
 @ApiBearerAuth()
@@ -132,17 +138,12 @@ export class SalesWorkspaceController {
   })
   moveStage(
     @Param('id', ParseUUIDPipe) leadId: string,
-    @Body()
-    dto: {
-      targetStage: WorkflowStage;
-      overrideReason?: string;
-      remarks?: string;
-    },
+    @Body() dto: MoveStageDto,
     @CurrentUser() user: RequestUser,
   ) {
     return this.workflowService.transitionStage(
       leadId,
-      dto.targetStage,
+      dto.targetStage as WorkflowStage,
       { id: user.id, role: user.role },
       dto.overrideReason,
       dto.remarks,
@@ -161,14 +162,7 @@ export class SalesWorkspaceController {
   })
   createReferral(
     @Param('id', ParseUUIDPipe) leadId: string,
-    @Body()
-    dto: {
-      referralName: string;
-      phone: string;
-      email?: string;
-      relationship?: string;
-      interestedProduct?: string;
-    },
+    @Body() dto: CreateReferralDto,
     @CurrentUser() user: RequestUser,
   ) {
     return this.referralService.createReferral(
@@ -188,7 +182,7 @@ export class SalesWorkspaceController {
   @ApiOperation({ summary: 'Mark lead with explicit No Referral reason' })
   markNoReferral(
     @Param('id', ParseUUIDPipe) leadId: string,
-    @Body() dto: { reason: string },
+    @Body() dto: NoReferralDto,
   ) {
     return this.referralService.markNoReferral(leadId, dto.reason);
   }
@@ -197,8 +191,7 @@ export class SalesWorkspaceController {
   @ApiOperation({ summary: 'Log call interaction for a lead' })
   async logCall(
     @Param('id', ParseUUIDPipe) leadId: string,
-    @Body()
-    dto: { callOutcome: string; notes?: string; scheduledFollowup?: string },
+    @Body() dto: LogCallDto,
     @CurrentUser() user: RequestUser,
   ) {
     const call = await this.prisma.callLog.create({

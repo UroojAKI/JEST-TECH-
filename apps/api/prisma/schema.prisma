@@ -556,6 +556,12 @@ model Contact {
 
   account Account? @relation(fields: [accountId], references: [id])
 
+  branchId String?
+  branch   Branch? @relation(fields: [branchId], references: [id], onDelete: SetNull)
+
+  companyId String?
+  company   Company? @relation(fields: [companyId], references: [id], onDelete: SetNull)
+
   leads Lead[]
 
   quotations Quotation[]
@@ -587,10 +593,12 @@ model Contact {
   @@index([email])
   @@index([contactCode])
   @@index([accountId])
+  @@index([branchId])
+  @@index([companyId])
   @@index([deletedAt])
   @@index([createdById])
   @@index([updatedById])
-  @@unique([accountId, phone])
+  @@unique([companyId, phone])
   @@map("contacts")
 }
 
@@ -2682,6 +2690,7 @@ model Company {
   updatedAt DateTime @updatedAt
 
   regions Region[]
+  contacts Contact[]
 
   @@index([taxId])
 }
@@ -2731,6 +2740,7 @@ model Branch {
   zone        Zone         @relation(fields: [zoneId], references: [id], onDelete: Restrict)
   departments Department[]
   users       User[]
+  contacts    Contact[]
 
   @@index([zoneId])
 }
@@ -3805,7 +3815,9 @@ model MotorRateConfiguration {
 enum OutboxStatus {
   PENDING
   PROCESSING
+  PUBLISHED
   DELIVERED
+  FAILED
   DEAD_LETTER
 }
 

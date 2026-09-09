@@ -21,7 +21,10 @@ export class ContactResponseDto {
   createdById: string | null;
   updatedById: string | null;
   accountId: string | null;
+  branchId?: string | null;
+  companyId?: string | null;
   branch?: { id: string; name: string; code: string } | null;
+  status: string;
   createdAt: Date;
   updatedAt: Date;
 }
