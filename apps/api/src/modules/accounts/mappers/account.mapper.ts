@@ -2,11 +2,14 @@ import { Account } from '@prisma/client';
 import { AccountWithContacts } from '../repositories/account.repository';
 import { AccountResponseDto } from '../dto/account-response.dto';
 import { ContactMapper } from '../../contacts/mappers/contact.mapper';
+import { EncryptionUtil } from '../../../common/utils/encryption.util';
 
 export class AccountMapper {
   static toResponse(
     account: AccountWithContacts | Account,
+    options?: { unmaskPii?: boolean },
   ): AccountResponseDto {
+    const shouldUnmask = options?.unmaskPii === true;
     const response = new AccountResponseDto();
     response.id = account.id;
     response.accountCode = account.accountCode;
@@ -17,7 +20,11 @@ export class AccountMapper {
     response.email = account.email;
     response.phone = account.phone;
     response.gstNumber = account.gstNumber;
-    response.panNumber = account.panNumber;
+    // EPIC-34: Mask PAN in API responses to prevent PII exposure.
+    // Full PAN is only returned to privileged roles via unmasked endpoint.
+    response.panNumber = shouldUnmask
+      ? account.panNumber
+      : EncryptionUtil.maskPan(account.panNumber);
     response.annualRevenue = account.annualRevenue
       ? Number(account.annualRevenue)
       : null;
@@ -42,7 +49,8 @@ export class AccountMapper {
 
   static toResponseList(
     accounts: (AccountWithContacts | Account)[],
+    options?: { unmaskPii?: boolean },
   ): AccountResponseDto[] {
-    return accounts.map((a) => this.toResponse(a));
+    return accounts.map((a) => this.toResponse(a, options));
   }
 }

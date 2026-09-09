@@ -9,7 +9,13 @@ describe('JwtAuthGuard & ActorContext (Iteration 1 Baseline)', () => {
   let strategy: JwtStrategy;
 
   beforeEach(() => {
-    guard = new JwtAuthGuard();
+    const mockAuthVersionService = {
+      checkVersion: jest.fn().mockResolvedValue(true),
+    } as any;
+    const mockJwtService = {
+      decode: jest.fn().mockReturnValue(null),
+    } as any;
+    guard = new JwtAuthGuard(mockAuthVersionService, mockJwtService);
     const mockConfig = {
       jwtSecret: 'test-secret',
     } as unknown as ConfigurationService;

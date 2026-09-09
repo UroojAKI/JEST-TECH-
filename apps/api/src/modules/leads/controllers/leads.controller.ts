@@ -233,4 +233,13 @@ export class LeadsController {
     }
     return this.leadsService.convert(id, user.id);
   }
+
+  @Post(':id/mark-lost')
+  @Roles(...LEAD_MANAGE_ROLES)
+  async markLost(@Param('id', ParseUUIDPipe) id: string, @Body() body: { lossReason: string }, @CurrentUser() user: RequestUser) {
+    if (!body.lossReason || typeof body.lossReason !== 'string' || body.lossReason.trim() === '') {
+      throw new BadRequestException('lossReason is required and must be a non-empty string');
+    }
+    return this.leadsService.markLost(id, body.lossReason.trim(), user.id);
+  }
 }

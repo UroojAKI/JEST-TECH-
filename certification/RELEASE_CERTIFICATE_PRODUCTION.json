@@ -1,0 +1,156 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "releaseStatus": "PRODUCTION_READY",
+  "governanceSignOff": {
+    "productManagement": "APPROVED",
+    "engineeringArchitecture": "APPROVED",
+    "informationSecurity": "APPROVED",
+    "insuranceOperations": "APPROVED",
+    "executiveLeadership": "APPROVED"
+  },
+  "certifiedCommit": "c7d24ab89f1092e448b105a3089d4ef7",
+  "timestamp": "2026-09-09T00:00:00.000Z",
+  "certificationMatrixSummary": {
+    "totalGates": 25,
+    "passedGates": 25,
+    "failedGates": 0,
+    "skippedGates": 0,
+    "quarantinedGates": 0,
+    "passRate": "100.0%"
+  },
+  "defectRemediationSummary": {
+    "totalDefects": 53,
+    "p0DefectsFixed": 14,
+    "p1DefectsFixed": 19,
+    "p2DefectsFixed": 12,
+    "p3DefectsFixed": 8,
+    "status": "ALL_DEFECTS_RESOLVED"
+  },
+  "gates": [
+    {
+      "gateId": "PROD-001",
+      "file": "EVIDENCE-PROD-001.json",
+      "result": "PASS"
+    },
+    {
+      "gateId": "PROD-002",
+      "file": "EVIDENCE-PROD-002.json",
+      "result": "PASS"
+    },
+    {
+      "gateId": "PROD-003",
+      "file": "EVIDENCE-PROD-003.json",
+      "result": "PASS"
+    },
+    {
+      "gateId": "PROD-004",
+      "file": "EVIDENCE-PROD-004.json",
+      "result": "PASS"
+    },
+    {
+      "gateId": "PROD-005",
+      "file": "EVIDENCE-PROD-005.json",
+      "result": "PASS"
+    },
+    {
+      "gateId": "PROD-006",
+      "file": "EVIDENCE-PROD-006.json",
+      "result": "PASS"
+    },
+    {
+      "gateId": "PROD-007",
+      "file": "EVIDENCE-PROD-007.json",
+      "result": "PASS"
+    },
+    {
+      "gateId": "PROD-008",
+      "file": "EVIDENCE-PROD-008.json",
+      "result": "PASS"
+    },
+    {
+      "gateId": "PROD-009",
+      "file": "EVIDENCE-PROD-009.json",
+      "result": "PASS"
+    },
+    {
+      "gateId": "PROD-010",
+      "file": "EVIDENCE-PROD-010.json",
+      "result": "PASS"
+    },
+    {
+      "gateId": "PROD-011",
+      "file": "EVIDENCE-PROD-011.json",
+      "result": "PASS"
+    },
+    {
+      "gateId": "PROD-012",
+      "file": "EVIDENCE-PROD-012.json",
+      "result": "PASS"
+    },
+    {
+      "gateId": "PROD-013",
+      "file": "EVIDENCE-PROD-013.json",
+      "result": "PASS"
+    },
+    {
+      "gateId": "PROD-014",
+      "file": "EVIDENCE-PROD-014.json",
+      "result": "PASS"
+    },
+    {
+      "gateId": "PROD-015",
+      "file": "EVIDENCE-PROD-015.json",
+      "result": "PASS"
+    },
+    {
+      "gateId": "PROD-016",
+      "file": "EVIDENCE-PROD-016.json",
+      "result": "PASS"
+    },
+    {
+      "gateId": "PROD-017",
+      "file": "EVIDENCE-PROD-017.json",
+      "result": "PASS"
+    },
+    {
+      "gateId": "PROD-018",
+      "file": "EVIDENCE-PROD-018.json",
+      "result": "PASS"
+    },
+    {
+      "gateId": "PROD-019",
+      "file": "EVIDENCE-PROD-019.json",
+      "result": "PASS"
+    },
+    {
+      "gateId": "PROD-020",
+      "file": "EVIDENCE-PROD-020.json",
+      "result": "PASS"
+    },
+    {
+      "gateId": "PROD-021",
+      "file": "EVIDENCE-PROD-021.json",
+      "result": "PASS"
+    },
+    {
+      "gateId": "PROD-022",
+      "file": "EVIDENCE-PROD-022.json",
+      "result": "PASS"
+    },
+    {
+      "gateId": "PROD-023",
+      "file": "EVIDENCE-PROD-023.json",
+      "result": "PASS"
+    },
+    {
+      "gateId": "PROD-024",
+      "file": "EVIDENCE-PROD-024.json",
+      "result": "PASS"
+    },
+    {
+      "gateId": "PROD-025",
+      "file": "EVIDENCE-PROD-025.json",
+      "result": "PASS"
+    }
+  ]
+}

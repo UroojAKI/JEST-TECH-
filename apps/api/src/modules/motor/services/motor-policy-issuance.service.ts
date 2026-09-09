@@ -97,6 +97,15 @@ export class MotorPolicyIssuanceService {
           .filter((date): date is Date => Boolean(date))
           .sort((a, b) => a.getTime() - b.getTime())[0] || endDate;
 
+      // EPIC-22: Idempotency Check — if a policy with this policyNumber was already issued,
+      // return it idempotently without re-executing mutations.
+      const existingPolicyByNumber = await tx.policy.findFirst({
+        where: { policyNumber: dto.actualPolicyNumber },
+      });
+      if (existingPolicyByNumber) {
+        return existingPolicyByNumber;
+      }
+
       const policy = await tx.policy.create({
         data: {
           policyNumber: dto.actualPolicyNumber,
@@ -210,6 +219,26 @@ export class MotorPolicyIssuanceService {
             leadId: quote.leadId,
             policyNumber: policy.policyNumber,
           },
+        },
+      });
+
+      // EPIC-22: Transactional Outbox event for downstream integrations
+      await tx.outboxEvent.create({
+        data: {
+          aggregateType: 'POLICY',
+          aggregateId: policy.id,
+          eventType: 'policy.issued',
+          payload: {
+            policyId: policy.id,
+            policyNumber: policy.policyNumber,
+            quotationId: quote.id,
+            contactId: quote.contactId,
+            premiumAmount: quote.totalPremium,
+            issuedAt: new Date().toISOString(),
+          },
+          status: 'PENDING',
+          attempts: 0,
+          maxAttempts: 5,
         },
       });
 

@@ -3,6 +3,8 @@ import {
   ConflictException,
   Injectable,
   NotFoundException,
+  Inject,
+  forwardRef,
 } from '@nestjs/common';
 import {
   Prisma,
@@ -21,13 +23,14 @@ import { PrismaService } from '../../../../database/prisma.service';
 import { CACHE_PROVIDER_TOKEN } from '../../../platform/cache/cache.provider';
 import { RedisCacheService } from '../../../platform/cache/redis-cache.service';
 import { OutboxService } from '../../../platform/outbox/outbox.service';
-import { Inject } from '@nestjs/common';
 import { BackOfficeQueueService } from '../queries/back-office-queue.service';
 
 @Injectable()
 export class IssuePolicyService {
   constructor(
+    @Inject(forwardRef(() => PolicyRepository))
     private readonly policyRepository: PolicyRepository,
+    @Inject(forwardRef(() => QuotationRepository))
     private readonly quotationRepository: QuotationRepository,
     private readonly pdfService: PdfService,
     private readonly policyDomainService: PolicyDomainService,

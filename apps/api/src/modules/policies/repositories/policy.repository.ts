@@ -1,4 +1,4 @@
-// import removed
+import { Injectable } from '@nestjs/common';
 import {
   Prisma,
   Policy,
@@ -32,7 +32,6 @@ export type PolicyWithRelations = Prisma.PolicyGetPayload<
   typeof policyWithRelations
 >;
 
-import { Injectable } from '@nestjs/common';
 @Injectable()
 export class PolicyRepository extends BaseRepository<
   Prisma.PolicyDelegate,
@@ -80,8 +79,14 @@ export class PolicyRepository extends BaseRepository<
   }
 
   async findDetail(id: string): Promise<PolicyWithRelations | null> {
+    const isUUID =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+        id,
+      );
     return this.prisma.policy.findFirst({
-      where: { id, deletedAt: null },
+      where: isUUID
+        ? { OR: [{ id }, { policyNumber: id }], deletedAt: null }
+        : { policyNumber: id, deletedAt: null },
       include: policyWithRelations.include,
     });
   }

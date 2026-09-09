@@ -44,9 +44,15 @@ export class ProposalService {
     return new PaginatedResponseDto(mapped, total, page, limit);
   }
 
-  async getProposalDetails(id: string, user: RequestUser) {
-    const prop = await this.prisma.proposal.findUnique({
-      where: { id },
+  private async findProposalByIdOrNumber(idOrNumber: string) {
+    const isUUID =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+        idOrNumber,
+      );
+    return this.prisma.proposal.findFirst({
+      where: isUUID
+        ? { OR: [{ id: idOrNumber }, { proposalNumber: idOrNumber }] }
+        : { proposalNumber: idOrNumber },
       include: {
         contact: true,
         quotation: true,
@@ -58,6 +64,10 @@ export class ProposalService {
         },
       },
     });
+  }
+
+  async getProposalDetails(id: string, user: RequestUser) {
+    const prop = await this.findProposalByIdOrNumber(id);
     if (!prop) {
       throw new NotFoundException('Proposal not found');
     }
@@ -202,11 +212,16 @@ export class ProposalService {
     documentId: string,
     userId: string,
   ) {
+    const prop = await this.findProposalByIdOrNumber(proposalId);
+    if (!prop) {
+      throw new NotFoundException('Proposal not found');
+    }
+
     const propDoc = await this.prisma.proposalDocument.findUnique({
       where: { id: checklistItemId },
     });
 
-    if (!propDoc || propDoc.proposalId !== proposalId) {
+    if (!propDoc || propDoc.proposalId !== prop.id) {
       throw new NotFoundException('Checklist item not found');
     }
 
@@ -222,10 +237,7 @@ export class ProposalService {
   }
 
   async submitProposal(id: string, userId: string, expectedVersion?: number) {
-    const prop = await this.prisma.proposal.findUnique({
-      where: { id },
-      include: { documents: true },
-    });
+    const prop = await this.findProposalByIdOrNumber(id);
 
     if (!prop) {
       throw new NotFoundException('Proposal not found');
@@ -241,7 +253,7 @@ export class ProposalService {
     }
 
     if (expectedVersion !== undefined) {
-      await checkOptimisticLock(this.prisma.proposal, id, expectedVersion);
+      await checkOptimisticLock(this.prisma.proposal, prop.id, expectedVersion);
     }
 
     const workflow = await this.prisma.workflow.findFirst({
@@ -269,14 +281,14 @@ export class ProposalService {
 
     await this.workflowEngine.transition(
       'PROPOSAL',
-      id,
+      prop.id,
       transition.id,
       userId,
       'Proposal submitted for underwriting review',
     );
 
     return this.prisma.proposal.findUnique({
-      where: { id },
+      where: { id: prop.id },
       include: { documents: true },
     });
   }
@@ -288,10 +300,7 @@ export class ProposalService {
     reviewerId: string,
     expectedVersion?: number,
   ) {
-    const prop = await this.prisma.proposal.findUnique({
-      where: { id },
-      include: { quotation: true },
-    });
+    const prop = await this.findProposalByIdOrNumber(id);
 
     if (!prop) {
       throw new NotFoundException('Proposal not found');
@@ -308,7 +317,7 @@ export class ProposalService {
     }
 
     if (expectedVersion !== undefined) {
-      await checkOptimisticLock(this.prisma.proposal, id, expectedVersion);
+      await checkOptimisticLock(this.prisma.proposal, prop.id, expectedVersion);
     }
 
     const workflow = await this.prisma.workflow.findFirst({
@@ -383,18 +392,18 @@ export class ProposalService {
 
     await this.workflowEngine.transition(
       'PROPOSAL',
-      id,
+      prop.id,
       transitionToExecute.id,
       reviewerId,
       remarks || (approve ? 'Proposal approved' : 'Proposal rejected'),
     );
 
     const updatedProposal = await this.prisma.proposal.findUnique({
-      where: { id },
+      where: { id: prop.id },
     });
 
     const policy = await this.prisma.policy.findFirst({
-      where: { proposalId: id },
+      where: { proposalId: prop.id },
     });
 
     return {

@@ -316,6 +316,8 @@ model User {
 
   lastLoginAt DateTime?
 
+  authVersion Int @default(1)
+
   teamId       String?
   departmentId String?
   branchId     String?
@@ -588,6 +590,7 @@ model Contact {
   @@index([deletedAt])
   @@index([createdById])
   @@index([updatedById])
+  @@unique([accountId, phone])
   @@map("contacts")
 }
 
@@ -3802,24 +3805,41 @@ model MotorRateConfiguration {
 enum OutboxStatus {
   PENDING
   PROCESSING
-  PUBLISHED
-  FAILED
+  DELIVERED
+  DEAD_LETTER
 }
 
 model OutboxEvent {
-  id            String       @id @default(uuid())
-  aggregateType String
-  aggregateId   String
-  eventType     String
-  payload       Json
-  status        OutboxStatus @default(PENDING)
-  attempts      Int          @default(0)
-  lastError     String?      @db.Text
-  createdAt     DateTime     @default(now())
-  processedAt   DateTime?
+  id             String       @id @default(uuid())
+  aggregateType  String
+  aggregateId    String
+  eventType      String
+  payload        Json
+  status         OutboxStatus @default(PENDING)
+  attempts       Int          @default(0)
+  maxAttempts    Int          @default(5)
+  lastError      String?      @db.Text
+  nextRetryAt    DateTime?
+  processedAt    DateTime?
+  deadLetteredAt DateTime?
+  createdAt      DateTime     @default(now())
 
   @@index([status, createdAt])
   @@index([aggregateType, aggregateId])
   @@map("outbox_events")
+}
+
+model IdempotencyKey {
+  id              String   @id @default(uuid())
+  actorId         String
+  operationType   String
+  idempotencyKey  String
+  requestHash     String
+  responsePayload Json?
+  expiresAt       DateTime
+  createdAt       DateTime @default(now())
+
+  @@unique([actorId, operationType, idempotencyKey])
+  @@map("idempotency_keys")
 }
 

@@ -19,7 +19,7 @@ describe('ContactsService', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    service = new ContactsService(repository as any);
+    service = new ContactsService(repository as any, {} as any);
   });
 
   it('creates a new contact instead of silently returning an existing duplicate', async () => {

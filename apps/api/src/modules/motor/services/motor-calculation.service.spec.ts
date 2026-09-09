@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { MotorCalculationService } from './motor-calculation.service';
+import { MotorTariffService } from './motor-tariff.service';
 import { PrismaService } from '../../../database/prisma.service';
 import { BadRequestException } from '@nestjs/common';
 
@@ -12,7 +13,22 @@ describe('MotorCalculationService (Iteration 5 Financial Math)', () => {
         MotorCalculationService,
         {
           provide: PrismaService,
-          useValue: {},
+          useValue: {
+            systemConfig: {
+              findFirst: jest.fn().mockResolvedValue(null),
+            },
+          },
+        },
+        {
+          provide: MotorTariffService,
+          useValue: {
+            lookupTpTariff: jest.fn().mockResolvedValue({
+              found: true,
+              annualPremium: 3416,
+              tariffId: 'tariff-pc-2026',
+              isVerified: true,
+            }),
+          },
         },
       ],
     }).compile();
@@ -59,12 +75,16 @@ describe('MotorCalculationService (Iteration 5 Financial Math)', () => {
       expect(outputs.netCustomerPremium).toBe(14948.2);
       expect(outputs.basePremium).toBe(14948.2);
 
-      // Option A Statutory GST (18% on GROSS ₹19,326, discounts NEVER reduce tax) = 3478.68
-      expect(outputs.totalGst).toBe(3478.68);
+      // Component-level 18% GST (per v4.2 spec: tax applied on net discounted component):
+      // GST on OD (11257.2 * 0.18) = 2026.3
+      // GST on TP (3416 * 0.18) = 614.88
+      // GST on PA (275 * 0.18) = 49.5
+      // Total GST = 2690.68
+      expect(outputs.totalGst).toBe(2690.68);
 
-      // Final Payable = Net Customer Premium (14948.2) + Statutory GST (3478.68) = 18426.88
-      expect(outputs.totalPremium).toBe(18426.88);
-      expect(outputs.finalPayableAmount).toBe(18426.88);
+      // Final Payable = Net Customer Premium (14948.2) + GST (2690.68) = 17638.88
+      expect(outputs.totalPremium).toBe(17638.88);
+      expect(outputs.finalPayableAmount).toBe(17638.88);
 
       // Verify that base premium is strictly different from total payable
       expect(outputs.basePremium).not.toBe(outputs.totalPremium);

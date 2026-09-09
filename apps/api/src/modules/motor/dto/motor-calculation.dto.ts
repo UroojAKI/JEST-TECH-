@@ -45,6 +45,24 @@ export class MotorCalculationInputDto {
   @Min(0)
   idv?: number;
 
+  /** Engine cubic capacity in cc — used for TP tariff band lookup. */
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  engineCc?: number;
+
+  /** Seating capacity (for PCV tariff band lookup). */
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  seatingCapacity?: number;
+
+  /** Gross vehicle weight in kg (for GCV tariff band lookup). */
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  gvwKg?: number;
+
   @IsOptional()
   @IsNumber()
   @Min(0)
@@ -55,10 +73,12 @@ export class MotorCalculationInputDto {
   @IsBoolean()
   claimInExpiringPolicy?: boolean;
 
+  /** Compulsory PA for Owner-Driver cover (₹15L). Defaults to true. Set false only with valid waiver. */
   @IsOptional()
   @IsBoolean()
   paCover?: boolean;
 
+  /** Legal Liability to Paid Driver (LL). */
   @IsOptional()
   @IsBoolean()
   paidDriverLiability?: boolean;
@@ -83,7 +103,9 @@ export class MotorCalculationInputDto {
   @IsString()
   activeTpExpiryDate?: string;
 
+  /** Required when discountPercent exceeds the configured standard authority limit. */
   @IsOptional()
   @IsString()
   approvalReference?: string;
 }
+

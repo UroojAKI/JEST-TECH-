@@ -17,6 +17,8 @@ export interface AuditLogOptions {
   metadata?: Record<string, any>;
 }
 
+export interface CreateAuditLogDto extends AuditLogOptions {}
+
 @Injectable()
 export class AuditService {
   constructor(private readonly prisma: PrismaService) {}
@@ -24,6 +26,33 @@ export class AuditService {
   /**
    * Logs an audit record asynchronously with PII & secret redaction (SEC-002).
    */
+  async createAuditLog(options: CreateAuditLogDto) {
+    const resolvedCorrelationId =
+      options.correlationId || correlationStorage.getStore() || 'system';
+
+    return this.prisma.auditLog.create({
+      data: {
+        userId: options.userId || null,
+        module: options.module,
+        entity: options.entity,
+        entityId: options.entityId,
+        action: options.action,
+        oldValue: options.oldValue
+          ? this.sanitizeAuditPayload(JSON.parse(JSON.stringify(options.oldValue)))
+          : null,
+        newValue: options.newValue
+          ? this.sanitizeAuditPayload(JSON.parse(JSON.stringify(options.newValue)))
+          : null,
+        ...(options.metadata
+          ? { metadata: this.sanitizeAuditPayload(options.metadata) }
+          : {}),
+        ipAddress: options.ipAddress || null,
+        userAgent: options.userAgent || null,
+        correlationId: resolvedCorrelationId,
+      },
+    });
+  }
+
   async log(options: AuditLogOptions): Promise<void> {
     const resolvedCorrelationId =
       options.correlationId || correlationStorage.getStore() || 'system';

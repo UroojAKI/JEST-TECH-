@@ -1,4 +1,4 @@
-// import removed
+import { Injectable } from '@nestjs/common';
 import {
   Prisma,
   Quotation,
@@ -28,7 +28,6 @@ export type QuotationWithRelations = Prisma.QuotationGetPayload<
   typeof quotationWithRelations
 >;
 
-import { Injectable } from '@nestjs/common';
 @Injectable()
 export class QuotationRepository extends BaseRepository<
   Prisma.QuotationDelegate,

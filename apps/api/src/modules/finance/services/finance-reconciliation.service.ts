@@ -310,6 +310,26 @@ export class FinanceReconciliationService {
         },
       });
 
+      // EPIC-19: Transactional Outbox event for payment reconciliation
+      await tx.outboxEvent.create({
+        data: {
+          aggregateType: 'PAYMENT',
+          aggregateId: id,
+          eventType: 'payment.reconciled',
+          payload: {
+            paymentRecordId: id,
+            quotationId: payment.quotationId,
+            paidAmount,
+            bankReference: updatedNotes.bankReference,
+            reconciledBy: actorId,
+            reconciledAt,
+          },
+          status: 'PENDING',
+          attempts: 0,
+          maxAttempts: 5,
+        },
+      });
+
       return updated;
     });
 

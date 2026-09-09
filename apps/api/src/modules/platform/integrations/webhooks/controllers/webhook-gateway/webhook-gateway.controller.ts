@@ -8,9 +8,11 @@ import {
   Req,
   BadRequestException,
   UnauthorizedException,
+  ConflictException,
 } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { PrismaService } from '../../../../../../database/prisma.service';
+import { AuditAction } from '@prisma/client';
 import * as crypto from 'crypto';
 
 @Controller('webhooks')
@@ -43,25 +45,64 @@ export class WebhookGatewayController {
       );
     }
 
-    // 3. Check Idempotency
+    // 3. Compute incoming payload SHA-256 hash for strict 3-case semantics
+    const payloadString =
+      typeof payload === 'string' ? payload : JSON.stringify(payload);
+    const currentHash = crypto
+      .createHash('sha256')
+      .update(payloadString)
+      .digest('hex');
+
+    // 4. Check Idempotency (3-case webhook semantics per specification v4.2)
     const existingLog = await this.prisma.webhookAuditLog.findUnique({
       where: { providerEventId },
     });
 
     if (existingLog) {
-      this.logger.warn(
-        `Idempotency hit for ${providerEventId}. Ignoring duplicate webhook.`,
-      );
-      return { status: 'ignored', reason: 'already_processed' };
+      const existingHash = crypto
+        .createHash('sha256')
+        .update(existingLog.payload)
+        .digest('hex');
+
+      if (existingHash === currentHash) {
+        // Case B: Exact duplicate -> idempotent 200 no-op
+        this.logger.log(
+          `[Webhook] Case B: Exact duplicate received for ${providerEventId}. Idempotent 200 returned.`,
+        );
+        return { status: 'ignored', reason: 'already_processed', idempotent: true };
+      } else {
+        // Case C: Same event ID but different payload -> 409 Conflict + Security Alert
+        this.logger.error(
+          `[Webhook] Case C: PAYMENT_TRANSACTION_CONFLICT for ${providerEventId}. Hash mismatch!`,
+        );
+        try {
+          await this.prisma.auditLog.create({
+            data: {
+              action: AuditAction.REJECT,
+              entity: 'WEBHOOK',
+              entityId: providerEventId,
+              module: 'INTEGRATIONS',
+              performedById: 'SYSTEM_WEBHOOK_GATEWAY',
+              oldValue: { hash: existingHash },
+              newValue: { hash: currentHash, provider },
+            },
+          });
+        } catch {
+          // Log failure should not mask conflict error
+        }
+        throw new ConflictException(
+          `PAYMENT_TRANSACTION_CONFLICT: Webhook event ID ${providerEventId} re-used with conflicting payload.`,
+        );
+      }
     }
 
-    // 4. Log Webhook for Idempotency
+    // Case A: New webhook -> record log, emit event for business reconciliation
     await this.prisma.webhookAuditLog.create({
       data: {
         provider,
         providerEventId,
         eventType: this.extractEventType(provider, payload),
-        payload: JSON.stringify(payload),
+        payload: payloadString,
       },
     });
 

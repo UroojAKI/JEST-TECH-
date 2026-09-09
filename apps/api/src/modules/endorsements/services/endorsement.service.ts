@@ -309,6 +309,16 @@ export class EndorsementService {
       throw new NotFoundException('Policy not found');
     }
 
+    if (policy.status !== 'ACTIVE') {
+      throw new BadRequestException(
+        `Endorsements can only be requested on ACTIVE policies. Current policy status is ${policy.status}.`,
+      );
+    }
+
+    if (!reason || !reason.trim()) {
+      throw new BadRequestException('A reason is mandatory when requesting an endorsement.');
+    }
+
     const endorsementNumber = this.generateEndNumber();
 
     return this.prisma.$transaction(async (tx) => {

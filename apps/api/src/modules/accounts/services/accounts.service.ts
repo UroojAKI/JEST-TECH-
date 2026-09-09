@@ -19,15 +19,20 @@ export class AccountsService {
     if (!actor?.userId || !actor.organizationId) throw new BadRequestException('Actor organizational context is required');
     const roles = actor.roles?.length ? actor.roles : [actor.role];
     if (roles.some((r) => GLOBAL_ROLES.includes(r))) return {};
+    
+    // Add organization scoping for all non-admin roles
+    const orgScope = { createdBy: { branch: { zone: { region: { companyId: actor.organizationId } } } } };
+
     if (roles.includes(RoleType.BRANCH_MANAGER) || roles.includes(RoleType.MARKETING_DIRECTOR)) {
-      if (!actor.branchId) throw new BadRequestException('Branch context is required');
-      return { createdBy: { branchId: actor.branchId } };
+      if (actor.branchId) return { AND: [orgScope, { createdBy: { branchId: actor.branchId } }] };
+      return { AND: [orgScope, { createdById: actor.userId }] };
     }
     if (roles.includes(RoleType.TEAM_LEADER) || roles.includes(RoleType.SALES_MANAGER)) {
-      if (!actor.teamId) throw new BadRequestException('Team context is required');
-      return { createdBy: { teamId: actor.teamId } };
+      if (actor.teamId) return { AND: [orgScope, { createdBy: { teamId: actor.teamId } }] };
+      if (actor.branchId) return { AND: [orgScope, { createdBy: { branchId: actor.branchId } }] };
+      return { AND: [orgScope, { createdById: actor.userId }] };
     }
-    return { createdById: actor.userId };
+    return { AND: [orgScope, { createdById: actor.userId }] };
   }
 
   async create(dto: CreateAccountDto, createdById: string, actor?: ActorContext) {

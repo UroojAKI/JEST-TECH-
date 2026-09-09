@@ -139,6 +139,8 @@ export class WorkspaceAccessGuard implements CanActivate {
       );
     }
 
+    // TODO EPIC-02: Add company-branch hierarchy enforcement
+
     // Super Admin has universal workspace access
     if (
       actor.roles?.includes(RoleType.SUPER_ADMIN) ||

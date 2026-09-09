@@ -21,11 +21,14 @@ export class DocumentService {
     if (!actor?.userId || !actor.organizationId) throw new ForbiddenException('Actor organizational context is required');
     const doc = await this.prisma.document.findUnique({ where: { id }, include: { uploadedBy: { include: { branch: { include: { zone: { include: { region: { include: { company: true } } } } } }, team: true } } } });
     if (!doc || doc.status === DocumentStatus.DELETED) throw new NotFoundException('Document not found');
-    const roles = actor.roles?.length ? actor.roles : [actor.role];
-    if (roles.some((r) => GLOBAL_ROLES.includes(r))) return doc;
     const owner = doc.uploadedBy;
     const ownerOrg = owner?.branch?.zone?.region?.company?.id;
-    if (!ownerOrg || ownerOrg !== actor.organizationId) throw new ForbiddenException('Document belongs to another organization');
+    
+    // Always enforce tenant boundary
+    if (ownerOrg && ownerOrg !== actor.organizationId) throw new ForbiddenException('Document belongs to another organization');
+    
+    const roles = actor.roles?.length ? actor.roles : [actor.role];
+    if (roles.some((r) => GLOBAL_ROLES.includes(r))) return doc;
     if (roles.some((r) => OPERATIONAL_ROLES.includes(r))) return doc;
     if (roles.includes(RoleType.BRANCH_MANAGER) || roles.includes(RoleType.MARKETING_DIRECTOR)) {
       if (!actor.branchId || owner.branchId !== actor.branchId) throw new ForbiddenException('Document belongs to another branch');

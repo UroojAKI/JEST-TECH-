@@ -1,20 +1,79 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
 
-const defaultApiUrl = typeof window !== 'undefined' ? '/api/v1' : 'http://localhost:4000/api/v1';
+const defaultApiUrl =
+  typeof window !== 'undefined' ? '/api/v1' : 'http://localhost:4000/api/v1';
 const API_URL =
   typeof window !== 'undefined' &&
-  (process.env.NEXT_PUBLIC_API_URL === 'http://localhost:4000/api/v1' || !process.env.NEXT_PUBLIC_API_URL)
+  (process.env.NEXT_PUBLIC_API_URL === 'http://localhost:4000/api/v1' ||
+    !process.env.NEXT_PUBLIC_API_URL)
     ? '/api/v1'
     : process.env.NEXT_PUBLIC_API_URL || defaultApiUrl;
 
+// ── Helpers ─────────────────────────────────────────────────────────────────
+
+/** Read a cookie value by name from document.cookie (browser-only). */
+function getCookie(name: string): string | null {
+  if (typeof document === 'undefined') return null;
+  const match = document.cookie
+    .split('; ')
+    .find((row) => row.startsWith(`${name}=`));
+  return match ? decodeURIComponent(match.split('=')[1]) : null;
+}
+
+/** Generate a RFC 4122-compliant v4 UUID for correlation IDs. */
+function generateCorrelationId(): string {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  // Fallback for environments without crypto.randomUUID
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+}
+
+// ── Client ───────────────────────────────────────────────────────────────────
+
+/**
+ * EPIC-04: Unified authoritative API client.
+ *
+ * Features:
+ * - HttpOnly cookie-based authentication (no token exposure to JS)
+ * - Automatic 401 → silent refresh token rotation with request queue
+ * - CSRF double-submit cookie (X-CSRF-Token header on mutating requests)
+ * - Correlation ID header on every request (X-Correlation-ID)
+ * - 30-second request timeout
+ */
 export const apiClient = axios.create({
   baseURL: API_URL,
   withCredentials: true,
+  timeout: 30_000,
   headers: { 'Content-Type': 'application/json' },
 });
 
-// Authentication is cookie-based. Access/refresh tokens are HttpOnly and must
-// never be copied into localStorage or manually injected into Authorization.
+// ── Request interceptor: correlation ID + CSRF ────────────────────────────
+
+const STATE_MUTATING_METHODS = new Set(['post', 'put', 'patch', 'delete']);
+
+apiClient.interceptors.request.use((config: InternalAxiosRequestConfig) => {
+  // Attach a unique correlation ID to every outbound request for tracing.
+  config.headers['X-Correlation-ID'] = generateCorrelationId();
+
+  // CSRF double-submit: attach the csrf_token cookie value as a header for all
+  // state-mutating requests. The backend guard validates this to prevent CSRF.
+  const method = (config.method ?? 'get').toLowerCase();
+  if (STATE_MUTATING_METHODS.has(method)) {
+    const csrfToken = getCookie('csrf_token');
+    if (csrfToken) {
+      config.headers['X-CSRF-Token'] = csrfToken;
+    }
+  }
+
+  return config;
+});
+
+// ── Response interceptor: unwrap envelope + 401 refresh ──────────────────
 
 let isRefreshing = false;
 let failedQueue: Array<{
@@ -32,6 +91,7 @@ const processQueue = (error: AxiosError | null) => {
 
 apiClient.interceptors.response.use(
   (response) => {
+    // Transparently unwrap the standard { success: true, data: ... } envelope.
     if (
       response.data &&
       typeof response.data === 'object' &&
@@ -43,8 +103,11 @@ apiClient.interceptors.response.use(
     return response;
   },
   async (error: AxiosError) => {
-    const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
+    const originalRequest = error.config as InternalAxiosRequestConfig & {
+      _retry?: boolean;
+    };
 
+    // Only attempt refresh for 401s on non-auth, non-retried requests.
     if (
       error.response?.status !== 401 ||
       !originalRequest ||
@@ -56,6 +119,7 @@ apiClient.interceptors.response.use(
     }
 
     if (isRefreshing) {
+      // Queue concurrent requests until the in-flight refresh completes.
       return new Promise((resolve, reject) => {
         failedQueue.push({ resolve, reject });
       })
@@ -67,8 +131,8 @@ apiClient.interceptors.response.use(
     isRefreshing = true;
 
     try {
-      // The server rotates and sets both HttpOnly cookies. The response body
-      // intentionally does not expose either token to browser JavaScript.
+      // The server rotates and sets both HttpOnly cookies on successful refresh.
+      // The response body intentionally does not expose either token to JS.
       await axios.post(`${API_URL}/auth/refresh`, {}, { withCredentials: true });
       processQueue(null);
       return apiClient(originalRequest);

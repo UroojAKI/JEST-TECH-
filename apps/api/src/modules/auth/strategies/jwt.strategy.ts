@@ -62,6 +62,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         firstName: true,
         lastName: true,
         status: true,
+        updatedAt: true,
         teamId: true,
         departmentId: true,
         branchId: true,
@@ -100,6 +101,14 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       throw new UnauthorizedException(
         `User account is ${user.status.toLowerCase()}`,
       );
+    }
+
+    if ((payload as any).authVersion && user.updatedAt) {
+      if ((payload as any).authVersion < user.updatedAt.getTime()) {
+        throw new UnauthorizedException(
+          'Session invalidated: user profile or permissions updated',
+        );
+      }
     }
 
     const primaryRole = user.role?.type || (payload.role as RoleType);

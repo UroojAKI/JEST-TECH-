@@ -29,6 +29,7 @@ describe('MotorPolicyIssuanceService (Iteration 8)', () => {
       },
       policy: {
         create: jest.fn(),
+        findFirst: jest.fn().mockResolvedValue(null),
       },
       policyHistory: {
         create: jest.fn(),
@@ -40,6 +41,9 @@ describe('MotorPolicyIssuanceService (Iteration 8)', () => {
         create: jest.fn(),
       },
       auditLog: {
+        create: jest.fn(),
+      },
+      outboxEvent: {
         create: jest.fn(),
       },
       $transaction: jest.fn((callback) => callback(prisma)),

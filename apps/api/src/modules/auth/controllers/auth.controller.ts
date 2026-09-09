@@ -10,6 +10,7 @@ import type { Response, Request } from 'express';
 
 import { LoginDto } from '../dto/login.dto';
 import { AuthService } from '../services/auth.service';
+import * as crypto from 'crypto';
 
 @Controller('auth')
 export class AuthController {
@@ -79,6 +80,15 @@ export class AuthController {
       secure: isProduction,
       sameSite: 'lax',
       maxAge: 30 * 24 * 60 * 60 * 1000,
+      path: '/',
+    });
+
+    const csrfToken = crypto.randomBytes(32).toString('hex');
+    res.cookie('csrf_token', csrfToken, {
+      httpOnly: false, // Must be readable by client JS to send in header
+      secure: isProduction,
+      sameSite: 'lax',
+      maxAge: 15 * 60 * 1000,
       path: '/',
     });
   }

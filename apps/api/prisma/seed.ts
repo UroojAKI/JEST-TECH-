@@ -310,6 +310,8 @@ async function main() {
         await tx.user.upsert({
           where: { email: u.email },
           update: { 
+            passwordHash,
+            status: UserStatus.ACTIVE,
             roleId: r.id, 
             jobRoleId: seededJobRoles[u.jr].id, 
             departmentId: seededJobRoles[u.jr].departmentId,

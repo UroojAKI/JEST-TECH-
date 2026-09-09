@@ -38,6 +38,52 @@ const GLOBAL_ADMIN_ROLES: RoleType[] = [
   RoleType.MD_CEO,
 ];
 
+const POLICY_VIEW_ROLES: RoleType[] = [
+  RoleType.SUPER_ADMIN,
+  RoleType.ADMIN,
+  RoleType.SYSTEM_ADMINISTRATOR,
+  RoleType.MD_CEO,
+  RoleType.BRANCH_MANAGER,
+  RoleType.MARKETING_DIRECTOR,
+  RoleType.TEAM_LEADER,
+  RoleType.SALES_MANAGER,
+  RoleType.SALES_AGENT,
+  RoleType.SALES_EXECUTIVE,
+  RoleType.POSP_ADVISOR,
+  RoleType.AGENT_MANAGER,
+  RoleType.OPERATIONS,
+  RoleType.POLICY_ISSUANCE_EXECUTIVE,
+  RoleType.UNDERWRITER,
+  RoleType.CLAIMS_OFFICER,
+  RoleType.RENEWAL_EXECUTIVE,
+  RoleType.CUSTOMER_SERVICE_EXECUTIVE,
+  RoleType.FINANCE,
+  RoleType.FINANCE_ACCOUNTS_EXECUTIVE,
+  RoleType.CHIEF_FINANCE_OFFICER,
+  RoleType.SUPPORT,
+];
+
+const POLICY_MANAGE_ROLES: RoleType[] = [
+  RoleType.SUPER_ADMIN,
+  RoleType.ADMIN,
+  RoleType.SYSTEM_ADMINISTRATOR,
+  RoleType.MD_CEO,
+  RoleType.BRANCH_MANAGER,
+  RoleType.MARKETING_DIRECTOR,
+  RoleType.TEAM_LEADER,
+  RoleType.SALES_MANAGER,
+  RoleType.SALES_AGENT,
+  RoleType.SALES_EXECUTIVE,
+  RoleType.POSP_ADVISOR,
+  RoleType.AGENT_MANAGER,
+  RoleType.OPERATIONS,
+  RoleType.POLICY_ISSUANCE_EXECUTIVE,
+  RoleType.UNDERWRITER,
+  RoleType.RENEWAL_EXECUTIVE,
+  RoleType.CUSTOMER_SERVICE_EXECUTIVE,
+  RoleType.SUPPORT,
+];
+
 @ApiTags('Policies & Renewal Engine')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -56,7 +102,7 @@ export class PoliciesController {
   ) {}
 
   @Post('issue')
-  @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN, RoleType.OPERATIONS, RoleType.POLICY_ISSUANCE_EXECUTIVE, RoleType.BRANCH_MANAGER, RoleType.TEAM_LEADER, RoleType.SALES_AGENT)
+  @Roles(...POLICY_MANAGE_ROLES)
   @ApiOperation({ summary: 'Issue policy from quotation with validation gates' })
   async issuePolicyDirect(@Body() dto: any, @CurrentUser() user: RequestUser) {
     const quotationId = dto.quotationId || dto.quoteId;
@@ -66,7 +112,7 @@ export class PoliciesController {
   }
 
   @Post()
-  @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN, RoleType.OPERATIONS, RoleType.POLICY_ISSUANCE_EXECUTIVE, RoleType.BRANCH_MANAGER, RoleType.TEAM_LEADER, RoleType.SALES_AGENT)
+  @Roles(...POLICY_MANAGE_ROLES)
   @ApiOperation({ summary: 'Create policy from quotation or proposal with validation gates' })
   async createPolicyRoot(@Body() dto: any, @CurrentUser() user: RequestUser) {
     let quotationId = dto.quotationId || dto.quoteId;
@@ -80,6 +126,7 @@ export class PoliciesController {
   }
 
   @Get('renewals/kpis')
+  @Roles(...POLICY_VIEW_ROLES)
   @ApiOperation({ summary: 'Get Renewal Engine KPIs and Conversion Telemetry' })
   async getRenewalKpis(@CurrentUser() user: RequestUser) {
     const roles = user.roles?.length ? user.roles : [user.role];
@@ -111,6 +158,7 @@ export class PoliciesController {
   }
 
   @Get('renewals/upcoming')
+  @Roles(...POLICY_VIEW_ROLES)
   @ApiOperation({ summary: 'Get upcoming renewals worklist by priority and days range' })
   async getUpcomingRenewals(@Query('range') range?: string, @CurrentUser() user?: RequestUser) {
     const roles = user?.roles?.length ? user.roles : [user?.role];
@@ -120,9 +168,9 @@ export class PoliciesController {
   }
 
   @Post('renewals/:id/lost')
-  @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN, RoleType.BRANCH_MANAGER, RoleType.TEAM_LEADER, RoleType.SALES_AGENT, RoleType.RENEWAL_EXECUTIVE)
+  @Roles(...POLICY_MANAGE_ROLES)
   @ApiOperation({ summary: 'Capture lost renewal reason analysis' })
-  async captureLostReason(@Param('id', ParseUUIDPipe) taskId: string, @Body() dto: { reason: string; competitorName?: string; notes?: string }, @CurrentUser() user: RequestUser) {
+  async captureLostReason(@Param('id') taskId: string, @Body() dto: { reason: string; competitorName?: string; notes?: string }, @CurrentUser() user: RequestUser) {
     if (!dto.reason?.trim()) throw new BadRequestException('Lost renewal reason is mandatory');
     const roles = user.roles?.length ? user.roles : [user.role];
     const global = roles.some((r) => GLOBAL_ADMIN_ROLES.includes(r as RoleType));
@@ -132,13 +180,13 @@ export class PoliciesController {
   }
 
   @Get('renewal/pipeline')
-  @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN, RoleType.BRANCH_MANAGER, RoleType.TEAM_LEADER, RoleType.SALES_AGENT, RoleType.RENEWAL_EXECUTIVE, RoleType.SALES_MANAGER)
+  @Roles(...POLICY_VIEW_ROLES)
   async getRenewalPipeline(@Query() pagination: PaginationDto, @CurrentUser() user: RequestUser) {
     return this.renewalEngineService.getRenewalPipeline(user, pagination);
   }
 
   @Get('renewals/queue')
-  @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN, RoleType.BRANCH_MANAGER, RoleType.TEAM_LEADER, RoleType.SALES_AGENT, RoleType.RENEWAL_EXECUTIVE, RoleType.SALES_MANAGER)
+  @Roles(...POLICY_VIEW_ROLES)
   @ApiOperation({ summary: 'Get authoritative Renewal Executive Queue with NCB roll-over and urgency breakdown' })
   async getRenewalQueue(@Query('search') search?: string, @Query('urgency') urgency?: string, @Query('page') page?: string, @Query('limit') limit?: string, @CurrentUser() user?: RequestUser) {
     if (!user) throw new BadRequestException('Authenticated user is required');
@@ -146,42 +194,42 @@ export class PoliciesController {
   }
 
   @Post('renewals/:id/remind')
-  @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN, RoleType.BRANCH_MANAGER, RoleType.TEAM_LEADER, RoleType.SALES_AGENT, RoleType.RENEWAL_EXECUTIVE, RoleType.SALES_MANAGER)
+  @Roles(...POLICY_MANAGE_ROLES)
   @ApiOperation({ summary: 'Dispatch on-demand renewal reminder to customer' })
-  async triggerManualReminder(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: RequestUser) {
+  async triggerManualReminder(@Param('id') id: string, @CurrentUser() user: RequestUser) {
     return this.renewalEngineService.triggerManualReminder(id, user);
   }
 
   @Post('renewals/:id/escalate')
-  @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN, RoleType.BRANCH_MANAGER, RoleType.TEAM_LEADER, RoleType.SALES_AGENT, RoleType.RENEWAL_EXECUTIVE, RoleType.SALES_MANAGER)
+  @Roles(...POLICY_MANAGE_ROLES)
   @ApiOperation({ summary: 'Escalate critical expiring renewal to Branch Management' })
-  async escalateRenewal(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: RequestUser) {
+  async escalateRenewal(@Param('id') id: string, @CurrentUser() user: RequestUser) {
     return this.renewalEngineService.escalateRenewal(id, user);
   }
 
   @Post('renewal/trigger-scan')
-  @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN)
+  @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN, RoleType.SYSTEM_ADMINISTRATOR, RoleType.MD_CEO)
   async triggerRenewalScan() { return this.renewalSchedulerCron.runManually(); }
 
   @Get()
-  @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN, RoleType.BRANCH_MANAGER, RoleType.TEAM_LEADER, RoleType.SALES_AGENT, RoleType.OPERATIONS, RoleType.UNDERWRITER, RoleType.CLAIMS_OFFICER, RoleType.FINANCE, RoleType.SUPPORT)
+  @Roles(...POLICY_VIEW_ROLES)
   findAll(@Query() pagination: PaginationDto, @CurrentUser() user: RequestUser) { return this.getPolicyService.executeAll(pagination, user); }
 
   @Get(':id')
-  @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN, RoleType.BRANCH_MANAGER, RoleType.TEAM_LEADER, RoleType.SALES_AGENT, RoleType.OPERATIONS, RoleType.UNDERWRITER, RoleType.CLAIMS_OFFICER, RoleType.FINANCE, RoleType.SUPPORT)
-  findOne(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: RequestUser) { return this.getPolicyService.executeOne(id, user); }
+  @Roles(...POLICY_VIEW_ROLES)
+  findOne(@Param('id') id: string, @CurrentUser() user: RequestUser) { return this.getPolicyService.executeOne(id, user); }
 
   @Get(':id/history')
-  @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN, RoleType.BRANCH_MANAGER, RoleType.TEAM_LEADER, RoleType.OPERATIONS, RoleType.UNDERWRITER)
-  getHistory(@Param('id', ParseUUIDPipe) id: string) { return this.getPolicyHistoryService.execute(id); }
+  @Roles(...POLICY_VIEW_ROLES)
+  getHistory(@Param('id') id: string) { return this.getPolicyHistoryService.execute(id); }
 
   @Post(':id/renew')
   @HttpCode(HttpStatus.OK)
-  @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN, RoleType.BRANCH_MANAGER, RoleType.TEAM_LEADER, RoleType.SALES_AGENT)
-  renew(@Param('id', ParseUUIDPipe) id: string, @Body() dto: RenewPolicyDto, @CurrentUser() user: RequestUser) { return this.renewPolicyService.execute(id, dto, user.id); }
+  @Roles(...POLICY_MANAGE_ROLES)
+  renew(@Param('id') id: string, @Body() dto: RenewPolicyDto, @CurrentUser() user: RequestUser) { return this.renewPolicyService.execute(id, dto, user.id); }
 
   @Post(':id/cancel')
   @HttpCode(HttpStatus.OK)
-  @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN, RoleType.UNDERWRITER)
-  cancel(@Param('id', ParseUUIDPipe) id: string, @Body('comments') comments: string, @CurrentUser() user: RequestUser) { return this.cancelPolicyService.execute(id, comments, user.id); }
+  @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN, RoleType.SYSTEM_ADMINISTRATOR, RoleType.MD_CEO, RoleType.BRANCH_MANAGER, RoleType.UNDERWRITER)
+  cancel(@Param('id') id: string, @Body('comments') comments: string, @CurrentUser() user: RequestUser) { return this.cancelPolicyService.execute(id, comments, user.id); }
 }

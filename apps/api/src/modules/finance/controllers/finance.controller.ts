@@ -10,7 +10,9 @@ import {
   NotFoundException,
   BadRequestException,
   ForbiddenException,
+  Res,
 } from '@nestjs/common';
+import type { Response } from 'express';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
@@ -231,9 +233,35 @@ export class FinanceController {
   )
   @ApiOperation({ summary: 'Get payments register' })
   async getPayments(@Query('type') type?: string) {
-    throw new NotFoundException(
-      'Payment register is not implemented in the current financial schema',
-    );
+    try {
+      const records = await this.prisma.motorPaymentRecord.findMany({
+        take: 50,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          quotation: {
+            include: {
+              contact: true,
+            },
+          },
+        },
+      });
+
+      return records.map((r) => ({
+        id: r.id,
+        paymentNumber: r.referenceNumber || `PAY-${r.id.slice(0, 8)}`,
+        referenceNumber: r.referenceNumber,
+        type: type || 'CUSTOMER_PAYMENT',
+        amount: Number(r.amount),
+        payeeName: r.quotation?.contact
+          ? `${r.quotation.contact.firstName} ${r.quotation.contact.lastName || ''}`.trim()
+          : 'Customer',
+        paymentMethod: r.paymentMethod || 'NET_BANKING',
+        status: r.status,
+        date: r.createdAt.toISOString(),
+      }));
+    } catch {
+      throw new InternalServerErrorException('Unable to load payments register');
+    }
   }
 
   @Get('ledger')
@@ -409,5 +437,75 @@ export class FinanceController {
     throw new NotFoundException(
       `Voucher ${id} is not implemented in the current financial schema`,
     );
+  }
+
+  // ── EPIC-29: Financial Exports Pipeline (DEF-012 Fix) ────────────────────
+  @Get('payments/export')
+  @Roles(
+    RoleType.SUPER_ADMIN,
+    RoleType.ADMIN,
+    RoleType.FINANCE,
+    RoleType.BRANCH_MANAGER,
+  )
+  @ApiOperation({ summary: 'Export payments register as CSV' })
+  async exportPayments(@Res() res: Response) {
+    const payments = await this.prisma.motorPaymentRecord.findMany({
+      take: 1000,
+      orderBy: { createdAt: 'desc' },
+      include: {
+        quotation: {
+          include: {
+            contact: true,
+          },
+        },
+      },
+    });
+
+    const csvHeaders =
+      'Payment ID,Quotation Code,Customer Name,Amount,Status,Payment Method,Reference Number,Date\n';
+    const csvRows = payments
+      .map(
+        (p) =>
+          `"${p.id}","${p.quotation?.quotationCode || ''}","${p.quotation?.contact ? `${p.quotation.contact.firstName} ${p.quotation.contact.lastName || ''}`.trim() : 'Customer'}",${Number(p.amount)},"${p.status}","${p.paymentMethod || 'NET_BANKING'}","${p.referenceNumber || ''}","${p.createdAt.toISOString()}"`,
+      )
+      .join('\n');
+
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader(
+      'Content-Disposition',
+      'attachment; filename="payments-register.csv"',
+    );
+    return res.send(csvHeaders + csvRows);
+  }
+
+  @Get('receipts/export')
+  @Roles(
+    RoleType.SUPER_ADMIN,
+    RoleType.ADMIN,
+    RoleType.FINANCE,
+    RoleType.BRANCH_MANAGER,
+  )
+  @ApiOperation({ summary: 'Export premium receipts register as CSV' })
+  async exportReceipts(@Res() res: Response) {
+    const receipts = await this.prisma.receipt.findMany({
+      take: 1000,
+      orderBy: { createdAt: 'desc' },
+    });
+
+    const csvHeaders =
+      'Receipt Number,Customer ID,Amount,Payment Mode,Reference,Date\n';
+    const csvRows = receipts
+      .map(
+        (r) =>
+          `"${r.receiptNum}","${r.customerId}",${Number(r.amount)},"${r.paymentMode}","${r.reference || ''}","${r.createdAt.toISOString()}"`,
+      )
+      .join('\n');
+
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader(
+      'Content-Disposition',
+      'attachment; filename="receipts-register.csv"',
+    );
+    return res.send(csvHeaders + csvRows);
   }
 }

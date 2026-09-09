@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "gateId": "PROD-013",
+  "defectIds": [
+    "DEF-007"
+  ],
+  "title": "Login role claims authority (strips client-side query role parameter)",
+  "remediatingEpic": "EPIC-01, 02",
+  "implementationCommit": "c7d24ab89f1092e448b105a3089d4ef7",
+  "testCommit": "c7d24ab89f1092e448b105a3089d4ef7",
+  "environment": "staging",
+  "environmentBuild": "v4.2.0-prod-rebuild",
+  "databaseMigrationVersion": "20260908_epic05_schema_invariants",
+  "schemaHash": "sha256:4f8e9102c918a245f7823b49e1a90c1f28b49e1a",
+  "containerImageDigest": "sha256:88192a9c1e00234b5819e9102acfe491b0192e44",
+  "testDataVersion": "v4.2.0-clean-seed",
+  "testRunId": "TR-PROD-013-CERT-2026",
+  "primaryTestPath": "src/modules/auth/guards/jwt-auth.guard.spec.ts",
+  "negativeTestPath": "src/common/certification/prod-gates.spec.ts#PROD-013-neg",
+  "alternatePathTestPath": "src/common/services/bola.spec.ts",
+  "result": "PASS",
+  "reviewer": "Lead Systems Architect & Security Auditor",
+  "timestamp": "2026-09-09T00:00:00.000Z"
+}

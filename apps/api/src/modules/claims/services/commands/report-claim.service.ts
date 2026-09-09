@@ -30,10 +30,26 @@ export class ReportClaimService {
   ) {}
 
   async execute(dto: ReportClaimDto, createdById: string) {
-    // 1. Validate Policy exists
-    const policy = await this.policyRepository.findById(dto.policyId);
+    // 1. Validate Policy exists (lookup by policyId or policyNumber)
+    let policy: any = null;
+    if (dto.policyId) {
+      policy = await this.policyRepository.findById(dto.policyId);
+    } else if (dto.policyNumber) {
+      policy = await this.prisma.policy.findFirst({
+        where: { policyNumber: dto.policyNumber, deletedAt: null },
+      });
+    }
+
     if (!policy || policy.deletedAt) {
-      throw new NotFoundException(`Policy with ID ${dto.policyId} not found`);
+      throw new NotFoundException(
+        `Policy ${dto.policyId || dto.policyNumber || ''} not found`,
+      );
+    }
+
+    const resolvedPolicyId = policy.id;
+    const resolvedClaimAmount = dto.claimAmount ?? dto.estimatedAmount;
+    if (!resolvedClaimAmount || resolvedClaimAmount <= 0) {
+      throw new BadRequestException('A positive claim loss amount is required.');
     }
 
     // 2. Policy Status Gate: Only ACTIVE or PENDING_RENEWAL policies can have claims registered
@@ -47,20 +63,20 @@ export class ReportClaimService {
     }
 
     // 3. Coverage Period Invariant: incidentDate must fall strictly between effectiveDate and expiryDate
-    const incidentDate = new Date(dto.incidentDate);
+    const incidentDate = dto.incidentDate ? new Date(dto.incidentDate) : new Date();
     if (
       incidentDate < policy.effectiveDate ||
       incidentDate > policy.expiryDate
     ) {
       throw new BadRequestException(
-        `Claim incident date ${dto.incidentDate} falls outside policy coverage dates (${policy.effectiveDate.toISOString()} to ${policy.expiryDate.toISOString()})`,
+        `Claim incident date ${incidentDate.toISOString()} falls outside policy coverage dates (${policy.effectiveDate.toISOString()} to ${policy.expiryDate.toISOString()})`,
       );
     }
 
     // 4. Duplicate Active Claim Invariant
     const existingClaim = await this.prisma.claim.findFirst({
       where: {
-        policyId: dto.policyId,
+        policyId: resolvedPolicyId,
         incidentDate,
         status: { not: ClaimStatus.CLOSED },
         deletedAt: null,
@@ -69,7 +85,7 @@ export class ReportClaimService {
 
     if (existingClaim) {
       throw new BadRequestException(
-        `A claim has already been registered for policy ${policy.policyNumber} on the incident date ${dto.incidentDate}`,
+        `A claim has already been registered for policy ${policy.policyNumber} on the incident date ${incidentDate.toISOString()}`,
       );
     }
 
@@ -80,11 +96,11 @@ export class ReportClaimService {
     const claimData: Prisma.ClaimCreateInput = {
       claimNumber,
       status: ClaimStatus.REPORTED,
-      policy: { connect: { id: dto.policyId } },
+      policy: { connect: { id: resolvedPolicyId } },
       contact: { connect: { id: policy.contactId } },
       incidentDate,
       description: dto.description,
-      claimAmount: new Prisma.Decimal(dto.claimAmount),
+      claimAmount: new Prisma.Decimal(resolvedClaimAmount),
       createdBy: { connect: { id: createdById } },
       updatedBy: { connect: { id: createdById } },
     };

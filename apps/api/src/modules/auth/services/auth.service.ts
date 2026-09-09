@@ -23,6 +23,7 @@ export class AuthService {
       role: roleType, roles: [roleType], permissions, organizationId,
       branchId: user.branchId || undefined, branchCode: user.branch?.code || undefined,
       departmentId: user.departmentId || undefined, teamId: user.teamId || undefined, status: user.status,
+      authVersion: user.updatedAt ? user.updatedAt.getTime() : Date.now(),
     };
   }
 

@@ -56,6 +56,7 @@ export class SystemConfigController {
   @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN)
   @ApiOperation({ summary: 'Get numbering series rules' })
   async getNumberingSeries() {
+    // DEF-003: Numbering series endpoints return static/mock data and do not persist to the database. Needs to be implemented via EPIC-03.
     return [
       {
         id: '1',

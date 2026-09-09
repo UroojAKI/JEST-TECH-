@@ -1,0 +1,42 @@
+name: PR Checks
+
+on:
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  migration-safety:
+    name: Migration Safety Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check for schema changes without migration
+        run: |
+          SCHEMA_CHANGED=$(git diff --name-only origin/${{ github.base_ref }}...HEAD | grep 'prisma/schema.prisma' || true)
+          MIGRATION_ADDED=$(git diff --name-only origin/${{ github.base_ref }}...HEAD | grep 'prisma/migrations/' || true)
+          if [ -n "$SCHEMA_CHANGED" ] && [ -z "$MIGRATION_ADDED" ]; then
+            echo "ERROR: schema.prisma was modified but no migration was added."
+            echo "Run: pnpm exec prisma migrate dev --name your_change_description"
+            exit 1
+          fi
+          echo "Migration check passed."
+
+  dependency-audit:
+    name: Dependency Security Audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.34.4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+      - run: pnpm audit --audit-level=high
+        continue-on-error: true

@@ -218,7 +218,7 @@ export class QuotationController {
         policyTenure: calcResult.inputs.tpTenure,
         calculationSnapshot: calcResult as any,
         calculationVersion: calcResult.calculationVersion,
-        rateConfigurationVersion: calcResult.rateConfigurationVersion,
+        // rateConfig (gstRate, discount limits, tariff IDs) is in calculationSnapshot.rateConfig.
         issuanceStatus: 'PROPOSAL_READY',
         motorMetadata,
         expiryDate: new Date(Date.now() + 30 * 86400000),
@@ -392,13 +392,18 @@ export class QuotationController {
 
   @Post(':id/approve')
   @HttpCode(HttpStatus.OK)
-  @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN, RoleType.UNDERWRITER)
+  @Roles(
+    RoleType.SUPER_ADMIN,
+    RoleType.ADMIN,
+    RoleType.BRANCH_MANAGER,
+    RoleType.UNDERWRITER,
+  )
   approve(
     @Param('id', ParseUUIDPipe) id: string,
     @Body('comments') comments: string,
     @CurrentUser() user: RequestUser,
   ) {
-    return this.approveQuotationService.execute(id, comments, user.id);
+    return this.approveQuotationService.execute(id, comments, user.id, user.role);
   }
 
   @Post(':id/reject')

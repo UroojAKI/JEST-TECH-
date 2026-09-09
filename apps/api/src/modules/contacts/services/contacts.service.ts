@@ -1,5 +1,5 @@
 import { ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
-import { Prisma, RoleType } from '@prisma/client';
+import { Prisma, RoleType, AuditAction } from '@prisma/client';
 import { ContactMapper } from '../mappers/contact.mapper';
 import { ContactRepository } from '../repositories/contact.repository';
 import { CreateContactDto } from '../dto/create-contact.dto';
@@ -7,13 +7,17 @@ import { UpdateContactDto } from '../dto/update-contact.dto';
 import { PaginationDto } from '../../../common/pagination/pagination.dto';
 import { PaginatedResponseDto } from '../../../common/pagination/paginated-response.dto';
 import { ActorContext } from '../../../common/interfaces/actor-context.interface';
+import { PrismaService } from '../../../database/prisma.service';
 
 const GLOBAL_ROLES: RoleType[] = [RoleType.SUPER_ADMIN, RoleType.ADMIN, RoleType.SYSTEM_ADMINISTRATOR, RoleType.MD_CEO];
 const duplicateContactError = (existingContactId: string, matchedBy: 'PHONE' | 'EMAIL') => new ConflictException({ code: 'DUPLICATE_CONTACT', message: `A contact with this ${matchedBy.toLowerCase()} already exists`, existingContactId, matchedBy });
 
 @Injectable()
 export class ContactsService {
-  constructor(private readonly contactRepository: ContactRepository) {}
+  constructor(
+    private readonly contactRepository: ContactRepository,
+    private readonly prisma: PrismaService,
+  ) {}
 
   private assertActor(actor?: ActorContext): void {
     if (!actor) return;
@@ -35,6 +39,8 @@ export class ContactsService {
     const contactCode = await this.contactRepository.generateContactCode();
     const { accountId, ...restDto } = dto;
     const contactData: Prisma.ContactCreateInput = {
+      // @ts-ignore
+      status: 'ACTIVE',
       contactCode, type: restDto.type, firstName: restDto.firstName, middleName: restDto.middleName, lastName: restDto.lastName,
       gender: restDto.gender, dateOfBirth: restDto.dateOfBirth ? new Date(restDto.dateOfBirth) : undefined, companyName: restDto.companyName,
       email: restDto.email, phone: restDto.phone, alternatePhone: restDto.alternatePhone, whatsappNumber: restDto.whatsappNumber,
@@ -57,11 +63,12 @@ export class ContactsService {
     const scopeWhere: Prisma.ContactWhereInput = {};
     if (!roles.some((role) => GLOBAL_ROLES.includes(role))) {
       if (roles.includes(RoleType.BRANCH_MANAGER) || roles.includes(RoleType.MARKETING_DIRECTOR)) {
-        if (!actor.branchId) throw new ForbiddenException('Branch context is required');
-        scopeWhere.createdBy = { branchId: actor.branchId };
+        if (actor.branchId) scopeWhere.createdBy = { branchId: actor.branchId };
+        else scopeWhere.createdById = actor.userId;
       } else if (roles.includes(RoleType.TEAM_LEADER) || roles.includes(RoleType.SALES_MANAGER)) {
-        if (!actor.teamId) throw new ForbiddenException('Team context is required');
-        scopeWhere.createdBy = { teamId: actor.teamId };
+        if (actor.teamId) scopeWhere.createdBy = { teamId: actor.teamId };
+        else if (actor.branchId) scopeWhere.createdBy = { branchId: actor.branchId };
+        else scopeWhere.createdById = actor.userId;
       } else scopeWhere.createdById = actor.userId;
     }
     const where: Prisma.ContactWhereInput = Object.keys(scopeWhere).length ? { AND: [searchWhere, scopeWhere] } : searchWhere;
@@ -120,6 +127,54 @@ export class ContactsService {
     return ContactMapper.toResponse(await this.contactRepository.update(id, updateData));
   }
 
+  async deactivate(id: string, actor: ActorContext) {
+    const existing = await this.contactRepository.findById(id);
+    if (!existing || existing.deletedAt) throw new NotFoundException(`Contact ${id} not found`);
+    if ((existing as any).status === 'ARCHIVED') throw new ForbiddenException('Archived contacts cannot be modified');
+    this.assertRecordAccess(existing, actor);
+    if ((existing as any).status !== 'ACTIVE') throw new ConflictException('Contact is not ACTIVE');
+
+    const updateData = { status: 'INACTIVE', updatedBy: { connect: { id: actor.userId } } } as any;
+    const updated = await this.contactRepository.update(id, updateData);
+
+    await this.prisma.auditLog.create({
+      data: {
+        action: AuditAction.UPDATE,
+        entity: 'Contact',
+        entityId: id,
+        oldValue: { status: 'ACTIVE' },
+        newValue: { status: 'INACTIVE' },
+        userId: actor.userId,
+      },
+    });
+
+    return ContactMapper.toResponse(updated);
+  }
+
+  async reactivate(id: string, actor: ActorContext) {
+    const existing = await this.contactRepository.findById(id);
+    if (!existing || existing.deletedAt) throw new NotFoundException(`Contact ${id} not found`);
+    if ((existing as any).status === 'ARCHIVED') throw new ForbiddenException('Archived contacts cannot be modified');
+    this.assertRecordAccess(existing, actor);
+    if ((existing as any).status !== 'INACTIVE') throw new ConflictException('Contact is not INACTIVE');
+
+    const updateData = { status: 'ACTIVE', updatedBy: { connect: { id: actor.userId } } } as any;
+    const updated = await this.contactRepository.update(id, updateData);
+
+    await this.prisma.auditLog.create({
+      data: {
+        action: AuditAction.UPDATE,
+        entity: 'Contact',
+        entityId: id,
+        oldValue: { status: 'INACTIVE' },
+        newValue: { status: 'ACTIVE' },
+        userId: actor.userId,
+      },
+    });
+
+    return ContactMapper.toResponse(updated);
+  }
+
   async remove(id: string, deletedById: string, actor?: ActorContext) {
     const existing = await this.contactRepository.findById(id);
     if (!existing || existing.deletedAt) throw new NotFoundException(`Contact ${id} not found`);
@@ -130,3 +185,4 @@ export class ContactsService {
     return { message: `Contact ${id} has been deleted` };
   }
 }
+

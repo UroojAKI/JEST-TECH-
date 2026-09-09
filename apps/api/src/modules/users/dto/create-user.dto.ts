@@ -54,4 +54,12 @@ export class CreateUserDto {
   @IsOptional()
   @IsString()
   teamId?: string;
+
+  @IsString()
+  @IsNotEmpty()
+  companyId: string;
+
+  @IsString()
+  @IsNotEmpty()
+  roleId: string;
 }

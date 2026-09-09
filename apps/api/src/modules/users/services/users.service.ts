@@ -49,7 +49,7 @@ export class UsersService {
 
     const initialPassword =
       dto.password ||
-      `Jp$${crypto.randomBytes(6).toString('hex')}!${Math.floor(10 + Math.random() * 90)}`;
+      `${crypto.randomBytes(16).toString('hex')}A1`;
     const passwordHash = await argon2.hash(initialPassword);
     const empCode =
       dto.employeeCode || `EMP-${Date.now().toString().slice(-6)}`;
@@ -101,7 +101,7 @@ export class UsersService {
     await this.findById(userId);
     const password =
       newPassword ||
-      `Jp$${crypto.randomBytes(6).toString('hex')}!${Math.floor(10 + Math.random() * 90)}`;
+      `${crypto.randomBytes(16).toString('hex')}A1`;
     const passwordHash = await argon2.hash(password);
     await this.userRepository.update(userId, { passwordHash });
     return {

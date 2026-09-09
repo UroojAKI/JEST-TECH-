@@ -25,12 +25,10 @@ export class DashboardController {
   constructor(private readonly dashboardService: DashboardService) {}
 
   @Get()
-  getDashboard(
-    @CurrentUser() user: RequestUser,
-    @Query('role') simulatedRole?: string,
-  ) {
-    const roleToUse = simulatedRole || user.role;
-    return this.dashboardService.getDashboard(roleToUse, user.id);
+  getDashboard(@CurrentUser() user: RequestUser) {
+    // DEF-002 fix: role is sourced exclusively from the authenticated JWT token.
+    // Client-supplied role query parameters are NEVER accepted to prevent privilege escalation.
+    return this.dashboardService.getDashboard(user.role, user.id);
   }
 
   @Get('super-admin')

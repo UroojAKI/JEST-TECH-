@@ -1,6 +1,6 @@
 import { Controller, Get, Post, Body, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { RoleType } from '@prisma/client';
+import { RoleType, AuditAction } from '@prisma/client';
 import { JwtAuthGuard } from '../../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../../auth/guards/roles.guard';
 import { Roles } from '../../../auth/decorators/roles.decorator';
@@ -153,6 +153,68 @@ export class PortalController {
       activeAgentsCount: 14,
       totalPoliciesIssued: 184,
       lossRatioPct: 18.4,
+    };
+  }
+
+  // ── EPIC-14: Support & Service Requests (DEF-011 Fix) ─────────────────────
+  @Get('support/tickets')
+  @ApiOperation({ summary: 'Get submitted support tickets' })
+  async getSupportTickets(@CurrentUser() user: RequestUser) {
+    const logs = await this.prisma.auditLog.findMany({
+      where: { entity: 'SUPPORT_TICKET' },
+      orderBy: { createdAt: 'desc' },
+      take: 50,
+    });
+
+    return logs.map((l) => {
+      const meta = (l.metadata as any) || {};
+      return {
+        id: l.entityId,
+        ticketNumber: meta.ticketNumber || `TKT-${l.entityId.slice(0, 6).toUpperCase()}`,
+        subject: meta.subject || 'Support Ticket',
+        description: meta.description || '',
+        priority: meta.priority || 'MEDIUM',
+        status: meta.status || 'OPEN',
+        createdAt: l.createdAt.toISOString(),
+      };
+    });
+  }
+
+  @Post('support/tickets')
+  @ApiOperation({ summary: 'Submit new support ticket' })
+  async createSupportTicket(
+    @Body() dto: { subject: string; priority: string; description: string },
+    @CurrentUser() user: RequestUser,
+  ) {
+    const ticketId = `tkt_${Date.now()}`;
+    const ticketNumber = `TKT-${Date.now().toString().slice(-6)}`;
+
+    await this.prisma.auditLog.create({
+      data: {
+        action: AuditAction.CREATE,
+        entity: 'SUPPORT_TICKET',
+        entityId: ticketId,
+        module: 'SUPPORT',
+        userId: user.id,
+        performedById: user.id,
+        metadata: {
+          ticketNumber,
+          subject: dto.subject,
+          priority: dto.priority || 'MEDIUM',
+          description: dto.description,
+          status: 'OPEN',
+        },
+      },
+    });
+
+    return {
+      id: ticketId,
+      ticketNumber,
+      subject: dto.subject,
+      priority: dto.priority || 'MEDIUM',
+      description: dto.description,
+      status: 'OPEN',
+      createdAt: new Date().toISOString(),
     };
   }
 }

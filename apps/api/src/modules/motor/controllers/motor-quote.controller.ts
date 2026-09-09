@@ -46,7 +46,7 @@ export class MotorQuoteController {
         gstAmount: calcResult.outputs.totalGst,
         calculationSnapshot: calcResult as any,
         calculationVersion: calcResult.calculationVersion,
-        rateConfigurationVersion: calcResult.rateConfigurationVersion,
+        // rateConfig is stored inside calculationSnapshot for full auditability.
         issuanceStatus: 'PROPOSAL_READY',
       },
     });

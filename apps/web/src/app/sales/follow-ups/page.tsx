@@ -31,6 +31,46 @@ export default function SalesFollowUpsPage() {
 
   const followUps = Array.isArray(followUpsData) ? followUpsData : [];
 
+  const now = new Date();
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+  const next7Days = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+
+  const overdueCount = followUps.filter(
+    (l: any) => l.nextFollowup && new Date(l.nextFollowup) < startOfToday,
+  ).length;
+  const todayCount = followUps.filter((l: any) => {
+    if (!l.nextFollowup) return false;
+    const d = new Date(l.nextFollowup);
+    return d >= startOfToday && d <= endOfToday;
+  }).length;
+  const upcomingCount = followUps.filter((l: any) => {
+    if (!l.nextFollowup) return false;
+    const d = new Date(l.nextFollowup);
+    return d > endOfToday && d <= next7Days;
+  }).length;
+
+  const filteredFollowUps = followUps.filter((l: any) => {
+    if (filter === 'TODAY') {
+      return (
+        l.nextFollowup &&
+        new Date(l.nextFollowup) >= startOfToday &&
+        new Date(l.nextFollowup) <= endOfToday
+      );
+    }
+    if (filter === 'OVERDUE') {
+      return l.nextFollowup && new Date(l.nextFollowup) < startOfToday;
+    }
+    if (filter === 'UPCOMING') {
+      return (
+        l.nextFollowup &&
+        new Date(l.nextFollowup) > endOfToday &&
+        new Date(l.nextFollowup) <= next7Days
+      );
+    }
+    return true;
+  });
+
   return (
     <AppShell activeWorkspace="SALES">
       <div className="p-6 max-w-7xl mx-auto space-y-6">
@@ -51,9 +91,9 @@ export default function SalesFollowUpsPage() {
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
             { id: 'ALL', label: 'All Follow-ups', count: followUps.length, color: 'text-foreground' },
-            { id: 'TODAY', label: 'Due Today', count: Math.min(followUps.length, 3), color: 'text-primary' },
-            { id: 'OVERDUE', label: 'Overdue', count: 1, color: 'text-red-600' },
-            { id: 'UPCOMING', label: 'Upcoming 7 Days', count: Math.max(0, followUps.length - 4), color: 'text-emerald-600' },
+            { id: 'TODAY', label: 'Due Today', count: todayCount, color: 'text-primary' },
+            { id: 'OVERDUE', label: 'Overdue', count: overdueCount, color: 'text-red-600' },
+            { id: 'UPCOMING', label: 'Upcoming 7 Days', count: upcomingCount, color: 'text-emerald-600' },
           ].map((card) => (
             <button
               key={card.id}
@@ -72,7 +112,7 @@ export default function SalesFollowUpsPage() {
         <div className="rounded-2xl border bg-card shadow-xs overflow-hidden">
           <div className="p-4 border-b bg-muted/20 flex items-center justify-between">
             <span className="text-xs font-extrabold text-foreground">Follow-up Task Queue</span>
-            <span className="text-[11px] text-muted-foreground font-semibold">{followUps.length} Pending Tasks</span>
+            <span className="text-[11px] text-muted-foreground font-semibold">{filteredFollowUps.length} Tasks</span>
           </div>
 
           <div className="divide-y divide-border">
@@ -80,12 +120,12 @@ export default function SalesFollowUpsPage() {
               <div className="text-center py-10 text-muted-foreground text-xs">
                 Loading follow-up queue...
               </div>
-            ) : followUps.length === 0 ? (
+            ) : filteredFollowUps.length === 0 ? (
               <div className="text-center py-10 text-muted-foreground text-xs">
-                No follow-up tasks currently pending. All customer interactions are up to date!
+                No follow-up tasks currently matching this filter.
               </div>
             ) : (
-              followUps.map((lead: any) => (
+              filteredFollowUps.map((lead: any) => (
                 <div key={lead.id} className="p-4 flex items-center justify-between hover:bg-muted/10 transition gap-4">
                   <div className="flex items-center space-x-3">
                     <div className="h-10 w-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center font-bold">

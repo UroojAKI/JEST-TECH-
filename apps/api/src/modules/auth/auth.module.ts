@@ -11,6 +11,7 @@ import { AuthService } from './services/auth.service';
 import { TokenService } from './services/token.service';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { PermissionsGuard } from './guards/permissions.guard';
+import { AuthorizationVersionService } from './services/authorization-version.service';
 
 @Module({
   imports: [
@@ -32,8 +33,8 @@ import { PermissionsGuard } from './guards/permissions.guard';
 
   controllers: [AuthController],
 
-  providers: [AuthService, TokenService, JwtStrategy, PermissionsGuard],
+  providers: [AuthService, TokenService, JwtStrategy, PermissionsGuard, AuthorizationVersionService],
 
-  exports: [AuthService, TokenService, PassportModule, PermissionsGuard],
+  exports: [AuthService, TokenService, PassportModule, PermissionsGuard, AuthorizationVersionService],
 })
 export class AuthModule {}

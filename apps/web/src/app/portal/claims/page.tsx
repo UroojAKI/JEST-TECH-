@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { AppShell } from '../../../components/layout/app-shell';
 import { ShieldAlert, Plus, X, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { apiClient } from '@/lib/api-client';
 
 export default function AgentClaimsPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -15,7 +16,7 @@ export default function AgentClaimsPage() {
     description: '',
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.customerName || !form.claimAmount) {
       toast.error('Customer Name and Estimated Amount are required');
@@ -23,12 +24,38 @@ export default function AgentClaimsPage() {
     }
 
     setIsSubmitting(true);
-    setTimeout(() => {
-      setIsSubmitting(false);
+    try {
+      // DEF-026 fix: POST to authoritative claims API — no setTimeout, no Math.random().
+      // The server creates the claim record and returns the real claim reference number.
+      const response = await apiClient.post('/claims', {
+        policyNumber: form.policyNumber,
+        claimantName: form.customerName,
+        estimatedAmount: parseFloat(form.claimAmount),
+        description: form.description,
+      });
+      const claimRef: string =
+        response.data?.claimNumber ??
+        response.data?.referenceNumber ??
+        response.data?.id ??
+        'Registered';
       setIsModalOpen(false);
-      toast.success(`Claim CLM-2026-00${Math.floor(Math.random() * 90 + 10)} intimated successfully for ${form.customerName}!`);
-      setForm({ policyNumber: 'POL-001049', customerName: '', claimAmount: '', description: '' });
-    }, 400);
+      toast.success(
+        `Claim ${claimRef} intimated successfully for ${form.customerName}!`,
+      );
+      setForm({
+        policyNumber: 'POL-001049',
+        customerName: '',
+        claimAmount: '',
+        description: '',
+      });
+    } catch (err: unknown) {
+      const message =
+        (err as { response?: { data?: { message?: string } } })?.response?.data
+          ?.message ?? 'Failed to register claim. Please try again.';
+      toast.error(message);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (

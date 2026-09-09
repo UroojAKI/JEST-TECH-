@@ -64,16 +64,23 @@ export class LeadsService {
       if (existingContact) {
         targetContactId = existingContact.id;
       } else {
+        // DEF fix: Never generate a fake phone number. A lead that auto-creates a
+        // contact MUST provide a real phone. Random numbers corrupt the contacts
+        // register and violate UNIQUE(company_id, normalized_phone).
+        if (!dto.phone) {
+          throw new BadRequestException(
+            'A phone number is required to create a new contact from a lead. ' +
+              'Provide dto.phone or link an existing contact via dto.contactId.',
+          );
+        }
         const createdContact = await this.contactsService.create(
           {
             firstName:
               dto.firstName ||
               (dto.title ? dto.title.split(' ')[0] : 'Prospect'),
             lastName: dto.lastName || '',
-            email: dto.email || `prospect_${Date.now()}@jestpolicy.com`,
-            phone:
-              dto.phone ||
-              `${Math.floor(1000000000 + Math.random() * 9000000000)}`,
+            email: dto.email,
+            phone: dto.phone,
             type: 'INDIVIDUAL',
           },
           createdById,
@@ -216,6 +223,24 @@ export class LeadsService {
 
     // State machine transition validation (Contract 02 §1)
     if (dto.status && dto.status !== existing.status) {
+      if (dto.status === 'LOST' && !(dto as any).lossReason) {
+        throw new BadRequestException('lossReason is required when transitioning to LOST. Please use the /mark-lost endpoint.');
+      }
+
+      if (dto.status === 'CONVERTED') {
+        const policyCount = await this.prisma.policy.count({
+          where: {
+            quotation: {
+              leadId: id,
+            },
+            status: 'ISSUED',
+          },
+        });
+        if (policyCount === 0) {
+          throw new BadRequestException('Lead can only be CONVERTED after a policy is issued');
+        }
+      }
+
       const allowedTransitions: Record<string, string[]> = {
         NEW: ['CONTACTED', 'QUALIFIED', 'LOST', 'UNQUALIFIED'],
         CONTACTED: ['QUALIFIED', 'LOST', 'UNQUALIFIED'],
@@ -424,6 +449,19 @@ export class LeadsService {
       );
     }
 
+    const policyCount = await this.prisma.policy.count({
+      where: {
+        quotation: {
+          leadId: id,
+        },
+        status: 'ISSUED',
+      },
+    });
+
+    if (policyCount === 0) {
+      throw new BadRequestException('Lead can only be CONVERTED after a policy is issued');
+    }
+
     const updated = await this.leadRepository.update(id, {
       status: LeadStatus.CONVERTED,
       updatedBy: { connect: { id: updatedById } },
@@ -601,5 +639,24 @@ export class LeadsService {
 
     const consolidated = await this.leadRepository.findById(targetLeadId);
     return LeadMapper.toResponse(consolidated!);
+  }
+
+  async markLost(id: string, lossReason: string, updatedById: string) {
+    const existing = await this.leadRepository.findById(id);
+    if (!existing || existing.deletedAt) {
+      throw new NotFoundException(`Lead with ID ${id} not found`);
+    }
+
+    if (existing.status === LeadStatus.CONVERTED) {
+      throw new BadRequestException('Cannot mark a converted lead as lost');
+    }
+
+    const updated = await this.leadRepository.update(id, {
+      status: LeadStatus.LOST,
+      description: existing.description ? `${existing.description}\nLoss Reason: ${lossReason}` : `Loss Reason: ${lossReason}`,
+      updatedBy: { connect: { id: updatedById } },
+    });
+
+    return LeadMapper.toResponse(updated);
   }
 }

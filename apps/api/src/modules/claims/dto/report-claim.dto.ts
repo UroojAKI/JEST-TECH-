@@ -1,33 +1,48 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   IsDateString,
-  IsNotEmpty,
   IsNumber,
+  IsOptional,
   IsPositive,
   IsString,
   MinLength,
 } from 'class-validator';
 
 export class ReportClaimDto {
-  @ApiProperty({ example: 'policy-id-uuid' })
-  @IsNotEmpty()
+  @ApiPropertyOptional({ example: 'policy-id-uuid' })
+  @IsOptional()
   @IsString()
-  policyId: string;
+  policyId?: string;
 
-  @ApiProperty({ example: '2026-07-15T12:00:00Z' })
-  @IsNotEmpty()
+  @ApiPropertyOptional({ example: 'POL-001049' })
+  @IsOptional()
+  @IsString()
+  policyNumber?: string;
+
+  @ApiPropertyOptional({ example: 'Ramesh Patel' })
+  @IsOptional()
+  @IsString()
+  claimantName?: string;
+
+  @ApiPropertyOptional({ example: '2026-07-15T12:00:00Z' })
+  @IsOptional()
   @IsDateString()
-  incidentDate: string;
+  incidentDate?: string;
 
   @ApiProperty({ example: 'Accident on highway, minor damage to bumper.' })
-  @IsNotEmpty()
   @IsString()
-  @MinLength(10)
+  @MinLength(5)
   description: string;
 
-  @ApiProperty({ example: 25000.0 })
-  @IsNotEmpty()
+  @ApiPropertyOptional({ example: 25000.0 })
+  @IsOptional()
   @IsNumber()
   @IsPositive()
-  claimAmount: number;
+  claimAmount?: number;
+
+  @ApiPropertyOptional({ example: 25000.0 })
+  @IsOptional()
+  @IsNumber()
+  @IsPositive()
+  estimatedAmount?: number;
 }

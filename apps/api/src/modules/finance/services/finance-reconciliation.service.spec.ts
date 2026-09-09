@@ -20,6 +20,9 @@ describe('FinanceReconciliationService (G020 Reconciliation Queue)', () => {
     auditLog: {
       create: jest.fn(),
     },
+    outboxEvent: {
+      create: jest.fn(),
+    },
     $transaction: jest.fn(async (cb) => cb(mockPrisma)),
   };
 

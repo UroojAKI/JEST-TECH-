@@ -95,4 +95,18 @@ export class ContactsController {
   remove(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: RequestUser) {
     return this.contactsService.remove(id, user.id, user);
   }
+
+  @Post(':id/deactivate')
+  @HttpCode(HttpStatus.OK)
+  @Roles(...CONTACT_MANAGE_ROLES)
+  deactivate(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: RequestUser) {
+    return this.contactsService.deactivate(id, user);
+  }
+
+  @Post(':id/reactivate')
+  @HttpCode(HttpStatus.OK)
+  @Roles(...CONTACT_MANAGE_ROLES)
+  reactivate(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: RequestUser) {
+    return this.contactsService.reactivate(id, user);
+  }
 }
