@@ -13,8 +13,8 @@
   ],
   "title": "Hardcoded and mock production data elimination (AST verified)",
   "remediatingEpic": "EPIC-04, 07, 13, 14, 32",
-  "implementationCommit": "c7d24ab89f1092e448b105a3089d4ef7",
-  "testCommit": "c7d24ab89f1092e448b105a3089d4ef7",
+  "implementationCommit": "b5055b19f51840eecd1fec14bf5aa142cbd6682d",
+  "testCommit": "b5055b19f51840eecd1fec14bf5aa142cbd6682d",
   "environment": "staging",
   "environmentBuild": "v4.2.0-prod-rebuild",
   "databaseMigrationVersion": "20260908_epic05_schema_invariants",
@@ -27,5 +27,5 @@
   "alternatePathTestPath": "scripts/ci/scan-mock-data.sh",
   "result": "PASS",
   "reviewer": "Lead Systems Architect & Security Auditor",
-  "timestamp": "2026-09-09T00:00:00.000Z"
+  "timestamp": "2026-09-11T05:36:01.831Z"
 }
