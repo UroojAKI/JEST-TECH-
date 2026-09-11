@@ -52,6 +52,7 @@ describe('End-to-End Agent Journey: Lead -> Contact -> Quote -> Payment -> Polic
   afterAll(async () => {
     // Cleanup in reverse dependency order
     if (createdPolicyId) {
+      await prisma.renewalJob.deleteMany({ where: { policyId: createdPolicyId } });
       await prisma.renewalTask.deleteMany({ where: { policyId: createdPolicyId } });
       await prisma.policyHistory.deleteMany({ where: { policyId: createdPolicyId } });
       await prisma.policyDocument.deleteMany({ where: { policyId: createdPolicyId } });
@@ -226,6 +227,15 @@ describe('End-to-End Agent Journey: Lead -> Contact -> Quote -> Payment -> Polic
     expect(renewalTask).toBeDefined();
     expect(renewalTask?.offsetDays).toBe(30);
     expect(renewalTask?.status).toBe('PENDING');
+
+    // Invariant C2: PostgreSQL RenewalJob durable obligations created for all 6 offsets
+    const renewalJobs = await prisma.renewalJob.findMany({
+      where: { policyId: createdPolicyId },
+      orderBy: { offsetDays: 'desc' },
+    });
+    expect(renewalJobs.length).toBe(6);
+    expect(renewalJobs.map((j) => j.offsetDays)).toEqual([45, 30, 15, 7, 0, -1]);
+    expect(renewalJobs.every((j) => j.status === 'PENDING')).toBe(true);
 
     // Invariant D: Transactional Outbox event POLICY_ISSUED recorded
     const outboxEvent = await prisma.outboxEvent.findFirst({

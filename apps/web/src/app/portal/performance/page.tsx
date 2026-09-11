@@ -10,8 +10,8 @@ export default function AgentPerformancePage() {
 
   const totalLeads = (dashboard as any)?.totalLeads ?? 0;
   const activePolicies = (dashboard as any)?.activePolicies ?? 0;
-  const targetAchieved = (dashboard as any)?.targetAchievementPct ?? 82;
-  const conversionRate = totalLeads > 0 ? Math.round((activePolicies / totalLeads) * 1000) / 10 : 68.4;
+  const targetAchieved = (dashboard as any)?.targetAchievementPct ?? 0;
+  const conversionRate = totalLeads > 0 ? Math.round((activePolicies / totalLeads) * 1000) / 10 : 0;
 
   return (
     <AppShell>
@@ -46,8 +46,8 @@ export default function AgentPerformancePage() {
           </div>
           <div className="p-4 rounded-xl border bg-card space-y-1">
             <span className="text-[10px] font-bold text-muted-foreground uppercase">Branch Leaderboard</span>
-            <div className="text-lg font-black text-emerald-600">Rank #3</div>
-            <span className="text-[10px] text-muted-foreground">Mumbai BKC Branch</span>
+            <div className="text-lg font-black text-emerald-600">{(dashboard as any)?.branchRank ? `Rank #${(dashboard as any).branchRank}` : 'Unranked'}</div>
+            <span className="text-[10px] text-muted-foreground">{(dashboard as any)?.branchName || 'Your Branch'}</span>
           </div>
         </div>
       </div>

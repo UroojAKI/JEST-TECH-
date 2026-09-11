@@ -1264,6 +1264,7 @@ model Policy {
   histories    PolicyHistory[]
   claims       Claim[]
   renewalTasks RenewalTask[]
+  renewalJobs  RenewalJob[]
   proposalId   String?          @unique
   proposal     Proposal?        @relation(fields: [proposalId], references: [id])
   endorsements Endorsement[]
@@ -1648,6 +1649,41 @@ model RenewalTask {
   @@index([dueDate])
   @@index([agentId, status])
   @@map("renewal_tasks")
+}
+
+enum RenewalJobStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  RETRYING
+  DEAD_LETTER
+}
+
+// PostgreSQL-durable renewal reminder obligations
+// Persisted BEFORE Redis/BullMQ dispatch.
+// Redis is the execution mechanism, not the source of truth.
+model RenewalJob {
+  id             String           @id @default(uuid())
+  policyId       String
+  policy         Policy           @relation(fields: [policyId], references: [id], onDelete: Cascade)
+  renewalCycle   Int              // Calendar year (e.g. 2026)
+  offsetDays     Int              // 45, 30, 15, 7, 0, -1
+  scheduledFor   DateTime         // Exact dispatch timestamp
+  status         RenewalJobStatus @default(PENDING)
+  attempts       Int              @default(0)
+  lastAttemptAt  DateTime?
+  nextRetryAt    DateTime?
+  deadLetteredAt DateTime?
+  errorMessage   String?
+  providerJobId  String?          // BullMQ job ID after dispatch
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  @@unique([policyId, renewalCycle, offsetDays])
+  @@index([status, scheduledFor])
+  @@index([policyId])
+  @@map("renewal_jobs")
 }
 
 //////////////////////////////////////////////////////////

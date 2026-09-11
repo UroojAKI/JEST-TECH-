@@ -78,6 +78,9 @@ describe('Authoritative Production Gates & Negative Safety Invariants (INV-01 to
         findMany: jest.fn().mockResolvedValue([]),
         create: jest.fn().mockImplementation((args) => ({ id: 'rt-1', ...args.data })),
       },
+      renewalJob: {
+        createMany: jest.fn().mockResolvedValue({ count: 6 }),
+      },
       systemConfig: {
         findFirst: jest.fn().mockResolvedValue(null),
       },
@@ -97,6 +100,7 @@ describe('Authoritative Production Gates & Negative Safety Invariants (INV-01 to
           lead: mockPrisma.lead,
           leadStageHistory: mockPrisma.leadStageHistory,
           renewalTask: mockPrisma.renewalTask,
+          renewalJob: mockPrisma.renewalJob,
           insurerPolicyDetail: mockPrisma.insurerPolicyDetail,
         };
         return cb(tx);

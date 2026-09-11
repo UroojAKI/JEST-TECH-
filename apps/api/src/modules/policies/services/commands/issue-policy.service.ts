@@ -12,6 +12,7 @@ import {
   QuotationStatus,
   PaymentStatus,
   NotificationPriority,
+  RenewalJobStatus,
 } from '@prisma/client';
 
 import { PolicyRepository } from '../../repositories/policy.repository';
@@ -249,6 +250,25 @@ export class IssuePolicyService {
           status: 'PENDING',
           priority: NotificationPriority.HIGH,
         },
+      });
+
+      // Phase 24: Durable RenewalJob persistence before BullMQ dispatch
+      // Per production spec: PostgreSQL is authoritative source of renewal obligations
+      const renewalOffsets = [45, 30, 15, 7, 0, -1];
+      const renewalCycle = expiryDate.getFullYear();
+      await tx.renewalJob.createMany({
+        data: renewalOffsets.map((offsetDays) => {
+          const scheduledFor = new Date(expiryDate);
+          scheduledFor.setDate(scheduledFor.getDate() - offsetDays);
+          return {
+            policyId: newPolicy.id,
+            renewalCycle,
+            offsetDays,
+            scheduledFor,
+            status: RenewalJobStatus.PENDING,
+          };
+        }),
+        skipDuplicates: true,
       });
 
       await this.policyRepository.addHistoryEntry(

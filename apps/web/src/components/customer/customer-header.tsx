@@ -49,7 +49,7 @@ export function CustomerHeader({ customer, onLaunchWizard }: CustomerHeaderProps
 
             <div className="flex items-center space-x-4 text-xs text-muted-foreground">
               <span>Customer ID: <strong className="text-foreground font-mono">{customer?.contactCode || customer?.id || 'CUST-001928'}</strong></span>
-              <span>Assigned Agent: <strong className="text-foreground">{customer?.agent || 'Rajesh Sharma'}</strong></span>
+              <span>Assigned Agent: <strong className="text-foreground">{customer?.agent || 'Unassigned'}</strong></span>
               <span>Branch: <strong className="text-foreground">{customer?.branch || 'Mumbai HQ'}</strong></span>
             </div>
           </div>

@@ -153,6 +153,24 @@ export class RenewalReminderProcessor extends WorkerHost {
         data: { updatedAt: new Date() },
       });
 
+      // 8. Update Durable RenewalJob status
+      try {
+        await this.prisma.renewalJob.updateMany({
+          where: {
+            policyId,
+            offsetDays: daysBefore,
+            status: { in: ['PENDING', 'PROCESSING'] },
+          },
+          data: {
+            status: 'COMPLETED',
+            lastAttemptAt: new Date(),
+            providerJobId: job.id?.toString(),
+          },
+        });
+      } catch (_err) {
+        // Non-fatal: RenewalJob status update failure does not affect notification delivery
+      }
+
       return { success: true, policyNumber, daysBefore };
     }
   }

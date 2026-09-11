@@ -54,7 +54,7 @@ export function LeadHeader({ lead, onLaunchConvert, onLaunchMarkLost }: LeadHead
   const displaySource = (lead?.source || 'WEBSITE').toUpperCase();
   const displayPremium = formatCurrency(lead?.expectedPremium || 25000);
   const displayScore = lead?.probabilityScore || lead?.score || 80;
-  const displayAgent = currentAgentName || lead?.agent || lead?.assignedAgentName || 'Rajesh Sharma';
+  const displayAgent = currentAgentName || lead?.agent || lead?.assignedAgentName || 'Unassigned';
   const displayStage = lead?.status || lead?.stage || 'QUOTE_PREPARED';
 
   const handleReassignSubmit = async (e: React.FormEvent) => {

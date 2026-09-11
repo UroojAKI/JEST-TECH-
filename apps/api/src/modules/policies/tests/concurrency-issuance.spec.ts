@@ -51,6 +51,9 @@ describe('100-Concurrent Policy Issuance Stress & Atomic Conflict Guarantee', ()
           renewalTask: {
             create: jest.fn().mockResolvedValue({}),
           },
+          renewalJob: {
+            createMany: jest.fn().mockResolvedValue({ count: 6 }),
+          },
           outboxEvent: { create: jest.fn().mockResolvedValue({}) },
           insurerPolicyDetail: { create: jest.fn().mockResolvedValue({}) },
         };
