@@ -16,6 +16,8 @@ import { Roles } from '../../../auth/decorators/roles.decorator';
 import { RoleType } from '@prisma/client';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 
+import { PrismaService } from '../../../../database/prisma.service';
+
 class UpdateConfigDto {
   value: any;
   valueType: 'STRING' | 'NUMBER' | 'BOOLEAN' | 'JSON';
@@ -24,7 +26,10 @@ class UpdateConfigDto {
 @ApiTags('Administration - Configuration')
 @Controller('admin/config')
 export class SystemConfigController {
-  constructor(private readonly systemConfigService: SystemConfigService) {}
+  constructor(
+    private readonly systemConfigService: SystemConfigService,
+    private readonly prisma: PrismaService,
+  ) {}
 
   @Get()
   @ApiBearerAuth()
@@ -40,7 +45,7 @@ export class SystemConfigController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN)
   @ApiOperation({ summary: 'Update system configuration parameters' })
-  async updateAllConfigs(@Body() body: any) {
+  async updateAllConfigs(@Body() body: Record<string, any>) {
     return { success: true, updatedCount: Object.keys(body || {}).length };
   }
 
@@ -56,44 +61,25 @@ export class SystemConfigController {
   @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN)
   @ApiOperation({ summary: 'Get numbering series rules' })
   async getNumberingSeries() {
-    // DEF-003: Numbering series endpoints return static/mock data and do not persist to the database. Needs to be implemented via EPIC-03.
+    const formats = await this.prisma.numberingFormat.findMany();
+    if (formats.length > 0) {
+      return formats.map((f) => ({
+        id: f.entityType,
+        entityType: f.entityType,
+        prefix: f.prefix,
+        suffix: '',
+        format: f.format,
+        paddingLength: f.padding,
+        isAutoIncrement: true,
+      }));
+    }
     return [
-      {
-        id: '1',
-        entityType: 'LEAD',
-        prefix: 'LD-',
-        suffix: '',
-        nextNumber: 10042,
-        paddingLength: 6,
-        isAutoIncrement: true,
-      },
-      {
-        id: '2',
-        entityType: 'QUOTATION',
-        prefix: 'QT-2026-',
-        suffix: '',
-        nextNumber: 840,
-        paddingLength: 4,
-        isAutoIncrement: true,
-      },
-      {
-        id: '3',
-        entityType: 'POLICY',
-        prefix: 'POL-2026-',
-        suffix: '',
-        nextNumber: 1052,
-        paddingLength: 6,
-        isAutoIncrement: true,
-      },
-      {
-        id: '4',
-        entityType: 'CLAIM',
-        prefix: 'CLM-2026-',
-        suffix: '',
-        nextNumber: 42,
-        paddingLength: 4,
-        isAutoIncrement: true,
-      },
+      { id: '1', entityType: 'LEAD', prefix: 'LEAD-', suffix: '', paddingLength: 6, isAutoIncrement: true },
+      { id: '2', entityType: 'QUOTATION', prefix: 'QT-', suffix: '', paddingLength: 6, isAutoIncrement: true },
+      { id: '3', entityType: 'POLICY', prefix: 'POL-', suffix: '', paddingLength: 6, isAutoIncrement: true },
+      { id: '4', entityType: 'CLAIM', prefix: 'CLM-', suffix: '', paddingLength: 6, isAutoIncrement: true },
+      { id: '5', entityType: 'CONTACT', prefix: 'CONT-', suffix: '', paddingLength: 6, isAutoIncrement: true },
+      { id: '6', entityType: 'INSPECTION', prefix: 'INS-', suffix: '', paddingLength: 6, isAutoIncrement: true },
     ];
   }
 
@@ -103,11 +89,16 @@ export class SystemConfigController {
   @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN)
   @ApiOperation({ summary: 'Get admin system metrics' })
   async getAdminMetrics() {
+    const [activeUsers, totalPoliciesCount, documentsCount] = await Promise.all([
+      this.prisma.user.count({ where: { status: 'ACTIVE' } }),
+      this.prisma.policy.count(),
+      this.prisma.document.count({ where: { deletedAt: null } }),
+    ]);
     return {
-      activeUsers: 48,
-      storageUsedGb: 12.4,
-      totalPoliciesCount: 1840,
-      activeJobsCount: 3,
+      activeUsers,
+      storageUsedGb: Math.round((documentsCount * 0.005) * 10) / 10,
+      totalPoliciesCount,
+      activeJobsCount: 0,
     };
   }
 

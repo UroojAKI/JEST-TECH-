@@ -13,7 +13,7 @@ export class DashboardRegistryRepository {
     pagination: import('../../../common/pagination/pagination.dto').PaginationDto,
   ) {
     const page = pagination.page || 1;
-    const limit = pagination.limit || 10;
+    const limit = pagination.limit || 25;
     const skip = (page - 1) * limit;
 
     const where = {};

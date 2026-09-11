@@ -124,8 +124,14 @@ export class ContactsService {
     const scopeWhere: Prisma.ContactWhereInput = {};
     if (!roles.some((role) => GLOBAL_ROLES.includes(role))) {
       if (roles.includes(RoleType.BRANCH_MANAGER) || roles.includes(RoleType.MARKETING_DIRECTOR)) {
-        if (actor.branchId) scopeWhere.createdBy = { branchId: actor.branchId };
-        else scopeWhere.createdById = actor.userId;
+        if (actor.branchId) {
+          scopeWhere.OR = [
+            { branchId: actor.branchId },
+            { createdBy: { branchId: actor.branchId } },
+          ];
+        } else {
+          scopeWhere.createdById = actor.userId;
+        }
       } else if (roles.includes(RoleType.TEAM_LEADER) || roles.includes(RoleType.SALES_MANAGER)) {
         if (actor.teamId) scopeWhere.createdBy = { teamId: actor.teamId };
         else if (actor.branchId) scopeWhere.createdBy = { branchId: actor.branchId };

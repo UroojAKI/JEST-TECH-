@@ -71,17 +71,39 @@ export function WorkspaceSwitcher() {
 
   const activeWorkspace = getActiveWorkspace();
 
-  if (isLoading || !Array.isArray(workspaces) || workspaces.length === 0) {
+  if (!isAuthenticated) {
     return null;
   }
 
-  // If user has only 1 workspace, show minimal non-clickable badge
+  if (isLoading) {
+    return (
+      <div className="h-8 w-28 animate-pulse rounded-lg bg-muted/30 border border-border/50" />
+    );
+  }
+
+  if (!Array.isArray(workspaces) || workspaces.length === 0) {
+    return (
+      <button
+        onClick={() => router.push('/workspace')}
+        className="flex items-center space-x-1.5 rounded-lg border bg-muted/20 px-2.5 py-1.5 text-xs font-semibold text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+      >
+        <Layers className="h-3.5 w-3.5 text-primary" />
+        <span>Workspaces</span>
+      </button>
+    );
+  }
+
+  // If user has only 1 workspace, show clear active badge
   if (workspaces.length === 1 && activeWorkspace) {
     return (
-      <div className="hidden lg:flex items-center space-x-1.5 rounded-lg border bg-muted/30 px-2.5 py-1 text-xs font-semibold text-muted-foreground">
+      <button
+        onClick={() => router.push(activeWorkspace.href)}
+        className="flex items-center space-x-1.5 rounded-lg border bg-muted/30 px-2.5 py-1.5 text-xs font-semibold text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+        title="Current authorized workspace"
+      >
         {ICON_MAP[activeWorkspace.icon] || <Layers className="h-3.5 w-3.5 text-primary" />}
-        <span>{activeWorkspace.title}</span>
-      </div>
+        <span className="truncate max-w-[120px]">{activeWorkspace.title}</span>
+      </button>
     );
   }
 

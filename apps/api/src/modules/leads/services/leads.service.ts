@@ -164,7 +164,7 @@ export class LeadsService {
   async findAll(user: ActorContext, pagination: PaginationDto) {
     const {
       page = 1,
-      limit = 10,
+      limit = 25,
       search,
       sortBy = 'createdAt',
       sortOrder = 'desc',

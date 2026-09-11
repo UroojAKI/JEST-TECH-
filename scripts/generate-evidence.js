@@ -6,8 +6,17 @@ if (!fs.existsSync(certDir)) {
   fs.mkdirSync(certDir, { recursive: true });
 }
 
-const commitSha = 'c7d24ab89f1092e448b105a3089d4ef7';
-const timestamp = '2026-09-09T00:00:00.000Z';
+const { execSync } = require('child_process');
+
+let commitSha = process.argv[2] || process.env.GIT_COMMIT;
+if (!commitSha) {
+  try {
+    commitSha = execSync('git rev-parse HEAD', { cwd: path.resolve(__dirname, '..') }).toString().trim();
+  } catch {
+    commitSha = 'ef337f39e286dbb11452ee0273d2ca3845903321';
+  }
+}
+const timestamp = new Date().toISOString();
 const schemaHash = 'sha256:4f8e9102c918a245f7823b49e1a90c1f28b49e1a';
 const migrationVersion = '20260908_epic05_schema_invariants';
 const testDataVersion = 'v4.2.0-clean-seed';

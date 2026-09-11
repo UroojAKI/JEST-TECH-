@@ -77,7 +77,7 @@ export class DocumentService {
 
   async getEntityDocuments(entityType: string, entityId: string, pagination?: PaginationDto, actor?: ActorContext) {
     if (!actor?.userId || !actor.organizationId) throw new ForbiddenException('Actor organizational context is required');
-    const page = pagination?.page || 1; const limit = pagination?.limit || 10; const sortBy = pagination?.sortBy || 'createdAt'; const sortOrder = pagination?.sortOrder || 'desc'; const skip = (page - 1) * limit;
+    const page = pagination?.page || 1; const limit = pagination?.limit || 25; const sortBy = pagination?.sortBy || 'createdAt'; const sortOrder = pagination?.sortOrder || 'desc'; const skip = (page - 1) * limit;
     const roles = actor.roles?.length ? actor.roles : [actor.role];
     const scope = roles.some((r) => GLOBAL_ROLES.includes(r)) ? {} : { uploadedById: actor.userId };
     const where = { entityType, entityId, status: { not: DocumentStatus.DELETED }, ...scope };

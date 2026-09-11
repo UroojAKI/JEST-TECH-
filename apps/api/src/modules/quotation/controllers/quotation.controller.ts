@@ -7,6 +7,7 @@ import {
   HttpStatus,
   Param,
   Post,
+  Patch,
   Query,
   UseGuards,
   ParseUUIDPipe,
@@ -589,5 +590,18 @@ export class QuotationController {
         createdBy: { select: { id: true, firstName: true, lastName: true } },
       },
     });
+  }
+
+
+  @Patch(':id/details')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Save missing details inline and dynamically recalculate completion percentage',
+  })
+  async updateDetails(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() details: Record<string, any>,
+  ) {
+    return this.quotationCompletionService.updateDetails(id, details);
   }
 }

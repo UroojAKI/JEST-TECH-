@@ -32,11 +32,34 @@ export const navigationRegistry: NavigationItem[] = [
     ],
   },
   {
+    id: 'operations',
+    title: 'Operations & Issuance',
+    href: '/workspace/operations',
+    icon: 'Briefcase',
+    permissions: ['policy:read'],
+    children: [
+      { id: 'ops-queue', title: 'Back-Office Queue', href: '/workspace/operations' },
+      { id: 'ops-inspections', title: 'Inspections', href: '/workspace/operations?tab=inspections' },
+      { id: 'ops-policies', title: 'Policy Register', href: '/policies' },
+    ],
+  },
+  {
     id: 'policies',
     title: 'Policies',
     href: '/policies',
     icon: 'ShieldCheck',
     permissions: ['policy:read'],
+  },
+  {
+    id: 'renewals',
+    title: 'Renewals & Retention',
+    href: '/workspace/renewal',
+    icon: 'RotateCw',
+    permissions: ['policy:read'],
+    children: [
+      { id: 'renewals-hub', title: 'Renewals Hub', href: '/workspace/renewal' },
+      { id: 'renewals-tasks', title: 'Renewal Tasks', href: '/workspace/renewal?tab=tasks' },
+    ],
   },
   {
     id: 'claims',

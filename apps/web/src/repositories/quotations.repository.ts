@@ -81,6 +81,10 @@ export const quotationsRepository = {
     const response = await apiClient.get(`/quotations/${id}/completion`);
     return response.data;
   },
+  async updateQuotationDetails(id: string, details: Record<string, any>): Promise<QuotationCompletionResult> {
+    const response = await apiClient.patch(`/quotations/${id}/details`, details);
+    return response.data;
+  },
 };
 
 export interface MissingFieldItem {

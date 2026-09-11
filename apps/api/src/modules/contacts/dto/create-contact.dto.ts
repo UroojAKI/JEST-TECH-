@@ -54,6 +54,10 @@ export class CreateContactDto {
 
   @IsOptional()
   @IsString()
+  branchId?: string;
+
+  @IsOptional()
+  @IsString()
   tag?: string;
 
   @IsOptional()

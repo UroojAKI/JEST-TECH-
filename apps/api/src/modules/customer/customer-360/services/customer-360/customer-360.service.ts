@@ -44,10 +44,10 @@ export class Customer360Service {
     }
 
     // 1. Fetch Real Operational Data Concurrently
-    const [policies, quotations, claims, comms, leads] = await Promise.all([
+    const [policies, quotations, claims, comms, leads, documents] = await Promise.all([
       this.prisma.policy.findMany({
         where: { contactId, deletedAt: null },
-        include: { documents: true, claims: true },
+        include: { documents: true, claims: true, payments: true, renewals: true },
         orderBy: { createdAt: 'desc' },
         take: 50,
       }),
@@ -72,6 +72,14 @@ export class Customer360Service {
         include: { stageHistory: { orderBy: { createdAt: 'desc' } } },
         orderBy: { createdAt: 'desc' },
         take: 20,
+      }),
+      this.prisma.document.findMany({
+        where: {
+          entityId: contactId,
+          entityType: { in: ['CONTACT', 'CUSTOMER'] },
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 50,
       }),
     ]);
 
@@ -218,6 +226,10 @@ export class Customer360Service {
       quotations,
       claims,
       openClaims,
+      leads,
+      documents,
+      payments: policies.flatMap((p) => p.payments || []),
+      renewals: policies.flatMap((p) => p.renewals || []),
       timeline,
       familyMembers: contact.familyMembers,
     };

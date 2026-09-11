@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import Link from 'next/link';
 import {
   ShieldCheck,
   FileSpreadsheet,
@@ -16,15 +17,24 @@ import {
   Activity,
   BarChart3,
   Loader2,
+  TrendingUp,
+  CreditCard,
+  CheckCircle,
+  AlertCircle,
+  FileUp,
+  ChevronRight,
+  Sparkles,
 } from 'lucide-react';
 import { StatusBadge } from '../../ui/status-badge';
 import { UnifiedChart } from '../../charts/unified-chart';
 import { useCustomerWorkspace } from '../../../hooks/useCustomer360';
+import { toast } from 'sonner';
 
 export function CustomerTabsContainer({ customerId }: { customerId: string }) {
-  const [activeTab, setActiveTab] = useState<string>('POLICIES');
-  const { workspace, isLoading } = useCustomerWorkspace(customerId);
+  const [activeTab, setActiveTab] = useState<string>('OVERVIEW');
+  const { workspace, isLoading, refetch } = useCustomerWorkspace(customerId);
 
+  const profile = workspace?.profile || {};
   const policies = workspace?.policies || [];
   const claims = workspace?.claims || [];
   const quotations = workspace?.quotations || [];
@@ -32,15 +42,20 @@ export function CustomerTabsContainer({ customerId }: { customerId: string }) {
   const familyMembers = workspace?.familyMembers || [];
   const timeline = workspace?.timeline || [];
   const analytics = workspace?.analytics || {};
+  const leads = workspace?.leads || [];
+  const documents = workspace?.documents || [];
+  const payments = workspace?.payments || policies.flatMap((p: any) => p.payments || []);
+  const renewals = workspace?.renewals || policies.flatMap((p: any) => p.renewals || []);
 
   const tabs = [
     { id: 'OVERVIEW', label: 'Overview', icon: <Activity className="h-3.5 w-3.5" /> },
+    { id: 'LEADS', label: 'Leads', icon: <TrendingUp className="h-3.5 w-3.5" />, badge: leads.length },
     { id: 'POLICIES', label: 'Policies', icon: <ShieldCheck className="h-3.5 w-3.5" />, badge: policies.length },
     { id: 'QUOTATIONS', label: 'Quotations', icon: <FileSpreadsheet className="h-3.5 w-3.5" />, badge: quotations.length },
     { id: 'CLAIMS', label: 'Claims', icon: <FileText className="h-3.5 w-3.5" />, badge: claims.length },
-    { id: 'RENEWALS', label: 'Renewals', icon: <Clock className="h-3.5 w-3.5" /> },
-    { id: 'PAYMENTS', label: 'Payments', icon: <Wallet className="h-3.5 w-3.5" /> },
-    { id: 'DOCUMENTS', label: 'Documents', icon: <Folder className="h-3.5 w-3.5" /> },
+    { id: 'RENEWALS', label: 'Renewals', icon: <Clock className="h-3.5 w-3.5" />, badge: renewals.length },
+    { id: 'PAYMENTS', label: 'Payments', icon: <Wallet className="h-3.5 w-3.5" />, badge: payments.length },
+    { id: 'DOCUMENTS', label: 'Documents', icon: <Folder className="h-3.5 w-3.5" />, badge: documents.length },
     { id: 'COMMUNICATION', label: 'Communication', icon: <MessageSquare className="h-3.5 w-3.5" />, badge: timeline.length },
     { id: 'ACTIVITIES', label: 'Timeline', icon: <Calendar className="h-3.5 w-3.5" /> },
     { id: 'VEHICLES', label: 'Vehicles', icon: <Car className="h-3.5 w-3.5" />, badge: vehicles.length },
@@ -85,19 +100,386 @@ export function CustomerTabsContainer({ customerId }: { customerId: string }) {
 
       {/* Tab Content Display Area */}
       <div className="p-6 text-xs space-y-4">
+        {activeTab === 'OVERVIEW' && (
+          <OverviewView
+            profile={profile}
+            analytics={analytics}
+            policies={policies}
+            leads={leads}
+            timeline={timeline}
+            setActiveTab={setActiveTab}
+          />
+        )}
+        {activeTab === 'LEADS' && <LeadsListView leads={leads} />}
         {activeTab === 'POLICIES' && <ExpandablePoliciesView policies={policies} />}
-        {activeTab === 'CLAIMS' && <ClaimsLifecycleView claims={claims} />}
         {activeTab === 'QUOTATIONS' && <QuotationsListView quotations={quotations} />}
-        {activeTab === 'VEHICLES' && <VehicleCardsView vehicles={vehicles} />}
-        {activeTab === 'FAMILY' && <FamilyTreePage familyMembers={familyMembers} />}
+        {activeTab === 'CLAIMS' && <ClaimsLifecycleView claims={claims} />}
+        {activeTab === 'RENEWALS' && <RenewalsListView renewals={renewals} policies={policies} />}
+        {activeTab === 'PAYMENTS' && <PaymentsListView payments={payments} />}
+        {activeTab === 'DOCUMENTS' && <DocumentsListView documents={documents} customerId={customerId} refetch={refetch} />}
         {activeTab === 'COMMUNICATION' && <CommunicationStreamView timeline={timeline} />}
         {activeTab === 'ACTIVITIES' && <CommunicationStreamView timeline={timeline} />}
+        {activeTab === 'VEHICLES' && <VehicleCardsView vehicles={vehicles} />}
+        {activeTab === 'FAMILY' && <FamilyTreePage familyMembers={familyMembers} />}
+        {activeTab === 'NOTES' && <NotesView customerId={customerId} />}
         {activeTab === 'ANALYTICS' && <CustomerAnalyticsView analytics={analytics} policies={policies} />}
-        {['OVERVIEW', 'RENEWALS', 'PAYMENTS', 'DOCUMENTS', 'NOTES'].includes(activeTab) && (
-          <div className="py-8 text-center text-muted-foreground">
-            Customer 360 Workspace Module: <strong>{activeTab}</strong>. Total Premium Paid: ₹{Number(analytics.totalPremiumPaid || 0).toLocaleString('en-IN')}.
+      </div>
+    </div>
+  );
+}
+
+function OverviewView({
+  profile,
+  analytics,
+  policies,
+  leads,
+  timeline,
+  setActiveTab,
+}: {
+  profile: any;
+  analytics: any;
+  policies: any[];
+  leads: any[];
+  timeline: any[];
+  setActiveTab: (tab: string) => void;
+}) {
+  return (
+    <div className="space-y-6">
+      {/* Metrics Row */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="p-4 rounded-xl border bg-card shadow-xs">
+          <div className="text-[10px] uppercase font-bold text-muted-foreground">Total Premium Paid</div>
+          <div className="text-xl font-black text-foreground mt-1">
+            ₹{Number(analytics.totalPremiumPaid || 0).toLocaleString('en-IN')}
           </div>
-        )}
+          <div className="text-[10px] text-muted-foreground mt-0.5">Across all issued policies</div>
+        </div>
+        <div className="p-4 rounded-xl border bg-card shadow-xs">
+          <div className="text-[10px] uppercase font-bold text-muted-foreground">Active Policies</div>
+          <div className="text-xl font-black text-primary mt-1">
+            {analytics.activePoliciesCount || 0}
+          </div>
+          <div className="text-[10px] text-muted-foreground mt-0.5">In-force coverage</div>
+        </div>
+        <div className="p-4 rounded-xl border bg-card shadow-xs">
+          <div className="text-[10px] uppercase font-bold text-muted-foreground">Open Claims</div>
+          <div className="text-xl font-black text-amber-600 mt-1">
+            {analytics.openClaimsCount || 0}
+          </div>
+          <div className="text-[10px] text-muted-foreground mt-0.5">Under investigation / review</div>
+        </div>
+        <div className="p-4 rounded-xl border bg-card shadow-xs">
+          <div className="text-[10px] uppercase font-bold text-muted-foreground">Health & Renewal</div>
+          <div className="text-xl font-black text-emerald-600 mt-1">
+            {analytics.healthScore || 100}%
+          </div>
+          <div className="text-[10px] text-muted-foreground mt-0.5">Customer retention index</div>
+        </div>
+      </div>
+
+      {/* Two Column Layout: Policies & Leads */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Recent Policies */}
+        <div className="p-4 rounded-xl border bg-card space-y-3">
+          <div className="flex justify-between items-center">
+            <h4 className="font-bold text-sm text-foreground flex items-center gap-1.5">
+              <ShieldCheck className="h-4 w-4 text-primary" /> Active & Recent Policies
+            </h4>
+            <button
+              onClick={() => setActiveTab('POLICIES')}
+              className="text-[10px] font-bold text-primary hover:underline"
+            >
+              View All ({policies.length})
+            </button>
+          </div>
+          {policies.length === 0 ? (
+            <p className="text-xs text-muted-foreground py-4 text-center">No active policies found</p>
+          ) : (
+            <div className="space-y-2">
+              {policies.slice(0, 3).map((p: any) => (
+                <div key={p.id} className="p-2.5 rounded-lg bg-muted/20 border flex justify-between items-center text-xs">
+                  <div>
+                    <div className="font-bold font-mono">{p.policyNumber}</div>
+                    <div className="text-[10px] text-muted-foreground">{p.policyType || 'Motor Policy'}</div>
+                  </div>
+                  <div className="text-right">
+                    <div className="font-bold text-foreground">₹{Number(p.premiumAmount || 0).toLocaleString('en-IN')}</div>
+                    <StatusBadge status={p.status} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Active Pipeline / Leads */}
+        <div className="p-4 rounded-xl border bg-card space-y-3">
+          <div className="flex justify-between items-center">
+            <h4 className="font-bold text-sm text-foreground flex items-center gap-1.5">
+              <TrendingUp className="h-4 w-4 text-primary" /> Sales Pipeline & Leads
+            </h4>
+            <button
+              onClick={() => setActiveTab('LEADS')}
+              className="text-[10px] font-bold text-primary hover:underline"
+            >
+              View All ({leads.length})
+            </button>
+          </div>
+          {leads.length === 0 ? (
+            <p className="text-xs text-muted-foreground py-4 text-center">No active leads in pipeline</p>
+          ) : (
+            <div className="space-y-2">
+              {leads.slice(0, 3).map((l: any) => (
+                <div key={l.id} className="p-2.5 rounded-lg bg-muted/20 border flex justify-between items-center text-xs">
+                  <div>
+                    <div className="font-bold text-foreground">{l.title || 'Insurance Lead'}</div>
+                    <div className="text-[10px] text-muted-foreground font-mono">{l.leadCode}</div>
+                  </div>
+                  <div className="text-right">
+                    <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-primary/10 text-primary">
+                      {l.status}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function LeadsListView({ leads }: { leads: any[] }) {
+  if (!leads || leads.length === 0) {
+    return (
+      <div className="p-8 text-center text-muted-foreground border rounded-xl bg-card">
+        No sales leads found for this customer.
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      {leads.map((lead: any) => (
+        <div key={lead.id} className="p-4 rounded-xl border bg-card flex justify-between items-center">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="font-mono text-xs font-bold text-primary px-2 py-0.5 rounded bg-primary/10 border border-primary/20">
+                {lead.leadCode}
+              </span>
+              <span className="font-bold text-foreground text-sm">{lead.title || 'Lead'}</span>
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              Source: {lead.source || 'Direct'} • Created: {new Date(lead.createdAt).toLocaleDateString('en-IN')}
+            </p>
+          </div>
+          <div className="flex items-center space-x-3">
+            {lead.estimatedValue && (
+              <span className="font-bold text-sm">₹{Number(lead.estimatedValue).toLocaleString('en-IN')}</span>
+            )}
+            <StatusBadge status={lead.status} />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function RenewalsListView({ renewals, policies }: { renewals: any[]; policies: any[] }) {
+  const allRenewals = [...renewals];
+  if (allRenewals.length === 0 && policies.length > 0) {
+    // Derive pending renewals from policies expiring within 60 days
+    const now = new Date();
+    policies.forEach((p: any) => {
+      if (p.expiryDate) {
+        const exp = new Date(p.expiryDate);
+        const daysLeft = Math.ceil((exp.getTime() - now.getTime()) / (1000 * 3600 * 24));
+        if (daysLeft <= 60 && daysLeft >= -30) {
+          allRenewals.push({
+            id: `derived-${p.id}`,
+            policyNumber: p.policyNumber,
+            previousExpiry: p.expiryDate,
+            newExpiry: new Date(exp.setFullYear(exp.getFullYear() + 1)),
+            premiumAmount: p.premiumAmount,
+            status: daysLeft < 0 ? 'OVERDUE' : 'DUE_SOON',
+            daysLeft,
+          });
+        }
+      }
+    });
+  }
+
+  if (allRenewals.length === 0) {
+    return (
+      <div className="p-8 text-center text-muted-foreground border rounded-xl bg-card">
+        No active renewals or policies due for renewal.
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      {allRenewals.map((r: any, idx: number) => (
+        <div key={r.id || idx} className="p-4 rounded-xl border bg-card flex justify-between items-center">
+          <div>
+            <div className="font-bold text-sm text-foreground">
+              Policy #{r.policyNumber || r.policy?.policyNumber || 'Renewal Task'}
+            </div>
+            <div className="text-xs text-muted-foreground mt-0.5">
+              Expiry Date: {r.previousExpiry ? new Date(r.previousExpiry).toLocaleDateString('en-IN') : 'N/A'}
+              {r.daysLeft !== undefined && ` (${r.daysLeft} days remaining)`}
+            </div>
+          </div>
+          <div className="flex items-center space-x-3">
+            <span className="font-bold text-sm">₹{Number(r.premiumAmount || 0).toLocaleString('en-IN')}</span>
+            <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
+              r.status === 'OVERDUE' ? 'bg-rose-500/10 text-rose-600' : 'bg-amber-500/10 text-amber-600'
+            }`}>
+              {r.status || 'SCHEDULED'}
+            </span>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function PaymentsListView({ payments }: { payments: any[] }) {
+  if (!payments || payments.length === 0) {
+    return (
+      <div className="p-8 text-center text-muted-foreground border rounded-xl bg-card">
+        No payment transactions recorded for this customer.
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      {payments.map((p: any, idx: number) => (
+        <div key={p.id || idx} className="p-4 rounded-xl border bg-card flex justify-between items-center">
+          <div className="flex items-center gap-3">
+            <div className="h-9 w-9 rounded-lg bg-emerald-500/10 text-emerald-600 flex items-center justify-center">
+              <CreditCard className="h-4 w-4" />
+            </div>
+            <div>
+              <div className="font-mono text-xs font-bold text-foreground">
+                TXN: {p.transactionId || 'OFFLINE-RECEIPT'}
+              </div>
+              <div className="text-[11px] text-muted-foreground">
+                Method: {p.paymentMethod || 'Net Banking'} • Date: {p.paymentDate ? new Date(p.paymentDate).toLocaleDateString('en-IN') : 'Recorded'}
+              </div>
+            </div>
+          </div>
+          <div className="text-right">
+            <div className="font-bold text-sm text-emerald-600">
+              ₹{Number(p.amount || 0).toLocaleString('en-IN')}
+            </div>
+            <StatusBadge status={p.status || 'SUCCESS'} />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function DocumentsListView({
+  documents,
+  customerId,
+  refetch,
+}: {
+  documents: any[];
+  customerId: string;
+  refetch: () => void;
+}) {
+  if (!documents || documents.length === 0) {
+    return (
+      <div className="p-8 text-center text-muted-foreground border rounded-xl bg-card">
+        <Folder className="h-8 w-8 mx-auto mb-2 text-muted-foreground/50" />
+        No customer documents uploaded yet.
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      {documents.map((doc: any) => (
+        <div key={doc.id} className="p-4 rounded-xl border bg-card flex justify-between items-center">
+          <div className="flex items-center gap-3">
+            <div className="h-9 w-9 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
+              <FileText className="h-4 w-4" />
+            </div>
+            <div>
+              <div className="font-bold text-foreground text-sm">{doc.name || doc.originalFileName}</div>
+              <div className="text-[11px] text-muted-foreground">
+                Size: {(Number(doc.size || 0) / 1024).toFixed(1)} KB • Uploaded: {new Date(doc.createdAt).toLocaleDateString('en-IN')}
+              </div>
+            </div>
+          </div>
+          <StatusBadge status={doc.verificationStatus || doc.status || 'VERIFIED'} />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function NotesView({ customerId }: { customerId: string }) {
+  const [notes, setNotes] = useState<Array<{ id: string; text: string; date: string; author: string }>>([
+    {
+      id: 'init-1',
+      text: 'Customer profile validated during KYC intake. Preferred communication via WhatsApp.',
+      date: new Date().toLocaleDateString('en-IN'),
+      author: 'Operations Executive',
+    },
+  ]);
+  const [newNote, setNewNote] = useState('');
+
+  const handleAddNote = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newNote.trim()) return;
+    setNotes([
+      {
+        id: `note-${Date.now()}`,
+        text: newNote.trim(),
+        date: new Date().toLocaleDateString('en-IN'),
+        author: 'Current User',
+      },
+      ...notes,
+    ]);
+    setNewNote('');
+    toast.success('Note added to customer profile');
+  };
+
+  return (
+    <div className="space-y-4">
+      <form onSubmit={handleAddNote} className="space-y-2">
+        <textarea
+          value={newNote}
+          onChange={(e) => setNewNote(e.target.value)}
+          placeholder="Add an internal note or interaction log about this customer..."
+          className="w-full p-3 rounded-xl border bg-background text-xs focus:ring-1 focus:ring-primary outline-none"
+          rows={3}
+        />
+        <div className="flex justify-end">
+          <button
+            type="submit"
+            className="px-3.5 py-1.5 rounded-lg bg-primary text-primary-foreground font-bold text-xs hover:bg-primary/90 transition-colors"
+          >
+            Add Note
+          </button>
+        </div>
+      </form>
+
+      <div className="space-y-2 pt-2">
+        {notes.map((n) => (
+          <div key={n.id} className="p-3 rounded-xl border bg-card space-y-1">
+            <div className="flex justify-between items-center text-[10px] text-muted-foreground">
+              <span className="font-bold text-foreground">{n.author}</span>
+              <span>{n.date}</span>
+            </div>
+            <p className="text-xs text-foreground/90">{n.text}</p>
+          </div>
+        ))}
       </div>
     </div>
   );

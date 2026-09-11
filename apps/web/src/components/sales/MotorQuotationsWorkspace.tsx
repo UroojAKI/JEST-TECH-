@@ -180,7 +180,17 @@ export function MotorQuotationsWorkspace() {
     <div className="space-y-6 pb-12">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 p-6 rounded-xl border bg-card">
         <div>
-          <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-primary/10 text-primary border border-primary/20">Motor CRM</span>
+          <div className="flex items-center gap-2">
+            {leadIdParam && (
+              <Link
+                href={`/workspace/sales/leads/${leadIdParam}`}
+                className="inline-flex items-center gap-1 text-xs font-bold text-primary hover:underline mr-1"
+              >
+                <ArrowLeft className="h-3.5 w-3.5" /> Back to Lead
+              </Link>
+            )}
+            <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-primary/10 text-primary border border-primary/20">Motor CRM</span>
+          </div>
           <h1 className="text-2xl font-bold tracking-tight text-foreground mt-2">Motor Quotations</h1>
           <p className="text-sm text-muted-foreground max-w-2xl">Sales creates and pays quotations. Back Office owns policy issuance.</p>
         </div>

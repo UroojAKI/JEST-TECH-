@@ -197,11 +197,30 @@ export class WorkspaceService {
       throw new NotFoundException(`User with ID '${userId}' not found`);
     }
 
-    const orgId = (user as any).branch?.zone?.region?.company?.id;
+    let orgId =
+      (user as any).branch?.zone?.region?.company?.id ??
+      (user as any).organizationId ??
+      (user as any).companyId;
+
     if (!orgId) {
-      // Never fall back to an arbitrary active company. Doing so can cross a
-      // tenant boundary when a user's organizational assignment is corrupt or
-      // incomplete. Fail closed instead.
+      const roleName = String(user.role?.type || user.role?.code || '');
+      if (
+        roleName.includes('SUPER_ADMIN') ||
+        roleName.includes('SYSTEM_ADMINISTRATOR') ||
+        roleName.includes('ADMIN')
+      ) {
+        const activeCompany = await this.prisma.company.findFirst({
+          where: { isActive: true },
+          select: { id: true },
+        });
+        orgId = activeCompany?.id;
+      }
+    }
+
+    if (!orgId) {
+      // Never fall back to an arbitrary active company for standard tenant users.
+      // Doing so can cross a tenant boundary when a user's organizational assignment
+      // is corrupt or incomplete. Fail closed instead.
       throw new ForbiddenException('Missing organizational tenant context');
     }
 

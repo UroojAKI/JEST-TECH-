@@ -20,6 +20,7 @@ export interface GateStatus {
 export interface BackOfficeQueueItem {
   id: string; // quotationId
   quotationCode: string;
+  status: QuotationStatus;
   customerName: string;
   customerPhone?: string;
   customerEmail?: string;
@@ -55,8 +56,24 @@ export class BackOfficeQueueService {
     status?: string;
     quotationId?: string;
   }) {
+    let statusFilter: QuotationStatus[] = [
+      QuotationStatus.PENDING_APPROVAL,
+      QuotationStatus.APPROVED,
+      QuotationStatus.ACCEPTED,
+    ];
+
+    if (params?.status && !['READY', 'BLOCKED', 'ALL', 'INSPECTION_REQUIRED'].includes(params.status)) {
+      const parts = params.status
+        .split(',')
+        .map((s) => s.trim() as QuotationStatus)
+        .filter((s) => Object.values(QuotationStatus).includes(s));
+      if (parts.length > 0) {
+        statusFilter = parts;
+      }
+    }
+
     const where: Prisma.QuotationWhereInput = {
-      status: { in: [QuotationStatus.APPROVED, QuotationStatus.ACCEPTED] },
+      status: { in: statusFilter },
       ...(params?.quotationId ? { id: params.quotationId } : {}),
     };
 
@@ -236,6 +253,7 @@ export class BackOfficeQueueService {
       const item: BackOfficeQueueItem = {
         id: q.id,
         quotationCode: q.quotationCode,
+        status: q.status,
         customerName: q.contact
           ? `${q.contact.firstName} ${q.contact.lastName || ''}`.trim()
           : 'Unknown Customer',
@@ -276,6 +294,7 @@ export class BackOfficeQueueService {
       // Status filter
       if (params?.status === 'READY' && !item.allGatesPassed) continue;
       if (params?.status === 'BLOCKED' && item.allGatesPassed) continue;
+      if (params?.status === 'INSPECTION_REQUIRED' && item.gates.inspection.passed) continue;
 
       items.push(item);
     }
@@ -302,6 +321,12 @@ export class BackOfficeQueueService {
     if (!item) {
       throw new NotFoundException(
         `Quotation ${quotationId} not found in Back-Office queue or not in APPROVED/ACCEPTED status`,
+      );
+    }
+
+    if (item.status !== QuotationStatus.APPROVED && item.status !== QuotationStatus.ACCEPTED) {
+      throw new BadRequestException(
+        `Quotation ${quotationId} is in ${item.status} status. Policy issuance requires APPROVED or ACCEPTED status.`,
       );
     }
 

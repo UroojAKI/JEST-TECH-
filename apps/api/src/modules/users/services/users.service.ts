@@ -140,7 +140,7 @@ export class UsersService {
 
   async findAll(pagination: PaginationDto) {
     const page = pagination.page || 1;
-    const limit = pagination.limit || 10;
+    const limit = pagination.limit || 25;
     const skip = (page - 1) * limit;
 
     const where: Prisma.UserWhereInput = {};

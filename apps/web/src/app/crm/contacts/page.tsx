@@ -5,16 +5,11 @@ import { useRouter as useNav, useSearchParams } from 'next/navigation';
 import { AppShell } from '../../../components/layout/app-shell';
 import { EnterpriseTable } from '../../../components/table/enterprise-table';
 import { Users, Plus, Building2, User, Loader2, X, AlertCircle, ShieldCheck } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
 import { useCustomers } from '../../../hooks/useCustomer360';
 import { customerRepository } from '../../../repositories/customer.repository';
+import { adminRepository } from '../../../repositories/admin.repository';
 import { toast } from 'sonner';
-
-const BRANCH_OPTIONS = [
-  { id: 'bom-bkc', name: 'Mumbai BKC Flagship Branch' },
-  { id: 'pun-shv', name: 'Pune Shivajinagar Branch' },
-  { id: 'blr-ind', name: 'Bengaluru Indiranagar Branch' },
-  { id: 'del-cp', name: 'Delhi Connaught Place Branch' },
-];
 
 export default function CustomerRegisterPage() {
   const router = useNav();
@@ -24,6 +19,12 @@ export default function CustomerRegisterPage() {
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(25);
   const [search, setSearch] = useState('');
+
+  const { data: dbBranches = [] } = useQuery({
+    queryKey: ['branches-list'],
+    queryFn: () => adminRepository.getBranches(),
+    staleTime: 5 * 60 * 1000,
+  });
 
   useEffect(() => {
     if (searchParams.get('create') === '1') setShowAddModal(true);
@@ -51,7 +52,7 @@ export default function CustomerRegisterPage() {
     type: 'INDIVIDUAL',
     phone: '',
     email: '',
-    branch: 'Mumbai BKC Flagship Branch',
+    branchId: '',
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -71,13 +72,13 @@ export default function CustomerRegisterPage() {
         lastName: formData.lastName.trim(),
         phone: cleanPhone,
         email: formData.email.trim() || undefined,
-        branch: { id: '', name: formData.branch },
+        branchId: formData.branchId || undefined,
       });
       await refetch();
       toast.success(`Customer "${formData.firstName} ${formData.lastName}" registered successfully`);
       setShowAddModal(false);
       setPage(1);
-      setFormData({ firstName: '', lastName: '', type: 'INDIVIDUAL', phone: '', email: '', branch: 'Mumbai BKC Flagship Branch' });
+      setFormData({ firstName: '', lastName: '', type: 'INDIVIDUAL', phone: '', email: '', branchId: '' });
       router.replace('/crm/contacts');
     } catch (err: any) {
       const errData = err?.response?.data?.error || err?.response?.data;
@@ -131,7 +132,7 @@ export default function CustomerRegisterPage() {
     {
       accessorKey: 'branch',
       header: 'Branch',
-      cell: ({ row }: any) => row.original.branch?.name || (row.original.branchId ? row.original.branchId : 'Mumbai BKC Flagship Branch'),
+      cell: ({ row }: any) => row.original.branch?.name || (row.original.branchId ? row.original.branchId : '—'),
     },
     {
       accessorKey: 'status',
@@ -249,12 +250,13 @@ export default function CustomerRegisterPage() {
               <div>
                 <label className="font-bold text-muted-foreground block mb-1">Branch Office</label>
                 <select
-                  value={formData.branch}
-                  onChange={(e) => setFormData({ ...formData, branch: e.target.value })}
+                  value={formData.branchId}
+                  onChange={(e) => setFormData({ ...formData, branchId: e.target.value })}
                   className="w-full p-2.5 rounded-lg border bg-background text-xs"
                 >
-                  {BRANCH_OPTIONS.map((b) => (
-                    <option key={b.id} value={b.name}>
+                  <option value="">Select Branch (or use default assigned)...</option>
+                  {dbBranches.map((b: any) => (
+                    <option key={b.id} value={b.id}>
                       {b.name}
                     </option>
                   ))}

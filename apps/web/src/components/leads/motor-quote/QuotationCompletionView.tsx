@@ -1,8 +1,9 @@
 'use client';
 
 import React, { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import { quotationsRepository, QuotationCompletionResult } from '../../../repositories/quotations.repository';
+import { toast } from 'sonner';
 import {
   CheckCircle2,
   AlertTriangle,
@@ -15,6 +16,9 @@ import {
   Clock,
   Car,
   FileText,
+  Save,
+  Loader2,
+  Edit3,
 } from 'lucide-react';
 
 interface Props {
@@ -34,6 +38,20 @@ const SECTION_ICONS: Record<string, React.ReactNode> = {
   payment: <CreditCard className="h-4 w-4" />,
 };
 
+const FIELD_INPUT_CONFIG: Record<string, { label: string; placeholder: string; type?: string }> = {
+  customerName: { label: 'Customer Full Name', placeholder: 'e.g. Rajesh Sharma' },
+  phone: { label: 'Mobile Number', placeholder: '10-digit mobile number', type: 'tel' },
+  email: { label: 'Email Address', placeholder: 'e.g. rajesh@example.com', type: 'email' },
+  dateOfBirth: { label: 'Date of Birth', placeholder: 'YYYY-MM-DD', type: 'date' },
+  panNumber: { label: 'PAN or Aadhaar KYC', placeholder: 'e.g. ABCDE1234F' },
+  registrationNumber: { label: 'Registration Plate Number', placeholder: 'e.g. MH02AB1234' },
+  engineNumber: { label: 'Engine Number', placeholder: 'e.g. ENG987654321' },
+  chassisNumber: { label: 'Chassis Number / VIN', placeholder: 'e.g. MA3ER45S900123456' },
+  previousPolicyNumber: { label: 'Previous Policy Number', placeholder: 'e.g. POL-PREV-2025-01' },
+  previousInsurerName: { label: 'Previous Insurer Name', placeholder: 'e.g. HDFC ERGO General Insurance' },
+  previousPolicyExpiryDate: { label: 'Previous Policy Expiry Date', placeholder: 'YYYY-MM-DD', type: 'date' },
+};
+
 export function QuotationCompletionView({
   quotationId,
   quotationCode,
@@ -42,13 +60,49 @@ export function QuotationCompletionView({
   onConductInspection,
 }: Props) {
   const [isOpen, setIsOpen] = useState(false);
+  const [editValues, setEditValues] = useState<Record<string, string>>({});
+  const queryClient = useQueryClient();
 
   const { data: completion, isLoading, error } = useQuery<QuotationCompletionResult>({
     queryKey: ['quotation-completion', quotationId],
     queryFn: () => quotationsRepository.getQuotationCompletion(quotationId),
     enabled: !!quotationId,
-    staleTime: 30000,
+    staleTime: 15000,
   });
+
+  const updateMutation = useMutation({
+    mutationFn: (details: Record<string, any>) =>
+      quotationsRepository.updateQuotationDetails(quotationId, details),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['quotation-completion', quotationId] });
+      queryClient.invalidateQueries({ queryKey: ['motor-quotations-all'] });
+      queryClient.invalidateQueries({ queryKey: ['motor-quotation', quotationId] });
+      queryClient.invalidateQueries({ queryKey: ['quotations'] });
+      toast.success('Quotation details saved and completion recalculated!');
+      setEditValues({});
+    },
+    onError: (err: any) => {
+      toast.error(err?.response?.data?.message || err?.message || 'Failed to save quotation details');
+    },
+  });
+
+  const handleFieldChange = (field: string, val: string) => {
+    setEditValues((prev) => ({ ...prev, [field]: val }));
+  };
+
+  const handleSaveEdits = () => {
+    const cleaned: Record<string, string> = {};
+    for (const [k, v] of Object.entries(editValues)) {
+      if (v && v.trim() !== '') {
+        cleaned[k] = v.trim();
+      }
+    }
+    if (Object.keys(cleaned).length === 0) {
+      toast.error('Please enter at least one field to save.');
+      return;
+    }
+    updateMutation.mutate(cleaned);
+  };
 
   if (isLoading) {
     return (
@@ -65,6 +119,8 @@ export function QuotationCompletionView({
 
   const percent = completion.completionPercentage;
   const isComplete = percent === 100;
+  const hasEdits = Object.values(editValues).some((v) => v && v.trim() !== '');
+
   const progressColor =
     percent >= 100
       ? 'bg-emerald-500'
@@ -139,7 +195,7 @@ export function QuotationCompletionView({
                   </span>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Zero fake successes: policies cannot be issued until all 6 criteria sections reach 100% completion.
+                  Zero fake successes: policies cannot be issued until all criteria sections reach 100% completion. You can fill missing technical fields below and save directly.
                 </p>
               </div>
               <button
@@ -178,7 +234,7 @@ export function QuotationCompletionView({
             </div>
 
             {/* SECTION LIST */}
-            <div className="p-5 overflow-y-auto space-y-3.5 flex-1">
+            <div className="p-5 overflow-y-auto space-y-4 flex-1">
               {completion.sections.map((sec) => {
                 const icon = SECTION_ICONS[sec.section] || <FileText className="h-4 w-4" />;
                 const isSecComplete = sec.complete;
@@ -186,7 +242,7 @@ export function QuotationCompletionView({
                 return (
                   <div
                     key={sec.section}
-                    className={`p-3.5 rounded-xl border transition-all ${
+                    className={`p-4 rounded-xl border transition-all ${
                       isSecComplete
                         ? 'border-emerald-500/30 bg-emerald-500/5'
                         : 'border-amber-500/30 bg-amber-500/5'
@@ -226,36 +282,68 @@ export function QuotationCompletionView({
                       </div>
                     </div>
 
-                    {/* ONLY DISPLAY MISSING APPLICABLE FIELDS (AUD-033) */}
+                    {/* INTERACTIVE MISSING FIELDS FORM (AUD-033) */}
                     {!isSecComplete && sec.missing.length > 0 && (
-                      <div className="mt-3 pt-2.5 border-t border-amber-500/20 space-y-1.5">
-                        <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                          Action Required to Complete:
+                      <div className="mt-3 pt-3 border-t border-amber-500/20 space-y-2.5">
+                        <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground flex items-center justify-between">
+                          <span>Action Required to Complete:</span>
+                          <span className="text-[9px] text-primary lowercase font-medium">editable inline</span>
                         </div>
-                        <ul className="space-y-1">
-                          {sec.missing.map((item, idx) => (
-                            <li
-                              key={idx}
-                              className="flex items-start justify-between gap-2 text-xs bg-card/60 p-1.5 rounded border border-border/60"
-                            >
-                              <div className="flex items-center gap-1.5 min-w-0">
-                                <span className="text-rose-500 font-bold">•</span>
-                                <span className="font-semibold text-[11px] truncate">{item.label}</span>
-                              </div>
-                              <span
-                                className={`text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded whitespace-nowrap ${
-                                  item.requiredFor === 'POLICY_ISSUANCE'
-                                    ? 'bg-rose-500/10 text-rose-600'
-                                    : item.requiredFor === 'APPROVAL'
-                                    ? 'bg-amber-500/10 text-amber-600'
-                                    : 'bg-blue-500/10 text-blue-600'
-                                }`}
+                        <div className="space-y-2">
+                          {sec.missing.map((item, idx) => {
+                            const config = FIELD_INPUT_CONFIG[item.field];
+                            return (
+                              <div
+                                key={idx}
+                                className="bg-card p-2.5 rounded-lg border border-border/70 space-y-1.5 shadow-2xs"
                               >
-                                {item.requiredFor.replace('_', ' ')}
-                              </span>
-                            </li>
-                          ))}
-                        </ul>
+                                <div className="flex items-center justify-between gap-2">
+                                  <div className="flex items-center gap-1.5 min-w-0">
+                                    <span className="text-rose-500 font-bold">•</span>
+                                    <span className="font-semibold text-xs text-foreground">{item.label}</span>
+                                  </div>
+                                  <span
+                                    className={`text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded whitespace-nowrap ${
+                                      item.requiredFor === 'POLICY_ISSUANCE'
+                                        ? 'bg-rose-500/10 text-rose-600'
+                                        : item.requiredFor === 'APPROVAL'
+                                        ? 'bg-amber-500/10 text-amber-600'
+                                        : 'bg-blue-500/10 text-blue-600'
+                                    }`}
+                                  >
+                                    {item.requiredFor.replace('_', ' ')}
+                                  </span>
+                                </div>
+
+                                {config ? (
+                                  <div className="pt-1">
+                                    <input
+                                      type={config.type || 'text'}
+                                      placeholder={config.placeholder}
+                                      value={editValues[item.field] ?? ''}
+                                      onChange={(e) => handleFieldChange(item.field, e.target.value)}
+                                      className="w-full px-2.5 py-1.5 rounded-md border text-xs bg-background focus:outline-none focus:ring-1 focus:ring-primary border-border font-medium"
+                                    />
+                                  </div>
+                                ) : item.field === 'inspection' ? (
+                                  <div className="pt-1">
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setIsOpen(false);
+                                        onConductInspection?.();
+                                      }}
+                                      className="px-2.5 py-1 rounded bg-amber-500/10 border border-amber-500/30 text-amber-700 dark:text-amber-400 text-xs font-bold hover:bg-amber-500/20 transition-colors flex items-center gap-1.5"
+                                    >
+                                      <ShieldCheck className="h-3.5 w-3.5" />
+                                      Conduct Break-in / SAOD Inspection
+                                    </button>
+                                  </div>
+                                ) : null}
+                              </div>
+                            );
+                          })}
+                        </div>
                       </div>
                     )}
                   </div>
@@ -264,7 +352,7 @@ export function QuotationCompletionView({
             </div>
 
             {/* MODAL FOOTER */}
-            <div className="p-4 border-t bg-muted/20 flex flex-wrap items-center justify-between gap-2">
+            <div className="p-4 border-t bg-muted/20 flex flex-wrap items-center justify-between gap-3">
               <div className="text-[11px] text-muted-foreground">
                 {completion.canIssuePolicy ? (
                   <span className="text-emerald-600 font-bold flex items-center gap-1">
@@ -281,13 +369,37 @@ export function QuotationCompletionView({
 
               <div className="flex items-center gap-2">
                 <button
+                  type="button"
                   onClick={() => setIsOpen(false)}
-                  className="px-3.5 py-1.5 rounded-xl border text-xs font-semibold hover:bg-muted transition-colors"
+                  className="px-3 py-1.5 rounded-xl border text-xs font-semibold hover:bg-muted transition-colors"
                 >
                   Close
                 </button>
-                {!isComplete && onProceedToProposal && (
+
+                {hasEdits && (
                   <button
+                    type="button"
+                    onClick={handleSaveEdits}
+                    disabled={updateMutation.isPending}
+                    className="px-4 py-1.5 rounded-xl bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-700 transition-colors shadow-xs flex items-center gap-1.5 disabled:opacity-50"
+                  >
+                    {updateMutation.isPending ? (
+                      <>
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        Saving...
+                      </>
+                    ) : (
+                      <>
+                        <Save className="h-3.5 w-3.5" />
+                        Save & Recalculate
+                      </>
+                    )}
+                  </button>
+                )}
+
+                {!isComplete && onProceedToProposal && !hasEdits && (
+                  <button
+                    type="button"
                     onClick={() => {
                       setIsOpen(false);
                       onProceedToProposal();

@@ -59,7 +59,7 @@ export class AccountsService {
   }
 
   async findAll(pagination: PaginationDto, actor: ActorContext) {
-    const { page = 1, limit = 10, search, sortBy = 'createdAt', sortOrder = 'desc' } = pagination;
+    const { page = 1, limit = 25, search, sortBy = 'createdAt', sortOrder = 'desc' } = pagination;
     const skip = (page - 1) * limit;
     const scope = this.scope(actor);
     const searchWhere: Prisma.AccountWhereInput = search ? { OR: [

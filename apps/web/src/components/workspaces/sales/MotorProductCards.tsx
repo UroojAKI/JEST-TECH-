@@ -2,6 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import {
   Car,
   Bike,
@@ -13,6 +14,7 @@ import {
 } from 'lucide-react';
 
 export function MotorProductCards({ onSelect }: { onSelect?: (categoryId: string) => void }) {
+  const router = useRouter();
   const products = [
     {
       id: 'bike',
@@ -115,7 +117,13 @@ export function MotorProductCards({ onSelect }: { onSelect?: (categoryId: string
           return (
             <button
               key={prod.id}
-              onClick={() => onSelect?.(prod.id)}
+              onClick={() => {
+                if (onSelect) {
+                  onSelect(prod.id);
+                } else {
+                  router.push(prod.href);
+                }
+              }}
               className={`p-4 rounded-2xl border bg-gradient-to-br transition-all hover:scale-[1.02] shadow-xs flex flex-col justify-between group text-left w-full h-full ${prod.color}`}
             >
               <div>

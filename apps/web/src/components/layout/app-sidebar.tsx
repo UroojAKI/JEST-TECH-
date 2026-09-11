@@ -37,6 +37,7 @@ import {
   FileDown,
   User,
   PlusCircle,
+  Briefcase,
 } from 'lucide-react';
 import { navigationRegistry } from '../../lib/navigation/navigation.registry';
 import { usePermissions } from '../providers/permission-provider';
@@ -76,6 +77,7 @@ const ICON_MAP: Record<string, React.ReactNode> = {
   User: <User className="h-4 w-4" />,
   PlusCircle: <PlusCircle className="h-4 w-4" />,
   ShieldAlert: <ShieldAlert className="h-4 w-4" />,
+  Briefcase: <Briefcase className="h-4 w-4" />,
 };
 
 export function AppSidebar() {
@@ -86,6 +88,8 @@ export function AppSidebar() {
   const [openChildren, setOpenChildren] = useState<Record<string, boolean>>({
     crm: true,
     sales: true,
+    operations: true,
+    renewals: true,
     finance: true,
   });
 
@@ -93,7 +97,34 @@ export function AppSidebar() {
     setOpenChildren((prev) => ({ ...prev, [id]: !prev[id] }));
   };
 
-  const navSource = dynamicNav && dynamicNav.length > 0 ? dynamicNav : navigationRegistry;
+  // Preservation Invariant: Foundational CRM navigation must NEVER be wiped out.
+  // Merge dynamic workspace navigation with foundational navigationRegistry.
+  const navSource = React.useMemo(() => {
+    if (!dynamicNav || dynamicNav.length === 0) {
+      return navigationRegistry;
+    }
+
+    const baseMap = new Map<string, NavigationItem>(
+      navigationRegistry.map((item) => [item.id, { ...item }])
+    );
+
+    for (const dItem of dynamicNav) {
+      if (baseMap.has(dItem.id)) {
+        const existing = baseMap.get(dItem.id)!;
+        if (dItem.children && dItem.children.length > 0) {
+          const childMap = new Map((existing.children || []).map((c) => [c.id, c]));
+          for (const c of dItem.children) {
+            childMap.set(c.id, c);
+          }
+          existing.children = Array.from(childMap.values());
+        }
+      } else {
+        baseMap.set(dItem.id, dItem);
+      }
+    }
+
+    return Array.from(baseMap.values());
+  }, [dynamicNav]);
 
   const filteredNav = navSource.filter((item) =>
     canAccess({

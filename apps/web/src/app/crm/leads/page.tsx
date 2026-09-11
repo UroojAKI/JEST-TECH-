@@ -64,7 +64,7 @@ export default function LeadsPipelinePage() {
       (l.title || '').toLowerCase().includes(search.toLowerCase()) ||
       (l.leadCode || '').toLowerCase().includes(search.toLowerCase()) ||
       (l.contact?.firstName || '').toLowerCase().includes(search.toLowerCase());
-    const matchesStatus = statusFilter === 'ALL' || (l.status || 'QUALIFIED') === statusFilter;
+    const matchesStatus = statusFilter === 'ALL' || (l.status || 'NEW') === statusFilter;
     return matchesSearch && matchesStatus;
   });
 
@@ -99,20 +99,20 @@ export default function LeadsPipelinePage() {
         <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3 text-xs">
           <div className="p-3.5 rounded-2xl border bg-card text-card-foreground shadow-xs">
             <div className="text-[10px] font-bold text-muted-foreground uppercase">Total Leads</div>
-            <div className="text-lg font-black text-foreground mt-1">{kpis?.totalLeads || 42}</div>
+            <div className="text-lg font-black text-foreground mt-1">{kpis?.totalLeads ?? 0}</div>
             <div className="text-[9px] text-muted-foreground">Active Pipeline</div>
           </div>
 
           <div className="p-3.5 rounded-2xl border bg-card text-card-foreground shadow-xs">
             <div className="text-[10px] font-bold text-muted-foreground uppercase">Today's Leads</div>
-            <div className="text-lg font-black text-primary mt-1">{kpis?.todaysLeads || 12}</div>
+            <div className="text-lg font-black text-primary mt-1">{kpis?.todaysLeads ?? 0}</div>
             <div className="text-[9px] text-primary font-bold">New Inquiries</div>
           </div>
 
           <div className="p-3.5 rounded-2xl border bg-card text-card-foreground shadow-xs">
             <div className="text-[10px] font-bold text-muted-foreground uppercase">Hot Leads</div>
             <div className="text-lg font-black text-amber-600 mt-1 flex items-center space-x-1">
-              <span>{kpis?.hotLeads || 8}</span>
+              <span>{kpis?.hotLeads ?? 0}</span>
               <Flame className="h-4 w-4 fill-amber-500 text-amber-500" />
             </div>
             <div className="text-[9px] text-amber-600 font-bold">Immediate Contact</div>
@@ -120,25 +120,25 @@ export default function LeadsPipelinePage() {
 
           <div className="p-3.5 rounded-2xl border bg-card text-card-foreground shadow-xs">
             <div className="text-[10px] font-bold text-muted-foreground uppercase">Today's Calls</div>
-            <div className="text-lg font-black text-sky-600 mt-1">{kpis?.todaysFollowups || 8}</div>
+            <div className="text-lg font-black text-sky-600 mt-1">{kpis?.todaysFollowups ?? 0}</div>
             <div className="text-[9px] text-muted-foreground">Follow-ups Scheduled</div>
           </div>
 
           <div className="p-3.5 rounded-2xl border bg-card text-card-foreground shadow-xs">
             <div className="text-[10px] font-bold text-muted-foreground uppercase">Won / Issued</div>
-            <div className="text-lg font-black text-emerald-600 mt-1">{kpis?.won || 15}</div>
+            <div className="text-lg font-black text-emerald-600 mt-1">{kpis?.won ?? 0}</div>
             <div className="text-[9px] text-emerald-600 font-bold">Converted</div>
           </div>
 
           <div className="p-3.5 rounded-2xl border bg-card text-card-foreground shadow-xs">
             <div className="text-[10px] font-bold text-muted-foreground uppercase">Lost / Dropped</div>
-            <div className="text-lg font-black text-rose-600 mt-1">{kpis?.lost || 4}</div>
+            <div className="text-lg font-black text-rose-600 mt-1">{kpis?.lost ?? 0}</div>
             <div className="text-[9px] text-muted-foreground">Disqualified</div>
           </div>
 
           <div className="p-3.5 rounded-2xl border bg-card text-card-foreground shadow-xs">
             <div className="text-[10px] font-bold text-muted-foreground uppercase">Conversion %</div>
-            <div className="text-lg font-black text-emerald-600 mt-1">{kpis?.conversionRatePercentage || '24.8%'}</div>
+            <div className="text-lg font-black text-emerald-600 mt-1">{kpis?.conversionRatePercentage ?? '0.0%'}</div>
             <div className="text-[9px] text-muted-foreground">Sales Efficiency</div>
           </div>
         </div>
@@ -200,13 +200,19 @@ export default function LeadsPipelinePage() {
                         <div className="font-bold text-foreground">
                           {l.contact ? `${l.contact.firstName} ${l.contact.lastName}` : l.title}
                         </div>
-                        <div className="text-[10px] text-muted-foreground">{l.contact?.phone || '+91 98765 43210'}</div>
+                        <div className="text-[10px] text-muted-foreground">{l.contact?.phone || 'No phone recorded'}</div>
                       </td>
                       <td className="py-3 px-3 text-muted-foreground">{l.source || 'WALK_IN'}</td>
                       <td className="py-3 px-3">
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/10 text-amber-600 flex items-center space-x-1 w-fit">
-                          <Flame className="h-3 w-3 fill-amber-500" />
-                          <span>HOT</span>
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold flex items-center space-x-1 w-fit ${
+                          l.priority === 'HIGH' || l.priority === 'URGENT'
+                            ? 'bg-amber-500/10 text-amber-600'
+                            : l.priority === 'LOW'
+                            ? 'bg-slate-500/10 text-slate-600'
+                            : 'bg-blue-500/10 text-blue-600'
+                        }`}>
+                          {(l.priority === 'HIGH' || l.priority === 'URGENT') && <Flame className="h-3 w-3 fill-amber-500" />}
+                          <span>{l.priority || 'MEDIUM'}</span>
                         </span>
                       </td>
                       <td className="py-3 px-3">

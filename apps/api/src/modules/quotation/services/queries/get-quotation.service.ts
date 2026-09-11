@@ -31,7 +31,7 @@ export class GetQuotationService {
   async executeAll(user: ActorContext, pagination: PaginationDto) {
     const {
       page = 1,
-      limit = 10,
+      limit = 25,
       search,
       sortBy = 'createdAt',
       sortOrder = 'desc',

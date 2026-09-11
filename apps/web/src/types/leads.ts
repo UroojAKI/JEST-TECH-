@@ -48,6 +48,11 @@ export interface LeadItem {
   assignedToId?: string;
   assignedAgentName?: string;
   branchId?: string;
+  contactId?: string;
+  title?: string;
+  description?: string;
+  productType?: string;
+  estimatedValue?: number;
   tags?: LeadTag[];
   slaStatus: 'ON_TRACK' | 'WARNING' | 'BREACHED';
   slaTimeRemaining: string;

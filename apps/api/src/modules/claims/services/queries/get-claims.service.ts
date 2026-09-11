@@ -30,7 +30,7 @@ export class GetClaimsService {
   async executeAll(pagination: PaginationDto, user: ActorContext) {
     const {
       page = 1,
-      limit = 10,
+      limit = 25,
       sortBy = 'createdAt',
       sortOrder = 'desc',
     } = pagination;

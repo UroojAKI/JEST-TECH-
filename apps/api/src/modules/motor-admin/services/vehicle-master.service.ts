@@ -69,7 +69,7 @@ export class VehicleMasterService {
   // Manufacturer CRUD
   async getManufacturers(pagination: PaginationDto) {
     const page = pagination.page || 1;
-    const limit = pagination.limit || 10;
+    const limit = pagination.limit || 25;
     const skip = (page - 1) * limit;
     const where: Prisma.VehicleManufacturerWhereInput = {};
     if (pagination.search) {
@@ -104,7 +104,7 @@ export class VehicleMasterService {
   // Model CRUD
   async getModels(pagination: PaginationDto, manufacturerId?: string) {
     const page = pagination.page || 1;
-    const limit = pagination.limit || 10;
+    const limit = pagination.limit || 25;
     const skip = (page - 1) * limit;
     const where: Prisma.VehicleModelWhereInput = manufacturerId
       ? { manufacturerId }
@@ -152,7 +152,7 @@ export class VehicleMasterService {
   // Variant CRUD
   async getVariants(pagination: PaginationDto, modelId?: string) {
     const page = pagination.page || 1;
-    const limit = pagination.limit || 10;
+    const limit = pagination.limit || 25;
     const skip = (page - 1) * limit;
     const where: Prisma.VehicleVariantWhereInput = modelId ? { modelId } : {};
     if (pagination.search) {

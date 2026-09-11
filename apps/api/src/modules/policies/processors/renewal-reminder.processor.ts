@@ -104,14 +104,15 @@ export class RenewalReminderProcessor extends WorkerHost {
             data: {
               channel: 'EMAIL',
               direction: 'OUTBOUND',
-              status: 'SENT',
+              status: 'QUEUED',
               contactId: customerId,
               entityType: 'POLICY',
               entityId: policyId,
+              provider: 'EMAIL_SERVICE',
+              providerMessageId: `remind-${policyId}-${daysBefore}`,
               subject: `Policy Renewal Reminder - ${policyNumber}`,
               messagePreview: messageBody.slice(0, 100),
               messageBody,
-              sentAt: new Date(),
             },
           });
         }

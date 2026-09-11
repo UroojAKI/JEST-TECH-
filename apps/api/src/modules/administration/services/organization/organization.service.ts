@@ -45,7 +45,7 @@ export class OrganizationService {
 
   async getBranches(pagination: PaginationDto) {
     const page = pagination.page || 1;
-    const limit = pagination.limit || 10;
+    const limit = pagination.limit || 25;
     const skip = (page - 1) * limit;
     const where: Prisma.BranchWhereInput = { isActive: true };
     if (pagination.search) {
@@ -80,7 +80,7 @@ export class OrganizationService {
 
   async getDepartments(pagination: PaginationDto, branchId: string) {
     const page = pagination.page || 1;
-    const limit = pagination.limit || 10;
+    const limit = pagination.limit || 25;
     const skip = (page - 1) * limit;
     const where: Prisma.DepartmentWhereInput = { branchId, isActive: true };
     if (pagination.search) {
@@ -108,7 +108,7 @@ export class OrganizationService {
 
   async getTeams(pagination: PaginationDto, departmentId: string) {
     const page = pagination.page || 1;
-    const limit = pagination.limit || 10;
+    const limit = pagination.limit || 25;
     const skip = (page - 1) * limit;
     const where: Prisma.TeamWhereInput = { departmentId, isActive: true };
     if (pagination.search) {

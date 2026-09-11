@@ -150,7 +150,7 @@ export class FinanceController {
     }
   }
 
-  @Get('reconciliation-queue')
+  @Get(['reconciliation-queue', 'reconciliation/queue'])
   @Roles(
     RoleType.SUPER_ADMIN,
     RoleType.ADMIN,
@@ -174,7 +174,7 @@ export class FinanceController {
     });
   }
 
-  @Post('reconciliation-queue/:id/reconcile')
+  @Post(['reconciliation-queue/:id/reconcile', 'reconciliation/:id'])
   @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN, RoleType.FINANCE)
   @ApiOperation({
     summary:
@@ -188,7 +188,7 @@ export class FinanceController {
     return this.reconciliationService.reconcilePayment(id, user.id, dto);
   }
 
-  @Post('reconciliation-queue/:id/discrepancy')
+  @Post(['reconciliation-queue/:id/discrepancy', 'reconciliation/:id/flag'])
   @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN, RoleType.FINANCE)
   @ApiOperation({
     summary: 'Flag discrepancy on payment item with mandatory reason',
@@ -509,3 +509,4 @@ export class FinanceController {
     return res.send(csvHeaders + csvRows);
   }
 }
+

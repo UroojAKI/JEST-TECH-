@@ -270,4 +270,118 @@ export class QuotationCompletionService {
       sections,
     };
   }
+
+  async updateDetails(
+    quotationId: string,
+    updates: Record<string, any>,
+  ): Promise<QuotationCompletionResult> {
+    const quotation = await this.prisma.quotation.findUnique({
+      where: { id: quotationId },
+      include: {
+        contact: true,
+        vehicle: true,
+        motorPreviousPolicy: true,
+        motorInspection: true,
+        motorPaymentRecord: true,
+        documents: true,
+        saodVerification: true,
+      },
+    });
+
+    if (!quotation) {
+      throw new NotFoundException(`Quotation '${quotationId}' not found`);
+    }
+
+    // 1. Update Contact fields
+    const contactUpdates: any = {};
+    if (updates.email !== undefined) contactUpdates.email = updates.email;
+    if (updates.panNumber !== undefined) contactUpdates.panNumber = updates.panNumber;
+    if (updates.aadhaarNumber !== undefined) contactUpdates.aadhaarNumber = updates.aadhaarNumber;
+    if (updates.dateOfBirth !== undefined) contactUpdates.dateOfBirth = new Date(updates.dateOfBirth);
+    if (updates.customerName !== undefined) {
+      const parts = updates.customerName.trim().split(' ');
+      contactUpdates.firstName = parts[0];
+      contactUpdates.lastName = parts.slice(1).join(' ') || parts[0];
+    }
+    if (Object.keys(contactUpdates).length > 0 && quotation.contactId) {
+      await this.prisma.contact.update({
+        where: { id: quotation.contactId },
+        data: contactUpdates,
+      });
+    }
+
+    // 2. Update Vehicle fields
+    const vehicleUpdates: any = {};
+    if (updates.engineNumber !== undefined) vehicleUpdates.engineNumber = updates.engineNumber;
+    if (updates.chassisNumber !== undefined) vehicleUpdates.chassisNumber = updates.chassisNumber;
+    if (updates.registrationNumber !== undefined) vehicleUpdates.registrationNumber = updates.registrationNumber;
+    if (updates.makeModel !== undefined) vehicleUpdates.makeModel = updates.makeModel;
+    else if (updates.make !== undefined || updates.model !== undefined) {
+      vehicleUpdates.makeModel = `${updates.make || ''} ${updates.model || ''}`.trim();
+    }
+
+    if (Object.keys(vehicleUpdates).length > 0) {
+      if (quotation.vehicleId) {
+        await this.prisma.vehicle.update({
+          where: { id: quotation.vehicleId },
+          data: vehicleUpdates,
+        });
+      } else {
+        const vehicleCount = await this.prisma.vehicle.count();
+        const vehicleCode = `VEH-${new Date().getFullYear()}-${String(vehicleCount + 1).padStart(6, '0')}`;
+        const newVehicle = await this.prisma.vehicle.create({
+          data: {
+            vehicleCode,
+            category: 'PRIVATE_CAR',
+            registrationNumber: updates.registrationNumber || quotation.registrationNumber || 'PENDING',
+            makeModel: updates.makeModel || `${updates.make || ''} ${updates.model || ''}`.trim() || 'Standard Vehicle',
+            engineNumber: updates.engineNumber,
+            chassisNumber: updates.chassisNumber,
+            contactId: quotation.contactId,
+          },
+        });
+        await this.prisma.quotation.update({
+          where: { id: quotationId },
+          data: { vehicleId: newVehicle.id },
+        });
+      }
+      const meta = (quotation.motorMetadata as any) || {};
+      meta.vehicleDetails = { ...(meta.vehicleDetails || {}), ...vehicleUpdates };
+      await this.prisma.quotation.update({
+        where: { id: quotationId },
+        data: {
+          registrationNumber: updates.registrationNumber || quotation.registrationNumber,
+          motorMetadata: meta,
+        },
+      });
+    }
+
+    // 3. Update Previous Policy fields
+    if (
+      updates.previousPolicyNumber !== undefined ||
+      updates.previousInsurerName !== undefined ||
+      updates.previousPolicyExpiryDate !== undefined
+    ) {
+      await this.prisma.motorPreviousPolicy.upsert({
+        where: { quotationId },
+        create: {
+          quotationId,
+          previousPolicyNumber: updates.previousPolicyNumber || 'POL-UNKNOWN',
+          previousInsurerName: updates.previousInsurerName || 'Unknown Insurer',
+          policyExpiryDate: updates.previousPolicyExpiryDate
+            ? new Date(updates.previousPolicyExpiryDate)
+            : new Date(),
+        },
+        update: {
+          previousPolicyNumber: updates.previousPolicyNumber,
+          previousInsurerName: updates.previousInsurerName,
+          policyExpiryDate: updates.previousPolicyExpiryDate
+            ? new Date(updates.previousPolicyExpiryDate)
+            : undefined,
+        },
+      });
+    }
+
+    return this.getCompletion(quotationId);
+  }
 }

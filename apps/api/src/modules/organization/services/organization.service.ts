@@ -24,7 +24,7 @@ export class OrganizationService {
 
   async getDepartments(pagination: PaginationDto) {
     const page = pagination.page || 1;
-    const limit = pagination.limit || 10;
+    const limit = pagination.limit || 25;
     const skip = (page - 1) * limit;
     const where: Prisma.DepartmentWhereInput = {};
     if (pagination.search) {
@@ -83,7 +83,7 @@ export class OrganizationService {
 
   async getJobRoles(pagination: PaginationDto) {
     const page = pagination.page || 1;
-    const limit = pagination.limit || 10;
+    const limit = pagination.limit || 25;
     const skip = (page - 1) * limit;
     const where: Prisma.JobRoleWhereInput = {};
     if (pagination.search) {

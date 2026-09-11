@@ -13,7 +13,7 @@ export class DashboardRegistryService {
 
   async getAll(pagination: PaginationDto) {
     const page = pagination.page || 1;
-    const limit = pagination.limit || 10;
+    const limit = pagination.limit || 25;
     const { data, total } = await this.repository.findAll({
       ...pagination,
       page,
