@@ -39,6 +39,18 @@ export class BackOfficeController {
     RoleType.UNDERWRITER,
     RoleType.POLICY_ISSUANCE_EXECUTIVE,
     RoleType.BRANCH_MANAGER,
+    RoleType.SALES_MANAGER,
+    RoleType.SALES_AGENT,
+    RoleType.SALES_EXECUTIVE,
+    RoleType.POSP_ADVISOR,
+    RoleType.AGENT_MANAGER,
+    RoleType.TEAM_LEADER,
+    RoleType.FINANCE,
+    RoleType.FINANCE_ACCOUNTS_EXECUTIVE,
+    RoleType.CHIEF_FINANCE_OFFICER,
+    RoleType.CUSTOMER_SERVICE_EXECUTIVE,
+    RoleType.RENEWAL_EXECUTIVE,
+    RoleType.SUPPORT,
   )
   @ApiOperation({
     summary:

@@ -552,6 +552,8 @@ model Contact {
 
   gstNumber String?
 
+  agentCode String?
+
   accountId String?
 
   account Account? @relation(fields: [accountId], references: [id])
@@ -598,6 +600,7 @@ model Contact {
   @@index([deletedAt])
   @@index([createdById])
   @@index([updatedById])
+  @@index([agentCode])
   @@unique([companyId, phone])
   @@map("contacts")
 }

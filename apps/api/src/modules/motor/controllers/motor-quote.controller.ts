@@ -59,6 +59,12 @@ export class MotorQuoteController {
     RoleType.SYSTEM_ADMINISTRATOR,
     RoleType.MD_CEO,
     RoleType.BRANCH_MANAGER,
+    RoleType.SALES_MANAGER,
+    RoleType.SALES_AGENT,
+    RoleType.SALES_EXECUTIVE,
+    RoleType.POSP_ADVISOR,
+    RoleType.AGENT_MANAGER,
+    RoleType.TEAM_LEADER,
     RoleType.OPERATIONS,
     RoleType.POLICY_ISSUANCE_EXECUTIVE,
   )

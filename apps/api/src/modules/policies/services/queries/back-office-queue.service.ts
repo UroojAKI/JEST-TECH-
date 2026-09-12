@@ -60,6 +60,7 @@ export class BackOfficeQueueService {
       QuotationStatus.PENDING_APPROVAL,
       QuotationStatus.APPROVED,
       QuotationStatus.ACCEPTED,
+      QuotationStatus.DRAFT,
     ];
 
     if (params?.status && !['READY', 'BLOCKED', 'ALL', 'INSPECTION_REQUIRED'].includes(params.status)) {
@@ -73,8 +74,15 @@ export class BackOfficeQueueService {
     }
 
     const where: Prisma.QuotationWhereInput = {
-      status: { in: statusFilter },
-      ...(params?.quotationId ? { id: params.quotationId } : {}),
+      ...(params?.quotationId
+        ? { id: params.quotationId }
+        : {
+            OR: [
+              { status: { in: statusFilter } },
+              { issuanceStatus: 'ISSUANCE_PENDING' },
+              { workflowState: 'PAYMENT_DONE' },
+            ],
+          }),
     };
 
     const quotations = await this.prisma.quotation.findMany({
@@ -320,13 +328,17 @@ export class BackOfficeQueueService {
 
     if (!item) {
       throw new NotFoundException(
-        `Quotation ${quotationId} not found in Back-Office queue or not in APPROVED/ACCEPTED status`,
+        `Quotation ${quotationId} not found or not eligible for issuance`,
       );
     }
 
-    if (item.status !== QuotationStatus.APPROVED && item.status !== QuotationStatus.ACCEPTED) {
+    if (
+      item.status !== QuotationStatus.APPROVED &&
+      item.status !== QuotationStatus.ACCEPTED &&
+      !item.gates.payment.passed
+    ) {
       throw new BadRequestException(
-        `Quotation ${quotationId} is in ${item.status} status. Policy issuance requires APPROVED or ACCEPTED status.`,
+        `Quotation ${quotationId} is in ${item.status} status and payment is not verified. Policy issuance requires payment confirmation or APPROVED/ACCEPTED status.`,
       );
     }
 

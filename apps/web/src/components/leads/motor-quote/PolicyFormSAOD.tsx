@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { ShieldCheck, AlertTriangle, CheckCircle, Info } from 'lucide-react';
+import { ShieldCheck, AlertTriangle, CheckCircle, Info, Calculator, Percent } from 'lucide-react';
 import { INSURER_OPTIONS, NCB_OPTIONS, ADDON_OPTIONS } from './motorFormConfig';
 import type { PolicyFormSAOD, SaodTpVerification } from './motorFormTypes';
 import { calculateGst } from './motorTariffConfig';
@@ -58,26 +58,47 @@ export function PolicyFormSAODForm({ data, onChange }: Props) {
   const recalcPremium = (updated: PolicyFormSAOD): PolicyFormSAOD => {
     const odBase = parseFloat(updated.odPremiumBase || '0') || 0;
     const ncb = parseFloat(updated.ncbPercentage || '0') || 0;
-    const addOns = parseFloat(updated.addOnsPremium || '0') || 0;
+
+    // Sum prices of selected addons (Field 9)
+    const selectedAddons = updated.addonsSelected || [];
+    const addOnsTotal = selectedAddons.reduce((sum, key) => {
+      const price = parseFloat(updated.addonPrices?.[key] || '0') || 0;
+      return sum + price;
+    }, 0);
+
     const ncbDiscount = Math.round(odBase * (ncb / 100));
-    const netOd = odBase - ncbDiscount + addOns;
+    const netOd = Math.max(0, odBase - ncbDiscount + addOnsTotal);
     const gst = calculateGst(netOd);
     const total = Math.round((netOd + gst) * 100) / 100;
+
+    // Commission
     const commPct = parseFloat(updated.odCommissionPercent || '0') || 0;
     const commission = Math.round(netOd * (commPct / 100));
+
+    // Field 13: Discount / Commission Calculator (Sum of 10* D% - 11)
+    const dPct = parseFloat(updated.discountPercent || '0') || 0;
+    const discountAmt = Math.round((netOd * (dPct / 100)) * 100) / 100;
+    const finalPayable = Math.max(0, Math.round((total - discountAmt) * 100) / 100);
+    const calcStr = discountAmt > 0
+      ? `₹${discountAmt.toLocaleString('en-IN')} (Discount ${dPct}%: Final ₹${finalPayable.toLocaleString('en-IN')})`
+      : `₹0 (Gross: ₹${total.toLocaleString('en-IN')})`;
+
     return {
       ...updated,
+      addOnsPremium: addOnsTotal.toString(),
       ncbDiscountAmount: ncbDiscount.toString(),
       odPremium: netOd.toString(),
       gstAmount: gst.toString(),
       totalPremiumInclGST: total.toString(),
       commissionAmount: commission.toString(),
+      discountAmount: discountAmt.toString(),
+      finalPayableAmount: finalPayable.toString(),
+      commissionDiscountCalc: calcStr,
     };
   };
 
   const handleOdBaseChange = (val: string) => onChange(recalcPremium({ ...data, odPremiumBase: val }));
   const handleNcbChange = (val: string) => onChange(recalcPremium({ ...data, ncbPercentage: val }));
-  const handleAddOnsPremiumChange = (val: string) => onChange(recalcPremium({ ...data, addOnsPremium: val }));
   const handleCommissionChange = (val: string) => onChange(recalcPremium({ ...data, odCommissionPercent: val }));
 
   const handleClaimChange = (val: string) => {
@@ -88,7 +109,16 @@ export function PolicyFormSAODForm({ data, onChange }: Props) {
   const toggleAddon = (key: string) => {
     const current = data.addonsSelected || [];
     const updated = current.includes(key) ? current.filter((a) => a !== key) : [...current, key];
-    onChange({ ...data, addonsSelected: updated });
+    onChange(recalcPremium({ ...data, addonsSelected: updated }));
+  };
+
+  const handleAddonPriceChange = (key: string, price: string) => {
+    const updatedPrices = { ...(data.addonPrices || {}), [key]: price };
+    onChange(recalcPremium({ ...data, addonPrices: updatedPrices }));
+  };
+
+  const handleDiscountPercentChange = (val: string) => {
+    onChange(recalcPremium({ ...data, discountPercent: val }));
   };
 
   const verification = data.tpVerification;
@@ -282,31 +312,83 @@ export function PolicyFormSAODForm({ data, onChange }: Props) {
         </FieldRow>
       </div>
 
-      {/* Premium Calculator */}
-      <div className="p-4 rounded-xl border bg-primary/5 border-primary/20 space-y-3">
-        <div className="flex items-center gap-2 mb-1">
-          <ShieldCheck className="h-4 w-4 text-primary" />
-          <span className="text-xs font-black text-foreground">OD Premium Calculator</span>
-          <span className="text-[9px] text-muted-foreground ml-1">OD = Insurer Filed Rate (not IRDAI tariff)</span>
+      {/* Field 9: Add-ons Selected with Individual Price Inputs */}
+      <div className="p-3.5 rounded-xl border bg-card space-y-2">
+        <div className="flex items-center justify-between">
+          <label className="text-[11px] font-bold text-foreground block">
+            Add-ons Selected <span className="text-muted-foreground text-[9px] ml-1">(Field 9 — Optional)</span>
+          </label>
+          <span className="text-[10px] font-mono font-bold text-primary px-2 py-0.5 rounded bg-primary/10 border border-primary/20">
+            Total Add-ons: ₹{Number(data.addOnsPremium || 0).toLocaleString('en-IN')}
+          </span>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <FieldRow label="OD Base Premium (₹)" mandatory hint="Insurer-specific OD rate applied to IDV" formula="IDV × Insurer OD Rate %">
+        <p className="text-[10px] text-muted-foreground">
+          Select add-ons and enter the amount for each. Amounts automatically calculate into the OD Premium.
+        </p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+          {ADDON_OPTIONS.map((a) => {
+            const isSelected = (data.addonsSelected || []).includes(a.key);
+            return (
+              <div
+                key={a.key}
+                className={`flex flex-col gap-1.5 p-2 rounded-lg border transition-colors ${
+                  isSelected ? 'bg-primary/5 border-primary/40' : 'hover:bg-accent/40'
+                }`}
+              >
+                <label className="flex items-center gap-2 text-[11px] font-semibold cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={isSelected}
+                    onChange={() => toggleAddon(a.key)}
+                    className="h-3.5 w-3.5 rounded text-primary"
+                  />
+                  <span>{a.label}</span>
+                </label>
+                {isSelected && (
+                  <div className="mt-1 flex items-center gap-1.5">
+                    <span className="text-[10px] font-bold text-muted-foreground">₹</span>
+                    <input
+                      type="number"
+                      placeholder="Add-on Amount (₹)"
+                      value={data.addonPrices?.[a.key] || ''}
+                      onChange={(e) => handleAddonPriceChange(a.key, e.target.value)}
+                      className="w-full p-1.5 rounded-md border text-xs font-mono font-semibold bg-background focus:outline-none focus:ring-1 focus:ring-primary"
+                    />
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Field 10 & 11: Premium Calculator Breakdown */}
+      <div className="p-4 rounded-xl border bg-primary/5 border-primary/20 space-y-3">
+        <div className="flex items-center justify-between mb-1">
+          <div className="flex items-center gap-2">
+            <ShieldCheck className="h-4 w-4 text-primary" />
+            <span className="text-xs font-black text-foreground">OD Premium Calculator (Fields 10 & 11)</span>
+          </div>
+          <span className="text-[9px] text-muted-foreground font-semibold">OD Filed Rate + 18% GST</span>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+          <FieldRow label="OD Base Premium (₹)" mandatory hint="Insurer OD rate applied to IDV" formula="IDV × Insurer OD Rate %">
             <input type="number" value={data.odPremiumBase} onChange={(e) => handleOdBaseChange(e.target.value)} placeholder="Enter base OD premium" className={mandatoryInput(data.odPremiumBase)} />
           </FieldRow>
           <FieldRow label="NCB Discount (₹)" hint="Auto-calculated from NCB %">
             <input type="number" value={data.ncbDiscountAmount} readOnly className={readonlyInput} placeholder="Auto-calculated" />
           </FieldRow>
-          <FieldRow label="Add-ons Premium (₹)">
-            <input type="number" value={data.addOnsPremium} onChange={(e) => handleAddOnsPremiumChange(e.target.value)} placeholder="Sum of add-on premiums" className={inputBase} />
+          <FieldRow label="Add-ons Premium (₹)" hint="Sum of individual add-on inputs">
+            <input type="number" value={data.addOnsPremium} readOnly className={readonlyInput} placeholder="₹0" />
           </FieldRow>
-          <FieldRow label="Net OD Premium (₹)" hint="Auto-calc: OD Base - NCB + Add-ons">
-            <input type="number" value={data.odPremium} readOnly className={readonlyInput} placeholder="Auto-calculated" />
+          <FieldRow label="Net OD Premium (₹) [Field 10]" hint="Auto-calc: OD Base - NCB + Add-ons">
+            <input type="number" value={data.odPremium} readOnly className={`${readonlyInput} font-bold text-foreground`} placeholder="Auto-calculated" />
           </FieldRow>
-          <FieldRow label="GST Amount (18%) ₹" hint="Auto-calculated">
+          <FieldRow label="Statutory GST (18%) ₹" hint="18% of Net OD Premium">
             <input type="number" value={data.gstAmount} readOnly className={readonlyInput} placeholder="Auto-calculated" />
           </FieldRow>
-          <FieldRow label="Total Premium incl. GST (₹)" mandatory hint="System-generated — cannot be manually edited">
-            <input type="number" value={data.totalPremiumInclGST} readOnly className={`${readonlyInput} font-black`} placeholder="Auto-calculated" />
+          <FieldRow label="Total Premium incl. GST (₹) [Field 11]" mandatory hint="System-calculated authoritative gross">
+            <input type="number" value={data.totalPremiumInclGST} readOnly className={`${readonlyInput} font-black text-primary text-sm`} placeholder="Auto-calculated" />
           </FieldRow>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-border">
@@ -319,20 +401,7 @@ export function PolicyFormSAODForm({ data, onChange }: Props) {
         </div>
       </div>
 
-      {/* Add-ons */}
-      <div className="p-3.5 rounded-xl border bg-card space-y-2">
-        <label className="text-[11px] font-bold text-foreground block">Add-ons Selected <span className="text-muted-foreground text-[9px] ml-1">(Optional)</span></label>
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-          {ADDON_OPTIONS.map((a) => (
-            <label key={a.key} className="flex items-center gap-2 text-[11px] font-semibold cursor-pointer p-2 rounded-lg border hover:bg-accent transition-colors">
-              <input type="checkbox" checked={(data.addonsSelected || []).includes(a.key)} onChange={() => toggleAddon(a.key)} className="h-3.5 w-3.5 rounded text-primary" />
-              {a.label}
-            </label>
-          ))}
-        </div>
-      </div>
-
-      {/* Policy Dates */}
+      {/* Field 12: Policy Dates */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <FieldRow label="Policy Start Date" hint="Must be within the active TP period">
           <input type="date" value={data.policyStartDate} onChange={set('policyStartDate')} className={inputBase} />
@@ -342,10 +411,69 @@ export function PolicyFormSAODForm({ data, onChange }: Props) {
         </FieldRow>
       </div>
 
-      {/* Commission Notes */}
-      <FieldRow label="Commission / Discount Notes" mandatory hint="Employee notes on commission structure" formula="Net OD Premium × Commission %">
-        <textarea rows={2} value={data.commissionDiscountCalc} onChange={set('commissionDiscountCalc')} placeholder="Commission details, special discounts..." className={`${mandatoryInput(data.commissionDiscountCalc)} resize-none`} />
-      </FieldRow>
+      {/* Field 13: Commision/Discount Calculator (Document Formula: Sum of 10* D% - 11) */}
+      <div className="p-4 rounded-xl border bg-card shadow-xs space-y-3">
+        <div className="flex items-center justify-between border-b pb-2">
+          <div className="flex items-center gap-2">
+            <Calculator className="h-4 w-4 text-primary" />
+            <span className="text-xs font-black text-foreground">Commision / Discount Calculator</span>
+            <span className="text-[9px] font-bold text-primary px-2 py-0.5 rounded bg-primary/10 border border-primary/20">
+              IRDAI Formula: Sum of 10* D% - 11
+            </span>
+          </div>
+          <span className="text-[10px] text-muted-foreground font-mono">Field 13</span>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <FieldRow
+            label="Discount % (D%)"
+            hint="Enter employee discount percentage"
+            formula="OD Premium (10) × (D% / 100)"
+          >
+            <div className="relative">
+              <input
+                type="number"
+                min="0"
+                max="85"
+                step="0.5"
+                value={data.discountPercent || ''}
+                onChange={(e) => handleDiscountPercentChange(e.target.value)}
+                placeholder="e.g. 10"
+                className={`${inputBase} pr-7 font-mono`}
+              />
+              <Percent className="h-3.5 w-3.5 absolute right-2.5 top-2.5 text-muted-foreground" />
+            </div>
+          </FieldRow>
+          <FieldRow
+            label="Discount Amount (₹)"
+            hint="Deduction: Field 10 × D%"
+            formula="Sum of 10 × D%"
+          >
+            <input
+              type="number"
+              value={data.discountAmount || '0'}
+              readOnly
+              className={`${readonlyInput} font-mono font-bold text-amber-600`}
+              placeholder="₹0"
+            />
+          </FieldRow>
+        </div>
+
+        {/* Final Customer Net Payable Amount */}
+        <div className="p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex flex-col sm:flex-row items-center justify-between gap-2">
+          <div>
+            <span className="text-xs font-black text-emerald-800 dark:text-emerald-300 block">
+              Final Net Payable by Customer
+            </span>
+            <span className="text-[10px] text-muted-foreground font-mono">
+              Total Premium (Field 11) - Discount Amount (10 × D%)
+            </span>
+          </div>
+          <div className="text-2xl font-black text-emerald-700 dark:text-emerald-400">
+            ₹{Number(data.finalPayableAmount || data.totalPremiumInclGST || 0).toLocaleString('en-IN')}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

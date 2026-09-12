@@ -89,4 +89,16 @@ export class CreateContactDto {
   @IsOptional()
   @IsString()
   accountId?: string;
+
+  @IsOptional()
+  @IsString()
+  agentId?: string;
+
+  @IsOptional()
+  @IsString()
+  assignedAgentId?: string;
+
+  @IsOptional()
+  @IsString()
+  agentCode?: string;
 }

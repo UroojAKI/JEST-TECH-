@@ -221,7 +221,7 @@ export class UsersService {
     return this.userRepository.findByEmail(email);
   }
 
-  async updateLastLogin(userId: string): Promise<void> {
+  async updateLastLogin(userId: string): Promise<any> {
     return this.userRepository.updateLastLogin(userId);
   }
 

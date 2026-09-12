@@ -121,8 +121,8 @@ export class UserRepository {
   // Auth helpers — called only by AuthService, never exposed through controllers
   // ---------------------------------------------------------------------------
 
-  async updateLastLogin(userId: string): Promise<void> {
-    await this.prisma.user.update({
+  async updateLastLogin(userId: string): Promise<any> {
+    return this.prisma.user.update({
       where: { id: userId },
       data: { lastLoginAt: new Date() },
     });

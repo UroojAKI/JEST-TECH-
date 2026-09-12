@@ -24,6 +24,8 @@ export class ContactResponseDto {
   branchId?: string | null;
   companyId?: string | null;
   branch?: { id: string; name: string; code: string } | null;
+  agent?: string | null;
+  agentCode?: string | null;
   status: string;
   createdAt: Date;
   updatedAt: Date;

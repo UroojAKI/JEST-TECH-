@@ -52,7 +52,9 @@ export default function CustomerWorkspacePage() {
     gst: contact?.gstNumber || contact?.gst || 'N/A',
     address: contact?.address || 'Mumbai, Maharashtra',
     agent:
-      typeof contact?.agent === 'object'
+      contact?.agentCode
+        ? `${contact.agentCode}${contact?.agent && contact.agent !== 'Unassigned' && !contact.agent.includes(contact.agentCode) ? ` (${contact.agent})` : ''}`
+        : typeof contact?.agent === 'object'
         ? contact.agent?.name || contact.agent?.firstName || 'Assigned Agent'
         : contact?.assignedAgentName || contact?.agent || 'Assigned Agent',
     branch:
@@ -76,10 +78,10 @@ export default function CustomerWorkspacePage() {
       )}
 
       {/* 2. Active Alerts & Workspace Tasks Queue */}
-      <CustomerAlertsQueue />
+      <CustomerAlertsQueue workspace={workspace} />
 
       {/* 3. Customer Health Gauge & Journey Progress */}
-      <CustomerHealthStepper />
+      <CustomerHealthStepper workspace={workspace} />
 
       {/* 4. 15-Tabbed Workspace Container */}
       <CustomerTabsContainer customerId={customerId} />

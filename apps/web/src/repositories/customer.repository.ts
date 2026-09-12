@@ -14,6 +14,8 @@ export interface CustomerContact {
   branchId?: string | null;
   branch?: { id: string; name: string; code?: string } | null;
   assignedAgentId?: string | null;
+  agent?: string | null;
+  agentCode?: string | null;
   tags?: string[];
   status?: string;
   createdAt: string;

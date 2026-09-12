@@ -47,16 +47,19 @@ export class AuthService {
     if (user.status !== 'ACTIVE') throw new ForbiddenException('User account is inactive or locked');
     if (!(await argon2.verify(user.passwordHash, dto.password))) throw new UnauthorizedException('Invalid email or password');
 
+    const updatedUser = await this.usersService.updateLastLogin(user.id);
+    const effectiveUpdatedAt = updatedUser?.updatedAt || new Date();
+    const effectiveUser = { ...user, updatedAt: effectiveUpdatedAt };
+
     const permissions = user.role.permissions ? user.role.permissions.map((p) => p.permission.code) : [];
     const organizationId = this.requireOrganization(user);
     const roleType = user.role.type || user.role.code;
-    const payload = this.buildPayload(user, organizationId, permissions, roleType);
+    const payload = this.buildPayload(effectiveUser, organizationId, permissions, roleType);
     const [accessToken, refreshToken] = await Promise.all([this.tokenService.generateAccessToken(payload), this.tokenService.generateRefreshToken(payload)]);
     const refreshExpiresIn = this.config.get<string>('jwt.refreshExpiresIn') ?? '30d';
     const expiresAt = this.parseExpiry(refreshExpiresIn);
     const tokenHash = await argon2.hash(refreshToken);
     await Promise.all([
-      this.usersService.updateLastLogin(user.id),
       this.usersService.storeRefreshToken({ userId: user.id, tokenHash, expiresAt }),
       this.usersService.createAuditLog({ userId: user.id, action: AuditAction.LOGIN, entity: 'User', entityId: user.id }),
     ]);

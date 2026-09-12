@@ -105,9 +105,11 @@ export class LeadsService {
     }
 
     const leadCode = await this.leadRepository.generateLeadCode();
+    const effectiveProduct = dto.productInterest || dto.productType;
+    const effectivePremium = dto.expectedPremium || dto.estimatedValue;
     const leadTitle =
       dto.title ||
-      `${dto.firstName || 'Prospect'} ${dto.lastName || ''} - ${dto.productInterest || 'Comprehensive Lead'}`.trim();
+      `${dto.firstName || 'Prospect'} ${dto.lastName || ''} - ${effectiveProduct || 'Comprehensive Lead'}`.trim();
 
     const validSources: Record<string, LeadSource> = {
       WALK_IN: LeadSource.WALK_IN,
@@ -138,7 +140,8 @@ export class LeadsService {
         [
           dto.remarks ? `Remarks: ${dto.remarks}` : '',
           dto.city ? `City: ${dto.city}` : '',
-          dto.productInterest ? `Interest: ${dto.productInterest}` : '',
+          effectiveProduct ? `Interest: ${effectiveProduct}` : '',
+          effectivePremium ? `Expected Premium: ₹${effectivePremium}` : '',
           dto.source ? `Orig. Source: ${dto.source}` : '',
         ]
           .filter(Boolean)
@@ -153,8 +156,9 @@ export class LeadsService {
       leadData.account = { connect: { id: dto.accountId } };
     }
 
-    if (dto.assignedToId) {
-      leadData.assignedTo = { connect: { id: dto.assignedToId } };
+    const effectiveAssignedToId = dto.assignedToId || createdById;
+    if (effectiveAssignedToId) {
+      leadData.assignedTo = { connect: { id: effectiveAssignedToId } };
     }
 
     const lead = await this.leadRepository.create(leadData);

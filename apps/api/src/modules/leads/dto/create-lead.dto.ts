@@ -48,6 +48,10 @@ export class CreateLeadDto {
 
   @IsOptional()
   @IsString()
+  productType?: string;
+
+  @IsOptional()
+  @IsString()
   city?: string;
 
   @IsOptional()
@@ -56,6 +60,9 @@ export class CreateLeadDto {
 
   @IsOptional()
   expectedPremium?: number;
+
+  @IsOptional()
+  estimatedValue?: number;
 
   @IsOptional()
   @IsString()

@@ -12,12 +12,15 @@ import { MotorQuoteWizard } from '../leads/motor-quote/MotorQuoteWizard';
 import { QuoteCard } from '../leads/motor-quote/QuoteCard';
 import { InspectionDialog } from '../leads/motor-quote/InspectionDialog';
 import { MotorProposalWizard } from '../leads/motor-quote/MotorProposalWizard';
+import { PolicyCompletionDialog } from '../leads/motor-quote/PolicyCompletionDialog';
 import type { VehicleCategory, SavedMotorQuote } from '../leads/motor-quote/motorFormTypes';
 import { MotorProductCards } from '../workspaces/sales/MotorProductCards';
 
 export function MotorQuotationsWorkspace() {
   const searchParams = useSearchParams();
   const leadIdParam = searchParams?.get('leadId') || undefined;
+  const contactIdParam = searchParams?.get('contactId') || undefined;
+  const typeParam = searchParams?.get('type') || undefined;
   const openQuoteParam = searchParams?.get('openQuote');
   const [leadFilterActive, setLeadFilterActive] = useState<boolean>(!!leadIdParam);
 
@@ -27,6 +30,7 @@ export function MotorQuotationsWorkspace() {
   const [cloneQuoteData, setCloneQuoteData] = useState<{ vehicleDetails?: any; proposerDetails?: any } | null>(null);
   const [inspectionQuoteId, setInspectionQuoteId] = useState<string | null>(null);
   const [proposalQuote, setProposalQuote] = useState<SavedMotorQuote | null>(null);
+  const [completionQuote, setCompletionQuote] = useState<SavedMotorQuote | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
 
   // Fetch linked lead context if leadId is provided in URL
@@ -43,7 +47,31 @@ export function MotorQuotationsWorkspace() {
     enabled: !!leadIdParam,
   });
 
+  // Fetch linked contact directly if contactId is provided in URL
+  const { data: linkedContact } = useQuery({
+    queryKey: ['linked-contact-context', contactIdParam],
+    queryFn: async () => {
+      try {
+        const res = await apiClient.get(`/contacts/${contactIdParam}`);
+        return res.data;
+      } catch {
+        return null;
+      }
+    },
+    enabled: !!contactIdParam,
+  });
+
   const leadContact = useMemo(() => {
+    if (linkedContact) {
+      const c = linkedContact;
+      return {
+        name: `${c.firstName || ''} ${c.lastName || ''}`.trim() || c.name || '',
+        phone: c.phone || '',
+        email: c.email || '',
+        address: c.address || '',
+        pan: c.panNumber || c.pan || '',
+      };
+    }
     if (!linkedLead?.contact) return undefined;
     const c = linkedLead.contact;
     return {
@@ -53,14 +81,25 @@ export function MotorQuotationsWorkspace() {
       address: c.address || '',
       pan: c.panNumber || '',
     };
-  }, [linkedLead]);
+  }, [linkedLead, linkedContact]);
 
   // Auto-launch wizard if requested via URL
   useEffect(() => {
-    if (openQuoteParam === '1' && leadIdParam) {
+    if (openQuoteParam === '1' && (leadIdParam || contactIdParam)) {
+      if (typeParam) {
+        const typeMap: Record<string, VehicleCategory> = {
+          private_car: 'PRIVATE_CAR',
+          bike: 'BIKE',
+          two_wheeler: 'BIKE',
+          gcv: 'GCV',
+        };
+        if (typeMap[typeParam.toLowerCase()]) {
+          setInitialCategory(typeMap[typeParam.toLowerCase()]);
+        }
+      }
       setIsWizardOpen(true);
     }
-  }, [openQuoteParam, leadIdParam]);
+  }, [openQuoteParam, leadIdParam, contactIdParam, typeParam]);
 
   const { data: apiQuotes = [], isLoading, refetch } = useQuery({
     queryKey: ['motor-quotations-all'],
@@ -289,7 +328,17 @@ export function MotorQuotationsWorkspace() {
                   <button onClick={() => handleOpenWizard(first?.vehicleCategory, { vehicleDetails: first?.vehicleDetails, proposerDetails: first?.proposerDetails })} className="px-3 py-1.5 rounded-md border bg-background hover:bg-muted text-xs font-semibold">{activeTab === 'RENEWALS' ? 'Generate Renewal Quote' : 'New Quote Version'}</button>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {quotes.map((quote, idx) => <QuoteCard key={quote.id || quote.quotationCode || idx} quote={quote} onUploadQuote={(id) => toast.success(`Quotation document uploaded for record #${id.slice(-6)}`)} onConductInspection={setInspectionQuoteId} onCompleteProposal={setProposalQuote} />)}
+                  {quotes.map((quote, idx) => (
+                    <QuoteCard
+                      key={quote.id || quote.quotationCode || idx}
+                      quote={quote}
+                      onUploadQuote={(id) => toast.success(`Quotation document uploaded for record #${id.slice(-6)}`)}
+                      onConductInspection={setInspectionQuoteId}
+                      onCompleteProposal={setProposalQuote}
+                      onIssuePolicy={setCompletionQuote}
+                      onAddComparisonQuote={(q) => handleOpenWizard(q.vehicleCategory, { vehicleDetails: q.vehicleDetails, proposerDetails: q.proposerDetails })}
+                    />
+                  ))}
                 </div>
               </div>
             );
@@ -300,6 +349,7 @@ export function MotorQuotationsWorkspace() {
       <MotorQuoteWizard
         isOpen={isWizardOpen}
         leadId={leadIdParam}
+        contactId={contactIdParam}
         leadContact={leadContact}
         initialCategory={initialCategory || undefined}
         cloneQuoteData={cloneQuoteData}
@@ -307,13 +357,43 @@ export function MotorQuotationsWorkspace() {
         onSaved={(saved) => {
           void refetch();
           setIsWizardOpen(false);
-          toast.success(`Quotation ${saved?.quotationCode || ''} saved and linked to lead!`);
+          if (saved?.workflowState === 'INSPECTION_REQUIRED' || saved?.status === 'PENDING_INSPECTION' || saved?.status === 'INSPECTION_REQUIRED') {
+            setInspectionQuoteId(saved.id);
+            toast.info(`Quotation ${saved?.quotationCode || ''} requires vehicle inspection. Opening inspection capture...`);
+          } else {
+            toast.success(`Quotation ${saved?.quotationCode || ''} saved and ready for proposal!`);
+          }
         }}
       />
 
       {inspectionQuoteId && <InspectionDialog isOpen quotationId={inspectionQuoteId} onClose={() => setInspectionQuoteId(null)} onSuccess={() => { setInspectionQuoteId(null); void refetch(); }} />}
 
-      {proposalQuote && <MotorProposalWizard isOpen quote={proposalQuote} onClose={() => setProposalQuote(null)} onSuccess={() => { setProposalQuote(null); void refetch(); }} />}
+      {proposalQuote && (
+        <MotorProposalWizard
+          isOpen
+          quote={proposalQuote}
+          onClose={() => setProposalQuote(null)}
+          onSuccess={(updated) => {
+            setProposalQuote(null);
+            void refetch();
+            if (updated?.status === 'PENDING_ISSUANCE' || updated?.status === 'PAYMENT_DONE') {
+              setCompletionQuote(updated);
+            }
+          }}
+        />
+      )}
+
+      {completionQuote && (
+        <PolicyCompletionDialog
+          isOpen
+          quote={completionQuote}
+          onClose={() => setCompletionQuote(null)}
+          onSuccess={() => {
+            setCompletionQuote(null);
+            void refetch();
+          }}
+        />
+      )}
     </div>
   );
 }

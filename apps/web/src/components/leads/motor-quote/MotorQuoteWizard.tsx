@@ -31,6 +31,7 @@ import type {
 interface Props {
   isOpen: boolean;
   leadId?: string;
+  contactId?: string;
   initialCategory?: VehicleCategory | null;
   cloneQuoteData?: { vehicleDetails?: any; proposerDetails?: any } | null;
   leadContact?: {
@@ -141,7 +142,7 @@ function emptyPackage(): PolicyFormPackage {
   };
 }
 
-export function MotorQuoteWizard({ isOpen, leadId, initialCategory, cloneQuoteData, leadContact, onClose, onSaved }: Props) {
+export function MotorQuoteWizard({ isOpen, leadId, contactId, initialCategory, cloneQuoteData, leadContact, onClose, onSaved }: Props) {
   const [step, setStep] = useState(1);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -245,6 +246,20 @@ export function MotorQuoteWizard({ isOpen, leadId, initialCategory, cloneQuoteDa
       }
     }
   }, [isOpen, initialCategory, cloneQuoteData, leadContact, leadId]);
+
+  useEffect(() => {
+    if (leadContact && !cloneQuoteData) {
+      setProposer((prev) => ({
+        ...prev,
+        customerName: leadContact.name || prev.customerName,
+        mobileNumber: leadContact.phone || prev.mobileNumber,
+        emailId: leadContact.email || prev.emailId,
+        panNumber: leadContact.pan || prev.panNumber,
+        address: leadContact.address || prev.address,
+        relationshipManager: leadContact.rm || prev.relationshipManager,
+      }));
+    }
+  }, [leadContact, cloneQuoteData]);
 
   if (!isOpen) return null;
 
@@ -414,6 +429,7 @@ export function MotorQuoteWizard({ isOpen, leadId, initialCategory, cloneQuoteDa
         registrationNumber: registrationNumber || '',
         insurerName: insurerName || 'Partner Insurer',
         leadId: leadId || undefined,
+        contactId: contactId || undefined,
         totalPremium: getNetPayable() > 0 ? getNetPayable() : getTotalPremium(),
         idv: getIDV(),
         ncbPercentage: getNCB(),

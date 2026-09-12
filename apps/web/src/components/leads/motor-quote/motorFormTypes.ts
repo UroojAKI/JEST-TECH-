@@ -207,6 +207,7 @@ export interface PolicyFormSAOD {
   ncbPercentage: string;         // Y — 0/20/25/35/45/50
   claimInExpiringODPolicy: string; // Y — Y/N
   addonsSelected: string[];      // N
+  addonPrices?: Record<string, string>; // Individual prices entered for each selected add-on
   odPremium: string;             // Y — insurer-specific OD premium
   odPremiumBase: string;         // Auto-calc: IDV × insurer OD rate
   ncbDiscountAmount: string;     // Auto-calc: odPremiumBase × NCB%
@@ -217,7 +218,10 @@ export interface PolicyFormSAOD {
   policyEndDate: string;         // N
   odCommissionPercent: string;   // Employee enters insurer commission %
   commissionAmount: string;      // Auto-calc: odPremium × commission%
-  commissionDiscountCalc: string; // Y — free text employee notes
+  discountPercent?: string;      // Employee enters discount % D% (Sum of 10* D% - 11)
+  discountAmount?: string;       // Auto-calc: OD Premium × D%
+  finalPayableAmount?: string;   // Total Premium - Discount Amount
+  commissionDiscountCalc: string; // Y — formatted calculator string
   calculatedResult?: any;
 }
 

@@ -6,7 +6,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../../../database/prisma.service';
-import { PaymentTrackingStatus, InspectionStatus } from '@prisma/client';
+import { PaymentTrackingStatus, InspectionStatus, QuotationStatus } from '@prisma/client';
 
 export interface RecordPaymentDto {
   quotationId: string;
@@ -29,6 +29,17 @@ const PAYMENT_TRANSITIONS: Record<string, string[]> = {
 const FINANCE_PAYMENT_ROLES = new Set([
   'SUPER_ADMIN',
   'ADMIN',
+  'SYSTEM_ADMINISTRATOR',
+  'MD_CEO',
+  'OPERATIONS',
+  'POLICY_ISSUANCE_EXECUTIVE',
+  'BRANCH_MANAGER',
+  'SALES_MANAGER',
+  'SALES_EXECUTIVE',
+  'SALES_AGENT',
+  'POSP_ADVISOR',
+  'AGENT_MANAGER',
+  'TEAM_LEADER',
   'FINANCE',
   'FINANCE_ACCOUNTS_EXECUTIVE',
   'CHIEF_FINANCE_OFFICER',
@@ -125,6 +136,7 @@ export class MotorPaymentTrackingService {
       await tx.quotation.update({
         where: { id: dto.quotationId },
         data: {
+          status: dto.status === 'PAID' ? QuotationStatus.ACCEPTED : quotation.status,
           workflowState: workflowState as any,
           issuanceStatus: dto.status === 'PAID' ? 'ISSUANCE_PENDING' : 'PAYMENT_PENDING',
           motorMetadata: {

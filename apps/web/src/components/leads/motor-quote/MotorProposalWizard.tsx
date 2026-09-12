@@ -65,9 +65,10 @@ export function MotorProposalWizard({ isOpen, quote, onClose, onSuccess }: Props
       );
       onSuccess({ ...quote, status: nextStatus });
       onClose();
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
-      toast.error('Failed to record payment');
+      const errMsg = e.response?.data?.message || e.message || 'Failed to record payment';
+      toast.error(Array.isArray(errMsg) ? errMsg.join(' | ') : errMsg);
     } finally {
       setIsSaving(false);
     }

@@ -26,33 +26,49 @@ const orgScope = (actor: ActorContext, resourceType: ResourceType): Record<strin
 @Injectable()
 export class ScopeResolver {
   resolveScopeFilter(actor: ActorContext, resourceType: ResourceType): Record<string, any> {
-    if (!actor?.userId || !actor.organizationId) return { id: '__UNAUTHORIZED_ACCESS_BLOCKED__' };
+    if (!actor?.userId) return { id: '__UNAUTHORIZED_ACCESS_BLOCKED__' };
     const roles = actor.roles?.length ? actor.roles : [actor.role];
     if (roles.some((r) => GLOBAL_ROLES.includes(r))) return {};
-    if (roles.some((r) => ORGANIZATION_ADMIN_ROLES.includes(r))) return orgScope(actor, resourceType);
-    if (roles.some((r) => OPERATIONAL_ROLES.includes(r))) return orgScope(actor, resourceType);
+    if (roles.some((r) => ORGANIZATION_ADMIN_ROLES.includes(r))) {
+      return actor.organizationId ? orgScope(actor, resourceType) : { createdById: actor.userId };
+    }
+    if (roles.some((r) => OPERATIONAL_ROLES.includes(r))) {
+      return actor.organizationId ? orgScope(actor, resourceType) : { createdById: actor.userId };
+    }
 
     if (roles.some((r) => BRANCH_ROLES.includes(r))) {
-      if (!actor.branchId) return { id: '__BRANCH_CONTEXT_REQUIRED__' };
+      if (!actor.branchId) return { createdById: actor.userId };
       switch (resourceType) {
         case 'LEAD': return { OR: [{ createdBy: { branchId: actor.branchId } }, { assignedTo: { branchId: actor.branchId } }, { createdById: actor.userId }] };
-        case 'QUOTATION': case 'ACCOUNT': case 'CONTACT': case 'DOCUMENT': case 'REPORT': return { createdBy: { branchId: actor.branchId } };
-        case 'POLICY': return { OR: [{ createdBy: { branchId: actor.branchId } }, { quotation: { createdBy: { branchId: actor.branchId } } }] };
-        case 'CLAIM': return { OR: [{ createdBy: { branchId: actor.branchId } }, { policy: { createdBy: { branchId: actor.branchId } } }] };
-        case 'RENEWAL_TASK': return { OR: [{ agent: { branchId: actor.branchId } }, { policy: { createdBy: { branchId: actor.branchId } } }] };
-        default: return { id: '__BRANCH_SCOPE_NOT_IMPLEMENTED__' };
+        case 'QUOTATION': case 'ACCOUNT': case 'CONTACT': case 'DOCUMENT': case 'REPORT': return { OR: [{ createdBy: { branchId: actor.branchId } }, { createdById: actor.userId }] };
+        case 'POLICY': return { OR: [{ createdBy: { branchId: actor.branchId } }, { quotation: { createdBy: { branchId: actor.branchId } } }, { createdById: actor.userId }] };
+        case 'CLAIM': return { OR: [{ createdBy: { branchId: actor.branchId } }, { policy: { createdBy: { branchId: actor.branchId } } }, { createdById: actor.userId }] };
+        case 'RENEWAL_TASK': return { OR: [{ agent: { branchId: actor.branchId } }, { policy: { createdBy: { branchId: actor.branchId } } }, { agentId: actor.userId }] };
+        default: return { createdById: actor.userId };
       }
     }
 
     if (roles.some((r) => TEAM_ROLES.includes(r))) {
-      if (!actor.teamId) return { id: '__TEAM_CONTEXT_REQUIRED__' };
+      if (!actor.teamId) {
+        if (actor.branchId) {
+          switch (resourceType) {
+            case 'LEAD': return { OR: [{ createdBy: { branchId: actor.branchId } }, { assignedTo: { branchId: actor.branchId } }, { createdById: actor.userId }] };
+            case 'QUOTATION': case 'ACCOUNT': case 'CONTACT': case 'DOCUMENT': case 'REPORT': return { OR: [{ createdBy: { branchId: actor.branchId } }, { createdById: actor.userId }] };
+            case 'POLICY': return { OR: [{ createdBy: { branchId: actor.branchId } }, { quotation: { createdBy: { branchId: actor.branchId } } }, { createdById: actor.userId }] };
+            case 'CLAIM': return { OR: [{ createdBy: { branchId: actor.branchId } }, { policy: { createdBy: { branchId: actor.branchId } } }, { createdById: actor.userId }] };
+            case 'RENEWAL_TASK': return { OR: [{ agent: { branchId: actor.branchId } }, { policy: { createdBy: { branchId: actor.branchId } } }, { agentId: actor.userId }] };
+            default: return { createdById: actor.userId };
+          }
+        }
+        return { createdById: actor.userId };
+      }
       switch (resourceType) {
         case 'LEAD': return { OR: [{ createdBy: { teamId: actor.teamId } }, { assignedTo: { teamId: actor.teamId } }, { createdById: actor.userId }] };
-        case 'QUOTATION': case 'ACCOUNT': case 'CONTACT': case 'DOCUMENT': case 'REPORT': return { createdBy: { teamId: actor.teamId } };
-        case 'POLICY': return { OR: [{ createdBy: { teamId: actor.teamId } }, { quotation: { createdBy: { teamId: actor.teamId } } }] };
-        case 'CLAIM': return { OR: [{ createdBy: { teamId: actor.teamId } }, { policy: { createdBy: { teamId: actor.teamId } } }] };
-        case 'RENEWAL_TASK': return { OR: [{ agent: { teamId: actor.teamId } }, { policy: { createdBy: { teamId: actor.teamId } } }] };
-        default: return { id: '__TEAM_SCOPE_NOT_IMPLEMENTED__' };
+        case 'QUOTATION': case 'ACCOUNT': case 'CONTACT': case 'DOCUMENT': case 'REPORT': return { OR: [{ createdBy: { teamId: actor.teamId } }, { createdById: actor.userId }] };
+        case 'POLICY': return { OR: [{ createdBy: { teamId: actor.teamId } }, { quotation: { createdBy: { teamId: actor.teamId } } }, { createdById: actor.userId }] };
+        case 'CLAIM': return { OR: [{ createdBy: { teamId: actor.teamId } }, { policy: { createdBy: { teamId: actor.teamId } } }, { createdById: actor.userId }] };
+        case 'RENEWAL_TASK': return { OR: [{ agent: { teamId: actor.teamId } }, { policy: { createdBy: { teamId: actor.teamId } } }, { agentId: actor.userId }] };
+        default: return { createdById: actor.userId };
       }
     }
 
@@ -63,7 +79,7 @@ export class ScopeResolver {
       case 'CLAIM': return { OR: [{ createdById: actor.userId }, { policy: { createdById: actor.userId } }] };
       case 'RENEWAL_TASK': return { OR: [{ agentId: actor.userId }, { policy: { createdById: actor.userId } }] };
       case 'ACCOUNT': case 'CONTACT': case 'DOCUMENT': case 'REPORT': return { createdById: actor.userId };
-      default: return { id: '__OWNERSHIP_SCOPE_NOT_IMPLEMENTED__' };
+      default: return { createdById: actor.userId };
     }
   }
 }

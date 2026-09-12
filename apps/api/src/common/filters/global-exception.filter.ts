@@ -50,6 +50,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
             : errorBody.message || 'Internal server error',
         details:
           status >= 500 ? undefined : errorBody.error || errorBody.message,
+        ...(status < 500 && typeof errorBody === 'object' ? errorBody : {}),
       },
       meta: {
         requestId: correlationId,

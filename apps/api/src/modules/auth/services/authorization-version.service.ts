@@ -15,9 +15,9 @@ export class AuthorizationVersionService {
       return false;
     }
 
-    // Note: authVersion column must be added via EPIC-05 migration
+    // A token is valid as long as its version is greater than or equal to the user's last updatedAt timestamp
     const currentVersion = user.updatedAt.getTime();
     
-    return currentVersion === tokenVersion;
+    return tokenVersion >= currentVersion;
   }
 }

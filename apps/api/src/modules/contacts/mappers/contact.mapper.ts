@@ -32,6 +32,14 @@ export class ContactMapper {
       branchId: (contact as any).branchId ?? contact.branch?.id ?? contact.createdBy?.branch?.id ?? null,
       companyId: (contact as any).companyId ?? contact.company?.id ?? null,
       branch: contact.branch ?? contact.createdBy?.branch ?? null,
+      agentCode: contact.agentCode || contact.createdBy?.employeeCode || null,
+      agent: contact.agentCode
+        ? (contact.createdBy
+            ? `${contact.createdBy.firstName || ''} ${contact.createdBy.lastName || ''}`.trim() + ` (${contact.agentCode})`
+            : contact.agentCode)
+        : (contact.createdBy
+            ? `${contact.createdBy.firstName || ''} ${contact.createdBy.lastName || ''}`.trim()
+            : null),
       status: contact.deletedAt ? 'INACTIVE' : 'ACTIVE',
       createdAt: contact.createdAt,
       updatedAt: contact.updatedAt,

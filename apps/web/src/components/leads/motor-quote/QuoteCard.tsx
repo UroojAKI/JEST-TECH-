@@ -3,7 +3,7 @@
 import React from 'react';
 import { CATEGORY_LABEL, POLICY_TYPE_LABEL } from './motorFormConfig';
 import type { SavedMotorQuote } from './motorFormTypes';
-import { Car, Upload, Clock, CheckCircle2, XCircle, AlertCircle, Shield, Wrench, ShieldCheck, FileText } from 'lucide-react';
+import { Car, Upload, Clock, CheckCircle2, XCircle, AlertCircle, Shield, Wrench, ShieldCheck, FileText, Copy } from 'lucide-react';
 import { QuotationCompletionView } from './QuotationCompletionView';
 
 interface Props {
@@ -11,6 +11,8 @@ interface Props {
   onUploadQuote: (id: string) => void;
   onConductInspection?: (id: string) => void;
   onCompleteProposal?: (quote: SavedMotorQuote) => void;
+  onIssuePolicy?: (quote: SavedMotorQuote) => void;
+  onAddComparisonQuote?: (quote: SavedMotorQuote) => void;
 }
 
 const STATUS_CONFIG: Record<string, { icon: React.ReactNode; cls: string; label: string }> = {
@@ -37,7 +39,7 @@ const CAT_ICONS: Record<string, string> = {
   AUTO: '🛺', TAXI: '🚕', BUS: '🚌', MISC: '🏗️',
 };
 
-export function QuoteCard({ quote, onUploadQuote, onConductInspection, onCompleteProposal }: Props) {
+export function QuoteCard({ quote, onUploadQuote, onConductInspection, onCompleteProposal, onIssuePolicy, onAddComparisonQuote }: Props) {
   const status = STATUS_CONFIG[quote.status] || STATUS_CONFIG.DRAFT;
   const ptStyle = POLICY_TYPE_STYLE[quote.policyType] || POLICY_TYPE_STYLE.PACKAGE;
 
@@ -126,10 +128,28 @@ export function QuoteCard({ quote, onUploadQuote, onConductInspection, onComplet
           </button>
         )}
 
-        {(quote.status === 'PAYMENT_DONE' || quote.status === 'PENDING_ISSUANCE') && (
-          <div className="text-[10px] text-blue-700 bg-blue-500/10 border border-blue-200 rounded px-2 py-1.5 text-center font-medium">
-            Payment confirmed · waiting for Back Office issuance
+        {(quote.status === 'PAYMENT_DONE' || quote.status === 'PENDING_ISSUANCE' || (quote as any).issuanceStatus === 'ISSUANCE_PENDING') && onIssuePolicy ? (
+          <button
+            onClick={() => onIssuePolicy(quote)}
+            className="w-full flex items-center justify-center gap-1.5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black shadow-sm transition-colors mt-1"
+          >
+            <ShieldCheck className="h-4 w-4" />
+            Complete & Issue Policy Now
+          </button>
+        ) : (quote.status === 'PAYMENT_DONE' || quote.status === 'PENDING_ISSUANCE') ? (
+          <div className="text-[10px] text-emerald-700 bg-emerald-500/10 border border-emerald-200 rounded px-2 py-1.5 text-center font-bold">
+            Payment Verified · Ready to Issue
           </div>
+        ) : null}
+
+        {onAddComparisonQuote && (
+          <button
+            onClick={() => onAddComparisonQuote(quote)}
+            className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded-lg border bg-muted/20 hover:bg-muted text-xs font-bold text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <Copy className="h-3 w-3" />
+            + Compare With Another Plan
+          </button>
         )}
       </div>
     </div>

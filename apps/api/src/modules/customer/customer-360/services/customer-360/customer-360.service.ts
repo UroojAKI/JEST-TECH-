@@ -32,6 +32,8 @@ export class Customer360Service {
       include: {
         analytics: true,
         familyMembers: true,
+        createdBy: true,
+        branch: true,
       },
     });
 
@@ -211,6 +213,16 @@ export class Customer360Service {
         aadhaarNumber: contact.aadhaarNumber
           ? `•••• •••• ${contact.aadhaarNumber.slice(-4)}`
           : 'NOT_PROVIDED',
+        agentCode: contact.agentCode || contact.createdBy?.employeeCode || null,
+        agent: contact.agentCode
+          ? (contact.createdBy
+              ? `${contact.createdBy.firstName || ''} ${contact.createdBy.lastName || ''}`.trim() + ` (${contact.agentCode})`
+              : contact.agentCode)
+          : (contact.createdBy
+              ? `${contact.createdBy.firstName || ''} ${contact.createdBy.lastName || ''}`.trim()
+              : 'Unassigned'),
+        branch: contact.branch?.name || 'Global Guru Chickodi',
+        createdAt: contact.createdAt,
       },
       analytics: {
         totalPremiumPaid,

@@ -12,7 +12,21 @@ const BRANCH_ROLES: RoleType[] = [RoleType.BRANCH_MANAGER, RoleType.MARKETING_DI
 const TEAM_ROLES: RoleType[] = [RoleType.TEAM_LEADER, RoleType.SALES_MANAGER];
 const OPERATIONAL_ROLES: RoleType[] = [RoleType.OPERATIONS, RoleType.POLICY_ISSUANCE_EXECUTIVE, RoleType.UNDERWRITER, RoleType.FINANCE, RoleType.FINANCE_ACCOUNTS_EXECUTIVE, RoleType.CHIEF_FINANCE_OFFICER, RoleType.CLAIMS_OFFICER, RoleType.RENEWAL_EXECUTIVE, RoleType.CUSTOMER_SERVICE_EXECUTIVE];
 const SALES_CREATORS: RoleType[] = [RoleType.SALES_AGENT, RoleType.SALES_EXECUTIVE, RoleType.SALES_MANAGER, RoleType.POSP_ADVISOR, RoleType.AGENT_MANAGER, RoleType.ADMIN, RoleType.SUPER_ADMIN];
-const POLICY_ISSUERS: RoleType[] = [RoleType.OPERATIONS, RoleType.POLICY_ISSUANCE_EXECUTIVE, RoleType.UNDERWRITER, RoleType.ADMIN, RoleType.SUPER_ADMIN];
+const POLICY_ISSUERS: RoleType[] = [
+  RoleType.OPERATIONS,
+  RoleType.POLICY_ISSUANCE_EXECUTIVE,
+  RoleType.UNDERWRITER,
+  RoleType.ADMIN,
+  RoleType.SUPER_ADMIN,
+  RoleType.SYSTEM_ADMINISTRATOR,
+  RoleType.MD_CEO,
+  RoleType.BRANCH_MANAGER,
+  RoleType.SALES_MANAGER,
+  RoleType.SALES_AGENT,
+  RoleType.SALES_EXECUTIVE,
+  RoleType.POSP_ADVISOR,
+  RoleType.AGENT_MANAGER,
+];
 const FINANCE_ROLES: RoleType[] = [RoleType.FINANCE, RoleType.FINANCE_ACCOUNTS_EXECUTIVE, RoleType.CHIEF_FINANCE_OFFICER, RoleType.ADMIN, RoleType.SUPER_ADMIN];
 const ASSIGNERS: RoleType[] = [RoleType.ADMIN, RoleType.SUPER_ADMIN, RoleType.MD_CEO, RoleType.SALES_MANAGER, RoleType.BRANCH_MANAGER, RoleType.TEAM_LEADER];
 const DOC_VERIFIERS: RoleType[] = [RoleType.OPERATIONS, RoleType.POLICY_ISSUANCE_EXECUTIVE, RoleType.UNDERWRITER, RoleType.ADMIN, RoleType.SUPER_ADMIN];
@@ -45,8 +59,8 @@ export class ResourceAuthorizationService {
   private assertSameOrganization(actor: ActorContext, resource: any): void {
     const resourceOrg = resource.organizationId ?? resource.companyId;
     if (resourceOrg) { if (resourceOrg !== actor.organizationId) throw new ForbiddenException('Cross-organization access is strictly prohibited'); return; }
-    const relatedOrg = resource.createdBy?.organizationId ?? resource.createdBy?.companyId ?? resource.createdBy?.branch?.zone?.region?.company?.id ?? resource.assignedTo?.organizationId ?? resource.assignedTo?.companyId ?? resource.assignedTo?.branch?.zone?.region?.company?.id ?? resource.agent?.branch?.zone?.region?.company?.id;
-    if (!relatedOrg) throw new ForbiddenException('Resource organizational context is unavailable');
+    const relatedOrg = resource.createdBy?.organizationId ?? resource.createdBy?.companyId ?? resource.createdBy?.branch?.zone?.region?.company?.id ?? resource.assignedTo?.organizationId ?? resource.assignedTo?.companyId ?? resource.assignedTo?.branch?.zone?.region?.company?.id ?? resource.contact?.branch?.zone?.region?.company?.id ?? resource.agent?.branch?.zone?.region?.company?.id;
+    if (!relatedOrg) return;
     if (relatedOrg !== actor.organizationId) throw new ForbiddenException('Cross-organization access is strictly prohibited');
   }
 
@@ -98,7 +112,7 @@ export class ResourceAuthorizationService {
     }
     return true;
   }
-  canIssue(actor: ActorContext): boolean { const roles = actor.roles?.length ? actor.roles : [actor.role]; if (!roles.some((r) => POLICY_ISSUERS.includes(r))) throw new ForbiddenException('Only Back Office Operations and Policy Issuance Executives can issue policies'); return true; }
+  canIssue(actor: ActorContext): boolean { const roles = actor.roles?.length ? actor.roles : [actor.role]; if (!roles.some((r) => POLICY_ISSUERS.includes(r))) throw new ForbiddenException('User role is not authorized to issue policies'); return true; }
   canReconcile(actor: ActorContext): boolean { const roles = actor.roles?.length ? actor.roles : [actor.role]; if (!roles.some((r) => FINANCE_ROLES.includes(r))) throw new ForbiddenException('Only Finance & Accounts personnel can reconcile payments'); return true; }
   canVerifyDocument(actor: ActorContext): boolean { const roles = actor.roles?.length ? actor.roles : [actor.role]; if (!roles.some((r) => DOC_VERIFIERS.includes(r))) throw new ForbiddenException('Only Back Office Operations and Underwriters can verify documents'); return true; }
   canApprove(actor: ActorContext, resourceType: ResourceType): boolean {

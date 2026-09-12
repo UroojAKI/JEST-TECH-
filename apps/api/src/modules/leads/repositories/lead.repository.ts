@@ -39,11 +39,52 @@ export const leadBasicSelect = Prisma.validator<Prisma.LeadSelect>()({
       accountCode: true,
     },
   },
+  createdBy: {
+    select: {
+      id: true,
+      firstName: true,
+      lastName: true,
+      branchId: true,
+      teamId: true,
+      branch: {
+        select: {
+          id: true,
+          code: true,
+          zone: {
+            select: {
+              region: {
+                select: {
+                  company: { select: { id: true } },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+  },
   assignedTo: {
     select: {
       id: true,
       firstName: true,
       lastName: true,
+      branchId: true,
+      teamId: true,
+      branch: {
+        select: {
+          id: true,
+          code: true,
+          zone: {
+            select: {
+              region: {
+                select: {
+                  company: { select: { id: true } },
+                },
+              },
+            },
+          },
+        },
+      },
     },
   },
 });

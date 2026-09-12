@@ -23,11 +23,17 @@ import {
 const SALES_ROLES = [
   RoleType.SUPER_ADMIN,
   RoleType.ADMIN,
+  RoleType.SYSTEM_ADMINISTRATOR,
+  RoleType.MD_CEO,
+  RoleType.BRANCH_MANAGER,
   RoleType.SALES_MANAGER,
   RoleType.SALES_EXECUTIVE,
   RoleType.SALES_AGENT,
   RoleType.POSP_ADVISOR,
+  RoleType.AGENT_MANAGER,
+  RoleType.TEAM_LEADER,
   RoleType.OPERATIONS,
+  RoleType.POLICY_ISSUANCE_EXECUTIVE,
 ];
 
 @ApiTags('Motor — Workflow')
@@ -110,7 +116,7 @@ export class MotorWorkflowController {
   }
 
   @Get('quotations/:id/policy-gate')
-  @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN, RoleType.OPERATIONS, RoleType.POLICY_ISSUANCE_EXECUTIVE, RoleType.FINANCE, RoleType.FINANCE_ACCOUNTS_EXECUTIVE, RoleType.CHIEF_FINANCE_OFFICER)
+  @Roles(...SALES_ROLES, RoleType.FINANCE, RoleType.FINANCE_ACCOUNTS_EXECUTIVE, RoleType.CHIEF_FINANCE_OFFICER)
   @ApiOperation({ summary: 'Check the server-side policy issuance gate.' })
   async policyCreationGate(@Param('id') quotationId: string) {
     return this.paymentService.canProceedToPolicy(quotationId);

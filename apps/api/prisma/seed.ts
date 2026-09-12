@@ -229,38 +229,17 @@ async function main() {
     });
 
     const branchBkc = await tx.branch.upsert({
-      where: { code: "BOM-BKC" },
-      update: {},
-      create: {
-        code: "BOM-BKC",
-        name: "Mumbai BKC Flagship Branch",
-        city: "Mumbai",
-        state: "Maharashtra",
-        zoneId: zone.id,
+      where: { code: "GG-CHK" },
+      update: {
+        name: "Global Guru Chickodi",
+        city: "Chickodi",
+        state: "Karnataka",
         isActive: true,
       },
-    });
-
-    await tx.branch.upsert({
-      where: { code: "PUN-SHV" },
-      update: {},
       create: {
-        code: "PUN-SHV",
-        name: "Pune Shivajinagar Branch",
-        city: "Pune",
-        state: "Maharashtra",
-        zoneId: zone.id,
-        isActive: true,
-      },
-    });
-
-    await tx.branch.upsert({
-      where: { code: "BLR-IND" },
-      update: {},
-      create: {
-        code: "BLR-IND",
-        name: "Bengaluru Indiranagar Branch",
-        city: "Bengaluru",
+        code: "GG-CHK",
+        name: "Global Guru Chickodi",
+        city: "Chickodi",
         state: "Karnataka",
         zoneId: zone.id,
         isActive: true,
@@ -268,15 +247,41 @@ async function main() {
     });
 
     await tx.branch.upsert({
+      where: { code: "PUN-SHV" },
+      update: { isActive: false },
+      create: {
+        code: "PUN-SHV",
+        name: "Pune Shivajinagar Branch",
+        city: "Pune",
+        state: "Maharashtra",
+        zoneId: zone.id,
+        isActive: false,
+      },
+    });
+
+    await tx.branch.upsert({
+      where: { code: "BLR-IND" },
+      update: { isActive: false },
+      create: {
+        code: "BLR-IND",
+        name: "Bengaluru Indiranagar Branch",
+        city: "Bengaluru",
+        state: "Karnataka",
+        zoneId: zone.id,
+        isActive: false,
+      },
+    });
+
+    await tx.branch.upsert({
       where: { code: "DEL-CP" },
-      update: {},
+      update: { isActive: false },
       create: {
         code: "DEL-CP",
         name: "Delhi Connaught Place Branch",
         city: "New Delhi",
         state: "Delhi",
         zoneId: zone.id,
-        isActive: true,
+        isActive: false,
       },
     });
 

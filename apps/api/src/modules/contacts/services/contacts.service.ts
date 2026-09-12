@@ -98,13 +98,60 @@ export class ContactsService {
       }
     }
 
-    const { accountId, ...restDto } = dto;
+    // Assigned Agent resolution
+    let effectiveAgentId = createdById;
+    const requestedCode = (dto.agentCode || '').trim();
+    if (requestedCode) {
+      const userByCode = await this.prisma.user.findFirst({
+        where: {
+          OR: [
+            { employeeCode: { equals: requestedCode, mode: 'insensitive' } },
+            { id: requestedCode },
+          ],
+        },
+      });
+      if (userByCode) {
+        effectiveAgentId = userByCode.id;
+        if (!targetBranchId && userByCode.branchId) {
+          targetBranchId = userByCode.branchId;
+        }
+      }
+    } else {
+      const requestedAgentId = dto.agentId || dto.assignedAgentId;
+      if (requestedAgentId) {
+        const assignedAgent = await this.prisma.user.findUnique({
+          where: { id: requestedAgentId },
+        });
+        if (assignedAgent) {
+          effectiveAgentId = assignedAgent.id;
+          if (!targetBranchId && assignedAgent.branchId) {
+            targetBranchId = assignedAgent.branchId;
+          }
+        }
+      }
+    }
+
+    const { accountId, agentId, assignedAgentId, agentCode, ...restDto } = dto;
     const contactData: Prisma.ContactCreateInput = {
-      contactCode, type: restDto.type, firstName: restDto.firstName, middleName: restDto.middleName, lastName: restDto.lastName,
-      gender: restDto.gender, dateOfBirth: restDto.dateOfBirth ? new Date(restDto.dateOfBirth) : undefined, companyName: restDto.companyName,
-      email: restDto.email, phone: restDto.phone, alternatePhone: restDto.alternatePhone, whatsappNumber: restDto.whatsappNumber,
-      occupation: restDto.occupation, panNumber: restDto.panNumber, aadhaarNumber: restDto.aadhaarNumber, gstNumber: restDto.gstNumber,
-      createdBy: { connect: { id: createdById } }, updatedBy: { connect: { id: createdById } },
+      contactCode,
+      agentCode: requestedCode || undefined,
+      type: restDto.type,
+      firstName: restDto.firstName,
+      middleName: restDto.middleName,
+      lastName: restDto.lastName,
+      gender: restDto.gender,
+      dateOfBirth: restDto.dateOfBirth ? new Date(restDto.dateOfBirth) : undefined,
+      companyName: restDto.companyName,
+      email: restDto.email,
+      phone: restDto.phone,
+      alternatePhone: restDto.alternatePhone,
+      whatsappNumber: restDto.whatsappNumber,
+      occupation: restDto.occupation,
+      panNumber: restDto.panNumber,
+      aadhaarNumber: restDto.aadhaarNumber,
+      gstNumber: restDto.gstNumber,
+      createdBy: { connect: { id: effectiveAgentId } },
+      updatedBy: { connect: { id: createdById } },
     };
     if (targetBranchId) contactData.branch = { connect: { id: targetBranchId } };
     if (targetCompanyId) contactData.company = { connect: { id: targetCompanyId } };
@@ -118,8 +165,12 @@ export class ContactsService {
     this.assertActor(actor);
     const roles = actor.roles?.length ? actor.roles : [actor.role];
     const searchWhere: Prisma.ContactWhereInput = search ? { OR: [
-      { firstName: { contains: search, mode: 'insensitive' } }, { lastName: { contains: search, mode: 'insensitive' } },
-      { email: { contains: search, mode: 'insensitive' } }, { phone: { contains: search, mode: 'insensitive' } },
+      { firstName: { contains: search, mode: 'insensitive' } },
+      { lastName: { contains: search, mode: 'insensitive' } },
+      { email: { contains: search, mode: 'insensitive' } },
+      { phone: { contains: search, mode: 'insensitive' } },
+      { agentCode: { contains: search, mode: 'insensitive' } },
+      { contactCode: { contains: search, mode: 'insensitive' } },
     ] } : {};
     const scopeWhere: Prisma.ContactWhereInput = {};
     if (!roles.some((role) => GLOBAL_ROLES.includes(role))) {

@@ -28,8 +28,10 @@ export class MotorPolicyIssuanceService {
     // 1. Authoritative Resource Authorization Check
     this.authzService.authorize(actor, 'POLICY', 'ISSUE');
 
-    const startDate = new Date(dto.startDate);
-    const endDate = new Date(dto.endDate);
+    const startDate = dto.startDate ? new Date(dto.startDate) : new Date();
+    const defaultEnd = new Date(startDate);
+    defaultEnd.setFullYear(defaultEnd.getFullYear() + 1);
+    const endDate = dto.endDate ? new Date(dto.endDate) : defaultEnd;
     if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) {
       throw new BadRequestException(
         'Valid policy start and end dates are required',
@@ -70,6 +72,14 @@ export class MotorPolicyIssuanceService {
           'Authoritative calculation snapshot is required before issuance',
         );
 
+      const policyNumber =
+        dto.actualPolicyNumber?.trim() ||
+        `POL-${new Date().getFullYear()}-${Math.floor(100000 + Math.random() * 900000)}`;
+      const actualPremium =
+        dto.actualPremium !== undefined && dto.actualPremium !== null
+          ? dto.actualPremium
+          : Number(quote.totalPremium);
+
       const snapshot = (quote.calculationSnapshot as Record<string, any>) || {};
       const inputs = snapshot.inputs || {};
       const policyType = quote.policyType || inputs.policyType;
@@ -97,10 +107,62 @@ export class MotorPolicyIssuanceService {
           .filter((date): date is Date => Boolean(date))
           .sort((a, b) => a.getTime() - b.getTime())[0] || endDate;
 
+      // Handle vehicle details & missing information
+      let vehicleId = quote.vehicleId;
+      if (vehicleId) {
+        if (
+          dto.chassisNumber ||
+          dto.engineNumber ||
+          dto.registrationNumber ||
+          dto.makeModel ||
+          dto.manufactureYearMonth
+        ) {
+          await tx.vehicle.update({
+            where: { id: vehicleId },
+            data: {
+              chassisNumber: dto.chassisNumber || undefined,
+              engineNumber: dto.engineNumber || undefined,
+              registrationNumber: dto.registrationNumber || undefined,
+              makeModel: dto.makeModel || undefined,
+              manufactureYearMonth: dto.manufactureYearMonth || undefined,
+            },
+          });
+        }
+      } else if (
+        dto.chassisNumber ||
+        dto.engineNumber ||
+        dto.registrationNumber
+      ) {
+        const vehicleCode = `VEH-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
+        const createdVehicle = await tx.vehicle.create({
+          data: {
+            vehicleCode,
+            category: (quote.vehicleCategory as any) || 'PRIVATE_CAR',
+            registrationNumber:
+              dto.registrationNumber || quote.registrationNumber,
+            chassisNumber: dto.chassisNumber,
+            engineNumber: dto.engineNumber,
+            makeModel: dto.makeModel,
+            manufactureYearMonth: dto.manufactureYearMonth,
+            contactId: quote.contactId,
+            createdById: actorId,
+          },
+        });
+        vehicleId = createdVehicle.id;
+        await tx.quotation.update({
+          where: { id: quote.id },
+          data: {
+            vehicleId: createdVehicle.id,
+            registrationNumber:
+              dto.registrationNumber || quote.registrationNumber,
+          },
+        });
+      }
+
       // EPIC-22: Idempotency Check — if a policy with this policyNumber was already issued,
       // return it idempotently without re-executing mutations.
       const existingPolicyByNumber = await tx.policy.findFirst({
-        where: { policyNumber: dto.actualPolicyNumber },
+        where: { policyNumber },
       });
       if (existingPolicyByNumber) {
         return existingPolicyByNumber;
@@ -108,8 +170,8 @@ export class MotorPolicyIssuanceService {
 
       const policy = await tx.policy.create({
         data: {
-          policyNumber: dto.actualPolicyNumber,
-          actualPolicyNumber: dto.actualPolicyNumber,
+          policyNumber,
+          actualPolicyNumber: policyNumber,
           quotationId: quote.id,
           contactId: quote.contactId,
           accountId: quote.accountId || undefined,
@@ -125,9 +187,9 @@ export class MotorPolicyIssuanceService {
           odExpiryDate: odExpiry,
           tpStartDate: tpStart,
           tpExpiryDate: tpExpiry,
-          actualPremium: dto.actualPremium,
+          actualPremium,
           paymentStatus: 'SUCCESS',
-          vehicleId: quote.vehicleId || undefined,
+          vehicleId: vehicleId || quote.vehicleId || undefined,
           vehicleCategory: quote.vehicleCategory || undefined,
           policyType: policyType || undefined,
           motorMetadata: quote.motorMetadata || undefined,
@@ -138,6 +200,21 @@ export class MotorPolicyIssuanceService {
           updatedById: actorId,
         },
       });
+
+      if (dto.nomineeName?.trim()) {
+        const parts = dto.nomineeName.trim().split(' ');
+        const firstName = parts[0] || 'Nominee';
+        const lastName = parts.slice(1).join(' ') || 'Primary';
+        await tx.policyNominee.create({
+          data: {
+            policyId: policy.id,
+            firstName,
+            lastName,
+            relation: dto.nomineeRelation || 'Spouse',
+            percentage: 100,
+          },
+        });
+      }
 
       await tx.policyHistory.create({
         data: {

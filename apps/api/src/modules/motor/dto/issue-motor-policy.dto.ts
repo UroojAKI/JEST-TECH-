@@ -1,18 +1,22 @@
 import { IsNumber, IsOptional, IsString, Min } from 'class-validator';
 
 export class IssueMotorPolicyDto {
+  @IsOptional()
   @IsString()
-  actualPolicyNumber!: string;
+  actualPolicyNumber?: string;
 
+  @IsOptional()
   @IsNumber()
   @Min(0)
-  actualPremium!: number;
+  actualPremium?: number;
 
+  @IsOptional()
   @IsString()
-  startDate!: string;
+  startDate?: string;
 
+  @IsOptional()
   @IsString()
-  endDate!: string;
+  endDate?: string;
 
   @IsOptional()
   @IsString()
@@ -29,6 +33,40 @@ export class IssueMotorPolicyDto {
   @IsOptional()
   @IsString()
   tpExpiryDate?: string;
+
+  // ── Missing Information / Completion Details ──
+  @IsOptional()
+  @IsString()
+  registrationNumber?: string;
+
+  @IsOptional()
+  @IsString()
+  chassisNumber?: string;
+
+  @IsOptional()
+  @IsString()
+  engineNumber?: string;
+
+  @IsOptional()
+  @IsString()
+  makeModel?: string;
+
+  @IsOptional()
+  @IsString()
+  manufactureYearMonth?: string;
+
+  @IsOptional()
+  @IsString()
+  nomineeName?: string;
+
+  @IsOptional()
+  @IsString()
+  nomineeRelation?: string;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  nomineeAge?: number;
 
   @IsOptional()
   @IsString()

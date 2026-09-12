@@ -26,6 +26,12 @@ export default function CustomerRegisterPage() {
     staleTime: 5 * 60 * 1000,
   });
 
+  const { data: dbUsers = [] } = useQuery({
+    queryKey: ['users-list-contacts'],
+    queryFn: () => adminRepository.getUsers(),
+    staleTime: 5 * 60 * 1000,
+  });
+
   useEffect(() => {
     if (searchParams.get('create') === '1') setShowAddModal(true);
   }, [searchParams]);
@@ -53,7 +59,15 @@ export default function CustomerRegisterPage() {
     phone: '',
     email: '',
     branchId: '',
+    agentCode: '',
   });
+
+  // Default to primary branch once branches load
+  useEffect(() => {
+    if (dbBranches.length > 0 && !formData.branchId) {
+      setFormData((prev) => ({ ...prev, branchId: dbBranches[0].id }));
+    }
+  }, [dbBranches]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -73,12 +87,21 @@ export default function CustomerRegisterPage() {
         phone: cleanPhone,
         email: formData.email.trim() || undefined,
         branchId: formData.branchId || undefined,
-      });
+        agentCode: formData.agentCode.trim() || undefined,
+      } as any);
       await refetch();
       toast.success(`Customer "${formData.firstName} ${formData.lastName}" registered successfully`);
       setShowAddModal(false);
       setPage(1);
-      setFormData({ firstName: '', lastName: '', type: 'INDIVIDUAL', phone: '', email: '', branchId: '' });
+      setFormData({
+        firstName: '',
+        lastName: '',
+        type: 'INDIVIDUAL',
+        phone: '',
+        email: '',
+        branchId: dbBranches[0]?.id || '',
+        agentCode: '',
+      });
       router.replace('/crm/contacts');
     } catch (err: any) {
       const errData = err?.response?.data?.error || err?.response?.data;
@@ -87,9 +110,9 @@ export default function CustomerRegisterPage() {
         setDuplicateDialog({
           isOpen: true,
           existingContactId: errData?.existingContactId || '',
-          matchedBy: errData?.matchedBy || 'PHONE',
+          matchedBy: errData?.matchedBy || (errData?.message?.toLowerCase().includes('email') ? 'EMAIL' : 'PHONE'),
           contactCode: errData?.contactCode || 'CONT-EXISTING',
-          customerName: errData?.customerName || `${formData.firstName} ${formData.lastName}`,
+          customerName: errData?.customerName || `${formData.firstName} ${formData.lastName}`.trim(),
         });
         return;
       }
@@ -133,6 +156,20 @@ export default function CustomerRegisterPage() {
       accessorKey: 'branch',
       header: 'Branch',
       cell: ({ row }: any) => row.original.branch?.name || (row.original.branchId ? row.original.branchId : '—'),
+    },
+    {
+      accessorKey: 'agent',
+      header: 'Assigned Agent',
+      cell: ({ row }: any) => {
+        const code = row.original.agentCode || row.original.agent;
+        return code ? (
+          <span className="font-mono text-xs font-bold text-primary px-2 py-0.5 rounded bg-primary/10 border border-primary/20">
+            {code}
+          </span>
+        ) : (
+          <span className="text-muted-foreground text-xs italic">Unassigned</span>
+        );
+      },
     },
     {
       accessorKey: 'status',
@@ -262,6 +299,15 @@ export default function CustomerRegisterPage() {
                   ))}
                 </select>
               </div>
+              <div>
+                <label className="font-bold text-muted-foreground block mb-1">Assigned Agent Code</label>
+                <input
+                  value={formData.agentCode}
+                  onChange={(e) => setFormData({ ...formData, agentCode: e.target.value.toUpperCase() })}
+                  placeholder="Enter Agent Code (e.g. AGT-001)"
+                  className="w-full p-2.5 rounded-lg border bg-background text-xs font-mono uppercase"
+                />
+              </div>
             </div>
 
             <p className="text-[11px] text-muted-foreground border rounded-lg p-3 bg-muted/20">
@@ -302,7 +348,7 @@ export default function CustomerRegisterPage() {
               <div>
                 <h3 className="text-base font-bold text-foreground">Customer Already Exists</h3>
                 <p className="text-xs text-muted-foreground">
-                  A customer with this {duplicateDialog.matchedBy.toLowerCase()} is already registered in the system.
+                  A customer with this {duplicateDialog.matchedBy?.toUpperCase() === 'EMAIL' ? 'email address' : 'phone number'} is already registered in the system.
                 </p>
               </div>
             </div>
@@ -320,7 +366,9 @@ export default function CustomerRegisterPage() {
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-muted-foreground">Matched By:</span>
-                <span className="font-medium text-foreground capitalize">{duplicateDialog.matchedBy.toLowerCase()}</span>
+                <span className="font-medium text-foreground">
+                  {duplicateDialog.matchedBy?.toUpperCase() === 'EMAIL' ? 'Email Address' : 'Phone Number'}
+                </span>
               </div>
             </div>
 
@@ -339,8 +387,9 @@ export default function CustomerRegisterPage() {
               <button
                 type="button"
                 onClick={() => {
+                  const id = duplicateDialog.existingContactId;
                   setDuplicateDialog(null);
-                  toast.info('Selected existing customer record.');
+                  if (id) router.push(`/crm/contacts/${id}`);
                 }}
                 className="w-full py-2 px-4 rounded-xl border bg-secondary/50 hover:bg-secondary text-secondary-foreground font-bold text-xs transition-all"
               >

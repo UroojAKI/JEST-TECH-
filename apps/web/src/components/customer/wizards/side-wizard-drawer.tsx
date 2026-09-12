@@ -75,6 +75,8 @@ export function SideWizardDrawer({ type, customerId, onClose }: SideWizardDrawer
       });
       await queryClient.invalidateQueries({ queryKey: ['customer-360', customerId] });
       await queryClient.invalidateQueries({ queryKey: ['leads'] });
+      await queryClient.invalidateQueries({ queryKey: ['workspace-recent-leads'] });
+      await queryClient.invalidateQueries({ queryKey: ['dashboard-dynamic'] });
       toast.success('Lead created and linked to customer successfully!');
       onClose();
     } catch (err: any) {
@@ -362,7 +364,7 @@ export function SideWizardDrawer({ type, customerId, onClose }: SideWizardDrawer
                   type="button"
                   onClick={() => {
                     onClose();
-                    router.push(`/sales/quotations?contactId=${customerId}&type=private_car`);
+                    router.push(`/sales/quotations?contactId=${customerId}&openQuote=1&type=private_car`);
                   }}
                   className="p-3 rounded-xl border bg-card hover:bg-accent text-left transition-colors"
                 >
@@ -373,7 +375,7 @@ export function SideWizardDrawer({ type, customerId, onClose }: SideWizardDrawer
                   type="button"
                   onClick={() => {
                     onClose();
-                    router.push(`/sales/quotations?contactId=${customerId}&type=bike`);
+                    router.push(`/sales/quotations?contactId=${customerId}&openQuote=1&type=bike`);
                   }}
                   className="p-3 rounded-xl border bg-card hover:bg-accent text-left transition-colors"
                 >
@@ -384,7 +386,7 @@ export function SideWizardDrawer({ type, customerId, onClose }: SideWizardDrawer
                   type="button"
                   onClick={() => {
                     onClose();
-                    router.push(`/sales/quotations?contactId=${customerId}&type=gcv`);
+                    router.push(`/sales/quotations?contactId=${customerId}&openQuote=1&type=gcv`);
                   }}
                   className="p-3 rounded-xl border bg-card hover:bg-accent text-left transition-colors"
                 >
@@ -395,7 +397,7 @@ export function SideWizardDrawer({ type, customerId, onClose }: SideWizardDrawer
                   type="button"
                   onClick={() => {
                     onClose();
-                    router.push(`/sales/quotations?contactId=${customerId}`);
+                    router.push(`/sales/quotations?contactId=${customerId}&openQuote=1`);
                   }}
                   className="p-3 rounded-xl border bg-card hover:bg-accent text-left transition-colors"
                 >
