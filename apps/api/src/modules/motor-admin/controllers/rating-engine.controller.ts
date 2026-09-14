@@ -16,6 +16,13 @@ import { RolesGuard } from '../../auth/guards/roles.guard';
 import { Roles } from '../../auth/decorators/roles.decorator';
 import { RoleType, ProductType } from '@prisma/client';
 import { InsurerProductService } from '../services/insurer-product.service';
+import {
+  CreateInsurerDto,
+  UpdateInsurerDto,
+  CreateInsuranceProductDto,
+  CreateDiscountRuleDto,
+  CreateCommissionMatrixDto,
+} from '../dto/insurer-config.dto';
 
 @ApiTags('Motor Admin - Insurers & Configuration')
 @ApiBearerAuth()
@@ -39,14 +46,14 @@ export class RatingEngineController {
   @Post('insurers')
   @Roles(RoleType.ADMIN, RoleType.SUPER_ADMIN)
   @ApiOperation({ summary: 'Create new partner insurer configuration' })
-  createInsurer(@Body() data: any) {
+  createInsurer(@Body() data: CreateInsurerDto) {
     return this.insurerProductService.createInsurer(data);
   }
 
   @Put('insurers/:id')
   @Roles(RoleType.ADMIN, RoleType.SUPER_ADMIN)
   @ApiOperation({ summary: 'Update partner insurer master configuration' })
-  updateInsurer(@Param('id') id: string, @Body() data: any) {
+  updateInsurer(@Param('id') id: string, @Body() data: UpdateInsurerDto) {
     return this.insurerProductService.updateInsurer(id, data);
   }
 
@@ -73,7 +80,7 @@ export class RatingEngineController {
   @Post('insurance-products')
   @Roles(RoleType.ADMIN, RoleType.SUPER_ADMIN)
   @ApiOperation({ summary: 'Create product for insurer' })
-  createInsuranceProduct(@Body() data: any) {
+  createInsuranceProduct(@Body() data: CreateInsuranceProductDto) {
     return this.insurerProductService.createInsuranceProduct(data);
   }
 
@@ -86,7 +93,7 @@ export class RatingEngineController {
   @Post('discounts')
   @Roles(RoleType.ADMIN, RoleType.SUPER_ADMIN)
   @ApiOperation({ summary: 'Create discount rule for insurer' })
-  createDiscountRule(@Body() data: any) {
+  createDiscountRule(@Body() data: CreateDiscountRuleDto) {
     return this.insurerProductService.createDiscountRule(data);
   }
 
@@ -99,7 +106,7 @@ export class RatingEngineController {
   @Post('commissions')
   @Roles(RoleType.ADMIN, RoleType.SUPER_ADMIN)
   @ApiOperation({ summary: 'Create commission matrix for insurer' })
-  createCommissionMatrix(@Body() data: any) {
+  createCommissionMatrix(@Body() data: CreateCommissionMatrixDto) {
     return this.insurerProductService.createCommissionMatrix(data);
   }
 

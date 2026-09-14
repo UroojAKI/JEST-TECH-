@@ -5,6 +5,8 @@ import { WorkflowEngineService } from '../../platform/workflow/services/workflow
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { ProposalStatus, InspectionStatus } from '@prisma/client';
 
+import { NumberingEngineService } from '../../administration/services/numbering-engine/numbering-engine.service';
+
 describe('ProposalService & Inspection Gateway (Iteration 6)', () => {
   let service: ProposalService;
   let prisma: any;
@@ -35,6 +37,12 @@ describe('ProposalService & Inspection Gateway (Iteration 6)', () => {
         ProposalService,
         { provide: PrismaService, useValue: prisma },
         { provide: WorkflowEngineService, useValue: {} },
+        {
+          provide: NumberingEngineService,
+          useValue: {
+            generateNext: jest.fn().mockResolvedValue('PROP-2026-0001'),
+          },
+        },
       ],
     }).compile();
 

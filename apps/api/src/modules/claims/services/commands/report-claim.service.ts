@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import {
@@ -9,6 +10,7 @@ import {
   CommunicationChannel,
   PolicyStatus,
   Prisma,
+  RoleType,
 } from '@prisma/client';
 import { ClaimRepository } from '../../repositories/claim.repository';
 import { PolicyRepository } from '../../../policies/repositories/policy.repository';
@@ -18,6 +20,8 @@ import { PrismaService } from '../../../../database/prisma.service';
 import { CACHE_PROVIDER_TOKEN } from '../../../platform/cache/cache.provider';
 import { RedisCacheService } from '../../../platform/cache/redis-cache.service';
 import { Inject } from '@nestjs/common';
+import { ActorContext } from '../../../../common/interfaces/actor-context.interface';
+import { RequestUser } from '../../../auth/decorators/current-user.decorator';
 
 @Injectable()
 export class ReportClaimService {
@@ -29,15 +33,73 @@ export class ReportClaimService {
     @Inject(CACHE_PROVIDER_TOKEN) private readonly cache: RedisCacheService,
   ) {}
 
-  async execute(dto: ReportClaimDto, createdById: string) {
+  async execute(
+    dto: ReportClaimDto,
+    actor: RequestUser | ActorContext | string,
+  ) {
+    const createdById =
+      typeof actor === 'string'
+        ? actor
+        : (actor as any).id || (actor as any).userId;
+    const actorContext = typeof actor === 'object' ? actor : undefined;
+
     // 1. Validate Policy exists (lookup by policyId or policyNumber)
     let policy: any = null;
+    const policyInclude = {
+      contact: true,
+      createdBy: {
+        include: {
+          branch: {
+            include: {
+              zone: {
+                include: {
+                  region: {
+                    include: { company: true },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+      quotation: {
+        include: {
+          createdBy: {
+            include: {
+              branch: {
+                include: {
+                  zone: {
+                    include: {
+                      region: {
+                        include: { company: true },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    };
+
     if (dto.policyId) {
-      policy = await this.policyRepository.findById(dto.policyId);
+      if (this.prisma?.policy?.findFirst) {
+        policy = await this.prisma.policy.findFirst({
+          where: { id: dto.policyId, deletedAt: null },
+          include: policyInclude,
+        });
+      }
+      if (!policy && this.policyRepository?.findById) {
+        policy = await this.policyRepository.findById(dto.policyId);
+      }
     } else if (dto.policyNumber) {
-      policy = await this.prisma.policy.findFirst({
-        where: { policyNumber: dto.policyNumber, deletedAt: null },
-      });
+      if (this.prisma?.policy?.findFirst) {
+        policy = await this.prisma.policy.findFirst({
+          where: { policyNumber: dto.policyNumber, deletedAt: null },
+          include: policyInclude,
+        });
+      }
     }
 
     if (!policy || policy.deletedAt) {
@@ -46,10 +108,71 @@ export class ReportClaimService {
       );
     }
 
+    // 1.1 Multi-Tenant & Object-Level Access Validation (IDOR prevention)
+    if (actorContext) {
+      const isSuperAdmin =
+        actorContext.roles?.includes(RoleType.SUPER_ADMIN) ||
+        actorContext.role === RoleType.SUPER_ADMIN;
+
+      if (!isSuperAdmin) {
+        const policyOrgId =
+          policy.contact?.companyId ||
+          policy.createdBy?.branch?.zone?.region?.company?.id ||
+          policy.quotation?.createdBy?.branch?.zone?.region?.company?.id;
+
+        if (
+          policyOrgId &&
+          actorContext.organizationId &&
+          policyOrgId !== actorContext.organizationId
+        ) {
+          throw new ForbiddenException(
+            'You do not have permission to file claims for a policy in another organization',
+          );
+        }
+
+        const isCustomer =
+          actorContext.role === RoleType.CUSTOMER ||
+          actorContext.roles?.includes(RoleType.CUSTOMER);
+
+        if (isCustomer) {
+          const userCtx = actorContext as any;
+          const isOwner =
+            (userCtx.contactId && policy.contactId === userCtx.contactId) ||
+            policy.createdById === userCtx.userId ||
+            policy.createdById === userCtx.id ||
+            (userCtx.email && policy.contact?.email === userCtx.email) ||
+            (userCtx.phone && policy.contact?.phone === userCtx.phone);
+          if (!isOwner) {
+            throw new ForbiddenException(
+              'Customers are only permitted to file claims on their own policies',
+            );
+          }
+        }
+
+        const isBranchScoped =
+          actorContext.role === RoleType.BRANCH_MANAGER ||
+          actorContext.roles?.includes(RoleType.BRANCH_MANAGER);
+
+        if (isBranchScoped && actorContext.branchId) {
+          const policyBranchId =
+            policy.contact?.branchId ||
+            policy.createdBy?.branchId ||
+            policy.quotation?.createdBy?.branchId;
+          if (policyBranchId && policyBranchId !== actorContext.branchId) {
+            throw new ForbiddenException(
+              'Branch managers can only file claims for policies in their branch',
+            );
+          }
+        }
+      }
+    }
+
     const resolvedPolicyId = policy.id;
     const resolvedClaimAmount = dto.claimAmount ?? dto.estimatedAmount;
     if (!resolvedClaimAmount || resolvedClaimAmount <= 0) {
-      throw new BadRequestException('A positive claim loss amount is required.');
+      throw new BadRequestException(
+        'A positive claim loss amount is required.',
+      );
     }
 
     // 2. Policy Status Gate: Only ACTIVE or PENDING_RENEWAL policies can have claims registered
@@ -63,7 +186,9 @@ export class ReportClaimService {
     }
 
     // 3. Coverage Period Invariant: incidentDate must fall strictly between effectiveDate and expiryDate
-    const incidentDate = dto.incidentDate ? new Date(dto.incidentDate) : new Date();
+    const incidentDate = dto.incidentDate
+      ? new Date(dto.incidentDate)
+      : new Date();
     if (
       incidentDate < policy.effectiveDate ||
       incidentDate > policy.expiryDate
@@ -133,22 +258,38 @@ export class ReportClaimService {
         tx,
       );
 
-      // 7.4 Log Customer Communication
+      // 7.4 Log Customer Communication (Authoritative without fake production data)
       const contact = await tx.contact.findUnique({
         where: { id: policy.contactId },
       });
-      const recipientEmail = contact?.email || 'customer@example.com';
 
-      await this.claimRepository.addCommunication(
-        {
-          claim: { connect: { id: createdClaim.id } },
-          recipient: recipientEmail,
-          channel: CommunicationChannel.EMAIL,
-          subject: `Claim Registered - ${claimNumber}`,
-          body: `Hello, your claim ${claimNumber} for policy ${policy.policyNumber} has been successfully registered. We are reviewing the details and will assign an assessor shortly.`,
-        },
-        tx,
-      );
+      if (
+        contact?.email &&
+        contact.email.trim() &&
+        !contact.email.toLowerCase().includes('example.com')
+      ) {
+        await this.claimRepository.addCommunication(
+          {
+            claim: { connect: { id: createdClaim.id } },
+            recipient: contact.email.trim(),
+            channel: CommunicationChannel.EMAIL,
+            subject: `Claim Registered - ${claimNumber}`,
+            body: `Hello, your claim ${claimNumber} for policy ${policy.policyNumber} has been successfully registered. We are reviewing the details and will assign an assessor shortly.`,
+          },
+          tx,
+        );
+      } else if (contact?.phone && contact.phone.trim()) {
+        await this.claimRepository.addCommunication(
+          {
+            claim: { connect: { id: createdClaim.id } },
+            recipient: contact.phone.trim(),
+            channel: CommunicationChannel.SMS,
+            subject: `Claim Registered - ${claimNumber}`,
+            body: `Hello, your claim ${claimNumber} for policy ${policy.policyNumber} has been successfully registered. We are reviewing the details and will assign an assessor shortly.`,
+          },
+          tx,
+        );
+      }
 
       return updatedClaim;
     });

@@ -114,10 +114,7 @@ export class ProposalsController {
 
   @Post(':id/submit')
   @Roles(...PROPOSAL_MANAGE_ROLES)
-  submitProposal(
-    @Param('id') id: string,
-    @CurrentUser() user: RequestUser,
-  ) {
+  submitProposal(@Param('id') id: string, @CurrentUser() user: RequestUser) {
     return this.proposalService.submitProposal(id, user.id);
   }
 

@@ -50,7 +50,9 @@ describe('NotificationDispatcher (NOTIFY-002 Deduplication & Preference Enforcem
   };
 
   it('delivers notification on first dispatch when no duplicate exists', async () => {
-    mockPrisma.notificationPreference.findUnique.mockResolvedValue(defaultPreferences);
+    mockPrisma.notificationPreference.findUnique.mockResolvedValue(
+      defaultPreferences,
+    );
     mockPrisma.notification.findFirst.mockResolvedValue(null);
     mockPrisma.notification.create.mockResolvedValue({ id: 'notif-1' });
 
@@ -75,7 +77,9 @@ describe('NotificationDispatcher (NOTIFY-002 Deduplication & Preference Enforcem
   });
 
   it('drops duplicate notification when dispatched within 24 hours for same entity and type', async () => {
-    mockPrisma.notificationPreference.findUnique.mockResolvedValue(defaultPreferences);
+    mockPrisma.notificationPreference.findUnique.mockResolvedValue(
+      defaultPreferences,
+    );
     // Simulating an existing notification delivered 2 hours ago
     mockPrisma.notification.findFirst.mockResolvedValue({
       id: 'existing-notif-1',
@@ -99,7 +103,9 @@ describe('NotificationDispatcher (NOTIFY-002 Deduplication & Preference Enforcem
   });
 
   it('delivers notification when entityId is different even for the same user and type', async () => {
-    mockPrisma.notificationPreference.findUnique.mockResolvedValue(defaultPreferences);
+    mockPrisma.notificationPreference.findUnique.mockResolvedValue(
+      defaultPreferences,
+    );
     mockPrisma.notification.findFirst.mockResolvedValue(null);
     mockPrisma.notification.create.mockResolvedValue({ id: 'notif-2' });
 

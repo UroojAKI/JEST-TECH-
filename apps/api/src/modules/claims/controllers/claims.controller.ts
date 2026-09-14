@@ -68,7 +68,7 @@ export class ClaimsController {
     RoleType.CUSTOMER,
   )
   report(@Body() dto: ReportClaimDto, @CurrentUser() user: RequestUser) {
-    return this.reportClaimService.execute(dto, user.id);
+    return this.reportClaimService.execute(dto, user);
   }
 
   @Post()
@@ -82,7 +82,7 @@ export class ClaimsController {
     RoleType.CUSTOMER,
   )
   create(@Body() dto: ReportClaimDto, @CurrentUser() user: RequestUser) {
-    return this.reportClaimService.execute(dto, user.id);
+    return this.reportClaimService.execute(dto, user);
   }
 
   @Get()
@@ -181,15 +181,15 @@ export class ClaimsController {
   @Roles(
     RoleType.SUPER_ADMIN,
     RoleType.ADMIN,
+    RoleType.BRANCH_MANAGER,
     RoleType.CLAIMS_OFFICER,
-    RoleType.OPERATIONS,
   )
   approve(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: ApproveClaimDto,
     @CurrentUser() user: RequestUser,
   ) {
-    return this.approveClaimService.execute(id, dto, user.id);
+    return this.approveClaimService.execute(id, dto, user);
   }
 
   @Post(':id/settle')
@@ -217,7 +217,9 @@ export class ClaimsController {
     @CurrentUser() user: RequestUser,
   ) {
     if (!verificationReference?.trim()) {
-      throw new BadRequestException('Finance verification reference is mandatory');
+      throw new BadRequestException(
+        'Finance verification reference is mandatory',
+      );
     }
     return this.settleClaimService.verifySettlement(
       id,

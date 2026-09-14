@@ -43,6 +43,12 @@ describe('EndorsementService (Iteration 15)', () => {
       providers: [
         EndorsementService,
         { provide: PrismaService, useValue: prisma },
+        {
+          provide:
+            require('../../administration/services/numbering-engine/numbering-engine.service')
+              .NumberingEngineService,
+          useValue: { generateNext: jest.fn().mockResolvedValue('END-0001') },
+        },
       ],
     }).compile();
 

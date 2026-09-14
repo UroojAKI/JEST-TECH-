@@ -26,10 +26,7 @@ export interface ReconciliationQueueItem {
   agingHours: number;
   urgency: 'HIGH' | 'MEDIUM' | 'LOW';
   reconciliationStatus:
-    | 'PENDING_RECONCILIATION'
-    | 'RECONCILED'
-    | 'DISCREPANCY'
-    | 'UNDER_PROCESS';
+    'PENDING_RECONCILIATION' | 'RECONCILED' | 'DISCREPANCY' | 'UNDER_PROCESS';
   reconciledBy?: string;
   reconciledAt?: string;
   discrepancyReason?: string;
@@ -260,7 +257,10 @@ export class FinanceReconciliationService {
       );
     }
 
-    if (dto.bankTransactionDate && Number.isNaN(new Date(dto.bankTransactionDate).getTime())) {
+    if (
+      dto.bankTransactionDate &&
+      Number.isNaN(new Date(dto.bankTransactionDate).getTime())
+    ) {
       throw new BadRequestException('Bank transaction date is invalid.');
     }
 
@@ -271,8 +271,7 @@ export class FinanceReconciliationService {
       reconciledBy: actorId,
       reconciledAt,
       bankReference: dto.bankReference || payment.referenceNumber,
-      bankTransactionDate:
-        dto.bankTransactionDate || new Date().toISOString(),
+      bankTransactionDate: dto.bankTransactionDate || new Date().toISOString(),
       financeNotes: dto.notes,
     };
 
@@ -296,7 +295,8 @@ export class FinanceReconciliationService {
           performedById: actorId,
           module: 'FINANCE',
           oldValue: {
-            reconciliationStatus: existingNotes.reconciliationStatus || 'PENDING_RECONCILIATION',
+            reconciliationStatus:
+              existingNotes.reconciliationStatus || 'PENDING_RECONCILIATION',
           },
           newValue: {
             reconciliationStatus: 'RECONCILED',
@@ -402,7 +402,8 @@ export class FinanceReconciliationService {
           performedById: actorId,
           module: 'FINANCE',
           oldValue: {
-            reconciliationStatus: existingNotes.reconciliationStatus || 'PENDING_RECONCILIATION',
+            reconciliationStatus:
+              existingNotes.reconciliationStatus || 'PENDING_RECONCILIATION',
           },
           newValue: {
             reconciliationStatus: 'DISCREPANCY',

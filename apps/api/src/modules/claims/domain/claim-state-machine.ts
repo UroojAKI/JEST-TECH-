@@ -27,10 +27,7 @@ export class ClaimStateMachine {
       ClaimStatus.REJECTED,
       ClaimStatus.CLOSED,
     ],
-    [ClaimStatus.APPROVED]: [
-      ClaimStatus.PAYMENT_PENDING,
-      ClaimStatus.CLOSED,
-    ],
+    [ClaimStatus.APPROVED]: [ClaimStatus.PAYMENT_PENDING, ClaimStatus.CLOSED],
     [ClaimStatus.REJECTED]: [ClaimStatus.CLOSED],
     [ClaimStatus.PAYMENT_PENDING]: [ClaimStatus.SETTLED, ClaimStatus.CLOSED],
     [ClaimStatus.SETTLED]: [ClaimStatus.CLOSED],

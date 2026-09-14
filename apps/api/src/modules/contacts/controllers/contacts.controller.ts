@@ -1,4 +1,16 @@
-import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Param,
+  Patch,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { RoleType } from '@prisma/client';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
@@ -73,13 +85,19 @@ export class ContactsController {
 
   @Get()
   @Roles(...CONTACT_VIEW_ROLES)
-  findAll(@Query() pagination: PaginationDto, @CurrentUser() user: RequestUser) {
+  findAll(
+    @Query() pagination: PaginationDto,
+    @CurrentUser() user: RequestUser,
+  ) {
     return this.contactsService.findAll(pagination, user);
   }
 
   @Get(':id')
   @Roles(...CONTACT_VIEW_ROLES)
-  findOne(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: RequestUser) {
+  findOne(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: RequestUser,
+  ) {
     return this.contactsService.findById(id, user);
   }
 
@@ -107,28 +125,46 @@ export class ContactsController {
 
   @Patch(':id')
   @Roles(...CONTACT_MANAGE_ROLES)
-  update(@Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdateContactDto, @CurrentUser() user: RequestUser) {
+  update(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateContactDto,
+    @CurrentUser() user: RequestUser,
+  ) {
     return this.contactsService.update(id, dto, user.id, user);
   }
 
   @Delete(':id')
   @HttpCode(HttpStatus.OK)
-  @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN, RoleType.SYSTEM_ADMINISTRATOR, RoleType.MD_CEO)
-  remove(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: RequestUser) {
+  @Roles(
+    RoleType.SUPER_ADMIN,
+    RoleType.ADMIN,
+    RoleType.SYSTEM_ADMINISTRATOR,
+    RoleType.MD_CEO,
+  )
+  remove(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: RequestUser,
+  ) {
     return this.contactsService.remove(id, user.id, user);
   }
 
   @Post(':id/deactivate')
   @HttpCode(HttpStatus.OK)
   @Roles(...CONTACT_MANAGE_ROLES)
-  deactivate(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: RequestUser) {
+  deactivate(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: RequestUser,
+  ) {
     return this.contactsService.deactivate(id, user);
   }
 
   @Post(':id/reactivate')
   @HttpCode(HttpStatus.OK)
   @Roles(...CONTACT_MANAGE_ROLES)
-  reactivate(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: RequestUser) {
+  reactivate(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: RequestUser,
+  ) {
     return this.contactsService.reactivate(id, user);
   }
 }

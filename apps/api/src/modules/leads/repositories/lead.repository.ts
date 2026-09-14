@@ -155,17 +155,14 @@ export class LeadRepository extends BaseRepository<
   }
 
   async generateLeadCode(tx?: TransactionClient): Promise<string> {
+    const client = tx || this.prismaService;
     try {
-      const result = await (tx || this.prismaService).$queryRaw<
-        [{ nextval: bigint }]
-      >`
+      const result = await client.$queryRaw<[{ nextval: bigint }]>`
         SELECT nextval('lead_number_seq')`;
       return `LEAD-${result[0].nextval.toString().padStart(6, '0')}`;
     } catch {
       const client = tx || this.prismaService;
-      await client.$executeRawUnsafe(
-        `CREATE SEQUENCE IF NOT EXISTS lead_number_seq START 1;`,
-      );
+      await client.$executeRaw`CREATE SEQUENCE IF NOT EXISTS lead_number_seq START 1;`;
       const retry = await client.$queryRaw<[{ nextval: bigint }]>`
         SELECT nextval('lead_number_seq')`;
       return `LEAD-${retry[0].nextval.toString().padStart(6, '0')}`;

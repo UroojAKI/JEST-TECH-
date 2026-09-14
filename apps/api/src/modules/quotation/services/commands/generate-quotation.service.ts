@@ -159,8 +159,8 @@ export class GenerateQuotationService {
       quotationCode,
       {
         'Quotation Code': quotationCode,
-        'Insurer': quotation.insurerName,
-        'Product': quotation.productType,
+        Insurer: quotation.insurerName,
+        Product: quotation.productType,
         'Sum Insured (IDV)': `Rs. ${quotation.sumInsured.toString()}`,
         'Net Customer Premium': `Rs. ${quotation.basePremium.toString()}`,
         'Statutory GST (18%)': `Rs. ${quotation.gstAmount.toString()}`,

@@ -1,4 +1,11 @@
-import { IsEnum, IsNotEmpty, IsOptional, IsString, Matches, ValidateIf } from 'class-validator';
+import {
+  IsEnum,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  Matches,
+  ValidateIf,
+} from 'class-validator';
 import { LeadStatus } from '@prisma/client';
 
 export class CreateLeadDto {

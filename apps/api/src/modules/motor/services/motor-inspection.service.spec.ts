@@ -34,6 +34,12 @@ describe('MotorInspectionService (R6 Break-in Underwriting & Inspection Engine)'
       providers: [
         MotorInspectionService,
         { provide: PrismaService, useValue: mockPrisma },
+        {
+          provide:
+            require('../../administration/services/numbering-engine/numbering-engine.service')
+              .NumberingEngineService,
+          useValue: { generateNext: jest.fn().mockResolvedValue('INS-0001') },
+        },
       ],
     }).compile();
 

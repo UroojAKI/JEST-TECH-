@@ -25,7 +25,9 @@ export class CommunicationService {
    * This represents the "Hybrid" storage strategy where we keep metadata + body in JEST.
    */
   async logOutboundMessage(dto: SendMessageDto) {
-    const initialStatus = dto.providerMessageId ? 'PROVIDER_ACCEPTED' : 'QUEUED';
+    const initialStatus = dto.providerMessageId
+      ? 'PROVIDER_ACCEPTED'
+      : 'QUEUED';
     const log = await this.prisma.communicationLog.create({
       data: {
         channel: dto.channel,
@@ -61,7 +63,16 @@ export class CommunicationService {
     // Map provider statuses to standard JEST statuses: QUEUED -> PROCESSING -> PROVIDER_ACCEPTED -> SENT -> DELIVERED
     const upper = status.toUpperCase();
     let mappedStatus = upper;
-    if (['SENT', 'DELIVERED', 'READ', 'QUEUED', 'PROCESSING', 'PROVIDER_ACCEPTED'].includes(upper)) {
+    if (
+      [
+        'SENT',
+        'DELIVERED',
+        'READ',
+        'QUEUED',
+        'PROCESSING',
+        'PROVIDER_ACCEPTED',
+      ].includes(upper)
+    ) {
       mappedStatus = upper;
     } else if (['FAILED', 'UNDELIVERED', 'BOUNCED'].includes(upper)) {
       mappedStatus = 'FAILED';

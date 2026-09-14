@@ -19,6 +19,10 @@ import {
 } from '../../../auth/decorators/current-user.decorator';
 import { WorkflowEngineService } from '../services/workflow-engine.service';
 import { PrismaService } from '../../../../database/prisma.service';
+import {
+  CreateWorkflowDefinitionDto,
+  UpdateWorkflowDefinitionDto,
+} from '../dto/workflow-definition.dto';
 
 @ApiTags('Workflows')
 @ApiBearerAuth()
@@ -156,7 +160,7 @@ export class WorkflowsController {
 
   @Post('definitions')
   @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN)
-  async createWorkflow(@Body() body: any) {
+  async createWorkflow(@Body() body: CreateWorkflowDefinitionDto) {
     return this.prisma.workflow.create({
       data: body,
     });
@@ -164,7 +168,10 @@ export class WorkflowsController {
 
   @Patch('definitions/:id')
   @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN)
-  async updateWorkflow(@Param('id') id: string, @Body() body: any) {
+  async updateWorkflow(
+    @Param('id') id: string,
+    @Body() body: UpdateWorkflowDefinitionDto,
+  ) {
     return this.prisma.workflow.update({
       where: { id },
       data: body,

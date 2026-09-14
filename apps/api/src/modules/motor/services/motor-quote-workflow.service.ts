@@ -164,7 +164,8 @@ export class MotorQuoteWorkflowService {
         });
 
         if (!existingInspection) {
-          const inspectionCode = await this.numberingEngine.generateNext('INSPECTION');
+          const inspectionCode =
+            await this.numberingEngine.generateNext('INSPECTION');
           await tx.motorInspection.create({
             data: {
               quotationId: dto.quotationId,

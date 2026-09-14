@@ -124,7 +124,7 @@ export function CustomerHeader({ customer, onLaunchWizard }: CustomerHeaderProps
           <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-bold">GSTIN</span>
           <div className="flex items-center space-x-1.5 text-foreground font-mono font-bold">
             <FileCheck className="h-3.5 w-3.5 text-muted-foreground" />
-            <span>{customer?.gst || '27AAAAA0000A1Z5'}</span>
+            <span>{customer?.gst || 'Not Available'}</span>
           </div>
         </div>
 
@@ -132,7 +132,7 @@ export function CustomerHeader({ customer, onLaunchWizard }: CustomerHeaderProps
           <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-bold">Registered Address</span>
           <div className="flex items-center space-x-1.5 text-foreground font-semibold truncate">
             <MapPin className="h-3.5 w-3.5 text-primary" />
-            <span className="truncate">{customer?.address || 'BKC, Mumbai 400051'}</span>
+            <span className="truncate">{customer?.address || 'Address Not Provided'}</span>
           </div>
         </div>
       </div>

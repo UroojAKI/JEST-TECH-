@@ -125,9 +125,10 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       );
     }
 
-    const permissions = user.role?.permissions
-      ?.map((entry) => entry.permission.code)
-      .filter(Boolean) || [];
+    const permissions =
+      user.role?.permissions
+        ?.map((entry) => entry.permission.code)
+        .filter(Boolean) || [];
 
     const actor: ActorContext = {
       userId: user.id,

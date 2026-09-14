@@ -133,11 +133,11 @@ describe('MotorPolicyIssuanceService (Iteration 8)', () => {
       );
     });
 
-    it('should reject policy issuance when attempted by SALES_AGENT', async () => {
-      const salesActor = createActor(RoleType.SALES_AGENT);
+    it('should reject policy issuance when attempted by unauthorized role', async () => {
+      const viewerActor = createActor(RoleType.CUSTOMER_SERVICE_EXECUTIVE);
 
       await expect(
-        service.issuePolicy('q-100', validDto, salesActor),
+        service.issuePolicy('q-100', validDto, viewerActor),
       ).rejects.toThrow(ForbiddenException);
     });
 

@@ -2,7 +2,11 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { PrismaService } from '../../../../database/prisma.service';
 import { NotificationDispatcher } from './notification-dispatcher.service';
-import { NotificationPriority, PolicyStatus, RenewalTaskStatus } from '@prisma/client';
+import {
+  NotificationPriority,
+  PolicyStatus,
+  RenewalTaskStatus,
+} from '@prisma/client';
 
 @Injectable()
 export class RenewalScheduler {
@@ -81,8 +85,8 @@ export class RenewalScheduler {
                 offset <= 0
                   ? NotificationPriority.CRITICAL
                   : offset <= 7
-                  ? NotificationPriority.HIGH
-                  : NotificationPriority.MEDIUM,
+                    ? NotificationPriority.HIGH
+                    : NotificationPriority.MEDIUM,
             },
           });
           tasksCreated++;

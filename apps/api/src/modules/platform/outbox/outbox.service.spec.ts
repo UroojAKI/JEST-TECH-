@@ -111,4 +111,3 @@ describe('OutboxService', () => {
     expect(result.status).toBe(OutboxStatus.DEAD_LETTER);
   });
 });
-

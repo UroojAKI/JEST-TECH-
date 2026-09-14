@@ -53,23 +53,103 @@ export class StatisticalPredictionService implements PredictionProvider {
     monthsAhead: number,
     branchId?: string,
   ): Promise<number> {
-    // Basic logic: count expiring policies in target month * historical renewal rate
-    const targetDate = new Date();
-    targetDate.setMonth(targetDate.getMonth() + monthsAhead);
+    const now = new Date();
+    const startOfMonth = new Date(
+      now.getFullYear(),
+      now.getMonth() + monthsAhead,
+      1,
+    );
+    const endOfMonth = new Date(
+      now.getFullYear(),
+      now.getMonth() + monthsAhead + 1,
+      0,
+      23,
+      59,
+      59,
+      999,
+    );
 
-    // In a real system, we'd query FactPolicy for expirations matching targetDate month
-    const totalExpiring = 1000; // Mocked for illustration
+    const whereClause: any = {
+      expiryDate: {
+        gte: startOfMonth,
+        lte: endOfMonth,
+      },
+      deletedAt: null,
+    };
+    if (branchId) {
+      whereClause.createdBy = { branchId };
+    }
 
-    // Assume historical renewal rate is 80%
-    const expectedRenewals = totalExpiring * 0.8;
-    return expectedRenewals;
+    const totalExpiring = await this.prisma.policy.count({
+      where: whereClause,
+    });
+
+    if (totalExpiring === 0) {
+      return 0;
+    }
+
+    const pastYear = new Date(now.getFullYear() - 1, now.getMonth(), 1);
+    const pastExpiringCount = await this.prisma.policy.count({
+      where: {
+        expiryDate: { gte: pastYear, lt: startOfMonth },
+        deletedAt: null,
+        ...(branchId ? { createdBy: { branchId } } : {}),
+      },
+    });
+
+    const renewedCount = await this.prisma.policyRenewal.count({
+      where: {
+        createdAt: { gte: pastYear },
+        ...(branchId ? { policy: { createdBy: { branchId } } } : {}),
+      },
+    });
+
+    const historicalRate =
+      pastExpiringCount > 0
+        ? Math.min(Math.max(renewedCount / pastExpiringCount, 0.5), 0.95)
+        : 0.8;
+
+    return Math.round(totalExpiring * historicalRate);
   }
 
   async forecastClaims(
     monthsAhead: number,
     branchId?: string,
   ): Promise<Decimal> {
-    return new Decimal(50000); // Mocked
+    const today = new Date();
+    const sixMonthsAgo = new Date();
+    sixMonthsAgo.setMonth(today.getMonth() - 6);
+
+    const whereClause: any = {
+      reportedDate: { gte: sixMonthsAgo },
+      deletedAt: null,
+    };
+    if (branchId) {
+      whereClause.createdBy = { branchId };
+    }
+
+    const result = await this.prisma.claim.aggregate({
+      where: whereClause,
+      _sum: { claimAmount: true },
+    });
+
+    const totalPastSixMonths = result._sum.claimAmount || new Decimal(0);
+    const averageMonthly = totalPastSixMonths.div(6);
+
+    if (averageMonthly.isZero()) {
+      const policyAgg = await this.prisma.policy.aggregate({
+        where: {
+          deletedAt: null,
+          ...(branchId ? { createdBy: { branchId } } : {}),
+        },
+        _sum: { premiumAmount: true },
+      });
+      const totalPremium = policyAgg._sum.premiumAmount || new Decimal(0);
+      return totalPremium.div(12).mul(0.6);
+    }
+
+    const inflationMultiplier = 1 + 0.005 * monthsAhead;
+    return averageMonthly.mul(inflationMultiplier);
   }
 
   async predictCustomerRisk(customerId: string): Promise<number> {

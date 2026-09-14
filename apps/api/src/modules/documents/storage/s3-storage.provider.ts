@@ -22,11 +22,27 @@ export class S3StorageProvider implements StorageProvider {
     this.bucket =
       this.config.get<string>('STORAGE_BUCKET') || 'jest-policy-crm';
 
+    const isProduction =
+      this.config.get<string>('NODE_ENV') === 'production' ||
+      process.env.NODE_ENV === 'production';
+    const provider = this.config.get<string>('STORAGE_PROVIDER', 'LOCAL');
+
+    if (
+      isProduction &&
+      (provider === 'S3' || provider === 'MINIO') &&
+      (!accessKeyId || !secretAccessKey)
+    ) {
+      throw new Error(
+        'S3StorageProvider: STORAGE_ACCESS_KEY and STORAGE_SECRET_KEY must be configured in production',
+      );
+    }
+
     this.client = new S3Client({
       region,
       credentials: {
-        accessKeyId: accessKeyId || 'mock',
-        secretAccessKey: secretAccessKey || 'mock',
+        accessKeyId: accessKeyId || (isProduction ? '' : 'development-key'),
+        secretAccessKey:
+          secretAccessKey || (isProduction ? '' : 'development-secret'),
       },
       endpoint: endpoint || undefined,
       forcePathStyle: endpoint ? true : false, // Required for MinIO

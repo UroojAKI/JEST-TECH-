@@ -54,4 +54,3 @@ export class LogCallDto {
   notes?: string;
   scheduledFollowup?: string;
 }
-

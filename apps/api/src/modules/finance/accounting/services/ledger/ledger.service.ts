@@ -50,10 +50,14 @@ export class LedgerService {
 
     for (const line of data.lines) {
       if (!line.accountId?.trim()) {
-        throw new BadRequestException('Every journal line requires an account.');
+        throw new BadRequestException(
+          'Every journal line requires an account.',
+        );
       }
       if (!Number.isFinite(line.debit) || !Number.isFinite(line.credit)) {
-        throw new BadRequestException('Debits and Credits must be valid numbers.');
+        throw new BadRequestException(
+          'Debits and Credits must be valid numbers.',
+        );
       }
       if (line.debit < 0 || line.credit < 0) {
         throw new BadRequestException(
@@ -107,7 +111,9 @@ export class LedgerService {
       `;
       const sequenceNumber = sequenceRows[0]?.nextval;
       if (sequenceNumber === undefined) {
-        throw new BadRequestException('Unable to allocate journal entry number.');
+        throw new BadRequestException(
+          'Unable to allocate journal entry number.',
+        );
       }
 
       const entryNumber = `JE-${sequenceNumber.toString().padStart(8, '0')}`;

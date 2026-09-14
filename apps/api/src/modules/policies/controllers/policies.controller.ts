@@ -64,6 +64,14 @@ const POLICY_VIEW_ROLES: RoleType[] = [
   RoleType.SUPPORT,
 ];
 
+const POLICY_ISSUE_ROLES: RoleType[] = [
+  RoleType.SUPER_ADMIN,
+  RoleType.ADMIN,
+  RoleType.OPERATIONS,
+  RoleType.POLICY_ISSUANCE_EXECUTIVE,
+  RoleType.UNDERWRITER,
+];
+
 const POLICY_MANAGE_ROLES: RoleType[] = [
   RoleType.SUPER_ADMIN,
   RoleType.ADMIN,
@@ -103,27 +111,55 @@ export class PoliciesController {
   ) {}
 
   @Post('issue')
-  @Roles(...POLICY_MANAGE_ROLES)
-  @ApiOperation({ summary: 'Issue policy from quotation with validation gates' })
-  async issuePolicyDirect(@Body() dto: CreatePolicyDto, @CurrentUser() user: RequestUser) {
+  @Roles(...POLICY_ISSUE_ROLES)
+  @ApiOperation({
+    summary: 'Issue policy from quotation with validation gates',
+  })
+  async issuePolicyDirect(
+    @Body() dto: CreatePolicyDto,
+    @CurrentUser() user: RequestUser,
+  ) {
     const quotationId = dto.quotationId;
-    if (!quotationId) throw new BadRequestException('quotationId is required to issue a policy.');
+    if (!quotationId)
+      throw new BadRequestException(
+        'quotationId is required to issue a policy.',
+      );
     await this.backOfficeQueueService.validateIssuanceGates(quotationId);
-    return this.issuePolicyService.execute({ ...dto, quotationId, issueSource: dto.issueSource || 'DIRECT_ISSUANCE' }, user.id);
+    return this.issuePolicyService.execute(
+      {
+        ...dto,
+        quotationId,
+        issueSource: dto.issueSource || 'DIRECT_ISSUANCE',
+      },
+      user.id,
+    );
   }
 
   @Post()
-  @Roles(...POLICY_MANAGE_ROLES)
-  @ApiOperation({ summary: 'Create policy from quotation or proposal with validation gates' })
-  async createPolicyRoot(@Body() dto: CreatePolicyDto, @CurrentUser() user: RequestUser) {
+  @Roles(...POLICY_ISSUE_ROLES)
+  @ApiOperation({
+    summary: 'Create policy from quotation or proposal with validation gates',
+  })
+  async createPolicyRoot(
+    @Body() dto: CreatePolicyDto,
+    @CurrentUser() user: RequestUser,
+  ) {
     let quotationId = dto.quotationId;
     if (!quotationId && dto.proposalId) {
-      const proposal = await this.prisma.proposal.findUnique({ where: { id: dto.proposalId } });
+      const proposal = await this.prisma.proposal.findUnique({
+        where: { id: dto.proposalId },
+      });
       if (proposal?.quotationId) quotationId = proposal.quotationId;
     }
-    if (!quotationId) throw new BadRequestException('A valid quotationId or proposalId is required to create a policy.');
+    if (!quotationId)
+      throw new BadRequestException(
+        'A valid quotationId or proposalId is required to create a policy.',
+      );
     await this.backOfficeQueueService.validateIssuanceGates(quotationId);
-    return this.issuePolicyService.execute({ ...dto, quotationId, issueSource: 'POLICY_CONVERSION' }, user.id);
+    return this.issuePolicyService.execute(
+      { ...dto, quotationId, issueSource: 'POLICY_CONVERSION' },
+      user.id,
+    );
   }
 
   @Get('renewals/kpis')
@@ -131,106 +167,262 @@ export class PoliciesController {
   @ApiOperation({ summary: 'Get Renewal Engine KPIs and Conversion Telemetry' })
   async getRenewalKpis(@CurrentUser() user: RequestUser) {
     const roles = user.roles?.length ? user.roles : [user.role];
-    const global = roles.some((r) => GLOBAL_ADMIN_ROLES.includes(r as RoleType));
+    const global = roles.some((r) => GLOBAL_ADMIN_ROLES.includes(r));
     const taskWhere: any = global ? {} : { agentId: user.id };
 
     const now = new Date();
-    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
-    const in7 = new Date(startOfToday); in7.setDate(in7.getDate() + 7);
-    const in15 = new Date(startOfToday); in15.setDate(in15.getDate() + 15);
-    const in30 = new Date(startOfToday); in30.setDate(in30.getDate() + 30);
+    const startOfToday = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate(),
+    );
+    const endOfToday = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate(),
+      23,
+      59,
+      59,
+    );
+    const in7 = new Date(startOfToday);
+    in7.setDate(in7.getDate() + 7);
+    const in15 = new Date(startOfToday);
+    in15.setDate(in15.getDate() + 15);
+    const in30 = new Date(startOfToday);
+    in30.setDate(in30.getDate() + 30);
 
-    const policyRenewalWhere: any = global ? {} : { policy: { createdById: user.id } };
-    const [dueToday, in7Days, in15Days, in30Days, overdue, completedRenewals, totalTasks, completedTasks] = await Promise.all([
-      this.prisma.renewalTask.count({ where: { ...taskWhere, status: 'PENDING', dueDate: { gte: startOfToday, lte: endOfToday } } }),
-      this.prisma.renewalTask.count({ where: { ...taskWhere, status: 'PENDING', dueDate: { gte: startOfToday, lte: in7 } } }),
-      this.prisma.renewalTask.count({ where: { ...taskWhere, status: 'PENDING', dueDate: { gt: in7, lte: in15 } } }),
-      this.prisma.renewalTask.count({ where: { ...taskWhere, status: 'PENDING', dueDate: { gt: in15, lte: in30 } } }),
-      this.prisma.renewalTask.count({ where: { ...taskWhere, status: 'PENDING', dueDate: { lt: startOfToday } } }),
-      this.prisma.policyRenewal.findMany({ where: policyRenewalWhere, select: { premiumAmount: true } }),
+    const policyRenewalWhere: any = global
+      ? {}
+      : { policy: { createdById: user.id } };
+    const [
+      dueToday,
+      in7Days,
+      in15Days,
+      in30Days,
+      overdue,
+      completedRenewals,
+      totalTasks,
+      completedTasks,
+    ] = await Promise.all([
+      this.prisma.renewalTask.count({
+        where: {
+          ...taskWhere,
+          status: 'PENDING',
+          dueDate: { gte: startOfToday, lte: endOfToday },
+        },
+      }),
+      this.prisma.renewalTask.count({
+        where: {
+          ...taskWhere,
+          status: 'PENDING',
+          dueDate: { gte: startOfToday, lte: in7 },
+        },
+      }),
+      this.prisma.renewalTask.count({
+        where: {
+          ...taskWhere,
+          status: 'PENDING',
+          dueDate: { gt: in7, lte: in15 },
+        },
+      }),
+      this.prisma.renewalTask.count({
+        where: {
+          ...taskWhere,
+          status: 'PENDING',
+          dueDate: { gt: in15, lte: in30 },
+        },
+      }),
+      this.prisma.renewalTask.count({
+        where: {
+          ...taskWhere,
+          status: 'PENDING',
+          dueDate: { lt: startOfToday },
+        },
+      }),
+      this.prisma.policyRenewal.findMany({
+        where: policyRenewalWhere,
+        select: { premiumAmount: true },
+      }),
       this.prisma.renewalTask.count({ where: taskWhere }),
-      this.prisma.renewalTask.count({ where: { ...taskWhere, status: 'COMPLETED' } }),
+      this.prisma.renewalTask.count({
+        where: { ...taskWhere, status: 'COMPLETED' },
+      }),
     ]);
 
-    const recoveredSum = completedRenewals.reduce((sum, p) => sum + Number(p.premiumAmount || 0), 0);
-    const conversionRate = totalTasks > 0 ? ((completedTasks / totalTasks) * 100).toFixed(1) : '0';
-    return { dueToday, in7Days, in15Days, in30Days, overdue, completed: completedTasks, conversionPercentage: `${conversionRate}%`, recoveredRevenue: `₹${recoveredSum.toLocaleString('en-IN')}` };
+    const recoveredSum = completedRenewals.reduce(
+      (sum, p) => sum + Number(p.premiumAmount || 0),
+      0,
+    );
+    const conversionRate =
+      totalTasks > 0 ? ((completedTasks / totalTasks) * 100).toFixed(1) : '0';
+    return {
+      dueToday,
+      in7Days,
+      in15Days,
+      in30Days,
+      overdue,
+      completed: completedTasks,
+      conversionPercentage: `${conversionRate}%`,
+      recoveredRevenue: `₹${recoveredSum.toLocaleString('en-IN')}`,
+    };
   }
 
   @Get('renewals/upcoming')
   @Roles(...POLICY_VIEW_ROLES)
-  @ApiOperation({ summary: 'Get upcoming renewals worklist by priority and days range' })
-  async getUpcomingRenewals(@Query('range') range?: string, @CurrentUser() user?: RequestUser) {
+  @ApiOperation({
+    summary: 'Get upcoming renewals worklist by priority and days range',
+  })
+  async getUpcomingRenewals(
+    @Query('range') range?: string,
+    @CurrentUser() user?: RequestUser,
+  ) {
     const roles = user?.roles?.length ? user.roles : [user?.role];
-    const global = roles.some((r) => GLOBAL_ADMIN_ROLES.includes(r as RoleType));
+    const global = roles.some((r) =>
+      GLOBAL_ADMIN_ROLES.includes(r as RoleType),
+    );
     const where = global ? {} : { agentId: user?.id };
-    return this.prisma.renewalTask.findMany({ where, take: 50, orderBy: { dueDate: 'asc' }, include: { policy: { include: { contact: true } } } });
+    return this.prisma.renewalTask.findMany({
+      where,
+      take: 50,
+      orderBy: { dueDate: 'asc' },
+      include: { policy: { include: { contact: true } } },
+    });
   }
 
   @Post('renewals/:id/lost')
   @Roles(...POLICY_MANAGE_ROLES)
   @ApiOperation({ summary: 'Capture lost renewal reason analysis' })
-  async captureLostReason(@Param('id') taskId: string, @Body() dto: { reason: string; competitorName?: string; notes?: string }, @CurrentUser() user: RequestUser) {
-    if (!dto.reason?.trim()) throw new BadRequestException('Lost renewal reason is mandatory');
+  async captureLostReason(
+    @Param('id') taskId: string,
+    @Body() dto: { reason: string; competitorName?: string; notes?: string },
+    @CurrentUser() user: RequestUser,
+  ) {
+    if (!dto.reason?.trim())
+      throw new BadRequestException('Lost renewal reason is mandatory');
     const roles = user.roles?.length ? user.roles : [user.role];
-    const global = roles.some((r) => GLOBAL_ADMIN_ROLES.includes(r as RoleType));
-    const task = await this.prisma.renewalTask.findFirst({ where: global ? { id: taskId } : { id: taskId, agentId: user.id } });
-    if (!task) throw new BadRequestException('Renewal task not found or not accessible');
-    return this.prisma.renewalTask.update({ where: { id: taskId }, data: { status: 'CANCELLED' } });
+    const global = roles.some((r) => GLOBAL_ADMIN_ROLES.includes(r));
+    const task = await this.prisma.renewalTask.findFirst({
+      where: global ? { id: taskId } : { id: taskId, agentId: user.id },
+    });
+    if (!task)
+      throw new BadRequestException('Renewal task not found or not accessible');
+    return this.prisma.renewalTask.update({
+      where: { id: taskId },
+      data: { status: 'CANCELLED' },
+    });
   }
 
   @Get('renewal/pipeline')
   @Roles(...POLICY_VIEW_ROLES)
-  async getRenewalPipeline(@Query() pagination: PaginationDto, @CurrentUser() user: RequestUser) {
+  async getRenewalPipeline(
+    @Query() pagination: PaginationDto,
+    @CurrentUser() user: RequestUser,
+  ) {
     return this.renewalEngineService.getRenewalPipeline(user, pagination);
   }
 
   @Get('renewals/queue')
   @Roles(...POLICY_VIEW_ROLES)
-  @ApiOperation({ summary: 'Get authoritative Renewal Executive Queue with NCB roll-over and urgency breakdown' })
-  async getRenewalQueue(@Query('search') search?: string, @Query('urgency') urgency?: string, @Query('page') page?: string, @Query('limit') limit?: string, @CurrentUser() user?: RequestUser) {
+  @ApiOperation({
+    summary:
+      'Get authoritative Renewal Executive Queue with NCB roll-over and urgency breakdown',
+  })
+  async getRenewalQueue(
+    @Query('search') search?: string,
+    @Query('urgency') urgency?: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+    @CurrentUser() user?: RequestUser,
+  ) {
     if (!user) throw new BadRequestException('Authenticated user is required');
-    return this.renewalEngineService.getRenewalQueue(user, { search, urgency, page: page ? parseInt(page) : undefined, limit: limit ? parseInt(limit) : undefined });
+    return this.renewalEngineService.getRenewalQueue(user, {
+      search,
+      urgency,
+      page: page ? parseInt(page) : undefined,
+      limit: limit ? parseInt(limit) : undefined,
+    });
   }
 
   @Post('renewals/:id/remind')
   @Roles(...POLICY_MANAGE_ROLES)
   @ApiOperation({ summary: 'Dispatch on-demand renewal reminder to customer' })
-  async triggerManualReminder(@Param('id') id: string, @CurrentUser() user: RequestUser) {
+  async triggerManualReminder(
+    @Param('id') id: string,
+    @CurrentUser() user: RequestUser,
+  ) {
     return this.renewalEngineService.triggerManualReminder(id, user);
   }
 
   @Post('renewals/:id/escalate')
   @Roles(...POLICY_MANAGE_ROLES)
-  @ApiOperation({ summary: 'Escalate critical expiring renewal to Branch Management' })
-  async escalateRenewal(@Param('id') id: string, @CurrentUser() user: RequestUser) {
+  @ApiOperation({
+    summary: 'Escalate critical expiring renewal to Branch Management',
+  })
+  async escalateRenewal(
+    @Param('id') id: string,
+    @CurrentUser() user: RequestUser,
+  ) {
     return this.renewalEngineService.escalateRenewal(id, user);
   }
 
   @Post('renewal/trigger-scan')
-  @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN, RoleType.SYSTEM_ADMINISTRATOR, RoleType.MD_CEO)
-  async triggerRenewalScan() { return this.renewalSchedulerCron.runManually(); }
+  @Roles(
+    RoleType.SUPER_ADMIN,
+    RoleType.ADMIN,
+    RoleType.SYSTEM_ADMINISTRATOR,
+    RoleType.MD_CEO,
+  )
+  async triggerRenewalScan() {
+    return this.renewalSchedulerCron.runManually();
+  }
 
   @Get()
   @Roles(...POLICY_VIEW_ROLES)
-  findAll(@Query() pagination: PaginationDto, @CurrentUser() user: RequestUser) { return this.getPolicyService.executeAll(pagination, user); }
+  findAll(
+    @Query() pagination: PaginationDto,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.getPolicyService.executeAll(pagination, user);
+  }
 
   @Get(':id')
   @Roles(...POLICY_VIEW_ROLES)
-  findOne(@Param('id') id: string, @CurrentUser() user: RequestUser) { return this.getPolicyService.executeOne(id, user); }
+  findOne(@Param('id') id: string, @CurrentUser() user: RequestUser) {
+    return this.getPolicyService.executeOne(id, user);
+  }
 
   @Get(':id/history')
   @Roles(...POLICY_VIEW_ROLES)
-  getHistory(@Param('id') id: string) { return this.getPolicyHistoryService.execute(id); }
+  getHistory(@Param('id') id: string, @CurrentUser() user: RequestUser) {
+    return this.getPolicyHistoryService.execute(id, user);
+  }
 
   @Post(':id/renew')
   @HttpCode(HttpStatus.OK)
   @Roles(...POLICY_MANAGE_ROLES)
-  renew(@Param('id') id: string, @Body() dto: RenewPolicyDto, @CurrentUser() user: RequestUser) { return this.renewPolicyService.execute(id, dto, user.id); }
+  renew(
+    @Param('id') id: string,
+    @Body() dto: RenewPolicyDto,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.renewPolicyService.execute(id, dto, user.id);
+  }
 
   @Post(':id/cancel')
   @HttpCode(HttpStatus.OK)
-  @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN, RoleType.SYSTEM_ADMINISTRATOR, RoleType.MD_CEO, RoleType.BRANCH_MANAGER, RoleType.UNDERWRITER)
-  cancel(@Param('id') id: string, @Body('comments') comments: string, @CurrentUser() user: RequestUser) { return this.cancelPolicyService.execute(id, comments, user.id); }
+  @Roles(
+    RoleType.SUPER_ADMIN,
+    RoleType.ADMIN,
+    RoleType.SYSTEM_ADMINISTRATOR,
+    RoleType.MD_CEO,
+    RoleType.BRANCH_MANAGER,
+    RoleType.UNDERWRITER,
+  )
+  cancel(
+    @Param('id') id: string,
+    @Body('comments') comments: string,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.cancelPolicyService.execute(id, comments, user.id);
+  }
 }

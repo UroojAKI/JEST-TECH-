@@ -32,13 +32,17 @@ describe('CommissionEngineService', () => {
               findUnique: jest.fn(),
             },
             user: {
-              findUnique: jest.fn().mockResolvedValue({ id: 'u-1', status: 'ACTIVE' }),
+              findUnique: jest
+                .fn()
+                .mockResolvedValue({ id: 'u-1', status: 'ACTIVE' }),
             },
             commission: {
               createMany: jest.fn(),
               updateMany: jest.fn(),
             },
-            $transaction: jest.fn().mockImplementation(async (cb) => cb(mockTx)),
+            $transaction: jest
+              .fn()
+              .mockImplementation(async (cb) => cb(mockTx)),
           },
         },
       ],

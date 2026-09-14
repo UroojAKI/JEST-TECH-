@@ -228,7 +228,9 @@ export class LeadsService {
     // State machine transition validation (Contract 02 §1)
     if (dto.status && dto.status !== existing.status) {
       if (dto.status === 'LOST' && !(dto as any).lossReason) {
-        throw new BadRequestException('lossReason is required when transitioning to LOST. Please use the /mark-lost endpoint.');
+        throw new BadRequestException(
+          'lossReason is required when transitioning to LOST. Please use the /mark-lost endpoint.',
+        );
       }
 
       if (dto.status === 'CONVERTED') {
@@ -241,7 +243,9 @@ export class LeadsService {
           },
         });
         if (policyCount === 0) {
-          throw new BadRequestException('Lead can only be CONVERTED after a policy is issued');
+          throw new BadRequestException(
+            'Lead can only be CONVERTED after a policy is issued',
+          );
         }
       }
 
@@ -463,7 +467,9 @@ export class LeadsService {
     });
 
     if (policyCount === 0) {
-      throw new BadRequestException('Lead can only be CONVERTED after a policy is issued');
+      throw new BadRequestException(
+        'Lead can only be CONVERTED after a policy is issued',
+      );
     }
 
     const updated = await this.leadRepository.update(id, {
@@ -623,7 +629,8 @@ export class LeadsService {
         where: { id: sourceLeadId },
         data: {
           status: LeadStatus.LOST,
-          description: `${sourceLead.description || ''} [Merged into ${targetLead.leadCode}]`.trim(),
+          description:
+            `${sourceLead.description || ''} [Merged into ${targetLead.leadCode}]`.trim(),
           deletedAt: new Date(),
         },
       });
@@ -657,7 +664,9 @@ export class LeadsService {
 
     const updated = await this.leadRepository.update(id, {
       status: LeadStatus.LOST,
-      description: existing.description ? `${existing.description}\nLoss Reason: ${lossReason}` : `Loss Reason: ${lossReason}`,
+      description: existing.description
+        ? `${existing.description}\nLoss Reason: ${lossReason}`
+        : `Loss Reason: ${lossReason}`,
       updatedBy: { connect: { id: updatedById } },
     });
 

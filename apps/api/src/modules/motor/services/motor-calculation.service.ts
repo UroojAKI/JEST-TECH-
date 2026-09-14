@@ -61,7 +61,9 @@ export class MotorCalculationService {
     const tpTenure = this.resolveTpTenure(input);
 
     // ── 3. NCB Resolution (reset to 0 if claim in expiring policy) ─────────
-    const effectiveNcb = input.claimInExpiringPolicy ? 0 : (input.ncbPercent || 0);
+    const effectiveNcb = input.claimInExpiringPolicy
+      ? 0
+      : input.ncbPercent || 0;
 
     // ── 4. Fetch Configuration-Driven Rates ────────────────────────────────
     const { tpRates, odRates, gstRate, discountConfig, addonRates } =
@@ -77,7 +79,11 @@ export class MotorCalculationService {
     let specialDiscountAmount = 0;
     let netOdAfterDiscount = 0;
     let addonPremiumTotal = 0;
-    const itemizedAddons: Array<{ addonCode: string; name: string; amount: number }> = [];
+    const itemizedAddons: Array<{
+      addonCode: string;
+      name: string;
+      amount: number;
+    }> = [];
 
     if (['STANDALONE_OD', 'PACKAGE_COMPREHENSIVE'].includes(input.policyType)) {
       if (!input.idv)
@@ -99,9 +105,13 @@ export class MotorCalculationService {
 
       // Special/commercial discount applies to (OD after NCB) only.
       const specialDiscountPercent = input.discountPercent || 0;
-      specialDiscountAmount = round2(odAfterNcb * (specialDiscountPercent / 100));
+      specialDiscountAmount = round2(
+        odAfterNcb * (specialDiscountPercent / 100),
+      );
 
-      netOdAfterDiscount = round2(Math.max(0, odAfterNcb - specialDiscountAmount));
+      netOdAfterDiscount = round2(
+        Math.max(0, odAfterNcb - specialDiscountAmount),
+      );
 
       // Add-on premiums (not subject to NCB/special discount)
       for (const addon of input.addons || []) {
@@ -125,7 +135,11 @@ export class MotorCalculationService {
           }
         } else {
           // Standard IRDAI-aligned defaults for well-known add-ons.
-          price = this.resolveStandardAddonRate(addon.addonCode, input.idv, baseOdPremium);
+          price = this.resolveStandardAddonRate(
+            addon.addonCode,
+            input.idv,
+            baseOdPremium,
+          );
         }
 
         // Zero-premium add-on prevention (IRDAI compliance).
@@ -148,10 +162,12 @@ export class MotorCalculationService {
 
     // ── 7. TP Component (PA and Paid Driver are separate sub-components) ───
     let baseTpPremium = 0;
-    let paPremium = 0;       // Compulsory PA for Owner-Driver (₹15L cover)
+    let paPremium = 0; // Compulsory PA for Owner-Driver (₹15L cover)
     let paidDriverPremium = 0; // Legal Liability to Paid Driver
 
-    if (['THIRD_PARTY_ONLY', 'PACKAGE_COMPREHENSIVE'].includes(input.policyType)) {
+    if (
+      ['THIRD_PARTY_ONLY', 'PACKAGE_COMPREHENSIVE'].includes(input.policyType)
+    ) {
       baseTpPremium = round2(tpRates.annualPremium * tpTenure);
       // PA for Owner-Driver is COMPULSORY unless explicitly opted out with a waiver.
       if (input.paCover !== false) paPremium = COMPULSORY_PA_OWNER_DRIVER;
@@ -162,7 +178,7 @@ export class MotorCalculationService {
     // SPEC: Tax is applied to net discounted premium per component, NOT gross.
     const netOdComponent = round2(netOdAfterDiscount + addonPremiumTotal);
     const netTpComponent = baseTpPremium; // TP has no discount
-    const netPaComponent = paPremium;     // PA is fixed IRDAI rate, no discount
+    const netPaComponent = paPremium; // PA is fixed IRDAI rate, no discount
     const netPaidDriverComponent = paidDriverPremium; // Fixed, no discount
 
     const netCustomerPremium = round2(
@@ -185,9 +201,15 @@ export class MotorCalculationService {
 
     // ── 11. Gross (pre-discount) totals for transparency ─────────────────
     const grossBasePremium = round2(
-      baseOdPremium + addonPremiumTotal + baseTpPremium + paPremium + paidDriverPremium,
+      baseOdPremium +
+        addonPremiumTotal +
+        baseTpPremium +
+        paPremium +
+        paidDriverPremium,
     );
-    const totalDiscountAmount = round2(ncbDiscountAmount + specialDiscountAmount);
+    const totalDiscountAmount = round2(
+      ncbDiscountAmount + specialDiscountAmount,
+    );
 
     return {
       inputs: { ...input, effectiveNcb, tpTenure },
@@ -212,10 +234,12 @@ export class MotorCalculationService {
 
         // Third Party (including PA and Paid Driver as sub-components)
         baseTpPremium,
-        paPremium,        // Compulsory Owner-Driver PA
+        paPremium, // Compulsory Owner-Driver PA
         paidDriverPremium, // Legal Liability to Paid Driver
         netTpComponent,
-        netTpPremium: round2(netTpComponent + netPaComponent + netPaidDriverComponent),
+        netTpPremium: round2(
+          netTpComponent + netPaComponent + netPaidDriverComponent,
+        ),
         netPaComponent,
         netPaidDriverComponent,
 
@@ -324,7 +348,8 @@ export class MotorCalculationService {
    * Falls back to hardcoded IRDAI-published values with a warning log if DB has no records.
    */
   private async fetchConfiguration(input: MotorCalculationInputDto) {
-    const vehicleCategoryStr = input.vehicleCategory?.toString() ?? 'PRIVATE_CAR';
+    const vehicleCategoryStr =
+      input.vehicleCategory?.toString() ?? 'PRIVATE_CAR';
     const quotationDate = new Date();
 
     // ── TP Tariff (DB-backed via MotorTariffService) ─────────────────────
@@ -352,23 +377,31 @@ export class MotorCalculationService {
           isVerified: tariffResult.isVerified,
         };
         if (!tariffResult.isVerified) {
-          this.logger.warn(`[EPIC-16] Unverified tariff used for ${vehicleCategoryStr}: ${tariffResult.warning}`);
+          this.logger.warn(
+            `[EPIC-16] Unverified tariff used for ${vehicleCategoryStr}: ${tariffResult.warning}`,
+          );
         }
       } else {
         const fallback = FALLBACK_TP_RATES[vehicleCategoryStr] ?? 3416;
-        this.logger.warn(`[EPIC-16] No DB tariff found for ${vehicleCategoryStr}, using IRDAI fallback: ₹${fallback}`);
+        this.logger.warn(
+          `[EPIC-16] No DB tariff found for ${vehicleCategoryStr}, using IRDAI fallback: ₹${fallback}`,
+        );
         tpRates = { annualPremium: fallback, source: 'IRDAI_FALLBACK' };
       }
     } catch (err) {
       const fallback = FALLBACK_TP_RATES[vehicleCategoryStr] ?? 3416;
-      this.logger.error(`[EPIC-16] Tariff lookup failed, using fallback: ${err}`);
+      this.logger.error(
+        `[EPIC-16] Tariff lookup failed, using fallback: ${err}`,
+      );
       tpRates = { annualPremium: fallback, source: 'IRDAI_FALLBACK' };
     }
 
     // ── OD Rate (from ProductRate or RatingEngine DB, fallback to IRDAI) ──
     let odRates = { rate: FALLBACK_OD_RATES[vehicleCategoryStr] ?? 3.127 };
     try {
-      const productRate = await (this.prisma as any).ratingEngineRule?.findFirst({
+      const productRate = await (
+        this.prisma as any
+      ).ratingEngineRule?.findFirst({
         where: {
           vehicleCategory: input.vehicleCategory,
           isActive: true,
@@ -412,8 +445,10 @@ export class MotorCalculationService {
       const absConfig = await this.prisma.systemConfig.findFirst({
         where: { key: 'MOTOR_DISCOUNT_ABSOLUTE_LIMIT' },
       });
-      if (stdConfig) discountConfig.standardLimit = Number(stdConfig.value) || 15;
-      if (absConfig) discountConfig.absoluteLimit = Number(absConfig.value) || 50;
+      if (stdConfig)
+        discountConfig.standardLimit = Number(stdConfig.value) || 15;
+      if (absConfig)
+        discountConfig.absoluteLimit = Number(absConfig.value) || 50;
     } catch {
       // SystemConfig table may not exist yet — defaults are permissive-safe.
     }
@@ -421,7 +456,9 @@ export class MotorCalculationService {
     // ── Addon Rates (from ProductAddonRate DB) ────────────────────────────
     let addonRates: Record<string, any> = {};
     try {
-      const addonRecords = await (this.prisma as any).productAddonRate?.findMany({
+      const addonRecords = await (
+        this.prisma as any
+      ).productAddonRate?.findMany({
         where: { isActive: true },
       });
       addonRates = Object.fromEntries(

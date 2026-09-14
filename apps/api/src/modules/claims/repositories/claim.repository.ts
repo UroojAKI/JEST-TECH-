@@ -36,9 +36,8 @@ export class ClaimRepository {
         SELECT nextval('claim_number_seq')`;
       return `CLM-${result[0].nextval.toString().padStart(6, '0')}`;
     } catch {
-      await this.prisma.$executeRawUnsafe(
-        `CREATE SEQUENCE IF NOT EXISTS claim_number_seq START 1;`,
-      );
+      await this.prisma
+        .$executeRaw`CREATE SEQUENCE IF NOT EXISTS claim_number_seq START 1;`;
       const retry = await this.prisma.$queryRaw<[{ nextval: bigint }]>`
         SELECT nextval('claim_number_seq')`;
       return `CLM-${retry[0].nextval.toString().padStart(6, '0')}`;

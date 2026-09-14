@@ -358,10 +358,10 @@ export default function UserManagementPage() {
                 </td>
                 <td className="p-3">
                   <div className="font-semibold">
-                    {typeof u.branchName === 'object' ? (u.branchName?.name || u.branchName?.code || '-') : (u.branchName || (typeof u.branch === 'object' ? (u.branch?.name || u.branch?.code) : u.branch) || 'Head Office')}
+                    {typeof u.branchName === 'object' ? (u.branchName?.name || u.branchName?.code || '-') : (u.branchName || (typeof u.branch === 'object' ? (u.branch?.name || u.branch?.code) : u.branch) || 'Unassigned')}
                   </div>
                   <div className="text-[10px] text-muted-foreground">
-                    {typeof u.teamName === 'object' ? (u.teamName?.name || u.teamName?.code || '-') : (u.teamName || (typeof u.team === 'object' ? (u.team?.name || u.team?.code) : u.team) || 'General Team')}
+                    {typeof u.teamName === 'object' ? (u.teamName?.name || u.teamName?.code || '-') : (u.teamName || (typeof u.team === 'object' ? (u.team?.name || u.team?.code) : u.team) || '-')}
                   </div>
                 </td>
                 <td className="p-3"><StatusBadge status={u.status} /></td>

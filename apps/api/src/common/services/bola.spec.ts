@@ -464,7 +464,19 @@ describe('BOLA & Multi-User Authorization Suite (R1 Exit Gate)', () => {
   });
 
   describe('11. ScopeResolver Multi-Tenant Anchoring', () => {
-    it('should return empty filter for Admin (sees all records, Lead has no organizationId column)', () => {
+    it('should return empty filter for Super Admin (system-global)', () => {
+      const superAdmin = createActor({
+        userId: 'usr-super-1',
+        role: RoleType.SUPER_ADMIN,
+        roles: [RoleType.SUPER_ADMIN],
+        organizationId: 'org-mumbai',
+      });
+
+      const filter = scopeResolver.resolveScopeFilter(superAdmin, 'LEAD');
+      expect(filter).toEqual({});
+    });
+
+    it('should return organization-scoped filter for Admin (scoped to company/branch hierarchy)', () => {
       const admin = createActor({
         userId: 'usr-admin-1',
         role: RoleType.ADMIN,
@@ -472,9 +484,33 @@ describe('BOLA & Multi-User Authorization Suite (R1 Exit Gate)', () => {
         organizationId: 'org-mumbai',
       });
 
-      // Lead model has NO organizationId column — admin scoping is unrestricted
       const filter = scopeResolver.resolveScopeFilter(admin, 'LEAD');
-      expect(filter).toEqual({});
+      expect(filter).toEqual({
+        OR: [
+          {
+            createdBy: {
+              branch: { zone: { region: { company: { id: 'org-mumbai' } } } },
+            },
+          },
+          {
+            assignedTo: {
+              branch: { zone: { region: { company: { id: 'org-mumbai' } } } },
+            },
+          },
+        ],
+      });
+    });
+
+    it('should fail-closed for Admin without organization context', () => {
+      const admin = createActor({
+        userId: 'usr-admin-1',
+        role: RoleType.ADMIN,
+        roles: [RoleType.ADMIN],
+        organizationId: undefined,
+      });
+
+      const filter = scopeResolver.resolveScopeFilter(admin, 'LEAD');
+      expect(filter).toEqual({ id: '__UNAUTHORIZED_ACCESS_BLOCKED__' });
     });
 
     it('should generate ownership-only filter for Sales Agent in Lead filter (Lead has no organizationId column)', () => {

@@ -22,11 +22,9 @@ describe('RolesGuard', () => {
     reflector.getAllAndOverride.mockReturnValue(['CLAIMS_OFFICER']);
     const guard = new RolesGuard(reflector);
 
-    expect(
-      guard.canActivate(
-        contextFor({ role: 'CLAIMS_OFFICER' }),
-      ),
-    ).toBe(true);
+    expect(guard.canActivate(contextFor({ role: 'CLAIMS_OFFICER' }))).toBe(
+      true,
+    );
   });
 
   it('denies a different employee role', () => {

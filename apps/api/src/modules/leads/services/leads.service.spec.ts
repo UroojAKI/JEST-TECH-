@@ -61,6 +61,9 @@ describe('LeadsService', () => {
     lead: {
       findUnique: jest.fn(),
     },
+    policy: {
+      count: jest.fn().mockResolvedValue(1),
+    },
   };
 
   beforeEach(async () => {
@@ -151,7 +154,12 @@ describe('LeadsService', () => {
         organizationId: 'org-1',
         companyId: 'org-1',
       } as any;
-      const mockLead = { id: 'lead-1', assignedToId: 'agent-1', organizationId: 'org-1', companyId: 'org-1' };
+      const mockLead = {
+        id: 'lead-1',
+        assignedToId: 'agent-1',
+        organizationId: 'org-1',
+        companyId: 'org-1',
+      };
       mockLeadRepository.findById.mockResolvedValue(mockLead as any);
 
       const result = await service.findById('lead-1', agentUser);

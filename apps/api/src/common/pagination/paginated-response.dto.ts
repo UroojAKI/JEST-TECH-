@@ -23,4 +23,3 @@ export class PaginatedResponseDto<T> {
     };
   }
 }
-

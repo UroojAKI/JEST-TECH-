@@ -1,6 +1,17 @@
-import { BadRequestException, ConflictException, ForbiddenException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
-import { PolicyStatus, QuotationStatus, RoleType, NotificationPriority, RenewalTaskStatus } from '@prisma/client';
+import {
+  PolicyStatus,
+  QuotationStatus,
+  RoleType,
+  NotificationPriority,
+  RenewalTaskStatus,
+} from '@prisma/client';
 import { IssuePolicyService } from '../../modules/policies/services/commands/issue-policy.service';
 import { PolicyRepository } from '../../modules/policies/repositories/policy.repository';
 import { QuotationRepository } from '../../modules/quotation/repositories/quotation.repository';
@@ -76,7 +87,9 @@ describe('Authoritative Production Gates & Negative Safety Invariants (INV-01 to
         findUnique: jest.fn().mockResolvedValue(null),
         findFirst: jest.fn().mockResolvedValue(null),
         findMany: jest.fn().mockResolvedValue([]),
-        create: jest.fn().mockImplementation((args) => ({ id: 'rt-1', ...args.data })),
+        create: jest
+          .fn()
+          .mockImplementation((args) => ({ id: 'rt-1', ...args.data })),
       },
       renewalJob: {
         createMany: jest.fn().mockResolvedValue({ count: 6 }),
@@ -116,7 +129,7 @@ describe('Authoritative Production Gates & Negative Safety Invariants (INV-01 to
         policyEndDate: new Date('2027-09-30T23:59:59.999Z'),
         expiryDate: new Date('2026-12-31T23:59:59.999Z'),
         totalPremium: 17638.88,
-        basePremium: 14948.20,
+        basePremium: 14948.2,
         gstAmount: 2690.68,
         sumInsured: 500000,
         insurerName: 'HDFC ERGO General Insurance Co.',
@@ -218,9 +231,13 @@ describe('Authoritative Production Gates & Negative Safety Invariants (INV-01 to
     }).compile();
 
     issuePolicyService = module.get<IssuePolicyService>(IssuePolicyService);
-    quotationCompletionService = module.get<QuotationCompletionService>(QuotationCompletionService);
+    quotationCompletionService = module.get<QuotationCompletionService>(
+      QuotationCompletionService,
+    );
     renewalScheduler = module.get<RenewalScheduler>(RenewalScheduler);
-    motorCalculationService = module.get<MotorCalculationService>(MotorCalculationService);
+    motorCalculationService = module.get<MotorCalculationService>(
+      MotorCalculationService,
+    );
   });
 
   // ══════════════════════════════════════════════════════════════════════════════
@@ -233,7 +250,12 @@ describe('Authoritative Production Gates & Negative Safety Invariants (INV-01 to
       effectiveDate: '2026-10-01T00:00:00.000Z',
       expiryDate: '2027-09-30T23:59:59.999Z',
       nominees: [
-        { firstName: 'Sunita', lastName: 'Patel', relation: 'SPOUSE', percentage: 100 },
+        {
+          firstName: 'Sunita',
+          lastName: 'Patel',
+          relation: 'SPOUSE',
+          percentage: 100,
+        },
       ],
     };
 
@@ -292,7 +314,12 @@ describe('Authoritative Production Gates & Negative Safety Invariants (INV-01 to
       const invalidNomineesDto = {
         ...validDto,
         nominees: [
-          { firstName: 'Sunita', lastName: 'Patel', relation: 'SPOUSE', percentage: 70 },
+          {
+            firstName: 'Sunita',
+            lastName: 'Patel',
+            relation: 'SPOUSE',
+            percentage: 70,
+          },
         ],
       };
 
@@ -393,9 +420,13 @@ describe('Authoritative Production Gates & Negative Safety Invariants (INV-01 to
         totalPremium: 99.99, // Malicious client attempt to forge premium
       };
 
-      const result = await motorCalculationService.calculate(clientTamperedPayload);
+      const result = await motorCalculationService.calculate(
+        clientTamperedPayload,
+      );
       expect(result.outputs.totalPremium).toBe(17638.88);
-      expect(result.outputs.totalPremium).not.toBe(clientTamperedPayload.totalPremium);
+      expect(result.outputs.totalPremium).not.toBe(
+        clientTamperedPayload.totalPremium,
+      );
     });
 
     it('INV-12: rejects Standalone OD (SAOD) calculation when active TP details are absent', async () => {
@@ -457,12 +488,15 @@ describe('Authoritative Production Gates & Negative Safety Invariants (INV-01 to
         totalPremium: 10000,
       });
 
-      const completion = await quotationCompletionService.getCompletion('q-incomplete-1');
+      const completion =
+        await quotationCompletionService.getCompletion('q-incomplete-1');
       expect(completion.status).toBe('INCOMPLETE');
       expect(completion.completionPercentage).toBeLessThan(100);
       expect(completion.canIssuePolicy).toBe(false);
 
-      const customerSection = completion.sections.find((s) => s.section === 'customer');
+      const customerSection = completion.sections.find(
+        (s) => s.section === 'customer',
+      );
       expect(customerSection?.complete).toBe(false);
       expect(customerSection?.missing.length).toBeGreaterThan(0);
     });
@@ -495,19 +529,27 @@ describe('Authoritative Production Gates & Negative Safety Invariants (INV-01 to
         saodVerification: null,
       });
 
-      const completion = await quotationCompletionService.getCompletion('q-99pct-1');
+      const completion =
+        await quotationCompletionService.getCompletion('q-99pct-1');
       expect(completion.canIssuePolicy).toBe(false);
-      const paymentSection = completion.sections.find((s) => s.section === 'payment');
+      const paymentSection = completion.sections.find(
+        (s) => s.section === 'payment',
+      );
       expect(paymentSection?.complete).toBe(false);
     });
 
     it('INV-17: blocks policy issuance when back-office inspection gate fails', async () => {
       mockBackOfficeQueue.validateIssuanceGates.mockRejectedValueOnce(
-        new BadRequestException('Vehicle inspection is required and must be APPROVED prior to policy issuance.'),
+        new BadRequestException(
+          'Vehicle inspection is required and must be APPROVED prior to policy issuance.',
+        ),
       );
 
       await expect(
-        issuePolicyService.execute({ quotationId: 'quote-insp-fail' } as any, 'usr-1'),
+        issuePolicyService.execute(
+          { quotationId: 'quote-insp-fail' } as any,
+          'usr-1',
+        ),
       ).rejects.toThrow(BadRequestException);
     });
   });

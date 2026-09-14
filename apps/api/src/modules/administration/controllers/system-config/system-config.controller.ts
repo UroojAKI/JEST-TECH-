@@ -74,12 +74,54 @@ export class SystemConfigController {
       }));
     }
     return [
-      { id: '1', entityType: 'LEAD', prefix: 'LEAD-', suffix: '', paddingLength: 6, isAutoIncrement: true },
-      { id: '2', entityType: 'QUOTATION', prefix: 'QT-', suffix: '', paddingLength: 6, isAutoIncrement: true },
-      { id: '3', entityType: 'POLICY', prefix: 'POL-', suffix: '', paddingLength: 6, isAutoIncrement: true },
-      { id: '4', entityType: 'CLAIM', prefix: 'CLM-', suffix: '', paddingLength: 6, isAutoIncrement: true },
-      { id: '5', entityType: 'CONTACT', prefix: 'CONT-', suffix: '', paddingLength: 6, isAutoIncrement: true },
-      { id: '6', entityType: 'INSPECTION', prefix: 'INS-', suffix: '', paddingLength: 6, isAutoIncrement: true },
+      {
+        id: '1',
+        entityType: 'LEAD',
+        prefix: 'LEAD-',
+        suffix: '',
+        paddingLength: 6,
+        isAutoIncrement: true,
+      },
+      {
+        id: '2',
+        entityType: 'QUOTATION',
+        prefix: 'QT-',
+        suffix: '',
+        paddingLength: 6,
+        isAutoIncrement: true,
+      },
+      {
+        id: '3',
+        entityType: 'POLICY',
+        prefix: 'POL-',
+        suffix: '',
+        paddingLength: 6,
+        isAutoIncrement: true,
+      },
+      {
+        id: '4',
+        entityType: 'CLAIM',
+        prefix: 'CLM-',
+        suffix: '',
+        paddingLength: 6,
+        isAutoIncrement: true,
+      },
+      {
+        id: '5',
+        entityType: 'CONTACT',
+        prefix: 'CONT-',
+        suffix: '',
+        paddingLength: 6,
+        isAutoIncrement: true,
+      },
+      {
+        id: '6',
+        entityType: 'INSPECTION',
+        prefix: 'INS-',
+        suffix: '',
+        paddingLength: 6,
+        isAutoIncrement: true,
+      },
     ];
   }
 
@@ -89,14 +131,16 @@ export class SystemConfigController {
   @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN)
   @ApiOperation({ summary: 'Get admin system metrics' })
   async getAdminMetrics() {
-    const [activeUsers, totalPoliciesCount, documentsCount] = await Promise.all([
-      this.prisma.user.count({ where: { status: 'ACTIVE' } }),
-      this.prisma.policy.count(),
-      this.prisma.document.count({ where: { deletedAt: null } }),
-    ]);
+    const [activeUsers, totalPoliciesCount, documentsCount] = await Promise.all(
+      [
+        this.prisma.user.count({ where: { status: 'ACTIVE' } }),
+        this.prisma.policy.count(),
+        this.prisma.document.count({ where: { deletedAt: null } }),
+      ],
+    );
     return {
       activeUsers,
-      storageUsedGb: Math.round((documentsCount * 0.005) * 10) / 10,
+      storageUsedGb: Math.round(documentsCount * 0.005 * 10) / 10,
       totalPoliciesCount,
       activeJobsCount: 0,
     };

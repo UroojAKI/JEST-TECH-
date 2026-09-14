@@ -5,8 +5,10 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { PrismaService } from '../../../../database/prisma.service';
-import { ClaimStatus, Prisma } from '@prisma/client';
+import { ClaimStatus, Prisma, RoleType } from '@prisma/client';
 import { ClaimStateMachine } from '../../domain/claim-state-machine';
+import { RequestUser } from '../../../auth/decorators/current-user.decorator';
+import { ActorContext } from '../../../../common/interfaces/actor-context.interface';
 
 export interface ApproveClaimDto {
   approvedAmount: number;
@@ -17,14 +19,106 @@ export interface ApproveClaimDto {
 export class ApproveClaimService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async execute(claimId: string, dto: ApproveClaimDto, actorId: string) {
+  async execute(
+    claimId: string,
+    dto: ApproveClaimDto,
+    actor: RequestUser | ActorContext | string,
+  ) {
+    const actorId =
+      typeof actor === 'string'
+        ? actor
+        : (actor as any).id || (actor as any).userId;
+    const actorContext: (ActorContext | RequestUser) | null =
+      typeof actor === 'string' ? null : actor;
+
     const claim = await this.prisma.claim.findUnique({
       where: { id: claimId },
-      include: { policy: { include: { quotation: true } } },
+      include: {
+        policy: {
+          include: {
+            quotation: {
+              include: {
+                createdBy: {
+                  include: {
+                    branch: {
+                      include: {
+                        zone: {
+                          include: {
+                            region: {
+                              include: { company: true },
+                            },
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+            contact: true,
+            createdBy: {
+              include: {
+                branch: {
+                  include: {
+                    zone: {
+                      include: {
+                        region: {
+                          include: { company: true },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
     });
 
     if (!claim) {
       throw new NotFoundException(`Claim with ID ${claimId} not found`);
+    }
+
+    // Role verification and organizational boundary enforcement
+    if (actorContext) {
+      const isSuperAdmin =
+        actorContext.role === RoleType.SUPER_ADMIN ||
+        (actorContext as any).roles?.includes(RoleType.SUPER_ADMIN);
+
+      if (!isSuperAdmin) {
+        const allowedRoles: RoleType[] = [
+          RoleType.ADMIN,
+          RoleType.BRANCH_MANAGER,
+          RoleType.CLAIMS_OFFICER,
+        ];
+        const hasApprovalRole =
+          allowedRoles.includes(actorContext.role) ||
+          (actorContext as any).roles?.some((r: RoleType) =>
+            allowedRoles.includes(r),
+          );
+
+        if (!hasApprovalRole) {
+          throw new ForbiddenException(
+            'Actor does not possess claim approval authority. Required roles: SUPER_ADMIN, ADMIN, BRANCH_MANAGER, or CLAIMS_OFFICER.',
+          );
+        }
+
+        const policyOrgId =
+          claim.policy?.contact?.companyId ||
+          claim.policy?.createdBy?.branch?.zone?.region?.company?.id ||
+          claim.policy?.quotation?.createdBy?.branch?.zone?.region?.company?.id;
+
+        if (
+          policyOrgId &&
+          actorContext.organizationId &&
+          policyOrgId !== actorContext.organizationId
+        ) {
+          throw new ForbiddenException(
+            'Access denied: Cannot approve claim belonging to a different organization',
+          );
+        }
+      }
     }
 
     // Segregation of duties: The person who reported the claim cannot approve it

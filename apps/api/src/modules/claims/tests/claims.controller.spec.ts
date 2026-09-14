@@ -156,7 +156,7 @@ describe('ClaimsController', () => {
 
       const result = await controller.report(dto, mockUser);
       expect(result).toEqual(mockClaimResponse);
-      expect(reportClaimService.execute).toHaveBeenCalledWith(dto, mockUser.id);
+      expect(reportClaimService.execute).toHaveBeenCalledWith(dto, mockUser);
     });
 
     it('should find all claims', async () => {
@@ -207,7 +207,7 @@ describe('ClaimsController', () => {
       expect(approveClaimService.execute).toHaveBeenCalledWith(
         'claim-123',
         dto,
-        mockUser.id,
+        mockUser,
       );
     });
 
@@ -246,7 +246,7 @@ describe('ClaimsController', () => {
         .mockResolvedValueOnce({
           ...mockClaimResponse,
           status: ClaimStatus.CLOSED,
-        } as any);
+        });
 
       const result = await controller.withdraw(
         'claim-123',

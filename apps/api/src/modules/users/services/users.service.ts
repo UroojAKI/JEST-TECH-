@@ -48,8 +48,7 @@ export class UsersService {
     }
 
     const initialPassword =
-      dto.password ||
-      `${crypto.randomBytes(16).toString('hex')}A1`;
+      dto.password || `${crypto.randomBytes(16).toString('hex')}A1`;
     const passwordHash = await argon2.hash(initialPassword);
     const empCode =
       dto.employeeCode || `EMP-${Date.now().toString().slice(-6)}`;
@@ -100,8 +99,7 @@ export class UsersService {
   async adminResetPassword(userId: string, newPassword?: string) {
     await this.findById(userId);
     const password =
-      newPassword ||
-      `${crypto.randomBytes(16).toString('hex')}A1`;
+      newPassword || `${crypto.randomBytes(16).toString('hex')}A1`;
     const passwordHash = await argon2.hash(password);
     await this.userRepository.update(userId, { passwordHash });
     return {

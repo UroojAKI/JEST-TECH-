@@ -20,7 +20,9 @@ describe('PaymentService', () => {
               update: jest.fn(),
             },
             policy: {
-              findUnique: jest.fn().mockResolvedValue({ id: 'pol-1', contactId: 'con-1' }),
+              findUnique: jest
+                .fn()
+                .mockResolvedValue({ id: 'pol-1', contactId: 'con-1' }),
             },
             receipt: {
               create: jest.fn(),
@@ -31,7 +33,9 @@ describe('PaymentService', () => {
             auditLog: {
               create: jest.fn(),
             },
-            $queryRaw: jest.fn().mockResolvedValue([{ id: 'inv-1', nextval: 1n }]),
+            $queryRaw: jest
+              .fn()
+              .mockResolvedValue([{ id: 'inv-1', nextval: 1n }]),
             $transaction: jest.fn().mockImplementation((cb) => cb(prisma)),
           },
         },

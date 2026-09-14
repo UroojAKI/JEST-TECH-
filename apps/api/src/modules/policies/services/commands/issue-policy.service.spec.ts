@@ -80,6 +80,13 @@ describe('IssuePolicyService', () => {
           policy: { findUnique: jest.fn().mockResolvedValue(null) },
           outboxEvent: { create: jest.fn() },
           insurerPolicyDetail: { create: jest.fn() },
+          renewalTask: { create: jest.fn().mockResolvedValue({}) },
+          renewalJob: {
+            create: jest.fn().mockResolvedValue({}),
+            createMany: jest.fn().mockResolvedValue({ count: 6 }),
+          },
+          lead: { update: jest.fn().mockResolvedValue({}) },
+          quotation: { update: jest.fn().mockResolvedValue({}) },
         };
         return cb(tx);
       }),
@@ -105,9 +112,12 @@ describe('IssuePolicyService', () => {
         { provide: PrismaService, useValue: mockPrisma },
         { provide: OutboxService, useValue: outboxService },
         {
-          provide: require('../queries/back-office-queue.service').BackOfficeQueueService,
+          provide: require('../queries/back-office-queue.service')
+            .BackOfficeQueueService,
           useValue: {
-            validateIssuanceGates: jest.fn().mockResolvedValue({ allowed: true }),
+            validateIssuanceGates: jest
+              .fn()
+              .mockResolvedValue({ allowed: true }),
           },
         },
         {
@@ -180,7 +190,12 @@ describe('IssuePolicyService', () => {
         insurerPolicyNumber: 'INS-POL-999',
         insurerQuoteId: 'INS-Q-888',
         nominees: [
-          { firstName: 'Ayesha', lastName: 'Khan', relation: 'SPOUSE', percentage: 100 },
+          {
+            firstName: 'Ayesha',
+            lastName: 'Khan',
+            relation: 'SPOUSE',
+            percentage: 100,
+          },
         ],
       },
       'user-1',

@@ -413,11 +413,15 @@ export function LeadCommandCenter({ lead, onRefresh }: LeadCommandCenterProps) {
             </div>
             <div className="p-3 rounded-xl bg-muted/20">
               <span className="text-[10px] text-muted-foreground block">City / State</span>
-              <span className="font-bold text-foreground">Mumbai, Maharashtra</span>
+              <span className="font-bold text-foreground">
+                {[contact.city, contact.state].filter(Boolean).join(', ') || 'Unspecified'}
+              </span>
             </div>
             <div className="p-3 rounded-xl bg-muted/20">
               <span className="text-[10px] text-muted-foreground block">Assigned Branch</span>
-              <span className="font-bold text-foreground">Head Office (BKC, Mumbai)</span>
+              <span className="font-bold text-foreground">
+                {lead.branch?.name || contact.branch?.name || 'Main Branch'}
+              </span>
             </div>
             <div className="p-3 rounded-xl bg-muted/20">
               <span className="text-[10px] text-muted-foreground block">Relationship Health</span>

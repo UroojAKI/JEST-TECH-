@@ -5,7 +5,12 @@ import { ContactsService } from '../src/modules/contacts/services/contacts.servi
 import { IssuePolicyService } from '../src/modules/policies/services/commands/issue-policy.service';
 import { QuotationCompletionService } from '../src/modules/quotation/services/queries/quotation-completion.service';
 import { MotorCalculationService } from '../src/modules/motor/services/motor-calculation.service';
-import { ContactType, PaymentTrackingStatus, PolicyStatus, QuotationStatus } from '@prisma/client';
+import {
+  ContactType,
+  PaymentTrackingStatus,
+  PolicyStatus,
+  QuotationStatus,
+} from '@prisma/client';
 
 describe('End-to-End Agent Journey: Lead -> Contact -> Quote -> Payment -> Policy -> Renewal (§58)', () => {
   let moduleRef: TestingModule;
@@ -31,8 +36,12 @@ describe('End-to-End Agent Journey: Lead -> Contact -> Quote -> Payment -> Polic
     prisma = moduleRef.get<PrismaService>(PrismaService);
     contactsService = moduleRef.get<ContactsService>(ContactsService);
     issuePolicyService = moduleRef.get<IssuePolicyService>(IssuePolicyService);
-    quotationCompletionService = moduleRef.get<QuotationCompletionService>(QuotationCompletionService);
-    motorCalculationService = moduleRef.get<MotorCalculationService>(MotorCalculationService);
+    quotationCompletionService = moduleRef.get<QuotationCompletionService>(
+      QuotationCompletionService,
+    );
+    motorCalculationService = moduleRef.get<MotorCalculationService>(
+      MotorCalculationService,
+    );
 
     app = moduleRef.createNestApplication();
     await app.init();
@@ -52,23 +61,39 @@ describe('End-to-End Agent Journey: Lead -> Contact -> Quote -> Payment -> Polic
   afterAll(async () => {
     // Cleanup in reverse dependency order
     if (createdPolicyId) {
-      await prisma.renewalJob.deleteMany({ where: { policyId: createdPolicyId } });
-      await prisma.renewalTask.deleteMany({ where: { policyId: createdPolicyId } });
-      await prisma.policyHistory.deleteMany({ where: { policyId: createdPolicyId } });
-      await prisma.policyDocument.deleteMany({ where: { policyId: createdPolicyId } });
-      await prisma.policyPayment.deleteMany({ where: { policyId: createdPolicyId } });
+      await prisma.renewalJob.deleteMany({
+        where: { policyId: createdPolicyId },
+      });
+      await prisma.renewalTask.deleteMany({
+        where: { policyId: createdPolicyId },
+      });
+      await prisma.policyHistory.deleteMany({
+        where: { policyId: createdPolicyId },
+      });
+      await prisma.policyDocument.deleteMany({
+        where: { policyId: createdPolicyId },
+      });
+      await prisma.policyPayment.deleteMany({
+        where: { policyId: createdPolicyId },
+      });
       await prisma.policy.deleteMany({ where: { id: createdPolicyId } });
     }
     if (createdQuotationId) {
-      await prisma.motorPaymentRecord.deleteMany({ where: { quotationId: createdQuotationId } });
-      await prisma.quotationHistory.deleteMany({ where: { quotationId: createdQuotationId } });
+      await prisma.motorPaymentRecord.deleteMany({
+        where: { quotationId: createdQuotationId },
+      });
+      await prisma.quotationHistory.deleteMany({
+        where: { quotationId: createdQuotationId },
+      });
       await prisma.quotation.deleteMany({ where: { id: createdQuotationId } });
     }
     if (createdVehicleId) {
       await prisma.vehicle.deleteMany({ where: { id: createdVehicleId } });
     }
     if (createdLeadId) {
-      await prisma.leadStageHistory.deleteMany({ where: { leadId: createdLeadId } });
+      await prisma.leadStageHistory.deleteMany({
+        where: { leadId: createdLeadId },
+      });
       await prisma.lead.deleteMany({ where: { id: createdLeadId } });
     }
     if (createdContactId) {
@@ -173,7 +198,8 @@ describe('End-to-End Agent Journey: Lead -> Contact -> Quote -> Payment -> Polic
     expect(quotation.id).toBeDefined();
 
     // ── STEP 5: Progressive Quotation Completion Evaluation (AUD-033, §24) ──
-    const completionBeforePayment = await quotationCompletionService.getCompletion(quotation.id);
+    const completionBeforePayment =
+      await quotationCompletionService.getCompletion(quotation.id);
     expect(completionBeforePayment.quotationId).toBe(quotation.id);
     // Payment is not yet recorded, so canIssuePolicy must be strictly false
     expect(completionBeforePayment.canIssuePolicy).toBe(false);
@@ -199,7 +225,12 @@ describe('End-to-End Agent Journey: Lead -> Contact -> Quote -> Payment -> Polic
         effectiveDate: new Date().toISOString(),
         expiryDate: nextYear.toISOString(),
         nominees: [
-          { firstName: 'Pooja', lastName: 'Singhania', relation: 'SPOUSE', percentage: 100 },
+          {
+            firstName: 'Pooja',
+            lastName: 'Singhania',
+            relation: 'SPOUSE',
+            percentage: 100,
+          },
         ],
       },
       testUserId,
@@ -212,12 +243,16 @@ describe('End-to-End Agent Journey: Lead -> Contact -> Quote -> Payment -> Polic
 
     // ── STEP 8: Verify Commercial & Workflow Truth Invariants (§19, §30, §36) ──
     // Invariant A: Linked Lead is automatically CONVERTED and workflow step ISSUED
-    const updatedLead = await prisma.lead.findUnique({ where: { id: lead.id } });
+    const updatedLead = await prisma.lead.findUnique({
+      where: { id: lead.id },
+    });
     expect(updatedLead?.status).toBe('CONVERTED');
     expect(updatedLead?.currentWorkflowStep).toBe('ISSUED');
 
     // Invariant B: Quotation status transitioned to CONVERTED_TO_POLICY
-    const updatedQuotation = await prisma.quotation.findUnique({ where: { id: quotation.id } });
+    const updatedQuotation = await prisma.quotation.findUnique({
+      where: { id: quotation.id },
+    });
     expect(updatedQuotation?.status).toBe(QuotationStatus.CONVERTED_TO_POLICY);
 
     // Invariant C: Renewal Task is durably created with offsetDays = 30 and priority HIGH
@@ -234,7 +269,9 @@ describe('End-to-End Agent Journey: Lead -> Contact -> Quote -> Payment -> Polic
       orderBy: { offsetDays: 'desc' },
     });
     expect(renewalJobs.length).toBe(6);
-    expect(renewalJobs.map((j) => j.offsetDays)).toEqual([45, 30, 15, 7, 0, -1]);
+    expect(renewalJobs.map((j) => j.offsetDays)).toEqual([
+      45, 30, 15, 7, 0, -1,
+    ]);
     expect(renewalJobs.every((j) => j.status === 'PENDING')).toBe(true);
 
     // Invariant D: Transactional Outbox event POLICY_ISSUED recorded

@@ -29,6 +29,9 @@ describe('Customer360Service (Iteration 9 Real Aggregation)', () => {
       lead: {
         findMany: jest.fn(),
       },
+      document: {
+        findMany: jest.fn().mockResolvedValue([]),
+      },
     };
 
     const module: TestingModule = await Test.createTestingModule({

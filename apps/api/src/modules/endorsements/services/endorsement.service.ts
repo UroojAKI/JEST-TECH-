@@ -320,7 +320,9 @@ export class EndorsementService {
     }
 
     if (!reason || !reason.trim()) {
-      throw new BadRequestException('A reason is mandatory when requesting an endorsement.');
+      throw new BadRequestException(
+        'A reason is mandatory when requesting an endorsement.',
+      );
     }
 
     const endorsementNumber = await this.generateEndNumber();

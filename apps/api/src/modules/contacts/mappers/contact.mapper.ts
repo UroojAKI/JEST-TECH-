@@ -23,24 +23,33 @@ export class ContactMapper {
       alternatePhone: contact.alternatePhone,
       whatsappNumber: contact.whatsappNumber,
       occupation: contact.occupation,
-      panNumber: shouldUnmask ? contact.panNumber : EncryptionUtil.maskPan(contact.panNumber),
-      aadhaarNumber: shouldUnmask ? contact.aadhaarNumber : EncryptionUtil.maskAadhaar(contact.aadhaarNumber),
+      panNumber: shouldUnmask
+        ? contact.panNumber
+        : EncryptionUtil.maskPan(contact.panNumber),
+      aadhaarNumber: shouldUnmask
+        ? contact.aadhaarNumber
+        : EncryptionUtil.maskAadhaar(contact.aadhaarNumber),
       gstNumber: contact.gstNumber,
       createdById: contact.createdById,
       updatedById: contact.updatedById,
       accountId: contact.accountId,
-      branchId: (contact as any).branchId ?? contact.branch?.id ?? contact.createdBy?.branch?.id ?? null,
-      companyId: (contact as any).companyId ?? contact.company?.id ?? null,
+      branchId:
+        contact.branchId ??
+        contact.branch?.id ??
+        contact.createdBy?.branch?.id ??
+        null,
+      companyId: contact.companyId ?? contact.company?.id ?? null,
       branch: contact.branch ?? contact.createdBy?.branch ?? null,
       agentCode: contact.agentCode || contact.createdBy?.employeeCode || null,
       agent: contact.agentCode
-        ? (contact.createdBy
-            ? `${contact.createdBy.firstName || ''} ${contact.createdBy.lastName || ''}`.trim() + ` (${contact.agentCode})`
-            : contact.agentCode)
-        : (contact.createdBy
-            ? `${contact.createdBy.firstName || ''} ${contact.createdBy.lastName || ''}`.trim()
-            : null),
-      status: contact.deletedAt ? 'INACTIVE' : 'ACTIVE',
+        ? contact.createdBy
+          ? `${contact.createdBy.firstName || ''} ${contact.createdBy.lastName || ''}`.trim() +
+            ` (${contact.agentCode})`
+          : contact.agentCode
+        : contact.createdBy
+          ? `${contact.createdBy.firstName || ''} ${contact.createdBy.lastName || ''}`.trim()
+          : null,
+      status: contact.deletedAt ? 'INACTIVE' : contact.status || 'ACTIVE',
       createdAt: contact.createdAt,
       updatedAt: contact.updatedAt,
     };

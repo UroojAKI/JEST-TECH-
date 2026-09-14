@@ -1,10 +1,4 @@
-import {
-  Body,
-  Controller,
-  Post,
-  Res,
-  Req,
-} from '@nestjs/common';
+import { Body, Controller, Post, Res, Req } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import type { Response, Request } from 'express';
 
@@ -66,7 +60,11 @@ export class AuthController {
     return { success: true };
   }
 
-  private setAuthCookies(res: Response, accessToken: string, refreshToken: string) {
+  private setAuthCookies(
+    res: Response,
+    accessToken: string,
+    refreshToken: string,
+  ) {
     const isProduction = process.env.NODE_ENV === 'production';
     res.cookie('access_token', accessToken, {
       httpOnly: true,

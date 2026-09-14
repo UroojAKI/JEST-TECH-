@@ -21,7 +21,9 @@ export class CancelPolicyService {
 
   async execute(id: string, comments: string, cancelledById: string) {
     if (!comments || !comments.trim()) {
-      throw new BadRequestException('A cancellation reason is strictly mandatory to cancel a policy.');
+      throw new BadRequestException(
+        'A cancellation reason is strictly mandatory to cancel a policy.',
+      );
     }
 
     return this.prisma.$transaction(async (tx) => {

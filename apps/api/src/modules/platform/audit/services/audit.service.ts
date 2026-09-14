@@ -17,7 +17,7 @@ export interface AuditLogOptions {
   metadata?: Record<string, any>;
 }
 
-export interface CreateAuditLogDto extends AuditLogOptions {}
+export type CreateAuditLogDto = AuditLogOptions;
 
 @Injectable()
 export class AuditService {
@@ -38,10 +38,14 @@ export class AuditService {
         entityId: options.entityId,
         action: options.action,
         oldValue: options.oldValue
-          ? this.sanitizeAuditPayload(JSON.parse(JSON.stringify(options.oldValue)))
+          ? this.sanitizeAuditPayload(
+              JSON.parse(JSON.stringify(options.oldValue)),
+            )
           : null,
         newValue: options.newValue
-          ? this.sanitizeAuditPayload(JSON.parse(JSON.stringify(options.newValue)))
+          ? this.sanitizeAuditPayload(
+              JSON.parse(JSON.stringify(options.newValue)),
+            )
           : null,
         ...(options.metadata
           ? { metadata: this.sanitizeAuditPayload(options.metadata) }
@@ -65,10 +69,14 @@ export class AuditService {
         entityId: options.entityId,
         action: options.action,
         oldValue: options.oldValue
-          ? this.sanitizeAuditPayload(JSON.parse(JSON.stringify(options.oldValue)))
+          ? this.sanitizeAuditPayload(
+              JSON.parse(JSON.stringify(options.oldValue)),
+            )
           : null,
         newValue: options.newValue
-          ? this.sanitizeAuditPayload(JSON.parse(JSON.stringify(options.newValue)))
+          ? this.sanitizeAuditPayload(
+              JSON.parse(JSON.stringify(options.newValue)),
+            )
           : null,
         ...(options.metadata
           ? { metadata: this.sanitizeAuditPayload(options.metadata) }
@@ -100,10 +108,14 @@ export class AuditService {
         entityId: options.entityId,
         action: options.action,
         oldValue: options.oldValue
-          ? this.sanitizeAuditPayload(JSON.parse(JSON.stringify(options.oldValue)))
+          ? this.sanitizeAuditPayload(
+              JSON.parse(JSON.stringify(options.oldValue)),
+            )
           : null,
         newValue: options.newValue
-          ? this.sanitizeAuditPayload(JSON.parse(JSON.stringify(options.newValue)))
+          ? this.sanitizeAuditPayload(
+              JSON.parse(JSON.stringify(options.newValue)),
+            )
           : null,
         ...(options.metadata
           ? { metadata: this.sanitizeAuditPayload(options.metadata) }

@@ -1,8 +1,17 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ResourceAuthorizationService } from './resource-authorization.service';
 import { ScopeResolver } from './scope-resolver.service';
-import { RoleType, UserStatus, InspectionStatus, AuditAction } from '@prisma/client';
-import { ForbiddenException, BadRequestException, NotFoundException } from '@nestjs/common';
+import {
+  RoleType,
+  UserStatus,
+  InspectionStatus,
+  AuditAction,
+} from '@prisma/client';
+import {
+  ForbiddenException,
+  BadRequestException,
+  NotFoundException,
+} from '@nestjs/common';
 import { ProposalService } from '../../modules/proposal/services/proposal.service';
 import { MotorPaymentTrackingService } from '../../modules/motor/services/motor-payment-tracking.service';
 import { WorkflowEngineService } from '../../modules/platform/workflow/services/workflow-engine.service';
@@ -181,7 +190,9 @@ describe('Forensic Security Abuse & BOLA Suite (Iteration 17)', () => {
       const proposalService = new ProposalService(
         prisma,
         {} as WorkflowEngineService,
-        { generateNext: jest.fn().mockResolvedValue('PROP-2026-000001') } as any,
+        {
+          generateNext: jest.fn().mockResolvedValue('PROP-2026-000001'),
+        } as any,
       );
 
       await expect(
@@ -249,7 +260,11 @@ describe('Forensic Security Abuse & BOLA Suite (Iteration 17)', () => {
         teamId: 'team-motor-a',
       });
 
-      const result = await contactsService.unmask('contact-pii-1', 'KYC Verification', authorizedActor);
+      const result = await contactsService.unmask(
+        'contact-pii-1',
+        'KYC Verification',
+        authorizedActor,
+      );
 
       expect(result.panNumber).toBe('ABCDE1234F');
       expect(result.aadhaarNumber).toBe('123456789012');

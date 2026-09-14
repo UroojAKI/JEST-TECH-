@@ -9,4 +9,3 @@ import { DatabaseModule } from '../../../database/database.module';
   exports: [OutboxService],
 })
 export class OutboxModule {}
-

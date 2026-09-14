@@ -46,44 +46,50 @@ export class Customer360Service {
     }
 
     // 1. Fetch Real Operational Data Concurrently
-    const [policies, quotations, claims, comms, leads, documents] = await Promise.all([
-      this.prisma.policy.findMany({
-        where: { contactId, deletedAt: null },
-        include: { documents: true, claims: true, payments: true, renewals: true },
-        orderBy: { createdAt: 'desc' },
-        take: 50,
-      }),
-      this.prisma.quotation.findMany({
-        where: { contactId, deletedAt: null },
-        orderBy: { createdAt: 'desc' },
-        take: 50,
-      }),
-      this.prisma.claim.findMany({
-        where: { contactId, deletedAt: null },
-        include: { policy: true },
-        orderBy: { createdAt: 'desc' },
-        take: 50,
-      }),
-      this.prisma.communicationLog.findMany({
-        where: { contactId },
-        orderBy: { createdAt: 'desc' },
-        take: 50,
-      }),
-      this.prisma.lead.findMany({
-        where: { contactId, deletedAt: null },
-        include: { stageHistory: { orderBy: { createdAt: 'desc' } } },
-        orderBy: { createdAt: 'desc' },
-        take: 20,
-      }),
-      this.prisma.document.findMany({
-        where: {
-          entityId: contactId,
-          entityType: { in: ['CONTACT', 'CUSTOMER'] },
-        },
-        orderBy: { createdAt: 'desc' },
-        take: 50,
-      }),
-    ]);
+    const [policies, quotations, claims, comms, leads, documents] =
+      await Promise.all([
+        this.prisma.policy.findMany({
+          where: { contactId, deletedAt: null },
+          include: {
+            documents: true,
+            claims: true,
+            payments: true,
+            renewals: true,
+          },
+          orderBy: { createdAt: 'desc' },
+          take: 50,
+        }),
+        this.prisma.quotation.findMany({
+          where: { contactId, deletedAt: null },
+          orderBy: { createdAt: 'desc' },
+          take: 50,
+        }),
+        this.prisma.claim.findMany({
+          where: { contactId, deletedAt: null },
+          include: { policy: true },
+          orderBy: { createdAt: 'desc' },
+          take: 50,
+        }),
+        this.prisma.communicationLog.findMany({
+          where: { contactId },
+          orderBy: { createdAt: 'desc' },
+          take: 50,
+        }),
+        this.prisma.lead.findMany({
+          where: { contactId, deletedAt: null },
+          include: { stageHistory: { orderBy: { createdAt: 'desc' } } },
+          orderBy: { createdAt: 'desc' },
+          take: 20,
+        }),
+        this.prisma.document.findMany({
+          where: {
+            entityId: contactId,
+            entityType: { in: ['CONTACT', 'CUSTOMER'] },
+          },
+          orderBy: { createdAt: 'desc' },
+          take: 50,
+        }),
+      ]);
 
     // 2. Extract Real Vehicles
     const vehicleMap = new Map<string, any>();
@@ -215,13 +221,14 @@ export class Customer360Service {
           : 'NOT_PROVIDED',
         agentCode: contact.agentCode || contact.createdBy?.employeeCode || null,
         agent: contact.agentCode
-          ? (contact.createdBy
-              ? `${contact.createdBy.firstName || ''} ${contact.createdBy.lastName || ''}`.trim() + ` (${contact.agentCode})`
-              : contact.agentCode)
-          : (contact.createdBy
-              ? `${contact.createdBy.firstName || ''} ${contact.createdBy.lastName || ''}`.trim()
-              : 'Unassigned'),
-        branch: contact.branch?.name || 'Global Guru Chickodi',
+          ? contact.createdBy
+            ? `${contact.createdBy.firstName || ''} ${contact.createdBy.lastName || ''}`.trim() +
+              ` (${contact.agentCode})`
+            : contact.agentCode
+          : contact.createdBy
+            ? `${contact.createdBy.firstName || ''} ${contact.createdBy.lastName || ''}`.trim()
+            : 'Unassigned',
+        branch: contact.branch?.name || 'Unassigned Branch',
         createdAt: contact.createdAt,
       },
       analytics: {

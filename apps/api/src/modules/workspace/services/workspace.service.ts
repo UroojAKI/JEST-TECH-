@@ -36,7 +36,9 @@ export class WorkspaceService {
     // a role when the persisted authorization model is incomplete.
     const roleCode = user.role?.code;
     if (!roleCode) {
-      throw new UnauthorizedException('Missing user role authorization context');
+      throw new UnauthorizedException(
+        'Missing user role authorization context',
+      );
     }
 
     const jobRole = user.jobRole;
@@ -226,7 +228,9 @@ export class WorkspaceService {
 
     const roleType = user.role?.type || user.role?.code;
     if (!roleType) {
-      throw new UnauthorizedException('Missing user role authorization context');
+      throw new UnauthorizedException(
+        'Missing user role authorization context',
+      );
     }
 
     const permissions =

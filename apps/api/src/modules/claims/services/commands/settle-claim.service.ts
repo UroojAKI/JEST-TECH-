@@ -43,7 +43,9 @@ export class SettleClaimService {
     }
 
     if (!dto.settlementAmount || dto.settlementAmount <= 0) {
-      throw new BadRequestException('Settlement amount must be greater than zero');
+      throw new BadRequestException(
+        'Settlement amount must be greater than zero',
+      );
     }
 
     if (!claim.approvedAmount) {
@@ -146,10 +148,7 @@ export class SettleClaimService {
       );
     }
 
-    ClaimStateMachine.validateTransition(
-      claim.status,
-      ClaimStatus.SETTLED,
-    );
+    ClaimStateMachine.validateTransition(claim.status, ClaimStatus.SETTLED);
 
     return this.prisma.$transaction(async (tx) => {
       await tx.settlement.update({

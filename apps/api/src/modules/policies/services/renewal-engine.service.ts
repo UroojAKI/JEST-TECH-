@@ -19,7 +19,9 @@ export class RenewalEngineService {
     @InjectQueue('renewal-reminders') private readonly renewalQueue: Queue,
   ) {}
 
-  async findPoliciesRequiringRenewal(daysBeforeExpiry: number): Promise<Policy[]> {
+  async findPoliciesRequiringRenewal(
+    daysBeforeExpiry: number,
+  ): Promise<Policy[]> {
     const targetDate = new Date();
     targetDate.setDate(targetDate.getDate() + daysBeforeExpiry);
 
@@ -41,7 +43,9 @@ export class RenewalEngineService {
   }
 
   async createRenewalRecord(policyId: string, agentId: string): Promise<void> {
-    const policy = await this.prisma.policy.findUnique({ where: { id: policyId } });
+    const policy = await this.prisma.policy.findUnique({
+      where: { id: policyId },
+    });
     if (!policy) return;
 
     await this.prisma.renewalTask.upsert({
@@ -58,15 +62,22 @@ export class RenewalEngineService {
     });
   }
 
-  async queueRenewalReminders(policyId: string, expiryDate: Date): Promise<void> {
-    const policy = await this.prisma.policy.findUnique({ where: { id: policyId } });
+  async queueRenewalReminders(
+    policyId: string,
+    expiryDate: Date,
+  ): Promise<void> {
+    const policy = await this.prisma.policy.findUnique({
+      where: { id: policyId },
+    });
     if (!policy) return;
 
     const config = await this.prisma.renewalConfiguration.findFirst({
       where: { isActive: true },
       orderBy: { createdAt: 'asc' },
     });
-    const reminderOffsets: number[] = (config?.reminderOffsets as number[]) ?? [45, 30, 15, 7, 5, 3, 2, 1];
+    const reminderOffsets: number[] = (config?.reminderOffsets as number[]) ?? [
+      45, 30, 15, 7, 5, 3, 2, 1,
+    ];
     const escalationOffsets = [7, 3, 1];
 
     for (const days of reminderOffsets) {
@@ -130,12 +141,17 @@ export class RenewalEngineService {
     if (roles.some((role) => GLOBAL_ROLES.includes(role))) return {};
 
     if (roles.includes(RoleType.BRANCH_MANAGER)) {
-      if (!actor.branchId) throw new ForbiddenException('Branch context is required');
+      if (!actor.branchId)
+        throw new ForbiddenException('Branch context is required');
       return { createdBy: { branchId: actor.branchId } };
     }
 
-    if (roles.includes(RoleType.TEAM_LEADER) || roles.includes(RoleType.SALES_MANAGER)) {
-      if (!actor.teamId) throw new ForbiddenException('Team context is required');
+    if (
+      roles.includes(RoleType.TEAM_LEADER) ||
+      roles.includes(RoleType.SALES_MANAGER)
+    ) {
+      if (!actor.teamId)
+        throw new ForbiddenException('Team context is required');
       return { createdBy: { teamId: actor.teamId } };
     }
 
@@ -149,13 +165,17 @@ export class RenewalEngineService {
     return { createdById: actor.userId };
   }
 
-  private async assertPolicyAccess(policyId: string, actor: ActorContext): Promise<void> {
+  private async assertPolicyAccess(
+    policyId: string,
+    actor: ActorContext,
+  ): Promise<void> {
     const scope = await this.buildPolicyScope(actor);
     const exists = await this.prisma.policy.findFirst({
       where: { id: policyId, deletedAt: null, ...scope },
       select: { id: true },
     });
-    if (!exists) throw new ForbiddenException('You do not have access to this renewal');
+    if (!exists)
+      throw new ForbiddenException('You do not have access to this renewal');
   }
 
   async getRenewalPipeline(actor: ActorContext | undefined, pagination: any) {
@@ -185,7 +205,15 @@ export class RenewalEngineService {
     return { data: policies, total };
   }
 
-  async getRenewalQueue(actor?: ActorContext, params?: { search?: string; urgency?: string; page?: number; limit?: number }) {
+  async getRenewalQueue(
+    actor?: ActorContext,
+    params?: {
+      search?: string;
+      urgency?: string;
+      page?: number;
+      limit?: number;
+    },
+  ) {
     const effectiveActor = this.toActorContext(actor);
     const page = Math.max(1, Number(params?.page) || 1);
     const limit = Math.min(100, Math.max(1, Number(params?.limit) || 20));
@@ -218,24 +246,36 @@ export class RenewalEngineService {
     let lowCount = 0;
 
     for (const p of policies) {
-      const daysRemaining = Math.ceil((new Date(p.expiryDate).getTime() - now) / 86400000);
+      const daysRemaining = Math.ceil(
+        (new Date(p.expiryDate).getTime() - now) / 86400000,
+      );
       let urgency: 'EXPIRED' | 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW' = 'LOW';
       if (daysRemaining < 0) urgency = 'EXPIRED';
-      else if (daysRemaining <= 7) { urgency = 'CRITICAL'; criticalCount++; }
-      else if (daysRemaining <= 15) { urgency = 'HIGH'; highCount++; }
-      else if (daysRemaining <= 30) { urgency = 'MEDIUM'; mediumCount++; }
-      else lowCount++;
+      else if (daysRemaining <= 7) {
+        urgency = 'CRITICAL';
+        criticalCount++;
+      } else if (daysRemaining <= 15) {
+        urgency = 'HIGH';
+        highCount++;
+      } else if (daysRemaining <= 30) {
+        urgency = 'MEDIUM';
+        mediumCount++;
+      } else lowCount++;
 
       const hasClaims = p.claims.length > 0;
       const currentNcb = Number(p.quotation?.ncbPercentage || 20);
       const nextNcb = hasClaims ? 0 : this.calculateNextNCBSlab(currentNcb);
       const basePrem = Number(p.premiumAmount || 0);
-      const estimatedRenewalPremium = Math.round(basePrem * (1 - nextNcb / 100));
+      const estimatedRenewalPremium = Math.round(
+        basePrem * (1 - nextNcb / 100),
+      );
       const vehicleMeta = (p.motorMetadata as Record<string, any>) || {};
       const item = {
         id: p.id,
         policyNumber: p.policyNumber,
-        customerName: p.contact ? `${p.contact.firstName} ${p.contact.lastName || ''}`.trim() : 'Customer',
+        customerName: p.contact
+          ? `${p.contact.firstName} ${p.contact.lastName || ''}`.trim()
+          : 'Customer',
         customerPhone: p.contact?.phone || undefined,
         customerEmail: p.contact?.email || undefined,
         expiryDate: p.expiryDate.toISOString(),
@@ -248,13 +288,25 @@ export class RenewalEngineService {
         estimatedRenewalPremium,
         registrationNumber: vehicleMeta.registrationNumber || 'N/A',
         insurerName: p.quotation?.insurerName || 'HDFC ERGO',
-        escalated: p.renewalTasks?.[0]?.priority === 'CRITICAL' || p.renewalTasks?.[0]?.priority === 'HIGH',
+        escalated:
+          p.renewalTasks?.[0]?.priority === 'CRITICAL' ||
+          p.renewalTasks?.[0]?.priority === 'HIGH',
       };
 
-      if (params?.urgency && params.urgency !== 'ALL' && item.urgency !== params.urgency) continue;
+      if (
+        params?.urgency &&
+        params.urgency !== 'ALL' &&
+        item.urgency !== params.urgency
+      )
+        continue;
       if (params?.search?.trim()) {
         const q = params.search.toLowerCase().trim();
-        if (!item.policyNumber.toLowerCase().includes(q) && !item.customerName.toLowerCase().includes(q) && !item.registrationNumber.toLowerCase().includes(q)) continue;
+        if (
+          !item.policyNumber.toLowerCase().includes(q) &&
+          !item.customerName.toLowerCase().includes(q) &&
+          !item.registrationNumber.toLowerCase().includes(q)
+        )
+          continue;
       }
       items.push(item);
     }
@@ -263,15 +315,25 @@ export class RenewalEngineService {
     return {
       data: items.slice(skip, skip + limit),
       meta: { page, limit, total, totalPages: Math.ceil(total / limit) || 1 },
-      summary: { totalExpiring: total, criticalCount, highCount, mediumCount, lowCount },
+      summary: {
+        totalExpiring: total,
+        criticalCount,
+        highCount,
+        mediumCount,
+        lowCount,
+      },
     };
   }
 
   async triggerManualReminder(policyId: string, actor: ActorContext | string) {
     const effectiveActor = this.toActorContext(actor);
     await this.assertPolicyAccess(policyId, effectiveActor);
-    const policy = await this.prisma.policy.findUnique({ where: { id: policyId }, include: { contact: true } });
-    if (!policy) return { success: false, message: `Policy ${policyId} not found` };
+    const policy = await this.prisma.policy.findUnique({
+      where: { id: policyId },
+      include: { contact: true },
+    });
+    if (!policy)
+      return { success: false, message: `Policy ${policyId} not found` };
 
     await this.renewalQueue.add('send-renewal-reminder', {
       policyId: policy.id,
@@ -282,21 +344,45 @@ export class RenewalEngineService {
       daysBefore: 0,
       isManualTrigger: true,
     });
-    return { success: true, message: `Renewal reminder dispatched for policy ${policy.policyNumber} to ${policy.contact?.phone || policy.contact?.email}` };
+    return {
+      success: true,
+      message: `Renewal reminder dispatched for policy ${policy.policyNumber} to ${policy.contact?.phone || policy.contact?.email}`,
+    };
   }
 
   async escalateRenewal(policyId: string, actor: ActorContext | string) {
     const effectiveActor = this.toActorContext(actor);
     await this.assertPolicyAccess(policyId, effectiveActor);
-    const policy = await this.prisma.policy.findUnique({ where: { id: policyId } });
-    if (!policy) return { success: false, message: `Policy ${policyId} not found` };
+    const policy = await this.prisma.policy.findUnique({
+      where: { id: policyId },
+    });
+    if (!policy)
+      return { success: false, message: `Policy ${policyId} not found` };
 
-    const existingTask = await this.prisma.renewalTask.findFirst({ where: { policyId }, orderBy: { createdAt: 'desc' } });
+    const existingTask = await this.prisma.renewalTask.findFirst({
+      where: { policyId },
+      orderBy: { createdAt: 'desc' },
+    });
     if (existingTask) {
-      await this.prisma.renewalTask.update({ where: { id: existingTask.id }, data: { priority: 'CRITICAL' } });
+      await this.prisma.renewalTask.update({
+        where: { id: existingTask.id },
+        data: { priority: 'CRITICAL' },
+      });
     } else {
-      await this.prisma.renewalTask.create({ data: { policyId, agentId: effectiveActor.userId, dueDate: policy.expiryDate, status: 'PENDING', priority: 'CRITICAL', offsetDays: 0 } });
+      await this.prisma.renewalTask.create({
+        data: {
+          policyId,
+          agentId: effectiveActor.userId,
+          dueDate: policy.expiryDate,
+          status: 'PENDING',
+          priority: 'CRITICAL',
+          offsetDays: 0,
+        },
+      });
     }
-    return { success: true, message: `Policy ${policy.policyNumber} renewal successfully escalated.` };
+    return {
+      success: true,
+      message: `Policy ${policy.policyNumber} renewal successfully escalated.`,
+    };
   }
 }

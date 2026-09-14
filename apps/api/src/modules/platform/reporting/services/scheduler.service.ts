@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
+import { ReportScheduleFrequency } from '@prisma/client';
 import { PrismaService } from '../../../../database/prisma.service';
 import { ReportCommandsService } from '../commands/report-commands.service';
 import { ExecuteReportCommand } from '../commands/report.commands';
@@ -34,10 +35,11 @@ export class SchedulerService {
         const command = new ExecuteReportCommand(schedule.reportId, {}, null);
         await this.commands.handleExecuteReport(command, 'csv');
 
-        // Update nextRun parameter
+        // Compute authoritative nextRun from schedule frequency
+        const nextRun = this.computeNextRun(schedule.frequency);
         await this.prisma.reportSchedule.update({
           where: { id: schedule.id },
-          data: { nextRun: new Date(Date.now() + 24 * 60 * 60 * 1000) }, // mock next run in 24 hours
+          data: { nextRun },
         });
       } catch (err: any) {
         this.logger.error(
@@ -45,5 +47,27 @@ export class SchedulerService {
         );
       }
     }
+  }
+
+  private computeNextRun(
+    frequency: ReportScheduleFrequency,
+    fromDate: Date = new Date(),
+  ): Date {
+    const next = new Date(fromDate);
+    switch (frequency) {
+      case ReportScheduleFrequency.DAILY:
+        next.setDate(next.getDate() + 1);
+        break;
+      case ReportScheduleFrequency.WEEKLY:
+        next.setDate(next.getDate() + 7);
+        break;
+      case ReportScheduleFrequency.MONTHLY:
+        next.setMonth(next.getMonth() + 1);
+        break;
+      default:
+        next.setDate(next.getDate() + 1);
+        break;
+    }
+    return next;
   }
 }

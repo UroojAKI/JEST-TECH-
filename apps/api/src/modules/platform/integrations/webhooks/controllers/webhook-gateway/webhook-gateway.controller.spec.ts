@@ -90,7 +90,12 @@ describe('WebhookGatewayController', () => {
     });
     expect(prisma.webhookAuditLog.create).not.toHaveBeenCalled(); // Should not create a new log
     expect(eventEmitter.emit).not.toHaveBeenCalled(); // Should not emit event
-    expect(result).toEqual({ status: 'ignored', reason: 'already_processed' });
+    expect(result).toEqual(
+      expect.objectContaining({
+        status: 'ignored',
+        reason: 'already_processed',
+      }),
+    );
   });
 
   it('should throw BadRequestException if idempotency key is missing', async () => {

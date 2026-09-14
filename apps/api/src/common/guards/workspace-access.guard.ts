@@ -139,7 +139,45 @@ export class WorkspaceAccessGuard implements CanActivate {
       );
     }
 
-    // TODO EPIC-02: Add company-branch hierarchy enforcement
+    // Company-branch hierarchy enforcement
+    const targetBranchId =
+      request.query?.branchId ||
+      request.body?.branchId ||
+      request.params?.branchId;
+    const targetCompanyId =
+      request.query?.companyId ||
+      request.body?.companyId ||
+      request.params?.companyId;
+
+    const actorRoles = actor.roles || [actor.role];
+    const GLOBAL_ROLES: RoleType[] = [
+      RoleType.SUPER_ADMIN,
+      RoleType.ADMIN,
+      RoleType.MD_CEO,
+      RoleType.SYSTEM_ADMINISTRATOR,
+    ];
+    const isGlobalActor = actorRoles.some((r) => GLOBAL_ROLES.includes(r));
+
+    if (!isGlobalActor) {
+      if (
+        targetCompanyId &&
+        actor.companyId &&
+        targetCompanyId !== actor.companyId
+      ) {
+        throw new ForbiddenException(
+          `Cross-company access denied: Actor company (${actor.companyId}) does not match target company (${targetCompanyId})`,
+        );
+      }
+      if (
+        targetBranchId &&
+        actor.branchId &&
+        targetBranchId !== actor.branchId
+      ) {
+        throw new ForbiddenException(
+          `Cross-branch access denied: Actor branch (${actor.branchId}) does not match target branch (${targetBranchId})`,
+        );
+      }
+    }
 
     // Super Admin has universal workspace access
     if (
@@ -150,7 +188,6 @@ export class WorkspaceAccessGuard implements CanActivate {
     }
 
     const allowedRoles = WORKSPACE_ROLE_MATRIX[requiredWorkspace] || [];
-    const actorRoles = actor.roles || [actor.role];
 
     const hasRoleAccess = actorRoles.some((r) => allowedRoles.includes(r));
     const hasPermissionOverride =

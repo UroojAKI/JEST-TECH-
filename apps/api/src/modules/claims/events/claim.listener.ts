@@ -38,14 +38,33 @@ export class ClaimListener {
         updatedById,
       );
 
-      // 2. Log Communication stub
-      await this.claimRepository.addCommunication({
-        claim: { connect: { id: claim.id } },
-        recipient: 'customer@example.com',
-        channel: CommunicationChannel.EMAIL,
-        subject: `Claim Approved - ${claim.claimNumber}`,
-        body: `Hello, we are pleased to inform you that your claim ${claim.claimNumber} has been approved for payment of ${claim.approvedAmount}. Comments: ${comments}`,
-      });
+      // 2. Fetch authoritative contact details to avoid fake dummy recipients
+      const fullClaim = await this.claimRepository.findById(claim.id);
+      const contact = fullClaim?.contact || claim.contact;
+      const recipientEmail = contact?.email;
+      const recipientPhone = contact?.phone;
+
+      if (recipientEmail) {
+        await this.claimRepository.addCommunication({
+          claim: { connect: { id: claim.id } },
+          recipient: recipientEmail,
+          channel: CommunicationChannel.EMAIL,
+          subject: `Claim Approved - ${claim.claimNumber}`,
+          body: `Hello, we are pleased to inform you that your claim ${claim.claimNumber} has been approved for payment of ₹${claim.approvedAmount}. Comments: ${comments}`,
+        });
+      } else if (recipientPhone) {
+        await this.claimRepository.addCommunication({
+          claim: { connect: { id: claim.id } },
+          recipient: recipientPhone,
+          channel: CommunicationChannel.SMS,
+          subject: `Claim Approved - ${claim.claimNumber}`,
+          body: `Your claim ${claim.claimNumber} has been approved for payment of ₹${claim.approvedAmount}.`,
+        });
+      } else {
+        this.logger.warn(
+          `No contact email or phone available for claim ${claim.claimNumber}; skipping communication dispatch without fabricating dummy recipient.`,
+        );
+      }
 
       this.logger.log(
         `Successfully completed approval handler for claim ${claim.claimNumber}`,

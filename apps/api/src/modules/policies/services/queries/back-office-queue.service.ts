@@ -63,7 +63,12 @@ export class BackOfficeQueueService {
       QuotationStatus.DRAFT,
     ];
 
-    if (params?.status && !['READY', 'BLOCKED', 'ALL', 'INSPECTION_REQUIRED'].includes(params.status)) {
+    if (
+      params?.status &&
+      !['READY', 'BLOCKED', 'ALL', 'INSPECTION_REQUIRED'].includes(
+        params.status,
+      )
+    ) {
       const parts = params.status
         .split(',')
         .map((s) => s.trim() as QuotationStatus)
@@ -302,7 +307,11 @@ export class BackOfficeQueueService {
       // Status filter
       if (params?.status === 'READY' && !item.allGatesPassed) continue;
       if (params?.status === 'BLOCKED' && item.allGatesPassed) continue;
-      if (params?.status === 'INSPECTION_REQUIRED' && item.gates.inspection.passed) continue;
+      if (
+        params?.status === 'INSPECTION_REQUIRED' &&
+        item.gates.inspection.passed
+      )
+        continue;
 
       items.push(item);
     }

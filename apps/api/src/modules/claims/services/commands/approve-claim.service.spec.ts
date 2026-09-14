@@ -99,4 +99,113 @@ describe('ApproveClaimService (Claims Lifecycle Assessment & Approval)', () => {
       }),
     );
   });
+
+  it('rejects approval if actor lacks claim approval authority', async () => {
+    mockPrisma.claim.findUnique.mockResolvedValue(baseClaim);
+
+    const unauthorizedActor: any = {
+      id: 'agent-99',
+      role: 'SALES_AGENT',
+      organizationId: 'org-1',
+    };
+
+    await expect(
+      service.execute(
+        'claim-1',
+        { approvedAmount: 20000, comments: 'Unauthorized approval attempt' },
+        unauthorizedActor,
+      ),
+    ).rejects.toThrow(ForbiddenException);
+  });
+
+  it('rejects approval if claim belongs to a different organization', async () => {
+    const claimWithOrg = {
+      ...baseClaim,
+      policy: {
+        ...baseClaim.policy,
+        contact: {
+          companyId: 'org-tenant-A',
+        },
+      },
+    };
+    mockPrisma.claim.findUnique.mockResolvedValue(claimWithOrg);
+
+    const crossOrgActor: any = {
+      id: 'officer-b',
+      role: 'CLAIMS_OFFICER',
+      organizationId: 'org-tenant-B',
+    };
+
+    await expect(
+      service.execute(
+        'claim-1',
+        { approvedAmount: 20000, comments: 'Cross org attempt' },
+        crossOrgActor,
+      ),
+    ).rejects.toThrow(ForbiddenException);
+  });
+
+  it('allows approval if actor is SUPER_ADMIN across different organizations', async () => {
+    const claimWithOrg = {
+      ...baseClaim,
+      policy: {
+        ...baseClaim.policy,
+        contact: {
+          companyId: 'org-tenant-A',
+        },
+      },
+    };
+    mockPrisma.claim.findUnique.mockResolvedValue(claimWithOrg);
+    mockPrisma.claim.update.mockResolvedValue({
+      ...claimWithOrg,
+      status: ClaimStatus.APPROVED,
+      approvedAmount: new Prisma.Decimal(20000),
+    });
+
+    const superAdminActor: any = {
+      id: 'super-admin-1',
+      role: 'SUPER_ADMIN',
+      organizationId: 'org-global',
+    };
+
+    const result = await service.execute(
+      'claim-1',
+      { approvedAmount: 20000, comments: 'Super admin approval' },
+      superAdminActor,
+    );
+
+    expect(result.status).toBe(ClaimStatus.APPROVED);
+  });
+
+  it('allows approval if actor is CLAIMS_OFFICER in the same organization', async () => {
+    const claimWithOrg = {
+      ...baseClaim,
+      policy: {
+        ...baseClaim.policy,
+        contact: {
+          companyId: 'org-tenant-A',
+        },
+      },
+    };
+    mockPrisma.claim.findUnique.mockResolvedValue(claimWithOrg);
+    mockPrisma.claim.update.mockResolvedValue({
+      ...claimWithOrg,
+      status: ClaimStatus.APPROVED,
+      approvedAmount: new Prisma.Decimal(25000),
+    });
+
+    const orgClaimsOfficer: any = {
+      id: 'officer-a',
+      role: 'CLAIMS_OFFICER',
+      organizationId: 'org-tenant-A',
+    };
+
+    const result = await service.execute(
+      'claim-1',
+      { approvedAmount: 25000, comments: 'Authorized same-tenant approval' },
+      orgClaimsOfficer,
+    );
+
+    expect(result.status).toBe(ClaimStatus.APPROVED);
+  });
 });

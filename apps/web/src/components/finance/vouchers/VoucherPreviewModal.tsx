@@ -13,6 +13,9 @@ export interface VoucherData {
   amount: number;
   paymentMode?: string;
   txnRef?: string;
+  companyName?: string;
+  companyTagline?: string;
+  companyAddress?: string;
   details: { label: string; value: string | number }[];
 }
 
@@ -62,10 +65,16 @@ export function VoucherPreviewModal({ isOpen, onClose, voucher }: VoucherPreview
             <div className="space-y-1">
               <div className="flex items-center space-x-2">
                 <Shield className="h-6 w-6 text-primary" />
-                <span className="font-black text-base tracking-tight">JEST POLICY CRM</span>
+                <span className="font-black text-base tracking-tight">
+                  {voucher.companyName || 'JEST POLICY CRM'}
+                </span>
               </div>
-              <p className="text-[10px] text-muted-foreground">Licensed Insurance Brokering Platform</p>
-              <p className="text-[10px] text-muted-foreground">BKC Financial Centre, Bandra East, Mumbai 400051</p>
+              <p className="text-[10px] text-muted-foreground">
+                {voucher.companyTagline || 'Licensed Insurance Brokering Platform'}
+              </p>
+              <p className="text-[10px] text-muted-foreground">
+                {voucher.companyAddress || 'Corporate Headquarters & Registered Office'}
+              </p>
             </div>
             <div className="text-right space-y-1">
               <div className="px-2.5 py-1 rounded bg-primary/10 text-primary border border-primary/20 font-extrabold uppercase text-[11px] inline-block">

@@ -62,10 +62,15 @@ export class IssuePolicyService {
 
     const quotation = await this.quotationRepository.findById(dto.quotationId);
     if (!quotation) {
-      throw new NotFoundException(`Quotation with ID ${dto.quotationId} not found. Cannot issue policy.`);
+      throw new NotFoundException(
+        `Quotation with ID ${dto.quotationId} not found. Cannot issue policy.`,
+      );
     }
 
-    if (quotation.status !== QuotationStatus.APPROVED && quotation.status !== QuotationStatus.ACCEPTED) {
+    if (
+      quotation.status !== QuotationStatus.APPROVED &&
+      quotation.status !== QuotationStatus.ACCEPTED
+    ) {
       throw new BadRequestException(
         `Quotation must be in APPROVED or ACCEPTED status before issuance. Current status: ${quotation.status}`,
       );
@@ -91,9 +96,16 @@ export class IssuePolicyService {
     const authoritativePayable = new Prisma.Decimal(quotation.totalPremium);
     const paymentAmount = new Prisma.Decimal(paymentRecord.amount || 0);
     if (!paymentRecord.referenceNumber?.trim()) {
-      throw new BadRequestException('Verified payment is missing its transaction/reference number.');
+      throw new BadRequestException(
+        'Verified payment is missing its transaction/reference number.',
+      );
     }
-    if (paymentAmount.sub(authoritativePayable).abs().greaterThan(new Prisma.Decimal('0.01'))) {
+    if (
+      paymentAmount
+        .sub(authoritativePayable)
+        .abs()
+        .greaterThan(new Prisma.Decimal('0.01'))
+    ) {
       throw new BadRequestException(
         `Payment reconciliation mismatch: Recorded ₹${paymentAmount.toString()} vs authoritative payable ₹${authoritativePayable.toString()}. Exact match required.`,
       );
@@ -101,29 +113,57 @@ export class IssuePolicyService {
 
     // Nominees are business data, not presentation defaults. Missing nominees block issuance.
     if (!dto.nominees || dto.nominees.length === 0) {
-      throw new BadRequestException('At least one nominee is required before policy issuance.');
+      throw new BadRequestException(
+        'At least one nominee is required before policy issuance.',
+      );
     }
-    const nomineePercentage = dto.nominees.reduce((sum, nominee) => sum + Number(nominee.percentage || 0), 0);
+    const nomineePercentage = dto.nominees.reduce(
+      (sum, nominee) => sum + Number(nominee.percentage || 0),
+      0,
+    );
     if (Math.abs(nomineePercentage - 100) > 0.001) {
-      throw new BadRequestException(`Nominee allocation must total exactly 100%. Current total: ${nomineePercentage}%.`);
+      throw new BadRequestException(
+        `Nominee allocation must total exactly 100%. Current total: ${nomineePercentage}%.`,
+      );
     }
 
     const policyNumber = await this.policyRepository.generatePolicyNumber();
 
-    const quoteEffective = (quotation as any).policyStartDate ? new Date((quotation as any).policyStartDate) : null;
-    const quoteExpiry = (quotation as any).policyEndDate ? new Date((quotation as any).policyEndDate) : null;
-    const effectiveDate = quoteEffective || (dto.effectiveDate ? new Date(dto.effectiveDate) : new Date());
-    const expiryDate = quoteExpiry || (dto.expiryDate ? new Date(dto.expiryDate) : null);
+    const quoteEffective = (quotation as any).policyStartDate
+      ? new Date((quotation as any).policyStartDate)
+      : null;
+    const quoteExpiry = (quotation as any).policyEndDate
+      ? new Date((quotation as any).policyEndDate)
+      : null;
+    const effectiveDate =
+      quoteEffective ||
+      (dto.effectiveDate ? new Date(dto.effectiveDate) : new Date());
+    const expiryDate =
+      quoteExpiry || (dto.expiryDate ? new Date(dto.expiryDate) : null);
 
     if (!expiryDate) {
-      throw new BadRequestException('Authoritative quotation expiry date is required before policy issuance.');
+      throw new BadRequestException(
+        'Authoritative quotation expiry date is required before policy issuance.',
+      );
     }
 
-    if (quoteEffective && dto.effectiveDate && new Date(dto.effectiveDate).getTime() !== quoteEffective.getTime()) {
-      throw new BadRequestException('Policy effective date must match the accepted quotation snapshot.');
+    if (
+      quoteEffective &&
+      dto.effectiveDate &&
+      new Date(dto.effectiveDate).getTime() !== quoteEffective.getTime()
+    ) {
+      throw new BadRequestException(
+        'Policy effective date must match the accepted quotation snapshot.',
+      );
     }
-    if (quoteExpiry && dto.expiryDate && new Date(dto.expiryDate).getTime() !== quoteExpiry.getTime()) {
-      throw new BadRequestException('Policy expiry date must match the accepted quotation snapshot.');
+    if (
+      quoteExpiry &&
+      dto.expiryDate &&
+      new Date(dto.expiryDate).getTime() !== quoteExpiry.getTime()
+    ) {
+      throw new BadRequestException(
+        'Policy expiry date must match the accepted quotation snapshot.',
+      );
     }
 
     const todayStart = new Date();
@@ -146,9 +186,12 @@ export class IssuePolicyService {
         where: { id: (quotation as any).vehicleId },
       });
     }
-    const chassis = vehicleDetails?.chassisNumber || (quotation as any).chassisNumber;
-    const engine = vehicleDetails?.engineNumber || (quotation as any).engineNumber;
-    const regNumber = quotation.registrationNumber || vehicleDetails?.registrationNumber;
+    const chassis =
+      vehicleDetails?.chassisNumber || (quotation as any).chassisNumber;
+    const engine =
+      vehicleDetails?.engineNumber || (quotation as any).engineNumber;
+    const regNumber =
+      quotation.registrationNumber || vehicleDetails?.registrationNumber;
     if (!chassis || !engine || !regNumber) {
       throw new BadRequestException(
         'Policy issuance is blocked until authoritative chassis number, engine number, and registration number are present. No placeholder values may be issued.',
@@ -157,7 +200,8 @@ export class IssuePolicyService {
 
     const policyData: Prisma.PolicyCreateInput = {
       policyNumber,
-      status: effectiveDate <= new Date() ? PolicyStatus.ACTIVE : PolicyStatus.ISSUED,
+      status:
+        effectiveDate <= new Date() ? PolicyStatus.ACTIVE : PolicyStatus.ISSUED,
       quotation: { connect: { id: quotation.id } },
       contact: { connect: { id: quotation.contactId } },
       premiumAmount: paymentAmount,
@@ -167,7 +211,8 @@ export class IssuePolicyService {
       updatedBy: { connect: { id: createdById } },
     };
 
-    if (quotation.accountId) policyData.account = { connect: { id: quotation.accountId } };
+    if (quotation.accountId)
+      policyData.account = { connect: { id: quotation.accountId } };
 
     if (dto.members && dto.members.length > 0) {
       policyData.members = {
@@ -201,7 +246,9 @@ export class IssuePolicyService {
     };
 
     const policy = await this.prisma.$transaction(async (tx) => {
-      const atomicCheck = await tx.policy.findUnique({ where: { quotationId: quotation.id } });
+      const atomicCheck = await tx.policy.findUnique({
+        where: { quotationId: quotation.id },
+      });
       if (atomicCheck) {
         throw new ConflictException(
           `Concurrent conflict: Policy already issued for quotation ${quotation.id} (Policy Number: ${atomicCheck.policyNumber}).`,
@@ -233,7 +280,10 @@ export class IssuePolicyService {
             performedById: createdById,
             performerRole: 'POLICY_ISSUANCE_EXECUTIVE',
             isOverride: false,
-            prerequisitesMet: { quotationId: quotation.id, policyId: newPolicy.id },
+            prerequisitesMet: {
+              quotationId: quotation.id,
+              policyId: newPolicy.id,
+            },
             remarks: `Lead converted automatically upon policy issuance ${policyNumber}.`,
           },
         });
@@ -315,28 +365,36 @@ export class IssuePolicyService {
         ? `${quotation.contact.firstName || ''} ${quotation.contact.lastName || ''}`.trim()
         : 'Insured Customer';
 
-      const schedulePdf = await this.pdfService.generateDocumentPdf('Policy Schedule', policyNumber, {
-        'Policy Number': policyNumber,
-        'Quotation Code': quotation.quotationCode,
-        'Insured Name': insuredName,
-        'Vehicle Registration': regNumber,
-        'Chassis Number': chassis,
-        'Engine Number': engine,
-        'Insurer': quotation.insurerName,
-        'Coverage Period': `${effectiveDate.toISOString().slice(0, 10)} to ${expiryDate.toISOString().slice(0, 10)}`,
-        'Insured Amount (IDV)': `Rs. ${(quotation.sumInsured ?? 0).toString()}`,
-        'Net Customer Premium': `Rs. ${(quotation.basePremium ?? 0).toString()}`,
-        'Total GST': `Rs. ${(quotation.gstAmount ?? 0).toString()}`,
-        'Total Premium Paid': `Rs. ${paymentAmount.toString()}`,
-        'Payment Transaction': paymentRecord.referenceNumber,
-      });
+      const schedulePdf = await this.pdfService.generateDocumentPdf(
+        'Policy Schedule',
+        policyNumber,
+        {
+          'Policy Number': policyNumber,
+          'Quotation Code': quotation.quotationCode,
+          'Insured Name': insuredName,
+          'Vehicle Registration': regNumber,
+          'Chassis Number': chassis,
+          'Engine Number': engine,
+          Insurer: quotation.insurerName,
+          'Coverage Period': `${effectiveDate.toISOString().slice(0, 10)} to ${expiryDate.toISOString().slice(0, 10)}`,
+          'Insured Amount (IDV)': `Rs. ${(quotation.sumInsured ?? 0).toString()}`,
+          'Net Customer Premium': `Rs. ${(quotation.basePremium ?? 0).toString()}`,
+          'Total GST': `Rs. ${(quotation.gstAmount ?? 0).toString()}`,
+          'Total Premium Paid': `Rs. ${paymentAmount.toString()}`,
+          'Payment Transaction': paymentRecord.referenceNumber,
+        },
+      );
 
-      const taxCertificatePdf = await this.pdfService.generateDocumentPdf('Tax Exemption / GST Certificate', `${policyNumber}_TAX`, {
-        'Policy Number': policyNumber,
-        'GST Amount': `Rs. ${(quotation.gstAmount ?? 0).toString()}`,
-        'Tax Component': 'Statutory 18% GST on Gross Base Premium',
-        'Invoice Date': new Date().toISOString().slice(0, 10),
-      });
+      const taxCertificatePdf = await this.pdfService.generateDocumentPdf(
+        'Tax Exemption / GST Certificate',
+        `${policyNumber}_TAX`,
+        {
+          'Policy Number': policyNumber,
+          'GST Amount': `Rs. ${(quotation.gstAmount ?? 0).toString()}`,
+          'Tax Component': 'Statutory 18% GST on Gross Base Premium',
+          'Invoice Date': new Date().toISOString().slice(0, 10),
+        },
+      );
 
       await Promise.all([
         this.policyRepository.addDocument({

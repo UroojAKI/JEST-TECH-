@@ -16,14 +16,17 @@ function decodeJwtPayload(token: string): any {
       const base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
       return JSON.parse(Buffer.from(base64, 'base64').toString('utf8'));
     }
-  } catch {}
+  } catch (_err) {
+    // Malformed token decode fallback
+  }
   return null;
 }
 
 @Injectable()
 export class JwtAuthGuard extends AuthGuard('jwt') {
   constructor(
-    @Optional() private readonly authVersionService?: AuthorizationVersionService,
+    @Optional()
+    private readonly authVersionService?: AuthorizationVersionService,
     @Optional() private readonly jwtService?: JwtService,
   ) {
     super();
@@ -39,9 +42,11 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
     }
 
     const req = context.switchToHttp().getRequest();
-    
+
     // CSRF double-submit cookie check
-    const isStateMutating = ['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method);
+    const isStateMutating = ['POST', 'PUT', 'PATCH', 'DELETE'].includes(
+      req.method,
+    );
     if (isStateMutating) {
       const csrfHeader = req.headers['x-csrf-token'];
       const csrfCookie = req.cookies?.['csrf_token'];
@@ -52,12 +57,19 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
 
     // Auth version check
     if (this.authVersionService) {
-      const token = req.cookies?.['access_token'] || req.headers['authorization']?.split(' ')[1];
+      const token =
+        req.cookies?.['access_token'] ||
+        req.headers['authorization']?.split(' ')[1];
       if (token) {
         try {
-          const payload = this.jwtService ? (this.jwtService.decode(token) as any) : decodeJwtPayload(token);
+          const payload = this.jwtService
+            ? this.jwtService.decode(token)
+            : decodeJwtPayload(token);
           if (payload && payload.sub && payload.authVersion) {
-            const isValid = await this.authVersionService.checkVersion(payload.sub, payload.authVersion);
+            const isValid = await this.authVersionService.checkVersion(
+              payload.sub,
+              payload.authVersion,
+            );
             if (!isValid) {
               throw new UnauthorizedException('Session invalidated');
             }

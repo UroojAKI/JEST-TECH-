@@ -5,8 +5,12 @@ import { PolicyRepository } from '../../../policies/repositories/policy.reposito
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { PrismaService } from '../../../../database/prisma.service';
 import { CACHE_PROVIDER_TOKEN } from '../../../platform/cache/cache.provider';
-import { PolicyStatus, ClaimStatus } from '@prisma/client';
-import { BadRequestException, NotFoundException } from '@nestjs/common';
+import { PolicyStatus, ClaimStatus, RoleType } from '@prisma/client';
+import {
+  BadRequestException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
 
 describe('ReportClaimService (Iteration 14)', () => {
   let service: ReportClaimService;
@@ -40,6 +44,9 @@ describe('ReportClaimService (Iteration 14)', () => {
     };
 
     prisma = {
+      policy: {
+        findFirst: jest.fn(),
+      },
       claim: {
         findFirst: jest.fn(),
       },
@@ -176,5 +183,134 @@ describe('ReportClaimService (Iteration 14)', () => {
     await expect(service.execute(dto, 'usr-1')).rejects.toThrow(
       BadRequestException,
     );
+  });
+
+  describe('IDOR Prevention & Multi-Tenant Scoping (Finding 8 & 9)', () => {
+    it('should reject claim if policy belongs to a different organization', async () => {
+      const policyWithOrg = {
+        ...mockPolicy(PolicyStatus.ACTIVE),
+        contact: {
+          id: 'cont-1',
+          companyId: 'org-tenant-A',
+        },
+      };
+      prisma.policy.findFirst.mockResolvedValue(policyWithOrg);
+      prisma.claim.findFirst.mockResolvedValue(null);
+
+      const crossOrgActor: any = {
+        id: 'user-b',
+        userId: 'user-b',
+        role: RoleType.ADMIN,
+        organizationId: 'org-tenant-B',
+      };
+
+      const dto = {
+        policyId: 'pol-1',
+        incidentDate: '2026-06-15T10:30:00Z',
+        description: 'Cross-tenant claim attempt',
+        claimAmount: 20000,
+      };
+
+      await expect(service.execute(dto, crossOrgActor)).rejects.toThrow(
+        ForbiddenException,
+      );
+    });
+
+    it('should allow SUPER_ADMIN to report claim across organizations', async () => {
+      const policyWithOrg = {
+        ...mockPolicy(PolicyStatus.ACTIVE),
+        contact: {
+          id: 'cont-1',
+          companyId: 'org-tenant-A',
+          email: 'customer@jest.com',
+        },
+      };
+      prisma.policy.findFirst.mockResolvedValue(policyWithOrg);
+      prisma.claim.findFirst.mockResolvedValue(null);
+
+      const superAdminActor: any = {
+        id: 'super-admin-1',
+        userId: 'super-admin-1',
+        role: RoleType.SUPER_ADMIN,
+        organizationId: 'org-global',
+      };
+
+      const dto = {
+        policyId: 'pol-1',
+        incidentDate: '2026-06-15T10:30:00Z',
+        description: 'Super admin reporting on behalf of client',
+        claimAmount: 20000,
+      };
+
+      const result = await service.execute(dto, superAdminActor);
+      expect(result.claimNumber).toBe('CLM-2026-0001');
+    });
+
+    it('should reject CUSTOMER reporting a claim for a policy they do not own', async () => {
+      const policyWithOrg = {
+        ...mockPolicy(PolicyStatus.ACTIVE),
+        contactId: 'contact-customer-1',
+        contact: {
+          id: 'contact-customer-1',
+          email: 'realowner@jest.com',
+          companyId: 'org-tenant-A',
+        },
+      };
+      prisma.policy.findFirst.mockResolvedValue(policyWithOrg);
+      prisma.claim.findFirst.mockResolvedValue(null);
+
+      const maliciousCustomer: any = {
+        id: 'malicious-cust',
+        userId: 'malicious-cust',
+        role: RoleType.CUSTOMER,
+        contactId: 'contact-other-cust',
+        organizationId: 'org-tenant-A',
+      };
+
+      const dto = {
+        policyId: 'pol-1',
+        incidentDate: '2026-06-15T10:30:00Z',
+        description: 'Customer IDOR attempt',
+        claimAmount: 20000,
+      };
+
+      await expect(service.execute(dto, maliciousCustomer)).rejects.toThrow(
+        ForbiddenException,
+      );
+    });
+
+    it('should never use fake production email customer@example.com when contact email is missing', async () => {
+      const policyNoEmail = {
+        ...mockPolicy(PolicyStatus.ACTIVE),
+        contact: {
+          id: 'cont-1',
+          email: null,
+          phone: '+919876543210',
+          companyId: 'org-tenant-A',
+        },
+      };
+      prisma.policy.findFirst.mockResolvedValue(policyNoEmail);
+      prisma.contact.findUnique.mockResolvedValue({
+        id: 'cont-1',
+        email: null,
+        phone: '+919876543210',
+      });
+      prisma.claim.findFirst.mockResolvedValue(null);
+
+      const dto = {
+        policyId: 'pol-1',
+        incidentDate: '2026-06-15T10:30:00Z',
+        description: 'Valid incident with phone only',
+        claimAmount: 25000,
+      };
+
+      await service.execute(dto, 'usr-1');
+
+      // Verify no communication was sent to customer@example.com
+      const commCalls = claimRepo.addCommunication.mock.calls;
+      for (const call of commCalls) {
+        expect(call[0]?.recipient).not.toContain('customer@example.com');
+      }
+    });
   });
 });

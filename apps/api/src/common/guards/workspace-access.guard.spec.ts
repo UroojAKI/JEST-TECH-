@@ -19,6 +19,7 @@ describe('WorkspaceAccessGuard & Matrix (Iteration 2)', () => {
   const createMockContext = (
     actor: Partial<ActorContext>,
     requiredWorkspace?: string,
+    requestOverrides?: { query?: any; body?: any; params?: any },
   ): ExecutionContext => {
     jest
       .spyOn(reflector, 'getAllAndOverride')
@@ -40,6 +41,9 @@ describe('WorkspaceAccessGuard & Matrix (Iteration 2)', () => {
             status: UserStatus.ACTIVE,
             ...actor,
           },
+          query: requestOverrides?.query || {},
+          body: requestOverrides?.body || {},
+          params: requestOverrides?.params || {},
         }),
       }),
       getHandler: () => ({}),
@@ -93,6 +97,51 @@ describe('WorkspaceAccessGuard & Matrix (Iteration 2)', () => {
       expect(guard.canActivate(ctx1)).toBe(true);
       expect(guard.canActivate(ctx2)).toBe(true);
       expect(guard.canActivate(ctx3)).toBe(true);
+    });
+  });
+
+  describe('Company-Branch Hierarchy Enforcement', () => {
+    it('should allow user accessing resources within their assigned branch', () => {
+      const ctx = createMockContext(
+        { role: RoleType.SALES_AGENT, branchId: 'branch-101' },
+        'SALES',
+        { query: { branchId: 'branch-101' } },
+      );
+      expect(guard.canActivate(ctx)).toBe(true);
+    });
+
+    it('should deny non-global user accessing resources from another branch', () => {
+      const ctx = createMockContext(
+        { role: RoleType.SALES_AGENT, branchId: 'branch-101' },
+        'SALES',
+        { query: { branchId: 'branch-999' } },
+      );
+      expect(() => guard.canActivate(ctx)).toThrow(ForbiddenException);
+    });
+
+    it('should deny non-global user accessing resources from another company', () => {
+      const ctx = createMockContext(
+        { role: RoleType.SALES_AGENT, companyId: 'company-1' },
+        'SALES',
+        { query: { companyId: 'company-2' } },
+      );
+      expect(() => guard.canActivate(ctx)).toThrow(ForbiddenException);
+    });
+
+    it('should allow global roles (ADMIN, MD_CEO, SUPER_ADMIN) across any branch', () => {
+      const ctxAdmin = createMockContext(
+        { role: RoleType.ADMIN, branchId: 'branch-101' },
+        'SALES',
+        { query: { branchId: 'branch-999' } },
+      );
+      expect(guard.canActivate(ctxAdmin)).toBe(true);
+
+      const ctxCeo = createMockContext(
+        { role: RoleType.MD_CEO, branchId: 'branch-101' },
+        'MANAGEMENT',
+        { body: { branchId: 'branch-999' } },
+      );
+      expect(guard.canActivate(ctxCeo)).toBe(true);
     });
   });
 

@@ -51,9 +51,8 @@ export class QuotationRepository extends BaseRepository<
         SELECT nextval('quotation_number_seq')`;
       return `QTN-${result[0].nextval.toString().padStart(6, '0')}`;
     } catch {
-      await this.prisma.$executeRawUnsafe(
-        `CREATE SEQUENCE IF NOT EXISTS quotation_number_seq START 1;`,
-      );
+      await this.prisma
+        .$executeRaw`CREATE SEQUENCE IF NOT EXISTS quotation_number_seq START 1;`;
       const retry = await this.prisma.$queryRaw<[{ nextval: bigint }]>`
         SELECT nextval('quotation_number_seq')`;
       return `QTN-${retry[0].nextval.toString().padStart(6, '0')}`;

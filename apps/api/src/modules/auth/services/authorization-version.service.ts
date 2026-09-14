@@ -17,7 +17,7 @@ export class AuthorizationVersionService {
 
     // A token is valid as long as its version is greater than or equal to the user's last updatedAt timestamp
     const currentVersion = user.updatedAt.getTime();
-    
+
     return tokenVersion >= currentVersion;
   }
 }

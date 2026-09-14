@@ -68,10 +68,7 @@ export class OutboxService {
       where: {
         status: OutboxStatus.PENDING,
         attempts: { lt: 5 },
-        OR: [
-          { nextRetryAt: null },
-          { nextRetryAt: { lte: new Date() } },
-        ],
+        OR: [{ nextRetryAt: null }, { nextRetryAt: { lte: new Date() } }],
       },
       orderBy: { createdAt: 'asc' },
       take: limit,
@@ -105,7 +102,9 @@ export class OutboxService {
    * Implements exponential backoff: 2^attempts * 30s, capped at 300s.
    */
   async markFailed(id: string, error: string) {
-    const event = await this.prisma.outboxEvent.findUniqueOrThrow({ where: { id } });
+    const event = await this.prisma.outboxEvent.findUniqueOrThrow({
+      where: { id },
+    });
     const isDead = event.attempts >= event.maxAttempts;
     const backoffSeconds = Math.min(300, Math.pow(2, event.attempts) * 30);
     const nextRetry = new Date(Date.now() + backoffSeconds * 1000);

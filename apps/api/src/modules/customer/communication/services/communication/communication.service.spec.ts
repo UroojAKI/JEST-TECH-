@@ -46,7 +46,7 @@ describe('CommunicationService', () => {
         expect.objectContaining({
           data: expect.objectContaining({
             direction: 'OUTBOUND',
-            status: 'SENT',
+            status: 'PROVIDER_ACCEPTED',
             channel: 'WHATSAPP',
             providerMessageId: 'msg-123',
           }),

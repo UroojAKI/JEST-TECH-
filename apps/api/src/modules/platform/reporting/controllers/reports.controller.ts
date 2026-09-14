@@ -27,6 +27,8 @@ import {
   ExecuteReportDto,
   CreateScheduleDto,
   UpdateScheduleDto,
+  CreateTopLevelScheduleDto,
+  SaveFilterDto,
 } from '../dto/report.dto';
 import {
   CreateReportCommand,
@@ -159,7 +161,7 @@ export class ReportsController {
 
   @Post('schedules')
   @RequirePermissions('REPORT_SCHEDULE')
-  async createTopLevelSchedule(@Body() dto: any) {
+  async createTopLevelSchedule(@Body() dto: CreateTopLevelScheduleDto) {
     return {
       id: `SCH-${Date.now().toString().slice(-4)}`,
       reportName: dto.reportName || 'Automated Report',
@@ -356,7 +358,7 @@ export class ReportsController {
   @RequirePermissions('REPORT_VIEW')
   async saveFilter(
     @Param('id') id: string,
-    @Body() dto: { name: string; filters: any },
+    @Body() dto: SaveFilterDto,
     @CurrentUser() user: RequestUser,
   ) {
     return this.queries.saveFilter(id, user.id, dto.name, dto.filters);

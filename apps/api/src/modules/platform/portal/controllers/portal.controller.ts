@@ -7,6 +7,10 @@ import { Roles } from '../../../auth/decorators/roles.decorator';
 import { CurrentUser } from '../../../auth/decorators/current-user.decorator';
 import type { RequestUser } from '../../../auth/decorators/current-user.decorator';
 import { PrismaService } from '../../../../database/prisma.service';
+import {
+  CreatePortalLeadDto,
+  PortalCompareQuotationsDto,
+} from '../dto/portal.dto';
 
 @ApiTags('Portal')
 @ApiBearerAuth()
@@ -63,7 +67,10 @@ export class PortalController {
 
   @Post('leads')
   @ApiOperation({ summary: 'Create new agent lead' })
-  async createAgentLead(@Body() dto: any, @CurrentUser() user: RequestUser) {
+  async createAgentLead(
+    @Body() dto: CreatePortalLeadDto,
+    @CurrentUser() user: RequestUser,
+  ) {
     const leadCode = `LD-${Date.now().toString().slice(-6)}`;
     const firstContact = await this.prisma.contact.findFirst({
       where: { deletedAt: null },
@@ -96,7 +103,7 @@ export class PortalController {
 
   @Post('quotations/compare')
   @ApiOperation({ summary: 'Compare quotations via POST' })
-  async compareQuotationsPost(@Body() data?: any) {
+  async compareQuotationsPost(@Body() data?: PortalCompareQuotationsDto) {
     return this.compareQuotations();
   }
 
@@ -170,7 +177,8 @@ export class PortalController {
       const meta = (l.metadata as any) || {};
       return {
         id: l.entityId,
-        ticketNumber: meta.ticketNumber || `TKT-${l.entityId.slice(0, 6).toUpperCase()}`,
+        ticketNumber:
+          meta.ticketNumber || `TKT-${l.entityId.slice(0, 6).toUpperCase()}`,
         subject: meta.subject || 'Support Ticket',
         description: meta.description || '',
         priority: meta.priority || 'MEDIUM',

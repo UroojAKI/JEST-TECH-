@@ -126,7 +126,9 @@ describe('PoliciesController', () => {
         {
           provide: BackOfficeQueueService,
           useValue: {
-            validateIssuanceGates: jest.fn().mockResolvedValue({ allowed: true }),
+            validateIssuanceGates: jest
+              .fn()
+              .mockResolvedValue({ allowed: true }),
           },
         },
       ],
@@ -142,9 +144,7 @@ describe('PoliciesController', () => {
     backOfficeQueueService = module.get<BackOfficeQueueService>(
       BackOfficeQueueService,
     );
-    issuePolicyService = module.get<IssuePolicyService>(
-      IssuePolicyService,
-    );
+    issuePolicyService = module.get<IssuePolicyService>(IssuePolicyService);
   });
 
   describe('Happy Path', () => {
@@ -174,7 +174,9 @@ describe('PoliciesController', () => {
       const dto = { quotationId: 'quote-100', issueSource: 'DIRECT_ISSUANCE' };
 
       const result = await controller.issuePolicyDirect(dto, mockUser);
-      expect(backOfficeQueueService.validateIssuanceGates).toHaveBeenCalledWith('quote-100');
+      expect(backOfficeQueueService.validateIssuanceGates).toHaveBeenCalledWith(
+        'quote-100',
+      );
       expect(issuePolicyService.execute).toHaveBeenCalledWith(
         expect.objectContaining({ quotationId: 'quote-100' }),
         mockUser.id,
@@ -186,9 +188,14 @@ describe('PoliciesController', () => {
       const dto = { quotationId: 'quote-100' };
 
       const result = await controller.createPolicyRoot(dto, mockUser);
-      expect(backOfficeQueueService.validateIssuanceGates).toHaveBeenCalledWith('quote-100');
+      expect(backOfficeQueueService.validateIssuanceGates).toHaveBeenCalledWith(
+        'quote-100',
+      );
       expect(issuePolicyService.execute).toHaveBeenCalledWith(
-        expect.objectContaining({ quotationId: 'quote-100', issueSource: 'POLICY_CONVERSION' }),
+        expect.objectContaining({
+          quotationId: 'quote-100',
+          issueSource: 'POLICY_CONVERSION',
+        }),
         mockUser.id,
       );
       expect(result).toEqual(mockPolicyResponse);

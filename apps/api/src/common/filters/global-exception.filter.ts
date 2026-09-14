@@ -34,7 +34,9 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       exception instanceof HttpException
         ? exception.getResponse()
         : exception?.code === 'P2002'
-          ? { message: `Unique constraint conflict on field: ${exception.meta?.target || 'resource'}` }
+          ? {
+              message: `Unique constraint conflict on field: ${exception.meta?.target || 'resource'}`,
+            }
           : { message: exception.message || 'Internal server error' };
 
     const errorBody: any =

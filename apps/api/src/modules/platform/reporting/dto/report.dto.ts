@@ -264,3 +264,37 @@ export class UpdateScheduleDto {
   @IsOptional()
   active?: boolean;
 }
+
+export class CreateTopLevelScheduleDto {
+  @ApiProperty({ required: false, example: 'Weekly Commission Settlement' })
+  @IsString()
+  @IsOptional()
+  reportName?: string;
+
+  @ApiProperty({ required: false, example: 'WEEKLY' })
+  @IsString()
+  @IsOptional()
+  frequency?: string;
+
+  @ApiProperty({ required: false, type: [String] })
+  @IsArray()
+  @IsString({ each: true })
+  @IsOptional()
+  recipients?: string[];
+
+  @ApiProperty({ required: false, example: 'PDF' })
+  @IsString()
+  @IsOptional()
+  format?: string;
+}
+
+export class SaveFilterDto {
+  @ApiProperty({ example: 'High Value Leads' })
+  @IsString()
+  @IsNotEmpty()
+  name: string;
+
+  @ApiProperty({ example: { status: 'NEW', priority: 'HIGH' } })
+  @IsNotEmpty()
+  filters: any;
+}

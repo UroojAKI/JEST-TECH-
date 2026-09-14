@@ -15,6 +15,7 @@ import { RolesGuard } from '../../../auth/guards/roles.guard';
 import { Roles } from '../../../auth/decorators/roles.decorator';
 import { CommunicationService } from '../services/communication/communication.service';
 import { PrismaService } from '../../../../database/prisma.service';
+import { UpdateNotificationTemplateDto } from '../dto/update-template.dto';
 
 @ApiTags('Communications & Notifications')
 @ApiBearerAuth()
@@ -102,7 +103,10 @@ export class CommunicationController {
   @Put('notifications/templates/:id')
   @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN)
   @ApiOperation({ summary: 'Update notification template' })
-  async updateTemplate(@Param('id') id: string, @Body() dto: any) {
+  async updateTemplate(
+    @Param('id') id: string,
+    @Body() dto: UpdateNotificationTemplateDto,
+  ) {
     return { id, status: 'updated', ...dto };
   }
 

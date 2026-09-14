@@ -33,6 +33,7 @@ import { PaginationDto } from '../../../common/pagination/pagination.dto';
 import { ParseUUIDPipe } from '../../../common/utils/parse-uuid.pipe';
 
 import { VehicleMasterService } from '../services/vehicle-master.service';
+import { CreateRtoDto, UpdateRtoDto } from '../dto/rto.dto';
 
 @ApiTags('Motor Admin - Vehicles & RTO')
 @ApiBearerAuth()
@@ -59,23 +60,17 @@ export class VehicleMasterController {
   @Post('rto')
   @Roles(RoleType.ADMIN, RoleType.SUPER_ADMIN)
   @ApiOperation({ summary: 'Create new RTO master record' })
-  createRto(
-    @Body()
-    data: {
-      code: string;
-      state: string;
-      district: string;
-      rtoOfficeName: string;
-      rtoZone?: string;
-    },
-  ) {
+  createRto(@Body() data: CreateRtoDto) {
     return this.vehicleService.createRto(data);
   }
 
   @Put('rto/:id')
   @Roles(RoleType.ADMIN, RoleType.SUPER_ADMIN)
   @ApiOperation({ summary: 'Update RTO master record' })
-  updateRto(@Param('id', ParseUUIDPipe) id: string, @Body() data: any) {
+  updateRto(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() data: UpdateRtoDto,
+  ) {
     return this.vehicleService.updateRto(id, data);
   }
 

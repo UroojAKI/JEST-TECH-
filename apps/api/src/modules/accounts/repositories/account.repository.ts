@@ -100,9 +100,7 @@ export class AccountRepository extends BaseRepository<
       return `ACC-${result[0].nextval.toString().padStart(6, '0')}`;
     } catch {
       const client = tx || this.prismaService;
-      await client.$executeRawUnsafe(
-        `CREATE SEQUENCE IF NOT EXISTS account_number_seq START 1;`,
-      );
+      await client.$executeRaw`CREATE SEQUENCE IF NOT EXISTS account_number_seq START 1;`;
       const retry = await client.$queryRaw<[{ nextval: bigint }]>`
         SELECT nextval('account_number_seq')`;
       return `ACC-${retry[0].nextval.toString().padStart(6, '0')}`;

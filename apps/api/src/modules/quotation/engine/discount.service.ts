@@ -7,7 +7,9 @@ export class DiscountService {
     discounts: { percentage?: number; amount?: number }[],
   ): { totalDiscountAmount: number; discountedPremium: number } {
     if (!Number.isFinite(basePremium) || basePremium < 0) {
-      throw new BadRequestException('Base premium must be a finite non-negative amount');
+      throw new BadRequestException(
+        'Base premium must be a finite non-negative amount',
+      );
     }
 
     let currentPremium = basePremium;
@@ -18,20 +20,30 @@ export class DiscountService {
       const hasAmount = discount.amount !== undefined;
 
       if (hasPercentage === hasAmount) {
-        throw new BadRequestException('Each discount must specify exactly one of percentage or amount');
+        throw new BadRequestException(
+          'Each discount must specify exactly one of percentage or amount',
+        );
       }
 
       let applied: number;
       if (hasPercentage) {
         const percentage = Number(discount.percentage);
-        if (!Number.isFinite(percentage) || percentage < 0 || percentage > 100) {
-          throw new BadRequestException('Discount percentage must be between 0 and 100');
+        if (
+          !Number.isFinite(percentage) ||
+          percentage < 0 ||
+          percentage > 100
+        ) {
+          throw new BadRequestException(
+            'Discount percentage must be between 0 and 100',
+          );
         }
         applied = currentPremium * (percentage / 100);
       } else {
         const amount = Number(discount.amount);
         if (!Number.isFinite(amount) || amount < 0) {
-          throw new BadRequestException('Discount amount must be a finite non-negative amount');
+          throw new BadRequestException(
+            'Discount amount must be a finite non-negative amount',
+          );
         }
         applied = amount;
       }

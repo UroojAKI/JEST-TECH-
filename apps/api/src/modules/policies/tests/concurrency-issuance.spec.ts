@@ -20,7 +20,9 @@ describe('100-Concurrent Policy Issuance Stress & Atomic Conflict Guarantee', ()
     const mockPrisma = {
       policy: {
         findUnique: jest.fn().mockImplementation(async () => {
-          return issued ? { id: 'pol-1', policyNumber: singleWinnerPolicyNumber } : null;
+          return issued
+            ? { id: 'pol-1', policyNumber: singleWinnerPolicyNumber }
+            : null;
         }),
       },
       motorPaymentRecord: {
@@ -34,7 +36,9 @@ describe('100-Concurrent Policy Issuance Stress & Atomic Conflict Guarantee', ()
       },
       $transaction: jest.fn(async (cb) => {
         if (issued) {
-          throw new ConflictException('Concurrent conflict: Policy already issued for quotation quote-conc-100.');
+          throw new ConflictException(
+            'Concurrent conflict: Policy already issued for quotation quote-conc-100.',
+          );
         }
         issued = true;
         policyCreatedCount++;
@@ -83,7 +87,9 @@ describe('100-Concurrent Policy Issuance Stress & Atomic Conflict Guarantee', ()
     };
 
     const policyRepo = {
-      generatePolicyNumber: jest.fn().mockResolvedValue(singleWinnerPolicyNumber),
+      generatePolicyNumber: jest
+        .fn()
+        .mockResolvedValue(singleWinnerPolicyNumber),
       create: jest.fn().mockResolvedValue({
         id: 'pol-conc-1',
         policyNumber: singleWinnerPolicyNumber,
@@ -126,14 +132,21 @@ describe('100-Concurrent Policy Issuance Stress & Atomic Conflict Guarantee', ()
         { provide: PrismaService, useValue: mockPrisma },
         { provide: OutboxService, useValue: outboxService },
         { provide: BackOfficeQueueService, useValue: backOfficeQueue },
-        { provide: CACHE_PROVIDER_TOKEN, useValue: { get: jest.fn(), set: jest.fn(), clear: jest.fn() } },
+        {
+          provide: CACHE_PROVIDER_TOKEN,
+          useValue: { get: jest.fn(), set: jest.fn(), clear: jest.fn() },
+        },
       ],
     }).compile();
 
     const service = module.get<IssuePolicyService>(IssuePolicyService);
 
     const totalRequests = 100;
-    const promises: Promise<{ status: number; policyNumber?: string; error?: string }>[] = [];
+    const promises: Promise<{
+      status: number;
+      policyNumber?: string;
+      error?: string;
+    }>[] = [];
 
     for (let i = 0; i < totalRequests; i++) {
       promises.push(
@@ -148,14 +161,22 @@ describe('100-Concurrent Policy Issuance Stress & Atomic Conflict Guarantee', ()
                   paymentMethod: 'NET_BANKING',
                 },
                 nominees: [
-                  { firstName: 'Ayesha', lastName: 'Khan', relation: 'SPOUSE', percentage: 100 },
+                  {
+                    firstName: 'Ayesha',
+                    lastName: 'Khan',
+                    relation: 'SPOUSE',
+                    percentage: 100,
+                  },
                 ],
-              } as any,
+              },
               'user-concurrency-runner',
             );
             return { status: 201, policyNumber: res.policyNumber };
           } catch (err: any) {
-            const status = err instanceof ConflictException || err?.status === 409 ? 409 : (err.status || 500);
+            const status =
+              err instanceof ConflictException || err?.status === 409
+                ? 409
+                : err.status || 500;
             return { status, error: err.message };
           }
         })(),

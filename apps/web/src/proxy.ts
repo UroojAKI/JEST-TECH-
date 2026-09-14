@@ -23,7 +23,51 @@ export function proxy(request: NextRequest) {
     (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`)
   );
 
-  // Allow direct access to /login so users can switch accounts or re-authenticate
+  if (isProtectedPath) {
+    if (!token) {
+      const loginUrl = new URL('/login', request.url);
+      loginUrl.searchParams.set('returnUrl', pathname);
+      return NextResponse.redirect(loginUrl);
+    }
+
+    // Role-based route guard for /admin paths
+    if (pathname.startsWith('/admin')) {
+      try {
+        const payloadBase64 = token.split('.')[1];
+        if (payloadBase64) {
+          const payload = JSON.parse(
+            Buffer.from(payloadBase64, 'base64').toString('utf-8')
+          );
+          const userRole = payload.role;
+          const userRoles: string[] = payload.roles || (userRole ? [userRole] : []);
+          const allowedAdminRoles = [
+            'SUPER_ADMIN',
+            'ADMIN',
+            'SYSTEM_ADMINISTRATOR',
+          ];
+          const hasAdminRole = userRoles.some((r) =>
+            allowedAdminRoles.includes(r)
+          );
+          if (!hasAdminRole) {
+            return NextResponse.redirect(new URL('/unauthorized', request.url));
+          }
+        }
+      } catch {
+        const loginUrl = new URL('/login', request.url);
+        loginUrl.searchParams.set('returnUrl', pathname);
+        return NextResponse.redirect(loginUrl);
+      }
+    }
+  }
+
+  // If user is already authenticated and visits /login, redirect to /workspace
+  if (pathname === '/login' && token) {
+    const returnUrl = request.nextUrl.searchParams.get('returnUrl');
+    return NextResponse.redirect(
+      new URL(returnUrl || '/workspace', request.url)
+    );
+  }
+
   return NextResponse.next();
 }
 

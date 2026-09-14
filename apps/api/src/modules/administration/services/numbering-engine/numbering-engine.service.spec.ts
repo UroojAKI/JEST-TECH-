@@ -15,6 +15,7 @@ describe('NumberingEngineService', () => {
           useValue: {
             numberingFormat: {
               findUnique: jest.fn(),
+              upsert: jest.fn(),
             },
             numberingSequence: {
               upsert: jest.fn(),
@@ -53,11 +54,24 @@ describe('NumberingEngineService', () => {
     expect(result).toEqual(`POL-${expectedYear}-${expectedMonth}-000042`);
   });
 
-  it('should throw an error if numbering format is not configured', async () => {
+  it('should auto-initialize default format when format is not configured', async () => {
     jest.spyOn(prisma.numberingFormat, 'findUnique').mockResolvedValue(null);
+    jest.spyOn(prisma.numberingFormat, 'upsert').mockResolvedValue({
+      entityType: 'UNKNOWN',
+      prefix: 'UNKN',
+      format: '{PREFIX}-{YYYY}-{MM}-{SEQUENCE}',
+      padding: 6,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+    jest.spyOn(prisma.numberingSequence, 'upsert').mockResolvedValue({
+      entityType: 'UNKNOWN',
+      year: new Date().getFullYear(),
+      month: new Date().getMonth() + 1,
+      sequence: 1,
+    });
 
-    await expect(service.generateNext('UNKNOWN')).rejects.toThrow(
-      'Numbering format for UNKNOWN is not configured.',
-    );
+    const result = await service.generateNext('UNKNOWN');
+    expect(result).toContain('UNKN');
   });
 });

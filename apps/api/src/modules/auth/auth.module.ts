@@ -33,8 +33,20 @@ import { AuthorizationVersionService } from './services/authorization-version.se
 
   controllers: [AuthController],
 
-  providers: [AuthService, TokenService, JwtStrategy, PermissionsGuard, AuthorizationVersionService],
+  providers: [
+    AuthService,
+    TokenService,
+    JwtStrategy,
+    PermissionsGuard,
+    AuthorizationVersionService,
+  ],
 
-  exports: [AuthService, TokenService, PassportModule, PermissionsGuard, AuthorizationVersionService],
+  exports: [
+    AuthService,
+    TokenService,
+    PassportModule,
+    PermissionsGuard,
+    AuthorizationVersionService,
+  ],
 })
 export class AuthModule {}

@@ -16,16 +16,30 @@ import {
   Plus,
   Folder,
 } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
+import { policiesRepository } from '../../../repositories/policies.repository';
 import { RenewalWizardDrawer } from '../../../components/policies/drawers/RenewalWizardDrawer';
 import { EndorsementRequestDrawer } from '../../../components/policies/drawers/EndorsementRequestDrawer';
 
 export default function PolicyWorkspacePage() {
   const params = useParams();
-  const policyId = (params?.id as string) || 'POL-001048';
+  const policyId = (params?.id as string) || '';
 
   const [isRenewalOpen, setIsRenewalOpen] = useState(false);
   const [isEndorsementOpen, setIsEndorsementOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<string>('OVERVIEW');
+
+  const { data: policyData } = useQuery({
+    queryKey: ['policy-workspace', policyId],
+    queryFn: () => policiesRepository.getPolicyWorkspace(policyId),
+    enabled: !!policyId,
+  });
+
+  const displayPolicyNumber = policyData?.policyNumber || policyId || 'POL-001048';
+  const displayStatus = policyData?.status || 'ACTIVE';
+  const displayCustomer = policyData?.contactName || 'Valued Customer';
+  const displayInsurer = policyData?.insurerName || 'Insurance Provider';
+  const displayExecutive = policyData?.renewalExecutive || 'Assigned Officer';
 
   return (
     <AppShell>
@@ -34,17 +48,16 @@ export default function PolicyWorkspacePage() {
         <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
           <div className="space-y-1">
             <div className="flex items-center space-x-3">
-              <h1 className="text-xl font-extrabold tracking-tight">Policy #{policyId}</h1>
-              <StatusBadge status="RENEWAL_DUE" />
+              <h1 className="text-xl font-extrabold tracking-tight">Policy #{displayPolicyNumber}</h1>
+              <StatusBadge status={displayStatus} />
               <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-primary/10 text-primary border border-primary/20">
-                MOTOR COMPREHENSIVE
+                {policyData?.productLine || 'MOTOR COMPREHENSIVE'}
               </span>
             </div>
             <div className="flex items-center space-x-4 text-xs text-muted-foreground">
-              <span>Customer: <strong className="text-foreground">Rahul Patil</strong></span>
-              <span>Insurer: <strong className="text-foreground">ICICI Lombard</strong></span>
-              <span>Vehicle: <strong className="text-foreground">MH-12-AB-1234</strong></span>
-              <span>Renewal Executive: <strong className="text-foreground">Assigned Executive</strong></span>
+              <span>Customer: <strong className="text-foreground">{displayCustomer}</strong></span>
+              <span>Insurer: <strong className="text-foreground">{displayInsurer}</strong></span>
+              <span>Renewal Officer: <strong className="text-foreground">{displayExecutive}</strong></span>
             </div>
           </div>
 
@@ -213,13 +226,25 @@ export default function PolicyWorkspacePage() {
                 </button>
               </div>
 
-              <div className="p-4 rounded-xl border bg-card space-y-2">
-                <div className="flex justify-between items-center">
-                  <div className="font-bold text-sm">ADDRESS_CHANGE (Non-Financial)</div>
-                  <StatusBadge status="APPROVED" />
+              {(policyData as any)?.endorsements && (policyData as any).endorsements.length > 0 ? (
+                (policyData as any).endorsements.map((endorsement: any) => (
+                  <div key={endorsement.id} className="p-4 rounded-xl border bg-card space-y-2">
+                    <div className="flex justify-between items-center">
+                      <div className="font-bold text-sm">
+                        {endorsement.type || 'POLICY_MODIFICATION'}
+                      </div>
+                      <StatusBadge status={endorsement.status || 'PENDING'} />
+                    </div>
+                    <p className="text-muted-foreground text-xs">
+                      {endorsement.description || endorsement.reason || 'Endorsement in progress.'}
+                    </p>
+                  </div>
+                ))
+              ) : (
+                <div className="p-6 text-center text-muted-foreground rounded-xl border border-dashed">
+                  No active endorsement requests filed for this policy.
                 </div>
-                <p className="text-muted-foreground text-xs">Updated address to BKC, Mumbai 400051.</p>
-              </div>
+              )}
             </div>
           )}
 

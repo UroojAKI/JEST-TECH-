@@ -1,4 +1,16 @@
-import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Param,
+  Patch,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { RoleType } from '@prisma/client';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
@@ -73,13 +85,19 @@ export class AccountsController {
 
   @Get()
   @Roles(...ACCOUNT_VIEW_ROLES)
-  findAll(@Query() pagination: PaginationDto, @CurrentUser() user: RequestUser) {
+  findAll(
+    @Query() pagination: PaginationDto,
+    @CurrentUser() user: RequestUser,
+  ) {
     return this.accountsService.findAll(pagination, user);
   }
 
   @Get(':id')
   @Roles(...ACCOUNT_VIEW_ROLES)
-  findOne(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: RequestUser) {
+  findOne(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: RequestUser,
+  ) {
     return this.accountsService.findById(id, user);
   }
 
@@ -107,14 +125,26 @@ export class AccountsController {
 
   @Patch(':id')
   @Roles(...ACCOUNT_MANAGE_ROLES)
-  update(@Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdateAccountDto, @CurrentUser() user: RequestUser) {
+  update(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateAccountDto,
+    @CurrentUser() user: RequestUser,
+  ) {
     return this.accountsService.update(id, dto, user.id, user);
   }
 
   @Delete(':id')
   @HttpCode(HttpStatus.OK)
-  @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN, RoleType.SYSTEM_ADMINISTRATOR, RoleType.MD_CEO)
-  remove(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: RequestUser) {
+  @Roles(
+    RoleType.SUPER_ADMIN,
+    RoleType.ADMIN,
+    RoleType.SYSTEM_ADMINISTRATOR,
+    RoleType.MD_CEO,
+  )
+  remove(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: RequestUser,
+  ) {
     return this.accountsService.remove(id, user.id, user);
   }
 }

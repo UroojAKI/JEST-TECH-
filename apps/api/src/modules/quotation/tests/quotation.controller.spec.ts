@@ -159,6 +159,24 @@ describe('QuotationController', () => {
           provide: MotorCalculationService,
           useValue: { calculatePremium: jest.fn().mockReturnValue({}) },
         },
+        {
+          provide: require('../../contacts/services/contacts.service')
+            .ContactsService,
+          useValue: { create: jest.fn().mockResolvedValue({ id: 'cont-1' }) },
+        },
+        {
+          provide:
+            require('../../administration/services/numbering-engine/numbering-engine.service')
+              .NumberingEngineService,
+          useValue: { generateNext: jest.fn().mockResolvedValue('QTN-0001') },
+        },
+        {
+          provide: require('../services/queries/quotation-completion.service')
+            .QuotationCompletionService,
+          useValue: {
+            calculateCompletionStatus: jest.fn().mockReturnValue({}),
+          },
+        },
       ],
     }).compile();
 
@@ -215,6 +233,7 @@ describe('QuotationController', () => {
         'quote-123',
         'Approving quote',
         mockUser.id,
+        mockUser.role,
       );
     });
   });

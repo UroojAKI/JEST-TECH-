@@ -27,10 +27,16 @@ export class RenewPolicyService {
         where: { id, deletedAt: null },
         include: { quotation: true },
       });
-      if (!existing) throw new NotFoundException(`Policy with ID ${id} not found`);
+      if (!existing)
+        throw new NotFoundException(`Policy with ID ${id} not found`);
 
-      if (existing.status !== PolicyStatus.ACTIVE && existing.status !== PolicyStatus.PENDING_RENEWAL) {
-        throw new BadRequestException(`Only ACTIVE or PENDING_RENEWAL policies can be renewed. Current status: ${existing.status}`);
+      if (
+        existing.status !== PolicyStatus.ACTIVE &&
+        existing.status !== PolicyStatus.PENDING_RENEWAL
+      ) {
+        throw new BadRequestException(
+          `Only ACTIVE or PENDING_RENEWAL policies can be renewed. Current status: ${existing.status}`,
+        );
       }
 
       if (dto.switchInsurer) {
@@ -47,7 +53,11 @@ export class RenewPolicyService {
 
       // Premium is an authoritative server value. The client cannot set the renewal premium.
       const authoritativePremium = new Prisma.Decimal(existing.premiumAmount);
-      if (dto.premiumAmount !== undefined && Math.abs(Number(dto.premiumAmount) - Number(authoritativePremium)) > 0.01) {
+      if (
+        dto.premiumAmount !== undefined &&
+        Math.abs(Number(dto.premiumAmount) - Number(authoritativePremium)) >
+          0.01
+      ) {
         throw new BadRequestException(
           `Renewal premium mismatch. Client supplied ₹${dto.premiumAmount}, but the authoritative policy snapshot is ₹${authoritativePremium.toString()}. A renewal quotation must be created for any repricing.`,
         );
@@ -61,8 +71,13 @@ export class RenewPolicyService {
       );
 
       let nextNcb = 0;
-      if (existing.quotation && typeof existing.quotation.ncbPercentage === 'number') {
-        nextNcb = this.renewalEngineService.calculateNextNCBSlab(existing.quotation.ncbPercentage);
+      if (
+        existing.quotation &&
+        typeof existing.quotation.ncbPercentage === 'number'
+      ) {
+        nextNcb = this.renewalEngineService.calculateNextNCBSlab(
+          existing.quotation.ncbPercentage,
+        );
       }
 
       await tx.policy.update({

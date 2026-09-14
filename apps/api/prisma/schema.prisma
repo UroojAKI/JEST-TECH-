@@ -78,6 +78,12 @@ enum ContactType {
   CORPORATE
 }
 
+enum ContactStatus {
+  ACTIVE
+  INACTIVE
+  ARCHIVED
+}
+
 enum Gender {
   MALE
   FEMALE
@@ -524,6 +530,8 @@ model Contact {
 
   type ContactType
 
+  status ContactStatus @default(ACTIVE)
+
   firstName String
 
   middleName String?
@@ -601,6 +609,7 @@ model Contact {
   @@index([createdById])
   @@index([updatedById])
   @@index([agentCode])
+  @@index([status])
   @@unique([companyId, phone])
   @@map("contacts")
 }

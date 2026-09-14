@@ -24,6 +24,10 @@ import type { RequestUser } from '../../auth/decorators/current-user.decorator';
 
 import { CreateQuotationDto } from '../dto/create-quotation.dto';
 import { CreateMotorCaptureDto } from '../dto/create-motor-capture.dto';
+import {
+  CalculateComparativeQuotesDto,
+  EnterpriseCompareDto,
+} from '../dto/calculate-quotes.dto';
 import { ContactsService } from '../../contacts/services/contacts.service';
 import { NumberingEngineService } from '../../administration/services/numbering-engine/numbering-engine.service';
 import { GenerateQuotationService } from '../services/commands/generate-quotation.service';
@@ -131,9 +135,13 @@ export class QuotationController {
         {
           firstName: firstName || 'Customer',
           lastName: rest.join(' ') || '',
-          email: proposer['emailId'] ? String(proposer['emailId']).trim() : undefined,
+          email: proposer['emailId']
+            ? String(proposer['emailId']).trim()
+            : undefined,
           phone: mobileNumber,
-          panNumber: proposer['panNumber'] ? String(proposer['panNumber']).trim() : undefined,
+          panNumber: proposer['panNumber']
+            ? String(proposer['panNumber']).trim()
+            : undefined,
           type: 'INDIVIDUAL',
         },
         user.id,
@@ -286,7 +294,7 @@ export class QuotationController {
     RoleType.UNDERWRITER,
     RoleType.CHIEF_FINANCE_OFFICER,
   )
-  calculate(@Body() dto: any) {
+  calculate(@Body() dto: CalculateComparativeQuotesDto) {
     return this.comparisonEngine.generateComparativeQuotes(dto);
   }
 
@@ -308,7 +316,7 @@ export class QuotationController {
     RoleType.CHIEF_FINANCE_OFFICER,
   )
   @ApiOperation({ summary: 'Enterprise Multi-Insurer Quotation Gateway' })
-  enterpriseCompare(@Body() dto: any) {
+  enterpriseCompare(@Body() dto: EnterpriseCompareDto) {
     return this.comparisonEngine.generateEnterpriseInsurerComparisons(dto);
   }
 
@@ -416,7 +424,8 @@ export class QuotationController {
     RoleType.SUPPORT,
   )
   @ApiOperation({
-    summary: 'Evaluate dynamic checklist and progressive quotation completion percentage (§24, AUD-033)',
+    summary:
+      'Evaluate dynamic checklist and progressive quotation completion percentage (§24, AUD-033)',
   })
   getCompletion(@Param('id') id: string) {
     return this.quotationCompletionService.getCompletion(id);
@@ -494,7 +503,12 @@ export class QuotationController {
     @Body('comments') comments: string,
     @CurrentUser() user: RequestUser,
   ) {
-    return this.approveQuotationService.execute(id, comments, user.id, user.role);
+    return this.approveQuotationService.execute(
+      id,
+      comments,
+      user.id,
+      user.role,
+    );
   }
 
   @Post(':id/reject')
@@ -592,11 +606,11 @@ export class QuotationController {
     });
   }
 
-
   @Patch(':id/details')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
-    summary: 'Save missing details inline and dynamically recalculate completion percentage',
+    summary:
+      'Save missing details inline and dynamically recalculate completion percentage',
   })
   async updateDetails(
     @Param('id', ParseUUIDPipe) id: string,

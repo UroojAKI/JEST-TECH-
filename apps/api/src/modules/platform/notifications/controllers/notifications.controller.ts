@@ -14,6 +14,7 @@ import { JwtAuthGuard } from '../../../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../../../auth/decorators/current-user.decorator';
 import type { RequestUser } from '../../../auth/decorators/current-user.decorator';
 import { NotificationService } from '../services/notification.service';
+import { UpdateNotificationPreferencesDto } from '../dto/update-preferences.dto';
 
 @ApiTags('Notifications')
 @ApiBearerAuth()
@@ -52,7 +53,10 @@ export class NotificationsController {
     @Param('id') id: string,
     @Body('bodyTemplate') bodyTemplate: string,
   ) {
-    return this.notificationService.updateNotificationTemplate(id, bodyTemplate);
+    return this.notificationService.updateNotificationTemplate(
+      id,
+      bodyTemplate,
+    );
   }
 
   @Get('unread')
@@ -89,7 +93,10 @@ export class NotificationsController {
   }
 
   @Patch('preferences')
-  updatePreferences(@CurrentUser() user: RequestUser, @Body() data: any) {
+  updatePreferences(
+    @CurrentUser() user: RequestUser,
+    @Body() data: UpdateNotificationPreferencesDto,
+  ) {
     return this.notificationService.updatePreferences(user.id, data);
   }
 }

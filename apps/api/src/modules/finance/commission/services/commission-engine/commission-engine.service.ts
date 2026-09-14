@@ -49,8 +49,38 @@ export class CommissionEngineService {
     }
 
     const agentPercent = Number(rules.agentPercent);
-    if (!Number.isFinite(agentPercent) || agentPercent < 0 || agentPercent > 100) {
-      throw new BadRequestException('Commission Plan agentPercent must be between 0 and 100');
+    if (
+      !Number.isFinite(agentPercent) ||
+      agentPercent < 0 ||
+      agentPercent > 100
+    ) {
+      throw new BadRequestException(
+        'Commission Plan agentPercent must be between 0 and 100',
+      );
+    }
+
+    // IRDAI Statutory Regulatory Cap Validation
+    // Statutory Motor Own-Damage cap: 15.0%, Statutory Total Combined cap: 20.0%
+    const IRDAI_STATUTORY_MAX_AGENT_CAP = 15.0;
+    const IRDAI_STATUTORY_MAX_TOTAL_CAP = 20.0;
+
+    if (agentPercent > IRDAI_STATUTORY_MAX_AGENT_CAP) {
+      throw new BadRequestException(
+        `Agent commission percentage (${agentPercent}%) exceeds IRDAI statutory maximum ceiling cap of ${IRDAI_STATUTORY_MAX_AGENT_CAP}%`,
+      );
+    }
+
+    let totalCommissionPercent = agentPercent;
+    if (rules.overrides && Array.isArray(rules.overrides)) {
+      for (const override of rules.overrides) {
+        totalCommissionPercent += Number(override.percent || 0);
+      }
+    }
+
+    if (totalCommissionPercent > IRDAI_STATUTORY_MAX_TOTAL_CAP) {
+      throw new BadRequestException(
+        `Total combined commission percentage (${totalCommissionPercent}%) exceeds IRDAI statutory maximum total ceiling of ${IRDAI_STATUTORY_MAX_TOTAL_CAP}%`,
+      );
     }
 
     const agent = await this.prisma.user.findUnique({
@@ -59,7 +89,9 @@ export class CommissionEngineService {
     });
 
     if (!agent || agent.status !== 'ACTIVE') {
-      throw new BadRequestException('Commission recipient is not an active user');
+      throw new BadRequestException(
+        'Commission recipient is not an active user',
+      );
     }
 
     const commissionsData: Prisma.CommissionCreateManyInput[] = [];
@@ -80,7 +112,9 @@ export class CommissionEngineService {
       for (const override of rules.overrides) {
         const percent = Number(override.percent);
         if (!override.userId || !override.roleTier) {
-          throw new BadRequestException('Every commission override requires roleTier and userId');
+          throw new BadRequestException(
+            'Every commission override requires roleTier and userId',
+          );
         }
         if (!Number.isFinite(percent) || percent < 0 || percent > 100) {
           throw new BadRequestException(
@@ -99,9 +133,7 @@ export class CommissionEngineService {
           );
         }
 
-        const overrideAmt = premiumAmount
-          .mul(new Decimal(percent))
-          .div(100);
+        const overrideAmt = premiumAmount.mul(new Decimal(percent)).div(100);
 
         commissionsData.push({
           policyId,

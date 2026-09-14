@@ -23,14 +23,46 @@ export class NumberingEngineService {
         string,
         { prefix: string; format: string; padding: number }
       > = {
-        POLICY: { prefix: 'POL', format: '{PREFIX}-{YYYY}-{MM}-{SEQUENCE}', padding: 6 },
-        CLAIM: { prefix: 'CLM', format: '{PREFIX}-{YYYY}-{MM}-{SEQUENCE}', padding: 6 },
-        PROPOSAL: { prefix: 'PROP', format: '{PREFIX}-{YYYY}-{MM}-{SEQUENCE}', padding: 6 },
-        ENDORSEMENT: { prefix: 'END', format: '{PREFIX}-{YYYY}-{MM}-{SEQUENCE}', padding: 6 },
-        INSPECTION: { prefix: 'INS', format: '{PREFIX}-{YYYY}-{MM}-{SEQUENCE}', padding: 6 },
-        QUOTATION: { prefix: 'QT', format: '{PREFIX}-{YYYY}-{MM}-{SEQUENCE}', padding: 6 },
-        CONTACT: { prefix: 'CONT', format: '{PREFIX}-{YYYY}-{MM}-{SEQUENCE}', padding: 6 },
-        LEAD: { prefix: 'LEAD', format: '{PREFIX}-{YYYY}-{MM}-{SEQUENCE}', padding: 6 },
+        POLICY: {
+          prefix: 'POL',
+          format: '{PREFIX}-{YYYY}-{MM}-{SEQUENCE}',
+          padding: 6,
+        },
+        CLAIM: {
+          prefix: 'CLM',
+          format: '{PREFIX}-{YYYY}-{MM}-{SEQUENCE}',
+          padding: 6,
+        },
+        PROPOSAL: {
+          prefix: 'PROP',
+          format: '{PREFIX}-{YYYY}-{MM}-{SEQUENCE}',
+          padding: 6,
+        },
+        ENDORSEMENT: {
+          prefix: 'END',
+          format: '{PREFIX}-{YYYY}-{MM}-{SEQUENCE}',
+          padding: 6,
+        },
+        INSPECTION: {
+          prefix: 'INS',
+          format: '{PREFIX}-{YYYY}-{MM}-{SEQUENCE}',
+          padding: 6,
+        },
+        QUOTATION: {
+          prefix: 'QT',
+          format: '{PREFIX}-{YYYY}-{MM}-{SEQUENCE}',
+          padding: 6,
+        },
+        CONTACT: {
+          prefix: 'CONT',
+          format: '{PREFIX}-{YYYY}-{MM}-{SEQUENCE}',
+          padding: 6,
+        },
+        LEAD: {
+          prefix: 'LEAD',
+          format: '{PREFIX}-{YYYY}-{MM}-{SEQUENCE}',
+          padding: 6,
+        },
       };
 
       const defaultCfg = DEFAULT_FORMATS[entityType.toUpperCase()] || {

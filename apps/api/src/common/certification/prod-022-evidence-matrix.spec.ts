@@ -56,7 +56,9 @@ describe('PROD-022: Authoritative Release Certification Evidence Matrix', () => 
     expect(certificate.defectRemediationSummary.p1DefectsFixed).toBe(19);
     expect(certificate.defectRemediationSummary.p2DefectsFixed).toBe(12);
     expect(certificate.defectRemediationSummary.p3DefectsFixed).toBe(8);
-    expect(certificate.defectRemediationSummary.status).toBe('ALL_DEFECTS_RESOLVED');
+    expect(certificate.defectRemediationSummary.status).toBe(
+      'ALL_DEFECTS_RESOLVED',
+    );
 
     // Five-pillar governance approval sign-off
     const { governanceSignOff } = certificate;

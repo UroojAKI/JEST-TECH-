@@ -94,7 +94,7 @@ describe('PdfService (Tamper-Evident Authoritative PDF Engine)', () => {
         'Vehicle Registration': calculationSnapshot.inputs.registrationNumber,
         'Chassis Number': calculationSnapshot.inputs.chassisNumber,
         'Engine Number': calculationSnapshot.inputs.engineNumber,
-        'Insurer': calculationSnapshot.inputs.insurerName,
+        Insurer: calculationSnapshot.inputs.insurerName,
         'Coverage Period': `${calculationSnapshot.inputs.policyStartDate} to ${calculationSnapshot.inputs.policyEndDate}`,
         'Insured Amount (IDV)': `Rs. ${calculationSnapshot.inputs.idv}`,
         'Net Customer Premium': `Rs. ${calculationSnapshot.inputs.netBasePremium}`,
@@ -119,10 +119,14 @@ describe('PdfService (Tamper-Evident Authoritative PDF Engine)', () => {
       for (const ref of refs) {
         const stream = (loadedDoc as any).context.lookup(ref);
         if (!stream) continue;
-        const contentsBytes = stream.getContents ? stream.getContents() : stream.contents;
+        const contentsBytes = stream.getContents
+          ? stream.getContents()
+          : stream.contents;
         let decoded = '';
         try {
-          decoded = zlib.inflateSync(Buffer.from(contentsBytes)).toString('utf-8');
+          decoded = zlib
+            .inflateSync(Buffer.from(contentsBytes))
+            .toString('utf-8');
         } catch {
           decoded = Buffer.from(contentsBytes).toString('utf-8');
         }
@@ -143,16 +147,24 @@ describe('PdfService (Tamper-Evident Authoritative PDF Engine)', () => {
     expect(extractedText).toContain(policyNumber);
     expect(extractedText).toContain(quotationCode);
     expect(extractedText).toContain(calculationSnapshot.inputs.customerName);
-    expect(extractedText).toContain(calculationSnapshot.inputs.registrationNumber);
+    expect(extractedText).toContain(
+      calculationSnapshot.inputs.registrationNumber,
+    );
     expect(extractedText).toContain(calculationSnapshot.inputs.chassisNumber);
     expect(extractedText).toContain(calculationSnapshot.inputs.engineNumber);
     expect(extractedText).toContain(calculationSnapshot.inputs.insurerName);
     expect(extractedText).toContain(calculationSnapshot.inputs.policyStartDate);
     expect(extractedText).toContain(calculationSnapshot.inputs.policyEndDate);
     expect(extractedText).toContain(`Rs. ${calculationSnapshot.inputs.idv}`);
-    expect(extractedText).toContain(`Rs. ${calculationSnapshot.inputs.netBasePremium}`);
-    expect(extractedText).toContain(`Rs. ${calculationSnapshot.inputs.gstAmount}`);
-    expect(extractedText).toContain(`Rs. ${calculationSnapshot.inputs.totalPayable}`);
+    expect(extractedText).toContain(
+      `Rs. ${calculationSnapshot.inputs.netBasePremium}`,
+    );
+    expect(extractedText).toContain(
+      `Rs. ${calculationSnapshot.inputs.gstAmount}`,
+    );
+    expect(extractedText).toContain(
+      `Rs. ${calculationSnapshot.inputs.totalPayable}`,
+    );
     expect(extractedText).toContain(paymentTxn);
 
     // 5. Assert Financial Mathematical Integrity
@@ -163,4 +175,3 @@ describe('PdfService (Tamper-Evident Authoritative PDF Engine)', () => {
     expect(netBaseExtracted + gstExtracted).toBeCloseTo(totalExtracted, 2);
   });
 });
-

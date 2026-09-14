@@ -172,8 +172,13 @@ export class NotificationService {
         channel: 'EMAIL',
         category: 'POLICIES',
         subject: 'Your Policy {{policyNumber}} is Active',
-        bodyTemplate: 'Dear {{customerName}}, your policy {{policyNumber}} has been successfully issued with {{insurerName}}.',
-        sampleData: { customerName: 'Ramesh Patel', policyNumber: 'POL-001049', insurerName: 'HDFC ERGO' },
+        bodyTemplate:
+          'Dear {{customerName}}, your policy {{policyNumber}} has been successfully issued with {{insurerName}}.',
+        sampleData: {
+          customerName: 'Ramesh Patel',
+          policyNumber: 'POL-001049',
+          insurerName: 'HDFC ERGO',
+        },
         isSystem: true,
       },
       {
@@ -183,8 +188,14 @@ export class NotificationService {
         channel: 'WHATSAPP',
         category: 'RENEWALS',
         subject: 'Policy Renewal Reminder',
-        bodyTemplate: 'Hi {{customerName}}, your motor policy {{policyNumber}} expires on {{expiryDate}}. Renew today to retain your {{ncb}}% NCB bonus!',
-        sampleData: { customerName: 'Ramesh Patel', policyNumber: 'POL-001049', expiryDate: '2027-08-01', ncb: '25' },
+        bodyTemplate:
+          'Hi {{customerName}}, your motor policy {{policyNumber}} expires on {{expiryDate}}. Renew today to retain your {{ncb}}% NCB bonus!',
+        sampleData: {
+          customerName: 'Ramesh Patel',
+          policyNumber: 'POL-001049',
+          expiryDate: '2027-08-01',
+          ncb: '25',
+        },
         isSystem: true,
       },
       {
@@ -194,7 +205,8 @@ export class NotificationService {
         channel: 'SMS',
         category: 'CLAIMS',
         subject: 'Claim Registered',
-        bodyTemplate: 'Claim {{claimNumber}} registered for policy {{policyNumber}}. Our surveyor will contact you shortly.',
+        bodyTemplate:
+          'Claim {{claimNumber}} registered for policy {{policyNumber}}. Our surveyor will contact you shortly.',
         sampleData: { claimNumber: 'CLM-009124', policyNumber: 'POL-001049' },
         isSystem: true,
       },
@@ -202,7 +214,9 @@ export class NotificationService {
   }
 
   async updateNotificationTemplate(id: string, bodyTemplate: string) {
-    const existing = await this.prisma.notificationTemplate.findUnique({ where: { id } });
+    const existing = await this.prisma.notificationTemplate.findUnique({
+      where: { id },
+    });
     if (!existing) {
       return { id, bodyTemplate, updated: true };
     }

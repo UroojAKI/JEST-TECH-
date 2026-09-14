@@ -108,13 +108,18 @@ export class FinanceController {
           (sum, allocation) => sum + Number(allocation.amount || 0),
           0,
         );
-        outstandingPremium += Math.max(0, Number(invoice.totalAmount || 0) - paid);
+        outstandingPremium += Math.max(
+          0,
+          Number(invoice.totalAmount || 0) - paid,
+        );
       }
 
       const todayCollections = Number(todayReceipts._sum.amount || 0);
       const monthlyCollections = Number(monthlyReceipts._sum.amount || 0);
       const totalCommissionAccrued = Number(accruedCommission._sum.amount || 0);
-      const totalCommissionRealized = Number(realizedCommission._sum.amount || 0);
+      const totalCommissionRealized = Number(
+        realizedCommission._sum.amount || 0,
+      );
 
       return {
         todayCollections,
@@ -260,7 +265,9 @@ export class FinanceController {
         date: r.createdAt.toISOString(),
       }));
     } catch {
-      throw new InternalServerErrorException('Unable to load payments register');
+      throw new InternalServerErrorException(
+        'Unable to load payments register',
+      );
     }
   }
 
@@ -321,7 +328,9 @@ export class FinanceController {
         take: 50,
       });
     } catch {
-      throw new InternalServerErrorException('Unable to load commission register');
+      throw new InternalServerErrorException(
+        'Unable to load commission register',
+      );
     }
   }
 
@@ -352,7 +361,9 @@ export class FinanceController {
 
     if (user.role === RoleType.BRANCH_MANAGER) {
       if (!user.branchId || commission.user.branchId !== user.branchId) {
-        throw new ForbiddenException('Commission is outside the actor branch scope');
+        throw new ForbiddenException(
+          'Commission is outside the actor branch scope',
+        );
       }
     }
 
@@ -406,7 +417,9 @@ export class FinanceController {
         take: 50,
       });
     } catch {
-      throw new InternalServerErrorException('Unable to load settlement register');
+      throw new InternalServerErrorException(
+        'Unable to load settlement register',
+      );
     }
   }
 
@@ -414,29 +427,117 @@ export class FinanceController {
   @Roles(
     RoleType.SUPER_ADMIN,
     RoleType.ADMIN,
+    RoleType.SYSTEM_ADMINISTRATOR,
+    RoleType.MD_CEO,
     RoleType.FINANCE,
+    RoleType.FINANCE_ACCOUNTS_EXECUTIVE,
+    RoleType.CHIEF_FINANCE_OFFICER,
     RoleType.BRANCH_MANAGER,
     RoleType.SALES_AGENT,
+    RoleType.SALES_EXECUTIVE,
+    RoleType.POSP_ADVISOR,
   )
   @ApiOperation({ summary: 'Get employee sales & renewal incentives' })
-  async getIncentives() {
-    throw new NotFoundException(
-      'Incentive register is not implemented in the current financial schema',
-    );
+  async getIncentives(@CurrentUser() user: RequestUser) {
+    const isGlobal = [
+      RoleType.SUPER_ADMIN,
+      RoleType.ADMIN,
+      RoleType.SYSTEM_ADMINISTRATOR,
+      RoleType.MD_CEO,
+      RoleType.FINANCE,
+      RoleType.FINANCE_ACCOUNTS_EXECUTIVE,
+      RoleType.CHIEF_FINANCE_OFFICER,
+    ].includes(user.role as any);
+
+    const where: any = isGlobal ? {} : { userId: user.id };
+    const commissions = await this.prisma.commission.findMany({
+      where,
+      include: {
+        user: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            employeeCode: true,
+            branch: true,
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 100,
+    });
+
+    const totalAccrued = commissions
+      .filter((c) => c.status === 'ACCRUED')
+      .reduce((sum, c) => sum + Number(c.amount || 0), 0);
+    const totalApproved = commissions
+      .filter((c) => c.status === 'APPROVED' || c.status === 'REALIZED')
+      .reduce((sum, c) => sum + Number(c.amount || 0), 0);
+
+    return {
+      summary: {
+        totalAccrued,
+        totalApproved,
+        count: commissions.length,
+      },
+      items: (commissions as any[]).map((c: any) => ({
+        id: c.id,
+        agentName:
+          `${c.user?.firstName || ''} ${c.user?.lastName || ''}`.trim(),
+        employeeCode: c.user?.employeeCode || null,
+        branch: c.user?.branch?.name || 'Main Branch',
+        policyNumber: c.policy?.policyNumber || null,
+        policyPremium: Number(c.policy?.premiumAmount || 0),
+        incentiveAmount: Number(c.amount || 0),
+        rate: 0,
+        status: c.status,
+        calculatedAt: c.createdAt,
+      })),
+    };
   }
 
   @Get('vouchers/:id')
   @Roles(
     RoleType.SUPER_ADMIN,
     RoleType.ADMIN,
+    RoleType.SYSTEM_ADMINISTRATOR,
+    RoleType.MD_CEO,
     RoleType.FINANCE,
+    RoleType.FINANCE_ACCOUNTS_EXECUTIVE,
+    RoleType.CHIEF_FINANCE_OFFICER,
     RoleType.BRANCH_MANAGER,
   )
   @ApiOperation({ summary: 'Get voucher details by ID' })
   async getVoucher(@Param('id') id: string) {
-    throw new NotFoundException(
-      `Voucher ${id} is not implemented in the current financial schema`,
-    );
+    const isUUID =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+        id,
+      );
+    const entry = await this.prisma.journalEntry.findFirst({
+      where: isUUID
+        ? { OR: [{ id }, { entryNumber: id }] }
+        : { entryNumber: id },
+      include: {
+        lines: { include: { account: true } },
+      },
+    });
+
+    if (entry) {
+      return entry;
+    }
+
+    const receipt = await this.prisma.receipt.findFirst({
+      where: isUUID ? { OR: [{ id }, { receiptNum: id }] } : { receiptNum: id },
+      include: {
+        allocations: true,
+      },
+    });
+
+    if (receipt) {
+      return receipt;
+    }
+
+    throw new NotFoundException(`Voucher with ID or number ${id} not found.`);
   }
 
   // ── EPIC-29: Financial Exports Pipeline (DEF-012 Fix) ────────────────────
@@ -509,4 +610,3 @@ export class FinanceController {
     return res.send(csvHeaders + csvRows);
   }
 }
-

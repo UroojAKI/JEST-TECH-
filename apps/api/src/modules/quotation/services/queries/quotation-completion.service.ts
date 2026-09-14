@@ -1,6 +1,10 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../../../database/prisma.service';
-import { InspectionStatus, MotorWorkflowState, QuotationStatus } from '@prisma/client';
+import {
+  InspectionStatus,
+  MotorWorkflowState,
+  QuotationStatus,
+} from '@prisma/client';
 
 export interface MissingFieldItem {
   field: string;
@@ -34,7 +38,9 @@ export interface QuotationCompletionResult {
 export class QuotationCompletionService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async getCompletion(quotationIdOrCode: string): Promise<QuotationCompletionResult> {
+  async getCompletion(
+    quotationIdOrCode: string,
+  ): Promise<QuotationCompletionResult> {
     const isUUID =
       /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
         quotationIdOrCode,
@@ -42,7 +48,12 @@ export class QuotationCompletionService {
 
     const quotation = await this.prisma.quotation.findFirst({
       where: isUUID
-        ? { OR: [{ id: quotationIdOrCode }, { quotationCode: quotationIdOrCode }] }
+        ? {
+            OR: [
+              { id: quotationIdOrCode },
+              { quotationCode: quotationIdOrCode },
+            ],
+          }
         : { quotationCode: quotationIdOrCode },
       include: {
         contact: true,
@@ -74,23 +85,48 @@ export class QuotationCompletionService {
 
     // ── SECTION 1: Customer KYC & Identity ──────────────────────────────
     const customerMissing: MissingFieldItem[] = [];
-    let customerApplicable = 5;
+    const customerApplicable = 5;
     let customerCompleted = 0;
 
     if (contact.firstName && contact.lastName) customerCompleted++;
-    else customerMissing.push({ field: 'customerName', label: 'Full Customer Name', requiredFor: 'QUOTATION_CREATION' });
+    else
+      customerMissing.push({
+        field: 'customerName',
+        label: 'Full Customer Name',
+        requiredFor: 'QUOTATION_CREATION',
+      });
 
     if (contact.phone) customerCompleted++;
-    else customerMissing.push({ field: 'phone', label: 'Mobile Number', requiredFor: 'QUOTATION_CREATION' });
+    else
+      customerMissing.push({
+        field: 'phone',
+        label: 'Mobile Number',
+        requiredFor: 'QUOTATION_CREATION',
+      });
 
     if (contact.email) customerCompleted++;
-    else customerMissing.push({ field: 'email', label: 'Email Address', requiredFor: 'POLICY_ISSUANCE' });
+    else
+      customerMissing.push({
+        field: 'email',
+        label: 'Email Address',
+        requiredFor: 'POLICY_ISSUANCE',
+      });
 
     if (contact.dateOfBirth) customerCompleted++;
-    else customerMissing.push({ field: 'dateOfBirth', label: 'Date of Birth', requiredFor: 'POLICY_ISSUANCE' });
+    else
+      customerMissing.push({
+        field: 'dateOfBirth',
+        label: 'Date of Birth',
+        requiredFor: 'POLICY_ISSUANCE',
+      });
 
     if (contact.panNumber || contact.aadhaarNumber) customerCompleted++;
-    else customerMissing.push({ field: 'panNumber', label: 'PAN or Aadhaar KYC', requiredFor: 'POLICY_ISSUANCE' });
+    else
+      customerMissing.push({
+        field: 'panNumber',
+        label: 'PAN or Aadhaar KYC',
+        requiredFor: 'POLICY_ISSUANCE',
+      });
 
     sections.push({
       section: 'customer',
@@ -103,25 +139,54 @@ export class QuotationCompletionService {
 
     // ── SECTION 2: Vehicle Technical Details ───────────────────────────
     const vehicleMissing: MissingFieldItem[] = [];
-    let vehicleApplicable = 5;
+    const vehicleApplicable = 5;
     let vehicleCompleted = 0;
 
-    const makeModel = (vehicle.make && vehicle.model) || (quotation.title && quotation.title !== 'Motor Insurance');
+    const makeModel =
+      (vehicle.make && vehicle.model) ||
+      (quotation.title && quotation.title !== 'Motor Insurance');
     if (makeModel) vehicleCompleted++;
-    else vehicleMissing.push({ field: 'makeModel', label: 'Vehicle Make & Model', requiredFor: 'QUOTATION_CREATION' });
+    else
+      vehicleMissing.push({
+        field: 'makeModel',
+        label: 'Vehicle Make & Model',
+        requiredFor: 'QUOTATION_CREATION',
+      });
 
     const regNo = vehicle.registrationNumber || quotation.registrationNumber;
-    if (regNo && regNo.trim() && regNo.toUpperCase() !== 'NEW') vehicleCompleted++;
-    else vehicleMissing.push({ field: 'registrationNumber', label: 'Registration Plate Number', requiredFor: 'POLICY_ISSUANCE' });
+    if (regNo && regNo.trim() && regNo.toUpperCase() !== 'NEW')
+      vehicleCompleted++;
+    else
+      vehicleMissing.push({
+        field: 'registrationNumber',
+        label: 'Registration Plate Number',
+        requiredFor: 'POLICY_ISSUANCE',
+      });
 
     if (vehicle.engineNumber && vehicle.engineNumber.trim()) vehicleCompleted++;
-    else vehicleMissing.push({ field: 'engineNumber', label: 'Engine Number', requiredFor: 'POLICY_ISSUANCE' });
+    else
+      vehicleMissing.push({
+        field: 'engineNumber',
+        label: 'Engine Number',
+        requiredFor: 'POLICY_ISSUANCE',
+      });
 
-    if (vehicle.chassisNumber && vehicle.chassisNumber.trim()) vehicleCompleted++;
-    else vehicleMissing.push({ field: 'chassisNumber', label: 'Chassis Number', requiredFor: 'POLICY_ISSUANCE' });
+    if (vehicle.chassisNumber && vehicle.chassisNumber.trim())
+      vehicleCompleted++;
+    else
+      vehicleMissing.push({
+        field: 'chassisNumber',
+        label: 'Chassis Number',
+        requiredFor: 'POLICY_ISSUANCE',
+      });
 
     if (vehicle.registrationDate) vehicleCompleted++;
-    else vehicleMissing.push({ field: 'registrationDate', label: 'Registration Date', requiredFor: 'POLICY_ISSUANCE' });
+    else
+      vehicleMissing.push({
+        field: 'registrationDate',
+        label: 'Registration Date',
+        requiredFor: 'POLICY_ISSUANCE',
+      });
 
     sections.push({
       section: 'vehicle',
@@ -134,17 +199,34 @@ export class QuotationCompletionService {
 
     // ── SECTION 3: Coverage & Pricing ──────────────────────────────────
     const coverageMissing: MissingFieldItem[] = [];
-    let coverageApplicable = 3;
+    const coverageApplicable = 3;
     let coverageCompleted = 0;
 
-    if (quotation.sumInsured && Number(quotation.sumInsured) > 0) coverageCompleted++;
-    else coverageMissing.push({ field: 'sumInsured', label: 'Insured Declared Value (IDV)', requiredFor: 'QUOTATION_CREATION' });
+    if (quotation.sumInsured && Number(quotation.sumInsured) > 0)
+      coverageCompleted++;
+    else
+      coverageMissing.push({
+        field: 'sumInsured',
+        label: 'Insured Declared Value (IDV)',
+        requiredFor: 'QUOTATION_CREATION',
+      });
 
     if (quotation.policyType) coverageCompleted++;
-    else coverageMissing.push({ field: 'policyType', label: 'Policy Type Selection', requiredFor: 'QUOTATION_CREATION' });
+    else
+      coverageMissing.push({
+        field: 'policyType',
+        label: 'Policy Type Selection',
+        requiredFor: 'QUOTATION_CREATION',
+      });
 
-    if (quotation.totalPremium && Number(quotation.totalPremium) > 0) coverageCompleted++;
-    else coverageMissing.push({ field: 'totalPremium', label: 'Authoritative Premium Calculation', requiredFor: 'QUOTATION_CREATION' });
+    if (quotation.totalPremium && Number(quotation.totalPremium) > 0)
+      coverageCompleted++;
+    else
+      coverageMissing.push({
+        field: 'totalPremium',
+        label: 'Authoritative Premium Calculation',
+        requiredFor: 'QUOTATION_CREATION',
+      });
 
     sections.push({
       section: 'coverage',
@@ -156,20 +238,47 @@ export class QuotationCompletionService {
     });
 
     // ── SECTION 4: Previous Insurance (Conditional) ─────────────────────
-    const isRolloverOrRenewal = quotation.policyType !== 'NEW_BUSINESS' && previousPolicy;
+    const isRolloverOrRenewal =
+      quotation.policyType !== 'NEW_BUSINESS' && previousPolicy;
     if (isRolloverOrRenewal) {
       const prevMissing: MissingFieldItem[] = [];
-      let prevApplicable = 3;
+      const prevApplicable = 3;
       let prevCompleted = 0;
 
-      if (previousPolicy?.previousPolicyNumber && previousPolicy.previousPolicyNumber.trim()) prevCompleted++;
-      else prevMissing.push({ field: 'previousPolicyNumber', label: 'Previous Policy Number', requiredFor: 'POLICY_ISSUANCE', condition: 'ROLLOVER_RENEWAL' });
+      if (
+        previousPolicy?.previousPolicyNumber &&
+        previousPolicy.previousPolicyNumber.trim()
+      )
+        prevCompleted++;
+      else
+        prevMissing.push({
+          field: 'previousPolicyNumber',
+          label: 'Previous Policy Number',
+          requiredFor: 'POLICY_ISSUANCE',
+          condition: 'ROLLOVER_RENEWAL',
+        });
 
-      if (previousPolicy?.previousInsurerName && previousPolicy.previousInsurerName.trim()) prevCompleted++;
-      else prevMissing.push({ field: 'previousInsurerName', label: 'Previous Insurer Name', requiredFor: 'POLICY_ISSUANCE', condition: 'ROLLOVER_RENEWAL' });
+      if (
+        previousPolicy?.previousInsurerName &&
+        previousPolicy.previousInsurerName.trim()
+      )
+        prevCompleted++;
+      else
+        prevMissing.push({
+          field: 'previousInsurerName',
+          label: 'Previous Insurer Name',
+          requiredFor: 'POLICY_ISSUANCE',
+          condition: 'ROLLOVER_RENEWAL',
+        });
 
       if (previousPolicy?.previousPolicyExpiryDate) prevCompleted++;
-      else prevMissing.push({ field: 'previousPolicyExpiryDate', label: 'Previous Policy Expiry Date', requiredFor: 'POLICY_ISSUANCE', condition: 'ROLLOVER_RENEWAL' });
+      else
+        prevMissing.push({
+          field: 'previousPolicyExpiryDate',
+          label: 'Previous Policy Expiry Date',
+          requiredFor: 'POLICY_ISSUANCE',
+          condition: 'ROLLOVER_RENEWAL',
+        });
 
       sections.push({
         section: 'previousInsurance',
@@ -249,14 +358,24 @@ export class QuotationCompletionService {
     }
 
     // Calculate dynamic totals
-    const totalApplicable = sections.reduce((sum, s) => sum + s.applicableCount, 0);
-    const totalCompleted = sections.reduce((sum, s) => sum + s.completedCount, 0);
-    const completionPercentage = totalApplicable > 0 ? Math.round((totalCompleted / totalApplicable) * 100) : 0;
+    const totalApplicable = sections.reduce(
+      (sum, s) => sum + s.applicableCount,
+      0,
+    );
+    const totalCompleted = sections.reduce(
+      (sum, s) => sum + s.completedCount,
+      0,
+    );
+    const completionPercentage =
+      totalApplicable > 0
+        ? Math.round((totalCompleted / totalApplicable) * 100)
+        : 0;
 
     const canApprove = coverageMissing.length === 0 && customerCompleted >= 2;
     const canIssuePolicy =
       completionPercentage === 100 &&
-      (quotation.status === QuotationStatus.APPROVED || quotation.status === QuotationStatus.ACCEPTED) &&
+      (quotation.status === QuotationStatus.APPROVED ||
+        quotation.status === QuotationStatus.ACCEPTED) &&
       isPaid;
 
     return {
@@ -295,9 +414,12 @@ export class QuotationCompletionService {
     // 1. Update Contact fields
     const contactUpdates: any = {};
     if (updates.email !== undefined) contactUpdates.email = updates.email;
-    if (updates.panNumber !== undefined) contactUpdates.panNumber = updates.panNumber;
-    if (updates.aadhaarNumber !== undefined) contactUpdates.aadhaarNumber = updates.aadhaarNumber;
-    if (updates.dateOfBirth !== undefined) contactUpdates.dateOfBirth = new Date(updates.dateOfBirth);
+    if (updates.panNumber !== undefined)
+      contactUpdates.panNumber = updates.panNumber;
+    if (updates.aadhaarNumber !== undefined)
+      contactUpdates.aadhaarNumber = updates.aadhaarNumber;
+    if (updates.dateOfBirth !== undefined)
+      contactUpdates.dateOfBirth = new Date(updates.dateOfBirth);
     if (updates.customerName !== undefined) {
       const parts = updates.customerName.trim().split(' ');
       contactUpdates.firstName = parts[0];
@@ -312,12 +434,17 @@ export class QuotationCompletionService {
 
     // 2. Update Vehicle fields
     const vehicleUpdates: any = {};
-    if (updates.engineNumber !== undefined) vehicleUpdates.engineNumber = updates.engineNumber;
-    if (updates.chassisNumber !== undefined) vehicleUpdates.chassisNumber = updates.chassisNumber;
-    if (updates.registrationNumber !== undefined) vehicleUpdates.registrationNumber = updates.registrationNumber;
-    if (updates.makeModel !== undefined) vehicleUpdates.makeModel = updates.makeModel;
+    if (updates.engineNumber !== undefined)
+      vehicleUpdates.engineNumber = updates.engineNumber;
+    if (updates.chassisNumber !== undefined)
+      vehicleUpdates.chassisNumber = updates.chassisNumber;
+    if (updates.registrationNumber !== undefined)
+      vehicleUpdates.registrationNumber = updates.registrationNumber;
+    if (updates.makeModel !== undefined)
+      vehicleUpdates.makeModel = updates.makeModel;
     else if (updates.make !== undefined || updates.model !== undefined) {
-      vehicleUpdates.makeModel = `${updates.make || ''} ${updates.model || ''}`.trim();
+      vehicleUpdates.makeModel =
+        `${updates.make || ''} ${updates.model || ''}`.trim();
     }
 
     if (Object.keys(vehicleUpdates).length > 0) {
@@ -333,8 +460,14 @@ export class QuotationCompletionService {
           data: {
             vehicleCode,
             category: 'PRIVATE_CAR',
-            registrationNumber: updates.registrationNumber || quotation.registrationNumber || 'PENDING',
-            makeModel: updates.makeModel || `${updates.make || ''} ${updates.model || ''}`.trim() || 'Standard Vehicle',
+            registrationNumber:
+              updates.registrationNumber ||
+              quotation.registrationNumber ||
+              'PENDING',
+            makeModel:
+              updates.makeModel ||
+              `${updates.make || ''} ${updates.model || ''}`.trim() ||
+              'Standard Vehicle',
             engineNumber: updates.engineNumber,
             chassisNumber: updates.chassisNumber,
             contactId: quotation.contactId,
@@ -346,11 +479,15 @@ export class QuotationCompletionService {
         });
       }
       const meta = (quotation.motorMetadata as any) || {};
-      meta.vehicleDetails = { ...(meta.vehicleDetails || {}), ...vehicleUpdates };
+      meta.vehicleDetails = {
+        ...(meta.vehicleDetails || {}),
+        ...vehicleUpdates,
+      };
       await this.prisma.quotation.update({
         where: { id: quotationId },
         data: {
-          registrationNumber: updates.registrationNumber || quotation.registrationNumber,
+          registrationNumber:
+            updates.registrationNumber || quotation.registrationNumber,
           motorMetadata: meta,
         },
       });

@@ -30,7 +30,9 @@ export class RolesGuard implements CanActivate {
       return false;
     }
 
-    const userRoles = (user.roles?.length ? user.roles : [user.role]).filter(Boolean);
+    const userRoles = (user.roles?.length ? user.roles : [user.role]).filter(
+      Boolean,
+    );
 
     // Privileged system roles are explicitly defined as global role bypasses.
     // Do not extend this list based on a generic "employee" classification.

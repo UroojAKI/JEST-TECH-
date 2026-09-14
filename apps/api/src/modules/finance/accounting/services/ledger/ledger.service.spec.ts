@@ -20,7 +20,9 @@ describe('LedgerService', () => {
             },
             chartOfAccount: {
               findUnique: jest.fn(),
-              findMany: jest.fn().mockResolvedValue([{ id: 'acc-1' }, { id: 'acc-2' }]),
+              findMany: jest
+                .fn()
+                .mockResolvedValue([{ id: 'acc-1' }, { id: 'acc-2' }]),
             },
             journalLine: {
               aggregate: jest.fn(),

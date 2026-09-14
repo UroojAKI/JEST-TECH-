@@ -4,7 +4,12 @@ import request from 'supertest';
 import { HealthController } from './health.controller';
 import { HealthService } from './health.service';
 import { PrismaService } from '../../database/prisma.service';
-import { HealthCheckService, PrismaHealthIndicator, DiskHealthIndicator, MemoryHealthIndicator } from '@nestjs/terminus';
+import {
+  HealthCheckService,
+  PrismaHealthIndicator,
+  DiskHealthIndicator,
+  MemoryHealthIndicator,
+} from '@nestjs/terminus';
 
 describe('HealthController Live HTTP Readiness & Liveness Probes (Task 7.4)', () => {
   let app: INestApplication;
@@ -13,7 +18,10 @@ describe('HealthController Live HTTP Readiness & Liveness Probes (Task 7.4)', ()
   beforeEach(async () => {
     mockHealthService = {
       checkReady: jest.fn().mockResolvedValue(true),
-      checkV2: jest.fn().mockResolvedValue({ status: 'ok', timestamp: new Date().toISOString() }),
+      checkV2: jest.fn().mockResolvedValue({
+        status: 'ok',
+        timestamp: new Date().toISOString(),
+      }),
     };
 
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -23,7 +31,10 @@ describe('HealthController Live HTTP Readiness & Liveness Probes (Task 7.4)', ()
         { provide: HealthCheckService, useValue: { check: jest.fn() } },
         { provide: PrismaHealthIndicator, useValue: { pingCheck: jest.fn() } },
         { provide: DiskHealthIndicator, useValue: { checkStorage: jest.fn() } },
-        { provide: MemoryHealthIndicator, useValue: { checkHeap: jest.fn(), checkRSS: jest.fn() } },
+        {
+          provide: MemoryHealthIndicator,
+          useValue: { checkHeap: jest.fn(), checkRSS: jest.fn() },
+        },
         { provide: PrismaService, useValue: {} },
       ],
     }).compile();

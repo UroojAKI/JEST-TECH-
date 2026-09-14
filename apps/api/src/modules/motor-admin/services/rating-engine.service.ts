@@ -247,15 +247,22 @@ export class RatingEngineService {
       'AUTO_RICKSHAW',
     ].includes(variant.model.vehicleType);
 
-    // Default rates
-    const odGstRate = 0.18;
+    // Statutory GST Rates (retrieved from SystemConfig if configured, fallback to standard 18%)
+    let odGstRate = 0.18;
     let tpGstRate = 0.18;
-
-    // Apply different tax rates for commercial vehicles if needed based on business rules
-    if (isCommercial) {
-      // In many jurisdictions, commercial passenger/goods TP liability may have 12% GST instead of 18%.
-      // This allows the rating engine to diverge safely.
-      tpGstRate = 0.18; // Placeholder: set to 0.12 if commercial TP GST drops to 12%
+    try {
+      const [odGstConfig, tpGstConfig] = await Promise.all([
+        this.prisma.systemConfig.findUnique({ where: { key: 'gst_rate_od' } }),
+        this.prisma.systemConfig.findUnique({
+          where: {
+            key: isCommercial ? 'gst_rate_commercial_tp' : 'gst_rate_tp',
+          },
+        }),
+      ]);
+      if (odGstConfig?.value) odGstRate = Number(odGstConfig.value);
+      if (tpGstConfig?.value) tpGstRate = Number(tpGstConfig.value);
+    } catch (_e) {
+      // Use statutory default rates
     }
 
     const odNetPremium = finalOdPremium + addonPremium; // OD and OD-addons

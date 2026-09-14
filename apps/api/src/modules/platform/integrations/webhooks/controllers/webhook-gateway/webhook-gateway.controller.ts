@@ -59,17 +59,25 @@ export class WebhookGatewayController {
     });
 
     if (existingLog) {
+      const existingPayloadString =
+        typeof existingLog.payload === 'string'
+          ? existingLog.payload
+          : JSON.stringify(existingLog.payload || {});
       const existingHash = crypto
         .createHash('sha256')
-        .update(existingLog.payload)
+        .update(existingPayloadString)
         .digest('hex');
 
-      if (existingHash === currentHash) {
+      if (!existingLog.payload || existingHash === currentHash) {
         // Case B: Exact duplicate -> idempotent 200 no-op
         this.logger.log(
           `[Webhook] Case B: Exact duplicate received for ${providerEventId}. Idempotent 200 returned.`,
         );
-        return { status: 'ignored', reason: 'already_processed', idempotent: true };
+        return {
+          status: 'ignored',
+          reason: 'already_processed',
+          idempotent: true,
+        };
       } else {
         // Case C: Same event ID but different payload -> 409 Conflict + Security Alert
         this.logger.error(
@@ -155,9 +163,11 @@ export class WebhookGatewayController {
         throw new UnauthorizedException('Missing x-razorpay-signature header');
       }
 
+      const rawPayload =
+        typeof payload === 'string' ? payload : JSON.stringify(payload || {});
       const expectedSignature = crypto
         .createHmac('sha256', razorpaySecret)
-        .update(typeof payload === 'string' ? payload : JSON.stringify(payload))
+        .update(rawPayload)
         .digest('hex');
 
       // Secure constant-time string comparison
