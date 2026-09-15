@@ -1,4 +1,5 @@
 import { Controller, Get, UseGuards, Req } from '@nestjs/common';
+import { RoleType } from '@prisma/client';
 import { DashboardAnalyticsService } from './dashboard-analytics.service';
 import { JwtAuthGuard } from '../../../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../../../auth/guards/roles.guard';
@@ -10,13 +11,13 @@ export class DashboardAnalyticsController {
   constructor(private readonly dashboardService: DashboardAnalyticsService) {}
 
   @Get('sales')
-  @Roles('SALES_AGENT', 'SALES_EXECUTIVE')
+  @Roles(RoleType.AGENT, RoleType.BACK_OFFICE, RoleType.ADMIN)
   async getSalesDashboard(@Req() req) {
     return this.dashboardService.getSalesMetrics(req.user.id);
   }
 
   @Get('sales-manager')
-  @Roles('SALES_MANAGER', 'BRANCH_MANAGER')
+  @Roles(RoleType.BACK_OFFICE, RoleType.ADMIN)
   async getSalesManagerDashboard(@Req() req) {
     return this.dashboardService.getSalesManagerMetrics(
       req.user.id,
@@ -25,7 +26,7 @@ export class DashboardAnalyticsController {
   }
 
   @Get('renewals')
-  @Roles('RENEWAL_EXECUTIVE')
+  @Roles(RoleType.BACK_OFFICE, RoleType.ADMIN)
   async getRenewalDashboard(@Req() req) {
     return this.dashboardService.getRenewalMetrics(req.user.id);
   }

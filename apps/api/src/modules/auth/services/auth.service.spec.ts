@@ -5,6 +5,7 @@ import { ConfigService } from '@nestjs/config';
 import { AuthService } from './auth.service';
 import { UsersService } from '../../users/services/users.service';
 import { TokenService } from './token.service';
+import { PrismaService } from '../../../database/prisma.service';
 
 jest.mock('argon2', () => ({
   verify: jest.fn(),
@@ -22,10 +23,10 @@ describe('AuthService', () => {
     firstName: 'Test',
     lastName: 'User',
     passwordHash: '$argon2id$v=19$m=65536,t=3,p=4$hash',
-    role: { code: 'SALES_AGENT', id: 'role-id', permissions: [] },
+    role: { code: 'AGENT', type: 'AGENT', id: 'role-id', permissions: [] },
     organizationId: 'org-test-123',
-    // auth.service.ts checks user.status (not isActive) — must be 'ACTIVE'
-    // to reach the password verification step
+    companyId: 'org-test-123',
+    authVersion: 1,
     status: 'ACTIVE',
   };
 
@@ -53,6 +54,15 @@ describe('AuthService', () => {
         AuthService,
         { provide: UsersService, useValue: usersService },
         { provide: TokenService, useValue: tokenService },
+        {
+          provide: PrismaService,
+          useValue: {
+            $transaction: jest.fn(),
+            user: { update: jest.fn() },
+            refreshToken: { updateMany: jest.fn() },
+            auditLog: { create: jest.fn() },
+          },
+        },
         {
           provide: ConfigService,
           useValue: {

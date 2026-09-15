@@ -75,6 +75,345 @@ export class QuotationController {
   @HttpCode(HttpStatus.CREATED)
   @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT)
   @ApiOperation({
+    summary:
+      'Capture a Motor quotation using an authoritative backend calculation.',
+  })
+  async motorCapture(
+    @Body() dto: CreateMotorCaptureDto,
+    @CurrentUser() user: RequestUser,
+  ) {
+    const quotationCode = await this.numberingEngine.generateNext('QUOTATION');
+
+    let contactId = dto.contactId;
+    if (!contactId && dto.leadId) {
+      const lead = await this.prisma.lead.findUnique({
+        where: { id: dto.leadId },
+        select: { contactId: true },
+      });
+      contactId = lead?.contactId || undefined;
+    }
+
+    const proposer = dto.proposerDetails || {};
+    if (!contactId && proposer['mobileNumber']) {
+      const existingByPhone = await this.prisma.contact.findFirst({
+        where: { phone: String(proposer['mobileNumber']).trim() },
+        select: { id: true },
+      });
+      contactId = existingByPhone?.id;
+    }
+
+    if (!contactId && proposer['emailId']) {
+      const existingByEmail = await this.prisma.contact.findFirst({
+        where: { email: String(proposer['emailId']).trim() },
+        select: { id: true },
+      });
+      contactId = existingByEmail?.id;
+    }
+
+    if (!contactId) {
+      const mobileNumber = String(proposer['mobileNumber'] || '').trim();
+      if (!mobileNumber) {
+        throw new BadRequestException(
+          'Proposer mobile number is required to link or create a customer contact.',
+        );
+      }
+      const [firstName, ...rest] = (
+        proposer['customerName'] || 'Motor Customer'
+      ).split(' ');
+      const newContact = await this.contactsService.create(
+        {
+          firstName: firstName || 'Customer',
+          lastName: rest.join(' ') || '',
+          email: proposer['emailId']
+            ? String(proposer['emailId']).trim()
+            : undefined,
+          phone: mobileNumber,
+          panNumber: proposer['panNumber']
+            ? String(proposer['panNumber']).trim()
+            : undefined,
+          type: 'INDIVIDUAL',
+        },
+        user.id,
+      );
+      contactId = newContact.id;
+    }
+
+    const policyDetails = (dto.policyDetails || {}) as any;
+    const vehicleDetails = (dto.vehicleDetails || {}) as any;
+    const saodVerification = (dto.saodVerification || {}) as any;
+    const policyTypeMap: Record<
+      string,
+      'THIRD_PARTY_ONLY' | 'STANDALONE_OD' | 'PACKAGE_COMPREHENSIVE'
+    > = {
+      TP_ONLY: 'THIRD_PARTY_ONLY',
+      SAOD: 'STANDALONE_OD',
+      PACKAGE: 'PACKAGE_COMPREHENSIVE',
+      THIRD_PARTY_ONLY: 'THIRD_PARTY_ONLY',
+      STANDALONE_OD: 'STANDALONE_OD',
+      PACKAGE_COMPREHENSIVE: 'PACKAGE_COMPREHENSIVE',
+    };
+
+    const calculationInput: any = {
+      vehicleCategory: dto.vehicleCategory,
+      vehicleSubType:
+        vehicleDetails.vehicleSubType || vehicleDetails.vehicleType,
+      vehicleStatus:
+        vehicleDetails.vehicleStatus === 'NEW' ? 'NEW' : 'EXISTING',
+      policyType: policyTypeMap[dto.policyType] || 'PACKAGE_COMPREHENSIVE',
+      policyTenure: Number(policyDetails.policyTenure || 1) || 1,
+      idv:
+        dto.idv || Number(policyDetails.insuredDeclaredValue || 0) || undefined,
+      ncbPercent: Number(dto.ncbPercentage || policyDetails.ncbPercentage || 0),
+      claimInExpiringPolicy:
+        String(policyDetails.claimInExpiringPolicy || '').toLowerCase() ===
+        'yes',
+      paCover: Boolean(policyDetails.paCoverOwner),
+      paidDriverLiability:
+        String(policyDetails.legalLiabilityPaidDriver || '').toLowerCase() ===
+        'yes',
+      addons: Array.isArray(policyDetails.addonsSelected)
+        ? policyDetails.addonsSelected
+            .map((addon: any) => ({
+              addonCode:
+                typeof addon === 'string'
+                  ? addon
+                  : addon.addonCode || addon.code,
+              ...(typeof addon === 'object' && addon.manualPrice !== undefined
+                ? { manualPrice: Number(addon.manualPrice) }
+                : {}),
+            }))
+            .filter((addon: any) => addon.addonCode)
+        : [],
+      activeTpPolicyNumber:
+        saodVerification.tpPolicyNumber ||
+        policyDetails.activeTPPolicyNumberValidity ||
+        undefined,
+      activeTpExpiryDate: saodVerification.tpExpiryDate || undefined,
+    };
+
+    const calcResult =
+      await this.motorCalculationService.calculate(calculationInput);
+
+    const motorMetadata = {
+      vehicleCategory: dto.vehicleCategory,
+      policyType: dto.policyType,
+      registrationNumber: dto.registrationNumber,
+      proposerDetails: dto.proposerDetails,
+      vehicleDetails: dto.vehicleDetails,
+      policyDetails: dto.policyDetails,
+      saodVerification: dto.saodVerification,
+      documents: dto.documents,
+      workflowStatus: 'READY_FOR_PROPOSAL',
+      capturedBy: user.id,
+      capturedAt: new Date().toISOString(),
+    };
+
+    const quotation = await this.prisma.quotation.create({
+      data: {
+        quotationCode,
+        title: `Motor ${dto.vehicleCategory} — ${dto.policyType} | ${dto.registrationNumber || 'New Vehicle'}`,
+        productType: 'MOTOR',
+        insurerName: dto.insurerName,
+        sumInsured: dto.idv || 0,
+        basePremium:
+          calcResult.outputs.baseOdPremium + calcResult.outputs.baseTpPremium,
+        gstAmount: calcResult.outputs.totalGst,
+        totalPremium: calcResult.outputs.totalPremium,
+        ncbPercentage: calcResult.inputs.effectiveNcb,
+        vehicleCategory: dto.vehicleCategory as any,
+        policyType: dto.policyType,
+        registrationNumber: dto.registrationNumber || null,
+        policyTenure: calcResult.inputs.tpTenure,
+        calculationSnapshot: calcResult as any,
+        calculationVersion: calcResult.calculationVersion,
+        // rateConfig (gstRate, discount limits, tariff IDs) is in calculationSnapshot.rateConfig.
+        issuanceStatus: 'PROPOSAL_READY',
+        motorMetadata,
+        expiryDate: new Date(Date.now() + 30 * 86400000),
+        contactId,
+        leadId: dto.leadId || null,
+        createdById: user.id,
+      },
+    });
+
+    if (dto.leadId) {
+      await this.prisma.lead
+        .update({
+          where: { id: dto.leadId },
+          data: {
+            status: 'QUOTE_PREPARED',
+            currentWorkflowStep: 'QUOTATION',
+          },
+        })
+        .catch((err) => {
+          console.warn(`Lead update after quote capture:`, err.message);
+        });
+    }
+
+    return {
+      message:
+        'Motor insurance quote captured using authoritative backend pricing',
+      quotationCode: quotation.quotationCode,
+      id: quotation.id,
+      vehicleCategory: quotation.vehicleCategory,
+      policyType: quotation.policyType,
+      registrationNumber: quotation.registrationNumber,
+      totalPremium: Number(quotation.totalPremium),
+      idv: Number(quotation.sumInsured),
+      ncbPercentage: Number(quotation.ncbPercentage),
+      status: 'READY_FOR_PROPOSAL',
+      createdAt: quotation.createdAt,
+    };
+  }
+
+  @SkipThrottle()
+  @Post('calculate')
+  @HttpCode(HttpStatus.OK)
+  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT)
+  calculate(@Body() dto: CalculateComparativeQuotesDto) {
+    return this.comparisonEngine.generateComparativeQuotes(dto);
+  }
+
+  @SkipThrottle()
+  @Post('enterprise-compare')
+  @HttpCode(HttpStatus.OK)
+  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT)
+  @ApiOperation({ summary: 'Enterprise Multi-Insurer Quotation Gateway' })
+  enterpriseCompare(@Body() dto: EnterpriseCompareDto) {
+    return this.comparisonEngine.generateEnterpriseInsurerComparisons(dto);
+  }
+
+  /**
+   * Retired intentionally. Motor issuance is now owned by POST /motor/quotes/:id/issue
+   * and can only be executed after the backend workflow gate passes.
+   */
+  @Post('wizard/issue-policy')
+  @HttpCode(HttpStatus.GONE)
+  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE)
+  retiredMotorIssuanceEndpoint() {
+    return {
+      message:
+        'This issuance endpoint is retired. Use POST /motor/quotes/:id/issue after payment and workflow gates pass.',
+    };
+  }
+
+  @Post()
+  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT)
+  create(@Body() dto: CreateQuotationDto, @CurrentUser() user: RequestUser) {
+    return this.generateQuotationService.execute(dto, user.id);
+  }
+
+  @Get()
+  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT)
+  findAll(
+    @CurrentUser() user: RequestUser,
+    @Query() pagination: PaginationDto,
+  ) {
+    return this.getQuotationService.executeAll(user, pagination);
+  }
+
+  @Get(':id/completion')
+  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT)
+  @ApiOperation({
+    summary:
+      'Evaluate dynamic checklist and progressive quotation completion percentage (§24, AUD-033)',
+  })
+  getCompletion(@Param('id') id: string) {
+    return this.quotationCompletionService.getCompletion(id);
+  }
+
+  @Get(':id')
+  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT)
+  findOne(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.getQuotationService.executeOne(id, user);
+  }
+
+  @Get(':id/history')
+  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT)
+  getHistory(@Param('id', ParseUUIDPipe) id: string) {
+    return this.getQuotationHistoryService.execute(id);
+  }
+
+  @Post('compare')
+  @HttpCode(HttpStatus.OK)
+  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT)
+  compare(@Body('ids') ids: string[]) {
+    return this.compareQuotationService.execute(ids);
+  }
+
+  @Post(':id/approve')
+  @HttpCode(HttpStatus.OK)
+  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE)
+  approve(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body('comments') comments: string,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.approveQuotationService.execute(
+      id,
+      comments,
+      user.id,
+      user.role,
+    );
+  }
+
+  @Post(':id/reject')
+  @HttpCode(HttpStatus.OK)
+  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE)
+  reject(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body('comments') comments: string,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.rejectQuotationService.execute(id, comments, user.id);
+  }
+
+  @Post(':id/convert')
+  @HttpCode(HttpStatus.OK)
+  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT)
+  convert(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.convertQuotationService.execute(id, user.id);
+  }
+
+  @Post(':id/accept')
+  @HttpCode(HttpStatus.OK)
+  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT)
+  @ApiOperation({
+    summary:
+      'Customer accepts a quotation version (locks version, qualifies lead, supersedes competing drafts)',
+  })
+  accept(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body('comments') comments: string,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.acceptQuotationService.execute(id, user.id, comments);
+  }
+
+  @Post(':id/versions')
+  @HttpCode(HttpStatus.CREATED)
+  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT)
+  @ApiOperation({
+    summary:
+      'Create an immutable revision version (V2, V3...) under an existing quotation',
+  })
+  createVersion(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: CreateQuotationVersionInputDto,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.createQuotationVersionService.execute(id, dto, user.id);
+  }
+
+  @Get(':id/versions')
+  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT)
+  @ApiOperation({
     summary: 'List all revision version snapshots for a quotation',
   })
   async getVersions(@Param('id', ParseUUIDPipe) id: string) {

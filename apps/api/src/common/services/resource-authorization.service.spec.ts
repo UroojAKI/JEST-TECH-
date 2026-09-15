@@ -24,8 +24,8 @@ describe('ResourceAuthorizationService & ScopeResolver', () => {
     branchCode: 'ANDHERI',
     departmentId: 'dept-sales',
     teamId: 'team-motor-a',
-    role: RoleType.SALES_AGENT,
-    roles: [RoleType.SALES_AGENT],
+    role: RoleType.AGENT,
+    roles: [RoleType.AGENT],
     permissions: ['quotation.read', 'quotation.create'],
     workspaces: ['SALES'],
     status: UserStatus.ACTIVE,
@@ -62,11 +62,10 @@ describe('ResourceAuthorizationService & ScopeResolver', () => {
     ).toThrow(ForbiddenException);
   });
 
-  it('allows a team leader to access records in their team and rejects another team', () => {
+  it('allows back office to access records across the organization', () => {
     const actor = createActor({
-      role: RoleType.TEAM_LEADER,
-      roles: [RoleType.TEAM_LEADER],
-      teamId: 'team-a',
+      role: RoleType.BACK_OFFICE,
+      roles: [RoleType.BACK_OFFICE],
     });
     expect(
       authzService.authorize(actor, 'QUOTATION', 'READ', {
@@ -76,37 +75,26 @@ describe('ResourceAuthorizationService & ScopeResolver', () => {
         createdBy: { ...resourceOrg.createdBy, teamId: 'team-a' },
       }),
     ).toBe(true);
-    expect(() =>
+    expect(
       authzService.authorize(actor, 'QUOTATION', 'READ', {
         id: 'quote-4',
         createdById: 'usr-agent-b',
         ...resourceOrg,
         createdBy: { ...resourceOrg.createdBy, teamId: 'team-b' },
       }),
-    ).toThrow(ForbiddenException);
+    ).toBe(true);
   });
 
-  it('allows a branch manager only inside their branch', () => {
+  it('rejects agent accessing out-of-scope branch record', () => {
     const actor = createActor({
-      role: RoleType.BRANCH_MANAGER,
-      roles: [RoleType.BRANCH_MANAGER],
-      branchId: 'branch-a',
+      role: RoleType.AGENT,
+      roles: [RoleType.AGENT],
+      userId: 'usr-agent-a',
     });
-    const inBranch = {
-      ...resourceOrg,
-      createdBy: { ...resourceOrg.createdBy, branchId: 'branch-a' },
-    };
     const outBranch = {
       ...resourceOrg,
       createdBy: { ...resourceOrg.createdBy, branchId: 'branch-b' },
     };
-    expect(
-      authzService.authorize(actor, 'QUOTATION', 'READ', {
-        id: 'quote-5',
-        createdById: 'usr-agent-a',
-        ...inBranch,
-      }),
-    ).toBe(true);
     expect(() =>
       authzService.authorize(actor, 'QUOTATION', 'READ', {
         id: 'quote-6',
@@ -130,8 +118,8 @@ describe('ResourceAuthorizationService & ScopeResolver', () => {
   it('requires organization context even for super admin', () => {
     const actor = createActor({
       organizationId: undefined,
-      role: RoleType.SUPER_ADMIN,
-      roles: [RoleType.SUPER_ADMIN],
+      role: RoleType.ADMIN,
+      roles: [RoleType.ADMIN],
     });
     expect(() =>
       authzService.authorize(actor, 'QUOTATION', 'READ', {
@@ -156,12 +144,12 @@ describe('ResourceAuthorizationService & ScopeResolver', () => {
 
   it('allows policy issuance only to policy issuers', () => {
     const operations = createActor({
-      role: RoleType.POLICY_ISSUANCE_EXECUTIVE,
-      roles: [RoleType.POLICY_ISSUANCE_EXECUTIVE],
+      role: RoleType.BACK_OFFICE,
+      roles: [RoleType.BACK_OFFICE],
     });
     const nonIssuer = createActor({
-      role: RoleType.CUSTOMER_SERVICE_EXECUTIVE,
-      roles: [RoleType.CUSTOMER_SERVICE_EXECUTIVE],
+      role: RoleType.AGENT,
+      roles: [RoleType.AGENT],
     });
     expect(authzService.authorize(operations, 'POLICY', 'ISSUE')).toBe(true);
     expect(() => authzService.authorize(nonIssuer, 'POLICY', 'ISSUE')).toThrow(
@@ -171,12 +159,12 @@ describe('ResourceAuthorizationService & ScopeResolver', () => {
 
   it('allows finance reconciliation only to finance roles', () => {
     const finance = createActor({
-      role: RoleType.FINANCE_ACCOUNTS_EXECUTIVE,
-      roles: [RoleType.FINANCE_ACCOUNTS_EXECUTIVE],
+      role: RoleType.BACK_OFFICE,
+      roles: [RoleType.BACK_OFFICE],
     });
     const sales = createActor({
-      role: RoleType.SALES_AGENT,
-      roles: [RoleType.SALES_AGENT],
+      role: RoleType.AGENT,
+      roles: [RoleType.AGENT],
     });
     expect(authzService.authorize(finance, 'PAYMENT', 'RECONCILE')).toBe(true);
     expect(() => authzService.authorize(sales, 'PAYMENT', 'RECONCILE')).toThrow(
@@ -196,19 +184,30 @@ describe('ResourceAuthorizationService & ScopeResolver', () => {
 
   it('creates organization-scoped filters for operational roles', () => {
     const actor = createActor({
-      role: RoleType.OPERATIONS,
-      roles: [RoleType.OPERATIONS],
+      role: RoleType.BACK_OFFICE,
+      roles: [RoleType.BACK_OFFICE],
     });
     expect(scopeResolver.resolveScopeFilter(actor, 'LEAD')).toEqual({
       OR: [
+        { companyId: 'org-mumbai' },
         {
           createdBy: {
-            branch: { zone: { region: { company: { id: 'org-mumbai' } } } },
+            OR: [
+              { companyId: 'org-mumbai' },
+              {
+                branch: { zone: { region: { company: { id: 'org-mumbai' } } } },
+              },
+            ],
           },
         },
         {
           assignedTo: {
-            branch: { zone: { region: { company: { id: 'org-mumbai' } } } },
+            OR: [
+              { companyId: 'org-mumbai' },
+              {
+                branch: { zone: { region: { company: { id: 'org-mumbai' } } } },
+              },
+            ],
           },
         },
       ],
@@ -235,8 +234,8 @@ describe('ResourceAuthorizationService & ScopeResolver', () => {
 
   it('fails closed for Operations without organization context', () => {
     const ops = createActor({
-      role: RoleType.OPERATIONS,
-      roles: [RoleType.OPERATIONS],
+      role: RoleType.BACK_OFFICE,
+      roles: [RoleType.BACK_OFFICE],
       organizationId: undefined,
     });
     expect(scopeResolver.resolveScopeFilter(ops, 'POLICY')).toEqual({
@@ -246,8 +245,8 @@ describe('ResourceAuthorizationService & ScopeResolver', () => {
 
   it('fails closed for Branch Manager without organization context', () => {
     const bm = createActor({
-      role: RoleType.BRANCH_MANAGER,
-      roles: [RoleType.BRANCH_MANAGER],
+      role: RoleType.BACK_OFFICE,
+      roles: [RoleType.BACK_OFFICE],
       organizationId: undefined,
     });
     expect(scopeResolver.resolveScopeFilter(bm, 'CLAIM')).toEqual({

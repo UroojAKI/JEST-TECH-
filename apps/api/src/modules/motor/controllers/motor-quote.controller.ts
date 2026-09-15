@@ -21,16 +21,7 @@ export class MotorQuoteController {
   ) {}
 
   @Post(':id/finalize')
-  @Roles(
-    RoleType.SUPER_ADMIN,
-    RoleType.ADMIN,
-    RoleType.BRANCH_MANAGER,
-    RoleType.TEAM_LEADER,
-    RoleType.SALES_MANAGER,
-    RoleType.SALES_EXECUTIVE,
-    RoleType.SALES_AGENT,
-    RoleType.POSP_ADVISOR,
-  )
+  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT)
   async finalizeQuote(
     @Param('id') id: string,
     @Body() input: MotorCalculationInputDto,
@@ -53,21 +44,7 @@ export class MotorQuoteController {
   }
 
   @Post(':id/issue')
-  @Roles(
-    RoleType.SUPER_ADMIN,
-    RoleType.ADMIN,
-    RoleType.SYSTEM_ADMINISTRATOR,
-    RoleType.MD_CEO,
-    RoleType.BRANCH_MANAGER,
-    RoleType.SALES_MANAGER,
-    RoleType.SALES_AGENT,
-    RoleType.SALES_EXECUTIVE,
-    RoleType.POSP_ADVISOR,
-    RoleType.AGENT_MANAGER,
-    RoleType.TEAM_LEADER,
-    RoleType.OPERATIONS,
-    RoleType.POLICY_ISSUANCE_EXECUTIVE,
-  )
+  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE)
   async issuePolicy(
     @Param('id') quoteId: string,
     @Body() dto: IssueMotorPolicyDto,

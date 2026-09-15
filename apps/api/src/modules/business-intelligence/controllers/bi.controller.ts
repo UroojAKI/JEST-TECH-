@@ -31,74 +31,74 @@ export class BiController {
   ) {}
 
   @Get('conversion')
-  @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN)
+  @Roles(RoleType.ADMIN)
   getConversion() {
     return this.biService.getConversionMetrics();
   }
 
   @Get('revenue')
-  @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN)
+  @Roles(RoleType.ADMIN)
   getRevenue() {
     return this.biService.getRevenueMetrics();
   }
 
   @Get('loss-ratio')
-  @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN)
+  @Roles(RoleType.ADMIN)
   getLossRatio() {
     return this.biService.getLossRatioMetrics();
   }
 
   @Get('renewal')
-  @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN)
+  @Roles(RoleType.ADMIN)
   getRenewal() {
     return this.biService.getRenewalMetrics();
   }
 
   @Get('sales')
-  @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN)
+  @Roles(RoleType.ADMIN)
   getSales() {
     return this.biService.getSalesMetrics();
   }
 
   @Get('growth')
-  @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN)
+  @Roles(RoleType.ADMIN)
   getGrowth() {
     return this.biService.getGrowthMetrics();
   }
 
   @Get('kpi')
-  @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN)
+  @Roles(RoleType.ADMIN)
   getKpiValues() {
     return this.biService.getKpiValues();
   }
 
   // KPI Management
   @Get('kpi/definitions')
-  @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN)
+  @Roles(RoleType.ADMIN)
   listKpiDefinitions() {
     return this.kpiService.listKpis();
   }
 
   @Post('kpi/definitions')
-  @Roles(RoleType.ADMIN, RoleType.SUPER_ADMIN)
+  @Roles(RoleType.ADMIN)
   createKpi(@Body() dto: CreateKpiDto, @CurrentUser() user: RequestUser) {
     return this.kpiService.createKpi({ ...dto, userId: user.id });
   }
 
   @Patch('kpi/definitions/:id')
-  @Roles(RoleType.ADMIN, RoleType.SUPER_ADMIN)
+  @Roles(RoleType.ADMIN)
   updateKpi(@Param('id') id: string, @Body() dto: UpdateKpiDto) {
     return this.kpiService.updateKpi(id, dto);
   }
 
   @Delete('kpi/definitions/:id')
-  @Roles(RoleType.ADMIN, RoleType.SUPER_ADMIN)
+  @Roles(RoleType.ADMIN)
   deleteKpi(@Param('id') id: string) {
     return this.kpiService.deleteKpi(id);
   }
 
   @Post('kpi/seed')
-  @Roles(RoleType.SUPER_ADMIN)
+  @Roles(RoleType.ADMIN)
   seedKpis(@CurrentUser() user: RequestUser) {
     return this.kpiService.seedDefaultKpis(user.id);
   }

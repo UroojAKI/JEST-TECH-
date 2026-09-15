@@ -19,23 +19,8 @@ import { PaginationDto } from '../../../common/pagination/pagination.dto';
 import { PaginatedResponseDto } from '../../../common/pagination/paginated-response.dto';
 import { ActorContext } from '../../../common/interfaces/actor-context.interface';
 
-const GLOBAL_ROLES: RoleType[] = [
-  RoleType.SUPER_ADMIN,
-  RoleType.ADMIN,
-  RoleType.SYSTEM_ADMINISTRATOR,
-  RoleType.MD_CEO,
-];
-const OPERATIONAL_ROLES: RoleType[] = [
-  RoleType.OPERATIONS,
-  RoleType.POLICY_ISSUANCE_EXECUTIVE,
-  RoleType.UNDERWRITER,
-  RoleType.FINANCE,
-  RoleType.FINANCE_ACCOUNTS_EXECUTIVE,
-  RoleType.CHIEF_FINANCE_OFFICER,
-  RoleType.CLAIMS_OFFICER,
-  RoleType.RENEWAL_EXECUTIVE,
-  RoleType.CUSTOMER_SERVICE_EXECUTIVE,
-];
+/** Roles that can access all documents within their organisation */
+const ELEVATED_ROLES: RoleType[] = [RoleType.ADMIN, RoleType.BACK_OFFICE];
 
 @Injectable()
 export class DocumentService {
@@ -77,25 +62,10 @@ export class DocumentService {
     if (ownerOrg && ownerOrg !== actor.organizationId)
       throw new ForbiddenException('Document belongs to another organization');
 
-    const roles = actor.roles?.length ? actor.roles : [actor.role];
-    if (roles.some((r) => GLOBAL_ROLES.includes(r))) return doc;
-    if (roles.some((r) => OPERATIONAL_ROLES.includes(r))) return doc;
-    if (
-      roles.includes(RoleType.BRANCH_MANAGER) ||
-      roles.includes(RoleType.MARKETING_DIRECTOR)
-    ) {
-      if (!actor.branchId || owner.branchId !== actor.branchId)
-        throw new ForbiddenException('Document belongs to another branch');
-      return doc;
-    }
-    if (
-      roles.includes(RoleType.TEAM_LEADER) ||
-      roles.includes(RoleType.SALES_MANAGER)
-    ) {
-      if (!actor.teamId || owner.teamId !== actor.teamId)
-        throw new ForbiddenException('Document belongs to another sales team');
-      return doc;
-    }
+    const role = actor.role;
+    // ADMIN and BACK_OFFICE can see all org documents
+    if (role === RoleType.ADMIN || role === RoleType.BACK_OFFICE) return doc;
+    // AGENT can only see their own documents
     if (owner.id !== actor.userId)
       throw new ForbiddenException('Document belongs to another owner');
     return doc;
@@ -271,10 +241,10 @@ export class DocumentService {
     const sortBy = pagination?.sortBy || 'createdAt';
     const sortOrder = pagination?.sortOrder || 'desc';
     const skip = (page - 1) * limit;
-    const roles = actor.roles?.length ? actor.roles : [actor.role];
-    const scope = roles.some((r) => GLOBAL_ROLES.includes(r))
-      ? {}
-      : { uploadedById: actor.userId };
+    const scope =
+      actor.role === RoleType.ADMIN || actor.role === RoleType.BACK_OFFICE
+        ? {}
+        : { uploadedById: actor.userId };
     const where = {
       entityType,
       entityId,
@@ -337,8 +307,7 @@ export class DocumentService {
     if (!doc) throw new NotFoundException('Document not found');
     if (!actor?.userId || !actor.organizationId)
       throw new ForbiddenException('Actor organizational context is required');
-    const roles = actor.roles?.length ? actor.roles : [actor.role];
-    if (!roles.some((r) => GLOBAL_ROLES.includes(r)))
+    if (actor.role !== RoleType.ADMIN && actor.role !== RoleType.BACK_OFFICE)
       throw new ForbiddenException('Only administrators can restore documents');
     await this.prisma.document.update({
       where: { id },
@@ -371,9 +340,8 @@ export class DocumentService {
     const page = pagination.page || 1;
     const limit = pagination.limit || 20;
     const skip = (page - 1) * limit;
-    const roles = actor.roles?.length ? actor.roles : [actor.role];
     const where: any = { deletedAt: null };
-    if (!roles.some((r) => GLOBAL_ROLES.includes(r)))
+    if (actor.role !== RoleType.ADMIN && actor.role !== RoleType.BACK_OFFICE)
       where.uploadedById = actor.userId;
     const [data, total] = await Promise.all([
       this.prisma.document.findMany({

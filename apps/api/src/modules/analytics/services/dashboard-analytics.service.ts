@@ -316,9 +316,9 @@ export class DashboardAnalyticsService {
         role: {
           type: {
             in: [
-              RoleType.SALES_AGENT,
-              RoleType.SALES_EXECUTIVE,
-              RoleType.POSP_ADVISOR,
+              RoleType.AGENT,
+              RoleType.AGENT,
+              RoleType.AGENT,
             ],
           },
         },

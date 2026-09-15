@@ -1,4 +1,4 @@
-﻿import { ForbiddenException, NotFoundException } from '@nestjs/common';
+import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import { RoleType } from '@prisma/client';
 import { OrganizationService } from './organization.service';
 
@@ -34,14 +34,14 @@ describe('OrganizationService Multi-Tenant Hardening', () => {
 
   const superAdmin = {
     userId: 'u-super',
-    role: RoleType.SUPER_ADMIN,
-    roles: [RoleType.SUPER_ADMIN],
+    role: RoleType.ADMIN,
+    roles: [RoleType.ADMIN],
   };
 
   const branchManager = {
     userId: 'u-bm',
-    role: RoleType.BRANCH_MANAGER,
-    roles: [RoleType.BRANCH_MANAGER],
+    role: RoleType.BACK_OFFICE,
+    roles: [RoleType.BACK_OFFICE],
     organizationId: 'org-mumbai',
     branchId: 'br-1',
   };
@@ -65,8 +65,8 @@ describe('OrganizationService Multi-Tenant Hardening', () => {
   it('fails closed for non-super admin without organizationId in hierarchy', async () => {
     const unorgActor = {
       userId: 'u-no-org',
-      role: RoleType.ADMIN,
-      roles: [RoleType.ADMIN],
+      role: RoleType.BACK_OFFICE,
+      roles: [RoleType.BACK_OFFICE],
     };
     await expect(service.getHierarchy(unorgActor as any)).rejects.toThrow(
       ForbiddenException,

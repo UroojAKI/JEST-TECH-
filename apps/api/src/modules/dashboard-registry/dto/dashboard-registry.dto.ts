@@ -1,8 +1,12 @@
 import { IsString, IsOptional, IsObject } from 'class-validator';
-
 export class CreateDashboardRegistryDto {
+  @IsOptional()
   @IsString()
-  jobRoleId: string;
+  roleId?: string;
+
+  @IsOptional()
+  @IsString()
+  jobRoleId?: string;
 
   @IsString()
   dashboardCode: string;

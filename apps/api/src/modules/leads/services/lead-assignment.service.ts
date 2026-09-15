@@ -116,7 +116,7 @@ export class LeadAssignmentService {
     // Determine candidate pool
     const userWhere: any = {
       status: UserStatus.ACTIVE,
-      role: RoleType.SALES_AGENT,
+      role: RoleType.AGENT,
       deletedAt: null,
     };
 

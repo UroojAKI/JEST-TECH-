@@ -30,7 +30,7 @@ export class LookupController {
   @Post(':categoryCode/invalidate')
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN)
+  @Roles(RoleType.ADMIN, RoleType.ADMIN)
   @ApiOperation({ summary: 'Invalidate cache for a lookup category' })
   async invalidateCache(@Param('categoryCode') categoryCode: string) {
     await this.lookupService.invalidateCache(categoryCode);

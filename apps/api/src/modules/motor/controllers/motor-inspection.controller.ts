@@ -84,10 +84,10 @@ export class MotorInspectionController {
 
   @Post(':id/approve')
   @Roles(
-    RoleType.SUPER_ADMIN,
     RoleType.ADMIN,
-    RoleType.UNDERWRITER,
-    RoleType.OPERATIONS,
+    RoleType.ADMIN,
+    RoleType.BACK_OFFICE,
+    RoleType.BACK_OFFICE,
   )
   @ApiOperation({
     summary: 'Approve vehicle inspection (Back-Office / Underwriter)',

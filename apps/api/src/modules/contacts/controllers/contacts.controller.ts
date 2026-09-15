@@ -24,52 +24,6 @@ import { ContactsService } from '../services/contacts.service';
 import { ParseUUIDPipe } from '../../../common/utils/parse-uuid.pipe';
 import { PaginationDto } from '../../../common/pagination/pagination.dto';
 
-const CONTACT_VIEW_ROLES: RoleType[] = [
-  RoleType.SUPER_ADMIN,
-  RoleType.ADMIN,
-  RoleType.SYSTEM_ADMINISTRATOR,
-  RoleType.MD_CEO,
-  RoleType.BRANCH_MANAGER,
-  RoleType.MARKETING_DIRECTOR,
-  RoleType.TEAM_LEADER,
-  RoleType.SALES_MANAGER,
-  RoleType.SALES_AGENT,
-  RoleType.SALES_EXECUTIVE,
-  RoleType.POSP_ADVISOR,
-  RoleType.AGENT_MANAGER,
-  RoleType.OPERATIONS,
-  RoleType.POLICY_ISSUANCE_EXECUTIVE,
-  RoleType.UNDERWRITER,
-  RoleType.CLAIMS_OFFICER,
-  RoleType.RENEWAL_EXECUTIVE,
-  RoleType.CUSTOMER_SERVICE_EXECUTIVE,
-  RoleType.FINANCE,
-  RoleType.FINANCE_ACCOUNTS_EXECUTIVE,
-  RoleType.CHIEF_FINANCE_OFFICER,
-  RoleType.SUPPORT,
-];
-
-const CONTACT_MANAGE_ROLES: RoleType[] = [
-  RoleType.SUPER_ADMIN,
-  RoleType.ADMIN,
-  RoleType.SYSTEM_ADMINISTRATOR,
-  RoleType.MD_CEO,
-  RoleType.BRANCH_MANAGER,
-  RoleType.MARKETING_DIRECTOR,
-  RoleType.TEAM_LEADER,
-  RoleType.SALES_MANAGER,
-  RoleType.SALES_AGENT,
-  RoleType.SALES_EXECUTIVE,
-  RoleType.POSP_ADVISOR,
-  RoleType.AGENT_MANAGER,
-  RoleType.OPERATIONS,
-  RoleType.POLICY_ISSUANCE_EXECUTIVE,
-  RoleType.UNDERWRITER,
-  RoleType.RENEWAL_EXECUTIVE,
-  RoleType.CUSTOMER_SERVICE_EXECUTIVE,
-  RoleType.SUPPORT,
-];
-
 @ApiTags('Contacts')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -78,13 +32,13 @@ export class ContactsController {
   constructor(private readonly contactsService: ContactsService) {}
 
   @Post()
-  @Roles(...CONTACT_MANAGE_ROLES)
+  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT)
   create(@Body() dto: CreateContactDto, @CurrentUser() user: RequestUser) {
     return this.contactsService.create(dto, user.id, user);
   }
 
   @Get()
-  @Roles(...CONTACT_VIEW_ROLES)
+  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT)
   findAll(
     @Query() pagination: PaginationDto,
     @CurrentUser() user: RequestUser,
@@ -93,7 +47,7 @@ export class ContactsController {
   }
 
   @Get(':id')
-  @Roles(...CONTACT_VIEW_ROLES)
+  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT)
   findOne(
     @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser() user: RequestUser,
@@ -103,18 +57,7 @@ export class ContactsController {
 
   @Post(':id/unmask')
   @HttpCode(HttpStatus.OK)
-  @Roles(
-    RoleType.SUPER_ADMIN,
-    RoleType.ADMIN,
-    RoleType.SYSTEM_ADMINISTRATOR,
-    RoleType.MD_CEO,
-    RoleType.BRANCH_MANAGER,
-    RoleType.OPERATIONS,
-    RoleType.UNDERWRITER,
-    RoleType.POLICY_ISSUANCE_EXECUTIVE,
-    RoleType.FINANCE,
-    RoleType.CHIEF_FINANCE_OFFICER,
-  )
+  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE)
   unmask(
     @Param('id', ParseUUIDPipe) id: string,
     @Body('reason') reason: string,
@@ -124,7 +67,7 @@ export class ContactsController {
   }
 
   @Patch(':id')
-  @Roles(...CONTACT_MANAGE_ROLES)
+  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT)
   update(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateContactDto,
@@ -135,12 +78,7 @@ export class ContactsController {
 
   @Delete(':id')
   @HttpCode(HttpStatus.OK)
-  @Roles(
-    RoleType.SUPER_ADMIN,
-    RoleType.ADMIN,
-    RoleType.SYSTEM_ADMINISTRATOR,
-    RoleType.MD_CEO,
-  )
+  @Roles(RoleType.ADMIN)
   remove(
     @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser() user: RequestUser,
@@ -150,7 +88,7 @@ export class ContactsController {
 
   @Post(':id/deactivate')
   @HttpCode(HttpStatus.OK)
-  @Roles(...CONTACT_MANAGE_ROLES)
+  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE)
   deactivate(
     @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser() user: RequestUser,
@@ -160,7 +98,7 @@ export class ContactsController {
 
   @Post(':id/reactivate')
   @HttpCode(HttpStatus.OK)
-  @Roles(...CONTACT_MANAGE_ROLES)
+  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE)
   reactivate(
     @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser() user: RequestUser,

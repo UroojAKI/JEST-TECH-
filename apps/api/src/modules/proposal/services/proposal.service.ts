@@ -79,7 +79,7 @@ export class ProposalService {
     }
 
     // BOLA ownership verification
-    if (user.role === 'SALES_AGENT' && prop.submittedById !== user.id) {
+    if (user.role === 'AGENT' && prop.submittedById !== user.id) {
       throw new ForbiddenException(
         'You do not have permission to access this proposal',
       );

@@ -16,8 +16,8 @@ export class OrganizationService {
 
   private isSuperAdmin(actor?: ActorContext): boolean {
     return (
-      actor?.roles?.includes(RoleType.SUPER_ADMIN) ||
-      actor?.role === RoleType.SUPER_ADMIN ||
+      actor?.roles?.includes(RoleType.ADMIN) ||
+      actor?.role === RoleType.ADMIN ||
       false
     );
   }

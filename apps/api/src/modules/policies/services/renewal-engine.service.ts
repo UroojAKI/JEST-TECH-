@@ -5,12 +5,7 @@ import { Queue } from 'bullmq';
 import { Policy, PolicyStatus, RoleType, UserStatus } from '@prisma/client';
 import { ActorContext } from '../../../common/interfaces/actor-context.interface';
 
-const GLOBAL_ROLES: RoleType[] = [
-  RoleType.SUPER_ADMIN,
-  RoleType.ADMIN,
-  RoleType.SYSTEM_ADMINISTRATOR,
-  RoleType.MD_CEO,
-];
+
 
 @Injectable()
 export class RenewalEngineService {
@@ -109,8 +104,8 @@ export class RenewalEngineService {
         email: 'system@jestpolicy.com',
         firstName: 'System',
         lastName: 'Scheduler',
-        role: RoleType.SUPER_ADMIN,
-        roles: [RoleType.SUPER_ADMIN],
+        role: RoleType.ADMIN,
+        roles: [RoleType.ADMIN],
         organizationId: 'system',
         companyId: 'system',
         permissions: [],
@@ -124,8 +119,8 @@ export class RenewalEngineService {
         email: 'user@jestpolicy.com',
         firstName: 'System',
         lastName: 'User',
-        role: RoleType.SUPER_ADMIN,
-        roles: [RoleType.SUPER_ADMIN],
+        role: RoleType.ADMIN,
+        roles: [RoleType.ADMIN],
         organizationId: 'system',
         companyId: 'system',
         permissions: [],
@@ -137,32 +132,17 @@ export class RenewalEngineService {
   }
 
   private async buildPolicyScope(actor: ActorContext): Promise<any> {
-    const roles = actor.roles?.length ? actor.roles : [actor.role];
-    if (roles.some((role) => GLOBAL_ROLES.includes(role))) return {};
+    // ADMIN and BACK_OFFICE see all policies within their org (org boundary enforced separately)
+    if (actor.role === RoleType.ADMIN || actor.role === RoleType.BACK_OFFICE)
+      return {};
 
-    if (roles.includes(RoleType.BRANCH_MANAGER)) {
-      if (!actor.branchId)
-        throw new ForbiddenException('Branch context is required');
-      return { createdBy: { branchId: actor.branchId } };
-    }
-
-    if (
-      roles.includes(RoleType.TEAM_LEADER) ||
-      roles.includes(RoleType.SALES_MANAGER)
-    ) {
-      if (!actor.teamId)
-        throw new ForbiddenException('Team context is required');
-      return { createdBy: { teamId: actor.teamId } };
-    }
-
-    if (
-      roles.includes(RoleType.RENEWAL_EXECUTIVE) ||
-      roles.includes(RoleType.SALES_EXECUTIVE)
-    ) {
-      return { renewalTasks: { some: { agentId: actor.userId } } };
-    }
-
-    return { createdById: actor.userId };
+    // AGENT only sees policies they created or tasks assigned to them
+    return {
+      OR: [
+        { createdById: actor.userId },
+        { renewalTasks: { some: { agentId: actor.userId } } },
+      ],
+    };
   }
 
   private async assertPolicyAccess(

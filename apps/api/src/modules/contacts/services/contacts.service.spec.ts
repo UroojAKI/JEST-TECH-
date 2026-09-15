@@ -127,8 +127,8 @@ describe('ContactsService', () => {
         { page: 1, limit: 10 } as any,
         {
           userId: 'user-1',
-          role: RoleType.BRANCH_MANAGER,
-          roles: [RoleType.BRANCH_MANAGER],
+          role: RoleType.BACK_OFFICE,
+          roles: [RoleType.BACK_OFFICE],
         } as any,
       ),
     ).rejects.toThrow(ForbiddenException);
@@ -138,8 +138,8 @@ describe('ContactsService', () => {
     const actor = {
       userId: 'admin-1',
       organizationId: 'org-1',
-      role: RoleType.SUPER_ADMIN,
-      roles: [RoleType.SUPER_ADMIN],
+      role: RoleType.ADMIN,
+      roles: [RoleType.ADMIN],
     };
 
     it('successfully deactivates an active contact', async () => {
@@ -210,8 +210,8 @@ describe('ContactsService', () => {
     const actor = {
       userId: 'admin-1',
       organizationId: 'org-1',
-      role: RoleType.SUPER_ADMIN,
-      roles: [RoleType.SUPER_ADMIN],
+      role: RoleType.ADMIN,
+      roles: [RoleType.ADMIN],
     };
 
     it('successfully reactivates an inactive contact', async () => {

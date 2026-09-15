@@ -14,12 +14,7 @@ import { PaginatedResponseDto } from '../../../common/pagination/paginated-respo
 import { ActorContext } from '../../../common/interfaces/actor-context.interface';
 import { PrismaService } from '../../../database/prisma.service';
 
-const GLOBAL_ROLES: RoleType[] = [
-  RoleType.SUPER_ADMIN,
-  RoleType.ADMIN,
-  RoleType.SYSTEM_ADMINISTRATOR,
-  RoleType.MD_CEO,
-];
+
 const duplicateContactError = (
   existingContactId: string,
   matchedBy: 'PHONE' | 'EMAIL',
@@ -207,7 +202,6 @@ export class ContactsService {
     } = pagination;
     const skip = (page - 1) * limit;
     this.assertActor(actor);
-    const roles = actor.roles?.length ? actor.roles : [actor.role];
     const searchWhere: Prisma.ContactWhereInput = search
       ? {
           OR: [
@@ -221,28 +215,10 @@ export class ContactsService {
         }
       : {};
     const scopeWhere: Prisma.ContactWhereInput = {};
-    if (!roles.some((role) => GLOBAL_ROLES.includes(role))) {
-      if (
-        roles.includes(RoleType.BRANCH_MANAGER) ||
-        roles.includes(RoleType.MARKETING_DIRECTOR)
-      ) {
-        if (actor.branchId) {
-          scopeWhere.OR = [
-            { branchId: actor.branchId },
-            { createdBy: { branchId: actor.branchId } },
-          ];
-        } else {
-          scopeWhere.createdById = actor.userId;
-        }
-      } else if (
-        roles.includes(RoleType.TEAM_LEADER) ||
-        roles.includes(RoleType.SALES_MANAGER)
-      ) {
-        if (actor.teamId) scopeWhere.createdBy = { teamId: actor.teamId };
-        else if (actor.branchId)
-          scopeWhere.createdBy = { branchId: actor.branchId };
-        else scopeWhere.createdById = actor.userId;
-      } else scopeWhere.createdById = actor.userId;
+    // ADMIN and BACK_OFFICE see all org contacts (org boundary enforced at JWT/scope level)
+    // AGENT only sees contacts they created
+    if (actor.role === RoleType.AGENT) {
+      scopeWhere.createdById = actor.userId;
     }
     const where: Prisma.ContactWhereInput = Object.keys(scopeWhere).length
       ? { AND: [searchWhere, scopeWhere] }
@@ -263,31 +239,19 @@ export class ContactsService {
 
   private assertRecordAccess(contact: any, actor: ActorContext): void {
     this.assertActor(actor);
-    const roles = actor.roles?.length ? actor.roles : [actor.role];
-    if (roles.some((role) => GLOBAL_ROLES.includes(role))) return;
+    // ADMIN and BACK_OFFICE can access all contacts within their org
+    if (actor.role === RoleType.ADMIN || actor.role === RoleType.BACK_OFFICE) {
+      const owner = contact?.createdBy;
+      const ownerCompanyId = owner?.branch?.zone?.region?.company?.id;
+      if (ownerCompanyId && ownerCompanyId !== actor.organizationId)
+        throw new ForbiddenException(
+          'Contact belongs to another organization',
+        );
+      return;
+    }
+    // AGENT can only access their own contacts
     const owner = contact?.createdBy;
-    const ownerCompanyId = owner?.branch?.zone?.region?.company?.id;
-    if (!ownerCompanyId || ownerCompanyId !== actor.organizationId)
-      throw new ForbiddenException(
-        'Contact organizational context is unavailable or invalid',
-      );
-    if (
-      roles.includes(RoleType.BRANCH_MANAGER) ||
-      roles.includes(RoleType.MARKETING_DIRECTOR)
-    ) {
-      if (!actor.branchId || owner.branchId !== actor.branchId)
-        throw new ForbiddenException('Contact belongs to another branch');
-      return;
-    }
-    if (
-      roles.includes(RoleType.TEAM_LEADER) ||
-      roles.includes(RoleType.SALES_MANAGER)
-    ) {
-      if (!actor.teamId || owner.teamId !== actor.teamId)
-        throw new ForbiddenException('Contact belongs to another sales team');
-      return;
-    }
-    if (owner.id !== actor.userId)
+    if (owner?.id !== actor.userId)
       throw new ForbiddenException('Contact belongs to another owner');
   }
 

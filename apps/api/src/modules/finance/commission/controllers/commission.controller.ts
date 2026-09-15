@@ -17,10 +17,10 @@ export class CommissionController {
 
   @Post('accrue')
   @Roles(
-    RoleType.SUPER_ADMIN,
     RoleType.ADMIN,
-    RoleType.FINANCE,
-    RoleType.BRANCH_MANAGER,
+    RoleType.ADMIN,
+    RoleType.BACK_OFFICE,
+    RoleType.BACK_OFFICE,
   )
   @ApiOperation({
     summary: 'Calculate and accrue commission structure for a policy',
@@ -43,7 +43,7 @@ export class CommissionController {
   }
 
   @Post('realize/:policyId')
-  @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN, RoleType.FINANCE)
+  @Roles(RoleType.ADMIN, RoleType.ADMIN, RoleType.BACK_OFFICE)
   @ApiOperation({
     summary:
       'Mark accrued commissions as realized upon policy payment confirmation',

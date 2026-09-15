@@ -79,10 +79,10 @@ describe('DashboardController', () => {
     });
 
     it('should return super-admin dashboard data', async () => {
-      const result = await controller.getSuperAdminDashboard(mockUser);
+      const result = await controller.getAdminDashboard(mockUser);
       expect(result).toEqual(mockDashboardData);
       expect(service.getDashboard).toHaveBeenCalledWith(
-        RoleType.SUPER_ADMIN,
+        RoleType.ADMIN,
         mockUser.id,
       );
     });

@@ -1,4 +1,5 @@
 import { ForbiddenException } from '@nestjs/common';
+import { RoleType } from '@prisma/client';
 import { RolesGuard } from './roles.guard';
 
 function contextFor(user: any): any {
@@ -28,26 +29,20 @@ describe('RolesGuard', () => {
   });
 
   it('denies a different employee role', () => {
-    reflector.getAllAndOverride.mockReturnValue(['CLAIMS_OFFICER']);
+    reflector.getAllAndOverride.mockReturnValue(['BACK_OFFICE']);
     const guard = new RolesGuard(reflector);
 
     expect(() =>
-      guard.canActivate(contextFor({ role: 'SALES_AGENT' })),
+      guard.canActivate(contextFor({ role: 'AGENT' })),
     ).toThrow(ForbiddenException);
   });
 
   it('allows explicitly defined global administrative roles', () => {
-    reflector.getAllAndOverride.mockReturnValue(['CLAIMS_OFFICER']);
+    reflector.getAllAndOverride.mockReturnValue(['BACK_OFFICE']);
     const guard = new RolesGuard(reflector);
 
-    for (const role of [
-      'SUPER_ADMIN',
-      'ADMIN',
-      'SYSTEM_ADMINISTRATOR',
-      'MD_CEO',
-    ]) {
-      expect(guard.canActivate(contextFor({ role }))).toBe(true);
-    }
+    expect(guard.canActivate(contextFor({ role: 'ADMIN' }))).toBe(true);
+    expect(guard.canActivate(contextFor({ role: RoleType.ADMIN }))).toBe(true);
   });
 
   it('denies protected routes when authentication did not populate a user', () => {

@@ -59,9 +59,6 @@ export class CreateJobRoleDto {
   @IsString()
   departmentId: string;
 
-  @IsEnum(RoleType)
-  defaultRoleType: RoleType;
-
   @IsOptional()
   @IsString()
   description?: string;
@@ -83,10 +80,6 @@ export class UpdateJobRoleDto {
   @IsOptional()
   @IsString()
   name?: string;
-
-  @IsOptional()
-  @IsEnum(RoleType)
-  defaultRoleType?: RoleType;
 
   @IsOptional()
   @IsString()

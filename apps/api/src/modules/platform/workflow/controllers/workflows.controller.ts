@@ -35,7 +35,7 @@ export class WorkflowsController {
   ) {}
 
   @Get()
-  @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN, RoleType.BRANCH_MANAGER)
+  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE)
   @ApiOperation({ summary: 'Get all workflow definitions & active rules' })
   async getWorkflows() {
     const list = await this.prisma.workflow.findMany({
@@ -62,7 +62,7 @@ export class WorkflowsController {
   }
 
   @Get('instances')
-  @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN, RoleType.BRANCH_MANAGER)
+  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE)
   @ApiOperation({ summary: 'Get active workflow instances' })
   async getInstances() {
     return [
@@ -78,12 +78,7 @@ export class WorkflowsController {
   }
 
   @Get('approvals')
-  @Roles(
-    RoleType.SUPER_ADMIN,
-    RoleType.ADMIN,
-    RoleType.BRANCH_MANAGER,
-    RoleType.UNDERWRITER,
-  )
+  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE)
   @ApiOperation({ summary: 'Get pending manager/underwriter approvals' })
   async getApprovals() {
     return [
@@ -113,12 +108,7 @@ export class WorkflowsController {
   }
 
   @Post('approvals/:id/action')
-  @Roles(
-    RoleType.SUPER_ADMIN,
-    RoleType.ADMIN,
-    RoleType.BRANCH_MANAGER,
-    RoleType.UNDERWRITER,
-  )
+  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE)
   @ApiOperation({ summary: 'Approve or reject a workflow approval request' })
   async handleApprovalAction(
     @Param('id') id: string,
@@ -128,7 +118,7 @@ export class WorkflowsController {
   }
 
   @Post('approvals/bulk')
-  @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN, RoleType.BRANCH_MANAGER)
+  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE)
   @ApiOperation({ summary: 'Bulk approve/reject workflow requests' })
   async handleBulkApprovals(
     @Body() body: { ids: string[]; action: 'APPROVE' | 'REJECT' },
@@ -137,7 +127,7 @@ export class WorkflowsController {
   }
 
   @Get('sla/metrics')
-  @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN, RoleType.BRANCH_MANAGER)
+  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE)
   @ApiOperation({ summary: 'Get SLA compliance metrics' })
   async getSlaMetrics() {
     return {
@@ -150,7 +140,7 @@ export class WorkflowsController {
   }
 
   @Get('definitions')
-  @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN)
+  @Roles(RoleType.ADMIN)
   async listWorkflows() {
     return this.prisma.workflow.findMany({
       where: { deletedAt: null },
@@ -159,7 +149,7 @@ export class WorkflowsController {
   }
 
   @Post('definitions')
-  @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN)
+  @Roles(RoleType.ADMIN)
   async createWorkflow(@Body() body: CreateWorkflowDefinitionDto) {
     return this.prisma.workflow.create({
       data: body,
@@ -167,7 +157,7 @@ export class WorkflowsController {
   }
 
   @Patch('definitions/:id')
-  @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN)
+  @Roles(RoleType.ADMIN)
   async updateWorkflow(
     @Param('id') id: string,
     @Body() body: UpdateWorkflowDefinitionDto,
@@ -179,7 +169,7 @@ export class WorkflowsController {
   }
 
   @Delete('definitions/:id')
-  @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN)
+  @Roles(RoleType.ADMIN)
   async deleteWorkflow(@Param('id') id: string) {
     return this.prisma.workflow.update({
       where: { id },

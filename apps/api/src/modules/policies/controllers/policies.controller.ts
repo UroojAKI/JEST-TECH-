@@ -32,67 +32,6 @@ import { RenewalSchedulerCron } from '../crons/renewal-scheduler.cron';
 import { IssuePolicyService } from '../services/commands/issue-policy.service';
 import { BackOfficeQueueService } from '../services/queries/back-office-queue.service';
 
-const GLOBAL_ADMIN_ROLES: RoleType[] = [
-  RoleType.SUPER_ADMIN,
-  RoleType.ADMIN,
-  RoleType.SYSTEM_ADMINISTRATOR,
-  RoleType.MD_CEO,
-];
-
-const POLICY_VIEW_ROLES: RoleType[] = [
-  RoleType.SUPER_ADMIN,
-  RoleType.ADMIN,
-  RoleType.SYSTEM_ADMINISTRATOR,
-  RoleType.MD_CEO,
-  RoleType.BRANCH_MANAGER,
-  RoleType.MARKETING_DIRECTOR,
-  RoleType.TEAM_LEADER,
-  RoleType.SALES_MANAGER,
-  RoleType.SALES_AGENT,
-  RoleType.SALES_EXECUTIVE,
-  RoleType.POSP_ADVISOR,
-  RoleType.AGENT_MANAGER,
-  RoleType.OPERATIONS,
-  RoleType.POLICY_ISSUANCE_EXECUTIVE,
-  RoleType.UNDERWRITER,
-  RoleType.CLAIMS_OFFICER,
-  RoleType.RENEWAL_EXECUTIVE,
-  RoleType.CUSTOMER_SERVICE_EXECUTIVE,
-  RoleType.FINANCE,
-  RoleType.FINANCE_ACCOUNTS_EXECUTIVE,
-  RoleType.CHIEF_FINANCE_OFFICER,
-  RoleType.SUPPORT,
-];
-
-const POLICY_ISSUE_ROLES: RoleType[] = [
-  RoleType.SUPER_ADMIN,
-  RoleType.ADMIN,
-  RoleType.OPERATIONS,
-  RoleType.POLICY_ISSUANCE_EXECUTIVE,
-  RoleType.UNDERWRITER,
-];
-
-const POLICY_MANAGE_ROLES: RoleType[] = [
-  RoleType.SUPER_ADMIN,
-  RoleType.ADMIN,
-  RoleType.SYSTEM_ADMINISTRATOR,
-  RoleType.MD_CEO,
-  RoleType.BRANCH_MANAGER,
-  RoleType.MARKETING_DIRECTOR,
-  RoleType.TEAM_LEADER,
-  RoleType.SALES_MANAGER,
-  RoleType.SALES_AGENT,
-  RoleType.SALES_EXECUTIVE,
-  RoleType.POSP_ADVISOR,
-  RoleType.AGENT_MANAGER,
-  RoleType.OPERATIONS,
-  RoleType.POLICY_ISSUANCE_EXECUTIVE,
-  RoleType.UNDERWRITER,
-  RoleType.RENEWAL_EXECUTIVE,
-  RoleType.CUSTOMER_SERVICE_EXECUTIVE,
-  RoleType.SUPPORT,
-];
-
 @ApiTags('Policies & Renewal Engine')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -111,7 +50,7 @@ export class PoliciesController {
   ) {}
 
   @Post('issue')
-  @Roles(...POLICY_ISSUE_ROLES)
+  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE)
   @ApiOperation({
     summary: 'Issue policy from quotation with validation gates',
   })
@@ -136,7 +75,7 @@ export class PoliciesController {
   }
 
   @Post()
-  @Roles(...POLICY_ISSUE_ROLES)
+  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE)
   @ApiOperation({
     summary: 'Create policy from quotation or proposal with validation gates',
   })
@@ -163,12 +102,12 @@ export class PoliciesController {
   }
 
   @Get('renewals/kpis')
-  @Roles(...POLICY_VIEW_ROLES)
+  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT)
   @ApiOperation({ summary: 'Get Renewal Engine KPIs and Conversion Telemetry' })
   async getRenewalKpis(@CurrentUser() user: RequestUser) {
-    const roles = user.roles?.length ? user.roles : [user.role];
-    const global = roles.some((r) => GLOBAL_ADMIN_ROLES.includes(r));
-    const taskWhere: any = global ? {} : { agentId: user.id };
+    const isAdmin =
+      user.role === RoleType.ADMIN || user.role === RoleType.BACK_OFFICE;
+    const taskWhere: any = isAdmin ? {} : { agentId: user.id };
 
     const now = new Date();
     const startOfToday = new Date(
@@ -191,7 +130,7 @@ export class PoliciesController {
     const in30 = new Date(startOfToday);
     in30.setDate(in30.getDate() + 30);
 
-    const policyRenewalWhere: any = global
+    const policyRenewalWhere: any = isAdmin
       ? {}
       : { policy: { createdById: user.id } };
     const [
@@ -268,7 +207,7 @@ export class PoliciesController {
   }
 
   @Get('renewals/upcoming')
-  @Roles(...POLICY_VIEW_ROLES)
+  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT)
   @ApiOperation({
     summary: 'Get upcoming renewals worklist by priority and days range',
   })
@@ -276,11 +215,9 @@ export class PoliciesController {
     @Query('range') range?: string,
     @CurrentUser() user?: RequestUser,
   ) {
-    const roles = user?.roles?.length ? user.roles : [user?.role];
-    const global = roles.some((r) =>
-      GLOBAL_ADMIN_ROLES.includes(r as RoleType),
-    );
-    const where = global ? {} : { agentId: user?.id };
+    const isAdmin =
+      user?.role === RoleType.ADMIN || user?.role === RoleType.BACK_OFFICE;
+    const where = isAdmin ? {} : { agentId: user?.id };
     return this.prisma.renewalTask.findMany({
       where,
       take: 50,
@@ -290,7 +227,7 @@ export class PoliciesController {
   }
 
   @Post('renewals/:id/lost')
-  @Roles(...POLICY_MANAGE_ROLES)
+  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT)
   @ApiOperation({ summary: 'Capture lost renewal reason analysis' })
   async captureLostReason(
     @Param('id') taskId: string,
@@ -299,10 +236,10 @@ export class PoliciesController {
   ) {
     if (!dto.reason?.trim())
       throw new BadRequestException('Lost renewal reason is mandatory');
-    const roles = user.roles?.length ? user.roles : [user.role];
-    const global = roles.some((r) => GLOBAL_ADMIN_ROLES.includes(r));
+    const isAdmin =
+      user.role === RoleType.ADMIN || user.role === RoleType.BACK_OFFICE;
     const task = await this.prisma.renewalTask.findFirst({
-      where: global ? { id: taskId } : { id: taskId, agentId: user.id },
+      where: isAdmin ? { id: taskId } : { id: taskId, agentId: user.id },
     });
     if (!task)
       throw new BadRequestException('Renewal task not found or not accessible');
@@ -313,7 +250,7 @@ export class PoliciesController {
   }
 
   @Get('renewal/pipeline')
-  @Roles(...POLICY_VIEW_ROLES)
+  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT)
   async getRenewalPipeline(
     @Query() pagination: PaginationDto,
     @CurrentUser() user: RequestUser,
@@ -322,7 +259,7 @@ export class PoliciesController {
   }
 
   @Get('renewals/queue')
-  @Roles(...POLICY_VIEW_ROLES)
+  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT)
   @ApiOperation({
     summary:
       'Get authoritative Renewal Executive Queue with NCB roll-over and urgency breakdown',
@@ -344,7 +281,7 @@ export class PoliciesController {
   }
 
   @Post('renewals/:id/remind')
-  @Roles(...POLICY_MANAGE_ROLES)
+  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT)
   @ApiOperation({ summary: 'Dispatch on-demand renewal reminder to customer' })
   async triggerManualReminder(
     @Param('id') id: string,
@@ -354,7 +291,7 @@ export class PoliciesController {
   }
 
   @Post('renewals/:id/escalate')
-  @Roles(...POLICY_MANAGE_ROLES)
+  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE)
   @ApiOperation({
     summary: 'Escalate critical expiring renewal to Branch Management',
   })
@@ -366,18 +303,13 @@ export class PoliciesController {
   }
 
   @Post('renewal/trigger-scan')
-  @Roles(
-    RoleType.SUPER_ADMIN,
-    RoleType.ADMIN,
-    RoleType.SYSTEM_ADMINISTRATOR,
-    RoleType.MD_CEO,
-  )
+  @Roles(RoleType.ADMIN)
   async triggerRenewalScan() {
     return this.renewalSchedulerCron.runManually();
   }
 
   @Get()
-  @Roles(...POLICY_VIEW_ROLES)
+  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT)
   findAll(
     @Query() pagination: PaginationDto,
     @CurrentUser() user: RequestUser,
@@ -386,20 +318,20 @@ export class PoliciesController {
   }
 
   @Get(':id')
-  @Roles(...POLICY_VIEW_ROLES)
+  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT)
   findOne(@Param('id') id: string, @CurrentUser() user: RequestUser) {
     return this.getPolicyService.executeOne(id, user);
   }
 
   @Get(':id/history')
-  @Roles(...POLICY_VIEW_ROLES)
+  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT)
   getHistory(@Param('id') id: string, @CurrentUser() user: RequestUser) {
     return this.getPolicyHistoryService.execute(id, user);
   }
 
   @Post(':id/renew')
   @HttpCode(HttpStatus.OK)
-  @Roles(...POLICY_MANAGE_ROLES)
+  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT)
   renew(
     @Param('id') id: string,
     @Body() dto: RenewPolicyDto,
@@ -410,14 +342,7 @@ export class PoliciesController {
 
   @Post(':id/cancel')
   @HttpCode(HttpStatus.OK)
-  @Roles(
-    RoleType.SUPER_ADMIN,
-    RoleType.ADMIN,
-    RoleType.SYSTEM_ADMINISTRATOR,
-    RoleType.MD_CEO,
-    RoleType.BRANCH_MANAGER,
-    RoleType.UNDERWRITER,
-  )
+  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE)
   cancel(
     @Param('id') id: string,
     @Body('comments') comments: string,

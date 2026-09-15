@@ -200,7 +200,8 @@ describe('ReportClaimService (Iteration 14)', () => {
       const crossOrgActor: any = {
         id: 'user-b',
         userId: 'user-b',
-        role: RoleType.ADMIN,
+        role: RoleType.BACK_OFFICE,
+        roles: [RoleType.BACK_OFFICE],
         organizationId: 'org-tenant-B',
       };
 
@@ -231,7 +232,7 @@ describe('ReportClaimService (Iteration 14)', () => {
       const superAdminActor: any = {
         id: 'super-admin-1',
         userId: 'super-admin-1',
-        role: RoleType.SUPER_ADMIN,
+        role: RoleType.ADMIN,
         organizationId: 'org-global',
       };
 
@@ -262,7 +263,7 @@ describe('ReportClaimService (Iteration 14)', () => {
       const maliciousCustomer: any = {
         id: 'malicious-cust',
         userId: 'malicious-cust',
-        role: RoleType.CUSTOMER,
+        role: RoleType.AGENT,
         contactId: 'contact-other-cust',
         organizationId: 'org-tenant-A',
       };

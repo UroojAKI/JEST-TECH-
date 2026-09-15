@@ -34,8 +34,8 @@ describe('WorkspaceAccessGuard & Matrix (Iteration 2)', () => {
             lastName: 'User',
             organizationId: 'org-1',
             companyId: 'org-1',
-            role: actor.role || RoleType.SALES_AGENT,
-            roles: actor.roles || [actor.role || RoleType.SALES_AGENT],
+            role: actor.role || RoleType.AGENT,
+            roles: actor.roles || [actor.role || RoleType.AGENT],
             permissions: actor.permissions || [],
             workspaces: [],
             status: UserStatus.ACTIVE,
@@ -53,26 +53,26 @@ describe('WorkspaceAccessGuard & Matrix (Iteration 2)', () => {
 
   describe('Role-based Workspace Authorization', () => {
     it('should allow SALES_AGENT to access SALES workspace', () => {
-      const ctx = createMockContext({ role: RoleType.SALES_AGENT }, 'SALES');
+      const ctx = createMockContext({ role: RoleType.AGENT }, 'SALES');
       expect(guard.canActivate(ctx)).toBe(true);
     });
 
     it('should deny SALES_AGENT from accessing FINANCE workspace', () => {
-      const ctx = createMockContext({ role: RoleType.SALES_AGENT }, 'FINANCE');
+      const ctx = createMockContext({ role: RoleType.AGENT }, 'BACK_OFFICE');
       expect(() => guard.canActivate(ctx)).toThrow(ForbiddenException);
     });
 
     it('should allow FINANCE_ACCOUNTS_EXECUTIVE to access FINANCE workspace', () => {
       const ctx = createMockContext(
-        { role: RoleType.FINANCE_ACCOUNTS_EXECUTIVE },
-        'FINANCE',
+        { role: RoleType.BACK_OFFICE },
+        'BACK_OFFICE',
       );
       expect(guard.canActivate(ctx)).toBe(true);
     });
 
     it('should allow OPERATIONS and POLICY_ISSUANCE_EXECUTIVE to access BACK_OFFICE workspace', () => {
       const ctx = createMockContext(
-        { role: RoleType.POLICY_ISSUANCE_EXECUTIVE },
+        { role: RoleType.BACK_OFFICE },
         'BACK_OFFICE',
       );
       expect(guard.canActivate(ctx)).toBe(true);
@@ -80,17 +80,17 @@ describe('WorkspaceAccessGuard & Matrix (Iteration 2)', () => {
 
     it('should allow RENEWAL_EXECUTIVE to access RENEWALS workspace', () => {
       const ctx = createMockContext(
-        { role: RoleType.RENEWAL_EXECUTIVE },
+        { role: RoleType.BACK_OFFICE },
         'RENEWALS',
       );
       expect(guard.canActivate(ctx)).toBe(true);
     });
 
     it('should allow SUPER_ADMIN access to any workspace', () => {
-      const ctx1 = createMockContext({ role: RoleType.SUPER_ADMIN }, 'SALES');
-      const ctx2 = createMockContext({ role: RoleType.SUPER_ADMIN }, 'FINANCE');
+      const ctx1 = createMockContext({ role: RoleType.ADMIN }, 'SALES');
+      const ctx2 = createMockContext({ role: RoleType.ADMIN }, 'BACK_OFFICE');
       const ctx3 = createMockContext(
-        { role: RoleType.SUPER_ADMIN },
+        { role: RoleType.ADMIN },
         'ADMINISTRATION',
       );
 
@@ -103,7 +103,7 @@ describe('WorkspaceAccessGuard & Matrix (Iteration 2)', () => {
   describe('Company-Branch Hierarchy Enforcement', () => {
     it('should allow user accessing resources within their assigned branch', () => {
       const ctx = createMockContext(
-        { role: RoleType.SALES_AGENT, branchId: 'branch-101' },
+        { role: RoleType.AGENT, branchId: 'branch-101' },
         'SALES',
         { query: { branchId: 'branch-101' } },
       );
@@ -112,7 +112,7 @@ describe('WorkspaceAccessGuard & Matrix (Iteration 2)', () => {
 
     it('should deny non-global user accessing resources from another branch', () => {
       const ctx = createMockContext(
-        { role: RoleType.SALES_AGENT, branchId: 'branch-101' },
+        { role: RoleType.AGENT, branchId: 'branch-101' },
         'SALES',
         { query: { branchId: 'branch-999' } },
       );
@@ -121,7 +121,7 @@ describe('WorkspaceAccessGuard & Matrix (Iteration 2)', () => {
 
     it('should deny non-global user accessing resources from another company', () => {
       const ctx = createMockContext(
-        { role: RoleType.SALES_AGENT, companyId: 'company-1' },
+        { role: RoleType.AGENT, companyId: 'company-1' },
         'SALES',
         { query: { companyId: 'company-2' } },
       );
@@ -137,7 +137,7 @@ describe('WorkspaceAccessGuard & Matrix (Iteration 2)', () => {
       expect(guard.canActivate(ctxAdmin)).toBe(true);
 
       const ctxCeo = createMockContext(
-        { role: RoleType.MD_CEO, branchId: 'branch-101' },
+        { role: RoleType.ADMIN, branchId: 'branch-101' },
         'MANAGEMENT',
         { body: { branchId: 'branch-999' } },
       );
@@ -154,8 +154,8 @@ describe('WorkspaceAccessGuard & Matrix (Iteration 2)', () => {
         lastName: 'User',
         organizationId: 'org-1',
         companyId: 'org-1',
-        role: RoleType.SALES_MANAGER,
-        roles: [RoleType.SALES_MANAGER, RoleType.FINANCE],
+        role: RoleType.BACK_OFFICE,
+        roles: [RoleType.BACK_OFFICE],
         permissions: [],
         workspaces: [],
         status: UserStatus.ACTIVE,
@@ -163,9 +163,11 @@ describe('WorkspaceAccessGuard & Matrix (Iteration 2)', () => {
 
       const permitted = resolvePermittedWorkspaces(actor);
       expect(permitted).toContain('SALES');
+      expect(permitted).toContain('BACK_OFFICE');
       expect(permitted).toContain('FINANCE');
       expect(permitted).toContain('RENEWALS');
-      expect(permitted).toContain('MANAGEMENT');
+      expect(permitted).toContain('CLAIMS');
+      expect(permitted).not.toContain('MANAGEMENT');
       expect(permitted).not.toContain('ADMINISTRATION');
     });
   });

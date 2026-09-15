@@ -17,11 +17,8 @@ export class ForecastingController {
 
   @Get('revenue')
   @Roles(
-    RoleType.SUPER_ADMIN,
     RoleType.ADMIN,
-    RoleType.BRANCH_MANAGER,
-    RoleType.FINANCE,
-  )
+    )
   @ApiOperation({
     summary:
       'Predict future revenue pipeline based on historical moving average',
@@ -39,7 +36,7 @@ export class ForecastingController {
   }
 
   @Get('renewals')
-  @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN, RoleType.BRANCH_MANAGER)
+  @Roles(RoleType.ADMIN)
   @ApiOperation({ summary: 'Predict expected policy renewals' })
   async forecastRenewals(
     @Query('monthsAhead') monthsAheadStr?: string,
@@ -55,11 +52,8 @@ export class ForecastingController {
 
   @Get('customer-risk/:customerId')
   @Roles(
-    RoleType.SUPER_ADMIN,
     RoleType.ADMIN,
-    RoleType.BRANCH_MANAGER,
-    RoleType.UNDERWRITER,
-  )
+    )
   @ApiOperation({ summary: 'Predict customer churn risk score' })
   async predictRisk(@Param('customerId') customerId: string) {
     const riskScore =

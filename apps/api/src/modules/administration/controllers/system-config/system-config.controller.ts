@@ -34,7 +34,7 @@ export class SystemConfigController {
   @Get()
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN)
+  @Roles(RoleType.ADMIN)
   @ApiOperation({ summary: 'Get all system configurations' })
   async getAllConfigs() {
     return this.systemConfigService.getAllPublicConfigs();
@@ -43,7 +43,7 @@ export class SystemConfigController {
   @Put()
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN)
+  @Roles(RoleType.ADMIN)
   @ApiOperation({ summary: 'Update system configuration parameters' })
   async updateAllConfigs(@Body() body: Record<string, any>) {
     return { success: true, updatedCount: Object.keys(body || {}).length };
@@ -58,7 +58,7 @@ export class SystemConfigController {
   @Get('numbering')
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN)
+  @Roles(RoleType.ADMIN)
   @ApiOperation({ summary: 'Get numbering series rules' })
   async getNumberingSeries() {
     const formats = await this.prisma.numberingFormat.findMany();
@@ -128,7 +128,7 @@ export class SystemConfigController {
   @Get('metrics')
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN)
+  @Roles(RoleType.ADMIN)
   @ApiOperation({ summary: 'Get admin system metrics' })
   async getAdminMetrics() {
     const [activeUsers, totalPoliciesCount, documentsCount] = await Promise.all(
@@ -149,7 +149,7 @@ export class SystemConfigController {
   @Get('flags')
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN)
+  @Roles(RoleType.ADMIN)
   @ApiOperation({ summary: 'Get all feature flags' })
   async getFeatureFlags() {
     return [
@@ -171,7 +171,7 @@ export class SystemConfigController {
   @Patch('flags/:id')
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN)
+  @Roles(RoleType.ADMIN)
   @ApiOperation({ summary: 'Update a feature flag' })
   async updateFeatureFlag(
     @Param('id') id: string,
@@ -183,7 +183,7 @@ export class SystemConfigController {
   @Get(':key')
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN)
+  @Roles(RoleType.ADMIN)
   @ApiOperation({ summary: 'Get a specific configuration' })
   async getConfig(@Param('key') key: string) {
     if (!Object.values(SystemConfigKey).includes(key as SystemConfigKey)) {
@@ -197,7 +197,7 @@ export class SystemConfigController {
   @Put(':key')
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN)
+  @Roles(RoleType.ADMIN)
   @ApiOperation({ summary: 'Update a specific configuration' })
   async updateConfig(@Param('key') key: string, @Body() dto: UpdateConfigDto) {
     if (!Object.values(SystemConfigKey).includes(key as SystemConfigKey)) {

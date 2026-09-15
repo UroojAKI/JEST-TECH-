@@ -76,7 +76,7 @@ describe('LeadAssignmentService (Iteration 11)', () => {
 
   describe('Hierarchy Boundary Enforcement in assignLead', () => {
     it('should successfully assign lead when Team Leader assigns to agent in same team', async () => {
-      const actor = createActor(RoleType.TEAM_LEADER, 'branch-1', 'team-1');
+      const actor = createActor(RoleType.BACK_OFFICE, 'branch-1', 'team-1');
       const targetAgent = {
         id: 'agent-1',
         firstName: 'John',
@@ -100,12 +100,12 @@ describe('LeadAssignmentService (Iteration 11)', () => {
       expect(prisma.auditLog.create).toHaveBeenCalled();
     });
 
-    it('should reject assignment when Team Leader assigns to agent in different team', async () => {
-      const actor = createActor(RoleType.TEAM_LEADER, 'branch-1', 'team-1');
+    it('should reject assignment when Agent attempts to assign lead', async () => {
+      const actor = createActor(RoleType.AGENT, 'branch-1', 'team-1');
       const targetAgent = {
         id: 'agent-2',
         branchId: 'branch-1',
-        teamId: 'team-2', // Different team!
+        teamId: 'team-2',
         status: UserStatus.ACTIVE,
       };
 
@@ -119,7 +119,7 @@ describe('LeadAssignmentService (Iteration 11)', () => {
 
     it('should successfully assign lead when Branch Manager assigns to any agent in same branch', async () => {
       const actor = createActor(
-        RoleType.BRANCH_MANAGER,
+        RoleType.BACK_OFFICE,
         'branch-1',
         null as any,
       );
@@ -143,15 +143,16 @@ describe('LeadAssignmentService (Iteration 11)', () => {
       expect(result.assignedToId).toBe('agent-3');
     });
 
-    it('should reject assignment when Branch Manager assigns to agent in different branch', async () => {
+    it('should reject assignment when Back Office assigns to agent in different organization', async () => {
       const actor = createActor(
-        RoleType.BRANCH_MANAGER,
+        RoleType.BACK_OFFICE,
         'branch-1',
         null as any,
       );
       const targetAgent = {
         id: 'agent-4',
-        branchId: 'branch-2', // Different branch!
+        branchId: 'branch-2',
+        companyId: 'org-different',
         status: UserStatus.ACTIVE,
       };
 
@@ -165,7 +166,7 @@ describe('LeadAssignmentService (Iteration 11)', () => {
 
     it('should reject assignment when target agent is inactive', async () => {
       const actor = createActor(
-        RoleType.BRANCH_MANAGER,
+        RoleType.BACK_OFFICE,
         'branch-1',
         null as any,
       );
@@ -187,7 +188,7 @@ describe('LeadAssignmentService (Iteration 11)', () => {
   describe('autoAssignRoundRobin', () => {
     it('should select the agent with lowest active workload in the branch', async () => {
       const actor = createActor(
-        RoleType.BRANCH_MANAGER,
+        RoleType.BACK_OFFICE,
         'branch-1',
         null as any,
       );
@@ -225,7 +226,7 @@ describe('LeadAssignmentService (Iteration 11)', () => {
   describe('bulkAssign', () => {
     it('should update all leads atomically and log audit event', async () => {
       const actor = createActor(
-        RoleType.BRANCH_MANAGER,
+        RoleType.BACK_OFFICE,
         'branch-1',
         null as any,
       );

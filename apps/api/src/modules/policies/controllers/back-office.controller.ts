@@ -30,28 +30,7 @@ export class BackOfficeController {
   ) {}
 
   @Get('queue')
-  @Roles(
-    RoleType.SUPER_ADMIN,
-    RoleType.ADMIN,
-    RoleType.SYSTEM_ADMINISTRATOR,
-    RoleType.MD_CEO,
-    RoleType.OPERATIONS,
-    RoleType.UNDERWRITER,
-    RoleType.POLICY_ISSUANCE_EXECUTIVE,
-    RoleType.BRANCH_MANAGER,
-    RoleType.SALES_MANAGER,
-    RoleType.SALES_AGENT,
-    RoleType.SALES_EXECUTIVE,
-    RoleType.POSP_ADVISOR,
-    RoleType.AGENT_MANAGER,
-    RoleType.TEAM_LEADER,
-    RoleType.FINANCE,
-    RoleType.FINANCE_ACCOUNTS_EXECUTIVE,
-    RoleType.CHIEF_FINANCE_OFFICER,
-    RoleType.CUSTOMER_SERVICE_EXECUTIVE,
-    RoleType.RENEWAL_EXECUTIVE,
-    RoleType.SUPPORT,
-  )
+  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT)
   @ApiOperation({
     summary:
       'Get Back-Office policy issuance workbench queue with multi-gate validation (G021)',
@@ -64,14 +43,7 @@ export class BackOfficeController {
   }
 
   @Post('issue/:quotationId')
-  @Roles(
-    RoleType.SUPER_ADMIN,
-    RoleType.ADMIN,
-    RoleType.SYSTEM_ADMINISTRATOR,
-    RoleType.MD_CEO,
-    RoleType.OPERATIONS,
-    RoleType.POLICY_ISSUANCE_EXECUTIVE,
-  )
+  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE)
   @ApiOperation({
     summary: 'Validate multi-gates and execute transactional policy issuance',
   })

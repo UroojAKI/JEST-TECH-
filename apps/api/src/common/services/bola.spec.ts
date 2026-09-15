@@ -88,8 +88,8 @@ describe('BOLA & Multi-User Authorization Suite (R1 Exit Gate)', () => {
     branchCode: 'ANDHERI',
     departmentId: 'dept-sales',
     teamId: 'team-alpha',
-    role: RoleType.SALES_AGENT,
-    roles: [RoleType.SALES_AGENT],
+    role: RoleType.AGENT,
+    roles: [RoleType.AGENT],
     permissions: [],
     workspaces: ['SALES'],
     status: UserStatus.ACTIVE,
@@ -228,33 +228,33 @@ describe('BOLA & Multi-User Authorization Suite (R1 Exit Gate)', () => {
   });
 
   describe('6. Cross-Role Operation Boundary Enforcement', () => {
-    it('should forbid Finance Executive from issuing a policy', () => {
-      const financeUser = createActor({
-        userId: 'usr-fin-1',
-        role: RoleType.FINANCE_ACCOUNTS_EXECUTIVE,
-        roles: [RoleType.FINANCE_ACCOUNTS_EXECUTIVE],
+    it('should forbid Agent from issuing a policy', () => {
+      const salesAgent = createActor({
+        userId: 'usr-agent-1',
+        role: RoleType.AGENT,
+        roles: [RoleType.AGENT],
       });
 
       expect(() => {
-        authzService.authorize(financeUser, 'POLICY', 'ISSUE', {});
+        authzService.authorize(salesAgent, 'POLICY', 'ISSUE', {});
       }).toThrow(ForbiddenException);
     });
 
-    it('should forbid Finance Executive from creating quotations', () => {
-      const financeUser = createActor({
-        userId: 'usr-fin-1',
-        role: RoleType.FINANCE_ACCOUNTS_EXECUTIVE,
-        roles: [RoleType.FINANCE_ACCOUNTS_EXECUTIVE],
+    it('should forbid Agent from creating policies directly', () => {
+      const salesAgent = createActor({
+        userId: 'usr-agent-1',
+        role: RoleType.AGENT,
+        roles: [RoleType.AGENT],
       });
 
-      expect(authzService.canCreate(financeUser, 'QUOTATION')).toBe(false);
+      expect(authzService.canCreate(salesAgent, 'POLICY')).toBe(false);
     });
 
     it('should forbid Sales Agent from reconciling payments', () => {
       const salesAgent = createActor({
         userId: 'usr-agent-1',
-        role: RoleType.SALES_AGENT,
-        roles: [RoleType.SALES_AGENT],
+        role: RoleType.AGENT,
+        roles: [RoleType.AGENT],
       });
 
       expect(() => {
@@ -262,37 +262,35 @@ describe('BOLA & Multi-User Authorization Suite (R1 Exit Gate)', () => {
       }).toThrow(ForbiddenException);
     });
 
-    it('should forbid Renewal Executive from reconciling payments', () => {
-      const renewalExec = createActor({
-        userId: 'usr-ren-1',
-        role: RoleType.RENEWAL_EXECUTIVE,
-        roles: [RoleType.RENEWAL_EXECUTIVE],
+    it('should forbid Agent from approving quotations', () => {
+      const salesAgent = createActor({
+        userId: 'usr-agent-1',
+        role: RoleType.AGENT,
+        roles: [RoleType.AGENT],
       });
 
       expect(() => {
-        authzService.authorize(renewalExec, 'PAYMENT', 'RECONCILE', {});
+        authzService.authorize(salesAgent, 'QUOTATION', 'APPROVE', {});
       }).toThrow(ForbiddenException);
     });
 
-    it('should forbid Operations from approving quotations (Sales Manager only)', () => {
-      const opsUser = createActor({
-        userId: 'usr-ops-1',
-        role: RoleType.OPERATIONS,
-        roles: [RoleType.OPERATIONS],
+    it('should allow Back Office to approve quotations', () => {
+      const boUser = createActor({
+        userId: 'usr-bo-1',
+        role: RoleType.BACK_OFFICE,
+        roles: [RoleType.BACK_OFFICE],
       });
 
-      expect(() => {
-        authzService.authorize(opsUser, 'QUOTATION', 'APPROVE', {});
-      }).toThrow(ForbiddenException);
+      expect(authzService.authorize(boUser, 'QUOTATION', 'APPROVE', {})).toBe(true);
     });
   });
 
   describe('7. Multi-User Hierarchical Scoping (Branch & Team)', () => {
-    it('should reject Branch Manager accessing resource of another branch', () => {
+    it('should allow Back Office accessing resource across branches within organization', () => {
       const branchManagerAndheri = createActor({
         userId: 'usr-mgr-andheri',
-        role: RoleType.BRANCH_MANAGER,
-        roles: [RoleType.BRANCH_MANAGER],
+        role: RoleType.BACK_OFFICE,
+        roles: [RoleType.BACK_OFFICE],
         branchId: 'br-andheri',
       });
 
@@ -302,27 +300,28 @@ describe('BOLA & Multi-User Authorization Suite (R1 Exit Gate)', () => {
         organizationId: 'org-mumbai',
       };
 
-      expect(() => {
+      expect(
         authzService.authorize(
           branchManagerAndheri,
           'LEAD',
           'READ',
           bandraResource,
-        );
-      }).toThrow(ForbiddenException);
+        ),
+      ).toBe(true);
     });
 
-    it('should reject Team Leader accessing resource of another team in a different branch', () => {
-      const teamLeadAlpha = createActor({
-        userId: 'usr-tl-alpha',
-        role: RoleType.TEAM_LEADER,
-        roles: [RoleType.TEAM_LEADER],
+    it('should reject Agent accessing resource of another branch and agent', () => {
+      const agentAlpha = createActor({
+        userId: 'usr-agent-alpha',
+        role: RoleType.AGENT,
+        roles: [RoleType.AGENT],
         branchId: 'br-andheri',
         teamId: 'team-alpha',
       });
 
       const otherBranchTeamResource = {
         id: 'res-beta-1',
+        createdById: 'usr-agent-beta',
         branchId: 'br-bandra',
         teamId: 'team-beta',
         organizationId: 'org-mumbai',
@@ -330,7 +329,7 @@ describe('BOLA & Multi-User Authorization Suite (R1 Exit Gate)', () => {
 
       expect(() => {
         authzService.authorize(
-          teamLeadAlpha,
+          agentAlpha,
           'LEAD',
           'READ',
           otherBranchTeamResource,
@@ -359,12 +358,13 @@ describe('BOLA & Multi-User Authorization Suite (R1 Exit Gate)', () => {
   });
 
   describe('9. Multi-Tenant Cross-Organization Isolation', () => {
-    it('should strictly reject Admin attempting to access resource of another organization', async () => {
-      const adminOrgA = createActor({
-        userId: 'usr-admin-a',
-        role: RoleType.ADMIN,
-        roles: [RoleType.ADMIN],
+    it('should strictly reject Back Office attempting to access resource of another organization', async () => {
+      const boOrgA = createActor({
+        userId: 'usr-bo-a',
+        role: RoleType.BACK_OFFICE,
+        roles: [RoleType.BACK_OFFICE],
         organizationId: 'org-mumbai',
+        companyId: 'org-mumbai',
       });
 
       mockQuotationRepo.findDetail.mockResolvedValue({
@@ -377,7 +377,7 @@ describe('BOLA & Multi-User Authorization Suite (R1 Exit Gate)', () => {
       });
 
       await expect(
-        getQuotationService.executeOne('q-tenant-b', adminOrgA),
+        getQuotationService.executeOne('q-tenant-b', boOrgA),
       ).rejects.toThrow(ForbiddenException);
     });
   });
@@ -386,8 +386,8 @@ describe('BOLA & Multi-User Authorization Suite (R1 Exit Gate)', () => {
     it('should reject Sales Agent attempting to assign a lead', () => {
       const salesAgent = createActor({
         userId: 'usr-agent-1',
-        role: RoleType.SALES_AGENT,
-        roles: [RoleType.SALES_AGENT],
+        role: RoleType.AGENT,
+        roles: [RoleType.AGENT],
       });
 
       expect(() => {
@@ -395,69 +395,49 @@ describe('BOLA & Multi-User Authorization Suite (R1 Exit Gate)', () => {
       }).toThrow(ForbiddenException);
     });
 
-    it('should reject Team Leader attempting to assign a lead outside their team', () => {
-      const teamLeaderAlpha = createActor({
-        userId: 'usr-tl-alpha',
-        role: RoleType.TEAM_LEADER,
-        roles: [RoleType.TEAM_LEADER],
-        teamId: 'team-alpha',
+    it('should reject Back Office attempting to assign a lead outside their organization', () => {
+      const bo = createActor({
+        userId: 'usr-bo-alpha',
+        role: RoleType.BACK_OFFICE,
+        roles: [RoleType.BACK_OFFICE],
+        organizationId: 'org-mumbai',
+        companyId: 'org-mumbai',
       });
 
-      const leadBeta = {
-        id: 'lead-beta',
-        teamId: 'team-beta',
-        organizationId: 'org-mumbai',
+      const leadDelhi = {
+        id: 'lead-delhi',
+        organizationId: 'org-delhi',
+        companyId: 'org-delhi',
       };
 
       expect(() => {
-        authzService.authorize(teamLeaderAlpha, 'LEAD', 'ASSIGN', leadBeta);
+        authzService.authorize(bo, 'LEAD', 'ASSIGN', leadDelhi);
       }).toThrow(ForbiddenException);
     });
 
-    it('should reject Branch Manager attempting to assign a lead outside their branch', () => {
-      const branchManagerAndheri = createActor({
-        userId: 'usr-bm-andheri',
-        role: RoleType.BRANCH_MANAGER,
-        roles: [RoleType.BRANCH_MANAGER],
+    it('should allow Back Office to assign a lead across branches within their organization', () => {
+      const bo = createActor({
+        userId: 'usr-bo-andheri',
+        role: RoleType.BACK_OFFICE,
+        roles: [RoleType.BACK_OFFICE],
         branchId: 'br-andheri',
+        organizationId: 'org-mumbai',
+        companyId: 'org-mumbai',
       });
 
       const leadBandra = {
         id: 'lead-bandra',
         branchId: 'br-bandra',
         organizationId: 'org-mumbai',
-      };
-
-      expect(() => {
-        authzService.authorize(
-          branchManagerAndheri,
-          'LEAD',
-          'ASSIGN',
-          leadBandra,
-        );
-      }).toThrow(ForbiddenException);
-    });
-
-    it('should allow Branch Manager to assign a lead within their branch', () => {
-      const branchManagerAndheri = createActor({
-        userId: 'usr-bm-andheri',
-        role: RoleType.BRANCH_MANAGER,
-        roles: [RoleType.BRANCH_MANAGER],
-        branchId: 'br-andheri',
-      });
-
-      const leadAndheri = {
-        id: 'lead-andheri',
-        branchId: 'br-andheri',
-        organizationId: 'org-mumbai',
+        companyId: 'org-mumbai',
       };
 
       expect(
         authzService.authorize(
-          branchManagerAndheri,
+          bo,
           'LEAD',
           'ASSIGN',
-          leadAndheri,
+          leadBandra,
         ),
       ).toBe(true);
     });
@@ -467,8 +447,8 @@ describe('BOLA & Multi-User Authorization Suite (R1 Exit Gate)', () => {
     it('should return empty filter for Super Admin (system-global)', () => {
       const superAdmin = createActor({
         userId: 'usr-super-1',
-        role: RoleType.SUPER_ADMIN,
-        roles: [RoleType.SUPER_ADMIN],
+        role: RoleType.ADMIN,
+        roles: [RoleType.ADMIN],
         organizationId: 'org-mumbai',
       });
 
@@ -476,25 +456,37 @@ describe('BOLA & Multi-User Authorization Suite (R1 Exit Gate)', () => {
       expect(filter).toEqual({});
     });
 
-    it('should return organization-scoped filter for Admin (scoped to company/branch hierarchy)', () => {
-      const admin = createActor({
-        userId: 'usr-admin-1',
-        role: RoleType.ADMIN,
-        roles: [RoleType.ADMIN],
+    it('should return organization-scoped filter for Back Office (scoped to company/branch hierarchy)', () => {
+      const bo = createActor({
+        userId: 'usr-bo-1',
+        role: RoleType.BACK_OFFICE,
+        roles: [RoleType.BACK_OFFICE],
         organizationId: 'org-mumbai',
+        companyId: 'org-mumbai',
       });
 
-      const filter = scopeResolver.resolveScopeFilter(admin, 'LEAD');
+      const filter = scopeResolver.resolveScopeFilter(bo, 'LEAD');
       expect(filter).toEqual({
         OR: [
+          { companyId: 'org-mumbai' },
           {
             createdBy: {
-              branch: { zone: { region: { company: { id: 'org-mumbai' } } } },
+              OR: [
+                { companyId: 'org-mumbai' },
+                {
+                  branch: { zone: { region: { company: { id: 'org-mumbai' } } } },
+                },
+              ],
             },
           },
           {
             assignedTo: {
-              branch: { zone: { region: { company: { id: 'org-mumbai' } } } },
+              OR: [
+                { companyId: 'org-mumbai' },
+                {
+                  branch: { zone: { region: { company: { id: 'org-mumbai' } } } },
+                },
+              ],
             },
           },
         ],
@@ -516,8 +508,8 @@ describe('BOLA & Multi-User Authorization Suite (R1 Exit Gate)', () => {
     it('should generate ownership-only filter for Sales Agent in Lead filter (Lead has no organizationId column)', () => {
       const agent = createActor({
         userId: 'usr-agent-1',
-        role: RoleType.SALES_AGENT,
-        roles: [RoleType.SALES_AGENT],
+        role: RoleType.AGENT,
+        roles: [RoleType.AGENT],
         organizationId: 'org-mumbai',
       });
 

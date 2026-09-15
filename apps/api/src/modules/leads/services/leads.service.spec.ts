@@ -6,7 +6,7 @@ import { AccountsService } from '../../accounts/services/accounts.service';
 import { UsersService } from '../../users/services/users.service';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { PrismaService } from '../../../database/prisma.service';
-import { LeadStatus } from '@prisma/client';
+import { LeadStatus, RoleType } from '@prisma/client';
 import {
   NotFoundException,
   ForbiddenException,
@@ -97,8 +97,8 @@ describe('LeadsService', () => {
       const superAdminUser = {
         id: 'user-1',
         userId: 'user-1',
-        role: 'SUPER_ADMIN',
-        roles: ['SUPER_ADMIN'],
+        role: RoleType.ADMIN,
+        roles: [RoleType.ADMIN],
         status: 'ACTIVE',
         organizationId: 'org-1',
         companyId: 'org-1',
@@ -121,8 +121,8 @@ describe('LeadsService', () => {
       const agentUser = {
         id: 'agent-1',
         userId: 'agent-1',
-        role: 'SALES_AGENT',
-        roles: ['SALES_AGENT'],
+        role: RoleType.AGENT,
+        roles: [RoleType.AGENT],
         status: 'ACTIVE',
         organizationId: 'org-1',
         companyId: 'org-1',

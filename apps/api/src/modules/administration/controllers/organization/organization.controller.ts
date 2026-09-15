@@ -21,53 +21,6 @@ import {
   RequestUser,
 } from '../../../auth/decorators/current-user.decorator';
 
-const HIERARCHY_VIEW_ROLES = [
-  RoleType.SUPER_ADMIN,
-  RoleType.ADMIN,
-  RoleType.MD_CEO,
-  RoleType.SYSTEM_ADMINISTRATOR,
-  RoleType.BRANCH_MANAGER,
-  RoleType.OPERATIONS,
-  RoleType.FINANCE,
-  RoleType.CHIEF_FINANCE_OFFICER,
-  RoleType.TEAM_LEADER,
-  RoleType.SALES_MANAGER,
-];
-
-const BRANCH_VIEW_ROLES = [
-  RoleType.SUPER_ADMIN,
-  RoleType.ADMIN,
-  RoleType.MD_CEO,
-  RoleType.SYSTEM_ADMINISTRATOR,
-  RoleType.BRANCH_MANAGER,
-  RoleType.OPERATIONS,
-  RoleType.FINANCE,
-  RoleType.CHIEF_FINANCE_OFFICER,
-  RoleType.TEAM_LEADER,
-  RoleType.SALES_MANAGER,
-  RoleType.SALES_EXECUTIVE,
-  RoleType.SALES_AGENT,
-  RoleType.POSP_ADVISOR,
-  RoleType.AGENT_MANAGER,
-  RoleType.UNDERWRITER,
-  RoleType.CLAIMS_OFFICER,
-  RoleType.RENEWAL_EXECUTIVE,
-  RoleType.CUSTOMER_SERVICE_EXECUTIVE,
-  RoleType.SUPPORT,
-];
-
-const DEPT_VIEW_ROLES = [
-  RoleType.SUPER_ADMIN,
-  RoleType.ADMIN,
-  RoleType.MD_CEO,
-  RoleType.SYSTEM_ADMINISTRATOR,
-  RoleType.BRANCH_MANAGER,
-  RoleType.OPERATIONS,
-  RoleType.TEAM_LEADER,
-  RoleType.SALES_MANAGER,
-  RoleType.AGENT_MANAGER,
-];
-
 class AssignTeamDto {
   userId: string;
   teamId: string;
@@ -90,14 +43,14 @@ export class OrganizationController {
   constructor(private readonly organizationService: OrganizationService) {}
 
   @Get('hierarchy')
-  @Roles(...HIERARCHY_VIEW_ROLES)
+  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE)
   @ApiOperation({ summary: 'Get full organization hierarchy' })
   async getHierarchy(@CurrentUser() user: RequestUser) {
     return this.organizationService.getHierarchy(user);
   }
 
   @Get('branches')
-  @Roles(...BRANCH_VIEW_ROLES)
+  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT)
   @ApiOperation({ summary: 'Get all branches' })
   async getBranches(
     @Query() pagination: PaginationDto,
@@ -107,7 +60,7 @@ export class OrganizationController {
   }
 
   @Post('branches')
-  @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN)
+  @Roles(RoleType.ADMIN)
   @ApiOperation({ summary: 'Create a new branch' })
   async createBranch(
     @Body() dto: CreateBranchDto,
@@ -117,7 +70,7 @@ export class OrganizationController {
   }
 
   @Get('branches/:branchId/departments')
-  @Roles(...DEPT_VIEW_ROLES)
+  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE)
   @ApiOperation({ summary: 'Get departments for a branch' })
   async getDepartments(
     @Param('branchId', ParseUUIDPipe) branchId: string,
@@ -128,7 +81,7 @@ export class OrganizationController {
   }
 
   @Get('departments/:departmentId/teams')
-  @Roles(...DEPT_VIEW_ROLES)
+  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE)
   @ApiOperation({ summary: 'Get teams for a department' })
   async getTeams(
     @Param('departmentId', ParseUUIDPipe) departmentId: string,
@@ -139,7 +92,7 @@ export class OrganizationController {
   }
 
   @Post('assign-team')
-  @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN)
+  @Roles(RoleType.ADMIN)
   @ApiOperation({ summary: 'Assign a user to a team' })
   async assignTeam(
     @Body() dto: AssignTeamDto,

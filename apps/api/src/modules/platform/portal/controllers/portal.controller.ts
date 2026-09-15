@@ -152,7 +152,7 @@ export class PortalController {
   }
 
   @Get('branch-manager/metrics')
-  @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN, RoleType.BRANCH_MANAGER)
+  @Roles(RoleType.ADMIN, RoleType.ADMIN, RoleType.BACK_OFFICE)
   @ApiOperation({ summary: 'Get branch manager oversight metrics' })
   async getBranchManagerMetrics() {
     return {

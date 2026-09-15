@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ApproveClaimService } from './approve-claim.service';
 import { PrismaService } from '../../../../database/prisma.service';
-import { ClaimStatus, Prisma } from '@prisma/client';
+import { ClaimStatus, Prisma, RoleType } from '@prisma/client';
 import {
   BadRequestException,
   ForbiddenException,
@@ -164,7 +164,8 @@ describe('ApproveClaimService (Claims Lifecycle Assessment & Approval)', () => {
 
     const superAdminActor: any = {
       id: 'super-admin-1',
-      role: 'SUPER_ADMIN',
+      role: RoleType.ADMIN,
+      roles: [RoleType.ADMIN],
       organizationId: 'org-global',
     };
 
@@ -196,7 +197,8 @@ describe('ApproveClaimService (Claims Lifecycle Assessment & Approval)', () => {
 
     const orgClaimsOfficer: any = {
       id: 'officer-a',
-      role: 'CLAIMS_OFFICER',
+      role: RoleType.BACK_OFFICE,
+      roles: [RoleType.BACK_OFFICE],
       organizationId: 'org-tenant-A',
     };
 

@@ -20,22 +20,6 @@ import {
   RecordPaymentDto,
 } from './services/motor-payment-tracking.service';
 
-const SALES_ROLES = [
-  RoleType.SUPER_ADMIN,
-  RoleType.ADMIN,
-  RoleType.SYSTEM_ADMINISTRATOR,
-  RoleType.MD_CEO,
-  RoleType.BRANCH_MANAGER,
-  RoleType.SALES_MANAGER,
-  RoleType.SALES_EXECUTIVE,
-  RoleType.SALES_AGENT,
-  RoleType.POSP_ADVISOR,
-  RoleType.AGENT_MANAGER,
-  RoleType.TEAM_LEADER,
-  RoleType.OPERATIONS,
-  RoleType.POLICY_ISSUANCE_EXECUTIVE,
-];
-
 @ApiTags('Motor — Workflow')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -48,7 +32,7 @@ export class MotorWorkflowController {
   ) {}
 
   @Post('quotations/:id/previous-policy')
-  @Roles(...SALES_ROLES)
+  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT)
   @ApiOperation({
     summary: 'Capture previous policy and run the Motor Rule Engine.',
   })
@@ -63,7 +47,7 @@ export class MotorWorkflowController {
   }
 
   @Get('quotations/:id/rule-evaluation')
-  @Roles(...SALES_ROLES)
+  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT)
   @ApiOperation({
     summary: 'Re-run the Motor Rule Engine from stored source context.',
   })
@@ -72,7 +56,7 @@ export class MotorWorkflowController {
   }
 
   @Post('inspections')
-  @Roles(...SALES_ROLES)
+  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT)
   @ApiOperation({
     summary: 'Create an inspection record. No placeholder evidence is created.',
   })
@@ -87,14 +71,14 @@ export class MotorWorkflowController {
   }
 
   @Get('quotations/:id/inspection')
-  @Roles(...SALES_ROLES)
+  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT)
   @ApiOperation({ summary: 'Get inspection status for a quotation.' })
   async getInspection(@Param('id') quotationId: string) {
     return this.inspectionService.getInspection(quotationId);
   }
 
   @Post('inspections/:id/photos')
-  @Roles(...SALES_ROLES)
+  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT)
   @ApiOperation({ summary: 'Record one real inspection photo storage key.' })
   async recordInspectionPhoto(
     @Param('id') inspectionId: string,
@@ -108,7 +92,7 @@ export class MotorWorkflowController {
   }
 
   @Post('inspections/:id/complete')
-  @Roles(...SALES_ROLES)
+  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT)
   @ApiOperation({
     summary: 'Complete an inspection only after all 7 required photos exist.',
   })
@@ -126,13 +110,7 @@ export class MotorWorkflowController {
   }
 
   @Post('inspections/:id/reject')
-  @Roles(
-    RoleType.SUPER_ADMIN,
-    RoleType.ADMIN,
-    RoleType.OPERATIONS,
-    RoleType.POLICY_ISSUANCE_EXECUTIVE,
-    RoleType.SALES_MANAGER,
-  )
+  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE)
   @ApiOperation({ summary: 'Reject an inspection with a reason.' })
   async rejectInspection(
     @Param('id') inspectionId: string,
@@ -142,12 +120,7 @@ export class MotorWorkflowController {
   }
 
   @Post('quotations/:id/payment')
-  @Roles(
-    ...SALES_ROLES,
-    RoleType.FINANCE,
-    RoleType.FINANCE_ACCOUNTS_EXECUTIVE,
-    RoleType.CHIEF_FINANCE_OFFICER,
-  )
+  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT)
   @ApiOperation({
     summary: 'Record payment tracking state. Only Finance may verify PAID.',
   })
@@ -169,24 +142,14 @@ export class MotorWorkflowController {
   }
 
   @Get('quotations/:id/payment')
-  @Roles(
-    ...SALES_ROLES,
-    RoleType.FINANCE,
-    RoleType.FINANCE_ACCOUNTS_EXECUTIVE,
-    RoleType.CHIEF_FINANCE_OFFICER,
-  )
+  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT)
   @ApiOperation({ summary: 'Get payment record for a quotation.' })
   async getPayment(@Param('id') quotationId: string) {
     return this.paymentService.getPayment(quotationId);
   }
 
   @Get('quotations/:id/policy-gate')
-  @Roles(
-    ...SALES_ROLES,
-    RoleType.FINANCE,
-    RoleType.FINANCE_ACCOUNTS_EXECUTIVE,
-    RoleType.CHIEF_FINANCE_OFFICER,
-  )
+  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT)
   @ApiOperation({ summary: 'Check the server-side policy issuance gate.' })
   async policyCreationGate(@Param('id') quotationId: string) {
     return this.paymentService.canProceedToPolicy(quotationId);

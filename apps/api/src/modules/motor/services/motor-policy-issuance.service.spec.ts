@@ -98,7 +98,7 @@ describe('MotorPolicyIssuanceService (Iteration 8)', () => {
 
   describe('issuePolicy', () => {
     it('should successfully issue policy and schedule renewal when called by OPERATIONS', async () => {
-      const opsActor = createActor(RoleType.POLICY_ISSUANCE_EXECUTIVE);
+      const opsActor = createActor(RoleType.BACK_OFFICE);
       paymentService.canProceedToPolicy.mockResolvedValue({
         allowed: true,
         blockers: [],
@@ -134,7 +134,7 @@ describe('MotorPolicyIssuanceService (Iteration 8)', () => {
     });
 
     it('should reject policy issuance when attempted by unauthorized role', async () => {
-      const viewerActor = createActor(RoleType.CUSTOMER_SERVICE_EXECUTIVE);
+      const viewerActor = createActor(RoleType.AGENT);
 
       await expect(
         service.issuePolicy('q-100', validDto, viewerActor),
@@ -142,7 +142,7 @@ describe('MotorPolicyIssuanceService (Iteration 8)', () => {
     });
 
     it('should block policy issuance when payment gate fails', async () => {
-      const opsActor = createActor(RoleType.OPERATIONS);
+      const opsActor = createActor(RoleType.BACK_OFFICE);
       paymentService.canProceedToPolicy.mockResolvedValue({
         allowed: false,
         blockers: ['PAYMENT_NOT_CONFIRMED'],
@@ -154,7 +154,7 @@ describe('MotorPolicyIssuanceService (Iteration 8)', () => {
     });
 
     it('should reject policy issuance with invalid date range', async () => {
-      const opsActor = createActor(RoleType.OPERATIONS);
+      const opsActor = createActor(RoleType.BACK_OFFICE);
       const invalidDateDto = {
         ...validDto,
         startDate: '2027-01-01',

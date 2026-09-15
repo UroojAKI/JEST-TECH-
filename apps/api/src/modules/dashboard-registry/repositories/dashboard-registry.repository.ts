@@ -56,7 +56,7 @@ export class DashboardRegistryRepository {
 
   async create(dto: CreateDashboardRegistryDto) {
     return this.prisma.dashboardRegistry.create({
-      data: dto,
+      data: dto as any,
       include: { jobRole: true },
     });
   }

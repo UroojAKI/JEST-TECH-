@@ -26,40 +26,19 @@ export class EndorsementsController {
   constructor(private readonly endorsementService: EndorsementService) {}
 
   @Get()
-  @Roles(
-    RoleType.ADMIN,
-    RoleType.SUPER_ADMIN,
-    RoleType.UNDERWRITER,
-    RoleType.OPERATIONS,
-    RoleType.SALES_AGENT,
-    RoleType.BRANCH_MANAGER,
-    RoleType.TEAM_LEADER,
-  )
+  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT)
   getEndorsements(@Query() pagination: PaginationDto) {
     return this.endorsementService.getEndorsements(pagination);
   }
 
   @Get(':id')
-  @Roles(
-    RoleType.ADMIN,
-    RoleType.SUPER_ADMIN,
-    RoleType.UNDERWRITER,
-    RoleType.OPERATIONS,
-    RoleType.SALES_AGENT,
-    RoleType.BRANCH_MANAGER,
-    RoleType.TEAM_LEADER,
-  )
+  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT)
   getEndorsementDetails(@Param('id', ParseUUIDPipe) id: string) {
     return this.endorsementService.getEndorsementDetails(id);
   }
 
   @Post()
-  @Roles(
-    RoleType.ADMIN,
-    RoleType.SUPER_ADMIN,
-    RoleType.OPERATIONS,
-    RoleType.SALES_AGENT,
-  )
+  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT)
   createEndorsement(
     @Body('policyId') policyId: string,
     @Body('type') type: EndorsementType,
@@ -77,14 +56,7 @@ export class EndorsementsController {
   }
 
   @Post('policies/:policyId/calculate-prorata')
-  @Roles(
-    RoleType.ADMIN,
-    RoleType.SUPER_ADMIN,
-    RoleType.UNDERWRITER,
-    RoleType.OPERATIONS,
-    RoleType.SALES_AGENT,
-    RoleType.BRANCH_MANAGER,
-  )
+  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT)
   calculateProRata(
     @Param('policyId', ParseUUIDPipe) policyId: string,
     @Body('newAnnualPremium') newAnnualPremium: number,
@@ -96,12 +68,7 @@ export class EndorsementsController {
   }
 
   @Post(':id/attach')
-  @Roles(
-    RoleType.ADMIN,
-    RoleType.SUPER_ADMIN,
-    RoleType.OPERATIONS,
-    RoleType.SALES_AGENT,
-  )
+  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT)
   attachDocument(
     @Param('id', ParseUUIDPipe) id: string,
     @Body('documentId') documentId: string,
@@ -110,12 +77,7 @@ export class EndorsementsController {
   }
 
   @Post(':id/approve')
-  @Roles(
-    RoleType.ADMIN,
-    RoleType.SUPER_ADMIN,
-    RoleType.UNDERWRITER,
-    RoleType.OPERATIONS,
-  )
+  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE)
   approveEndorsement(
     @Param('id', ParseUUIDPipe) id: string,
     @Body('comments') comments: string,
@@ -125,12 +87,7 @@ export class EndorsementsController {
   }
 
   @Post(':id/reject')
-  @Roles(
-    RoleType.ADMIN,
-    RoleType.SUPER_ADMIN,
-    RoleType.UNDERWRITER,
-    RoleType.OPERATIONS,
-  )
+  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE)
   rejectEndorsement(
     @Param('id', ParseUUIDPipe) id: string,
     @Body('reason') reason: string,

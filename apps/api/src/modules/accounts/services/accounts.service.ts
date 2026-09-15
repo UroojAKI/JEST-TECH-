@@ -16,10 +16,10 @@ import { ActorContext } from '../../../common/interfaces/actor-context.interface
 import { PrismaService } from '../../../database/prisma.service';
 
 const GLOBAL_ROLES: RoleType[] = [
-  RoleType.SUPER_ADMIN,
   RoleType.ADMIN,
-  RoleType.SYSTEM_ADMINISTRATOR,
-  RoleType.MD_CEO,
+  RoleType.ADMIN,
+  RoleType.ADMIN,
+  RoleType.ADMIN,
 ];
 
 @Injectable()
@@ -44,16 +44,16 @@ export class AccountsService {
     };
 
     if (
-      roles.includes(RoleType.BRANCH_MANAGER) ||
-      roles.includes(RoleType.MARKETING_DIRECTOR)
+      roles.includes(RoleType.BACK_OFFICE) ||
+      roles.includes(RoleType.BACK_OFFICE)
     ) {
       if (actor.branchId)
         return { AND: [orgScope, { createdBy: { branchId: actor.branchId } }] };
       return { AND: [orgScope, { createdById: actor.userId }] };
     }
     if (
-      roles.includes(RoleType.TEAM_LEADER) ||
-      roles.includes(RoleType.SALES_MANAGER)
+      roles.includes(RoleType.BACK_OFFICE) ||
+      roles.includes(RoleType.BACK_OFFICE)
     ) {
       if (actor.teamId)
         return { AND: [orgScope, { createdBy: { teamId: actor.teamId } }] };

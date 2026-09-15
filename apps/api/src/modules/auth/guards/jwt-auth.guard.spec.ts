@@ -27,11 +27,12 @@ describe('JwtAuthGuard & ActorContext (Iteration 1 Baseline)', () => {
           firstName: 'Rahul',
           lastName: 'Sharma',
           status: UserStatus.ACTIVE,
+          authVersion: 1,
           teamId: 'team-alpha',
           departmentId: 'dept-motor-sales',
           branchId: 'br-andheri',
           role: {
-            type: RoleType.SALES_AGENT,
+            type: RoleType.AGENT,
             permissions: [
               { permission: { code: 'quotation.create' } },
               { permission: { code: 'quotation.read' } },
@@ -80,8 +81,8 @@ describe('JwtAuthGuard & ActorContext (Iteration 1 Baseline)', () => {
         email: 'agent.rahul@jest.com',
         firstName: 'Rahul',
         lastName: 'Sharma',
-        role: 'SALES_AGENT',
-        roles: ['SALES_AGENT'],
+        role: RoleType.AGENT,
+        roles: [RoleType.AGENT],
         permissions: ['quotation.create', 'quotation.read'],
         organizationId: 'org-mumbai-01',
         branchId: 'br-andheri',
@@ -89,6 +90,7 @@ describe('JwtAuthGuard & ActorContext (Iteration 1 Baseline)', () => {
         departmentId: 'dept-motor-sales',
         teamId: 'team-alpha',
         status: UserStatus.ACTIVE,
+        authVersion: 1,
       };
 
       const actorContext = await strategy.validate(payload);
@@ -104,10 +106,10 @@ describe('JwtAuthGuard & ActorContext (Iteration 1 Baseline)', () => {
         branchCode: 'ANDHERI_MAIN',
         departmentId: 'dept-motor-sales',
         teamId: 'team-alpha',
-        role: RoleType.SALES_AGENT,
-        roles: [RoleType.SALES_AGENT],
+        role: RoleType.AGENT,
+        roles: [RoleType.AGENT],
         permissions: ['quotation.create', 'quotation.read'],
-        workspaces: ['SALES', 'RENEWALS', 'PORTAL'],
+        workspaces: ['SALES', 'RENEWALS', 'CLAIMS', 'PORTAL'],
         status: UserStatus.ACTIVE,
       });
     });

@@ -77,7 +77,7 @@ export class CommunicationController {
   }
 
   @Get('notifications/templates')
-  @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN)
+  @Roles(RoleType.ADMIN, RoleType.ADMIN)
   @ApiOperation({ summary: 'Get notification templates' })
   async getTemplates() {
     return [
@@ -101,7 +101,7 @@ export class CommunicationController {
   }
 
   @Put('notifications/templates/:id')
-  @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN)
+  @Roles(RoleType.ADMIN, RoleType.ADMIN)
   @ApiOperation({ summary: 'Update notification template' })
   async updateTemplate(
     @Param('id') id: string,
@@ -111,7 +111,7 @@ export class CommunicationController {
   }
 
   @Get('notifications/delivery-logs')
-  @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN)
+  @Roles(RoleType.ADMIN, RoleType.ADMIN)
   @ApiOperation({ summary: 'Get notification delivery logs' })
   async getDeliveryLogs() {
     return [
@@ -133,7 +133,7 @@ export class CommunicationController {
   }
 
   @Get('notifications/events')
-  @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN)
+  @Roles(RoleType.ADMIN, RoleType.ADMIN)
   @ApiOperation({ summary: 'Get system notification events' })
   async getNotificationEvents() {
     return [

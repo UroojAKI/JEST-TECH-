@@ -35,41 +35,9 @@ import { ParseUUIDPipe } from '../../../common/utils/parse-uuid.pipe';
 import { DuplicateDetectionService } from '../deduplication/services/duplicate-detection/duplicate-detection.service';
 import { LeadCompletionService } from '../services/lead-completion.service';
 
-const LEAD_VIEW_ROLES: RoleType[] = [
-  RoleType.SUPER_ADMIN,
-  RoleType.ADMIN,
-  RoleType.SYSTEM_ADMINISTRATOR,
-  RoleType.MD_CEO,
-  RoleType.BRANCH_MANAGER,
-  RoleType.MARKETING_DIRECTOR,
-  RoleType.TEAM_LEADER,
-  RoleType.SALES_MANAGER,
-  RoleType.SALES_AGENT,
-  RoleType.SALES_EXECUTIVE,
-  RoleType.POSP_ADVISOR,
-  RoleType.AGENT_MANAGER,
-  RoleType.OPERATIONS,
-  RoleType.UNDERWRITER,
-  RoleType.RENEWAL_EXECUTIVE,
-  RoleType.CUSTOMER_SERVICE_EXECUTIVE,
-];
+const LEAD_VIEW_ROLES: RoleType[] = [RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT];
 
-const LEAD_MANAGE_ROLES: RoleType[] = [
-  RoleType.SUPER_ADMIN,
-  RoleType.ADMIN,
-  RoleType.SYSTEM_ADMINISTRATOR,
-  RoleType.MD_CEO,
-  RoleType.BRANCH_MANAGER,
-  RoleType.MARKETING_DIRECTOR,
-  RoleType.TEAM_LEADER,
-  RoleType.SALES_MANAGER,
-  RoleType.SALES_AGENT,
-  RoleType.SALES_EXECUTIVE,
-  RoleType.POSP_ADVISOR,
-  RoleType.AGENT_MANAGER,
-  RoleType.OPERATIONS,
-  RoleType.CUSTOMER_SERVICE_EXECUTIVE,
-];
+const LEAD_MANAGE_ROLES: RoleType[] = [RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT];
 
 @ApiTags('Leads & Opportunity Pipeline')
 @ApiBearerAuth()
@@ -96,13 +64,7 @@ export class LeadsController {
 
     const role = String(user.role || '').toUpperCase();
     const where: any = {};
-    if (role === 'BRANCH_MANAGER' && user.branchId) {
-      where.assignedTo = { branchId: user.branchId };
-    } else if (role === 'TEAM_LEADER' && user.teamId) {
-      where.assignedTo = { teamId: user.teamId };
-    } else if (
-      !['SUPER_ADMIN', 'ADMIN', 'SYSTEM_ADMINISTRATOR', 'MD_CEO'].includes(role)
-    ) {
+    if (role === 'AGENT') {
       where.assignedToId = user.id;
     }
 
@@ -206,7 +168,7 @@ export class LeadsController {
   }
 
   @Post(':id/merge')
-  @Roles(...LEAD_MANAGE_ROLES)
+  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE)
   merge(
     @Param('id') targetId: string,
     @Body('sourceLeadId') sourceLeadId: string,
@@ -266,12 +228,7 @@ export class LeadsController {
 
   @Delete(':id')
   @HttpCode(HttpStatus.OK)
-  @Roles(
-    RoleType.SUPER_ADMIN,
-    RoleType.ADMIN,
-    RoleType.SYSTEM_ADMINISTRATOR,
-    RoleType.MD_CEO,
-  )
+  @Roles(RoleType.ADMIN)
   remove(
     @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser() user: RequestUser,
@@ -280,15 +237,7 @@ export class LeadsController {
   }
 
   @Post(':id/assign')
-  @Roles(
-    RoleType.SUPER_ADMIN,
-    RoleType.ADMIN,
-    RoleType.BRANCH_MANAGER,
-    RoleType.TEAM_LEADER,
-    RoleType.SALES_MANAGER,
-    RoleType.MD_CEO,
-    RoleType.SYSTEM_ADMINISTRATOR,
-  )
+  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE)
   @ApiOperation({
     summary:
       'Assign or reassign lead to a sales agent with branch/team boundary validation',
@@ -302,15 +251,7 @@ export class LeadsController {
   }
 
   @Post(':id/auto-assign')
-  @Roles(
-    RoleType.SUPER_ADMIN,
-    RoleType.ADMIN,
-    RoleType.BRANCH_MANAGER,
-    RoleType.TEAM_LEADER,
-    RoleType.SALES_MANAGER,
-    RoleType.MD_CEO,
-    RoleType.SYSTEM_ADMINISTRATOR,
-  )
+  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE)
   @ApiOperation({
     summary: 'Auto-assign lead to agent with lowest active load (Round-Robin)',
   })
@@ -322,15 +263,7 @@ export class LeadsController {
   }
 
   @Post('bulk-assign')
-  @Roles(
-    RoleType.SUPER_ADMIN,
-    RoleType.ADMIN,
-    RoleType.BRANCH_MANAGER,
-    RoleType.TEAM_LEADER,
-    RoleType.SALES_MANAGER,
-    RoleType.MD_CEO,
-    RoleType.SYSTEM_ADMINISTRATOR,
-  )
+  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE)
   @ApiOperation({
     summary: 'Bulk reassign leads to a target agent within branch/team scope',
   })
@@ -346,15 +279,7 @@ export class LeadsController {
   }
 
   @Get('queues/workload')
-  @Roles(
-    RoleType.SUPER_ADMIN,
-    RoleType.ADMIN,
-    RoleType.BRANCH_MANAGER,
-    RoleType.TEAM_LEADER,
-    RoleType.SALES_MANAGER,
-    RoleType.MD_CEO,
-    RoleType.SYSTEM_ADMINISTRATOR,
-  )
+  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE)
   @ApiOperation({
     summary: 'Get active workload telemetry for agents within authorized scope',
   })

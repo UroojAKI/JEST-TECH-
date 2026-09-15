@@ -127,7 +127,7 @@ export class ScopeResolver {
     actor: ActorContext,
     resourceType: ResourceType,
   ): Record<string, any> {
-    if (!actor?.userId || (!actor.companyId && !actor.organizationId)) {
+    if (!actor?.userId || !actor.organizationId) {
       return { id: '__UNAUTHORIZED_ACCESS_BLOCKED__' };
     }
 

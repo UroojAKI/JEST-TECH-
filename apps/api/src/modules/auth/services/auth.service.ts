@@ -115,11 +115,11 @@ export class AuthService {
     const updatedUser = await this.usersService.updateLastLogin(user.id);
     const effectiveUser = { ...user, updatedAt: updatedUser?.updatedAt || new Date() };
 
-    const permissions = user.role.permissions
+    const permissions = user.role?.permissions
       ? user.role.permissions.map((p) => p.permission.code)
       : [];
     const organizationId = this.requireOrganization(user);
-    const roleType = user.role.type || user.role.code;
+    const roleType = (user.role?.type || user.role?.code) as RoleType;
     const payload = this.buildPayload(
       effectiveUser,
       organizationId,
@@ -214,8 +214,9 @@ export class AuthService {
         this.prisma.auditLog.create({
           data: {
             userId: user.id,
-            action: AuditAction.SECURITY_ALERT,
+            action: AuditAction.LOGIN,
             entity: 'RefreshToken',
+            entityId: matchedRecord.id,
             metadata: {
               reason: 'REFRESH_TOKEN_REPLAY_DETECTED',
               replayedTokenId: matchedRecord.id,
@@ -236,11 +237,11 @@ export class AuthService {
     // Valid active refresh token -> Rotate token
     await this.usersService.revokeRefreshToken(matchedRecord.id);
 
-    const permissions = user.role.permissions
+    const permissions = user.role?.permissions
       ? user.role.permissions.map((p: any) => p.permission.code)
       : [];
     const organizationId = this.requireOrganization(user);
-    const roleType = user.role.type || user.role.code;
+    const roleType = (user.role?.type || user.role?.code) as RoleType;
     const newPayload = this.buildPayload(
       user,
       organizationId,

@@ -59,6 +59,128 @@ export class ClaimsController {
 
   @Post('report')
   @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT)
+  report(@Body() dto: ReportClaimDto, @CurrentUser() user: RequestUser) {
+    return this.reportClaimService.execute(dto, user);
+  }
+
+  @Post()
+  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT)
+  create(@Body() dto: ReportClaimDto, @CurrentUser() user: RequestUser) {
+    return this.reportClaimService.execute(dto, user);
+  }
+
+  @Get()
+  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT)
+  findAll(
+    @Query() pagination: PaginationDto,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.getClaimsService.executeAll(pagination, user);
+  }
+
+  @Get(':id')
+  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT)
+  findOne(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.getClaimsService.executeOne(id, user);
+  }
+
+  @Post(':id/documents')
+  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT)
+  uploadDocument(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body()
+    dto: {
+      documentType: string;
+      fileKey: string;
+      fileName: string;
+      fileSize: number;
+    },
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.uploadClaimDocumentService.execute(id, dto, user.id);
+  }
+
+  @Post(':id/assign-surveyor')
+  @HttpCode(HttpStatus.OK)
+  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE)
+  assignSurveyor(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: AssignSurveyorDto,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.assignSurveyorService.execute(id, dto, user.id);
+  }
+
+  @Post(':id/approve')
+  @HttpCode(HttpStatus.OK)
+  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE)
+  approve(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: ApproveClaimDto,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.approveClaimService.execute(id, dto, user);
+  }
+
+  @Post(':id/settle')
+  @HttpCode(HttpStatus.OK)
+  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE)
+  settle(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: SettleClaimDto,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.settleClaimService.execute(id, dto, user.id);
+  }
+
+  @Post(':id/settlement/verify')
+  @HttpCode(HttpStatus.OK)
+  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE)
+  verifySettlement(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body('verificationReference') verificationReference: string,
+    @CurrentUser() user: RequestUser,
+  ) {
+    if (!verificationReference?.trim()) {
+      throw new BadRequestException(
+        'Finance verification reference is mandatory',
+      );
+    }
+    return this.settleClaimService.verifySettlement(
+      id,
+      verificationReference.trim(),
+      user.id,
+    );
+  }
+
+  @Post(':id/reject')
+  @HttpCode(HttpStatus.OK)
+  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE)
+  reject(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: RejectClaimDto,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.rejectClaimService.execute(id, dto, user.id);
+  }
+
+  @Post(':id/close')
+  @HttpCode(HttpStatus.OK)
+  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE)
+  close(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body('comments') comments: string,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.closeClaimService.execute(id, comments, user.id);
+  }
+
+  @Post(':id/withdraw')
+  @HttpCode(HttpStatus.OK)
+  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT)
   withdraw(
     @Param('id', ParseUUIDPipe) id: string,
     @Body('reason') reason: string,

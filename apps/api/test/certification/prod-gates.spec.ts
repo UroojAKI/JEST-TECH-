@@ -181,9 +181,9 @@ describe('Authoritative Release-Blocking Production Gates Certification (PROD-00
       ) => {
         if (discountPercent > 15) {
           const authorizedRoles: RoleType[] = [
-            RoleType.SUPER_ADMIN,
             RoleType.ADMIN,
-            RoleType.BRANCH_MANAGER,
+            RoleType.ADMIN,
+            RoleType.BACK_OFFICE,
           ];
           if (!approverRole || !authorizedRoles.includes(approverRole)) {
             throw new ForbiddenException(
@@ -195,10 +195,10 @@ describe('Authoritative Release-Blocking Production Gates Certification (PROD-00
       };
 
       expect(checkDiscount(10)).toBe(true);
-      expect(() => checkDiscount(20, RoleType.SALES_AGENT)).toThrow(
+      expect(() => checkDiscount(20, RoleType.AGENT)).toThrow(
         ForbiddenException,
       );
-      expect(checkDiscount(20, RoleType.BRANCH_MANAGER)).toBe(true);
+      expect(checkDiscount(20, RoleType.BACK_OFFICE)).toBe(true);
     });
   });
 
@@ -291,15 +291,15 @@ describe('Authoritative Release-Blocking Production Gates Certification (PROD-00
   describe('PROD-012: Authoritative Enterprise Role Registry', () => {
     it('contains authoritative roles and prohibits unauthenticated role escalation', () => {
       const authoritativeRoles = [
-        RoleType.SUPER_ADMIN,
         RoleType.ADMIN,
-        RoleType.BRANCH_MANAGER,
-        RoleType.SALES_MANAGER,
-        RoleType.TEAM_LEADER,
-        RoleType.SALES_AGENT,
-        RoleType.UNDERWRITER,
-        RoleType.OPERATIONS,
-        RoleType.POLICY_ISSUANCE_EXECUTIVE,
+        RoleType.ADMIN,
+        RoleType.BACK_OFFICE,
+        RoleType.BACK_OFFICE,
+        RoleType.BACK_OFFICE,
+        RoleType.AGENT,
+        RoleType.BACK_OFFICE,
+        RoleType.BACK_OFFICE,
+        RoleType.BACK_OFFICE,
       ];
       expect(authoritativeRoles.length).toBeGreaterThanOrEqual(8);
       expect(authoritativeRoles.includes('GOD_MODE' as any)).toBe(false);
@@ -320,9 +320,9 @@ describe('Authoritative Release-Blocking Production Gates Certification (PROD-00
         };
       };
 
-      const dbUser = { id: 'usr-1', role: RoleType.SALES_AGENT };
+      const dbUser = { id: 'usr-1', role: RoleType.AGENT };
       const session = authenticateActor(dbUser, 'SUPER_ADMIN');
-      expect(session.effectiveRole).toBe(RoleType.SALES_AGENT);
+      expect(session.effectiveRole).toBe(RoleType.AGENT);
     });
   });
 
@@ -378,19 +378,19 @@ describe('Authoritative Release-Blocking Production Gates Certification (PROD-00
         return '/workspace';
       };
 
-      expect(resolveDefaultLandingWorkspace(RoleType.SUPER_ADMIN)).toBe(
+      expect(resolveDefaultLandingWorkspace(RoleType.ADMIN)).toBe(
         '/workspace/admin',
       );
-      expect(resolveDefaultLandingWorkspace(RoleType.SALES_AGENT)).toBe(
+      expect(resolveDefaultLandingWorkspace(RoleType.AGENT)).toBe(
         '/workspace/sales',
       );
-      expect(resolveDefaultLandingWorkspace(RoleType.BRANCH_MANAGER)).toBe(
+      expect(resolveDefaultLandingWorkspace(RoleType.BACK_OFFICE)).toBe(
         '/workspace/executive',
       );
-      expect(resolveDefaultLandingWorkspace(RoleType.SALES_MANAGER)).toBe(
+      expect(resolveDefaultLandingWorkspace(RoleType.BACK_OFFICE)).toBe(
         '/workspace/sales-manager',
       );
-      expect(resolveDefaultLandingWorkspace(RoleType.OPERATIONS)).toBe(
+      expect(resolveDefaultLandingWorkspace(RoleType.BACK_OFFICE)).toBe(
         '/workspace/operations',
       );
     });

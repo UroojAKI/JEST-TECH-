@@ -14,7 +14,7 @@ import { Roles } from '../../../auth/decorators/roles.decorator';
 import { JobStatus } from '@prisma/client';
 
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('SUPER_ADMIN') // Only admins can access queue dashboard
+@Roles('ADMIN') // Only admins can access queue dashboard
 @Controller('queue')
 export class QueueDashboardController {
   constructor(private readonly queueDashboardService: QueueDashboardService) {}

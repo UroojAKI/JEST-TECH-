@@ -58,14 +58,14 @@ export class VehicleMasterController {
   }
 
   @Post('rto')
-  @Roles(RoleType.ADMIN, RoleType.SUPER_ADMIN)
+  @Roles(RoleType.ADMIN)
   @ApiOperation({ summary: 'Create new RTO master record' })
   createRto(@Body() data: CreateRtoDto) {
     return this.vehicleService.createRto(data);
   }
 
   @Put('rto/:id')
-  @Roles(RoleType.ADMIN, RoleType.SUPER_ADMIN)
+  @Roles(RoleType.ADMIN)
   @ApiOperation({ summary: 'Update RTO master record' })
   updateRto(
     @Param('id', ParseUUIDPipe) id: string,
@@ -75,7 +75,7 @@ export class VehicleMasterController {
   }
 
   @Delete('rto/:id')
-  @Roles(RoleType.ADMIN, RoleType.SUPER_ADMIN)
+  @Roles(RoleType.ADMIN)
   @ApiOperation({ summary: 'Delete RTO master record' })
   deleteRto(@Param('id', ParseUUIDPipe) id: string) {
     return this.vehicleService.deleteRto(id);
@@ -88,7 +88,7 @@ export class VehicleMasterController {
   }
 
   @Post('manufacturers')
-  @Roles(RoleType.ADMIN, RoleType.SUPER_ADMIN)
+  @Roles(RoleType.ADMIN)
   createManufacturer(@Body('name') name: string, @Body('code') code: string) {
     return this.vehicleService.createManufacturer(name, code);
   }
@@ -103,7 +103,7 @@ export class VehicleMasterController {
   }
 
   @Post('models')
-  @Roles(RoleType.ADMIN, RoleType.SUPER_ADMIN)
+  @Roles(RoleType.ADMIN)
   createModel(
     @Body('manufacturerId') manufacturerId: string,
     @Body('name') name: string,
@@ -123,7 +123,7 @@ export class VehicleMasterController {
   }
 
   @Post('variants')
-  @Roles(RoleType.ADMIN, RoleType.SUPER_ADMIN)
+  @Roles(RoleType.ADMIN)
   createVariant(
     @Body('modelId') modelId: string,
     @Body('name') name: string,
@@ -145,7 +145,7 @@ export class VehicleMasterController {
   }
 
   @Post('variants/import')
-  @Roles(RoleType.ADMIN, RoleType.SUPER_ADMIN)
+  @Roles(RoleType.ADMIN)
   @ApiConsumes('multipart/form-data')
   @UseInterceptors(FileInterceptor('file'))
   async importVariants(@UploadedFile() file: Express.Multer.File) {

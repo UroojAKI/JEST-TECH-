@@ -103,7 +103,6 @@ export class OrganizationRepository {
         code: dto.code.toUpperCase(),
         description: dto.description,
         departmentId: dto.departmentId,
-        defaultRoleType: dto.defaultRoleType,
         parentRoleId: dto.parentRoleId,
         displayOrder: dto.displayOrder || 0,
         status: dto.status || 'ACTIVE',

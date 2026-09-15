@@ -41,14 +41,14 @@ export class DashboardRegistryController {
   }
 
   @Post()
-  @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN)
+  @Roles(RoleType.ADMIN, RoleType.ADMIN)
   @ApiOperation({ summary: 'Register a new dashboard configuration' })
   create(@Body() dto: CreateDashboardRegistryDto) {
     return this.service.create(dto);
   }
 
   @Put(':code')
-  @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN)
+  @Roles(RoleType.ADMIN, RoleType.ADMIN)
   @ApiOperation({ summary: 'Update an existing dashboard configuration' })
   update(@Param('code') code: string, @Body() dto: UpdateDashboardRegistryDto) {
     return this.service.update(code, dto);

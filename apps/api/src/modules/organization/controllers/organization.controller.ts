@@ -46,14 +46,14 @@ export class OrganizationController {
   }
 
   @Post('departments')
-  @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN)
+  @Roles(RoleType.ADMIN, RoleType.ADMIN)
   @ApiOperation({ summary: 'Create new department' })
   createDepartment(@Body() dto: CreateDepartmentDto) {
     return this.organizationService.createDepartment(dto);
   }
 
   @Put('departments/:id')
-  @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN)
+  @Roles(RoleType.ADMIN, RoleType.ADMIN)
   @ApiOperation({ summary: 'Update department' })
   updateDepartment(
     @Param('id', ParseUUIDPipe) id: string,
@@ -63,7 +63,7 @@ export class OrganizationController {
   }
 
   @Delete('departments/:id')
-  @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN)
+  @Roles(RoleType.ADMIN, RoleType.ADMIN)
   @ApiOperation({ summary: 'Delete department' })
   deleteDepartment(@Param('id', ParseUUIDPipe) id: string) {
     return this.organizationService.deleteDepartment(id);
@@ -82,14 +82,14 @@ export class OrganizationController {
   }
 
   @Post('job-role')
-  @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN)
+  @Roles(RoleType.ADMIN, RoleType.ADMIN)
   @ApiOperation({ summary: 'Create new job role' })
   createJobRole(@Body() dto: CreateJobRoleDto) {
     return this.organizationService.createJobRole(dto);
   }
 
   @Put('job-role/:id')
-  @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN)
+  @Roles(RoleType.ADMIN, RoleType.ADMIN)
   @ApiOperation({ summary: 'Update job role' })
   updateJobRole(
     @Param('id', ParseUUIDPipe) id: string,
@@ -99,7 +99,7 @@ export class OrganizationController {
   }
 
   @Delete('job-role/:id')
-  @Roles(RoleType.SUPER_ADMIN, RoleType.ADMIN)
+  @Roles(RoleType.ADMIN, RoleType.ADMIN)
   @ApiOperation({ summary: 'Delete job role' })
   deleteJobRole(@Param('id', ParseUUIDPipe) id: string) {
     return this.organizationService.deleteJobRole(id);

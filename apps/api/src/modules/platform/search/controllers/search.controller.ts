@@ -14,18 +14,7 @@ import { SearchService, SearchResult } from '../services/search.service';
 @ApiTags('Search')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles(
-  RoleType.SUPER_ADMIN,
-  RoleType.ADMIN,
-  RoleType.BRANCH_MANAGER,
-  RoleType.TEAM_LEADER,
-  RoleType.SALES_AGENT,
-  RoleType.OPERATIONS,
-  RoleType.UNDERWRITER,
-  RoleType.CLAIMS_OFFICER,
-  RoleType.FINANCE,
-  RoleType.SUPPORT,
-)
+@Roles(RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT)
 @Controller('search')
 export class SearchController {
   constructor(private readonly searchService: SearchService) {}

@@ -31,60 +31,38 @@ export class DashboardController {
     return this.dashboardService.getDashboard(user.role, user.id);
   }
 
-  @Get('super-admin')
-  @Roles(RoleType.SUPER_ADMIN)
-  getSuperAdminDashboard(@CurrentUser() user: RequestUser) {
-    return this.dashboardService.getDashboard(RoleType.SUPER_ADMIN, user.id);
-  }
-
   @Get('admin')
   @Roles(RoleType.ADMIN)
   getAdminDashboard(@CurrentUser() user: RequestUser) {
     return this.dashboardService.getDashboard(RoleType.ADMIN, user.id);
   }
 
-  @Get('manager')
-  @Roles(RoleType.BRANCH_MANAGER, RoleType.TEAM_LEADER)
-  getManagerDashboard(@CurrentUser() user: RequestUser) {
-    return this.dashboardService.getDashboard(RoleType.BRANCH_MANAGER, user.id);
+  @Get('back-office')
+  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE)
+  getBackOfficeDashboard(@CurrentUser() user: RequestUser) {
+    return this.dashboardService.getDashboard(RoleType.BACK_OFFICE, user.id);
   }
 
   @Get('agent')
-  @Roles(RoleType.SALES_AGENT)
+  @Roles(RoleType.AGENT)
   getAgentDashboard(@CurrentUser() user: RequestUser) {
-    return this.dashboardService.getDashboard(RoleType.SALES_AGENT, user.id);
+    return this.dashboardService.getDashboard(RoleType.AGENT, user.id);
   }
 
   @Get('management/branch-gwp')
-  @Roles(
-    RoleType.SUPER_ADMIN,
-    RoleType.ADMIN,
-    RoleType.BRANCH_MANAGER,
-    RoleType.SALES_MANAGER,
-  )
+  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE)
   getBranchGwpBreakdown() {
     return this.dashboardService.getBranchGwpBreakdown();
   }
 
   @Get('management/insurers')
-  @Roles(
-    RoleType.SUPER_ADMIN,
-    RoleType.ADMIN,
-    RoleType.BRANCH_MANAGER,
-    RoleType.SALES_MANAGER,
-  )
+  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE)
   getInsurerMarketShare() {
     return this.dashboardService.getInsurerMarketShare();
   }
 
   @Get('management/leaderboard')
-  @Roles(
-    RoleType.SUPER_ADMIN,
-    RoleType.ADMIN,
-    RoleType.BRANCH_MANAGER,
-    RoleType.TEAM_LEADER,
-    RoleType.SALES_MANAGER,
-  )
+  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE)
   getSalesLeaderboard(@Query('limit') limit?: string) {
     return this.dashboardService.getSalesLeaderboard(
       limit ? parseInt(limit, 10) : 10,
