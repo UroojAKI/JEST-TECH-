@@ -13,66 +13,14 @@ import {
 import { ActorContext } from '../interfaces/actor-context.interface';
 
 export const WORKSPACE_ROLE_MATRIX: Record<WorkspaceCode, RoleType[]> = {
-  SALES: [
-    RoleType.SUPER_ADMIN,
-    RoleType.ADMIN,
-    RoleType.MD_CEO,
-    RoleType.SALES_MANAGER,
-    RoleType.SALES_EXECUTIVE,
-    RoleType.SALES_AGENT,
-    RoleType.POSP_ADVISOR,
-    RoleType.AGENT_MANAGER,
-    RoleType.TEAM_LEADER,
-    RoleType.BRANCH_MANAGER,
-  ],
-  FINANCE: [
-    RoleType.SUPER_ADMIN,
-    RoleType.ADMIN,
-    RoleType.MD_CEO,
-    RoleType.CHIEF_FINANCE_OFFICER,
-    RoleType.FINANCE,
-    RoleType.FINANCE_ACCOUNTS_EXECUTIVE,
-  ],
-  BACK_OFFICE: [
-    RoleType.SUPER_ADMIN,
-    RoleType.ADMIN,
-    RoleType.MD_CEO,
-    RoleType.OPERATIONS,
-    RoleType.POLICY_ISSUANCE_EXECUTIVE,
-    RoleType.UNDERWRITER,
-  ],
-  RENEWALS: [
-    RoleType.SUPER_ADMIN,
-    RoleType.ADMIN,
-    RoleType.MD_CEO,
-    RoleType.RENEWAL_EXECUTIVE,
-    RoleType.SALES_MANAGER,
-    RoleType.SALES_EXECUTIVE,
-    RoleType.SALES_AGENT,
-  ],
-  CLAIMS: [
-    RoleType.SUPER_ADMIN,
-    RoleType.ADMIN,
-    RoleType.MD_CEO,
-    RoleType.CLAIMS_OFFICER,
-    RoleType.SUPPORT,
-    RoleType.CUSTOMER_SERVICE_EXECUTIVE,
-  ],
-  MANAGEMENT: [
-    RoleType.SUPER_ADMIN,
-    RoleType.ADMIN,
-    RoleType.MD_CEO,
-    RoleType.CHIEF_FINANCE_OFFICER,
-    RoleType.SALES_MANAGER,
-    RoleType.BRANCH_MANAGER,
-    RoleType.MARKETING_DIRECTOR,
-  ],
-  ADMINISTRATION: [
-    RoleType.SUPER_ADMIN,
-    RoleType.ADMIN,
-    RoleType.SYSTEM_ADMINISTRATOR,
-  ],
-  PORTAL: [RoleType.CUSTOMER, RoleType.POSP_ADVISOR, RoleType.SALES_AGENT],
+  SALES: [RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT],
+  FINANCE: [RoleType.ADMIN, RoleType.BACK_OFFICE],
+  BACK_OFFICE: [RoleType.ADMIN, RoleType.BACK_OFFICE],
+  RENEWALS: [RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT],
+  CLAIMS: [RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT],
+  MANAGEMENT: [RoleType.ADMIN],
+  ADMINISTRATION: [RoleType.ADMIN],
+  PORTAL: [RoleType.AGENT],
 };
 
 /**
@@ -82,8 +30,8 @@ export function resolvePermittedWorkspaces(
   actor: ActorContext,
 ): WorkspaceCode[] {
   if (
-    actor.roles?.includes(RoleType.SUPER_ADMIN) ||
-    actor.role === RoleType.SUPER_ADMIN ||
+    actor.roles?.includes(RoleType.ADMIN) ||
+    actor.role === RoleType.ADMIN ||
     actor.permissions?.includes('*')
   ) {
     return [
@@ -150,12 +98,7 @@ export class WorkspaceAccessGuard implements CanActivate {
       request.params?.companyId;
 
     const actorRoles = actor.roles || [actor.role];
-    const GLOBAL_ROLES: RoleType[] = [
-      RoleType.SUPER_ADMIN,
-      RoleType.ADMIN,
-      RoleType.MD_CEO,
-      RoleType.SYSTEM_ADMINISTRATOR,
-    ];
+    const GLOBAL_ROLES: RoleType[] = [RoleType.ADMIN];
     const isGlobalActor = actorRoles.some((r) => GLOBAL_ROLES.includes(r));
 
     if (!isGlobalActor) {
@@ -179,10 +122,10 @@ export class WorkspaceAccessGuard implements CanActivate {
       }
     }
 
-    // Super Admin has universal workspace access
+    // Admin has universal workspace access
     if (
-      actor.roles?.includes(RoleType.SUPER_ADMIN) ||
-      actor.role === RoleType.SUPER_ADMIN
+      actor.roles?.includes(RoleType.ADMIN) ||
+      actor.role === RoleType.ADMIN
     ) {
       return true;
     }

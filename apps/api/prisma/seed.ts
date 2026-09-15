@@ -1,4 +1,4 @@
-import { PrismaClient, PermissionCategory, RoleType, NotificationType, UserStatus } from '@prisma/client';
+import { PrismaClient, PermissionCategory, RoleType, AccessScope, NotificationType, UserStatus } from '@prisma/client';
 import * as argon2 from 'argon2';
 
 const prisma = new PrismaClient();
@@ -12,122 +12,196 @@ async function main() {
 
   await prisma.$transaction(async (tx) => {
     // -------------------------------------------------------------------------
-    // 1. SEED ROLES
+    // 1. SEED CANONICAL ROLES (Exactly 3 CRM Application Roles)
     // -------------------------------------------------------------------------
     const roles = [
-      { name: "Super Administrator", code: "SUPER_ADMIN", type: RoleType.SUPER_ADMIN, isSystem: true },
-      { name: "Administrator", code: "ADMIN", type: RoleType.ADMIN, isSystem: true },
-      { name: "Branch Manager", code: "BRANCH_MANAGER", type: RoleType.BRANCH_MANAGER, isSystem: false },
-      { name: "Team Leader", code: "TEAM_LEADER", type: RoleType.TEAM_LEADER, isSystem: false },
-      { name: "Sales Agent", code: "SALES_AGENT", type: RoleType.SALES_AGENT, isSystem: false },
-      { name: "Operations", code: "OPERATIONS", type: RoleType.OPERATIONS, isSystem: false },
-      { name: "Underwriter", code: "UNDERWRITER", type: RoleType.UNDERWRITER, isSystem: false },
-      { name: "Claims Officer", code: "CLAIMS_OFFICER", type: RoleType.CLAIMS_OFFICER, isSystem: false },
-      { name: "Finance", code: "FINANCE", type: RoleType.FINANCE, isSystem: false },
-      { name: "Support", code: "SUPPORT", type: RoleType.SUPPORT, isSystem: false },
-      { name: "Customer", code: "CUSTOMER", type: RoleType.CUSTOMER, isSystem: false },
-      // Enterprise Brokerage SOP Roles (SDP Volume 2)
-      { name: "Managing Director & CEO", code: "MD_CEO", type: RoleType.MD_CEO, isSystem: true },
-      { name: "Chief Finance Officer", code: "CHIEF_FINANCE_OFFICER", type: RoleType.CHIEF_FINANCE_OFFICER, isSystem: true },
-      { name: "Sales Manager", code: "SALES_MANAGER", type: RoleType.SALES_MANAGER, isSystem: false },
-      { name: "Sales Executive", code: "SALES_EXECUTIVE", type: RoleType.SALES_EXECUTIVE, isSystem: false },
-      { name: "Policy Issuance Executive", code: "POLICY_ISSUANCE_EXECUTIVE", type: RoleType.POLICY_ISSUANCE_EXECUTIVE, isSystem: false },
-      { name: "Renewal Executive", code: "RENEWAL_EXECUTIVE", type: RoleType.RENEWAL_EXECUTIVE, isSystem: false },
-      { name: "Customer Service Executive", code: "CUSTOMER_SERVICE_EXECUTIVE", type: RoleType.CUSTOMER_SERVICE_EXECUTIVE, isSystem: false },
-      { name: "Finance Accounts Executive", code: "FINANCE_ACCOUNTS_EXECUTIVE", type: RoleType.FINANCE_ACCOUNTS_EXECUTIVE, isSystem: false },
-      { name: "System Administrator", code: "SYSTEM_ADMINISTRATOR", type: RoleType.SYSTEM_ADMINISTRATOR, isSystem: true },
-      { name: "POSP Advisor", code: "POSP_ADVISOR", type: RoleType.POSP_ADVISOR, isSystem: false },
-      { name: "Agent Manager", code: "AGENT_MANAGER", type: RoleType.AGENT_MANAGER, isSystem: false },
-      { name: "Marketing Director", code: "MARKETING_DIRECTOR", type: RoleType.MARKETING_DIRECTOR, isSystem: false },
+      { name: "Administrator", code: "ADMIN", type: RoleType.ADMIN, description: "Unrestricted administration and system governance", isSystem: true, isActive: true },
+      { name: "Back Office Operations", code: "BACK_OFFICE", type: RoleType.BACK_OFFICE, description: "Organization operations, underwriting, claims, finance, renewals", isSystem: true, isActive: true },
+      { name: "Insurance Agent", code: "AGENT", type: RoleType.AGENT, description: "Customer-facing sales, lead acquisition, and field work", isSystem: true, isActive: true },
     ];
 
     const seededRoles: Record<string, any> = {};
     for (const r of roles) {
       const dbRole = await tx.role.upsert({
         where: { code: r.code },
-        update: {},
+        update: { name: r.name, description: r.description, isSystem: r.isSystem, isActive: r.isActive },
         create: r,
       });
       seededRoles[r.code] = dbRole;
     }
-    console.log(`- Seeded ${roles.length} roles.`);
+    console.log(`- Seeded ${roles.length} canonical roles (ADMIN, BACK_OFFICE, AGENT).`);
 
     // -------------------------------------------------------------------------
-    // 2. SEED PERMISSIONS
+    // 2. SEED AUTHORITATIVE CANONICAL PERMISSIONS (56 Permissions)
     // -------------------------------------------------------------------------
-    const permissions = [
-      ["Create User", "user:create", PermissionCategory.USER],
-      ["Update User", "user:update", PermissionCategory.USER],
-      ["Delete User", "user:delete", PermissionCategory.USER],
-      ["View User", "user:view", PermissionCategory.USER],
+    const permissions: Array<[string, string, PermissionCategory]> = [
+      ["Read Leads", "lead:read", PermissionCategory.LEAD],
+      ["Create Leads", "lead:create", PermissionCategory.LEAD],
+      ["Update Leads", "lead:update", PermissionCategory.LEAD],
+      ["Delete Leads", "lead:delete", PermissionCategory.LEAD],
+      ["Assign Leads", "lead:assign", PermissionCategory.LEAD],
+      ["Merge Leads", "lead:merge", PermissionCategory.LEAD],
+      ["Export Leads", "lead:export", PermissionCategory.LEAD],
 
-      ["Create Lead", "lead:create", PermissionCategory.LEAD],
-      ["Update Lead", "lead:update", PermissionCategory.LEAD],
-      ["Delete Lead", "lead:delete", PermissionCategory.LEAD],
-      ["View Lead", "lead:view", PermissionCategory.LEAD],
+      ["Read Contacts", "contact:read", PermissionCategory.CONTACT],
+      ["Create Contacts", "contact:create", PermissionCategory.CONTACT],
+      ["Update Contacts", "contact:update", PermissionCategory.CONTACT],
+      ["Delete Contacts", "contact:delete", PermissionCategory.CONTACT],
+      ["Export Contacts", "contact:export", PermissionCategory.CONTACT],
 
-      ["Create Quotation", "quotation:create", PermissionCategory.QUOTATION],
-      ["Approve Quotation", "quotation:approve", PermissionCategory.QUOTATION],
+      ["Read Opportunities", "opportunity:read", PermissionCategory.LEAD],
+      ["Create Opportunities", "opportunity:create", PermissionCategory.LEAD],
+      ["Update Opportunities", "opportunity:update", PermissionCategory.LEAD],
+      ["Manage Opportunity Pipeline", "opportunity:pipeline", PermissionCategory.LEAD],
 
-      ["Create Policy", "policy:create", PermissionCategory.POLICY],
-      ["Approve Policy", "policy:approve", PermissionCategory.POLICY],
+      ["Read Quotations", "quotation:read", PermissionCategory.QUOTATION],
+      ["Create Quotations", "quotation:create", PermissionCategory.QUOTATION],
+      ["Update Quotations", "quotation:update", PermissionCategory.QUOTATION],
+      ["Approve Quotations", "quotation:approve", PermissionCategory.QUOTATION],
+      ["Reject Quotations", "quotation:reject", PermissionCategory.QUOTATION],
+      ["Export Quotations", "quotation:export", PermissionCategory.QUOTATION],
 
-      ["Create Claim", "claim:create", PermissionCategory.CLAIM],
-      ["Approve Claim", "claim:approve", PermissionCategory.CLAIM],
+      ["Read Policies", "policy:read", PermissionCategory.POLICY],
+      ["Create Policies", "policy:create", PermissionCategory.POLICY],
+      ["Update Policies", "policy:update", PermissionCategory.POLICY],
+      ["Issue Policies", "policy:issue", PermissionCategory.POLICY],
+      ["Cancel Policies", "policy:cancel", PermissionCategory.POLICY],
+      ["Export Policies", "policy:export", PermissionCategory.POLICY],
 
-      ["View Dashboard", "dashboard:view", PermissionCategory.DASHBOARD],
-      ["View Reports", "REPORT_VIEW", PermissionCategory.REPORT],
-      ["Create Reports", "REPORT_CREATE", PermissionCategory.REPORT],
-      ["Execute Reports", "REPORT_EXECUTE", PermissionCategory.REPORT],
-      ["Export Reports", "REPORT_EXPORT", PermissionCategory.REPORT],
-      ["Schedule Reports", "REPORT_SCHEDULE", PermissionCategory.REPORT],
-      ["View Workflows", "WORKFLOW_VIEW", PermissionCategory.WORKFLOW],
-      ["Edit Workflows", "WORKFLOW_EDIT", PermissionCategory.WORKFLOW],
-      ["Execute Workflows", "WORKFLOW_EXECUTE", PermissionCategory.WORKFLOW],
-      ["Approve Workflows", "WORKFLOW_APPROVE", PermissionCategory.WORKFLOW],
+      ["Read Claims", "claim:read", PermissionCategory.CLAIM],
+      ["Create Claims", "claim:create", PermissionCategory.CLAIM],
+      ["Update Claims", "claim:update", PermissionCategory.CLAIM],
+      ["Approve Claims", "claim:approve", PermissionCategory.CLAIM],
+      ["Reject Claims", "claim:reject", PermissionCategory.CLAIM],
+      ["Settle Claims", "claim:settle", PermissionCategory.CLAIM],
+      ["Export Claims", "claim:export", PermissionCategory.CLAIM],
+
+      ["Read Renewals", "renewal:read", PermissionCategory.POLICY],
+      ["Update Renewals", "renewal:update", PermissionCategory.POLICY],
+      ["Process Renewals", "renewal:process", PermissionCategory.POLICY],
+      ["Export Renewals", "renewal:export", PermissionCategory.POLICY],
+
+      ["Read Documents", "document:read", PermissionCategory.DOCUMENT],
+      ["Upload Documents", "document:upload", PermissionCategory.DOCUMENT],
+      ["Delete Documents", "document:delete", PermissionCategory.DOCUMENT],
+
+      ["Read Commissions", "commission:read", PermissionCategory.ACCOUNT],
+      ["Process Commissions", "commission:process", PermissionCategory.ACCOUNT],
+      ["Configure Commissions", "commission:configure", PermissionCategory.ACCOUNT],
+      ["Export Commissions", "commission:export", PermissionCategory.ACCOUNT],
+
+      ["Read Reports", "report:read", PermissionCategory.REPORT],
+      ["Create Reports", "report:create", PermissionCategory.REPORT],
+      ["Export Reports", "report:export", PermissionCategory.REPORT],
+
+      ["Read Users", "user:read", PermissionCategory.USER],
+      ["Create Users", "user:create", PermissionCategory.USER],
+      ["Update Users", "user:update", PermissionCategory.USER],
+      ["Delete Users", "user:delete", PermissionCategory.USER],
+      ["Deactivate Users", "user:deactivate", PermissionCategory.USER],
+
+      ["Manage System Settings", "system:manage", PermissionCategory.SYSTEM],
+      ["Read Audit Logs", "audit:read", PermissionCategory.SYSTEM],
     ];
 
     const seededPermissions: any[] = [];
     for (const p of permissions) {
       const dbPerm = await tx.permission.upsert({
-        where: { code: p[1] as string },
-        update: {},
+        where: { code: p[1] },
+        update: {
+          name: p[0],
+          category: p[2],
+        },
         create: {
-          name: p[0] as string,
-          code: p[1] as string,
-          category: p[2] as PermissionCategory,
+          name: p[0],
+          code: p[1],
+          category: p[2],
         },
       });
       seededPermissions.push(dbPerm);
     }
-    console.log(`- Seeded ${permissions.length} permissions.`);
+    console.log(`- Seeded ${permissions.length} canonical permissions.`);
 
     // -------------------------------------------------------------------------
-    // 3. MAP PERMISSIONS TO ROLES
+    // 3. MAP PERMISSIONS TO ROLES WITH EXPLICIT SCOPES
     // -------------------------------------------------------------------------
-    // Assign all permissions to SUPER_ADMIN and ADMIN
-    for (const roleCode of ["SUPER_ADMIN", "ADMIN"]) {
-      const roleObj = seededRoles[roleCode];
-      for (const permObj of seededPermissions) {
-        await tx.rolePermission.upsert({
-          where: {
-            roleId_permissionId: {
-              roleId: roleObj.id,
-              permissionId: permObj.id,
-            },
-          },
-          update: {},
-          create: {
-            roleId: roleObj.id,
+    await tx.rolePermission.deleteMany({});
+
+    // ADMIN: All 56 permissions with ALL scope
+    const adminRole = seededRoles["ADMIN"];
+    for (const permObj of seededPermissions) {
+      await tx.rolePermission.create({
+        data: {
+          roleId: adminRole.id,
+          permissionId: permObj.id,
+          scope: AccessScope.ALL,
+        },
+      });
+    }
+
+    // BACK_OFFICE: Operational permissions with ORGANIZATION scope
+    // Excludes user management, system:manage, audit:read, commission:configure, and lead:delete
+    const boRole = seededRoles["BACK_OFFICE"];
+    const boExcluded = new Set([
+      "user:create", "user:delete", "user:deactivate",
+      "system:manage", "audit:read", "commission:configure",
+      "lead:delete",
+    ]);
+    for (const permObj of seededPermissions) {
+      if (!boExcluded.has(permObj.code)) {
+        await tx.rolePermission.create({
+          data: {
+            roleId: boRole.id,
             permissionId: permObj.id,
+            scope: AccessScope.ORGANIZATION,
           },
         });
       }
     }
-    console.log("- Mapped permissions to system administrative roles.");
+
+    // AGENT: Field sales with OWN and ASSIGNED scopes
+    const agentRole = seededRoles["AGENT"];
+    const agentOwnCodes = new Set([
+      "lead:read", "lead:create", "lead:update",
+      "opportunity:read", "opportunity:create", "opportunity:update",
+      "renewal:read", "renewal:update",
+      "contact:read", "contact:create", "contact:update",
+      "quotation:read", "quotation:create", "quotation:update",
+      "policy:read", "policy:create", "policy:update",
+      "claim:read", "claim:create",
+      "document:read", "document:upload",
+      "commission:read",
+    ]);
+    const agentAssignedCodes = new Set([
+      "lead:read", "lead:update",
+      "opportunity:read", "opportunity:update",
+      "renewal:read", "renewal:update",
+    ]);
+
+    for (const permObj of seededPermissions) {
+      if (agentOwnCodes.has(permObj.code)) {
+        await tx.rolePermission.create({
+          data: {
+            roleId: agentRole.id,
+            permissionId: permObj.id,
+            scope: AccessScope.OWN,
+          },
+        });
+      }
+      if (agentAssignedCodes.has(permObj.code)) {
+        await tx.rolePermission.create({
+          data: {
+            roleId: agentRole.id,
+            permissionId: permObj.id,
+            scope: AccessScope.ASSIGNED,
+          },
+        });
+      }
+    }
+    console.log("- Mapped canonical permissions and scopes to ADMIN, BACK_OFFICE, and AGENT.");
 
     // -------------------------------------------------------------------------
-    // 4. SEED DEPARTMENTS & JOB ROLES & DASHBOARDS
+    // 4. SEED DEPARTMENTS & JOB ROLES & CANONICAL DASHBOARDS
     // -------------------------------------------------------------------------
     const departments = [
       { code: "EXEC", name: "Executive Office" },
@@ -149,16 +223,16 @@ async function main() {
     }
 
     const jobRoles = [
-      { code: "CEO", name: "Managing Director", dept: "EXEC", role: "MD_CEO", dbCode: "executive-dashboard", wsCode: "executive", title: "Executive Strategy Command Center" },
-      { code: "SM", name: "Sales Manager", dept: "SALES", role: "SALES_MANAGER", dbCode: "branch-dashboard", wsCode: "sales", title: "Branch Management Command Center" },
-      { code: "AGENT", name: "POSP Advisor", dept: "SALES", role: "POSP_ADVISOR", dbCode: "sales-dashboard", wsCode: "sales", title: "POSP Advisor & Sales Workspace" },
-      { code: "RENEWAL", name: "Renewal Executive", dept: "RENEWAL", role: "RENEWAL_EXECUTIVE", dbCode: "renewal-dashboard", wsCode: "renewal", title: "Renewals & Retention Workspace" },
-      { code: "CRE", name: "Customer Relationship Executive", dept: "CUSTOMER", role: "CUSTOMER_SERVICE_EXECUTIVE", dbCode: "customer-dashboard", wsCode: "customer", title: "Customer Support & Service Workspace" },
-      { code: "ARM", name: "Agent Relationship Manager", dept: "AGENT", role: "AGENT_MANAGER", dbCode: "agent-dashboard", wsCode: "agent", title: "Agent & POSP Management Workspace" },
-      { code: "OPS", name: "Policy Issuance Executive", dept: "OPS", role: "POLICY_ISSUANCE_EXECUTIVE", dbCode: "operations-dashboard", wsCode: "operations", title: "Operations & Underwriting Workspace" },
-      { code: "FIN", name: "Accounts Executive", dept: "FINANCE", role: "FINANCE_ACCOUNTS_EXECUTIVE", dbCode: "finance-dashboard", wsCode: "finance", title: "Finance & Accounting Workspace" },
-      { code: "MKTG", name: "Marketing Executive", dept: "MARKETING", role: "MARKETING_DIRECTOR", dbCode: "marketing-dashboard", wsCode: "marketing", title: "Marketing & Campaigns Workspace" },
-      { code: "ADMIN", name: "CRM Administrator", dept: "IT", role: "SYSTEM_ADMINISTRATOR", dbCode: "admin-dashboard", wsCode: "admin", title: "Administrator Command Center" }
+      { code: "CEO", name: "Managing Director", dept: "EXEC" },
+      { code: "SM", name: "Sales Manager", dept: "SALES" },
+      { code: "AGENT", name: "POSP Advisor", dept: "SALES" },
+      { code: "RENEWAL", name: "Renewal Executive", dept: "RENEWAL" },
+      { code: "CRE", name: "Customer Relationship Executive", dept: "CUSTOMER" },
+      { code: "ARM", name: "Agent Relationship Manager", dept: "AGENT" },
+      { code: "OPS", name: "Policy Issuance Executive", dept: "OPS" },
+      { code: "FIN", name: "Accounts Executive", dept: "FINANCE" },
+      { code: "MKTG", name: "Marketing Executive", dept: "MARKETING" },
+      { code: "ADMIN", name: "CRM Administrator", dept: "IT" }
     ];
 
     const seededJobRoles: Record<string, any> = {};
@@ -170,28 +244,54 @@ async function main() {
           code: jr.code,
           name: jr.name,
           departmentId: seededDepts[jr.dept].id,
-          defaultRoleType: jr.role as RoleType,
         },
       });
       seededJobRoles[jr.code] = dbJr;
+    }
 
-      // Seed Dashboard Registry for this JobRole
-      await tx.dashboardRegistry.upsert({
-        where: { dashboardCode: jr.dbCode },
-        update: { jobRoleId: dbJr.id, workspaceCode: jr.wsCode, title: jr.title },
-        create: {
-          jobRoleId: dbJr.id,
-          dashboardCode: jr.dbCode,
-          workspaceCode: jr.wsCode,
-          title: jr.title,
+    // Seed exactly 3 Canonical Dashboard Registries mapped by roleId
+    await tx.dashboardRegistry.deleteMany({});
+    await tx.dashboardRegistry.createMany({
+      data: [
+        {
+          roleId: adminRole.id,
+          dashboardCode: "admin-dashboard",
+          workspaceCode: "admin",
+          title: "Administrator Command Center",
+          subtitle: "Executive and administrative oversight",
           layout: [],
           navigation: [],
           widgets: [],
           quickActions: [],
-          permissions: [],
+          permissions: ["system:manage", "user:read", "audit:read"],
         },
-      });
-    }
+        {
+          roleId: boRole.id,
+          dashboardCode: "back-office-dashboard",
+          workspaceCode: "operations",
+          title: "Operations & Processing Workspace",
+          subtitle: "Policy issuance, underwriting, claims, finance, and renewals",
+          layout: [],
+          navigation: [],
+          widgets: [],
+          quickActions: [],
+          permissions: ["policy:read", "claim:read", "lead:assign", "quotation:approve"],
+        },
+        {
+          roleId: agentRole.id,
+          dashboardCode: "agent-dashboard",
+          workspaceCode: "sales",
+          title: "Agent Sales Workspace",
+          subtitle: "Customer acquisition, quotations, and active policy portfolio",
+          layout: [],
+          navigation: [],
+          widgets: [],
+          quickActions: [],
+          permissions: ["lead:read", "lead:create", "quotation:create", "policy:read"],
+        },
+      ],
+    });
+    console.log("- Seeded 10 organizational job roles and 3 canonical dashboard registries.");
 
     // -------------------------------------------------------------------------
     // 4b. SEED COMPANY, REGION, ZONE, AND BRANCHES
@@ -291,21 +391,21 @@ async function main() {
     const passwordHash = await argon2.hash("Password@123");
     
     const users = [
-      { email: "superadmin@jest.com", fn: "Super", ln: "Administrator", role: "SUPER_ADMIN", jr: "ADMIN" },
-      { email: "admin@jest.com", fn: "System", ln: "Administrator", role: "SYSTEM_ADMINISTRATOR", jr: "ADMIN" },
-      { email: "manager@jest.com", fn: "Sunil", ln: "Verma", role: "BRANCH_MANAGER", jr: "SM" },
-      { email: "agent@jest.com", fn: "Rajesh", ln: "Sharma", role: "POSP_ADVISOR", jr: "AGENT" },
-      { email: "underwriter@jest.com", fn: "Anjali", ln: "Deshmukh", role: "UNDERWRITER", jr: "OPS" },
-      { email: "claims@jest.com", fn: "Vikram", ln: "Mehta", role: "CLAIMS_OFFICER", jr: "CRE" },
-      { email: "finance@jest.com", fn: "Priya", ln: "Nair", role: "FINANCE", jr: "FIN" },
-      { email: "md@jest.com", fn: "Executive", ln: "Managing Director", role: "MD_CEO", jr: "CEO" },
-      { email: "sm@jest.com", fn: "Regional", ln: "Sales Manager", role: "SALES_MANAGER", jr: "SM" },
-      { email: "renewal@jest.com", fn: "Retention", ln: "Renewal Executive", role: "RENEWAL_EXECUTIVE", jr: "RENEWAL" },
-      { email: "cre@jest.com", fn: "Support", ln: "Customer Exec", role: "CUSTOMER_SERVICE_EXECUTIVE", jr: "CRE" },
-      { email: "arm@jest.com", fn: "Network", ln: "Agent Manager", role: "AGENT_MANAGER", jr: "ARM" },
-      { backoffice: true, email: "backoffice@jest.com", fn: "Backend", ln: "Issuance Officer", role: "POLICY_ISSUANCE_EXECUTIVE", jr: "OPS" },
-      { email: "accounts@jest.com", fn: "Priya", ln: "Finance", role: "FINANCE_ACCOUNTS_EXECUTIVE", jr: "FIN" },
-      { email: "marketing@jest.com", fn: "Digital", ln: "Marketing", role: "MARKETING_DIRECTOR", jr: "MKTG" }
+      { email: "superadmin@jest.com", fn: "Super", ln: "Administrator", role: "ADMIN", jr: "ADMIN" },
+      { email: "admin@jest.com", fn: "System", ln: "Administrator", role: "ADMIN", jr: "ADMIN" },
+      { email: "manager@jest.com", fn: "Sunil", ln: "Verma", role: "BACK_OFFICE", jr: "SM" },
+      { email: "agent@jest.com", fn: "Rajesh", ln: "Sharma", role: "AGENT", jr: "AGENT" },
+      { email: "underwriter@jest.com", fn: "Anjali", ln: "Deshmukh", role: "BACK_OFFICE", jr: "OPS" },
+      { email: "claims@jest.com", fn: "Vikram", ln: "Mehta", role: "BACK_OFFICE", jr: "CRE" },
+      { email: "finance@jest.com", fn: "Priya", ln: "Nair", role: "BACK_OFFICE", jr: "FIN" },
+      { email: "md@jest.com", fn: "Executive", ln: "Managing Director", role: "ADMIN", jr: "CEO" },
+      { email: "sm@jest.com", fn: "Regional", ln: "Sales Manager", role: "BACK_OFFICE", jr: "SM" },
+      { email: "renewal@jest.com", fn: "Retention", ln: "Renewal Executive", role: "BACK_OFFICE", jr: "RENEWAL" },
+      { email: "cre@jest.com", fn: "Support", ln: "Customer Exec", role: "BACK_OFFICE", jr: "CRE" },
+      { email: "arm@jest.com", fn: "Network", ln: "Agent Manager", role: "BACK_OFFICE", jr: "ARM" },
+      { backoffice: true, email: "backoffice@jest.com", fn: "Backend", ln: "Issuance Officer", role: "BACK_OFFICE", jr: "OPS" },
+      { email: "accounts@jest.com", fn: "Priya", ln: "Finance", role: "BACK_OFFICE", jr: "FIN" },
+      { email: "marketing@jest.com", fn: "Digital", ln: "Marketing", role: "BACK_OFFICE", jr: "MKTG" }
     ];
 
     let empCounter = Math.floor(Date.now() / 1000);
@@ -318,6 +418,7 @@ async function main() {
             passwordHash,
             status: UserStatus.ACTIVE,
             roleId: r.id, 
+            companyId: company.id,
             jobRoleId: seededJobRoles[u.jr].id, 
             departmentId: seededJobRoles[u.jr].departmentId,
             branchId: branchBkc.id,
@@ -330,6 +431,7 @@ async function main() {
             status: UserStatus.ACTIVE,
             isEmailVerified: true,
             roleId: r.id,
+            companyId: company.id,
             jobRoleId: seededJobRoles[u.jr].id,
             departmentId: seededJobRoles[u.jr].departmentId,
             branchId: branchBkc.id,
@@ -778,14 +880,14 @@ async function main() {
           },
         });
 
-        // If High Premium, add assignment for Underwriter role
+        // If High Premium, add assignment for Back Office role
         if (t.fromCode === "UNDER_REVIEW" && t.toCode === "APPROVED" && t.name.includes("High Premium")) {
-          const underwriterRole = seededRoles["UNDERWRITER"];
-          if (underwriterRole) {
+          const boRole = seededRoles["BACK_OFFICE"];
+          if (boRole) {
             await tx.workflowAssignment.create({
               data: {
                 transitionId: dbTrans.id,
-                roleId: underwriterRole.id,
+                roleId: boRole.id,
                 required: true,
                 approvalType: "ANY",
               },

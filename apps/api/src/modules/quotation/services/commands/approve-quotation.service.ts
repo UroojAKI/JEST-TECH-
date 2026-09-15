@@ -67,14 +67,12 @@ export class ApproveQuotationService {
     // Discounts > standardLimit require Branch Manager, Underwriter, or Admin
     if (discountPercent > standardLimit) {
       const allowedRoles: string[] = [
-        RoleType.SUPER_ADMIN,
         RoleType.ADMIN,
-        RoleType.BRANCH_MANAGER,
-        RoleType.UNDERWRITER,
+        RoleType.BACK_OFFICE,
       ];
       if (approverRole && !allowedRoles.includes(approverRole)) {
         throw new ForbiddenException(
-          `Discount of ${discountPercent.toFixed(1)}% exceeds standard threshold (${standardLimit}%). Requires Branch Manager or Underwriter approval.`,
+          `Discount of ${discountPercent.toFixed(1)}% exceeds standard threshold (${standardLimit}%). Requires Back Office or Administrator approval.`,
         );
       }
     }

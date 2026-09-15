@@ -258,19 +258,13 @@ export class LeadAssignmentService {
     const userWhere: any = {
       status: UserStatus.ACTIVE,
       role: {
-        in: [
-          RoleType.SALES_AGENT,
-          RoleType.SALES_EXECUTIVE,
-          RoleType.POSP_ADVISOR,
-        ],
+        type: RoleType.AGENT,
       },
       deletedAt: null,
     };
 
-    if (actor.role === RoleType.TEAM_LEADER && actor.teamId) {
-      userWhere.teamId = actor.teamId;
-    } else if (actor.role === RoleType.BRANCH_MANAGER && actor.branchId) {
-      userWhere.branchId = actor.branchId;
+    if (actor.role !== RoleType.ADMIN) {
+      userWhere.companyId = actor.companyId;
     }
 
     const agents = await this.prisma.user.findMany({
@@ -320,27 +314,15 @@ export class LeadAssignmentService {
   }
 
   private validateHierarchyBoundary(actor: ActorContext, targetAgent: any) {
-    if (
-      actor.role === RoleType.SUPER_ADMIN ||
-      actor.role === RoleType.ADMIN ||
-      actor.role === RoleType.SALES_MANAGER
-    ) {
+    if (actor.role === RoleType.ADMIN) {
       return; // Global assignment authority
     }
 
-    if (actor.role === RoleType.TEAM_LEADER) {
-      if (!actor.teamId || targetAgent.teamId !== actor.teamId) {
+    if (actor.role === RoleType.BACK_OFFICE) {
+      const targetCompanyId = targetAgent.companyId || targetAgent.branch?.zone?.region?.company?.id;
+      if (targetCompanyId && targetCompanyId !== actor.companyId) {
         throw new ForbiddenException(
-          'Team Leader can only assign leads to agents within their own team',
-        );
-      }
-      return;
-    }
-
-    if (actor.role === RoleType.BRANCH_MANAGER) {
-      if (!actor.branchId || targetAgent.branchId !== actor.branchId) {
-        throw new ForbiddenException(
-          'Branch Manager can only assign leads to agents within their own branch',
+          'Back Office can only assign leads within their own organization',
         );
       }
       return;

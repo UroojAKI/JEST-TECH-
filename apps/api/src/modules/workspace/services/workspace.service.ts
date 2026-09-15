@@ -126,7 +126,6 @@ export class WorkspaceService {
             id: jobRole.id,
             code: jobRole.code,
             name: jobRole.name,
-            defaultRoleType: jobRole.defaultRoleType,
             description: jobRole.description,
           }
         : null,
@@ -226,7 +225,7 @@ export class WorkspaceService {
       throw new ForbiddenException('Missing organizational tenant context');
     }
 
-    const roleType = user.role?.type || user.role?.code;
+    const roleType = user.role?.type;
     if (!roleType) {
       throw new UnauthorizedException(
         'Missing user role authorization context',
@@ -234,7 +233,7 @@ export class WorkspaceService {
     }
 
     const permissions =
-      user.role.permissions?.map((p: any) => p.permission.code) || [];
+      user.role?.permissions?.map((p: any) => p.permission?.code || p.permissionCode) || [];
 
     const actor: ActorContext = {
       userId: user.id,

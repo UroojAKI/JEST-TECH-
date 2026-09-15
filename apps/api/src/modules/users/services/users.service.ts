@@ -237,6 +237,10 @@ export class UsersService {
     return this.userRepository.findActiveRefreshTokens(userId);
   }
 
+  async findUserRefreshTokens(userId: string) {
+    return this.userRepository.findUserRefreshTokens(userId);
+  }
+
   async revokeRefreshToken(tokenId: string): Promise<void> {
     return this.userRepository.revokeRefreshToken(tokenId);
   }

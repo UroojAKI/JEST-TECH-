@@ -44,9 +44,8 @@ export class SalesWorkspaceController {
   @ApiOperation({ summary: 'Get Sales Workspace aggregated dashboard payload' })
   async getDashboard(@CurrentUser() user: RequestUser) {
     const isManager =
-      user.role === 'BRANCH_MANAGER' ||
-      user.role === 'TEAM_LEADER' ||
-      user.role === 'SUPER_ADMIN';
+      user.role === 'ADMIN' ||
+      user.role === 'BACK_OFFICE';
 
     const kpis = await this.performanceService.getSalesKpis(user.id, isManager);
     const pipeline = await this.performanceService.getSalesPipeline(
@@ -71,9 +70,8 @@ export class SalesWorkspaceController {
   @ApiOperation({ summary: 'Get Agent Work Queue actionable task badges' })
   async getWorkQueue(@CurrentUser() user: RequestUser) {
     const isManager =
-      user.role === 'BRANCH_MANAGER' ||
-      user.role === 'TEAM_LEADER' ||
-      user.role === 'SUPER_ADMIN';
+      user.role === 'ADMIN' ||
+      user.role === 'BACK_OFFICE';
     const where: any = { deletedAt: null };
     if (!isManager) where.assignedToId = user.id;
 
@@ -113,9 +111,8 @@ export class SalesWorkspaceController {
   @ApiOperation({ summary: 'Get Top-Row and Bottom-Row KPI Cards' })
   getKpis(@CurrentUser() user: RequestUser) {
     const isManager =
-      user.role === 'BRANCH_MANAGER' ||
-      user.role === 'TEAM_LEADER' ||
-      user.role === 'SUPER_ADMIN';
+      user.role === 'ADMIN' ||
+      user.role === 'BACK_OFFICE';
     return this.performanceService.getSalesKpis(user.id, isManager);
   }
 
@@ -123,9 +120,8 @@ export class SalesWorkspaceController {
   @ApiOperation({ summary: 'Get Lead Pipeline distribution & stage leads' })
   getPipeline(@CurrentUser() user: RequestUser) {
     const isManager =
-      user.role === 'BRANCH_MANAGER' ||
-      user.role === 'TEAM_LEADER' ||
-      user.role === 'SUPER_ADMIN';
+      user.role === 'ADMIN' ||
+      user.role === 'BACK_OFFICE';
     return this.performanceService.getSalesPipeline(
       isManager ? undefined : user.id,
     );

@@ -39,6 +39,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     roles?: string[];
     permissions?: string[];
     organizationId?: string;
+    companyId?: string;
     branchId?: string;
     branchCode?: string;
     departmentId?: string;
@@ -46,14 +47,14 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     firstName?: string;
     lastName?: string;
     status?: UserStatus;
+    authVersion?: number;
   }): Promise<ActorContext> {
     if (!payload.sub) {
       throw new UnauthorizedException('Invalid token claims');
     }
 
-    // JWT proves possession of the session token; current authorization state
-    // is loaded from the database so role/status/branch changes take effect
-    // without waiting for an old access token to expire.
+    // JWT proves possession of session token; current authorization state
+    // is loaded from the database so role/status/tenant changes take effect immediately.
     const user = await this.prisma.user.findUnique({
       where: { id: payload.sub },
       select: {
@@ -62,6 +63,8 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         firstName: true,
         lastName: true,
         status: true,
+        authVersion: true,
+        companyId: true,
         updatedAt: true,
         teamId: true,
         departmentId: true,
@@ -103,23 +106,26 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       );
     }
 
-    if ((payload as any).authVersion && user.updatedAt) {
-      if ((payload as any).authVersion < user.updatedAt.getTime()) {
-        throw new UnauthorizedException(
-          'Session invalidated: user profile or permissions updated',
-        );
-      }
+    // Strict authVersion exact matching
+    if (payload.authVersion === undefined || payload.authVersion !== user.authVersion) {
+      throw new UnauthorizedException(
+        'Session invalidated: credentials, roles, or permissions modified',
+      );
     }
 
-    const primaryRole = user.role?.type || (payload.role as RoleType);
-    if (!primaryRole) {
+    if (!user.role?.type) {
       throw new UnauthorizedException('User role is not configured');
     }
 
-    const organizationId =
-      user.branch?.zone?.region?.company?.id || payload.organizationId;
+    const primaryRole = user.role.type;
 
-    if (!organizationId) {
+    const companyId =
+      user.companyId ||
+      user.branch?.zone?.region?.company?.id ||
+      payload.companyId ||
+      payload.organizationId;
+
+    if (!companyId) {
       throw new UnauthorizedException(
         'Missing organization context — access denied.',
       );
@@ -135,8 +141,8 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       email: user.email,
       firstName: user.firstName,
       lastName: user.lastName,
-      organizationId,
-      companyId: organizationId,
+      organizationId: companyId,
+      companyId,
       branchId: user.branchId || undefined,
       branchCode: user.branch?.code || undefined,
       departmentId: user.departmentId || undefined,

@@ -12,7 +12,6 @@ export interface WorkspaceResponseDto {
     id: string;
     code: string;
     name: string;
-    defaultRoleType: string;
     description: string | null;
   } | null;
   department: {

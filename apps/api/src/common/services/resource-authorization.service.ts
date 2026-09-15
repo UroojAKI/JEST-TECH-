@@ -14,6 +14,7 @@ export type ResourceType =
   | 'ACCOUNT'
   | 'CUSTOMER_360'
   | 'REPORT';
+
 export type ResourceAction =
   | 'READ'
   | 'CREATE'
@@ -25,90 +26,8 @@ export type ResourceAction =
   | 'RECONCILE'
   | 'VERIFY'
   | 'APPROVE';
-export type AccessScope =
-  'OWN' | 'ASSIGNED' | 'TEAM' | 'BRANCH' | 'ORGANIZATION' | 'GLOBAL';
 
-const GLOBAL_ROLES: RoleType[] = [RoleType.SUPER_ADMIN];
-const ORGANIZATION_ADMIN_ROLES: RoleType[] = [
-  RoleType.ADMIN,
-  RoleType.MD_CEO,
-  RoleType.SYSTEM_ADMINISTRATOR,
-];
-const BRANCH_ROLES: RoleType[] = [
-  RoleType.BRANCH_MANAGER,
-  RoleType.MARKETING_DIRECTOR,
-];
-const TEAM_ROLES: RoleType[] = [RoleType.TEAM_LEADER, RoleType.SALES_MANAGER];
-const OPERATIONAL_ROLES: RoleType[] = [
-  RoleType.OPERATIONS,
-  RoleType.POLICY_ISSUANCE_EXECUTIVE,
-  RoleType.UNDERWRITER,
-  RoleType.FINANCE,
-  RoleType.FINANCE_ACCOUNTS_EXECUTIVE,
-  RoleType.CHIEF_FINANCE_OFFICER,
-  RoleType.CLAIMS_OFFICER,
-  RoleType.RENEWAL_EXECUTIVE,
-  RoleType.CUSTOMER_SERVICE_EXECUTIVE,
-];
-const SALES_CREATORS: RoleType[] = [
-  RoleType.SALES_AGENT,
-  RoleType.SALES_EXECUTIVE,
-  RoleType.SALES_MANAGER,
-  RoleType.POSP_ADVISOR,
-  RoleType.AGENT_MANAGER,
-  RoleType.ADMIN,
-  RoleType.SUPER_ADMIN,
-];
-const POLICY_ISSUERS: RoleType[] = [
-  RoleType.OPERATIONS,
-  RoleType.POLICY_ISSUANCE_EXECUTIVE,
-  RoleType.UNDERWRITER,
-  RoleType.ADMIN,
-  RoleType.SUPER_ADMIN,
-];
-const FINANCE_ROLES: RoleType[] = [
-  RoleType.FINANCE,
-  RoleType.FINANCE_ACCOUNTS_EXECUTIVE,
-  RoleType.CHIEF_FINANCE_OFFICER,
-  RoleType.ADMIN,
-  RoleType.SUPER_ADMIN,
-];
-const ASSIGNERS: RoleType[] = [
-  RoleType.ADMIN,
-  RoleType.SUPER_ADMIN,
-  RoleType.MD_CEO,
-  RoleType.SALES_MANAGER,
-  RoleType.BRANCH_MANAGER,
-  RoleType.TEAM_LEADER,
-];
-const DOC_VERIFIERS: RoleType[] = [
-  RoleType.OPERATIONS,
-  RoleType.POLICY_ISSUANCE_EXECUTIVE,
-  RoleType.UNDERWRITER,
-  RoleType.ADMIN,
-  RoleType.SUPER_ADMIN,
-];
-const QUOTE_APPROVERS: RoleType[] = [
-  RoleType.SALES_MANAGER,
-  RoleType.BRANCH_MANAGER,
-  RoleType.TEAM_LEADER,
-  RoleType.ADMIN,
-  RoleType.SUPER_ADMIN,
-];
-const CLAIM_APPROVERS: RoleType[] = [
-  RoleType.CLAIMS_OFFICER,
-  RoleType.BRANCH_MANAGER,
-  RoleType.ADMIN,
-  RoleType.SUPER_ADMIN,
-];
-const CLAIM_CREATORS: RoleType[] = [
-  RoleType.CLAIMS_OFFICER,
-  RoleType.SALES_AGENT,
-  RoleType.SALES_EXECUTIVE,
-  RoleType.CUSTOMER_SERVICE_EXECUTIVE,
-  RoleType.ADMIN,
-  RoleType.SUPER_ADMIN,
-];
+export type AccessScope = 'OWN' | 'ASSIGNED' | 'ORGANIZATION' | 'ALL';
 
 @Injectable()
 export class ResourceAuthorizationService {
@@ -118,22 +37,28 @@ export class ResourceAuthorizationService {
     action: ResourceAction,
     resource?: any,
   ): boolean {
-    if (!actor?.userId || !actor.organizationId)
+    if (!actor?.userId || !actor.organizationId) {
       throw new ForbiddenException('Actor organizational context is required');
+    }
     if (
       actor.status === UserStatus.SUSPENDED ||
       actor.status === UserStatus.INACTIVE
-    )
+    ) {
       throw new ForbiddenException(
         `User account is ${actor.status.toLowerCase()}`,
       );
-    if (resource) this.assertSameOrganization(actor, resource);
+    }
+
+    if (resource) {
+      this.assertSameOrganization(actor, resource);
+    }
+
     const roles = actor.roles?.length ? actor.roles : [actor.role];
-    if (
-      roles.some((r) => GLOBAL_ROLES.includes(r)) ||
-      actor.permissions?.includes('*')
-    )
+    if (roles.includes(RoleType.ADMIN) || actor.permissions?.includes('*')) {
+      // Admin has universal role-level access (domain invariants enforced separately)
       return true;
+    }
+
     switch (action) {
       case 'READ':
         return this.canRead(actor, resource, resourceType);
@@ -159,25 +84,27 @@ export class ResourceAuthorizationService {
     }
   }
 
-  private assertSameOrganization(actor: ActorContext, resource: any): void {
-    const resourceOrg = resource.organizationId ?? resource.companyId;
-    if (resourceOrg) {
-      if (resourceOrg !== actor.organizationId)
-        throw new ForbiddenException(
-          'Cross-organization access is strictly prohibited',
-        );
-      return;
+  assertSameOrganization(actor: ActorContext, resource: any): void {
+    const roles = actor.roles?.length ? actor.roles : [actor.role];
+    if (roles.includes(RoleType.ADMIN)) {
+      return; // Admin transcends single-organization scope
     }
-    const relatedOrg =
-      resource.createdBy?.organizationId ??
+
+    const resourceOrg =
+      resource.companyId ??
+      resource.organizationId ??
       resource.createdBy?.companyId ??
+      resource.createdBy?.organizationId ??
       resource.createdBy?.branch?.zone?.region?.company?.id ??
-      resource.assignedTo?.organizationId ??
       resource.assignedTo?.companyId ??
+      resource.assignedTo?.organizationId ??
       resource.assignedTo?.branch?.zone?.region?.company?.id ??
+      resource.contact?.companyId ??
       resource.contact?.branch?.zone?.region?.company?.id ??
+      resource.agent?.companyId ??
       resource.agent?.branch?.zone?.region?.company?.id;
-    if (!relatedOrg) {
+
+    if (!resourceOrg) {
       if (resource?.id) {
         throw new ForbiddenException(
           'Resource organizational context could not be verified',
@@ -185,31 +112,13 @@ export class ResourceAuthorizationService {
       }
       return;
     }
-    if (relatedOrg !== actor.organizationId)
+
+    const actorOrg = actor.companyId || actor.organizationId;
+    if (resourceOrg !== actorOrg) {
       throw new ForbiddenException(
         'Cross-organization access is strictly prohibited',
       );
-  }
-
-  private resourceBranchId(resource: any): string | undefined {
-    if (!resource || typeof resource !== 'object') return undefined;
-    return (
-      resource.branchId ??
-      resource.createdBy?.branchId ??
-      resource.assignedTo?.branchId ??
-      resource.agent?.branchId ??
-      resource.lead?.createdBy?.branchId
-    );
-  }
-  private resourceTeamId(resource: any): string | undefined {
-    if (!resource || typeof resource !== 'object') return undefined;
-    return (
-      resource.teamId ??
-      resource.createdBy?.teamId ??
-      resource.assignedTo?.teamId ??
-      resource.agent?.teamId ??
-      resource.lead?.createdBy?.teamId
-    );
+    }
   }
 
   canRead(
@@ -217,37 +126,20 @@ export class ResourceAuthorizationService {
     resource: any,
     resourceType: ResourceType,
   ): boolean {
-    if (!resource)
+    if (!resource) {
       throw new ForbiddenException('Resource is required for authorization');
+    }
+
     const roles = actor.roles?.length ? actor.roles : [actor.role];
-    if (
-      roles.some(
-        (r) => GLOBAL_ROLES.includes(r) || ORGANIZATION_ADMIN_ROLES.includes(r),
-      )
-    )
-      return true;
-    if (roles.some((r) => BRANCH_ROLES.includes(r))) {
-      const branchId = this.resourceBranchId(resource);
-      if (!actor.branchId || !branchId)
-        throw new ForbiddenException(
-          'Branch context is required for branch-scoped access',
-        );
-      if (actor.branchId !== branchId)
-        throw new ForbiddenException('Resource belongs to another branch');
+    if (roles.includes(RoleType.ADMIN)) return true;
+
+    // Back Office: Organization-wide access within tenant
+    if (roles.includes(RoleType.BACK_OFFICE)) {
       return true;
     }
-    if (roles.some((r) => TEAM_ROLES.includes(r))) {
-      const teamId = this.resourceTeamId(resource);
-      if (!actor.teamId || !teamId)
-        throw new ForbiddenException(
-          'Team context is required for team-scoped access',
-        );
-      if (actor.teamId !== teamId)
-        throw new ForbiddenException('Resource belongs to another sales team');
-      return true;
-    }
-    if (roles.some((r) => OPERATIONAL_ROLES.includes(r))) return true;
-    const isOwner =
+
+    // Agent: Scope OWN or ASSIGNED only
+    const isOwnerOrAssigned =
       resource.createdById === actor.userId ||
       resource.assignedToId === actor.userId ||
       resource.agentId === actor.userId ||
@@ -256,7 +148,9 @@ export class ResourceAuthorizationService {
       resource.lead?.createdById === actor.userId ||
       resource.quotation?.createdById === actor.userId ||
       resource.policy?.createdById === actor.userId;
-    if (isOwner) return true;
+
+    if (isOwnerOrAssigned) return true;
+
     throw new ForbiddenException(
       `You do not have permission to access this ${resourceType.toLowerCase()}`,
     );
@@ -264,26 +158,24 @@ export class ResourceAuthorizationService {
 
   canCreate(actor: ActorContext, resourceType: ResourceType): boolean {
     const roles = actor.roles?.length ? actor.roles : [actor.role];
+    if (roles.includes(RoleType.ADMIN)) return true;
+
     switch (resourceType) {
       case 'QUOTATION':
       case 'LEAD':
-        return roles.some((r) => SALES_CREATORS.includes(r));
-      case 'POLICY':
-        return roles.some((r) => POLICY_ISSUERS.includes(r));
-      case 'PAYMENT':
-        return roles.some((r) =>
-          [
-            ...FINANCE_ROLES,
-            RoleType.SALES_AGENT,
-            RoleType.SALES_EXECUTIVE,
-          ].includes(r),
-        );
+      case 'CONTACT':
       case 'CLAIM':
-        return roles.some((r) => CLAIM_CREATORS.includes(r));
+        return roles.includes(RoleType.BACK_OFFICE) || roles.includes(RoleType.AGENT);
+      case 'POLICY':
+        // Issuance is Back Office operations or Admin only
+        return roles.includes(RoleType.BACK_OFFICE);
+      case 'PAYMENT':
+        return roles.includes(RoleType.BACK_OFFICE) || roles.includes(RoleType.AGENT);
       default:
-        return roles.some((r) => r !== RoleType.CUSTOMER);
+        return roles.includes(RoleType.BACK_OFFICE);
     }
   }
+
   canUpdate(
     actor: ActorContext,
     resource: any,
@@ -291,109 +183,64 @@ export class ResourceAuthorizationService {
   ): boolean {
     return this.canRead(actor, resource, resourceType);
   }
+
   canDelete(actor: ActorContext): boolean {
     const roles = actor.roles?.length ? actor.roles : [actor.role];
-    if (
-      !roles.some((r) =>
-        [...GLOBAL_ROLES, ...ORGANIZATION_ADMIN_ROLES].includes(r),
-      )
-    )
+    // In canonical 3-role architecture, DELETE is strictly Admin-only
+    if (!roles.includes(RoleType.ADMIN)) {
       throw new ForbiddenException('Only Administrators can delete records');
-    return true;
-  }
-  canAssign(actor: ActorContext, resource?: any): boolean {
-    const roles = actor.roles?.length ? actor.roles : [actor.role];
-    if (!roles.some((r) => ASSIGNERS.includes(r)))
-      throw new ForbiddenException(
-        'Only Managers and Administrators can assign records',
-      );
-    if (resource) {
-      const resTeamId = this.resourceTeamId(resource);
-      if (
-        resTeamId &&
-        roles.includes(RoleType.TEAM_LEADER) &&
-        !roles.some((r) =>
-          [
-            ...GLOBAL_ROLES,
-            ...ORGANIZATION_ADMIN_ROLES,
-            RoleType.BRANCH_MANAGER,
-          ].includes(r),
-        )
-      ) {
-        if (!actor.teamId || resTeamId !== actor.teamId)
-          throw new ForbiddenException(
-            'Team Leaders cannot assign records outside their team',
-          );
-      }
-      const resBranchId = this.resourceBranchId(resource);
-      if (
-        resBranchId &&
-        roles.includes(RoleType.BRANCH_MANAGER) &&
-        !roles.some((r) =>
-          [...GLOBAL_ROLES, ...ORGANIZATION_ADMIN_ROLES].includes(r),
-        )
-      ) {
-        if (!actor.branchId || resBranchId !== actor.branchId)
-          throw new ForbiddenException(
-            'Branch Managers cannot assign records outside their branch',
-          );
-      }
     }
     return true;
   }
+
+  canAssign(actor: ActorContext, resource?: any): boolean {
+    const roles = actor.roles?.length ? actor.roles : [actor.role];
+    // Admin and Back Office can assign records; Agents cannot
+    if (!roles.includes(RoleType.ADMIN) && !roles.includes(RoleType.BACK_OFFICE)) {
+      throw new ForbiddenException(
+        'Only Back Office and Administrators can assign records',
+      );
+    }
+    return true;
+  }
+
   canIssue(actor: ActorContext): boolean {
     const roles = actor.roles?.length ? actor.roles : [actor.role];
-    if (!roles.some((r) => POLICY_ISSUERS.includes(r)))
+    if (!roles.includes(RoleType.ADMIN) && !roles.includes(RoleType.BACK_OFFICE)) {
       throw new ForbiddenException(
         'User role is not authorized to issue policies',
       );
+    }
     return true;
   }
+
   canReconcile(actor: ActorContext): boolean {
     const roles = actor.roles?.length ? actor.roles : [actor.role];
-    if (!roles.some((r) => FINANCE_ROLES.includes(r)))
+    if (!roles.includes(RoleType.ADMIN) && !roles.includes(RoleType.BACK_OFFICE)) {
       throw new ForbiddenException(
-        'Only Finance & Accounts personnel can reconcile payments',
+        'Only Finance & Back Office personnel can reconcile payments',
       );
+    }
     return true;
   }
+
   canVerifyDocument(actor: ActorContext): boolean {
     const roles = actor.roles?.length ? actor.roles : [actor.role];
-    if (!roles.some((r) => DOC_VERIFIERS.includes(r)))
+    if (!roles.includes(RoleType.ADMIN) && !roles.includes(RoleType.BACK_OFFICE)) {
       throw new ForbiddenException(
-        'Only Back Office Operations and Underwriters can verify documents',
+        'Only Back Office personnel can verify documents',
       );
+    }
     return true;
   }
+
   canApprove(actor: ActorContext, resourceType: ResourceType): boolean {
     const roles = actor.roles?.length ? actor.roles : [actor.role];
-    if (
-      roles.some((r) =>
-        [...GLOBAL_ROLES, ...ORGANIZATION_ADMIN_ROLES].includes(r),
-      )
-    )
-      return true;
-    if (resourceType === 'QUOTATION' || resourceType === 'LEAD') {
-      if (!roles.some((r) => QUOTE_APPROVERS.includes(r)))
-        throw new ForbiddenException(
-          'Only Sales Managers or Branch Managers can approve quotations or leads',
-        );
-      return true;
+    if (!roles.includes(RoleType.ADMIN) && !roles.includes(RoleType.BACK_OFFICE)) {
+      throw new ForbiddenException(
+        `Only Back Office and Administrators can approve ${resourceType.toLowerCase()}s`,
+      );
     }
-    if (resourceType === 'CLAIM') {
-      if (!roles.some((r) => CLAIM_APPROVERS.includes(r)))
-        throw new ForbiddenException(
-          'Only Claims Officers or Branch Managers can approve claims',
-        );
-      return true;
-    }
-    if (resourceType === 'POLICY') {
-      if (!roles.some((r) => POLICY_ISSUERS.includes(r)))
-        throw new ForbiddenException(
-          'Only Operations and Underwriters can approve policies',
-        );
-      return true;
-    }
-    throw new ForbiddenException(`Approval is not defined for ${resourceType}`);
+    return true;
   }
 }

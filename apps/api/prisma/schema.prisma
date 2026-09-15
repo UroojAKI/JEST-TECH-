@@ -20,29 +20,16 @@ enum UserStatus {
 }
 
 enum RoleType {
-  SUPER_ADMIN
   ADMIN
-  BRANCH_MANAGER
-  TEAM_LEADER
-  SALES_AGENT
-  OPERATIONS
-  UNDERWRITER
-  CLAIMS_OFFICER
-  FINANCE
-  SUPPORT
-  CUSTOMER
-  MD_CEO
-  CHIEF_FINANCE_OFFICER
-  SALES_MANAGER
-  SALES_EXECUTIVE
-  POLICY_ISSUANCE_EXECUTIVE
-  RENEWAL_EXECUTIVE
-  CUSTOMER_SERVICE_EXECUTIVE
-  FINANCE_ACCOUNTS_EXECUTIVE
-  SYSTEM_ADMINISTRATOR
-  POSP_ADVISOR
-  AGENT_MANAGER
-  MARKETING_DIRECTOR
+  BACK_OFFICE
+  AGENT
+}
+
+enum AccessScope {
+  OWN
+  ASSIGNED
+  ORGANIZATION
+  ALL
 }
 
 enum PermissionCategory {
@@ -234,6 +221,7 @@ model Role {
   users               User[]
   permissions         RolePermission[]
   workflowAssignments WorkflowAssignment[]
+  dashboards          DashboardRegistry[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -273,17 +261,17 @@ model Permission {
 //////////////////////////////////////////////////////////
 
 model RolePermission {
-  roleId String
-
+  id           String      @id @default(uuid())
+  roleId       String
   permissionId String
+  scope        AccessScope @default(ORGANIZATION)
 
-  role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
-
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
   permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
 
   assignedAt DateTime @default(now())
 
-  @@id([roleId, permissionId])
+  @@unique([roleId, permissionId, scope])
   @@index([roleId])
   @@index([permissionId])
   @@map("role_permissions")
@@ -335,9 +323,12 @@ model User {
   queueMembers QueueMember[]
   commissions  Commission[]
 
-  roleId String
+  roleId String?
 
-  role Role @relation(fields: [roleId], references: [id])
+  role Role? @relation(fields: [roleId], references: [id])
+
+  companyId String?
+  company   Company? @relation(fields: [companyId], references: [id], onDelete: Restrict)
 
   jobRoleId String?
   jobRole   JobRole? @relation(fields: [jobRoleId], references: [id])
@@ -439,6 +430,7 @@ model User {
   @@index([teamId])
   @@index([departmentId])
   @@index([roleId])
+  @@index([companyId])
   @@index([jobRoleId])
   @@index([managerId])
   @@map("users")
@@ -2737,8 +2729,9 @@ model Company {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  regions Region[]
+  regions  Region[]
   contacts Contact[]
+  users    User[]
 
   @@index([taxId])
 }
@@ -2819,12 +2812,11 @@ model JobRole {
   name            String
   description     String?
   departmentId    String
-  defaultRoleType RoleType @default(SALES_AGENT)
-  parentRoleId    String?
-  displayOrder    Int      @default(0)
-  status          String   @default("ACTIVE")
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  parentRoleId String?
+  displayOrder Int      @default(0)
+  status       String   @default("ACTIVE")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   department Department          @relation(fields: [departmentId], references: [id], onDelete: Cascade)
   parentRole JobRole?            @relation("RoleHierarchy", fields: [parentRoleId], references: [id])
@@ -2838,7 +2830,8 @@ model JobRole {
 
 model DashboardRegistry {
   id            String   @id @default(uuid())
-  jobRoleId     String
+  roleId        String   @unique
+  jobRoleId     String?
   dashboardCode String   @unique
   workspaceCode String
   title         String
@@ -2851,8 +2844,10 @@ model DashboardRegistry {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
-  jobRole JobRole @relation(fields: [jobRoleId], references: [id], onDelete: Cascade)
+  role    Role     @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  jobRole JobRole? @relation(fields: [jobRoleId], references: [id], onDelete: Cascade)
 
+  @@index([roleId])
   @@index([jobRoleId])
 }
 

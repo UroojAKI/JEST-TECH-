@@ -82,15 +82,14 @@ export class ApproveClaimService {
 
     // Role verification and organizational boundary enforcement
     if (actorContext) {
-      const isSuperAdmin =
-        actorContext.role === RoleType.SUPER_ADMIN ||
-        (actorContext as any).roles?.includes(RoleType.SUPER_ADMIN);
+      const isAdmin =
+        actorContext.role === RoleType.ADMIN ||
+        (actorContext as any).roles?.includes(RoleType.ADMIN);
 
-      if (!isSuperAdmin) {
+      if (!isAdmin) {
         const allowedRoles: RoleType[] = [
           RoleType.ADMIN,
-          RoleType.BRANCH_MANAGER,
-          RoleType.CLAIMS_OFFICER,
+          RoleType.BACK_OFFICE,
         ];
         const hasApprovalRole =
           allowedRoles.includes(actorContext.role) ||
@@ -100,19 +99,21 @@ export class ApproveClaimService {
 
         if (!hasApprovalRole) {
           throw new ForbiddenException(
-            'Actor does not possess claim approval authority. Required roles: SUPER_ADMIN, ADMIN, BRANCH_MANAGER, or CLAIMS_OFFICER.',
+            'Actor does not possess claim approval authority. Required roles: ADMIN or BACK_OFFICE.',
           );
         }
 
         const policyOrgId =
           claim.policy?.contact?.companyId ||
+          claim.policy?.createdBy?.companyId ||
           claim.policy?.createdBy?.branch?.zone?.region?.company?.id ||
           claim.policy?.quotation?.createdBy?.branch?.zone?.region?.company?.id;
 
+        const actorCompanyId = actorContext.companyId || actorContext.organizationId;
         if (
           policyOrgId &&
-          actorContext.organizationId &&
-          policyOrgId !== actorContext.organizationId
+          actorCompanyId &&
+          policyOrgId !== actorCompanyId
         ) {
           throw new ForbiddenException(
             'Access denied: Cannot approve claim belonging to a different organization',

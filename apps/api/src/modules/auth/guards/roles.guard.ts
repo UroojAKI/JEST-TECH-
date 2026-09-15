@@ -5,6 +5,7 @@ import {
   Injectable,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
+import { RoleType } from '@prisma/client';
 
 import { ROLES_KEY } from '../decorators/roles.decorator';
 
@@ -35,12 +36,8 @@ export class RolesGuard implements CanActivate {
     );
 
     // Privileged system roles are explicitly defined as global role bypasses.
-    // Do not extend this list based on a generic "employee" classification.
-    if (
-      userRoles.some((r: string) =>
-        ['SUPER_ADMIN', 'ADMIN', 'SYSTEM_ADMINISTRATOR', 'MD_CEO'].includes(r),
-      )
-    ) {
+    // In canonical 3-role architecture, ADMIN is the sole administrator role.
+    if (userRoles.some((r: string) => r === RoleType.ADMIN || r === 'ADMIN')) {
       return true;
     }
 

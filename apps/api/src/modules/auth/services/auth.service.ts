@@ -10,6 +10,7 @@ import { UsersService } from '../../users/services/users.service';
 import { TokenService } from './token.service';
 import { LoginDto } from '../dto/login.dto';
 import { resolvePermittedWorkspaces } from '../../../common/guards/workspace-access.guard';
+import { PrismaService } from '../../../database/prisma.service';
 
 @Injectable()
 export class AuthService {
@@ -17,13 +18,14 @@ export class AuthService {
     private readonly usersService: UsersService,
     private readonly tokenService: TokenService,
     private readonly config: ConfigService,
+    private readonly prisma: PrismaService,
   ) {}
 
   private requireOrganization(user: any): string {
     const orgId =
+      user?.companyId ??
       user?.branch?.zone?.region?.company?.id ??
-      user?.organizationId ??
-      user?.companyId;
+      user?.organizationId;
     if (!orgId)
       throw new UnauthorizedException(
         'Missing organizational tenant context. User must belong to an active organization.',
@@ -46,12 +48,13 @@ export class AuthService {
       roles: [roleType],
       permissions,
       organizationId,
+      companyId: organizationId,
       branchId: user.branchId || undefined,
       branchCode: user.branch?.code || undefined,
       departmentId: user.departmentId || undefined,
       teamId: user.teamId || undefined,
       status: user.status,
-      authVersion: user.updatedAt ? user.updatedAt.getTime() : Date.now(),
+      authVersion: user.authVersion ?? 1,
     };
   }
 
@@ -92,6 +95,7 @@ export class AuthService {
         roles: [roleType],
         permissions,
         organizationId,
+        companyId: organizationId,
         branchId: user.branchId,
         teamId: user.teamId,
       },
@@ -109,8 +113,7 @@ export class AuthService {
       throw new UnauthorizedException('Invalid email or password');
 
     const updatedUser = await this.usersService.updateLastLogin(user.id);
-    const effectiveUpdatedAt = updatedUser?.updatedAt || new Date();
-    const effectiveUser = { ...user, updatedAt: effectiveUpdatedAt };
+    const effectiveUser = { ...user, updatedAt: updatedUser?.updatedAt || new Date() };
 
     const permissions = user.role.permissions
       ? user.role.permissions.map((p) => p.permission.code)
@@ -157,32 +160,15 @@ export class AuthService {
 
   resolveDefaultLandingWorkspace(role: RoleType | string): string {
     const r = (role || '').toString().toUpperCase();
-    if (r.includes('SUPER_ADMIN') || r.includes('ADMIN'))
+    if (r === 'ADMIN' || r.includes('ADMIN')) {
       return '/workspace/admin';
-    if (
-      r.includes('MD_CEO') ||
-      r.includes('MANAGEMENT') ||
-      r.includes('DIRECTOR') ||
-      r.includes('BRANCH_MANAGER')
-    )
-      return '/workspace/executive';
-    if (r.includes('SALES_MANAGER') || r.includes('TEAM_LEADER'))
-      return '/workspace/sales-manager';
-    if (r.includes('SALES') || r.includes('POSP') || r.includes('AGENT'))
-      return '/workspace/sales';
-    if (r.includes('FINANCE') || r.includes('ACCOUNTS'))
-      return '/workspace/finance';
-    if (
-      r.includes('OPERATIONS') ||
-      r.includes('POLICY_ISSUANCE') ||
-      r.includes('UNDERWRITER') ||
-      r.includes('BACK_OFFICE') ||
-      r.includes('INSPECTOR')
-    )
+    }
+    if (r === 'BACK_OFFICE' || r.includes('BACK_OFFICE') || r.includes('OPERATIONS')) {
       return '/workspace/operations';
-    if (r.includes('RENEWAL')) return '/workspace/renewal';
-    if (r.includes('CLAIMS') || r.includes('SUPPORT')) return '/claims';
-    if (r.includes('COMPLIANCE')) return '/admin/audit';
+    }
+    if (r === 'AGENT' || r.includes('AGENT') || r.includes('SALES')) {
+      return '/workspace/sales';
+    }
     return '/workspace';
   }
 
@@ -198,24 +184,60 @@ export class AuthService {
     if (!user) throw new UnauthorizedException('User no longer exists');
     if (user.status !== 'ACTIVE')
       throw new ForbiddenException('User account is inactive or locked');
-    const activeTokens = await this.usersService.findActiveRefreshTokens(
-      user.id,
-    );
-    let matchedTokenId: string | null = null;
-    for (const record of activeTokens) {
+
+    // Look up token across all user tokens (including revoked ones for replay detection)
+    const userTokens = await this.usersService.findUserRefreshTokens(user.id);
+    let matchedRecord: any = null;
+    for (const record of userTokens) {
       if (await argon2.verify(record.tokenHash, refreshToken)) {
-        matchedTokenId = record.id;
+        matchedRecord = record;
         break;
       }
     }
-    if (!matchedTokenId)
+
+    // Case A: Token not found / malformed / expired
+    if (!matchedRecord) {
+      throw new UnauthorizedException('Invalid or expired refresh token');
+    }
+
+    // Case B: Token found but already revoked -> REPLAY ATTACK DETECTED
+    if (matchedRecord.revokedAt) {
+      await this.prisma.$transaction([
+        this.prisma.refreshToken.updateMany({
+          where: { userId: user.id, revokedAt: null },
+          data: { revokedAt: new Date() },
+        }),
+        this.prisma.user.update({
+          where: { id: user.id },
+          data: { authVersion: { increment: 1 } },
+        }),
+        this.prisma.auditLog.create({
+          data: {
+            userId: user.id,
+            action: AuditAction.SECURITY_ALERT,
+            entity: 'RefreshToken',
+            metadata: {
+              reason: 'REFRESH_TOKEN_REPLAY_DETECTED',
+              replayedTokenId: matchedRecord.id,
+            },
+          },
+        }),
+      ]);
       throw new UnauthorizedException(
-        'Refresh token has been revoked or is invalid',
+        'Security alert: Refresh token replay detected. All sessions terminated.',
       );
-    await this.usersService.revokeRefreshToken(matchedTokenId);
+    }
+
+    // Case C: Check expiry
+    if (matchedRecord.expiresAt && matchedRecord.expiresAt < new Date()) {
+      throw new UnauthorizedException('Invalid or expired refresh token');
+    }
+
+    // Valid active refresh token -> Rotate token
+    await this.usersService.revokeRefreshToken(matchedRecord.id);
 
     const permissions = user.role.permissions
-      ? user.role.permissions.map((p) => p.permission.code)
+      ? user.role.permissions.map((p: any) => p.permission.code)
       : [];
     const organizationId = this.requireOrganization(user);
     const roleType = user.role.type || user.role.code;

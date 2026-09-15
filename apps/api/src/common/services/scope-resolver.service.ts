@@ -3,35 +3,76 @@ import { RoleType } from '@prisma/client';
 import { ActorContext } from '../interfaces/actor-context.interface';
 import { ResourceType } from './resource-authorization.service';
 
-// Only Super Admin is system-global. Admin/System Administrator/MD-CEO are
-// organization-scoped and must never receive an empty query filter.
-const GLOBAL_ROLES: RoleType[] = [RoleType.SUPER_ADMIN];
-const ORGANIZATION_ADMIN_ROLES: RoleType[] = [
-  RoleType.ADMIN,
-  RoleType.MD_CEO,
-  RoleType.SYSTEM_ADMINISTRATOR,
-];
-const OPERATIONAL_ROLES: RoleType[] = [
-  RoleType.OPERATIONS,
-  RoleType.POLICY_ISSUANCE_EXECUTIVE,
-  RoleType.UNDERWRITER,
-  RoleType.FINANCE,
-  RoleType.FINANCE_ACCOUNTS_EXECUTIVE,
-  RoleType.CHIEF_FINANCE_OFFICER,
-  RoleType.CLAIMS_OFFICER,
-  RoleType.RENEWAL_EXECUTIVE,
-  RoleType.CUSTOMER_SERVICE_EXECUTIVE,
-];
-const BRANCH_ROLES: RoleType[] = [
-  RoleType.BRANCH_MANAGER,
-  RoleType.MARKETING_DIRECTOR,
-];
-const TEAM_ROLES: RoleType[] = [RoleType.TEAM_LEADER, RoleType.SALES_MANAGER];
-
-const ownerInOrganization = (organizationId: string) => ({
-  branch: { zone: { region: { company: { id: organizationId } } } },
+const userInCompany = (companyId: string) => ({
+  OR: [
+    { companyId },
+    { branch: { zone: { region: { company: { id: companyId } } } } },
+  ],
 });
+
 const orgScope = (
+  actor: ActorContext,
+  resourceType: ResourceType,
+): Record<string, any> => {
+  const companyId = actor.companyId || actor.organizationId;
+  const userFilter = userInCompany(companyId);
+
+  switch (resourceType) {
+    case 'LEAD':
+      return {
+        OR: [
+          { companyId },
+          { createdBy: userFilter },
+          { assignedTo: userFilter },
+        ],
+      };
+    case 'QUOTATION':
+      return {
+        OR: [
+          { companyId },
+          { createdBy: userFilter },
+          { lead: { createdBy: userFilter } },
+        ],
+      };
+    case 'POLICY':
+      return {
+        OR: [
+          { companyId },
+          { createdBy: userFilter },
+          { quotation: { createdBy: userFilter } },
+        ],
+      };
+    case 'CLAIM':
+      return {
+        OR: [
+          { companyId },
+          { createdBy: userFilter },
+          { policy: { createdBy: userFilter } },
+        ],
+      };
+    case 'RENEWAL_TASK':
+      return {
+        OR: [
+          { companyId },
+          { agent: userFilter },
+          { policy: { createdBy: userFilter } },
+        ],
+      };
+    case 'ACCOUNT':
+    case 'CONTACT':
+    case 'DOCUMENT':
+    case 'REPORT':
+    default:
+      return {
+        OR: [
+          { companyId },
+          { createdBy: userFilter },
+        ],
+      };
+  }
+};
+
+const agentScope = (
   actor: ActorContext,
   resourceType: ResourceType,
 ): Record<string, any> => {
@@ -39,41 +80,44 @@ const orgScope = (
     case 'LEAD':
       return {
         OR: [
-          { createdBy: ownerInOrganization(actor.organizationId) },
-          { assignedTo: ownerInOrganization(actor.organizationId) },
+          { assignedToId: actor.userId },
+          { createdById: actor.userId },
         ],
       };
     case 'QUOTATION':
-    case 'ACCOUNT':
-    case 'CONTACT':
-    case 'DOCUMENT':
-    case 'REPORT':
-      return { createdBy: ownerInOrganization(actor.organizationId) };
+      return {
+        OR: [
+          { createdById: actor.userId },
+          { lead: { assignedToId: actor.userId } },
+        ],
+      };
     case 'POLICY':
       return {
         OR: [
-          { createdBy: ownerInOrganization(actor.organizationId) },
-          {
-            quotation: { createdBy: ownerInOrganization(actor.organizationId) },
-          },
+          { createdById: actor.userId },
+          { quotation: { createdById: actor.userId } },
         ],
       };
     case 'CLAIM':
       return {
         OR: [
-          { createdBy: ownerInOrganization(actor.organizationId) },
-          { policy: { createdBy: ownerInOrganization(actor.organizationId) } },
+          { createdById: actor.userId },
+          { policy: { createdById: actor.userId } },
         ],
       };
     case 'RENEWAL_TASK':
       return {
         OR: [
-          { agent: ownerInOrganization(actor.organizationId) },
-          { policy: { createdBy: ownerInOrganization(actor.organizationId) } },
+          { agentId: actor.userId },
+          { policy: { createdById: actor.userId } },
         ],
       };
+    case 'ACCOUNT':
+    case 'CONTACT':
+    case 'DOCUMENT':
+    case 'REPORT':
     default:
-      return { id: '__ORGANIZATION_SCOPE_NOT_IMPLEMENTED__' };
+      return { createdById: actor.userId };
   }
 };
 
@@ -83,211 +127,23 @@ export class ScopeResolver {
     actor: ActorContext,
     resourceType: ResourceType,
   ): Record<string, any> {
-    if (!actor?.userId || !actor.organizationId) {
+    if (!actor?.userId || (!actor.companyId && !actor.organizationId)) {
       return { id: '__UNAUTHORIZED_ACCESS_BLOCKED__' };
     }
+
     const roles = actor.roles?.length ? actor.roles : [actor.role];
-    if (roles.some((r) => GLOBAL_ROLES.includes(r))) return {};
-    if (roles.some((r) => ORGANIZATION_ADMIN_ROLES.includes(r))) {
+
+    // ADMIN: Universal access (ALL companies)
+    if (roles.includes(RoleType.ADMIN)) {
+      return {};
+    }
+
+    // BACK_OFFICE: Scoped to company / organization
+    if (roles.includes(RoleType.BACK_OFFICE)) {
       return orgScope(actor, resourceType);
     }
-    if (roles.some((r) => OPERATIONAL_ROLES.includes(r))) {
-      return orgScope(actor, resourceType);
-    }
 
-    if (roles.some((r) => BRANCH_ROLES.includes(r))) {
-      if (!actor.branchId) return { id: '__UNAUTHORIZED_ACCESS_BLOCKED__' };
-      switch (resourceType) {
-        case 'LEAD':
-          return {
-            OR: [
-              { createdBy: { branchId: actor.branchId } },
-              { assignedTo: { branchId: actor.branchId } },
-              { createdById: actor.userId },
-            ],
-          };
-        case 'QUOTATION':
-        case 'ACCOUNT':
-        case 'CONTACT':
-        case 'DOCUMENT':
-        case 'REPORT':
-          return {
-            OR: [
-              { createdBy: { branchId: actor.branchId } },
-              { createdById: actor.userId },
-            ],
-          };
-        case 'POLICY':
-          return {
-            OR: [
-              { createdBy: { branchId: actor.branchId } },
-              { quotation: { createdBy: { branchId: actor.branchId } } },
-              { createdById: actor.userId },
-            ],
-          };
-        case 'CLAIM':
-          return {
-            OR: [
-              { createdBy: { branchId: actor.branchId } },
-              { policy: { createdBy: { branchId: actor.branchId } } },
-              { createdById: actor.userId },
-            ],
-          };
-        case 'RENEWAL_TASK':
-          return {
-            OR: [
-              { agent: { branchId: actor.branchId } },
-              { policy: { createdBy: { branchId: actor.branchId } } },
-              { agentId: actor.userId },
-            ],
-          };
-        default:
-          return { createdById: actor.userId };
-      }
-    }
-
-    if (roles.some((r) => TEAM_ROLES.includes(r))) {
-      if (!actor.teamId) {
-        if (actor.branchId) {
-          switch (resourceType) {
-            case 'LEAD':
-              return {
-                OR: [
-                  { createdBy: { branchId: actor.branchId } },
-                  { assignedTo: { branchId: actor.branchId } },
-                  { createdById: actor.userId },
-                ],
-              };
-            case 'QUOTATION':
-            case 'ACCOUNT':
-            case 'CONTACT':
-            case 'DOCUMENT':
-            case 'REPORT':
-              return {
-                OR: [
-                  { createdBy: { branchId: actor.branchId } },
-                  { createdById: actor.userId },
-                ],
-              };
-            case 'POLICY':
-              return {
-                OR: [
-                  { createdBy: { branchId: actor.branchId } },
-                  { quotation: { createdBy: { branchId: actor.branchId } } },
-                  { createdById: actor.userId },
-                ],
-              };
-            case 'CLAIM':
-              return {
-                OR: [
-                  { createdBy: { branchId: actor.branchId } },
-                  { policy: { createdBy: { branchId: actor.branchId } } },
-                  { createdById: actor.userId },
-                ],
-              };
-            case 'RENEWAL_TASK':
-              return {
-                OR: [
-                  { agent: { branchId: actor.branchId } },
-                  { policy: { createdBy: { branchId: actor.branchId } } },
-                  { agentId: actor.userId },
-                ],
-              };
-            default:
-              return { createdById: actor.userId };
-          }
-        }
-        return { id: '__UNAUTHORIZED_ACCESS_BLOCKED__' };
-      }
-      switch (resourceType) {
-        case 'LEAD':
-          return {
-            OR: [
-              { createdBy: { teamId: actor.teamId } },
-              { assignedTo: { teamId: actor.teamId } },
-              { createdById: actor.userId },
-            ],
-          };
-        case 'QUOTATION':
-        case 'ACCOUNT':
-        case 'CONTACT':
-        case 'DOCUMENT':
-        case 'REPORT':
-          return {
-            OR: [
-              { createdBy: { teamId: actor.teamId } },
-              { createdById: actor.userId },
-            ],
-          };
-        case 'POLICY':
-          return {
-            OR: [
-              { createdBy: { teamId: actor.teamId } },
-              { quotation: { createdBy: { teamId: actor.teamId } } },
-              { createdById: actor.userId },
-            ],
-          };
-        case 'CLAIM':
-          return {
-            OR: [
-              { createdBy: { teamId: actor.teamId } },
-              { policy: { createdBy: { teamId: actor.teamId } } },
-              { createdById: actor.userId },
-            ],
-          };
-        case 'RENEWAL_TASK':
-          return {
-            OR: [
-              { agent: { teamId: actor.teamId } },
-              { policy: { createdBy: { teamId: actor.teamId } } },
-              { agentId: actor.userId },
-            ],
-          };
-        default:
-          return { createdById: actor.userId };
-      }
-    }
-
-    switch (resourceType) {
-      case 'LEAD':
-        return {
-          OR: [{ assignedToId: actor.userId }, { createdById: actor.userId }],
-        };
-      case 'QUOTATION':
-        return {
-          OR: [
-            { createdById: actor.userId },
-            { lead: { assignedToId: actor.userId } },
-          ],
-        };
-      case 'POLICY':
-        return {
-          OR: [
-            { createdById: actor.userId },
-            { quotation: { createdById: actor.userId } },
-          ],
-        };
-      case 'CLAIM':
-        return {
-          OR: [
-            { createdById: actor.userId },
-            { policy: { createdById: actor.userId } },
-          ],
-        };
-      case 'RENEWAL_TASK':
-        return {
-          OR: [
-            { agentId: actor.userId },
-            { policy: { createdById: actor.userId } },
-          ],
-        };
-      case 'ACCOUNT':
-      case 'CONTACT':
-      case 'DOCUMENT':
-      case 'REPORT':
-        return { createdById: actor.userId };
-      default:
-        return { createdById: actor.userId };
-    }
+    // AGENT: Scoped to OWN / ASSIGNED resources
+    return agentScope(actor, resourceType);
   }
 }

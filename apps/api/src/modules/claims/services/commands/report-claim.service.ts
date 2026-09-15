@@ -110,57 +110,44 @@ export class ReportClaimService {
 
     // 1.1 Multi-Tenant & Object-Level Access Validation (IDOR prevention)
     if (actorContext) {
-      const isSuperAdmin =
-        actorContext.roles?.includes(RoleType.SUPER_ADMIN) ||
-        actorContext.role === RoleType.SUPER_ADMIN;
+      const isAdmin =
+        actorContext.roles?.includes(RoleType.ADMIN) ||
+        actorContext.role === RoleType.ADMIN;
 
-      if (!isSuperAdmin) {
+      if (!isAdmin) {
         const policyOrgId =
           policy.contact?.companyId ||
+          policy.createdBy?.companyId ||
           policy.createdBy?.branch?.zone?.region?.company?.id ||
           policy.quotation?.createdBy?.branch?.zone?.region?.company?.id;
 
+        const actorCompanyId = actorContext.companyId || actorContext.organizationId;
         if (
           policyOrgId &&
-          actorContext.organizationId &&
-          policyOrgId !== actorContext.organizationId
+          actorCompanyId &&
+          policyOrgId !== actorCompanyId
         ) {
           throw new ForbiddenException(
             'You do not have permission to file claims for a policy in another organization',
           );
         }
 
-        const isCustomer =
-          actorContext.role === RoleType.CUSTOMER ||
-          actorContext.roles?.includes(RoleType.CUSTOMER);
+        const isAgent =
+          actorContext.role === RoleType.AGENT ||
+          actorContext.roles?.includes(RoleType.AGENT);
 
-        if (isCustomer) {
+        if (isAgent) {
           const userCtx = actorContext as any;
           const isOwner =
-            (userCtx.contactId && policy.contactId === userCtx.contactId) ||
+            policy.agentId === userCtx.userId ||
+            policy.agentId === userCtx.id ||
             policy.createdById === userCtx.userId ||
             policy.createdById === userCtx.id ||
             (userCtx.email && policy.contact?.email === userCtx.email) ||
             (userCtx.phone && policy.contact?.phone === userCtx.phone);
           if (!isOwner) {
             throw new ForbiddenException(
-              'Customers are only permitted to file claims on their own policies',
-            );
-          }
-        }
-
-        const isBranchScoped =
-          actorContext.role === RoleType.BRANCH_MANAGER ||
-          actorContext.roles?.includes(RoleType.BRANCH_MANAGER);
-
-        if (isBranchScoped && actorContext.branchId) {
-          const policyBranchId =
-            policy.contact?.branchId ||
-            policy.createdBy?.branchId ||
-            policy.quotation?.createdBy?.branchId;
-          if (policyBranchId && policyBranchId !== actorContext.branchId) {
-            throw new ForbiddenException(
-              'Branch managers can only file claims for policies in their branch',
+              'Agents are only permitted to file claims on their own assigned policies',
             );
           }
         }

@@ -156,6 +156,13 @@ export class UserRepository {
     });
   }
 
+  async findUserRefreshTokens(userId: string) {
+    return this.prisma.refreshToken.findMany({
+      where: { userId },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
   async revokeRefreshToken(tokenId: string): Promise<void> {
     await this.prisma.refreshToken.update({
       where: { id: tokenId },
