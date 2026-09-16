@@ -90,7 +90,7 @@ export function CustomerHeader({ customer, onLaunchWizard }: CustomerHeaderProps
           <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-bold">Mobile Phone</span>
           <div className="flex items-center space-x-1.5 text-foreground font-semibold">
             <Phone className="h-3.5 w-3.5 text-primary" />
-            <span>{customer?.phone || '+91 98765 43210'}</span>
+            <span>{customer?.phone || '—'}</span>
           </div>
         </div>
 
@@ -98,9 +98,13 @@ export function CustomerHeader({ customer, onLaunchWizard }: CustomerHeaderProps
           <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-bold">WhatsApp</span>
           <div className="flex items-center space-x-1.5 text-emerald-600 font-semibold">
             <MessageSquare className="h-3.5 w-3.5" />
-            <a href={`https://wa.me/${customer?.phone}`} target="_blank" rel="noreferrer" className="hover:underline">
-              Send Message
-            </a>
+            {customer?.phone ? (
+              <a href={`https://wa.me/${customer?.phone}`} target="_blank" rel="noreferrer" className="hover:underline">
+                Send Message
+              </a>
+            ) : (
+              <span className="text-muted-foreground">Not Available</span>
+            )}
           </div>
         </div>
 
@@ -108,7 +112,7 @@ export function CustomerHeader({ customer, onLaunchWizard }: CustomerHeaderProps
           <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-bold">Email Address</span>
           <div className="flex items-center space-x-1.5 text-foreground font-semibold truncate">
             <Mail className="h-3.5 w-3.5 text-primary" />
-            <span className="truncate">{customer?.email || 'contact@acme.com'}</span>
+            <span className="truncate">{customer?.email || '—'}</span>
           </div>
         </div>
 
@@ -116,7 +120,7 @@ export function CustomerHeader({ customer, onLaunchWizard }: CustomerHeaderProps
           <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-bold">PAN Number</span>
           <div className="flex items-center space-x-1.5 text-foreground font-mono font-bold">
             <CreditCard className="h-3.5 w-3.5 text-muted-foreground" />
-            <span>{customer?.pan || 'ABCDE1234F'}</span>
+            <span>{customer?.pan || '—'}</span>
           </div>
         </div>
 

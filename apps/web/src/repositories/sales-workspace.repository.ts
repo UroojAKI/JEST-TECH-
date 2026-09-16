@@ -17,7 +17,16 @@ export const salesWorkspaceRepository = {
   },
 
   async getAnalytics(): Promise<any> {
-    const response = await apiClient.get('/dashboards/sales');
+    try {
+      const response = await apiClient.get('/workspace/sales/motor-widgets');
+      return response.data;
+    } catch {
+      return null;
+    }
+  },
+
+  async getMotorWidgets(): Promise<any> {
+    const response = await apiClient.get('/workspace/sales/motor-widgets');
     return response.data;
   },
 

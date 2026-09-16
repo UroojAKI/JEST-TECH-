@@ -90,32 +90,32 @@ export function MotorProposalWizard() {
   const [custSearch, setCustSearch] = useState('');
   
   // Step 2 KYC
-  const [panNo, setPanNo] = useState('ABCDE1234F');
-  const [aadhaarNo, setAadhaarNo] = useState('987654321098');
+  const [panNo, setPanNo] = useState('');
+  const [aadhaarNo, setAadhaarNo] = useState('');
 
   // Step 3 Vehicle
   const [makeId, setMakeId] = useState('');
-  const [regNo, setRegNo] = useState('MH12-AB-1234');
-  const [engineNo, setEngineNo] = useState('ENG-998124');
-  const [chassisNo, setChassisNo] = useState('CHS-7712391024');
-  const [rtoCode, setRtoCode] = useState('MH12');
-  const [exShowroom, setExShowroom] = useState(1000000);
+  const [regNo, setRegNo] = useState('');
+  const [engineNo, setEngineNo] = useState('');
+  const [chassisNo, setChassisNo] = useState('');
+  const [rtoCode, setRtoCode] = useState('');
+  const [exShowroom, setExShowroom] = useState(0);
 
   // Step 4 Policy Type
   const [selectedPolicyType, setSelectedPolicyType] = useState('COMPREHENSIVE');
 
   // Step 5 Previous Policy
-  const [prevInsurer, setPrevInsurer] = useState('ICICI Lombard');
-  const [prevPolicyNo, setPrevPolicyNo] = useState('POL-771239');
-  const [ncbPercent, setNcbPercent] = useState(20);
+  const [prevInsurer, setPrevInsurer] = useState('');
+  const [prevPolicyNo, setPrevPolicyNo] = useState('');
+  const [ncbPercent, setNcbPercent] = useState(0);
 
   // Step 6 Add-ons
   const [selectedAddons, setSelectedAddons] = useState({
-    zeroDep: true,
-    engineProtect: true,
-    rsa: true,
+    zeroDep: false,
+    engineProtect: false,
+    rsa: false,
     rti: false,
-    consumables: true,
+    consumables: false,
   });
 
   // Step 7/8 Quotes
@@ -124,7 +124,7 @@ export function MotorProposalWizard() {
 
   // Step 10 Payment
   const [paymentMode, setPaymentMode] = useState('UPI');
-  const [paymentRef, setPaymentRef] = useState('UPI-PAY-98124');
+  const [paymentRef, setPaymentRef] = useState('');
 
   // Step 11 Issued Policy
   const [issuedPolicyData, setIssuedPolicyData] = useState<any>(null);

@@ -12,18 +12,35 @@ interface ActivityItem {
   description: string;
 }
 
-const SAMPLE_ACTIVITIES: ActivityItem[] = [
-  { id: '1', type: 'POLICIES', title: 'Policy POL-001048 Issued', actor: 'Agent Rajesh', timestamp: '5 mins ago', description: 'Motor Comprehensive policy created for Acme Corp. GWP: ₹45,000' },
-  { id: '2', type: 'CLAIMS', title: 'Claim #CLM-000492 Logged', actor: 'Priya Sharma', timestamp: '18 mins ago', description: 'Claim lodged for vehicle accident. Estimated claim: ₹75,000' },
-  { id: '3', type: 'RENEWALS', title: 'Renewal Reminder Sent', actor: 'System Automated', timestamp: '1 hour ago', description: 'Expiry notification dispatched to TechCorp Pvt Ltd for POL-001050' },
-  { id: '4', type: 'FINANCE', title: 'Commission Payout Calculated', actor: 'Finance System', timestamp: '2 hours ago', description: 'Monthly commission ledger batch executed for Mumbai HQ branch' },
-  { id: '5', type: 'LEADS', title: 'New Corporate Lead Created', actor: 'Agent Sunil', timestamp: '3 hours ago', description: 'Lead assigned for Group Health Insurance interest (50 employees)' },
-];
+import { useQuery } from '@tanstack/react-query';
+import { apiClient } from '../../../lib/api-client';
 
 export function FilteredActivityTimelineWidget() {
   const [filter, setFilter] = useState<string>('ALL');
 
-  const filteredItems = SAMPLE_ACTIVITIES.filter(
+  const { data: dashboardData, isLoading } = useQuery({
+    queryKey: ['dashboard-activities'],
+    queryFn: async () => {
+      try {
+        const res = await apiClient.get('/dashboard');
+        return res.data;
+      } catch {
+        return null;
+      }
+    },
+  });
+
+  const rawActivities: any[] = dashboardData?.widgets?.activities || [];
+  const activities: ActivityItem[] = rawActivities.map((a) => ({
+    id: a.id,
+    type: a.badge || 'WORKFLOW',
+    title: a.event,
+    actor: 'System',
+    timestamp: a.time,
+    description: a.details,
+  }));
+
+  const filteredItems = activities.filter(
     (item) => filter === 'ALL' || item.type === filter
   );
 

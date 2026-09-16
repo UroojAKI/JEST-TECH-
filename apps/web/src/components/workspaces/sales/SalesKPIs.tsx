@@ -23,25 +23,25 @@ interface SalesKPIsProps {
 
 export function SalesKPIs({ data }: SalesKPIsProps) {
   const top = data?.topRow || {
-    assignedLeads: 42,
-    interestedLeads: 18,
-    todayCalls: 12,
-    todayMeetings: 4,
-    quotePending: 6,
-    proposalPending: 3,
-    policiesSold: 14,
-    todayRevenue: 343000,
+    assignedLeads: 0,
+    interestedLeads: 0,
+    todayCalls: 0,
+    todayMeetings: 0,
+    quotePending: 0,
+    proposalPending: 0,
+    policiesSold: 0,
+    todayRevenue: 0,
   };
 
   const bottom = data?.bottomRow || {
-    referralCount: 8,
-    crossSellRatio: '18.5%',
-    conversionPercentage: '33.3%',
-    averageTatHours: '4.2 hrs',
-    averagePolicyValue: '₹24,500',
-    targetAchievementPercent: '84.5%',
-    achievedGwp: '₹12,675,000',
-    customerRating: '4.8 / 5.0',
+    referralCount: 0,
+    crossSellRatio: '0.0%',
+    conversionPercentage: '0.0%',
+    averageTatHours: '—',
+    averagePolicyValue: '₹0',
+    targetAchievementPercent: '0.0%',
+    achievedGwp: '₹0',
+    customerRating: '—',
   };
 
   return (

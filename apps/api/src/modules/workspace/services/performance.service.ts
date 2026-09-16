@@ -60,6 +60,30 @@ export class PerformanceService {
     const conversionPercentage =
       totalLeads > 0 ? ((policiesSold / totalLeads) * 100).toFixed(1) : '0.0';
 
+    const [todayRevenueAgg, totalRevenueAgg] = await Promise.all([
+      this.prisma.policy.aggregate({
+        _sum: { premiumAmount: true },
+        where: {
+          ...(userId && !isManager ? { createdById: userId } : {}),
+          status: { in: ['ACTIVE', 'ISSUED'] as any },
+          createdAt: { gte: todayStart },
+          deletedAt: null,
+        },
+      }),
+      this.prisma.policy.aggregate({
+        _sum: { premiumAmount: true },
+        where: {
+          ...(userId && !isManager ? { createdById: userId } : {}),
+          status: { in: ['ACTIVE', 'ISSUED'] as any },
+          deletedAt: null,
+        },
+      }),
+    ]);
+
+    const todayRevenue = Number(todayRevenueAgg._sum?.premiumAmount || 0);
+    const achievedGwp = Number(totalRevenueAgg._sum?.premiumAmount || 0);
+    const avgPolicyValue = policiesSold > 0 ? Math.round(achievedGwp / policiesSold) : 0;
+
     return {
       topRow: {
         assignedLeads: totalLeads,
@@ -69,18 +93,18 @@ export class PerformanceService {
         quotePending,
         proposalPending,
         policiesSold,
-        todayRevenue: policiesSold * 24500, // Aggregate premium sum
+        todayRevenue,
       },
       bottomRow: {
         referralCount: referralsCount,
-        crossSellRatio: '18.5%',
+        crossSellRatio: '0.0%',
         conversionPercentage: `${conversionPercentage}%`,
-        averageTatHours: '4.2 hrs',
-        averagePolicyValue: '₹24,500',
-        targetAchievementPercent: '84.5%',
-        monthlyTargetGwp: '₹15,000,000',
-        achievedGwp: '₹12,675,000',
-        customerRating: '4.8 / 5.0',
+        averageTatHours: '—',
+        averagePolicyValue: `₹${avgPolicyValue.toLocaleString('en-IN')}`,
+        targetAchievementPercent: '0.0%',
+        monthlyTargetGwp: '—',
+        achievedGwp: `₹${achievedGwp.toLocaleString('en-IN')}`,
+        customerRating: '—',
       },
     };
   }

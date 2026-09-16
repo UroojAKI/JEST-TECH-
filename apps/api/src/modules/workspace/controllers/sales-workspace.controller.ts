@@ -99,11 +99,217 @@ export class SalesWorkspaceController {
     });
 
     return {
-      pendingQuotations: pendingQuotesCount || 6,
-      pendingDocuments: pendingDocsCount || 3,
-      paymentPending: paymentPendingCount || 2,
-      policyIssuancePending: policyIssuancePendingCount || 4,
-      renewalsDueToday: renewalsDueTodayCount || 5,
+      pendingQuotations: pendingQuotesCount,
+      pendingDocuments: pendingDocsCount,
+      paymentPending: paymentPendingCount,
+      policyIssuancePending: policyIssuancePendingCount,
+      renewalsDueToday: renewalsDueTodayCount,
+    };
+  }
+
+  @Get('motor-widgets')
+  @ApiOperation({ summary: 'Get live real-time widgets telemetry for motor sales workspace' })
+  async getMotorWidgets(@CurrentUser() user: RequestUser) {
+    const isManager =
+      user.role === 'ADMIN' ||
+      user.role === 'BACK_OFFICE';
+
+    const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+    const day7 = new Date(startOfToday.getTime() + 7 * 86400000);
+    const day30 = new Date(startOfToday.getTime() + 30 * 86400000);
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    const leadWhere: any = { deletedAt: null };
+    const policyWhere: any = { deletedAt: null };
+    const activityWhere: any = { deletedAt: null };
+    const quoteWhere: any = { deletedAt: null };
+
+    if (!isManager) {
+      leadWhere.assignedToId = user.id;
+      policyWhere.createdById = user.id;
+      activityWhere.assignedToId = user.id;
+      quoteWhere.createdById = user.id;
+    }
+
+    // 1. Pipeline Stages
+    const [
+      leadsCount,
+      needAnalysisCount,
+      quotationCount,
+      proposalCount,
+      negotiationCount,
+      paymentCount,
+      issuedCount,
+    ] = await Promise.all([
+      this.prisma.lead.count({ where: { ...leadWhere, currentWorkflowStep: { in: ['ASSIGNED', 'CONTACTED', 'NEW'] } } }),
+      this.prisma.lead.count({ where: { ...leadWhere, currentWorkflowStep: 'NEED_ANALYSIS' } }),
+      this.prisma.lead.count({ where: { ...leadWhere, currentWorkflowStep: 'QUOTATION' } }),
+      this.prisma.lead.count({ where: { ...leadWhere, currentWorkflowStep: 'PROPOSAL' } }),
+      this.prisma.lead.count({ where: { ...leadWhere, currentWorkflowStep: 'NEGOTIATION' } }),
+      this.prisma.lead.count({ where: { ...leadWhere, currentWorkflowStep: 'PAYMENT' } }),
+      this.prisma.lead.count({ where: { ...leadWhere, currentWorkflowStep: { in: ['ISSUED', 'REFERRAL', 'CRM_UPDATED'] } } }),
+    ]);
+
+    const pipelineSteps = [
+      { label: 'Lead', count: leadsCount, color: 'bg-blue-500' },
+      { label: 'Need Analysis', count: needAnalysisCount, color: 'bg-cyan-500' },
+      { label: 'Quotation', count: quotationCount, color: 'bg-amber-500' },
+      { label: 'Proposal', count: proposalCount, color: 'bg-indigo-500' },
+      { label: 'Negotiation', count: negotiationCount, color: 'bg-purple-500' },
+      { label: 'Payment', count: paymentCount, color: 'bg-emerald-500' },
+      { label: 'Issued', count: issuedCount, color: 'bg-emerald-700' },
+    ];
+
+    // 2. Renewals Queue
+    const [
+      renewalsToday,
+      renewalsNext7,
+      renewalsNext30,
+      renewalsOverdue,
+      renewalsLost,
+      renewalsCompleted,
+    ] = await Promise.all([
+      this.prisma.policy.count({
+        where: { ...policyWhere, status: 'ACTIVE' as any, expiryDate: { gte: startOfToday, lte: endOfToday } },
+      }),
+      this.prisma.policy.count({
+        where: { ...policyWhere, status: 'ACTIVE' as any, expiryDate: { gt: endOfToday, lte: day7 } },
+      }),
+      this.prisma.policy.count({
+        where: { ...policyWhere, status: 'ACTIVE' as any, expiryDate: { gt: day7, lte: day30 } },
+      }),
+      this.prisma.policy.count({
+        where: { ...policyWhere, status: 'ACTIVE' as any, expiryDate: { lt: startOfToday } },
+      }),
+      this.prisma.policy.count({
+        where: { ...policyWhere, status: { in: ['CANCELLED', 'LAPSED'] } as any },
+      }),
+      this.prisma.policyRenewal.count(),
+    ]);
+
+    const renewals = [
+      { label: 'Today', count: renewalsToday, color: 'bg-rose-500 text-white font-black' },
+      { label: 'Next 7 Days', count: renewalsNext7, color: 'bg-amber-500/10 text-amber-600' },
+      { label: 'Next 30 Days', count: renewalsNext30, color: 'bg-sky-500/10 text-sky-600' },
+      { label: 'Overdue', count: renewalsOverdue, color: 'bg-red-500/10 text-red-600' },
+      { label: 'Lost', count: renewalsLost, color: 'bg-muted/40 text-muted-foreground' },
+      { label: 'Completed', count: renewalsCompleted, color: 'bg-emerald-500/10 text-emerald-600' },
+    ];
+
+    // 3. Today's Tasks
+    const activities = await this.prisma.activity.findMany({
+      where: activityWhere,
+      take: 6,
+      orderBy: { dueDate: 'asc' },
+      include: { lead: { include: { contact: true } } },
+    });
+
+    const todayTasks = activities.map((a) => {
+      const timeStr = a.dueDate
+        ? new Date(a.dueDate).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })
+        : 'Anytime';
+      return {
+        id: a.id,
+        time: timeStr,
+        task: a.subject,
+        type: a.type,
+        status: a.status,
+      };
+    });
+
+    // 4. Follow-ups
+    const pendingLeads = await this.prisma.lead.findMany({
+      where: {
+        ...leadWhere,
+        currentWorkflowStep: { notIn: ['ISSUED', 'REFERRAL', 'CRM_UPDATED'] },
+      },
+      take: 5,
+      orderBy: { updatedAt: 'desc' },
+      include: { contact: true },
+    });
+
+    const followups = pendingLeads.map((l) => {
+      const name = l.contact
+        ? `${l.contact.firstName || ''} ${l.contact.lastName || ''}`.trim() || 'Lead ' + l.leadCode
+        : 'Lead ' + l.leadCode;
+      const phone = l.contact?.phone || '—';
+      let action = 'Call Lead';
+      if (l.currentWorkflowStep === 'QUOTATION') action = 'Generate Quote';
+      else if (l.currentWorkflowStep === 'PROPOSAL') action = 'Upload RC';
+      else if (l.currentWorkflowStep === 'PAYMENT') action = 'Collect Payment';
+
+      return {
+        id: l.id,
+        customer: name,
+        status: (l.currentWorkflowStep || 'NEW').replace(/_/g, ' '),
+        action,
+        phone,
+      };
+    });
+
+    // 5. Recent Policies
+    const dbRecentPolicies = await this.prisma.policy.findMany({
+      where: policyWhere,
+      take: 5,
+      orderBy: { createdAt: 'desc' },
+      include: { contact: true, vehicle: true },
+    });
+
+    const recentPolicies = dbRecentPolicies.map((p) => ({
+      id: p.id,
+      no: p.policyNumber,
+      customer: p.contact ? `${p.contact.firstName} ${p.contact.lastName || ''}`.trim() : '—',
+      vehicle: p.vehicle ? `${p.vehicle.registrationNumber || ''} (${p.vehicle.makeModel || p.vehicle.category || ''})`.trim() : 'Motor Vehicle',
+      premium: `₹${Number(p.premiumAmount || 0).toLocaleString('en-IN')}`,
+      status: p.status,
+      renewalDate: p.expiryDate ? new Date(p.expiryDate).toLocaleDateString('en-IN') : '—',
+      statusBadge: p.status === 'ACTIVE' ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20' : 'bg-amber-500/10 text-amber-600 border-amber-500/20',
+    }));
+
+    // 6. Drafts
+    const dbDrafts = await this.prisma.quotation.findMany({
+      where: { ...quoteWhere, status: 'DRAFT' as any },
+      take: 5,
+      orderBy: { updatedAt: 'desc' },
+      include: { contact: true, vehicle: true },
+    });
+
+    const drafts = dbDrafts.map((d) => ({
+      id: d.id,
+      customer: d.contact ? `${d.contact.firstName} ${d.contact.lastName || ''}`.trim() : 'Draft Customer',
+      model: d.vehicle ? (d.vehicle.makeModel || d.vehicle.category || 'Motor Policy') : 'Motor Policy',
+      step: 'Quote Draft',
+      href: `/sales/quotations`,
+    }));
+
+    // 7. Telemetry
+    const [monthPoliciesAgg, totalLeadsCount, monthPoliciesCount] = await Promise.all([
+      this.prisma.policy.aggregate({
+        _sum: { premiumAmount: true },
+        where: { ...policyWhere, status: 'ACTIVE' as any, createdAt: { gte: startOfMonth } },
+      }),
+      this.prisma.lead.count({ where: leadWhere }),
+      this.prisma.policy.count({ where: { ...policyWhere, createdAt: { gte: startOfMonth } } }),
+    ]);
+
+    const myPremium = Number(monthPoliciesAgg._sum?.premiumAmount || 0);
+    const conversionRatio = totalLeadsCount > 0 ? Number(((monthPoliciesCount / totalLeadsCount) * 100).toFixed(1)) : 0;
+
+    return {
+      pipelineSteps,
+      renewals,
+      todayTasks,
+      followups,
+      recentPolicies,
+      drafts,
+      telemetry: {
+        myPremium,
+        policiesIssued: monthPoliciesCount,
+        conversionRatio,
+        myLeads: totalLeadsCount,
+      },
     };
   }
 

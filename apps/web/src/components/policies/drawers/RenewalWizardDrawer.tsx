@@ -24,8 +24,7 @@ export function RenewalWizardDrawer({ isOpen, policyId, onClose }: RenewalWizard
       toast.success(`Policy ${policyId} renewed successfully!`);
       onClose();
     } catch (err: any) {
-      toast.success(`Policy ${policyId || 'POL-001048'} renewed successfully through 2027-08-15!`);
-      onClose();
+      toast.error(err?.response?.data?.message || 'Failed to process policy renewal');
     } finally {
       setIsSubmitting(false);
     }

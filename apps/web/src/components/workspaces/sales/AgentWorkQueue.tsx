@@ -25,11 +25,11 @@ interface AgentWorkQueueProps {
 
 export function AgentWorkQueue({ tasks, onSelectFilter, activeFilter }: AgentWorkQueueProps) {
   const queue = tasks || {
-    pendingQuotations: 6,
-    pendingDocuments: 3,
-    paymentPending: 2,
-    policyIssuancePending: 4,
-    renewalsDueToday: 5,
+    pendingQuotations: 0,
+    pendingDocuments: 0,
+    paymentPending: 0,
+    policyIssuancePending: 0,
+    renewalsDueToday: 0,
   };
 
   const queueItems = [
