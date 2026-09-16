@@ -12,7 +12,7 @@
 | G008 | Agent can access Admin URLs | CRITICAL | RBAC | IMPLEMENTED | Sprint 2 | Agents are forbidden from Admin routes |
 | G009 | Quote.contactId not always set | HIGH | DATA | IMPLEMENTED | Sprint 4 | Quote creation mandates contactId |
 | G010 | Vehicle registration not normalized at persistence | MEDIUM | DATA | IMPLEMENTED | Sprint 4 | Registrations are saved uppercase, no spaces |
-| G011 | Frontend rule engine duplicates backend | HIGH | WORKFLOW | OPEN | Sprint 6 | Rules are computed on backend only |
+| G011 | Frontend rule engine duplicates backend | HIGH | WORKFLOW | IMPLEMENTED | Sprint 6 | Rules are computed on backend only |
 | G012 | Renewal date uses estimation not actual insurer dates | HIGH | WORKFLOW | OPEN | Sprint 9 | Renewal relies on insurer-confirmed dates |
 | G013 | Renewal scheduler not idempotent | MEDIUM | WORKFLOW | OPEN | Sprint 9 | Scheduler can run safely multiple times |
 | G014 | Previous claims null treated as zero | MEDIUM | DATA | IMPLEMENTED | Sprint 5 | Claims track states properly, not just numerical zero |

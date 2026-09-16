@@ -51,11 +51,11 @@ This document outlines the structured sprint-by-sprint implementation plan based
 ## Sprint 6: Motor Underwriting
 | ID | Description | Status | Files Affected |
 |----|-------------|--------|----------------|
-| MOTOR-001 | Backend rule engine unification | OPEN | `apps/api/src/modules/motor/rule-engine.service.ts` |
-| MOTOR-002 | Remove frontend rule engine duplicates | OPEN | `apps/web/src/lib/rules.ts` |
-| MOTOR-003 | Implement IDV calculation | OPEN | `apps/api/src/modules/motor/idv.service.ts` |
-| MOTOR-004 | NCBM calculation | OPEN | `apps/api/src/modules/motor/ncbm.service.ts` |
-| MOTOR-005 | Add-on premium calculation | OPEN | `apps/api/src/modules/motor/premium.service.ts` |
+| MOTOR-001 | Backend rule engine unification | IMPLEMENTED | `apps/api/src/modules/motor/services/motor-calculation.service.ts` |
+| MOTOR-002 | Remove frontend rule engine duplicates | IMPLEMENTED | `apps/web/src/components/leads/motor-quote/useMotorCalculator.ts` |
+| MOTOR-003 | Implement IDV calculation | IMPLEMENTED | `apps/api/src/modules/motor/services/motor-calculation.service.ts` |
+| MOTOR-004 | NCBM calculation | IMPLEMENTED | `apps/api/src/modules/motor/services/motor-calculation.service.ts` |
+| MOTOR-005 | Add-on premium calculation | IMPLEMENTED | `apps/api/src/modules/motor/services/motor-calculation.service.ts` |
 | MOTOR-006 | Third-party integrations for Motor | OPEN | `apps/api/src/modules/motor/integrations/` |
 
 ## Sprint 7: Inspection

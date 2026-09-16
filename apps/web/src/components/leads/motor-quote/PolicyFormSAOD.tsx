@@ -4,7 +4,6 @@ import React from 'react';
 import { ShieldCheck, AlertTriangle, CheckCircle, Info, Calculator, Percent } from 'lucide-react';
 import { INSURER_OPTIONS, NCB_OPTIONS, ADDON_OPTIONS } from './motorFormConfig';
 import type { PolicyFormSAOD, SaodTpVerification } from './motorFormTypes';
-import { calculateGst } from './motorTariffConfig';
 
 interface Props {
   data: PolicyFormSAOD;
@@ -68,7 +67,7 @@ export function PolicyFormSAODForm({ data, onChange }: Props) {
 
     const ncbDiscount = Math.round(odBase * (ncb / 100));
     const netOd = Math.max(0, odBase - ncbDiscount + addOnsTotal);
-    const gst = calculateGst(netOd);
+    const gst = Math.round(netOd * 0.18 * 100) / 100;
     const total = Math.round((netOd + gst) * 100) / 100;
 
     // Commission
