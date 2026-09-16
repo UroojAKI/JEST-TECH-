@@ -92,6 +92,31 @@ export class PaymentService {
         );
       }
 
+      // DATA-004: Payment idempotency check via reference number
+      if (reference?.trim()) {
+        const existingReceipt = await tx.receipt.findFirst({
+          where: {
+            reference: reference.trim(),
+            paymentMode: mode.trim(),
+            customerId: policy.contactId,
+          },
+          include: { allocations: true },
+        });
+
+        if (existingReceipt) {
+          const existingAlloc = existingReceipt.allocations.find(
+            (a) => a.invoiceId === invoice.id,
+          );
+          if (existingAlloc) {
+            return {
+              receipt: existingReceipt,
+              allocation: existingAlloc,
+              invoice,
+            };
+          }
+        }
+      }
+
       const sequenceRows = await tx.$queryRaw<Array<{ nextval: bigint }>>`
         SELECT nextval('receipt_number_seq')
       `;

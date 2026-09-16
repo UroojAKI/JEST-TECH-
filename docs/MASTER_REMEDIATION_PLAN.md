@@ -42,11 +42,11 @@ This document outlines the structured sprint-by-sprint implementation plan based
 ## Sprint 5: Data Truth
 | ID | Description | Status | Files Affected |
 |----|-------------|--------|----------------|
-| DATA-001 | Consolidate Contact as single customer identity | OPEN | `apps/api/src/modules/contacts/contact.service.ts` |
-| DATA-002 | Fix previous claims null treated as zero | OPEN | `apps/api/src/modules/claims/claims.service.ts` |
+| DATA-001 | Consolidate Contact as single customer identity | IMPLEMENTED | `apps/api/src/modules/contacts/services/contacts.service.ts`, `apps/api/src/modules/customer/customer-360/` |
+| DATA-002 | Fix previous claims null treated as zero | IMPLEMENTED | `apps/api/src/modules/motor/services/motor-calculation.service.ts` |
 | DATA-003 | Store monetary amounts in paise | OPEN | `apps/api/prisma/schema.prisma` |
-| DATA-004 | Require idempotency keys for payments | OPEN | `apps/api/src/modules/finance/payment.service.ts` |
-| DATA-005 | Ensure Policy originates from valid Quote | OPEN | `apps/api/src/modules/policies/policy.service.ts` |
+| DATA-004 | Require idempotency keys for payments | IMPLEMENTED | `apps/api/src/modules/finance/revenue/services/payment/payment.service.ts`, `apps/api/src/modules/motor/services/motor-payment-tracking.service.ts` |
+| DATA-005 | Ensure Policy originates from valid Quote | IMPLEMENTED | `apps/api/src/modules/motor/services/motor-policy-issuance.service.ts` |
 
 ## Sprint 6: Motor Underwriting
 | ID | Description | Status | Files Affected |
