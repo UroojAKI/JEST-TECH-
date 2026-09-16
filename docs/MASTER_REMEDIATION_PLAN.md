@@ -5,28 +5,28 @@ This document outlines the structured sprint-by-sprint implementation plan based
 ## Sprint 1: Security
 | ID | Description | Status | Files Affected |
 |----|-------------|--------|----------------|
-| SEC-001 | Remove hardcoded PII encryption key | OPEN | `apps/api/src/common/utils/encryption.util.ts` |
-| SEC-002 | Fix Webhook signature bypass in non-production | OPEN | `apps/api/src/modules/webhooks/webhook.guard.ts` |
-| SEC-003 | Remove Razorpay webhook fallback secret | OPEN | `apps/api/src/modules/finance/razorpay.service.ts` |
-| SEC-004 | Add webhook replay protection | OPEN | `apps/api/src/modules/webhooks/webhook.guard.ts` |
+| SEC-001 | Remove hardcoded PII encryption key | IMPLEMENTED | `apps/api/src/common/utils/encryption.util.ts` |
+| SEC-002 | Fix Webhook signature bypass in non-production | IMPLEMENTED | `apps/api/src/modules/platform/integrations/webhooks/controllers/webhook-gateway/webhook-gateway.controller.ts` |
+| SEC-003 | Remove Razorpay webhook fallback secret | IMPLEMENTED | `apps/api/src/modules/platform/integrations/webhooks/controllers/webhook-gateway/webhook-gateway.controller.ts` |
+| SEC-004 | Add webhook replay protection | IMPLEMENTED | `apps/api/src/modules/platform/integrations/webhooks/controllers/webhook-gateway/webhook-gateway.controller.ts` |
 
 ## Sprint 2: Identity + RBAC
 | ID | Description | Status | Files Affected |
 |----|-------------|--------|----------------|
-| ID-001 | Consolidate duplicate PII encryption implementation | OPEN | `apps/api/src/common/utils/encryption.util.ts` |
-| AUTH-001 | Remove JWT defaults in env schema | OPEN | `apps/api/src/config/env.config.ts` |
-| AUTH-002 | Implement proper Role guards | OPEN | `apps/api/src/common/guards/roles.guard.ts` |
-| AUTH-003 | Restrict Agent from Back Office URLs | OPEN | `apps/api/src/common/guards/workspace-access.guard.ts` |
-| AUTH-004 | Restrict Agent from Admin URLs | OPEN | `apps/api/src/common/guards/workspace-access.guard.ts` |
+| ID-001 | Consolidate duplicate PII encryption implementation | IMPLEMENTED | `apps/api/src/common/utils/encryption.util.ts` |
+| AUTH-001 | Remove JWT defaults in env schema | IMPLEMENTED | `apps/api/src/modules/platform/configuration/env.schema.ts` |
+| AUTH-002 | Implement proper Role guards | IMPLEMENTED | `apps/api/src/modules/auth/guards/roles.guard.ts` |
+| AUTH-003 | Restrict Agent from Back Office URLs | IMPLEMENTED | `apps/web/src/proxy.ts` |
+| AUTH-004 | Restrict Agent from Admin URLs | IMPLEMENTED | `apps/web/src/proxy.ts` |
 
 ## Sprint 3: Workspace + Navigation
 | ID | Description | Status | Files Affected |
 |----|-------------|--------|----------------|
-| WS-001 | Fix Workspace selector showing app sidebar | OPEN | `apps/web/src/components/workspace-selector.tsx` |
-| NAV-001 | Unify sidebar systems | OPEN | `apps/web/src/components/sidebar.tsx` |
-| NAV-002 | Fix navigation inconsistency | OPEN | `apps/web/src/app/layout.tsx` |
-| NAV-003 | Add Breadcrumbs | OPEN | `apps/web/src/components/breadcrumbs.tsx` |
-| NAV-004 | Route protection based on workspace | OPEN | `apps/web/src/middleware.ts` |
+| WS-001 | Fix Workspace selector showing app sidebar | IMPLEMENTED | `apps/web/src/app/workspace/(selector)/layout.tsx` |
+| NAV-001 | Unify sidebar systems | IMPLEMENTED | `apps/web/src/components/workspace/UnifiedSidebar.tsx` |
+| NAV-002 | Fix navigation inconsistency | IMPLEMENTED | `apps/web/src/components/workspace/WorkspaceAppContainer.tsx` |
+| NAV-003 | Add Breadcrumbs | IMPLEMENTED | `apps/web/src/components/workspace/WorkspaceBreadcrumb.tsx` |
+| NAV-004 | Route protection based on workspace | IMPLEMENTED | `apps/web/src/proxy.ts` |
 
 ## Sprint 4: CRM Foundation
 | ID | Description | Status | Files Affected |

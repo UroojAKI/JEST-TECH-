@@ -30,33 +30,49 @@ export function proxy(request: NextRequest) {
       return NextResponse.redirect(loginUrl);
     }
 
-    // Role-based route guard for /admin paths
-    if (pathname.startsWith('/admin')) {
-      try {
-        const payloadBase64 = token.split('.')[1];
-        if (payloadBase64) {
-          const payload = JSON.parse(
-            Buffer.from(payloadBase64, 'base64').toString('utf-8')
-          );
-          const userRole = payload.role;
-          const userRoles: string[] = payload.roles || (userRole ? [userRole] : []);
-          const allowedAdminRoles = [
-            'SUPER_ADMIN',
-            'ADMIN',
-            'SYSTEM_ADMINISTRATOR',
-          ];
-          const hasAdminRole = userRoles.some((r) =>
-            allowedAdminRoles.includes(r)
-          );
-          if (!hasAdminRole) {
-            return NextResponse.redirect(new URL('/unauthorized', request.url));
-          }
-        }
-      } catch {
-        const loginUrl = new URL('/login', request.url);
-        loginUrl.searchParams.set('returnUrl', pathname);
-        return NextResponse.redirect(loginUrl);
+    // Role-based route guard
+    let userRoles: string[] = [];
+    try {
+      const payloadBase64 = token.split('.')[1];
+      if (payloadBase64) {
+        const payload = JSON.parse(
+          Buffer.from(payloadBase64, 'base64').toString('utf-8')
+        );
+        userRoles = (payload.roles?.length ? payload.roles : [payload.role])
+          .filter(Boolean)
+          .map((r: string) => r.toUpperCase());
       }
+    } catch {
+      const loginUrl = new URL('/login', request.url);
+      loginUrl.searchParams.set('returnUrl', pathname);
+      return NextResponse.redirect(loginUrl);
+    }
+
+    const isAdmin = userRoles.some((r) =>
+      ['ADMIN', 'SUPER_ADMIN', 'SYSTEM_ADMINISTRATOR'].includes(r)
+    );
+    const isBackOffice = userRoles.some((r) =>
+      ['BACK_OFFICE', 'OPERATIONS'].includes(r)
+    );
+
+    // 1. Admin-only routes (AUTH-004 / G008)
+    const isAdminRoute =
+      pathname.startsWith('/admin') ||
+      pathname.startsWith('/workspace/admin') ||
+      pathname.startsWith('/workspace/executive');
+
+    if (isAdminRoute && !isAdmin) {
+      return NextResponse.redirect(new URL('/unauthorized', request.url));
+    }
+
+    // 2. Back Office & Operations routes (AUTH-003 / G007: Agents forbidden)
+    const isBackOfficeRoute =
+      pathname.startsWith('/finance') ||
+      pathname.startsWith('/workspace/finance') ||
+      pathname.startsWith('/workspace/operations');
+
+    if (isBackOfficeRoute && !isAdmin && !isBackOffice) {
+      return NextResponse.redirect(new URL('/unauthorized', request.url));
     }
   }
 
