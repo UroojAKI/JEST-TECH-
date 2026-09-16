@@ -27,8 +27,9 @@ import { QueueDashboardService } from './monitoring/queue-dashboard.service';
             config.get<string>('REDIS_URL') ||
             config.get<string>('redis.url') ||
             process.env.REDIS_URL ||
-            'redis://localhost:6380',
+            'redis://127.0.0.1:6379',
           maxRetriesPerRequest: null,
+          enableOfflineQueue: false,
           retryStrategy: (times: number) => {
             if (process.env.REDIS_ENABLED !== 'true' || times > 3) {
               return null; // Stop reconnecting if Redis is disabled or after 3 failures

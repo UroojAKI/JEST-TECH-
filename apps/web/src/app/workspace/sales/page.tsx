@@ -1,12 +1,12 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { SalesDashboard } from '../../../components/workspaces/sales/SalesDashboard';
 import { MotorQuotationsWorkspace } from '../../../components/sales/MotorQuotationsWorkspace';
-import { LayoutDashboard, Car } from 'lucide-react';
+import { LayoutDashboard, Car, Loader2 } from 'lucide-react';
 
-export default function SalesWorkspacePage() {
+function SalesWorkspaceContent() {
   const searchParams = useSearchParams();
   const initialTab = searchParams.get('tab') === 'quotes' ? 'QUOTES' : 'OVERVIEW';
   const [activeTab, setActiveTab] = useState<'OVERVIEW' | 'QUOTES'>(initialTab);
@@ -58,5 +58,20 @@ export default function SalesWorkspacePage() {
         <MotorQuotationsWorkspace />
       )}
     </div>
+  );
+}
+
+export default function SalesWorkspacePage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex items-center justify-center p-12 text-muted-foreground text-sm">
+          <Loader2 className="h-5 w-5 animate-spin mr-2 text-primary" />
+          Loading Sales Workspace...
+        </div>
+      }
+    >
+      <SalesWorkspaceContent />
+    </Suspense>
   );
 }

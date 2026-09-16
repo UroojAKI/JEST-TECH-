@@ -18,7 +18,9 @@ export class HealthService {
       const redis = new Redis(this.config.redisUrl, {
         maxRetriesPerRequest: 1,
         lazyConnect: true,
+        enableOfflineQueue: false,
       });
+      redis.on('error', () => {});
       await redis.connect();
       await redis.ping();
       await redis.quit();
@@ -48,7 +50,9 @@ export class HealthService {
       const redis = new Redis(this.config.redisUrl, {
         maxRetriesPerRequest: 1,
         lazyConnect: true,
+        enableOfflineQueue: false,
       });
+      redis.on('error', () => {});
       await redis.connect();
       await redis.ping();
       await redis.quit();
@@ -125,7 +129,9 @@ export class HealthService {
       const redis = new Redis(this.config.redisUrl, {
         maxRetriesPerRequest: 1,
         lazyConnect: true,
+        enableOfflineQueue: false,
       });
+      redis.on('error', () => {});
       await redis.connect();
       await redis.ping();
       await redis.quit();
