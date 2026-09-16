@@ -3,8 +3,8 @@
 import React from 'react';
 import { useParams } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
-import { leadsRepository } from '../../../../../repositories/leads.repository';
-import { LeadCommandCenter } from '../../../../../components/workspaces/sales/LeadCommandCenter';
+import { leadsRepository } from '../../../../../../repositories/leads.repository';
+import { LeadCommandCenter } from '../../../../../../components/workspaces/sales/LeadCommandCenter';
 
 export default function LeadCommandCenterPage() {
   const params = useParams();

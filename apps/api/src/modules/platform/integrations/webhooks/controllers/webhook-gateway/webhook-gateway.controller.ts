@@ -33,16 +33,32 @@ export class WebhookGatewayController {
   ) {
     this.logger.log(`Received webhook from provider: ${provider}`);
 
-    // 1. Validate Cryptographic Webhook Signature
-    this.validateSignature(provider, payload, headers);
-
-    // 2. Extract Provider Event ID for Idempotency
+    // 1. Extract Provider Event ID for Idempotency
     const providerEventId = this.extractEventId(provider, payload, headers);
 
     if (!providerEventId) {
       throw new BadRequestException(
         'Missing provider event ID for idempotency',
       );
+    }
+
+    // 2. Validate Cryptographic Webhook Signature
+    await this.validateSignature(provider, payload, headers, providerEventId);
+
+    // Timestamp replay protection for Razorpay
+    if (provider === 'razorpay') {
+      const razorpayTimestamp = headers['x-razorpay-timestamp'];
+      if (razorpayTimestamp) {
+        const webhookTime = parseInt(razorpayTimestamp, 10) * 1000; // convert seconds to ms
+        const now = Date.now();
+        const MAX_AGE_MS = 5 * 60 * 1000; // 5 minutes
+        if (Math.abs(now - webhookTime) > MAX_AGE_MS) {
+          this.logger.warn(
+            `[SECURITY] Webhook replay detected: timestamp too old or in future. provider=${provider}, age=${Math.abs(now - webhookTime)}ms`
+          );
+          throw new UnauthorizedException('Webhook timestamp out of acceptable range (replay protection)');
+        }
+      }
     }
 
     // 3. Compute incoming payload SHA-256 hash for strict 3-case semantics
@@ -147,18 +163,24 @@ export class WebhookGatewayController {
     }
   }
 
-  /**
-   * Cryptographic HMAC SHA256 Webhook Signature Verification
-   */
-  private validateSignature(provider: string, payload: any, headers: any) {
+  private async validateSignature(
+    provider: string,
+    payload: any,
+    headers: any,
+    providerEventId: string | null,
+  ): Promise<void> {
     const signature =
       headers['x-razorpay-signature'] ||
       headers['x-twilio-signature'] ||
       headers['x-webhook-signature'];
 
     if (provider === 'razorpay') {
-      const razorpaySecret =
-        process.env.RAZORPAY_WEBHOOK_SECRET || 'rzp_webhook_secret_key';
+      const razorpaySecret = process.env.RAZORPAY_WEBHOOK_SECRET;
+      if (!razorpaySecret) {
+        this.logger.error('[SECURITY] RAZORPAY_WEBHOOK_SECRET is not configured. Rejecting webhook.');
+        throw new UnauthorizedException('Webhook provider not configured');
+      }
+      
       if (!signature) {
         throw new UnauthorizedException('Missing x-razorpay-signature header');
       }
@@ -178,10 +200,23 @@ export class WebhookGatewayController {
           Buffer.from(expectedSignature),
         )
       ) {
-        // In development/test mode without live secret set, allow fallback if matching secret hash string
-        if (process.env.NODE_ENV === 'production') {
-          throw new UnauthorizedException('Invalid Razorpay webhook signature');
-        }
+        this.logger.error(
+          `[SECURITY] Invalid webhook signature from provider=${provider}. Rejecting.`
+        );
+        // Log security event to audit log
+        try {
+          await this.prisma.auditLog.create({
+            data: {
+              action: AuditAction.REJECT,
+              entity: 'WEBHOOK_SIGNATURE',
+              entityId: providerEventId || 'UNKNOWN',
+              module: 'SECURITY',
+              performedById: 'SYSTEM_WEBHOOK_GATEWAY',
+              newValue: { provider, reason: 'INVALID_SIGNATURE' },
+            },
+          });
+        } catch { /* non-fatal */ }
+        throw new UnauthorizedException('Invalid webhook signature');
       }
     }
   }

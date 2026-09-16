@@ -1,6 +1,6 @@
-﻿'use client';
+'use client';
 import React from 'react';
-import { DynamicWorkspace } from '../../../components/workspaces/DynamicWorkspace';
+import { DynamicWorkspace } from '../../../../components/workspaces/DynamicWorkspace';
 import { DollarSign } from 'lucide-react';
 
 export default function FinanceWorkspacePage() {

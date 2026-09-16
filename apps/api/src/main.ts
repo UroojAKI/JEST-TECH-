@@ -15,6 +15,16 @@ async function bootstrap() {
     );
   }
 
+  // SEC-001: PII encryption key is mandatory — no fallback allowed.
+  if (
+    !process.env.PII_ENCRYPTION_KEY ||
+    process.env.PII_ENCRYPTION_KEY.length < 32
+  ) {
+    throw new Error(
+      'CRITICAL: PII_ENCRYPTION_KEY must be set and at least 32 characters. Application cannot start without it.',
+    );
+  }
+
   const app = await NestFactory.create(AppModule);
 
   // 0. Cookie Parser — MUST be registered before any route handlers

@@ -17,8 +17,8 @@ import {
   Loader2,
   Sparkles,
 } from 'lucide-react';
-import { workspaceRepository } from '../../repositories/workspace.repository';
-import { useAuthStore } from '../../store/auth-store';
+import { workspaceRepository } from '../../../repositories/workspace.repository';
+import { useAuthStore } from '../../../store/auth-store';
 
 const ICON_MAP: Record<string, React.ReactNode> = {
   TrendingUp: <TrendingUp className="h-6 w-6 text-emerald-500" />,

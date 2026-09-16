@@ -1,11 +1,6 @@
 import React from 'react';
-import { WorkspaceContainer } from '../../components/workspace/WorkspaceContainer';
-import { WorkspaceProvider } from '../../components/workspace/WorkspaceProvider';
 
+// Root workspace layout - sub-workspaces apply their own container
 export default function WorkspaceRootLayout({ children }: { children: React.ReactNode }) {
-  return (
-    <WorkspaceProvider>
-      <WorkspaceContainer>{children}</WorkspaceContainer>
-    </WorkspaceProvider>
-  );
+  return <>{children}</>;
 }

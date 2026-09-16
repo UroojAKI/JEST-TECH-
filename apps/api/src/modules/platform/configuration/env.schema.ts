@@ -31,6 +31,13 @@ export const envSchema = z
     ALLOWED_ORIGINS: z
       .string()
       .default('http://localhost:3000,http://localhost:3001'),
+    // SEC-001: PII data encryption key — enforced at runtime in encryption.util.ts
+    PII_ENCRYPTION_KEY: z
+      .string()
+      .min(32, 'PII_ENCRYPTION_KEY must be at least 32 characters')
+      .optional(),
+    // SEC-002: Razorpay webhook HMAC secret — enforced at runtime in webhook-gateway.controller.ts
+    RAZORPAY_WEBHOOK_SECRET: z.string().optional(),
   })
   .refine(
     (data) => {
@@ -51,12 +58,20 @@ export const envSchema = z
           data.JWT_REFRESH_SECRET.includes('super-secret') ||
           data.JWT_REFRESH_SECRET.length < 32;
         if (hasInsecureRefresh) return false;
+
+        // SEC-001: PII key is mandatory in production
+        if (!data.PII_ENCRYPTION_KEY || data.PII_ENCRYPTION_KEY.length < 32)
+          return false;
+
+        // SEC-002: Razorpay webhook secret is mandatory in production
+        if (!data.RAZORPAY_WEBHOOK_SECRET || data.RAZORPAY_WEBHOOK_SECRET.includes('placeholder'))
+          return false;
       }
       return true;
     },
     {
       message:
-        'CRITICAL PRODUCTION SECURITY FAILURE: Production mode (NODE_ENV=production) forbids default, mock, or weak credentials for DATABASE_URL, JWT_SECRET, or JWT_REFRESH_SECRET. Strong unique secrets (>=32 chars) are mandatory.',
+        'CRITICAL PRODUCTION SECURITY FAILURE: Production mode (NODE_ENV=production) forbids default, mock, or weak credentials for DATABASE_URL, JWT_SECRET, JWT_REFRESH_SECRET, PII_ENCRYPTION_KEY, or RAZORPAY_WEBHOOK_SECRET. Strong unique secrets (>=32 chars) are mandatory.',
     },
   );
 

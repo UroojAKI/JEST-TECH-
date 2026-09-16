@@ -2,8 +2,8 @@
 
 import React, { useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { SalesDashboard } from '../../../components/workspaces/sales/SalesDashboard';
-import { MotorQuotationsWorkspace } from '../../../components/sales/MotorQuotationsWorkspace';
+import { SalesDashboard } from '../../../../components/workspaces/sales/SalesDashboard';
+import { MotorQuotationsWorkspace } from '../../../../components/sales/MotorQuotationsWorkspace';
 import { LayoutDashboard, Car, Loader2 } from 'lucide-react';
 
 function SalesWorkspaceContent() {
