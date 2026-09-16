@@ -19,6 +19,6 @@
 | G015 | Free-text agent code instead of User FK | HIGH | DATA | IMPLEMENTED | Sprint 4 | Agent identity uses User foreign key |
 | G016 | Mock data fallbacks in production UI | HIGH | DATA | IMPLEMENTED | Sprint 4 | No mock data is used in production builds |
 | G017 | No server-side pagination on major lists | MEDIUM | PERFORMANCE | IMPLEMENTED | Sprint 4 | APIs support limits, offsets, and return totals |
-| G018 | Inspection state machine not enforced | HIGH | WORKFLOW | OPEN | Sprint 7 | Transitions validate against proper state machine |
+| G018 | Inspection state machine not enforced | HIGH | WORKFLOW | IMPLEMENTED | Sprint 7 | Transitions validate against proper state machine |
 | G019 | PII duplicate encryption implementation | MEDIUM | SECURITY | IMPLEMENTED | Sprint 2 | Only EncryptionUtil is used for PII |
 | G020 | JWT defaults in env schema | MEDIUM | SECURITY | IMPLEMENTED | Sprint 2 | JWT secret explicitly required from env |

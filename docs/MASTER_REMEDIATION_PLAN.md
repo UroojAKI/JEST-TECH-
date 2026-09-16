@@ -61,12 +61,12 @@ This document outlines the structured sprint-by-sprint implementation plan based
 ## Sprint 7: Inspection
 | ID | Description | Status | Files Affected |
 |----|-------------|--------|----------------|
-| INS-001 | Enforce Inspection state machine | OPEN | `apps/api/src/modules/motor/inspection.service.ts` |
-| INS-002 | Assign inspector | OPEN | `apps/api/src/modules/motor/inspection.service.ts` |
-| INS-003 | Upload inspection evidence | OPEN | `apps/api/src/modules/documents/document.service.ts` |
-| INS-004 | Approve/Fail inspection | OPEN | `apps/api/src/modules/motor/inspection.service.ts` |
+| INS-001 | Enforce Inspection state machine | IMPLEMENTED | `apps/api/src/modules/motor/services/motor-inspection.service.ts` |
+| INS-002 | Assign inspector | IMPLEMENTED | `apps/api/src/modules/motor/services/motor-inspection.service.ts` |
+| INS-003 | Upload inspection evidence | IMPLEMENTED | `apps/api/src/modules/motor/services/motor-inspection.service.ts` |
+| INS-004 | Approve/Fail inspection | IMPLEMENTED | `apps/api/src/modules/motor/services/motor-inspection.service.ts` |
 | INS-005 | Integration with insurer inspection API | OPEN | `apps/api/src/modules/motor/integrations/` |
-| INS-006 | Self-inspection flow | OPEN | `apps/api/src/modules/motor/inspection.service.ts` |
+| INS-006 | Self-inspection flow | IMPLEMENTED | `apps/api/src/modules/motor/services/motor-inspection.service.ts` |
 | INS-007 | Notify customer on inspection status | OPEN | `apps/api/src/modules/notifications/` |
 
 ## Sprint 8: Policy
