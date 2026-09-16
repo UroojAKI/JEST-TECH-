@@ -17,10 +17,20 @@ import { RoleType } from '@prisma/client';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 
 import { PrismaService } from '../../../../database/prisma.service';
+import { IsNotEmpty, IsString, IsIn, IsBoolean } from 'class-validator';
 
-class UpdateConfigDto {
+export class UpdateConfigDto {
+  @IsNotEmpty()
   value: any;
+
+  @IsString()
+  @IsIn(['STRING', 'NUMBER', 'BOOLEAN', 'JSON'])
   valueType: 'STRING' | 'NUMBER' | 'BOOLEAN' | 'JSON';
+}
+
+export class UpdateFeatureFlagDto {
+  @IsBoolean()
+  isEnabled: boolean;
 }
 
 @ApiTags('Administration - Configuration')
@@ -175,7 +185,7 @@ export class SystemConfigController {
   @ApiOperation({ summary: 'Update a feature flag' })
   async updateFeatureFlag(
     @Param('id') id: string,
-    @Body() dto: { isEnabled: boolean },
+    @Body() dto: UpdateFeatureFlagDto,
   ) {
     return { success: true, id, isEnabled: dto.isEnabled };
   }

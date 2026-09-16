@@ -16,22 +16,46 @@ import { RolesGuard } from '../../../auth/guards/roles.guard';
 import { Roles } from '../../../auth/decorators/roles.decorator';
 import { RoleType } from '@prisma/client';
 
+import { IsNotEmpty, IsOptional, IsString } from 'class-validator';
+
 import {
   CurrentUser,
   RequestUser,
 } from '../../../auth/decorators/current-user.decorator';
 
-class AssignTeamDto {
+export class AssignTeamDto {
+  @IsString()
+  @IsNotEmpty()
   userId: string;
+
+  @IsString()
+  @IsNotEmpty()
   teamId: string;
 }
 
-class CreateBranchDto {
+export class CreateBranchDto {
+  @IsString()
+  @IsNotEmpty()
   name: string;
+
+  @IsString()
+  @IsNotEmpty()
   code: string;
+
+  @IsString()
+  @IsNotEmpty()
   city: string;
+
+  @IsOptional()
+  @IsString()
   state?: string;
+
+  @IsOptional()
+  @IsString()
   address?: string;
+
+  @IsOptional()
+  @IsString()
   zoneId?: string;
 }
 
