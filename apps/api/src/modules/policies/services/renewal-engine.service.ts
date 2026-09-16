@@ -23,7 +23,10 @@ export class RenewalEngineService {
     return this.prisma.policy.findMany({
       where: {
         status: PolicyStatus.ACTIVE,
-        expiryDate: { lte: targetDate, gte: new Date() },
+        OR: [
+          { expiryDate: { lte: targetDate, gte: new Date() } },
+          { odExpiryDate: { lte: targetDate, gte: new Date() } },
+        ],
         renewalTasks: { none: { status: 'PENDING' } },
       },
     });
@@ -43,17 +46,19 @@ export class RenewalEngineService {
     });
     if (!policy) return;
 
+    const effectiveDueDate = policy.odExpiryDate || policy.expiryDate;
+
     await this.prisma.renewalTask.upsert({
       where: { policyId_offsetDays: { policyId, offsetDays: 30 } },
       create: {
         policyId,
         agentId,
-        dueDate: policy.expiryDate,
+        dueDate: effectiveDueDate,
         offsetDays: 30,
         status: 'PENDING',
         priority: 'MEDIUM',
       },
-      update: { agentId, dueDate: policy.expiryDate, status: 'PENDING' },
+      update: { agentId, dueDate: effectiveDueDate, status: 'PENDING' },
     });
   }
 
@@ -75,8 +80,11 @@ export class RenewalEngineService {
     ];
     const escalationOffsets = [7, 3, 1];
 
+    const effectiveExpiryDate =
+      policy.odExpiryDate || expiryDate || policy.expiryDate;
+
     for (const days of reminderOffsets) {
-      const reminderDate = new Date(expiryDate);
+      const reminderDate = new Date(effectiveExpiryDate);
       reminderDate.setDate(reminderDate.getDate() - days);
       const delay = reminderDate.getTime() - Date.now();
       if (delay > 0) {
@@ -85,7 +93,7 @@ export class RenewalEngineService {
           {
             policyId: policy.id,
             policyNumber: policy.policyNumber,
-            expiryDate: policy.expiryDate,
+            expiryDate: effectiveExpiryDate,
             customerId: policy.contactId,
             agentId: policy.createdById,
             daysBefore: days,
@@ -167,7 +175,10 @@ export class RenewalEngineService {
     const where = {
       ...scope,
       status: PolicyStatus.ACTIVE,
-      expiryDate: { lte: targetDate },
+      OR: [
+        { expiryDate: { lte: targetDate } },
+        { odExpiryDate: { lte: targetDate } },
+      ],
       deletedAt: null,
     };
 
@@ -206,7 +217,10 @@ export class RenewalEngineService {
       where: {
         ...scope,
         status: { in: [PolicyStatus.ACTIVE, PolicyStatus.PENDING_RENEWAL] },
-        expiryDate: { lte: sixtyDaysFromNow },
+        OR: [
+          { expiryDate: { lte: sixtyDaysFromNow } },
+          { odExpiryDate: { lte: sixtyDaysFromNow } },
+        ],
         deletedAt: null,
       },
       include: {
@@ -226,8 +240,9 @@ export class RenewalEngineService {
     let lowCount = 0;
 
     for (const p of policies) {
+      const effectiveExpiry = p.odExpiryDate || p.expiryDate;
       const daysRemaining = Math.ceil(
-        (new Date(p.expiryDate).getTime() - now) / 86400000,
+        (new Date(effectiveExpiry).getTime() - now) / 86400000,
       );
       let urgency: 'EXPIRED' | 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW' = 'LOW';
       if (daysRemaining < 0) urgency = 'EXPIRED';
@@ -258,7 +273,7 @@ export class RenewalEngineService {
           : 'Customer',
         customerPhone: p.contact?.phone || undefined,
         customerEmail: p.contact?.email || undefined,
-        expiryDate: p.expiryDate.toISOString(),
+        expiryDate: effectiveExpiry.toISOString(),
         daysRemaining,
         urgency,
         hasClaims,
@@ -315,10 +330,12 @@ export class RenewalEngineService {
     if (!policy)
       return { success: false, message: `Policy ${policyId} not found` };
 
+    const effectiveExpiry = policy.odExpiryDate || policy.expiryDate;
+
     await this.renewalQueue.add('send-renewal-reminder', {
       policyId: policy.id,
       policyNumber: policy.policyNumber,
-      expiryDate: policy.expiryDate,
+      expiryDate: effectiveExpiry,
       customerId: policy.contactId,
       agentId: effectiveActor.userId,
       daysBefore: 0,
@@ -339,6 +356,8 @@ export class RenewalEngineService {
     if (!policy)
       return { success: false, message: `Policy ${policyId} not found` };
 
+    const effectiveExpiry = policy.odExpiryDate || policy.expiryDate;
+
     const existingTask = await this.prisma.renewalTask.findFirst({
       where: { policyId },
       orderBy: { createdAt: 'desc' },
@@ -346,14 +365,14 @@ export class RenewalEngineService {
     if (existingTask) {
       await this.prisma.renewalTask.update({
         where: { id: existingTask.id },
-        data: { priority: 'CRITICAL' },
+        data: { priority: 'CRITICAL', dueDate: effectiveExpiry },
       });
     } else {
       await this.prisma.renewalTask.create({
         data: {
           policyId,
           agentId: effectiveActor.userId,
-          dueDate: policy.expiryDate,
+          dueDate: effectiveExpiry,
           status: 'PENDING',
           priority: 'CRITICAL',
           offsetDays: 0,

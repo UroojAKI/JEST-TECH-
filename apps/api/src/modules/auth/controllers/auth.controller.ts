@@ -31,6 +31,7 @@ export class AuthController {
   }
 
   @Post('refresh')
+  @Throttle({ default: { ttl: 60000, limit: 30 } })
   async refresh(
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,

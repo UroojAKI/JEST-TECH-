@@ -54,7 +54,10 @@ export class RenewalSchedulerCron {
               status: {
                 in: [PolicyStatus.ACTIVE, PolicyStatus.PENDING_RENEWAL],
               },
-              expiryDate: { lt: now },
+              OR: [
+                { expiryDate: { lt: now } },
+                { odExpiryDate: { lt: now } },
+              ],
             },
           });
         } else {
@@ -69,12 +72,17 @@ export class RenewalSchedulerCron {
               status: {
                 in: [PolicyStatus.ACTIVE, PolicyStatus.PENDING_RENEWAL],
               },
-              expiryDate: { gte: windowStart, lte: windowEnd },
+              OR: [
+                { expiryDate: { gte: windowStart, lte: windowEnd } },
+                { odExpiryDate: { gte: windowStart, lte: windowEnd } },
+              ],
             },
           });
         }
 
         for (const policy of policies) {
+          const effectiveExpiryDate = policy.odExpiryDate || policy.expiryDate;
+
           // Ensure RenewalTask exists if within 30 days
           if (offset <= 30 && offset >= 0 && policy.createdById) {
             await this.prisma.renewalTask.upsert({
@@ -84,12 +92,14 @@ export class RenewalSchedulerCron {
                   offsetDays: offset,
                 },
               },
-              update: {},
+              update: {
+                dueDate: effectiveExpiryDate,
+              },
               create: {
                 policyId: policy.id,
                 offsetDays: offset,
                 agentId: policy.createdById,
-                dueDate: policy.expiryDate,
+                dueDate: effectiveExpiryDate,
                 status: 'PENDING',
                 priority: offset <= 7 ? 'HIGH' : 'MEDIUM',
               },
@@ -103,7 +113,7 @@ export class RenewalSchedulerCron {
             {
               policyId: policy.id,
               policyNumber: policy.policyNumber,
-              expiryDate: policy.expiryDate,
+              expiryDate: effectiveExpiryDate,
               customerId: policy.contactId,
               agentId: policy.createdById,
               daysBefore: offset,

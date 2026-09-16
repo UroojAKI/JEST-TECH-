@@ -72,30 +72,30 @@ This document outlines the structured sprint-by-sprint implementation plan based
 ## Sprint 8: Policy
 | ID | Description | Status | Files Affected |
 |----|-------------|--------|----------------|
-| POL-001 | Policy issuance workflow | OPEN | `apps/api/src/modules/policies/policy.service.ts` |
-| POL-002 | Generate Policy schedule PDF | OPEN | `apps/api/src/modules/documents/pdf.service.ts` |
-| POL-003 | Endorsement flow | OPEN | `apps/api/src/modules/endorsements/endorsement.service.ts` |
-| POL-004 | Cancellation flow | OPEN | `apps/api/src/modules/policies/policy.service.ts` |
-| POL-005 | Policy synchronization with insurers | OPEN | `apps/api/src/modules/policies/sync.service.ts` |
+| POL-001 | Policy issuance workflow | IMPLEMENTED | `apps/api/src/modules/policies/services/commands/issue-policy.service.ts` |
+| POL-002 | Generate Policy schedule PDF | IMPLEMENTED | `apps/api/src/modules/documents/pdf.service.ts` |
+| POL-003 | Endorsement flow | IMPLEMENTED | `apps/api/src/modules/endorsements/services/endorsement.service.ts` |
+| POL-004 | Cancellation flow | IMPLEMENTED | `apps/api/src/modules/policies/services/commands/cancel-policy.service.ts` |
+| POL-005 | Policy synchronization with insurers | IMPLEMENTED | `apps/api/src/modules/policies/services/renewal-engine.service.ts` |
 
 ## Sprint 9: Renewal
 | ID | Description | Status | Files Affected |
 |----|-------------|--------|----------------|
-| REN-001 | Fix Renewal date uses estimation | OPEN | `apps/api/src/modules/policies/renewal.service.ts` |
-| REN-002 | Make Renewal scheduler idempotent | OPEN | `apps/api/src/modules/policies/renewal.cron.ts` |
-| REN-003 | Generate upcoming renewal list | OPEN | `apps/api/src/modules/policies/renewal.service.ts` |
-| REN-004 | Send renewal reminders | OPEN | `apps/api/src/modules/notifications/` |
-| REN-005 | Automate renewal requote | OPEN | `apps/api/src/modules/policies/renewal.service.ts` |
-| REN-006 | Track renewal payment | OPEN | `apps/api/src/modules/finance/payment.service.ts` |
-| REN-007 | Renewal status update | OPEN | `apps/api/src/modules/policies/renewal.service.ts` |
-| REN-008 | Dashboard metrics for renewals | OPEN | `apps/api/src/modules/dashboard/dashboard.service.ts` |
+| REN-001 | Fix Renewal date uses estimation | IMPLEMENTED | `apps/api/src/modules/policies/services/renewal-engine.service.ts` |
+| REN-002 | Make Renewal scheduler idempotent | IMPLEMENTED | `apps/api/src/modules/policies/crons/renewal-scheduler.cron.ts` |
+| REN-003 | Generate upcoming renewal list | IMPLEMENTED | `apps/api/src/modules/policies/services/renewal-engine.service.ts` |
+| REN-004 | Send renewal reminders | IMPLEMENTED | `apps/api/src/modules/policies/processors/renewal-reminder.processor.ts` |
+| REN-005 | Automate renewal requote | IMPLEMENTED | `apps/api/src/modules/policies/services/renewal-engine.service.ts` |
+| REN-006 | Track renewal payment | IMPLEMENTED | `apps/api/src/modules/finance/services/payment.service.ts` |
+| REN-007 | Renewal status update | IMPLEMENTED | `apps/api/src/modules/policies/services/renewal-engine.service.ts` |
+| REN-008 | Dashboard metrics for renewals | IMPLEMENTED | `apps/api/src/modules/policies/services/renewal-engine.service.ts` |
 
 ## Sprint 10: Audit + Hardening
 | ID | Description | Status | Files Affected |
 |----|-------------|--------|----------------|
-| AUD-001 | Complete audit trail coverage | OPEN | `apps/api/src/modules/audit/audit.service.ts` |
-| AUD-002 | Export audit logs | OPEN | `apps/api/src/modules/audit/audit.service.ts` |
-| AUD-003 | Rate limiting and throttling | OPEN | `apps/api/src/common/guards/throttler.guard.ts` |
-| AUD-004 | Penetration test fixes | OPEN | Varies |
-| AUD-005 | Performance optimization | OPEN | Varies |
-| AUD-006 | Final security review | OPEN | All |
+| AUD-001 | Complete audit trail coverage | IMPLEMENTED | `apps/api/src/modules/platform/audit/services/audit.service.ts` |
+| AUD-002 | Export audit logs | IMPLEMENTED | `apps/api/src/modules/platform/audit/controllers/audit.controller.ts` |
+| AUD-003 | Rate limiting and throttling | IMPLEMENTED | `apps/api/src/modules/auth/controllers/auth.controller.ts` |
+| AUD-004 | Penetration test fixes | IMPLEMENTED | Varies |
+| AUD-005 | Performance optimization | IMPLEMENTED | Varies |
+| AUD-006 | Final security review | IMPLEMENTED | All |

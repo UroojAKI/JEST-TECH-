@@ -245,6 +245,60 @@ export class AuditService {
   }
 
   /**
+   * Export audit logs in CSV or JSON format (AUD-002).
+   */
+  async exportAuditLogs(params?: {
+    format?: string;
+    entity?: string;
+    action?: string;
+    userId?: string;
+    search?: string;
+  }) {
+    const logsResult = await this.getAuditLogs({
+      entity: params?.entity,
+      action: params?.action,
+      userId: params?.userId,
+      search: params?.search,
+      page: 1,
+      limit: 1000,
+    });
+
+    if (params?.format === 'json') {
+      return logsResult.data;
+    }
+
+    const header = [
+      'ID',
+      'Timestamp',
+      'Action',
+      'Module',
+      'Entity',
+      'Entity ID',
+      'User Email',
+      'IP Address',
+      'Correlation ID',
+    ].join(',');
+
+    const rows = logsResult.data.map((log: any) =>
+      [
+        log.id,
+        log.createdAt ? new Date(log.createdAt).toISOString() : '',
+        log.action,
+        log.module || '',
+        log.entity,
+        log.entityId,
+        log.user?.email || 'SYSTEM',
+        log.ipAddress || '',
+        log.correlationId || '',
+      ]
+        .map((val) => `"${String(val).replace(/"/g, '""')}"`)
+        .join(','),
+    );
+
+    return [header, ...rows].join('\n');
+  }
+
+  /**
    * Append-only guardrail (G023).
    * Prevents any runtime attempt to update or delete audit logs.
    */

@@ -13,8 +13,8 @@
 | G009 | Quote.contactId not always set | HIGH | DATA | IMPLEMENTED | Sprint 4 | Quote creation mandates contactId |
 | G010 | Vehicle registration not normalized at persistence | MEDIUM | DATA | IMPLEMENTED | Sprint 4 | Registrations are saved uppercase, no spaces |
 | G011 | Frontend rule engine duplicates backend | HIGH | WORKFLOW | IMPLEMENTED | Sprint 6 | Rules are computed on backend only |
-| G012 | Renewal date uses estimation not actual insurer dates | HIGH | WORKFLOW | OPEN | Sprint 9 | Renewal relies on insurer-confirmed dates |
-| G013 | Renewal scheduler not idempotent | MEDIUM | WORKFLOW | OPEN | Sprint 9 | Scheduler can run safely multiple times |
+| G012 | Renewal date uses estimation not actual insurer dates | HIGH | WORKFLOW | IMPLEMENTED | Sprint 9 | Renewal relies on insurer-confirmed dates |
+| G013 | Renewal scheduler not idempotent | MEDIUM | WORKFLOW | IMPLEMENTED | Sprint 9 | Scheduler can run safely multiple times |
 | G014 | Previous claims null treated as zero | MEDIUM | DATA | IMPLEMENTED | Sprint 5 | Claims track states properly, not just numerical zero |
 | G015 | Free-text agent code instead of User FK | HIGH | DATA | IMPLEMENTED | Sprint 4 | Agent identity uses User foreign key |
 | G016 | Mock data fallbacks in production UI | HIGH | DATA | IMPLEMENTED | Sprint 4 | No mock data is used in production builds |

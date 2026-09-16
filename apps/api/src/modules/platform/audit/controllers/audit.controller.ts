@@ -9,10 +9,30 @@ import { AuditService } from '../services/audit.service';
 @ApiTags('Audit Logs')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles(RoleType.ADMIN, RoleType.ADMIN)
+@Roles(RoleType.ADMIN)
 @Controller('audit')
 export class AuditController {
   constructor(private readonly auditService: AuditService) {}
+
+  @Get('export')
+  @ApiOperation({
+    summary: 'Export system audit trail logs as CSV or JSON',
+  })
+  async exportAuditLogs(
+    @Query('format') format = 'csv',
+    @Query('entity') entity?: string,
+    @Query('action') action?: string,
+    @Query('userId') userId?: string,
+    @Query('search') search?: string,
+  ) {
+    return this.auditService.exportAuditLogs({
+      format,
+      entity,
+      action,
+      userId,
+      search,
+    });
+  }
 
   @Get()
   @ApiOperation({
