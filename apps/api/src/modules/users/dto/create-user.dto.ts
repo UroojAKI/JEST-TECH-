@@ -28,8 +28,9 @@ export class CreateUserDto {
   @IsString()
   password?: string;
 
-  @IsEnum(RoleType)
-  role: RoleType;
+  @IsString()
+  @IsNotEmpty()
+  role: string;
 
   @IsOptional()
   @IsString()
@@ -55,11 +56,11 @@ export class CreateUserDto {
   @IsString()
   teamId?: string;
 
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  companyId: string;
+  companyId?: string;
 
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  roleId: string;
+  roleId?: string;
 }

@@ -32,16 +32,35 @@ export class UsersService {
   }
 
   async create(dto: CreateUserDto) {
-    let role = await this.userRepository.findRoleByType(dto.role);
+    let canonicalRole: RoleType = RoleType.AGENT;
+    const rawRole = String(dto.role || '').toUpperCase();
+    if (rawRole === 'ADMIN' || rawRole === 'SUPER_ADMIN') {
+      canonicalRole = RoleType.ADMIN;
+    } else if (
+      [
+        'BACK_OFFICE',
+        'UNDERWRITER',
+        'FINANCE',
+        'CLAIMS_OFFICER',
+        'BRANCH_MANAGER',
+        'OPERATIONS',
+      ].includes(rawRole)
+    ) {
+      canonicalRole = RoleType.BACK_OFFICE;
+    } else {
+      canonicalRole = RoleType.AGENT;
+    }
+
+    let role = await this.userRepository.findRoleByType(canonicalRole);
 
     if (!role) {
-      role = await this.prisma.role.findFirst({ where: { type: dto.role } });
+      role = await this.prisma.role.findFirst({ where: { type: canonicalRole } });
       if (!role) {
         role = await this.prisma.role.create({
           data: {
-            name: String(dto.role),
-            code: String(dto.role),
-            type: dto.role,
+            name: String(canonicalRole),
+            code: String(canonicalRole),
+            type: canonicalRole,
           },
         });
       }
@@ -77,6 +96,13 @@ export class UsersService {
       }
     }
 
+    const defaultCompanyId = await this.getPrimaryOrganizationId();
+    const targetCompanyId = dto.companyId || defaultCompanyId;
+    let companyConnect: any = undefined;
+    if (targetCompanyId) {
+      companyConnect = { connect: { id: targetCompanyId } };
+    }
+
     const user = await this.userRepository.create({
       email: dto.email,
       passwordHash,
@@ -86,6 +112,7 @@ export class UsersService {
       employeeCode: empCode,
       designation: (dto as any).designation,
       role: { connect: { id: role.id } },
+      company: companyConnect,
       status: (dto as any).status || UserStatus.ACTIVE,
       branch: branchConnect,
       department: departmentConnect,

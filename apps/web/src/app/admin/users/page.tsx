@@ -18,7 +18,7 @@ export default function UserManagementPage() {
   const [newLastName, setNewLastName] = useState('');
   const [newEmail, setNewEmail] = useState('');
   const [newPassword, setNewPassword] = useState('');
-  const [newRole, setNewRole] = useState('SALES_AGENT');
+  const [newRole, setNewRole] = useState('AGENT');
   const [newBranchId, setNewBranchId] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -113,7 +113,7 @@ export default function UserManagementPage() {
       setNewLastName('');
       setNewEmail('');
       setNewPassword('');
-      setNewRole('SALES_AGENT');
+      setNewRole('AGENT');
       setNewBranchId('');
     } catch (error: any) {
       toast.error(error?.response?.data?.message || 'Failed to create user');
@@ -253,14 +253,9 @@ export default function UserManagementPage() {
                     ))
                   ) : (
                     <>
-                      <option value="SALES_AGENT">Sales Agent</option>
-                      <option value="UNDERWRITER">Underwriter</option>
-                      <option value="FINANCE">Finance</option>
-                      <option value="BRANCH_MANAGER">Branch Manager</option>
+                      <option value="AGENT">Insurance Agent</option>
+                      <option value="BACK_OFFICE">Back Office Operations</option>
                       <option value="ADMIN">Administrator</option>
-                      <option value="SUPER_ADMIN">Super Administrator</option>
-                      <option value="CLAIMS_OFFICER">Claims Officer</option>
-                      <option value="OPERATIONS">Operations</option>
                     </>
                   )}
                 </select>
