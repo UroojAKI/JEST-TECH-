@@ -107,13 +107,19 @@ export class MotorPolicyIssuanceService {
           .filter((date): date is Date => Boolean(date))
           .sort((a, b) => a.getTime() - b.getTime())[0] || endDate;
 
+      const normalizedReg = dto.registrationNumber
+        ? dto.registrationNumber.toUpperCase().replace(/[\s\-\.]/g, '')
+        : quote.registrationNumber
+          ? quote.registrationNumber.toUpperCase().replace(/[\s\-\.]/g, '')
+          : undefined;
+
       // Handle vehicle details & missing information
       let vehicleId = quote.vehicleId;
       if (vehicleId) {
         if (
           dto.chassisNumber ||
           dto.engineNumber ||
-          dto.registrationNumber ||
+          normalizedReg ||
           dto.makeModel ||
           dto.manufactureYearMonth
         ) {
@@ -122,7 +128,7 @@ export class MotorPolicyIssuanceService {
             data: {
               chassisNumber: dto.chassisNumber || undefined,
               engineNumber: dto.engineNumber || undefined,
-              registrationNumber: dto.registrationNumber || undefined,
+              registrationNumber: normalizedReg || undefined,
               makeModel: dto.makeModel || undefined,
               manufactureYearMonth: dto.manufactureYearMonth || undefined,
             },
@@ -131,15 +137,14 @@ export class MotorPolicyIssuanceService {
       } else if (
         dto.chassisNumber ||
         dto.engineNumber ||
-        dto.registrationNumber
+        normalizedReg
       ) {
         const vehicleCode = `VEH-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
         const createdVehicle = await tx.vehicle.create({
           data: {
             vehicleCode,
             category: (quote.vehicleCategory as any) || 'PRIVATE_CAR',
-            registrationNumber:
-              dto.registrationNumber || quote.registrationNumber,
+            registrationNumber: normalizedReg,
             chassisNumber: dto.chassisNumber,
             engineNumber: dto.engineNumber,
             makeModel: dto.makeModel,
@@ -153,8 +158,7 @@ export class MotorPolicyIssuanceService {
           where: { id: quote.id },
           data: {
             vehicleId: createdVehicle.id,
-            registrationNumber:
-              dto.registrationNumber || quote.registrationNumber,
+            registrationNumber: normalizedReg,
           },
         });
       }

@@ -31,13 +31,13 @@ This document outlines the structured sprint-by-sprint implementation plan based
 ## Sprint 4: CRM Foundation
 | ID | Description | Status | Files Affected |
 |----|-------------|--------|----------------|
-| CRM-001 | Fix Quote.contactId not always set | OPEN | `apps/api/src/modules/quotation/quotation.service.ts` |
-| CRM-002 | Normalize Vehicle registration | OPEN | `apps/api/src/modules/motor/vehicle.service.ts` |
-| CRM-003 | Enforce Lead must reference Contact | OPEN | `apps/api/src/modules/leads/lead.service.ts` |
-| CRM-004 | Enforce Agent identity from User FK | OPEN | `apps/api/src/modules/users/user.service.ts` |
-| CRM-005 | Remove Mock data fallbacks in production UI | OPEN | `apps/web/src/lib/api.ts` |
-| CRM-006 | Add server-side pagination | OPEN | `apps/api/src/common/dto/pagination.dto.ts` |
-| CRM-007 | Implement Audit log for state transitions | OPEN | `apps/api/src/modules/audit/audit.service.ts` |
+| CRM-001 | Fix Quote.contactId not always set | IMPLEMENTED | `apps/api/src/modules/quotation/services/commands/generate-quotation.service.ts` |
+| CRM-002 | Normalize Vehicle registration | IMPLEMENTED | `apps/web/src/components/leads/motor-quote/VehicleDetailsForm.tsx`, `apps/api/src/modules/motor/services/motor-policy-issuance.service.ts` |
+| CRM-003 | Enforce Lead must reference Contact | IMPLEMENTED | `apps/api/src/modules/leads/services/leads.service.ts` |
+| CRM-004 | Enforce Agent identity from User FK | IMPLEMENTED | `apps/api/src/modules/contacts/services/contacts.service.ts` |
+| CRM-005 | Remove Mock data fallbacks in production UI | IMPLEMENTED | `apps/web/src/repositories/` |
+| CRM-006 | Add server-side pagination | IMPLEMENTED | `apps/api/src/common/pagination/` |
+| CRM-007 | Implement Audit log for state transitions | IMPLEMENTED | `apps/api/src/modules/platform/audit/services/audit.service.ts`, `apps/api/src/modules/leads/services/leads.service.ts` |
 
 ## Sprint 5: Data Truth
 | ID | Description | Status | Files Affected |

@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   ForbiddenException,
   Injectable,
@@ -125,8 +126,9 @@ export class ContactsService {
       }
     }
 
-    // Assigned Agent resolution
+    // Assigned Agent resolution (CRM-004 / ID-001: authoritative user FK)
     let effectiveAgentId = createdById;
+    let authoritativeAgentCode: string | undefined = undefined;
     const requestedCode = (dto.agentCode || '').trim();
     if (requestedCode) {
       const userByCode = await this.prisma.user.findFirst({
@@ -137,11 +139,15 @@ export class ContactsService {
           ],
         },
       });
-      if (userByCode) {
-        effectiveAgentId = userByCode.id;
-        if (!targetBranchId && userByCode.branchId) {
-          targetBranchId = userByCode.branchId;
-        }
+      if (!userByCode) {
+        throw new BadRequestException(
+          `Invalid agentCode '${requestedCode}': no registered agent exists with this employee code or user ID.`,
+        );
+      }
+      effectiveAgentId = userByCode.id;
+      authoritativeAgentCode = userByCode.employeeCode || requestedCode;
+      if (!targetBranchId && userByCode.branchId) {
+        targetBranchId = userByCode.branchId;
       }
     } else {
       const requestedAgentId = dto.agentId || dto.assignedAgentId;
@@ -149,11 +155,15 @@ export class ContactsService {
         const assignedAgent = await this.prisma.user.findUnique({
           where: { id: requestedAgentId },
         });
-        if (assignedAgent) {
-          effectiveAgentId = assignedAgent.id;
-          if (!targetBranchId && assignedAgent.branchId) {
-            targetBranchId = assignedAgent.branchId;
-          }
+        if (!assignedAgent) {
+          throw new BadRequestException(
+            `Assigned agent with ID '${requestedAgentId}' was not found.`,
+          );
+        }
+        effectiveAgentId = assignedAgent.id;
+        authoritativeAgentCode = assignedAgent.employeeCode || undefined;
+        if (!targetBranchId && assignedAgent.branchId) {
+          targetBranchId = assignedAgent.branchId;
         }
       }
     }
@@ -161,7 +171,7 @@ export class ContactsService {
     const { accountId, agentId, assignedAgentId, agentCode, ...restDto } = dto;
     const contactData: Prisma.ContactCreateInput = {
       contactCode,
-      agentCode: requestedCode || undefined,
+      agentCode: authoritativeAgentCode,
       type: restDto.type,
       firstName: restDto.firstName,
       middleName: restDto.middleName,

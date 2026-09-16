@@ -14,8 +14,13 @@ const inputBase = 'w-full px-3 py-2 rounded-md border text-sm font-medium bg-bac
 
 export function VehicleDetailsForm({ category, data, onChange }: Props) {
   const fields = VEHICLE_FIELDS[category];
-  const set = (key: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
-    onChange({ ...data, [key]: e.target.value });
+  const set = (key: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    let value = e.target.value;
+    if (key === 'registrationNumber') {
+      value = value.toUpperCase().replace(/[\s\-\.]/g, '');
+    }
+    onChange({ ...data, [key]: value });
+  };
 
   return (
     <div className="space-y-6">
