@@ -57,9 +57,12 @@ export function proxy(request: NextRequest) {
 
     // 1. Admin-only routes (AUTH-004 / G008)
     const isAdminRoute =
-      pathname.startsWith('/admin') ||
-      pathname.startsWith('/workspace/admin') ||
-      pathname.startsWith('/workspace/executive');
+      pathname === '/admin' ||
+      pathname.startsWith('/admin/') ||
+      pathname === '/workspace/admin' ||
+      pathname.startsWith('/workspace/admin/') ||
+      pathname === '/workspace/executive' ||
+      pathname.startsWith('/workspace/executive/');
 
     if (isAdminRoute && !isAdmin) {
       return NextResponse.redirect(new URL('/unauthorized', request.url));
@@ -67,9 +70,12 @@ export function proxy(request: NextRequest) {
 
     // 2. Back Office & Operations routes (AUTH-003 / G007: Agents forbidden)
     const isBackOfficeRoute =
-      pathname.startsWith('/finance') ||
-      pathname.startsWith('/workspace/finance') ||
-      pathname.startsWith('/workspace/operations');
+      pathname === '/finance' ||
+      pathname.startsWith('/finance/') ||
+      pathname === '/workspace/finance' ||
+      pathname.startsWith('/workspace/finance/') ||
+      pathname === '/workspace/operations' ||
+      pathname.startsWith('/workspace/operations/');
 
     if (isBackOfficeRoute && !isAdmin && !isBackOffice) {
       return NextResponse.redirect(new URL('/unauthorized', request.url));

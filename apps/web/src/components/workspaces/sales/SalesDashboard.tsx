@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useState } from 'react';
-import Link from 'next/link';
 import { SalesKPIs } from './SalesKPIs';
 import { QuickActionsBar } from './QuickActionsBar';
 import { AgentWorkQueue } from './AgentWorkQueue';
@@ -14,7 +13,7 @@ import { useAuthStore } from '../../../store/auth-store';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../../../lib/api-client';
 import { customerRepository } from '../../../repositories/customer.repository';
-import { Briefcase, Settings, RefreshCw, DollarSign, ShieldAlert, Search, Shield, Sparkles, MapPin, Calendar as CalendarIcon } from 'lucide-react';
+import { Search, Shield, Sparkles, MapPin, Calendar as CalendarIcon } from 'lucide-react';
 import { toast } from 'sonner';
 
 export function SalesDashboard() {
@@ -57,16 +56,7 @@ export function SalesDashboard() {
 
   if (isDashboardLoading) return <div className="p-12 text-center text-xs font-bold text-muted-foreground animate-pulse">Loading sales workspace...</div>;
 
-  const workspaces = [
-    { label: 'Sales Workspace', href: '/workspace/sales', icon: Briefcase, active: true },
-    { label: 'Operations Workspace', href: '/workspace/operations', icon: Settings, active: false },
-    { label: 'Renewal Workspace', href: '/workspace/renewal', icon: RefreshCw, active: false },
-    { label: 'Finance Workspace', href: '/workspace/finance', icon: DollarSign, active: false },
-    { label: 'Admin Workspace', href: '/workspace/admin', icon: ShieldAlert, active: false },
-  ];
-
   return <div className="space-y-6 pb-12">
-    <div className="flex border-b text-xs font-semibold overflow-x-auto space-x-2 pb-2">{workspaces.map((w) => { const Icon = w.icon; return <Link key={w.href} href={w.href} className={`px-3.5 py-2 rounded-xl flex items-center space-x-2 whitespace-nowrap ${w.active ? 'bg-primary text-primary-foreground font-black shadow-xs' : 'bg-card border text-muted-foreground hover:text-foreground hover:bg-accent'}`}><Icon className="h-4 w-4" /><span>{w.label}</span></Link>; })}</div>
     <div className="p-6 rounded-3xl bg-gradient-to-r from-primary/15 via-primary/5 to-transparent border space-y-4"><div className="flex flex-wrap items-center justify-between gap-4"><div><div className="flex items-center space-x-2 text-[10px] font-black uppercase text-primary tracking-wider"><Sparkles className="h-3.5 w-3.5" /><span>JEST Policy CRM • Sales Workspace</span></div><h1 className="text-xl sm:text-2xl font-black tracking-tight mt-0.5">Welcome, {userName}</h1><div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground mt-1 font-semibold">{userBranch && <span className="flex items-center space-x-1"><MapPin className="h-3.5 w-3.5 text-primary" /><span>Branch: {userBranch}</span></span>}<span className="flex items-center space-x-1"><Shield className="h-3.5 w-3.5 text-emerald-600" /><span>{userRole.replace(/_/g, ' ')}</span></span><span className="flex items-center space-x-1"><CalendarIcon className="h-3.5 w-3.5 text-amber-600" /><span>Date: {todayStr}</span></span></div></div><form onSubmit={handleSearchSubmit} className="relative min-w-[280px] sm:min-w-[360px]"><input type="text" value={globalSearch} onChange={(e) => setGlobalSearch(e.target.value)} placeholder="Search customer by name, phone or email..." className="w-full pl-9 pr-4 py-2.5 rounded-2xl border bg-card text-xs font-bold shadow-xs focus:ring-2 focus:ring-primary focus:outline-none" /><Search className="h-4 w-4 text-muted-foreground absolute left-3 top-3" /></form></div></div>
     <PersistentStepTracker currentStepIndex={activeStepIndex} onStepClick={setActiveStepIndex} />
     <SalesKPIs data={kpis} />

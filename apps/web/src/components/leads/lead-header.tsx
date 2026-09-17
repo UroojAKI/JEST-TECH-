@@ -1,9 +1,11 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import Link from 'next/link';
 import {
   User,
   Phone,
+  PhoneCall,
   Mail,
   Clock,
   AlertTriangle,
@@ -15,35 +17,78 @@ import {
   TrendingUp,
   X,
   Loader2,
+  FilePlus2,
+  UserCheck,
+  RotateCcw,
+  CheckCheck,
 } from 'lucide-react';
 import { StatusBadge } from '../ui/status-badge';
 import { formatCurrency } from '../../lib/formatters';
 import { adminRepository, UserItem } from '../../repositories/admin.repository';
 import { leadsRepository } from '../../repositories/leads.repository';
+import { useAuthStore } from '../../store/auth-store';
 import { toast } from 'sonner';
 
 interface LeadHeaderProps {
   lead: any;
   onLaunchConvert: () => void;
   onLaunchMarkLost: () => void;
+  onStatusChange?: (newStatus: string) => void;
 }
 
-export function LeadHeader({ lead, onLaunchConvert, onLaunchMarkLost }: LeadHeaderProps) {
+export function LeadHeader({ lead, onLaunchConvert, onLaunchMarkLost, onStatusChange }: LeadHeaderProps) {
   const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
   const [usersList, setUsersList] = useState<UserItem[]>([]);
   const [selectedAgentId, setSelectedAgentId] = useState('');
   const [currentAgentName, setCurrentAgentName] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [currentStatus, setCurrentStatus] = useState(lead?.status || lead?.stage || 'NEW');
+  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+
+  const user = useAuthStore((s) => s.user);
 
   useEffect(() => {
-    adminRepository.getUsers().then((data) => {
-      if (Array.isArray(data)) {
-        setUsersList(data);
-      }
-    }).catch(() => {
-      setUsersList([]);
-    });
-  }, []);
+    if (lead?.status || lead?.stage) {
+      setCurrentStatus(lead?.status || lead?.stage);
+    }
+  }, [lead?.status, lead?.stage]);
+
+  const userRoles = (user?.roles?.length ? user.roles : [user?.role || ''])
+    .filter(Boolean)
+    .map((r) => r.toUpperCase());
+
+  const canReassign = userRoles.some((r) =>
+    ['ADMIN', 'SUPER_ADMIN', 'SYSTEM_ADMINISTRATOR', 'BRANCH_MANAGER', 'BACK_OFFICE', 'OPERATIONS'].includes(r)
+  );
+
+  const handleOpenAssignModal = () => {
+    if (!canReassign) {
+      toast.error('Only administrators and managers have permission to reassign leads.');
+      return;
+    }
+    setIsAssignModalOpen(true);
+    // Lazy-load user directory only when modal is opened by authorized user
+    if (usersList.length === 0) {
+      adminRepository.getUsers().then((data) => {
+        if (Array.isArray(data)) setUsersList(data);
+      }).catch(() => setUsersList([]));
+    }
+  };
+
+  const handleQuickStatusTransition = async (newStatus: string) => {
+    if (!lead?.id) return;
+    setIsUpdatingStatus(true);
+    try {
+      await leadsRepository.updateLeadStatus(lead.id, newStatus);
+      setCurrentStatus(newStatus);
+      toast.success(`Lead moved to ${newStatus}`);
+      onStatusChange?.(newStatus);
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'Failed to update lead status');
+    } finally {
+      setIsUpdatingStatus(false);
+    }
+  };
 
   const isDuplicate = lead?.duplicateWarning ?? false;
 
@@ -55,7 +100,8 @@ export function LeadHeader({ lead, onLaunchConvert, onLaunchMarkLost }: LeadHead
   const displayPremium = formatCurrency(lead?.expectedPremium || 25000);
   const displayScore = lead?.probabilityScore || lead?.score || 80;
   const displayAgent = currentAgentName || lead?.agent || lead?.assignedAgentName || 'Unassigned';
-  const displayStage = lead?.status || lead?.stage || 'QUOTE_PREPARED';
+  const normalizedStatus = (currentStatus || lead?.status || lead?.stage || 'NEW').toUpperCase();
+  const displayStage = normalizedStatus;
 
   const handleReassignSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -138,27 +184,143 @@ export function LeadHeader({ lead, onLaunchConvert, onLaunchMarkLost }: LeadHead
             </div>
           </div>
 
-          {/* Action Buttons */}
-          <div className="flex items-center space-x-2">
-            <button
-              onClick={() => setIsAssignModalOpen(true)}
-              className="px-3.5 py-2 text-xs font-semibold rounded-lg border bg-card hover:bg-accent text-foreground transition-colors flex items-center space-x-1"
-            >
-              <User className="h-3.5 w-3.5 text-primary" />
-              <span>Reassign Agent</span>
-            </button>
-            <button
-              onClick={onLaunchConvert}
-              className="px-4 py-2 text-xs font-bold rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 transition-colors shadow-sm"
-            >
-              Convert Lead →
-            </button>
-            <button
-              onClick={onLaunchMarkLost}
-              className="px-3.5 py-2 text-xs font-semibold rounded-lg border border-destructive/40 text-destructive hover:bg-destructive/10 transition-colors"
-            >
-              Mark Lost
-            </button>
+          {/* State-Driven Contextual Action Buttons */}
+          <div className="flex flex-wrap items-center gap-2">
+            {canReassign && (
+              <button
+                onClick={handleOpenAssignModal}
+                className="px-3 py-2 text-xs font-semibold rounded-xl border bg-card hover:bg-accent text-foreground transition-colors flex items-center space-x-1"
+              >
+                <User className="h-3.5 w-3.5 text-primary" />
+                <span>Reassign Agent</span>
+              </button>
+            )}
+
+            {/* NEW Stage */}
+            {normalizedStatus === 'NEW' && (
+              <>
+                <button
+                  onClick={() => handleQuickStatusTransition('CONTACTED')}
+                  disabled={isUpdatingStatus}
+                  className="px-3.5 py-2 text-xs font-bold rounded-xl bg-blue-600 text-white hover:bg-blue-700 shadow-xs flex items-center space-x-1.5 transition-colors disabled:opacity-50"
+                >
+                  <PhoneCall className="h-3.5 w-3.5" />
+                  <span>Contact Customer</span>
+                </button>
+                <Link
+                  href={`/sales/quotations?create=1&leadId=${lead?.id}`}
+                  className="px-3.5 py-2 text-xs font-semibold rounded-xl border bg-card hover:bg-accent text-foreground transition-colors flex items-center space-x-1.5"
+                >
+                  <FilePlus2 className="h-3.5 w-3.5 text-primary" />
+                  <span>Create Quotation</span>
+                </Link>
+                <button
+                  onClick={onLaunchConvert}
+                  className="px-3.5 py-2 text-xs font-bold rounded-xl bg-emerald-600 text-white hover:bg-emerald-700 shadow-xs flex items-center space-x-1.5 transition-colors"
+                >
+                  <UserCheck className="h-3.5 w-3.5" />
+                  <span>Convert Lead →</span>
+                </button>
+                <button
+                  onClick={onLaunchMarkLost}
+                  className="px-3 py-2 text-xs font-semibold rounded-xl border border-destructive/30 text-destructive hover:bg-destructive/10 transition-colors"
+                >
+                  Mark Lost
+                </button>
+              </>
+            )}
+
+            {/* CONTACTED Stage */}
+            {normalizedStatus === 'CONTACTED' && (
+              <>
+                <button
+                  onClick={() => handleQuickStatusTransition('QUALIFIED')}
+                  disabled={isUpdatingStatus}
+                  className="px-3.5 py-2 text-xs font-bold rounded-xl bg-indigo-600 text-white hover:bg-indigo-700 shadow-xs flex items-center space-x-1.5 transition-colors disabled:opacity-50"
+                >
+                  <CheckCheck className="h-3.5 w-3.5" />
+                  <span>Qualify Lead</span>
+                </button>
+                <Link
+                  href={`/sales/quotations?create=1&leadId=${lead?.id}`}
+                  className="px-3.5 py-2 text-xs font-bold rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 shadow-xs flex items-center space-x-1.5 transition-colors"
+                >
+                  <FilePlus2 className="h-3.5 w-3.5" />
+                  <span>Create Quotation</span>
+                </Link>
+                <button
+                  onClick={onLaunchConvert}
+                  className="px-3.5 py-2 text-xs font-bold rounded-xl bg-emerald-600 text-white hover:bg-emerald-700 shadow-xs flex items-center space-x-1.5 transition-colors"
+                >
+                  <UserCheck className="h-3.5 w-3.5" />
+                  <span>Convert Lead →</span>
+                </button>
+                <button
+                  onClick={onLaunchMarkLost}
+                  className="px-3 py-2 text-xs font-semibold rounded-xl border border-destructive/30 text-destructive hover:bg-destructive/10 transition-colors"
+                >
+                  Mark Lost
+                </button>
+              </>
+            )}
+
+            {/* QUALIFIED / QUOTE / PROPOSAL Stage */}
+            {['QUALIFIED', 'QUOTE_PREPARED', 'PROPOSAL_SENT', 'PAYMENT_PENDING'].includes(normalizedStatus) && (
+              <>
+                <Link
+                  href={`/sales/quotations?create=1&leadId=${lead?.id}`}
+                  className="px-3.5 py-2 text-xs font-bold rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 shadow-xs flex items-center space-x-1.5 transition-colors"
+                >
+                  <FilePlus2 className="h-3.5 w-3.5" />
+                  <span>Create Quotation</span>
+                </Link>
+                <button
+                  onClick={onLaunchConvert}
+                  className="px-4 py-2 text-xs font-bold rounded-xl bg-emerald-600 text-white hover:bg-emerald-700 shadow-xs flex items-center space-x-1.5 transition-colors"
+                >
+                  <UserCheck className="h-3.5 w-3.5" />
+                  <span>Convert Lead →</span>
+                </button>
+                <button
+                  onClick={onLaunchMarkLost}
+                  className="px-3 py-2 text-xs font-semibold rounded-xl border border-destructive/30 text-destructive hover:bg-destructive/10 transition-colors"
+                >
+                  Mark Lost
+                </button>
+              </>
+            )}
+
+            {/* CONVERTED Stage */}
+            {normalizedStatus === 'CONVERTED' && (
+              <>
+                <Link
+                  href={`/crm/contacts?search=${encodeURIComponent(displayName)}`}
+                  className="px-4 py-2 text-xs font-bold rounded-xl bg-emerald-600 text-white hover:bg-emerald-700 shadow-xs flex items-center space-x-1.5 transition-colors"
+                >
+                  <UserCheck className="h-3.5 w-3.5" />
+                  <span>View Customer Profile</span>
+                </Link>
+                <Link
+                  href="/policies"
+                  className="px-3.5 py-2 text-xs font-semibold rounded-xl border bg-card hover:bg-accent text-foreground transition-colors flex items-center space-x-1.5"
+                >
+                  <span>View Issued Policies</span>
+                  <ArrowRight className="h-3.5 w-3.5" />
+                </Link>
+              </>
+            )}
+
+            {/* LOST Stage */}
+            {['LOST', 'CLOSED_LOST'].includes(normalizedStatus) && (
+              <button
+                onClick={() => handleQuickStatusTransition('NEW')}
+                disabled={isUpdatingStatus}
+                className="px-3.5 py-2 text-xs font-bold rounded-xl bg-card border hover:bg-accent text-foreground shadow-xs flex items-center space-x-1.5 transition-colors disabled:opacity-50"
+              >
+                <RotateCcw className="h-3.5 w-3.5 text-primary" />
+                <span>Reopen Lead</span>
+              </button>
+            )}
           </div>
         </div>
 

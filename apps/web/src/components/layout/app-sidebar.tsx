@@ -39,9 +39,10 @@ import {
   PlusCircle,
   Briefcase,
 } from 'lucide-react';
-import { navigationRegistry } from '../../lib/navigation/navigation.registry';
+import { getRoleNavigation } from '../../lib/navigation/navigation.registry';
 import { usePermissions } from '../providers/permission-provider';
 import { useUIStore } from '../../store/ui-store';
+import { useAuthStore } from '../../store/auth-store';
 import { useWorkspace } from '../../hooks/useWorkspace';
 import { NavigationItem } from '../../types';
 import { useQuery } from '@tanstack/react-query';
@@ -79,14 +80,16 @@ const ICON_MAP: Record<string, React.ReactNode> = {
   PlusCircle: <PlusCircle className="h-4 w-4" />,
   ShieldAlert: <ShieldAlert className="h-4 w-4" />,
   Briefcase: <Briefcase className="h-4 w-4" />,
+  Folder: <FileText className="h-4 w-4" />,
 };
 
 export function AppSidebar() {
   const pathname = usePathname();
   const { canAccess } = usePermissions();
   const isSidebarOpen = useUIStore((s) => s.isSidebarOpen);
-  const { navigation: dynamicNav, jobRole, department } = useWorkspace();
-  
+  const user = useAuthStore((s) => s.user);
+  const role = user?.roles?.[0] || user?.role || 'AGENT';
+
   const { data: healthData } = useQuery({
     queryKey: ['system-health'],
     queryFn: async () => {
@@ -100,53 +103,27 @@ export function AppSidebar() {
   });
 
   const [openChildren, setOpenChildren] = useState<Record<string, boolean>>({
-    crm: true,
-    sales: true,
-    operations: true,
-    renewals: true,
-    finance: true,
+    'my-customers': true,
+    'my-policies': true,
+    'bo-work-queue': true,
+    'bo-customers': true,
+    'bo-finance': true,
+    'business-analytics': true,
+    'adm-customers': true,
+    'adm-team': true,
+    'adm-finance': true,
+    'adm-config': true,
+    'adm-security': true,
   });
 
   const toggleSubmenu = (id: string) => {
     setOpenChildren((prev) => ({ ...prev, [id]: !prev[id] }));
   };
 
-  // Preservation Invariant: Foundational CRM navigation must NEVER be wiped out.
-  // Merge dynamic workspace navigation with foundational navigationRegistry.
-  const navSource = React.useMemo(() => {
-    if (!dynamicNav || dynamicNav.length === 0) {
-      return navigationRegistry;
-    }
-
-    const baseMap = new Map<string, NavigationItem>(
-      navigationRegistry.map((item) => [item.id, { ...item }])
-    );
-
-    for (const dItem of dynamicNav) {
-      if (baseMap.has(dItem.id)) {
-        const existing = baseMap.get(dItem.id)!;
-        if (dItem.children && dItem.children.length > 0) {
-          const childMap = new Map((existing.children || []).map((c) => [c.id, c]));
-          for (const c of dItem.children) {
-            childMap.set(c.id, c);
-          }
-          existing.children = Array.from(childMap.values());
-        }
-      } else {
-        baseMap.set(dItem.id, dItem);
-      }
-    }
-
-    return Array.from(baseMap.values());
-  }, [dynamicNav]);
-
-  const filteredNav = navSource.filter((item) =>
-    canAccess({
-      roles: item.roles,
-      permissions: item.permissions,
-      featureFlag: item.featureFlag,
-    })
-  );
+  // Authoritative Role Navigation Source
+  const filteredNav = React.useMemo(() => {
+    return getRoleNavigation(role);
+  }, [role]);
 
   if (!isSidebarOpen) return null;
 
@@ -162,6 +139,13 @@ export function AppSidebar() {
     : systemStatus === 'Degraded' ? 'bg-yellow-500'
     : 'bg-red-500';
 
+  const roleUpper = role.toUpperCase();
+  const workspaceTitle = roleUpper.includes('ADMIN')
+    ? 'Agency Command Center'
+    : roleUpper.includes('BACK_OFFICE') || roleUpper.includes('OPERATIONS')
+    ? 'Operations Workspace'
+    : 'Agent Workspace';
+
   return (
     <aside className="w-64 border-r bg-card/50 backdrop-blur flex flex-col justify-between h-[calc(100vh-3.5rem)] sticky top-14">
       {/* Brand Header / Workspace identity */}
@@ -171,7 +155,7 @@ export function AppSidebar() {
         </div>
         <div className="flex flex-col">
           <span className="font-bold text-sm tracking-tight">JEST Policy CRM</span>
-          <span className="text-[10px] text-muted-foreground">Enterprise Insurance Platform</span>
+          <span className="text-[10px] text-primary font-semibold">{workspaceTitle}</span>
         </div>
       </div>
 

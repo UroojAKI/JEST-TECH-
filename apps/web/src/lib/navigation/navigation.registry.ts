@@ -1,118 +1,249 @@
 import { NavigationItem } from '../../types';
 
-export const navigationRegistry: NavigationItem[] = [
+export const AGENT_NAVIGATION: NavigationItem[] = [
   {
-    id: 'dashboard',
-    title: 'Dashboard',
-    href: '/dashboard',
-    children: [
-      { id: 'dashboard-home', title: 'Main Dashboard', href: '/dashboard' },
-      { id: 'motor-command-center', title: '🚗 Motor Command Center', href: '/workspace/sales' },
-    ],
+    id: 'my-work',
+    title: 'My Work',
+    href: '/workspace/sales',
+    icon: 'LayoutDashboard',
   },
   {
-    id: 'crm',
-    title: 'CRM & Accounts',
-    href: '/crm',
+    id: 'my-leads',
+    title: 'My Leads',
+    href: '/crm/leads',
     icon: 'Users',
-    children: [
-      { id: 'contacts', title: 'Contacts', href: '/crm/contacts', permissions: ['lead:read'] },
-      { id: 'accounts', title: 'Corporate Accounts', href: '/crm/accounts', permissions: ['lead:read'] },
-      { id: 'leads', title: 'Leads & Pipeline', href: '/crm/leads', permissions: ['lead:read'] },
-    ],
   },
   {
-    id: 'sales',
-    title: 'Sales & Quotations',
-    href: '/sales',
+    id: 'my-quotations',
+    title: 'My Quotations',
+    href: '/sales/quotations',
     icon: 'FileSpreadsheet',
+  },
+  {
+    id: 'my-customers',
+    title: 'My Customers',
+    href: '/crm/contacts',
+    icon: 'UserCheck',
     children: [
-      { id: 'quotations', title: 'Quotations', href: '/sales/quotations', permissions: ['policy:read'] },
-      { id: 'proposals', title: 'Proposals', href: '/sales/proposals', permissions: ['policy:read'] },
+      { id: 'agent-contacts', title: 'Contacts', href: '/crm/contacts' },
+      { id: 'agent-accounts', title: 'Accounts', href: '/crm/accounts' },
     ],
   },
   {
-    id: 'operations',
-    title: 'Operations & Issuance',
+    id: 'my-policies',
+    title: 'My Policies',
+    href: '/policies',
+    icon: 'ShieldCheck',
+    children: [
+      { id: 'agent-active-policies', title: 'Active Policies', href: '/policies' },
+      { id: 'agent-renewals-due', title: 'Renewals Due', href: '/renewals' },
+    ],
+  },
+  {
+    id: 'my-claims',
+    title: 'My Claims',
+    href: '/claims',
+    icon: 'FileText',
+  },
+  {
+    id: 'settings',
+    title: 'Profile & Preferences',
+    href: '/settings',
+    icon: 'Settings',
+  },
+];
+
+export const BACK_OFFICE_NAVIGATION: NavigationItem[] = [
+  {
+    id: 'operations-hub',
+    title: 'Operations Dashboard',
     href: '/workspace/operations',
     icon: 'Briefcase',
-    permissions: ['policy:read'],
+  },
+  {
+    id: 'bo-work-queue',
+    title: 'Work Queue',
+    href: '/workspace/operations',
+    icon: 'CheckSquare',
     children: [
-      { id: 'ops-queue', title: 'Back-Office Queue', href: '/workspace/operations' },
-      { id: 'ops-inspections', title: 'Inspections', href: '/workspace/operations?tab=inspections' },
-      { id: 'ops-policies', title: 'Policy Register', href: '/policies' },
+      { id: 'ops-issuance', title: 'Issuance Queue', href: '/workspace/operations' },
+      { id: 'ops-inspections', title: 'Inspection Queue', href: '/workspace/operations?tab=inspections' },
     ],
   },
   {
-    id: 'policies',
+    id: 'bo-customers',
+    title: 'Customers',
+    href: '/crm/contacts',
+    icon: 'Users',
+    children: [
+      { id: 'bo-contacts', title: 'Contacts', href: '/crm/contacts' },
+      { id: 'bo-accounts', title: 'Corporate Accounts', href: '/crm/accounts' },
+      { id: 'bo-leads', title: 'Operational Leads', href: '/crm/leads' },
+    ],
+  },
+  {
+    id: 'bo-quotations',
+    title: 'Quotations',
+    href: '/sales/quotations',
+    icon: 'FileSpreadsheet',
+  },
+  {
+    id: 'bo-policies',
     title: 'Policies',
     href: '/policies',
     icon: 'ShieldCheck',
-    permissions: ['policy:read'],
   },
   {
-    id: 'renewals',
-    title: 'Renewals & Retention',
-    href: '/workspace/renewal',
+    id: 'bo-renewals',
+    title: 'Renewals Hub',
+    href: '/renewals',
     icon: 'RotateCw',
-    permissions: ['policy:read'],
-    children: [
-      { id: 'renewals-hub', title: 'Renewals Hub', href: '/workspace/renewal' },
-      { id: 'renewals-tasks', title: 'Renewal Tasks', href: '/workspace/renewal?tab=tasks' },
-    ],
   },
   {
-    id: 'claims',
-    title: 'Claims Management',
+    id: 'bo-claims',
+    title: 'Claims Processing',
     href: '/claims',
     icon: 'FileText',
-    permissions: ['claim:read'],
   },
   {
-    id: 'finance',
-    title: 'Finance & Accounting',
-    href: '/finance',
+    id: 'bo-finance',
+    title: 'Finance Operations',
+    href: '/finance/payments',
     icon: 'Wallet',
-    permissions: ['finance:read'],
     children: [
-      { id: 'ledger', title: 'General Ledger', href: '/finance/ledger', permissions: ['finance:read'] },
-      { id: 'commissions', title: 'Commissions Engine', href: '/finance/commissions', permissions: ['finance:manage'] },
-      { id: 'payments', title: 'Payments & Revenue', href: '/finance/payments', permissions: ['finance:read'] },
+      { id: 'bo-payments', title: 'Payments', href: '/finance/payments' },
+      { id: 'bo-receipts', title: 'Receipts', href: '/finance/receipts' },
+      { id: 'bo-ledger', title: 'Reconciliation & Ledger', href: '/finance/ledger' },
     ],
   },
   {
-    id: 'reports',
-    title: 'Reports & BI',
+    id: 'bo-documents',
+    title: 'Documents',
+    href: '/portal/downloads',
+    icon: 'Folder',
+  },
+  {
+    id: 'bo-reports',
+    title: 'Operational Reports',
     href: '/dashboard/reports',
     icon: 'BarChart3',
-    permissions: ['report:read'],
+  },
+  {
+    id: 'settings',
+    title: 'Settings',
+    href: '/settings',
+    icon: 'Settings',
+  },
+];
+
+export const ADMIN_NAVIGATION: NavigationItem[] = [
+  {
+    id: 'agency-command-center',
+    title: 'Command Center',
+    href: '/workspace/admin',
+    icon: 'LayoutDashboard',
+  },
+  {
+    id: 'business-analytics',
+    title: 'Business Analytics',
+    href: '/dashboard/reports',
+    icon: 'BarChart3',
     children: [
-      { id: 'builder', title: 'Report Builder', href: '/dashboard/reports/builder', permissions: ['report:read'] },
-      { id: 'kpi', title: 'KPI Manager', href: '/dashboard/reports/kpi', permissions: ['report:read'] },
-      { id: 'history', title: 'Report History', href: '/dashboard/reports/history', permissions: ['report:export'] },
-      { id: 'warehouse', title: 'Data Warehouse', href: '/dashboard/reports/warehouse', permissions: ['report:export'] },
+      { id: 'adm-reports-overview', title: 'Performance Reports', href: '/dashboard/reports' },
+      { id: 'adm-builder', title: 'Report Builder', href: '/dashboard/reports/builder' },
+      { id: 'adm-health', title: 'System Health', href: '/admin/health' },
     ],
   },
-
   {
-    id: 'administration',
-    title: 'Administration',
-    href: '/admin',
-    icon: 'Settings',
-    roles: ['SUPER_ADMIN', 'ADMIN'],
+    id: 'adm-customers',
+    title: 'Customers & CRM',
+    href: '/crm/contacts',
+    icon: 'Users',
     children: [
-      { id: 'users', title: 'User Management', href: '/admin/users', roles: ['SUPER_ADMIN', 'ADMIN'] },
-      { id: 'insurers', title: 'Insurer Master', href: '/admin/insurers', roles: ['SUPER_ADMIN', 'ADMIN'] },
-      { id: 'products', title: 'Product Master', href: '/admin/products', roles: ['SUPER_ADMIN', 'ADMIN'] },
-      { id: 'vehicle-master', title: 'Vehicle & RTO Master', href: '/admin/vehicle-master', roles: ['SUPER_ADMIN', 'ADMIN'] },
-      { id: 'system-config', title: 'System Configurations', href: '/admin/config', roles: ['SUPER_ADMIN'] },
-      { id: 'numbering', title: 'Numbering Sequences', href: '/admin/numbering', roles: ['SUPER_ADMIN'] },
+      { id: 'adm-contacts', title: 'All Contacts', href: '/crm/contacts' },
+      { id: 'adm-accounts', title: 'Corporate Accounts', href: '/crm/accounts' },
+      { id: 'adm-leads', title: 'Agency Lead Pipeline', href: '/crm/leads' },
+    ],
+  },
+  {
+    id: 'adm-team',
+    title: 'Team & Users',
+    href: '/admin/users',
+    icon: 'UserCheck',
+    children: [
+      { id: 'adm-users', title: 'User Management', href: '/admin/users' },
+      { id: 'adm-roles', title: 'Roles & Privileges', href: '/admin/roles' },
+      { id: 'adm-branches', title: 'Branch Management', href: '/admin/branches' },
+    ],
+  },
+  {
+    id: 'adm-policies',
+    title: 'Policies & Issuance',
+    href: '/policies',
+    icon: 'ShieldCheck',
+  },
+  {
+    id: 'adm-claims',
+    title: 'Claims Oversight',
+    href: '/claims',
+    icon: 'FileText',
+  },
+  {
+    id: 'adm-finance',
+    title: 'Finance & Revenue',
+    href: '/finance',
+    icon: 'Wallet',
+    children: [
+      { id: 'adm-finance-overview', title: 'Financial Overview', href: '/finance' },
+      { id: 'adm-payments', title: 'Payments', href: '/finance/payments' },
+      { id: 'adm-ledger', title: 'General Ledger', href: '/finance/ledger' },
+      { id: 'adm-commissions', title: 'Commissions', href: '/finance/commissions' },
+    ],
+  },
+  {
+    id: 'adm-config',
+    title: 'Configuration',
+    href: '/admin/config',
+    icon: 'Sliders',
+    children: [
+      { id: 'adm-workflows', title: 'Workflows & SLAs', href: '/admin/workflows' },
+      { id: 'adm-templates', title: 'Notification Templates', href: '/admin/notification-templates' },
+      { id: 'adm-products', title: 'Insurance Products', href: '/admin/products' },
+      { id: 'adm-insurers', title: 'Partner Insurers', href: '/admin/insurers' },
+      { id: 'adm-lookups', title: 'Lookup Masters', href: '/admin/lookups' },
+      { id: 'adm-numbering', title: 'Numbering Series', href: '/admin/numbering' },
+    ],
+  },
+  {
+    id: 'adm-security',
+    title: 'Security & Audit',
+    href: '/admin/audit',
+    icon: 'ShieldAlert',
+    children: [
+      { id: 'adm-audit', title: 'Audit Trail', href: '/admin/audit' },
     ],
   },
   {
     id: 'settings',
     title: 'Settings',
     href: '/settings',
-    icon: 'Sliders',
+    icon: 'Settings',
   },
 ];
+
+export function getRoleNavigation(role?: string): NavigationItem[] {
+  const normalized = (role || '').toUpperCase();
+
+  if (normalized === 'ADMIN' || normalized === 'SUPER_ADMIN' || normalized.includes('ADMIN')) {
+    return ADMIN_NAVIGATION;
+  }
+
+  if (normalized === 'BACK_OFFICE' || normalized.includes('OPERATIONS') || normalized.includes('BACK_OFFICE')) {
+    return BACK_OFFICE_NAVIGATION;
+  }
+
+  // Default to AGENT workspace for sales / agents / posp
+  return AGENT_NAVIGATION;
+}
+
+export const navigationRegistry: NavigationItem[] = ADMIN_NAVIGATION;
