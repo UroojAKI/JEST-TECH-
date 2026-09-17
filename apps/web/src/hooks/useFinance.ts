@@ -54,6 +54,7 @@ export function useLedgerEntries(params?: { search?: string; referenceType?: str
     meta,
     isLoading: query.isLoading,
     isError: query.isError,
+    refetch: query.refetch,
     postJournalEntry: postJournalMutation.mutateAsync,
     isPosting: postJournalMutation.isPending,
   };

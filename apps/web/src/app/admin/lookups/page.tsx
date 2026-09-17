@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { AppShell } from '../../../components/layout/app-shell';
 import { Database, Plus, Loader2 } from 'lucide-react';
+import { PageLoadingState, PageErrorState } from '../../../components/ui/page-states';
 import { toast } from 'sonner';
 import { useAdminLookups } from '../../../hooks/useAdmin';
 
@@ -17,7 +18,10 @@ const LOOKUP_CATEGORIES = [
 
 export default function LookupMastersPage() {
   const [selectedCategory, setSelectedCategory] = useState<string>('POLICY_TYPES');
-  const { data: lookups = [], isLoading } = useAdminLookups(selectedCategory);
+  const { data: lookups = [], isLoading, isError, refetch } = useAdminLookups(selectedCategory);
+
+  if (isLoading) return <AppShell><PageLoadingState message="Loading lookups..." /></AppShell>;
+  if (isError) return <AppShell><PageErrorState message="Failed to load lookups." onRetry={refetch} /></AppShell>;
   const [isSaving, setIsSaving] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [editingItem, setEditingItem] = useState<any>(null);
@@ -70,6 +74,7 @@ export default function LookupMastersPage() {
           <button
             onClick={handleOpenAdd}
             className="flex items-center space-x-1 px-4 py-2 text-xs font-bold rounded-lg bg-primary text-primary-foreground shadow hover:bg-primary/90 transition-colors"
+            aria-label="Add new master item"
           >
             <Plus className="h-4 w-4" />
             <span>{showForm && !editingItem ? 'Cancel' : '+ Add Master Item'}</span>
@@ -156,6 +161,7 @@ export default function LookupMastersPage() {
       ) : (
         <div className="border rounded-xl overflow-hidden bg-card text-xs shadow-sm">
           <table className="w-full text-left border-collapse">
+            <caption className="sr-only">Lookups list</caption>
             <thead>
               <tr className="bg-muted/40 text-[10px] text-muted-foreground font-bold border-b uppercase">
                 <th className="p-3.5">Master Code</th>
@@ -180,6 +186,7 @@ export default function LookupMastersPage() {
                     <button
                       onClick={() => handleOpenEdit(item)}
                       className="px-2.5 py-1 rounded border bg-background hover:bg-accent font-semibold text-[10px]"
+                      aria-label={`Edit ${item.name}`}
                     >
                       Edit Master
                     </button>

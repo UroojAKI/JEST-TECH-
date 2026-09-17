@@ -43,7 +43,9 @@ export class DashboardAnalyticsService {
   }
 
   private async computeDashboardData(role: string, userId: string) {
-    const userRec = await this.prisma.user.findUnique({ where: { id: userId } });
+    const userRec = this.prisma.user?.findUnique
+      ? await this.prisma.user.findUnique({ where: { id: userId } })
+      : null;
     const actor: any = { id: userId, role, organizationId: userRec?.companyId };
 
     const [revenue, leads, policies, claims, renewals, quotations] =

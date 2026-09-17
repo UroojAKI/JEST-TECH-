@@ -5,6 +5,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../../../lib/api-client';
 import { toast } from 'sonner';
 import { AppShell } from '../../../components/layout/app-shell';
+import { PageLoadingState, PageErrorState } from '../../../components/ui/page-states';
 import { NewLeadModal } from '../../../components/leads/NewLeadModal';
 import {
   Users,
@@ -27,13 +28,16 @@ export default function SalesLeadsPage() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
 
-  const { data: leadsData = [], isLoading } = useQuery({
+  const { data: leadsData = [], isLoading, isError, refetch } = useQuery({
     queryKey: ['sales-leads-list'],
     queryFn: async () => {
       const res = await apiClient.get('/leads');
       return Array.isArray(res.data) ? res.data : res.data?.data || [];
     },
   });
+
+  if (isLoading) return <AppShell><PageLoadingState message="Loading sales leads..." /></AppShell>;
+  if (isError) return <AppShell><PageErrorState message="Failed to load sales leads. Please try again." onRetry={refetch} /></AppShell>;
 
   const leads = Array.isArray(leadsData) ? leadsData : [];
 
@@ -66,6 +70,7 @@ export default function SalesLeadsPage() {
           <button
             onClick={() => setShowModal(true)}
             className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground text-xs font-black rounded-xl hover:bg-primary/90 transition shadow-sm"
+            aria-label="Create new sales lead"
           >
             <PlusCircle className="h-4 w-4" />
             New Sales Lead
@@ -82,6 +87,7 @@ export default function SalesLeadsPage() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="w-full pl-9 pr-4 py-2 text-xs rounded-xl border bg-card focus:outline-none focus:ring-2 focus:ring-primary/20"
+              aria-label="Search sales leads"
             />
           </div>
 
@@ -91,6 +97,7 @@ export default function SalesLeadsPage() {
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
               className="text-xs px-3 py-2 rounded-xl border bg-card focus:outline-none focus:ring-2 focus:ring-primary/20"
+              aria-label="Filter leads by status"
             >
               <option value="ALL">All Statuses</option>
               <option value="NEW">New Leads</option>
@@ -106,6 +113,7 @@ export default function SalesLeadsPage() {
         <div className="rounded-2xl border bg-card shadow-xs overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
+              <caption className="sr-only">Sales leads list</caption>
               <thead className="bg-muted/40 border-b font-bold text-muted-foreground uppercase text-[10px] tracking-wider">
                 <tr>
                   <th className="px-5 py-3">Lead Code</th>
@@ -167,6 +175,7 @@ export default function SalesLeadsPage() {
                         <Link
                           href={`/sales/quotations?leadId=${lead.id}`}
                           className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-primary text-primary-foreground font-extrabold text-[11px] hover:bg-primary/90 transition"
+                          aria-label={`Create quote for ${lead.firstName} ${lead.lastName}`}
                         >
                           Create Quote
                           <ArrowRight className="h-3 w-3" />

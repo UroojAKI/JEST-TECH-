@@ -337,7 +337,7 @@ export class PoliciesController {
     @Body() dto: RenewPolicyDto,
     @CurrentUser() user: RequestUser,
   ) {
-    return this.renewPolicyService.execute(id, dto, user.id);
+    return this.renewPolicyService.execute(id, dto, user.id, user);
   }
 
   @Post(':id/cancel')
@@ -348,6 +348,6 @@ export class PoliciesController {
     @Body('comments') comments: string,
     @CurrentUser() user: RequestUser,
   ) {
-    return this.cancelPolicyService.execute(id, comments, user.id);
+    return this.cancelPolicyService.execute(id, comments, user.id, user);
   }
 }

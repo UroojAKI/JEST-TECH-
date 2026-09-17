@@ -8,9 +8,13 @@ import { ClaimMapper } from '../../mappers/claim.mapper';
 export class CloseClaimService {
   constructor(private readonly claimRepository: ClaimRepository) {}
 
-  async execute(claimId: string, comments: string, updatedById: string) {
+  async execute(claimId: string, comments: string, updatedById: string, actor?: any) {
     const claim = await this.claimRepository.findById(claimId);
     if (!claim || claim.deletedAt) {
+      throw new NotFoundException(`Claim with ID ${claimId} not found`);
+    }
+
+    if (actor?.role === 'AGENT' && claim.createdById !== actor.id) {
       throw new NotFoundException(`Claim with ID ${claimId} not found`);
     }
 

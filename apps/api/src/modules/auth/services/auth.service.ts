@@ -105,12 +105,21 @@ export class AuthService {
   }
 
   async login(dto: LoginDto) {
+    // Use a single constant-time error message for all authentication failures.
+    // This prevents account-status enumeration (distinguishing between
+    // 'account doesn't exist' vs 'account is locked' via error codes).
+    const genericAuthError = new UnauthorizedException('Invalid email or password');
+    
     const user = await this.usersService.findByEmailForAuth(dto.email);
-    if (!user) throw new UnauthorizedException('Invalid email or password');
-    if (user.status !== 'ACTIVE')
-      throw new ForbiddenException('User account is inactive or locked');
-    if (!(await argon2.verify(user.passwordHash, dto.password)))
-      throw new UnauthorizedException('Invalid email or password');
+    if (!user) throw genericAuthError;
+    
+    // Verify password before checking account status to prevent timing attacks
+    // that could reveal account existence via response time difference.
+    const passwordValid = await argon2.verify(user.passwordHash, dto.password);
+    if (!passwordValid) throw genericAuthError;
+    
+    // Check account status AFTER password verification — same error externally
+    if (user.status !== 'ACTIVE') throw genericAuthError;
 
     const updatedUser = await this.usersService.updateLastLogin(user.id);
     const effectiveUser = { ...user, updatedAt: updatedUser?.updatedAt || new Date() };
@@ -234,9 +243,8 @@ export class AuthService {
       throw new UnauthorizedException('Invalid or expired refresh token');
     }
 
-    // Valid active refresh token -> Rotate token
-    await this.usersService.revokeRefreshToken(matchedRecord.id);
-
+    // Atomic token rotation: revoke old token AND store new token in a single transaction.
+    // This prevents concurrent refresh races from issuing two active tokens.
     const permissions = user.role?.permissions
       ? user.role.permissions.map((p: any) => p.permission.code)
       : [];
@@ -256,11 +264,16 @@ export class AuthService {
       this.config.get<string>('jwt.refreshExpiresIn') ?? '30d';
     const expiresAt = this.parseExpiry(refreshExpiresIn);
     const tokenHash = await argon2.hash(newRefreshToken);
-    await this.usersService.storeRefreshToken({
-      userId: user.id,
-      tokenHash,
-      expiresAt,
-    });
+
+    await this.prisma.$transaction([
+      this.prisma.refreshToken.update({
+        where: { id: matchedRecord.id },
+        data: { revokedAt: new Date() },
+      }),
+      this.prisma.refreshToken.create({
+        data: { userId: user.id, tokenHash, expiresAt },
+      }),
+    ]);
     return this.responsePayload(
       user,
       newAccessToken,

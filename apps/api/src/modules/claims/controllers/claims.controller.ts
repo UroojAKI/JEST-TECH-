@@ -175,7 +175,7 @@ export class ClaimsController {
     @Body('comments') comments: string,
     @CurrentUser() user: RequestUser,
   ) {
-    return this.closeClaimService.execute(id, comments, user.id);
+    return this.closeClaimService.execute(id, comments, user.id, user);
   }
 
   @Post(':id/withdraw')
@@ -190,6 +190,7 @@ export class ClaimsController {
       id,
       `WITHDRAWN: ${reason?.trim() || 'Claim voluntarily withdrawn by applicant'}`,
       user.id,
+      user,
     );
   }
 }

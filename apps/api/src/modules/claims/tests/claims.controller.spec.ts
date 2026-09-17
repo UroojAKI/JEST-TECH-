@@ -237,6 +237,7 @@ describe('ClaimsController', () => {
         'claim-123',
         'Closed after settlement',
         mockUser.id,
+        mockUser,
       );
     });
 
@@ -257,6 +258,7 @@ describe('ClaimsController', () => {
         'claim-123',
         'WITHDRAWN: Duplicate report',
         mockUser.id,
+        mockUser,
       );
       expect(result.status).toBe(ClaimStatus.CLOSED);
     });

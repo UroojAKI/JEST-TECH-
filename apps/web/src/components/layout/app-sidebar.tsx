@@ -44,6 +44,7 @@ import { usePermissions } from '../providers/permission-provider';
 import { useUIStore } from '../../store/ui-store';
 import { useWorkspace } from '../../hooks/useWorkspace';
 import { NavigationItem } from '../../types';
+import { useQuery } from '@tanstack/react-query';
 
 const ICON_MAP: Record<string, React.ReactNode> = {
   LayoutDashboard: <LayoutDashboard className="h-4 w-4" />,
@@ -85,6 +86,19 @@ export function AppSidebar() {
   const { canAccess } = usePermissions();
   const isSidebarOpen = useUIStore((s) => s.isSidebarOpen);
   const { navigation: dynamicNav, jobRole, department } = useWorkspace();
+  
+  const { data: healthData } = useQuery({
+    queryKey: ['system-health'],
+    queryFn: async () => {
+      const res = await fetch('/api/v1/health');
+      if (!res.ok) return { status: 'offline' };
+      return res.json();
+    },
+    staleTime: 30_000,
+    refetchInterval: 60_000,
+    retry: false,
+  });
+
   const [openChildren, setOpenChildren] = useState<Record<string, boolean>>({
     crm: true,
     sales: true,
@@ -135,6 +149,18 @@ export function AppSidebar() {
   );
 
   if (!isSidebarOpen) return null;
+
+  const systemStatus = healthData?.status === 'ok' ? 'Operational'
+    : healthData?.status ? 'Degraded'
+    : 'Offline';
+
+  const statusColor = systemStatus === 'Operational' ? 'text-emerald-500 bg-emerald-500/10 border-emerald-500/20'
+    : systemStatus === 'Degraded' ? 'text-yellow-500 bg-yellow-500/10 border-yellow-500/20'
+    : 'text-red-500 bg-red-500/10 border-red-500/20';
+
+  const dotColor = systemStatus === 'Operational' ? 'bg-emerald-500'
+    : systemStatus === 'Degraded' ? 'bg-yellow-500'
+    : 'bg-red-500';
 
   return (
     <aside className="w-64 border-r bg-card/50 backdrop-blur flex flex-col justify-between h-[calc(100vh-3.5rem)] sticky top-14">
@@ -230,8 +256,9 @@ export function AppSidebar() {
       {/* Sidebar Footer */}
       <div className="p-3 border-t text-[11px] text-muted-foreground flex justify-between items-center">
         <span>v1.0.0 Enterprise</span>
-        <span className="inline-flex items-center rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-500 border border-emerald-500/20">
-          Operational
+        <span className={`inline-flex items-center space-x-1.5 rounded-full px-2 py-0.5 text-[10px] font-medium border ${statusColor}`}>
+          <span className={`h-1.5 w-1.5 rounded-full ${dotColor}`} />
+          <span>{systemStatus}</span>
         </span>
       </div>
     </aside>

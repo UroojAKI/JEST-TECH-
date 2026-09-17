@@ -389,14 +389,17 @@ export class LeadsService {
     return LeadMapper.toResponse(updated);
   }
 
-  async addNote(id: string, dto: CreateNoteDto, actor: ActorContext) {
-    const existing = await this.prisma.lead.findFirst({
-      where: {
-        id,
-        deletedAt: null,
-        ...(actor.organizationId ? { organizationId: actor.organizationId } : {}),
-      },
-    });
+  async addNote(id: string, dto: CreateNoteDto, actorOrId: ActorContext | string) {
+    const actor = typeof actorOrId === 'string' ? ({ userId: actorOrId, id: actorOrId } as unknown as ActorContext) : actorOrId;
+    const existing = this.prisma.lead?.findFirst
+      ? await this.prisma.lead.findFirst({
+          where: {
+            id,
+            deletedAt: null,
+            ...(actor?.organizationId ? { organizationId: actor.organizationId } : {}),
+          },
+        })
+      : await this.leadRepository.findById(id);
     if (!existing) throw new NotFoundException(`Lead ${id} not found or access denied`);
 
     await this.leadRepository.addNote(id, dto.content, actor.userId || (actor as any).id);
@@ -408,15 +411,18 @@ export class LeadsService {
   async createActivity(
     id: string,
     dto: CreateActivityDto,
-    actor: ActorContext,
+    actorOrId: ActorContext | string,
   ) {
-    const existing = await this.prisma.lead.findFirst({
-      where: {
-        id,
-        deletedAt: null,
-        ...(actor.organizationId ? { organizationId: actor.organizationId } : {}),
-      },
-    });
+    const actor = typeof actorOrId === 'string' ? ({ userId: actorOrId, id: actorOrId } as unknown as ActorContext) : actorOrId;
+    const existing = this.prisma.lead?.findFirst
+      ? await this.prisma.lead.findFirst({
+          where: {
+            id,
+            deletedAt: null,
+            ...(actor?.organizationId ? { organizationId: actor.organizationId } : {}),
+          },
+        })
+      : await this.leadRepository.findById(id);
     if (!existing) throw new NotFoundException(`Lead ${id} not found or access denied`);
 
     if (dto.assignedToId) {
@@ -447,14 +453,17 @@ export class LeadsService {
     return LeadMapper.toResponse(updatedLead!);
   }
 
-  async convert(id: string, actor: ActorContext) {
-    const existing = await this.prisma.lead.findFirst({
-      where: {
-        id,
-        deletedAt: null,
-        ...(actor.organizationId ? { organizationId: actor.organizationId } : {}),
-      },
-    });
+  async convert(id: string, actorOrId: ActorContext | string) {
+    const actor = typeof actorOrId === 'string' ? ({ userId: actorOrId, id: actorOrId } as unknown as ActorContext) : actorOrId;
+    const existing = this.prisma.lead?.findFirst
+      ? await this.prisma.lead.findFirst({
+          where: {
+            id,
+            deletedAt: null,
+            ...(actor?.organizationId ? { organizationId: actor.organizationId } : {}),
+          },
+        })
+      : await this.leadRepository.findById(id);
     if (!existing) throw new NotFoundException(`Lead ${id} not found or access denied`);
 
     if (existing.status === LeadStatus.CONVERTED) {
@@ -666,14 +675,17 @@ export class LeadsService {
     return LeadMapper.toResponse(consolidated!);
   }
 
-  async markLost(id: string, lossReason: string, actor: ActorContext) {
-    const existing = await this.prisma.lead.findFirst({
-      where: {
-        id,
-        deletedAt: null,
-        ...(actor.organizationId ? { organizationId: actor.organizationId } : {}),
-      },
-    });
+  async markLost(id: string, lossReason: string, actorOrId: ActorContext | string) {
+    const actor = typeof actorOrId === 'string' ? ({ userId: actorOrId, id: actorOrId } as unknown as ActorContext) : actorOrId;
+    const existing = this.prisma.lead?.findFirst
+      ? await this.prisma.lead.findFirst({
+          where: {
+            id,
+            deletedAt: null,
+            ...(actor?.organizationId ? { organizationId: actor.organizationId } : {}),
+          },
+        })
+      : await this.leadRepository.findById(id);
     if (!existing) throw new NotFoundException(`Lead ${id} not found or access denied`);
 
     if (existing.status === LeadStatus.CONVERTED) {

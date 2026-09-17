@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { AppShell } from '../../../components/layout/app-shell';
+import { PageLoadingState, PageErrorState } from '../../../components/ui/page-states';
 import { BookOpen, Plus, Shield, CheckCircle2, AlertTriangle, Search, Loader2 } from 'lucide-react';
 import { useLedgerEntries } from '../../../hooks/useFinance';
 import { StatusBadge } from '../../../components/ui/status-badge';
@@ -10,10 +11,13 @@ import { toast } from 'sonner';
 export default function DoubleEntryLedgerPage() {
   const [search, setSearch] = useState('');
   const [refFilter, setRefFilter] = useState('ALL');
-  const { ledgerEntries, isLoading, postJournalEntry, isPosting } = useLedgerEntries({
+  const { ledgerEntries, isLoading, isError, refetch, postJournalEntry, isPosting } = useLedgerEntries({
     search,
     referenceType: refFilter,
   });
+
+  if (isLoading) return <AppShell><PageLoadingState message="Loading journal entries..." /></AppShell>;
+  if (isError) return <AppShell><PageErrorState message="Failed to load journal entries." onRetry={refetch} /></AppShell>;
 
   const [showForm, setShowForm] = useState(false);
   const [description, setDescription] = useState('');
@@ -64,6 +68,7 @@ export default function DoubleEntryLedgerPage() {
             <button
               onClick={() => setShowForm(true)}
               className="flex items-center space-x-1 px-4 py-2 text-xs font-bold rounded-lg bg-primary text-primary-foreground shadow hover:bg-primary/90 transition"
+              aria-label="Create new journal entry"
             >
               <Plus className="h-4 w-4" />
               <span>+ Post Journal Entry</span>
@@ -161,6 +166,7 @@ export default function DoubleEntryLedgerPage() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="w-full pl-9 pr-4 py-2 text-xs rounded-xl border bg-card focus:outline-none focus:ring-2 focus:ring-primary/20"
+              aria-label="Search ledger entries"
             />
           </div>
 
@@ -231,6 +237,7 @@ export default function DoubleEntryLedgerPage() {
 
                 <div className="border rounded-lg overflow-hidden">
                   <table className="w-full text-left border-collapse text-[11px]">
+                    <caption className="sr-only">Ledger lines list</caption>
                     <thead>
                       <tr className="bg-muted/30 text-[10px] text-muted-foreground font-bold border-b uppercase">
                         <th className="p-2">Account Code & Name</th>

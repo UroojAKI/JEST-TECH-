@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { AppShell } from '../../components/layout/app-shell';
+import { PageLoadingState, PageErrorState } from '../../components/ui/page-states';
 import {
   RotateCcw,
   Search,
@@ -35,7 +36,7 @@ export default function RenewalsWorkspacePage() {
   });
 
   // Fetch Authoritative Renewal Queue
-  const { data: queueResponse = { data: [], summary: {} }, isLoading: isQueueLoading, refetch } = useQuery({
+  const { data: queueResponse = { data: [], summary: {} }, isLoading: isQueueLoading, isError: isQueueError, refetch } = useQuery({
     queryKey: ['renewals-queue', urgencyFilter, search],
     queryFn: () =>
       policiesRepository.getRenewalQueue({
@@ -43,6 +44,9 @@ export default function RenewalsWorkspacePage() {
         search,
       }),
   });
+
+  if (isQueueLoading || isKpisLoading) return <AppShell><PageLoadingState message="Loading renewals queue..." /></AppShell>;
+  if (isQueueError) return <AppShell><PageErrorState message="Failed to load renewals. Please try again." onRetry={refetch} /></AppShell>;
 
   const queueItems = queueResponse.data || [];
   const summary = queueResponse.summary || {};
@@ -126,6 +130,7 @@ export default function RenewalsWorkspacePage() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="w-full pl-9 pr-4 py-2 text-xs rounded-xl border bg-card focus:outline-none focus:ring-2 focus:ring-primary/20"
+              aria-label="Search renewals"
             />
           </div>
 
@@ -156,6 +161,7 @@ export default function RenewalsWorkspacePage() {
 
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
+              <caption className="sr-only">Renewals list</caption>
               <thead className="bg-muted/40 border-b font-bold text-muted-foreground uppercase text-[10px] tracking-wider">
                 <tr>
                   <th className="px-5 py-3">Policy Number</th>
@@ -248,6 +254,7 @@ export default function RenewalsWorkspacePage() {
                           onClick={() => handleSendReminder(item.id)}
                           disabled={remindingId === item.id}
                           title="Dispatch instant reminder SMS/Email"
+                          aria-label={`Send reminder to ${item.customerName}`}
                           className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border bg-card hover:bg-accent text-xs font-semibold shadow-xs transition"
                         >
                           {remindingId === item.id ? (
@@ -263,6 +270,7 @@ export default function RenewalsWorkspacePage() {
                             onClick={() => handleEscalate(item.id)}
                             disabled={escalatingId === item.id}
                             title="Escalate to Branch Manager"
+                            aria-label={`Escalate ${item.policyNumber}`}
                             className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-red-500/30 bg-red-500/5 hover:bg-red-500/10 text-red-600 text-xs font-semibold transition"
                           >
                             {escalatingId === item.id ? (

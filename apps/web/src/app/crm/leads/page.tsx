@@ -5,6 +5,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../../../lib/api-client';
 import { toast } from 'sonner';
 import { AppShell } from '../../../components/layout/app-shell';
+import { PageLoadingState, PageErrorState } from '../../../components/ui/page-states';
 import { NewLeadModal } from '../../../components/leads/NewLeadModal';
 import {
   Users,
@@ -37,13 +38,16 @@ export default function LeadsPipelinePage() {
     },
   });
 
-  const { data: leads = [], isLoading } = useQuery({
+  const { data: leads = [], isLoading, isError, refetch } = useQuery({
     queryKey: ['leads-pipeline-list'],
     queryFn: async () => {
       const res = await apiClient.get('/leads');
       return res.data || [];
     },
   });
+
+  if (isLoading) return <AppShell><PageLoadingState message="Loading leads..." /></AppShell>;
+  if (isError) return <AppShell><PageErrorState message="Failed to load leads. Please try again." onRetry={refetch} /></AppShell>;
 
   // Convert Lead Mutation
   const convertMutation = useMutation({
@@ -89,6 +93,7 @@ export default function LeadsPipelinePage() {
           <button
             onClick={() => setShowModal(true)}
             className="px-4 py-2 rounded-xl bg-primary text-primary-foreground text-xs font-extrabold flex items-center space-x-1.5 shadow-xs hover:bg-primary/90 transition-all"
+            aria-label="Create new lead"
           >
             <PlusCircle className="h-4 w-4" />
             <span>+ Rapid New Lead</span>
@@ -153,6 +158,7 @@ export default function LeadsPipelinePage() {
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search by name, lead code, phone..."
               className="w-full pl-9 pr-3 py-2 text-xs rounded-xl border bg-background focus:ring-1 focus:ring-primary"
+              aria-label="Search leads"
             />
           </div>
 
@@ -162,6 +168,7 @@ export default function LeadsPipelinePage() {
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
               className="p-2 rounded-xl border bg-background font-bold"
+              aria-label="Filter by status"
             >
               <option value="ALL">All Stages</option>
               <option value="NEW">New Leads</option>
@@ -181,6 +188,7 @@ export default function LeadsPipelinePage() {
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs border-collapse">
+                <caption className="sr-only">Leads list</caption>
                 <thead>
                   <tr className="border-b text-[10px] uppercase font-bold text-muted-foreground bg-muted/20">
                     <th className="py-3 px-3">Lead Code</th>
@@ -230,12 +238,14 @@ export default function LeadsPipelinePage() {
                           <Link
                             href={`/workspace/sales/leads/${l.id}`}
                             className="px-2.5 py-1 rounded-lg border text-foreground hover:bg-accent text-[11px] font-bold"
+                            aria-label="View case details"
                           >
                             View Case
                           </Link>
                           <Link
                             href={`/sales/quotations?leadId=${l.id}&openQuote=1`}
                             className="px-3 py-1 rounded-lg bg-primary text-primary-foreground text-[11px] font-extrabold shadow-xs hover:bg-primary/90 flex items-center space-x-1"
+                            aria-label="Create motor quote"
                           >
                             <Car className="h-3.5 w-3.5" />
                             <span>Motor Quote</span>

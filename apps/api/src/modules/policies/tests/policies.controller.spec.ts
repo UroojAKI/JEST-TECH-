@@ -167,6 +167,7 @@ describe('PoliciesController', () => {
         'policy-123',
         'Customer request',
         mockUser.id,
+        mockUser,
       );
     });
 

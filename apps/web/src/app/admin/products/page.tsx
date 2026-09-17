@@ -5,6 +5,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../../../lib/api-client';
 import { toast } from 'sonner';
 import { AppShell } from '../../../components/layout/app-shell';
+import { PageLoadingState, PageErrorState } from '../../../components/ui/page-states';
 import {
   Layers,
   PlusCircle,
@@ -29,13 +30,16 @@ export default function ProductMasterAdminPage() {
   const [policyType, setPolicyType] = useState('COMPREHENSIVE');
 
   // Queries
-  const { data: products = [], isLoading: isProductsLoading } = useQuery({
+  const { data: products = [], isLoading: isProductsLoading, isError: isProductsError, refetch: refetchProducts } = useQuery({
     queryKey: ['admin-products-master'],
     queryFn: async () => {
       const res = await apiClient.get('/motor/rating/insurance-products');
       return res.data || [];
     },
   });
+
+  if (isProductsLoading) return <AppShell><PageLoadingState message="Loading products..." /></AppShell>;
+  if (isProductsError) return <AppShell><PageErrorState message="Failed to load products. Please try again." onRetry={refetchProducts} /></AppShell>;
 
   const { data: insurers = [] } = useQuery({
     queryKey: ['admin-insurers-lookup'],
@@ -105,6 +109,7 @@ export default function ProductMasterAdminPage() {
           <button
             onClick={() => setShowModal(true)}
             className="px-4 py-2 rounded-xl bg-primary text-primary-foreground text-xs font-extrabold flex items-center space-x-1.5 shadow-xs hover:bg-primary/90 transition-all"
+            aria-label="Add new insurance product"
           >
             <PlusCircle className="h-4 w-4" />
             <span>Add Insurance Product</span>
@@ -121,6 +126,7 @@ export default function ProductMasterAdminPage() {
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search product name, code, or insurer..."
               className="w-full pl-9 pr-3 py-2 text-xs rounded-xl border bg-background focus:ring-1 focus:ring-primary"
+              aria-label="Search products"
             />
           </div>
           <div className="text-xs font-bold text-muted-foreground">
@@ -143,6 +149,7 @@ export default function ProductMasterAdminPage() {
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs border-collapse">
+                <caption className="sr-only">Products list</caption>
                 <thead>
                   <tr className="border-b text-[10px] uppercase font-bold text-muted-foreground bg-muted/20">
                     <th className="py-3 px-3">Product Code</th>

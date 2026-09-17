@@ -19,7 +19,7 @@ export class CancelPolicyService {
     private readonly prisma: PrismaService,
   ) {}
 
-  async execute(id: string, comments: string, cancelledById: string) {
+  async execute(id: string, comments: string, cancelledById: string, actor: any) {
     if (!comments || !comments.trim()) {
       throw new BadRequestException(
         'A cancellation reason is strictly mandatory to cancel a policy.',
@@ -28,10 +28,14 @@ export class CancelPolicyService {
 
     return this.prisma.$transaction(async (tx) => {
       const existing = await tx.policy.findFirst({
-        where: { id, deletedAt: null },
+        where: {
+          id,
+          deletedAt: null,
+          ...(actor.role === 'AGENT' ? { createdById: actor.id } : {}),
+        },
       });
       if (!existing) {
-        throw new NotFoundException(`Policy with ID ${id} not found`);
+        throw new NotFoundException(`Policy with ID ${id} not found or access denied`);
       }
 
       // Delegate status transition validation to PolicyDomainService (only ACTIVE/ISSUED can be cancelled)

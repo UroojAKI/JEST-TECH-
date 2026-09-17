@@ -108,14 +108,16 @@ describe('IdempotencyInterceptor (Iteration 16)', () => {
 
     const result = await interceptor.intercept(context, next);
     expect(cache.set).toHaveBeenCalledWith(
-      'idempotency:key-fail',
+      'idempotency:anon:no-org:POST:unknown:key-fail',
       { status: 'IN_FLIGHT' },
       60,
     );
 
     result.subscribe({
       error: async () => {
-        expect(cache.delete).toHaveBeenCalledWith('idempotency:key-fail');
+        expect(cache.delete).toHaveBeenCalledWith(
+          'idempotency:anon:no-org:POST:unknown:key-fail',
+        );
       },
     });
   });
