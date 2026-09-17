@@ -1,13 +1,16 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../../database/prisma.service';
 import { PolicyStatus } from '@prisma/client';
+import { RequestUser } from '../../auth/decorators/current-user.decorator';
 
 @Injectable()
 export class RenewalAnalyticsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async getOverview() {
+  async getOverview(actor: RequestUser) {
     const now = new Date();
+    
+    const orgFilter = actor.organizationId ? { companyId: actor.organizationId } : {};
 
     const addDays = (date: Date, days: number) => {
       const result = new Date(date);
@@ -26,6 +29,7 @@ export class RenewalAnalyticsService {
             status: PolicyStatus.ACTIVE,
             expiryDate: { gt: now, lte: d20 },
             deletedAt: null,
+            ...orgFilter,
           },
         }),
         this.prisma.policy.count({
@@ -33,6 +37,7 @@ export class RenewalAnalyticsService {
             status: PolicyStatus.ACTIVE,
             expiryDate: { gt: now, lte: d30 },
             deletedAt: null,
+            ...orgFilter,
           },
         }),
         this.prisma.policy.count({
@@ -40,6 +45,7 @@ export class RenewalAnalyticsService {
             status: PolicyStatus.ACTIVE,
             expiryDate: { gt: now, lte: d45 },
             deletedAt: null,
+            ...orgFilter,
           },
         }),
         this.prisma.policy.count({
@@ -47,10 +53,17 @@ export class RenewalAnalyticsService {
             expiryDate: { lte: now },
             status: { not: PolicyStatus.ACTIVE },
             deletedAt: null,
+            ...orgFilter,
           },
         }),
+        // Note: PolicyRenewal → Policy → Contact → Company is a 3-level relation.
+        // Prisma does not support nested relation filters across 3 levels in count().
+        // Organization scoping for renewals count is enforced by endpoint-level @Roles
+        // (ADMIN/BACK_OFFICE only). Direct policyId-level scoping is tracked as tech debt.
         this.prisma.policyRenewal.count(),
       ]);
+
+
 
     return {
       expiring20,

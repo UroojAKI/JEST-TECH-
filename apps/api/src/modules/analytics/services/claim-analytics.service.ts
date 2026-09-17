@@ -1,12 +1,15 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../../database/prisma.service';
 import { ClaimStatus, PolicyStatus } from '@prisma/client';
+import { RequestUser } from '../../auth/decorators/current-user.decorator';
 
 @Injectable()
 export class ClaimAnalyticsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async getOverview() {
+  async getOverview(actor: RequestUser) {
+    const orgFilter = actor.organizationId ? { organizationId: actor.organizationId } : {};
+
     const [
       total,
       reported,
@@ -17,29 +20,29 @@ export class ClaimAnalyticsService {
       sumClaims,
       activePoliciesPremiumSum,
     ] = await Promise.all([
-      this.prisma.claim.count({ where: { deletedAt: null } }),
+      this.prisma.claim.count({ where: { deletedAt: null, ...orgFilter } }),
       this.prisma.claim.count({
-        where: { status: ClaimStatus.REPORTED, deletedAt: null },
+        where: { status: ClaimStatus.REPORTED, deletedAt: null, ...orgFilter },
       }),
       this.prisma.claim.count({
-        where: { status: ClaimStatus.REGISTERED, deletedAt: null },
+        where: { status: ClaimStatus.REGISTERED, deletedAt: null, ...orgFilter },
       }),
       this.prisma.claim.count({
-        where: { status: ClaimStatus.UNDER_ASSESSMENT, deletedAt: null },
+        where: { status: ClaimStatus.UNDER_ASSESSMENT, deletedAt: null, ...orgFilter },
       }),
       this.prisma.claim.count({
-        where: { status: ClaimStatus.APPROVED, deletedAt: null },
+        where: { status: ClaimStatus.APPROVED, deletedAt: null, ...orgFilter },
       }),
       this.prisma.claim.count({
-        where: { status: ClaimStatus.SETTLED, deletedAt: null },
+        where: { status: ClaimStatus.SETTLED, deletedAt: null, ...orgFilter },
       }),
       this.prisma.claim.aggregate({
         _sum: { claimAmount: true, approvedAmount: true },
-        where: { deletedAt: null },
+        where: { deletedAt: null, ...orgFilter },
       }),
       this.prisma.policy.aggregate({
         _sum: { premiumAmount: true },
-        where: { status: PolicyStatus.ACTIVE, deletedAt: null },
+        where: { status: PolicyStatus.ACTIVE, deletedAt: null, ...orgFilter },
       }),
     ]);
 

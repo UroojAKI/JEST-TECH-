@@ -389,13 +389,17 @@ export class LeadsService {
     return LeadMapper.toResponse(updated);
   }
 
-  async addNote(id: string, dto: CreateNoteDto, createdById: string) {
-    const existing = await this.leadRepository.findById(id);
-    if (!existing || existing.deletedAt) {
-      throw new NotFoundException(`Lead with ID ${id} not found`);
-    }
+  async addNote(id: string, dto: CreateNoteDto, actor: ActorContext) {
+    const existing = await this.prisma.lead.findFirst({
+      where: {
+        id,
+        deletedAt: null,
+        ...(actor.organizationId ? { organizationId: actor.organizationId } : {}),
+      },
+    });
+    if (!existing) throw new NotFoundException(`Lead ${id} not found or access denied`);
 
-    await this.leadRepository.addNote(id, dto.content, createdById);
+    await this.leadRepository.addNote(id, dto.content, actor.userId || (actor as any).id);
 
     const updatedLead = await this.leadRepository.findById(id);
     return LeadMapper.toResponse(updatedLead!);
@@ -404,12 +408,16 @@ export class LeadsService {
   async createActivity(
     id: string,
     dto: CreateActivityDto,
-    createdById: string,
+    actor: ActorContext,
   ) {
-    const existing = await this.leadRepository.findById(id);
-    if (!existing || existing.deletedAt) {
-      throw new NotFoundException(`Lead with ID ${id} not found`);
-    }
+    const existing = await this.prisma.lead.findFirst({
+      where: {
+        id,
+        deletedAt: null,
+        ...(actor.organizationId ? { organizationId: actor.organizationId } : {}),
+      },
+    });
+    if (!existing) throw new NotFoundException(`Lead ${id} not found or access denied`);
 
     if (dto.assignedToId) {
       const user = await this.usersService.findById(dto.assignedToId);
@@ -420,6 +428,7 @@ export class LeadsService {
       }
     }
 
+    const createdById = actor.userId || (actor as any).id;
     const activityData: Prisma.ActivityCreateWithoutLeadInput = {
       type: dto.type,
       subject: dto.subject,
@@ -438,11 +447,15 @@ export class LeadsService {
     return LeadMapper.toResponse(updatedLead!);
   }
 
-  async convert(id: string, updatedById: string) {
-    const existing = await this.leadRepository.findById(id);
-    if (!existing || existing.deletedAt) {
-      throw new NotFoundException(`Lead with ID ${id} not found`);
-    }
+  async convert(id: string, actor: ActorContext) {
+    const existing = await this.prisma.lead.findFirst({
+      where: {
+        id,
+        deletedAt: null,
+        ...(actor.organizationId ? { organizationId: actor.organizationId } : {}),
+      },
+    });
+    if (!existing) throw new NotFoundException(`Lead ${id} not found or access denied`);
 
     if (existing.status === LeadStatus.CONVERTED) {
       throw new BadRequestException('Lead is already converted');
@@ -472,6 +485,7 @@ export class LeadsService {
       );
     }
 
+    const updatedById = actor.userId || (actor as any).id;
     const updated = await this.leadRepository.update(id, {
       status: LeadStatus.CONVERTED,
       updatedBy: { connect: { id: updatedById } },
@@ -652,16 +666,21 @@ export class LeadsService {
     return LeadMapper.toResponse(consolidated!);
   }
 
-  async markLost(id: string, lossReason: string, updatedById: string) {
-    const existing = await this.leadRepository.findById(id);
-    if (!existing || existing.deletedAt) {
-      throw new NotFoundException(`Lead with ID ${id} not found`);
-    }
+  async markLost(id: string, lossReason: string, actor: ActorContext) {
+    const existing = await this.prisma.lead.findFirst({
+      where: {
+        id,
+        deletedAt: null,
+        ...(actor.organizationId ? { organizationId: actor.organizationId } : {}),
+      },
+    });
+    if (!existing) throw new NotFoundException(`Lead ${id} not found or access denied`);
 
     if (existing.status === LeadStatus.CONVERTED) {
       throw new BadRequestException('Cannot mark a converted lead as lost');
     }
 
+    const updatedById = actor.userId || (actor as any).id;
     const updated = await this.leadRepository.update(id, {
       status: LeadStatus.LOST,
       description: existing.description

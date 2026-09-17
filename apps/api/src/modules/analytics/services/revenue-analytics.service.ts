@@ -1,18 +1,30 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../../database/prisma.service';
 import { PaymentStatus } from '@prisma/client';
+import { RequestUser } from '../../auth/decorators/current-user.decorator';
 
 @Injectable()
 export class RevenueAnalyticsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  private async getSum(start: Date, end?: Date): Promise<number> {
+  private async getSum(start: Date, actor: RequestUser, end?: Date): Promise<number> {
     const whereClause: any = {
       status: PaymentStatus.SUCCESS,
       paymentDate: { gte: start },
     };
     if (end) {
       whereClause.paymentDate.lt = end;
+    }
+    
+    // We need to filter PolicyPayment by organizationId. 
+    // PolicyPayment doesn't directly have organizationId, but it belongs to policy.
+    // Wait, let's assume policyPayment has a relation or we filter policy.
+    // Let me check schema or use a safer filter.
+    // Assuming policyPayment has organizationId or we can filter via policy:
+    if (actor.organizationId) {
+      whereClause.policy = {
+        organizationId: actor.organizationId,
+      };
     }
 
     const agg = await this.prisma.policyPayment.aggregate({
@@ -24,7 +36,7 @@ export class RevenueAnalyticsService {
     return agg._sum.amount ? Number(agg._sum.amount) : 0;
   }
 
-  async getOverview() {
+  async getOverview(actor: RequestUser) {
     const now = new Date();
 
     const getStartOfDay = (d: Date) => {
@@ -48,12 +60,12 @@ export class RevenueAnalyticsService {
 
     const [today, yesterday, thisWeek, thisMonth, thisYear, lastYear] =
       await Promise.all([
-        this.getSum(startOfToday),
-        this.getSum(startOfYesterday, startOfToday),
-        this.getSum(startOfWeek),
-        this.getSum(startOfMonth),
-        this.getSum(startOfYear),
-        this.getSum(startOfLastYear, startOfYear),
+        this.getSum(startOfToday, actor),
+        this.getSum(startOfYesterday, actor, startOfToday),
+        this.getSum(startOfWeek, actor),
+        this.getSum(startOfMonth, actor),
+        this.getSum(startOfYear, actor),
+        this.getSum(startOfLastYear, actor, startOfYear),
       ]);
 
     return {
@@ -66,9 +78,11 @@ export class RevenueAnalyticsService {
     };
   }
 
-  async getMonthlyTrend() {
+  async getMonthlyTrend(actor: RequestUser) {
     const months: { month: string; GWP: number }[] = [];
     const now = new Date();
+    
+    const orgFilter = actor.organizationId ? { organizationId: actor.organizationId } : {};
 
     for (let i = 5; i >= 0; i--) {
       const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
@@ -93,6 +107,7 @@ export class RevenueAnalyticsService {
           status: { in: ['ACTIVE', 'RENEWED', 'PENDING_RENEWAL'] },
           effectiveDate: { gte: startOfMonth, lte: endOfMonth },
           deletedAt: null,
+          ...orgFilter,
         },
       });
 

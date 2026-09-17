@@ -333,15 +333,18 @@ export class QuotationController {
 
   @Get(':id/history')
   @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT)
-  getHistory(@Param('id', ParseUUIDPipe) id: string) {
-    return this.getQuotationHistoryService.execute(id);
+  getHistory(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.getQuotationHistoryService.execute(id, user);
   }
 
   @Post('compare')
   @HttpCode(HttpStatus.OK)
   @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT)
-  compare(@Body('ids') ids: string[]) {
-    return this.compareQuotationService.execute(ids);
+  compare(@Body('ids') ids: string[], @CurrentUser() user: RequestUser) {
+    return this.compareQuotationService.execute(ids, user);
   }
 
   @Post(':id/approve')
@@ -416,7 +419,9 @@ export class QuotationController {
   @ApiOperation({
     summary: 'List all revision version snapshots for a quotation',
   })
-  async getVersions(@Param('id', ParseUUIDPipe) id: string) {
+  async getVersions(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: RequestUser) {
+    // Verify the quotation exists and actor has access (via getQuotationService)
+    await this.getQuotationService.executeOne(id, user); // will throw if unauthorized
     return this.prisma.quotationVersion.findMany({
       where: { quotationId: id },
       orderBy: { versionNumber: 'desc' },
@@ -428,6 +433,7 @@ export class QuotationController {
 
   @Patch(':id/details')
   @HttpCode(HttpStatus.OK)
+  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT)
   @ApiOperation({
     summary:
       'Save missing details inline and dynamically recalculate completion percentage',
@@ -435,6 +441,7 @@ export class QuotationController {
   async updateDetails(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() details: Record<string, any>,
+    @CurrentUser() user: RequestUser,
   ) {
     return this.quotationCompletionService.updateDetails(id, details);
   }
