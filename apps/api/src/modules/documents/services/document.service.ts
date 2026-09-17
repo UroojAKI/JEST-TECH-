@@ -241,10 +241,10 @@ export class DocumentService {
     const sortBy = pagination?.sortBy || 'createdAt';
     const sortOrder = pagination?.sortOrder || 'desc';
     const skip = (page - 1) * limit;
-    const scope =
-      actor.role === RoleType.ADMIN || actor.role === RoleType.BACK_OFFICE
-        ? {}
-        : { uploadedById: actor.userId };
+    const isElevatedRole = actor.role === RoleType.ADMIN || actor.role === RoleType.BACK_OFFICE;
+    const orgScope = actor.organizationId ? { organizationId: actor.organizationId } : {};
+    const ownerScope = isElevatedRole ? {} : { uploadedById: actor.userId };
+    const scope = { ...orgScope, ...ownerScope };
     const where = {
       entityType,
       entityId,
@@ -340,7 +340,7 @@ export class DocumentService {
     const page = pagination.page || 1;
     const limit = pagination.limit || 20;
     const skip = (page - 1) * limit;
-    const where: any = { deletedAt: null };
+    const where: any = { deletedAt: null, ...(actor.organizationId ? { organizationId: actor.organizationId } : {}) };
     if (actor.role !== RoleType.ADMIN && actor.role !== RoleType.BACK_OFFICE)
       where.uploadedById = actor.userId;
     const [data, total] = await Promise.all([

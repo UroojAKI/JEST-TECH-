@@ -11,6 +11,9 @@ import {
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags, ApiOperation } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../../../auth/guards/roles.guard';
+import { Roles } from '../../../auth/decorators/roles.decorator';
+import { RoleType } from '@prisma/client';
 import { CurrentUser } from '../../../auth/decorators/current-user.decorator';
 import type { RequestUser } from '../../../auth/decorators/current-user.decorator';
 import { NotificationService } from '../services/notification.service';
@@ -18,7 +21,8 @@ import { UpdateNotificationPreferencesDto } from '../dto/update-preferences.dto'
 
 @ApiTags('Notifications')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles(RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT)
 @Controller('notifications')
 export class NotificationsController {
   constructor(private readonly notificationService: NotificationService) {}

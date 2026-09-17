@@ -86,17 +86,6 @@ import { IdempotencyInterceptor } from './common/interceptors/idempotency.interc
         return { ttl: 60 };
       },
     }),
-    ThrottlerModule.forRootAsync({
-      useFactory: () => ({
-        throttlers: [
-          {
-            name: 'default',
-            ttl: 60000,
-            limit: 1000,
-          },
-        ],
-      }),
-    }),
     EventEmitterModule.forRoot({
       maxListeners: 25,
       verboseMemoryLeak: true,

@@ -8,6 +8,7 @@ import { Reflector } from '@nestjs/core';
 import { RoleType } from '@prisma/client';
 
 import { ROLES_KEY } from '../decorators/roles.decorator';
+import { ANY_AUTHENTICATED_ROLE_KEY } from '../decorators/any-authenticated.decorator';
 
 @Injectable()
 export class RolesGuard implements CanActivate {
@@ -19,16 +20,27 @@ export class RolesGuard implements CanActivate {
       [context.getHandler(), context.getClass()],
     );
 
-    // A route without an explicit role requirement is intentionally available
-    // to any already-authenticated user. Authentication and permission guards
-    // remain responsible for protecting such routes.
-    if (!requiredRoles || requiredRoles.length === 0) {
-      return true;
+    const anyAuthenticated = this.reflector.getAllAndOverride<boolean>(
+      ANY_AUTHENTICATED_ROLE_KEY,
+      [context.getHandler(), context.getClass()],
+    );
+
+    // Fail-closed: every endpoint must explicitly declare required roles OR opt-in to AnyAuthenticatedRole.
+    // This prevents new endpoints from silently bypassing role enforcement.
+    if ((!requiredRoles || requiredRoles.length === 0) && !anyAuthenticated) {
+      throw new ForbiddenException(
+        'This endpoint does not declare required roles. Apply @Roles(...) or @AnyAuthenticatedRole() explicitly.',
+      );
     }
 
     const { user } = context.switchToHttp().getRequest();
     if (!user) {
       return false;
+    }
+
+    // AnyAuthenticatedRole: passes all authenticated users
+    if (anyAuthenticated) {
+      return true;
     }
 
     const userRoles = (user.roles?.length ? user.roles : [user.role]).filter(

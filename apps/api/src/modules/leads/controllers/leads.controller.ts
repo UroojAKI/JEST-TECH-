@@ -294,7 +294,7 @@ export class LeadsController {
     @Body() dto: CreateNoteDto,
     @CurrentUser() user: RequestUser,
   ) {
-    return this.leadsService.addNote(id, dto, user.id);
+    return this.leadsService.addNote(id, dto, user);
   }
 
   @Post(':id/activities')
@@ -304,7 +304,7 @@ export class LeadsController {
     @Body() dto: CreateActivityDto,
     @CurrentUser() user: RequestUser,
   ) {
-    return this.leadsService.createActivity(id, dto, user.id);
+    return this.leadsService.createActivity(id, dto, user);
   }
 
   @Post(':id/convert')
@@ -326,7 +326,7 @@ export class LeadsController {
           .flatMap((stage) => stage.missingFields),
       });
     }
-    return this.leadsService.convert(id, user.id);
+    return this.leadsService.convert(id, user);
   }
 
   @Post(':id/mark-lost')
@@ -345,6 +345,6 @@ export class LeadsController {
         'lossReason is required and must be a non-empty string',
       );
     }
-    return this.leadsService.markLost(id, body.lossReason.trim(), user.id);
+    return this.leadsService.markLost(id, body.lossReason.trim(), user);
   }
 }

@@ -1,12 +1,15 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../../database/prisma.service';
 import { PolicyStatus } from '@prisma/client';
+import { RequestUser } from '../../auth/decorators/current-user.decorator';
 
 @Injectable()
 export class PolicyAnalyticsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async getOverview() {
+  async getOverview(actor: RequestUser) {
+    const orgFilter = actor.organizationId ? { organizationId: actor.organizationId } : {};
+
     const [
       total,
       active,
@@ -15,25 +18,25 @@ export class PolicyAnalyticsService {
       insurerGroup,
       productGroup,
     ] = await Promise.all([
-      this.prisma.policy.count({ where: { deletedAt: null } }),
+      this.prisma.policy.count({ where: { deletedAt: null, ...orgFilter } }),
       this.prisma.policy.count({
-        where: { status: PolicyStatus.ACTIVE, deletedAt: null },
+        where: { status: PolicyStatus.ACTIVE, deletedAt: null, ...orgFilter },
       }),
       this.prisma.policy.count({
-        where: { status: PolicyStatus.CANCELLED, deletedAt: null },
+        where: { status: PolicyStatus.CANCELLED, deletedAt: null, ...orgFilter },
       }),
       this.prisma.policy.count({
-        where: { status: PolicyStatus.PENDING_RENEWAL, deletedAt: null },
+        where: { status: PolicyStatus.PENDING_RENEWAL, deletedAt: null, ...orgFilter },
       }),
       this.prisma.quotation.groupBy({
         by: ['insurerName'],
         _count: { quotationCode: true },
-        where: { policy: { isNot: null } },
+        where: { policy: { isNot: null }, ...orgFilter },
       }),
       this.prisma.quotation.groupBy({
         by: ['productType'],
         _count: { quotationCode: true },
-        where: { policy: { isNot: null } },
+        where: { policy: { isNot: null }, ...orgFilter },
       }),
     ]);
 

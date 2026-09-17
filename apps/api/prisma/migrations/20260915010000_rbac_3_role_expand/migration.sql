@@ -129,9 +129,9 @@ END $$;
 -- 5. ESTABLISH CANONICAL ROLES (Staged as TEXT type)
 -- ----------------------------------------------------------------------------
 -- Canonical ADMIN
-UPDATE "roles" 
-SET "name" = 'Administrator', "type" = 'ADMIN', "description" = 'Unrestricted administration and system governance', "isSystem" = true, "isActive" = true
-WHERE "code" = 'ADMIN';
+INSERT INTO "roles" ("id", "name", "code", "type", "description", "isSystem", "isActive", "createdAt", "updatedAt")
+VALUES (gen_random_uuid()::text, 'Administrator', 'ADMIN', 'ADMIN', 'Unrestricted administration and system governance', true, true, NOW(), NOW())
+ON CONFLICT ("code") DO UPDATE SET "name" = EXCLUDED."name", "type" = 'ADMIN', "description" = EXCLUDED."description", "isActive" = true;
 
 -- Canonical BACK_OFFICE
 INSERT INTO "roles" ("id", "name", "code", "type", "description", "isSystem", "isActive", "createdAt", "updatedAt")

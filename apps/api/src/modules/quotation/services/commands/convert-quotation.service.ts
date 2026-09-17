@@ -3,7 +3,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { QuotationStatus, PolicyStatus, PaymentStatus } from '@prisma/client';
+import { QuotationStatus, PolicyStatus } from '@prisma/client';
 
 import { QuotationRepository } from '../../repositories/quotation.repository';
 import { QuotationMapper } from '../../mappers/quotation.mapper';
@@ -32,12 +32,9 @@ export class ConvertQuotationService {
         );
       }
 
-      if (
-        existing.status !== QuotationStatus.APPROVED &&
-        existing.status !== QuotationStatus.DRAFT
-      ) {
+      if (existing.status !== QuotationStatus.APPROVED) {
         throw new BadRequestException(
-          `Cannot convert quotation in status ${existing.status}. Must be APPROVED or DRAFT first.`,
+          `Cannot convert quotation in status ${existing.status}. Only APPROVED quotations can be converted. Approve the quotation first.`,
         );
       }
 
@@ -64,7 +61,7 @@ export class ConvertQuotationService {
         const newPolicy = await tx.policy.create({
           data: {
             policyNumber,
-            status: PolicyStatus.ACTIVE,
+            status: PolicyStatus.ISSUED,
             quotation: { connect: { id } },
             contact: { connect: { id: existing.contactId } },
             account: existing.accountId
@@ -75,21 +72,11 @@ export class ConvertQuotationService {
             expiryDate: existing.expiryDate,
             createdBy: { connect: { id: convertedById } },
             updatedBy: { connect: { id: convertedById } },
-            payments: {
-              create: [
-                {
-                  amount: existing.totalPremium,
-                  transactionId: `TXN-${policyNumber}`,
-                  paymentMethod: 'ONLINE',
-                  status: PaymentStatus.SUCCESS,
-                },
-              ],
-            },
             histories: {
               create: [
                 {
-                  status: PolicyStatus.ACTIVE,
-                  comments: `Policy issued from converted quotation ${existing.quotationCode}.`,
+                  status: PolicyStatus.ISSUED,
+                  comments: `Policy issued from converted quotation ${existing.quotationCode}, pending payment.`,
                   createdById: convertedById,
                 },
               ],
@@ -111,7 +98,7 @@ export class ConvertQuotationService {
         data: {
           quotationId: id,
           status: QuotationStatus.CONVERTED_TO_POLICY,
-          comments: `Quotation converted to active Policy ${policyNumber}.`,
+          comments: `Quotation converted to Policy ${policyNumber}, pending payment.`,
           createdById: convertedById,
         },
       });
@@ -120,7 +107,7 @@ export class ConvertQuotationService {
       const mappedResponse = QuotationMapper.toResponse(quotation!);
 
       return {
-        message: `Quotation ${existing.quotationCode} converted successfully to Policy ${policyNumber}.`,
+        message: `Quotation ${existing.quotationCode} converted successfully to Policy ${policyNumber}, pending payment.`,
         quotation: mappedResponse,
         policy: {
           id: policyId,

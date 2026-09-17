@@ -43,14 +43,17 @@ export class DashboardAnalyticsService {
   }
 
   private async computeDashboardData(role: string, userId: string) {
+    const userRec = await this.prisma.user.findUnique({ where: { id: userId } });
+    const actor: any = { id: userId, role, organizationId: userRec?.companyId };
+
     const [revenue, leads, policies, claims, renewals, quotations] =
       await Promise.all([
-        this.revenueAnalytics.getOverview(),
-        this.leadAnalytics.getOverview(),
-        this.policyAnalytics.getOverview(),
-        this.claimAnalytics.getOverview(),
-        this.renewalAnalytics.getOverview(),
-        this.quotationAnalytics.getOverview(),
+        this.revenueAnalytics.getOverview(actor),
+        this.leadAnalytics.getOverview(actor),
+        this.policyAnalytics.getOverview(actor),
+        this.claimAnalytics.getOverview(actor),
+        this.renewalAnalytics.getOverview(actor),
+        this.quotationAnalytics.getOverview(actor),
       ]);
 
     // Live Renewal Conversion Rate (Zero Hardcoding)

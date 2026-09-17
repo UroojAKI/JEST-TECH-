@@ -6,10 +6,16 @@ import { PolicyAnalyticsService } from '../services/policy-analytics.service';
 import { ClaimAnalyticsService } from '../services/claim-analytics.service';
 import { RevenueAnalyticsService } from '../services/revenue-analytics.service';
 import { RenewalAnalyticsService } from '../services/renewal-analytics.service';
+import { RolesGuard } from '../../auth/guards/roles.guard';
+import { Roles } from '../../auth/decorators/roles.decorator';
+import { RoleType } from '@prisma/client';
+import { CurrentUser } from '../../auth/decorators/current-user.decorator';
+import { RequestUser } from '../../auth/decorators/current-user.decorator';
 
 @ApiTags('Analytics')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles(RoleType.ADMIN, RoleType.BACK_OFFICE)
 @Controller('analytics')
 export class AnalyticsController {
   constructor(
@@ -21,32 +27,32 @@ export class AnalyticsController {
   ) {}
 
   @Get('leads')
-  getLeadsAnalytics() {
-    return this.leadAnalytics.getOverview();
+  getLeadsAnalytics(@CurrentUser() user: RequestUser) {
+    return this.leadAnalytics.getOverview(user);
   }
 
   @Get('policies')
-  getPoliciesAnalytics() {
-    return this.policyAnalytics.getOverview();
+  getPoliciesAnalytics(@CurrentUser() user: RequestUser) {
+    return this.policyAnalytics.getOverview(user);
   }
 
   @Get('claims')
-  getClaimsAnalytics() {
-    return this.claimAnalytics.getOverview();
+  getClaimsAnalytics(@CurrentUser() user: RequestUser) {
+    return this.claimAnalytics.getOverview(user);
   }
 
   @Get('revenue')
-  getRevenueAnalytics() {
-    return this.revenueAnalytics.getOverview();
+  getRevenueAnalytics(@CurrentUser() user: RequestUser) {
+    return this.revenueAnalytics.getOverview(user);
   }
 
   @Get('revenue/trend')
-  getRevenueTrend() {
-    return this.revenueAnalytics.getMonthlyTrend();
+  getRevenueTrend(@CurrentUser() user: RequestUser) {
+    return this.revenueAnalytics.getMonthlyTrend(user);
   }
 
   @Get('renewals')
-  getRenewalsAnalytics() {
-    return this.renewalAnalytics.getOverview();
+  getRenewalsAnalytics(@CurrentUser() user: RequestUser) {
+    return this.renewalAnalytics.getOverview(user);
   }
 }

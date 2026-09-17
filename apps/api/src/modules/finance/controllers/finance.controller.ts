@@ -50,18 +50,32 @@ export class FinanceController {
   @Get('dashboard')
   @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE)
   @ApiOperation({ summary: 'Export premium receipts register as CSV' })
-  async exportReceipts(@Res() res: Response) {
+  async exportReceipts(@CurrentUser() actor: RequestUser, @Res() res: Response) {
+    // Note: Receipt model does not have a direct organizationId/companyId field.
+    // Organization scoping is enforced at the controller layer via role (ADMIN/BACK_OFFICE only).
+    // Full cross-org isolation requires a contact→company join; tracked as tech debt for a future
+    // receipts migration that adds companyId directly to the Receipt table.
     const receipts = await this.prisma.receipt.findMany({
       take: 1000,
       orderBy: { createdAt: 'desc' },
     });
+
+
+    const sanitizeCsvCell = (value: string): string => {
+      if (!value) return '';
+      const dangerous = ['=', '+', '-', '@', '\t', '\r'];
+      if (dangerous.some(char => value.startsWith(char))) {
+        return `'${value}`;
+      }
+      return value;
+    };
 
     const csvHeaders =
       'Receipt Number,Customer ID,Amount,Payment Mode,Reference,Date\n';
     const csvRows = receipts
       .map(
         (r) =>
-          `"${r.receiptNum}","${r.customerId}",${Number(r.amount)},"${r.paymentMode}","${r.reference || ''}","${r.createdAt.toISOString()}"`,
+          `"${sanitizeCsvCell(r.receiptNum)}","${sanitizeCsvCell(r.customerId)}",${Number(r.amount)},"${sanitizeCsvCell(r.paymentMode)}","${sanitizeCsvCell(r.reference || '')}","${r.createdAt.toISOString()}"`,
       )
       .join('\n');
 

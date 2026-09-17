@@ -9,6 +9,8 @@ import {
 } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../../auth/guards/roles.guard';
+import { AnyAuthenticatedRole } from '../../auth/decorators/any-authenticated.decorator';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import type { RequestUser } from '../../auth/decorators/current-user.decorator';
 import {
@@ -29,7 +31,8 @@ import {
 
 @ApiTags('Sales Workspace')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
+@AnyAuthenticatedRole()
 @Controller('workspace/sales')
 export class SalesWorkspaceController {
   constructor(

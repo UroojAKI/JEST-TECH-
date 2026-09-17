@@ -38,8 +38,18 @@ uploads/
 .DS_Store
 Thumbs.db
 
-# IDE
 .vscode/
 .idea/
 .turbo/
 **/.turbo/
+
+# Database dumps and backups - NEVER commit database dumps to source control
+# They may contain PII, credentials, or sensitive business data
+*.dump
+*.pg_dump
+*.sql.gz
+*.bak
+*.backup
+*_backup.sql
+*_dump.sql
+pre_rbac_*.dump

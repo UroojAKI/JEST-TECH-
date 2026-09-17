@@ -38,7 +38,15 @@ export class IdempotencyInterceptor implements NestInterceptor {
       return next.handle();
     }
 
-    const cacheKey = `idempotency:${idempotencyKey}`;
+    // Scope the cache key to the authenticated user + organization + HTTP method + route.
+    // This prevents cross-user cache collisions where two different users submit the same
+    // client-generated idempotency key for different (or the same) operations.
+    // A completed response is ONLY replayed to the same principal that generated it.
+    const actor = request.user;
+    const userId = actor?.userId || actor?.id || 'anon';
+    const orgId = actor?.organizationId || 'no-org';
+    const route = request.route?.path || request.url || 'unknown';
+    const cacheKey = `idempotency:${userId}:${orgId}:${method}:${route}:${idempotencyKey}`;
     const cachedRecord: any = await this.cache.get(cacheKey);
 
     if (cachedRecord) {
