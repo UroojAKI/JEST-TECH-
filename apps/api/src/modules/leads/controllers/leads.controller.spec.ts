@@ -5,6 +5,7 @@ import { LeadAssignmentService } from '../services/lead-assignment.service';
 import { PrismaService } from '../../../database/prisma.service';
 import { DuplicateDetectionService } from '../deduplication/services/duplicate-detection/duplicate-detection.service';
 import { LeadCompletionService } from '../services/lead-completion.service';
+import { LeadLifecycleService } from '../services/lead-lifecycle.service';
 import { RequestUser } from '../../auth/decorators/current-user.decorator';
 import { RoleType, UserStatus } from '@prisma/client';
 import { GetLeadsQueryDto } from '../dto/get-leads-query.dto';
@@ -72,6 +73,13 @@ describe('LeadsController', () => {
         {
           provide: LeadCompletionService,
           useValue: { completeLead: jest.fn() },
+        },
+        {
+          provide: LeadLifecycleService,
+          useValue: {
+            getAllowedTransitions: jest.fn().mockReturnValue(['CONTACTED']),
+            transition: jest.fn().mockResolvedValue({ success: true }),
+          },
         },
       ],
     }).compile();

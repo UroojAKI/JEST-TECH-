@@ -13,7 +13,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags, ApiOperation } from '@nestjs/swagger';
-import { RoleType } from '@prisma/client';
+import { RoleType, LeadStatus } from '@prisma/client';
 
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
@@ -34,6 +34,7 @@ import { ParseUUIDPipe } from '../../../common/utils/parse-uuid.pipe';
 
 import { DuplicateDetectionService } from '../deduplication/services/duplicate-detection/duplicate-detection.service';
 import { LeadCompletionService } from '../services/lead-completion.service';
+import { LeadLifecycleService } from '../services/lead-lifecycle.service';
 
 const LEAD_VIEW_ROLES: RoleType[] = [RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT];
 
@@ -50,6 +51,7 @@ export class LeadsController {
     private readonly prisma: PrismaService,
     private readonly duplicateDetectionService: DuplicateDetectionService,
     private readonly leadCompletionService: LeadCompletionService,
+    private readonly leadLifecycleService: LeadLifecycleService,
   ) {}
 
   @Get('kpis')
@@ -347,4 +349,47 @@ export class LeadsController {
     }
     return this.leadsService.markLost(id, body.lossReason.trim(), user);
   }
+
+  @Get(':id/allowed-transitions')
+  @Roles(...LEAD_VIEW_ROLES)
+  @ApiOperation({ summary: 'Get allowed lifecycle state transitions for a lead' })
+  async getAllowedTransitions(
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    const lead = await this.prisma.lead.findUnique({
+      where: { id },
+      select: { id: true, leadCode: true, status: true },
+    });
+    if (!lead) {
+      throw new BadRequestException(`Lead with ID ${id} not found`);
+    }
+    const allowed = this.leadLifecycleService.getAllowedTransitions(lead.status);
+    return {
+      leadId: lead.id,
+      leadCode: lead.leadCode,
+      currentStatus: lead.status,
+      allowedTransitions: allowed,
+    };
+  }
+
+  @Post(':id/transition')
+  @Roles(...LEAD_MANAGE_ROLES)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Execute state machine lifecycle transition for a lead' })
+  async executeTransition(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: { targetStatus: LeadStatus; remarks?: string },
+    @CurrentUser() user: RequestUser,
+  ) {
+    if (!body.targetStatus) {
+      throw new BadRequestException('targetStatus is required');
+    }
+    return this.leadLifecycleService.transition(
+      id,
+      body.targetStatus,
+      user,
+      body.remarks,
+    );
+  }
 }
+
