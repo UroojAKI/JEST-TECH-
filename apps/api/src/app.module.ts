@@ -42,6 +42,7 @@ import { QueueModule } from './modules/platform/queue/queue.module';
 import { SearchModule } from './modules/platform/search/search.module';
 import { WorkflowModule } from './modules/platform/workflow/workflow.module';
 import { AdministrationModule } from './modules/administration/administration.module';
+import { TasksModule } from './modules/tasks/tasks.module';
 import { AccountingModule } from './modules/finance/accounting/accounting.module';
 import { RevenueModule } from './modules/finance/revenue/revenue.module';
 import { CommissionModule } from './modules/finance/commission/commission.module';
@@ -124,6 +125,7 @@ import { IdempotencyInterceptor } from './common/interceptors/idempotency.interc
     SearchModule,
     WorkflowModule,
     AdministrationModule,
+    TasksModule,
     AccountingModule,
     RevenueModule,
     CommissionModule,
