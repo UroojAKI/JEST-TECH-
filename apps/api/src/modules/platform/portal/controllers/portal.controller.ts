@@ -80,11 +80,13 @@ export class PortalController {
       return { id: leadCode, leadCode, status: 'NEW' };
     }
 
+    const companyId = user.companyId || '12453e89-e8ab-4d00-bf5d-8d0b614e05da';
     const created = await this.prisma.lead.create({
       data: {
         leadCode,
         title: `${dto.customerName || dto.firstName || 'Prospect'} Lead (${dto.productInterest || 'Motor'})`,
         contact: { connect: { id: firstContact.id } },
+        company: { connect: { id: companyId } },
         status: 'NEW',
       },
     });

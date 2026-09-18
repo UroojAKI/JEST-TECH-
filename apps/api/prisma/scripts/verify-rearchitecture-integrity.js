@@ -108,12 +108,41 @@ async function verifyIntegrity() {
   });
   console.log(`  ${invalidCustomerCodes === 0 ? '✅ PASS' : '❌ FAIL'} | Customer Code Fmt: ${invalidCustomerCodes} invalid (must be 0)`);
 
+  // Tenancy audit: assert 0 records with null companyId across database tables
+  const nullChecks = await Promise.all([
+    prisma.$queryRawUnsafe('SELECT count(*)::int as c FROM agents WHERE "companyId" IS NULL'),
+    prisma.$queryRawUnsafe('SELECT count(*)::int as c FROM customers WHERE "companyId" IS NULL'),
+    prisma.$queryRawUnsafe('SELECT count(*)::int as c FROM leads WHERE "companyId" IS NULL'),
+    prisma.$queryRawUnsafe('SELECT count(*)::int as c FROM quotations WHERE "companyId" IS NULL'),
+    prisma.$queryRawUnsafe('SELECT count(*)::int as c FROM policies WHERE "companyId" IS NULL'),
+    prisma.$queryRawUnsafe('SELECT count(*)::int as c FROM claims WHERE "companyId" IS NULL'),
+    prisma.$queryRawUnsafe('SELECT count(*)::int as c FROM motor_quotations WHERE "companyId" IS NULL'),
+    prisma.$queryRawUnsafe('SELECT count(*)::int as c FROM back_office_tasks WHERE "companyId" IS NULL'),
+  ]);
+  const totalNullCompany = nullChecks.reduce((acc, r) => acc + (r[0]?.c || 0), 0);
+  console.log(`  ${totalNullCompany === 0 ? '✅ PASS' : '❌ FAIL'} | Tenancy CompanyId Coverage: 0 unlinked entities (${totalNullCompany} null)`);
+
+  // Agent ownership audit: assert all customers have primaryAgentId
+  const customersWithoutAgent = await prisma.customer.count({
+    where: { deletedAt: null, primaryAgentId: null },
+  });
+  console.log(`  ${customersWithoutAgent === 0 ? '✅ PASS' : '❌ FAIL'} | Customer Agent Assignment: ${totalCustomers - customersWithoutAgent}/${totalCustomers} assigned (${customersWithoutAgent} unassigned)`);
+
+  // Active customer-agent history audit
+  const activeHistories = await prisma.customerAgentHistory.count({
+    where: { unassignedAt: null },
+  });
+  console.log(`  ${activeHistories === totalCustomers ? '✅ PASS' : '❌ FAIL'} | Active Agent History Audit: ${activeHistories}/${totalCustomers} tracked`);
+
   const allPassed = checks.every(c => c.pass) &&
     totalAgents >= 3 &&
     totalCustomers >= 21 &&
     orphanLeads === 0 &&
     invalidAgentCodes === 0 &&
-    invalidCustomerCodes === 0;
+    invalidCustomerCodes === 0 &&
+    totalNullCompany === 0 &&
+    customersWithoutAgent === 0 &&
+    activeHistories === totalCustomers;
 
   console.log('\n===============================================================');
   if (allPassed) {

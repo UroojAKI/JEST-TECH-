@@ -349,9 +349,11 @@ model User {
   assignedTasks           Task[]           @relation("TaskAssignedTo")
   assignedBackOfficeTasks BackOfficeTask[] @relation("BackOfficeTaskAssignedTo")
   assignedInspections     Inspection[]     @relation("InspectionInspector")
+  assignedClaims          Claim[]          @relation("ClaimBackOfficeAssignee")
 
-  customersCreated        Customer[]       @relation("CustomerCreatedBy")
-  tasksCreated            Task[]           @relation("TaskCreatedBy")
+  customersCreated               Customer[]             @relation("CustomerCreatedBy")
+  customerAgentHistoriesAssigned CustomerAgentHistory[] @relation("CustomerAgentHistoryAssignedBy")
+  tasksCreated                   Task[]                 @relation("TaskCreatedBy")
   backOfficeTasksCreated  BackOfficeTask[] @relation("BackOfficeTaskCreatedBy")
   inspectionsCreated      Inspection[]     @relation("InspectionCreatedBy")
   motorQuotationsCreated  MotorQuotation[] @relation("MotorQuotationCreatedBy")
@@ -620,7 +622,8 @@ model Contact {
   @@index([updatedById])
   @@index([agentCode])
   @@index([status])
-  @@unique([companyId, phone])
+  @@index([companyId, phone])
+  @@index([companyId, email])
   @@map("contacts")
 }
 
@@ -713,6 +716,9 @@ model Lead {
   contactId String
   contact   Contact @relation(fields: [contactId], references: [id])
 
+  companyId String
+  company   Company @relation("CompanyLeads", fields: [companyId], references: [id], onDelete: Restrict)
+
   customerId String?
   customer   Customer? @relation("CustomerLeads", fields: [customerId], references: [id], onDelete: SetNull)
 
@@ -781,6 +787,8 @@ model Lead {
   @@index([updatedById])
   @@index([duplicateOfId])
   @@index([assignedManagerId])
+  @@index([companyId])
+  @@index([agentId])
   @@map("leads")
 }
 
@@ -1060,6 +1068,12 @@ model Quotation {
   leadId String?
   lead   Lead?   @relation(fields: [leadId], references: [id])
 
+  companyId String
+  company   Company @relation("CompanyQuotations", fields: [companyId], references: [id], onDelete: Restrict)
+
+  agentId String?
+  agent   Agent?   @relation("AgentQuotations", fields: [agentId], references: [id], onDelete: SetNull)
+
   contactId String
   contact   Contact @relation(fields: [contactId], references: [id])
 
@@ -1137,6 +1151,8 @@ model Quotation {
   @@index([createdById])
   @@index([updatedById])
   @@index([vehicleId])
+  @@index([companyId])
+  @@index([agentId])
   @@map("quotations")
 }
 
@@ -1246,6 +1262,12 @@ model Policy {
   quotationId String    @unique
   quotation   Quotation @relation(fields: [quotationId], references: [id])
 
+  companyId String
+  company   Company @relation("CompanyPolicies", fields: [companyId], references: [id], onDelete: Restrict)
+
+  agentId String?
+  agent   Agent?   @relation("AgentPolicies", fields: [agentId], references: [id], onDelete: SetNull)
+
   contactId String
   contact   Contact @relation(fields: [contactId], references: [id])
 
@@ -1326,6 +1348,8 @@ model Policy {
   @@index([updatedById])
   @@index([proposalId])
   @@index([vehicleId])
+  @@index([companyId])
+  @@index([agentId])
   @@map("policies")
 }
 
@@ -1458,6 +1482,15 @@ model Claim {
   policyId String
   policy   Policy @relation(fields: [policyId], references: [id])
 
+  companyId String
+  company   Company @relation("CompanyClaims", fields: [companyId], references: [id], onDelete: Restrict)
+
+  agentId String?
+  agent   Agent?   @relation("AgentClaims", fields: [agentId], references: [id], onDelete: SetNull)
+
+  backOfficeAssigneeId String?
+  backOfficeAssignee   User?    @relation("ClaimBackOfficeAssignee", fields: [backOfficeAssigneeId], references: [id], onDelete: SetNull)
+
   contactId String
   contact   Contact @relation(fields: [contactId], references: [id])
 
@@ -1502,6 +1535,9 @@ model Claim {
   @@index([deletedAt])
   @@index([createdById])
   @@index([updatedById])
+  @@index([companyId])
+  @@index([agentId])
+  @@index([backOfficeAssigneeId])
   @@map("claims")
 }
 
@@ -2770,9 +2806,18 @@ model Company {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  regions  Region[]
-  contacts Contact[]
-  users    User[]
+  regions                Region[]
+  contacts               Contact[]
+  users                  User[]
+  agents                 Agent[]                 @relation("CompanyAgents")
+  customers              Customer[]              @relation("CompanyCustomers")
+  leads                  Lead[]                  @relation("CompanyLeads")
+  quotations             Quotation[]             @relation("CompanyQuotations")
+  motorQuotations        MotorQuotation[]        @relation("CompanyMotorQuotations")
+  policies               Policy[]                @relation("CompanyPolicies")
+  claims                 Claim[]                 @relation("CompanyClaims")
+  customerAgentHistories CustomerAgentHistory[] @relation("CompanyAgentHistories")
+  backOfficeTasks        BackOfficeTask[]        @relation("CompanyBackOfficeTasks")
 
   @@index([taxId])
 }
@@ -4013,21 +4058,32 @@ enum TaskType {
 }
 
 model Agent {
-  id             String           @id @default(uuid())
-  userId         String           @unique
-  user           User             @relation("UserAgentProfile", fields: [userId], references: [id], onDelete: Cascade)
-  agentCode      String           @unique
+  id             String                 @id @default(uuid())
+  userId         String                 @unique
+  user           User                   @relation("UserAgentProfile", fields: [userId], references: [id], onDelete: Cascade)
+  agentCode      String
   agencyName     String?
   licenseNumber  String?
-  commissionTier String?          @default("STANDARD")
-  isActive       Boolean          @default(true)
-  leads          Lead[]           @relation("AgentLeads")
-  quotations     MotorQuotation[] @relation("AgentMotorQuotations")
-  createdAt      DateTime         @default(now())
-  updatedAt      DateTime         @updatedAt
+  commissionTier String?                @default("STANDARD")
+  isActive       Boolean                @default(true)
+
+  companyId      String
+  company        Company                @relation("CompanyAgents", fields: [companyId], references: [id], onDelete: Restrict)
+
+  leads          Lead[]                 @relation("AgentLeads")
+  quotations     MotorQuotation[]       @relation("AgentMotorQuotations")
+  customers      Customer[]             @relation("CustomerPrimaryAgent")
+  policies       Policy[]               @relation("AgentPolicies")
+  claims         Claim[]                @relation("AgentClaims")
+  quotationsList Quotation[]            @relation("AgentQuotations")
+  agentHistories CustomerAgentHistory[] @relation("AgentHistories")
+
+  createdAt      DateTime               @default(now())
+  updatedAt      DateTime               @updatedAt
   deletedAt      DateTime?
 
-  @@index([agentCode])
+  @@unique([companyId, agentCode])
+  @@index([companyId])
   @@index([isActive])
   @@index([deletedAt])
   @@map("agents")
@@ -4048,6 +4104,13 @@ model Customer {
   state         String?
   pincode       String?
   isVip         Boolean          @default(false)
+
+  companyId      String
+  company        Company                @relation("CompanyCustomers", fields: [companyId], references: [id], onDelete: Restrict)
+  primaryAgentId String?
+  primaryAgent   Agent?                 @relation("CustomerPrimaryAgent", fields: [primaryAgentId], references: [id], onDelete: SetNull)
+  agentHistories CustomerAgentHistory[] @relation("CustomerAgentHistories")
+  version        Int                    @default(1)
 
   // Migration link to Contact
   contactId     String?          @unique
@@ -4070,8 +4133,10 @@ model Customer {
   deletedAt     DateTime?
 
   // Soft deduplication: index mobile & email, NO @unique constraint
-  @@index([mobile])
-  @@index([email])
+  @@index([companyId, mobile])
+  @@index([companyId, email])
+  @@index([companyId])
+  @@index([primaryAgentId])
   @@index([customerCode])
   @@index([deletedAt])
   @@map("customers")
@@ -4082,6 +4147,10 @@ model MotorQuotation {
   quotationNumber   String               @unique
   leadId            String
   lead              Lead                 @relation("LeadMotorQuotations", fields: [leadId], references: [id], onDelete: Cascade)
+
+  companyId         String
+  company           Company              @relation("CompanyMotorQuotations", fields: [companyId], references: [id], onDelete: Restrict)
+
   vehicleId         String
   vehicle           Vehicle              @relation("VehicleMotorQuotations", fields: [vehicleId], references: [id], onDelete: Cascade)
   customerId        String?
@@ -4121,6 +4190,7 @@ model MotorQuotation {
   @@index([agentId])
   @@index([status])
   @@index([quotationNumber])
+  @@index([companyId])
   @@index([deletedAt])
   @@map("motor_quotations")
 }
@@ -4176,6 +4246,13 @@ model BackOfficeTask {
   status            BackOfficeTaskStatus @default(PENDING)
   priority          TaskPriority         @default(MEDIUM)
 
+  companyId         String
+  company           Company              @relation("CompanyBackOfficeTasks", fields: [companyId], references: [id], onDelete: Restrict)
+
+  sourceType        String?
+  sourceEntityId    String?
+  idempotencyKey    String?
+
   leadId            String?
   lead              Lead?                @relation("LeadBackOfficeTasks", fields: [leadId], references: [id], onDelete: SetNull)
 
@@ -4198,6 +4275,10 @@ model BackOfficeTask {
   updatedAt         DateTime             @updatedAt
   deletedAt         DateTime?
 
+  @@unique([companyId, idempotencyKey])
+  @@index([companyId, status])
+  @@index([companyId, sourceType, sourceEntityId])
+  @@index([companyId])
   @@index([assignedToId, status])
   @@index([status])
   @@index([leadId])
@@ -4205,6 +4286,27 @@ model BackOfficeTask {
   @@index([taskCode])
   @@index([deletedAt])
   @@map("back_office_tasks")
+}
+
+model CustomerAgentHistory {
+  id           String    @id @default(uuid())
+  companyId    String
+  company      Company   @relation("CompanyAgentHistories", fields: [companyId], references: [id], onDelete: Restrict)
+  customerId   String
+  customer     Customer  @relation("CustomerAgentHistories", fields: [customerId], references: [id], onDelete: Cascade)
+  agentId      String
+  agent        Agent     @relation("AgentHistories", fields: [agentId], references: [id], onDelete: Restrict)
+  assignedById String?
+  assignedBy   User?     @relation("CustomerAgentHistoryAssignedBy", fields: [assignedById], references: [id], onDelete: SetNull)
+  reason       String?
+  assignedAt   DateTime  @default(now())
+  unassignedAt DateTime?
+  createdAt    DateTime  @default(now())
+
+  @@index([companyId])
+  @@index([companyId, customerId])
+  @@index([companyId, agentId])
+  @@map("customer_agent_histories")
 }
 
 model Inspection {

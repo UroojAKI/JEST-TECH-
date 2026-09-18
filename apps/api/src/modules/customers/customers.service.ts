@@ -2,6 +2,8 @@ import {
   Injectable,
   NotFoundException,
   ForbiddenException,
+  BadRequestException,
+  ConflictException,
 } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
 import { RoleType, Prisma } from '@prisma/client';
@@ -16,14 +18,21 @@ import type { RequestUser } from '../auth/decorators/current-user.decorator';
 export class CustomersService {
   constructor(private readonly prisma: PrismaService) {}
 
+  private normalizePhone(phone?: string): string | undefined {
+    if (!phone) return undefined;
+    const digits = phone.replace(/\D/g, '');
+    return digits.length >= 10 ? digits.slice(-10) : digits;
+  }
+
   async checkDuplicate(dto: CheckDuplicateDto) {
     const conditions: Prisma.CustomerWhereInput[] = [];
 
-    if (dto.mobile) {
-      conditions.push({ mobile: dto.mobile });
+    const normPhone = this.normalizePhone(dto.mobile);
+    if (normPhone) {
+      conditions.push({ mobile: { contains: normPhone } });
     }
-    if (dto.email) {
-      conditions.push({ email: { equals: dto.email, mode: 'insensitive' } });
+    if (dto.email?.trim()) {
+      conditions.push({ email: { equals: dto.email.trim().toLowerCase(), mode: 'insensitive' } });
     }
 
     if (conditions.length === 0) {
@@ -36,6 +45,13 @@ export class CustomersService {
         OR: conditions,
       },
       include: {
+        primaryAgent: {
+          include: {
+            user: {
+              select: { firstName: true, lastName: true, email: true },
+            },
+          },
+        },
         _count: {
           select: {
             leads: true,
@@ -60,6 +76,13 @@ export class CustomersService {
         city: m.city,
         state: m.state,
         isVip: m.isVip,
+        primaryAgent: m.primaryAgent
+          ? {
+              id: m.primaryAgent.id,
+              agentCode: m.primaryAgent.agentCode,
+              name: `${m.primaryAgent.user?.firstName || ''} ${m.primaryAgent.user?.lastName || ''}`.trim(),
+            }
+          : null,
         activeLeadsCount: m._count.leads,
         activePoliciesCount: m._count.policies,
         vehiclesCount: m._count.vehicles,
@@ -79,6 +102,24 @@ export class CustomersService {
       };
     }
 
+    const companyId =
+      user.companyId ||
+      (this.prisma.company
+        ? (await this.prisma.company.findFirst())?.id
+        : undefined) ||
+      '12453e89-e8ab-4d00-bf5d-8d0b614e05da';
+
+    // Resolve primary agent
+    let primaryAgentId = dto.agentId;
+    if (!primaryAgentId && user.role === RoleType.AGENT) {
+      const agent = await this.prisma.agent.findUnique({ where: { userId: user.id } });
+      if (agent) primaryAgentId = agent.id;
+    }
+    if (!primaryAgentId && this.prisma.agent?.findFirst) {
+      const defaultAgent = await this.prisma.agent.findFirst({ where: { companyId } });
+      primaryAgentId = defaultAgent?.id;
+    }
+
     // Auto-generate customerCode: CUST-XXXXXX
     const count = await this.prisma.customer.count();
     let nextNum = count + 1;
@@ -91,12 +132,14 @@ export class CustomersService {
 
     const customer = await this.prisma.customer.create({
       data: {
+        companyId,
+        primaryAgentId: primaryAgentId || null,
         customerCode,
         firstName: dto.firstName,
         lastName: dto.lastName || null,
         mobile: dto.mobile,
-        email: dto.email || null,
-        panNumber: dto.panNumber || null,
+        email: dto.email ? dto.email.trim().toLowerCase() : null,
+        panNumber: dto.panNumber ? dto.panNumber.trim().toUpperCase() : null,
         aadhaarNumber: dto.aadhaarNumber || null,
         addressLine1: dto.addressLine1 || null,
         addressLine2: dto.addressLine2 || null,
@@ -109,10 +152,118 @@ export class CustomersService {
       },
     });
 
+    if (primaryAgentId) {
+      await this.prisma.customerAgentHistory.create({
+        data: {
+          customerId: customer.id,
+          agentId: primaryAgentId,
+          companyId,
+          assignedById: user.id,
+          reason: 'Initial customer creation assignment',
+          assignedAt: new Date(),
+        },
+      });
+    }
+
     return {
       duplicateWarning: false,
       customer,
     };
+  }
+
+  async assignAgent(
+    customerId: string,
+    dto: { newAgentId: string; reason?: string; expectedVersion?: number },
+    actor: RequestUser,
+  ) {
+    const companyId = actor.companyId || (await this.prisma.company.findFirst())?.id;
+    if (!companyId) {
+      throw new BadRequestException('Company context is required');
+    }
+
+    try {
+      return await this.prisma.$transaction(async (tx) => {
+        // 1. Validate company match & active status
+        const targetAgent = await tx.agent.findFirst({
+          where: { id: dto.newAgentId, companyId, isActive: true },
+        });
+        if (!targetAgent) {
+          throw new BadRequestException('Target agent does not exist or is inactive.');
+        }
+
+        const currentCustomer = await tx.customer.findUnique({
+          where: { id: customerId },
+        });
+        if (!currentCustomer) {
+          throw new NotFoundException('Customer not found');
+        }
+
+        const expectedVersion = dto.expectedVersion ?? currentCustomer.version;
+
+        // 2. Atomic conditional update on version
+        const updateResult = await tx.customer.updateMany({
+          where: {
+            id: customerId,
+            version: expectedVersion,
+            companyId,
+          },
+          data: {
+            primaryAgentId: dto.newAgentId,
+            version: { increment: 1 },
+          },
+        });
+
+        if (updateResult.count === 0) {
+          throw new ConflictException({
+            code: 'CUSTOMER_ASSIGNMENT_CONFLICT',
+            message: 'Customer record has been modified concurrently by another user. Please reload.',
+          });
+        }
+
+        // 3. Close previous active assignment
+        await tx.customerAgentHistory.updateMany({
+          where: { customerId, unassignedAt: null },
+          data: { unassignedAt: new Date() },
+        });
+
+        // 4. Insert audit record
+        await tx.customerAgentHistory.create({
+          data: {
+            customerId,
+            agentId: dto.newAgentId,
+            companyId,
+            assignedById: actor.id,
+            reason: dto.reason || 'Reassigned via Back Office',
+            assignedAt: new Date(),
+          },
+        });
+
+        return tx.customer.findUnique({
+          where: { id: customerId },
+          include: {
+            primaryAgent: {
+              include: {
+                user: {
+                  select: { firstName: true, lastName: true, email: true },
+                },
+              },
+            },
+            agentHistories: {
+              orderBy: { assignedAt: 'desc' },
+              take: 10,
+            },
+          },
+        });
+      });
+    } catch (error: any) {
+      if (error.code === 'P2002' || error.message?.includes('unique_active_customer_agent')) {
+        throw new ConflictException({
+          code: 'CUSTOMER_ASSIGNMENT_CONFLICT',
+          message: 'Concurrent active agent assignment detected. Exactly one active agent permitted per customer.',
+        });
+      }
+      throw error;
+    }
   }
 
   async findAll(query: CustomerQueryDto, user: RequestUser) {

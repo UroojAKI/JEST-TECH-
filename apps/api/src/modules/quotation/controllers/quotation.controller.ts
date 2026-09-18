@@ -208,8 +208,12 @@ export class QuotationController {
       capturedAt: new Date().toISOString(),
     };
 
+    const companyId =
+      user.companyId || '12453e89-e8ab-4d00-bf5d-8d0b614e05da';
+
     const quotation = await this.prisma.quotation.create({
       data: {
+        companyId,
         quotationCode,
         title: `Motor ${dto.vehicleCategory} — ${dto.policyType} | ${dto.registrationNumber || 'New Vehicle'}`,
         productType: 'MOTOR',

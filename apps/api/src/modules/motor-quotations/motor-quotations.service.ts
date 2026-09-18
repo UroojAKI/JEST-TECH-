@@ -59,6 +59,7 @@ export class MotorQuotationsService {
     }
 
     const customerId = lead.customerId || vehicle.customerId || null;
+    const companyId = lead.companyId || user.companyId || '12453e89-e8ab-4d00-bf5d-8d0b614e05da';
 
     // 3. Generate sequential quotation number: MQT-XXXXXX
     const count = await this.prisma.motorQuotation.count();
@@ -73,6 +74,7 @@ export class MotorQuotationsService {
     // 4. Create MotorQuotation
     const quotation = await this.prisma.motorQuotation.create({
       data: {
+        companyId,
         quotationNumber,
         leadId: dto.leadId,
         vehicleId: dto.vehicleId,

@@ -204,10 +204,11 @@ export class ReportClaimService {
     // 5. Generate Claim Number
     const claimNumber = await this.claimRepository.generateClaimNumber();
 
-    // 6. Map create payload
+    const companyId = policy.companyId || (actorContext as any)?.companyId;
     const claimData: Prisma.ClaimCreateInput = {
       claimNumber,
       status: ClaimStatus.REPORTED,
+      company: { connect: { id: companyId } },
       policy: { connect: { id: resolvedPolicyId } },
       contact: { connect: { id: policy.contactId } },
       incidentDate,
@@ -216,6 +217,10 @@ export class ReportClaimService {
       createdBy: { connect: { id: createdById } },
       updatedBy: { connect: { id: createdById } },
     };
+
+    if (policy.agentId) {
+      claimData.agent = { connect: { id: policy.agentId } };
+    }
 
     if (policy.accountId) {
       claimData.account = { connect: { id: policy.accountId } };

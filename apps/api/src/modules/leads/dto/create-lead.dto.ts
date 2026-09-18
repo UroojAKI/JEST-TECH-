@@ -78,4 +78,8 @@ export class CreateLeadDto {
   @IsOptional()
   @IsString()
   assignedToId?: string;
+
+  @IsOptional()
+  @IsString()
+  companyId?: string;
 }

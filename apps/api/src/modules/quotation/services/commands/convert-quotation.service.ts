@@ -62,6 +62,7 @@ export class ConvertQuotationService {
           data: {
             policyNumber,
             status: PolicyStatus.ISSUED,
+            company: { connect: { id: existing.companyId } },
             quotation: { connect: { id } },
             contact: { connect: { id: existing.contactId } },
             account: existing.accountId

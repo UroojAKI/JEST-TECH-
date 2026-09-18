@@ -36,6 +36,8 @@ ALTER TYPE "public"."LeadStatus" ADD VALUE IF NOT EXISTS 'BACK_OFFICE';
 -- 3. Alter Existing Tables
 ALTER TABLE "public"."claims" ADD COLUMN IF NOT EXISTS "customerId" TEXT;
 
+ALTER TABLE "public"."contacts" ADD COLUMN IF NOT EXISTS "agentCode" TEXT;
+
 ALTER TABLE "public"."leads" 
     ADD COLUMN IF NOT EXISTS "agentId" TEXT,
     ADD COLUMN IF NOT EXISTS "customerId" TEXT;
@@ -211,6 +213,8 @@ CREATE UNIQUE INDEX IF NOT EXISTS "agents_agentCode_key" ON "public"."agents"("a
 CREATE INDEX IF NOT EXISTS "agents_agentCode_idx" ON "public"."agents"("agentCode");
 CREATE INDEX IF NOT EXISTS "agents_isActive_idx" ON "public"."agents"("isActive");
 CREATE INDEX IF NOT EXISTS "agents_deletedAt_idx" ON "public"."agents"("deletedAt");
+
+CREATE INDEX IF NOT EXISTS "contacts_agentCode_idx" ON "public"."contacts"("agentCode");
 
 CREATE UNIQUE INDEX IF NOT EXISTS "customers_customerCode_key" ON "public"."customers"("customerCode");
 CREATE UNIQUE INDEX IF NOT EXISTS "customers_contactId_key" ON "public"."customers"("contactId");

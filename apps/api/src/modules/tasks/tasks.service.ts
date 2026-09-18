@@ -334,8 +334,11 @@ export class TasksService {
       taskCode = `BOT-${String(nextNum).padStart(5, '0')}`;
     }
 
+    const companyId = user.companyId || '12453e89-e8ab-4d00-bf5d-8d0b614e05da';
+
     return this.prisma.backOfficeTask.create({
       data: {
+        companyId,
         taskCode,
         taskType: dto.taskType,
         priority: dto.priority,

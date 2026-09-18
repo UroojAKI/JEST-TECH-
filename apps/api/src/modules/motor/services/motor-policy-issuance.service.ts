@@ -174,6 +174,7 @@ export class MotorPolicyIssuanceService {
 
       const policy = await tx.policy.create({
         data: {
+          companyId: quote.companyId,
           policyNumber,
           actualPolicyNumber: policyNumber,
           quotationId: quote.id,

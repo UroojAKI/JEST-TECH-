@@ -163,20 +163,26 @@ export class AgentsService {
       throw new NotFoundException(`User with ID ${targetUserId} not found`);
     }
 
-    // Generate sequential agent code AGT-XXXX
-    const count = await this.prisma.agent.count();
-    let nextNum = count + 1;
-    let agentCode = `AGT-${String(nextNum).padStart(4, '0')}`;
+    const companyId =
+      targetUser.companyId ||
+      user.companyId ||
+      '12453e89-e8ab-4d00-bf5d-8d0b614e05da';
 
-    while (await this.prisma.agent.findUnique({ where: { agentCode } })) {
+    // Generate company-scoped sequential agent code AGT-XXXXXX
+    const count = await this.prisma.agent.count({ where: { companyId } });
+    let nextNum = count + 1;
+    let agentCode = `AGT-${String(nextNum).padStart(6, '0')}`;
+
+    while (await this.prisma.agent.findFirst({ where: { companyId, agentCode } })) {
       nextNum++;
-      agentCode = `AGT-${String(nextNum).padStart(4, '0')}`;
+      agentCode = `AGT-${String(nextNum).padStart(6, '0')}`;
     }
 
     const name = `${targetUser.firstName || ''} ${targetUser.lastName || ''}`.trim();
 
     return this.prisma.agent.create({
       data: {
+        companyId,
         userId: targetUserId,
         agentCode,
         agencyName: dto.agencyName || (name ? `${name} Agency` : `Agency ${agentCode}`),

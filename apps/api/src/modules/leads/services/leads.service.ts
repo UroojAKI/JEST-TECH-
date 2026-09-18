@@ -126,6 +126,17 @@ export class LeadsService {
       PARTNER: LeadSource.ADVISOR,
       OTHER: LeadSource.OTHER,
     };
+    const user = this.prisma.user
+      ? await this.prisma.user.findUnique({
+          where: { id: createdById },
+          select: { companyId: true },
+        })
+      : null;
+    const companyId =
+      dto.companyId ||
+      user?.companyId ||
+      '12453e89-e8ab-4d00-bf5d-8d0b614e05da';
+
     const mappedSource = dto.source
       ? validSources[String(dto.source).toUpperCase()] || LeadSource.OTHER
       : LeadSource.DIGITAL;
@@ -135,6 +146,7 @@ export class LeadsService {
       title: leadTitle,
       source: mappedSource,
       status: dto.status || LeadStatus.NEW,
+      company: { connect: { id: companyId } },
       description:
         dto.description ||
         [

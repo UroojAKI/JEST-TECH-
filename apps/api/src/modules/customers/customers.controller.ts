@@ -39,6 +39,14 @@ export class CustomersController {
     return this.customersService.checkDuplicate(query);
   }
 
+  @Post('deduplication-check')
+  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Soft check for duplicate customer with normalized POST body' })
+  deduplicationCheck(@Body() body: CheckDuplicateDto) {
+    return this.customersService.checkDuplicate(body);
+  }
+
   @Get()
   @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT)
   @ApiOperation({ summary: 'List customers with pagination and filtering' })
@@ -51,6 +59,17 @@ export class CustomersController {
   @ApiOperation({ summary: 'Get customer by ID with full 360 overview' })
   findById(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: RequestUser) {
     return this.customersService.findById(id, user);
+  }
+
+  @Post(':id/assign-agent')
+  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE)
+  @ApiOperation({ summary: 'Assign or reassign primary agent for customer with version concurrency lock' })
+  assignAgent(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: { newAgentId: string; reason?: string; expectedVersion?: number },
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.customersService.assignAgent(id, dto, user);
   }
 
   @Post()

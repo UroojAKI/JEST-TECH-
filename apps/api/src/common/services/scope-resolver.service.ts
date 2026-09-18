@@ -19,6 +19,9 @@ const orgScope = (
 
   switch (resourceType) {
     case 'LEAD':
+    case 'QUOTATION':
+    case 'POLICY':
+    case 'CLAIM':
       return {
         OR: [
           { companyId },
@@ -26,40 +29,19 @@ const orgScope = (
           { assignedTo: userFilter },
         ],
       };
-    case 'QUOTATION':
-      return {
-        OR: [
-          { companyId },
-          { createdBy: userFilter },
-          { lead: { createdBy: userFilter } },
-        ],
-      };
-    case 'POLICY':
-      return {
-        OR: [
-          { companyId },
-          { createdBy: userFilter },
-          { quotation: { createdBy: userFilter } },
-        ],
-      };
-    case 'CLAIM':
-      return {
-        OR: [
-          { companyId },
-          { createdBy: userFilter },
-          { policy: { createdBy: userFilter } },
-        ],
-      };
+    case 'CUSTOMER':
+    case 'CUSTOMER_360':
+    case 'CONTACT':
+    case 'ACCOUNT':
+      return { companyId };
     case 'RENEWAL_TASK':
       return {
         OR: [
-          { companyId },
+          { policy: { companyId } },
           { agent: userFilter },
           { policy: { createdBy: userFilter } },
         ],
       };
-    case 'ACCOUNT':
-    case 'CONTACT':
     case 'DOCUMENT':
     case 'REPORT':
     default:
@@ -76,10 +58,13 @@ const agentScope = (
   actor: ActorContext,
   resourceType: ResourceType,
 ): Record<string, any> => {
+  const agentId = actor.agentId;
+
   switch (resourceType) {
     case 'LEAD':
       return {
         OR: [
+          ...(agentId ? [{ agentId }] : []),
           { assignedToId: actor.userId },
           { createdById: actor.userId },
         ],
@@ -87,6 +72,7 @@ const agentScope = (
     case 'QUOTATION':
       return {
         OR: [
+          ...(agentId ? [{ agentId }, { lead: { agentId } }] : []),
           { createdById: actor.userId },
           { lead: { assignedToId: actor.userId } },
         ],
@@ -94,6 +80,7 @@ const agentScope = (
     case 'POLICY':
       return {
         OR: [
+          ...(agentId ? [{ agentId }, { quotation: { agentId } }] : []),
           { createdById: actor.userId },
           { quotation: { createdById: actor.userId } },
         ],
@@ -101,14 +88,24 @@ const agentScope = (
     case 'CLAIM':
       return {
         OR: [
+          ...(agentId ? [{ agentId }, { policy: { agentId } }] : []),
           { createdById: actor.userId },
           { policy: { createdById: actor.userId } },
+        ],
+      };
+    case 'CUSTOMER':
+    case 'CUSTOMER_360':
+      return {
+        OR: [
+          ...(agentId ? [{ primaryAgentId: agentId }] : []),
+          { createdById: actor.userId },
         ],
       };
     case 'RENEWAL_TASK':
       return {
         OR: [
           { agentId: actor.userId },
+          ...(agentId ? [{ policy: { agentId } }] : []),
           { policy: { createdById: actor.userId } },
         ],
       };
