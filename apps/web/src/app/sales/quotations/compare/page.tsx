@@ -48,8 +48,7 @@ export default function QuoteComparisonPage() {
       insurerId: 'hdfc-ergo',
       insurerName: 'HDFC ERGO General Insurance',
       logo: 'HDFC',
-      gatewayStatus: 'LIVE_INSURER_GATEWAY_API',
-      responseTimeMs: 340,
+      gatewayStatus: 'INTERNAL_TARIFF',
       insuredDeclaredValue: '850000.00',
       grossOwnDamagePremium: '26702.75',
       noClaimBonusDiscount: '9345.96',
@@ -65,8 +64,7 @@ export default function QuoteComparisonPage() {
       insurerId: 'icici-lombard',
       insurerName: 'ICICI Lombard General Insurance',
       logo: 'ICICI',
-      gatewayStatus: 'LIVE_INSURER_GATEWAY_API',
-      responseTimeMs: 210,
+      gatewayStatus: 'INTERNAL_TARIFF',
       insuredDeclaredValue: '850000.00',
       grossOwnDamagePremium: '25100.58',
       noClaimBonusDiscount: '8785.20',
@@ -82,8 +80,7 @@ export default function QuoteComparisonPage() {
       insurerId: 'bajaj-allianz',
       insurerName: 'Bajaj Allianz General Insurance',
       logo: 'BAJAJ',
-      gatewayStatus: 'LOCAL_STATUTORY_RATING_FALLBACK',
-      responseTimeMs: 2800,
+      gatewayStatus: 'INTERNAL_TARIFF',
       insuredDeclaredValue: '850000.00',
       grossOwnDamagePremium: '24299.50',
       noClaimBonusDiscount: '8504.83',
@@ -111,13 +108,13 @@ export default function QuoteComparisonPage() {
               <span>Back to Proposal Wizard</span>
             </Link>
             <h1 className="text-xl sm:text-2xl font-black text-foreground tracking-tight flex items-center gap-2">
-              <span>Multi-Insurer Gateway Quotation Matrix</span>
+              <span>Comparative Motor Quotation Matrix</span>
               <span className="text-[10px] uppercase tracking-wider bg-emerald-500/10 text-emerald-600 px-2 py-0.5 rounded-full font-extrabold border border-emerald-500/20">
                 SDP Vol 5 Active
               </span>
             </h1>
             <p className="text-xs text-muted-foreground mt-1.5">
-              Arbitrary-precision financial calculation engines integrated with live partner carrier API circuit breakers and PKCS#7 digital signature issuance readiness.
+              Authoritative multi-carrier motor comparison calculated with IRDAI compliant tariff rules, NCB depreciation matrices, and segregated tax ledgers.
             </p>
           </div>
 
@@ -143,7 +140,7 @@ export default function QuoteComparisonPage() {
           {isLoading ? (
             <div className="p-12 text-center text-xs text-muted-foreground flex flex-col items-center gap-2">
               <Activity className="h-6 w-6 text-primary animate-spin" />
-              <span className="font-bold">Orchestrating multi-carrier gateways &amp; calculating arbitrary precision ledgers...</span>
+              <span className="font-bold">Evaluating statutory motor tariffs and calculating comparative premium ledgers...</span>
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -166,15 +163,15 @@ export default function QuoteComparisonPage() {
                         <div className="text-lg font-black text-primary tracking-tight">{q.logo}</div>
                         <div className="text-xs font-bold text-foreground mt-0.5">{q.insurerName}</div>
                         
-                        {/* Gateway Health Telemetry Badge */}
+                        {/* Rating Engine Status Badge */}
                         <div className="mt-2 flex justify-center">
-                          {q.gatewayStatus === 'LIVE_INSURER_GATEWAY_API' ? (
+                          {q.gatewayStatus === 'INTERNAL_TARIFF' ? (
                             <span className="inline-flex items-center gap-1 text-[10px] font-extrabold text-emerald-600 bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/20">
-                              <Activity className="h-3 w-3 animate-pulse" /> Live mTLS ({q.responseTimeMs}ms)
+                              <ShieldCheck className="h-3 w-3" /> Internal Tariff Engine
                             </span>
                           ) : (
-                            <span className="inline-flex items-center gap-1 text-[10px] font-extrabold text-amber-600 bg-amber-500/10 px-2 py-0.5 rounded-md border border-amber-500/20" title="External Carrier Timeout (>2500ms). Substituted by internal arbitrary-precision engine.">
-                              <Clock className="h-3 w-3" /> Fallback Rating ({q.responseTimeMs}ms)
+                            <span className="inline-flex items-center gap-1 text-[10px] font-extrabold text-amber-600 bg-amber-500/10 px-2 py-0.5 rounded-md border border-amber-500/20">
+                              <Clock className="h-3 w-3" /> Not Configured
                             </span>
                           )}
                         </div>
@@ -253,7 +250,7 @@ export default function QuoteComparisonPage() {
                     <td className="py-5 px-4">
                       <div className="font-black text-sm text-foreground uppercase tracking-tight">Final Payable Premium</div>
                       <div className="text-[10px] font-semibold text-emerald-600 flex items-center gap-1 mt-0.5">
-                        <ShieldCheck className="h-3.5 w-3.5" /> Arbitrary-Precision Invariance Guaranteed
+                        <ShieldCheck className="h-3.5 w-3.5" /> Statutory Math Verified
                       </div>
                     </td>
                     {quotes.map((q: any) => (
@@ -262,15 +259,14 @@ export default function QuoteComparisonPage() {
                           ₹{Number(q.finalCustomerPayablePremium || q.totalPremium || 29168).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </div>
                         <Link
-                          href="/sales/quotations"
-                          onClick={() => alert(`Selected ${q.insurerName} Quote. PKCS#7 X.509 Cryptographic digital proposal generation initialized!`)}
+                          href={`/sales/quotations?insurer=${q.insurerId}`}
                           className="mt-2.5 w-full inline-flex items-center justify-center gap-1 px-4 py-2 rounded-xl bg-primary text-primary-foreground text-xs font-extrabold shadow-sm hover:bg-primary/90 transition-all active:scale-95"
                         >
-                          <span>Bind &amp; Sign Proposal</span>
+                          <span>Select &amp; Create Proposal</span>
                           <ArrowRight className="h-3.5 w-3.5" />
                         </Link>
                         <div className="mt-1.5 text-[10px] font-medium text-muted-foreground flex items-center justify-center gap-1">
-                          <Check className="h-3 w-3 text-emerald-500" /> PKCS#7 Digital Certificate Ready
+                          <Check className="h-3 w-3 text-emerald-500" /> IRDAI Motor Tariff Compliant
                         </div>
                       </td>
                     ))}

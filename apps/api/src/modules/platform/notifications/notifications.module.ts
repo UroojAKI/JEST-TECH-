@@ -4,6 +4,9 @@ import { NotificationService } from './services/notification.service';
 import { NotificationDispatcher } from './services/notification-dispatcher.service';
 import { RenewalScheduler } from './services/renewal-scheduler.service';
 import { NotificationsListener } from './listeners/notifications.listener';
+import { EmailProvider } from './providers/email.provider';
+import { SmsProvider } from './providers/sms.provider';
+import { WhatsAppProvider } from './providers/whatsapp.provider';
 
 @Module({
   controllers: [NotificationsController],
@@ -12,7 +15,16 @@ import { NotificationsListener } from './listeners/notifications.listener';
     NotificationDispatcher,
     RenewalScheduler,
     NotificationsListener,
+    EmailProvider,
+    SmsProvider,
+    WhatsAppProvider,
   ],
-  exports: [NotificationService, NotificationDispatcher],
+  exports: [
+    NotificationService,
+    NotificationDispatcher,
+    EmailProvider,
+    SmsProvider,
+    WhatsAppProvider,
+  ],
 })
 export class NotificationsModule {}

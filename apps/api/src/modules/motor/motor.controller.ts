@@ -1,5 +1,5 @@
-import { Controller, Get, Post, Body, Query, UseGuards } from '@nestjs/common';
-import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import { Controller, Get, Post, Body, Query, Param, UseGuards } from '@nestjs/common';
+import { ApiBearerAuth, ApiTags, ApiOperation } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -18,6 +18,8 @@ import {
   VehicleDataService,
   UpsertVehicleDto,
 } from './services/vehicle-data.service';
+import { PreviousPolicyService } from './services/previous-policy.service';
+import { MotorDocumentRuleService } from './services/motor-document-rule.service';
 import { VehicleCategory } from '@prisma/client';
 
 @ApiTags('Motor')
@@ -30,6 +32,8 @@ export class MotorController {
     private readonly tariffService: MotorTariffService,
     private readonly saodService: SaodVerificationService,
     private readonly vehicleDataService: VehicleDataService,
+    private readonly previousPolicyService: PreviousPolicyService,
+    private readonly motorDocumentRuleService: MotorDocumentRuleService,
   ) {}
 
   @Get('tariff/lookup')
@@ -96,5 +100,37 @@ export class MotorController {
   @Get('vehicles/by-contact/:contactId')
   getVehiclesByContact(@Query('contactId') contactId: string) {
     return this.vehicleDataService.findByContact(contactId);
+  }
+
+  @Get('previous-policy/:identifier')
+  @ApiOperation({ summary: 'Fetch previous policy with claims history, NCB %, and provenance tracking' })
+  getPreviousPolicy(@Param('identifier') identifier: string) {
+    return this.previousPolicyService.fetchPreviousPolicy(identifier);
+  }
+
+  @Get('documents/required')
+  @ApiOperation({ summary: 'Get required documents by category, vehicle status, and policy type' })
+  getRequiredDocuments(
+    @Query('vehicleCategory') vehicleCategory: string,
+    @Query('vehicleStatus') vehicleStatus: string,
+    @Query('policyType') policyType: string,
+    @Query('inspectionRequired') inspectionRequired?: string,
+    @Query('isHypothecated') isHypothecated?: string,
+    @Query('hasPreviousPolicy') hasPreviousPolicy?: string,
+  ) {
+    return this.motorDocumentRuleService.getRequiredDocuments({
+      vehicleCategory,
+      vehicleStatus: vehicleStatus as any,
+      policyType,
+      inspectionRequired: inspectionRequired === 'true',
+      isHypothecated: isHypothecated === 'true',
+      hasPreviousPolicy: hasPreviousPolicy !== 'false',
+    });
+  }
+
+  @Get('documents/lead-completion/:leadId')
+  @ApiOperation({ summary: 'Check document completion status and missing items for a lead' })
+  checkLeadDocumentCompletion(@Param('leadId') leadId: string) {
+    return this.motorDocumentRuleService.checkLeadDocumentCompletion(leadId);
   }
 }

@@ -15,6 +15,7 @@ import { RoutingModule } from './routing/routing.module';
 import { SlaModule } from './sla/sla.module';
 import { LeadAssignmentService } from './services/lead-assignment.service';
 import { LeadCompletionService } from './services/lead-completion.service';
+import { LeadLifecycleService } from './services/lead-lifecycle.service';
 
 @Module({
   imports: [
@@ -32,6 +33,7 @@ import { LeadCompletionService } from './services/lead-completion.service';
     LeadsService,
     LeadAssignmentService,
     LeadCompletionService,
+    LeadLifecycleService,
     LeadRepository,
     LeadReportProvider,
   ],
@@ -39,6 +41,7 @@ import { LeadCompletionService } from './services/lead-completion.service';
     LeadsService,
     LeadAssignmentService,
     LeadCompletionService,
+    LeadLifecycleService,
     LeadRepository,
     LeadReportProvider,
   ],

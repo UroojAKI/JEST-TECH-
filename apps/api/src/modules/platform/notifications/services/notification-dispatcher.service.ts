@@ -1,12 +1,20 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 import { PrismaService } from '../../../../database/prisma.service';
-import { NotificationPriority, NotificationType } from '@prisma/client';
+import { NotificationPriority, NotificationType, NotificationStatus } from '@prisma/client';
+import { EmailProvider } from '../providers/email.provider';
+import { SmsProvider } from '../providers/sms.provider';
+import { WhatsAppProvider } from '../providers/whatsapp.provider';
 
 @Injectable()
 export class NotificationDispatcher {
   private readonly logger = new Logger(NotificationDispatcher.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Optional() private readonly emailProvider?: EmailProvider,
+    @Optional() private readonly smsProvider?: SmsProvider,
+    @Optional() private readonly whatsappProvider?: WhatsAppProvider,
+  ) {}
 
   async dispatch(params: {
     userId: string;
@@ -86,6 +94,8 @@ export class NotificationDispatcher {
       }
     }
 
+    let notificationId: string | null = null;
+
     // Dispatch to In-App if active
     if (preference.inApp) {
       const notification = await this.prisma.notification.create({
@@ -102,6 +112,7 @@ export class NotificationDispatcher {
           color,
         },
       });
+      notificationId = notification.id;
 
       await this.prisma.notificationHistory.create({
         data: {
@@ -112,19 +123,78 @@ export class NotificationDispatcher {
       });
     }
 
-    // Stubs for future channel adapters
-    if (preference.email) {
-      this.logger.log(
-        `[Email Dispatch Stub] Sent email to ${userId}: ${title}`,
-      );
-    }
-    if (preference.sms) {
-      this.logger.log(`[SMS Dispatch Stub] Sent SMS to ${userId}: ${title}`);
-    }
-    if (preference.whatsapp) {
-      this.logger.log(
-        `[WhatsApp Dispatch Stub] Sent WhatsApp to ${userId}: ${title}`,
-      );
+    // External Channels Dispatch via Abstraction
+    if (notificationId) {
+      // 1. Email Channel
+      if (preference.email && this.emailProvider) {
+        const user = await this.prisma.user.findUnique({
+          where: { id: userId },
+          select: { email: true, firstName: true, lastName: true },
+        });
+        if (user?.email) {
+          const res = await this.emailProvider.send({
+            to: user.email,
+            recipientName: `${user.firstName} ${user.lastName}`.trim(),
+            title,
+            message,
+            actionUrl,
+          });
+          await this.prisma.notificationHistory.create({
+            data: {
+              notificationId,
+              channel: 'EMAIL',
+              status: res.status === 'SENT' ? NotificationStatus.SENT : NotificationStatus.FAILED,
+              failureReason: res.failureReason,
+            },
+          });
+        }
+      }
+
+      // 2. SMS Channel
+      if (preference.sms && this.smsProvider) {
+        const user = await this.prisma.user.findUnique({
+          where: { id: userId },
+          select: { phone: true },
+        });
+        if (user?.phone) {
+          const res = await this.smsProvider.send({
+            to: user.phone,
+            title,
+            message,
+          });
+          await this.prisma.notificationHistory.create({
+            data: {
+              notificationId,
+              channel: 'SMS',
+              status: res.status === 'SENT' ? NotificationStatus.SENT : NotificationStatus.FAILED,
+              failureReason: res.failureReason,
+            },
+          });
+        }
+      }
+
+      // 3. WhatsApp Channel
+      if (preference.whatsapp && this.whatsappProvider) {
+        const user = await this.prisma.user.findUnique({
+          where: { id: userId },
+          select: { phone: true },
+        });
+        if (user?.phone) {
+          const res = await this.whatsappProvider.send({
+            to: user.phone,
+            title,
+            message,
+          });
+          await this.prisma.notificationHistory.create({
+            data: {
+              notificationId,
+              channel: 'WHATSAPP',
+              status: res.status === 'SENT' ? NotificationStatus.SENT : NotificationStatus.FAILED,
+              failureReason: res.failureReason,
+            },
+          });
+        }
+      }
     }
   }
 }

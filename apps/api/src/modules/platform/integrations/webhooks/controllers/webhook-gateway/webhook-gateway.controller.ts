@@ -13,8 +13,10 @@ import {
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { PrismaService } from '../../../../../../database/prisma.service';
 import { AuditAction } from '@prisma/client';
+import { Public } from '../../../../../auth/decorators/public.decorator';
 import * as crypto from 'crypto';
 
+@Public()
 @Controller('webhooks')
 export class WebhookGatewayController {
   private readonly logger = new Logger(WebhookGatewayController.name);

@@ -14,7 +14,9 @@ import {
 } from '@nestjs/terminus';
 import { PrismaService } from '../../database/prisma.service';
 import { HealthService } from './health.service';
+import { Public } from '../auth/decorators/public.decorator';
 
+@Public()
 @Controller('health')
 export class HealthController {
   constructor(

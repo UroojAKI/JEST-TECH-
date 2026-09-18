@@ -121,6 +121,11 @@ enum LeadStatus {
   UNQUALIFIED
   CONVERTED
   LOST
+  QUOTATION
+  CUSTOMER_ACCEPTED
+  PAYMENT_PENDING
+  POST_PAYMENT
+  BACK_OFFICE
 }
 
 enum ActivityType {
@@ -340,6 +345,17 @@ model User {
   workspacePreference WorkspacePreference?
   dashboardPreference String?
 
+  agentProfile            Agent?           @relation("UserAgentProfile")
+  assignedTasks           Task[]           @relation("TaskAssignedTo")
+  assignedBackOfficeTasks BackOfficeTask[] @relation("BackOfficeTaskAssignedTo")
+  assignedInspections     Inspection[]     @relation("InspectionInspector")
+
+  customersCreated        Customer[]       @relation("CustomerCreatedBy")
+  tasksCreated            Task[]           @relation("TaskCreatedBy")
+  backOfficeTasksCreated  BackOfficeTask[] @relation("BackOfficeTaskCreatedBy")
+  inspectionsCreated      Inspection[]     @relation("InspectionCreatedBy")
+  motorQuotationsCreated  MotorQuotation[] @relation("MotorQuotationCreatedBy")
+
   refreshTokens RefreshToken[]
 
   auditLogs AuditLog[]
@@ -520,6 +536,8 @@ model Contact {
 
   contactCode String @unique
 
+  customer Customer? @relation("ContactCustomerMigration")
+
   type ContactType
 
   status ContactStatus @default(ACTIVE)
@@ -695,6 +713,12 @@ model Lead {
   contactId String
   contact   Contact @relation(fields: [contactId], references: [id])
 
+  customerId String?
+  customer   Customer? @relation("CustomerLeads", fields: [customerId], references: [id], onDelete: SetNull)
+
+  agentId    String?
+  agent      Agent?    @relation("AgentLeads", fields: [agentId], references: [id], onDelete: SetNull)
+
   accountId String?
   account   Account? @relation(fields: [accountId], references: [id])
 
@@ -727,7 +751,11 @@ model Lead {
   notes      Note[]
   activities Activity[]
 
-  quotations Quotation[]
+  quotations      Quotation[]
+  motorQuotations MotorQuotation[] @relation("LeadMotorQuotations")
+  vehicles        Vehicle[]        @relation("LeadVehicles")
+  tasks           Task[]           @relation("LeadTasks")
+  backOfficeTasks BackOfficeTask[] @relation("LeadBackOfficeTasks")
 
   stageHistory         LeadStageHistory[]
   assignments          LeadAssignment[]
@@ -1221,6 +1249,9 @@ model Policy {
   contactId String
   contact   Contact @relation(fields: [contactId], references: [id])
 
+  customerId String?
+  customer   Customer? @relation("CustomerPolicies", fields: [customerId], references: [id], onDelete: SetNull)
+
   accountId String?
   account   Account? @relation(fields: [accountId], references: [id])
 
@@ -1266,13 +1297,16 @@ model Policy {
   payments     PolicyPayment[]
   documents    PolicyDocument[]
   histories    PolicyHistory[]
-  claims       Claim[]
-  renewalTasks RenewalTask[]
-  renewalJobs  RenewalJob[]
-  proposalId   String?          @unique
-  proposal     Proposal?        @relation(fields: [proposalId], references: [id])
-  endorsements Endorsement[]
-  insurerDetail InsurerPolicyDetail?
+  claims         Claim[]
+  renewalTasks   RenewalTask[]
+  renewalJobs    RenewalJob[]
+  proposalId     String?          @unique
+  proposal       Proposal?        @relation(fields: [proposalId], references: [id])
+  endorsements   Endorsement[]
+  insurerDetail  InsurerPolicyDetail?
+  motorQuotation MotorQuotation?  @relation("PolicyMotorQuotation")
+  tasks          Task[]           @relation("PolicyTasks")
+  inspections    Inspection[]     @relation("PolicyInspections")
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
@@ -1282,6 +1316,7 @@ model Policy {
   @@index([policyNumber])
   @@index([status])
   @@index([contactId])
+  @@index([customerId])
   @@index([expiryDate])
   @@index([accountId])
   @@index([deletedAt])
@@ -1426,6 +1461,9 @@ model Claim {
   contactId String
   contact   Contact @relation(fields: [contactId], references: [id])
 
+  customerId String?
+  customer   Customer? @relation("CustomerClaims", fields: [customerId], references: [id], onDelete: SetNull)
+
   accountId String?
   account   Account? @relation(fields: [accountId], references: [id])
 
@@ -1443,6 +1481,8 @@ model Claim {
   createdBy   User?   @relation("ClaimCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
   updatedBy   User?   @relation("ClaimUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
 
+  tasks          Task[]               @relation("ClaimTasks")
+  inspections    Inspection[]         @relation("ClaimInspections")
   documents      ClaimDocument[]
   histories      ClaimHistory[]
   communications ClaimCommunication[]
@@ -1456,6 +1496,7 @@ model Claim {
   @@index([status])
   @@index([policyId])
   @@index([contactId])
+  @@index([customerId])
   @@index([incidentDate])
   @@index([accountId])
   @@index([deletedAt])
@@ -3562,9 +3603,24 @@ model Vehicle {
   contactId String?
   contact   Contact? @relation(fields: [contactId], references: [id])
 
+  customerId String?
+  customer   Customer? @relation("CustomerVehicles", fields: [customerId], references: [id], onDelete: SetNull)
+
+  leadId     String?
+  lead       Lead?     @relation("LeadVehicles", fields: [leadId], references: [id], onDelete: SetNull)
+
+  make             String?
+  model            String?
+  variant          String?
+  manufactureMonth Int?
+  manufactureYear  Int?
+
   // ── Relations — one vehicle can have multiple quotations (multi-insurer comparison) ──
-  quotations Quotation[]
-  policies   Policy[]
+  quotations      Quotation[]
+  motorQuotations MotorQuotation[] @relation("VehicleMotorQuotations")
+  policies        Policy[]
+  inspections     Inspection[]     @relation("VehicleInspections")
+  tasks           Task[]           @relation("VehicleTasks")
 
   createdById String?
   createdBy   User?   @relation("VehicleCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
@@ -3897,4 +3953,314 @@ model IdempotencyKey {
   @@unique([actorId, operationType, idempotencyKey])
   @@map("idempotency_keys")
 }
+
+//////////////////////////////////////////////////////////
+// MOTOR CRM RE-ARCHITECTURE ENUMS & MODELS
+//////////////////////////////////////////////////////////
+
+enum MotorQuotationStatus {
+  DRAFT
+  SHARED
+  ACCEPTED
+  REJECTED
+  EXPIRED
+}
+
+enum BackOfficeTaskStatus {
+  PENDING
+  IN_REVIEW
+  VERIFIED
+  REJECTED
+  COMPLETED
+}
+
+enum InspectionType {
+  SELF
+  SURVEYOR
+  AGENCY
+}
+
+enum InspectionState {
+  INITIATED
+  SCHEDULED
+  SUBMITTED
+  APPROVED
+  REJECTED
+}
+
+enum TaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum TaskStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum TaskType {
+  FOLLOW_UP
+  CALL
+  MEETING
+  INSPECTION
+  COLLECTION
+  VERIFICATION
+  OTHER
+}
+
+model Agent {
+  id             String           @id @default(uuid())
+  userId         String           @unique
+  user           User             @relation("UserAgentProfile", fields: [userId], references: [id], onDelete: Cascade)
+  agentCode      String           @unique
+  agencyName     String?
+  licenseNumber  String?
+  commissionTier String?          @default("STANDARD")
+  isActive       Boolean          @default(true)
+  leads          Lead[]           @relation("AgentLeads")
+  quotations     MotorQuotation[] @relation("AgentMotorQuotations")
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  deletedAt      DateTime?
+
+  @@index([agentCode])
+  @@index([isActive])
+  @@index([deletedAt])
+  @@map("agents")
+}
+
+model Customer {
+  id            String           @id @default(uuid())
+  customerCode  String           @unique
+  firstName     String
+  lastName      String?
+  mobile        String
+  email         String?
+  panNumber     String?
+  aadhaarNumber String?
+  addressLine1  String?
+  addressLine2  String?
+  city          String?
+  state         String?
+  pincode       String?
+  isVip         Boolean          @default(false)
+
+  // Migration link to Contact
+  contactId     String?          @unique
+  contact       Contact?         @relation("ContactCustomerMigration", fields: [contactId], references: [id], onDelete: SetNull)
+
+  // Reverse relations
+  leads         Lead[]           @relation("CustomerLeads")
+  vehicles      Vehicle[]        @relation("CustomerVehicles")
+  quotations    MotorQuotation[] @relation("CustomerMotorQuotations")
+  policies      Policy[]         @relation("CustomerPolicies")
+  claims        Claim[]          @relation("CustomerClaims")
+  tasks         Task[]           @relation("CustomerTasks")
+  alerts        CustomerAlert[]  @relation("CustomerAlerts")
+
+  createdById   String?
+  createdBy     User?            @relation("CustomerCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+  deletedAt     DateTime?
+
+  // Soft deduplication: index mobile & email, NO @unique constraint
+  @@index([mobile])
+  @@index([email])
+  @@index([customerCode])
+  @@index([deletedAt])
+  @@map("customers")
+}
+
+model MotorQuotation {
+  id                String               @id @default(uuid())
+  quotationNumber   String               @unique
+  leadId            String
+  lead              Lead                 @relation("LeadMotorQuotations", fields: [leadId], references: [id], onDelete: Cascade)
+  vehicleId         String
+  vehicle           Vehicle              @relation("VehicleMotorQuotations", fields: [vehicleId], references: [id], onDelete: Cascade)
+  customerId        String?
+  customer          Customer?            @relation("CustomerMotorQuotations", fields: [customerId], references: [id], onDelete: SetNull)
+  agentId           String?
+  agent             Agent?               @relation("AgentMotorQuotations", fields: [agentId], references: [id], onDelete: SetNull)
+  agentCodeSnapshot String?
+  insurerName       String
+  planName          String?
+  policyType        MotorPolicyType      @default(PACKAGE_COMPREHENSIVE)
+  status            MotorQuotationStatus @default(DRAFT)
+  idv               Decimal?             @db.Decimal(12, 2)
+  odPremium         Decimal?             @db.Decimal(12, 2)
+  tpPremium         Decimal?             @db.Decimal(12, 2)
+  addonPremium      Decimal?             @db.Decimal(12, 2)
+  ncbDiscount       Decimal?             @db.Decimal(12, 2)
+  otherDiscounts    Decimal?             @db.Decimal(12, 2)
+  netPremium        Decimal?             @db.Decimal(12, 2)
+  gstAmount         Decimal?             @db.Decimal(12, 2)
+  finalPremium      Decimal              @db.Decimal(12, 2)
+  breakup           Json?
+  addonsSelected    Json?
+  policyId          String?              @unique
+  policy            Policy?              @relation("PolicyMotorQuotation", fields: [policyId], references: [id], onDelete: SetNull)
+  backOfficeTasks   BackOfficeTask[]     @relation("QuotationBackOfficeTasks")
+  inspections       Inspection[]         @relation("QuotationInspections")
+  createdById       String?
+  createdBy         User?                @relation("MotorQuotationCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  validUntil        DateTime?
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
+  deletedAt         DateTime?
+
+  @@index([leadId])
+  @@index([vehicleId])
+  @@index([customerId])
+  @@index([agentId])
+  @@index([status])
+  @@index([quotationNumber])
+  @@index([deletedAt])
+  @@map("motor_quotations")
+}
+
+model Task {
+  id           String       @id @default(uuid())
+  taskCode     String       @unique
+  title        String
+  description  String?
+  type         TaskType     @default(FOLLOW_UP)
+  priority     TaskPriority @default(MEDIUM)
+  status       TaskStatus   @default(PENDING)
+  dueDate      DateTime?
+  completedAt  DateTime?
+
+  assignedToId String?
+  assignedTo   User?        @relation("TaskAssignedTo", fields: [assignedToId], references: [id], onDelete: SetNull)
+
+  customerId   String?
+  customer     Customer?    @relation("CustomerTasks", fields: [customerId], references: [id], onDelete: SetNull)
+
+  leadId       String?
+  lead         Lead?        @relation("LeadTasks", fields: [leadId], references: [id], onDelete: SetNull)
+
+  vehicleId    String?
+  vehicle      Vehicle?     @relation("VehicleTasks", fields: [vehicleId], references: [id], onDelete: SetNull)
+
+  policyId     String?
+  policy       Policy?      @relation("PolicyTasks", fields: [policyId], references: [id], onDelete: SetNull)
+
+  claimId      String?
+  claim        Claim?       @relation("ClaimTasks", fields: [claimId], references: [id], onDelete: SetNull)
+
+  createdById  String?
+  createdBy    User?        @relation("TaskCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  deletedAt    DateTime?
+
+  @@index([assignedToId, dueDate, status])
+  @@index([status])
+  @@index([dueDate])
+  @@index([taskCode])
+  @@index([deletedAt])
+  @@map("tasks")
+}
+
+model BackOfficeTask {
+  id                String               @id @default(uuid())
+  taskCode          String               @unique
+  taskType          String
+  status            BackOfficeTaskStatus @default(PENDING)
+  priority          TaskPriority         @default(MEDIUM)
+
+  leadId            String?
+  lead              Lead?                @relation("LeadBackOfficeTasks", fields: [leadId], references: [id], onDelete: SetNull)
+
+  motorQuotationId  String?
+  motorQuotation    MotorQuotation?      @relation("QuotationBackOfficeTasks", fields: [motorQuotationId], references: [id], onDelete: SetNull)
+
+  assignedToId      String?
+  assignedTo        User?                @relation("BackOfficeTaskAssignedTo", fields: [assignedToId], references: [id], onDelete: SetNull)
+
+  missingItems      Json?
+  checklistStatus   Json?
+  verificationNotes String?
+  rejectedReason    String?
+  resolvedAt        DateTime?
+
+  createdById       String?
+  createdBy         User?                @relation("BackOfficeTaskCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
+  deletedAt         DateTime?
+
+  @@index([assignedToId, status])
+  @@index([status])
+  @@index([leadId])
+  @@index([motorQuotationId])
+  @@index([taskCode])
+  @@index([deletedAt])
+  @@map("back_office_tasks")
+}
+
+model Inspection {
+  id               String          @id @default(uuid())
+  inspectionCode   String          @unique
+  type             InspectionType  @default(SELF)
+  status           InspectionState @default(INITIATED)
+
+  vehicleId        String?
+  vehicle          Vehicle?        @relation("VehicleInspections", fields: [vehicleId], references: [id], onDelete: SetNull)
+
+  motorQuotationId String?
+  motorQuotation   MotorQuotation? @relation("QuotationInspections", fields: [motorQuotationId], references: [id], onDelete: SetNull)
+
+  policyId         String?
+  policy           Policy?         @relation("PolicyInspections", fields: [policyId], references: [id], onDelete: SetNull)
+
+  claimId          String?
+  claim            Claim?          @relation("ClaimInspections", fields: [claimId], references: [id], onDelete: SetNull)
+
+  inspectorId      String?
+  inspector        User?           @relation("InspectionInspector", fields: [inspectorId], references: [id], onDelete: SetNull)
+
+  mediaUrls        Json?
+  breakinReason    String?
+  inspectionDate   DateTime?
+  remarks          String?
+
+  createdById      String?
+  createdBy        User?           @relation("InspectionCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+  deletedAt        DateTime?
+
+  @@index([vehicleId])
+  @@index([motorQuotationId])
+  @@index([status])
+  @@index([inspectionCode])
+  @@index([deletedAt])
+  @@map("inspections")
+}
+
+model CustomerAlert {
+  id         String   @id @default(uuid())
+  customerId String
+  customer   Customer @relation("CustomerAlerts", fields: [customerId], references: [id], onDelete: Cascade)
+  alertType  String
+  message    String
+  isRead     Boolean  @default(false)
+  actionUrl  String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([customerId, isRead])
+  @@map("customer_alerts")
+}
+
 

@@ -16,6 +16,8 @@ import { HealthModule } from './modules/health/health.module';
 import { UsersModule } from './modules/users/users.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { ContactsModule } from './modules/contacts/contacts.module';
+import { CustomersModule } from './modules/customers/customers.module';
+import { AgentsModule } from './modules/agents/agents.module';
 import { AccountsModule } from './modules/accounts/accounts.module';
 import { LeadsModule } from './modules/leads/leads.module';
 import { QuotationModule } from './modules/quotation/quotation.module';
@@ -27,6 +29,7 @@ import { AnalyticsModule } from './modules/analytics/analytics.module';
 import { DocumentsModule } from './modules/documents/documents.module';
 import { MotorAdminModule } from './modules/motor-admin/motor-admin.module';
 import { MotorModule } from './modules/motor/motor.module';
+import { MotorQuotationsModule } from './modules/motor-quotations/motor-quotations.module';
 import { ProposalModule } from './modules/proposal/proposal.module';
 import { EndorsementModule } from './modules/endorsements/endorsements.module';
 import { WarehouseModule } from './modules/warehouse/warehouse.module';
@@ -39,6 +42,7 @@ import { QueueModule } from './modules/platform/queue/queue.module';
 import { SearchModule } from './modules/platform/search/search.module';
 import { WorkflowModule } from './modules/platform/workflow/workflow.module';
 import { AdministrationModule } from './modules/administration/administration.module';
+import { TasksModule } from './modules/tasks/tasks.module';
 import { AccountingModule } from './modules/finance/accounting/accounting.module';
 import { RevenueModule } from './modules/finance/revenue/revenue.module';
 import { CommissionModule } from './modules/finance/commission/commission.module';
@@ -97,6 +101,8 @@ import { IdempotencyInterceptor } from './common/interceptors/idempotency.interc
     UsersModule,
     AuthModule,
     ContactsModule,
+    CustomersModule,
+    AgentsModule,
     AccountsModule,
     LeadsModule,
     QuotationModule,
@@ -108,6 +114,7 @@ import { IdempotencyInterceptor } from './common/interceptors/idempotency.interc
     DocumentsModule,
     MotorAdminModule,
     MotorModule,
+    MotorQuotationsModule,
     ProposalModule,
     EndorsementModule,
     WarehouseModule,
@@ -118,6 +125,7 @@ import { IdempotencyInterceptor } from './common/interceptors/idempotency.interc
     SearchModule,
     WorkflowModule,
     AdministrationModule,
+    TasksModule,
     AccountingModule,
     RevenueModule,
     CommissionModule,
