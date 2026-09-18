@@ -9,6 +9,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useCustomers } from '../../../hooks/useCustomer360';
 import { customerRepository } from '../../../repositories/customer.repository';
 import { adminRepository } from '../../../repositories/admin.repository';
+import { useAuthStore } from '../../../store/auth-store';
 import { toast } from 'sonner';
 
 export default function CustomerRegisterPage() {
@@ -20,15 +21,17 @@ export default function CustomerRegisterPage() {
   const [limit, setLimit] = useState(25);
   const [search, setSearch] = useState('');
 
+  const user = useAuthStore((s) => s.user);
+  const userRoles = (user?.roles?.length ? user.roles : [user?.role || ''])
+    .filter(Boolean)
+    .map((r) => r.toUpperCase());
+  const isAdminOrBackOffice = userRoles.some((r) =>
+    ['ADMIN', 'SUPER_ADMIN', 'SYSTEM_ADMINISTRATOR', 'BACK_OFFICE', 'OPERATIONS'].includes(r)
+  );
+
   const { data: dbBranches = [] } = useQuery({
     queryKey: ['branches-list'],
     queryFn: () => adminRepository.getBranches(),
-    staleTime: 5 * 60 * 1000,
-  });
-
-  const { data: dbUsers = [] } = useQuery({
-    queryKey: ['users-list-contacts'],
-    queryFn: () => adminRepository.getUsers(),
     staleTime: 5 * 60 * 1000,
   });
 
@@ -72,25 +75,44 @@ export default function CustomerRegisterPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const cleanPhone = formData.phone.replace(/\D/g, '');
-    if (!formData.firstName.trim() || !formData.lastName.trim()) {
+    const cleanFirstName = formData.firstName.trim();
+    const cleanLastName = formData.lastName.trim();
+
+    if (!cleanFirstName || !cleanLastName) {
       return void toast.error('First name and last name are required');
     }
     if (!/^[6-9]\d{9}$/.test(cleanPhone)) {
-      return void toast.error('Enter a valid 10-digit Indian mobile number');
+      return void toast.error('Enter a valid 10-digit Indian mobile number starting with 6, 7, 8, or 9');
     }
+
+    const payload: any = {
+      type: formData.type as 'INDIVIDUAL' | 'CORPORATE',
+      firstName: cleanFirstName,
+      lastName: cleanLastName,
+      phone: cleanPhone,
+    };
+
+    if (formData.email.trim()) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(formData.email.trim())) {
+        return void toast.error('Please enter a valid email address (e.g. name@example.com)');
+      }
+      payload.email = formData.email.trim().toLowerCase();
+    }
+
+    if (formData.branchId) {
+      payload.branchId = formData.branchId;
+    }
+
+    if (isAdminOrBackOffice && formData.agentCode.trim()) {
+      payload.agentCode = formData.agentCode.trim().toUpperCase();
+    }
+
     setIsSubmitting(true);
     try {
-      await customerRepository.createContact({
-        type: formData.type as 'INDIVIDUAL' | 'CORPORATE',
-        firstName: formData.firstName.trim(),
-        lastName: formData.lastName.trim(),
-        phone: cleanPhone,
-        email: formData.email.trim() || undefined,
-        branchId: formData.branchId || undefined,
-        agentCode: formData.agentCode.trim() || undefined,
-      } as any);
+      await customerRepository.createContact(payload);
       await refetch();
-      toast.success(`Customer "${formData.firstName} ${formData.lastName}" registered successfully`);
+      toast.success(`Customer "${cleanFirstName} ${cleanLastName}" registered successfully`);
       setShowAddModal(false);
       setPage(1);
       setFormData({
@@ -110,13 +132,15 @@ export default function CustomerRegisterPage() {
         setDuplicateDialog({
           isOpen: true,
           existingContactId: errData?.existingContactId || '',
-          matchedBy: errData?.matchedBy || (errData?.message?.toLowerCase().includes('email') ? 'EMAIL' : 'PHONE'),
+          matchedBy: errData?.matchedBy || (String(errData?.message || '').toLowerCase().includes('email') ? 'EMAIL' : 'PHONE'),
           contactCode: errData?.contactCode || 'CONT-EXISTING',
-          customerName: errData?.customerName || `${formData.firstName} ${formData.lastName}`.trim(),
+          customerName: errData?.customerName || `${cleanFirstName} ${cleanLastName}`.trim(),
         });
         return;
       }
-      toast.error(errData?.message || err?.message || 'Failed to register customer');
+      const rawMessage = errData?.message || err?.message;
+      const displayMsg = Array.isArray(rawMessage) ? rawMessage.join(', ') : (rawMessage || 'Failed to register customer');
+      toast.error(displayMsg);
     } finally {
       setIsSubmitting(false);
     }
@@ -299,15 +323,32 @@ export default function CustomerRegisterPage() {
                   ))}
                 </select>
               </div>
-              <div>
-                <label className="font-bold text-muted-foreground block mb-1">Assigned Agent Code</label>
-                <input
-                  value={formData.agentCode}
-                  onChange={(e) => setFormData({ ...formData, agentCode: e.target.value.toUpperCase() })}
-                  placeholder="Enter Agent Code (e.g. AGT-001)"
-                  className="w-full p-2.5 rounded-lg border bg-background text-xs font-mono uppercase"
-                />
-              </div>
+              {isAdminOrBackOffice ? (
+                <div>
+                  <label className="font-bold text-muted-foreground block mb-1">Assigned Agent Code (Optional)</label>
+                  <input
+                    value={formData.agentCode}
+                    onChange={(e) => setFormData({ ...formData, agentCode: e.target.value.toUpperCase() })}
+                    placeholder="e.g. EMP-1786251264 (or leave blank to self-assign)"
+                    className="w-full p-2.5 rounded-lg border bg-background text-xs font-mono uppercase"
+                  />
+                  <span className="text-[10px] text-muted-foreground mt-1 block">
+                    Leave blank to automatically assign this customer to yourself.
+                  </span>
+                </div>
+              ) : (
+                <div className="p-3 rounded-lg border bg-muted/30 text-xs flex items-center justify-between">
+                  <div>
+                    <span className="text-[10px] uppercase font-bold text-muted-foreground block">Assigned Agent</span>
+                    <span className="font-bold text-foreground">
+                      {user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'You' : 'You (Current Agent)'}
+                    </span>
+                  </div>
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
+                    Auto-Assigned
+                  </span>
+                </div>
+              )}
             </div>
 
             <p className="text-[11px] text-muted-foreground border rounded-lg p-3 bg-muted/20">
@@ -387,13 +428,12 @@ export default function CustomerRegisterPage() {
               <button
                 type="button"
                 onClick={() => {
-                  const id = duplicateDialog.existingContactId;
                   setDuplicateDialog(null);
-                  if (id) router.push(`/crm/contacts/${id}`);
+                  setShowAddModal(true);
                 }}
-                className="w-full py-2 px-4 rounded-xl border bg-secondary/50 hover:bg-secondary text-secondary-foreground font-bold text-xs transition-all"
+                className="w-full py-2 px-4 rounded-xl border bg-secondary/50 hover:bg-secondary text-secondary-foreground font-bold text-xs transition-all flex items-center justify-center gap-1.5"
               >
-                Use Existing Customer
+                <span>Edit Phone / Email & Try Again</span>
               </button>
               <button
                 type="button"
