@@ -69,17 +69,17 @@ export class AuthController {
     accessToken: string,
     refreshToken: string,
   ) {
-    const isProduction = process.env.NODE_ENV === 'production';
+    const isSecure = process.env.NODE_ENV === 'production' && process.env.SECURE_COOKIES !== 'false';
     res.cookie('access_token', accessToken, {
       httpOnly: true,
-      secure: isProduction,
+      secure: isSecure,
       sameSite: 'lax',
       maxAge: 15 * 60 * 1000,
       path: '/',
     });
     res.cookie('refresh_token', refreshToken, {
       httpOnly: true,
-      secure: isProduction,
+      secure: isSecure,
       sameSite: 'lax',
       maxAge: 30 * 24 * 60 * 60 * 1000,
       path: '/',
@@ -88,7 +88,7 @@ export class AuthController {
     const csrfToken = crypto.randomBytes(32).toString('hex');
     res.cookie('csrf_token', csrfToken, {
       httpOnly: false, // Must be readable by client JS to send in header
-      secure: isProduction,
+      secure: isSecure,
       sameSite: 'lax',
       maxAge: 15 * 60 * 1000,
       path: '/',
