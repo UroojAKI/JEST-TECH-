@@ -12,6 +12,7 @@ export type ResourceType =
   | 'CLAIM'
   | 'CONTACT'
   | 'ACCOUNT'
+  | 'CUSTOMER'
   | 'CUSTOMER_360'
   | 'REPORT';
 

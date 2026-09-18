@@ -14,6 +14,8 @@ import { MotorPaymentTrackingService } from './services/motor-payment-tracking.s
 import { MotorCalculationService } from './services/motor-calculation.service';
 import { MotorPolicyIssuanceService } from './services/motor-policy-issuance.service';
 import { VehicleDataService } from './services/vehicle-data.service';
+import { PreviousPolicyService } from './services/previous-policy.service';
+import { MotorDocumentRuleService } from './services/motor-document-rule.service';
 import { AdministrationModule } from '../administration/administration.module';
 
 @Module({
@@ -35,6 +37,8 @@ import { AdministrationModule } from '../administration/administration.module';
     MotorCalculationService,
     MotorPolicyIssuanceService,
     VehicleDataService,
+    PreviousPolicyService,
+    MotorDocumentRuleService,
   ],
   exports: [
     MotorRuleEngineService,
@@ -43,6 +47,8 @@ import { AdministrationModule } from '../administration/administration.module';
     MotorCalculationService,
     MotorPolicyIssuanceService,
     VehicleDataService,
+    PreviousPolicyService,
+    MotorDocumentRuleService,
   ],
 })
 export class MotorModule {}
