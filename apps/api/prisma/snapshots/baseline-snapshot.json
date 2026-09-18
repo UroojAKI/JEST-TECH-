@@ -1,0 +1,879 @@
+{
+  "metadata": {
+    "generatedAt": "2026-09-18T06:09:11.830Z",
+    "gitBranch": "feature/motor-crm-rearchitecture",
+    "version": "1.0.0",
+    "description": "Phase 0 Baseline Data Snapshot before Motor CRM Domain Rearchitecture"
+  },
+  "counts": {
+    "totalUsers": 17,
+    "agents": 3,
+    "backOfficeUsers": 11,
+    "adminUsers": 3,
+    "contacts": 21,
+    "leads": 24,
+    "vehicles": 4,
+    "quotations": 35,
+    "quotationVersions": 0,
+    "policies": 4,
+    "claims": 0,
+    "renewals": 3,
+    "inspections": 3,
+    "workflowAssignments": 1,
+    "queueMembers": 0
+  },
+  "data": {
+    "agents": [
+      {
+        "id": "b3f08e08-44ae-4a79-8d25-c73f2585d072",
+        "email": "agent@jest.com",
+        "firstName": "Rajesh",
+        "lastName": "Sharma",
+        "employeeCode": "EMP-1786251264",
+        "branchId": "bd53d48a-eec8-4e90-98c1-e973ce8a0758",
+        "branchName": "Global Guru Chickodi",
+        "status": "ACTIVE"
+      },
+      {
+        "id": "35f34b24-cbbd-4ed9-a04d-3e6df5507b88",
+        "email": "rahul.test1789556684561@jest.com",
+        "firstName": "Rahul",
+        "lastName": "Dravid",
+        "employeeCode": "EMP-684636",
+        "branchId": null,
+        "status": "ACTIVE"
+      },
+      {
+        "id": "09b6eda4-4e25-49d4-bdf1-99f530c09cc5",
+        "email": "Test@gmail.com",
+        "firstName": "Agent",
+        "lastName": "Chickodi",
+        "employeeCode": "EMP-965629",
+        "branchId": "bd53d48a-eec8-4e90-98c1-e973ce8a0758",
+        "branchName": "Global Guru Chickodi",
+        "status": "ACTIVE"
+      }
+    ],
+    "contacts": [
+      {
+        "id": "7ffec8a3-e8ef-4f32-a481-305d15761f44",
+        "contactCode": "CONT-000006",
+        "firstName": "VIP",
+        "lastName": "TEST",
+        "phone": "9012345678",
+        "email": "vip@gmail.com",
+        "type": "INDIVIDUAL",
+        "status": "ACTIVE",
+        "branchId": "bd53d48a-eec8-4e90-98c1-e973ce8a0758",
+        "agentCode": null,
+        "createdAt": "2026-08-31T10:37:12.884Z"
+      },
+      {
+        "id": "df0215df-3269-4b36-be05-1b05036b188c",
+        "contactCode": "MC-56867084",
+        "firstName": "test",
+        "lastName": "user ",
+        "phone": "9090909909",
+        "email": "test@gmail.com",
+        "type": "INDIVIDUAL",
+        "status": "ACTIVE",
+        "branchId": "bd53d48a-eec8-4e90-98c1-e973ce8a0758",
+        "agentCode": null,
+        "createdAt": "2026-08-25T11:21:07.085Z"
+      },
+      {
+        "id": "f3c21725-54e7-4437-a81e-ff3082180d3c",
+        "contactCode": "MC-59904653",
+        "firstName": "Urooj",
+        "lastName": "Akhtar khan Inamdar",
+        "phone": "9632342375",
+        "email": "uruinamdar@gmail.com",
+        "type": "INDIVIDUAL",
+        "status": "ACTIVE",
+        "branchId": "bd53d48a-eec8-4e90-98c1-e973ce8a0758",
+        "agentCode": null,
+        "createdAt": "2026-08-09T07:18:24.655Z"
+      },
+      {
+        "id": "a10d7a38-7b8f-44d5-b8e4-285c0edc2f88",
+        "contactCode": "CONT-001001",
+        "firstName": "Urooj",
+        "lastName": "Akhtar khan Inamdar",
+        "phone": "+919632342375",
+        "email": "prospect_1786259566641@jestpolicy.com",
+        "type": "INDIVIDUAL",
+        "status": "ACTIVE",
+        "branchId": "bd53d48a-eec8-4e90-98c1-e973ce8a0758",
+        "agentCode": null,
+        "createdAt": "2026-08-09T07:12:46.908Z"
+      },
+      {
+        "id": "c75fd713-fa32-47c9-9f91-f1892b66c216",
+        "contactCode": "CONT-000008",
+        "firstName": "test2",
+        "lastName": "test",
+        "phone": "9080248090",
+        "email": "test2@gmail.com",
+        "type": "INDIVIDUAL",
+        "status": "ACTIVE",
+        "branchId": "bd53d48a-eec8-4e90-98c1-e973ce8a0758",
+        "agentCode": null,
+        "createdAt": "2026-09-02T06:04:04.255Z"
+      },
+      {
+        "id": "7ee27e34-0878-4067-b72f-127c43066773",
+        "contactCode": "CONT-000007",
+        "firstName": "Test",
+        "lastName": "Test",
+        "phone": "9080999090",
+        "email": "test1@gmail.com",
+        "type": "INDIVIDUAL",
+        "status": "ACTIVE",
+        "branchId": "bd53d48a-eec8-4e90-98c1-e973ce8a0758",
+        "agentCode": null,
+        "createdAt": "2026-09-02T06:03:36.537Z"
+      },
+      {
+        "id": "cad51965-3749-4aa6-a5cd-74672e420cb7",
+        "contactCode": "CONT-000005",
+        "firstName": "Prospect",
+        "lastName": "",
+        "phone": "2743359920",
+        "email": "prospect_1787991106496@jestpolicy.com",
+        "type": "INDIVIDUAL",
+        "status": "ACTIVE",
+        "branchId": "bd53d48a-eec8-4e90-98c1-e973ce8a0758",
+        "agentCode": null,
+        "createdAt": "2026-08-29T08:11:46.502Z"
+      },
+      {
+        "id": "ef575c79-e37c-4de1-b073-f63af01f7275",
+        "contactCode": "CONT-000004",
+        "firstName": "Prospect",
+        "lastName": "",
+        "phone": "3709110232",
+        "email": "prospect_1787991041494@jestpolicy.com",
+        "type": "INDIVIDUAL",
+        "status": "ACTIVE",
+        "branchId": "bd53d48a-eec8-4e90-98c1-e973ce8a0758",
+        "agentCode": null,
+        "createdAt": "2026-08-29T08:10:41.506Z"
+      },
+      {
+        "id": "cbaa3107-227c-40e6-a188-b43386a1e452",
+        "contactCode": "CONT-000003",
+        "firstName": "Prospect",
+        "lastName": "",
+        "phone": "1762086718",
+        "email": "prospect_1787990854805@jestpolicy.com",
+        "type": "INDIVIDUAL",
+        "status": "ACTIVE",
+        "branchId": "bd53d48a-eec8-4e90-98c1-e973ce8a0758",
+        "agentCode": null,
+        "createdAt": "2026-08-29T08:07:34.822Z"
+      },
+      {
+        "id": "a991acdd-1235-4f92-9e40-d3136f34f5b1",
+        "contactCode": "CONT-000002",
+        "firstName": "Prospect",
+        "lastName": "",
+        "phone": "9849138577",
+        "email": "prospect_1787990388560@jestpolicy.com",
+        "type": "INDIVIDUAL",
+        "status": "ACTIVE",
+        "branchId": "bd53d48a-eec8-4e90-98c1-e973ce8a0758",
+        "agentCode": null,
+        "createdAt": "2026-08-29T07:59:48.569Z"
+      },
+      {
+        "id": "cccfd713-2b7d-40ae-9f1e-42aa43bba502",
+        "contactCode": "CONT-000001",
+        "firstName": "Prospect",
+        "lastName": "",
+        "phone": "6791654112",
+        "email": "prospect_1787990347551@jestpolicy.com",
+        "type": "INDIVIDUAL",
+        "status": "ACTIVE",
+        "branchId": "bd53d48a-eec8-4e90-98c1-e973ce8a0758",
+        "agentCode": null,
+        "createdAt": "2026-08-29T07:59:07.596Z"
+      },
+      {
+        "id": "f1c3c84a-f421-40c8-a8b4-fbb0a291a1ea",
+        "contactCode": "MC-63979961",
+        "firstName": "Motor",
+        "lastName": "Customer",
+        "phone": "+916600745341",
+        "email": "motor_1787663979961@jest.local",
+        "type": "INDIVIDUAL",
+        "status": "ACTIVE",
+        "branchId": "bd53d48a-eec8-4e90-98c1-e973ce8a0758",
+        "agentCode": null,
+        "createdAt": "2026-08-25T13:19:39.962Z"
+      },
+      {
+        "id": "d1a15779-b5f8-4675-b4bf-c50a0d9634c5",
+        "contactCode": "MC-99610261",
+        "firstName": "rahul",
+        "lastName": "Customer",
+        "phone": "9807654321",
+        "email": "motor_1787599610261@jest.local",
+        "type": "INDIVIDUAL",
+        "status": "ACTIVE",
+        "branchId": "bd53d48a-eec8-4e90-98c1-e973ce8a0758",
+        "agentCode": null,
+        "createdAt": "2026-08-24T19:26:50.262Z"
+      },
+      {
+        "id": "6dde5c91-334d-452d-b579-659def2877c6",
+        "contactCode": "MC-96759720",
+        "firstName": "Motor",
+        "lastName": "Customer",
+        "phone": "+911525593550",
+        "email": "motor_1787596759720@jest.local",
+        "type": "INDIVIDUAL",
+        "status": "ACTIVE",
+        "branchId": "bd53d48a-eec8-4e90-98c1-e973ce8a0758",
+        "agentCode": null,
+        "createdAt": "2026-08-24T18:39:19.721Z"
+      },
+      {
+        "id": "efcd3948-38ee-4752-b1b6-fd8d6808092e",
+        "contactCode": "MC-73517192",
+        "firstName": "Motor",
+        "lastName": "Customer",
+        "phone": "+919704676703",
+        "email": "motor_1786773517192@jest.local",
+        "type": "INDIVIDUAL",
+        "status": "ACTIVE",
+        "branchId": "bd53d48a-eec8-4e90-98c1-e973ce8a0758",
+        "agentCode": null,
+        "createdAt": "2026-08-15T05:58:37.193Z"
+      },
+      {
+        "id": "d16b4db0-02e9-48b6-92bd-6faf3d959a18",
+        "contactCode": "MC-73398607",
+        "firstName": "ARJUN",
+        "lastName": "G CHANAVEERATTI",
+        "phone": "9480398129",
+        "email": "motor_1786773398607@jest.local",
+        "type": "INDIVIDUAL",
+        "status": "ACTIVE",
+        "branchId": "bd53d48a-eec8-4e90-98c1-e973ce8a0758",
+        "agentCode": null,
+        "createdAt": "2026-08-15T05:56:38.608Z"
+      },
+      {
+        "id": "c68e6b97-0f53-44c6-86e4-03e50719b3c5",
+        "contactCode": "CONT-000013",
+        "firstName": "Vikram",
+        "lastName": "Singhania",
+        "phone": "9859672011",
+        "email": "vikram.1788979672011@example.com",
+        "type": "INDIVIDUAL",
+        "status": "ACTIVE",
+        "branchId": "bd53d48a-eec8-4e90-98c1-e973ce8a0758",
+        "agentCode": null,
+        "createdAt": "2026-09-09T18:47:52.036Z"
+      },
+      {
+        "id": "e1a9983e-05f8-436d-a894-d8b403e0b910",
+        "contactCode": "CONT-000017",
+        "firstName": "Urooj",
+        "lastName": "Inamdar",
+        "phone": "9632342366",
+        "email": "urutest@gmail.com",
+        "type": "INDIVIDUAL",
+        "status": "ACTIVE",
+        "branchId": "bd53d48a-eec8-4e90-98c1-e973ce8a0758",
+        "agentCode": "GG-AG-101",
+        "createdAt": "2026-09-12T04:54:00.428Z"
+      },
+      {
+        "id": "a1c25e06-e7dd-47d4-a10f-2dfa0425b866",
+        "contactCode": "CONT-000019",
+        "firstName": "Karan",
+        "lastName": "Kishore",
+        "phone": "9846657467",
+        "email": "karan.1789192534080@example.com",
+        "type": "INDIVIDUAL",
+        "status": "ACTIVE",
+        "branchId": "bd53d48a-eec8-4e90-98c1-e973ce8a0758",
+        "agentCode": "MY-POSP-007",
+        "createdAt": "2026-09-12T05:55:34.153Z"
+      },
+      {
+        "id": "646ede91-10dd-4671-9c5f-1fa5c69ed816",
+        "contactCode": "CONT-000020",
+        "firstName": "Urooj",
+        "lastName": "Inamdar",
+        "phone": "9632342372",
+        "email": "test3@gmail.com",
+        "type": "INDIVIDUAL",
+        "status": "ACTIVE",
+        "branchId": "bd53d48a-eec8-4e90-98c1-e973ce8a0758",
+        "agentCode": "ABCD1111",
+        "createdAt": "2026-09-12T05:58:19.067Z"
+      },
+      {
+        "id": "6bc1e18e-5ab2-4859-830d-6b4504abe62d",
+        "contactCode": "CONT-000024",
+        "firstName": "test",
+        "lastName": "test",
+        "phone": "9090909999",
+        "email": "test123@gmail.com",
+        "type": "INDIVIDUAL",
+        "status": "ACTIVE",
+        "branchId": "bd53d48a-eec8-4e90-98c1-e973ce8a0758",
+        "agentCode": null,
+        "createdAt": "2026-09-17T09:31:12.970Z"
+      }
+    ],
+    "leads": [
+      {
+        "id": "4acea680-a164-4109-b417-f94335bc91cb",
+        "leadCode": "LEAD-001001",
+        "status": "NEW",
+        "contactId": "a10d7a38-7b8f-44d5-b8e4-285c0edc2f88",
+        "createdAt": "2026-08-09T07:12:46.943Z"
+      },
+      {
+        "id": "9769cefc-ae04-4189-be10-6dbf761fb56a",
+        "leadCode": "LEAD-001002",
+        "status": "NEW",
+        "contactId": "a10d7a38-7b8f-44d5-b8e4-285c0edc2f88",
+        "createdAt": "2026-08-27T06:31:23.130Z"
+      },
+      {
+        "id": "eb72788b-22f8-4da7-b809-f79cc4932aec",
+        "leadCode": "LEAD-001003",
+        "status": "NEW",
+        "contactId": "a10d7a38-7b8f-44d5-b8e4-285c0edc2f88",
+        "createdAt": "2026-08-27T13:09:10.932Z"
+      },
+      {
+        "id": "e9648dba-2ad7-4ee6-9f82-3b86e7787a2f",
+        "leadCode": "LEAD-000001",
+        "status": "NEW",
+        "contactId": "cccfd713-2b7d-40ae-9f1e-42aa43bba502",
+        "createdAt": "2026-08-29T07:59:07.625Z"
+      },
+      {
+        "id": "4300e5ed-abb9-4478-93a9-594be9f3c38c",
+        "leadCode": "LEAD-000002",
+        "status": "NEW",
+        "contactId": "a991acdd-1235-4f92-9e40-d3136f34f5b1",
+        "createdAt": "2026-08-29T07:59:48.585Z"
+      },
+      {
+        "id": "99f4cf49-d0b9-4ced-99f3-082f44ce8d3c",
+        "leadCode": "LEAD-000003",
+        "status": "NEW",
+        "contactId": "cbaa3107-227c-40e6-a188-b43386a1e452",
+        "createdAt": "2026-08-29T08:07:34.835Z"
+      },
+      {
+        "id": "60653f4a-c343-41d1-a7fb-c10a1d2eb34b",
+        "leadCode": "LD-855735",
+        "status": "NEW",
+        "contactId": "a10d7a38-7b8f-44d5-b8e4-285c0edc2f88",
+        "createdAt": "2026-08-29T08:07:35.739Z"
+      },
+      {
+        "id": "1d39a75f-1934-4561-a13e-8691c9667c53",
+        "leadCode": "LEAD-000004",
+        "status": "NEW",
+        "contactId": "ef575c79-e37c-4de1-b073-f63af01f7275",
+        "createdAt": "2026-08-29T08:10:41.525Z"
+      },
+      {
+        "id": "7ad43892-58e8-4b8f-9cb2-851f60d2333c",
+        "leadCode": "LD-042294",
+        "status": "NEW",
+        "contactId": "a10d7a38-7b8f-44d5-b8e4-285c0edc2f88",
+        "createdAt": "2026-08-29T08:10:42.298Z"
+      },
+      {
+        "id": "8ced77d9-934d-426c-9fad-a3de0db036c5",
+        "leadCode": "LEAD-000005",
+        "status": "NEW",
+        "contactId": "cad51965-3749-4aa6-a5cd-74672e420cb7",
+        "createdAt": "2026-08-29T08:11:46.517Z"
+      },
+      {
+        "id": "2c507852-c26c-44db-be64-8ae0eaab8c69",
+        "leadCode": "LD-107201",
+        "status": "NEW",
+        "contactId": "a10d7a38-7b8f-44d5-b8e4-285c0edc2f88",
+        "createdAt": "2026-08-29T08:11:47.204Z"
+      },
+      {
+        "id": "cb0c75e3-fa6d-4650-a654-65b60f4f1fe3",
+        "leadCode": "LEAD-000006",
+        "status": "NEW",
+        "contactId": "a10d7a38-7b8f-44d5-b8e4-285c0edc2f88",
+        "createdAt": "2026-08-31T11:15:32.224Z"
+      },
+      {
+        "id": "3c3c1fa3-6053-40a8-a1a3-4eec7a5e21c0",
+        "leadCode": "LD-672011",
+        "status": "CONVERTED",
+        "contactId": "c68e6b97-0f53-44c6-86e4-03e50719b3c5",
+        "createdAt": "2026-09-09T18:47:52.103Z"
+      },
+      {
+        "id": "e0791f61-712c-4a76-8c41-955339fa36b3",
+        "leadCode": "LEAD-000007",
+        "status": "NEW",
+        "contactId": "646ede91-10dd-4671-9c5f-1fa5c69ed816",
+        "createdAt": "2026-09-12T05:58:55.432Z"
+      },
+      {
+        "id": "c31d4994-dbbf-40de-ac55-6aee5e67e294",
+        "leadCode": "LEAD-000008",
+        "status": "NEW",
+        "contactId": "e1a9983e-05f8-436d-a894-d8b403e0b910",
+        "createdAt": "2026-09-12T06:30:59.780Z"
+      },
+      {
+        "id": "aad7867d-79a6-49fb-abe1-080a45cb2fd2",
+        "leadCode": "LEAD-000009",
+        "status": "NEW",
+        "contactId": "e1a9983e-05f8-436d-a894-d8b403e0b910",
+        "createdAt": "2026-09-12T08:09:33.410Z"
+      },
+      {
+        "id": "474a374e-f2ee-4d39-b18f-ba27e0858ec3",
+        "leadCode": "LEAD-000010",
+        "status": "QUOTE_PREPARED",
+        "contactId": "e1a9983e-05f8-436d-a894-d8b403e0b910",
+        "createdAt": "2026-09-12T08:10:59.502Z"
+      },
+      {
+        "id": "34881dcb-1d2d-491e-a6f8-17123a4053a5",
+        "leadCode": "LEAD-000011",
+        "status": "QUOTE_PREPARED",
+        "contactId": "e1a9983e-05f8-436d-a894-d8b403e0b910",
+        "createdAt": "2026-09-12T08:11:21.388Z"
+      },
+      {
+        "id": "483d3468-c8b6-4204-acf5-15036d1548b1",
+        "leadCode": "LEAD-000013",
+        "status": "POLICY_ISSUED",
+        "contactId": "e1a9983e-05f8-436d-a894-d8b403e0b910",
+        "createdAt": "2026-09-12T08:12:31.373Z"
+      },
+      {
+        "id": "c0b8cdc1-5e57-4440-b6ca-6a9e8da6d220",
+        "leadCode": "LEAD-000012",
+        "status": "POLICY_ISSUED",
+        "contactId": "e1a9983e-05f8-436d-a894-d8b403e0b910",
+        "createdAt": "2026-09-12T08:12:17.764Z"
+      },
+      {
+        "id": "40aaa482-158a-43b7-ac5f-7fd3e559e8c3",
+        "leadCode": "LEAD-000014",
+        "status": "POLICY_ISSUED",
+        "contactId": "e1a9983e-05f8-436d-a894-d8b403e0b910",
+        "createdAt": "2026-09-12T08:13:21.111Z"
+      },
+      {
+        "id": "afba0678-7e63-48d1-8b8d-da4f740c4235",
+        "leadCode": "LEAD-000015",
+        "status": "NEW",
+        "contactId": "6bc1e18e-5ab2-4859-830d-6b4504abe62d",
+        "createdAt": "2026-09-17T09:31:56.981Z"
+      },
+      {
+        "id": "a1783b82-9d5e-4350-bbb2-baf873a4cda8",
+        "leadCode": "LEAD-000016",
+        "status": "NEW",
+        "contactId": "6bc1e18e-5ab2-4859-830d-6b4504abe62d",
+        "createdAt": "2026-09-17T09:32:23.121Z"
+      },
+      {
+        "id": "136508a6-ed06-4905-b678-96dba8eb32f0",
+        "leadCode": "LEAD-000017",
+        "status": "NEW",
+        "contactId": "646ede91-10dd-4671-9c5f-1fa5c69ed816",
+        "createdAt": "2026-09-18T05:36:25.834Z"
+      }
+    ],
+    "vehicles": [
+      {
+        "id": "3df78bdf-ff23-428e-8013-aa88540e221f",
+        "registrationNumber": "MH02EK9999",
+        "fuelType": null
+      },
+      {
+        "id": "8c45c205-5455-4c5b-be8e-79a8ec5522a7",
+        "registrationNumber": "KA22AB9999",
+        "fuelType": null
+      },
+      {
+        "id": "272ddda4-ac88-49c0-a628-c78caff4f695",
+        "registrationNumber": "KA22AB9999",
+        "fuelType": null
+      },
+      {
+        "id": "60ab651d-d081-4bb9-b4e0-89a0bd5d5a44",
+        "registrationNumber": "KA22AB9999",
+        "fuelType": null
+      }
+    ],
+    "quotations": [
+      {
+        "id": "bb7090eb-b548-4cff-b63b-86c219f2df93",
+        "contactId": "f3c21725-54e7-4437-a81e-ff3082180d3c",
+        "leadId": null,
+        "status": "DRAFT",
+        "createdAt": "2026-08-09T07:18:24.668Z",
+        "versionsCount": 0
+      },
+      {
+        "id": "39cd53cd-52ef-4df5-82f9-0625de570719",
+        "contactId": "d16b4db0-02e9-48b6-92bd-6faf3d959a18",
+        "leadId": null,
+        "status": "DRAFT",
+        "createdAt": "2026-08-15T05:56:38.626Z",
+        "versionsCount": 0
+      },
+      {
+        "id": "87722864-6cc1-4c9d-8528-0a65e961f819",
+        "contactId": "efcd3948-38ee-4752-b1b6-fd8d6808092e",
+        "leadId": null,
+        "status": "DRAFT",
+        "createdAt": "2026-08-15T05:58:37.199Z",
+        "versionsCount": 0
+      },
+      {
+        "id": "0bb0aa3f-86c7-4fc9-baa5-a17eb05e45c7",
+        "contactId": "f3c21725-54e7-4437-a81e-ff3082180d3c",
+        "leadId": null,
+        "status": "DRAFT",
+        "createdAt": "2026-08-24T18:23:26.959Z",
+        "versionsCount": 0
+      },
+      {
+        "id": "abbf2ed8-3519-4665-9c18-33c9896abea5",
+        "contactId": "6dde5c91-334d-452d-b579-659def2877c6",
+        "leadId": null,
+        "status": "DRAFT",
+        "createdAt": "2026-08-24T18:39:19.735Z",
+        "versionsCount": 0
+      },
+      {
+        "id": "1d06d017-6a0c-4947-b8fd-b304a3b31ea9",
+        "contactId": "d1a15779-b5f8-4675-b4bf-c50a0d9634c5",
+        "leadId": null,
+        "status": "DRAFT",
+        "createdAt": "2026-08-24T19:26:50.269Z",
+        "versionsCount": 0
+      },
+      {
+        "id": "59d4fde8-56e2-4892-9ad1-66586f46d0f7",
+        "contactId": "f3c21725-54e7-4437-a81e-ff3082180d3c",
+        "leadId": null,
+        "status": "DRAFT",
+        "createdAt": "2026-08-24T19:36:26.408Z",
+        "versionsCount": 0
+      },
+      {
+        "id": "8ea21281-5b48-476f-9dd1-32b845a566e2",
+        "contactId": "df0215df-3269-4b36-be05-1b05036b188c",
+        "leadId": null,
+        "status": "DRAFT",
+        "createdAt": "2026-08-25T11:22:43.923Z",
+        "versionsCount": 0
+      },
+      {
+        "id": "2cbda604-94e1-482f-a6db-bca141de0132",
+        "contactId": "df0215df-3269-4b36-be05-1b05036b188c",
+        "leadId": null,
+        "status": "DRAFT",
+        "createdAt": "2026-08-25T11:44:10.584Z",
+        "versionsCount": 0
+      },
+      {
+        "id": "90131f1c-ff34-465b-93e8-696636bea8b2",
+        "contactId": "f3c21725-54e7-4437-a81e-ff3082180d3c",
+        "leadId": null,
+        "status": "DRAFT",
+        "createdAt": "2026-08-25T12:48:23.228Z",
+        "versionsCount": 0
+      },
+      {
+        "id": "8244bd2e-0669-42bf-8607-80772efceb4c",
+        "contactId": "f3c21725-54e7-4437-a81e-ff3082180d3c",
+        "leadId": null,
+        "status": "DRAFT",
+        "createdAt": "2026-08-25T13:17:49.712Z",
+        "versionsCount": 0
+      },
+      {
+        "id": "63e5e946-4d29-4945-8022-c2a801bccfd7",
+        "contactId": "f1c3c84a-f421-40c8-a8b4-fbb0a291a1ea",
+        "leadId": null,
+        "status": "DRAFT",
+        "createdAt": "2026-08-25T13:19:39.968Z",
+        "versionsCount": 0
+      },
+      {
+        "id": "7256d59b-354d-4ac6-b436-34ce39be6ca7",
+        "contactId": "f3c21725-54e7-4437-a81e-ff3082180d3c",
+        "leadId": null,
+        "status": "DRAFT",
+        "createdAt": "2026-08-27T06:33:27.309Z",
+        "versionsCount": 0
+      },
+      {
+        "id": "cc9ec296-9328-4577-b6cc-b37a60e467cf",
+        "contactId": "f3c21725-54e7-4437-a81e-ff3082180d3c",
+        "leadId": null,
+        "status": "DRAFT",
+        "createdAt": "2026-08-27T07:40:31.477Z",
+        "versionsCount": 0
+      },
+      {
+        "id": "b5f549a6-b43e-4e43-8cf4-7c44a0317ca6",
+        "contactId": "f3c21725-54e7-4437-a81e-ff3082180d3c",
+        "leadId": null,
+        "status": "DRAFT",
+        "createdAt": "2026-08-27T13:11:01.862Z",
+        "versionsCount": 0
+      },
+      {
+        "id": "fb3af146-5896-488a-9eee-c78e5f44e88c",
+        "contactId": "f3c21725-54e7-4437-a81e-ff3082180d3c",
+        "leadId": null,
+        "status": "DRAFT",
+        "createdAt": "2026-08-28T14:21:07.733Z",
+        "versionsCount": 0
+      },
+      {
+        "id": "13c338f2-a70b-42ba-825d-ee252a957bae",
+        "contactId": "f3c21725-54e7-4437-a81e-ff3082180d3c",
+        "leadId": null,
+        "status": "DRAFT",
+        "createdAt": "2026-08-29T07:32:19.297Z",
+        "versionsCount": 0
+      },
+      {
+        "id": "f8f5ab93-c387-4b26-a49f-d364bb6fb1b1",
+        "contactId": "df0215df-3269-4b36-be05-1b05036b188c",
+        "leadId": null,
+        "status": "DRAFT",
+        "createdAt": "2026-08-31T11:20:39.163Z",
+        "versionsCount": 0
+      },
+      {
+        "id": "e3adb914-207e-4a51-94c4-7db40ab23d7a",
+        "contactId": "f3c21725-54e7-4437-a81e-ff3082180d3c",
+        "leadId": null,
+        "status": "DRAFT",
+        "createdAt": "2026-09-09T05:53:49.010Z",
+        "versionsCount": 0
+      },
+      {
+        "id": "3499fbe3-1663-41b0-bd8c-acb8897dafd9",
+        "contactId": "c68e6b97-0f53-44c6-86e4-03e50719b3c5",
+        "leadId": "3c3c1fa3-6053-40a8-a1a3-4eec7a5e21c0",
+        "status": "CONVERTED_TO_POLICY",
+        "createdAt": "2026-09-09T18:47:52.128Z",
+        "versionsCount": 0
+      },
+      {
+        "id": "451c9daa-a9bc-4856-98dd-28b94c13330c",
+        "contactId": "f3c21725-54e7-4437-a81e-ff3082180d3c",
+        "leadId": null,
+        "status": "DRAFT",
+        "createdAt": "2026-09-09T18:59:23.951Z",
+        "versionsCount": 0
+      },
+      {
+        "id": "87472fb4-4bfb-460c-84ef-5c25b7716ff5",
+        "contactId": "646ede91-10dd-4671-9c5f-1fa5c69ed816",
+        "leadId": null,
+        "status": "DRAFT",
+        "createdAt": "2026-09-12T06:07:06.462Z",
+        "versionsCount": 0
+      },
+      {
+        "id": "ba16b0c1-1e32-4ec3-8b89-1be67c87307a",
+        "contactId": "e1a9983e-05f8-436d-a894-d8b403e0b910",
+        "leadId": "474a374e-f2ee-4d39-b18f-ba27e0858ec3",
+        "status": "DRAFT",
+        "createdAt": "2026-09-12T08:10:59.571Z",
+        "versionsCount": 0
+      },
+      {
+        "id": "7ad3f398-1d40-45e0-83a4-c72eb3f3216c",
+        "contactId": "e1a9983e-05f8-436d-a894-d8b403e0b910",
+        "leadId": "474a374e-f2ee-4d39-b18f-ba27e0858ec3",
+        "status": "DRAFT",
+        "createdAt": "2026-09-12T08:10:59.632Z",
+        "versionsCount": 0
+      },
+      {
+        "id": "0e9d70fb-234b-4876-b5c7-94c8e0abbee3",
+        "contactId": "f3c21725-54e7-4437-a81e-ff3082180d3c",
+        "leadId": null,
+        "status": "DRAFT",
+        "createdAt": "2026-09-16T06:57:44.431Z",
+        "versionsCount": 0
+      },
+      {
+        "id": "7e1aa627-80ff-415f-873f-0b837df902d4",
+        "contactId": "e1a9983e-05f8-436d-a894-d8b403e0b910",
+        "leadId": "34881dcb-1d2d-491e-a6f8-17123a4053a5",
+        "status": "DRAFT",
+        "createdAt": "2026-09-12T08:11:21.503Z",
+        "versionsCount": 0
+      },
+      {
+        "id": "9532e2b8-ad1b-456b-8b1b-b54a8184acab",
+        "contactId": "e1a9983e-05f8-436d-a894-d8b403e0b910",
+        "leadId": "34881dcb-1d2d-491e-a6f8-17123a4053a5",
+        "status": "DRAFT",
+        "createdAt": "2026-09-12T08:11:21.555Z",
+        "versionsCount": 0
+      },
+      {
+        "id": "49f41719-bea7-48f3-8615-6ab5544696dd",
+        "contactId": "e1a9983e-05f8-436d-a894-d8b403e0b910",
+        "leadId": "c0b8cdc1-5e57-4440-b6ca-6a9e8da6d220",
+        "status": "DRAFT",
+        "createdAt": "2026-09-12T08:12:17.929Z",
+        "versionsCount": 0
+      },
+      {
+        "id": "ddd02f82-629e-4ddb-b61f-c5734da0d37d",
+        "contactId": "e1a9983e-05f8-436d-a894-d8b403e0b910",
+        "leadId": "c0b8cdc1-5e57-4440-b6ca-6a9e8da6d220",
+        "status": "CONVERTED_TO_POLICY",
+        "createdAt": "2026-09-12T08:12:17.879Z",
+        "versionsCount": 0
+      },
+      {
+        "id": "510a3a1f-13de-4cdd-a432-b549e4b6c14c",
+        "contactId": "e1a9983e-05f8-436d-a894-d8b403e0b910",
+        "leadId": "483d3468-c8b6-4204-acf5-15036d1548b1",
+        "status": "DRAFT",
+        "createdAt": "2026-09-12T08:12:31.492Z",
+        "versionsCount": 0
+      },
+      {
+        "id": "3babb26a-0922-4217-9785-a0ba16e95917",
+        "contactId": "e1a9983e-05f8-436d-a894-d8b403e0b910",
+        "leadId": "483d3468-c8b6-4204-acf5-15036d1548b1",
+        "status": "CONVERTED_TO_POLICY",
+        "createdAt": "2026-09-12T08:12:31.441Z",
+        "versionsCount": 0
+      },
+      {
+        "id": "6996d963-02b6-4050-9135-0e274b8deefa",
+        "contactId": "e1a9983e-05f8-436d-a894-d8b403e0b910",
+        "leadId": "40aaa482-158a-43b7-ac5f-7fd3e559e8c3",
+        "status": "DRAFT",
+        "createdAt": "2026-09-12T08:13:21.260Z",
+        "versionsCount": 0
+      },
+      {
+        "id": "5ee4a65f-6288-4323-944f-29c094ebe6f0",
+        "contactId": "e1a9983e-05f8-436d-a894-d8b403e0b910",
+        "leadId": "40aaa482-158a-43b7-ac5f-7fd3e559e8c3",
+        "status": "CONVERTED_TO_POLICY",
+        "createdAt": "2026-09-12T08:13:21.200Z",
+        "versionsCount": 0
+      },
+      {
+        "id": "fd393e78-e5cc-40a7-81d8-c8e54891e1da",
+        "contactId": "f3c21725-54e7-4437-a81e-ff3082180d3c",
+        "leadId": null,
+        "status": "APPROVED",
+        "createdAt": "2026-09-16T06:58:52.297Z",
+        "versionsCount": 0
+      },
+      {
+        "id": "a0ea7647-b0ef-48bf-9548-28d09046bb84",
+        "contactId": "646ede91-10dd-4671-9c5f-1fa5c69ed816",
+        "leadId": null,
+        "status": "DRAFT",
+        "createdAt": "2026-09-17T08:21:42.480Z",
+        "versionsCount": 0
+      }
+    ],
+    "policies": [
+      {
+        "id": "1ef846e6-5ab1-4c8d-a5a9-8286d5ae65bd",
+        "policyNumber": "POL-000003",
+        "contactId": "c68e6b97-0f53-44c6-86e4-03e50719b3c5",
+        "status": "ACTIVE",
+        "policyType": null,
+        "createdAt": "2026-09-09T18:47:52.262Z"
+      },
+      {
+        "id": "2feb5070-1c9c-4fcb-8723-41353e27de8a",
+        "policyNumber": "POL-2026-199325",
+        "contactId": "e1a9983e-05f8-436d-a894-d8b403e0b910",
+        "status": "ACTIVE",
+        "policyType": "PACKAGE_COMPREHENSIVE",
+        "createdAt": "2026-09-12T08:12:18.072Z"
+      },
+      {
+        "id": "ce8eb2ab-f3cd-4303-a677-1d08a61e2c64",
+        "policyNumber": "POL-2026-893586",
+        "contactId": "e1a9983e-05f8-436d-a894-d8b403e0b910",
+        "status": "ACTIVE",
+        "policyType": "PACKAGE_COMPREHENSIVE",
+        "createdAt": "2026-09-12T08:12:31.590Z"
+      },
+      {
+        "id": "f6d175a0-91a7-40f1-8735-d154a06038ef",
+        "policyNumber": "POL-2026-553213",
+        "contactId": "e1a9983e-05f8-436d-a894-d8b403e0b910",
+        "status": "ACTIVE",
+        "policyType": "PACKAGE_COMPREHENSIVE",
+        "createdAt": "2026-09-12T08:13:21.397Z"
+      }
+    ],
+    "claims": [],
+    "renewals": [
+      {
+        "id": "eed8dda3-2f91-4f45-aa68-1afebaa0a693",
+        "policyId": "2feb5070-1c9c-4fcb-8723-41353e27de8a",
+        "status": "PENDING",
+        "dueDate": "2027-08-13T00:00:00.000Z"
+      },
+      {
+        "id": "1495a606-61bb-43ad-8494-0accbf356622",
+        "policyId": "ce8eb2ab-f3cd-4303-a677-1d08a61e2c64",
+        "status": "PENDING",
+        "dueDate": "2027-08-13T00:00:00.000Z"
+      },
+      {
+        "id": "ac57c066-c11b-4b24-a89f-62c1be94ba13",
+        "policyId": "f6d175a0-91a7-40f1-8735-d154a06038ef",
+        "status": "PENDING",
+        "dueDate": "2027-08-13T00:00:00.000Z"
+      }
+    ],
+    "inspections": [
+      {
+        "id": "a7c849d2-babb-4d97-bbf0-cf618e14928b",
+        "status": "PENDING",
+        "createdAt": "2026-08-24T18:24:17.692Z"
+      },
+      {
+        "id": "03de51cd-ee48-4b0f-ac66-037256fc3fe6",
+        "status": "COMPLETED",
+        "createdAt": "2026-08-24T18:39:56.830Z"
+      },
+      {
+        "id": "ea520b6e-70f4-45e1-a3dc-34af86814980",
+        "status": "COMPLETED",
+        "createdAt": "2026-08-24T19:27:22.294Z"
+      }
+    ]
+  }
+}
