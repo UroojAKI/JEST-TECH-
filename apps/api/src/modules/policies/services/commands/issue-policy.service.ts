@@ -5,6 +5,7 @@ import {
   NotFoundException,
   Inject,
   forwardRef,
+  Logger,
 } from '@nestjs/common';
 import {
   Prisma,
@@ -29,6 +30,8 @@ import { BackOfficeQueueService } from '../queries/back-office-queue.service';
 
 @Injectable()
 export class IssuePolicyService {
+  private readonly logger = new Logger(IssuePolicyService.name);
+
   constructor(
     @Inject(forwardRef(() => PolicyRepository))
     private readonly policyRepository: PolicyRepository,
@@ -412,8 +415,50 @@ export class IssuePolicyService {
           fileSize: taxCertificatePdf.fileSize,
         }),
       ]);
-    } catch (docErr) {
-      // PDF generation error logged for async regeneration worker
+    } catch (docErr: any) {
+      this.logger.error(
+        `[PDF-GENERATION-FAILED] Failed to generate policy documents for policy ${policy.id} (${policyNumber}): ${docErr?.message}`,
+        docErr?.stack,
+      );
+
+      try {
+        await this.prisma.outboxEvent.create({
+          data: {
+            aggregateType: 'POLICY_DOCUMENT',
+            aggregateId: policy.id,
+            eventType: 'POLICY_DOCUMENT_GENERATION_FAILED',
+            payload: {
+              policyId: policy.id,
+              policyNumber,
+              reason: docErr?.message || 'PDF generation failure',
+              attemptedAt: new Date().toISOString(),
+            },
+          },
+        });
+      } catch (outboxErr: any) {
+        this.logger.warn(
+          `Failed to record outbox event for document generation failure: ${outboxErr?.message}`,
+        );
+      }
+
+      try {
+        const taskCode = `BOT-DOC-${policyNumber}-${Date.now().toString().slice(-4)}`;
+        await this.prisma.backOfficeTask.create({
+          data: {
+            taskCode,
+            taskType: 'DOCUMENT_REGENERATION',
+            status: 'PENDING',
+            priority: 'HIGH',
+            verificationNotes: `Automated PDF generation failed during issuance: ${docErr?.message || 'Unknown error'}. Requires document regeneration.`,
+            leadId: quotation.leadId || null,
+            createdById,
+          },
+        });
+      } catch (taskErr: any) {
+        this.logger.warn(
+          `Failed to create BackOfficeTask for document regeneration: ${taskErr?.message}`,
+        );
+      }
     }
 
     const finalPolicy = await this.policyRepository.findDetail(policy.id);

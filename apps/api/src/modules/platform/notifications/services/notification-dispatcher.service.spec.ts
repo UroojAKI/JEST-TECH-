@@ -7,7 +7,7 @@ describe('NotificationDispatcher (NOTIFY-002 Deduplication & Preference Enforcem
   let dispatcher: NotificationDispatcher;
   let prisma: PrismaService;
 
-  const mockPrisma = {
+  const mockPrisma: any = {
     notificationPreference: {
       findUnique: jest.fn(),
       create: jest.fn(),
@@ -18,6 +18,9 @@ describe('NotificationDispatcher (NOTIFY-002 Deduplication & Preference Enforcem
     },
     notificationHistory: {
       create: jest.fn(),
+    },
+    user: {
+      findUnique: jest.fn(),
     },
   };
 
@@ -138,4 +141,57 @@ describe('NotificationDispatcher (NOTIFY-002 Deduplication & Preference Enforcem
     expect(mockPrisma.notification.findFirst).not.toHaveBeenCalled();
     expect(mockPrisma.notification.create).not.toHaveBeenCalled();
   });
+
+  it('dispatches to EmailProvider and logs status in history when email channel is active', async () => {
+    const mockEmailProvider = {
+      channelName: 'EMAIL',
+      send: jest.fn().mockResolvedValue({ success: true, status: 'SENT' }),
+    };
+
+    mockPrisma.user = {
+      findUnique: jest.fn().mockResolvedValue({
+        id: 'user-100',
+        email: 'customer@example.com',
+        firstName: 'John',
+        lastName: 'Doe',
+      }),
+    };
+
+    mockPrisma.notificationPreference.findUnique.mockResolvedValue({
+      ...defaultPreferences,
+      email: true,
+    });
+    mockPrisma.notification.findFirst.mockResolvedValue(null);
+    mockPrisma.notification.create.mockResolvedValue({ id: 'notif-10' });
+
+    const customDispatcher = new NotificationDispatcher(
+      prisma,
+      mockEmailProvider as any,
+    );
+
+    await customDispatcher.dispatch({
+      userId: 'user-100',
+      type: NotificationType.POLICY_RENEWAL_30,
+      title: 'Policy Expiry Reminder',
+      message: 'Expires soon',
+      entityId: 'pol-999',
+    });
+
+    expect(mockEmailProvider.send).toHaveBeenCalledWith(
+      expect.objectContaining({
+        to: 'customer@example.com',
+        recipientName: 'John Doe',
+        title: 'Policy Expiry Reminder',
+      }),
+    );
+    expect(mockPrisma.notificationHistory.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          channel: 'EMAIL',
+          status: 'SENT',
+        }),
+      }),
+    );
+  });
 });
+

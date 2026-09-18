@@ -5,9 +5,11 @@ import {
   ForbiddenException,
   Optional,
 } from '@nestjs/common';
+import { Reflector } from '@nestjs/core';
 import { AuthGuard } from '@nestjs/passport';
 import { AuthorizationVersionService } from '../services/authorization-version.service';
 import { JwtService } from '@nestjs/jwt';
+import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
 
 function decodeJwtPayload(token: string): any {
   try {
@@ -28,11 +30,22 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
     @Optional()
     private readonly authVersionService?: AuthorizationVersionService,
     @Optional() private readonly jwtService?: JwtService,
+    @Optional() private readonly reflector?: Reflector,
   ) {
     super();
   }
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
+    if (this.reflector) {
+      const isPublic = this.reflector.getAllAndOverride<boolean>(
+        IS_PUBLIC_KEY,
+        [context.getHandler(), context.getClass()],
+      );
+      if (isPublic) {
+        return true;
+      }
+    }
+
     const result = await (super.canActivate(context) as Promise<boolean>).catch(
       () => false,
     );

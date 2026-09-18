@@ -4,12 +4,14 @@ import type { Response, Request } from 'express';
 
 import { LoginDto } from '../dto/login.dto';
 import { AuthService } from '../services/auth.service';
+import { Public } from '../decorators/public.decorator';
 import * as crypto from 'crypto';
 
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
+  @Public()
   @Post('login')
   @Throttle({ default: { ttl: 60000, limit: 20 } })
   async login(
@@ -30,6 +32,7 @@ export class AuthController {
     };
   }
 
+  @Public()
   @Post('refresh')
   @Throttle({ default: { ttl: 60000, limit: 30 } })
   async refresh(

@@ -381,39 +381,38 @@ export class ComparisonService {
 
     const carriers: any[] =
       activeInsurers && activeInsurers.length > 0
-        ? activeInsurers
+        ? activeInsurers.map((ins) => ({
+            ...ins,
+            providerStatus: 'INTERNAL_TARIFF',
+          }))
         : [
             {
               id: 'hdfc-ergo',
               name: 'HDFC ERGO General Insurance Co. Ltd.',
               logoUrl: 'HDFC',
               odRateMultiplier: 1.0,
-              isApiOnline: true,
-              latencyMs: 340,
+              providerStatus: 'INTERNAL_TARIFF',
             },
             {
               id: 'icici-lombard',
               name: 'ICICI Lombard General Insurance Co. Ltd.',
               logoUrl: 'ICICI',
               odRateMultiplier: 0.94,
-              isApiOnline: true,
-              latencyMs: 210,
+              providerStatus: 'INTERNAL_TARIFF',
             },
             {
               id: 'bajaj-allianz',
               name: 'Bajaj Allianz General Insurance Co. Ltd.',
               logoUrl: 'BAJAJ',
               odRateMultiplier: 0.91,
-              isApiOnline: false,
-              latencyMs: 2800,
-            }, // Simulated SLA timeout -> local rating fallback
+              providerStatus: 'INTERNAL_TARIFF',
+            },
             {
               id: 'tata-aig',
               name: 'Tata AIG General Insurance Co. Ltd.',
               logoUrl: 'TATA',
               odRateMultiplier: 0.97,
-              isApiOnline: true,
-              latencyMs: 420,
+              providerStatus: 'INTERNAL_TARIFF',
             },
           ];
 
@@ -422,8 +421,7 @@ export class ComparisonService {
       const multiplier = new Prisma.Decimal(
         String(carrier.odRateMultiplier || 1.0 - idx * 0.03),
       );
-      const isOnline =
-        carrier.isApiOnline !== false && (carrier.latencyMs || 200) < 2500;
+      const providerStatus = carrier.providerStatus || 'INTERNAL_TARIFF';
 
       // Base rates
       const baseOdRate = new Prisma.Decimal('0.031415'); // Motor tariff 3.1415%
@@ -480,10 +478,7 @@ export class ComparisonService {
         insurerId: carrier.id,
         insurerName: carrier.name,
         logo: carrier.logoUrl || 'INSURER',
-        gatewayStatus: isOnline
-          ? 'LIVE_INSURER_GATEWAY_API'
-          : 'LOCAL_STATUTORY_RATING_FALLBACK',
-        responseTimeMs: carrier.latencyMs || 180,
+        gatewayStatus: providerStatus,
         insuredDeclaredValue: calculatedIdv.toFixed(2),
         grossOwnDamagePremium: grossOd.toFixed(2),
         noClaimBonusDiscount: ncbDiscount.toFixed(2),
@@ -497,7 +492,7 @@ export class ComparisonService {
           totalGstPayable: totalGst.toFixed(2),
         },
         finalCustomerPayablePremium: finalCustomerPayable.toFixed(2),
-        isRecommended: idx === 0 && isOnline,
+        isRecommended: idx === 0,
       };
     });
 
@@ -509,11 +504,11 @@ export class ComparisonService {
       },
       gatewayResponseSummary: {
         totalCarriersEvaluated: carriers.length,
-        liveGatewaysOnline: enterpriseQuotes.filter(
-          (q) => q.gatewayStatus === 'LIVE_INSURER_GATEWAY_API',
+        internalTariffEngineQuotes: enterpriseQuotes.filter(
+          (q) => q.gatewayStatus === 'INTERNAL_TARIFF',
         ).length,
-        localRatingEngineFallbacks: enterpriseQuotes.filter(
-          (q) => q.gatewayStatus === 'LOCAL_STATUTORY_RATING_FALLBACK',
+        notConfiguredCarriers: enterpriseQuotes.filter(
+          (q) => q.gatewayStatus === 'NOT_CONFIGURED',
         ).length,
       },
       comparativeMatrix: enterpriseQuotes,
