@@ -22,10 +22,11 @@ export const AGENT_NAVIGATION: NavigationItem[] = [
   {
     id: 'my-customers',
     title: 'My Customers',
-    href: '/crm/contacts',
+    href: '/crm/customers',
     icon: 'UserCheck',
     children: [
-      { id: 'agent-contacts', title: 'Contacts', href: '/crm/contacts' },
+      { id: 'agent-customers', title: 'Customers', href: '/crm/customers' },
+      { id: 'agent-contacts', title: 'Contacts (Legacy)', href: '/crm/contacts' },
       { id: 'agent-accounts', title: 'Accounts', href: '/crm/accounts' },
     ],
   },
@@ -73,10 +74,11 @@ export const BACK_OFFICE_NAVIGATION: NavigationItem[] = [
   {
     id: 'bo-customers',
     title: 'Customers',
-    href: '/crm/contacts',
+    href: '/crm/customers',
     icon: 'Users',
     children: [
-      { id: 'bo-contacts', title: 'Contacts', href: '/crm/contacts' },
+      { id: 'bo-customers-list', title: 'Customers', href: '/crm/customers' },
+      { id: 'bo-contacts', title: 'Contacts (Legacy)', href: '/crm/contacts' },
       { id: 'bo-accounts', title: 'Corporate Accounts', href: '/crm/accounts' },
       { id: 'bo-leads', title: 'Operational Leads', href: '/crm/leads' },
     ],
@@ -157,10 +159,11 @@ export const ADMIN_NAVIGATION: NavigationItem[] = [
   {
     id: 'adm-customers',
     title: 'Customers & CRM',
-    href: '/crm/contacts',
+    href: '/crm/customers',
     icon: 'Users',
     children: [
-      { id: 'adm-contacts', title: 'All Contacts', href: '/crm/contacts' },
+      { id: 'adm-customers-list', title: 'All Customers', href: '/crm/customers' },
+      { id: 'adm-contacts', title: 'Contacts (Legacy)', href: '/crm/contacts' },
       { id: 'adm-accounts', title: 'Corporate Accounts', href: '/crm/accounts' },
       { id: 'adm-leads', title: 'Agency Lead Pipeline', href: '/crm/leads' },
     ],
