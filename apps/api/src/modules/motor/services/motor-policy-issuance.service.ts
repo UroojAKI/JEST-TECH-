@@ -5,12 +5,13 @@ import {
   NotFoundException,
   ForbiddenException,
 } from '@nestjs/common';
-import { AuditAction, RoleType } from '@prisma/client';
+import { AuditAction, RoleType, Prisma, InspectionStatus } from '@prisma/client';
 import { PrismaService } from '../../../database/prisma.service';
 import { IssueMotorPolicyDto } from '../dto/issue-motor-policy.dto';
 import { MotorPaymentTrackingService } from './motor-payment-tracking.service';
 import { ActorContext } from '../../../common/interfaces/actor-context.interface';
 import { ResourceAuthorizationService } from '../../../common/services/resource-authorization.service';
+import { NumberingEngineService } from '../../administration/services/numbering-engine/numbering-engine.service';
 
 @Injectable()
 export class MotorPolicyIssuanceService {
@@ -18,6 +19,7 @@ export class MotorPolicyIssuanceService {
     private readonly prisma: PrismaService,
     private readonly paymentService: MotorPaymentTrackingService,
     private readonly authzService: ResourceAuthorizationService,
+    private readonly numberingEngine: NumberingEngineService,
   ) {}
 
   async issuePolicy(
@@ -43,42 +45,80 @@ export class MotorPolicyIssuanceService {
       );
     }
 
-    const gate = await this.paymentService.canProceedToPolicy(quotationId);
-    if (!gate.allowed) {
-      throw new ConflictException({
-        message: 'Policy issuance is blocked by the Motor workflow gate',
-        blockers: gate.blockers,
-      });
-    }
-
     const actorId = actor.userId || (actor as any).id;
 
     return this.prisma.$transaction(async (tx) => {
       const quote = await tx.quotation.findUnique({
         where: { id: quotationId },
-        include: { contact: true, lead: true, policy: true },
+        include: {
+          contact: true,
+          lead: true,
+          policy: true,
+          motorInspection: true,
+        },
       });
 
-      if (!quote)
+      if (!quote) {
         throw new NotFoundException(`Quotation ${quotationId} not found`);
-      if (quote.policy)
+      }
+      if (quote.policy) {
         throw new ConflictException(
-          'A policy already exists for this quotation',
+          `Policy already issued for quotation ${quotationId} (Policy Number: ${quote.policy.policyNumber}). Duplicate issuance is blocked.`,
         );
-      if (quote.workflowState !== 'PAYMENT_DONE')
-        throw new ConflictException('Quotation is not in PAYMENT_DONE state');
-      if (!quote.calculationSnapshot)
+      }
+      if (quote.workflowState !== 'PAYMENT_DONE') {
+        throw new ConflictException(
+          `Quotation is not in PAYMENT_DONE state (Current: ${quote.workflowState})`,
+        );
+      }
+      if (!quote.calculationSnapshot) {
         throw new ConflictException(
           'Authoritative calculation snapshot is required before issuance',
         );
+      }
 
+      // ─── Inside-Transaction Gating Checks ──────────────────────────────────
+      // 1. Canonical Payment Gate: Re-verify payment record inside transaction
+      const paymentRecord = await tx.motorPaymentRecord.findUnique({
+        where: { quotationId },
+      });
+      if (!paymentRecord || paymentRecord.status !== 'PAID') {
+        throw new ConflictException(
+          'Policy issuance blocked: Authoritative payment must be verified as PAID before issuance',
+        );
+      }
+      const paidAmount = new Prisma.Decimal(paymentRecord.amount || 0);
+      const payableAmount = new Prisma.Decimal(quote.totalPremium);
+      if (paidAmount.lt(payableAmount)) {
+        throw new ConflictException(
+          `Policy issuance blocked: Reconciled payment amount (${paidAmount}) is less than authoritative payable premium (${payableAmount})`,
+        );
+      }
+
+      // 2. Inspection Gate: If quotation required inspection, verify COMPLETED or WAIVED
+      const metadata = (quote.motorMetadata as Record<string, any>) || {};
+      if (
+        metadata.inspectionRequired ||
+        quote.motorInspection
+      ) {
+        const inspectionStatus = quote.motorInspection?.status;
+        if (
+          inspectionStatus !== InspectionStatus.COMPLETED &&
+          inspectionStatus !== InspectionStatus.WAIVED
+        ) {
+          throw new ConflictException(
+            `Policy issuance blocked: Mandatory vehicle inspection is in '${inspectionStatus || 'PENDING'}' status. Inspection must be COMPLETED or WAIVED before policy can be issued.`,
+          );
+        }
+      }
+
+      // ─── Numbering & Authoritative Premium ─────────────────────────────────
       const policyNumber =
         dto.actualPolicyNumber?.trim() ||
-        `POL-${new Date().getFullYear()}-${Math.floor(100000 + Math.random() * 900000)}`;
-      const actualPremium =
-        dto.actualPremium !== undefined && dto.actualPremium !== null
-          ? dto.actualPremium
-          : Number(quote.totalPremium);
+        (await this.numberingEngine.generateNext('POLICY', tx));
+
+      // Authoritative financial value from server calculation — client overrides strictly ignored
+      const actualPremium = quote.totalPremium;
 
       const snapshot = (quote.calculationSnapshot as Record<string, any>) || {};
       const inputs = snapshot.inputs || {};
@@ -113,7 +153,7 @@ export class MotorPolicyIssuanceService {
           ? quote.registrationNumber.toUpperCase().replace(/[\s\-\.]/g, '')
           : undefined;
 
-      // Handle vehicle details & missing information
+      // Handle vehicle details & vehicle code generation
       let vehicleId = quote.vehicleId;
       if (vehicleId) {
         if (
@@ -139,7 +179,7 @@ export class MotorPolicyIssuanceService {
         dto.engineNumber ||
         normalizedReg
       ) {
-        const vehicleCode = `VEH-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
+        const vehicleCode = await this.numberingEngine.generateNext('VEHICLE', tx);
         const createdVehicle = await tx.vehicle.create({
           data: {
             vehicleCode,
@@ -163,48 +203,53 @@ export class MotorPolicyIssuanceService {
         });
       }
 
-      // EPIC-22: Idempotency Check — if a policy with this policyNumber was already issued,
-      // return it idempotently without re-executing mutations.
-      const existingPolicyByNumber = await tx.policy.findFirst({
-        where: { policyNumber },
-      });
-      if (existingPolicyByNumber) {
-        return existingPolicyByNumber;
+      // ─── Create Policy with Concurrency Handling (P2002 -> 409) ───────────
+      let policy: any;
+      try {
+        policy = await tx.policy.create({
+          data: {
+            companyId: quote.companyId,
+            policyNumber,
+            actualPolicyNumber: policyNumber,
+            quotationId: quote.id,
+            contactId: quote.contactId,
+            accountId: quote.accountId || undefined,
+            status: 'ACTIVE',
+            premiumAmount: quote.totalPremium,
+            effectiveDate: startDate,
+            expiryDate: effectiveExpiry,
+            policyTenure: tenure,
+            issueDate: new Date(),
+            startDate,
+            endDate,
+            odStartDate: odStart,
+            odExpiryDate: odExpiry,
+            tpStartDate: tpStart,
+            tpExpiryDate: tpExpiry,
+            actualPremium,
+            paymentStatus: 'SUCCESS',
+            vehicleId: vehicleId || quote.vehicleId || undefined,
+            vehicleCategory: quote.vehicleCategory || undefined,
+            policyType: policyType || undefined,
+            motorMetadata: quote.motorMetadata || undefined,
+            activeTpInsurer: quote.activeTpInsurer || undefined,
+            activeTpPolicyNumber: quote.activeTpPolicyNumber || undefined,
+            activeTpExpiryDate: quote.activeTpExpiryDate || undefined,
+            createdById: actorId,
+            updatedById: actorId,
+          },
+        });
+      } catch (err: any) {
+        if (
+          err instanceof Prisma.PrismaClientKnownRequestError &&
+          err.code === 'P2002'
+        ) {
+          throw new ConflictException(
+            `Policy already issued for quotation ${quote.id} or policy number collision: ${policyNumber}`,
+          );
+        }
+        throw err;
       }
-
-      const policy = await tx.policy.create({
-        data: {
-          companyId: quote.companyId,
-          policyNumber,
-          actualPolicyNumber: policyNumber,
-          quotationId: quote.id,
-          contactId: quote.contactId,
-          accountId: quote.accountId || undefined,
-          status: 'ACTIVE',
-          premiumAmount: quote.totalPremium,
-          effectiveDate: startDate,
-          expiryDate: effectiveExpiry,
-          policyTenure: tenure,
-          issueDate: new Date(),
-          startDate,
-          endDate,
-          odStartDate: odStart,
-          odExpiryDate: odExpiry,
-          tpStartDate: tpStart,
-          tpExpiryDate: tpExpiry,
-          actualPremium,
-          paymentStatus: 'SUCCESS',
-          vehicleId: vehicleId || quote.vehicleId || undefined,
-          vehicleCategory: quote.vehicleCategory || undefined,
-          policyType: policyType || undefined,
-          motorMetadata: quote.motorMetadata || undefined,
-          activeTpInsurer: quote.activeTpInsurer || undefined,
-          activeTpPolicyNumber: quote.activeTpPolicyNumber || undefined,
-          activeTpExpiryDate: quote.activeTpExpiryDate || undefined,
-          createdById: actorId,
-          updatedById: actorId,
-        },
-      });
 
       if (dto.nomineeName?.trim()) {
         const parts = dto.nomineeName.trim().split(' ');
@@ -273,19 +318,34 @@ export class MotorPolicyIssuanceService {
         });
       }
 
-      // Schedule renewal reminder 30 days BEFORE expiry (not on expiry day)
-      const renewalDueDate = new Date(effectiveExpiry);
-      renewalDueDate.setDate(renewalDueDate.getDate() - 30);
+      // ─── Durable Renewal Scheduling (Offsets: 45, 30, 15, 7, 0 days) ──────
+      const renewalOffsets = [45, 30, 15, 7, 0];
+      const renewalCycle = effectiveExpiry.getFullYear();
 
-      await tx.renewalTask.create({
-        data: {
-          policyId: policy.id,
-          agentId: quote.lead?.assignedToId || actorId,
-          dueDate: renewalDueDate,
-          status: 'PENDING',
-          priority: 'HIGH',
-        },
-      });
+      for (const offset of renewalOffsets) {
+        const scheduledFor = new Date(effectiveExpiry);
+        scheduledFor.setDate(scheduledFor.getDate() - offset);
+
+        await tx.renewalJob.upsert({
+          where: {
+            policyId_renewalCycle_offsetDays: {
+              policyId: policy.id,
+              renewalCycle,
+              offsetDays: offset,
+            },
+          },
+          create: {
+            policyId: policy.id,
+            renewalCycle,
+            offsetDays: offset,
+            scheduledFor,
+            status: 'PENDING',
+          },
+          update: {
+            scheduledFor,
+          },
+        });
+      }
 
       await tx.auditLog.create({
         data: {
@@ -304,9 +364,11 @@ export class MotorPolicyIssuanceService {
         },
       });
 
-      // EPIC-22: Transactional Outbox event for downstream integrations
-      await tx.outboxEvent.create({
-        data: {
+      // ─── Transactional Outbox event for downstream integrations ───────────
+      await tx.outboxEvent.upsert({
+        where: { eventKey: `policy.issued:${policy.id}` },
+        create: {
+          eventKey: `policy.issued:${policy.id}`,
           aggregateType: 'POLICY',
           aggregateId: policy.id,
           eventType: 'policy.issued',
@@ -322,6 +384,7 @@ export class MotorPolicyIssuanceService {
           attempts: 0,
           maxAttempts: 5,
         },
+        update: {},
       });
 
       return policy;

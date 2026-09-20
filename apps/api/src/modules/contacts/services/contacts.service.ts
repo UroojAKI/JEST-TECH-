@@ -103,7 +103,20 @@ export class ContactsService {
 
     if (creator) {
       targetBranchId = creator.branchId || null;
-      targetCompanyId = creator.branch?.zone?.region?.companyId || null;
+      targetCompanyId =
+        creator.companyId || creator.branch?.zone?.region?.companyId || null;
+    }
+    if (!targetCompanyId && actor?.companyId) {
+      targetCompanyId = actor.companyId;
+    }
+    if (!targetCompanyId) {
+      const fallbackCompany = await this.prisma.company.findFirst();
+      if (!fallbackCompany) {
+        throw new BadRequestException(
+          'Mandatory company context is required to create a contact.',
+        );
+      }
+      targetCompanyId = fallbackCompany.id;
     }
 
     // Privileged administrator branch assignment
@@ -171,6 +184,7 @@ export class ContactsService {
     const { accountId, agentId, assignedAgentId, agentCode, ...restDto } = dto;
     const contactData: Prisma.ContactCreateInput = {
       contactCode,
+      company: { connect: { id: targetCompanyId } },
       agentCode: authoritativeAgentCode,
       type: restDto.type,
       firstName: restDto.firstName,
@@ -194,8 +208,6 @@ export class ContactsService {
     };
     if (targetBranchId)
       contactData.branch = { connect: { id: targetBranchId } };
-    if (targetCompanyId)
-      contactData.company = { connect: { id: targetCompanyId } };
     if (accountId) contactData.account = { connect: { id: accountId } };
     return ContactMapper.toResponse(
       await this.contactRepository.create(contactData),

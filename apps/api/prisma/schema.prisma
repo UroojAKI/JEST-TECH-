@@ -332,8 +332,10 @@ model User {
 
   role Role? @relation(fields: [roleId], references: [id])
 
-  companyId String?
-  company   Company? @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Restrict)
+
+  inspectionsWaived MotorInspection[] @relation("InspectionWaivedBy")
 
   jobRoleId String?
   jobRole   JobRole? @relation(fields: [jobRoleId], references: [id])
@@ -581,8 +583,8 @@ model Contact {
   branchId String?
   branch   Branch? @relation(fields: [branchId], references: [id], onDelete: SetNull)
 
-  companyId String?
-  company   Company? @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Restrict)
 
   leads Lead[]
 
@@ -1030,8 +1032,11 @@ enum InspectionStatus {
   REQUIRED
   PENDING
   IN_PROGRESS
+  SUBMITTED_FOR_REVIEW
   COMPLETED
   REJECTED
+  WAIVED
+  EXPIRED
 }
 
 enum InspectionConductedBy {
@@ -2818,6 +2823,7 @@ model Company {
   claims                 Claim[]                 @relation("CompanyClaims")
   customerAgentHistories CustomerAgentHistory[] @relation("CompanyAgentHistories")
   backOfficeTasks        BackOfficeTask[]        @relation("CompanyBackOfficeTasks")
+  motorInspections       MotorInspection[]       @relation("CompanyMotorInspections")
 
   @@index([taxId])
 }
@@ -3855,6 +3861,10 @@ model MotorRuleEvaluation {
 model MotorInspection {
   id             String    @id @default(uuid())
   inspectionCode String    @unique
+
+  companyId      String
+  company        Company   @relation("CompanyMotorInspections", fields: [companyId], references: [id], onDelete: Restrict)
+
   quotationId    String    @unique
   quotation      Quotation @relation(fields: [quotationId], references: [id])
 
@@ -3876,6 +3886,12 @@ model MotorInspection {
   rejectedAt      DateTime?
   rejectionReason String?
 
+  // Waiver persistence
+  waivedById     String?
+  waivedBy       User?            @relation("InspectionWaivedBy", fields: [waivedById], references: [id], onDelete: SetNull)
+  waivedAt       DateTime?
+  waiverReason   String?
+
   // 7 photo evidence slots — each is a storage key/URL
   frontImageKey      String?
   backImageKey       String?
@@ -3893,9 +3909,29 @@ model MotorInspection {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
+  history     MotorInspectionHistory[]
+
+  @@index([companyId])
+  @@index([companyId, status])
   @@index([quotationId])
   @@index([status])
   @@map("motor_inspections")
+}
+
+model MotorInspectionHistory {
+  id           String           @id @default(uuid())
+  inspectionId String
+  inspection   MotorInspection  @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+  fromStatus   InspectionStatus
+  toStatus     InspectionStatus
+  action       String
+  actorId      String
+  actorRole    String
+  reason       String?
+  createdAt    DateTime         @default(now())
+
+  @@index([inspectionId])
+  @@map("motor_inspection_histories")
 }
 
 model MotorPaymentRecord {
@@ -3967,6 +4003,7 @@ enum OutboxStatus {
 
 model OutboxEvent {
   id             String       @id @default(uuid())
+  eventKey       String?      @unique
   aggregateType  String
   aggregateId    String
   eventType      String

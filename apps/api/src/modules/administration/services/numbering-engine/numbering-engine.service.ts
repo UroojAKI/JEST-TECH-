@@ -1,20 +1,23 @@
 import { Injectable, InternalServerErrorException } from '@nestjs/common';
 import { PrismaService } from '../../../../database/prisma.service';
+import { Prisma } from '@prisma/client';
 
 @Injectable()
 export class NumberingEngineService {
   constructor(private readonly prisma: PrismaService) {}
 
   /**
-   * Generates the next number for a given entity type (e.g. POLICY, CLAIM)
+   * Generates the next number for a given entity type (e.g. POLICY, CLAIM, INSPECTION, VEHICLE)
    * Uses an atomic update to guarantee no duplicates even under concurrent load.
+   * Supports an optional transaction client `tx` so sequence increment is part of the caller's transaction.
    */
-  async generateNext(entityType: string): Promise<string> {
+  async generateNext(entityType: string, tx?: Prisma.TransactionClient): Promise<string> {
+    const client = tx || this.prisma;
     const now = new Date();
     const year = now.getFullYear();
     const month = now.getMonth() + 1; // 1-12
 
-    let formatConfig = await this.prisma.numberingFormat.findUnique({
+    let formatConfig = await client.numberingFormat.findUnique({
       where: { entityType },
     });
 
@@ -63,6 +66,11 @@ export class NumberingEngineService {
           format: '{PREFIX}-{YYYY}-{MM}-{SEQUENCE}',
           padding: 6,
         },
+        VEHICLE: {
+          prefix: 'VEH',
+          format: '{PREFIX}-{YYYY}-{MM}-{SEQUENCE}',
+          padding: 6,
+        },
       };
 
       const defaultCfg = DEFAULT_FORMATS[entityType.toUpperCase()] || {
@@ -71,7 +79,7 @@ export class NumberingEngineService {
         padding: 6,
       };
 
-      formatConfig = await this.prisma.numberingFormat.upsert({
+      formatConfig = await client.numberingFormat.upsert({
         where: { entityType },
         create: {
           entityType,
@@ -84,7 +92,7 @@ export class NumberingEngineService {
     }
 
     // Atomically increment the sequence or create if it doesn't exist for this month/year
-    const sequenceRecord = await this.prisma.numberingSequence.upsert({
+    const sequenceRecord = await client.numberingSequence.upsert({
       where: {
         entityType_year_month: {
           entityType,
