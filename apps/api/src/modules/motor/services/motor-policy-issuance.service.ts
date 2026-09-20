@@ -77,6 +77,34 @@ export class MotorPolicyIssuanceService {
         );
       }
 
+      const snapshot = (quote.calculationSnapshot as Record<string, any>) || {};
+      if (!snapshot.calculationVersion) {
+        throw new ConflictException(
+          'Authoritative calculationVersion is required and must be valid before issuance',
+        );
+      }
+      if (!snapshot.rateConfigurationVersion) {
+        throw new ConflictException(
+          'Authoritative rateConfigurationVersion is required and must be valid before issuance',
+        );
+      }
+      if (snapshot.totalPremium !== undefined) {
+        const snapTotal = new Prisma.Decimal(snapshot.totalPremium);
+        const quoteTotal = new Prisma.Decimal(quote.totalPremium);
+        if (!snapTotal.equals(quoteTotal)) {
+          throw new ConflictException(
+            `Quotation total (${quoteTotal}) does not match authoritative calculation snapshot total (${snapTotal})`,
+          );
+        }
+      }
+      const metadata = (quote.motorMetadata as Record<string, any>) || {};
+      const quoteInputHash = (quote as any).inputHash || metadata.inputHash;
+      if (snapshot.inputHash && quoteInputHash && snapshot.inputHash !== quoteInputHash) {
+        throw new ConflictException(
+          'Quotation inputHash does not match snapshot inputHash. Calculation is stale.',
+        );
+      }
+
       // ─── Inside-Transaction Gating Checks ──────────────────────────────────
       // 1. Canonical Payment Gate: Re-verify payment record inside transaction
       const paymentRecord = await tx.motorPaymentRecord.findUnique({
@@ -96,7 +124,6 @@ export class MotorPolicyIssuanceService {
       }
 
       // 2. Inspection Gate: If quotation required inspection, verify COMPLETED or WAIVED
-      const metadata = (quote.motorMetadata as Record<string, any>) || {};
       if (
         metadata.inspectionRequired ||
         quote.motorInspection
@@ -120,7 +147,6 @@ export class MotorPolicyIssuanceService {
       // Authoritative financial value from server calculation — client overrides strictly ignored
       const actualPremium = quote.totalPremium;
 
-      const snapshot = (quote.calculationSnapshot as Record<string, any>) || {};
       const inputs = snapshot.inputs || {};
       const policyType = quote.policyType || inputs.policyType;
       const tenure = Number(inputs.tpTenure || quote.policyTenure || 1);

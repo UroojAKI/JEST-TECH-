@@ -6,6 +6,7 @@ import { LookupController } from './controllers/lookup/lookup.controller';
 import { NumberingEngineService } from './services/numbering-engine/numbering-engine.service';
 import { OrganizationService } from './services/organization/organization.service';
 import { OrganizationController } from './controllers/organization/organization.controller';
+import { RolesController } from './controllers/organization/roles.controller';
 
 import { DatabaseModule } from '../../database/database.module';
 
@@ -21,6 +22,7 @@ import { DatabaseModule } from '../../database/database.module';
     SystemConfigController,
     LookupController,
     OrganizationController,
+    RolesController,
   ],
   exports: [
     SystemConfigService,

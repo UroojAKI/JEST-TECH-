@@ -374,19 +374,25 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, initialCategory, c
 
   const getTotalPremium = () => {
     const pd = getPolicyDetails() as any;
-    return parseFloat(pd.totalPremiumInclGST || '0') || 0;
+    return (
+      parseFloat(pd.calculatedResult?.outputs?.totalPremium || pd.totalPremiumInclGST || '0') || 0
+    );
   };
 
   const getNetPayable = () => {
     const pd = getPolicyDetails() as any;
-    return parseFloat(pd.finalPayableAmount || '0') || 0;
+    return (
+      parseFloat(pd.calculatedResult?.outputs?.finalPayableAmount || pd.finalPayableAmount || '0') || 0
+    );
   };
 
   const getGst = () => {
     const pd = getPolicyDetails() as any;
-    // Fallback to original calculated GST if finalGstAmount is not set
-    if (pd.finalGstAmount) return parseFloat(pd.finalGstAmount);
-    return parseFloat(pd.calculatedResult?.outputs?.totalGst || '0') || 0;
+    if (pd.calculatedResult?.outputs?.totalGst !== undefined) {
+      return parseFloat(pd.calculatedResult.outputs.totalGst) || 0;
+    }
+    if (pd.finalGstAmount) return parseFloat(pd.finalGstAmount) || 0;
+    return 0;
   };
 
   const getIDV = () => {
@@ -417,6 +423,8 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, initialCategory, c
 
     setIsSaving(true);
     try {
+      const calcResult = pDetails.calculatedResult || {};
+      const outputs = calcResult.outputs || {};
       const payload = {
         vehicleCategory,
         policyType,
@@ -425,7 +433,15 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, initialCategory, c
         leadId: leadId || undefined,
         contactId: contactId || undefined,
         agentId: selectedAgentId || undefined,
-        totalPremium: getNetPayable() > 0 ? getNetPayable() : getTotalPremium(),
+        basePremium: outputs.basePremium ?? outputs.netOdPremium ?? outputs.netTpPremium,
+        discountAmount: outputs.discountAmount ?? outputs.ncbDiscountAmount,
+        gstAmount: outputs.totalGst ?? getGst(),
+        totalPremium: outputs.finalPayableAmount ?? outputs.totalPremium ?? (getNetPayable() > 0 ? getNetPayable() : getTotalPremium()),
+        calculationVersion: calcResult.calculationVersion || '1.0',
+        rateConfigurationVersion: calcResult.rateConfigurationVersion || '1.0',
+        snapshotId: calcResult.snapshotId,
+        inputHash: calcResult.inputHash,
+        calculationSnapshot: calcResult,
         idv: getIDV(),
         ncbPercentage: getNCB(),
         proposerDetails: proposer,

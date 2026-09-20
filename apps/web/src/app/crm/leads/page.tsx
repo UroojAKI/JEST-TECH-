@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../../../lib/api-client';
 import { toast } from 'sonner';
@@ -27,7 +27,15 @@ export default function LeadsPipelinePage() {
   const queryClient = useQueryClient();
   const [showModal, setShowModal] = useState(false);
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [search]);
 
   // Queries
   const { data: kpis } = useQuery({
@@ -38,10 +46,13 @@ export default function LeadsPipelinePage() {
     },
   });
 
-  const { data: leads = [], isLoading, isError, refetch } = useQuery({
-    queryKey: ['leads-pipeline-list'],
+  const { data: leadsData, isLoading, isError, refetch } = useQuery({
+    queryKey: ['leads-pipeline-list', debouncedSearch, statusFilter],
     queryFn: async () => {
-      const res = await apiClient.get('/leads');
+      const params: Record<string, any> = {};
+      if (debouncedSearch) params.search = debouncedSearch;
+      if (statusFilter && statusFilter !== 'ALL') params.status = statusFilter;
+      const res = await apiClient.get('/leads', { params });
       return res.data || [];
     },
   });
@@ -62,15 +73,9 @@ export default function LeadsPipelinePage() {
     },
   });
 
-  const leadsList = Array.isArray(leads) ? leads : ((leads as any)?.items || (leads as any)?.data || []);
-  const filteredLeads = leadsList.filter((l: any) => {
-    const matchesSearch =
-      (l.title || '').toLowerCase().includes(search.toLowerCase()) ||
-      (l.leadCode || '').toLowerCase().includes(search.toLowerCase()) ||
-      (l.contact?.firstName || '').toLowerCase().includes(search.toLowerCase());
-    const matchesStatus = statusFilter === 'ALL' || (l.status || 'NEW') === statusFilter;
-    return matchesSearch && matchesStatus;
-  });
+  const leadsList = Array.isArray(leadsData) ? leadsData : ((leadsData as any)?.items || (leadsData as any)?.data || []);
+  const totalLeadsCount = (leadsData as any)?.meta?.total ?? (leadsData as any)?.total ?? leadsList.length;
+  const filteredLeads = leadsList;
 
 
   return (
@@ -104,7 +109,7 @@ export default function LeadsPipelinePage() {
         <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3 text-xs">
           <div className="p-3.5 rounded-2xl border bg-card text-card-foreground shadow-xs">
             <div className="text-[10px] font-bold text-muted-foreground uppercase">Total Leads</div>
-            <div className="text-lg font-black text-foreground mt-1">{kpis?.totalLeads ?? 0}</div>
+            <div className="text-lg font-black text-foreground mt-1">{totalLeadsCount || kpis?.totalLeads || 0}</div>
             <div className="text-[9px] text-muted-foreground">Active Pipeline</div>
           </div>
 

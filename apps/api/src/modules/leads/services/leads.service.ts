@@ -194,13 +194,23 @@ export class LeadsService {
           OR: [
             { title: { contains: search, mode: 'insensitive' } },
             { description: { contains: search, mode: 'insensitive' } },
+            { leadCode: { contains: search, mode: 'insensitive' } },
+            { contact: { firstName: { contains: search, mode: 'insensitive' } } },
+            { contact: { lastName: { contains: search, mode: 'insensitive' } } },
+            { contact: { phone: { contains: search, mode: 'insensitive' } } },
           ],
         }
       : {};
 
+    const statusWhere: Prisma.LeadWhereInput =
+      pagination.status && pagination.status !== 'ALL'
+        ? { status: pagination.status as any }
+        : {};
+
     const where: Prisma.LeadWhereInput = {
       ...scopedFilter,
       ...searchWhere,
+      ...statusWhere,
     };
 
     const [leads, total] = await Promise.all([

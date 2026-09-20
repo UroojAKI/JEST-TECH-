@@ -19,14 +19,34 @@ const orgScope = (
 
   switch (resourceType) {
     case 'LEAD':
-    case 'QUOTATION':
-    case 'POLICY':
-    case 'CLAIM':
       return {
         OR: [
           { companyId },
           { createdBy: userFilter },
           { assignedTo: userFilter },
+        ],
+      };
+    case 'QUOTATION':
+      return {
+        OR: [
+          { companyId },
+          { createdBy: userFilter },
+          { lead: { assignedTo: userFilter } },
+        ],
+      };
+    case 'POLICY':
+      return {
+        OR: [
+          { companyId },
+          { createdBy: userFilter },
+        ],
+      };
+    case 'CLAIM':
+      return {
+        OR: [
+          { companyId },
+          { createdBy: userFilter },
+          { policy: { createdBy: userFilter } },
         ],
       };
     case 'CUSTOMER':
@@ -124,7 +144,7 @@ export class ScopeResolver {
     actor: ActorContext,
     resourceType: ResourceType,
   ): Record<string, any> {
-    if (!actor?.userId || !actor.organizationId) {
+    if (!actor?.userId || (!actor.organizationId && !actor.companyId)) {
       return { id: '__UNAUTHORIZED_ACCESS_BLOCKED__' };
     }
 

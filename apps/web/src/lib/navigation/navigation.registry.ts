@@ -152,7 +152,7 @@ export const ADMIN_NAVIGATION: NavigationItem[] = [
     icon: 'BarChart3',
     children: [
       { id: 'adm-reports-overview', title: 'Performance Reports', href: '/reports' },
-      { id: 'adm-builder', title: 'Report Builder', href: '/dashboard/reports/builder' },
+      { id: 'adm-builder', title: 'Report Builder', href: '/reports/builder' },
       { id: 'adm-health', title: 'System Health', href: '/admin/health' },
     ],
   },

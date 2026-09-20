@@ -24,7 +24,7 @@ export default function AgentDownloadsPage() {
     },
   });
 
-  const files = data?.data || [];
+  const files: VaultDocument[] = Array.isArray(data) ? data : ((data as any)?.data || (data as any)?.items || []);
 
   return (
     <AppShell>
@@ -45,7 +45,7 @@ export default function AgentDownloadsPage() {
             No downloadable documents available in your vault.
           </div>
         ) : (
-          files.map((file) => (
+          files.map((file: VaultDocument) => (
             <div key={file.id} className="p-4 rounded-xl border bg-card shadow-sm flex items-center justify-between">
               <div className="flex items-center space-x-3">
                 <FileText className="h-5 w-5 text-primary" />

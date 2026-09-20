@@ -5,11 +5,13 @@ import {
   HttpCode,
   HttpStatus,
   Param,
+  Patch,
   Post,
   Query,
   UseGuards,
   ParseUUIDPipe,
   BadRequestException,
+  NotFoundException,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags, ApiOperation } from '@nestjs/swagger';
 import { RoleType } from '@prisma/client';
@@ -21,6 +23,7 @@ import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import type { RequestUser } from '../../auth/decorators/current-user.decorator';
 import { PaginationDto } from '../../../common/pagination/pagination.dto';
 import { CreatePolicyDto } from '../dto/create-policy.dto';
+import { UpdatePolicyDto } from '../dto/update-policy.dto';
 import { RenewPolicyDto } from '../dto/renew-policy.dto';
 import { CancelPolicyService } from '../services/commands/cancel-policy.service';
 import { RenewPolicyService } from '../services/commands/renew-policy.service';
@@ -31,6 +34,9 @@ import { RenewalEngineService } from '../services/renewal-engine.service';
 import { RenewalSchedulerCron } from '../crons/renewal-scheduler.cron';
 import { IssuePolicyService } from '../services/commands/issue-policy.service';
 import { BackOfficeQueueService } from '../services/queries/back-office-queue.service';
+import { PolicyRepository } from '../repositories/policy.repository';
+import { ResourceAuthorizationService } from '../../../common/services/resource-authorization.service';
+import { PolicyMapper } from '../mappers/policy.mapper';
 
 @ApiTags('Policies & Renewal Engine')
 @ApiBearerAuth()
@@ -47,6 +53,8 @@ export class PoliciesController {
     private readonly renewalSchedulerCron: RenewalSchedulerCron,
     private readonly issuePolicyService: IssuePolicyService,
     private readonly backOfficeQueueService: BackOfficeQueueService,
+    private readonly policyRepository: PolicyRepository,
+    private readonly authzService: ResourceAuthorizationService,
   ) {}
 
   @Post('issue')
@@ -321,6 +329,23 @@ export class PoliciesController {
   @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT)
   findOne(@Param('id') id: string, @CurrentUser() user: RequestUser) {
     return this.getPolicyService.executeOne(id, user);
+  }
+
+  @Patch(':id')
+  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE)
+  @ApiOperation({ summary: 'Update policy editable metadata and contact notes' })
+  async update(
+    @Param('id') id: string,
+    @Body() dto: UpdatePolicyDto,
+    @CurrentUser() user: RequestUser,
+  ) {
+    const policy = await this.policyRepository.findDetail(id);
+    if (!policy || policy.deletedAt) {
+      throw new NotFoundException(`Policy with ID ${id} not found`);
+    }
+    this.authzService.authorize(user, 'POLICY', 'UPDATE', policy);
+    const updated = await this.policyRepository.update(id, dto as any, undefined, dto.version);
+    return PolicyMapper.toResponse(updated);
   }
 
   @Get(':id/history')

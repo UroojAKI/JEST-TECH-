@@ -3,6 +3,7 @@ import {
   Controller,
   Get,
   Param,
+  Patch,
   Post,
   UseGuards,
   HttpCode,
@@ -10,9 +11,10 @@ import {
   Query,
   ParseUUIDPipe,
   BadRequestException,
+  NotFoundException,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
-import { RoleType } from '@prisma/client';
+import { ApiBearerAuth, ApiTags, ApiOperation } from '@nestjs/swagger';
+import { RoleType, Prisma } from '@prisma/client';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
 import { Roles } from '../../auth/decorators/roles.decorator';
@@ -22,6 +24,7 @@ import { PaginationDto } from '../../../common/pagination/pagination.dto';
 
 import { ReportClaimDto } from '../dto/report-claim.dto';
 import { AssignSurveyorDto } from '../dto/assign-surveyor.dto';
+import { UpdateClaimDto } from '../dto/update-claim.dto';
 
 import { ReportClaimService } from '../services/commands/report-claim.service';
 import { UploadClaimDocumentService } from '../services/commands/upload-claim-document.service';
@@ -40,6 +43,9 @@ import {
   RejectClaimDto,
 } from '../services/commands/reject-claim.service';
 import { GetClaimsService } from '../services/queries/get-claims.service';
+import { ClaimRepository } from '../repositories/claim.repository';
+import { ResourceAuthorizationService } from '../../../common/services/resource-authorization.service';
+import { ClaimMapper } from '../mappers/claim.mapper';
 
 @ApiTags('Claims')
 @ApiBearerAuth()
@@ -55,6 +61,8 @@ export class ClaimsController {
     private readonly rejectClaimService: RejectClaimService,
     private readonly closeClaimService: CloseClaimService,
     private readonly getClaimsService: GetClaimsService,
+    private readonly claimRepository: ClaimRepository,
+    private readonly authzService: ResourceAuthorizationService,
   ) {}
 
   @Post('report')
@@ -85,6 +93,29 @@ export class ClaimsController {
     @CurrentUser() user: RequestUser,
   ) {
     return this.getClaimsService.executeOne(id, user);
+  }
+
+  @Patch(':id')
+  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE)
+  @ApiOperation({ summary: 'Update claim surveyor details and approved amount' })
+  async update(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateClaimDto,
+    @CurrentUser() user: RequestUser,
+  ) {
+    const claim = await this.claimRepository.findById(id);
+    if (!claim || (claim as any).deletedAt) {
+      throw new NotFoundException(`Claim with ID ${id} not found`);
+    }
+    this.authzService.authorize(user, 'CLAIM', 'UPDATE', claim);
+    const data: any = {
+      ...(dto.surveyorName !== undefined ? { surveyorName: dto.surveyorName } : {}),
+      ...(dto.surveyorDetails !== undefined ? { surveyorDetails: dto.surveyorDetails } : {}),
+      ...(dto.approvedAmount !== undefined ? { approvedAmount: new Prisma.Decimal(dto.approvedAmount) } : {}),
+      updatedById: user.id,
+    };
+    const updated = await this.claimRepository.update(id, data);
+    return ClaimMapper.toResponse(updated);
   }
 
   @Post(':id/documents')
