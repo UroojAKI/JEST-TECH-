@@ -189,7 +189,8 @@ export class LeadWorkflowService {
     const isSalesAgent =
       user.role === 'SALES_AGENT' ||
       user.role === 'SALES_EXECUTIVE' ||
-      user.role === 'POSP_ADVISOR';
+      user.role === 'POSP_ADVISOR' ||
+      user.role === 'AGENT';
     const isManagerOrAdmin =
       user.role === 'BRANCH_MANAGER' ||
       user.role === 'TEAM_LEADER' ||
@@ -198,12 +199,13 @@ export class LeadWorkflowService {
       user.role === 'SYSTEM_ADMINISTRATOR' ||
       user.role === 'MD_CEO' ||
       user.role === 'SALES_MANAGER' ||
-      user.role === 'MARKETING_DIRECTOR';
+      user.role === 'MARKETING_DIRECTOR' ||
+      user.role === 'BACK_OFFICE';
 
     let isOverride = false;
 
     // 1. Role Transition Matrix Check
-    if (isSalesAgent) {
+    if (isSalesAgent && !isManagerOrAdmin) {
       if (targetIndex !== currentIndex + 1) {
         throw new ForbiddenException(
           `Sales Executives can only move sequentially to the immediate next step (${
@@ -212,7 +214,7 @@ export class LeadWorkflowService {
         );
       }
     } else if (isManagerOrAdmin) {
-      if (targetIndex !== currentIndex + 1 || overrideReason) {
+      if (targetIndex !== currentIndex + 1 || (overrideReason && overrideReason.trim().length >= 5)) {
         isOverride = true;
         if (
           targetIndex !== currentIndex + 1 &&
@@ -228,8 +230,11 @@ export class LeadWorkflowService {
     // 2. Validate Prerequisites
     const prereqs = await this.validateStagePrerequisites(leadId, targetStage);
     if (!prereqs.isMet && !isOverride) {
+      const hint = isManagerOrAdmin
+        ? ' A Manager/Admin override reason (minimum 5 characters) is required to bypass prerequisites.'
+        : ' Complete the required activities before advancing, or request a Manager override.';
       throw new BadRequestException(
-        `Stage prerequisites not met: ${prereqs.missingRules.join('; ')}`,
+        `Stage prerequisites not met: ${prereqs.missingRules.join('; ')}.${hint}`,
       );
     }
 

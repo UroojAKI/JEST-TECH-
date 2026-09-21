@@ -424,20 +424,32 @@ function DocumentsListView({
 }
 
 function NotesView({ customerId }: { customerId: string }) {
-  const [notes, setNotes] = useState<Array<{ id: string; text: string; date: string; author: string }>>([
-    {
-      id: 'init-1',
-      text: 'Customer profile validated during KYC intake. Preferred communication via WhatsApp.',
-      date: new Date().toLocaleDateString('en-IN'),
-      author: 'Operations Executive',
-    },
-  ]);
+  const storageKey = `customer_notes_${customerId}`;
+
+  const [notes, setNotes] = useState<Array<{ id: string; text: string; date: string; author: string }>>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem(storageKey);
+      if (saved) {
+        try {
+          return JSON.parse(saved);
+        } catch (e) {}
+      }
+    }
+    return [
+      {
+        id: 'init-1',
+        text: 'Customer profile validated during KYC intake. Preferred communication via WhatsApp.',
+        date: new Date().toLocaleDateString('en-IN'),
+        author: 'Operations Executive',
+      },
+    ];
+  });
   const [newNote, setNewNote] = useState('');
 
   const handleAddNote = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newNote.trim()) return;
-    setNotes([
+    const updatedNotes = [
       {
         id: `note-${Date.now()}`,
         text: newNote.trim(),
@@ -445,9 +457,13 @@ function NotesView({ customerId }: { customerId: string }) {
         author: 'Current User',
       },
       ...notes,
-    ]);
+    ];
+    setNotes(updatedNotes);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(storageKey, JSON.stringify(updatedNotes));
+    }
     setNewNote('');
-    toast.success('Note added to customer profile');
+    toast.success('Note added to customer profile and persisted');
   };
 
   return (

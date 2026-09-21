@@ -14,6 +14,8 @@ export interface ActorContext {
   lastName: string;
   organizationId: string;
   companyId: string;
+  agentId?: string;
+  agentCode?: string;
   branchId?: string;
   branchCode?: string;
   departmentId?: string;

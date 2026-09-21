@@ -4,11 +4,13 @@ import React from 'react';
 import Link from 'next/link';
 import { useAuthStore } from '../../store/auth-store';
 import { useWorkspace } from '../../hooks/useWorkspace';
+import { useUIStore } from '../../store/ui-store';
 import { Bell, Search, User, LogOut, Shield, Building } from 'lucide-react';
 
 export function WorkspaceHeader() {
   const { user, logout } = useAuthStore();
   const { jobRole, department, workspace } = useWorkspace();
+  const setNotificationDrawerOpen = useUIStore((s) => s.setNotificationDrawerOpen);
 
   return (
     <header className="h-16 border-b bg-card text-card-foreground flex items-center justify-between px-4 sm:px-6 sticky top-0 z-30 shadow-xs">
@@ -45,7 +47,11 @@ export function WorkspaceHeader() {
 
       {/* User Actions & Avatar */}
       <div className="flex items-center space-x-3">
-        <button className="p-2 rounded-lg text-muted-foreground hover:bg-accent relative">
+        <button
+          onClick={() => setNotificationDrawerOpen(true)}
+          className="p-2 rounded-lg text-muted-foreground hover:bg-accent relative"
+          aria-label="Open notifications"
+        >
           <Bell className="h-4 w-4" />
           <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-rose-500 ring-2 ring-card" />
         </button>

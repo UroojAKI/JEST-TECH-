@@ -79,6 +79,12 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
             },
           },
         },
+        agentProfile: {
+          select: {
+            id: true,
+            agentCode: true,
+          },
+        },
         branch: {
           select: {
             code: true,
@@ -143,6 +149,8 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       lastName: user.lastName,
       organizationId: companyId,
       companyId,
+      agentId: user.agentProfile?.id || undefined,
+      agentCode: user.agentProfile?.agentCode || undefined,
       branchId: user.branchId || undefined,
       branchCode: user.branch?.code || undefined,
       departmentId: user.departmentId || undefined,

@@ -2,12 +2,13 @@
 
 import { useState } from 'react';
 import { useAuth } from '../../hooks/useAuth';
-import { Shield, Key, Mail, Sparkles } from 'lucide-react';
+import { Shield, Key, Mail, Sparkles, Eye, EyeOff } from 'lucide-react';
 
 export default function LoginPage() {
   const { login, isLoggingIn, loginError } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -27,7 +28,34 @@ export default function LoginPage() {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-1.5"><label htmlFor="email" className="text-xs font-semibold uppercase text-muted-foreground">Email Address</label><div className="relative"><Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" /><input id="email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="your.email@company.com" className="w-full rounded-lg border bg-background py-2 pl-9 pr-3 text-xs focus:outline-none focus:ring-1 focus:ring-primary" aria-label="Email address" /></div></div>
-          <div className="space-y-1.5"><label htmlFor="password" className="text-xs font-semibold uppercase text-muted-foreground">Password</label><div className="relative"><Key className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" /><input id="password" type="password" required value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" className="w-full rounded-lg border bg-background py-2 pl-9 pr-3 text-xs focus:outline-none focus:ring-1 focus:ring-primary" aria-label="Password" /></div></div>
+          <div className="space-y-1.5">
+            <label htmlFor="password" className="text-xs font-semibold uppercase text-muted-foreground">Password</label>
+            <div className="relative">
+              <Key className="absolute left-3 top-3 h-4 w-4 text-muted-foreground pointer-events-none" />
+              <input
+                id="password"
+                type={showPassword ? 'text' : 'password'}
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
+                className="w-full rounded-lg border bg-background py-2 pl-9 pr-10 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+                aria-label="Password"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors p-0.5 rounded focus:outline-none focus:ring-1 focus:ring-primary"
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
+              >
+                {showPassword ? (
+                  <EyeOff className="h-4 w-4" />
+                ) : (
+                  <Eye className="h-4 w-4" />
+                )}
+              </button>
+            </div>
+          </div>
           <button type="submit" disabled={isLoggingIn} className="w-full rounded-lg bg-primary py-2.5 text-xs font-bold text-primary-foreground shadow hover:bg-primary/90 transition-all disabled:opacity-50 mt-2" aria-label="Sign in">{isLoggingIn ? 'Authenticating...' : 'Sign In'}</button>
         </form>
       </div>

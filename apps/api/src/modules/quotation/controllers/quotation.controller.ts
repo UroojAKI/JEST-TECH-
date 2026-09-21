@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Body,
   Controller,
   Get,
@@ -208,8 +209,16 @@ export class QuotationController {
       capturedAt: new Date().toISOString(),
     };
 
+    const companyId = user.companyId || (user as any).organizationId;
+    if (!companyId) {
+      throw new ForbiddenException(
+        'Tenant organizational context is required to capture quotation',
+      );
+    }
+
     const quotation = await this.prisma.quotation.create({
       data: {
+        companyId,
         quotationCode,
         title: `Motor ${dto.vehicleCategory} — ${dto.policyType} | ${dto.registrationNumber || 'New Vehicle'}`,
         productType: 'MOTOR',
@@ -313,6 +322,7 @@ export class QuotationController {
   }
 
   @Get(':id/completion')
+  @SkipThrottle()
   @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT)
   @ApiOperation({
     summary:

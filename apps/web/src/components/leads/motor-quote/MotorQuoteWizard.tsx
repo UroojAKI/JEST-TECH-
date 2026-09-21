@@ -14,6 +14,8 @@ import { PolicyFormSAODForm } from './PolicyFormSAOD';
 import { PolicyFormPackageForm } from './PolicyFormPackage';
 import { PreviousPolicyForm } from './PreviousPolicyForm';
 import { RuleEngineResult } from './RuleEngineResult';
+import { InspectionDialog } from './InspectionDialog';
+import { AgentSelector } from '../../agents/AgentSelector';
 
 import { INSURER_OPTIONS, CATEGORY_LABEL, POLICY_TYPE_LABEL } from './motorFormConfig';
 import type {
@@ -170,6 +172,9 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, initialCategory, c
   const [packageForm, setPackageForm] = useState<PolicyFormPackage>(emptyPackage());
   
   const [savedQuotationId, setSavedQuotationId] = useState<string | null>(null);
+  const [selectedAgentId, setSelectedAgentId] = useState<string>('');
+  const [selectedAgentCode, setSelectedAgentCode] = useState<string>('');
+  const [showInspectionDialog, setShowInspectionDialog] = useState(false);
   const [isContextLoading, setIsContextLoading] = useState(false);
   const [prefilledFromLeadCode, setPrefilledFromLeadCode] = useState<string | null>(null);
 
@@ -200,6 +205,9 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, initialCategory, c
       setSaodForm(emptySAOD());
       setPackageForm(emptyPackage());
       setSavedQuotationId(null);
+      setSelectedAgentId('');
+      setSelectedAgentCode('');
+      setShowInspectionDialog(false);
       setPrefilledFromLeadCode(null);
 
       // Automatically fetch authoritative Lead Context when leadId is provided
@@ -210,6 +218,9 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, initialCategory, c
           .then((ctx) => {
             if (ctx) {
               setPrefilledFromLeadCode(ctx.leadCode);
+              if ((ctx as any).agentId) {
+                setSelectedAgentId((ctx as any).agentId);
+              }
               setProposer((prev) => ({
                 ...prev,
                 customerName: ctx.contact?.fullName || ctx.title || prev.customerName,
@@ -287,58 +298,41 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, initialCategory, c
   const evaluateRules = async () => {
     setRuleLoading(true);
     try {
-      if (savedQuotationId) {
-        const res = await apiClient.post(`/motor/quotations/${savedQuotationId}/previous-policy`, {
+      let currentQuoteId = savedQuotationId;
+      if (!currentQuoteId) {
+        // Create initial draft quotation so rule evaluation is authoritatively recorded in database
+        const prePayload = {
+          vehicleCategory: vehicleCategory || 'PRIVATE_CAR',
+          policyType: policyType || 'PACKAGE',
+          registrationNumber: registrationNumber || '',
+          insurerName: insurerName || 'Partner Insurer',
+          leadId: leadId || undefined,
+          contactId: contactId || undefined,
+          agentId: selectedAgentId || undefined,
+          totalPremium: getNetPayable() > 0 ? getNetPayable() : (getTotalPremium() || 1000),
+          idv: getIDV(),
+          ncbPercentage: getNCB(),
+          proposerDetails: proposer,
+          vehicleDetails,
+          policyDetails: getPolicyDetails(),
+          status: 'DRAFT',
+        };
+        const preRes = await apiClient.post('/quotations/motor-capture', prePayload);
+        currentQuoteId = preRes.data?.id;
+        setSavedQuotationId(currentQuoteId);
+      }
+
+      if (currentQuoteId) {
+        const res = await apiClient.post(`/motor/quotations/${currentQuoteId}/previous-policy`, {
           ...previousPolicy,
           newPolicyType: policyType || 'PACKAGE',
           newInsurerName: insurerName,
         });
-        setRuleResult(res.data.ruleEvaluation);
-      } else {
-        if (vehicleDetails.vehicleStatus === 'NEW') {
-          setRuleResult({
-            inspectionRequired: false,
-            inspectionReasons: [],
-            ncb: 0,
-            ncbReason: 'NEW_VEHICLE' as any,
-            eligibleNcb: 0,
-            tpVerificationRequired: false,
-            policyTransferRequired: false,
-            saodTpValid: true,
-            missingDocuments: [],
-            nextStep: 'QUOTATION',
-          });
-        } else {
-          const expired90 = previousPolicy.expiredMoreThan90Days;
-          const policyExpired = previousPolicy.policyExpiryDate ? new Date(previousPolicy.policyExpiryDate) < new Date() : false;
-          
-          let inspectionRequired = false;
-          if (policyExpired && !previousPolicy.ownershipTransfer) inspectionRequired = true;
-          if (expired90) inspectionRequired = true;
-          if (previousPolicy.ownershipTransfer && !previousPolicy.previousPolicyTransferred) inspectionRequired = true;
-          if (previousPolicy.ownershipTransfer && previousPolicy.previousPolicyTransferred && policyExpired) inspectionRequired = true;
-          if (policyType === 'SAOD' && previousPolicy.odExpiryDate && new Date(previousPolicy.odExpiryDate) < new Date()) inspectionRequired = true;
-
-          const ncbLocked = previousPolicy.claimInPreviousYear || previousPolicy.ownershipTransfer || expired90;
-          
-          setRuleResult({
-            inspectionRequired,
-            inspectionReasons: inspectionRequired ? ['SYSTEM_EVALUATED' as any] : [],
-            ncb: ncbLocked ? 0 : previousPolicy.eligibleNcbPercentage,
-            ncbReason: previousPolicy.claimInPreviousYear ? 'CLAIM_IN_PREVIOUS_YEAR'
-              : previousPolicy.ownershipTransfer ? 'OWNERSHIP_TRANSFER'
-              : expired90 ? 'POLICY_EXPIRED_MORE_THAN_90_DAYS' : 'ELIGIBLE',
-            eligibleNcb: previousPolicy.eligibleNcbPercentage,
-            tpVerificationRequired: policyType === 'SAOD',
-            policyTransferRequired: previousPolicy.ownershipTransfer,
-            saodTpValid: true,
-            missingDocuments: [],
-            nextStep: inspectionRequired ? 'INSPECTION' : 'QUOTATION',
-          });
-        }
+        setRuleResult(res.data?.ruleEvaluation || res.data);
       }
-    } catch (e) {
+    } catch (e: any) {
       console.error('Rule engine API error:', e);
+      toast.error(e?.response?.data?.message || 'Failed to evaluate underwriting rules on server.');
     } finally {
       setRuleLoading(false);
     }
@@ -380,19 +374,25 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, initialCategory, c
 
   const getTotalPremium = () => {
     const pd = getPolicyDetails() as any;
-    return parseFloat(pd.totalPremiumInclGST || '0') || 0;
+    return (
+      parseFloat(pd.calculatedResult?.outputs?.totalPremium || pd.totalPremiumInclGST || '0') || 0
+    );
   };
 
   const getNetPayable = () => {
     const pd = getPolicyDetails() as any;
-    return parseFloat(pd.finalPayableAmount || '0') || 0;
+    return (
+      parseFloat(pd.calculatedResult?.outputs?.finalPayableAmount || pd.finalPayableAmount || '0') || 0
+    );
   };
 
   const getGst = () => {
     const pd = getPolicyDetails() as any;
-    // Fallback to original calculated GST if finalGstAmount is not set
-    if (pd.finalGstAmount) return parseFloat(pd.finalGstAmount);
-    return parseFloat(pd.calculatedResult?.outputs?.totalGst || '0') || 0;
+    if (pd.calculatedResult?.outputs?.totalGst !== undefined) {
+      return parseFloat(pd.calculatedResult.outputs.totalGst) || 0;
+    }
+    if (pd.finalGstAmount) return parseFloat(pd.finalGstAmount) || 0;
+    return 0;
   };
 
   const getIDV = () => {
@@ -423,6 +423,8 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, initialCategory, c
 
     setIsSaving(true);
     try {
+      const calcResult = pDetails.calculatedResult || {};
+      const outputs = calcResult.outputs || {};
       const payload = {
         vehicleCategory,
         policyType,
@@ -430,7 +432,16 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, initialCategory, c
         insurerName: insurerName || 'Partner Insurer',
         leadId: leadId || undefined,
         contactId: contactId || undefined,
-        totalPremium: getNetPayable() > 0 ? getNetPayable() : getTotalPremium(),
+        agentId: selectedAgentId || undefined,
+        basePremium: outputs.basePremium ?? outputs.netOdPremium ?? outputs.netTpPremium,
+        discountAmount: outputs.discountAmount ?? outputs.ncbDiscountAmount,
+        gstAmount: outputs.totalGst ?? getGst(),
+        totalPremium: outputs.finalPayableAmount ?? outputs.totalPremium ?? (getNetPayable() > 0 ? getNetPayable() : getTotalPremium()),
+        calculationVersion: calcResult.calculationVersion || '1.0',
+        rateConfigurationVersion: calcResult.rateConfigurationVersion || '1.0',
+        snapshotId: calcResult.snapshotId,
+        inputHash: calcResult.inputHash,
+        calculationSnapshot: calcResult,
         idv: getIDV(),
         ncbPercentage: getNCB(),
         proposerDetails: proposer,
@@ -453,10 +464,30 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, initialCategory, c
       const res = await apiClient.post('/quotations/motor-capture', payload);
       const saved = res.data;
       setSavedQuotationId(saved.id);
-      
-      toast.success(`Quotation generated! ${ruleResult?.inspectionRequired ? 'Inspection required next.' : 'Ready for proposal.'}`);
-      onSaved(saved);
-      onClose();
+
+      // Persist previous policy evaluation to backend rule engine & create inspection / tasks
+      const evalRes = await apiClient.post(`/motor/quotations/${saved.id}/previous-policy`, {
+        ...previousPolicy,
+        newPolicyType: policyType || 'PACKAGE',
+        newInsurerName: insurerName,
+      });
+
+      const isInspectionMandatory =
+        evalRes.data?.ruleEvaluation?.inspectionRequired ||
+        ruleResult?.inspectionRequired;
+
+      if (isInspectionMandatory) {
+        toast.warning(
+          `Quotation ${saved.quotationCode || ''} requires pre-issuance vehicle inspection. Opening inspection capture...`,
+        );
+        setShowInspectionDialog(true);
+      } else {
+        toast.success(
+          `Quotation ${saved.quotationCode || ''} generated successfully! Ready for proposal.`,
+        );
+        onSaved(saved);
+        onClose();
+      }
     } catch (err: any) {
       const errorMsg =
         err.response?.data?.message ||
@@ -574,6 +605,16 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, initialCategory, c
                       placeholder="john@example.com"
                     />
                   </div>
+                  <div className="space-y-1.5 md:col-span-2 pt-2 border-t border-border">
+                    <AgentSelector
+                      value={selectedAgentId}
+                      onChange={(agentId, agentCode) => {
+                        setSelectedAgentId(agentId);
+                        setSelectedAgentCode(agentCode);
+                      }}
+                      label="Authoritative Assigned Agent (Ownership & Commission)"
+                    />
+                  </div>
                 </div>
               </div>
             )}
@@ -626,6 +667,25 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, initialCategory, c
                   isLoading={ruleLoading} 
                   onRetry={evaluateRules} 
                 />
+                {ruleResult?.inspectionRequired && (
+                  <div className="p-4 rounded-xl border border-amber-500/30 bg-amber-500/10 flex items-center justify-between gap-4">
+                    <div className="space-y-0.5">
+                      <div className="text-xs font-bold text-amber-600 dark:text-amber-400">
+                        Pre-Issuance Vehicle Inspection Required
+                      </div>
+                      <div className="text-[11px] text-muted-foreground">
+                        Policy gap over 90 days or break-in detected. 7 real evidence photos must be captured.
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setShowInspectionDialog(true)}
+                      className="px-3.5 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold shrink-0 shadow-xs"
+                    >
+                      Conduct Inspection Now
+                    </button>
+                  </div>
+                )}
               </div>
             )}
 
@@ -697,6 +757,23 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, initialCategory, c
           </div>
         </div>
       </div>
+
+      {showInspectionDialog && savedQuotationId && (
+        <InspectionDialog
+          isOpen={true}
+          quotationId={savedQuotationId}
+          onClose={() => {
+            setShowInspectionDialog(false);
+            onClose();
+          }}
+          onSuccess={() => {
+            setShowInspectionDialog(false);
+            toast.success('Inspection evidence captured successfully!');
+            onSaved({ id: savedQuotationId });
+            onClose();
+          }}
+        />
+      )}
     </div>
   );
 }

@@ -20,6 +20,14 @@ export default function CustomerRegisterPage() {
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(25);
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [search]);
 
   const user = useAuthStore((s) => s.user);
   const userRoles = (user?.roles?.length ? user.roles : [user?.role || ''])
@@ -42,7 +50,7 @@ export default function CustomerRegisterPage() {
   const { customers, total, totalPages, isLoading, isError, refetch } = useCustomers({
     page,
     limit,
-    search: search.trim() || undefined,
+    search: debouncedSearch.trim() || undefined,
     sortBy: 'createdAt',
     sortOrder: 'desc',
   });

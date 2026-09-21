@@ -91,4 +91,76 @@ export class LookupService {
     await this.cacheManager.del(`lookup_category_${categoryCode}`);
     await this.cacheManager.del('lookup_categories_all');
   }
+
+  async createValue(
+    categoryCode: string,
+    dto: { code: string; name: string; description?: string; parentId?: string; orderIndex?: number },
+  ) {
+    const category = await this.prisma.lookupCategory.findUnique({
+      where: { code: categoryCode },
+    });
+
+    if (!category) {
+      throw new NotFoundException(`Lookup category ${categoryCode} not found.`);
+    }
+
+    const created = await this.prisma.lookupValue.create({
+      data: {
+        categoryId: category.id,
+        code: dto.code,
+        name: dto.name,
+        description: dto.description,
+        parentId: dto.parentId || null,
+        orderIndex: dto.orderIndex ?? 0,
+      },
+    });
+
+    await this.invalidateCache(categoryCode);
+    return created;
+  }
+
+  async updateValue(
+    categoryCode: string,
+    id: string,
+    dto: { name?: string; description?: string; isActive?: boolean; orderIndex?: number },
+  ) {
+    const existing = await this.prisma.lookupValue.findUnique({
+      where: { id },
+    });
+
+    if (!existing) {
+      throw new NotFoundException(`Lookup value ${id} not found.`);
+    }
+
+    const updated = await this.prisma.lookupValue.update({
+      where: { id },
+      data: {
+        ...(dto.name !== undefined ? { name: dto.name } : {}),
+        ...(dto.description !== undefined ? { description: dto.description } : {}),
+        ...(dto.isActive !== undefined ? { isActive: dto.isActive } : {}),
+        ...(dto.orderIndex !== undefined ? { orderIndex: dto.orderIndex } : {}),
+      },
+    });
+
+    await this.invalidateCache(categoryCode);
+    return updated;
+  }
+
+  async deleteValue(categoryCode: string, id: string) {
+    const existing = await this.prisma.lookupValue.findUnique({
+      where: { id },
+    });
+
+    if (!existing) {
+      throw new NotFoundException(`Lookup value ${id} not found.`);
+    }
+
+    await this.prisma.lookupValue.update({
+      where: { id },
+      data: { isActive: false },
+    });
+
+    await this.invalidateCache(categoryCode);
+    return { success: true };
+  }
 }

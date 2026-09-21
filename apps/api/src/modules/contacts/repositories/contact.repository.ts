@@ -71,12 +71,30 @@ export class ContactRepository {
     });
   }
 
-  async findByPhone(phone: string): Promise<Contact | null> {
-    return this.prisma.contact.findFirst({ where: { phone, deletedAt: null } });
+  async findByPhone(
+    phone: string,
+    companyId?: string,
+  ): Promise<Contact | null> {
+    return this.prisma.contact.findFirst({
+      where: {
+        phone,
+        deletedAt: null,
+        ...(companyId ? { companyId } : {}),
+      },
+    });
   }
 
-  async findByEmail(email: string): Promise<Contact | null> {
-    return this.prisma.contact.findFirst({ where: { email, deletedAt: null } });
+  async findByEmail(
+    email: string,
+    companyId?: string,
+  ): Promise<Contact | null> {
+    return this.prisma.contact.findFirst({
+      where: {
+        email,
+        deletedAt: null,
+        ...(companyId ? { companyId } : {}),
+      },
+    });
   }
 
   async update(

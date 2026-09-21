@@ -1,17 +1,21 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
-import { InspectionStatus } from '@prisma/client';
+import {
+  Injectable,
+  Logger,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { PrismaService } from '../../../database/prisma.service';
 import {
   MotorRuleEngineService,
   MotorRuleContext,
 } from './motor-rule-engine.service';
+import { NumberingEngineService } from '../../administration/services/numbering-engine/numbering-engine.service';
+import { InspectionStatus, VehicleStatus } from '@prisma/client';
 
 export interface CapturePreviousPolicyDto {
   quotationId: string;
-  policyExpiryDate?: string; // ISO date string
-  ownershipTransfer: boolean;
-  previousPolicyType?:
-    'COMPREHENSIVE' | 'THIRD_PARTY' | 'SAOD' | 'NOT_AVAILABLE';
+  policyExpiryDate?: string;
+  previousPolicyType?: string;
   previousInsurerName?: string;
   previousPolicyNumber?: string;
   previousOdInsurerName?: string;
@@ -19,16 +23,15 @@ export interface CapturePreviousPolicyDto {
   odExpiryDate?: string;
   tpExpiryDate?: string;
   claimInPreviousYear: boolean;
+  ownershipTransfer: boolean;
   previousPolicyTransferred?: boolean;
-  rcTransferStatus?: boolean;
+  rcTransferStatus?: string;
   newOwnerName?: string;
-  previousPolicyCopyUrl?: string;
   eligibleNcbPercentage: number;
   newPolicyType: 'TP_ONLY' | 'SAOD' | 'PACKAGE';
   newInsurerName?: string;
+  previousPolicyCopyUrl?: string;
 }
-
-import { NumberingEngineService } from '../../administration/services/numbering-engine/numbering-engine.service';
 
 @Injectable()
 export class MotorQuoteWorkflowService {
@@ -41,16 +44,47 @@ export class MotorQuoteWorkflowService {
   ) {}
 
   /**
-   * Capture previous policy details, run the rule engine, and persist the audit record.
-   * Returns the rule evaluation result — frontend renders based on this.
-   * The backend is the ONLY place NCB, inspection requirement, etc. are decided.
+   * Captures previous policy data, runs the Motor Rule Engine, and atomically creates
+   * an inspection record and an idempotent operational BackOfficeTask if inspection is required.
+   * For VehicleStatus.NEW, skips previous-policy capture and inspection entirely.
+   * Returns the canonical API response contract.
    */
   async capturePreviousPolicyAndEvaluate(dto: CapturePreviousPolicyDto) {
     const quotation = await this.prisma.quotation.findUnique({
       where: { id: dto.quotationId },
+      include: { vehicle: true },
     });
     if (!quotation)
       throw new NotFoundException(`Quotation ${dto.quotationId} not found`);
+
+    // ─── 0. Early NEW Vehicle Guard ──────────────────────────────────────────
+    // For NEW vehicles, no previous policy exists, no rule evaluation is needed,
+    // and no inspection from previous policy expiry is required.
+    if (
+      quotation.vehicle?.status === VehicleStatus.NEW ||
+      (quotation.vehicle as any)?.status === 'NEW'
+    ) {
+      await this.prisma.quotation.update({
+        where: { id: dto.quotationId },
+        data: {
+          workflowState: 'RULES_EVALUATED',
+          ncbPercentage: 0,
+        },
+      });
+
+      this.logger.log(
+        `Quotation ${dto.quotationId} is for a NEW vehicle. Skipped previous-policy capture and inspection.`,
+      );
+
+      return {
+        quotationId: dto.quotationId,
+        workflowState: 'RULES_EVALUATED',
+        inspectionRequired: false,
+        applicable: false,
+        reason: 'NEW_VEHICLE',
+        nextStep: 'QUOTATION',
+      };
+    }
 
     const today = new Date();
     const expiryDate = dto.policyExpiryDate
@@ -63,6 +97,14 @@ export class MotorQuoteWorkflowService {
       : false;
 
     // 1. Save or update the previous policy record
+    const rcTransferStatusBool =
+      typeof dto.rcTransferStatus === 'boolean'
+        ? dto.rcTransferStatus
+        : dto.rcTransferStatus
+          ? String(dto.rcTransferStatus).toLowerCase() === 'true' ||
+            String(dto.rcTransferStatus).toUpperCase() === 'TRANSFERRED'
+          : undefined;
+
     const prevPolicy = await this.prisma.motorPreviousPolicy.upsert({
       where: { quotationId: dto.quotationId },
       create: {
@@ -79,7 +121,7 @@ export class MotorQuoteWorkflowService {
         tpExpiryDate: dto.tpExpiryDate ? new Date(dto.tpExpiryDate) : null,
         claimInPreviousYear: dto.claimInPreviousYear,
         policyTransferStatus: dto.previousPolicyTransferred,
-        rcTransferStatus: dto.rcTransferStatus,
+        rcTransferStatus: rcTransferStatusBool,
         newOwnerName: dto.newOwnerName,
         previousPolicyCopyUrl: dto.previousPolicyCopyUrl,
       },
@@ -96,7 +138,7 @@ export class MotorQuoteWorkflowService {
         tpExpiryDate: dto.tpExpiryDate ? new Date(dto.tpExpiryDate) : null,
         claimInPreviousYear: dto.claimInPreviousYear,
         policyTransferStatus: dto.previousPolicyTransferred,
-        rcTransferStatus: dto.rcTransferStatus,
+        rcTransferStatus: rcTransferStatusBool,
         newOwnerName: dto.newOwnerName,
         previousPolicyCopyUrl: dto.previousPolicyCopyUrl,
       },
@@ -109,7 +151,7 @@ export class MotorQuoteWorkflowService {
       ownershipTransfer: dto.ownershipTransfer,
       previousPolicyTransferred: dto.previousPolicyTransferred,
       claimInPreviousYear: dto.claimInPreviousYear,
-      previousPolicyType: dto.previousPolicyType,
+      previousPolicyType: dto.previousPolicyType as any,
       newPolicyType: dto.newPolicyType,
       newInsurerName: dto.newInsurerName,
       previousInsurerName: dto.previousInsurerName,
@@ -123,8 +165,16 @@ export class MotorQuoteWorkflowService {
     // 3. Run the rule engine — backend is SOLE authority
     const result = this.ruleEngine.evaluateQuotation(context);
 
-    // 4. Persist evaluation and atomically create inspection record if required
-    await this.prisma.$transaction(async (tx) => {
+    // 4. Atomic Transaction following canonical lock order:
+    // Quotation -> MotorRuleEvaluation -> MotorInspection -> BackOfficeTask -> OutboxEvent
+    const inspectionRecord = await this.prisma.$transaction(async (tx) => {
+      // 1. Lock/Verify Quotation
+      const currentQuote = await tx.quotation.findUnique({
+        where: { id: dto.quotationId },
+      });
+      if (!currentQuote) throw new NotFoundException(`Quotation not found`);
+
+      // 2. Upsert MotorRuleEvaluation
       await tx.motorRuleEvaluation.upsert({
         where: { quotationId: dto.quotationId },
         create: {
@@ -158,26 +208,90 @@ export class MotorQuoteWorkflowService {
         },
       });
 
+      let createdOrExistingInspection: any = null;
+
       if (result.inspectionRequired) {
+        // 3. Upsert MotorInspection with companyId & transaction-aware numbering
         const existingInspection = await tx.motorInspection.findUnique({
           where: { quotationId: dto.quotationId },
         });
 
-        if (!existingInspection) {
-          const inspectionCode =
-            await this.numberingEngine.generateNext('INSPECTION');
-          await tx.motorInspection.create({
+        if (existingInspection) {
+          createdOrExistingInspection = existingInspection;
+        } else {
+          const inspectionCode = await this.numberingEngine.generateNext('INSPECTION', tx);
+          createdOrExistingInspection = await tx.motorInspection.create({
             data: {
               quotationId: dto.quotationId,
+              companyId: currentQuote.companyId,
               inspectionCode,
               status: InspectionStatus.REQUIRED,
               inspectorCompany: 'JEST Inspection Network',
             },
           });
+
+          await tx.motorInspectionHistory.create({
+            data: {
+              inspectionId: createdOrExistingInspection.id,
+              fromStatus: InspectionStatus.NOT_REQUIRED,
+              toStatus: InspectionStatus.REQUIRED,
+              action: 'CREATE',
+              actorId: 'RULE_ENGINE',
+              actorRole: 'SYSTEM',
+              reason: `Inspection required by rule engine: ${result.inspectionReasons.join(', ')}`,
+            },
+          });
         }
+
+        // 4. Upsert BackOfficeTask with permanent idempotency key: INSPECTION:{quotationId}:ASSIGNMENT
+        const taskKey = `INSPECTION:${dto.quotationId}:ASSIGNMENT`;
+        const taskCode = await this.numberingEngine.generateNext('TASK', tx).catch(() => `TASK-${Date.now()}`);
+
+        await tx.backOfficeTask.upsert({
+          where: {
+            companyId_idempotencyKey: {
+              companyId: currentQuote.companyId,
+              idempotencyKey: taskKey,
+            },
+          },
+          create: {
+            taskCode,
+            companyId: currentQuote.companyId,
+            idempotencyKey: taskKey,
+            taskType: 'MOTOR_INSPECTION_REVIEW',
+            sourceType: 'MOTOR_QUOTATION',
+            sourceEntityId: dto.quotationId,
+            status: 'PENDING',
+            priority: 'HIGH',
+            verificationNotes: `Inspection required: ${result.inspectionReasons.join(', ')}`,
+          },
+          update: {
+            status: 'PENDING',
+          },
+        });
+
+        // 5. Upsert OutboxEvent for inspection.required
+        const eventKey = `inspection.required:${dto.quotationId}`;
+        await tx.outboxEvent.upsert({
+          where: { eventKey },
+          create: {
+            eventKey,
+            aggregateType: 'INSPECTION',
+            aggregateId: createdOrExistingInspection.id,
+            eventType: 'inspection.required',
+            payload: {
+              quotationId: dto.quotationId,
+              inspectionId: createdOrExistingInspection.id,
+              companyId: currentQuote.companyId,
+              reasons: result.inspectionReasons,
+            },
+            status: 'PENDING',
+          },
+          update: {},
+        });
       }
 
-      // Update quotation workflow state
+      // 6. Update quotation workflow state
       await tx.quotation.update({
         where: { id: dto.quotationId },
         data: {
@@ -187,12 +301,42 @@ export class MotorQuoteWorkflowService {
           ncbPercentage: result.ncb,
         },
       });
+
+      return createdOrExistingInspection;
     });
 
     this.logger.log(
       `Previous policy captured and rules evaluated for quotation ${dto.quotationId}`,
     );
-    return { previousPolicy: prevPolicy, ruleEvaluation: result };
+
+    // 5. Return Canonical API Response Contract
+    return {
+      quotationId: dto.quotationId,
+      workflowState: result.inspectionRequired
+        ? 'INSPECTION_REQUIRED'
+        : 'RULES_EVALUATED',
+      inspectionRequired: result.inspectionRequired,
+      inspection: inspectionRecord
+        ? {
+            id: inspectionRecord.id,
+            inspectionCode: inspectionRecord.inspectionCode,
+            status: inspectionRecord.status,
+            companyId: inspectionRecord.companyId,
+            missingPhotos: [
+              'front',
+              'back',
+              'left',
+              'right',
+              'windshield',
+              'chassis',
+              'odometer',
+            ],
+            canSubmit: false,
+          }
+        : null,
+      inspectionReasons: result.inspectionReasons,
+      nextStep: result.nextStep,
+    };
   }
 
   /**

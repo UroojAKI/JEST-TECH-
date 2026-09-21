@@ -92,6 +92,8 @@ export class DocumentsController {
       'QUOTATION',
       'CLAIM',
       'ENDORSEMENT',
+      'CONTACT',
+      'CUSTOMER',
     ];
     if (!validEntityTypes.includes(entityType))
       throw new BadRequestException(
@@ -150,6 +152,8 @@ export class DocumentsController {
       'QUOTATION',
       'CLAIM',
       'ENDORSEMENT',
+      'CONTACT',
+      'CUSTOMER',
     ];
     if (!validEntityTypes.includes(entityType))
       throw new BadRequestException(

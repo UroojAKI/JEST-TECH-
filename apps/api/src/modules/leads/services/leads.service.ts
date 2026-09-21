@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -126,6 +127,17 @@ export class LeadsService {
       PARTNER: LeadSource.ADVISOR,
       OTHER: LeadSource.OTHER,
     };
+    const user = this.prisma.user
+      ? await this.prisma.user.findUnique({
+          where: { id: createdById },
+          select: { companyId: true },
+        })
+      : null;
+    const companyId = dto.companyId || user?.companyId;
+    if (!companyId) {
+      throw new ForbiddenException('Tenant organizational context is required');
+    }
+
     const mappedSource = dto.source
       ? validSources[String(dto.source).toUpperCase()] || LeadSource.OTHER
       : LeadSource.DIGITAL;
@@ -135,6 +147,7 @@ export class LeadsService {
       title: leadTitle,
       source: mappedSource,
       status: dto.status || LeadStatus.NEW,
+      company: { connect: { id: companyId } },
       description:
         dto.description ||
         [
@@ -182,13 +195,23 @@ export class LeadsService {
           OR: [
             { title: { contains: search, mode: 'insensitive' } },
             { description: { contains: search, mode: 'insensitive' } },
+            { leadCode: { contains: search, mode: 'insensitive' } },
+            { contact: { firstName: { contains: search, mode: 'insensitive' } } },
+            { contact: { lastName: { contains: search, mode: 'insensitive' } } },
+            { contact: { phone: { contains: search, mode: 'insensitive' } } },
           ],
         }
       : {};
 
+    const statusWhere: Prisma.LeadWhereInput =
+      pagination.status && pagination.status !== 'ALL'
+        ? { status: pagination.status as any }
+        : {};
+
     const where: Prisma.LeadWhereInput = {
       ...scopedFilter,
       ...searchWhere,
+      ...statusWhere,
     };
 
     const [leads, total] = await Promise.all([

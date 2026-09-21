@@ -31,7 +31,17 @@ export class CancelPolicyService {
         where: {
           id,
           deletedAt: null,
-          ...(actor.role === 'AGENT' ? { createdById: actor.id } : {}),
+          ...(actor.role !== 'ADMIN' && (actor.companyId || actor.organizationId)
+            ? { companyId: actor.companyId || actor.organizationId }
+            : {}),
+          ...(actor.role === 'AGENT'
+            ? {
+                OR: [
+                  { createdById: actor.id || actor.userId },
+                  ...(actor.agentId ? [{ agentId: actor.agentId }] : []),
+                ],
+              }
+            : {}),
         },
       });
       if (!existing) {

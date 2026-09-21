@@ -147,10 +147,9 @@ export const adminRepository = {
     return response.data;
   },
 
-  async updateUserStatus(id: string, status: string): Promise<UserItem> {
-    const response = status === 'LOCKED' 
-      ? await apiClient.post(`/users/${id}/lock`)
-      : await apiClient.post(`/users/${id}/unlock`);
+  async updateUserStatus(id: string, status: string, reason?: string): Promise<UserItem> {
+    const dbStatus = status === 'LOCKED' ? 'SUSPENDED' : status === 'DISABLED' ? 'INACTIVE' : status;
+    const response = await apiClient.patch(`/users/${id}/status`, { status: dbStatus, reason });
     return response.data;
   },
 
@@ -164,8 +163,18 @@ export const adminRepository = {
     return response.data;
   },
 
-  async getRoles(): Promise<RolePermissionItem[]> {
-    const response = await apiClient.get('/users/roles');
+  async getRoles(): Promise<any[]> {
+    const response = await apiClient.get('/admin/roles');
+    return Array.isArray(response.data) ? response.data : (response.data.data || []);
+  },
+
+  async getRolePermissions(roleId: string): Promise<any> {
+    const response = await apiClient.get(`/admin/roles/${roleId}/permissions`);
+    return response.data;
+  },
+
+  async updateRolePermissions(roleId: string, permissions: any[]): Promise<any> {
+    const response = await apiClient.put(`/admin/roles/${roleId}/permissions`, { permissions });
     return response.data;
   },
 
@@ -181,6 +190,21 @@ export const adminRepository = {
 
   async getLookups(type?: string): Promise<LookupItem[]> {
     const response = type ? await apiClient.get(`/admin/lookups/${type}`) : await apiClient.get('/admin/lookups');
+    return response.data;
+  },
+
+  async createLookupValue(categoryCode: string, data: { code: string; name: string; description?: string }): Promise<any> {
+    const response = await apiClient.post(`/admin/lookups/${categoryCode}/values`, data);
+    return response.data;
+  },
+
+  async updateLookupValue(categoryCode: string, id: string, data: { name?: string; description?: string; isActive?: boolean }): Promise<any> {
+    const response = await apiClient.put(`/admin/lookups/${categoryCode}/values/${id}`, data);
+    return response.data;
+  },
+
+  async deleteLookupValue(categoryCode: string, id: string): Promise<any> {
+    const response = await apiClient.delete(`/admin/lookups/${categoryCode}/values/${id}`);
     return response.data;
   },
 

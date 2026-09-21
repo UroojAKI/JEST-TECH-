@@ -20,7 +20,8 @@ export function useAdminUsers(params?: { status?: string; role?: string; search?
   });
 
   const updateStatusMutation = useMutation({
-    mutationFn: ({ id, status }: { id: string; status: string }) => adminRepository.updateUserStatus(id, status),
+    mutationFn: ({ id, status, reason }: { id: string; status: string; reason?: string }) =>
+      adminRepository.updateUserStatus(id, status, reason),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-users'] });
       toast.success('User status updated successfully!');
@@ -44,6 +45,36 @@ export function useAdminRoles() {
     queryKey: ['admin-roles'],
     queryFn: () => adminRepository.getRoles(),
   });
+}
+
+export function useRolePermissions(roleId?: string) {
+  const queryClient = useQueryClient();
+
+  const query = useQuery({
+    queryKey: ['admin-role-permissions', roleId],
+    queryFn: () => (roleId ? adminRepository.getRolePermissions(roleId) : null),
+    enabled: !!roleId,
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: ({ roleId, permissions }: { roleId: string; permissions: any[] }) =>
+      adminRepository.updateRolePermissions(roleId, permissions),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-role-permissions', roleId] });
+      toast.success('Role permissions updated successfully!');
+    },
+    onError: (err: any) => {
+      toast.error(err.response?.data?.message || 'Failed to update role permissions');
+    },
+  });
+
+  return {
+    rolePermissions: query.data,
+    isLoading: query.isLoading,
+    isError: query.isError,
+    updateRolePermissions: updateMutation.mutateAsync,
+    isUpdating: updateMutation.isPending,
+  };
 }
 
 export function useAdminBranches() {

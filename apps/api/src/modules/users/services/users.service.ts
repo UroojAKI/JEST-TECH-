@@ -163,7 +163,7 @@ export class UsersService {
     return { success: true, message: 'Password changed successfully' };
   }
 
-  async findAll(pagination: PaginationDto) {
+  async findAll(pagination: PaginationDto, status?: string) {
     const page = pagination.page || 1;
     const limit = pagination.limit || 25;
     const skip = (page - 1) * limit;
@@ -175,6 +175,16 @@ export class UsersService {
         { lastName: { contains: pagination.search, mode: 'insensitive' } },
         { email: { contains: pagination.search, mode: 'insensitive' } },
       ];
+    }
+
+    if (status && status !== 'ALL') {
+      if (status === 'LOCKED') {
+        where.status = UserStatus.SUSPENDED;
+      } else if (status === 'DISABLED') {
+        where.status = UserStatus.INACTIVE;
+      } else if (Object.values(UserStatus).includes(status as UserStatus)) {
+        where.status = status as UserStatus;
+      }
     }
 
     const orderBy = pagination.sortBy
@@ -206,16 +216,80 @@ export class UsersService {
     return UserMapper.toResponse(user);
   }
 
-  async lockUser(id: string) {
-    await this.findById(id);
-    const updated = await this.userRepository.updateStatus(id, 'SUSPENDED');
-    return UserMapper.toResponse(updated);
+  async updateStatus(
+    id: string,
+    targetStatus: UserStatus,
+    reason?: string,
+    actorId?: string,
+  ) {
+    return this.prisma.$transaction(async (tx) => {
+      const user = await tx.user.findUnique({
+        where: { id },
+        include: { role: true },
+      });
+
+      if (!user) {
+        throw new NotFoundException('User not found');
+      }
+
+      const currentStatus = user.status;
+
+      if (currentStatus === targetStatus) {
+        return UserMapper.toResponse(user);
+      }
+
+      // Explicit State Machine Rules:
+      // PENDING_VERIFICATION -> ACTIVE
+      // ACTIVE <-> SUSPENDED
+      // ACTIVE <-> INACTIVE
+      const validTransitions: Record<UserStatus, UserStatus[]> = {
+        [UserStatus.PENDING_VERIFICATION]: [UserStatus.ACTIVE],
+        [UserStatus.ACTIVE]: [UserStatus.SUSPENDED, UserStatus.INACTIVE],
+        [UserStatus.SUSPENDED]: [UserStatus.ACTIVE],
+        [UserStatus.INACTIVE]: [UserStatus.ACTIVE],
+      };
+
+      const allowed = validTransitions[currentStatus] || [];
+      if (!allowed.includes(targetStatus)) {
+        throw new BadRequestException(
+          `Invalid status transition from ${currentStatus} to ${targetStatus}.`,
+        );
+      }
+
+      const updated = await tx.user.update({
+        where: { id },
+        data: {
+          status: targetStatus,
+          updatedAt: new Date(),
+        },
+        include: { role: true },
+      });
+
+      // Audit trail logging
+      await tx.auditLog.create({
+        data: {
+          action: 'UPDATE',
+          entity: 'User',
+          entityType: 'USER',
+          entityId: id,
+          userId: id,
+          performedById: actorId || null,
+          oldValue: { status: currentStatus },
+          newValue: { status: targetStatus, reason: reason || null },
+          module: 'USER_MANAGEMENT',
+        },
+      }).catch(() => {});
+
+      return UserMapper.toResponse(updated);
+    });
   }
 
-  async unlockUser(id: string) {
-    await this.findById(id);
-    const updated = await this.userRepository.updateStatus(id, 'ACTIVE');
-    return UserMapper.toResponse(updated);
+  async lockUser(id: string, actorId?: string) {
+    return this.updateStatus(id, UserStatus.SUSPENDED, 'User locked by administrator', actorId);
+  }
+
+  async unlockUser(id: string, actorId?: string) {
+    return this.updateStatus(id, UserStatus.ACTIVE, 'User unlocked by administrator', actorId);
   }
 
   async update(id: string, dto: any) {

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { AppShell } from '../../../components/layout/app-shell';
 import { EnterpriseTable } from '../../../components/table/enterprise-table';
 import { Building2, Plus, X, Loader2, AlertCircle } from 'lucide-react';
@@ -12,13 +12,21 @@ export default function CorporateAccountsPage() {
   const queryClient = useQueryClient();
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [form, setForm] = useState({ name: '', type: 'CORPORATE', industry: '', email: '', phone: '' });
   const limit = 25;
 
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [search]);
+
   const accountsQuery = useQuery({
-    queryKey: ['accounts', page, search],
-    queryFn: () => accountRepository.getAccounts({ page, limit, search: search.trim() || undefined, sortBy: 'createdAt', sortOrder: 'desc' }),
+    queryKey: ['accounts', page, debouncedSearch],
+    queryFn: () => accountRepository.getAccounts({ page, limit, search: debouncedSearch.trim() || undefined, sortBy: 'createdAt', sortOrder: 'desc' }),
   });
 
   const raw: any = accountsQuery.data;

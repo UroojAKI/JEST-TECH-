@@ -1,13 +1,40 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { DynamicWorkspace } from '../../../../components/workspaces/DynamicWorkspace';
 import { MotorIssuanceQueue } from '../../../../components/operations/MotorIssuanceQueue';
 import { BackOfficeTaskQueue } from '../../../../components/operations/BackOfficeTaskQueue';
 import { Briefcase, CheckSquare, ShieldCheck, Activity } from 'lucide-react';
 
-export default function OperationsWorkspacePage() {
-  const [activeSection, setActiveSection] = useState<'ISSUANCE' | 'VERIFICATION' | 'METRICS'>('ISSUANCE');
+function OperationsWorkspaceContent() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const tabParam = searchParams.get('tab')?.toLowerCase();
+
+  const getInitialSection = (): 'ISSUANCE' | 'VERIFICATION' | 'METRICS' => {
+    if (tabParam === 'inspections' || tabParam === 'verification') return 'VERIFICATION';
+    if (tabParam === 'metrics') return 'METRICS';
+    return 'ISSUANCE';
+  };
+
+  const [activeSection, setActiveSection] = useState<'ISSUANCE' | 'VERIFICATION' | 'METRICS'>(getInitialSection);
+
+  useEffect(() => {
+    if (tabParam === 'inspections' || tabParam === 'verification') {
+      setActiveSection('VERIFICATION');
+    } else if (tabParam === 'metrics') {
+      setActiveSection('METRICS');
+    } else if (tabParam === 'issuance') {
+      setActiveSection('ISSUANCE');
+    }
+  }, [tabParam]);
+
+  const handleSwitch = (section: 'ISSUANCE' | 'VERIFICATION' | 'METRICS') => {
+    setActiveSection(section);
+    const tabName = section === 'ISSUANCE' ? 'issuance' : section === 'VERIFICATION' ? 'inspections' : 'metrics';
+    router.replace(`/workspace/operations?tab=${tabName}`);
+  };
 
   return (
     <div className="space-y-6">
@@ -25,7 +52,7 @@ export default function OperationsWorkspacePage() {
 
         <div className="flex items-center gap-1.5 p-1 rounded-xl bg-muted/60 border border-border">
           <button
-            onClick={() => setActiveSection('ISSUANCE')}
+            onClick={() => handleSwitch('ISSUANCE')}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
               activeSection === 'ISSUANCE'
                 ? 'bg-card text-foreground shadow-xs border border-border'
@@ -36,7 +63,7 @@ export default function OperationsWorkspacePage() {
             <span>Issuance Workbench</span>
           </button>
           <button
-            onClick={() => setActiveSection('VERIFICATION')}
+            onClick={() => handleSwitch('VERIFICATION')}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
               activeSection === 'VERIFICATION'
                 ? 'bg-card text-foreground shadow-xs border border-border'
@@ -44,10 +71,10 @@ export default function OperationsWorkspacePage() {
             }`}
           >
             <CheckSquare className="h-3.5 w-3.5" />
-            <span>Operational Tasks</span>
+            <span>Operational Tasks & Inspections</span>
           </button>
           <button
-            onClick={() => setActiveSection('METRICS')}
+            onClick={() => handleSwitch('METRICS')}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
               activeSection === 'METRICS'
                 ? 'bg-card text-foreground shadow-xs border border-border'
@@ -70,5 +97,13 @@ export default function OperationsWorkspacePage() {
         />
       )}
     </div>
+  );
+}
+
+export default function OperationsWorkspacePage() {
+  return (
+    <Suspense fallback={<div className="p-8 text-center text-xs text-muted-foreground">Loading workspace...</div>}>
+      <OperationsWorkspaceContent />
+    </Suspense>
   );
 }

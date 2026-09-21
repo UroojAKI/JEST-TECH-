@@ -102,6 +102,7 @@ describe('LeadsService', () => {
         status: 'ACTIVE',
         organizationId: 'org-1',
         companyId: 'org-1',
+        permissions: ['*'],
       } as any;
       mockLeadRepository.findAll.mockResolvedValue([]);
       mockLeadRepository.count.mockResolvedValue(0);
@@ -211,7 +212,11 @@ describe('LeadsService', () => {
 
   describe('create', () => {
     it('valid DTO -> creates lead and returns response', async () => {
-      const dto = { title: 'Test Lead', contactId: 'contact-1' } as any;
+      const dto = {
+        title: 'Test Lead',
+        contactId: 'contact-1',
+        companyId: 'org-1',
+      } as any;
       mockContactsService.findById.mockResolvedValue({
         id: 'contact-1',
       } as any);

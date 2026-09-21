@@ -121,13 +121,13 @@ export const BACK_OFFICE_NAVIGATION: NavigationItem[] = [
   {
     id: 'bo-documents',
     title: 'Documents',
-    href: '/portal/downloads',
+    href: '/documents',
     icon: 'Folder',
   },
   {
     id: 'bo-reports',
     title: 'Operational Reports',
-    href: '/dashboard/reports',
+    href: '/reports',
     icon: 'BarChart3',
   },
   {
@@ -148,11 +148,11 @@ export const ADMIN_NAVIGATION: NavigationItem[] = [
   {
     id: 'business-analytics',
     title: 'Business Analytics',
-    href: '/dashboard/reports',
+    href: '/reports',
     icon: 'BarChart3',
     children: [
-      { id: 'adm-reports-overview', title: 'Performance Reports', href: '/dashboard/reports' },
-      { id: 'adm-builder', title: 'Report Builder', href: '/dashboard/reports/builder' },
+      { id: 'adm-reports-overview', title: 'Performance Reports', href: '/reports' },
+      { id: 'adm-builder', title: 'Report Builder', href: '/reports/builder' },
       { id: 'adm-health', title: 'System Health', href: '/admin/health' },
     ],
   },

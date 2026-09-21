@@ -55,6 +55,7 @@ export class LeadsController {
   ) {}
 
   @Get('kpis')
+  @Roles(...LEAD_VIEW_ROLES)
   @ApiOperation({
     summary: 'Get Lead Management Pipeline Telemetry & Conversion Metrics',
   })
@@ -66,6 +67,10 @@ export class LeadsController {
 
     const role = String(user.role || '').toUpperCase();
     const where: any = {};
+    const companyId = user.companyId || (user as any).organizationId;
+    if (companyId && !user.permissions?.includes('*')) {
+      where.companyId = companyId;
+    }
     if (role === 'AGENT') {
       where.assignedToId = user.id;
     }
@@ -129,6 +134,7 @@ export class LeadsController {
   }
 
   @Get('check-duplicate')
+  @Roles(...LEAD_VIEW_ROLES)
   @ApiOperation({
     summary:
       'Check mobile, email, PAN, and vehicle registration duplicate matches',
@@ -148,6 +154,7 @@ export class LeadsController {
   }
 
   @Post('check-duplicate')
+  @Roles(...LEAD_VIEW_ROLES)
   @ApiOperation({
     summary: 'Check duplicate customer/lead/vehicle matches via POST payload',
   })

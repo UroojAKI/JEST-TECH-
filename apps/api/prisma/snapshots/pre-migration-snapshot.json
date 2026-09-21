@@ -1,0 +1,1032 @@
+{
+  "timestamp": "2026-09-18T18:02:30.199Z",
+  "counts": {
+    "users": 17,
+    "contacts": 21,
+    "leads": 25,
+    "vehicles": 4,
+    "quotations": 35,
+    "policies": 4,
+    "claims": 0,
+    "renewals": 3,
+    "agents": 3,
+    "customers": 21,
+    "motorQuotations": 0,
+    "tasks": 0,
+    "backOfficeTasks": 0,
+    "companies": 1
+  },
+  "users": [
+    {
+      "id": "2b68eca0-28b5-4dd6-ac29-e7005579aed9",
+      "email": "superadmin@jest.com",
+      "companyId": "12453e89-e8ab-4d00-bf5d-8d0b614e05da",
+      "employeeCode": "EMP-1788079447"
+    },
+    {
+      "id": "b47de1e2-a903-46cf-be0c-c21547c5ea6c",
+      "email": "admin@jest.com",
+      "companyId": "12453e89-e8ab-4d00-bf5d-8d0b614e05da",
+      "employeeCode": "EMP-1786251271"
+    },
+    {
+      "id": "9b5d6e14-898a-4a3b-804a-838f7915ffac",
+      "email": "manager@jest.com",
+      "companyId": "12453e89-e8ab-4d00-bf5d-8d0b614e05da",
+      "employeeCode": "EMP-1788079449"
+    },
+    {
+      "id": "7b639457-1f49-4198-bd38-5183d8ee7522",
+      "email": "underwriter@jest.com",
+      "companyId": "12453e89-e8ab-4d00-bf5d-8d0b614e05da",
+      "employeeCode": "EMP-1788079451"
+    },
+    {
+      "id": "4dc96586-c4e3-45d2-a73c-f25f807de5cc",
+      "email": "md@jest.com",
+      "companyId": "12453e89-e8ab-4d00-bf5d-8d0b614e05da",
+      "employeeCode": "EMP-1786251262"
+    },
+    {
+      "id": "b3f08e08-44ae-4a79-8d25-c73f2585d072",
+      "email": "agent@jest.com",
+      "companyId": "12453e89-e8ab-4d00-bf5d-8d0b614e05da",
+      "employeeCode": "EMP-1786251264"
+    },
+    {
+      "id": "f3460717-508f-4977-a730-1b6e676c0027",
+      "email": "backoffice@jest.com",
+      "companyId": "12453e89-e8ab-4d00-bf5d-8d0b614e05da",
+      "employeeCode": "EMP-1786251268"
+    },
+    {
+      "id": "3aa5bda2-d58f-47b4-8b5e-a530227757e9",
+      "email": "claims@jest.com",
+      "companyId": "12453e89-e8ab-4d00-bf5d-8d0b614e05da",
+      "employeeCode": "EMP-1788079452"
+    },
+    {
+      "id": "a3be90e2-2c75-45c1-b3ac-6309a02d7655",
+      "email": "finance@jest.com",
+      "companyId": "12453e89-e8ab-4d00-bf5d-8d0b614e05da",
+      "employeeCode": "EMP-1788079453"
+    },
+    {
+      "id": "ae3135a2-9af4-4169-9536-ea47021c6259",
+      "email": "sm@jest.com",
+      "companyId": "12453e89-e8ab-4d00-bf5d-8d0b614e05da",
+      "employeeCode": "EMP-1786251263"
+    },
+    {
+      "id": "9828957b-757a-4650-8cae-8dd0c620212a",
+      "email": "renewal@jest.com",
+      "companyId": "12453e89-e8ab-4d00-bf5d-8d0b614e05da",
+      "employeeCode": "EMP-1786251265"
+    },
+    {
+      "id": "c6950d3c-6420-4215-aa92-18d1b86ed3db",
+      "email": "cre@jest.com",
+      "companyId": "12453e89-e8ab-4d00-bf5d-8d0b614e05da",
+      "employeeCode": "EMP-1786251266"
+    },
+    {
+      "id": "3b2b86cd-79ac-4daf-b263-b6b466a3424a",
+      "email": "arm@jest.com",
+      "companyId": "12453e89-e8ab-4d00-bf5d-8d0b614e05da",
+      "employeeCode": "EMP-1786251267"
+    },
+    {
+      "id": "6c327a55-c346-41f8-af13-6b74c713ef41",
+      "email": "accounts@jest.com",
+      "companyId": "12453e89-e8ab-4d00-bf5d-8d0b614e05da",
+      "employeeCode": "EMP-1786251269"
+    },
+    {
+      "id": "54297fce-3529-470e-a3e0-c9865e351bcf",
+      "email": "marketing@jest.com",
+      "companyId": "12453e89-e8ab-4d00-bf5d-8d0b614e05da",
+      "employeeCode": "EMP-1786251270"
+    },
+    {
+      "id": "35f34b24-cbbd-4ed9-a04d-3e6df5507b88",
+      "email": "rahul.test1789556684561@jest.com",
+      "companyId": "12453e89-e8ab-4d00-bf5d-8d0b614e05da",
+      "employeeCode": "EMP-684636"
+    },
+    {
+      "id": "09b6eda4-4e25-49d4-bdf1-99f530c09cc5",
+      "email": "Test@gmail.com",
+      "companyId": "12453e89-e8ab-4d00-bf5d-8d0b614e05da",
+      "employeeCode": "EMP-965629"
+    }
+  ],
+  "companies": [
+    {
+      "id": "12453e89-e8ab-4d00-bf5d-8d0b614e05da",
+      "name": "JEST Insurance Brokers Pvt Ltd",
+      "code": "JEST_INDIA",
+      "logoUrl": null,
+      "address": null,
+      "taxId": null,
+      "isActive": true,
+      "createdAt": "2026-08-30T08:44:07.381Z",
+      "updatedAt": "2026-08-30T08:44:07.381Z"
+    }
+  ],
+  "agents": [
+    {
+      "id": "82133eff-c762-48e6-9c51-7d8b60932fa5",
+      "userId": "b3f08e08-44ae-4a79-8d25-c73f2585d072",
+      "agentCode": "AGT-0001",
+      "agencyName": "Rajesh Sharma Agency",
+      "licenseNumber": null,
+      "commissionTier": "STANDARD",
+      "isActive": true,
+      "createdAt": "2026-09-18T06:31:23.997Z",
+      "updatedAt": "2026-09-18T06:31:23.997Z",
+      "deletedAt": null
+    },
+    {
+      "id": "608e4838-c346-4ca0-9bb0-2ea8cf4f912d",
+      "userId": "35f34b24-cbbd-4ed9-a04d-3e6df5507b88",
+      "agentCode": "AGT-0002",
+      "agencyName": "Rahul Dravid Agency",
+      "licenseNumber": null,
+      "commissionTier": "STANDARD",
+      "isActive": true,
+      "createdAt": "2026-09-18T06:31:24.004Z",
+      "updatedAt": "2026-09-18T06:31:24.004Z",
+      "deletedAt": null
+    },
+    {
+      "id": "58576162-d051-4cb7-aade-0deff93937b7",
+      "userId": "09b6eda4-4e25-49d4-bdf1-99f530c09cc5",
+      "agentCode": "AGT-0003",
+      "agencyName": "Agent Chickodi Agency",
+      "licenseNumber": null,
+      "commissionTier": "STANDARD",
+      "isActive": true,
+      "createdAt": "2026-09-18T06:31:24.010Z",
+      "updatedAt": "2026-09-18T06:31:24.010Z",
+      "deletedAt": null
+    }
+  ],
+  "customers": [
+    {
+      "id": "4b254be6-2342-4117-b362-5e20f426d350",
+      "customerCode": "CUST-000001",
+      "firstName": "Urooj",
+      "lastName": "Akhtar khan Inamdar",
+      "mobile": "+919632342375",
+      "email": "prospect_1786259566641@jestpolicy.com",
+      "panNumber": null,
+      "aadhaarNumber": null,
+      "addressLine1": null,
+      "addressLine2": null,
+      "city": null,
+      "state": null,
+      "pincode": null,
+      "isVip": false,
+      "contactId": "a10d7a38-7b8f-44d5-b8e4-285c0edc2f88",
+      "createdById": "b3f08e08-44ae-4a79-8d25-c73f2585d072",
+      "createdAt": "2026-09-18T06:31:24.021Z",
+      "updatedAt": "2026-09-18T06:31:24.021Z",
+      "deletedAt": null
+    },
+    {
+      "id": "732a0230-ff5e-41e1-a995-fff97ada4041",
+      "customerCode": "CUST-000002",
+      "firstName": "Urooj",
+      "lastName": "Akhtar khan Inamdar",
+      "mobile": "9632342375",
+      "email": "uruinamdar@gmail.com",
+      "panNumber": null,
+      "aadhaarNumber": null,
+      "addressLine1": null,
+      "addressLine2": null,
+      "city": null,
+      "state": null,
+      "pincode": null,
+      "isVip": false,
+      "contactId": "f3c21725-54e7-4437-a81e-ff3082180d3c",
+      "createdById": "b3f08e08-44ae-4a79-8d25-c73f2585d072",
+      "createdAt": "2026-09-18T06:31:24.027Z",
+      "updatedAt": "2026-09-18T06:31:24.027Z",
+      "deletedAt": null
+    },
+    {
+      "id": "b7a8469f-8e1e-4be9-9efe-7209e8fd9ace",
+      "customerCode": "CUST-000003",
+      "firstName": "ARJUN",
+      "lastName": "G CHANAVEERATTI",
+      "mobile": "9480398129",
+      "email": "motor_1786773398607@jest.local",
+      "panNumber": null,
+      "aadhaarNumber": null,
+      "addressLine1": null,
+      "addressLine2": null,
+      "city": null,
+      "state": null,
+      "pincode": null,
+      "isVip": false,
+      "contactId": "d16b4db0-02e9-48b6-92bd-6faf3d959a18",
+      "createdById": "4dc96586-c4e3-45d2-a73c-f25f807de5cc",
+      "createdAt": "2026-09-18T06:31:24.031Z",
+      "updatedAt": "2026-09-18T06:31:24.031Z",
+      "deletedAt": null
+    },
+    {
+      "id": "5562298c-3e23-4418-8b7e-23e3dda80359",
+      "customerCode": "CUST-000004",
+      "firstName": "Motor",
+      "lastName": "Customer",
+      "mobile": "+919704676703",
+      "email": "motor_1786773517192@jest.local",
+      "panNumber": null,
+      "aadhaarNumber": null,
+      "addressLine1": null,
+      "addressLine2": null,
+      "city": null,
+      "state": null,
+      "pincode": null,
+      "isVip": false,
+      "contactId": "efcd3948-38ee-4752-b1b6-fd8d6808092e",
+      "createdById": "4dc96586-c4e3-45d2-a73c-f25f807de5cc",
+      "createdAt": "2026-09-18T06:31:24.036Z",
+      "updatedAt": "2026-09-18T06:31:24.036Z",
+      "deletedAt": null
+    },
+    {
+      "id": "f029e2e2-9401-4205-96d1-6ea461d68be6",
+      "customerCode": "CUST-000005",
+      "firstName": "Motor",
+      "lastName": "Customer",
+      "mobile": "+911525593550",
+      "email": "motor_1787596759720@jest.local",
+      "panNumber": null,
+      "aadhaarNumber": null,
+      "addressLine1": null,
+      "addressLine2": null,
+      "city": null,
+      "state": null,
+      "pincode": null,
+      "isVip": false,
+      "contactId": "6dde5c91-334d-452d-b579-659def2877c6",
+      "createdById": "4dc96586-c4e3-45d2-a73c-f25f807de5cc",
+      "createdAt": "2026-09-18T06:31:24.041Z",
+      "updatedAt": "2026-09-18T06:31:24.041Z",
+      "deletedAt": null
+    },
+    {
+      "id": "47d0f100-febd-4be3-9199-ecf92d26b70e",
+      "customerCode": "CUST-000006",
+      "firstName": "rahul",
+      "lastName": "Customer",
+      "mobile": "9807654321",
+      "email": "motor_1787599610261@jest.local",
+      "panNumber": null,
+      "aadhaarNumber": null,
+      "addressLine1": null,
+      "addressLine2": null,
+      "city": null,
+      "state": null,
+      "pincode": null,
+      "isVip": false,
+      "contactId": "d1a15779-b5f8-4675-b4bf-c50a0d9634c5",
+      "createdById": "4dc96586-c4e3-45d2-a73c-f25f807de5cc",
+      "createdAt": "2026-09-18T06:31:24.045Z",
+      "updatedAt": "2026-09-18T06:31:24.045Z",
+      "deletedAt": null
+    },
+    {
+      "id": "161315e1-adc8-48a4-b055-2da1a1f52e14",
+      "customerCode": "CUST-000007",
+      "firstName": "test",
+      "lastName": "user ",
+      "mobile": "9090909909",
+      "email": "test@gmail.com",
+      "panNumber": null,
+      "aadhaarNumber": null,
+      "addressLine1": null,
+      "addressLine2": null,
+      "city": null,
+      "state": null,
+      "pincode": null,
+      "isVip": false,
+      "contactId": "df0215df-3269-4b36-be05-1b05036b188c",
+      "createdById": "b3f08e08-44ae-4a79-8d25-c73f2585d072",
+      "createdAt": "2026-09-18T06:31:24.050Z",
+      "updatedAt": "2026-09-18T06:31:24.050Z",
+      "deletedAt": null
+    },
+    {
+      "id": "bc825252-4395-4a43-9fea-b3d14309ecd5",
+      "customerCode": "CUST-000008",
+      "firstName": "Motor",
+      "lastName": "Customer",
+      "mobile": "+916600745341",
+      "email": "motor_1787663979961@jest.local",
+      "panNumber": null,
+      "aadhaarNumber": null,
+      "addressLine1": null,
+      "addressLine2": null,
+      "city": null,
+      "state": null,
+      "pincode": null,
+      "isVip": false,
+      "contactId": "f1c3c84a-f421-40c8-a8b4-fbb0a291a1ea",
+      "createdById": "4dc96586-c4e3-45d2-a73c-f25f807de5cc",
+      "createdAt": "2026-09-18T06:31:24.054Z",
+      "updatedAt": "2026-09-18T06:31:24.054Z",
+      "deletedAt": null
+    },
+    {
+      "id": "10a56ead-a521-43bc-aeef-764f06adf70b",
+      "customerCode": "CUST-000009",
+      "firstName": "Prospect",
+      "lastName": "",
+      "mobile": "6791654112",
+      "email": "prospect_1787990347551@jestpolicy.com",
+      "panNumber": null,
+      "aadhaarNumber": null,
+      "addressLine1": null,
+      "addressLine2": null,
+      "city": null,
+      "state": null,
+      "pincode": null,
+      "isVip": false,
+      "contactId": "cccfd713-2b7d-40ae-9f1e-42aa43bba502",
+      "createdById": "b47de1e2-a903-46cf-be0c-c21547c5ea6c",
+      "createdAt": "2026-09-18T06:31:24.058Z",
+      "updatedAt": "2026-09-18T06:31:24.058Z",
+      "deletedAt": null
+    },
+    {
+      "id": "e2ebc920-ec45-4276-8c38-79a633a001fb",
+      "customerCode": "CUST-000010",
+      "firstName": "Prospect",
+      "lastName": "",
+      "mobile": "9849138577",
+      "email": "prospect_1787990388560@jestpolicy.com",
+      "panNumber": null,
+      "aadhaarNumber": null,
+      "addressLine1": null,
+      "addressLine2": null,
+      "city": null,
+      "state": null,
+      "pincode": null,
+      "isVip": false,
+      "contactId": "a991acdd-1235-4f92-9e40-d3136f34f5b1",
+      "createdById": "b47de1e2-a903-46cf-be0c-c21547c5ea6c",
+      "createdAt": "2026-09-18T06:31:24.062Z",
+      "updatedAt": "2026-09-18T06:31:24.062Z",
+      "deletedAt": null
+    },
+    {
+      "id": "3d777def-d434-4451-a468-f24536a36a5d",
+      "customerCode": "CUST-000011",
+      "firstName": "Prospect",
+      "lastName": "",
+      "mobile": "1762086718",
+      "email": "prospect_1787990854805@jestpolicy.com",
+      "panNumber": null,
+      "aadhaarNumber": null,
+      "addressLine1": null,
+      "addressLine2": null,
+      "city": null,
+      "state": null,
+      "pincode": null,
+      "isVip": false,
+      "contactId": "cbaa3107-227c-40e6-a188-b43386a1e452",
+      "createdById": "b47de1e2-a903-46cf-be0c-c21547c5ea6c",
+      "createdAt": "2026-09-18T06:31:24.066Z",
+      "updatedAt": "2026-09-18T06:31:24.066Z",
+      "deletedAt": null
+    },
+    {
+      "id": "d6f37cd2-dd7e-42c0-9262-096d0a962fd5",
+      "customerCode": "CUST-000012",
+      "firstName": "Prospect",
+      "lastName": "",
+      "mobile": "3709110232",
+      "email": "prospect_1787991041494@jestpolicy.com",
+      "panNumber": null,
+      "aadhaarNumber": null,
+      "addressLine1": null,
+      "addressLine2": null,
+      "city": null,
+      "state": null,
+      "pincode": null,
+      "isVip": false,
+      "contactId": "ef575c79-e37c-4de1-b073-f63af01f7275",
+      "createdById": "b47de1e2-a903-46cf-be0c-c21547c5ea6c",
+      "createdAt": "2026-09-18T06:31:24.070Z",
+      "updatedAt": "2026-09-18T06:31:24.070Z",
+      "deletedAt": null
+    },
+    {
+      "id": "f8ef27b1-dac5-422e-994b-63fc956df0e4",
+      "customerCode": "CUST-000013",
+      "firstName": "Prospect",
+      "lastName": "",
+      "mobile": "2743359920",
+      "email": "prospect_1787991106496@jestpolicy.com",
+      "panNumber": null,
+      "aadhaarNumber": null,
+      "addressLine1": null,
+      "addressLine2": null,
+      "city": null,
+      "state": null,
+      "pincode": null,
+      "isVip": false,
+      "contactId": "cad51965-3749-4aa6-a5cd-74672e420cb7",
+      "createdById": "b47de1e2-a903-46cf-be0c-c21547c5ea6c",
+      "createdAt": "2026-09-18T06:31:24.074Z",
+      "updatedAt": "2026-09-18T06:31:24.074Z",
+      "deletedAt": null
+    },
+    {
+      "id": "43eded53-b2ff-452d-8033-74edcddfb50e",
+      "customerCode": "CUST-000014",
+      "firstName": "VIP",
+      "lastName": "TEST",
+      "mobile": "9012345678",
+      "email": "vip@gmail.com",
+      "panNumber": null,
+      "aadhaarNumber": null,
+      "addressLine1": null,
+      "addressLine2": null,
+      "city": null,
+      "state": null,
+      "pincode": null,
+      "isVip": false,
+      "contactId": "7ffec8a3-e8ef-4f32-a481-305d15761f44",
+      "createdById": "b3f08e08-44ae-4a79-8d25-c73f2585d072",
+      "createdAt": "2026-09-18T06:31:24.079Z",
+      "updatedAt": "2026-09-18T06:31:24.079Z",
+      "deletedAt": null
+    },
+    {
+      "id": "77437598-8327-49db-96bf-4b5f06f7f575",
+      "customerCode": "CUST-000015",
+      "firstName": "Test",
+      "lastName": "Test",
+      "mobile": "9080999090",
+      "email": "test1@gmail.com",
+      "panNumber": null,
+      "aadhaarNumber": null,
+      "addressLine1": null,
+      "addressLine2": null,
+      "city": null,
+      "state": null,
+      "pincode": null,
+      "isVip": false,
+      "contactId": "7ee27e34-0878-4067-b72f-127c43066773",
+      "createdById": "7b639457-1f49-4198-bd38-5183d8ee7522",
+      "createdAt": "2026-09-18T06:31:24.083Z",
+      "updatedAt": "2026-09-18T06:31:24.083Z",
+      "deletedAt": null
+    },
+    {
+      "id": "fdf422b8-0689-4531-97bf-316e2574276c",
+      "customerCode": "CUST-000016",
+      "firstName": "test2",
+      "lastName": "test",
+      "mobile": "9080248090",
+      "email": "test2@gmail.com",
+      "panNumber": null,
+      "aadhaarNumber": null,
+      "addressLine1": null,
+      "addressLine2": null,
+      "city": null,
+      "state": null,
+      "pincode": null,
+      "isVip": false,
+      "contactId": "c75fd713-fa32-47c9-9f91-f1892b66c216",
+      "createdById": "7b639457-1f49-4198-bd38-5183d8ee7522",
+      "createdAt": "2026-09-18T06:31:24.087Z",
+      "updatedAt": "2026-09-18T06:31:24.087Z",
+      "deletedAt": null
+    },
+    {
+      "id": "97f47d39-5fbf-40cf-9219-9ffbccaf21bd",
+      "customerCode": "CUST-000017",
+      "firstName": "Vikram",
+      "lastName": "Singhania",
+      "mobile": "9859672011",
+      "email": "vikram.1788979672011@example.com",
+      "panNumber": "ABCDE1234F",
+      "aadhaarNumber": null,
+      "addressLine1": null,
+      "addressLine2": null,
+      "city": null,
+      "state": null,
+      "pincode": null,
+      "isVip": false,
+      "contactId": "c68e6b97-0f53-44c6-86e4-03e50719b3c5",
+      "createdById": "b3f08e08-44ae-4a79-8d25-c73f2585d072",
+      "createdAt": "2026-09-18T06:31:24.092Z",
+      "updatedAt": "2026-09-18T06:31:24.092Z",
+      "deletedAt": null
+    },
+    {
+      "id": "bd1510a1-becc-4b6d-a775-8783ecafe657",
+      "customerCode": "CUST-000018",
+      "firstName": "Urooj",
+      "lastName": "Inamdar",
+      "mobile": "9632342366",
+      "email": "urutest@gmail.com",
+      "panNumber": null,
+      "aadhaarNumber": null,
+      "addressLine1": null,
+      "addressLine2": null,
+      "city": null,
+      "state": null,
+      "pincode": null,
+      "isVip": false,
+      "contactId": "e1a9983e-05f8-436d-a894-d8b403e0b910",
+      "createdById": "b3f08e08-44ae-4a79-8d25-c73f2585d072",
+      "createdAt": "2026-09-18T06:31:24.096Z",
+      "updatedAt": "2026-09-18T06:31:24.096Z",
+      "deletedAt": null
+    },
+    {
+      "id": "b4fd34ed-652f-4221-8aa8-0fd0679a4225",
+      "customerCode": "CUST-000019",
+      "firstName": "Karan",
+      "lastName": "Kishore",
+      "mobile": "9846657467",
+      "email": "karan.1789192534080@example.com",
+      "panNumber": null,
+      "aadhaarNumber": null,
+      "addressLine1": null,
+      "addressLine2": null,
+      "city": null,
+      "state": null,
+      "pincode": null,
+      "isVip": false,
+      "contactId": "a1c25e06-e7dd-47d4-a10f-2dfa0425b866",
+      "createdById": "b47de1e2-a903-46cf-be0c-c21547c5ea6c",
+      "createdAt": "2026-09-18T06:31:24.100Z",
+      "updatedAt": "2026-09-18T06:31:24.100Z",
+      "deletedAt": null
+    },
+    {
+      "id": "2fbb6a71-1d66-4210-b308-4b1bbdc32d45",
+      "customerCode": "CUST-000020",
+      "firstName": "Urooj",
+      "lastName": "Inamdar",
+      "mobile": "9632342372",
+      "email": "test3@gmail.com",
+      "panNumber": null,
+      "aadhaarNumber": null,
+      "addressLine1": null,
+      "addressLine2": null,
+      "city": null,
+      "state": null,
+      "pincode": null,
+      "isVip": false,
+      "contactId": "646ede91-10dd-4671-9c5f-1fa5c69ed816",
+      "createdById": "b3f08e08-44ae-4a79-8d25-c73f2585d072",
+      "createdAt": "2026-09-18T06:31:24.105Z",
+      "updatedAt": "2026-09-18T06:31:24.105Z",
+      "deletedAt": null
+    },
+    {
+      "id": "c5f7fa3e-2744-4cee-ab93-ac0324aa5aa3",
+      "customerCode": "CUST-000021",
+      "firstName": "test",
+      "lastName": "test",
+      "mobile": "9090909999",
+      "email": "test123@gmail.com",
+      "panNumber": null,
+      "aadhaarNumber": null,
+      "addressLine1": null,
+      "addressLine2": null,
+      "city": null,
+      "state": null,
+      "pincode": null,
+      "isVip": false,
+      "contactId": "6bc1e18e-5ab2-4859-830d-6b4504abe62d",
+      "createdById": "b3f08e08-44ae-4a79-8d25-c73f2585d072",
+      "createdAt": "2026-09-18T06:31:24.109Z",
+      "updatedAt": "2026-09-18T06:31:24.109Z",
+      "deletedAt": null
+    }
+  ],
+  "leads": [
+    {
+      "id": "4acea680-a164-4109-b417-f94335bc91cb",
+      "leadCode": "LEAD-001001",
+      "contactId": "a10d7a38-7b8f-44d5-b8e4-285c0edc2f88",
+      "customerId": "4b254be6-2342-4117-b362-5e20f426d350",
+      "agentId": null
+    },
+    {
+      "id": "9769cefc-ae04-4189-be10-6dbf761fb56a",
+      "leadCode": "LEAD-001002",
+      "contactId": "a10d7a38-7b8f-44d5-b8e4-285c0edc2f88",
+      "customerId": "4b254be6-2342-4117-b362-5e20f426d350",
+      "agentId": null
+    },
+    {
+      "id": "eb72788b-22f8-4da7-b809-f79cc4932aec",
+      "leadCode": "LEAD-001003",
+      "contactId": "a10d7a38-7b8f-44d5-b8e4-285c0edc2f88",
+      "customerId": "4b254be6-2342-4117-b362-5e20f426d350",
+      "agentId": null
+    },
+    {
+      "id": "e9648dba-2ad7-4ee6-9f82-3b86e7787a2f",
+      "leadCode": "LEAD-000001",
+      "contactId": "cccfd713-2b7d-40ae-9f1e-42aa43bba502",
+      "customerId": "10a56ead-a521-43bc-aeef-764f06adf70b",
+      "agentId": null
+    },
+    {
+      "id": "4300e5ed-abb9-4478-93a9-594be9f3c38c",
+      "leadCode": "LEAD-000002",
+      "contactId": "a991acdd-1235-4f92-9e40-d3136f34f5b1",
+      "customerId": "e2ebc920-ec45-4276-8c38-79a633a001fb",
+      "agentId": null
+    },
+    {
+      "id": "99f4cf49-d0b9-4ced-99f3-082f44ce8d3c",
+      "leadCode": "LEAD-000003",
+      "contactId": "cbaa3107-227c-40e6-a188-b43386a1e452",
+      "customerId": "3d777def-d434-4451-a468-f24536a36a5d",
+      "agentId": null
+    },
+    {
+      "id": "60653f4a-c343-41d1-a7fb-c10a1d2eb34b",
+      "leadCode": "LD-855735",
+      "contactId": "a10d7a38-7b8f-44d5-b8e4-285c0edc2f88",
+      "customerId": "4b254be6-2342-4117-b362-5e20f426d350",
+      "agentId": null
+    },
+    {
+      "id": "1d39a75f-1934-4561-a13e-8691c9667c53",
+      "leadCode": "LEAD-000004",
+      "contactId": "ef575c79-e37c-4de1-b073-f63af01f7275",
+      "customerId": "d6f37cd2-dd7e-42c0-9262-096d0a962fd5",
+      "agentId": null
+    },
+    {
+      "id": "7ad43892-58e8-4b8f-9cb2-851f60d2333c",
+      "leadCode": "LD-042294",
+      "contactId": "a10d7a38-7b8f-44d5-b8e4-285c0edc2f88",
+      "customerId": "4b254be6-2342-4117-b362-5e20f426d350",
+      "agentId": null
+    },
+    {
+      "id": "8ced77d9-934d-426c-9fad-a3de0db036c5",
+      "leadCode": "LEAD-000005",
+      "contactId": "cad51965-3749-4aa6-a5cd-74672e420cb7",
+      "customerId": "f8ef27b1-dac5-422e-994b-63fc956df0e4",
+      "agentId": null
+    },
+    {
+      "id": "2c507852-c26c-44db-be64-8ae0eaab8c69",
+      "leadCode": "LD-107201",
+      "contactId": "a10d7a38-7b8f-44d5-b8e4-285c0edc2f88",
+      "customerId": "4b254be6-2342-4117-b362-5e20f426d350",
+      "agentId": null
+    },
+    {
+      "id": "3c3c1fa3-6053-40a8-a1a3-4eec7a5e21c0",
+      "leadCode": "LD-672011",
+      "contactId": "c68e6b97-0f53-44c6-86e4-03e50719b3c5",
+      "customerId": "97f47d39-5fbf-40cf-9219-9ffbccaf21bd",
+      "agentId": "82133eff-c762-48e6-9c51-7d8b60932fa5"
+    },
+    {
+      "id": "e0791f61-712c-4a76-8c41-955339fa36b3",
+      "leadCode": "LEAD-000007",
+      "contactId": "646ede91-10dd-4671-9c5f-1fa5c69ed816",
+      "customerId": "2fbb6a71-1d66-4210-b308-4b1bbdc32d45",
+      "agentId": null
+    },
+    {
+      "id": "c31d4994-dbbf-40de-ac55-6aee5e67e294",
+      "leadCode": "LEAD-000008",
+      "contactId": "e1a9983e-05f8-436d-a894-d8b403e0b910",
+      "customerId": "bd1510a1-becc-4b6d-a775-8783ecafe657",
+      "agentId": null
+    },
+    {
+      "id": "aad7867d-79a6-49fb-abe1-080a45cb2fd2",
+      "leadCode": "LEAD-000009",
+      "contactId": "e1a9983e-05f8-436d-a894-d8b403e0b910",
+      "customerId": "bd1510a1-becc-4b6d-a775-8783ecafe657",
+      "agentId": null
+    },
+    {
+      "id": "474a374e-f2ee-4d39-b18f-ba27e0858ec3",
+      "leadCode": "LEAD-000010",
+      "contactId": "e1a9983e-05f8-436d-a894-d8b403e0b910",
+      "customerId": "bd1510a1-becc-4b6d-a775-8783ecafe657",
+      "agentId": null
+    },
+    {
+      "id": "483d3468-c8b6-4204-acf5-15036d1548b1",
+      "leadCode": "LEAD-000013",
+      "contactId": "e1a9983e-05f8-436d-a894-d8b403e0b910",
+      "customerId": "bd1510a1-becc-4b6d-a775-8783ecafe657",
+      "agentId": null
+    },
+    {
+      "id": "c0b8cdc1-5e57-4440-b6ca-6a9e8da6d220",
+      "leadCode": "LEAD-000012",
+      "contactId": "e1a9983e-05f8-436d-a894-d8b403e0b910",
+      "customerId": "bd1510a1-becc-4b6d-a775-8783ecafe657",
+      "agentId": null
+    },
+    {
+      "id": "40aaa482-158a-43b7-ac5f-7fd3e559e8c3",
+      "leadCode": "LEAD-000014",
+      "contactId": "e1a9983e-05f8-436d-a894-d8b403e0b910",
+      "customerId": "bd1510a1-becc-4b6d-a775-8783ecafe657",
+      "agentId": null
+    },
+    {
+      "id": "afba0678-7e63-48d1-8b8d-da4f740c4235",
+      "leadCode": "LEAD-000015",
+      "contactId": "6bc1e18e-5ab2-4859-830d-6b4504abe62d",
+      "customerId": "c5f7fa3e-2744-4cee-ab93-ac0324aa5aa3",
+      "agentId": "82133eff-c762-48e6-9c51-7d8b60932fa5"
+    },
+    {
+      "id": "a1783b82-9d5e-4350-bbb2-baf873a4cda8",
+      "leadCode": "LEAD-000016",
+      "contactId": "6bc1e18e-5ab2-4859-830d-6b4504abe62d",
+      "customerId": "c5f7fa3e-2744-4cee-ab93-ac0324aa5aa3",
+      "agentId": "82133eff-c762-48e6-9c51-7d8b60932fa5"
+    },
+    {
+      "id": "cb0c75e3-fa6d-4650-a654-65b60f4f1fe3",
+      "leadCode": "LEAD-000006",
+      "contactId": "a10d7a38-7b8f-44d5-b8e4-285c0edc2f88",
+      "customerId": "4b254be6-2342-4117-b362-5e20f426d350",
+      "agentId": null
+    },
+    {
+      "id": "34881dcb-1d2d-491e-a6f8-17123a4053a5",
+      "leadCode": "LEAD-000011",
+      "contactId": "e1a9983e-05f8-436d-a894-d8b403e0b910",
+      "customerId": "bd1510a1-becc-4b6d-a775-8783ecafe657",
+      "agentId": null
+    },
+    {
+      "id": "136508a6-ed06-4905-b678-96dba8eb32f0",
+      "leadCode": "LEAD-000017",
+      "contactId": "646ede91-10dd-4671-9c5f-1fa5c69ed816",
+      "customerId": "2fbb6a71-1d66-4210-b308-4b1bbdc32d45",
+      "agentId": "82133eff-c762-48e6-9c51-7d8b60932fa5"
+    },
+    {
+      "id": "b6aa208b-addc-49fa-8507-3b00b77042a3",
+      "leadCode": "LEAD-000018",
+      "contactId": "6bc1e18e-5ab2-4859-830d-6b4504abe62d",
+      "customerId": "c5f7fa3e-2744-4cee-ab93-ac0324aa5aa3",
+      "agentId": null
+    }
+  ],
+  "quotations": [
+    {
+      "id": "39cd53cd-52ef-4df5-82f9-0625de570719",
+      "quotationCode": "MQ-BIK-73398603",
+      "contactId": "d16b4db0-02e9-48b6-92bd-6faf3d959a18",
+      "leadId": null
+    },
+    {
+      "id": "87722864-6cc1-4c9d-8528-0a65e961f819",
+      "quotationCode": "MQ-BIK-73517192",
+      "contactId": "efcd3948-38ee-4752-b1b6-fd8d6808092e",
+      "leadId": null
+    },
+    {
+      "id": "0bb0aa3f-86c7-4fc9-baa5-a17eb05e45c7",
+      "quotationCode": "MQ-TRA-95806872",
+      "contactId": "f3c21725-54e7-4437-a81e-ff3082180d3c",
+      "leadId": null
+    },
+    {
+      "id": "abbf2ed8-3519-4665-9c18-33c9896abea5",
+      "quotationCode": "MQ-PRI-96759720",
+      "contactId": "6dde5c91-334d-452d-b579-659def2877c6",
+      "leadId": null
+    },
+    {
+      "id": "1d06d017-6a0c-4947-b8fd-b304a3b31ea9",
+      "quotationCode": "MQ-GCV-99610258",
+      "contactId": "d1a15779-b5f8-4675-b4bf-c50a0d9634c5",
+      "leadId": null
+    },
+    {
+      "id": "59d4fde8-56e2-4892-9ad1-66586f46d0f7",
+      "quotationCode": "MQ-BIK-00186403",
+      "contactId": "f3c21725-54e7-4437-a81e-ff3082180d3c",
+      "leadId": null
+    },
+    {
+      "id": "8ea21281-5b48-476f-9dd1-32b845a566e2",
+      "quotationCode": "MQ-BIK-56963916",
+      "contactId": "df0215df-3269-4b36-be05-1b05036b188c",
+      "leadId": null
+    },
+    {
+      "id": "2cbda604-94e1-482f-a6db-bca141de0132",
+      "quotationCode": "MQ-BIK-58250575",
+      "contactId": "df0215df-3269-4b36-be05-1b05036b188c",
+      "leadId": null
+    },
+    {
+      "id": "90131f1c-ff34-465b-93e8-696636bea8b2",
+      "quotationCode": "MQ-BIK-62103222",
+      "contactId": "f3c21725-54e7-4437-a81e-ff3082180d3c",
+      "leadId": null
+    },
+    {
+      "id": "8244bd2e-0669-42bf-8607-80772efceb4c",
+      "quotationCode": "MQ-GCV-63869707",
+      "contactId": "f3c21725-54e7-4437-a81e-ff3082180d3c",
+      "leadId": null
+    },
+    {
+      "id": "63e5e946-4d29-4945-8022-c2a801bccfd7",
+      "quotationCode": "MQ-GCV-63979961",
+      "contactId": "f1c3c84a-f421-40c8-a8b4-fbb0a291a1ea",
+      "leadId": null
+    },
+    {
+      "id": "7256d59b-354d-4ac6-b436-34ce39be6ca7",
+      "quotationCode": "MQ-BIK-12407302",
+      "contactId": "f3c21725-54e7-4437-a81e-ff3082180d3c",
+      "leadId": null
+    },
+    {
+      "id": "cc9ec296-9328-4577-b6cc-b37a60e467cf",
+      "quotationCode": "MQ-BIK-16431470",
+      "contactId": "f3c21725-54e7-4437-a81e-ff3082180d3c",
+      "leadId": null
+    },
+    {
+      "id": "b5f549a6-b43e-4e43-8cf4-7c44a0317ca6",
+      "quotationCode": "MQ-BIK-36261853",
+      "contactId": "f3c21725-54e7-4437-a81e-ff3082180d3c",
+      "leadId": null
+    },
+    {
+      "id": "fb3af146-5896-488a-9eee-c78e5f44e88c",
+      "quotationCode": "MQ-BIK-26867725",
+      "contactId": "f3c21725-54e7-4437-a81e-ff3082180d3c",
+      "leadId": null
+    },
+    {
+      "id": "13c338f2-a70b-42ba-825d-ee252a957bae",
+      "quotationCode": "MQ-PRI-88739291",
+      "contactId": "f3c21725-54e7-4437-a81e-ff3082180d3c",
+      "leadId": null
+    },
+    {
+      "id": "f8f5ab93-c387-4b26-a49f-d364bb6fb1b1",
+      "quotationCode": "MQ-BIK-75239156",
+      "contactId": "df0215df-3269-4b36-be05-1b05036b188c",
+      "leadId": null
+    },
+    {
+      "id": "e3adb914-207e-4a51-94c4-7db40ab23d7a",
+      "quotationCode": "MQ-BIK-33228981",
+      "contactId": "f3c21725-54e7-4437-a81e-ff3082180d3c",
+      "leadId": null
+    },
+    {
+      "id": "3499fbe3-1663-41b0-bd8c-acb8897dafd9",
+      "quotationCode": "QTN-672011",
+      "contactId": "c68e6b97-0f53-44c6-86e4-03e50719b3c5",
+      "leadId": "3c3c1fa3-6053-40a8-a1a3-4eec7a5e21c0"
+    },
+    {
+      "id": "451c9daa-a9bc-4856-98dd-28b94c13330c",
+      "quotationCode": "QT-2026-09-000001",
+      "contactId": "f3c21725-54e7-4437-a81e-ff3082180d3c",
+      "leadId": null
+    },
+    {
+      "id": "87472fb4-4bfb-460c-84ef-5c25b7716ff5",
+      "quotationCode": "QT-2026-09-000002",
+      "contactId": "646ede91-10dd-4671-9c5f-1fa5c69ed816",
+      "leadId": null
+    },
+    {
+      "id": "ba16b0c1-1e32-4ec3-8b89-1be67c87307a",
+      "quotationCode": "QT-2026-09-000003",
+      "contactId": "e1a9983e-05f8-436d-a894-d8b403e0b910",
+      "leadId": "474a374e-f2ee-4d39-b18f-ba27e0858ec3"
+    },
+    {
+      "id": "7ad3f398-1d40-45e0-83a4-c72eb3f3216c",
+      "quotationCode": "QT-2026-09-000004",
+      "contactId": "e1a9983e-05f8-436d-a894-d8b403e0b910",
+      "leadId": "474a374e-f2ee-4d39-b18f-ba27e0858ec3"
+    },
+    {
+      "id": "0e9d70fb-234b-4876-b5c7-94c8e0abbee3",
+      "quotationCode": "QT-2026-09-000013",
+      "contactId": "f3c21725-54e7-4437-a81e-ff3082180d3c",
+      "leadId": null
+    },
+    {
+      "id": "7e1aa627-80ff-415f-873f-0b837df902d4",
+      "quotationCode": "QT-2026-09-000005",
+      "contactId": "e1a9983e-05f8-436d-a894-d8b403e0b910",
+      "leadId": "34881dcb-1d2d-491e-a6f8-17123a4053a5"
+    },
+    {
+      "id": "9532e2b8-ad1b-456b-8b1b-b54a8184acab",
+      "quotationCode": "QT-2026-09-000006",
+      "contactId": "e1a9983e-05f8-436d-a894-d8b403e0b910",
+      "leadId": "34881dcb-1d2d-491e-a6f8-17123a4053a5"
+    },
+    {
+      "id": "49f41719-bea7-48f3-8615-6ab5544696dd",
+      "quotationCode": "QT-2026-09-000008",
+      "contactId": "e1a9983e-05f8-436d-a894-d8b403e0b910",
+      "leadId": "c0b8cdc1-5e57-4440-b6ca-6a9e8da6d220"
+    },
+    {
+      "id": "ddd02f82-629e-4ddb-b61f-c5734da0d37d",
+      "quotationCode": "QT-2026-09-000007",
+      "contactId": "e1a9983e-05f8-436d-a894-d8b403e0b910",
+      "leadId": "c0b8cdc1-5e57-4440-b6ca-6a9e8da6d220"
+    },
+    {
+      "id": "510a3a1f-13de-4cdd-a432-b549e4b6c14c",
+      "quotationCode": "QT-2026-09-000010",
+      "contactId": "e1a9983e-05f8-436d-a894-d8b403e0b910",
+      "leadId": "483d3468-c8b6-4204-acf5-15036d1548b1"
+    },
+    {
+      "id": "3babb26a-0922-4217-9785-a0ba16e95917",
+      "quotationCode": "QT-2026-09-000009",
+      "contactId": "e1a9983e-05f8-436d-a894-d8b403e0b910",
+      "leadId": "483d3468-c8b6-4204-acf5-15036d1548b1"
+    },
+    {
+      "id": "6996d963-02b6-4050-9135-0e274b8deefa",
+      "quotationCode": "QT-2026-09-000012",
+      "contactId": "e1a9983e-05f8-436d-a894-d8b403e0b910",
+      "leadId": "40aaa482-158a-43b7-ac5f-7fd3e559e8c3"
+    },
+    {
+      "id": "5ee4a65f-6288-4323-944f-29c094ebe6f0",
+      "quotationCode": "QT-2026-09-000011",
+      "contactId": "e1a9983e-05f8-436d-a894-d8b403e0b910",
+      "leadId": "40aaa482-158a-43b7-ac5f-7fd3e559e8c3"
+    },
+    {
+      "id": "fd393e78-e5cc-40a7-81d8-c8e54891e1da",
+      "quotationCode": "QT-2026-09-000014",
+      "contactId": "f3c21725-54e7-4437-a81e-ff3082180d3c",
+      "leadId": null
+    },
+    {
+      "id": "a0ea7647-b0ef-48bf-9548-28d09046bb84",
+      "quotationCode": "QT-2026-09-000015",
+      "contactId": "646ede91-10dd-4671-9c5f-1fa5c69ed816",
+      "leadId": null
+    },
+    {
+      "id": "bb7090eb-b548-4cff-b63b-86c219f2df93",
+      "quotationCode": "MQ-TRA-59904633",
+      "contactId": "f3c21725-54e7-4437-a81e-ff3082180d3c",
+      "leadId": null
+    }
+  ],
+  "policies": [
+    {
+      "id": "1ef846e6-5ab1-4c8d-a5a9-8286d5ae65bd",
+      "policyNumber": "POL-000003",
+      "contactId": "c68e6b97-0f53-44c6-86e4-03e50719b3c5",
+      "quotationId": "3499fbe3-1663-41b0-bd8c-acb8897dafd9"
+    },
+    {
+      "id": "2feb5070-1c9c-4fcb-8723-41353e27de8a",
+      "policyNumber": "POL-2026-199325",
+      "contactId": "e1a9983e-05f8-436d-a894-d8b403e0b910",
+      "quotationId": "ddd02f82-629e-4ddb-b61f-c5734da0d37d"
+    },
+    {
+      "id": "ce8eb2ab-f3cd-4303-a677-1d08a61e2c64",
+      "policyNumber": "POL-2026-893586",
+      "contactId": "e1a9983e-05f8-436d-a894-d8b403e0b910",
+      "quotationId": "3babb26a-0922-4217-9785-a0ba16e95917"
+    },
+    {
+      "id": "f6d175a0-91a7-40f1-8735-d154a06038ef",
+      "policyNumber": "POL-2026-553213",
+      "contactId": "e1a9983e-05f8-436d-a894-d8b403e0b910",
+      "quotationId": "5ee4a65f-6288-4323-944f-29c094ebe6f0"
+    }
+  ]
+}

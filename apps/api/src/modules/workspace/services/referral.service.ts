@@ -2,6 +2,7 @@ import {
   Injectable,
   BadRequestException,
   NotFoundException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { PrismaService } from '../../../database/prisma.service';
 
@@ -48,12 +49,22 @@ export class ReferralService {
       where: { phone: dto.phone, deletedAt: null },
     });
 
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { companyId: true },
+    });
+    const companyId = user?.companyId;
+    if (!companyId) {
+      throw new ForbiddenException('Tenant organizational context is required');
+    }
+
     if (!contact) {
       const contactCount = await this.prisma.contact.count();
       const contactCode = `CNT-${String(contactCount + 1).padStart(5, '0')}`;
 
       contact = await this.prisma.contact.create({
         data: {
+          companyId,
           contactCode,
           type: 'INDIVIDUAL',
           firstName: dto.referralName.split(' ')[0] || dto.referralName,
@@ -71,6 +82,7 @@ export class ReferralService {
 
     const newLead = await this.prisma.lead.create({
       data: {
+        companyId,
         leadCode,
         title: `Referral Lead: ${dto.referralName} (${dto.interestedProduct || 'MOTOR'})`,
         source: 'REFERRAL',

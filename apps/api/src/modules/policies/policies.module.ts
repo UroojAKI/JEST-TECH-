@@ -7,6 +7,7 @@ import { ReportsModule } from '../platform/reporting/reports.module';
 
 import { PolicyRepository } from './repositories/policy.repository';
 import { PoliciesController } from './controllers/policies.controller';
+import { RenewalsController } from './controllers/renewals.controller';
 
 // CQRS Commands
 import { IssuePolicyService } from './services/commands/issue-policy.service';
@@ -42,7 +43,7 @@ import { OutboxModule } from '../platform/outbox/outbox.module';
     OutboxModule,
     BullModule.registerQueue({ name: 'renewal-reminders' }),
   ],
-  controllers: [PoliciesController, BackOfficeController],
+  controllers: [PoliciesController, BackOfficeController, RenewalsController],
   providers: [
     PolicyRepository,
     PolicyDomainService,

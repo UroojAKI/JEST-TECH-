@@ -10,7 +10,7 @@ import {
   Query,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags, ApiOperation } from '@nestjs/swagger';
-import { RoleType } from '@prisma/client';
+import { RoleType, UserStatus } from '@prisma/client';
 
 import { PaginationDto } from '../../../common/pagination/pagination.dto';
 import { ParseUUIDPipe } from '../../../common/utils/parse-uuid.pipe';
@@ -76,14 +76,28 @@ export class UsersController {
 
   @Get()
   @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE)
-  findAll(@Query() pagination: PaginationDto) {
-    return this.usersService.findAll(pagination);
+  findAll(
+    @Query() pagination: PaginationDto,
+    @Query('status') status?: string,
+  ) {
+    return this.usersService.findAll(pagination, status);
   }
 
   @Get(':id')
   @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE)
   findOne(@Param('id', ParseUUIDPipe) id: string) {
     return this.usersService.findById(id);
+  }
+
+  @Patch(':id/status')
+  @Roles(RoleType.ADMIN)
+  @ApiOperation({ summary: 'Update user status with state machine validation' })
+  updateStatus(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: { status: UserStatus; reason?: string },
+    @CurrentUser() actor: RequestUser,
+  ) {
+    return this.usersService.updateStatus(id, dto.status, dto.reason, actor?.id);
   }
 
   @Patch(':id')
@@ -102,14 +116,14 @@ export class UsersController {
 
   @Post(':id/lock')
   @Roles(RoleType.ADMIN)
-  lock(@Param('id', ParseUUIDPipe) id: string) {
-    return this.usersService.lockUser(id);
+  lock(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() actor: RequestUser) {
+    return this.usersService.lockUser(id, actor?.id);
   }
 
   @Post(':id/unlock')
   @Roles(RoleType.ADMIN)
-  unlock(@Param('id', ParseUUIDPipe) id: string) {
-    return this.usersService.unlockUser(id);
+  unlock(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() actor: RequestUser) {
+    return this.usersService.unlockUser(id, actor?.id);
   }
 
   @Post(':id/reset-password')

@@ -31,7 +31,7 @@ const orgScope = (
         OR: [
           { companyId },
           { createdBy: userFilter },
-          { lead: { createdBy: userFilter } },
+          { lead: { assignedTo: userFilter } },
         ],
       };
     case 'POLICY':
@@ -39,7 +39,6 @@ const orgScope = (
         OR: [
           { companyId },
           { createdBy: userFilter },
-          { quotation: { createdBy: userFilter } },
         ],
       };
     case 'CLAIM':
@@ -50,16 +49,19 @@ const orgScope = (
           { policy: { createdBy: userFilter } },
         ],
       };
+    case 'CUSTOMER':
+    case 'CUSTOMER_360':
+    case 'CONTACT':
+    case 'ACCOUNT':
+      return { companyId };
     case 'RENEWAL_TASK':
       return {
         OR: [
-          { companyId },
+          { policy: { companyId } },
           { agent: userFilter },
           { policy: { createdBy: userFilter } },
         ],
       };
-    case 'ACCOUNT':
-    case 'CONTACT':
     case 'DOCUMENT':
     case 'REPORT':
     default:
@@ -76,10 +78,13 @@ const agentScope = (
   actor: ActorContext,
   resourceType: ResourceType,
 ): Record<string, any> => {
+  const agentId = actor.agentId;
+
   switch (resourceType) {
     case 'LEAD':
       return {
         OR: [
+          ...(agentId ? [{ agentId }] : []),
           { assignedToId: actor.userId },
           { createdById: actor.userId },
         ],
@@ -87,6 +92,7 @@ const agentScope = (
     case 'QUOTATION':
       return {
         OR: [
+          ...(agentId ? [{ agentId }, { lead: { agentId } }] : []),
           { createdById: actor.userId },
           { lead: { assignedToId: actor.userId } },
         ],
@@ -94,6 +100,7 @@ const agentScope = (
     case 'POLICY':
       return {
         OR: [
+          ...(agentId ? [{ agentId }, { quotation: { agentId } }] : []),
           { createdById: actor.userId },
           { quotation: { createdById: actor.userId } },
         ],
@@ -101,14 +108,24 @@ const agentScope = (
     case 'CLAIM':
       return {
         OR: [
+          ...(agentId ? [{ agentId }, { policy: { agentId } }] : []),
           { createdById: actor.userId },
           { policy: { createdById: actor.userId } },
+        ],
+      };
+    case 'CUSTOMER':
+    case 'CUSTOMER_360':
+      return {
+        OR: [
+          ...(agentId ? [{ primaryAgentId: agentId }] : []),
+          { createdById: actor.userId },
         ],
       };
     case 'RENEWAL_TASK':
       return {
         OR: [
           { agentId: actor.userId },
+          ...(agentId ? [{ policy: { agentId } }] : []),
           { policy: { createdById: actor.userId } },
         ],
       };
@@ -127,19 +144,19 @@ export class ScopeResolver {
     actor: ActorContext,
     resourceType: ResourceType,
   ): Record<string, any> {
-    if (!actor?.userId || !actor.organizationId) {
+    if (!actor?.userId || (!actor.organizationId && !actor.companyId)) {
       return { id: '__UNAUTHORIZED_ACCESS_BLOCKED__' };
     }
 
     const roles = actor.roles?.length ? actor.roles : [actor.role];
 
-    // ADMIN: Universal access (ALL companies)
-    if (roles.includes(RoleType.ADMIN)) {
+    // Platform Super-Admin: Universal access across all tenants
+    if (actor.permissions?.includes('*')) {
       return {};
     }
 
-    // BACK_OFFICE: Scoped to company / organization
-    if (roles.includes(RoleType.BACK_OFFICE)) {
+    // ADMIN and BACK_OFFICE: Scoped to company / organization
+    if (roles.includes(RoleType.ADMIN) || roles.includes(RoleType.BACK_OFFICE)) {
       return orgScope(actor, resourceType);
     }
 

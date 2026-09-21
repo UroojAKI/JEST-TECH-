@@ -334,8 +334,14 @@ export class TasksService {
       taskCode = `BOT-${String(nextNum).padStart(5, '0')}`;
     }
 
+    const companyId = user.companyId || (user as any).organizationId;
+    if (!companyId) {
+      throw new ForbiddenException('Tenant organizational context is required');
+    }
+
     return this.prisma.backOfficeTask.create({
       data: {
+        companyId,
         taskCode,
         taskType: dto.taskType,
         priority: dto.priority,

@@ -150,7 +150,7 @@ describe('AgentsService', () => {
       expect(prisma.agent.create).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({
-            agentCode: 'AGT-0001',
+            agentCode: 'AGT-000001',
             userId: 'user-uuid-1',
           }),
         }),

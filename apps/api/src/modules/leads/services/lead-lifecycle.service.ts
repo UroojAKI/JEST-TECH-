@@ -177,6 +177,7 @@ export class LeadLifecycleService {
           const taskCode = `BOT-${String(count + 1).padStart(5, '0')}`;
           await tx.backOfficeTask.create({
             data: {
+              companyId: updatedLead.companyId,
               taskCode,
               taskType: 'POLICY_ISSUANCE',
               leadId,

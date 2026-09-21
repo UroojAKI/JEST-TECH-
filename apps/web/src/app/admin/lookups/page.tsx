@@ -6,6 +6,7 @@ import { Database, Plus, Loader2 } from 'lucide-react';
 import { PageLoadingState, PageErrorState } from '../../../components/ui/page-states';
 import { toast } from 'sonner';
 import { useAdminLookups } from '../../../hooks/useAdmin';
+import { adminRepository } from '../../../repositories/admin.repository';
 
 const LOOKUP_CATEGORIES = [
   { id: 'POLICY_TYPES', name: 'Policy Product Lines' },
@@ -19,13 +20,9 @@ const LOOKUP_CATEGORIES = [
 export default function LookupMastersPage() {
   const [selectedCategory, setSelectedCategory] = useState<string>('POLICY_TYPES');
   const { data: lookups = [], isLoading, isError, refetch } = useAdminLookups(selectedCategory);
-
-  if (isLoading) return <AppShell><PageLoadingState message="Loading lookups..." /></AppShell>;
-  if (isError) return <AppShell><PageErrorState message="Failed to load lookups." onRetry={refetch} /></AppShell>;
   const [isSaving, setIsSaving] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [editingItem, setEditingItem] = useState<any>(null);
-  
   const [form, setForm] = useState({ code: '', name: '', category: 'General' });
 
   const handleOpenAdd = () => {
@@ -47,17 +44,35 @@ export default function LookupMastersPage() {
       return;
     }
 
+    setIsSaving(true);
     try {
       if (editingItem) {
-        toast.info('Lookup updated!');
+        await adminRepository.updateLookupValue(selectedCategory, editingItem.id, {
+          name: form.name,
+          description: form.category,
+        });
+        toast.success('Lookup entry updated successfully');
       } else {
-        toast.info('Lookup entry created!');
+        await adminRepository.createLookupValue(selectedCategory, {
+          code: form.code,
+          name: form.name,
+          description: form.category,
+        });
+        toast.success('Lookup entry created successfully');
       }
+      await refetch();
       setShowForm(false);
-    } catch (e) {
-      toast.error('Failed to save lookup');
+      setEditingItem(null);
+      setForm({ code: '', name: '', category: 'General' });
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || err?.message || 'Failed to save lookup');
+    } finally {
+      setIsSaving(false);
     }
   };
+
+  if (isLoading) return <AppShell><PageLoadingState message="Loading lookups..." /></AppShell>;
+  if (isError) return <AppShell><PageErrorState message="Failed to load lookups." onRetry={refetch} /></AppShell>;
 
   return (
     <AppShell>

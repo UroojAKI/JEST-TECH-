@@ -207,6 +207,7 @@ export class IssuePolicyService {
         effectiveDate <= new Date() ? PolicyStatus.ACTIVE : PolicyStatus.ISSUED,
       quotation: { connect: { id: quotation.id } },
       contact: { connect: { id: quotation.contactId } },
+      company: { connect: { id: quotation.companyId } },
       premiumAmount: paymentAmount,
       effectiveDate,
       expiryDate,
@@ -445,6 +446,7 @@ export class IssuePolicyService {
         const taskCode = `BOT-DOC-${policyNumber}-${Date.now().toString().slice(-4)}`;
         await this.prisma.backOfficeTask.create({
           data: {
+            companyId: quotation.companyId,
             taskCode,
             taskType: 'DOCUMENT_REGENERATION',
             status: 'PENDING',

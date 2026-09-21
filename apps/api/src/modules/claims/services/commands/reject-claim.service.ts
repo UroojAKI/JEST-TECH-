@@ -17,13 +17,24 @@ export interface RejectClaimDto {
 export class RejectClaimService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async execute(claimId: string, dto: RejectClaimDto, actorId: string) {
+  async execute(
+    claimId: string,
+    dto: RejectClaimDto,
+    actorId: string,
+    actorCompanyId?: string,
+  ) {
     const claim = await this.prisma.claim.findUnique({
       where: { id: claimId },
     });
 
     if (!claim) {
       throw new NotFoundException(`Claim with ID ${claimId} not found`);
+    }
+
+    if (actorCompanyId && claim.companyId && claim.companyId !== actorCompanyId) {
+      throw new ForbiddenException(
+        'Cross-organization access is strictly prohibited',
+      );
     }
 
     if (!dto.reason || !dto.reason.trim()) {

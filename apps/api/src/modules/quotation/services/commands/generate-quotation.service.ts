@@ -1,4 +1,4 @@
-import { Injectable, BadRequestException } from '@nestjs/common';
+import { Injectable, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { Prisma, QuotationStatus, AddonCode } from '@prisma/client';
 
 import { QuotationRepository } from '../../repositories/quotation.repository';
@@ -13,6 +13,7 @@ import { PdfService } from '../../engine/pdf.service';
 
 import { ContactsService } from '../../../contacts/services/contacts.service';
 import { AccountsService } from '../../../accounts/services/accounts.service';
+import { PrismaService } from '../../../../database/prisma.service';
 
 @Injectable()
 export class GenerateQuotationService {
@@ -25,6 +26,7 @@ export class GenerateQuotationService {
     private readonly pdfService: PdfService,
     private readonly contactsService: ContactsService,
     private readonly accountsService: AccountsService,
+    private readonly prisma: PrismaService,
   ) {}
 
   async execute(dto: CreateQuotationDto, createdById: string) {
@@ -92,11 +94,23 @@ export class GenerateQuotationService {
     const quotationCode =
       await this.quotationRepository.generateQuotationCode();
 
+    const user = await this.prisma.user.findUnique({
+      where: { id: createdById },
+      select: { companyId: true },
+    });
+    const companyId = user?.companyId;
+    if (!companyId) {
+      throw new ForbiddenException(
+        'Tenant organizational context is required to generate quotation',
+      );
+    }
+
     // 4. Map DB Create Input
     const createData: Prisma.QuotationCreateInput = {
       quotationCode,
       title: titleStr,
       status: QuotationStatus.DRAFT,
+      company: { connect: { id: companyId } },
       insurerName: insurerNameStr,
       productType: productTypeStr,
       sumInsured: new Prisma.Decimal(sumInsuredNum),

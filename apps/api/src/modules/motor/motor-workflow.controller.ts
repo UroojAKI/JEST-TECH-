@@ -11,11 +11,6 @@ import {
   CapturePreviousPolicyDto,
 } from './services/motor-quote-workflow.service';
 import {
-  MotorInspectionService,
-  CreateInspectionDto,
-  InspectionPhotoType,
-} from './services/motor-inspection.service';
-import {
   MotorPaymentTrackingService,
   RecordPaymentDto,
 } from './services/motor-payment-tracking.service';
@@ -27,7 +22,6 @@ import {
 export class MotorWorkflowController {
   constructor(
     private readonly workflowService: MotorQuoteWorkflowService,
-    private readonly inspectionService: MotorInspectionService,
     private readonly paymentService: MotorPaymentTrackingService,
   ) {}
 
@@ -55,70 +49,6 @@ export class MotorWorkflowController {
     return this.workflowService.reEvaluate(quotationId);
   }
 
-  @Post('inspections')
-  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT)
-  @ApiOperation({
-    summary: 'Create an inspection record. No placeholder evidence is created.',
-  })
-  async createInspection(
-    @Body() dto: Omit<CreateInspectionDto, 'createdById'>,
-    @CurrentUser() user: RequestUser,
-  ) {
-    return this.inspectionService.createInspection({
-      ...dto,
-      createdById: user.id,
-    });
-  }
-
-  @Get('quotations/:id/inspection')
-  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT)
-  @ApiOperation({ summary: 'Get inspection status for a quotation.' })
-  async getInspection(@Param('id') quotationId: string) {
-    return this.inspectionService.getInspection(quotationId);
-  }
-
-  @Post('inspections/:id/photos')
-  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT)
-  @ApiOperation({ summary: 'Record one real inspection photo storage key.' })
-  async recordInspectionPhoto(
-    @Param('id') inspectionId: string,
-    @Body() body: { photoType: InspectionPhotoType; storageKey: string },
-  ) {
-    return this.inspectionService.recordPhoto(
-      inspectionId,
-      body.photoType,
-      body.storageKey,
-    );
-  }
-
-  @Post('inspections/:id/complete')
-  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT)
-  @ApiOperation({
-    summary: 'Complete an inspection only after all 7 required photos exist.',
-  })
-  async completeInspection(
-    @Param('id') inspectionId: string,
-    @Body() body: { pdfKey?: string; pdfUrl?: string },
-    @CurrentUser() user: RequestUser,
-  ) {
-    return this.inspectionService.completeInspection(
-      inspectionId,
-      user.id,
-      body.pdfKey,
-      body.pdfUrl,
-    );
-  }
-
-  @Post('inspections/:id/reject')
-  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE)
-  @ApiOperation({ summary: 'Reject an inspection with a reason.' })
-  async rejectInspection(
-    @Param('id') inspectionId: string,
-    @Body('reason') reason: string,
-  ) {
-    return this.inspectionService.rejectInspection(inspectionId, reason);
-  }
-
   @Post('quotations/:id/payment')
   @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT)
   @ApiOperation({
@@ -133,25 +63,40 @@ export class MotorWorkflowController {
     >,
     @CurrentUser() user: RequestUser,
   ) {
-    return this.paymentService.recordPayment({
-      ...dto,
-      quotationId,
-      recordedById: user.id,
-      recordedByRole: user.role,
-    });
+    return this.paymentService.recordPayment(
+      {
+        ...dto,
+        quotationId,
+        recordedById: user.id,
+        recordedByRole: user.role,
+      },
+      user.companyId || user.organizationId,
+    );
   }
 
   @Get('quotations/:id/payment')
   @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT)
   @ApiOperation({ summary: 'Get payment record for a quotation.' })
-  async getPayment(@Param('id') quotationId: string) {
-    return this.paymentService.getPayment(quotationId);
+  async getPayment(
+    @Param('id') quotationId: string,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.paymentService.getPayment(
+      quotationId,
+      user.companyId || user.organizationId,
+    );
   }
 
   @Get('quotations/:id/policy-gate')
   @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT)
   @ApiOperation({ summary: 'Check the server-side policy issuance gate.' })
-  async policyCreationGate(@Param('id') quotationId: string) {
-    return this.paymentService.canProceedToPolicy(quotationId);
+  async policyCreationGate(
+    @Param('id') quotationId: string,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.paymentService.canProceedToPolicy(
+      quotationId,
+      user.companyId || user.organizationId,
+    );
   }
 }

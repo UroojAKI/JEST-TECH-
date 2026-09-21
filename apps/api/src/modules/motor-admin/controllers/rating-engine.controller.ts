@@ -32,12 +32,14 @@ export class RatingEngineController {
   constructor(private readonly insurerProductService: InsurerProductService) {}
 
   @Get('insurers')
+  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT)
   @ApiOperation({ summary: 'Get all configured partner insurers' })
   getInsurers() {
     return this.insurerProductService.getInsurers();
   }
 
   @Get('insurers/:id')
+  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT)
   @ApiOperation({ summary: 'Get insurer master details by ID' })
   getInsurerById(@Param('id') id: string) {
     return this.insurerProductService.getInsurerById(id);
@@ -72,6 +74,7 @@ export class RatingEngineController {
   }
 
   @Get('insurance-products')
+  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT)
   @ApiOperation({ summary: 'Get insurer products' })
   getInsuranceProducts(@Query('insurerId') insurerId?: string) {
     return this.insurerProductService.getInsuranceProducts(insurerId);
@@ -85,6 +88,7 @@ export class RatingEngineController {
   }
 
   @Get('discounts')
+  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT)
   @ApiOperation({ summary: 'Get discount rules' })
   getDiscountRules(@Query('insurerId') insurerId?: string) {
     return this.insurerProductService.getDiscountRules(insurerId);
@@ -98,6 +102,7 @@ export class RatingEngineController {
   }
 
   @Get('commissions')
+  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT)
   @ApiOperation({ summary: 'Get commission matrices' })
   getCommissionMatrices(@Query('insurerId') insurerId?: string) {
     return this.insurerProductService.getCommissionMatrices(insurerId);
@@ -111,6 +116,7 @@ export class RatingEngineController {
   }
 
   @Get('products')
+  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT)
   getProducts() {
     return this.insurerProductService.getProducts();
   }

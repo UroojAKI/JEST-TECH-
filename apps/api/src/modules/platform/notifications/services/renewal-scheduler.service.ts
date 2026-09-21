@@ -6,6 +6,7 @@ import {
   NotificationPriority,
   PolicyStatus,
   RenewalTaskStatus,
+  RoleType,
 } from '@prisma/client';
 
 @Injectable()
@@ -17,7 +18,7 @@ export class RenewalScheduler {
     private readonly dispatcher: NotificationDispatcher,
   ) {}
 
-  @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
+  // Manual or delegated execution (authoritative daily cron runs via RenewalSchedulerCron)
   async handleRenewalReminders() {
     this.logger.log('Starting daily policy renewals expiry scan...');
     // Run catch-up scheduler with config-driven offsets
@@ -145,11 +146,10 @@ export class RenewalScheduler {
   }
 
   private async getDefaultAgentId(): Promise<string | null> {
-    // Look for a Sales Manager or System Administrator instead of random user
     const user = await this.prisma.user.findFirst({
       where: {
         deletedAt: null,
-        role: { code: { in: ['SALES_MANAGER', 'SYSTEM_ADMINISTRATOR'] } },
+        role: { type: RoleType.ADMIN },
       },
       orderBy: { createdAt: 'asc' },
     });

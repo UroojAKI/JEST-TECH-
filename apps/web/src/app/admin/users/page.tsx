@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { AppShell } from '../../../components/layout/app-shell';
 import { Users, Plus, Key, Lock, Unlock, Search, Loader2, CheckCircle2, Copy } from 'lucide-react';
 import { StatusBadge } from '../../../components/ui/status-badge';
@@ -13,6 +13,14 @@ export default function UserManagementPage() {
   const queryClient = useQueryClient();
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [debouncedSearch, setDebouncedSearch] = useState<string>('');
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchQuery);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [newFirstName, setNewFirstName] = useState('');
   const [newLastName, setNewLastName] = useState('');
@@ -42,7 +50,7 @@ export default function UserManagementPage() {
 
   const { users, isLoading, isError, updateUserStatus, isUpdating } = useAdminUsers({
     status: statusFilter !== 'ALL' ? statusFilter : undefined,
-    search: searchQuery || undefined,
+    search: debouncedSearch || undefined,
   });
 
   if (isLoading) {
@@ -61,8 +69,17 @@ export default function UserManagementPage() {
     );
   }
 
+  const handleSetStatus = (user: any, targetStatus: string) => {
+    updateUserStatus({
+      id: user.id,
+      status: targetStatus,
+      reason: `Status transitioned to ${targetStatus} by administrator`,
+    });
+  };
+
   const handleToggleLock = (user: any) => {
-    updateUserStatus({ id: user.id, status: user.status === 'LOCKED' ? 'ACTIVE' : 'LOCKED' });
+    const nextStatus = user.status === 'LOCKED' || user.status === 'SUSPENDED' ? 'ACTIVE' : 'LOCKED';
+    handleSetStatus(user, nextStatus);
   };
 
   const handleOpenResetModal = (user: any) => {
