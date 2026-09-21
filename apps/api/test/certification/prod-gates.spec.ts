@@ -949,11 +949,7 @@ describe('Authoritative Release-Blocking Production Gates Certification (PROD-00
         ),
       ).toThrow(ForbiddenException);
       expect(() =>
-        validateTransition(
-          InspectionStatus.REQUIRED,
-          'WAIVE',
-          RoleType.AGENT,
-        ),
+        validateTransition(InspectionStatus.REQUIRED, 'WAIVE', RoleType.AGENT),
       ).toThrow(ForbiddenException);
     });
 
@@ -1099,7 +1095,11 @@ describe('Authoritative Release-Blocking Production Gates Certification (PROD-00
         for (let i = 0; i < sequence.length - 1; i++) {
           const currentIndex = canonicalOrder.indexOf(sequence[i]);
           const nextIndex = canonicalOrder.indexOf(sequence[i + 1]);
-          if (currentIndex === -1 || nextIndex === -1 || currentIndex >= nextIndex) {
+          if (
+            currentIndex === -1 ||
+            nextIndex === -1 ||
+            currentIndex >= nextIndex
+          ) {
             throw new Error(
               `Lock ordering inversion detected: ${sequence[i]} before ${sequence[i + 1]} violates canonical sequence`,
             );
@@ -1114,13 +1114,12 @@ describe('Authoritative Release-Blocking Production Gates Certification (PROD-00
       ).toBe(true);
 
       // Inverted order must fail
-      expect(() =>
-        verifyLockSequence(['BackOfficeTask', 'Quotation']),
-      ).toThrow('Lock ordering inversion detected');
+      expect(() => verifyLockSequence(['BackOfficeTask', 'Quotation'])).toThrow(
+        'Lock ordering inversion detected',
+      );
       expect(() =>
         verifyLockSequence(['MotorInspection', 'MotorRuleEvaluation']),
       ).toThrow('Lock ordering inversion detected');
     });
   });
 });
-

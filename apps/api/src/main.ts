@@ -35,7 +35,7 @@ async function bootstrap() {
   }
 
   const app = await NestFactory.create(AppModule);
-  
+
   // Trust Nginx Proxy to correctly parse X-Forwarded-For for IP rate limiting
   app.getHttpAdapter().getInstance().set('trust proxy', 1);
 

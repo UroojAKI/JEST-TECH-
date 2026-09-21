@@ -46,7 +46,9 @@ export class MotorDocumentRuleService {
    * Deterministically computes the exact list of required documents
    * based on IRDAI motor guidelines and category specifications.
    */
-  getRequiredDocuments(params: RequiredDocumentsQuery): RequiredDocumentsResult {
+  getRequiredDocuments(
+    params: RequiredDocumentsQuery,
+  ): RequiredDocumentsResult {
     const {
       vehicleCategory,
       vehicleStatus,
@@ -104,7 +106,8 @@ export class MotorDocumentRuleService {
         docs.push({
           code: 'PREV_POLICY_COPY',
           name: 'Previous Policy Schedule',
-          description: 'Prior policy schedule confirming NCB entitlement and OD coverage',
+          description:
+            'Prior policy schedule confirming NCB entitlement and OD coverage',
           category: 'POLICY',
           isMandatory: true,
         });
@@ -142,7 +145,8 @@ export class MotorDocumentRuleService {
       docs.push({
         code: 'INSPECTION_REPORT_7_PHOTO',
         name: 'Pre-Inspection Report (7-Photo Evidence)',
-        description: 'IRDAI break-in pre-inspection report with 360 photo proofs and engine/chassis pencil rub',
+        description:
+          'IRDAI break-in pre-inspection report with 360 photo proofs and engine/chassis pencil rub',
         category: 'INSPECTION',
         isMandatory: true,
       });
@@ -174,7 +178,9 @@ export class MotorDocumentRuleService {
   /**
    * Computes document completion status for a lead by checking against uploaded & verified documents.
    */
-  async checkLeadDocumentCompletion(leadId: string): Promise<DocumentCompletionAudit> {
+  async checkLeadDocumentCompletion(
+    leadId: string,
+  ): Promise<DocumentCompletionAudit> {
     const [lead, uploadedDocs] = await Promise.all([
       this.prisma.lead.findUnique({
         where: { id: leadId },
@@ -205,7 +211,8 @@ export class MotorDocumentRuleService {
     }
 
     const primaryVehicle = lead.vehicles?.[0];
-    const category = (primaryVehicle?.category || 'PRIVATE_CAR') as VehicleCategory;
+    const category = (primaryVehicle?.category ||
+      'PRIVATE_CAR') as VehicleCategory;
     const vehicleStatus = primaryVehicle?.status || 'EXISTING';
     const policyType = lead.motorQuotations?.[0]?.policyType || 'PACKAGE';
 
@@ -222,7 +229,11 @@ export class MotorDocumentRuleService {
     const pendingCodes = new Set<string>();
 
     for (const doc of uploadedDocs) {
-      const typeCode = (doc.name || (doc.metadata as any)?.docCode || '').toUpperCase();
+      const typeCode = (
+        doc.name ||
+        (doc.metadata as any)?.docCode ||
+        ''
+      ).toUpperCase();
       if (doc.verificationStatus === 'VERIFIED') {
         verifiedCodes.add(typeCode);
       } else {
@@ -237,7 +248,9 @@ export class MotorDocumentRuleService {
     const verifiedCount = mandatoryRules.length - missingDocs.length;
     const mandatoryTotal = mandatoryRules.length;
     const completionPercentage =
-      mandatoryTotal > 0 ? Math.round((verifiedCount / mandatoryTotal) * 100) : 100;
+      mandatoryTotal > 0
+        ? Math.round((verifiedCount / mandatoryTotal) * 100)
+        : 100;
 
     return {
       complete: missingDocs.length === 0,

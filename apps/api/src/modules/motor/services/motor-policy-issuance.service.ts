@@ -5,7 +5,12 @@ import {
   NotFoundException,
   ForbiddenException,
 } from '@nestjs/common';
-import { AuditAction, RoleType, Prisma, InspectionStatus } from '@prisma/client';
+import {
+  AuditAction,
+  RoleType,
+  Prisma,
+  InspectionStatus,
+} from '@prisma/client';
 import { PrismaService } from '../../../database/prisma.service';
 import { IssueMotorPolicyDto } from '../dto/issue-motor-policy.dto';
 import { MotorPaymentTrackingService } from './motor-payment-tracking.service';
@@ -99,7 +104,11 @@ export class MotorPolicyIssuanceService {
       }
       const metadata = (quote.motorMetadata as Record<string, any>) || {};
       const quoteInputHash = (quote as any).inputHash || metadata.inputHash;
-      if (snapshot.inputHash && quoteInputHash && snapshot.inputHash !== quoteInputHash) {
+      if (
+        snapshot.inputHash &&
+        quoteInputHash &&
+        snapshot.inputHash !== quoteInputHash
+      ) {
         throw new ConflictException(
           'Quotation inputHash does not match snapshot inputHash. Calculation is stale.',
         );
@@ -124,10 +133,7 @@ export class MotorPolicyIssuanceService {
       }
 
       // 2. Inspection Gate: If quotation required inspection, verify COMPLETED or WAIVED
-      if (
-        metadata.inspectionRequired ||
-        quote.motorInspection
-      ) {
+      if (metadata.inspectionRequired || quote.motorInspection) {
         const inspectionStatus = quote.motorInspection?.status;
         if (
           inspectionStatus !== InspectionStatus.COMPLETED &&
@@ -200,12 +206,11 @@ export class MotorPolicyIssuanceService {
             },
           });
         }
-      } else if (
-        dto.chassisNumber ||
-        dto.engineNumber ||
-        normalizedReg
-      ) {
-        const vehicleCode = await this.numberingEngine.generateNext('VEHICLE', tx);
+      } else if (dto.chassisNumber || dto.engineNumber || normalizedReg) {
+        const vehicleCode = await this.numberingEngine.generateNext(
+          'VEHICLE',
+          tx,
+        );
         const createdVehicle = await tx.vehicle.create({
           data: {
             vehicleCode,

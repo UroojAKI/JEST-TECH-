@@ -109,21 +109,26 @@ export class AuthService {
     // Use a single constant-time error message for all authentication failures.
     // This prevents account-status enumeration (distinguishing between
     // 'account doesn't exist' vs 'account is locked' via error codes).
-    const genericAuthError = new UnauthorizedException('Invalid email or password');
-    
+    const genericAuthError = new UnauthorizedException(
+      'Invalid email or password',
+    );
+
     const user = await this.usersService.findByEmailForAuth(dto.email);
     if (!user) throw genericAuthError;
-    
+
     // Verify password before checking account status to prevent timing attacks
     // that could reveal account existence via response time difference.
     const passwordValid = await argon2.verify(user.passwordHash, dto.password);
     if (!passwordValid) throw genericAuthError;
-    
+
     // Check account status AFTER password verification — same error externally
     if (user.status !== 'ACTIVE') throw genericAuthError;
 
     const updatedUser = await this.usersService.updateLastLogin(user.id);
-    const effectiveUser = { ...user, updatedAt: updatedUser?.updatedAt || new Date() };
+    const effectiveUser = {
+      ...user,
+      updatedAt: updatedUser?.updatedAt || new Date(),
+    };
 
     const permissions = user.role?.permissions
       ? user.role.permissions.map((p) => p.permission.code)
@@ -143,11 +148,14 @@ export class AuthService {
     const refreshExpiresIn =
       this.config.get<string>('jwt.refreshExpiresIn') ?? '30d';
     const expiresAt = this.parseExpiry(refreshExpiresIn);
-    
-    // Fix: Use SHA-256 instead of Argon2 for high-entropy tokens to prevent 
+
+    // Fix: Use SHA-256 instead of Argon2 for high-entropy tokens to prevent
     // O(N) algorithmic complexity DoS during token lookup.
-    const tokenHash = crypto.createHash('sha256').update(refreshToken).digest('hex');
-    
+    const tokenHash = crypto
+      .createHash('sha256')
+      .update(refreshToken)
+      .digest('hex');
+
     await Promise.all([
       this.usersService.storeRefreshToken({
         userId: user.id,
@@ -177,7 +185,11 @@ export class AuthService {
     if (r === 'ADMIN' || r.includes('ADMIN')) {
       return '/workspace/admin';
     }
-    if (r === 'BACK_OFFICE' || r.includes('BACK_OFFICE') || r.includes('OPERATIONS')) {
+    if (
+      r === 'BACK_OFFICE' ||
+      r.includes('BACK_OFFICE') ||
+      r.includes('OPERATIONS')
+    ) {
       return '/workspace/operations';
     }
     if (r === 'AGENT' || r.includes('AGENT') || r.includes('SALES')) {
@@ -202,13 +214,16 @@ export class AuthService {
     // Look up token across all user tokens (including revoked ones for replay detection)
     const userTokens = await this.usersService.findUserRefreshTokens(user.id);
     let matchedRecord: any = null;
-    
+
     // Hash the incoming token using SHA-256 for fast O(1) comparison
-    const incomingTokenHash = crypto.createHash('sha256').update(refreshToken).digest('hex');
-    
+    const incomingTokenHash = crypto
+      .createHash('sha256')
+      .update(refreshToken)
+      .digest('hex');
+
     for (const record of userTokens) {
       // For fast lookups, we simply compare the SHA-256 hashes.
-      // (Note: Legacy Argon2 hashes in the DB will gracefully fail to match, 
+      // (Note: Legacy Argon2 hashes in the DB will gracefully fail to match,
       // safely forcing a re-login and preventing CPU exhaustion DoS).
       if (record.tokenHash === incomingTokenHash) {
         matchedRecord = record;

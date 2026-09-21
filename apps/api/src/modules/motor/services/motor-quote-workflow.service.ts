@@ -219,7 +219,10 @@ export class MotorQuoteWorkflowService {
         if (existingInspection) {
           createdOrExistingInspection = existingInspection;
         } else {
-          const inspectionCode = await this.numberingEngine.generateNext('INSPECTION', tx);
+          const inspectionCode = await this.numberingEngine.generateNext(
+            'INSPECTION',
+            tx,
+          );
           createdOrExistingInspection = await tx.motorInspection.create({
             data: {
               quotationId: dto.quotationId,
@@ -245,7 +248,9 @@ export class MotorQuoteWorkflowService {
 
         // 4. Upsert BackOfficeTask with permanent idempotency key: INSPECTION:{quotationId}:ASSIGNMENT
         const taskKey = `INSPECTION:${dto.quotationId}:ASSIGNMENT`;
-        const taskCode = await this.numberingEngine.generateNext('TASK', tx).catch(() => `TASK-${Date.now()}`);
+        const taskCode = await this.numberingEngine
+          .generateNext('TASK', tx)
+          .catch(() => `TASK-${Date.now()}`);
 
         await tx.backOfficeTask.upsert({
           where: {

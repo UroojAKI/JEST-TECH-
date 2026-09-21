@@ -15,9 +15,7 @@ export const envSchema = z
       .default(
         'postgresql://postgres:postgres@localhost:5432/jest_policy_crm?schema=public',
       ),
-    JWT_SECRET: z
-      .string()
-      .min(32, 'JWT_SECRET must be at least 32 characters'),
+    JWT_SECRET: z.string().min(32, 'JWT_SECRET must be at least 32 characters'),
     JWT_EXPIRES_IN: z.string().default('15m'),
     JWT_REFRESH_SECRET: z
       .string()
@@ -60,7 +58,10 @@ export const envSchema = z
           return false;
 
         // SEC-002: Razorpay webhook secret is mandatory in production
-        if (!data.RAZORPAY_WEBHOOK_SECRET || data.RAZORPAY_WEBHOOK_SECRET.includes('placeholder'))
+        if (
+          !data.RAZORPAY_WEBHOOK_SECRET ||
+          data.RAZORPAY_WEBHOOK_SECRET.includes('placeholder')
+        )
           return false;
       }
       return true;

@@ -31,7 +31,9 @@ export class RenewalsController {
 
   @Get('tasks')
   @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT)
-  @ApiOperation({ summary: 'Get paginated renewal tasks scoped by tenancy and role' })
+  @ApiOperation({
+    summary: 'Get paginated renewal tasks scoped by tenancy and role',
+  })
   async getRenewalTasks(
     @Query('urgencyDays') urgencyDays?: number,
     @Query('status') status?: string,

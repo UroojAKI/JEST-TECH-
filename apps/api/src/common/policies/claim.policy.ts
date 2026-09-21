@@ -32,7 +32,9 @@ export class ClaimPolicy {
 
   canCreate(actor: ActorContext): boolean {
     if (!actor?.userId) return false;
-    return [RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT].includes(actor.role);
+    return [RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT].includes(
+      actor.role,
+    );
   }
 
   canUpdate(actor: ActorContext, claim: any): boolean {
@@ -45,7 +47,9 @@ export class ClaimPolicy {
 
     // Segregation of Duties: Creator cannot approve own claim
     if (claim && claim.createdById === actor.userId) {
-      throw new ForbiddenException('Segregation of duties violation: Claim creator cannot self-approve claim');
+      throw new ForbiddenException(
+        'Segregation of duties violation: Claim creator cannot self-approve claim',
+      );
     }
 
     return actor.role === RoleType.ADMIN || actor.role === RoleType.BACK_OFFICE;
@@ -59,7 +63,9 @@ export class ClaimPolicy {
     if (actor.role === RoleType.AGENT) return false;
 
     if (claim && claim.createdById === actor.userId) {
-      throw new ForbiddenException('Segregation of duties violation: Claim creator cannot self-settle claim');
+      throw new ForbiddenException(
+        'Segregation of duties violation: Claim creator cannot self-settle claim',
+      );
     }
 
     return actor.role === RoleType.ADMIN || actor.role === RoleType.BACK_OFFICE;

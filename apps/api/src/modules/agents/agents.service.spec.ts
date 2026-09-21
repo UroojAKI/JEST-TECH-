@@ -2,7 +2,11 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { AgentsService } from './agents.service';
 import { PrismaService } from '../../database/prisma.service';
 import { RoleType } from '@prisma/client';
-import { NotFoundException, ConflictException, ForbiddenException } from '@nestjs/common';
+import {
+  NotFoundException,
+  ConflictException,
+  ForbiddenException,
+} from '@nestjs/common';
 
 describe('AgentsService', () => {
   let service: AgentsService;
@@ -11,6 +15,7 @@ describe('AgentsService', () => {
   const mockAgent = {
     id: 'agent-uuid-1',
     userId: 'user-uuid-1',
+    companyId: 'org-1',
     agentCode: 'AGT-0001',
     agencyName: 'Sharma Agency',
     licenseNumber: 'IRDAI-1234',
@@ -22,6 +27,7 @@ describe('AgentsService', () => {
       firstName: 'Rajesh',
       lastName: 'Sharma',
       phone: '9876543210',
+      companyId: 'org-1',
     },
     _count: {
       leads: 5,
@@ -51,10 +57,7 @@ describe('AgentsService', () => {
     };
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        AgentsService,
-        { provide: PrismaService, useValue: prisma },
-      ],
+      providers: [AgentsService, { provide: PrismaService, useValue: prisma }],
     }).compile();
 
     service = module.get<AgentsService>(AgentsService);
@@ -64,7 +67,10 @@ describe('AgentsService', () => {
     it('should return agent profile for authenticated agent user', async () => {
       prisma.agent.findUnique.mockResolvedValue(mockAgent);
 
-      const result = await service.findMe({ id: 'user-uuid-1', role: RoleType.AGENT } as any);
+      const result = await service.findMe({
+        id: 'user-uuid-1',
+        role: RoleType.AGENT,
+      } as any);
       expect(result.agentCode).toBe('AGT-0001');
       expect(prisma.agent.findUnique).toHaveBeenCalledWith({
         where: { userId: 'user-uuid-1' },
@@ -86,7 +92,10 @@ describe('AgentsService', () => {
       prisma.agent.findMany.mockResolvedValue([mockAgent]);
       prisma.agent.count.mockResolvedValue(1);
 
-      const result = await service.findAll({ page: 1, limit: 10 }, { id: 'admin-1', role: RoleType.ADMIN } as any);
+      const result = await service.findAll({ page: 1, limit: 10 }, {
+        id: 'admin-1',
+        role: RoleType.ADMIN,
+      } as any);
       expect(result.data.length).toBe(1);
       expect(result.meta.total).toBe(1);
       expect(prisma.agent.findMany).toHaveBeenCalledWith(
@@ -101,7 +110,10 @@ describe('AgentsService', () => {
       prisma.agent.findMany.mockResolvedValue([mockAgent]);
       prisma.agent.count.mockResolvedValue(1);
 
-      await service.findAll({}, { id: 'user-uuid-1', role: RoleType.AGENT } as any);
+      await service.findAll({}, {
+        id: 'user-uuid-1',
+        role: RoleType.AGENT,
+      } as any);
       expect(prisma.agent.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({
@@ -116,7 +128,10 @@ describe('AgentsService', () => {
     it('should return agent details if authorized', async () => {
       prisma.agent.findFirst.mockResolvedValue(mockAgent);
 
-      const result = await service.findById('agent-uuid-1', { id: 'admin-1', role: RoleType.ADMIN } as any);
+      const result = await service.findById('agent-uuid-1', {
+        id: 'admin-1',
+        role: RoleType.ADMIN,
+      } as any);
       expect(result.agentCode).toBe('AGT-0001');
     });
 
@@ -124,7 +139,10 @@ describe('AgentsService', () => {
       prisma.agent.findFirst.mockResolvedValue(mockAgent);
 
       await expect(
-        service.findById('agent-uuid-1', { id: 'different-agent-user', role: RoleType.AGENT } as any),
+        service.findById('agent-uuid-1', {
+          id: 'different-agent-user',
+          role: RoleType.AGENT,
+        } as any),
       ).rejects.toThrow(ForbiddenException);
     });
   });
@@ -138,14 +156,16 @@ describe('AgentsService', () => {
         id: 'user-uuid-1',
         firstName: 'Rajesh',
         lastName: 'Sharma',
+        companyId: 'org-1',
       });
       prisma.agent.count.mockResolvedValue(0);
       prisma.agent.create.mockResolvedValue(mockAgent);
 
-      const result = await service.create(
-        { agencyName: 'Sharma Agency' },
-        { id: 'user-uuid-1', role: RoleType.AGENT } as any,
-      );
+      const result = await service.create({ agencyName: 'Sharma Agency' }, {
+        id: 'user-uuid-1',
+        role: RoleType.AGENT,
+        companyId: 'org-1',
+      } as any);
 
       expect(prisma.agent.create).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -162,7 +182,11 @@ describe('AgentsService', () => {
       prisma.agent.findUnique.mockResolvedValueOnce(mockAgent);
 
       await expect(
-        service.create({}, { id: 'user-uuid-1', role: RoleType.AGENT } as any),
+        service.create({}, {
+          id: 'user-uuid-1',
+          role: RoleType.AGENT,
+          companyId: 'org-1',
+        } as any),
       ).rejects.toThrow(ConflictException);
     });
   });
@@ -172,8 +196,8 @@ describe('AgentsService', () => {
       prisma.agent.findFirst.mockResolvedValue(mockAgent);
       prisma.lead.count
         .mockResolvedValueOnce(10) // total
-        .mockResolvedValueOnce(4)  // converted
-        .mockResolvedValueOnce(1)  // lost
+        .mockResolvedValueOnce(4) // converted
+        .mockResolvedValueOnce(1) // lost
         .mockResolvedValueOnce(5); // in progress
       prisma.motorQuotation.findMany.mockResolvedValue([
         { status: 'ACCEPTED', finalPremium: 15000 },
@@ -181,7 +205,10 @@ describe('AgentsService', () => {
         { status: 'DRAFT', finalPremium: 12000 },
       ]);
 
-      const stats = await service.getAgentStats('agent-uuid-1', { id: 'admin-1', role: RoleType.ADMIN } as any);
+      const stats = await service.getAgentStats('agent-uuid-1', {
+        id: 'admin-1',
+        role: RoleType.ADMIN,
+      } as any);
       expect(stats.pipeline.totalLeads).toBe(10);
       expect(stats.pipeline.convertedLeads).toBe(4);
       expect(stats.pipeline.conversionRate).toBe('40.0%');

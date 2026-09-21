@@ -9,7 +9,9 @@ describe('Authoritative Concurrency Contracts Certification Suite', () => {
           isIssued = true;
           return { status: 201, policyNumber: 'POL-CONCUR-001' };
         }
-        throw new ConflictException('Policy already issued for quotation. Duplicate issuance is blocked.');
+        throw new ConflictException(
+          'Policy already issued for quotation. Duplicate issuance is blocked.',
+        );
       };
 
       const results = await Promise.allSettled(
@@ -22,7 +24,9 @@ describe('Authoritative Concurrency Contracts Certification Suite', () => {
       expect(fulfilled).toHaveLength(1);
       expect(rejected).toHaveLength(99);
       for (const rej of rejected) {
-        expect((rej as PromiseRejectedResult).reason).toBeInstanceOf(ConflictException);
+        expect((rej as PromiseRejectedResult).reason).toBeInstanceOf(
+          ConflictException,
+        );
       }
     });
   });
@@ -64,7 +68,9 @@ describe('Authoritative Concurrency Contracts Certification Suite', () => {
       expect(() =>
         validateInputIntegrity(snapshotInputHash, mutatedQuoteInputHash),
       ).toThrow(ConflictException);
-      expect(validateInputIntegrity(snapshotInputHash, snapshotInputHash)).toBe(true);
+      expect(validateInputIntegrity(snapshotInputHash, snapshotInputHash)).toBe(
+        true,
+      );
     });
   });
 
@@ -74,7 +80,9 @@ describe('Authoritative Concurrency Contracts Certification Suite', () => {
       const createLookupValue = async (categoryId: string, code: string) => {
         const key = `${categoryId}:${code}`;
         if (existing.has(key)) {
-          throw new ConflictException(`Lookup with code '${code}' already exists in category '${categoryId}'`);
+          throw new ConflictException(
+            `Lookup with code '${code}' already exists in category '${categoryId}'`,
+          );
         }
         existing.add(key);
         return { categoryId, code };
@@ -96,9 +104,14 @@ describe('Authoritative Concurrency Contracts Certification Suite', () => {
 
   describe('Concurrency Gate 5: Optimistic Locking Version Increment', () => {
     it('detects concurrent updates with stale version and rejects with ConflictException', () => {
-      const checkVersion = (currentVersion: number, expectedVersion: number) => {
+      const checkVersion = (
+        currentVersion: number,
+        expectedVersion: number,
+      ) => {
         if (currentVersion !== expectedVersion) {
-          throw new ConflictException('Resource has been modified by another transaction. Please reload.');
+          throw new ConflictException(
+            'Resource has been modified by another transaction. Please reload.',
+          );
         }
         return currentVersion + 1;
       };

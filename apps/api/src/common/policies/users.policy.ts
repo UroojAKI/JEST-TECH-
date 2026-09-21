@@ -11,7 +11,8 @@ export class UsersPolicy {
     // Back Office can view users within their organization
     if (actor.role === RoleType.BACK_OFFICE) {
       if (!targetUser) return true;
-      const targetCompanyId = targetUser.companyId || targetUser.branch?.zone?.region?.company?.id;
+      const targetCompanyId =
+        targetUser.companyId || targetUser.branch?.zone?.region?.company?.id;
       return targetCompanyId === actor.companyId;
     }
 
@@ -50,19 +51,25 @@ export class UsersPolicy {
 
   assertCanCreate(actor: ActorContext): void {
     if (!this.canCreate(actor)) {
-      throw new ForbiddenException('Access denied: only Administrators can create users');
+      throw new ForbiddenException(
+        'Access denied: only Administrators can create users',
+      );
     }
   }
 
   assertCanUpdate(actor: ActorContext, targetUser?: any): void {
     if (!this.canUpdate(actor, targetUser)) {
-      throw new ForbiddenException('Access denied: only Administrators can update users');
+      throw new ForbiddenException(
+        'Access denied: only Administrators can update users',
+      );
     }
   }
 
   assertCanDeactivate(actor: ActorContext): void {
     if (!this.canDeactivate(actor)) {
-      throw new ForbiddenException('Access denied: only Administrators can deactivate users');
+      throw new ForbiddenException(
+        'Access denied: only Administrators can deactivate users',
+      );
     }
   }
 }

@@ -22,6 +22,7 @@ describe('End-to-End Agent Journey: Lead -> Contact -> Quote -> Payment -> Polic
   let motorCalculationService: MotorCalculationService;
 
   let testUserId: string;
+  let testCompanyId: string;
   let createdContactId: string;
   let createdLeadId: string;
   let createdVehicleId: string;
@@ -56,6 +57,7 @@ describe('End-to-End Agent Journey: Lead -> Contact -> Quote -> Payment -> Polic
     }
 
     testUserId = user.id;
+    testCompanyId = user.companyId;
   });
 
   afterAll(async () => {
@@ -135,6 +137,7 @@ describe('End-to-End Agent Journey: Lead -> Contact -> Quote -> Payment -> Polic
         leadCode: `LD-${timestamp.toString().slice(-6)}`,
         title: 'Vikram Motor Package Lead',
         contactId: contact.id,
+        companyId: testCompanyId,
         assignedToId: testUserId,
         createdById: testUserId,
         status: 'NEW',
@@ -191,6 +194,7 @@ describe('End-to-End Agent Journey: Lead -> Contact -> Quote -> Payment -> Polic
         status: QuotationStatus.APPROVED,
         contactId: contact.id,
         leadId: lead.id,
+        companyId: testCompanyId,
         createdById: testUserId,
       },
     });
@@ -279,5 +283,10 @@ describe('End-to-End Agent Journey: Lead -> Contact -> Quote -> Payment -> Polic
       where: { aggregateId: createdPolicyId, eventType: 'POLICY_ISSUED' },
     });
     expect(outboxEvent).toBeDefined();
+  });
+
+  afterAll(async () => {
+    if (app) await app.close();
+    if (prisma) await prisma.$disconnect();
   });
 });

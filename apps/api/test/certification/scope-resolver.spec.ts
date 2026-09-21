@@ -44,9 +44,20 @@ describe('Authoritative ScopeResolver Specification & Runtime Filter Suite', () 
 
   describe('ADMIN Role Scoping', () => {
     it('returns empty filter {} for platform super-admin with wildcard permissions', () => {
-      const resources = ['POLICY', 'CLAIM', 'QUOTATION', 'LEAD', 'RENEWAL_TASK', 'CONTACT', 'ACCOUNT'] as const;
+      const resources = [
+        'POLICY',
+        'CLAIM',
+        'QUOTATION',
+        'LEAD',
+        'RENEWAL_TASK',
+        'CONTACT',
+        'ACCOUNT',
+      ] as const;
       for (const res of resources) {
-        const filter = scopeResolver.resolveScopeFilter(superAdminActor as any, res);
+        const filter = scopeResolver.resolveScopeFilter(
+          superAdminActor as any,
+          res,
+        );
         expect(filter).toEqual({});
       }
     });
@@ -59,10 +70,19 @@ describe('Authoritative ScopeResolver Specification & Runtime Filter Suite', () 
         expect(filter.OR).toBeDefined();
         expect(filter.OR).toContainEqual({ companyId: 'company-x' });
       }
-      const renewalFilter = scopeResolver.resolveScopeFilter(adminActor as any, 'RENEWAL_TASK');
-      expect(renewalFilter.OR).toContainEqual({ policy: { companyId: 'company-x' } });
-      expect(scopeResolver.resolveScopeFilter(adminActor as any, 'CONTACT')).toEqual({ companyId: 'company-x' });
-      expect(scopeResolver.resolveScopeFilter(adminActor as any, 'ACCOUNT')).toEqual({ companyId: 'company-x' });
+      const renewalFilter = scopeResolver.resolveScopeFilter(
+        adminActor as any,
+        'RENEWAL_TASK',
+      );
+      expect(renewalFilter.OR).toContainEqual({
+        policy: { companyId: 'company-x' },
+      });
+      expect(
+        scopeResolver.resolveScopeFilter(adminActor as any, 'CONTACT'),
+      ).toEqual({ companyId: 'company-x' });
+      expect(
+        scopeResolver.resolveScopeFilter(adminActor as any, 'ACCOUNT'),
+      ).toEqual({ companyId: 'company-x' });
     });
   });
 
@@ -85,7 +105,10 @@ describe('Authoritative ScopeResolver Specification & Runtime Filter Suite', () 
     });
 
     it('scopes QUOTATION by companyId without referencing assignedTo on quotation itself', () => {
-      const filter = scopeResolver.resolveScopeFilter(boActor as any, 'QUOTATION');
+      const filter = scopeResolver.resolveScopeFilter(
+        boActor as any,
+        'QUOTATION',
+      );
       expect(filter.OR).toBeDefined();
       expect(filter.OR).toContainEqual({ companyId: 'company-x' });
     });
@@ -93,23 +116,36 @@ describe('Authoritative ScopeResolver Specification & Runtime Filter Suite', () 
 
   describe('AGENT Role Scoping', () => {
     it('scopes POLICY by agentId and createdById', () => {
-      const filter = scopeResolver.resolveScopeFilter(agentActor as any, 'POLICY');
+      const filter = scopeResolver.resolveScopeFilter(
+        agentActor as any,
+        'POLICY',
+      );
       expect(filter.OR).toBeDefined();
-      const hasAgentId = filter.OR.some((clause: any) => clause.agentId === 'agent-prof-1');
-      const hasCreatedBy = filter.OR.some((clause: any) => clause.createdById === 'agent-usr-1');
+      const hasAgentId = filter.OR.some(
+        (clause: any) => clause.agentId === 'agent-prof-1',
+      );
+      const hasCreatedBy = filter.OR.some(
+        (clause: any) => clause.createdById === 'agent-usr-1',
+      );
       expect(hasAgentId || hasCreatedBy).toBe(true);
       // Invariant: Never reference non-existent assignedTo on Policy
       expect(JSON.stringify(filter).includes('"assignedTo"')).toBe(false);
     });
 
     it('scopes CLAIM by agentId and createdById', () => {
-      const filter = scopeResolver.resolveScopeFilter(agentActor as any, 'CLAIM');
+      const filter = scopeResolver.resolveScopeFilter(
+        agentActor as any,
+        'CLAIM',
+      );
       expect(filter.OR).toBeDefined();
       expect(JSON.stringify(filter).includes('"assignedTo"')).toBe(false);
     });
 
     it('scopes QUOTATION by agentId, createdById, and lead.assignedToId', () => {
-      const filter = scopeResolver.resolveScopeFilter(agentActor as any, 'QUOTATION');
+      const filter = scopeResolver.resolveScopeFilter(
+        agentActor as any,
+        'QUOTATION',
+      );
       expect(filter.OR).toBeDefined();
       expect(JSON.stringify(filter).includes('"assignedTo"')).toBe(false);
     });

@@ -123,12 +123,9 @@ export class ReportClaimService {
           policy.createdBy?.branch?.zone?.region?.company?.id ||
           policy.quotation?.createdBy?.branch?.zone?.region?.company?.id;
 
-        const actorCompanyId = actorContext.companyId || actorContext.organizationId;
-        if (
-          policyOrgId &&
-          actorCompanyId &&
-          policyOrgId !== actorCompanyId
-        ) {
+        const actorCompanyId =
+          actorContext.companyId || actorContext.organizationId;
+        if (policyOrgId && actorCompanyId && policyOrgId !== actorCompanyId) {
           throw new ForbiddenException(
             'You do not have permission to file claims for a policy in another organization',
           );

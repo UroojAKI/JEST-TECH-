@@ -2,7 +2,10 @@ import { ApiPropertyOptional } from '@nestjs/swagger';
 import { IsOptional, IsString, IsUUID } from 'class-validator';
 
 export class CreateAgentDto {
-  @ApiPropertyOptional({ description: 'User ID to associate with the Agent profile (if Admin creating)' })
+  @ApiPropertyOptional({
+    description:
+      'User ID to associate with the Agent profile (if Admin creating)',
+  })
   @IsOptional()
   @IsUUID()
   userId?: string;

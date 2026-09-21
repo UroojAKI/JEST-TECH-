@@ -46,7 +46,12 @@ describe('Authoritative Tenant Isolation Certification Suite (TENANT-001 to TENA
         quotationCode: 'QT-B-001',
       };
       expect(() =>
-        authzService.authorize(tenantA as any, 'QUOTATION', 'UPDATE', resourceB),
+        authzService.authorize(
+          tenantA as any,
+          'QUOTATION',
+          'UPDATE',
+          resourceB,
+        ),
       ).toThrow(ForbiddenException);
     });
 
@@ -91,7 +96,12 @@ describe('Authoritative Tenant Isolation Certification Suite (TENANT-001 to TENA
         companyId: 'company-b',
       };
       expect(() =>
-        authzService.authorize(tenantA as any, 'POLICY', 'READ', knownResourceB),
+        authzService.authorize(
+          tenantA as any,
+          'POLICY',
+          'READ',
+          knownResourceB,
+        ),
       ).toThrow(ForbiddenException);
     });
   });

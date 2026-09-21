@@ -34,7 +34,9 @@ export class CustomersController {
 
   @Get('check-duplicate')
   @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT)
-  @ApiOperation({ summary: 'Soft check for duplicate customer by mobile or email' })
+  @ApiOperation({
+    summary: 'Soft check for duplicate customer by mobile or email',
+  })
   checkDuplicate(@Query() query: CheckDuplicateDto) {
     return this.customersService.checkDuplicate(query);
   }
@@ -42,7 +44,9 @@ export class CustomersController {
   @Post('deduplication-check')
   @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT)
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Soft check for duplicate customer with normalized POST body' })
+  @ApiOperation({
+    summary: 'Soft check for duplicate customer with normalized POST body',
+  })
   deduplicationCheck(@Body() body: CheckDuplicateDto) {
     return this.customersService.checkDuplicate(body);
   }
@@ -57,16 +61,23 @@ export class CustomersController {
   @Get(':id')
   @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT)
   @ApiOperation({ summary: 'Get customer by ID with full 360 overview' })
-  findById(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: RequestUser) {
+  findById(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: RequestUser,
+  ) {
     return this.customersService.findById(id, user);
   }
 
   @Post(':id/assign-agent')
   @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE)
-  @ApiOperation({ summary: 'Assign or reassign primary agent for customer with version concurrency lock' })
+  @ApiOperation({
+    summary:
+      'Assign or reassign primary agent for customer with version concurrency lock',
+  })
   assignAgent(
     @Param('id', ParseUUIDPipe) id: string,
-    @Body() dto: { newAgentId: string; reason?: string; expectedVersion?: number },
+    @Body()
+    dto: { newAgentId: string; reason?: string; expectedVersion?: number },
     @CurrentUser() user: RequestUser,
   ) {
     return this.customersService.assignAgent(id, dto, user);
@@ -94,7 +105,10 @@ export class CustomersController {
   @Get(':id/alerts')
   @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT)
   @ApiOperation({ summary: 'Get alerts for customer' })
-  getAlerts(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: RequestUser) {
+  getAlerts(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: RequestUser,
+  ) {
     return this.customersService.getAlerts(id, user);
   }
 

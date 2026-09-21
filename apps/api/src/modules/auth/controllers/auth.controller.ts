@@ -69,7 +69,9 @@ export class AuthController {
     accessToken: string,
     refreshToken: string,
   ) {
-    const isSecure = process.env.NODE_ENV === 'production' && process.env.SECURE_COOKIES !== 'false';
+    const isSecure =
+      process.env.NODE_ENV === 'production' &&
+      process.env.SECURE_COOKIES !== 'false';
     res.cookie('access_token', accessToken, {
       httpOnly: true,
       secure: isSecure,

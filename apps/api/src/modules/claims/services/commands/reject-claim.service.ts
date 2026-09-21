@@ -31,7 +31,11 @@ export class RejectClaimService {
       throw new NotFoundException(`Claim with ID ${claimId} not found`);
     }
 
-    if (actorCompanyId && claim.companyId && claim.companyId !== actorCompanyId) {
+    if (
+      actorCompanyId &&
+      claim.companyId &&
+      claim.companyId !== actorCompanyId
+    ) {
       throw new ForbiddenException(
         'Cross-organization access is strictly prohibited',
       );

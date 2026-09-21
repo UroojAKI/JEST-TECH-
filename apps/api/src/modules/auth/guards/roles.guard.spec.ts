@@ -46,9 +46,9 @@ describe('RolesGuard', () => {
     });
     const guard = new RolesGuard(reflector);
 
-    expect(() =>
-      guard.canActivate(contextFor({ role: 'AGENT' })),
-    ).toThrow(ForbiddenException);
+    expect(() => guard.canActivate(contextFor({ role: 'AGENT' }))).toThrow(
+      ForbiddenException,
+    );
   });
 
   it('allows explicitly defined global administrative roles', () => {

@@ -16,6 +16,8 @@ import { RenewalEngineService } from '../services/renewal-engine.service';
 import { RenewalSchedulerCron } from '../crons/renewal-scheduler.cron';
 import { IssuePolicyService } from '../services/commands/issue-policy.service';
 import { BackOfficeQueueService } from '../services/queries/back-office-queue.service';
+import { PolicyRepository } from '../repositories/policy.repository';
+import { ResourceAuthorizationService } from '../../../common/services/resource-authorization.service';
 import { RequestUser } from '../../auth/decorators/current-user.decorator';
 
 describe('PoliciesController', () => {
@@ -129,6 +131,22 @@ describe('PoliciesController', () => {
             validateIssuanceGates: jest
               .fn()
               .mockResolvedValue({ allowed: true }),
+          },
+        },
+        {
+          provide: PolicyRepository,
+          useValue: {
+            findDetail: jest.fn().mockResolvedValue(mockPolicyResponse),
+            findPaginated: jest
+              .fn()
+              .mockResolvedValue({ items: [mockPolicyResponse], total: 1 }),
+            updateStatus: jest.fn().mockResolvedValue(mockPolicyResponse),
+          },
+        },
+        {
+          provide: ResourceAuthorizationService,
+          useValue: {
+            authorize: jest.fn(),
           },
         },
       ],

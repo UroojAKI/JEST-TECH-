@@ -10,9 +10,13 @@ export class EmailProvider implements NotificationChannelProvider {
   readonly channelName = 'EMAIL';
   private readonly logger = new Logger(EmailProvider.name);
 
-  async send(payload: SendNotificationPayload): Promise<NotificationProviderResult> {
+  async send(
+    payload: SendNotificationPayload,
+  ): Promise<NotificationProviderResult> {
     const isConfigured = Boolean(
-      process.env.SMTP_HOST || process.env.SENDGRID_API_KEY || process.env.SES_REGION,
+      process.env.SMTP_HOST ||
+      process.env.SENDGRID_API_KEY ||
+      process.env.SES_REGION,
     );
 
     if (!isConfigured) {
@@ -22,19 +26,24 @@ export class EmailProvider implements NotificationChannelProvider {
       return {
         success: false,
         status: 'NOT_CONFIGURED',
-        failureReason: 'Email provider credentials not configured in environment',
+        failureReason:
+          'Email provider credentials not configured in environment',
       };
     }
 
     try {
-      this.logger.log(`[EmailProvider] Transmitting email to ${payload.to}: ${payload.title}`);
+      this.logger.log(
+        `[EmailProvider] Transmitting email to ${payload.to}: ${payload.title}`,
+      );
       return {
         success: true,
         status: 'SENT',
         providerMessageId: `email-${Date.now()}-${Math.random().toString(36).substring(7)}`,
       };
     } catch (err: any) {
-      this.logger.error(`[EmailProvider] Failed to send email to ${payload.to}: ${err.message}`);
+      this.logger.error(
+        `[EmailProvider] Failed to send email to ${payload.to}: ${err.message}`,
+      );
       return {
         success: false,
         status: 'FAILED',

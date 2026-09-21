@@ -36,10 +36,7 @@ const orgScope = (
       };
     case 'POLICY':
       return {
-        OR: [
-          { companyId },
-          { createdBy: userFilter },
-        ],
+        OR: [{ companyId }, { createdBy: userFilter }],
       };
     case 'CLAIM':
       return {
@@ -66,10 +63,7 @@ const orgScope = (
     case 'REPORT':
     default:
       return {
-        OR: [
-          { companyId },
-          { createdBy: userFilter },
-        ],
+        OR: [{ companyId }, { createdBy: userFilter }],
       };
   }
 };
@@ -156,7 +150,10 @@ export class ScopeResolver {
     }
 
     // ADMIN and BACK_OFFICE: Scoped to company / organization
-    if (roles.includes(RoleType.ADMIN) || roles.includes(RoleType.BACK_OFFICE)) {
+    if (
+      roles.includes(RoleType.ADMIN) ||
+      roles.includes(RoleType.BACK_OFFICE)
+    ) {
       return orgScope(actor, resourceType);
     }
 

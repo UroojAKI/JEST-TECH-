@@ -46,9 +46,7 @@ export class SalesWorkspaceController {
   @Get('dashboard')
   @ApiOperation({ summary: 'Get Sales Workspace aggregated dashboard payload' })
   async getDashboard(@CurrentUser() user: RequestUser) {
-    const isManager =
-      user.role === 'ADMIN' ||
-      user.role === 'BACK_OFFICE';
+    const isManager = user.role === 'ADMIN' || user.role === 'BACK_OFFICE';
 
     const kpis = await this.performanceService.getSalesKpis(user.id, isManager);
     const pipeline = await this.performanceService.getSalesPipeline(
@@ -72,9 +70,7 @@ export class SalesWorkspaceController {
   @Get('tasks')
   @ApiOperation({ summary: 'Get Agent Work Queue actionable task badges' })
   async getWorkQueue(@CurrentUser() user: RequestUser) {
-    const isManager =
-      user.role === 'ADMIN' ||
-      user.role === 'BACK_OFFICE';
+    const isManager = user.role === 'ADMIN' || user.role === 'BACK_OFFICE';
     const where: any = { deletedAt: null };
     if (!isManager) where.assignedToId = user.id;
 
@@ -111,15 +107,27 @@ export class SalesWorkspaceController {
   }
 
   @Get('motor-widgets')
-  @ApiOperation({ summary: 'Get live real-time widgets telemetry for motor sales workspace' })
+  @ApiOperation({
+    summary: 'Get live real-time widgets telemetry for motor sales workspace',
+  })
   async getMotorWidgets(@CurrentUser() user: RequestUser) {
-    const isManager =
-      user.role === 'ADMIN' ||
-      user.role === 'BACK_OFFICE';
+    const isManager = user.role === 'ADMIN' || user.role === 'BACK_OFFICE';
 
     const now = new Date();
-    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+    const startOfToday = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate(),
+    );
+    const endOfToday = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate(),
+      23,
+      59,
+      59,
+      999,
+    );
     const day7 = new Date(startOfToday.getTime() + 7 * 86400000);
     const day30 = new Date(startOfToday.getTime() + 30 * 86400000);
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -146,18 +154,42 @@ export class SalesWorkspaceController {
       paymentCount,
       issuedCount,
     ] = await Promise.all([
-      this.prisma.lead.count({ where: { ...leadWhere, currentWorkflowStep: { in: ['ASSIGNED', 'CONTACTED', 'NEW'] } } }),
-      this.prisma.lead.count({ where: { ...leadWhere, currentWorkflowStep: 'NEED_ANALYSIS' } }),
-      this.prisma.lead.count({ where: { ...leadWhere, currentWorkflowStep: 'QUOTATION' } }),
-      this.prisma.lead.count({ where: { ...leadWhere, currentWorkflowStep: 'PROPOSAL' } }),
-      this.prisma.lead.count({ where: { ...leadWhere, currentWorkflowStep: 'NEGOTIATION' } }),
-      this.prisma.lead.count({ where: { ...leadWhere, currentWorkflowStep: 'PAYMENT' } }),
-      this.prisma.lead.count({ where: { ...leadWhere, currentWorkflowStep: { in: ['ISSUED', 'REFERRAL', 'CRM_UPDATED'] } } }),
+      this.prisma.lead.count({
+        where: {
+          ...leadWhere,
+          currentWorkflowStep: { in: ['ASSIGNED', 'CONTACTED', 'NEW'] },
+        },
+      }),
+      this.prisma.lead.count({
+        where: { ...leadWhere, currentWorkflowStep: 'NEED_ANALYSIS' },
+      }),
+      this.prisma.lead.count({
+        where: { ...leadWhere, currentWorkflowStep: 'QUOTATION' },
+      }),
+      this.prisma.lead.count({
+        where: { ...leadWhere, currentWorkflowStep: 'PROPOSAL' },
+      }),
+      this.prisma.lead.count({
+        where: { ...leadWhere, currentWorkflowStep: 'NEGOTIATION' },
+      }),
+      this.prisma.lead.count({
+        where: { ...leadWhere, currentWorkflowStep: 'PAYMENT' },
+      }),
+      this.prisma.lead.count({
+        where: {
+          ...leadWhere,
+          currentWorkflowStep: { in: ['ISSUED', 'REFERRAL', 'CRM_UPDATED'] },
+        },
+      }),
     ]);
 
     const pipelineSteps = [
       { label: 'Lead', count: leadsCount, color: 'bg-blue-500' },
-      { label: 'Need Analysis', count: needAnalysisCount, color: 'bg-cyan-500' },
+      {
+        label: 'Need Analysis',
+        count: needAnalysisCount,
+        color: 'bg-cyan-500',
+      },
       { label: 'Quotation', count: quotationCount, color: 'bg-amber-500' },
       { label: 'Proposal', count: proposalCount, color: 'bg-indigo-500' },
       { label: 'Negotiation', count: negotiationCount, color: 'bg-purple-500' },
@@ -175,30 +207,73 @@ export class SalesWorkspaceController {
       renewalsCompleted,
     ] = await Promise.all([
       this.prisma.policy.count({
-        where: { ...policyWhere, status: 'ACTIVE' as any, expiryDate: { gte: startOfToday, lte: endOfToday } },
+        where: {
+          ...policyWhere,
+          status: 'ACTIVE' as any,
+          expiryDate: { gte: startOfToday, lte: endOfToday },
+        },
       }),
       this.prisma.policy.count({
-        where: { ...policyWhere, status: 'ACTIVE' as any, expiryDate: { gt: endOfToday, lte: day7 } },
+        where: {
+          ...policyWhere,
+          status: 'ACTIVE' as any,
+          expiryDate: { gt: endOfToday, lte: day7 },
+        },
       }),
       this.prisma.policy.count({
-        where: { ...policyWhere, status: 'ACTIVE' as any, expiryDate: { gt: day7, lte: day30 } },
+        where: {
+          ...policyWhere,
+          status: 'ACTIVE' as any,
+          expiryDate: { gt: day7, lte: day30 },
+        },
       }),
       this.prisma.policy.count({
-        where: { ...policyWhere, status: 'ACTIVE' as any, expiryDate: { lt: startOfToday } },
+        where: {
+          ...policyWhere,
+          status: 'ACTIVE' as any,
+          expiryDate: { lt: startOfToday },
+        },
       }),
       this.prisma.policy.count({
-        where: { ...policyWhere, status: { in: ['CANCELLED', 'LAPSED'] } as any },
+        where: {
+          ...policyWhere,
+          status: { in: ['CANCELLED', 'LAPSED'] } as any,
+        },
       }),
       this.prisma.policyRenewal.count(),
     ]);
 
     const renewals = [
-      { label: 'Today', count: renewalsToday, color: 'bg-rose-500 text-white font-black' },
-      { label: 'Next 7 Days', count: renewalsNext7, color: 'bg-amber-500/10 text-amber-600' },
-      { label: 'Next 30 Days', count: renewalsNext30, color: 'bg-sky-500/10 text-sky-600' },
-      { label: 'Overdue', count: renewalsOverdue, color: 'bg-red-500/10 text-red-600' },
-      { label: 'Lost', count: renewalsLost, color: 'bg-muted/40 text-muted-foreground' },
-      { label: 'Completed', count: renewalsCompleted, color: 'bg-emerald-500/10 text-emerald-600' },
+      {
+        label: 'Today',
+        count: renewalsToday,
+        color: 'bg-rose-500 text-white font-black',
+      },
+      {
+        label: 'Next 7 Days',
+        count: renewalsNext7,
+        color: 'bg-amber-500/10 text-amber-600',
+      },
+      {
+        label: 'Next 30 Days',
+        count: renewalsNext30,
+        color: 'bg-sky-500/10 text-sky-600',
+      },
+      {
+        label: 'Overdue',
+        count: renewalsOverdue,
+        color: 'bg-red-500/10 text-red-600',
+      },
+      {
+        label: 'Lost',
+        count: renewalsLost,
+        color: 'bg-muted/40 text-muted-foreground',
+      },
+      {
+        label: 'Completed',
+        count: renewalsCompleted,
+        color: 'bg-emerald-500/10 text-emerald-600',
+      },
     ];
 
     // 3. Today's Tasks
@@ -211,7 +286,10 @@ export class SalesWorkspaceController {
 
     const todayTasks = activities.map((a) => {
       const timeStr = a.dueDate
-        ? new Date(a.dueDate).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })
+        ? new Date(a.dueDate).toLocaleTimeString('en-IN', {
+            hour: '2-digit',
+            minute: '2-digit',
+          })
         : 'Anytime';
       return {
         id: a.id,
@@ -235,7 +313,8 @@ export class SalesWorkspaceController {
 
     const followups = pendingLeads.map((l) => {
       const name = l.contact
-        ? `${l.contact.firstName || ''} ${l.contact.lastName || ''}`.trim() || 'Lead ' + l.leadCode
+        ? `${l.contact.firstName || ''} ${l.contact.lastName || ''}`.trim() ||
+          'Lead ' + l.leadCode
         : 'Lead ' + l.leadCode;
       const phone = l.contact?.phone || '—';
       let action = 'Call Lead';
@@ -263,12 +342,21 @@ export class SalesWorkspaceController {
     const recentPolicies = dbRecentPolicies.map((p) => ({
       id: p.id,
       no: p.policyNumber,
-      customer: p.contact ? `${p.contact.firstName} ${p.contact.lastName || ''}`.trim() : '—',
-      vehicle: p.vehicle ? `${p.vehicle.registrationNumber || ''} (${p.vehicle.makeModel || p.vehicle.category || ''})`.trim() : 'Motor Vehicle',
+      customer: p.contact
+        ? `${p.contact.firstName} ${p.contact.lastName || ''}`.trim()
+        : '—',
+      vehicle: p.vehicle
+        ? `${p.vehicle.registrationNumber || ''} (${p.vehicle.makeModel || p.vehicle.category || ''})`.trim()
+        : 'Motor Vehicle',
       premium: `₹${Number(p.premiumAmount || 0).toLocaleString('en-IN')}`,
       status: p.status,
-      renewalDate: p.expiryDate ? new Date(p.expiryDate).toLocaleDateString('en-IN') : '—',
-      statusBadge: p.status === 'ACTIVE' ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20' : 'bg-amber-500/10 text-amber-600 border-amber-500/20',
+      renewalDate: p.expiryDate
+        ? new Date(p.expiryDate).toLocaleDateString('en-IN')
+        : '—',
+      statusBadge:
+        p.status === 'ACTIVE'
+          ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20'
+          : 'bg-amber-500/10 text-amber-600 border-amber-500/20',
     }));
 
     // 6. Drafts
@@ -281,24 +369,38 @@ export class SalesWorkspaceController {
 
     const drafts = dbDrafts.map((d) => ({
       id: d.id,
-      customer: d.contact ? `${d.contact.firstName} ${d.contact.lastName || ''}`.trim() : 'Draft Customer',
-      model: d.vehicle ? (d.vehicle.makeModel || d.vehicle.category || 'Motor Policy') : 'Motor Policy',
+      customer: d.contact
+        ? `${d.contact.firstName} ${d.contact.lastName || ''}`.trim()
+        : 'Draft Customer',
+      model: d.vehicle
+        ? d.vehicle.makeModel || d.vehicle.category || 'Motor Policy'
+        : 'Motor Policy',
       step: 'Quote Draft',
       href: `/sales/quotations`,
     }));
 
     // 7. Telemetry
-    const [monthPoliciesAgg, totalLeadsCount, monthPoliciesCount] = await Promise.all([
-      this.prisma.policy.aggregate({
-        _sum: { premiumAmount: true },
-        where: { ...policyWhere, status: 'ACTIVE' as any, createdAt: { gte: startOfMonth } },
-      }),
-      this.prisma.lead.count({ where: leadWhere }),
-      this.prisma.policy.count({ where: { ...policyWhere, createdAt: { gte: startOfMonth } } }),
-    ]);
+    const [monthPoliciesAgg, totalLeadsCount, monthPoliciesCount] =
+      await Promise.all([
+        this.prisma.policy.aggregate({
+          _sum: { premiumAmount: true },
+          where: {
+            ...policyWhere,
+            status: 'ACTIVE' as any,
+            createdAt: { gte: startOfMonth },
+          },
+        }),
+        this.prisma.lead.count({ where: leadWhere }),
+        this.prisma.policy.count({
+          where: { ...policyWhere, createdAt: { gte: startOfMonth } },
+        }),
+      ]);
 
     const myPremium = Number(monthPoliciesAgg._sum?.premiumAmount || 0);
-    const conversionRatio = totalLeadsCount > 0 ? Number(((monthPoliciesCount / totalLeadsCount) * 100).toFixed(1)) : 0;
+    const conversionRatio =
+      totalLeadsCount > 0
+        ? Number(((monthPoliciesCount / totalLeadsCount) * 100).toFixed(1))
+        : 0;
 
     return {
       pipelineSteps,
@@ -319,18 +421,14 @@ export class SalesWorkspaceController {
   @Get('kpis')
   @ApiOperation({ summary: 'Get Top-Row and Bottom-Row KPI Cards' })
   getKpis(@CurrentUser() user: RequestUser) {
-    const isManager =
-      user.role === 'ADMIN' ||
-      user.role === 'BACK_OFFICE';
+    const isManager = user.role === 'ADMIN' || user.role === 'BACK_OFFICE';
     return this.performanceService.getSalesKpis(user.id, isManager);
   }
 
   @Get('pipeline')
   @ApiOperation({ summary: 'Get Lead Pipeline distribution & stage leads' })
   getPipeline(@CurrentUser() user: RequestUser) {
-    const isManager =
-      user.role === 'ADMIN' ||
-      user.role === 'BACK_OFFICE';
+    const isManager = user.role === 'ADMIN' || user.role === 'BACK_OFFICE';
     return this.performanceService.getSalesPipeline(
       isManager ? undefined : user.id,
     );

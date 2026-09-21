@@ -46,9 +46,21 @@ export class TasksService {
         },
         orderBy: [{ priority: 'desc' }, { dueDate: 'asc' }],
         include: {
-          customer: { select: { id: true, customerCode: true, firstName: true, lastName: true, mobile: true } },
-          lead: { select: { id: true, leadCode: true, title: true, status: true } },
-          vehicle: { select: { id: true, registrationNumber: true, category: true } },
+          customer: {
+            select: {
+              id: true,
+              customerCode: true,
+              firstName: true,
+              lastName: true,
+              mobile: true,
+            },
+          },
+          lead: {
+            select: { id: true, leadCode: true, title: true, status: true },
+          },
+          vehicle: {
+            select: { id: true, registrationNumber: true, category: true },
+          },
         },
       }),
       this.prisma.task.findMany({
@@ -59,8 +71,18 @@ export class TasksService {
         },
         orderBy: [{ dueDate: 'asc' }],
         include: {
-          customer: { select: { id: true, customerCode: true, firstName: true, lastName: true, mobile: true } },
-          lead: { select: { id: true, leadCode: true, title: true, status: true } },
+          customer: {
+            select: {
+              id: true,
+              customerCode: true,
+              firstName: true,
+              lastName: true,
+              mobile: true,
+            },
+          },
+          lead: {
+            select: { id: true, leadCode: true, title: true, status: true },
+          },
         },
       }),
       this.prisma.task.count({
@@ -128,9 +150,21 @@ export class TasksService {
         take: limit,
         orderBy: { [sortBy]: sortOrder },
         include: {
-          assignedTo: { select: { id: true, firstName: true, lastName: true, email: true } },
-          customer: { select: { id: true, customerCode: true, firstName: true, lastName: true, mobile: true } },
-          lead: { select: { id: true, leadCode: true, title: true, status: true } },
+          assignedTo: {
+            select: { id: true, firstName: true, lastName: true, email: true },
+          },
+          customer: {
+            select: {
+              id: true,
+              customerCode: true,
+              firstName: true,
+              lastName: true,
+              mobile: true,
+            },
+          },
+          lead: {
+            select: { id: true, leadCode: true, title: true, status: true },
+          },
         },
       }),
       this.prisma.task.count({ where }),
@@ -151,7 +185,9 @@ export class TasksService {
     const task = await this.prisma.task.findFirst({
       where: { id, deletedAt: null },
       include: {
-        assignedTo: { select: { id: true, firstName: true, lastName: true, email: true } },
+        assignedTo: {
+          select: { id: true, firstName: true, lastName: true, email: true },
+        },
         customer: true,
         lead: true,
         vehicle: true,
@@ -164,7 +200,11 @@ export class TasksService {
       throw new NotFoundException(`Task with ID ${id} not found`);
     }
 
-    if (user.role === RoleType.AGENT && task.assignedToId && task.assignedToId !== user.id) {
+    if (
+      user.role === RoleType.AGENT &&
+      task.assignedToId &&
+      task.assignedToId !== user.id
+    ) {
       throw new ForbiddenException('You are not authorized to view this task');
     }
 
@@ -219,9 +259,12 @@ export class TasksService {
         data.completedAt = new Date();
       }
     }
-    if (dto.dueDate !== undefined) data.dueDate = dto.dueDate ? new Date(dto.dueDate) : null;
+    if (dto.dueDate !== undefined)
+      data.dueDate = dto.dueDate ? new Date(dto.dueDate) : null;
     if (dto.assignedToId !== undefined) {
-      data.assignedTo = dto.assignedToId ? { connect: { id: dto.assignedToId } } : { disconnect: true };
+      data.assignedTo = dto.assignedToId
+        ? { connect: { id: dto.assignedToId } }
+        : { disconnect: true };
     }
 
     return this.prisma.task.update({
@@ -264,14 +307,24 @@ export class TasksService {
       where,
       orderBy: [{ priority: 'desc' }, { createdAt: 'asc' }],
       include: {
-        assignedTo: { select: { id: true, firstName: true, lastName: true, email: true } },
+        assignedTo: {
+          select: { id: true, firstName: true, lastName: true, email: true },
+        },
         lead: {
           select: {
             id: true,
             leadCode: true,
             title: true,
             status: true,
-            customer: { select: { id: true, customerCode: true, firstName: true, lastName: true, mobile: true } },
+            customer: {
+              select: {
+                id: true,
+                customerCode: true,
+                firstName: true,
+                lastName: true,
+                mobile: true,
+              },
+            },
             agent: { select: { id: true, agentCode: true, agencyName: true } },
           },
         },
@@ -282,7 +335,14 @@ export class TasksService {
             insurerName: true,
             planName: true,
             finalPremium: true,
-            vehicle: { select: { id: true, registrationNumber: true, make: true, model: true } },
+            vehicle: {
+              select: {
+                id: true,
+                registrationNumber: true,
+                make: true,
+                model: true,
+              },
+            },
           },
         },
       },
@@ -298,7 +358,9 @@ export class TasksService {
     const task = await this.prisma.backOfficeTask.findFirst({
       where: { id, deletedAt: null },
       include: {
-        assignedTo: { select: { id: true, firstName: true, lastName: true, email: true } },
+        assignedTo: {
+          select: { id: true, firstName: true, lastName: true, email: true },
+        },
         lead: {
           include: {
             customer: true,
@@ -329,7 +391,9 @@ export class TasksService {
     let nextNum = count + 1;
     let taskCode = `BOT-${String(nextNum).padStart(5, '0')}`;
 
-    while (await this.prisma.backOfficeTask.findUnique({ where: { taskCode } })) {
+    while (
+      await this.prisma.backOfficeTask.findUnique({ where: { taskCode } })
+    ) {
       nextNum++;
       taskCode = `BOT-${String(nextNum).padStart(5, '0')}`;
     }
@@ -350,14 +414,22 @@ export class TasksService {
         motorQuotationId: dto.motorQuotationId || null,
         assignedToId: dto.assignedToId || null,
         verificationNotes: dto.verificationNotes || null,
-        missingItems: dto.missingItems ? (dto.missingItems as Prisma.InputJsonValue) : Prisma.JsonNull,
-        checklistStatus: dto.checklistStatus ? (dto.checklistStatus as Prisma.InputJsonValue) : Prisma.JsonNull,
+        missingItems: dto.missingItems
+          ? (dto.missingItems as Prisma.InputJsonValue)
+          : Prisma.JsonNull,
+        checklistStatus: dto.checklistStatus
+          ? (dto.checklistStatus as Prisma.InputJsonValue)
+          : Prisma.JsonNull,
         createdById: user.id,
       },
     });
   }
 
-  async assignBackOfficeTask(id: string, assignedToId: string, user: RequestUser) {
+  async assignBackOfficeTask(
+    id: string,
+    assignedToId: string,
+    user: RequestUser,
+  ) {
     await this.getBackOfficeTaskById(id);
 
     return this.prisma.backOfficeTask.update({
@@ -367,7 +439,9 @@ export class TasksService {
         status: BackOfficeTaskStatus.IN_REVIEW,
       },
       include: {
-        assignedTo: { select: { id: true, firstName: true, lastName: true, email: true } },
+        assignedTo: {
+          select: { id: true, firstName: true, lastName: true, email: true },
+        },
       },
     });
   }

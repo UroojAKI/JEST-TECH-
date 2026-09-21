@@ -2,7 +2,10 @@
   "moduleFileExtensions": ["js", "json", "ts"],
   "rootDir": "..",
   "testEnvironment": "node",
-  "testMatch": ["<rootDir>/test/certification/**/*.spec.ts"],
+  "testMatch": [
+    "<rootDir>/test/certification/**/*.spec.ts",
+    "<rootDir>/test/security/**/*.spec.ts"
+  ],
   "transform": {
     "^.+\\.(t|j)s$": "ts-jest"
   }

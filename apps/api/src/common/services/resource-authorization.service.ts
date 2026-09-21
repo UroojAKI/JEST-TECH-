@@ -143,7 +143,9 @@ export class ResourceAuthorizationService {
       resource.createdById === actor.userId ||
       resource.assignedToId === actor.userId ||
       resource.userId === actor.userId ||
-      (actor.agentId && (resource.agentId === actor.agentId || resource.agent?.id === actor.agentId)) ||
+      (actor.agentId &&
+        (resource.agentId === actor.agentId ||
+          resource.agent?.id === actor.agentId)) ||
       resource.agent?.userId === actor.userId ||
       resource.agentId === actor.userId ||
       (actor.agentId && resource.policy?.agentId === actor.agentId) ||
@@ -169,12 +171,16 @@ export class ResourceAuthorizationService {
       case 'LEAD':
       case 'CONTACT':
       case 'CLAIM':
-        return roles.includes(RoleType.BACK_OFFICE) || roles.includes(RoleType.AGENT);
+        return (
+          roles.includes(RoleType.BACK_OFFICE) || roles.includes(RoleType.AGENT)
+        );
       case 'POLICY':
         // Issuance is Back Office operations or Admin only
         return roles.includes(RoleType.BACK_OFFICE);
       case 'PAYMENT':
-        return roles.includes(RoleType.BACK_OFFICE) || roles.includes(RoleType.AGENT);
+        return (
+          roles.includes(RoleType.BACK_OFFICE) || roles.includes(RoleType.AGENT)
+        );
       default:
         return roles.includes(RoleType.BACK_OFFICE);
     }
@@ -200,7 +206,10 @@ export class ResourceAuthorizationService {
   canAssign(actor: ActorContext, resource?: any): boolean {
     const roles = actor.roles?.length ? actor.roles : [actor.role];
     // Admin and Back Office can assign records; Agents cannot
-    if (!roles.includes(RoleType.ADMIN) && !roles.includes(RoleType.BACK_OFFICE)) {
+    if (
+      !roles.includes(RoleType.ADMIN) &&
+      !roles.includes(RoleType.BACK_OFFICE)
+    ) {
       throw new ForbiddenException(
         'Only Back Office and Administrators can assign records',
       );
@@ -210,7 +219,10 @@ export class ResourceAuthorizationService {
 
   canIssue(actor: ActorContext): boolean {
     const roles = actor.roles?.length ? actor.roles : [actor.role];
-    if (!roles.includes(RoleType.ADMIN) && !roles.includes(RoleType.BACK_OFFICE)) {
+    if (
+      !roles.includes(RoleType.ADMIN) &&
+      !roles.includes(RoleType.BACK_OFFICE)
+    ) {
       throw new ForbiddenException(
         'User role is not authorized to issue policies',
       );
@@ -220,7 +232,10 @@ export class ResourceAuthorizationService {
 
   canReconcile(actor: ActorContext): boolean {
     const roles = actor.roles?.length ? actor.roles : [actor.role];
-    if (!roles.includes(RoleType.ADMIN) && !roles.includes(RoleType.BACK_OFFICE)) {
+    if (
+      !roles.includes(RoleType.ADMIN) &&
+      !roles.includes(RoleType.BACK_OFFICE)
+    ) {
       throw new ForbiddenException(
         'Only Finance & Back Office personnel can reconcile payments',
       );
@@ -230,7 +245,10 @@ export class ResourceAuthorizationService {
 
   canVerifyDocument(actor: ActorContext): boolean {
     const roles = actor.roles?.length ? actor.roles : [actor.role];
-    if (!roles.includes(RoleType.ADMIN) && !roles.includes(RoleType.BACK_OFFICE)) {
+    if (
+      !roles.includes(RoleType.ADMIN) &&
+      !roles.includes(RoleType.BACK_OFFICE)
+    ) {
       throw new ForbiddenException(
         'Only Back Office personnel can verify documents',
       );
@@ -240,7 +258,10 @@ export class ResourceAuthorizationService {
 
   canApprove(actor: ActorContext, resourceType: ResourceType): boolean {
     const roles = actor.roles?.length ? actor.roles : [actor.role];
-    if (!roles.includes(RoleType.ADMIN) && !roles.includes(RoleType.BACK_OFFICE)) {
+    if (
+      !roles.includes(RoleType.ADMIN) &&
+      !roles.includes(RoleType.BACK_OFFICE)
+    ) {
       throw new ForbiddenException(
         `Only Back Office and Administrators can approve ${resourceType.toLowerCase()}s`,
       );

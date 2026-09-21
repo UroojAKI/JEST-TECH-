@@ -82,7 +82,8 @@ export class PerformanceService {
 
     const todayRevenue = Number(todayRevenueAgg._sum?.premiumAmount || 0);
     const achievedGwp = Number(totalRevenueAgg._sum?.premiumAmount || 0);
-    const avgPolicyValue = policiesSold > 0 ? Math.round(achievedGwp / policiesSold) : 0;
+    const avgPolicyValue =
+      policiesSold > 0 ? Math.round(achievedGwp / policiesSold) : 0;
 
     return {
       topRow: {

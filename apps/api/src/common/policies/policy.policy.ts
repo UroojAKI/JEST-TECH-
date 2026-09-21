@@ -32,7 +32,9 @@ export class PolicyPolicy {
 
   canCreate(actor: ActorContext): boolean {
     if (!actor?.userId) return false;
-    return [RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT].includes(actor.role);
+    return [RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT].includes(
+      actor.role,
+    );
   }
 
   canUpdate(actor: ActorContext, policy: any): boolean {
@@ -41,16 +43,22 @@ export class PolicyPolicy {
 
   canIssue(actor: ActorContext): boolean {
     // Strictly Back Office and Admin. Field agents cannot issue policies directly.
-    return actor?.role === RoleType.ADMIN || actor?.role === RoleType.BACK_OFFICE;
+    return (
+      actor?.role === RoleType.ADMIN || actor?.role === RoleType.BACK_OFFICE
+    );
   }
 
   canCancel(actor: ActorContext): boolean {
     // Strictly Back Office and Admin.
-    return actor?.role === RoleType.ADMIN || actor?.role === RoleType.BACK_OFFICE;
+    return (
+      actor?.role === RoleType.ADMIN || actor?.role === RoleType.BACK_OFFICE
+    );
   }
 
   canExport(actor: ActorContext): boolean {
-    return actor?.role === RoleType.ADMIN || actor?.role === RoleType.BACK_OFFICE;
+    return (
+      actor?.role === RoleType.ADMIN || actor?.role === RoleType.BACK_OFFICE
+    );
   }
 
   /**
@@ -61,10 +69,14 @@ export class PolicyPolicy {
     const eff = new Date(effectiveDate);
     const exp = new Date(expiryDate);
     if (isNaN(eff.getTime()) || isNaN(exp.getTime())) {
-      throw new BadRequestException('Effective date and expiry date must be valid timestamps');
+      throw new BadRequestException(
+        'Effective date and expiry date must be valid timestamps',
+      );
     }
     if (exp <= eff) {
-      throw new BadRequestException('Policy expiryDate must strictly be after effectiveDate');
+      throw new BadRequestException(
+        'Policy expiryDate must strictly be after effectiveDate',
+      );
     }
   }
 }

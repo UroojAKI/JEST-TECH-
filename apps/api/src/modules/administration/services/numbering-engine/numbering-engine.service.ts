@@ -11,7 +11,10 @@ export class NumberingEngineService {
    * Uses an atomic update to guarantee no duplicates even under concurrent load.
    * Supports an optional transaction client `tx` so sequence increment is part of the caller's transaction.
    */
-  async generateNext(entityType: string, tx?: Prisma.TransactionClient): Promise<string> {
+  async generateNext(
+    entityType: string,
+    tx?: Prisma.TransactionClient,
+  ): Promise<string> {
     const client = tx || this.prisma;
     const now = new Date();
     const year = now.getFullYear();

@@ -14,14 +14,22 @@ describe('AnalyticsController Security & Delegation Spec', () => {
   let controller: AnalyticsController;
   let reflector: Reflector;
 
-  const mockLeadService = { getOverview: jest.fn().mockResolvedValue({ total: 10 }) };
-  const mockPolicyService = { getOverview: jest.fn().mockResolvedValue({ total: 5 }) };
-  const mockClaimService = { getOverview: jest.fn().mockResolvedValue({ total: 2 }) };
+  const mockLeadService = {
+    getOverview: jest.fn().mockResolvedValue({ total: 10 }),
+  };
+  const mockPolicyService = {
+    getOverview: jest.fn().mockResolvedValue({ total: 5 }),
+  };
+  const mockClaimService = {
+    getOverview: jest.fn().mockResolvedValue({ total: 2 }),
+  };
   const mockRevenueService = {
     getOverview: jest.fn().mockResolvedValue({ total: 100000 }),
     getMonthlyTrend: jest.fn().mockResolvedValue([]),
   };
-  const mockRenewalService = { getOverview: jest.fn().mockResolvedValue({ total: 3 }) };
+  const mockRenewalService = {
+    getOverview: jest.fn().mockResolvedValue({ total: 3 }),
+  };
 
   const mockAdmin: RequestUser = {
     id: 'admin-1',

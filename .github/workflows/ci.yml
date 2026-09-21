@@ -55,13 +55,25 @@ jobs:
           echo "No production mock patterns found."
 
       - name: Unit tests — API
-        run: pnpm --filter api test --passWithNoTests
+        run: pnpm --filter api test
+        env:
+          NODE_ENV: test
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/jest_test
+
+      - name: Certification & Security tests — API
+        run: pnpm --filter api test:cert
+        env:
+          NODE_ENV: test
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/jest_test
+
+      - name: End-to-End tests — API
+        run: pnpm --filter api test:e2e
         env:
           NODE_ENV: test
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/jest_test
 
       - name: Unit tests — Web
-        run: pnpm --filter web test --passWithNoTests
+        run: pnpm --filter web test
         env:
           NODE_ENV: test
 

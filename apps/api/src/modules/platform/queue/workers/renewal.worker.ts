@@ -16,7 +16,9 @@ export class RenewalWorker {
     );
 
     if (!this.prisma || !policyId) {
-      this.logger.warn(`[RenewalWorker] Missing PrismaService or policyId in job data.`);
+      this.logger.warn(
+        `[RenewalWorker] Missing PrismaService or policyId in job data.`,
+      );
       return { skipped: true, reason: 'INVALID_JOB_DATA' };
     }
 
@@ -26,7 +28,9 @@ export class RenewalWorker {
     });
 
     if (!policy) {
-      this.logger.warn(`[RenewalWorker] Policy ${policyId} not found in database.`);
+      this.logger.warn(
+        `[RenewalWorker] Policy ${policyId} not found in database.`,
+      );
       return { skipped: true, reason: 'POLICY_NOT_FOUND' };
     }
 
@@ -54,7 +58,9 @@ export class RenewalWorker {
                   ? NotificationType.POLICY_RENEWAL_30
                   : NotificationType.POLICY_RENEWAL_45,
           priority:
-            days <= 7 ? NotificationPriority.CRITICAL : NotificationPriority.HIGH,
+            days <= 7
+              ? NotificationPriority.CRITICAL
+              : NotificationPriority.HIGH,
           userId: targetUserId,
           entityId: policy.id,
           entityType: 'POLICY',
@@ -67,8 +73,8 @@ export class RenewalWorker {
     if (policy.contactId) {
       const isEmailConfigured = Boolean(
         process.env.SMTP_HOST ||
-          process.env.SENDGRID_API_KEY ||
-          process.env.SES_REGION,
+        process.env.SENDGRID_API_KEY ||
+        process.env.SES_REGION,
       );
       const deliveryStatus = isEmailConfigured ? 'QUEUED' : 'NOT_CONFIGURED';
 
@@ -83,10 +89,11 @@ export class RenewalWorker {
           provider: 'EMAIL_SERVICE',
           providerMessageId: `renewal-job-${job.id || Date.now()}`,
           subject: `Policy Renewal Notice - ${policy.policyNumber}`,
-          messagePreview: `Your policy ${policy.policyNumber} is due for renewal on ${expiryStr}.`.slice(
-            0,
-            100,
-          ),
+          messagePreview:
+            `Your policy ${policy.policyNumber} is due for renewal on ${expiryStr}.`.slice(
+              0,
+              100,
+            ),
           messageBody: `Dear Customer, your insurance policy ${policy.policyNumber} expires on ${expiryStr}. Please renew promptly to ensure continuous coverage.`,
         },
       });

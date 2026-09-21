@@ -48,7 +48,9 @@ export class PreviousPolicyService {
    * Fetches previous policy data for an identifier (registration number, policy number, or vehicle ID).
    * Never crashes or throws 404; gracefully returns status: NOT_AVAILABLE with manual entry defaults.
    */
-  async fetchPreviousPolicy(identifier: string): Promise<PreviousPolicyResponse> {
+  async fetchPreviousPolicy(
+    identifier: string,
+  ): Promise<PreviousPolicyResponse> {
     if (!identifier || !identifier.trim()) {
       return {
         status: 'NOT_AVAILABLE',
@@ -61,7 +63,10 @@ export class PreviousPolicyService {
     }
 
     const cleanInput = identifier.trim();
-    const normalizedReg = this.vehicleDataService.normalizeRegistrationNumber(cleanInput).normalized;
+    const normalizedReg =
+      this.vehicleDataService.normalizeRegistrationNumber(
+        cleanInput,
+      ).normalized;
 
     // 1. Check Policy records by policyNumber, actualPolicyNumber, or vehicle registration
     const policy = await this.prisma.policy.findFirst({
@@ -72,8 +77,18 @@ export class PreviousPolicyService {
           {
             vehicle: {
               OR: [
-                { registrationNumber: { equals: cleanInput, mode: 'insensitive' } },
-                { registrationNumber: { equals: normalizedReg, mode: 'insensitive' } },
+                {
+                  registrationNumber: {
+                    equals: cleanInput,
+                    mode: 'insensitive',
+                  },
+                },
+                {
+                  registrationNumber: {
+                    equals: normalizedReg,
+                    mode: 'insensitive',
+                  },
+                },
               ],
             },
           },
@@ -104,7 +119,10 @@ export class PreviousPolicyService {
         provenance: 'PREVIOUS_POLICY',
         message: 'Previous policy record located in system.',
         previousPolicyNumber: policy.actualPolicyNumber || policy.policyNumber,
-        insurerName: policy.quotation?.insurerName || policy.activeTpInsurer || 'Existing Insurer',
+        insurerName:
+          policy.quotation?.insurerName ||
+          policy.activeTpInsurer ||
+          'Existing Insurer',
         policyType: policy.policyType || 'PACKAGE',
         expiryDate: policy.expiryDate,
         odExpiryDate: policy.odExpiryDate,
@@ -112,8 +130,12 @@ export class PreviousPolicyService {
         hasClaims,
         claimsCount,
         ncbPercentage,
-        previousOdPremium: metadata.odPremium ? Number(metadata.odPremium) : null,
-        previousTpPremium: metadata.tpPremium ? Number(metadata.tpPremium) : null,
+        previousOdPremium: metadata.odPremium
+          ? Number(metadata.odPremium)
+          : null,
+        previousTpPremium: metadata.tpPremium
+          ? Number(metadata.tpPremium)
+          : null,
         vehicle: policy.vehicle
           ? {
               id: policy.vehicle.id,
@@ -144,7 +166,9 @@ export class PreviousPolicyService {
       where: {
         OR: [
           { registrationNumber: { equals: cleanInput, mode: 'insensitive' } },
-          { registrationNumber: { equals: normalizedReg, mode: 'insensitive' } },
+          {
+            registrationNumber: { equals: normalizedReg, mode: 'insensitive' },
+          },
           { id: cleanInput },
         ],
       },
@@ -157,7 +181,8 @@ export class PreviousPolicyService {
       return {
         status: 'AVAILABLE',
         provenance: 'DATABASE',
-        message: 'Vehicle found on record without linked previous policy. Defaulting to 0% NCB.',
+        message:
+          'Vehicle found on record without linked previous policy. Defaulting to 0% NCB.',
         previousPolicyNumber: null,
         insurerName: null,
         policyType: 'PACKAGE',
@@ -191,7 +216,8 @@ export class PreviousPolicyService {
     return {
       status: 'NOT_AVAILABLE',
       provenance: 'MANUAL',
-      message: 'No previous policy or vehicle found for this identifier. Proceed with manual entry.',
+      message:
+        'No previous policy or vehicle found for this identifier. Proceed with manual entry.',
       hasClaims: false,
       claimsCount: 0,
       ncbPercentage: 0,

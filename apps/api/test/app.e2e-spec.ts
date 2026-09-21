@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
-import * as request from 'supertest';
+import request from 'supertest';
 import { AppModule } from './../src/app.module';
 import helmet from 'helmet';
 
@@ -23,15 +23,13 @@ describe('AppController (e2e)', () => {
   });
 
   it('/api/v1/health (GET)', () => {
-    return (request as any)(app.getHttpServer())
-      .get('/api/v1/health')
-      .expect(200);
+    const agent = (request as any).default || request;
+    return agent(app.getHttpServer()).get('/api/v1/health').expect(200);
   });
 
   it('should include helmet security headers', async () => {
-    const response = await (request as any)(app.getHttpServer()).get(
-      '/api/v1/health',
-    );
+    const agent = (request as any).default || request;
+    const response = await agent(app.getHttpServer()).get('/api/v1/health');
     expect(response.headers['x-dns-prefetch-control']).toBeDefined();
     expect(response.headers['x-frame-options']).toBeDefined();
   });

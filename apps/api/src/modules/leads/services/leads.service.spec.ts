@@ -226,7 +226,14 @@ describe('LeadsService', () => {
         title: 'Test Lead',
       } as any);
 
-      const result = await service.create(dto, 'user-1');
+      const mockActor = {
+        id: 'user-1',
+        userId: 'user-1',
+        role: 'AGENT',
+        roles: ['AGENT'],
+        companyId: 'org-1',
+      } as any;
+      const result = await service.create(dto, mockActor);
 
       expect(result.id).toBe('lead-1');
       expect(mockLeadRepository.create).toHaveBeenCalled();

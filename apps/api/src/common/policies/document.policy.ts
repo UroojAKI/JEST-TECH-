@@ -36,11 +36,15 @@ export class DocumentPolicy {
 
   canUpload(actor: ActorContext): boolean {
     if (!actor?.userId) return false;
-    return [RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT].includes(actor.role);
+    return [RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT].includes(
+      actor.role,
+    );
   }
 
   canDelete(actor: ActorContext): boolean {
     // Admin or Back Office only. Agents cannot delete verification documents.
-    return actor?.role === RoleType.ADMIN || actor?.role === RoleType.BACK_OFFICE;
+    return (
+      actor?.role === RoleType.ADMIN || actor?.role === RoleType.BACK_OFFICE
+    );
   }
 }

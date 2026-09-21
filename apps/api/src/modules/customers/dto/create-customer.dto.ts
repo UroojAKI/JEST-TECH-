@@ -23,7 +23,9 @@ export class CreateCustomerDto {
   @ApiProperty({ description: '10-digit primary mobile number' })
   @IsNotEmpty()
   @IsString()
-  @Matches(/^[6-9]\d{9}$/, { message: 'Mobile must be a valid 10-digit Indian number starting with 6-9' })
+  @Matches(/^[6-9]\d{9}$/, {
+    message: 'Mobile must be a valid 10-digit Indian number starting with 6-9',
+  })
   mobile: string;
 
   @ApiPropertyOptional({ description: 'Customer email' })
@@ -81,7 +83,9 @@ export class CreateCustomerDto {
   @IsUUID()
   agentId?: string;
 
-  @ApiPropertyOptional({ description: 'Acknowledge soft duplicate warning and proceed' })
+  @ApiPropertyOptional({
+    description: 'Acknowledge soft duplicate warning and proceed',
+  })
   @IsOptional()
   @IsBoolean()
   acknowledgeDuplicate?: boolean;

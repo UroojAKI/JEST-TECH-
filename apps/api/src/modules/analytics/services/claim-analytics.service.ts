@@ -8,7 +8,9 @@ export class ClaimAnalyticsService {
   constructor(private readonly prisma: PrismaService) {}
 
   async getOverview(actor: RequestUser) {
-    const orgFilter = actor.organizationId ? { companyId: actor.organizationId } : {};
+    const orgFilter = actor.organizationId
+      ? { companyId: actor.organizationId }
+      : {};
 
     const [
       total,
@@ -25,10 +27,18 @@ export class ClaimAnalyticsService {
         where: { status: ClaimStatus.REPORTED, deletedAt: null, ...orgFilter },
       }),
       this.prisma.claim.count({
-        where: { status: ClaimStatus.REGISTERED, deletedAt: null, ...orgFilter },
+        where: {
+          status: ClaimStatus.REGISTERED,
+          deletedAt: null,
+          ...orgFilter,
+        },
       }),
       this.prisma.claim.count({
-        where: { status: ClaimStatus.UNDER_ASSESSMENT, deletedAt: null, ...orgFilter },
+        where: {
+          status: ClaimStatus.UNDER_ASSESSMENT,
+          deletedAt: null,
+          ...orgFilter,
+        },
       }),
       this.prisma.claim.count({
         where: { status: ClaimStatus.APPROVED, deletedAt: null, ...orgFilter },

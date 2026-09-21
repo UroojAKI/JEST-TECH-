@@ -35,7 +35,9 @@ export class CommissionPolicy {
   }
 
   canProcess(actor: ActorContext): boolean {
-    return actor?.role === RoleType.ADMIN || actor?.role === RoleType.BACK_OFFICE;
+    return (
+      actor?.role === RoleType.ADMIN || actor?.role === RoleType.BACK_OFFICE
+    );
   }
 
   canConfigure(actor: ActorContext): boolean {
@@ -44,6 +46,8 @@ export class CommissionPolicy {
   }
 
   canExport(actor: ActorContext): boolean {
-    return actor?.role === RoleType.ADMIN || actor?.role === RoleType.BACK_OFFICE;
+    return (
+      actor?.role === RoleType.ADMIN || actor?.role === RoleType.BACK_OFFICE
+    );
   }
 }

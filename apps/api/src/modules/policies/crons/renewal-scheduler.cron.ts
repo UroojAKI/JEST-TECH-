@@ -54,10 +54,7 @@ export class RenewalSchedulerCron {
               status: {
                 in: [PolicyStatus.ACTIVE, PolicyStatus.PENDING_RENEWAL],
               },
-              OR: [
-                { expiryDate: { lt: now } },
-                { odExpiryDate: { lt: now } },
-              ],
+              OR: [{ expiryDate: { lt: now } }, { odExpiryDate: { lt: now } }],
             },
           });
         } else {

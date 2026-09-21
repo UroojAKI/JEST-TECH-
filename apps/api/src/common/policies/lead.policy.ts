@@ -10,7 +10,10 @@ export class LeadPolicy {
 
     // Tenant boundary: Back Office is strictly bounded by companyId
     if (actor.role === RoleType.BACK_OFFICE) {
-      const leadCompanyId = lead.companyId || lead.createdBy?.companyId || lead.assignedTo?.companyId;
+      const leadCompanyId =
+        lead.companyId ||
+        lead.createdBy?.companyId ||
+        lead.assignedTo?.companyId;
       if (leadCompanyId && leadCompanyId !== actor.companyId) {
         return false;
       }
@@ -31,7 +34,9 @@ export class LeadPolicy {
 
   canCreate(actor: ActorContext): boolean {
     if (!actor?.userId) return false;
-    return [RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT].includes(actor.role);
+    return [RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT].includes(
+      actor.role,
+    );
   }
 
   canUpdate(actor: ActorContext, lead: any): boolean {
@@ -39,7 +44,10 @@ export class LeadPolicy {
     if (actor.role === RoleType.ADMIN) return true;
 
     if (actor.role === RoleType.BACK_OFFICE) {
-      const leadCompanyId = lead.companyId || lead.createdBy?.companyId || lead.assignedTo?.companyId;
+      const leadCompanyId =
+        lead.companyId ||
+        lead.createdBy?.companyId ||
+        lead.assignedTo?.companyId;
       if (leadCompanyId && leadCompanyId !== actor.companyId) {
         return false;
       }
@@ -67,7 +75,10 @@ export class LeadPolicy {
     if (actor.role === RoleType.ADMIN) return true;
     if (actor.role === RoleType.BACK_OFFICE) {
       if (lead) {
-        const leadCompanyId = lead.companyId || lead.createdBy?.companyId || lead.assignedTo?.companyId;
+        const leadCompanyId =
+          lead.companyId ||
+          lead.createdBy?.companyId ||
+          lead.assignedTo?.companyId;
         if (leadCompanyId && leadCompanyId !== actor.companyId) {
           return false;
         }
@@ -79,11 +90,15 @@ export class LeadPolicy {
 
   canMerge(actor: ActorContext): boolean {
     // ADMIN and BACK_OFFICE can merge; AGENT cannot
-    return actor?.role === RoleType.ADMIN || actor?.role === RoleType.BACK_OFFICE;
+    return (
+      actor?.role === RoleType.ADMIN || actor?.role === RoleType.BACK_OFFICE
+    );
   }
 
   canExport(actor: ActorContext): boolean {
     // ADMIN and BACK_OFFICE can export; AGENT cannot
-    return actor?.role === RoleType.ADMIN || actor?.role === RoleType.BACK_OFFICE;
+    return (
+      actor?.role === RoleType.ADMIN || actor?.role === RoleType.BACK_OFFICE
+    );
   }
 }

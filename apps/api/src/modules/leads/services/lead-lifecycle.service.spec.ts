@@ -91,7 +91,10 @@ describe('LeadLifecycleService', () => {
         vehicles: [{ id: 'veh-1' }],
       });
 
-      const result = await service.validateTransition('lead-uuid-1', LeadStatus.QUOTATION);
+      const result = await service.validateTransition(
+        'lead-uuid-1',
+        LeadStatus.QUOTATION,
+      );
       expect(result.valid).toBe(true);
     });
 
@@ -150,11 +153,10 @@ describe('LeadLifecycleService', () => {
       prisma.backOfficeTask.count.mockResolvedValue(0);
       prisma.backOfficeTask.create.mockResolvedValue({ id: 'bot-1' });
 
-      await service.transition(
-        'lead-uuid-1',
-        LeadStatus.BACK_OFFICE,
-        { id: 'user-1', role: RoleType.AGENT } as any,
-      );
+      await service.transition('lead-uuid-1', LeadStatus.BACK_OFFICE, {
+        id: 'user-1',
+        role: RoleType.AGENT,
+      } as any);
 
       expect(prisma.backOfficeTask.create).toHaveBeenCalledWith({
         data: expect.objectContaining({

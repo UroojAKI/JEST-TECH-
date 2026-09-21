@@ -97,7 +97,12 @@ export class UsersController {
     @Body() dto: { status: UserStatus; reason?: string },
     @CurrentUser() actor: RequestUser,
   ) {
-    return this.usersService.updateStatus(id, dto.status, dto.reason, actor?.id);
+    return this.usersService.updateStatus(
+      id,
+      dto.status,
+      dto.reason,
+      actor?.id,
+    );
   }
 
   @Patch(':id')
@@ -116,13 +121,19 @@ export class UsersController {
 
   @Post(':id/lock')
   @Roles(RoleType.ADMIN)
-  lock(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() actor: RequestUser) {
+  lock(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() actor: RequestUser,
+  ) {
     return this.usersService.lockUser(id, actor?.id);
   }
 
   @Post(':id/unlock')
   @Roles(RoleType.ADMIN)
-  unlock(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() actor: RequestUser) {
+  unlock(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() actor: RequestUser,
+  ) {
     return this.usersService.unlockUser(id, actor?.id);
   }
 

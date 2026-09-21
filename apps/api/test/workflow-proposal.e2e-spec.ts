@@ -17,6 +17,7 @@ describe('Workflow & Proposal Integration', () => {
   let testQuotationId: string;
   let testContactId: string;
   let testUserId: string;
+  let testCompanyId: string;
   let app: any;
 
   beforeAll(async () => {
@@ -79,6 +80,7 @@ describe('Workflow & Proposal Integration', () => {
         'No user found in seeded database. Please seed database first.',
       );
     testUserId = user.id;
+    testCompanyId = user.companyId;
   });
 
   afterAll(async () => {
@@ -117,6 +119,7 @@ describe('Workflow & Proposal Integration', () => {
         lastName: 'Test',
         email: `test-${Date.now()}@example.com`,
         phone: '1234567890',
+        companyId: testCompanyId,
         createdById: testUserId,
       },
     });
@@ -135,6 +138,7 @@ describe('Workflow & Proposal Integration', () => {
         contactId: contact.id,
         basePremium: 10000,
         totalPremium: 11800,
+        companyId: testCompanyId,
         createdById: testUserId,
       },
     });
@@ -212,5 +216,10 @@ describe('Workflow & Proposal Integration', () => {
 
     // Cleanup the dummy doc
     await prisma.document.delete({ where: { id: dummyDoc.id } });
+  });
+
+  afterAll(async () => {
+    if (app) await app.close();
+    if (prisma) await prisma.$disconnect();
   });
 });

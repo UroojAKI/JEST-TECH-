@@ -10,7 +10,9 @@ export class WhatsAppProvider implements NotificationChannelProvider {
   readonly channelName = 'WHATSAPP';
   private readonly logger = new Logger(WhatsAppProvider.name);
 
-  async send(payload: SendNotificationPayload): Promise<NotificationProviderResult> {
+  async send(
+    payload: SendNotificationPayload,
+  ): Promise<NotificationProviderResult> {
     const isConfigured = Boolean(
       process.env.WHATSAPP_API_TOKEN && process.env.WHATSAPP_PHONE_NUMBER_ID,
     );
@@ -22,12 +24,15 @@ export class WhatsAppProvider implements NotificationChannelProvider {
       return {
         success: false,
         status: 'NOT_CONFIGURED',
-        failureReason: 'WhatsApp Business API credentials not configured in environment',
+        failureReason:
+          'WhatsApp Business API credentials not configured in environment',
       };
     }
 
     try {
-      this.logger.log(`[WhatsAppProvider] Transmitting WhatsApp message to ${payload.to}`);
+      this.logger.log(
+        `[WhatsAppProvider] Transmitting WhatsApp message to ${payload.to}`,
+      );
       return {
         success: true,
         status: 'SENT',

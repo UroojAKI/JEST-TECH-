@@ -34,7 +34,9 @@ export class TasksController {
 
   @Get('today')
   @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT)
-  @ApiOperation({ summary: 'Get operational tasks due today and overdue for caller' })
+  @ApiOperation({
+    summary: 'Get operational tasks due today and overdue for caller',
+  })
   getTasksToday(@CurrentUser() user: RequestUser) {
     return this.tasksService.getTasksToday(user);
   }
@@ -81,7 +83,9 @@ export class TasksController {
 
   @Patch('back-office/:id/resolve')
   @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE)
-  @ApiOperation({ summary: 'Resolve (Verify, Reject, Complete) back office task' })
+  @ApiOperation({
+    summary: 'Resolve (Verify, Reject, Complete) back office task',
+  })
   resolveBackOfficeTask(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: ResolveBackOfficeTaskDto,
@@ -100,7 +104,10 @@ export class TasksController {
   @Get(':id')
   @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT)
   @ApiOperation({ summary: 'Get task by ID' })
-  findById(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: RequestUser) {
+  findById(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: RequestUser,
+  ) {
     return this.tasksService.findById(id, user);
   }
 
@@ -126,7 +133,10 @@ export class TasksController {
   @Patch(':id/complete')
   @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT)
   @ApiOperation({ summary: 'Mark task completed' })
-  complete(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: RequestUser) {
+  complete(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: RequestUser,
+  ) {
     return this.tasksService.complete(id, user);
   }
 }

@@ -9,7 +9,8 @@ export class QuotationPolicy {
     if (actor.role === RoleType.ADMIN) return true;
 
     if (actor.role === RoleType.BACK_OFFICE) {
-      const quoteCompanyId = quote.companyId || quote.createdBy?.companyId || quote.lead?.companyId;
+      const quoteCompanyId =
+        quote.companyId || quote.createdBy?.companyId || quote.lead?.companyId;
       if (quoteCompanyId && quoteCompanyId !== actor.companyId) {
         return false;
       }
@@ -29,7 +30,9 @@ export class QuotationPolicy {
 
   canCreate(actor: ActorContext): boolean {
     if (!actor?.userId) return false;
-    return [RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT].includes(actor.role);
+    return [RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT].includes(
+      actor.role,
+    );
   }
 
   canUpdate(actor: ActorContext, quote: any): boolean {
@@ -38,14 +41,20 @@ export class QuotationPolicy {
 
   canApprove(actor: ActorContext): boolean {
     // Segregation of Duties: Agents can NEVER approve quotations
-    return actor?.role === RoleType.ADMIN || actor?.role === RoleType.BACK_OFFICE;
+    return (
+      actor?.role === RoleType.ADMIN || actor?.role === RoleType.BACK_OFFICE
+    );
   }
 
   canReject(actor: ActorContext): boolean {
-    return actor?.role === RoleType.ADMIN || actor?.role === RoleType.BACK_OFFICE;
+    return (
+      actor?.role === RoleType.ADMIN || actor?.role === RoleType.BACK_OFFICE
+    );
   }
 
   canExport(actor: ActorContext): boolean {
-    return actor?.role === RoleType.ADMIN || actor?.role === RoleType.BACK_OFFICE;
+    return (
+      actor?.role === RoleType.ADMIN || actor?.role === RoleType.BACK_OFFICE
+    );
   }
 }

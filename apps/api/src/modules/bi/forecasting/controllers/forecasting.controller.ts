@@ -16,9 +16,7 @@ export class ForecastingController {
   ) {}
 
   @Get('revenue')
-  @Roles(
-    RoleType.ADMIN,
-    )
+  @Roles(RoleType.ADMIN)
   @ApiOperation({
     summary:
       'Predict future revenue pipeline based on historical moving average',
@@ -51,9 +49,7 @@ export class ForecastingController {
   }
 
   @Get('customer-risk/:customerId')
-  @Roles(
-    RoleType.ADMIN,
-    )
+  @Roles(RoleType.ADMIN)
   @ApiOperation({ summary: 'Predict customer churn risk score' })
   async predictRisk(@Param('customerId') customerId: string) {
     const riskScore =

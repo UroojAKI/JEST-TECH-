@@ -22,7 +22,10 @@ export class CreateMotorQuotationDto {
   @IsUUID()
   vehicleId: string;
 
-  @ApiProperty({ description: 'Insurer Company Name (e.g. HDFC ERGO, ICICI Lombard, Tata AIG)' })
+  @ApiProperty({
+    description:
+      'Insurer Company Name (e.g. HDFC ERGO, ICICI Lombard, Tata AIG)',
+  })
   @IsNotEmpty()
   @IsString()
   insurerName: string;
@@ -32,7 +35,10 @@ export class CreateMotorQuotationDto {
   @IsString()
   planName?: string;
 
-  @ApiProperty({ enum: MotorPolicyType, default: MotorPolicyType.PACKAGE_COMPREHENSIVE })
+  @ApiProperty({
+    enum: MotorPolicyType,
+    default: MotorPolicyType.PACKAGE_COMPREHENSIVE,
+  })
   @IsOptional()
   @IsEnum(MotorPolicyType)
   policyType?: MotorPolicyType = MotorPolicyType.PACKAGE_COMPREHENSIVE;

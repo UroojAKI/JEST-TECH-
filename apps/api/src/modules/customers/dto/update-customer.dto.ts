@@ -21,7 +21,9 @@ export class UpdateCustomerDto {
   @ApiPropertyOptional({ description: '10-digit primary mobile number' })
   @IsOptional()
   @IsString()
-  @Matches(/^[6-9]\d{9}$/, { message: 'Mobile must be a valid 10-digit Indian number starting with 6-9' })
+  @Matches(/^[6-9]\d{9}$/, {
+    message: 'Mobile must be a valid 10-digit Indian number starting with 6-9',
+  })
   mobile?: string;
 
   @ApiPropertyOptional({ description: 'Customer email' })

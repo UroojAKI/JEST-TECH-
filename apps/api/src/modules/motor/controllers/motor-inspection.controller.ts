@@ -79,7 +79,8 @@ export class MotorInspectionController {
   @Post(':id/submit-for-review')
   @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT)
   @ApiOperation({
-    summary: 'Submit inspection for underwriting review once all 7 mandatory photographs are uploaded',
+    summary:
+      'Submit inspection for underwriting review once all 7 mandatory photographs are uploaded',
   })
   async submitForReview(
     @Param('id') inspectionId: string,
@@ -109,7 +110,8 @@ export class MotorInspectionController {
   @Post(':id/reject')
   @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE)
   @ApiOperation({
-    summary: 'Reject vehicle inspection with reason (Back-Office / Underwriter only)',
+    summary:
+      'Reject vehicle inspection with reason (Back-Office / Underwriter only)',
   })
   async rejectInspection(
     @Param('id') inspectionId: string,
@@ -129,7 +131,8 @@ export class MotorInspectionController {
   @Post(':id/waive')
   @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE)
   @ApiOperation({
-    summary: 'Waive vehicle inspection with reason (Underwriting override by Back-Office / Admin)',
+    summary:
+      'Waive vehicle inspection with reason (Underwriting override by Back-Office / Admin)',
   })
   async waiveInspection(
     @Param('id') inspectionId: string,

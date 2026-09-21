@@ -46,7 +46,14 @@ export class AgentsService {
   }
 
   async findAll(query: AgentQueryDto, user: RequestUser) {
-    const { page = 1, limit = 25, search, isActive, sortBy = 'createdAt', sortOrder = 'desc' } = query;
+    const {
+      page = 1,
+      limit = 25,
+      search,
+      isActive,
+      sortBy = 'createdAt',
+      sortOrder = 'desc',
+    } = query;
     const skip = (page - 1) * limit;
 
     const where: Prisma.AgentWhereInput = {
@@ -139,20 +146,25 @@ export class AgentsService {
     }
 
     if (user.role === RoleType.AGENT && agent.userId !== user.id) {
-      throw new ForbiddenException('You are not authorized to view this agent profile');
+      throw new ForbiddenException(
+        'You are not authorized to view this agent profile',
+      );
     }
 
     return agent;
   }
 
   async create(dto: CreateAgentDto, user: RequestUser) {
-    const targetUserId = user.role === RoleType.ADMIN && dto.userId ? dto.userId : user.id;
+    const targetUserId =
+      user.role === RoleType.ADMIN && dto.userId ? dto.userId : user.id;
 
     const existing = await this.prisma.agent.findUnique({
       where: { userId: targetUserId },
     });
     if (existing) {
-      throw new ConflictException('An agent profile already exists for this user');
+      throw new ConflictException(
+        'An agent profile already exists for this user',
+      );
     }
 
     const targetUser = await this.prisma.user.findUnique({
@@ -173,19 +185,23 @@ export class AgentsService {
     let nextNum = count + 1;
     let agentCode = `AGT-${String(nextNum).padStart(6, '0')}`;
 
-    while (await this.prisma.agent.findFirst({ where: { companyId, agentCode } })) {
+    while (
+      await this.prisma.agent.findFirst({ where: { companyId, agentCode } })
+    ) {
       nextNum++;
       agentCode = `AGT-${String(nextNum).padStart(6, '0')}`;
     }
 
-    const name = `${targetUser.firstName || ''} ${targetUser.lastName || ''}`.trim();
+    const name =
+      `${targetUser.firstName || ''} ${targetUser.lastName || ''}`.trim();
 
     return this.prisma.agent.create({
       data: {
         companyId,
         userId: targetUserId,
         agentCode,
-        agencyName: dto.agencyName || (name ? `${name} Agency` : `Agency ${agentCode}`),
+        agencyName:
+          dto.agencyName || (name ? `${name} Agency` : `Agency ${agentCode}`),
         licenseNumber: dto.licenseNumber || null,
         commissionTier: dto.commissionTier || 'STANDARD',
         isActive: true,
@@ -208,7 +224,9 @@ export class AgentsService {
     const agent = await this.findById(id, user);
 
     if (user.role === RoleType.AGENT && agent.userId !== user.id) {
-      throw new ForbiddenException('You are not authorized to update this agent profile');
+      throw new ForbiddenException(
+        'You are not authorized to update this agent profile',
+      );
     }
 
     // Only Admin can change isActive status or commission tier
@@ -218,7 +236,8 @@ export class AgentsService {
 
     if (user.role === RoleType.ADMIN) {
       if (dto.isActive !== undefined) data.isActive = dto.isActive;
-      if (dto.commissionTier !== undefined) data.commissionTier = dto.commissionTier;
+      if (dto.commissionTier !== undefined)
+        data.commissionTier = dto.commissionTier;
     }
 
     return this.prisma.agent.update({
@@ -243,9 +262,15 @@ export class AgentsService {
 
     const [totalLeads, convertedLeads, lostLeads, inProgressLeads, quotes] =
       await Promise.all([
-        this.prisma.lead.count({ where: { agentId: agent.id, deletedAt: null } }),
-        this.prisma.lead.count({ where: { agentId: agent.id, status: 'CONVERTED', deletedAt: null } }),
-        this.prisma.lead.count({ where: { agentId: agent.id, status: 'LOST', deletedAt: null } }),
+        this.prisma.lead.count({
+          where: { agentId: agent.id, deletedAt: null },
+        }),
+        this.prisma.lead.count({
+          where: { agentId: agent.id, status: 'CONVERTED', deletedAt: null },
+        }),
+        this.prisma.lead.count({
+          where: { agentId: agent.id, status: 'LOST', deletedAt: null },
+        }),
         this.prisma.lead.count({
           where: {
             agentId: agent.id,
@@ -276,7 +301,10 @@ export class AgentsService {
         inProgressLeads,
         convertedLeads,
         lostLeads,
-        conversionRate: totalLeads > 0 ? ((convertedLeads / totalLeads) * 100).toFixed(1) + '%' : '0%',
+        conversionRate:
+          totalLeads > 0
+            ? ((convertedLeads / totalLeads) * 100).toFixed(1) + '%'
+            : '0%',
       },
       quotations: {
         totalQuotes,

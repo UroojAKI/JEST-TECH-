@@ -79,10 +79,7 @@ describe('WorkspaceAccessGuard & Matrix (Iteration 2)', () => {
     });
 
     it('should allow RENEWAL_EXECUTIVE to access RENEWALS workspace', () => {
-      const ctx = createMockContext(
-        { role: RoleType.BACK_OFFICE },
-        'RENEWALS',
-      );
+      const ctx = createMockContext({ role: RoleType.BACK_OFFICE }, 'RENEWALS');
       expect(guard.canActivate(ctx)).toBe(true);
     });
 

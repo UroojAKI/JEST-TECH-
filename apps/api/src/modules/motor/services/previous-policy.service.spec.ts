@@ -19,9 +19,11 @@ describe('PreviousPolicyService', () => {
     };
 
     vehicleDataService = {
-      normalizeRegistrationNumber: jest.fn().mockImplementation((raw: string) => ({
-        normalized: raw ? raw.replace(/[^a-zA-Z0-9]/g, '').toUpperCase() : '',
-      })),
+      normalizeRegistrationNumber: jest
+        .fn()
+        .mockImplementation((raw: string) => ({
+          normalized: raw ? raw.replace(/[^a-zA-Z0-9]/g, '').toUpperCase() : '',
+        })),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -89,7 +91,11 @@ describe('PreviousPolicyService', () => {
       claims: [{ id: 'clm-1', status: 'SETTLED' }],
       motorMetadata: {},
       quotation: { insurerName: 'ICICI Lombard' },
-      vehicle: { id: 'v-1', registrationNumber: 'KA01AB1234', category: 'BIKE' },
+      vehicle: {
+        id: 'v-1',
+        registrationNumber: 'KA01AB1234',
+        category: 'BIKE',
+      },
     });
 
     const res = await service.fetchPreviousPolicy('KA01AB1234');

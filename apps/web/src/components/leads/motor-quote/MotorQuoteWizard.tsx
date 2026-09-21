@@ -319,7 +319,7 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, initialCategory, c
             tpInsurer: 'DRAFT_INSURER',
             tpPolicyNumber: 'DRAFT123',
             tpStartDate: new Date().toISOString(),
-            tpExpiryDate: new Date(Date.now() + 86400000).toISOString(),
+            tpExpiryDate: new Date(new Date().getTime() + 86400000).toISOString(),
           } : undefined,
           status: 'DRAFT',
         };

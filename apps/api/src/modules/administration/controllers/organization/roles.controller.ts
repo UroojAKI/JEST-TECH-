@@ -132,15 +132,20 @@ export class RolesController {
           toCreateRoleLinks.push({
             roleId: role.id,
             permissionId: p.permissionId,
-            scope: p.scope && Object.values(AccessScope).includes(p.scope) ? p.scope : AccessScope.ORGANIZATION,
+            scope:
+              p.scope && Object.values(AccessScope).includes(p.scope)
+                ? p.scope
+                : AccessScope.ORGANIZATION,
           });
         } else if (p.category && p.action) {
           const actionCode = p.action.toUpperCase();
-          const categorySlug = p.category.toUpperCase().replace(/[^A-Z0-9]+/g, '_');
+          const categorySlug = p.category
+            .toUpperCase()
+            .replace(/[^A-Z0-9]+/g, '_');
           const code = `${actionCode}_${categorySlug}`;
 
           let perm = await tx.permission.findFirst({
-            where: { code }
+            where: { code },
           });
 
           if (!perm) {
@@ -149,8 +154,8 @@ export class RolesController {
                 name: `${p.action.charAt(0).toUpperCase() + p.action.slice(1)} ${p.category}`,
                 code,
                 category: 'SYSTEM',
-                description: `Allows ${p.action} operations on ${p.category}`
-              }
+                description: `Allows ${p.action} operations on ${p.category}`,
+              },
             });
           }
 
@@ -159,7 +164,10 @@ export class RolesController {
             toCreateRoleLinks.push({
               roleId: role.id,
               permissionId: perm.id,
-              scope: p.scope && Object.values(AccessScope).includes(p.scope) ? p.scope : AccessScope.ORGANIZATION,
+              scope:
+                p.scope && Object.values(AccessScope).includes(p.scope)
+                  ? p.scope
+                  : AccessScope.ORGANIZATION,
             });
           }
         }
@@ -179,17 +187,19 @@ export class RolesController {
       }
 
       // Log audit
-      await tx.auditLog.create({
-        data: {
-          action: 'UPDATE',
-          entity: 'RolePermission',
-          entityType: 'ROLE_PERMISSION',
-          entityId: role.id,
-          performedById: actor?.id || null,
-          newValue: { permissionsCount: toCreateRoleLinks.length },
-          module: 'ADMIN_RBAC',
-        },
-      }).catch(() => {});
+      await tx.auditLog
+        .create({
+          data: {
+            action: 'UPDATE',
+            entity: 'RolePermission',
+            entityType: 'ROLE_PERMISSION',
+            entityId: role.id,
+            performedById: actor?.id || null,
+            newValue: { permissionsCount: toCreateRoleLinks.length },
+            module: 'ADMIN_RBAC',
+          },
+        })
+        .catch(() => {});
 
       return {
         success: true,

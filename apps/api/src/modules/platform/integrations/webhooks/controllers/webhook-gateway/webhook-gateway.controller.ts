@@ -56,9 +56,11 @@ export class WebhookGatewayController {
         const MAX_AGE_MS = 5 * 60 * 1000; // 5 minutes
         if (Math.abs(now - webhookTime) > MAX_AGE_MS) {
           this.logger.warn(
-            `[SECURITY] Webhook replay detected: timestamp too old or in future. provider=${provider}, age=${Math.abs(now - webhookTime)}ms`
+            `[SECURITY] Webhook replay detected: timestamp too old or in future. provider=${provider}, age=${Math.abs(now - webhookTime)}ms`,
           );
-          throw new UnauthorizedException('Webhook timestamp out of acceptable range (replay protection)');
+          throw new UnauthorizedException(
+            'Webhook timestamp out of acceptable range (replay protection)',
+          );
         }
       }
     }
@@ -179,10 +181,12 @@ export class WebhookGatewayController {
     if (provider === 'razorpay') {
       const razorpaySecret = process.env.RAZORPAY_WEBHOOK_SECRET;
       if (!razorpaySecret) {
-        this.logger.error('[SECURITY] RAZORPAY_WEBHOOK_SECRET is not configured. Rejecting webhook.');
+        this.logger.error(
+          '[SECURITY] RAZORPAY_WEBHOOK_SECRET is not configured. Rejecting webhook.',
+        );
         throw new UnauthorizedException('Webhook provider not configured');
       }
-      
+
       if (!signature) {
         throw new UnauthorizedException('Missing x-razorpay-signature header');
       }
@@ -203,7 +207,7 @@ export class WebhookGatewayController {
         )
       ) {
         this.logger.error(
-          `[SECURITY] Invalid webhook signature from provider=${provider}. Rejecting.`
+          `[SECURITY] Invalid webhook signature from provider=${provider}. Rejecting.`,
         );
         // Log security event to audit log
         try {
@@ -217,7 +221,9 @@ export class WebhookGatewayController {
               newValue: { provider, reason: 'INVALID_SIGNATURE' },
             },
           });
-        } catch { /* non-fatal */ }
+        } catch {
+          /* non-fatal */
+        }
         throw new UnauthorizedException('Invalid webhook signature');
       }
     }

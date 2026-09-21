@@ -198,8 +198,12 @@ export class LeadsService {
             { title: { contains: search, mode: 'insensitive' } },
             { description: { contains: search, mode: 'insensitive' } },
             { leadCode: { contains: search, mode: 'insensitive' } },
-            { contact: { firstName: { contains: search, mode: 'insensitive' } } },
-            { contact: { lastName: { contains: search, mode: 'insensitive' } } },
+            {
+              contact: { firstName: { contains: search, mode: 'insensitive' } },
+            },
+            {
+              contact: { lastName: { contains: search, mode: 'insensitive' } },
+            },
             { contact: { phone: { contains: search, mode: 'insensitive' } } },
           ],
         }
@@ -414,20 +418,34 @@ export class LeadsService {
     return LeadMapper.toResponse(updated);
   }
 
-  async addNote(id: string, dto: CreateNoteDto, actorOrId: ActorContext | string) {
-    const actor = typeof actorOrId === 'string' ? ({ userId: actorOrId, id: actorOrId } as unknown as ActorContext) : actorOrId;
+  async addNote(
+    id: string,
+    dto: CreateNoteDto,
+    actorOrId: ActorContext | string,
+  ) {
+    const actor =
+      typeof actorOrId === 'string'
+        ? ({ userId: actorOrId, id: actorOrId } as unknown as ActorContext)
+        : actorOrId;
     const existing = this.prisma.lead?.findFirst
       ? await this.prisma.lead.findFirst({
           where: {
             id,
             deletedAt: null,
-            ...(actor?.organizationId ? { organizationId: actor.organizationId } : {}),
+            ...(actor?.organizationId
+              ? { organizationId: actor.organizationId }
+              : {}),
           },
         })
       : await this.leadRepository.findById(id);
-    if (!existing) throw new NotFoundException(`Lead ${id} not found or access denied`);
+    if (!existing)
+      throw new NotFoundException(`Lead ${id} not found or access denied`);
 
-    await this.leadRepository.addNote(id, dto.content, actor.userId || (actor as any).id);
+    await this.leadRepository.addNote(
+      id,
+      dto.content,
+      actor.userId || (actor as any).id,
+    );
 
     const updatedLead = await this.leadRepository.findById(id);
     return LeadMapper.toResponse(updatedLead!);
@@ -438,17 +456,23 @@ export class LeadsService {
     dto: CreateActivityDto,
     actorOrId: ActorContext | string,
   ) {
-    const actor = typeof actorOrId === 'string' ? ({ userId: actorOrId, id: actorOrId } as unknown as ActorContext) : actorOrId;
+    const actor =
+      typeof actorOrId === 'string'
+        ? ({ userId: actorOrId, id: actorOrId } as unknown as ActorContext)
+        : actorOrId;
     const existing = this.prisma.lead?.findFirst
       ? await this.prisma.lead.findFirst({
           where: {
             id,
             deletedAt: null,
-            ...(actor?.organizationId ? { organizationId: actor.organizationId } : {}),
+            ...(actor?.organizationId
+              ? { organizationId: actor.organizationId }
+              : {}),
           },
         })
       : await this.leadRepository.findById(id);
-    if (!existing) throw new NotFoundException(`Lead ${id} not found or access denied`);
+    if (!existing)
+      throw new NotFoundException(`Lead ${id} not found or access denied`);
 
     if (dto.assignedToId) {
       const user = await this.usersService.findById(dto.assignedToId);
@@ -479,17 +503,23 @@ export class LeadsService {
   }
 
   async convert(id: string, actorOrId: ActorContext | string) {
-    const actor = typeof actorOrId === 'string' ? ({ userId: actorOrId, id: actorOrId } as unknown as ActorContext) : actorOrId;
+    const actor =
+      typeof actorOrId === 'string'
+        ? ({ userId: actorOrId, id: actorOrId } as unknown as ActorContext)
+        : actorOrId;
     const existing = this.prisma.lead?.findFirst
       ? await this.prisma.lead.findFirst({
           where: {
             id,
             deletedAt: null,
-            ...(actor?.organizationId ? { organizationId: actor.organizationId } : {}),
+            ...(actor?.organizationId
+              ? { organizationId: actor.organizationId }
+              : {}),
           },
         })
       : await this.leadRepository.findById(id);
-    if (!existing) throw new NotFoundException(`Lead ${id} not found or access denied`);
+    if (!existing)
+      throw new NotFoundException(`Lead ${id} not found or access denied`);
 
     if (existing.status === LeadStatus.CONVERTED) {
       throw new BadRequestException('Lead is already converted');
@@ -700,18 +730,28 @@ export class LeadsService {
     return LeadMapper.toResponse(consolidated!);
   }
 
-  async markLost(id: string, lossReason: string, actorOrId: ActorContext | string) {
-    const actor = typeof actorOrId === 'string' ? ({ userId: actorOrId, id: actorOrId } as unknown as ActorContext) : actorOrId;
+  async markLost(
+    id: string,
+    lossReason: string,
+    actorOrId: ActorContext | string,
+  ) {
+    const actor =
+      typeof actorOrId === 'string'
+        ? ({ userId: actorOrId, id: actorOrId } as unknown as ActorContext)
+        : actorOrId;
     const existing = this.prisma.lead?.findFirst
       ? await this.prisma.lead.findFirst({
           where: {
             id,
             deletedAt: null,
-            ...(actor?.organizationId ? { organizationId: actor.organizationId } : {}),
+            ...(actor?.organizationId
+              ? { organizationId: actor.organizationId }
+              : {}),
           },
         })
       : await this.leadRepository.findById(id);
-    if (!existing) throw new NotFoundException(`Lead ${id} not found or access denied`);
+    if (!existing)
+      throw new NotFoundException(`Lead ${id} not found or access denied`);
 
     if (existing.status === LeadStatus.CONVERTED) {
       throw new BadRequestException('Cannot mark a converted lead as lost');

@@ -7,7 +7,11 @@ import { RequestUser } from '../../auth/decorators/current-user.decorator';
 export class RevenueAnalyticsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  private async getSum(start: Date, actor: RequestUser, end?: Date): Promise<number> {
+  private async getSum(
+    start: Date,
+    actor: RequestUser,
+    end?: Date,
+  ): Promise<number> {
     const whereClause: any = {
       status: PaymentStatus.SUCCESS,
       paymentDate: { gte: start },
@@ -15,8 +19,8 @@ export class RevenueAnalyticsService {
     if (end) {
       whereClause.paymentDate.lt = end;
     }
-    
-    // We need to filter PolicyPayment by organizationId. 
+
+    // We need to filter PolicyPayment by organizationId.
     // PolicyPayment doesn't directly have organizationId, but it belongs to policy.
     // Wait, let's assume policyPayment has a relation or we filter policy.
     // Let me check schema or use a safer filter.
@@ -81,8 +85,10 @@ export class RevenueAnalyticsService {
   async getMonthlyTrend(actor: RequestUser) {
     const months: { month: string; GWP: number }[] = [];
     const now = new Date();
-    
-    const orgFilter = actor.organizationId ? { companyId: actor.organizationId } : {};
+
+    const orgFilter = actor.organizationId
+      ? { companyId: actor.organizationId }
+      : {};
 
     for (let i = 5; i >= 0; i--) {
       const d = new Date(now.getFullYear(), now.getMonth() - i, 1);

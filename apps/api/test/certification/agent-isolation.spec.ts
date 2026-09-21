@@ -71,7 +71,12 @@ describe('Authoritative Agent Isolation & Tampering Certification Suite', () => 
       },
     };
     expect(() =>
-      authzService.authorize(agentA as any, 'RENEWAL_TASK', 'READ', renewalTaskB),
+      authzService.authorize(
+        agentA as any,
+        'RENEWAL_TASK',
+        'READ',
+        renewalTaskB,
+      ),
     ).toThrow(ForbiddenException);
   });
 

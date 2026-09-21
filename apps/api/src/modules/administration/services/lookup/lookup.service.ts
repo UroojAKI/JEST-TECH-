@@ -94,7 +94,13 @@ export class LookupService {
 
   async createValue(
     categoryCode: string,
-    dto: { code: string; name: string; description?: string; parentId?: string; orderIndex?: number },
+    dto: {
+      code: string;
+      name: string;
+      description?: string;
+      parentId?: string;
+      orderIndex?: number;
+    },
   ) {
     const category = await this.prisma.lookupCategory.findUnique({
       where: { code: categoryCode },
@@ -122,7 +128,12 @@ export class LookupService {
   async updateValue(
     categoryCode: string,
     id: string,
-    dto: { name?: string; description?: string; isActive?: boolean; orderIndex?: number },
+    dto: {
+      name?: string;
+      description?: string;
+      isActive?: boolean;
+      orderIndex?: number;
+    },
   ) {
     const existing = await this.prisma.lookupValue.findUnique({
       where: { id },
@@ -136,7 +147,9 @@ export class LookupService {
       where: { id },
       data: {
         ...(dto.name !== undefined ? { name: dto.name } : {}),
-        ...(dto.description !== undefined ? { description: dto.description } : {}),
+        ...(dto.description !== undefined
+          ? { description: dto.description }
+          : {}),
         ...(dto.isActive !== undefined ? { isActive: dto.isActive } : {}),
         ...(dto.orderIndex !== undefined ? { orderIndex: dto.orderIndex } : {}),
       },

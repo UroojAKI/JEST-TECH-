@@ -28,35 +28,39 @@ export class LeadLifecycleService {
       LeadStatus.LOST,
       LeadStatus.UNQUALIFIED,
     ],
-    [LeadStatus.QUOTATION]: [
-      LeadStatus.CUSTOMER_ACCEPTED,
-      LeadStatus.LOST,
-    ],
+    [LeadStatus.QUOTATION]: [LeadStatus.CUSTOMER_ACCEPTED, LeadStatus.LOST],
     [LeadStatus.CUSTOMER_ACCEPTED]: [
       LeadStatus.PAYMENT_PENDING,
       LeadStatus.LOST,
     ],
-    [LeadStatus.PAYMENT_PENDING]: [
-      LeadStatus.POST_PAYMENT,
-      LeadStatus.LOST,
-    ],
-    [LeadStatus.POST_PAYMENT]: [
-      LeadStatus.BACK_OFFICE,
-      LeadStatus.LOST,
-    ],
-    [LeadStatus.BACK_OFFICE]: [
-      LeadStatus.CONVERTED,
-      LeadStatus.LOST,
-    ],
+    [LeadStatus.PAYMENT_PENDING]: [LeadStatus.POST_PAYMENT, LeadStatus.LOST],
+    [LeadStatus.POST_PAYMENT]: [LeadStatus.BACK_OFFICE, LeadStatus.LOST],
+    [LeadStatus.BACK_OFFICE]: [LeadStatus.CONVERTED, LeadStatus.LOST],
     [LeadStatus.CONVERTED]: [],
     [LeadStatus.LOST]: [LeadStatus.CONTACTED],
     [LeadStatus.UNQUALIFIED]: [LeadStatus.CONTACTED],
 
     // Legacy transitional mapping for continuous compatibility
-    [LeadStatus.DOCS_RECEIVED]: [LeadStatus.QUOTE_PREPARED, LeadStatus.QUOTATION, LeadStatus.LOST],
-    [LeadStatus.QUOTE_PREPARED]: [LeadStatus.NEGOTIATION, LeadStatus.CUSTOMER_ACCEPTED, LeadStatus.LOST],
-    [LeadStatus.NEGOTIATION]: [LeadStatus.CUSTOMER_ACCEPTED, LeadStatus.PAYMENT_PENDING, LeadStatus.LOST],
-    [LeadStatus.PAYMENT_RECEIVED]: [LeadStatus.POST_PAYMENT, LeadStatus.BACK_OFFICE, LeadStatus.CONVERTED],
+    [LeadStatus.DOCS_RECEIVED]: [
+      LeadStatus.QUOTE_PREPARED,
+      LeadStatus.QUOTATION,
+      LeadStatus.LOST,
+    ],
+    [LeadStatus.QUOTE_PREPARED]: [
+      LeadStatus.NEGOTIATION,
+      LeadStatus.CUSTOMER_ACCEPTED,
+      LeadStatus.LOST,
+    ],
+    [LeadStatus.NEGOTIATION]: [
+      LeadStatus.CUSTOMER_ACCEPTED,
+      LeadStatus.PAYMENT_PENDING,
+      LeadStatus.LOST,
+    ],
+    [LeadStatus.PAYMENT_RECEIVED]: [
+      LeadStatus.POST_PAYMENT,
+      LeadStatus.BACK_OFFICE,
+      LeadStatus.CONVERTED,
+    ],
     [LeadStatus.POLICY_ISSUED]: [LeadStatus.CONVERTED],
   };
 
@@ -116,10 +120,7 @@ export class LeadLifecycleService {
     if (targetStatus === LeadStatus.CONVERTED) {
       const issuedPolicyCount = await this.prisma.policy.count({
         where: {
-          OR: [
-            { quotation: { leadId } },
-            { motorQuotation: { leadId } },
-          ],
+          OR: [{ quotation: { leadId } }, { motorQuotation: { leadId } }],
           status: 'ISSUED',
         },
       });
@@ -183,7 +184,9 @@ export class LeadLifecycleService {
               leadId,
               status: 'PENDING',
               priority: 'HIGH',
-              verificationNotes: remarks || 'Awaiting Back Office policy verification and issuance',
+              verificationNotes:
+                remarks ||
+                'Awaiting Back Office policy verification and issuance',
               createdById: actor.id,
             },
           });

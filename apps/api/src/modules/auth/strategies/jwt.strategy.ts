@@ -113,7 +113,10 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     }
 
     // Strict authVersion exact matching
-    if (payload.authVersion === undefined || payload.authVersion !== user.authVersion) {
+    if (
+      payload.authVersion === undefined ||
+      payload.authVersion !== user.authVersion
+    ) {
       throw new UnauthorizedException(
         'Session invalidated: credentials, roles, or permissions modified',
       );

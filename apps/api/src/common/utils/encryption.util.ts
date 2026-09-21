@@ -5,7 +5,7 @@ function getPiiKey(): string {
   const key = process.env.PII_ENCRYPTION_KEY;
   if (!key || key.length < 32) {
     throw new Error(
-      '[SECURITY] PII_ENCRYPTION_KEY environment variable is required and must be at least 32 characters. Application cannot start without it.'
+      '[SECURITY] PII_ENCRYPTION_KEY environment variable is required and must be at least 32 characters. Application cannot start without it.',
     );
   }
   return key;

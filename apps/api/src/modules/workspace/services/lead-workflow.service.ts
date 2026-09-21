@@ -214,7 +214,10 @@ export class LeadWorkflowService {
         );
       }
     } else if (isManagerOrAdmin) {
-      if (targetIndex !== currentIndex + 1 || (overrideReason && overrideReason.trim().length >= 5)) {
+      if (
+        targetIndex !== currentIndex + 1 ||
+        (overrideReason && overrideReason.trim().length >= 5)
+      ) {
         isOverride = true;
         if (
           targetIndex !== currentIndex + 1 &&

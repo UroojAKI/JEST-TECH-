@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { HeartPulse, CheckCircle2, ChevronRight } from 'lucide-react';
 
 interface CustomerHealthStepperProps {
@@ -8,6 +8,7 @@ interface CustomerHealthStepperProps {
 }
 
 export function CustomerHealthStepper({ workspace }: CustomerHealthStepperProps) {
+  const now = useMemo(() => new Date().getTime(), []);
   const policies = workspace?.policies || [];
   const claims = workspace?.claims || [];
   const quotations = workspace?.quotations || [];
@@ -92,7 +93,7 @@ export function CustomerHealthStepper({ workspace }: CustomerHealthStepperProps)
     currentStageIndex = 5;
   } else if (isRenewalDone || policies.some((p: any) => {
     if (!p.expiryDate) return false;
-    const diffDays = Math.ceil((new Date(p.expiryDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+    const diffDays = Math.ceil((new Date(p.expiryDate).getTime() - now) / (1000 * 60 * 60 * 24));
     return diffDays <= 45;
   })) {
     currentStageIndex = 4;

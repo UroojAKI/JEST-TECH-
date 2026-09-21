@@ -82,10 +82,7 @@ export class ApproveClaimService {
 
     // Role verification and organizational boundary enforcement
     if (actorContext) {
-      const allowedRoles: RoleType[] = [
-        RoleType.ADMIN,
-        RoleType.BACK_OFFICE,
-      ];
+      const allowedRoles: RoleType[] = [RoleType.ADMIN, RoleType.BACK_OFFICE];
       const hasApprovalRole =
         allowedRoles.includes(actorContext.role) ||
         (actorContext as any).roles?.some((r: RoleType) =>
@@ -114,12 +111,9 @@ export class ApproveClaimService {
           claim.policy?.createdBy?.branch?.zone?.region?.company?.id ||
           claim.policy?.quotation?.createdBy?.branch?.zone?.region?.company?.id;
 
-        const actorCompanyId = actorContext.companyId || actorContext.organizationId;
-        if (
-          claimOrgId &&
-          actorCompanyId &&
-          claimOrgId !== actorCompanyId
-        ) {
+        const actorCompanyId =
+          actorContext.companyId || actorContext.organizationId;
+        if (claimOrgId && actorCompanyId && claimOrgId !== actorCompanyId) {
           throw new ForbiddenException(
             'Access denied: Cannot approve claim belonging to a different organization',
           );

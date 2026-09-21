@@ -26,11 +26,15 @@ import { ParseUUIDPipe } from '../../common/utils/parse-uuid.pipe';
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('motor-quotations')
 export class MotorQuotationsController {
-  constructor(private readonly motorQuotationsService: MotorQuotationsService) {}
+  constructor(
+    private readonly motorQuotationsService: MotorQuotationsService,
+  ) {}
 
   @Get('compare')
   @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT)
-  @ApiOperation({ summary: 'Compare multiple insurer quotations for a vehicle' })
+  @ApiOperation({
+    summary: 'Compare multiple insurer quotations for a vehicle',
+  })
   compareQuotes(
     @Query('vehicleId', ParseUUIDPipe) vehicleId: string,
     @CurrentUser() user: RequestUser,
@@ -50,7 +54,9 @@ export class MotorQuotationsController {
 
   @Get(':id')
   @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT)
-  @ApiOperation({ summary: 'Get motor quotation by ID with category schema configuration' })
+  @ApiOperation({
+    summary: 'Get motor quotation by ID with category schema configuration',
+  })
   findById(
     @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser() user: RequestUser,
@@ -72,7 +78,10 @@ export class MotorQuotationsController {
   @Post(':id/accept')
   @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT)
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Accept quotation, reject competing vehicle quotes, and transition lead' })
+  @ApiOperation({
+    summary:
+      'Accept quotation, reject competing vehicle quotes, and transition lead',
+  })
   acceptQuotation(
     @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser() user: RequestUser,

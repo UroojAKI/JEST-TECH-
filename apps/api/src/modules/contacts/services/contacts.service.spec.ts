@@ -21,8 +21,12 @@ const repository = {
 
 const mockPrisma = {
   user: {
-    findUnique: jest.fn().mockResolvedValue(null),
-    findFirst: jest.fn().mockResolvedValue(null),
+    findUnique: jest
+      .fn()
+      .mockResolvedValue({ id: 'user-1', companyId: 'org-1' }),
+    findFirst: jest
+      .fn()
+      .mockResolvedValue({ id: 'user-1', companyId: 'org-1' }),
   },
   branch: {
     findUnique: jest.fn().mockResolvedValue(null),
@@ -37,6 +41,14 @@ describe('ContactsService', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockPrisma.user.findUnique.mockResolvedValue({
+      id: 'user-1',
+      companyId: 'org-1',
+    });
+    mockPrisma.user.findFirst.mockResolvedValue({
+      id: 'user-1',
+      companyId: 'org-1',
+    });
     service = new ContactsService(repository as any, mockPrisma as any);
   });
 

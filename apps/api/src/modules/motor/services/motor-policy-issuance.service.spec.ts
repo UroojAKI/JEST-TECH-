@@ -122,6 +122,9 @@ describe('MotorPolicyIssuanceService (Iteration 8)', () => {
     policy: null,
     workflowState: 'PAYMENT_DONE',
     calculationSnapshot: {
+      calculationVersion: '1.0.0',
+      rateConfigurationVersion: '1.0.0',
+      totalPremium: 17638.88,
       inputs: { policyType: 'PACKAGE_COMPREHENSIVE', tpTenure: 1 },
     },
     motorMetadata: {},

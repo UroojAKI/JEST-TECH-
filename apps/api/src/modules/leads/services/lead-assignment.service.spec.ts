@@ -118,11 +118,7 @@ describe('LeadAssignmentService (Iteration 11)', () => {
     });
 
     it('should successfully assign lead when Branch Manager assigns to any agent in same branch', async () => {
-      const actor = createActor(
-        RoleType.BACK_OFFICE,
-        'branch-1',
-        null as any,
-      );
+      const actor = createActor(RoleType.BACK_OFFICE, 'branch-1', null as any);
       const targetAgent = {
         id: 'agent-3',
         firstName: 'Sarah',
@@ -144,11 +140,7 @@ describe('LeadAssignmentService (Iteration 11)', () => {
     });
 
     it('should reject assignment when Back Office assigns to agent in different organization', async () => {
-      const actor = createActor(
-        RoleType.BACK_OFFICE,
-        'branch-1',
-        null as any,
-      );
+      const actor = createActor(RoleType.BACK_OFFICE, 'branch-1', null as any);
       const targetAgent = {
         id: 'agent-4',
         branchId: 'branch-2',
@@ -165,11 +157,7 @@ describe('LeadAssignmentService (Iteration 11)', () => {
     });
 
     it('should reject assignment when target agent is inactive', async () => {
-      const actor = createActor(
-        RoleType.BACK_OFFICE,
-        'branch-1',
-        null as any,
-      );
+      const actor = createActor(RoleType.BACK_OFFICE, 'branch-1', null as any);
       const targetAgent = {
         id: 'agent-5',
         branchId: 'branch-1',
@@ -187,11 +175,7 @@ describe('LeadAssignmentService (Iteration 11)', () => {
 
   describe('autoAssignRoundRobin', () => {
     it('should select the agent with lowest active workload in the branch', async () => {
-      const actor = createActor(
-        RoleType.BACK_OFFICE,
-        'branch-1',
-        null as any,
-      );
+      const actor = createActor(RoleType.BACK_OFFICE, 'branch-1', null as any);
       const agentBusy = {
         id: 'agent-busy',
         firstName: 'Busy',
@@ -225,11 +209,7 @@ describe('LeadAssignmentService (Iteration 11)', () => {
 
   describe('bulkAssign', () => {
     it('should update all leads atomically and log audit event', async () => {
-      const actor = createActor(
-        RoleType.BACK_OFFICE,
-        'branch-1',
-        null as any,
-      );
+      const actor = createActor(RoleType.BACK_OFFICE, 'branch-1', null as any);
       const targetAgent = {
         id: 'agent-bulk',
         firstName: 'Bulk',

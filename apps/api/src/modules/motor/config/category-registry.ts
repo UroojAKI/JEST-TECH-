@@ -8,7 +8,10 @@ import { taxiConfig } from './taxi.config';
 import { busConfig } from './bus.config';
 import { miscConfig } from './misc.config';
 
-export const ALL_CATEGORY_CONFIGS: Record<VehicleCategoryKey, VehicleCategoryConfig> = {
+export const ALL_CATEGORY_CONFIGS: Record<
+  VehicleCategoryKey,
+  VehicleCategoryConfig
+> = {
   BIKE: bikeConfig,
   PRIVATE_CAR: privateCarConfig,
   GCV: gcvConfig,
@@ -19,7 +22,9 @@ export const ALL_CATEGORY_CONFIGS: Record<VehicleCategoryKey, VehicleCategoryCon
   MISC_CLASS_D: miscConfig,
 };
 
-export function getCategoryConfig(category: VehicleCategoryKey): VehicleCategoryConfig {
+export function getCategoryConfig(
+  category: VehicleCategoryKey,
+): VehicleCategoryConfig {
   const config = ALL_CATEGORY_CONFIGS[category];
   if (!config) {
     return privateCarConfig;

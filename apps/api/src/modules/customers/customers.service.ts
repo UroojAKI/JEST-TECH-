@@ -32,7 +32,9 @@ export class CustomersService {
       conditions.push({ mobile: { contains: normPhone } });
     }
     if (dto.email?.trim()) {
-      conditions.push({ email: { equals: dto.email.trim().toLowerCase(), mode: 'insensitive' } });
+      conditions.push({
+        email: { equals: dto.email.trim().toLowerCase(), mode: 'insensitive' },
+      });
     }
 
     if (conditions.length === 0) {
@@ -93,11 +95,15 @@ export class CustomersService {
 
   async create(dto: CreateCustomerDto, user: RequestUser) {
     // Soft deduplication check
-    const duplicates = await this.checkDuplicate({ mobile: dto.mobile, email: dto.email });
+    const duplicates = await this.checkDuplicate({
+      mobile: dto.mobile,
+      email: dto.email,
+    });
     if (duplicates.hasDuplicate && !dto.acknowledgeDuplicate) {
       return {
         duplicateWarning: true,
-        message: 'Potential duplicate customer detected. Please review matches or acknowledge to create.',
+        message:
+          'Potential duplicate customer detected. Please review matches or acknowledge to create.',
         matches: duplicates.matches,
       };
     }
@@ -110,11 +116,15 @@ export class CustomersService {
     // Resolve primary agent
     let primaryAgentId = dto.agentId;
     if (!primaryAgentId && user.role === RoleType.AGENT) {
-      const agent = await this.prisma.agent.findUnique({ where: { userId: user.id } });
+      const agent = await this.prisma.agent.findUnique({
+        where: { userId: user.id },
+      });
       if (agent) primaryAgentId = agent.id;
     }
     if (!primaryAgentId && this.prisma.agent?.findFirst) {
-      const defaultAgent = await this.prisma.agent.findFirst({ where: { companyId } });
+      const defaultAgent = await this.prisma.agent.findFirst({
+        where: { companyId },
+      });
       primaryAgentId = defaultAgent?.id;
     }
 
@@ -174,7 +184,8 @@ export class CustomersService {
     dto: { newAgentId: string; reason?: string; expectedVersion?: number },
     actor: RequestUser,
   ) {
-    const companyId = actor.companyId || (await this.prisma.company.findFirst())?.id;
+    const companyId =
+      actor.companyId || (await this.prisma.company.findFirst())?.id;
     if (!companyId) {
       throw new BadRequestException('Company context is required');
     }
@@ -186,7 +197,9 @@ export class CustomersService {
           where: { id: dto.newAgentId, companyId, isActive: true },
         });
         if (!targetAgent) {
-          throw new BadRequestException('Target agent does not exist or is inactive.');
+          throw new BadRequestException(
+            'Target agent does not exist or is inactive.',
+          );
         }
 
         const currentCustomer = await tx.customer.findUnique({
@@ -214,7 +227,8 @@ export class CustomersService {
         if (updateResult.count === 0) {
           throw new ConflictException({
             code: 'CUSTOMER_ASSIGNMENT_CONFLICT',
-            message: 'Customer record has been modified concurrently by another user. Please reload.',
+            message:
+              'Customer record has been modified concurrently by another user. Please reload.',
           });
         }
 
@@ -254,10 +268,14 @@ export class CustomersService {
         });
       });
     } catch (error: any) {
-      if (error.code === 'P2002' || error.message?.includes('unique_active_customer_agent')) {
+      if (
+        error.code === 'P2002' ||
+        error.message?.includes('unique_active_customer_agent')
+      ) {
         throw new ConflictException({
           code: 'CUSTOMER_ASSIGNMENT_CONFLICT',
-          message: 'Concurrent active agent assignment detected. Exactly one active agent permitted per customer.',
+          message:
+            'Concurrent active agent assignment detected. Exactly one active agent permitted per customer.',
         });
       }
       throw error;
@@ -283,7 +301,9 @@ export class CustomersService {
 
     // Agents can only see customers created by them or where they have assigned leads
     if (user.role === RoleType.AGENT) {
-      const agent = await this.prisma.agent.findUnique({ where: { userId: user.id } });
+      const agent = await this.prisma.agent.findUnique({
+        where: { userId: user.id },
+      });
       if (agent) {
         where.OR = [
           { createdById: user.id },
@@ -308,12 +328,34 @@ export class CustomersService {
     if (search) {
       const searchFilter = {
         OR: [
-          { firstName: { contains: search, mode: 'insensitive' as Prisma.QueryMode } },
-          { lastName: { contains: search, mode: 'insensitive' as Prisma.QueryMode } },
-          { customerCode: { contains: search, mode: 'insensitive' as Prisma.QueryMode } },
+          {
+            firstName: {
+              contains: search,
+              mode: 'insensitive' as Prisma.QueryMode,
+            },
+          },
+          {
+            lastName: {
+              contains: search,
+              mode: 'insensitive' as Prisma.QueryMode,
+            },
+          },
+          {
+            customerCode: {
+              contains: search,
+              mode: 'insensitive' as Prisma.QueryMode,
+            },
+          },
           { mobile: { contains: search } },
-          { email: { contains: search, mode: 'insensitive' as Prisma.QueryMode } },
-          { city: { contains: search, mode: 'insensitive' as Prisma.QueryMode } },
+          {
+            email: {
+              contains: search,
+              mode: 'insensitive' as Prisma.QueryMode,
+            },
+          },
+          {
+            city: { contains: search, mode: 'insensitive' as Prisma.QueryMode },
+          },
         ],
       };
       if (where.OR) {
@@ -412,11 +454,16 @@ export class CustomersService {
     }
 
     if (user.role === RoleType.AGENT) {
-      const agent = await this.prisma.agent.findUnique({ where: { userId: user.id } });
+      const agent = await this.prisma.agent.findUnique({
+        where: { userId: user.id },
+      });
       const isCreator = customer.createdById === user.id;
-      const isAssigned = agent && customer.leads.some((l) => l.agentId === agent.id);
+      const isAssigned =
+        agent && customer.leads.some((l) => l.agentId === agent.id);
       if (!isCreator && !isAssigned) {
-        throw new ForbiddenException('You are not authorized to view this customer');
+        throw new ForbiddenException(
+          'You are not authorized to view this customer',
+        );
       }
     }
 
@@ -441,7 +488,11 @@ export class CustomersService {
     });
   }
 
-  async createAlert(customerId: string, dto: CreateCustomerAlertDto, user: RequestUser) {
+  async createAlert(
+    customerId: string,
+    dto: CreateCustomerAlertDto,
+    user: RequestUser,
+  ) {
     await this.findById(customerId, user);
 
     return this.prisma.customerAlert.create({

@@ -333,7 +333,9 @@ export class PoliciesController {
 
   @Patch(':id')
   @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE)
-  @ApiOperation({ summary: 'Update policy editable metadata and contact notes' })
+  @ApiOperation({
+    summary: 'Update policy editable metadata and contact notes',
+  })
   async update(
     @Param('id') id: string,
     @Body() dto: UpdatePolicyDto,
@@ -344,7 +346,12 @@ export class PoliciesController {
       throw new NotFoundException(`Policy with ID ${id} not found`);
     }
     this.authzService.authorize(user, 'POLICY', 'UPDATE', policy);
-    const updated = await this.policyRepository.update(id, dto as any, undefined, dto.version);
+    const updated = await this.policyRepository.update(
+      id,
+      dto as any,
+      undefined,
+      dto.version,
+    );
     return PolicyMapper.toResponse(updated);
   }
 

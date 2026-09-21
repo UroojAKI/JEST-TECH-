@@ -320,11 +320,7 @@ export class DashboardAnalyticsService {
         status: UserStatus.ACTIVE,
         role: {
           type: {
-            in: [
-              RoleType.AGENT,
-              RoleType.AGENT,
-              RoleType.AGENT,
-            ],
+            in: [RoleType.AGENT, RoleType.AGENT, RoleType.AGENT],
           },
         },
         deletedAt: null,

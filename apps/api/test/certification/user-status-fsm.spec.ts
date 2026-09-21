@@ -22,40 +22,55 @@ describe('Authoritative User Status State Machine Specification & FSM Integrity 
 
   describe('Valid User Status Transitions', () => {
     it('PENDING_VERIFICATION -> ACTIVE is permitted upon onboarding completion', () => {
-      expect(validateTransition(UserStatus.PENDING_VERIFICATION, UserStatus.ACTIVE)).toBe(true);
+      expect(
+        validateTransition(UserStatus.PENDING_VERIFICATION, UserStatus.ACTIVE),
+      ).toBe(true);
     });
 
     it('ACTIVE -> SUSPENDED is permitted when user is locked', () => {
-      expect(validateTransition(UserStatus.ACTIVE, UserStatus.SUSPENDED)).toBe(true);
+      expect(validateTransition(UserStatus.ACTIVE, UserStatus.SUSPENDED)).toBe(
+        true,
+      );
     });
 
     it('SUSPENDED -> ACTIVE is permitted when user is unlocked', () => {
-      expect(validateTransition(UserStatus.SUSPENDED, UserStatus.ACTIVE)).toBe(true);
+      expect(validateTransition(UserStatus.SUSPENDED, UserStatus.ACTIVE)).toBe(
+        true,
+      );
     });
 
     it('ACTIVE -> INACTIVE is permitted when user is deactivated', () => {
-      expect(validateTransition(UserStatus.ACTIVE, UserStatus.INACTIVE)).toBe(true);
+      expect(validateTransition(UserStatus.ACTIVE, UserStatus.INACTIVE)).toBe(
+        true,
+      );
     });
 
     it('INACTIVE -> ACTIVE is permitted when user is reactivated', () => {
-      expect(validateTransition(UserStatus.INACTIVE, UserStatus.ACTIVE)).toBe(true);
+      expect(validateTransition(UserStatus.INACTIVE, UserStatus.ACTIVE)).toBe(
+        true,
+      );
     });
   });
 
   describe('Illegal User Status Transitions (400 Bad Request)', () => {
     it('INACTIVE -> SUSPENDED is rejected', () => {
-      expect(() => validateTransition(UserStatus.INACTIVE, UserStatus.SUSPENDED)).toThrow(
-        BadRequestException,
-      );
+      expect(() =>
+        validateTransition(UserStatus.INACTIVE, UserStatus.SUSPENDED),
+      ).toThrow(BadRequestException);
     });
 
     it('SUSPENDED -> INACTIVE is permitted (graceful deactivation of suspended user)', () => {
-      expect(validateTransition(UserStatus.SUSPENDED, UserStatus.INACTIVE)).toBe(true);
+      expect(
+        validateTransition(UserStatus.SUSPENDED, UserStatus.INACTIVE),
+      ).toBe(true);
     });
 
     it('PENDING_VERIFICATION -> SUSPENDED is rejected', () => {
       expect(() =>
-        validateTransition(UserStatus.PENDING_VERIFICATION, UserStatus.SUSPENDED),
+        validateTransition(
+          UserStatus.PENDING_VERIFICATION,
+          UserStatus.SUSPENDED,
+        ),
       ).toThrow(BadRequestException);
     });
   });
@@ -79,7 +94,13 @@ describe('Authoritative User Status State Machine Specification & FSM Integrity 
         };
       };
 
-      const log = buildAuditLog('admin-1', 'usr-123', UserStatus.ACTIVE, UserStatus.SUSPENDED, 'Excessive failed logins');
+      const log = buildAuditLog(
+        'admin-1',
+        'usr-123',
+        UserStatus.ACTIVE,
+        UserStatus.SUSPENDED,
+        'Excessive failed logins',
+      );
       expect(log.actorId).toBe('admin-1');
       expect(log.targetUserId).toBe('usr-123');
       expect(log.previousStatus).toBe(UserStatus.ACTIVE);

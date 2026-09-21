@@ -54,7 +54,9 @@ export class UsersService {
     let role = await this.userRepository.findRoleByType(canonicalRole);
 
     if (!role) {
-      role = await this.prisma.role.findFirst({ where: { type: canonicalRole } });
+      role = await this.prisma.role.findFirst({
+        where: { type: canonicalRole },
+      });
       if (!role) {
         role = await this.prisma.role.create({
           data: {
@@ -266,30 +268,42 @@ export class UsersService {
       });
 
       // Audit trail logging
-      await tx.auditLog.create({
-        data: {
-          action: 'UPDATE',
-          entity: 'User',
-          entityType: 'USER',
-          entityId: id,
-          userId: id,
-          performedById: actorId || null,
-          oldValue: { status: currentStatus },
-          newValue: { status: targetStatus, reason: reason || null },
-          module: 'USER_MANAGEMENT',
-        },
-      }).catch(() => {});
+      await tx.auditLog
+        .create({
+          data: {
+            action: 'UPDATE',
+            entity: 'User',
+            entityType: 'USER',
+            entityId: id,
+            userId: id,
+            performedById: actorId || null,
+            oldValue: { status: currentStatus },
+            newValue: { status: targetStatus, reason: reason || null },
+            module: 'USER_MANAGEMENT',
+          },
+        })
+        .catch(() => {});
 
       return UserMapper.toResponse(updated);
     });
   }
 
   async lockUser(id: string, actorId?: string) {
-    return this.updateStatus(id, UserStatus.SUSPENDED, 'User locked by administrator', actorId);
+    return this.updateStatus(
+      id,
+      UserStatus.SUSPENDED,
+      'User locked by administrator',
+      actorId,
+    );
   }
 
   async unlockUser(id: string, actorId?: string) {
-    return this.updateStatus(id, UserStatus.ACTIVE, 'User unlocked by administrator', actorId);
+    return this.updateStatus(
+      id,
+      UserStatus.ACTIVE,
+      'User unlocked by administrator',
+      actorId,
+    );
   }
 
   async update(id: string, dto: any) {

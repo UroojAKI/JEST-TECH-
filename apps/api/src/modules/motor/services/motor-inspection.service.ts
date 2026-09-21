@@ -7,7 +7,12 @@ import {
   ConflictException,
 } from '@nestjs/common';
 import { PrismaService } from '../../../database/prisma.service';
-import { InspectionStatus, InspectionConductedBy, RoleType, Prisma } from '@prisma/client';
+import {
+  InspectionStatus,
+  InspectionConductedBy,
+  RoleType,
+  Prisma,
+} from '@prisma/client';
 import { ActorContext } from '../../../common/interfaces/actor-context.interface';
 import { NumberingEngineService } from '../../administration/services/numbering-engine/numbering-engine.service';
 
@@ -26,15 +31,12 @@ export interface CreateInspectionDto {
 }
 
 export type InspectionPhotoType =
-  | 'front'
-  | 'back'
-  | 'left'
-  | 'right'
-  | 'windshield'
-  | 'chassis'
-  | 'odometer';
+  'front' | 'back' | 'left' | 'right' | 'windshield' | 'chassis' | 'odometer';
 
-export const MANDATORY_PHOTO_FIELDS: Array<{ key: string; type: InspectionPhotoType }> = [
+export const MANDATORY_PHOTO_FIELDS: Array<{
+  key: string;
+  type: InspectionPhotoType;
+}> = [
   { key: 'frontImageKey', type: 'front' },
   { key: 'backImageKey', type: 'back' },
   { key: 'leftImageKey', type: 'left' },
@@ -82,7 +84,8 @@ export class MotorInspectionService {
 
       case InspectionStatus.IN_PROGRESS:
         if (action === 'UPLOAD_PHOTO') return InspectionStatus.IN_PROGRESS;
-        if (action === 'SUBMIT_FOR_REVIEW') return InspectionStatus.SUBMITTED_FOR_REVIEW;
+        if (action === 'SUBMIT_FOR_REVIEW')
+          return InspectionStatus.SUBMITTED_FOR_REVIEW;
         break;
 
       case InspectionStatus.SUBMITTED_FOR_REVIEW:
@@ -101,7 +104,8 @@ export class MotorInspectionService {
         break;
 
       case InspectionStatus.REJECTED:
-        if (action === 'REWORK' || action === 'UPLOAD_PHOTO') return InspectionStatus.IN_PROGRESS;
+        if (action === 'REWORK' || action === 'UPLOAD_PHOTO')
+          return InspectionStatus.IN_PROGRESS;
         break;
 
       case InspectionStatus.COMPLETED:
@@ -133,7 +137,11 @@ export class MotorInspectionService {
     return this.numberingEngine.generateNext('INSPECTION', tx);
   }
 
-  async createInspection(dto: CreateInspectionDto, actor?: ActorContext, txClient?: Prisma.TransactionClient) {
+  async createInspection(
+    dto: CreateInspectionDto,
+    actor?: ActorContext,
+    txClient?: Prisma.TransactionClient,
+  ) {
     const client = txClient || this.prisma;
 
     const quotation = await client.quotation.findUnique({
@@ -143,7 +151,9 @@ export class MotorInspectionService {
       throw new NotFoundException(`Quotation ${dto.quotationId} not found`);
 
     if (actor && quotation.companyId !== actor.companyId) {
-      throw new ForbiddenException('Tenant isolation violation: Quotation belongs to another company');
+      throw new ForbiddenException(
+        'Tenant isolation violation: Quotation belongs to another company',
+      );
     }
 
     const existing = await client.motorInspection.findUnique({
@@ -165,7 +175,9 @@ export class MotorInspectionService {
         inspectorCompany: dto.inspectorCompany || 'JEST Inspection Network',
         inspectorEmployeeId: dto.inspectorEmployeeId,
         inspectorUserId: dto.inspectorUserId,
-        inspectionDate: dto.inspectionDate ? new Date(dto.inspectionDate) : null,
+        inspectionDate: dto.inspectionDate
+          ? new Date(dto.inspectionDate)
+          : null,
         inspectionTime: dto.inspectionTime,
         createdById: dto.createdById || actor?.userId,
       },
@@ -196,7 +208,9 @@ export class MotorInspectionService {
     actor?: ActorContext,
   ) {
     if (!storageKey?.trim()) {
-      throw new BadRequestException('A valid storage key is required for an inspection photo');
+      throw new BadRequestException(
+        'A valid storage key is required for an inspection photo',
+      );
     }
 
     const fieldMap: Record<InspectionPhotoType, string> = {
@@ -210,7 +224,9 @@ export class MotorInspectionService {
     };
 
     if (!fieldMap[photoType]) {
-      throw new BadRequestException(`Unsupported inspection photo type: ${photoType}`);
+      throw new BadRequestException(
+        `Unsupported inspection photo type: ${photoType}`,
+      );
     }
 
     const inspection = await this.prisma.motorInspection.findUnique({
@@ -221,7 +237,9 @@ export class MotorInspectionService {
     }
 
     if (actor && inspection.companyId !== actor.companyId) {
-      throw new ForbiddenException('Tenant isolation violation: Inspection belongs to another company');
+      throw new ForbiddenException(
+        'Tenant isolation violation: Inspection belongs to another company',
+      );
     }
 
     const nextStatus = this.validateTransition(
@@ -251,7 +269,9 @@ export class MotorInspectionService {
         },
       });
 
-      this.logger.log(`Photo [${photoType}] recorded for inspection ${inspectionId}`);
+      this.logger.log(
+        `Photo [${photoType}] recorded for inspection ${inspectionId}`,
+      );
       return updated;
     });
   }
@@ -266,7 +286,9 @@ export class MotorInspectionService {
     }
 
     if (actor && inspection.companyId !== actor.companyId) {
-      throw new ForbiddenException('Tenant isolation violation: Inspection belongs to another company');
+      throw new ForbiddenException(
+        'Tenant isolation violation: Inspection belongs to another company',
+      );
     }
 
     const nextStatus = this.validateTransition(
@@ -299,7 +321,8 @@ export class MotorInspectionService {
           action: 'SUBMIT_FOR_REVIEW',
           actorId: actor.userId,
           actorRole: actor.role as string,
-          reason: 'All 7 mandatory photos verified. Submitted for underwriting sign-off.',
+          reason:
+            'All 7 mandatory photos verified. Submitted for underwriting sign-off.',
         },
       });
 
@@ -328,7 +351,13 @@ export class MotorInspectionService {
     pdfUrl?: string,
     actor?: ActorContext,
   ) {
-    return this.approveInspection(inspectionId, actor || ({ userId: approverId, role: RoleType.BACK_OFFICE } as ActorContext), pdfKey, pdfUrl);
+    return this.approveInspection(
+      inspectionId,
+      actor ||
+        ({ userId: approverId, role: RoleType.BACK_OFFICE } as ActorContext),
+      pdfKey,
+      pdfUrl,
+    );
   }
 
   async approveInspection(
@@ -348,7 +377,9 @@ export class MotorInspectionService {
     }
 
     if (inspection.companyId !== actor.companyId) {
-      throw new ForbiddenException('Tenant isolation violation: Inspection belongs to another company');
+      throw new ForbiddenException(
+        'Tenant isolation violation: Inspection belongs to another company',
+      );
     }
 
     let quotation: any = inspection.quotation;
@@ -378,7 +409,8 @@ export class MotorInspectionService {
       );
     }
 
-    const meta = (inspection.quotation?.motorMetadata as Record<string, any>) || {};
+    const meta =
+      (inspection.quotation?.motorMetadata as Record<string, any>) || {};
 
     return this.prisma.$transaction(async (tx) => {
       const updated = await tx.motorInspection.update({
@@ -422,7 +454,11 @@ export class MotorInspectionService {
     });
   }
 
-  async rejectInspection(inspectionId: string, reason: string, actor?: ActorContext) {
+  async rejectInspection(
+    inspectionId: string,
+    reason: string,
+    actor?: ActorContext,
+  ) {
     if (!reason?.trim()) {
       throw new BadRequestException('A non-empty rejection reason is required');
     }
@@ -439,7 +475,9 @@ export class MotorInspectionService {
     }
 
     if (actor && inspection.companyId !== actor.companyId) {
-      throw new ForbiddenException('Tenant isolation violation: Inspection belongs to another company');
+      throw new ForbiddenException(
+        'Tenant isolation violation: Inspection belongs to another company',
+      );
     }
 
     const nextStatus = this.validateTransition(
@@ -487,9 +525,15 @@ export class MotorInspectionService {
     });
   }
 
-  async waiveInspection(inspectionId: string, reason: string, actor: ActorContext) {
+  async waiveInspection(
+    inspectionId: string,
+    reason: string,
+    actor: ActorContext,
+  ) {
     if (!reason?.trim()) {
-      throw new BadRequestException('A non-empty waiver reason is required for underwriting override');
+      throw new BadRequestException(
+        'A non-empty waiver reason is required for underwriting override',
+      );
     }
     this.assertBackOfficeOrAdmin(actor.role);
 
@@ -502,7 +546,9 @@ export class MotorInspectionService {
     }
 
     if (inspection.companyId !== actor.companyId) {
-      throw new ForbiddenException('Tenant isolation violation: Inspection belongs to another company');
+      throw new ForbiddenException(
+        'Tenant isolation violation: Inspection belongs to another company',
+      );
     }
 
     const nextStatus = this.validateTransition(
@@ -562,7 +608,9 @@ export class MotorInspectionService {
     if (!inspection) return null;
 
     if (actor && inspection.companyId !== actor.companyId) {
-      throw new ForbiddenException('Tenant isolation violation: Inspection belongs to another company');
+      throw new ForbiddenException(
+        'Tenant isolation violation: Inspection belongs to another company',
+      );
     }
 
     const missingPhotos = this.getMissingPhotos(inspection);
@@ -579,8 +627,8 @@ export class MotorInspectionService {
   }
 
   getMissingPhotos(inspection: any): InspectionPhotoType[] {
-    return MANDATORY_PHOTO_FIELDS.filter(
-      ({ key }) => !inspection[key],
-    ).map(({ type }) => type);
+    return MANDATORY_PHOTO_FIELDS.filter(({ key }) => !inspection[key]).map(
+      ({ type }) => type,
+    );
   }
 }

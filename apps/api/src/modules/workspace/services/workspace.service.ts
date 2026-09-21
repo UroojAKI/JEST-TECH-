@@ -233,7 +233,9 @@ export class WorkspaceService {
     }
 
     const permissions =
-      user.role?.permissions?.map((p: any) => p.permission?.code || p.permissionCode) || [];
+      user.role?.permissions?.map(
+        (p: any) => p.permission?.code || p.permissionCode,
+      ) || [];
 
     const actor: ActorContext = {
       userId: user.id,

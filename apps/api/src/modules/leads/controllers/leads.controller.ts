@@ -36,9 +36,17 @@ import { DuplicateDetectionService } from '../deduplication/services/duplicate-d
 import { LeadCompletionService } from '../services/lead-completion.service';
 import { LeadLifecycleService } from '../services/lead-lifecycle.service';
 
-const LEAD_VIEW_ROLES: RoleType[] = [RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT];
+const LEAD_VIEW_ROLES: RoleType[] = [
+  RoleType.ADMIN,
+  RoleType.BACK_OFFICE,
+  RoleType.AGENT,
+];
 
-const LEAD_MANAGE_ROLES: RoleType[] = [RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT];
+const LEAD_MANAGE_ROLES: RoleType[] = [
+  RoleType.ADMIN,
+  RoleType.BACK_OFFICE,
+  RoleType.AGENT,
+];
 
 @ApiTags('Leads & Opportunity Pipeline')
 @ApiBearerAuth()
@@ -359,10 +367,10 @@ export class LeadsController {
 
   @Get(':id/allowed-transitions')
   @Roles(...LEAD_VIEW_ROLES)
-  @ApiOperation({ summary: 'Get allowed lifecycle state transitions for a lead' })
-  async getAllowedTransitions(
-    @Param('id', ParseUUIDPipe) id: string,
-  ) {
+  @ApiOperation({
+    summary: 'Get allowed lifecycle state transitions for a lead',
+  })
+  async getAllowedTransitions(@Param('id', ParseUUIDPipe) id: string) {
     const lead = await this.prisma.lead.findUnique({
       where: { id },
       select: { id: true, leadCode: true, status: true },
@@ -370,7 +378,9 @@ export class LeadsController {
     if (!lead) {
       throw new BadRequestException(`Lead with ID ${id} not found`);
     }
-    const allowed = this.leadLifecycleService.getAllowedTransitions(lead.status);
+    const allowed = this.leadLifecycleService.getAllowedTransitions(
+      lead.status,
+    );
     return {
       leadId: lead.id,
       leadCode: lead.leadCode,
@@ -382,7 +392,9 @@ export class LeadsController {
   @Post(':id/transition')
   @Roles(...LEAD_MANAGE_ROLES)
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Execute state machine lifecycle transition for a lead' })
+  @ApiOperation({
+    summary: 'Execute state machine lifecycle transition for a lead',
+  })
   async executeTransition(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() body: { targetStatus: LeadStatus; remarks?: string },
@@ -399,4 +411,3 @@ export class LeadsController {
     );
   }
 }
-

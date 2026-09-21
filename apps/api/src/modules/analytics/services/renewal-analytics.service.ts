@@ -9,8 +9,10 @@ export class RenewalAnalyticsService {
 
   async getOverview(actor: RequestUser) {
     const now = new Date();
-    
-    const orgFilter = actor.organizationId ? { companyId: actor.organizationId } : {};
+
+    const orgFilter = actor.organizationId
+      ? { companyId: actor.organizationId }
+      : {};
 
     const addDays = (date: Date, days: number) => {
       const result = new Date(date);
@@ -62,8 +64,6 @@ export class RenewalAnalyticsService {
         // (ADMIN/BACK_OFFICE only). Direct policyId-level scoping is tracked as tech debt.
         this.prisma.policyRenewal.count(),
       ]);
-
-
 
     return {
       expiring20,

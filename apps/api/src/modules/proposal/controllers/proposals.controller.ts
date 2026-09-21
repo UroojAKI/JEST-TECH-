@@ -32,8 +32,7 @@ export class ProposalsController {
     @Query() pagination: PaginationDto,
   ) {
     // AGENT only sees their own proposals; ADMIN/BACK_OFFICE see all
-    const filterUserId =
-      user.role === RoleType.AGENT ? user.id : undefined;
+    const filterUserId = user.role === RoleType.AGENT ? user.id : undefined;
     return this.proposalService.getProposals(filterUserId, pagination);
   }
 

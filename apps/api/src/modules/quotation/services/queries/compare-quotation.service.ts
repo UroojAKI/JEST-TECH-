@@ -30,12 +30,16 @@ export class CompareQuotationService {
       where: {
         id: { in: ids },
         deletedAt: null,
-        ...(actor.organizationId ? { createdBy: { companyId: actor.organizationId } } : {}),
+        ...(actor.organizationId
+          ? { createdBy: { companyId: actor.organizationId } }
+          : {}),
       },
     });
 
     if (quotationsVerify.length !== ids.length) {
-      throw new ForbiddenException('One or more quotations not found or access denied');
+      throw new ForbiddenException(
+        'One or more quotations not found or access denied',
+      );
     }
 
     const quotations = await Promise.all(

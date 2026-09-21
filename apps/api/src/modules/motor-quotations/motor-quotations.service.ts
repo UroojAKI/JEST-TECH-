@@ -73,7 +73,8 @@ export class MotorQuotationsService {
     }
 
     const customerId = lead.customerId || vehicle.customerId || null;
-    const companyId = lead.companyId || user.companyId || (user as any).organizationId;
+    const companyId =
+      lead.companyId || user.companyId || (user as any).organizationId;
     if (!companyId) {
       throw new ForbiddenException('Tenant organizational context is required');
     }
@@ -96,20 +97,47 @@ export class MotorQuotationsService {
         policyType: dto.policyType,
         status: MotorQuotationStatus.DRAFT,
         idv: dto.idv !== undefined ? new Prisma.Decimal(dto.idv) : null,
-        odPremium: dto.odPremium !== undefined ? new Prisma.Decimal(dto.odPremium) : null,
-        tpPremium: dto.tpPremium !== undefined ? new Prisma.Decimal(dto.tpPremium) : null,
-        addonPremium: dto.addonPremium !== undefined ? new Prisma.Decimal(dto.addonPremium) : null,
-        ncbDiscount: dto.ncbDiscount !== undefined ? new Prisma.Decimal(dto.ncbDiscount) : null,
-        otherDiscounts: dto.otherDiscounts !== undefined ? new Prisma.Decimal(dto.otherDiscounts) : null,
-        netPremium: dto.netPremium !== undefined ? new Prisma.Decimal(dto.netPremium) : null,
-        gstAmount: dto.gstAmount !== undefined ? new Prisma.Decimal(dto.gstAmount) : null,
+        odPremium:
+          dto.odPremium !== undefined
+            ? new Prisma.Decimal(dto.odPremium)
+            : null,
+        tpPremium:
+          dto.tpPremium !== undefined
+            ? new Prisma.Decimal(dto.tpPremium)
+            : null,
+        addonPremium:
+          dto.addonPremium !== undefined
+            ? new Prisma.Decimal(dto.addonPremium)
+            : null,
+        ncbDiscount:
+          dto.ncbDiscount !== undefined
+            ? new Prisma.Decimal(dto.ncbDiscount)
+            : null,
+        otherDiscounts:
+          dto.otherDiscounts !== undefined
+            ? new Prisma.Decimal(dto.otherDiscounts)
+            : null,
+        netPremium:
+          dto.netPremium !== undefined
+            ? new Prisma.Decimal(dto.netPremium)
+            : null,
+        gstAmount:
+          dto.gstAmount !== undefined
+            ? new Prisma.Decimal(dto.gstAmount)
+            : null,
         finalPremium: new Prisma.Decimal(dto.finalPremium),
-        breakup: dto.breakup ? (dto.breakup as Prisma.InputJsonValue) : Prisma.JsonNull,
-        addonsSelected: dto.addonsSelected ? (dto.addonsSelected as Prisma.InputJsonValue) : Prisma.JsonNull,
+        breakup: dto.breakup
+          ? (dto.breakup as Prisma.InputJsonValue)
+          : Prisma.JsonNull,
+        addonsSelected: dto.addonsSelected
+          ? (dto.addonsSelected as Prisma.InputJsonValue)
+          : Prisma.JsonNull,
         createdById: user.id,
       },
       include: {
-        lead: { select: { id: true, leadCode: true, title: true, status: true } },
+        lead: {
+          select: { id: true, leadCode: true, title: true, status: true },
+        },
         vehicle: {
           select: {
             id: true,
@@ -151,7 +179,9 @@ export class MotorQuotationsService {
     };
 
     if (user.role === RoleType.AGENT) {
-      const agent = await this.prisma.agent.findUnique({ where: { userId: user.id } });
+      const agent = await this.prisma.agent.findUnique({
+        where: { userId: user.id },
+      });
       if (agent) {
         where.agentId = agent.id;
       } else {
@@ -174,7 +204,9 @@ export class MotorQuotationsService {
         take: limit,
         orderBy: { [sortBy]: sortOrder },
         include: {
-          lead: { select: { id: true, leadCode: true, title: true, status: true } },
+          lead: {
+            select: { id: true, leadCode: true, title: true, status: true },
+          },
           vehicle: {
             select: {
               id: true,
@@ -233,13 +265,18 @@ export class MotorQuotationsService {
     }
 
     if (user.role === RoleType.AGENT) {
-      const agent = await this.prisma.agent.findUnique({ where: { userId: user.id } });
+      const agent = await this.prisma.agent.findUnique({
+        where: { userId: user.id },
+      });
       if (agent && quotation.agentId && quotation.agentId !== agent.id) {
-        throw new ForbiddenException('You are not authorized to view this quotation');
+        throw new ForbiddenException(
+          'You are not authorized to view this quotation',
+        );
       }
     }
 
-    const categoryKey = (quotation.vehicle?.category || 'PRIVATE_CAR') as VehicleCategoryKey;
+    const categoryKey = (quotation.vehicle?.category ||
+      'PRIVATE_CAR') as VehicleCategoryKey;
     const categoryConfig = getCategoryConfig(categoryKey);
 
     return {
@@ -261,7 +298,9 @@ export class MotorQuotationsService {
     };
 
     if (user.role === RoleType.AGENT) {
-      const agent = await this.prisma.agent.findUnique({ where: { userId: user.id } });
+      const agent = await this.prisma.agent.findUnique({
+        where: { userId: user.id },
+      });
       if (agent) {
         where.agentId = agent.id;
       } else {
@@ -298,7 +337,9 @@ export class MotorQuotationsService {
     const prices = quotes.map((q) => Number(q.finalPremium));
     const lowest = Math.min(...prices);
     const highest = Math.max(...prices);
-    const average = (prices.reduce((a, b) => a + b, 0) / prices.length).toFixed(2);
+    const average = (prices.reduce((a, b) => a + b, 0) / prices.length).toFixed(
+      2,
+    );
 
     return {
       vehicleId,
@@ -347,7 +388,9 @@ export class MotorQuotationsService {
           vehicleId: quote.vehicleId,
           companyId: quote.companyId,
           id: { not: id },
-          status: { in: [MotorQuotationStatus.DRAFT, MotorQuotationStatus.SHARED] },
+          status: {
+            in: [MotorQuotationStatus.DRAFT, MotorQuotationStatus.SHARED],
+          },
         },
         data: { status: MotorQuotationStatus.REJECTED },
       });

@@ -14,13 +14,25 @@ export class QuotationAnalyticsService {
     const [total, pendingApproval, approved, converted] = await Promise.all([
       this.prisma.quotation.count({ where: { deletedAt: null, ...orgScope } }),
       this.prisma.quotation.count({
-        where: { status: QuotationStatus.PENDING_APPROVAL, deletedAt: null, ...orgScope },
+        where: {
+          status: QuotationStatus.PENDING_APPROVAL,
+          deletedAt: null,
+          ...orgScope,
+        },
       }),
       this.prisma.quotation.count({
-        where: { status: QuotationStatus.APPROVED, deletedAt: null, ...orgScope },
+        where: {
+          status: QuotationStatus.APPROVED,
+          deletedAt: null,
+          ...orgScope,
+        },
       }),
       this.prisma.quotation.count({
-        where: { status: QuotationStatus.CONVERTED_TO_POLICY, deletedAt: null, ...orgScope },
+        where: {
+          status: QuotationStatus.CONVERTED_TO_POLICY,
+          deletedAt: null,
+          ...orgScope,
+        },
       }),
     ]);
 
@@ -32,4 +44,3 @@ export class QuotationAnalyticsService {
     };
   }
 }
-

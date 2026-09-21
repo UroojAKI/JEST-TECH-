@@ -430,7 +430,10 @@ export class QuotationController {
   @ApiOperation({
     summary: 'List all revision version snapshots for a quotation',
   })
-  async getVersions(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: RequestUser) {
+  async getVersions(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: RequestUser,
+  ) {
     // Verify the quotation exists and actor has access (via getQuotationService)
     await this.getQuotationService.executeOne(id, user); // will throw if unauthorized
     return this.prisma.quotationVersion.findMany({

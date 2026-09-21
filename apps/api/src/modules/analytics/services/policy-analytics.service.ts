@@ -8,7 +8,9 @@ export class PolicyAnalyticsService {
   constructor(private readonly prisma: PrismaService) {}
 
   async getOverview(actor: RequestUser) {
-    const orgFilter = actor.organizationId ? { companyId: actor.organizationId } : {};
+    const orgFilter = actor.organizationId
+      ? { companyId: actor.organizationId }
+      : {};
 
     const [
       total,
@@ -23,10 +25,18 @@ export class PolicyAnalyticsService {
         where: { status: PolicyStatus.ACTIVE, deletedAt: null, ...orgFilter },
       }),
       this.prisma.policy.count({
-        where: { status: PolicyStatus.CANCELLED, deletedAt: null, ...orgFilter },
+        where: {
+          status: PolicyStatus.CANCELLED,
+          deletedAt: null,
+          ...orgFilter,
+        },
       }),
       this.prisma.policy.count({
-        where: { status: PolicyStatus.PENDING_RENEWAL, deletedAt: null, ...orgFilter },
+        where: {
+          status: PolicyStatus.PENDING_RENEWAL,
+          deletedAt: null,
+          ...orgFilter,
+        },
       }),
       this.prisma.quotation.groupBy({
         by: ['insurerName'],

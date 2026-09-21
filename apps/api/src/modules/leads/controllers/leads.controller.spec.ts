@@ -99,7 +99,7 @@ describe('LeadsController', () => {
 
       const result = await controller.create(dto, mockUser);
 
-      expect(service.create).toHaveBeenCalledWith(dto, mockUser.id);
+      expect(service.create).toHaveBeenCalledWith(dto, mockUser);
       expect(result).toEqual(expectedResult);
     });
   });

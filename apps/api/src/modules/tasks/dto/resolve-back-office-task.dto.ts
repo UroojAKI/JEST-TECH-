@@ -13,7 +13,9 @@ export class ResolveBackOfficeTaskDto {
   @IsString()
   verificationNotes?: string;
 
-  @ApiPropertyOptional({ description: 'Rejection reason if status is REJECTED' })
+  @ApiPropertyOptional({
+    description: 'Rejection reason if status is REJECTED',
+  })
   @IsOptional()
   @IsString()
   rejectedReason?: string;

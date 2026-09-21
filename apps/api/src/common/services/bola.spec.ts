@@ -281,7 +281,9 @@ describe('BOLA & Multi-User Authorization Suite (R1 Exit Gate)', () => {
         roles: [RoleType.BACK_OFFICE],
       });
 
-      expect(authzService.authorize(boUser, 'QUOTATION', 'APPROVE', {})).toBe(true);
+      expect(authzService.authorize(boUser, 'QUOTATION', 'APPROVE', {})).toBe(
+        true,
+      );
     });
   });
 
@@ -432,14 +434,9 @@ describe('BOLA & Multi-User Authorization Suite (R1 Exit Gate)', () => {
         companyId: 'org-mumbai',
       };
 
-      expect(
-        authzService.authorize(
-          bo,
-          'LEAD',
-          'ASSIGN',
-          leadBandra,
-        ),
-      ).toBe(true);
+      expect(authzService.authorize(bo, 'LEAD', 'ASSIGN', leadBandra)).toBe(
+        true,
+      );
     });
   });
 
@@ -489,7 +486,9 @@ describe('BOLA & Multi-User Authorization Suite (R1 Exit Gate)', () => {
               OR: [
                 { companyId: 'org-mumbai' },
                 {
-                  branch: { zone: { region: { company: { id: 'org-mumbai' } } } },
+                  branch: {
+                    zone: { region: { company: { id: 'org-mumbai' } } },
+                  },
                 },
               ],
             },
@@ -499,7 +498,9 @@ describe('BOLA & Multi-User Authorization Suite (R1 Exit Gate)', () => {
               OR: [
                 { companyId: 'org-mumbai' },
                 {
-                  branch: { zone: { region: { company: { id: 'org-mumbai' } } } },
+                  branch: {
+                    zone: { region: { company: { id: 'org-mumbai' } } },
+                  },
                 },
               ],
             },

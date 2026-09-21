@@ -12,11 +12,14 @@ export class GetQuotationHistoryService {
       where: {
         id,
         deletedAt: null,
-        ...(actor.organizationId ? { createdBy: { companyId: actor.organizationId } } : {}),
+        ...(actor.organizationId
+          ? { createdBy: { companyId: actor.organizationId } }
+          : {}),
       },
     });
-    if (!quotation) throw new NotFoundException(`Quotation ${id} not found or access denied`);
-    
+    if (!quotation)
+      throw new NotFoundException(`Quotation ${id} not found or access denied`);
+
     return this.prisma.quotationHistory.findMany({
       where: { quotationId: id },
       orderBy: { createdAt: 'desc' },

@@ -13,14 +13,13 @@ interface Props {
 }
 
 export function PolicyCompletionDialog({ isOpen, quote, onClose, onSuccess }: Props) {
-  const today = new Date().toISOString().split('T')[0];
-  const nextYear = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-
-  const defaultPolicyNo = `POL-${new Date().getFullYear()}-${Math.floor(100000 + Math.random() * 900000)}`;
-
-  const [policyNumber, setPolicyNumber] = useState(defaultPolicyNo);
-  const [startDate, setStartDate] = useState(today);
-  const [endDate, setEndDate] = useState(nextYear);
+  const [policyNumber, setPolicyNumber] = useState('');
+  const [startDate, setStartDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [endDate, setEndDate] = useState(() => {
+    const d = new Date();
+    d.setFullYear(d.getFullYear() + 1);
+    return d.toISOString().split('T')[0];
+  });
 
   // Vehicle info
   const vehicleDetails = quote?.vehicleDetails || (quote?.motorMetadata as any)?.vehicleDetails || {};
@@ -54,7 +53,7 @@ export function PolicyCompletionDialog({ isOpen, quote, onClose, onSuccess }: Pr
     setIsSubmitting(true);
     try {
       const payload = {
-        actualPolicyNumber: policyNumber.trim(),
+        actualPolicyNumber: policyNumber.trim() || undefined,
         actualPremium: Number(quote.totalPremium || 0),
         startDate,
         endDate,
@@ -122,11 +121,11 @@ export function PolicyCompletionDialog({ isOpen, quote, onClose, onSuccess }: Pr
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div>
                 <label className="block text-[10px] font-bold uppercase text-muted-foreground mb-1">
-                  Policy Number *
+                  Policy Number (Optional)
                 </label>
                 <input
                   type="text"
-                  required
+                  placeholder="Auto-generated if blank"
                   value={policyNumber}
                   onChange={(e) => setPolicyNumber(e.target.value)}
                   className="w-full px-3 py-2 border rounded-lg text-xs font-mono font-bold bg-background focus:ring-1 focus:ring-primary"

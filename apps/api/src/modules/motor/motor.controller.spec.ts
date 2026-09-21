@@ -28,7 +28,9 @@ describe('MotorController', () => {
         vehicleCategory: 'PRIVATE_CAR',
         vehicleStatus: 'NEW',
         policyType: 'PACKAGE',
-        requiredDocuments: [{ code: 'KYC_PAN', name: 'PAN Card', isMandatory: true }],
+        requiredDocuments: [
+          { code: 'KYC_PAN', name: 'PAN Card', isMandatory: true },
+        ],
         mandatoryCount: 1,
       }),
       checkLeadDocumentCompletion: jest.fn().mockResolvedValue({
@@ -45,7 +47,10 @@ describe('MotorController', () => {
         { provide: SaodVerificationService, useValue: {} },
         { provide: VehicleDataService, useValue: {} },
         { provide: PreviousPolicyService, useValue: previousPolicyService },
-        { provide: MotorDocumentRuleService, useValue: motorDocumentRuleService },
+        {
+          provide: MotorDocumentRuleService,
+          useValue: motorDocumentRuleService,
+        },
       ],
     }).compile();
 
@@ -58,7 +63,9 @@ describe('MotorController', () => {
 
   it('calls fetchPreviousPolicy on PreviousPolicyService', async () => {
     const res = await controller.getPreviousPolicy('MH02CB1234');
-    expect(previousPolicyService.fetchPreviousPolicy).toHaveBeenCalledWith('MH02CB1234');
+    expect(previousPolicyService.fetchPreviousPolicy).toHaveBeenCalledWith(
+      'MH02CB1234',
+    );
     expect(res.status).toBe('AVAILABLE');
     expect(res.insurerName).toBe('HDFC ERGO');
   });
@@ -85,7 +92,9 @@ describe('MotorController', () => {
 
   it('calls checkLeadDocumentCompletion for leadId', async () => {
     const res = await controller.checkLeadDocumentCompletion('lead-123');
-    expect(motorDocumentRuleService.checkLeadDocumentCompletion).toHaveBeenCalledWith('lead-123');
+    expect(
+      motorDocumentRuleService.checkLeadDocumentCompletion,
+    ).toHaveBeenCalledWith('lead-123');
     expect(res.complete).toBe(true);
   });
 });

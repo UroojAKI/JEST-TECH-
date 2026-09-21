@@ -319,7 +319,8 @@ export class LeadAssignmentService {
     }
 
     if (actor.role === RoleType.BACK_OFFICE) {
-      const targetCompanyId = targetAgent.companyId || targetAgent.branch?.zone?.region?.company?.id;
+      const targetCompanyId =
+        targetAgent.companyId || targetAgent.branch?.zone?.region?.company?.id;
       if (targetCompanyId && targetCompanyId !== actor.companyId) {
         throw new ForbiddenException(
           'Back Office can only assign leads within their own organization',

@@ -5,8 +5,6 @@ import { Queue } from 'bullmq';
 import { Policy, PolicyStatus, RoleType, UserStatus } from '@prisma/client';
 import { ActorContext } from '../../../common/interfaces/actor-context.interface';
 
-
-
 @Injectable()
 export class RenewalEngineService {
   constructor(

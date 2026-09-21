@@ -19,7 +19,12 @@ export class CancelPolicyService {
     private readonly prisma: PrismaService,
   ) {}
 
-  async execute(id: string, comments: string, cancelledById: string, actor: any) {
+  async execute(
+    id: string,
+    comments: string,
+    cancelledById: string,
+    actor: any,
+  ) {
     if (!comments || !comments.trim()) {
       throw new BadRequestException(
         'A cancellation reason is strictly mandatory to cancel a policy.',
@@ -31,7 +36,8 @@ export class CancelPolicyService {
         where: {
           id,
           deletedAt: null,
-          ...(actor.role !== 'ADMIN' && (actor.companyId || actor.organizationId)
+          ...(actor.role !== 'ADMIN' &&
+          (actor.companyId || actor.organizationId)
             ? { companyId: actor.companyId || actor.organizationId }
             : {}),
           ...(actor.role === 'AGENT'
@@ -45,7 +51,9 @@ export class CancelPolicyService {
         },
       });
       if (!existing) {
-        throw new NotFoundException(`Policy with ID ${id} not found or access denied`);
+        throw new NotFoundException(
+          `Policy with ID ${id} not found or access denied`,
+        );
       }
 
       // Delegate status transition validation to PolicyDomainService (only ACTIVE/ISSUED can be cancelled)

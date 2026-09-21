@@ -2,7 +2,12 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { MotorQuotationsService } from './motor-quotations.service';
 import { PrismaService } from '../../database/prisma.service';
 import { LeadLifecycleService } from '../leads/services/lead-lifecycle.service';
-import { RoleType, MotorQuotationStatus, LeadStatus, Prisma } from '@prisma/client';
+import {
+  RoleType,
+  MotorQuotationStatus,
+  LeadStatus,
+  Prisma,
+} from '@prisma/client';
 import { NotFoundException, ForbiddenException } from '@nestjs/common';
 
 describe('MotorQuotationsService', () => {
@@ -12,6 +17,7 @@ describe('MotorQuotationsService', () => {
 
   const mockLead = {
     id: 'lead-1',
+    companyId: 'org-1',
     leadCode: 'LEAD-0001',
     status: LeadStatus.QUOTATION,
     customerId: 'cust-1',
@@ -30,6 +36,7 @@ describe('MotorQuotationsService', () => {
 
   const mockQuotation = {
     id: 'quote-1',
+    companyId: 'org-1',
     quotationNumber: 'MQT-000001',
     leadId: 'lead-1',
     vehicleId: 'veh-1',
@@ -59,6 +66,8 @@ describe('MotorQuotationsService', () => {
         update: jest.fn(),
         updateMany: jest.fn(),
       },
+      $queryRaw: jest.fn().mockResolvedValue([{ nextval: 1n }]),
+      $executeRaw: jest.fn().mockResolvedValue(1),
       $transaction: jest.fn((cb) => cb(prisma)),
     };
 
@@ -92,7 +101,7 @@ describe('MotorQuotationsService', () => {
           insurerName: 'HDFC ERGO',
           finalPremium: 18500,
         },
-        { id: 'user-1', role: RoleType.ADMIN } as any,
+        { id: 'user-1', role: RoleType.ADMIN, companyId: 'org-1' } as any,
       );
 
       expect(prisma.motorQuotation.create).toHaveBeenCalledWith(
@@ -112,8 +121,13 @@ describe('MotorQuotationsService', () => {
 
       await expect(
         service.create(
-          { leadId: 'invalid', vehicleId: 'veh-1', insurerName: 'Tata AIG', finalPremium: 15000 },
-          { id: 'user-1', role: RoleType.ADMIN } as any,
+          {
+            leadId: 'invalid',
+            vehicleId: 'veh-1',
+            insurerName: 'Tata AIG',
+            finalPremium: 15000,
+          },
+          { id: 'user-1', role: RoleType.ADMIN, companyId: 'org-1' } as any,
         ),
       ).rejects.toThrow(NotFoundException);
     });
@@ -122,12 +136,31 @@ describe('MotorQuotationsService', () => {
   describe('compareQuotes', () => {
     it('should calculate price comparison matrix for multi-insurer evaluation', async () => {
       prisma.motorQuotation.findMany.mockResolvedValue([
-        { id: 'q-1', quotationNumber: 'MQT-000001', insurerName: 'Tata AIG', finalPremium: new Prisma.Decimal(12000) },
-        { id: 'q-2', quotationNumber: 'MQT-000002', insurerName: 'HDFC ERGO', finalPremium: new Prisma.Decimal(15000) },
-        { id: 'q-3', quotationNumber: 'MQT-000003', insurerName: 'ICICI Lombard', finalPremium: new Prisma.Decimal(18000) },
+        {
+          id: 'q-1',
+          quotationNumber: 'MQT-000001',
+          insurerName: 'Tata AIG',
+          finalPremium: new Prisma.Decimal(12000),
+        },
+        {
+          id: 'q-2',
+          quotationNumber: 'MQT-000002',
+          insurerName: 'HDFC ERGO',
+          finalPremium: new Prisma.Decimal(15000),
+        },
+        {
+          id: 'q-3',
+          quotationNumber: 'MQT-000003',
+          insurerName: 'ICICI Lombard',
+          finalPremium: new Prisma.Decimal(18000),
+        },
       ]);
 
-      const result = await service.compareQuotes('veh-1', { id: 'user-1', role: RoleType.ADMIN } as any);
+      const result = await service.compareQuotes('veh-1', {
+        id: 'user-1',
+        role: RoleType.ADMIN,
+        companyId: 'org-1',
+      } as any);
       expect(result.count).toBe(3);
       expect(result.bestPrice).toBe(12000);
       expect(result.highestPrice).toBe(18000);
@@ -141,7 +174,11 @@ describe('MotorQuotationsService', () => {
     it('should mark quote accepted, reject competing vehicle quotes, and transition lead', async () => {
       prisma.motorQuotation.findFirst.mockResolvedValue(mockQuotation);
 
-      const result = await service.acceptQuotation('quote-1', { id: 'user-1', role: RoleType.ADMIN } as any);
+      const result = await service.acceptQuotation('quote-1', {
+        id: 'user-1',
+        role: RoleType.ADMIN,
+        companyId: 'org-1',
+      } as any);
 
       expect(prisma.motorQuotation.update).toHaveBeenCalledWith({
         where: { id: 'quote-1' },
@@ -149,9 +186,12 @@ describe('MotorQuotationsService', () => {
       });
       expect(prisma.motorQuotation.updateMany).toHaveBeenCalledWith({
         where: {
+          companyId: 'org-1',
           vehicleId: 'veh-1',
           id: { not: 'quote-1' },
-          status: { in: [MotorQuotationStatus.DRAFT, MotorQuotationStatus.SHARED] },
+          status: {
+            in: [MotorQuotationStatus.DRAFT, MotorQuotationStatus.SHARED],
+          },
         },
         data: { status: MotorQuotationStatus.REJECTED },
       });

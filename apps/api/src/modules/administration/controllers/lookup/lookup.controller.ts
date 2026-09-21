@@ -1,4 +1,13 @@
-import { Controller, Get, Param, UseGuards, Post, Put, Delete, Body } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Param,
+  UseGuards,
+  Post,
+  Put,
+  Delete,
+  Body,
+} from '@nestjs/common';
 import { LookupService } from '../../services/lookup/lookup.service';
 import { JwtAuthGuard } from '../../../auth/guards/jwt-auth.guard';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
@@ -34,7 +43,14 @@ export class LookupController {
   @ApiOperation({ summary: 'Create lookup value in category' })
   async createLookupValue(
     @Param('categoryCode') categoryCode: string,
-    @Body() dto: { code: string; name: string; description?: string; parentId?: string; orderIndex?: number },
+    @Body()
+    dto: {
+      code: string;
+      name: string;
+      description?: string;
+      parentId?: string;
+      orderIndex?: number;
+    },
   ) {
     return this.lookupService.createValue(categoryCode, dto);
   }
@@ -47,7 +63,13 @@ export class LookupController {
   async updateLookupValue(
     @Param('categoryCode') categoryCode: string,
     @Param('id') id: string,
-    @Body() dto: { name?: string; description?: string; isActive?: boolean; orderIndex?: number },
+    @Body()
+    dto: {
+      name?: string;
+      description?: string;
+      isActive?: boolean;
+      orderIndex?: number;
+    },
   ) {
     return this.lookupService.updateValue(categoryCode, id, dto);
   }

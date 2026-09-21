@@ -32,7 +32,11 @@ describe('MotorInspectionService (Production State Machine & Role Segregation)',
     },
   };
 
-  const createMockActor = (userId: string, role: RoleType, companyId = 'comp-1'): ActorContext => ({
+  const createMockActor = (
+    userId: string,
+    role: RoleType,
+    companyId = 'comp-1',
+  ): ActorContext => ({
     userId,
     email: `${userId}@jest.com`,
     firstName: 'Test',
@@ -88,7 +92,11 @@ describe('MotorInspectionService (Production State Machine & Role Segregation)',
   describe('State Machine Transitions (validateTransition)', () => {
     it('allows REQUIRED -> IN_PROGRESS on UPLOAD_PHOTO', () => {
       expect(
-        service.validateTransition(InspectionStatus.REQUIRED, 'UPLOAD_PHOTO', RoleType.AGENT),
+        service.validateTransition(
+          InspectionStatus.REQUIRED,
+          'UPLOAD_PHOTO',
+          RoleType.AGENT,
+        ),
       ).toBe(InspectionStatus.IN_PROGRESS);
     });
 
@@ -144,16 +152,28 @@ describe('MotorInspectionService (Production State Machine & Role Segregation)',
 
     it('allows REJECTED -> IN_PROGRESS on REWORK', () => {
       expect(
-        service.validateTransition(InspectionStatus.REJECTED, 'REWORK', RoleType.AGENT),
+        service.validateTransition(
+          InspectionStatus.REJECTED,
+          'REWORK',
+          RoleType.AGENT,
+        ),
       ).toBe(InspectionStatus.IN_PROGRESS);
     });
 
     it('rejects any action from COMPLETED terminal state with ConflictException', () => {
       expect(() =>
-        service.validateTransition(InspectionStatus.COMPLETED, 'APPROVE', RoleType.ADMIN),
+        service.validateTransition(
+          InspectionStatus.COMPLETED,
+          'APPROVE',
+          RoleType.ADMIN,
+        ),
       ).toThrow(ConflictException);
       expect(() =>
-        service.validateTransition(InspectionStatus.COMPLETED, 'UPLOAD_PHOTO', RoleType.AGENT),
+        service.validateTransition(
+          InspectionStatus.COMPLETED,
+          'UPLOAD_PHOTO',
+          RoleType.AGENT,
+        ),
       ).toThrow(ConflictException);
     });
   });
@@ -165,7 +185,9 @@ describe('MotorInspectionService (Production State Machine & Role Segregation)',
         status: InspectionStatus.IN_PROGRESS,
       };
 
-      mockPrisma.motorInspection.findUnique.mockResolvedValue(inProgressInspection);
+      mockPrisma.motorInspection.findUnique.mockResolvedValue(
+        inProgressInspection,
+      );
       mockPrisma.motorInspection.update.mockResolvedValue({
         ...inProgressInspection,
         status: InspectionStatus.SUBMITTED_FOR_REVIEW,
@@ -186,11 +208,13 @@ describe('MotorInspectionService (Production State Machine & Role Segregation)',
         odometerImageKey: null,
       };
 
-      mockPrisma.motorInspection.findUnique.mockResolvedValue(incompleteInspection);
-
-      await expect(service.submitForReview('ins-1', agentActor)).rejects.toThrow(
-        BadRequestException,
+      mockPrisma.motorInspection.findUnique.mockResolvedValue(
+        incompleteInspection,
       );
+
+      await expect(
+        service.submitForReview('ins-1', agentActor),
+      ).rejects.toThrow(BadRequestException);
     });
   });
 
@@ -232,14 +256,18 @@ describe('MotorInspectionService (Production State Machine & Role Segregation)',
       expect(res.status).toBe(InspectionStatus.COMPLETED);
       expect(mockPrisma.quotation.update).toHaveBeenCalledWith({
         where: { id: 'q-100' },
-        data: expect.objectContaining({ workflowState: 'INSPECTION_COMPLETED' }),
+        data: expect.objectContaining({
+          workflowState: 'INSPECTION_COMPLETED',
+        }),
       });
     });
   });
 
   describe('rejectInspection & waiveInspection', () => {
     it('rejects inspection with reason and sets quotation to INSPECTION_REQUIRED with rejection in metadata', async () => {
-      mockPrisma.motorInspection.findUnique.mockResolvedValue(completePhotosInspection);
+      mockPrisma.motorInspection.findUnique.mockResolvedValue(
+        completePhotosInspection,
+      );
       mockPrisma.motorInspection.update.mockResolvedValue({
         ...completePhotosInspection,
         status: InspectionStatus.REJECTED,
@@ -258,7 +286,9 @@ describe('MotorInspectionService (Production State Machine & Role Segregation)',
     });
 
     it('waives inspection with reason and clears gate with INSPECTION_COMPLETED', async () => {
-      mockPrisma.motorInspection.findUnique.mockResolvedValue(completePhotosInspection);
+      mockPrisma.motorInspection.findUnique.mockResolvedValue(
+        completePhotosInspection,
+      );
       mockPrisma.motorInspection.update.mockResolvedValue({
         ...completePhotosInspection,
         status: InspectionStatus.WAIVED,
@@ -272,7 +302,9 @@ describe('MotorInspectionService (Production State Machine & Role Segregation)',
       expect(res.status).toBe(InspectionStatus.WAIVED);
       expect(mockPrisma.quotation.update).toHaveBeenCalledWith({
         where: { id: 'q-100' },
-        data: expect.objectContaining({ workflowState: 'INSPECTION_COMPLETED' }),
+        data: expect.objectContaining({
+          workflowState: 'INSPECTION_COMPLETED',
+        }),
       });
     });
   });

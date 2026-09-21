@@ -1,7 +1,13 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { TasksService } from './tasks.service';
 import { PrismaService } from '../../database/prisma.service';
-import { RoleType, TaskStatus, TaskPriority, TaskType, BackOfficeTaskStatus } from '@prisma/client';
+import {
+  RoleType,
+  TaskStatus,
+  TaskPriority,
+  TaskType,
+  BackOfficeTaskStatus,
+} from '@prisma/client';
 import { NotFoundException } from '@nestjs/common';
 
 describe('TasksService', () => {
@@ -53,10 +59,7 @@ describe('TasksService', () => {
     };
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        TasksService,
-        { provide: PrismaService, useValue: prisma },
-      ],
+      providers: [TasksService, { provide: PrismaService, useValue: prisma }],
     }).compile();
 
     service = module.get<TasksService>(TasksService);
@@ -66,10 +69,13 @@ describe('TasksService', () => {
     it('should return due today, overdue, and completed counts', async () => {
       prisma.task.findMany
         .mockResolvedValueOnce([mockTask]) // today
-        .mockResolvedValueOnce([]);        // overdue
+        .mockResolvedValueOnce([]); // overdue
       prisma.task.count.mockResolvedValue(2); // completed today
 
-      const result = await service.getTasksToday({ id: 'user-1', role: RoleType.AGENT } as any);
+      const result = await service.getTasksToday({
+        id: 'user-1',
+        role: RoleType.AGENT,
+      } as any);
       expect(result.dueTodayCount).toBe(1);
       expect(result.overdueCount).toBe(0);
       expect(result.completedTodayCount).toBe(2);
@@ -83,10 +89,10 @@ describe('TasksService', () => {
       prisma.task.findUnique.mockResolvedValue(null);
       prisma.task.create.mockResolvedValue(mockTask);
 
-      const result = await service.create(
-        { title: 'Follow-up with client' },
-        { id: 'user-1', role: RoleType.AGENT } as any,
-      );
+      const result = await service.create({ title: 'Follow-up with client' }, {
+        id: 'user-1',
+        role: RoleType.AGENT,
+      } as any);
 
       expect(prisma.task.create).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -109,7 +115,10 @@ describe('TasksService', () => {
         completedAt: new Date(),
       });
 
-      const result = await service.complete('task-1', { id: 'user-1', role: RoleType.AGENT } as any);
+      const result = await service.complete('task-1', {
+        id: 'user-1',
+        role: RoleType.AGENT,
+      } as any);
       expect(prisma.task.update).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { id: 'task-1' },
@@ -126,7 +135,9 @@ describe('TasksService', () => {
     it('should list queue sorted by priority', async () => {
       prisma.backOfficeTask.findMany.mockResolvedValue([mockBoTask]);
 
-      const queue = await service.getBackOfficeQueue(BackOfficeTaskStatus.PENDING);
+      const queue = await service.getBackOfficeQueue(
+        BackOfficeTaskStatus.PENDING,
+      );
       expect(queue.total).toBe(1);
       expect(queue.queue[0].taskCode).toBe('BOT-00001');
     });
@@ -141,7 +152,10 @@ describe('TasksService', () => {
 
       const result = await service.resolveBackOfficeTask(
         'bot-1',
-        { status: BackOfficeTaskStatus.VERIFIED, verificationNotes: 'All KYC documents and payment verified' },
+        {
+          status: BackOfficeTaskStatus.VERIFIED,
+          verificationNotes: 'All KYC documents and payment verified',
+        },
         { id: 'bo-user-1', role: RoleType.BACK_OFFICE } as any,
       );
 

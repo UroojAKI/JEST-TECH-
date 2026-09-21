@@ -215,7 +215,10 @@ describe('ResourceAuthorizationService & ScopeResolver', () => {
   });
 
   it('fails closed for an actor without organization context', () => {
-    const actor = createActor({ organizationId: undefined });
+    const actor = createActor({
+      organizationId: undefined,
+      companyId: undefined,
+    });
     expect(scopeResolver.resolveScopeFilter(actor, 'QUOTATION')).toEqual({
       id: '__UNAUTHORIZED_ACCESS_BLOCKED__',
     });
@@ -226,6 +229,7 @@ describe('ResourceAuthorizationService & ScopeResolver', () => {
       role: RoleType.ADMIN,
       roles: [RoleType.ADMIN],
       organizationId: undefined,
+      companyId: undefined,
     });
     expect(scopeResolver.resolveScopeFilter(admin, 'LEAD')).toEqual({
       id: '__UNAUTHORIZED_ACCESS_BLOCKED__',
@@ -237,6 +241,7 @@ describe('ResourceAuthorizationService & ScopeResolver', () => {
       role: RoleType.BACK_OFFICE,
       roles: [RoleType.BACK_OFFICE],
       organizationId: undefined,
+      companyId: undefined,
     });
     expect(scopeResolver.resolveScopeFilter(ops, 'POLICY')).toEqual({
       id: '__UNAUTHORIZED_ACCESS_BLOCKED__',
@@ -248,6 +253,7 @@ describe('ResourceAuthorizationService & ScopeResolver', () => {
       role: RoleType.BACK_OFFICE,
       roles: [RoleType.BACK_OFFICE],
       organizationId: undefined,
+      companyId: undefined,
     });
     expect(scopeResolver.resolveScopeFilter(bm, 'CLAIM')).toEqual({
       id: '__UNAUTHORIZED_ACCESS_BLOCKED__',

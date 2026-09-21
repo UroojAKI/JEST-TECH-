@@ -1,9 +1,18 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsEnum, IsNotEmpty, IsOptional, IsString, IsUUID } from 'class-validator';
+import {
+  IsEnum,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  IsUUID,
+} from 'class-validator';
 import { TaskPriority } from '@prisma/client';
 
 export class CreateBackOfficeTaskDto {
-  @ApiProperty({ description: 'Task Type (e.g. POLICY_ISSUANCE, DOC_VERIFICATION, INSPECTION_REVIEW)' })
+  @ApiProperty({
+    description:
+      'Task Type (e.g. POLICY_ISSUANCE, DOC_VERIFICATION, INSPECTION_REVIEW)',
+  })
   @IsNotEmpty()
   @IsString()
   taskType: string;
@@ -28,12 +37,16 @@ export class CreateBackOfficeTaskDto {
   @IsUUID()
   assignedToId?: string;
 
-  @ApiPropertyOptional({ description: 'Initial verification notes or instructions' })
+  @ApiPropertyOptional({
+    description: 'Initial verification notes or instructions',
+  })
   @IsOptional()
   @IsString()
   verificationNotes?: string;
 
-  @ApiPropertyOptional({ description: 'Missing items payload from CompletionService' })
+  @ApiPropertyOptional({
+    description: 'Missing items payload from CompletionService',
+  })
   @IsOptional()
   missingItems?: any;
 

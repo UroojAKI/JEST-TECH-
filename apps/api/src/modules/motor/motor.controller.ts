@@ -1,4 +1,12 @@
-import { Controller, Get, Post, Body, Query, Param, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Query,
+  Param,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiTags, ApiOperation } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -103,13 +111,19 @@ export class MotorController {
   }
 
   @Get('previous-policy/:identifier')
-  @ApiOperation({ summary: 'Fetch previous policy with claims history, NCB %, and provenance tracking' })
+  @ApiOperation({
+    summary:
+      'Fetch previous policy with claims history, NCB %, and provenance tracking',
+  })
   getPreviousPolicy(@Param('identifier') identifier: string) {
     return this.previousPolicyService.fetchPreviousPolicy(identifier);
   }
 
   @Get('documents/required')
-  @ApiOperation({ summary: 'Get required documents by category, vehicle status, and policy type' })
+  @ApiOperation({
+    summary:
+      'Get required documents by category, vehicle status, and policy type',
+  })
   getRequiredDocuments(
     @Query('vehicleCategory') vehicleCategory: string,
     @Query('vehicleStatus') vehicleStatus: string,
@@ -129,7 +143,9 @@ export class MotorController {
   }
 
   @Get('documents/lead-completion/:leadId')
-  @ApiOperation({ summary: 'Check document completion status and missing items for a lead' })
+  @ApiOperation({
+    summary: 'Check document completion status and missing items for a lead',
+  })
   checkLeadDocumentCompletion(@Param('leadId') leadId: string) {
     return this.motorDocumentRuleService.checkLeadDocumentCompletion(leadId);
   }

@@ -1,6 +1,10 @@
 import { Injectable, Logger, Optional } from '@nestjs/common';
 import { PrismaService } from '../../../../database/prisma.service';
-import { NotificationPriority, NotificationType, NotificationStatus } from '@prisma/client';
+import {
+  NotificationPriority,
+  NotificationType,
+  NotificationStatus,
+} from '@prisma/client';
 import { EmailProvider } from '../providers/email.provider';
 import { SmsProvider } from '../providers/sms.provider';
 import { WhatsAppProvider } from '../providers/whatsapp.provider';
@@ -143,7 +147,10 @@ export class NotificationDispatcher {
             data: {
               notificationId,
               channel: 'EMAIL',
-              status: res.status === 'SENT' ? NotificationStatus.SENT : NotificationStatus.FAILED,
+              status:
+                res.status === 'SENT'
+                  ? NotificationStatus.SENT
+                  : NotificationStatus.FAILED,
               failureReason: res.failureReason,
             },
           });
@@ -166,7 +173,10 @@ export class NotificationDispatcher {
             data: {
               notificationId,
               channel: 'SMS',
-              status: res.status === 'SENT' ? NotificationStatus.SENT : NotificationStatus.FAILED,
+              status:
+                res.status === 'SENT'
+                  ? NotificationStatus.SENT
+                  : NotificationStatus.FAILED,
               failureReason: res.failureReason,
             },
           });
@@ -189,7 +199,10 @@ export class NotificationDispatcher {
             data: {
               notificationId,
               channel: 'WHATSAPP',
-              status: res.status === 'SENT' ? NotificationStatus.SENT : NotificationStatus.FAILED,
+              status:
+                res.status === 'SENT'
+                  ? NotificationStatus.SENT
+                  : NotificationStatus.FAILED,
               failureReason: res.failureReason,
             },
           });

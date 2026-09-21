@@ -18,6 +18,7 @@ describe('CustomersService', () => {
     city: 'Mumbai',
     state: 'Maharashtra',
     isVip: false,
+    companyId: 'org-1',
     createdById: 'user-uuid-1',
     createdAt: new Date(),
     _count: {
@@ -94,7 +95,7 @@ describe('CustomersService', () => {
 
       const result = await service.create(
         { firstName: 'Amit', mobile: '9876543210' },
-        { id: 'user-uuid-1', role: RoleType.AGENT } as any,
+        { id: 'user-uuid-1', role: RoleType.AGENT, companyId: 'org-1' } as any,
       );
 
       expect(result.duplicateWarning).toBe(true);
@@ -110,7 +111,7 @@ describe('CustomersService', () => {
 
       const result = await service.create(
         { firstName: 'Amit', mobile: '9876543210', acknowledgeDuplicate: true },
-        { id: 'user-uuid-1', role: RoleType.AGENT } as any,
+        { id: 'user-uuid-1', role: RoleType.AGENT, companyId: 'org-1' } as any,
       );
 
       expect(result.duplicateWarning).toBe(false);
@@ -126,7 +127,7 @@ describe('CustomersService', () => {
 
       const result = await service.create(
         { firstName: 'Amit', mobile: '9876543210' },
-        { id: 'user-uuid-1', role: RoleType.AGENT } as any,
+        { id: 'user-uuid-1', role: RoleType.AGENT, companyId: 'org-1' } as any,
       );
 
       expect(result.duplicateWarning).toBe(false);
@@ -147,7 +148,10 @@ describe('CustomersService', () => {
       prisma.customer.findMany.mockResolvedValue([mockCustomer]);
       prisma.customer.count.mockResolvedValue(1);
 
-      const result = await service.findAll({ page: 1, limit: 10 }, { id: 'admin-1', role: RoleType.ADMIN } as any);
+      const result = await service.findAll({ page: 1, limit: 10 }, {
+        id: 'admin-1',
+        role: RoleType.ADMIN,
+      } as any);
       expect(result.data.length).toBe(1);
       expect(result.meta.total).toBe(1);
     });
@@ -157,7 +161,10 @@ describe('CustomersService', () => {
       prisma.customer.findMany.mockResolvedValue([mockCustomer]);
       prisma.customer.count.mockResolvedValue(1);
 
-      await service.findAll({}, { id: 'agent-user-1', role: RoleType.AGENT } as any);
+      await service.findAll({}, {
+        id: 'agent-user-1',
+        role: RoleType.AGENT,
+      } as any);
       expect(prisma.customer.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({
@@ -175,7 +182,10 @@ describe('CustomersService', () => {
     it('should return customer with full relations if found and authorized', async () => {
       prisma.customer.findFirst.mockResolvedValue(mockCustomer);
 
-      const result = await service.findById('customer-uuid-1', { id: 'admin-1', role: RoleType.ADMIN } as any);
+      const result = await service.findById('customer-uuid-1', {
+        id: 'admin-1',
+        role: RoleType.ADMIN,
+      } as any);
       expect(result.customerCode).toBe('CUST-000001');
     });
 
@@ -183,7 +193,10 @@ describe('CustomersService', () => {
       prisma.customer.findFirst.mockResolvedValue(null);
 
       await expect(
-        service.findById('non-existent', { id: 'admin-1', role: RoleType.ADMIN } as any),
+        service.findById('non-existent', {
+          id: 'admin-1',
+          role: RoleType.ADMIN,
+        } as any),
       ).rejects.toThrow(NotFoundException);
     });
   });

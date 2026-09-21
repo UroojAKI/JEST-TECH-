@@ -10,8 +10,10 @@ export class LeadAnalyticsService {
   async getOverview(actor: RequestUser) {
     const startOfToday = new Date();
     startOfToday.setHours(0, 0, 0, 0);
-    
-    const orgFilter = actor.organizationId ? { companyId: actor.organizationId } : {};
+
+    const orgFilter = actor.organizationId
+      ? { companyId: actor.organizationId }
+      : {};
 
     const [
       total,
@@ -44,7 +46,11 @@ export class LeadAnalyticsService {
         where: { status: LeadStatus.LOST, deletedAt: null, ...orgFilter },
       }),
       this.prisma.lead.count({
-        where: { createdAt: { gte: startOfToday }, deletedAt: null, ...orgFilter },
+        where: {
+          createdAt: { gte: startOfToday },
+          deletedAt: null,
+          ...orgFilter,
+        },
       }),
       this.prisma.lead.count({
         where: { status: LeadStatus.NEW, deletedAt: null, ...orgFilter },

@@ -15,7 +15,6 @@ import { PaginatedResponseDto } from '../../../common/pagination/paginated-respo
 import { ActorContext } from '../../../common/interfaces/actor-context.interface';
 import { PrismaService } from '../../../database/prisma.service';
 
-
 const duplicateContactError = (
   existingContactId: string,
   matchedBy: 'PHONE' | 'EMAIL',
@@ -245,9 +244,7 @@ export class ContactsService {
       const owner = contact?.createdBy;
       const ownerCompanyId = owner?.branch?.zone?.region?.company?.id;
       if (ownerCompanyId && ownerCompanyId !== actor.organizationId)
-        throw new ForbiddenException(
-          'Contact belongs to another organization',
-        );
+        throw new ForbiddenException('Contact belongs to another organization');
       return;
     }
     // AGENT can only access their own contacts

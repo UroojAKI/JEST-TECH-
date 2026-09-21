@@ -62,6 +62,7 @@ export class ProposalWorkflowAdapter implements WorkflowEntityAdapter {
           status: PolicyStatus.ACTIVE,
           quotationId: prop.quotationId,
           contactId: prop.contactId,
+          companyId: prop.quotation.companyId,
           premiumAmount: prop.quotation.totalPremium,
           effectiveDate: new Date(),
           expiryDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),

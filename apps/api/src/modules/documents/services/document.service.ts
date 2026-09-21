@@ -36,7 +36,8 @@ export class DocumentService {
   }
 
   private async getAuthorizedDocument(id: string, actor: ActorContext) {
-    if (!actor?.userId || !actor.organizationId)
+    const actorOrg = actor?.organizationId || (actor as any)?.companyId;
+    if (!actor?.userId || !actorOrg)
       throw new ForbiddenException('Actor organizational context is required');
     const doc = await this.prisma.document.findUnique({
       where: { id },
@@ -56,17 +57,18 @@ export class DocumentService {
     if (!doc || doc.status === DocumentStatus.DELETED)
       throw new NotFoundException('Document not found');
     const owner = doc.uploadedBy;
-    const ownerOrg = owner?.branch?.zone?.region?.company?.id;
+    const ownerOrg =
+      owner?.companyId || owner?.branch?.zone?.region?.company?.id;
 
-    // Always enforce tenant boundary
-    if (ownerOrg && ownerOrg !== actor.organizationId)
+    // Strict fail-closed tenant boundary
+    if (!ownerOrg || ownerOrg !== actorOrg)
       throw new ForbiddenException('Document belongs to another organization');
 
     const role = actor.role;
     // ADMIN and BACK_OFFICE can see all org documents
     if (role === RoleType.ADMIN || role === RoleType.BACK_OFFICE) return doc;
     // AGENT can only see their own documents
-    if (owner.id !== actor.userId)
+    if (owner?.id !== actor.userId)
       throw new ForbiddenException('Document belongs to another owner');
     return doc;
   }
@@ -241,8 +243,11 @@ export class DocumentService {
     const sortBy = pagination?.sortBy || 'createdAt';
     const sortOrder = pagination?.sortOrder || 'desc';
     const skip = (page - 1) * limit;
-    const isElevatedRole = actor.role === RoleType.ADMIN || actor.role === RoleType.BACK_OFFICE;
-    const orgScope = actor.organizationId ? { organizationId: actor.organizationId } : {};
+    const isElevatedRole =
+      actor.role === RoleType.ADMIN || actor.role === RoleType.BACK_OFFICE;
+    const orgScope = actor.organizationId
+      ? { organizationId: actor.organizationId }
+      : {};
     const ownerScope = isElevatedRole ? {} : { uploadedById: actor.userId };
     const scope = { ...orgScope, ...ownerScope };
     const where = {
@@ -340,7 +345,10 @@ export class DocumentService {
     const page = pagination.page || 1;
     const limit = pagination.limit || 20;
     const skip = (page - 1) * limit;
-    const where: any = { deletedAt: null, ...(actor.organizationId ? { organizationId: actor.organizationId } : {}) };
+    const where: any = {
+      deletedAt: null,
+      ...(actor.organizationId ? { organizationId: actor.organizationId } : {}),
+    };
     if (actor.role !== RoleType.ADMIN && actor.role !== RoleType.BACK_OFFICE)
       where.uploadedById = actor.userId;
     const [data, total] = await Promise.all([

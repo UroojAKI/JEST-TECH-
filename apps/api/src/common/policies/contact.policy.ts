@@ -9,7 +9,8 @@ export class ContactPolicy {
     if (actor.role === RoleType.ADMIN) return true;
 
     if (actor.role === RoleType.BACK_OFFICE) {
-      const contactCompanyId = contact.companyId || contact.createdBy?.companyId;
+      const contactCompanyId =
+        contact.companyId || contact.createdBy?.companyId;
       if (contactCompanyId && contactCompanyId !== actor.companyId) {
         return false;
       }
@@ -29,7 +30,9 @@ export class ContactPolicy {
 
   canCreate(actor: ActorContext): boolean {
     if (!actor?.userId) return false;
-    return [RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT].includes(actor.role);
+    return [RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT].includes(
+      actor.role,
+    );
   }
 
   canUpdate(actor: ActorContext, contact: any): boolean {
@@ -38,10 +41,14 @@ export class ContactPolicy {
 
   canDelete(actor: ActorContext): boolean {
     // Admin only or Back Office with appropriate permission
-    return actor?.role === RoleType.ADMIN || actor?.role === RoleType.BACK_OFFICE;
+    return (
+      actor?.role === RoleType.ADMIN || actor?.role === RoleType.BACK_OFFICE
+    );
   }
 
   canExport(actor: ActorContext): boolean {
-    return actor?.role === RoleType.ADMIN || actor?.role === RoleType.BACK_OFFICE;
+    return (
+      actor?.role === RoleType.ADMIN || actor?.role === RoleType.BACK_OFFICE
+    );
   }
 }

@@ -97,7 +97,9 @@ export class ClaimsController {
 
   @Patch(':id')
   @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE)
-  @ApiOperation({ summary: 'Update claim surveyor details and approved amount' })
+  @ApiOperation({
+    summary: 'Update claim surveyor details and approved amount',
+  })
   async update(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateClaimDto,
@@ -109,9 +111,15 @@ export class ClaimsController {
     }
     this.authzService.authorize(user, 'CLAIM', 'UPDATE', claim);
     const data: any = {
-      ...(dto.surveyorName !== undefined ? { surveyorName: dto.surveyorName } : {}),
-      ...(dto.surveyorDetails !== undefined ? { surveyorDetails: dto.surveyorDetails } : {}),
-      ...(dto.approvedAmount !== undefined ? { approvedAmount: new Prisma.Decimal(dto.approvedAmount) } : {}),
+      ...(dto.surveyorName !== undefined
+        ? { surveyorName: dto.surveyorName }
+        : {}),
+      ...(dto.surveyorDetails !== undefined
+        ? { surveyorDetails: dto.surveyorDetails }
+        : {}),
+      ...(dto.approvedAmount !== undefined
+        ? { approvedAmount: new Prisma.Decimal(dto.approvedAmount) }
+        : {}),
       updatedById: user.id,
     };
     const updated = await this.claimRepository.update(id, data);

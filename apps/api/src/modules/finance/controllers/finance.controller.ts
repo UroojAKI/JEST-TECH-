@@ -214,7 +214,10 @@ export class FinanceController {
   @Get('receipts/export')
   @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE)
   @ApiOperation({ summary: 'Export premium receipts register as CSV' })
-  async exportReceipts(@CurrentUser() actor: RequestUser, @Res() res: Response) {
+  async exportReceipts(
+    @CurrentUser() actor: RequestUser,
+    @Res() res: Response,
+  ) {
     const companyId = actor.companyId || (actor as any).organizationId;
     const companyCustomers = await this.prisma.customer.findMany({
       where: { companyId },
@@ -441,8 +444,7 @@ export class FinanceController {
         ? `${pol.contact.firstName} ${pol.contact.lastName || ''}`.trim()
         : 'Customer';
       const policyNumber =
-        pol?.policyNumber ||
-        'POL-' + c.policyId.substring(0, 8).toUpperCase();
+        pol?.policyNumber || 'POL-' + c.policyId.substring(0, 8).toUpperCase();
 
       return {
         id: c.id,
@@ -507,7 +509,8 @@ export class FinanceController {
         commissionRetained: Math.round(total * 0.1),
         netPayable: Math.round(total * 0.9),
         status: s.status === 'PROCESSED' ? 'SETTLED' : 'PENDING_SETTLEMENT',
-        settledDate: s.status === 'PROCESSED' ? s.updatedAt.toISOString() : null,
+        settledDate:
+          s.status === 'PROCESSED' ? s.updatedAt.toISOString() : null,
       };
     });
   }
