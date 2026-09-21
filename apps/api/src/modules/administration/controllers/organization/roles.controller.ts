@@ -19,7 +19,9 @@ import { PrismaService } from '../../../../database/prisma.service';
 
 export interface UpdateRolePermissionsDto {
   permissions: Array<{
-    permissionId: string;
+    permissionId?: string;
+    category?: string;
+    action?: string;
     scope?: AccessScope;
   }>;
 }
@@ -120,32 +122,58 @@ export class RolesController {
       throw new BadRequestException('Permissions must be an array');
     }
 
-    // Validate permission IDs exist
-    const permissionIds = dto.permissions.map((p) => p.permissionId).filter(Boolean);
-    const validPermissions = await this.prisma.permission.findMany({
-      where: { id: { in: permissionIds } },
-      select: { id: true },
-    });
-    const validIdSet = new Set(validPermissions.map((p) => p.id));
-
     return this.prisma.$transaction(async (tx) => {
+      const resolvedIds = new Set<string>();
+      const toCreateRoleLinks: any[] = [];
+
+      for (const p of dto.permissions) {
+        if (p.permissionId) {
+          resolvedIds.add(p.permissionId);
+          toCreateRoleLinks.push({
+            roleId: role.id,
+            permissionId: p.permissionId,
+            scope: p.scope && Object.values(AccessScope).includes(p.scope) ? p.scope : AccessScope.ORGANIZATION,
+          });
+        } else if (p.category && p.action) {
+          const actionCode = p.action.toUpperCase();
+          const categorySlug = p.category.toUpperCase().replace(/[^A-Z0-9]+/g, '_');
+          const code = `${actionCode}_${categorySlug}`;
+
+          let perm = await tx.permission.findFirst({
+            where: { code }
+          });
+
+          if (!perm) {
+            perm = await tx.permission.create({
+              data: {
+                name: `${p.action.charAt(0).toUpperCase() + p.action.slice(1)} ${p.category}`,
+                code,
+                category: 'SYSTEM',
+                description: `Allows ${p.action} operations on ${p.category}`
+              }
+            });
+          }
+
+          if (!resolvedIds.has(perm.id)) {
+            resolvedIds.add(perm.id);
+            toCreateRoleLinks.push({
+              roleId: role.id,
+              permissionId: perm.id,
+              scope: p.scope && Object.values(AccessScope).includes(p.scope) ? p.scope : AccessScope.ORGANIZATION,
+            });
+          }
+        }
+      }
+
       // Delete existing role permissions
       await tx.rolePermission.deleteMany({
         where: { roleId: role.id },
       });
 
       // Insert new role permissions
-      const toCreate = dto.permissions
-        .filter((p) => validIdSet.has(p.permissionId))
-        .map((p) => ({
-          roleId: role.id,
-          permissionId: p.permissionId,
-          scope: p.scope && Object.values(AccessScope).includes(p.scope) ? p.scope : AccessScope.ORGANIZATION,
-        }));
-
-      if (toCreate.length > 0) {
+      if (toCreateRoleLinks.length > 0) {
         await tx.rolePermission.createMany({
-          data: toCreate,
+          data: toCreateRoleLinks,
           skipDuplicates: true,
         });
       }
@@ -158,7 +186,7 @@ export class RolesController {
           entityType: 'ROLE_PERMISSION',
           entityId: role.id,
           performedById: actor?.id || null,
-          newValue: { permissionsCount: toCreate.length },
+          newValue: { permissionsCount: toCreateRoleLinks.length },
           module: 'ADMIN_RBAC',
         },
       }).catch(() => {});
@@ -166,7 +194,7 @@ export class RolesController {
       return {
         success: true,
         message: `Updated permissions for role ${role.name}`,
-        count: toCreate.length,
+        count: toCreateRoleLinks.length,
       };
     });
   }

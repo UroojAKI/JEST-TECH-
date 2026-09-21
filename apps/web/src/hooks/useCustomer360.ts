@@ -1,6 +1,6 @@
 'use client';
 
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { customerRepository } from '../repositories/customer.repository';
 import { PaginationParams } from '../types';
 
@@ -10,7 +10,11 @@ export function useCustomerWorkspace(id: string) {
 }
 
 export function useCustomers(params?: PaginationParams & { tag?: string }) {
-  const query = useQuery({ queryKey: ['customers', params], queryFn: () => customerRepository.getContacts(params) });
+  const query = useQuery({
+    queryKey: ['customers', params],
+    queryFn: () => customerRepository.getContacts(params),
+    placeholderData: keepPreviousData,
+  });
   const raw: any = query.data;
   const list = Array.isArray(raw) ? raw : (raw?.data || raw?.items || []);
   const total = Array.isArray(raw) ? raw.length : Number(raw?.total ?? list.length);
@@ -25,6 +29,7 @@ export function useCustomers(params?: PaginationParams & { tag?: string }) {
     limit,
     totalPages,
     isLoading: query.isLoading,
+    isFetching: query.isFetching,
     isError: query.isError,
     refetch: query.refetch,
   };

@@ -57,9 +57,6 @@ export default function LeadsPipelinePage() {
     },
   });
 
-  if (isLoading) return <AppShell><PageLoadingState message="Loading leads..." /></AppShell>;
-  if (isError) return <AppShell><PageErrorState message="Failed to load leads. Please try again." onRetry={refetch} /></AppShell>;
-
   // Convert Lead Mutation
   const convertMutation = useMutation({
     mutationFn: async (leadId: string) => {
@@ -77,6 +74,7 @@ export default function LeadsPipelinePage() {
   const totalLeadsCount = (leadsData as any)?.meta?.total ?? (leadsData as any)?.total ?? leadsList.length;
   const filteredLeads = leadsList;
 
+  if (isLoading && !leadsData) return <AppShell><PageLoadingState message="Loading leads..." /></AppShell>;
 
   return (
     <AppShell>
@@ -109,7 +107,7 @@ export default function LeadsPipelinePage() {
         <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3 text-xs">
           <div className="p-3.5 rounded-2xl border bg-card text-card-foreground shadow-xs">
             <div className="text-[10px] font-bold text-muted-foreground uppercase">Total Leads</div>
-            <div className="text-lg font-black text-foreground mt-1">{totalLeadsCount || kpis?.totalLeads || 0}</div>
+            <div className="text-lg font-black text-foreground mt-1">{kpis?.totalLeads ?? 0}</div>
             <div className="text-[9px] text-muted-foreground">Active Pipeline</div>
           </div>
 
@@ -186,7 +184,11 @@ export default function LeadsPipelinePage() {
 
         {/* Leads Pipeline Table */}
         <div className="p-5 rounded-2xl border bg-card text-card-foreground shadow-xs overflow-hidden">
-          {isLoading ? (
+          {isError ? (
+            <div className="p-8 text-center text-xs text-destructive">
+              Failed to load leads. <button onClick={() => refetch()} className="underline font-bold">Try Again</button>
+            </div>
+          ) : isLoading ? (
             <div className="p-8 text-center text-xs text-muted-foreground animate-pulse">
               Loading Lead Pipeline Data...
             </div>

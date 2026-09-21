@@ -61,6 +61,42 @@ export class CreateMotorCaptureDto {
   saodVerification?: Record<string, any>;
 
   @IsOptional()
+  @IsString()
+  agentId?: string;
+
+  @IsOptional()
+  @IsNumber()
+  basePremium?: number;
+
+  @IsOptional()
+  @IsNumber()
+  discountAmount?: number;
+
+  @IsOptional()
+  @IsNumber()
+  gstAmount?: number;
+
+  @IsOptional()
+  @IsString()
+  calculationVersion?: string;
+
+  @IsOptional()
+  @IsString()
+  rateConfigurationVersion?: string;
+
+  @IsOptional()
+  @IsString()
+  snapshotId?: string;
+
+  @IsOptional()
+  @IsString()
+  inputHash?: string;
+
+  @IsOptional()
+  @IsObject()
+  calculationSnapshot?: Record<string, any>;
+
+  @IsOptional()
   @IsArray()
   documents?: Array<{ docType: string; fileName?: string; fileKey?: string }>;
 }

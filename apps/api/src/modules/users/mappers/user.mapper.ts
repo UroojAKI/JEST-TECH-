@@ -11,6 +11,9 @@ export class UserMapper {
       employeeCode: user.employeeCode,
       designation: user.designation,
       department: user.legacyDepartment,
+      branchId: user.branch?.id,
+      branchName: user.branch?.name,
+      teamName: user.team?.name,
       status: user.status,
       role: {
         id: user.role.id,

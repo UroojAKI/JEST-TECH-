@@ -15,6 +15,12 @@ export class UserResponseDto {
 
   department?: string | null;
 
+  branchId?: string | null;
+
+  branchName?: string | null;
+
+  teamName?: string | null;
+
   status: string;
 
   role: {

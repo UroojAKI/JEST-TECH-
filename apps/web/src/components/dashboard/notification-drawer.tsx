@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { api } from '@/lib/api';
+import { apiClient } from '../../lib/api-client';
 import { X, Check, Trash2, Bell, Sparkles, ShieldCheck, AlertOctagon, RefreshCw } from 'lucide-react';
 
 interface NotificationDrawerProps {
@@ -26,15 +26,20 @@ export default function NotificationDrawer({ isOpen, onClose }: NotificationDraw
   const { data: notifications = [], isLoading } = useQuery<Notification[]>({
     queryKey: ['notifications'],
     queryFn: async () => {
-      const res = await api.get('/notifications');
-      return res.data;
+      try {
+        const res = await apiClient.get('/notifications');
+        return res.data;
+      } catch (err) {
+        console.error('Failed to fetch notifications:', err);
+        return [];
+      }
     },
     enabled: isOpen,
   });
 
   const readMutation = useMutation({
     mutationFn: async (id: string) => {
-      await api.patch(`/notifications/${id}/read`);
+      await apiClient.patch(`/notifications/${id}/read`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['notifications'] });
@@ -44,7 +49,7 @@ export default function NotificationDrawer({ isOpen, onClose }: NotificationDraw
 
   const readAllMutation = useMutation({
     mutationFn: async () => {
-      await api.patch('/notifications/read-all');
+      await apiClient.patch('/notifications/read-all');
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['notifications'] });
@@ -54,7 +59,7 @@ export default function NotificationDrawer({ isOpen, onClose }: NotificationDraw
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      await api.delete(`/notifications/${id}`);
+      await apiClient.delete(`/notifications/${id}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['notifications'] });

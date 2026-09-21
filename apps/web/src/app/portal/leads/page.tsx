@@ -140,7 +140,7 @@ export default function AgentLeadsPage() {
         <div className="p-8 text-center text-muted-foreground animate-pulse">Loading leads...</div>
       ) : (
         <div className="space-y-3 text-xs">
-          {leads.length === 0 ? (
+          {(!Array.isArray(leads) || leads.length === 0) ? (
             <div className="p-8 text-center text-muted-foreground bg-card border rounded-xl">No leads found.</div>
           ) : (
             leads.map((lead: any) => (

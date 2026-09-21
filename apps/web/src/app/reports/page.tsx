@@ -14,6 +14,7 @@ import {
   Clock,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { AppShell } from '../../components/layout/app-shell';
 
 export default function ReportsPage() {
   const [dateRange, setDateRange] = useState('LAST_30_DAYS');
@@ -24,7 +25,8 @@ export default function ReportsPage() {
   };
 
   return (
-    <div className="p-6 space-y-6 max-w-7xl mx-auto">
+    <AppShell>
+      <div className="p-6 space-y-6 max-w-7xl mx-auto">
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -189,6 +191,7 @@ export default function ReportsPage() {
           ))}
         </div>
       </div>
-    </div>
+      </div>
+    </AppShell>
   );
 }

@@ -1,16 +1,22 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { AppShell } from '../../../components/layout/app-shell';
 import { FileCode, Search, ShieldCheck, Eye, X, Loader2, Lock } from 'lucide-react';
 import { useAuditLogs } from '../../../hooks/useAdmin';
 
 export default function AuditCenterPage() {
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [debouncedQuery, setDebouncedQuery] = useState<string>('');
   const [selectedLog, setSelectedLog] = useState<any | null>(null);
 
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedQuery(searchQuery), 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
   const { data: auditResponse, isLoading } = useAuditLogs({
-    search: searchQuery,
+    search: debouncedQuery,
   });
 
   const logs: any[] = Array.isArray(auditResponse)

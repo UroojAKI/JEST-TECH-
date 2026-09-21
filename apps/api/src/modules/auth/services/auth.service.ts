@@ -4,6 +4,7 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import * as argon2 from 'argon2';
+import * as crypto from 'crypto';
 import { ConfigService } from '@nestjs/config';
 import { AuditAction, RoleType } from '@prisma/client';
 import { UsersService } from '../../users/services/users.service';
@@ -142,7 +143,11 @@ export class AuthService {
     const refreshExpiresIn =
       this.config.get<string>('jwt.refreshExpiresIn') ?? '30d';
     const expiresAt = this.parseExpiry(refreshExpiresIn);
-    const tokenHash = await argon2.hash(refreshToken);
+    
+    // Fix: Use SHA-256 instead of Argon2 for high-entropy tokens to prevent 
+    // O(N) algorithmic complexity DoS during token lookup.
+    const tokenHash = crypto.createHash('sha256').update(refreshToken).digest('hex');
+    
     await Promise.all([
       this.usersService.storeRefreshToken({
         userId: user.id,
@@ -197,8 +202,15 @@ export class AuthService {
     // Look up token across all user tokens (including revoked ones for replay detection)
     const userTokens = await this.usersService.findUserRefreshTokens(user.id);
     let matchedRecord: any = null;
+    
+    // Hash the incoming token using SHA-256 for fast O(1) comparison
+    const incomingTokenHash = crypto.createHash('sha256').update(refreshToken).digest('hex');
+    
     for (const record of userTokens) {
-      if (await argon2.verify(record.tokenHash, refreshToken)) {
+      // For fast lookups, we simply compare the SHA-256 hashes.
+      // (Note: Legacy Argon2 hashes in the DB will gracefully fail to match, 
+      // safely forcing a re-login and preventing CPU exhaustion DoS).
+      if (record.tokenHash === incomingTokenHash) {
         matchedRecord = record;
         break;
       }

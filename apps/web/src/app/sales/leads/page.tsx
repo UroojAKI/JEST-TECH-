@@ -39,7 +39,7 @@ export default function SalesLeadsPage() {
   if (isLoading) return <AppShell><PageLoadingState message="Loading sales leads..." /></AppShell>;
   if (isError) return <AppShell><PageErrorState message="Failed to load sales leads. Please try again." onRetry={refetch} /></AppShell>;
 
-  const leads = Array.isArray(leadsData) ? leadsData : [];
+  const leads = Array.isArray(leadsData) ? leadsData : ((leadsData as any)?.items || (leadsData as any)?.data || []);
 
   const filteredLeads = leads.filter((lead: any) => {
     const matchesSearch =

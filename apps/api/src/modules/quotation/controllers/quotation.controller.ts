@@ -241,6 +241,7 @@ export class QuotationController {
         expiryDate: new Date(Date.now() + 30 * 86400000),
         contactId,
         leadId: dto.leadId || null,
+        agentId: dto.agentId || null,
         createdById: user.id,
       },
     });

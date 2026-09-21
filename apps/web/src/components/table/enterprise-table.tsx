@@ -52,6 +52,15 @@ export function EnterpriseTable<TData>({
   const [expanded, setExpanded] = useState({});
 
   const globalFilter = searchValue ?? internalFilter;
+
+  const handleSearchChange = (value: string) => {
+    if (onSearchChange) {
+      onSearchChange(value);
+    } else {
+      setInternalFilter(value);
+    }
+  };
+
   const table = useReactTable({
     data,
     columns,
@@ -63,11 +72,6 @@ export function EnterpriseTable<TData>({
       pagination: { pageIndex, pageSize },
     },
     onSortingChange: setSorting,
-    onGlobalFilterChange: (value) => {
-      const next = typeof value === 'function' ? value(globalFilter) : value;
-      if (onSearchChange) onSearchChange(next);
-      else setInternalFilter(next);
-    },
     onColumnVisibilityChange: setColumnVisibility,
     onExpandedChange: setExpanded,
     getCoreRowModel: getCoreRowModel(),
@@ -116,7 +120,7 @@ export function EnterpriseTable<TData>({
       <div className="flex flex-col sm:flex-row justify-between items-center gap-3 bg-card p-3 rounded-lg border">
         <div className="relative w-full sm:w-72">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-          <input value={globalFilter} onChange={(e) => (onSearchChange ? onSearchChange(e.target.value) : setInternalFilter(e.target.value))} placeholder="Filter records..." className="w-full pl-9 pr-3 py-1.5 text-xs rounded-md border bg-background focus:outline-none focus:ring-1 focus:ring-primary" />
+          <input value={globalFilter ?? ''} onChange={(e) => handleSearchChange(e.target.value)} placeholder="Filter records..." className="w-full pl-9 pr-3 py-1.5 text-xs rounded-md border bg-background focus:outline-none focus:ring-1 focus:ring-primary" />
         </div>
         <button onClick={exportCSV} className="flex items-center space-x-1.5 px-3 py-1.5 text-xs font-semibold rounded-md border bg-muted/40 hover:bg-accent"><Download className="h-3.5 w-3.5" /><span>Export CSV</span></button>
       </div>

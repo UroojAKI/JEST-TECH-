@@ -1,24 +1,108 @@
 
-> web@0.1.0 build E:\JEST TECH\JEST POLICY\jest-policy-crm\apps\web
+> web@0.1.0 build C:\Users\vinit\JEST-TECH-\apps\web
 > next build
 
 ▲ Next.js 16.2.10 (Turbopack)
+- Environments: .env
 
-⚠ The "middleware" file convention is deprecated. Please use "proxy" instead. Learn more: https://nextjs.org/docs/messages/middleware-to-proxy
   Creating an optimized production build ...
-✓ Compiled successfully in 10.5s
+✓ Compiled successfully in 13.7s
   Running TypeScript ...
-Failed to type check.
+  Finished TypeScript in 13.8s ...
+  Collecting page data using 17 workers ...
+  Generating static pages using 17 workers (0/76) ...
+  Generating static pages using 17 workers (19/76) 
+  Generating static pages using 17 workers (38/76) 
+  Generating static pages using 17 workers (57/76) 
+✓ Generating static pages using 17 workers (76/76) in 985ms
+  Finalizing page optimization ...
 
-.next/dev/types/validator.ts:845:1
-Type error: Cannot find name 'er'.
+Route (app)
+┌ ○ /
+├ ○ /_not-found
+├ ○ /admin
+├ ○ /admin/audit
+├ ○ /admin/branches
+├ ○ /admin/config
+├ ○ /admin/delivery-monitor
+├ ○ /admin/health
+├ ○ /admin/insurers
+├ ○ /admin/lookups
+├ ○ /admin/notification-templates
+├ ○ /admin/numbering
+├ ○ /admin/production-readiness
+├ ○ /admin/products
+├ ○ /admin/roles
+├ ○ /admin/sla
+├ ○ /admin/users
+├ ○ /admin/vehicle-master
+├ ○ /admin/workflows
+├ ƒ /api/health
+├ ○ /claims
+├ ○ /crm
+├ ○ /crm/accounts
+├ ○ /crm/contacts
+├ ƒ /crm/contacts/[id]
+├ ○ /crm/customers
+├ ƒ /crm/customers/[id]
+├ ○ /crm/leads
+├ ƒ /crm/leads/[id]
+├ ○ /dashboard
+├ ○ /dashboard/reports
+├ ○ /dashboard/reports/builder
+├ ○ /documents
+├ ○ /finance
+├ ○ /finance/commissions
+├ ○ /finance/ledger
+├ ○ /finance/payments
+├ ○ /finance/receipts
+├ ○ /finance/settlements
+├ ○ /login
+├ ○ /policies
+├ ƒ /policies/[id]
+├ ○ /portal
+├ ○ /portal/branch-manager
+├ ○ /portal/claims
+├ ○ /portal/commissions
+├ ○ /portal/customers
+├ ○ /portal/downloads
+├ ○ /portal/leads
+├ ○ /portal/performance
+├ ○ /portal/policies
+├ ○ /portal/proposals
+├ ○ /portal/quotations
+├ ○ /portal/renewals
+├ ○ /portal/support
+├ ○ /renewals
+├ ○ /reports
+├ ○ /reports/builder
+├ ○ /sales
+├ ○ /sales/follow-ups
+├ ○ /sales/leads
+├ ○ /sales/proposals
+├ ƒ /sales/proposals/[id]
+├ ○ /sales/quotations
+├ ƒ /sales/quotations/[id]
+├ ○ /sales/quotations/compare
+├ ○ /settings
+├ ○ /unauthorized
+├ ○ /workspace
+├ ○ /workspace/admin
+├ ○ /workspace/agent
+├ ○ /workspace/agent-relationship
+├ ○ /workspace/customer
+├ ○ /workspace/executive
+├ ○ /workspace/finance
+├ ○ /workspace/marketing
+├ ○ /workspace/operations
+├ ○ /workspace/renewal
+├ ○ /workspace/sales
+├ ○ /workspace/sales-manager
+└ ƒ /workspace/sales/leads/[id]
 
-  [90m843 |[0m   [36mtype[0m __Unused = __Check
-  [90m844 |[0m }
-[31m[1m>[0m [90m845 |[0m er>
-  [90m    |[0m [31m[1m^[0m
-  [90m846 |[0m   [90m// @ts-ignore[0m
-  [90m847 |[0m   [36mtype[0m __Unused = __Check
-  [90m848 |[0m }
-Next.js build worker exited with code: 1 and signal: null
- ELIFECYCLE  Command failed with exit code 1.
+
+ƒ Proxy (Middleware)
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
+

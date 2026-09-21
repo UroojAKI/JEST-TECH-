@@ -1,6 +1,6 @@
 'use client';
 
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { adminRepository } from '../repositories/admin.repository';
 import { toast } from 'sonner';
 
@@ -17,6 +17,7 @@ export function useAdminUsers(params?: { status?: string; role?: string; search?
   const query = useQuery({
     queryKey: ['admin-users', params],
     queryFn: () => adminRepository.getUsers(params),
+    placeholderData: keepPreviousData,
   });
 
   const updateStatusMutation = useMutation({
@@ -34,6 +35,7 @@ export function useAdminUsers(params?: { status?: string; role?: string; search?
   return {
     users: query.data || [],
     isLoading: query.isLoading,
+    isFetching: query.isFetching,
     isError: query.isError,
     updateUserStatus: updateStatusMutation.mutate,
     isUpdating: updateStatusMutation.isPending,

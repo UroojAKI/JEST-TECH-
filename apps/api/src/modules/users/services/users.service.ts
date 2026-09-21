@@ -197,7 +197,7 @@ export class UsersService {
         skip,
         take: limit,
         orderBy,
-        include: { role: true },
+        include: { role: true, branch: true, team: true },
       }),
       this.prisma.user.count({ where }),
     ]);

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { AppShell } from '../../components/layout/app-shell';
@@ -26,8 +26,14 @@ export default function RenewalsWorkspacePage() {
   const queryClient = useQueryClient();
   const [urgencyFilter, setUrgencyFilter] = useState<'ALL' | 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW'>('ALL');
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [remindingId, setRemindingId] = useState<string | null>(null);
   const [escalatingId, setEscalatingId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(search), 300);
+    return () => clearTimeout(timer);
+  }, [search]);
 
   // Fetch Live Telemetry KPIs
   const { data: kpis = {}, isLoading: isKpisLoading } = useQuery({
@@ -37,11 +43,11 @@ export default function RenewalsWorkspacePage() {
 
   // Fetch Authoritative Renewal Queue
   const { data: queueResponse = { data: [], summary: {} }, isLoading: isQueueLoading, isError: isQueueError, refetch } = useQuery({
-    queryKey: ['renewals-queue', urgencyFilter, search],
+    queryKey: ['renewals-queue', urgencyFilter, debouncedSearch],
     queryFn: () =>
       policiesRepository.getRenewalQueue({
         urgency: urgencyFilter,
-        search,
+        search: debouncedSearch,
       }),
   });
 

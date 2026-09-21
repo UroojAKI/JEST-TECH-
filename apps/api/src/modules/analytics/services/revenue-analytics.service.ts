@@ -23,7 +23,7 @@ export class RevenueAnalyticsService {
     // Assuming policyPayment has organizationId or we can filter via policy:
     if (actor.organizationId) {
       whereClause.policy = {
-        organizationId: actor.organizationId,
+        companyId: actor.organizationId,
       };
     }
 
@@ -82,7 +82,7 @@ export class RevenueAnalyticsService {
     const months: { month: string; GWP: number }[] = [];
     const now = new Date();
     
-    const orgFilter = actor.organizationId ? { organizationId: actor.organizationId } : {};
+    const orgFilter = actor.organizationId ? { companyId: actor.organizationId } : {};
 
     for (let i = 5; i >= 0; i--) {
       const d = new Date(now.getFullYear(), now.getMonth() - i, 1);

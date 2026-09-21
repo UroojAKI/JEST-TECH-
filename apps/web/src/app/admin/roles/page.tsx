@@ -50,10 +50,19 @@ export default function RolePermissionMatrixPage() {
 
     if (rolePermissions?.permissions && Array.isArray(rolePermissions.permissions)) {
       rolePermissions.permissions.forEach((p: any) => {
-        const modName = p.resource || p.category;
-        const matchingMod = MODULES.find((m) => m.toLowerCase().includes(String(modName).toLowerCase()));
+        const matchingMod = MODULES.find((m) => {
+          const slug = m.toUpperCase().replace(/[^A-Z0-9]+/g, '_');
+          return p.code && String(p.code).includes(slug);
+        });
+
         if (matchingMod && initialState[matchingMod]) {
-          const action = (p.action || '').toLowerCase();
+          let action = (p.action || '').toLowerCase();
+          if (!action && p.code) {
+            const prefix = p.code.split('_')[0].toLowerCase();
+            if (['view', 'create', 'update', 'delete', 'approve', 'export'].includes(prefix)) {
+              action = prefix;
+            }
+          }
           if (['view', 'create', 'update', 'delete', 'approve', 'export'].includes(action)) {
             (initialState[matchingMod] as any)[action] = true;
           }
@@ -76,22 +85,14 @@ export default function RolePermissionMatrixPage() {
 
   const handleSave = async () => {
     try {
-      const activePermissions: Array<{ permissionId: string; scope: string }> = [];
+      const activePermissions: Array<{ permissionId?: string; category?: string; action?: string; scope: string }> = [];
       // Build permission payload from current matrix
-      const permissionsList = rolePermissions?.permissions || [];
       MODULES.forEach((mod) => {
         const state = permissionsState[mod];
         if (!state) return;
         (['view', 'create', 'update', 'delete', 'approve', 'export'] as const).forEach((act) => {
           if (state[act]) {
-            const existing = permissionsList.find(
-              (p: any) =>
-                (p.resource?.toLowerCase().includes(mod.toLowerCase()) || p.category?.toLowerCase().includes(mod.toLowerCase())) &&
-                p.action?.toLowerCase() === act,
-            );
-            if (existing) {
-              activePermissions.push({ permissionId: existing.permissionId || existing.id, scope: existing.scope || 'ORGANIZATION' });
-            }
+            activePermissions.push({ category: mod, action: act, scope: 'ORGANIZATION' });
           }
         });
       });

@@ -16,19 +16,21 @@ export default function DoubleEntryLedgerPage() {
     referenceType: refFilter,
   });
 
-  if (isLoading) return <AppShell><PageLoadingState message="Loading journal entries..." /></AppShell>;
-  if (isError) return <AppShell><PageErrorState message="Failed to load journal entries." onRetry={refetch} /></AppShell>;
+
 
   const [showForm, setShowForm] = useState(false);
   const [description, setDescription] = useState('');
   const [debitAccount, setDebitAccount] = useState('acc-bank');
   const [creditAccount, setCreditAccount] = useState('acc-prem');
-  const [amount, setAmount] = useState<number>(0);
+  const [amount, setAmount] = useState<number | ''>('');
   const [narration, setNarration] = useState('');
+
+  if (isLoading) return <AppShell><PageLoadingState message="Loading journal entries..." /></AppShell>;
+  if (isError) return <AppShell><PageErrorState message="Failed to load journal entries." onRetry={refetch} /></AppShell>;
 
   const handlePostEntry = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (amount <= 0) {
+    if (amount === '' || amount <= 0) {
       toast.error('Transaction amount must be greater than zero');
       return;
     }
@@ -44,7 +46,7 @@ export default function DoubleEntryLedgerPage() {
       });
       setShowForm(false);
       setDescription('');
-      setAmount(0);
+      setAmount('');
       setNarration('');
     } catch (err: any) {
       // Toast already fired in hook
@@ -98,7 +100,7 @@ export default function DoubleEntryLedgerPage() {
                   min="1"
                   className="w-full p-2 border rounded-md bg-background"
                   value={amount}
-                  onChange={(e) => setAmount(Number(e.target.value))}
+                  onChange={(e) => setAmount(e.target.value ? Number(e.target.value) : '')}
                 />
               </div>
               <div className="space-y-1">

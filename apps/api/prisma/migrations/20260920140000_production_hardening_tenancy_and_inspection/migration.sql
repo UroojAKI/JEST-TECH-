@@ -9,6 +9,8 @@ EXCEPTION
 END $$;
 
 -- STEP 2: Preflight Verification & Fail-Closed Ownership Resolution
+-- NOTE: branch-based and cross-table backfills were already handled in
+-- migration 20260918180000. This step only catches any remaining NULLs.
 DO $$
 DECLARE
     default_company_id TEXT;
@@ -40,7 +42,6 @@ BEGIN
         default_company_id
     )
     WHERE q."companyId" IS NULL;
-
     UPDATE "public"."quotations"
     SET "companyId" = default_company_id
     WHERE "companyId" IS NULL;

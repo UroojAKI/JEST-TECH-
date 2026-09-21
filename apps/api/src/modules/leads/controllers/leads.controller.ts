@@ -173,7 +173,7 @@ export class LeadsController {
   @Post()
   @Roles(...LEAD_MANAGE_ROLES)
   create(@Body() dto: CreateLeadDto, @CurrentUser() user: RequestUser) {
-    return this.leadsService.create(dto, user.id);
+    return this.leadsService.create(dto, user);
   }
 
   @Post(':id/merge')

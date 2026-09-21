@@ -8,7 +8,7 @@ export class PolicyAnalyticsService {
   constructor(private readonly prisma: PrismaService) {}
 
   async getOverview(actor: RequestUser) {
-    const orgFilter = actor.organizationId ? { organizationId: actor.organizationId } : {};
+    const orgFilter = actor.organizationId ? { companyId: actor.organizationId } : {};
 
     const [
       total,

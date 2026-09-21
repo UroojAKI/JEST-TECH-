@@ -38,7 +38,8 @@ export class LeadsService {
     private readonly scopeResolver: ScopeResolver,
   ) {}
 
-  async create(dto: CreateLeadDto, createdById: string) {
+  async create(dto: CreateLeadDto, actor: ActorContext) {
+    const createdById = actor.userId;
     let targetContactId = dto.contactId;
 
     if (targetContactId) {
@@ -85,6 +86,7 @@ export class LeadsService {
             type: 'INDIVIDUAL',
           },
           createdById,
+          actor,
         );
         targetContactId = createdContact.id;
       }

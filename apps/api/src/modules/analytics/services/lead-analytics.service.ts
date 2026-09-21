@@ -11,7 +11,7 @@ export class LeadAnalyticsService {
     const startOfToday = new Date();
     startOfToday.setHours(0, 0, 0, 0);
     
-    const orgFilter = actor.organizationId ? { organizationId: actor.organizationId } : {};
+    const orgFilter = actor.organizationId ? { companyId: actor.organizationId } : {};
 
     const [
       total,

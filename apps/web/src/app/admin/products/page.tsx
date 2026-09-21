@@ -38,9 +38,6 @@ export default function ProductMasterAdminPage() {
     },
   });
 
-  if (isProductsLoading) return <AppShell><PageLoadingState message="Loading products..." /></AppShell>;
-  if (isProductsError) return <AppShell><PageErrorState message="Failed to load products. Please try again." onRetry={refetchProducts} /></AppShell>;
-
   const { data: insurers = [] } = useQuery({
     queryKey: ['admin-insurers-lookup'],
     queryFn: async () => {
@@ -81,6 +78,9 @@ export default function ProductMasterAdminPage() {
       policyType,
     });
   };
+
+  if (isProductsLoading) return <AppShell><PageLoadingState message="Loading products..." /></AppShell>;
+  if (isProductsError) return <AppShell><PageErrorState message="Failed to load products. Please try again." onRetry={refetchProducts} /></AppShell>;
 
   const filteredProducts = (Array.isArray(products) ? products : ((products as any)?.data || (products as any)?.items || [])).filter(
     (p: any) =>

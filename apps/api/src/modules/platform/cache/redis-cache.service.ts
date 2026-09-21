@@ -8,6 +8,7 @@ export class RedisCacheService
   implements ICacheProvider, OnModuleInit, OnModuleDestroy
 {
   private client: Redis;
+  private isOffline: boolean = false;
 
   constructor(private readonly config: ConfigurationService) {}
 
@@ -16,12 +17,16 @@ export class RedisCacheService
       keyPrefix: 'jest:cache:',
       enableOfflineQueue: false,
       maxRetriesPerRequest: 1,
+      commandTimeout: 1000,
       retryStrategy(times) {
         return Math.min(times * 100, 3000);
       },
     });
     this.client.on('error', () => {
-      // Suppress unhandled error log spam when Redis is offline
+      this.isOffline = true;
+    });
+    this.client.on('connect', () => {
+      this.isOffline = false;
     });
   }
 
@@ -32,6 +37,7 @@ export class RedisCacheService
   }
 
   async get<T>(key: string): Promise<T | null> {
+    if (this.isOffline) return null;
     try {
       const data = await this.client.get(key);
       if (!data) return null;
@@ -46,31 +52,38 @@ export class RedisCacheService
     value: T,
     ttlSeconds: number = 3600,
   ): Promise<void> {
+    if (this.isOffline) return;
     try {
       const data = JSON.stringify(value);
       await this.client.set(key, data, 'EX', ttlSeconds);
     } catch {
-      // Fallback: omit cache on write error
+      // Ignore cache write errors
     }
   }
 
   async delete(key: string): Promise<void> {
+    if (this.isOffline) return;
     try {
       await this.client.del(key);
     } catch {
-      // Fallback
+      // Ignore cache deletion errors
     }
   }
 
   async clear(prefix: string): Promise<void> {
+    if (this.isOffline) return;
     try {
       const keys = await this.client.keys(`jest:cache:${prefix}*`);
       if (keys.length > 0) {
-        const keysWithoutPrefix = keys.map((k) => k.replace('jest:cache:', ''));
-        await this.client.del(...keysWithoutPrefix);
+        // Strip the global prefix since ioredis adds it automatically to operations,
+        // but `keys` returns the FULL key including prefix.
+        const strippedKeys = keys.map((k) => k.replace('jest:cache:', ''));
+        if (strippedKeys.length > 0) {
+          await this.client.del(...strippedKeys);
+        }
       }
     } catch {
-      // Fallback
+      // Ignore cache flush errors
     }
   }
 

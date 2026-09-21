@@ -35,6 +35,9 @@ async function bootstrap() {
   }
 
   const app = await NestFactory.create(AppModule);
+  
+  // Trust Nginx Proxy to correctly parse X-Forwarded-For for IP rate limiting
+  app.getHttpAdapter().getInstance().set('trust proxy', 1);
 
   // 0. Cookie Parser — MUST be registered before any route handlers
   //    so req.cookies is populated for the JWT cookieExtractor strategy.
@@ -74,7 +77,7 @@ async function bootstrap() {
     },
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
     allowedHeaders:
-      'Content-Type,Accept,Authorization,X-Requested-With,X-Idempotency-Key',
+      'Content-Type,Accept,Authorization,X-Requested-With,X-Idempotency-Key,X-Correlation-ID,x-correlation-id',
     credentials: true,
   });
 

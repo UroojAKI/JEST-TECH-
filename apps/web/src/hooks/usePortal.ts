@@ -35,7 +35,7 @@ export function useAgentLeads(status?: string) {
   });
 
   return {
-    leads: query.data || [],
+    leads: Array.isArray(query.data) ? query.data : (query.data as any)?.items || (query.data as any)?.data || [],
     isLoading: query.isLoading,
     createLead: createMutation.mutate,
     isCreating: createMutation.isPending,

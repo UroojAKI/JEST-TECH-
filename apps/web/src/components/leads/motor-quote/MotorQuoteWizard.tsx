@@ -310,11 +310,17 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, initialCategory, c
           contactId: contactId || undefined,
           agentId: selectedAgentId || undefined,
           totalPremium: getNetPayable() > 0 ? getNetPayable() : (getTotalPremium() || 1000),
-          idv: getIDV(),
+          idv: getIDV() || 500000,
           ncbPercentage: getNCB(),
           proposerDetails: proposer,
           vehicleDetails,
           policyDetails: getPolicyDetails(),
+          saodVerification: policyType === 'SAOD' ? {
+            tpInsurer: 'DRAFT_INSURER',
+            tpPolicyNumber: 'DRAFT123',
+            tpStartDate: new Date().toISOString(),
+            tpExpiryDate: new Date(Date.now() + 86400000).toISOString(),
+          } : undefined,
           status: 'DRAFT',
         };
         const preRes = await apiClient.post('/quotations/motor-capture', prePayload);
@@ -589,8 +595,9 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, initialCategory, c
                     <label className="text-xs font-semibold text-muted-foreground">Mobile Number <span className="text-destructive">*</span></label>
                     <input
                       type="tel"
+                      maxLength={10}
                       value={proposer.mobileNumber || ''}
-                      onChange={(e) => setProposer({...proposer, mobileNumber: e.target.value})}
+                      onChange={(e) => setProposer({...proposer, mobileNumber: e.target.value.replace(/\D/g, '')})}
                       className="w-full px-3 py-2 rounded-md border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
                       placeholder="10-digit number"
                     />

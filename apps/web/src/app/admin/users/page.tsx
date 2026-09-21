@@ -48,12 +48,12 @@ export default function UserManagementPage() {
   const [customResetPassword, setCustomResetPassword] = useState('');
   const [isResetting, setIsResetting] = useState(false);
 
-  const { users, isLoading, isError, updateUserStatus, isUpdating } = useAdminUsers({
+  const { users, isLoading, isFetching, isError, updateUserStatus, isUpdating } = useAdminUsers({
     status: statusFilter !== 'ALL' ? statusFilter : undefined,
     search: debouncedSearch || undefined,
   });
 
-  if (isLoading) {
+  if (isLoading && users.length === 0) {
     return (
       <AppShell>
         <div className="p-8 text-center text-muted-foreground text-sm animate-pulse">Loading users...</div>
@@ -343,7 +343,7 @@ export default function UserManagementPage() {
       </div>
 
       {/* User Table Grid */}
-      <div className="border rounded-xl overflow-hidden bg-card text-xs">
+      <div className={`border rounded-xl overflow-hidden bg-card text-xs ${isFetching ? 'opacity-60 pointer-events-none transition-opacity' : 'transition-opacity'}`}>
         <table className="w-full text-left border-collapse">
           <thead>
             <tr className="bg-muted/40 text-[10px] text-muted-foreground font-bold border-b uppercase">

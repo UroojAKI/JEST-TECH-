@@ -47,7 +47,7 @@ export default function CustomerRegisterPage() {
     if (searchParams.get('create') === '1') setShowAddModal(true);
   }, [searchParams]);
 
-  const { customers, total, totalPages, isLoading, isError, refetch } = useCustomers({
+  const { customers, total, totalPages, isLoading, isFetching, isError, refetch } = useCustomers({
     page,
     limit,
     search: debouncedSearch.trim() || undefined,
@@ -465,31 +465,33 @@ export default function CustomerRegisterPage() {
         </div>
       )}
 
-      {isLoading ? (
+      {isLoading && customers.length === 0 ? (
         <div className="p-10 flex justify-center">
           <Loader2 className="h-5 w-5 animate-spin text-primary" />
         </div>
       ) : (
-        <EnterpriseTable
-          data={customers}
-          columns={columns}
-          totalRows={total}
-          pageSize={limit}
-          pageIndex={page - 1}
-          pageCount={totalPages}
-          manualPagination
-          manualFiltering
-          searchValue={search}
-          onSearchChange={(value) => {
-            setSearch(value);
-            setPage(1);
-          }}
-          onPageChange={(nextPage) => setPage(nextPage + 1)}
-          onPageSizeChange={(newSize) => {
-            setLimit(newSize);
-            setPage(1);
-          }}
-        />
+        <div className={isFetching ? 'opacity-60 pointer-events-none transition-opacity' : 'transition-opacity'}>
+          <EnterpriseTable
+            data={customers}
+            columns={columns}
+            totalRows={total}
+            pageSize={limit}
+            pageIndex={page - 1}
+            pageCount={totalPages}
+            manualPagination
+            manualFiltering
+            searchValue={search}
+            onSearchChange={(value) => {
+              setSearch(value);
+              setPage(1);
+            }}
+            onPageChange={(nextPage) => setPage(nextPage + 1)}
+            onPageSizeChange={(newSize) => {
+              setLimit(newSize);
+              setPage(1);
+            }}
+          />
+        </div>
       )}
     </AppShell>
   );

@@ -67,17 +67,23 @@ export function PolicyFormSAODForm({ data, onChange }: Props) {
 
     const ncbDiscount = Math.round(odBase * (ncb / 100));
     const netOd = Math.max(0, odBase - ncbDiscount + addOnsTotal);
-    const gst = Math.round(netOd * 0.18 * 100) / 100;
-    const total = Math.round((netOd + gst) * 100) / 100;
 
     // Commission
     const commPct = parseFloat(updated.odCommissionPercent || '0') || 0;
     const commission = Math.round(netOd * (commPct / 100));
 
-    // Field 13: Discount / Commission Calculator (Sum of 10* D% - 11)
+    // Field 13: Discount / Commission Calculator
     const dPct = parseFloat(updated.discountPercent || '0') || 0;
     const discountAmt = Math.round((netOd * (dPct / 100)) * 100) / 100;
-    const finalPayable = Math.max(0, Math.round((total - discountAmt) * 100) / 100);
+    
+    // Calculate final OD after discount
+    const discountedNetOd = Math.max(0, netOd - discountAmt);
+    
+    // Recalculate GST based on discounted OD
+    const gst = Math.round(discountedNetOd * 0.18 * 100) / 100;
+    const total = Math.round((discountedNetOd + gst) * 100) / 100;
+    
+    const finalPayable = total;
     const calcStr = discountAmt > 0
       ? `₹${discountAmt.toLocaleString('en-IN')} (Discount ${dPct}%: Final ₹${finalPayable.toLocaleString('en-IN')})`
       : `₹0 (Gross: ₹${total.toLocaleString('en-IN')})`;

@@ -57,33 +57,23 @@ export class ContactsService {
         );
     }
 
-    // Authoritative organizational hierarchy resolution (§5 & §6)
+    // Authoritative organizational hierarchy resolution
+    // Use actor.companyId directly if available (fast path, SEC-TENANCY)
     let targetBranchId: string | null = null;
     let targetCompanyId: string | null = null;
 
-    const creator = await this.prisma.user.findUnique({
-      where: { id: createdById },
-      include: {
-        branch: {
-          include: {
-            zone: {
-              include: {
-                region: true,
-              },
-            },
-          },
-        },
-      },
-    });
-
-    if (creator) {
-      targetBranchId = creator.branchId || null;
-      targetCompanyId =
-        creator.companyId || creator.branch?.zone?.region?.companyId || null;
-    }
-    if (!targetCompanyId && actor?.companyId) {
+    if (actor?.companyId) {
       targetCompanyId = actor.companyId;
+    } else {
+      // Fallback: look up the creator's companyId without branch include
+      // (branch table removed in domain rearchitecture migration)
+      const creator = await this.prisma.user.findUnique({
+        where: { id: createdById },
+        select: { companyId: true },
+      });
+      targetCompanyId = creator?.companyId || null;
     }
+
     if (!targetCompanyId) {
       throw new ForbiddenException(
         'Mandatory company context is required to create a contact.',

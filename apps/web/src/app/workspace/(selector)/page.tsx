@@ -94,6 +94,15 @@ export default function WorkspaceHubPage() {
           <p className="text-xs text-muted-foreground mt-1">
             Your account has not been assigned to any functional workspace. Please contact your system administrator.
           </p>
+          <button 
+            onClick={() => {
+              useAuthStore.getState().logout();
+              router.push('/login');
+            }}
+            className="mt-6 px-4 py-2 bg-primary/10 text-primary rounded-md text-sm font-semibold hover:bg-primary/20 transition-colors"
+          >
+            Sign Out and Re-authenticate
+          </button>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

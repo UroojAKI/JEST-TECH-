@@ -147,7 +147,7 @@ export function DynamicWorkspace({ roleLabel, roleIcon, fallbackRole, customCont
   const { data: renewalsData = [] } = useQuery({
     queryKey: ['workspace-renewals-upcoming'],
     queryFn: async () => {
-      const res = await apiClient.get('/policies/renewals/upcoming', { params: { range: '30_DAYS' } });
+      const res = await apiClient.get('/renewals/tasks', { params: { urgencyDays: 30 } });
       const items = res.data?.items || res.data?.data || (Array.isArray(res.data) ? res.data : []);
       return Array.isArray(items) ? items : [];
     },
