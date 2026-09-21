@@ -46,6 +46,7 @@ export class ReportClaimService {
     // 1. Validate Policy exists (lookup by policyId or policyNumber)
     let policy: any = null;
     const policyInclude = {
+      agent: true,
       contact: true,
       createdBy: {
         include: {
@@ -116,6 +117,7 @@ export class ReportClaimService {
 
       if (!isAdmin) {
         const policyOrgId =
+          policy.companyId ||
           policy.contact?.companyId ||
           policy.createdBy?.companyId ||
           policy.createdBy?.branch?.zone?.region?.company?.id ||
@@ -139,6 +141,8 @@ export class ReportClaimService {
         if (isAgent) {
           const userCtx = actorContext as any;
           const isOwner =
+            (userCtx.agentId && policy.agentId === userCtx.agentId) ||
+            policy.agent?.userId === userCtx.userId ||
             policy.agentId === userCtx.userId ||
             policy.agentId === userCtx.id ||
             policy.createdById === userCtx.userId ||

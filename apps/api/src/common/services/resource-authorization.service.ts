@@ -86,9 +86,8 @@ export class ResourceAuthorizationService {
   }
 
   assertSameOrganization(actor: ActorContext, resource: any): void {
-    const roles = actor.roles?.length ? actor.roles : [actor.role];
-    if (roles.includes(RoleType.ADMIN)) {
-      return; // Admin transcends single-organization scope
+    if (actor.permissions?.includes('*')) {
+      return; // Universal super-admin transcends single-organization scope
     }
 
     const resourceOrg =
@@ -143,8 +142,12 @@ export class ResourceAuthorizationService {
     const isOwnerOrAssigned =
       resource.createdById === actor.userId ||
       resource.assignedToId === actor.userId ||
-      resource.agentId === actor.userId ||
       resource.userId === actor.userId ||
+      (actor.agentId && (resource.agentId === actor.agentId || resource.agent?.id === actor.agentId)) ||
+      resource.agent?.userId === actor.userId ||
+      resource.agentId === actor.userId ||
+      (actor.agentId && resource.policy?.agentId === actor.agentId) ||
+      resource.policy?.agent?.userId === actor.userId ||
       resource.lead?.assignedToId === actor.userId ||
       resource.lead?.createdById === actor.userId ||
       resource.quotation?.createdById === actor.userId ||

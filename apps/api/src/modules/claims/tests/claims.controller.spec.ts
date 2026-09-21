@@ -15,6 +15,8 @@ import { ReportClaimDto } from '../dto/report-claim.dto';
 import { AssignSurveyorDto } from '../dto/assign-surveyor.dto';
 import { RequestUser } from '../../auth/decorators/current-user.decorator';
 import { PaginationDto } from '../../../common/pagination/pagination.dto';
+import { ClaimRepository } from '../repositories/claim.repository';
+import { ResourceAuthorizationService } from '../../../common/services/resource-authorization.service';
 
 describe('ClaimsController', () => {
   let controller: ClaimsController;
@@ -128,6 +130,19 @@ describe('ClaimsController', () => {
             executeAll: jest.fn().mockResolvedValue([mockClaimResponse]),
           },
         },
+        {
+          provide: ClaimRepository,
+          useValue: {
+            findById: jest.fn().mockResolvedValue(mockClaimResponse),
+            update: jest.fn().mockResolvedValue(mockClaimResponse),
+          },
+        },
+        {
+          provide: ResourceAuthorizationService,
+          useValue: {
+            authorize: jest.fn().mockReturnValue(true),
+          },
+        },
       ],
     }).compile();
 
@@ -223,6 +238,7 @@ describe('ClaimsController', () => {
         'claim-123',
         dto,
         mockUser.id,
+        mockUser.organizationId,
       );
     });
 

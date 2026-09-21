@@ -118,9 +118,22 @@ export class ClaimsController {
     return ClaimMapper.toResponse(updated);
   }
 
+  private async getAuthorizedClaim(
+    id: string,
+    user: RequestUser,
+    action: 'READ' | 'UPDATE' | 'DELETE' | 'APPROVE' | 'ASSIGN' = 'UPDATE',
+  ) {
+    const claim = await this.claimRepository.findById(id);
+    if (!claim || (claim as any).deletedAt) {
+      throw new NotFoundException(`Claim with ID ${id} not found`);
+    }
+    this.authzService.authorize(user, 'CLAIM', action, claim);
+    return claim;
+  }
+
   @Post(':id/documents')
   @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT)
-  uploadDocument(
+  async uploadDocument(
     @Param('id', ParseUUIDPipe) id: string,
     @Body()
     dto: {
@@ -131,46 +144,55 @@ export class ClaimsController {
     },
     @CurrentUser() user: RequestUser,
   ) {
+    await this.getAuthorizedClaim(id, user, 'UPDATE');
     return this.uploadClaimDocumentService.execute(id, dto, user.id);
   }
 
   @Post(':id/assign-surveyor')
   @HttpCode(HttpStatus.OK)
   @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE)
-  assignSurveyor(
+  async assignSurveyor(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: AssignSurveyorDto,
     @CurrentUser() user: RequestUser,
   ) {
+    await this.getAuthorizedClaim(id, user, 'ASSIGN');
     return this.assignSurveyorService.execute(id, dto, user.id);
   }
 
   @Post(':id/approve')
   @HttpCode(HttpStatus.OK)
   @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE)
-  approve(
+  async approve(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: ApproveClaimDto,
     @CurrentUser() user: RequestUser,
   ) {
+    await this.getAuthorizedClaim(id, user, 'APPROVE');
     return this.approveClaimService.execute(id, dto, user);
   }
 
   @Post(':id/settle')
   @HttpCode(HttpStatus.OK)
   @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE)
-  settle(
+  async settle(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: SettleClaimDto,
     @CurrentUser() user: RequestUser,
   ) {
-    return this.settleClaimService.execute(id, dto, user.id);
+    const claim = await this.getAuthorizedClaim(id, user, 'UPDATE');
+    return this.settleClaimService.execute(
+      id,
+      dto,
+      user.id,
+      user.companyId || user.organizationId,
+    );
   }
 
   @Post(':id/settlement/verify')
   @HttpCode(HttpStatus.OK)
   @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE)
-  verifySettlement(
+  async verifySettlement(
     @Param('id', ParseUUIDPipe) id: string,
     @Body('verificationReference') verificationReference: string,
     @CurrentUser() user: RequestUser,
@@ -180,43 +202,53 @@ export class ClaimsController {
         'Finance verification reference is mandatory',
       );
     }
+    await this.getAuthorizedClaim(id, user, 'UPDATE');
     return this.settleClaimService.verifySettlement(
       id,
       verificationReference.trim(),
       user.id,
+      user.companyId || user.organizationId,
     );
   }
 
   @Post(':id/reject')
   @HttpCode(HttpStatus.OK)
   @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE)
-  reject(
+  async reject(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: RejectClaimDto,
     @CurrentUser() user: RequestUser,
   ) {
-    return this.rejectClaimService.execute(id, dto, user.id);
+    await this.getAuthorizedClaim(id, user, 'UPDATE');
+    return this.rejectClaimService.execute(
+      id,
+      dto,
+      user.id,
+      user.companyId || user.organizationId,
+    );
   }
 
   @Post(':id/close')
   @HttpCode(HttpStatus.OK)
   @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE)
-  close(
+  async close(
     @Param('id', ParseUUIDPipe) id: string,
     @Body('comments') comments: string,
     @CurrentUser() user: RequestUser,
   ) {
+    await this.getAuthorizedClaim(id, user, 'UPDATE');
     return this.closeClaimService.execute(id, comments, user.id, user);
   }
 
   @Post(':id/withdraw')
   @HttpCode(HttpStatus.OK)
   @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT)
-  withdraw(
+  async withdraw(
     @Param('id', ParseUUIDPipe) id: string,
     @Body('reason') reason: string,
     @CurrentUser() user: RequestUser,
   ) {
+    await this.getAuthorizedClaim(id, user, 'UPDATE');
     return this.closeClaimService.execute(
       id,
       `WITHDRAWN: ${reason?.trim() || 'Claim voluntarily withdrawn by applicant'}`,

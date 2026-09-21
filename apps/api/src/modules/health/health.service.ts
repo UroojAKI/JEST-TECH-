@@ -122,23 +122,27 @@ export class HealthService {
       dbStatus = 'down';
     }
 
-    let redisStatus = 'down';
+    let redisStatus = 'disabled';
     let redisLatencyMs = 0;
-    try {
-      const start = Date.now();
-      const redis = new Redis(this.config.redisUrl, {
-        maxRetriesPerRequest: 1,
-        lazyConnect: true,
-        enableOfflineQueue: false,
-      });
-      redis.on('error', () => {});
-      await redis.connect();
-      await redis.ping();
-      await redis.quit();
-      redisLatencyMs = Date.now() - start;
-      redisStatus = 'ok';
-    } catch (err) {
-      redisStatus = 'down';
+    const redisEnabled = process.env.REDIS_ENABLED === 'true';
+    if (redisEnabled && this.config.redisUrl) {
+      try {
+        const start = Date.now();
+        const redis = new Redis(this.config.redisUrl, {
+          maxRetriesPerRequest: 1,
+          lazyConnect: true,
+          enableOfflineQueue: false,
+          connectTimeout: 2000,
+        });
+        redis.on('error', () => {});
+        await redis.connect();
+        await redis.ping();
+        await redis.quit();
+        redisLatencyMs = Date.now() - start;
+        redisStatus = 'ok';
+      } catch (err) {
+        redisStatus = 'down';
+      }
     }
 
     const memoryUsage = process.memoryUsage();
@@ -172,10 +176,14 @@ export class HealthService {
     };
 
     let overallStatus = 'ok';
-    const checkStatuses = Object.values(checks).map((c) => c.status);
-    if (checkStatuses.includes('down')) {
+    if (dbStatus === 'down') {
       overallStatus = 'down';
-    } else if (checkStatuses.includes('degraded')) {
+    } else if (
+      (redisEnabled && redisStatus === 'down') ||
+      outboxStatus === 'down' ||
+      diskStatus === 'down' ||
+      memoryStatus === 'degraded'
+    ) {
       overallStatus = 'degraded';
     }
 

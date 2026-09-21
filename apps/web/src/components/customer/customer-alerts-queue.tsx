@@ -9,10 +9,53 @@ interface CustomerAlertsQueueProps {
 }
 
 export function CustomerAlertsQueue({ workspace }: CustomerAlertsQueueProps) {
-  const [resolvedAlerts, setResolvedAlerts] = useState<string[]>([]);
-  const [completedTasks, setCompletedTasks] = useState<string[]>([]);
-
   const profile = workspace?.profile || workspace?.contact;
+  const customerId = profile?.id || workspace?.id || 'default';
+  const alertsStorageKey = `resolved_alerts_${customerId}`;
+  const tasksStorageKey = `completed_tasks_${customerId}`;
+
+  const [resolvedAlerts, setResolvedAlerts] = useState<string[]>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem(alertsStorageKey);
+      if (saved) {
+        try {
+          return JSON.parse(saved);
+        } catch (e) {}
+      }
+    }
+    return [];
+  });
+
+  const [completedTasks, setCompletedTasks] = useState<string[]>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem(tasksStorageKey);
+      if (saved) {
+        try {
+          return JSON.parse(saved);
+        } catch (e) {}
+      }
+    }
+    return [];
+  });
+
+  const handleDismissAlert = (alertId: string) => {
+    const next = [...resolvedAlerts, alertId];
+    setResolvedAlerts(next);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(alertsStorageKey, JSON.stringify(next));
+    }
+    toast.success('Alert resolved');
+  };
+
+  const handleCompleteTask = (taskId: string) => {
+    const next = [...completedTasks, taskId];
+    setCompletedTasks(next);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(tasksStorageKey, JSON.stringify(next));
+    }
+    toast.success('Task marked as done');
+  };
+
   const policies = workspace?.policies || [];
   const claims = workspace?.claims || [];
   const openClaims =
@@ -171,10 +214,7 @@ export function CustomerAlertsQueue({ workspace }: CustomerAlertsQueueProps) {
                   <span className="font-medium truncate">{alert.text}</span>
                 </div>
                 <button
-                  onClick={() => {
-                    setResolvedAlerts((prev) => [...prev, alert.id]);
-                    toast.success('Alert resolved');
-                  }}
+                  onClick={() => handleDismissAlert(alert.id)}
                   className="text-[11px] font-bold text-primary hover:underline ml-2 flex items-center whitespace-nowrap shrink-0"
                 >
                   Dismiss <ArrowRight className="h-3 w-3 ml-0.5" />
@@ -220,10 +260,7 @@ export function CustomerAlertsQueue({ workspace }: CustomerAlertsQueueProps) {
                   </div>
                 </div>
                 <button
-                  onClick={() => {
-                    setCompletedTasks((prev) => [...prev, task.id]);
-                    toast.success('Task marked as done');
-                  }}
+                  onClick={() => handleCompleteTask(task.id)}
                   className="px-2.5 py-1 rounded bg-primary/10 text-primary font-bold hover:bg-primary/20 text-[10px] whitespace-nowrap shrink-0"
                 >
                   Mark Done

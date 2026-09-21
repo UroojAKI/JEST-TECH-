@@ -2,6 +2,7 @@ import {
   Injectable,
   BadRequestException,
   NotFoundException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { PrismaService } from '../../../database/prisma.service';
 
@@ -52,7 +53,10 @@ export class ReferralService {
       where: { id: userId },
       select: { companyId: true },
     });
-    const companyId = user?.companyId || '12453e89-e8ab-4d00-bf5d-8d0b614e05da';
+    const companyId = user?.companyId;
+    if (!companyId) {
+      throw new ForbiddenException('Tenant organizational context is required');
+    }
 
     if (!contact) {
       const contactCount = await this.prisma.contact.count();

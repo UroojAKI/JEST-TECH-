@@ -8,6 +8,15 @@ describe('Authoritative ScopeResolver Specification & Runtime Filter Suite', () 
     scopeResolver = new ScopeResolver();
   });
 
+  const superAdminActor = {
+    userId: 'superadmin-usr-1',
+    role: RoleType.ADMIN,
+    roles: [RoleType.ADMIN],
+    permissions: ['*'],
+    companyId: 'company-x',
+    organizationId: 'company-x',
+  };
+
   const adminActor = {
     userId: 'admin-usr-1',
     role: RoleType.ADMIN,
@@ -34,12 +43,26 @@ describe('Authoritative ScopeResolver Specification & Runtime Filter Suite', () 
   };
 
   describe('ADMIN Role Scoping', () => {
-    it('returns empty filter {} for ADMIN across all resource types', () => {
+    it('returns empty filter {} for platform super-admin with wildcard permissions', () => {
       const resources = ['POLICY', 'CLAIM', 'QUOTATION', 'LEAD', 'RENEWAL_TASK', 'CONTACT', 'ACCOUNT'] as const;
       for (const res of resources) {
-        const filter = scopeResolver.resolveScopeFilter(adminActor as any, res);
+        const filter = scopeResolver.resolveScopeFilter(superAdminActor as any, res);
         expect(filter).toEqual({});
       }
+    });
+
+    it('scopes tenant ADMIN to company/organization (not universal {})', () => {
+      const resources = ['POLICY', 'CLAIM', 'QUOTATION', 'LEAD'] as const;
+      for (const res of resources) {
+        const filter = scopeResolver.resolveScopeFilter(adminActor as any, res);
+        expect(filter).not.toEqual({});
+        expect(filter.OR).toBeDefined();
+        expect(filter.OR).toContainEqual({ companyId: 'company-x' });
+      }
+      const renewalFilter = scopeResolver.resolveScopeFilter(adminActor as any, 'RENEWAL_TASK');
+      expect(renewalFilter.OR).toContainEqual({ policy: { companyId: 'company-x' } });
+      expect(scopeResolver.resolveScopeFilter(adminActor as any, 'CONTACT')).toEqual({ companyId: 'company-x' });
+      expect(scopeResolver.resolveScopeFilter(adminActor as any, 'ACCOUNT')).toEqual({ companyId: 'company-x' });
     });
   });
 

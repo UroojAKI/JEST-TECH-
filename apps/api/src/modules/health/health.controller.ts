@@ -34,7 +34,7 @@ export class HealthController {
     if (health.status === 'ok') {
       res.status(200);
     } else if (health.status === 'degraded') {
-      res.status(207);
+      res.status(200);
     } else {
       res.status(503);
     }

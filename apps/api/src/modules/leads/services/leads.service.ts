@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -132,10 +133,10 @@ export class LeadsService {
           select: { companyId: true },
         })
       : null;
-    const companyId =
-      dto.companyId ||
-      user?.companyId ||
-      '12453e89-e8ab-4d00-bf5d-8d0b614e05da';
+    const companyId = dto.companyId || user?.companyId;
+    if (!companyId) {
+      throw new ForbiddenException('Tenant organizational context is required');
+    }
 
     const mappedSource = dto.source
       ? validSources[String(dto.source).toUpperCase()] || LeadSource.OTHER

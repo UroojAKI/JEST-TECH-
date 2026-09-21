@@ -163,10 +163,10 @@ export class AgentsService {
       throw new NotFoundException(`User with ID ${targetUserId} not found`);
     }
 
-    const companyId =
-      targetUser.companyId ||
-      user.companyId ||
-      '12453e89-e8ab-4d00-bf5d-8d0b614e05da';
+    const companyId = targetUser.companyId || user.companyId;
+    if (!companyId) {
+      throw new ForbiddenException('Tenant organizational context is required');
+    }
 
     // Generate company-scoped sequential agent code AGT-XXXXXX
     const count = await this.prisma.agent.count({ where: { companyId } });

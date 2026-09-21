@@ -35,6 +35,7 @@ import {
   ArrowRight,
   History,
   FileCheck2,
+  Info,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -237,6 +238,15 @@ export function LeadCommandCenter({ lead, onRefresh }: LeadCommandCenterProps) {
         onMoveStage={handleMoveStage}
         isMoving={isMovingStage}
       />
+
+      {currentStep === 'ASSIGNED' && (
+        <div className="flex items-center gap-2 p-3 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-700 text-xs">
+          <Info className="h-4 w-4 shrink-0 text-blue-600" />
+          <span>
+            <strong>SOP Step 1:</strong> Record an initial phone call or meeting below to satisfy SOP prerequisites before advancing to <strong>Contacted</strong> (or use <em>Override Advance</em> with a manager note).
+          </span>
+        </div>
+      )}
 
       {/* 3. Navigation Tabs */}
       <div className="flex border-b text-xs font-semibold overflow-x-auto space-x-4">

@@ -11,6 +11,15 @@ export interface DocumentRecord {
 }
 
 export const documentsRepository = {
+  async getAllDocuments(params?: any): Promise<{ data: DocumentRecord[]; total: number }> {
+    try {
+      const response = await apiClient.get('/documents', { params });
+      return response.data;
+    } catch (err) {
+      return { data: [], total: 0 };
+    }
+  },
+
   async getDocumentsForEntity(entityType: string, entityId: string): Promise<DocumentRecord[]> {
     try {
       const response = await apiClient.get(`/documents/entity/${entityType}/${entityId}`);

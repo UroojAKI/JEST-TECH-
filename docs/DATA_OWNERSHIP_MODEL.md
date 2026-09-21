@@ -1,115 +1,90 @@
 # DATA OWNERSHIP MODEL — JEST POLICY CRM
-# Version: 1.0.0 | Status: BINDING | Branch: production-remediation
-# Every actionable record must have explicit ownership fields.
-# Scope resolution uses these fields. Client may not override them.
+# Version: 3.0.0 | Status: BINDING | Architecture: 3-Role Canonical Model
+# Every actionable record carries explicit tenant and entity ownership fields.
+# Multi-tenant and user scope resolution strictly enforce these boundaries.
 
 ---
 
-## OWNERSHIP FIELDS (Required on all scoped entities)
+## 1. PRIMARY TENANT BOUNDARY: `companyId`
 
-Every entity in the list below MUST carry:
-  organizationId  → which org (currently single-org, but designed for multi-tenancy)
-  branchId        → which physical/operational branch
-  ownerId         → primary responsible person (agent, executive, etc.)
-  createdById     → who created the record
-  updatedById     → who last updated the record
+Every tenant-scoped entity in the database carries:
+- `companyId` → Required foreign key referencing `Company.id`. Enforces strict tenant data isolation.
+- `createdById` → User ID of the record creator.
+- `updatedById` / `deletedAt` → Audit trail and soft-delete markers.
 
-Entities and their additional ownership fields:
-
-Lead:
-  assignedToId      (Sales Agent / Renewal Exec currently holding it)
-  teamId
-  branchId
-  originalOwnerId   (first assigned; for tracking reassignments)
-
-QuotationGroup:
-  ownerId           (Sales Agent)
-  teamId
-  branchId
-
-QuotationVersion:
-  calculatedById
-  sharedById
-  acceptedById
-
-Proposal:
-  preparedById      (typically Sales Agent)
-  assignedToId      (Back Office Issuance Executive)
-
-Document:
-  uploadedById
-  verifiedById
-  ownedByEntityType  (Lead | Customer | Proposal | Policy | Claim)
-  ownedByEntityId
-
-Inspection:
-  requestedById
-  assignedToId       (Inspector)
-  reviewedById
-
-PaymentRecord:
-  recordedById
-  reconciledById
-  quotationVersionId  (links to accepted version)
-
-Policy:
-  issuedById         (Back Office Exec)
-  assignedAgentId    (originating Sales Agent)
-  branchId
-
-InsurerPolicyDetail:
-  capturedById       (Back Office Exec who entered insurer data)
-  approvedById       (for premium variance approval)
-
-RenewalTask:
-  assignedToId       (Renewal Executive)
-  teamId
-  branchId
-  createdFromPolicyId
-
-Claim:
-  assignedToId       (Claims Executive)
-  teamId
-  branchId
-  createdFromPolicyId
+Cross-tenant queries are blocked fail-closed at the API authorization layer (`ResourceAuthorizationService`). No role (including `ADMIN`) can transcend `companyId` boundaries.
 
 ---
 
-## OWNERSHIP TRANSITION RULES
+## 2. SCOPED ENTITIES & OWNERSHIP FIELDS
 
-1. Lead reassignment:
-   - Only Sales Manager or Branch Manager may reassign.
-   - Reassignment creates AuditLog: { actor, fromUserId, toUserId, reason, timestamp }
-   - Previous owner retains READ access for 7 days after reassignment (configurable).
+### Lead
+- `companyId`: Tenant isolation key.
+- `agentId`: Assigned Agent ID (`Agent.id`).
+- `contactId`: Primary contact link.
+- `customerId`: Converted customer link.
+- `createdById`: Creator user ID.
 
-2. Case reassignment (Issuance / Renewal / Claims):
-   - Only Operations/Renewal/Claims Manager may reassign.
-   - Audit logged.
+### MotorQuotation / Quotation
+- `companyId`: Tenant isolation key.
+- `leadId`: Parent lead.
+- `vehicleId`: Subject vehicle.
+- `customerId`: Customer recipient.
+- `agentId`: Originating agent ID (`Agent.id`).
+- `agentCodeSnapshot`: Snapshot of agent code at quotation creation.
+- `createdById`: Creator user ID.
 
-3. Employee departure:
-   - Triggered by SUPER_ADMIN deactivating a user.
-   - System shows transfer wizard for: open leads, open tasks, open renewals, open claims.
-   - All must be explicitly reassigned before account is deactivated.
+### Policy
+- `companyId`: Tenant isolation key.
+- `quotationId`: Originating quotation.
+- `agentId`: Originating agent ID.
+- `contactId`: Insured contact.
+- `customerId`: Insured customer.
+- `createdById`: Issuing user ID (`BACK_OFFICE` or `ADMIN`).
+
+### Claim
+- `companyId`: Tenant isolation key.
+- `policyId`: Target policy.
+- `contactId`: Claimant contact.
+- `customerId`: Claimant customer.
+- `createdById`: Reporting user ID.
+
+### Document
+- `companyId`: Tenant isolation key.
+- `entityType`: Polymorphic discriminator (`LEAD`, `CUSTOMER`, `CONTACT`, `QUOTATION`, `POLICY`, `CLAIM`).
+- `entityId`: Associated record ID.
+- `uploadedById`: Uploader user ID.
+
+### RenewalTask / BackOfficeTask
+- `policyId` / `quotationId`: Linked parent record.
+- `agentId`: Assigned agent or executive ID.
+- `createdById`: Task creator.
 
 ---
 
-## ORPHAN PREVENTION RULES
+## 3. ROLE-BASED ACCESS OWNERSHIP CONTRACT
 
-A record MUST NOT exist without an owner:
-  Lead.assignedToId IS NOT NULL (assigned at creation, or to a team pool)
-  RenewalTask.assignedToId may be NULL only in UNASSIGNED bucket (queue-based)
-  Document.ownedByEntityId IS NOT NULL
-  Claim.assignedToId IS NOT NULL after SUBMITTED state
-
-Unassigned pool:
-  RenewalTask with assignedToId = NULL → visible in "Unassigned" bucket to Renewal Manager.
-  System SLA: unassigned tasks > 24h → escalated automatically.
+The system enforces 3 canonical roles:
+1. **AGENT**:
+   - Authorized only for records where:
+     `companyId = actor.companyId AND (agentId = actor.agentId OR createdById = actor.userId)`
+2. **BACK_OFFICE**:
+   - Authorized for all operational records where:
+     `companyId = actor.companyId`
+3. **ADMIN**:
+   - Authorized for all tenant records where:
+     `companyId = actor.companyId`
 
 ---
 
-## MULTI-TENANCY PREPARATION
+## 4. OWNERSHIP TRANSITION & REASSIGNMENT
 
-Although JEST is currently single-organization, every entity carries organizationId.
-This ensures future multi-tenancy without schema migration.
-Data isolation between organizations is enforced at every query:
-  WHERE organizationId = actor.organizationId
+1. **Lead Reassignment**:
+   - Back Office or Admin reassigns `agentId`.
+   - Audit trail records: `{ actor, fromAgentId, toAgentId, reason, timestamp }`.
+2. **Task & Renewal Assignment**:
+   - Unassigned tasks are visible in the Back Office pool.
+   - Assignment updates `agentId` with audit logging.
+3. **User Deactivation**:
+   - When a user or agent is deactivated, open leads, quotations, and active tasks are reassigned via the Admin Reassignment flow before deactivation completes.
+

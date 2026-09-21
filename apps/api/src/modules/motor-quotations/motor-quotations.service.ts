@@ -25,6 +25,20 @@ export class MotorQuotationsService {
     private readonly leadLifecycleService: LeadLifecycleService,
   ) {}
 
+  private async generateQuotationNumber(): Promise<string> {
+    try {
+      const result = await this.prisma.$queryRaw<[{ nextval: bigint }]>`
+        SELECT nextval('motor_quotation_number_seq')`;
+      return `MQT-${result[0].nextval.toString().padStart(6, '0')}`;
+    } catch {
+      await this.prisma
+        .$executeRaw`CREATE SEQUENCE IF NOT EXISTS motor_quotation_number_seq START 1;`;
+      const retry = await this.prisma.$queryRaw<[{ nextval: bigint }]>`
+        SELECT nextval('motor_quotation_number_seq')`;
+      return `MQT-${retry[0].nextval.toString().padStart(6, '0')}`;
+    }
+  }
+
   async create(dto: CreateMotorQuotationDto, user: RequestUser) {
     // 1. Verify Lead and Vehicle
     const [lead, vehicle] = await Promise.all([
@@ -59,17 +73,13 @@ export class MotorQuotationsService {
     }
 
     const customerId = lead.customerId || vehicle.customerId || null;
-    const companyId = lead.companyId || user.companyId || '12453e89-e8ab-4d00-bf5d-8d0b614e05da';
+    const companyId = lead.companyId || user.companyId || (user as any).organizationId;
+    if (!companyId) {
+      throw new ForbiddenException('Tenant organizational context is required');
+    }
 
     // 3. Generate sequential quotation number: MQT-XXXXXX
-    const count = await this.prisma.motorQuotation.count();
-    let nextNum = count + 1;
-    let quotationNumber = `MQT-${String(nextNum).padStart(6, '0')}`;
-
-    while (await this.prisma.motorQuotation.findUnique({ where: { quotationNumber } })) {
-      nextNum++;
-      quotationNumber = `MQT-${String(nextNum).padStart(6, '0')}`;
-    }
+    const quotationNumber = await this.generateQuotationNumber();
 
     // 4. Create MotorQuotation
     const quotation = await this.prisma.motorQuotation.create({
@@ -130,7 +140,13 @@ export class MotorQuotationsService {
     } = query;
     const skip = (page - 1) * limit;
 
+    const companyId = user.companyId || (user as any).organizationId;
+    if (!companyId) {
+      throw new ForbiddenException('Tenant organizational context is required');
+    }
+
     const where: Prisma.MotorQuotationWhereInput = {
+      companyId,
       deletedAt: null,
     };
 
@@ -194,8 +210,13 @@ export class MotorQuotationsService {
   }
 
   async findById(id: string, user: RequestUser) {
+    const companyId = user.companyId || (user as any).organizationId;
+    if (!companyId) {
+      throw new ForbiddenException('Tenant organizational context is required');
+    }
+
     const quotation = await this.prisma.motorQuotation.findFirst({
-      where: { id, deletedAt: null },
+      where: { id, companyId, deletedAt: null },
       include: {
         lead: true,
         vehicle: true,
@@ -228,11 +249,28 @@ export class MotorQuotationsService {
   }
 
   async compareQuotes(vehicleId: string, user: RequestUser) {
+    const companyId = user.companyId || (user as any).organizationId;
+    if (!companyId) {
+      throw new ForbiddenException('Tenant organizational context is required');
+    }
+
+    const where: Prisma.MotorQuotationWhereInput = {
+      vehicleId,
+      companyId,
+      deletedAt: null,
+    };
+
+    if (user.role === RoleType.AGENT) {
+      const agent = await this.prisma.agent.findUnique({ where: { userId: user.id } });
+      if (agent) {
+        where.agentId = agent.id;
+      } else {
+        where.createdById = user.id;
+      }
+    }
+
     const quotes = await this.prisma.motorQuotation.findMany({
-      where: {
-        vehicleId,
-        deletedAt: null,
-      },
+      where,
       orderBy: { finalPremium: 'asc' },
       include: {
         lead: { select: { id: true, leadCode: true, status: true } },
@@ -307,6 +345,7 @@ export class MotorQuotationsService {
       await tx.motorQuotation.updateMany({
         where: {
           vehicleId: quote.vehicleId,
+          companyId: quote.companyId,
           id: { not: id },
           status: { in: [MotorQuotationStatus.DRAFT, MotorQuotationStatus.SHARED] },
         },

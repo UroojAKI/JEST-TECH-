@@ -10,6 +10,7 @@ import {
   PaymentTrackingStatus,
   InspectionStatus,
   QuotationStatus,
+  RoleType,
 } from '@prisma/client';
 
 export interface RecordPaymentDto {
@@ -31,8 +32,11 @@ const PAYMENT_TRANSITIONS: Record<string, string[]> = {
 };
 
 const FINANCE_PAYMENT_ROLES = new Set([
-  'SUPER_ADMIN',
+  RoleType.ADMIN,
   'ADMIN',
+  RoleType.BACK_OFFICE,
+  'BACK_OFFICE',
+  'SUPER_ADMIN',
   'SYSTEM_ADMINISTRATOR',
   'MD_CEO',
   'OPERATIONS',
@@ -55,12 +59,22 @@ export class MotorPaymentTrackingService {
 
   constructor(private readonly prisma: PrismaService) {}
 
-  async recordPayment(dto: RecordPaymentDto) {
+  async recordPayment(dto: RecordPaymentDto, actorCompanyId?: string) {
     const quotation = await this.prisma.quotation.findUnique({
       where: { id: dto.quotationId },
     });
     if (!quotation)
       throw new NotFoundException(`Quotation ${dto.quotationId} not found`);
+
+    if (
+      actorCompanyId &&
+      quotation.companyId &&
+      quotation.companyId !== actorCompanyId
+    ) {
+      throw new ForbiddenException(
+        'Cross-organization access is strictly prohibited',
+      );
+    }
 
     const existing = await this.prisma.motorPaymentRecord.findUnique({
       where: { quotationId: dto.quotationId },
@@ -206,6 +220,7 @@ export class MotorPaymentTrackingService {
 
   async canProceedToPolicy(
     quotationId: string,
+    actorCompanyId?: string,
   ): Promise<{ allowed: boolean; blockers: string[] }> {
     const [quotation, inspection, payment, evaluation] = await Promise.all([
       this.prisma.quotation.findUnique({
@@ -219,6 +234,16 @@ export class MotorPaymentTrackingService {
 
     if (!quotation)
       return { allowed: false, blockers: ['QUOTATION_NOT_FOUND'] };
+
+    if (
+      actorCompanyId &&
+      quotation.companyId &&
+      quotation.companyId !== actorCompanyId
+    ) {
+      throw new ForbiddenException(
+        'Cross-organization access is strictly prohibited',
+      );
+    }
 
     const blockers: string[] = [];
     if (!quotation.calculationSnapshot)
@@ -243,7 +268,21 @@ export class MotorPaymentTrackingService {
     return { allowed: blockers.length === 0, blockers };
   }
 
-  async getPayment(quotationId: string) {
+  async getPayment(quotationId: string, actorCompanyId?: string) {
+    if (actorCompanyId) {
+      const quotation = await this.prisma.quotation.findUnique({
+        where: { id: quotationId },
+        select: { companyId: true },
+      });
+      if (!quotation) {
+        throw new NotFoundException(`Quotation ${quotationId} not found`);
+      }
+      if (quotation.companyId && quotation.companyId !== actorCompanyId) {
+        throw new ForbiddenException(
+          'Cross-organization access is strictly prohibited',
+        );
+      }
+    }
     return this.prisma.motorPaymentRecord.findUnique({
       where: { quotationId },
     });

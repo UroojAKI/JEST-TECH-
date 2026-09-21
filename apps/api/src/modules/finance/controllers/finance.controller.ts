@@ -8,6 +8,7 @@ import {
   UseGuards,
   Res,
   NotFoundException,
+  ForbiddenException,
 } from '@nestjs/common';
 import type { Response } from 'express';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
@@ -54,11 +55,22 @@ export class FinanceController {
     monthStart.setDate(1);
     monthStart.setHours(0, 0, 0, 0);
 
-    // 1. Receipts today
+    const companyId = actor.companyId || (actor as any).organizationId;
+
+    // 1. Receipts today (scoped to customers of this company)
+    const companyCustomers = await this.prisma.customer.findMany({
+      where: { companyId },
+      select: { id: true },
+    });
+    const companyCustomerIds = companyCustomers.map((c) => c.id);
+
     const receiptsToday = await this.prisma.receipt.findMany({
       where: {
         createdAt: { gte: todayStart },
         status: { not: 'BOUNCED' },
+        ...(companyCustomerIds.length > 0
+          ? { customerId: { in: companyCustomerIds } }
+          : {}),
       },
       select: { amount: true },
     });
@@ -67,9 +79,10 @@ export class FinanceController {
       0,
     );
 
-    // 2. Monthly GWP (Policies issued this month)
+    // 2. Monthly GWP (Policies issued this month for this company)
     const policiesThisMonth = await this.prisma.policy.findMany({
       where: {
+        companyId,
         createdAt: { gte: monthStart },
         status: { in: ['ACTIVE', 'ISSUED'] },
       },
@@ -80,9 +93,20 @@ export class FinanceController {
       0,
     );
 
-    // 3. Outstanding Premium (Unpaid invoices)
+    // 3. Outstanding Premium (Unpaid invoices for this company's policies)
+    const companyPolicies = await this.prisma.policy.findMany({
+      where: { companyId },
+      select: { id: true },
+    });
+    const companyPolicyIds = companyPolicies.map((p) => p.id);
+
     const unpaidInvoices = await this.prisma.invoice.findMany({
-      where: { status: 'UNPAID' },
+      where: {
+        status: 'UNPAID',
+        ...(companyPolicyIds.length > 0
+          ? { entityId: { in: companyPolicyIds } }
+          : {}),
+      },
       select: { totalAmount: true },
     });
     const outstandingPremium = unpaidInvoices.reduce(
@@ -90,9 +114,12 @@ export class FinanceController {
       0,
     );
 
-    // 4. Commissions
+    // 4. Commissions (scoped to company users)
     const accruedCommissions = await this.prisma.commission.findMany({
-      where: { status: 'ACCRUED' },
+      where: {
+        status: 'ACCRUED',
+        user: { companyId },
+      },
       select: { amount: true },
     });
     const totalCommissionAccrued = accruedCommissions.reduce(
@@ -101,10 +128,26 @@ export class FinanceController {
     );
 
     const paidCommissions = await this.prisma.commission.findMany({
-      where: { status: 'PAID' },
+      where: {
+        status: 'PAID',
+        user: { companyId },
+      },
       select: { amount: true },
     });
     const totalCommissionPaid = paidCommissions.reduce(
+      (acc, c) => acc + Number(c.amount),
+      0,
+    );
+
+    // Commissions today for real net margin calculation
+    const commissionsToday = await this.prisma.commission.findMany({
+      where: {
+        createdAt: { gte: todayStart },
+        user: { companyId },
+      },
+      select: { amount: true },
+    });
+    const todayCommissions = commissionsToday.reduce(
       (acc, c) => acc + Number(c.amount),
       0,
     );
@@ -117,18 +160,36 @@ export class FinanceController {
       reconciliationQueueItems,
     ] = await Promise.all([
       this.prisma.backOfficeTask.count({
-        where: { taskType: 'VERIFICATION', status: 'PENDING' },
+        where: {
+          companyId,
+          taskType: 'VERIFICATION',
+          status: 'PENDING',
+        },
       }),
       this.prisma.settlement.count({
         where: { status: 'PENDING' },
       }),
       this.prisma.commission.count({
-        where: { status: 'ACCRUED' },
+        where: {
+          status: 'ACCRUED',
+          user: { companyId },
+        },
       }),
       this.prisma.motorPaymentRecord.count({
-        where: { status: 'UNDER_PROCESS' },
+        where: {
+          status: 'UNDER_PROCESS',
+          quotation: { companyId },
+        },
       }),
     ]);
+
+    // Ledger balance calculation from journal lines
+    const ledgerAgg = await this.prisma.journalLine.aggregate({
+      _sum: { debit: true, credit: true },
+    });
+    const ledgerBalance = Math.abs(
+      Number(ledgerAgg._sum.debit || 0) - Number(ledgerAgg._sum.credit || 0),
+    );
 
     return {
       todayCollections,
@@ -136,11 +197,11 @@ export class FinanceController {
       outstandingPremium,
       totalCommissionAccrued,
       totalCommissionPaid,
-      netProfitToday: Math.round(todayCollections * 0.15),
+      netProfitToday: Math.max(0, todayCollections - todayCommissions),
       payables: outstandingPremium,
       receivables: todayCollections,
       cashFlow: todayCollections - totalCommissionPaid,
-      ledgerBalance: todayCollections * 2,
+      ledgerBalance: ledgerBalance > 0 ? ledgerBalance : todayCollections,
       myWorkQueue: {
         pendingVerification,
         settlementsPending,
@@ -154,7 +215,15 @@ export class FinanceController {
   @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE)
   @ApiOperation({ summary: 'Export premium receipts register as CSV' })
   async exportReceipts(@CurrentUser() actor: RequestUser, @Res() res: Response) {
+    const companyId = actor.companyId || (actor as any).organizationId;
+    const companyCustomers = await this.prisma.customer.findMany({
+      where: { companyId },
+      select: { id: true },
+    });
+    const customerIds = companyCustomers.map((c) => c.id);
+
     const receipts = await this.prisma.receipt.findMany({
+      where: customerIds.length > 0 ? { customerId: { in: customerIds } } : {},
       take: 1000,
       orderBy: { createdAt: 'desc' },
     });
@@ -188,8 +257,27 @@ export class FinanceController {
   @Get('receipts')
   @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE)
   @ApiOperation({ summary: 'List premium receipts' })
-  async getReceipts(@Query('status') status?: string) {
+  async getReceipts(
+    @CurrentUser() actor: RequestUser,
+    @Query('status') status?: string,
+  ) {
+    const companyId = actor.companyId || (actor as any).organizationId;
+    const companyCustomers = await this.prisma.customer.findMany({
+      where: { companyId },
+      select: { id: true, firstName: true, lastName: true },
+    });
+    const customerMap = new Map(
+      companyCustomers.map((c) => [
+        c.id,
+        `${c.firstName} ${c.lastName || ''}`.trim(),
+      ]),
+    );
+    const customerIds = companyCustomers.map((c) => c.id);
+
     const where: any = {};
+    if (customerIds.length > 0) {
+      where.customerId = { in: customerIds };
+    }
     if (status) {
       where.status = status;
     }
@@ -203,7 +291,7 @@ export class FinanceController {
     return receipts.map((r) => ({
       id: r.id,
       receiptNumber: r.receiptNum,
-      customerName: r.customerId,
+      customerName: customerMap.get(r.customerId) || r.customerId,
       policyNumber: 'POL-' + r.id.substring(0, 8).toUpperCase(),
       amount: Number(r.amount),
       paymentMode: r.paymentMode,
@@ -217,8 +305,15 @@ export class FinanceController {
   @Get('payments')
   @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE)
   @ApiOperation({ summary: 'List outgoing payments / disbursements' })
-  async getPayments(@Query('type') type?: string) {
+  async getPayments(
+    @CurrentUser() actor: RequestUser,
+    @Query('type') type?: string,
+  ) {
+    const companyId = actor.companyId || (actor as any).organizationId;
     const motorPayments = await this.prisma.motorPaymentRecord.findMany({
+      where: {
+        quotation: { companyId },
+      },
       orderBy: { createdAt: 'desc' },
       take: 100,
       include: { quotation: true },
@@ -306,8 +401,12 @@ export class FinanceController {
   @Get('commissions')
   @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE)
   @ApiOperation({ summary: 'List broker / agent commissions' })
-  async getCommissions() {
+  async getCommissions(@CurrentUser() actor: RequestUser) {
+    const companyId = actor.companyId || (actor as any).organizationId;
     const commissions = await this.prisma.commission.findMany({
+      where: {
+        user: { companyId },
+      },
       orderBy: { createdAt: 'desc' },
       take: 100,
       include: {
@@ -319,29 +418,68 @@ export class FinanceController {
       },
     });
 
-    return commissions.map((c) => ({
-      id: c.id,
-      policyNumber: 'POL-' + c.policyId.substring(0, 8).toUpperCase(),
-      customerName: 'Customer',
-      agentName: `${c.user?.firstName || ''} ${c.user?.lastName || ''}`.trim() || 'Agent',
-      roleTier: c.roleTier,
-      grossPremium: Number(c.amount) * 10,
-      commissionPercent: 10,
-      commissionAmount: Number(c.amount),
-      status: c.status === 'PAID' ? 'REALIZED' : 'ACCRUED',
-      payoutStatus: c.status === 'PAID' ? 'PAID' : c.status === 'REALIZED' ? 'APPROVED' : 'PENDING_APPROVAL',
-      createdAt: c.createdAt.toISOString(),
-    }));
+    const policyIds = commissions.map((c) => c.policyId).filter(Boolean);
+    const policies = await this.prisma.policy.findMany({
+      where: { id: { in: policyIds } },
+      select: {
+        id: true,
+        policyNumber: true,
+        premiumAmount: true,
+        contact: { select: { firstName: true, lastName: true } },
+      },
+    });
+    const policyMap = new Map(policies.map((p) => [p.id, p]));
+
+    return commissions.map((c) => {
+      const pol = policyMap.get(c.policyId);
+      const grossPremium = pol ? Number(pol.premiumAmount) : Number(c.amount);
+      const commissionPercent =
+        grossPremium > 0
+          ? Math.round((Number(c.amount) / grossPremium) * 100)
+          : 0;
+      const customerName = pol?.contact
+        ? `${pol.contact.firstName} ${pol.contact.lastName || ''}`.trim()
+        : 'Customer';
+      const policyNumber =
+        pol?.policyNumber ||
+        'POL-' + c.policyId.substring(0, 8).toUpperCase();
+
+      return {
+        id: c.id,
+        policyNumber,
+        customerName,
+        agentName:
+          `${c.user?.firstName || ''} ${c.user?.lastName || ''}`.trim() ||
+          'Agent',
+        roleTier: c.roleTier,
+        grossPremium,
+        commissionPercent,
+        commissionAmount: Number(c.amount),
+        status: c.status === 'PAID' ? 'REALIZED' : 'ACCRUED',
+        payoutStatus:
+          c.status === 'PAID'
+            ? 'PAID'
+            : c.status === 'REALIZED'
+              ? 'APPROVED'
+              : 'PENDING_APPROVAL',
+        createdAt: c.createdAt.toISOString(),
+      };
+    });
   }
 
   @Post('commissions/:id/approve')
   @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE)
   @ApiOperation({ summary: 'Approve agent commission payout' })
-  async approveCommission(@Param('id') id: string) {
+  async approveCommission(
+    @Param('id') id: string,
+    @CurrentUser() actor: RequestUser,
+  ) {
+    const companyId = actor.companyId || (actor as any).organizationId;
     const commission = await this.prisma.commission.findUnique({
       where: { id },
+      include: { user: true },
     });
-    if (!commission) {
+    if (!commission || commission.user?.companyId !== companyId) {
       throw new NotFoundException('Commission record not found');
     }
     return this.prisma.commission.update({
@@ -359,30 +497,39 @@ export class FinanceController {
       take: 50,
     });
 
-    return settlements.map((s) => ({
-      id: s.id,
-      insurerName: 'Insurer Partner',
-      period: s.date.toISOString().substring(0, 7),
-      grossPremiumCollected: Number(s.totalAmount),
-      commissionRetained: Math.round(Number(s.totalAmount) * 0.1),
-      netPayable: Math.round(Number(s.totalAmount) * 0.9),
-      status: s.status === 'PROCESSED' ? 'SETTLED' : 'PENDING_SETTLEMENT',
-      settledDate: s.status === 'PROCESSED' ? s.updatedAt.toISOString() : null,
-    }));
+    return settlements.map((s) => {
+      const total = Number(s.totalAmount);
+      return {
+        id: s.id,
+        insurerName: 'Insurer Partner',
+        period: s.date.toISOString().substring(0, 7),
+        grossPremiumCollected: total,
+        commissionRetained: Math.round(total * 0.1),
+        netPayable: Math.round(total * 0.9),
+        status: s.status === 'PROCESSED' ? 'SETTLED' : 'PENDING_SETTLEMENT',
+        settledDate: s.status === 'PROCESSED' ? s.updatedAt.toISOString() : null,
+      };
+    });
   }
 
   @Get('incentives')
   @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE)
   @ApiOperation({ summary: 'List sales performance incentives' })
-  async getIncentives() {
+  async getIncentives(@CurrentUser() actor: RequestUser) {
+    const companyId = actor.companyId || (actor as any).organizationId;
     const targets = await this.prisma.salesTarget.findMany({
+      where: {
+        user: { companyId },
+      },
       take: 50,
       include: { user: true },
     });
 
     return targets.map((t) => ({
       id: t.id,
-      employeeName: `${t.user?.firstName || ''} ${t.user?.lastName || ''}`.trim() || 'Employee',
+      employeeName:
+        `${t.user?.firstName || ''} ${t.user?.lastName || ''}`.trim() ||
+        'Employee',
       role: 'Sales Executive',
       type: 'QUARTERLY_TARGET',
       targetAmount: Number(t.targetGwp || 100000),
@@ -429,5 +576,39 @@ export class FinanceController {
     @CurrentUser() actor: RequestUser,
   ) {
     return this.reconciliationService.flagDiscrepancy(id, actor.userId, dto);
+  }
+
+  @Post('invoices/:id/pay')
+  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE)
+  @ApiOperation({ summary: 'Process payment allocation against an invoice' })
+  async processInvoicePayment(
+    @Param('id') invoiceId: string,
+    @Body() dto: { amount: string; mode: string; reference?: string },
+    @CurrentUser() actor: RequestUser,
+  ) {
+    const invoice = await this.prisma.invoice.findUnique({
+      where: { id: invoiceId },
+    });
+    if (!invoice) throw new NotFoundException('Invoice not found');
+
+    const companyId = actor.companyId || (actor as any).organizationId;
+    if (invoice.entityType === 'POLICY' && companyId) {
+      const policy = await this.prisma.policy.findUnique({
+        where: { id: invoice.entityId },
+        select: { companyId: true },
+      });
+      if (policy?.companyId && policy.companyId !== companyId) {
+        throw new ForbiddenException(
+          'Cross-organization access is strictly prohibited',
+        );
+      }
+    }
+
+    return this.paymentService.processPayment(
+      invoiceId,
+      dto.amount,
+      dto.mode,
+      dto.reference,
+    );
   }
 }

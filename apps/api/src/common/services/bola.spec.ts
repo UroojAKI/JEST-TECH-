@@ -449,11 +449,26 @@ describe('BOLA & Multi-User Authorization Suite (R1 Exit Gate)', () => {
         userId: 'usr-super-1',
         role: RoleType.ADMIN,
         roles: [RoleType.ADMIN],
+        permissions: ['*'],
         organizationId: 'org-mumbai',
       });
 
       const filter = scopeResolver.resolveScopeFilter(superAdmin, 'LEAD');
       expect(filter).toEqual({});
+    });
+
+    it('should return organization-scoped filter for Tenant Admin', () => {
+      const tenantAdmin = createActor({
+        userId: 'usr-admin-tenant',
+        role: RoleType.ADMIN,
+        roles: [RoleType.ADMIN],
+        organizationId: 'org-mumbai',
+        companyId: 'org-mumbai',
+      });
+
+      const filter = scopeResolver.resolveScopeFilter(tenantAdmin, 'LEAD');
+      expect(filter.OR).toBeDefined();
+      expect(filter.OR).toContainEqual({ companyId: 'org-mumbai' });
     });
 
     it('should return organization-scoped filter for Back Office (scoped to company/branch hierarchy)', () => {
@@ -499,6 +514,7 @@ describe('BOLA & Multi-User Authorization Suite (R1 Exit Gate)', () => {
         role: RoleType.ADMIN,
         roles: [RoleType.ADMIN],
         organizationId: undefined,
+        companyId: undefined,
       });
 
       const filter = scopeResolver.resolveScopeFilter(admin, 'LEAD');

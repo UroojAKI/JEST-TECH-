@@ -21,13 +21,24 @@ export interface SettleClaimDto {
 export class SettleClaimService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async execute(claimId: string, dto: SettleClaimDto, actorId: string) {
+  async execute(
+    claimId: string,
+    dto: SettleClaimDto,
+    actorId: string,
+    actorCompanyId?: string,
+  ) {
     const claim = await this.prisma.claim.findUnique({
       where: { id: claimId },
     });
 
     if (!claim) {
       throw new NotFoundException(`Claim with ID ${claimId} not found`);
+    }
+
+    if (actorCompanyId && claim.companyId && claim.companyId !== actorCompanyId) {
+      throw new ForbiddenException(
+        'Cross-organization access is strictly prohibited',
+      );
     }
 
     if (claim.createdById === actorId) {
@@ -111,6 +122,7 @@ export class SettleClaimService {
     claimId: string,
     verificationReference: string,
     actorId: string,
+    actorCompanyId?: string,
   ) {
     const claim = await this.prisma.claim.findUnique({
       where: { id: claimId },
@@ -118,6 +130,12 @@ export class SettleClaimService {
 
     if (!claim) {
       throw new NotFoundException(`Claim with ID ${claimId} not found`);
+    }
+
+    if (actorCompanyId && claim.companyId && claim.companyId !== actorCompanyId) {
+      throw new ForbiddenException(
+        'Cross-organization access is strictly prohibited',
+      );
     }
 
     if (claim.createdById === actorId) {

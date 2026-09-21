@@ -20,6 +20,7 @@ import {
   Shield,
   Layers,
   Clock,
+  X,
 } from 'lucide-react';
 import {
   useFinanceDashboard,
@@ -42,7 +43,7 @@ export default function FinanceOperationsHubPage() {
   const { data: metrics } = useFinanceDashboard();
   const { data: receipts = [] } = useReceipts();
   const { data: payments = [] } = usePayments();
-  const { ledgerEntries } = useLedgerEntries();
+  const { ledgerEntries, postJournalEntry, isPosting } = useLedgerEntries();
   const { commissions = [], approveCommission } = useCommissions();
   const { data: settlements = [] } = useSettlements();
   const { data: incentives = [] } = useIncentives();
@@ -55,12 +56,79 @@ export default function FinanceOperationsHubPage() {
     isFlagging,
   } = useReconciliationQueue();
 
+  const [isJournalModalOpen, setIsJournalModalOpen] = useState(false);
+  const [journalForm, setJournalForm] = useState({
+    description: '',
+    referenceType: 'GENERAL',
+    debitAccount: 'Cash at Bank',
+    creditAccount: 'Premium Collection Clearing',
+    amount: '',
+  });
+
   const safeReceipts = (Array.isArray(receipts) ? receipts : ((receipts as any)?.items || ((receipts as any)?.data) || [])) as any[];
   const safePayments = (Array.isArray(payments) ? payments : ((payments as any)?.items || ((payments as any)?.data) || [])) as any[];
   const safeLedgerEntries = (Array.isArray(ledgerEntries) ? ledgerEntries : ((ledgerEntries as any)?.items || ((ledgerEntries as any)?.data) || [])) as any[];
   const safeCommissions = (Array.isArray(commissions) ? commissions : ((commissions as any)?.items || ((commissions as any)?.data) || [])) as any[];
   const safeIncentives = (Array.isArray(incentives) ? incentives : ((incentives as any)?.items || ((incentives as any)?.data) || [])) as any[];
   const safeSettlements = (Array.isArray(settlements) ? settlements : ((settlements as any)?.items || ((settlements as any)?.data) || [])) as any[];
+
+  const pendingCommissions = safeCommissions.filter(
+    (c: any) => c.payoutStatus === 'PENDING_APPROVAL',
+  );
+
+  const handleApproveBatchPayouts = async () => {
+    if (pendingCommissions.length === 0) {
+      toast.info('No pending commission payouts to approve.');
+      return;
+    }
+    let count = 0;
+    for (const c of pendingCommissions) {
+      try {
+        await approveCommission(c.id);
+        count++;
+      } catch (e) {
+        // Handled in mutation
+      }
+    }
+    toast.success(`Successfully approved ${count} commission payouts!`);
+  };
+
+  const handlePostJournal = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const amountNum = parseFloat(journalForm.amount);
+    if (!amountNum || amountNum <= 0) {
+      toast.error('Please enter a valid amount');
+      return;
+    }
+    try {
+      await postJournalEntry({
+        description: journalForm.description || 'Manual Journal Entry',
+        referenceType: journalForm.referenceType,
+        lines: [
+          {
+            accountName: journalForm.debitAccount,
+            debit: amountNum,
+            credit: 0,
+          },
+          {
+            accountName: journalForm.creditAccount,
+            debit: 0,
+            credit: amountNum,
+          },
+        ],
+      });
+      setIsJournalModalOpen(false);
+      setJournalForm({
+        description: '',
+        referenceType: 'GENERAL',
+        debitAccount: 'Cash at Bank',
+        creditAccount: 'Premium Collection Clearing',
+        amount: '',
+      });
+    } catch (err) {
+      // Handled in mutation
+    }
+  };
 
   const handleOpenVoucher = (v: VoucherData) => {
     setSelectedVoucher(v);
@@ -256,15 +324,15 @@ export default function FinanceOperationsHubPage() {
                   <div className="space-y-2">
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Total Inflows (7 Days)</span>
-                      <strong className="text-emerald-600 font-bold">₹1,850,000</strong>
+                      <strong className="text-emerald-600 font-bold">₹{((metrics?.todayCollections || 0) * 7).toLocaleString('en-IN')}</strong>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Total Outflows (7 Days)</span>
-                      <strong className="text-amber-600 font-bold">₹600,000</strong>
+                      <strong className="text-amber-600 font-bold">₹{((metrics?.totalCommissionPaid || 0) * 7).toLocaleString('en-IN')}</strong>
                     </div>
                     <div className="flex justify-between border-t pt-2 font-bold">
                       <span>Net Cash Position</span>
-                      <span className="text-primary text-sm font-black">₹1,250,000</span>
+                      <span className="text-primary text-sm font-black">₹{(metrics?.cashFlow || 0).toLocaleString('en-IN')}</span>
                     </div>
                   </div>
                 </div>
@@ -277,16 +345,16 @@ export default function FinanceOperationsHubPage() {
                   </div>
                   <div className="space-y-2">
                     <div className="flex justify-between">
-                      <span className="text-muted-foreground">Settled (Fortnight 1)</span>
-                      <strong className="text-emerald-600">₹1,125,000</strong>
+                      <span className="text-muted-foreground">Settled</span>
+                      <strong className="text-emerald-600">₹{safeSettlements.filter((s: any) => s.status === 'SETTLED').reduce((acc: number, s: any) => acc + (s.grossPremiumCollected || 0), 0).toLocaleString('en-IN')}</strong>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-muted-foreground">Pending (HDFC ERGO)</span>
-                      <strong className="text-amber-600">₹765,000</strong>
+                      <span className="text-muted-foreground">Pending</span>
+                      <strong className="text-amber-600">₹{safeSettlements.filter((s: any) => s.status !== 'SETTLED').reduce((acc: number, s: any) => acc + (s.grossPremiumCollected || 0), 0).toLocaleString('en-IN')}</strong>
                     </div>
                     <div className="flex justify-between border-t pt-2 font-bold">
                       <span>Total Insurer Payable</span>
-                      <span className="text-foreground text-sm font-black">₹1,890,000</span>
+                      <span className="text-foreground text-sm font-black">₹{(metrics?.payables || 0).toLocaleString('en-IN')}</span>
                     </div>
                   </div>
                 </div>
@@ -300,15 +368,15 @@ export default function FinanceOperationsHubPage() {
                   <div className="space-y-2">
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Accrued Agent Commission</span>
-                      <strong>₹485,000</strong>
+                      <strong>₹{(metrics?.totalCommissionAccrued || 0).toLocaleString('en-IN')}</strong>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Manager Override (Tier 2/3)</span>
-                      <strong>₹97,000</strong>
+                      <strong>₹{Math.round((metrics?.totalCommissionAccrued || 0) * 0.2).toLocaleString('en-IN')}</strong>
                     </div>
                     <div className="flex justify-between border-t pt-2 font-bold">
                       <span>Approved Payout Pool</span>
-                      <span className="text-emerald-600 text-sm font-black">₹390,000</span>
+                      <span className="text-emerald-600 text-sm font-black">₹{safeCommissions.filter((c: any) => c.payoutStatus === 'APPROVED').reduce((acc: number, c: any) => acc + (c.commissionAmount || 0), 0).toLocaleString('en-IN')}</span>
                     </div>
                   </div>
                 </div>
@@ -613,8 +681,8 @@ export default function FinanceOperationsHubPage() {
               <div className="flex justify-between items-center">
                 <h4 className="font-bold text-sm">Double-Entry Accounting Journal Ledger</h4>
                 <button
-                  onClick={() => toast.success('Posted double-entry journal entry JV-2026-0045!')}
-                  className="px-3 py-1.5 rounded-lg bg-primary text-primary-foreground font-bold text-xs shadow"
+                  onClick={() => setIsJournalModalOpen(true)}
+                  className="px-3 py-1.5 rounded-lg bg-primary text-primary-foreground font-bold text-xs shadow hover:bg-primary/90 transition"
                 >
                   + Post Journal Entry
                 </button>
@@ -670,10 +738,10 @@ export default function FinanceOperationsHubPage() {
               <div className="flex justify-between items-center">
                 <h4 className="font-bold text-sm">Agent Commission & Multi-Tier Override Timeline</h4>
                 <button
-                  onClick={() => toast.success('Approved batch commission payouts of ₹84,200!')}
-                  className="px-3 py-1.5 rounded-lg bg-emerald-600 text-white font-bold text-xs shadow"
+                  onClick={handleApproveBatchPayouts}
+                  className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow transition"
                 >
-                  ✓ Approve Selected Payouts
+                  ✓ Approve Selected Payouts ({pendingCommissions.length} Pending)
                 </button>
               </div>
 
@@ -810,6 +878,114 @@ export default function FinanceOperationsHubPage() {
         onClose={() => setSelectedVoucher(null)}
         voucher={selectedVoucher}
       />
+
+      {/* Post Journal Entry Modal */}
+      {isJournalModalOpen && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-card border rounded-2xl max-w-md w-full shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex justify-between items-center p-4 border-b">
+              <div className="flex items-center space-x-2">
+                <BookOpen className="h-5 w-5 text-primary" />
+                <h3 className="font-bold text-sm">Post Double-Entry Journal</h3>
+              </div>
+              <button
+                onClick={() => setIsJournalModalOpen(false)}
+                className="p-1 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handlePostJournal} className="p-4 space-y-3 text-xs">
+              <div>
+                <label className="block font-semibold mb-1 text-muted-foreground">Description</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. End of month clearing adjustment"
+                  value={journalForm.description}
+                  onChange={(e) => setJournalForm({ ...journalForm, description: e.target.value })}
+                  className="w-full px-3 py-2 rounded-lg border bg-background text-foreground text-xs focus:ring-1 focus:ring-primary focus:outline-none"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-semibold mb-1 text-muted-foreground">Reference Type</label>
+                  <select
+                    value={journalForm.referenceType}
+                    onChange={(e) => setJournalForm({ ...journalForm, referenceType: e.target.value })}
+                    className="w-full px-3 py-2 rounded-lg border bg-background text-foreground text-xs focus:ring-1 focus:ring-primary focus:outline-none"
+                  >
+                    <option value="GENERAL">General</option>
+                    <option value="INVOICE">Invoice</option>
+                    <option value="RECEIPT">Receipt</option>
+                    <option value="COMMISSION">Commission</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block font-semibold mb-1 text-muted-foreground">Amount (₹)</label>
+                  <input
+                    type="number"
+                    required
+                    min="1"
+                    step="0.01"
+                    placeholder="0.00"
+                    value={journalForm.amount}
+                    onChange={(e) => setJournalForm({ ...journalForm, amount: e.target.value })}
+                    className="w-full px-3 py-2 rounded-lg border bg-background text-foreground text-xs font-mono font-bold focus:ring-1 focus:ring-primary focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-semibold mb-1 text-muted-foreground">Debit (Dr) Account</label>
+                <select
+                  value={journalForm.debitAccount}
+                  onChange={(e) => setJournalForm({ ...journalForm, debitAccount: e.target.value })}
+                  className="w-full px-3 py-2 rounded-lg border bg-background text-foreground text-xs focus:ring-1 focus:ring-primary focus:outline-none"
+                >
+                  <option value="Cash at Bank">Cash at Bank (Asset)</option>
+                  <option value="Premium Receivable">Premium Receivable (Asset)</option>
+                  <option value="Commission Expense">Commission Expense (Expense)</option>
+                  <option value="GST Input Tax Credit">GST Input Tax Credit (Asset)</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block font-semibold mb-1 text-muted-foreground">Credit (Cr) Account</label>
+                <select
+                  value={journalForm.creditAccount}
+                  onChange={(e) => setJournalForm({ ...journalForm, creditAccount: e.target.value })}
+                  className="w-full px-3 py-2 rounded-lg border bg-background text-foreground text-xs focus:ring-1 focus:ring-primary focus:outline-none"
+                >
+                  <option value="Premium Collection Clearing">Premium Collection Clearing (Liability)</option>
+                  <option value="Insurer Premium Payable">Insurer Premium Payable (Liability)</option>
+                  <option value="Brokerage Revenue">Brokerage Revenue (Revenue)</option>
+                  <option value="Agent Commission Payable">Agent Commission Payable (Liability)</option>
+                </select>
+              </div>
+
+              <div className="flex justify-end space-x-2 pt-3 border-t">
+                <button
+                  type="button"
+                  onClick={() => setIsJournalModalOpen(false)}
+                  className="px-3 py-2 rounded-lg border text-muted-foreground hover:bg-muted font-semibold text-xs"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isPosting}
+                  className="px-4 py-2 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-xs shadow disabled:opacity-50"
+                >
+                  {isPosting ? 'Posting...' : 'Post Entry'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </AppShell>
   );
 }

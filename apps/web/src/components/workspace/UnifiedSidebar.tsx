@@ -57,10 +57,10 @@ function getWorkspaceNav(pathname: string, role: string): { title: string; items
       title: 'Back Office Operations',
       items: [
         { label: 'Dashboard', href: '/workspace/operations', icon: <LayoutDashboard className="h-4 w-4" /> },
-        { label: 'Operations Queue', href: '/workspace/operations', icon: <ClipboardList className="h-4 w-4" /> },
+        { label: 'Operations Queue', href: '/workspace/operations?tab=issuance', icon: <ClipboardList className="h-4 w-4" /> },
         { label: 'Inspections', href: '/workspace/operations?tab=inspections', icon: <Car className="h-4 w-4" /> },
         { label: 'Policy Issuance', href: '/workspace/operations?tab=issuance', icon: <Shield className="h-4 w-4" /> },
-        { label: 'Documents', href: '/workspace/operations?tab=documents', icon: <FileText className="h-4 w-4" /> },
+        { label: 'Documents', href: '/documents', icon: <FileText className="h-4 w-4" /> },
         { label: 'Renewals', href: '/workspace/renewal', icon: <RefreshCw className="h-4 w-4" /> },
         { label: 'Claims', href: '/claims', icon: <AlertTriangle className="h-4 w-4" /> },
       ],

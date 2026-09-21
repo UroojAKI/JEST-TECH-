@@ -1,4 +1,4 @@
-import { Injectable, BadRequestException } from '@nestjs/common';
+import { Injectable, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { Prisma, QuotationStatus, AddonCode } from '@prisma/client';
 
 import { QuotationRepository } from '../../repositories/quotation.repository';
@@ -98,7 +98,12 @@ export class GenerateQuotationService {
       where: { id: createdById },
       select: { companyId: true },
     });
-    const companyId = user?.companyId || '12453e89-e8ab-4d00-bf5d-8d0b614e05da';
+    const companyId = user?.companyId;
+    if (!companyId) {
+      throw new ForbiddenException(
+        'Tenant organizational context is required to generate quotation',
+      );
+    }
 
     // 4. Map DB Create Input
     const createData: Prisma.QuotationCreateInput = {

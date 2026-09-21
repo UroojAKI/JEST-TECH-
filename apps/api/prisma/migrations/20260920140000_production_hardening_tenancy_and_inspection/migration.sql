@@ -22,32 +22,23 @@ BEGIN
         RAISE EXCEPTION 'Preflight Failure: No canonical Company found in database.';
     END IF;
 
-    -- 2. Backfill Users from Branch or fallback to canonical Company
-    UPDATE "public"."users" u
-    SET "companyId" = COALESCE(b."companyId", default_company_id)
-    FROM "public"."branches" b
-    WHERE u."branchId" = b."id" AND u."companyId" IS NULL;
-
+    -- 2. Backfill Users from canonical Company
     UPDATE "public"."users"
     SET "companyId" = default_company_id
     WHERE "companyId" IS NULL;
 
-    -- 3. Backfill Contacts from Account, Branch, or fallback to canonical Company
-    UPDATE "public"."contacts" c
-    SET "companyId" = COALESCE(a."companyId", b."companyId", default_company_id)
-    LEFT JOIN "public"."accounts" a ON c."accountId" = a."id"
-    LEFT JOIN "public"."branches" b ON c."branchId" = b."id"
-    WHERE c."companyId" IS NULL;
-
+    -- 3. Backfill Contacts from canonical Company
     UPDATE "public"."contacts"
     SET "companyId" = default_company_id
     WHERE "companyId" IS NULL;
 
     -- 4. Backfill Quotations from Contact, Lead, or fallback
     UPDATE "public"."quotations" q
-    SET "companyId" = COALESCE(c."companyId", l."companyId", default_company_id)
-    LEFT JOIN "public"."contacts" c ON q."contactId" = c."id"
-    LEFT JOIN "public"."leads" l ON q."leadId" = l."id"
+    SET "companyId" = COALESCE(
+        (SELECT c."companyId" FROM "public"."contacts" c WHERE c."id" = q."contactId"),
+        (SELECT l."companyId" FROM "public"."leads" l WHERE l."id" = q."leadId"),
+        default_company_id
+    )
     WHERE q."companyId" IS NULL;
 
     UPDATE "public"."quotations"

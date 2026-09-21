@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Body, Query, UseGuards, ForbiddenException } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { RoleType, AuditAction } from '@prisma/client';
 import { JwtAuthGuard } from '../../../auth/guards/jwt-auth.guard';
@@ -80,7 +80,10 @@ export class PortalController {
       return { id: leadCode, leadCode, status: 'NEW' };
     }
 
-    const companyId = user.companyId || '12453e89-e8ab-4d00-bf5d-8d0b614e05da';
+    const companyId = user.companyId || (user as any).organizationId;
+    if (!companyId) {
+      throw new ForbiddenException('Tenant organizational context is required');
+    }
     const created = await this.prisma.lead.create({
       data: {
         leadCode,

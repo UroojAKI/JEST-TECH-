@@ -150,13 +150,13 @@ export class ScopeResolver {
 
     const roles = actor.roles?.length ? actor.roles : [actor.role];
 
-    // ADMIN: Universal access (ALL companies)
-    if (roles.includes(RoleType.ADMIN)) {
+    // Platform Super-Admin: Universal access across all tenants
+    if (actor.permissions?.includes('*')) {
       return {};
     }
 
-    // BACK_OFFICE: Scoped to company / organization
-    if (roles.includes(RoleType.BACK_OFFICE)) {
+    // ADMIN and BACK_OFFICE: Scoped to company / organization
+    if (roles.includes(RoleType.ADMIN) || roles.includes(RoleType.BACK_OFFICE)) {
       return orgScope(actor, resourceType);
     }
 

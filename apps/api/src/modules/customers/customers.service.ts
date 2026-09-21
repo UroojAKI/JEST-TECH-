@@ -102,12 +102,10 @@ export class CustomersService {
       };
     }
 
-    const companyId =
-      user.companyId ||
-      (this.prisma.company
-        ? (await this.prisma.company.findFirst())?.id
-        : undefined) ||
-      '12453e89-e8ab-4d00-bf5d-8d0b614e05da';
+    const companyId = user.companyId || (user as any).organizationId;
+    if (!companyId) {
+      throw new ForbiddenException('Tenant organizational context is required');
+    }
 
     // Resolve primary agent
     let primaryAgentId = dto.agentId;

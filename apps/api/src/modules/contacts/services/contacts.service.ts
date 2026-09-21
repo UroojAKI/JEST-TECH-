@@ -19,16 +19,12 @@ import { PrismaService } from '../../../database/prisma.service';
 const duplicateContactError = (
   existingContactId: string,
   matchedBy: 'PHONE' | 'EMAIL',
-  contactCode?: string,
-  customerName?: string,
 ) =>
   new ConflictException({
     code: 'DUPLICATE_CONTACT',
-    message: `A contact with this ${matchedBy.toLowerCase()} already exists`,
+    message: `A contact with this ${matchedBy.toLowerCase()} already exists in this organization`,
     existingContactId,
     matchedBy,
-    contactCode,
-    customerName,
   });
 
 @Injectable()
@@ -60,27 +56,6 @@ export class ContactsService {
           'Contact creator must match authenticated user',
         );
     }
-    const existingPhone = await this.contactRepository.findByPhone(dto.phone);
-    if (existingPhone) {
-      throw duplicateContactError(
-        existingPhone.id,
-        'PHONE',
-        existingPhone.contactCode,
-        `${existingPhone.firstName} ${existingPhone.lastName}`.trim(),
-      );
-    }
-    if (dto.email) {
-      const existingEmail = await this.contactRepository.findByEmail(dto.email);
-      if (existingEmail) {
-        throw duplicateContactError(
-          existingEmail.id,
-          'EMAIL',
-          existingEmail.contactCode,
-          `${existingEmail.firstName} ${existingEmail.lastName}`.trim(),
-        );
-      }
-    }
-    const contactCode = await this.contactRepository.generateContactCode();
 
     // Authoritative organizational hierarchy resolution (§5 & §6)
     let targetBranchId: string | null = null;
@@ -110,14 +85,28 @@ export class ContactsService {
       targetCompanyId = actor.companyId;
     }
     if (!targetCompanyId) {
-      const fallbackCompany = await this.prisma.company.findFirst();
-      if (!fallbackCompany) {
-        throw new BadRequestException(
-          'Mandatory company context is required to create a contact.',
-        );
-      }
-      targetCompanyId = fallbackCompany.id;
+      throw new ForbiddenException(
+        'Mandatory company context is required to create a contact.',
+      );
     }
+
+    const existingPhone = await this.contactRepository.findByPhone(
+      dto.phone,
+      targetCompanyId,
+    );
+    if (existingPhone) {
+      throw duplicateContactError(existingPhone.id, 'PHONE');
+    }
+    if (dto.email) {
+      const existingEmail = await this.contactRepository.findByEmail(
+        dto.email,
+        targetCompanyId,
+      );
+      if (existingEmail) {
+        throw duplicateContactError(existingEmail.id, 'EMAIL');
+      }
+    }
+    const contactCode = await this.contactRepository.generateContactCode();
 
     // Privileged administrator branch assignment
     const adminRoles = [
@@ -325,13 +314,22 @@ export class ContactsService {
       throw new ForbiddenException(
         'Contact updater must match authenticated user',
       );
+    const targetCompanyId = existing.companyId || actor.companyId;
     if (dto.phone && dto.phone !== existing.phone) {
-      const conflict = await this.contactRepository.findByPhone(dto.phone);
-      if (conflict) throw duplicateContactError(conflict.id, 'PHONE');
+      const conflict = await this.contactRepository.findByPhone(
+        dto.phone,
+        targetCompanyId,
+      );
+      if (conflict && conflict.id !== id)
+        throw duplicateContactError(conflict.id, 'PHONE');
     }
     if (dto.email && dto.email !== existing.email) {
-      const conflict = await this.contactRepository.findByEmail(dto.email);
-      if (conflict) throw duplicateContactError(conflict.id, 'EMAIL');
+      const conflict = await this.contactRepository.findByEmail(
+        dto.email,
+        targetCompanyId,
+      );
+      if (conflict && conflict.id !== id)
+        throw duplicateContactError(conflict.id, 'EMAIL');
     }
     const { accountId, ...restDto } = dto;
     const updateData: Prisma.ContactUpdateInput = {

@@ -105,7 +105,7 @@ export class RenewalEngineService {
     }
   }
 
-  private toActorContext(actor?: ActorContext | string): ActorContext {
+  private toActorContext(actor?: ActorContext | any): ActorContext {
     if (!actor) {
       return {
         userId: 'system',
@@ -115,7 +115,7 @@ export class RenewalEngineService {
         role: RoleType.ADMIN,
         roles: [RoleType.ADMIN],
         organizationId: 'system',
-        companyId: 'system',
+        companyId: '',
         permissions: [],
         workspaces: ['ADMIN'],
         status: UserStatus.ACTIVE,
@@ -130,22 +130,34 @@ export class RenewalEngineService {
         role: RoleType.ADMIN,
         roles: [RoleType.ADMIN],
         organizationId: 'system',
-        companyId: 'system',
+        companyId: '',
         permissions: [],
         workspaces: ['ADMIN'],
         status: UserStatus.ACTIVE,
       };
     }
-    return actor;
+    return {
+      ...actor,
+      companyId: actor.companyId || actor.organizationId || '',
+      organizationId: actor.organizationId || actor.companyId || '',
+      roles: actor.roles || [actor.role],
+    };
   }
 
   private async buildPolicyScope(actor: ActorContext): Promise<any> {
-    // ADMIN and BACK_OFFICE see all policies within their org (org boundary enforced separately)
-    if (actor.role === RoleType.ADMIN || actor.role === RoleType.BACK_OFFICE)
-      return {};
+    const filter: any = {};
+    if (actor.companyId && actor.companyId !== 'system') {
+      filter.companyId = actor.companyId;
+    }
 
-    // AGENT only sees policies they created or tasks assigned to them
+    // ADMIN and BACK_OFFICE see all policies within their company
+    if (actor.role === RoleType.ADMIN || actor.role === RoleType.BACK_OFFICE) {
+      return filter;
+    }
+
+    // AGENT only sees policies they created or tasks assigned to them within their company
     return {
+      ...filter,
       OR: [
         { createdById: actor.userId },
         { renewalTasks: { some: { agentId: actor.userId } } },

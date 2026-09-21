@@ -25,6 +25,7 @@ export class DashboardController {
   constructor(private readonly dashboardService: DashboardService) {}
 
   @Get()
+  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT)
   getDashboard(@CurrentUser() user: RequestUser) {
     // DEF-002 fix: role is sourced exclusively from the authenticated JWT token.
     // Client-supplied role query parameters are NEVER accepted to prevent privilege escalation.

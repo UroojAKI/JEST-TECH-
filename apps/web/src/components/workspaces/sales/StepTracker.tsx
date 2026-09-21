@@ -27,13 +27,14 @@ interface StepTrackerProps {
 
 export function StepTracker({ currentStep, leadId, onMoveStage, isMoving }: StepTrackerProps) {
   const { user } = useAuthStore();
-  const userRole = user?.roles?.[0] || 'SALES_AGENT';
+  const userRole = user?.roles?.[0] || user?.role || 'SALES_AGENT';
 
   const isManagerOrAdmin =
     userRole === 'BRANCH_MANAGER' ||
     userRole === 'TEAM_LEADER' ||
     userRole === 'SUPER_ADMIN' ||
-    userRole === 'ADMIN';
+    userRole === 'ADMIN' ||
+    userRole === 'BACK_OFFICE';
 
   const currentIndex = WORKFLOW_STEPS.findIndex((s) => s.id === currentStep);
   const activeIdx = currentIndex === -1 ? 0 : currentIndex;
@@ -91,16 +92,35 @@ export function StepTracker({ currentStep, leadId, onMoveStage, isMoving }: Step
           <h3 className="text-sm font-extrabold text-foreground tracking-tight">10-Step Sequential Stage Progression</h3>
         </div>
 
-        {nextStep && (
-          <button
-            onClick={() => handleStepClick(nextStep.id, activeIdx + 1)}
-            disabled={isMoving}
-            className="px-3.5 py-1.5 rounded-xl bg-primary text-primary-foreground text-xs font-extrabold flex items-center space-x-1.5 shadow-xs hover:bg-primary/90 transition-all disabled:opacity-50"
-          >
-            <span>Advance to {nextStep.title}</span>
-            <ArrowRight className="h-3.5 w-3.5" />
-          </button>
-        )}
+        <div className="flex items-center space-x-2">
+          {isManagerOrAdmin && nextStep && (
+            <button
+              type="button"
+              onClick={() => {
+                setOverrideModalStep(nextStep.id);
+                setOverrideReason('');
+                setRemarks('');
+              }}
+              disabled={isMoving}
+              className="px-2.5 py-1.5 rounded-xl border border-amber-500/30 text-amber-600 bg-amber-500/10 hover:bg-amber-500/20 text-xs font-bold flex items-center space-x-1 transition-all"
+              title="Override sequential rules or prerequisites with a manager note"
+            >
+              <ShieldAlert className="h-3.5 w-3.5" />
+              <span>Override Advance</span>
+            </button>
+          )}
+
+          {nextStep && (
+            <button
+              onClick={() => handleStepClick(nextStep.id, activeIdx + 1)}
+              disabled={isMoving}
+              className="px-3.5 py-1.5 rounded-xl bg-primary text-primary-foreground text-xs font-extrabold flex items-center space-x-1.5 shadow-xs hover:bg-primary/90 transition-all disabled:opacity-50"
+            >
+              <span>Advance to {nextStep.title}</span>
+              <ArrowRight className="h-3.5 w-3.5" />
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Step Tracker Visual Line */}

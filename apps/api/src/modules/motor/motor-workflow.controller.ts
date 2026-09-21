@@ -63,25 +63,40 @@ export class MotorWorkflowController {
     >,
     @CurrentUser() user: RequestUser,
   ) {
-    return this.paymentService.recordPayment({
-      ...dto,
-      quotationId,
-      recordedById: user.id,
-      recordedByRole: user.role,
-    });
+    return this.paymentService.recordPayment(
+      {
+        ...dto,
+        quotationId,
+        recordedById: user.id,
+        recordedByRole: user.role,
+      },
+      user.companyId || user.organizationId,
+    );
   }
 
   @Get('quotations/:id/payment')
   @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT)
   @ApiOperation({ summary: 'Get payment record for a quotation.' })
-  async getPayment(@Param('id') quotationId: string) {
-    return this.paymentService.getPayment(quotationId);
+  async getPayment(
+    @Param('id') quotationId: string,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.paymentService.getPayment(
+      quotationId,
+      user.companyId || user.organizationId,
+    );
   }
 
   @Get('quotations/:id/policy-gate')
   @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT)
   @ApiOperation({ summary: 'Check the server-side policy issuance gate.' })
-  async policyCreationGate(@Param('id') quotationId: string) {
-    return this.paymentService.canProceedToPolicy(quotationId);
+  async policyCreationGate(
+    @Param('id') quotationId: string,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.paymentService.canProceedToPolicy(
+      quotationId,
+      user.companyId || user.organizationId,
+    );
   }
 }
