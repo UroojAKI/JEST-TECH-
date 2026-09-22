@@ -39,12 +39,12 @@ export default function RolePermissionMatrixPage() {
     const initialState: Record<string, { view: boolean; create: boolean; update: boolean; delete: boolean; approve: boolean; export: boolean }> = {};
     MODULES.forEach((mod) => {
       initialState[mod] = {
-        view: selectedRole !== 'AGENT' || mod !== 'System Administration',
-        create: selectedRole !== 'AGENT' || ['Customer 360', 'Lead Workspace', 'Quotation Engine'].includes(mod),
-        update: selectedRole !== 'AGENT' || ['Customer 360', 'Lead Workspace', 'Quotation Engine'].includes(mod),
-        delete: selectedRole === 'ADMIN',
-        approve: selectedRole === 'ADMIN' || (selectedRole === 'BACK_OFFICE' && ['Policy Operations', 'Claims Operations'].includes(mod)),
-        export: selectedRole !== 'AGENT' || ['Customer 360', 'Lead Workspace'].includes(mod),
+        view: false,
+        create: false,
+        update: false,
+        delete: false,
+        approve: false,
+        export: false,
       };
     });
 
