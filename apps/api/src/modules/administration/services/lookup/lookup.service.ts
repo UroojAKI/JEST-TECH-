@@ -46,7 +46,7 @@ export class LookupService {
     }
 
     // Build hierarchy
-    const values = category.values;
+    const values = category!.values;
     const hierarchy = this.buildHierarchy(values, null);
 
     await this.cacheManager.set(cacheKey, hierarchy, 3600 * 1000); // 1 hour cache
