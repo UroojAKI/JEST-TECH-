@@ -154,10 +154,10 @@ export function MotorQuotationsWorkspace() {
     const matched = allQuotes.filter((q) => {
       if (!searchQuery) return true;
       const term = searchQuery.toLowerCase();
-      return q.registrationNumber?.toLowerCase().includes(term) ||
-        q.quotationCode?.toLowerCase().includes(term) ||
-        q.proposerDetails?.customerName?.toLowerCase().includes(term) ||
-        q.proposerDetails?.mobileNumber?.includes(term);
+      return String(q.registrationNumber || '').toLowerCase().includes(term) ||
+        String(q.quotationCode || '').toLowerCase().includes(term) ||
+        String(q.proposerDetails?.customerName || '').toLowerCase().includes(term) ||
+        String(q.proposerDetails?.mobileNumber || '').includes(term);
     });
 
     const active: SavedMotorQuote[] = [];
@@ -188,10 +188,10 @@ export function MotorQuotationsWorkspace() {
       // 1. Group by registration number if available (unique vehicle)
       // 2. If new vehicle, group by mobile number
       // 3. Fallback to leadId or quote id
-      let key = q.registrationNumber?.trim();
+      let key = q.registrationNumber ? String(q.registrationNumber).trim() : '';
       
       if (!key) {
-        key = q.proposerDetails?.mobileNumber?.trim() || q.leadId || q.id;
+        key = q.proposerDetails?.mobileNumber ? String(q.proposerDetails.mobileNumber).trim() : (q.leadId || q.id);
       }
       
       const keyStr = String(key || 'UNKNOWN_VEHICLE').toUpperCase();
