@@ -96,6 +96,12 @@ export class MotorCalculationInputDto {
   discountPercent?: number;
 
   @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Max(100)
+  tpDiscountPercent?: number;
+
+  @IsOptional()
   @IsString()
   activeTpPolicyNumber?: string;
 

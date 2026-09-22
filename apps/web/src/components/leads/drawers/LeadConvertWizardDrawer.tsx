@@ -21,7 +21,7 @@ export function LeadConvertWizardDrawer({ isOpen, leadId, lead, onClose }: LeadC
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
   // Motor Quotation Pricing Engine State
-  const [coverType, setCoverType] = useState<'COMPREHENSIVE' | 'STANDALONE_OD' | 'THIRD_PARTY'>('COMPREHENSIVE');
+  const [coverType, setCoverType] = useState<'PACKAGE_COMPREHENSIVE' | 'STANDALONE_OWN_DAMAGE' | 'THIRD_PARTY_ONLY'>('PACKAGE_COMPREHENSIVE');
   const [exShowroomPrice, setExShowroomPrice] = useState<number>(1000000);
   const [registrationYear, setRegistrationYear] = useState<number>(new Date().getFullYear() - 1);
   const [engineCc, setEngineCc] = useState<number>(1197);
@@ -35,7 +35,7 @@ export function LeadConvertWizardDrawer({ isOpen, leadId, lead, onClose }: LeadC
     returnToInvoice: false,
     roadsideAssistance: true,
     keyReplacement: false,
-    ncbProtect: false,
+    ncbProtection: false,
   });
 
   const [idvDetails, setIdvDetails] = useState<any>(null);
@@ -83,20 +83,41 @@ export function LeadConvertWizardDrawer({ isOpen, leadId, lead, onClose }: LeadC
   const handleIssuePolicy = async () => {
     setIsSubmitting(true);
     try {
-      const res = await policiesRepository.issuePolicy({
-        leadId,
-        quotationId: selectedQuote?.insurerId || `QT-${leadId.slice(-4)}`,
-        contactName: leadName,
-        productLine: selectedQuote?.insurerName || lead?.productInterest || 'Motor Comprehensive',
-        totalPremium: Number(selectedQuote?.totalPremium || 25000),
-        idvValue: Number(selectedQuote?.idv || idvDetails?.finalIdv || 850000),
-      });
+      // Create authoritative quotation record first
+      const capturePayload = {
+        leadId: leadId === 'new' ? undefined : leadId,
+        vehicleCategory: 'PRIVATE_CAR',
+        policyType: coverType,
+        insurerName: selectedQuote?.insurerName || 'HDFC ERGO General Insurance',
+        idv: Number(selectedQuote?.idv || idvDetails?.finalIdv || 850000),
+        ncbPercentage: ncbPercentage,
+        vehicleDetails: {
+          vehicleType: 'PRIVATE_CAR',
+          vehicleStatus: 'EXISTING',
+          registrationYear,
+          engineCc,
+        },
+        policyDetails: {
+          policyTenure: 1,
+          addonsSelected: []
+        },
+        proposerDetails: {
+          mobileNumber: leadPhone,
+          emailId: leadEmail,
+          customerName: leadName,
+        }
+      };
 
-      toast.success(`Policy ${res?.policyNumber || res?.id || ''} issued successfully for ${leadName}!`);
+      const res = await apiClient.post('/quotations/motor-capture', capturePayload);
+      const quotationId = res.data?.id || res.data?.data?.id;
+      
+      if (!quotationId) throw new Error('Failed to generate quotation ID');
+
+      toast.success(`Quotation created successfully! Redirecting to issuance workspace...`);
       onClose();
-      router.push('/policies');
+      router.push(`/sales/quotations/${quotationId}`);
     } catch (err: any) {
-      const errorMessage = err?.response?.data?.message || err.message || 'Failed to issue policy via API';
+      const errorMessage = err?.response?.data?.message || err.message || 'Failed to capture quotation via API';
       toast.error(errorMessage);
     } finally {
       setIsSubmitting(false);
@@ -180,9 +201,9 @@ export function LeadConvertWizardDrawer({ isOpen, leadId, lead, onClose }: LeadC
                 <label className="font-bold text-muted-foreground block">1. Cover Type Selection</label>
                 <div className="grid grid-cols-3 gap-2">
                   {[
-                    { id: 'COMPREHENSIVE', label: 'Comprehensive (OD + TP)' },
-                    { id: 'STANDALONE_OD', label: 'Standalone OD' },
-                    { id: 'THIRD_PARTY', label: 'Third Party Only (TP)' },
+                    { id: 'PACKAGE_COMPREHENSIVE', label: 'Comprehensive (OD + TP)' },
+                    { id: 'STANDALONE_OWN_DAMAGE', label: 'Standalone OD' },
+                    { id: 'THIRD_PARTY_ONLY', label: 'Third Party Only (TP)' },
                   ].map((ct) => (
                     <button
                       key={ct.id}

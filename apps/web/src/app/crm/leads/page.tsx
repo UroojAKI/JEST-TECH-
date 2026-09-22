@@ -46,7 +46,7 @@ export default function LeadsPipelinePage() {
     },
   });
 
-  const { data: leadsData, isLoading, isError, refetch } = useQuery({
+  const { data: leadsData, isLoading, isFetching, isError, refetch } = useQuery({
     queryKey: ['leads-pipeline-list', debouncedSearch, statusFilter],
     queryFn: async () => {
       const params: Record<string, any> = {};
@@ -55,6 +55,8 @@ export default function LeadsPipelinePage() {
       const res = await apiClient.get('/leads', { params });
       return res.data || [];
     },
+    // Keep previous data while new search results are loading — prevents full unmount
+    placeholderData: (prev) => prev,
   });
 
   // Convert Lead Mutation
@@ -73,8 +75,6 @@ export default function LeadsPipelinePage() {
   const leadsList = Array.isArray(leadsData) ? leadsData : ((leadsData as any)?.items || (leadsData as any)?.data || []);
   const totalLeadsCount = (leadsData as any)?.meta?.total ?? (leadsData as any)?.total ?? leadsList.length;
   const filteredLeads = leadsList;
-
-  if (isLoading && !leadsData) return <AppShell><PageLoadingState message="Loading leads..." /></AppShell>;
 
   return (
     <AppShell>
@@ -160,9 +160,12 @@ export default function LeadsPipelinePage() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search by name, lead code, phone..."
-              className="w-full pl-9 pr-3 py-2 text-xs rounded-xl border bg-background focus:ring-1 focus:ring-primary"
+              className={`w-full pl-9 pr-3 py-2 text-xs rounded-xl border bg-background focus:ring-1 focus:ring-primary transition-opacity ${isFetching ? 'opacity-70' : 'opacity-100'}`}
               aria-label="Search leads"
             />
+            {isFetching && (
+              <div className="absolute right-3 top-2.5 h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+            )}
           </div>
 
           <div className="flex items-center space-x-2 text-xs font-semibold">
@@ -188,7 +191,7 @@ export default function LeadsPipelinePage() {
             <div className="p-8 text-center text-xs text-destructive">
               Failed to load leads. <button onClick={() => refetch()} className="underline font-bold">Try Again</button>
             </div>
-          ) : isLoading ? (
+          ) : isLoading && !leadsData ? (
             <div className="p-8 text-center text-xs text-muted-foreground animate-pulse">
               Loading Lead Pipeline Data...
             </div>

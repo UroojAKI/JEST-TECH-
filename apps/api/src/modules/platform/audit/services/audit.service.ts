@@ -208,7 +208,11 @@ export class AuditService {
       where.OR = [
         { entityId: { contains: q, mode: 'insensitive' } },
         { entity: { contains: q, mode: 'insensitive' } },
+        { module: { contains: q, mode: 'insensitive' } },
         { correlationId: { contains: q, mode: 'insensitive' } },
+        { user: { firstName: { contains: q, mode: 'insensitive' } } },
+        { user: { lastName: { contains: q, mode: 'insensitive' } } },
+        { user: { email: { contains: q, mode: 'insensitive' } } },
       ];
     }
 

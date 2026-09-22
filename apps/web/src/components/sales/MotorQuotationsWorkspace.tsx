@@ -44,7 +44,7 @@ export function MotorQuotationsWorkspace() {
         return null;
       }
     },
-    enabled: !!leadIdParam,
+    enabled: !!leadIdParam && leadIdParam !== 'new',
   });
 
   // Fetch linked contact directly if contactId is provided in URL
@@ -154,10 +154,10 @@ export function MotorQuotationsWorkspace() {
     const matched = allQuotes.filter((q) => {
       if (!searchQuery) return true;
       const term = searchQuery.toLowerCase();
-      return q.registrationNumber?.toLowerCase().includes(term) ||
-        q.quotationCode?.toLowerCase().includes(term) ||
-        q.proposerDetails?.customerName?.toLowerCase().includes(term) ||
-        q.proposerDetails?.mobileNumber?.includes(term);
+      return String(q.registrationNumber || '').toLowerCase().includes(term) ||
+        String(q.quotationCode || '').toLowerCase().includes(term) ||
+        String(q.proposerDetails?.customerName || '').toLowerCase().includes(term) ||
+        String(q.proposerDetails?.mobileNumber || '').includes(term);
     });
 
     const active: SavedMotorQuote[] = [];
@@ -181,17 +181,17 @@ export function MotorQuotationsWorkspace() {
 
   const groupedQuotes = useMemo(() => {
     let target = activeTab === 'ACTIVE' ? activeFiltered : renewalsFiltered;
-    if (leadFilterActive && leadIdParam) {
+    if (leadFilterActive && leadIdParam && leadIdParam !== 'new') {
       target = target.filter((q) => q.leadId === leadIdParam);
     }
     return target.reduce((acc, q) => {
       // 1. Group by registration number if available (unique vehicle)
       // 2. If new vehicle, group by mobile number
       // 3. Fallback to leadId or quote id
-      let key = q.registrationNumber?.trim();
+      let key = q.registrationNumber ? String(q.registrationNumber).trim() : '';
       
       if (!key) {
-        key = q.proposerDetails?.mobileNumber?.trim() || q.leadId || q.id;
+        key = q.proposerDetails?.mobileNumber ? String(q.proposerDetails.mobileNumber).trim() : (q.leadId || q.id);
       }
       
       const keyStr = String(key || 'UNKNOWN_VEHICLE').toUpperCase();
@@ -220,7 +220,7 @@ export function MotorQuotationsWorkspace() {
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 p-6 rounded-xl border bg-card">
         <div>
           <div className="flex items-center gap-2">
-            {leadIdParam && (
+            {leadIdParam && leadIdParam !== 'new' && (
               <Link
                 href={`/workspace/sales/leads/${leadIdParam}`}
                 className="inline-flex items-center gap-1 text-xs font-bold text-primary hover:underline mr-1"
@@ -240,7 +240,7 @@ export function MotorQuotationsWorkspace() {
       </div>
 
       {/* Linked Lead Context Banner */}
-      {leadIdParam && (
+      {leadIdParam && leadIdParam !== 'new' && (
         <div className="p-4 rounded-xl border border-primary/30 bg-primary/5 flex flex-wrap items-center justify-between gap-3 shadow-xs">
           <div className="flex items-center space-x-3">
             <div className="h-10 w-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center font-black">

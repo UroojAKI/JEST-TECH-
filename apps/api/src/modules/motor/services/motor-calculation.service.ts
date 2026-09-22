@@ -164,6 +164,7 @@ export class MotorCalculationService {
     let baseTpPremium = 0;
     let paPremium = 0; // Compulsory PA for Owner-Driver (₹15L cover)
     let paidDriverPremium = 0; // Legal Liability to Paid Driver
+    let tpDiscountAmount = 0;
 
     if (
       ['THIRD_PARTY_ONLY', 'PACKAGE_COMPREHENSIVE'].includes(input.policyType)
@@ -172,12 +173,15 @@ export class MotorCalculationService {
       // PA for Owner-Driver is COMPULSORY unless explicitly opted out with a waiver.
       if (input.paCover !== false) paPremium = COMPULSORY_PA_OWNER_DRIVER;
       if (input.paidDriverLiability) paidDriverPremium = PAID_DRIVER_LL_RATE;
+
+      const tpDiscountPercent = input.tpDiscountPercent || 0;
+      tpDiscountAmount = round2(baseTpPremium * (tpDiscountPercent / 100));
     }
 
     // ── 8. Net Premium per Component (post-discount, pre-tax) ─────────────
     // SPEC: Tax is applied to net discounted premium per component, NOT gross.
     const netOdComponent = round2(netOdAfterDiscount + addonPremiumTotal);
-    const netTpComponent = baseTpPremium; // TP has no discount
+    const netTpComponent = round2(Math.max(0, baseTpPremium - tpDiscountAmount));
     const netPaComponent = paPremium; // PA is fixed IRDAI rate, no discount
     const netPaidDriverComponent = paidDriverPremium; // Fixed, no discount
 
@@ -208,7 +212,7 @@ export class MotorCalculationService {
         paidDriverPremium,
     );
     const totalDiscountAmount = round2(
-      ncbDiscountAmount + specialDiscountAmount,
+      ncbDiscountAmount + specialDiscountAmount + tpDiscountAmount,
     );
 
     return {

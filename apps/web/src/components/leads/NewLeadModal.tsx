@@ -23,9 +23,13 @@ export function NewLeadModal({ isOpen, onClose }: NewLeadModalProps) {
 
   // Duplicate Phone Check
   const checkDuplicate = async (mobileNo: string) => {
-    if (mobileNo.length < 10) return;
+    const cleanPhone = mobileNo.replace(/\D/g, '').slice(-10);
+    if (cleanPhone.length < 10) {
+      setDuplicateWarning(null);
+      return;
+    }
     try {
-      const res = await apiClient.get(`/leads/check-duplicate?phone=${mobileNo}`);
+      const res = await apiClient.get(`/leads/check-duplicate?phone=${cleanPhone}`);
       if (res.data?.exists) {
         setDuplicateWarning(res.data.message);
       } else {
@@ -71,7 +75,7 @@ export function NewLeadModal({ isOpen, onClose }: NewLeadModalProps) {
       source,
       firstName: firstName || 'Lead',
       lastName: rest.join(' ') || 'Customer',
-      phone,
+      phone: phone.replace(/\D/g, '').slice(-10),
       city,
       productInterest: product,
       remarks,

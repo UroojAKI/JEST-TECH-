@@ -3,18 +3,44 @@ import { PrismaService } from '../../../../../database/prisma.service';
 import { JournalEntry } from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime/library';
 
+import { IsString, IsNumber, IsDate, IsOptional, ValidateNested, IsArray, Min } from 'class-validator';
+import { Type } from 'class-transformer';
+
 export class CreateJournalEntryLineDto {
+  @IsString()
   accountId: string;
+
+  @IsNumber()
+  @Min(0)
   debit: number;
+
+  @IsNumber()
+  @Min(0)
   credit: number;
+
+  @IsString()
+  @IsOptional()
   description?: string;
 }
 
 export class CreateJournalEntryDto {
+  @IsDate()
   date: Date;
+
+  @IsString()
   description: string;
+
+  @IsString()
+  @IsOptional()
   referenceId?: string;
+
+  @IsString()
+  @IsOptional()
   referenceType?: string;
+
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => CreateJournalEntryLineDto)
   lines: CreateJournalEntryLineDto[];
 }
 

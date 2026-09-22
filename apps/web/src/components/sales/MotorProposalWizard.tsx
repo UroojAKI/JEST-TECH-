@@ -102,7 +102,7 @@ export function MotorProposalWizard() {
   const [exShowroom, setExShowroom] = useState(0);
 
   // Step 4 Policy Type
-  const [selectedPolicyType, setSelectedPolicyType] = useState('COMPREHENSIVE');
+  const [selectedPolicyType, setSelectedPolicyType] = useState('PACKAGE_COMPREHENSIVE');
 
   // Step 5 Previous Policy
   const [prevInsurer, setPrevInsurer] = useState('');
@@ -179,7 +179,7 @@ export function MotorProposalWizard() {
         selectedAddons: {
           zeroDepreciation: selectedAddons.zeroDep,
           roadsideAssistance: selectedAddons.rsa,
-          engineProtector: selectedAddons.engineProtect,
+          engineProtection: selectedAddons.engineProtect,
         },
       });
       return res.data;
@@ -424,9 +424,9 @@ export function MotorProposalWizard() {
             <h3 className="text-sm font-extrabold text-foreground">Step 4: Select Policy Type</h3>
             <div className="grid grid-cols-3 gap-4">
               {[
-                { id: 'COMPREHENSIVE', title: 'Comprehensive Package', desc: 'Own Damage + Third Party Cover' },
-                { id: 'STANDALONE_OD', title: 'Standalone Own Damage', desc: 'OD Cover for vehicles with active TP' },
-                { id: 'THIRD_PARTY', title: 'Third Party Only', desc: 'Mandatory Legal Liability Cover' },
+                { id: 'PACKAGE_COMPREHENSIVE', title: 'Comprehensive Package', desc: 'Own Damage + Third Party Cover' },
+                { id: 'STANDALONE_OWN_DAMAGE', title: 'Standalone Own Damage', desc: 'OD Cover for vehicles with active TP' },
+                { id: 'THIRD_PARTY_ONLY', title: 'Third Party Only', desc: 'Mandatory Legal Liability Cover' },
               ].map((p) => (
                 <div
                   key={p.id}

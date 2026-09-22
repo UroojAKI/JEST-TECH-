@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { workspaceRepository } from '../../../repositories/workspace.repository';
 import { useAuthStore } from '../../../store/auth-store';
+import { useAuth } from '../../../hooks/useAuth';
 
 const ICON_MAP: Record<string, React.ReactNode> = {
   TrendingUp: <TrendingUp className="h-6 w-6 text-emerald-500" />,
@@ -43,6 +44,7 @@ const COLOR_MAP: Record<string, { border: string; bg: string; badge: string }> =
 export default function WorkspaceHubPage() {
   const router = useRouter();
   const { user, isAuthenticated } = useAuthStore();
+  const { logout } = useAuth();
 
   const { data: workspaces = [], isLoading } = useQuery({
     queryKey: ['user-workspaces'],
@@ -95,10 +97,7 @@ export default function WorkspaceHubPage() {
             Your account has not been assigned to any functional workspace. Please contact your system administrator.
           </p>
           <button 
-            onClick={() => {
-              useAuthStore.getState().logout();
-              router.push('/login');
-            }}
+            onClick={() => logout()}
             className="mt-6 px-4 py-2 bg-primary/10 text-primary rounded-md text-sm font-semibold hover:bg-primary/20 transition-colors"
           >
             Sign Out and Re-authenticate

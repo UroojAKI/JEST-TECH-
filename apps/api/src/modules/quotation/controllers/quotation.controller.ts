@@ -190,6 +190,8 @@ export class QuotationController {
         policyDetails.activeTPPolicyNumberValidity ||
         undefined,
       activeTpExpiryDate: saodVerification.tpExpiryDate || undefined,
+      discountPercent: Number(policyDetails.odCommissionCalc || 0),
+      tpDiscountPercent: Number(policyDetails.tpCommissionCalc || 0),
     };
 
     const calcResult =

@@ -367,55 +367,12 @@ export class FinanceController {
     @Query('page') page?: number,
     @Query('limit') limit?: number,
   ) {
-    const p = Math.max(1, Number(page) || 1);
-    const l = Math.min(100, Math.max(1, Number(limit) || 20));
-    const skip = (p - 1) * l;
-
-    const where: any = {};
-    if (referenceType) {
-      where.referenceType = referenceType;
-    }
-    if (search) {
-      where.OR = [
-        { entryNumber: { contains: search, mode: 'insensitive' } },
-        { description: { contains: search, mode: 'insensitive' } },
-      ];
-    }
-
-    const [entries, total] = await Promise.all([
-      this.prisma.journalEntry.findMany({
-        where,
-        skip,
-        take: l,
-        orderBy: { date: 'desc' },
-        include: {
-          lines: {
-            include: {
-              account: true,
-            },
-          },
-        },
-      }),
-      this.prisma.journalEntry.count({ where }),
-    ]);
-
-    const items = entries.map((e) => ({
-      id: e.id,
-      entryNumber: e.entryNumber,
-      date: e.date.toISOString(),
-      description: e.description,
-      referenceType: e.referenceType || 'GENERAL',
-      referenceId: e.referenceId || '',
-      status: e.status,
-      lines: e.lines.map((ln) => ({
-        accountName: ln.account?.name || 'Account ' + ln.accountId,
-        debit: Number(ln.debit),
-        credit: Number(ln.credit),
-        accountType: ln.account?.type || 'ASSET',
-      })),
-    }));
-
-    return { items, total };
+    return this.ledgerService.getLedgerEntries({
+      search,
+      referenceType,
+      page,
+      limit,
+    });
   }
 
   @Post('ledger/journal')

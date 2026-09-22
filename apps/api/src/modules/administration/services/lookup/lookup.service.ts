@@ -21,7 +21,7 @@ export class LookupService {
       return cached;
     }
 
-    const category = await this.prisma.lookupCategory.findUnique({
+    let category = await this.prisma.lookupCategory.findUnique({
       where: { code: categoryCode },
       include: {
         values: {
@@ -31,14 +31,22 @@ export class LookupService {
       },
     });
 
-    if (!category || !category.isActive) {
-      throw new NotFoundException(
-        `Lookup category ${categoryCode} not found or inactive.`,
-      );
+    if (!category) {
+      // Auto-create category to prevent frontend 404 errors for hardcoded categories
+      category = await this.prisma.lookupCategory.create({
+        data: {
+          code: categoryCode,
+          name: categoryCode.replace(/_/g, ' '),
+          description: `Auto-generated category for ${categoryCode}`,
+        },
+        include: { values: true },
+      }) as any;
+    } else if (!category.isActive) {
+      throw new NotFoundException(`Lookup category ${categoryCode} is inactive.`);
     }
 
     // Build hierarchy
-    const values = category.values;
+    const values = category!.values;
     const hierarchy = this.buildHierarchy(values, null);
 
     await this.cacheManager.set(cacheKey, hierarchy, 3600 * 1000); // 1 hour cache
@@ -102,12 +110,18 @@ export class LookupService {
       orderIndex?: number;
     },
   ) {
-    const category = await this.prisma.lookupCategory.findUnique({
+    let category = await this.prisma.lookupCategory.findUnique({
       where: { code: categoryCode },
     });
 
     if (!category) {
-      throw new NotFoundException(`Lookup category ${categoryCode} not found.`);
+      category = await this.prisma.lookupCategory.create({
+        data: {
+          code: categoryCode,
+          name: categoryCode.replace(/_/g, ' '),
+          description: `Auto-generated category for ${categoryCode}`,
+        }
+      });
     }
 
     const created = await this.prisma.lookupValue.create({

@@ -7,8 +7,11 @@ import { useWorkspace } from '../../hooks/useWorkspace';
 import { useUIStore } from '../../store/ui-store';
 import { Bell, Search, User, LogOut, Shield, Building } from 'lucide-react';
 
+import { useAuth } from '../../hooks/useAuth';
+
 export function WorkspaceHeader() {
-  const { user, logout } = useAuthStore();
+  const { user } = useAuthStore();
+  const { logout } = useAuth();
   const { jobRole, department, workspace } = useWorkspace();
   const setNotificationDrawerOpen = useUIStore((s) => s.setNotificationDrawerOpen);
 
