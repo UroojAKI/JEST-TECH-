@@ -25,8 +25,6 @@ export default function DoubleEntryLedgerPage() {
   const [amount, setAmount] = useState<number | ''>('');
   const [narration, setNarration] = useState('');
 
-  if (isLoading) return <AppShell><PageLoadingState message="Loading journal entries..." /></AppShell>;
-  if (isError) return <AppShell><PageErrorState message="Failed to load journal entries." onRetry={refetch} /></AppShell>;
 
   const handlePostEntry = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -160,7 +158,7 @@ export default function DoubleEntryLedgerPage() {
 
         {/* Filter Bar */}
         <div className="flex flex-col sm:flex-row gap-3 items-center justify-between">
-          <div className="relative w-full sm:w-80">
+          <form onSubmit={(e) => e.preventDefault()} className="relative w-full sm:w-80">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <input
               type="text"
@@ -170,7 +168,7 @@ export default function DoubleEntryLedgerPage() {
               className="w-full pl-9 pr-4 py-2 text-xs rounded-xl border bg-card focus:outline-none focus:ring-2 focus:ring-primary/20"
               aria-label="Search ledger entries"
             />
-          </div>
+          </form>
 
           <div className="flex items-center gap-1.5 overflow-x-auto w-full sm:w-auto p-1 bg-muted/40 rounded-xl border">
             {(['ALL', 'POLICY', 'RECEIPT', 'INVOICE', 'SETTLEMENT'] as const).map((type) => (
@@ -200,6 +198,10 @@ export default function DoubleEntryLedgerPage() {
             <div className="p-12 text-center text-muted-foreground border rounded-2xl bg-card">
               <Loader2 className="h-5 w-5 animate-spin mx-auto mb-2 text-primary" />
               <span>Loading ledger journal entries...</span>
+            </div>
+          ) : isError ? (
+            <div className="p-12 text-center text-red-500 border rounded-2xl bg-card">
+              Failed to load journal entries. <button onClick={() => refetch()} className="underline font-bold">Retry</button>
             </div>
           ) : ledgerEntries.length === 0 ? (
             <div className="p-12 text-center text-muted-foreground border rounded-2xl bg-card">

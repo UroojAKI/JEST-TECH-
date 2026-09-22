@@ -58,6 +58,7 @@ export function PolicyFormPackageForm({ category, vehicleStatus, data, onChange 
     paCover: true,
     paidDriverLiability: false,
     discountPercent: parseFloat(data.odCommissionCalc || '0'),
+    tpDiscountPercent: parseFloat(data.tpCommissionCalc || '0'),
     addons: (data.addonsSelected || []).map(a => ({
       addonCode: a,
       manualPrice: data.addonPrices?.[a] ? parseFloat(data.addonPrices[a]) : undefined

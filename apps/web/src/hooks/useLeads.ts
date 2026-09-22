@@ -80,7 +80,7 @@ export function useLeadWorkspace(id: string) {
   const query = useQuery({
     queryKey: ['lead-workspace', id],
     queryFn: () => leadsRepository.getLeadWorkspace(id),
-    enabled: !!id,
+    enabled: !!id && id !== 'new',
   });
 
   return {

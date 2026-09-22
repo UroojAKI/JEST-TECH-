@@ -37,7 +37,7 @@ export function PersistentStepTracker({
         </span>
       </div>
 
-      <div className="flex items-center overflow-x-auto py-2 space-x-1 sm:space-x-2 scrollbar-none">
+      <div className="flex flex-wrap items-center gap-y-3 gap-x-1 sm:gap-x-2 py-2">
         {LIFECYCLE_STEPS.map((step, idx) => {
           const isDone = idx < currentStepIndex;
           const isCurrent = idx === currentStepIndex;
@@ -66,7 +66,7 @@ export function PersistentStepTracker({
               </button>
 
               {idx < LIFECYCLE_STEPS.length - 1 && (
-                <span className={`text-muted-foreground/40 font-bold text-xs ${isDone ? 'text-emerald-500' : ''}`}>
+                <span className={`text-muted-foreground/40 font-bold text-xs shrink-0 ${isDone ? 'text-emerald-500' : ''}`}>
                   →
                 </span>
               )}

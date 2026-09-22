@@ -44,7 +44,7 @@ export function MotorQuotationsWorkspace() {
         return null;
       }
     },
-    enabled: !!leadIdParam,
+    enabled: !!leadIdParam && leadIdParam !== 'new',
   });
 
   // Fetch linked contact directly if contactId is provided in URL
@@ -181,7 +181,7 @@ export function MotorQuotationsWorkspace() {
 
   const groupedQuotes = useMemo(() => {
     let target = activeTab === 'ACTIVE' ? activeFiltered : renewalsFiltered;
-    if (leadFilterActive && leadIdParam) {
+    if (leadFilterActive && leadIdParam && leadIdParam !== 'new') {
       target = target.filter((q) => q.leadId === leadIdParam);
     }
     return target.reduce((acc, q) => {
@@ -220,7 +220,7 @@ export function MotorQuotationsWorkspace() {
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 p-6 rounded-xl border bg-card">
         <div>
           <div className="flex items-center gap-2">
-            {leadIdParam && (
+            {leadIdParam && leadIdParam !== 'new' && (
               <Link
                 href={`/workspace/sales/leads/${leadIdParam}`}
                 className="inline-flex items-center gap-1 text-xs font-bold text-primary hover:underline mr-1"
@@ -240,7 +240,7 @@ export function MotorQuotationsWorkspace() {
       </div>
 
       {/* Linked Lead Context Banner */}
-      {leadIdParam && (
+      {leadIdParam && leadIdParam !== 'new' && (
         <div className="p-4 rounded-xl border border-primary/30 bg-primary/5 flex flex-wrap items-center justify-between gap-3 shadow-xs">
           <div className="flex items-center space-x-3">
             <div className="h-10 w-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center font-black">
