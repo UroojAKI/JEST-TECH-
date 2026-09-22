@@ -37,8 +37,11 @@ export class CustomersController {
   @ApiOperation({
     summary: 'Soft check for duplicate customer by mobile or email',
   })
-  checkDuplicate(@Query() query: CheckDuplicateDto) {
-    return this.customersService.checkDuplicate(query);
+  checkDuplicate(
+    @Query() query: CheckDuplicateDto,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.customersService.checkDuplicate(query, user);
   }
 
   @Post('deduplication-check')
@@ -47,8 +50,11 @@ export class CustomersController {
   @ApiOperation({
     summary: 'Soft check for duplicate customer with normalized POST body',
   })
-  deduplicationCheck(@Body() body: CheckDuplicateDto) {
-    return this.customersService.checkDuplicate(body);
+  deduplicationCheck(
+    @Body() body: CheckDuplicateDto,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.customersService.checkDuplicate(body, user);
   }
 
   @Get()

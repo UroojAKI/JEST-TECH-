@@ -1,4 +1,12 @@
-import { Body, Controller, Param, Post, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Param,
+  Post,
+  UseGuards,
+  NotFoundException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { RoleType } from '@prisma/client';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
@@ -25,7 +33,36 @@ export class MotorQuoteController {
   async finalizeQuote(
     @Param('id') id: string,
     @Body() input: MotorCalculationInputDto,
+    @CurrentUser() user: RequestUser,
   ) {
+    const quote = await this.prisma.quotation.findUnique({
+      where: { id },
+    });
+
+    if (!quote || (quote as any).deletedAt) {
+      throw new NotFoundException(`Quotation ${id} not found`);
+    }
+
+    const actorCompanyId = user.companyId || user.organizationId;
+    if (
+      actorCompanyId &&
+      quote.companyId &&
+      quote.companyId !== actorCompanyId
+    ) {
+      throw new ForbiddenException('Quotation belongs to another organization');
+    }
+
+    if (user.role === RoleType.AGENT) {
+      const isOwner =
+        quote.createdById === user.id ||
+        (user.agentId && quote.agentId === user.agentId);
+      if (!isOwner) {
+        throw new ForbiddenException(
+          'Agents can only finalize their own quotations',
+        );
+      }
+    }
+
     const calcResult = await this.calculationService.calculate(input);
 
     return this.prisma.quotation.update({

@@ -24,7 +24,7 @@ export class CustomersService {
     return digits.length >= 10 ? digits.slice(-10) : digits;
   }
 
-  async checkDuplicate(dto: CheckDuplicateDto) {
+  async checkDuplicate(dto: CheckDuplicateDto, user?: any) {
     const conditions: Prisma.CustomerWhereInput[] = [];
 
     const normPhone = this.normalizePhone(dto.mobile);
@@ -41,9 +41,21 @@ export class CustomersService {
       return { hasDuplicate: false, matchCount: 0, matches: [] };
     }
 
+    const companyId =
+      user?.companyId ||
+      user?.organizationId ||
+      user?.user?.companyId;
+
+    if (!companyId) {
+      throw new ForbiddenException(
+        'Tenant organizational context is required for deduplication check',
+      );
+    }
+
     const matches = await this.prisma.customer.findMany({
       where: {
         deletedAt: null,
+        companyId,
         OR: conditions,
       },
       include: {

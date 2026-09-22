@@ -18,6 +18,7 @@ import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import type { RequestUser } from '../../auth/decorators/current-user.decorator';
 import { PrismaService } from '../../../database/prisma.service';
 import { ScopeResolver } from '../../../common/services/scope-resolver.service';
+import { NumberingEngineService } from '../../administration/services/numbering-engine/numbering-engine.service';
 
 @ApiTags('Renewals')
 @ApiBearerAuth()
@@ -27,6 +28,7 @@ export class RenewalsController {
   constructor(
     private readonly prisma: PrismaService,
     private readonly scopeResolver: ScopeResolver,
+    private readonly numberingEngine: NumberingEngineService,
   ) {}
 
   @Get('tasks')
@@ -119,10 +121,15 @@ export class RenewalsController {
     const expiry = new Date();
     expiry.setDate(expiry.getDate() + 30);
 
+    const quotationCode = await this.numberingEngine.generateNext(
+      'QUOTATION',
+      this.prisma,
+    );
+
     const renewalQuote = await this.prisma.quotation.create({
       data: {
         title: `Renewal Quote - ${task.policy.policyNumber}`,
-        quotationCode: `QT-REN-${Date.now().toString().slice(-6)}`,
+        quotationCode,
         status: 'DRAFT',
         companyId: task.policy.companyId,
         contactId: task.policy.contactId,

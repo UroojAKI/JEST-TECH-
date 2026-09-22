@@ -34,8 +34,8 @@ export class UsersController {
 
   @Post()
   @Roles(RoleType.ADMIN)
-  create(@Body() dto: CreateUserDto) {
-    return this.usersService.create(dto);
+  create(@Body() dto: CreateUserDto, @CurrentUser() actor: RequestUser) {
+    return this.usersService.create(dto, actor);
   }
 
   @Get('roles')
@@ -79,14 +79,18 @@ export class UsersController {
   findAll(
     @Query() pagination: PaginationDto,
     @Query('status') status?: string,
+    @CurrentUser() actor?: RequestUser,
   ) {
-    return this.usersService.findAll(pagination, status);
+    return this.usersService.findAll(pagination, status, actor);
   }
 
   @Get(':id')
   @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE)
-  findOne(@Param('id', ParseUUIDPipe) id: string) {
-    return this.usersService.findById(id);
+  findOne(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() actor?: RequestUser,
+  ) {
+    return this.usersService.findById(id, actor);
   }
 
   @Patch(':id/status')
@@ -102,21 +106,29 @@ export class UsersController {
       dto.status,
       dto.reason,
       actor?.id,
+      actor,
     );
   }
 
   @Patch(':id')
   @Roles(RoleType.ADMIN)
   @ApiOperation({ summary: 'Update user profile, role, or branch assignment' })
-  update(@Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdateUserDto) {
-    return this.usersService.update(id, dto);
+  update(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateUserDto,
+    @CurrentUser() actor?: RequestUser,
+  ) {
+    return this.usersService.update(id, dto, actor);
   }
 
   @Delete(':id')
   @Roles(RoleType.ADMIN)
   @ApiOperation({ summary: 'Soft delete / offboard user account' })
-  remove(@Param('id', ParseUUIDPipe) id: string) {
-    return this.usersService.delete(id);
+  remove(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() actor?: RequestUser,
+  ) {
+    return this.usersService.delete(id, actor);
   }
 
   @Post(':id/lock')
@@ -143,7 +155,8 @@ export class UsersController {
   resetPassword(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: { newPassword?: string },
+    @CurrentUser() actor?: RequestUser,
   ) {
-    return this.usersService.adminResetPassword(id, dto.newPassword);
+    return this.usersService.adminResetPassword(id, dto.newPassword, actor);
   }
 }

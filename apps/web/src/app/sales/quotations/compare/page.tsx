@@ -23,76 +23,22 @@ import Link from 'next/link';
 export default function QuoteComparisonPage() {
   const [vehicleCategory, setVehicleCategory] = useState('PRIVATE_CAR_3YR_MANDATORY_TP');
 
-  const { data: matrixData, isLoading } = useQuery({
+  const { data: matrixData, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['quote-comparison-matrix', vehicleCategory],
     queryFn: async () => {
-      try {
-        const res = await apiClient.post('/quotations/enterprise-compare', {
-          vehicleCategory,
-          exShowroomPrice: 1000000.00,
-          registrationYear: 2024,
-          engineCc: 1197,
-          ncbPercentage: 35,
-          selectedAddons: { zeroDepreciation: true, roadsideAssistance: true },
-        });
-        return res.data;
-      } catch (err) {
-        // Fallback if network offline or testing
-        return null;
-      }
+      const res = await apiClient.post('/quotations/enterprise-compare', {
+        vehicleCategory,
+        exShowroomPrice: 1000000.00,
+        registrationYear: 2024,
+        engineCc: 1197,
+        ncbPercentage: 35,
+        selectedAddons: { zeroDepreciation: true, roadsideAssistance: true },
+      });
+      return res.data;
     },
   });
 
-  const quotes = matrixData?.comparativeMatrix || [
-    {
-      insurerId: 'hdfc-ergo',
-      insurerName: 'HDFC ERGO General Insurance',
-      logo: 'HDFC',
-      gatewayStatus: 'INTERNAL_TARIFF',
-      insuredDeclaredValue: '850000.00',
-      grossOwnDamagePremium: '26702.75',
-      noClaimBonusDiscount: '9345.96',
-      netOwnDamagePremium: '17356.79',
-      netThirdPartyPremium: '2094.00',
-      addonsPremium: '6375.00',
-      taxableNetPremium: '25825.79',
-      segregatedGstLedger: { ownDamageGst: '4271.72', thirdPartyGst: '376.92', totalGstPayable: '4648.64' },
-      finalCustomerPayablePremium: '30474.43',
-      isRecommended: true,
-    },
-    {
-      insurerId: 'icici-lombard',
-      insurerName: 'ICICI Lombard General Insurance',
-      logo: 'ICICI',
-      gatewayStatus: 'INTERNAL_TARIFF',
-      insuredDeclaredValue: '850000.00',
-      grossOwnDamagePremium: '25100.58',
-      noClaimBonusDiscount: '8785.20',
-      netOwnDamagePremium: '16315.38',
-      netThirdPartyPremium: '2094.00',
-      addonsPremium: '6375.00',
-      taxableNetPremium: '24784.38',
-      segregatedGstLedger: { ownDamageGst: '4084.26', thirdPartyGst: '376.92', totalGstPayable: '4461.18' },
-      finalCustomerPayablePremium: '29245.56',
-      isRecommended: false,
-    },
-    {
-      insurerId: 'bajaj-allianz',
-      insurerName: 'Bajaj Allianz General Insurance',
-      logo: 'BAJAJ',
-      gatewayStatus: 'INTERNAL_TARIFF',
-      insuredDeclaredValue: '850000.00',
-      grossOwnDamagePremium: '24299.50',
-      noClaimBonusDiscount: '8504.83',
-      netOwnDamagePremium: '15794.67',
-      netThirdPartyPremium: '2094.00',
-      addonsPremium: '6375.00',
-      taxableNetPremium: '24263.67',
-      segregatedGstLedger: { ownDamageGst: '3990.54', thirdPartyGst: '376.92', totalGstPayable: '4367.46' },
-      finalCustomerPayablePremium: '28631.13',
-      isRecommended: false,
-    },
-  ];
+  const quotes = matrixData?.comparativeMatrix || [];
 
   return (
     <AppShell>
@@ -141,6 +87,28 @@ export default function QuoteComparisonPage() {
             <div className="p-12 text-center text-xs text-muted-foreground flex flex-col items-center gap-2">
               <Activity className="h-6 w-6 text-primary animate-spin" />
               <span className="font-bold">Evaluating statutory motor tariffs and calculating comparative premium ledgers...</span>
+            </div>
+          ) : isError ? (
+            <div className="p-12 text-center text-xs text-destructive flex flex-col items-center gap-3">
+              <AlertTriangle className="h-8 w-8 text-destructive" />
+              <span className="font-bold text-sm">Failed to retrieve comparative quotes</span>
+              <p className="text-muted-foreground text-xs max-w-md">
+                {(error as any)?.message || 'Unable to connect to multi-insurer calculation gateway. Please verify your connection or authentication.'}
+              </p>
+              <button
+                onClick={() => refetch()}
+                className="px-4 py-2 bg-primary text-primary-foreground font-bold rounded-xl text-xs shadow-xs hover:bg-primary/90"
+              >
+                Retry Comparison
+              </button>
+            </div>
+          ) : quotes.length === 0 ? (
+            <div className="p-12 text-center text-xs text-muted-foreground flex flex-col items-center gap-2">
+              <FileText className="h-8 w-8 text-muted-foreground/50" />
+              <span className="font-bold text-sm text-foreground">No Quotes Generated</span>
+              <p className="text-muted-foreground text-xs">
+                No insurer tariffs available for the selected category. Please choose another taxonomy slab.
+              </p>
             </div>
           ) : (
             <div className="overflow-x-auto">

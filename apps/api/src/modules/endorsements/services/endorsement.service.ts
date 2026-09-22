@@ -25,13 +25,27 @@ export class EndorsementService {
    * Computes Pro-Rata Premium Differential based on remaining policy coverage days.
    * GST @ 18% is applied strictly to taxable differential.
    */
-  async calculateProRataPremium(policyId: string, newAnnualPremium: number) {
+  async calculateProRataPremium(
+    policyId: string,
+    newAnnualPremium: number,
+    actor?: any,
+  ) {
     const policy = await this.prisma.policy.findUnique({
       where: { id: policyId },
     });
 
     if (!policy) {
       throw new NotFoundException(`Policy with ID ${policyId} not found`);
+    }
+
+    const actorCompanyId =
+      actor?.companyId || actor?.organizationId || actor?.user?.companyId;
+    if (
+      actorCompanyId &&
+      policy.companyId &&
+      policy.companyId !== actorCompanyId
+    ) {
+      throw new ForbiddenException('Policy belongs to another organization');
     }
 
     const now = new Date();
@@ -254,7 +268,7 @@ export class EndorsementService {
   // Standard CRUD / list methods
   // ---------------------------------------------------------------------------
 
-  async getEndorsements(pagination: PaginationDto) {
+  async getEndorsements(pagination: PaginationDto, actor?: any) {
     const {
       page = 1,
       limit = 25,
@@ -263,8 +277,15 @@ export class EndorsementService {
     } = pagination;
     const skip = (page - 1) * limit;
 
+    const actorCompanyId =
+      actor?.companyId || actor?.organizationId || actor?.user?.companyId;
+    const where: Prisma.EndorsementWhereInput = actorCompanyId
+      ? { policy: { companyId: actorCompanyId } }
+      : {};
+
     const [data, total] = await Promise.all([
       this.prisma.endorsement.findMany({
+        where,
         skip,
         take: limit,
         include: {
@@ -273,13 +294,13 @@ export class EndorsementService {
         },
         orderBy: { [sortBy]: sortOrder },
       }),
-      this.prisma.endorsement.count(),
+      this.prisma.endorsement.count({ where }),
     ]);
 
     return new PaginatedResponseDto(data, total, page, limit);
   }
 
-  async getEndorsementDetails(id: string) {
+  async getEndorsementDetails(id: string, actor?: any) {
     const end = await this.prisma.endorsement.findUnique({
       where: { id },
       include: {
@@ -295,6 +316,17 @@ export class EndorsementService {
     if (!end) {
       throw new NotFoundException('Endorsement not found');
     }
+
+    const actorCompanyId =
+      actor?.companyId || actor?.organizationId || actor?.user?.companyId;
+    if (
+      actorCompanyId &&
+      end.policy?.companyId &&
+      end.policy.companyId !== actorCompanyId
+    ) {
+      throw new NotFoundException('Endorsement not found');
+    }
+
     return end;
   }
 
@@ -304,6 +336,7 @@ export class EndorsementService {
     reason: string,
     userId: string,
     requestedChanges?: Record<string, any>,
+    actor?: any,
   ) {
     const policy = await this.prisma.policy.findUnique({
       where: { id: policyId },
@@ -311,6 +344,16 @@ export class EndorsementService {
 
     if (!policy) {
       throw new NotFoundException('Policy not found');
+    }
+
+    const actorCompanyId =
+      actor?.companyId || actor?.organizationId || actor?.user?.companyId;
+    if (
+      actorCompanyId &&
+      policy.companyId &&
+      policy.companyId !== actorCompanyId
+    ) {
+      throw new ForbiddenException('Policy belongs to another organization');
     }
 
     if (policy.status !== 'ACTIVE') {
@@ -353,7 +396,29 @@ export class EndorsementService {
     });
   }
 
-  async attachDocument(endorsementId: string, documentId: string) {
+  async attachDocument(
+    endorsementId: string,
+    documentId: string,
+    actor?: any,
+  ) {
+    const end = await this.prisma.endorsement.findUnique({
+      where: { id: endorsementId },
+      include: { policy: true },
+    });
+    if (!end) throw new NotFoundException('Endorsement not found');
+
+    const actorCompanyId =
+      actor?.companyId || actor?.organizationId || actor?.user?.companyId;
+    if (
+      actorCompanyId &&
+      end.policy?.companyId &&
+      end.policy.companyId !== actorCompanyId
+    ) {
+      throw new ForbiddenException(
+        'Endorsement belongs to another organization',
+      );
+    }
+
     return this.prisma.endorsementDocument.create({
       data: {
         endorsementId,
@@ -366,13 +431,30 @@ export class EndorsementService {
   // Approve endorsement (with transactional AuditLog + Four-Eye Principle)
   // ---------------------------------------------------------------------------
 
-  async approveEndorsement(id: string, comments: string, reviewerId: string) {
+  async approveEndorsement(
+    id: string,
+    comments: string,
+    reviewerId: string,
+    actor?: any,
+  ) {
     const end = await this.prisma.endorsement.findUnique({
       where: { id },
       include: { policy: true },
     });
 
     if (!end) throw new NotFoundException('Endorsement not found');
+
+    const actorCompanyId =
+      actor?.companyId || actor?.organizationId || actor?.user?.companyId;
+    if (
+      actorCompanyId &&
+      end.policy?.companyId &&
+      end.policy.companyId !== actorCompanyId
+    ) {
+      throw new ForbiddenException(
+        'Endorsement belongs to another organization',
+      );
+    }
 
     // Four-Eye Principle: Requester cannot approve their own endorsement
     if (end.requestedById === reviewerId) {
@@ -473,12 +555,30 @@ export class EndorsementService {
     });
   }
 
-  async rejectEndorsement(id: string, reason: string, reviewerId: string) {
+  async rejectEndorsement(
+    id: string,
+    reason: string,
+    reviewerId: string,
+    actor?: any,
+  ) {
     const end = await this.prisma.endorsement.findUnique({
       where: { id },
+      include: { policy: true },
     });
 
     if (!end) throw new NotFoundException('Endorsement not found');
+
+    const actorCompanyId =
+      actor?.companyId || actor?.organizationId || actor?.user?.companyId;
+    if (
+      actorCompanyId &&
+      end.policy?.companyId &&
+      end.policy.companyId !== actorCompanyId
+    ) {
+      throw new ForbiddenException(
+        'Endorsement belongs to another organization',
+      );
+    }
 
     if (end.requestedById === reviewerId) {
       throw new ForbiddenException(

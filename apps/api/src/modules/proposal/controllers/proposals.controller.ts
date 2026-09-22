@@ -31,9 +31,7 @@ export class ProposalsController {
     @CurrentUser() user: RequestUser,
     @Query() pagination: PaginationDto,
   ) {
-    // AGENT only sees their own proposals; ADMIN/BACK_OFFICE see all
-    const filterUserId = user.role === RoleType.AGENT ? user.id : undefined;
-    return this.proposalService.getProposals(filterUserId, pagination);
+    return this.proposalService.getProposals(user, pagination);
   }
 
   @Get(':id')
@@ -51,7 +49,7 @@ export class ProposalsController {
     @Body('quotationId') quotationId: string,
     @CurrentUser() user: RequestUser,
   ) {
-    return this.proposalService.createProposal(quotationId, user.id);
+    return this.proposalService.createProposal(quotationId, user.id, user);
   }
 
   @Post(':id/attach')
@@ -67,13 +65,23 @@ export class ProposalsController {
       checklistItemId,
       documentId,
       user.id,
+      user,
     );
   }
 
   @Post(':id/submit')
   @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT)
-  submitProposal(@Param('id') id: string, @CurrentUser() user: RequestUser) {
-    return this.proposalService.submitProposal(id, user.id);
+  submitProposal(
+    @Param('id') id: string,
+    @CurrentUser() user: RequestUser,
+    @Body('expectedVersion') expectedVersion?: number,
+  ) {
+    return this.proposalService.submitProposal(
+      id,
+      user.id,
+      expectedVersion,
+      user,
+    );
   }
 
   @Post(':id/review')
@@ -84,6 +92,13 @@ export class ProposalsController {
     @Body('remarks') remarks: string,
     @CurrentUser() user: RequestUser,
   ) {
-    return this.proposalService.reviewProposal(id, approve, remarks, user.id);
+    return this.proposalService.reviewProposal(
+      id,
+      approve,
+      remarks,
+      user.id,
+      undefined,
+      user,
+    );
   }
 }

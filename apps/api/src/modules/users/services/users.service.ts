@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -31,7 +32,22 @@ export class UsersService {
     return company?.id || null;
   }
 
-  async create(dto: CreateUserDto) {
+  async create(dto: CreateUserDto, actor?: any) {
+    const actorCompanyId =
+      actor?.companyId ||
+      actor?.organizationId ||
+      actor?.user?.companyId;
+
+    if (
+      actorCompanyId &&
+      dto.companyId &&
+      dto.companyId !== actorCompanyId
+    ) {
+      throw new ForbiddenException(
+        'Cross-organization user creation is strictly prohibited',
+      );
+    }
+
     let canonicalRole: RoleType = RoleType.AGENT;
     const rawRole = String(dto.role || '').toUpperCase();
     if (rawRole === 'ADMIN' || rawRole === 'SUPER_ADMIN') {
@@ -99,7 +115,7 @@ export class UsersService {
     }
 
     const defaultCompanyId = await this.getPrimaryOrganizationId();
-    const targetCompanyId = dto.companyId || defaultCompanyId;
+    const targetCompanyId = actorCompanyId || dto.companyId || defaultCompanyId;
     let companyConnect: any = undefined;
     if (targetCompanyId) {
       companyConnect = { connect: { id: targetCompanyId } };
@@ -125,8 +141,8 @@ export class UsersService {
     return response;
   }
 
-  async adminResetPassword(userId: string, newPassword?: string) {
-    await this.findById(userId);
+  async adminResetPassword(userId: string, newPassword?: string, actor?: any) {
+    await this.findById(userId, actor);
     const password =
       newPassword || `${crypto.randomBytes(16).toString('hex')}A1`;
     const passwordHash = await argon2.hash(password);
@@ -165,12 +181,19 @@ export class UsersService {
     return { success: true, message: 'Password changed successfully' };
   }
 
-  async findAll(pagination: PaginationDto, status?: string) {
+  async findAll(pagination: PaginationDto, status?: string, actor?: any) {
     const page = pagination.page || 1;
     const limit = pagination.limit || 25;
     const skip = (page - 1) * limit;
 
-    const where: Prisma.UserWhereInput = {};
+    const actorCompanyId =
+      actor?.companyId ||
+      actor?.organizationId ||
+      actor?.user?.companyId;
+
+    const where: Prisma.UserWhereInput = {
+      ...(actorCompanyId ? { companyId: actorCompanyId } : {}),
+    };
     if (pagination.search) {
       where.OR = [
         { firstName: { contains: pagination.search, mode: 'insensitive' } },
@@ -208,10 +231,18 @@ export class UsersService {
     return new PaginatedResponseDto(data, total, page, limit);
   }
 
-  async findById(id: string) {
+  async findById(id: string, actor?: any) {
     const user = await this.userRepository.findById(id);
 
     if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    const actorCompanyId =
+      actor?.companyId ||
+      actor?.organizationId ||
+      actor?.user?.companyId;
+    if (actorCompanyId && user.companyId && user.companyId !== actorCompanyId) {
       throw new NotFoundException('User not found');
     }
 
@@ -223,14 +254,23 @@ export class UsersService {
     targetStatus: UserStatus,
     reason?: string,
     actorId?: string,
+    actor?: any,
   ) {
+    const actorCompanyId =
+      actor?.companyId ||
+      actor?.organizationId ||
+      actor?.user?.companyId;
+
     return this.prisma.$transaction(async (tx) => {
       const user = await tx.user.findUnique({
         where: { id },
         include: { role: true },
       });
 
-      if (!user) {
+      if (
+        !user ||
+        (actorCompanyId && user.companyId && user.companyId !== actorCompanyId)
+      ) {
         throw new NotFoundException('User not found');
       }
 
@@ -288,26 +328,28 @@ export class UsersService {
     });
   }
 
-  async lockUser(id: string, actorId?: string) {
+  async lockUser(id: string, actorId?: string, actor?: any) {
     return this.updateStatus(
       id,
       UserStatus.SUSPENDED,
       'User locked by administrator',
       actorId,
+      actor,
     );
   }
 
-  async unlockUser(id: string, actorId?: string) {
+  async unlockUser(id: string, actorId?: string, actor?: any) {
     return this.updateStatus(
       id,
       UserStatus.ACTIVE,
       'User unlocked by administrator',
       actorId,
+      actor,
     );
   }
 
-  async update(id: string, dto: any) {
-    await this.findById(id);
+  async update(id: string, dto: any, actor?: any) {
+    await this.findById(id, actor);
     const updateData: any = {};
     if (dto.firstName) updateData.firstName = dto.firstName;
     if (dto.lastName) updateData.lastName = dto.lastName;
@@ -324,8 +366,8 @@ export class UsersService {
     return UserMapper.toResponse(updated);
   }
 
-  async delete(id: string) {
-    await this.findById(id);
+  async delete(id: string, actor?: any) {
+    await this.findById(id, actor);
     const deleted = await this.userRepository.softDelete(id);
     return UserMapper.toResponse(deleted);
   }

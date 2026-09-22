@@ -26,14 +26,29 @@ export class ProposalService {
     return this.numberingEngine.generateNext('PROPOSAL');
   }
 
-  async getProposals(userId?: string, pagination?: PaginationDto) {
+  async getProposals(
+    userOrUserId?: any,
+    pagination?: PaginationDto,
+  ) {
     const page = pagination?.page || 1;
     const limit = pagination?.limit || 25;
     const sortBy = pagination?.sortBy || 'createdAt';
     const sortOrder = pagination?.sortOrder || 'desc';
     const skip = (page - 1) * limit;
 
-    const where: any = userId ? { submittedById: userId } : {};
+    const user = typeof userOrUserId === 'object' ? userOrUserId : null;
+    const userId =
+      typeof userOrUserId === 'string'
+        ? userOrUserId
+        : user?.role === 'AGENT'
+          ? user.id
+          : undefined;
+    const actorCompanyId = user?.companyId || user?.organizationId;
+
+    const where: any = {
+      ...(actorCompanyId ? { quotation: { companyId: actorCompanyId } } : {}),
+      ...(userId ? { submittedById: userId } : {}),
+    };
     if (pagination?.status) {
       where.status = pagination.status;
     }
@@ -75,6 +90,15 @@ export class ProposalService {
   async getProposalDetails(id: string, user: RequestUser) {
     const prop = await this.findProposalByIdOrNumber(id);
     if (!prop) {
+      throw new NotFoundException('Proposal not found');
+    }
+
+    const actorCompanyId = user?.companyId || user?.organizationId;
+    if (
+      actorCompanyId &&
+      prop.quotation?.companyId &&
+      prop.quotation.companyId !== actorCompanyId
+    ) {
       throw new NotFoundException('Proposal not found');
     }
 
@@ -134,13 +158,25 @@ export class ProposalService {
     };
   }
 
-  async createProposal(quotationId: string, userId: string) {
+  async createProposal(quotationId: string, userId: string, actor?: any) {
     const quotation = await this.prisma.quotation.findUnique({
       where: { id: quotationId },
     });
 
     if (!quotation) {
       throw new NotFoundException('Quotation not found');
+    }
+
+    const actorCompanyId =
+      actor?.companyId ||
+      actor?.organizationId ||
+      actor?.user?.companyId;
+    if (
+      actorCompanyId &&
+      quotation.companyId &&
+      quotation.companyId !== actorCompanyId
+    ) {
+      throw new ForbiddenException('Quotation belongs to another organization');
     }
 
     if (quotation.expiryDate && new Date(quotation.expiryDate) < new Date()) {
@@ -217,10 +253,20 @@ export class ProposalService {
     checklistItemId: string,
     documentId: string,
     userId: string,
+    actor?: any,
   ) {
     const prop = await this.findProposalByIdOrNumber(proposalId);
     if (!prop) {
       throw new NotFoundException('Proposal not found');
+    }
+
+    const actorCompanyId = actor?.companyId || actor?.organizationId;
+    if (
+      actorCompanyId &&
+      prop.quotation?.companyId &&
+      prop.quotation.companyId !== actorCompanyId
+    ) {
+      throw new ForbiddenException('Proposal belongs to another organization');
     }
 
     const propDoc = await this.prisma.proposalDocument.findUnique({
@@ -242,11 +288,25 @@ export class ProposalService {
     return updated;
   }
 
-  async submitProposal(id: string, userId: string, expectedVersion?: number) {
+  async submitProposal(
+    id: string,
+    userId: string,
+    expectedVersion?: number,
+    actor?: any,
+  ) {
     const prop = await this.findProposalByIdOrNumber(id);
 
     if (!prop) {
       throw new NotFoundException('Proposal not found');
+    }
+
+    const actorCompanyId = actor?.companyId || actor?.organizationId;
+    if (
+      actorCompanyId &&
+      prop.quotation?.companyId &&
+      prop.quotation.companyId !== actorCompanyId
+    ) {
+      throw new ForbiddenException('Proposal belongs to another organization');
     }
 
     const missingDocs = prop.documents.filter(
@@ -305,11 +365,24 @@ export class ProposalService {
     remarks: string,
     reviewerId: string,
     expectedVersion?: number,
+    actor?: any,
   ) {
     const prop = await this.findProposalByIdOrNumber(id);
 
     if (!prop) {
       throw new NotFoundException('Proposal not found');
+    }
+
+    const actorCompanyId =
+      actor?.companyId ||
+      actor?.organizationId ||
+      actor?.user?.companyId;
+    if (
+      actorCompanyId &&
+      prop.quotation?.companyId &&
+      prop.quotation.companyId !== actorCompanyId
+    ) {
+      throw new ForbiddenException('Proposal belongs to another organization');
     }
 
     if (

@@ -27,14 +27,20 @@ export class EndorsementsController {
 
   @Get()
   @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT)
-  getEndorsements(@Query() pagination: PaginationDto) {
-    return this.endorsementService.getEndorsements(pagination);
+  getEndorsements(
+    @Query() pagination: PaginationDto,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.endorsementService.getEndorsements(pagination, user);
   }
 
   @Get(':id')
   @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT)
-  getEndorsementDetails(@Param('id', ParseUUIDPipe) id: string) {
-    return this.endorsementService.getEndorsementDetails(id);
+  getEndorsementDetails(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.endorsementService.getEndorsementDetails(id, user);
   }
 
   @Post()
@@ -52,6 +58,7 @@ export class EndorsementsController {
       reason,
       user.id,
       requestedChanges,
+      user,
     );
   }
 
@@ -60,10 +67,12 @@ export class EndorsementsController {
   calculateProRata(
     @Param('policyId', ParseUUIDPipe) policyId: string,
     @Body('newAnnualPremium') newAnnualPremium: number,
+    @CurrentUser() user: RequestUser,
   ) {
     return this.endorsementService.calculateProRataPremium(
       policyId,
       newAnnualPremium,
+      user,
     );
   }
 
@@ -72,8 +81,9 @@ export class EndorsementsController {
   attachDocument(
     @Param('id', ParseUUIDPipe) id: string,
     @Body('documentId') documentId: string,
+    @CurrentUser() user: RequestUser,
   ) {
-    return this.endorsementService.attachDocument(id, documentId);
+    return this.endorsementService.attachDocument(id, documentId, user);
   }
 
   @Post(':id/approve')
@@ -83,7 +93,12 @@ export class EndorsementsController {
     @Body('comments') comments: string,
     @CurrentUser() user: RequestUser,
   ) {
-    return this.endorsementService.approveEndorsement(id, comments, user.id);
+    return this.endorsementService.approveEndorsement(
+      id,
+      comments,
+      user.id,
+      user,
+    );
   }
 
   @Post(':id/reject')
@@ -93,6 +108,6 @@ export class EndorsementsController {
     @Body('reason') reason: string,
     @CurrentUser() user: RequestUser,
   ) {
-    return this.endorsementService.rejectEndorsement(id, reason, user.id);
+    return this.endorsementService.rejectEndorsement(id, reason, user.id, user);
   }
 }

@@ -40,12 +40,49 @@ export class LeadsService {
 
   async create(dto: CreateLeadDto, actor: ActorContext) {
     const createdById = actor.userId;
+    const actorCompanyId =
+      actor.companyId ||
+      actor.organizationId ||
+      (actor as any).user?.companyId;
+
+    const user = this.prisma.user
+      ? await this.prisma.user.findUnique({
+          where: { id: createdById },
+          select: { companyId: true },
+        })
+      : null;
+
+    const effectiveCompanyId = actorCompanyId || user?.companyId;
+    if (
+      effectiveCompanyId &&
+      dto.companyId &&
+      dto.companyId !== effectiveCompanyId
+    ) {
+      throw new ForbiddenException(
+        'Cross-organization lead creation is strictly prohibited',
+      );
+    }
+    const companyId = effectiveCompanyId || dto.companyId;
+    if (!companyId) {
+      throw new ForbiddenException('Tenant organizational context is required');
+    }
+
     let targetContactId = dto.contactId;
 
     if (targetContactId) {
       try {
-        await this.contactsService.findById(targetContactId);
-      } catch {
+        const contact = await this.contactsService.findById(targetContactId);
+        if (
+          contact &&
+          (contact as any).companyId &&
+          (contact as any).companyId !== companyId
+        ) {
+          throw new ForbiddenException(
+            'Contact belongs to another organization',
+          );
+        }
+      } catch (err) {
+        if (err instanceof ForbiddenException) throw err;
         targetContactId = undefined;
       }
     }
@@ -54,12 +91,12 @@ export class LeadsService {
       let existingContact: any = null;
       if (dto.phone) {
         existingContact = await this.prisma.contact.findFirst({
-          where: { phone: dto.phone, deletedAt: null },
+          where: { phone: dto.phone, companyId, deletedAt: null },
         });
       }
       if (!existingContact && dto.email) {
         existingContact = await this.prisma.contact.findFirst({
-          where: { email: dto.email, deletedAt: null },
+          where: { email: dto.email, companyId, deletedAt: null },
         });
       }
 
@@ -94,7 +131,14 @@ export class LeadsService {
 
     // Validate Account exists if provided
     if (dto.accountId) {
-      await this.accountsService.findById(dto.accountId);
+      const account = await this.accountsService.findById(dto.accountId);
+      if (
+        account &&
+        (account as any).companyId &&
+        (account as any).companyId !== companyId
+      ) {
+        throw new ForbiddenException('Account belongs to another organization');
+      }
     }
 
     // Validate Assigned User exists if provided
@@ -103,6 +147,11 @@ export class LeadsService {
       if (!user) {
         throw new NotFoundException(
           `User with ID ${dto.assignedToId} not found`,
+        );
+      }
+      if ((user as any).companyId && (user as any).companyId !== companyId) {
+        throw new ForbiddenException(
+          'Assigned user belongs to another organization',
         );
       }
     }
@@ -129,16 +178,6 @@ export class LeadsService {
       PARTNER: LeadSource.ADVISOR,
       OTHER: LeadSource.OTHER,
     };
-    const user = this.prisma.user
-      ? await this.prisma.user.findUnique({
-          where: { id: createdById },
-          select: { companyId: true },
-        })
-      : null;
-    const companyId = dto.companyId || user?.companyId;
-    if (!companyId) {
-      throw new ForbiddenException('Tenant organizational context is required');
-    }
 
     const mappedSource = dto.source
       ? validSources[String(dto.source).toUpperCase()] || LeadSource.OTHER

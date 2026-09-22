@@ -2,6 +2,7 @@ import {
   Injectable,
   BadRequestException,
   ForbiddenException,
+  NotFoundException,
 } from '@nestjs/common';
 import { Prisma, QuotationStatus, AddonCode } from '@prisma/client';
 
@@ -109,7 +110,57 @@ export class GenerateQuotationService {
       );
     }
 
-    // 4. Map DB Create Input
+    // 4. Validate tenant ownership of target entities
+    const contact = await this.prisma.contact.findUnique({
+      where: { id: targetContactId },
+      select: { id: true, companyId: true },
+    });
+    if (!contact) {
+      throw new NotFoundException(`Contact with ID ${targetContactId} not found`);
+    }
+    if (contact.companyId !== companyId) {
+      throw new ForbiddenException(
+        'Cross-organization contact binding is strictly prohibited',
+      );
+    }
+
+    if (dto.leadId) {
+      const lead = await this.prisma.lead.findUnique({
+        where: { id: dto.leadId },
+        select: { id: true, companyId: true },
+      });
+      if (!lead) {
+        throw new NotFoundException(`Lead with ID ${dto.leadId} not found`);
+      }
+      if (lead.companyId !== companyId) {
+        throw new ForbiddenException(
+          'Cross-organization lead binding is strictly prohibited',
+        );
+      }
+    }
+
+    if (dto.accountId) {
+      const account = await this.prisma.account.findUnique({
+        where: { id: dto.accountId },
+        select: {
+          id: true,
+          createdBy: { select: { companyId: true } },
+          contacts: { select: { companyId: true }, take: 5 },
+        },
+      });
+      if (!account) {
+        throw new NotFoundException(`Account with ID ${dto.accountId} not found`);
+      }
+      const accountCompanyId =
+        account.createdBy?.companyId || account.contacts?.[0]?.companyId;
+      if (accountCompanyId && accountCompanyId !== companyId) {
+        throw new ForbiddenException(
+          'Cross-organization account binding is strictly prohibited',
+        );
+      }
+    }
+
+    // 5. Map DB Create Input
     const createData: Prisma.QuotationCreateInput = {
       quotationCode,
       title: titleStr,

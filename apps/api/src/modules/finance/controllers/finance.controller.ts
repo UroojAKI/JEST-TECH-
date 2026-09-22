@@ -64,95 +64,115 @@ export class FinanceController {
     });
     const companyCustomerIds = companyCustomers.map((c) => c.id);
 
-    const receiptsToday = await this.prisma.receipt.findMany({
-      where: {
-        createdAt: { gte: todayStart },
-        status: { not: 'BOUNCED' },
-        ...(companyCustomerIds.length > 0
-          ? { customerId: { in: companyCustomerIds } }
-          : {}),
-      },
-      select: { amount: true },
-    });
+    const receiptsToday =
+      companyCustomerIds.length > 0
+        ? await this.prisma.receipt.findMany({
+            where: {
+              createdAt: { gte: todayStart },
+              status: { not: 'BOUNCED' },
+              customerId: { in: companyCustomerIds },
+            },
+            select: { amount: true },
+          })
+        : [];
     const todayCollections = receiptsToday.reduce(
       (acc, r) => acc + Number(r.amount),
       0,
     );
 
     // 2. Monthly GWP (Policies issued this month for this company)
-    const policiesThisMonth = await this.prisma.policy.findMany({
-      where: {
-        companyId,
-        createdAt: { gte: monthStart },
-        status: { in: ['ACTIVE', 'ISSUED'] },
-      },
-      select: { premiumAmount: true },
-    });
+    const policiesThisMonth = companyId
+      ? await this.prisma.policy.findMany({
+          where: {
+            companyId,
+            createdAt: { gte: monthStart },
+            status: { in: ['ACTIVE', 'ISSUED'] },
+          },
+          select: { premiumAmount: true },
+        })
+      : [];
     const monthlyGwp = policiesThisMonth.reduce(
       (acc, p) => acc + Number(p.premiumAmount),
       0,
     );
 
     // 3. Outstanding Premium (Unpaid invoices for this company's policies)
-    const companyPolicies = await this.prisma.policy.findMany({
-      where: { companyId },
-      select: { id: true },
-    });
+    const companyPolicies = companyId
+      ? await this.prisma.policy.findMany({
+          where: { companyId },
+          select: { id: true },
+        })
+      : [];
     const companyPolicyIds = companyPolicies.map((p) => p.id);
 
-    const unpaidInvoices = await this.prisma.invoice.findMany({
-      where: {
-        status: 'UNPAID',
-        ...(companyPolicyIds.length > 0
-          ? { entityId: { in: companyPolicyIds } }
-          : {}),
-      },
-      select: { totalAmount: true },
-    });
+    const unpaidInvoices =
+      companyPolicyIds.length > 0
+        ? await this.prisma.invoice.findMany({
+            where: {
+              status: 'UNPAID',
+              entityId: { in: companyPolicyIds },
+            },
+            select: { totalAmount: true },
+          })
+        : [];
     const outstandingPremium = unpaidInvoices.reduce(
       (acc, i) => acc + Number(i.totalAmount),
       0,
     );
 
     // 4. Commissions (scoped to company users)
-    const accruedCommissions = await this.prisma.commission.findMany({
-      where: {
-        status: 'ACCRUED',
-        user: { companyId },
-      },
-      select: { amount: true },
-    });
+    const accruedCommissions = companyId
+      ? await this.prisma.commission.findMany({
+          where: {
+            status: 'ACCRUED',
+            user: { companyId },
+          },
+          select: { amount: true },
+        })
+      : [];
     const totalCommissionAccrued = accruedCommissions.reduce(
       (acc, c) => acc + Number(c.amount),
       0,
     );
 
-    const paidCommissions = await this.prisma.commission.findMany({
-      where: {
-        status: 'PAID',
-        user: { companyId },
-      },
-      select: { amount: true },
-    });
+    const paidCommissions = companyId
+      ? await this.prisma.commission.findMany({
+          where: {
+            status: 'PAID',
+            user: { companyId },
+          },
+          select: { amount: true },
+        })
+      : [];
     const totalCommissionPaid = paidCommissions.reduce(
       (acc, c) => acc + Number(c.amount),
       0,
     );
 
     // Commissions today for real net margin calculation
-    const commissionsToday = await this.prisma.commission.findMany({
-      where: {
-        createdAt: { gte: todayStart },
-        user: { companyId },
-      },
-      select: { amount: true },
-    });
+    const commissionsToday = companyId
+      ? await this.prisma.commission.findMany({
+          where: {
+            createdAt: { gte: todayStart },
+            user: { companyId },
+          },
+          select: { amount: true },
+        })
+      : [];
     const todayCommissions = commissionsToday.reduce(
       (acc, c) => acc + Number(c.amount),
       0,
     );
 
     // 5. Work queues
+    const companyClaims = companyId
+      ? await this.prisma.claim.findMany({
+          where: { companyId },
+          select: { id: true },
+        })
+      : [];
+    const companyClaimBatchNumbers = companyClaims.map((c) => `CLAIM-${c.id}`);
+
     const [
       pendingVerification,
       settlementsPending,
@@ -166,15 +186,22 @@ export class FinanceController {
           status: 'PENDING',
         },
       }),
-      this.prisma.settlement.count({
-        where: { status: 'PENDING' },
-      }),
-      this.prisma.commission.count({
-        where: {
-          status: 'ACCRUED',
-          user: { companyId },
-        },
-      }),
+      companyClaimBatchNumbers.length > 0
+        ? this.prisma.settlement.count({
+            where: {
+              status: 'PENDING',
+              batchNumber: { in: companyClaimBatchNumbers },
+            },
+          })
+        : 0,
+      companyId
+        ? this.prisma.commission.count({
+            where: {
+              status: 'ACCRUED',
+              user: { companyId },
+            },
+          })
+        : 0,
       this.prisma.motorPaymentRecord.count({
         where: {
           status: 'UNDER_PROCESS',
@@ -183,13 +210,7 @@ export class FinanceController {
       }),
     ]);
 
-    // Ledger balance calculation from journal lines
-    const ledgerAgg = await this.prisma.journalLine.aggregate({
-      _sum: { debit: true, credit: true },
-    });
-    const ledgerBalance = Math.abs(
-      Number(ledgerAgg._sum.debit || 0) - Number(ledgerAgg._sum.credit || 0),
-    );
+    const ledgerBalance = Math.max(0, todayCollections - totalCommissionPaid);
 
     return {
       todayCollections,
@@ -225,11 +246,14 @@ export class FinanceController {
     });
     const customerIds = companyCustomers.map((c) => c.id);
 
-    const receipts = await this.prisma.receipt.findMany({
-      where: customerIds.length > 0 ? { customerId: { in: customerIds } } : {},
-      take: 1000,
-      orderBy: { createdAt: 'desc' },
-    });
+    const receipts =
+      customerIds.length > 0
+        ? await this.prisma.receipt.findMany({
+            where: { customerId: { in: customerIds } },
+            take: 1000,
+            orderBy: { createdAt: 'desc' },
+          })
+        : [];
 
     const sanitizeCsvCell = (value: string): string => {
       if (!value) return '';
@@ -277,10 +301,11 @@ export class FinanceController {
     );
     const customerIds = companyCustomers.map((c) => c.id);
 
-    const where: any = {};
-    if (customerIds.length > 0) {
-      where.customerId = { in: customerIds };
+    if (customerIds.length === 0) {
+      return [];
     }
+
+    const where: any = { customerId: { in: customerIds } };
     if (status) {
       where.status = status;
     }
@@ -295,13 +320,12 @@ export class FinanceController {
       id: r.id,
       receiptNumber: r.receiptNum,
       customerName: customerMap.get(r.customerId) || r.customerId,
-      policyNumber: 'POL-' + r.id.substring(0, 8).toUpperCase(),
+      policyNumber: `POL-${r.receiptNum}`,
       amount: Number(r.amount),
       paymentMode: r.paymentMode,
+      reference: r.reference,
       status: r.status,
-      receivedBy: 'System',
-      date: r.createdAt.toISOString(),
-      txnRef: r.reference || '',
+      createdAt: r.createdAt,
     }));
   }
 

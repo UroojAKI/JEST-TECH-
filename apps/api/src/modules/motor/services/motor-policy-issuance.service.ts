@@ -66,6 +66,18 @@ export class MotorPolicyIssuanceService {
       if (!quote) {
         throw new NotFoundException(`Quotation ${quotationId} not found`);
       }
+
+      const actorCompanyId = actor.companyId || actor.organizationId;
+      if (
+        actorCompanyId &&
+        quote.companyId &&
+        quote.companyId !== actorCompanyId
+      ) {
+        throw new ForbiddenException(
+          'Cross-organization policy issuance is strictly prohibited',
+        );
+      }
+
       if (quote.policy) {
         throw new ConflictException(
           `Policy already issued for quotation ${quotationId} (Policy Number: ${quote.policy.policyNumber}). Duplicate issuance is blocked.`,
