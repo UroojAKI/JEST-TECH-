@@ -7,6 +7,7 @@ import {
   Body,
   Param,
   UseGuards,
+  ForbiddenException,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
@@ -30,46 +31,56 @@ export class BiController {
     private readonly kpiService: KpiService,
   ) {}
 
+  // ── F-011 FIX: Pass actor's companyId to every BI query ──────────────────
+
+  private getActorCompanyId(user: RequestUser): string {
+    const companyId = user.companyId || (user as any).organizationId;
+    if (!companyId) {
+      throw new ForbiddenException('Tenant organizational context is required');
+    }
+    return companyId;
+  }
+
   @Get('conversion')
   @Roles(RoleType.ADMIN)
-  getConversion() {
-    return this.biService.getConversionMetrics();
+  getConversion(@CurrentUser() user: RequestUser) {
+    return this.biService.getConversionMetrics(this.getActorCompanyId(user));
   }
 
   @Get('revenue')
   @Roles(RoleType.ADMIN)
-  getRevenue() {
-    return this.biService.getRevenueMetrics();
+  getRevenue(@CurrentUser() user: RequestUser) {
+    return this.biService.getRevenueMetrics(this.getActorCompanyId(user));
   }
 
   @Get('loss-ratio')
   @Roles(RoleType.ADMIN)
-  getLossRatio() {
-    return this.biService.getLossRatioMetrics();
+  getLossRatio(@CurrentUser() user: RequestUser) {
+    return this.biService.getLossRatioMetrics(this.getActorCompanyId(user));
   }
 
   @Get('renewal')
   @Roles(RoleType.ADMIN)
-  getRenewal() {
-    return this.biService.getRenewalMetrics();
+  getRenewal(@CurrentUser() user: RequestUser) {
+    return this.biService.getRenewalMetrics(this.getActorCompanyId(user));
   }
 
   @Get('sales')
   @Roles(RoleType.ADMIN)
-  getSales() {
-    return this.biService.getSalesMetrics();
+  getSales(@CurrentUser() user: RequestUser) {
+    return this.biService.getSalesMetrics(this.getActorCompanyId(user));
   }
 
   @Get('growth')
   @Roles(RoleType.ADMIN)
-  getGrowth() {
-    return this.biService.getGrowthMetrics();
+  getGrowth(@CurrentUser() user: RequestUser) {
+    return this.biService.getGrowthMetrics(this.getActorCompanyId(user));
   }
 
   @Get('kpi')
   @Roles(RoleType.ADMIN)
-  getKpiValues() {
-    return this.biService.getKpiValues();
+  getKpiValues(@CurrentUser() user: RequestUser) {
+    return this.biService.getKpiValues(this.getActorCompanyId(user));
   }
 
   // KPI Management

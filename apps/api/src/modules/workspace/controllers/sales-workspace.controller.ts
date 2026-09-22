@@ -47,14 +47,18 @@ export class SalesWorkspaceController {
   @ApiOperation({ summary: 'Get Sales Workspace aggregated dashboard payload' })
   async getDashboard(@CurrentUser() user: RequestUser) {
     const isManager = user.role === 'ADMIN' || user.role === 'BACK_OFFICE';
+    const companyId = user.companyId || (user as any).organizationId;
 
     const kpis = await this.performanceService.getSalesKpis(user.id, isManager);
     const pipeline = await this.performanceService.getSalesPipeline(
       isManager ? undefined : user.id,
     );
 
+    // F-008 FIX: Always scope to companyId; isManager only removes userId filter
     const todayCalls = await this.prisma.callLog.findMany({
-      where: isManager ? {} : { userId: user.id },
+      where: isManager
+        ? { lead: { companyId } }
+        : { userId: user.id, lead: { companyId } },
       take: 10,
       orderBy: { createdAt: 'desc' },
       include: { lead: { include: { contact: true } } },
@@ -71,7 +75,8 @@ export class SalesWorkspaceController {
   @ApiOperation({ summary: 'Get Agent Work Queue actionable task badges' })
   async getWorkQueue(@CurrentUser() user: RequestUser) {
     const isManager = user.role === 'ADMIN' || user.role === 'BACK_OFFICE';
-    const where: any = { deletedAt: null };
+    const companyId = user.companyId || (user as any).organizationId;
+    const where: any = { companyId, deletedAt: null };
     if (!isManager) where.assignedToId = user.id;
 
     const pendingQuotesCount = await this.prisma.lead.count({
@@ -112,6 +117,7 @@ export class SalesWorkspaceController {
   })
   async getMotorWidgets(@CurrentUser() user: RequestUser) {
     const isManager = user.role === 'ADMIN' || user.role === 'BACK_OFFICE';
+    const companyId = user.companyId || (user as any).organizationId;
 
     const now = new Date();
     const startOfToday = new Date(
@@ -132,10 +138,11 @@ export class SalesWorkspaceController {
     const day30 = new Date(startOfToday.getTime() + 30 * 86400000);
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
-    const leadWhere: any = { deletedAt: null };
-    const policyWhere: any = { deletedAt: null };
+    // F-008 FIX: Always scope to companyId; isManager only removes userId filter
+    const leadWhere: any = { companyId, deletedAt: null };
+    const policyWhere: any = { companyId, deletedAt: null };
     const activityWhere: any = { deletedAt: null };
-    const quoteWhere: any = { deletedAt: null };
+    const quoteWhere: any = { companyId, deletedAt: null };
 
     if (!isManager) {
       leadWhere.assignedToId = user.id;

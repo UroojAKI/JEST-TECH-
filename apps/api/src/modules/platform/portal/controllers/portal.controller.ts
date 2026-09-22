@@ -27,16 +27,26 @@ import {
 export class PortalController {
   constructor(private readonly prisma: PrismaService) {}
 
+  // ── F-001 FIX: All queries are scoped to actor's companyId ──────────────
+
+  private getActorCompanyId(user: RequestUser): string {
+    const companyId = user.companyId || (user as any).organizationId;
+    if (!companyId) {
+      throw new ForbiddenException('Tenant organizational context is required');
+    }
+    return companyId;
+  }
+
   @Get('metrics')
   @ApiOperation({ summary: 'Get agent portal performance metrics' })
   async getAgentMetrics(@CurrentUser() user: RequestUser) {
-    const totalLeads = await this.prisma.lead.count();
-    const activePolicies = await this.prisma.policy.count({
-      where: { status: 'ACTIVE' },
-    });
-    const pendingQuotes = await this.prisma.quotation.count({
-      where: { status: 'DRAFT' },
-    });
+    const companyId = this.getActorCompanyId(user);
+
+    const [totalLeads, activePolicies, pendingQuotes] = await Promise.all([
+      this.prisma.lead.count({ where: { companyId } }),
+      this.prisma.policy.count({ where: { companyId, status: 'ACTIVE' } }),
+      this.prisma.quotation.count({ where: { companyId, status: 'DRAFT' } }),
+    ]);
 
     return {
       activePolicies,
@@ -49,9 +59,10 @@ export class PortalController {
 
   @Get('customers')
   @ApiOperation({ summary: 'Get agent portfolio customers' })
-  async getAgentCustomers() {
+  async getAgentCustomers(@CurrentUser() user: RequestUser) {
+    const companyId = this.getActorCompanyId(user);
     const contacts = await this.prisma.contact.findMany({
-      where: { deletedAt: null },
+      where: { companyId, deletedAt: null },
       orderBy: { createdAt: 'desc' },
       take: 50,
     });
@@ -60,8 +71,12 @@ export class PortalController {
 
   @Get('leads')
   @ApiOperation({ summary: 'Get agent lead pipeline' })
-  async getAgentLeads(@Query('status') status?: string) {
-    const where: any = { deletedAt: null };
+  async getAgentLeads(
+    @CurrentUser() user: RequestUser,
+    @Query('status') status?: string,
+  ) {
+    const companyId = this.getActorCompanyId(user);
+    const where: any = { companyId, deletedAt: null };
     if (status && status !== 'ALL') {
       where.status = status;
     }
@@ -79,19 +94,16 @@ export class PortalController {
     @Body() dto: CreatePortalLeadDto,
     @CurrentUser() user: RequestUser,
   ) {
+    const companyId = this.getActorCompanyId(user);
     const leadCode = `LD-${Date.now().toString().slice(-6)}`;
     const firstContact = await this.prisma.contact.findFirst({
-      where: { deletedAt: null },
+      where: { companyId, deletedAt: null },
     });
 
     if (!firstContact) {
       return { id: leadCode, leadCode, status: 'NEW' };
     }
 
-    const companyId = user.companyId || (user as any).organizationId;
-    if (!companyId) {
-      throw new ForbiddenException('Tenant organizational context is required');
-    }
     const created = await this.prisma.lead.create({
       data: {
         leadCode,
@@ -122,9 +134,10 @@ export class PortalController {
 
   @Get('policies')
   @ApiOperation({ summary: 'Get agent portfolio active policies' })
-  async getAgentPolicies() {
+  async getAgentPolicies(@CurrentUser() user: RequestUser) {
+    const companyId = this.getActorCompanyId(user);
     const policies = await this.prisma.policy.findMany({
-      where: { deletedAt: null },
+      where: { companyId, deletedAt: null },
       include: { contact: true },
       orderBy: { createdAt: 'desc' },
       take: 50,
@@ -134,9 +147,10 @@ export class PortalController {
 
   @Get('renewals')
   @ApiOperation({ summary: 'Get upcoming agent renewals' })
-  async getAgentRenewals() {
+  async getAgentRenewals(@CurrentUser() user: RequestUser) {
+    const companyId = this.getActorCompanyId(user);
     const policies = await this.prisma.policy.findMany({
-      where: { deletedAt: null, status: 'ACTIVE' },
+      where: { companyId, deletedAt: null, status: 'ACTIVE' },
       include: { contact: true },
       take: 20,
     });
@@ -181,7 +195,10 @@ export class PortalController {
   @ApiOperation({ summary: 'Get submitted support tickets' })
   async getSupportTickets(@CurrentUser() user: RequestUser) {
     const logs = await this.prisma.auditLog.findMany({
-      where: { entity: 'SUPPORT_TICKET' },
+      where: {
+        entity: 'SUPPORT_TICKET',
+        userId: user.id, // scope to requesting user's own tickets
+      },
       orderBy: { createdAt: 'desc' },
       take: 50,
     });

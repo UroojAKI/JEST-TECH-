@@ -180,6 +180,7 @@ export class AuditService {
 
   /**
    * Retrieves paginated system audit logs with filtering.
+   * F-012 FIX: companyId scopes results to a single tenant; omit only for super-admin.
    */
   async getAuditLogs(params?: {
     search?: string;
@@ -188,12 +189,19 @@ export class AuditService {
     userId?: string;
     page?: number;
     limit?: number;
+    companyId?: string; // required for tenant-scoped access
   }) {
     const page = Math.max(1, Number(params?.page) || 1);
     const limit = Math.min(100, Math.max(1, Number(params?.limit) || 50));
     const skip = (page - 1) * limit;
 
     const where: any = {};
+
+    // Scope to tenant when companyId is provided
+    if (params?.companyId) {
+      where.user = { companyId: params.companyId };
+    }
+
     if (params?.entity && params.entity !== 'ALL') {
       where.entity = params.entity;
     }
@@ -257,12 +265,14 @@ export class AuditService {
     action?: string;
     userId?: string;
     search?: string;
+    companyId?: string; // F-012 FIX: tenant-scoped export
   }) {
     const logsResult = await this.getAuditLogs({
       entity: params?.entity,
       action: params?.action,
       userId: params?.userId,
       search: params?.search,
+      companyId: params?.companyId,
       page: 1,
       limit: 1000,
     });

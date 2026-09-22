@@ -115,7 +115,11 @@ export class PoliciesController {
   async getRenewalKpis(@CurrentUser() user: RequestUser) {
     const isAdmin =
       user.role === RoleType.ADMIN || user.role === RoleType.BACK_OFFICE;
-    const taskWhere: any = isAdmin ? {} : { agentId: user.id };
+    const companyId = user.companyId || (user as any).organizationId;
+    // F-009 FIX: Always scope to companyId via policy relation; isAdmin only removes agentId filter
+    const taskWhere: any = isAdmin
+      ? { policy: { companyId } }
+      : { policy: { companyId }, agentId: user.id };
 
     const now = new Date();
     const startOfToday = new Date(
@@ -139,8 +143,8 @@ export class PoliciesController {
     in30.setDate(in30.getDate() + 30);
 
     const policyRenewalWhere: any = isAdmin
-      ? {}
-      : { policy: { createdById: user.id } };
+      ? { policy: { companyId } }
+      : { policy: { companyId, createdById: user.id } };
     const [
       dueToday,
       in7Days,
@@ -225,7 +229,11 @@ export class PoliciesController {
   ) {
     const isAdmin =
       user?.role === RoleType.ADMIN || user?.role === RoleType.BACK_OFFICE;
-    const where = isAdmin ? {} : { agentId: user?.id };
+    const companyId = user?.companyId || (user as any)?.organizationId;
+    // F-009 FIX: Always scope to companyId; isAdmin only removes agentId filter
+    const where = isAdmin
+      ? { policy: { companyId } }
+      : { policy: { companyId }, agentId: user?.id };
     return this.prisma.renewalTask.findMany({
       where,
       take: 50,
@@ -246,8 +254,12 @@ export class PoliciesController {
       throw new BadRequestException('Lost renewal reason is mandatory');
     const isAdmin =
       user.role === RoleType.ADMIN || user.role === RoleType.BACK_OFFICE;
+    const companyId = user.companyId || (user as any).organizationId;
+    // F-010 FIX: Always scope to companyId to prevent cross-tenant writes
     const task = await this.prisma.renewalTask.findFirst({
-      where: isAdmin ? { id: taskId } : { id: taskId, agentId: user.id },
+      where: isAdmin
+        ? { id: taskId, policy: { companyId } }
+        : { id: taskId, agentId: user.id, policy: { companyId } },
     });
     if (!task)
       throw new BadRequestException('Renewal task not found or not accessible');

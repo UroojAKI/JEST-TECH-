@@ -7,12 +7,15 @@ import {
   Param,
   UseGuards,
   BadRequestException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { SystemConfigService } from '../../services/system-config/system-config.service';
 import { SystemConfigKey } from '../../constants/system-config-key.enum';
 import { JwtAuthGuard } from '../../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../../auth/guards/roles.guard';
 import { Roles } from '../../../auth/decorators/roles.decorator';
+import { CurrentUser } from '../../../auth/decorators/current-user.decorator';
+import type { RequestUser } from '../../../auth/decorators/current-user.decorator';
 import { RoleType } from '@prisma/client';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 
@@ -140,12 +143,18 @@ export class SystemConfigController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(RoleType.ADMIN)
   @ApiOperation({ summary: 'Get admin system metrics' })
-  async getAdminMetrics() {
+  async getAdminMetrics(@CurrentUser() user: RequestUser) {
+    const companyId = user.companyId || (user as any).organizationId;
+    if (!companyId) {
+      throw new ForbiddenException('Tenant organizational context is required');
+    }
     const [activeUsers, totalPoliciesCount, documentsCount] = await Promise.all(
       [
-        this.prisma.user.count({ where: { status: 'ACTIVE' } }),
-        this.prisma.policy.count(),
-        this.prisma.document.count({ where: { deletedAt: null } }),
+        this.prisma.user.count({ where: { companyId, status: 'ACTIVE' } }),
+        this.prisma.policy.count({ where: { companyId } }),
+        this.prisma.document.count({
+          where: { deletedAt: null, uploadedBy: { companyId } },
+        }),
       ],
     );
     return {
