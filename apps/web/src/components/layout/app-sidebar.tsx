@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
@@ -43,7 +43,6 @@ import { getRoleNavigation } from '../../lib/navigation/navigation.registry';
 import { usePermissions } from '../providers/permission-provider';
 import { useUIStore } from '../../store/ui-store';
 import { useAuthStore } from '../../store/auth-store';
-import { useWorkspace } from '../../hooks/useWorkspace';
 import { NavigationItem } from '../../types';
 import { useQuery } from '@tanstack/react-query';
 
@@ -102,42 +101,78 @@ export function AppSidebar() {
     retry: false,
   });
 
-  const [openChildren, setOpenChildren] = useState<Record<string, boolean>>({
-    'my-customers': true,
-    'my-policies': true,
-    'bo-work-queue': true,
-    'bo-customers': true,
-    'bo-finance': true,
-    'business-analytics': true,
-    'adm-customers': true,
-    'adm-team': true,
-    'adm-finance': true,
-    'adm-config': true,
-    'adm-security': true,
-  });
-
-  const toggleSubmenu = (id: string) => {
-    setOpenChildren((prev) => ({ ...prev, [id]: !prev[id] }));
-  };
-
   // Authoritative Role Navigation Source
   const filteredNav = React.useMemo(() => {
     return getRoleNavigation(role);
   }, [role]);
 
+  // Auto-expand the section that matches the current URL, collapse others by default
+  const [openChildren, setOpenChildren] = useState<Record<string, boolean>>(() => {
+    const initial: Record<string, boolean> = {};
+    filteredNav.forEach((item) => {
+      const hasChildren = item.children && item.children.length > 0;
+      if (hasChildren) {
+        // Auto-open the group if the current path belongs to it
+        const isGroupActive =
+          pathname === item.href ||
+          pathname.startsWith(item.href + '/') ||
+          (item.children || []).some(
+            (child) => pathname === child.href || pathname.startsWith(child.href + '/')
+          );
+        initial[item.id] = isGroupActive;
+      }
+    });
+    return initial;
+  });
+
+  // When route changes, auto-expand the matching group
+  useEffect(() => {
+    setOpenChildren((prev) => {
+      const next = { ...prev };
+      filteredNav.forEach((item) => {
+        const hasChildren = item.children && item.children.length > 0;
+        if (hasChildren) {
+          const isGroupActive =
+            pathname === item.href ||
+            pathname.startsWith(item.href + '/') ||
+            (item.children || []).some(
+              (child) => pathname === child.href || pathname.startsWith(child.href + '/')
+            );
+          if (isGroupActive) {
+            next[item.id] = true;
+          }
+        }
+      });
+      return next;
+    });
+  }, [pathname, filteredNav]);
+
+  const toggleSubmenu = (id: string) => {
+    setOpenChildren((prev) => ({ ...prev, [id]: !prev[id] }));
+  };
+
   if (!isSidebarOpen) return null;
 
-  const systemStatus = healthData?.status === 'ok' ? 'Operational'
-    : healthData?.status ? 'Degraded'
-    : 'Offline';
+  const systemStatus =
+    healthData?.status === 'ok'
+      ? 'Operational'
+      : healthData?.status
+      ? 'Degraded'
+      : 'Offline';
 
-  const statusColor = systemStatus === 'Operational' ? 'text-emerald-500 bg-emerald-500/10 border-emerald-500/20'
-    : systemStatus === 'Degraded' ? 'text-yellow-500 bg-yellow-500/10 border-yellow-500/20'
-    : 'text-red-500 bg-red-500/10 border-red-500/20';
+  const statusColor =
+    systemStatus === 'Operational'
+      ? 'text-emerald-500 bg-emerald-500/10 border-emerald-500/20'
+      : systemStatus === 'Degraded'
+      ? 'text-yellow-500 bg-yellow-500/10 border-yellow-500/20'
+      : 'text-red-500 bg-red-500/10 border-red-500/20';
 
-  const dotColor = systemStatus === 'Operational' ? 'bg-emerald-500'
-    : systemStatus === 'Degraded' ? 'bg-yellow-500'
-    : 'bg-red-500';
+  const dotColor =
+    systemStatus === 'Operational'
+      ? 'bg-emerald-500'
+      : systemStatus === 'Degraded'
+      ? 'bg-yellow-500'
+      : 'bg-red-500';
 
   const roleUpper = role.toUpperCase();
   const workspaceTitle = roleUpper.includes('ADMIN')
@@ -160,10 +195,9 @@ export function AppSidebar() {
       </div>
 
       {/* Dynamic Navigation Items */}
-      <div className="flex-1 overflow-y-auto px-3 py-3 space-y-1">
+      <div className="flex-1 overflow-y-auto px-3 py-3 space-y-0.5">
         {filteredNav.map((item) => {
           const hasChildren = item.children && item.children.length > 0;
-          const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
           const isExpanded = openChildren[item.id];
 
           const filteredChildren = (item.children || []).filter((child) =>
@@ -176,13 +210,26 @@ export function AppSidebar() {
 
           if (hasChildren && filteredChildren.length === 0) return null;
 
+          // Determine if any child is the active route
+          const isChildActive = filteredChildren.some(
+            (child) => pathname === child.href || pathname.startsWith(child.href + '/')
+          );
+          // For leaf items (no children), check if this item itself is active
+          const isLeafActive =
+            !hasChildren &&
+            (pathname === item.href || pathname.startsWith(item.href + '/'));
+
+          // Parent group is highlighted if a child is active OR if it's itself active
+          const isGroupHighlighted = isChildActive || isLeafActive;
+
           return (
-            <div key={item.id} className="space-y-1">
+            <div key={item.id} className="space-y-0.5">
               {hasChildren ? (
+                // Group header: clicking toggles submenu; it's a button (doesn't navigate)
                 <button
                   onClick={() => toggleSubmenu(item.id)}
                   className={`w-full flex items-center justify-between px-3 py-2 text-xs font-medium rounded-md transition-colors ${
-                    isActive
+                    isGroupHighlighted
                       ? 'bg-primary/10 text-primary font-semibold'
                       : 'text-muted-foreground hover:bg-accent hover:text-foreground'
                   }`}
@@ -192,16 +239,17 @@ export function AppSidebar() {
                     <span>{item.title}</span>
                   </div>
                   {isExpanded ? (
-                    <ChevronDown className="h-3.5 w-3.5" />
+                    <ChevronDown className="h-3.5 w-3.5 flex-shrink-0" />
                   ) : (
-                    <ChevronRight className="h-3.5 w-3.5" />
+                    <ChevronRight className="h-3.5 w-3.5 flex-shrink-0" />
                   )}
                 </button>
               ) : (
+                // Leaf item: navigates directly
                 <Link
                   href={item.href}
                   className={`flex items-center space-x-2.5 px-3 py-2 text-xs font-medium rounded-md transition-colors ${
-                    isActive
+                    isLeafActive
                       ? 'bg-primary text-primary-foreground font-semibold shadow-sm'
                       : 'text-muted-foreground hover:bg-accent hover:text-foreground'
                   }`}
@@ -213,19 +261,30 @@ export function AppSidebar() {
 
               {/* Sub-menu rendering */}
               {hasChildren && isExpanded && (
-                <div className="pl-6 space-y-1">
+                <div className="ml-3 pl-3 border-l border-border/60 space-y-0.5">
                   {filteredChildren.map((child) => {
-                    const isChildActive = pathname === child.href;
+                    const isChildItemActive =
+                      pathname === child.href || pathname.startsWith(child.href + '/');
                     return (
                       <Link
                         key={child.id}
                         href={child.href}
-                        className={`block px-3 py-1.5 text-xs rounded-md transition-colors ${
-                          isChildActive
+                        className={`flex items-center gap-2 px-2.5 py-1.5 text-xs rounded-md transition-colors ${
+                          isChildItemActive
                             ? 'bg-primary/15 text-primary font-semibold'
                             : 'text-muted-foreground hover:bg-accent hover:text-foreground'
                         }`}
                       >
+                        {/* Show icon if available, otherwise a subtle dot */}
+                        {child.icon && ICON_MAP[child.icon] ? (
+                          <span className="opacity-70">{ICON_MAP[child.icon]}</span>
+                        ) : (
+                          <span
+                            className={`h-1.5 w-1.5 rounded-full flex-shrink-0 ${
+                              isChildItemActive ? 'bg-primary' : 'bg-muted-foreground/40'
+                            }`}
+                          />
+                        )}
                         {child.title}
                       </Link>
                     );
@@ -240,7 +299,9 @@ export function AppSidebar() {
       {/* Sidebar Footer */}
       <div className="p-3 border-t text-[11px] text-muted-foreground flex justify-between items-center">
         <span>v1.0.0 Enterprise</span>
-        <span className={`inline-flex items-center space-x-1.5 rounded-full px-2 py-0.5 text-[10px] font-medium border ${statusColor}`}>
+        <span
+          className={`inline-flex items-center space-x-1.5 rounded-full px-2 py-0.5 text-[10px] font-medium border ${statusColor}`}
+        >
           <span className={`h-1.5 w-1.5 rounded-full ${dotColor}`} />
           <span>{systemStatus}</span>
         </span>

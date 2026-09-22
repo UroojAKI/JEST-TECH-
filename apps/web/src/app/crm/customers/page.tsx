@@ -143,21 +143,21 @@ export default function CustomersPage() {
 
   return (
     <AppShell>
-      <div className="space-y-6 p-6">
+      <div className="space-y-6 p-6 text-foreground">
         {/* Header */}
         <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
           <div>
-            <h1 className="text-2xl font-bold tracking-tight text-slate-900 flex items-center gap-2">
-              <UserCheck className="h-6 w-6 text-primary-600" />
+            <h1 className="text-xl font-bold tracking-tight flex items-center gap-2">
+              <UserCheck className="h-5 w-5 text-primary" />
               Customer Directory
             </h1>
-            <p className="text-sm text-slate-500">
+            <p className="text-xs text-muted-foreground">
               Permanent customer records, soft deduplication signals, and cross-portfolio views
             </p>
           </div>
           <button
             onClick={() => setShowAddModal(true)}
-            className="inline-flex items-center gap-2 rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-primary-700 transition"
+            className="flex items-center space-x-1 px-4 py-2 text-xs font-bold rounded-lg bg-primary text-primary-foreground shadow hover:bg-primary/90 transition-colors"
           >
             <Plus className="h-4 w-4" />
             Add Customer
@@ -165,8 +165,8 @@ export default function CustomersPage() {
         </div>
 
         {/* Filter Bar */}
-        <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
-          <Search className="h-5 w-5 text-slate-400 ml-2" />
+        <div className="flex items-center gap-3 rounded-xl border bg-card p-3 shadow-sm">
+          <Search className="h-4 w-4 text-muted-foreground ml-2" />
           <input
             type="text"
             placeholder="Search by customer name, code (CUST-XXXXXX), phone, email, or city..."
@@ -175,12 +175,12 @@ export default function CustomersPage() {
               setSearch(e.target.value);
               setPage(1);
             }}
-            className="w-full bg-transparent text-sm outline-none placeholder:text-slate-400"
+            className="w-full bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground"
           />
           {search && (
             <button
               onClick={() => setSearch('')}
-              className="text-xs text-slate-400 hover:text-slate-600 px-2 py-1"
+              className="text-xs text-muted-foreground hover:text-foreground px-2 py-1"
             >
               Clear
             </button>
@@ -188,9 +188,9 @@ export default function CustomersPage() {
         </div>
 
         {/* Customer Table */}
-        <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-          <table className="w-full text-left text-sm text-slate-600">
-            <thead className="border-b border-slate-200 bg-slate-50 text-xs font-semibold uppercase tracking-wider text-slate-500">
+        <div className="border rounded-xl overflow-hidden bg-card text-xs transition-opacity">
+          <table className="w-full text-left border-collapse">
+            <thead className="bg-muted/40 text-[10px] text-muted-foreground font-bold border-b uppercase">
               <tr>
                 <th className="px-6 py-3.5">Customer Code</th>
                 <th className="px-6 py-3.5">Name</th>
@@ -200,17 +200,17 @@ export default function CustomersPage() {
                 <th className="px-6 py-3.5 text-right">Action</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y">
               {isLoading ? (
                 <tr>
-                  <td colSpan={6} className="py-12 text-center text-slate-400">
-                    <Loader2 className="mx-auto h-6 w-6 animate-spin text-primary-600 mb-2" />
+                  <td colSpan={6} className="py-12 text-center text-muted-foreground">
+                    <Loader2 className="mx-auto h-6 w-6 animate-spin text-primary mb-2" />
                     Loading customers...
                   </td>
                 </tr>
               ) : customers.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-12 text-center text-slate-400">
+                  <td colSpan={6} className="p-4 text-center text-muted-foreground">
                     No customer records found. Click &quot;Add Customer&quot; to create one.
                   </td>
                 </tr>
@@ -219,14 +219,14 @@ export default function CustomersPage() {
                   <tr
                     key={c.id}
                     onClick={() => router.push("/crm/customers/" + c.id)}
-                    className="cursor-pointer transition hover:bg-slate-50/80"
+                    className="cursor-pointer transition hover:bg-accent/40"
                   >
-                    <td className="px-6 py-4 font-mono font-medium text-primary-600">
+                    <td className="p-3 font-mono font-bold text-primary">
                       {c.customerCode}
                     </td>
-                    <td className="px-6 py-4">
+                    <td className="p-3">
                       <div className="flex items-center gap-2">
-                        <span className="font-semibold text-slate-900">
+                        <span className="font-semibold">
                           {c.firstName} {c.lastName || ''}
                         </span>
                         {c.isVip && (
@@ -237,25 +237,25 @@ export default function CustomersPage() {
                         )}
                       </div>
                     </td>
-                    <td className="px-6 py-4">
+                    <td className="p-3">
                       <div className="space-y-0.5">
-                        <div className="flex items-center gap-1.5 text-xs text-slate-700">
+                        <div className="flex items-center gap-1.5 text-[11px] text-foreground">
                           <Phone className="h-3.5 w-3.5 text-slate-400" />
                           +91 {c.mobile}
                         </div>
                         {c.email && (
-                          <div className="flex items-center gap-1.5 text-xs text-slate-500">
+                          <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground font-mono">
                             <Mail className="h-3.5 w-3.5 text-slate-400" />
                             {c.email}
                           </div>
                         )}
                       </div>
                     </td>
-                    <td className="px-6 py-4 text-xs text-slate-600">
+                    <td className="p-3 text-[11px] text-muted-foreground">
                       {c.city ? (c.city + (c.state ? ", " + c.state : '')) : '?'}
                     </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center justify-center gap-2 text-xs">
+                    <td className="p-3">
+                      <div className="flex items-center justify-center gap-2 text-[10px]">
                         <span className="inline-flex items-center gap-1 rounded-md bg-blue-50 px-2 py-1 font-medium text-blue-700">
                           <FileText className="h-3 w-3" />
                           {c._count?.leads || 0} Leads
@@ -270,13 +270,13 @@ export default function CustomersPage() {
                         </span>
                       </div>
                     </td>
-                    <td className="px-6 py-4 text-right">
+                    <td className="p-3 text-right">
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
                           router.push("/crm/customers/" + c.id);
                         }}
-                        className="inline-flex items-center gap-1 text-xs font-semibold text-primary-600 hover:text-primary-800"
+                        className="inline-flex items-center gap-1 text-[11px] font-bold text-primary hover:text-primary/80"
                       >
                         View 360
                         <ExternalLink className="h-3.5 w-3.5" />
@@ -290,7 +290,7 @@ export default function CustomersPage() {
 
           {/* Pagination */}
           {totalPages > 1 && (
-            <div className="flex items-center justify-between border-t border-slate-200 px-6 py-3 bg-slate-50 text-xs text-slate-500">
+            <div className="flex items-center justify-between border-t p-3 bg-muted/40 text-[11px] text-muted-foreground">
               <span>
                 Showing Page {page} of {totalPages} ({total} Total Customers)
               </span>
@@ -298,14 +298,14 @@ export default function CustomersPage() {
                 <button
                   disabled={page <= 1}
                   onClick={() => setPage((p) => Math.max(1, p - 1))}
-                  className="rounded border border-slate-300 px-2.5 py-1 hover:bg-white disabled:opacity-50"
+                  className="rounded border px-2.5 py-1 hover:bg-background disabled:opacity-50 text-foreground"
                 >
                   Previous
                 </button>
                 <button
                   disabled={page >= totalPages}
                   onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                  className="rounded border border-slate-300 px-2.5 py-1 hover:bg-white disabled:opacity-50"
+                  className="rounded border px-2.5 py-1 hover:bg-background disabled:opacity-50 text-foreground"
                 >
                   Next
                 </button>
@@ -317,17 +317,17 @@ export default function CustomersPage() {
 
       {/* Add Customer Modal with Soft Duplicate Intelligence */}
       {showAddModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
-          <div className="relative w-full max-w-xl rounded-2xl bg-white p-6 shadow-2xl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
+          <div className="relative w-full max-w-xl rounded-2xl bg-card border p-6 shadow-2xl">
             <button
               onClick={() => setShowAddModal(false)}
-              className="absolute right-4 top-4 text-slate-400 hover:text-slate-600"
+              className="absolute right-4 top-4 text-muted-foreground hover:text-foreground"
             >
               <X className="h-5 w-5" />
             </button>
 
-            <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2">
-              <UserCheck className="h-5 w-5 text-primary-600" />
+            <h2 className="text-xl font-bold text-foreground flex items-center gap-2">
+              <UserCheck className="h-5 w-5 text-primary" />
               Add Customer
             </h2>
             <p className="mt-1 text-xs text-slate-500">
@@ -337,34 +337,34 @@ export default function CustomersPage() {
             <form onSubmit={(e) => handleSubmit(e, false)} className="mt-5 space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700">First Name *</label>
+                  <label className="block text-xs font-bold text-muted-foreground mb-1">First Name *</label>
                   <input
                     type="text"
                     required
                     value={formData.firstName}
                     onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
                     placeholder="e.g. Rajesh"
-                    className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
+                    className="mt-1 w-full rounded-lg border bg-background text-foreground text-xs focus:ring-1 focus:ring-primary focus:outline-none p-2.5"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700">Last Name</label>
+                  <label className="block text-xs font-bold text-muted-foreground mb-1">Last Name</label>
                   <input
                     type="text"
                     value={formData.lastName}
                     onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
                     placeholder="e.g. Sharma"
-                    className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
+                    className="mt-1 w-full rounded-lg border bg-background text-foreground text-xs focus:ring-1 focus:ring-primary focus:outline-none p-2.5"
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700">
+                  <label className="block text-xs font-bold text-muted-foreground mb-1">
                     Mobile Number * (10 Digits)
                     {checkingDuplicates && (
-                      <Loader2 className="inline ml-2 h-3 w-3 animate-spin text-slate-400" />
+                      <Loader2 className="inline ml-2 h-3 w-3 animate-spin text-muted-foreground" />
                     )}
                   </label>
                   <input
@@ -374,40 +374,40 @@ export default function CustomersPage() {
                     value={formData.mobile}
                     onChange={(e) => setFormData({ ...formData, mobile: e.target.value })}
                     placeholder="e.g. 9876543210"
-                    className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none font-mono"
+                    className="mt-1 w-full rounded-lg border bg-background text-foreground text-xs font-mono focus:ring-1 focus:ring-primary focus:outline-none p-2.5"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700">Email Address</label>
+                  <label className="block text-xs font-bold text-muted-foreground mb-1">Email Address</label>
                   <input
                     type="email"
                     value={formData.email}
                     onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                     placeholder="e.g. rajesh@example.com"
-                    className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
+                    className="mt-1 w-full rounded-lg border bg-background text-foreground text-xs focus:ring-1 focus:ring-primary focus:outline-none p-2.5"
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700">City</label>
+                  <label className="block text-xs font-bold text-muted-foreground mb-1">City</label>
                   <input
                     type="text"
                     value={formData.city}
                     onChange={(e) => setFormData({ ...formData, city: e.target.value })}
                     placeholder="e.g. Mumbai"
-                    className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
+                    className="mt-1 w-full rounded-lg border bg-background text-foreground text-xs focus:ring-1 focus:ring-primary focus:outline-none p-2.5"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700">State</label>
+                  <label className="block text-xs font-bold text-muted-foreground mb-1">State</label>
                   <input
                     type="text"
                     value={formData.state}
                     onChange={(e) => setFormData({ ...formData, state: e.target.value })}
                     placeholder="e.g. Maharashtra"
-                    className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
+                    className="mt-1 w-full rounded-lg border bg-background text-foreground text-xs focus:ring-1 focus:ring-primary focus:outline-none p-2.5"
                   />
                 </div>
               </div>
@@ -420,7 +420,7 @@ export default function CustomersPage() {
                   onChange={(e) => setFormData({ ...formData, isVip: e.target.checked })}
                   className="h-4 w-4 rounded border-slate-300 text-primary-600 focus:ring-primary-500"
                 />
-                <label htmlFor="isVip" className="text-xs font-medium text-slate-700 cursor-pointer">
+                <label htmlFor="isVip" className="text-xs font-bold text-muted-foreground cursor-pointer">
                   Mark as High-Priority / VIP Customer
                 </label>
               </div>
@@ -470,7 +470,7 @@ export default function CustomersPage() {
                 <button
                   type="button"
                   onClick={() => setShowAddModal(false)}
-                  className="rounded-lg border border-slate-300 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                  className="rounded-lg border px-4 py-2 text-xs font-semibold text-muted-foreground hover:bg-accent"
                 >
                   Cancel
                 </button>
@@ -488,7 +488,7 @@ export default function CustomersPage() {
                   <button
                     type="submit"
                     disabled={createMutation.isPending}
-                    className="inline-flex items-center gap-1.5 rounded-lg bg-primary-600 px-4 py-2 text-xs font-semibold text-white hover:bg-primary-700"
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-xs font-bold text-primary-foreground hover:bg-primary/90 shadow"
                   >
                     {createMutation.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
                     Save Customer
