@@ -31,11 +31,15 @@ export class MetricsAuthGuard extends JwtAuthGuard {
     try {
       isAuthed = (await super.canActivate(context)) as boolean;
     } catch {
-      throw new UnauthorizedException('Authentication required to access metrics');
+      throw new UnauthorizedException(
+        'Authentication required to access metrics',
+      );
     }
 
     if (!isAuthed) {
-      throw new UnauthorizedException('Authentication required to access metrics');
+      throw new UnauthorizedException(
+        'Authentication required to access metrics',
+      );
     }
 
     const user = request.user;

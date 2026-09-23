@@ -116,7 +116,9 @@ export class GenerateQuotationService {
       select: { id: true, companyId: true },
     });
     if (!contact) {
-      throw new NotFoundException(`Contact with ID ${targetContactId} not found`);
+      throw new NotFoundException(
+        `Contact with ID ${targetContactId} not found`,
+      );
     }
     if (contact.companyId !== companyId) {
       throw new ForbiddenException(
@@ -149,7 +151,9 @@ export class GenerateQuotationService {
         },
       });
       if (!account) {
-        throw new NotFoundException(`Account with ID ${dto.accountId} not found`);
+        throw new NotFoundException(
+          `Account with ID ${dto.accountId} not found`,
+        );
       }
       const accountCompanyId =
         account.createdBy?.companyId || account.contacts?.[0]?.companyId;

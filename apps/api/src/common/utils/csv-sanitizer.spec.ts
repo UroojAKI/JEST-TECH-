@@ -11,7 +11,9 @@ describe('sanitizeCsvCell', () => {
     expect(sanitizeCsvCell('=1+1')).toBe(`'=1+1`);
     expect(sanitizeCsvCell('+cmd|')).toBe(`'+cmd|`);
     expect(sanitizeCsvCell('-SUM(A1:A10)')).toBe(`'-SUM(A1:A10)`);
-    expect(sanitizeCsvCell('@HYPERLINK("http://evil.com")')).toBe(`'@HYPERLINK("http://evil.com")`);
+    expect(sanitizeCsvCell('@HYPERLINK("http://evil.com")')).toBe(
+      `'@HYPERLINK("http://evil.com")`,
+    );
     expect(sanitizeCsvCell('\tmalicious')).toBe(`'\tmalicious`);
     expect(sanitizeCsvCell('\rmalicious')).toBe(`'\rmalicious`);
   });

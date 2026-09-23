@@ -181,7 +181,9 @@ export class MotorCalculationService {
     // ── 8. Net Premium per Component (post-discount, pre-tax) ─────────────
     // SPEC: Tax is applied to net discounted premium per component, NOT gross.
     const netOdComponent = round2(netOdAfterDiscount + addonPremiumTotal);
-    const netTpComponent = round2(Math.max(0, baseTpPremium - tpDiscountAmount));
+    const netTpComponent = round2(
+      Math.max(0, baseTpPremium - tpDiscountAmount),
+    );
     const netPaComponent = paPremium; // PA is fixed IRDAI rate, no discount
     const netPaidDriverComponent = paidDriverPremium; // Fixed, no discount
 

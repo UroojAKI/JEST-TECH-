@@ -396,11 +396,7 @@ export class EndorsementService {
     });
   }
 
-  async attachDocument(
-    endorsementId: string,
-    documentId: string,
-    actor?: any,
-  ) {
+  async attachDocument(endorsementId: string, documentId: string, actor?: any) {
     const end = await this.prisma.endorsement.findUnique({
       where: { id: endorsementId },
       include: { policy: true },

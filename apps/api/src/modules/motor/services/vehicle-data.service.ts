@@ -323,7 +323,11 @@ export class VehicleDataService {
    * Creates or updates a canonical Vehicle under a Contact.
    * F-017 FIX: actorCompanyId is verified against the contact's company before mutation.
    */
-  async upsertVehicle(dto: UpsertVehicleDto, actorId?: string, actorCompanyId?: string) {
+  async upsertVehicle(
+    dto: UpsertVehicleDto,
+    actorId?: string,
+    actorCompanyId?: string,
+  ) {
     const contact = await this.prisma.contact.findUnique({
       where: { id: dto.contactId },
       select: { id: true, companyId: true },
@@ -430,7 +434,10 @@ export class VehicleDataService {
         where: { id: contactId },
         select: { id: true, companyId: true },
       });
-      if (!contact || (contact.companyId && contact.companyId !== actorCompanyId)) {
+      if (
+        !contact ||
+        (contact.companyId && contact.companyId !== actorCompanyId)
+      ) {
         throw new ForbiddenException('Contact belongs to another organization');
       }
     }

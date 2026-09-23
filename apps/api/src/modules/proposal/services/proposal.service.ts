@@ -26,10 +26,7 @@ export class ProposalService {
     return this.numberingEngine.generateNext('PROPOSAL');
   }
 
-  async getProposals(
-    userOrUserId?: any,
-    pagination?: PaginationDto,
-  ) {
+  async getProposals(userOrUserId?: any, pagination?: PaginationDto) {
     const page = pagination?.page || 1;
     const limit = pagination?.limit || 25;
     const sortBy = pagination?.sortBy || 'createdAt';
@@ -168,9 +165,7 @@ export class ProposalService {
     }
 
     const actorCompanyId =
-      actor?.companyId ||
-      actor?.organizationId ||
-      actor?.user?.companyId;
+      actor?.companyId || actor?.organizationId || actor?.user?.companyId;
     if (
       actorCompanyId &&
       quotation.companyId &&
@@ -374,9 +369,7 @@ export class ProposalService {
     }
 
     const actorCompanyId =
-      actor?.companyId ||
-      actor?.organizationId ||
-      actor?.user?.companyId;
+      actor?.companyId || actor?.organizationId || actor?.user?.companyId;
     if (
       actorCompanyId &&
       prop.quotation?.companyId &&

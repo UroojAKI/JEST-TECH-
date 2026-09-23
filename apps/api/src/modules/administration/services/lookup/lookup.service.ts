@@ -33,16 +33,18 @@ export class LookupService {
 
     if (!category) {
       // Auto-create category to prevent frontend 404 errors for hardcoded categories
-      category = await this.prisma.lookupCategory.create({
+      category = (await this.prisma.lookupCategory.create({
         data: {
           code: categoryCode,
           name: categoryCode.replace(/_/g, ' '),
           description: `Auto-generated category for ${categoryCode}`,
         },
         include: { values: true },
-      }) as any;
+      })) as any;
     } else if (!category.isActive) {
-      throw new NotFoundException(`Lookup category ${categoryCode} is inactive.`);
+      throw new NotFoundException(
+        `Lookup category ${categoryCode} is inactive.`,
+      );
     }
 
     // Build hierarchy
@@ -120,7 +122,7 @@ export class LookupService {
           code: categoryCode,
           name: categoryCode.replace(/_/g, ' '),
           description: `Auto-generated category for ${categoryCode}`,
-        }
+        },
       });
     }
 

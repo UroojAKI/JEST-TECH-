@@ -41,9 +41,7 @@ export class LeadsService {
   async create(dto: CreateLeadDto, actor: ActorContext) {
     const createdById = actor.userId;
     const actorCompanyId =
-      actor.companyId ||
-      actor.organizationId ||
-      (actor as any).user?.companyId;
+      actor.companyId || actor.organizationId || (actor as any).user?.companyId;
 
     const user = this.prisma.user
       ? await this.prisma.user.findUnique({

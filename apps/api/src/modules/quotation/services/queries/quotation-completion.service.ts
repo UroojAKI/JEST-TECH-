@@ -457,12 +457,17 @@ export class QuotationCompletionService {
         let vehicleCode: string;
         const year = new Date().getFullYear();
         try {
-          const res = await this.prisma.$queryRaw<[{ nextval: bigint }]>`SELECT nextval('vehicle_code_seq')`;
+          const res = await this.prisma.$queryRaw<
+            [{ nextval: bigint }]
+          >`SELECT nextval('vehicle_code_seq')`;
           vehicleCode = `VEH-${year}-${res[0].nextval.toString().padStart(6, '0')}`;
         } catch {
           try {
-            await this.prisma.$executeRaw`CREATE SEQUENCE IF NOT EXISTS vehicle_code_seq START 1;`;
-            const retry = await this.prisma.$queryRaw<[{ nextval: bigint }]>`SELECT nextval('vehicle_code_seq')`;
+            await this.prisma
+              .$executeRaw`CREATE SEQUENCE IF NOT EXISTS vehicle_code_seq START 1;`;
+            const retry = await this.prisma.$queryRaw<
+              [{ nextval: bigint }]
+            >`SELECT nextval('vehicle_code_seq')`;
             vehicleCode = `VEH-${year}-${retry[0].nextval.toString().padStart(6, '0')}`;
           } catch {
             const count = await this.prisma.vehicle.count().catch(() => 0);

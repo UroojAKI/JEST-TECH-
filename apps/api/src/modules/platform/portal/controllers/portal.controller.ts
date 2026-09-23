@@ -41,25 +41,37 @@ export class PortalController {
   @ApiOperation({ summary: 'Get agent portal performance metrics' })
   async getAgentMetrics(@CurrentUser() user: RequestUser) {
     const companyId = this.getActorCompanyId(user);
-    const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+    const startOfMonth = new Date(
+      new Date().getFullYear(),
+      new Date().getMonth(),
+      1,
+    );
 
-    const [totalLeads, activePolicies, pendingQuotes, policyPayments] = await Promise.all([
-      this.prisma.lead.count({ where: { companyId, deletedAt: null } }),
-      this.prisma.policy.count({ where: { companyId, status: 'ACTIVE', deletedAt: null } }),
-      this.prisma.quotation.count({ where: { companyId, status: 'DRAFT', deletedAt: null } }),
-      this.prisma.policyPayment.aggregate({
-        _sum: { amount: true },
-        where: {
-          status: 'SUCCESS' as any,
-          policy: { companyId },
-          paymentDate: { gte: startOfMonth },
-        },
-      }),
-    ]);
+    const [totalLeads, activePolicies, pendingQuotes, policyPayments] =
+      await Promise.all([
+        this.prisma.lead.count({ where: { companyId, deletedAt: null } }),
+        this.prisma.policy.count({
+          where: { companyId, status: 'ACTIVE', deletedAt: null },
+        }),
+        this.prisma.quotation.count({
+          where: { companyId, status: 'DRAFT', deletedAt: null },
+        }),
+        this.prisma.policyPayment.aggregate({
+          _sum: { amount: true },
+          where: {
+            status: 'SUCCESS' as any,
+            policy: { companyId },
+            paymentDate: { gte: startOfMonth },
+          },
+        }),
+      ]);
 
     const monthlyRevenue = Number(policyPayments?._sum?.amount ?? 0);
     const monthlyCommission = Math.round(monthlyRevenue * 0.1); // 10% standard agent commission
-    const targetAchievementPct = activePolicies > 0 ? Math.min(100, Math.round((activePolicies / 10) * 100)) : 0;
+    const targetAchievementPct =
+      activePolicies > 0
+        ? Math.min(100, Math.round((activePolicies / 10) * 100))
+        : 0;
 
     return {
       activePolicies,
@@ -102,7 +114,9 @@ export class PortalController {
   }
 
   @Post('leads')
-  @ApiOperation({ summary: 'Create new agent lead with deterministic contact isolation' })
+  @ApiOperation({
+    summary: 'Create new agent lead with deterministic contact isolation',
+  })
   async createAgentLead(
     @Body() dto: CreatePortalLeadDto,
     @CurrentUser() user: RequestUser,
@@ -110,11 +124,16 @@ export class PortalController {
     const companyId = this.getActorCompanyId(user);
     let leadSeq: bigint;
     try {
-      const res = await this.prisma.$queryRaw<[{ nextval: bigint }]>`SELECT nextval('lead_number_seq')`;
+      const res = await this.prisma.$queryRaw<
+        [{ nextval: bigint }]
+      >`SELECT nextval('lead_number_seq')`;
       leadSeq = res[0].nextval;
     } catch {
-      await this.prisma.$executeRaw`CREATE SEQUENCE IF NOT EXISTS lead_number_seq START 1;`;
-      const res = await this.prisma.$queryRaw<[{ nextval: bigint }]>`SELECT nextval('lead_number_seq')`;
+      await this.prisma
+        .$executeRaw`CREATE SEQUENCE IF NOT EXISTS lead_number_seq START 1;`;
+      const res = await this.prisma.$queryRaw<
+        [{ nextval: bigint }]
+      >`SELECT nextval('lead_number_seq')`;
       leadSeq = res[0].nextval;
     }
     const leadCode = `LEAD-${leadSeq.toString().padStart(6, '0')}`;
@@ -124,7 +143,9 @@ export class PortalController {
     const email = dto.email?.trim().toLowerCase();
     const nameParts = (dto.customerName || '').trim().split(' ');
     const firstName = dto.firstName || nameParts[0] || 'Prospect';
-    const lastName = dto.lastName || (nameParts.length > 1 ? nameParts.slice(1).join(' ') : 'Lead');
+    const lastName =
+      dto.lastName ||
+      (nameParts.length > 1 ? nameParts.slice(1).join(' ') : 'Lead');
 
     let contact: any = null;
     const searchConditions: any[] = [];
@@ -170,7 +191,9 @@ export class PortalController {
   }
 
   @Get('quotations/compare')
-  @ApiOperation({ summary: 'Compare quotations (F-002: genuine DB quotations)' })
+  @ApiOperation({
+    summary: 'Compare quotations (F-002: genuine DB quotations)',
+  })
   async compareQuotations(
     @Query('quotationId') quotationId?: string,
     @CurrentUser() user?: RequestUser,
@@ -178,7 +201,8 @@ export class PortalController {
     if (!quotationId) {
       return {
         available: false,
-        message: 'quotationId parameter is required for insurer quotation comparison',
+        message:
+          'quotationId parameter is required for insurer quotation comparison',
         quotes: [],
       };
     }
@@ -201,7 +225,8 @@ export class PortalController {
     if (quotes.length === 0) {
       return {
         available: false,
-        message: 'Quotation comparison unavailable for provided ID or quote not found',
+        message:
+          'Quotation comparison unavailable for provided ID or quote not found',
         quotes: [],
       };
     }
@@ -249,7 +274,10 @@ export class PortalController {
   }
 
   @Get('commissions')
-  @ApiOperation({ summary: 'Get agent earned commissions (F-003: authoritative database records)' })
+  @ApiOperation({
+    summary:
+      'Get agent earned commissions (F-003: authoritative database records)',
+  })
   async getAgentCommissions(@CurrentUser() user: RequestUser) {
     const companyId = this.getActorCompanyId(user);
     const payments = await this.prisma.policyPayment.findMany({
@@ -275,31 +303,36 @@ export class PortalController {
 
   @Get('branch-manager/metrics')
   @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE)
-  @ApiOperation({ summary: 'Get branch manager oversight metrics (F-004: authoritative database aggregation)' })
+  @ApiOperation({
+    summary:
+      'Get branch manager oversight metrics (F-004: authoritative database aggregation)',
+  })
   async getBranchManagerMetrics(@CurrentUser() user: RequestUser) {
     const companyId = this.getActorCompanyId(user);
-    const [revenueAgg, activeAgentsCount, totalPoliciesIssued, claimsAgg] = await Promise.all([
-      this.prisma.policyPayment.aggregate({
-        _sum: { amount: true },
-        where: { status: 'SUCCESS' as any, policy: { companyId } },
-      }),
-      this.prisma.agent.count({
-        where: { companyId, user: { status: 'ACTIVE' } },
-      }),
-      this.prisma.policy.count({
-        where: { companyId, status: 'ACTIVE' },
-      }),
-      this.prisma.claim.aggregate({
-        _sum: { approvedAmount: true },
-        where: { companyId },
-      }),
-    ]);
+    const [revenueAgg, activeAgentsCount, totalPoliciesIssued, claimsAgg] =
+      await Promise.all([
+        this.prisma.policyPayment.aggregate({
+          _sum: { amount: true },
+          where: { status: 'SUCCESS' as any, policy: { companyId } },
+        }),
+        this.prisma.agent.count({
+          where: { companyId, user: { status: 'ACTIVE' } },
+        }),
+        this.prisma.policy.count({
+          where: { companyId, status: 'ACTIVE' },
+        }),
+        this.prisma.claim.aggregate({
+          _sum: { approvedAmount: true },
+          where: { companyId },
+        }),
+      ]);
 
     const totalRevenue = Number(revenueAgg._sum.amount ?? 0);
     const totalClaims = Number(claimsAgg._sum.approvedAmount ?? 0);
-    const lossRatioPct = totalRevenue > 0
-      ? Math.round((totalClaims / totalRevenue) * 100 * 10) / 10
-      : 0;
+    const lossRatioPct =
+      totalRevenue > 0
+        ? Math.round((totalClaims / totalRevenue) * 100 * 10) / 10
+        : 0;
 
     return {
       branchRevenue: totalRevenue,

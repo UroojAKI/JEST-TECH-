@@ -302,8 +302,15 @@ export class RatingEngineService {
   }
 
   /**
-   * Arbitrary-Precision Financial Invariance calculation engine utilizing Prisma.Decimal
-   * Mandated by SDP Volume 2 & Volume 3 (Chapter 10.1).
+   * Authoritative Statutory Underwriting Standard Engine (F-038 Architectural Resolution)
+   *
+   * Provides arbitrary-precision financial invariance calculation utilizing Prisma.Decimal
+   * and Banker's Rounding (ROUND_HALF_EVEN) mandated by SDP Volume 2 & Volume 3 (Chapter 10.1).
+   *
+   * System Architecture Relationship:
+   * - RatingEngineService: Canonical mathematical authority for statutory IDV, base OD, TP tariffs, and tax segregation.
+   * - MotorCalculationService: Operational quotation pipeline orchestrator handling multi-addon selection, NCB carry-forward,
+   *   and dynamic database tariffs in quotation workflows.
    */
   computeComprehensivePolicyMath(payload: {
     vehicleCategory: string;

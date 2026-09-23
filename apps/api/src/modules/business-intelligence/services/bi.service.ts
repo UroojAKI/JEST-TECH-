@@ -110,7 +110,9 @@ export class BiService {
             status: { in: ['QUOTE', 'POLICY'] as any[] },
           },
         }),
-        this.prisma.proposal.count({ where: companyId ? { quotation: { companyId } } : {} }),
+        this.prisma.proposal.count({
+          where: companyId ? { quotation: { companyId } } : {},
+        }),
         this.prisma.policy.count({ where: companyWhere }),
       ]);
 
@@ -167,7 +169,11 @@ export class BiService {
     const [thisMonth, lastMonth, thisYear, allPayments] = await Promise.all([
       this.prisma.policyPayment.aggregate({
         _sum: { amount: true },
-        where: { status: 'SUCCESS' as any, paymentDate: { gte: somThisMonth }, ...policyWhere },
+        where: {
+          status: 'SUCCESS' as any,
+          paymentDate: { gte: somThisMonth },
+          ...policyWhere,
+        },
       }),
       this.prisma.policyPayment.aggregate({
         _sum: { amount: true },
@@ -179,10 +185,18 @@ export class BiService {
       }),
       this.prisma.policyPayment.aggregate({
         _sum: { amount: true },
-        where: { status: 'SUCCESS' as any, paymentDate: { gte: somThisYear }, ...policyWhere },
+        where: {
+          status: 'SUCCESS' as any,
+          paymentDate: { gte: somThisYear },
+          ...policyWhere,
+        },
       }),
       this.prisma.policyPayment.findMany({
-        where: { status: 'SUCCESS' as any, paymentDate: { gte: somThisYear }, ...policyWhere },
+        where: {
+          status: 'SUCCESS' as any,
+          paymentDate: { gte: somThisYear },
+          ...policyWhere,
+        },
         include: {
           policy: { select: { quotation: { select: { insurerName: true } } } },
         },
@@ -243,7 +257,10 @@ export class BiService {
       }),
       this.prisma.policyPayment.aggregate({
         _sum: { amount: true },
-        where: { status: 'SUCCESS' as any, ...(companyId ? { policy: { companyId } } : {}) },
+        where: {
+          status: 'SUCCESS' as any,
+          ...(companyId ? { policy: { companyId } } : {}),
+        },
       }),
     ]);
 
@@ -267,18 +284,36 @@ export class BiService {
 
     const [e20, e30, e45, missed, renewedCount] = await Promise.all([
       this.prisma.policy.count({
-        where: { ...companyWhere, status: 'ACTIVE', expiryDate: { gte: now, lte: in20 } },
+        where: {
+          ...companyWhere,
+          status: 'ACTIVE',
+          expiryDate: { gte: now, lte: in20 },
+        },
       }),
       this.prisma.policy.count({
-        where: { ...companyWhere, status: 'ACTIVE', expiryDate: { gte: now, lte: in30 } },
+        where: {
+          ...companyWhere,
+          status: 'ACTIVE',
+          expiryDate: { gte: now, lte: in30 },
+        },
       }),
       this.prisma.policy.count({
-        where: { ...companyWhere, status: 'ACTIVE', expiryDate: { gte: now, lte: in45 } },
+        where: {
+          ...companyWhere,
+          status: 'ACTIVE',
+          expiryDate: { gte: now, lte: in45 },
+        },
       }),
       this.prisma.policy.count({
-        where: { ...companyWhere, status: { not: 'ACTIVE' as any }, expiryDate: { lt: now } },
+        where: {
+          ...companyWhere,
+          status: { not: 'ACTIVE' as any },
+          expiryDate: { lt: now },
+        },
       }),
-      this.prisma.policyRenewal.count({ where: companyId ? { policy: { companyId } } : {} }),
+      this.prisma.policyRenewal.count({
+        where: companyId ? { policy: { companyId } } : {},
+      }),
     ]);
 
     const total = e45 + missed;
@@ -306,9 +341,14 @@ export class BiService {
     const companyWhere = companyId ? { companyId } : {};
 
     const [thisMonth, lastMonth] = await Promise.all([
-      this.prisma.policy.count({ where: { ...companyWhere, createdAt: { gte: somThisMonth } } }),
       this.prisma.policy.count({
-        where: { ...companyWhere, createdAt: { gte: somLastMonth, lte: eomLastMonth } },
+        where: { ...companyWhere, createdAt: { gte: somThisMonth } },
+      }),
+      this.prisma.policy.count({
+        where: {
+          ...companyWhere,
+          createdAt: { gte: somLastMonth, lte: eomLastMonth },
+        },
       }),
     ]);
 
@@ -331,15 +371,25 @@ export class BiService {
 
     const [portfolioSize, newPolicies, newContacts, newLeads] =
       await Promise.all([
-        this.prisma.policy.count({ where: { ...companyWhere, status: 'ACTIVE' } }),
+        this.prisma.policy.count({
+          where: { ...companyWhere, status: 'ACTIVE' },
+        }),
         this.prisma.policy.count({
           where: { ...companyWhere, createdAt: { gte: somThisMonth } },
         }),
         this.prisma.contact.count({
-          where: { ...companyWhere, deletedAt: null, createdAt: { gte: somThisMonth } },
+          where: {
+            ...companyWhere,
+            deletedAt: null,
+            createdAt: { gte: somThisMonth },
+          },
         }),
         this.prisma.lead.count({
-          where: { ...companyWhere, deletedAt: null, createdAt: { gte: somThisMonth } },
+          where: {
+            ...companyWhere,
+            deletedAt: null,
+            createdAt: { gte: somThisMonth },
+          },
         }),
       ]);
 

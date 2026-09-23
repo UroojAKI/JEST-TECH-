@@ -95,9 +95,12 @@ export class DocumentService {
           where: { id: entityId },
           select: { companyId: true },
         });
-        if (!policy) throw new NotFoundException(`Policy ${entityId} not found`);
+        if (!policy)
+          throw new NotFoundException(`Policy ${entityId} not found`);
         if (policy.companyId && policy.companyId !== actorOrg) {
-          throw new ForbiddenException('Policy belongs to another organization');
+          throw new ForbiddenException(
+            'Policy belongs to another organization',
+          );
         }
         break;
       }
@@ -106,9 +109,12 @@ export class DocumentService {
           where: { id: entityId },
           select: { companyId: true },
         });
-        if (!quote) throw new NotFoundException(`Quotation ${entityId} not found`);
+        if (!quote)
+          throw new NotFoundException(`Quotation ${entityId} not found`);
         if (quote.companyId && quote.companyId !== actorOrg) {
-          throw new ForbiddenException('Quotation belongs to another organization');
+          throw new ForbiddenException(
+            'Quotation belongs to another organization',
+          );
         }
         break;
       }
@@ -128,9 +134,12 @@ export class DocumentService {
           where: { id: entityId },
           select: { companyId: true },
         });
-        if (!contact) throw new NotFoundException(`Contact ${entityId} not found`);
+        if (!contact)
+          throw new NotFoundException(`Contact ${entityId} not found`);
         if (contact.companyId && contact.companyId !== actorOrg) {
-          throw new ForbiddenException('Contact belongs to another organization');
+          throw new ForbiddenException(
+            'Contact belongs to another organization',
+          );
         }
         break;
       }
@@ -139,9 +148,12 @@ export class DocumentService {
           where: { id: entityId },
           select: { companyId: true },
         });
-        if (!customer) throw new NotFoundException(`Customer ${entityId} not found`);
+        if (!customer)
+          throw new NotFoundException(`Customer ${entityId} not found`);
         if (customer.companyId && customer.companyId !== actorOrg) {
-          throw new ForbiddenException('Customer belongs to another organization');
+          throw new ForbiddenException(
+            'Customer belongs to another organization',
+          );
         }
         break;
       }
@@ -150,10 +162,13 @@ export class DocumentService {
           where: { id: entityId },
           select: { createdBy: { select: { companyId: true } } },
         });
-        if (!account) throw new NotFoundException(`Account ${entityId} not found`);
+        if (!account)
+          throw new NotFoundException(`Account ${entityId} not found`);
         const accOrg = account.createdBy?.companyId;
         if (accOrg && accOrg !== actorOrg) {
-          throw new ForbiddenException('Account belongs to another organization');
+          throw new ForbiddenException(
+            'Account belongs to another organization',
+          );
         }
         break;
       }
@@ -162,10 +177,13 @@ export class DocumentService {
           where: { id: entityId },
           select: { policy: { select: { companyId: true } } },
         });
-        if (!endorsement) throw new NotFoundException(`Endorsement ${entityId} not found`);
+        if (!endorsement)
+          throw new NotFoundException(`Endorsement ${entityId} not found`);
         const endOrg = endorsement.policy?.companyId;
         if (endOrg && endOrg !== actorOrg) {
-          throw new ForbiddenException('Endorsement belongs to another organization');
+          throw new ForbiddenException(
+            'Endorsement belongs to another organization',
+          );
         }
         break;
       }
@@ -198,11 +216,7 @@ export class DocumentService {
     } = params;
     if (!file) throw new BadRequestException('No file provided');
     const actorOrg = actor?.organizationId || (actor as any)?.companyId;
-    if (
-      !actor?.userId ||
-      actor.userId !== uploadedById ||
-      !actorOrg
-    )
+    if (!actor?.userId || actor.userId !== uploadedById || !actorOrg)
       throw new ForbiddenException(
         'Authenticated organizational context is required',
       );
@@ -351,9 +365,7 @@ export class DocumentService {
     const skip = (page - 1) * limit;
     const isElevatedRole =
       actor.role === RoleType.ADMIN || actor.role === RoleType.BACK_OFFICE;
-    const orgScope = actorOrg
-      ? { uploadedBy: { companyId: actorOrg } }
-      : {};
+    const orgScope = actorOrg ? { uploadedBy: { companyId: actorOrg } } : {};
     const ownerScope = isElevatedRole ? {} : { uploadedById: actor.userId };
     const where = {
       entityType,

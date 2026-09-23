@@ -151,15 +151,17 @@ export class PreviousPolicyService {
             }
           : null,
         // F-015: Only return customer PII if the policy belongs to the actor's company
-        customer: (policy.customer && (!actorCompanyId || policy.companyId === actorCompanyId))
-          ? {
-              id: policy.customer.id,
-              customerCode: policy.customer.customerCode,
-              name: `${policy.customer.firstName} ${policy.customer.lastName || ''}`.trim(),
-              mobile: policy.customer.mobile,
-              email: policy.customer.email,
-            }
-          : null,
+        customer:
+          policy.customer &&
+          (!actorCompanyId || policy.companyId === actorCompanyId)
+            ? {
+                id: policy.customer.id,
+                customerCode: policy.customer.customerCode,
+                name: `${policy.customer.firstName} ${policy.customer.lastName || ''}`.trim(),
+                mobile: policy.customer.mobile,
+                email: policy.customer.email,
+              }
+            : null,
       };
     }
 
@@ -203,15 +205,17 @@ export class PreviousPolicyService {
           rtoLocation: vehicle.rtoLocation,
         },
         // F-015: Only return customer PII if the vehicle's customer belongs to the actor's company
-        customer: (vehicle.customer && (!actorCompanyId || vehicle.customer.companyId === actorCompanyId))
-          ? {
-              id: vehicle.customer.id,
-              customerCode: vehicle.customer.customerCode,
-              name: `${vehicle.customer.firstName} ${vehicle.customer.lastName || ''}`.trim(),
-              mobile: vehicle.customer.mobile,
-              email: vehicle.customer.email,
-            }
-          : null,
+        customer:
+          vehicle.customer &&
+          (!actorCompanyId || vehicle.customer.companyId === actorCompanyId)
+            ? {
+                id: vehicle.customer.id,
+                customerCode: vehicle.customer.customerCode,
+                name: `${vehicle.customer.firstName} ${vehicle.customer.lastName || ''}`.trim(),
+                mobile: vehicle.customer.mobile,
+                email: vehicle.customer.email,
+              }
+            : null,
       };
     }
 

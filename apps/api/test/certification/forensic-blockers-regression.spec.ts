@@ -1,4 +1,8 @@
-import { ForbiddenException, BadRequestException, NotFoundException } from '@nestjs/common';
+import {
+  ForbiddenException,
+  BadRequestException,
+  NotFoundException,
+} from '@nestjs/common';
 import { RoleType, UserStatus } from '@prisma/client';
 
 describe('Forensic Audit Production Blockers Regression Suite (BLOCKER-01 to BLOCKER-10)', () => {
@@ -86,12 +90,20 @@ describe('Forensic Audit Production Blockers Regression Suite (BLOCKER-01 to BLO
   describe('BLOCKER-03: Customer Deduplication Cross-Tenant Enumeration (JEST-AUDIT-SEC-003)', () => {
     it('ensures deduplication query always scopes by actor companyId', () => {
       const actorCompanyId = actorTenantA.companyId;
-      const buildDeduplicationWhere = (actorCompanyId: string, mobile: string, email: string) => ({
+      const buildDeduplicationWhere = (
+        actorCompanyId: string,
+        mobile: string,
+        email: string,
+      ) => ({
         companyId: actorCompanyId,
         OR: [{ mobile }, { email }],
       });
 
-      const whereClause = buildDeduplicationWhere(actorCompanyId, '9876543210', 'victim@b.com');
+      const whereClause = buildDeduplicationWhere(
+        actorCompanyId,
+        '9876543210',
+        'victim@b.com',
+      );
       expect(whereClause.companyId).toBe(companyA);
       expect(whereClause.companyId).not.toBe(companyB);
     });
@@ -302,7 +314,8 @@ describe('Forensic Audit Production Blockers Regression Suite (BLOCKER-01 to BLO
 
   describe('BLOCKER-10: Renewal Quotation Code Collision Invariance (JEST-AUDIT-BIZ-001)', () => {
     it('guarantees unique atomic sequential format rather than 6-digit Date.now() millisecond slice', () => {
-      const collisionProneSlice = (timeMs: number) => `QT-REN-${timeMs.toString().slice(-6)}`;
+      const collisionProneSlice = (timeMs: number) =>
+        `QT-REN-${timeMs.toString().slice(-6)}`;
       const sameMs = 1711000000123;
       // In high-concurrency loops, Date.now() returns identical timestamps:
       const id1 = collisionProneSlice(sameMs);
@@ -310,7 +323,8 @@ describe('Forensic Audit Production Blockers Regression Suite (BLOCKER-01 to BLO
       expect(id1).toBe(id2); // Confirms the vulnerability in legacy code
 
       // Atomic sequential format with year/month/sequence:
-      const atomicFormat = (seq: number) => `QT-2026-09-${seq.toString().padStart(6, '0')}`;
+      const atomicFormat = (seq: number) =>
+        `QT-2026-09-${seq.toString().padStart(6, '0')}`;
       const code1 = atomicFormat(1);
       const code2 = atomicFormat(2);
       expect(code1).not.toBe(code2);

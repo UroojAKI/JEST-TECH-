@@ -4,7 +4,9 @@
  * Prepends a single quote to cells beginning with dangerous formula characters:
  * '=', '+', '-', '@', '\t', '\r'.
  */
-export function sanitizeCsvCell(value: string | number | null | undefined): string {
+export function sanitizeCsvCell(
+  value: string | number | null | undefined,
+): string {
   if (value === null || value === undefined) return '';
   const str = String(value);
   if (!str) return '';

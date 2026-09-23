@@ -3,7 +3,15 @@ import { PrismaService } from '../../../../../database/prisma.service';
 import { JournalEntry } from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime/library';
 
-import { IsString, IsNumber, IsDate, IsOptional, ValidateNested, IsArray, Min } from 'class-validator';
+import {
+  IsString,
+  IsNumber,
+  IsDate,
+  IsOptional,
+  ValidateNested,
+  IsArray,
+  Min,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class CreateJournalEntryLineDto {

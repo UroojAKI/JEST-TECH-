@@ -137,16 +137,21 @@ export class AuthService {
 
     if (recentFailures >= MAX_FAILED_ATTEMPTS) {
       // Record another failure attempt — still generic error externally
-      this.prisma.auditLog?.create?.({
-        data: {
-          action: AuditAction.LOGIN,
-          entity: 'User',
-          entityId: user.id,
-          userId: user.id,
-          module: 'AUTH_FAILED',
-          metadata: { reason: 'Lockout threshold exceeded', email: dto.email },
-        },
-      })?.catch?.(() => {});
+      this.prisma.auditLog
+        ?.create?.({
+          data: {
+            action: AuditAction.LOGIN,
+            entity: 'User',
+            entityId: user.id,
+            userId: user.id,
+            module: 'AUTH_FAILED',
+            metadata: {
+              reason: 'Lockout threshold exceeded',
+              email: dto.email,
+            },
+          },
+        })
+        ?.catch?.(() => {});
       throw genericAuthError;
     }
 
@@ -155,16 +160,18 @@ export class AuthService {
     const passwordValid = await argon2.verify(user.passwordHash, dto.password);
     if (!passwordValid) {
       // Record failed attempt in audit log for lockout tracking
-      this.prisma.auditLog?.create?.({
-        data: {
-          action: AuditAction.LOGIN,
-          entity: 'User',
-          entityId: user.id,
-          userId: user.id,
-          module: 'AUTH_FAILED',
-          metadata: { reason: 'Invalid password', email: dto.email },
-        },
-      })?.catch?.(() => {});
+      this.prisma.auditLog
+        ?.create?.({
+          data: {
+            action: AuditAction.LOGIN,
+            entity: 'User',
+            entityId: user.id,
+            userId: user.id,
+            module: 'AUTH_FAILED',
+            metadata: { reason: 'Invalid password', email: dto.email },
+          },
+        })
+        ?.catch?.(() => {});
       throw genericAuthError;
     }
 

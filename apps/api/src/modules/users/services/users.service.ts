@@ -48,15 +48,9 @@ export class UsersService {
 
   async create(dto: CreateUserDto, actor?: any) {
     const actorCompanyId =
-      actor?.companyId ||
-      actor?.organizationId ||
-      actor?.user?.companyId;
+      actor?.companyId || actor?.organizationId || actor?.user?.companyId;
 
-    if (
-      actorCompanyId &&
-      dto.companyId &&
-      dto.companyId !== actorCompanyId
-    ) {
+    if (actorCompanyId && dto.companyId && dto.companyId !== actorCompanyId) {
       throw new ForbiddenException(
         'Cross-organization user creation is strictly prohibited',
       );
@@ -101,8 +95,7 @@ export class UsersService {
     const initialPassword =
       dto.password || `${crypto.randomBytes(16).toString('hex')}A1`;
     const passwordHash = await argon2.hash(initialPassword);
-    const empCode =
-      dto.employeeCode || (await this.generateEmployeeCode());
+    const empCode = dto.employeeCode || (await this.generateEmployeeCode());
 
     const targetBranchId = dto.branchId || dto.branch;
     let branchConnect: any = undefined;
@@ -201,9 +194,7 @@ export class UsersService {
     const skip = (page - 1) * limit;
 
     const actorCompanyId =
-      actor?.companyId ||
-      actor?.organizationId ||
-      actor?.user?.companyId;
+      actor?.companyId || actor?.organizationId || actor?.user?.companyId;
 
     const where: Prisma.UserWhereInput = {
       ...(actorCompanyId ? { companyId: actorCompanyId } : {}),
@@ -253,9 +244,7 @@ export class UsersService {
     }
 
     const actorCompanyId =
-      actor?.companyId ||
-      actor?.organizationId ||
-      actor?.user?.companyId;
+      actor?.companyId || actor?.organizationId || actor?.user?.companyId;
     if (actorCompanyId && user.companyId && user.companyId !== actorCompanyId) {
       throw new NotFoundException('User not found');
     }
@@ -271,9 +260,7 @@ export class UsersService {
     actor?: any,
   ) {
     const actorCompanyId =
-      actor?.companyId ||
-      actor?.organizationId ||
-      actor?.user?.companyId;
+      actor?.companyId || actor?.organizationId || actor?.user?.companyId;
 
     return this.prisma.$transaction(async (tx) => {
       const user = await tx.user.findUnique({
