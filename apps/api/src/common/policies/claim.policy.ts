@@ -2,24 +2,51 @@ import { Injectable, ForbiddenException } from '@nestjs/common';
 import { RoleType } from '@prisma/client';
 import { ActorContext } from '../interfaces/actor-context.interface';
 
+/**
+ * ClaimPolicy — authorization rules for Claim resources.
+ *
+ * ADMIN semantic: ADMIN is company-scoped, NOT global.
+ *   if (actor.role === ADMIN) → only allowed if resource.companyId === actor.companyId
+ *
+ * Claim creation authority (locked decision):
+ *   BACK_OFFICE: CREATE + VIEW/manage within company (or branch if branch-scoped)
+ *   AGENT: VIEW assigned claims only — NO creation
+ *   ADMIN: MANAGE claims within own company only
+ */
 @Injectable()
 export class ClaimPolicy {
   canRead(actor: ActorContext, claim: any): boolean {
     if (!actor?.userId) return false;
-    if (actor.role === RoleType.ADMIN) return true;
+
+    const claimCompanyId =
+      claim.companyId ||
+      claim.createdBy?.companyId ||
+      claim.policy?.companyId;
+
+    // ADMIN: company-scoped, not global — must match actor.companyId
+    if (actor.role === RoleType.ADMIN) {
+      return claimCompanyId === actor.companyId;
+    }
 
     if (actor.role === RoleType.BACK_OFFICE) {
-      const claimCompanyId =
-        claim.companyId ||
-        claim.createdBy?.companyId ||
-        claim.policy?.companyId;
       if (claimCompanyId && claimCompanyId !== actor.companyId) {
         return false;
+      }
+      // Branch-scoped BACK_OFFICE: further restrict to own branch
+      if (actor.branchId) {
+        const claimBranchId = claim.branchId || claim.policy?.branchId;
+        if (claimBranchId && claimBranchId !== actor.branchId) {
+          return false;
+        }
       }
       return true;
     }
 
     if (actor.role === RoleType.AGENT) {
+      // AGENT: view assigned claims only — same company implied
+      if (claimCompanyId && claimCompanyId !== actor.companyId) {
+        return false;
+      }
       return (
         claim.createdById === actor.userId ||
         claim.policy?.createdById === actor.userId ||
@@ -30,10 +57,14 @@ export class ClaimPolicy {
     return false;
   }
 
+  /**
+   * Claim creation authority (BACK_OFFICE only per locked decision Q5).
+   * AGENT cannot create claims. ADMIN can create within own company.
+   */
   canCreate(actor: ActorContext): boolean {
     if (!actor?.userId) return false;
-    return [RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT].includes(
-      actor.role,
+    return (
+      actor.role === RoleType.BACK_OFFICE || actor.role === RoleType.ADMIN
     );
   }
 
@@ -52,7 +83,18 @@ export class ClaimPolicy {
       );
     }
 
-    return actor.role === RoleType.ADMIN || actor.role === RoleType.BACK_OFFICE;
+    if (actor.role === RoleType.ADMIN) {
+      if (claim) {
+        const claimCompanyId =
+          claim.companyId ||
+          claim.createdBy?.companyId ||
+          claim.policy?.companyId;
+        return claimCompanyId === actor.companyId;
+      }
+      return true;
+    }
+
+    return actor.role === RoleType.BACK_OFFICE;
   }
 
   canReject(actor: ActorContext): boolean {

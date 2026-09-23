@@ -1,12 +1,14 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
   Inject,
   forwardRef,
   Logger,
 } from '@nestjs/common';
+import { ActorContext } from '../../../../common/interfaces/actor-context.interface';
 import {
   Prisma,
   PolicyStatus,
@@ -45,14 +47,21 @@ export class IssuePolicyService {
     @Inject(CACHE_PROVIDER_TOKEN) private readonly cache: RedisCacheService,
   ) {}
 
-  async execute(dto: CreatePolicyDto, createdById: string) {
+  async execute(
+    dto: CreatePolicyDto,
+    createdById: string,
+    actor?: ActorContext,
+  ) {
     if (!dto.quotationId) {
       throw new BadRequestException(
         'Authoritative quotationId is mandatory for policy issuance. Direct manual policy issuance without a quotation is forbidden.',
       );
     }
 
-    await this.backOfficeQueueService.validateIssuanceGates(dto.quotationId);
+    await this.backOfficeQueueService.validateIssuanceGates(
+      dto.quotationId,
+      actor,
+    );
 
     const existingPolicy = await this.prisma.policy.findUnique({
       where: { quotationId: dto.quotationId },
@@ -67,6 +76,17 @@ export class IssuePolicyService {
     if (!quotation) {
       throw new NotFoundException(
         `Quotation with ID ${dto.quotationId} not found. Cannot issue policy.`,
+      );
+    }
+
+    // BOLA defense: Tenant ownership enforcement
+    if (
+      actor?.companyId &&
+      quotation.companyId &&
+      quotation.companyId !== actor.companyId
+    ) {
+      throw new ForbiddenException(
+        'Cross-tenant policy issuance forbidden: Quotation does not belong to your company.',
       );
     }
 

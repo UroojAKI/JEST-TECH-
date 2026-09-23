@@ -2,9 +2,11 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { PrismaService } from '../../../database/prisma.service';
 import { PaymentTrackingStatus } from '@prisma/client';
+import { ActorContext } from '../../../common/interfaces/actor-context.interface';
 
 export interface ReconciliationQueueItem {
   id: string;
@@ -49,15 +51,46 @@ export class FinanceReconciliationService {
 
   /**
    * Retrieves the authoritative Finance Reconciliation Queue sorted by urgency (G020).
-   * F-013 FIX: Scoped to actor's company via quotation.companyId relation.
+   * Scoped to actor's company via quotation.companyId relation.
    */
-  async getReconciliationQueue(params: {
-    status?: string;
-    search?: string;
-    page?: number;
-    limit?: number;
-    companyId?: string;
-  }) {
+  async getReconciliationQueue(
+    actorOrParams:
+      | ActorContext
+      | {
+          status?: string;
+          search?: string;
+          page?: number;
+          limit?: number;
+          companyId?: string;
+        },
+    maybeParams?: {
+      status?: string;
+      search?: string;
+      page?: number;
+      limit?: number;
+    },
+  ) {
+    let actor: ActorContext | undefined;
+    let params: {
+      status?: string;
+      search?: string;
+      page?: number;
+      limit?: number;
+      companyId?: string;
+    };
+
+    if (
+      actorOrParams &&
+      ('companyId' in actorOrParams ||
+        'userId' in actorOrParams ||
+        'role' in actorOrParams)
+    ) {
+      actor = actorOrParams as ActorContext;
+      params = maybeParams || {};
+    } else {
+      params = (actorOrParams as any) || {};
+    }
+
     const page = Math.max(1, Number(params.page) || 1);
     const limit = Math.min(100, Math.max(1, Number(params.limit) || 20));
     const skip = (page - 1) * limit;
@@ -68,9 +101,10 @@ export class FinanceReconciliationService {
       },
     };
 
-    // Tenant scope: filter via quotation.companyId when companyId is provided
-    if (params.companyId) {
-      baseWhere.quotation = { companyId: params.companyId };
+    // Tenant scope: actor.companyId is authoritative when available
+    const targetCompanyId = actor?.companyId || params.companyId;
+    if (targetCompanyId) {
+      baseWhere.quotation = { companyId: targetCompanyId };
     }
 
     const payments = await this.prisma.motorPaymentRecord.findMany({
@@ -213,9 +247,18 @@ export class FinanceReconciliationService {
    */
   async reconcilePayment(
     id: string,
-    actorId: string,
+    actorIdOrContext: string | ActorContext,
     dto: ReconcilePaymentDto,
   ) {
+    const actorId =
+      typeof actorIdOrContext === 'string'
+        ? actorIdOrContext
+        : actorIdOrContext.userId;
+    const actorCompanyId =
+      typeof actorIdOrContext === 'object'
+        ? actorIdOrContext.companyId
+        : undefined;
+
     const payment = await this.prisma.motorPaymentRecord.findUnique({
       where: { id },
       include: { quotation: true },
@@ -223,6 +266,16 @@ export class FinanceReconciliationService {
 
     if (!payment) {
       throw new NotFoundException(`Payment record with ID ${id} not found`);
+    }
+
+    if (
+      actorCompanyId &&
+      payment.quotation?.companyId &&
+      payment.quotation.companyId !== actorCompanyId
+    ) {
+      throw new ForbiddenException(
+        'Cross-tenant payment reconciliation forbidden: Payment does not belong to your company.',
+      );
     }
 
     if (payment.status !== PaymentTrackingStatus.PAID) {
@@ -356,13 +409,37 @@ export class FinanceReconciliationService {
   /**
    * Marks a payment as DISCREPANCY with reason.
    */
-  async flagDiscrepancy(id: string, actorId: string, dto: DiscrepancyDto) {
+  async flagDiscrepancy(
+    id: string,
+    actorIdOrContext: string | ActorContext,
+    dto: DiscrepancyDto,
+  ) {
+    const actorId =
+      typeof actorIdOrContext === 'string'
+        ? actorIdOrContext
+        : actorIdOrContext.userId;
+    const actorCompanyId =
+      typeof actorIdOrContext === 'object'
+        ? actorIdOrContext.companyId
+        : undefined;
+
     const payment = await this.prisma.motorPaymentRecord.findUnique({
       where: { id },
+      include: { quotation: true },
     });
 
     if (!payment) {
       throw new NotFoundException(`Payment record with ID ${id} not found`);
+    }
+
+    if (
+      actorCompanyId &&
+      payment.quotation?.companyId &&
+      payment.quotation.companyId !== actorCompanyId
+    ) {
+      throw new ForbiddenException(
+        'Cross-tenant payment discrepancy flagging forbidden: Payment does not belong to your company.',
+      );
     }
 
     if (!dto.reason || !dto.reason.trim()) {

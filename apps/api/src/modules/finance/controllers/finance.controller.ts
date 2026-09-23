@@ -466,8 +466,21 @@ export class FinanceController {
   @Get('settlements')
   @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE)
   @ApiOperation({ summary: 'List insurer settlements' })
-  async getSettlements() {
+  async getSettlements(@CurrentUser() actor: RequestUser) {
+    const companyId = actor.companyId || (actor as any).organizationId;
+    const companyClaims = companyId
+      ? await this.prisma.claim.findMany({
+          where: { companyId },
+          select: { id: true },
+        })
+      : [];
+    const companyClaimBatchNumbers = companyClaims.map((c) => `CLAIM-${c.id}`);
+
     const settlements = await this.prisma.settlement.findMany({
+      where:
+        companyClaimBatchNumbers.length > 0
+          ? { batchNumber: { in: companyClaimBatchNumbers } }
+          : { id: '__no_tenant_settlements__' },
       orderBy: { createdAt: 'desc' },
       take: 50,
     });
@@ -543,7 +556,7 @@ export class FinanceController {
     @Body() dto: ReconcilePaymentDto,
     @CurrentUser() actor: RequestUser,
   ) {
-    return this.reconciliationService.reconcilePayment(id, actor.userId, dto);
+    return this.reconciliationService.reconcilePayment(id, actor, dto);
   }
 
   @Post('reconciliation-queue/:id/discrepancy')
@@ -554,7 +567,7 @@ export class FinanceController {
     @Body() dto: DiscrepancyDto,
     @CurrentUser() actor: RequestUser,
   ) {
-    return this.reconciliationService.flagDiscrepancy(id, actor.userId, dto);
+    return this.reconciliationService.flagDiscrepancy(id, actor, dto);
   }
 
   @Post('invoices/:id/pay')

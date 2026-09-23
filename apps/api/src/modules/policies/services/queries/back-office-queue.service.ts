@@ -10,6 +10,7 @@ import {
   DocumentVerificationStatus,
   Prisma,
 } from '@prisma/client';
+import { ActorContext } from '../../../../common/interfaces/actor-context.interface';
 
 export interface GateStatus {
   passed: boolean;
@@ -50,12 +51,43 @@ export class BackOfficeQueueService {
 
   /**
    * Retrieves the Back-Office Policy Issuance Queue with multi-gate validation (G021).
+   *
+   * SECURITY: actor (from JWT) is the authoritative source of companyId and branchId.
+   * Client-supplied params NEVER override tenant scope.
    */
-  async getBackOfficeQueue(params?: {
-    search?: string;
-    status?: string;
-    quotationId?: string;
-  }) {
+  async getBackOfficeQueue(
+    actorOrParams?:
+      | ActorContext
+      | {
+          search?: string;
+          status?: string;
+          quotationId?: string;
+        },
+    maybeParams?: {
+      search?: string;
+      status?: string;
+      quotationId?: string;
+    },
+  ) {
+    let actor: ActorContext | undefined;
+    let params:
+      | { search?: string; status?: string; quotationId?: string }
+      | undefined;
+
+    if (
+      actorOrParams &&
+      ('companyId' in actorOrParams ||
+        'userId' in actorOrParams ||
+        'role' in actorOrParams)
+    ) {
+      actor = actorOrParams as ActorContext;
+      params = maybeParams;
+    } else {
+      params = actorOrParams as
+        | { search?: string; status?: string; quotationId?: string }
+        | undefined;
+    }
+
     let statusFilter: QuotationStatus[] = [
       QuotationStatus.PENDING_APPROVAL,
       QuotationStatus.APPROVED,
@@ -78,7 +110,15 @@ export class BackOfficeQueueService {
       }
     }
 
+    // Tenant scope: JWT actor is always the source of truth
+    const tenantFilter: Prisma.QuotationWhereInput = {
+      ...(actor?.companyId ? { companyId: actor.companyId } : {}),
+      // Branch-restricted BACK_OFFICE: further restrict to own branch
+      ...(actor?.branchId ? { branchId: actor.branchId } : {}),
+    };
+
     const where: Prisma.QuotationWhereInput = {
+      ...tenantFilter,
       ...(params?.quotationId
         ? { id: params.quotationId }
         : {
@@ -92,6 +132,7 @@ export class BackOfficeQueueService {
 
     const quotations = await this.prisma.quotation.findMany({
       where,
+
       include: {
         contact: true,
         vehicle: true,
@@ -331,8 +372,8 @@ export class BackOfficeQueueService {
    * Validates all gates before policy issuance.
    * Throws BadRequestException detailing blockers if any gate fails.
    */
-  async validateIssuanceGates(quotationId: string) {
-    const queueResult = await this.getBackOfficeQueue({ quotationId });
+  async validateIssuanceGates(quotationId: string, actor?: ActorContext) {
+    const queueResult = await this.getBackOfficeQueue(actor, { quotationId });
     const item = queueResult.data.find((q) => q.id === quotationId);
 
     if (!item) {

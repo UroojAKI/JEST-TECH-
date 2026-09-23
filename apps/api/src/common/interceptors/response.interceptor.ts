@@ -30,6 +30,23 @@ export class ResponseInterceptor<T> implements NestInterceptor<
     const request = ctx.getRequest();
     const response = ctx.getResponse();
 
+    // Q4 Security Policy: Prevent browser and CDN caching of authenticated tenant data
+    const isAuthenticated =
+      Boolean(request?.user) ||
+      Boolean(request?.headers?.authorization) ||
+      Boolean(request?.cookies?.jwt) ||
+      Boolean(request?.cookies?.accessToken);
+
+    if (
+      isAuthenticated &&
+      response &&
+      !response.headersSent &&
+      typeof response.setHeader === 'function'
+    ) {
+      response.setHeader('Cache-Control', 'private, no-store');
+      response.setHeader('Pragma', 'no-cache');
+    }
+
     return next.handle().pipe(
       map((data) => {
         // If data is null or undefined

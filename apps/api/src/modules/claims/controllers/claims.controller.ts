@@ -66,13 +66,13 @@ export class ClaimsController {
   ) {}
 
   @Post('report')
-  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT)
+  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE)
   report(@Body() dto: ReportClaimDto, @CurrentUser() user: RequestUser) {
     return this.reportClaimService.execute(dto, user);
   }
 
   @Post()
-  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT)
+  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE)
   create(@Body() dto: ReportClaimDto, @CurrentUser() user: RequestUser) {
     return this.reportClaimService.execute(dto, user);
   }

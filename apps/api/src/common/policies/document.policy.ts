@@ -2,18 +2,29 @@ import { Injectable } from '@nestjs/common';
 import { RoleType } from '@prisma/client';
 import { ActorContext } from '../interfaces/actor-context.interface';
 
+/**
+ * DocumentPolicy — authorization rules for Document resources.
+ *
+ * ADMIN semantic: ADMIN is company-scoped, NOT global.
+ *   if (actor.role === ADMIN) → only allowed if document.companyId === actor.companyId
+ */
 @Injectable()
 export class DocumentPolicy {
   canRead(actor: ActorContext, document: any): boolean {
     if (!actor?.userId) return false;
-    if (actor.role === RoleType.ADMIN) return true;
+
+    const docCompanyId =
+      document.companyId ||
+      document.uploadedBy?.companyId ||
+      document.policy?.companyId ||
+      document.claim?.companyId;
+
+    // ADMIN: company-scoped, not global
+    if (actor.role === RoleType.ADMIN) {
+      return docCompanyId === actor.companyId;
+    }
 
     if (actor.role === RoleType.BACK_OFFICE) {
-      const docCompanyId =
-        document.companyId ||
-        document.uploadedBy?.companyId ||
-        document.policy?.companyId ||
-        document.claim?.companyId;
       if (docCompanyId && docCompanyId !== actor.companyId) {
         return false;
       }
@@ -21,6 +32,9 @@ export class DocumentPolicy {
     }
 
     if (actor.role === RoleType.AGENT) {
+      if (docCompanyId && docCompanyId !== actor.companyId) {
+        return false;
+      }
       return (
         document.uploadedById === actor.userId ||
         document.createdById === actor.userId ||

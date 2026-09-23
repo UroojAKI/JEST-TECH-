@@ -2,18 +2,30 @@ import { Injectable } from '@nestjs/common';
 import { RoleType } from '@prisma/client';
 import { ActorContext } from '../interfaces/actor-context.interface';
 
+/**
+ * CommissionPolicy — authorization rules for Commission resources.
+ *
+ * ADMIN semantic: ADMIN is company-scoped, NOT global.
+ *   if (actor.role === ADMIN) → only allowed if commission.companyId === actor.companyId
+ */
 @Injectable()
 export class CommissionPolicy {
   canRead(actor: ActorContext, commission?: any): boolean {
     if (!actor?.userId) return false;
-    if (actor.role === RoleType.ADMIN) return true;
+
+    const commCompanyId =
+      commission?.companyId ||
+      commission?.user?.companyId ||
+      commission?.policy?.companyId;
+
+    // ADMIN: company-scoped, not global
+    if (actor.role === RoleType.ADMIN) {
+      if (!commission) return true; // listing — query must be scoped externally
+      return commCompanyId === actor.companyId;
+    }
 
     if (actor.role === RoleType.BACK_OFFICE) {
       if (commission) {
-        const commCompanyId =
-          commission.companyId ||
-          commission.user?.companyId ||
-          commission.policy?.companyId;
         if (commCompanyId && commCompanyId !== actor.companyId) {
           return false;
         }
@@ -41,7 +53,7 @@ export class CommissionPolicy {
   }
 
   canConfigure(actor: ActorContext): boolean {
-    // Strictly Admin only
+    // Strictly Admin only — but only within own company
     return actor?.role === RoleType.ADMIN;
   }
 

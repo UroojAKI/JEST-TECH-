@@ -2,15 +2,26 @@ import { Injectable } from '@nestjs/common';
 import { RoleType } from '@prisma/client';
 import { ActorContext } from '../interfaces/actor-context.interface';
 
+/**
+ * QuotationPolicy — authorization rules for Quotation resources.
+ *
+ * ADMIN semantic: ADMIN is company-scoped, NOT global.
+ *   if (actor.role === ADMIN) → only allowed if quote.companyId === actor.companyId
+ */
 @Injectable()
 export class QuotationPolicy {
   canRead(actor: ActorContext, quote: any): boolean {
     if (!actor?.userId) return false;
-    if (actor.role === RoleType.ADMIN) return true;
+
+    const quoteCompanyId =
+      quote.companyId || quote.createdBy?.companyId || quote.lead?.companyId;
+
+    // ADMIN: company-scoped, not global
+    if (actor.role === RoleType.ADMIN) {
+      return quoteCompanyId === actor.companyId;
+    }
 
     if (actor.role === RoleType.BACK_OFFICE) {
-      const quoteCompanyId =
-        quote.companyId || quote.createdBy?.companyId || quote.lead?.companyId;
       if (quoteCompanyId && quoteCompanyId !== actor.companyId) {
         return false;
       }
@@ -18,6 +29,9 @@ export class QuotationPolicy {
     }
 
     if (actor.role === RoleType.AGENT) {
+      if (quoteCompanyId && quoteCompanyId !== actor.companyId) {
+        return false;
+      }
       return (
         quote.createdById === actor.userId ||
         quote.lead?.assignedToId === actor.userId ||

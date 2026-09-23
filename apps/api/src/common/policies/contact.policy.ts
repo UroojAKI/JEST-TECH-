@@ -2,15 +2,26 @@ import { Injectable } from '@nestjs/common';
 import { RoleType } from '@prisma/client';
 import { ActorContext } from '../interfaces/actor-context.interface';
 
+/**
+ * ContactPolicy — authorization rules for Contact resources.
+ *
+ * ADMIN semantic: ADMIN is company-scoped, NOT global.
+ *   if (actor.role === ADMIN) → only allowed if contact.companyId === actor.companyId
+ */
 @Injectable()
 export class ContactPolicy {
   canRead(actor: ActorContext, contact: any): boolean {
     if (!actor?.userId) return false;
-    if (actor.role === RoleType.ADMIN) return true;
+
+    const contactCompanyId =
+      contact.companyId || contact.createdBy?.companyId;
+
+    // ADMIN: company-scoped, not global
+    if (actor.role === RoleType.ADMIN) {
+      return contactCompanyId === actor.companyId;
+    }
 
     if (actor.role === RoleType.BACK_OFFICE) {
-      const contactCompanyId =
-        contact.companyId || contact.createdBy?.companyId;
       if (contactCompanyId && contactCompanyId !== actor.companyId) {
         return false;
       }
@@ -18,6 +29,10 @@ export class ContactPolicy {
     }
 
     if (actor.role === RoleType.AGENT) {
+      // Agent: must be same company AND own/assigned contact
+      if (contactCompanyId && contactCompanyId !== actor.companyId) {
+        return false;
+      }
       return (
         contact.createdById === actor.userId ||
         contact.agentId === actor.userId ||

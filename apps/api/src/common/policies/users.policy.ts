@@ -2,11 +2,24 @@ import { Injectable, ForbiddenException } from '@nestjs/common';
 import { RoleType } from '@prisma/client';
 import { ActorContext } from '../interfaces/actor-context.interface';
 
+/**
+ * UsersPolicy — authorization rules for User management operations.
+ *
+ * ADMIN semantic: ADMIN is company-scoped, NOT global.
+ *   All ADMIN actions are restricted to actor.companyId — no cross-company user management.
+ */
 @Injectable()
 export class UsersPolicy {
   canRead(actor: ActorContext, targetUser?: any): boolean {
     if (!actor?.userId) return false;
-    if (actor.role === RoleType.ADMIN) return true;
+
+    // ADMIN: company-scoped, not global
+    if (actor.role === RoleType.ADMIN) {
+      if (!targetUser) return true; // listing — query must enforce companyId externally
+      const targetCompanyId =
+        targetUser.companyId || targetUser.branch?.zone?.region?.company?.id;
+      return targetCompanyId === actor.companyId;
+    }
 
     // Back Office can view users within their organization
     if (actor.role === RoleType.BACK_OFFICE) {
@@ -21,25 +34,29 @@ export class UsersPolicy {
 
   canCreate(actor: ActorContext): boolean {
     if (!actor?.userId) return false;
-    // Strictly Admin only
+    // Strictly Admin only — within own company (query must enforce companyId)
     return actor.role === RoleType.ADMIN;
   }
 
   canUpdate(actor: ActorContext, targetUser?: any): boolean {
     if (!actor?.userId) return false;
     // Strictly Admin only
-    return actor.role === RoleType.ADMIN;
+    if (actor.role !== RoleType.ADMIN) return false;
+    if (!targetUser) return true; // query must enforce companyId
+    const targetCompanyId =
+      targetUser.companyId || targetUser.branch?.zone?.region?.company?.id;
+    return targetCompanyId === actor.companyId;
   }
 
   canDelete(actor: ActorContext): boolean {
     if (!actor?.userId) return false;
-    // Strictly Admin only
+    // Strictly Admin only — query must enforce companyId
     return actor.role === RoleType.ADMIN;
   }
 
   canDeactivate(actor: ActorContext): boolean {
     if (!actor?.userId) return false;
-    // Strictly Admin only
+    // Strictly Admin only — query must enforce companyId
     return actor.role === RoleType.ADMIN;
   }
 

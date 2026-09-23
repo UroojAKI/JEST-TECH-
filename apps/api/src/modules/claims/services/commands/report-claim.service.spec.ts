@@ -234,6 +234,7 @@ describe('ReportClaimService (Iteration 14)', () => {
         userId: 'super-admin-1',
         role: RoleType.ADMIN,
         organizationId: 'org-global',
+        permissions: ['*'],
       };
 
       const dto = {

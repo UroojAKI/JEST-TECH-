@@ -60,19 +60,25 @@ export class CreateQuotationVersionService {
       const highestVersion = quotation.versions?.[0]?.versionNumber || 1;
       const nextVersionNumber = highestVersion + 1;
 
-      // Monetary math validation
+      // Server-side authoritative calculation: client-supplied totalPremium and gstAmount are ignored
       const sumInsured = new Prisma.Decimal(dto.sumInsured);
       const basePremium = new Prisma.Decimal(dto.basePremium);
       const discountAmount = new Prisma.Decimal(dto.discountAmount || 0);
-      const netBase = Math.max(0, dto.basePremium - (dto.discountAmount || 0));
-      const gstAmount =
-        dto.gstAmount !== undefined
-          ? new Prisma.Decimal(dto.gstAmount)
-          : new Prisma.Decimal(Math.round(netBase * 0.18));
-      const totalPremium =
-        dto.totalPremium !== undefined
-          ? new Prisma.Decimal(dto.totalPremium)
-          : new Prisma.Decimal(netBase + Number(gstAmount));
+
+      const addonsTotal = (dto.addons || []).reduce(
+        (sum, a) => sum + Number(a.premium || 0),
+        0,
+      );
+      const grossBase = Number(dto.basePremium || 0) + addonsTotal;
+      const discount = Math.min(grossBase, Number(dto.discountAmount || 0));
+      const netBase = Math.max(0, grossBase - discount);
+
+      // GST is strictly 18% in India for general insurance
+      const calculatedGst = Math.round(netBase * 0.18 * 100) / 100;
+      const calculatedTotal = Math.round((netBase + calculatedGst) * 100) / 100;
+
+      const gstAmount = new Prisma.Decimal(calculatedGst);
+      const totalPremium = new Prisma.Decimal(calculatedTotal);
 
       // 1. Create immutable QuotationVersion row
       await tx.quotationVersion.create({

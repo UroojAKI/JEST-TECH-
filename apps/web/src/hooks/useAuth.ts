@@ -40,20 +40,29 @@ export function useAuth() {
     },
   });
 
+  const performCompleteLogout = () => {
+    clearAuthStore();
+    queryClient.clear();
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.removeItem('jest-auth-storage');
+        sessionStorage.clear();
+      } catch (_) {}
+      window.location.replace('/login');
+    } else {
+      router.replace('/login');
+    }
+  };
+
   const logoutMutation = useMutation({
     mutationFn: authRepository.logout,
     onSuccess: () => {
-      clearAuthStore();
-      queryClient.clear();
       toast.success('Logged out successfully');
-      router.push('/login');
+      performCompleteLogout();
     },
     onError: () => {
-      // Clear client session even when the network request fails. Server-side
-      // refresh-token revocation remains authoritative on the next request.
-      clearAuthStore();
-      queryClient.clear();
-      router.push('/login');
+      // Clear client session even when the network request fails.
+      performCompleteLogout();
     },
   });
 

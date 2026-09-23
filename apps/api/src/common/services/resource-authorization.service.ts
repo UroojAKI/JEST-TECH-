@@ -55,8 +55,15 @@ export class ResourceAuthorizationService {
     }
 
     const roles = actor.roles?.length ? actor.roles : [actor.role];
-    if (roles.includes(RoleType.ADMIN) || actor.permissions?.includes('*')) {
-      // Admin has universal role-level access (domain invariants enforced separately)
+    // ADMIN semantic: company-scoped, NOT global.
+    // ADMIN can access all data within their own company — never another company.
+    // assertSameOrganization above already enforces this when resource is provided.
+    // For listing (no resource), the calling service MUST scope the query to actor.companyId.
+    if (roles.includes(RoleType.ADMIN)) {
+      return true; // Resource ownership already verified by assertSameOrganization above
+    }
+    // super-admin wildcard is SYSTEM-only — not a human role bypass
+    if (actor.permissions?.includes('*')) {
       return true;
     }
 
@@ -131,6 +138,8 @@ export class ResourceAuthorizationService {
     }
 
     const roles = actor.roles?.length ? actor.roles : [actor.role];
+    // ADMIN already handled in authorize() after assertSameOrganization verified company scope.
+    // Reaching here means actor is not ADMIN (or resource was provided and passed company check).
     if (roles.includes(RoleType.ADMIN)) return true;
 
     // Back Office: Organization-wide access within tenant

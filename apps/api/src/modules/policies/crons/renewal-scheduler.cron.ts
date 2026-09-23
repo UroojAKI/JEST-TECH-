@@ -20,115 +20,143 @@ export class RenewalSchedulerCron {
   }
 
   async runManually() {
-    this.logger.log('Starting multi-offset renewal scheduler scan...');
+    this.logger.log('Starting company-batched renewal scheduler scan...');
     try {
       const now = new Date();
       let totalQueued = 0;
 
-      // 0. Auto-activate any ISSUED policies that reached their effectiveDate
-      const activated = await this.prisma.policy.updateMany({
-        where: {
-          status: PolicyStatus.ISSUED,
-          effectiveDate: { lte: now },
-        },
-        data: {
-          status: PolicyStatus.ACTIVE,
-        },
+      // Scan and process per active company to maintain strict tenant isolation
+      const companies = await this.prisma.company.findMany({
+        where: { isActive: true },
+        select: { id: true, name: true },
       });
-      if (activated.count > 0) {
-        this.logger.log(
-          `Auto-activated ${activated.count} ISSUED policies whose effectiveDate was reached.`,
-        );
-      }
 
-      // 1. Scan for policies in multiple offset tiers: [45, 30, 15, 7, 0, -1]
-      const offsets = [45, 30, 15, 7, 0, -1];
-
-      for (const offset of offsets) {
-        let policies: any[] = [];
-
-        if (offset === -1) {
-          // Overdue: expired policies not yet marked LAPSED
-          policies = await this.prisma.policy.findMany({
-            where: {
-              status: {
-                in: [PolicyStatus.ACTIVE, PolicyStatus.PENDING_RENEWAL],
-              },
-              OR: [{ expiryDate: { lt: now } }, { odExpiryDate: { lt: now } }],
-            },
-          });
-        } else {
-          // Future expiring window for this specific offset
-          const windowStart = new Date(now);
-          windowStart.setDate(windowStart.getDate() + Math.max(0, offset - 2));
-          const windowEnd = new Date(now);
-          windowEnd.setDate(windowEnd.getDate() + offset + 2);
-
-          policies = await this.prisma.policy.findMany({
-            where: {
-              status: {
-                in: [PolicyStatus.ACTIVE, PolicyStatus.PENDING_RENEWAL],
-              },
-              OR: [
-                { expiryDate: { gte: windowStart, lte: windowEnd } },
-                { odExpiryDate: { gte: windowStart, lte: windowEnd } },
-              ],
-            },
-          });
-        }
-
-        for (const policy of policies) {
-          const effectiveExpiryDate = policy.odExpiryDate || policy.expiryDate;
-
-          // Ensure RenewalTask exists if within 30 days
-          if (offset <= 30 && offset >= 0 && policy.createdById) {
-            await this.prisma.renewalTask.upsert({
-              where: {
-                policyId_offsetDays: {
-                  policyId: policy.id,
-                  offsetDays: offset,
-                },
-              },
-              update: {
-                dueDate: effectiveExpiryDate,
-              },
-              create: {
-                policyId: policy.id,
-                offsetDays: offset,
-                agentId: policy.createdById,
-                dueDate: effectiveExpiryDate,
-                status: 'PENDING',
-                priority: offset <= 7 ? 'HIGH' : 'MEDIUM',
-              },
-            });
-          }
-
-          // Enqueue reminder job with deterministic jobId to guarantee zero duplicates
-          const jobId = `renewal-${policy.id}-${offset}`;
-          await this.renewalQueue.add(
-            'send-renewal-reminder',
-            {
-              policyId: policy.id,
-              policyNumber: policy.policyNumber,
-              expiryDate: effectiveExpiryDate,
-              customerId: policy.contactId,
-              agentId: policy.createdById,
-              daysBefore: offset,
-            },
-            { jobId, removeOnComplete: true },
+      for (const company of companies) {
+        try {
+          const queued = await this.processCompanyRenewals(company.id, now);
+          totalQueued += queued;
+        } catch (err: any) {
+          this.logger.error(
+            `Failed renewal scan for company ${company.name} (${company.id})`,
+            err?.stack || err?.message,
           );
-
-          totalQueued++;
         }
       }
 
       this.logger.log(
-        `Multi-offset renewal scan completed. Queued ${totalQueued} jobs.`,
+        `Multi-offset renewal scan completed across ${companies.length} companies. Queued ${totalQueued} jobs.`,
       );
       return { success: true, totalQueued };
     } catch (error: any) {
       this.logger.error('Failed to run renewal scheduler scan', error);
       return { success: false, error: error.message };
     }
+  }
+
+  async processCompanyRenewals(companyId: string, now: Date): Promise<number> {
+    let queued = 0;
+
+    // 0. Auto-activate any ISSUED policies that reached their effectiveDate for THIS company
+    const activated = await this.prisma.policy.updateMany({
+      where: {
+        companyId,
+        status: PolicyStatus.ISSUED,
+        effectiveDate: { lte: now },
+      },
+      data: {
+        status: PolicyStatus.ACTIVE,
+      },
+    });
+    if (activated.count > 0) {
+      this.logger.log(
+        `Company ${companyId}: Auto-activated ${activated.count} ISSUED policies whose effectiveDate was reached.`,
+      );
+    }
+
+    // 1. Scan for policies in multiple offset tiers: [45, 30, 15, 7, 0, -1]
+    const offsets = [45, 30, 15, 7, 0, -1];
+
+    for (const offset of offsets) {
+      let policies: any[] = [];
+
+      if (offset === -1) {
+        // Overdue: expired policies not yet marked LAPSED
+        policies = await this.prisma.policy.findMany({
+          where: {
+            companyId,
+            status: {
+              in: [PolicyStatus.ACTIVE, PolicyStatus.PENDING_RENEWAL],
+            },
+            OR: [{ expiryDate: { lt: now } }, { odExpiryDate: { lt: now } }],
+          },
+        });
+      } else {
+        // Future expiring window for this specific offset
+        const windowStart = new Date(now);
+        windowStart.setDate(windowStart.getDate() + Math.max(0, offset - 2));
+        const windowEnd = new Date(now);
+        windowEnd.setDate(windowEnd.getDate() + offset + 2);
+
+        policies = await this.prisma.policy.findMany({
+          where: {
+            companyId,
+            status: {
+              in: [PolicyStatus.ACTIVE, PolicyStatus.PENDING_RENEWAL],
+            },
+            OR: [
+              { expiryDate: { gte: windowStart, lte: windowEnd } },
+              { odExpiryDate: { gte: windowStart, lte: windowEnd } },
+            ],
+          },
+        });
+      }
+
+      for (const policy of policies) {
+        const effectiveExpiryDate = policy.odExpiryDate || policy.expiryDate;
+
+        // Ensure RenewalTask exists if within 30 days
+        if (offset <= 30 && offset >= 0 && policy.createdById) {
+          await this.prisma.renewalTask.upsert({
+            where: {
+              policyId_offsetDays: {
+                policyId: policy.id,
+                offsetDays: offset,
+              },
+            },
+            update: {
+              dueDate: effectiveExpiryDate,
+            },
+            create: {
+              policyId: policy.id,
+              offsetDays: offset,
+              agentId: policy.createdById,
+              dueDate: effectiveExpiryDate,
+              status: 'PENDING',
+              priority: offset <= 7 ? 'HIGH' : 'MEDIUM',
+            },
+          });
+        }
+
+        // Enqueue reminder job with deterministic jobId to guarantee zero duplicates
+        const jobId = `renewal-${policy.id}-${offset}`;
+        await this.renewalQueue.add(
+          'send-renewal-reminder',
+          {
+            policyId: policy.id,
+            policyNumber: policy.policyNumber,
+            expiryDate: effectiveExpiryDate,
+            customerId: policy.contactId,
+            agentId: policy.createdById,
+            daysBefore: offset,
+            companyId,
+          },
+          { jobId, removeOnComplete: true },
+        );
+
+        queued++;
+      }
+    }
+
+    return queued;
   }
 }

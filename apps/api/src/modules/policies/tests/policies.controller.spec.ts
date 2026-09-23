@@ -195,10 +195,12 @@ describe('PoliciesController', () => {
       const result = await controller.issuePolicyDirect(dto, mockUser);
       expect(backOfficeQueueService.validateIssuanceGates).toHaveBeenCalledWith(
         'quote-100',
+        mockUser,
       );
       expect(issuePolicyService.execute).toHaveBeenCalledWith(
         expect.objectContaining({ quotationId: 'quote-100' }),
         mockUser.id,
+        mockUser,
       );
       expect(result).toEqual(mockPolicyResponse);
     });
@@ -209,6 +211,7 @@ describe('PoliciesController', () => {
       const result = await controller.createPolicyRoot(dto, mockUser);
       expect(backOfficeQueueService.validateIssuanceGates).toHaveBeenCalledWith(
         'quote-100',
+        mockUser,
       );
       expect(issuePolicyService.execute).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -216,6 +219,7 @@ describe('PoliciesController', () => {
           issueSource: 'POLICY_CONVERSION',
         }),
         mockUser.id,
+        mockUser,
       );
       expect(result).toEqual(mockPolicyResponse);
     });

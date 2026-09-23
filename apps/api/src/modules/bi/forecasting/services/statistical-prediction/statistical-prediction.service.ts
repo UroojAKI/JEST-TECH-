@@ -1,7 +1,13 @@
-import { Injectable, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '../../../../../database/prisma.service';
 import { PredictionProvider } from '../prediction-provider.interface';
 import { Decimal } from '@prisma/client/runtime/library';
+import { ActorContext } from '../../../../../common/interfaces/actor-context.interface';
 
 @Injectable()
 export class StatisticalPredictionService implements PredictionProvider {
@@ -11,10 +17,12 @@ export class StatisticalPredictionService implements PredictionProvider {
 
   /**
    * Forecasts revenue using a simple Moving Average of the last 6 months + a 5% assumed growth.
+   * Scoped to the actor's company branches to prevent cross-tenant data leak.
    */
   async forecastRevenue(
     monthsAhead: number,
     branchId?: string,
+    actor?: ActorContext,
   ): Promise<Decimal> {
     const today = new Date();
     const sixMonthsAgo = new Date();
@@ -26,8 +34,30 @@ export class StatisticalPredictionService implements PredictionProvider {
     };
 
     const whereClause: any = { dateId: dateIdFilter };
+
     if (branchId) {
+      if (actor?.companyId) {
+        // Enforce tenant boundary: branch must belong to actor's company
+        const branch = await this.prisma.branch.findFirst({
+          where: {
+            id: branchId,
+            zone: { region: { companyId: actor.companyId } },
+          },
+        });
+        if (!branch) {
+          throw new ForbiddenException(
+            'Access denied: Specified branch does not belong to your organization',
+          );
+        }
+      }
       whereClause.branchId = branchId;
+    } else if (actor?.companyId) {
+      // Scope to all branches within actor's company
+      const branches = await this.prisma.branch.findMany({
+        where: { zone: { region: { companyId: actor.companyId } } },
+        select: { id: true },
+      });
+      whereClause.branchId = { in: branches.map((b) => b.id) };
     }
 
     const result = await this.prisma.factRevenue.aggregate({
@@ -52,6 +82,7 @@ export class StatisticalPredictionService implements PredictionProvider {
   async forecastRenewals(
     monthsAhead: number,
     branchId?: string,
+    actor?: ActorContext,
   ): Promise<number> {
     const now = new Date();
     const startOfMonth = new Date(
@@ -75,10 +106,9 @@ export class StatisticalPredictionService implements PredictionProvider {
         lte: endOfMonth,
       },
       deletedAt: null,
+      ...(actor?.companyId ? { companyId: actor.companyId } : {}),
+      ...(branchId ? { createdBy: { branchId } } : {}),
     };
-    if (branchId) {
-      whereClause.createdBy = { branchId };
-    }
 
     const totalExpiring = await this.prisma.policy.count({
       where: whereClause,
@@ -93,6 +123,7 @@ export class StatisticalPredictionService implements PredictionProvider {
       where: {
         expiryDate: { gte: pastYear, lt: startOfMonth },
         deletedAt: null,
+        ...(actor?.companyId ? { companyId: actor.companyId } : {}),
         ...(branchId ? { createdBy: { branchId } } : {}),
       },
     });
@@ -100,6 +131,7 @@ export class StatisticalPredictionService implements PredictionProvider {
     const renewedCount = await this.prisma.policyRenewal.count({
       where: {
         createdAt: { gte: pastYear },
+        ...(actor?.companyId ? { policy: { companyId: actor.companyId } } : {}),
         ...(branchId ? { policy: { createdBy: { branchId } } } : {}),
       },
     });
@@ -115,6 +147,7 @@ export class StatisticalPredictionService implements PredictionProvider {
   async forecastClaims(
     monthsAhead: number,
     branchId?: string,
+    actor?: ActorContext,
   ): Promise<Decimal> {
     const today = new Date();
     const sixMonthsAgo = new Date();
@@ -123,10 +156,9 @@ export class StatisticalPredictionService implements PredictionProvider {
     const whereClause: any = {
       reportedDate: { gte: sixMonthsAgo },
       deletedAt: null,
+      ...(actor?.companyId ? { companyId: actor.companyId } : {}),
+      ...(branchId ? { createdBy: { branchId } } : {}),
     };
-    if (branchId) {
-      whereClause.createdBy = { branchId };
-    }
 
     const result = await this.prisma.claim.aggregate({
       where: whereClause,
@@ -140,6 +172,7 @@ export class StatisticalPredictionService implements PredictionProvider {
       const policyAgg = await this.prisma.policy.aggregate({
         where: {
           deletedAt: null,
+          ...(actor?.companyId ? { companyId: actor.companyId } : {}),
           ...(branchId ? { createdBy: { branchId } } : {}),
         },
         _sum: { premiumAmount: true },
@@ -152,7 +185,21 @@ export class StatisticalPredictionService implements PredictionProvider {
     return averageMonthly.mul(inflationMultiplier);
   }
 
-  async predictCustomerRisk(customerId: string): Promise<number> {
+  async predictCustomerRisk(
+    customerId: string,
+    actor?: ActorContext,
+  ): Promise<number> {
+    if (actor?.companyId) {
+      const contact = await this.prisma.contact.findFirst({
+        where: { id: customerId, companyId: actor.companyId },
+      });
+      if (!contact) {
+        throw new NotFoundException(
+          `Customer ${customerId} not found in your organization`,
+        );
+      }
+    }
+
     const analytics = await this.prisma.customerAnalytics.findUnique({
       where: { contactId: customerId },
     });

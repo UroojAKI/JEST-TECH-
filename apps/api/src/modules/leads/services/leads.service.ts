@@ -497,19 +497,20 @@ export class LeadsService {
       typeof actorOrId === 'string'
         ? ({ userId: actorOrId, id: actorOrId } as unknown as ActorContext)
         : actorOrId;
+    const targetCompanyId = actor?.companyId || actor?.organizationId;
     const existing = this.prisma.lead?.findFirst
       ? await this.prisma.lead.findFirst({
           where: {
             id,
             deletedAt: null,
-            ...(actor?.organizationId
-              ? { organizationId: actor.organizationId }
-              : {}),
+            ...(targetCompanyId ? { companyId: targetCompanyId } : {}),
           },
         })
       : await this.leadRepository.findById(id);
     if (!existing)
       throw new NotFoundException(`Lead ${id} not found or access denied`);
+
+    this.authzService.authorize(actor, 'LEAD', 'UPDATE', existing);
 
     if (dto.assignedToId) {
       const user = await this.usersService.findById(dto.assignedToId);

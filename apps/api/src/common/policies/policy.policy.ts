@@ -2,17 +2,28 @@ import { Injectable, BadRequestException } from '@nestjs/common';
 import { RoleType } from '@prisma/client';
 import { ActorContext } from '../interfaces/actor-context.interface';
 
+/**
+ * PolicyPolicy — authorization rules for Policy (insurance policy) resources.
+ *
+ * ADMIN semantic: ADMIN is company-scoped, NOT global.
+ *   if (actor.role === ADMIN) → only allowed if policy.companyId === actor.companyId
+ */
 @Injectable()
 export class PolicyPolicy {
   canRead(actor: ActorContext, policy: any): boolean {
     if (!actor?.userId) return false;
-    if (actor.role === RoleType.ADMIN) return true;
+
+    const policyCompanyId =
+      policy.companyId ||
+      policy.createdBy?.companyId ||
+      policy.quotation?.companyId;
+
+    // ADMIN: company-scoped, not global
+    if (actor.role === RoleType.ADMIN) {
+      return policyCompanyId === actor.companyId;
+    }
 
     if (actor.role === RoleType.BACK_OFFICE) {
-      const policyCompanyId =
-        policy.companyId ||
-        policy.createdBy?.companyId ||
-        policy.quotation?.companyId;
       if (policyCompanyId && policyCompanyId !== actor.companyId) {
         return false;
       }
@@ -20,6 +31,9 @@ export class PolicyPolicy {
     }
 
     if (actor.role === RoleType.AGENT) {
+      if (policyCompanyId && policyCompanyId !== actor.companyId) {
+        return false;
+      }
       return (
         policy.createdById === actor.userId ||
         policy.agentId === actor.userId ||

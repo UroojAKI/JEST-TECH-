@@ -111,47 +111,40 @@ export class ReportClaimService {
 
     // 1.1 Multi-Tenant & Object-Level Access Validation (IDOR prevention)
     if (actorContext) {
-      const isAdmin =
-        actorContext.roles?.includes(RoleType.ADMIN) ||
-        actorContext.role === RoleType.ADMIN;
+      const policyOrgId =
+        policy.companyId ||
+        policy.contact?.companyId ||
+        policy.createdBy?.companyId ||
+        policy.createdBy?.branch?.zone?.region?.company?.id ||
+        policy.quotation?.createdBy?.branch?.zone?.region?.company?.id;
 
-      if (!isAdmin) {
-        const policyOrgId =
-          policy.companyId ||
-          policy.contact?.companyId ||
-          policy.createdBy?.companyId ||
-          policy.createdBy?.branch?.zone?.region?.company?.id ||
-          policy.quotation?.createdBy?.branch?.zone?.region?.company?.id;
+      const actorCompanyId =
+        actorContext.companyId || actorContext.organizationId;
 
-        const actorCompanyId =
-          actorContext.companyId || actorContext.organizationId;
-        if (policyOrgId && actorCompanyId && policyOrgId !== actorCompanyId) {
-          throw new ForbiddenException(
-            'You do not have permission to file claims for a policy in another organization',
-          );
-        }
+      const isSuperAdmin = actorContext.permissions?.includes('*');
 
-        const isAgent =
-          actorContext.role === RoleType.AGENT ||
-          actorContext.roles?.includes(RoleType.AGENT);
+      // Fail-closed tenant check: ADMIN is company-scoped, NOT global. Wildcard '*' is reserved for system tasks.
+      if (
+        !isSuperAdmin &&
+        policyOrgId &&
+        actorCompanyId &&
+        policyOrgId !== actorCompanyId
+      ) {
+        throw new ForbiddenException(
+          'You do not have permission to file claims for a policy in another organization',
+        );
+      }
 
-        if (isAgent) {
-          const userCtx = actorContext as any;
-          const isOwner =
-            (userCtx.agentId && policy.agentId === userCtx.agentId) ||
-            policy.agent?.userId === userCtx.userId ||
-            policy.agentId === userCtx.userId ||
-            policy.agentId === userCtx.id ||
-            policy.createdById === userCtx.userId ||
-            policy.createdById === userCtx.id ||
-            (userCtx.email && policy.contact?.email === userCtx.email) ||
-            (userCtx.phone && policy.contact?.phone === userCtx.phone);
-          if (!isOwner) {
-            throw new ForbiddenException(
-              'Agents are only permitted to file claims on their own assigned policies',
-            );
-          }
-        }
+      // Q5: Claim creation is restricted to BACK_OFFICE and ADMIN. Agents cannot file claims.
+      const isOnlyAgent =
+        actorContext.role === RoleType.AGENT &&
+        !actorContext.roles?.includes(RoleType.ADMIN) &&
+        !actorContext.roles?.includes(RoleType.BACK_OFFICE);
+
+      if (isOnlyAgent) {
+        throw new ForbiddenException(
+          'Access denied: Agents are not authorized to create claims. Claims must be initiated by Back Office.',
+        );
       }
     }
 

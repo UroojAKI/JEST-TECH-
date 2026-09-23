@@ -36,10 +36,11 @@ export class BackOfficeController {
       'Get Back-Office policy issuance workbench queue with multi-gate validation (G021)',
   })
   async getQueue(
+    @CurrentUser() user: RequestUser,
     @Query('search') search?: string,
     @Query('status') status?: string,
   ) {
-    return this.backOfficeQueueService.getBackOfficeQueue({ search, status });
+    return this.backOfficeQueueService.getBackOfficeQueue(user, { search, status });
   }
 
   @Post('issue/:quotationId')
@@ -51,16 +52,17 @@ export class BackOfficeController {
     @Param('quotationId', ParseUUIDPipe) quotationId: string,
     @CurrentUser() user: RequestUser,
   ) {
-    // 1. Validate all 4 hard gates
-    await this.backOfficeQueueService.validateIssuanceGates(quotationId);
+    // 1. Validate all 4 hard gates with tenant context
+    await this.backOfficeQueueService.validateIssuanceGates(quotationId, user);
 
-    // 2. Execute transactional policy issuance
+    // 2. Execute transactional policy issuance with actor context
     const policy = await this.issuePolicyService.execute(
       {
         quotationId,
         productLine: 'Motor Policy',
       },
       user.id,
+      user,
     );
 
     return {

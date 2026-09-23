@@ -71,7 +71,7 @@ export class PoliciesController {
       throw new BadRequestException(
         'quotationId is required to issue a policy.',
       );
-    await this.backOfficeQueueService.validateIssuanceGates(quotationId);
+    await this.backOfficeQueueService.validateIssuanceGates(quotationId, user);
     return this.issuePolicyService.execute(
       {
         ...dto,
@@ -79,6 +79,7 @@ export class PoliciesController {
         issueSource: dto.issueSource || 'DIRECT_ISSUANCE',
       },
       user.id,
+      user,
     );
   }
 
@@ -102,10 +103,11 @@ export class PoliciesController {
       throw new BadRequestException(
         'A valid quotationId or proposalId is required to create a policy.',
       );
-    await this.backOfficeQueueService.validateIssuanceGates(quotationId);
+    await this.backOfficeQueueService.validateIssuanceGates(quotationId, user);
     return this.issuePolicyService.execute(
       { ...dto, quotationId, issueSource: 'POLICY_CONVERSION' },
       user.id,
+      user,
     );
   }
 
