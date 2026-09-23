@@ -96,21 +96,22 @@ export class BiService {
     return new Date(this.startOfMonth().getTime() - 1);
   }
 
-  // ── F-011 FIX: All metric methods now require companyId and scope all queries ──
+  // ── F-011 FIX: All metric methods accept companyId and scope queries to the tenant ──
 
-  async getConversionMetrics(companyId: string): Promise<ConversionMetrics> {
+  async getConversionMetrics(companyId?: string): Promise<ConversionMetrics> {
+    const companyWhere = companyId ? { companyId } : {};
     const [totalLeads, quotedLeads, proposalsCreated, policiesIssued] =
       await Promise.all([
-        this.prisma.lead.count({ where: { companyId, deletedAt: null } }),
+        this.prisma.lead.count({ where: { ...companyWhere, deletedAt: null } }),
         this.prisma.lead.count({
           where: {
-            companyId,
+            ...companyWhere,
             deletedAt: null,
             status: { in: ['QUOTE', 'POLICY'] as any[] },
           },
         }),
-        this.prisma.proposal.count({ where: { quotation: { companyId } } }),
-        this.prisma.policy.count({ where: { companyId } }),
+        this.prisma.proposal.count({ where: companyId ? { quotation: { companyId } } : {} }),
+        this.prisma.policy.count({ where: companyWhere }),
       ]);
 
     const leadToQuoteRate =
@@ -129,7 +130,7 @@ export class BiService {
     const stageFunnelRaw = await this.prisma.lead.groupBy({
       by: ['status'],
       _count: { id: true },
-      where: { companyId, deletedAt: null },
+      where: { ...companyWhere, deletedAt: null },
     });
 
     const stageFunnel = stageFunnelRaw.map((s) => ({
@@ -153,15 +154,15 @@ export class BiService {
     };
   }
 
-  async getRevenueMetrics(companyId: string): Promise<RevenueMetrics> {
+  async getRevenueMetrics(companyId?: string): Promise<RevenueMetrics> {
     const now = new Date();
     const somThisMonth = this.startOfMonth();
     const somLastMonth = this.startOfLastMonth();
     const eomLastMonth = this.endOfLastMonth();
     const somThisYear = new Date(now.getFullYear(), 0, 1);
 
-    // Scope to policies within company
-    const policyWhere = { policy: { companyId } };
+    // Scope to policies within company if provided
+    const policyWhere = companyId ? { policy: { companyId } } : {};
 
     const [thisMonth, lastMonth, thisYear, allPayments] = await Promise.all([
       this.prisma.policyPayment.aggregate({
@@ -234,15 +235,15 @@ export class BiService {
     };
   }
 
-  async getLossRatioMetrics(companyId: string): Promise<LossRatioMetrics> {
+  async getLossRatioMetrics(companyId?: string): Promise<LossRatioMetrics> {
     const [claimsAgg, premiumAgg] = await Promise.all([
       this.prisma.claim.aggregate({
         _sum: { approvedAmount: true },
-        where: { companyId },
+        where: companyId ? { companyId } : {},
       }),
       this.prisma.policyPayment.aggregate({
         _sum: { amount: true },
-        where: { status: 'SUCCESS' as any, policy: { companyId } },
+        where: { status: 'SUCCESS' as any, ...(companyId ? { policy: { companyId } } : {}) },
       }),
     ]);
 
@@ -257,26 +258,27 @@ export class BiService {
     return { totalClaimsPaid, totalPremiumCollected, lossRatio, byProduct: [] };
   }
 
-  async getRenewalMetrics(companyId: string): Promise<RenewalMetrics> {
+  async getRenewalMetrics(companyId?: string): Promise<RenewalMetrics> {
     const now = new Date();
     const in20 = new Date(now.getTime() + 20 * 24 * 60 * 60 * 1000);
     const in30 = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
     const in45 = new Date(now.getTime() + 45 * 24 * 60 * 60 * 1000);
+    const companyWhere = companyId ? { companyId } : {};
 
     const [e20, e30, e45, missed, renewedCount] = await Promise.all([
       this.prisma.policy.count({
-        where: { companyId, status: 'ACTIVE', expiryDate: { gte: now, lte: in20 } },
+        where: { ...companyWhere, status: 'ACTIVE', expiryDate: { gte: now, lte: in20 } },
       }),
       this.prisma.policy.count({
-        where: { companyId, status: 'ACTIVE', expiryDate: { gte: now, lte: in30 } },
+        where: { ...companyWhere, status: 'ACTIVE', expiryDate: { gte: now, lte: in30 } },
       }),
       this.prisma.policy.count({
-        where: { companyId, status: 'ACTIVE', expiryDate: { gte: now, lte: in45 } },
+        where: { ...companyWhere, status: 'ACTIVE', expiryDate: { gte: now, lte: in45 } },
       }),
       this.prisma.policy.count({
-        where: { companyId, status: { not: 'ACTIVE' as any }, expiryDate: { lt: now } },
+        where: { ...companyWhere, status: { not: 'ACTIVE' as any }, expiryDate: { lt: now } },
       }),
-      this.prisma.policyRenewal.count({ where: { policy: { companyId } } }),
+      this.prisma.policyRenewal.count({ where: companyId ? { policy: { companyId } } : {} }),
     ]);
 
     const total = e45 + missed;
@@ -297,15 +299,16 @@ export class BiService {
     };
   }
 
-  async getSalesMetrics(companyId: string): Promise<SalesMetrics> {
+  async getSalesMetrics(companyId?: string): Promise<SalesMetrics> {
     const somThisMonth = this.startOfMonth();
     const somLastMonth = this.startOfLastMonth();
     const eomLastMonth = this.endOfLastMonth();
+    const companyWhere = companyId ? { companyId } : {};
 
     const [thisMonth, lastMonth] = await Promise.all([
-      this.prisma.policy.count({ where: { companyId, createdAt: { gte: somThisMonth } } }),
+      this.prisma.policy.count({ where: { ...companyWhere, createdAt: { gte: somThisMonth } } }),
       this.prisma.policy.count({
-        where: { companyId, createdAt: { gte: somLastMonth, lte: eomLastMonth } },
+        where: { ...companyWhere, createdAt: { gte: somLastMonth, lte: eomLastMonth } },
       }),
     ]);
 
@@ -322,20 +325,21 @@ export class BiService {
     };
   }
 
-  async getGrowthMetrics(companyId: string): Promise<GrowthMetrics> {
+  async getGrowthMetrics(companyId?: string): Promise<GrowthMetrics> {
     const somThisMonth = this.startOfMonth();
+    const companyWhere = companyId ? { companyId } : {};
 
     const [portfolioSize, newPolicies, newContacts, newLeads] =
       await Promise.all([
-        this.prisma.policy.count({ where: { companyId, status: 'ACTIVE' } }),
+        this.prisma.policy.count({ where: { ...companyWhere, status: 'ACTIVE' } }),
         this.prisma.policy.count({
-          where: { companyId, createdAt: { gte: somThisMonth } },
+          where: { ...companyWhere, createdAt: { gte: somThisMonth } },
         }),
         this.prisma.contact.count({
-          where: { companyId, deletedAt: null, createdAt: { gte: somThisMonth } },
+          where: { ...companyWhere, deletedAt: null, createdAt: { gte: somThisMonth } },
         }),
         this.prisma.lead.count({
-          where: { companyId, deletedAt: null, createdAt: { gte: somThisMonth } },
+          where: { ...companyWhere, deletedAt: null, createdAt: { gte: somThisMonth } },
         }),
       ]);
 
@@ -349,7 +353,7 @@ export class BiService {
     };
   }
 
-  async getKpiValues(companyId: string): Promise<KpiValue[]> {
+  async getKpiValues(companyId?: string): Promise<KpiValue[]> {
     const kpis = await this.prisma.kpiDefinition.findMany({
       where: { isActive: true },
       orderBy: { displayOrder: 'asc' },

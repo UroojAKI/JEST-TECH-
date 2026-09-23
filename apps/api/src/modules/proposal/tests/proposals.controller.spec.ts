@@ -66,6 +66,7 @@ describe('ProposalsController', () => {
       expect(service.createProposal).toHaveBeenCalledWith(
         'quote-123',
         mockUser.id,
+        mockUser,
       );
     });
 
@@ -75,6 +76,8 @@ describe('ProposalsController', () => {
       expect(service.submitProposal).toHaveBeenCalledWith(
         'prop-123',
         mockUser.id,
+        undefined,
+        mockUser,
       );
     });
   });

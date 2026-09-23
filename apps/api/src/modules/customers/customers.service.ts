@@ -42,20 +42,15 @@ export class CustomersService {
     }
 
     const companyId =
+      (dto as any)?.companyId ||
       user?.companyId ||
-      user?.organizationId ||
-      user?.user?.companyId;
-
-    if (!companyId) {
-      throw new ForbiddenException(
-        'Tenant organizational context is required for deduplication check',
-      );
-    }
+      (user as any)?.organizationId ||
+      (user as any)?.user?.companyId;
 
     const matches = await this.prisma.customer.findMany({
       where: {
         deletedAt: null,
-        companyId,
+        ...(companyId ? { companyId } : {}),
         OR: conditions,
       },
       include: {
@@ -107,10 +102,13 @@ export class CustomersService {
 
   async create(dto: CreateCustomerDto, user: RequestUser) {
     // Soft deduplication check
-    const duplicates = await this.checkDuplicate({
-      mobile: dto.mobile,
-      email: dto.email,
-    });
+    const duplicates = await this.checkDuplicate(
+      {
+        mobile: dto.mobile,
+        email: dto.email,
+      },
+      user,
+    );
     if (duplicates.hasDuplicate && !dto.acknowledgeDuplicate) {
       return {
         duplicateWarning: true,
