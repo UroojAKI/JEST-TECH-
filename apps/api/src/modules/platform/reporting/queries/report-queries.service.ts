@@ -38,10 +38,15 @@ export class ReportQueriesService {
       throw new NotFoundException(`Report with ID ${query.reportId} not found`);
     }
 
-    return this.builder.buildReportData(report, query.parameters, {
-      limit: 20,
-      search: query.search,
-    });
+    return this.builder.buildReportData(
+      report,
+      query.parameters,
+      {
+        limit: 20,
+        search: query.search,
+      },
+      query.companyId || undefined,
+    );
   }
 
   async handleGetExecutionHistory(query: GetExecutionHistoryQuery) {

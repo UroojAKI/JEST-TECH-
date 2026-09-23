@@ -9,6 +9,8 @@ import { JwtAuthGuard } from '../../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../../auth/guards/roles.guard';
 import { Roles } from '../../../auth/decorators/roles.decorator';
 import { RoleType } from '@prisma/client';
+import { CurrentUser } from '../../../auth/decorators/current-user.decorator';
+import type { RequestUser } from '../../../auth/decorators/current-user.decorator';
 import { SearchService, SearchResult } from '../services/search.service';
 
 @ApiTags('Search')
@@ -25,7 +27,11 @@ export class SearchController {
       'Global Search across Customers, Policies, Vehicles, Leads, and Quotes',
   })
   @ApiQuery({ name: 'q', required: true, type: String })
-  search(@Query('q') query: string): Promise<SearchResult> {
-    return this.searchService.search(query);
+  search(
+    @Query('q') query: string,
+    @CurrentUser() user: RequestUser,
+  ): Promise<SearchResult> {
+    const companyId = user.companyId || (user as any).organizationId;
+    return this.searchService.search(query, companyId);
   }
 }

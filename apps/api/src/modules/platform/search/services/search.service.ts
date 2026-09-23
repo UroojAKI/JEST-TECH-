@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../../../../database/prisma.service';
 
 export interface SearchResult {
@@ -13,7 +13,7 @@ export interface SearchResult {
 export class SearchService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async search(query: string): Promise<SearchResult> {
+  async search(query: string, companyId?: string): Promise<SearchResult> {
     if (!query || query.trim().length < 2) {
       return {
         contacts: [],
@@ -24,12 +24,18 @@ export class SearchService {
       };
     }
 
+    if (!companyId) {
+      throw new ForbiddenException('Tenant context is required for search');
+    }
+
     const term = query.trim();
 
     const [contacts, leads, policies, claims, proposals] = await Promise.all([
       // Search Contacts
       this.prisma.contact.findMany({
         where: {
+          companyId,
+          deletedAt: null,
           OR: [
             { firstName: { contains: term, mode: 'insensitive' } },
             { lastName: { contains: term, mode: 'insensitive' } },
@@ -37,7 +43,6 @@ export class SearchService {
             { phone: { contains: term, mode: 'insensitive' } },
             { contactCode: { contains: term, mode: 'insensitive' } },
           ],
-          deletedAt: null,
         },
         take: 10,
       }),
@@ -45,11 +50,12 @@ export class SearchService {
       // Search Leads
       this.prisma.lead.findMany({
         where: {
+          companyId,
+          deletedAt: null,
           OR: [
             { leadCode: { contains: term, mode: 'insensitive' } },
             { title: { contains: term, mode: 'insensitive' } },
           ],
-          deletedAt: null,
         },
         take: 10,
       }),
@@ -57,8 +63,9 @@ export class SearchService {
       // Search Policies
       this.prisma.policy.findMany({
         where: {
-          OR: [{ policyNumber: { contains: term, mode: 'insensitive' } }],
+          companyId,
           deletedAt: null,
+          OR: [{ policyNumber: { contains: term, mode: 'insensitive' } }],
         },
         take: 10,
       }),
@@ -66,11 +73,12 @@ export class SearchService {
       // Search Claims
       this.prisma.claim.findMany({
         where: {
+          companyId,
+          deletedAt: null,
           OR: [
             { claimNumber: { contains: term, mode: 'insensitive' } },
             { description: { contains: term, mode: 'insensitive' } },
           ],
-          deletedAt: null,
         },
         take: 10,
       }),
@@ -78,6 +86,7 @@ export class SearchService {
       // Search Proposals
       this.prisma.proposal.findMany({
         where: {
+          quotation: { companyId },
           OR: [{ proposalNumber: { contains: term, mode: 'insensitive' } }],
         },
         take: 10,

@@ -18,6 +18,7 @@ export class ReportBuilderService {
   async fetchRawData(
     module: string,
     filters: any,
+    companyId?: string,
   ): Promise<Record<string, any>[]> {
     // Parse standard parameters from incoming filters
     const parsedFilters = {
@@ -30,19 +31,19 @@ export class ReportBuilderService {
 
     switch (module.toUpperCase()) {
       case 'CONTACTS':
-        return this.warehouse.getReportingContacts(parsedFilters);
+        return this.warehouse.getReportingContacts(companyId, parsedFilters);
       case 'LEADS':
-        return this.warehouse.getReportingLeads(parsedFilters);
+        return this.warehouse.getReportingLeads(companyId, parsedFilters);
       case 'POLICIES':
-        return this.warehouse.getReportingPolicies(parsedFilters);
+        return this.warehouse.getReportingPolicies(companyId, parsedFilters);
       case 'CLAIMS':
-        return this.warehouse.getReportingClaims(parsedFilters);
+        return this.warehouse.getReportingClaims(companyId, parsedFilters);
       case 'REPORTS':
       case 'RENEWALS':
-        return this.warehouse.getReportingRenewals();
+        return this.warehouse.getReportingRenewals(companyId);
       case 'QUOTATIONS':
       case 'REVENUE':
-        return this.warehouse.getReportingRevenue(parsedFilters);
+        return this.warehouse.getReportingRevenue(companyId, parsedFilters);
       default:
         return [];
     }
@@ -52,6 +53,7 @@ export class ReportBuilderService {
     report: ReportWithRelations,
     inputParams: Record<string, any> = {},
     options: { limit?: number; search?: string } = {},
+    companyId?: string,
   ): Promise<{
     rows: Record<string, any>[];
     columns: { field: string; label: string; type: string }[];
@@ -70,14 +72,14 @@ export class ReportBuilderService {
       }));
 
       const res = await provider.execute({
-        parameters: inputParams,
+        parameters: { ...inputParams, companyId },
         filters: filtersList,
         search: options.search,
         limit: options.limit,
       });
       rows = res.rows;
     } else {
-      rows = await this.fetchRawData(report.module, inputParams);
+      rows = await this.fetchRawData(report.module, inputParams, companyId);
     }
 
     // Apply Report Configured Filters

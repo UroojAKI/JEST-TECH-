@@ -32,6 +32,7 @@ export class ExecuteReportCommand {
     public readonly reportId: string,
     public readonly parameters: Record<string, any>,
     public readonly userId: string | null,
+    public readonly companyId?: string | null,
   ) {}
 }
 

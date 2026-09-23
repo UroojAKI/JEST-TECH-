@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException, Inject } from '@nestjs/common';
-import { ClaimStatus, PolicyStatus } from '@prisma/client';
+import { ClaimStatus, PolicyStatus, RoleType } from '@prisma/client';
 import { PrismaService } from '../../../../../database/prisma.service';
 import { CACHE_PROVIDER_TOKEN } from '../../../../platform/cache/cache.provider';
 import { RedisCacheService } from '../../../../platform/cache/redis-cache.service';
@@ -19,8 +19,9 @@ export class Customer360Service {
     return result;
   }
 
-  async clearCustomer360Cache(contactId: string) {
-    await this.cache.clear(`customer360:${contactId}`);
+  async clearCustomer360Cache(contactId: string, companyId?: string) {
+    const tenantKey = companyId ? `:${companyId}` : '';
+    await this.cache.clear(`customer360${tenantKey}:${contactId}`);
   }
 
   private async buildCustomer360Profile(
@@ -45,11 +46,26 @@ export class Customer360Service {
       this.authzService.authorize(actor, 'CUSTOMER_360', 'READ', contact);
     }
 
+    let agentId: string | undefined;
+    if (actor?.role === RoleType.AGENT && actor.userId) {
+      const agent = await this.prisma.agent.findUnique({
+        where: { userId: actor.userId },
+      });
+      agentId = agent?.id;
+    }
+
+    const companyId = actor?.companyId;
+
     // 1. Fetch Real Operational Data Concurrently
     const [policies, quotations, claims, comms, leads, documents] =
       await Promise.all([
         this.prisma.policy.findMany({
-          where: { contactId, deletedAt: null },
+          where: {
+            contactId,
+            deletedAt: null,
+            ...(companyId ? { companyId } : {}),
+            ...(agentId && actor ? { createdById: actor.userId } : {}),
+          },
           include: {
             documents: true,
             claims: true,
@@ -60,12 +76,22 @@ export class Customer360Service {
           take: 50,
         }),
         this.prisma.quotation.findMany({
-          where: { contactId, deletedAt: null },
+          where: {
+            contactId,
+            deletedAt: null,
+            ...(companyId ? { companyId } : {}),
+            ...(agentId ? { agentId } : {}),
+          },
           orderBy: { createdAt: 'desc' },
           take: 50,
         }),
         this.prisma.claim.findMany({
-          where: { contactId, deletedAt: null },
+          where: {
+            contactId,
+            deletedAt: null,
+            ...(companyId ? { companyId } : {}),
+            ...(agentId ? { agentId } : {}),
+          },
           include: { policy: true },
           orderBy: { createdAt: 'desc' },
           take: 50,
@@ -76,7 +102,12 @@ export class Customer360Service {
           take: 50,
         }),
         this.prisma.lead.findMany({
-          where: { contactId, deletedAt: null },
+          where: {
+            contactId,
+            deletedAt: null,
+            ...(companyId ? { companyId } : {}),
+            ...(agentId ? { agentId } : {}),
+          },
           include: { stageHistory: { orderBy: { createdAt: 'desc' } } },
           orderBy: { createdAt: 'desc' },
           take: 20,
@@ -85,6 +116,8 @@ export class Customer360Service {
           where: {
             entityId: contactId,
             entityType: { in: ['CONTACT', 'CUSTOMER'] },
+            deletedAt: null,
+            ...(agentId && actor ? { uploadedById: actor.userId } : {}),
           },
           orderBy: { createdAt: 'desc' },
           take: 50,

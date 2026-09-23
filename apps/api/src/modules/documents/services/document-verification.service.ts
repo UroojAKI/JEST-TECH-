@@ -9,7 +9,9 @@ import {
   DocumentStatus,
   DocumentVerificationStatus,
   DocumentAccessAction,
+  RoleType,
 } from '@prisma/client';
+import type { RequestUser } from '../../auth/decorators/current-user.decorator';
 
 export type DocumentLifecycleState =
   'UPLOADED' | 'UNDER_REVIEW' | 'VERIFIED' | 'REJECTED';
@@ -32,13 +34,34 @@ export class DocumentVerificationService {
     documentId: string,
     reviewerId: string,
     ipAddress?: string,
+    reviewerUser?: RequestUser,
   ) {
     const doc = await this.prisma.document.findFirst({
       where: { id: documentId, deletedAt: null },
+      include: { uploadedBy: { select: { companyId: true } } },
     });
 
     if (!doc) {
       throw new NotFoundException(`Document with ID ${documentId} not found`);
+    }
+
+    if (reviewerUser) {
+      if (reviewerUser.role === RoleType.AGENT) {
+        throw new ForbiddenException(
+          'Agents are strictly prohibited from placing documents under review',
+        );
+      }
+      const companyId =
+        reviewerUser.companyId || (reviewerUser as any).organizationId;
+      if (
+        companyId &&
+        doc.uploadedBy?.companyId &&
+        doc.uploadedBy.companyId !== companyId
+      ) {
+        throw new ForbiddenException(
+          'Cannot review document from another organization',
+        );
+      }
     }
 
     const metadata = (doc.metadata as Record<string, any>) || {};
@@ -91,13 +114,34 @@ export class DocumentVerificationService {
     dto: VerifyDocumentDto,
     verifierId: string,
     ipAddress?: string,
+    verifierUser?: RequestUser,
   ) {
     const doc = await this.prisma.document.findFirst({
       where: { id: documentId, deletedAt: null },
+      include: { uploadedBy: { select: { companyId: true } } },
     });
 
     if (!doc) {
       throw new NotFoundException(`Document with ID ${documentId} not found`);
+    }
+
+    if (verifierUser) {
+      if (verifierUser.role === RoleType.AGENT) {
+        throw new ForbiddenException(
+          'Agents are strictly prohibited from verifying documents',
+        );
+      }
+      const companyId =
+        verifierUser.companyId || (verifierUser as any).organizationId;
+      if (
+        companyId &&
+        doc.uploadedBy?.companyId &&
+        doc.uploadedBy.companyId !== companyId
+      ) {
+        throw new ForbiddenException(
+          'Cannot verify document from another organization',
+        );
+      }
     }
 
     // Separation of duties check

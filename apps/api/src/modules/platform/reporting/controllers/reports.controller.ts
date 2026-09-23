@@ -210,7 +210,8 @@ export class ReportsController {
     @Res() res: Response,
   ) {
     const fmt = (format as 'pdf' | 'excel' | 'csv') || 'pdf';
-    const command = new ExecuteReportCommand(id, {}, user.id);
+    const companyId = user.companyId || (user as any).organizationId;
+    const command = new ExecuteReportCommand(id, {}, user.id, companyId);
     const result = await this.commands.handleExecuteReport(command, fmt);
 
     res.setHeader('Content-Type', result.mimeType);
@@ -230,6 +231,7 @@ export class ReportsController {
     @Res() res: Response,
   ) {
     const format = dto.format || 'csv';
+    const companyId = user.companyId || (user as any).organizationId;
 
     if (dto.stream && format === 'csv') {
       const report = await this.queries.handleGetReport(new GetReportQuery(id));
@@ -245,7 +247,7 @@ export class ReportsController {
         }));
 
         const generator = provider.stream({
-          parameters: dto.parameters || {},
+          parameters: { ...(dto.parameters || {}), companyId },
           filters: filtersList,
           search: dto.search,
         });
@@ -262,7 +264,12 @@ export class ReportsController {
       }
     }
 
-    const command = new ExecuteReportCommand(id, dto.parameters || {}, user.id);
+    const command = new ExecuteReportCommand(
+      id,
+      dto.parameters || {},
+      user.id,
+      companyId,
+    );
     const result = await this.commands.handleExecuteReport(command, format);
 
     res.setHeader('Content-Type', result.mimeType);
@@ -275,8 +282,18 @@ export class ReportsController {
 
   @Post(':id/preview')
   @RequirePermissions('REPORT_VIEW')
-  async previewReport(@Param('id') id: string, @Body() dto: ExecuteReportDto) {
-    const query = new PreviewReportQuery(id, dto.parameters || {}, dto.search);
+  async previewReport(
+    @Param('id') id: string,
+    @Body() dto: ExecuteReportDto,
+    @CurrentUser() user: RequestUser,
+  ) {
+    const companyId = user.companyId || (user as any).organizationId;
+    const query = new PreviewReportQuery(
+      id,
+      dto.parameters || {},
+      dto.search,
+      companyId,
+    );
     return this.queries.handlePreviewReport(query);
   }
 
@@ -286,13 +303,20 @@ export class ReportsController {
     @Param('id') id: string,
     @Body()
     dto: { field: string; value: any; parameters?: Record<string, any> },
+    @CurrentUser() user: RequestUser,
   ) {
+    const companyId = user.companyId || (user as any).organizationId;
     const report = await this.queries.handleGetReport(new GetReportQuery(id));
     const combinedParams = {
       ...(dto.parameters || {}),
       [dto.field]: dto.value,
     };
-    const query = new PreviewReportQuery(report.id, combinedParams);
+    const query = new PreviewReportQuery(
+      report.id,
+      combinedParams,
+      undefined,
+      companyId,
+    );
     return this.queries.handlePreviewReport(query);
   }
 

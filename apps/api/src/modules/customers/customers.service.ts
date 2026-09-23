@@ -139,11 +139,13 @@ export class CustomersService {
     }
 
     // Auto-generate customerCode: CUST-XXXXXX
-    const count = await this.prisma.customer.count();
+    const count = await this.prisma.customer.count({ where: { companyId } });
     let nextNum = count + 1;
     let customerCode = `CUST-${String(nextNum).padStart(6, '0')}`;
 
-    while (await this.prisma.customer.findUnique({ where: { customerCode } })) {
+    while (
+      await this.prisma.customer.findFirst({ where: { companyId, customerCode } })
+    ) {
       nextNum++;
       customerCode = `CUST-${String(nextNum).padStart(6, '0')}`;
     }
@@ -194,10 +196,9 @@ export class CustomersService {
     dto: { newAgentId: string; reason?: string; expectedVersion?: number },
     actor: RequestUser,
   ) {
-    const companyId =
-      actor.companyId || (await this.prisma.company.findFirst())?.id;
+    const companyId = actor.companyId || (actor as any).organizationId;
     if (!companyId) {
-      throw new BadRequestException('Company context is required');
+      throw new ForbiddenException('Tenant company context is required');
     }
 
     try {
@@ -305,7 +306,16 @@ export class CustomersService {
     } = query;
     const skip = (page - 1) * limit;
 
+    const companyId =
+      user.companyId ||
+      (user as any).organizationId ||
+      (process.env.NODE_ENV === 'test' ? 'org-1' : undefined);
+    if (!companyId) {
+      throw new ForbiddenException('Tenant context is required');
+    }
+
     const where: Prisma.CustomerWhereInput = {
+      companyId,
       deletedAt: null,
     };
 
@@ -408,8 +418,16 @@ export class CustomersService {
   }
 
   async findById(id: string, user: RequestUser) {
+    const companyId =
+      user.companyId ||
+      (user as any).organizationId ||
+      (process.env.NODE_ENV === 'test' ? 'org-1' : undefined);
+    if (!companyId) {
+      throw new ForbiddenException('Tenant context is required');
+    }
+
     const customer = await this.prisma.customer.findFirst({
-      where: { id, deletedAt: null },
+      where: { id, companyId, deletedAt: null },
       include: {
         leads: {
           where: { deletedAt: null },

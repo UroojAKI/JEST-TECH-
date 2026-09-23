@@ -76,6 +76,8 @@ export class ReportCommandsService {
       const { rows, columns } = await this.builder.buildReportData(
         report,
         command.parameters,
+        {},
+        command.companyId || undefined,
       );
 
       // Export using export service

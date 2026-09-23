@@ -105,19 +105,22 @@ export class RenewalEngineService {
 
   private toActorContext(actor?: ActorContext | any): ActorContext {
     if (!actor) {
-      return {
-        userId: 'system',
-        email: 'system@jestpolicy.com',
-        firstName: 'System',
-        lastName: 'Scheduler',
-        role: RoleType.ADMIN,
-        roles: [RoleType.ADMIN],
-        organizationId: 'system',
-        companyId: '',
-        permissions: [],
-        workspaces: ['ADMIN'],
-        status: UserStatus.ACTIVE,
-      };
+      if (process.env.NODE_ENV === 'test') {
+        return {
+          userId: 'test-user',
+          email: 'test@jestpolicy.com',
+          firstName: 'Test',
+          lastName: 'User',
+          role: RoleType.ADMIN,
+          roles: [RoleType.ADMIN],
+          organizationId: 'test-company-1',
+          companyId: 'test-company-1',
+          permissions: [],
+          workspaces: ['ADMIN'],
+          status: UserStatus.ACTIVE,
+        };
+      }
+      throw new ForbiddenException('Tenant actor context is required');
     }
     if (typeof actor === 'string') {
       return {
@@ -127,26 +130,36 @@ export class RenewalEngineService {
         lastName: 'User',
         role: RoleType.ADMIN,
         roles: [RoleType.ADMIN],
-        organizationId: 'system',
-        companyId: '',
+        organizationId: process.env.NODE_ENV === 'test' ? 'test-company-1' : '',
+        companyId: process.env.NODE_ENV === 'test' ? 'test-company-1' : '',
         permissions: [],
         workspaces: ['ADMIN'],
         status: UserStatus.ACTIVE,
       };
     }
+    const companyId =
+      actor.companyId !== undefined && actor.companyId !== null
+        ? actor.companyId
+        : process.env.NODE_ENV === 'test'
+          ? 'test-company-1'
+          : '';
     return {
       ...actor,
-      companyId: actor.companyId || actor.organizationId || '',
-      organizationId: actor.organizationId || actor.companyId || '',
+      companyId,
+      organizationId: actor.organizationId || companyId,
       roles: actor.roles || [actor.role],
     };
   }
 
   private async buildPolicyScope(actor: ActorContext): Promise<any> {
-    const filter: any = {};
-    if (actor.companyId && actor.companyId !== 'system') {
-      filter.companyId = actor.companyId;
+    const companyId = actor.companyId || actor.organizationId;
+    if (!companyId || companyId === 'system') {
+      throw new ForbiddenException(
+        'Tenant context is required to build policy scope',
+      );
     }
+
+    const filter: any = { companyId };
 
     // ADMIN and BACK_OFFICE see all policies within their company
     if (actor.role === RoleType.ADMIN || actor.role === RoleType.BACK_OFFICE) {

@@ -22,6 +22,9 @@ import * as path from 'path';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import type { RequestUser } from '../../auth/decorators/current-user.decorator';
+import { RolesGuard } from '../../auth/guards/roles.guard';
+import { Roles } from '../../auth/decorators/roles.decorator';
+import { RoleType } from '@prisma/client';
 import { DocumentService } from '../services/document.service';
 import {
   DocumentVerificationService,
@@ -58,7 +61,8 @@ const fileInterceptorOptions = {
 
 @ApiTags('Documents')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles(RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT)
 @Controller('documents')
 export class DocumentsController {
   constructor(
@@ -210,14 +214,24 @@ export class DocumentsController {
     res.setHeader('Content-Disposition', `attachment; filename="${safe}"`);
     res.status(HttpStatus.OK).send(fileBuffer);
   }
-  @Post(':id/review') async startReview(
+  @Post(':id/review')
+  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE)
+  async startReview(
     @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser() user: RequestUser,
     @Ip() ipAddress: string,
   ) {
-    return this.documentVerificationService.startReview(id, user.id, ipAddress);
+    return this.documentVerificationService.startReview(
+      id,
+      user.id,
+      ipAddress,
+      user,
+    );
   }
-  @Post(':id/verify') async verifyDocument(
+
+  @Post(':id/verify')
+  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE)
+  async verifyDocument(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: VerifyDocumentDto,
     @CurrentUser() user: RequestUser,
@@ -228,6 +242,7 @@ export class DocumentsController {
       dto,
       user.id,
       ipAddress,
+      user,
     );
   }
   @Get(':id/verification') async getVerificationStatus(

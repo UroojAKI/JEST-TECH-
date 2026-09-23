@@ -242,22 +242,79 @@ export class EndorsementService {
         };
       }
 
+      case EndorsementType.PREMIUM_CHANGE: {
+        const rawPremium = requestedChanges.newAnnualPremium;
+        const newPremium = rawPremium !== undefined ? Number(rawPremium) : NaN;
+
+        if (isNaN(newPremium) || newPremium <= 0) {
+          throw new BadRequestException(
+            'A valid positive newAnnualPremium is required for PREMIUM_CHANGE endorsements',
+          );
+        }
+
+        // Financial invariant: Premium cannot be manipulated below statutory minimum underwriting floor (₹100)
+        if (newPremium < 100) {
+          throw new BadRequestException(
+            'New annual premium must meet minimum policy underwriting floor of ₹100',
+          );
+        }
+
+        const currentPremium = Number(policy.premiumAmount || 0);
+
+        // Authoritative pro-rata recalculation
+        const now = new Date();
+        const expiryTime = new Date(policy.expiryDate).getTime();
+        const effectiveTime = new Date(policy.effectiveDate).getTime();
+        const remainingMs = Math.max(0, expiryTime - now.getTime());
+        const remainingDays = Math.ceil(remainingMs / (1000 * 60 * 60 * 24));
+        const totalTenureMs = Math.max(1, expiryTime - effectiveTime);
+        const totalDays = Math.ceil(totalTenureMs / (1000 * 60 * 60 * 24));
+        const proRataFactor = Math.min(
+          1,
+          Math.max(0, remainingDays / totalDays),
+        );
+        const annualDiff = newPremium - currentPremium;
+        const proRataNetDifferential =
+          Math.round(annualDiff * proRataFactor * 100) / 100;
+        const gstAmount =
+          Math.round(proRataNetDifferential * 0.18 * 100) / 100;
+        const totalPayable =
+          Math.round((proRataNetDifferential + gstAmount) * 100) / 100;
+
+        const validated = {
+          ...requestedChanges,
+          newAnnualPremium: newPremium,
+          previousAnnualPremium: currentPremium,
+          annualDifferential: annualDiff,
+          remainingDays,
+          totalDays,
+          proRataFactor: Number(proRataFactor.toFixed(4)),
+          proRataNetDifferential,
+          gstAmount,
+          totalPayable,
+        };
+
+        return {
+          validatedChanges: validated,
+          beforeSnapshot: { premiumAmount: policy.premiumAmount },
+          updateFn: async () => {
+            await tx.policy.update({
+              where: { id: policy.id },
+              data: {
+                premiumAmount: new Prisma.Decimal(newPremium),
+              },
+            });
+          },
+        };
+      }
+
       default: {
-        // For IDV_CHANGE, COVERAGE_CHANGE, PREMIUM_CHANGE
+        // For IDV_CHANGE, COVERAGE_CHANGE, NCB_CHANGE
         return {
           validatedChanges: requestedChanges,
           beforeSnapshot: { premiumAmount: policy.premiumAmount },
           updateFn: async () => {
-            if (requestedChanges.newAnnualPremium) {
-              await tx.policy.update({
-                where: { id: policy.id },
-                data: {
-                  premiumAmount: new Prisma.Decimal(
-                    requestedChanges.newAnnualPremium,
-                  ),
-                },
-              });
-            }
+            // Non-PREMIUM_CHANGE endorsements do not alter premiumAmount directly
           },
         };
       }

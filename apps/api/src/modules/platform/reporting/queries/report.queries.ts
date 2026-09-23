@@ -19,6 +19,7 @@ export class PreviewReportQuery {
     public readonly reportId: string,
     public readonly parameters: Record<string, any>,
     public readonly search?: string,
+    public readonly companyId?: string | null,
   ) {}
 }
 

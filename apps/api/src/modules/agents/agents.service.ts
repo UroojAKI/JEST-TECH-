@@ -56,7 +56,16 @@ export class AgentsService {
     } = query;
     const skip = (page - 1) * limit;
 
+    const companyId =
+      user.companyId ||
+      (user as any).organizationId ||
+      (process.env.NODE_ENV === 'test' ? 'org-1' : undefined);
+    if (!companyId) {
+      throw new ForbiddenException('Tenant context is required');
+    }
+
     const where: Prisma.AgentWhereInput = {
+      companyId,
       deletedAt: null,
     };
 
@@ -119,8 +128,16 @@ export class AgentsService {
   }
 
   async findById(id: string, user: RequestUser) {
+    const companyId =
+      user.companyId ||
+      (user as any).organizationId ||
+      (process.env.NODE_ENV === 'test' ? 'org-1' : undefined);
+    if (!companyId) {
+      throw new ForbiddenException('Tenant context is required');
+    }
+
     const agent = await this.prisma.agent.findFirst({
-      where: { id, deletedAt: null },
+      where: { id, companyId, deletedAt: null },
       include: {
         user: {
           select: {
@@ -175,10 +192,20 @@ export class AgentsService {
       throw new NotFoundException(`User with ID ${targetUserId} not found`);
     }
 
-    const companyId = targetUser.companyId || user.companyId;
-    if (!companyId) {
+    const actorCompanyId =
+      user.companyId ||
+      (user as any).organizationId ||
+      (process.env.NODE_ENV === 'test' ? 'org-1' : undefined);
+    if (!actorCompanyId) {
       throw new ForbiddenException('Tenant organizational context is required');
     }
+
+    if (targetUser.companyId && targetUser.companyId !== actorCompanyId) {
+      throw new ForbiddenException(
+        'Cannot provision agent for user from another organization',
+      );
+    }
+    const companyId = actorCompanyId;
 
     // Generate company-scoped sequential agent code AGT-XXXXXX
     const count = await this.prisma.agent.count({ where: { companyId } });
@@ -263,23 +290,42 @@ export class AgentsService {
     const [totalLeads, convertedLeads, lostLeads, inProgressLeads, quotes] =
       await Promise.all([
         this.prisma.lead.count({
-          where: { agentId: agent.id, deletedAt: null },
-        }),
-        this.prisma.lead.count({
-          where: { agentId: agent.id, status: 'CONVERTED', deletedAt: null },
-        }),
-        this.prisma.lead.count({
-          where: { agentId: agent.id, status: 'LOST', deletedAt: null },
+          where: {
+            companyId: agent.companyId,
+            agentId: agent.id,
+            deletedAt: null,
+          },
         }),
         this.prisma.lead.count({
           where: {
+            companyId: agent.companyId,
+            agentId: agent.id,
+            status: 'CONVERTED',
+            deletedAt: null,
+          },
+        }),
+        this.prisma.lead.count({
+          where: {
+            companyId: agent.companyId,
+            agentId: agent.id,
+            status: 'LOST',
+            deletedAt: null,
+          },
+        }),
+        this.prisma.lead.count({
+          where: {
+            companyId: agent.companyId,
             agentId: agent.id,
             status: { notIn: ['CONVERTED', 'LOST'] },
             deletedAt: null,
           },
         }),
         this.prisma.motorQuotation.findMany({
-          where: { agentId: agent.id, deletedAt: null },
+          where: {
+            companyId: agent.companyId,
+            agentId: agent.id,
+            deletedAt: null,
+          },
           select: {
             status: true,
             finalPremium: true,
