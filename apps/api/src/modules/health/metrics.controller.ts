@@ -1,4 +1,5 @@
-import { Controller, Get, Header } from '@nestjs/common';
+import { Controller, Get, Header, UseGuards } from '@nestjs/common';
+import { MetricsAuthGuard } from './guards/metrics-auth.guard';
 import {
   register,
   collectDefaultMetrics,
@@ -31,6 +32,7 @@ export const apiDurationHistogram =
     buckets: [50, 100, 200, 500, 1000, 2000, 5000],
   });
 
+@UseGuards(MetricsAuthGuard)
 @Controller('metrics')
 export class MetricsController {
   @Get()

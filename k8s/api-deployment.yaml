@@ -17,8 +17,8 @@ spec:
     spec:
       containers:
         - name: jest-api
-          image: ghcr.io/jestpolicy/api:latest
-          imagePullPolicy: Always
+          image: ghcr.io/uroojaki/jest-tech/api:RELEASE_TAG_OR_SHA
+          imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 3000
           envFrom:
@@ -35,7 +35,7 @@ spec:
               memory: "1024Mi"
           livenessProbe:
             httpGet:
-              path: /health
+              path: /api/v1/health/live
               port: 3000
             initialDelaySeconds: 30
             periodSeconds: 15
@@ -43,7 +43,7 @@ spec:
             failureThreshold: 3
           readinessProbe:
             httpGet:
-              path: /health
+              path: /api/v1/health/ready
               port: 3000
             initialDelaySeconds: 15
             periodSeconds: 10

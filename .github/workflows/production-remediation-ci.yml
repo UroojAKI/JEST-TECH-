@@ -2,7 +2,7 @@ name: Production Remediation CI
 
 on:
   push:
-    branches: [production-rebuild-2026]
+    branches: [main, production-rebuild-2026]
   pull_request:
     branches: [main, production-rebuild-2026]
 
@@ -50,6 +50,12 @@ jobs:
       - name: Web typecheck
         working-directory: apps/web
         run: pnpm exec tsc --noEmit
+
+      - name: Architecture Guard — Fail-Closed Multi-Tenant Scoping (Section 15)
+        run: pnpm run check:tenancy
+
+      - name: Quality Gate — Production Mock Data & AST Scanner (F-036)
+        run: pnpm run check:mock-data
 
       - name: API unit tests
         working-directory: apps/api

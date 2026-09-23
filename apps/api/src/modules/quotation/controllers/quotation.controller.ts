@@ -86,9 +86,10 @@ export class QuotationController {
     const quotationCode = await this.numberingEngine.generateNext('QUOTATION');
 
     let contactId = dto.contactId;
+    const actorCompanyId = user.companyId || (user as any).organizationId;
     if (!contactId && dto.leadId) {
-      const lead = await this.prisma.lead.findUnique({
-        where: { id: dto.leadId },
+      const lead = await this.prisma.lead.findFirst({
+        where: { id: dto.leadId, companyId: actorCompanyId, deletedAt: null },
         select: { contactId: true },
       });
       contactId = lead?.contactId || undefined;
@@ -97,7 +98,11 @@ export class QuotationController {
     const proposer = dto.proposerDetails || {};
     if (!contactId && proposer['mobileNumber']) {
       const existingByPhone = await this.prisma.contact.findFirst({
-        where: { phone: String(proposer['mobileNumber']).trim() },
+        where: {
+          phone: String(proposer['mobileNumber']).trim(),
+          companyId: actorCompanyId,
+          deletedAt: null,
+        },
         select: { id: true },
       });
       contactId = existingByPhone?.id;
@@ -105,7 +110,11 @@ export class QuotationController {
 
     if (!contactId && proposer['emailId']) {
       const existingByEmail = await this.prisma.contact.findFirst({
-        where: { email: String(proposer['emailId']).trim() },
+        where: {
+          email: String(proposer['emailId']).trim(),
+          companyId: actorCompanyId,
+          deletedAt: null,
+        },
         select: { id: true },
       });
       contactId = existingByEmail?.id;

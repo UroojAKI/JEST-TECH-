@@ -313,10 +313,12 @@ export class PortalController {
   @Get('support/tickets')
   @ApiOperation({ summary: 'Get submitted support tickets' })
   async getSupportTickets(@CurrentUser() user: RequestUser) {
+    const companyId = this.getActorCompanyId(user);
     const logs = await this.prisma.auditLog.findMany({
       where: {
         entity: 'SUPPORT_TICKET',
         userId: user.id, // scope to requesting user's own tickets
+        user: { companyId },
       },
       orderBy: { createdAt: 'desc' },
       take: 50,

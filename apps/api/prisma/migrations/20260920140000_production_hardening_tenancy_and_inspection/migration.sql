@@ -21,30 +21,46 @@ BEGIN
     -- 1. Identify canonical company
     SELECT "id" INTO default_company_id FROM "public"."Company" ORDER BY "createdAt" ASC LIMIT 1;
     IF default_company_id IS NULL THEN
-        RAISE EXCEPTION 'Preflight Failure: No canonical Company found in database.';
+        -- Check if any records exist that need backfill
+        SELECT COUNT(*) INTO orphan_user_count FROM "public"."users" WHERE "companyId" IS NULL;
+        SELECT COUNT(*) INTO orphan_contact_count FROM "public"."contacts" WHERE "companyId" IS NULL;
+        SELECT COUNT(*) INTO orphan_quote_count FROM "public"."quotations" WHERE "companyId" IS NULL;
+
+        IF orphan_user_count = 0 AND orphan_contact_count = 0 AND orphan_quote_count = 0 THEN
+            -- Fresh database deployment: no data needs backfill, skip to schema adjustments
+            default_company_id := NULL;
+        ELSE
+            -- Pre-existing data without canonical Company: insert canonical fallback company
+            default_company_id := 'comp_canonical_system_default';
+            INSERT INTO "public"."Company" ("id", "name", "code", "isActive", "createdAt", "updatedAt")
+            VALUES (default_company_id, 'Canonical System Organization', 'CANONICAL-SYS', true, NOW(), NOW())
+            ON CONFLICT ("id") DO NOTHING;
+        END IF;
     END IF;
 
-    -- 2. Backfill Users from canonical Company
-    UPDATE "public"."users"
-    SET "companyId" = default_company_id
-    WHERE "companyId" IS NULL;
+    -- 2. Backfill Users from canonical Company if available
+    IF default_company_id IS NOT NULL THEN
+        UPDATE "public"."users"
+        SET "companyId" = default_company_id
+        WHERE "companyId" IS NULL;
 
-    -- 3. Backfill Contacts from canonical Company
-    UPDATE "public"."contacts"
-    SET "companyId" = default_company_id
-    WHERE "companyId" IS NULL;
+        -- 3. Backfill Contacts from canonical Company
+        UPDATE "public"."contacts"
+        SET "companyId" = default_company_id
+        WHERE "companyId" IS NULL;
 
-    -- 4. Backfill Quotations from Contact, Lead, or fallback
-    UPDATE "public"."quotations" q
-    SET "companyId" = COALESCE(
-        (SELECT c."companyId" FROM "public"."contacts" c WHERE c."id" = q."contactId"),
-        (SELECT l."companyId" FROM "public"."leads" l WHERE l."id" = q."leadId"),
-        default_company_id
-    )
-    WHERE q."companyId" IS NULL;
-    UPDATE "public"."quotations"
-    SET "companyId" = default_company_id
-    WHERE "companyId" IS NULL;
+        -- 4. Backfill Quotations from Contact, Lead, or fallback
+        UPDATE "public"."quotations" q
+        SET "companyId" = COALESCE(
+            (SELECT c."companyId" FROM "public"."contacts" c WHERE c."id" = q."contactId"),
+            (SELECT l."companyId" FROM "public"."leads" l WHERE l."id" = q."leadId"),
+            default_company_id
+        )
+        WHERE q."companyId" IS NULL;
+        UPDATE "public"."quotations"
+        SET "companyId" = default_company_id
+        WHERE "companyId" IS NULL;
+    END IF;
 
     -- 5. Orphan Check: Fail-closed abort if any unresolved NULL rows remain
     SELECT COUNT(*) INTO orphan_user_count FROM "public"."users" WHERE "companyId" IS NULL;

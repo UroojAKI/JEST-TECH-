@@ -76,9 +76,10 @@ export class LeadsController {
     const role = String(user.role || '').toUpperCase();
     const where: any = {};
     const companyId = user.companyId || (user as any).organizationId;
-    if (companyId && !user.permissions?.includes('*')) {
+    if (companyId) {
       where.companyId = companyId;
     }
+    where.deletedAt = null;
     if (role === 'AGENT') {
       where.assignedToId = user.id;
     }

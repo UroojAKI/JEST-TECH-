@@ -36,23 +36,11 @@ jobs:
       - name: TypeScript typecheck — Web
         run: pnpm exec tsc --noEmit --project apps/web/tsconfig.json
 
-      - name: Mock data AST scan (production files must not contain setTimeout/Math.random as fake data)
-        run: |
-          echo "Scanning for production mock patterns..."
-          FOUND=$(grep -rn --include="*.tsx" --include="*.ts" \
-            -e 'setTimeout.*Math\.random' \
-            -e 'MOCK_DATA\s*=' \
-            -e 'DEMO_DATA\s*=' \
-            --exclude-dir=node_modules \
-            --exclude-dir=.next \
-            --exclude-dir="*.spec.ts" \
-            apps/web/src/app/ apps/api/src/modules/ 2>/dev/null | grep -v "^[^:]*:[[:space:]]*\/\/" | grep -v "^[^:]*:[[:space:]]*\*" || true)
-          if [ -n "$FOUND" ]; then
-            echo "ERROR: Production mock patterns found:"
-            echo "$FOUND"
-            exit 1
-          fi
-          echo "No production mock patterns found."
+      - name: Architecture Guard — Fail-Closed Multi-Tenant Scoping (Section 15)
+        run: pnpm run check:tenancy
+
+      - name: Quality Gate — Production Mock Data & AST Scanner (F-036)
+        run: pnpm run check:mock-data
 
       - name: Unit tests — API
         run: pnpm --filter api test

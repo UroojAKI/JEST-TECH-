@@ -396,7 +396,7 @@ export class FinanceController {
 
     const policyIds = commissions.map((c) => c.policyId).filter(Boolean);
     const policies = await this.prisma.policy.findMany({
-      where: { id: { in: policyIds } },
+      where: { id: { in: policyIds }, companyId, deletedAt: null },
       select: {
         id: true,
         policyNumber: true,

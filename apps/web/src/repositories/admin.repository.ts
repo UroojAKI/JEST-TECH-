@@ -115,15 +115,24 @@ export interface AuditLogItem {
 }
 
 export interface HealthStatusItem {
-  status: 'ok' | 'error';
-  info: {
-    database: { status: 'up' };
-    redis: { status: 'up' };
-    storage: { status: 'up'; provider: string };
-    queue: { status: 'up'; activeJobs: number; waitingJobs: number };
+  status: 'ok' | 'error' | 'degraded' | 'down';
+  timestamp?: string;
+  uptime?: number;
+  checks?: {
+    database?: { status: string; latencyMs?: number };
+    redis?: { status: string; latencyMs?: number };
+    outbox?: { status: string; pendingEvents?: number };
+    memory?: { status: string; heapUsedMB?: number; heapLimitMB?: number };
+    disk?: { status: string };
   };
-  error: Record<string, any>;
-  details: Record<string, any>;
+  info?: {
+    database?: { status: string };
+    redis?: { status: string };
+    storage?: { status: string; provider: string };
+    queue?: { status: string; activeJobs: number; waitingJobs: number };
+  };
+  error?: Record<string, any>;
+  details?: Record<string, any>;
 }
 
 export const adminRepository = {

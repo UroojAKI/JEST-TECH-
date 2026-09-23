@@ -8,7 +8,9 @@
     "build": "turbo build",
     "lint": "turbo lint",
     "test": "turbo test",
-    "format": "turbo format"
+    "format": "turbo format",
+    "check:tenancy": "node scripts/check-tenant-scoping.js",
+    "check:mock-data": "node scripts/check-production-mock-data.js"
   },
   "devDependencies": {
     "playwright": "^1.63.0",
