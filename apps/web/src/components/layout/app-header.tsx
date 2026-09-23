@@ -12,9 +12,11 @@ import {
   ShieldCheck,
   Building2,
   ChevronDown,
+  LogOut,
 } from 'lucide-react';
 import { useUIStore } from '../../store/ui-store';
 import { useAuthStore } from '../../store/auth-store';
+import { useAuth } from '../../hooks/useAuth';
 import { useCustomerContext } from '../../store/customer-context';
 import { BreadcrumbNav } from './breadcrumb-nav';
 import dynamic from 'next/dynamic';
@@ -28,6 +30,7 @@ const WorkspaceSwitcher = dynamic(
 export function AppHeader() {
   const { theme, setTheme } = useTheme();
   const user = useAuthStore((s) => s.user);
+  const { performCompleteLogout } = useAuth();
   const toggleSidebar = useUIStore((s) => s.toggleSidebar);
   const setCommandPaletteOpen = useUIStore((s) => s.setCommandPaletteOpen);
   const setNotificationDrawerOpen = useUIStore((s) => s.setNotificationDrawerOpen);
@@ -113,6 +116,15 @@ export function AppHeader() {
             <span className="text-[10px] text-muted-foreground">{user?.roles?.[0] || 'User'}</span>
           </div>
           <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+        </button>
+
+        {/* Universal Direct Header Logout */}
+        <button
+          onClick={performCompleteLogout}
+          title="Sign Out"
+          className="p-1.5 rounded-md text-muted-foreground hover:text-rose-600 hover:bg-rose-500/10 transition-colors"
+        >
+          <LogOut className="h-4 w-4" />
         </button>
       </div>
     </header>

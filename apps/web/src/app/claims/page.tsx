@@ -1,17 +1,37 @@
 'use client';
 
 import React, { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { AppShell } from '../../components/layout/app-shell';
 import { EnterpriseTable } from '../../components/table/enterprise-table';
 import { StatusBadge } from '../../components/ui/status-badge';
 import { ChunkedFileUploader } from '../../components/upload/chunked-file-uploader';
-import { FileText, AlertCircle, Loader2 } from 'lucide-react';
+import { FileText, AlertCircle, Loader2, Plus, X } from 'lucide-react';
 import { claimsRepository } from '../../repositories/claims.repository';
 import { formatCurrency } from '../../lib/formatters';
+import { useAuth } from '../../hooks/useAuth';
+import { toast } from 'sonner';
 
 export default function ClaimsPage() {
   const [selectedClaimId, setSelectedClaimId] = useState<string | null>(null);
+  const [isReportModalOpen, setIsReportModalOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [formData, setFormData] = useState({
+    policyNumber: '',
+    claimantName: '',
+    incidentDate: new Date().toISOString().split('T')[0],
+    claimAmount: '',
+    description: '',
+  });
+
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+
+  const isAuthorizedToReport =
+    user?.roles?.includes('BACK_OFFICE') ||
+    user?.roles?.includes('ADMIN') ||
+    user?.role === 'BACK_OFFICE' ||
+    user?.role === 'ADMIN';
 
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['claims-list'],
@@ -19,6 +39,47 @@ export default function ClaimsPage() {
   });
 
   const claims = Array.isArray(data) ? data : (data as any)?.data || [];
+
+  const handleSubmitClaim = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formData.policyNumber.trim()) {
+      toast.error('Policy number or reference is required');
+      return;
+    }
+    if (!formData.description.trim() || formData.description.trim().length < 5) {
+      toast.error('Incident description must be at least 5 characters');
+      return;
+    }
+    if (!formData.claimAmount || Number(formData.claimAmount) <= 0) {
+      toast.error('Please enter a valid positive claim amount');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      await claimsRepository.reportClaim({
+        policyNumber: formData.policyNumber.trim(),
+        claimantName: formData.claimantName.trim() || undefined,
+        incidentDate: new Date(formData.incidentDate).toISOString(),
+        claimAmount: Number(formData.claimAmount),
+        description: formData.description.trim(),
+      });
+      toast.success('Claim reported successfully and registered in Back-Office queue');
+      await queryClient.invalidateQueries({ queryKey: ['claims-list'] });
+      setIsReportModalOpen(false);
+      setFormData({
+        policyNumber: '',
+        claimantName: '',
+        incidentDate: new Date().toISOString().split('T')[0],
+        claimAmount: '',
+        description: '',
+      });
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || err?.message || 'Failed to report claim');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   const columns = [
     {
@@ -80,6 +141,16 @@ export default function ClaimsPage() {
           </h1>
           <p className="text-xs text-muted-foreground">Authoritative loss intake, surveyor assignment, and settlement</p>
         </div>
+
+        {isAuthorizedToReport && (
+          <button
+            onClick={() => setIsReportModalOpen(true)}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-semibold shadow-xs transition"
+          >
+            <Plus className="h-4 w-4" />
+            <span>+ Report New Claim</span>
+          </button>
+        )}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -133,6 +204,117 @@ export default function ClaimsPage() {
           )}
         </div>
       </div>
+
+      {/* Report New Claim Modal */}
+      {isReportModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
+          <div className="bg-card text-card-foreground border rounded-xl shadow-xl w-full max-w-lg overflow-hidden animate-in fade-in-50 zoom-in-95">
+            <div className="flex items-center justify-between p-4 border-b">
+              <div className="flex items-center gap-2 font-bold text-sm">
+                <FileText className="h-4 w-4 text-primary" />
+                <span>Report New Claim</span>
+              </div>
+              <button
+                onClick={() => setIsReportModalOpen(false)}
+                className="p-1 rounded-md text-muted-foreground hover:bg-accent"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSubmitClaim} className="p-4 space-y-4">
+              <div>
+                <label className="font-bold text-foreground text-xs block mb-1">
+                  Policy Number / Reference <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. POL-2026-000001"
+                  value={formData.policyNumber}
+                  onChange={(e) => setFormData({ ...formData, policyNumber: e.target.value })}
+                  className="w-full p-2.5 rounded-lg border bg-background text-xs focus:ring-1 focus:ring-primary outline-hidden"
+                />
+              </div>
+
+              <div>
+                <label className="font-bold text-foreground text-xs block mb-1">
+                  Claimant Name
+                </label>
+                <input
+                  type="text"
+                  placeholder="Full name of claimant or insured"
+                  value={formData.claimantName}
+                  onChange={(e) => setFormData({ ...formData, claimantName: e.target.value })}
+                  className="w-full p-2.5 rounded-lg border bg-background text-xs focus:ring-1 focus:ring-primary outline-hidden"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="font-bold text-foreground text-xs block mb-1">
+                    Incident Date <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="date"
+                    required
+                    max={new Date().toISOString().split('T')[0]}
+                    value={formData.incidentDate}
+                    onChange={(e) => setFormData({ ...formData, incidentDate: e.target.value })}
+                    className="w-full p-2.5 rounded-lg border bg-background text-xs focus:ring-1 focus:ring-primary outline-hidden"
+                  />
+                </div>
+                <div>
+                  <label className="font-bold text-foreground text-xs block mb-1">
+                    Estimated Loss (₹) <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    required
+                    min="1"
+                    placeholder="e.g. 25000"
+                    value={formData.claimAmount}
+                    onChange={(e) => setFormData({ ...formData, claimAmount: e.target.value })}
+                    className="w-full p-2.5 rounded-lg border bg-background text-xs focus:ring-1 focus:ring-primary outline-hidden"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="font-bold text-foreground text-xs block mb-1">
+                  Incident Description <span className="text-rose-500">*</span>
+                </label>
+                <textarea
+                  required
+                  rows={3}
+                  placeholder="Provide circumstances of the loss, location, and preliminary damage assessment..."
+                  value={formData.description}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  className="w-full p-2.5 rounded-lg border bg-background text-xs focus:ring-1 focus:ring-primary outline-hidden"
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2 border-t">
+                <button
+                  type="button"
+                  onClick={() => setIsReportModalOpen(false)}
+                  className="px-3 py-2 rounded-lg border bg-background text-xs font-semibold hover:bg-accent"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="px-4 py-2 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-semibold shadow-xs flex items-center gap-1.5 disabled:opacity-50"
+                >
+                  {isSubmitting && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                  <span>{isSubmitting ? 'Reporting...' : 'Submit Claim'}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </AppShell>
   );
 }

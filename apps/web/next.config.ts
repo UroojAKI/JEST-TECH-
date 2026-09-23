@@ -9,6 +9,21 @@ const nextConfig: NextConfig = {
         destination: "/workspace",
         permanent: false,
       },
+      {
+        source: "/sales/leads",
+        destination: "/crm/leads",
+        permanent: true,
+      },
+      {
+        source: "/sales/proposals",
+        destination: "/sales/quotations",
+        permanent: true,
+      },
+      {
+        source: "/workspace/sales/leads",
+        destination: "/crm/leads",
+        permanent: true,
+      },
     ];
   },
   async rewrites() {

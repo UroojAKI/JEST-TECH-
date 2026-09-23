@@ -28,9 +28,11 @@ dist/
 *-errors.txt
 
 
-# Coverage
+# Coverage & Test Results
 coverage/
 **/coverage/
+test-results/
+playwright-report/
 
 # Uploads
 uploads/

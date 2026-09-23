@@ -29,11 +29,19 @@ export const documentsRepository = {
     }
   },
 
-  async uploadDocument(file: File, entityType: string, entityId: string): Promise<DocumentRecord> {
+  async uploadDocument(
+    file: File,
+    entityType: string,
+    entityId: string,
+    extra?: { name?: string; category?: string; tags?: string }
+  ): Promise<DocumentRecord> {
     const formData = new FormData();
     formData.append('file', file);
     formData.append('entityType', entityType);
     formData.append('entityId', entityId);
+    if (extra?.name) formData.append('name', extra.name);
+    if (extra?.category) formData.append('category', extra.category);
+    if (extra?.tags) formData.append('tags', extra.tags);
 
     const response = await apiClient.post('/documents/upload', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },

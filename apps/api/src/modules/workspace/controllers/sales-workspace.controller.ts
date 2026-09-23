@@ -17,7 +17,7 @@ import {
   LeadWorkflowService,
   WorkflowStage,
 } from '../services/lead-workflow.service';
-import { LeadAssignmentService } from '../services/lead-assignment.service';
+import { LeadAssignmentService } from '../../leads/services/lead-assignment.service';
 import { ReferralService } from '../services/referral.service';
 import { PerformanceService } from '../services/performance.service';
 import { PrismaService } from '../../../database/prisma.service';

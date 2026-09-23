@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../../lib/api-client';
 import { toast } from 'sonner';
-import { UserPlus, AlertTriangle, CheckCircle, Zap } from 'lucide-react';
+import { UserPlus, AlertTriangle, CheckCircle, Zap, Loader2 } from 'lucide-react';
 
 interface NewLeadModalProps {
   isOpen: boolean;
@@ -200,9 +200,10 @@ export function NewLeadModal({ isOpen, onClose }: NewLeadModalProps) {
             <button
               type="submit"
               disabled={createLeadMutation.isPending}
-              className="px-4 py-1.5 font-extrabold rounded-xl bg-primary text-primary-foreground shadow-xs hover:bg-primary/90 disabled:opacity-50"
+              className="px-4 py-1.5 font-extrabold rounded-xl bg-primary text-primary-foreground shadow-xs hover:bg-primary/90 disabled:opacity-50 flex items-center gap-1.5"
             >
-              Save Lead
+              {createLeadMutation.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+              <span>{createLeadMutation.isPending ? 'Saving Lead...' : 'Save Lead'}</span>
             </button>
           </div>
         </form>

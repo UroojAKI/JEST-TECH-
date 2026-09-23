@@ -11,7 +11,7 @@ import { useAuth } from '../../hooks/useAuth';
 
 export function WorkspaceHeader() {
   const { user } = useAuthStore();
-  const { logout } = useAuth();
+  const { performCompleteLogout } = useAuth();
   const { jobRole, department, workspace } = useWorkspace();
   const setNotificationDrawerOpen = useUIStore((s) => s.setNotificationDrawerOpen);
 
@@ -73,10 +73,7 @@ export function WorkspaceHeader() {
           </div>
 
           <button
-            onClick={() => {
-              logout();
-              window.location.href = '/login';
-            }}
+            onClick={performCompleteLogout}
             title="Log Out"
             className="p-1.5 rounded-lg text-muted-foreground hover:text-rose-600 hover:bg-rose-500/10 transition-colors"
           >

@@ -210,6 +210,26 @@ export class DashboardAnalyticsService {
     }
 
     // Default: SALES_AGENT (Agent)
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth() + 1;
+
+    const salesTarget = actor.userId
+      ? await this.prisma.salesTarget.findFirst({
+          where: {
+            userId: actor.userId,
+            year: currentYear,
+            month: currentMonth,
+          },
+        })
+      : null;
+
+    const myTarget = salesTarget ? Number(salesTarget.targetGwp) : 500000;
+    const achievement =
+      myTarget > 0
+        ? Number(((revenue.thisMonth / myTarget) * 100).toFixed(1))
+        : 0;
+
     return {
       role,
       kpis: {
@@ -220,8 +240,8 @@ export class DashboardAnalyticsService {
         claimsAssigned: claims.total,
         renewalsAlerts: renewals.expiring30,
         todayRevenue: revenue.today,
-        myTarget: 500000,
-        achievement: Number(((revenue.thisMonth / 500000) * 100).toFixed(1)),
+        myTarget,
+        achievement,
       },
       charts: {
         funnel: leads.funnel,

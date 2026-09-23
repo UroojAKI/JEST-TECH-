@@ -626,6 +626,7 @@ model Contact {
   @@index([status])
   @@index([companyId, phone])
   @@index([companyId, email])
+  @@unique([companyId, id])
   @@map("contacts")
 }
 
@@ -791,6 +792,7 @@ model Lead {
   @@index([assignedManagerId])
   @@index([companyId])
   @@index([agentId])
+  @@unique([companyId, id])
   @@map("leads")
 }
 
@@ -1158,6 +1160,7 @@ model Quotation {
   @@index([vehicleId])
   @@index([companyId])
   @@index([agentId])
+  @@unique([companyId, id])
   @@map("quotations")
 }
 
@@ -2824,6 +2827,7 @@ model Company {
   customerAgentHistories CustomerAgentHistory[] @relation("CompanyAgentHistories")
   backOfficeTasks        BackOfficeTask[]        @relation("CompanyBackOfficeTasks")
   motorInspections       MotorInspection[]       @relation("CompanyMotorInspections")
+  journalEntries         JournalEntry[]          @relation("CompanyJournalEntries")
 
   @@index([taxId])
 }
@@ -3209,11 +3213,14 @@ model JournalEntry {
   referenceId   String? // ID of the invoice, receipt, etc.
   referenceType String? // 'INVOICE', 'RECEIPT', 'COMMISSION'
   status        String   @default("POSTED") // 'DRAFT', 'POSTED', 'VOIDED'
+  companyId     String?
+  company       Company? @relation("CompanyJournalEntries", fields: [companyId], references: [id], onDelete: SetNull)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
   lines JournalLine[]
 
+  @@index([companyId, date])
   @@index([date])
   @@index([referenceId, referenceType])
   @@index([referenceId])

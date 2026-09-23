@@ -76,6 +76,7 @@ export function useAuth() {
       ? (loginMutation.error as any).response?.data?.message || 'Invalid email or password'
       : null,
     logout: logoutMutation.mutate,
+    performCompleteLogout,
     isLoggingOut: logoutMutation.isPending,
   };
 }

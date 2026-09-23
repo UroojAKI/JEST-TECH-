@@ -29,6 +29,18 @@ export const claimsRepository = {
     return response.data;
   },
 
+  async reportClaim(data: {
+    policyId?: string;
+    policyNumber?: string;
+    claimantName?: string;
+    incidentDate: string;
+    description: string;
+    claimAmount: number;
+  }): Promise<Claim> {
+    const response = await apiClient.post('/claims/report', data);
+    return response.data;
+  },
+
   async approveClaim(id: string, data: { approvedAmount: number; comments?: string }): Promise<Claim> {
     const response = await apiClient.post(`/claims/${id}/approve`, data);
     return response.data;
