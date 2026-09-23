@@ -91,10 +91,11 @@ describe('MotorController', () => {
   });
 
   it('calls checkLeadDocumentCompletion for leadId', async () => {
-    const res = await controller.checkLeadDocumentCompletion('lead-123');
+    const mockUser: any = { companyId: 'company-123' };
+    const res = await controller.checkLeadDocumentCompletion('lead-123', mockUser);
     expect(
       motorDocumentRuleService.checkLeadDocumentCompletion,
-    ).toHaveBeenCalledWith('lead-123');
+    ).toHaveBeenCalledWith('lead-123', 'company-123');
     expect(res.complete).toBe(true);
   });
 });

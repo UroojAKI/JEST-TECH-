@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { ForbiddenException } from '@nestjs/common';
 import { MotorDocumentRuleService } from './motor-document-rule.service';
 import { PrismaService } from '../../../database/prisma.service';
 
@@ -100,5 +101,19 @@ describe('MotorDocumentRuleService', () => {
     expect(audit.missingDocuments.map((d) => d.code)).toContain('KYC_ADDRESS');
     expect(audit.missingDocuments.map((d) => d.code)).toContain('VEH_INVOICE');
     expect(audit.missingDocuments.map((d) => d.code)).toContain('VEH_FORM_21');
+  });
+
+  it('throws ForbiddenException when lead belongs to a different company', async () => {
+    prisma.lead.findUnique.mockResolvedValue({
+      id: 'lead-other',
+      companyId: 'company-b',
+      vehicles: [],
+      motorQuotations: [],
+    });
+    prisma.document.findMany.mockResolvedValue([]);
+
+    await expect(
+      service.checkLeadDocumentCompletion('lead-other', 'company-a'),
+    ).rejects.toThrow(ForbiddenException);
   });
 });

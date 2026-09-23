@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../../../database/prisma.service';
 import { VehicleCategory, VehicleStatus } from '@prisma/client';
 
@@ -180,6 +180,7 @@ export class MotorDocumentRuleService {
    */
   async checkLeadDocumentCompletion(
     leadId: string,
+    actorCompanyId?: string,
   ): Promise<DocumentCompletionAudit> {
     const [lead, uploadedDocs] = await Promise.all([
       this.prisma.lead.findUnique({
@@ -208,6 +209,12 @@ export class MotorDocumentRuleService {
         verifiedDocuments: [],
         pendingReviewDocuments: [],
       };
+    }
+
+    if (actorCompanyId && lead.companyId && lead.companyId !== actorCompanyId) {
+      throw new ForbiddenException(
+        'Cross-organization lead document verification is strictly prohibited',
+      );
     }
 
     const primaryVehicle = lead.vehicles?.[0];

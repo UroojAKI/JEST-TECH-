@@ -109,8 +109,6 @@ export class MotorQuoteWorkflowService {
     const expiredMoreThan90Days = expiryDate
       ? expiryDate < ninetyDaysAgo
       : false;
-
-    // 1. Save or update the previous policy record
     const rcTransferStatusBool =
       typeof dto.rcTransferStatus === 'boolean'
         ? dto.rcTransferStatus
@@ -119,46 +117,7 @@ export class MotorQuoteWorkflowService {
             String(dto.rcTransferStatus).toUpperCase() === 'TRANSFERRED'
           : undefined;
 
-    const prevPolicy = await this.prisma.motorPreviousPolicy.upsert({
-      where: { quotationId: dto.quotationId },
-      create: {
-        quotationId: dto.quotationId,
-        policyExpiryDate: expiryDate,
-        expiredMoreThan90Days,
-        ownershipTransfer: dto.ownershipTransfer,
-        previousPolicyType: dto.previousPolicyType as any,
-        previousInsurerName: dto.previousInsurerName,
-        previousPolicyNumber: dto.previousPolicyNumber,
-        previousOdInsurerName: dto.previousOdInsurerName,
-        previousOdPolicyNumber: dto.previousOdPolicyNumber,
-        odExpiryDate: dto.odExpiryDate ? new Date(dto.odExpiryDate) : null,
-        tpExpiryDate: dto.tpExpiryDate ? new Date(dto.tpExpiryDate) : null,
-        claimInPreviousYear: dto.claimInPreviousYear,
-        policyTransferStatus: dto.previousPolicyTransferred,
-        rcTransferStatus: rcTransferStatusBool,
-        newOwnerName: dto.newOwnerName,
-        previousPolicyCopyUrl: dto.previousPolicyCopyUrl,
-      },
-      update: {
-        policyExpiryDate: expiryDate,
-        expiredMoreThan90Days,
-        ownershipTransfer: dto.ownershipTransfer,
-        previousPolicyType: dto.previousPolicyType as any,
-        previousInsurerName: dto.previousInsurerName,
-        previousPolicyNumber: dto.previousPolicyNumber,
-        previousOdInsurerName: dto.previousOdInsurerName,
-        previousOdPolicyNumber: dto.previousOdPolicyNumber,
-        odExpiryDate: dto.odExpiryDate ? new Date(dto.odExpiryDate) : null,
-        tpExpiryDate: dto.tpExpiryDate ? new Date(dto.tpExpiryDate) : null,
-        claimInPreviousYear: dto.claimInPreviousYear,
-        policyTransferStatus: dto.previousPolicyTransferred,
-        rcTransferStatus: rcTransferStatusBool,
-        newOwnerName: dto.newOwnerName,
-        previousPolicyCopyUrl: dto.previousPolicyCopyUrl,
-      },
-    });
-
-    // 2. Build rule engine context
+    // 1. Build rule engine context
     const context: MotorRuleContext = {
       policyExpiryDate: expiryDate,
       expiredMoreThan90Days,
@@ -176,11 +135,11 @@ export class MotorQuoteWorkflowService {
       quotationDate: today,
     };
 
-    // 3. Run the rule engine — backend is SOLE authority
+    // 2. Run the rule engine — backend is SOLE authority
     const result = this.ruleEngine.evaluateQuotation(context);
 
-    // 4. Atomic Transaction following canonical lock order:
-    // Quotation -> MotorRuleEvaluation -> MotorInspection -> BackOfficeTask -> OutboxEvent
+    // 3. Atomic Transaction following canonical lock order:
+    // Quotation -> MotorPreviousPolicy -> MotorRuleEvaluation -> MotorInspection -> BackOfficeTask -> OutboxEvent
     const inspectionRecord = await this.prisma.$transaction(async (tx) => {
       // 1. Lock/Verify Quotation
       const currentQuote = await tx.quotation.findUnique({
@@ -188,7 +147,47 @@ export class MotorQuoteWorkflowService {
       });
       if (!currentQuote) throw new NotFoundException(`Quotation not found`);
 
-      // 2. Upsert MotorRuleEvaluation
+      // 2. Save or update previous policy inside transaction boundary (F-022)
+      const prevPolicy = await tx.motorPreviousPolicy.upsert({
+        where: { quotationId: dto.quotationId },
+        create: {
+          quotationId: dto.quotationId,
+          policyExpiryDate: expiryDate,
+          expiredMoreThan90Days,
+          ownershipTransfer: dto.ownershipTransfer,
+          previousPolicyType: dto.previousPolicyType as any,
+          previousInsurerName: dto.previousInsurerName,
+          previousPolicyNumber: dto.previousPolicyNumber,
+          previousOdInsurerName: dto.previousOdInsurerName,
+          previousOdPolicyNumber: dto.previousOdPolicyNumber,
+          odExpiryDate: dto.odExpiryDate ? new Date(dto.odExpiryDate) : null,
+          tpExpiryDate: dto.tpExpiryDate ? new Date(dto.tpExpiryDate) : null,
+          claimInPreviousYear: dto.claimInPreviousYear,
+          policyTransferStatus: dto.previousPolicyTransferred,
+          rcTransferStatus: rcTransferStatusBool,
+          newOwnerName: dto.newOwnerName,
+          previousPolicyCopyUrl: dto.previousPolicyCopyUrl,
+        },
+        update: {
+          policyExpiryDate: expiryDate,
+          expiredMoreThan90Days,
+          ownershipTransfer: dto.ownershipTransfer,
+          previousPolicyType: dto.previousPolicyType as any,
+          previousInsurerName: dto.previousInsurerName,
+          previousPolicyNumber: dto.previousPolicyNumber,
+          previousOdInsurerName: dto.previousOdInsurerName,
+          previousOdPolicyNumber: dto.previousOdPolicyNumber,
+          odExpiryDate: dto.odExpiryDate ? new Date(dto.odExpiryDate) : null,
+          tpExpiryDate: dto.tpExpiryDate ? new Date(dto.tpExpiryDate) : null,
+          claimInPreviousYear: dto.claimInPreviousYear,
+          policyTransferStatus: dto.previousPolicyTransferred,
+          rcTransferStatus: rcTransferStatusBool,
+          newOwnerName: dto.newOwnerName,
+          previousPolicyCopyUrl: dto.previousPolicyCopyUrl,
+        },
+      });
+
+      // 3. Upsert MotorRuleEvaluation
       await tx.motorRuleEvaluation.upsert({
         where: { quotationId: dto.quotationId },
         create: {

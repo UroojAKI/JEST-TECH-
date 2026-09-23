@@ -299,6 +299,26 @@ export class VehicleDataService {
     return vehicle;
   }
 
+  private async generateVehicleCode(): Promise<string> {
+    const year = new Date().getFullYear();
+    try {
+      const result = await this.prisma.$queryRaw<[{ nextval: bigint }]>`
+        SELECT nextval('vehicle_code_seq')`;
+      return `VEH-${year}-${result[0].nextval.toString().padStart(6, '0')}`;
+    } catch {
+      try {
+        await this.prisma
+          .$executeRaw`CREATE SEQUENCE IF NOT EXISTS vehicle_code_seq START 1;`;
+        const retry = await this.prisma.$queryRaw<[{ nextval: bigint }]>`
+          SELECT nextval('vehicle_code_seq')`;
+        return `VEH-${year}-${retry[0].nextval.toString().padStart(6, '0')}`;
+      } catch {
+        const count = await this.prisma.vehicle.count().catch(() => 0);
+        return `VEH-${year}-${String(count + 1).padStart(6, '0')}`;
+      }
+    }
+  }
+
   /**
    * Creates or updates a canonical Vehicle under a Contact.
    * F-017 FIX: actorCompanyId is verified against the contact's company before mutation.
@@ -375,9 +395,8 @@ export class VehicleDataService {
       });
     }
 
-    // Generate unique vehicleCode
-    const vehicleCount = await this.prisma.vehicle.count();
-    const vehicleCode = `VEH-${new Date().getFullYear()}-${String(vehicleCount + 1).padStart(6, '0')}`;
+    // Generate unique vehicleCode via atomic sequence (F-021)
+    const vehicleCode = await this.generateVehicleCode();
 
     return this.prisma.vehicle.create({
       data: {

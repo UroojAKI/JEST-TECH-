@@ -1,5 +1,26 @@
 import { z } from 'zod';
 
+const INSECURE_PATTERNS = [
+  'postgres:postgres',
+  'root:root',
+  'admin:admin',
+  'super-secret',
+  'super_secret',
+  'supersecret',
+  'changeme',
+  'placeholder',
+  'your-secret',
+  'your_secret',
+  'example',
+  'test-secret',
+];
+
+function isDisallowedSecret(value: string | undefined): boolean {
+  if (!value) return true;
+  const lower = value.toLowerCase();
+  return INSECURE_PATTERNS.some((pattern) => lower.includes(pattern));
+}
+
 export const envSchema = z
   .object({
     NODE_ENV: z
@@ -36,31 +57,41 @@ export const envSchema = z
   .refine(
     (data) => {
       if (data.NODE_ENV === 'production') {
+        const dbLower = (data.DATABASE_URL || '').toLowerCase();
         const hasInsecureDb =
           !data.DATABASE_URL ||
-          data.DATABASE_URL.includes('postgres:postgres@localhost');
+          dbLower.includes('postgres:postgres') ||
+          dbLower.includes('root:root') ||
+          dbLower.includes('admin:admin') ||
+          dbLower.includes('localhost') ||
+          dbLower.includes('127.0.0.1');
         if (hasInsecureDb) return false;
 
         const hasInsecureJwt =
           !data.JWT_SECRET ||
-          data.JWT_SECRET.includes('super-secret') ||
-          data.JWT_SECRET.length < 32;
+          data.JWT_SECRET.length < 32 ||
+          isDisallowedSecret(data.JWT_SECRET);
         if (hasInsecureJwt) return false;
 
         const hasInsecureRefresh =
           !data.JWT_REFRESH_SECRET ||
-          data.JWT_REFRESH_SECRET.includes('super-secret') ||
-          data.JWT_REFRESH_SECRET.length < 32;
+          data.JWT_REFRESH_SECRET.length < 32 ||
+          isDisallowedSecret(data.JWT_REFRESH_SECRET) ||
+          data.JWT_REFRESH_SECRET === data.JWT_SECRET;
         if (hasInsecureRefresh) return false;
 
-        // SEC-001: PII key is mandatory in production
-        if (!data.PII_ENCRYPTION_KEY || data.PII_ENCRYPTION_KEY.length < 32)
+        // SEC-001: PII key is mandatory in production and must not be a placeholder
+        if (
+          !data.PII_ENCRYPTION_KEY ||
+          data.PII_ENCRYPTION_KEY.length < 32 ||
+          isDisallowedSecret(data.PII_ENCRYPTION_KEY)
+        )
           return false;
 
         // SEC-002: Razorpay webhook secret is mandatory in production
         if (
           !data.RAZORPAY_WEBHOOK_SECRET ||
-          data.RAZORPAY_WEBHOOK_SECRET.includes('placeholder')
+          isDisallowedSecret(data.RAZORPAY_WEBHOOK_SECRET)
         )
           return false;
       }

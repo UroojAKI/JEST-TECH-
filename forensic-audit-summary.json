@@ -1,0 +1,685 @@
+{
+  "roles": {
+    "Admin": {
+      "landing": "http://localhost:3000/workspace/admin",
+      "landingLogoutVisible": true
+    },
+    "BackOffice": {
+      "landing": "http://localhost:3000/workspace/operations",
+      "landingLogoutVisible": true
+    },
+    "Agent": {
+      "landing": "http://localhost:3000/workspace/sales",
+      "landingLogoutVisible": true
+    }
+  },
+  "screens": [
+    {
+      "route": "/workspace/admin",
+      "currentUrl": "/workspace/admin",
+      "heading": "System Administration",
+      "shellType": "WorkspaceHeader",
+      "hasSidebar": true,
+      "hasDirectLogout": true,
+      "canLogoutViaProfileDrawer": false,
+      "isBlank": false,
+      "hasAppCrash": false
+    },
+    {
+      "route": "/workspace/operations",
+      "currentUrl": "/workspace/operations",
+      "heading": "Back Office Operations Hub",
+      "shellType": "WorkspaceHeader",
+      "hasSidebar": true,
+      "hasDirectLogout": true,
+      "canLogoutViaProfileDrawer": false,
+      "isBlank": false,
+      "hasAppCrash": false
+    },
+    {
+      "route": "/workspace/sales",
+      "currentUrl": "/workspace/sales",
+      "heading": "Sales & Distribution Workspace",
+      "shellType": "WorkspaceHeader",
+      "hasSidebar": true,
+      "hasDirectLogout": true,
+      "canLogoutViaProfileDrawer": false,
+      "isBlank": false,
+      "hasAppCrash": false
+    },
+    {
+      "route": "/workspace/executive",
+      "currentUrl": "/workspace/executive",
+      "heading": "Managing Director Overview",
+      "shellType": "WorkspaceHeader",
+      "hasSidebar": true,
+      "hasDirectLogout": true,
+      "canLogoutViaProfileDrawer": false,
+      "isBlank": false,
+      "hasAppCrash": false
+    },
+    {
+      "route": "/workspace/finance",
+      "currentUrl": "/workspace/finance",
+      "heading": "Finance & Accounts",
+      "shellType": "WorkspaceHeader",
+      "hasSidebar": true,
+      "hasDirectLogout": true,
+      "canLogoutViaProfileDrawer": false,
+      "isBlank": false,
+      "hasAppCrash": false
+    },
+    {
+      "route": "/workspace/renewal",
+      "currentUrl": "/workspace/renewal",
+      "heading": "Renewals & Retention Hub",
+      "shellType": "WorkspaceHeader",
+      "hasSidebar": true,
+      "hasDirectLogout": true,
+      "canLogoutViaProfileDrawer": false,
+      "isBlank": false,
+      "hasAppCrash": false
+    },
+    {
+      "route": "/workspace/customer",
+      "currentUrl": "/workspace/customer",
+      "heading": "Customer Service & Support",
+      "shellType": "WorkspaceHeader",
+      "hasSidebar": true,
+      "hasDirectLogout": true,
+      "canLogoutViaProfileDrawer": false,
+      "isBlank": false,
+      "hasAppCrash": false
+    },
+    {
+      "route": "/workspace/marketing",
+      "currentUrl": "/workspace/marketing",
+      "heading": "Marketing & Campaigns",
+      "shellType": "WorkspaceHeader",
+      "hasSidebar": true,
+      "hasDirectLogout": true,
+      "canLogoutViaProfileDrawer": false,
+      "isBlank": false,
+      "hasAppCrash": false
+    },
+    {
+      "route": "/workspace/agent-relationship",
+      "currentUrl": "/workspace/agent-relationship",
+      "heading": "Agent Relationship Manager",
+      "shellType": "WorkspaceHeader",
+      "hasSidebar": true,
+      "hasDirectLogout": true,
+      "canLogoutViaProfileDrawer": false,
+      "isBlank": false,
+      "hasAppCrash": false
+    },
+    {
+      "route": "/workspace/sales-manager",
+      "currentUrl": "/workspace/sales-manager",
+      "heading": "Sales Manager Dashboard",
+      "shellType": "WorkspaceHeader",
+      "hasSidebar": true,
+      "hasDirectLogout": true,
+      "canLogoutViaProfileDrawer": false,
+      "isBlank": false,
+      "hasAppCrash": false
+    },
+    {
+      "route": "/workspace",
+      "currentUrl": "/workspace",
+      "heading": "Enterprise Workspaces",
+      "shellType": "NO_HEADER",
+      "hasSidebar": false,
+      "hasDirectLogout": false,
+      "canLogoutViaProfileDrawer": false,
+      "isBlank": false,
+      "hasAppCrash": false
+    },
+    {
+      "route": "/crm/leads",
+      "currentUrl": "/crm/leads",
+      "heading": "Lead Management & Sales Funnel",
+      "shellType": "AppHeader",
+      "hasSidebar": true,
+      "hasDirectLogout": false,
+      "canLogoutViaProfileDrawer": true,
+      "isBlank": false,
+      "hasAppCrash": false
+    },
+    {
+      "route": "/crm/contacts",
+      "currentUrl": "/crm/contacts",
+      "heading": "Customer Directory & Register",
+      "shellType": "AppHeader",
+      "hasSidebar": true,
+      "hasDirectLogout": false,
+      "canLogoutViaProfileDrawer": true,
+      "isBlank": false,
+      "hasAppCrash": false
+    },
+    {
+      "route": "/crm/customers",
+      "currentUrl": "/crm/customers",
+      "heading": "Customer Directory",
+      "shellType": "AppHeader",
+      "hasSidebar": true,
+      "hasDirectLogout": false,
+      "canLogoutViaProfileDrawer": true,
+      "isBlank": false,
+      "hasAppCrash": false
+    },
+    {
+      "route": "/crm/accounts",
+      "currentUrl": "/crm/accounts",
+      "heading": "Corporate Accounts Register",
+      "shellType": "AppHeader",
+      "hasSidebar": true,
+      "hasDirectLogout": false,
+      "canLogoutViaProfileDrawer": true,
+      "isBlank": false,
+      "hasAppCrash": false
+    },
+    {
+      "route": "/sales/quotations",
+      "currentUrl": "/sales/quotations",
+      "heading": "Motor Quotations",
+      "shellType": "AppHeader",
+      "hasSidebar": true,
+      "hasDirectLogout": false,
+      "canLogoutViaProfileDrawer": true,
+      "isBlank": false,
+      "hasAppCrash": false
+    },
+    {
+      "route": "/sales/proposals",
+      "currentUrl": "/sales/proposals",
+      "heading": "Proposal & Underwriting Queue",
+      "shellType": "AppHeader",
+      "hasSidebar": true,
+      "hasDirectLogout": false,
+      "canLogoutViaProfileDrawer": true,
+      "isBlank": false,
+      "hasAppCrash": false
+    },
+    {
+      "route": "/sales/follow-ups",
+      "currentUrl": "/sales/follow-ups",
+      "heading": "Follow-ups & Client Callbacks",
+      "shellType": "AppHeader",
+      "hasSidebar": true,
+      "hasDirectLogout": false,
+      "canLogoutViaProfileDrawer": true,
+      "isBlank": false,
+      "hasAppCrash": false
+    },
+    {
+      "route": "/policies",
+      "currentUrl": "/policies",
+      "heading": "Active Policy Register",
+      "shellType": "AppHeader",
+      "hasSidebar": true,
+      "hasDirectLogout": false,
+      "canLogoutViaProfileDrawer": true,
+      "isBlank": false,
+      "hasAppCrash": false
+    },
+    {
+      "route": "/renewals",
+      "currentUrl": "/renewals",
+      "heading": "Renewals & Retention Command Center (R10)",
+      "shellType": "AppHeader",
+      "hasSidebar": true,
+      "hasDirectLogout": false,
+      "canLogoutViaProfileDrawer": true,
+      "isBlank": false,
+      "hasAppCrash": false
+    },
+    {
+      "route": "/claims",
+      "currentUrl": "/claims",
+      "heading": "Claims Management",
+      "shellType": "AppHeader",
+      "hasSidebar": true,
+      "hasDirectLogout": false,
+      "canLogoutViaProfileDrawer": true,
+      "isBlank": false,
+      "hasAppCrash": false
+    },
+    {
+      "route": "/documents",
+      "currentUrl": "/documents",
+      "heading": "Document Vault & Evidence Repository",
+      "shellType": "NO_HEADER",
+      "hasSidebar": false,
+      "hasDirectLogout": false,
+      "canLogoutViaProfileDrawer": false,
+      "isBlank": false,
+      "hasAppCrash": false
+    },
+    {
+      "route": "/finance/commissions",
+      "currentUrl": "/finance/commissions",
+      "heading": "Agent Commission & Manager Override Engine",
+      "shellType": "AppHeader",
+      "hasSidebar": true,
+      "hasDirectLogout": false,
+      "canLogoutViaProfileDrawer": true,
+      "isBlank": false,
+      "hasAppCrash": false
+    },
+    {
+      "route": "/finance/ledger",
+      "currentUrl": "/finance/ledger",
+      "heading": "Double-Entry General Ledger Workspace (R12)",
+      "shellType": "AppHeader",
+      "hasSidebar": true,
+      "hasDirectLogout": false,
+      "canLogoutViaProfileDrawer": true,
+      "isBlank": false,
+      "hasAppCrash": false
+    },
+    {
+      "route": "/finance/payments",
+      "currentUrl": "/finance/payments",
+      "heading": "Payment & Disbursal Register",
+      "shellType": "AppHeader",
+      "hasSidebar": true,
+      "hasDirectLogout": false,
+      "canLogoutViaProfileDrawer": true,
+      "isBlank": false,
+      "hasAppCrash": false
+    },
+    {
+      "route": "/finance/receipts",
+      "currentUrl": "/finance/receipts",
+      "heading": "Premium Receipts Register",
+      "shellType": "AppHeader",
+      "hasSidebar": true,
+      "hasDirectLogout": false,
+      "canLogoutViaProfileDrawer": true,
+      "isBlank": false,
+      "hasAppCrash": false
+    },
+    {
+      "route": "/finance/settlements",
+      "currentUrl": "/finance/settlements",
+      "heading": "Insurer Net Payable Settlement Cockpit",
+      "shellType": "AppHeader",
+      "hasSidebar": true,
+      "hasDirectLogout": false,
+      "canLogoutViaProfileDrawer": true,
+      "isBlank": false,
+      "hasAppCrash": false
+    },
+    {
+      "route": "/reports",
+      "currentUrl": "/reports",
+      "heading": "Operational & Performance Reports",
+      "shellType": "AppHeader",
+      "hasSidebar": true,
+      "hasDirectLogout": false,
+      "canLogoutViaProfileDrawer": true,
+      "isBlank": false,
+      "hasAppCrash": false
+    },
+    {
+      "route": "/reports/builder",
+      "currentUrl": "/reports/builder",
+      "heading": "Dynamic Report & Pivot Builder",
+      "shellType": "AppHeader",
+      "hasSidebar": true,
+      "hasDirectLogout": false,
+      "canLogoutViaProfileDrawer": true,
+      "isBlank": false,
+      "hasAppCrash": false
+    },
+    {
+      "route": "/admin/users",
+      "currentUrl": "/admin/users",
+      "heading": "User Account Management & RBAC Provisioning",
+      "shellType": "AppHeader",
+      "hasSidebar": true,
+      "hasDirectLogout": false,
+      "canLogoutViaProfileDrawer": true,
+      "isBlank": false,
+      "hasAppCrash": false
+    },
+    {
+      "route": "/admin/roles",
+      "currentUrl": "/admin/roles",
+      "heading": "Interactive Role & Permission Matrix",
+      "shellType": "AppHeader",
+      "hasSidebar": true,
+      "hasDirectLogout": false,
+      "canLogoutViaProfileDrawer": true,
+      "isBlank": false,
+      "hasAppCrash": false
+    },
+    {
+      "route": "/admin/branches",
+      "currentUrl": "/admin/branches",
+      "heading": "Branch & Organizational Hierarchy Workspace",
+      "shellType": "AppHeader",
+      "hasSidebar": true,
+      "hasDirectLogout": false,
+      "canLogoutViaProfileDrawer": true,
+      "isBlank": false,
+      "hasAppCrash": false
+    },
+    {
+      "route": "/admin/config",
+      "currentUrl": "/admin/config",
+      "heading": "System Parameters & Feature Flags Matrix",
+      "shellType": "AppHeader",
+      "hasSidebar": true,
+      "hasDirectLogout": false,
+      "canLogoutViaProfileDrawer": true,
+      "isBlank": false,
+      "hasAppCrash": false
+    },
+    {
+      "route": "/admin/delivery-monitor",
+      "currentUrl": "/admin/delivery-monitor",
+      "heading": "Channel Delivery Monitor & Domain Event Stream",
+      "shellType": "AppHeader",
+      "hasSidebar": true,
+      "hasDirectLogout": false,
+      "canLogoutViaProfileDrawer": true,
+      "isBlank": false,
+      "hasAppCrash": false
+    },
+    {
+      "route": "/admin/health",
+      "currentUrl": "/admin/health",
+      "heading": "Infrastructure Health & Queue Dashboard",
+      "shellType": "AppHeader",
+      "hasSidebar": true,
+      "hasDirectLogout": false,
+      "canLogoutViaProfileDrawer": true,
+      "isBlank": false,
+      "hasAppCrash": false
+    },
+    {
+      "route": "/admin/insurers",
+      "currentUrl": "/admin/insurers",
+      "heading": "Insurer Master Management",
+      "shellType": "AppHeader",
+      "hasSidebar": true,
+      "hasDirectLogout": false,
+      "canLogoutViaProfileDrawer": true,
+      "isBlank": false,
+      "hasAppCrash": false
+    },
+    {
+      "route": "/admin/lookups",
+      "currentUrl": "/admin/lookups",
+      "heading": "None",
+      "shellType": "AppHeader",
+      "hasSidebar": true,
+      "hasDirectLogout": false,
+      "canLogoutViaProfileDrawer": true,
+      "isBlank": false,
+      "hasAppCrash": false
+    },
+    {
+      "route": "/admin/notification-templates",
+      "currentUrl": "/admin/notification-templates",
+      "heading": "Notification Template Manager & Live Preview Engine",
+      "shellType": "AppHeader",
+      "hasSidebar": true,
+      "hasDirectLogout": false,
+      "canLogoutViaProfileDrawer": true,
+      "isBlank": false,
+      "hasAppCrash": false
+    },
+    {
+      "route": "/admin/numbering",
+      "currentUrl": "/admin/numbering",
+      "heading": "Sequential Numbering & Document Format Engine",
+      "shellType": "AppHeader",
+      "hasSidebar": true,
+      "hasDirectLogout": false,
+      "canLogoutViaProfileDrawer": true,
+      "isBlank": false,
+      "hasAppCrash": false
+    },
+    {
+      "route": "/admin/production-readiness",
+      "currentUrl": "/admin/production-readiness",
+      "heading": "Enterprise Production Readiness & Deployment Cockpit",
+      "shellType": "AppHeader",
+      "hasSidebar": true,
+      "hasDirectLogout": false,
+      "canLogoutViaProfileDrawer": true,
+      "isBlank": false,
+      "hasAppCrash": false
+    },
+    {
+      "route": "/admin/products",
+      "currentUrl": "/admin/products",
+      "heading": "Insurance Product Master",
+      "shellType": "AppHeader",
+      "hasSidebar": true,
+      "hasDirectLogout": false,
+      "canLogoutViaProfileDrawer": true,
+      "isBlank": false,
+      "hasAppCrash": false
+    },
+    {
+      "route": "/admin/sla",
+      "currentUrl": "/admin/sla",
+      "heading": "Operational SLA & Turnaround Time Cockpit",
+      "shellType": "AppHeader",
+      "hasSidebar": true,
+      "hasDirectLogout": false,
+      "canLogoutViaProfileDrawer": true,
+      "isBlank": false,
+      "hasAppCrash": false
+    },
+    {
+      "route": "/admin/vehicle-master",
+      "currentUrl": "/admin/vehicle-master",
+      "heading": "Vehicle & RTO Master Center",
+      "shellType": "AppHeader",
+      "hasSidebar": true,
+      "hasDirectLogout": false,
+      "canLogoutViaProfileDrawer": true,
+      "isBlank": false,
+      "hasAppCrash": false
+    },
+    {
+      "route": "/admin/workflows",
+      "currentUrl": "/admin/workflows",
+      "heading": "Enterprise Visual Workflow Engine & Live Monitor",
+      "shellType": "AppHeader",
+      "hasSidebar": true,
+      "hasDirectLogout": false,
+      "canLogoutViaProfileDrawer": true,
+      "isBlank": false,
+      "hasAppCrash": false
+    },
+    {
+      "route": "/admin/audit",
+      "currentUrl": "/admin/audit",
+      "heading": "Enterprise Audit Center & State Diff Explorer (R13)",
+      "shellType": "AppHeader",
+      "hasSidebar": true,
+      "hasDirectLogout": false,
+      "canLogoutViaProfileDrawer": true,
+      "isBlank": false,
+      "hasAppCrash": false
+    },
+    {
+      "route": "/portal",
+      "currentUrl": "/portal",
+      "heading": "System Administrator",
+      "shellType": "AppHeader",
+      "hasSidebar": true,
+      "hasDirectLogout": false,
+      "canLogoutViaProfileDrawer": true,
+      "isBlank": false,
+      "hasAppCrash": false
+    },
+    {
+      "route": "/portal/policies",
+      "currentUrl": "/portal/policies",
+      "heading": "My Policy Register",
+      "shellType": "AppHeader",
+      "hasSidebar": true,
+      "hasDirectLogout": false,
+      "canLogoutViaProfileDrawer": true,
+      "isBlank": false,
+      "hasAppCrash": false
+    },
+    {
+      "route": "/portal/claims",
+      "currentUrl": "/portal/claims",
+      "heading": "Customer Claims Follow-up Workspace",
+      "shellType": "AppHeader",
+      "hasSidebar": true,
+      "hasDirectLogout": false,
+      "canLogoutViaProfileDrawer": true,
+      "isBlank": false,
+      "hasAppCrash": false
+    },
+    {
+      "route": "/portal/commissions",
+      "currentUrl": "/portal/commissions",
+      "heading": "Agent Commission Ledger & Overrides",
+      "shellType": "AppHeader",
+      "hasSidebar": true,
+      "hasDirectLogout": false,
+      "canLogoutViaProfileDrawer": true,
+      "isBlank": false,
+      "hasAppCrash": false
+    },
+    {
+      "route": "/portal/quotations",
+      "currentUrl": "/portal/quotations",
+      "heading": "Instant Multi-Insurer Quote Generator & Comparison Matrix",
+      "shellType": "AppHeader",
+      "hasSidebar": true,
+      "hasDirectLogout": false,
+      "canLogoutViaProfileDrawer": true,
+      "isBlank": false,
+      "hasAppCrash": false
+    },
+    {
+      "route": "/portal/proposals",
+      "currentUrl": "/portal/proposals",
+      "heading": "Proposal Submission & Document Upload Checklist",
+      "shellType": "AppHeader",
+      "hasSidebar": true,
+      "hasDirectLogout": false,
+      "canLogoutViaProfileDrawer": true,
+      "isBlank": false,
+      "hasAppCrash": false
+    },
+    {
+      "route": "/portal/renewals",
+      "currentUrl": "/portal/renewals",
+      "heading": "Renewal & Retention Management Workspace",
+      "shellType": "AppHeader",
+      "hasSidebar": true,
+      "hasDirectLogout": false,
+      "canLogoutViaProfileDrawer": true,
+      "isBlank": false,
+      "hasAppCrash": false
+    },
+    {
+      "route": "/portal/performance",
+      "currentUrl": "/portal/performance",
+      "heading": "Agent Performance & Leaderboard Cockpit",
+      "shellType": "AppHeader",
+      "hasSidebar": true,
+      "hasDirectLogout": false,
+      "canLogoutViaProfileDrawer": true,
+      "isBlank": false,
+      "hasAppCrash": false
+    },
+    {
+      "route": "/portal/downloads",
+      "currentUrl": "/portal/downloads",
+      "heading": "Self-Service Downloads & Document Vault",
+      "shellType": "AppHeader",
+      "hasSidebar": true,
+      "hasDirectLogout": false,
+      "canLogoutViaProfileDrawer": true,
+      "isBlank": false,
+      "hasAppCrash": false
+    },
+    {
+      "route": "/portal/support",
+      "currentUrl": "/portal/support",
+      "heading": "Support Desk & POSP Training Center",
+      "shellType": "AppHeader",
+      "hasSidebar": true,
+      "hasDirectLogout": false,
+      "canLogoutViaProfileDrawer": true,
+      "isBlank": false,
+      "hasAppCrash": false
+    },
+    {
+      "route": "/portal/branch-manager",
+      "currentUrl": "/portal/branch-manager",
+      "heading": "Branch Manager Sales & Team Operations Cockpit",
+      "shellType": "AppHeader",
+      "hasSidebar": true,
+      "hasDirectLogout": false,
+      "canLogoutViaProfileDrawer": true,
+      "isBlank": false,
+      "hasAppCrash": false
+    },
+    {
+      "route": "/settings",
+      "currentUrl": "/settings",
+      "heading": "Application Settings & Security",
+      "shellType": "AppHeader",
+      "hasSidebar": true,
+      "hasDirectLogout": false,
+      "canLogoutViaProfileDrawer": true,
+      "isBlank": false,
+      "hasAppCrash": false
+    },
+    {
+      "route": "/unauthorized",
+      "currentUrl": "/unauthorized",
+      "heading": "Access Restricted",
+      "shellType": "NO_HEADER",
+      "hasSidebar": false,
+      "hasDirectLogout": false,
+      "canLogoutViaProfileDrawer": false,
+      "isBlank": false,
+      "hasAppCrash": false
+    }
+  ],
+  "sessionUx": {
+    "backButtonAfterLogout": {
+      "afterLogoutUrl": "http://localhost:3000/workspace",
+      "backUrl": "http://localhost:3000/workspace/admin",
+      "dataVisible": true,
+      "vulnerable": true
+    }
+  },
+  "workflows": {
+    "userCreation": {
+      "hasButton": true,
+      "modalOpens": true
+    },
+    "quotations": {
+      "heading": "Motor Quotations",
+      "hasCreateButton": true
+    },
+    "claims": {
+      "heading": "Claims Management",
+      "hasReportClaimBtn": false
+    },
+    "documents": {
+      "hasUploadButton": true,
+      "isFakeToast": true
+    }
+  },
+  "consistency": {},
+  "mobile": {},
+  "accessibility": {}
+}

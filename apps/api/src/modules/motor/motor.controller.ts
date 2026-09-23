@@ -165,7 +165,14 @@ export class MotorController {
   @ApiOperation({
     summary: 'Check document completion status and missing items for a lead',
   })
-  checkLeadDocumentCompletion(@Param('leadId') leadId: string) {
-    return this.motorDocumentRuleService.checkLeadDocumentCompletion(leadId);
+  checkLeadDocumentCompletion(
+    @Param('leadId') leadId: string,
+    @CurrentUser() user: RequestUser,
+  ) {
+    const actorCompanyId = user.companyId || (user as any).organizationId;
+    return this.motorDocumentRuleService.checkLeadDocumentCompletion(
+      leadId,
+      actorCompanyId,
+    );
   }
 }
