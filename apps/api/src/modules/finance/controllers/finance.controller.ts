@@ -30,6 +30,7 @@ import {
 import { PrismaService } from '../../../database/prisma.service';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import type { RequestUser } from '../../auth/decorators/current-user.decorator';
+import { sanitizeCsvCell } from '../../../common/utils/csv-sanitizer';
 
 @ApiTags('Finance')
 @ApiBearerAuth()
@@ -254,15 +255,6 @@ export class FinanceController {
             orderBy: { createdAt: 'desc' },
           })
         : [];
-
-    const sanitizeCsvCell = (value: string): string => {
-      if (!value) return '';
-      const dangerous = ['=', '+', '-', '@', '\t', '\r'];
-      if (dangerous.some((char) => value.startsWith(char))) {
-        return `'${value}`;
-      }
-      return value;
-    };
 
     const csvHeaders =
       'Receipt Number,Customer ID,Amount,Payment Mode,Reference,Date\n';
