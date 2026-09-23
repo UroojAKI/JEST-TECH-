@@ -32,6 +32,20 @@ export class UsersService {
     return company?.id || null;
   }
 
+  async generateEmployeeCode(): Promise<string> {
+    try {
+      const result = await this.prisma.$queryRaw<[{ nextval: bigint }]>`
+        SELECT nextval('employee_code_seq')`;
+      return `EMP-${result[0].nextval.toString().padStart(6, '0')}`;
+    } catch {
+      await this.prisma
+        .$executeRaw`CREATE SEQUENCE IF NOT EXISTS employee_code_seq START 1;`;
+      const retry = await this.prisma.$queryRaw<[{ nextval: bigint }]>`
+        SELECT nextval('employee_code_seq')`;
+      return `EMP-${retry[0].nextval.toString().padStart(6, '0')}`;
+    }
+  }
+
   async create(dto: CreateUserDto, actor?: any) {
     const actorCompanyId =
       actor?.companyId ||
@@ -88,7 +102,7 @@ export class UsersService {
       dto.password || `${crypto.randomBytes(16).toString('hex')}A1`;
     const passwordHash = await argon2.hash(initialPassword);
     const empCode =
-      dto.employeeCode || `EMP-${Date.now().toString().slice(-6)}`;
+      dto.employeeCode || (await this.generateEmployeeCode());
 
     const targetBranchId = dto.branchId || dto.branch;
     let branchConnect: any = undefined;

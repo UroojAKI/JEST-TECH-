@@ -95,7 +95,16 @@ export class PortalController {
     @CurrentUser() user: RequestUser,
   ) {
     const companyId = this.getActorCompanyId(user);
-    const leadCode = `LD-${Date.now().toString().slice(-6)}`;
+    let leadSeq: bigint;
+    try {
+      const res = await this.prisma.$queryRaw<[{ nextval: bigint }]>`SELECT nextval('lead_number_seq')`;
+      leadSeq = res[0].nextval;
+    } catch {
+      await this.prisma.$executeRaw`CREATE SEQUENCE IF NOT EXISTS lead_number_seq START 1;`;
+      const res = await this.prisma.$queryRaw<[{ nextval: bigint }]>`SELECT nextval('lead_number_seq')`;
+      leadSeq = res[0].nextval;
+    }
+    const leadCode = `LEAD-${leadSeq.toString().padStart(6, '0')}`;
     const firstContact = await this.prisma.contact.findFirst({
       where: { companyId, deletedAt: null },
     });
