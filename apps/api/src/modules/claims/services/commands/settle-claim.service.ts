@@ -31,7 +31,7 @@ export class SettleClaimService {
       where: { id: claimId },
     });
 
-    if (!claim) {
+    if (!claim || (claim as any).deletedAt) {
       throw new NotFoundException(`Claim with ID ${claimId} not found`);
     }
 
@@ -132,7 +132,7 @@ export class SettleClaimService {
       where: { id: claimId },
     });
 
-    if (!claim) {
+    if (!claim || (claim as any).deletedAt) {
       throw new NotFoundException(`Claim with ID ${claimId} not found`);
     }
 

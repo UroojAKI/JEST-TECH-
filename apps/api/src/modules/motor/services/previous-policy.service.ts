@@ -50,6 +50,7 @@ export class PreviousPolicyService {
    */
   async fetchPreviousPolicy(
     identifier: string,
+    actorCompanyId?: string,
   ): Promise<PreviousPolicyResponse> {
     if (!identifier || !identifier.trim()) {
       return {
@@ -149,7 +150,8 @@ export class PreviousPolicyService {
               rtoLocation: policy.vehicle.rtoLocation,
             }
           : null,
-        customer: policy.customer
+        // F-015: Only return customer PII if the policy belongs to the actor's company
+        customer: (policy.customer && (!actorCompanyId || policy.companyId === actorCompanyId))
           ? {
               id: policy.customer.id,
               customerCode: policy.customer.customerCode,
@@ -200,7 +202,8 @@ export class PreviousPolicyService {
           fuelType: vehicle.fuelType,
           rtoLocation: vehicle.rtoLocation,
         },
-        customer: vehicle.customer
+        // F-015: Only return customer PII if the vehicle's customer belongs to the actor's company
+        customer: (vehicle.customer && (!actorCompanyId || vehicle.customer.companyId === actorCompanyId))
           ? {
               id: vehicle.customer.id,
               customerCode: vehicle.customer.customerCode,

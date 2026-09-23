@@ -86,22 +86,23 @@ export class QuotationRepository extends BaseRepository<
     orderBy: Prisma.QuotationOrderByWithRelationInput,
   ): Promise<[QuotationWithRelations[], number]> {
     const { organizationId, ...safeWhere } = (where || {}) as any;
+    const finalWhere = { ...safeWhere, deletedAt: null };
     const data = await this.prisma.quotation.findMany({
       skip,
       take,
-      where: safeWhere,
+      where: finalWhere,
       orderBy,
       include: quotationWithRelations.include,
     });
-    const total = await this.prisma.quotation.count({ where: safeWhere });
+    const total = await this.prisma.quotation.count({ where: finalWhere });
     return [data, total];
   }
 
   async findByQuotationCode(
     quotationCode: string,
   ): Promise<QuotationWithRelations | null> {
-    return this.prisma.quotation.findUnique({
-      where: { quotationCode },
+    return this.prisma.quotation.findFirst({
+      where: { quotationCode, deletedAt: null },
       include: quotationWithRelations.include,
     });
   }

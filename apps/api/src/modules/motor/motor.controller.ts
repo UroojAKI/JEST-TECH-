@@ -102,13 +102,25 @@ export class MotorController {
   }
 
   @Get('vehicles/lookup/:regNumber')
-  lookupVehicleByPlate(@Query('regNumber') regNumber: string) {
-    return this.vehicleDataService.findByRegistration(regNumber);
+  lookupVehicleByPlate(
+    @Param('regNumber') regNumber: string,
+    @CurrentUser() user?: RequestUser,
+  ) {
+    const companyId = user?.companyId || (user as any)?.organizationId;
+    return companyId
+      ? this.vehicleDataService.findByRegistration(regNumber, companyId)
+      : this.vehicleDataService.findByRegistration(regNumber);
   }
 
   @Get('vehicles/by-contact/:contactId')
-  getVehiclesByContact(@Query('contactId') contactId: string) {
-    return this.vehicleDataService.findByContact(contactId);
+  getVehiclesByContact(
+    @Param('contactId') contactId: string,
+    @CurrentUser() user?: RequestUser,
+  ) {
+    const companyId = user?.companyId || (user as any)?.organizationId;
+    return companyId
+      ? this.vehicleDataService.findByContact(contactId, companyId)
+      : this.vehicleDataService.findByContact(contactId);
   }
 
   @Get('previous-policy/:identifier')
@@ -116,8 +128,14 @@ export class MotorController {
     summary:
       'Fetch previous policy with claims history, NCB %, and provenance tracking',
   })
-  getPreviousPolicy(@Param('identifier') identifier: string) {
-    return this.previousPolicyService.fetchPreviousPolicy(identifier);
+  getPreviousPolicy(
+    @Param('identifier') identifier: string,
+    @CurrentUser() user?: RequestUser,
+  ) {
+    const companyId = user?.companyId || (user as any)?.organizationId;
+    return companyId
+      ? this.previousPolicyService.fetchPreviousPolicy(identifier, companyId)
+      : this.previousPolicyService.fetchPreviousPolicy(identifier);
   }
 
   @Get('documents/required')

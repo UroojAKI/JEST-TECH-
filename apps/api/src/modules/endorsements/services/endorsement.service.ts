@@ -34,7 +34,7 @@ export class EndorsementService {
       where: { id: policyId },
     });
 
-    if (!policy) {
+    if (!policy || (policy as any).deletedAt) {
       throw new NotFoundException(`Policy with ID ${policyId} not found`);
     }
 
@@ -342,7 +342,7 @@ export class EndorsementService {
       where: { id: policyId },
     });
 
-    if (!policy) {
+    if (!policy || (policy as any).deletedAt) {
       throw new NotFoundException('Policy not found');
     }
 

@@ -3,6 +3,7 @@ import {
   Logger,
   NotFoundException,
   BadRequestException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { PrismaService } from '../../../database/prisma.service';
 import {
@@ -49,13 +50,26 @@ export class MotorQuoteWorkflowService {
    * For VehicleStatus.NEW, skips previous-policy capture and inspection entirely.
    * Returns the canonical API response contract.
    */
-  async capturePreviousPolicyAndEvaluate(dto: CapturePreviousPolicyDto) {
+  async capturePreviousPolicyAndEvaluate(
+    dto: CapturePreviousPolicyDto,
+    actorCompanyId?: string,
+  ) {
     const quotation = await this.prisma.quotation.findUnique({
       where: { id: dto.quotationId },
       include: { vehicle: true },
     });
     if (!quotation)
       throw new NotFoundException(`Quotation ${dto.quotationId} not found`);
+
+    if (
+      actorCompanyId &&
+      quotation.companyId &&
+      quotation.companyId !== actorCompanyId
+    ) {
+      throw new ForbiddenException(
+        'Cross-organization quotation evaluation is strictly prohibited',
+      );
+    }
 
     // ─── 0. Early NEW Vehicle Guard ──────────────────────────────────────────
     // For NEW vehicles, no previous policy exists, no rule evaluation is needed,
@@ -348,7 +362,7 @@ export class MotorQuoteWorkflowService {
    * Re-evaluate rules from stored data. Never trust the stored result as source of truth.
    * Always recalculate from the source context.
    */
-  async reEvaluate(quotationId: string) {
+  async reEvaluate(quotationId: string, actorCompanyId?: string) {
     const prevPolicy = await this.prisma.motorPreviousPolicy.findUnique({
       where: { quotationId },
       include: { ruleEvaluation: true },
@@ -363,6 +377,16 @@ export class MotorQuoteWorkflowService {
     });
     if (!quotation)
       throw new NotFoundException(`Quotation ${quotationId} not found`);
+
+    if (
+      actorCompanyId &&
+      quotation.companyId &&
+      quotation.companyId !== actorCompanyId
+    ) {
+      throw new ForbiddenException(
+        'Cross-organization quotation evaluation is strictly prohibited',
+      );
+    }
 
     const evaluationContext = prevPolicy.ruleEvaluation
       ?.evaluationContext as any;

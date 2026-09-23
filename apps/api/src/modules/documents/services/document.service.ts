@@ -73,6 +73,105 @@ export class DocumentService {
     return doc;
   }
 
+  private async validateEntityBelongsToOrg(
+    entityType: string,
+    entityId: string,
+    actorOrg: string,
+  ): Promise<void> {
+    switch (entityType) {
+      case 'LEAD': {
+        const lead = await this.prisma.lead.findUnique({
+          where: { id: entityId },
+          select: { companyId: true },
+        });
+        if (!lead) throw new NotFoundException(`Lead ${entityId} not found`);
+        if (lead.companyId && lead.companyId !== actorOrg) {
+          throw new ForbiddenException('Lead belongs to another organization');
+        }
+        break;
+      }
+      case 'POLICY': {
+        const policy = await this.prisma.policy.findUnique({
+          where: { id: entityId },
+          select: { companyId: true },
+        });
+        if (!policy) throw new NotFoundException(`Policy ${entityId} not found`);
+        if (policy.companyId && policy.companyId !== actorOrg) {
+          throw new ForbiddenException('Policy belongs to another organization');
+        }
+        break;
+      }
+      case 'QUOTATION': {
+        const quote = await this.prisma.quotation.findUnique({
+          where: { id: entityId },
+          select: { companyId: true },
+        });
+        if (!quote) throw new NotFoundException(`Quotation ${entityId} not found`);
+        if (quote.companyId && quote.companyId !== actorOrg) {
+          throw new ForbiddenException('Quotation belongs to another organization');
+        }
+        break;
+      }
+      case 'CLAIM': {
+        const claim = await this.prisma.claim.findUnique({
+          where: { id: entityId },
+          select: { companyId: true },
+        });
+        if (!claim) throw new NotFoundException(`Claim ${entityId} not found`);
+        if (claim.companyId && claim.companyId !== actorOrg) {
+          throw new ForbiddenException('Claim belongs to another organization');
+        }
+        break;
+      }
+      case 'CONTACT': {
+        const contact = await this.prisma.contact.findUnique({
+          where: { id: entityId },
+          select: { companyId: true },
+        });
+        if (!contact) throw new NotFoundException(`Contact ${entityId} not found`);
+        if (contact.companyId && contact.companyId !== actorOrg) {
+          throw new ForbiddenException('Contact belongs to another organization');
+        }
+        break;
+      }
+      case 'CUSTOMER': {
+        const customer = await this.prisma.customer.findUnique({
+          where: { id: entityId },
+          select: { companyId: true },
+        });
+        if (!customer) throw new NotFoundException(`Customer ${entityId} not found`);
+        if (customer.companyId && customer.companyId !== actorOrg) {
+          throw new ForbiddenException('Customer belongs to another organization');
+        }
+        break;
+      }
+      case 'ACCOUNT': {
+        const account = await this.prisma.account.findUnique({
+          where: { id: entityId },
+          select: { createdBy: { select: { companyId: true } } },
+        });
+        if (!account) throw new NotFoundException(`Account ${entityId} not found`);
+        const accOrg = account.createdBy?.companyId;
+        if (accOrg && accOrg !== actorOrg) {
+          throw new ForbiddenException('Account belongs to another organization');
+        }
+        break;
+      }
+      case 'ENDORSEMENT': {
+        const endorsement = await this.prisma.endorsement.findUnique({
+          where: { id: entityId },
+          select: { policy: { select: { companyId: true } } },
+        });
+        if (!endorsement) throw new NotFoundException(`Endorsement ${entityId} not found`);
+        const endOrg = endorsement.policy?.companyId;
+        if (endOrg && endOrg !== actorOrg) {
+          throw new ForbiddenException('Endorsement belongs to another organization');
+        }
+        break;
+      }
+    }
+  }
+
   async uploadDocument(params: {
     file: Express.Multer.File;
     name: string;
@@ -98,14 +197,17 @@ export class DocumentService {
       actor,
     } = params;
     if (!file) throw new BadRequestException('No file provided');
+    const actorOrg = actor?.organizationId || (actor as any)?.companyId;
     if (
       !actor?.userId ||
       actor.userId !== uploadedById ||
-      !actor.organizationId
+      !actorOrg
     )
       throw new ForbiddenException(
         'Authenticated organizational context is required',
       );
+
+    await this.validateEntityBelongsToOrg(entityType, entityId, actorOrg);
     const hash = this.calculateHash(file.buffer);
     const documentNumber = this.generateDocNumber();
     const uniqueId = crypto.randomUUID();
@@ -236,8 +338,12 @@ export class DocumentService {
     pagination?: PaginationDto,
     actor?: ActorContext,
   ) {
-    if (!actor?.userId || !actor.organizationId)
+    const actorOrg = actor?.organizationId || (actor as any)?.companyId;
+    if (!actor?.userId || !actorOrg)
       throw new ForbiddenException('Actor organizational context is required');
+
+    await this.validateEntityBelongsToOrg(entityType, entityId, actorOrg);
+
     const page = pagination?.page || 1;
     const limit = pagination?.limit || 25;
     const sortBy = pagination?.sortBy || 'createdAt';
@@ -245,16 +351,16 @@ export class DocumentService {
     const skip = (page - 1) * limit;
     const isElevatedRole =
       actor.role === RoleType.ADMIN || actor.role === RoleType.BACK_OFFICE;
-    const orgScope = actor.organizationId
-      ? { organizationId: actor.organizationId }
+    const orgScope = actorOrg
+      ? { uploadedBy: { companyId: actorOrg } }
       : {};
     const ownerScope = isElevatedRole ? {} : { uploadedById: actor.userId };
-    const scope = { ...orgScope, ...ownerScope };
     const where = {
       entityType,
       entityId,
       status: { not: DocumentStatus.DELETED },
-      ...scope,
+      ...orgScope,
+      ...ownerScope,
     };
     const [data, total] = await Promise.all([
       this.prisma.document.findMany({
@@ -340,14 +446,15 @@ export class DocumentService {
   }
 
   async findAll(pagination: PaginationDto, actor: ActorContext) {
-    if (!actor?.userId || !actor.organizationId)
+    const actorOrg = actor?.organizationId || (actor as any)?.companyId;
+    if (!actor?.userId || !actorOrg)
       throw new ForbiddenException('Actor organizational context is required');
     const page = pagination.page || 1;
     const limit = pagination.limit || 20;
     const skip = (page - 1) * limit;
     const where: any = {
       deletedAt: null,
-      ...(actor.organizationId ? { organizationId: actor.organizationId } : {}),
+      ...(actorOrg ? { uploadedBy: { companyId: actorOrg } } : {}),
     };
     if (actor.role !== RoleType.ADMIN && actor.role !== RoleType.BACK_OFFICE)
       where.uploadedById = actor.userId;

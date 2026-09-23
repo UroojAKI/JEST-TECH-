@@ -2,6 +2,7 @@ import {
   Injectable,
   BadRequestException,
   NotFoundException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { VehicleCategory, VehicleStatus } from '@prisma/client';
 import { PrismaService } from '../../../database/prisma.service';
@@ -242,8 +243,12 @@ export class VehicleDataService {
 
   /**
    * Looks up a vehicle by registration number.
+   * F-016 FIX: Strips contact PII if vehicle belongs to another organization.
    */
-  async findByRegistration(registrationNumber: string) {
+  async findByRegistration(
+    registrationNumber: string,
+    actorCompanyId?: string,
+  ) {
     const norm = this.normalizeRegistrationNumber(registrationNumber);
     if (!norm.isValid || norm.isNewVehicle) {
       throw new BadRequestException(
@@ -261,6 +266,7 @@ export class VehicleDataService {
         contact: {
           select: {
             id: true,
+            companyId: true,
             contactCode: true,
             firstName: true,
             lastName: true,
@@ -275,6 +281,19 @@ export class VehicleDataService {
       throw new NotFoundException(
         `No vehicle record found for registration number ${norm.normalized}`,
       );
+    }
+
+    // F-016: Prevent cross-tenant contact PII leakage during plate lookup
+    if (
+      vehicle.contact &&
+      actorCompanyId &&
+      vehicle.contact.companyId !== actorCompanyId
+    ) {
+      const { contact, ...vehicleWithoutContact } = vehicle;
+      return {
+        ...vehicleWithoutContact,
+        contact: null,
+      };
     }
 
     return vehicle;
@@ -384,8 +403,18 @@ export class VehicleDataService {
 
   /**
    * Retrieves all vehicles owned by a contact.
+   * Scoped to actor's organization.
    */
-  async findByContact(contactId: string) {
+  async findByContact(contactId: string, actorCompanyId?: string) {
+    if (actorCompanyId) {
+      const contact = await this.prisma.contact.findUnique({
+        where: { id: contactId },
+        select: { id: true, companyId: true },
+      });
+      if (!contact || (contact.companyId && contact.companyId !== actorCompanyId)) {
+        throw new ForbiddenException('Contact belongs to another organization');
+      }
+    }
     return this.prisma.vehicle.findMany({
       where: { contactId, deletedAt: null },
       orderBy: { createdAt: 'desc' },

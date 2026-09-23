@@ -79,8 +79,8 @@ export class ClaimRepository {
   async findByClaimNumber(
     claimNumber: string,
   ): Promise<ClaimWithRelations | null> {
-    return this.prisma.claim.findUnique({
-      where: { claimNumber },
+    return this.prisma.claim.findFirst({
+      where: { claimNumber, deletedAt: null },
       include: {
         policy: true,
         contact: true,

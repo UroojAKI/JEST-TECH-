@@ -93,8 +93,8 @@ export class PolicyRepository extends BaseRepository<
   async findByPolicyNumber(
     policyNumber: string,
   ): Promise<PolicyWithRelations | null> {
-    return this.prisma.policy.findUnique({
-      where: { policyNumber },
+    return this.prisma.policy.findFirst({
+      where: { policyNumber, deletedAt: null },
       include: policyWithRelations.include,
     });
   }
@@ -102,8 +102,8 @@ export class PolicyRepository extends BaseRepository<
   async findByQuotationId(
     quotationId: string,
   ): Promise<PolicyWithRelations | null> {
-    return this.prisma.policy.findUnique({
-      where: { quotationId },
+    return this.prisma.policy.findFirst({
+      where: { quotationId, deletedAt: null },
       include: policyWithRelations.include,
     });
   }

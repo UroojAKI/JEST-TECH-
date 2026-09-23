@@ -33,11 +33,16 @@ export class MotorWorkflowController {
   async capturePreviousPolicy(
     @Param('id') quotationId: string,
     @Body() dto: Omit<CapturePreviousPolicyDto, 'quotationId'>,
+    @CurrentUser() user: RequestUser,
   ) {
-    return this.workflowService.capturePreviousPolicyAndEvaluate({
-      ...dto,
-      quotationId,
-    });
+    const companyId = user.companyId || user.organizationId;
+    return this.workflowService.capturePreviousPolicyAndEvaluate(
+      {
+        ...dto,
+        quotationId,
+      },
+      companyId,
+    );
   }
 
   @Get('quotations/:id/rule-evaluation')
@@ -45,8 +50,12 @@ export class MotorWorkflowController {
   @ApiOperation({
     summary: 'Re-run the Motor Rule Engine from stored source context.',
   })
-  async getRuleEvaluation(@Param('id') quotationId: string) {
-    return this.workflowService.reEvaluate(quotationId);
+  async getRuleEvaluation(
+    @Param('id') quotationId: string,
+    @CurrentUser() user: RequestUser,
+  ) {
+    const companyId = user.companyId || user.organizationId;
+    return this.workflowService.reEvaluate(quotationId, companyId);
   }
 
   @Post('quotations/:id/payment')
