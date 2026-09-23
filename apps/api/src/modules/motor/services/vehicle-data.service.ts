@@ -282,13 +282,22 @@ export class VehicleDataService {
 
   /**
    * Creates or updates a canonical Vehicle under a Contact.
+   * F-017 FIX: actorCompanyId is verified against the contact's company before mutation.
    */
-  async upsertVehicle(dto: UpsertVehicleDto, actorId?: string) {
+  async upsertVehicle(dto: UpsertVehicleDto, actorId?: string, actorCompanyId?: string) {
     const contact = await this.prisma.contact.findUnique({
       where: { id: dto.contactId },
+      select: { id: true, companyId: true },
     });
     if (!contact) {
       throw new NotFoundException(`Contact with ID ${dto.contactId} not found`);
+    }
+
+    // Tenant boundary: actor can only create/update vehicles for contacts in their company
+    if (actorCompanyId && contact.companyId !== actorCompanyId) {
+      throw new BadRequestException(
+        'Cross-tenant vehicle mutation is forbidden. Contact does not belong to your organization.',
+      );
     }
 
     let normalizedPlate: string | null = null;

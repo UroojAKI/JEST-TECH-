@@ -49,9 +49,10 @@ export class SalesWorkspaceController {
     const isManager = user.role === 'ADMIN' || user.role === 'BACK_OFFICE';
     const companyId = user.companyId || (user as any).organizationId;
 
-    const kpis = await this.performanceService.getSalesKpis(user.id, isManager);
+    const kpis = await this.performanceService.getSalesKpis(user.id, isManager, companyId);
     const pipeline = await this.performanceService.getSalesPipeline(
       isManager ? undefined : user.id,
+      companyId,
     );
 
     // F-008 FIX: Always scope to companyId; isManager only removes userId filter
@@ -429,15 +430,18 @@ export class SalesWorkspaceController {
   @ApiOperation({ summary: 'Get Top-Row and Bottom-Row KPI Cards' })
   getKpis(@CurrentUser() user: RequestUser) {
     const isManager = user.role === 'ADMIN' || user.role === 'BACK_OFFICE';
-    return this.performanceService.getSalesKpis(user.id, isManager);
+    const companyId = user.companyId || (user as any).organizationId;
+    return this.performanceService.getSalesKpis(user.id, isManager, companyId);
   }
 
   @Get('pipeline')
   @ApiOperation({ summary: 'Get Lead Pipeline distribution & stage leads' })
   getPipeline(@CurrentUser() user: RequestUser) {
     const isManager = user.role === 'ADMIN' || user.role === 'BACK_OFFICE';
+    const companyId = user.companyId || (user as any).organizationId;
     return this.performanceService.getSalesPipeline(
       isManager ? undefined : user.id,
+      companyId,
     );
   }
 

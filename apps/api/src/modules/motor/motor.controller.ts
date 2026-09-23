@@ -97,7 +97,8 @@ export class MotorController {
     @Body() dto: UpsertVehicleDto,
     @CurrentUser() user: RequestUser,
   ) {
-    return this.vehicleDataService.upsertVehicle(dto, user.id);
+    const companyId = user.companyId || (user as any).organizationId;
+    return this.vehicleDataService.upsertVehicle(dto, user.id, companyId);
   }
 
   @Get('vehicles/lookup/:regNumber')

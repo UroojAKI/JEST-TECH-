@@ -5,8 +5,17 @@ import { PrismaService } from '../../../database/prisma.service';
 export class PerformanceService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async getSalesKpis(userId?: string, isManager = false) {
-    const whereClause: any = { deletedAt: null };
+  /**
+   * F-008 FIX: getSalesKpis now accepts companyId and scopes all queries to that tenant.
+   * isManager only removes the userId/assignedToId filter, never bypasses tenant isolation.
+   */
+  async getSalesKpis(userId?: string, isManager = false, companyId?: string) {
+    const whereClause: any = {};
+    if (companyId) {
+      whereClause.companyId = companyId;
+    }
+    // Add deletedAt filter for soft-delete support
+    whereClause.deletedAt = null;
     if (userId && !isManager) {
       whereClause.assignedToId = userId;
     }
@@ -24,9 +33,11 @@ export class PerformanceService {
     const todayStart = new Date();
     todayStart.setHours(0, 0, 0, 0);
 
+    // Call logs scoped via lead.companyId relation when isManager
     const todayCalls = await this.prisma.callLog.count({
       where: {
         ...(userId && !isManager ? { userId } : {}),
+        ...(companyId ? { lead: { companyId } } : {}),
         createdAt: { gte: todayStart },
       },
     });
@@ -60,23 +71,25 @@ export class PerformanceService {
     const conversionPercentage =
       totalLeads > 0 ? ((policiesSold / totalLeads) * 100).toFixed(1) : '0.0';
 
+    // Policy aggregations scoped to companyId
+    const policyWhere: any = {
+      status: { in: ['ACTIVE', 'ISSUED'] as any },
+      deletedAt: null,
+    };
+    if (companyId) policyWhere.companyId = companyId;
+    if (userId && !isManager) policyWhere.createdById = userId;
+
     const [todayRevenueAgg, totalRevenueAgg] = await Promise.all([
       this.prisma.policy.aggregate({
         _sum: { premiumAmount: true },
         where: {
-          ...(userId && !isManager ? { createdById: userId } : {}),
-          status: { in: ['ACTIVE', 'ISSUED'] as any },
+          ...policyWhere,
           createdAt: { gte: todayStart },
-          deletedAt: null,
         },
       }),
       this.prisma.policy.aggregate({
         _sum: { premiumAmount: true },
-        where: {
-          ...(userId && !isManager ? { createdById: userId } : {}),
-          status: { in: ['ACTIVE', 'ISSUED'] as any },
-          deletedAt: null,
-        },
+        where: policyWhere,
       }),
     ]);
 
@@ -110,8 +123,12 @@ export class PerformanceService {
     };
   }
 
-  async getSalesPipeline(userId?: string) {
+  /**
+   * F-008 FIX: getSalesPipeline now accepts companyId and scopes all queries to that tenant.
+   */
+  async getSalesPipeline(userId?: string, companyId?: string) {
     const where: any = { deletedAt: null };
+    if (companyId) where.companyId = companyId;
     if (userId) where.assignedToId = userId;
 
     const leads = await this.prisma.lead.findMany({
