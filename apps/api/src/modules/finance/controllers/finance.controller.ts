@@ -527,16 +527,19 @@ export class FinanceController {
   @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE)
   @ApiOperation({ summary: 'Get payment reconciliation queue' })
   async getReconciliationQueue(
+    @CurrentUser() actor: RequestUser,
     @Query('status') status?: string,
     @Query('search') search?: string,
     @Query('page') page?: number,
     @Query('limit') limit?: number,
   ) {
+    const companyId = actor.companyId || (actor as any).organizationId;
     return this.reconciliationService.getReconciliationQueue({
       status,
       search,
       page,
       limit,
+      companyId,
     });
   }
 

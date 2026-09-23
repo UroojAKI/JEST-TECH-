@@ -49,23 +49,32 @@ export class FinanceReconciliationService {
 
   /**
    * Retrieves the authoritative Finance Reconciliation Queue sorted by urgency (G020).
+   * F-013 FIX: Scoped to actor's company via quotation.companyId relation.
    */
   async getReconciliationQueue(params: {
     status?: string;
     search?: string;
     page?: number;
     limit?: number;
+    companyId?: string;
   }) {
     const page = Math.max(1, Number(params.page) || 1);
     const limit = Math.min(100, Math.max(1, Number(params.limit) || 20));
     const skip = (page - 1) * limit;
 
-    const payments = await this.prisma.motorPaymentRecord.findMany({
-      where: {
-        status: {
-          in: [PaymentTrackingStatus.PAID, PaymentTrackingStatus.UNDER_PROCESS],
-        },
+    const baseWhere: any = {
+      status: {
+        in: [PaymentTrackingStatus.PAID, PaymentTrackingStatus.UNDER_PROCESS],
       },
+    };
+
+    // Tenant scope: filter via quotation.companyId when companyId is provided
+    if (params.companyId) {
+      baseWhere.quotation = { companyId: params.companyId };
+    }
+
+    const payments = await this.prisma.motorPaymentRecord.findMany({
+      where: baseWhere,
       include: {
         quotation: {
           include: {

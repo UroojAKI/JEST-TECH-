@@ -116,10 +116,53 @@ export class AuthService {
     const user = await this.usersService.findByEmailForAuth(dto.email);
     if (!user) throw genericAuthError;
 
+    // SEC-011 FIX: Account lockout — count failed LOGIN attempts in the last 15 minutes.
+    // Uses existing AuditLog with metadata.event='FAILED_LOGIN' marker (no schema change needed).
+    const LOCKOUT_WINDOW_MS = 15 * 60 * 1000; // 15 minutes
+    const MAX_FAILED_ATTEMPTS = 5;
+    const windowStart = new Date(Date.now() - LOCKOUT_WINDOW_MS);
+
+    const recentFailures = await this.prisma.auditLog.count({
+      where: {
+        userId: user.id,
+        action: AuditAction.LOGIN,
+        module: 'AUTH_FAILED',
+        createdAt: { gte: windowStart },
+      },
+    }).catch(() => 0); // fail-open: if audit table unavailable, proceed
+
+    if (recentFailures >= MAX_FAILED_ATTEMPTS) {
+      // Record another failure attempt — still generic error externally
+      this.prisma.auditLog.create({
+        data: {
+          action: AuditAction.LOGIN,
+          entity: 'User',
+          entityId: user.id,
+          userId: user.id,
+          module: 'AUTH_FAILED',
+          metadata: { reason: 'Lockout threshold exceeded', email: dto.email },
+        },
+      }).catch(() => {});
+      throw genericAuthError;
+    }
+
     // Verify password before checking account status to prevent timing attacks
     // that could reveal account existence via response time difference.
     const passwordValid = await argon2.verify(user.passwordHash, dto.password);
-    if (!passwordValid) throw genericAuthError;
+    if (!passwordValid) {
+      // Record failed attempt in audit log for lockout tracking
+      this.prisma.auditLog.create({
+        data: {
+          action: AuditAction.LOGIN,
+          entity: 'User',
+          entityId: user.id,
+          userId: user.id,
+          module: 'AUTH_FAILED',
+          metadata: { reason: 'Invalid password', email: dto.email },
+        },
+      }).catch(() => {});
+      throw genericAuthError;
+    }
 
     // Check account status AFTER password verification — same error externally
     if (user.status !== 'ACTIVE') throw genericAuthError;

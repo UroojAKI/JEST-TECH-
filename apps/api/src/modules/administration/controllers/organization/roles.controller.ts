@@ -7,6 +7,7 @@ import {
   UseGuards,
   NotFoundException,
   BadRequestException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../../auth/guards/jwt-auth.guard';
@@ -116,6 +117,18 @@ export class RolesController {
 
     if (!role) {
       throw new NotFoundException(`Role ${roleId} not found`);
+    }
+
+    // SEC-010 FIX: Role definitions are system-wide resources. Only platform super-admins
+    // (identified by permissions: ['*']) may mutate them. Tenant-level ADMINs are blocked
+    // from altering global role definitions to prevent cross-tenant privilege escalation.
+    const isSuperAdmin =
+      Array.isArray((actor as any).permissions) &&
+      (actor as any).permissions.includes('*');
+    if (!isSuperAdmin) {
+      throw new ForbiddenException(
+        'Only platform super-administrators may modify system-wide role permissions. Contact your platform administrator.',
+      );
     }
 
     if (!Array.isArray(dto.permissions)) {
