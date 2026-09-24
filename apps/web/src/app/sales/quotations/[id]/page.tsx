@@ -105,7 +105,8 @@ export default function QuotationWorkspacePage() {
   const insurerName = q.insurerName || '—';
 
   // Sort versions by versionNumber descending
-  const sortedVersions = [...(versions as any[])].sort(
+  const versionsArray = Array.isArray(versions) ? versions : (versions as any)?.items || (versions as any)?.data || [];
+  const sortedVersions = [...versionsArray].sort(
     (a, b) => (b.versionNumber || 0) - (a.versionNumber || 0),
   );
   const activeVersion = selectedVersionId
@@ -135,7 +136,7 @@ export default function QuotationWorkspacePage() {
                 <StatusBadge status={q.status} />
                 {q.workflowState && (
                   <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/10 text-amber-600 border border-amber-500/20">
-                    {q.workflowState}
+                    {typeof q.workflowState === 'object' && q.workflowState !== null ? q.workflowState.name || q.workflowState.status || 'READY' : String(q.workflowState)}
                   </span>
                 )}
               </div>

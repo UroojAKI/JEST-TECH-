@@ -154,7 +154,7 @@ export function MotorDashboardWidgets({ data }: MotorDashboardWidgetsProps) {
                     <span className="font-extrabold text-foreground">{t.task}</span>
                   </div>
                   <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-card border text-muted-foreground">
-                    {t.status}
+                    {typeof t.status === 'object' && t.status !== null ? t.status.status || t.status.name || 'NEW' : t.status || 'NEW'}
                   </span>
                 </div>
               ))}
@@ -188,7 +188,7 @@ export function MotorDashboardWidgets({ data }: MotorDashboardWidgetsProps) {
                   <div>
                     <div className="text-xs font-black text-foreground">{f.customer}</div>
                     <div className="text-[10px] text-muted-foreground font-semibold mt-0.5">
-                      {f.status} • {f.phone}
+                      {typeof f.status === 'object' && f.status !== null ? f.status.status || f.status.name || 'NEW' : f.status || 'NEW'} • {f.phone}
                     </div>
                   </div>
 
@@ -251,7 +251,7 @@ export function MotorDashboardWidgets({ data }: MotorDashboardWidgetsProps) {
                       <td className="py-2.5 px-3 font-bold">{p.premium}</td>
                       <td className="py-2.5 px-3">
                         <span className={`px-2 py-0.5 rounded-full text-[10px] font-black border ${p.statusBadge}`}>
-                          {p.status}
+                          {typeof p.status === 'object' && p.status !== null ? p.status.status || p.status.name || 'NEW' : p.status || 'NEW'}
                         </span>
                       </td>
                       <td className="py-2.5 px-3 text-muted-foreground font-mono text-[11px]">{p.renewalDate}</td>

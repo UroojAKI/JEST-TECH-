@@ -145,10 +145,16 @@ export function LeadCommandCenter({ lead, onRefresh }: LeadCommandCenterProps) {
       toast.error('Referral name and phone are required');
       return;
     }
+    // Strip non-numeric and take last 10 digits to ensure API validation passes
+    const cleanPhone = refPhone.replace(/\D/g, '').slice(-10);
+    if (cleanPhone.length < 10) {
+      toast.error('Please enter a valid 10-digit mobile number');
+      return;
+    }
     createReferral(
       {
         leadId: lead.id,
-        data: { referralName: refName, phone: refPhone, interestedProduct: refProduct },
+        data: { referralName: refName, phone: cleanPhone, interestedProduct: refProduct },
       },
       {
         onSuccess: () => {
@@ -299,7 +305,9 @@ export function LeadCommandCenter({ lead, onRefresh }: LeadCommandCenterProps) {
               </div>
               <div>
                 <span className="text-muted-foreground block text-[10px]">Current Status</span>
-                <span className="font-bold text-primary">{lead.status}</span>
+                <span className="font-bold text-primary">
+                  {typeof lead.status === 'object' && lead.status !== null ? lead.status.status || lead.status.name || 'NEW' : lead.status || 'NEW'}
+                </span>
               </div>
               <div>
                 <span className="text-muted-foreground block text-[10px]">Lead Code</span>
@@ -811,6 +819,7 @@ export function LeadCommandCenter({ lead, onRefresh }: LeadCommandCenterProps) {
                 <input
                   required
                   type="tel"
+                  maxLength={10}
                   value={refPhone}
                   onChange={(e) => setRefPhone(e.target.value)}
                   placeholder="9876543210"

@@ -156,7 +156,7 @@ export function UnifiedSidebar() {
           const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
           return (
             <Link
-              key={item.href}
+              key={item.label}
               href={item.href}
               className={`flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-semibold transition-all ${
                 isActive

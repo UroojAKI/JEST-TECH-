@@ -18,7 +18,7 @@ export default function LeadWorkspacePage() {
   const [isMarkLostOpen, setIsMarkLostOpen] = useState(false);
   const [isConvertOpen, setIsConvertOpen] = useState(false);
 
-  const { leads, markLost } = useLeads();
+  const { leads, markLost, isUpdating } = useLeads();
   const { lead: workspaceLead, isLoading } = useLeadWorkspace(leadId);
 
   // Find matching lead in workspace API or leads list
@@ -43,11 +43,19 @@ export default function LeadWorkspacePage() {
   };
 
   const handleConfirmLost = (reason: any, competitor?: string, priceDiff?: number, remarks?: string) => {
-    markLost({ id: leadId, reason, competitor, priceDiff, remarks });
+    markLost(
+      { id: leadId, reason, competitor, priceDiff, remarks },
+      {
+        onSuccess: () => {
+          setIsMarkLostOpen(false);
+        },
+      }
+    );
   };
 
-  const getWorkflowStage = (status: string): WorkflowStageKey => {
-    const s = (status || 'NEW').toUpperCase();
+  const getWorkflowStage = (status: any): WorkflowStageKey => {
+    const statusString = typeof status === 'object' && status !== null ? status.status || status.value || 'NEW' : status || 'NEW';
+    const s = String(statusString).toUpperCase();
     if (['NEW'].includes(s)) return 'lead';
     if (['CONTACTED'].includes(s)) return 'contacted';
     if (['QUALIFIED'].includes(s)) return 'qualified';
@@ -105,6 +113,7 @@ export default function LeadWorkspacePage() {
         isOpen={isMarkLostOpen}
         onClose={() => setIsMarkLostOpen(false)}
         onSubmit={handleConfirmLost}
+        isSubmitting={isUpdating}
       />
 
       {/* 4. 4-Stage Lead Conversion Wizard Drawer */}

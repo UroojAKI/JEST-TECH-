@@ -167,7 +167,7 @@ export class ContactsService {
       type: restDto.type,
       firstName: restDto.firstName,
       middleName: restDto.middleName,
-      lastName: restDto.lastName,
+      lastName: restDto.lastName ?? '',
       gender: restDto.gender,
       dateOfBirth: restDto.dateOfBirth
         ? new Date(restDto.dateOfBirth)
@@ -323,7 +323,7 @@ export class ContactsService {
       type: restDto.type,
       firstName: restDto.firstName,
       middleName: restDto.middleName,
-      lastName: restDto.lastName,
+      lastName: restDto.lastName ?? '',
       gender: restDto.gender,
       dateOfBirth: restDto.dateOfBirth
         ? new Date(restDto.dateOfBirth)

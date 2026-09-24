@@ -44,12 +44,13 @@ export const leadsRepository = {
   },
 
   async markLost(id: string, reason: LostReason, competitor?: string, priceDiff?: number, remarks?: string): Promise<LeadItem> {
-    const response = await apiClient.patch(`/leads/${id}`, {
-      status: 'LOST',
-      lostReason: reason,
-      competitor,
-      priceDiff,
-      remarks,
+    let lossReason = reason as string;
+    if (competitor) lossReason += ` | Competitor: ${competitor}`;
+    if (priceDiff) lossReason += ` | Price Diff: ${priceDiff}`;
+    if (remarks) lossReason += ` | Remarks: ${remarks}`;
+    
+    const response = await apiClient.post(`/leads/${id}/mark-lost`, {
+      lossReason
     });
     return response.data;
   },

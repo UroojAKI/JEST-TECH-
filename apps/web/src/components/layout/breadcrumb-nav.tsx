@@ -9,18 +9,26 @@ export function BreadcrumbNav() {
   const pathname = usePathname();
   const segments = pathname.split('/').filter(Boolean);
 
-  if (segments.length === 0 || pathname === '/dashboard') {
+  if (segments.length === 0) {
     return (
       <div className="flex items-center text-xs text-muted-foreground">
         <Home className="h-3.5 w-3.5 mr-1" />
-        <span>Dashboard</span>
+        <span>Home</span>
       </div>
     );
   }
 
+  const getHomeHref = () => {
+    if (pathname.startsWith('/workspace/admin')) return '/workspace/admin';
+    if (pathname.startsWith('/workspace/operations')) return '/workspace/operations';
+    if (pathname.startsWith('/workspace/sales')) return '/workspace/sales';
+    if (pathname.startsWith('/crm')) return '/crm/dashboard';
+    return '/';
+  };
+
   return (
     <nav className="flex items-center space-x-1 text-xs text-muted-foreground">
-      <Link href="/dashboard" className="hover:text-foreground flex items-center transition-colors">
+      <Link href={getHomeHref()} className="hover:text-foreground flex items-center transition-colors">
         <Home className="h-3.5 w-3.5" />
       </Link>
       {segments.map((segment, index) => {

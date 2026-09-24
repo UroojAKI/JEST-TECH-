@@ -9,13 +9,16 @@ import { UserPlus, AlertTriangle, CheckCircle, Zap, Loader2 } from 'lucide-react
 interface NewLeadModalProps {
   isOpen: boolean;
   onClose: () => void;
+  defaultContactId?: string;
+  defaultName?: string;
+  defaultPhone?: string;
 }
 
-export function NewLeadModal({ isOpen, onClose }: NewLeadModalProps) {
+export function NewLeadModal({ isOpen, onClose, defaultContactId, defaultName = '', defaultPhone = '' }: NewLeadModalProps) {
   const queryClient = useQueryClient();
   const [source, setSource] = useState('WALK_IN');
-  const [name, setName] = useState('');
-  const [phone, setPhone] = useState('');
+  const [name, setName] = useState(defaultName);
+  const [phone, setPhone] = useState(defaultPhone);
   const [city, setCity] = useState('Belagavi');
   const [product, setProduct] = useState('MOTOR');
   const [remarks, setRemarks] = useState('');
@@ -69,16 +72,22 @@ export function NewLeadModal({ isOpen, onClose }: NewLeadModalProps) {
       toast.error('Name and Mobile Number are required');
       return;
     }
+    const cleanPhone = phone.replace(/\D/g, '').slice(-10);
+    if (!/^[6-9]\d{9}$/.test(cleanPhone)) {
+      toast.error('Please enter a valid 10-digit Indian mobile number (6-9)');
+      return;
+    }
     const [firstName, ...rest] = name.split(' ');
     createLeadMutation.mutate({
       title: `${product} Insurance Inquiry - ${name}`,
       source,
       firstName: firstName || 'Lead',
       lastName: rest.join(' ') || 'Customer',
-      phone: phone.replace(/\D/g, '').slice(-10),
+      phone: cleanPhone,
       city,
       productInterest: product,
       remarks,
+      contactId: defaultContactId,
     });
   };
 
@@ -156,11 +165,13 @@ export function NewLeadModal({ isOpen, onClose }: NewLeadModalProps) {
               <label className="font-bold text-foreground block mb-1">Mobile Number *</label>
               <input
                 required
-                type="text"
+                type="tel"
+                maxLength={10}
                 value={phone}
                 onChange={(e) => {
-                  setPhone(e.target.value);
-                  checkDuplicate(e.target.value);
+                  const val = e.target.value.replace(/\D/g, '').slice(0, 10);
+                  setPhone(val);
+                  checkDuplicate(val);
                 }}
                 placeholder="+91 98765 43210"
                 className="w-full p-2.5 rounded-xl border bg-background font-mono"

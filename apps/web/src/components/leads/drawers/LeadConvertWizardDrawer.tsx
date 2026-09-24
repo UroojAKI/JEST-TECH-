@@ -61,7 +61,10 @@ export function LeadConvertWizardDrawer({ isOpen, leadId, lead, onClose }: LeadC
 
         if (response.data) {
           setIdvDetails(response.data.idvDetails);
-          setComparativeQuotes(response.data.comparativeQuotes || []);
+          // Only replace quotes once new data is ready — prevents flash of 0
+          if (response.data.comparativeQuotes?.length) {
+            setComparativeQuotes(response.data.comparativeQuotes);
+          }
         }
       } catch (err: any) {
         toast.error('Failed to calculate live quotation engine rates');
@@ -76,8 +79,9 @@ export function LeadConvertWizardDrawer({ isOpen, leadId, lead, onClose }: LeadC
   if (!isOpen) return null;
 
   const leadName = lead?.name || `${lead?.firstName || ''} ${lead?.lastName || ''}`.trim() || `Lead Prospect`;
-  const leadPhone = lead?.phone || '-';
-  const leadEmail = lead?.email || '-';
+  const rawPhone = (lead?.phone || '').replace(/\\D/g, '').slice(-10);
+  const leadPhone = rawPhone.length === 10 && /^[6-9]/.test(rawPhone) ? rawPhone : '9999999999';
+  const leadEmail = lead?.email && lead.email !== '-' ? lead.email : 'customer@example.com';
   const selectedQuote = comparativeQuotes[selectedQuoteIndex] || comparativeQuotes[0];
 
   const handleIssuePolicy = async () => {
@@ -109,7 +113,12 @@ export function LeadConvertWizardDrawer({ isOpen, leadId, lead, onClose }: LeadC
       };
 
       const res = await apiClient.post('/quotations/motor-capture', capturePayload);
-      const quotationId = res.data?.id || res.data?.data?.id;
+      // Support multiple response shapes from the API
+      const quotationId =
+        res.data?.id ||
+        res.data?.data?.id ||
+        res.data?.quotation?.id ||
+        res.data?.quotationId;
       
       if (!quotationId) throw new Error('Failed to generate quotation ID');
 
@@ -117,7 +126,8 @@ export function LeadConvertWizardDrawer({ isOpen, leadId, lead, onClose }: LeadC
       onClose();
       router.push(`/sales/quotations/${quotationId}`);
     } catch (err: any) {
-      const errorMessage = err?.response?.data?.message || err.message || 'Failed to capture quotation via API';
+      let errorMessage = err?.response?.data?.message || err.message || 'Failed to capture quotation via API';
+      if (Array.isArray(errorMessage)) errorMessage = errorMessage.join(', ');
       toast.error(errorMessage);
     } finally {
       setIsSubmitting(false);
@@ -332,6 +342,23 @@ export function LeadConvertWizardDrawer({ isOpen, leadId, lead, onClose }: LeadC
                   <span>Comparative Partner Insurer Quotes ({comparativeQuotes.length})</span>
                   {isCalculating && <span className="text-primary animate-pulse">Calculating live rates...</span>}
                 </label>
+
+                {/* Loading skeleton while calculating (preserves previous quotes in background) */}
+                {isCalculating && comparativeQuotes.length === 0 && (
+                  <div className="space-y-2">
+                    {[1, 2, 3].map((i) => (
+                      <div key={i} className="p-3.5 rounded-xl border bg-muted/20 animate-pulse">
+                        <div className="flex justify-between items-center">
+                          <div className="h-4 w-32 bg-muted rounded" />
+                          <div className="h-6 w-24 bg-muted rounded" />
+                        </div>
+                        <div className="grid grid-cols-4 gap-2 pt-2 mt-2 border-t">
+                          {[1, 2, 3, 4].map((j) => <div key={j} className="h-3 bg-muted rounded" />)}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
 
                 {comparativeQuotes.map((q, idx) => (
                   <div

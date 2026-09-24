@@ -1,4 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { Transform } from 'class-transformer';
 import {
   IsBoolean,
   IsEmail,
@@ -30,6 +31,7 @@ export class CreateCustomerDto {
 
   @ApiPropertyOptional({ description: 'Customer email' })
   @IsOptional()
+  @Transform(({ value }) => (typeof value === 'string' && value.trim() === '' ? undefined : value))
   @IsEmail({}, { message: 'Invalid email address format' })
   email?: string;
 

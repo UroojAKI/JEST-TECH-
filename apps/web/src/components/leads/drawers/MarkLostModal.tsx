@@ -1,16 +1,17 @@
 'use client';
 
 import React, { useState } from 'react';
-import { X, AlertCircle } from 'lucide-react';
+import { X, AlertCircle, Loader2 } from 'lucide-react';
 import { LostReason } from '../../../types/leads';
 
 interface MarkLostModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSubmit: (reason: LostReason, competitor?: string, priceDiff?: number, remarks?: string) => void;
+  isSubmitting?: boolean;
 }
 
-export function MarkLostModal({ isOpen, onClose, onSubmit }: MarkLostModalProps) {
+export function MarkLostModal({ isOpen, onClose, onSubmit, isSubmitting = false }: MarkLostModalProps) {
   const [reason, setReason] = useState<LostReason>('PREMIUM_HIGH');
   const [competitor, setCompetitor] = useState('');
   const [priceDiff, setPriceDiff] = useState<number>(0);
@@ -20,8 +21,8 @@ export function MarkLostModal({ isOpen, onClose, onSubmit }: MarkLostModalProps)
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    // Don't close here — the parent closes after the mutation succeeds
     onSubmit(reason, competitor, priceDiff, remarks);
-    onClose();
   };
 
   return (
@@ -32,7 +33,11 @@ export function MarkLostModal({ isOpen, onClose, onSubmit }: MarkLostModalProps)
             <AlertCircle className="h-5 w-5" />
             <h3 className="font-bold text-base">Mark Lead as Lost</h3>
           </div>
-          <button onClick={onClose} className="p-1 text-muted-foreground hover:bg-accent rounded-md">
+          <button
+            onClick={onClose}
+            disabled={isSubmitting}
+            className="p-1 text-muted-foreground hover:bg-accent rounded-md disabled:opacity-50"
+          >
             <X className="h-4 w-4" />
           </button>
         </div>
@@ -44,6 +49,7 @@ export function MarkLostModal({ isOpen, onClose, onSubmit }: MarkLostModalProps)
               value={reason}
               onChange={(e) => setReason(e.target.value as LostReason)}
               className="w-full p-2.5 rounded-lg border bg-background text-xs font-semibold"
+              disabled={isSubmitting}
             >
               <option value="PREMIUM_HIGH">Premium Too High</option>
               <option value="COMPETITOR_WON">Competitor Won Deal</option>
@@ -63,6 +69,7 @@ export function MarkLostModal({ isOpen, onClose, onSubmit }: MarkLostModalProps)
                 onChange={(e) => setCompetitor(e.target.value)}
                 placeholder="e.g. PolicyBazaar, HDFC Ergo Direct"
                 className="w-full p-2.5 rounded-lg border bg-background text-xs"
+                disabled={isSubmitting}
               />
             </div>
           )}
@@ -75,6 +82,7 @@ export function MarkLostModal({ isOpen, onClose, onSubmit }: MarkLostModalProps)
               onChange={(e) => setPriceDiff(parseInt(e.target.value, 10) || 0)}
               placeholder="e.g. 2500"
               className="w-full p-2.5 rounded-lg border bg-background text-xs"
+              disabled={isSubmitting}
             />
           </div>
 
@@ -86,6 +94,7 @@ export function MarkLostModal({ isOpen, onClose, onSubmit }: MarkLostModalProps)
               onChange={(e) => setRemarks(e.target.value)}
               placeholder="Detailed reasons for deal loss..."
               className="w-full p-2.5 rounded-lg border bg-background text-xs"
+              disabled={isSubmitting}
             />
           </div>
 
@@ -93,15 +102,18 @@ export function MarkLostModal({ isOpen, onClose, onSubmit }: MarkLostModalProps)
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 rounded-lg border bg-background font-semibold hover:bg-accent"
+              disabled={isSubmitting}
+              className="px-4 py-2 rounded-lg border bg-background font-semibold hover:bg-accent disabled:opacity-50"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="px-4 py-2 rounded-lg bg-destructive text-destructive-foreground font-bold hover:bg-destructive/90 shadow-sm"
+              disabled={isSubmitting}
+              className="px-4 py-2 rounded-lg bg-destructive text-destructive-foreground font-bold hover:bg-destructive/90 shadow-sm flex items-center gap-1.5 disabled:opacity-50"
             >
-              Confirm Mark Lost
+              {isSubmitting && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+              {isSubmitting ? 'Marking as Lost...' : 'Confirm Mark Lost'}
             </button>
           </div>
         </form>

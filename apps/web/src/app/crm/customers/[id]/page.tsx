@@ -32,6 +32,7 @@ import { customerRepository, Customer } from '../../../../repositories/customer.
 import { taskRepository } from '../../../../repositories/task.repository';
 import { motorQuotationRepository } from '../../../../repositories/motor-quotation.repository';
 import { toast } from 'sonner';
+import { NewLeadModal } from '../../../../components/leads/NewLeadModal';
 
 export default function CustomerDetailPage() {
   const params = useParams();
@@ -41,6 +42,7 @@ export default function CustomerDetailPage() {
 
   const [activeTab, setActiveTab] = useState<'OVERVIEW' | 'VEHICLES' | 'QUOTATIONS' | 'POLICIES' | 'LEADS' | 'TASKS' | 'CLAIMS'>('OVERVIEW');
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showNewLeadModal, setShowNewLeadModal] = useState(false);
 
   // Edit form state
   const [editFormData, setEditFormData] = useState<Partial<Customer>>({});
@@ -227,7 +229,7 @@ export default function CustomerDetailPage() {
                 <span>Edit Profile</span>
               </button>
               <button
-                onClick={() => router.push(`/crm/leads/new?customerId=${customer.id}`)}
+                onClick={() => setShowNewLeadModal(true)}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/90 shadow-xs transition"
               >
                 <Plus className="h-3.5 w-3.5" />
@@ -506,7 +508,7 @@ export default function CustomerDetailPage() {
                 <p className="text-xs text-muted-foreground">8-category fleet supporting Bike, Private Car, GCV, Tractor, Auto, Taxi, Bus & Misc.</p>
               </div>
               <button
-                onClick={() => router.push(`/crm/leads/new?customerId=${customer.id}`)}
+                onClick={() => setShowNewLeadModal(true)}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-bold"
               >
                 <Plus className="h-3.5 w-3.5" />
@@ -712,7 +714,7 @@ export default function CustomerDetailPage() {
                 <p className="text-xs text-muted-foreground">Track lead progression through the finite state lifecycle.</p>
               </div>
               <button
-                onClick={() => router.push(`/crm/leads/new?customerId=${customer.id}`)}
+                onClick={() => setShowNewLeadModal(true)}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-bold"
               >
                 <Plus className="h-3.5 w-3.5" />
@@ -982,6 +984,15 @@ export default function CustomerDetailPage() {
           </div>
         )}
       </div>
+      {showNewLeadModal && (
+        <NewLeadModal
+          isOpen={true}
+          onClose={() => setShowNewLeadModal(false)}
+          defaultContactId={customer?.id}
+          defaultName={fullName}
+          defaultPhone={customer?.mobile || ''}
+        />
+      )}
     </AppShell>
   );
 }

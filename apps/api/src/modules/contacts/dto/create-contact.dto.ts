@@ -22,9 +22,9 @@ export class CreateContactDto {
   @IsString()
   middleName?: string;
 
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  lastName: string;
+  lastName?: string;
 
   @IsOptional()
   @IsEnum(Gender)

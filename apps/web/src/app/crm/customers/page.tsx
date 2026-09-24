@@ -95,7 +95,13 @@ export default function CustomersPage() {
     mutationFn: (acknowledge: boolean) =>
       customerRepository.createCustomer({
         ...formData,
-        mobile: formData.mobile.replace(/\D/g, ''),
+        mobile: formData.mobile.replace(/\D/g, '').slice(-10),
+        // Normalize empty strings to undefined so DTO optional validators pass
+        email: formData.email.trim() || undefined,
+        panNumber: formData.panNumber.trim() || undefined,
+        aadhaarNumber: formData.aadhaarNumber.trim() || undefined,
+        city: formData.city.trim() || undefined,
+        state: formData.state.trim() || undefined,
         acknowledgeDuplicate: acknowledge,
       }),
     onSuccess: (res) => {
@@ -371,8 +377,11 @@ export default function CustomersPage() {
                     type="text"
                     required
                     maxLength={10}
+                    onChange={(e) => {
+                      const val = e.target.value.replace(/\D/g, '').slice(0, 10);
+                      setFormData({ ...formData, mobile: val });
+                    }}
                     value={formData.mobile}
-                    onChange={(e) => setFormData({ ...formData, mobile: e.target.value })}
                     placeholder="e.g. 9876543210"
                     className="mt-1 w-full rounded-lg border bg-background text-foreground text-xs font-mono focus:ring-1 focus:ring-primary focus:outline-none p-2.5"
                   />

@@ -240,7 +240,7 @@ export default function LeadsPipelinePage() {
                       </td>
                       <td className="py-3 px-3">
                         <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-muted/30 text-muted-foreground">
-                          {l.status}
+                          {typeof l.status === 'object' && l.status !== null ? l.status.status || l.status.name || 'NEW' : l.status || 'NEW'}
                         </span>
                       </td>
                       <td className="py-3 px-3 text-right">

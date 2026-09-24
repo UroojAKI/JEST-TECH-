@@ -113,8 +113,9 @@ export class BackOfficeQueueService {
     // Tenant scope: JWT actor is always the source of truth
     const tenantFilter: Prisma.QuotationWhereInput = {
       ...(actor?.companyId ? { companyId: actor.companyId } : {}),
-      // Branch-restricted BACK_OFFICE: further restrict to own branch
-      ...(actor?.branchId ? { branchId: actor.branchId } : {}),
+      // Branch-restricted BACK_OFFICE: further restrict to own branch if needed via agent/created by
+      // Quotation model doesn't have branchId directly. We might filter via createdBy.branchId if needed
+      ...(actor?.branchId ? { createdBy: { branchId: actor.branchId } } : {}),
     };
 
     const where: Prisma.QuotationWhereInput = {

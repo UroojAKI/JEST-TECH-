@@ -100,7 +100,9 @@ export function LeadHeader({ lead, onLaunchConvert, onLaunchMarkLost, onStatusCh
   const displayPremium = formatCurrency(lead?.expectedPremium || 25000);
   const displayScore = lead?.probabilityScore || lead?.score || 80;
   const displayAgent = currentAgentName || lead?.agent || lead?.assignedAgentName || 'Unassigned';
-  const normalizedStatus = (currentStatus || lead?.status || lead?.stage || 'NEW').toUpperCase();
+  const rawStatus = currentStatus || lead?.status || lead?.stage || 'NEW';
+  const statusString = typeof rawStatus === 'object' && rawStatus !== null ? rawStatus.status || rawStatus.value || 'NEW' : rawStatus || 'NEW';
+  const normalizedStatus = String(statusString).toUpperCase();
   const displayStage = normalizedStatus;
 
   const handleReassignSubmit = async (e: React.FormEvent) => {

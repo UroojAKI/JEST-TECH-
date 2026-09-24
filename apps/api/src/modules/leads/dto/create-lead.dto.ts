@@ -34,9 +34,8 @@ export class CreateLeadDto {
   @IsNotEmpty()
   firstName?: string;
 
-  @ValidateIf((dto) => !dto.contactId)
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
   lastName?: string;
 
   @IsOptional()
