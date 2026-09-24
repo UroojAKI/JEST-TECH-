@@ -897,8 +897,8 @@ async function main() {
       }
       console.log("- Seeded system default proposal workflow.");
     }
-  });
-
+  }, { timeout: 30000 });
+  
   console.log("✅ Database seeded successfully.");
 }
 
