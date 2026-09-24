@@ -57,130 +57,29 @@ jobs:
       - name: Build API
         run: pnpm turbo run build --filter=api
 
-  build-and-push:
+  deploy:
     needs: lint-and-test
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
-    outputs:
-      image_uri: ${{ steps.image.outputs.image_uri }}
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v3
+      - name: Deploy to EC2 via SSH
+        uses: appleboy/ssh-action@v1.0.3
         with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Set image URI
-        id: image
-        shell: bash
-        run: |
-          repo=$(echo "$GITHUB_REPOSITORY" | tr '[:upper:]' '[:lower:]' | sed 's/-*$//')
-          image_uri="$REGISTRY/$repo/api:${GITHUB_SHA}"
-          echo "image_uri=$image_uri" >> "$GITHUB_OUTPUT"
-
-      - name: Build and push Docker image
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: apps/api/Dockerfile
-          push: true
-          tags: ${{ steps.image.outputs.image_uri }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-  deploy:
-    needs: build-and-push
-    runs-on: ubuntu-latest
-    environment: ${{ github.ref_name == 'main' && 'production' || 'staging' }}
-    permissions:
-      contents: read
-      id-token: write
-    steps:
-      - name: Require ECS deployment configuration
-        shell: bash
-        env:
-          AWS_DEPLOY_ROLE_ARN: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
-          ECS_CLUSTER: ${{ secrets.ECS_CLUSTER }}
-          ECS_SERVICE: ${{ secrets.ECS_SERVICE }}
-          ECS_CONTAINER_NAME: ${{ secrets.ECS_CONTAINER_NAME }}
-        run: |
-          test -n "$AWS_DEPLOY_ROLE_ARN" || { echo 'Missing AWS_DEPLOY_ROLE_ARN'; exit 1; }
-          test -n "$ECS_CLUSTER" || { echo 'Missing ECS_CLUSTER'; exit 1; }
-          test -n "$ECS_SERVICE" || { echo 'Missing ECS_SERVICE'; exit 1; }
-          test -n "$ECS_CONTAINER_NAME" || { echo 'Missing ECS_CONTAINER_NAME'; exit 1; }
-
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
-          aws-region: ${{ env.AWS_REGION }}
-
-      - name: Render new ECS task definition
-        id: task-definition
-        shell: bash
-        env:
-          ECS_SERVICE: ${{ secrets.ECS_SERVICE }}
-          ECS_CONTAINER_NAME: ${{ secrets.ECS_CONTAINER_NAME }}
-          IMAGE_URI: ${{ needs.build-and-push.outputs.image_uri }}
-        run: |
-          aws ecs describe-services \
-            --cluster "${{ secrets.ECS_CLUSTER }}" \
-            --services "$ECS_SERVICE" \
-            --query 'services[0].taskDefinition' \
-            --output text > current-task-definition-arn.txt
-
-          test "$(cat current-task-definition-arn.txt)" != "None" || { echo 'ECS service/task definition not found'; exit 1; }
-
-          aws ecs describe-task-definition \
-            --task-definition "$(cat current-task-definition-arn.txt)" \
-            --query taskDefinition > task-definition.json
-
-          jq --arg name "$ECS_CONTAINER_NAME" --arg image "$IMAGE_URI" \
-            '(.containerDefinitions[] | select(.name == $name)).image = $image |
-             del(.taskDefinitionArn,.revision,.status,.requiresAttributes,.compatibilities,.registeredAt,.registeredBy)' \
-            task-definition.json > rendered-task-definition.json
-
-          jq -e --arg name "$ECS_CONTAINER_NAME" 'any(.containerDefinitions[]; .name == $name)' rendered-task-definition.json >/dev/null
-
-          aws ecs register-task-definition \
-            --cli-input-json file://rendered-task-definition.json \
-            --query 'taskDefinition.taskDefinitionArn' \
-            --output text > new-task-definition-arn.txt
-
-          test -s new-task-definition-arn.txt || { echo 'Failed to register ECS task definition'; exit 1; }
-
-      - name: Deploy ECS service with rollback enabled
-        shell: bash
-        env:
-          ECS_CLUSTER: ${{ secrets.ECS_CLUSTER }}
-          ECS_SERVICE: ${{ secrets.ECS_SERVICE }}
-        run: |
-          aws ecs update-service \
-            --cluster "$ECS_CLUSTER" \
-            --service "$ECS_SERVICE" \
-            --task-definition "$(cat new-task-definition-arn.txt)" \
-            --deployment-configuration 'deploymentCircuitBreaker={enable=true,rollback=true}' \
-            --force-new-deployment >/dev/null
-
-          aws ecs wait services-stable \
-            --cluster "$ECS_CLUSTER" \
-            --services "$ECS_SERVICE"
-
-      - name: Verify deployed task image
-        shell: bash
-        env:
-          ECS_CLUSTER: ${{ secrets.ECS_CLUSTER }}
-          ECS_SERVICE: ${{ secrets.ECS_SERVICE }}
-          ECS_CONTAINER_NAME: ${{ secrets.ECS_CONTAINER_NAME }}
-          IMAGE_URI: ${{ needs.build-and-push.outputs.image_uri }}
-        run: |
-          running_task=$(aws ecs list-tasks --cluster "$ECS_CLUSTER" --service-name "$ECS_SERVICE" --desired-status RUNNING --query 'taskArns[0]' --output text)
-          test "$running_task" != "None" || { echo 'No running ECS task found after deployment'; exit 1; }
-          deployed_image=$(aws ecs describe-tasks --cluster "$ECS_CLUSTER" --tasks "$running_task" --query "tasks[0].containers[?name=='$ECS_CONTAINER_NAME'].image | [0]" --output text)
-          test "$deployed_image" = "$IMAGE_URI" || { echo "Expected $IMAGE_URI but found $deployed_image"; exit 1; }
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USERNAME }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            # Navigate to the project directory
+            cd ~/JEST-TECH- || cd ~/jest-policy-crm
+            
+            # Reset to ensure clean state and pull latest main
+            git fetch origin
+            git reset --hard origin/main
+            
+            # Install dependencies and build
+            pnpm install --frozen-lockfile
+            pnpm --filter api exec prisma generate
+            pnpm --filter api exec prisma migrate deploy
+            pnpm run build
+            
+            # Restart the application using PM2
+            pm2 restart all || pm2 start pnpm --name "jest-app" -- run start
