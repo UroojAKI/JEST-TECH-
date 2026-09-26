@@ -84,9 +84,27 @@ export class TenantResourceAuthorizationService {
       case 'Contact':
         resource = await this.prisma.contact.findUnique({ where: { id: resourceId } });
         break;
-      case 'Vehicle':
-        resource = await this.prisma.vehicle.findUnique({ where: { id: resourceId } });
+      case 'Vehicle': {
+        const vehicle = await this.prisma.vehicle.findUnique({
+          where: { id: resourceId },
+          include: {
+            contact: { select: { companyId: true } },
+            lead: { select: { companyId: true } },
+            customer: { select: { companyId: true } },
+          },
+        });
+        if (vehicle) {
+          resource = {
+            ...vehicle,
+            companyId:
+              vehicle.companyId ||
+              vehicle.contact?.companyId ||
+              vehicle.lead?.companyId ||
+              vehicle.customer?.companyId,
+          };
+        }
         break;
+      }
       case 'Lead':
         resource = await this.prisma.lead.findUnique({ where: { id: resourceId } });
         break;

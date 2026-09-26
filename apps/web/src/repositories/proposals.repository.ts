@@ -46,8 +46,12 @@ export const proposalsRepository = {
     return response.data;
   },
 
-  async issuePolicy(proposalId: string): Promise<any> {
-    const response = await apiClient.post('/policies', { proposalId });
+  async issuePolicy(proposalId: string, quotationId?: string, isMotor?: boolean): Promise<any> {
+    if (isMotor && quotationId) {
+      const response = await apiClient.post(`/motor/quotes/${quotationId}/issue`);
+      return response.data;
+    }
+    const response = await apiClient.post('/policies', { proposalId, quotationId });
     return response.data;
   },
 };

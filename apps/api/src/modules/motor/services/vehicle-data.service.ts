@@ -3,6 +3,8 @@ import {
   BadRequestException,
   NotFoundException,
   ForbiddenException,
+  InternalServerErrorException,
+  Logger,
 } from '@nestjs/common';
 import * as crypto from 'crypto';
 import { VehicleCategory, VehicleStatus } from '@prisma/client';
@@ -83,6 +85,8 @@ const INDIAN_STATE_NAMES: Record<string, string> = {
 
 @Injectable()
 export class VehicleDataService {
+  private readonly logger = new Logger(VehicleDataService.name);
+
   constructor(private readonly prisma: PrismaService) {}
 
   /**
@@ -276,6 +280,19 @@ export class VehicleDataService {
     if (journey.status !== 'IN_PROGRESS') {
       throw new BadRequestException(`Journey is no longer in progress (${journey.status})`);
     }
+    // 2. Check total verification attempts across ALL registrations for this journey
+    if (this.prisma.vehicleVerificationAttempt?.aggregate) {
+      const journeyAttempts = await this.prisma.vehicleVerificationAttempt.aggregate({
+        where: { journeyId },
+        _sum: { attemptCount: true },
+      });
+      const totalPreviousAttempts = journeyAttempts?._sum?.attemptCount || 0;
+      if (totalPreviousAttempts >= 3) {
+        throw new BadRequestException(
+          'Registration verification attempts exhausted (3/3) for this journey. Please proceed with manual vehicle entry.',
+        );
+      }
+    }
 
     try {
       const rows = await this.prisma.$queryRaw<
@@ -315,51 +332,21 @@ export class VehicleDataService {
       ) {
         throw err;
       }
-      // Unit test / SQLite / fallback mocking
-      const existing = await this.prisma.vehicleVerificationAttempt.findUnique({
-        where: {
-          journeyId_registrationHash: {
-            journeyId,
-            registrationHash,
-          },
-        },
-      });
-      if (existing && existing.attemptCount >= 3) {
-        throw new BadRequestException(
-          'Registration verification attempts exhausted (3/3). Please proceed with manual vehicle entry.',
-        );
-      }
-      const count = (existing?.attemptCount || 0) + 1;
-      const status = count >= 3 ? 'LOCKED' : 'ACTIVE';
-      await this.prisma.vehicleVerificationAttempt.upsert({
-        where: {
-          journeyId_registrationHash: {
-            journeyId,
-            registrationHash,
-          },
-        },
-        create: {
-          companyId,
-          actorId,
-          journeyId,
-          registrationHash,
-          attemptCount: 1,
-          status: 'ACTIVE',
-        },
-        update: {
-          attemptCount: count,
-          status,
-          lockedAt: count >= 3 ? new Date() : undefined,
-        },
-      });
-      return { attemptCount: count, status, isLocked: count >= 3 };
+      this.logger.error(
+        `Database error during verification attempt lock: ${err.message}`,
+        err.stack,
+      );
+      // FAIL CLOSED: Do not downgrade to weaker non-atomic upsert fallback
+      throw new InternalServerErrorException(
+        'VEHICLE_VERIFICATION_LOCK_FAILED: Failed to reserve verification attempt atomically. Operation aborted to preserve security lock.',
+      );
     }
   }
 
   /**
    * Looks up a vehicle by registration number.
    * MOTOR-REG-10: If journeyId and actorId are provided, records atomic attempt before query.
-   * F-016 FIX: Strips contact PII if vehicle belongs to another organization.
+   * Tenant Scoping: Filters strictly by actor tenant (direct or via contact/lead) to prevent vehicle metadata leakage.
    */
   async findByRegistration(
     registrationNumber: string,
@@ -384,10 +371,21 @@ export class VehicleDataService {
       );
     }
 
+    const tenantFilter = actorCompanyId
+      ? {
+          OR: [
+            { companyId: actorCompanyId },
+            { contact: { companyId: actorCompanyId } },
+            { lead: { companyId: actorCompanyId } },
+          ],
+        }
+      : {};
+
     const vehicle = await this.prisma.vehicle.findFirst({
       where: {
         registrationNumber: { equals: norm.normalized, mode: 'insensitive' },
         deletedAt: null,
+        ...tenantFilter,
       },
       include: {
         contact: {
@@ -408,19 +406,6 @@ export class VehicleDataService {
       throw new NotFoundException(
         `No vehicle record found for registration number ${norm.normalized}`,
       );
-    }
-
-    // F-016: Prevent cross-tenant contact PII leakage during plate lookup
-    if (
-      vehicle.contact &&
-      actorCompanyId &&
-      vehicle.contact.companyId !== actorCompanyId
-    ) {
-      const { contact, ...vehicleWithoutContact } = vehicle;
-      return {
-        ...vehicleWithoutContact,
-        contact: null,
-      };
     }
 
     return vehicle;

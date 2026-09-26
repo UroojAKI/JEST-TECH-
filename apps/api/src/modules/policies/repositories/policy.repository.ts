@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, ConflictException } from '@nestjs/common';
 import {
   Prisma,
   Policy,
@@ -66,6 +66,11 @@ export class PolicyRepository extends BaseRepository<
     data: Prisma.PolicyCreateInput,
     tx?: Prisma.TransactionClient,
   ): Promise<PolicyWithRelations> {
+    if (data.policyType === 'MOTOR' || (data as any).productType === 'MOTOR') {
+      throw new ConflictException(
+        'MOTOR_WORKFLOW_REQUIRES_MOTOR_ISSUANCE: Direct repository creation of MOTOR policy is forbidden. Must use MotorPolicyIssuanceService.',
+      );
+    }
     const client = tx || this.prisma;
     return client.policy.create({
       data,

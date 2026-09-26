@@ -72,12 +72,21 @@ export class MotorQuotationsService {
       }
     }
 
-    const customerId = lead.customerId || vehicle.customerId || null;
-    const companyId =
-      lead.companyId || user.companyId || (user as any).organizationId;
-    if (!companyId) {
+    const actorCompanyId = user.companyId || (user as any).organizationId;
+    if (!actorCompanyId) {
       throw new ForbiddenException('Tenant organizational context is required');
     }
+
+    if (lead.companyId && lead.companyId !== actorCompanyId) {
+      throw new ForbiddenException('Cross-tenant lead binding is strictly forbidden.');
+    }
+    const vehicleCompanyId = (vehicle as any).companyId;
+    if (vehicleCompanyId && vehicleCompanyId !== actorCompanyId) {
+      throw new ForbiddenException('Cross-tenant vehicle binding is strictly forbidden.');
+    }
+
+    const customerId = lead.customerId || vehicle.customerId || null;
+    const companyId = actorCompanyId;
 
     // 3. Generate sequential quotation number: MQT-XXXXXX
     const quotationNumber = await this.generateQuotationNumber();

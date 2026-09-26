@@ -11,7 +11,8 @@
     "format": "turbo format",
     "test:e2e": "playwright test",
     "check:tenancy": "node scripts/check-tenant-scoping.js",
-    "check:mock-data": "node scripts/check-production-mock-data.js"
+    "check:mock-data": "node scripts/check-production-mock-data.js",
+    "check:certification": "node scripts/verify-certification-validity.js"
   },
   "devDependencies": {
     "@playwright/test": "^1.63.0",

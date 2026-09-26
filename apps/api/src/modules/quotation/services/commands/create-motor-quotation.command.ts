@@ -259,6 +259,33 @@ export class CreateMotorQuotationCommand {
     }
 
     const prevPolicy = dto.previousPolicyDetails || {};
+    const claimInExpiring =
+      String(policyDetails.claimInExpiringPolicy || prevPolicy.claimInPreviousYear || '').toLowerCase() === 'yes' ||
+      Boolean(prevPolicy.claimInPreviousYear);
+
+    // ── 5. Authoritative Underwriting Rules & NCB Evaluation ──
+    const declaredNcb = isVehicleNew ? 0 : Number(dto.ncbPercentage || policyDetails.ncbPercentage || 0);
+    const validSlabs = [0, 20, 25, 35, 45, 50];
+    const clampedDeclaredNcb = validSlabs.reduce((prev, curr) =>
+      Math.abs(curr - declaredNcb) < Math.abs(prev - declaredNcb) ? curr : prev,
+    );
+
+    const ruleResult = this.motorRuleEngineService.evaluateQuotation({
+      vehicleStatus: isVehicleNew ? 'NEW' : 'EXISTING',
+      newPolicyType: dto.policyType as any,
+      previousPolicyType: prevPolicy.policyType,
+      policyExpiryDate: prevPolicy.policyExpiryDate ? new Date(prevPolicy.policyExpiryDate) : null,
+      claimInPreviousYear: claimInExpiring,
+      ownershipTransfer: Boolean(policyDetails.ownershipTransfer || prevPolicy.ownershipTransfer),
+      previousPolicyTransferred: Boolean(policyDetails.previousPolicyTransferred || prevPolicy.previousPolicyTransferred),
+      eligibleNcbPercentage: clampedDeclaredNcb,
+      tpExpiryDate: saodVerification.tpExpiryDate ? new Date(saodVerification.tpExpiryDate) : null,
+      odExpiryDate: saodVerification.odExpiryDate ? new Date(saodVerification.odExpiryDate) : null,
+    });
+
+    const authoritativeNcb = ruleResult.ncb;
+
+    // ── 6. Authoritative Pricing via MotorCalculationService ──
     const calculationInput: any = {
       vehicleCategory: dto.vehicleCategory,
       vehicleSubType: vehicleDetails.vehicleSubType || vehicleDetails.vehicleType,
@@ -266,9 +293,8 @@ export class CreateMotorQuotationCommand {
       policyType,
       policyTenure: Number(policyDetails.policyTenure || 1) || 1,
       idv: dto.idv || Number(policyDetails.insuredDeclaredValue || 0) || undefined,
-      ncbPercent: isVehicleNew ? 0 : Number(dto.ncbPercentage || policyDetails.ncbPercentage || 0),
-      claimInExpiringPolicy:
-        String(policyDetails.claimInExpiringPolicy || prevPolicy.claimInPreviousYear || '').toLowerCase() === 'yes',
+      ncbPercent: authoritativeNcb,
+      claimInExpiringPolicy: claimInExpiring,
       paCover: Boolean(policyDetails.paCoverOwner),
       paidDriverLiability:
         String(policyDetails.legalLiabilityPaidDriver || '').toLowerCase() === 'yes',
@@ -295,20 +321,6 @@ export class CreateMotorQuotationCommand {
     };
 
     const calcResult = await this.motorCalculationService.calculate(calculationInput);
-
-    // ── 6. Underwriting Rules Evaluation ──
-    const ruleResult = this.motorRuleEngineService.evaluateQuotation({
-      vehicleStatus: isVehicleNew ? 'NEW' : 'EXISTING',
-      newPolicyType: dto.policyType as any,
-      previousPolicyType: prevPolicy.policyType,
-      policyExpiryDate: prevPolicy.policyExpiryDate ? new Date(prevPolicy.policyExpiryDate) : null,
-      claimInPreviousYear: Boolean(prevPolicy.claimInPreviousYear),
-      ownershipTransfer: Boolean(prevPolicy.ownershipTransfer),
-      previousPolicyTransferred: Boolean(prevPolicy.previousPolicyTransferred),
-      eligibleNcbPercentage: isVehicleNew ? 0 : Number(dto.ncbPercentage || 0),
-      tpExpiryDate: saodVerification.tpExpiryDate ? new Date(saodVerification.tpExpiryDate) : null,
-      odExpiryDate: saodVerification.odExpiryDate ? new Date(saodVerification.odExpiryDate) : null,
-    });
 
     const quotationCode = await this.numberingEngine.generateNext('QUOTATION');
 

@@ -79,6 +79,17 @@ export class IssuePolicyService {
       );
     }
 
+    // Single Authority Invariant: Motor policies must be issued exclusively via MotorPolicyIssuanceService
+    if (
+      quotation.productType === 'MOTOR' ||
+      (dto as any).policyType === 'MOTOR' ||
+      (quotation as any).lineOfBusiness === 'MOTOR'
+    ) {
+      throw new ConflictException(
+        'MOTOR_WORKFLOW_REQUIRES_MOTOR_ISSUANCE: Motor policies must be issued exclusively via MotorPolicyIssuanceService (/motor/quotes/:id/issue)',
+      );
+    }
+
     // BOLA defense: Tenant ownership enforcement
     if (
       actor?.companyId &&

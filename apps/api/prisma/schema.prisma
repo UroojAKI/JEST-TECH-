@@ -2842,6 +2842,7 @@ model Company {
   journalEntries         JournalEntry[]          @relation("CompanyJournalEntries")
   reports                Report[]
   motorJourneys          MotorJourney[]
+  vehicles               Vehicle[]               @relation("CompanyVehicles")
 
   @@index([taxId])
 }
@@ -3645,6 +3646,10 @@ model Vehicle {
   id          String @id @default(uuid())
   vehicleCode String @unique // e.g. VEH-2026-001234
 
+  // ── Tenant Scoping ──
+  companyId String?
+  company   Company? @relation("CompanyVehicles", fields: [companyId], references: [id], onDelete: SetNull)
+
   // ── Core category discriminator ──
   status   VehicleStatus   @default(EXISTING)
   category VehicleCategory // BIKE | PRIVATE_CAR | GCV | TRACTOR | AUTO | TAXI | BUS_COACH | MISC_CLASS_D
@@ -3702,6 +3707,7 @@ model Vehicle {
   deletedAt DateTime?
 
   @@index([registrationNumber])
+  @@index([companyId])
   @@index([contactId])
   @@index([category])
   @@index([vehicleCode])

@@ -89,6 +89,18 @@ function analyzeFinancialAuthority(workspaceRoot: string): {
         }
       }
 
+      // Check if GenerateQuotationService rejects MOTOR
+      if (relativeFile.endsWith('generate-quotation.service.ts')) {
+        if (!content.includes('MOTOR_WORKFLOW_REQUIRES_CANONICAL_MOTOR_CALCULATION')) {
+          violations.push({
+            file: relativeFile,
+            line: 1,
+            snippet: 'GenerateQuotationService',
+            reason: 'GenerateQuotationService must reject MOTOR product types to prevent duplicate calculation authority',
+          });
+        }
+      }
+
       // Track delegations to MotorCalculationService
       if (line.includes('calculationService.calculate') || line.includes('motorCalculationService.calculate')) {
         delegations.push({

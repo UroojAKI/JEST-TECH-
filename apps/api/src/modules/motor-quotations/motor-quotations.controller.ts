@@ -8,6 +8,7 @@ import {
   UseGuards,
   HttpCode,
   HttpStatus,
+  ConflictException,
 } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { RoleType } from '@prisma/client';
@@ -66,26 +67,30 @@ export class MotorQuotationsController {
 
   @Post()
   @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT)
-  @HttpCode(HttpStatus.CREATED)
-  @ApiOperation({ summary: 'Create a motor quotation' })
+  @HttpCode(HttpStatus.GONE)
+  @ApiOperation({ summary: 'Create a motor quotation (RETIRED)' })
   create(
     @Body() dto: CreateMotorQuotationDto,
     @CurrentUser() user: RequestUser,
   ) {
-    return this.motorQuotationsService.create(dto, user);
+    throw new ConflictException(
+      'LEGACY_MOTOR_QUOTATION_CREATION_DISABLED: Direct creation of legacy MotorQuotation is permanently retired. Motor quotations must be captured via canonical POST /quotations/motor-capture backed by MotorCalculationService.',
+    );
   }
 
   @Post(':id/accept')
   @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT)
-  @HttpCode(HttpStatus.OK)
+  @HttpCode(HttpStatus.GONE)
   @ApiOperation({
     summary:
-      'Accept quotation, reject competing vehicle quotes, and transition lead',
+      'Accept quotation (RETIRED)',
   })
   acceptQuotation(
     @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser() user: RequestUser,
   ) {
-    return this.motorQuotationsService.acceptQuotation(id, user);
+    throw new ConflictException(
+      'LEGACY_MOTOR_QUOTATION_ACCEPT_DISABLED: Direct acceptance of legacy MotorQuotation is retired. Quotation acceptance is managed via canonical Quotation workflow.',
+    );
   }
 }

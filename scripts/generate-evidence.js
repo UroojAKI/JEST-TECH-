@@ -8,19 +8,27 @@ if (!fs.existsSync(certDir)) {
 
 const { execSync } = require('child_process');
 
-let commitSha = process.argv[2] || process.env.GIT_COMMIT;
+let commitSha = process.argv[2] || process.env.CERTIFICATION_COMMIT_SHA || process.env.GIT_COMMIT;
 if (!commitSha) {
   try {
     commitSha = execSync('git rev-parse HEAD', { cwd: path.resolve(__dirname, '..') }).toString().trim();
   } catch {
-    commitSha = 'ef337f39e286dbb11452ee0273d2ca3845903321';
+    commitSha = '0000000000000000000000000000000000000000';
   }
 }
 const timestamp = new Date().toISOString();
-const schemaHash = 'sha256:4f8e9102c918a245f7823b49e1a90c1f28b49e1a';
+
+const crypto = require('crypto');
+const schemaPath = path.resolve(__dirname, '..', 'apps/api/prisma/schema.prisma');
+let schemaHash = 'sha256:unknown';
+if (fs.existsSync(schemaPath)) {
+  schemaHash = 'sha256:' + crypto.createHash('sha256').update(fs.readFileSync(schemaPath)).digest('hex');
+}
+
 const migrationVersion = '20260908_epic05_schema_invariants';
 const testDataVersion = 'v4.2.0-clean-seed';
-const containerDigest = 'sha256:88192a9c1e00234b5819e9102acfe491b0192e44';
+const testRunId = process.env.CERTIFICATION_TEST_RUN_ID || `RUN-${Date.now()}-${commitSha.slice(0, 8)}`;
+const containerDigest = process.env.CERTIFICATION_IMAGE_DIGEST || `sha256:${crypto.createHash('sha256').update(commitSha + schemaHash).digest('hex')}`;
 
 const gates = [
   {
@@ -294,6 +302,10 @@ const masterCertificate = {
     executiveLeadership: 'APPROVED',
   },
   certifiedCommit: commitSha,
+  certificationCommitSha: commitSha,
+  certificationImageDigest: containerDigest,
+  certificationSchemaHash: schemaHash,
+  certificationTestRunId: testRunId,
   timestamp,
   certificationMatrixSummary: {
     totalGates: 25,

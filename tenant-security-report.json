@@ -1,24 +1,6 @@
 [
   {
     "type": "WARNING",
-    "file": "apps/api/src/modules/auth/services/tenant-resource-authorization.service.ts",
-    "line": 91,
-    "operation": "findUnique",
-    "model": "Lead",
-    "snippet": "resource = await this.prisma.lead.findUnique({ where: { id: resourceId } });",
-    "reason": "findUnique executed without detected immediate tenant boundary assertion"
-  },
-  {
-    "type": "WARNING",
-    "file": "apps/api/src/modules/auth/services/tenant-resource-authorization.service.ts",
-    "line": 97,
-    "operation": "findUnique",
-    "model": "MotorPaymentRecord",
-    "snippet": "resource = await this.prisma.motorPaymentRecord.findUnique({ where: { id: resourceId } });",
-    "reason": "findUnique executed without detected immediate tenant boundary assertion"
-  },
-  {
-    "type": "WARNING",
     "file": "apps/api/src/modules/bi/data-warehouse/services/etl/etl.service.ts",
     "line": 15,
     "operation": "findUnique",
@@ -348,7 +330,7 @@
   {
     "type": "WARNING",
     "file": "apps/api/src/modules/policies/repositories/policy.repository.ts",
-    "line": 85,
+    "line": 90,
     "operation": "findFirst",
     "model": "Policy",
     "snippet": "return this.prisma.policy.findFirst({",
@@ -357,7 +339,7 @@
   {
     "type": "WARNING",
     "file": "apps/api/src/modules/policies/repositories/policy.repository.ts",
-    "line": 96,
+    "line": 101,
     "operation": "findFirst",
     "model": "Policy",
     "snippet": "return this.prisma.policy.findFirst({",
@@ -366,7 +348,7 @@
   {
     "type": "WARNING",
     "file": "apps/api/src/modules/policies/repositories/policy.repository.ts",
-    "line": 105,
+    "line": 110,
     "operation": "findFirst",
     "model": "Policy",
     "snippet": "return this.prisma.policy.findFirst({",
@@ -375,7 +357,7 @@
   {
     "type": "WARNING",
     "file": "apps/api/src/modules/policies/repositories/policy.repository.ts",
-    "line": 134,
+    "line": 139,
     "operation": "update",
     "model": "Policy",
     "snippet": "await this.prisma.policy.update({",
@@ -384,7 +366,7 @@
   {
     "type": "WARNING",
     "file": "apps/api/src/modules/policies/services/commands/issue-policy.service.ts",
-    "line": 110,
+    "line": 121,
     "operation": "findUnique",
     "model": "MotorPaymentRecord",
     "snippet": "const paymentRecord = await this.prisma.motorPaymentRecord.findUnique({",

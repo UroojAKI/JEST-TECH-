@@ -88,8 +88,17 @@ function analyzePolicyCreation(workspaceRoot: string): {
         if (createsMotorPolicy && !isMotorIssuer) {
           // Check if non-motor products are explicitly converted while motor is rejected
           if (relativeFile.includes('convert-quotation.service.ts')) {
-            // convert-quotation rejects MOTOR with ConflictException
             if (content.includes('MOTOR_PRODUCT_TYPES.includes') && content.includes('ConflictException')) {
+              continue;
+            }
+          }
+          if (relativeFile.includes('issue-policy.service.ts')) {
+            if (content.includes('MOTOR_WORKFLOW_REQUIRES_MOTOR_ISSUANCE')) {
+              continue;
+            }
+          }
+          if (relativeFile.includes('policy.repository.ts')) {
+            if (content.includes('MOTOR_WORKFLOW_REQUIRES_MOTOR_ISSUANCE')) {
               continue;
             }
           }

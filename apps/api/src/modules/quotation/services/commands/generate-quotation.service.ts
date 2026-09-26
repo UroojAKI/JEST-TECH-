@@ -1,6 +1,7 @@
 import {
   Injectable,
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   NotFoundException,
 } from '@nestjs/common';
@@ -56,16 +57,21 @@ export class GenerateQuotationService {
     }
 
     const sumInsuredNum = Number(sumInsuredRaw);
-    const productTypeStr = dto.productType || 'MOTOR';
+    const productTypeStr = (dto.productType || 'GENERAL').toUpperCase();
+    if (productTypeStr === 'MOTOR' || productTypeStr.includes('MOTOR')) {
+      throw new ConflictException(
+        'MOTOR_WORKFLOW_REQUIRES_CANONICAL_MOTOR_CALCULATION: Motor quotations must be created via POST /quotations/motor-capture backed exclusively by MotorCalculationService.',
+      );
+    }
     const titleStr =
       dto.title || `${dto.insurerName} ${productTypeStr} Insurance Quotation`;
     const insurerNameStr = dto.insurerName;
     const targetContactId = dto.contactId;
 
-    // 2. Perform authoritative engine pricing calculations
+    // 2. Perform generic policy pricing calculations
     let baseOd = Number((dto as any).odPremium || 0);
     if (!baseOd || baseOd === 0) {
-      baseOd = Math.round(sumInsuredNum * 0.03127);
+      baseOd = Math.round(sumInsuredNum * 0.02);
     }
 
     const ncbPercent = Number(dto.ncbPercentage || 0);
@@ -84,11 +90,7 @@ export class GenerateQuotationService {
       : 0;
 
     let baseTp = Number((dto as any).tpPremium || 0);
-    if (!baseTp && productTypeStr.toUpperCase().includes('MOTOR')) {
-      baseTp = 3416;
-    }
 
-    // Option A: Gross Pre-Tax -> GST on Gross -> Discounts on premium components -> Net Customer Premium + unchanged GST = Final Payable
     const grossPreTaxPremium = baseOd + addonsTotal + baseTp;
     const totalDiscountAmount = ncbDiscount + specialOdDiscount;
     const netCustomerPremium = netOd + addonsTotal + baseTp;

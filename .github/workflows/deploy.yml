@@ -60,6 +60,9 @@ jobs:
       - name: Dependency Security Audit
         run: pnpm audit --audit-level=high
 
+      - name: Verify Production Certification Validity
+        run: node scripts/verify-certification-validity.js
+
       - name: Build API
         run: pnpm turbo run build --filter=api
 
