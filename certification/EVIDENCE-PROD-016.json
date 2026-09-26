@@ -8,13 +8,13 @@
   ],
   "title": "Fail-closed tenancy isolation (403 ACTOR_CONTEXT_INVALID)",
   "remediatingEpic": "EPIC-02",
-  "implementationCommit": "a341a4b28eca44e6a15518506bb0342360c47c9d",
-  "testCommit": "a341a4b28eca44e6a15518506bb0342360c47c9d",
+  "implementationCommit": "eee3306078545275d115e963547224e20e6d4573",
+  "testCommit": "eee3306078545275d115e963547224e20e6d4573",
   "environment": "staging",
   "environmentBuild": "v4.2.0-prod-rebuild",
   "databaseMigrationVersion": "20260908_epic05_schema_invariants",
-  "schemaHash": "sha256:4f8e9102c918a245f7823b49e1a90c1f28b49e1a",
-  "containerImageDigest": "sha256:88192a9c1e00234b5819e9102acfe491b0192e44",
+  "schemaHash": "sha256:5f41c88b4f2ca6f3dae5a4c33e58d51933a53b52c923e7ff258c5b313a0c0bea",
+  "containerImageDigest": "sha256:c90c687e3f522f60c4b811b8e698aacc970d1176748eaf87228b67c1da6d3d5a",
   "testDataVersion": "v4.2.0-clean-seed",
   "testRunId": "TR-PROD-016-CERT-2026",
   "primaryTestPath": "src/common/services/bola.spec.ts",
@@ -22,5 +22,5 @@
   "alternatePathTestPath": "src/common/services/resource-authorization.service.spec.ts",
   "result": "PASS",
   "reviewer": "Lead Systems Architect & Security Auditor",
-  "timestamp": "2026-09-26T21:19:58.624Z"
+  "timestamp": "2026-09-26T22:10:06.617Z"
 }
