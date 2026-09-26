@@ -24,6 +24,14 @@ export class MinioStorageProvider implements StorageProvider, OnModuleInit {
     return 'MINIO';
   }
 
+  async isAvailable(): Promise<boolean> {
+    try {
+      return await this.client.bucketExists(this.bucket);
+    } catch {
+      return false;
+    }
+  }
+
   async onModuleInit() {
     try {
       const exists = await this.client.bucketExists(this.bucket);

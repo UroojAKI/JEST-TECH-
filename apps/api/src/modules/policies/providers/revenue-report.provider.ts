@@ -63,6 +63,7 @@ export class RevenueReportProvider implements ReportDataProvider, OnModuleInit {
       where: {
         status: 'SUCCESS',
         paymentDate: { gte: startDate },
+        ...(params?.companyId ? { policy: { companyId: params.companyId } } : {}),
       },
     });
 
@@ -87,6 +88,9 @@ export class RevenueReportProvider implements ReportDataProvider, OnModuleInit {
     params: ReportParameters,
   ): Promise<ReportResult> {
     const payments = await this.prisma.policyPayment.findMany({
+      where: {
+        ...(params?.companyId ? { policy: { companyId: params.companyId } } : {}),
+      },
       include: {
         policy: {
           include: {

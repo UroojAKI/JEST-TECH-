@@ -37,7 +37,10 @@ export class LeadReportProvider implements ReportDataProvider, OnModuleInit {
     params: ReportParameters,
   ): Promise<ReportResult> {
     const leads = await this.prisma.lead.findMany({
-      where: { deletedAt: null },
+      where: {
+        deletedAt: null,
+        ...(params?.companyId ? { companyId: params.companyId } : {}),
+      },
       include: {
         contact: true,
         assignedTo: true,
@@ -67,7 +70,10 @@ export class LeadReportProvider implements ReportDataProvider, OnModuleInit {
     params: ReportParameters,
   ): Promise<ReportResult> {
     const leads = await this.prisma.lead.findMany({
-      where: { deletedAt: null },
+      where: {
+        deletedAt: null,
+        ...(params?.companyId ? { companyId: params.companyId } : {}),
+      },
     });
 
     const totalLeads = leads.length;
@@ -101,7 +107,10 @@ export class LeadReportProvider implements ReportDataProvider, OnModuleInit {
     }
 
     const leads = await this.prisma.lead.findMany({
-      where: { deletedAt: null },
+      where: {
+        deletedAt: null,
+        ...(params?.companyId ? { companyId: params.companyId } : {}),
+      },
       include: {
         contact: true,
         assignedTo: true,

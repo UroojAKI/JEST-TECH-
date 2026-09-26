@@ -18,6 +18,7 @@ export const leadBasicSelect = Prisma.validator<Prisma.LeadSelect>()({
   updatedAt: true,
   version: true,
   deletedAt: true,
+  companyId: true,
   contactId: true,
   accountId: true,
   assignedToId: true,

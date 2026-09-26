@@ -26,6 +26,10 @@ describe('MotorPaymentTrackingService & Reconciliation (Iteration 7)', () => {
       motorRuleEvaluation: {
         findUnique: jest.fn(),
       },
+      idempotencyKey: {
+        findFirst: jest.fn(),
+        upsert: jest.fn(),
+      },
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -147,6 +151,86 @@ describe('MotorPaymentTrackingService & Reconciliation (Iteration 7)', () => {
       });
 
       expect(result).toEqual(existingPaid);
+      expect(prisma.motorPaymentRecord.upsert).not.toHaveBeenCalled();
+    });
+
+    it('PHASE 13: should reject with HTTP 409 ConflictException on idempotency key reuse with different payload', async () => {
+      prisma.quotation.findUnique.mockResolvedValue({
+        ...mockQuote,
+        companyId: 'comp-1',
+      });
+      prisma.motorPaymentRecord.findUnique.mockResolvedValue(null);
+      prisma.idempotencyKey.findFirst.mockResolvedValue({
+        id: 'idem-1',
+        companyId: 'comp-1',
+        actorId: 'user-1',
+        operationType: 'MOTOR_PAYMENT',
+        idempotencyKey: 'key-12345',
+        requestHash: 'different-hash',
+        status: 'SUCCEEDED',
+      });
+
+      await expect(
+        service.recordPayment({
+          quotationId: 'q-10',
+          status: 'PAID',
+          amount: 17638.88,
+          referenceNumber: 'REF-BANK-999',
+          idempotencyKey: 'key-12345',
+          recordedById: 'user-1',
+        }),
+      ).rejects.toThrow('IDEMPOTENCY_KEY_REUSE_MISMATCH');
+    });
+
+    it('PHASE 13: should return cached payload on duplicate idempotency key with identical payload', async () => {
+      prisma.quotation.findUnique.mockResolvedValue({
+        ...mockQuote,
+        companyId: 'comp-1',
+      });
+      prisma.motorPaymentRecord.findUnique.mockResolvedValue(null);
+
+      // Compute identical hash
+      const crypto = require('crypto');
+      const hash = crypto
+        .createHash('sha256')
+        .update(
+          JSON.stringify({
+            quotationId: 'q-10',
+            amount: 17638.88,
+            referenceNumber: 'REF-BANK-999',
+            status: 'PAID',
+          }),
+        )
+        .digest('hex');
+
+      const cachedResponse = {
+        id: 'pay-cached',
+        quotationId: 'q-10',
+        status: 'PAID',
+        amount: 17638.88,
+      };
+
+      prisma.idempotencyKey.findFirst.mockResolvedValue({
+        id: 'idem-1',
+        companyId: 'comp-1',
+        actorId: 'user-1',
+        operationType: 'MOTOR_PAYMENT',
+        idempotencyKey: 'key-12345',
+        requestHash: hash,
+        status: 'SUCCEEDED',
+        responsePayload: cachedResponse,
+      });
+
+      const result = await service.recordPayment({
+        quotationId: 'q-10',
+        status: 'PAID',
+        amount: 17638.88,
+        referenceNumber: 'REF-BANK-999',
+        idempotencyKey: 'key-12345',
+        recordedById: 'user-1',
+      });
+
+      expect(result).toEqual(cachedResponse);
       expect(prisma.motorPaymentRecord.upsert).not.toHaveBeenCalled();
     });
   });

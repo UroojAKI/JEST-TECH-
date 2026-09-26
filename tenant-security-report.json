@@ -1,0 +1,582 @@
+[
+  {
+    "type": "WARNING",
+    "file": "apps/api/src/modules/auth/services/tenant-resource-authorization.service.ts",
+    "line": 91,
+    "operation": "findUnique",
+    "model": "Lead",
+    "snippet": "resource = await this.prisma.lead.findUnique({ where: { id: resourceId } });",
+    "reason": "findUnique executed without detected immediate tenant boundary assertion"
+  },
+  {
+    "type": "WARNING",
+    "file": "apps/api/src/modules/auth/services/tenant-resource-authorization.service.ts",
+    "line": 97,
+    "operation": "findUnique",
+    "model": "MotorPaymentRecord",
+    "snippet": "resource = await this.prisma.motorPaymentRecord.findUnique({ where: { id: resourceId } });",
+    "reason": "findUnique executed without detected immediate tenant boundary assertion"
+  },
+  {
+    "type": "WARNING",
+    "file": "apps/api/src/modules/bi/data-warehouse/services/etl/etl.service.ts",
+    "line": 15,
+    "operation": "findUnique",
+    "model": "Policy",
+    "snippet": "const policy = await this.prisma.policy.findUnique({",
+    "reason": "findUnique executed without detected immediate tenant boundary assertion"
+  },
+  {
+    "type": "WARNING",
+    "file": "apps/api/src/modules/claims/repositories/claim.repository.ts",
+    "line": 66,
+    "operation": "findFirst",
+    "model": "Claim",
+    "snippet": "return this.prisma.claim.findFirst({",
+    "reason": "findFirst executed without detected immediate tenant boundary assertion"
+  },
+  {
+    "type": "WARNING",
+    "file": "apps/api/src/modules/contacts/repositories/contact.repository.ts",
+    "line": 126,
+    "operation": "update",
+    "model": "Contact",
+    "snippet": "return this.prisma.contact.update({",
+    "reason": "update executed without detected immediate tenant boundary assertion"
+  },
+  {
+    "type": "EXEMPTION",
+    "file": "apps/api/src/modules/customer/analytics/services/customer-analytics-cron/customer-analytics-cron.service.ts",
+    "line": 17,
+    "operation": "findMany",
+    "model": "Contact",
+    "snippet": "const contacts = await this.prisma.contact.findMany({"
+  },
+  {
+    "type": "WARNING",
+    "file": "apps/api/src/modules/documents/services/document-verification.service.ts",
+    "line": 181,
+    "operation": "update",
+    "model": "Document",
+    "snippet": "const updated = await this.prisma.document.update({",
+    "reason": "update executed without detected immediate tenant boundary assertion"
+  },
+  {
+    "type": "WARNING",
+    "file": "apps/api/src/modules/documents/services/document-verification.service.ts",
+    "line": 222,
+    "operation": "findFirst",
+    "model": "Document",
+    "snippet": "const doc = await this.prisma.document.findFirst({",
+    "reason": "findFirst executed without detected immediate tenant boundary assertion"
+  },
+  {
+    "type": "WARNING",
+    "file": "apps/api/src/modules/leads/controllers/leads.controller.ts",
+    "line": 375,
+    "operation": "findUnique",
+    "model": "Lead",
+    "snippet": "const lead = await this.prisma.lead.findUnique({",
+    "reason": "findUnique executed without detected immediate tenant boundary assertion"
+  },
+  {
+    "type": "WARNING",
+    "file": "apps/api/src/modules/leads/deduplication/services/duplicate-detection/duplicate-detection.service.ts",
+    "line": 48,
+    "operation": "findFirst",
+    "model": "Contact",
+    "snippet": "const existingContact = await this.prisma.contact.findFirst({",
+    "reason": "findFirst executed without detected immediate tenant boundary assertion"
+  },
+  {
+    "type": "WARNING",
+    "file": "apps/api/src/modules/leads/deduplication/services/duplicate-detection/duplicate-detection.service.ts",
+    "line": 69,
+    "operation": "findFirst",
+    "model": "Lead",
+    "snippet": "const existingLead = await this.prisma.lead.findFirst({",
+    "reason": "findFirst executed without detected immediate tenant boundary assertion"
+  },
+  {
+    "type": "WARNING",
+    "file": "apps/api/src/modules/leads/deduplication/services/duplicate-detection/duplicate-detection.service.ts",
+    "line": 91,
+    "operation": "findFirst",
+    "model": "Contact",
+    "snippet": "const existingContact = await this.prisma.contact.findFirst({",
+    "reason": "findFirst executed without detected immediate tenant boundary assertion"
+  },
+  {
+    "type": "WARNING",
+    "file": "apps/api/src/modules/leads/deduplication/services/duplicate-detection/duplicate-detection.service.ts",
+    "line": 115,
+    "operation": "findFirst",
+    "model": "Lead",
+    "snippet": "const existingLead = await this.prisma.lead.findFirst({",
+    "reason": "findFirst executed without detected immediate tenant boundary assertion"
+  },
+  {
+    "type": "WARNING",
+    "file": "apps/api/src/modules/leads/deduplication/services/duplicate-detection/duplicate-detection.service.ts",
+    "line": 140,
+    "operation": "findFirst",
+    "model": "Contact",
+    "snippet": "const existingContact = await this.prisma.contact.findFirst({",
+    "reason": "findFirst executed without detected immediate tenant boundary assertion"
+  },
+  {
+    "type": "WARNING",
+    "file": "apps/api/src/modules/leads/routing/services/lead-routing-engine/lead-routing-engine.service.ts",
+    "line": 16,
+    "operation": "findUnique",
+    "model": "Lead",
+    "snippet": "const lead = await this.prisma.lead.findUnique({",
+    "reason": "findUnique executed without detected immediate tenant boundary assertion"
+  },
+  {
+    "type": "WARNING",
+    "file": "apps/api/src/modules/leads/scoring/services/lead-scoring-engine/lead-scoring-engine.service.ts",
+    "line": 13,
+    "operation": "findUnique",
+    "model": "Lead",
+    "snippet": "const lead = await this.prisma.lead.findUnique({",
+    "reason": "findUnique executed without detected immediate tenant boundary assertion"
+  },
+  {
+    "type": "WARNING",
+    "file": "apps/api/src/modules/leads/services/lead-assignment.service.ts",
+    "line": 36,
+    "operation": "findUnique",
+    "model": "Lead",
+    "snippet": "const lead = await this.prisma.lead.findUnique({",
+    "reason": "findUnique executed without detected immediate tenant boundary assertion"
+  },
+  {
+    "type": "WARNING",
+    "file": "apps/api/src/modules/leads/services/lead-assignment.service.ts",
+    "line": 109,
+    "operation": "findUnique",
+    "model": "Lead",
+    "snippet": "const lead = await this.prisma.lead.findUnique({",
+    "reason": "findUnique executed without detected immediate tenant boundary assertion"
+  },
+  {
+    "type": "WARNING",
+    "file": "apps/api/src/modules/leads/services/lead-completion.service.ts",
+    "line": 28,
+    "operation": "findUnique",
+    "model": "Lead",
+    "snippet": "const lead = await this.prisma.lead.findUnique({",
+    "reason": "findUnique executed without detected immediate tenant boundary assertion"
+  },
+  {
+    "type": "WARNING",
+    "file": "apps/api/src/modules/leads/services/lead-lifecycle.service.ts",
+    "line": 75,
+    "operation": "findUnique",
+    "model": "Lead",
+    "snippet": "const lead = await this.prisma.lead.findUnique({",
+    "reason": "findUnique executed without detected immediate tenant boundary assertion"
+  },
+  {
+    "type": "WARNING",
+    "file": "apps/api/src/modules/leads/services/leads.service.ts",
+    "line": 618,
+    "operation": "findUnique",
+    "model": "Lead",
+    "snippet": "const lead = await this.prisma.lead.findUnique({",
+    "reason": "findUnique executed without detected immediate tenant boundary assertion"
+  },
+  {
+    "type": "WARNING",
+    "file": "apps/api/src/modules/leads/services/leads.service.ts",
+    "line": 783,
+    "operation": "findFirst",
+    "model": "Lead",
+    "snippet": "? await this.prisma.lead.findFirst({",
+    "reason": "findFirst executed without detected immediate tenant boundary assertion"
+  },
+  {
+    "type": "EXEMPTION",
+    "file": "apps/api/src/modules/leads/sla/services/sla-monitor/sla-monitor.service.ts",
+    "line": 32,
+    "operation": "findMany",
+    "model": "Lead",
+    "snippet": "const breachedLeads = await this.prisma.lead.findMany({"
+  },
+  {
+    "type": "WARNING",
+    "file": "apps/api/src/modules/leads/sla/services/sla-monitor/sla-monitor.service.ts",
+    "line": 54,
+    "operation": "update",
+    "model": "Lead",
+    "snippet": "this.prisma.lead.update({",
+    "reason": "update executed without detected immediate tenant boundary assertion"
+  },
+  {
+    "type": "WARNING",
+    "file": "apps/api/src/modules/motor/services/previous-policy.service.ts",
+    "line": 73,
+    "operation": "findFirst",
+    "model": "Policy",
+    "snippet": "const policy = await this.prisma.policy.findFirst({",
+    "reason": "findFirst executed without detected immediate tenant boundary assertion"
+  },
+  {
+    "type": "EXEMPTION",
+    "file": "apps/api/src/modules/platform/notifications/services/renewal-scheduler.service.ts",
+    "line": 48,
+    "operation": "findMany",
+    "model": "Policy",
+    "snippet": "const policies = await this.prisma.policy.findMany({"
+  },
+  {
+    "type": "WARNING",
+    "file": "apps/api/src/modules/platform/notifications/services/renewal-scheduler.service.ts",
+    "line": 64,
+    "operation": "findUnique",
+    "model": "RenewalTask",
+    "snippet": "const existing = await this.prisma.renewalTask.findUnique({",
+    "reason": "findUnique executed without detected immediate tenant boundary assertion"
+  },
+  {
+    "type": "EXEMPTION",
+    "file": "apps/api/src/modules/platform/notifications/services/renewal-scheduler.service.ts",
+    "line": 106,
+    "operation": "findMany",
+    "model": "RenewalTask",
+    "snippet": "const overdueTasks = await this.prisma.renewalTask.findMany({"
+  },
+  {
+    "type": "WARNING",
+    "file": "apps/api/src/modules/platform/notifications/services/renewal-scheduler.service.ts",
+    "line": 135,
+    "operation": "update",
+    "model": "RenewalTask",
+    "snippet": "await this.prisma.renewalTask.update({",
+    "reason": "update executed without detected immediate tenant boundary assertion"
+  },
+  {
+    "type": "WARNING",
+    "file": "apps/api/src/modules/platform/queue/workers/renewal.worker.ts",
+    "line": 25,
+    "operation": "findUnique",
+    "model": "Policy",
+    "snippet": "const policy = await this.prisma.policy.findUnique({",
+    "reason": "findUnique executed without detected immediate tenant boundary assertion"
+  },
+  {
+    "type": "WARNING",
+    "file": "apps/api/src/modules/platform/reporting/repositories/reports.repository.ts",
+    "line": 365,
+    "operation": "update",
+    "model": "ReportSchedule",
+    "snippet": "return this.prisma.reportSchedule.update({",
+    "reason": "update executed without detected immediate tenant boundary assertion"
+  },
+  {
+    "type": "WARNING",
+    "file": "apps/api/src/modules/platform/reporting/repositories/reports.repository.ts",
+    "line": 372,
+    "operation": "delete",
+    "model": "ReportSchedule",
+    "snippet": "await this.prisma.reportSchedule.delete({ where: { id } });",
+    "reason": "delete executed without detected immediate tenant boundary assertion"
+  },
+  {
+    "type": "WARNING",
+    "file": "apps/api/src/modules/platform/reporting/repositories/reports.repository.ts",
+    "line": 376,
+    "operation": "findUnique",
+    "model": "Report",
+    "snippet": "const report = await this.prisma.report.findUnique({",
+    "reason": "findUnique executed without detected immediate tenant boundary assertion"
+  },
+  {
+    "type": "WARNING",
+    "file": "apps/api/src/modules/platform/reporting/repositories/reports.repository.ts",
+    "line": 385,
+    "operation": "update",
+    "model": "Report",
+    "snippet": "await this.prisma.report.update({",
+    "reason": "update executed without detected immediate tenant boundary assertion"
+  },
+  {
+    "type": "EXEMPTION",
+    "file": "apps/api/src/modules/platform/reporting/services/scheduler.service.ts",
+    "line": 22,
+    "operation": "findMany",
+    "model": "ReportSchedule",
+    "snippet": "const schedules = await this.prisma.reportSchedule.findMany({"
+  },
+  {
+    "type": "WARNING",
+    "file": "apps/api/src/modules/policies/controllers/renewals.controller.ts",
+    "line": 172,
+    "operation": "findFirst",
+    "model": "RenewalTask",
+    "snippet": "const task = await this.prisma.renewalTask.findFirst({",
+    "reason": "findFirst executed without detected immediate tenant boundary assertion"
+  },
+  {
+    "type": "WARNING",
+    "file": "apps/api/src/modules/policies/controllers/renewals.controller.ts",
+    "line": 180,
+    "operation": "update",
+    "model": "RenewalTask",
+    "snippet": "const updated = await this.prisma.renewalTask.update({",
+    "reason": "update executed without detected immediate tenant boundary assertion"
+  },
+  {
+    "type": "WARNING",
+    "file": "apps/api/src/modules/policies/controllers/renewals.controller.ts",
+    "line": 199,
+    "operation": "findFirst",
+    "model": "RenewalTask",
+    "snippet": "const task = await this.prisma.renewalTask.findFirst({",
+    "reason": "findFirst executed without detected immediate tenant boundary assertion"
+  },
+  {
+    "type": "WARNING",
+    "file": "apps/api/src/modules/policies/controllers/renewals.controller.ts",
+    "line": 207,
+    "operation": "update",
+    "model": "RenewalTask",
+    "snippet": "const updated = await this.prisma.renewalTask.update({",
+    "reason": "update executed without detected immediate tenant boundary assertion"
+  },
+  {
+    "type": "WARNING",
+    "file": "apps/api/src/modules/policies/repositories/policy.repository.ts",
+    "line": 85,
+    "operation": "findFirst",
+    "model": "Policy",
+    "snippet": "return this.prisma.policy.findFirst({",
+    "reason": "findFirst executed without detected immediate tenant boundary assertion"
+  },
+  {
+    "type": "WARNING",
+    "file": "apps/api/src/modules/policies/repositories/policy.repository.ts",
+    "line": 96,
+    "operation": "findFirst",
+    "model": "Policy",
+    "snippet": "return this.prisma.policy.findFirst({",
+    "reason": "findFirst executed without detected immediate tenant boundary assertion"
+  },
+  {
+    "type": "WARNING",
+    "file": "apps/api/src/modules/policies/repositories/policy.repository.ts",
+    "line": 105,
+    "operation": "findFirst",
+    "model": "Policy",
+    "snippet": "return this.prisma.policy.findFirst({",
+    "reason": "findFirst executed without detected immediate tenant boundary assertion"
+  },
+  {
+    "type": "WARNING",
+    "file": "apps/api/src/modules/policies/repositories/policy.repository.ts",
+    "line": 134,
+    "operation": "update",
+    "model": "Policy",
+    "snippet": "await this.prisma.policy.update({",
+    "reason": "update executed without detected immediate tenant boundary assertion"
+  },
+  {
+    "type": "WARNING",
+    "file": "apps/api/src/modules/policies/services/commands/issue-policy.service.ts",
+    "line": 110,
+    "operation": "findUnique",
+    "model": "MotorPaymentRecord",
+    "snippet": "const paymentRecord = await this.prisma.motorPaymentRecord.findUnique({",
+    "reason": "findUnique executed without detected immediate tenant boundary assertion"
+  },
+  {
+    "type": "WARNING",
+    "file": "apps/api/src/modules/policies/services/renewal-engine.service.ts",
+    "line": 42,
+    "operation": "findUnique",
+    "model": "Policy",
+    "snippet": "const policy = await this.prisma.policy.findUnique({",
+    "reason": "findUnique executed without detected immediate tenant boundary assertion"
+  },
+  {
+    "type": "WARNING",
+    "file": "apps/api/src/modules/policies/services/renewal-engine.service.ts",
+    "line": 49,
+    "operation": "upsert",
+    "model": "RenewalTask",
+    "snippet": "await this.prisma.renewalTask.upsert({",
+    "reason": "upsert executed without detected immediate tenant boundary assertion"
+  },
+  {
+    "type": "WARNING",
+    "file": "apps/api/src/modules/policies/services/renewal-engine.service.ts",
+    "line": 67,
+    "operation": "findUnique",
+    "model": "Policy",
+    "snippet": "const policy = await this.prisma.policy.findUnique({",
+    "reason": "findUnique executed without detected immediate tenant boundary assertion"
+  },
+  {
+    "type": "WARNING",
+    "file": "apps/api/src/modules/policies/services/renewal-engine.service.ts",
+    "line": 349,
+    "operation": "findUnique",
+    "model": "Policy",
+    "snippet": "const policy = await this.prisma.policy.findUnique({",
+    "reason": "findUnique executed without detected immediate tenant boundary assertion"
+  },
+  {
+    "type": "WARNING",
+    "file": "apps/api/src/modules/policies/services/renewal-engine.service.ts",
+    "line": 376,
+    "operation": "findUnique",
+    "model": "Policy",
+    "snippet": "const policy = await this.prisma.policy.findUnique({",
+    "reason": "findUnique executed without detected immediate tenant boundary assertion"
+  },
+  {
+    "type": "WARNING",
+    "file": "apps/api/src/modules/policies/services/renewal-engine.service.ts",
+    "line": 384,
+    "operation": "findFirst",
+    "model": "RenewalTask",
+    "snippet": "const existingTask = await this.prisma.renewalTask.findFirst({",
+    "reason": "findFirst executed without detected immediate tenant boundary assertion"
+  },
+  {
+    "type": "WARNING",
+    "file": "apps/api/src/modules/policies/services/renewal-engine.service.ts",
+    "line": 389,
+    "operation": "update",
+    "model": "RenewalTask",
+    "snippet": "await this.prisma.renewalTask.update({",
+    "reason": "update executed without detected immediate tenant boundary assertion"
+  },
+  {
+    "type": "WARNING",
+    "file": "apps/api/src/modules/proposal/services/proposal.service.ts",
+    "line": 477,
+    "operation": "findFirst",
+    "model": "Policy",
+    "snippet": "const policy = await this.prisma.policy.findFirst({",
+    "reason": "findFirst executed without detected immediate tenant boundary assertion"
+  },
+  {
+    "type": "WARNING",
+    "file": "apps/api/src/modules/quotation/repositories/quotation.repository.ts",
+    "line": 109,
+    "operation": "findFirst",
+    "model": "Quotation",
+    "snippet": "return this.prisma.quotation.findFirst({",
+    "reason": "findFirst executed without detected immediate tenant boundary assertion"
+  },
+  {
+    "type": "WARNING",
+    "file": "apps/api/src/modules/quotation/repositories/quotation.repository.ts",
+    "line": 138,
+    "operation": "update",
+    "model": "Quotation",
+    "snippet": "await this.prisma.quotation.update({",
+    "reason": "update executed without detected immediate tenant boundary assertion"
+  },
+  {
+    "type": "WARNING",
+    "file": "apps/api/src/modules/quotation/services/queries/quotation-completion.service.ts",
+    "line": 451,
+    "operation": "update",
+    "model": "Contact",
+    "snippet": "await this.prisma.contact.update({",
+    "reason": "update executed without detected immediate tenant boundary assertion"
+  },
+  {
+    "type": "WARNING",
+    "file": "apps/api/src/modules/quotation/services/queries/quotation-completion.service.ts",
+    "line": 535,
+    "operation": "update",
+    "model": "Quotation",
+    "snippet": "await this.prisma.quotation.update({",
+    "reason": "update executed without detected immediate tenant boundary assertion"
+  },
+  {
+    "type": "WARNING",
+    "file": "apps/api/src/modules/quotation/services/queries/quotation-completion.service.ts",
+    "line": 545,
+    "operation": "update",
+    "model": "Quotation",
+    "snippet": "await this.prisma.quotation.update({",
+    "reason": "update executed without detected immediate tenant boundary assertion"
+  },
+  {
+    "type": "WARNING",
+    "file": "apps/api/src/modules/tasks/tasks.service.ts",
+    "line": 382,
+    "operation": "findFirst",
+    "model": "BackOfficeTask",
+    "snippet": "const task = await this.prisma.backOfficeTask.findFirst({",
+    "reason": "findFirst executed without detected immediate tenant boundary assertion"
+  },
+  {
+    "type": "WARNING",
+    "file": "apps/api/src/modules/tasks/tasks.service.ts",
+    "line": 459,
+    "operation": "update",
+    "model": "BackOfficeTask",
+    "snippet": "return this.prisma.backOfficeTask.update({",
+    "reason": "update executed without detected immediate tenant boundary assertion"
+  },
+  {
+    "type": "WARNING",
+    "file": "apps/api/src/modules/tasks/tasks.service.ts",
+    "line": 480,
+    "operation": "update",
+    "model": "BackOfficeTask",
+    "snippet": "return this.prisma.backOfficeTask.update({",
+    "reason": "update executed without detected immediate tenant boundary assertion"
+  },
+  {
+    "type": "WARNING",
+    "file": "apps/api/src/modules/workspace/services/lead-workflow.service.ts",
+    "line": 35,
+    "operation": "findUnique",
+    "model": "Lead",
+    "snippet": "const lead = await this.prisma.lead.findUnique({",
+    "reason": "findUnique executed without detected immediate tenant boundary assertion"
+  },
+  {
+    "type": "WARNING",
+    "file": "apps/api/src/modules/workspace/services/lead-workflow.service.ts",
+    "line": 171,
+    "operation": "findUnique",
+    "model": "Lead",
+    "snippet": "const lead = await this.prisma.lead.findUnique({",
+    "reason": "findUnique executed without detected immediate tenant boundary assertion"
+  },
+  {
+    "type": "WARNING",
+    "file": "apps/api/src/modules/workspace/services/lead-workflow.service.ts",
+    "line": 245,
+    "operation": "update",
+    "model": "Lead",
+    "snippet": "const updatedLead = await this.prisma.lead.update({",
+    "reason": "update executed without detected immediate tenant boundary assertion"
+  },
+  {
+    "type": "WARNING",
+    "file": "apps/api/src/modules/workspace/services/referral.service.ts",
+    "line": 113,
+    "operation": "findUnique",
+    "model": "Lead",
+    "snippet": "const lead = await this.prisma.lead.findUnique({ where: { id: leadId } });",
+    "reason": "findUnique executed without detected immediate tenant boundary assertion"
+  },
+  {
+    "type": "WARNING",
+    "file": "apps/api/src/modules/workspace/services/referral.service.ts",
+    "line": 116,
+    "operation": "update",
+    "model": "Lead",
+    "snippet": "return this.prisma.lead.update({",
+    "reason": "update executed without detected immediate tenant boundary assertion"
+  }
+]

@@ -28,25 +28,57 @@ export class DashboardAnalyticsService {
     @Inject(CACHE_PROVIDER_TOKEN) private readonly cache: RedisCacheService,
   ) {}
 
-  async getDashboardData(role: string, userId: string) {
-    const cacheKey = `dashboard:analytics:${userId}:${role}`;
+  async getDashboardData(
+    role: string,
+    userId: string,
+    companyId?: string,
+  ) {
+    let effectiveCompanyId = companyId;
+    if (!effectiveCompanyId) {
+      const userRec = this.prisma.user?.findUnique
+        ? await this.prisma.user.findUnique({ where: { id: userId } })
+        : null;
+      effectiveCompanyId = userRec?.companyId;
+    }
+
+    const tenantPrefix = effectiveCompanyId ? `tenant:${effectiveCompanyId}:` : '';
+    const cacheKey = `${tenantPrefix}dashboard:analytics:${userId}:${role}`;
     const cached = await this.cache.get(cacheKey);
     if (cached) return cached;
 
-    const result = await this.computeDashboardData(role, userId);
+    const result = await this.computeDashboardData(
+      role,
+      userId,
+      effectiveCompanyId,
+    );
     await this.cache.set(cacheKey, result, 300); // 5 min TTL
     return result;
   }
 
-  async clearDashboardCache(userId: string) {
-    await this.cache.clear(`dashboard:analytics:${userId}`);
+  async clearDashboardCache(userId: string, companyId?: string) {
+    const tenantPrefix = companyId ? `tenant:${companyId}:` : '';
+    await this.cache.clear(`${tenantPrefix}dashboard:analytics:${userId}`);
   }
 
-  private async computeDashboardData(role: string, userId: string) {
-    const userRec = this.prisma.user?.findUnique
-      ? await this.prisma.user.findUnique({ where: { id: userId } })
-      : null;
-    const actor: any = { id: userId, role, organizationId: userRec?.companyId };
+  private async computeDashboardData(
+    role: string,
+    userId: string,
+    companyId?: string,
+  ) {
+    let effectiveCompanyId = companyId;
+    if (!effectiveCompanyId) {
+      const userRec = this.prisma.user?.findUnique
+        ? await this.prisma.user.findUnique({ where: { id: userId } })
+        : null;
+      effectiveCompanyId = userRec?.companyId;
+    }
+    const actor: any = {
+      id: userId,
+      userId,
+      role,
+      companyId: effectiveCompanyId,
+      organizationId: effectiveCompanyId,
+    };
 
     const [revenue, leads, policies, claims, renewals, quotations] =
       await Promise.all([
@@ -58,25 +90,39 @@ export class DashboardAnalyticsService {
         this.quotationAnalytics.getOverview(actor),
       ]);
 
-    // Live Renewal Conversion Rate (Zero Hardcoding)
+    // Live Renewal Conversion Rate Scoped by Company
+    const renewalWhere = effectiveCompanyId
+      ? { policy: { companyId: effectiveCompanyId } }
+      : {};
     const [totalRenewalTasks, completedRenewalTasks] = await Promise.all([
-      this.prisma.renewalTask.count(),
-      this.prisma.renewalTask.count({ where: { status: 'COMPLETED' } }),
+      this.prisma.renewalTask.count({ where: renewalWhere }),
+      this.prisma.renewalTask.count({
+        where: { status: 'COMPLETED', ...renewalWhere },
+      }),
     ]);
     const liveRenewalRate =
       totalRenewalTasks > 0
         ? `${((completedRenewalTasks / totalRenewalTasks) * 100).toFixed(1)}%`
         : '0.0%';
 
-    // Live Loss Ratio (Zero Hardcoding)
+    // Live Loss Ratio Scoped by Company
     const [claimsSettledAgg, totalGwpAgg] = await Promise.all([
       this.prisma.claim.aggregate({
         _sum: { claimAmount: true },
-        where: { status: 'SETTLED', deletedAt: null },
+        where: {
+          status: 'SETTLED',
+          deletedAt: null,
+          ...(effectiveCompanyId ? { companyId: effectiveCompanyId } : {}),
+        },
       }),
       this.prisma.policyPayment.aggregate({
         _sum: { amount: true },
-        where: { status: 'SUCCESS' },
+        where: {
+          status: 'SUCCESS',
+          ...(effectiveCompanyId
+            ? { policy: { companyId: effectiveCompanyId } }
+            : {}),
+        },
       }),
     ]);
     const settledAmount = Number(claimsSettledAgg._sum?.claimAmount || 0);
@@ -86,10 +132,13 @@ export class DashboardAnalyticsService {
         ? `${((settledAmount / totalGwp) * 100).toFixed(1)}%`
         : '0.0%';
 
-    // Fetch activities from the database
+    // Fetch activities scoped by Company
     const recentActivities = await this.prisma.activity.findMany({
       take: 5,
       orderBy: { createdAt: 'desc' },
+      where: effectiveCompanyId
+        ? { lead: { companyId: effectiveCompanyId } }
+        : {},
       include: { lead: true },
     });
 
@@ -261,10 +310,11 @@ export class DashboardAnalyticsService {
   }
 
   /**
-   * Aggregates Gross Written Premium (GWP) by Branch.
+   * Aggregates Gross Written Premium (GWP) by Branch scoped by company.
    */
-  async getBranchGwpBreakdown() {
+  async getBranchGwpBreakdown(companyId?: string) {
     const branches = await this.prisma.branch.findMany({
+      where: companyId ? { zone: { region: { companyId } } } : {},
       select: {
         id: true,
         name: true,
@@ -272,7 +322,11 @@ export class DashboardAnalyticsService {
         users: {
           select: {
             policiesCreated: {
-              where: { status: PolicyStatus.ACTIVE, deletedAt: null },
+              where: {
+                status: PolicyStatus.ACTIVE,
+                deletedAt: null,
+                ...(companyId ? { companyId } : {}),
+              },
               select: { premiumAmount: true },
             },
           },
@@ -302,11 +356,15 @@ export class DashboardAnalyticsService {
   }
 
   /**
-   * Computes Insurer Market Share and Volume Distribution.
+   * Computes Insurer Market Share and Volume Distribution scoped by company.
    */
-  async getInsurerMarketShare() {
+  async getInsurerMarketShare(companyId?: string) {
     const policies = await this.prisma.policy.findMany({
-      where: { status: PolicyStatus.ACTIVE, deletedAt: null },
+      where: {
+        status: PolicyStatus.ACTIVE,
+        deletedAt: null,
+        ...(companyId ? { companyId } : {}),
+      },
       select: {
         premiumAmount: true,
         quotation: { select: { insurerName: true } },
@@ -332,18 +390,19 @@ export class DashboardAnalyticsService {
   }
 
   /**
-   * Generates real sales agent leaderboard ranked by Gross Written Premium.
+   * Generates real sales agent leaderboard ranked by Gross Written Premium scoped by company.
    */
-  async getSalesLeaderboard(limit = 10) {
+  async getSalesLeaderboard(limit = 10, companyId?: string) {
     const agents = await this.prisma.user.findMany({
       where: {
         status: UserStatus.ACTIVE,
         role: {
           type: {
-            in: [RoleType.AGENT, RoleType.AGENT, RoleType.AGENT],
+            in: [RoleType.AGENT],
           },
         },
         deletedAt: null,
+        ...(companyId ? { companyId } : {}),
       },
       select: {
         id: true,
@@ -351,11 +410,19 @@ export class DashboardAnalyticsService {
         lastName: true,
         email: true,
         policiesCreated: {
-          where: { status: PolicyStatus.ACTIVE, deletedAt: null },
+          where: {
+            status: PolicyStatus.ACTIVE,
+            deletedAt: null,
+            ...(companyId ? { companyId } : {}),
+          },
           select: { premiumAmount: true },
         },
         leadsAssigned: {
-          where: { status: 'CONVERTED' as any, deletedAt: null },
+          where: {
+            status: 'CONVERTED' as any,
+            deletedAt: null,
+            ...(companyId ? { companyId } : {}),
+          },
           select: { id: true },
         },
       },

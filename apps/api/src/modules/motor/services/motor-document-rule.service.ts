@@ -194,6 +194,7 @@ export class MotorDocumentRuleService {
         where: {
           entityType: 'LEAD',
           entityId: leadId,
+          ...(actorCompanyId ? { companyId: actorCompanyId } : {}),
           deletedAt: null,
         },
       }),

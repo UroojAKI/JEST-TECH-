@@ -9,6 +9,7 @@ export class CreateReportCommand {
   constructor(
     public readonly dto: CreateReportDto,
     public readonly userId: string,
+    public readonly companyId?: string | null,
   ) {}
 }
 
@@ -40,6 +41,7 @@ export class CreateScheduleCommand {
   constructor(
     public readonly reportId: string,
     public readonly dto: CreateScheduleDto,
+    public readonly companyId?: string | null,
   ) {}
 }
 

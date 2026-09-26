@@ -1,0 +1,58 @@
+[
+  {
+    "file": "apps/api/src/modules/motor/services/tariff.service.ts",
+    "operation": "findMany",
+    "model": "TariffRate",
+    "reason": "Global system statutory tariff table has no tenant affinity",
+    "approvedBy": "platform-security-lead",
+    "reviewAfter": "2027-01-01"
+  },
+  {
+    "file": "apps/api/src/modules/auth/services/tenant-resource-authorization.service.ts",
+    "operation": "findUnique",
+    "model": "User",
+    "reason": "Authoritative gate resolving user to verify tenant ownership",
+    "approvedBy": "platform-security-lead",
+    "reviewAfter": "2027-01-01"
+  },
+  {
+    "file": "apps/api/src/modules/platform/reporting/services/scheduler.service.ts",
+    "operation": "findMany",
+    "model": "ReportSchedule",
+    "reason": "Global system cron scheduler polling active schedules across tenants with per-schedule tenant isolation",
+    "approvedBy": "platform-security-lead",
+    "reviewAfter": "2027-01-01"
+  },
+  {
+    "file": "apps/api/src/modules/platform/notifications/services/renewal-scheduler.service.ts",
+    "operation": "findMany",
+    "model": "Policy",
+    "reason": "Global system cron dispatcher polling expiring policies across tenants to create renewal tasks",
+    "approvedBy": "platform-security-lead",
+    "reviewAfter": "2027-01-01"
+  },
+  {
+    "file": "apps/api/src/modules/platform/notifications/services/renewal-scheduler.service.ts",
+    "operation": "findMany",
+    "model": "RenewalTask",
+    "reason": "Global system cron dispatcher polling overdue renewal tasks across tenants for escalation",
+    "approvedBy": "platform-security-lead",
+    "reviewAfter": "2027-01-01"
+  },
+  {
+    "file": "apps/api/src/modules/leads/sla/services/sla-monitor/sla-monitor.service.ts",
+    "operation": "findMany",
+    "model": "Lead",
+    "reason": "Global system cron evaluating SLA first response breaches across all uncontacted leads",
+    "approvedBy": "platform-security-lead",
+    "reviewAfter": "2027-01-01"
+  },
+  {
+    "file": "apps/api/src/modules/customer/analytics/services/customer-analytics-cron/customer-analytics-cron.service.ts",
+    "operation": "findMany",
+    "model": "Contact",
+    "reason": "Nightly system analytics cron iterating contacts across tenants for metric calculation",
+    "approvedBy": "platform-security-lead",
+    "reviewAfter": "2027-01-01"
+  }
+]

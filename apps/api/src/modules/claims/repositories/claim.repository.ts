@@ -98,10 +98,17 @@ export class ClaimRepository {
     where?: Prisma.ClaimWhereInput,
     orderBy?: Prisma.ClaimOrderByWithRelationInput,
   ): Promise<ClaimWithRelations[]> {
+    const { organizationId, ...safeWhere } = (where || {}) as any;
+    const companyId = safeWhere.companyId || organizationId;
+    const finalWhere = {
+      ...safeWhere,
+      ...(companyId ? { companyId } : {}),
+      deletedAt: null,
+    };
     return this.prisma.claim.findMany({
       skip,
       take,
-      where: { ...where, deletedAt: null },
+      where: finalWhere,
       include: {
         policy: true,
         contact: true,
@@ -115,8 +122,15 @@ export class ClaimRepository {
   }
 
   async count(where?: Prisma.ClaimWhereInput): Promise<number> {
+    const { organizationId, ...safeWhere } = (where || {}) as any;
+    const companyId = safeWhere.companyId || organizationId;
+    const finalWhere = {
+      ...safeWhere,
+      ...(companyId ? { companyId } : {}),
+      deletedAt: null,
+    };
     return this.prisma.claim.count({
-      where: { ...where, deletedAt: null },
+      where: finalWhere,
     });
   }
 

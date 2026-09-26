@@ -29,44 +29,59 @@ export class DashboardController {
   getDashboard(@CurrentUser() user: RequestUser) {
     // DEF-002 fix: role is sourced exclusively from the authenticated JWT token.
     // Client-supplied role query parameters are NEVER accepted to prevent privilege escalation.
-    return this.dashboardService.getDashboard(user.role, user.id);
+    const companyId = user.companyId || user.organizationId;
+    return this.dashboardService.getDashboard(user.role, user.id, companyId);
   }
 
   @Get('admin')
   @Roles(RoleType.ADMIN)
   getAdminDashboard(@CurrentUser() user: RequestUser) {
-    return this.dashboardService.getDashboard(RoleType.ADMIN, user.id);
+    const companyId = user.companyId || user.organizationId;
+    return this.dashboardService.getDashboard(RoleType.ADMIN, user.id, companyId);
   }
 
   @Get('back-office')
   @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE)
   getBackOfficeDashboard(@CurrentUser() user: RequestUser) {
-    return this.dashboardService.getDashboard(RoleType.BACK_OFFICE, user.id);
+    const companyId = user.companyId || user.organizationId;
+    return this.dashboardService.getDashboard(
+      RoleType.BACK_OFFICE,
+      user.id,
+      companyId,
+    );
   }
 
   @Get('agent')
   @Roles(RoleType.AGENT)
   getAgentDashboard(@CurrentUser() user: RequestUser) {
-    return this.dashboardService.getDashboard(RoleType.AGENT, user.id);
+    const companyId = user.companyId || user.organizationId;
+    return this.dashboardService.getDashboard(RoleType.AGENT, user.id, companyId);
   }
 
   @Get('management/branch-gwp')
   @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE)
-  getBranchGwpBreakdown() {
-    return this.dashboardService.getBranchGwpBreakdown();
+  getBranchGwpBreakdown(@CurrentUser() user: RequestUser) {
+    const companyId = user.companyId || user.organizationId;
+    return this.dashboardService.getBranchGwpBreakdown(companyId);
   }
 
   @Get('management/insurers')
   @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE)
-  getInsurerMarketShare() {
-    return this.dashboardService.getInsurerMarketShare();
+  getInsurerMarketShare(@CurrentUser() user: RequestUser) {
+    const companyId = user.companyId || user.organizationId;
+    return this.dashboardService.getInsurerMarketShare(companyId);
   }
 
   @Get('management/leaderboard')
   @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE)
-  getSalesLeaderboard(@Query('limit') limit?: string) {
+  getSalesLeaderboard(
+    @CurrentUser() user: RequestUser,
+    @Query('limit') limit?: string,
+  ) {
+    const companyId = user.companyId || user.organizationId;
     return this.dashboardService.getSalesLeaderboard(
       limit ? parseInt(limit, 10) : 10,
+      companyId,
     );
   }
 }

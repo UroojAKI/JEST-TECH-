@@ -6,8 +6,8 @@
   ],
   "title": "Discount limit enforcement & Branch Manager approval gate",
   "remediatingEpic": "EPIC-17",
-  "implementationCommit": "278d08999f30bd4f569124d54e0347a1ec4adfce",
-  "testCommit": "278d08999f30bd4f569124d54e0347a1ec4adfce",
+  "implementationCommit": "a341a4b28eca44e6a15518506bb0342360c47c9d",
+  "testCommit": "a341a4b28eca44e6a15518506bb0342360c47c9d",
   "environment": "staging",
   "environmentBuild": "v4.2.0-prod-rebuild",
   "databaseMigrationVersion": "20260908_epic05_schema_invariants",
@@ -20,5 +20,5 @@
   "alternatePathTestPath": "src/common/certification/prod-gates.spec.ts#PROD-006-alt",
   "result": "PASS",
   "reviewer": "Lead Systems Architect & Security Auditor",
-  "timestamp": "2026-09-11T08:01:29.256Z"
+  "timestamp": "2026-09-26T21:19:58.624Z"
 }

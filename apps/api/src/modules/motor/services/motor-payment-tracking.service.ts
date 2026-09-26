@@ -1,10 +1,12 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Injectable,
   Logger,
   NotFoundException,
 } from '@nestjs/common';
+import { createHash } from 'crypto';
 import { PrismaService } from '../../../database/prisma.service';
 import {
   PaymentTrackingStatus,
@@ -24,6 +26,7 @@ export interface RecordPaymentDto {
   notes?: string;
   recordedById?: string;
   recordedByRole?: string;
+  idempotencyKey?: string;
 }
 
 const PAYMENT_TRANSITIONS: Record<string, string[]> = {
@@ -163,7 +166,55 @@ export class MotorPaymentTrackingService {
       }
     }
 
+    const requestHash = dto.idempotencyKey
+      ? createHash('sha256')
+          .update(
+            JSON.stringify({
+              quotationId: dto.quotationId,
+              amount: dto.amount,
+              referenceNumber: dto.referenceNumber,
+              status: dto.status,
+            }),
+          )
+          .digest('hex')
+      : null;
+
     const payment = await this.prisma.$transaction(async (tx) => {
+      if (dto.idempotencyKey && requestHash) {
+        const actorId = dto.recordedById || 'SYSTEM';
+        const companyId = quotation.companyId;
+
+        const existingKey = await (tx as any).idempotencyKey.findFirst({
+          where: {
+            companyId,
+            actorId,
+            operationType: 'MOTOR_PAYMENT',
+            idempotencyKey: dto.idempotencyKey,
+          },
+        });
+
+        if (existingKey) {
+          if (existingKey.requestHash !== requestHash) {
+            throw new ConflictException(
+              'IDEMPOTENCY_KEY_REUSE_MISMATCH: Idempotency key already used for a different payload',
+            );
+          }
+          if (existingKey.status === 'SUCCEEDED' && existingKey.responsePayload) {
+            return existingKey.responsePayload as any;
+          }
+          if (existingKey.status === 'IN_PROGRESS') {
+            throw new ConflictException(
+              'OPERATION_IN_PROGRESS: A request with this idempotency key is currently processing',
+            );
+          }
+          if (existingKey.status === 'FAILED_FINAL') {
+            throw new BadRequestException(
+              'IDEMPOTENCY_FINAL_FAILURE: This operation permanently failed and cannot be retried',
+            );
+          }
+        }
+      }
+
       const paymentRecord = await tx.motorPaymentRecord.upsert({
         where: { quotationId: dto.quotationId },
         create: {
@@ -224,6 +275,41 @@ export class MotorPaymentTrackingService {
           },
         },
       });
+
+      if (dto.idempotencyKey && requestHash) {
+        const actorId = dto.recordedById || 'SYSTEM';
+        const companyId = quotation.companyId;
+        const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+        await (tx as any).idempotencyKey.upsert({
+          where: {
+            companyId_actorId_operationType_idempotencyKey: {
+              companyId,
+              actorId,
+              operationType: 'MOTOR_PAYMENT',
+              idempotencyKey: dto.idempotencyKey,
+            },
+          },
+          create: {
+            companyId,
+            actorId,
+            operationType: 'MOTOR_PAYMENT',
+            resourceId: dto.quotationId,
+            idempotencyKey: dto.idempotencyKey,
+            requestHash,
+            status: 'SUCCEEDED',
+            responseStatus: 200,
+            responsePayload: paymentRecord as any,
+            expiresAt,
+          },
+          update: {
+            resourceId: dto.quotationId,
+            requestHash,
+            status: 'SUCCEEDED',
+            responseStatus: 200,
+            responsePayload: paymentRecord as any,
+          },
+        });
+      }
 
       return paymentRecord;
     });

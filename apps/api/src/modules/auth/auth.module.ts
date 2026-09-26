@@ -12,6 +12,7 @@ import { TokenService } from './services/token.service';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { PermissionsGuard } from './guards/permissions.guard';
 import { AuthorizationVersionService } from './services/authorization-version.service';
+import { TenantResourceAuthorizationService } from './services/tenant-resource-authorization.service';
 
 @Module({
   imports: [
@@ -39,6 +40,7 @@ import { AuthorizationVersionService } from './services/authorization-version.se
     JwtStrategy,
     PermissionsGuard,
     AuthorizationVersionService,
+    TenantResourceAuthorizationService,
   ],
 
   exports: [
@@ -47,6 +49,7 @@ import { AuthorizationVersionService } from './services/authorization-version.se
     PassportModule,
     PermissionsGuard,
     AuthorizationVersionService,
+    TenantResourceAuthorizationService,
   ],
 })
 export class AuthModule {}

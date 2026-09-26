@@ -20,6 +20,18 @@ export class MotorAddonInputDto {
   @IsNumber()
   @Min(0)
   manualPrice?: number;
+
+  @IsOptional()
+  @IsString()
+  approvalReference?: string;
+
+  @IsOptional()
+  @IsString()
+  approvedBy?: string;
+
+  @IsOptional()
+  @IsString()
+  overrideReason?: string;
 }
 
 export class MotorCalculationInputDto {

@@ -259,5 +259,81 @@ describe('MotorCalculationService (Iteration 5 Financial Math)', () => {
       expect(result.authoritativeDates.effectiveStartDate).toBeDefined();
       expect(result.authoritativeDates.effectiveEndDate).toBeDefined();
     });
+
+    it('PHASE 7: should reject add-on manual price override without approvalReference and approvedBy', async () => {
+      await expect(
+        service.calculate({
+          vehicleCategory: 'PRIVATE_CAR',
+          vehicleStatus: 'EXISTING',
+          policyType: 'PACKAGE_COMPREHENSIVE',
+          idv: 500000,
+          addons: [{ addonCode: 'RSA', manualPrice: 300 }],
+        }),
+      ).rejects.toThrow('Untrusted manual pricing is prohibited');
+    });
+
+    it('PHASE 7: should allow add-on manual price override with approvals and deviation <= 50%', async () => {
+      // RSA standard is 499. Manual 400 is ~20% deviation (within 50% max)
+      const result: any = await service.calculate({
+        vehicleCategory: 'PRIVATE_CAR',
+        vehicleStatus: 'EXISTING',
+        policyType: 'PACKAGE_COMPREHENSIVE',
+        idv: 500000,
+        addons: [
+          {
+            addonCode: 'RSA',
+            manualPrice: 400,
+            approvalReference: 'APP-RSA-01',
+            approvedBy: 'mgr-user',
+          },
+        ],
+      });
+      expect(result.outputs.addonPremium).toBe(400);
+    });
+
+    it('PHASE 7: should reject add-on manual price override exceeding 50% deviation', async () => {
+      // RSA standard is 499. Manual 100 is ~80% deviation (exceeds 50% max)
+      await expect(
+        service.calculate({
+          vehicleCategory: 'PRIVATE_CAR',
+          vehicleStatus: 'EXISTING',
+          policyType: 'PACKAGE_COMPREHENSIVE',
+          idv: 500000,
+          addons: [
+            {
+              addonCode: 'RSA',
+              manualPrice: 100,
+              approvalReference: 'APP-RSA-01',
+              approvedBy: 'mgr-user',
+            },
+          ],
+        }),
+      ).rejects.toThrow('exceeds maximum allowable deviation of 50%');
+    });
+
+    it('PHASE 9: should reject 100% TP discount per IRDAI statutory regulations', async () => {
+      await expect(
+        service.calculate({
+          vehicleCategory: 'PRIVATE_CAR',
+          vehicleStatus: 'EXISTING',
+          policyType: 'THIRD_PARTY_ONLY',
+          tpDiscountPercent: 100,
+          approvalReference: 'APP-100',
+        }),
+      ).rejects.toThrow(
+        '100% TP discounts are strictly prohibited per IRDAI statutory regulations.',
+      );
+    });
+
+    it('should reject negative parameter submissions', async () => {
+      await expect(
+        service.calculate({
+          vehicleCategory: 'PRIVATE_CAR',
+          vehicleStatus: 'EXISTING',
+          policyType: 'THIRD_PARTY_ONLY',
+          tpDiscountPercent: -5,
+        }),
+      ).rejects.toThrow('Negative premium, IDV, or discount parameters are disallowed.');
+    });
   });
 });

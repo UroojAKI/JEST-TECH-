@@ -1,5 +1,11 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { PrismaService } from '../../../../database/prisma.service';
+import { ActorContext } from '../../../../common/interfaces/actor-context.interface';
+import { RequestUser } from '../../../auth/decorators/current-user.decorator';
 import {
   InspectionStatus,
   MotorWorkflowState,
@@ -40,6 +46,7 @@ export class QuotationCompletionService {
 
   async getCompletion(
     quotationIdOrCode: string,
+    actor?: ActorContext | RequestUser,
   ): Promise<QuotationCompletionResult> {
     const isUUID =
       /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
@@ -68,6 +75,13 @@ export class QuotationCompletionService {
 
     if (!quotation) {
       throw new NotFoundException(`Quotation ${quotationIdOrCode} not found`);
+    }
+
+    if (actor?.companyId && quotation.companyId !== actor.companyId) {
+      throw new ForbiddenException({
+        code: 'CROSS_TENANT_ACCESS_FORBIDDEN',
+        message: 'Access denied: You cannot view quotation details belonging to another company tenant.',
+      });
     }
 
     return this.evaluateQuotationCompletion(quotation);
@@ -393,6 +407,7 @@ export class QuotationCompletionService {
   async updateDetails(
     quotationId: string,
     updates: Record<string, any>,
+    actor?: ActorContext | RequestUser,
   ): Promise<QuotationCompletionResult> {
     const quotation = await this.prisma.quotation.findUnique({
       where: { id: quotationId },
@@ -409,6 +424,13 @@ export class QuotationCompletionService {
 
     if (!quotation) {
       throw new NotFoundException(`Quotation '${quotationId}' not found`);
+    }
+
+    if (actor?.companyId && quotation.companyId !== actor.companyId) {
+      throw new ForbiddenException({
+        code: 'CROSS_TENANT_ACCESS_FORBIDDEN',
+        message: 'Access denied: You cannot mutate quotations belonging to another company tenant.',
+      });
     }
 
     // 1. Update Contact fields
@@ -474,10 +496,29 @@ export class QuotationCompletionService {
             vehicleCode = `VEH-${year}-${String(count + 1).padStart(6, '0')}`;
           }
         }
+        const validCategories = [
+          'BIKE',
+          'PRIVATE_CAR',
+          'GCV',
+          'TRACTOR',
+          'AUTO',
+          'TAXI',
+          'BUS_COACH',
+          'MISC_CLASS_D',
+        ];
+        const rawCategory =
+          updates.category ||
+          (quotation as any).vehicleCategory ||
+          ((quotation.motorMetadata as any)?.vehicleDetails?.category) ||
+          'PRIVATE_CAR';
+        const derivedCategory = validCategories.includes(rawCategory)
+          ? rawCategory
+          : 'PRIVATE_CAR';
+
         const newVehicle = await this.prisma.vehicle.create({
           data: {
             vehicleCode,
-            category: 'PRIVATE_CAR',
+            category: derivedCategory as any,
             registrationNumber:
               updates.registrationNumber ||
               quotation.registrationNumber ||

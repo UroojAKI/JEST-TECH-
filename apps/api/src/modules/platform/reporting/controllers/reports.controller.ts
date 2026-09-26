@@ -9,6 +9,8 @@ import {
   Query,
   Res,
   UseGuards,
+  ForbiddenException,
+  NotFoundException,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
@@ -17,6 +19,7 @@ import { PermissionsGuard } from '../../../auth/guards/permissions.guard';
 import { RequirePermissions } from '../../../auth/decorators/permissions.decorator';
 import { CurrentUser } from '../../../auth/decorators/current-user.decorator';
 import type { RequestUser } from '../../../auth/decorators/current-user.decorator';
+import { PrismaService } from '../../../../database/prisma.service';
 import { ReportCommandsService } from '../commands/report-commands.service';
 import { ReportQueriesService } from '../queries/report-queries.service';
 import { ExportService } from '../services/export.service';
@@ -56,6 +59,7 @@ export class ReportsController {
     private readonly queries: ReportQueriesService,
     private readonly registry: ReportDataProviderRegistry,
     private readonly exporter: ExportService,
+    private readonly prisma: PrismaService,
   ) {}
 
   // --- CRUD Operations ---
@@ -138,34 +142,86 @@ export class ReportsController {
 
   @Get('schedules')
   @RequirePermissions('REPORT_SCHEDULE')
-  async getAllSchedules() {
-    return [
-      {
-        id: 'SCH-01',
-        reportName: 'Monthly Policy Sales Breakdown',
-        frequency: 'MONTHLY',
-        recipients: ['management@jestpolicy.com'],
-        format: 'PDF',
-        status: 'ACTIVE',
-      },
-      {
-        id: 'SCH-02',
-        reportName: 'Weekly Commission Settlement',
-        frequency: 'WEEKLY',
-        recipients: ['finance@jestpolicy.com'],
-        format: 'EXCEL',
-        status: 'ACTIVE',
-      },
-    ];
+  async getAllSchedules(@CurrentUser() user: RequestUser) {
+    const companyId = user.companyId || (user as any).organizationId;
+    const schedules = await this.prisma.reportSchedule.findMany({
+      where: companyId ? { companyId } : undefined,
+      include: { report: true },
+      orderBy: { id: 'desc' },
+    });
+    return schedules.map((s) => ({
+      id: s.id,
+      reportId: s.reportId,
+      reportName: s.report?.name || 'Automated Report',
+      frequency: s.frequency,
+      cronExpression: s.cronExpression,
+      timezone: s.timezone,
+      status: s.active ? 'ACTIVE' : 'INACTIVE',
+      nextRun: s.nextRun,
+    }));
   }
 
   @Post('schedules')
   @RequirePermissions('REPORT_SCHEDULE')
-  async createTopLevelSchedule(@Body() dto: CreateTopLevelScheduleDto) {
+  async createTopLevelSchedule(
+    @Body() dto: CreateTopLevelScheduleDto,
+    @CurrentUser() user: RequestUser,
+  ) {
+    const companyId = user.companyId || (user as any).organizationId;
+    let report = await this.prisma.report.findFirst({
+      where: {
+        ...(companyId ? { OR: [{ companyId }, { companyId: null }] } : {}),
+        status: 'ACTIVE',
+        deletedAt: null,
+      },
+    });
+
+    if (!report) {
+      report = await this.prisma.report.create({
+        data: {
+          name: dto.reportName || 'Automated Report',
+          code: `AUTO_REP_${Date.now()}`,
+          category: 'SALES',
+          module: 'LEADS',
+          type: 'TABULAR',
+          companyId,
+          createdById: user.id,
+        },
+      });
+    }
+
+    const freq =
+      dto.frequency === 'DAILY'
+        ? 'DAILY'
+        : dto.frequency === 'MONTHLY'
+          ? 'MONTHLY'
+          : 'WEEKLY';
+
+    const cron =
+      freq === 'DAILY'
+        ? '0 0 * * *'
+        : freq === 'MONTHLY'
+          ? '0 0 1 * *'
+          : '0 0 * * 1';
+
+    const schedule = await this.prisma.reportSchedule.create({
+      data: {
+        companyId,
+        reportId: report.id,
+        frequency: freq as any,
+        cronExpression: cron,
+        timezone: 'UTC',
+        active: true,
+      },
+      include: { report: true },
+    });
+
     return {
-      id: `SCH-${Date.now().toString().slice(-4)}`,
-      reportName: dto.reportName || 'Automated Report',
-      frequency: dto.frequency || 'WEEKLY',
+      id: schedule.id,
+      reportId: schedule.reportId,
+      reportName: schedule.report?.name || dto.reportName || 'Automated Report',
+      frequency: schedule.frequency,
+      cronExpression: schedule.cronExpression,
       recipients: dto.recipients || [],
       format: dto.format || 'PDF',
       status: 'ACTIVE',
@@ -175,23 +231,24 @@ export class ReportsController {
 
   @Get('history')
   @RequirePermissions('REPORT_VIEW')
-  async getAllHistory() {
-    return [
-      {
-        id: 'HIST-01',
-        reportName: 'Monthly Policy Sales Breakdown',
-        format: 'PDF',
-        generatedAt: new Date().toISOString(),
-        status: 'SUCCESS',
-      },
-      {
-        id: 'HIST-02',
-        reportName: 'Weekly Commission Settlement',
-        format: 'EXCEL',
-        generatedAt: new Date().toISOString(),
-        status: 'SUCCESS',
-      },
-    ];
+  async getAllHistory(@CurrentUser() user: RequestUser) {
+    const companyId = user.companyId || (user as any).organizationId;
+    const executions = await this.prisma.reportExecution.findMany({
+      where: companyId ? { companyId } : undefined,
+      include: { report: true },
+      orderBy: { startedAt: 'desc' },
+      take: 50,
+    });
+    return executions.map((e) => ({
+      id: e.id,
+      reportId: e.reportId,
+      reportName: e.report?.name || 'Report',
+      format: 'PDF',
+      generatedAt: e.startedAt?.toISOString() || new Date().toISOString(),
+      duration: e.duration,
+      recordCount: e.recordCount,
+      status: e.status === 'COMPLETED' ? 'SUCCESS' : e.status,
+    }));
   }
 
   @Get(':idOrCode')
@@ -334,8 +391,10 @@ export class ReportsController {
   async createSchedule(
     @Param('id') id: string,
     @Body() dto: CreateScheduleDto,
+    @CurrentUser() user: RequestUser,
   ) {
-    const command = new CreateScheduleCommand(id, dto);
+    const companyId = user.companyId || (user as any).organizationId;
+    const command = new CreateScheduleCommand(id, dto, companyId);
     return this.commands.handleCreateSchedule(command);
   }
 
@@ -351,7 +410,22 @@ export class ReportsController {
 
   @Delete('schedules/:scheduleId')
   @RequirePermissions('REPORT_SCHEDULE')
-  async deleteSchedule(@Param('scheduleId') scheduleId: string) {
+  async deleteSchedule(
+    @Param('scheduleId') scheduleId: string,
+    @CurrentUser() user: RequestUser,
+  ) {
+    const companyId = user.companyId || (user as any).organizationId;
+    const schedule = await this.prisma.reportSchedule.findUnique({
+      where: { id: scheduleId },
+    });
+    if (!schedule) {
+      throw new NotFoundException(`Schedule ${scheduleId} not found`);
+    }
+    if (companyId && schedule.companyId && schedule.companyId !== companyId) {
+      throw new ForbiddenException(
+        'Cross-organization schedule deletion is strictly prohibited',
+      );
+    }
     const command = new DeleteScheduleCommand(scheduleId);
     return this.commands.handleDeleteSchedule(command);
   }

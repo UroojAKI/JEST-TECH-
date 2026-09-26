@@ -200,5 +200,75 @@ describe('MotorPolicyIssuanceService (Iteration 8)', () => {
         service.issuePolicy('q-100', invalidDateDto, opsActor),
       ).rejects.toThrow(BadRequestException);
     });
+
+    it('PHASE 14: should safely reconcile state on crash recovery when policy exists with matching financials', async () => {
+      const opsActor = createActor(RoleType.BACK_OFFICE);
+      const recoveredQuote = {
+        ...validQuote,
+        policy: {
+          id: 'pol-recovered-1',
+          policyNumber: 'POL-REC-001',
+          premiumAmount: 17638.88,
+          startDate: new Date('2026-09-26'),
+        },
+      };
+      prisma.quotation.findUnique.mockResolvedValue(recoveredQuote);
+
+      const policy = await service.issuePolicy('q-100', validDto, opsActor);
+
+      expect(policy.id).toBe('pol-recovered-1');
+      expect(prisma.policy.create).not.toHaveBeenCalled();
+      expect(prisma.quotation.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'q-100' },
+          data: expect.objectContaining({
+            issuanceStatus: 'ISSUED',
+            status: 'CONVERTED_TO_POLICY',
+          }),
+        }),
+      );
+    });
+
+    it('PHASE 14: should transition quotation to ISSUANCE_MANUAL_REVIEW if existing policy has financial mismatch', async () => {
+      const opsActor = createActor(RoleType.BACK_OFFICE);
+      const mismatchedQuote = {
+        ...validQuote,
+        policy: {
+          id: 'pol-mismatch-1',
+          policyNumber: 'POL-MIS-001',
+          premiumAmount: 9999.00, // Mismatched! Expected: 17638.88
+          startDate: new Date('2026-09-26'),
+        },
+      };
+      prisma.quotation.findUnique.mockResolvedValue(mismatchedQuote);
+
+      await expect(
+        service.issuePolicy('q-100', validDto, opsActor),
+      ).rejects.toThrow('CRASH_RECOVERY_MISMATCH');
+
+      expect(prisma.quotation.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'q-100' },
+          data: expect.objectContaining({
+            workflowState: 'ISSUANCE_MANUAL_REVIEW',
+          }),
+        }),
+      );
+    });
+
+    it('PHASE 14: should reject when quotation is locked in ISSUANCE_IN_PROGRESS within lock TTL', async () => {
+      const opsActor = createActor(RoleType.BACK_OFFICE);
+      const lockedQuote = {
+        ...validQuote,
+        workflowState: 'ISSUANCE_IN_PROGRESS',
+        updatedAt: new Date(Date.now() - 60 * 1000), // Updated 1 min ago (lock active)
+      };
+      prisma.quotation.findUnique.mockResolvedValue(lockedQuote);
+      prisma.policy.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.issuePolicy('q-100', validDto, opsActor),
+      ).rejects.toThrow('ISSUANCE_IN_PROGRESS');
+    });
   });
 });

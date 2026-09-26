@@ -7,6 +7,8 @@ export interface StorageProvider {
   ): Promise<string>;
   downloadFile(key: string): Promise<Buffer>;
   deleteFile(key: string): Promise<void>;
+  isAvailable?(): Promise<boolean>;
 }
 
 export const STORAGE_PROVIDER_TOKEN = 'StorageProvider';
+

@@ -7,23 +7,35 @@ export class DashboardAnalyticsService {
 
   constructor(private readonly prisma: PrismaService) {}
 
-  async getSalesMetrics(userId: string) {
+  async getSalesMetrics(userId: string, companyId?: string) {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
     const activeLeadsCount = await this.prisma.lead.count({
-      where: { assignedToId: userId, status: { notIn: ['CONVERTED', 'LOST'] } },
+      where: {
+        assignedToId: userId,
+        status: { notIn: ['CONVERTED', 'LOST'] },
+        ...(companyId ? { companyId } : {}),
+      },
     });
 
     const revenue = await this.prisma.factRevenue.aggregate({
       _sum: { amount: true },
-      where: { agentId: userId },
+      where: {
+        agentId: userId,
+        ...(companyId
+          ? { branch: { zone: { region: { companyId } } } }
+          : {}),
+      },
     });
 
     let myPremium = Number(revenue._sum?.amount ?? 0);
     if (myPremium === 0) {
       const policies = await this.prisma.policy.findMany({
-        where: { createdById: userId },
+        where: {
+          createdById: userId,
+          ...(companyId ? { companyId } : {}),
+        },
       });
       myPremium = policies.reduce(
         (sum, p) => sum + Number(p.premiumAmount || 0),
@@ -32,20 +44,33 @@ export class DashboardAnalyticsService {
     }
 
     const totalLeads = await this.prisma.lead.count({
-      where: { assignedToId: userId },
+      where: {
+        assignedToId: userId,
+        ...(companyId ? { companyId } : {}),
+      },
     });
     const convertedLeads = await this.prisma.lead.count({
-      where: { assignedToId: userId, status: 'CONVERTED' },
+      where: {
+        assignedToId: userId,
+        status: 'CONVERTED',
+        ...(companyId ? { companyId } : {}),
+      },
     });
     const conversionRatio =
       totalLeads > 0 ? (convertedLeads / totalLeads) * 100 : 0;
 
     const policiesIssued = await this.prisma.policy.count({
-      where: { createdById: userId },
+      where: {
+        createdById: userId,
+        ...(companyId ? { companyId } : {}),
+      },
     });
 
     const recentPolicies = await this.prisma.policy.findMany({
-      where: { createdById: userId },
+      where: {
+        createdById: userId,
+        ...(companyId ? { companyId } : {}),
+      },
       take: 5,
       orderBy: { createdAt: 'desc' },
       include: { contact: true },
@@ -63,6 +88,7 @@ export class DashboardAnalyticsService {
       where: {
         assignedToId: userId,
         status: { notIn: ['CONVERTED', 'LOST'] },
+        ...(companyId ? { companyId } : {}),
       },
       take: 5,
       orderBy: { updatedAt: 'desc' },
@@ -85,29 +111,49 @@ export class DashboardAnalyticsService {
     };
   }
 
-  async getSalesManagerMetrics(userId: string, branchId?: string) {
+  async getSalesManagerMetrics(
+    userId: string,
+    branchId?: string,
+    companyId?: string,
+  ) {
     const activeLeadsCount = await this.prisma.lead.count({
       where: {
         status: { notIn: ['CONVERTED', 'LOST'] },
         ...(branchId ? { branchId } : {}),
+        ...(companyId ? { companyId } : {}),
       },
     });
 
     const revenue = await this.prisma.factRevenue.aggregate({
       _sum: { amount: true },
-      where: branchId ? { branchId } : undefined,
+      where: {
+        ...(branchId ? { branchId } : {}),
+        ...(companyId
+          ? { branch: { zone: { region: { companyId } } } }
+          : {}),
+      },
     });
 
     let teamPremium = Number(revenue._sum?.amount ?? 0);
     if (teamPremium === 0) {
-      const policies = await this.prisma.policy.findMany();
+      const policies = await this.prisma.policy.findMany({
+        where: {
+          ...(companyId ? { companyId } : {}),
+          ...(branchId ? { createdBy: { branchId } } : {}),
+        },
+      });
       teamPremium = policies.reduce(
         (sum, p) => sum + Number(p.premiumAmount || 0),
         0,
       );
     }
 
-    const policiesIssued = await this.prisma.policy.count();
+    const policiesIssued = await this.prisma.policy.count({
+      where: {
+        ...(companyId ? { companyId } : {}),
+        ...(branchId ? { createdBy: { branchId } } : {}),
+      },
+    });
 
     return {
       kpi: {
@@ -118,14 +164,17 @@ export class DashboardAnalyticsService {
     };
   }
 
-  async getRenewalMetrics(userId: string) {
+  async getRenewalMetrics(userId: string, companyId?: string) {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const in30Days = new Date();
     in30Days.setDate(in30Days.getDate() + 30);
 
     const expiring30d = await this.prisma.policy.count({
-      where: { expiryDate: { gte: today, lte: in30Days } },
+      where: {
+        expiryDate: { gte: today, lte: in30Days },
+        ...(companyId ? { companyId } : {}),
+      },
     });
 
     return {

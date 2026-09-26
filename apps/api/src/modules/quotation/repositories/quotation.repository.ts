@@ -86,7 +86,12 @@ export class QuotationRepository extends BaseRepository<
     orderBy: Prisma.QuotationOrderByWithRelationInput,
   ): Promise<[QuotationWithRelations[], number]> {
     const { organizationId, ...safeWhere } = (where || {}) as any;
-    const finalWhere = { ...safeWhere, deletedAt: null };
+    const companyId = safeWhere.companyId || organizationId;
+    const finalWhere = {
+      ...safeWhere,
+      ...(companyId ? { companyId } : {}),
+      deletedAt: null,
+    };
     const data = await this.prisma.quotation.findMany({
       skip,
       take,

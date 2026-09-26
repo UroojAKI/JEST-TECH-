@@ -6,6 +6,7 @@ import { MotorRuleEngineService } from '../../../motor/services/motor-rule-engin
 import { ContactsService } from '../../../contacts/services/contacts.service';
 import { VehicleDataService } from '../../../motor/services/vehicle-data.service';
 import { NumberingEngineService } from '../../../administration/services/numbering-engine/numbering-engine.service';
+import { TenantResourceAuthorizationService } from '../../../auth/services/tenant-resource-authorization.service';
 import { RoleType } from '@prisma/client';
 import {
   BadRequestException,
@@ -21,6 +22,7 @@ describe('CreateMotorQuotationCommand (Authoritative Command)', () => {
   let contactsService: any;
   let vehicleService: any;
   let numberingEngine: any;
+  let tenantAuthService: any;
 
   const mockUser: any = {
     id: 'user-agent-1',
@@ -36,7 +38,7 @@ describe('CreateMotorQuotationCommand (Authoritative Command)', () => {
       },
       lead: {
         findFirst: jest.fn(),
-        update: jest.fn(),
+        update: jest.fn().mockResolvedValue({}),
       },
       contact: {
         findFirst: jest.fn(),
@@ -92,6 +94,34 @@ describe('CreateMotorQuotationCommand (Authoritative Command)', () => {
       generateNext: jest.fn().mockResolvedValue('QTN-2026-000001'),
     };
 
+    tenantAuthService = {
+      assertTenantResource: jest.fn().mockImplementation((type, id, actor) => {
+        if (id.includes('other-tenant')) {
+          throw new ForbiddenException(`Cross-tenant access forbidden for ${type}`);
+        }
+        return Promise.resolve({ id, companyId: actor.companyId });
+      }),
+      assertAssignableAgent: jest.fn().mockImplementation((agentId, actor) => {
+        if (agentId.includes('other-tenant')) {
+          throw new ForbiddenException('Cross-tenant agent assignment forbidden');
+        }
+        return Promise.resolve({ id: agentId, companyId: actor.companyId, isActive: true });
+      }),
+      assertMotorJourneyAccess: jest.fn().mockImplementation((journeyId, actor) => {
+        if (journeyId.includes('other-tenant') || journeyId.includes('other-user')) {
+          throw new ForbiddenException('Cross-tenant or unauthorized motor journey access is forbidden');
+        }
+        return Promise.resolve({
+          id: journeyId,
+          companyId: actor.companyId,
+          actorId: actor.id,
+          status: 'IN_PROGRESS',
+          expiresAt: new Date(Date.now() + 3600000),
+          quotationId: null,
+        });
+      }),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         CreateMotorQuotationCommand,
@@ -101,6 +131,7 @@ describe('CreateMotorQuotationCommand (Authoritative Command)', () => {
         { provide: ContactsService, useValue: contactsService },
         { provide: VehicleDataService, useValue: vehicleService },
         { provide: NumberingEngineService, useValue: numberingEngine },
+        { provide: TenantResourceAuthorizationService, useValue: tenantAuthService },
       ],
     }).compile();
 
@@ -110,15 +141,6 @@ describe('CreateMotorQuotationCommand (Authoritative Command)', () => {
   });
 
   it('MOTOR-REG-19: should execute single transactional quotation creation and bind journey 1:1', async () => {
-    prisma.motorJourney.findUnique.mockResolvedValue({
-      id: 'j-1',
-      companyId: 'company-1',
-      actorId: 'user-agent-1',
-      status: 'IN_PROGRESS',
-      expiresAt: new Date(Date.now() + 3600000),
-      quotationId: null,
-    });
-
     prisma.quotation.create.mockResolvedValue({
       id: 'q-created-1',
       quotationCode: 'QTN-2026-000001',
@@ -148,19 +170,10 @@ describe('CreateMotorQuotationCommand (Authoritative Command)', () => {
   });
 
   it('A1: Journey Hijacking Prevention — should reject when journey belongs to another user/tenant', async () => {
-    prisma.motorJourney.findUnique.mockResolvedValue({
-      id: 'j-1',
-      companyId: 'other-company',
-      actorId: 'other-user',
-      status: 'IN_PROGRESS',
-      expiresAt: new Date(Date.now() + 3600000),
-      quotationId: null,
-    });
-
     await expect(
       command.execute(
         {
-          journeyId: 'j-1',
+          journeyId: 'j-other-user',
           vehicleCategory: 'PRIVATE_CAR',
           policyType: 'PACKAGE',
           insurerName: 'HDFC ERGO',
@@ -171,19 +184,19 @@ describe('CreateMotorQuotationCommand (Authoritative Command)', () => {
   });
 
   it('A2: Journey Reuse Prevention — should reject when journey already captured a quotation (1:1 constraint)', async () => {
-    prisma.motorJourney.findUnique.mockResolvedValue({
-      id: 'j-1',
+    tenantAuthService.assertMotorJourneyAccess.mockResolvedValueOnce({
+      id: 'j-already-quoted',
       companyId: 'company-1',
       actorId: 'user-agent-1',
       status: 'IN_PROGRESS',
       expiresAt: new Date(Date.now() + 3600000),
-      quotationId: 'existing-quote-id', // Already captured!
+      quotationId: 'existing-quote-id',
     });
 
     await expect(
       command.execute(
         {
-          journeyId: 'j-1',
+          journeyId: 'j-already-quoted',
           vehicleCategory: 'PRIVATE_CAR',
           policyType: 'PACKAGE',
           insurerName: 'HDFC ERGO',
@@ -193,11 +206,108 @@ describe('CreateMotorQuotationCommand (Authoritative Command)', () => {
     ).rejects.toThrow(ConflictException);
   });
 
-  it('MOTOR-REG-02: Manual agent mode should set agentId to null and persist manualAgent snapshot in metadata', async () => {
+  describe('Phase 1.2: Cross-Tenant Resource Rejection Tests', () => {
+    it('Tenant A -> Tenant A lead PASS', async () => {
+      prisma.lead.findFirst.mockResolvedValue({ id: 'lead-same-tenant', contactId: 'contact-1' });
+      prisma.quotation.create.mockResolvedValue({
+        id: 'q-lead-ok',
+        quotationCode: 'QTN-2026-000002',
+        totalPremium: 11800,
+      });
+
+      const res = await command.execute(
+        {
+          vehicleCategory: 'PRIVATE_CAR',
+          policyType: 'PACKAGE',
+          insurerName: 'HDFC ERGO',
+          leadId: 'lead-same-tenant',
+        },
+        mockUser,
+      );
+
+      expect(res.id).toBe('q-lead-ok');
+      expect(tenantAuthService.assertTenantResource).toHaveBeenCalledWith('Lead', 'lead-same-tenant', mockUser);
+    });
+
+    it('Tenant A -> Tenant B lead 403', async () => {
+      await expect(
+        command.execute(
+          {
+            vehicleCategory: 'PRIVATE_CAR',
+            policyType: 'PACKAGE',
+            insurerName: 'HDFC ERGO',
+            leadId: 'lead-other-tenant',
+          },
+          mockUser,
+        ),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('Tenant A -> Tenant B contact 403', async () => {
+      await expect(
+        command.execute(
+          {
+            vehicleCategory: 'PRIVATE_CAR',
+            policyType: 'PACKAGE',
+            insurerName: 'HDFC ERGO',
+            contactId: 'contact-other-tenant',
+          },
+          mockUser,
+        ),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('Tenant A -> Tenant B agent 403', async () => {
+      await expect(
+        command.execute(
+          {
+            vehicleCategory: 'PRIVATE_CAR',
+            policyType: 'PACKAGE',
+            insurerName: 'HDFC ERGO',
+            contactId: 'c-1',
+            agentId: 'agent-other-tenant',
+          },
+          mockUser,
+        ),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('Tenant A -> Tenant B vehicle 403', async () => {
+      await expect(
+        command.execute(
+          {
+            vehicleCategory: 'PRIVATE_CAR',
+            policyType: 'PACKAGE',
+            insurerName: 'HDFC ERGO',
+            contactId: 'c-1',
+            vehicleId: 'vehicle-other-tenant',
+          },
+          mockUser,
+        ),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('Tenant A -> Tenant B customer 403', async () => {
+      await expect(
+        command.execute(
+          {
+            vehicleCategory: 'PRIVATE_CAR',
+            policyType: 'PACKAGE',
+            insurerName: 'HDFC ERGO',
+            contactId: 'c-1',
+            customerId: 'customer-other-tenant',
+          },
+          mockUser,
+        ),
+      ).rejects.toThrow(ForbiddenException);
+    });
+  });
+
+  it('MOTOR-REG-02: Manual agent mode should set agentId to null and persist validated manualAgent snapshot', async () => {
     prisma.quotation.create.mockImplementation((args: any) =>
       Promise.resolve({
         id: 'q-manual-agent',
-        quotationCode: 'QTN-2026-000002',
+        quotationCode: 'QTN-2026-000003',
         ...args.data,
       }),
     );

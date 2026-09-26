@@ -26,6 +26,7 @@ export class RenewalReminderProcessor extends WorkerHost {
         customerId,
         agentId,
         daysBefore,
+        companyId,
       } = job.data;
 
       this.logger.log(
@@ -118,11 +119,24 @@ export class RenewalReminderProcessor extends WorkerHost {
         }
       }
 
+      let effectiveCompanyId = companyId;
+      if (!effectiveCompanyId && typeof this.prisma.policy?.findUnique === 'function') {
+        const pol = await this.prisma.policy.findUnique({
+          where: { id: policyId },
+          select: { companyId: true },
+        });
+        effectiveCompanyId = pol?.companyId;
+      }
+
       // 5. Automated Policy Lifecycle Progression
       if (daysBefore <= 30 && daysBefore >= 0) {
         // Transition ACTIVE -> PENDING_RENEWAL
         await this.prisma.policy.updateMany({
-          where: { id: policyId, status: PolicyStatus.ACTIVE },
+          where: {
+            id: policyId,
+            status: PolicyStatus.ACTIVE,
+            ...(effectiveCompanyId ? { companyId: effectiveCompanyId } : {}),
+          },
           data: { status: PolicyStatus.PENDING_RENEWAL },
         });
       } else if (daysBefore < 0) {
@@ -131,6 +145,7 @@ export class RenewalReminderProcessor extends WorkerHost {
           where: {
             id: policyId,
             status: { in: [PolicyStatus.ACTIVE, PolicyStatus.PENDING_RENEWAL] },
+            ...(effectiveCompanyId ? { companyId: effectiveCompanyId } : {}),
           },
           data: { status: PolicyStatus.LAPSED },
         });
@@ -149,7 +164,11 @@ export class RenewalReminderProcessor extends WorkerHost {
 
       // 7. Update Renewal Task timestamp
       await this.prisma.renewalTask.updateMany({
-        where: { policyId, status: 'PENDING' },
+        where: {
+          policyId,
+          status: 'PENDING',
+          ...(effectiveCompanyId ? { policy: { companyId: effectiveCompanyId } } : {}),
+        },
         data: { updatedAt: new Date() },
       });
 

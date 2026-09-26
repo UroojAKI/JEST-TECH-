@@ -15,33 +15,33 @@ export class CustomerAnalyticsCronService {
     this.logger.log('Starting nightly Customer Analytics recalculation...');
 
     const contacts = await this.prisma.contact.findMany({
-      select: { id: true },
+      select: { id: true, companyId: true },
     });
 
     for (const contact of contacts) {
-      await this.calculateMetricsForCustomer(contact.id);
+      await this.calculateMetricsForCustomer(contact.id, contact.companyId || undefined);
     }
 
     this.logger.log('Finished nightly Customer Analytics recalculation.');
   }
 
-  async calculateMetricsForCustomer(contactId: string) {
+  async calculateMetricsForCustomer(contactId: string, companyId?: string) {
     // 1. Fetch related data
     const activePolicies = await this.prisma.policy.count({
-      where: { contactId, status: 'ACTIVE' },
+      where: { contactId, status: 'ACTIVE', ...(companyId ? { companyId } : {}) },
     });
 
     const expiredPolicies = await this.prisma.policy.count({
-      where: { contactId, status: PolicyStatus.LAPSED },
+      where: { contactId, status: PolicyStatus.LAPSED, ...(companyId ? { companyId } : {}) },
     });
 
     const policies = await this.prisma.policy.findMany({
-      where: { contactId },
+      where: { contactId, ...(companyId ? { companyId } : {}) },
       select: { premiumAmount: true },
     });
 
     const claims = await this.prisma.claim.findMany({
-      where: { contactId },
+      where: { contactId, ...(companyId ? { companyId } : {}) },
       select: { claimAmount: true },
     });
 

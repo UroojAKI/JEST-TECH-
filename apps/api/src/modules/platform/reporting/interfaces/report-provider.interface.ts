@@ -6,6 +6,7 @@ export interface ReportParameters {
   offset?: number;
   sortBy?: string;
   sortDir?: 'asc' | 'desc';
+  companyId?: string;
 }
 
 export interface ReportResult {

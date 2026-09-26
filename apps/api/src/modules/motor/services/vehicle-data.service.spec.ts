@@ -170,4 +170,76 @@ describe('VehicleDataService (R4 Integrity)', () => {
       ).rejects.toThrow(NotFoundException);
     });
   });
+
+  describe('recordVerificationAttempt (ACCEPT-REG-01 to ACCEPT-REG-04)', () => {
+    const validJourney = {
+      id: 'journey-1',
+      companyId: 'company-1',
+      actorId: 'actor-1',
+      status: 'IN_PROGRESS',
+      expiresAt: new Date(Date.now() + 3600000),
+    };
+
+    it('ACCEPT-REG-01: records attempt successfully when under 3 attempts', async () => {
+      (mockPrisma as any).motorJourney = { findUnique: jest.fn().mockResolvedValue(validJourney) };
+      (mockPrisma as any).$queryRaw = jest.fn().mockResolvedValue([{ attempt_count: 1, status: 'ACTIVE' }]);
+
+      const result = await service.recordVerificationAttempt(
+        'journey-1',
+        'MH02CB1234',
+        'actor-1',
+        'company-1',
+      );
+
+      expect(result.attemptCount).toBe(1);
+      expect(result.isLocked).toBe(false);
+    });
+
+    it('ACCEPT-REG-02: locks at attempt #3', async () => {
+      (mockPrisma as any).motorJourney = { findUnique: jest.fn().mockResolvedValue(validJourney) };
+      (mockPrisma as any).$queryRaw = jest.fn().mockResolvedValue([{ attempt_count: 3, status: 'LOCKED' }]);
+
+      const result = await service.recordVerificationAttempt(
+        'journey-1',
+        'MH02CB1234',
+        'actor-1',
+        'company-1',
+      );
+
+      expect(result.attemptCount).toBe(3);
+      expect(result.isLocked).toBe(true);
+    });
+
+    it('ACCEPT-REG-03: attempt #4 throws BadRequestException (exhausted attempts)', async () => {
+      (mockPrisma as any).motorJourney = { findUnique: jest.fn().mockResolvedValue(validJourney) };
+      (mockPrisma as any).$queryRaw = jest.fn().mockResolvedValue([]); // 0 rows returned because attempt_count >= 3
+
+      await expect(
+        service.recordVerificationAttempt(
+          'journey-1',
+          'MH02CB1234',
+          'actor-1',
+          'company-1',
+        ),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('ACCEPT-REG-04: rejects attempt when journey belongs to another tenant or actor', async () => {
+      (mockPrisma as any).motorJourney = {
+        findUnique: jest.fn().mockResolvedValue({
+          ...validJourney,
+          companyId: 'other-company',
+        }),
+      };
+
+      await expect(
+        service.recordVerificationAttempt(
+          'journey-1',
+          'MH02CB1234',
+          'actor-1',
+          'company-1',
+        ),
+      ).rejects.toThrow();
+    });
+  });
 });

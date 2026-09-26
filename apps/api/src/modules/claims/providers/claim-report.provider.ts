@@ -35,7 +35,10 @@ export class ClaimReportProvider implements ReportDataProvider, OnModuleInit {
       return this.executeLossRatio(params);
     }
 
-    const whereClause: any = { deletedAt: null };
+    const whereClause: any = {
+      deletedAt: null,
+      ...(params?.companyId ? { companyId: params.companyId } : {}),
+    };
 
     if (reportCode === 'CLAIMS_PENDING') {
       whereClause.status = {
@@ -80,6 +83,7 @@ export class ClaimReportProvider implements ReportDataProvider, OnModuleInit {
       where: {
         status: { in: ['SETTLED', 'APPROVED'] },
         deletedAt: null,
+        ...(params?.companyId ? { companyId: params.companyId } : {}),
       },
     });
     const claimsPaid = claims.reduce(
@@ -88,7 +92,10 @@ export class ClaimReportProvider implements ReportDataProvider, OnModuleInit {
     );
 
     const payments = await this.prisma.policyPayment.findMany({
-      where: { status: 'SUCCESS' },
+      where: {
+        status: 'SUCCESS',
+        ...(params?.companyId ? { policy: { companyId: params.companyId } } : {}),
+      },
     });
     const premiumCollected = payments.reduce(
       (sum, p) => sum + Number(p.amount || 0),

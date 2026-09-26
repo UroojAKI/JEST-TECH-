@@ -252,4 +252,79 @@ describe('DashboardAnalyticsService (Iteration 13)', () => {
       expect(result[1].gwp).toBe(30000);
     });
   });
+
+  describe('Phase 21: Strict Multi-Tenant Scoping & Cache Namespacing', () => {
+    it('should namespace Redis cache key with tenant:companyId', async () => {
+      prisma.renewalTask.count.mockResolvedValue(0);
+      prisma.claim.aggregate.mockResolvedValue({ _sum: { claimAmount: null } });
+      prisma.policyPayment.aggregate.mockResolvedValue({ _sum: { amount: null } });
+
+      await service.getDashboardData('ADMIN', 'user-abc', 'tenant-123');
+
+      expect(cache.set).toHaveBeenCalledWith(
+        'tenant:tenant-123:dashboard:analytics:user-abc:ADMIN',
+        expect.any(Object),
+        300,
+      );
+    });
+
+    it('should enforce companyId filter in aggregations and counts', async () => {
+      prisma.renewalTask.count.mockResolvedValue(0);
+      prisma.claim.aggregate.mockResolvedValue({ _sum: { claimAmount: null } });
+      prisma.policyPayment.aggregate.mockResolvedValue({ _sum: { amount: null } });
+
+      await service.getDashboardData('ADMIN', 'user-abc', 'tenant-123');
+
+      expect(prisma.renewalTask.count).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            policy: { companyId: 'tenant-123' },
+          }),
+        }),
+      );
+
+      expect(prisma.claim.aggregate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            companyId: 'tenant-123',
+          }),
+        }),
+      );
+
+      expect(prisma.policyPayment.aggregate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            policy: { companyId: 'tenant-123' },
+          }),
+        }),
+      );
+    });
+
+    it('should scope getBranchGwpBreakdown, getInsurerMarketShare, and getSalesLeaderboard by companyId', async () => {
+      prisma.branch.findMany.mockResolvedValue([]);
+      prisma.policy.findMany.mockResolvedValue([]);
+      prisma.user.findMany.mockResolvedValue([]);
+
+      await service.getBranchGwpBreakdown('tenant-123');
+      expect(prisma.branch.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { zone: { region: { companyId: 'tenant-123' } } },
+        }),
+      );
+
+      await service.getInsurerMarketShare('tenant-123');
+      expect(prisma.policy.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ companyId: 'tenant-123' }),
+        }),
+      );
+
+      await service.getSalesLeaderboard(10, 'tenant-123');
+      expect(prisma.user.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ companyId: 'tenant-123' }),
+        }),
+      );
+    });
+  });
 });

@@ -6,6 +6,7 @@ import { MotorCalculationController } from './controllers/motor-calculation.cont
 import { MotorQuoteController } from './controllers/motor-quote.controller';
 import { MotorInspectionController } from './controllers/motor-inspection.controller';
 import { MotorRulesEvaluateController } from './controllers/motor-rules-evaluate.controller';
+import { MotorJourneyController } from './controllers/motor-journey.controller';
 import { MotorTariffService } from './services/motor-tariff.service';
 import { SaodVerificationService } from './services/saod-verification.service';
 import { MotorRuleEngineService } from './services/motor-rule-engine.service';
@@ -18,10 +19,12 @@ import { VehicleDataService } from './services/vehicle-data.service';
 import { PreviousPolicyService } from './services/previous-policy.service';
 import { MotorDocumentRuleService } from './services/motor-document-rule.service';
 import { MotorPolicyDateService } from './services/motor-policy-date.service';
+import { MotorJourneyService } from './services/motor-journey.service';
 import { AdministrationModule } from '../administration/administration.module';
+import { AuthModule } from '../auth/auth.module';
 
 @Module({
-  imports: [AdministrationModule],
+  imports: [AdministrationModule, AuthModule],
   controllers: [
     MotorController,
     MotorWorkflowController,
@@ -29,6 +32,7 @@ import { AdministrationModule } from '../administration/administration.module';
     MotorQuoteController,
     MotorInspectionController,
     MotorRulesEvaluateController,
+    MotorJourneyController,
   ],
   providers: [
     MotorTariffService,
@@ -43,6 +47,7 @@ import { AdministrationModule } from '../administration/administration.module';
     PreviousPolicyService,
     MotorDocumentRuleService,
     MotorPolicyDateService,
+    MotorJourneyService,
   ],
   exports: [
     MotorRuleEngineService,
@@ -54,6 +59,7 @@ import { AdministrationModule } from '../administration/administration.module';
     PreviousPolicyService,
     MotorDocumentRuleService,
     MotorPolicyDateService,
+    MotorJourneyService,
   ],
 })
 export class MotorModule {}

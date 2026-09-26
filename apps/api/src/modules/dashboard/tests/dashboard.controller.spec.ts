@@ -75,6 +75,7 @@ describe('DashboardController', () => {
       expect(service.getDashboard).toHaveBeenCalledWith(
         mockUser.role,
         mockUser.id,
+        mockUser.companyId,
       );
     });
 
@@ -84,6 +85,7 @@ describe('DashboardController', () => {
       expect(service.getDashboard).toHaveBeenCalledWith(
         RoleType.ADMIN,
         mockUser.id,
+        mockUser.companyId,
       );
     });
   });

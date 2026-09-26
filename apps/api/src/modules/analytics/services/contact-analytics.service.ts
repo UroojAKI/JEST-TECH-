@@ -6,23 +6,33 @@ import { ContactType } from '@prisma/client';
 export class ContactAnalyticsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async getOverview() {
+  async getOverview(actorOrCompanyId?: any) {
     const startOfMonth = new Date(
       new Date().getFullYear(),
       new Date().getMonth(),
       1,
     );
 
+    const companyId =
+      typeof actorOrCompanyId === 'string'
+        ? actorOrCompanyId
+        : actorOrCompanyId?.companyId || actorOrCompanyId?.organizationId;
+
+    const baseWhere = {
+      deletedAt: null,
+      ...(companyId ? { companyId } : {}),
+    };
+
     const [total, individual, corporate, newThisMonth] = await Promise.all([
-      this.prisma.contact.count({ where: { deletedAt: null } }),
+      this.prisma.contact.count({ where: baseWhere }),
       this.prisma.contact.count({
-        where: { type: ContactType.INDIVIDUAL, deletedAt: null },
+        where: { ...baseWhere, type: ContactType.INDIVIDUAL },
       }),
       this.prisma.contact.count({
-        where: { type: ContactType.CORPORATE, deletedAt: null },
+        where: { ...baseWhere, type: ContactType.CORPORATE },
       }),
       this.prisma.contact.count({
-        where: { createdAt: { gte: startOfMonth }, deletedAt: null },
+        where: { ...baseWhere, createdAt: { gte: startOfMonth } },
       }),
     ]);
 

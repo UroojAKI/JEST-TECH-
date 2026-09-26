@@ -302,6 +302,7 @@ export class LeadsService {
       if (dto.status === 'CONVERTED') {
         const policyCount = await this.prisma.policy.count({
           where: {
+            companyId: existing.companyId,
             quotation: {
               leadId: id,
             },
@@ -574,6 +575,7 @@ export class LeadsService {
 
     const policyCount = await this.prisma.policy.count({
       where: {
+        companyId: existing.companyId,
         quotation: {
           leadId: id,
         },

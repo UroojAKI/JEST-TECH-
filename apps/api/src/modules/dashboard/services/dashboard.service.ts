@@ -5,8 +5,12 @@ import { DashboardAnalyticsService } from '../../analytics/services/dashboard-an
 export class DashboardService {
   constructor(private readonly dashboardAnalytics: DashboardAnalyticsService) {}
 
-  async getDashboard(role: string, userId: string) {
-    const data = await this.dashboardAnalytics.getDashboardData(role, userId);
+  async getDashboard(role: string, userId: string, companyId?: string) {
+    const data = await this.dashboardAnalytics.getDashboardData(
+      role,
+      userId,
+      companyId,
+    );
 
     // Widget layouts specifying grid area formatting per role (widget-driven)
     let layout: any[] = [];
@@ -46,15 +50,15 @@ export class DashboardService {
     };
   }
 
-  async getBranchGwpBreakdown() {
-    return this.dashboardAnalytics.getBranchGwpBreakdown();
+  async getBranchGwpBreakdown(companyId?: string) {
+    return this.dashboardAnalytics.getBranchGwpBreakdown(companyId);
   }
 
-  async getInsurerMarketShare() {
-    return this.dashboardAnalytics.getInsurerMarketShare();
+  async getInsurerMarketShare(companyId?: string) {
+    return this.dashboardAnalytics.getInsurerMarketShare(companyId);
   }
 
-  async getSalesLeaderboard(limit = 10) {
-    return this.dashboardAnalytics.getSalesLeaderboard(limit);
+  async getSalesLeaderboard(limit = 10, companyId?: string) {
+    return this.dashboardAnalytics.getSalesLeaderboard(limit, companyId);
   }
 }

@@ -27,12 +27,30 @@ export class SchedulerService {
 
     for (const schedule of schedules) {
       try {
+        const companyId = schedule.companyId || schedule.report.companyId;
+        if (!companyId && !schedule.report.isSystem) {
+          this.logger.warn(
+            `[PHASE 19] Rejecting scheduled execution for report ${schedule.report.name} (${schedule.report.id}): Missing mandatory companyId tenant context on non-system report schedule.`,
+          );
+          continue;
+        }
+
+        const actorId =
+          (schedule as any).createdById ||
+          schedule.report.createdById ||
+          'SYSTEM';
+
         this.logger.log(
-          `Running scheduled report: ${schedule.report.name} (${schedule.report.id})`,
+          `Running scheduled report: ${schedule.report.name} (${schedule.report.id}) for tenant: ${companyId || 'SYSTEM'}`,
         );
 
-        // Execute the report (default system user or null for system runs)
-        const command = new ExecuteReportCommand(schedule.reportId, {}, null);
+        // Execute the report with explicit tenant context (Phase 19)
+        const command = new ExecuteReportCommand(
+          schedule.reportId,
+          {},
+          actorId,
+          companyId || undefined,
+        );
         await this.commands.handleExecuteReport(command, 'csv');
 
         // Compute authoritative nextRun from schedule frequency

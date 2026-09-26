@@ -54,6 +54,12 @@ jobs:
       - name: Test
         run: pnpm turbo run test --filter=api
 
+      - name: Tenancy AST Security Analysis
+        run: pnpm --filter api exec ts-node ../../scripts/analyze-tenant-security.ts
+
+      - name: Dependency Security Audit
+        run: pnpm audit --audit-level=high
+
       - name: Build API
         run: pnpm turbo run build --filter=api
 
@@ -71,9 +77,9 @@ jobs:
             # Navigate to the project directory
             cd ~/JEST-TECH- || cd ~/jest-policy-crm
             
-            # Reset to ensure clean state and pull latest main
+            # Reset to ensure clean state and pull matching branch
             git fetch origin
-            git reset --hard origin/main
+            git reset --hard origin/${{ github.ref_name }}
             
             # Install dependencies and build
             pnpm install --frozen-lockfile

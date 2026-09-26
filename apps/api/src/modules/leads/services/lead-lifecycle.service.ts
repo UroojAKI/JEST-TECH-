@@ -120,6 +120,7 @@ export class LeadLifecycleService {
     if (targetStatus === LeadStatus.CONVERTED) {
       const issuedPolicyCount = await this.prisma.policy.count({
         where: {
+          companyId: lead.companyId,
           OR: [{ quotation: { leadId } }, { motorQuotation: { leadId } }],
           status: 'ISSUED',
         },

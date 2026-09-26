@@ -59,7 +59,9 @@ export class RenewalsController {
       dueDateFilter = { dueDate: { lte: targetDate } };
     }
 
+    const effectiveCompanyId = user?.companyId || (user as any)?.organizationId;
     const where: any = {
+      ...(effectiveCompanyId ? { policy: { companyId: effectiveCompanyId } } : {}),
       ...scopedFilter,
       ...(status && status !== 'ALL' ? { status } : {}),
       ...dueDateFilter,

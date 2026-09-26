@@ -36,6 +36,7 @@ export class ReportCommandsService {
 
     return this.repository.create({
       ...command.dto,
+      companyId: command.companyId,
       createdById: command.userId,
     });
   }
@@ -62,8 +63,11 @@ export class ReportCommandsService {
       );
     }
 
+    const companyId = command.companyId || report.companyId;
+
     const execution = await this.repository.createExecution({
       reportId: report.id,
+      companyId,
       requestedById: command.userId,
       status: 'RUNNING',
       parameters: command.parameters,
@@ -135,6 +139,7 @@ export class ReportCommandsService {
 
     return this.repository.createSchedule({
       reportId: command.reportId,
+      companyId: command.companyId || report.companyId,
       cronExpression: command.dto.cronExpression,
       frequency: command.dto.frequency,
       timezone: command.dto.timezone,

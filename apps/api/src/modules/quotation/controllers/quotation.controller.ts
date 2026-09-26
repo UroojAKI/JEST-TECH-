@@ -147,8 +147,11 @@ export class QuotationController {
     summary:
       'Evaluate dynamic checklist and progressive quotation completion percentage (§24, AUD-033)',
   })
-  getCompletion(@Param('id') id: string) {
-    return this.quotationCompletionService.getCompletion(id);
+  getCompletion(
+    @Param('id') id: string,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.quotationCompletionService.getCompletion(id, user);
   }
 
   @Get(':id')
@@ -275,6 +278,6 @@ export class QuotationController {
     @Body() details: Record<string, any>,
     @CurrentUser() user: RequestUser,
   ) {
-    return this.quotationCompletionService.updateDetails(id, details);
+    return this.quotationCompletionService.updateDetails(id, details, user);
   }
 }

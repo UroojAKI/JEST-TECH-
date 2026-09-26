@@ -6,6 +6,7 @@ import { DocumentVerificationService } from './services/document-verification.se
 import { LocalStorageProvider } from './storage/local-storage.provider';
 import { S3StorageProvider } from './storage/s3-storage.provider';
 import { MinioStorageProvider } from './storage/minio-storage.provider';
+import { DualStorageProvider } from './storage/dual-storage.provider';
 import { STORAGE_PROVIDER_TOKEN } from './storage/storage-provider.interface';
 import { DatabaseModule } from '../../database/database.module';
 
@@ -18,6 +19,7 @@ import { DatabaseModule } from '../../database/database.module';
     LocalStorageProvider,
     S3StorageProvider,
     MinioStorageProvider,
+    DualStorageProvider,
     {
       provide: STORAGE_PROVIDER_TOKEN,
       useFactory: (
@@ -25,8 +27,12 @@ import { DatabaseModule } from '../../database/database.module';
         local: LocalStorageProvider,
         s3: S3StorageProvider,
         minio: MinioStorageProvider,
+        dual: DualStorageProvider,
       ) => {
-        const provider = config.get<string>('STORAGE_PROVIDER', 'LOCAL');
+        const provider = config.get<string>('STORAGE_PROVIDER', 'DUAL');
+        if (provider === 'DUAL') {
+          return dual;
+        }
         if (provider === 'MINIO') {
           return minio;
         }
@@ -40,9 +46,10 @@ import { DatabaseModule } from '../../database/database.module';
         LocalStorageProvider,
         S3StorageProvider,
         MinioStorageProvider,
+        DualStorageProvider,
       ],
     },
   ],
-  exports: [DocumentService, DocumentVerificationService],
+  exports: [DocumentService, DocumentVerificationService, STORAGE_PROVIDER_TOKEN],
 })
 export class DocumentsModule {}

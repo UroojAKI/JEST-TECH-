@@ -77,7 +77,9 @@ export class ReferralService {
       });
     }
 
-    const leadCount = await this.prisma.lead.count();
+    const leadCount = await this.prisma.lead.count({
+      where: companyId ? { companyId } : undefined,
+    });
     const leadCode = `LD-${String(leadCount + 1).padStart(5, '0')}`;
 
     const newLead = await this.prisma.lead.create({

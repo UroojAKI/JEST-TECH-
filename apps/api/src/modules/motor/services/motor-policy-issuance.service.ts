@@ -84,9 +84,23 @@ export class MotorPolicyIssuanceService {
 
       if (quote.policy) {
         // Crash recovery: Policy already created in previous attempt, reconcile state safely
+        const policyPrem = new Prisma.Decimal(quote.policy.premiumAmount);
+        const quotePrem = new Prisma.Decimal(quote.totalPremium);
+        if (!policyPrem.equals(quotePrem)) {
+          await tx.quotation.update({
+            where: { id: quote.id },
+            data: { workflowState: 'ISSUANCE_MANUAL_REVIEW' as any },
+          });
+          throw new ConflictException(
+            'CRASH_RECOVERY_MISMATCH: Existing policy financial mismatch for quotation, requires manual review',
+          );
+        }
         const businessToday = this.policyDateService.getBusinessToday();
-        const effectiveStart = this.policyDateService.toBusinessDate(quote.policy.startDate || new Date());
-        const finalState = effectiveStart <= businessToday ? 'ACTIVE' : 'POLICY_ISSUED';
+        const effectiveStart = this.policyDateService.toBusinessDate(
+          quote.policy.startDate || new Date(),
+        );
+        const finalState =
+          effectiveStart <= businessToday ? 'ACTIVE' : 'POLICY_ISSUED';
         await tx.quotation.update({
           where: { id: quote.id },
           data: {
@@ -98,7 +112,56 @@ export class MotorPolicyIssuanceService {
         return quote.policy;
       }
 
-      if (
+      if (quote.workflowState === 'ISSUANCE_IN_PROGRESS') {
+        const existingPolicy = await tx.policy.findFirst({
+          where: { quotationId: quote.id },
+        });
+        if (existingPolicy) {
+          if (existingPolicy.companyId !== quote.companyId) {
+            throw new ConflictException(
+              'CRASH_RECOVERY_MISMATCH: Policy company mismatch',
+            );
+          }
+          const policyPrem = new Prisma.Decimal(existingPolicy.premiumAmount);
+          const quotePrem = new Prisma.Decimal(quote.totalPremium);
+          if (!policyPrem.equals(quotePrem)) {
+            await tx.quotation.update({
+              where: { id: quote.id },
+              data: { workflowState: 'ISSUANCE_MANUAL_REVIEW' as any },
+            });
+            throw new ConflictException(
+              'CRASH_RECOVERY_MISMATCH: Existing policy financial mismatch for quotation, requires manual review',
+            );
+          }
+          const businessToday = this.policyDateService.getBusinessToday();
+          const effectiveStart = this.policyDateService.toBusinessDate(
+            existingPolicy.startDate || new Date(),
+          );
+          const finalState =
+            effectiveStart <= businessToday ? 'ACTIVE' : 'POLICY_ISSUED';
+          await tx.quotation.update({
+            where: { id: quote.id },
+            data: {
+              workflowState: finalState as any,
+              issuanceStatus: 'ISSUED',
+              status: 'CONVERTED_TO_POLICY',
+            },
+          });
+          return existingPolicy;
+        }
+
+        const lockAge = Date.now() - new Date(quote.updatedAt).getTime();
+        const LOCK_TTL_MS = 5 * 60 * 1000;
+        if (lockAge < LOCK_TTL_MS) {
+          throw new ConflictException(
+            'ISSUANCE_IN_PROGRESS: Policy issuance is currently in progress. Please wait for completion or lock expiration.',
+          );
+        }
+        await tx.quotation.update({
+          where: { id: quote.id },
+          data: { workflowState: 'ISSUANCE_PENDING' as any },
+        });
+      } else if (
         quote.workflowState !== 'PAYMENT_DONE' &&
         quote.workflowState !== 'ISSUANCE_PENDING'
       ) {

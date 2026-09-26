@@ -29,8 +29,19 @@ export class TasksService {
     const todayEnd = new Date();
     todayEnd.setHours(23, 59, 59, 999);
 
+    const companyId = user.companyId || (user as any).organizationId;
     const where: Prisma.TaskWhereInput = {
       deletedAt: null,
+      ...(companyId
+        ? {
+            OR: [
+              { lead: { companyId } },
+              { customer: { companyId } },
+              { policy: { companyId } },
+              { assignedTo: { companyId } },
+            ],
+          }
+        : {}),
     };
 
     if (user.role === RoleType.AGENT) {
@@ -119,8 +130,19 @@ export class TasksService {
     } = query;
     const skip = (page - 1) * limit;
 
+    const companyId = user.companyId || (user as any).organizationId;
     const where: Prisma.TaskWhereInput = {
       deletedAt: null,
+      ...(companyId
+        ? {
+            OR: [
+              { lead: { companyId } },
+              { customer: { companyId } },
+              { policy: { companyId } },
+              { assignedTo: { companyId } },
+            ],
+          }
+        : {}),
     };
 
     if (user.role === RoleType.AGENT) {
@@ -292,8 +314,10 @@ export class TasksService {
     assignedToId?: string,
     user?: RequestUser,
   ) {
+    const companyId = user?.companyId || (user as any)?.organizationId;
     const where: Prisma.BackOfficeTaskWhereInput = {
       deletedAt: null,
+      ...(companyId ? { companyId } : {}),
     };
 
     if (status) {

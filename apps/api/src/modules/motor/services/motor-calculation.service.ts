@@ -124,9 +124,7 @@ export class MotorCalculationService {
       for (const addon of input.addons || []) {
         let price = 0;
         const config = addonRates[addon.addonCode];
-        if (addon.manualPrice !== undefined && addon.manualPrice >= 0) {
-          price = round2(addon.manualPrice);
-        } else if (config) {
+        if (config) {
           switch (config.pricingModel) {
             case 'PERCENT_OF_IDV':
               price = round2(input.idv * (Number(config.rateValue) / 100));
@@ -147,6 +145,28 @@ export class MotorCalculationService {
             input.idv,
             baseOdPremium,
           );
+        }
+
+        // Phase 7: Add-on Price Authority & Override Governance
+        if (addon.manualPrice !== undefined) {
+          if (addon.manualPrice !== price) {
+            if (!addon.approvalReference || !addon.approvedBy) {
+              throw new BadRequestException(
+                `Manual price override for add-on "${addon.addonCode}" requires approvalReference and approvedBy. Untrusted manual pricing is prohibited.`,
+              );
+            }
+            const maxDeviationPercent = 50;
+            const deviationPercent =
+              price > 0
+                ? Math.abs((addon.manualPrice - price) / price) * 100
+                : 0;
+            if (deviationPercent > maxDeviationPercent) {
+              throw new BadRequestException(
+                `Manual price override for add-on "${addon.addonCode}" exceeds maximum allowable deviation of ${maxDeviationPercent}% (requested ₹${addon.manualPrice} vs authoritative ₹${price}).`,
+              );
+            }
+            price = round2(addon.manualPrice);
+          }
         }
 
         // Zero-premium add-on prevention (IRDAI compliance).
@@ -293,6 +313,16 @@ export class MotorCalculationService {
   // ── Private Helpers ───────────────────────────────────────────────────────
 
   private validateInputs(input: MotorCalculationInputDto) {
+    if (
+      (input.idv !== undefined && input.idv < 0) ||
+      (input.discountPercent !== undefined && input.discountPercent < 0) ||
+      (input.tpDiscountPercent !== undefined && input.tpDiscountPercent < 0)
+    ) {
+      throw new BadRequestException(
+        'Negative premium, IDV, or discount parameters are disallowed.',
+      );
+    }
+
     if (input.vehicleStatus === 'NEW' && input.policyType === 'STANDALONE_OD') {
       throw new BadRequestException(
         'Standalone OD is not applicable for new vehicles',
@@ -335,19 +365,35 @@ export class MotorCalculationService {
 
   private validateTpDiscountAuthority(
     input: MotorCalculationInputDto,
-    discountConfig: { standardLimit: number; absoluteLimit: number },
+    discountConfig: {
+      standardLimit: number;
+      absoluteLimit: number;
+      tpStandardLimit?: number;
+      tpAbsoluteLimit?: number;
+    },
   ) {
     const d = input.tpDiscountPercent ?? 0;
     if (d <= 0) return;
 
-    if (d > discountConfig.absoluteLimit) {
+    if (d >= 100) {
       throw new BadRequestException(
-        `Requested TP discount (${d}%) exceeds the absolute configured ceiling of ${discountConfig.absoluteLimit}%. Disallowed.`,
+        '100% TP discounts are strictly prohibited per IRDAI statutory regulations.',
       );
     }
-    if (d > discountConfig.standardLimit && !input.approvalReference) {
+
+    const absoluteLimit =
+      discountConfig.tpAbsoluteLimit ?? discountConfig.absoluteLimit;
+    const standardLimit =
+      discountConfig.tpStandardLimit ?? discountConfig.standardLimit;
+
+    if (d > absoluteLimit) {
       throw new BadRequestException(
-        `Requested TP discount (${d}%) exceeds the configured standard authority limit (${discountConfig.standardLimit}%). ` +
+        `Requested TP discount (${d}%) exceeds the absolute configured ceiling of ${absoluteLimit}%. Disallowed.`,
+      );
+    }
+    if (d > standardLimit && !input.approvalReference) {
+      throw new BadRequestException(
+        `Requested TP discount (${d}%) exceeds the configured standard authority limit (${standardLimit}%). ` +
           `A Branch Manager approval reference is required.`,
       );
     }

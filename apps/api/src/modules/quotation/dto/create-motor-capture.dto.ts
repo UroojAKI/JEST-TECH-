@@ -29,6 +29,14 @@ export class CreateMotorCaptureDto {
   contactId?: string;
 
   @IsOptional()
+  @IsString()
+  customerId?: string;
+
+  @IsOptional()
+  @IsString()
+  vehicleId?: string;
+
+  @IsOptional()
   @IsNumber()
   totalPremium?: number;
 
@@ -111,6 +119,11 @@ export class CreateMotorCaptureDto {
     name?: string;
     code?: string;
     contact?: string;
+    source?: string;
+    manualAgentName?: string;
+    manualAgentCode?: string;
+    manualAgentContact?: string;
+    manualAgentSource?: string;
   };
 
   @IsOptional()

@@ -14,6 +14,7 @@ import { ContactsService } from '../../../contacts/services/contacts.service';
 import { VehicleDataService } from '../../../motor/services/vehicle-data.service';
 import { NumberingEngineService } from '../../../administration/services/numbering-engine/numbering-engine.service';
 import { VehicleCategory } from '@prisma/client';
+import { TenantResourceAuthorizationService } from '../../../auth/services/tenant-resource-authorization.service';
 
 @Injectable()
 export class CreateMotorQuotationCommand {
@@ -24,6 +25,7 @@ export class CreateMotorQuotationCommand {
     private readonly contactsService: ContactsService,
     private readonly vehicleDataService: VehicleDataService,
     private readonly numberingEngine: NumberingEngineService,
+    private readonly tenantAuthService: TenantResourceAuthorizationService,
   ) {}
 
   async execute(dto: CreateMotorCaptureDto, user: RequestUser) {
@@ -37,20 +39,7 @@ export class CreateMotorQuotationCommand {
     // ── 1. Journey 1:1 Binding & Expiry Invariant (Section 3.1, A1, A2) ──
     let journey: any = null;
     if (dto.journeyId) {
-      journey = await this.prisma.motorJourney.findUnique({
-        where: { id: dto.journeyId },
-      });
-
-      if (!journey) {
-        throw new NotFoundException(`Motor journey ${dto.journeyId} not found`);
-      }
-
-      // A1: Cross-tenant / unauthorized hijacking check
-      if (journey.companyId !== companyId || journey.actorId !== user.id) {
-        throw new ForbiddenException(
-          'Cross-tenant or unauthorized motor journey access is forbidden',
-        );
-      }
+      journey = await this.tenantAuthService.assertMotorJourneyAccess(dto.journeyId, user);
 
       // TTL check
       if (journey.expiresAt < new Date()) {
@@ -66,16 +55,29 @@ export class CreateMotorQuotationCommand {
         );
       }
 
-      if (journey.status !== 'IN_PROGRESS') {
+      if (journey.status !== 'IN_PROGRESS' && journey.status !== 'ACTIVE') {
         throw new BadRequestException(
           `Motor journey is no longer in progress (${journey.status})`,
         );
       }
     }
 
+    // ── 1.1 Tenant Resource Validation (Lead, Customer, Vehicle) ──
+    if (dto.leadId) {
+      await this.tenantAuthService.assertTenantResource('Lead', dto.leadId, user);
+    }
+    if (dto.customerId) {
+      await this.tenantAuthService.assertTenantResource('Customer', dto.customerId, user);
+    }
+    if (dto.vehicleId) {
+      await this.tenantAuthService.assertTenantResource('Vehicle', dto.vehicleId, user);
+    }
+
     // ── 2. Contact Resolution (Tenant-Scoped) ──
     let contactId = dto.contactId;
-    if (!contactId && dto.leadId) {
+    if (contactId) {
+      await this.tenantAuthService.assertTenantResource('Contact', contactId, user);
+    } else if (dto.leadId) {
       const lead = await this.prisma.lead.findFirst({
         where: { id: dto.leadId, companyId, deletedAt: null },
         select: { contactId: true },
@@ -136,22 +138,72 @@ export class CreateMotorQuotationCommand {
       contactId = newContact.id;
     }
 
-    // ── 3. Agent Assignment (MOTOR-REG-01, MOTOR-REG-02) ──
+    // ── 3. Agent Assignment (MOTOR-REG-01, MOTOR-REG-02, Phase 26) ──
     let assignedAgentId: string | null = null;
     let manualAgentSnapshot: any = null;
 
     if (dto.manualAgent?.isManual) {
-      // MOTOR-REG-02: Manual agent mode -> agentId is null, snapshot in metadata
-      assignedAgentId = null;
-      manualAgentSnapshot = dto.manualAgent;
-    } else if (dto.agentId) {
-      // MOTOR-REG-01: Explicit agent selection preserved
-      const agent = await this.prisma.agent.findFirst({
-        where: { id: dto.agentId, companyId, isActive: true },
-      });
-      if (!agent) {
-        throw new BadRequestException('Selected agent is invalid or inactive');
+      // Phase 26 & MOTOR-REG-02: Strict validation for manual agent
+      const name = (
+        dto.manualAgent.manualAgentName ||
+        (dto.manualAgent as any).name
+      )?.trim();
+      const code = (
+        dto.manualAgent.manualAgentCode ||
+        (dto.manualAgent as any).code ||
+        'MANUAL-AGENT'
+      )?.trim();
+      const contact = (
+        dto.manualAgent.manualAgentContact ||
+        (dto.manualAgent as any).contact
+      )?.trim();
+      const rawSource = (
+        dto.manualAgent.manualAgentSource ||
+        (dto.manualAgent as any).source ||
+        'DIRECT'
+      )
+        .trim()
+        .toUpperCase();
+
+      if (!name || name.length < 2 || name.length > 100) {
+        throw new BadRequestException(
+          'Manual agent requires manualAgentName (2-100 characters)',
+        );
       }
+      if (!code || code.length < 2 || code.length > 30) {
+        throw new BadRequestException(
+          'Manual agent requires manualAgentCode (2-30 characters)',
+        );
+      }
+      if (!contact || contact.length < 5 || contact.length > 100) {
+        throw new BadRequestException(
+          'Manual agent requires valid manualAgentContact (5-100 characters)',
+        );
+      }
+      if (!['DIRECT', 'BROKER', 'REFERRAL'].includes(rawSource)) {
+        throw new BadRequestException(
+          'Manual agent requires manualAgentSource to be DIRECT, BROKER, or REFERRAL',
+        );
+      }
+
+      assignedAgentId = null;
+      manualAgentSnapshot = {
+        isManual: true,
+        name,
+        code,
+        contact,
+        source: rawSource,
+        manualAgentName: name,
+        manualAgentCode: code,
+        manualAgentContact: contact,
+        manualAgentSource: rawSource,
+      };
+    } else if (dto.agentId) {
+      // Phase 1.2 & MOTOR-REG-01: Validates tenant match and active status
+      const agent = await this.tenantAuthService.assertAssignableAgent(
+        dto.agentId,
+        user,
+      );
       assignedAgentId = agent.id;
     }
     // Do NOT silently overwrite with lead.agentId!

@@ -24,6 +24,17 @@ export class LocalStorageProvider implements StorageProvider {
     return 'LOCAL';
   }
 
+  async isAvailable(): Promise<boolean> {
+    try {
+      if (!fs.existsSync(this.uploadDir)) {
+        fs.mkdirSync(this.uploadDir, { recursive: true });
+      }
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
   /**
    * Resolves and validates that the given key stays within the upload directory.
    * Throws BadRequestException if a path traversal attempt is detected.

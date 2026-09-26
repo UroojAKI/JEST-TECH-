@@ -36,6 +36,7 @@ export class ReportsRepository {
     isSystem?: boolean;
     shared?: boolean;
     parentId?: string;
+    companyId?: string | null;
     createdById?: string;
     columns: {
       field: string;
@@ -67,6 +68,7 @@ export class ReportsRepository {
           isSystem: data.isSystem || false,
           shared: data.shared || false,
           parentId: data.parentId,
+          companyId: data.companyId,
           createdById: data.createdById,
           columns: {
             create: data.columns.map((c) => ({
@@ -229,6 +231,7 @@ export class ReportsRepository {
     status?: any;
     search?: string;
     isSystem?: boolean;
+    companyId?: string | null;
   }): Promise<ReportWithRelations[]> {
     return this.prisma.report.findMany({
       where: {
@@ -237,6 +240,14 @@ export class ReportsRepository {
         module: params.module,
         status: params.status,
         isSystem: params.isSystem,
+        ...(params.companyId
+          ? {
+              OR: [
+                { companyId: params.companyId },
+                { isSystem: true, companyId: null },
+              ],
+            }
+          : {}),
         ...(params.search && {
           OR: [
             { name: { contains: params.search, mode: 'insensitive' } },
@@ -269,6 +280,7 @@ export class ReportsRepository {
 
   async createExecution(data: {
     reportId: string;
+    companyId?: string | null;
     requestedById?: string | null;
     status: any;
     parameters?: any;
@@ -276,6 +288,7 @@ export class ReportsRepository {
     return this.prisma.reportExecution.create({
       data: {
         reportId: data.reportId,
+        companyId: data.companyId,
         requestedById: data.requestedById,
         status: data.status,
         parameters: data.parameters || Prisma.JsonNull,
@@ -306,9 +319,15 @@ export class ReportsRepository {
     });
   }
 
-  async getExecutions(reportId: string): Promise<ReportExecution[]> {
+  async getExecutions(
+    reportId: string,
+    companyId?: string | null,
+  ): Promise<ReportExecution[]> {
     return this.prisma.reportExecution.findMany({
-      where: { reportId },
+      where: {
+        reportId,
+        ...(companyId ? { companyId } : {}),
+      },
       orderBy: { startedAt: 'desc' },
       take: 50,
     });
@@ -318,6 +337,7 @@ export class ReportsRepository {
 
   async createSchedule(data: {
     reportId: string;
+    companyId?: string | null;
     cronExpression: string;
     frequency: any;
     timezone?: string;
@@ -325,6 +345,7 @@ export class ReportsRepository {
     return this.prisma.reportSchedule.create({
       data: {
         reportId: data.reportId,
+        companyId: data.companyId,
         cronExpression: data.cronExpression,
         frequency: data.frequency,
         timezone: data.timezone || 'UTC',
@@ -397,12 +418,13 @@ export class ReportsRepository {
     return !!fav;
   }
 
-  async getFavorites(userId: string) {
+  async getFavorites(userId: string, companyId?: string) {
     return this.prisma.report.findMany({
       where: {
         favorites: {
           some: { userId },
         },
+        ...(companyId ? { OR: [{ companyId }, { isSystem: true }] } : {}),
       },
       include: {
         columns: { orderBy: { order: 'asc' } },

@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -27,8 +28,8 @@ export class ConvertQuotationService {
       }
 
       if (existing.productType === 'MOTOR') {
-        throw new BadRequestException(
-          'Motor quotations cannot be converted through the generic quotation endpoint. Complete payment, then issue through the Back Office Motor issuance workflow.',
+        throw new ConflictException(
+          'MOTOR_WORKFLOW_REQUIRES_MOTOR_ISSUANCE: Motor quotations cannot be converted through the generic quotation endpoint. Complete payment, then issue through the Back Office Motor issuance workflow.',
         );
       }
 

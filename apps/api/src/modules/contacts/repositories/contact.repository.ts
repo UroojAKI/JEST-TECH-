@@ -51,8 +51,15 @@ export class ContactRepository {
     take?: number,
     orderBy?: Prisma.ContactOrderByWithRelationInput,
   ): Promise<ContactWithOwner[]> {
+    const { organizationId, ...safeWhere } = (where || {}) as any;
+    const companyId = safeWhere.companyId || organizationId;
+    const finalWhere = {
+      ...safeWhere,
+      ...(companyId ? { companyId } : {}),
+      deletedAt: null,
+    };
     return this.prisma.contact.findMany({
-      where: { ...where, deletedAt: null },
+      where: finalWhere,
       skip,
       take,
       orderBy: orderBy || { createdAt: 'desc' },
@@ -61,7 +68,14 @@ export class ContactRepository {
   }
 
   async count(where?: Prisma.ContactWhereInput): Promise<number> {
-    return this.prisma.contact.count({ where: { ...where, deletedAt: null } });
+    const { organizationId, ...safeWhere } = (where || {}) as any;
+    const companyId = safeWhere.companyId || organizationId;
+    const finalWhere = {
+      ...safeWhere,
+      ...(companyId ? { companyId } : {}),
+      deletedAt: null,
+    };
+    return this.prisma.contact.count({ where: finalWhere });
   }
 
   async findById(id: string): Promise<ContactWithOwner | null> {

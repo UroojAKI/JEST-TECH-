@@ -226,11 +226,28 @@ export class DocumentService {
     const documentNumber = this.generateDocNumber();
     const uniqueId = crypto.randomUUID();
     const storageKey = `${entityType}/${entityId}/${uniqueId}-${file.originalname}`;
-    const key = await this.storage.uploadFile(
-      file.buffer,
-      storageKey,
-      file.mimetype,
-    );
+
+    let key = storageKey;
+    let providerName = this.storage.getProviderName();
+    let replicationStatus: 'SYNCED' | 'PENDING_REPLICATION' = 'SYNCED';
+
+    if ('uploadWithFailover' in this.storage) {
+      const result = await (this.storage as any).uploadWithFailover(
+        file.buffer,
+        storageKey,
+        file.mimetype,
+      );
+      key = result.key;
+      providerName = result.provider;
+      replicationStatus = result.replicationStatus;
+    } else {
+      key = await this.storage.uploadFile(
+        file.buffer,
+        storageKey,
+        file.mimetype,
+      );
+    }
+
     const doc = await this.prisma.document.create({
       data: {
         documentNumber,
@@ -239,7 +256,7 @@ export class DocumentService {
         mimeType: file.mimetype,
         size: file.size,
         storageKey: key,
-        storageProvider: this.storage.getProviderName(),
+        storageProvider: providerName,
         hash,
         entityType,
         entityId,
@@ -249,7 +266,11 @@ export class DocumentService {
         verificationStatus: DocumentVerificationStatus.PENDING,
         expiryDate,
         tags,
-        metadata: { category },
+        metadata: {
+          category,
+          checksum: hash,
+          replicationStatus,
+        },
       },
     });
     await this.prisma.documentVersion.create({
@@ -286,11 +307,28 @@ export class DocumentService {
     const uniqueId = crypto.randomUUID();
     const storageKey = `${doc.entityType}/${doc.entityId}/${uniqueId}-${file.originalname}`;
     const newVersion = doc.version + 1;
-    const key = await this.storage.uploadFile(
-      file.buffer,
-      storageKey,
-      file.mimetype,
-    );
+
+    let key = storageKey;
+    let providerName = this.storage.getProviderName();
+    let replicationStatus: 'SYNCED' | 'PENDING_REPLICATION' = 'SYNCED';
+
+    if ('uploadWithFailover' in this.storage) {
+      const result = await (this.storage as any).uploadWithFailover(
+        file.buffer,
+        storageKey,
+        file.mimetype,
+      );
+      key = result.key;
+      providerName = result.provider;
+      replicationStatus = result.replicationStatus;
+    } else {
+      key = await this.storage.uploadFile(
+        file.buffer,
+        storageKey,
+        file.mimetype,
+      );
+    }
+
     const updated = await this.prisma.document.update({
       where: { id },
       data: {
@@ -298,8 +336,14 @@ export class DocumentService {
         mimeType: file.mimetype,
         size: file.size,
         storageKey: key,
+        storageProvider: providerName,
         hash,
         version: newVersion,
+        metadata: {
+          ...((doc.metadata as any) || {}),
+          checksum: hash,
+          replicationStatus,
+        },
       },
     });
     await this.prisma.documentVersion.create({
@@ -330,7 +374,31 @@ export class DocumentService {
     actor?: ActorContext,
   ) {
     const doc = await this.getAuthorizedDocument(id, actor as ActorContext);
-    const fileBuffer = await this.storage.downloadFile(doc.storageKey);
+    let fileBuffer: Buffer;
+
+    if ('downloadWithReadRepair' in this.storage) {
+      const repairResult = await (this.storage as any).downloadWithReadRepair(
+        doc.storageKey,
+        doc,
+      );
+      fileBuffer = repairResult.fileBuffer;
+      if (repairResult.repaired) {
+        await this.prisma.document.update({
+          where: { id: doc.id },
+          data: {
+            storageProvider: 'MINIO',
+            metadata: {
+              ...((doc.metadata as any) || {}),
+              replicationStatus: 'SYNCED',
+              repairedAt: new Date().toISOString(),
+            },
+          },
+        });
+      }
+    } else {
+      fileBuffer = await this.storage.downloadFile(doc.storageKey);
+    }
+
     await this.prisma.documentAccessLog.create({
       data: {
         documentId: id,
@@ -426,12 +494,36 @@ export class DocumentService {
     ipAddress?: string,
     actor?: ActorContext,
   ) {
-    const doc = await this.prisma.document.findUnique({ where: { id } });
-    if (!doc) throw new NotFoundException('Document not found');
-    if (!actor?.userId || !actor.organizationId)
+    const actorOrg = actor?.organizationId || (actor as any)?.companyId;
+    if (!actor?.userId || !actorOrg)
       throw new ForbiddenException('Actor organizational context is required');
     if (actor.role !== RoleType.ADMIN && actor.role !== RoleType.BACK_OFFICE)
       throw new ForbiddenException('Only administrators can restore documents');
+
+    const doc = await this.prisma.document.findUnique({
+      where: { id },
+      include: {
+        uploadedBy: {
+          include: {
+            branch: {
+              include: {
+                zone: { include: { region: { include: { company: true } } } },
+              },
+            },
+            team: true,
+          },
+        },
+      },
+    });
+    if (!doc) throw new NotFoundException('Document not found');
+
+    const owner = doc.uploadedBy;
+    const ownerOrg =
+      owner?.companyId || owner?.branch?.zone?.region?.company?.id;
+
+    if (!ownerOrg || ownerOrg !== actorOrg)
+      throw new ForbiddenException('Document belongs to another organization');
+
     await this.prisma.document.update({
       where: { id },
       data: { status: DocumentStatus.ACTIVE, deletedAt: null },

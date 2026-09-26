@@ -30,11 +30,12 @@ import { QuotationListener } from './events/quotation.listener';
 
 import { QuotationCompletionService } from './services/queries/quotation-completion.service';
 import { AdministrationModule } from '../administration/administration.module';
+import { AuthModule } from '../auth/auth.module';
 
 import { CreateMotorQuotationCommand } from './services/commands/create-motor-quotation.command';
 
 @Module({
-  imports: [ContactsModule, AccountsModule, MotorModule, AdministrationModule],
+  imports: [ContactsModule, AccountsModule, MotorModule, AdministrationModule, AuthModule],
   controllers: [QuotationController],
   providers: [
     QuotationRepository,
