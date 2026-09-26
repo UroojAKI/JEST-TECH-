@@ -67,7 +67,7 @@ describe('AcceptQuotationService (R5 Multi-Version & Single Accepted Rule)', () 
       .mockResolvedValueOnce({
         ...targetQuote,
         status: QuotationStatus.APPROVED,
-        workflowState: MotorWorkflowState.QUOTE_FINALIZED,
+        workflowState: MotorWorkflowState.READY_FOR_PROPOSAL,
         versions: [{ versionNumber: 1 }],
         addons: [],
         discounts: [],

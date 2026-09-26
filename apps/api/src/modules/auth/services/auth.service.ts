@@ -344,7 +344,10 @@ export class AuthService {
     const refreshExpiresIn =
       this.config.get<string>('jwt.refreshExpiresIn') ?? '30d';
     const expiresAt = this.parseExpiry(refreshExpiresIn);
-    const tokenHash = await argon2.hash(newRefreshToken);
+    const tokenHash = crypto
+      .createHash('sha256')
+      .update(newRefreshToken)
+      .digest('hex');
 
     await this.prisma.$transaction([
       this.prisma.refreshToken.update({

@@ -1,7 +1,8 @@
-import { Injectable, BadRequestException, Logger } from '@nestjs/common';
+import { Injectable, BadRequestException, Logger, Optional } from '@nestjs/common';
 import { PrismaService } from '../../../database/prisma.service';
 import { MotorCalculationInputDto } from '../dto/motor-calculation.dto';
 import { MotorTariffService } from './motor-tariff.service';
+import { MotorPolicyDateService } from './motor-policy-date.service';
 
 /**
  * EPIC-16 — Motor Calculation Engine V3
@@ -51,6 +52,8 @@ export class MotorCalculationService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly motorTariffService: MotorTariffService,
+    @Optional()
+    private readonly policyDateService: MotorPolicyDateService = new MotorPolicyDateService(),
   ) {}
 
   async calculate(input: MotorCalculationInputDto) {
@@ -60,18 +63,22 @@ export class MotorCalculationService {
     // ── 2. TP Tenure Resolution ────────────────────────────────────────────
     const tpTenure = this.resolveTpTenure(input);
 
-    // ── 3. NCB Resolution (reset to 0 if claim in expiring policy) ─────────
-    const effectiveNcb = input.claimInExpiringPolicy
-      ? 0
-      : input.ncbPercent || 0;
+    // ── 3. NCB Resolution (NEW vehicle = strictly 0, or reset if claim) ───
+    const effectiveNcb =
+      input.vehicleStatus === 'NEW'
+        ? 0
+        : input.claimInExpiringPolicy
+          ? 0
+          : input.ncbPercent || 0;
 
     // ── 4. Fetch Configuration-Driven Rates ────────────────────────────────
     const { tpRates, odRates, gstRate, discountConfig, addonRates } =
       await this.fetchConfiguration(input);
 
-    // ── 5. Discount Authority Validation ──────────────────────────────────
+    // ── 5. Dual Discount Authority Validation (OD + TP) ───────────────────
     // Thresholds come from DB config, not hardcoded constants.
     this.validateDiscountAuthority(input, discountConfig);
+    this.validateTpDiscountAuthority(input, discountConfig);
 
     // ── 6. OD Component ────────────────────────────────────────────────────
     let baseOdPremium = 0;
@@ -217,8 +224,18 @@ export class MotorCalculationService {
       ncbDiscountAmount + specialDiscountAmount + tpDiscountAmount,
     );
 
+    const authoritativeDates = this.policyDateService.calculateMotorDates({
+      vehicleStatus: input.vehicleStatus,
+      vehicleCategory: input.vehicleCategory?.toString(),
+      policyType: input.policyType,
+      policyTenure: input.policyTenure,
+      previousExpiryDate: input.previousPolicyExpiryDate,
+      requestedStartDate: input.policyStartDate,
+    });
+
     return {
       inputs: { ...input, effectiveNcb, tpTenure },
+      authoritativeDates,
       rateConfig: {
         odRate: odRates.rate,
         tpAnnualRate: tpRates.annualPremium,
@@ -276,13 +293,19 @@ export class MotorCalculationService {
   // ── Private Helpers ───────────────────────────────────────────────────────
 
   private validateInputs(input: MotorCalculationInputDto) {
+    if (input.vehicleStatus === 'NEW' && input.policyType === 'STANDALONE_OD') {
+      throw new BadRequestException(
+        'Standalone OD is not applicable for new vehicles',
+      );
+    }
+
     if (input.policyType === 'STANDALONE_OD') {
       if (!input.activeTpPolicyNumber || !input.activeTpExpiryDate) {
         throw new BadRequestException(
           'Active TP Policy details are required for Standalone OD policies',
         );
       }
-      if (new Date(input.activeTpExpiryDate) <= new Date()) {
+      if (this.policyDateService.isExpired(input.activeTpExpiryDate)) {
         throw new BadRequestException(
           'Active TP Policy has expired. Cannot issue SAOD policy against an expired TP.',
         );
@@ -305,6 +328,26 @@ export class MotorCalculationService {
     if (d > discountConfig.standardLimit && !input.approvalReference) {
       throw new BadRequestException(
         `Requested discount (${d}%) exceeds the configured standard authority limit (${discountConfig.standardLimit}%). ` +
+          `A Branch Manager approval reference is required.`,
+      );
+    }
+  }
+
+  private validateTpDiscountAuthority(
+    input: MotorCalculationInputDto,
+    discountConfig: { standardLimit: number; absoluteLimit: number },
+  ) {
+    const d = input.tpDiscountPercent ?? 0;
+    if (d <= 0) return;
+
+    if (d > discountConfig.absoluteLimit) {
+      throw new BadRequestException(
+        `Requested TP discount (${d}%) exceeds the absolute configured ceiling of ${discountConfig.absoluteLimit}%. Disallowed.`,
+      );
+    }
+    if (d > discountConfig.standardLimit && !input.approvalReference) {
+      throw new BadRequestException(
+        `Requested TP discount (${d}%) exceeds the configured standard authority limit (${discountConfig.standardLimit}%). ` +
           `A Branch Manager approval reference is required.`,
       );
     }
@@ -388,6 +431,9 @@ export class MotorCalculationService {
           );
         }
       } else {
+        if (process.env.NODE_ENV === 'production') {
+          throw new BadRequestException('Authoritative tariff configuration missing');
+        }
         const fallback = FALLBACK_TP_RATES[vehicleCategoryStr] ?? 3416;
         this.logger.warn(
           `[EPIC-16] No DB tariff found for ${vehicleCategoryStr}, using IRDAI fallback: ₹${fallback}`,
@@ -395,6 +441,10 @@ export class MotorCalculationService {
         tpRates = { annualPremium: fallback, source: 'IRDAI_FALLBACK' };
       }
     } catch (err) {
+      if (err instanceof BadRequestException) throw err;
+      if (process.env.NODE_ENV === 'production') {
+        throw new BadRequestException('Authoritative tariff configuration missing');
+      }
       const fallback = FALLBACK_TP_RATES[vehicleCategoryStr] ?? 3416;
       this.logger.error(
         `[EPIC-16] Tariff lookup failed, using fallback: ${err}`,

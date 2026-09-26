@@ -174,6 +174,9 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, initialCategory, c
   const [savedQuotationId, setSavedQuotationId] = useState<string | null>(null);
   const [selectedAgentId, setSelectedAgentId] = useState<string>('');
   const [selectedAgentCode, setSelectedAgentCode] = useState<string>('');
+  const [isManualAgent, setIsManualAgent] = useState(false);
+  const [manualAgentDetails, setManualAgentDetails] = useState<{ name: string; code?: string; phone?: string } | null>(null);
+  const [journeyId, setJourneyId] = useState<string | null>(null);
   const [showInspectionDialog, setShowInspectionDialog] = useState(false);
   const [isContextLoading, setIsContextLoading] = useState(false);
   const [prefilledFromLeadCode, setPrefilledFromLeadCode] = useState<string | null>(null);
@@ -207,8 +210,27 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, initialCategory, c
       setSavedQuotationId(null);
       setSelectedAgentId('');
       setSelectedAgentCode('');
+      setIsManualAgent(false);
+      setManualAgentDetails(null);
+      setJourneyId(null);
       setShowInspectionDialog(false);
       setPrefilledFromLeadCode(null);
+
+      // Initialize authoritative Motor Journey
+      apiClient
+        .post('/motor/journeys', {
+          leadId: leadId && leadId !== 'new' ? leadId : undefined,
+          contactId: contactId || undefined,
+          vehicleCategory: initialCategory || undefined,
+        })
+        .then((res) => {
+          if (res.data?.journeyId) {
+            setJourneyId(res.data.journeyId);
+          }
+        })
+        .catch((err) => {
+          console.warn('Failed to initialize motor journey session:', err);
+        });
 
       // Automatically fetch authoritative Lead Context when leadId is provided
       if (leadId && !cloneQuoteData) {
@@ -279,7 +301,12 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, initialCategory, c
   const canProceed = () => {
     if (step === 1) return !!(proposer.customerName && proposer.mobileNumber);
     if (step === 2) return !!vehicleCategory;
-    if (step === 3) return !!previousPolicy.policyExpiryDate;
+    if (step === 3) {
+      return (
+        previousPolicy.previousPolicyType === 'NOT_AVAILABLE' ||
+        !!previousPolicy.policyExpiryDate
+      );
+    }
     if (step === 4) return !!policyType;
     if (step === 5) return !!ruleResult;
     if (step === 6) {
@@ -298,44 +325,15 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, initialCategory, c
   const evaluateRules = async () => {
     setRuleLoading(true);
     try {
-      let currentQuoteId = savedQuotationId;
-      if (!currentQuoteId) {
-        // Create initial draft quotation so rule evaluation is authoritatively recorded in database
-        const prePayload = {
-          vehicleCategory: vehicleCategory || 'PRIVATE_CAR',
-          policyType: policyType || 'PACKAGE',
-          registrationNumber: registrationNumber || '',
-          insurerName: insurerName || 'Partner Insurer',
-          leadId: leadId && leadId !== 'new' ? leadId : undefined,
-          contactId: contactId || undefined,
-          agentId: selectedAgentId || undefined,
-          totalPremium: getNetPayable() > 0 ? getNetPayable() : (getTotalPremium() || 1000),
-          idv: getIDV() || 500000,
-          ncbPercentage: getNCB(),
-          proposerDetails: proposer,
-          vehicleDetails,
-          policyDetails: getPolicyDetails(),
-          saodVerification: policyType === 'SAOD' ? {
-            tpInsurer: 'DRAFT_INSURER',
-            tpPolicyNumber: 'DRAFT123',
-            tpStartDate: new Date().toISOString(),
-            tpExpiryDate: new Date(new Date().getTime() + 86400000).toISOString(),
-          } : undefined,
-          status: 'DRAFT',
-        };
-        const preRes = await apiClient.post('/quotations/motor-capture', prePayload);
-        currentQuoteId = preRes.data?.id;
-        setSavedQuotationId(currentQuoteId);
-      }
-
-      if (currentQuoteId) {
-        const res = await apiClient.post(`/motor/quotations/${currentQuoteId}/previous-policy`, {
-          ...previousPolicy,
-          newPolicyType: policyType || 'PACKAGE',
-          newInsurerName: insurerName,
-        });
-        setRuleResult(res.data?.ruleEvaluation || res.data);
-      }
+      // Stateless rule evaluation — does not create premature draft quotations
+      const res = await apiClient.post('/motor/rules/evaluate', {
+        journeyId: journeyId || undefined,
+        policyType: policyType || 'PACKAGE',
+        vehicleStatus: vehicleDetails.vehicleStatus || 'EXISTING',
+        vehicleCategory: vehicleCategory || 'PRIVATE_CAR',
+        previousPolicyDetails: previousPolicy,
+      });
+      setRuleResult(res.data?.ruleEvaluation || res.data);
     } catch (e: any) {
       console.error('Rule engine API error:', e);
       toast.error(e?.response?.data?.message || 'Failed to evaluate underwriting rules on server.');
@@ -407,6 +405,7 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, initialCategory, c
   };
 
   const getNCB = () => {
+    if (vehicleDetails.vehicleStatus === 'NEW') return 0;
     const pd = getPolicyDetails() as any;
     return parseInt(pd.ncbPercentage || '0') || 0;
   };
@@ -432,13 +431,18 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, initialCategory, c
       const calcResult = pDetails.calculatedResult || {};
       const outputs = calcResult.outputs || {};
       const payload = {
+        journeyId: journeyId || undefined,
         vehicleCategory,
         policyType,
         registrationNumber: registrationNumber || '',
         insurerName: insurerName || 'Partner Insurer',
         leadId: leadId && leadId !== 'new' ? leadId : undefined,
         contactId: contactId || undefined,
-        agentId: selectedAgentId || undefined,
+        agentId: isManualAgent ? undefined : (selectedAgentId || undefined),
+        isManualAgent,
+        manualAgentName: isManualAgent ? manualAgentDetails?.name : undefined,
+        manualAgentCode: isManualAgent ? manualAgentDetails?.code : undefined,
+        manualAgentPhone: isManualAgent ? manualAgentDetails?.phone : undefined,
         basePremium: outputs.basePremium ?? outputs.netOdPremium ?? outputs.netTpPremium,
         discountAmount: outputs.discountAmount ?? outputs.ncbDiscountAmount,
         gstAmount: outputs.totalGst ?? getGst(),
@@ -452,6 +456,7 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, initialCategory, c
         ncbPercentage: getNCB(),
         proposerDetails: proposer,
         vehicleDetails,
+        previousPolicyDetails: previousPolicy,
         policyDetails: getPolicyDetails(),
         status: ruleResult?.inspectionRequired ? 'PENDING_INSPECTION' : 'READY_FOR_PROPOSAL',
         // SAOD Verification
@@ -467,19 +472,13 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, initialCategory, c
         } : {}),
       };
 
+      // Single authoritative transactional quotation creation
       const res = await apiClient.post('/quotations/motor-capture', payload);
       const saved = res.data;
       setSavedQuotationId(saved.id);
 
-      // Persist previous policy evaluation to backend rule engine & create inspection / tasks
-      const evalRes = await apiClient.post(`/motor/quotations/${saved.id}/previous-policy`, {
-        ...previousPolicy,
-        newPolicyType: policyType || 'PACKAGE',
-        newInsurerName: insurerName,
-      });
-
       const isInspectionMandatory =
-        evalRes.data?.ruleEvaluation?.inspectionRequired ||
+        saved.status === 'PENDING_INSPECTION' ||
         ruleResult?.inspectionRequired;
 
       if (isInspectionMandatory) {
@@ -619,6 +618,12 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, initialCategory, c
                         setSelectedAgentId(agentId);
                         setSelectedAgentCode(agentCode);
                       }}
+                      isManualAgent={isManualAgent}
+                      manualAgentName={manualAgentDetails?.name}
+                      onManualAgentChange={(manual, details) => {
+                        setIsManualAgent(manual);
+                        if (details) setManualAgentDetails(details);
+                      }}
                       label="Authoritative Assigned Agent (Ownership & Commission)"
                     />
                   </div>
@@ -662,7 +667,11 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, initialCategory, c
             {step === 4 && (
               <div className="space-y-4">
                 <h3 className="text-sm font-bold text-foreground border-b pb-2">Policy Type</h3>
-                <PolicyTypeSelector selected={policyType} onChange={setPolicyType} />
+                <PolicyTypeSelector
+                  selected={policyType}
+                  onChange={setPolicyType}
+                  vehicleStatus={vehicleDetails.vehicleStatus}
+                />
               </div>
             )}
 

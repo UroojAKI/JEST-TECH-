@@ -81,7 +81,7 @@ export class MotorQuoteWorkflowService {
       await this.prisma.quotation.update({
         where: { id: dto.quotationId },
         data: {
-          workflowState: 'RULES_EVALUATED',
+          workflowState: 'READY_FOR_PROPOSAL',
           ncbPercentage: 0,
         },
       });
@@ -92,7 +92,7 @@ export class MotorQuoteWorkflowService {
 
       return {
         quotationId: dto.quotationId,
-        workflowState: 'RULES_EVALUATED',
+        workflowState: 'READY_FOR_PROPOSAL',
         inspectionRequired: false,
         applicable: false,
         reason: 'NEW_VEHICLE',
@@ -315,7 +315,7 @@ export class MotorQuoteWorkflowService {
         data: {
           workflowState: result.inspectionRequired
             ? 'INSPECTION_REQUIRED'
-            : 'RULES_EVALUATED',
+            : 'READY_FOR_PROPOSAL',
           ncbPercentage: result.ncb,
         },
       });
@@ -332,7 +332,7 @@ export class MotorQuoteWorkflowService {
       quotationId: dto.quotationId,
       workflowState: result.inspectionRequired
         ? 'INSPECTION_REQUIRED'
-        : 'RULES_EVALUATED',
+        : 'READY_FOR_PROPOSAL',
       inspectionRequired: result.inspectionRequired,
       inspection: inspectionRecord
         ? {

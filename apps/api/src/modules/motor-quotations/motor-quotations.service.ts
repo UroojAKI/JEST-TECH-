@@ -197,6 +197,117 @@ export class MotorQuotationsService {
       where.insurerName = { contains: insurerName, mode: 'insensitive' };
     }
 
+    // 1. Query canonical Quotation where productType = 'MOTOR'
+    const quotationWhere: Prisma.QuotationWhereInput = {
+      companyId,
+      productType: 'MOTOR',
+      deletedAt: null,
+    };
+    if (vehicleId) quotationWhere.vehicleId = vehicleId;
+    if (leadId) quotationWhere.leadId = leadId;
+    if (customerId) quotationWhere.contactId = customerId;
+    if (status) quotationWhere.status = status as any;
+
+    const [canonicalQuotes, canonicalTotal] = await Promise.all([
+      this.prisma.quotation.findMany({
+        where: quotationWhere,
+        skip,
+        take: limit,
+        orderBy: { [sortBy === 'quotationNumber' ? 'quotationCode' : sortBy]: sortOrder },
+        include: {
+          lead: {
+            select: { id: true, leadCode: true, title: true, status: true },
+          },
+          vehicle: {
+            select: {
+              id: true,
+              registrationNumber: true,
+              category: true,
+              make: true,
+              model: true,
+            },
+          },
+          contact: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              phone: true,
+            },
+          },
+        },
+      }),
+      this.prisma.quotation.count({ where: quotationWhere }),
+    ]);
+
+    if (canonicalTotal > 0) {
+      const mapped = canonicalQuotes.map((q) => {
+        const snap = (q.calculationSnapshot as any)?.pricing || {};
+        return {
+          id: q.id,
+          quotationNumber: q.quotationCode,
+          leadId: q.leadId || '',
+          vehicleId: q.vehicleId || '',
+          customerId: q.contactId,
+          agentId: q.agentId,
+          agentCodeSnapshot: (q.motorMetadata as any)?.agentCodeSnapshot || null,
+          insurerName: snap.insurerName || 'Authoritative Insurer',
+          planName: (q.motorMetadata as any)?.planName || null,
+          policyType: q.policyType || 'COMPREHENSIVE',
+          status: q.status as any,
+          idv: snap.idv ? Number(snap.idv) : null,
+          odPremium: snap.odPremium ? Number(snap.odPremium) : null,
+          tpPremium: snap.tpPremium ? Number(snap.tpPremium) : null,
+          addonPremium: snap.addonPremium ? Number(snap.addonPremium) : null,
+          ncbDiscount: snap.ncbDiscount ? Number(snap.ncbDiscount) : null,
+          otherDiscounts: null,
+          netPremium: snap.netPremium ? Number(snap.netPremium) : null,
+          gstAmount: snap.gstAmount ? Number(snap.gstAmount) : null,
+          finalPremium: Number(q.totalPremium || 0),
+          breakup: snap.breakup || null,
+          addonsSelected: (q.motorMetadata as any)?.addonsSelected || null,
+          vehicle: q.vehicle
+            ? {
+                id: q.vehicle.id,
+                registrationNumber: q.vehicle.registrationNumber,
+                category: q.vehicle.category,
+                make: q.vehicle.make,
+                model: q.vehicle.model,
+              }
+            : undefined,
+          lead: q.lead
+            ? {
+                id: q.lead.id,
+                leadCode: q.lead.leadCode,
+                title: q.lead.title,
+                status: q.lead.status,
+              }
+            : undefined,
+          customer: q.contact
+            ? {
+                id: q.contact.id,
+                customerCode: q.contact.id.slice(0, 8),
+                firstName: q.contact.firstName,
+                lastName: q.contact.lastName,
+                mobile: q.contact.phone || '',
+              }
+            : undefined,
+          createdAt: q.createdAt.toISOString(),
+        };
+      });
+
+      return {
+        data: mapped,
+        meta: {
+          page,
+          limit,
+          total: canonicalTotal,
+          totalPages: Math.ceil(canonicalTotal / limit),
+        },
+      };
+    }
+
+    // 2. Fallback to legacy MotorQuotation records
     const [quotations, total] = await Promise.all([
       this.prisma.motorQuotation.findMany({
         where,
@@ -247,6 +358,63 @@ export class MotorQuotationsService {
       throw new ForbiddenException('Tenant organizational context is required');
     }
 
+    // 1. Try canonical Quotation first
+    const canonicalQuote = await this.prisma.quotation.findFirst({
+      where: { id, companyId, productType: 'MOTOR', deletedAt: null },
+      include: {
+        lead: true,
+        vehicle: true,
+        contact: true,
+        agent: true,
+        policy: true,
+        proposal: true,
+      },
+    });
+
+    if (canonicalQuote) {
+      if (user.role === RoleType.AGENT) {
+        const agent = await this.prisma.agent.findUnique({
+          where: { userId: user.id },
+        });
+        if (agent && canonicalQuote.agentId && canonicalQuote.agentId !== agent.id) {
+          throw new ForbiddenException(
+            'You are not authorized to view this quotation',
+          );
+        }
+      }
+
+      const snap = (canonicalQuote.calculationSnapshot as any)?.pricing || {};
+      const categoryKey = (canonicalQuote.vehicle?.category ||
+        'PRIVATE_CAR') as VehicleCategoryKey;
+      const categoryConfig = getCategoryConfig(categoryKey);
+
+      return {
+        id: canonicalQuote.id,
+        quotationNumber: canonicalQuote.quotationCode,
+        leadId: canonicalQuote.leadId,
+        vehicleId: canonicalQuote.vehicleId,
+        customerId: canonicalQuote.contactId,
+        agentId: canonicalQuote.agentId,
+        companyId: canonicalQuote.companyId,
+        insurerName: snap.insurerName || 'Authoritative Insurer',
+        policyType: canonicalQuote.policyType,
+        status: canonicalQuote.status,
+        idv: snap.idv ? Number(snap.idv) : null,
+        odPremium: snap.odPremium ? Number(snap.odPremium) : null,
+        tpPremium: snap.tpPremium ? Number(snap.tpPremium) : null,
+        finalPremium: Number(canonicalQuote.totalPremium || 0),
+        breakup: snap.breakup || null,
+        vehicle: canonicalQuote.vehicle,
+        lead: canonicalQuote.lead,
+        customer: canonicalQuote.contact,
+        agent: canonicalQuote.agent,
+        policy: canonicalQuote.policy,
+        categoryConfig,
+        createdAt: canonicalQuote.createdAt.toISOString(),
+      };
+    }
+
+    // 2. Fallback to legacy MotorQuotation
     const quotation = await this.prisma.motorQuotation.findFirst({
       where: { id, companyId, deletedAt: null },
       include: {
@@ -368,7 +536,14 @@ export class MotorQuotationsService {
   }
 
   async acceptQuotation(id: string, user: RequestUser) {
-    const quote = await this.findById(id, user);
+    const quote = await this.prisma.motorQuotation.findFirst({
+      where: { id, deletedAt: null },
+      include: { lead: true },
+    });
+
+    if (!quote) {
+      throw new NotFoundException(`Motor Quotation ${id} not found`);
+    }
 
     if (quote.status === MotorQuotationStatus.ACCEPTED) {
       return { message: 'Quotation is already accepted', quote };
@@ -399,6 +574,7 @@ export class MotorQuotationsService {
     // 3. Move Lead forward to CUSTOMER_ACCEPTED stage if applicable
     if (
       quote.lead &&
+      quote.leadId &&
       quote.lead.status !== LeadStatus.CUSTOMER_ACCEPTED &&
       quote.lead.status !== LeadStatus.CONVERTED
     ) {

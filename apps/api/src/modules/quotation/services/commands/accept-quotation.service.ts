@@ -52,7 +52,7 @@ export class AcceptQuotationService {
       // If already accepted, return idempotently
       if (
         quotation.status === QuotationStatus.APPROVED &&
-        quotation.workflowState === MotorWorkflowState.QUOTE_FINALIZED
+        quotation.workflowState === MotorWorkflowState.READY_FOR_PROPOSAL
       ) {
         const detail = await this.quotationRepository.findDetail(id);
         return QuotationMapper.toResponse(detail!);
@@ -101,12 +101,12 @@ export class AcceptQuotationService {
         });
       }
 
-      // Mark this quotation as ACCEPTED (APPROVED + QUOTE_FINALIZED)
+      // Mark this quotation as ACCEPTED (APPROVED + READY_FOR_PROPOSAL)
       const updated = await tx.quotation.update({
         where: { id },
         data: {
           status: QuotationStatus.APPROVED,
-          workflowState: MotorWorkflowState.QUOTE_FINALIZED,
+          workflowState: MotorWorkflowState.READY_FOR_PROPOSAL,
           issuanceStatus: IssuanceStatus.PROPOSAL_READY,
           updatedById: actorId,
         },

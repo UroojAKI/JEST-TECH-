@@ -30,12 +30,24 @@ export function MotorProposalWizard({ isOpen, quote, onClose, onSuccess }: Props
 
   if (!isOpen || !quote) return null;
 
+  const isApprovedForPayment = [
+    'PAYMENT_PENDING',
+    'APPROVED',
+    'PROPOSAL_APPROVED',
+    'CUSTOMER_ACCEPTED',
+  ].includes(quote.status);
+
   const canProceed = () => {
     if (step === 1) return true;
     if (step === 2) {
+      if (!isApprovedForPayment) return false;
       if (paymentRecord.status === 'NOT_DONE') return false;
       if (paymentRecord.status === 'PAID') {
-        return Boolean(paymentRecord.amount && Number(paymentRecord.amount) > 0 && paymentRecord.referenceNumber?.trim());
+        return Boolean(
+          paymentRecord.amount &&
+            Number(paymentRecord.amount) > 0 &&
+            paymentRecord.referenceNumber?.trim(),
+        );
       }
     }
     return true;
@@ -137,6 +149,16 @@ export function MotorProposalWizard({ isOpen, quote, onClose, onSuccess }: Props
             {step === 2 && (
               <div className="space-y-4">
                 <h3 className="text-sm font-bold text-foreground border-b pb-2">Payment Collection</h3>
+                {!isApprovedForPayment && (
+                  <div className="p-4 rounded-xl border border-amber-500/30 bg-amber-500/10 text-amber-800 dark:text-amber-300 text-xs font-medium space-y-1">
+                    <div className="font-bold flex items-center gap-1.5">
+                      ⚠️ Underwriting Approval Required Before Payment
+                    </div>
+                    <div>
+                      This motor quotation is currently in status <strong>{quote.status}</strong>. Under IRDAI statutory workflow, payment cannot be collected until the proposal is formally approved by underwriting.
+                    </div>
+                  </div>
+                )}
                 <PaymentStatusForm
                   value={paymentRecord}
                   onChange={setPaymentRecord}

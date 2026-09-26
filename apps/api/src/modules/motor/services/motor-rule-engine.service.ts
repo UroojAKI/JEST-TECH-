@@ -1,14 +1,20 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
+import { MotorPolicyDateService } from './motor-policy-date.service';
 
 export interface MotorRuleContext {
+  vehicleStatus?: 'NEW' | 'EXISTING';
   // Previous policy
-  policyExpiryDate?: Date | null;
-  expiredMoreThan90Days: boolean;
-  ownershipTransfer: boolean;
+  policyExpiryDate?: Date | string | null;
+  expiredMoreThan90Days?: boolean;
+  ownershipTransfer?: boolean;
   previousPolicyTransferred?: boolean; // Was the previous policy transferred to new owner?
-  claimInPreviousYear: boolean;
+  claimInPreviousYear?: boolean;
   previousPolicyType?:
-    'COMPREHENSIVE' | 'THIRD_PARTY' | 'SAOD' | 'NOT_AVAILABLE' | null;
+    | 'COMPREHENSIVE'
+    | 'THIRD_PARTY'
+    | 'SAOD'
+    | 'NOT_AVAILABLE'
+    | null;
 
   // New policy being quoted
   newPolicyType: 'TP_ONLY' | 'SAOD' | 'PACKAGE';
@@ -16,12 +22,12 @@ export interface MotorRuleContext {
   previousInsurerName?: string;
 
   // SAOD-specific
-  tpExpiryDate?: Date | null; // Active TP expiry for SAOD
-  odExpiryDate?: Date | null; // Expiring OD policy expiry
-  quotationDate?: Date;
+  tpExpiryDate?: Date | string | null; // Active TP expiry for SAOD
+  odExpiryDate?: Date | string | null; // Expiring OD policy expiry
+  quotationDate?: Date | string;
 
   // Existing eligible NCB (before resets)
-  eligibleNcbPercentage: number; // 0 | 20 | 25 | 35 | 45 | 50
+  eligibleNcbPercentage?: number; // 0 | 20 | 25 | 35 | 45 | 50
 
   // Ownership transfer context
   newOwnerName?: string;
@@ -49,66 +55,73 @@ export interface MotorRuleResult {
 export class MotorRuleEngineService {
   private readonly logger = new Logger(MotorRuleEngineService.name);
 
+  constructor(
+    @Optional()
+    private readonly policyDateService: MotorPolicyDateService = new MotorPolicyDateService(),
+  ) {}
+
   /**
-   * THE SINGLE SOURCE OF TRUTH for all Motor Insurance business rules.
-   *
-   * NCB Priority Hierarchy (highest priority wins):
-   * 1. Claim in previous year → NCB = 0
-   * 2. Ownership transfer → NCB = 0
-   * 3. Policy expired > 90 days → NCB = 0
-   * 4. Eligible previous NCB applies
-   *
-   * Inspection Rule Matrix:
-   * | Ownership Transfer | Prev Policy Transfer | Policy Status        | Inspection |
-   * |--------------------|-----------------------|----------------------|------------|
-   * | No                 | —                     | Active/not expired   | No         |
-   * | No                 | —                     | Expired              | YES        |
-   * | Yes                | Yes                   | Not expired          | NO         |
-   * | Yes                | Yes                   | Expired              | YES        |
-   * | Yes                | No                    | Any                  | YES        |
-   * | Any                | Any                   | Expired > 90 days    | YES        |
-   * | —                  | —                     | TP→Package (same co) | YES        |
-   * | —                  | —                     | OD expired (SAOD)    | YES        |
+   * Evaluates Third-Party specific statutory bypass rules.
+   * Per IRDAI statutory regulations, standalone TP policies NEVER require physical inspection,
+   * and NCB is forced to 0% (NCB is strictly an OD discount).
    */
-  evaluateQuotation(ctx: MotorRuleContext): MotorRuleResult {
-    const today = ctx.quotationDate ?? new Date();
-    const reasons: string[] = [];
-    const missingDocs: string[] = [];
+  evaluateTpSpecificRules(ctx: MotorRuleContext): {
+    isTpOnly: boolean;
+    bypassInspection: boolean;
+    forceZeroNcb: boolean;
+  } {
+    const isTpOnly = ctx.newPolicyType === 'TP_ONLY';
+    return {
+      isTpOnly,
+      bypassInspection: isTpOnly,
+      forceZeroNcb: isTpOnly,
+    };
+  }
 
-    // ─── Step 1: Compute policyExpired from date if not already flagged ───
-    let policyExpired = false;
-    if (ctx.policyExpiryDate) {
-      policyExpired = ctx.policyExpiryDate < today;
+  /**
+   * Evaluates NCB priority hierarchy.
+   */
+  evaluateNcbRules(
+    ctx: MotorRuleContext,
+    expiredMoreThan90Days: boolean,
+  ): { ncb: number; ncbReason: MotorRuleResult['ncbReason'] } {
+    const tpRules = this.evaluateTpSpecificRules(ctx);
+    if (tpRules.forceZeroNcb || ctx.vehicleStatus === 'NEW') {
+      return { ncb: 0, ncbReason: 'ELIGIBLE' };
     }
-    // expiredMoreThan90Days is authoritative from input (computed from expiry date)
-    const expiredMoreThan90Days =
-      ctx.expiredMoreThan90Days ||
-      (() => {
-        if (!ctx.policyExpiryDate) return false;
-        const ninetyDaysAgo = new Date(today);
-        ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
-        return ctx.policyExpiryDate < ninetyDaysAgo;
-      })();
-
-    // ─── Step 2: NCB calculation (priority hierarchy) ───
-    let ncb: number;
-    let ncbReason: MotorRuleResult['ncbReason'];
 
     if (ctx.claimInPreviousYear) {
-      ncb = 0;
-      ncbReason = 'CLAIM_IN_PREVIOUS_YEAR';
-    } else if (ctx.ownershipTransfer) {
-      ncb = 0;
-      ncbReason = 'OWNERSHIP_TRANSFER';
-    } else if (expiredMoreThan90Days) {
-      ncb = 0;
-      ncbReason = 'POLICY_EXPIRED_MORE_THAN_90_DAYS';
-    } else {
-      ncb = ctx.eligibleNcbPercentage;
-      ncbReason = 'ELIGIBLE';
+      return { ncb: 0, ncbReason: 'CLAIM_IN_PREVIOUS_YEAR' };
+    }
+    if (ctx.ownershipTransfer) {
+      return { ncb: 0, ncbReason: 'OWNERSHIP_TRANSFER' };
+    }
+    if (expiredMoreThan90Days) {
+      return { ncb: 0, ncbReason: 'POLICY_EXPIRED_MORE_THAN_90_DAYS' };
     }
 
-    // ─── Step 3: Inspection rule matrix ───
+    return {
+      ncb: ctx.eligibleNcbPercentage || 0,
+      ncbReason: 'ELIGIBLE',
+    };
+  }
+
+  /**
+   * Evaluates inspection requirements.
+   */
+  evaluateInspectionRules(
+    ctx: MotorRuleContext,
+    policyExpired: boolean,
+    expiredMoreThan90Days: boolean,
+    today: string,
+  ): { inspectionRequired: boolean; reasons: string[] } {
+    const tpRules = this.evaluateTpSpecificRules(ctx);
+    if (tpRules.bypassInspection) {
+      // MOTOR-REG-13: TP inspection bypass
+      return { inspectionRequired: false, reasons: [] };
+    }
+
+    const reasons: string[] = [];
     let inspectionRequired = false;
 
     // Rule: Policy expired (any expiry) → inspection (when no ownership transfer)
@@ -120,8 +133,9 @@ export class MotorRuleEngineService {
     // Rule: Expired > 90 days → inspection (always, even with ownership transfer)
     if (expiredMoreThan90Days) {
       inspectionRequired = true;
-      if (!reasons.includes('POLICY_EXPIRED'))
+      if (!reasons.includes('POLICY_EXPIRED')) {
         reasons.push('POLICY_EXPIRED_MORE_THAN_90_DAYS');
+      }
     }
 
     // Rule: Ownership transfer matrix
@@ -137,7 +151,6 @@ export class MotorRuleEngineService {
           inspectionRequired = true;
           reasons.push('OWNERSHIP_TRANSFER_POLICY_EXPIRED');
         }
-        // If not expired → NO inspection from this rule alone
       }
     }
 
@@ -151,14 +164,53 @@ export class MotorRuleEngineService {
     }
 
     // Rule: SAOD — OD expired → inspection
-    if (
-      ctx.newPolicyType === 'SAOD' &&
-      ctx.odExpiryDate &&
-      ctx.odExpiryDate < today
-    ) {
-      inspectionRequired = true;
-      reasons.push('SAOD_OD_POLICY_EXPIRED');
+    if (ctx.newPolicyType === 'SAOD' && ctx.odExpiryDate) {
+      const odExpiryStr = this.policyDateService.toBusinessDate(ctx.odExpiryDate);
+      if (odExpiryStr < today) {
+        inspectionRequired = true;
+        reasons.push('SAOD_OD_POLICY_EXPIRED');
+      }
     }
+
+    return { inspectionRequired, reasons };
+  }
+
+  /**
+   * THE SINGLE SOURCE OF TRUTH for all Motor Insurance business rules.
+   */
+  evaluateQuotation(ctx: MotorRuleContext): MotorRuleResult {
+    const today = ctx.quotationDate
+      ? this.policyDateService.toBusinessDate(ctx.quotationDate)
+      : this.policyDateService.getBusinessToday();
+
+    const missingDocs: string[] = [];
+
+    // ─── Step 1: Compute policyExpired from date using Asia/Kolkata date service ───
+    let policyExpired = false;
+    let expiredMoreThan90Days = ctx.expiredMoreThan90Days || false;
+
+    if (ctx.policyExpiryDate) {
+      const expiryStr = this.policyDateService.toBusinessDate(ctx.policyExpiryDate);
+      // MOTOR-REG-09: If expiring today (expiryStr === today), it is ACTIVE / NOT EXPIRED
+      policyExpired = expiryStr < today;
+      if (policyExpired) {
+        const daysDiff = this.policyDateService.daysBetween(expiryStr, today);
+        if (daysDiff > 90) {
+          expiredMoreThan90Days = true;
+        }
+      }
+    }
+
+    // ─── Step 2: NCB calculation ───
+    const { ncb, ncbReason } = this.evaluateNcbRules(ctx, expiredMoreThan90Days);
+
+    // ─── Step 3: Inspection rule matrix ───
+    const { inspectionRequired, reasons } = this.evaluateInspectionRules(
+      ctx,
+      policyExpired,
+      expiredMoreThan90Days,
+      today,
+    );
 
     // ─── Step 4: SAOD TP validation ───
     let saodTpValid = true;
@@ -171,9 +223,12 @@ export class MotorRuleEngineService {
         saodTpValid = false;
         saodTpInvalidReason = 'ACTIVE_TP_POLICY_REQUIRED';
         missingDocs.push('ACTIVE_TP_POLICY_DETAILS');
-      } else if (ctx.tpExpiryDate < today) {
-        saodTpValid = false;
-        saodTpInvalidReason = 'TP_POLICY_EXPIRED';
+      } else {
+        const tpExpiryStr = this.policyDateService.toBusinessDate(ctx.tpExpiryDate);
+        if (tpExpiryStr < today) {
+          saodTpValid = false;
+          saodTpInvalidReason = 'TP_POLICY_EXPIRED';
+        }
       }
     }
 
@@ -181,7 +236,7 @@ export class MotorRuleEngineService {
     const policyTransferRequired = ctx.ownershipTransfer === true;
 
     // ─── Step 6: Missing documents ───
-    if (policyExpired && !ctx.previousPolicyType) {
+    if (policyExpired && !ctx.previousPolicyType && ctx.newPolicyType !== 'TP_ONLY') {
       missingDocs.push('PREVIOUS_POLICY_COPY');
     }
     if (ctx.ownershipTransfer && !ctx.newOwnerName) {
@@ -203,7 +258,7 @@ export class MotorRuleEngineService {
       inspectionReasons: reasons,
       ncb,
       ncbReason,
-      eligibleNcb: ctx.eligibleNcbPercentage,
+      eligibleNcb: ctx.newPolicyType === 'TP_ONLY' || ctx.vehicleStatus === 'NEW' ? 0 : (ctx.eligibleNcbPercentage || 0),
       tpVerificationRequired,
       policyTransferRequired,
       saodTpValid,
@@ -213,7 +268,7 @@ export class MotorRuleEngineService {
     };
 
     this.logger.log(
-      `Rule evaluation complete. inspectionRequired=${inspectionRequired}, reasons=${reasons.join(',')}, ncb=${ncb}% (${ncbReason})`,
+      `Rule evaluation complete. policyType=${ctx.newPolicyType}, inspectionRequired=${inspectionRequired}, reasons=${reasons.join(',')}, ncb=${ncb}% (${ncbReason})`,
     );
 
     return result;

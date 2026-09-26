@@ -31,6 +31,8 @@ import { QuotationListener } from './events/quotation.listener';
 import { QuotationCompletionService } from './services/queries/quotation-completion.service';
 import { AdministrationModule } from '../administration/administration.module';
 
+import { CreateMotorQuotationCommand } from './services/commands/create-motor-quotation.command';
+
 @Module({
   imports: [ContactsModule, AccountsModule, MotorModule, AdministrationModule],
   controllers: [QuotationController],
@@ -55,6 +57,7 @@ import { AdministrationModule } from '../administration/administration.module';
     CompareQuotationService,
     GetQuotationHistoryService,
     QuotationListener,
+    CreateMotorQuotationCommand,
   ],
   exports: [
     GenerateQuotationService,
@@ -64,6 +67,7 @@ import { AdministrationModule } from '../administration/administration.module';
     CreateQuotationVersionService,
     QuotationRepository,
     PdfService,
+    CreateMotorQuotationCommand,
   ],
 })
 export class QuotationModule {}

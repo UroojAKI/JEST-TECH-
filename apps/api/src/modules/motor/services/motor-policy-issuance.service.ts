@@ -4,6 +4,7 @@ import {
   Injectable,
   NotFoundException,
   ForbiddenException,
+  Optional,
 } from '@nestjs/common';
 import {
   AuditAction,
@@ -17,6 +18,7 @@ import { MotorPaymentTrackingService } from './motor-payment-tracking.service';
 import { ActorContext } from '../../../common/interfaces/actor-context.interface';
 import { ResourceAuthorizationService } from '../../../common/services/resource-authorization.service';
 import { NumberingEngineService } from '../../administration/services/numbering-engine/numbering-engine.service';
+import { MotorPolicyDateService } from './motor-policy-date.service';
 
 @Injectable()
 export class MotorPolicyIssuanceService {
@@ -25,6 +27,8 @@ export class MotorPolicyIssuanceService {
     private readonly paymentService: MotorPaymentTrackingService,
     private readonly authzService: ResourceAuthorizationService,
     private readonly numberingEngine: NumberingEngineService,
+    @Optional()
+    private readonly policyDateService: MotorPolicyDateService = new MotorPolicyDateService(),
   ) {}
 
   async issuePolicy(
@@ -79,13 +83,27 @@ export class MotorPolicyIssuanceService {
       }
 
       if (quote.policy) {
-        throw new ConflictException(
-          `Policy already issued for quotation ${quotationId} (Policy Number: ${quote.policy.policyNumber}). Duplicate issuance is blocked.`,
-        );
+        // Crash recovery: Policy already created in previous attempt, reconcile state safely
+        const businessToday = this.policyDateService.getBusinessToday();
+        const effectiveStart = this.policyDateService.toBusinessDate(quote.policy.startDate || new Date());
+        const finalState = effectiveStart <= businessToday ? 'ACTIVE' : 'POLICY_ISSUED';
+        await tx.quotation.update({
+          where: { id: quote.id },
+          data: {
+            workflowState: finalState as any,
+            issuanceStatus: 'ISSUED',
+            status: 'CONVERTED_TO_POLICY',
+          },
+        });
+        return quote.policy;
       }
-      if (quote.workflowState !== 'PAYMENT_DONE') {
+
+      if (
+        quote.workflowState !== 'PAYMENT_DONE' &&
+        quote.workflowState !== 'ISSUANCE_PENDING'
+      ) {
         throw new ConflictException(
-          `Quotation is not in PAYMENT_DONE state (Current: ${quote.workflowState})`,
+          `Quotation is not in PAYMENT_DONE or ISSUANCE_PENDING state (Current: ${quote.workflowState})`,
         );
       }
       if (!quote.calculationSnapshot) {
@@ -138,9 +156,9 @@ export class MotorPolicyIssuanceService {
       }
       const paidAmount = new Prisma.Decimal(paymentRecord.amount || 0);
       const payableAmount = new Prisma.Decimal(quote.totalPremium);
-      if (paidAmount.lt(payableAmount)) {
+      if (!paidAmount.equals(payableAmount)) {
         throw new ConflictException(
-          `Policy issuance blocked: Reconciled payment amount (${paidAmount}) is less than authoritative payable premium (${payableAmount})`,
+          `Policy issuance blocked: Reconciled payment amount (${paidAmount}) must exactly equal authoritative payable premium (${payableAmount})`,
         );
       }
 
@@ -246,6 +264,13 @@ export class MotorPolicyIssuanceService {
         });
       }
 
+      // ─── Determine Immediate ACTIVE vs Scheduled POLICY_ISSUED ───────────
+      const businessToday = this.policyDateService.getBusinessToday();
+      const effectiveStart = this.policyDateService.toBusinessDate(startDate);
+      const isEffectiveImmediately = effectiveStart <= businessToday;
+      const initialPolicyStatus = isEffectiveImmediately ? 'ACTIVE' : 'ISSUED';
+      const finalWorkflowState = isEffectiveImmediately ? 'ACTIVE' : 'POLICY_ISSUED';
+
       // ─── Create Policy with Concurrency Handling (P2002 -> 409) ───────────
       let policy: any;
       try {
@@ -257,7 +282,7 @@ export class MotorPolicyIssuanceService {
             quotationId: quote.id,
             contactId: quote.contactId,
             accountId: quote.accountId || undefined,
-            status: 'ACTIVE',
+            status: initialPolicyStatus as any,
             premiumAmount: quote.totalPremium,
             effectiveDate: startDate,
             expiryDate: effectiveExpiry,
@@ -312,7 +337,7 @@ export class MotorPolicyIssuanceService {
       await tx.policyHistory.create({
         data: {
           policyId: policy.id,
-          status: 'ACTIVE',
+          status: initialPolicyStatus as any,
           comments: `Motor policy issued from quotation ${quote.quotationCode} by ${actor.role}.`,
           createdById: actorId,
         },
@@ -323,7 +348,7 @@ export class MotorPolicyIssuanceService {
         data: {
           issuanceStatus: 'ISSUED',
           status: 'CONVERTED_TO_POLICY',
-          workflowState: 'ACTIVE',
+          workflowState: finalWorkflowState as any,
           updatedById: actorId,
         },
       });

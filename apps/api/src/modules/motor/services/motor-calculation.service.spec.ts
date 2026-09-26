@@ -4,6 +4,8 @@ import { MotorTariffService } from './motor-tariff.service';
 import { PrismaService } from '../../../database/prisma.service';
 import { BadRequestException } from '@nestjs/common';
 
+import { MotorPolicyDateService } from './motor-policy-date.service';
+
 describe('MotorCalculationService (Iteration 5 Financial Math)', () => {
   let service: MotorCalculationService;
 
@@ -11,6 +13,7 @@ describe('MotorCalculationService (Iteration 5 Financial Math)', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         MotorCalculationService,
+        MotorPolicyDateService,
         {
           provide: PrismaService,
           useValue: {
@@ -183,6 +186,78 @@ describe('MotorCalculationService (Iteration 5 Financial Math)', () => {
           addons: [{ addonCode: 'UNKNOWN_CUSTOM_ADDON' }],
         }),
       ).rejects.toThrow(BadRequestException);
+    });
+
+    it('MOTOR-REG-03: should reject SAOD for NEW vehicles with HTTP 400', async () => {
+      await expect(
+        service.calculate({
+          vehicleCategory: 'PRIVATE_CAR',
+          vehicleStatus: 'NEW',
+          policyType: 'STANDALONE_OD',
+          idv: 500000,
+          activeTpPolicyNumber: 'TP-12345',
+          activeTpExpiryDate: '2028-12-31',
+        }),
+      ).rejects.toThrow('Standalone OD is not applicable for new vehicles');
+    });
+
+    it('MOTOR-REG-04: should force NCB to 0% for NEW vehicles even if higher percentage requested', async () => {
+      const result: any = await service.calculate({
+        vehicleCategory: 'PRIVATE_CAR',
+        vehicleStatus: 'NEW',
+        policyType: 'PACKAGE_COMPREHENSIVE',
+        idv: 500000,
+        ncbPercent: 50,
+      });
+
+      expect(result.inputs.effectiveNcb).toBe(0);
+      expect(result.outputs.ncbDiscount).toBe(0);
+    });
+
+    it('MOTOR-REG-05: should calculate TP discount and apply GST to net TP correctly', async () => {
+      const result: any = await service.calculate({
+        vehicleCategory: 'PRIVATE_CAR',
+        vehicleStatus: 'EXISTING',
+        policyType: 'THIRD_PARTY_ONLY',
+        tpDiscountPercent: 10,
+        paCover: false,
+      });
+
+      // Base TP = 3416. 10% discount = 341.6. Net TP = 3074.4
+      expect(result.outputs.baseTpPremium).toBe(3416);
+      expect(result.outputs.netTpComponent).toBe(3074.4);
+      // GST on net TP: 3074.4 * 0.18 = 553.39
+      expect(result.outputs.gstOnTp).toBe(553.39);
+      expect(result.outputs.totalPremium).toBe(3627.79);
+    });
+
+    it('MOTOR-REG-06: should enforce TP discount authority limit', async () => {
+      await expect(
+        service.calculate({
+          vehicleCategory: 'PRIVATE_CAR',
+          vehicleStatus: 'EXISTING',
+          policyType: 'THIRD_PARTY_ONLY',
+          tpDiscountPercent: 25, // exceeds standard 15% without approvalReference
+          paCover: false,
+        }),
+      ).rejects.toThrow('exceeds the configured standard authority limit');
+    });
+
+    it('MOTOR-REG-17: should return authoritative policy dates', async () => {
+      const result: any = await service.calculate({
+        vehicleCategory: 'PRIVATE_CAR',
+        vehicleStatus: 'NEW',
+        policyType: 'PACKAGE_COMPREHENSIVE',
+        idv: 500000,
+      });
+
+      expect(result.authoritativeDates).toBeDefined();
+      expect(result.authoritativeDates.odStartDate).toBeDefined();
+      expect(result.authoritativeDates.odEndDate).toBeDefined();
+      expect(result.authoritativeDates.tpStartDate).toBeDefined();
+      expect(result.authoritativeDates.tpEndDate).toBeDefined();
+      expect(result.authoritativeDates.effectiveStartDate).toBeDefined();
+      expect(result.authoritativeDates.effectiveEndDate).toBeDefined();
     });
   });
 });

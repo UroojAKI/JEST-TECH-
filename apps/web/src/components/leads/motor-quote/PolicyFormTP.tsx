@@ -184,21 +184,89 @@ export function PolicyFormTPOnlyForm({ category, vehicleStatus, data, onChange }
         </FieldRow>
       </div>
 
-      {/* Commission Calculator */}
-      <FieldRow
-        label="Commission / Discount Calculator (₹)"
-        mandatory
-        hint="Filled by employee"
-        formula="(TP Premium + PA Cover + Legal Liability) × D% − Total Premium"
-      >
-        <textarea
-          rows={2}
-          value={data.commissionDiscountCalc}
-          onChange={set('commissionDiscountCalc')}
-          placeholder="Enter commission / discount calculation details..."
-          className={`${mandatoryInput(data.commissionDiscountCalc)} resize-none`}
-        />
-      </FieldRow>
+      {/* TP Discount & Final Payable Calculator */}
+      <div className="p-4 rounded-xl border border-sky-200 bg-sky-500/5 space-y-3">
+        <div className="flex items-center justify-between">
+          <label className="text-xs font-bold text-foreground">
+            TP Discount & Final Payable Calculator
+          </label>
+          <span className="text-[10px] font-mono bg-sky-100 text-sky-800 dark:bg-sky-900/40 dark:text-sky-300 px-2 py-0.5 rounded">
+            Statutory Net Calculation
+          </span>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+          <div>
+            <label className="block text-[10px] font-bold text-muted-foreground uppercase tracking-wide mb-1">
+              TP Discount (%)
+            </label>
+            <input
+              type="number"
+              min="0"
+              max="100"
+              step="0.5"
+              placeholder="0"
+              value={data.commissionDiscountCalc?.match(/Discount: (\d+(\.\d+)?)%/)?.[1] || ''}
+              onChange={(e) => {
+                const pct = Math.min(100, Math.max(0, parseFloat(e.target.value) || 0));
+                const grossTp = Number(data.calculatedResult?.outputs?.netTpPremium || data.thirdPartyPremium || 0);
+                const discountAmt = Math.round(grossTp * (pct / 100) * 100) / 100;
+                const netTp = Math.max(0, grossTp - discountAmt);
+                const gst = Math.round(netTp * 0.18 * 100) / 100;
+                const finalPayable = Math.round((netTp + gst) * 100) / 100;
+
+                const summary = `Discount: ${pct}% (₹${discountAmt}) | Net TP: ₹${netTp} | GST: ₹${gst} | Final Payable: ₹${finalPayable}`;
+                onChange({
+                  ...data,
+                  commissionDiscountCalc: summary,
+                  totalPremiumInclGST: finalPayable.toString(),
+                });
+              }}
+              className="w-full p-2 rounded-lg border text-xs font-semibold bg-background focus:outline-none focus:ring-1 focus:ring-primary border-border"
+            />
+          </div>
+
+          <div>
+            <label className="block text-[10px] font-bold text-muted-foreground uppercase tracking-wide mb-1">
+              Discount Amount (₹)
+            </label>
+            <input
+              type="text"
+              readOnly
+              value={data.commissionDiscountCalc?.match(/\(₹(\d+(\.\d+)?)\)/)?.[1] || '0.00'}
+              className="w-full p-2 rounded-lg border text-xs font-semibold bg-muted border-border opacity-80"
+            />
+          </div>
+
+          <div>
+            <label className="block text-[10px] font-bold text-muted-foreground uppercase tracking-wide mb-1">
+              Net TP Premium (₹)
+            </label>
+            <input
+              type="text"
+              readOnly
+              value={data.commissionDiscountCalc?.match(/Net TP: ₹(\d+(\.\d+)?)/)?.[1] || (data.thirdPartyPremium || '0.00')}
+              className="w-full p-2 rounded-lg border text-xs font-semibold bg-muted border-border opacity-80"
+            />
+          </div>
+
+          <div>
+            <label className="block text-[10px] font-bold text-muted-foreground uppercase tracking-wide mb-1">
+              Payable Incl. GST (₹)
+            </label>
+            <input
+              type="text"
+              readOnly
+              value={data.totalPremiumInclGST || '0.00'}
+              className="w-full p-2 rounded-lg border text-xs font-bold text-sky-700 bg-sky-50 border-sky-200"
+            />
+          </div>
+        </div>
+
+        <p className="text-[10px] text-muted-foreground font-mono">
+          Formula: (TP Base - TP Discount) + 18% GST = Final Payable
+        </p>
+      </div>
     </div>
   );
 }

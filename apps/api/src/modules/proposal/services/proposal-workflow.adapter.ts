@@ -45,6 +45,26 @@ export class ProposalWorkflowAdapter implements WorkflowEntityAdapter {
       });
       if (!prop) throw new Error(`Proposal with ID ${entityId} not found`);
 
+      if (prop.quotation?.productType === 'MOTOR') {
+        // Motor Invariant: Proposal approval moves to APPROVED / PAYMENT_PENDING.
+        // It NEVER creates a Policy. Policy issuance is strictly exclusive to MotorPolicyIssuanceService.
+        await prismaTx.proposal.update({
+          where: { id: entityId },
+          data: {
+            status: ProposalStatus.APPROVED,
+            approvedAt: new Date(),
+            version: nextVersion,
+          },
+        });
+        await prismaTx.quotation.update({
+          where: { id: prop.quotationId },
+          data: {
+            workflowState: 'PAYMENT_PENDING',
+          },
+        });
+        return;
+      }
+
       let policyNumber: string;
       try {
         const result = await prismaTx.$queryRaw<

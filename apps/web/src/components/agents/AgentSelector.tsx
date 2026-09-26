@@ -20,6 +20,9 @@ export interface AgentOption {
 interface Props {
   value?: string | null;
   onChange?: (agentId: string, agentCode: string) => void;
+  onManualAgentChange?: (isManual: boolean, details?: { name: string; code?: string; phone?: string }) => void;
+  isManualAgent?: boolean;
+  manualAgentName?: string;
   readOnly?: boolean;
   className?: string;
   label?: string;
@@ -29,6 +32,9 @@ interface Props {
 export function AgentSelector({
   value,
   onChange,
+  onManualAgentChange,
+  isManualAgent = false,
+  manualAgentName = '',
   readOnly = false,
   className = '',
   label = 'Assigned Agent',
@@ -37,6 +43,10 @@ export function AgentSelector({
   const [agents, setAgents] = useState<AgentOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isManual, setIsManual] = useState(isManualAgent);
+  const [manualName, setManualName] = useState(manualAgentName);
+  const [manualCode, setManualCode] = useState('');
+  const [manualPhone, setManualPhone] = useState('');
 
   useEffect(() => {
     let isMounted = true;
@@ -115,36 +125,121 @@ export function AgentSelector({
           <span>{error}</span>
         </div>
       ) : (
-        <div className="relative">
-          <select
-            value={value || ''}
-            onChange={(e) => {
-              const chosen = agents.find((a) => a.id === e.target.value);
-              if (chosen && onChange) {
-                onChange(chosen.id, chosen.agentCode);
-              } else if (!e.target.value && onChange) {
-                onChange('', '');
-              }
-            }}
-            className="w-full text-xs rounded-lg border border-input bg-card px-3 py-2 pr-8 text-foreground shadow-xs focus:border-primary focus:outline-hidden focus:ring-1 focus:ring-primary appearance-none cursor-pointer"
-          >
-            <option value="">-- Select Authoritative Agent --</option>
-            {agents
-              .filter((a) => a.isActive !== false)
-              .map((agent) => {
-                const name = agent.user
-                  ? `${agent.user.firstName} ${agent.user.lastName}`
-                  : 'Agent';
-                return (
-                  <option key={agent.id} value={agent.id}>
-                    [{agent.agentCode}] {name} {agent.user?.phone ? `• ${agent.user.phone}` : ''}
-                  </option>
-                );
-              })}
-          </select>
-          <div className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-muted-foreground">
-            <UserCheck className="h-4 w-4" />
+        <div className="space-y-2">
+          {/* Mode toggle */}
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                setIsManual(false);
+                onManualAgentChange?.(false);
+              }}
+              className={`text-[10px] font-bold px-2 py-1 rounded transition-colors ${
+                !isManual
+                  ? 'bg-primary text-primary-foreground'
+                  : 'bg-muted text-muted-foreground hover:bg-muted/80'
+              }`}
+            >
+              Registered Agent
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setIsManual(true);
+                onChange?.('', 'MANUAL');
+                onManualAgentChange?.(true, { name: manualName, code: manualCode, phone: manualPhone });
+              }}
+              className={`text-[10px] font-bold px-2 py-1 rounded transition-colors ${
+                isManual
+                  ? 'bg-primary text-primary-foreground'
+                  : 'bg-muted text-muted-foreground hover:bg-muted/80'
+              }`}
+            >
+              Manual Agent Entry
+            </button>
           </div>
+
+          {!isManual ? (
+            <div className="relative">
+              <select
+                value={value || ''}
+                onChange={(e) => {
+                  const chosen = agents.find((a) => a.id === e.target.value);
+                  if (chosen && onChange) {
+                    onChange(chosen.id, chosen.agentCode);
+                  } else if (!e.target.value && onChange) {
+                    onChange('', '');
+                  }
+                }}
+                className="w-full text-xs rounded-lg border border-input bg-card px-3 py-2 pr-8 text-foreground shadow-xs focus:border-primary focus:outline-hidden focus:ring-1 focus:ring-primary appearance-none cursor-pointer"
+              >
+                <option value="">-- Select Authoritative Agent --</option>
+                {agents
+                  .filter((a) => a.isActive !== false)
+                  .map((agent) => {
+                    const name = agent.user
+                      ? `${agent.user.firstName} ${agent.user.lastName}`
+                      : 'Agent';
+                    return (
+                      <option key={agent.id} value={agent.id}>
+                        [{agent.agentCode}] {name} {agent.user?.phone ? `• ${agent.user.phone}` : ''}
+                      </option>
+                    );
+                  })}
+              </select>
+              <div className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-muted-foreground">
+                <UserCheck className="h-4 w-4" />
+              </div>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 p-2.5 rounded-lg border border-border bg-muted/20">
+              <div>
+                <label className="block text-[9px] font-bold text-muted-foreground uppercase mb-0.5">
+                  Agent Name <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  placeholder="Full Name"
+                  value={manualName}
+                  onChange={(e) => {
+                    setManualName(e.target.value);
+                    onManualAgentChange?.(true, { name: e.target.value, code: manualCode, phone: manualPhone });
+                  }}
+                  className="w-full text-xs p-1.5 rounded border border-input bg-background"
+                />
+              </div>
+              <div>
+                <label className="block text-[9px] font-bold text-muted-foreground uppercase mb-0.5">
+                  Agent Code
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. AGT-1234"
+                  value={manualCode}
+                  onChange={(e) => {
+                    setManualCode(e.target.value);
+                    onManualAgentChange?.(true, { name: manualName, code: e.target.value, phone: manualPhone });
+                  }}
+                  className="w-full text-xs p-1.5 rounded border border-input bg-background font-mono"
+                />
+              </div>
+              <div>
+                <label className="block text-[9px] font-bold text-muted-foreground uppercase mb-0.5">
+                  Phone Number
+                </label>
+                <input
+                  type="text"
+                  placeholder="Mobile"
+                  value={manualPhone}
+                  onChange={(e) => {
+                    setManualPhone(e.target.value);
+                    onManualAgentChange?.(true, { name: manualName, code: manualCode, phone: e.target.value });
+                  }}
+                  className="w-full text-xs p-1.5 rounded border border-input bg-background"
+                />
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

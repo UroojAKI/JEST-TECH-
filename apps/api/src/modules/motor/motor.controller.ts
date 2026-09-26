@@ -104,12 +104,16 @@ export class MotorController {
   @Get('vehicles/lookup/:regNumber')
   lookupVehicleByPlate(
     @Param('regNumber') regNumber: string,
+    @Query('journeyId') journeyId?: string,
     @CurrentUser() user?: RequestUser,
   ) {
     const companyId = user?.companyId || (user as any)?.organizationId;
-    return companyId
-      ? this.vehicleDataService.findByRegistration(regNumber, companyId)
-      : this.vehicleDataService.findByRegistration(regNumber);
+    return this.vehicleDataService.findByRegistration(
+      regNumber,
+      companyId,
+      journeyId,
+      user?.id,
+    );
   }
 
   @Get('vehicles/by-contact/:contactId')

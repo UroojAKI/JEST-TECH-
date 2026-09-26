@@ -44,8 +44,11 @@ export function PreviousPolicyForm({ value, onChange, newPolicyType }: Props) {
     }
   }, [value.policyExpiryDate]);
 
-  const ncbLocked = value.claimInPreviousYear || value.ownershipTransfer || expired90;
-  const ncbLockReason = value.claimInPreviousYear
+  const isNotAvailable = value.previousPolicyType === 'NOT_AVAILABLE';
+  const ncbLocked = isNotAvailable || value.claimInPreviousYear || value.ownershipTransfer || expired90;
+  const ncbLockReason = isNotAvailable
+    ? 'No previous policy declared (break-in/lapse)'
+    : value.claimInPreviousYear
     ? 'Claim in previous year'
     : value.ownershipTransfer
     ? 'Ownership transfer'
@@ -54,7 +57,7 @@ export function PreviousPolicyForm({ value, onChange, newPolicyType }: Props) {
     : null;
 
   const showSaodTpFields =
-    newPolicyType === 'SAOD' || value.previousPolicyType === 'SAOD';
+    !isNotAvailable && (newPolicyType === 'SAOD' || value.previousPolicyType === 'SAOD');
 
   const update = (partial: Partial<PreviousPolicyDetails>) =>
     onChange({ ...value, ...partial });
@@ -65,106 +68,129 @@ export function PreviousPolicyForm({ value, onChange, newPolicyType }: Props) {
       <div className="p-5 rounded-lg border bg-card shadow-sm space-y-4">
         <h3 className="text-sm font-semibold text-foreground border-b pb-2">A. Previous Policy Details</h3>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div className="space-y-1.5">
-            <label className="text-xs font-medium text-muted-foreground">
-              Policy Expiry Date <span className="text-destructive">*</span>
-            </label>
-            <input
-              type="date"
-              value={value.policyExpiryDate || ''}
-              onChange={(e) => update({ policyExpiryDate: e.target.value })}
-              className="w-full px-3 py-2 rounded-md border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-            />
-            {value.policyExpiryDate && (
-              <div className="mt-1.5 flex flex-wrap gap-2">
-                {policyExpired && !expired90 && (
-                  <span className="flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded border bg-amber-50 text-amber-700 border-amber-200">
-                    <AlertTriangle className="h-3 w-3" /> Policy Expired
-                  </span>
-                )}
-                {expired90 && (
-                  <span className="flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded border bg-destructive/10 text-destructive border-destructive/20">
-                    <AlertTriangle className="h-3 w-3" /> Expired &gt; 90 Days (NCB Reset + Inspection)
-                  </span>
-                )}
-                {!policyExpired && (
-                  <span className="flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded border bg-emerald-50 text-emerald-700 border-emerald-200">
-                    <CheckCircle2 className="h-3 w-3" /> Policy Active
-                  </span>
-                )}
-              </div>
-            )}
-          </div>
-
-          <div className="space-y-1.5">
-            <label className="text-xs font-medium text-muted-foreground">Previous Policy Type</label>
-            <div className="grid grid-cols-2 gap-2">
-              {(['COMPREHENSIVE', 'THIRD_PARTY', 'SAOD', 'NOT_AVAILABLE'] as PreviousPolicyType[]).map((pt) => (
-                <button
-                  key={pt}
-                  type="button"
-                  onClick={() => update({ previousPolicyType: pt })}
-                  className={`py-1.5 px-2 rounded-md text-[11px] font-semibold transition-colors border ${
-                    value.previousPolicyType === pt
-                      ? 'bg-primary text-primary-foreground border-primary'
-                      : 'bg-background hover:bg-muted text-foreground border-border'
-                  }`}
-                >
-                  {pt === 'COMPREHENSIVE' ? 'Comprehensive' :
-                   pt === 'THIRD_PARTY' ? 'Third Party' :
-                   pt === 'SAOD' ? 'SAOD' : 'Not Available'}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-
         <div className="space-y-1.5">
-          <label className="text-xs font-medium text-muted-foreground">
-            Claim in Previous Year? <span className="text-destructive">*</span>
-          </label>
-          <div className="flex gap-3 max-w-sm">
-            {[false, true].map((v) => (
+          <label className="text-xs font-medium text-muted-foreground">Previous Policy Type</label>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            {(['COMPREHENSIVE', 'THIRD_PARTY', 'SAOD', 'NOT_AVAILABLE'] as PreviousPolicyType[]).map((pt) => (
               <button
-                key={String(v)}
+                key={pt}
                 type="button"
-                onClick={() => update({ claimInPreviousYear: v })}
-                className={`flex-1 py-1.5 rounded-md text-xs font-semibold border transition-colors ${
-                  value.claimInPreviousYear === v
-                    ? v ? 'bg-destructive/10 text-destructive border-destructive/30' : 'bg-primary text-primary-foreground border-primary'
-                    : 'bg-background hover:bg-muted border-border'
+                onClick={() => {
+                  if (pt === 'NOT_AVAILABLE') {
+                    update({
+                      previousPolicyType: pt,
+                      policyExpiryDate: '',
+                      claimInPreviousYear: false,
+                      expiredMoreThan90Days: false,
+                      eligibleNcbPercentage: 0,
+                    });
+                  } else {
+                    update({ previousPolicyType: pt });
+                  }
+                }}
+                className={`py-1.5 px-2 rounded-md text-[11px] font-semibold transition-colors border ${
+                  value.previousPolicyType === pt
+                    ? 'bg-primary text-primary-foreground border-primary'
+                    : 'bg-background hover:bg-muted text-foreground border-border'
                 }`}
               >
-                {v ? 'Yes (Claim Made)' : 'No Claim'}
+                {pt === 'COMPREHENSIVE' ? 'Comprehensive' :
+                 pt === 'THIRD_PARTY' ? 'Third Party' :
+                 pt === 'SAOD' ? 'SAOD' : 'Not Available (Lapsed)'}
               </button>
             ))}
           </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div className="space-y-1.5">
-            <label className="text-xs font-medium text-muted-foreground">Previous Insurer</label>
-            <select
-              value={value.previousInsurerName || ''}
-              onChange={(e) => update({ previousInsurerName: e.target.value })}
-              className="w-full px-3 py-2 rounded-md border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-            >
-              <option value="">Select Insurer</option>
-              {INSURER_LIST.map((i) => <option key={i} value={i}>{i}</option>)}
-            </select>
+        {isNotAvailable ? (
+          <div className="p-4 rounded-lg bg-muted/40 border border-border text-xs text-muted-foreground space-y-1">
+            <p className="font-semibold text-foreground">No Previous Policy Declared</p>
+            <p>
+              Vehicle has no active prior insurance (break-in / lapsed). No Claim Bonus (NCB) will default to 0% and pre-issuance inspection will apply as per underwriting guidelines.
+            </p>
           </div>
-          <div className="space-y-1.5">
-            <label className="text-xs font-medium text-muted-foreground">Previous Policy Number</label>
-            <input
-              type="text"
-              value={value.previousPolicyNumber || ''}
-              onChange={(e) => update({ previousPolicyNumber: e.target.value })}
-              placeholder="e.g. ICICI/MV/2023/1234567"
-              className="w-full px-3 py-2 rounded-md border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-            />
-          </div>
-        </div>
+        ) : (
+          <>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground">
+                  Policy Expiry Date <span className="text-destructive">*</span>
+                </label>
+                <input
+                  type="date"
+                  value={value.policyExpiryDate || ''}
+                  onChange={(e) => update({ policyExpiryDate: e.target.value })}
+                  className="w-full px-3 py-2 rounded-md border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                />
+                {value.policyExpiryDate && (
+                  <div className="mt-1.5 flex flex-wrap gap-2">
+                    {policyExpired && !expired90 && (
+                      <span className="flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded border bg-amber-50 text-amber-700 border-amber-200">
+                        <AlertTriangle className="h-3 w-3" /> Policy Expired
+                      </span>
+                    )}
+                    {expired90 && (
+                      <span className="flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded border bg-destructive/10 text-destructive border-destructive/20">
+                        <AlertTriangle className="h-3 w-3" /> Expired &gt; 90 Days (NCB Reset + Inspection)
+                      </span>
+                    )}
+                    {!policyExpired && (
+                      <span className="flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded border bg-emerald-50 text-emerald-700 border-emerald-200">
+                        <CheckCircle2 className="h-3 w-3" /> Policy Active
+                      </span>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground">
+                  Claim in Previous Year? <span className="text-destructive">*</span>
+                </label>
+                <div className="flex gap-3">
+                  {[false, true].map((v) => (
+                    <button
+                      key={String(v)}
+                      type="button"
+                      onClick={() => update({ claimInPreviousYear: v })}
+                      className={`flex-1 py-1.5 rounded-md text-xs font-semibold border transition-colors ${
+                        value.claimInPreviousYear === v
+                          ? v ? 'bg-destructive/10 text-destructive border-destructive/30' : 'bg-primary text-primary-foreground border-primary'
+                          : 'bg-background hover:bg-muted border-border'
+                      }`}
+                    >
+                      {v ? 'Yes (Claim Made)' : 'No Claim'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground">Previous Insurer</label>
+                <select
+                  value={value.previousInsurerName || ''}
+                  onChange={(e) => update({ previousInsurerName: e.target.value })}
+                  className="w-full px-3 py-2 rounded-md border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                >
+                  <option value="">Select Insurer</option>
+                  {INSURER_LIST.map((i) => <option key={i} value={i}>{i}</option>)}
+                </select>
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground">Previous Policy Number</label>
+                <input
+                  type="text"
+                  value={value.previousPolicyNumber || ''}
+                  onChange={(e) => update({ previousPolicyNumber: e.target.value })}
+                  placeholder="e.g. ICICI/MV/2023/1234567"
+                  className="w-full px-3 py-2 rounded-md border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                />
+              </div>
+            </div>
+          </>
+        )}
       </div>
 
       {/* SECTION B: Ownership Transfer */}

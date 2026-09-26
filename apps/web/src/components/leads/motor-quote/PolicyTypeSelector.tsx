@@ -7,6 +7,7 @@ import type { PolicyType } from './motorFormTypes';
 interface Props {
   selected: PolicyType | null;
   onChange: (pt: PolicyType) => void;
+  vehicleStatus?: 'NEW' | 'EXISTING' | string;
 }
 
 const POLICY_COLORS: Record<PolicyType, string> = {
@@ -21,18 +22,23 @@ const POLICY_ICONS: Record<PolicyType, string> = {
   PACKAGE: '⚡',
 };
 
-export function PolicyTypeSelector({ selected, onChange }: Props) {
+export function PolicyTypeSelector({ selected, onChange, vehicleStatus }: Props) {
+  const isNew = vehicleStatus === 'NEW';
+  const availableTypes = POLICY_TYPES.filter((pt) => !(isNew && pt.id === 'SAOD'));
+
   return (
     <div className="space-y-3">
       <div>
         <h3 className="font-black text-sm text-foreground">Select Policy Type</h3>
         <p className="text-[11px] text-muted-foreground mt-0.5">
-          Three distinct products as per IRDAI Motor Insurance framework
+          {isNew
+            ? 'Stand-Alone Own Damage (SAOD) is unavailable for brand-new vehicles without existing TP policy.'
+            : 'Three distinct products as per IRDAI Motor Insurance framework'}
         </p>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        {POLICY_TYPES.map((pt) => {
+        {availableTypes.map((pt) => {
           const isSelected = selected === pt.id;
           return (
             <button

@@ -11,6 +11,7 @@ import {
   InspectionStatus,
   QuotationStatus,
   RoleType,
+  Prisma,
 } from '@prisma/client';
 
 export interface RecordPaymentDto {
@@ -124,11 +125,24 @@ export class MotorPaymentTrackingService {
         );
       }
 
-      const authoritativePayable = Number(quotation.totalPremium);
-      const paidAmount = Number(dto.amount);
-      if (paidAmount !== authoritativePayable) {
+      // MOTOR-REG-07: Proposal must be approved before payment can be recorded
+      if (quotation.productType === 'MOTOR') {
+        const proposal = await this.prisma.proposal.findUnique({
+          where: { quotationId: dto.quotationId },
+        });
+        if (!proposal || proposal.status !== 'APPROVED') {
+          throw new BadRequestException(
+            'Proposal has not been approved yet. Payment can only be recorded after proposal approval.',
+          );
+        }
+      }
+
+      // MOTOR-REG-08: Exact decimal reconciliation
+      const authoritativePayable = new Prisma.Decimal(quotation.totalPremium);
+      const paidAmount = new Prisma.Decimal(dto.amount);
+      if (!paidAmount.equals(authoritativePayable)) {
         throw new BadRequestException(
-          `Financial reconciliation failure: Received amount ₹${paidAmount.toLocaleString('en-IN')} does not match authoritative payable amount ₹${authoritativePayable.toLocaleString('en-IN')}. Exact reconciliation is mandatory.`,
+          `Financial reconciliation failure: Received amount ₹${paidAmount.toString()} does not match authoritative payable amount ₹${authoritativePayable.toString()}. Exact reconciliation is mandatory.`,
         );
       }
 
@@ -153,6 +167,7 @@ export class MotorPaymentTrackingService {
       const paymentRecord = await tx.motorPaymentRecord.upsert({
         where: { quotationId: dto.quotationId },
         create: {
+          companyId: quotation.companyId,
           quotationId: dto.quotationId,
           status: dto.status,
           amount: dto.amount,
@@ -167,6 +182,7 @@ export class MotorPaymentTrackingService {
           recordedById: dto.recordedById,
         },
         update: {
+          companyId: quotation.companyId,
           status: dto.status,
           amount: dto.amount,
           paymentMethod: dto.paymentMethod,

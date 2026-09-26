@@ -99,4 +99,21 @@ export class CreateMotorCaptureDto {
   @IsOptional()
   @IsArray()
   documents?: Array<{ docType: string; fileName?: string; fileKey?: string }>;
+
+  @IsOptional()
+  @IsString()
+  journeyId?: string;
+
+  @IsOptional()
+  @IsObject()
+  manualAgent?: {
+    isManual: boolean;
+    name?: string;
+    code?: string;
+    contact?: string;
+  };
+
+  @IsOptional()
+  @IsObject()
+  previousPolicyDetails?: Record<string, any>;
 }

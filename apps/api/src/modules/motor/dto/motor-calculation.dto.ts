@@ -113,4 +113,12 @@ export class MotorCalculationInputDto {
   @IsOptional()
   @IsString()
   approvalReference?: string;
+
+  @IsOptional()
+  @IsString()
+  previousPolicyExpiryDate?: string;
+
+  @IsOptional()
+  @IsString()
+  policyStartDate?: string;
 }
