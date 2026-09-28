@@ -117,6 +117,7 @@ export function VehicleDetailsForm({ category, data, onChange }: Props) {
                   type={f.type === 'numeric' ? 'number' : 'text'}
                   value={val}
                   onChange={set(f.key)}
+                  maxLength={f.key === 'registrationNumber' ? 11 : undefined}
                   placeholder={f.placeholder || ''}
                   className={`${inputBase} ${borderCls} ${
                     f.key === 'registrationNumber' ? 'uppercase font-mono tracking-wider' : ''

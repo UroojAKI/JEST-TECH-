@@ -163,6 +163,7 @@ export interface PolicyFormTPOnly {
   policyStartDate: string;       // N
   policyEndDate: string;         // N
   commissionDiscountCalc: string; // Y — free text employee
+  discountPercent?: string;       // Y — numeric discount
   calculatedResult?: any;
 }
 

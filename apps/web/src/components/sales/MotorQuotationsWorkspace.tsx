@@ -132,7 +132,7 @@ export function MotorQuotationsWorkspace() {
           leadId: item.leadId,
         } as SavedMotorQuote));
       } catch (error) {
-        console.error(error);
+        // Silently return empty array on auth failure so the apiClient can handle the redirect
         return [];
       }
     },

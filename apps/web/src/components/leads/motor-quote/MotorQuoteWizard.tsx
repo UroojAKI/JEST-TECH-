@@ -152,9 +152,12 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, initialCategory, c
   const [insurerName, setInsurerName] = useState('');
   const [proposer, setProposer] = useState<ProposerDetails>(() => emptyProposer(leadContact));
   const [vehicleCategory, setVehicleCategory] = useState<VehicleCategory | null>(initialCategory || null);
-  const [vehicleDetails, setVehicleDetails] = useState<Record<string, string>>({});
+  const [vehicleDetails, setVehicleDetails] = useState<Record<string, string>>({
+    vehicleStatus: 'EXISTING',
+  });
   
   const [previousPolicy, setPreviousPolicy] = useState<PreviousPolicyDetails>({
+    previousPolicyType: 'COMPREHENSIVE',
     policyExpiryDate: '',
     expiredMoreThan90Days: false,
     ownershipTransfer: false,
@@ -188,7 +191,7 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, initialCategory, c
         setProposer(cloneQuoteData.proposerDetails || emptyProposer(leadContact));
         setStep(3); // Skip to Previous Policy
       } else {
-        setVehicleDetails({});
+        setVehicleDetails({ vehicleStatus: 'EXISTING' });
         setProposer(emptyProposer(leadContact));
         setStep(1);
       }
@@ -196,6 +199,7 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, initialCategory, c
       setInsurerName('');
       setVehicleCategory(initialCategory || null);
       setPreviousPolicy({
+        previousPolicyType: 'COMPREHENSIVE',
         policyExpiryDate: '',
         expiredMoreThan90Days: false,
         ownershipTransfer: false,
@@ -328,15 +332,25 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, initialCategory, c
       // Stateless rule evaluation — does not create premature draft quotations
       const res = await apiClient.post('/motor/rules/evaluate', {
         journeyId: journeyId || undefined,
-        policyType: policyType || 'PACKAGE',
+        newPolicyType: policyType || 'PACKAGE',
         vehicleStatus: vehicleDetails.vehicleStatus || 'EXISTING',
-        vehicleCategory: vehicleCategory || 'PRIVATE_CAR',
-        previousPolicyDetails: previousPolicy,
+        previousPolicyType: previousPolicy.previousPolicyType,
+        policyExpiryDate: previousPolicy.policyExpiryDate,
+        claimInPreviousYear: previousPolicy.claimInPreviousYear,
+        ownershipTransfer: previousPolicy.ownershipTransfer,
+        previousPolicyTransferred: previousPolicy.previousPolicyTransferred,
+        eligibleNcbPercentage: previousPolicy.eligibleNcbPercentage,
+        tpExpiryDate: previousPolicy.tpExpiryDate,
+        odExpiryDate: previousPolicy.odExpiryDate,
+        newOwnerName: previousPolicy.newOwnerName,
       });
       setRuleResult(res.data?.ruleEvaluation || res.data);
     } catch (e: any) {
       console.error('Rule engine API error:', e);
-      toast.error(e?.response?.data?.message || 'Failed to evaluate underwriting rules on server.');
+      const msg = e?.response?.data?.message;
+      toast.error(
+        Array.isArray(msg) ? msg.join(', ') : (msg || 'Failed to evaluate underwriting rules on server.')
+      );
     } finally {
       setRuleLoading(false);
     }
@@ -386,8 +400,13 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, initialCategory, c
   const getNetPayable = () => {
     const pd = getPolicyDetails() as any;
     return (
-      parseFloat(pd.calculatedResult?.outputs?.finalPayableAmount || pd.finalPayableAmount || '0') || 0
+      parseFloat(pd.calculatedResult?.outputs?.totalPremium || pd.totalPremiumInclGST || '0') || 0
     );
+  };
+
+  const getTotalDiscount = () => {
+    const pd = getPolicyDetails() as any;
+    return parseFloat(pd.calculatedResult?.outputs?.totalDiscount || '0') || 0;
   };
 
   const getGst = () => {
@@ -439,10 +458,12 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, initialCategory, c
         leadId: leadId && leadId !== 'new' ? leadId : undefined,
         contactId: contactId || undefined,
         agentId: isManualAgent ? undefined : (selectedAgentId || undefined),
-        isManualAgent,
-        manualAgentName: isManualAgent ? manualAgentDetails?.name : undefined,
-        manualAgentCode: isManualAgent ? manualAgentDetails?.code : undefined,
-        manualAgentPhone: isManualAgent ? manualAgentDetails?.phone : undefined,
+        manualAgent: isManualAgent ? {
+          isManual: true,
+          name: manualAgentDetails?.name,
+          code: manualAgentDetails?.code,
+          contact: manualAgentDetails?.phone,
+        } : undefined,
         basePremium: outputs.basePremium ?? outputs.netOdPremium ?? outputs.netTpPremium,
         discountAmount: outputs.discountAmount ?? outputs.ncbDiscountAmount,
         gstAmount: outputs.totalGst ?? getGst(),
@@ -494,11 +515,15 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, initialCategory, c
         onClose();
       }
     } catch (err: any) {
+      const data = err.response?.data;
       const errorMsg =
-        err.response?.data?.message ||
+        data?.message ||
+        data?.error?.message ||
+        data?.error ||
         err.message ||
-        'Failed to generate quotation. Please verify required fields and try again.';
-      toast.error(Array.isArray(errorMsg) ? errorMsg.join(' | ') : errorMsg);
+        'Failed to generate quotation.';
+      console.error('Validation failure on motor-capture payload:', data || err);
+      toast.error(Array.isArray(errorMsg) ? errorMsg.join(' | ') : String(errorMsg));
     } finally {
       setIsSaving(false);
     }
@@ -647,7 +672,7 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, initialCategory, c
                   <div className="text-sm text-muted-foreground mb-4">Please select the type of vehicle to correctly populate the underwriting fields.</div>
                   <VehicleCategorySelector selected={vehicleCategory} onChange={(cat) => {
                     setVehicleCategory(cat);
-                    setVehicleDetails({});
+                    setVehicleDetails({ vehicleStatus: 'EXISTING' });
                   }} />
                 </div>
               )
@@ -734,16 +759,12 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, initialCategory, c
           </button>
 
           <div className="flex items-center gap-4">
-            {getTotalPremium() > 0 && (
+            {getNetPayable() > 0 && (
               <div className="hidden sm:flex items-center gap-2 text-xs font-medium px-3 py-1.5 rounded bg-muted">
-                {getNetPayable() > 0 ? (
-                  <>
-                    <span className="text-foreground font-bold">Net Payable: ₹{getNetPayable().toLocaleString('en-IN')}</span>
-                    <span className="text-muted-foreground border-l pl-2">Tax: ₹{getGst().toLocaleString('en-IN')}</span>
-                    <span className="text-muted-foreground border-l pl-2 line-through">Total: ₹{getTotalPremium().toLocaleString('en-IN')}</span>
-                  </>
-                ) : (
-                  <span className="text-foreground">Total: ₹{getTotalPremium().toLocaleString('en-IN')}</span>
+                <span className="text-foreground font-bold">Net Payable: ₹{getNetPayable().toLocaleString('en-IN')}</span>
+                <span className="text-muted-foreground border-l pl-2">Tax: ₹{getGst().toLocaleString('en-IN')}</span>
+                {getTotalDiscount() > 0 && (
+                  <span className="text-emerald-600 border-l pl-2 font-semibold">Saved: ₹{getTotalDiscount().toLocaleString('en-IN')}</span>
                 )}
                 {getIDV() > 0 && <span className="text-muted-foreground border-l pl-2">IDV: ₹{getIDV().toLocaleString('en-IN')}</span>}
               </div>

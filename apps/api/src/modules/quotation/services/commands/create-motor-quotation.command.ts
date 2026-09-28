@@ -342,7 +342,9 @@ export class CreateMotorQuotationCommand {
     };
 
     // ── 7. Atomic Quotation & Journey Binding ──
-    const quotation = await this.prisma.$transaction(async (tx) => {
+    let quotation;
+    try {
+      quotation = await this.prisma.$transaction(async (tx) => {
       const createdQuotation = await tx.quotation.create({
         data: {
           companyId,
@@ -420,6 +422,10 @@ export class CreateMotorQuotationCommand {
 
       return createdQuotation;
     });
+    } catch (err: any) {
+      require('fs').writeFileSync('capture-error.log', err.stack || err.message || String(err));
+      throw err;
+    }
 
     return {
       message: 'Motor insurance quote captured using authoritative backend pricing',

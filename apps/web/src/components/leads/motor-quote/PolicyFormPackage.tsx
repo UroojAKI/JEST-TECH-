@@ -51,22 +51,23 @@ export function PolicyFormPackageForm({ category, vehicleStatus, data, onChange 
     vehicleCategory: category,
     vehicleStatus: vehicleStatus,
     policyType: 'PACKAGE_COMPREHENSIVE',
-    policyTenure: parseInt(data.policyTenure || '1'),
-    idv: parseFloat(data.insuredDeclaredValue || '0'),
-    ncbPercent: parseInt(data.ncbPercentage || '0'),
+    policyTenure: parseInt(data.policyTenure || '1') || 1,
+    idv: parseFloat(data.insuredDeclaredValue || '0') || 0,
+    ncbPercent: parseInt(data.ncbPercentage || '0') || 0,
     claimInExpiringPolicy: data.claimInExpiringPolicy === 'Yes',
     paCover: true,
     paidDriverLiability: false,
-    discountPercent: parseFloat(data.odCommissionCalc || '0'),
-    tpDiscountPercent: parseFloat(data.tpCommissionCalc || '0'),
+    discountPercent: parseFloat(data.odCommissionCalc || '0') || 0,
+    tpDiscountPercent: parseFloat(data.tpCommissionCalc || '0') || 0,
     addons: (data.addonsSelected || []).map(a => ({
       addonCode: a,
-      manualPrice: data.addonPrices?.[a] ? parseFloat(data.addonPrices[a]) : undefined
+      manualPrice: data.addonPrices?.[a] ? (parseFloat(data.addonPrices[a]) || 0) : undefined
     }))
   });
 
   useEffect(() => {
     if (result && result.outputs) {
+      if (data.calculatedResult === result) return;
       onChange({ 
         ...data, 
         totalPremiumInclGST: (result.outputs.finalPayableAmount ?? result.outputs.totalPremium ?? 0).toString(),
@@ -76,7 +77,7 @@ export function PolicyFormPackageForm({ category, vehicleStatus, data, onChange 
         calculatedResult: result 
       });
     }
-  }, [result]);
+  }, [result, data, onChange]);
 
   const handleClaimChange = (val: string) => {
     const updated = { ...data, claimInExpiringPolicy: val };
@@ -94,7 +95,7 @@ export function PolicyFormPackageForm({ category, vehicleStatus, data, onChange 
   const isCommercial = !['BIKE', 'PRIVATE_CAR'].includes(category);
 
   // Authoritative Backend Calculation Outputs (Single Source of Truth)
-  const outputs = data.calculatedResult?.outputs || {};
+  const outputs = result?.outputs || data.calculatedResult?.outputs || {};
   const rawOd = outputs.baseOdPremium ?? 0;
   const rawTp = outputs.baseTpPremium ?? 0;
   const grossBase = outputs.grossBasePremium ?? (rawOd + rawTp);

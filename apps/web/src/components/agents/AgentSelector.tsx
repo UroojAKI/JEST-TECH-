@@ -228,12 +228,14 @@ export function AgentSelector({
                   Phone Number
                 </label>
                 <input
-                  type="text"
-                  placeholder="Mobile"
+                  type="tel"
+                  maxLength={10}
+                  placeholder="10-digit Mobile"
                   value={manualPhone}
                   onChange={(e) => {
-                    setManualPhone(e.target.value);
-                    onManualAgentChange?.(true, { name: manualName, code: manualCode, phone: e.target.value });
+                    const val = e.target.value.replace(/\D/g, '').slice(0, 10);
+                    setManualPhone(val);
+                    onManualAgentChange?.(true, { name: manualName, code: manualCode, phone: val });
                   }}
                   className="w-full text-xs p-1.5 rounded border border-input bg-background"
                 />

@@ -8,16 +8,13 @@ export class AuthorizationVersionService {
   async checkVersion(userId: string, tokenVersion: number): Promise<boolean> {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      select: { updatedAt: true },
+      select: { authVersion: true },
     });
 
     if (!user) {
       return false;
     }
 
-    // A token is valid as long as its version is greater than or equal to the user's last updatedAt timestamp
-    const currentVersion = user.updatedAt.getTime();
-
-    return tokenVersion >= currentVersion;
+    return tokenVersion === user.authVersion;
   }
 }

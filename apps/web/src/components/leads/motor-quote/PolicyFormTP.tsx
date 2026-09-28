@@ -52,21 +52,23 @@ export function PolicyFormTPOnlyForm({ category, vehicleStatus, data, onChange }
     vehicleCategory: category,
     vehicleStatus: vehicleStatus,
     policyType: 'THIRD_PARTY_ONLY',
-    policyTenure: parseInt(data.policyTenure || '1'),
+    policyTenure: parseInt(data.policyTenure || '1') || 1,
     paCover: !!data.paCoverOwner,
-    paidDriverLiability: data.legalLiabilityPaidDriver === 'Yes'
+    paidDriverLiability: data.legalLiabilityPaidDriver === 'Yes',
+    tpDiscountPercent: parseFloat(data.discountPercent || '0') || 0
   });
 
   React.useEffect(() => {
     if (result && result.outputs) {
+      if (data.calculatedResult === result) return;
       onChange({ 
         ...data, 
-        thirdPartyPremium: result.outputs.netTpPremium.toString(),
+        thirdPartyPremium: result.outputs.baseTpPremium.toString(),
         totalPremiumInclGST: result.outputs.totalPremium.toString(),
         calculatedResult: result 
       });
     }
-  }, [result]);
+  }, [result, data, onChange]);
 
   const tenureOptions = getPolicyTenureOptions(category, 'TP_ONLY');
 
@@ -206,10 +208,10 @@ export function PolicyFormTPOnlyForm({ category, vehicleStatus, data, onChange }
               max="100"
               step="0.5"
               placeholder="0"
-              value={data.commissionDiscountCalc?.match(/Discount: (\d+(\.\d+)?)%/)?.[1] || ''}
+              value={data.discountPercent || ''}
               onChange={(e) => {
                 const pct = Math.min(100, Math.max(0, parseFloat(e.target.value) || 0));
-                const grossTp = Number(data.calculatedResult?.outputs?.netTpPremium || data.thirdPartyPremium || 0);
+                const grossTp = Number(data.calculatedResult?.outputs?.baseTpPremium || data.thirdPartyPremium || 0);
                 const discountAmt = Math.round(grossTp * (pct / 100) * 100) / 100;
                 const netTp = Math.max(0, grossTp - discountAmt);
                 const gst = Math.round(netTp * 0.18 * 100) / 100;
@@ -218,6 +220,7 @@ export function PolicyFormTPOnlyForm({ category, vehicleStatus, data, onChange }
                 const summary = `Discount: ${pct}% (₹${discountAmt}) | Net TP: ₹${netTp} | GST: ₹${gst} | Final Payable: ₹${finalPayable}`;
                 onChange({
                   ...data,
+                  discountPercent: e.target.value,
                   commissionDiscountCalc: summary,
                   totalPremiumInclGST: finalPayable.toString(),
                 });
@@ -233,7 +236,7 @@ export function PolicyFormTPOnlyForm({ category, vehicleStatus, data, onChange }
             <input
               type="text"
               readOnly
-              value={data.commissionDiscountCalc?.match(/\(₹(\d+(\.\d+)?)\)/)?.[1] || '0.00'}
+              value={data.calculatedResult?.outputs?.totalDiscount?.toString() || '0.00'}
               className="w-full p-2 rounded-lg border text-xs font-semibold bg-muted border-border opacity-80"
             />
           </div>
@@ -245,7 +248,7 @@ export function PolicyFormTPOnlyForm({ category, vehicleStatus, data, onChange }
             <input
               type="text"
               readOnly
-              value={data.commissionDiscountCalc?.match(/Net TP: ₹(\d+(\.\d+)?)/)?.[1] || (data.thirdPartyPremium || '0.00')}
+              value={data.calculatedResult?.outputs?.netTpPremium?.toString() || (data.thirdPartyPremium || '0.00')}
               className="w-full p-2 rounded-lg border text-xs font-semibold bg-muted border-border opacity-80"
             />
           </div>
@@ -257,7 +260,7 @@ export function PolicyFormTPOnlyForm({ category, vehicleStatus, data, onChange }
             <input
               type="text"
               readOnly
-              value={data.totalPremiumInclGST || '0.00'}
+              value={data.calculatedResult?.outputs?.totalPremium?.toString() || data.totalPremiumInclGST || '0.00'}
               className="w-full p-2 rounded-lg border text-xs font-bold text-sky-700 bg-sky-50 border-sky-200"
             />
           </div>
