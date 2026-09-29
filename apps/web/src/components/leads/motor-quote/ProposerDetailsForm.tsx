@@ -87,9 +87,9 @@ export function ProposerDetailsForm({ data, onChange }: Props) {
 
         <Field label="Mobile Number" mandatory={true} hint="OTP verification & CRM linking">
           <input
-            type="text"
+            type="tel"
             value={data.mobileNumber}
-            onChange={set('mobileNumber')}
+            onChange={(e) => onChange({ ...data, mobileNumber: e.target.value.replace(/\D/g, '') })}
             placeholder="e.g. 9876543210"
             maxLength={10}
             className={`${inputCls(true, data.mobileNumber)} font-mono`}

@@ -98,6 +98,7 @@ export class DocumentsController {
       'ENDORSEMENT',
       'CONTACT',
       'CUSTOMER',
+      'INSPECTION',
     ];
     if (!validEntityTypes.includes(entityType))
       throw new BadRequestException(

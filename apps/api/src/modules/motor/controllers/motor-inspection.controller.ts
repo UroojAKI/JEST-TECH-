@@ -84,9 +84,10 @@ export class MotorInspectionController {
   })
   async submitForReview(
     @Param('id') inspectionId: string,
+    @Body() body: any,
     @CurrentUser() actor: ActorContext,
   ) {
-    return this.inspectionService.submitForReview(inspectionId, actor);
+    return this.inspectionService.submitForReview(inspectionId, actor, body);
   }
 
   @Post(':id/approve')

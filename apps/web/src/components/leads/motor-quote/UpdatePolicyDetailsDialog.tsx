@@ -85,7 +85,16 @@ export function UpdatePolicyDetailsDialog({ isOpen, onClose, quotationId, onSave
           <div><label className="block text-xs font-medium mb-1">Actual Premium (₹) *</label><input required min="0" step="0.01" type="number" value={actualPremium} onChange={e => setActualPremium(e.target.value)} className="w-full px-3 py-2 border rounded-md text-sm" /></div>
 
           <div className="grid grid-cols-2 gap-4">
-            <div><label className="block text-xs font-medium mb-1">Policy Start Date *</label><input required type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="w-full px-3 py-2 border rounded-md text-sm" /></div>
+            <div><label className="block text-xs font-medium mb-1">Policy Start Date *</label><input required type="date" value={startDate} onChange={e => {
+              const val = e.target.value;
+              setStartDate(val);
+              if (val) {
+                const d = new Date(val);
+                d.setFullYear(d.getFullYear() + 1);
+                d.setDate(d.getDate() - 1);
+                setEndDate(d.toISOString().split('T')[0]);
+              }
+            }} className="w-full px-3 py-2 border rounded-md text-sm" /></div>
             <div><label className="block text-xs font-medium mb-1">Policy End Date *</label><input required type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="w-full px-3 py-2 border rounded-md text-sm" /></div>
           </div>
 

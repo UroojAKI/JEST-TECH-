@@ -91,7 +91,8 @@ export function InspectionForm({ value, onChange }: Props) {
             <div>
               <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide">Mobile</label>
               <input type="tel" value={value.inspectorPhone || ''}
-                onChange={(e) => update({ inspectorPhone: e.target.value })}
+                maxLength={10}
+                onChange={(e) => update({ inspectorPhone: e.target.value.replace(/\D/g, '') })}
                 className="w-full mt-1 px-3 py-2 rounded-xl border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary"
               />
             </div>

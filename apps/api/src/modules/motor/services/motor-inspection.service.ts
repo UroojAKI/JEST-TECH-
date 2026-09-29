@@ -276,7 +276,7 @@ export class MotorInspectionService {
     });
   }
 
-  async submitForReview(inspectionId: string, actor: ActorContext) {
+  async submitForReview(inspectionId: string, actor: ActorContext, payload?: any) {
     const inspection = await this.prisma.motorInspection.findUnique({
       where: { id: inspectionId },
       include: { quotation: true },
@@ -310,6 +310,12 @@ export class MotorInspectionService {
         where: { id: inspectionId },
         data: {
           status: nextStatus,
+          ...(payload?.conductedByType && { conductedByType: payload.conductedByType }),
+          ...(payload?.inspectorName !== undefined && { inspectorName: payload.inspectorName }),
+          ...(payload?.inspectorPhone !== undefined && { inspectorPhone: payload.inspectorPhone }),
+          ...(payload?.inspectorCompany !== undefined && { inspectorCompany: payload.inspectorCompany }),
+          ...(payload?.inspectionDate && { inspectionDate: new Date(payload.inspectionDate) }),
+          ...(payload?.inspectionTime !== undefined && { inspectionTime: payload.inspectionTime }),
         },
       });
 

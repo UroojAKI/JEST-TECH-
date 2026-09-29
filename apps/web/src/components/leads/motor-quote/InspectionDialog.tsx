@@ -126,7 +126,14 @@ export function InspectionDialog({
       }
 
       // 2. Submit for review (transitions IN_PROGRESS -> SUBMITTED_FOR_REVIEW)
-      const res = await apiClient.post(`/motor/inspections/${inspectionId}/submit-for-review`, {});
+      const res = await apiClient.post(`/motor/inspections/${inspectionId}/submit-for-review`, {
+        conductedByType: inspection.conductedByType,
+        inspectorName: inspection.inspectorName,
+        inspectorPhone: inspection.inspectorPhone,
+        inspectorCompany: inspection.inspectorCompany,
+        inspectionDate: inspection.inspectionDate,
+        inspectionTime: inspection.inspectionTime,
+      });
       setServerInspection(res.data);
 
       toast.success('All 7 photos verified. Inspection submitted for underwriting review!');

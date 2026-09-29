@@ -124,7 +124,18 @@ export function PolicyFormTPOnlyForm({ category, vehicleStatus, data, onChange }
 
         {/* Policy Start / End Date */}
         <FieldRow label="Policy Start Date">
-          <input type="date" value={data.policyStartDate} onChange={set('policyStartDate')} className={inputBase} />
+          <input type="date" value={data.policyStartDate} onChange={(e) => {
+            const val = e.target.value;
+            const tenure = parseInt(data.policyTenure || '1') || 1;
+            if (val) {
+              const d = new Date(val);
+              d.setFullYear(d.getFullYear() + tenure);
+              d.setDate(d.getDate() - 1);
+              onChange({ ...data, policyStartDate: val, policyEndDate: d.toISOString().split('T')[0] });
+            } else {
+              onChange({ ...data, policyStartDate: val });
+            }
+          }} className={inputBase} />
         </FieldRow>
         <FieldRow label="Policy End Date">
           <input type="date" value={data.policyEndDate} onChange={set('policyEndDate')} className={inputBase} />

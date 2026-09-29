@@ -139,7 +139,16 @@ export function PolicyCompletionDialog({ isOpen, quote, onClose, onSuccess }: Pr
                   type="date"
                   required
                   value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setStartDate(val);
+                    if (val) {
+                      const d = new Date(val);
+                      d.setFullYear(d.getFullYear() + 1);
+                      d.setDate(d.getDate() - 1);
+                      setEndDate(d.toISOString().split('T')[0]);
+                    }
+                  }}
                   className="w-full px-3 py-2 border rounded-lg text-xs font-semibold bg-background focus:ring-1 focus:ring-primary"
                 />
               </div>

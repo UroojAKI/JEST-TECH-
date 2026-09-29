@@ -409,7 +409,17 @@ export function PolicyFormSAODForm({ data, onChange }: Props) {
       {/* Field 12: Policy Dates */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <FieldRow label="Policy Start Date" hint="Must be within the active TP period">
-          <input type="date" value={data.policyStartDate} onChange={set('policyStartDate')} className={inputBase} />
+          <input type="date" value={data.policyStartDate} onChange={(e) => {
+            const val = e.target.value;
+            if (val) {
+              const d = new Date(val);
+              d.setFullYear(d.getFullYear() + 1);
+              d.setDate(d.getDate() - 1);
+              onChange({ ...data, policyStartDate: val, policyEndDate: d.toISOString().split('T')[0] });
+            } else {
+              onChange({ ...data, policyStartDate: val });
+            }
+          }} className={inputBase} />
         </FieldRow>
         <FieldRow label="Policy End Date">
           <input type="date" value={data.policyEndDate} onChange={set('policyEndDate')} className={inputBase} />

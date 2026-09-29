@@ -320,8 +320,9 @@ export function QuotationCompletionView({
                                     <input
                                       type={config.type || 'text'}
                                       placeholder={config.placeholder}
+                                      maxLength={config.type === 'tel' ? 10 : undefined}
                                       value={editValues[item.field] ?? ''}
-                                      onChange={(e) => handleFieldChange(item.field, e.target.value)}
+                                      onChange={(e) => handleFieldChange(item.field, config.type === 'tel' ? e.target.value.replace(/\D/g, '') : e.target.value)}
                                       className="w-full px-2.5 py-1.5 rounded-md border text-xs bg-background focus:outline-none focus:ring-1 focus:ring-primary border-border font-medium"
                                     />
                                   </div>
