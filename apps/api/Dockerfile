@@ -64,6 +64,6 @@ USER nestjs
 EXPOSE 3000
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
-    CMD wget -q --spider http://localhost:3000/api/v1/health || exit 1
+    CMD wget -q --spider http://127.0.0.1:3000/api/v1/health || exit 1
 
-CMD ["node", "apps/api/dist/src/main.js"]
+CMD ["node", "apps/api/dist/main.js"]

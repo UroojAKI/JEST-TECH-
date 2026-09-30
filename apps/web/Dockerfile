@@ -13,6 +13,8 @@ RUN pnpm install --frozen-lockfile
 COPY apps/web ./apps/web
 
 # Build Next.js
+ARG INTERNAL_API_URL=http://api:3000
+ENV INTERNAL_API_URL=$INTERNAL_API_URL
 RUN pnpm --filter web build
 
 # ── Stage 2: Runner ───────────────────────────────────────────────────────────
@@ -20,7 +22,7 @@ FROM node:22-alpine AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production
-ENV PORT=3001
+ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 
 RUN addgroup --system --gid 1001 nodejs
@@ -32,9 +34,11 @@ COPY --from=builder --chown=nextjs:nodejs /app/apps/web/.next/static ./apps/web/
 
 USER nextjs
 
-EXPOSE 3001
+EXPOSE 3000
+
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
-  CMD wget -q --spider http://localhost:3001/api/health || exit 1
+    CMD wget -q --spider http://127.0.0.1:3000/api/health || exit 1
+
 
 CMD ["node", "apps/web/server.js"]
