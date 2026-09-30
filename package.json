@@ -35,7 +35,8 @@
       "vitest": "^3.2.7",
       "sharp": ">=0.35.0",
       "deepmerge-ts": ">=8.0.0",
-      "next": ">=16.2.11"
+      "next": ">=16.2.11",
+      "joi": ">=18.2.6"
     },
     "auditConfig": {
       "ignoreCves": [

@@ -19,6 +19,7 @@ overrides:
   sharp: '>=0.35.0'
   deepmerge-ts: '>=8.0.0'
   next: '>=16.2.11'
+  joi: '>=18.2.6'
 
 importers:
 
@@ -151,8 +152,8 @@ importers:
         specifier: ^5.11.1
         version: 5.11.1
       joi:
-        specifier: ^18.2.3
-        version: 18.2.3
+        specifier: '>=18.2.6'
+        version: 18.2.9
       jsonwebtoken:
         specifier: ^9.0.3
         version: 9.0.3
@@ -5688,8 +5689,8 @@ packages:
     resolution: {integrity: sha512-AC/7JofJvZGrrneWNaEnJeOLUx+JlGt7tNa0wZiRPT4MY1wmfKjt2+6O2p2uz2+skll8OZZmJMNqeke7kKbNgQ==}
     hasBin: true
 
-  joi@18.2.3:
-    resolution: {integrity: sha512-N5A3KTWQpPWT4ExxxPlUx7WmykGXRzhNidWhV41d6Abu9YfI2NyWCJuxdPnslJCPWtbRpSVOWSnSS6GakLM/Rg==}
+  joi@18.2.9:
+    resolution: {integrity: sha512-2mD929bUVKUhOLQQEVhlf6EZ0Mlo0DeRb5MO7cViR9AXLtBauuccEtB1py9Ocxpo/P7ucnh442iY/iOwrh3IQw==}
     engines: {node: '>= 20'}
 
   jose@6.2.3:
@@ -13995,7 +13996,7 @@ snapshots:
 
   jiti@2.7.0: {}
 
-  joi@18.2.3:
+  joi@18.2.9:
     dependencies:
       '@hapi/address': 5.1.1
       '@hapi/formula': 3.0.2
