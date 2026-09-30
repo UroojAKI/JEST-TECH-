@@ -326,8 +326,12 @@ export class CreateMotorQuotationCommand {
         policyDetails.activeTPPolicyNumberValidity ||
         undefined,
       activeTpExpiryDate: saodVerification.tpExpiryDate || undefined,
-      discountPercent: Number(policyDetails.odCommissionCalc || 0),
-      tpDiscountPercent: Number(policyDetails.tpCommissionCalc || 0),
+      discountPercent: Number(
+        policyDetails.odDiscountPercent ?? policyDetails.discountPercent ?? 0,
+      ),
+      tpDiscountPercent: Number(
+        policyDetails.tpDiscountPercent ?? 0,
+      ),
       previousPolicyExpiryDate: prevPolicy.policyExpiryDate || undefined,
       policyStartDate: policyDetails.policyStartDate || undefined,
     };
@@ -335,6 +339,13 @@ export class CreateMotorQuotationCommand {
     const calcResult = await this.motorCalculationService.calculate(calculationInput);
 
     const quotationCode = await this.numberingEngine.generateNext('QUOTATION');
+
+    const odCommissionPercent = Number(
+      policyDetails.odCommissionPercent ?? 0,
+    );
+    const tpCommissionPercent = Number(
+      policyDetails.tpCommissionPercent ?? 0,
+    );
 
     const motorMetadata = {
       vehicleCategory: dto.vehicleCategory,
@@ -345,6 +356,10 @@ export class CreateMotorQuotationCommand {
       policyDetails: dto.policyDetails,
       saodVerification: dto.saodVerification,
       previousPolicyDetails: dto.previousPolicyDetails,
+      commissions: {
+        odCommissionPercent,
+        tpCommissionPercent,
+      },
       manualAgent: manualAgentSnapshot,
       ruleResult,
       documents: dto.documents,

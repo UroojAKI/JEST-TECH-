@@ -8,7 +8,7 @@ import { QuotationCompletionView } from './QuotationCompletionView';
 
 interface Props {
   quote: SavedMotorQuote;
-  onUploadQuote: (id: string) => void;
+  onUploadQuote: (id: string, file: File) => void;
   onConductInspection?: (id: string) => void;
   onCompleteProposal?: (quote: SavedMotorQuote) => void;
   onIssuePolicy?: (quote: SavedMotorQuote) => void;
@@ -106,7 +106,18 @@ export function QuoteCard({ quote, onUploadQuote, onConductInspection, onComplet
             {status.label}
           </div>
           <label className="cursor-pointer">
-            <input type="file" accept=".pdf" className="hidden" onChange={() => onUploadQuote(quote.id)} />
+            <input
+              type="file"
+              accept=".pdf,application/pdf"
+              className="hidden"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) {
+                  onUploadQuote(quote.id, f);
+                  e.target.value = '';
+                }
+              }}
+            />
             <span className="flex items-center gap-1 text-[9px] font-medium text-muted-foreground hover:text-foreground transition-colors">
               <Upload className="h-3 w-3" />
               Upload PDF

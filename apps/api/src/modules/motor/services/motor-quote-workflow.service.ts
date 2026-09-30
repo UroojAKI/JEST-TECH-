@@ -4,6 +4,7 @@ import {
   NotFoundException,
   BadRequestException,
   ForbiddenException,
+  ConflictException,
 } from '@nestjs/common';
 import { PrismaService } from '../../../database/prisma.service';
 import {
@@ -12,7 +13,7 @@ import {
 } from './motor-rule-engine.service';
 import { MotorPolicyDateService } from './motor-policy-date.service';
 import { NumberingEngineService } from '../../administration/services/numbering-engine/numbering-engine.service';
-import { InspectionStatus, VehicleStatus } from '@prisma/client';
+import { InspectionStatus, VehicleStatus, MotorWorkflowState, Prisma } from '@prisma/client';
 
 export interface CapturePreviousPolicyDto {
   quotationId: string;
@@ -416,5 +417,214 @@ export class MotorQuoteWorkflowService {
     };
 
     return this.ruleEngine.evaluateQuotation(context);
+  }
+
+  // ── Authoritative State Machine & Transition Authority (Phase 3) ────────
+
+  private static readonly ALLOWED_TRANSITIONS: Record<
+    MotorWorkflowState,
+    MotorWorkflowState[]
+  > = {
+    [MotorWorkflowState.DRAFT]: [
+      MotorWorkflowState.READY_FOR_PROPOSAL,
+      MotorWorkflowState.INSPECTION_REQUIRED,
+      MotorWorkflowState.CANCELLED,
+      MotorWorkflowState.REJECTED,
+    ],
+    [MotorWorkflowState.INSPECTION_REQUIRED]: [
+      MotorWorkflowState.INSPECTION_SUBMITTED,
+      MotorWorkflowState.INSPECTION_COMPLETED,
+      MotorWorkflowState.INSPECTION_REJECTED,
+      MotorWorkflowState.CANCELLED,
+    ],
+    [MotorWorkflowState.INSPECTION_SUBMITTED]: [
+      MotorWorkflowState.INSPECTION_COMPLETED,
+      MotorWorkflowState.INSPECTION_REJECTED,
+      MotorWorkflowState.CANCELLED,
+    ],
+    [MotorWorkflowState.INSPECTION_REJECTED]: [
+      MotorWorkflowState.INSPECTION_REQUIRED,
+      MotorWorkflowState.INSPECTION_SUBMITTED,
+      MotorWorkflowState.CANCELLED,
+    ],
+    [MotorWorkflowState.INSPECTION_COMPLETED]: [
+      MotorWorkflowState.READY_FOR_PROPOSAL,
+      MotorWorkflowState.PROPOSAL_IN_PROGRESS,
+      MotorWorkflowState.PAYMENT_PENDING,
+      MotorWorkflowState.CANCELLED,
+    ],
+    [MotorWorkflowState.READY_FOR_PROPOSAL]: [
+      MotorWorkflowState.PROPOSAL_IN_PROGRESS,
+      MotorWorkflowState.PROPOSAL_COMPLETED,
+      MotorWorkflowState.PAYMENT_PENDING,
+      MotorWorkflowState.CANCELLED,
+    ],
+    [MotorWorkflowState.PROPOSAL_IN_PROGRESS]: [
+      MotorWorkflowState.PROPOSAL_COMPLETED,
+      MotorWorkflowState.CANCELLED,
+    ],
+    [MotorWorkflowState.PROPOSAL_COMPLETED]: [
+      MotorWorkflowState.PROPOSAL_APPROVED,
+      MotorWorkflowState.PAYMENT_PENDING,
+      MotorWorkflowState.REJECTED,
+      MotorWorkflowState.CANCELLED,
+    ],
+    [MotorWorkflowState.PROPOSAL_APPROVED]: [
+      MotorWorkflowState.PAYMENT_PENDING,
+      MotorWorkflowState.CANCELLED,
+    ],
+    [MotorWorkflowState.PAYMENT_PENDING]: [
+      MotorWorkflowState.PAYMENT_UNDER_PROCESS,
+      MotorWorkflowState.PAYMENT_DONE,
+      MotorWorkflowState.CANCELLED,
+    ],
+    [MotorWorkflowState.PAYMENT_UNDER_PROCESS]: [
+      MotorWorkflowState.PAYMENT_DONE,
+      MotorWorkflowState.PAYMENT_PENDING,
+      MotorWorkflowState.CANCELLED,
+    ],
+    [MotorWorkflowState.PAYMENT_DONE]: [
+      MotorWorkflowState.ISSUANCE_PENDING,
+      MotorWorkflowState.ISSUANCE_IN_PROGRESS,
+      MotorWorkflowState.POLICY_ISSUED,
+      MotorWorkflowState.CANCELLED,
+    ],
+    [MotorWorkflowState.ISSUANCE_PENDING]: [
+      MotorWorkflowState.ISSUANCE_IN_PROGRESS,
+      MotorWorkflowState.POLICY_ISSUED,
+      MotorWorkflowState.CANCELLED,
+    ],
+    [MotorWorkflowState.ISSUANCE_IN_PROGRESS]: [
+      MotorWorkflowState.POLICY_ISSUED,
+      MotorWorkflowState.ISSUANCE_PENDING,
+      MotorWorkflowState.CANCELLED,
+    ],
+    [MotorWorkflowState.POLICY_ISSUED]: [
+      MotorWorkflowState.ACTIVE,
+      MotorWorkflowState.CANCELLED,
+    ],
+    [MotorWorkflowState.ACTIVE]: [
+      MotorWorkflowState.EXPIRED,
+      MotorWorkflowState.CANCELLED,
+    ],
+    [MotorWorkflowState.REJECTED]: [],
+    [MotorWorkflowState.CANCELLED]: [],
+    [MotorWorkflowState.EXPIRED]: [],
+  };
+
+  /**
+   * Validates if a state transition is permitted, verifying business invariant guards.
+   */
+  validateTransition(
+    current: MotorWorkflowState,
+    target: MotorWorkflowState,
+    quotation: any,
+  ): void {
+    const allowed = MotorQuoteWorkflowService.ALLOWED_TRANSITIONS[current] || [];
+    if (!allowed.includes(target)) {
+      throw new ConflictException(
+        `Invalid workflow transition from '${current}' to '${target}'. Allowed transitions: ${allowed.join(', ') || 'None'}`,
+      );
+    }
+
+    // Guard on PAYMENT_PENDING
+    if (target === MotorWorkflowState.PAYMENT_PENDING) {
+      const isNew = quotation.vehicle?.status === VehicleStatus.NEW;
+      if (!isNew && !quotation.motorPreviousPolicy) {
+        throw new BadRequestException(
+          'Cannot transition to PAYMENT_PENDING: Previous policy evaluation is required for existing vehicles',
+        );
+      }
+      if (
+        quotation.workflowState === MotorWorkflowState.INSPECTION_REQUIRED ||
+        quotation.motorInspection?.status === InspectionStatus.REQUIRED
+      ) {
+        if (quotation.motorInspection?.status !== InspectionStatus.COMPLETED) {
+          throw new BadRequestException(
+            'Cannot transition to PAYMENT_PENDING: Pre-issuance vehicle inspection must be COMPLETED before proceeding to payment',
+          );
+        }
+      }
+    }
+
+    // Guard on PAYMENT_DONE
+    if (target === MotorWorkflowState.PAYMENT_DONE) {
+      if (quotation.motorPaymentRecord?.status !== 'PAID') {
+        throw new BadRequestException(
+          'Cannot transition to PAYMENT_DONE: Payment record must be verified as PAID by Finance',
+        );
+      }
+    }
+
+    // Guard on POLICY_ISSUED
+    if (target === MotorWorkflowState.POLICY_ISSUED) {
+      if (quotation.motorPaymentRecord?.status !== 'PAID') {
+        throw new ConflictException(
+          'Cannot transition to POLICY_ISSUED: Verified payment is required prior to policy issuance',
+        );
+      }
+    }
+  }
+
+  /**
+   * Authoritative method to transition workflowState of a Quotation.
+   * Single write authority over quotation.workflowState.
+   */
+  async transitionWorkflowState(
+    quotationId: string,
+    targetState: MotorWorkflowState,
+    actor: { userId: string; companyId: string; role: string },
+    options?: { reason?: string; tx?: Prisma.TransactionClient },
+  ) {
+    const run = async (tx: Prisma.TransactionClient) => {
+      const quotation = await tx.quotation.findFirst({
+        where: { id: quotationId, companyId: actor.companyId },
+        include: {
+          vehicle: true,
+          motorInspection: true,
+          motorPreviousPolicy: true,
+          motorPaymentRecord: true,
+        },
+      });
+
+      if (!quotation) {
+        throw new NotFoundException(
+          `Quotation '${quotationId}' not found or access denied`,
+        );
+      }
+
+      const currentState = quotation.workflowState || MotorWorkflowState.DRAFT;
+      this.validateTransition(currentState, targetState, quotation);
+
+      const updated = await tx.quotation.update({
+        where: { id: quotationId },
+        data: {
+          workflowState: targetState,
+          updatedById: actor.userId,
+        },
+      });
+
+      await tx.quotationHistory.create({
+        data: {
+          quotationId,
+          status: targetState,
+          comments:
+            options?.reason ||
+            `Workflow transition from ${currentState} to ${targetState} by ${actor.role}`,
+          createdById: actor.userId,
+        },
+      });
+
+      this.logger.log(
+        `Quotation ${quotationId} transitioned from ${currentState} to ${targetState} by user ${actor.userId}`,
+      );
+
+      return updated;
+    };
+
+    if (options?.tx) {
+      return run(options.tx);
+    }
+    return this.prisma.$transaction(run);
   }
 }

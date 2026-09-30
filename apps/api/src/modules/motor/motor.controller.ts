@@ -29,6 +29,8 @@ import {
 import { PreviousPolicyService } from './services/previous-policy.service';
 import { MotorDocumentRuleService } from './services/motor-document-rule.service';
 import { VehicleCategory } from '@prisma/client';
+import { ALL_CATEGORY_CONFIGS, getCategoryConfig } from './config/category-registry';
+import { VehicleCategoryKey } from './config/types';
 
 @ApiTags('Motor')
 @ApiBearerAuth()
@@ -43,6 +45,18 @@ export class MotorController {
     private readonly previousPolicyService: PreviousPolicyService,
     private readonly motorDocumentRuleService: MotorDocumentRuleService,
   ) {}
+
+  @Get('categories')
+  @ApiOperation({ summary: 'Get configuration for all 8 vehicle categories' })
+  getCategories() {
+    return ALL_CATEGORY_CONFIGS;
+  }
+
+  @Get('categories/:category')
+  @ApiOperation({ summary: 'Get configuration for a specific vehicle category' })
+  getCategory(@Param('category') category: string) {
+    return getCategoryConfig(category.toUpperCase() as VehicleCategoryKey);
+  }
 
   @Get('tariff/lookup')
   async lookupTariff(

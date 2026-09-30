@@ -265,6 +265,37 @@ export class MotorCalculationService {
         discountConfig,
       },
       outputs: {
+        // Structured Component Breakdown (Phase 4 Specification)
+        od: {
+          gross: baseOdPremium,
+          ncbDiscount: ncbDiscountAmount,
+          specialDiscount: specialDiscountAmount,
+          addons: round2(addonPremiumTotal),
+          net: netOdComponent,
+          gst: gstOnOd,
+        },
+        tp: {
+          base: baseTpPremium,
+          discount: tpDiscountAmount,
+          net: netTpComponent,
+          gst: gstOnTp,
+        },
+        pa: {
+          premium: paPremium,
+          gst: gstOnPa,
+        },
+        paidDriver: {
+          premium: paidDriverPremium,
+          gst: gstOnPaidDriver,
+        },
+        summary: {
+          grossPremium: grossBasePremium,
+          totalDiscount: totalDiscountAmount,
+          netPremium: netCustomerPremium,
+          totalGst,
+          finalPayable: finalPayableAmount,
+        },
+
         // Own Damage
         baseOdPremium,
         ncbDiscount: ncbDiscountAmount,

@@ -35,8 +35,16 @@ interface Props {
   isOpen: boolean;
   leadId?: string;
   contactId?: string;
+  caseId?: string;
   initialCategory?: VehicleCategory | null;
-  cloneQuoteData?: { vehicleDetails?: any; proposerDetails?: any } | null;
+  cloneQuoteData?: {
+    vehicleDetails?: any;
+    proposerDetails?: any;
+    previousPolicyDetails?: any;
+    category?: VehicleCategory;
+    policyType?: PolicyType;
+    caseId?: string;
+  } | null;
   leadContact?: {
     name?: string;
     phone?: string;
@@ -185,7 +193,7 @@ function computeEligibilityContext(
 }
 
 
-export function MotorQuoteWizard({ isOpen, leadId, contactId, initialCategory, cloneQuoteData, leadContact, onClose, onSaved }: Props) {
+export function MotorQuoteWizard({ isOpen, leadId, contactId, caseId, initialCategory, cloneQuoteData, leadContact, onClose, onSaved }: Props) {
   const [step, setStep] = useState(1);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -224,6 +232,29 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, initialCategory, c
   const [showInspectionDialog, setShowInspectionDialog] = useState(false);
   const [isContextLoading, setIsContextLoading] = useState(false);
   const [prefilledFromLeadCode, setPrefilledFromLeadCode] = useState<string | null>(null);
+
+  // ── Clone / Comparison Pre-Fill Hydration ──────────────────────────────────
+  useEffect(() => {
+    if (cloneQuoteData) {
+      if (cloneQuoteData.proposerDetails) {
+        setProposer((prev) => ({ ...prev, ...cloneQuoteData.proposerDetails }));
+      }
+      if (cloneQuoteData.vehicleDetails) {
+        setVehicleDetails((prev) => ({ ...prev, ...cloneQuoteData.vehicleDetails }));
+      }
+      if (cloneQuoteData.previousPolicyDetails) {
+        setPreviousPolicy((prev) => ({ ...prev, ...cloneQuoteData.previousPolicyDetails }));
+      }
+      if (cloneQuoteData.category) {
+        setVehicleCategory(cloneQuoteData.category);
+      }
+      if (cloneQuoteData.policyType) {
+        setPolicyType(cloneQuoteData.policyType);
+      }
+      // Advance directly to Policy Type / Insurer selection
+      setStep(4);
+    }
+  }, [cloneQuoteData]);
 
   // ── Canonical Eligibility Context ─────────────────────────────────────────
   // Computed ONCE here in the parent and passed to all form children.
@@ -555,6 +586,7 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, initialCategory, c
       const outputs = calcResult.outputs || {};
       const payload = {
         journeyId: journeyId || undefined,
+        caseId: caseId || cloneQuoteData?.caseId || undefined,
         vehicleCategory,
         policyType,
         registrationNumber: registrationNumber || '',

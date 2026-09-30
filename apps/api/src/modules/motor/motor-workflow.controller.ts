@@ -1,6 +1,6 @@
 import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { RoleType } from '@prisma/client';
+import { RoleType, MotorWorkflowState } from '@prisma/client';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -24,6 +24,31 @@ export class MotorWorkflowController {
     private readonly workflowService: MotorQuoteWorkflowService,
     private readonly paymentService: MotorPaymentTrackingService,
   ) {}
+
+  @Post('quotations/:id/transition')
+  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT)
+  @ApiOperation({
+    summary:
+      'Transition quotation workflowState with state-machine validation and business guards',
+  })
+  async transitionWorkflow(
+    @Param('id') quotationId: string,
+    @Body('targetState') targetState: MotorWorkflowState,
+    @Body('reason') reason: string,
+    @CurrentUser() user: RequestUser,
+  ) {
+    const actor = {
+      userId: user.id,
+      companyId: user.companyId || user.organizationId,
+      role: user.role,
+    };
+    return this.workflowService.transitionWorkflowState(
+      quotationId,
+      targetState,
+      actor,
+      { reason },
+    );
+  }
 
   @Post('quotations/:id/previous-policy')
   @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT)

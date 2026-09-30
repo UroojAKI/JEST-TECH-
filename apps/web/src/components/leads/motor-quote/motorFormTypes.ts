@@ -186,6 +186,8 @@ export interface PolicyFormTPOnly {
   policyEndDate: string;         // N
   commissionDiscountCalc: string; // Y — free text employee
   discountPercent?: string;       // Y — numeric discount
+  tpDiscountPercent?: string;     // Y — numeric discount
+  tpCommissionCalc?: string;      // Y — numeric discount fallback
   calculatedResult?: any;
 }
 
@@ -268,6 +270,10 @@ export interface PolicyFormPackage {
   tpCommissionCalc: string;      // Y — free text employee
   odCommissionCalc: string;      // Y — free text employee
   finalCommissionCalc: string;   // Y — free text employee
+  odDiscountPercent?: string;    // Y — numeric discount on OD
+  tpDiscountPercent?: string;    // Y — numeric discount on TP
+  odCommissionPercent?: string;  // Y — broker commission on OD
+  tpCommissionPercent?: string;  // Y — broker commission on TP
   finalPayableAmount?: string;   // Net premium payable after discount + GST
   finalGstAmount?: string;       // Re-calculated GST after discount
   calculatedResult?: any;
@@ -316,6 +322,7 @@ export interface SavedMotorQuote {
   vehicleDetails?: Record<string, any>;
   policyDetails?: Record<string, any>;
   leadId?: string;
+  caseId?: string;
 }
 
 // ------------------------------------------------------------------

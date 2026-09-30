@@ -89,6 +89,33 @@ describe('MotorCalculationService (Iteration 5 Financial Math)', () => {
       expect(outputs.totalPremium).toBe(17638.88);
       expect(outputs.finalPayableAmount).toBe(17638.88);
 
+      // Phase 4 Specification: Structured Component Breakdown
+      expect(outputs.od).toEqual({
+        gross: 15635,
+        ncbDiscount: 3127,
+        specialDiscount: 1250.8,
+        addons: 0,
+        net: 11257.2,
+        gst: 2026.3,
+      });
+      expect(outputs.tp).toEqual({
+        base: 3416,
+        discount: 0,
+        net: 3416,
+        gst: 614.88,
+      });
+      expect(outputs.pa).toEqual({
+        premium: 275,
+        gst: 49.5,
+      });
+      expect(outputs.summary).toEqual({
+        grossPremium: 19326,
+        totalDiscount: 4377.8,
+        netPremium: 14948.2,
+        totalGst: 2690.68,
+        finalPayable: 17638.88,
+      });
+
       // Verify that base premium is strictly different from total payable
       expect(outputs.basePremium).not.toBe(outputs.totalPremium);
     });

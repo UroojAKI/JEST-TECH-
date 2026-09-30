@@ -32,11 +32,15 @@ export class MotorQuotationDocumentService {
 
     // Verify document exists and belongs to the same tenant
     const document = await this.prisma.document.findFirst({
-      where: { id: dto.documentId, deletedAt: null },
+      where: {
+        id: dto.documentId,
+        deletedAt: null,
+        uploadedBy: { companyId: user.companyId },
+      },
     });
 
     if (!document) {
-      throw new NotFoundException(`Document '${dto.documentId}' not found`);
+      throw new NotFoundException(`Document '${dto.documentId}' not found or access denied`);
     }
 
     return this.prisma.motorQuotationDocument.create({

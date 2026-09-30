@@ -13,6 +13,9 @@ import {
   Plus,
   Car,
   RefreshCw,
+  ArrowRightLeft,
+  CheckCircle2,
+  X,
 } from 'lucide-react';
 import { ChunkedFileUploader } from '../../upload/chunked-file-uploader';
 import { toast } from 'sonner';
@@ -58,6 +61,13 @@ export function LeadTabsContainer({
   const [motorQuotes, setMotorQuotes] = useState<SavedMotorQuote[]>([]);
   const [isLoadingQuotes, setIsLoadingQuotes] = useState(false);
   const [showMotorWizard, setShowMotorWizard] = useState(false);
+
+  // Comparison & Clone state
+  const [cloneQuoteData, setCloneQuoteData] = useState<any>(null);
+  const [activeCaseId, setActiveCaseId] = useState<string | undefined>(undefined);
+  const [showComparisonModal, setShowComparisonModal] = useState(false);
+  const [comparisonData, setComparisonData] = useState<any>(null);
+  const [isLoadingComparison, setIsLoadingComparison] = useState(false);
 
   // Modal state
   const [showAddActivity, setShowAddActivity] = useState(false);
@@ -121,6 +131,10 @@ export function LeadTabsContainer({
           policyEndDate: (q.motorMetadata as any)?.policyDetails?.policyEndDate || '',
           status: q.status || 'DRAFT',
           createdAt: q.createdAt,
+          proposerDetails: (q.motorMetadata as any)?.proposerDetails,
+          vehicleDetails: (q.motorMetadata as any)?.vehicleDetails,
+          policyDetails: (q.motorMetadata as any)?.policyDetails,
+          caseId: q.caseId || (q.motorMetadata as any)?.caseId || undefined,
         }));
 
       setMotorQuotes(apiQuotes);
@@ -189,8 +203,84 @@ export function LeadTabsContainer({
     loadMotorQuotes();
   };
 
-  const handleUploadQuote = (id: string) => {
-    toast.info(`Upload PDF for quote ${id} — use the document vault above.`);
+  // Phase 5: Real Document Upload & Motor Association Pipeline
+  const handleUploadQuote = async (quotationId: string, file: File) => {
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('name', file.name);
+      formData.append('entityType', 'QUOTATION');
+      formData.append('entityId', quotationId);
+      formData.append('category', 'INSURER_QUOTE');
+
+      toast.info('Uploading quotation PDF...');
+      const uploadRes = await apiClient.post('/documents/upload', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+
+      const documentId = uploadRes.data?.id;
+      if (documentId) {
+        await apiClient.post(`/motor/quotations/${quotationId}/documents`, {
+          documentId,
+          documentType: 'INSURER_QUOTE',
+        });
+        toast.success('Quotation PDF attached and registered successfully!');
+        loadMotorQuotes();
+      }
+    } catch (err: any) {
+      toast.error(`Failed to upload document: ${err.response?.data?.message || err.message}`);
+    }
+  };
+
+  // Phase 7: Add Another Quote & Compare
+  const handleAddComparisonQuote = (quote: SavedMotorQuote) => {
+    const rawQuote = quote as any;
+    const meta = (rawQuote.motorMetadata as any) || {};
+    setActiveCaseId(rawQuote.caseId || undefined);
+    setCloneQuoteData({
+      category: quote.vehicleCategory,
+      policyType: quote.policyType,
+      proposerDetails: quote.proposerDetails || meta.proposerDetails,
+      vehicleDetails: quote.vehicleDetails || meta.vehicleDetails,
+      previousPolicyDetails: meta.previousPolicyDetails,
+      caseId: rawQuote.caseId || undefined,
+    });
+    setShowMotorWizard(true);
+  };
+
+  const handleOpenComparison = async (caseIdParam?: string) => {
+    let caseId = caseIdParam;
+    if (!caseId) {
+      const quoteWithCase = motorQuotes.find((q: any) => q.caseId);
+      caseId = (quoteWithCase as any)?.caseId;
+    }
+    if (caseId) {
+      setIsLoadingComparison(true);
+      setShowComparisonModal(true);
+      try {
+        const res = await apiClient.get(`/motor/quotation-cases/${caseId}/compare`);
+        setComparisonData(res.data);
+      } catch (err: any) {
+        toast.error(`Failed to load comparison: ${err.response?.data?.message || err.message}`);
+      } finally {
+        setIsLoadingComparison(false);
+      }
+    } else {
+      setShowComparisonModal(true);
+    }
+  };
+
+  const handleSelectWinningQuote = async (caseId: string, quoteId: string) => {
+    try {
+      await apiClient.post(`/motor/quotation-cases/${caseId}/select`, {
+        quotationId: quoteId,
+      });
+      toast.success('Winning quotation selected!');
+      setShowComparisonModal(false);
+      loadMotorQuotes();
+    } catch (err: any) {
+      toast.error(`Failed to select quotation: ${err.response?.data?.message || err.message}`);
+    }
   };
 
   const tabs = [
@@ -375,8 +465,21 @@ export function LeadTabsContainer({
                   >
                     <RefreshCw className={`h-3.5 w-3.5 ${isLoadingQuotes ? 'animate-spin' : ''}`} />
                   </button>
+                  {motorQuotes.length >= 2 && (
+                    <button
+                      onClick={() => handleOpenComparison()}
+                      className="px-3 py-2 rounded-xl border bg-muted/30 hover:bg-muted font-bold text-xs flex items-center gap-1.5 transition-all text-foreground"
+                    >
+                      <ArrowRightLeft className="h-3.5 w-3.5 text-primary" />
+                      Compare Quotes
+                    </button>
+                  )}
                   <button
-                    onClick={() => setShowMotorWizard(true)}
+                    onClick={() => {
+                      setCloneQuoteData(null);
+                      setActiveCaseId(undefined);
+                      setShowMotorWizard(true);
+                    }}
                     className="px-3.5 py-2 rounded-xl bg-primary text-primary-foreground font-extrabold text-xs flex items-center gap-1.5 shadow-sm hover:bg-primary/90 transition-all"
                   >
                     <Car className="h-3.5 w-3.5" />
@@ -392,7 +495,12 @@ export function LeadTabsContainer({
               ) : motorQuotes.length > 0 ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   {motorQuotes.map((q) => (
-                    <QuoteCard key={q.id} quote={q} onUploadQuote={handleUploadQuote} />
+                    <QuoteCard
+                      key={q.id}
+                      quote={q}
+                      onUploadQuote={handleUploadQuote}
+                      onAddComparisonQuote={handleAddComparisonQuote}
+                    />
                   ))}
                 </div>
               ) : (
@@ -403,7 +511,11 @@ export function LeadTabsContainer({
                     Click &quot;+ New Motor Quote&quot; to capture a motor insurance quotation across 8 vehicle categories and 3 policy types.
                   </p>
                   <button
-                    onClick={() => setShowMotorWizard(true)}
+                    onClick={() => {
+                      setCloneQuoteData(null);
+                      setActiveCaseId(undefined);
+                      setShowMotorWizard(true);
+                    }}
                     className="px-4 py-2 rounded-xl bg-primary text-primary-foreground font-bold text-xs hover:bg-primary/90 transition-all inline-flex items-center gap-1.5"
                   >
                     <Car className="h-3.5 w-3.5" />
@@ -448,9 +560,146 @@ export function LeadTabsContainer({
         isOpen={showMotorWizard}
         leadId={leadId}
         leadContact={leadContact}
-        onClose={() => setShowMotorWizard(false)}
+        caseId={activeCaseId}
+        cloneQuoteData={cloneQuoteData}
+        onClose={() => {
+          setShowMotorWizard(false);
+          setCloneQuoteData(null);
+          setActiveCaseId(undefined);
+        }}
         onSaved={handleQuoteSaved}
       />
+
+      {/* Quotation Comparison Modal */}
+      {showComparisonModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
+          <div className="w-full max-w-5xl bg-card rounded-2xl border shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+            <div className="flex items-center justify-between px-6 py-4 border-b bg-muted/20">
+              <div className="flex items-center gap-3">
+                <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center text-primary font-bold">
+                  <ArrowRightLeft className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-base text-foreground">
+                    Multi-Quote Comparison Matrix
+                  </h3>
+                  <p className="text-xs text-muted-foreground">
+                    {comparisonData?.caseCode ? `Case: ${comparisonData.caseCode}` : 'Side-by-side comparison of partner quotes'}
+                    {comparisonData?.registrationNumber ? ` | Reg: ${comparisonData.registrationNumber}` : ''}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowComparisonModal(false)}
+                className="p-2 rounded-lg hover:bg-muted text-muted-foreground transition-colors"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="p-6 overflow-x-auto flex-1">
+              {isLoadingComparison ? (
+                <div className="py-12 text-center text-muted-foreground text-sm animate-pulse">
+                  Loading side-by-side quotation comparison...
+                </div>
+              ) : comparisonData?.quotes?.length > 0 ? (
+                <div className="min-w-[650px]">
+                  <table className="w-full border-collapse text-left text-xs">
+                    <thead>
+                      <tr className="border-b bg-muted/30">
+                        <th className="p-3 font-bold text-muted-foreground">Feature / Parameter</th>
+                        {comparisonData.quotes.map((q: any) => (
+                          <th key={q.quotationId} className="p-3 font-extrabold text-foreground border-l">
+                            <div className="text-sm">{q.insurerName}</div>
+                            <div className="text-[10px] text-muted-foreground font-mono">{q.quotationCode}</div>
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y text-xs">
+                      <tr>
+                        <td className="p-3 font-semibold text-muted-foreground">Policy Type</td>
+                        {comparisonData.quotes.map((q: any) => (
+                          <td key={q.quotationId} className="p-3 font-medium border-l">{q.policyType}</td>
+                        ))}
+                      </tr>
+                      <tr>
+                        <td className="p-3 font-semibold text-muted-foreground">IDV (Insured Value)</td>
+                        {comparisonData.quotes.map((q: any) => (
+                          <td key={q.quotationId} className="p-3 font-bold border-l">
+                            {q.idv ? `₹${Number(q.idv).toLocaleString('en-IN')}` : '—'}
+                          </td>
+                        ))}
+                      </tr>
+                      <tr>
+                        <td className="p-3 font-semibold text-muted-foreground">NCB Slab</td>
+                        {comparisonData.quotes.map((q: any) => (
+                          <td key={q.quotationId} className="p-3 font-medium border-l">{q.ncbPercentage}%</td>
+                        ))}
+                      </tr>
+                      <tr>
+                        <td className="p-3 font-semibold text-muted-foreground">Base OD Premium</td>
+                        {comparisonData.quotes.map((q: any) => (
+                          <td key={q.quotationId} className="p-3 font-mono border-l">₹{Number(q.baseOdPremium || 0).toLocaleString('en-IN')}</td>
+                        ))}
+                      </tr>
+                      <tr>
+                        <td className="p-3 font-semibold text-muted-foreground">Add-ons Premium</td>
+                        {comparisonData.quotes.map((q: any) => (
+                          <td key={q.quotationId} className="p-3 font-mono border-l">₹{Number(q.totalAddonsPremium || 0).toLocaleString('en-IN')}</td>
+                        ))}
+                      </tr>
+                      <tr>
+                        <td className="p-3 font-semibold text-muted-foreground">Total Discounts</td>
+                        {comparisonData.quotes.map((q: any) => (
+                          <td key={q.quotationId} className="p-3 font-mono text-amber-600 border-l">-₹{Number(q.totalDiscount || 0).toLocaleString('en-IN')}</td>
+                        ))}
+                      </tr>
+                      <tr>
+                        <td className="p-3 font-semibold text-muted-foreground">Statutory GST (18%)</td>
+                        {comparisonData.quotes.map((q: any) => (
+                          <td key={q.quotationId} className="p-3 font-mono border-l">+₹{Number(q.totalGst || 0).toLocaleString('en-IN')}</td>
+                        ))}
+                      </tr>
+                      <tr className="bg-emerald-500/5 font-bold">
+                        <td className="p-3 font-black text-foreground">Final Payable Premium</td>
+                        {comparisonData.quotes.map((q: any) => (
+                          <td key={q.quotationId} className="p-3 font-black text-sm text-emerald-600 dark:text-emerald-400 border-l">
+                            ₹{Number(q.finalPayable || 0).toLocaleString('en-IN')}
+                          </td>
+                        ))}
+                      </tr>
+                      <tr>
+                        <td className="p-3 font-semibold text-muted-foreground">Action</td>
+                        {comparisonData.quotes.map((q: any) => (
+                          <td key={q.quotationId} className="p-3 border-l">
+                            {q.isSelected ? (
+                              <span className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-emerald-500/10 text-emerald-700 text-xs font-bold border border-emerald-300">
+                                <CheckCircle2 className="h-3.5 w-3.5" /> Selected Winner
+                              </span>
+                            ) : (
+                              <button
+                                onClick={() => handleSelectWinningQuote(comparisonData.caseId, q.quotationId)}
+                                className="px-3.5 py-1.5 rounded-lg bg-primary text-primary-foreground font-bold text-xs hover:bg-primary/90 transition-all shadow-sm"
+                              >
+                                Select This Quote
+                              </button>
+                            )}
+                          </td>
+                        ))}
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div className="py-12 text-center text-muted-foreground text-sm">
+                  No quotes found for this comparison case. Generate another quote to compare.
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

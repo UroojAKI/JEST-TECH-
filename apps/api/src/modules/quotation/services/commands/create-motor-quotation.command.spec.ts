@@ -414,5 +414,51 @@ describe('CreateMotorQuotationCommand (Authoritative Command)', () => {
     );
     expect(res.caseId).toBe('case-1');
   });
+
+  it('MOTOR-V2-COMMISSION: strictly separates commission from discount in calculation inputs', async () => {
+    prisma.quotation.create.mockResolvedValue({
+      id: 'q-comm-ok',
+      quotationCode: 'QTN-2026-COMM-1',
+      totalPremium: 11800,
+    });
+
+    await command.execute(
+      {
+        vehicleCategory: 'PRIVATE_CAR',
+        policyType: 'PACKAGE',
+        insurerName: 'HDFC ERGO',
+        contactId: 'c-1',
+        ncbPercentage: 20,
+        policyDetails: {
+          odDiscountPercent: 5,
+          odCommissionPercent: 15,
+          tpCommissionPercent: 2.5,
+        },
+        vehicleDetails: {
+          vehicleStatus: 'EXISTING',
+        },
+      },
+      mockUser,
+    );
+
+    expect(calcService.calculate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        discountPercent: 5,
+        tpDiscountPercent: 0,
+      }),
+    );
+    expect(prisma.quotation.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          motorMetadata: expect.objectContaining({
+            commissions: {
+              odCommissionPercent: 15,
+              tpCommissionPercent: 2.5,
+            },
+          }),
+        }),
+      }),
+    );
+  });
 });
 

@@ -85,8 +85,8 @@ export function PolicyFormPackageForm({ category, vehicleStatus, data, onChange,
     claimInExpiringPolicy: data.claimInExpiringPolicy === 'Yes',
     paCover: true,
     paidDriverLiability: false,
-    discountPercent: parseFloat(data.odCommissionCalc || '0') || 0,
-    tpDiscountPercent: parseFloat(data.tpCommissionCalc || '0') || 0,
+    discountPercent: parseFloat(data.odDiscountPercent || data.odCommissionCalc || '0') || 0,
+    tpDiscountPercent: parseFloat(data.tpDiscountPercent || data.tpCommissionCalc || '0') || 0,
     addons: (data.addonsSelected || []).map(a => ({
       addonCode: a,
       manualPrice: data.addonPrices?.[a] ? (parseFloat(data.addonPrices[a]) || 0) : undefined
@@ -280,8 +280,11 @@ export function PolicyFormPackageForm({ category, vehicleStatus, data, onChange,
               min="0"
               max="85"
               step="0.5"
-              value={data.odCommissionCalc || ''}
-              onChange={set('odCommissionCalc')}
+              value={data.odDiscountPercent ?? data.odCommissionCalc ?? ''}
+              onChange={(e) => {
+                const val = e.target.value;
+                onChange({ ...data, odDiscountPercent: val, odCommissionCalc: val });
+              }}
               placeholder="e.g. 10%"
               className={inputBase}
             />
@@ -297,8 +300,11 @@ export function PolicyFormPackageForm({ category, vehicleStatus, data, onChange,
               min="0"
               max="20"
               step="0.5"
-              value={data.tpCommissionCalc || ''}
-              onChange={set('tpCommissionCalc')}
+              value={data.tpDiscountPercent ?? data.tpCommissionCalc ?? ''}
+              onChange={(e) => {
+                const val = e.target.value;
+                onChange({ ...data, tpDiscountPercent: val, tpCommissionCalc: val });
+              }}
               placeholder="e.g. 0%"
               className={inputBase}
             />

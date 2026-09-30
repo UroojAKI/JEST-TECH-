@@ -88,6 +88,19 @@ describe('MotorQuotationDocumentService', () => {
         ),
       ).rejects.toThrow(NotFoundException);
     });
+
+    it('throws NotFoundException if document does not belong to tenant', async () => {
+      mockPrisma.quotation.findFirst.mockResolvedValue({ id: 'quote-1', companyId: 'comp-1' });
+      mockPrisma.document.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.attachDocument(
+          'quote-1',
+          { documentId: 'doc-foreign', documentType: MotorDocumentType.INSURER_QUOTE },
+          mockUser as any,
+        ),
+      ).rejects.toThrow(NotFoundException);
+    });
   });
 
   describe('verifyDocument', () => {
