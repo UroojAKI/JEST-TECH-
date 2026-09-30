@@ -6,13 +6,13 @@
   ],
   "title": "Transactional outbox with exponential backoff & dead-letter queue",
   "remediatingEpic": "EPIC-06",
-  "implementationCommit": "8261a5e721bfafc20f66386821201ce1a47128f1",
-  "testCommit": "8261a5e721bfafc20f66386821201ce1a47128f1",
+  "implementationCommit": "21ff993ec6f85e3ea94b5dc2b0ac331f5c80c44e",
+  "testCommit": "21ff993ec6f85e3ea94b5dc2b0ac331f5c80c44e",
   "environment": "staging",
   "environmentBuild": "v4.2.0-prod-rebuild",
   "databaseMigrationVersion": "20260908_epic05_schema_invariants",
-  "schemaHash": "sha256:5f41c88b4f2ca6f3dae5a4c33e58d51933a53b52c923e7ff258c5b313a0c0bea",
-  "containerImageDigest": "sha256:10e74bcafc23ad7ec2dc72b9ddf241529402fe8ae21d73fa67f98f76b11f8db4",
+  "schemaHash": "sha256:b1081267507cad1b871338d2a874cb1c0ba39da19841ea093251f2ac03b5faa3",
+  "containerImageDigest": "sha256:05c8ba0251dfb279a584ccb8086de44ac0cdf50ae073ed4a7bad9892bd7c7abe",
   "testDataVersion": "v4.2.0-clean-seed",
   "testRunId": "TR-PROD-021-CERT-2026",
   "primaryTestPath": "src/modules/platform/outbox/outbox.service.spec.ts",
@@ -20,5 +20,5 @@
   "alternatePathTestPath": "src/common/production-acceptance.spec.ts",
   "result": "PASS",
   "reviewer": "Lead Systems Architect & Security Auditor",
-  "timestamp": "2026-09-30T08:13:18.432Z"
+  "timestamp": "2026-09-30T09:46:51.726Z"
 }
