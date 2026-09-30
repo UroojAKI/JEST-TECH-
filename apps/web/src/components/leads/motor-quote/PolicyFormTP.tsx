@@ -99,14 +99,15 @@ export function PolicyFormTPOnlyForm({ category, vehicleStatus, data, onChange, 
           </select>
         </FieldRow>
 
-        {/* TP Premium */}
+        {/* TP Premium — Non-editable, authoritative from IRDAI tariff */}
         <FieldRow label="Third Party Premium (₹)" hint="As per IRDAI notified tariff — non-editable">
           <input
             type="number"
+            readOnly
+            disabled
             value={data.thirdPartyPremium}
-            onChange={set('thirdPartyPremium')}
             placeholder="Auto-filled from tariff"
-            className={inputBase}
+            className={`${inputBase} bg-muted text-muted-foreground cursor-not-allowed opacity-80`}
           />
         </FieldRow>
 
@@ -232,19 +233,11 @@ export function PolicyFormTPOnlyForm({ category, vehicleStatus, data, onChange, 
               placeholder="0"
               value={data.discountPercent || ''}
               onChange={(e) => {
-                const pct = Math.min(100, Math.max(0, parseFloat(e.target.value) || 0));
-                const grossTp = Number(data.calculatedResult?.outputs?.baseTpPremium || data.thirdPartyPremium || 0);
-                const discountAmt = Math.round(grossTp * (pct / 100) * 100) / 100;
-                const netTp = Math.max(0, grossTp - discountAmt);
-                const gst = Math.round(netTp * 0.18 * 100) / 100;
-                const finalPayable = Math.round((netTp + gst) * 100) / 100;
-
-                const summary = `Discount: ${pct}% (₹${discountAmt}) | Net TP: ₹${netTp} | GST: ₹${gst} | Final Payable: ₹${finalPayable}`;
+                const val = e.target.value;
                 onChange({
                   ...data,
-                  discountPercent: e.target.value,
-                  commissionDiscountCalc: summary,
-                  totalPremiumInclGST: finalPayable.toString(),
+                  discountPercent: val,
+                  tpCommissionCalc: val,
                 });
               }}
               className="w-full p-2 rounded-lg border text-xs font-semibold bg-background focus:outline-none focus:ring-1 focus:ring-primary border-border"

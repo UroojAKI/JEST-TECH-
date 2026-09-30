@@ -72,6 +72,16 @@ export class CreateMotorQuotationCommand {
     if (dto.vehicleId) {
       await this.tenantAuthService.assertTenantResource('Vehicle', dto.vehicleId, user);
     }
+    if (dto.caseId) {
+      const motorCase = await this.prisma.motorQuotationCase.findFirst({
+        where: { id: dto.caseId, companyId },
+      });
+      if (!motorCase) {
+        throw new NotFoundException(
+          `MotorQuotationCase '${dto.caseId}' not found or tenant access denied`,
+        );
+      }
+    }
 
     // ── 2. Contact Resolution (Tenant-Scoped) ──
     let contactId = dto.contactId;
@@ -264,11 +274,13 @@ export class CreateMotorQuotationCommand {
       Boolean(prevPolicy.claimInPreviousYear);
 
     // ── 5. Authoritative Underwriting Rules & NCB Evaluation ──
-    const declaredNcb = isVehicleNew ? 0 : Number(dto.ncbPercentage || policyDetails.ncbPercentage || 0);
+    const declaredNcb = isVehicleNew ? 0 : Number(dto.ncbPercentage ?? policyDetails.ncbPercentage ?? 0);
     const validSlabs = [0, 20, 25, 35, 45, 50];
-    const clampedDeclaredNcb = validSlabs.reduce((prev, curr) =>
-      Math.abs(curr - declaredNcb) < Math.abs(prev - declaredNcb) ? curr : prev,
-    );
+    if (!validSlabs.includes(declaredNcb)) {
+      throw new BadRequestException(
+        `INVALID_NCB_PERCENTAGE: NCB must be one of ${validSlabs.join(', ')}%, received ${declaredNcb}%`,
+      );
+    }
 
     const ruleResult = this.motorRuleEngineService.evaluateQuotation({
       vehicleStatus: isVehicleNew ? 'NEW' : 'EXISTING',
@@ -278,7 +290,7 @@ export class CreateMotorQuotationCommand {
       claimInPreviousYear: claimInExpiring,
       ownershipTransfer: Boolean(policyDetails.ownershipTransfer || prevPolicy.ownershipTransfer),
       previousPolicyTransferred: Boolean(policyDetails.previousPolicyTransferred || prevPolicy.previousPolicyTransferred),
-      eligibleNcbPercentage: clampedDeclaredNcb,
+      eligibleNcbPercentage: declaredNcb,
       tpExpiryDate: saodVerification.tpExpiryDate ? new Date(saodVerification.tpExpiryDate) : null,
       odExpiryDate: saodVerification.odExpiryDate ? new Date(saodVerification.odExpiryDate) : null,
     });
@@ -374,6 +386,7 @@ export class CreateMotorQuotationCommand {
           contactId,
           vehicleId,
           leadId: dto.leadId || null,
+          caseId: dto.caseId || null,
           agentId: assignedAgentId,
           createdById: user.id,
         },
@@ -435,6 +448,7 @@ export class CreateMotorQuotationCommand {
       message: 'Motor insurance quote captured using authoritative backend pricing',
       quotationCode: quotation.quotationCode,
       id: quotation.id,
+      caseId: quotation.caseId || null,
       journeyId: journey?.id || null,
       vehicleCategory: quotation.vehicleCategory,
       policyType: quotation.policyType,

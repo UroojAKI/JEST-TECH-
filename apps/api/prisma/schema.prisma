@@ -589,6 +589,7 @@ model Contact {
   leads Lead[]
 
   quotations Quotation[]
+  motorQuotationCases MotorQuotationCase[]
 
   policies  Policy[]
   claims    Claim[]
@@ -760,9 +761,10 @@ model Lead {
   notes      Note[]
   activities Activity[]
 
-  quotations      Quotation[]
-  motorQuotations MotorQuotation[] @relation("LeadMotorQuotations")
-  vehicles        Vehicle[]        @relation("LeadVehicles")
+  quotations          Quotation[]
+  motorQuotations     MotorQuotation[]     @relation("LeadMotorQuotations")
+  motorQuotationCases MotorQuotationCase[]
+  vehicles            Vehicle[]            @relation("LeadVehicles")
   tasks           Task[]           @relation("LeadTasks")
   backOfficeTasks BackOfficeTask[] @relation("LeadBackOfficeTasks")
 
@@ -1065,6 +1067,38 @@ enum PreviousPolicyType {
   NOT_AVAILABLE
 }
 
+enum MotorCaseStatus {
+  OPEN
+  QUOTED
+  SELECTED
+  COMPLETED
+  CANCELLED
+}
+
+enum MotorDocumentType {
+  INSURER_QUOTE
+  RC
+  PREVIOUS_POLICY
+  DRIVING_LICENSE
+  PAN
+  ADDRESS_PROOF
+  INSPECTION_REPORT
+  INSPECTION_PHOTOS
+  INVOICE
+  FORM_21
+  FORM_22
+  HYPOTHECATION
+  NOC
+  PERMIT
+  PUC
+  FITNESS_CERTIFICATE
+  NATIONAL_PERMIT
+  AGGREGATOR_AGREEMENT
+  COMMERCIAL_DL
+  SPECIAL_PURPOSE_CERTIFICATE
+  OTHER
+}
+
 //////////////////////////////////////////////////////////
 // QUOTATIONS
 //////////////////////////////////////////////////////////
@@ -1142,6 +1176,12 @@ model Quotation {
   // Motor workflow state machine
   workflowState MotorWorkflowState?
 
+  // Motor Quotation Case & Document relations
+  caseId          String?
+  case            MotorQuotationCase?      @relation("CaseQuotations", fields: [caseId], references: [id], onDelete: SetNull)
+  selectedInCases MotorQuotationCase[]     @relation("SelectedCaseQuote")
+  motorDocuments  MotorQuotationDocument[]
+
   // Motor module relations
   motorJourney        MotorJourney?
   motorPreviousPolicy MotorPreviousPolicy?
@@ -1164,6 +1204,7 @@ model Quotation {
   @@index([vehicleId])
   @@index([companyId])
   @@index([agentId])
+  @@index([caseId])
   @@unique([companyId, id])
   @@map("quotations")
 }
@@ -1827,10 +1868,11 @@ model Document {
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
 
-  versions             DocumentVersion[]
-  accessLogs           DocumentAccessLog[]
-  proposalDocuments    ProposalDocument[]
-  endorsementDocuments EndorsementDocument[]
+  versions                DocumentVersion[]
+  accessLogs              DocumentAccessLog[]
+  proposalDocuments       ProposalDocument[]
+  endorsementDocuments    EndorsementDocument[]
+  motorQuotationDocuments MotorQuotationDocument[]
 
   @@index([entityType, entityId])
   @@index([uploadedById])
@@ -2843,6 +2885,8 @@ model Company {
   reports                Report[]
   motorJourneys          MotorJourney[]
   vehicles               Vehicle[]               @relation("CompanyVehicles")
+  motorQuotationCases    MotorQuotationCase[]
+  motorQuotationDocuments MotorQuotationDocument[]
 
   @@index([taxId])
 }
@@ -3692,10 +3736,10 @@ model Vehicle {
   manufactureMonth Int?
   manufactureYear  Int?
 
-  // ── Relations — one vehicle can have multiple quotations (multi-insurer comparison) ──
-  quotations      Quotation[]
-  motorQuotations MotorQuotation[] @relation("VehicleMotorQuotations")
-  policies        Policy[]
+  quotations          Quotation[]
+  motorQuotations     MotorQuotation[]     @relation("VehicleMotorQuotations")
+  motorQuotationCases MotorQuotationCase[]
+  policies            Policy[]
   inspections     Inspection[]     @relation("VehicleInspections")
   tasks           Task[]           @relation("VehicleTasks")
 
@@ -4489,5 +4533,74 @@ model MotorQuotationMigration {
 
   @@map("motor_quotation_migrations")
 }
+
+//////////////////////////////////////////////////////////
+// MOTOR QUOTATION CASES & DOCUMENTS (V2 ARCHITECTURE)
+//////////////////////////////////////////////////////////
+
+model MotorQuotationCase {
+  id                 String          @id @default(uuid())
+  companyId          String
+  company            Company         @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  caseCode           String          @unique
+  category           VehicleCategory
+  vehicleStatus      VehicleStatus   @default(EXISTING)
+  registrationNumber String?
+  contactId          String
+  contact            Contact         @relation(fields: [contactId], references: [id], onDelete: Restrict)
+  vehicleId          String?
+  vehicle            Vehicle?        @relation(fields: [vehicleId], references: [id], onDelete: SetNull)
+  leadId             String?
+  lead               Lead?           @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  journeyId          String?
+  selectedQuoteId    String?
+  selectedQuote      Quotation?      @relation("SelectedCaseQuote", fields: [selectedQuoteId], references: [id], onDelete: SetNull)
+  status             MotorCaseStatus @default(OPEN)
+
+  customerSnapshot       Json
+  vehicleSnapshot        Json
+  previousPolicySnapshot Json?
+
+  quotations Quotation[]              @relation("CaseQuotations")
+  documents  MotorQuotationDocument[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId])
+  @@index([contactId])
+  @@index([caseCode])
+  @@index([leadId])
+  @@index([vehicleId])
+  @@index([selectedQuoteId])
+  @@map("motor_quotation_cases")
+}
+
+model MotorQuotationDocument {
+  id                 String                     @id @default(uuid())
+  companyId          String
+  company            Company                    @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  caseId             String?
+  case               MotorQuotationCase?        @relation(fields: [caseId], references: [id], onDelete: SetNull)
+  quotationId        String
+  quotation          Quotation                  @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+  documentId         String
+  document           Document                   @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  documentType       MotorDocumentType
+  verificationStatus DocumentVerificationStatus @default(PENDING)
+  rejectionReason    String?
+  verifiedById       String?
+  verifiedAt         DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId])
+  @@index([quotationId])
+  @@index([caseId])
+  @@index([documentId])
+  @@map("motor_quotation_documents")
+}
+
 
 

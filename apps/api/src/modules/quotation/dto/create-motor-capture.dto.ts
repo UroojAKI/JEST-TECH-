@@ -50,7 +50,7 @@ export class CreateMotorCaptureDto {
 
   @IsOptional()
   @IsString()
-  status?: string;
+  caseId?: string;
 
   @IsOptional()
   @IsObject()

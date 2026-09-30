@@ -52,6 +52,9 @@ describe('CreateMotorQuotationCommand (Authoritative Command)', () => {
       motorPreviousPolicy: {
         create: jest.fn(),
       },
+      motorQuotationCase: {
+        findFirst: jest.fn(),
+      },
       $transaction: jest.fn(async (cb) => cb(prisma)),
     };
 
@@ -359,4 +362,57 @@ describe('CreateMotorQuotationCommand (Authoritative Command)', () => {
       ),
     ).rejects.toThrow(BadRequestException);
   });
+
+  it('MOTOR-V2-NCB: should reject invalid non-slab NCB percentage with 400 Bad Request', async () => {
+    await expect(
+      command.execute(
+        {
+          vehicleCategory: 'PRIVATE_CAR',
+          policyType: 'PACKAGE',
+          insurerName: 'HDFC ERGO',
+          contactId: 'c-1',
+          ncbPercentage: 33, // Non-standard NCB slab
+          vehicleDetails: {
+            vehicleStatus: 'EXISTING',
+          },
+        },
+        mockUser,
+      ),
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it('MOTOR-V2-CASE: should link quotation to MotorQuotationCase when caseId is provided', async () => {
+    prisma.motorQuotationCase.findFirst.mockResolvedValue({ id: 'case-1', companyId: 'comp-test' });
+    prisma.quotation.create.mockResolvedValue({
+      id: 'q-with-case',
+      quotationCode: 'QTN-2026-CASE-1',
+      totalPremium: 11800,
+      caseId: 'case-1',
+    });
+
+    const res = await command.execute(
+      {
+        vehicleCategory: 'PRIVATE_CAR',
+        policyType: 'PACKAGE',
+        insurerName: 'HDFC ERGO',
+        contactId: 'c-1',
+        caseId: 'case-1',
+        ncbPercentage: 20,
+        vehicleDetails: {
+          vehicleStatus: 'EXISTING',
+        },
+      },
+      mockUser,
+    );
+
+    expect(prisma.quotation.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          caseId: 'case-1',
+        }),
+      }),
+    );
+    expect(res.caseId).toBe('case-1');
+  });
 });
+

@@ -74,6 +74,11 @@ export class NumberingEngineService {
           format: '{PREFIX}-{YYYY}-{MM}-{SEQUENCE}',
           padding: 6,
         },
+        MOTOR_CASE: {
+          prefix: 'MQC',
+          format: '{PREFIX}-{YYYY}-{SEQUENCE}',
+          padding: 5,
+        },
       };
 
       const defaultCfg = DEFAULT_FORMATS[entityType.toUpperCase()] || {
