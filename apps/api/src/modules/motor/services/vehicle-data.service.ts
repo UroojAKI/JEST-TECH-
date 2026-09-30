@@ -490,6 +490,8 @@ export class VehicleDataService {
       });
     }
 
+    const effectiveCompanyId = contact.companyId || actorCompanyId;
+
     if (existingVehicle) {
       return this.prisma.vehicle.update({
         where: { id: existingVehicle.id },
@@ -507,6 +509,7 @@ export class VehicleDataService {
           rtoLocation: rtoLoc || existingVehicle.rtoLocation,
           categorySpecificData: validation.sanitizedSpecs,
           status: VehicleStatus.EXISTING,
+          ...(effectiveCompanyId ? { company: { connect: { id: effectiveCompanyId } } } : {}),
         },
       });
     }
@@ -517,6 +520,7 @@ export class VehicleDataService {
     return this.prisma.vehicle.create({
       data: {
         vehicleCode,
+        ...(effectiveCompanyId ? { company: { connect: { id: effectiveCompanyId } } } : {}),
         status: normalizedPlate ? VehicleStatus.EXISTING : VehicleStatus.NEW,
         category: dto.category,
         registrationNumber: normalizedPlate,
