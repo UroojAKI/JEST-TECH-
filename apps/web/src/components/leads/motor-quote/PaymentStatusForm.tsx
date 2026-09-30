@@ -3,11 +3,13 @@
 import React from 'react';
 import { CheckCircle2, Clock, AlertCircle } from 'lucide-react';
 import type { PaymentRecord, PaymentTrackingStatus } from './motorFormTypes';
+import { useAuthStore } from '../../../store/auth-store';
 
 interface Props {
   value: PaymentRecord;
   onChange: (v: PaymentRecord) => void;
   totalPremium?: number;
+  userRole?: string;
 }
 
 const PAYMENT_OPTIONS: Array<{ value: PaymentTrackingStatus; label: string; description: string; icon: React.ReactNode; color: string }> = [
@@ -18,7 +20,15 @@ const PAYMENT_OPTIONS: Array<{ value: PaymentTrackingStatus; label: string; desc
 
 const PAYMENT_METHODS = ['Cash', 'Cheque', 'NEFT/RTGS', 'UPI', 'Credit Card', 'Debit Card', 'Online Banking', 'Other'];
 
-export function PaymentStatusForm({ value, onChange, totalPremium }: Props) {
+export function PaymentStatusForm({ value, onChange, totalPremium, userRole }: Props) {
+  const authUser = useAuthStore((s) => s.user);
+  const activeRole = userRole || authUser?.role;
+  const isAgent = activeRole === 'AGENT' || activeRole === 'SALES_EXECUTIVE' || activeRole === 'POSP_ADVISOR' || activeRole === 'SALES_AGENT';
+
+  const visibleOptions = isAgent
+    ? PAYMENT_OPTIONS.filter((opt) => opt.value !== 'PAID')
+    : PAYMENT_OPTIONS;
+
   const update = (partial: Partial<PaymentRecord>) => onChange({ ...value, ...partial });
 
   return (
@@ -33,7 +43,12 @@ export function PaymentStatusForm({ value, onChange, totalPremium }: Props) {
 
       <div className="space-y-3">
         <h3 className="text-xs font-extrabold uppercase tracking-widest text-foreground">Payment Status</h3>
-        {PAYMENT_OPTIONS.map(({ value: v, label, description, icon, color }) => (
+        {isAgent && (
+          <div className="text-[11px] text-muted-foreground bg-muted/40 border border-border/60 rounded-xl p-2.5">
+            <strong>Agent Notice:</strong> As a sales agent, you can record payment as <strong>Under Process</strong>. Formal payment verification (Paid) is reserved for Finance / Back Office.
+          </div>
+        )}
+        {visibleOptions.map(({ value: v, label, description, icon, color }) => (
           <button
             key={v}
             type="button"

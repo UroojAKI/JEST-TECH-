@@ -229,7 +229,11 @@ describe('LeadAssignmentService (Iteration 11)', () => {
 
       expect(result.reassignedCount).toBe(5);
       expect(prisma.lead.updateMany).toHaveBeenCalledWith({
-        where: { id: { in: ['l1', 'l2', 'l3', 'l4', 'l5'] }, deletedAt: null },
+        where: {
+          id: { in: ['l1', 'l2', 'l3', 'l4', 'l5'] },
+          companyId: actor.companyId,
+          deletedAt: null,
+        },
         data: { assignedToId: 'agent-bulk', updatedById: actor.userId },
       });
       expect(prisma.auditLog.create).toHaveBeenCalled();

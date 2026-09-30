@@ -15,12 +15,7 @@ import { PaginatedResponseDto } from '../../../common/pagination/paginated-respo
 import { ActorContext } from '../../../common/interfaces/actor-context.interface';
 import { PrismaService } from '../../../database/prisma.service';
 
-const GLOBAL_ROLES: RoleType[] = [
-  RoleType.ADMIN,
-  RoleType.ADMIN,
-  RoleType.ADMIN,
-  RoleType.ADMIN,
-];
+const GLOBAL_ROLES: RoleType[] = [RoleType.ADMIN];
 
 @Injectable()
 export class AccountsService {
@@ -43,22 +38,11 @@ export class AccountsService {
       },
     };
 
-    if (
-      roles.includes(RoleType.BACK_OFFICE) ||
-      roles.includes(RoleType.BACK_OFFICE)
-    ) {
+    if (roles.includes(RoleType.BACK_OFFICE)) {
       if (actor.branchId)
         return { AND: [orgScope, { createdBy: { branchId: actor.branchId } }] };
-      return { AND: [orgScope, { createdById: actor.userId }] };
-    }
-    if (
-      roles.includes(RoleType.BACK_OFFICE) ||
-      roles.includes(RoleType.BACK_OFFICE)
-    ) {
       if (actor.teamId)
         return { AND: [orgScope, { createdBy: { teamId: actor.teamId } }] };
-      if (actor.branchId)
-        return { AND: [orgScope, { createdBy: { branchId: actor.branchId } }] };
       return { AND: [orgScope, { createdById: actor.userId }] };
     }
     return { AND: [orgScope, { createdById: actor.userId }] };

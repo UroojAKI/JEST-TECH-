@@ -155,7 +155,7 @@ describe('LeadsController', () => {
   });
 
   describe('merge', () => {
-    it('should call service.mergeLeads with targetId, sourceLeadId, and userId', async () => {
+    it('should call service.mergeLeads with targetId, sourceLeadId, and user actor', async () => {
       const expectedResult = { id: 'lead-1', title: 'Target Lead' };
       service.mergeLeads.mockResolvedValue(expectedResult as any);
 
@@ -164,7 +164,7 @@ describe('LeadsController', () => {
       expect(service.mergeLeads).toHaveBeenCalledWith(
         'lead-1',
         'lead-2',
-        mockUser.id,
+        mockUser,
       );
       expect(result).toEqual(expectedResult);
     });

@@ -447,7 +447,7 @@
   {
     "type": "WARNING",
     "file": "apps/api/src/modules/quotation/repositories/quotation.repository.ts",
-    "line": 109,
+    "line": 114,
     "operation": "findFirst",
     "model": "Quotation",
     "snippet": "return this.prisma.quotation.findFirst({",
@@ -456,7 +456,7 @@
   {
     "type": "WARNING",
     "file": "apps/api/src/modules/quotation/repositories/quotation.repository.ts",
-    "line": 138,
+    "line": 143,
     "operation": "update",
     "model": "Quotation",
     "snippet": "await this.prisma.quotation.update({",
@@ -465,7 +465,7 @@
   {
     "type": "WARNING",
     "file": "apps/api/src/modules/quotation/services/queries/quotation-completion.service.ts",
-    "line": 451,
+    "line": 464,
     "operation": "update",
     "model": "Contact",
     "snippet": "await this.prisma.contact.update({",
@@ -474,7 +474,7 @@
   {
     "type": "WARNING",
     "file": "apps/api/src/modules/quotation/services/queries/quotation-completion.service.ts",
-    "line": 535,
+    "line": 548,
     "operation": "update",
     "model": "Quotation",
     "snippet": "await this.prisma.quotation.update({",
@@ -483,7 +483,25 @@
   {
     "type": "WARNING",
     "file": "apps/api/src/modules/quotation/services/queries/quotation-completion.service.ts",
-    "line": 545,
+    "line": 558,
+    "operation": "update",
+    "model": "Quotation",
+    "snippet": "await this.prisma.quotation.update({",
+    "reason": "update executed without detected immediate tenant boundary assertion"
+  },
+  {
+    "type": "WARNING",
+    "file": "apps/api/src/modules/quotation/services/queries/quotation-completion.service.ts",
+    "line": 585,
+    "operation": "update",
+    "model": "Quotation",
+    "snippet": "await this.prisma.quotation.update({",
+    "reason": "update executed without detected immediate tenant boundary assertion"
+  },
+  {
+    "type": "WARNING",
+    "file": "apps/api/src/modules/quotation/services/queries/quotation-completion.service.ts",
+    "line": 623,
     "operation": "update",
     "model": "Quotation",
     "snippet": "await this.prisma.quotation.update({",

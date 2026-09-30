@@ -6,6 +6,8 @@ import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { RequestUser } from '../auth/decorators/current-user.decorator';
+import { Actor } from '../../common/decorators/actor.decorator';
+import { ActorContext } from '../../common/interfaces/actor-context.interface';
 import {
   MotorQuoteWorkflowService,
   CapturePreviousPolicyDto,
@@ -35,13 +37,8 @@ export class MotorWorkflowController {
     @Param('id') quotationId: string,
     @Body('targetState') targetState: MotorWorkflowState,
     @Body('reason') reason: string,
-    @CurrentUser() user: RequestUser,
+    @Actor() actor: ActorContext,
   ) {
-    const actor = {
-      userId: user.id,
-      companyId: user.companyId || user.organizationId,
-      role: user.role,
-    };
     return this.workflowService.transitionWorkflowState(
       quotationId,
       targetState,
@@ -58,15 +55,15 @@ export class MotorWorkflowController {
   async capturePreviousPolicy(
     @Param('id') quotationId: string,
     @Body() dto: Omit<CapturePreviousPolicyDto, 'quotationId'>,
-    @CurrentUser() user: RequestUser,
+    @Actor() actor: ActorContext,
   ) {
-    const companyId = user.companyId || user.organizationId;
     return this.workflowService.capturePreviousPolicyAndEvaluate(
       {
         ...dto,
         quotationId,
       },
-      companyId,
+      actor.companyId,
+      actor,
     );
   }
 
@@ -77,10 +74,9 @@ export class MotorWorkflowController {
   })
   async getRuleEvaluation(
     @Param('id') quotationId: string,
-    @CurrentUser() user: RequestUser,
+    @Actor() actor: ActorContext,
   ) {
-    const companyId = user.companyId || user.organizationId;
-    return this.workflowService.reEvaluate(quotationId, companyId);
+    return this.workflowService.reEvaluate(quotationId, actor.companyId, actor);
   }
 
   @Post('quotations/:id/payment')
@@ -95,16 +91,17 @@ export class MotorWorkflowController {
       RecordPaymentDto,
       'quotationId' | 'recordedById' | 'recordedByRole'
     >,
-    @CurrentUser() user: RequestUser,
+    @Actor() actor: ActorContext,
   ) {
     return this.paymentService.recordPayment(
       {
         ...dto,
         quotationId,
-        recordedById: user.id,
-        recordedByRole: user.role,
+        recordedById: actor.userId,
+        recordedByRole: actor.role,
       },
-      user.companyId || user.organizationId,
+      actor.companyId,
+      actor,
     );
   }
 

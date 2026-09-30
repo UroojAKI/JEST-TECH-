@@ -341,7 +341,7 @@ export class FinanceController {
     return motorPayments.map((p) => ({
       id: p.id,
       paymentNumber: p.referenceNumber || p.id.substring(0, 10).toUpperCase(),
-      payee: p.quotation?.insurerName || 'Insurer Partner',
+      payee: p.quotation?.insurerName || 'Unassigned Insurer',
       type: 'INSURER_SETTLEMENT',
       amount: Number(p.amount),
       mode: p.paymentMethod,
@@ -354,24 +354,33 @@ export class FinanceController {
   @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE)
   @ApiOperation({ summary: 'List journal entries from general ledger' })
   async getLedgerEntries(
+    @CurrentUser() actor: RequestUser,
     @Query('search') search?: string,
     @Query('referenceType') referenceType?: string,
     @Query('page') page?: number,
     @Query('limit') limit?: number,
   ) {
-    return this.ledgerService.getLedgerEntries({
-      search,
-      referenceType,
-      page,
-      limit,
-    });
+    const companyId = actor.companyId || (actor as any).organizationId;
+    return this.ledgerService.getLedgerEntries(
+      {
+        search,
+        referenceType,
+        page,
+        limit,
+      },
+      companyId,
+    );
   }
 
   @Post('ledger/journal')
   @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE)
   @ApiOperation({ summary: 'Post new double-entry journal' })
-  async postJournalEntry(@Body() data: CreateJournalEntryDto) {
-    return this.ledgerService.postEntry(data);
+  async postJournalEntry(
+    @Body() data: CreateJournalEntryDto,
+    @CurrentUser() actor: RequestUser,
+  ) {
+    const companyId = actor.companyId || (actor as any).organizationId;
+    return this.ledgerService.postEntry(data, companyId);
   }
 
   @Get('commissions')
@@ -471,9 +480,26 @@ export class FinanceController {
     const companyClaims = companyId
       ? await this.prisma.claim.findMany({
           where: { companyId },
-          select: { id: true },
+          select: {
+            id: true,
+            policy: {
+              select: {
+                quotation: {
+                  select: {
+                    insurerName: true,
+                  },
+                },
+              },
+            },
+          },
         })
       : [];
+    const claimInsurerMap = new Map(
+      companyClaims.map((c) => [
+        `CLAIM-${c.id}`,
+        c.policy?.quotation?.insurerName || null,
+      ]),
+    );
     const companyClaimBatchNumbers = companyClaims.map((c) => `CLAIM-${c.id}`);
 
     const settlements = await this.prisma.settlement.findMany({
@@ -487,13 +513,14 @@ export class FinanceController {
 
     return settlements.map((s) => {
       const total = Number(s.totalAmount);
+      const insurerName = claimInsurerMap.get(s.batchNumber) || null;
       return {
         id: s.id,
-        insurerName: 'Insurer Partner',
+        insurerName,
         period: s.date.toISOString().substring(0, 7),
         grossPremiumCollected: total,
-        commissionRetained: Math.round(total * 0.1),
-        netPayable: Math.round(total * 0.9),
+        commissionRetained: 0,
+        netPayable: total,
         status: s.status === 'PROCESSED' ? 'SETTLED' : 'PENDING_SETTLEMENT',
         settledDate:
           s.status === 'PROCESSED' ? s.updatedAt.toISOString() : null,

@@ -28,7 +28,7 @@ export class MotorInspectionController {
   constructor(private readonly inspectionService: MotorInspectionService) {}
 
   @Post()
-  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT)
+  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE)
   @ApiOperation({
     summary: 'Create or initialize a vehicle inspection record for quotation',
   })
@@ -56,7 +56,7 @@ export class MotorInspectionController {
   }
 
   @Post(':id/photos')
-  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT)
+  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE)
   @ApiOperation({
     summary: 'Record uploaded photo key for a specific vehicle view',
   })
@@ -77,7 +77,7 @@ export class MotorInspectionController {
   }
 
   @Post(':id/submit-for-review')
-  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT)
+  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE)
   @ApiOperation({
     summary:
       'Submit inspection for underwriting review once all 7 mandatory photographs are uploaded',

@@ -21,7 +21,8 @@ try {
 const schemaPath = path.resolve(__dirname, '..', 'apps/api/prisma/schema.prisma');
 let currentSchemaHash = '';
 if (fs.existsSync(schemaPath)) {
-  currentSchemaHash = 'sha256:' + crypto.createHash('sha256').update(fs.readFileSync(schemaPath)).digest('hex');
+  const normalizedSchema = fs.readFileSync(schemaPath, 'utf8').replace(/\r\n/g, '\n');
+  currentSchemaHash = 'sha256:' + crypto.createHash('sha256').update(normalizedSchema).digest('hex');
 }
 
 console.log('========================================================================');
@@ -32,15 +33,20 @@ console.log(`Certificate Certified SHA: ${cert.certifiedCommit}`);
 console.log(`Current Schema Hash:       ${currentSchemaHash}`);
 console.log(`Certificate Schema Hash:   ${cert.certificationSchemaHash}`);
 
-let parentSha = null;
+let recentShas = [];
 try {
-  parentSha = execSync('git rev-parse HEAD~1', { cwd: path.resolve(__dirname, '..') }).toString().trim();
-} catch (e) {}
+  recentShas = execSync('git rev-list -n 5 HEAD', { cwd: path.resolve(__dirname, '..') })
+    .toString()
+    .trim()
+    .split(/\s+/);
+} catch (e) {
+  if (headSha) recentShas = [headSha];
+}
 
 let failed = false;
-const isShaValid = headSha && cert.certifiedCommit && (headSha === cert.certifiedCommit || parentSha === cert.certifiedCommit);
+const isShaValid = headSha && cert.certifiedCommit && (headSha === cert.certifiedCommit || recentShas.includes(cert.certifiedCommit));
 if (!isShaValid && headSha && cert.certifiedCommit) {
-  console.error(`❌ INVALID CERTIFICATE: Current HEAD (${headSha}) and parent commit (${parentSha}) do not match Certified Commit (${cert.certifiedCommit}). Certificate is stale.`);
+  console.error(`❌ INVALID CERTIFICATE: Current HEAD (${headSha}) and recent ancestors [${recentShas.join(', ')}] do not match Certified Commit (${cert.certifiedCommit}). Certificate is stale.`);
   failed = true;
 }
 

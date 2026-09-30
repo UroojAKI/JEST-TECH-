@@ -40,12 +40,32 @@ export class LeadAssignmentService {
       throw new NotFoundException(`Lead with ID ${leadId} not found`);
     }
 
+    if (
+      actor?.companyId &&
+      lead.companyId &&
+      lead.companyId !== actor.companyId
+    ) {
+      throw new ForbiddenException(
+        'Cross-organization lead assignment is strictly prohibited',
+      );
+    }
+
     const targetAgent = await this.prisma.user.findUnique({
       where: { id: targetAgentId },
     });
     if (!targetAgent || targetAgent.deletedAt) {
       throw new NotFoundException(
         `Target agent with ID ${targetAgentId} not found`,
+      );
+    }
+
+    if (
+      actor?.companyId &&
+      targetAgent.companyId &&
+      targetAgent.companyId !== actor.companyId
+    ) {
+      throw new ForbiddenException(
+        'Cross-organization agent assignment is strictly prohibited',
       );
     }
 
@@ -113,11 +133,22 @@ export class LeadAssignmentService {
       throw new NotFoundException(`Lead with ID ${leadId} not found`);
     }
 
+    if (
+      actor?.companyId &&
+      lead.companyId &&
+      lead.companyId !== actor.companyId
+    ) {
+      throw new ForbiddenException(
+        'Cross-organization lead assignment is strictly prohibited',
+      );
+    }
+
     // Determine candidate pool
     const userWhere: any = {
       status: UserStatus.ACTIVE,
       role: RoleType.AGENT,
       deletedAt: null,
+      ...(actor?.companyId ? { companyId: actor.companyId } : lead.companyId ? { companyId: lead.companyId } : {}),
     };
 
     if (actor?.teamId) {
@@ -212,12 +243,23 @@ export class LeadAssignmentService {
       throw new BadRequestException('Cannot assign leads to an inactive agent');
     }
 
+    if (
+      actor?.companyId &&
+      targetAgent.companyId &&
+      targetAgent.companyId !== actor.companyId
+    ) {
+      throw new ForbiddenException(
+        'Cross-organization agent assignment is strictly prohibited',
+      );
+    }
+
     this.validateHierarchyBoundary(actor, targetAgent);
 
     return this.prisma.$transaction(async (tx) => {
       const updateResult = await tx.lead.updateMany({
         where: {
           id: { in: leadIds },
+          companyId: actor.companyId,
           deletedAt: null,
         },
         data: {

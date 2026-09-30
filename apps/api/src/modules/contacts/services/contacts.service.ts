@@ -124,6 +124,7 @@ export class ContactsService {
     if (requestedCode) {
       const userByCode = await this.prisma.user.findFirst({
         where: {
+          companyId: targetCompanyId,
           OR: [
             { employeeCode: { equals: requestedCode, mode: 'insensitive' } },
             { id: requestedCode },
@@ -132,7 +133,7 @@ export class ContactsService {
       });
       if (!userByCode) {
         throw new BadRequestException(
-          `Invalid agentCode '${requestedCode}': no registered agent exists with this employee code or user ID.`,
+          `Invalid agentCode '${requestedCode}': no registered agent exists with this employee code or user ID in this organization.`,
         );
       }
       effectiveAgentId = userByCode.id;
@@ -143,12 +144,12 @@ export class ContactsService {
     } else {
       const requestedAgentId = dto.agentId || dto.assignedAgentId;
       if (requestedAgentId) {
-        const assignedAgent = await this.prisma.user.findUnique({
-          where: { id: requestedAgentId },
+        const assignedAgent = await this.prisma.user.findFirst({
+          where: { id: requestedAgentId, companyId: targetCompanyId },
         });
         if (!assignedAgent) {
           throw new BadRequestException(
-            `Assigned agent with ID '${requestedAgentId}' was not found.`,
+            `Assigned agent with ID '${requestedAgentId}' was not found in this organization.`,
           );
         }
         effectiveAgentId = assignedAgent.id;

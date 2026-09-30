@@ -160,17 +160,19 @@ export class RenewalEngineService {
     }
 
     const filter: any = { companyId };
+    const roles = actor.roles?.length ? actor.roles : [actor.role];
 
     // ADMIN and BACK_OFFICE see all policies within their company
-    if (actor.role === RoleType.ADMIN || actor.role === RoleType.BACK_OFFICE) {
+    if (roles.includes(RoleType.ADMIN) || roles.includes(RoleType.BACK_OFFICE)) {
       return filter;
     }
 
-    // AGENT only sees policies they created or tasks assigned to them within their company
+    // AGENT only sees policies they created, are assigned as agent, or have renewal tasks for within their company
     return {
       ...filter,
       OR: [
         { createdById: actor.userId },
+        { agent: { userId: actor.userId } },
         { renewalTasks: { some: { agentId: actor.userId } } },
       ],
     };

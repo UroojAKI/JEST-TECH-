@@ -546,19 +546,22 @@ export class LeadsService {
       typeof actorOrId === 'string'
         ? ({ userId: actorOrId, id: actorOrId } as unknown as ActorContext)
         : actorOrId;
+    const actorCompanyId = actor?.companyId || actor?.organizationId;
     const existing = this.prisma.lead?.findFirst
       ? await this.prisma.lead.findFirst({
           where: {
             id,
             deletedAt: null,
-            ...(actor?.organizationId
-              ? { organizationId: actor.organizationId }
-              : {}),
+            ...(actorCompanyId ? { companyId: actorCompanyId } : {}),
           },
         })
       : await this.leadRepository.findById(id);
     if (!existing)
       throw new NotFoundException(`Lead ${id} not found or access denied`);
+
+    if (actor && actor.role) {
+      this.authzService.authorize(actor, 'LEAD', 'UPDATE', existing);
+    }
 
     if (existing.status === LeadStatus.CONVERTED) {
       throw new BadRequestException('Lead is already converted');
@@ -705,11 +708,18 @@ export class LeadsService {
   async mergeLeads(
     targetLeadId: string,
     sourceLeadId: string,
-    actorId: string,
+    actorOrId: ActorContext | string,
   ) {
     if (targetLeadId === sourceLeadId) {
       throw new BadRequestException('Cannot merge a lead into itself.');
     }
+
+    const actor =
+      typeof actorOrId === 'object' && actorOrId !== null
+        ? actorOrId
+        : undefined;
+    const actorId = actor?.userId || (typeof actorOrId === 'string' ? actorOrId : 'SYSTEM');
+    const actorCompanyId = actor?.companyId || actor?.organizationId;
 
     const [targetLead, sourceLead] = await Promise.all([
       this.leadRepository.findById(targetLeadId),
@@ -723,10 +733,27 @@ export class LeadsService {
       throw new NotFoundException(`Source lead ${sourceLeadId} not found`);
     }
 
+    if (targetLead.companyId !== sourceLead.companyId) {
+      throw new ForbiddenException(
+        'Cross-organization lead merge is strictly prohibited. Both leads must belong to the same organization.',
+      );
+    }
+
+    if (actorCompanyId && targetLead.companyId !== actorCompanyId) {
+      throw new ForbiddenException(
+        'Cross-organization lead merge is strictly prohibited.',
+      );
+    }
+
+    if (actor && actor.role) {
+      this.authzService.authorize(actor, 'LEAD', 'UPDATE', targetLead);
+      this.authzService.authorize(actor, 'LEAD', 'UPDATE', sourceLead);
+    }
+
     await this.prisma.$transaction(async (tx) => {
       // Re-link quotations from source to target
       await tx.quotation.updateMany({
-        where: { leadId: sourceLeadId },
+        where: { leadId: sourceLeadId, companyId: targetLead.companyId },
         data: { leadId: targetLeadId },
       });
 

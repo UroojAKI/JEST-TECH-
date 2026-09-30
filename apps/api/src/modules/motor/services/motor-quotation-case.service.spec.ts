@@ -132,7 +132,9 @@ describe('MotorQuotationCaseService', () => {
       expect(mockPrisma.quotation.update).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { id: 'quote-1' },
-          data: { status: 'ACCEPTED' },
+          data: expect.objectContaining({
+            workflowState: 'READY_FOR_PROPOSAL',
+          }),
         }),
       );
       expect(result.status).toBe('SELECTED');

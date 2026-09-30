@@ -11,6 +11,7 @@ import {
   InspectionStatus,
   InspectionConductedBy,
   RoleType,
+  QuotationStatus,
   Prisma,
 } from '@prisma/client';
 import { ActorContext } from '../../../common/interfaces/actor-context.interface';
@@ -125,10 +126,15 @@ export class MotorInspectionService {
     );
   }
 
-  private assertBackOfficeOrAdmin(role?: RoleType) {
-    if (role !== RoleType.ADMIN && role !== RoleType.BACK_OFFICE) {
+  private assertBackOfficeOrAdmin(role?: RoleType | string) {
+    if (
+      role !== RoleType.ADMIN &&
+      role !== RoleType.BACK_OFFICE &&
+      role !== 'ADMIN' &&
+      role !== 'BACK_OFFICE'
+    ) {
       throw new ForbiddenException(
-        'Action restricted: Only Back Office and Admin users are permitted to perform underwriting sign-off, rejection, or waiver.',
+        'Action restricted: Only Back Office and Admin users are permitted to perform underwriting inspection operations, sign-off, rejection, or waiver.',
       );
     }
   }
@@ -142,6 +148,10 @@ export class MotorInspectionService {
     actor?: ActorContext,
     txClient?: Prisma.TransactionClient,
   ) {
+    if (actor) {
+      this.assertBackOfficeOrAdmin(actor.role);
+    }
+
     const client = txClient || this.prisma;
 
     const quotation = await client.quotation.findUnique({
@@ -242,6 +252,10 @@ export class MotorInspectionService {
       );
     }
 
+    if (actor) {
+      this.assertBackOfficeOrAdmin(actor.role);
+    }
+
     const nextStatus = this.validateTransition(
       inspection.status,
       'UPLOAD_PHOTO',
@@ -289,6 +303,10 @@ export class MotorInspectionService {
       throw new ForbiddenException(
         'Tenant isolation violation: Inspection belongs to another company',
       );
+    }
+
+    if (actor) {
+      this.assertBackOfficeOrAdmin(actor.role);
     }
 
     const nextStatus = this.validateTransition(
@@ -444,6 +462,7 @@ export class MotorInspectionService {
       await tx.quotation.update({
         where: { id: inspection.quotationId },
         data: {
+          status: QuotationStatus.DRAFT,
           workflowState: 'INSPECTION_COMPLETED',
           motorMetadata: {
             ...meta,
@@ -589,6 +608,7 @@ export class MotorInspectionService {
       await tx.quotation.update({
         where: { id: inspection.quotationId },
         data: {
+          status: QuotationStatus.DRAFT,
           workflowState: 'INSPECTION_COMPLETED',
           motorMetadata: {
             ...((inspection.quotation?.motorMetadata as any) || {}),

@@ -104,7 +104,7 @@ export class MotorQuotationCaseController {
 
   @Post(':id/transition')
   @HttpCode(HttpStatus.OK)
-  @Roles(RoleType.AGENT, RoleType.BACK_OFFICE, RoleType.ADMIN)
+  @Roles(RoleType.BACK_OFFICE, RoleType.ADMIN)
   @ApiOperation({
     summary: 'Transition Motor Quotation Case status',
     description: 'Enforces canonical lifecycle state machine validation (OPEN -> QUOTED -> SELECTED -> COMPLETED, or CANCELLED).',

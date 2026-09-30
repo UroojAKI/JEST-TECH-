@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { PrismaService } from '../../../database/prisma.service';
 import { AttachMotorDocumentDto, VerifyMotorDocumentDto } from '../dto/motor-quotation-document.dto';
@@ -115,6 +116,17 @@ export class MotorQuotationDocumentService {
 
     if (!motorDoc) {
       throw new NotFoundException(`MotorQuotationDocument '${id}' not found or access denied`);
+    }
+
+    if (motorDoc.verificationStatus === 'VERIFIED') {
+      const roles = user.roles?.length ? user.roles : user.role ? [user.role] : [];
+      const isBackOfficeOrAdmin =
+        roles.includes('ADMIN') || roles.includes('BACK_OFFICE');
+      if (!isBackOfficeOrAdmin) {
+        throw new ForbiddenException(
+          'Verified evidence documents cannot be deleted. Back Office or Administrator authorization required.',
+        );
+      }
     }
 
     return this.prisma.motorQuotationDocument.delete({

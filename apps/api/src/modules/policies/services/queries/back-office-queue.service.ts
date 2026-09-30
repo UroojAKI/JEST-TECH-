@@ -143,6 +143,7 @@ export class BackOfficeQueueService {
         policy: true,
         motorInspection: true,
         motorPaymentRecord: true,
+        motorDocuments: true,
         motorPreviousPolicy: {
           include: {
             ruleEvaluation: true,
@@ -219,23 +220,27 @@ export class BackOfficeQueueService {
         detail: inspectionDetail,
       };
 
-      // 4. Payment Gate
+      // 4. Payment Gate (P1-09: Exact decimal reconciliation)
       const payment = q.motorPaymentRecord;
       const paidAmt = Number(payment?.amount || 0);
       const payableAmt = Number(q.totalPremium || 0);
-      const isPaid = payment?.status === 'PAID' && paidAmt >= payableAmt;
+      const hasOverpayment = paidAmt > payableAmt;
+      const isExactMatch = payment?.status === 'PAID' && Math.abs(paidAmt - payableAmt) < 0.01;
+      const isPaid = isExactMatch;
 
       const paymentGate: GateStatus = {
         passed: isPaid,
         status: isPaid ? 'PASSED' : 'BLOCKED',
         detail: isPaid
-          ? `Full premium received (₹${paidAmt.toLocaleString('en-IN')})`
-          : payment
-            ? `Payment status ${payment.status} (received ₹${paidAmt} of ₹${payableAmt})`
-            : 'No payment recorded',
+          ? `Full premium reconciled (₹${paidAmt.toLocaleString('en-IN')})`
+          : hasOverpayment
+            ? `Overpayment discrepancy: Received ₹${paidAmt}, expected ₹${payableAmt}`
+            : payment
+              ? `Payment status ${payment.status} (received ₹${paidAmt} of ₹${payableAmt})`
+              : 'No payment recorded',
       };
 
-      // 5. Document Verification Gate (G017)
+      // 5. Document Verification Gate (G017 / P1-10)
       // Check if entity documents exist and if any are pending review
       const documents = await this.prisma.document.findMany({
         where: {
@@ -244,17 +249,24 @@ export class BackOfficeQueueService {
         },
       });
 
+      const motorDocs = (q as any).motorDocuments || [];
+
       let documentsPassed = true;
       let documentsDetail = 'All mandatory documents verified';
 
-      const unverified = documents.filter(
-        (d) => d.verificationStatus !== DocumentVerificationStatus.VERIFIED,
-      );
+      const unverified = [
+        ...documents.filter(
+          (d) => d.verificationStatus !== DocumentVerificationStatus.VERIFIED,
+        ),
+        ...motorDocs.filter(
+          (d: any) => d.verificationStatus !== 'VERIFIED',
+        ),
+      ];
 
       if (unverified.length > 0) {
         documentsPassed = false;
         documentsDetail = `${unverified.length} document(s) pending underwriter verification`;
-      } else if (documents.length === 0 && isInspectionRequired) {
+      } else if (documents.length === 0 && motorDocs.length === 0 && isInspectionRequired) {
         documentsPassed = false;
         documentsDetail = 'Inspection/Break-in documents required';
       }

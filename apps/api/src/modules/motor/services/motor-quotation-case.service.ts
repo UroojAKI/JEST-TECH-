@@ -2,13 +2,14 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { PrismaService } from '../../../database/prisma.service';
 import { TenantResourceAuthorizationService } from '../../auth/services/tenant-resource-authorization.service';
 import { NumberingEngineService } from '../../administration/services/numbering-engine/numbering-engine.service';
 import { RequestUser } from '../../auth/decorators/current-user.decorator';
 import { CreateMotorQuotationCaseDto } from '../dto/motor-quotation-case.dto';
-import { MotorCaseStatus } from '@prisma/client';
+import { MotorCaseStatus, RoleType } from '@prisma/client';
 
 @Injectable()
 export class MotorQuotationCaseService {
@@ -167,6 +168,19 @@ export class MotorQuotationCaseService {
       throw new NotFoundException(`MotorQuotationCase '${caseId}' not found or access denied`);
     }
 
+    const roles = (user as any).roles?.length ? (user as any).roles : user.role ? [user.role] : [];
+    const isBackOfficeOrAdmin =
+      roles.includes('ADMIN') ||
+      roles.includes('BACK_OFFICE') ||
+      roles.includes(RoleType.ADMIN) ||
+      roles.includes(RoleType.BACK_OFFICE);
+
+    if (!isBackOfficeOrAdmin && targetStatus === MotorCaseStatus.COMPLETED) {
+      throw new ForbiddenException(
+        'Completing a motor quotation case is restricted to Back Office or Administrators.',
+      );
+    }
+
     this.validateCaseTransition(motorCase.status, targetStatus);
 
     return this.prisma.motorQuotationCase.update({
@@ -187,6 +201,52 @@ export class MotorQuotationCaseService {
    * Cancels a quotation case
    */
   async cancelCase(caseId: string, reason: string | undefined, user: RequestUser) {
+    const motorCase = await this.prisma.motorQuotationCase.findFirst({
+      where: { id: caseId, companyId: user.companyId },
+      include: {
+        lead: true,
+        quotations: {
+          select: { createdById: true, agentId: true },
+        },
+      },
+    });
+
+    if (!motorCase) {
+      throw new NotFoundException(`MotorQuotationCase '${caseId}' not found or access denied`);
+    }
+
+    if (
+      motorCase.status !== MotorCaseStatus.OPEN &&
+      motorCase.status !== MotorCaseStatus.QUOTED
+    ) {
+      throw new BadRequestException(
+        `Case cannot be cancelled from '${motorCase.status}' status. Only OPEN or QUOTED cases can be cancelled.`,
+      );
+    }
+
+    const roles = (user as any).roles?.length ? (user as any).roles : user.role ? [user.role] : [];
+    const isBackOfficeOrAdmin =
+      roles.includes('ADMIN') ||
+      roles.includes('BACK_OFFICE') ||
+      roles.includes(RoleType.ADMIN) ||
+      roles.includes(RoleType.BACK_OFFICE);
+
+    if (!isBackOfficeOrAdmin) {
+      const isOwner =
+        !motorCase.lead ||
+        motorCase.lead?.assignedToId === user.id ||
+        motorCase.lead?.createdById === user.id ||
+        !motorCase.quotations?.length ||
+        motorCase.quotations?.some(
+          (q) => q.createdById === user.id || q.agentId === user.id,
+        );
+      if (!isOwner) {
+        throw new ForbiddenException(
+          'You do not have permission to cancel this quotation case.',
+        );
+      }
+    }
+
     return this.transitionCaseStatus(caseId, MotorCaseStatus.CANCELLED, user, reason);
   }
 
@@ -196,6 +256,7 @@ export class MotorQuotationCaseService {
   async selectQuotation(caseId: string, quotationId: string, user: RequestUser) {
     const motorCase = await this.prisma.motorQuotationCase.findFirst({
       where: { id: caseId, companyId: user.companyId },
+      include: { lead: true },
     });
 
     if (!motorCase) {
@@ -214,6 +275,27 @@ export class MotorQuotationCaseService {
       );
     }
 
+    const roles = (user as any).roles?.length ? (user as any).roles : user.role ? [user.role] : [];
+    const isBackOfficeOrAdmin =
+      roles.includes('ADMIN') ||
+      roles.includes('BACK_OFFICE') ||
+      roles.includes(RoleType.ADMIN) ||
+      roles.includes(RoleType.BACK_OFFICE);
+
+    if (!isBackOfficeOrAdmin) {
+      const isOwner =
+        quotation.createdById === user.id ||
+        quotation.agentId === user.id ||
+        !motorCase.lead ||
+        motorCase.lead?.assignedToId === user.id ||
+        motorCase.lead?.createdById === user.id;
+      if (!isOwner) {
+        throw new ForbiddenException(
+          'You do not have permission to select a quotation for this case.',
+        );
+      }
+    }
+
     return this.prisma.$transaction(async (tx) => {
       const updatedCase = await tx.motorQuotationCase.update({
         where: { id: caseId },
@@ -229,7 +311,12 @@ export class MotorQuotationCaseService {
       await tx.quotation.update({
         where: { id: quotationId },
         data: {
-          status: 'ACCEPTED',
+          workflowState: 'READY_FOR_PROPOSAL',
+          motorMetadata: {
+            ...((quotation.motorMetadata as any) || {}),
+            caseSelection: 'SELECTED',
+            selectedAt: new Date().toISOString(),
+          },
         },
       });
 

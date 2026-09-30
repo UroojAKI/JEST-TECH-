@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../../database/prisma.service';
+import { ActorContext } from '../../../common/interfaces/actor-context.interface';
 
 export interface LeadCompletionStage {
   stage: number;
@@ -24,7 +25,8 @@ export interface LeadCompletionStatus {
 export class LeadCompletionService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async computeCompletionStatus(leadId: string): Promise<LeadCompletionStatus> {
+  async computeCompletionStatus(leadId: string, actor?: ActorContext): Promise<LeadCompletionStatus> {
+    const actorCompanyId = actor?.companyId || actor?.organizationId;
     const lead = await this.prisma.lead.findUnique({
       where: { id: leadId },
       include: {
@@ -41,7 +43,7 @@ export class LeadCompletionService {
       },
     });
 
-    if (!lead || lead.deletedAt) {
+    if (!lead || lead.deletedAt || (actorCompanyId && lead.companyId !== actorCompanyId)) {
       throw new NotFoundException(`Lead with ID ${leadId} not found`);
     }
 

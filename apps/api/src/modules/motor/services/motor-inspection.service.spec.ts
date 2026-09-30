@@ -179,7 +179,16 @@ describe('MotorInspectionService (Production State Machine & Role Segregation)',
   });
 
   describe('submitForReview', () => {
-    it('allows agent to submit when all 7 photos exist', async () => {
+    it('blocks agent from submitting inspection for review (P0-02 SoD)', async () => {
+      mockPrisma.motorInspection.findUnique.mockResolvedValue(
+        completePhotosInspection,
+      );
+      await expect(
+        service.submitForReview('ins-1', agentActor),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('allows back office to submit when all 7 photos exist', async () => {
       const inProgressInspection = {
         ...completePhotosInspection,
         status: InspectionStatus.IN_PROGRESS,
@@ -193,7 +202,7 @@ describe('MotorInspectionService (Production State Machine & Role Segregation)',
         status: InspectionStatus.SUBMITTED_FOR_REVIEW,
       });
 
-      const res = await service.submitForReview('ins-1', agentActor);
+      const res = await service.submitForReview('ins-1', backOfficeActor);
       expect(res.status).toBe(InspectionStatus.SUBMITTED_FOR_REVIEW);
       expect(mockPrisma.quotation.update).toHaveBeenCalledWith({
         where: { id: 'q-100' },
@@ -213,7 +222,7 @@ describe('MotorInspectionService (Production State Machine & Role Segregation)',
       );
 
       await expect(
-        service.submitForReview('ins-1', agentActor),
+        service.submitForReview('ins-1', backOfficeActor),
       ).rejects.toThrow(BadRequestException);
     });
   });

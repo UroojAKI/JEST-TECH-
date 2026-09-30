@@ -192,7 +192,7 @@ export class LeadsController {
     @Body('sourceLeadId') sourceLeadId: string,
     @CurrentUser() user: RequestUser,
   ) {
-    return this.leadsService.mergeLeads(targetId, sourceLeadId, user.id);
+    return this.leadsService.mergeLeads(targetId, sourceLeadId, user);
   }
 
   @Get()
@@ -230,8 +230,11 @@ export class LeadsController {
   @ApiOperation({
     summary: 'Get 5-stage lead completion score and quotation gate readiness',
   })
-  getLeadCompletion(@Param('id', ParseUUIDPipe) id: string) {
-    return this.leadCompletionService.computeCompletionStatus(id);
+  getLeadCompletion(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.leadCompletionService.computeCompletionStatus(id, user);
   }
 
   @Patch(':id')
@@ -332,7 +335,7 @@ export class LeadsController {
     @CurrentUser() user: RequestUser,
   ) {
     const completion =
-      await this.leadCompletionService.computeCompletionStatus(id);
+      await this.leadCompletionService.computeCompletionStatus(id, user);
     if (!completion.isQualifiedForQuotation) {
       throw new BadRequestException({
         code: 'LEAD_NOT_READY',

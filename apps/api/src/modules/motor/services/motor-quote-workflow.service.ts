@@ -13,7 +13,14 @@ import {
 } from './motor-rule-engine.service';
 import { MotorPolicyDateService } from './motor-policy-date.service';
 import { NumberingEngineService } from '../../administration/services/numbering-engine/numbering-engine.service';
-import { InspectionStatus, VehicleStatus, MotorWorkflowState, Prisma } from '@prisma/client';
+import {
+  InspectionStatus,
+  VehicleStatus,
+  MotorWorkflowState,
+  Prisma,
+  RoleType,
+} from '@prisma/client';
+import { ActorContext } from '../../../common/interfaces/actor-context.interface';
 
 export interface CapturePreviousPolicyDto {
   quotationId: string;
@@ -55,8 +62,18 @@ export class MotorQuoteWorkflowService {
    */
   async capturePreviousPolicyAndEvaluate(
     dto: CapturePreviousPolicyDto,
-    actorCompanyId?: string,
+    actorCompanyIdOrActor?: string | ActorContext,
+    maybeActor?: ActorContext,
   ) {
+    const actor: ActorContext | undefined =
+      typeof actorCompanyIdOrActor === 'object' && actorCompanyIdOrActor !== null
+        ? actorCompanyIdOrActor
+        : maybeActor;
+    const actorCompanyId: string | undefined =
+      typeof actorCompanyIdOrActor === 'string'
+        ? actorCompanyIdOrActor
+        : actor?.companyId || actor?.organizationId;
+
     const quotation = await this.prisma.quotation.findUnique({
       where: { id: dto.quotationId },
       include: { vehicle: true },
@@ -72,6 +89,24 @@ export class MotorQuoteWorkflowService {
       throw new ForbiddenException(
         'Cross-organization quotation evaluation is strictly prohibited',
       );
+    }
+
+    if (actor) {
+      const roles = actor.roles?.length ? actor.roles : [actor.role];
+      const isAgentRole =
+        roles.includes(RoleType.AGENT) &&
+        !roles.includes(RoleType.ADMIN) &&
+        !roles.includes(RoleType.BACK_OFFICE);
+      if (isAgentRole) {
+        const isOwner =
+          quotation.createdById === actor.userId ||
+          quotation.agentId === actor.userId;
+        if (!isOwner) {
+          throw new ForbiddenException(
+            'You do not have permission to modify or evaluate this quotation',
+          );
+        }
+      }
     }
 
     // ─── 0. Early NEW Vehicle Guard ──────────────────────────────────────────
@@ -370,7 +405,20 @@ export class MotorQuoteWorkflowService {
    * Re-evaluate rules from stored data. Never trust the stored result as source of truth.
    * Always recalculate from the source context.
    */
-  async reEvaluate(quotationId: string, actorCompanyId?: string) {
+  async reEvaluate(
+    quotationId: string,
+    actorCompanyIdOrActor?: string | ActorContext,
+    maybeActor?: ActorContext,
+  ) {
+    const actor: ActorContext | undefined =
+      typeof actorCompanyIdOrActor === 'object' && actorCompanyIdOrActor !== null
+        ? actorCompanyIdOrActor
+        : maybeActor;
+    const actorCompanyId: string | undefined =
+      typeof actorCompanyIdOrActor === 'string'
+        ? actorCompanyIdOrActor
+        : actor?.companyId || actor?.organizationId;
+
     const prevPolicy = await this.prisma.motorPreviousPolicy.findUnique({
       where: { quotationId },
       include: { ruleEvaluation: true },
@@ -394,6 +442,24 @@ export class MotorQuoteWorkflowService {
       throw new ForbiddenException(
         'Cross-organization quotation evaluation is strictly prohibited',
       );
+    }
+
+    if (actor) {
+      const roles = actor.roles?.length ? actor.roles : [actor.role];
+      const isAgentRole =
+        roles.includes(RoleType.AGENT) &&
+        !roles.includes(RoleType.ADMIN) &&
+        !roles.includes(RoleType.BACK_OFFICE);
+      if (isAgentRole) {
+        const isOwner =
+          quotation.createdById === actor.userId ||
+          quotation.agentId === actor.userId;
+        if (!isOwner) {
+          throw new ForbiddenException(
+            'You do not have permission to view or evaluate this quotation',
+          );
+        }
+      }
     }
 
     const evaluationContext = prevPolicy.ruleEvaluation

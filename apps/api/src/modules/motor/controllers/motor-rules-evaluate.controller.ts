@@ -1,10 +1,8 @@
 import {
   Body,
   Controller,
-  Get,
   HttpCode,
   HttpStatus,
-  Param,
   Post,
   UseGuards,
   BadRequestException,
@@ -29,12 +27,6 @@ import {
   IsOptional,
   IsString,
 } from 'class-validator';
-
-export class CreateMotorJourneyDto {
-  @IsOptional()
-  @IsString()
-  vehicleCategory?: string;
-}
 
 export class EvaluateMotorRulesDto {
   @IsOptional()
@@ -89,7 +81,7 @@ export class EvaluateMotorRulesDto {
   newOwnerName?: string;
 }
 
-@ApiTags('Motor — Rules & Journeys')
+@ApiTags('Motor — Rules Engine')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('motor')
@@ -98,77 +90,6 @@ export class MotorRulesEvaluateController {
     private readonly prisma: PrismaService,
     private readonly ruleEngine: MotorRuleEngineService,
   ) {}
-
-  @Post('journeys')
-  @HttpCode(HttpStatus.CREATED)
-  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT)
-  @ApiOperation({
-    summary: 'Start an authoritative Motor journey with a strict 24-hour TTL.',
-  })
-  async startJourney(
-    @Body() dto: CreateMotorJourneyDto,
-    @CurrentUser() user: RequestUser,
-  ) {
-    const companyId = user.companyId || (user as any).organizationId;
-    if (!companyId) {
-      throw new ForbiddenException('Tenant organization context is required');
-    }
-
-    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 Hours TTL
-
-    const journey = await this.prisma.motorJourney.create({
-      data: {
-        companyId,
-        actorId: user.id,
-        vehicleCategory: dto.vehicleCategory,
-        status: 'IN_PROGRESS',
-        expiresAt,
-      },
-    });
-
-    return {
-      journeyId: journey.id,
-      expiresAt: journey.expiresAt,
-      status: journey.status,
-      vehicleCategory: journey.vehicleCategory,
-    };
-  }
-
-  @Get('journeys/:id')
-  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT)
-  @ApiOperation({
-    summary: 'Get Motor journey status and verify validity.',
-  })
-  async getJourney(
-    @Param('id') journeyId: string,
-    @CurrentUser() user: RequestUser,
-  ) {
-    const companyId = user.companyId || (user as any).organizationId;
-    const journey = await this.prisma.motorJourney.findUnique({
-      where: { id: journeyId },
-      include: {
-        verificationAttempts: true,
-      },
-    });
-
-    if (!journey) {
-      throw new NotFoundException(`Motor journey ${journeyId} not found`);
-    }
-
-    if (journey.companyId !== companyId) {
-      throw new ForbiddenException('Cross-tenant journey access is forbidden');
-    }
-
-    if (journey.actorId !== user.id && user.role !== RoleType.ADMIN) {
-      throw new ForbiddenException('Unauthorized access to this motor journey');
-    }
-
-    const isExpired = journey.expiresAt < new Date();
-    return {
-      ...journey,
-      isExpired,
-    };
-  }
 
   @Post('rules/evaluate')
   @HttpCode(HttpStatus.OK)

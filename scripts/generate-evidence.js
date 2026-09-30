@@ -22,7 +22,8 @@ const crypto = require('crypto');
 const schemaPath = path.resolve(__dirname, '..', 'apps/api/prisma/schema.prisma');
 let schemaHash = 'sha256:unknown';
 if (fs.existsSync(schemaPath)) {
-  schemaHash = 'sha256:' + crypto.createHash('sha256').update(fs.readFileSync(schemaPath)).digest('hex');
+  const normalizedSchema = fs.readFileSync(schemaPath, 'utf8').replace(/\r\n/g, '\n');
+  schemaHash = 'sha256:' + crypto.createHash('sha256').update(normalizedSchema).digest('hex');
 }
 
 const migrationVersion = '20260908_epic05_schema_invariants';

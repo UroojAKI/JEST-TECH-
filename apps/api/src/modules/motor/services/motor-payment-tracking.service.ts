@@ -8,6 +8,7 @@ import {
 } from '@nestjs/common';
 import { createHash } from 'crypto';
 import { PrismaService } from '../../../database/prisma.service';
+import { ActorContext } from '../../../common/interfaces/actor-context.interface';
 import {
   PaymentTrackingStatus,
   InspectionStatus,
@@ -43,15 +44,6 @@ const FINANCE_PAYMENT_ROLES = new Set([
   'SUPER_ADMIN',
   'SYSTEM_ADMINISTRATOR',
   'MD_CEO',
-  'OPERATIONS',
-  'POLICY_ISSUANCE_EXECUTIVE',
-  'BRANCH_MANAGER',
-  'SALES_MANAGER',
-  'SALES_EXECUTIVE',
-  'SALES_AGENT',
-  'POSP_ADVISOR',
-  'AGENT_MANAGER',
-  'TEAM_LEADER',
   'FINANCE',
   'FINANCE_ACCOUNTS_EXECUTIVE',
   'CHIEF_FINANCE_OFFICER',
@@ -63,7 +55,20 @@ export class MotorPaymentTrackingService {
 
   constructor(private readonly prisma: PrismaService) {}
 
-  async recordPayment(dto: RecordPaymentDto, actorCompanyId?: string) {
+  async recordPayment(
+    dto: RecordPaymentDto,
+    actorCompanyIdOrActor?: string | ActorContext,
+    maybeActor?: ActorContext,
+  ) {
+    const actor: ActorContext | undefined =
+      typeof actorCompanyIdOrActor === 'object' && actorCompanyIdOrActor !== null
+        ? actorCompanyIdOrActor
+        : maybeActor;
+    const actorCompanyId: string | undefined =
+      typeof actorCompanyIdOrActor === 'string'
+        ? actorCompanyIdOrActor
+        : actor?.companyId || actor?.organizationId;
+
     const quotation = await this.prisma.quotation.findUnique({
       where: { id: dto.quotationId },
     });
@@ -78,6 +83,29 @@ export class MotorPaymentTrackingService {
       throw new ForbiddenException(
         'Cross-organization access is strictly prohibited',
       );
+    }
+
+    if (actor) {
+      const roles = actor.roles?.length ? actor.roles : [actor.role];
+      const isAgentRole =
+        roles.includes(RoleType.AGENT) &&
+        !roles.includes(RoleType.ADMIN) &&
+        !roles.includes(RoleType.BACK_OFFICE);
+      if (isAgentRole) {
+        if (dto.status === 'PAID') {
+          throw new ForbiddenException(
+            'Agents are prohibited from verifying payments as PAID. Only Finance or Back Office may verify payments.',
+          );
+        }
+        const isOwner =
+          quotation.createdById === actor.userId ||
+          quotation.agentId === actor.userId;
+        if (!isOwner) {
+          throw new ForbiddenException(
+            'You do not have permission to record payment for this quotation',
+          );
+        }
+      }
     }
 
     const existing = await this.prisma.motorPaymentRecord.findUnique({
@@ -109,13 +137,11 @@ export class MotorPaymentTrackingService {
     }
 
     if (dto.status === 'PAID') {
-      if (dto.recordedByRole) {
-        const role = String(dto.recordedByRole).toUpperCase();
-        if (!FINANCE_PAYMENT_ROLES.has(role)) {
-          throw new ForbiddenException(
-            'Only Finance or an authorized Administrator can verify a payment as PAID. Sales users may record UNDER_PROCESS only.',
-          );
-        }
+      const role = String(actor?.role || dto.recordedByRole || '').toUpperCase();
+      if (role && !FINANCE_PAYMENT_ROLES.has(role)) {
+        throw new ForbiddenException(
+          'Only Finance or an authorized Administrator can verify a payment as PAID. Sales users may record UNDER_PROCESS only.',
+        );
       }
       if (!dto.amount || dto.amount <= 0) {
         throw new BadRequestException(
