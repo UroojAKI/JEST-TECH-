@@ -13,13 +13,13 @@
   ],
   "title": "Hardcoded and mock production data elimination (AST verified)",
   "remediatingEpic": "EPIC-04, 07, 13, 14, 32",
-  "implementationCommit": "937fe29ccd235c9afe383f3220f842685125e585",
-  "testCommit": "937fe29ccd235c9afe383f3220f842685125e585",
+  "implementationCommit": "e0cb1c0d8c2a256e8db8cf4c74a1b107aa1f8947",
+  "testCommit": "e0cb1c0d8c2a256e8db8cf4c74a1b107aa1f8947",
   "environment": "staging",
   "environmentBuild": "v4.2.0-prod-rebuild",
   "databaseMigrationVersion": "20260908_epic05_schema_invariants",
   "schemaHash": "sha256:b1081267507cad1b871338d2a874cb1c0ba39da19841ea093251f2ac03b5faa3",
-  "containerImageDigest": "sha256:ea82ac8a320d7a7ac7213383eed3f975dc83c61940d6f41a079fbc18897e38df",
+  "containerImageDigest": "sha256:0553b42248e3c2b0229c139f43631c0d855e237c41365157185d4edab0501d2e",
   "testDataVersion": "v4.2.0-clean-seed",
   "testRunId": "TR-PROD-007-CERT-2026",
   "primaryTestPath": "src/common/certification/prod-gates.spec.ts#PROD-007",
@@ -27,5 +27,5 @@
   "alternatePathTestPath": "scripts/ci/scan-mock-data.sh",
   "result": "PASS",
   "reviewer": "Lead Systems Architect & Security Auditor",
-  "timestamp": "2026-09-30T10:52:21.378Z"
+  "timestamp": "2026-09-30T11:32:53.125Z"
 }
