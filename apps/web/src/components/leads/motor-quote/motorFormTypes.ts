@@ -323,6 +323,17 @@ export interface SavedMotorQuote {
   policyDetails?: Record<string, any>;
   leadId?: string;
   caseId?: string;
+  motorDocuments?: Array<{
+    id: string;
+    documentId: string;
+    documentType: string;
+    verificationStatus: 'PENDING' | 'VERIFIED' | 'REJECTED';
+    rejectionReason?: string | null;
+    fileName?: string;
+    fileUrl?: string;
+    fileSize?: number;
+    createdAt?: string;
+  }>;
 }
 
 // ------------------------------------------------------------------

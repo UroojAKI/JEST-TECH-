@@ -123,6 +123,18 @@ export class QuotationMapper {
         fileSize: doc.fileSize,
         createdAt: doc.createdAt,
       }));
+    if ((q as any).motorDocuments)
+      dto.motorDocuments = (q as any).motorDocuments.map((md: any) => ({
+        id: md.id,
+        documentId: md.documentId,
+        documentType: md.documentType,
+        verificationStatus: md.verificationStatus,
+        rejectionReason: md.rejectionReason,
+        fileName: md.document?.fileName,
+        fileUrl: md.document?.fileUrl || md.document?.storageKey,
+        fileSize: md.document?.fileSize,
+        createdAt: md.createdAt,
+      }));
 
     return dto;
   }

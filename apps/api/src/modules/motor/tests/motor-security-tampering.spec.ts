@@ -48,8 +48,8 @@ describe('Phase 8: Motor Security & Financial Tampering Gates', () => {
     prisma = {
       motorQuotationCase: {
         findFirst: jest.fn(),
-        create: jest.fn(),
-        update: jest.fn(),
+        create: jest.fn().mockResolvedValue({ id: 'case-auto-1', status: 'QUOTED' }),
+        update: jest.fn().mockResolvedValue({ id: 'case-auto-1', status: 'QUOTED' }),
       },
       quotation: {
         findFirst: jest.fn(),

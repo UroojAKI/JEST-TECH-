@@ -194,6 +194,37 @@ export class MotorQuotationMigrationService {
       canonicalGross = canonicalGross.add(grossAmt);
       canonicalGst = canonicalGst.add(gstAmt);
 
+      // Link to MotorQuotationCase to preserve Case -> Quotation hierarchy (MOTOR-0023)
+      if (!isDryRun && canonical && !canonical.caseId) {
+        let motorCase = await (this.prisma as any).motorQuotationCase?.findFirst({
+          where: { companyId: legacy.companyId, vehicleId: legacy.vehicleId },
+        });
+        if (!motorCase && (this.prisma as any).motorQuotationCase) {
+          motorCase = await (this.prisma as any).motorQuotationCase.create({
+            data: {
+              companyId: legacy.companyId,
+              caseCode: `CASE-${legacy.quotationNumber}`,
+              category: 'PRIVATE_CAR',
+              vehicleStatus: 'EXISTING',
+              registrationNumber: legacy.registrationNumber || null,
+              contactId: legacy.lead?.contactId || 'MIGRATION_SYSTEM_CONTACT',
+              vehicleId: legacy.vehicleId,
+              leadId: legacy.leadId,
+              customerSnapshot: {},
+              vehicleSnapshot: {},
+              status: legacy.policyId ? 'COMPLETED' : 'QUOTED',
+              selectedQuoteId: legacy.policyId ? canonical.id : null,
+            },
+          });
+        }
+        if (motorCase) {
+          await (this.prisma as any).quotation.update({
+            where: { id: canonical.id },
+            data: { caseId: motorCase.id },
+          });
+        }
+      }
+
       // Repoint Foreign Keys if policy exists and not in dry-run
       if (!isDryRun && legacy.policyId && canonical) {
         await (this.prisma as any).policy.updateMany({

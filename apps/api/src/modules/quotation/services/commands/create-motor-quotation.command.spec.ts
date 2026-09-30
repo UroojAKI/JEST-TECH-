@@ -54,6 +54,8 @@ describe('CreateMotorQuotationCommand (Authoritative Command)', () => {
       },
       motorQuotationCase: {
         findFirst: jest.fn(),
+        create: jest.fn().mockResolvedValue({ id: 'case-auto-1', status: 'QUOTED' }),
+        update: jest.fn().mockResolvedValue({ id: 'case-1', status: 'QUOTED' }),
       },
       $transaction: jest.fn(async (cb) => cb(prisma)),
     };
@@ -82,6 +84,12 @@ describe('CreateMotorQuotationCommand (Authoritative Command)', () => {
       evaluateQuotation: jest.fn().mockReturnValue({
         inspectionRequired: false,
         ncb: 0,
+      }),
+      validateSaodEligibility: jest.fn().mockImplementation((params) => {
+        if (params.vehicleStatus === 'NEW') {
+          throw new BadRequestException('Standalone OD is not applicable for new vehicles. New vehicles must purchase bundled or package coverage.');
+        }
+        return { valid: true };
       }),
     };
 
@@ -415,6 +423,67 @@ describe('CreateMotorQuotationCommand (Authoritative Command)', () => {
     expect(res.caseId).toBe('case-1');
   });
 
+  it('MOTOR-V2-CASE-STATUS: should reject quotation creation if case is CANCELLED or COMPLETED', async () => {
+    prisma.motorQuotationCase.findFirst.mockResolvedValue({
+      id: 'case-cancelled',
+      companyId: 'comp-test',
+      status: 'CANCELLED',
+    });
+
+    await expect(
+      command.execute(
+        {
+          vehicleCategory: 'PRIVATE_CAR',
+          policyType: 'PACKAGE',
+          insurerName: 'HDFC ERGO',
+          contactId: 'c-1',
+          caseId: 'case-cancelled',
+          ncbPercentage: 20,
+          vehicleDetails: { vehicleStatus: 'EXISTING' },
+        },
+        mockUser,
+      ),
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it('MOTOR-V2-CASE-ORPHAN: should auto-provision a parent MotorQuotationCase when caseId is omitted', async () => {
+    prisma.quotation.create.mockResolvedValue({
+      id: 'q-auto-case',
+      quotationCode: 'QTN-2026-AUTOCASE-1',
+      totalPremium: 11800,
+      caseId: 'case-auto-1',
+    });
+
+    const res = await command.execute(
+      {
+        vehicleCategory: 'PRIVATE_CAR',
+        policyType: 'PACKAGE',
+        insurerName: 'HDFC ERGO',
+        contactId: 'c-1',
+        ncbPercentage: 20,
+        vehicleDetails: { vehicleStatus: 'EXISTING' },
+      },
+      mockUser,
+    );
+
+    expect(prisma.motorQuotationCase.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          status: 'QUOTED',
+          category: 'PRIVATE_CAR',
+        }),
+      }),
+    );
+    expect(prisma.quotation.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          caseId: 'case-auto-1',
+        }),
+      }),
+    );
+    expect(res.caseId).toBe('case-auto-1');
+  });
+
   it('MOTOR-V2-COMMISSION: strictly separates commission from discount in calculation inputs', async () => {
     prisma.quotation.create.mockResolvedValue({
       id: 'q-comm-ok',
@@ -459,6 +528,44 @@ describe('CreateMotorQuotationCommand (Authoritative Command)', () => {
         }),
       }),
     );
+  });
+
+  describe('MOTOR-0042: Proposer details validation', () => {
+    it('rejects invalid PAN format with 400 Bad Request', async () => {
+      await expect(
+        command.execute(
+          {
+            vehicleCategory: 'PRIVATE_CAR',
+            policyType: 'PACKAGE',
+            insurerName: 'HDFC ERGO',
+            contactId: 'c-1',
+            proposerDetails: {
+              panNumber: 'INVALID_PAN_123',
+            },
+            vehicleDetails: { vehicleStatus: 'EXISTING' },
+          },
+          mockUser,
+        ),
+      ).rejects.toThrow('Invalid PAN format');
+    });
+
+    it('rejects invalid mobile number format with 400 Bad Request', async () => {
+      await expect(
+        command.execute(
+          {
+            vehicleCategory: 'PRIVATE_CAR',
+            policyType: 'PACKAGE',
+            insurerName: 'HDFC ERGO',
+            contactId: 'c-1',
+            proposerDetails: {
+              mobileNumber: '12345',
+            },
+            vehicleDetails: { vehicleStatus: 'EXISTING' },
+          },
+          mockUser,
+        ),
+      ).rejects.toThrow('Invalid mobile number format');
+    });
   });
 });
 

@@ -46,6 +46,18 @@ export class QuotationDocumentResponseDto {
   createdAt: Date;
 }
 
+export class QuotationMotorDocumentResponseDto {
+  id: string;
+  documentId: string;
+  documentType: string;
+  verificationStatus: string;
+  rejectionReason: string | null;
+  fileName?: string;
+  fileUrl?: string;
+  fileSize?: number;
+  createdAt: Date;
+}
+
 export class QuotationResponseDto {
   id: string;
   quotationCode: string;
@@ -94,4 +106,5 @@ export class QuotationResponseDto {
   discounts?: QuotationDiscountResponseDto[];
   histories?: QuotationHistoryResponseDto[];
   documents?: QuotationDocumentResponseDto[];
+  motorDocuments?: QuotationMotorDocumentResponseDto[];
 }

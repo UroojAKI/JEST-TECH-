@@ -3,7 +3,7 @@
 import React from 'react';
 import { CATEGORY_LABEL, POLICY_TYPE_LABEL } from './motorFormConfig';
 import type { SavedMotorQuote } from './motorFormTypes';
-import { Car, Upload, Clock, CheckCircle2, XCircle, AlertCircle, Shield, Wrench, ShieldCheck, FileText, Copy } from 'lucide-react';
+import { Car, Upload, Clock, CheckCircle2, XCircle, AlertCircle, Shield, Wrench, ShieldCheck, FileText, Copy, Download, RefreshCw, Loader2 } from 'lucide-react';
 import { QuotationCompletionView } from './QuotationCompletionView';
 
 interface Props {
@@ -40,8 +40,10 @@ const CAT_ICONS: Record<string, string> = {
 };
 
 export function QuoteCard({ quote, onUploadQuote, onConductInspection, onCompleteProposal, onIssuePolicy, onAddComparisonQuote }: Props) {
+  const [isUploading, setIsUploading] = React.useState(false);
   const status = STATUS_CONFIG[quote.status] || STATUS_CONFIG.DRAFT;
   const ptStyle = POLICY_TYPE_STYLE[quote.policyType] || POLICY_TYPE_STYLE.PACKAGE;
+  const insurerDoc = quote.motorDocuments?.find((d) => d.documentType === 'INSURER_QUOTE') || quote.motorDocuments?.[0];
 
   return (
     <div className="p-4 rounded-xl border bg-card hover:shadow-sm transition-all space-y-3 flex flex-col justify-between">
@@ -100,29 +102,91 @@ export function QuoteCard({ quote, onUploadQuote, onConductInspection, onComplet
       </div>
 
       <div className="pt-3 border-t mt-3 flex flex-col gap-2">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-1 flex-wrap">
           <div className={`flex items-center gap-1 text-[9px] font-bold px-2 py-0.5 rounded ${status.cls}`}>
             {status.icon}
             {status.label}
           </div>
-          <label className="cursor-pointer">
-            <input
-              type="file"
-              accept=".pdf,application/pdf"
-              className="hidden"
-              onChange={(e) => {
-                const f = e.target.files?.[0];
-                if (f) {
-                  onUploadQuote(quote.id, f);
-                  e.target.value = '';
-                }
-              }}
-            />
-            <span className="flex items-center gap-1 text-[9px] font-medium text-muted-foreground hover:text-foreground transition-colors">
-              <Upload className="h-3 w-3" />
-              Upload PDF
-            </span>
-          </label>
+
+          {isUploading ? (
+            <div className="flex items-center gap-1.5 text-[9px] font-bold text-primary">
+              <Loader2 className="h-3 w-3 animate-spin" />
+              Uploading...
+            </div>
+          ) : insurerDoc ? (
+            <div className="flex items-center gap-1.5">
+              {insurerDoc.verificationStatus === 'VERIFIED' ? (
+                <span className="flex items-center gap-0.5 text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-700 border border-emerald-200">
+                  <ShieldCheck className="h-2.5 w-2.5" /> Verified
+                </span>
+              ) : insurerDoc.verificationStatus === 'REJECTED' ? (
+                <span className="flex items-center gap-0.5 text-[9px] font-bold px-1.5 py-0.5 rounded bg-rose-500/10 text-rose-700 border border-rose-200" title={insurerDoc.rejectionReason || 'Document rejected'}>
+                  <XCircle className="h-2.5 w-2.5" /> Rejected
+                </span>
+              ) : (
+                <span className="flex items-center gap-0.5 text-[9px] font-bold px-1.5 py-0.5 rounded bg-sky-500/10 text-sky-700 border border-sky-200">
+                  <CheckCircle2 className="h-2.5 w-2.5" /> Uploaded
+                </span>
+              )}
+
+              <a
+                href={`/api/v1/documents/${insurerDoc.documentId}/download`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-0.5 text-[9px] font-semibold text-primary hover:underline hover:text-primary/80"
+                title="Download / View Insurer Quote PDF"
+              >
+                <Download className="h-2.5 w-2.5" /> View
+              </a>
+
+              <label className="cursor-pointer">
+                <input
+                  type="file"
+                  accept=".pdf,application/pdf"
+                  className="hidden"
+                  onChange={async (e) => {
+                    const f = e.target.files?.[0];
+                    if (f) {
+                      setIsUploading(true);
+                      try {
+                        await onUploadQuote(quote.id, f);
+                      } finally {
+                        setIsUploading(false);
+                      }
+                      e.target.value = '';
+                    }
+                  }}
+                />
+                <span className="flex items-center gap-0.5 text-[9px] font-medium text-muted-foreground hover:text-foreground transition-colors">
+                  <RefreshCw className="h-2.5 w-2.5" /> Replace
+                </span>
+              </label>
+            </div>
+          ) : (
+            <label className="cursor-pointer">
+              <input
+                type="file"
+                accept=".pdf,application/pdf"
+                className="hidden"
+                onChange={async (e) => {
+                  const f = e.target.files?.[0];
+                  if (f) {
+                    setIsUploading(true);
+                    try {
+                      await onUploadQuote(quote.id, f);
+                    } finally {
+                      setIsUploading(false);
+                    }
+                    e.target.value = '';
+                  }
+                }}
+              />
+              <span className="flex items-center gap-1 text-[9px] font-semibold text-primary hover:text-primary/80 bg-primary/5 hover:bg-primary/10 border border-primary/20 px-2 py-0.5 rounded transition-colors">
+                <Upload className="h-2.5 w-2.5" />
+                Upload PDF
+              </span>
+            </label>
+          )}
         </div>
 
         {quote.status === 'PENDING_INSPECTION' && onConductInspection && (

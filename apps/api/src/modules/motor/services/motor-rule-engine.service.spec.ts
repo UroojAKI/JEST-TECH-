@@ -118,4 +118,57 @@ describe('MotorRuleEngineService (Business Invariants)', () => {
       expect(result.ncbReason).toBe('POLICY_EXPIRED_MORE_THAN_90_DAYS');
     });
   });
+
+  describe('MOTOR-0060: Dedicated Server-Side SAOD Validator', () => {
+    it('rejects SAOD for NEW vehicle', () => {
+      expect(() =>
+        service.validateSaodEligibility({
+          vehicleStatus: 'NEW',
+          activeTpPolicyNumber: 'TP-123',
+          activeTpExpiryDate: dateService.addDays(dateService.getBusinessToday(), 180),
+        }),
+      ).toThrow('Standalone OD is not applicable for new vehicles');
+    });
+
+    it('rejects SAOD when activeTpPolicyNumber is missing or empty', () => {
+      expect(() =>
+        service.validateSaodEligibility({
+          vehicleStatus: 'EXISTING',
+          activeTpPolicyNumber: '',
+          activeTpExpiryDate: dateService.addDays(dateService.getBusinessToday(), 180),
+        }),
+      ).toThrow('Active TP Policy Number is required');
+    });
+
+    it('rejects SAOD when activeTpExpiryDate is missing', () => {
+      expect(() =>
+        service.validateSaodEligibility({
+          vehicleStatus: 'EXISTING',
+          activeTpPolicyNumber: 'TP-123456',
+        }),
+      ).toThrow('Active TP Policy Expiry Date is required');
+    });
+
+    it('rejects SAOD when active TP policy has expired', () => {
+      const expiredYesterday = dateService.addDays(dateService.getBusinessToday(), -1);
+      expect(() =>
+        service.validateSaodEligibility({
+          vehicleStatus: 'EXISTING',
+          activeTpPolicyNumber: 'TP-123456',
+          activeTpExpiryDate: expiredYesterday,
+        }),
+      ).toThrow('Active TP Policy has expired');
+    });
+
+    it('passes SAOD validation when active TP policy is valid and in force', () => {
+      const futureExpiry = dateService.addDays(dateService.getBusinessToday(), 180);
+      const res = service.validateSaodEligibility({
+        vehicleStatus: 'EXISTING',
+        activeTpPolicyNumber: 'TP-123456',
+        activeTpInsurer: 'New India Assurance',
+        activeTpExpiryDate: futureExpiry,
+      });
+      expect(res.valid).toBe(true);
+    });
+  });
 });

@@ -402,6 +402,8 @@ importers:
 
   packages/config: {}
 
+  packages/motor-schema: {}
+
   packages/types: {}
 
   packages/ui: {}

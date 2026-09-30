@@ -1,4 +1,4 @@
-import { Injectable, Logger, Optional } from '@nestjs/common';
+import { Injectable, Logger, Optional, BadRequestException } from '@nestjs/common';
 import { MotorPolicyDateService } from './motor-policy-date.service';
 
 export interface MotorRuleContext {
@@ -59,6 +59,49 @@ export class MotorRuleEngineService {
     @Optional()
     private readonly policyDateService: MotorPolicyDateService = new MotorPolicyDateService(),
   ) {}
+
+  /**
+   * Dedicated server-side validator for Standalone Own Damage (SAOD) eligibility (MOTOR-0060)
+   * Standalone OD requires an existing vehicle with a verified, unexpired active TP policy.
+   */
+  validateSaodEligibility(params: {
+    vehicleStatus?: 'NEW' | 'EXISTING';
+    activeTpPolicyNumber?: string;
+    activeTpInsurer?: string;
+    activeTpExpiryDate?: Date | string | null;
+    quotationDate?: Date | string;
+  }): { valid: boolean; reason?: string } {
+    if (params.vehicleStatus === 'NEW') {
+      throw new BadRequestException(
+        'Standalone OD is not applicable for new vehicles. New vehicles must purchase bundled or package coverage.',
+      );
+    }
+
+    if (!params.activeTpPolicyNumber || !params.activeTpPolicyNumber.trim()) {
+      throw new BadRequestException(
+        'Active TP Policy Number is required for Standalone OD (SAOD) policies.',
+      );
+    }
+
+    if (!params.activeTpExpiryDate) {
+      throw new BadRequestException(
+        'Active TP Policy Expiry Date is required for Standalone OD (SAOD) policies.',
+      );
+    }
+
+    const today = params.quotationDate
+      ? this.policyDateService.toBusinessDate(params.quotationDate)
+      : this.policyDateService.getBusinessToday();
+    const tpExpiryStr = this.policyDateService.toBusinessDate(params.activeTpExpiryDate);
+
+    if (tpExpiryStr < today) {
+      throw new BadRequestException(
+        `Active TP Policy has expired on ${tpExpiryStr}. Standalone OD cannot be issued against an expired TP policy.`,
+      );
+    }
+
+    return { valid: true };
+  }
 
   /**
    * Evaluates Third-Party specific statutory bypass rules.

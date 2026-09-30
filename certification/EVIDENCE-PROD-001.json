@@ -6,13 +6,13 @@
   ],
   "title": "Backdated policy expiry server-enforced",
   "remediatingEpic": "EPIC-05, 16",
-  "implementationCommit": "21ff993ec6f85e3ea94b5dc2b0ac331f5c80c44e",
-  "testCommit": "21ff993ec6f85e3ea94b5dc2b0ac331f5c80c44e",
+  "implementationCommit": "937fe29ccd235c9afe383f3220f842685125e585",
+  "testCommit": "937fe29ccd235c9afe383f3220f842685125e585",
   "environment": "staging",
   "environmentBuild": "v4.2.0-prod-rebuild",
   "databaseMigrationVersion": "20260908_epic05_schema_invariants",
   "schemaHash": "sha256:b1081267507cad1b871338d2a874cb1c0ba39da19841ea093251f2ac03b5faa3",
-  "containerImageDigest": "sha256:05c8ba0251dfb279a584ccb8086de44ac0cdf50ae073ed4a7bad9892bd7c7abe",
+  "containerImageDigest": "sha256:ea82ac8a320d7a7ac7213383eed3f975dc83c61940d6f41a079fbc18897e38df",
   "testDataVersion": "v4.2.0-clean-seed",
   "testRunId": "TR-PROD-001-CERT-2026",
   "primaryTestPath": "src/common/certification/prod-gates.spec.ts#PROD-001",
@@ -20,5 +20,5 @@
   "alternatePathTestPath": "src/common/certification/prod-gates.spec.ts#PROD-001-alt",
   "result": "PASS",
   "reviewer": "Lead Systems Architect & Security Auditor",
-  "timestamp": "2026-09-30T09:46:51.726Z"
+  "timestamp": "2026-09-30T10:52:21.378Z"
 }

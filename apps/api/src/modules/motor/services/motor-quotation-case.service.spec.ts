@@ -114,7 +114,7 @@ describe('MotorQuotationCaseService', () => {
 
   describe('selectQuotation', () => {
     it('binds selectedQuoteId and marks quote as ACCEPTED', async () => {
-      const mockCase = { id: 'case-1', companyId: 'comp-1' };
+      const mockCase = { id: 'case-1', companyId: 'comp-1', status: 'QUOTED' };
       const mockQuote = { id: 'quote-1', caseId: 'case-1', companyId: 'comp-1' };
 
       mockPrisma.motorQuotationCase.findFirst.mockResolvedValue(mockCase);
@@ -217,6 +217,57 @@ describe('MotorQuotationCaseService', () => {
       expect(comparison.quotes[0].isSelected).toBe(true);
       expect(comparison.quotes[1].insurerName).toBe('ICICI Lombard');
       expect(comparison.quotes[1].isSelected).toBe(false);
+    });
+  });
+
+  describe('Lifecycle State Machine (MOTOR-0010)', () => {
+    it('allows valid transitions: OPEN -> QUOTED -> SELECTED -> COMPLETED', () => {
+      expect(() => service.validateCaseTransition(VehicleStatus.EXISTING as any, VehicleStatus.EXISTING as any)).not.toThrow();
+      expect(() => service.validateCaseTransition('OPEN' as any, 'QUOTED' as any)).not.toThrow();
+      expect(() => service.validateCaseTransition('QUOTED' as any, 'SELECTED' as any)).not.toThrow();
+      expect(() => service.validateCaseTransition('SELECTED' as any, 'COMPLETED' as any)).not.toThrow();
+    });
+
+    it('allows cancellation from OPEN or QUOTED', () => {
+      expect(() => service.validateCaseTransition('OPEN' as any, 'CANCELLED' as any)).not.toThrow();
+      expect(() => service.validateCaseTransition('QUOTED' as any, 'CANCELLED' as any)).not.toThrow();
+    });
+
+    it('rejects invalid or backwards transitions', () => {
+      expect(() => service.validateCaseTransition('COMPLETED' as any, 'OPEN' as any)).toThrow(BadRequestException);
+      expect(() => service.validateCaseTransition('CANCELLED' as any, 'SELECTED' as any)).toThrow(BadRequestException);
+      expect(() => service.validateCaseTransition('OPEN' as any, 'COMPLETED' as any)).toThrow(BadRequestException);
+      expect(() => service.validateCaseTransition('SELECTED' as any, 'CANCELLED' as any)).toThrow(BadRequestException);
+    });
+
+    it('transitions case status via transitionCaseStatus', async () => {
+      const mockCase = { id: 'case-1', companyId: 'comp-1', status: 'OPEN' };
+      mockPrisma.motorQuotationCase.findFirst.mockResolvedValue(mockCase);
+      mockPrisma.motorQuotationCase.update.mockResolvedValue({ ...mockCase, status: 'QUOTED' });
+
+      const res = await service.transitionCaseStatus('case-1', 'QUOTED' as any, mockUser as any);
+      expect(mockPrisma.motorQuotationCase.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'case-1' },
+          data: { status: 'QUOTED' },
+        }),
+      );
+      expect(res.status).toBe('QUOTED');
+    });
+
+    it('cancels case via cancelCase', async () => {
+      const mockCase = { id: 'case-1', companyId: 'comp-1', status: 'QUOTED' };
+      mockPrisma.motorQuotationCase.findFirst.mockResolvedValue(mockCase);
+      mockPrisma.motorQuotationCase.update.mockResolvedValue({ ...mockCase, status: 'CANCELLED' });
+
+      const res = await service.cancelCase('case-1', 'Customer dropped out', mockUser as any);
+      expect(mockPrisma.motorQuotationCase.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'case-1' },
+          data: { status: 'CANCELLED' },
+        }),
+      );
+      expect(res.status).toBe('CANCELLED');
     });
   });
 });

@@ -72,13 +72,20 @@ export class CreateMotorQuotationCommand {
     if (dto.vehicleId) {
       await this.tenantAuthService.assertTenantResource('Vehicle', dto.vehicleId, user);
     }
-    if (dto.caseId) {
-      const motorCase = await this.prisma.motorQuotationCase.findFirst({
-        where: { id: dto.caseId, companyId },
+    let activeCaseId = dto.caseId;
+    let existingCase: any = null;
+    if (activeCaseId) {
+      existingCase = await this.prisma.motorQuotationCase.findFirst({
+        where: { id: activeCaseId, companyId },
       });
-      if (!motorCase) {
+      if (!existingCase) {
         throw new NotFoundException(
-          `MotorQuotationCase '${dto.caseId}' not found or tenant access denied`,
+          `MotorQuotationCase '${activeCaseId}' not found or tenant access denied`,
+        );
+      }
+      if (['CANCELLED', 'COMPLETED'].includes(existingCase.status)) {
+        throw new BadRequestException(
+          `Cannot create quotation for a ${existingCase.status} case '${activeCaseId}'`,
         );
       }
     }
@@ -96,6 +103,37 @@ export class CreateMotorQuotationCommand {
     }
 
     const proposer = dto.proposerDetails || {};
+
+    // MOTOR-0042: Server-side validation for mobile, email, PAN, and lead source
+    if (proposer['mobileNumber']) {
+      const cleanMobile = String(proposer['mobileNumber']).trim().replace(/\D/g, '');
+      if (cleanMobile.length !== 10) {
+        throw new BadRequestException(
+          `Invalid mobile number format: expected 10 digits, received ${cleanMobile}`,
+        );
+      }
+    }
+    if (proposer['emailId'] || proposer['email']) {
+      const email = String(proposer['emailId'] || proposer['email']).trim();
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email)) {
+        throw new BadRequestException(`Invalid email format: ${email}`);
+      }
+    }
+    if (proposer['panNumber']) {
+      const pan = String(proposer['panNumber']).trim().toUpperCase();
+      const panRegex = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/;
+      if (!panRegex.test(pan)) {
+        throw new BadRequestException(
+          `Invalid PAN format: expected 10 characters (e.g. ABCDE1234F), received ${pan}`,
+        );
+      }
+    }
+    // MOTOR-0041: Relationship Manager derived from authenticated user / assignment if missing
+    if (!proposer['relationshipManager']) {
+      proposer['relationshipManager'] = (user as any).name || (user as any).email || 'Authenticated User';
+    }
+
     if (!contactId && proposer['mobileNumber']) {
       const existingByPhone = await this.prisma.contact.findFirst({
         where: {
@@ -263,9 +301,14 @@ export class CreateMotorQuotationCommand {
     const isVehicleNew = vehicleDetails.vehicleStatus === 'NEW';
     const policyType = policyTypeMap[dto.policyType] || 'PACKAGE_COMPREHENSIVE';
 
-    // MOTOR-REG-03: SAOD for NEW vehicle rejection
-    if (isVehicleNew && policyType === 'STANDALONE_OD') {
-      throw new BadRequestException('Standalone OD is not applicable for new vehicles');
+    // MOTOR-0060 & MOTOR-REG-03: Authoritative server-side SAOD eligibility validation
+    if (policyType === 'STANDALONE_OD') {
+      this.motorRuleEngineService.validateSaodEligibility({
+        vehicleStatus: isVehicleNew ? 'NEW' : 'EXISTING',
+        activeTpPolicyNumber: saodVerification.tpPolicyNumber || policyDetails.activeTpPolicyNumber,
+        activeTpInsurer: saodVerification.tpInsurer || policyDetails.activeTpInsurer,
+        activeTpExpiryDate: saodVerification.tpExpiryDate || policyDetails.activeTpExpiryDate,
+      });
     }
 
     const prevPolicy = dto.previousPolicyDetails || {};
@@ -372,40 +415,68 @@ export class CreateMotorQuotationCommand {
     let quotation;
     try {
       quotation = await this.prisma.$transaction(async (tx) => {
-      const createdQuotation = await tx.quotation.create({
-        data: {
-          companyId,
-          quotationCode,
-          title: `Motor ${dto.vehicleCategory} — ${dto.policyType} | ${dto.registrationNumber || 'New Vehicle'}`,
-          productType: 'MOTOR',
-          insurerName: dto.insurerName,
-          sumInsured: dto.idv || 0,
-          basePremium: calcResult.outputs.basePremium,
-          gstAmount: calcResult.outputs.totalGst,
-          totalPremium: calcResult.outputs.totalPremium,
-          ncbPercentage: calcResult.inputs.effectiveNcb,
-          vehicleCategory: dto.vehicleCategory as any,
-          policyType: dto.policyType,
-          registrationNumber: dto.registrationNumber || null,
-          policyTenure: calcResult.inputs.tpTenure,
-          calculationSnapshot: calcResult as any,
-          calculationVersion: calcResult.calculationVersion,
-          issuanceStatus: 'DRAFT',
-          // Backend is SOLE authority for workflowState — derived from rule engine result,
-          // NOT from client-supplied status field. Client-driven workflowState is prohibited.
-          workflowState: ruleResult.inspectionRequired
-            ? 'INSPECTION_REQUIRED'
-            : 'READY_FOR_PROPOSAL',
-          motorMetadata: motorMetadata as any,
-          expiryDate: new Date(Date.now() + 30 * 86400000),
-          contactId,
-          vehicleId,
-          leadId: dto.leadId || null,
-          caseId: dto.caseId || null,
-          agentId: assignedAgentId,
-          createdById: user.id,
-        },
-      });
+        // Ensure canonical parent MotorQuotationCase exists (MOTOR-0013: Prevent orphan quotations)
+        if (!activeCaseId) {
+          const generatedCaseCode = await this.numberingEngine.generateNext('MOTOR_CASE');
+          const autoCase = await tx.motorQuotationCase.create({
+            data: {
+              companyId,
+              caseCode: generatedCaseCode,
+              category: dto.vehicleCategory as any,
+              vehicleStatus: isVehicleNew ? 'NEW' : 'EXISTING',
+              registrationNumber: dto.registrationNumber || null,
+              contactId,
+              vehicleId,
+              leadId: dto.leadId || null,
+              journeyId: journey?.id || null,
+              customerSnapshot: proposer as any,
+              vehicleSnapshot: vehicleDetails as any,
+              previousPolicySnapshot: prevPolicy ? (prevPolicy as any) : undefined,
+              status: 'QUOTED',
+            },
+          });
+          activeCaseId = autoCase.id;
+        } else if (existingCase && existingCase.status === 'OPEN') {
+          await tx.motorQuotationCase.update({
+            where: { id: activeCaseId },
+            data: { status: 'QUOTED' },
+          });
+        }
+
+        const createdQuotation = await tx.quotation.create({
+          data: {
+            companyId,
+            quotationCode,
+            title: `Motor ${dto.vehicleCategory} — ${dto.policyType} | ${dto.registrationNumber || 'New Vehicle'}`,
+            productType: 'MOTOR',
+            insurerName: dto.insurerName,
+            sumInsured: dto.idv || 0,
+            basePremium: calcResult.outputs.basePremium,
+            gstAmount: calcResult.outputs.totalGst,
+            totalPremium: calcResult.outputs.totalPremium,
+            ncbPercentage: calcResult.inputs.effectiveNcb,
+            vehicleCategory: dto.vehicleCategory as any,
+            policyType: dto.policyType,
+            registrationNumber: dto.registrationNumber || null,
+            policyTenure: calcResult.inputs.tpTenure,
+            calculationSnapshot: calcResult as any,
+            calculationVersion: calcResult.calculationVersion,
+            issuanceStatus: 'DRAFT',
+            // Backend is SOLE authority for workflowState — derived from rule engine result,
+            // NOT from client-supplied status field. Client-driven workflowState is prohibited.
+            workflowState: ruleResult.inspectionRequired
+              ? 'INSPECTION_REQUIRED'
+              : 'READY_FOR_PROPOSAL',
+            motorMetadata: motorMetadata as any,
+            expiryDate: new Date(Date.now() + 30 * 86400000),
+            contactId,
+            vehicleId,
+            leadId: dto.leadId || null,
+            caseId: activeCaseId,
+            agentId: assignedAgentId,
+            createdById: user.id,
+          },
+        });
 
       // Bind journey 1:1
       if (journey) {

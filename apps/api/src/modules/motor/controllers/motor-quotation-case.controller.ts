@@ -19,6 +19,8 @@ import { MotorQuotationCaseService } from '../services/motor-quotation-case.serv
 import {
   CreateMotorQuotationCaseDto,
   SelectCaseQuotationDto,
+  TransitionCaseStatusDto,
+  CancelCaseDto,
 } from '../dto/motor-quotation-case.dto';
 
 @ApiTags('Motor Quotation Cases (V2 Architecture)')
@@ -98,5 +100,35 @@ export class MotorQuotationCaseController {
     @CurrentUser() user: RequestUser,
   ) {
     return this.caseService.compareCaseQuotations(id, user);
+  }
+
+  @Post(':id/transition')
+  @HttpCode(HttpStatus.OK)
+  @Roles(RoleType.AGENT, RoleType.BACK_OFFICE, RoleType.ADMIN)
+  @ApiOperation({
+    summary: 'Transition Motor Quotation Case status',
+    description: 'Enforces canonical lifecycle state machine validation (OPEN -> QUOTED -> SELECTED -> COMPLETED, or CANCELLED).',
+  })
+  async transitionStatus(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: TransitionCaseStatusDto,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.caseService.transitionCaseStatus(id, dto.targetStatus as any, user, dto.reason);
+  }
+
+  @Post(':id/cancel')
+  @HttpCode(HttpStatus.OK)
+  @Roles(RoleType.AGENT, RoleType.BACK_OFFICE, RoleType.ADMIN)
+  @ApiOperation({
+    summary: 'Cancel Motor Quotation Case',
+    description: 'Cancels case from OPEN or QUOTED status with audit reason.',
+  })
+  async cancelCase(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: CancelCaseDto,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.caseService.cancelCase(id, dto.reason, user);
   }
 }

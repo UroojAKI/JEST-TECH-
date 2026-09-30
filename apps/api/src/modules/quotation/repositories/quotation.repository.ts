@@ -22,6 +22,11 @@ export const quotationWithRelations =
       discounts: true,
       histories: { orderBy: { createdAt: 'desc' } },
       documents: true,
+      motorDocuments: {
+        include: {
+          document: true,
+        },
+      },
     },
   });
 

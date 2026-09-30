@@ -8,6 +8,7 @@ import { TenantResourceAuthorizationService } from '../../auth/services/tenant-r
 import { NumberingEngineService } from '../../administration/services/numbering-engine/numbering-engine.service';
 import { RequestUser } from '../../auth/decorators/current-user.decorator';
 import { CreateMotorQuotationCaseDto } from '../dto/motor-quotation-case.dto';
+import { MotorCaseStatus } from '@prisma/client';
 
 @Injectable()
 export class MotorQuotationCaseService {
@@ -126,6 +127,70 @@ export class MotorQuotationCaseService {
   }
 
   /**
+   * Validates whether a case status transition is allowed per MOTOR-0010
+   * Lifecycle: OPEN -> QUOTED -> SELECTED -> COMPLETED
+   * Cancellations: OPEN -> CANCELLED, QUOTED -> CANCELLED
+   */
+  validateCaseTransition(current: MotorCaseStatus, target: MotorCaseStatus): void {
+    if (current === target) return;
+
+    const allowedTransitions: Record<MotorCaseStatus, MotorCaseStatus[]> = {
+      [MotorCaseStatus.OPEN]: [MotorCaseStatus.QUOTED, MotorCaseStatus.CANCELLED],
+      [MotorCaseStatus.QUOTED]: [MotorCaseStatus.QUOTED, MotorCaseStatus.SELECTED, MotorCaseStatus.CANCELLED],
+      [MotorCaseStatus.SELECTED]: [MotorCaseStatus.COMPLETED],
+      [MotorCaseStatus.COMPLETED]: [],
+      [MotorCaseStatus.CANCELLED]: [],
+    };
+
+    const allowed = allowedTransitions[current] || [];
+    if (!allowed.includes(target)) {
+      throw new BadRequestException(
+        `Invalid MotorQuotationCase transition from '${current}' to '${target}'. Allowed transitions: ${allowed.join(', ') || 'None (Terminal state)'}`,
+      );
+    }
+  }
+
+  /**
+   * Authoritatively transitions the case status
+   */
+  async transitionCaseStatus(
+    caseId: string,
+    targetStatus: MotorCaseStatus,
+    user: RequestUser,
+    reason?: string,
+  ) {
+    const motorCase = await this.prisma.motorQuotationCase.findFirst({
+      where: { id: caseId, companyId: user.companyId },
+    });
+
+    if (!motorCase) {
+      throw new NotFoundException(`MotorQuotationCase '${caseId}' not found or access denied`);
+    }
+
+    this.validateCaseTransition(motorCase.status, targetStatus);
+
+    return this.prisma.motorQuotationCase.update({
+      where: { id: caseId },
+      data: {
+        status: targetStatus,
+      },
+      include: {
+        contact: true,
+        vehicle: true,
+        lead: true,
+        selectedQuote: true,
+      },
+    });
+  }
+
+  /**
+   * Cancels a quotation case
+   */
+  async cancelCase(caseId: string, reason: string | undefined, user: RequestUser) {
+    return this.transitionCaseStatus(caseId, MotorCaseStatus.CANCELLED, user, reason);
+  }
+
+  /**
    * Selects a winning quotation for a case
    */
   async selectQuotation(caseId: string, quotationId: string, user: RequestUser) {
@@ -136,6 +201,8 @@ export class MotorQuotationCaseService {
     if (!motorCase) {
       throw new NotFoundException(`MotorQuotationCase '${caseId}' not found or access denied`);
     }
+
+    this.validateCaseTransition(motorCase.status, MotorCaseStatus.SELECTED);
 
     const quotation = await this.prisma.quotation.findFirst({
       where: { id: quotationId, companyId: user.companyId, caseId },
@@ -152,7 +219,7 @@ export class MotorQuotationCaseService {
         where: { id: caseId },
         data: {
           selectedQuoteId: quotationId,
-          status: 'SELECTED',
+          status: MotorCaseStatus.SELECTED,
         },
         include: {
           selectedQuote: true,

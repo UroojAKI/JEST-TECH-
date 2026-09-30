@@ -52,3 +52,18 @@ export class SelectCaseQuotationDto {
   @IsString()
   selectionNotes?: string;
 }
+
+export class TransitionCaseStatusDto {
+  @IsString()
+  targetStatus: string;
+
+  @IsOptional()
+  @IsString()
+  reason?: string;
+}
+
+export class CancelCaseDto {
+  @IsOptional()
+  @IsString()
+  reason?: string;
+}

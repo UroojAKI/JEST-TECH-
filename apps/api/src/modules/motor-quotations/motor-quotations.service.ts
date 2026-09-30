@@ -249,114 +249,68 @@ export class MotorQuotationsService {
       this.prisma.quotation.count({ where: quotationWhere }),
     ]);
 
-    if (canonicalTotal > 0) {
-      const mapped = canonicalQuotes.map((q) => {
-        const snap = (q.calculationSnapshot as any)?.pricing || {};
-        return {
-          id: q.id,
-          quotationNumber: q.quotationCode,
-          leadId: q.leadId || '',
-          vehicleId: q.vehicleId || '',
-          customerId: q.contactId,
-          agentId: q.agentId,
-          agentCodeSnapshot: (q.motorMetadata as any)?.agentCodeSnapshot || null,
-          insurerName: snap.insurerName || 'Authoritative Insurer',
-          planName: (q.motorMetadata as any)?.planName || null,
-          policyType: q.policyType || 'COMPREHENSIVE',
-          status: q.status as any,
-          idv: snap.idv ? Number(snap.idv) : null,
-          odPremium: snap.odPremium ? Number(snap.odPremium) : null,
-          tpPremium: snap.tpPremium ? Number(snap.tpPremium) : null,
-          addonPremium: snap.addonPremium ? Number(snap.addonPremium) : null,
-          ncbDiscount: snap.ncbDiscount ? Number(snap.ncbDiscount) : null,
-          otherDiscounts: null,
-          netPremium: snap.netPremium ? Number(snap.netPremium) : null,
-          gstAmount: snap.gstAmount ? Number(snap.gstAmount) : null,
-          finalPremium: Number(q.totalPremium || 0),
-          breakup: snap.breakup || null,
-          addonsSelected: (q.motorMetadata as any)?.addonsSelected || null,
-          vehicle: q.vehicle
-            ? {
-                id: q.vehicle.id,
-                registrationNumber: q.vehicle.registrationNumber,
-                category: q.vehicle.category,
-                make: q.vehicle.make,
-                model: q.vehicle.model,
-              }
-            : undefined,
-          lead: q.lead
-            ? {
-                id: q.lead.id,
-                leadCode: q.lead.leadCode,
-                title: q.lead.title,
-                status: q.lead.status,
-              }
-            : undefined,
-          customer: q.contact
-            ? {
-                id: q.contact.id,
-                customerCode: q.contact.id.slice(0, 8),
-                firstName: q.contact.firstName,
-                lastName: q.contact.lastName,
-                mobile: q.contact.phone || '',
-              }
-            : undefined,
-          createdAt: q.createdAt.toISOString(),
-        };
-      });
-
+    const mapped = canonicalQuotes.map((q) => {
+      const snap = (q.calculationSnapshot as any)?.pricing || {};
       return {
-        data: mapped,
-        meta: {
-          page,
-          limit,
-          total: canonicalTotal,
-          totalPages: Math.ceil(canonicalTotal / limit),
-        },
+        id: q.id,
+        quotationNumber: q.quotationCode,
+        leadId: q.leadId || '',
+        vehicleId: q.vehicleId || '',
+        customerId: q.contactId,
+        agentId: q.agentId,
+        agentCodeSnapshot: (q.motorMetadata as any)?.agentCodeSnapshot || null,
+        insurerName: snap.insurerName || q.insurerName || 'Authoritative Insurer',
+        planName: (q.motorMetadata as any)?.planName || null,
+        policyType: q.policyType || 'COMPREHENSIVE',
+        status: q.status as any,
+        idv: snap.idv ? Number(snap.idv) : Number(q.sumInsured || 0),
+        odPremium: snap.odPremium ? Number(snap.odPremium) : null,
+        tpPremium: snap.tpPremium ? Number(snap.tpPremium) : null,
+        addonPremium: snap.addonPremium ? Number(snap.addonPremium) : null,
+        ncbDiscount: snap.ncbDiscount ? Number(snap.ncbDiscount) : null,
+        otherDiscounts: null,
+        netPremium: snap.netPremium ? Number(snap.netPremium) : null,
+        gstAmount: snap.gstAmount ? Number(snap.gstAmount) : Number(q.gstAmount || 0),
+        finalPremium: Number(q.totalPremium || 0),
+        breakup: snap.breakup || null,
+        addonsSelected: (q.motorMetadata as any)?.addonsSelected || null,
+        vehicle: q.vehicle
+          ? {
+              id: q.vehicle.id,
+              registrationNumber: q.vehicle.registrationNumber,
+              category: q.vehicle.category,
+              make: q.vehicle.make,
+              model: q.vehicle.model,
+            }
+          : undefined,
+        lead: q.lead
+          ? {
+              id: q.lead.id,
+              leadCode: q.lead.leadCode,
+              title: q.lead.title,
+              status: q.lead.status,
+            }
+          : undefined,
+        customer: q.contact
+          ? {
+              id: q.contact.id,
+              customerCode: q.contact.id.slice(0, 8),
+              firstName: q.contact.firstName,
+              lastName: q.contact.lastName,
+              mobile: q.contact.phone || '',
+            }
+          : undefined,
+        createdAt: q.createdAt.toISOString(),
       };
-    }
-
-    // 2. Fallback to legacy MotorQuotation records
-    const [quotations, total] = await Promise.all([
-      this.prisma.motorQuotation.findMany({
-        where,
-        skip,
-        take: limit,
-        orderBy: { [sortBy]: sortOrder },
-        include: {
-          lead: {
-            select: { id: true, leadCode: true, title: true, status: true },
-          },
-          vehicle: {
-            select: {
-              id: true,
-              registrationNumber: true,
-              category: true,
-              make: true,
-              model: true,
-            },
-          },
-          customer: {
-            select: {
-              id: true,
-              customerCode: true,
-              firstName: true,
-              lastName: true,
-              mobile: true,
-            },
-          },
-        },
-      }),
-      this.prisma.motorQuotation.count({ where }),
-    ]);
+    });
 
     return {
-      data: quotations,
+      data: mapped,
       meta: {
         page,
         limit,
-        total,
-        totalPages: Math.ceil(total / limit),
+        total: canonicalTotal,
+        totalPages: Math.ceil(canonicalTotal / limit),
       },
     };
   }

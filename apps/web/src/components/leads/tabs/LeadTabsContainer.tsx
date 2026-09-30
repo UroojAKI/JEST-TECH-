@@ -135,6 +135,7 @@ export function LeadTabsContainer({
           vehicleDetails: (q.motorMetadata as any)?.vehicleDetails,
           policyDetails: (q.motorMetadata as any)?.policyDetails,
           caseId: q.caseId || (q.motorMetadata as any)?.caseId || undefined,
+          motorDocuments: q.motorDocuments || [],
         }));
 
       setMotorQuotes(apiQuotes);
