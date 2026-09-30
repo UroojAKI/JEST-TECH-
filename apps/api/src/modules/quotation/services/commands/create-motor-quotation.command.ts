@@ -364,7 +364,11 @@ export class CreateMotorQuotationCommand {
           calculationSnapshot: calcResult as any,
           calculationVersion: calcResult.calculationVersion,
           issuanceStatus: 'DRAFT',
-          workflowState: 'READY_FOR_PROPOSAL',
+          // Backend is SOLE authority for workflowState — derived from rule engine result,
+          // NOT from client-supplied status field. Client-driven workflowState is prohibited.
+          workflowState: ruleResult.inspectionRequired
+            ? 'INSPECTION_REQUIRED'
+            : 'READY_FOR_PROPOSAL',
           motorMetadata: motorMetadata as any,
           expiryDate: new Date(Date.now() + 30 * 86400000),
           contactId,

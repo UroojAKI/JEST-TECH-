@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { getPolicyTenureOptions, INSURER_OPTIONS } from './motorFormConfig';
-import type { VehicleCategory, PolicyFormTPOnly } from './motorFormTypes';
+import type { VehicleCategory, PolicyFormTPOnly, MotorEligibilityContext } from './motorFormTypes';
 
 import { useMotorCalculator } from './useMotorCalculator';
 
@@ -11,6 +11,8 @@ interface Props {
   vehicleStatus: 'NEW' | 'EXISTING';
   data: PolicyFormTPOnly;
   onChange: (data: PolicyFormTPOnly) => void;
+  /** Canonical eligibility context computed by MotorQuoteWizard. */
+  eligibility?: MotorEligibilityContext;
 }
 
 const inputBase = 'w-full p-2 rounded-lg border text-xs font-semibold bg-background focus:outline-none focus:ring-1 focus:ring-primary transition-colors border-border';
@@ -42,11 +44,16 @@ function FieldRow({ label, mandatory, conditional, children, hint, formula }: {
   );
 }
 
-export function PolicyFormTPOnlyForm({ category, vehicleStatus, data, onChange }: Props) {
+export function PolicyFormTPOnlyForm({ category, vehicleStatus, data, onChange, eligibility }: Props) {
   const set = (key: keyof PolicyFormTPOnly) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
     onChange({ ...data, [key]: e.target.value });
   const setBool = (key: keyof PolicyFormTPOnly) => (e: React.ChangeEvent<HTMLInputElement>) =>
     onChange({ ...data, [key]: e.target.checked });
+
+  // Derive effective eligibility
+  const isNew = eligibility ? eligibility.vehicleStatus === 'NEW' : vehicleStatus === 'NEW';
+  // For TP only, previous TP policy fields are only applicable for renewal/existing vehicles
+  const prevTpApplicable = eligibility ? eligibility.previousPolicyApplicable : !isNew;
 
   const { result, loading, error } = useMotorCalculator({
     vehicleCategory: category,
@@ -103,24 +110,28 @@ export function PolicyFormTPOnlyForm({ category, vehicleStatus, data, onChange }
           />
         </FieldRow>
 
-        {/* Previous TP Insurer */}
-        <FieldRow label="Previous TP Insurer Name" conditional>
-          <select value={data.previousTPInsurerName} onChange={set('previousTPInsurerName')} className={inputBase}>
-            <option value="">— Select Insurer (Renewal) —</option>
-            {INSURER_OPTIONS.map((i) => <option key={i} value={i}>{i}</option>)}
-          </select>
-        </FieldRow>
+        {/* Previous TP Insurer — only for renewal/existing vehicles */}
+        {prevTpApplicable && (
+          <FieldRow label="Previous TP Insurer Name" conditional>
+            <select value={data.previousTPInsurerName} onChange={set('previousTPInsurerName')} className={inputBase}>
+              <option value="">— Select Insurer (Renewal) —</option>
+              {INSURER_OPTIONS.map((i) => <option key={i} value={i}>{i}</option>)}
+            </select>
+          </FieldRow>
+        )}
 
-        {/* Previous TP Policy No */}
-        <FieldRow label="Previous TP Policy Number" conditional>
-          <input
-            type="text"
-            value={data.previousTPPolicyNumber}
-            onChange={set('previousTPPolicyNumber')}
-            placeholder="Previous policy number"
-            className={`${inputBase} font-mono`}
-          />
-        </FieldRow>
+        {/* Previous TP Policy No — only for renewal/existing vehicles */}
+        {prevTpApplicable && (
+          <FieldRow label="Previous TP Policy Number" conditional>
+            <input
+              type="text"
+              value={data.previousTPPolicyNumber}
+              onChange={set('previousTPPolicyNumber')}
+              placeholder="Previous policy number"
+              className={`${inputBase} font-mono`}
+            />
+          </FieldRow>
+        )}
 
         {/* Policy Start / End Date */}
         <FieldRow label="Policy Start Date">

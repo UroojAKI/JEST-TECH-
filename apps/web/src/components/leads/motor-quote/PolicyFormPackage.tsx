@@ -2,7 +2,7 @@
 
 import React, { useEffect } from 'react';
 import { getPolicyTenureOptions, INSURER_OPTIONS, NCB_OPTIONS, ADDON_OPTIONS } from './motorFormConfig';
-import type { VehicleCategory, PolicyFormPackage } from './motorFormTypes';
+import type { VehicleCategory, PolicyFormPackage, MotorEligibilityContext } from './motorFormTypes';
 import { useMotorCalculator } from './useMotorCalculator';
 
 interface Props {
@@ -10,6 +10,9 @@ interface Props {
   vehicleStatus: 'NEW' | 'EXISTING';
   data: PolicyFormPackage;
   onChange: (data: PolicyFormPackage) => void;
+  /** Canonical eligibility context computed by MotorQuoteWizard. When not provided,
+   * falls back to vehicleStatus for backward compatibility. */
+  eligibility?: MotorEligibilityContext;
 }
 
 const inputBase = 'w-full p-2 rounded-lg border text-xs font-semibold bg-background focus:outline-none focus:ring-1 focus:ring-primary transition-colors border-border';
@@ -41,11 +44,36 @@ function FieldRow({ label, mandatory, conditional, children, hint, formula }: {
   );
 }
 
-export function PolicyFormPackageForm({ category, vehicleStatus, data, onChange }: Props) {
+export function PolicyFormPackageForm({ category, vehicleStatus, data, onChange, eligibility }: Props) {
   const set = (key: keyof PolicyFormPackage) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
     onChange({ ...data, [key]: e.target.value });
   const setBool = (key: keyof PolicyFormPackage) => (e: React.ChangeEvent<HTMLInputElement>) =>
     onChange({ ...data, [key]: e.target.checked });
+
+  // Derive effective eligibility — prefer canonical context, fall back to vehicleStatus prop
+  const isNew = eligibility ? eligibility.vehicleStatus === 'NEW' : vehicleStatus === 'NEW';
+  const prevPolicyApplicable = eligibility ? eligibility.previousPolicyApplicable : !isNew;
+  const ncbApplicable = eligibility ? eligibility.ncbApplicable : !isNew;
+  const claimHistoryApplicable = eligibility ? eligibility.claimHistoryApplicable : !isNew;
+
+  // Clear non-applicable fields from state when context changes (prevent stale previous-policy data)
+  useEffect(() => {
+    if (!prevPolicyApplicable) {
+      let changed = false;
+      const update: Partial<PolicyFormPackage> = {};
+      if (data.previousInsurerName) { update.previousInsurerName = ''; changed = true; }
+      if (data.previousPolicyNumber) { update.previousPolicyNumber = ''; changed = true; }
+      if (changed) onChange({ ...data, ...update });
+    }
+    if (!ncbApplicable && data.ncbPercentage && data.ncbPercentage !== '0') {
+      onChange({ ...data, ncbPercentage: '0' });
+    }
+    if (!claimHistoryApplicable && data.claimInExpiringPolicy === 'Yes') {
+      onChange({ ...data, claimInExpiringPolicy: 'No' });
+    }
+  // Only run when eligibility context changes, not on every data change
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isNew, prevPolicyApplicable, ncbApplicable, claimHistoryApplicable]);
 
   const { result, loading, error } = useMotorCalculator({
     vehicleCategory: category,
@@ -133,42 +161,76 @@ export function PolicyFormPackageForm({ category, vehicleStatus, data, onChange 
           <input type="number" value={data.insuredDeclaredValue} onChange={set('insuredDeclaredValue')} placeholder="e.g. 850000" className={mandatoryInput(data.insuredDeclaredValue)} />
         </FieldRow>
 
-        {/* Claim in Expiring Policy */}
-        <FieldRow label="Claim in Expiring Policy?" mandatory hint="If Yes → NCB resets to 0%">
-          <div className="flex gap-4 mt-1">
-            {['Yes', 'No'].map((v) => (
-              <label key={v} className="flex items-center gap-1.5 text-xs font-semibold cursor-pointer">
-                <input
-                  type="radio"
-                  name="claimPackage"
-                  value={v}
-                  checked={data.claimInExpiringPolicy === v}
-                  onChange={() => handleClaimChange(v)}
-                  className="text-primary focus:ring-primary"
-                />
-                {v}
-              </label>
-            ))}
+        {/* Claim in Expiring Policy — only applicable when previous policy is available */}
+        {claimHistoryApplicable ? (
+          <FieldRow label="Claim in Expiring Policy?" mandatory hint="If Yes → NCB resets to 0%">
+            <div className="flex gap-4 mt-1">
+              {['Yes', 'No'].map((v) => (
+                <label key={v} className="flex items-center gap-1.5 text-xs font-semibold cursor-pointer">
+                  <input
+                    type="radio"
+                    name="claimPackage"
+                    value={v}
+                    checked={data.claimInExpiringPolicy === v}
+                    onChange={() => handleClaimChange(v)}
+                    className="text-primary focus:ring-primary"
+                  />
+                  {v}
+                </label>
+              ))}
+            </div>
+          </FieldRow>
+        ) : (
+          <div className="p-2.5 rounded-lg border border-muted bg-muted/30 text-xs text-muted-foreground col-span-1">
+            <span className="font-semibold">Claim History:</span> Not applicable ({isNew ? 'New Vehicle' : 'No Previous Policy'})
           </div>
-        </FieldRow>
+        )}
 
-        {/* NCB % */}
-        <FieldRow label="No Claim Bonus (NCB) %" mandatory hint={data.claimInExpiringPolicy === 'Yes' ? 'Reset to 0% due to claim' : 'Discount on OD Base'}>
-          <select
-            value={data.ncbPercentage}
-            onChange={set('ncbPercentage')}
-            disabled={data.claimInExpiringPolicy === 'Yes'}
-            className={mandatoryInput(data.ncbPercentage)}
-          >
-            <option value="">— Select NCB % —</option>
-            {NCB_OPTIONS.map((n) => (
-              <option key={n.value} value={n.value}>
-                {n.label}
-              </option>
-            ))}
-          </select>
-        </FieldRow>
+        {/* NCB % — only applicable when previous policy is available */}
+        {ncbApplicable ? (
+          <FieldRow label="No Claim Bonus (NCB) %" mandatory hint={data.claimInExpiringPolicy === 'Yes' ? 'Reset to 0% due to claim' : 'Discount on OD Base'}>
+            <select
+              value={data.ncbPercentage}
+              onChange={set('ncbPercentage')}
+              disabled={data.claimInExpiringPolicy === 'Yes'}
+              className={mandatoryInput(data.ncbPercentage)}
+            >
+              <option value="">— Select NCB % —</option>
+              {NCB_OPTIONS.map((n) => (
+                <option key={n.value} value={n.value}>
+                  {n.label}
+                </option>
+              ))}
+            </select>
+          </FieldRow>
+        ) : (
+          <div className="p-2.5 rounded-lg border border-muted bg-muted/30 text-xs text-muted-foreground col-span-1">
+            <span className="font-semibold">NCB:</span> 0% — Not applicable ({isNew ? 'New Vehicle' : 'No Previous Policy'})
+          </div>
+        )}
+
       </div>
+
+      {/* Previous Insurer & Policy Number — only shown when previous policy is applicable */}
+      {prevPolicyApplicable && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <FieldRow label="Previous Insurer Name" conditional>
+            <select value={data.previousInsurerName || ''} onChange={set('previousInsurerName')} className={inputBase}>
+              <option value="">— Select Previous Insurer —</option>
+              {INSURER_OPTIONS.map((i) => <option key={i} value={i}>{i}</option>)}
+            </select>
+          </FieldRow>
+          <FieldRow label="Previous Policy Number" conditional>
+            <input
+              type="text"
+              value={data.previousPolicyNumber || ''}
+              onChange={set('previousPolicyNumber')}
+              placeholder="Previous policy number"
+              className={`${inputBase} font-mono`}
+            />
+          </FieldRow>
+        </div>
+      )}
 
       {/* Add-ons */}
       <div className="p-3.5 rounded-xl border bg-card space-y-2">

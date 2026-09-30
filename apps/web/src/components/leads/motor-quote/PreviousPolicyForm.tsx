@@ -18,17 +18,42 @@ const INSURER_LIST = [
   'Reliance General', 'Go Digit', 'Chola MS', 'Royal Sundaram', 'Shriram General', 'Future Generali',
 ];
 
-function computeExpired90Days(expiryDateStr: string): boolean {
-  if (!expiryDateStr) return false;
-  const expiry = new Date(expiryDateStr);
-  const ninetyDaysAgo = new Date();
-  ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
-  return expiry < ninetyDaysAgo;
+/**
+ * Returns today's date as a YYYY-MM-DD string in local time.
+ * Used for date-string comparison that matches backend MotorRuleEngineService
+ * semantics. Today's date is NOT expired (same-day expiry = ACTIVE).
+ */
+function getTodayDateStr(): string {
+  const d = new Date();
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 }
 
+/**
+ * Computes whether the policy has been expired more than 90 days.
+ * Uses date-string comparison (YYYY-MM-DD) — NOT timestamp-based.
+ * Matches MotorRuleEngineService.daysBetween() semantics on the backend.
+ */
+function computeExpired90Days(expiryDateStr: string): boolean {
+  if (!expiryDateStr) return false;
+  const d = new Date();
+  d.setDate(d.getDate() - 90);
+  const ninetyDaysAgoStr = d.getFullYear() + '-' +
+    String(d.getMonth() + 1).padStart(2, '0') + '-' +
+    String(d.getDate()).padStart(2, '0');
+  return expiryDateStr < ninetyDaysAgoStr;
+}
+
+/**
+ * Computes whether the policy is expired.
+ * Same-day expiry (today) is NOT expired: expiryStr < todayStr means expired.
+ * Matches MotorRuleEngineService semantics exactly.
+ */
 function computeIsExpired(expiryDateStr: string): boolean {
   if (!expiryDateStr) return false;
-  return new Date(expiryDateStr) < new Date();
+  return expiryDateStr < getTodayDateStr();
 }
 
 export function PreviousPolicyForm({ value, onChange, newPolicyType }: Props) {

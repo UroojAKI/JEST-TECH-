@@ -14,6 +14,28 @@ export type VehicleCategory =
 export type PolicyType = 'TP_ONLY' | 'SAOD' | 'PACKAGE';
 
 // ------------------------------------------------------------------
+// MOTOR ELIGIBILITY CONTEXT — computed ONCE in MotorQuoteWizard,
+// passed to all form children. Encodes domain modes: NEW and
+// NOT_AVAILABLE are not just UI selections — they are domain modes.
+// ------------------------------------------------------------------
+export interface MotorEligibilityContext {
+  /** Whether the vehicle is brand new (never registered before) */
+  vehicleStatus: 'NEW' | 'EXISTING';
+  /** Whether the previous policy details are available or declared unavailable */
+  previousPolicyStatus: 'AVAILABLE' | 'NOT_AVAILABLE';
+  /** True only when vehicleStatus=EXISTING and previousPolicyStatus=AVAILABLE */
+  previousPolicyApplicable: boolean;
+  /** NCB is applicable only when previous policy is available and no claim/ownership-transfer */
+  ncbApplicable: boolean;
+  /** Claim history is only applicable when previous policy is available */
+  claimHistoryApplicable: boolean;
+  /** Previous insurer/policy number fields are applicable only when previous policy is available */
+  previousPolicyDetailsApplicable: boolean;
+  /** Inspection requirement as determined by the backend rule engine result */
+  inspectionApplicable: boolean;
+}
+
+// ------------------------------------------------------------------
 // PROPOSER / CUSTOMER DETAILS (common across all motor forms)
 // ------------------------------------------------------------------
 export interface ProposerDetails {

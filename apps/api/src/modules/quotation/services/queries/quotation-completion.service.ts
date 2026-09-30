@@ -156,9 +156,7 @@ export class QuotationCompletionService {
     const vehicleApplicable = 5;
     let vehicleCompleted = 0;
 
-    const makeModel =
-      (vehicle.make && vehicle.model) ||
-      (quotation.title && quotation.title !== 'Motor Insurance');
+    const makeModel = vehicle.make && vehicle.model;
     if (makeModel) vehicleCompleted++;
     else
       vehicleMissing.push({
@@ -194,10 +192,11 @@ export class QuotationCompletionService {
         requiredFor: 'POLICY_ISSUANCE',
       });
 
-    if (vehicle.registrationDate) vehicleCompleted++;
+    // FIX: schema field is `dateOfRegistration`, NOT `registrationDate`
+    if ((vehicle as any).dateOfRegistration) vehicleCompleted++;
     else
       vehicleMissing.push({
-        field: 'registrationDate',
+        field: 'dateOfRegistration',
         label: 'Registration Date',
         requiredFor: 'POLICY_ISSUANCE',
       });
@@ -252,8 +251,22 @@ export class QuotationCompletionService {
     });
 
     // ── SECTION 4: Previous Insurance (Conditional) ─────────────────────
+    // FIX: Motor policy types are TP_ONLY/SAOD/PACKAGE — 'NEW_BUSINESS' doesn't exist.
+    // Previous insurance is applicable only when:
+    //   vehicleStatus !== 'NEW' AND previousPolicyType !== 'NOT_AVAILABLE'
+    // Derive this from motorMetadata (which stores vehicleDetails + previousPolicyDetails).
+    const meta = (quotation.motorMetadata as any) || {};
+    const metaVehicleStatus = meta.vehicleDetails?.vehicleStatus;
+    const metaPrevPolicyType = meta.previousPolicyDetails?.previousPolicyType;
+
+    const isNewVehicle = metaVehicleStatus === 'NEW' || vehicle.status === 'NEW';
+    const isPrevPolicyNotAvailable =
+      metaPrevPolicyType === 'NOT_AVAILABLE' ||
+      (previousPolicy as any)?.previousPolicyType === 'NOT_AVAILABLE';
+
     const isRolloverOrRenewal =
-      quotation.policyType !== 'NEW_BUSINESS' && previousPolicy;
+      !isNewVehicle && !isPrevPolicyNotAvailable && !!previousPolicy;
+
     if (isRolloverOrRenewal) {
       const prevMissing: MissingFieldItem[] = [];
       const prevApplicable = 3;
@@ -554,14 +567,36 @@ export class QuotationCompletionService {
 
     // 3. Update Previous Policy fields
     if (
+      updates.previousPolicyType === 'NOT_AVAILABLE' ||
+      updates.clearPreviousPolicy === true
+    ) {
+      // Symmetrical cleanup: delete stale motorPreviousPolicy if user declares NOT_AVAILABLE
+      await this.prisma.motorPreviousPolicy.deleteMany({
+        where: { quotationId },
+      });
+      const meta = (quotation.motorMetadata as any) || {};
+      meta.previousPolicyDetails = {
+        ...(meta.previousPolicyDetails || {}),
+        previousPolicyType: 'NOT_AVAILABLE',
+        previousInsurerName: null,
+        previousPolicyNumber: null,
+        policyExpiryDate: null,
+      };
+      await this.prisma.quotation.update({
+        where: { id: quotationId },
+        data: { motorMetadata: meta },
+      });
+    } else if (
       updates.previousPolicyNumber !== undefined ||
       updates.previousInsurerName !== undefined ||
-      updates.previousPolicyExpiryDate !== undefined
+      updates.previousPolicyExpiryDate !== undefined ||
+      updates.previousPolicyType !== undefined
     ) {
       await this.prisma.motorPreviousPolicy.upsert({
         where: { quotationId },
         create: {
           quotationId,
+          previousPolicyType: updates.previousPolicyType || 'COMPREHENSIVE',
           previousPolicyNumber: updates.previousPolicyNumber || 'POL-UNKNOWN',
           previousInsurerName: updates.previousInsurerName || 'Unknown Insurer',
           policyExpiryDate: updates.previousPolicyExpiryDate
@@ -569,12 +604,25 @@ export class QuotationCompletionService {
             : new Date(),
         },
         update: {
+          previousPolicyType: updates.previousPolicyType,
           previousPolicyNumber: updates.previousPolicyNumber,
           previousInsurerName: updates.previousInsurerName,
           policyExpiryDate: updates.previousPolicyExpiryDate
             ? new Date(updates.previousPolicyExpiryDate)
             : undefined,
         },
+      });
+      const meta = (quotation.motorMetadata as any) || {};
+      meta.previousPolicyDetails = {
+        ...(meta.previousPolicyDetails || {}),
+        previousPolicyType: updates.previousPolicyType || meta.previousPolicyDetails?.previousPolicyType,
+        previousInsurerName: updates.previousInsurerName || meta.previousPolicyDetails?.previousInsurerName,
+        previousPolicyNumber: updates.previousPolicyNumber || meta.previousPolicyDetails?.previousPolicyNumber,
+        policyExpiryDate: updates.previousPolicyExpiryDate || meta.previousPolicyDetails?.policyExpiryDate,
+      };
+      await this.prisma.quotation.update({
+        where: { id: quotationId },
+        data: { motorMetadata: meta },
       });
     }
 

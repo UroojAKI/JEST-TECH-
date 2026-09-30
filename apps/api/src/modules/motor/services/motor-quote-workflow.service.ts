@@ -10,6 +10,7 @@ import {
   MotorRuleEngineService,
   MotorRuleContext,
 } from './motor-rule-engine.service';
+import { MotorPolicyDateService } from './motor-policy-date.service';
 import { NumberingEngineService } from '../../administration/services/numbering-engine/numbering-engine.service';
 import { InspectionStatus, VehicleStatus } from '@prisma/client';
 
@@ -41,6 +42,7 @@ export class MotorQuoteWorkflowService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly ruleEngine: MotorRuleEngineService,
+    private readonly policyDateService: MotorPolicyDateService,
     private readonly numberingEngine: NumberingEngineService,
   ) {}
 
@@ -100,15 +102,21 @@ export class MotorQuoteWorkflowService {
       };
     }
 
-    const today = new Date();
-    const expiryDate = dto.policyExpiryDate
-      ? new Date(dto.policyExpiryDate)
-      : null;
-    const ninetyDaysAgo = new Date(today);
-    ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
-    const expiredMoreThan90Days = expiryDate
-      ? expiryDate < ninetyDaysAgo
-      : false;
+    // ── Business-Date-Aware Date Calculations ─────────────────────────────
+    // FIX: Use MotorPolicyDateService for all date logic — NOT raw Date arithmetic.
+    // Raw `new Date()` comparisons use timestamp semantics which differ from
+    // Asia/Kolkata business-date semantics used by MotorRuleEngineService.
+    const today = this.policyDateService.getBusinessToday();
+    const expiryDateStr = dto.policyExpiryDate || null;
+    const expiryDate = expiryDateStr ? new Date(expiryDateStr) : null;
+
+    let expiredMoreThan90Days = false;
+    if (expiryDateStr) {
+      // daysBetween(expiryStr, today) > 90 means expired more than 90 days ago
+      const daysExpired = this.policyDateService.daysBetween(expiryDateStr, today);
+      expiredMoreThan90Days = daysExpired > 90;
+    }
+
     const rcTransferStatusBool =
       typeof dto.rcTransferStatus === 'boolean'
         ? dto.rcTransferStatus

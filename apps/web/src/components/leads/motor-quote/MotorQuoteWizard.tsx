@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { X, ChevronRight, ChevronLeft, Save, Loader2, Car, Shield } from 'lucide-react';
 import { toast } from 'sonner';
 import { apiClient } from '../../../lib/api-client';
@@ -28,6 +28,7 @@ import type {
   SavedMotorQuote,
   PreviousPolicyDetails,
   MotorRuleResult,
+  MotorEligibilityContext,
 } from './motorFormTypes';
 
 interface Props {
@@ -144,6 +145,46 @@ function emptyPackage(): PolicyFormPackage {
   };
 }
 
+/**
+ * Computes the canonical MotorEligibilityContext from wizard state.
+ * This is the single source of truth for all form children — they must
+ * not independently re-derive these values from partial props.
+ *
+ * Domain modes:
+ *  - NEW vehicle: no previous policy, no claim/NCB, no inspection from expiry
+ *  - NOT_AVAILABLE: previous policy declared unavailable — no insurer/policy number/claim/NCB
+ *  - AVAILABLE: full previous policy flow — expiry, claim, NCB, insurer details
+ */
+function computeEligibilityContext(
+  vehicleDetails: Record<string, string>,
+  previousPolicy: PreviousPolicyDetails,
+  ruleResult: MotorRuleResult | null,
+): MotorEligibilityContext {
+  const vehicleStatus = (vehicleDetails.vehicleStatus === 'NEW' ? 'NEW' : 'EXISTING') as 'NEW' | 'EXISTING';
+  const previousPolicyStatus = (previousPolicy.previousPolicyType === 'NOT_AVAILABLE' ? 'NOT_AVAILABLE' : 'AVAILABLE') as 'AVAILABLE' | 'NOT_AVAILABLE';
+
+  const isNew = vehicleStatus === 'NEW';
+  const isNotAvailable = previousPolicyStatus === 'NOT_AVAILABLE';
+  const previousPolicyApplicable = !isNew && !isNotAvailable;
+
+  // NCB is applicable only when previous policy is available AND no claim AND no ownership-transfer AND not expired >90d
+  const ncbApplicable = previousPolicyApplicable &&
+    !previousPolicy.claimInPreviousYear &&
+    !previousPolicy.ownershipTransfer &&
+    !previousPolicy.expiredMoreThan90Days;
+
+  return {
+    vehicleStatus,
+    previousPolicyStatus,
+    previousPolicyApplicable,
+    ncbApplicable,
+    claimHistoryApplicable: previousPolicyApplicable,
+    previousPolicyDetailsApplicable: previousPolicyApplicable,
+    inspectionApplicable: ruleResult?.inspectionRequired === true,
+  };
+}
+
+
 export function MotorQuoteWizard({ isOpen, leadId, contactId, initialCategory, cloneQuoteData, leadContact, onClose, onSaved }: Props) {
   const [step, setStep] = useState(1);
   const [isSaving, setIsSaving] = useState(false);
@@ -183,6 +224,61 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, initialCategory, c
   const [showInspectionDialog, setShowInspectionDialog] = useState(false);
   const [isContextLoading, setIsContextLoading] = useState(false);
   const [prefilledFromLeadCode, setPrefilledFromLeadCode] = useState<string | null>(null);
+
+  // ── Canonical Eligibility Context ─────────────────────────────────────────
+  // Computed ONCE here in the parent and passed to all form children.
+  // Do NOT re-derive in children — they must consume this context as truth.
+  const eligibilityContext = useMemo(
+    () => computeEligibilityContext(vehicleDetails, previousPolicy, ruleResult),
+    [vehicleDetails, previousPolicy, ruleResult],
+  );
+
+  // ── Domain Mode Normalization ──────────────────────────────────────────────
+  // When vehicleStatus changes to NEW, clear all previous-policy state and
+  // normalize premium form fields — prevent stale renewal data from leaking.
+  useEffect(() => {
+    if (vehicleDetails.vehicleStatus === 'NEW') {
+      setPreviousPolicy({
+        previousPolicyType: 'NOT_AVAILABLE',
+        policyExpiryDate: '',
+        expiredMoreThan90Days: false,
+        ownershipTransfer: false,
+        claimInPreviousYear: false,
+        eligibleNcbPercentage: 0,
+      });
+      // Normalize premium form fields — NCB, claim, and previous insurer cleared
+      setPackageForm((prev) => ({
+        ...prev,
+        ncbPercentage: '0',
+        claimInExpiringPolicy: 'No',
+        previousInsurerName: '',
+        previousPolicyNumber: '',
+      }));
+      setTpForm((prev) => ({
+        ...prev,
+        previousTPInsurerName: '',
+        previousTPPolicyNumber: '',
+      }));
+    }
+  // Only trigger when vehicleStatus changes, not on every render
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [vehicleDetails.vehicleStatus]);
+
+  // ── NOT_AVAILABLE Mode Normalization ──────────────────────────────────────
+  // When previousPolicyType changes to NOT_AVAILABLE on an EXISTING vehicle,
+  // clear previous-insurer fields from premium forms.
+  useEffect(() => {
+    if (previousPolicy.previousPolicyType === 'NOT_AVAILABLE') {
+      setPackageForm((prev) => ({
+        ...prev,
+        ncbPercentage: '0',
+        claimInExpiringPolicy: 'No',
+        previousInsurerName: '',
+        previousPolicyNumber: '',
+      }));
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [previousPolicy.previousPolicyType]);
 
   useEffect(() => {
     if (isOpen) {
@@ -344,7 +440,13 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, initialCategory, c
         odExpiryDate: previousPolicy.odExpiryDate,
         newOwnerName: previousPolicy.newOwnerName,
       });
-      setRuleResult(res.data?.ruleEvaluation || res.data);
+      const evaluated = res.data?.ruleEvaluation || res.data;
+      setRuleResult(evaluated);
+      if (evaluated && typeof evaluated.ncb === 'number') {
+        const authoritativeNcbStr = String(evaluated.ncb);
+        setPackageForm((prev) => ({ ...prev, ncbPercentage: authoritativeNcbStr }));
+        setSaodForm((prev) => ({ ...prev, ncbPercentage: authoritativeNcbStr }));
+      }
     } catch (e: any) {
       console.error('Rule engine API error:', e);
       const msg = e?.response?.data?.message;
@@ -425,6 +527,8 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, initialCategory, c
 
   const getNCB = () => {
     if (vehicleDetails.vehicleStatus === 'NEW') return 0;
+    if (previousPolicy.previousPolicyType === 'NOT_AVAILABLE') return 0;
+    if (ruleResult && typeof ruleResult.ncb === 'number') return ruleResult.ncb;
     const pd = getPolicyDetails() as any;
     return parseInt(pd.ncbPercentage || '0') || 0;
   };
@@ -479,7 +583,9 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, initialCategory, c
         vehicleDetails,
         previousPolicyDetails: previousPolicy,
         policyDetails: getPolicyDetails(),
-        status: ruleResult?.inspectionRequired ? 'PENDING_INSPECTION' : 'READY_FOR_PROPOSAL',
+        // NOTE: Do NOT send `status` from the client. The backend (CreateMotorQuotationCommand)
+        // runs its own MotorRuleEngineService evaluation and sets the authoritative workflowState.
+        // Client-driven status is a security and correctness violation.
         // SAOD Verification
         ...(policyType === 'SAOD' && saodForm.tpVerification ? {
           saodVerification: {
@@ -499,8 +605,9 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, initialCategory, c
       setSavedQuotationId(saved.id);
 
       const isInspectionMandatory =
+        saved.workflowState === 'INSPECTION_REQUIRED' ||
         saved.status === 'PENDING_INSPECTION' ||
-        ruleResult?.inspectionRequired;
+        ruleResult?.inspectionRequired === true;
 
       if (isInspectionMandatory) {
         toast.warning(
@@ -734,13 +841,25 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, initialCategory, c
               <div className="space-y-4">
                 <h3 className="text-sm font-bold text-foreground border-b pb-2">Premium & Coverages</h3>
                 {policyType === 'TP_ONLY' && (
-                  <PolicyFormTPOnlyForm category={vehicleCategory} vehicleStatus={vehicleDetails.vehicleStatus === 'NEW' ? 'NEW' : 'EXISTING'} data={tpForm} onChange={setTpForm} />
+                  <PolicyFormTPOnlyForm
+                    category={vehicleCategory}
+                    vehicleStatus={vehicleDetails.vehicleStatus === 'NEW' ? 'NEW' : 'EXISTING'}
+                    data={tpForm}
+                    onChange={setTpForm}
+                    eligibility={eligibilityContext}
+                  />
                 )}
                 {policyType === 'SAOD' && (
                   <PolicyFormSAODForm data={saodForm} onChange={setSaodForm} />
                 )}
                 {policyType === 'PACKAGE' && (
-                  <PolicyFormPackageForm category={vehicleCategory} vehicleStatus={vehicleDetails.vehicleStatus === 'NEW' ? 'NEW' : 'EXISTING'} data={packageForm} onChange={setPackageForm} />
+                  <PolicyFormPackageForm
+                    category={vehicleCategory}
+                    vehicleStatus={vehicleDetails.vehicleStatus === 'NEW' ? 'NEW' : 'EXISTING'}
+                    data={packageForm}
+                    onChange={setPackageForm}
+                    eligibility={eligibilityContext}
+                  />
                 )}
               </div>
             )}
