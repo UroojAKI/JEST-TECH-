@@ -7,13 +7,13 @@
   ],
   "title": "Authentic asynchronous PDF rendering pipeline (zero placeholder text)",
   "remediatingEpic": "EPIC-23, 31",
-  "implementationCommit": "6b3204970647fa2368e90fe755a55f6362a4da38",
-  "testCommit": "6b3204970647fa2368e90fe755a55f6362a4da38",
+  "implementationCommit": "99d226d7b617afdee7626c386ffc6d607c8fc9aa",
+  "testCommit": "99d226d7b617afdee7626c386ffc6d607c8fc9aa",
   "environment": "staging",
   "environmentBuild": "v4.2.0-prod-rebuild",
   "databaseMigrationVersion": "20260908_epic05_schema_invariants",
-  "schemaHash": "sha256:181eaec5285782a3ab29a553dce40fb7b72f88dd6617fb22a6f6b89e4379d165",
-  "containerImageDigest": "sha256:96a9298d992474606f912a883d877b646277e4a46f9f9e22d1784ecc8e85006c",
+  "schemaHash": "sha256:d7c698122af143d6eda3a2675631455be7d7cff6e545644a77ec9b7c1fc404d3",
+  "containerImageDigest": "sha256:21b0a61a3220a39ac565c01f3e4f3631a95de4e72df617da44bae17b96c53fa5",
   "testDataVersion": "v4.2.0-clean-seed",
   "testRunId": "TR-PROD-023-CERT-2026",
   "primaryTestPath": "src/common/certification/prod-gates.spec.ts#PROD-023",
@@ -21,5 +21,5 @@
   "alternatePathTestPath": "src/modules/documents/services/document-verification.service.spec.ts",
   "result": "PASS",
   "reviewer": "Lead Systems Architect & Security Auditor",
-  "timestamp": "2026-10-01T06:04:50.913Z"
+  "timestamp": "2026-10-01T06:32:51.192Z"
 }

@@ -15,7 +15,10 @@
     "check:certification": "node scripts/verify-certification-validity.js",
     "generate:baseline": "tsx scripts/generate-baseline-inventory.ts",
     "generate:role-matrix": "tsx scripts/generate-role-permission-matrix.ts",
-    "check:api-contracts": "tsx scripts/verify-api-contracts.ts"
+    "check:api-contracts": "tsx scripts/verify-api-contracts.ts",
+    "migrate:case-status": "tsx scripts/migrate-motor-case-status.ts",
+    "rollback:case-status": "tsx scripts/rollback-motor-case-status.ts",
+    "backfill:task-case-ids": "tsx scripts/backfill-task-case-ids.ts"
   },
   "devDependencies": {
     "@playwright/test": "^1.63.0",

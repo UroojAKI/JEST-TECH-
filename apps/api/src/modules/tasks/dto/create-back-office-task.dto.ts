@@ -32,6 +32,11 @@ export class CreateBackOfficeTaskDto {
   @IsUUID()
   motorQuotationId?: string;
 
+  @ApiPropertyOptional({ description: 'Associated Motor Quotation Case ID' })
+  @IsOptional()
+  @IsUUID()
+  caseId?: string;
+
   @ApiPropertyOptional({ description: 'Assignee Back Office User ID' })
   @IsOptional()
   @IsUUID()

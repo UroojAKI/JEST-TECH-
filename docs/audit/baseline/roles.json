@@ -1003,6 +1003,33 @@
     ]
   },
   {
+    "file": "apps/api/src/modules/motor/controllers/motor-quotation-case.controller.ts",
+    "endpoint": "POST /motor/quotation-cases/:id/command",
+    "roles": [
+      "AGENT",
+      "BACK_OFFICE",
+      "ADMIN"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/motor/controllers/motor-quotation-case.controller.ts",
+    "endpoint": "GET /motor/quotation-cases/:id/available-commands",
+    "roles": [
+      "AGENT",
+      "BACK_OFFICE",
+      "ADMIN"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/motor/controllers/motor-quotation-case.controller.ts",
+    "endpoint": "PATCH /motor/quotation-cases/:id",
+    "roles": [
+      "AGENT",
+      "BACK_OFFICE",
+      "ADMIN"
+    ]
+  },
+  {
     "file": "apps/api/src/modules/motor/controllers/motor-quotation-document.controller.ts",
     "endpoint": "GET /motor/quotations/:id/documents",
     "roles": [

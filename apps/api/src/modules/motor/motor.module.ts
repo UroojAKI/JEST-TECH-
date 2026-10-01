@@ -25,6 +25,7 @@ import { MotorJourneyService } from './services/motor-journey.service';
 import { MotorQuotationCaseService } from './services/motor-quotation-case.service';
 import { MotorQuotationDocumentService } from './services/motor-quotation-document.service';
 import { MotorWorkflowGatesService } from './services/motor-workflow-gates.service';
+import { MotorCaseStateMachineService } from './services/motor-case-state-machine.service';
 import { AdministrationModule } from '../administration/administration.module';
 import { AuthModule } from '../auth/auth.module';
 
@@ -58,6 +59,7 @@ import { AuthModule } from '../auth/auth.module';
     MotorQuotationCaseService,
     MotorQuotationDocumentService,
     MotorWorkflowGatesService,
+    MotorCaseStateMachineService,
   ],
   exports: [
     MotorRuleEngineService,
@@ -73,6 +75,7 @@ import { AuthModule } from '../auth/auth.module';
     MotorQuotationCaseService,
     MotorQuotationDocumentService,
     MotorWorkflowGatesService,
+    MotorCaseStateMachineService,
   ],
 })
 export class MotorModule {}

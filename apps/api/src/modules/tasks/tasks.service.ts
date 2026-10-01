@@ -17,10 +17,14 @@ import { TaskQueryDto } from './dto/task-query.dto';
 import { CreateBackOfficeTaskDto } from './dto/create-back-office-task.dto';
 import { ResolveBackOfficeTaskDto } from './dto/resolve-back-office-task.dto';
 import type { RequestUser } from '../auth/decorators/current-user.decorator';
+import { NumberingEngineService } from './numbering-engine.service';
 
 @Injectable()
 export class TasksService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly numberingEngine: NumberingEngineService,
+  ) {}
 
   async getTasksToday(user: RequestUser) {
     const todayStart = new Date();
@@ -414,21 +418,12 @@ export class TasksService {
   }
 
   async createBackOfficeTask(dto: CreateBackOfficeTaskDto, user: RequestUser) {
-    const count = await this.prisma.backOfficeTask.count();
-    let nextNum = count + 1;
-    let taskCode = `BOT-${String(nextNum).padStart(5, '0')}`;
-
-    while (
-      await this.prisma.backOfficeTask.findUnique({ where: { taskCode } })
-    ) {
-      nextNum++;
-      taskCode = `BOT-${String(nextNum).padStart(5, '0')}`;
-    }
-
     const companyId = user.companyId || (user as any).organizationId;
     if (!companyId) {
       throw new ForbiddenException('Tenant organizational context is required');
     }
+
+    const taskCode = await this.numberingEngine.generateNext('BOT');
 
     return this.prisma.backOfficeTask.create({
       data: {
@@ -439,6 +434,7 @@ export class TasksService {
         status: BackOfficeTaskStatus.PENDING,
         leadId: dto.leadId || null,
         motorQuotationId: dto.motorQuotationId || null,
+        caseId: dto.caseId || null,
         assignedToId: dto.assignedToId || null,
         verificationNotes: dto.verificationNotes || null,
         missingItems: dto.missingItems

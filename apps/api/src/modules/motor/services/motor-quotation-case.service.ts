@@ -135,10 +135,13 @@ export class MotorQuotationCaseService {
   validateCaseTransition(current: MotorCaseStatus, target: MotorCaseStatus): void {
     if (current === target) return;
 
-    const allowedTransitions: Record<MotorCaseStatus, MotorCaseStatus[]> = {
-      [MotorCaseStatus.OPEN]: [MotorCaseStatus.QUOTED, MotorCaseStatus.CANCELLED],
-      [MotorCaseStatus.QUOTED]: [MotorCaseStatus.QUOTED, MotorCaseStatus.SELECTED, MotorCaseStatus.CANCELLED],
+    const allowedTransitions: Partial<Record<MotorCaseStatus, MotorCaseStatus[]>> = {
+      [MotorCaseStatus.OPEN]: [MotorCaseStatus.QUOTED, MotorCaseStatus.QUOTE_GENERATED, MotorCaseStatus.CANCELLED],
+      [MotorCaseStatus.DRAFT]: [MotorCaseStatus.CUSTOMER_VERIFIED, MotorCaseStatus.QUOTE_GENERATED, MotorCaseStatus.CANCELLED],
+      [MotorCaseStatus.QUOTED]: [MotorCaseStatus.QUOTED, MotorCaseStatus.SELECTED, MotorCaseStatus.PROPOSAL_READY, MotorCaseStatus.CANCELLED],
+      [MotorCaseStatus.QUOTE_GENERATED]: [MotorCaseStatus.QUOTE_GENERATED, MotorCaseStatus.PROPOSAL_READY, MotorCaseStatus.SELECTED, MotorCaseStatus.CANCELLED],
       [MotorCaseStatus.SELECTED]: [MotorCaseStatus.COMPLETED],
+      [MotorCaseStatus.PROPOSAL_READY]: [MotorCaseStatus.SUBMITTED_FOR_REVIEW, MotorCaseStatus.SELECTED, MotorCaseStatus.COMPLETED],
       [MotorCaseStatus.COMPLETED]: [],
       [MotorCaseStatus.CANCELLED]: [],
     };
@@ -217,10 +220,12 @@ export class MotorQuotationCaseService {
 
     if (
       motorCase.status !== MotorCaseStatus.OPEN &&
-      motorCase.status !== MotorCaseStatus.QUOTED
+      motorCase.status !== MotorCaseStatus.DRAFT &&
+      motorCase.status !== MotorCaseStatus.QUOTED &&
+      motorCase.status !== MotorCaseStatus.QUOTE_GENERATED
     ) {
       throw new BadRequestException(
-        `Case cannot be cancelled from '${motorCase.status}' status. Only OPEN or QUOTED cases can be cancelled.`,
+        `Case cannot be cancelled from '${motorCase.status}' status. Only OPEN, DRAFT, QUOTED, or QUOTE_GENERATED cases can be cancelled.`,
       );
     }
 

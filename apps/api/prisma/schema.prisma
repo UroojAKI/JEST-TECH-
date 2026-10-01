@@ -1068,11 +1068,31 @@ enum PreviousPolicyType {
 }
 
 enum MotorCaseStatus {
+  // Canonical 19-state lifecycle
+  DRAFT
+  CUSTOMER_VERIFIED
+  VEHICLE_VERIFIED
+  QUOTE_GENERATED
+  PROPOSAL_READY
+  SUBMITTED_FOR_REVIEW
+  BACK_OFFICE_REVIEW
+  INSPECTION_REQUIRED
+  INSPECTION_SUBMITTED
+  INSPECTION_APPROVED
+  PAYMENT_VERIFIED
+  DOCUMENTS_VERIFIED
+  READY_FOR_ISSUANCE
+  ISSUED
+  COMPLETED
+  REJECTED
+  REWORK_REQUIRED
+  RESUBMITTED
+  CANCELLED
+
+  // Legacy states retained for backward-compatibility during migration
   OPEN
   QUOTED
   SELECTED
-  COMPLETED
-  CANCELLED
 }
 
 enum MotorDocumentType {
@@ -4133,6 +4153,7 @@ enum BackOfficeTaskStatus {
   VERIFIED
   REJECTED
   COMPLETED
+  UNRESOLVED_MIGRATION
 }
 
 enum InspectionType {
@@ -4375,6 +4396,9 @@ model BackOfficeTask {
   motorQuotationId  String?
   motorQuotation    MotorQuotation?      @relation("QuotationBackOfficeTasks", fields: [motorQuotationId], references: [id], onDelete: SetNull)
 
+  caseId            String?              @map("case_id")
+  case              MotorQuotationCase?  @relation(fields: [caseId], references: [id], onDelete: SetNull)
+
   assignedToId      String?
   assignedTo        User?                @relation("BackOfficeTaskAssignedTo", fields: [assignedToId], references: [id], onDelete: SetNull)
 
@@ -4399,6 +4423,7 @@ model BackOfficeTask {
   @@index([status])
   @@index([leadId])
   @@index([motorQuotationId])
+  @@index([caseId])
   @@index([taskCode])
   @@index([deletedAt])
   @@map("back_office_tasks")
@@ -4555,7 +4580,7 @@ model MotorQuotationCase {
   journeyId          String?
   selectedQuoteId    String?
   selectedQuote      Quotation?      @relation("SelectedCaseQuote", fields: [selectedQuoteId], references: [id], onDelete: SetNull)
-  status             MotorCaseStatus @default(OPEN)
+  status             MotorCaseStatus @default(DRAFT)
 
   customerSnapshot       Json
   vehicleSnapshot        Json
@@ -4563,6 +4588,7 @@ model MotorQuotationCase {
 
   quotations Quotation[]              @relation("CaseQuotations")
   documents  MotorQuotationDocument[]
+  tasks      BackOfficeTask[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

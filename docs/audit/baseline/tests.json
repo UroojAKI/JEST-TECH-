@@ -570,6 +570,17 @@
     "module": "motor"
   },
   {
+    "file": "apps/api/src/modules/motor/services/motor-case-state-machine.service.spec.ts",
+    "testCount": 8,
+    "describes": [
+      "MotorCaseStateMachineService (WF-009 Canonical 19-State Lifecycle)",
+      "assertNoDirectStatusMutation",
+      "transition",
+      "getAvailableCommands"
+    ],
+    "module": "motor"
+  },
+  {
     "file": "apps/api/src/modules/motor/services/motor-document-rule.service.spec.ts",
     "testCount": 6,
     "describes": [
@@ -1033,8 +1044,16 @@
     "module": "quotation"
   },
   {
+    "file": "apps/api/src/modules/tasks/tasks-case-migration.spec.ts",
+    "testCount": 2,
+    "describes": [
+      "Wave 2 WF-006B: BackOfficeTask caseId Migration & Non-Destructive Reconciliation"
+    ],
+    "module": "tasks"
+  },
+  {
     "file": "apps/api/src/modules/tasks/tasks.service.spec.ts",
-    "testCount": 6,
+    "testCount": 8,
     "describes": [
       "TasksService",
       "getTasksToday",

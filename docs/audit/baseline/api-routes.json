@@ -1945,6 +1945,33 @@
   },
   {
     "method": "POST",
+    "path": "/motor/quotation-cases/:id/command",
+    "controller": "MotorQuotationCaseController",
+    "file": "apps/api/src/modules/motor/controllers/motor-quotation-case.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": false
+  },
+  {
+    "method": "GET",
+    "path": "/motor/quotation-cases/:id/available-commands",
+    "controller": "MotorQuotationCaseController",
+    "file": "apps/api/src/modules/motor/controllers/motor-quotation-case.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": false
+  },
+  {
+    "method": "PATCH",
+    "path": "/motor/quotation-cases/:id",
+    "controller": "MotorQuotationCaseController",
+    "file": "apps/api/src/modules/motor/controllers/motor-quotation-case.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": false
+  },
+  {
+    "method": "POST",
     "path": "/motor/quotations/:id/documents",
     "controller": "MotorQuotationDocumentController",
     "file": "apps/api/src/modules/motor/controllers/motor-quotation-document.controller.ts",

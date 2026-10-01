@@ -8,12 +8,12 @@
     "insuranceOperations": "APPROVED",
     "executiveLeadership": "APPROVED"
   },
-  "certifiedCommit": "6b3204970647fa2368e90fe755a55f6362a4da38",
-  "certificationCommitSha": "6b3204970647fa2368e90fe755a55f6362a4da38",
-  "certificationImageDigest": "sha256:96a9298d992474606f912a883d877b646277e4a46f9f9e22d1784ecc8e85006c",
-  "certificationSchemaHash": "sha256:181eaec5285782a3ab29a553dce40fb7b72f88dd6617fb22a6f6b89e4379d165",
-  "certificationTestRunId": "RUN-1790834690917-6b320497",
-  "timestamp": "2026-10-01T06:04:50.913Z",
+  "certifiedCommit": "99d226d7b617afdee7626c386ffc6d607c8fc9aa",
+  "certificationCommitSha": "99d226d7b617afdee7626c386ffc6d607c8fc9aa",
+  "certificationImageDigest": "sha256:21b0a61a3220a39ac565c01f3e4f3631a95de4e72df617da44bae17b96c53fa5",
+  "certificationSchemaHash": "sha256:d7c698122af143d6eda3a2675631455be7d7cff6e545644a77ec9b7c1fc404d3",
+  "certificationTestRunId": "RUN-1790836371198-99d226d7",
+  "timestamp": "2026-10-01T06:32:51.192Z",
   "certificationMatrixSummary": {
     "totalGates": 25,
     "passedGates": 25,

@@ -3135,6 +3135,8 @@
       "lead",
       "motorQuotationId",
       "motorQuotation",
+      "caseId",
+      "case",
       "assignedToId",
       "assignedTo",
       "missingItems",
@@ -3293,6 +3295,7 @@
       "previousPolicySnapshot",
       "quotations",
       "documents",
+      "tasks",
       "createdAt",
       "updatedAt"
     ],

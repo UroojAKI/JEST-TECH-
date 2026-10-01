@@ -9,10 +9,12 @@ import {
   BackOfficeTaskStatus,
 } from '@prisma/client';
 import { NotFoundException } from '@nestjs/common';
+import { NumberingEngineService } from './numbering-engine.service';
 
 describe('TasksService', () => {
   let service: TasksService;
   let prisma: any;
+  let mockNumberingEngine: any;
 
   const mockTask = {
     id: 'task-1',
@@ -40,6 +42,10 @@ describe('TasksService', () => {
   };
 
   beforeEach(async () => {
+    mockNumberingEngine = {
+      generateNext: jest.fn().mockResolvedValue('BOT-000001'),
+    };
+
     prisma = {
       task: {
         count: jest.fn(),
@@ -57,10 +63,15 @@ describe('TasksService', () => {
         findUnique: jest.fn(),
         update: jest.fn(),
       },
+      $queryRaw: jest.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [TasksService, { provide: PrismaService, useValue: prisma }],
+      providers: [
+        TasksService,
+        { provide: PrismaService, useValue: prisma },
+        { provide: NumberingEngineService, useValue: mockNumberingEngine },
+      ],
     }).compile();
 
     service = module.get<TasksService>(TasksService);
@@ -199,6 +210,55 @@ describe('TasksService', () => {
           }),
         }),
       );
+    });
+
+    it('creates BackOfficeTask using NumberingEngineService and attaches caseId', async () => {
+      prisma.backOfficeTask.create.mockResolvedValue({
+        ...mockBoTask,
+        taskCode: 'BOT-000001',
+        caseId: 'case-123',
+      });
+
+      const res = await service.createBackOfficeTask(
+        {
+          taskType: 'POLICY_ISSUANCE',
+          priority: TaskPriority.MEDIUM,
+          leadId: 'lead-1',
+          motorQuotationId: 'quote-1',
+          caseId: 'case-123',
+        },
+        { id: 'user-1', role: RoleType.BACK_OFFICE, companyId: 'tenant-a' } as any,
+      );
+
+      expect(mockNumberingEngine.generateNext).toHaveBeenCalledWith('BOT');
+      expect(prisma.backOfficeTask.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            taskCode: 'BOT-000001',
+            companyId: 'tenant-a',
+            caseId: 'case-123',
+          }),
+        }),
+      );
+      expect(res.taskCode).toBe('BOT-000001');
+    });
+
+    // WF-010: Concurrency-safe task numbering
+    it('WF-010: generates unique task codes across 100 simultaneous calls', async () => {
+      let seq = 0;
+      prisma.$queryRaw.mockImplementation(async () => {
+        seq++;
+        return [{ nextval: BigInt(seq) }];
+      });
+
+      const engine = new NumberingEngineService(prisma);
+      const results = await Promise.all(
+        Array.from({ length: 100 }, () => engine.generateNext('BOT')),
+      );
+
+      const uniqueCodes = new Set(results);
+      expect(uniqueCodes.size).toBe(100);
+      expect(results.every((code) => /^BOT-\d{6}$/.test(code))).toBe(true);
     });
   });
 });
