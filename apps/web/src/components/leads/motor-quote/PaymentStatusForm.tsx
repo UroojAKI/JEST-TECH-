@@ -23,9 +23,15 @@ const PAYMENT_METHODS = ['Cash', 'Cheque', 'NEFT/RTGS', 'UPI', 'Credit Card', 'D
 export function PaymentStatusForm({ value, onChange, totalPremium, userRole }: Props) {
   const authUser = useAuthStore((s) => s.user);
   const activeRole = userRole || authUser?.role;
-  const isAgent = activeRole === 'AGENT' || activeRole === 'SALES_EXECUTIVE' || activeRole === 'POSP_ADVISOR' || activeRole === 'SALES_AGENT';
+  const roleUpper = String(activeRole || '').toUpperCase();
+  const canVerifyPaid =
+    roleUpper === 'ADMIN' ||
+    roleUpper === 'BACK_OFFICE' ||
+    roleUpper === 'SUPER_ADMIN' ||
+    roleUpper.includes('FINANCE') ||
+    roleUpper.includes('ACCOUNTANT');
 
-  const visibleOptions = isAgent
+  const visibleOptions = !canVerifyPaid
     ? PAYMENT_OPTIONS.filter((opt) => opt.value !== 'PAID')
     : PAYMENT_OPTIONS;
 
@@ -43,9 +49,9 @@ export function PaymentStatusForm({ value, onChange, totalPremium, userRole }: P
 
       <div className="space-y-3">
         <h3 className="text-xs font-extrabold uppercase tracking-widest text-foreground">Payment Status</h3>
-        {isAgent && (
+        {!canVerifyPaid && (
           <div className="text-[11px] text-muted-foreground bg-muted/40 border border-border/60 rounded-xl p-2.5">
-            <strong>Agent Notice:</strong> As a sales agent, you can record payment as <strong>Under Process</strong>. Formal payment verification (Paid) is reserved for Finance / Back Office.
+            <strong>Payment Authority Notice:</strong> Sales agents can record payment as <strong>Under Process</strong>. Formal verification and reconciliation (PAID) is strictly reserved for Finance / Back Office.
           </div>
         )}
         {visibleOptions.map(({ value: v, label, description, icon, color }) => (

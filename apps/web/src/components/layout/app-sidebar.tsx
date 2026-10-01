@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useSearchParams } from 'next/navigation';
 import {
   LayoutDashboard,
   Users,
@@ -82,8 +82,25 @@ const ICON_MAP: Record<string, React.ReactNode> = {
   Folder: <FileText className="h-4 w-4" />,
 };
 
+function isItemActive(currentPath: string, currentSearch: string, targetHref: string): boolean {
+  if (!targetHref) return false;
+  if (targetHref.includes('?')) {
+    const [targetPath, targetQuery] = targetHref.split('?');
+    if (currentPath !== targetPath) return false;
+    const currentParams = new URLSearchParams(currentSearch);
+    const targetParams = new URLSearchParams(targetQuery);
+    for (const [key, value] of targetParams.entries()) {
+      if (currentParams.get(key) !== value) return false;
+    }
+    return true;
+  }
+  return currentPath === targetHref || currentPath.startsWith(targetHref + '/');
+}
+
 export function AppSidebar() {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const currentSearch = searchParams?.toString() || '';
   const { canAccess } = usePermissions();
   const isSidebarOpen = useUIStore((s) => s.isSidebarOpen);
   const user = useAuthStore((s) => s.user);
@@ -114,10 +131,9 @@ export function AppSidebar() {
       if (hasChildren) {
         // Auto-open the group if the current path belongs to it
         const isGroupActive =
-          pathname === item.href ||
-          pathname.startsWith(item.href + '/') ||
+          isItemActive(pathname, currentSearch, item.href) ||
           (item.children || []).some(
-            (child) => pathname === child.href || pathname.startsWith(child.href + '/')
+            (child) => isItemActive(pathname, currentSearch, child.href)
           );
         initial[item.id] = isGroupActive;
       }
@@ -133,10 +149,9 @@ export function AppSidebar() {
         const hasChildren = item.children && item.children.length > 0;
         if (hasChildren) {
           const isGroupActive =
-            pathname === item.href ||
-            pathname.startsWith(item.href + '/') ||
+            isItemActive(pathname, currentSearch, item.href) ||
             (item.children || []).some(
-              (child) => pathname === child.href || pathname.startsWith(child.href + '/')
+              (child) => isItemActive(pathname, currentSearch, child.href)
             );
           if (isGroupActive) {
             next[item.id] = true;
@@ -145,7 +160,7 @@ export function AppSidebar() {
       });
       return next;
     });
-  }, [pathname, filteredNav]);
+  }, [pathname, currentSearch, filteredNav]);
 
   const toggleSubmenu = (id: string) => {
     setOpenChildren((prev) => ({ ...prev, [id]: !prev[id] }));
@@ -211,13 +226,12 @@ export function AppSidebar() {
           if (hasChildren && filteredChildren.length === 0) return null;
 
           // Determine if any child is the active route
-          const isChildActive = filteredChildren.some(
-            (child) => pathname === child.href || pathname.startsWith(child.href + '/')
+          const isChildActive = filteredChildren.some((child) =>
+            isItemActive(pathname, currentSearch, child.href)
           );
           // For leaf items (no children), check if this item itself is active
           const isLeafActive =
-            !hasChildren &&
-            (pathname === item.href || pathname.startsWith(item.href + '/'));
+            !hasChildren && isItemActive(pathname, currentSearch, item.href);
 
           // Parent group is highlighted if a child is active OR if it's itself active
           const isGroupHighlighted = isChildActive || isLeafActive;
@@ -263,8 +277,11 @@ export function AppSidebar() {
               {hasChildren && isExpanded && (
                 <div className="ml-3 pl-3 border-l border-border/60 space-y-0.5">
                   {filteredChildren.map((child) => {
-                    const isChildItemActive =
-                      pathname === child.href || pathname.startsWith(child.href + '/');
+                    const isChildItemActive = isItemActive(
+                      pathname,
+                      currentSearch,
+                      child.href
+                    );
                     return (
                       <Link
                         key={child.id}

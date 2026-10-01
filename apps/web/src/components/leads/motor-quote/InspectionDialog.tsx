@@ -64,14 +64,19 @@ export function InspectionDialog({
       const res = await apiClient.get(`/motor/inspections/${quotationId}`);
       if (res.data) {
         setServerInspection(res.data);
-      } else {
-        // Fallback: create inspection aggregate if absent
+      } else if (isBackOfficeOrAdmin) {
+        // Back office can initialize inspection aggregate
         const createRes = await apiClient.post('/motor/inspections', { quotationId });
         setServerInspection(createRes.data);
+      } else {
+        // Agent sees pending initiation state
+        setServerInspection(null);
       }
     } catch (e: any) {
       console.error('Failed to load inspection:', e);
-      toast.error(e?.response?.data?.message || 'Failed to load inspection details');
+      if (isBackOfficeOrAdmin) {
+        toast.error(e?.response?.data?.message || 'Failed to load inspection details');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -294,9 +299,19 @@ export function InspectionDialog({
                 </div>
               )}
 
-              {/* Show inspection form if not in completed/waived state */}
+              {/* Show inspection form for Back Office, or informative note for Agents */}
               {status !== 'COMPLETED' && status !== 'WAIVED' && (
-                <InspectionForm value={inspection} onChange={setInspection} />
+                isBackOfficeOrAdmin ? (
+                  <InspectionForm value={inspection} onChange={setInspection} />
+                ) : (
+                  <div className="p-4 rounded-xl border border-muted bg-muted/20 text-xs text-muted-foreground flex items-center gap-3">
+                    <ShieldCheck className="h-5 w-5 shrink-0 text-primary" />
+                    <div>
+                      <div className="font-bold text-foreground">Underwriting Process</div>
+                      Pre-issuance vehicle inspection evidence recording and approval is operated by the Back Office Underwriting team. As soon as Back Office verifies the inspection, this gate will clear automatically.
+                    </div>
+                  </div>
+                )
               )}
             </>
           )}
@@ -305,12 +320,12 @@ export function InspectionDialog({
         {/* Footer Actions */}
         <div className="px-6 py-4 border-t bg-card flex items-center justify-between">
           <div className="text-xs text-muted-foreground">
-            {uploadedCount}/7 photos selected locally
+            {isBackOfficeOrAdmin ? `${uploadedCount}/7 photos selected locally` : 'Underwriting Verification'}
           </div>
 
           <div className="flex items-center gap-2">
-            {/* Agent Action: Submit for Review */}
-            {status !== 'COMPLETED' && status !== 'WAIVED' && status !== 'SUBMITTED_FOR_REVIEW' && (
+            {/* Back Office Action: Submit for Review */}
+            {isBackOfficeOrAdmin && status !== 'COMPLETED' && status !== 'WAIVED' && status !== 'SUBMITTED_FOR_REVIEW' && (
               <button
                 type="button"
                 onClick={handleSubmitForReview}

@@ -182,7 +182,7 @@ export class MotorInspectionService {
         inspectorName: dto.inspectorName,
         inspectorPhone: dto.inspectorPhone,
         inspectorEmail: dto.inspectorEmail,
-        inspectorCompany: dto.inspectorCompany || 'JEST Inspection Network',
+        inspectorCompany: dto.inspectorCompany || null,
         inspectorEmployeeId: dto.inspectorEmployeeId,
         inspectorUserId: dto.inspectorUserId,
         inspectionDate: dto.inspectionDate

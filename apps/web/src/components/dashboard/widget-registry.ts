@@ -3,6 +3,9 @@ import { RevenueTrendWidget } from './widgets/RevenueTrendWidget';
 import { LeadFunnelWidget } from './widgets/LeadFunnelWidget';
 import { FilteredActivityTimelineWidget } from './widgets/FilteredActivityTimelineWidget';
 import { RoleQuickActionsWidget } from './widgets/RoleQuickActionsWidget';
+import { ClaimsDistributionWidget } from './widgets/ClaimsDistributionWidget';
+import { RenewalsForecastWidget } from './widgets/RenewalsForecastWidget';
+import { TeamLeaderboardWidget } from './widgets/TeamLeaderboardWidget';
 
 // Workspaces (these DO use default exports)
 import ManagingDirectorDashboard from './workspaces/ManagingDirectorDashboard';
@@ -40,7 +43,7 @@ export const WIDGET_REGISTRY: WidgetConfig[] = [
     priority: 'MEDIUM',
     permissions: ['claim:read'],
     gridSpan: 'col-span-12 md:col-span-6',
-    component: null as any,
+    component: ClaimsDistributionWidget,
   },
   {
     id: 'renewals-forecast',
@@ -49,7 +52,7 @@ export const WIDGET_REGISTRY: WidgetConfig[] = [
     priority: 'HIGH',
     permissions: ['policy:read'],
     gridSpan: 'col-span-12 md:col-span-6',
-    component: null as any,
+    component: RenewalsForecastWidget,
   },
   {
     id: 'activity-timeline',
@@ -66,7 +69,7 @@ export const WIDGET_REGISTRY: WidgetConfig[] = [
     priority: 'LOW',
     roles: ['SUPER_ADMIN', 'ADMIN', 'BRANCH_MANAGER'],
     gridSpan: 'col-span-12 md:col-span-4',
-    component: null as any,
+    component: TeamLeaderboardWidget,
   },
   {
     id: 'managing-director',

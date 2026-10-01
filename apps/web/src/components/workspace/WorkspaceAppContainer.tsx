@@ -1,35 +1,20 @@
 'use client';
 
 import React from 'react';
-import { WorkspaceHeader } from './WorkspaceHeader';
-import { UnifiedSidebar } from './UnifiedSidebar';
+import { AppShell } from '../layout/app-shell';
 import { WorkspaceBreadcrumb } from './WorkspaceBreadcrumb';
-import NotificationDrawer from '../dashboard/notification-drawer';
-import { useUIStore } from '../../store/ui-store';
 
 interface WorkspaceAppContainerProps {
   children: React.ReactNode;
 }
 
 export function WorkspaceAppContainer({ children }: WorkspaceAppContainerProps) {
-  const isNotificationDrawerOpen = useUIStore((s) => s.isNotificationDrawerOpen);
-  const setNotificationDrawerOpen = useUIStore((s) => s.setNotificationDrawerOpen);
-
   return (
-    <div className="min-h-screen bg-background text-foreground flex flex-col font-sans antialiased">
-      <WorkspaceHeader />
-      <div className="flex-1 flex overflow-hidden">
-        <UnifiedSidebar />
-        <main className="flex-1 overflow-y-auto p-4 sm:p-6 md:p-8 space-y-6">
-          <WorkspaceBreadcrumb />
-          {children}
-        </main>
+    <AppShell>
+      <div className="space-y-6">
+        <WorkspaceBreadcrumb />
+        {children}
       </div>
-
-      <NotificationDrawer
-        isOpen={isNotificationDrawerOpen}
-        onClose={() => setNotificationDrawerOpen(false)}
-      />
-    </div>
+    </AppShell>
   );
 }

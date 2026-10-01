@@ -16,6 +16,8 @@ export type Permission =
   | 'lead:create'
   | 'lead:update'
   | 'lead:delete'
+  | 'quotation:read'
+  | 'quotation:create'
   | 'policy:read'
   | 'policy:create'
   | 'policy:issue'
