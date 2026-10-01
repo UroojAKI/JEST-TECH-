@@ -6,13 +6,13 @@
   ],
   "title": "Certification truth (zero fake scores, machine-validated audit schema)",
   "remediatingEpic": "EPIC-42",
-  "implementationCommit": "99d226d7b617afdee7626c386ffc6d607c8fc9aa",
-  "testCommit": "99d226d7b617afdee7626c386ffc6d607c8fc9aa",
+  "implementationCommit": "ed1b16c172b661be221cbfc2a1889a5ef0450650",
+  "testCommit": "ed1b16c172b661be221cbfc2a1889a5ef0450650",
   "environment": "staging",
   "environmentBuild": "v4.2.0-prod-rebuild",
   "databaseMigrationVersion": "20260908_epic05_schema_invariants",
   "schemaHash": "sha256:d7c698122af143d6eda3a2675631455be7d7cff6e545644a77ec9b7c1fc404d3",
-  "containerImageDigest": "sha256:21b0a61a3220a39ac565c01f3e4f3631a95de4e72df617da44bae17b96c53fa5",
+  "containerImageDigest": "sha256:a35bae907adab0ae9ef327ee6cf25bda2f08aefc01f2d3420837aa689ce78982",
   "testDataVersion": "v4.2.0-clean-seed",
   "testRunId": "TR-PROD-022-CERT-2026",
   "primaryTestPath": "src/common/certification/prod-gates.spec.ts#PROD-022",
@@ -20,5 +20,5 @@
   "alternatePathTestPath": "certification/RELEASE_CERTIFICATE_PRODUCTION.json",
   "result": "PASS",
   "reviewer": "Lead Systems Architect & Security Auditor",
-  "timestamp": "2026-10-01T06:32:51.192Z"
+  "timestamp": "2026-10-01T10:48:15.098Z"
 }
