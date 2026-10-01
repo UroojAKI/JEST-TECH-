@@ -1,15 +1,15 @@
 {
-  "generatedAt": "2026-10-01T06:32:44.209Z",
-  "gitSha": "99d226d7b617afdee7626c386ffc6d607c8fc9aa",
+  "generatedAt": "2026-10-01T07:04:44.471Z",
+  "gitSha": "6634d0474d1e6704e185f95d875eb5be7f1e3a89",
   "roles": [
     "ADMIN",
     "BACK_OFFICE",
     "AGENT"
   ],
   "roleSummary": {
-    "ADMIN": 240,
-    "BACK_OFFICE": 173,
-    "AGENT": 105
+    "ADMIN": 242,
+    "BACK_OFFICE": 175,
+    "AGENT": 107
   },
   "matrix": [
     {
@@ -1233,6 +1233,17 @@
     },
     {
       "controller": "MotorQuotationCaseController",
+      "endpoint": "POST /motor/quotation-cases/:id/submit",
+      "allowedRoles": [
+        "AGENT",
+        "BACK_OFFICE",
+        "ADMIN"
+      ],
+      "agentAllowed": true,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "MotorQuotationCaseController",
       "endpoint": "GET /motor/quotation-cases/:id/compare",
       "allowedRoles": [
         "AGENT",
@@ -1407,11 +1418,22 @@
     },
     {
       "controller": "MotorController",
-      "endpoint": "GET /motor/categories",
+      "endpoint": "POST /motor/cases/:id/submit",
       "allowedRoles": [
         "ADMIN",
         "BACK_OFFICE",
         "AGENT"
+      ],
+      "agentAllowed": true,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "MotorController",
+      "endpoint": "GET /motor/categories",
+      "allowedRoles": [
+        "AGENT",
+        "BACK_OFFICE",
+        "ADMIN"
       ],
       "agentAllowed": true,
       "hasRolesGuard": true
@@ -3347,10 +3369,10 @@
     }
   ],
   "summary": {
-    "totalEndpoints": 416,
-    "roleGuarded": 241,
+    "totalEndpoints": 418,
+    "roleGuarded": 243,
     "unguarded": 175,
-    "agentAccessibleEndpoints": 105,
+    "agentAccessibleEndpoints": 107,
     "adminOnlyEndpoints": 56
   }
 }

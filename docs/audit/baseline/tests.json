@@ -639,14 +639,15 @@
   },
   {
     "file": "apps/api/src/modules/motor/services/motor-quotation-case.service.spec.ts",
-    "testCount": 11,
+    "testCount": 16,
     "describes": [
       "MotorQuotationCaseService",
       "createCase",
       "getCase",
       "selectQuotation",
       "compareCaseQuotations",
-      "Lifecycle State Machine (MOTOR-0010)"
+      "Lifecycle State Machine (MOTOR-0010)",
+      "submitCase (WF-006B)"
     ],
     "module": "motor"
   },
@@ -1053,13 +1054,15 @@
   },
   {
     "file": "apps/api/src/modules/tasks/tasks.service.spec.ts",
-    "testCount": 8,
+    "testCount": 19,
     "describes": [
       "TasksService",
       "getTasksToday",
       "create",
       "complete",
-      "Back Office Queue"
+      "Back Office Queue",
+      "6-Point Task Assignment Validation (Wave 3)",
+      "Domain Command Task Resolution (Wave 3)"
     ],
     "module": "tasks"
   },

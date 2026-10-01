@@ -95,6 +95,20 @@ export class MotorQuotationCaseController {
     return this.caseService.selectQuotation(id, dto.quotationId, user);
   }
 
+  @Post(':id/submit')
+  @HttpCode(HttpStatus.OK)
+  @Roles(RoleType.AGENT, RoleType.BACK_OFFICE, RoleType.ADMIN)
+  @ApiOperation({
+    summary: 'Submit Motor Quotation Case for Back Office review (WF-006B)',
+    description: 'Validates winning quote selection, transitions case to SUBMITTED_FOR_REVIEW, and creates BackOfficeTask.',
+  })
+  async submitCase(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.caseService.submitCase(id, user);
+  }
+
   @Get(':id/compare')
   @HttpCode(HttpStatus.OK)
   @Roles(RoleType.AGENT, RoleType.BACK_OFFICE, RoleType.ADMIN)

@@ -52,6 +52,16 @@ export interface BackOfficeQueueItem {
     finalPremium: number;
     vehicle?: { id: string; registrationNumber: string; make?: string; model?: string };
   };
+  caseId?: string | null;
+  case?: {
+    id: string;
+    caseCode: string;
+    status: string;
+    category?: string;
+    registrationNumber?: string | null;
+    vehicleStatus?: string;
+    selectedQuoteId?: string | null;
+  } | null;
   createdAt: string;
 }
 

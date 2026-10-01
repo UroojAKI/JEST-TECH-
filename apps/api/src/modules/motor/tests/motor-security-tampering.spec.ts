@@ -22,6 +22,7 @@ import {
   MotorDocumentType,
   RoleType,
 } from '@prisma/client';
+import { MotorCaseStateMachineService } from '../services/motor-case-state-machine.service';
 
 describe('Phase 8: Motor Security & Financial Tampering Gates', () => {
   let caseService: MotorQuotationCaseService;
@@ -179,6 +180,10 @@ describe('Phase 8: Motor Security & Financial Tampering Gates', () => {
         {
           provide: TenantResourceAuthorizationService,
           useValue: tenantAuthService,
+        },
+        {
+          provide: MotorCaseStateMachineService,
+          useValue: { transition: jest.fn() },
         },
       ],
     }).compile();

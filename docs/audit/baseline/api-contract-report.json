@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-01T06:32:37.631Z",
+  "generatedAt": "2026-10-01T07:04:37.612Z",
   "mismatches": [
     {
       "frontendCall": "GET /admin/organization/branches?limit=100",
@@ -669,8 +669,8 @@
       "classification": "UNUSED"
     },
     {
-      "method": "GET",
-      "path": "/motor/quotation-cases/:param",
+      "method": "POST",
+      "path": "/motor/quotation-cases/:param/submit",
       "controller": "MotorQuotationCaseController",
       "file": "apps/api/src/modules/motor/controllers/motor-quotation-case.controller.ts",
       "classification": "UNUSED"
@@ -778,6 +778,13 @@
       "path": "/motor/quotations/:param/policy-gate",
       "controller": "MotorWorkflowController",
       "file": "apps/api/src/modules/motor/motor-workflow.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "POST",
+      "path": "/motor/cases/:param/submit",
+      "controller": "MotorController",
+      "file": "apps/api/src/modules/motor/motor.controller.ts",
       "classification": "UNUSED"
     },
     {
@@ -1335,15 +1342,15 @@
     }
   ],
   "summary": {
-    "totalFrontendCalls": 288,
-    "matched": 281,
+    "totalFrontendCalls": 289,
+    "matched": 282,
     "unmatched": 7,
-    "uncalledBackend": 183,
+    "uncalledBackend": 184,
     "uncalledByClassification": {
       "WEBHOOK": 1,
       "CRON": 3,
       "INTERNAL": 8,
-      "UNUSED": 171
+      "UNUSED": 172
     }
   }
 }

@@ -978,6 +978,15 @@
   },
   {
     "file": "apps/api/src/modules/motor/controllers/motor-quotation-case.controller.ts",
+    "endpoint": "POST /motor/quotation-cases/:id/submit",
+    "roles": [
+      "AGENT",
+      "BACK_OFFICE",
+      "ADMIN"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/motor/controllers/motor-quotation-case.controller.ts",
     "endpoint": "GET /motor/quotation-cases/:id/compare",
     "roles": [
       "AGENT",
@@ -1120,11 +1129,20 @@
   },
   {
     "file": "apps/api/src/modules/motor/motor.controller.ts",
-    "endpoint": "GET /motor/categories",
+    "endpoint": "POST /motor/cases/:id/submit",
     "roles": [
       "ADMIN",
       "BACK_OFFICE",
       "AGENT"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/motor/motor.controller.ts",
+    "endpoint": "GET /motor/categories",
+    "roles": [
+      "AGENT",
+      "BACK_OFFICE",
+      "ADMIN"
     ]
   },
   {

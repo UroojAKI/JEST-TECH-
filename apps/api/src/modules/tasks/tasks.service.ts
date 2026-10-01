@@ -10,6 +10,7 @@ import {
   Prisma,
   TaskStatus,
   BackOfficeTaskStatus,
+  MotorCaseStatus,
 } from '@prisma/client';
 import { CreateTaskDto } from './dto/create-task.dto';
 import { UpdateTaskDto } from './dto/update-task.dto';
@@ -18,12 +19,14 @@ import { CreateBackOfficeTaskDto } from './dto/create-back-office-task.dto';
 import { ResolveBackOfficeTaskDto } from './dto/resolve-back-office-task.dto';
 import type { RequestUser } from '../auth/decorators/current-user.decorator';
 import { NumberingEngineService } from './numbering-engine.service';
+import { MotorCaseStateMachineService } from '../motor/services/motor-case-state-machine.service';
 
 @Injectable()
 export class TasksService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly numberingEngine: NumberingEngineService,
+    private readonly stateMachine: MotorCaseStateMachineService,
   ) {}
 
   async getTasksToday(user: RequestUser) {
@@ -373,6 +376,17 @@ export class TasksService {
             },
           },
         },
+        case: {
+          select: {
+            id: true,
+            caseCode: true,
+            status: true,
+            category: true,
+            registrationNumber: true,
+            vehicleStatus: true,
+            selectedQuoteId: true,
+          },
+        },
       },
     });
 
@@ -407,6 +421,7 @@ export class TasksService {
             agent: true,
           },
         },
+        case: true,
       },
     });
 
@@ -448,14 +463,80 @@ export class TasksService {
     });
   }
 
+  /**
+   * 6-Point Task Assignment Validation (Wave 3)
+   * 1. Task exists & non-deleted
+   * 2. Caller tenant isolation (task belongs to user's companyId)
+   * 3. Assignee user exists
+   * 4. Assignee tenant match (assignee belongs to caller's companyId)
+   * 5. Assignee role check (fail-closed: only BACK_OFFICE or ADMIN, not AGENT)
+   * 6. Assignee active check (isActive === true and deletedAt === null)
+   */
   async assignBackOfficeTask(
     id: string,
     assignedToId: string,
     user: RequestUser,
   ) {
-    await this.getBackOfficeTaskById(id, user);
+    const callerCompanyId = user.companyId || (user as any).organizationId;
 
-    return this.prisma.backOfficeTask.update({
+    // Point 1 & 2: Task existence and tenant isolation
+    const task = await this.prisma.backOfficeTask.findFirst({
+      where: { id, deletedAt: null },
+    });
+
+    if (!task) {
+      throw new NotFoundException(`Back Office Task '${id}' not found`);
+    }
+
+    if (callerCompanyId && task.companyId !== callerCompanyId) {
+      // Fail-closed tenant isolation
+      throw new NotFoundException(`Back Office Task '${id}' not found`);
+    }
+
+    // Point 3: Assignee user existence
+    const assignee = await this.prisma.user.findFirst({
+      where: { id: assignedToId },
+      include: {
+        role: true,
+      },
+    });
+
+    if (!assignee) {
+      throw new NotFoundException(`Assignee user '${assignedToId}' not found`);
+    }
+
+    // Point 4: Assignee tenant isolation
+    if (callerCompanyId && assignee.companyId !== callerCompanyId) {
+      throw new ForbiddenException(
+        'Cannot assign task to a user belonging to a different tenant organization',
+      );
+    }
+
+    // Point 5: Assignee role authorization (BACK_OFFICE or ADMIN only)
+    const allowedRoles: string[] = [RoleType.BACK_OFFICE, RoleType.ADMIN];
+    const assigneeRoleType =
+      (assignee.role as any)?.type || (typeof assignee.role === 'string' ? assignee.role : (assignee as any).roleType);
+
+    if (!assigneeRoleType || !allowedRoles.includes(assigneeRoleType)) {
+      throw new ForbiddenException(
+        `Cannot assign Back Office task to user with role '${assigneeRoleType || 'NONE'}'. Only BACK_OFFICE or ADMIN roles are permitted.`,
+      );
+    }
+
+    // Point 6: Assignee active status
+    const isInactive =
+      (assignee as any).status !== undefined
+        ? (assignee as any).status !== 'ACTIVE'
+        : (assignee as any).isActive === false;
+
+    if (isInactive || assignee.deletedAt !== null) {
+      throw new BadRequestException(
+        'Cannot assign task to an inactive or deactivated user account',
+      );
+    }
+
+    // All 6 points passed -> update task
+    const updatedTask = await this.prisma.backOfficeTask.update({
       where: { id },
       data: {
         assignedToId,
@@ -463,18 +544,104 @@ export class TasksService {
       },
       include: {
         assignedTo: {
-          select: { id: true, firstName: true, lastName: true, email: true },
+          select: { id: true, firstName: true, lastName: true, email: true, role: true },
         },
+        case: true,
       },
     });
+
+    // Advance associated case to BACK_OFFICE_REVIEW if currently in SUBMITTED_FOR_REVIEW
+    if (task.caseId && this.stateMachine) {
+      try {
+        const motorCase = await this.prisma.motorQuotationCase.findUnique({
+          where: { id: task.caseId },
+          select: { status: true },
+        });
+        if (motorCase && motorCase.status === MotorCaseStatus.SUBMITTED_FOR_REVIEW) {
+          await this.stateMachine.transition(
+            task.caseId,
+            'BEGIN_REVIEW',
+            user,
+            { reason: `Task assigned to ${assignee.firstName || ''} ${assignee.lastName || ''}`.trim() },
+          );
+        }
+      } catch {
+        // Non-blocking if state already advanced
+      }
+    }
+
+    return updatedTask;
   }
 
+  /**
+   * Domain Command Task Resolution (Wave 3)
+   * Resolves task and drives canonical state machine transitions on associated caseId.
+   */
   async resolveBackOfficeTask(
     id: string,
     dto: ResolveBackOfficeTaskDto,
     user: RequestUser,
   ) {
-    await this.getBackOfficeTaskById(id, user);
+    const task = await this.getBackOfficeTaskById(id, user);
+
+    const roles = (user as any).roles?.length ? (user as any).roles : user.role ? [user.role] : [];
+    const isBackOfficeOrAdmin =
+      roles.includes('ADMIN') ||
+      roles.includes('BACK_OFFICE') ||
+      roles.includes(RoleType.ADMIN) ||
+      roles.includes(RoleType.BACK_OFFICE);
+
+    if (!isBackOfficeOrAdmin) {
+      throw new ForbiddenException(
+        'Only Back Office operators or Administrators may resolve back-office tasks.',
+      );
+    }
+
+    // Domain command coordination with underlying case state machine
+    if (task.caseId && this.stateMachine) {
+      const motorCase = await this.prisma.motorQuotationCase.findUnique({
+        where: { id: task.caseId },
+        select: { status: true },
+      });
+
+      if (motorCase) {
+        if (dto.status === BackOfficeTaskStatus.VERIFIED) {
+          if (motorCase.status === MotorCaseStatus.SUBMITTED_FOR_REVIEW) {
+            await this.stateMachine.transition(
+              task.caseId,
+              'BEGIN_REVIEW',
+              user,
+              { reason: 'Back Office started task review' },
+            );
+          }
+          const currentCaseStatus = (await this.prisma.motorQuotationCase.findUnique({
+            where: { id: task.caseId },
+            select: { status: true },
+          }))?.status;
+
+          if (currentCaseStatus === MotorCaseStatus.BACK_OFFICE_REVIEW) {
+            await this.stateMachine.transition(
+              task.caseId,
+              'VERIFY_DOCUMENTS',
+              user,
+              { reason: dto.verificationNotes || 'Back Office verified all proposal documents' },
+            );
+          }
+        } else if (dto.status === BackOfficeTaskStatus.REJECTED) {
+          if (
+            motorCase.status === MotorCaseStatus.SUBMITTED_FOR_REVIEW ||
+            motorCase.status === MotorCaseStatus.BACK_OFFICE_REVIEW
+          ) {
+            await this.stateMachine.transition(
+              task.caseId,
+              'REQUEST_REWORK',
+              user,
+              { reason: dto.rejectedReason || 'Task rejected by Back Office' },
+            );
+          }
+        }
+      }
+    }
 
     return this.prisma.backOfficeTask.update({
       where: { id },
@@ -483,6 +650,12 @@ export class TasksService {
         verificationNotes: dto.verificationNotes || null,
         rejectedReason: dto.rejectedReason || null,
         resolvedAt: new Date(),
+      },
+      include: {
+        assignedTo: {
+          select: { id: true, firstName: true, lastName: true, email: true },
+        },
+        case: true,
       },
     });
   }

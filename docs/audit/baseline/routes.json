@@ -492,6 +492,16 @@
     "status": "STATIC"
   },
   {
+    "route": "/workspace/(app)/operations/cases/[caseId]",
+    "pageFile": "apps/web/src/app/workspace/(app)/operations/cases/[caseId]/page.tsx",
+    "apiCalls": [
+      "GET /motor/quotation-cases/${caseId}",
+      "GET /motor/quotation-cases/${caseId}/available-commands",
+      "POST /motor/quotation-cases/${caseId}/command"
+    ],
+    "status": "WORKING"
+  },
+  {
     "route": "/workspace/(app)/renewal",
     "pageFile": "apps/web/src/app/workspace/(app)/renewal/page.tsx",
     "apiCalls": [],

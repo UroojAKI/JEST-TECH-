@@ -1917,6 +1917,15 @@
     "hasTenantScope": false
   },
   {
+    "method": "POST",
+    "path": "/motor/quotation-cases/:id/submit",
+    "controller": "MotorQuotationCaseController",
+    "file": "apps/api/src/modules/motor/controllers/motor-quotation-case.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": false
+  },
+  {
     "method": "GET",
     "path": "/motor/quotation-cases/:id/compare",
     "controller": "MotorQuotationCaseController",
@@ -2092,6 +2101,15 @@
     "path": "/motor/quotations/:id/workflow-projection",
     "controller": "MotorWorkflowController",
     "file": "apps/api/src/modules/motor/motor-workflow.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": true
+  },
+  {
+    "method": "POST",
+    "path": "/motor/cases/:id/submit",
+    "controller": "MotorController",
+    "file": "apps/api/src/modules/motor/motor.controller.ts",
     "hasRolesGuard": true,
     "roles": [],
     "hasTenantScope": true

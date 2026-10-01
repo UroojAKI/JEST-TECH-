@@ -68,7 +68,7 @@ export const CASE_TRANSITION_RULES: Record<CaseCommand, TransitionRule> = {
     command: 'SUBMIT_FOR_REVIEW',
     from: [MotorCaseStatus.PROPOSAL_READY, MotorCaseStatus.RESUBMITTED, MotorCaseStatus.SELECTED],
     to: MotorCaseStatus.SUBMITTED_FOR_REVIEW,
-    allowedRoles: [RoleType.ADMIN, RoleType.AGENT],
+    allowedRoles: [RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT],
   },
   BEGIN_REVIEW: {
     command: 'BEGIN_REVIEW',
