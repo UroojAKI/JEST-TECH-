@@ -590,6 +590,7 @@ model Contact {
 
   quotations Quotation[]
   motorQuotationCases MotorQuotationCase[]
+  healthQuotationCases HealthQuotationCase[]
 
   policies  Policy[]
   claims    Claim[]
@@ -764,6 +765,7 @@ model Lead {
   quotations          Quotation[]
   motorQuotations     MotorQuotation[]     @relation("LeadMotorQuotations")
   motorQuotationCases MotorQuotationCase[]
+  healthQuotationCases HealthQuotationCase[]
   vehicles            Vehicle[]            @relation("LeadVehicles")
   tasks           Task[]           @relation("LeadTasks")
   backOfficeTasks BackOfficeTask[] @relation("LeadBackOfficeTasks")
@@ -1182,6 +1184,14 @@ model Quotation {
   selectedInCases MotorQuotationCase[]     @relation("SelectedCaseQuote")
   motorDocuments  MotorQuotationDocument[]
 
+  // Health Quotation Case relations
+  healthCaseId          String?
+  healthCase            HealthQuotationCase?      @relation("HealthCaseQuotations", fields: [healthCaseId], references: [id], onDelete: SetNull)
+  selectedInHealthCases HealthQuotationCase[]     @relation("SelectedHealthCaseQuote")
+  healthDocuments       HealthQuotationDocument[]
+  healthPlanCategory    HealthPlanCategory?
+  healthMetadata        Json? // Health premium / rider / commission data (Forms i, ii, iii)
+
   // Motor module relations
   motorJourney        MotorJourney?
   motorPreviousPolicy MotorPreviousPolicy?
@@ -1205,6 +1215,7 @@ model Quotation {
   @@index([companyId])
   @@index([agentId])
   @@index([caseId])
+  @@index([healthCaseId])
   @@unique([companyId, id])
   @@map("quotations")
 }
@@ -1873,6 +1884,7 @@ model Document {
   proposalDocuments       ProposalDocument[]
   endorsementDocuments    EndorsementDocument[]
   motorQuotationDocuments MotorQuotationDocument[]
+  healthQuotationDocuments HealthQuotationDocument[]
 
   @@index([entityType, entityId])
   @@index([uploadedById])
@@ -2887,6 +2899,8 @@ model Company {
   vehicles               Vehicle[]               @relation("CompanyVehicles")
   motorQuotationCases    MotorQuotationCase[]
   motorQuotationDocuments MotorQuotationDocument[]
+  healthQuotationCases     HealthQuotationCase[]
+  healthQuotationDocuments HealthQuotationDocument[]
 
   @@index([taxId])
 }
@@ -3470,6 +3484,8 @@ model FamilyMember {
   updatedAt    DateTime  @updatedAt
 
   contact Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  healthInsuredMembers HealthInsuredMember[]
 
   @@index([contactId])
 }
@@ -4604,3 +4620,190 @@ model MotorQuotationDocument {
 
 
 
+// =============================================================================
+// HEALTH INSURANCE CRM (Health_Insurance_CRM_Forms)
+// =============================================================================
+
+// 8 plan categories (PDF sections 1.1 - 1.8)
+enum HealthPlanCategory {
+  INDIVIDUAL
+  FAMILY_FLOATER
+  SENIOR_CITIZEN
+  CRITICAL_ILLNESS
+  TOP_UP
+  GROUP_CORPORATE
+  PERSONAL_ACCIDENT
+  MISCELLANEOUS
+}
+
+// 3 policy forms per category: (i) New, (ii) Renewal / Portability, (iii) Riders
+enum HealthPolicyForm {
+  NEW_POLICY
+  RENEWAL_PORTABILITY
+  RIDERS_ADDON
+}
+
+enum HealthCaseStatus {
+  OPEN
+  QUOTED
+  SELECTED
+  COMPLETED
+  CANCELLED
+}
+
+// Common field 5: Self / Spouse / Child / Parent / Other
+enum InsuredRelation {
+  SELF
+  SPOUSE
+  CHILD
+  PARENT
+  OTHER
+}
+
+// Common field 19: Spouse / Child / Parent / Sibling / Other
+enum NomineeRelation {
+  SPOUSE
+  CHILD
+  PARENT
+  SIBLING
+  OTHER
+}
+
+// Common field 13
+enum ProposerOccupation {
+  SALARIED
+  SELF_EMPLOYED
+  BUSINESS
+  PROFESSIONAL
+  HOMEMAKER
+  STUDENT
+  RETIRED
+}
+
+// Section C document checklists (all categories) + quote upload
+enum HealthDocumentType {
+  PROPOSAL_FORM
+  KYC_DOCUMENTS
+  AGE_PROOF
+  MEDICAL_TEST_REPORTS
+  PREVIOUS_POLICY
+  PORTABILITY_FORM
+  GOOD_HEALTH_DECLARATION
+  RELATIONSHIP_PROOF
+  DETAILED_MEDICAL_REPORTS
+  ILLNESS_MEDICATION_DECLARATION
+  BASE_POLICY_COPY
+  BASE_POLICY_CLAIMS_HISTORY
+  MASTER_POLICY_RULES
+  EMPLOYEE_CENSUS
+  HR_AUTHORIZATION
+  OCCUPATION_PROOF
+  INCOME_PROOF
+  TRAVEL_ITINERARY
+  QUOTE_DOCUMENT
+  OTHER
+}
+
+// One Health proposal. Holds many quotes (Quotation) and many insured members.
+model HealthQuotationCase {
+  id           String             @id @default(uuid())
+  companyId    String
+  company      Company            @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  caseCode     String             @unique
+  planCategory HealthPlanCategory
+  policyForm   HealthPolicyForm   @default(NEW_POLICY)
+  status       HealthCaseStatus   @default(OPEN)
+
+  contactId       String
+  contact         Contact    @relation(fields: [contactId], references: [id], onDelete: Restrict)
+  leadId          String?
+  lead            Lead?      @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  selectedQuoteId String?
+  selectedQuote   Quotation? @relation("SelectedHealthCaseQuote", fields: [selectedQuoteId], references: [id], onDelete: SetNull)
+
+  // Proposer fields not on Contact (common fields 10, 13, 14)
+  occupation      ProposerOccupation?
+  annualIncome    Decimal?            @db.Decimal(14, 2)
+  addressSnapshot Json?
+
+  // Nominee (common fields 18, 19)
+  nomineeName     String?
+  nomineeRelation NomineeRelation?
+
+  // Category-specific "Section A" fields (room rent, deductible, co-pay, etc.)
+  planDetails            Json?
+  // Renewal / Portability details (previous insurer, cumulative bonus, claim)
+  previousPolicySnapshot Json?
+  // Copy of proposer details at the time of quoting
+  customerSnapshot       Json
+
+  members    HealthInsuredMember[]
+  quotations Quotation[]               @relation("HealthCaseQuotations")
+  documents  HealthQuotationDocument[]
+
+  createdById String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+
+  @@index([companyId])
+  @@index([contactId])
+  @@index([leadId])
+  @@index([selectedQuoteId])
+  @@index([planCategory])
+  @@index([deletedAt])
+  @@map("health_quotation_cases")
+}
+
+// One person covered by the Health proposal (common fields 4-7, 15-17)
+model HealthInsuredMember {
+  id             String              @id @default(uuid())
+  caseId         String
+  case           HealthQuotationCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  familyMemberId String?
+  familyMember   FamilyMember?       @relation(fields: [familyMemberId], references: [id], onDelete: SetNull)
+
+  firstName           String
+  lastName            String?
+  relation            InsuredRelation
+  dateOfBirth         DateTime
+  gender              Gender
+  heightCm            Decimal?        @db.Decimal(5, 1)
+  weightKg            Decimal?        @db.Decimal(5, 1)
+  preExistingDiseases String?
+  isSmoker            Boolean         @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([caseId])
+  @@index([familyMemberId])
+  @@map("health_insured_members")
+}
+
+// Uploaded file for a Health quote or checklist item ("Keep Upload option after each Quote")
+model HealthQuotationDocument {
+  id                 String                     @id @default(uuid())
+  companyId          String
+  company            Company                    @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  caseId             String?
+  case               HealthQuotationCase?       @relation(fields: [caseId], references: [id], onDelete: SetNull)
+  quotationId        String?
+  quotation          Quotation?                 @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+  documentId         String
+  document           Document                   @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  documentType       HealthDocumentType
+  verificationStatus DocumentVerificationStatus @default(PENDING)
+  rejectionReason    String?
+  verifiedById       String?
+  verifiedAt         DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId])
+  @@index([caseId])
+  @@index([quotationId])
+  @@index([documentId])
+  @@map("health_quotation_documents")
+}
