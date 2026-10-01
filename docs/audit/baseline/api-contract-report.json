@@ -1,56 +1,6 @@
 {
-  "generatedAt": "2026-10-01T07:22:08.683Z",
-  "mismatches": [
-    {
-      "frontendCall": "GET /admin/organization/branches?limit=100",
-      "frontendFile": "apps/web/src/repositories/admin.repository.ts",
-      "frontendLine": 191,
-      "backendExists": false,
-      "methodMatch": false
-    },
-    {
-      "frontendCall": "GET /dashboard/super-admin",
-      "frontendFile": "apps/web/src/repositories/dashboard.repository.ts",
-      "frontendLine": 11,
-      "backendExists": false,
-      "methodMatch": false
-    },
-    {
-      "frontendCall": "GET /dashboard/manager",
-      "frontendFile": "apps/web/src/repositories/dashboard.repository.ts",
-      "frontendLine": 21,
-      "backendExists": false,
-      "methodMatch": false
-    },
-    {
-      "frontendCall": "GET /claims?limit=5",
-      "frontendFile": "apps/web/src/components/dashboard/widgets/ClaimsDistributionWidget.tsx",
-      "frontendLine": 16,
-      "backendExists": false,
-      "methodMatch": false
-    },
-    {
-      "frontendCall": "GET /policies/renewals/tasks?limit=5",
-      "frontendFile": "apps/web/src/components/dashboard/widgets/RenewalsForecastWidget.tsx",
-      "frontendLine": 16,
-      "backendExists": false,
-      "methodMatch": false
-    },
-    {
-      "frontendCall": "GET /analytics/leaderboard",
-      "frontendFile": "apps/web/src/components/dashboard/widgets/TeamLeaderboardWidget.tsx",
-      "frontendLine": 13,
-      "backendExists": false,
-      "methodMatch": false
-    },
-    {
-      "frontendCall": "GET /quotations?leadId=${leadId}&productType=MOTOR",
-      "frontendFile": "apps/web/src/components/leads/tabs/LeadTabsContainer.tsx",
-      "frontendLine": 117,
-      "backendExists": false,
-      "methodMatch": false
-    }
-  ],
+  "generatedAt": "2026-10-01T10:54:42.358Z",
+  "mismatches": [],
   "uncalledBackendRoutes": [
     {
       "method": "GET",
@@ -97,13 +47,6 @@
     {
       "method": "GET",
       "path": "/admin/organization/hierarchy",
-      "controller": "AssignTeamDto",
-      "file": "apps/api/src/modules/administration/controllers/organization/organization.controller.ts",
-      "classification": "UNUSED"
-    },
-    {
-      "method": "GET",
-      "path": "/admin/organization/branches",
       "controller": "AssignTeamDto",
       "file": "apps/api/src/modules/administration/controllers/organization/organization.controller.ts",
       "classification": "UNUSED"
@@ -585,15 +528,15 @@
       "classification": "INTERNAL"
     },
     {
-      "method": "GET",
-      "path": "/leads/check-duplicate",
+      "method": "POST",
+      "path": "/leads/:param/merge",
       "controller": "LeadsController",
       "file": "apps/api/src/modules/leads/controllers/leads.controller.ts",
       "classification": "UNUSED"
     },
     {
-      "method": "POST",
-      "path": "/leads/:param/merge",
+      "method": "GET",
+      "path": "/leads/:param",
       "controller": "LeadsController",
       "file": "apps/api/src/modules/leads/controllers/leads.controller.ts",
       "classification": "UNUSED"
@@ -762,13 +705,6 @@
     {
       "method": "GET",
       "path": "/motor/quotations/:param/rule-evaluation",
-      "controller": "MotorWorkflowController",
-      "file": "apps/api/src/modules/motor/motor-workflow.controller.ts",
-      "classification": "UNUSED"
-    },
-    {
-      "method": "GET",
-      "path": "/motor/quotations/:param/payment",
       "controller": "MotorWorkflowController",
       "file": "apps/api/src/modules/motor/motor-workflow.controller.ts",
       "classification": "UNUSED"
@@ -1342,15 +1278,15 @@
     }
   ],
   "summary": {
-    "totalFrontendCalls": 292,
-    "matched": 285,
-    "unmatched": 7,
-    "uncalledBackend": 184,
+    "totalFrontendCalls": 296,
+    "matched": 296,
+    "unmatched": 0,
+    "uncalledBackend": 182,
     "uncalledByClassification": {
       "WEBHOOK": 1,
       "CRON": 3,
       "INTERNAL": 8,
-      "UNUSED": 172
+      "UNUSED": 170
     }
   }
 }

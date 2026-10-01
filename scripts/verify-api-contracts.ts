@@ -1,4 +1,4 @@
-﻿/**
+/**
  * verify-api-contracts.ts
  * Wave 1 - API Contract Validator
  *
@@ -42,9 +42,10 @@ interface FrontendCall {
   line: number;
 }
 
-// Normalize dynamic segments: /tasks/${id} -> /tasks/:id
+// Normalize dynamic segments: /tasks/${id} -> /tasks/:id (stripping query string)
 function normalizePathTemplate(p: string): string {
-  return p
+  const withoutQuery = p.split('?')[0];
+  return withoutQuery
     .replace(/\$\{[^}]+\}/g, ':param')
     .replace(/:[a-zA-Z_]+/g, ':param')
     .replace(/\/+$/, '')

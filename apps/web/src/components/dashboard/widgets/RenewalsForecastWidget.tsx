@@ -13,7 +13,7 @@ export function RenewalsForecastWidget() {
     queryKey: ['renewals-forecast-summary'],
     queryFn: async () => {
       try {
-        const res = await apiClient.get('/policies/renewals/tasks?limit=5');
+        const res = await apiClient.get('/renewals/tasks?limit=5');
         return res.data?.data || res.data || [];
       } catch {
         return [];

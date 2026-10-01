@@ -609,9 +609,24 @@
   },
   {
     "file": "apps/api/src/modules/dashboard/controllers/dashboard.controller.ts",
+    "endpoint": "GET /dashboard/super-admin",
+    "roles": [
+      "ADMIN"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/dashboard/controllers/dashboard.controller.ts",
     "endpoint": "GET /dashboard/back-office",
     "roles": [
       "ADMIN"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/dashboard/controllers/dashboard.controller.ts",
+    "endpoint": "GET /dashboard/manager",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE"
     ]
   },
   {

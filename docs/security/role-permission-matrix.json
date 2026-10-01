@@ -1,14 +1,14 @@
 {
-  "generatedAt": "2026-10-01T07:22:14.201Z",
-  "gitSha": "2ba6cfe0e23f97b8769b0e4ac017fd1d3d61bfa6",
+  "generatedAt": "2026-10-01T10:56:39.749Z",
+  "gitSha": "0743d9ce33c31ecc0a665847436220820b5bef80",
   "roles": [
     "ADMIN",
     "BACK_OFFICE",
     "AGENT"
   ],
   "roleSummary": {
-    "ADMIN": 242,
-    "BACK_OFFICE": 175,
+    "ADMIN": 244,
+    "BACK_OFFICE": 176,
     "AGENT": 107
   },
   "matrix": [
@@ -774,9 +774,28 @@
     },
     {
       "controller": "DashboardController",
+      "endpoint": "GET /dashboard/super-admin",
+      "allowedRoles": [
+        "ADMIN"
+      ],
+      "agentAllowed": false,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "DashboardController",
       "endpoint": "GET /dashboard/back-office",
       "allowedRoles": [
         "ADMIN"
+      ],
+      "agentAllowed": false,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "DashboardController",
+      "endpoint": "GET /dashboard/manager",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE"
       ],
       "agentAllowed": false,
       "hasRolesGuard": true
@@ -3369,10 +3388,10 @@
     }
   ],
   "summary": {
-    "totalEndpoints": 418,
-    "roleGuarded": 243,
+    "totalEndpoints": 420,
+    "roleGuarded": 245,
     "unguarded": 175,
     "agentAccessibleEndpoints": 107,
-    "adminOnlyEndpoints": 56
+    "adminOnlyEndpoints": 57
   }
 }
