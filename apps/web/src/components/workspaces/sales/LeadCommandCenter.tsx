@@ -8,6 +8,7 @@ import { useSalesWorkspace } from '../../../hooks/useSalesWorkspace';
 import { apiClient } from '../../../lib/api-client';
 import { salesWorkspaceRepository } from '../../../repositories/sales-workspace.repository';
 import { MotorQuoteWizard } from '../../leads/motor-quote/MotorQuoteWizard';
+import { HealthLeadCases } from '../../health-quote/HealthLeadCases';
 import { QuotationCompletionView } from '../../leads/motor-quote/QuotationCompletionView';
 import {
   User,
@@ -555,8 +556,17 @@ export function LeadCommandCenter({ lead, onRefresh }: LeadCommandCenterProps) {
                 <Plus className="h-4 w-4" />
                 <span>+ Generate Motor Quote</span>
               </button>
+              <Link
+                href={`/sales/health-quotations/new?contactId=${lead.contactId ?? contact.id}&leadId=${lead.id}`}
+                className="px-4 py-2 rounded-xl bg-primary text-primary-foreground text-xs font-extrabold flex items-center space-x-1.5 shadow-xs hover:bg-primary/90"
+              >
+                <Plus className="h-4 w-4" />
+                <span>+ Generate Health Quote</span>
+              </Link>
             </div>
           </div>
+
+          <HealthLeadCases leadId={lead.id} />
 
           {leadQuotes.length === 0 ? (
             <div className="p-8 rounded-2xl border bg-card text-center space-y-4">

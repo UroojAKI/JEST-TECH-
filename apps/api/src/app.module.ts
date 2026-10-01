@@ -29,6 +29,7 @@ import { AnalyticsModule } from './modules/analytics/analytics.module';
 import { DocumentsModule } from './modules/documents/documents.module';
 import { MotorAdminModule } from './modules/motor-admin/motor-admin.module';
 import { MotorModule } from './modules/motor/motor.module';
+import { HealthInsuranceModule } from './modules/health-insurance/health-insurance.module';
 import { MotorQuotationsModule } from './modules/motor-quotations/motor-quotations.module';
 import { ProposalModule } from './modules/proposal/proposal.module';
 import { EndorsementModule } from './modules/endorsements/endorsements.module';
@@ -114,6 +115,7 @@ import { IdempotencyInterceptor } from './common/interceptors/idempotency.interc
     DocumentsModule,
     MotorAdminModule,
     MotorModule,
+    HealthInsuranceModule,
     MotorQuotationsModule,
     ProposalModule,
     EndorsementModule,
