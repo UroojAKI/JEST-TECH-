@@ -264,12 +264,13 @@
   },
   {
     "file": "apps/api/src/modules/business-intelligence/tests/bi.service.spec.ts",
-    "testCount": 3,
+    "testCount": 8,
     "describes": [
-      "BiService",
+      "BiService & KpiService (Wave 7 Tenancy Isolation)",
       "getConversionMetrics",
       "getSalesMetrics",
-      "getKpiValues"
+      "getKpiValues",
+      "KpiService (Wave 7 Tenancy Isolation)"
     ],
     "module": "business-intelligence"
   },
@@ -348,9 +349,9 @@
   },
   {
     "file": "apps/api/src/modules/customer/customer-360/services/customer-360/customer-360.service.spec.ts",
-    "testCount": 2,
+    "testCount": 6,
     "describes": [
-      "Customer360Service (Iteration 9 Real Aggregation)",
+      "Customer360Service (Wave 7 Tenancy & PII Protection)",
       "getCustomer360"
     ],
     "module": "customer"
@@ -892,12 +893,13 @@
   },
   {
     "file": "apps/api/src/modules/platform/reporting/tests/reports-tenancy-persistence.spec.ts",
-    "testCount": 7,
+    "testCount": 14,
     "describes": [
       "Reporting Tenancy & Database Persistence (Phases 18, 19, 20)",
       "PHASE 20: Removal of Fake Data & Full Database Persistence",
       "PHASE 18 & 20: Cross-Tenant Schedule Isolation & Deletion",
-      "PHASE 19: Scheduled Report Tenant Context Security"
+      "PHASE 19: Scheduled Report Tenant Context Security",
+      "WAVE 7: Cross-Tenant Report Isolation (CRUD, Query & Execution)"
     ],
     "module": "platform"
   },

@@ -55,6 +55,10 @@ describe('Reporting Tenancy & Database Persistence (Phases 18, 19, 20)', () => {
     mockCommands = {
       handleCreateSchedule: jest.fn(),
       handleDeleteSchedule: jest.fn().mockResolvedValue({ success: true }),
+      handleUpdateSchedule: jest.fn().mockResolvedValue({ success: true }),
+      handleCreateReport: jest.fn().mockResolvedValue({ id: 'rep-created-1' }),
+      handleUpdateReport: jest.fn().mockResolvedValue({ id: 'rep-updated-1' }),
+      handleDeleteReport: jest.fn().mockResolvedValue({ success: true }),
       handleExecuteReport: jest.fn(),
     };
 
@@ -236,6 +240,95 @@ describe('Reporting Tenancy & Database Persistence (Phases 18, 19, 20)', () => {
       await scheduler.runScheduledReports();
 
       expect(mockCommands.handleExecuteReport).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('WAVE 7: Cross-Tenant Report Isolation (CRUD, Query & Execution)', () => {
+    it('scopes getReports to caller companyId', async () => {
+      await controller.getReports(undefined, undefined, undefined, undefined, mockUserTenantA as any);
+
+      expect(mockQueries.handleGetReports).toHaveBeenCalledWith(
+        expect.objectContaining({
+          filters: expect.objectContaining({ companyId: 'org-a' }),
+        }),
+      );
+    });
+
+    it('scopes getCustomReports to caller companyId and isSystem: false', async () => {
+      await controller.getCustomReports(mockUserTenantA as any);
+
+      expect(mockQueries.handleGetReports).toHaveBeenCalledWith(
+        expect.objectContaining({
+          filters: expect.objectContaining({ companyId: 'org-a', isSystem: false }),
+        }),
+      );
+    });
+
+    it('injects companyId on createReport', async () => {
+      await controller.createReport(
+        { name: 'Custom Analytics', code: 'CUST_ANALYTICS', category: 'SALES', module: 'LEADS', columns: [] } as any,
+        mockUserTenantA as any,
+      );
+
+      expect(mockCommands.handleCreateReport).toHaveBeenCalledWith(
+        expect.objectContaining({
+          companyId: 'org-a',
+          userId: 'user-a',
+        }),
+      );
+    });
+
+    it('blocks cross-tenant report update with HTTP 403 Forbidden', async () => {
+      mockPrisma.report.findFirst.mockResolvedValue({
+        id: 'rep-tenant-b',
+        name: 'Tenant B Report',
+        companyId: 'org-b',
+      });
+
+      await expect(
+        controller.updateReport('rep-tenant-b', { name: 'Tampered' } as any, mockUserTenantA as any),
+      ).rejects.toThrow(ForbiddenException);
+
+      expect(mockCommands.handleUpdateReport).not.toHaveBeenCalled();
+    });
+
+    it('blocks cross-tenant report deletion with HTTP 403 Forbidden', async () => {
+      mockPrisma.report.findFirst.mockResolvedValue({
+        id: 'rep-tenant-b',
+        name: 'Tenant B Report',
+        companyId: 'org-b',
+      });
+
+      await expect(
+        controller.deleteReport('rep-tenant-b', mockUserTenantA as any),
+      ).rejects.toThrow(ForbiddenException);
+
+      expect(mockCommands.handleDeleteReport).not.toHaveBeenCalled();
+    });
+
+    it('blocks cross-tenant report retrieval with HTTP 403 Forbidden', async () => {
+      mockQueries.handleGetReport.mockResolvedValue({
+        id: 'rep-tenant-b',
+        name: 'Tenant B Report',
+        companyId: 'org-b',
+      });
+
+      await expect(
+        controller.getReport('rep-tenant-b', mockUserTenantA as any),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('blocks cross-tenant schedule update with HTTP 403 Forbidden', async () => {
+      mockPrisma.reportSchedule.findUnique.mockResolvedValue({
+        id: 'sch-tenant-b',
+        companyId: 'org-b',
+      });
+
+      await expect(
+        controller.updateSchedule('sch-tenant-b', { frequency: 'MONTHLY' } as any, mockUserTenantA as any),
+      ).rejects.toThrow(ForbiddenException);
+
+      expect(mockCommands.handleUpdateSchedule).not.toHaveBeenCalled();
     });
   });
 });

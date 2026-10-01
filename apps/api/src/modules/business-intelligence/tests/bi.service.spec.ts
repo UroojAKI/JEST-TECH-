@@ -1,10 +1,13 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { BiService } from '../services/bi.service';
+import { KpiService } from '../services/kpi.service';
 import { PrismaService } from '../../../database/prisma.service';
 import { WarehouseService } from '../../warehouse/services/warehouse.service';
+import { ForbiddenException, NotFoundException } from '@nestjs/common';
 
-describe('BiService', () => {
+describe('BiService & KpiService (Wave 7 Tenancy Isolation)', () => {
   let service: BiService;
+  let kpiService: KpiService;
 
   const mockPrisma = {
     lead: {
@@ -39,6 +42,10 @@ describe('BiService', () => {
           category: 'sales',
         },
       ]),
+      findUnique: jest.fn(),
+      update: jest.fn(),
+      create: jest.fn(),
+      count: jest.fn().mockResolvedValue(1),
     },
   };
 
@@ -47,15 +54,19 @@ describe('BiService', () => {
   };
 
   beforeEach(async () => {
+    jest.clearAllMocks();
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         BiService,
+        KpiService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: WarehouseService, useValue: mockWarehouse },
       ],
     }).compile();
 
     service = module.get<BiService>(BiService);
+    kpiService = module.get<KpiService>(KpiService);
   });
 
   describe('getConversionMetrics', () => {
@@ -82,6 +93,76 @@ describe('BiService', () => {
       expect(result).toHaveLength(1);
       expect(result[0].key).toBe('conversion_rate');
       expect(typeof result[0].value).toBe('number');
+    });
+  });
+
+  describe('KpiService (Wave 7 Tenancy Isolation)', () => {
+    it('throws NotFoundException if KPI definition does not exist', async () => {
+      mockPrisma.kpiDefinition.findUnique.mockResolvedValue(null);
+
+      await expect(
+        kpiService.updateKpi('missing-kpi', { name: 'Updated' }, 'org-a'),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('blocks cross-tenant KPI update with HTTP 403 Forbidden', async () => {
+      mockPrisma.kpiDefinition.findUnique.mockResolvedValue({
+        id: 'kpi-tenant-b',
+        createdBy: { companyId: 'org-b' },
+      });
+
+      await expect(
+        kpiService.updateKpi('kpi-tenant-b', { name: 'Tampered' }, 'org-a'),
+      ).rejects.toThrow(ForbiddenException);
+
+      expect(mockPrisma.kpiDefinition.update).not.toHaveBeenCalled();
+    });
+
+    it('allows updating KPI when tenant matches', async () => {
+      mockPrisma.kpiDefinition.findUnique.mockResolvedValue({
+        id: 'kpi-tenant-a',
+        createdBy: { companyId: 'org-a' },
+      });
+      mockPrisma.kpiDefinition.update.mockResolvedValue({
+        id: 'kpi-tenant-a',
+        name: 'Updated Name',
+      });
+
+      const result = await kpiService.updateKpi(
+        'kpi-tenant-a',
+        { name: 'Updated Name' },
+        'org-a',
+      );
+
+      expect(result.name).toBe('Updated Name');
+    });
+
+    it('blocks cross-tenant KPI deletion with HTTP 403 Forbidden', async () => {
+      mockPrisma.kpiDefinition.findUnique.mockResolvedValue({
+        id: 'kpi-tenant-b',
+        createdBy: { companyId: 'org-b' },
+      });
+
+      await expect(
+        kpiService.deleteKpi('kpi-tenant-b', 'org-a'),
+      ).rejects.toThrow(ForbiddenException);
+
+      expect(mockPrisma.kpiDefinition.update).not.toHaveBeenCalled();
+    });
+
+    it('allows soft-deleting KPI when tenant matches', async () => {
+      mockPrisma.kpiDefinition.findUnique.mockResolvedValue({
+        id: 'kpi-tenant-a',
+        createdBy: { companyId: 'org-a' },
+      });
+      mockPrisma.kpiDefinition.update.mockResolvedValue({
+        id: 'kpi-tenant-a',
+        isActive: false,
+      });
+
+      const result = await kpiService.deleteKpi('kpi-tenant-a', 'org-a');
+
+      expect(result.isActive).toBe(false);
     });
   });
 });

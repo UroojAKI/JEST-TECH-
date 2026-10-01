@@ -70,7 +70,8 @@ export class ReportsController {
     @Body() dto: CreateReportDto,
     @CurrentUser() user: RequestUser,
   ) {
-    const command = new CreateReportCommand(dto, user.id);
+    const companyId = user.companyId || (user as any).organizationId;
+    const command = new CreateReportCommand(dto, user.id, companyId);
     return this.commands.handleCreateReport(command);
   }
 
@@ -81,6 +82,18 @@ export class ReportsController {
     @Body() dto: UpdateReportDto,
     @CurrentUser() user: RequestUser,
   ) {
+    const companyId = user.companyId || (user as any).organizationId;
+    const report = await this.prisma.report.findFirst({
+      where: { id, deletedAt: null },
+    });
+    if (!report) {
+      throw new NotFoundException(`Report ${id} not found`);
+    }
+    if (companyId && report.companyId && report.companyId !== companyId) {
+      throw new ForbiddenException(
+        'Cross-organization report update is strictly prohibited',
+      );
+    }
     const command = new UpdateReportCommand(id, dto, user.id);
     return this.commands.handleUpdateReport(command);
   }
@@ -91,6 +104,18 @@ export class ReportsController {
     @Param('id') id: string,
     @CurrentUser() user: RequestUser,
   ) {
+    const companyId = user.companyId || (user as any).organizationId;
+    const report = await this.prisma.report.findFirst({
+      where: { id, deletedAt: null },
+    });
+    if (!report) {
+      throw new NotFoundException(`Report ${id} not found`);
+    }
+    if (companyId && report.companyId && report.companyId !== companyId) {
+      throw new ForbiddenException(
+        'Cross-organization report deletion is strictly prohibited',
+      );
+    }
     const command = new DeleteReportCommand(id, user.id);
     return this.commands.handleDeleteReport(command);
   }
@@ -102,8 +127,16 @@ export class ReportsController {
     @Query('module') module?: string,
     @Query('status') status?: string,
     @Query('search') search?: string,
+    @CurrentUser() user?: RequestUser,
   ) {
-    const query = new GetReportsQuery({ category, module, status, search });
+    const companyId = user?.companyId || (user as any)?.organizationId;
+    const query = new GetReportsQuery({
+      category,
+      module,
+      status,
+      search,
+      companyId,
+    });
     return this.queries.handleGetReports(query);
   }
 
@@ -116,8 +149,9 @@ export class ReportsController {
 
   @Get('custom')
   @RequirePermissions('REPORT_VIEW')
-  async getCustomReports() {
-    const query = new GetReportsQuery({ isSystem: false });
+  async getCustomReports(@CurrentUser() user: RequestUser) {
+    const companyId = user.companyId || (user as any).organizationId;
+    const query = new GetReportsQuery({ isSystem: false, companyId });
     return this.queries.handleGetReports(query);
   }
 
@@ -253,9 +287,19 @@ export class ReportsController {
 
   @Get(':idOrCode')
   @RequirePermissions('REPORT_VIEW')
-  async getReport(@Param('idOrCode') idOrCode: string) {
+  async getReport(
+    @Param('idOrCode') idOrCode: string,
+    @CurrentUser() user: RequestUser,
+  ) {
     const query = new GetReportQuery(idOrCode);
-    return this.queries.handleGetReport(query);
+    const report = await this.queries.handleGetReport(query);
+    const companyId = user.companyId || (user as any).organizationId;
+    if (companyId && report.companyId && report.companyId !== companyId) {
+      throw new ForbiddenException(
+        'Cross-organization report access is strictly prohibited',
+      );
+    }
+    return report;
   }
 
   @Get(':id/export')
@@ -403,7 +447,20 @@ export class ReportsController {
   async updateSchedule(
     @Param('scheduleId') scheduleId: string,
     @Body() dto: UpdateScheduleDto,
+    @CurrentUser() user: RequestUser,
   ) {
+    const companyId = user.companyId || (user as any).organizationId;
+    const schedule = await this.prisma.reportSchedule.findUnique({
+      where: { id: scheduleId },
+    });
+    if (!schedule) {
+      throw new NotFoundException(`Schedule ${scheduleId} not found`);
+    }
+    if (companyId && schedule.companyId && schedule.companyId !== companyId) {
+      throw new ForbiddenException(
+        'Cross-organization schedule update is strictly prohibited',
+      );
+    }
     const command = new UpdateScheduleCommand(scheduleId, dto);
     return this.commands.handleUpdateSchedule(command);
   }

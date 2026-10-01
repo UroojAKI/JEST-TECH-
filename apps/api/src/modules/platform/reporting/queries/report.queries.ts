@@ -10,6 +10,7 @@ export class GetReportsQuery {
       status?: any;
       search?: string;
       isSystem?: boolean;
+      companyId?: string | null;
     },
   ) {}
 }
