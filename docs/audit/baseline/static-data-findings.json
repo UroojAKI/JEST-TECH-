@@ -231,6 +231,13 @@
     "classification": "REAL_BUG"
   },
   {
+    "file": "apps/web/src/app/workspace/(app)/operations/cases/[caseId]/page.tsx",
+    "line": 1536,
+    "type": "FAKE_SUCCESS_TOAST",
+    "value": "toast.info(",
+    "classification": "REAL_BUG"
+  },
+  {
     "file": "apps/web/src/components/customer/customer-alerts-queue.tsx",
     "line": 47,
     "type": "FAKE_SUCCESS_TOAST",

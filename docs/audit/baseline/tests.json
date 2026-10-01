@@ -614,7 +614,7 @@
   },
   {
     "file": "apps/api/src/modules/motor/services/motor-payment-tracking.service.spec.ts",
-    "testCount": 9,
+    "testCount": 14,
     "describes": [
       "MotorPaymentTrackingService & Reconciliation (Iteration 7)",
       "recordPayment",
@@ -632,7 +632,7 @@
   },
   {
     "file": "apps/api/src/modules/motor/services/motor-policy-issuance.service.spec.ts",
-    "testCount": 7,
+    "testCount": 14,
     "describes": [
       "MotorPolicyIssuanceService (Iteration 8)",
       "issuePolicy"
@@ -810,6 +810,14 @@
     "testCount": 5,
     "describes": [
       "WebhookGatewayController"
+    ],
+    "module": "platform"
+  },
+  {
+    "file": "apps/api/src/modules/platform/integrations/webhooks/listeners/payment-webhook-reconciliation.listener.spec.ts",
+    "testCount": 5,
+    "describes": [
+      "PaymentWebhookReconciliationListener (PAY-001 Gateway Automated Reconciliation)"
     ],
     "module": "platform"
   },

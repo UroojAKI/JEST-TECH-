@@ -1,7 +1,8 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { MotorPaymentTrackingService } from './motor-payment-tracking.service';
 import { PrismaService } from '../../../database/prisma.service';
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException } from '@nestjs/common';
+import { RoleType } from '@prisma/client';
 
 describe('MotorPaymentTrackingService & Reconciliation (Iteration 7)', () => {
   let service: MotorPaymentTrackingService;
@@ -25,6 +26,12 @@ describe('MotorPaymentTrackingService & Reconciliation (Iteration 7)', () => {
       },
       motorRuleEvaluation: {
         findUnique: jest.fn(),
+      },
+      proposal: {
+        findUnique: jest.fn(),
+      },
+      motorQuotationCase: {
+        update: jest.fn(),
       },
       idempotencyKey: {
         findFirst: jest.fn(),
@@ -232,6 +239,130 @@ describe('MotorPaymentTrackingService & Reconciliation (Iteration 7)', () => {
 
       expect(result).toEqual(cachedResponse);
       expect(prisma.motorPaymentRecord.upsert).not.toHaveBeenCalled();
+    });
+
+    it('PAY-002: should reject cross-organization payment attempt with ForbiddenException', async () => {
+      prisma.quotation.findUnique.mockResolvedValue({
+        ...mockQuote,
+        companyId: 'org-tenant-A',
+      });
+
+      await expect(
+        service.recordPayment(
+          {
+            quotationId: 'q-10',
+            status: 'PAID',
+            amount: 17638.88,
+            referenceNumber: 'REF-BANK-999',
+          },
+          'org-tenant-B',
+        ),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('PAY-002: should prohibit Sales Agents from marking payment as PAID', async () => {
+      prisma.quotation.findUnique.mockResolvedValue({
+        ...mockQuote,
+        companyId: 'org-1',
+        createdById: 'agent-1',
+      });
+
+      const agentActor: any = {
+        userId: 'agent-1',
+        role: RoleType.AGENT,
+        roles: [RoleType.AGENT],
+        companyId: 'org-1',
+      };
+
+      await expect(
+        service.recordPayment(
+          {
+            quotationId: 'q-10',
+            status: 'PAID',
+            amount: 17638.88,
+            referenceNumber: 'REF-BANK-999',
+          },
+          'org-1',
+          agentActor,
+        ),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('PAY-002: should block PAID payment when proposal is not approved', async () => {
+      prisma.quotation.findUnique.mockResolvedValue({
+        ...mockQuote,
+        productType: 'MOTOR',
+      });
+      prisma.motorPaymentRecord.findUnique.mockResolvedValue(null);
+      prisma.proposal.findUnique.mockResolvedValue({
+        id: 'prop-1',
+        status: 'SUBMITTED',
+      });
+
+      await expect(
+        service.recordPayment({
+          quotationId: 'q-10',
+          status: 'PAID',
+          amount: 17638.88,
+          referenceNumber: 'REF-BANK-999',
+        }),
+      ).rejects.toThrow('Proposal has not been approved yet');
+    });
+
+    it('PAY-002: should permit payment when inspection is WAIVED', async () => {
+      prisma.quotation.findUnique.mockResolvedValue({
+        ...mockQuote,
+        workflowState: 'INSPECTION_REQUIRED',
+      });
+      prisma.motorPaymentRecord.findUnique.mockResolvedValue(null);
+      prisma.motorRuleEvaluation.findUnique.mockResolvedValue({
+        inspectionRequired: true,
+      });
+      prisma.motorInspection.findUnique.mockResolvedValue({
+        status: 'WAIVED',
+      });
+      prisma.motorPaymentRecord.upsert.mockResolvedValue({
+        id: 'pay-waived',
+        quotationId: 'q-10',
+        status: 'PAID',
+        amount: 17638.88,
+      });
+
+      const result = await service.recordPayment({
+        quotationId: 'q-10',
+        status: 'PAID',
+        amount: 17638.88,
+        referenceNumber: 'REF-WAIVED-001',
+      });
+
+      expect(result).toBeDefined();
+      expect(prisma.motorPaymentRecord.upsert).toHaveBeenCalled();
+    });
+
+    it('PAY-002: should update linked quotation case to PAYMENT_VERIFIED on PAID payment', async () => {
+      prisma.quotation.findUnique.mockResolvedValue({
+        ...mockQuote,
+        caseId: 'case-motor-1',
+      });
+      prisma.motorPaymentRecord.findUnique.mockResolvedValue(null);
+      prisma.motorPaymentRecord.upsert.mockResolvedValue({
+        id: 'pay-case-1',
+        quotationId: 'q-10',
+        status: 'PAID',
+        amount: 17638.88,
+      });
+
+      await service.recordPayment({
+        quotationId: 'q-10',
+        status: 'PAID',
+        amount: 17638.88,
+        referenceNumber: 'REF-CASE-001',
+      });
+
+      expect(prisma.motorQuotationCase.update).toHaveBeenCalledWith({
+        where: { id: 'case-motor-1' },
+        data: { status: 'PAYMENT_VERIFIED' },
+      });
     });
   });
 

@@ -505,7 +505,11 @@
       "GET /motor/inspections/${quotationId}",
       "POST /motor/inspections/${inspId}/approve",
       "POST /motor/inspections/${inspId}/reject",
-      "POST /motor/inspections/${inspId}/waive"
+      "POST /motor/inspections/${inspId}/waive",
+      "GET /motor/quotations/${quotationId}/workflow-projection",
+      "GET /motor/quotations/${quotationId}/payment",
+      "POST /motor/quotations/${quotationId}/payment",
+      "POST /motor/quotes/${quotationId}/issue"
     ],
     "status": "WORKING"
   },

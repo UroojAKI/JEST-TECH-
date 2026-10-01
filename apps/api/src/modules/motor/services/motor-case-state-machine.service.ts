@@ -124,7 +124,7 @@ export const CASE_TRANSITION_RULES: Record<CaseCommand, TransitionRule> = {
     command: 'ISSUE_POLICY',
     from: [MotorCaseStatus.READY_FOR_ISSUANCE],
     to: MotorCaseStatus.ISSUED,
-    allowedRoles: [RoleType.ADMIN],
+    allowedRoles: [RoleType.ADMIN, RoleType.BACK_OFFICE],
   },
   COMPLETE_CASE: {
     command: 'COMPLETE_CASE',
