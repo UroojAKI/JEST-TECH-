@@ -327,8 +327,10 @@
   {
     "route": "/portal/proposals",
     "pageFile": "apps/web/src/app/portal/proposals/page.tsx",
-    "apiCalls": [],
-    "status": "STATIC"
+    "apiCalls": [
+      "POST /documents/upload"
+    ],
+    "status": "WORKING"
   },
   {
     "route": "/portal/quotations",
@@ -408,8 +410,10 @@
   {
     "route": "/sales/proposals/[id]",
     "pageFile": "apps/web/src/app/sales/proposals/[id]/page.tsx",
-    "apiCalls": [],
-    "status": "STATIC"
+    "apiCalls": [
+      "POST /documents/upload"
+    ],
+    "status": "WORKING"
   },
   {
     "route": "/sales/quotations",
@@ -497,7 +501,11 @@
     "apiCalls": [
       "GET /motor/quotation-cases/${caseId}",
       "GET /motor/quotation-cases/${caseId}/available-commands",
-      "POST /motor/quotation-cases/${caseId}/command"
+      "POST /motor/quotation-cases/${caseId}/command",
+      "GET /motor/inspections/${quotationId}",
+      "POST /motor/inspections/${inspId}/approve",
+      "POST /motor/inspections/${inspId}/reject",
+      "POST /motor/inspections/${inspId}/waive"
     ],
     "status": "WORKING"
   },

@@ -49,6 +49,10 @@ export default function CaseDetailPage() {
   const [selectedCommand, setSelectedCommand] = useState<string | null>(null);
   const [commandReason, setCommandReason] = useState('');
 
+  // Inspection modal state
+  const [inspectionModal, setInspectionModal] = useState<'REJECT' | 'WAIVE' | null>(null);
+  const [inspectionReason, setInspectionReason] = useState('');
+
   // 1. Fetch case details
   const {
     data: caseData,
@@ -115,6 +119,119 @@ export default function CaseDetailPage() {
       toast.error(
         err.response?.data?.message || 'Failed to execute domain command',
       );
+    },
+  });
+
+  // 4. Fetch inspection details for selected quote
+  const quotationId = caseData?.selectedQuoteId;
+  const {
+    data: inspectionData,
+    isLoading: isLoadingInspection,
+    refetch: refetchInspection,
+  } = useQuery({
+    queryKey: ['case-inspection', quotationId],
+    queryFn: async () => {
+      if (!quotationId) return null;
+      try {
+        const res = await apiClient.get(`/motor/inspections/${quotationId}`);
+        return res.data;
+      } catch {
+        return null;
+      }
+    },
+    enabled: Boolean(quotationId),
+    staleTime: 10_000,
+  });
+
+  // 5. Inspection underwriter decision mutations
+  const approveInspectionMutation = useMutation({
+    mutationFn: async (inspId: string) => {
+      const res = await apiClient.post(
+        `/motor/inspections/${inspId}/approve`,
+        {},
+      );
+      return res.data;
+    },
+    onSuccess: () => {
+      toast.success(
+        'Inspection approved successfully! Issuance gate cleared.',
+      );
+      void queryClient.invalidateQueries({
+        queryKey: ['case-inspection', quotationId],
+      });
+      void queryClient.invalidateQueries({ queryKey: ['case-detail', caseId] });
+      void queryClient.invalidateQueries({
+        queryKey: ['case-available-commands', caseId],
+      });
+    },
+    onError: (err: any) => {
+      toast.error(
+        err.response?.data?.message || 'Failed to approve inspection',
+      );
+    },
+  });
+
+  const rejectInspectionMutation = useMutation({
+    mutationFn: async ({
+      inspId,
+      reason,
+    }: {
+      inspId: string;
+      reason: string;
+    }) => {
+      const res = await apiClient.post(
+        `/motor/inspections/${inspId}/reject`,
+        { reason },
+      );
+      return res.data;
+    },
+    onSuccess: () => {
+      toast.warning('Inspection rejected. Rework requested from agent.');
+      setInspectionModal(null);
+      setInspectionReason('');
+      void queryClient.invalidateQueries({
+        queryKey: ['case-inspection', quotationId],
+      });
+      void queryClient.invalidateQueries({ queryKey: ['case-detail', caseId] });
+      void queryClient.invalidateQueries({
+        queryKey: ['case-available-commands', caseId],
+      });
+    },
+    onError: (err: any) => {
+      toast.error(
+        err.response?.data?.message || 'Failed to reject inspection',
+      );
+    },
+  });
+
+  const waiveInspectionMutation = useMutation({
+    mutationFn: async ({
+      inspId,
+      reason,
+    }: {
+      inspId: string;
+      reason: string;
+    }) => {
+      const res = await apiClient.post(
+        `/motor/inspections/${inspId}/waive`,
+        { reason },
+      );
+      return res.data;
+    },
+    onSuccess: () => {
+      toast.success('Inspection waived by underwriter override.');
+      setInspectionModal(null);
+      setInspectionReason('');
+      void queryClient.invalidateQueries({
+        queryKey: ['case-inspection', quotationId],
+      });
+      void queryClient.invalidateQueries({ queryKey: ['case-detail', caseId] });
+      void queryClient.invalidateQueries({
+        queryKey: ['case-available-commands', caseId],
+      });
+    },
+    onError: (err: any) => {
+      toast.error(err.response?.data?.message || 'Failed to waive inspection');
     },
   });
 
@@ -812,41 +929,212 @@ export default function CaseDetailPage() {
 
       {/* TAB 5: INSPECTION */}
       {activeTab === 'INSPECTION' && (
-        <div className="rounded-2xl border bg-card p-6 space-y-4">
-          <div className="flex items-center gap-2 border-b pb-3">
-            <ShieldAlert className="h-5 w-5 text-amber-600" />
-            <h3 className="font-bold text-sm text-foreground">
-              7-Photo Mandatory Break-in Inspection Pipeline
-            </h3>
-          </div>
-          <p className="text-xs text-muted-foreground">
-            Authoritative 7-slot photo evidence pipeline with SHA-256 provenance
-            tracking and Separation of Duties underwriter approval (INSP-006).
-          </p>
-
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs pt-2">
-            {[
-              'FRONT',
-              'BACK',
-              'LEFT',
-              'RIGHT',
-              'WINDSHIELD',
-              'CHASSIS',
-              'ODOMETER',
-            ].map((slot) => (
-              <div
-                key={slot}
-                className="p-3 rounded-xl border bg-muted/30 text-center space-y-1"
-              >
-                <span className="text-[10px] font-bold text-muted-foreground block">
-                  {slot}
-                </span>
-                <span className="text-xs font-semibold text-muted-foreground">
-                  Slot Provisioned
-                </span>
+        <div className="rounded-2xl border bg-card p-6 space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-4">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <ShieldAlert className="h-5 w-5 text-amber-600" />
+                <h3 className="font-bold text-sm text-foreground">
+                  7-Photo Mandatory Break-in Inspection Pipeline (INSP-006)
+                </h3>
+                {inspectionData ? (
+                  <span
+                    className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold ${
+                      inspectionData.status === 'COMPLETED'
+                        ? 'bg-emerald-100 text-emerald-800'
+                        : inspectionData.status === 'WAIVED'
+                        ? 'bg-purple-100 text-purple-800'
+                        : inspectionData.status === 'SUBMITTED_FOR_REVIEW'
+                        ? 'bg-blue-100 text-blue-800'
+                        : inspectionData.status === 'REJECTED'
+                        ? 'bg-rose-100 text-rose-800'
+                        : 'bg-amber-100 text-amber-800'
+                    }`}
+                  >
+                    {inspectionData.status}
+                  </span>
+                ) : (
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-muted text-muted-foreground">
+                    NO INSPECTION RECORD
+                  </span>
+                )}
               </div>
-            ))}
+              <p className="text-xs text-muted-foreground">
+                Authoritative 7-slot photo evidence pipeline with SHA-256 provenance
+                tracking and Separation of Duties underwriter approval.
+              </p>
+            </div>
+
+            {/* Underwriter Decision Actions */}
+            {inspectionData && (
+              <div className="flex items-center gap-2">
+                {inspectionData.status === 'SUBMITTED_FOR_REVIEW' && (
+                  <>
+                    <button
+                      onClick={() => setInspectionModal('REJECT')}
+                      className="px-3 py-1.5 rounded-lg border border-rose-500/30 bg-rose-500/10 text-rose-700 font-bold text-xs hover:bg-rose-500/20 transition"
+                    >
+                      Reject Inspection
+                    </button>
+                    <button
+                      onClick={() => setInspectionModal('WAIVE')}
+                      className="px-3 py-1.5 rounded-lg border border-purple-500/30 bg-purple-500/10 text-purple-700 font-bold text-xs hover:bg-purple-500/20 transition"
+                    >
+                      Waive Inspection
+                    </button>
+                    <button
+                      disabled={approveInspectionMutation.isPending}
+                      onClick={() =>
+                        approveInspectionMutation.mutate(inspectionData.id)
+                      }
+                      className="px-4 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs transition disabled:opacity-50"
+                    >
+                      {approveInspectionMutation.isPending
+                        ? 'Approving...'
+                        : 'Approve Inspection'}
+                    </button>
+                  </>
+                )}
+                {inspectionData.status === 'COMPLETED' && (
+                  <span className="flex items-center gap-1.5 text-xs font-bold text-emerald-600">
+                    <CheckCircle2 className="h-4 w-4" /> Cleared by Underwriter
+                  </span>
+                )}
+                {inspectionData.status === 'WAIVED' && (
+                  <span className="flex items-center gap-1.5 text-xs font-bold text-purple-600">
+                    <FileCheck2 className="h-4 w-4" /> Waived ({inspectionData.waiverReason || 'Underwriter Override'})
+                  </span>
+                )}
+                {inspectionData.status === 'REJECTED' && (
+                  <span className="flex items-center gap-1.5 text-xs font-bold text-rose-600">
+                    <XCircle className="h-4 w-4" /> Rework Requested: {inspectionData.rejectionReason}
+                  </span>
+                )}
+              </div>
+            )}
           </div>
+
+          {isLoadingInspection ? (
+            <div className="py-8 flex flex-col items-center justify-center gap-2 text-muted-foreground text-xs">
+              <Loader2 className="h-5 w-5 animate-spin text-primary" />
+              <span>Loading inspection aggregate and provenance data...</span>
+            </div>
+          ) : !inspectionData ? (
+            <div className="p-4 rounded-xl border bg-muted/20 text-xs text-muted-foreground">
+              No break-in inspection aggregate found for selected quotation ({caseData?.selectedQuoteId || 'None'}).
+            </div>
+          ) : (
+            <>
+              {/* Metadata Card */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+                <div className="p-3 rounded-xl border bg-card space-y-1">
+                  <span className="text-[10px] text-muted-foreground uppercase font-bold">
+                    Inspection Code
+                  </span>
+                  <div className="font-mono font-bold text-foreground">
+                    {inspectionData.inspectionCode}
+                  </div>
+                </div>
+                <div className="p-3 rounded-xl border bg-card space-y-1">
+                  <span className="text-[10px] text-muted-foreground uppercase font-bold">
+                    Conducted By
+                  </span>
+                  <div className="font-semibold text-foreground">
+                    {inspectionData.conductedByType || 'JEST_TEAM'}
+                  </div>
+                </div>
+                <div className="p-3 rounded-xl border bg-card space-y-1">
+                  <span className="text-[10px] text-muted-foreground uppercase font-bold">
+                    Inspector
+                  </span>
+                  <div className="font-semibold text-foreground">
+                    {inspectionData.inspectorName || 'Assigned Officer'}
+                  </div>
+                </div>
+                <div className="p-3 rounded-xl border bg-card space-y-1">
+                  <span className="text-[10px] text-muted-foreground uppercase font-bold">
+                    Evidence Slots
+                  </span>
+                  <div className="font-bold text-emerald-600">
+                    {7 - (inspectionData.missingPhotos?.length || 0)} / 7 Uploaded
+                  </div>
+                </div>
+              </div>
+
+              {/* 7 Photo Evidence Slots Grid */}
+              <div className="space-y-2">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                  7-Photo Provenance Vault
+                </h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
+                  {[
+                    { slot: 'front', label: 'Front View', key: 'frontImageKey' },
+                    { slot: 'back', label: 'Rear View', key: 'backImageKey' },
+                    { slot: 'left', label: 'Left Side', key: 'leftImageKey' },
+                    { slot: 'right', label: 'Right Side', key: 'rightImageKey' },
+                    { slot: 'windshield', label: 'Windshield Glass', key: 'windshieldImageKey' },
+                    { slot: 'chassis', label: 'Chassis Number Plate', key: 'chassisImageKey' },
+                    { slot: 'odometer', label: 'Odometer Cluster', key: 'odometerImageKey' },
+                  ].map(({ slot, label, key }) => {
+                    const storageKey = (inspectionData as any)[key];
+                    const provenance = inspectionData.photoProvenance?.[slot];
+                    const isUploaded = Boolean(storageKey || provenance?.storageKey);
+                    const hash = provenance?.sha256;
+
+                    return (
+                      <div
+                        key={slot}
+                        className={`p-3.5 rounded-xl border space-y-2 transition ${
+                          isUploaded
+                            ? 'border-emerald-500/30 bg-emerald-500/5'
+                            : 'border-border bg-muted/20'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="font-bold text-foreground">
+                            {label}
+                          </span>
+                          {isUploaded ? (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-600">
+                              <CheckCircle2 className="h-3 w-3" /> Uploaded
+                            </span>
+                          ) : (
+                            <span className="text-[10px] font-bold text-amber-600">
+                              Missing
+                            </span>
+                          )}
+                        </div>
+
+                        {isUploaded ? (
+                          <div className="space-y-1 font-mono text-[10px]">
+                            <div className="text-muted-foreground truncate" title={storageKey || provenance?.storageKey}>
+                              Key: {storageKey || provenance?.storageKey}
+                            </div>
+                            {hash ? (
+                              <div
+                                className="px-2 py-1 rounded bg-background border text-[9px] text-primary font-bold truncate"
+                                title={`SHA-256 Provenance Hash: ${hash}`}
+                              >
+                                SHA-256: {hash.slice(0, 16)}...
+                              </div>
+                            ) : (
+                              <div className="text-[9px] text-muted-foreground italic">
+                                Provenance hash pending
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="text-[10px] text-muted-foreground italic">
+                            Evidence photograph required
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </>
+          )}
         </div>
       )}
 
@@ -1005,6 +1293,97 @@ export default function CaseDetailPage() {
                 {commandMutation.isPending
                   ? 'Executing...'
                   : 'Confirm & Transition'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Inspection Decision Modal (Reject / Waive) */}
+      {inspectionModal && inspectionData && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in">
+          <div className="w-full max-w-md rounded-2xl border border-border bg-card p-6 shadow-2xl space-y-4">
+            <div>
+              <h3 className="text-base font-bold text-foreground flex items-center gap-2">
+                {inspectionModal === 'REJECT' ? (
+                  <>
+                    <XCircle className="h-5 w-5 text-rose-600" />
+                    <span>Reject Vehicle Inspection</span>
+                  </>
+                ) : (
+                  <>
+                    <FileCheck2 className="h-5 w-5 text-purple-600" />
+                    <span>Waive Vehicle Inspection</span>
+                  </>
+                )}
+              </h3>
+              <p className="text-xs text-muted-foreground mt-1">
+                {inspectionModal === 'REJECT'
+                  ? 'Specify the rework reason so the agent can upload proper photo evidence.'
+                  : 'Specify the underwriting justification for waiving mandatory vehicle break-in inspection.'}
+              </p>
+            </div>
+
+            <div>
+              <label className="text-xs font-bold block mb-1">
+                {inspectionModal === 'REJECT'
+                  ? 'Rejection / Rework Reason (Required)'
+                  : 'Underwriting Waiver Justification (Required)'}
+              </label>
+              <textarea
+                rows={3}
+                value={inspectionReason}
+                onChange={(e) => setInspectionReason(e.target.value)}
+                placeholder={
+                  inspectionModal === 'REJECT'
+                    ? 'e.g. Odometer reading photo is blurry; chassis number is obscured...'
+                    : 'e.g. Underwriter inspection waiver granted per renewal continuity policy...'
+                }
+                className="w-full px-3 py-2 text-xs rounded-lg border bg-background focus:outline-none focus:ring-1 focus:ring-primary"
+              />
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-3 border-t border-border">
+              <button
+                onClick={() => {
+                  setInspectionModal(null);
+                  setInspectionReason('');
+                }}
+                className="px-4 py-2 rounded-lg border text-xs font-semibold hover:bg-muted"
+              >
+                Cancel
+              </button>
+              <button
+                disabled={
+                  !inspectionReason.trim() ||
+                  rejectInspectionMutation.isPending ||
+                  waiveInspectionMutation.isPending
+                }
+                onClick={() => {
+                  if (inspectionModal === 'REJECT') {
+                    rejectInspectionMutation.mutate({
+                      inspId: inspectionData.id,
+                      reason: inspectionReason.trim(),
+                    });
+                  } else {
+                    waiveInspectionMutation.mutate({
+                      inspId: inspectionData.id,
+                      reason: inspectionReason.trim(),
+                    });
+                  }
+                }}
+                className={`px-4 py-2 rounded-lg text-xs font-bold text-white transition disabled:opacity-50 ${
+                  inspectionModal === 'REJECT'
+                    ? 'bg-rose-600 hover:bg-rose-700'
+                    : 'bg-purple-600 hover:bg-purple-700'
+                }`}
+              >
+                {rejectInspectionMutation.isPending ||
+                waiveInspectionMutation.isPending
+                  ? 'Processing...'
+                  : inspectionModal === 'REJECT'
+                  ? 'Confirm Rejection'
+                  : 'Confirm Waiver'}
               </button>
             </div>
           </div>

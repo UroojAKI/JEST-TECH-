@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-01T07:04:37.612Z",
+  "generatedAt": "2026-10-01T07:22:08.683Z",
   "mismatches": [
     {
       "frontendCall": "GET /admin/organization/branches?limit=100",
@@ -1342,8 +1342,8 @@
     }
   ],
   "summary": {
-    "totalFrontendCalls": 289,
-    "matched": 282,
+    "totalFrontendCalls": 292,
+    "matched": 285,
     "unmatched": 7,
     "uncalledBackend": 184,
     "uncalledByClassification": {

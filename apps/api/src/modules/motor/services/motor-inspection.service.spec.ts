@@ -251,6 +251,36 @@ describe('MotorInspectionService (Production State Machine & Role Segregation)',
       ).rejects.toThrow(ForbiddenException);
     });
 
+    it('rejects approval if approver was the assigned inspector who conducted the inspection', async () => {
+      mockPrisma.motorInspection.findUnique.mockResolvedValue({
+        ...completePhotosInspection,
+        inspectorUserId: 'inspector-bo',
+        quotation: { id: 'q-100', createdById: 'agent-1', motorMetadata: {} },
+      });
+
+      await expect(
+        service.approveInspection('ins-1', {
+          ...backOfficeActor,
+          userId: 'inspector-bo',
+        }),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('rejects approval if approver was the user who created the inspection record', async () => {
+      mockPrisma.motorInspection.findUnique.mockResolvedValue({
+        ...completePhotosInspection,
+        createdById: 'creator-bo',
+        quotation: { id: 'q-100', createdById: 'agent-1', motorMetadata: {} },
+      });
+
+      await expect(
+        service.approveInspection('ins-1', {
+          ...backOfficeActor,
+          userId: 'creator-bo',
+        }),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
     it('allows Back Office to approve an inspection submitted for review', async () => {
       mockPrisma.motorInspection.findUnique.mockResolvedValue({
         ...completePhotosInspection,
@@ -315,6 +345,122 @@ describe('MotorInspectionService (Production State Machine & Role Segregation)',
           workflowState: 'INSPECTION_COMPLETED',
         }),
       });
+    });
+  });
+
+  describe('recordPhoto & SHA-256 Provenance Tracking (INSP-006)', () => {
+    const validSha256 =
+      'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855';
+
+    it('records photo with valid SHA-256 and writes structured provenance to history', async () => {
+      mockPrisma.motorInspection.findUnique.mockResolvedValue({
+        id: 'ins-1',
+        status: InspectionStatus.REQUIRED,
+        companyId: 'comp-1',
+      });
+      mockPrisma.motorInspection.update.mockResolvedValue({
+        id: 'ins-1',
+        frontImageKey: 'documents/front.jpg',
+        status: InspectionStatus.IN_PROGRESS,
+      });
+
+      const res = await service.recordPhoto(
+        'ins-1',
+        'front',
+        'documents/front.jpg',
+        backOfficeActor,
+        validSha256,
+      );
+
+      expect(res.frontImageKey).toBe('documents/front.jpg');
+      expect(mockPrisma.motorInspectionHistory.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          action: 'UPLOAD_PHOTO',
+          reason: expect.stringContaining(validSha256),
+        }),
+      });
+    });
+
+    it('rejects malformed SHA-256 hash with BadRequestException', async () => {
+      mockPrisma.motorInspection.findUnique.mockResolvedValue({
+        id: 'ins-1',
+        status: InspectionStatus.REQUIRED,
+        companyId: 'comp-1',
+      });
+
+      await expect(
+        service.recordPhoto(
+          'ins-1',
+          'front',
+          'documents/front.jpg',
+          backOfficeActor,
+          'invalid-not-64-hex',
+        ),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('computes cryptographic SHA-256 when sha256 is not explicitly supplied', async () => {
+      mockPrisma.motorInspection.findUnique.mockResolvedValue({
+        id: 'ins-1',
+        status: InspectionStatus.REQUIRED,
+        companyId: 'comp-1',
+      });
+      mockPrisma.motorInspection.update.mockResolvedValue({
+        id: 'ins-1',
+        backImageKey: 'documents/back.jpg',
+        status: InspectionStatus.IN_PROGRESS,
+      });
+
+      await service.recordPhoto(
+        'ins-1',
+        'back',
+        'documents/back.jpg',
+        backOfficeActor,
+      );
+
+      expect(mockPrisma.motorInspectionHistory.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          action: 'UPLOAD_PHOTO',
+          reason: expect.stringMatching(/"sha256":"[a-f0-9]{64}"/),
+        }),
+      });
+    });
+  });
+
+  describe('getInspection with Photo Provenance', () => {
+    it('returns authoritative photoProvenance dictionary for all 7 slots', async () => {
+      const historyRecord = {
+        action: 'UPLOAD_PHOTO',
+        reason: JSON.stringify({
+          event: 'PHOTO_UPLOADED',
+          slot: 'front',
+          storageKey: 'photos/front.jpg',
+          sha256:
+            'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
+          recordedAt: '2026-10-01T12:00:00.000Z',
+        }),
+        createdAt: new Date('2026-10-01T12:00:00.000Z'),
+        actorId: 'bo-1',
+      };
+
+      mockPrisma.motorInspection.findUnique.mockResolvedValue({
+        ...completePhotosInspection,
+        history: [historyRecord],
+      });
+
+      const res = await service.getInspection('q-100', backOfficeActor);
+      expect(res).toBeDefined();
+      expect(res?.photoProvenance).toBeDefined();
+      expect(res?.photoProvenance.front).toEqual(
+        expect.objectContaining({
+          storageKey: 'photos/front.jpg',
+          sha256:
+            'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
+        }),
+      );
+      // All other slots have auto-generated fallback provenance if key present
+      expect(res?.photoProvenance.back).toBeDefined();
+      expect(res?.photoProvenance.chassis).toBeDefined();
     });
   });
 });

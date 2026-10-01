@@ -140,12 +140,31 @@ export class ProposalService {
       waitingFor: 'Review',
       nextAction: 'Assess proposal',
     };
+    const contactName =
+      [prop.contact?.firstName, prop.contact?.lastName]
+        .filter(Boolean)
+        .join(' ') || 'Customer Prospect';
+    const productLine = prop.quotation?.productType || 'Motor Comprehensive';
+    const totalPremium = prop.quotation?.totalPremium
+      ? Number(prop.quotation.totalPremium)
+      : 0;
+    const documentsCount =
+      prop.documents?.filter((d: any) => Boolean(d.documentId)).length || 0;
+    const checklistProgress = prop.documents?.length
+      ? Math.round((documentsCount / prop.documents.length) * 100)
+      : 0;
+
     return {
       ...prop,
+      contactName,
+      productLine,
+      totalPremium,
+      documentsCount,
+      checklistProgress,
       workflowState: {
         status: prop.status,
         ownerId: prop.submittedById,
-        ownerName: null,
+        ownerName: contactName,
         waitingFor: prAction.waitingFor,
         nextAction: prAction.nextAction,
         blocker: null,

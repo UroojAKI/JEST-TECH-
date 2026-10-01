@@ -175,27 +175,6 @@
     "classification": "REAL_BUG"
   },
   {
-    "file": "apps/web/src/app/portal/proposals/page.tsx",
-    "line": 42,
-    "type": "HARDCODED_CUSTOMER_NAME",
-    "value": "Rahul",
-    "classification": "REAL_BUG"
-  },
-  {
-    "file": "apps/web/src/app/portal/proposals/page.tsx",
-    "line": 17,
-    "type": "FAKE_SUCCESS_TOAST",
-    "value": "toast.success(",
-    "classification": "REAL_BUG"
-  },
-  {
-    "file": "apps/web/src/app/portal/proposals/page.tsx",
-    "line": 22,
-    "type": "FAKE_SUCCESS_TOAST",
-    "value": "toast.info(",
-    "classification": "REAL_BUG"
-  },
-  {
     "file": "apps/web/src/app/portal/quotations/page.tsx",
     "line": 38,
     "type": "FAKE_SUCCESS_TOAST",

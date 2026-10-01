@@ -590,13 +590,15 @@
   },
   {
     "file": "apps/api/src/modules/motor/services/motor-inspection.service.spec.ts",
-    "testCount": 15,
+    "testCount": 21,
     "describes": [
       "MotorInspectionService (Production State Machine & Role Segregation)",
       "State Machine Transitions (validateTransition)",
       "submitForReview",
       "approveInspection",
-      "rejectInspection & waiveInspection"
+      "rejectInspection & waiveInspection",
+      "recordPhoto & SHA-256 Provenance Tracking (INSP-006)",
+      "getInspection with Photo Provenance"
     ],
     "module": "motor"
   },
