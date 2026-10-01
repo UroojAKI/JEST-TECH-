@@ -16,6 +16,7 @@ import {
   MotorPaymentTrackingService,
   RecordPaymentDto,
 } from './services/motor-payment-tracking.service';
+import { MotorWorkflowGatesService } from './services/motor-workflow-gates.service';
 
 @ApiTags('Motor — Workflow')
 @ApiBearerAuth()
@@ -25,6 +26,7 @@ export class MotorWorkflowController {
   constructor(
     private readonly workflowService: MotorQuoteWorkflowService,
     private readonly paymentService: MotorPaymentTrackingService,
+    private readonly gatesService: MotorWorkflowGatesService,
   ) {}
 
   @Post('quotations/:id/transition')
@@ -128,6 +130,23 @@ export class MotorWorkflowController {
     return this.paymentService.canProceedToPolicy(
       quotationId,
       user.companyId || user.organizationId,
+    );
+  }
+
+  @Get('quotations/:id/workflow-projection')
+  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT)
+  @ApiOperation({
+    summary:
+      'Get canonical workflow projection, blocking gates, and server-authorized actions',
+  })
+  async getWorkflowProjection(
+    @Param('id') quotationId: string,
+    @Actor() actor: ActorContext,
+  ) {
+    return this.gatesService.getWorkflowProjection(
+      quotationId,
+      actor.companyId || actor.organizationId,
+      actor,
     );
   }
 }

@@ -31,6 +31,7 @@ import { MotorDocumentRuleService } from './services/motor-document-rule.service
 import { VehicleCategory } from '@prisma/client';
 import { ALL_CATEGORY_CONFIGS, getCategoryConfig } from './config/category-registry';
 import { VehicleCategoryKey } from './config/types';
+import { MotorQuotationCaseService } from './services/motor-quotation-case.service';
 
 @ApiTags('Motor')
 @ApiBearerAuth()
@@ -44,7 +45,20 @@ export class MotorController {
     private readonly vehicleDataService: VehicleDataService,
     private readonly previousPolicyService: PreviousPolicyService,
     private readonly motorDocumentRuleService: MotorDocumentRuleService,
+    private readonly caseService: MotorQuotationCaseService,
   ) {}
+
+  @Post('cases/:id/submit')
+  @Roles(RoleType.AGENT, RoleType.BACK_OFFICE, RoleType.ADMIN)
+  @ApiOperation({
+    summary: 'Submit Motor Case for review (REST alias for WF-006B)',
+  })
+  async submitMotorCase(
+    @Param('id') id: string,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.caseService.submitCase(id, user);
+  }
 
   @Get('categories')
   @ApiOperation({ summary: 'Get configuration for all 8 vehicle categories' })

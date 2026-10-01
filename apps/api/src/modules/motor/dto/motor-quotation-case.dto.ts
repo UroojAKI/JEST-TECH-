@@ -67,3 +67,16 @@ export class CancelCaseDto {
   @IsString()
   reason?: string;
 }
+
+export class ExecuteCaseCommandDto {
+  @IsString()
+  command: string;
+
+  @IsOptional()
+  @IsString()
+  reason?: string;
+
+  @IsOptional()
+  @IsObject()
+  metadata?: Record<string, any>;
+}

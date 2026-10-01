@@ -128,6 +128,28 @@ export class RenewalsController {
       this.prisma,
     );
 
+    // Calculate authoritative renewal parameters with depreciation and NCB progression:
+    const prevSumInsured = Number(
+      existingQuote?.sumInsured || task.policy.premiumAmount || 500000,
+    );
+    const revisedIdv = Math.max(10000, Math.round(prevSumInsured * 0.9)); // 10% standard annual IRDAI depreciation
+
+    // NCB Slab progression
+    const prevNcb = Number(existingQuote?.ncbPercentage || 0);
+    let nextNcb = 20;
+    if (prevNcb >= 50) nextNcb = 50;
+    else if (prevNcb >= 45) nextNcb = 50;
+    else if (prevNcb >= 35) nextNcb = 45;
+    else if (prevNcb >= 25) nextNcb = 35;
+    else if (prevNcb >= 20) nextNcb = 25;
+
+    const basePrem = Number(
+      existingQuote?.basePremium || task.policy.premiumAmount || 10000,
+    );
+    const revisedBase = Math.round(basePrem * 0.95);
+    const gstAmount = Math.round(revisedBase * 0.18);
+    const totalPremium = revisedBase + gstAmount;
+
     const renewalQuote = await this.prisma.quotation.create({
       data: {
         title: `Renewal Quote - ${task.policy.policyNumber}`,
@@ -141,12 +163,21 @@ export class RenewalsController {
         createdById: user.id,
         insurerName: existingQuote?.insurerName || 'Partner Insurer',
         productType: existingQuote?.productType || 'MOTOR',
-        sumInsured: existingQuote?.sumInsured || 0,
-        basePremium:
-          task.policy.premiumAmount || existingQuote?.basePremium || 0,
-        gstAmount: existingQuote?.gstAmount || 0,
-        totalPremium:
-          task.policy.premiumAmount || existingQuote?.totalPremium || 0,
+        sumInsured: revisedIdv,
+        basePremium: revisedBase,
+        gstAmount,
+        totalPremium,
+        ncbPercentage: nextNcb,
+        calculationSnapshot: {
+          revisedIdv,
+          revisedBase,
+          gstAmount,
+          totalPremium,
+          ncbPercentage: nextNcb,
+          depreciationApplied: '10%',
+          calculatedAt: new Date().toISOString(),
+        },
+        calculationVersion: 'RENEWAL_V2',
         expiryDate: expiry,
       },
     });

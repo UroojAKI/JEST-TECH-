@@ -55,8 +55,11 @@ export class TasksController {
   @Get('back-office/:id')
   @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE)
   @ApiOperation({ summary: 'Get back office task detail by ID' })
-  getBackOfficeTaskById(@Param('id', ParseUUIDPipe) id: string) {
-    return this.tasksService.getBackOfficeTaskById(id);
+  getBackOfficeTaskById(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.tasksService.getBackOfficeTaskById(id, user);
   }
 
   @Post('back-office')

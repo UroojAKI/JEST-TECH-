@@ -6,6 +6,8 @@ import type { SavedMotorQuote } from './motorFormTypes';
 import { Car, Upload, Clock, CheckCircle2, XCircle, AlertCircle, Shield, Wrench, ShieldCheck, FileText, Copy, Download, RefreshCw, Loader2 } from 'lucide-react';
 import { QuotationCompletionView } from './QuotationCompletionView';
 import { useAuthStore } from '../../../store/auth-store';
+import { useQuery } from '@tanstack/react-query';
+import { apiClient } from '../../../lib/api-client';
 
 interface Props {
   quote: SavedMotorQuote;
@@ -46,9 +48,27 @@ export function QuoteCard({ quote, onUploadQuote, onConductInspection, onComplet
   const authUser = useAuthStore((s) => s.user);
   const activeRole = userRole || authUser?.role;
   const isAgent = activeRole === 'AGENT' || activeRole === 'SALES_EXECUTIVE' || activeRole === 'POSP_ADVISOR' || activeRole === 'SALES_AGENT';
-  const status = STATUS_CONFIG[quote.status] || STATUS_CONFIG.DRAFT;
+
+  const { data: projection } = useQuery({
+    queryKey: ['quote-workflow-projection', quote.id],
+    queryFn: async () => {
+      try {
+        const res = await apiClient.get(`/motor/quotations/${quote.id}/workflow-projection`);
+        return res.data;
+      } catch {
+        return null;
+      }
+    },
+    enabled: Boolean(quote.id),
+    staleTime: 10_000,
+  });
+
+  const canonicalState = projection?.canonicalState || quote.status;
+  const status = STATUS_CONFIG[canonicalState] || STATUS_CONFIG[quote.status] || STATUS_CONFIG.DRAFT;
   const ptStyle = POLICY_TYPE_STYLE[quote.policyType] || POLICY_TYPE_STYLE.PACKAGE;
   const insurerDoc = quote.motorDocuments?.find((d) => d.documentType === 'INSURER_QUOTE') || quote.motorDocuments?.[0];
+  const canIssue = projection ? projection.canIssue : (!isAgent && (quote.status === 'PAYMENT_DONE' || quote.status === 'PENDING_ISSUANCE'));
+  const blockingReasons = projection?.blockingReasons || [];
 
   return (
     <div className="p-4 rounded-xl border bg-card hover:shadow-sm transition-all space-y-3 flex flex-col justify-between">
@@ -218,25 +238,41 @@ export function QuoteCard({ quote, onUploadQuote, onConductInspection, onComplet
           </button>
         )}
 
-        {(quote.status === 'PAYMENT_DONE' || quote.status === 'PENDING_ISSUANCE' || (quote as any).issuanceStatus === 'ISSUANCE_PENDING') && (
-          isAgent ? (
+        {(quote.status === 'PAYMENT_DONE' ||
+          quote.status === 'PENDING_ISSUANCE' ||
+          (quote as any).issuanceStatus === 'ISSUANCE_PENDING' ||
+          canonicalState === 'PENDING_ISSUANCE' ||
+          canonicalState === 'PAYMENT_VERIFIED') &&
+          (isAgent ? (
             <div className="text-[10px] text-emerald-700 bg-emerald-500/10 border border-emerald-200 rounded px-2 py-1.5 text-center font-bold">
               Payment Verified · Awaiting Policy Issuance by Back Office
             </div>
           ) : onIssuePolicy ? (
-            <button
-              onClick={() => onIssuePolicy(quote)}
-              className="w-full flex items-center justify-center gap-1.5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black shadow-sm transition-colors mt-1"
-            >
-              <ShieldCheck className="h-4 w-4" />
-              Complete & Issue Policy Now
-            </button>
+            <div className="space-y-1 mt-1">
+              <button
+                disabled={!canIssue}
+                onClick={() => onIssuePolicy(quote)}
+                title={
+                  !canIssue && blockingReasons.length > 0
+                    ? blockingReasons.join('; ')
+                    : undefined
+                }
+                className="w-full flex items-center justify-center gap-1.5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black shadow-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <ShieldCheck className="h-4 w-4" />
+                Complete & Issue Policy Now
+              </button>
+              {!canIssue && blockingReasons.length > 0 && (
+                <div className="text-[9px] text-amber-700 dark:text-amber-400 font-medium px-1">
+                  Blocked: {blockingReasons[0]}
+                </div>
+              )}
+            </div>
           ) : (
             <div className="text-[10px] text-emerald-700 bg-emerald-500/10 border border-emerald-200 rounded px-2 py-1.5 text-center font-bold">
               Payment Verified · Ready to Issue
             </div>
-          )
-        )}
+          ))}
 
         {onAddComparisonQuote && (
           <button

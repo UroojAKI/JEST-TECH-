@@ -238,6 +238,11 @@ export function BackOfficeTaskQueue() {
                       <span className="text-xs text-muted-foreground">
                         Type: <span className="font-semibold text-foreground">{item.taskType}</span>
                       </span>
+                      {(item.case?.caseCode || item.caseId) && (
+                        <span className="font-mono text-xs font-semibold px-2 py-0.5 rounded bg-violet-500/10 text-violet-600 border border-violet-500/20">
+                          {item.case?.caseCode || 'Case Linked'}
+                        </span>
+                      )}
                     </div>
 
                     {/* Customer & Lead link */}
@@ -306,32 +311,47 @@ export function BackOfficeTaskQueue() {
                 )}
 
                 {/* Action buttons */}
-                {item.status !== 'VERIFIED' && item.status !== 'COMPLETED' && (
-                  <div className="flex items-center justify-end gap-2 pt-2 border-t border-border">
-                    <button
-                      onClick={() => {
-                        setSelectedTask(item);
-                        setResolutionAction('REJECTED');
-                        setNotes('');
-                      }}
-                      className="px-3 py-1.5 rounded-lg border border-rose-500/30 bg-rose-500/5 hover:bg-rose-500/10 text-rose-700 text-xs font-bold transition flex items-center gap-1.5"
-                    >
-                      <XCircle className="h-3.5 w-3.5" />
-                      <span>Reject / Return to Agent</span>
-                    </button>
-                    <button
-                      onClick={() => {
-                        setSelectedTask(item);
-                        setResolutionAction('VERIFIED');
-                        setNotes('All KYC documents, vehicle inspection and payment details verified.');
-                      }}
-                      className="px-4 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition flex items-center gap-1.5 shadow-xs"
-                    >
-                      <CheckCircle2 className="h-3.5 w-3.5" />
-                      <span>Verify Task</span>
-                    </button>
+                <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-border">
+                  <div>
+                    {(item.caseId || item.case?.id) && (
+                      <Link
+                        href={`/workspace/operations/cases/${item.caseId || item.case?.id}`}
+                        className="px-3 py-1.5 rounded-lg border border-primary/30 bg-primary/10 hover:bg-primary/20 text-primary text-xs font-bold transition inline-flex items-center gap-1.5"
+                      >
+                        <ExternalLink className="h-3.5 w-3.5" />
+                        <span>Open Case Workspace ({item.case?.caseCode || 'MQC'})</span>
+                      </Link>
+                    )}
                   </div>
-                )}
+                  <div className="flex items-center gap-2">
+                    {item.status !== 'VERIFIED' && item.status !== 'COMPLETED' && (
+                      <>
+                        <button
+                          onClick={() => {
+                            setSelectedTask(item);
+                            setResolutionAction('REJECTED');
+                            setNotes('');
+                          }}
+                          className="px-3 py-1.5 rounded-lg border border-rose-500/30 bg-rose-500/5 hover:bg-rose-500/10 text-rose-700 text-xs font-bold transition flex items-center gap-1.5"
+                        >
+                          <XCircle className="h-3.5 w-3.5" />
+                          <span>Reject / Return to Agent</span>
+                        </button>
+                        <button
+                          onClick={() => {
+                            setSelectedTask(item);
+                            setResolutionAction('VERIFIED');
+                            setNotes('All KYC documents, vehicle inspection and payment details verified.');
+                          }}
+                          className="px-4 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition flex items-center gap-1.5 shadow-xs"
+                        >
+                          <CheckCircle2 className="h-3.5 w-3.5" />
+                          <span>Verify Task</span>
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </div>
               </div>
             );
           })}

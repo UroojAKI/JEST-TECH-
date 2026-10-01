@@ -184,8 +184,14 @@ export class VehicleDataService {
           missingFields.push(
             'vehicleSubType (Scooter/Motorcycle/Moped/Electric)',
           );
-        if (!specs.engineCapacityCcOrKw && !specs.engineCapacity)
+        if (!specs.engineCapacityCcOrKw && !specs.engineCapacity) {
           missingFields.push('engineCapacityCcOrKw');
+        } else {
+          const cc = Number(specs.engineCapacityCcOrKw || specs.engineCapacity);
+          if (isNaN(cc) || cc <= 0 || cc > 10000) {
+            errors.push('Engine capacity must be a valid positive number between 1 and 10,000 cc');
+          }
+        }
         break;
 
       case VehicleCategory.PRIVATE_CAR:
@@ -193,35 +199,74 @@ export class VehicleDataService {
           missingFields.push(
             'vehicleSubType (Hatchback/Sedan/SUV/MPV/Electric)',
           );
-        if (!specs.engineCapacityCcOrKw && !specs.engineCapacity)
+        if (!specs.engineCapacityCcOrKw && !specs.engineCapacity) {
           missingFields.push('engineCapacityCcOrKw');
+        } else {
+          const cc = Number(specs.engineCapacityCcOrKw || specs.engineCapacity);
+          if (isNaN(cc) || cc <= 0 || cc > 10000) {
+            errors.push('Engine capacity must be a valid positive number between 1 and 10,000 cc');
+          }
+        }
         break;
 
       case VehicleCategory.GCV:
-        if (!specs.grossVehicleWeightKg && !specs.gvwKg)
+        if (!specs.grossVehicleWeightKg && !specs.gvwKg) {
           missingFields.push('grossVehicleWeightKg');
-        if (!specs.carryingCapacityTonnes && !specs.carryingCapacity)
+        } else {
+          const gvw = Number(specs.grossVehicleWeightKg || specs.gvwKg);
+          if (isNaN(gvw) || gvw <= 0 || gvw > 100000) {
+            errors.push('Gross Vehicle Weight (GVW) must be a positive number between 1 and 100,000 kg');
+          }
+        }
+        if (!specs.carryingCapacityTonnes && !specs.carryingCapacity) {
           missingFields.push('carryingCapacityTonnes');
+        }
         break;
 
       case VehicleCategory.TRACTOR:
-        if (!specs.horsePowerHp && !specs.hp)
+        if (!specs.horsePowerHp && !specs.hp) {
           missingFields.push('horsePowerHp');
+        } else {
+          const hp = Number(specs.horsePowerHp || specs.hp);
+          if (isNaN(hp) || hp <= 0 || hp > 500) {
+            errors.push('Horsepower (HP) must be a valid positive number between 1 and 500 HP');
+          }
+        }
         break;
 
       case VehicleCategory.AUTO:
-        if (!specs.seatingOrLoadCapacity && !specs.seatingCapacity)
+        if (!specs.seatingOrLoadCapacity && !specs.seatingCapacity) {
           missingFields.push('seatingOrLoadCapacity');
+        } else {
+          const seats = Number(specs.seatingOrLoadCapacity || specs.seatingCapacity);
+          if (isNaN(seats) || seats < 1 || seats > 20) {
+            errors.push('Seating capacity must be a valid integer between 1 and 20');
+          }
+        }
         break;
 
       case VehicleCategory.TAXI:
-        if (!specs.seatingCapacity) missingFields.push('seatingCapacity');
+        if (!specs.seatingCapacity) {
+          missingFields.push('seatingCapacity');
+        } else {
+          const seats = Number(specs.seatingCapacity);
+          if (isNaN(seats) || seats < 1 || seats > 30) {
+            errors.push('Seating capacity must be a valid integer between 1 and 30');
+          }
+        }
         if (!specs.permitType)
           missingFields.push('permitType (Local/All India/State)');
         break;
 
       case VehicleCategory.BUS_COACH:
-        if (!specs.seatingCapacity) missingFields.push('seatingCapacity');
+        if (!specs.seatingCapacity) {
+          missingFields.push('seatingCapacity');
+        } else {
+          const seats = Number(specs.seatingCapacity);
+          if (isNaN(seats) || seats < 1 || seats > 120) {
+            errors.push('Seating capacity must be a valid integer between 1 and 120');
+          }
+        }
         if (!specs.routePermitType)
           missingFields.push(
             'routePermitType (School/Staff/Stage Carriage/Contract Carriage)',

@@ -1,10 +1,11 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { MotorQuotationCaseService } from './motor-quotation-case.service';
+import { MotorCaseStateMachineService } from './motor-case-state-machine.service';
 import { PrismaService } from '../../../database/prisma.service';
 import { TenantResourceAuthorizationService } from '../../auth/services/tenant-resource-authorization.service';
 import { NumberingEngineService } from '../../administration/services/numbering-engine/numbering-engine.service';
-import { NotFoundException, BadRequestException } from '@nestjs/common';
-import { VehicleCategory, VehicleStatus } from '@prisma/client';
+import { NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
+import { VehicleCategory, VehicleStatus, BackOfficeTaskStatus } from '@prisma/client';
 
 describe('MotorQuotationCaseService', () => {
   let service: MotorQuotationCaseService;
@@ -20,7 +21,12 @@ describe('MotorQuotationCaseService', () => {
       findFirst: jest.fn(),
       update: jest.fn(),
     },
+    backOfficeTask: {
+      findFirst: jest.fn(),
+      create: jest.fn(),
+    },
     $transaction: jest.fn((callback) => callback(mockPrisma)),
+    $queryRaw: jest.fn(),
   };
 
   const mockTenantAuth = {
@@ -29,6 +35,10 @@ describe('MotorQuotationCaseService', () => {
 
   const mockNumberingEngine = {
     generateNext: jest.fn().mockResolvedValue('MQC-2026-00001'),
+  };
+
+  const mockStateMachine = {
+    transition: jest.fn(),
   };
 
   const mockUser = {
@@ -46,6 +56,7 @@ describe('MotorQuotationCaseService', () => {
         { provide: PrismaService, useValue: mockPrisma },
         { provide: TenantResourceAuthorizationService, useValue: mockTenantAuth },
         { provide: NumberingEngineService, useValue: mockNumberingEngine },
+        { provide: MotorCaseStateMachineService, useValue: mockStateMachine },
       ],
     }).compile();
 
@@ -270,6 +281,120 @@ describe('MotorQuotationCaseService', () => {
         }),
       );
       expect(res.status).toBe('CANCELLED');
+    });
+  });
+
+  describe('submitCase (WF-006B)', () => {
+    it('throws NotFoundException if case not found or cross-tenant', async () => {
+      mockPrisma.motorQuotationCase.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.submitCase('missing-case', mockUser as any),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('throws ForbiddenException if agent does not own the case or lead', async () => {
+      const otherCase = {
+        id: 'case-2',
+        companyId: 'comp-1',
+        lead: { assignedToId: 'other-user', createdById: 'other-user' },
+        selectedQuote: { createdById: 'other-user', agentId: 'other-user' },
+        selectedQuoteId: 'quote-2',
+      };
+      mockPrisma.motorQuotationCase.findFirst.mockResolvedValue(otherCase);
+
+      await expect(
+        service.submitCase('case-2', mockUser as any),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('throws BadRequestException if no winning quotation is selected', async () => {
+      const caseWithoutQuote = {
+        id: 'case-1',
+        companyId: 'comp-1',
+        selectedQuoteId: null,
+        lead: { assignedToId: 'user-1' },
+      };
+      mockPrisma.motorQuotationCase.findFirst.mockResolvedValue(caseWithoutQuote);
+
+      await expect(
+        service.submitCase('case-1', mockUser as any),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('transitions case to SUBMITTED_FOR_REVIEW and provisions BackOfficeTask with caseId', async () => {
+      const validCase = {
+        id: 'case-1',
+        companyId: 'comp-1',
+        selectedQuoteId: 'quote-1',
+        leadId: 'lead-1',
+        lead: { assignedToId: 'user-1' },
+        selectedQuote: { id: 'quote-1', createdById: 'user-1' },
+      };
+      mockPrisma.motorQuotationCase.findFirst.mockResolvedValue(validCase);
+      mockStateMachine.transition.mockResolvedValue({
+        ...validCase,
+        status: 'SUBMITTED_FOR_REVIEW',
+      });
+      mockPrisma.backOfficeTask.findFirst.mockResolvedValue(null); // No existing task
+      mockPrisma.backOfficeTask.create.mockResolvedValue({
+        id: 'bot-1',
+        taskCode: 'BOT-000001',
+        caseId: 'case-1',
+        status: BackOfficeTaskStatus.PENDING,
+      });
+
+      const res = await service.submitCase('case-1', mockUser as any);
+
+      expect(mockStateMachine.transition).toHaveBeenCalledWith(
+        'case-1',
+        'SUBMIT_FOR_REVIEW',
+        mockUser,
+        expect.any(Object),
+      );
+      expect(mockPrisma.backOfficeTask.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            caseId: 'case-1',
+            leadId: 'lead-1',
+            motorQuotationId: 'quote-1',
+            companyId: 'comp-1',
+            taskType: 'PROPOSAL_VERIFICATION',
+            status: BackOfficeTaskStatus.PENDING,
+          }),
+        }),
+      );
+      expect(res.case.status).toBe('SUBMITTED_FOR_REVIEW');
+      expect(res.task.caseId).toBe('case-1');
+    });
+
+    it('is idempotent: reuses existing pending task without creating duplicate', async () => {
+      const validCase = {
+        id: 'case-1',
+        companyId: 'comp-1',
+        selectedQuoteId: 'quote-1',
+        leadId: 'lead-1',
+        lead: { assignedToId: 'user-1' },
+        selectedQuote: { id: 'quote-1', createdById: 'user-1' },
+      };
+      const existingTask = {
+        id: 'bot-existing',
+        taskCode: 'BOT-000001',
+        caseId: 'case-1',
+        status: BackOfficeTaskStatus.PENDING,
+      };
+
+      mockPrisma.motorQuotationCase.findFirst.mockResolvedValue(validCase);
+      mockStateMachine.transition.mockResolvedValue({
+        ...validCase,
+        status: 'SUBMITTED_FOR_REVIEW',
+      });
+      mockPrisma.backOfficeTask.findFirst.mockResolvedValue(existingTask);
+
+      const res = await service.submitCase('case-1', mockUser as any);
+
+      expect(mockPrisma.backOfficeTask.create).not.toHaveBeenCalled();
+      expect(res.task.id).toBe('bot-existing');
     });
   });
 });

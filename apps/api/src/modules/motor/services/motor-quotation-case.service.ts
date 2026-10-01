@@ -9,7 +9,8 @@ import { TenantResourceAuthorizationService } from '../../auth/services/tenant-r
 import { NumberingEngineService } from '../../administration/services/numbering-engine/numbering-engine.service';
 import { RequestUser } from '../../auth/decorators/current-user.decorator';
 import { CreateMotorQuotationCaseDto } from '../dto/motor-quotation-case.dto';
-import { MotorCaseStatus, RoleType } from '@prisma/client';
+import { MotorCaseStatus, RoleType, BackOfficeTaskStatus } from '@prisma/client';
+import { MotorCaseStateMachineService } from './motor-case-state-machine.service';
 
 @Injectable()
 export class MotorQuotationCaseService {
@@ -17,6 +18,7 @@ export class MotorQuotationCaseService {
     private readonly prisma: PrismaService,
     private readonly tenantAuthService: TenantResourceAuthorizationService,
     private readonly numberingEngine: NumberingEngineService,
+    private readonly stateMachine: MotorCaseStateMachineService,
   ) {}
 
   /**
@@ -135,10 +137,13 @@ export class MotorQuotationCaseService {
   validateCaseTransition(current: MotorCaseStatus, target: MotorCaseStatus): void {
     if (current === target) return;
 
-    const allowedTransitions: Record<MotorCaseStatus, MotorCaseStatus[]> = {
-      [MotorCaseStatus.OPEN]: [MotorCaseStatus.QUOTED, MotorCaseStatus.CANCELLED],
-      [MotorCaseStatus.QUOTED]: [MotorCaseStatus.QUOTED, MotorCaseStatus.SELECTED, MotorCaseStatus.CANCELLED],
+    const allowedTransitions: Partial<Record<MotorCaseStatus, MotorCaseStatus[]>> = {
+      [MotorCaseStatus.OPEN]: [MotorCaseStatus.QUOTED, MotorCaseStatus.QUOTE_GENERATED, MotorCaseStatus.CANCELLED],
+      [MotorCaseStatus.DRAFT]: [MotorCaseStatus.CUSTOMER_VERIFIED, MotorCaseStatus.QUOTE_GENERATED, MotorCaseStatus.CANCELLED],
+      [MotorCaseStatus.QUOTED]: [MotorCaseStatus.QUOTED, MotorCaseStatus.SELECTED, MotorCaseStatus.PROPOSAL_READY, MotorCaseStatus.CANCELLED],
+      [MotorCaseStatus.QUOTE_GENERATED]: [MotorCaseStatus.QUOTE_GENERATED, MotorCaseStatus.PROPOSAL_READY, MotorCaseStatus.SELECTED, MotorCaseStatus.CANCELLED],
       [MotorCaseStatus.SELECTED]: [MotorCaseStatus.COMPLETED],
+      [MotorCaseStatus.PROPOSAL_READY]: [MotorCaseStatus.SUBMITTED_FOR_REVIEW, MotorCaseStatus.SELECTED, MotorCaseStatus.COMPLETED],
       [MotorCaseStatus.COMPLETED]: [],
       [MotorCaseStatus.CANCELLED]: [],
     };
@@ -217,10 +222,12 @@ export class MotorQuotationCaseService {
 
     if (
       motorCase.status !== MotorCaseStatus.OPEN &&
-      motorCase.status !== MotorCaseStatus.QUOTED
+      motorCase.status !== MotorCaseStatus.DRAFT &&
+      motorCase.status !== MotorCaseStatus.QUOTED &&
+      motorCase.status !== MotorCaseStatus.QUOTE_GENERATED
     ) {
       throw new BadRequestException(
-        `Case cannot be cancelled from '${motorCase.status}' status. Only OPEN or QUOTED cases can be cancelled.`,
+        `Case cannot be cancelled from '${motorCase.status}' status. Only OPEN, DRAFT, QUOTED, or QUOTE_GENERATED cases can be cancelled.`,
       );
     }
 
@@ -367,6 +374,113 @@ export class MotorQuotationCaseService {
       status: motorCase.status,
       totalQuotes: quotes.length,
       quotes: comparisonRows,
+    };
+  }
+
+  /**
+   * Submits a Motor Quotation Case for Back Office review (WF-006B)
+   * Enforces that a proposal is selected, transitions case to SUBMITTED_FOR_REVIEW,
+   * and idempotently creates a BackOfficeTask with caseId.
+   */
+  async submitCase(caseId: string, user: RequestUser) {
+    const motorCase = await this.prisma.motorQuotationCase.findFirst({
+      where: { id: caseId, companyId: user.companyId },
+      include: {
+        lead: true,
+        selectedQuote: true,
+      },
+    });
+
+    if (!motorCase) {
+      throw new NotFoundException(`MotorQuotationCase '${caseId}' not found or access denied`);
+    }
+
+    const roles = (user as any).roles?.length ? (user as any).roles : user.role ? [user.role] : [];
+    const isBackOfficeOrAdmin =
+      roles.includes('ADMIN') ||
+      roles.includes('BACK_OFFICE') ||
+      roles.includes(RoleType.ADMIN) ||
+      roles.includes(RoleType.BACK_OFFICE);
+
+    if (!isBackOfficeOrAdmin) {
+      const isOwner =
+        motorCase.lead?.assignedToId === user.id ||
+        motorCase.lead?.createdById === user.id ||
+        motorCase.selectedQuote?.createdById === user.id ||
+        motorCase.selectedQuote?.agentId === user.id;
+      if (!isOwner) {
+        throw new ForbiddenException(
+          'You do not have permission to submit this quotation case for review.',
+        );
+      }
+    }
+
+    if (!motorCase.selectedQuoteId) {
+      throw new BadRequestException(
+        'Cannot submit case for review without selecting a winning quotation/proposal.',
+      );
+    }
+
+    // Advance state machine to SUBMITTED_FOR_REVIEW
+    const updatedCase = await this.stateMachine.transition(
+      caseId,
+      'SUBMIT_FOR_REVIEW',
+      user,
+      { reason: 'Agent submitted case for back-office review' },
+    );
+
+    // Concurrency-safe, idempotent creation of BackOfficeTask
+    let task = await this.prisma.backOfficeTask.findFirst({
+      where: {
+        caseId,
+        companyId: user.companyId,
+        deletedAt: null,
+        status: {
+          in: [BackOfficeTaskStatus.PENDING, BackOfficeTaskStatus.IN_REVIEW],
+        },
+      },
+      include: {
+        assignedTo: {
+          select: { id: true, firstName: true, lastName: true, email: true },
+        },
+      },
+    });
+
+    if (!task) {
+      let taskCode: string;
+      try {
+        const result = await this.prisma.$queryRaw<[{ nextval: bigint }]>`
+          SELECT nextval('back_office_task_code_seq')::bigint AS nextval
+        `;
+        taskCode = `BOT-${Number(result[0].nextval).toString().padStart(6, '0')}`;
+      } catch {
+        taskCode = await this.numberingEngine.generateNext('BOT');
+      }
+
+      task = await this.prisma.backOfficeTask.create({
+        data: {
+          companyId: user.companyId,
+          taskCode,
+          taskType: 'PROPOSAL_VERIFICATION',
+          priority: 'HIGH',
+          status: BackOfficeTaskStatus.PENDING,
+          leadId: motorCase.leadId || null,
+          motorQuotationId: motorCase.selectedQuoteId || null,
+          caseId: motorCase.id,
+          createdById: user.id,
+          verificationNotes: 'Case submitted for back office review and document verification.',
+        },
+        include: {
+          assignedTo: {
+            select: { id: true, firstName: true, lastName: true, email: true },
+          },
+        },
+      });
+    }
+
+    return {
+      case: updatedCase,
+      task,
     };
   }
 }

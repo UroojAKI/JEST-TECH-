@@ -5,6 +5,7 @@ import { SaodVerificationService } from './services/saod-verification.service';
 import { VehicleDataService } from './services/vehicle-data.service';
 import { PreviousPolicyService } from './services/previous-policy.service';
 import { MotorDocumentRuleService } from './services/motor-document-rule.service';
+import { MotorQuotationCaseService } from './services/motor-quotation-case.service';
 
 describe('MotorController', () => {
   let controller: MotorController;
@@ -50,6 +51,10 @@ describe('MotorController', () => {
         {
           provide: MotorDocumentRuleService,
           useValue: motorDocumentRuleService,
+        },
+        {
+          provide: MotorQuotationCaseService,
+          useValue: { submitCase: jest.fn() },
         },
       ],
     }).compile();

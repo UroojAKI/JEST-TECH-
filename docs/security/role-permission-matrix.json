@@ -1,0 +1,3378 @@
+{
+  "generatedAt": "2026-10-01T07:22:14.201Z",
+  "gitSha": "2ba6cfe0e23f97b8769b0e4ac017fd1d3d61bfa6",
+  "roles": [
+    "ADMIN",
+    "BACK_OFFICE",
+    "AGENT"
+  ],
+  "roleSummary": {
+    "ADMIN": 242,
+    "BACK_OFFICE": 175,
+    "AGENT": 107
+  },
+  "matrix": [
+    {
+      "controller": "AccountsController",
+      "endpoint": "GET /accounts",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE",
+        "AGENT"
+      ],
+      "agentAllowed": true,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "AccountsController",
+      "endpoint": "GET /accounts/:id",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE",
+        "AGENT"
+      ],
+      "agentAllowed": true,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "AccountsController",
+      "endpoint": "POST /accounts/:id/unmask",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE",
+        "AGENT"
+      ],
+      "agentAllowed": true,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "AccountsController",
+      "endpoint": "PATCH /accounts/:id",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE"
+      ],
+      "agentAllowed": false,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "AccountsController",
+      "endpoint": "DELETE /accounts/:id",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE",
+        "AGENT"
+      ],
+      "agentAllowed": true,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "LookupController",
+      "endpoint": "PUT /admin/lookups/:categoryCode/values/:id",
+      "allowedRoles": [
+        "ADMIN"
+      ],
+      "agentAllowed": false,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "LookupController",
+      "endpoint": "DELETE /admin/lookups/:categoryCode/values/:id",
+      "allowedRoles": [
+        "ADMIN"
+      ],
+      "agentAllowed": false,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "LookupController",
+      "endpoint": "POST /admin/lookups/:categoryCode/invalidate",
+      "allowedRoles": [
+        "ADMIN"
+      ],
+      "agentAllowed": false,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "AssignTeamDto",
+      "endpoint": "GET /admin/organization/branches",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE"
+      ],
+      "agentAllowed": false,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "AssignTeamDto",
+      "endpoint": "POST /admin/organization/branches",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE",
+        "AGENT"
+      ],
+      "agentAllowed": true,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "AssignTeamDto",
+      "endpoint": "GET /admin/organization/branches/:branchId/departments",
+      "allowedRoles": [
+        "ADMIN"
+      ],
+      "agentAllowed": false,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "AssignTeamDto",
+      "endpoint": "GET /admin/organization/departments/:departmentId/teams",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE"
+      ],
+      "agentAllowed": false,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "AssignTeamDto",
+      "endpoint": "POST /admin/organization/assign-team",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE"
+      ],
+      "agentAllowed": false,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "RolesController",
+      "endpoint": "GET /admin/roles/:roleId/permissions",
+      "allowedRoles": [
+        "ADMIN"
+      ],
+      "agentAllowed": false,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "RolesController",
+      "endpoint": "PUT /admin/roles/:roleId/permissions",
+      "allowedRoles": [
+        "ADMIN"
+      ],
+      "agentAllowed": false,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "UpdateConfigDto",
+      "endpoint": "PUT /admin/config",
+      "allowedRoles": [
+        "ADMIN"
+      ],
+      "agentAllowed": false,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "UpdateConfigDto",
+      "endpoint": "GET /admin/config/public",
+      "allowedRoles": [
+        "ADMIN"
+      ],
+      "agentAllowed": false,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "UpdateConfigDto",
+      "endpoint": "GET /admin/config/metrics",
+      "allowedRoles": [
+        "ADMIN"
+      ],
+      "agentAllowed": false,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "UpdateConfigDto",
+      "endpoint": "GET /admin/config/flags",
+      "allowedRoles": [
+        "ADMIN"
+      ],
+      "agentAllowed": false,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "UpdateConfigDto",
+      "endpoint": "PATCH /admin/config/flags/:id",
+      "allowedRoles": [
+        "ADMIN"
+      ],
+      "agentAllowed": false,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "UpdateConfigDto",
+      "endpoint": "GET /admin/config/:key",
+      "allowedRoles": [
+        "ADMIN"
+      ],
+      "agentAllowed": false,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "UpdateConfigDto",
+      "endpoint": "PUT /admin/config/:key",
+      "allowedRoles": [
+        "ADMIN"
+      ],
+      "agentAllowed": false,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "AgentsController",
+      "endpoint": "GET /agents",
+      "allowedRoles": [
+        "AGENT",
+        "ADMIN",
+        "BACK_OFFICE"
+      ],
+      "agentAllowed": true,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "AgentsController",
+      "endpoint": "GET /agents/:id",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE",
+        "AGENT"
+      ],
+      "agentAllowed": true,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "AgentsController",
+      "endpoint": "GET /agents/:id/stats",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE",
+        "AGENT"
+      ],
+      "agentAllowed": true,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "AgentsController",
+      "endpoint": "POST /agents",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE",
+        "AGENT"
+      ],
+      "agentAllowed": true,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "AgentsController",
+      "endpoint": "PATCH /agents/:id",
+      "allowedRoles": [
+        "ADMIN",
+        "AGENT"
+      ],
+      "agentAllowed": true,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "AnalyticsController",
+      "endpoint": "GET /analytics/leads",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE"
+      ],
+      "agentAllowed": false,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "DashboardAnalyticsController",
+      "endpoint": "GET /dashboards/sales-manager",
+      "allowedRoles": [
+        "AGENT",
+        "BACK_OFFICE",
+        "ADMIN"
+      ],
+      "agentAllowed": true,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "DashboardAnalyticsController",
+      "endpoint": "GET /dashboards/renewals",
+      "allowedRoles": [
+        "BACK_OFFICE",
+        "ADMIN"
+      ],
+      "agentAllowed": false,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "ForecastingController",
+      "endpoint": "GET /forecasting/renewals",
+      "allowedRoles": [
+        "ADMIN"
+      ],
+      "agentAllowed": false,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "ForecastingController",
+      "endpoint": "GET /forecasting/customer-risk/:customerId",
+      "allowedRoles": [
+        "ADMIN"
+      ],
+      "agentAllowed": false,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "BiController",
+      "endpoint": "GET /bi/revenue",
+      "allowedRoles": [
+        "ADMIN"
+      ],
+      "agentAllowed": false,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "BiController",
+      "endpoint": "GET /bi/loss-ratio",
+      "allowedRoles": [
+        "ADMIN"
+      ],
+      "agentAllowed": false,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "BiController",
+      "endpoint": "GET /bi/renewal",
+      "allowedRoles": [
+        "ADMIN"
+      ],
+      "agentAllowed": false,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "BiController",
+      "endpoint": "GET /bi/sales",
+      "allowedRoles": [
+        "ADMIN"
+      ],
+      "agentAllowed": false,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "BiController",
+      "endpoint": "GET /bi/growth",
+      "allowedRoles": [
+        "ADMIN"
+      ],
+      "agentAllowed": false,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "BiController",
+      "endpoint": "GET /bi/kpi",
+      "allowedRoles": [
+        "ADMIN"
+      ],
+      "agentAllowed": false,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "BiController",
+      "endpoint": "GET /bi/kpi/definitions",
+      "allowedRoles": [
+        "ADMIN"
+      ],
+      "agentAllowed": false,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "BiController",
+      "endpoint": "POST /bi/kpi/definitions",
+      "allowedRoles": [
+        "ADMIN"
+      ],
+      "agentAllowed": false,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "BiController",
+      "endpoint": "PATCH /bi/kpi/definitions/:id",
+      "allowedRoles": [
+        "ADMIN"
+      ],
+      "agentAllowed": false,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "BiController",
+      "endpoint": "DELETE /bi/kpi/definitions/:id",
+      "allowedRoles": [
+        "ADMIN"
+      ],
+      "agentAllowed": false,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "BiController",
+      "endpoint": "POST /bi/kpi/seed",
+      "allowedRoles": [
+        "ADMIN"
+      ],
+      "agentAllowed": false,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "ClaimsController",
+      "endpoint": "POST /claims",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE"
+      ],
+      "agentAllowed": false,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "ClaimsController",
+      "endpoint": "GET /claims",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE"
+      ],
+      "agentAllowed": false,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "ClaimsController",
+      "endpoint": "GET /claims/:id",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE",
+        "AGENT"
+      ],
+      "agentAllowed": true,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "ClaimsController",
+      "endpoint": "PATCH /claims/:id",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE",
+        "AGENT"
+      ],
+      "agentAllowed": true,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "ClaimsController",
+      "endpoint": "POST /claims/:id/documents",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE"
+      ],
+      "agentAllowed": false,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "ClaimsController",
+      "endpoint": "POST /claims/:id/assign-surveyor",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE",
+        "AGENT"
+      ],
+      "agentAllowed": true,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "ClaimsController",
+      "endpoint": "POST /claims/:id/approve",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE"
+      ],
+      "agentAllowed": false,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "ClaimsController",
+      "endpoint": "POST /claims/:id/settle",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE"
+      ],
+      "agentAllowed": false,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "ClaimsController",
+      "endpoint": "POST /claims/:id/settlement/verify",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE"
+      ],
+      "agentAllowed": false,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "ClaimsController",
+      "endpoint": "POST /claims/:id/reject",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE"
+      ],
+      "agentAllowed": false,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "ClaimsController",
+      "endpoint": "POST /claims/:id/close",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE"
+      ],
+      "agentAllowed": false,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "ClaimsController",
+      "endpoint": "POST /claims/:id/withdraw",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE"
+      ],
+      "agentAllowed": false,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "ContactsController",
+      "endpoint": "GET /contacts",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE",
+        "AGENT"
+      ],
+      "agentAllowed": true,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "ContactsController",
+      "endpoint": "GET /contacts/:id",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE",
+        "AGENT"
+      ],
+      "agentAllowed": true,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "ContactsController",
+      "endpoint": "POST /contacts/:id/unmask",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE",
+        "AGENT"
+      ],
+      "agentAllowed": true,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "ContactsController",
+      "endpoint": "PATCH /contacts/:id",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE"
+      ],
+      "agentAllowed": false,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "ContactsController",
+      "endpoint": "DELETE /contacts/:id",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE",
+        "AGENT"
+      ],
+      "agentAllowed": true,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "ContactsController",
+      "endpoint": "POST /contacts/:id/deactivate",
+      "allowedRoles": [
+        "ADMIN"
+      ],
+      "agentAllowed": false,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "ContactsController",
+      "endpoint": "POST /contacts/:id/reactivate",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE"
+      ],
+      "agentAllowed": false,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "CommunicationController",
+      "endpoint": "PUT /notifications/templates/:id",
+      "allowedRoles": [
+        "ADMIN",
+        "ADMIN"
+      ],
+      "agentAllowed": false,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "CommunicationController",
+      "endpoint": "GET /notifications/delivery-logs",
+      "allowedRoles": [
+        "ADMIN",
+        "ADMIN"
+      ],
+      "agentAllowed": false,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "CommunicationController",
+      "endpoint": "GET /notifications/events",
+      "allowedRoles": [
+        "ADMIN",
+        "ADMIN"
+      ],
+      "agentAllowed": false,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "Customer360Controller",
+      "endpoint": "GET /customer-360/:id",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE",
+        "AGENT"
+      ],
+      "agentAllowed": true,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "CustomersController",
+      "endpoint": "POST /customers/deduplication-check",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE",
+        "AGENT"
+      ],
+      "agentAllowed": true,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "CustomersController",
+      "endpoint": "GET /customers",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE",
+        "AGENT"
+      ],
+      "agentAllowed": true,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "CustomersController",
+      "endpoint": "GET /customers/:id",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE",
+        "AGENT"
+      ],
+      "agentAllowed": true,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "CustomersController",
+      "endpoint": "POST /customers/:id/assign-agent",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE",
+        "AGENT"
+      ],
+      "agentAllowed": true,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "CustomersController",
+      "endpoint": "POST /customers",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE"
+      ],
+      "agentAllowed": false,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "CustomersController",
+      "endpoint": "PATCH /customers/:id",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE",
+        "AGENT"
+      ],
+      "agentAllowed": true,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "CustomersController",
+      "endpoint": "GET /customers/:id/alerts",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE",
+        "AGENT"
+      ],
+      "agentAllowed": true,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "CustomersController",
+      "endpoint": "POST /customers/:id/alerts",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE",
+        "AGENT"
+      ],
+      "agentAllowed": true,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "CustomersController",
+      "endpoint": "PATCH /customers/:id/alerts/:alertId/read",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE",
+        "AGENT"
+      ],
+      "agentAllowed": true,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "DashboardController",
+      "endpoint": "GET /dashboard/admin",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE",
+        "AGENT"
+      ],
+      "agentAllowed": true,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "DashboardController",
+      "endpoint": "GET /dashboard/back-office",
+      "allowedRoles": [
+        "ADMIN"
+      ],
+      "agentAllowed": false,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "DashboardController",
+      "endpoint": "GET /dashboard/agent",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE"
+      ],
+      "agentAllowed": false,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "DashboardController",
+      "endpoint": "GET /dashboard/management/branch-gwp",
+      "allowedRoles": [
+        "AGENT"
+      ],
+      "agentAllowed": true,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "DashboardController",
+      "endpoint": "GET /dashboard/management/insurers",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE"
+      ],
+      "agentAllowed": false,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "DashboardController",
+      "endpoint": "GET /dashboard/management/leaderboard",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE"
+      ],
+      "agentAllowed": false,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "DashboardRegistryController",
+      "endpoint": "PUT /dashboard-registry/:code",
+      "allowedRoles": [
+        "ADMIN",
+        "ADMIN"
+      ],
+      "agentAllowed": false,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "DocumentsController",
+      "endpoint": "GET /documents",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE",
+        "AGENT"
+      ],
+      "agentAllowed": true,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "DocumentsController",
+      "endpoint": "POST /documents/:id/verify",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE"
+      ],
+      "agentAllowed": false,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "DocumentsController",
+      "endpoint": "GET /documents/:id/verification",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE"
+      ],
+      "agentAllowed": false,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "EndorsementsController",
+      "endpoint": "GET /endorsements/:id",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE",
+        "AGENT"
+      ],
+      "agentAllowed": true,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "EndorsementsController",
+      "endpoint": "POST /endorsements",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE",
+        "AGENT"
+      ],
+      "agentAllowed": true,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "EndorsementsController",
+      "endpoint": "POST /endorsements/policies/:policyId/calculate-prorata",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE",
+        "AGENT"
+      ],
+      "agentAllowed": true,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "EndorsementsController",
+      "endpoint": "POST /endorsements/:id/attach",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE",
+        "AGENT"
+      ],
+      "agentAllowed": true,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "EndorsementsController",
+      "endpoint": "POST /endorsements/:id/approve",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE",
+        "AGENT"
+      ],
+      "agentAllowed": true,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "EndorsementsController",
+      "endpoint": "POST /endorsements/:id/reject",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE"
+      ],
+      "agentAllowed": false,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "FinanceController",
+      "endpoint": "GET /finance/receipts/export",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE"
+      ],
+      "agentAllowed": false,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "FinanceController",
+      "endpoint": "GET /finance/receipts",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE"
+      ],
+      "agentAllowed": false,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "FinanceController",
+      "endpoint": "GET /finance/payments",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE"
+      ],
+      "agentAllowed": false,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "FinanceController",
+      "endpoint": "GET /finance/ledger",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE"
+      ],
+      "agentAllowed": false,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "FinanceController",
+      "endpoint": "POST /finance/ledger/journal",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE"
+      ],
+      "agentAllowed": false,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "FinanceController",
+      "endpoint": "GET /finance/commissions",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE"
+      ],
+      "agentAllowed": false,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "FinanceController",
+      "endpoint": "POST /finance/commissions/:id/approve",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE"
+      ],
+      "agentAllowed": false,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "FinanceController",
+      "endpoint": "GET /finance/settlements",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE"
+      ],
+      "agentAllowed": false,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "FinanceController",
+      "endpoint": "GET /finance/incentives",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE"
+      ],
+      "agentAllowed": false,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "FinanceController",
+      "endpoint": "GET /finance/reconciliation-queue",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE"
+      ],
+      "agentAllowed": false,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "FinanceController",
+      "endpoint": "POST /finance/reconciliation-queue/:id/reconcile",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE"
+      ],
+      "agentAllowed": false,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "FinanceController",
+      "endpoint": "POST /finance/reconciliation-queue/:id/discrepancy",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE"
+      ],
+      "agentAllowed": false,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "FinanceController",
+      "endpoint": "POST /finance/invoices/:id/pay",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE"
+      ],
+      "agentAllowed": false,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "LeadsController",
+      "endpoint": "GET /leads",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE"
+      ],
+      "agentAllowed": false,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "LeadsController",
+      "endpoint": "POST /leads/:id/assign",
+      "allowedRoles": [
+        "ADMIN"
+      ],
+      "agentAllowed": false,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "LeadsController",
+      "endpoint": "POST /leads/:id/auto-assign",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE"
+      ],
+      "agentAllowed": false,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "LeadsController",
+      "endpoint": "POST /leads/bulk-assign",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE"
+      ],
+      "agentAllowed": false,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "LeadsController",
+      "endpoint": "GET /leads/queues/workload",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE"
+      ],
+      "agentAllowed": false,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "LeadsController",
+      "endpoint": "POST /leads/:id/notes",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE"
+      ],
+      "agentAllowed": false,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "MotorCalculationController",
+      "endpoint": "POST /motor/calculate",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE",
+        "AGENT"
+      ],
+      "agentAllowed": true,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "MotorInspectionController",
+      "endpoint": "GET /motor/inspections/:quotationId",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE"
+      ],
+      "agentAllowed": false,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "MotorInspectionController",
+      "endpoint": "POST /motor/inspections/:id/photos",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE",
+        "AGENT"
+      ],
+      "agentAllowed": true,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "MotorInspectionController",
+      "endpoint": "POST /motor/inspections/:id/submit-for-review",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE"
+      ],
+      "agentAllowed": false,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "MotorInspectionController",
+      "endpoint": "POST /motor/inspections/:id/approve",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE"
+      ],
+      "agentAllowed": false,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "MotorInspectionController",
+      "endpoint": "POST /motor/inspections/:id/reject",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE"
+      ],
+      "agentAllowed": false,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "MotorInspectionController",
+      "endpoint": "POST /motor/inspections/:id/waive",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE"
+      ],
+      "agentAllowed": false,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "MotorJourneyController",
+      "endpoint": "GET /motor/journeys/:id",
+      "allowedRoles": [
+        "AGENT",
+        "BACK_OFFICE",
+        "ADMIN"
+      ],
+      "agentAllowed": true,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "MotorQuotationCaseController",
+      "endpoint": "GET /motor/quotation-cases/:id",
+      "allowedRoles": [
+        "AGENT",
+        "BACK_OFFICE",
+        "ADMIN"
+      ],
+      "agentAllowed": true,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "MotorQuotationCaseController",
+      "endpoint": "GET /motor/quotation-cases/lead/:leadId",
+      "allowedRoles": [
+        "AGENT",
+        "BACK_OFFICE",
+        "ADMIN"
+      ],
+      "agentAllowed": true,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "MotorQuotationCaseController",
+      "endpoint": "POST /motor/quotation-cases/:id/select",
+      "allowedRoles": [
+        "AGENT",
+        "BACK_OFFICE",
+        "ADMIN"
+      ],
+      "agentAllowed": true,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "MotorQuotationCaseController",
+      "endpoint": "POST /motor/quotation-cases/:id/submit",
+      "allowedRoles": [
+        "AGENT",
+        "BACK_OFFICE",
+        "ADMIN"
+      ],
+      "agentAllowed": true,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "MotorQuotationCaseController",
+      "endpoint": "GET /motor/quotation-cases/:id/compare",
+      "allowedRoles": [
+        "AGENT",
+        "BACK_OFFICE",
+        "ADMIN"
+      ],
+      "agentAllowed": true,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "MotorQuotationCaseController",
+      "endpoint": "POST /motor/quotation-cases/:id/transition",
+      "allowedRoles": [
+        "AGENT",
+        "BACK_OFFICE",
+        "ADMIN"
+      ],
+      "agentAllowed": true,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "MotorQuotationCaseController",
+      "endpoint": "POST /motor/quotation-cases/:id/cancel",
+      "allowedRoles": [
+        "BACK_OFFICE",
+        "ADMIN"
+      ],
+      "agentAllowed": false,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "MotorQuotationCaseController",
+      "endpoint": "POST /motor/quotation-cases/:id/command",
+      "allowedRoles": [
+        "AGENT",
+        "BACK_OFFICE",
+        "ADMIN"
+      ],
+      "agentAllowed": true,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "MotorQuotationCaseController",
+      "endpoint": "GET /motor/quotation-cases/:id/available-commands",
+      "allowedRoles": [
+        "AGENT",
+        "BACK_OFFICE",
+        "ADMIN"
+      ],
+      "agentAllowed": true,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "MotorQuotationCaseController",
+      "endpoint": "PATCH /motor/quotation-cases/:id",
+      "allowedRoles": [
+        "AGENT",
+        "BACK_OFFICE",
+        "ADMIN"
+      ],
+      "agentAllowed": true,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "MotorQuotationDocumentController",
+      "endpoint": "GET /motor/quotations/:id/documents",
+      "allowedRoles": [
+        "AGENT",
+        "BACK_OFFICE",
+        "ADMIN"
+      ],
+      "agentAllowed": true,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "MotorQuotationDocumentController",
+      "endpoint": "POST /motor/quotation-documents/:id/verify",
+      "allowedRoles": [
+        "AGENT",
+        "BACK_OFFICE",
+        "ADMIN"
+      ],
+      "agentAllowed": true,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "MotorQuotationDocumentController",
+      "endpoint": "DELETE /motor/quotation-documents/:id",
+      "allowedRoles": [
+        "BACK_OFFICE",
+        "ADMIN"
+      ],
+      "agentAllowed": false,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "MotorQuoteController",
+      "endpoint": "POST /motor/quotes/:id/issue",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE",
+        "AGENT"
+      ],
+      "agentAllowed": true,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "MotorWorkflowController",
+      "endpoint": "POST /motor/quotations/:id/previous-policy",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE",
+        "AGENT"
+      ],
+      "agentAllowed": true,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "MotorWorkflowController",
+      "endpoint": "GET /motor/quotations/:id/rule-evaluation",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE",
+        "AGENT"
+      ],
+      "agentAllowed": true,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "MotorWorkflowController",
+      "endpoint": "POST /motor/quotations/:id/payment",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE",
+        "AGENT"
+      ],
+      "agentAllowed": true,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "MotorWorkflowController",
+      "endpoint": "GET /motor/quotations/:id/payment",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE",
+        "AGENT"
+      ],
+      "agentAllowed": true,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "MotorWorkflowController",
+      "endpoint": "GET /motor/quotations/:id/policy-gate",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE",
+        "AGENT"
+      ],
+      "agentAllowed": true,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "MotorWorkflowController",
+      "endpoint": "GET /motor/quotations/:id/workflow-projection",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE",
+        "AGENT"
+      ],
+      "agentAllowed": true,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "MotorController",
+      "endpoint": "POST /motor/cases/:id/submit",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE",
+        "AGENT"
+      ],
+      "agentAllowed": true,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "MotorController",
+      "endpoint": "GET /motor/categories",
+      "allowedRoles": [
+        "AGENT",
+        "BACK_OFFICE",
+        "ADMIN"
+      ],
+      "agentAllowed": true,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "RatingEngineController",
+      "endpoint": "GET /motor/rating/insurers/:id",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE",
+        "AGENT"
+      ],
+      "agentAllowed": true,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "RatingEngineController",
+      "endpoint": "POST /motor/rating/insurers",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE",
+        "AGENT"
+      ],
+      "agentAllowed": true,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "RatingEngineController",
+      "endpoint": "PUT /motor/rating/insurers/:id",
+      "allowedRoles": [
+        "ADMIN"
+      ],
+      "agentAllowed": false,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "RatingEngineController",
+      "endpoint": "PATCH /motor/rating/insurers/:id/toggle",
+      "allowedRoles": [
+        "ADMIN"
+      ],
+      "agentAllowed": false,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "RatingEngineController",
+      "endpoint": "DELETE /motor/rating/insurers/:id",
+      "allowedRoles": [
+        "ADMIN"
+      ],
+      "agentAllowed": false,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "RatingEngineController",
+      "endpoint": "GET /motor/rating/insurance-products",
+      "allowedRoles": [
+        "ADMIN"
+      ],
+      "agentAllowed": false,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "RatingEngineController",
+      "endpoint": "POST /motor/rating/insurance-products",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE",
+        "AGENT"
+      ],
+      "agentAllowed": true,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "RatingEngineController",
+      "endpoint": "GET /motor/rating/discounts",
+      "allowedRoles": [
+        "ADMIN"
+      ],
+      "agentAllowed": false,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "RatingEngineController",
+      "endpoint": "POST /motor/rating/discounts",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE",
+        "AGENT"
+      ],
+      "agentAllowed": true,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "RatingEngineController",
+      "endpoint": "GET /motor/rating/commissions",
+      "allowedRoles": [
+        "ADMIN"
+      ],
+      "agentAllowed": false,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "RatingEngineController",
+      "endpoint": "POST /motor/rating/commissions",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE",
+        "AGENT"
+      ],
+      "agentAllowed": true,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "RatingEngineController",
+      "endpoint": "GET /motor/rating/products",
+      "allowedRoles": [
+        "ADMIN"
+      ],
+      "agentAllowed": false,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "RatingEngineController",
+      "endpoint": "POST /motor/rating/products",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE",
+        "AGENT"
+      ],
+      "agentAllowed": true,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "VehicleMasterController",
+      "endpoint": "PUT /motor/vehicles/rto/:id",
+      "allowedRoles": [
+        "ADMIN"
+      ],
+      "agentAllowed": false,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "VehicleMasterController",
+      "endpoint": "DELETE /motor/vehicles/rto/:id",
+      "allowedRoles": [
+        "ADMIN"
+      ],
+      "agentAllowed": false,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "VehicleMasterController",
+      "endpoint": "GET /motor/vehicles/manufacturers",
+      "allowedRoles": [
+        "ADMIN"
+      ],
+      "agentAllowed": false,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "VehicleMasterController",
+      "endpoint": "GET /motor/vehicles/models",
+      "allowedRoles": [
+        "ADMIN"
+      ],
+      "agentAllowed": false,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "VehicleMasterController",
+      "endpoint": "GET /motor/vehicles/variants",
+      "allowedRoles": [
+        "ADMIN"
+      ],
+      "agentAllowed": false,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "VehicleMasterController",
+      "endpoint": "POST /motor/vehicles/variants/import",
+      "allowedRoles": [
+        "ADMIN"
+      ],
+      "agentAllowed": false,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "MotorQuotationsController",
+      "endpoint": "GET /motor-quotations",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE",
+        "AGENT"
+      ],
+      "agentAllowed": true,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "MotorQuotationsController",
+      "endpoint": "GET /motor-quotations/:id",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE",
+        "AGENT"
+      ],
+      "agentAllowed": true,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "MotorQuotationsController",
+      "endpoint": "POST /motor-quotations",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE",
+        "AGENT"
+      ],
+      "agentAllowed": true,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "MotorQuotationsController",
+      "endpoint": "POST /motor-quotations/:id/accept",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE",
+        "AGENT"
+      ],
+      "agentAllowed": true,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "OrganizationController",
+      "endpoint": "PUT /organization/departments/:id",
+      "allowedRoles": [
+        "ADMIN",
+        "ADMIN"
+      ],
+      "agentAllowed": false,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "OrganizationController",
+      "endpoint": "DELETE /organization/departments/:id",
+      "allowedRoles": [
+        "ADMIN",
+        "ADMIN"
+      ],
+      "agentAllowed": false,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "OrganizationController",
+      "endpoint": "GET /organization/job-roles",
+      "allowedRoles": [
+        "ADMIN",
+        "ADMIN"
+      ],
+      "agentAllowed": false,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "OrganizationController",
+      "endpoint": "PUT /organization/job-role/:id",
+      "allowedRoles": [
+        "ADMIN",
+        "ADMIN"
+      ],
+      "agentAllowed": false,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "OrganizationController",
+      "endpoint": "DELETE /organization/job-role/:id",
+      "allowedRoles": [
+        "ADMIN",
+        "ADMIN"
+      ],
+      "agentAllowed": false,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "OrganizationController",
+      "endpoint": "GET /organization/hierarchy",
+      "allowedRoles": [
+        "ADMIN",
+        "ADMIN"
+      ],
+      "agentAllowed": false,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "AuditController",
+      "endpoint": "GET /audit/export",
+      "allowedRoles": [
+        "ADMIN"
+      ],
+      "agentAllowed": false,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "NotificationsController",
+      "endpoint": "GET /notifications",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE",
+        "AGENT"
+      ],
+      "agentAllowed": true,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "PortalController",
+      "endpoint": "GET /portal/support/tickets",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE"
+      ],
+      "agentAllowed": false,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "QueueDashboardController",
+      "endpoint": "GET /queue/jobs",
+      "allowedRoles": [
+        "ADMIN"
+      ],
+      "agentAllowed": false,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "SearchController",
+      "endpoint": "GET /search",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE",
+        "AGENT"
+      ],
+      "agentAllowed": true,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "WorkflowsController",
+      "endpoint": "GET /workflow/instances",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE"
+      ],
+      "agentAllowed": false,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "WorkflowsController",
+      "endpoint": "GET /workflow/approvals",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE"
+      ],
+      "agentAllowed": false,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "WorkflowsController",
+      "endpoint": "POST /workflow/approvals/:id/action",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE"
+      ],
+      "agentAllowed": false,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "WorkflowsController",
+      "endpoint": "POST /workflow/approvals/bulk",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE"
+      ],
+      "agentAllowed": false,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "WorkflowsController",
+      "endpoint": "GET /workflow/sla/metrics",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE"
+      ],
+      "agentAllowed": false,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "WorkflowsController",
+      "endpoint": "GET /workflow/definitions",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE"
+      ],
+      "agentAllowed": false,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "WorkflowsController",
+      "endpoint": "POST /workflow/definitions",
+      "allowedRoles": [
+        "ADMIN"
+      ],
+      "agentAllowed": false,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "WorkflowsController",
+      "endpoint": "PATCH /workflow/definitions/:id",
+      "allowedRoles": [
+        "ADMIN"
+      ],
+      "agentAllowed": false,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "WorkflowsController",
+      "endpoint": "DELETE /workflow/definitions/:id",
+      "allowedRoles": [
+        "ADMIN"
+      ],
+      "agentAllowed": false,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "WorkflowsController",
+      "endpoint": "GET /workflow/:entityType/:entityId/transitions",
+      "allowedRoles": [
+        "ADMIN"
+      ],
+      "agentAllowed": false,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "BackOfficeController",
+      "endpoint": "POST /back-office/issue/:quotationId",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE",
+        "AGENT"
+      ],
+      "agentAllowed": true,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "PoliciesController",
+      "endpoint": "POST /policies",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE"
+      ],
+      "agentAllowed": false,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "PoliciesController",
+      "endpoint": "GET /policies/renewals/kpis",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE"
+      ],
+      "agentAllowed": false,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "PoliciesController",
+      "endpoint": "GET /policies/renewals/upcoming",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE",
+        "AGENT"
+      ],
+      "agentAllowed": true,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "PoliciesController",
+      "endpoint": "POST /policies/renewals/:id/lost",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE",
+        "AGENT"
+      ],
+      "agentAllowed": true,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "PoliciesController",
+      "endpoint": "GET /policies/renewal/pipeline",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE",
+        "AGENT"
+      ],
+      "agentAllowed": true,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "PoliciesController",
+      "endpoint": "GET /policies/renewals/queue",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE",
+        "AGENT"
+      ],
+      "agentAllowed": true,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "PoliciesController",
+      "endpoint": "POST /policies/renewals/:id/remind",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE",
+        "AGENT"
+      ],
+      "agentAllowed": true,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "PoliciesController",
+      "endpoint": "POST /policies/renewals/:id/escalate",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE",
+        "AGENT"
+      ],
+      "agentAllowed": true,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "PoliciesController",
+      "endpoint": "POST /policies/renewal/trigger-scan",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE"
+      ],
+      "agentAllowed": false,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "PoliciesController",
+      "endpoint": "GET /policies",
+      "allowedRoles": [
+        "ADMIN"
+      ],
+      "agentAllowed": false,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "PoliciesController",
+      "endpoint": "GET /policies/:id",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE",
+        "AGENT"
+      ],
+      "agentAllowed": true,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "PoliciesController",
+      "endpoint": "PATCH /policies/:id",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE",
+        "AGENT"
+      ],
+      "agentAllowed": true,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "PoliciesController",
+      "endpoint": "GET /policies/:id/history",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE"
+      ],
+      "agentAllowed": false,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "PoliciesController",
+      "endpoint": "POST /policies/:id/renew",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE",
+        "AGENT"
+      ],
+      "agentAllowed": true,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "PoliciesController",
+      "endpoint": "POST /policies/:id/cancel",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE",
+        "AGENT"
+      ],
+      "agentAllowed": true,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "RenewalsController",
+      "endpoint": "POST /renewals/tasks/:id/quote",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE",
+        "AGENT"
+      ],
+      "agentAllowed": true,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "RenewalsController",
+      "endpoint": "POST /renewals/tasks/:id/complete",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE",
+        "AGENT"
+      ],
+      "agentAllowed": true,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "RenewalsController",
+      "endpoint": "POST /renewals/tasks/:id/lost",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE",
+        "AGENT"
+      ],
+      "agentAllowed": true,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "ProposalsController",
+      "endpoint": "GET /proposals/:id",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE",
+        "AGENT"
+      ],
+      "agentAllowed": true,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "ProposalsController",
+      "endpoint": "POST /proposals",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE",
+        "AGENT"
+      ],
+      "agentAllowed": true,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "ProposalsController",
+      "endpoint": "POST /proposals/:id/attach",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE",
+        "AGENT"
+      ],
+      "agentAllowed": true,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "ProposalsController",
+      "endpoint": "POST /proposals/:id/submit",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE",
+        "AGENT"
+      ],
+      "agentAllowed": true,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "ProposalsController",
+      "endpoint": "POST /proposals/:id/review",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE",
+        "AGENT"
+      ],
+      "agentAllowed": true,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "QuotationController",
+      "endpoint": "POST /quotations/calculate",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE",
+        "AGENT"
+      ],
+      "agentAllowed": true,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "QuotationController",
+      "endpoint": "POST /quotations/enterprise-compare",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE",
+        "AGENT"
+      ],
+      "agentAllowed": true,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "QuotationController",
+      "endpoint": "POST /quotations/wizard/issue-policy",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE",
+        "AGENT"
+      ],
+      "agentAllowed": true,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "QuotationController",
+      "endpoint": "POST /quotations",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE"
+      ],
+      "agentAllowed": false,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "QuotationController",
+      "endpoint": "GET /quotations",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE",
+        "AGENT"
+      ],
+      "agentAllowed": true,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "QuotationController",
+      "endpoint": "GET /quotations/:id/completion",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE",
+        "AGENT"
+      ],
+      "agentAllowed": true,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "QuotationController",
+      "endpoint": "GET /quotations/:id",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE",
+        "AGENT"
+      ],
+      "agentAllowed": true,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "QuotationController",
+      "endpoint": "GET /quotations/:id/history",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE",
+        "AGENT"
+      ],
+      "agentAllowed": true,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "QuotationController",
+      "endpoint": "POST /quotations/compare",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE",
+        "AGENT"
+      ],
+      "agentAllowed": true,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "QuotationController",
+      "endpoint": "POST /quotations/:id/approve",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE",
+        "AGENT"
+      ],
+      "agentAllowed": true,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "QuotationController",
+      "endpoint": "POST /quotations/:id/reject",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE"
+      ],
+      "agentAllowed": false,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "QuotationController",
+      "endpoint": "POST /quotations/:id/convert",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE"
+      ],
+      "agentAllowed": false,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "QuotationController",
+      "endpoint": "POST /quotations/:id/accept",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE",
+        "AGENT"
+      ],
+      "agentAllowed": true,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "QuotationController",
+      "endpoint": "POST /quotations/:id/versions",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE",
+        "AGENT"
+      ],
+      "agentAllowed": true,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "QuotationController",
+      "endpoint": "GET /quotations/:id/versions",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE",
+        "AGENT"
+      ],
+      "agentAllowed": true,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "QuotationController",
+      "endpoint": "PATCH /quotations/:id/details",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE",
+        "AGENT"
+      ],
+      "agentAllowed": true,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "TasksController",
+      "endpoint": "GET /tasks/back-office/queue",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE",
+        "AGENT"
+      ],
+      "agentAllowed": true,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "TasksController",
+      "endpoint": "GET /tasks/back-office/:id",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE"
+      ],
+      "agentAllowed": false,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "TasksController",
+      "endpoint": "POST /tasks/back-office",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE"
+      ],
+      "agentAllowed": false,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "TasksController",
+      "endpoint": "PATCH /tasks/back-office/:id/assign",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE"
+      ],
+      "agentAllowed": false,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "TasksController",
+      "endpoint": "PATCH /tasks/back-office/:id/resolve",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE"
+      ],
+      "agentAllowed": false,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "TasksController",
+      "endpoint": "GET /tasks",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE"
+      ],
+      "agentAllowed": false,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "TasksController",
+      "endpoint": "GET /tasks/:id",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE",
+        "AGENT"
+      ],
+      "agentAllowed": true,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "TasksController",
+      "endpoint": "POST /tasks",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE",
+        "AGENT"
+      ],
+      "agentAllowed": true,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "TasksController",
+      "endpoint": "PATCH /tasks/:id",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE",
+        "AGENT"
+      ],
+      "agentAllowed": true,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "TasksController",
+      "endpoint": "PATCH /tasks/:id/complete",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE",
+        "AGENT"
+      ],
+      "agentAllowed": true,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "UsersController",
+      "endpoint": "GET /users/roles",
+      "allowedRoles": [
+        "ADMIN"
+      ],
+      "agentAllowed": false,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "UsersController",
+      "endpoint": "POST /users/change-password",
+      "allowedRoles": [
+        "ADMIN"
+      ],
+      "agentAllowed": false,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "UsersController",
+      "endpoint": "GET /users/:id",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE"
+      ],
+      "agentAllowed": false,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "UsersController",
+      "endpoint": "PATCH /users/:id/status",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE"
+      ],
+      "agentAllowed": false,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "UsersController",
+      "endpoint": "PATCH /users/:id",
+      "allowedRoles": [
+        "ADMIN"
+      ],
+      "agentAllowed": false,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "UsersController",
+      "endpoint": "DELETE /users/:id",
+      "allowedRoles": [
+        "ADMIN"
+      ],
+      "agentAllowed": false,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "UsersController",
+      "endpoint": "POST /users/:id/lock",
+      "allowedRoles": [
+        "ADMIN"
+      ],
+      "agentAllowed": false,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "UsersController",
+      "endpoint": "POST /users/:id/unlock",
+      "allowedRoles": [
+        "ADMIN"
+      ],
+      "agentAllowed": false,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "UsersController",
+      "endpoint": "POST /users/:id/reset-password",
+      "allowedRoles": [
+        "ADMIN"
+      ],
+      "agentAllowed": false,
+      "hasRolesGuard": true
+    }
+  ],
+  "endpointsWithNoRoleGuard": [
+    {
+      "endpoint": "GET /",
+      "controller": "AppController",
+      "file": "apps/api/src/app.controller.ts"
+    },
+    {
+      "endpoint": "POST /accounts",
+      "controller": "AccountsController",
+      "file": "apps/api/src/modules/accounts/controllers/accounts.controller.ts"
+    },
+    {
+      "endpoint": "GET /admin/lookups",
+      "controller": "LookupController",
+      "file": "apps/api/src/modules/administration/controllers/lookup/lookup.controller.ts"
+    },
+    {
+      "endpoint": "GET /admin/lookups/:categoryCode",
+      "controller": "LookupController",
+      "file": "apps/api/src/modules/administration/controllers/lookup/lookup.controller.ts"
+    },
+    {
+      "endpoint": "POST /admin/lookups/:categoryCode/values",
+      "controller": "LookupController",
+      "file": "apps/api/src/modules/administration/controllers/lookup/lookup.controller.ts"
+    },
+    {
+      "endpoint": "GET /admin/organization/hierarchy",
+      "controller": "AssignTeamDto",
+      "file": "apps/api/src/modules/administration/controllers/organization/organization.controller.ts"
+    },
+    {
+      "endpoint": "GET /admin/roles",
+      "controller": "RolesController",
+      "file": "apps/api/src/modules/administration/controllers/organization/roles.controller.ts"
+    },
+    {
+      "endpoint": "GET /admin/config",
+      "controller": "UpdateConfigDto",
+      "file": "apps/api/src/modules/administration/controllers/system-config/system-config.controller.ts"
+    },
+    {
+      "endpoint": "GET /admin/config/numbering",
+      "controller": "UpdateConfigDto",
+      "file": "apps/api/src/modules/administration/controllers/system-config/system-config.controller.ts"
+    },
+    {
+      "endpoint": "GET /agents/me",
+      "controller": "AgentsController",
+      "file": "apps/api/src/modules/agents/agents.controller.ts"
+    },
+    {
+      "endpoint": "GET /analytics/policies",
+      "controller": "AnalyticsController",
+      "file": "apps/api/src/modules/analytics/controllers/analytics.controller.ts"
+    },
+    {
+      "endpoint": "GET /analytics/claims",
+      "controller": "AnalyticsController",
+      "file": "apps/api/src/modules/analytics/controllers/analytics.controller.ts"
+    },
+    {
+      "endpoint": "GET /analytics/revenue",
+      "controller": "AnalyticsController",
+      "file": "apps/api/src/modules/analytics/controllers/analytics.controller.ts"
+    },
+    {
+      "endpoint": "GET /analytics/revenue/trend",
+      "controller": "AnalyticsController",
+      "file": "apps/api/src/modules/analytics/controllers/analytics.controller.ts"
+    },
+    {
+      "endpoint": "GET /analytics/renewals",
+      "controller": "AnalyticsController",
+      "file": "apps/api/src/modules/analytics/controllers/analytics.controller.ts"
+    },
+    {
+      "endpoint": "POST /auth/login",
+      "controller": "AuthController",
+      "file": "apps/api/src/modules/auth/controllers/auth.controller.ts"
+    },
+    {
+      "endpoint": "POST /auth/refresh",
+      "controller": "AuthController",
+      "file": "apps/api/src/modules/auth/controllers/auth.controller.ts"
+    },
+    {
+      "endpoint": "POST /auth/logout",
+      "controller": "AuthController",
+      "file": "apps/api/src/modules/auth/controllers/auth.controller.ts"
+    },
+    {
+      "endpoint": "GET /dashboards/sales",
+      "controller": "DashboardAnalyticsController",
+      "file": "apps/api/src/modules/bi/dashboards/services/dashboard-analytics/dashboard-analytics.controller.ts"
+    },
+    {
+      "endpoint": "GET /forecasting/revenue",
+      "controller": "ForecastingController",
+      "file": "apps/api/src/modules/bi/forecasting/controllers/forecasting.controller.ts"
+    },
+    {
+      "endpoint": "GET /bi/conversion",
+      "controller": "BiController",
+      "file": "apps/api/src/modules/business-intelligence/controllers/bi.controller.ts"
+    },
+    {
+      "endpoint": "POST /claims/report",
+      "controller": "ClaimsController",
+      "file": "apps/api/src/modules/claims/controllers/claims.controller.ts"
+    },
+    {
+      "endpoint": "POST /contacts",
+      "controller": "ContactsController",
+      "file": "apps/api/src/modules/contacts/controllers/contacts.controller.ts"
+    },
+    {
+      "endpoint": "GET /communications",
+      "controller": "CommunicationController",
+      "file": "apps/api/src/modules/customer/communication/controllers/communication.controller.ts"
+    },
+    {
+      "endpoint": "POST /communications",
+      "controller": "CommunicationController",
+      "file": "apps/api/src/modules/customer/communication/controllers/communication.controller.ts"
+    },
+    {
+      "endpoint": "GET /notifications/templates",
+      "controller": "CommunicationController",
+      "file": "apps/api/src/modules/customer/communication/controllers/communication.controller.ts"
+    },
+    {
+      "endpoint": "GET /customers/check-duplicate",
+      "controller": "CustomersController",
+      "file": "apps/api/src/modules/customers/customers.controller.ts"
+    },
+    {
+      "endpoint": "GET /dashboard",
+      "controller": "DashboardController",
+      "file": "apps/api/src/modules/dashboard/controllers/dashboard.controller.ts"
+    },
+    {
+      "endpoint": "GET /dashboard-registry",
+      "controller": "DashboardRegistryController",
+      "file": "apps/api/src/modules/dashboard-registry/controllers/dashboard-registry.controller.ts"
+    },
+    {
+      "endpoint": "GET /dashboard-registry/:code",
+      "controller": "DashboardRegistryController",
+      "file": "apps/api/src/modules/dashboard-registry/controllers/dashboard-registry.controller.ts"
+    },
+    {
+      "endpoint": "POST /dashboard-registry",
+      "controller": "DashboardRegistryController",
+      "file": "apps/api/src/modules/dashboard-registry/controllers/dashboard-registry.controller.ts"
+    },
+    {
+      "endpoint": "POST /documents/upload",
+      "controller": "DocumentsController",
+      "file": "apps/api/src/modules/documents/controllers/documents.controller.ts"
+    },
+    {
+      "endpoint": "POST /documents/:id/replace",
+      "controller": "DocumentsController",
+      "file": "apps/api/src/modules/documents/controllers/documents.controller.ts"
+    },
+    {
+      "endpoint": "GET /documents/entity/:entityType/:entityId",
+      "controller": "DocumentsController",
+      "file": "apps/api/src/modules/documents/controllers/documents.controller.ts"
+    },
+    {
+      "endpoint": "GET /documents/:id",
+      "controller": "DocumentsController",
+      "file": "apps/api/src/modules/documents/controllers/documents.controller.ts"
+    },
+    {
+      "endpoint": "DELETE /documents/:id",
+      "controller": "DocumentsController",
+      "file": "apps/api/src/modules/documents/controllers/documents.controller.ts"
+    },
+    {
+      "endpoint": "POST /documents/:id/restore",
+      "controller": "DocumentsController",
+      "file": "apps/api/src/modules/documents/controllers/documents.controller.ts"
+    },
+    {
+      "endpoint": "GET /documents/:id/history",
+      "controller": "DocumentsController",
+      "file": "apps/api/src/modules/documents/controllers/documents.controller.ts"
+    },
+    {
+      "endpoint": "GET /documents/:id/download",
+      "controller": "DocumentsController",
+      "file": "apps/api/src/modules/documents/controllers/documents.controller.ts"
+    },
+    {
+      "endpoint": "POST /documents/:id/review",
+      "controller": "DocumentsController",
+      "file": "apps/api/src/modules/documents/controllers/documents.controller.ts"
+    },
+    {
+      "endpoint": "GET /endorsements",
+      "controller": "EndorsementsController",
+      "file": "apps/api/src/modules/endorsements/controllers/endorsements.controller.ts"
+    },
+    {
+      "endpoint": "POST /finance/commissions/accrue",
+      "controller": "CommissionController",
+      "file": "apps/api/src/modules/finance/commission/controllers/commission.controller.ts"
+    },
+    {
+      "endpoint": "POST /finance/commissions/realize/:policyId",
+      "controller": "CommissionController",
+      "file": "apps/api/src/modules/finance/commission/controllers/commission.controller.ts"
+    },
+    {
+      "endpoint": "GET /finance/dashboard",
+      "controller": "FinanceController",
+      "file": "apps/api/src/modules/finance/controllers/finance.controller.ts"
+    },
+    {
+      "endpoint": "GET /health",
+      "controller": "HealthController",
+      "file": "apps/api/src/modules/health/health.controller.ts"
+    },
+    {
+      "endpoint": "GET /health/terminus",
+      "controller": "HealthController",
+      "file": "apps/api/src/modules/health/health.controller.ts"
+    },
+    {
+      "endpoint": "GET /health/live",
+      "controller": "HealthController",
+      "file": "apps/api/src/modules/health/health.controller.ts"
+    },
+    {
+      "endpoint": "GET /health/ready",
+      "controller": "HealthController",
+      "file": "apps/api/src/modules/health/health.controller.ts"
+    },
+    {
+      "endpoint": "GET /metrics",
+      "controller": "MetricsController",
+      "file": "apps/api/src/modules/health/metrics.controller.ts"
+    },
+    {
+      "endpoint": "GET /leads/kpis",
+      "controller": "LeadsController",
+      "file": "apps/api/src/modules/leads/controllers/leads.controller.ts"
+    },
+    {
+      "endpoint": "GET /leads/check-duplicate",
+      "controller": "LeadsController",
+      "file": "apps/api/src/modules/leads/controllers/leads.controller.ts"
+    },
+    {
+      "endpoint": "POST /leads/check-duplicate",
+      "controller": "LeadsController",
+      "file": "apps/api/src/modules/leads/controllers/leads.controller.ts"
+    },
+    {
+      "endpoint": "POST /leads",
+      "controller": "LeadsController",
+      "file": "apps/api/src/modules/leads/controllers/leads.controller.ts"
+    },
+    {
+      "endpoint": "POST /leads/:id/merge",
+      "controller": "LeadsController",
+      "file": "apps/api/src/modules/leads/controllers/leads.controller.ts"
+    },
+    {
+      "endpoint": "GET /leads/:id",
+      "controller": "LeadsController",
+      "file": "apps/api/src/modules/leads/controllers/leads.controller.ts"
+    },
+    {
+      "endpoint": "GET /leads/:id/context",
+      "controller": "LeadsController",
+      "file": "apps/api/src/modules/leads/controllers/leads.controller.ts"
+    },
+    {
+      "endpoint": "GET /leads/:id/completion",
+      "controller": "LeadsController",
+      "file": "apps/api/src/modules/leads/controllers/leads.controller.ts"
+    },
+    {
+      "endpoint": "PATCH /leads/:id",
+      "controller": "LeadsController",
+      "file": "apps/api/src/modules/leads/controllers/leads.controller.ts"
+    },
+    {
+      "endpoint": "DELETE /leads/:id",
+      "controller": "LeadsController",
+      "file": "apps/api/src/modules/leads/controllers/leads.controller.ts"
+    },
+    {
+      "endpoint": "POST /leads/:id/activities",
+      "controller": "LeadsController",
+      "file": "apps/api/src/modules/leads/controllers/leads.controller.ts"
+    },
+    {
+      "endpoint": "POST /leads/:id/convert",
+      "controller": "LeadsController",
+      "file": "apps/api/src/modules/leads/controllers/leads.controller.ts"
+    },
+    {
+      "endpoint": "POST /leads/:id/mark-lost",
+      "controller": "LeadsController",
+      "file": "apps/api/src/modules/leads/controllers/leads.controller.ts"
+    },
+    {
+      "endpoint": "GET /leads/:id/allowed-transitions",
+      "controller": "LeadsController",
+      "file": "apps/api/src/modules/leads/controllers/leads.controller.ts"
+    },
+    {
+      "endpoint": "POST /leads/:id/transition",
+      "controller": "LeadsController",
+      "file": "apps/api/src/modules/leads/controllers/leads.controller.ts"
+    },
+    {
+      "endpoint": "POST /motor/inspections",
+      "controller": "MotorInspectionController",
+      "file": "apps/api/src/modules/motor/controllers/motor-inspection.controller.ts"
+    },
+    {
+      "endpoint": "POST /motor/journeys",
+      "controller": "MotorJourneyController",
+      "file": "apps/api/src/modules/motor/controllers/motor-journey.controller.ts"
+    },
+    {
+      "endpoint": "POST /motor/quotation-cases",
+      "controller": "MotorQuotationCaseController",
+      "file": "apps/api/src/modules/motor/controllers/motor-quotation-case.controller.ts"
+    },
+    {
+      "endpoint": "POST /motor/quotations/:id/documents",
+      "controller": "MotorQuotationDocumentController",
+      "file": "apps/api/src/modules/motor/controllers/motor-quotation-document.controller.ts"
+    },
+    {
+      "endpoint": "POST /motor/quotes/:id/finalize",
+      "controller": "MotorQuoteController",
+      "file": "apps/api/src/modules/motor/controllers/motor-quote.controller.ts"
+    },
+    {
+      "endpoint": "POST /motor/rules/evaluate",
+      "controller": "EvaluateMotorRulesDto",
+      "file": "apps/api/src/modules/motor/controllers/motor-rules-evaluate.controller.ts"
+    },
+    {
+      "endpoint": "POST /motor/quotations/:id/transition",
+      "controller": "MotorWorkflowController",
+      "file": "apps/api/src/modules/motor/motor-workflow.controller.ts"
+    },
+    {
+      "endpoint": "GET /motor/categories/:category",
+      "controller": "MotorController",
+      "file": "apps/api/src/modules/motor/motor.controller.ts"
+    },
+    {
+      "endpoint": "GET /motor/tariff/lookup",
+      "controller": "MotorController",
+      "file": "apps/api/src/modules/motor/motor.controller.ts"
+    },
+    {
+      "endpoint": "POST /motor/saod-verification",
+      "controller": "MotorController",
+      "file": "apps/api/src/modules/motor/motor.controller.ts"
+    },
+    {
+      "endpoint": "POST /motor/vehicles/normalize-registration",
+      "controller": "MotorController",
+      "file": "apps/api/src/modules/motor/motor.controller.ts"
+    },
+    {
+      "endpoint": "POST /motor/vehicles/validate-specs",
+      "controller": "MotorController",
+      "file": "apps/api/src/modules/motor/motor.controller.ts"
+    },
+    {
+      "endpoint": "POST /motor/vehicles",
+      "controller": "MotorController",
+      "file": "apps/api/src/modules/motor/motor.controller.ts"
+    },
+    {
+      "endpoint": "GET /motor/vehicles/lookup/:regNumber",
+      "controller": "MotorController",
+      "file": "apps/api/src/modules/motor/motor.controller.ts"
+    },
+    {
+      "endpoint": "GET /motor/vehicles/by-contact/:contactId",
+      "controller": "MotorController",
+      "file": "apps/api/src/modules/motor/motor.controller.ts"
+    },
+    {
+      "endpoint": "GET /motor/previous-policy/:identifier",
+      "controller": "MotorController",
+      "file": "apps/api/src/modules/motor/motor.controller.ts"
+    },
+    {
+      "endpoint": "GET /motor/documents/required",
+      "controller": "MotorController",
+      "file": "apps/api/src/modules/motor/motor.controller.ts"
+    },
+    {
+      "endpoint": "GET /motor/documents/lead-completion/:leadId",
+      "controller": "MotorController",
+      "file": "apps/api/src/modules/motor/motor.controller.ts"
+    },
+    {
+      "endpoint": "GET /motor/rating/insurers",
+      "controller": "RatingEngineController",
+      "file": "apps/api/src/modules/motor-admin/controllers/rating-engine.controller.ts"
+    },
+    {
+      "endpoint": "GET /motor/vehicles/rto",
+      "controller": "VehicleMasterController",
+      "file": "apps/api/src/modules/motor-admin/controllers/vehicle-master.controller.ts"
+    },
+    {
+      "endpoint": "GET /motor/vehicles/rto/:code",
+      "controller": "VehicleMasterController",
+      "file": "apps/api/src/modules/motor-admin/controllers/vehicle-master.controller.ts"
+    },
+    {
+      "endpoint": "POST /motor/vehicles/rto",
+      "controller": "VehicleMasterController",
+      "file": "apps/api/src/modules/motor-admin/controllers/vehicle-master.controller.ts"
+    },
+    {
+      "endpoint": "POST /motor/vehicles/manufacturers",
+      "controller": "VehicleMasterController",
+      "file": "apps/api/src/modules/motor-admin/controllers/vehicle-master.controller.ts"
+    },
+    {
+      "endpoint": "POST /motor/vehicles/models",
+      "controller": "VehicleMasterController",
+      "file": "apps/api/src/modules/motor-admin/controllers/vehicle-master.controller.ts"
+    },
+    {
+      "endpoint": "POST /motor/vehicles/variants",
+      "controller": "VehicleMasterController",
+      "file": "apps/api/src/modules/motor-admin/controllers/vehicle-master.controller.ts"
+    },
+    {
+      "endpoint": "GET /motor-quotations/compare",
+      "controller": "MotorQuotationsController",
+      "file": "apps/api/src/modules/motor-quotations/motor-quotations.controller.ts"
+    },
+    {
+      "endpoint": "GET /organization/departments",
+      "controller": "OrganizationController",
+      "file": "apps/api/src/modules/organization/controllers/organization.controller.ts"
+    },
+    {
+      "endpoint": "GET /organization/departments/:id",
+      "controller": "OrganizationController",
+      "file": "apps/api/src/modules/organization/controllers/organization.controller.ts"
+    },
+    {
+      "endpoint": "POST /organization/departments",
+      "controller": "OrganizationController",
+      "file": "apps/api/src/modules/organization/controllers/organization.controller.ts"
+    },
+    {
+      "endpoint": "GET /organization/job-roles/:id",
+      "controller": "OrganizationController",
+      "file": "apps/api/src/modules/organization/controllers/organization.controller.ts"
+    },
+    {
+      "endpoint": "POST /organization/job-role",
+      "controller": "OrganizationController",
+      "file": "apps/api/src/modules/organization/controllers/organization.controller.ts"
+    },
+    {
+      "endpoint": "GET /audit",
+      "controller": "AuditController",
+      "file": "apps/api/src/modules/platform/audit/controllers/audit.controller.ts"
+    },
+    {
+      "endpoint": "POST /webhooks/:provider",
+      "controller": "WebhookGatewayController",
+      "file": "apps/api/src/modules/platform/integrations/webhooks/controllers/webhook-gateway/webhook-gateway.controller.ts"
+    },
+    {
+      "endpoint": "GET /notifications/delivery-logs",
+      "controller": "NotificationsController",
+      "file": "apps/api/src/modules/platform/notifications/controllers/notifications.controller.ts"
+    },
+    {
+      "endpoint": "GET /notifications/events",
+      "controller": "NotificationsController",
+      "file": "apps/api/src/modules/platform/notifications/controllers/notifications.controller.ts"
+    },
+    {
+      "endpoint": "GET /notifications/templates",
+      "controller": "NotificationsController",
+      "file": "apps/api/src/modules/platform/notifications/controllers/notifications.controller.ts"
+    },
+    {
+      "endpoint": "PUT /notifications/templates/:id",
+      "controller": "NotificationsController",
+      "file": "apps/api/src/modules/platform/notifications/controllers/notifications.controller.ts"
+    },
+    {
+      "endpoint": "GET /notifications/unread",
+      "controller": "NotificationsController",
+      "file": "apps/api/src/modules/platform/notifications/controllers/notifications.controller.ts"
+    },
+    {
+      "endpoint": "GET /notifications/count",
+      "controller": "NotificationsController",
+      "file": "apps/api/src/modules/platform/notifications/controllers/notifications.controller.ts"
+    },
+    {
+      "endpoint": "PATCH /notifications/read-all",
+      "controller": "NotificationsController",
+      "file": "apps/api/src/modules/platform/notifications/controllers/notifications.controller.ts"
+    },
+    {
+      "endpoint": "PATCH /notifications/:id/read",
+      "controller": "NotificationsController",
+      "file": "apps/api/src/modules/platform/notifications/controllers/notifications.controller.ts"
+    },
+    {
+      "endpoint": "DELETE /notifications/:id",
+      "controller": "NotificationsController",
+      "file": "apps/api/src/modules/platform/notifications/controllers/notifications.controller.ts"
+    },
+    {
+      "endpoint": "GET /notifications/preferences",
+      "controller": "NotificationsController",
+      "file": "apps/api/src/modules/platform/notifications/controllers/notifications.controller.ts"
+    },
+    {
+      "endpoint": "PATCH /notifications/preferences",
+      "controller": "NotificationsController",
+      "file": "apps/api/src/modules/platform/notifications/controllers/notifications.controller.ts"
+    },
+    {
+      "endpoint": "GET /portal/metrics",
+      "controller": "PortalController",
+      "file": "apps/api/src/modules/platform/portal/controllers/portal.controller.ts"
+    },
+    {
+      "endpoint": "GET /portal/customers",
+      "controller": "PortalController",
+      "file": "apps/api/src/modules/platform/portal/controllers/portal.controller.ts"
+    },
+    {
+      "endpoint": "GET /portal/leads",
+      "controller": "PortalController",
+      "file": "apps/api/src/modules/platform/portal/controllers/portal.controller.ts"
+    },
+    {
+      "endpoint": "POST /portal/leads",
+      "controller": "PortalController",
+      "file": "apps/api/src/modules/platform/portal/controllers/portal.controller.ts"
+    },
+    {
+      "endpoint": "GET /portal/quotations/compare",
+      "controller": "PortalController",
+      "file": "apps/api/src/modules/platform/portal/controllers/portal.controller.ts"
+    },
+    {
+      "endpoint": "POST /portal/quotations/compare",
+      "controller": "PortalController",
+      "file": "apps/api/src/modules/platform/portal/controllers/portal.controller.ts"
+    },
+    {
+      "endpoint": "GET /portal/policies",
+      "controller": "PortalController",
+      "file": "apps/api/src/modules/platform/portal/controllers/portal.controller.ts"
+    },
+    {
+      "endpoint": "GET /portal/renewals",
+      "controller": "PortalController",
+      "file": "apps/api/src/modules/platform/portal/controllers/portal.controller.ts"
+    },
+    {
+      "endpoint": "GET /portal/commissions",
+      "controller": "PortalController",
+      "file": "apps/api/src/modules/platform/portal/controllers/portal.controller.ts"
+    },
+    {
+      "endpoint": "GET /portal/branch-manager/metrics",
+      "controller": "PortalController",
+      "file": "apps/api/src/modules/platform/portal/controllers/portal.controller.ts"
+    },
+    {
+      "endpoint": "POST /portal/support/tickets",
+      "controller": "PortalController",
+      "file": "apps/api/src/modules/platform/portal/controllers/portal.controller.ts"
+    },
+    {
+      "endpoint": "GET /queue/statistics",
+      "controller": "QueueDashboardController",
+      "file": "apps/api/src/modules/platform/queue/monitoring/queue-dashboard.controller.ts"
+    },
+    {
+      "endpoint": "GET /queue/jobs/:id",
+      "controller": "QueueDashboardController",
+      "file": "apps/api/src/modules/platform/queue/monitoring/queue-dashboard.controller.ts"
+    },
+    {
+      "endpoint": "POST /queue/jobs/:id/retry",
+      "controller": "QueueDashboardController",
+      "file": "apps/api/src/modules/platform/queue/monitoring/queue-dashboard.controller.ts"
+    },
+    {
+      "endpoint": "DELETE /queue/jobs/:id",
+      "controller": "QueueDashboardController",
+      "file": "apps/api/src/modules/platform/queue/monitoring/queue-dashboard.controller.ts"
+    },
+    {
+      "endpoint": "POST /reports",
+      "controller": "ReportsController",
+      "file": "apps/api/src/modules/platform/reporting/controllers/reports.controller.ts"
+    },
+    {
+      "endpoint": "PUT /reports/:id",
+      "controller": "ReportsController",
+      "file": "apps/api/src/modules/platform/reporting/controllers/reports.controller.ts"
+    },
+    {
+      "endpoint": "DELETE /reports/:id",
+      "controller": "ReportsController",
+      "file": "apps/api/src/modules/platform/reporting/controllers/reports.controller.ts"
+    },
+    {
+      "endpoint": "GET /reports",
+      "controller": "ReportsController",
+      "file": "apps/api/src/modules/platform/reporting/controllers/reports.controller.ts"
+    },
+    {
+      "endpoint": "GET /reports/system",
+      "controller": "ReportsController",
+      "file": "apps/api/src/modules/platform/reporting/controllers/reports.controller.ts"
+    },
+    {
+      "endpoint": "GET /reports/custom",
+      "controller": "ReportsController",
+      "file": "apps/api/src/modules/platform/reporting/controllers/reports.controller.ts"
+    },
+    {
+      "endpoint": "GET /reports/providers",
+      "controller": "ReportsController",
+      "file": "apps/api/src/modules/platform/reporting/controllers/reports.controller.ts"
+    },
+    {
+      "endpoint": "GET /reports/schedules",
+      "controller": "ReportsController",
+      "file": "apps/api/src/modules/platform/reporting/controllers/reports.controller.ts"
+    },
+    {
+      "endpoint": "POST /reports/schedules",
+      "controller": "ReportsController",
+      "file": "apps/api/src/modules/platform/reporting/controllers/reports.controller.ts"
+    },
+    {
+      "endpoint": "GET /reports/history",
+      "controller": "ReportsController",
+      "file": "apps/api/src/modules/platform/reporting/controllers/reports.controller.ts"
+    },
+    {
+      "endpoint": "GET /reports/:idOrCode",
+      "controller": "ReportsController",
+      "file": "apps/api/src/modules/platform/reporting/controllers/reports.controller.ts"
+    },
+    {
+      "endpoint": "GET /reports/:id/export",
+      "controller": "ReportsController",
+      "file": "apps/api/src/modules/platform/reporting/controllers/reports.controller.ts"
+    },
+    {
+      "endpoint": "POST /reports/:id/execute",
+      "controller": "ReportsController",
+      "file": "apps/api/src/modules/platform/reporting/controllers/reports.controller.ts"
+    },
+    {
+      "endpoint": "POST /reports/:id/preview",
+      "controller": "ReportsController",
+      "file": "apps/api/src/modules/platform/reporting/controllers/reports.controller.ts"
+    },
+    {
+      "endpoint": "POST /reports/:id/drilldown",
+      "controller": "ReportsController",
+      "file": "apps/api/src/modules/platform/reporting/controllers/reports.controller.ts"
+    },
+    {
+      "endpoint": "GET /reports/:id/history",
+      "controller": "ReportsController",
+      "file": "apps/api/src/modules/platform/reporting/controllers/reports.controller.ts"
+    },
+    {
+      "endpoint": "POST /reports/:id/schedules",
+      "controller": "ReportsController",
+      "file": "apps/api/src/modules/platform/reporting/controllers/reports.controller.ts"
+    },
+    {
+      "endpoint": "PUT /reports/schedules/:scheduleId",
+      "controller": "ReportsController",
+      "file": "apps/api/src/modules/platform/reporting/controllers/reports.controller.ts"
+    },
+    {
+      "endpoint": "DELETE /reports/schedules/:scheduleId",
+      "controller": "ReportsController",
+      "file": "apps/api/src/modules/platform/reporting/controllers/reports.controller.ts"
+    },
+    {
+      "endpoint": "POST /reports/:id/favorite",
+      "controller": "ReportsController",
+      "file": "apps/api/src/modules/platform/reporting/controllers/reports.controller.ts"
+    },
+    {
+      "endpoint": "DELETE /reports/:id/favorite",
+      "controller": "ReportsController",
+      "file": "apps/api/src/modules/platform/reporting/controllers/reports.controller.ts"
+    },
+    {
+      "endpoint": "POST /reports/:id/filters",
+      "controller": "ReportsController",
+      "file": "apps/api/src/modules/platform/reporting/controllers/reports.controller.ts"
+    },
+    {
+      "endpoint": "GET /reports/:id/filters",
+      "controller": "ReportsController",
+      "file": "apps/api/src/modules/platform/reporting/controllers/reports.controller.ts"
+    },
+    {
+      "endpoint": "DELETE /reports/filters/:filterId",
+      "controller": "ReportsController",
+      "file": "apps/api/src/modules/platform/reporting/controllers/reports.controller.ts"
+    },
+    {
+      "endpoint": "GET /workflow",
+      "controller": "WorkflowsController",
+      "file": "apps/api/src/modules/platform/workflow/controllers/workflows.controller.ts"
+    },
+    {
+      "endpoint": "POST /workflow/:entityType/:entityId/transition",
+      "controller": "WorkflowsController",
+      "file": "apps/api/src/modules/platform/workflow/controllers/workflows.controller.ts"
+    },
+    {
+      "endpoint": "GET /workflow/:entityType/:entityId/history",
+      "controller": "WorkflowsController",
+      "file": "apps/api/src/modules/platform/workflow/controllers/workflows.controller.ts"
+    },
+    {
+      "endpoint": "GET /back-office/queue",
+      "controller": "BackOfficeController",
+      "file": "apps/api/src/modules/policies/controllers/back-office.controller.ts"
+    },
+    {
+      "endpoint": "POST /policies/issue",
+      "controller": "PoliciesController",
+      "file": "apps/api/src/modules/policies/controllers/policies.controller.ts"
+    },
+    {
+      "endpoint": "GET /renewals/tasks",
+      "controller": "RenewalsController",
+      "file": "apps/api/src/modules/policies/controllers/renewals.controller.ts"
+    },
+    {
+      "endpoint": "GET /proposals",
+      "controller": "ProposalsController",
+      "file": "apps/api/src/modules/proposal/controllers/proposals.controller.ts"
+    },
+    {
+      "endpoint": "POST /quotations/motor-capture",
+      "controller": "QuotationController",
+      "file": "apps/api/src/modules/quotation/controllers/quotation.controller.ts"
+    },
+    {
+      "endpoint": "GET /tasks/today",
+      "controller": "TasksController",
+      "file": "apps/api/src/modules/tasks/tasks.controller.ts"
+    },
+    {
+      "endpoint": "POST /users",
+      "controller": "UsersController",
+      "file": "apps/api/src/modules/users/controllers/users.controller.ts"
+    },
+    {
+      "endpoint": "GET /users",
+      "controller": "UsersController",
+      "file": "apps/api/src/modules/users/controllers/users.controller.ts"
+    },
+    {
+      "endpoint": "GET /workspace/sales/dashboard",
+      "controller": "SalesWorkspaceController",
+      "file": "apps/api/src/modules/workspace/controllers/sales-workspace.controller.ts"
+    },
+    {
+      "endpoint": "GET /workspace/sales/tasks",
+      "controller": "SalesWorkspaceController",
+      "file": "apps/api/src/modules/workspace/controllers/sales-workspace.controller.ts"
+    },
+    {
+      "endpoint": "GET /workspace/sales/motor-widgets",
+      "controller": "SalesWorkspaceController",
+      "file": "apps/api/src/modules/workspace/controllers/sales-workspace.controller.ts"
+    },
+    {
+      "endpoint": "GET /workspace/sales/kpis",
+      "controller": "SalesWorkspaceController",
+      "file": "apps/api/src/modules/workspace/controllers/sales-workspace.controller.ts"
+    },
+    {
+      "endpoint": "GET /workspace/sales/pipeline",
+      "controller": "SalesWorkspaceController",
+      "file": "apps/api/src/modules/workspace/controllers/sales-workspace.controller.ts"
+    },
+    {
+      "endpoint": "POST /workspace/sales/lead/:id/move-stage",
+      "controller": "SalesWorkspaceController",
+      "file": "apps/api/src/modules/workspace/controllers/sales-workspace.controller.ts"
+    },
+    {
+      "endpoint": "GET /workspace/sales/lead/:id/stage-history",
+      "controller": "SalesWorkspaceController",
+      "file": "apps/api/src/modules/workspace/controllers/sales-workspace.controller.ts"
+    },
+    {
+      "endpoint": "POST /workspace/sales/lead/:id/referral",
+      "controller": "SalesWorkspaceController",
+      "file": "apps/api/src/modules/workspace/controllers/sales-workspace.controller.ts"
+    },
+    {
+      "endpoint": "POST /workspace/sales/lead/:id/no-referral",
+      "controller": "SalesWorkspaceController",
+      "file": "apps/api/src/modules/workspace/controllers/sales-workspace.controller.ts"
+    },
+    {
+      "endpoint": "POST /workspace/sales/lead/:id/calls",
+      "controller": "SalesWorkspaceController",
+      "file": "apps/api/src/modules/workspace/controllers/sales-workspace.controller.ts"
+    },
+    {
+      "endpoint": "POST /workspace/sales/lead/:id/crm-update",
+      "controller": "SalesWorkspaceController",
+      "file": "apps/api/src/modules/workspace/controllers/sales-workspace.controller.ts"
+    },
+    {
+      "endpoint": "GET /workspace",
+      "controller": "WorkspaceController",
+      "file": "apps/api/src/modules/workspace/controllers/workspace.controller.ts"
+    },
+    {
+      "endpoint": "GET /workspace/navigation",
+      "controller": "WorkspaceController",
+      "file": "apps/api/src/modules/workspace/controllers/workspace.controller.ts"
+    },
+    {
+      "endpoint": "GET /workspace/widgets",
+      "controller": "WorkspaceController",
+      "file": "apps/api/src/modules/workspace/controllers/workspace.controller.ts"
+    },
+    {
+      "endpoint": "GET /workspace/dashboard",
+      "controller": "WorkspaceController",
+      "file": "apps/api/src/modules/workspace/controllers/workspace.controller.ts"
+    },
+    {
+      "endpoint": "GET /workspace/profile",
+      "controller": "WorkspaceController",
+      "file": "apps/api/src/modules/workspace/controllers/workspace.controller.ts"
+    },
+    {
+      "endpoint": "GET /workspace/user-workspaces",
+      "controller": "WorkspaceController",
+      "file": "apps/api/src/modules/workspace/controllers/workspace.controller.ts"
+    }
+  ],
+  "summary": {
+    "totalEndpoints": 418,
+    "roleGuarded": 243,
+    "unguarded": 175,
+    "agentAccessibleEndpoints": 107,
+    "adminOnlyEndpoints": 56
+  }
+}

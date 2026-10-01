@@ -62,7 +62,13 @@ export class MotorInspectionController {
   })
   async recordPhoto(
     @Param('id') inspectionId: string,
-    @Body() body: { photoType: InspectionPhotoType; storageKey: string },
+    @Body()
+    body: {
+      photoType: InspectionPhotoType;
+      storageKey: string;
+      sha256?: string;
+      photoHash?: string;
+    },
     @CurrentUser() actor: ActorContext,
   ) {
     if (!body.photoType || !body.storageKey) {
@@ -73,6 +79,7 @@ export class MotorInspectionController {
       body.photoType,
       body.storageKey,
       actor,
+      body.sha256 || body.photoHash,
     );
   }
 

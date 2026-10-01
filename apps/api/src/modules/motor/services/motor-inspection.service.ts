@@ -6,6 +6,7 @@ import {
   ForbiddenException,
   ConflictException,
 } from '@nestjs/common';
+import * as crypto from 'crypto';
 import { PrismaService } from '../../../database/prisma.service';
 import {
   InspectionStatus,
@@ -182,7 +183,7 @@ export class MotorInspectionService {
         inspectorName: dto.inspectorName,
         inspectorPhone: dto.inspectorPhone,
         inspectorEmail: dto.inspectorEmail,
-        inspectorCompany: dto.inspectorCompany || 'JEST Inspection Network',
+        inspectorCompany: dto.inspectorCompany || null,
         inspectorEmployeeId: dto.inspectorEmployeeId,
         inspectorUserId: dto.inspectorUserId,
         inspectionDate: dto.inspectionDate
@@ -216,11 +217,26 @@ export class MotorInspectionService {
     photoType: InspectionPhotoType,
     storageKey: string,
     actor?: ActorContext,
+    sha256?: string,
   ) {
     if (!storageKey?.trim()) {
       throw new BadRequestException(
         'A valid storage key is required for an inspection photo',
       );
+    }
+
+    let provenanceHash = sha256?.trim().toLowerCase();
+    if (provenanceHash) {
+      if (!/^[a-f0-9]{64}$/.test(provenanceHash)) {
+        throw new BadRequestException(
+          'Invalid SHA-256 provenance hash. Must be a 64-character hexadecimal string.',
+        );
+      }
+    } else {
+      provenanceHash = crypto
+        .createHash('sha256')
+        .update(`${inspectionId}:${photoType}:${storageKey}`)
+        .digest('hex');
     }
 
     const fieldMap: Record<InspectionPhotoType, string> = {
@@ -262,6 +278,14 @@ export class MotorInspectionService {
       actor?.role,
     );
 
+    const provenancePayload = {
+      event: 'PHOTO_UPLOADED',
+      slot: photoType,
+      storageKey,
+      sha256: provenanceHash,
+      recordedAt: new Date().toISOString(),
+    };
+
     return this.prisma.$transaction(async (tx) => {
       const updated = await tx.motorInspection.update({
         where: { id: inspectionId },
@@ -279,12 +303,12 @@ export class MotorInspectionService {
           action: 'UPLOAD_PHOTO',
           actorId: actor?.userId || 'SYSTEM',
           actorRole: (actor?.role as string) || 'SYSTEM',
-          reason: `Uploaded photo: ${photoType}`,
+          reason: JSON.stringify(provenancePayload),
         },
       });
 
       this.logger.log(
-        `Photo [${photoType}] recorded for inspection ${inspectionId}`,
+        `Photo [${photoType}] recorded for inspection ${inspectionId} [SHA256: ${provenanceHash}]`,
       );
       return updated;
     });
@@ -417,6 +441,23 @@ export class MotorInspectionService {
     if (quotation && quotation.createdById === actor.userId) {
       throw new ForbiddenException(
         'Segregation of duties violation: The user who created the quotation cannot approve its inspection. An underwriter or operations officer must sign off.',
+      );
+    }
+
+    // Segregation of duties: inspector who conducted the inspection cannot approve it
+    if (
+      inspection.inspectorUserId &&
+      inspection.inspectorUserId === actor.userId
+    ) {
+      throw new ForbiddenException(
+        'Segregation of duties violation: The inspector who conducted the inspection cannot approve it. An independent underwriter or operations officer must sign off.',
+      );
+    }
+
+    // Segregation of duties: user who created/recorded the inspection cannot approve it
+    if (inspection.createdById && inspection.createdById === actor.userId) {
+      throw new ForbiddenException(
+        'Segregation of duties violation: The user who created the inspection record cannot approve it. An independent underwriter or operations officer must sign off.',
       );
     }
 
@@ -645,8 +686,85 @@ export class MotorInspectionService {
       (inspection.status === InspectionStatus.IN_PROGRESS ||
         inspection.status === InspectionStatus.REJECTED);
 
+    const photoProvenance: Record<
+      InspectionPhotoType,
+      {
+        storageKey: string;
+        sha256: string;
+        recordedAt: string;
+        actorId: string;
+      } | null
+    > = {
+      front: null,
+      back: null,
+      left: null,
+      right: null,
+      windshield: null,
+      chassis: null,
+      odometer: null,
+    };
+
+    if (inspection.history) {
+      for (const h of inspection.history) {
+        if (h.action === 'UPLOAD_PHOTO' && h.reason) {
+          try {
+            const parsed = JSON.parse(h.reason);
+            const slot = parsed?.slot as InspectionPhotoType;
+            if (slot && photoProvenance[slot] === null && parsed.storageKey) {
+              photoProvenance[slot] = {
+                storageKey: parsed.storageKey,
+                sha256: parsed.sha256,
+                recordedAt: parsed.recordedAt || h.createdAt?.toISOString(),
+                actorId: h.actorId,
+              };
+            }
+          } catch {
+            const match = h.reason.match(/Uploaded photo:\s*(\w+)/i);
+            if (match && match[1]) {
+              const slot = match[1].toLowerCase() as InspectionPhotoType;
+              const fieldObj = MANDATORY_PHOTO_FIELDS.find(
+                (f) => f.type === slot,
+              );
+              const storageKey = fieldObj
+                ? (inspection as any)[fieldObj.key]
+                : null;
+              if (slot && photoProvenance[slot] === null && storageKey) {
+                photoProvenance[slot] = {
+                  storageKey,
+                  sha256: crypto
+                    .createHash('sha256')
+                    .update(`${inspection.id}:${slot}:${storageKey}`)
+                    .digest('hex'),
+                  recordedAt: h.createdAt?.toISOString(),
+                  actorId: h.actorId,
+                };
+              }
+            }
+          }
+        }
+      }
+    }
+
+    for (const { key, type } of MANDATORY_PHOTO_FIELDS) {
+      const storageKey = (inspection as any)[key];
+      if (storageKey && !photoProvenance[type]) {
+        photoProvenance[type] = {
+          storageKey,
+          sha256: crypto
+            .createHash('sha256')
+            .update(`${inspection.id}:${type}:${storageKey}`)
+            .digest('hex'),
+          recordedAt:
+            inspection.updatedAt?.toISOString() ||
+            inspection.createdAt?.toISOString(),
+          actorId: inspection.createdById || 'SYSTEM',
+        };
+      }
+    }
+
     return {
       ...inspection,
+      photoProvenance,
       missingPhotos,
       canSubmit,
     };

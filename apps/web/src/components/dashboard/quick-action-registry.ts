@@ -14,7 +14,7 @@ export const QUICK_ACTION_REGISTRY: QuickActionConfig[] = [
     title: '+ Create Quote',
     href: '/sales/quotations',
     icon: 'FileSpreadsheet',
-    permissions: ['policy:read'],
+    permissions: ['quotation:create'],
     variant: 'secondary',
   },
   {

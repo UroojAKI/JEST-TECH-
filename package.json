@@ -12,11 +12,18 @@
     "test:e2e": "playwright test",
     "check:tenancy": "node scripts/check-tenant-scoping.js",
     "check:mock-data": "node scripts/check-production-mock-data.js",
-    "check:certification": "node scripts/verify-certification-validity.js"
+    "check:certification": "node scripts/verify-certification-validity.js",
+    "generate:baseline": "tsx scripts/generate-baseline-inventory.ts",
+    "generate:role-matrix": "tsx scripts/generate-role-permission-matrix.ts",
+    "check:api-contracts": "tsx scripts/verify-api-contracts.ts",
+    "migrate:case-status": "tsx scripts/migrate-motor-case-status.ts",
+    "rollback:case-status": "tsx scripts/rollback-motor-case-status.ts",
+    "backfill:task-case-ids": "tsx scripts/backfill-task-case-ids.ts"
   },
   "devDependencies": {
     "@playwright/test": "^1.63.0",
     "playwright": "^1.63.0",
+    "tsx": "^4.19.2",
     "turbo": "^2.5.6",
     "typescript": "^5.8.3"
   },

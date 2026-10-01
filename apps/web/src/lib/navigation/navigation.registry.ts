@@ -57,18 +57,13 @@ export const AGENT_NAVIGATION: NavigationItem[] = [
 export const BACK_OFFICE_NAVIGATION: NavigationItem[] = [
   {
     id: 'operations-hub',
-    title: 'Operations Dashboard',
+    title: 'Operations Hub',
     href: '/workspace/operations',
     icon: 'Briefcase',
-  },
-  {
-    id: 'bo-work-queue',
-    title: 'Work Queue',
-    href: '/workspace/operations',
-    icon: 'CheckSquare',
     children: [
-      { id: 'ops-issuance', title: 'Issuance Queue', href: '/workspace/operations' },
-      { id: 'ops-inspections', title: 'Inspection Queue', href: '/workspace/operations?tab=inspections' },
+      { id: 'ops-issuance', title: 'Issuance Queue', href: '/workspace/operations?tab=issuance' },
+      { id: 'ops-inspections', title: 'Inspection & Verification', href: '/workspace/operations?tab=inspections' },
+      { id: 'ops-metrics', title: 'Operational Metrics', href: '/workspace/operations?tab=metrics' },
     ],
   },
   {

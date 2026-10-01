@@ -1,0 +1,1356 @@
+{
+  "generatedAt": "2026-10-01T07:22:08.683Z",
+  "mismatches": [
+    {
+      "frontendCall": "GET /admin/organization/branches?limit=100",
+      "frontendFile": "apps/web/src/repositories/admin.repository.ts",
+      "frontendLine": 191,
+      "backendExists": false,
+      "methodMatch": false
+    },
+    {
+      "frontendCall": "GET /dashboard/super-admin",
+      "frontendFile": "apps/web/src/repositories/dashboard.repository.ts",
+      "frontendLine": 11,
+      "backendExists": false,
+      "methodMatch": false
+    },
+    {
+      "frontendCall": "GET /dashboard/manager",
+      "frontendFile": "apps/web/src/repositories/dashboard.repository.ts",
+      "frontendLine": 21,
+      "backendExists": false,
+      "methodMatch": false
+    },
+    {
+      "frontendCall": "GET /claims?limit=5",
+      "frontendFile": "apps/web/src/components/dashboard/widgets/ClaimsDistributionWidget.tsx",
+      "frontendLine": 16,
+      "backendExists": false,
+      "methodMatch": false
+    },
+    {
+      "frontendCall": "GET /policies/renewals/tasks?limit=5",
+      "frontendFile": "apps/web/src/components/dashboard/widgets/RenewalsForecastWidget.tsx",
+      "frontendLine": 16,
+      "backendExists": false,
+      "methodMatch": false
+    },
+    {
+      "frontendCall": "GET /analytics/leaderboard",
+      "frontendFile": "apps/web/src/components/dashboard/widgets/TeamLeaderboardWidget.tsx",
+      "frontendLine": 13,
+      "backendExists": false,
+      "methodMatch": false
+    },
+    {
+      "frontendCall": "GET /quotations?leadId=${leadId}&productType=MOTOR",
+      "frontendFile": "apps/web/src/components/leads/tabs/LeadTabsContainer.tsx",
+      "frontendLine": 117,
+      "backendExists": false,
+      "methodMatch": false
+    }
+  ],
+  "uncalledBackendRoutes": [
+    {
+      "method": "GET",
+      "path": "/",
+      "controller": "AppController",
+      "file": "apps/api/src/app.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "GET",
+      "path": "/accounts/:param",
+      "controller": "AccountsController",
+      "file": "apps/api/src/modules/accounts/controllers/accounts.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "POST",
+      "path": "/accounts/:param/unmask",
+      "controller": "AccountsController",
+      "file": "apps/api/src/modules/accounts/controllers/accounts.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "PATCH",
+      "path": "/accounts/:param",
+      "controller": "AccountsController",
+      "file": "apps/api/src/modules/accounts/controllers/accounts.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "DELETE",
+      "path": "/accounts/:param",
+      "controller": "AccountsController",
+      "file": "apps/api/src/modules/accounts/controllers/accounts.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "POST",
+      "path": "/admin/lookups/:param/invalidate",
+      "controller": "LookupController",
+      "file": "apps/api/src/modules/administration/controllers/lookup/lookup.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "GET",
+      "path": "/admin/organization/hierarchy",
+      "controller": "AssignTeamDto",
+      "file": "apps/api/src/modules/administration/controllers/organization/organization.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "GET",
+      "path": "/admin/organization/branches",
+      "controller": "AssignTeamDto",
+      "file": "apps/api/src/modules/administration/controllers/organization/organization.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "GET",
+      "path": "/admin/organization/branches/:param/departments",
+      "controller": "AssignTeamDto",
+      "file": "apps/api/src/modules/administration/controllers/organization/organization.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "GET",
+      "path": "/admin/organization/departments/:param/teams",
+      "controller": "AssignTeamDto",
+      "file": "apps/api/src/modules/administration/controllers/organization/organization.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "POST",
+      "path": "/admin/organization/assign-team",
+      "controller": "AssignTeamDto",
+      "file": "apps/api/src/modules/administration/controllers/organization/organization.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "GET",
+      "path": "/admin/config/public",
+      "controller": "UpdateConfigDto",
+      "file": "apps/api/src/modules/administration/controllers/system-config/system-config.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "GET",
+      "path": "/admin/config/:param",
+      "controller": "UpdateConfigDto",
+      "file": "apps/api/src/modules/administration/controllers/system-config/system-config.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "PUT",
+      "path": "/admin/config/:param",
+      "controller": "UpdateConfigDto",
+      "file": "apps/api/src/modules/administration/controllers/system-config/system-config.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "GET",
+      "path": "/agents/:param",
+      "controller": "AgentsController",
+      "file": "apps/api/src/modules/agents/agents.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "POST",
+      "path": "/agents",
+      "controller": "AgentsController",
+      "file": "apps/api/src/modules/agents/agents.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "PATCH",
+      "path": "/agents/:param",
+      "controller": "AgentsController",
+      "file": "apps/api/src/modules/agents/agents.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "GET",
+      "path": "/analytics/leads",
+      "controller": "AnalyticsController",
+      "file": "apps/api/src/modules/analytics/controllers/analytics.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "GET",
+      "path": "/analytics/policies",
+      "controller": "AnalyticsController",
+      "file": "apps/api/src/modules/analytics/controllers/analytics.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "GET",
+      "path": "/analytics/claims",
+      "controller": "AnalyticsController",
+      "file": "apps/api/src/modules/analytics/controllers/analytics.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "GET",
+      "path": "/analytics/revenue",
+      "controller": "AnalyticsController",
+      "file": "apps/api/src/modules/analytics/controllers/analytics.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "GET",
+      "path": "/analytics/renewals",
+      "controller": "AnalyticsController",
+      "file": "apps/api/src/modules/analytics/controllers/analytics.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "GET",
+      "path": "/dashboards/sales",
+      "controller": "DashboardAnalyticsController",
+      "file": "apps/api/src/modules/bi/dashboards/services/dashboard-analytics/dashboard-analytics.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "GET",
+      "path": "/dashboards/sales-manager",
+      "controller": "DashboardAnalyticsController",
+      "file": "apps/api/src/modules/bi/dashboards/services/dashboard-analytics/dashboard-analytics.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "GET",
+      "path": "/dashboards/renewals",
+      "controller": "DashboardAnalyticsController",
+      "file": "apps/api/src/modules/bi/dashboards/services/dashboard-analytics/dashboard-analytics.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "GET",
+      "path": "/forecasting/revenue",
+      "controller": "ForecastingController",
+      "file": "apps/api/src/modules/bi/forecasting/controllers/forecasting.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "GET",
+      "path": "/forecasting/renewals",
+      "controller": "ForecastingController",
+      "file": "apps/api/src/modules/bi/forecasting/controllers/forecasting.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "GET",
+      "path": "/forecasting/customer-risk/:param",
+      "controller": "ForecastingController",
+      "file": "apps/api/src/modules/bi/forecasting/controllers/forecasting.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "GET",
+      "path": "/bi/conversion",
+      "controller": "BiController",
+      "file": "apps/api/src/modules/business-intelligence/controllers/bi.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "GET",
+      "path": "/bi/revenue",
+      "controller": "BiController",
+      "file": "apps/api/src/modules/business-intelligence/controllers/bi.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "GET",
+      "path": "/bi/loss-ratio",
+      "controller": "BiController",
+      "file": "apps/api/src/modules/business-intelligence/controllers/bi.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "GET",
+      "path": "/bi/renewal",
+      "controller": "BiController",
+      "file": "apps/api/src/modules/business-intelligence/controllers/bi.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "GET",
+      "path": "/bi/sales",
+      "controller": "BiController",
+      "file": "apps/api/src/modules/business-intelligence/controllers/bi.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "GET",
+      "path": "/bi/growth",
+      "controller": "BiController",
+      "file": "apps/api/src/modules/business-intelligence/controllers/bi.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "GET",
+      "path": "/bi/kpi",
+      "controller": "BiController",
+      "file": "apps/api/src/modules/business-intelligence/controllers/bi.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "GET",
+      "path": "/bi/kpi/definitions",
+      "controller": "BiController",
+      "file": "apps/api/src/modules/business-intelligence/controllers/bi.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "POST",
+      "path": "/bi/kpi/definitions",
+      "controller": "BiController",
+      "file": "apps/api/src/modules/business-intelligence/controllers/bi.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "PATCH",
+      "path": "/bi/kpi/definitions/:param",
+      "controller": "BiController",
+      "file": "apps/api/src/modules/business-intelligence/controllers/bi.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "DELETE",
+      "path": "/bi/kpi/definitions/:param",
+      "controller": "BiController",
+      "file": "apps/api/src/modules/business-intelligence/controllers/bi.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "POST",
+      "path": "/bi/kpi/seed",
+      "controller": "BiController",
+      "file": "apps/api/src/modules/business-intelligence/controllers/bi.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "PATCH",
+      "path": "/claims/:param",
+      "controller": "ClaimsController",
+      "file": "apps/api/src/modules/claims/controllers/claims.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "POST",
+      "path": "/claims/:param/documents",
+      "controller": "ClaimsController",
+      "file": "apps/api/src/modules/claims/controllers/claims.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "POST",
+      "path": "/claims/:param/settlement/verify",
+      "controller": "ClaimsController",
+      "file": "apps/api/src/modules/claims/controllers/claims.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "POST",
+      "path": "/claims/:param/close",
+      "controller": "ClaimsController",
+      "file": "apps/api/src/modules/claims/controllers/claims.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "POST",
+      "path": "/claims/:param/withdraw",
+      "controller": "ClaimsController",
+      "file": "apps/api/src/modules/claims/controllers/claims.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "POST",
+      "path": "/contacts/:param/unmask",
+      "controller": "ContactsController",
+      "file": "apps/api/src/modules/contacts/controllers/contacts.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "PATCH",
+      "path": "/contacts/:param",
+      "controller": "ContactsController",
+      "file": "apps/api/src/modules/contacts/controllers/contacts.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "DELETE",
+      "path": "/contacts/:param",
+      "controller": "ContactsController",
+      "file": "apps/api/src/modules/contacts/controllers/contacts.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "POST",
+      "path": "/contacts/:param/deactivate",
+      "controller": "ContactsController",
+      "file": "apps/api/src/modules/contacts/controllers/contacts.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "POST",
+      "path": "/contacts/:param/reactivate",
+      "controller": "ContactsController",
+      "file": "apps/api/src/modules/contacts/controllers/contacts.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "POST",
+      "path": "/customers/deduplication-check",
+      "controller": "CustomersController",
+      "file": "apps/api/src/modules/customers/customers.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "GET",
+      "path": "/customers/:param",
+      "controller": "CustomersController",
+      "file": "apps/api/src/modules/customers/customers.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "POST",
+      "path": "/customers/:param/assign-agent",
+      "controller": "CustomersController",
+      "file": "apps/api/src/modules/customers/customers.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "POST",
+      "path": "/customers/:param/alerts",
+      "controller": "CustomersController",
+      "file": "apps/api/src/modules/customers/customers.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "GET",
+      "path": "/dashboard/back-office",
+      "controller": "DashboardController",
+      "file": "apps/api/src/modules/dashboard/controllers/dashboard.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "GET",
+      "path": "/dashboard/management/insurers",
+      "controller": "DashboardController",
+      "file": "apps/api/src/modules/dashboard/controllers/dashboard.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "GET",
+      "path": "/dashboard-registry",
+      "controller": "DashboardRegistryController",
+      "file": "apps/api/src/modules/dashboard-registry/controllers/dashboard-registry.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "GET",
+      "path": "/dashboard-registry/:param",
+      "controller": "DashboardRegistryController",
+      "file": "apps/api/src/modules/dashboard-registry/controllers/dashboard-registry.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "POST",
+      "path": "/dashboard-registry",
+      "controller": "DashboardRegistryController",
+      "file": "apps/api/src/modules/dashboard-registry/controllers/dashboard-registry.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "PUT",
+      "path": "/dashboard-registry/:param",
+      "controller": "DashboardRegistryController",
+      "file": "apps/api/src/modules/dashboard-registry/controllers/dashboard-registry.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "POST",
+      "path": "/documents/:param/replace",
+      "controller": "DocumentsController",
+      "file": "apps/api/src/modules/documents/controllers/documents.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "GET",
+      "path": "/documents/:param",
+      "controller": "DocumentsController",
+      "file": "apps/api/src/modules/documents/controllers/documents.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "POST",
+      "path": "/documents/:param/restore",
+      "controller": "DocumentsController",
+      "file": "apps/api/src/modules/documents/controllers/documents.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "GET",
+      "path": "/documents/:param/history",
+      "controller": "DocumentsController",
+      "file": "apps/api/src/modules/documents/controllers/documents.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "GET",
+      "path": "/endorsements/:param",
+      "controller": "EndorsementsController",
+      "file": "apps/api/src/modules/endorsements/controllers/endorsements.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "POST",
+      "path": "/endorsements/policies/:param/calculate-prorata",
+      "controller": "EndorsementsController",
+      "file": "apps/api/src/modules/endorsements/controllers/endorsements.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "POST",
+      "path": "/endorsements/:param/attach",
+      "controller": "EndorsementsController",
+      "file": "apps/api/src/modules/endorsements/controllers/endorsements.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "POST",
+      "path": "/endorsements/:param/reject",
+      "controller": "EndorsementsController",
+      "file": "apps/api/src/modules/endorsements/controllers/endorsements.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "POST",
+      "path": "/finance/commissions/accrue",
+      "controller": "CommissionController",
+      "file": "apps/api/src/modules/finance/commission/controllers/commission.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "GET",
+      "path": "/finance/receipts/export",
+      "controller": "FinanceController",
+      "file": "apps/api/src/modules/finance/controllers/finance.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "POST",
+      "path": "/finance/commissions/:param/approve",
+      "controller": "FinanceController",
+      "file": "apps/api/src/modules/finance/controllers/finance.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "POST",
+      "path": "/finance/invoices/:param/pay",
+      "controller": "FinanceController",
+      "file": "apps/api/src/modules/finance/controllers/finance.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "GET",
+      "path": "/health/terminus",
+      "controller": "HealthController",
+      "file": "apps/api/src/modules/health/health.controller.ts",
+      "classification": "INTERNAL"
+    },
+    {
+      "method": "GET",
+      "path": "/health/live",
+      "controller": "HealthController",
+      "file": "apps/api/src/modules/health/health.controller.ts",
+      "classification": "INTERNAL"
+    },
+    {
+      "method": "GET",
+      "path": "/health/ready",
+      "controller": "HealthController",
+      "file": "apps/api/src/modules/health/health.controller.ts",
+      "classification": "INTERNAL"
+    },
+    {
+      "method": "GET",
+      "path": "/metrics",
+      "controller": "MetricsController",
+      "file": "apps/api/src/modules/health/metrics.controller.ts",
+      "classification": "INTERNAL"
+    },
+    {
+      "method": "GET",
+      "path": "/leads/check-duplicate",
+      "controller": "LeadsController",
+      "file": "apps/api/src/modules/leads/controllers/leads.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "POST",
+      "path": "/leads/:param/merge",
+      "controller": "LeadsController",
+      "file": "apps/api/src/modules/leads/controllers/leads.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "GET",
+      "path": "/leads/:param/completion",
+      "controller": "LeadsController",
+      "file": "apps/api/src/modules/leads/controllers/leads.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "DELETE",
+      "path": "/leads/:param",
+      "controller": "LeadsController",
+      "file": "apps/api/src/modules/leads/controllers/leads.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "POST",
+      "path": "/leads/:param/auto-assign",
+      "controller": "LeadsController",
+      "file": "apps/api/src/modules/leads/controllers/leads.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "POST",
+      "path": "/leads/bulk-assign",
+      "controller": "LeadsController",
+      "file": "apps/api/src/modules/leads/controllers/leads.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "GET",
+      "path": "/leads/queues/workload",
+      "controller": "LeadsController",
+      "file": "apps/api/src/modules/leads/controllers/leads.controller.ts",
+      "classification": "INTERNAL"
+    },
+    {
+      "method": "GET",
+      "path": "/leads/:param/allowed-transitions",
+      "controller": "LeadsController",
+      "file": "apps/api/src/modules/leads/controllers/leads.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "POST",
+      "path": "/leads/:param/transition",
+      "controller": "LeadsController",
+      "file": "apps/api/src/modules/leads/controllers/leads.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "POST",
+      "path": "/motor/journeys",
+      "controller": "MotorJourneyController",
+      "file": "apps/api/src/modules/motor/controllers/motor-journey.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "GET",
+      "path": "/motor/journeys/:param",
+      "controller": "MotorJourneyController",
+      "file": "apps/api/src/modules/motor/controllers/motor-journey.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "POST",
+      "path": "/motor/quotation-cases",
+      "controller": "MotorQuotationCaseController",
+      "file": "apps/api/src/modules/motor/controllers/motor-quotation-case.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "POST",
+      "path": "/motor/quotation-cases/:param/submit",
+      "controller": "MotorQuotationCaseController",
+      "file": "apps/api/src/modules/motor/controllers/motor-quotation-case.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "GET",
+      "path": "/motor/quotation-cases/:param/compare",
+      "controller": "MotorQuotationCaseController",
+      "file": "apps/api/src/modules/motor/controllers/motor-quotation-case.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "POST",
+      "path": "/motor/quotation-cases/:param/transition",
+      "controller": "MotorQuotationCaseController",
+      "file": "apps/api/src/modules/motor/controllers/motor-quotation-case.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "POST",
+      "path": "/motor/quotation-cases/:param/cancel",
+      "controller": "MotorQuotationCaseController",
+      "file": "apps/api/src/modules/motor/controllers/motor-quotation-case.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "POST",
+      "path": "/motor/quotation-cases/:param/command",
+      "controller": "MotorQuotationCaseController",
+      "file": "apps/api/src/modules/motor/controllers/motor-quotation-case.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "GET",
+      "path": "/motor/quotation-cases/:param/available-commands",
+      "controller": "MotorQuotationCaseController",
+      "file": "apps/api/src/modules/motor/controllers/motor-quotation-case.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "PATCH",
+      "path": "/motor/quotation-cases/:param",
+      "controller": "MotorQuotationCaseController",
+      "file": "apps/api/src/modules/motor/controllers/motor-quotation-case.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "GET",
+      "path": "/motor/quotations/:param/documents",
+      "controller": "MotorQuotationDocumentController",
+      "file": "apps/api/src/modules/motor/controllers/motor-quotation-document.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "POST",
+      "path": "/motor/quotation-documents/:param/verify",
+      "controller": "MotorQuotationDocumentController",
+      "file": "apps/api/src/modules/motor/controllers/motor-quotation-document.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "DELETE",
+      "path": "/motor/quotation-documents/:param",
+      "controller": "MotorQuotationDocumentController",
+      "file": "apps/api/src/modules/motor/controllers/motor-quotation-document.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "POST",
+      "path": "/motor/quotes/:param/finalize",
+      "controller": "MotorQuoteController",
+      "file": "apps/api/src/modules/motor/controllers/motor-quote.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "POST",
+      "path": "/motor/quotations/:param/transition",
+      "controller": "MotorWorkflowController",
+      "file": "apps/api/src/modules/motor/motor-workflow.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "POST",
+      "path": "/motor/quotations/:param/previous-policy",
+      "controller": "MotorWorkflowController",
+      "file": "apps/api/src/modules/motor/motor-workflow.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "GET",
+      "path": "/motor/quotations/:param/rule-evaluation",
+      "controller": "MotorWorkflowController",
+      "file": "apps/api/src/modules/motor/motor-workflow.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "GET",
+      "path": "/motor/quotations/:param/payment",
+      "controller": "MotorWorkflowController",
+      "file": "apps/api/src/modules/motor/motor-workflow.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "GET",
+      "path": "/motor/quotations/:param/policy-gate",
+      "controller": "MotorWorkflowController",
+      "file": "apps/api/src/modules/motor/motor-workflow.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "POST",
+      "path": "/motor/cases/:param/submit",
+      "controller": "MotorController",
+      "file": "apps/api/src/modules/motor/motor.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "GET",
+      "path": "/motor/categories",
+      "controller": "MotorController",
+      "file": "apps/api/src/modules/motor/motor.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "GET",
+      "path": "/motor/categories/:param",
+      "controller": "MotorController",
+      "file": "apps/api/src/modules/motor/motor.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "GET",
+      "path": "/motor/tariff/lookup",
+      "controller": "MotorController",
+      "file": "apps/api/src/modules/motor/motor.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "POST",
+      "path": "/motor/saod-verification",
+      "controller": "MotorController",
+      "file": "apps/api/src/modules/motor/motor.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "POST",
+      "path": "/motor/vehicles/normalize-registration",
+      "controller": "MotorController",
+      "file": "apps/api/src/modules/motor/motor.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "POST",
+      "path": "/motor/vehicles/validate-specs",
+      "controller": "MotorController",
+      "file": "apps/api/src/modules/motor/motor.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "POST",
+      "path": "/motor/vehicles",
+      "controller": "MotorController",
+      "file": "apps/api/src/modules/motor/motor.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "GET",
+      "path": "/motor/vehicles/lookup/:param",
+      "controller": "MotorController",
+      "file": "apps/api/src/modules/motor/motor.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "GET",
+      "path": "/motor/vehicles/by-contact/:param",
+      "controller": "MotorController",
+      "file": "apps/api/src/modules/motor/motor.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "GET",
+      "path": "/motor/previous-policy/:param",
+      "controller": "MotorController",
+      "file": "apps/api/src/modules/motor/motor.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "GET",
+      "path": "/motor/documents/required",
+      "controller": "MotorController",
+      "file": "apps/api/src/modules/motor/motor.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "GET",
+      "path": "/motor/documents/lead-completion/:param",
+      "controller": "MotorController",
+      "file": "apps/api/src/modules/motor/motor.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "GET",
+      "path": "/motor/rating/insurers/:param",
+      "controller": "RatingEngineController",
+      "file": "apps/api/src/modules/motor-admin/controllers/rating-engine.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "PUT",
+      "path": "/motor/rating/insurers/:param",
+      "controller": "RatingEngineController",
+      "file": "apps/api/src/modules/motor-admin/controllers/rating-engine.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "GET",
+      "path": "/motor/rating/discounts",
+      "controller": "RatingEngineController",
+      "file": "apps/api/src/modules/motor-admin/controllers/rating-engine.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "POST",
+      "path": "/motor/rating/discounts",
+      "controller": "RatingEngineController",
+      "file": "apps/api/src/modules/motor-admin/controllers/rating-engine.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "GET",
+      "path": "/motor/rating/commissions",
+      "controller": "RatingEngineController",
+      "file": "apps/api/src/modules/motor-admin/controllers/rating-engine.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "POST",
+      "path": "/motor/rating/commissions",
+      "controller": "RatingEngineController",
+      "file": "apps/api/src/modules/motor-admin/controllers/rating-engine.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "GET",
+      "path": "/motor/rating/products",
+      "controller": "RatingEngineController",
+      "file": "apps/api/src/modules/motor-admin/controllers/rating-engine.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "POST",
+      "path": "/motor/rating/products",
+      "controller": "RatingEngineController",
+      "file": "apps/api/src/modules/motor-admin/controllers/rating-engine.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "GET",
+      "path": "/motor/vehicles/rto/:param",
+      "controller": "VehicleMasterController",
+      "file": "apps/api/src/modules/motor-admin/controllers/vehicle-master.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "PUT",
+      "path": "/motor/vehicles/rto/:param",
+      "controller": "VehicleMasterController",
+      "file": "apps/api/src/modules/motor-admin/controllers/vehicle-master.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "DELETE",
+      "path": "/motor/vehicles/rto/:param",
+      "controller": "VehicleMasterController",
+      "file": "apps/api/src/modules/motor-admin/controllers/vehicle-master.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "POST",
+      "path": "/motor/vehicles/variants/import",
+      "controller": "VehicleMasterController",
+      "file": "apps/api/src/modules/motor-admin/controllers/vehicle-master.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "GET",
+      "path": "/motor-quotations/:param",
+      "controller": "MotorQuotationsController",
+      "file": "apps/api/src/modules/motor-quotations/motor-quotations.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "GET",
+      "path": "/organization/departments/:param",
+      "controller": "OrganizationController",
+      "file": "apps/api/src/modules/organization/controllers/organization.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "PUT",
+      "path": "/organization/departments/:param",
+      "controller": "OrganizationController",
+      "file": "apps/api/src/modules/organization/controllers/organization.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "DELETE",
+      "path": "/organization/departments/:param",
+      "controller": "OrganizationController",
+      "file": "apps/api/src/modules/organization/controllers/organization.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "GET",
+      "path": "/organization/job-roles/:param",
+      "controller": "OrganizationController",
+      "file": "apps/api/src/modules/organization/controllers/organization.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "PUT",
+      "path": "/organization/job-role/:param",
+      "controller": "OrganizationController",
+      "file": "apps/api/src/modules/organization/controllers/organization.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "DELETE",
+      "path": "/organization/job-role/:param",
+      "controller": "OrganizationController",
+      "file": "apps/api/src/modules/organization/controllers/organization.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "GET",
+      "path": "/audit/export",
+      "controller": "AuditController",
+      "file": "apps/api/src/modules/platform/audit/controllers/audit.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "POST",
+      "path": "/webhooks/:param",
+      "controller": "WebhookGatewayController",
+      "file": "apps/api/src/modules/platform/integrations/webhooks/controllers/webhook-gateway/webhook-gateway.controller.ts",
+      "classification": "WEBHOOK"
+    },
+    {
+      "method": "GET",
+      "path": "/notifications/unread",
+      "controller": "NotificationsController",
+      "file": "apps/api/src/modules/platform/notifications/controllers/notifications.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "GET",
+      "path": "/notifications/count",
+      "controller": "NotificationsController",
+      "file": "apps/api/src/modules/platform/notifications/controllers/notifications.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "GET",
+      "path": "/notifications/preferences",
+      "controller": "NotificationsController",
+      "file": "apps/api/src/modules/platform/notifications/controllers/notifications.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "PATCH",
+      "path": "/notifications/preferences",
+      "controller": "NotificationsController",
+      "file": "apps/api/src/modules/platform/notifications/controllers/notifications.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "GET",
+      "path": "/portal/quotations/compare",
+      "controller": "PortalController",
+      "file": "apps/api/src/modules/platform/portal/controllers/portal.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "GET",
+      "path": "/queue/jobs",
+      "controller": "QueueDashboardController",
+      "file": "apps/api/src/modules/platform/queue/monitoring/queue-dashboard.controller.ts",
+      "classification": "INTERNAL"
+    },
+    {
+      "method": "GET",
+      "path": "/queue/statistics",
+      "controller": "QueueDashboardController",
+      "file": "apps/api/src/modules/platform/queue/monitoring/queue-dashboard.controller.ts",
+      "classification": "INTERNAL"
+    },
+    {
+      "method": "GET",
+      "path": "/queue/jobs/:param",
+      "controller": "QueueDashboardController",
+      "file": "apps/api/src/modules/platform/queue/monitoring/queue-dashboard.controller.ts",
+      "classification": "INTERNAL"
+    },
+    {
+      "method": "POST",
+      "path": "/queue/jobs/:param/retry",
+      "controller": "QueueDashboardController",
+      "file": "apps/api/src/modules/platform/queue/monitoring/queue-dashboard.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "DELETE",
+      "path": "/queue/jobs/:param",
+      "controller": "QueueDashboardController",
+      "file": "apps/api/src/modules/platform/queue/monitoring/queue-dashboard.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "GET",
+      "path": "/reports/custom",
+      "controller": "ReportsController",
+      "file": "apps/api/src/modules/platform/reporting/controllers/reports.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "GET",
+      "path": "/reports/:param",
+      "controller": "ReportsController",
+      "file": "apps/api/src/modules/platform/reporting/controllers/reports.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "POST",
+      "path": "/reports/:param/preview",
+      "controller": "ReportsController",
+      "file": "apps/api/src/modules/platform/reporting/controllers/reports.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "POST",
+      "path": "/reports/:param/drilldown",
+      "controller": "ReportsController",
+      "file": "apps/api/src/modules/platform/reporting/controllers/reports.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "GET",
+      "path": "/reports/:param/history",
+      "controller": "ReportsController",
+      "file": "apps/api/src/modules/platform/reporting/controllers/reports.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "POST",
+      "path": "/reports/:param/schedules",
+      "controller": "ReportsController",
+      "file": "apps/api/src/modules/platform/reporting/controllers/reports.controller.ts",
+      "classification": "CRON"
+    },
+    {
+      "method": "PUT",
+      "path": "/reports/schedules/:param",
+      "controller": "ReportsController",
+      "file": "apps/api/src/modules/platform/reporting/controllers/reports.controller.ts",
+      "classification": "CRON"
+    },
+    {
+      "method": "DELETE",
+      "path": "/reports/schedules/:param",
+      "controller": "ReportsController",
+      "file": "apps/api/src/modules/platform/reporting/controllers/reports.controller.ts",
+      "classification": "CRON"
+    },
+    {
+      "method": "POST",
+      "path": "/reports/:param/favorite",
+      "controller": "ReportsController",
+      "file": "apps/api/src/modules/platform/reporting/controllers/reports.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "DELETE",
+      "path": "/reports/:param/favorite",
+      "controller": "ReportsController",
+      "file": "apps/api/src/modules/platform/reporting/controllers/reports.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "POST",
+      "path": "/reports/:param/filters",
+      "controller": "ReportsController",
+      "file": "apps/api/src/modules/platform/reporting/controllers/reports.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "GET",
+      "path": "/reports/:param/filters",
+      "controller": "ReportsController",
+      "file": "apps/api/src/modules/platform/reporting/controllers/reports.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "DELETE",
+      "path": "/reports/filters/:param",
+      "controller": "ReportsController",
+      "file": "apps/api/src/modules/platform/reporting/controllers/reports.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "GET",
+      "path": "/workflow/definitions",
+      "controller": "WorkflowsController",
+      "file": "apps/api/src/modules/platform/workflow/controllers/workflows.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "POST",
+      "path": "/workflow/definitions",
+      "controller": "WorkflowsController",
+      "file": "apps/api/src/modules/platform/workflow/controllers/workflows.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "PATCH",
+      "path": "/workflow/definitions/:param",
+      "controller": "WorkflowsController",
+      "file": "apps/api/src/modules/platform/workflow/controllers/workflows.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "DELETE",
+      "path": "/workflow/definitions/:param",
+      "controller": "WorkflowsController",
+      "file": "apps/api/src/modules/platform/workflow/controllers/workflows.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "GET",
+      "path": "/workflow/:param/:param/transitions",
+      "controller": "WorkflowsController",
+      "file": "apps/api/src/modules/platform/workflow/controllers/workflows.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "POST",
+      "path": "/workflow/:param/:param/transition",
+      "controller": "WorkflowsController",
+      "file": "apps/api/src/modules/platform/workflow/controllers/workflows.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "GET",
+      "path": "/workflow/:param/:param/history",
+      "controller": "WorkflowsController",
+      "file": "apps/api/src/modules/platform/workflow/controllers/workflows.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "GET",
+      "path": "/policies/renewal/pipeline",
+      "controller": "PoliciesController",
+      "file": "apps/api/src/modules/policies/controllers/policies.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "POST",
+      "path": "/policies/renewal/trigger-scan",
+      "controller": "PoliciesController",
+      "file": "apps/api/src/modules/policies/controllers/policies.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "PATCH",
+      "path": "/policies/:param",
+      "controller": "PoliciesController",
+      "file": "apps/api/src/modules/policies/controllers/policies.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "POST",
+      "path": "/renewals/tasks/:param/quote",
+      "controller": "RenewalsController",
+      "file": "apps/api/src/modules/policies/controllers/renewals.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "POST",
+      "path": "/renewals/tasks/:param/complete",
+      "controller": "RenewalsController",
+      "file": "apps/api/src/modules/policies/controllers/renewals.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "POST",
+      "path": "/renewals/tasks/:param/lost",
+      "controller": "RenewalsController",
+      "file": "apps/api/src/modules/policies/controllers/renewals.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "POST",
+      "path": "/quotations/wizard/issue-policy",
+      "controller": "QuotationController",
+      "file": "apps/api/src/modules/quotation/controllers/quotation.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "GET",
+      "path": "/tasks/back-office/:param",
+      "controller": "TasksController",
+      "file": "apps/api/src/modules/tasks/tasks.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "POST",
+      "path": "/tasks/back-office",
+      "controller": "TasksController",
+      "file": "apps/api/src/modules/tasks/tasks.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "GET",
+      "path": "/tasks/:param",
+      "controller": "TasksController",
+      "file": "apps/api/src/modules/tasks/tasks.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "GET",
+      "path": "/users/roles",
+      "controller": "UsersController",
+      "file": "apps/api/src/modules/users/controllers/users.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "GET",
+      "path": "/users/:param",
+      "controller": "UsersController",
+      "file": "apps/api/src/modules/users/controllers/users.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "PATCH",
+      "path": "/users/:param",
+      "controller": "UsersController",
+      "file": "apps/api/src/modules/users/controllers/users.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "DELETE",
+      "path": "/users/:param",
+      "controller": "UsersController",
+      "file": "apps/api/src/modules/users/controllers/users.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "POST",
+      "path": "/users/:param/lock",
+      "controller": "UsersController",
+      "file": "apps/api/src/modules/users/controllers/users.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "POST",
+      "path": "/users/:param/unlock",
+      "controller": "UsersController",
+      "file": "apps/api/src/modules/users/controllers/users.controller.ts",
+      "classification": "UNUSED"
+    }
+  ],
+  "summary": {
+    "totalFrontendCalls": 292,
+    "matched": 285,
+    "unmatched": 7,
+    "uncalledBackend": 184,
+    "uncalledByClassification": {
+      "WEBHOOK": 1,
+      "CRON": 3,
+      "INTERNAL": 8,
+      "UNUSED": 172
+    }
+  }
+}

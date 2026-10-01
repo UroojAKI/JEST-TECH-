@@ -2,12 +2,14 @@ import {
   Controller,
   Post,
   Get,
+  Patch,
   Param,
   Body,
   UseGuards,
   HttpCode,
   HttpStatus,
   ParseUUIDPipe,
+  BadRequestException,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
@@ -16,11 +18,13 @@ import { Roles } from '../../auth/decorators/roles.decorator';
 import { CurrentUser, RequestUser } from '../../auth/decorators/current-user.decorator';
 import { RoleType } from '@prisma/client';
 import { MotorQuotationCaseService } from '../services/motor-quotation-case.service';
+import { MotorCaseStateMachineService, CaseCommand } from '../services/motor-case-state-machine.service';
 import {
   CreateMotorQuotationCaseDto,
   SelectCaseQuotationDto,
   TransitionCaseStatusDto,
   CancelCaseDto,
+  ExecuteCaseCommandDto,
 } from '../dto/motor-quotation-case.dto';
 
 @ApiTags('Motor Quotation Cases (V2 Architecture)')
@@ -28,7 +32,10 @@ import {
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('motor/quotation-cases')
 export class MotorQuotationCaseController {
-  constructor(private readonly caseService: MotorQuotationCaseService) {}
+  constructor(
+    private readonly caseService: MotorQuotationCaseService,
+    private readonly stateMachine: MotorCaseStateMachineService,
+  ) {}
 
   @Post()
   @HttpCode(HttpStatus.CREATED)
@@ -88,6 +95,20 @@ export class MotorQuotationCaseController {
     return this.caseService.selectQuotation(id, dto.quotationId, user);
   }
 
+  @Post(':id/submit')
+  @HttpCode(HttpStatus.OK)
+  @Roles(RoleType.AGENT, RoleType.BACK_OFFICE, RoleType.ADMIN)
+  @ApiOperation({
+    summary: 'Submit Motor Quotation Case for Back Office review (WF-006B)',
+    description: 'Validates winning quote selection, transitions case to SUBMITTED_FOR_REVIEW, and creates BackOfficeTask.',
+  })
+  async submitCase(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.caseService.submitCase(id, user);
+  }
+
   @Get(':id/compare')
   @HttpCode(HttpStatus.OK)
   @Roles(RoleType.AGENT, RoleType.BACK_OFFICE, RoleType.ADMIN)
@@ -130,5 +151,55 @@ export class MotorQuotationCaseController {
     @CurrentUser() user: RequestUser,
   ) {
     return this.caseService.cancelCase(id, dto.reason, user);
+  }
+
+  @Post(':id/command')
+  @HttpCode(HttpStatus.OK)
+  @Roles(RoleType.AGENT, RoleType.BACK_OFFICE, RoleType.ADMIN)
+  @ApiOperation({
+    summary: 'Execute an authoritative domain command on Motor Quotation Case',
+    description: 'Enforces strict 19-state lifecycle rules, role authorization, and separation of duties (WF-009).',
+  })
+  async executeCommand(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: ExecuteCaseCommandDto,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.stateMachine.transition(
+      id,
+      dto.command as CaseCommand,
+      user,
+      { reason: dto.reason, metadata: dto.metadata },
+    );
+  }
+
+  @Get(':id/available-commands')
+  @HttpCode(HttpStatus.OK)
+  @Roles(RoleType.AGENT, RoleType.BACK_OFFICE, RoleType.ADMIN)
+  @ApiOperation({
+    summary: 'Get available commands for the case given current status and actor role',
+  })
+  async getAvailableCommands(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: RequestUser,
+  ) {
+    const commands = await this.stateMachine.getAvailableCommands(id, user);
+    return { caseId: id, availableCommands: commands };
+  }
+
+  @Patch(':id')
+  @HttpCode(HttpStatus.OK)
+  @Roles(RoleType.AGENT, RoleType.BACK_OFFICE, RoleType.ADMIN)
+  @ApiOperation({
+    summary: 'Guard against direct status mutation on Motor Quotation Case',
+  })
+  async directUpdateGuard(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: any,
+  ) {
+    this.stateMachine.assertNoDirectStatusMutation(body);
+    throw new BadRequestException(
+      'Direct mutation of case is not supported. Use domain commands via POST /motor/quotation-cases/:id/command.',
+    );
   }
 }

@@ -11,9 +11,10 @@ import {
   Search,
   MapPin,
   CheckCircle,
-  FileSpreadsheet,
   Building,
   Layers,
+  Inbox,
+  Filter,
 } from 'lucide-react';
 
 export default function VehicleMasterAdminPage() {
@@ -24,6 +25,8 @@ export default function VehicleMasterAdminPage() {
   // Modals state
   const [showRtoModal, setShowRtoModal] = useState(false);
   const [showMakeModal, setShowMakeModal] = useState(false);
+  const [showModelModal, setShowModelModal] = useState(false);
+  const [showVariantModal, setShowVariantModal] = useState(false);
 
   // RTO Form state
   const [rtoCode, setRtoCode] = useState('');
@@ -35,6 +38,21 @@ export default function VehicleMasterAdminPage() {
   // Make Form state
   const [makeName, setMakeName] = useState('');
   const [makeCode, setMakeCode] = useState('');
+
+  // Model Form state
+  const [modelManufacturerId, setModelManufacturerId] = useState('');
+  const [modelName, setModelName] = useState('');
+  const [modelCode, setModelCode] = useState('');
+  const [modelType, setModelType] = useState('FOUR_WHEELER');
+
+  // Variant Form state
+  const [variantModelId, setVariantModelId] = useState('');
+  const [variantName, setVariantName] = useState('');
+  const [variantCode, setVariantCode] = useState('');
+  const [variantFuelType, setVariantFuelType] = useState('PETROL');
+  const [variantTransmission, setVariantTransmission] = useState('MANUAL');
+  const [variantEngineCc, setVariantEngineCc] = useState('');
+  const [variantPrice, setVariantPrice] = useState('');
 
   // Queries
   const { data: rtos = [], isLoading: isRtoLoading } = useQuery({
@@ -49,6 +67,22 @@ export default function VehicleMasterAdminPage() {
     queryKey: ['admin-makes'],
     queryFn: async () => {
       const res = await apiClient.get('/motor/vehicles/manufacturers');
+      return res.data || [];
+    },
+  });
+
+  const { data: models = [], isLoading: isModelsLoading } = useQuery({
+    queryKey: ['admin-models'],
+    queryFn: async () => {
+      const res = await apiClient.get('/motor/vehicles/models');
+      return res.data || [];
+    },
+  });
+
+  const { data: variants = [], isLoading: isVariantsLoading } = useQuery({
+    queryKey: ['admin-variants'],
+    queryFn: async () => {
+      const res = await apiClient.get('/motor/vehicles/variants');
       return res.data || [];
     },
   });
@@ -90,6 +124,44 @@ export default function VehicleMasterAdminPage() {
     },
   });
 
+  const createModelMutation = useMutation({
+    mutationFn: async (data: any) => {
+      const res = await apiClient.post('/motor/vehicles/models', data);
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-models'] });
+      toast.success('Vehicle Model created!');
+      setShowModelModal(false);
+      setModelName('');
+      setModelCode('');
+      setModelManufacturerId('');
+    },
+    onError: (err: any) => {
+      toast.error(err.response?.data?.message || 'Failed to create vehicle model');
+    },
+  });
+
+  const createVariantMutation = useMutation({
+    mutationFn: async (data: any) => {
+      const res = await apiClient.post('/motor/vehicles/variants', data);
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-variants'] });
+      toast.success('Vehicle Variant created!');
+      setShowVariantModal(false);
+      setVariantName('');
+      setVariantCode('');
+      setVariantEngineCc('');
+      setVariantPrice('');
+      setVariantModelId('');
+    },
+    onError: (err: any) => {
+      toast.error(err.response?.data?.message || 'Failed to create vehicle variant');
+    },
+  });
+
   const handleRtoSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!rtoCode || !rtoState || !rtoOffice) {
@@ -117,11 +189,67 @@ export default function VehicleMasterAdminPage() {
     });
   };
 
-  const filteredRtos = (Array.isArray(rtos) ? rtos : ((rtos as any)?.data || (rtos as any)?.items || [])).filter(
+  const handleModelSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!modelManufacturerId || !modelName || !modelCode) {
+      toast.error('Manufacturer, Model Name, and Code are required');
+      return;
+    }
+    createModelMutation.mutate({
+      manufacturerId: modelManufacturerId,
+      name: modelName,
+      code: modelCode.toUpperCase(),
+      type: modelType,
+    });
+  };
+
+  const handleVariantSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!variantModelId || !variantName || !variantCode) {
+      toast.error('Model, Variant Name, and Code are required');
+      return;
+    }
+    createVariantMutation.mutate({
+      modelId: variantModelId,
+      name: variantName,
+      code: variantCode.toUpperCase(),
+      fuelType: variantFuelType,
+      transmissionType: variantTransmission,
+      engineCapacity: Number(variantEngineCc) || 1200,
+      exShowroomPrice: Number(variantPrice) || 500000,
+    });
+  };
+
+  const safeRtos = Array.isArray(rtos) ? rtos : ((rtos as any)?.data || (rtos as any)?.items || []);
+  const safeMakes = Array.isArray(makes) ? makes : ((makes as any)?.data || (makes as any)?.items || []);
+  const safeModels = Array.isArray(models) ? models : ((models as any)?.data || (models as any)?.items || []);
+  const safeVariants = Array.isArray(variants) ? variants : ((variants as any)?.data || (variants as any)?.items || []);
+
+  const filteredRtos = safeRtos.filter(
     (r: any) =>
-      r.code.toLowerCase().includes(search.toLowerCase()) ||
-      r.rtoOfficeName.toLowerCase().includes(search.toLowerCase()) ||
-      r.state.toLowerCase().includes(search.toLowerCase())
+      r.code?.toLowerCase().includes(search.toLowerCase()) ||
+      r.rtoOfficeName?.toLowerCase().includes(search.toLowerCase()) ||
+      r.state?.toLowerCase().includes(search.toLowerCase())
+  );
+
+  const filteredMakes = safeMakes.filter(
+    (m: any) =>
+      m.name?.toLowerCase().includes(search.toLowerCase()) ||
+      m.code?.toLowerCase().includes(search.toLowerCase())
+  );
+
+  const filteredModels = safeModels.filter(
+    (mo: any) =>
+      mo.name?.toLowerCase().includes(search.toLowerCase()) ||
+      mo.code?.toLowerCase().includes(search.toLowerCase()) ||
+      mo.manufacturer?.name?.toLowerCase().includes(search.toLowerCase())
+  );
+
+  const filteredVariants = safeVariants.filter(
+    (v: any) =>
+      v.name?.toLowerCase().includes(search.toLowerCase()) ||
+      v.code?.toLowerCase().includes(search.toLowerCase()) ||
+      v.model?.name?.toLowerCase().includes(search.toLowerCase())
   );
 
   return (
@@ -154,7 +282,21 @@ export default function VehicleMasterAdminPage() {
               className="px-4 py-2 rounded-xl border bg-card text-foreground text-xs font-extrabold flex items-center space-x-1.5 shadow-xs hover:bg-accent transition-all"
             >
               <Car className="h-4 w-4" />
-              <span>Add Vehicle Make</span>
+              <span>Add Make</span>
+            </button>
+            <button
+              onClick={() => setShowModelModal(true)}
+              className="px-4 py-2 rounded-xl border bg-card text-foreground text-xs font-extrabold flex items-center space-x-1.5 shadow-xs hover:bg-accent transition-all"
+            >
+              <Building className="h-4 w-4" />
+              <span>Add Model</span>
+            </button>
+            <button
+              onClick={() => setShowVariantModal(true)}
+              className="px-4 py-2 rounded-xl border bg-card text-foreground text-xs font-extrabold flex items-center space-x-1.5 shadow-xs hover:bg-accent transition-all"
+            >
+              <Layers className="h-4 w-4" />
+              <span>Add Variant</span>
             </button>
           </div>
         </div>
@@ -164,6 +306,8 @@ export default function VehicleMasterAdminPage() {
           {[
             { id: 'RTO', label: 'RTO Office Master', icon: MapPin },
             { id: 'MAKES', label: 'Vehicle Makes (Manufacturers)', icon: Car },
+            { id: 'MODELS', label: 'Vehicle Models', icon: Building },
+            { id: 'VARIANTS', label: 'Vehicle Variants', icon: Layers },
           ].map((tab) => {
             const Icon = tab.icon;
             return (
@@ -191,7 +335,7 @@ export default function VehicleMasterAdminPage() {
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search RTO code, office, or state..."
+              placeholder={`Search ${activeTab.toLowerCase()}...`}
               className="w-full pl-9 pr-3 py-2 text-xs rounded-xl border bg-background focus:ring-1 focus:ring-primary"
             />
           </div>
@@ -250,19 +394,17 @@ export default function VehicleMasterAdminPage() {
         )}
 
         {/* Makes Master Table */}
-        {activeTab === 'MAKES' && (() => {
-          const safeMakes = Array.isArray(makes) ? makes : ((makes as any)?.items || (makes as any)?.data || []);
-          return (
+        {activeTab === 'MAKES' && (
           <div className="p-5 rounded-2xl border bg-card text-card-foreground shadow-xs overflow-hidden">
             {isMakesLoading ? (
               <div className="p-8 text-center text-xs text-muted-foreground animate-pulse">
                 Loading Vehicle Makes...
               </div>
-            ) : safeMakes.length === 0 ? (
+            ) : filteredMakes.length === 0 ? (
               <div className="p-12 text-center space-y-3">
                 <Car className="h-10 w-10 text-muted-foreground mx-auto" />
                 <h3 className="text-sm font-bold text-foreground">No Vehicle Makes Found</h3>
-                <p className="text-xs text-muted-foreground">Click "Add Vehicle Make" to add manufacturers.</p>
+                <p className="text-xs text-muted-foreground">Click "Add Make" to add manufacturers.</p>
               </div>
             ) : (
               <div className="overflow-x-auto">
@@ -275,7 +417,7 @@ export default function VehicleMasterAdminPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y text-xs font-semibold">
-                    {safeMakes.map((m: any) => (
+                    {filteredMakes.map((m: any) => (
                       <tr key={m.id} className="hover:bg-muted/10 transition-colors">
                         <td className="py-3 px-3 font-mono font-bold text-primary">{m.code}</td>
                         <td className="py-3 px-3 text-foreground font-bold">{m.name}</td>
@@ -291,8 +433,95 @@ export default function VehicleMasterAdminPage() {
               </div>
             )}
           </div>
-          );
-        })()}
+        )}
+
+        {/* Models Master Table */}
+        {activeTab === 'MODELS' && (
+          <div className="p-5 rounded-2xl border bg-card text-card-foreground shadow-xs overflow-hidden">
+            {isModelsLoading ? (
+              <div className="p-8 text-center text-xs text-muted-foreground animate-pulse">
+                Loading Vehicle Models...
+              </div>
+            ) : filteredModels.length === 0 ? (
+              <div className="p-12 text-center space-y-3">
+                <Building className="h-10 w-10 text-muted-foreground mx-auto" />
+                <h3 className="text-sm font-bold text-foreground">No Vehicle Models Found</h3>
+                <p className="text-xs text-muted-foreground">Click "Add Model" to register vehicle models.</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead>
+                    <tr className="border-b text-[10px] uppercase font-bold text-muted-foreground bg-muted/20">
+                      <th className="py-3 px-3">Model Code</th>
+                      <th className="py-3 px-3">Model Name</th>
+                      <th className="py-3 px-3">Manufacturer</th>
+                      <th className="py-3 px-3">Category</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y text-xs font-semibold">
+                    {filteredModels.map((mo: any) => (
+                      <tr key={mo.id} className="hover:bg-muted/10 transition-colors">
+                        <td className="py-3 px-3 font-mono font-bold text-primary">{mo.code}</td>
+                        <td className="py-3 px-3 text-foreground font-bold">{mo.name}</td>
+                        <td className="py-3 px-3 text-muted-foreground">{mo.manufacturer?.name || '--'}</td>
+                        <td className="py-3 px-3 font-mono text-[10px]">{mo.type}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Variants Master Table */}
+        {activeTab === 'VARIANTS' && (
+          <div className="p-5 rounded-2xl border bg-card text-card-foreground shadow-xs overflow-hidden">
+            {isVariantsLoading ? (
+              <div className="p-8 text-center text-xs text-muted-foreground animate-pulse">
+                Loading Vehicle Variants...
+              </div>
+            ) : filteredVariants.length === 0 ? (
+              <div className="p-12 text-center space-y-3">
+                <Layers className="h-10 w-10 text-muted-foreground mx-auto" />
+                <h3 className="text-sm font-bold text-foreground">No Vehicle Variants Found</h3>
+                <p className="text-xs text-muted-foreground">Click "Add Variant" to configure variants and price schedules.</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead>
+                    <tr className="border-b text-[10px] uppercase font-bold text-muted-foreground bg-muted/20">
+                      <th className="py-3 px-3">Variant Code</th>
+                      <th className="py-3 px-3">Variant Name</th>
+                      <th className="py-3 px-3">Model</th>
+                      <th className="py-3 px-3">Fuel / Transmission</th>
+                      <th className="py-3 px-3">Displacement</th>
+                      <th className="py-3 px-3">Ex-Showroom Price</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y text-xs font-semibold">
+                    {filteredVariants.map((v: any) => (
+                      <tr key={v.id} className="hover:bg-muted/10 transition-colors">
+                        <td className="py-3 px-3 font-mono font-bold text-primary">{v.code}</td>
+                        <td className="py-3 px-3 text-foreground font-bold">{v.name}</td>
+                        <td className="py-3 px-3 text-muted-foreground">{v.model?.name || '--'}</td>
+                        <td className="py-3 px-3 text-muted-foreground">
+                          {v.fuelType} • {v.transmissionType}
+                        </td>
+                        <td className="py-3 px-3 font-mono">{v.engineCapacity} cc</td>
+                        <td className="py-3 px-3 font-bold text-emerald-600">
+                          ₹{Number(v.exShowroomPrice || 0).toLocaleString('en-IN')}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Add RTO Modal */}
         {showRtoModal && (
@@ -433,6 +662,210 @@ export default function VehicleMasterAdminPage() {
                     className="px-4 py-1.5 font-extrabold rounded-xl bg-primary text-primary-foreground shadow-xs hover:bg-primary/90 disabled:opacity-50"
                   >
                     Save Vehicle Make
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* Add Model Modal */}
+        {showModelModal && (
+          <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur-xs flex items-center justify-center p-4">
+            <div className="w-full max-w-md p-6 rounded-2xl border bg-card shadow-2xl space-y-4 text-xs">
+              <div className="flex items-center space-x-2 text-primary">
+                <Building className="h-5 w-5" />
+                <h3 className="text-sm font-extrabold text-foreground">Add Vehicle Model</h3>
+              </div>
+
+              <form onSubmit={handleModelSubmit} className="space-y-3">
+                <div>
+                  <label className="font-bold text-foreground block mb-1">Manufacturer *</label>
+                  <select
+                    required
+                    value={modelManufacturerId}
+                    onChange={(e) => setModelManufacturerId(e.target.value)}
+                    className="w-full p-2.5 rounded-xl border bg-background"
+                  >
+                    <option value="">Select Manufacturer</option>
+                    {safeMakes.map((m: any) => (
+                      <option key={m.id} value={m.id}>{m.name} ({m.code})</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="font-bold text-foreground block mb-1">Model Name *</label>
+                  <input
+                    required
+                    type="text"
+                    value={modelName}
+                    onChange={(e) => setModelName(e.target.value)}
+                    placeholder="e.g. Swift or Creta"
+                    className="w-full p-2.5 rounded-xl border bg-background"
+                  />
+                </div>
+
+                <div>
+                  <label className="font-bold text-foreground block mb-1">Model Code *</label>
+                  <input
+                    required
+                    type="text"
+                    value={modelCode}
+                    onChange={(e) => setModelCode(e.target.value)}
+                    placeholder="e.g. SWIFT"
+                    className="w-full p-2.5 rounded-xl border bg-background font-mono"
+                  />
+                </div>
+
+                <div>
+                  <label className="font-bold text-foreground block mb-1">Vehicle Type</label>
+                  <select
+                    value={modelType}
+                    onChange={(e) => setModelType(e.target.value)}
+                    className="w-full p-2.5 rounded-xl border bg-background"
+                  >
+                    <option value="FOUR_WHEELER">Four Wheeler (Car / SUV)</option>
+                    <option value="TWO_WHEELER">Two Wheeler (Bike / Scooter)</option>
+                    <option value="COMMERCIAL">Commercial Vehicle (GCV / Bus / Taxi)</option>
+                  </select>
+                </div>
+
+                <div className="flex justify-end space-x-2 pt-3 border-t">
+                  <button
+                    type="button"
+                    onClick={() => setShowModelModal(false)}
+                    className="px-3.5 py-1.5 font-semibold rounded-xl border hover:bg-accent"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={createModelMutation.isPending}
+                    className="px-4 py-1.5 font-extrabold rounded-xl bg-primary text-primary-foreground shadow-xs hover:bg-primary/90 disabled:opacity-50"
+                  >
+                    Save Vehicle Model
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* Add Variant Modal */}
+        {showVariantModal && (
+          <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur-xs flex items-center justify-center p-4">
+            <div className="w-full max-w-md p-6 rounded-2xl border bg-card shadow-2xl space-y-4 text-xs">
+              <div className="flex items-center space-x-2 text-primary">
+                <Layers className="h-5 w-5" />
+                <h3 className="text-sm font-extrabold text-foreground">Add Vehicle Variant</h3>
+              </div>
+
+              <form onSubmit={handleVariantSubmit} className="space-y-3">
+                <div>
+                  <label className="font-bold text-foreground block mb-1">Vehicle Model *</label>
+                  <select
+                    required
+                    value={variantModelId}
+                    onChange={(e) => setVariantModelId(e.target.value)}
+                    className="w-full p-2.5 rounded-xl border bg-background"
+                  >
+                    <option value="">Select Vehicle Model</option>
+                    {safeModels.map((mo: any) => (
+                      <option key={mo.id} value={mo.id}>{mo.name} ({mo.code})</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="font-bold text-foreground block mb-1">Variant Name *</label>
+                  <input
+                    required
+                    type="text"
+                    value={variantName}
+                    onChange={(e) => setVariantName(e.target.value)}
+                    placeholder="e.g. VXI or SX (O) Turbo"
+                    className="w-full p-2.5 rounded-xl border bg-background"
+                  />
+                </div>
+
+                <div>
+                  <label className="font-bold text-foreground block mb-1">Variant Code *</label>
+                  <input
+                    required
+                    type="text"
+                    value={variantCode}
+                    onChange={(e) => setVariantCode(e.target.value)}
+                    placeholder="e.g. SWIFT_VXI"
+                    className="w-full p-2.5 rounded-xl border bg-background font-mono"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="font-bold text-foreground block mb-1">Fuel Type</label>
+                    <select
+                      value={variantFuelType}
+                      onChange={(e) => setVariantFuelType(e.target.value)}
+                      className="w-full p-2.5 rounded-xl border bg-background"
+                    >
+                      <option value="PETROL">Petrol</option>
+                      <option value="DIESEL">Diesel</option>
+                      <option value="CNG">CNG</option>
+                      <option value="ELECTRIC">Electric</option>
+                      <option value="HYBRID">Hybrid</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="font-bold text-foreground block mb-1">Transmission</label>
+                    <select
+                      value={variantTransmission}
+                      onChange={(e) => setVariantTransmission(e.target.value)}
+                      className="w-full p-2.5 rounded-xl border bg-background"
+                    >
+                      <option value="MANUAL">Manual</option>
+                      <option value="AUTOMATIC">Automatic</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="font-bold text-foreground block mb-1">Engine Displacement (cc)</label>
+                    <input
+                      type="number"
+                      value={variantEngineCc}
+                      onChange={(e) => setVariantEngineCc(e.target.value)}
+                      placeholder="e.g. 1197"
+                      className="w-full p-2.5 rounded-xl border bg-background"
+                    />
+                  </div>
+                  <div>
+                    <label className="font-bold text-foreground block mb-1">Ex-Showroom Price (₹)</label>
+                    <input
+                      type="number"
+                      value={variantPrice}
+                      onChange={(e) => setVariantPrice(e.target.value)}
+                      placeholder="e.g. 750000"
+                      className="w-full p-2.5 rounded-xl border bg-background"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex justify-end space-x-2 pt-3 border-t">
+                  <button
+                    type="button"
+                    onClick={() => setShowVariantModal(false)}
+                    className="px-3.5 py-1.5 font-semibold rounded-xl border hover:bg-accent"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={createVariantMutation.isPending}
+                    className="px-4 py-1.5 font-extrabold rounded-xl bg-primary text-primary-foreground shadow-xs hover:bg-primary/90 disabled:opacity-50"
+                  >
+                    Save Vehicle Variant
                   </button>
                 </div>
               </form>
