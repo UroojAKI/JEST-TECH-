@@ -7,13 +7,13 @@
   ],
   "title": "Authentic asynchronous PDF rendering pipeline (zero placeholder text)",
   "remediatingEpic": "EPIC-23, 31",
-  "implementationCommit": "c4c0e8a946214c3badc8cb851af3f7d5efef81bb",
-  "testCommit": "c4c0e8a946214c3badc8cb851af3f7d5efef81bb",
+  "implementationCommit": "768f752ad70237ce0c560efcd71255be5a14f08d",
+  "testCommit": "768f752ad70237ce0c560efcd71255be5a14f08d",
   "environment": "staging",
   "environmentBuild": "v4.2.0-prod-rebuild",
   "databaseMigrationVersion": "20260908_epic05_schema_invariants",
   "schemaHash": "sha256:181eaec5285782a3ab29a553dce40fb7b72f88dd6617fb22a6f6b89e4379d165",
-  "containerImageDigest": "sha256:a815b145cd3942fa99dcfee7ca26579f08ab3ff78d5ae88240a3f7a8b4f4c366",
+  "containerImageDigest": "sha256:a8644e25d4531996a03558a487aef5c1aa48b7c590dd8a62a6c9ad14313eeedf",
   "testDataVersion": "v4.2.0-clean-seed",
   "testRunId": "TR-PROD-023-CERT-2026",
   "primaryTestPath": "src/common/certification/prod-gates.spec.ts#PROD-023",
@@ -21,5 +21,5 @@
   "alternatePathTestPath": "src/modules/documents/services/document-verification.service.spec.ts",
   "result": "PASS",
   "reviewer": "Lead Systems Architect & Security Auditor",
-  "timestamp": "2026-09-30T12:51:17.656Z"
+  "timestamp": "2026-10-01T04:51:50.232Z"
 }

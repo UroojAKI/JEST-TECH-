@@ -8,12 +8,12 @@
     "insuranceOperations": "APPROVED",
     "executiveLeadership": "APPROVED"
   },
-  "certifiedCommit": "c4c0e8a946214c3badc8cb851af3f7d5efef81bb",
-  "certificationCommitSha": "c4c0e8a946214c3badc8cb851af3f7d5efef81bb",
-  "certificationImageDigest": "sha256:a815b145cd3942fa99dcfee7ca26579f08ab3ff78d5ae88240a3f7a8b4f4c366",
+  "certifiedCommit": "768f752ad70237ce0c560efcd71255be5a14f08d",
+  "certificationCommitSha": "768f752ad70237ce0c560efcd71255be5a14f08d",
+  "certificationImageDigest": "sha256:a8644e25d4531996a03558a487aef5c1aa48b7c590dd8a62a6c9ad14313eeedf",
   "certificationSchemaHash": "sha256:181eaec5285782a3ab29a553dce40fb7b72f88dd6617fb22a6f6b89e4379d165",
-  "certificationTestRunId": "RUN-1790772677661-c4c0e8a9",
-  "timestamp": "2026-09-30T12:51:17.656Z",
+  "certificationTestRunId": "RUN-1790830310237-768f752a",
+  "timestamp": "2026-10-01T04:51:50.232Z",
   "certificationMatrixSummary": {
     "totalGates": 25,
     "passedGates": 25,
