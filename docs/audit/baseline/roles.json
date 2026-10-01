@@ -1,0 +1,1949 @@
+[
+  {
+    "file": "apps/api/src/modules/accounts/controllers/accounts.controller.ts",
+    "endpoint": "GET /accounts",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE",
+      "AGENT"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/accounts/controllers/accounts.controller.ts",
+    "endpoint": "GET /accounts/:id",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE",
+      "AGENT"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/accounts/controllers/accounts.controller.ts",
+    "endpoint": "POST /accounts/:id/unmask",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE",
+      "AGENT"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/accounts/controllers/accounts.controller.ts",
+    "endpoint": "PATCH /accounts/:id",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/accounts/controllers/accounts.controller.ts",
+    "endpoint": "DELETE /accounts/:id",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE",
+      "AGENT"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/administration/controllers/lookup/lookup.controller.ts",
+    "endpoint": "PUT /admin/lookups/:categoryCode/values/:id",
+    "roles": [
+      "ADMIN"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/administration/controllers/lookup/lookup.controller.ts",
+    "endpoint": "DELETE /admin/lookups/:categoryCode/values/:id",
+    "roles": [
+      "ADMIN"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/administration/controllers/lookup/lookup.controller.ts",
+    "endpoint": "POST /admin/lookups/:categoryCode/invalidate",
+    "roles": [
+      "ADMIN"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/administration/controllers/organization/organization.controller.ts",
+    "endpoint": "GET /admin/organization/branches",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/administration/controllers/organization/organization.controller.ts",
+    "endpoint": "POST /admin/organization/branches",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE",
+      "AGENT"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/administration/controllers/organization/organization.controller.ts",
+    "endpoint": "GET /admin/organization/branches/:branchId/departments",
+    "roles": [
+      "ADMIN"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/administration/controllers/organization/organization.controller.ts",
+    "endpoint": "GET /admin/organization/departments/:departmentId/teams",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/administration/controllers/organization/organization.controller.ts",
+    "endpoint": "POST /admin/organization/assign-team",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/administration/controllers/organization/roles.controller.ts",
+    "endpoint": "GET /admin/roles/:roleId/permissions",
+    "roles": [
+      "ADMIN"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/administration/controllers/organization/roles.controller.ts",
+    "endpoint": "PUT /admin/roles/:roleId/permissions",
+    "roles": [
+      "ADMIN"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/administration/controllers/system-config/system-config.controller.ts",
+    "endpoint": "PUT /admin/config",
+    "roles": [
+      "ADMIN"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/administration/controllers/system-config/system-config.controller.ts",
+    "endpoint": "GET /admin/config/public",
+    "roles": [
+      "ADMIN"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/administration/controllers/system-config/system-config.controller.ts",
+    "endpoint": "GET /admin/config/metrics",
+    "roles": [
+      "ADMIN"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/administration/controllers/system-config/system-config.controller.ts",
+    "endpoint": "GET /admin/config/flags",
+    "roles": [
+      "ADMIN"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/administration/controllers/system-config/system-config.controller.ts",
+    "endpoint": "PATCH /admin/config/flags/:id",
+    "roles": [
+      "ADMIN"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/administration/controllers/system-config/system-config.controller.ts",
+    "endpoint": "GET /admin/config/:key",
+    "roles": [
+      "ADMIN"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/administration/controllers/system-config/system-config.controller.ts",
+    "endpoint": "PUT /admin/config/:key",
+    "roles": [
+      "ADMIN"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/agents/agents.controller.ts",
+    "endpoint": "GET /agents",
+    "roles": [
+      "AGENT",
+      "ADMIN",
+      "BACK_OFFICE"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/agents/agents.controller.ts",
+    "endpoint": "GET /agents/:id",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE",
+      "AGENT"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/agents/agents.controller.ts",
+    "endpoint": "GET /agents/:id/stats",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE",
+      "AGENT"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/agents/agents.controller.ts",
+    "endpoint": "POST /agents",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE",
+      "AGENT"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/agents/agents.controller.ts",
+    "endpoint": "PATCH /agents/:id",
+    "roles": [
+      "ADMIN",
+      "AGENT"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/analytics/controllers/analytics.controller.ts",
+    "endpoint": "GET /analytics/leads",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/bi/dashboards/services/dashboard-analytics/dashboard-analytics.controller.ts",
+    "endpoint": "GET /dashboards/sales-manager",
+    "roles": [
+      "AGENT",
+      "BACK_OFFICE",
+      "ADMIN"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/bi/dashboards/services/dashboard-analytics/dashboard-analytics.controller.ts",
+    "endpoint": "GET /dashboards/renewals",
+    "roles": [
+      "BACK_OFFICE",
+      "ADMIN"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/bi/forecasting/controllers/forecasting.controller.ts",
+    "endpoint": "GET /forecasting/renewals",
+    "roles": [
+      "ADMIN"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/bi/forecasting/controllers/forecasting.controller.ts",
+    "endpoint": "GET /forecasting/customer-risk/:customerId",
+    "roles": [
+      "ADMIN"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/business-intelligence/controllers/bi.controller.ts",
+    "endpoint": "GET /bi/revenue",
+    "roles": [
+      "ADMIN"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/business-intelligence/controllers/bi.controller.ts",
+    "endpoint": "GET /bi/loss-ratio",
+    "roles": [
+      "ADMIN"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/business-intelligence/controllers/bi.controller.ts",
+    "endpoint": "GET /bi/renewal",
+    "roles": [
+      "ADMIN"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/business-intelligence/controllers/bi.controller.ts",
+    "endpoint": "GET /bi/sales",
+    "roles": [
+      "ADMIN"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/business-intelligence/controllers/bi.controller.ts",
+    "endpoint": "GET /bi/growth",
+    "roles": [
+      "ADMIN"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/business-intelligence/controllers/bi.controller.ts",
+    "endpoint": "GET /bi/kpi",
+    "roles": [
+      "ADMIN"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/business-intelligence/controllers/bi.controller.ts",
+    "endpoint": "GET /bi/kpi/definitions",
+    "roles": [
+      "ADMIN"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/business-intelligence/controllers/bi.controller.ts",
+    "endpoint": "POST /bi/kpi/definitions",
+    "roles": [
+      "ADMIN"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/business-intelligence/controllers/bi.controller.ts",
+    "endpoint": "PATCH /bi/kpi/definitions/:id",
+    "roles": [
+      "ADMIN"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/business-intelligence/controllers/bi.controller.ts",
+    "endpoint": "DELETE /bi/kpi/definitions/:id",
+    "roles": [
+      "ADMIN"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/business-intelligence/controllers/bi.controller.ts",
+    "endpoint": "POST /bi/kpi/seed",
+    "roles": [
+      "ADMIN"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/claims/controllers/claims.controller.ts",
+    "endpoint": "POST /claims",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/claims/controllers/claims.controller.ts",
+    "endpoint": "GET /claims",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/claims/controllers/claims.controller.ts",
+    "endpoint": "GET /claims/:id",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE",
+      "AGENT"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/claims/controllers/claims.controller.ts",
+    "endpoint": "PATCH /claims/:id",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE",
+      "AGENT"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/claims/controllers/claims.controller.ts",
+    "endpoint": "POST /claims/:id/documents",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/claims/controllers/claims.controller.ts",
+    "endpoint": "POST /claims/:id/assign-surveyor",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE",
+      "AGENT"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/claims/controllers/claims.controller.ts",
+    "endpoint": "POST /claims/:id/approve",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/claims/controllers/claims.controller.ts",
+    "endpoint": "POST /claims/:id/settle",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/claims/controllers/claims.controller.ts",
+    "endpoint": "POST /claims/:id/settlement/verify",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/claims/controllers/claims.controller.ts",
+    "endpoint": "POST /claims/:id/reject",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/claims/controllers/claims.controller.ts",
+    "endpoint": "POST /claims/:id/close",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/claims/controllers/claims.controller.ts",
+    "endpoint": "POST /claims/:id/withdraw",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/contacts/controllers/contacts.controller.ts",
+    "endpoint": "GET /contacts",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE",
+      "AGENT"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/contacts/controllers/contacts.controller.ts",
+    "endpoint": "GET /contacts/:id",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE",
+      "AGENT"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/contacts/controllers/contacts.controller.ts",
+    "endpoint": "POST /contacts/:id/unmask",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE",
+      "AGENT"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/contacts/controllers/contacts.controller.ts",
+    "endpoint": "PATCH /contacts/:id",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/contacts/controllers/contacts.controller.ts",
+    "endpoint": "DELETE /contacts/:id",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE",
+      "AGENT"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/contacts/controllers/contacts.controller.ts",
+    "endpoint": "POST /contacts/:id/deactivate",
+    "roles": [
+      "ADMIN"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/contacts/controllers/contacts.controller.ts",
+    "endpoint": "POST /contacts/:id/reactivate",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/customer/communication/controllers/communication.controller.ts",
+    "endpoint": "PUT /notifications/templates/:id",
+    "roles": [
+      "ADMIN",
+      "ADMIN"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/customer/communication/controllers/communication.controller.ts",
+    "endpoint": "GET /notifications/delivery-logs",
+    "roles": [
+      "ADMIN",
+      "ADMIN"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/customer/communication/controllers/communication.controller.ts",
+    "endpoint": "GET /notifications/events",
+    "roles": [
+      "ADMIN",
+      "ADMIN"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/customer/customer-360/services/customer-360/customer-360.controller.ts",
+    "endpoint": "GET /customer-360/:id",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE",
+      "AGENT"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/customers/customers.controller.ts",
+    "endpoint": "POST /customers/deduplication-check",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE",
+      "AGENT"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/customers/customers.controller.ts",
+    "endpoint": "GET /customers",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE",
+      "AGENT"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/customers/customers.controller.ts",
+    "endpoint": "GET /customers/:id",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE",
+      "AGENT"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/customers/customers.controller.ts",
+    "endpoint": "POST /customers/:id/assign-agent",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE",
+      "AGENT"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/customers/customers.controller.ts",
+    "endpoint": "POST /customers",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/customers/customers.controller.ts",
+    "endpoint": "PATCH /customers/:id",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE",
+      "AGENT"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/customers/customers.controller.ts",
+    "endpoint": "GET /customers/:id/alerts",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE",
+      "AGENT"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/customers/customers.controller.ts",
+    "endpoint": "POST /customers/:id/alerts",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE",
+      "AGENT"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/customers/customers.controller.ts",
+    "endpoint": "PATCH /customers/:id/alerts/:alertId/read",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE",
+      "AGENT"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/dashboard/controllers/dashboard.controller.ts",
+    "endpoint": "GET /dashboard/admin",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE",
+      "AGENT"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/dashboard/controllers/dashboard.controller.ts",
+    "endpoint": "GET /dashboard/back-office",
+    "roles": [
+      "ADMIN"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/dashboard/controllers/dashboard.controller.ts",
+    "endpoint": "GET /dashboard/agent",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/dashboard/controllers/dashboard.controller.ts",
+    "endpoint": "GET /dashboard/management/branch-gwp",
+    "roles": [
+      "AGENT"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/dashboard/controllers/dashboard.controller.ts",
+    "endpoint": "GET /dashboard/management/insurers",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/dashboard/controllers/dashboard.controller.ts",
+    "endpoint": "GET /dashboard/management/leaderboard",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/dashboard-registry/controllers/dashboard-registry.controller.ts",
+    "endpoint": "PUT /dashboard-registry/:code",
+    "roles": [
+      "ADMIN",
+      "ADMIN"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/documents/controllers/documents.controller.ts",
+    "endpoint": "GET /documents",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE",
+      "AGENT"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/documents/controllers/documents.controller.ts",
+    "endpoint": "POST /documents/:id/verify",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/documents/controllers/documents.controller.ts",
+    "endpoint": "GET /documents/:id/verification",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/endorsements/controllers/endorsements.controller.ts",
+    "endpoint": "GET /endorsements/:id",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE",
+      "AGENT"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/endorsements/controllers/endorsements.controller.ts",
+    "endpoint": "POST /endorsements",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE",
+      "AGENT"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/endorsements/controllers/endorsements.controller.ts",
+    "endpoint": "POST /endorsements/policies/:policyId/calculate-prorata",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE",
+      "AGENT"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/endorsements/controllers/endorsements.controller.ts",
+    "endpoint": "POST /endorsements/:id/attach",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE",
+      "AGENT"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/endorsements/controllers/endorsements.controller.ts",
+    "endpoint": "POST /endorsements/:id/approve",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE",
+      "AGENT"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/endorsements/controllers/endorsements.controller.ts",
+    "endpoint": "POST /endorsements/:id/reject",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/finance/controllers/finance.controller.ts",
+    "endpoint": "GET /finance/receipts/export",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/finance/controllers/finance.controller.ts",
+    "endpoint": "GET /finance/receipts",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/finance/controllers/finance.controller.ts",
+    "endpoint": "GET /finance/payments",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/finance/controllers/finance.controller.ts",
+    "endpoint": "GET /finance/ledger",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/finance/controllers/finance.controller.ts",
+    "endpoint": "POST /finance/ledger/journal",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/finance/controllers/finance.controller.ts",
+    "endpoint": "GET /finance/commissions",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/finance/controllers/finance.controller.ts",
+    "endpoint": "POST /finance/commissions/:id/approve",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/finance/controllers/finance.controller.ts",
+    "endpoint": "GET /finance/settlements",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/finance/controllers/finance.controller.ts",
+    "endpoint": "GET /finance/incentives",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/finance/controllers/finance.controller.ts",
+    "endpoint": "GET /finance/reconciliation-queue",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/finance/controllers/finance.controller.ts",
+    "endpoint": "POST /finance/reconciliation-queue/:id/reconcile",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/finance/controllers/finance.controller.ts",
+    "endpoint": "POST /finance/reconciliation-queue/:id/discrepancy",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/finance/controllers/finance.controller.ts",
+    "endpoint": "POST /finance/invoices/:id/pay",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/leads/controllers/leads.controller.ts",
+    "endpoint": "GET /leads",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/leads/controllers/leads.controller.ts",
+    "endpoint": "POST /leads/:id/assign",
+    "roles": [
+      "ADMIN"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/leads/controllers/leads.controller.ts",
+    "endpoint": "POST /leads/:id/auto-assign",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/leads/controllers/leads.controller.ts",
+    "endpoint": "POST /leads/bulk-assign",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/leads/controllers/leads.controller.ts",
+    "endpoint": "GET /leads/queues/workload",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/leads/controllers/leads.controller.ts",
+    "endpoint": "POST /leads/:id/notes",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/motor/controllers/motor-calculation.controller.ts",
+    "endpoint": "POST /motor/calculate",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE",
+      "AGENT"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/motor/controllers/motor-inspection.controller.ts",
+    "endpoint": "GET /motor/inspections/:quotationId",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/motor/controllers/motor-inspection.controller.ts",
+    "endpoint": "POST /motor/inspections/:id/photos",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE",
+      "AGENT"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/motor/controllers/motor-inspection.controller.ts",
+    "endpoint": "POST /motor/inspections/:id/submit-for-review",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/motor/controllers/motor-inspection.controller.ts",
+    "endpoint": "POST /motor/inspections/:id/approve",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/motor/controllers/motor-inspection.controller.ts",
+    "endpoint": "POST /motor/inspections/:id/reject",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/motor/controllers/motor-inspection.controller.ts",
+    "endpoint": "POST /motor/inspections/:id/waive",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/motor/controllers/motor-journey.controller.ts",
+    "endpoint": "GET /motor/journeys/:id",
+    "roles": [
+      "AGENT",
+      "BACK_OFFICE",
+      "ADMIN"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/motor/controllers/motor-quotation-case.controller.ts",
+    "endpoint": "GET /motor/quotation-cases/:id",
+    "roles": [
+      "AGENT",
+      "BACK_OFFICE",
+      "ADMIN"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/motor/controllers/motor-quotation-case.controller.ts",
+    "endpoint": "GET /motor/quotation-cases/lead/:leadId",
+    "roles": [
+      "AGENT",
+      "BACK_OFFICE",
+      "ADMIN"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/motor/controllers/motor-quotation-case.controller.ts",
+    "endpoint": "POST /motor/quotation-cases/:id/select",
+    "roles": [
+      "AGENT",
+      "BACK_OFFICE",
+      "ADMIN"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/motor/controllers/motor-quotation-case.controller.ts",
+    "endpoint": "GET /motor/quotation-cases/:id/compare",
+    "roles": [
+      "AGENT",
+      "BACK_OFFICE",
+      "ADMIN"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/motor/controllers/motor-quotation-case.controller.ts",
+    "endpoint": "POST /motor/quotation-cases/:id/transition",
+    "roles": [
+      "AGENT",
+      "BACK_OFFICE",
+      "ADMIN"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/motor/controllers/motor-quotation-case.controller.ts",
+    "endpoint": "POST /motor/quotation-cases/:id/cancel",
+    "roles": [
+      "BACK_OFFICE",
+      "ADMIN"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/motor/controllers/motor-quotation-document.controller.ts",
+    "endpoint": "GET /motor/quotations/:id/documents",
+    "roles": [
+      "AGENT",
+      "BACK_OFFICE",
+      "ADMIN"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/motor/controllers/motor-quotation-document.controller.ts",
+    "endpoint": "POST /motor/quotation-documents/:id/verify",
+    "roles": [
+      "AGENT",
+      "BACK_OFFICE",
+      "ADMIN"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/motor/controllers/motor-quotation-document.controller.ts",
+    "endpoint": "DELETE /motor/quotation-documents/:id",
+    "roles": [
+      "BACK_OFFICE",
+      "ADMIN"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/motor/controllers/motor-quote.controller.ts",
+    "endpoint": "POST /motor/quotes/:id/issue",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE",
+      "AGENT"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/motor/motor-workflow.controller.ts",
+    "endpoint": "POST /motor/quotations/:id/previous-policy",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE",
+      "AGENT"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/motor/motor-workflow.controller.ts",
+    "endpoint": "GET /motor/quotations/:id/rule-evaluation",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE",
+      "AGENT"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/motor/motor-workflow.controller.ts",
+    "endpoint": "POST /motor/quotations/:id/payment",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE",
+      "AGENT"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/motor/motor-workflow.controller.ts",
+    "endpoint": "GET /motor/quotations/:id/payment",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE",
+      "AGENT"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/motor/motor-workflow.controller.ts",
+    "endpoint": "GET /motor/quotations/:id/policy-gate",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE",
+      "AGENT"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/motor/motor-workflow.controller.ts",
+    "endpoint": "GET /motor/quotations/:id/workflow-projection",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE",
+      "AGENT"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/motor/motor.controller.ts",
+    "endpoint": "GET /motor/categories",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE",
+      "AGENT"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/motor-admin/controllers/rating-engine.controller.ts",
+    "endpoint": "GET /motor/rating/insurers/:id",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE",
+      "AGENT"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/motor-admin/controllers/rating-engine.controller.ts",
+    "endpoint": "POST /motor/rating/insurers",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE",
+      "AGENT"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/motor-admin/controllers/rating-engine.controller.ts",
+    "endpoint": "PUT /motor/rating/insurers/:id",
+    "roles": [
+      "ADMIN"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/motor-admin/controllers/rating-engine.controller.ts",
+    "endpoint": "PATCH /motor/rating/insurers/:id/toggle",
+    "roles": [
+      "ADMIN"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/motor-admin/controllers/rating-engine.controller.ts",
+    "endpoint": "DELETE /motor/rating/insurers/:id",
+    "roles": [
+      "ADMIN"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/motor-admin/controllers/rating-engine.controller.ts",
+    "endpoint": "GET /motor/rating/insurance-products",
+    "roles": [
+      "ADMIN"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/motor-admin/controllers/rating-engine.controller.ts",
+    "endpoint": "POST /motor/rating/insurance-products",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE",
+      "AGENT"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/motor-admin/controllers/rating-engine.controller.ts",
+    "endpoint": "GET /motor/rating/discounts",
+    "roles": [
+      "ADMIN"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/motor-admin/controllers/rating-engine.controller.ts",
+    "endpoint": "POST /motor/rating/discounts",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE",
+      "AGENT"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/motor-admin/controllers/rating-engine.controller.ts",
+    "endpoint": "GET /motor/rating/commissions",
+    "roles": [
+      "ADMIN"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/motor-admin/controllers/rating-engine.controller.ts",
+    "endpoint": "POST /motor/rating/commissions",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE",
+      "AGENT"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/motor-admin/controllers/rating-engine.controller.ts",
+    "endpoint": "GET /motor/rating/products",
+    "roles": [
+      "ADMIN"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/motor-admin/controllers/rating-engine.controller.ts",
+    "endpoint": "POST /motor/rating/products",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE",
+      "AGENT"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/motor-admin/controllers/vehicle-master.controller.ts",
+    "endpoint": "PUT /motor/vehicles/rto/:id",
+    "roles": [
+      "ADMIN"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/motor-admin/controllers/vehicle-master.controller.ts",
+    "endpoint": "DELETE /motor/vehicles/rto/:id",
+    "roles": [
+      "ADMIN"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/motor-admin/controllers/vehicle-master.controller.ts",
+    "endpoint": "GET /motor/vehicles/manufacturers",
+    "roles": [
+      "ADMIN"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/motor-admin/controllers/vehicle-master.controller.ts",
+    "endpoint": "GET /motor/vehicles/models",
+    "roles": [
+      "ADMIN"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/motor-admin/controllers/vehicle-master.controller.ts",
+    "endpoint": "GET /motor/vehicles/variants",
+    "roles": [
+      "ADMIN"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/motor-admin/controllers/vehicle-master.controller.ts",
+    "endpoint": "POST /motor/vehicles/variants/import",
+    "roles": [
+      "ADMIN"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/motor-quotations/motor-quotations.controller.ts",
+    "endpoint": "GET /motor-quotations",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE",
+      "AGENT"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/motor-quotations/motor-quotations.controller.ts",
+    "endpoint": "GET /motor-quotations/:id",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE",
+      "AGENT"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/motor-quotations/motor-quotations.controller.ts",
+    "endpoint": "POST /motor-quotations",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE",
+      "AGENT"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/motor-quotations/motor-quotations.controller.ts",
+    "endpoint": "POST /motor-quotations/:id/accept",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE",
+      "AGENT"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/organization/controllers/organization.controller.ts",
+    "endpoint": "PUT /organization/departments/:id",
+    "roles": [
+      "ADMIN",
+      "ADMIN"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/organization/controllers/organization.controller.ts",
+    "endpoint": "DELETE /organization/departments/:id",
+    "roles": [
+      "ADMIN",
+      "ADMIN"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/organization/controllers/organization.controller.ts",
+    "endpoint": "GET /organization/job-roles",
+    "roles": [
+      "ADMIN",
+      "ADMIN"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/organization/controllers/organization.controller.ts",
+    "endpoint": "PUT /organization/job-role/:id",
+    "roles": [
+      "ADMIN",
+      "ADMIN"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/organization/controllers/organization.controller.ts",
+    "endpoint": "DELETE /organization/job-role/:id",
+    "roles": [
+      "ADMIN",
+      "ADMIN"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/organization/controllers/organization.controller.ts",
+    "endpoint": "GET /organization/hierarchy",
+    "roles": [
+      "ADMIN",
+      "ADMIN"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/platform/audit/controllers/audit.controller.ts",
+    "endpoint": "GET /audit/export",
+    "roles": [
+      "ADMIN"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/platform/notifications/controllers/notifications.controller.ts",
+    "endpoint": "GET /notifications",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE",
+      "AGENT"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/platform/portal/controllers/portal.controller.ts",
+    "endpoint": "GET /portal/support/tickets",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/platform/queue/monitoring/queue-dashboard.controller.ts",
+    "endpoint": "GET /queue/jobs",
+    "roles": [
+      "ADMIN"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/platform/search/controllers/search.controller.ts",
+    "endpoint": "GET /search",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE",
+      "AGENT"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/platform/workflow/controllers/workflows.controller.ts",
+    "endpoint": "GET /workflow/instances",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/platform/workflow/controllers/workflows.controller.ts",
+    "endpoint": "GET /workflow/approvals",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/platform/workflow/controllers/workflows.controller.ts",
+    "endpoint": "POST /workflow/approvals/:id/action",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/platform/workflow/controllers/workflows.controller.ts",
+    "endpoint": "POST /workflow/approvals/bulk",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/platform/workflow/controllers/workflows.controller.ts",
+    "endpoint": "GET /workflow/sla/metrics",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/platform/workflow/controllers/workflows.controller.ts",
+    "endpoint": "GET /workflow/definitions",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/platform/workflow/controllers/workflows.controller.ts",
+    "endpoint": "POST /workflow/definitions",
+    "roles": [
+      "ADMIN"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/platform/workflow/controllers/workflows.controller.ts",
+    "endpoint": "PATCH /workflow/definitions/:id",
+    "roles": [
+      "ADMIN"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/platform/workflow/controllers/workflows.controller.ts",
+    "endpoint": "DELETE /workflow/definitions/:id",
+    "roles": [
+      "ADMIN"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/platform/workflow/controllers/workflows.controller.ts",
+    "endpoint": "GET /workflow/:entityType/:entityId/transitions",
+    "roles": [
+      "ADMIN"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/policies/controllers/back-office.controller.ts",
+    "endpoint": "POST /back-office/issue/:quotationId",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE",
+      "AGENT"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/policies/controllers/policies.controller.ts",
+    "endpoint": "POST /policies",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/policies/controllers/policies.controller.ts",
+    "endpoint": "GET /policies/renewals/kpis",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/policies/controllers/policies.controller.ts",
+    "endpoint": "GET /policies/renewals/upcoming",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE",
+      "AGENT"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/policies/controllers/policies.controller.ts",
+    "endpoint": "POST /policies/renewals/:id/lost",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE",
+      "AGENT"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/policies/controllers/policies.controller.ts",
+    "endpoint": "GET /policies/renewal/pipeline",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE",
+      "AGENT"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/policies/controllers/policies.controller.ts",
+    "endpoint": "GET /policies/renewals/queue",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE",
+      "AGENT"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/policies/controllers/policies.controller.ts",
+    "endpoint": "POST /policies/renewals/:id/remind",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE",
+      "AGENT"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/policies/controllers/policies.controller.ts",
+    "endpoint": "POST /policies/renewals/:id/escalate",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE",
+      "AGENT"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/policies/controllers/policies.controller.ts",
+    "endpoint": "POST /policies/renewal/trigger-scan",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/policies/controllers/policies.controller.ts",
+    "endpoint": "GET /policies",
+    "roles": [
+      "ADMIN"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/policies/controllers/policies.controller.ts",
+    "endpoint": "GET /policies/:id",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE",
+      "AGENT"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/policies/controllers/policies.controller.ts",
+    "endpoint": "PATCH /policies/:id",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE",
+      "AGENT"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/policies/controllers/policies.controller.ts",
+    "endpoint": "GET /policies/:id/history",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/policies/controllers/policies.controller.ts",
+    "endpoint": "POST /policies/:id/renew",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE",
+      "AGENT"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/policies/controllers/policies.controller.ts",
+    "endpoint": "POST /policies/:id/cancel",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE",
+      "AGENT"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/policies/controllers/renewals.controller.ts",
+    "endpoint": "POST /renewals/tasks/:id/quote",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE",
+      "AGENT"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/policies/controllers/renewals.controller.ts",
+    "endpoint": "POST /renewals/tasks/:id/complete",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE",
+      "AGENT"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/policies/controllers/renewals.controller.ts",
+    "endpoint": "POST /renewals/tasks/:id/lost",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE",
+      "AGENT"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/proposal/controllers/proposals.controller.ts",
+    "endpoint": "GET /proposals/:id",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE",
+      "AGENT"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/proposal/controllers/proposals.controller.ts",
+    "endpoint": "POST /proposals",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE",
+      "AGENT"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/proposal/controllers/proposals.controller.ts",
+    "endpoint": "POST /proposals/:id/attach",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE",
+      "AGENT"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/proposal/controllers/proposals.controller.ts",
+    "endpoint": "POST /proposals/:id/submit",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE",
+      "AGENT"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/proposal/controllers/proposals.controller.ts",
+    "endpoint": "POST /proposals/:id/review",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE",
+      "AGENT"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/quotation/controllers/quotation.controller.ts",
+    "endpoint": "POST /quotations/calculate",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE",
+      "AGENT"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/quotation/controllers/quotation.controller.ts",
+    "endpoint": "POST /quotations/enterprise-compare",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE",
+      "AGENT"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/quotation/controllers/quotation.controller.ts",
+    "endpoint": "POST /quotations/wizard/issue-policy",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE",
+      "AGENT"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/quotation/controllers/quotation.controller.ts",
+    "endpoint": "POST /quotations",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/quotation/controllers/quotation.controller.ts",
+    "endpoint": "GET /quotations",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE",
+      "AGENT"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/quotation/controllers/quotation.controller.ts",
+    "endpoint": "GET /quotations/:id/completion",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE",
+      "AGENT"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/quotation/controllers/quotation.controller.ts",
+    "endpoint": "GET /quotations/:id",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE",
+      "AGENT"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/quotation/controllers/quotation.controller.ts",
+    "endpoint": "GET /quotations/:id/history",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE",
+      "AGENT"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/quotation/controllers/quotation.controller.ts",
+    "endpoint": "POST /quotations/compare",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE",
+      "AGENT"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/quotation/controllers/quotation.controller.ts",
+    "endpoint": "POST /quotations/:id/approve",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE",
+      "AGENT"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/quotation/controllers/quotation.controller.ts",
+    "endpoint": "POST /quotations/:id/reject",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/quotation/controllers/quotation.controller.ts",
+    "endpoint": "POST /quotations/:id/convert",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/quotation/controllers/quotation.controller.ts",
+    "endpoint": "POST /quotations/:id/accept",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE",
+      "AGENT"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/quotation/controllers/quotation.controller.ts",
+    "endpoint": "POST /quotations/:id/versions",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE",
+      "AGENT"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/quotation/controllers/quotation.controller.ts",
+    "endpoint": "GET /quotations/:id/versions",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE",
+      "AGENT"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/quotation/controllers/quotation.controller.ts",
+    "endpoint": "PATCH /quotations/:id/details",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE",
+      "AGENT"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/tasks/tasks.controller.ts",
+    "endpoint": "GET /tasks/back-office/queue",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE",
+      "AGENT"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/tasks/tasks.controller.ts",
+    "endpoint": "GET /tasks/back-office/:id",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/tasks/tasks.controller.ts",
+    "endpoint": "POST /tasks/back-office",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/tasks/tasks.controller.ts",
+    "endpoint": "PATCH /tasks/back-office/:id/assign",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/tasks/tasks.controller.ts",
+    "endpoint": "PATCH /tasks/back-office/:id/resolve",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/tasks/tasks.controller.ts",
+    "endpoint": "GET /tasks",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/tasks/tasks.controller.ts",
+    "endpoint": "GET /tasks/:id",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE",
+      "AGENT"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/tasks/tasks.controller.ts",
+    "endpoint": "POST /tasks",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE",
+      "AGENT"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/tasks/tasks.controller.ts",
+    "endpoint": "PATCH /tasks/:id",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE",
+      "AGENT"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/tasks/tasks.controller.ts",
+    "endpoint": "PATCH /tasks/:id/complete",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE",
+      "AGENT"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/users/controllers/users.controller.ts",
+    "endpoint": "GET /users/roles",
+    "roles": [
+      "ADMIN"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/users/controllers/users.controller.ts",
+    "endpoint": "POST /users/change-password",
+    "roles": [
+      "ADMIN"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/users/controllers/users.controller.ts",
+    "endpoint": "GET /users/:id",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/users/controllers/users.controller.ts",
+    "endpoint": "PATCH /users/:id/status",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/users/controllers/users.controller.ts",
+    "endpoint": "PATCH /users/:id",
+    "roles": [
+      "ADMIN"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/users/controllers/users.controller.ts",
+    "endpoint": "DELETE /users/:id",
+    "roles": [
+      "ADMIN"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/users/controllers/users.controller.ts",
+    "endpoint": "POST /users/:id/lock",
+    "roles": [
+      "ADMIN"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/users/controllers/users.controller.ts",
+    "endpoint": "POST /users/:id/unlock",
+    "roles": [
+      "ADMIN"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/users/controllers/users.controller.ts",
+    "endpoint": "POST /users/:id/reset-password",
+    "roles": [
+      "ADMIN"
+    ]
+  }
+]

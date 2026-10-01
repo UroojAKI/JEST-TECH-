@@ -17,12 +17,55 @@ import { GlobalExceptionFilter } from './common/filters/global-exception.filter'
 import { ResponseInterceptor } from './common/interceptors/response.interceptor';
 import { MetricsInterceptor } from './common/interceptors/metrics.interceptor';
 
-async function bootstrap() {
-  if (!process.env.JWT_SECRET || !process.env.JWT_REFRESH_SECRET) {
+// DEVOPS-002 / DEVOPS-003: Fail-closed JWT secret bootstrap guard.
+// Prevents the application from starting in production with insecure secrets.
+const KNOWN_DEFAULT_JWT_SECRETS = [
+  'JEST_POLICY_SUPER_SECRET_KEY_CHANGE_IN_PRODUCTION_2026',
+  'JEST_POLICY_REFRESH_SECRET_KEY_CHANGE_IN_PRODUCTION_2026',
+  'secret',
+  'changeme',
+  'your-secret-key',
+];
+
+function validateJwtSecrets(): void {
+  const isProduction = process.env.NODE_ENV === 'production';
+  const jwtSecret = process.env.JWT_SECRET;
+  const jwtRefreshSecret = process.env.JWT_REFRESH_SECRET;
+
+  if (!jwtSecret || !jwtRefreshSecret) {
     throw new Error(
       'CRITICAL: JWT_SECRET and JWT_REFRESH_SECRET must be set in environment variables.',
     );
   }
+
+  if (isProduction) {
+    if (KNOWN_DEFAULT_JWT_SECRETS.includes(jwtSecret)) {
+      throw new Error(
+        'CRITICAL: JWT_SECRET is set to a known default/placeholder value. ' +
+          'This is forbidden in production. Set a strong, unique secret.',
+      );
+    }
+    if (KNOWN_DEFAULT_JWT_SECRETS.includes(jwtRefreshSecret)) {
+      throw new Error(
+        'CRITICAL: JWT_REFRESH_SECRET is set to a known default/placeholder value. ' +
+          'This is forbidden in production. Set a strong, unique secret.',
+      );
+    }
+    if (jwtSecret.length < 32) {
+      throw new Error(
+        `CRITICAL: JWT_SECRET must be at least 32 characters in production (got ${jwtSecret.length}).`,
+      );
+    }
+    if (jwtRefreshSecret.length < 32) {
+      throw new Error(
+        `CRITICAL: JWT_REFRESH_SECRET must be at least 32 characters in production (got ${jwtRefreshSecret.length}).`,
+      );
+    }
+  }
+}
+
+async function bootstrap() {
+  validateJwtSecrets();
 
   // SEC-001: PII encryption key is mandatory — no fallback allowed.
   if (

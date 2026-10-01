@@ -378,9 +378,12 @@ export class TasksService {
     };
   }
 
-  async getBackOfficeTaskById(id: string) {
+  async getBackOfficeTaskById(id: string, user: RequestUser) {
+    const companyId = user.companyId || (user as any).organizationId;
     const task = await this.prisma.backOfficeTask.findFirst({
-      where: { id, deletedAt: null },
+      // TEN-004: companyId filter enforces tenant isolation at the service layer.
+      // A user from Tenant A cannot retrieve tasks belonging to Tenant B.
+      where: { id, deletedAt: null, ...(companyId ? { companyId } : {}) },
       include: {
         assignedTo: {
           select: { id: true, firstName: true, lastName: true, email: true },
@@ -454,7 +457,7 @@ export class TasksService {
     assignedToId: string,
     user: RequestUser,
   ) {
-    await this.getBackOfficeTaskById(id);
+    await this.getBackOfficeTaskById(id, user);
 
     return this.prisma.backOfficeTask.update({
       where: { id },
@@ -475,7 +478,7 @@ export class TasksService {
     dto: ResolveBackOfficeTaskDto,
     user: RequestUser,
   ) {
-    await this.getBackOfficeTaskById(id);
+    await this.getBackOfficeTaskById(id, user);
 
     return this.prisma.backOfficeTask.update({
       where: { id },

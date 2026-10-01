@@ -1,0 +1,681 @@
+[
+  {
+    "file": "apps/web/src/app/admin/branches/page.tsx",
+    "line": 25,
+    "type": "FAKE_SUCCESS_TOAST",
+    "value": "toast.success(",
+    "classification": "REAL_BUG"
+  },
+  {
+    "file": "apps/web/src/app/admin/numbering/page.tsx",
+    "line": 24,
+    "type": "FAKE_SUCCESS_TOAST",
+    "value": "toast.info(",
+    "classification": "REAL_BUG"
+  },
+  {
+    "file": "apps/web/src/app/admin/users/page.tsx",
+    "line": 146,
+    "type": "FAKE_SUCCESS_TOAST",
+    "value": "toast.success(",
+    "classification": "REAL_BUG"
+  },
+  {
+    "file": "apps/web/src/app/claims/page.tsx",
+    "line": 67,
+    "type": "FAKE_SUCCESS_TOAST",
+    "value": "toast.success(",
+    "classification": "REAL_BUG"
+  },
+  {
+    "file": "apps/web/src/app/crm/accounts/page.tsx",
+    "line": 44,
+    "type": "FAKE_SUCCESS_TOAST",
+    "value": "toast.success(",
+    "classification": "REAL_BUG"
+  },
+  {
+    "file": "apps/web/src/app/crm/contacts/page.tsx",
+    "line": 305,
+    "type": "HARDCODED_PHONE_NUMBER",
+    "value": "9876543210",
+    "classification": "REAL_BUG"
+  },
+  {
+    "file": "apps/web/src/app/crm/customers/page.tsx",
+    "line": 113,
+    "type": "FAKE_SUCCESS_TOAST",
+    "value": "toast.success(",
+    "classification": "REAL_BUG"
+  },
+  {
+    "file": "apps/web/src/app/crm/customers/[id]/page.tsx",
+    "line": 61,
+    "type": "FAKE_SUCCESS_TOAST",
+    "value": "toast.success(",
+    "classification": "REAL_BUG"
+  },
+  {
+    "file": "apps/web/src/app/crm/customers/[id]/page.tsx",
+    "line": 75,
+    "type": "FAKE_SUCCESS_TOAST",
+    "value": "toast.success(",
+    "classification": "REAL_BUG"
+  },
+  {
+    "file": "apps/web/src/app/crm/customers/[id]/page.tsx",
+    "line": 84,
+    "type": "FAKE_SUCCESS_TOAST",
+    "value": "toast.success(",
+    "classification": "REAL_BUG"
+  },
+  {
+    "file": "apps/web/src/app/crm/customers/[id]/page.tsx",
+    "line": 93,
+    "type": "FAKE_SUCCESS_TOAST",
+    "value": "toast.success(",
+    "classification": "REAL_BUG"
+  },
+  {
+    "file": "apps/web/src/app/documents/page.tsx",
+    "line": 51,
+    "type": "HARDCODED_CUSTOMER_NAME",
+    "value": "Rahul",
+    "classification": "REAL_BUG"
+  },
+  {
+    "file": "apps/web/src/app/documents/page.tsx",
+    "line": 61,
+    "type": "HARDCODED_CUSTOMER_NAME",
+    "value": "Amit",
+    "classification": "REAL_BUG"
+  },
+  {
+    "file": "apps/web/src/app/documents/page.tsx",
+    "line": 71,
+    "type": "HARDCODED_CUSTOMER_NAME",
+    "value": "Pooja",
+    "classification": "REAL_BUG"
+  },
+  {
+    "file": "apps/web/src/app/documents/page.tsx",
+    "line": 81,
+    "type": "HARDCODED_CUSTOMER_NAME",
+    "value": "Rahul",
+    "classification": "REAL_BUG"
+  },
+  {
+    "file": "apps/web/src/app/documents/page.tsx",
+    "line": 111,
+    "type": "FAKE_SUCCESS_TOAST",
+    "value": "toast.success(",
+    "classification": "REAL_BUG"
+  },
+  {
+    "file": "apps/web/src/app/finance/commissions/page.tsx",
+    "line": 16,
+    "type": "FAKE_SUCCESS_TOAST",
+    "value": "toast.info(",
+    "classification": "REAL_BUG"
+  },
+  {
+    "file": "apps/web/src/app/finance/commissions/page.tsx",
+    "line": 20,
+    "type": "FAKE_SUCCESS_TOAST",
+    "value": "toast.success(",
+    "classification": "REAL_BUG"
+  },
+  {
+    "file": "apps/web/src/app/finance/page.tsx",
+    "line": 156,
+    "type": "HARDCODED_DATE",
+    "value": "2026-07-24",
+    "classification": "REAL_BUG"
+  },
+  {
+    "file": "apps/web/src/app/finance/page.tsx",
+    "line": 81,
+    "type": "FAKE_SUCCESS_TOAST",
+    "value": "toast.info(",
+    "classification": "REAL_BUG"
+  },
+  {
+    "file": "apps/web/src/app/finance/page.tsx",
+    "line": 559,
+    "type": "FAKE_SUCCESS_TOAST",
+    "value": "toast.success(",
+    "classification": "REAL_BUG"
+  },
+  {
+    "file": "apps/web/src/app/finance/payments/page.tsx",
+    "line": 19,
+    "type": "FAKE_SUCCESS_TOAST",
+    "value": "toast.success(",
+    "classification": "REAL_BUG"
+  },
+  {
+    "file": "apps/web/src/app/finance/receipts/page.tsx",
+    "line": 19,
+    "type": "FAKE_SUCCESS_TOAST",
+    "value": "toast.success(",
+    "classification": "REAL_BUG"
+  },
+  {
+    "file": "apps/web/src/app/finance/settlements/page.tsx",
+    "line": 20,
+    "type": "FAKE_SUCCESS_TOAST",
+    "value": "toast.info(",
+    "classification": "REAL_BUG"
+  },
+  {
+    "file": "apps/web/src/app/portal/claims/page.tsx",
+    "line": 85,
+    "type": "FAKE_SUCCESS_TOAST",
+    "value": "toast.success(",
+    "classification": "REAL_BUG"
+  },
+  {
+    "file": "apps/web/src/app/portal/proposals/page.tsx",
+    "line": 42,
+    "type": "HARDCODED_CUSTOMER_NAME",
+    "value": "Rahul",
+    "classification": "REAL_BUG"
+  },
+  {
+    "file": "apps/web/src/app/portal/proposals/page.tsx",
+    "line": 17,
+    "type": "FAKE_SUCCESS_TOAST",
+    "value": "toast.success(",
+    "classification": "REAL_BUG"
+  },
+  {
+    "file": "apps/web/src/app/portal/proposals/page.tsx",
+    "line": 22,
+    "type": "FAKE_SUCCESS_TOAST",
+    "value": "toast.info(",
+    "classification": "REAL_BUG"
+  },
+  {
+    "file": "apps/web/src/app/portal/quotations/page.tsx",
+    "line": 38,
+    "type": "FAKE_SUCCESS_TOAST",
+    "value": "toast.success(",
+    "classification": "REAL_BUG"
+  },
+  {
+    "file": "apps/web/src/app/portal/quotations/page.tsx",
+    "line": 117,
+    "type": "FAKE_SUCCESS_TOAST",
+    "value": "toast.success(",
+    "classification": "REAL_BUG"
+  },
+  {
+    "file": "apps/web/src/app/reports/builder/page.tsx",
+    "line": 98,
+    "type": "FAKE_SUCCESS_TOAST",
+    "value": "toast.info(",
+    "classification": "REAL_BUG"
+  },
+  {
+    "file": "apps/web/src/app/reports/builder/page.tsx",
+    "line": 116,
+    "type": "FAKE_SUCCESS_TOAST",
+    "value": "toast.success(",
+    "classification": "REAL_BUG"
+  },
+  {
+    "file": "apps/web/src/app/reports/page.tsx",
+    "line": 24,
+    "type": "FAKE_SUCCESS_TOAST",
+    "value": "toast.success(",
+    "classification": "REAL_BUG"
+  },
+  {
+    "file": "apps/web/src/app/reports/page.tsx",
+    "line": 184,
+    "type": "FAKE_SUCCESS_TOAST",
+    "value": "toast.success(",
+    "classification": "REAL_BUG"
+  },
+  {
+    "file": "apps/web/src/app/sales/quotations/[id]/page.tsx",
+    "line": 59,
+    "type": "FAKE_SUCCESS_TOAST",
+    "value": "toast.success(",
+    "classification": "REAL_BUG"
+  },
+  {
+    "file": "apps/web/src/app/settings/page.tsx",
+    "line": 23,
+    "type": "FAKE_SUCCESS_TOAST",
+    "value": "toast.success(",
+    "classification": "REAL_BUG"
+  },
+  {
+    "file": "apps/web/src/components/customer/customer-alerts-queue.tsx",
+    "line": 47,
+    "type": "FAKE_SUCCESS_TOAST",
+    "value": "toast.success(",
+    "classification": "REAL_BUG"
+  },
+  {
+    "file": "apps/web/src/components/customer/customer-alerts-queue.tsx",
+    "line": 56,
+    "type": "FAKE_SUCCESS_TOAST",
+    "value": "toast.success(",
+    "classification": "REAL_BUG"
+  },
+  {
+    "file": "apps/web/src/components/customer/tabs/CustomerTabsContainer.tsx",
+    "line": 466,
+    "type": "FAKE_SUCCESS_TOAST",
+    "value": "toast.success(",
+    "classification": "REAL_BUG"
+  },
+  {
+    "file": "apps/web/src/components/customer/wizards/side-wizard-drawer.tsx",
+    "line": 172,
+    "type": "FAKE_SUCCESS_TOAST",
+    "value": "toast.success(",
+    "classification": "REAL_BUG"
+  },
+  {
+    "file": "apps/web/src/components/dashboard/documents-tab.tsx",
+    "line": 96,
+    "type": "FAKE_SUCCESS_TOAST",
+    "value": "toast.success(",
+    "classification": "REAL_BUG"
+  },
+  {
+    "file": "apps/web/src/components/dashboard/quick-action-card.tsx",
+    "line": 68,
+    "type": "FAKE_SUCCESS_TOAST",
+    "value": "toast.info(",
+    "classification": "REAL_BUG"
+  },
+  {
+    "file": "apps/web/src/components/finance/vouchers/VoucherPreviewModal.tsx",
+    "line": 42,
+    "type": "FAKE_SUCCESS_TOAST",
+    "value": "toast.success(",
+    "classification": "REAL_BUG"
+  },
+  {
+    "file": "apps/web/src/components/leads/drawers/LeadConvertWizardDrawer.tsx",
+    "line": 83,
+    "type": "HARDCODED_PHONE_NUMBER",
+    "value": "9999999999",
+    "classification": "REAL_BUG"
+  },
+  {
+    "file": "apps/web/src/components/leads/drawers/LeadConvertWizardDrawer.tsx",
+    "line": 125,
+    "type": "FAKE_SUCCESS_TOAST",
+    "value": "toast.success(",
+    "classification": "REAL_BUG"
+  },
+  {
+    "file": "apps/web/src/components/leads/lead-header.tsx",
+    "line": 129,
+    "type": "FAKE_SUCCESS_TOAST",
+    "value": "toast.success(",
+    "classification": "REAL_BUG"
+  },
+  {
+    "file": "apps/web/src/components/leads/motor-quote/InspectionDialog.tsx",
+    "line": 144,
+    "type": "FAKE_SUCCESS_TOAST",
+    "value": "toast.success(",
+    "classification": "REAL_BUG"
+  },
+  {
+    "file": "apps/web/src/components/leads/motor-quote/motorFormConfig.ts",
+    "line": 275,
+    "type": "HARDCODED_INSURER_NAME",
+    "value": "National Insurance",
+    "classification": "REAL_BUG"
+  },
+  {
+    "file": "apps/web/src/components/leads/motor-quote/MotorProposalWizard.tsx",
+    "line": 73,
+    "type": "FAKE_SUCCESS_TOAST",
+    "value": "toast.success(",
+    "classification": "REAL_BUG"
+  },
+  {
+    "file": "apps/web/src/components/leads/motor-quote/MotorQuoteWizard.tsx",
+    "line": 401,
+    "type": "FAKE_SUCCESS_TOAST",
+    "value": "toast.info(",
+    "classification": "REAL_BUG"
+  },
+  {
+    "file": "apps/web/src/components/leads/motor-quote/MotorQuoteWizard.tsx",
+    "line": 650,
+    "type": "FAKE_SUCCESS_TOAST",
+    "value": "toast.success(",
+    "classification": "REAL_BUG"
+  },
+  {
+    "file": "apps/web/src/components/leads/motor-quote/MotorQuoteWizard.tsx",
+    "line": 959,
+    "type": "FAKE_SUCCESS_TOAST",
+    "value": "toast.success(",
+    "classification": "REAL_BUG"
+  },
+  {
+    "file": "apps/web/src/components/leads/motor-quote/PreviousPolicyForm.tsx",
+    "line": 16,
+    "type": "HARDCODED_INSURER_NAME",
+    "value": "ICICI Lombard",
+    "classification": "REAL_BUG"
+  },
+  {
+    "file": "apps/web/src/components/leads/motor-quote/PreviousPolicyForm.tsx",
+    "line": 17,
+    "type": "HARDCODED_INSURER_NAME",
+    "value": "National Insurance",
+    "classification": "REAL_BUG"
+  },
+  {
+    "file": "apps/web/src/components/leads/motor-quote/PreviousPolicyForm.tsx",
+    "line": 18,
+    "type": "HARDCODED_INSURER_NAME",
+    "value": "Reliance General",
+    "classification": "REAL_BUG"
+  },
+  {
+    "file": "apps/web/src/components/leads/motor-quote/QuotationCompletionView.tsx",
+    "line": 81,
+    "type": "FAKE_SUCCESS_TOAST",
+    "value": "toast.success(",
+    "classification": "REAL_BUG"
+  },
+  {
+    "file": "apps/web/src/components/leads/NewLeadModal.tsx",
+    "line": 57,
+    "type": "FAKE_SUCCESS_TOAST",
+    "value": "toast.success(",
+    "classification": "REAL_BUG"
+  },
+  {
+    "file": "apps/web/src/components/leads/tabs/LeadTabsContainer.tsx",
+    "line": 217,
+    "type": "FAKE_SUCCESS_TOAST",
+    "value": "toast.info(",
+    "classification": "REAL_BUG"
+  },
+  {
+    "file": "apps/web/src/components/operations/BackOfficeTaskQueue.tsx",
+    "line": 50,
+    "type": "FAKE_SUCCESS_TOAST",
+    "value": "toast.success(",
+    "classification": "REAL_BUG"
+  },
+  {
+    "file": "apps/web/src/components/operations/MotorIssuanceQueue.tsx",
+    "line": 549,
+    "type": "FAKE_SUCCESS_TOAST",
+    "value": "toast.success(",
+    "classification": "REAL_BUG"
+  },
+  {
+    "file": "apps/web/src/components/sales/MotorQuotationsWorkspace.tsx",
+    "line": 335,
+    "type": "FAKE_SUCCESS_TOAST",
+    "value": "toast.success(",
+    "classification": "REAL_BUG"
+  },
+  {
+    "file": "apps/web/src/components/sales/MotorQuotationsWorkspace.tsx",
+    "line": 362,
+    "type": "FAKE_SUCCESS_TOAST",
+    "value": "toast.info(",
+    "classification": "REAL_BUG"
+  },
+  {
+    "file": "apps/web/src/components/sales/MotorQuotationsWorkspace.tsx",
+    "line": 364,
+    "type": "FAKE_SUCCESS_TOAST",
+    "value": "toast.success(",
+    "classification": "REAL_BUG"
+  },
+  {
+    "file": "apps/web/src/components/workspaces/DynamicWorkspace.tsx",
+    "line": 519,
+    "type": "FAKE_SUCCESS_TOAST",
+    "value": "toast.success(",
+    "classification": "REAL_BUG"
+  },
+  {
+    "file": "apps/web/src/components/workspaces/DynamicWorkspace.tsx",
+    "line": 747,
+    "type": "FAKE_SUCCESS_TOAST",
+    "value": "toast.info(",
+    "classification": "REAL_BUG"
+  },
+  {
+    "file": "apps/web/src/components/workspaces/DynamicWorkspace.tsx",
+    "line": 749,
+    "type": "FAKE_SUCCESS_TOAST",
+    "value": "toast.success(",
+    "classification": "REAL_BUG"
+  },
+  {
+    "file": "apps/web/src/components/workspaces/sales/LeadCommandCenter.tsx",
+    "line": 825,
+    "type": "HARDCODED_PHONE_NUMBER",
+    "value": "9876543210",
+    "classification": "REAL_BUG"
+  },
+  {
+    "file": "apps/web/src/components/workspaces/sales/LeadCommandCenter.tsx",
+    "line": 175,
+    "type": "FAKE_SUCCESS_TOAST",
+    "value": "toast.success(",
+    "classification": "REAL_BUG"
+  },
+  {
+    "file": "apps/web/src/components/workspaces/sales/LeadCommandCenter.tsx",
+    "line": 791,
+    "type": "FAKE_SUCCESS_TOAST",
+    "value": "toast.success(",
+    "classification": "REAL_BUG"
+  },
+  {
+    "file": "apps/web/src/components/workspaces/sales/MotorDashboardWidgets.tsx",
+    "line": 130,
+    "type": "FAKE_SUCCESS_TOAST",
+    "value": "toast.info(",
+    "classification": "REAL_BUG"
+  },
+  {
+    "file": "apps/web/src/components/workspaces/sales/SalesDashboard.tsx",
+    "line": 51,
+    "type": "FAKE_SUCCESS_TOAST",
+    "value": "toast.info(",
+    "classification": "REAL_BUG"
+  },
+  {
+    "file": "apps/web/src/hooks/useAdmin.ts",
+    "line": 28,
+    "type": "FAKE_SUCCESS_TOAST",
+    "value": "toast.success(",
+    "classification": "REAL_BUG"
+  },
+  {
+    "file": "apps/web/src/hooks/useAdmin.ts",
+    "line": 66,
+    "type": "FAKE_SUCCESS_TOAST",
+    "value": "toast.success(",
+    "classification": "REAL_BUG"
+  },
+  {
+    "file": "apps/web/src/hooks/useAdmin.ts",
+    "line": 115,
+    "type": "FAKE_SUCCESS_TOAST",
+    "value": "toast.success(",
+    "classification": "REAL_BUG"
+  },
+  {
+    "file": "apps/web/src/hooks/useAdmin.ts",
+    "line": 142,
+    "type": "FAKE_SUCCESS_TOAST",
+    "value": "toast.success(",
+    "classification": "REAL_BUG"
+  },
+  {
+    "file": "apps/web/src/hooks/useAuth.ts",
+    "line": 33,
+    "type": "FAKE_SUCCESS_TOAST",
+    "value": "toast.success(",
+    "classification": "REAL_BUG"
+  },
+  {
+    "file": "apps/web/src/hooks/useAuth.ts",
+    "line": 60,
+    "type": "FAKE_SUCCESS_TOAST",
+    "value": "toast.success(",
+    "classification": "REAL_BUG"
+  },
+  {
+    "file": "apps/web/src/hooks/useCommunications.ts",
+    "line": 19,
+    "type": "FAKE_SUCCESS_TOAST",
+    "value": "toast.success(",
+    "classification": "REAL_BUG"
+  },
+  {
+    "file": "apps/web/src/hooks/useCommunications.ts",
+    "line": 47,
+    "type": "FAKE_SUCCESS_TOAST",
+    "value": "toast.success(",
+    "classification": "REAL_BUG"
+  },
+  {
+    "file": "apps/web/src/hooks/useEndorsements.ts",
+    "line": 29,
+    "type": "FAKE_SUCCESS_TOAST",
+    "value": "toast.success(",
+    "classification": "REAL_BUG"
+  },
+  {
+    "file": "apps/web/src/hooks/useFinance.ts",
+    "line": 41,
+    "type": "FAKE_SUCCESS_TOAST",
+    "value": "toast.success(",
+    "classification": "REAL_BUG"
+  },
+  {
+    "file": "apps/web/src/hooks/useFinance.ts",
+    "line": 76,
+    "type": "FAKE_SUCCESS_TOAST",
+    "value": "toast.success(",
+    "classification": "REAL_BUG"
+  },
+  {
+    "file": "apps/web/src/hooks/useFinance.ts",
+    "line": 120,
+    "type": "FAKE_SUCCESS_TOAST",
+    "value": "toast.success(",
+    "classification": "REAL_BUG"
+  },
+  {
+    "file": "apps/web/src/hooks/useFinance.ts",
+    "line": 133,
+    "type": "FAKE_SUCCESS_TOAST",
+    "value": "toast.success(",
+    "classification": "REAL_BUG"
+  },
+  {
+    "file": "apps/web/src/hooks/useLeads.ts",
+    "line": 23,
+    "type": "FAKE_SUCCESS_TOAST",
+    "value": "toast.success(",
+    "classification": "REAL_BUG"
+  },
+  {
+    "file": "apps/web/src/hooks/useLeads.ts",
+    "line": 47,
+    "type": "FAKE_SUCCESS_TOAST",
+    "value": "toast.success(",
+    "classification": "REAL_BUG"
+  },
+  {
+    "file": "apps/web/src/hooks/usePolicies.ts",
+    "line": 39,
+    "type": "FAKE_SUCCESS_TOAST",
+    "value": "toast.success(",
+    "classification": "REAL_BUG"
+  },
+  {
+    "file": "apps/web/src/hooks/usePolicies.ts",
+    "line": 50,
+    "type": "FAKE_SUCCESS_TOAST",
+    "value": "toast.success(",
+    "classification": "REAL_BUG"
+  },
+  {
+    "file": "apps/web/src/hooks/usePortal.ts",
+    "line": 33,
+    "type": "FAKE_SUCCESS_TOAST",
+    "value": "toast.success(",
+    "classification": "REAL_BUG"
+  },
+  {
+    "file": "apps/web/src/hooks/useProposals.ts",
+    "line": 38,
+    "type": "FAKE_SUCCESS_TOAST",
+    "value": "toast.success(",
+    "classification": "REAL_BUG"
+  },
+  {
+    "file": "apps/web/src/hooks/useProposals.ts",
+    "line": 49,
+    "type": "FAKE_SUCCESS_TOAST",
+    "value": "toast.success(",
+    "classification": "REAL_BUG"
+  },
+  {
+    "file": "apps/web/src/hooks/useQuotations.ts",
+    "line": 36,
+    "type": "FAKE_SUCCESS_TOAST",
+    "value": "toast.success(",
+    "classification": "REAL_BUG"
+  },
+  {
+    "file": "apps/web/src/hooks/useReports.ts",
+    "line": 49,
+    "type": "FAKE_SUCCESS_TOAST",
+    "value": "toast.success(",
+    "classification": "REAL_BUG"
+  },
+  {
+    "file": "apps/web/src/hooks/useSalesWorkspace.ts",
+    "line": 38,
+    "type": "FAKE_SUCCESS_TOAST",
+    "value": "toast.success(",
+    "classification": "REAL_BUG"
+  },
+  {
+    "file": "apps/web/src/hooks/useSalesWorkspace.ts",
+    "line": 53,
+    "type": "FAKE_SUCCESS_TOAST",
+    "value": "toast.success(",
+    "classification": "REAL_BUG"
+  },
+  {
+    "file": "apps/web/src/hooks/useWorkflows.ts",
+    "line": 35,
+    "type": "FAKE_SUCCESS_TOAST",
+    "value": "toast.success(",
+    "classification": "REAL_BUG"
+  },
+  {
+    "file": "apps/web/src/hooks/useWorkflows.ts",
+    "line": 47,
+    "type": "FAKE_SUCCESS_TOAST",
+    "value": "toast.success(",
+    "classification": "REAL_BUG"
+  }
+]

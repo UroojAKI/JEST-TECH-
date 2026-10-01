@@ -1,0 +1,524 @@
+[
+  {
+    "route": "/",
+    "pageFile": "apps/web/src/app/page.tsx",
+    "apiCalls": [],
+    "status": "STATIC"
+  },
+  {
+    "route": "/admin",
+    "pageFile": "apps/web/src/app/admin/page.tsx",
+    "apiCalls": [],
+    "status": "STATIC"
+  },
+  {
+    "route": "/admin/audit",
+    "pageFile": "apps/web/src/app/admin/audit/page.tsx",
+    "apiCalls": [],
+    "status": "STATIC"
+  },
+  {
+    "route": "/admin/branches",
+    "pageFile": "apps/web/src/app/admin/branches/page.tsx",
+    "apiCalls": [],
+    "status": "STATIC"
+  },
+  {
+    "route": "/admin/config",
+    "pageFile": "apps/web/src/app/admin/config/page.tsx",
+    "apiCalls": [],
+    "status": "STATIC"
+  },
+  {
+    "route": "/admin/delivery-monitor",
+    "pageFile": "apps/web/src/app/admin/delivery-monitor/page.tsx",
+    "apiCalls": [],
+    "status": "STATIC"
+  },
+  {
+    "route": "/admin/health",
+    "pageFile": "apps/web/src/app/admin/health/page.tsx",
+    "apiCalls": [],
+    "status": "STATIC"
+  },
+  {
+    "route": "/admin/insurers",
+    "pageFile": "apps/web/src/app/admin/insurers/page.tsx",
+    "apiCalls": [
+      "GET /motor/rating/insurers",
+      "POST /motor/rating/insurers",
+      "PATCH /motor/rating/insurers/${id}/toggle",
+      "DELETE /motor/rating/insurers/${id}"
+    ],
+    "status": "WORKING"
+  },
+  {
+    "route": "/admin/lookups",
+    "pageFile": "apps/web/src/app/admin/lookups/page.tsx",
+    "apiCalls": [],
+    "status": "STATIC"
+  },
+  {
+    "route": "/admin/notification-templates",
+    "pageFile": "apps/web/src/app/admin/notification-templates/page.tsx",
+    "apiCalls": [],
+    "status": "STATIC"
+  },
+  {
+    "route": "/admin/numbering",
+    "pageFile": "apps/web/src/app/admin/numbering/page.tsx",
+    "apiCalls": [],
+    "status": "STATIC"
+  },
+  {
+    "route": "/admin/production-readiness",
+    "pageFile": "apps/web/src/app/admin/production-readiness/page.tsx",
+    "apiCalls": [],
+    "status": "STATIC"
+  },
+  {
+    "route": "/admin/products",
+    "pageFile": "apps/web/src/app/admin/products/page.tsx",
+    "apiCalls": [
+      "GET /motor/rating/insurance-products",
+      "GET /motor/rating/insurers",
+      "POST /motor/rating/insurance-products"
+    ],
+    "status": "WORKING"
+  },
+  {
+    "route": "/admin/roles",
+    "pageFile": "apps/web/src/app/admin/roles/page.tsx",
+    "apiCalls": [],
+    "status": "STATIC"
+  },
+  {
+    "route": "/admin/sla",
+    "pageFile": "apps/web/src/app/admin/sla/page.tsx",
+    "apiCalls": [],
+    "status": "STATIC"
+  },
+  {
+    "route": "/admin/users",
+    "pageFile": "apps/web/src/app/admin/users/page.tsx",
+    "apiCalls": [],
+    "status": "STATIC"
+  },
+  {
+    "route": "/admin/vehicle-master",
+    "pageFile": "apps/web/src/app/admin/vehicle-master/page.tsx",
+    "apiCalls": [
+      "GET /motor/vehicles/rto",
+      "GET /motor/vehicles/manufacturers",
+      "GET /motor/vehicles/models",
+      "GET /motor/vehicles/variants",
+      "POST /motor/vehicles/rto",
+      "POST /motor/vehicles/manufacturers",
+      "POST /motor/vehicles/models",
+      "POST /motor/vehicles/variants"
+    ],
+    "status": "WORKING"
+  },
+  {
+    "route": "/admin/workflows",
+    "pageFile": "apps/web/src/app/admin/workflows/page.tsx",
+    "apiCalls": [],
+    "status": "STATIC"
+  },
+  {
+    "route": "/claims",
+    "pageFile": "apps/web/src/app/claims/page.tsx",
+    "apiCalls": [],
+    "status": "STATIC"
+  },
+  {
+    "route": "/crm",
+    "pageFile": "apps/web/src/app/crm/page.tsx",
+    "apiCalls": [],
+    "status": "STATIC"
+  },
+  {
+    "route": "/crm/accounts",
+    "pageFile": "apps/web/src/app/crm/accounts/page.tsx",
+    "apiCalls": [],
+    "status": "STATIC"
+  },
+  {
+    "route": "/crm/contacts",
+    "pageFile": "apps/web/src/app/crm/contacts/page.tsx",
+    "apiCalls": [],
+    "status": "STATIC"
+  },
+  {
+    "route": "/crm/contacts/[id]",
+    "pageFile": "apps/web/src/app/crm/contacts/[id]/page.tsx",
+    "apiCalls": [],
+    "status": "STATIC"
+  },
+  {
+    "route": "/crm/customers",
+    "pageFile": "apps/web/src/app/crm/customers/page.tsx",
+    "apiCalls": [],
+    "status": "STATIC"
+  },
+  {
+    "route": "/crm/customers/[id]",
+    "pageFile": "apps/web/src/app/crm/customers/[id]/page.tsx",
+    "apiCalls": [],
+    "status": "STATIC"
+  },
+  {
+    "route": "/crm/leads",
+    "pageFile": "apps/web/src/app/crm/leads/page.tsx",
+    "apiCalls": [
+      "GET /leads/kpis",
+      "GET /leads",
+      "POST /leads/${leadId}/convert"
+    ],
+    "status": "WORKING"
+  },
+  {
+    "route": "/crm/leads/[id]",
+    "pageFile": "apps/web/src/app/crm/leads/[id]/page.tsx",
+    "apiCalls": [],
+    "status": "STATIC"
+  },
+  {
+    "route": "/dashboard",
+    "pageFile": "apps/web/src/app/dashboard/page.tsx",
+    "apiCalls": [],
+    "status": "STATIC"
+  },
+  {
+    "route": "/dashboard/reports",
+    "pageFile": "apps/web/src/app/dashboard/reports/page.tsx",
+    "apiCalls": [],
+    "status": "STATIC"
+  },
+  {
+    "route": "/dashboard/reports/builder",
+    "pageFile": "apps/web/src/app/dashboard/reports/builder/page.tsx",
+    "apiCalls": [],
+    "status": "STATIC"
+  },
+  {
+    "route": "/documents",
+    "pageFile": "apps/web/src/app/documents/page.tsx",
+    "apiCalls": [],
+    "status": "STATIC"
+  },
+  {
+    "route": "/finance",
+    "pageFile": "apps/web/src/app/finance/page.tsx",
+    "apiCalls": [],
+    "status": "STATIC"
+  },
+  {
+    "route": "/finance/commissions",
+    "pageFile": "apps/web/src/app/finance/commissions/page.tsx",
+    "apiCalls": [],
+    "status": "STATIC"
+  },
+  {
+    "route": "/finance/ledger",
+    "pageFile": "apps/web/src/app/finance/ledger/page.tsx",
+    "apiCalls": [],
+    "status": "STATIC"
+  },
+  {
+    "route": "/finance/payments",
+    "pageFile": "apps/web/src/app/finance/payments/page.tsx",
+    "apiCalls": [],
+    "status": "STATIC"
+  },
+  {
+    "route": "/finance/receipts",
+    "pageFile": "apps/web/src/app/finance/receipts/page.tsx",
+    "apiCalls": [],
+    "status": "STATIC"
+  },
+  {
+    "route": "/finance/settlements",
+    "pageFile": "apps/web/src/app/finance/settlements/page.tsx",
+    "apiCalls": [],
+    "status": "STATIC"
+  },
+  {
+    "route": "/login",
+    "pageFile": "apps/web/src/app/login/page.tsx",
+    "apiCalls": [],
+    "status": "STATIC"
+  },
+  {
+    "route": "/policies",
+    "pageFile": "apps/web/src/app/policies/page.tsx",
+    "apiCalls": [],
+    "status": "STATIC"
+  },
+  {
+    "route": "/policies/[id]",
+    "pageFile": "apps/web/src/app/policies/[id]/page.tsx",
+    "apiCalls": [],
+    "status": "STATIC"
+  },
+  {
+    "route": "/portal",
+    "pageFile": "apps/web/src/app/portal/page.tsx",
+    "apiCalls": [],
+    "status": "STATIC"
+  },
+  {
+    "route": "/portal/branch-manager",
+    "pageFile": "apps/web/src/app/portal/branch-manager/page.tsx",
+    "apiCalls": [],
+    "status": "STATIC"
+  },
+  {
+    "route": "/portal/claims",
+    "pageFile": "apps/web/src/app/portal/claims/page.tsx",
+    "apiCalls": [
+      "GET /claims",
+      "POST /claims"
+    ],
+    "status": "WORKING"
+  },
+  {
+    "route": "/portal/commissions",
+    "pageFile": "apps/web/src/app/portal/commissions/page.tsx",
+    "apiCalls": [
+      "GET /finance/commissions"
+    ],
+    "status": "WORKING"
+  },
+  {
+    "route": "/portal/customers",
+    "pageFile": "apps/web/src/app/portal/customers/page.tsx",
+    "apiCalls": [
+      "GET /contacts"
+    ],
+    "status": "WORKING"
+  },
+  {
+    "route": "/portal/downloads",
+    "pageFile": "apps/web/src/app/portal/downloads/page.tsx",
+    "apiCalls": [
+      "GET /documents"
+    ],
+    "status": "WORKING"
+  },
+  {
+    "route": "/portal/leads",
+    "pageFile": "apps/web/src/app/portal/leads/page.tsx",
+    "apiCalls": [],
+    "status": "STATIC"
+  },
+  {
+    "route": "/portal/performance",
+    "pageFile": "apps/web/src/app/portal/performance/page.tsx",
+    "apiCalls": [],
+    "status": "STATIC"
+  },
+  {
+    "route": "/portal/policies",
+    "pageFile": "apps/web/src/app/portal/policies/page.tsx",
+    "apiCalls": [],
+    "status": "STATIC"
+  },
+  {
+    "route": "/portal/proposals",
+    "pageFile": "apps/web/src/app/portal/proposals/page.tsx",
+    "apiCalls": [],
+    "status": "STATIC"
+  },
+  {
+    "route": "/portal/quotations",
+    "pageFile": "apps/web/src/app/portal/quotations/page.tsx",
+    "apiCalls": [
+      "POST /quotations/calculate"
+    ],
+    "status": "WORKING"
+  },
+  {
+    "route": "/portal/renewals",
+    "pageFile": "apps/web/src/app/portal/renewals/page.tsx",
+    "apiCalls": [
+      "GET /policies/renewals/kpis",
+      "GET /policies/renewals/upcoming",
+      "POST /policies/renewals/${taskId}/lost"
+    ],
+    "status": "WORKING"
+  },
+  {
+    "route": "/portal/support",
+    "pageFile": "apps/web/src/app/portal/support/page.tsx",
+    "apiCalls": [
+      "GET /portal/support/tickets",
+      "POST /portal/support/tickets"
+    ],
+    "status": "WORKING"
+  },
+  {
+    "route": "/renewals",
+    "pageFile": "apps/web/src/app/renewals/page.tsx",
+    "apiCalls": [],
+    "status": "STATIC"
+  },
+  {
+    "route": "/reports",
+    "pageFile": "apps/web/src/app/reports/page.tsx",
+    "apiCalls": [],
+    "status": "STATIC"
+  },
+  {
+    "route": "/reports/builder",
+    "pageFile": "apps/web/src/app/reports/builder/page.tsx",
+    "apiCalls": [],
+    "status": "STATIC"
+  },
+  {
+    "route": "/sales",
+    "pageFile": "apps/web/src/app/sales/page.tsx",
+    "apiCalls": [],
+    "status": "STATIC"
+  },
+  {
+    "route": "/sales/follow-ups",
+    "pageFile": "apps/web/src/app/sales/follow-ups/page.tsx",
+    "apiCalls": [
+      "GET /leads"
+    ],
+    "status": "WORKING"
+  },
+  {
+    "route": "/sales/leads",
+    "pageFile": "apps/web/src/app/sales/leads/page.tsx",
+    "apiCalls": [
+      "GET /leads"
+    ],
+    "status": "WORKING"
+  },
+  {
+    "route": "/sales/proposals",
+    "pageFile": "apps/web/src/app/sales/proposals/page.tsx",
+    "apiCalls": [
+      "GET /proposals"
+    ],
+    "status": "WORKING"
+  },
+  {
+    "route": "/sales/proposals/[id]",
+    "pageFile": "apps/web/src/app/sales/proposals/[id]/page.tsx",
+    "apiCalls": [],
+    "status": "STATIC"
+  },
+  {
+    "route": "/sales/quotations",
+    "pageFile": "apps/web/src/app/sales/quotations/page.tsx",
+    "apiCalls": [],
+    "status": "STATIC"
+  },
+  {
+    "route": "/sales/quotations/[id]",
+    "pageFile": "apps/web/src/app/sales/quotations/[id]/page.tsx",
+    "apiCalls": [],
+    "status": "STATIC"
+  },
+  {
+    "route": "/sales/quotations/compare",
+    "pageFile": "apps/web/src/app/sales/quotations/compare/page.tsx",
+    "apiCalls": [
+      "POST /quotations/enterprise-compare"
+    ],
+    "status": "WORKING"
+  },
+  {
+    "route": "/settings",
+    "pageFile": "apps/web/src/app/settings/page.tsx",
+    "apiCalls": [],
+    "status": "STATIC"
+  },
+  {
+    "route": "/unauthorized",
+    "pageFile": "apps/web/src/app/unauthorized/page.tsx",
+    "apiCalls": [],
+    "status": "STATIC"
+  },
+  {
+    "route": "/workspace/(app)/admin",
+    "pageFile": "apps/web/src/app/workspace/(app)/admin/page.tsx",
+    "apiCalls": [],
+    "status": "STATIC"
+  },
+  {
+    "route": "/workspace/(app)/agent",
+    "pageFile": "apps/web/src/app/workspace/(app)/agent/page.tsx",
+    "apiCalls": [],
+    "status": "STATIC"
+  },
+  {
+    "route": "/workspace/(app)/agent-relationship",
+    "pageFile": "apps/web/src/app/workspace/(app)/agent-relationship/page.tsx",
+    "apiCalls": [],
+    "status": "STATIC"
+  },
+  {
+    "route": "/workspace/(app)/customer",
+    "pageFile": "apps/web/src/app/workspace/(app)/customer/page.tsx",
+    "apiCalls": [],
+    "status": "STATIC"
+  },
+  {
+    "route": "/workspace/(app)/executive",
+    "pageFile": "apps/web/src/app/workspace/(app)/executive/page.tsx",
+    "apiCalls": [],
+    "status": "STATIC"
+  },
+  {
+    "route": "/workspace/(app)/finance",
+    "pageFile": "apps/web/src/app/workspace/(app)/finance/page.tsx",
+    "apiCalls": [],
+    "status": "STATIC"
+  },
+  {
+    "route": "/workspace/(app)/marketing",
+    "pageFile": "apps/web/src/app/workspace/(app)/marketing/page.tsx",
+    "apiCalls": [],
+    "status": "STATIC"
+  },
+  {
+    "route": "/workspace/(app)/operations",
+    "pageFile": "apps/web/src/app/workspace/(app)/operations/page.tsx",
+    "apiCalls": [],
+    "status": "STATIC"
+  },
+  {
+    "route": "/workspace/(app)/renewal",
+    "pageFile": "apps/web/src/app/workspace/(app)/renewal/page.tsx",
+    "apiCalls": [],
+    "status": "STATIC"
+  },
+  {
+    "route": "/workspace/(app)/sales",
+    "pageFile": "apps/web/src/app/workspace/(app)/sales/page.tsx",
+    "apiCalls": [],
+    "status": "STATIC"
+  },
+  {
+    "route": "/workspace/(app)/sales-manager",
+    "pageFile": "apps/web/src/app/workspace/(app)/sales-manager/page.tsx",
+    "apiCalls": [],
+    "status": "STATIC"
+  },
+  {
+    "route": "/workspace/(app)/sales/leads/[id]",
+    "pageFile": "apps/web/src/app/workspace/(app)/sales/leads/[id]/page.tsx",
+    "apiCalls": [],
+    "status": "STATIC"
+  },
+  {
+    "route": "/workspace/(selector)",
+    "pageFile": "apps/web/src/app/workspace/(selector)/page.tsx",
+    "apiCalls": [],
+    "status": "STATIC"
+  }
+]

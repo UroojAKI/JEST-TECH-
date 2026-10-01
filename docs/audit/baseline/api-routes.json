@@ -1,0 +1,4160 @@
+[
+  {
+    "method": "GET",
+    "path": "/",
+    "controller": "AppController",
+    "file": "apps/api/src/app.controller.ts",
+    "hasRolesGuard": false,
+    "roles": [],
+    "hasTenantScope": false
+  },
+  {
+    "method": "POST",
+    "path": "/accounts",
+    "controller": "AccountsController",
+    "file": "apps/api/src/modules/accounts/controllers/accounts.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": false
+  },
+  {
+    "method": "GET",
+    "path": "/accounts",
+    "controller": "AccountsController",
+    "file": "apps/api/src/modules/accounts/controllers/accounts.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE",
+      "AGENT"
+    ],
+    "hasTenantScope": false
+  },
+  {
+    "method": "GET",
+    "path": "/accounts/:id",
+    "controller": "AccountsController",
+    "file": "apps/api/src/modules/accounts/controllers/accounts.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE",
+      "AGENT"
+    ],
+    "hasTenantScope": false
+  },
+  {
+    "method": "POST",
+    "path": "/accounts/:id/unmask",
+    "controller": "AccountsController",
+    "file": "apps/api/src/modules/accounts/controllers/accounts.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE",
+      "AGENT"
+    ],
+    "hasTenantScope": false
+  },
+  {
+    "method": "PATCH",
+    "path": "/accounts/:id",
+    "controller": "AccountsController",
+    "file": "apps/api/src/modules/accounts/controllers/accounts.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE"
+    ],
+    "hasTenantScope": false
+  },
+  {
+    "method": "DELETE",
+    "path": "/accounts/:id",
+    "controller": "AccountsController",
+    "file": "apps/api/src/modules/accounts/controllers/accounts.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE",
+      "AGENT"
+    ],
+    "hasTenantScope": false
+  },
+  {
+    "method": "GET",
+    "path": "/admin/lookups",
+    "controller": "LookupController",
+    "file": "apps/api/src/modules/administration/controllers/lookup/lookup.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": false
+  },
+  {
+    "method": "GET",
+    "path": "/admin/lookups/:categoryCode",
+    "controller": "LookupController",
+    "file": "apps/api/src/modules/administration/controllers/lookup/lookup.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": false
+  },
+  {
+    "method": "POST",
+    "path": "/admin/lookups/:categoryCode/values",
+    "controller": "LookupController",
+    "file": "apps/api/src/modules/administration/controllers/lookup/lookup.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": false
+  },
+  {
+    "method": "PUT",
+    "path": "/admin/lookups/:categoryCode/values/:id",
+    "controller": "LookupController",
+    "file": "apps/api/src/modules/administration/controllers/lookup/lookup.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": false
+  },
+  {
+    "method": "DELETE",
+    "path": "/admin/lookups/:categoryCode/values/:id",
+    "controller": "LookupController",
+    "file": "apps/api/src/modules/administration/controllers/lookup/lookup.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": false
+  },
+  {
+    "method": "POST",
+    "path": "/admin/lookups/:categoryCode/invalidate",
+    "controller": "LookupController",
+    "file": "apps/api/src/modules/administration/controllers/lookup/lookup.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [
+      "ADMIN"
+    ],
+    "hasTenantScope": false
+  },
+  {
+    "method": "GET",
+    "path": "/admin/organization/hierarchy",
+    "controller": "AssignTeamDto",
+    "file": "apps/api/src/modules/administration/controllers/organization/organization.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": false
+  },
+  {
+    "method": "GET",
+    "path": "/admin/organization/branches",
+    "controller": "AssignTeamDto",
+    "file": "apps/api/src/modules/administration/controllers/organization/organization.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE"
+    ],
+    "hasTenantScope": false
+  },
+  {
+    "method": "POST",
+    "path": "/admin/organization/branches",
+    "controller": "AssignTeamDto",
+    "file": "apps/api/src/modules/administration/controllers/organization/organization.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE",
+      "AGENT"
+    ],
+    "hasTenantScope": false
+  },
+  {
+    "method": "GET",
+    "path": "/admin/organization/branches/:branchId/departments",
+    "controller": "AssignTeamDto",
+    "file": "apps/api/src/modules/administration/controllers/organization/organization.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [
+      "ADMIN"
+    ],
+    "hasTenantScope": false
+  },
+  {
+    "method": "GET",
+    "path": "/admin/organization/departments/:departmentId/teams",
+    "controller": "AssignTeamDto",
+    "file": "apps/api/src/modules/administration/controllers/organization/organization.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE"
+    ],
+    "hasTenantScope": false
+  },
+  {
+    "method": "POST",
+    "path": "/admin/organization/assign-team",
+    "controller": "AssignTeamDto",
+    "file": "apps/api/src/modules/administration/controllers/organization/organization.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE"
+    ],
+    "hasTenantScope": false
+  },
+  {
+    "method": "GET",
+    "path": "/admin/roles",
+    "controller": "RolesController",
+    "file": "apps/api/src/modules/administration/controllers/organization/roles.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": false
+  },
+  {
+    "method": "GET",
+    "path": "/admin/roles/:roleId/permissions",
+    "controller": "RolesController",
+    "file": "apps/api/src/modules/administration/controllers/organization/roles.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": false
+  },
+  {
+    "method": "PUT",
+    "path": "/admin/roles/:roleId/permissions",
+    "controller": "RolesController",
+    "file": "apps/api/src/modules/administration/controllers/organization/roles.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": false
+  },
+  {
+    "method": "GET",
+    "path": "/admin/config",
+    "controller": "UpdateConfigDto",
+    "file": "apps/api/src/modules/administration/controllers/system-config/system-config.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": true
+  },
+  {
+    "method": "PUT",
+    "path": "/admin/config",
+    "controller": "UpdateConfigDto",
+    "file": "apps/api/src/modules/administration/controllers/system-config/system-config.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [
+      "ADMIN"
+    ],
+    "hasTenantScope": true
+  },
+  {
+    "method": "GET",
+    "path": "/admin/config/public",
+    "controller": "UpdateConfigDto",
+    "file": "apps/api/src/modules/administration/controllers/system-config/system-config.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [
+      "ADMIN"
+    ],
+    "hasTenantScope": true
+  },
+  {
+    "method": "GET",
+    "path": "/admin/config/numbering",
+    "controller": "UpdateConfigDto",
+    "file": "apps/api/src/modules/administration/controllers/system-config/system-config.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": true
+  },
+  {
+    "method": "GET",
+    "path": "/admin/config/metrics",
+    "controller": "UpdateConfigDto",
+    "file": "apps/api/src/modules/administration/controllers/system-config/system-config.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": true
+  },
+  {
+    "method": "GET",
+    "path": "/admin/config/flags",
+    "controller": "UpdateConfigDto",
+    "file": "apps/api/src/modules/administration/controllers/system-config/system-config.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": true
+  },
+  {
+    "method": "PATCH",
+    "path": "/admin/config/flags/:id",
+    "controller": "UpdateConfigDto",
+    "file": "apps/api/src/modules/administration/controllers/system-config/system-config.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": true
+  },
+  {
+    "method": "GET",
+    "path": "/admin/config/:key",
+    "controller": "UpdateConfigDto",
+    "file": "apps/api/src/modules/administration/controllers/system-config/system-config.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [
+      "ADMIN"
+    ],
+    "hasTenantScope": true
+  },
+  {
+    "method": "PUT",
+    "path": "/admin/config/:key",
+    "controller": "UpdateConfigDto",
+    "file": "apps/api/src/modules/administration/controllers/system-config/system-config.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": true
+  },
+  {
+    "method": "GET",
+    "path": "/agents/me",
+    "controller": "AgentsController",
+    "file": "apps/api/src/modules/agents/agents.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": false
+  },
+  {
+    "method": "GET",
+    "path": "/agents",
+    "controller": "AgentsController",
+    "file": "apps/api/src/modules/agents/agents.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [
+      "AGENT",
+      "ADMIN",
+      "BACK_OFFICE"
+    ],
+    "hasTenantScope": false
+  },
+  {
+    "method": "GET",
+    "path": "/agents/:id",
+    "controller": "AgentsController",
+    "file": "apps/api/src/modules/agents/agents.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE",
+      "AGENT"
+    ],
+    "hasTenantScope": false
+  },
+  {
+    "method": "GET",
+    "path": "/agents/:id/stats",
+    "controller": "AgentsController",
+    "file": "apps/api/src/modules/agents/agents.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE",
+      "AGENT"
+    ],
+    "hasTenantScope": false
+  },
+  {
+    "method": "POST",
+    "path": "/agents",
+    "controller": "AgentsController",
+    "file": "apps/api/src/modules/agents/agents.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE",
+      "AGENT"
+    ],
+    "hasTenantScope": false
+  },
+  {
+    "method": "PATCH",
+    "path": "/agents/:id",
+    "controller": "AgentsController",
+    "file": "apps/api/src/modules/agents/agents.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [
+      "ADMIN",
+      "AGENT"
+    ],
+    "hasTenantScope": false
+  },
+  {
+    "method": "GET",
+    "path": "/analytics/leads",
+    "controller": "AnalyticsController",
+    "file": "apps/api/src/modules/analytics/controllers/analytics.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": false
+  },
+  {
+    "method": "GET",
+    "path": "/analytics/policies",
+    "controller": "AnalyticsController",
+    "file": "apps/api/src/modules/analytics/controllers/analytics.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": false
+  },
+  {
+    "method": "GET",
+    "path": "/analytics/claims",
+    "controller": "AnalyticsController",
+    "file": "apps/api/src/modules/analytics/controllers/analytics.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": false
+  },
+  {
+    "method": "GET",
+    "path": "/analytics/revenue",
+    "controller": "AnalyticsController",
+    "file": "apps/api/src/modules/analytics/controllers/analytics.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": false
+  },
+  {
+    "method": "GET",
+    "path": "/analytics/revenue/trend",
+    "controller": "AnalyticsController",
+    "file": "apps/api/src/modules/analytics/controllers/analytics.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": false
+  },
+  {
+    "method": "GET",
+    "path": "/analytics/renewals",
+    "controller": "AnalyticsController",
+    "file": "apps/api/src/modules/analytics/controllers/analytics.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": false
+  },
+  {
+    "method": "POST",
+    "path": "/auth/login",
+    "controller": "AuthController",
+    "file": "apps/api/src/modules/auth/controllers/auth.controller.ts",
+    "hasRolesGuard": false,
+    "roles": [],
+    "hasTenantScope": false
+  },
+  {
+    "method": "POST",
+    "path": "/auth/refresh",
+    "controller": "AuthController",
+    "file": "apps/api/src/modules/auth/controllers/auth.controller.ts",
+    "hasRolesGuard": false,
+    "roles": [],
+    "hasTenantScope": false
+  },
+  {
+    "method": "POST",
+    "path": "/auth/logout",
+    "controller": "AuthController",
+    "file": "apps/api/src/modules/auth/controllers/auth.controller.ts",
+    "hasRolesGuard": false,
+    "roles": [],
+    "hasTenantScope": false
+  },
+  {
+    "method": "GET",
+    "path": "/dashboards/sales",
+    "controller": "DashboardAnalyticsController",
+    "file": "apps/api/src/modules/bi/dashboards/services/dashboard-analytics/dashboard-analytics.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": false
+  },
+  {
+    "method": "GET",
+    "path": "/dashboards/sales-manager",
+    "controller": "DashboardAnalyticsController",
+    "file": "apps/api/src/modules/bi/dashboards/services/dashboard-analytics/dashboard-analytics.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [
+      "AGENT",
+      "BACK_OFFICE",
+      "ADMIN"
+    ],
+    "hasTenantScope": false
+  },
+  {
+    "method": "GET",
+    "path": "/dashboards/renewals",
+    "controller": "DashboardAnalyticsController",
+    "file": "apps/api/src/modules/bi/dashboards/services/dashboard-analytics/dashboard-analytics.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [
+      "BACK_OFFICE",
+      "ADMIN"
+    ],
+    "hasTenantScope": false
+  },
+  {
+    "method": "GET",
+    "path": "/forecasting/revenue",
+    "controller": "ForecastingController",
+    "file": "apps/api/src/modules/bi/forecasting/controllers/forecasting.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": false
+  },
+  {
+    "method": "GET",
+    "path": "/forecasting/renewals",
+    "controller": "ForecastingController",
+    "file": "apps/api/src/modules/bi/forecasting/controllers/forecasting.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": false
+  },
+  {
+    "method": "GET",
+    "path": "/forecasting/customer-risk/:customerId",
+    "controller": "ForecastingController",
+    "file": "apps/api/src/modules/bi/forecasting/controllers/forecasting.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": false
+  },
+  {
+    "method": "GET",
+    "path": "/bi/conversion",
+    "controller": "BiController",
+    "file": "apps/api/src/modules/business-intelligence/controllers/bi.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": true
+  },
+  {
+    "method": "GET",
+    "path": "/bi/revenue",
+    "controller": "BiController",
+    "file": "apps/api/src/modules/business-intelligence/controllers/bi.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [
+      "ADMIN"
+    ],
+    "hasTenantScope": true
+  },
+  {
+    "method": "GET",
+    "path": "/bi/loss-ratio",
+    "controller": "BiController",
+    "file": "apps/api/src/modules/business-intelligence/controllers/bi.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [
+      "ADMIN"
+    ],
+    "hasTenantScope": true
+  },
+  {
+    "method": "GET",
+    "path": "/bi/renewal",
+    "controller": "BiController",
+    "file": "apps/api/src/modules/business-intelligence/controllers/bi.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [
+      "ADMIN"
+    ],
+    "hasTenantScope": true
+  },
+  {
+    "method": "GET",
+    "path": "/bi/sales",
+    "controller": "BiController",
+    "file": "apps/api/src/modules/business-intelligence/controllers/bi.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [
+      "ADMIN"
+    ],
+    "hasTenantScope": true
+  },
+  {
+    "method": "GET",
+    "path": "/bi/growth",
+    "controller": "BiController",
+    "file": "apps/api/src/modules/business-intelligence/controllers/bi.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [
+      "ADMIN"
+    ],
+    "hasTenantScope": true
+  },
+  {
+    "method": "GET",
+    "path": "/bi/kpi",
+    "controller": "BiController",
+    "file": "apps/api/src/modules/business-intelligence/controllers/bi.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [
+      "ADMIN"
+    ],
+    "hasTenantScope": true
+  },
+  {
+    "method": "GET",
+    "path": "/bi/kpi/definitions",
+    "controller": "BiController",
+    "file": "apps/api/src/modules/business-intelligence/controllers/bi.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [
+      "ADMIN"
+    ],
+    "hasTenantScope": true
+  },
+  {
+    "method": "POST",
+    "path": "/bi/kpi/definitions",
+    "controller": "BiController",
+    "file": "apps/api/src/modules/business-intelligence/controllers/bi.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [
+      "ADMIN"
+    ],
+    "hasTenantScope": true
+  },
+  {
+    "method": "PATCH",
+    "path": "/bi/kpi/definitions/:id",
+    "controller": "BiController",
+    "file": "apps/api/src/modules/business-intelligence/controllers/bi.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [
+      "ADMIN"
+    ],
+    "hasTenantScope": true
+  },
+  {
+    "method": "DELETE",
+    "path": "/bi/kpi/definitions/:id",
+    "controller": "BiController",
+    "file": "apps/api/src/modules/business-intelligence/controllers/bi.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [
+      "ADMIN"
+    ],
+    "hasTenantScope": true
+  },
+  {
+    "method": "POST",
+    "path": "/bi/kpi/seed",
+    "controller": "BiController",
+    "file": "apps/api/src/modules/business-intelligence/controllers/bi.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [
+      "ADMIN"
+    ],
+    "hasTenantScope": true
+  },
+  {
+    "method": "POST",
+    "path": "/claims/report",
+    "controller": "ClaimsController",
+    "file": "apps/api/src/modules/claims/controllers/claims.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": true
+  },
+  {
+    "method": "POST",
+    "path": "/claims",
+    "controller": "ClaimsController",
+    "file": "apps/api/src/modules/claims/controllers/claims.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE"
+    ],
+    "hasTenantScope": true
+  },
+  {
+    "method": "GET",
+    "path": "/claims",
+    "controller": "ClaimsController",
+    "file": "apps/api/src/modules/claims/controllers/claims.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE"
+    ],
+    "hasTenantScope": true
+  },
+  {
+    "method": "GET",
+    "path": "/claims/:id",
+    "controller": "ClaimsController",
+    "file": "apps/api/src/modules/claims/controllers/claims.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE",
+      "AGENT"
+    ],
+    "hasTenantScope": true
+  },
+  {
+    "method": "PATCH",
+    "path": "/claims/:id",
+    "controller": "ClaimsController",
+    "file": "apps/api/src/modules/claims/controllers/claims.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE",
+      "AGENT"
+    ],
+    "hasTenantScope": true
+  },
+  {
+    "method": "POST",
+    "path": "/claims/:id/documents",
+    "controller": "ClaimsController",
+    "file": "apps/api/src/modules/claims/controllers/claims.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": true
+  },
+  {
+    "method": "POST",
+    "path": "/claims/:id/assign-surveyor",
+    "controller": "ClaimsController",
+    "file": "apps/api/src/modules/claims/controllers/claims.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": true
+  },
+  {
+    "method": "POST",
+    "path": "/claims/:id/approve",
+    "controller": "ClaimsController",
+    "file": "apps/api/src/modules/claims/controllers/claims.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE"
+    ],
+    "hasTenantScope": true
+  },
+  {
+    "method": "POST",
+    "path": "/claims/:id/settle",
+    "controller": "ClaimsController",
+    "file": "apps/api/src/modules/claims/controllers/claims.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE"
+    ],
+    "hasTenantScope": true
+  },
+  {
+    "method": "POST",
+    "path": "/claims/:id/settlement/verify",
+    "controller": "ClaimsController",
+    "file": "apps/api/src/modules/claims/controllers/claims.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": true
+  },
+  {
+    "method": "POST",
+    "path": "/claims/:id/reject",
+    "controller": "ClaimsController",
+    "file": "apps/api/src/modules/claims/controllers/claims.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": true
+  },
+  {
+    "method": "POST",
+    "path": "/claims/:id/close",
+    "controller": "ClaimsController",
+    "file": "apps/api/src/modules/claims/controllers/claims.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": true
+  },
+  {
+    "method": "POST",
+    "path": "/claims/:id/withdraw",
+    "controller": "ClaimsController",
+    "file": "apps/api/src/modules/claims/controllers/claims.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE"
+    ],
+    "hasTenantScope": true
+  },
+  {
+    "method": "POST",
+    "path": "/contacts",
+    "controller": "ContactsController",
+    "file": "apps/api/src/modules/contacts/controllers/contacts.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": false
+  },
+  {
+    "method": "GET",
+    "path": "/contacts",
+    "controller": "ContactsController",
+    "file": "apps/api/src/modules/contacts/controllers/contacts.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE",
+      "AGENT"
+    ],
+    "hasTenantScope": false
+  },
+  {
+    "method": "GET",
+    "path": "/contacts/:id",
+    "controller": "ContactsController",
+    "file": "apps/api/src/modules/contacts/controllers/contacts.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE",
+      "AGENT"
+    ],
+    "hasTenantScope": false
+  },
+  {
+    "method": "POST",
+    "path": "/contacts/:id/unmask",
+    "controller": "ContactsController",
+    "file": "apps/api/src/modules/contacts/controllers/contacts.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE",
+      "AGENT"
+    ],
+    "hasTenantScope": false
+  },
+  {
+    "method": "PATCH",
+    "path": "/contacts/:id",
+    "controller": "ContactsController",
+    "file": "apps/api/src/modules/contacts/controllers/contacts.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE"
+    ],
+    "hasTenantScope": false
+  },
+  {
+    "method": "DELETE",
+    "path": "/contacts/:id",
+    "controller": "ContactsController",
+    "file": "apps/api/src/modules/contacts/controllers/contacts.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE",
+      "AGENT"
+    ],
+    "hasTenantScope": false
+  },
+  {
+    "method": "POST",
+    "path": "/contacts/:id/deactivate",
+    "controller": "ContactsController",
+    "file": "apps/api/src/modules/contacts/controllers/contacts.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [
+      "ADMIN"
+    ],
+    "hasTenantScope": false
+  },
+  {
+    "method": "POST",
+    "path": "/contacts/:id/reactivate",
+    "controller": "ContactsController",
+    "file": "apps/api/src/modules/contacts/controllers/contacts.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE"
+    ],
+    "hasTenantScope": false
+  },
+  {
+    "method": "GET",
+    "path": "/communications",
+    "controller": "CommunicationController",
+    "file": "apps/api/src/modules/customer/communication/controllers/communication.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": false
+  },
+  {
+    "method": "POST",
+    "path": "/communications",
+    "controller": "CommunicationController",
+    "file": "apps/api/src/modules/customer/communication/controllers/communication.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": false
+  },
+  {
+    "method": "GET",
+    "path": "/notifications/templates",
+    "controller": "CommunicationController",
+    "file": "apps/api/src/modules/customer/communication/controllers/communication.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": false
+  },
+  {
+    "method": "PUT",
+    "path": "/notifications/templates/:id",
+    "controller": "CommunicationController",
+    "file": "apps/api/src/modules/customer/communication/controllers/communication.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": false
+  },
+  {
+    "method": "GET",
+    "path": "/notifications/delivery-logs",
+    "controller": "CommunicationController",
+    "file": "apps/api/src/modules/customer/communication/controllers/communication.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [
+      "ADMIN",
+      "ADMIN"
+    ],
+    "hasTenantScope": false
+  },
+  {
+    "method": "GET",
+    "path": "/notifications/events",
+    "controller": "CommunicationController",
+    "file": "apps/api/src/modules/customer/communication/controllers/communication.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": false
+  },
+  {
+    "method": "GET",
+    "path": "/customer-360/:id",
+    "controller": "Customer360Controller",
+    "file": "apps/api/src/modules/customer/customer-360/services/customer-360/customer-360.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE",
+      "AGENT"
+    ],
+    "hasTenantScope": false
+  },
+  {
+    "method": "GET",
+    "path": "/customers/check-duplicate",
+    "controller": "CustomersController",
+    "file": "apps/api/src/modules/customers/customers.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": false
+  },
+  {
+    "method": "POST",
+    "path": "/customers/deduplication-check",
+    "controller": "CustomersController",
+    "file": "apps/api/src/modules/customers/customers.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": false
+  },
+  {
+    "method": "GET",
+    "path": "/customers",
+    "controller": "CustomersController",
+    "file": "apps/api/src/modules/customers/customers.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": false
+  },
+  {
+    "method": "GET",
+    "path": "/customers/:id",
+    "controller": "CustomersController",
+    "file": "apps/api/src/modules/customers/customers.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE",
+      "AGENT"
+    ],
+    "hasTenantScope": false
+  },
+  {
+    "method": "POST",
+    "path": "/customers/:id/assign-agent",
+    "controller": "CustomersController",
+    "file": "apps/api/src/modules/customers/customers.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE",
+      "AGENT"
+    ],
+    "hasTenantScope": false
+  },
+  {
+    "method": "POST",
+    "path": "/customers",
+    "controller": "CustomersController",
+    "file": "apps/api/src/modules/customers/customers.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": false
+  },
+  {
+    "method": "PATCH",
+    "path": "/customers/:id",
+    "controller": "CustomersController",
+    "file": "apps/api/src/modules/customers/customers.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE",
+      "AGENT"
+    ],
+    "hasTenantScope": false
+  },
+  {
+    "method": "GET",
+    "path": "/customers/:id/alerts",
+    "controller": "CustomersController",
+    "file": "apps/api/src/modules/customers/customers.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE",
+      "AGENT"
+    ],
+    "hasTenantScope": false
+  },
+  {
+    "method": "POST",
+    "path": "/customers/:id/alerts",
+    "controller": "CustomersController",
+    "file": "apps/api/src/modules/customers/customers.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE",
+      "AGENT"
+    ],
+    "hasTenantScope": false
+  },
+  {
+    "method": "PATCH",
+    "path": "/customers/:id/alerts/:alertId/read",
+    "controller": "CustomersController",
+    "file": "apps/api/src/modules/customers/customers.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": false
+  },
+  {
+    "method": "GET",
+    "path": "/dashboard",
+    "controller": "DashboardController",
+    "file": "apps/api/src/modules/dashboard/controllers/dashboard.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": true
+  },
+  {
+    "method": "GET",
+    "path": "/dashboard/admin",
+    "controller": "DashboardController",
+    "file": "apps/api/src/modules/dashboard/controllers/dashboard.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE",
+      "AGENT"
+    ],
+    "hasTenantScope": true
+  },
+  {
+    "method": "GET",
+    "path": "/dashboard/back-office",
+    "controller": "DashboardController",
+    "file": "apps/api/src/modules/dashboard/controllers/dashboard.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [
+      "ADMIN"
+    ],
+    "hasTenantScope": true
+  },
+  {
+    "method": "GET",
+    "path": "/dashboard/agent",
+    "controller": "DashboardController",
+    "file": "apps/api/src/modules/dashboard/controllers/dashboard.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE"
+    ],
+    "hasTenantScope": true
+  },
+  {
+    "method": "GET",
+    "path": "/dashboard/management/branch-gwp",
+    "controller": "DashboardController",
+    "file": "apps/api/src/modules/dashboard/controllers/dashboard.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [
+      "AGENT"
+    ],
+    "hasTenantScope": true
+  },
+  {
+    "method": "GET",
+    "path": "/dashboard/management/insurers",
+    "controller": "DashboardController",
+    "file": "apps/api/src/modules/dashboard/controllers/dashboard.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE"
+    ],
+    "hasTenantScope": true
+  },
+  {
+    "method": "GET",
+    "path": "/dashboard/management/leaderboard",
+    "controller": "DashboardController",
+    "file": "apps/api/src/modules/dashboard/controllers/dashboard.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE"
+    ],
+    "hasTenantScope": true
+  },
+  {
+    "method": "GET",
+    "path": "/dashboard-registry",
+    "controller": "DashboardRegistryController",
+    "file": "apps/api/src/modules/dashboard-registry/controllers/dashboard-registry.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": false
+  },
+  {
+    "method": "GET",
+    "path": "/dashboard-registry/:code",
+    "controller": "DashboardRegistryController",
+    "file": "apps/api/src/modules/dashboard-registry/controllers/dashboard-registry.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": false
+  },
+  {
+    "method": "POST",
+    "path": "/dashboard-registry",
+    "controller": "DashboardRegistryController",
+    "file": "apps/api/src/modules/dashboard-registry/controllers/dashboard-registry.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": false
+  },
+  {
+    "method": "PUT",
+    "path": "/dashboard-registry/:code",
+    "controller": "DashboardRegistryController",
+    "file": "apps/api/src/modules/dashboard-registry/controllers/dashboard-registry.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [
+      "ADMIN",
+      "ADMIN"
+    ],
+    "hasTenantScope": false
+  },
+  {
+    "method": "GET",
+    "path": "/documents",
+    "controller": "DocumentsController",
+    "file": "apps/api/src/modules/documents/controllers/documents.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE",
+      "AGENT"
+    ],
+    "hasTenantScope": false
+  },
+  {
+    "method": "POST",
+    "path": "/documents/upload",
+    "controller": "DocumentsController",
+    "file": "apps/api/src/modules/documents/controllers/documents.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": false
+  },
+  {
+    "method": "POST",
+    "path": "/documents/:id/replace",
+    "controller": "DocumentsController",
+    "file": "apps/api/src/modules/documents/controllers/documents.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": false
+  },
+  {
+    "method": "GET",
+    "path": "/documents/entity/:entityType/:entityId",
+    "controller": "DocumentsController",
+    "file": "apps/api/src/modules/documents/controllers/documents.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": false
+  },
+  {
+    "method": "GET",
+    "path": "/documents/:id",
+    "controller": "DocumentsController",
+    "file": "apps/api/src/modules/documents/controllers/documents.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": false
+  },
+  {
+    "method": "DELETE",
+    "path": "/documents/:id",
+    "controller": "DocumentsController",
+    "file": "apps/api/src/modules/documents/controllers/documents.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": false
+  },
+  {
+    "method": "POST",
+    "path": "/documents/:id/restore",
+    "controller": "DocumentsController",
+    "file": "apps/api/src/modules/documents/controllers/documents.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": false
+  },
+  {
+    "method": "GET",
+    "path": "/documents/:id/history",
+    "controller": "DocumentsController",
+    "file": "apps/api/src/modules/documents/controllers/documents.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": false
+  },
+  {
+    "method": "GET",
+    "path": "/documents/:id/download",
+    "controller": "DocumentsController",
+    "file": "apps/api/src/modules/documents/controllers/documents.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": false
+  },
+  {
+    "method": "POST",
+    "path": "/documents/:id/review",
+    "controller": "DocumentsController",
+    "file": "apps/api/src/modules/documents/controllers/documents.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": false
+  },
+  {
+    "method": "POST",
+    "path": "/documents/:id/verify",
+    "controller": "DocumentsController",
+    "file": "apps/api/src/modules/documents/controllers/documents.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": false
+  },
+  {
+    "method": "GET",
+    "path": "/documents/:id/verification",
+    "controller": "DocumentsController",
+    "file": "apps/api/src/modules/documents/controllers/documents.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": false
+  },
+  {
+    "method": "GET",
+    "path": "/endorsements",
+    "controller": "EndorsementsController",
+    "file": "apps/api/src/modules/endorsements/controllers/endorsements.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": false
+  },
+  {
+    "method": "GET",
+    "path": "/endorsements/:id",
+    "controller": "EndorsementsController",
+    "file": "apps/api/src/modules/endorsements/controllers/endorsements.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE",
+      "AGENT"
+    ],
+    "hasTenantScope": false
+  },
+  {
+    "method": "POST",
+    "path": "/endorsements",
+    "controller": "EndorsementsController",
+    "file": "apps/api/src/modules/endorsements/controllers/endorsements.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE",
+      "AGENT"
+    ],
+    "hasTenantScope": false
+  },
+  {
+    "method": "POST",
+    "path": "/endorsements/policies/:policyId/calculate-prorata",
+    "controller": "EndorsementsController",
+    "file": "apps/api/src/modules/endorsements/controllers/endorsements.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": false
+  },
+  {
+    "method": "POST",
+    "path": "/endorsements/:id/attach",
+    "controller": "EndorsementsController",
+    "file": "apps/api/src/modules/endorsements/controllers/endorsements.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": false
+  },
+  {
+    "method": "POST",
+    "path": "/endorsements/:id/approve",
+    "controller": "EndorsementsController",
+    "file": "apps/api/src/modules/endorsements/controllers/endorsements.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE",
+      "AGENT"
+    ],
+    "hasTenantScope": false
+  },
+  {
+    "method": "POST",
+    "path": "/endorsements/:id/reject",
+    "controller": "EndorsementsController",
+    "file": "apps/api/src/modules/endorsements/controllers/endorsements.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": false
+  },
+  {
+    "method": "POST",
+    "path": "/finance/commissions/accrue",
+    "controller": "CommissionController",
+    "file": "apps/api/src/modules/finance/commission/controllers/commission.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": false
+  },
+  {
+    "method": "POST",
+    "path": "/finance/commissions/realize/:policyId",
+    "controller": "CommissionController",
+    "file": "apps/api/src/modules/finance/commission/controllers/commission.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": false
+  },
+  {
+    "method": "GET",
+    "path": "/finance/dashboard",
+    "controller": "FinanceController",
+    "file": "apps/api/src/modules/finance/controllers/finance.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": true
+  },
+  {
+    "method": "GET",
+    "path": "/finance/receipts/export",
+    "controller": "FinanceController",
+    "file": "apps/api/src/modules/finance/controllers/finance.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": true
+  },
+  {
+    "method": "GET",
+    "path": "/finance/receipts",
+    "controller": "FinanceController",
+    "file": "apps/api/src/modules/finance/controllers/finance.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": true
+  },
+  {
+    "method": "GET",
+    "path": "/finance/payments",
+    "controller": "FinanceController",
+    "file": "apps/api/src/modules/finance/controllers/finance.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": true
+  },
+  {
+    "method": "GET",
+    "path": "/finance/ledger",
+    "controller": "FinanceController",
+    "file": "apps/api/src/modules/finance/controllers/finance.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": true
+  },
+  {
+    "method": "POST",
+    "path": "/finance/ledger/journal",
+    "controller": "FinanceController",
+    "file": "apps/api/src/modules/finance/controllers/finance.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": true
+  },
+  {
+    "method": "GET",
+    "path": "/finance/commissions",
+    "controller": "FinanceController",
+    "file": "apps/api/src/modules/finance/controllers/finance.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE"
+    ],
+    "hasTenantScope": true
+  },
+  {
+    "method": "POST",
+    "path": "/finance/commissions/:id/approve",
+    "controller": "FinanceController",
+    "file": "apps/api/src/modules/finance/controllers/finance.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": true
+  },
+  {
+    "method": "GET",
+    "path": "/finance/settlements",
+    "controller": "FinanceController",
+    "file": "apps/api/src/modules/finance/controllers/finance.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": true
+  },
+  {
+    "method": "GET",
+    "path": "/finance/incentives",
+    "controller": "FinanceController",
+    "file": "apps/api/src/modules/finance/controllers/finance.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": true
+  },
+  {
+    "method": "GET",
+    "path": "/finance/reconciliation-queue",
+    "controller": "FinanceController",
+    "file": "apps/api/src/modules/finance/controllers/finance.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": true
+  },
+  {
+    "method": "POST",
+    "path": "/finance/reconciliation-queue/:id/reconcile",
+    "controller": "FinanceController",
+    "file": "apps/api/src/modules/finance/controllers/finance.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": true
+  },
+  {
+    "method": "POST",
+    "path": "/finance/reconciliation-queue/:id/discrepancy",
+    "controller": "FinanceController",
+    "file": "apps/api/src/modules/finance/controllers/finance.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE"
+    ],
+    "hasTenantScope": true
+  },
+  {
+    "method": "POST",
+    "path": "/finance/invoices/:id/pay",
+    "controller": "FinanceController",
+    "file": "apps/api/src/modules/finance/controllers/finance.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE"
+    ],
+    "hasTenantScope": true
+  },
+  {
+    "method": "GET",
+    "path": "/health",
+    "controller": "HealthController",
+    "file": "apps/api/src/modules/health/health.controller.ts",
+    "hasRolesGuard": false,
+    "roles": [],
+    "hasTenantScope": false
+  },
+  {
+    "method": "GET",
+    "path": "/health/terminus",
+    "controller": "HealthController",
+    "file": "apps/api/src/modules/health/health.controller.ts",
+    "hasRolesGuard": false,
+    "roles": [],
+    "hasTenantScope": false
+  },
+  {
+    "method": "GET",
+    "path": "/health/live",
+    "controller": "HealthController",
+    "file": "apps/api/src/modules/health/health.controller.ts",
+    "hasRolesGuard": false,
+    "roles": [],
+    "hasTenantScope": false
+  },
+  {
+    "method": "GET",
+    "path": "/health/ready",
+    "controller": "HealthController",
+    "file": "apps/api/src/modules/health/health.controller.ts",
+    "hasRolesGuard": false,
+    "roles": [],
+    "hasTenantScope": false
+  },
+  {
+    "method": "GET",
+    "path": "/metrics",
+    "controller": "MetricsController",
+    "file": "apps/api/src/modules/health/metrics.controller.ts",
+    "hasRolesGuard": false,
+    "roles": [],
+    "hasTenantScope": false
+  },
+  {
+    "method": "GET",
+    "path": "/leads/kpis",
+    "controller": "LeadsController",
+    "file": "apps/api/src/modules/leads/controllers/leads.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": true
+  },
+  {
+    "method": "GET",
+    "path": "/leads/check-duplicate",
+    "controller": "LeadsController",
+    "file": "apps/api/src/modules/leads/controllers/leads.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": true
+  },
+  {
+    "method": "POST",
+    "path": "/leads/check-duplicate",
+    "controller": "LeadsController",
+    "file": "apps/api/src/modules/leads/controllers/leads.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": true
+  },
+  {
+    "method": "POST",
+    "path": "/leads",
+    "controller": "LeadsController",
+    "file": "apps/api/src/modules/leads/controllers/leads.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": true
+  },
+  {
+    "method": "POST",
+    "path": "/leads/:id/merge",
+    "controller": "LeadsController",
+    "file": "apps/api/src/modules/leads/controllers/leads.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": true
+  },
+  {
+    "method": "GET",
+    "path": "/leads",
+    "controller": "LeadsController",
+    "file": "apps/api/src/modules/leads/controllers/leads.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE"
+    ],
+    "hasTenantScope": true
+  },
+  {
+    "method": "GET",
+    "path": "/leads/:id",
+    "controller": "LeadsController",
+    "file": "apps/api/src/modules/leads/controllers/leads.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": true
+  },
+  {
+    "method": "GET",
+    "path": "/leads/:id/context",
+    "controller": "LeadsController",
+    "file": "apps/api/src/modules/leads/controllers/leads.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": true
+  },
+  {
+    "method": "GET",
+    "path": "/leads/:id/completion",
+    "controller": "LeadsController",
+    "file": "apps/api/src/modules/leads/controllers/leads.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": true
+  },
+  {
+    "method": "PATCH",
+    "path": "/leads/:id",
+    "controller": "LeadsController",
+    "file": "apps/api/src/modules/leads/controllers/leads.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": true
+  },
+  {
+    "method": "DELETE",
+    "path": "/leads/:id",
+    "controller": "LeadsController",
+    "file": "apps/api/src/modules/leads/controllers/leads.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": true
+  },
+  {
+    "method": "POST",
+    "path": "/leads/:id/assign",
+    "controller": "LeadsController",
+    "file": "apps/api/src/modules/leads/controllers/leads.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [
+      "ADMIN"
+    ],
+    "hasTenantScope": true
+  },
+  {
+    "method": "POST",
+    "path": "/leads/:id/auto-assign",
+    "controller": "LeadsController",
+    "file": "apps/api/src/modules/leads/controllers/leads.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": true
+  },
+  {
+    "method": "POST",
+    "path": "/leads/bulk-assign",
+    "controller": "LeadsController",
+    "file": "apps/api/src/modules/leads/controllers/leads.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": true
+  },
+  {
+    "method": "GET",
+    "path": "/leads/queues/workload",
+    "controller": "LeadsController",
+    "file": "apps/api/src/modules/leads/controllers/leads.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": true
+  },
+  {
+    "method": "POST",
+    "path": "/leads/:id/notes",
+    "controller": "LeadsController",
+    "file": "apps/api/src/modules/leads/controllers/leads.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE"
+    ],
+    "hasTenantScope": true
+  },
+  {
+    "method": "POST",
+    "path": "/leads/:id/activities",
+    "controller": "LeadsController",
+    "file": "apps/api/src/modules/leads/controllers/leads.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": true
+  },
+  {
+    "method": "POST",
+    "path": "/leads/:id/convert",
+    "controller": "LeadsController",
+    "file": "apps/api/src/modules/leads/controllers/leads.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": true
+  },
+  {
+    "method": "POST",
+    "path": "/leads/:id/mark-lost",
+    "controller": "LeadsController",
+    "file": "apps/api/src/modules/leads/controllers/leads.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": true
+  },
+  {
+    "method": "GET",
+    "path": "/leads/:id/allowed-transitions",
+    "controller": "LeadsController",
+    "file": "apps/api/src/modules/leads/controllers/leads.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": true
+  },
+  {
+    "method": "POST",
+    "path": "/leads/:id/transition",
+    "controller": "LeadsController",
+    "file": "apps/api/src/modules/leads/controllers/leads.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": true
+  },
+  {
+    "method": "POST",
+    "path": "/motor/calculate",
+    "controller": "MotorCalculationController",
+    "file": "apps/api/src/modules/motor/controllers/motor-calculation.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE",
+      "AGENT"
+    ],
+    "hasTenantScope": false
+  },
+  {
+    "method": "POST",
+    "path": "/motor/inspections",
+    "controller": "MotorInspectionController",
+    "file": "apps/api/src/modules/motor/controllers/motor-inspection.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": false
+  },
+  {
+    "method": "GET",
+    "path": "/motor/inspections/:quotationId",
+    "controller": "MotorInspectionController",
+    "file": "apps/api/src/modules/motor/controllers/motor-inspection.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": false
+  },
+  {
+    "method": "POST",
+    "path": "/motor/inspections/:id/photos",
+    "controller": "MotorInspectionController",
+    "file": "apps/api/src/modules/motor/controllers/motor-inspection.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE",
+      "AGENT"
+    ],
+    "hasTenantScope": false
+  },
+  {
+    "method": "POST",
+    "path": "/motor/inspections/:id/submit-for-review",
+    "controller": "MotorInspectionController",
+    "file": "apps/api/src/modules/motor/controllers/motor-inspection.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": false
+  },
+  {
+    "method": "POST",
+    "path": "/motor/inspections/:id/approve",
+    "controller": "MotorInspectionController",
+    "file": "apps/api/src/modules/motor/controllers/motor-inspection.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": false
+  },
+  {
+    "method": "POST",
+    "path": "/motor/inspections/:id/reject",
+    "controller": "MotorInspectionController",
+    "file": "apps/api/src/modules/motor/controllers/motor-inspection.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": false
+  },
+  {
+    "method": "POST",
+    "path": "/motor/inspections/:id/waive",
+    "controller": "MotorInspectionController",
+    "file": "apps/api/src/modules/motor/controllers/motor-inspection.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": false
+  },
+  {
+    "method": "POST",
+    "path": "/motor/journeys",
+    "controller": "MotorJourneyController",
+    "file": "apps/api/src/modules/motor/controllers/motor-journey.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": false
+  },
+  {
+    "method": "GET",
+    "path": "/motor/journeys/:id",
+    "controller": "MotorJourneyController",
+    "file": "apps/api/src/modules/motor/controllers/motor-journey.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": false
+  },
+  {
+    "method": "POST",
+    "path": "/motor/quotation-cases",
+    "controller": "MotorQuotationCaseController",
+    "file": "apps/api/src/modules/motor/controllers/motor-quotation-case.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": false
+  },
+  {
+    "method": "GET",
+    "path": "/motor/quotation-cases/:id",
+    "controller": "MotorQuotationCaseController",
+    "file": "apps/api/src/modules/motor/controllers/motor-quotation-case.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": false
+  },
+  {
+    "method": "GET",
+    "path": "/motor/quotation-cases/lead/:leadId",
+    "controller": "MotorQuotationCaseController",
+    "file": "apps/api/src/modules/motor/controllers/motor-quotation-case.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": false
+  },
+  {
+    "method": "POST",
+    "path": "/motor/quotation-cases/:id/select",
+    "controller": "MotorQuotationCaseController",
+    "file": "apps/api/src/modules/motor/controllers/motor-quotation-case.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": false
+  },
+  {
+    "method": "GET",
+    "path": "/motor/quotation-cases/:id/compare",
+    "controller": "MotorQuotationCaseController",
+    "file": "apps/api/src/modules/motor/controllers/motor-quotation-case.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": false
+  },
+  {
+    "method": "POST",
+    "path": "/motor/quotation-cases/:id/transition",
+    "controller": "MotorQuotationCaseController",
+    "file": "apps/api/src/modules/motor/controllers/motor-quotation-case.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": false
+  },
+  {
+    "method": "POST",
+    "path": "/motor/quotation-cases/:id/cancel",
+    "controller": "MotorQuotationCaseController",
+    "file": "apps/api/src/modules/motor/controllers/motor-quotation-case.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": false
+  },
+  {
+    "method": "POST",
+    "path": "/motor/quotations/:id/documents",
+    "controller": "MotorQuotationDocumentController",
+    "file": "apps/api/src/modules/motor/controllers/motor-quotation-document.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": false
+  },
+  {
+    "method": "GET",
+    "path": "/motor/quotations/:id/documents",
+    "controller": "MotorQuotationDocumentController",
+    "file": "apps/api/src/modules/motor/controllers/motor-quotation-document.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": false
+  },
+  {
+    "method": "POST",
+    "path": "/motor/quotation-documents/:id/verify",
+    "controller": "MotorQuotationDocumentController",
+    "file": "apps/api/src/modules/motor/controllers/motor-quotation-document.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": false
+  },
+  {
+    "method": "DELETE",
+    "path": "/motor/quotation-documents/:id",
+    "controller": "MotorQuotationDocumentController",
+    "file": "apps/api/src/modules/motor/controllers/motor-quotation-document.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": false
+  },
+  {
+    "method": "POST",
+    "path": "/motor/quotes/:id/finalize",
+    "controller": "MotorQuoteController",
+    "file": "apps/api/src/modules/motor/controllers/motor-quote.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": true
+  },
+  {
+    "method": "POST",
+    "path": "/motor/quotes/:id/issue",
+    "controller": "MotorQuoteController",
+    "file": "apps/api/src/modules/motor/controllers/motor-quote.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": true
+  },
+  {
+    "method": "POST",
+    "path": "/motor/rules/evaluate",
+    "controller": "EvaluateMotorRulesDto",
+    "file": "apps/api/src/modules/motor/controllers/motor-rules-evaluate.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": true
+  },
+  {
+    "method": "POST",
+    "path": "/motor/quotations/:id/transition",
+    "controller": "MotorWorkflowController",
+    "file": "apps/api/src/modules/motor/motor-workflow.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": true
+  },
+  {
+    "method": "POST",
+    "path": "/motor/quotations/:id/previous-policy",
+    "controller": "MotorWorkflowController",
+    "file": "apps/api/src/modules/motor/motor-workflow.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": true
+  },
+  {
+    "method": "GET",
+    "path": "/motor/quotations/:id/rule-evaluation",
+    "controller": "MotorWorkflowController",
+    "file": "apps/api/src/modules/motor/motor-workflow.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": true
+  },
+  {
+    "method": "POST",
+    "path": "/motor/quotations/:id/payment",
+    "controller": "MotorWorkflowController",
+    "file": "apps/api/src/modules/motor/motor-workflow.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": true
+  },
+  {
+    "method": "GET",
+    "path": "/motor/quotations/:id/payment",
+    "controller": "MotorWorkflowController",
+    "file": "apps/api/src/modules/motor/motor-workflow.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": true
+  },
+  {
+    "method": "GET",
+    "path": "/motor/quotations/:id/policy-gate",
+    "controller": "MotorWorkflowController",
+    "file": "apps/api/src/modules/motor/motor-workflow.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": true
+  },
+  {
+    "method": "GET",
+    "path": "/motor/quotations/:id/workflow-projection",
+    "controller": "MotorWorkflowController",
+    "file": "apps/api/src/modules/motor/motor-workflow.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": true
+  },
+  {
+    "method": "GET",
+    "path": "/motor/categories",
+    "controller": "MotorController",
+    "file": "apps/api/src/modules/motor/motor.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": true
+  },
+  {
+    "method": "GET",
+    "path": "/motor/categories/:category",
+    "controller": "MotorController",
+    "file": "apps/api/src/modules/motor/motor.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": true
+  },
+  {
+    "method": "GET",
+    "path": "/motor/tariff/lookup",
+    "controller": "MotorController",
+    "file": "apps/api/src/modules/motor/motor.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": true
+  },
+  {
+    "method": "POST",
+    "path": "/motor/saod-verification",
+    "controller": "MotorController",
+    "file": "apps/api/src/modules/motor/motor.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": true
+  },
+  {
+    "method": "POST",
+    "path": "/motor/vehicles/normalize-registration",
+    "controller": "MotorController",
+    "file": "apps/api/src/modules/motor/motor.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": true
+  },
+  {
+    "method": "POST",
+    "path": "/motor/vehicles/validate-specs",
+    "controller": "MotorController",
+    "file": "apps/api/src/modules/motor/motor.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": true
+  },
+  {
+    "method": "POST",
+    "path": "/motor/vehicles",
+    "controller": "MotorController",
+    "file": "apps/api/src/modules/motor/motor.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": true
+  },
+  {
+    "method": "GET",
+    "path": "/motor/vehicles/lookup/:regNumber",
+    "controller": "MotorController",
+    "file": "apps/api/src/modules/motor/motor.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": true
+  },
+  {
+    "method": "GET",
+    "path": "/motor/vehicles/by-contact/:contactId",
+    "controller": "MotorController",
+    "file": "apps/api/src/modules/motor/motor.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": true
+  },
+  {
+    "method": "GET",
+    "path": "/motor/previous-policy/:identifier",
+    "controller": "MotorController",
+    "file": "apps/api/src/modules/motor/motor.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": true
+  },
+  {
+    "method": "GET",
+    "path": "/motor/documents/required",
+    "controller": "MotorController",
+    "file": "apps/api/src/modules/motor/motor.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": true
+  },
+  {
+    "method": "GET",
+    "path": "/motor/documents/lead-completion/:leadId",
+    "controller": "MotorController",
+    "file": "apps/api/src/modules/motor/motor.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": true
+  },
+  {
+    "method": "GET",
+    "path": "/motor/rating/insurers",
+    "controller": "RatingEngineController",
+    "file": "apps/api/src/modules/motor-admin/controllers/rating-engine.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": false
+  },
+  {
+    "method": "GET",
+    "path": "/motor/rating/insurers/:id",
+    "controller": "RatingEngineController",
+    "file": "apps/api/src/modules/motor-admin/controllers/rating-engine.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE",
+      "AGENT"
+    ],
+    "hasTenantScope": false
+  },
+  {
+    "method": "POST",
+    "path": "/motor/rating/insurers",
+    "controller": "RatingEngineController",
+    "file": "apps/api/src/modules/motor-admin/controllers/rating-engine.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE",
+      "AGENT"
+    ],
+    "hasTenantScope": false
+  },
+  {
+    "method": "PUT",
+    "path": "/motor/rating/insurers/:id",
+    "controller": "RatingEngineController",
+    "file": "apps/api/src/modules/motor-admin/controllers/rating-engine.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [
+      "ADMIN"
+    ],
+    "hasTenantScope": false
+  },
+  {
+    "method": "PATCH",
+    "path": "/motor/rating/insurers/:id/toggle",
+    "controller": "RatingEngineController",
+    "file": "apps/api/src/modules/motor-admin/controllers/rating-engine.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [
+      "ADMIN"
+    ],
+    "hasTenantScope": false
+  },
+  {
+    "method": "DELETE",
+    "path": "/motor/rating/insurers/:id",
+    "controller": "RatingEngineController",
+    "file": "apps/api/src/modules/motor-admin/controllers/rating-engine.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [
+      "ADMIN"
+    ],
+    "hasTenantScope": false
+  },
+  {
+    "method": "GET",
+    "path": "/motor/rating/insurance-products",
+    "controller": "RatingEngineController",
+    "file": "apps/api/src/modules/motor-admin/controllers/rating-engine.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [
+      "ADMIN"
+    ],
+    "hasTenantScope": false
+  },
+  {
+    "method": "POST",
+    "path": "/motor/rating/insurance-products",
+    "controller": "RatingEngineController",
+    "file": "apps/api/src/modules/motor-admin/controllers/rating-engine.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE",
+      "AGENT"
+    ],
+    "hasTenantScope": false
+  },
+  {
+    "method": "GET",
+    "path": "/motor/rating/discounts",
+    "controller": "RatingEngineController",
+    "file": "apps/api/src/modules/motor-admin/controllers/rating-engine.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [
+      "ADMIN"
+    ],
+    "hasTenantScope": false
+  },
+  {
+    "method": "POST",
+    "path": "/motor/rating/discounts",
+    "controller": "RatingEngineController",
+    "file": "apps/api/src/modules/motor-admin/controllers/rating-engine.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE",
+      "AGENT"
+    ],
+    "hasTenantScope": false
+  },
+  {
+    "method": "GET",
+    "path": "/motor/rating/commissions",
+    "controller": "RatingEngineController",
+    "file": "apps/api/src/modules/motor-admin/controllers/rating-engine.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [
+      "ADMIN"
+    ],
+    "hasTenantScope": false
+  },
+  {
+    "method": "POST",
+    "path": "/motor/rating/commissions",
+    "controller": "RatingEngineController",
+    "file": "apps/api/src/modules/motor-admin/controllers/rating-engine.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE",
+      "AGENT"
+    ],
+    "hasTenantScope": false
+  },
+  {
+    "method": "GET",
+    "path": "/motor/rating/products",
+    "controller": "RatingEngineController",
+    "file": "apps/api/src/modules/motor-admin/controllers/rating-engine.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [
+      "ADMIN"
+    ],
+    "hasTenantScope": false
+  },
+  {
+    "method": "POST",
+    "path": "/motor/rating/products",
+    "controller": "RatingEngineController",
+    "file": "apps/api/src/modules/motor-admin/controllers/rating-engine.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE",
+      "AGENT"
+    ],
+    "hasTenantScope": false
+  },
+  {
+    "method": "GET",
+    "path": "/motor/vehicles/rto",
+    "controller": "VehicleMasterController",
+    "file": "apps/api/src/modules/motor-admin/controllers/vehicle-master.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": false
+  },
+  {
+    "method": "GET",
+    "path": "/motor/vehicles/rto/:code",
+    "controller": "VehicleMasterController",
+    "file": "apps/api/src/modules/motor-admin/controllers/vehicle-master.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": false
+  },
+  {
+    "method": "POST",
+    "path": "/motor/vehicles/rto",
+    "controller": "VehicleMasterController",
+    "file": "apps/api/src/modules/motor-admin/controllers/vehicle-master.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": false
+  },
+  {
+    "method": "PUT",
+    "path": "/motor/vehicles/rto/:id",
+    "controller": "VehicleMasterController",
+    "file": "apps/api/src/modules/motor-admin/controllers/vehicle-master.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [
+      "ADMIN"
+    ],
+    "hasTenantScope": false
+  },
+  {
+    "method": "DELETE",
+    "path": "/motor/vehicles/rto/:id",
+    "controller": "VehicleMasterController",
+    "file": "apps/api/src/modules/motor-admin/controllers/vehicle-master.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [
+      "ADMIN"
+    ],
+    "hasTenantScope": false
+  },
+  {
+    "method": "GET",
+    "path": "/motor/vehicles/manufacturers",
+    "controller": "VehicleMasterController",
+    "file": "apps/api/src/modules/motor-admin/controllers/vehicle-master.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [
+      "ADMIN"
+    ],
+    "hasTenantScope": false
+  },
+  {
+    "method": "POST",
+    "path": "/motor/vehicles/manufacturers",
+    "controller": "VehicleMasterController",
+    "file": "apps/api/src/modules/motor-admin/controllers/vehicle-master.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": false
+  },
+  {
+    "method": "GET",
+    "path": "/motor/vehicles/models",
+    "controller": "VehicleMasterController",
+    "file": "apps/api/src/modules/motor-admin/controllers/vehicle-master.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [
+      "ADMIN"
+    ],
+    "hasTenantScope": false
+  },
+  {
+    "method": "POST",
+    "path": "/motor/vehicles/models",
+    "controller": "VehicleMasterController",
+    "file": "apps/api/src/modules/motor-admin/controllers/vehicle-master.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": false
+  },
+  {
+    "method": "GET",
+    "path": "/motor/vehicles/variants",
+    "controller": "VehicleMasterController",
+    "file": "apps/api/src/modules/motor-admin/controllers/vehicle-master.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": false
+  },
+  {
+    "method": "POST",
+    "path": "/motor/vehicles/variants",
+    "controller": "VehicleMasterController",
+    "file": "apps/api/src/modules/motor-admin/controllers/vehicle-master.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": false
+  },
+  {
+    "method": "POST",
+    "path": "/motor/vehicles/variants/import",
+    "controller": "VehicleMasterController",
+    "file": "apps/api/src/modules/motor-admin/controllers/vehicle-master.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": false
+  },
+  {
+    "method": "GET",
+    "path": "/motor-quotations/compare",
+    "controller": "MotorQuotationsController",
+    "file": "apps/api/src/modules/motor-quotations/motor-quotations.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": false
+  },
+  {
+    "method": "GET",
+    "path": "/motor-quotations",
+    "controller": "MotorQuotationsController",
+    "file": "apps/api/src/modules/motor-quotations/motor-quotations.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": false
+  },
+  {
+    "method": "GET",
+    "path": "/motor-quotations/:id",
+    "controller": "MotorQuotationsController",
+    "file": "apps/api/src/modules/motor-quotations/motor-quotations.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE",
+      "AGENT"
+    ],
+    "hasTenantScope": false
+  },
+  {
+    "method": "POST",
+    "path": "/motor-quotations",
+    "controller": "MotorQuotationsController",
+    "file": "apps/api/src/modules/motor-quotations/motor-quotations.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": false
+  },
+  {
+    "method": "POST",
+    "path": "/motor-quotations/:id/accept",
+    "controller": "MotorQuotationsController",
+    "file": "apps/api/src/modules/motor-quotations/motor-quotations.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": false
+  },
+  {
+    "method": "GET",
+    "path": "/organization/departments",
+    "controller": "OrganizationController",
+    "file": "apps/api/src/modules/organization/controllers/organization.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": false
+  },
+  {
+    "method": "GET",
+    "path": "/organization/departments/:id",
+    "controller": "OrganizationController",
+    "file": "apps/api/src/modules/organization/controllers/organization.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": false
+  },
+  {
+    "method": "POST",
+    "path": "/organization/departments",
+    "controller": "OrganizationController",
+    "file": "apps/api/src/modules/organization/controllers/organization.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": false
+  },
+  {
+    "method": "PUT",
+    "path": "/organization/departments/:id",
+    "controller": "OrganizationController",
+    "file": "apps/api/src/modules/organization/controllers/organization.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [
+      "ADMIN",
+      "ADMIN"
+    ],
+    "hasTenantScope": false
+  },
+  {
+    "method": "DELETE",
+    "path": "/organization/departments/:id",
+    "controller": "OrganizationController",
+    "file": "apps/api/src/modules/organization/controllers/organization.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [
+      "ADMIN",
+      "ADMIN"
+    ],
+    "hasTenantScope": false
+  },
+  {
+    "method": "GET",
+    "path": "/organization/job-roles",
+    "controller": "OrganizationController",
+    "file": "apps/api/src/modules/organization/controllers/organization.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [
+      "ADMIN",
+      "ADMIN"
+    ],
+    "hasTenantScope": false
+  },
+  {
+    "method": "GET",
+    "path": "/organization/job-roles/:id",
+    "controller": "OrganizationController",
+    "file": "apps/api/src/modules/organization/controllers/organization.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": false
+  },
+  {
+    "method": "POST",
+    "path": "/organization/job-role",
+    "controller": "OrganizationController",
+    "file": "apps/api/src/modules/organization/controllers/organization.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": false
+  },
+  {
+    "method": "PUT",
+    "path": "/organization/job-role/:id",
+    "controller": "OrganizationController",
+    "file": "apps/api/src/modules/organization/controllers/organization.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [
+      "ADMIN",
+      "ADMIN"
+    ],
+    "hasTenantScope": false
+  },
+  {
+    "method": "DELETE",
+    "path": "/organization/job-role/:id",
+    "controller": "OrganizationController",
+    "file": "apps/api/src/modules/organization/controllers/organization.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [
+      "ADMIN",
+      "ADMIN"
+    ],
+    "hasTenantScope": false
+  },
+  {
+    "method": "GET",
+    "path": "/organization/hierarchy",
+    "controller": "OrganizationController",
+    "file": "apps/api/src/modules/organization/controllers/organization.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [
+      "ADMIN",
+      "ADMIN"
+    ],
+    "hasTenantScope": false
+  },
+  {
+    "method": "GET",
+    "path": "/audit/export",
+    "controller": "AuditController",
+    "file": "apps/api/src/modules/platform/audit/controllers/audit.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [
+      "ADMIN"
+    ],
+    "hasTenantScope": true
+  },
+  {
+    "method": "GET",
+    "path": "/audit",
+    "controller": "AuditController",
+    "file": "apps/api/src/modules/platform/audit/controllers/audit.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": true
+  },
+  {
+    "method": "POST",
+    "path": "/webhooks/:provider",
+    "controller": "WebhookGatewayController",
+    "file": "apps/api/src/modules/platform/integrations/webhooks/controllers/webhook-gateway/webhook-gateway.controller.ts",
+    "hasRolesGuard": false,
+    "roles": [],
+    "hasTenantScope": false
+  },
+  {
+    "method": "GET",
+    "path": "/notifications",
+    "controller": "NotificationsController",
+    "file": "apps/api/src/modules/platform/notifications/controllers/notifications.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE",
+      "AGENT"
+    ],
+    "hasTenantScope": false
+  },
+  {
+    "method": "GET",
+    "path": "/notifications/delivery-logs",
+    "controller": "NotificationsController",
+    "file": "apps/api/src/modules/platform/notifications/controllers/notifications.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": false
+  },
+  {
+    "method": "GET",
+    "path": "/notifications/events",
+    "controller": "NotificationsController",
+    "file": "apps/api/src/modules/platform/notifications/controllers/notifications.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": false
+  },
+  {
+    "method": "GET",
+    "path": "/notifications/templates",
+    "controller": "NotificationsController",
+    "file": "apps/api/src/modules/platform/notifications/controllers/notifications.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": false
+  },
+  {
+    "method": "PUT",
+    "path": "/notifications/templates/:id",
+    "controller": "NotificationsController",
+    "file": "apps/api/src/modules/platform/notifications/controllers/notifications.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": false
+  },
+  {
+    "method": "GET",
+    "path": "/notifications/unread",
+    "controller": "NotificationsController",
+    "file": "apps/api/src/modules/platform/notifications/controllers/notifications.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": false
+  },
+  {
+    "method": "GET",
+    "path": "/notifications/count",
+    "controller": "NotificationsController",
+    "file": "apps/api/src/modules/platform/notifications/controllers/notifications.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": false
+  },
+  {
+    "method": "PATCH",
+    "path": "/notifications/read-all",
+    "controller": "NotificationsController",
+    "file": "apps/api/src/modules/platform/notifications/controllers/notifications.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": false
+  },
+  {
+    "method": "PATCH",
+    "path": "/notifications/:id/read",
+    "controller": "NotificationsController",
+    "file": "apps/api/src/modules/platform/notifications/controllers/notifications.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": false
+  },
+  {
+    "method": "DELETE",
+    "path": "/notifications/:id",
+    "controller": "NotificationsController",
+    "file": "apps/api/src/modules/platform/notifications/controllers/notifications.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": false
+  },
+  {
+    "method": "GET",
+    "path": "/notifications/preferences",
+    "controller": "NotificationsController",
+    "file": "apps/api/src/modules/platform/notifications/controllers/notifications.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": false
+  },
+  {
+    "method": "PATCH",
+    "path": "/notifications/preferences",
+    "controller": "NotificationsController",
+    "file": "apps/api/src/modules/platform/notifications/controllers/notifications.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": false
+  },
+  {
+    "method": "GET",
+    "path": "/portal/metrics",
+    "controller": "PortalController",
+    "file": "apps/api/src/modules/platform/portal/controllers/portal.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": true
+  },
+  {
+    "method": "GET",
+    "path": "/portal/customers",
+    "controller": "PortalController",
+    "file": "apps/api/src/modules/platform/portal/controllers/portal.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": true
+  },
+  {
+    "method": "GET",
+    "path": "/portal/leads",
+    "controller": "PortalController",
+    "file": "apps/api/src/modules/platform/portal/controllers/portal.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": true
+  },
+  {
+    "method": "POST",
+    "path": "/portal/leads",
+    "controller": "PortalController",
+    "file": "apps/api/src/modules/platform/portal/controllers/portal.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": true
+  },
+  {
+    "method": "GET",
+    "path": "/portal/quotations/compare",
+    "controller": "PortalController",
+    "file": "apps/api/src/modules/platform/portal/controllers/portal.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": true
+  },
+  {
+    "method": "POST",
+    "path": "/portal/quotations/compare",
+    "controller": "PortalController",
+    "file": "apps/api/src/modules/platform/portal/controllers/portal.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": true
+  },
+  {
+    "method": "GET",
+    "path": "/portal/policies",
+    "controller": "PortalController",
+    "file": "apps/api/src/modules/platform/portal/controllers/portal.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": true
+  },
+  {
+    "method": "GET",
+    "path": "/portal/renewals",
+    "controller": "PortalController",
+    "file": "apps/api/src/modules/platform/portal/controllers/portal.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": true
+  },
+  {
+    "method": "GET",
+    "path": "/portal/commissions",
+    "controller": "PortalController",
+    "file": "apps/api/src/modules/platform/portal/controllers/portal.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": true
+  },
+  {
+    "method": "GET",
+    "path": "/portal/branch-manager/metrics",
+    "controller": "PortalController",
+    "file": "apps/api/src/modules/platform/portal/controllers/portal.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": true
+  },
+  {
+    "method": "GET",
+    "path": "/portal/support/tickets",
+    "controller": "PortalController",
+    "file": "apps/api/src/modules/platform/portal/controllers/portal.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": true
+  },
+  {
+    "method": "POST",
+    "path": "/portal/support/tickets",
+    "controller": "PortalController",
+    "file": "apps/api/src/modules/platform/portal/controllers/portal.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": true
+  },
+  {
+    "method": "GET",
+    "path": "/queue/jobs",
+    "controller": "QueueDashboardController",
+    "file": "apps/api/src/modules/platform/queue/monitoring/queue-dashboard.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [
+      "ADMIN"
+    ],
+    "hasTenantScope": false
+  },
+  {
+    "method": "GET",
+    "path": "/queue/statistics",
+    "controller": "QueueDashboardController",
+    "file": "apps/api/src/modules/platform/queue/monitoring/queue-dashboard.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": false
+  },
+  {
+    "method": "GET",
+    "path": "/queue/jobs/:id",
+    "controller": "QueueDashboardController",
+    "file": "apps/api/src/modules/platform/queue/monitoring/queue-dashboard.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": false
+  },
+  {
+    "method": "POST",
+    "path": "/queue/jobs/:id/retry",
+    "controller": "QueueDashboardController",
+    "file": "apps/api/src/modules/platform/queue/monitoring/queue-dashboard.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": false
+  },
+  {
+    "method": "DELETE",
+    "path": "/queue/jobs/:id",
+    "controller": "QueueDashboardController",
+    "file": "apps/api/src/modules/platform/queue/monitoring/queue-dashboard.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": false
+  },
+  {
+    "method": "POST",
+    "path": "/reports",
+    "controller": "ReportsController",
+    "file": "apps/api/src/modules/platform/reporting/controllers/reports.controller.ts",
+    "hasRolesGuard": false,
+    "roles": [],
+    "hasTenantScope": true
+  },
+  {
+    "method": "PUT",
+    "path": "/reports/:id",
+    "controller": "ReportsController",
+    "file": "apps/api/src/modules/platform/reporting/controllers/reports.controller.ts",
+    "hasRolesGuard": false,
+    "roles": [],
+    "hasTenantScope": true
+  },
+  {
+    "method": "DELETE",
+    "path": "/reports/:id",
+    "controller": "ReportsController",
+    "file": "apps/api/src/modules/platform/reporting/controllers/reports.controller.ts",
+    "hasRolesGuard": false,
+    "roles": [],
+    "hasTenantScope": true
+  },
+  {
+    "method": "GET",
+    "path": "/reports",
+    "controller": "ReportsController",
+    "file": "apps/api/src/modules/platform/reporting/controllers/reports.controller.ts",
+    "hasRolesGuard": false,
+    "roles": [],
+    "hasTenantScope": true
+  },
+  {
+    "method": "GET",
+    "path": "/reports/system",
+    "controller": "ReportsController",
+    "file": "apps/api/src/modules/platform/reporting/controllers/reports.controller.ts",
+    "hasRolesGuard": false,
+    "roles": [],
+    "hasTenantScope": true
+  },
+  {
+    "method": "GET",
+    "path": "/reports/custom",
+    "controller": "ReportsController",
+    "file": "apps/api/src/modules/platform/reporting/controllers/reports.controller.ts",
+    "hasRolesGuard": false,
+    "roles": [],
+    "hasTenantScope": true
+  },
+  {
+    "method": "GET",
+    "path": "/reports/providers",
+    "controller": "ReportsController",
+    "file": "apps/api/src/modules/platform/reporting/controllers/reports.controller.ts",
+    "hasRolesGuard": false,
+    "roles": [],
+    "hasTenantScope": true
+  },
+  {
+    "method": "GET",
+    "path": "/reports/schedules",
+    "controller": "ReportsController",
+    "file": "apps/api/src/modules/platform/reporting/controllers/reports.controller.ts",
+    "hasRolesGuard": false,
+    "roles": [],
+    "hasTenantScope": true
+  },
+  {
+    "method": "POST",
+    "path": "/reports/schedules",
+    "controller": "ReportsController",
+    "file": "apps/api/src/modules/platform/reporting/controllers/reports.controller.ts",
+    "hasRolesGuard": false,
+    "roles": [],
+    "hasTenantScope": true
+  },
+  {
+    "method": "GET",
+    "path": "/reports/history",
+    "controller": "ReportsController",
+    "file": "apps/api/src/modules/platform/reporting/controllers/reports.controller.ts",
+    "hasRolesGuard": false,
+    "roles": [],
+    "hasTenantScope": true
+  },
+  {
+    "method": "GET",
+    "path": "/reports/:idOrCode",
+    "controller": "ReportsController",
+    "file": "apps/api/src/modules/platform/reporting/controllers/reports.controller.ts",
+    "hasRolesGuard": false,
+    "roles": [],
+    "hasTenantScope": true
+  },
+  {
+    "method": "GET",
+    "path": "/reports/:id/export",
+    "controller": "ReportsController",
+    "file": "apps/api/src/modules/platform/reporting/controllers/reports.controller.ts",
+    "hasRolesGuard": false,
+    "roles": [],
+    "hasTenantScope": true
+  },
+  {
+    "method": "POST",
+    "path": "/reports/:id/execute",
+    "controller": "ReportsController",
+    "file": "apps/api/src/modules/platform/reporting/controllers/reports.controller.ts",
+    "hasRolesGuard": false,
+    "roles": [],
+    "hasTenantScope": true
+  },
+  {
+    "method": "POST",
+    "path": "/reports/:id/preview",
+    "controller": "ReportsController",
+    "file": "apps/api/src/modules/platform/reporting/controllers/reports.controller.ts",
+    "hasRolesGuard": false,
+    "roles": [],
+    "hasTenantScope": true
+  },
+  {
+    "method": "POST",
+    "path": "/reports/:id/drilldown",
+    "controller": "ReportsController",
+    "file": "apps/api/src/modules/platform/reporting/controllers/reports.controller.ts",
+    "hasRolesGuard": false,
+    "roles": [],
+    "hasTenantScope": true
+  },
+  {
+    "method": "GET",
+    "path": "/reports/:id/history",
+    "controller": "ReportsController",
+    "file": "apps/api/src/modules/platform/reporting/controllers/reports.controller.ts",
+    "hasRolesGuard": false,
+    "roles": [],
+    "hasTenantScope": true
+  },
+  {
+    "method": "POST",
+    "path": "/reports/:id/schedules",
+    "controller": "ReportsController",
+    "file": "apps/api/src/modules/platform/reporting/controllers/reports.controller.ts",
+    "hasRolesGuard": false,
+    "roles": [],
+    "hasTenantScope": true
+  },
+  {
+    "method": "PUT",
+    "path": "/reports/schedules/:scheduleId",
+    "controller": "ReportsController",
+    "file": "apps/api/src/modules/platform/reporting/controllers/reports.controller.ts",
+    "hasRolesGuard": false,
+    "roles": [],
+    "hasTenantScope": true
+  },
+  {
+    "method": "DELETE",
+    "path": "/reports/schedules/:scheduleId",
+    "controller": "ReportsController",
+    "file": "apps/api/src/modules/platform/reporting/controllers/reports.controller.ts",
+    "hasRolesGuard": false,
+    "roles": [],
+    "hasTenantScope": true
+  },
+  {
+    "method": "POST",
+    "path": "/reports/:id/favorite",
+    "controller": "ReportsController",
+    "file": "apps/api/src/modules/platform/reporting/controllers/reports.controller.ts",
+    "hasRolesGuard": false,
+    "roles": [],
+    "hasTenantScope": true
+  },
+  {
+    "method": "DELETE",
+    "path": "/reports/:id/favorite",
+    "controller": "ReportsController",
+    "file": "apps/api/src/modules/platform/reporting/controllers/reports.controller.ts",
+    "hasRolesGuard": false,
+    "roles": [],
+    "hasTenantScope": true
+  },
+  {
+    "method": "POST",
+    "path": "/reports/:id/filters",
+    "controller": "ReportsController",
+    "file": "apps/api/src/modules/platform/reporting/controllers/reports.controller.ts",
+    "hasRolesGuard": false,
+    "roles": [],
+    "hasTenantScope": true
+  },
+  {
+    "method": "GET",
+    "path": "/reports/:id/filters",
+    "controller": "ReportsController",
+    "file": "apps/api/src/modules/platform/reporting/controllers/reports.controller.ts",
+    "hasRolesGuard": false,
+    "roles": [],
+    "hasTenantScope": true
+  },
+  {
+    "method": "DELETE",
+    "path": "/reports/filters/:filterId",
+    "controller": "ReportsController",
+    "file": "apps/api/src/modules/platform/reporting/controllers/reports.controller.ts",
+    "hasRolesGuard": false,
+    "roles": [],
+    "hasTenantScope": true
+  },
+  {
+    "method": "GET",
+    "path": "/search",
+    "controller": "SearchController",
+    "file": "apps/api/src/modules/platform/search/controllers/search.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE",
+      "AGENT"
+    ],
+    "hasTenantScope": true
+  },
+  {
+    "method": "GET",
+    "path": "/workflow",
+    "controller": "WorkflowsController",
+    "file": "apps/api/src/modules/platform/workflow/controllers/workflows.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": false
+  },
+  {
+    "method": "GET",
+    "path": "/workflow/instances",
+    "controller": "WorkflowsController",
+    "file": "apps/api/src/modules/platform/workflow/controllers/workflows.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": false
+  },
+  {
+    "method": "GET",
+    "path": "/workflow/approvals",
+    "controller": "WorkflowsController",
+    "file": "apps/api/src/modules/platform/workflow/controllers/workflows.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": false
+  },
+  {
+    "method": "POST",
+    "path": "/workflow/approvals/:id/action",
+    "controller": "WorkflowsController",
+    "file": "apps/api/src/modules/platform/workflow/controllers/workflows.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": false
+  },
+  {
+    "method": "POST",
+    "path": "/workflow/approvals/bulk",
+    "controller": "WorkflowsController",
+    "file": "apps/api/src/modules/platform/workflow/controllers/workflows.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE"
+    ],
+    "hasTenantScope": false
+  },
+  {
+    "method": "GET",
+    "path": "/workflow/sla/metrics",
+    "controller": "WorkflowsController",
+    "file": "apps/api/src/modules/platform/workflow/controllers/workflows.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE"
+    ],
+    "hasTenantScope": false
+  },
+  {
+    "method": "GET",
+    "path": "/workflow/definitions",
+    "controller": "WorkflowsController",
+    "file": "apps/api/src/modules/platform/workflow/controllers/workflows.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": false
+  },
+  {
+    "method": "POST",
+    "path": "/workflow/definitions",
+    "controller": "WorkflowsController",
+    "file": "apps/api/src/modules/platform/workflow/controllers/workflows.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [
+      "ADMIN"
+    ],
+    "hasTenantScope": false
+  },
+  {
+    "method": "PATCH",
+    "path": "/workflow/definitions/:id",
+    "controller": "WorkflowsController",
+    "file": "apps/api/src/modules/platform/workflow/controllers/workflows.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [
+      "ADMIN"
+    ],
+    "hasTenantScope": false
+  },
+  {
+    "method": "DELETE",
+    "path": "/workflow/definitions/:id",
+    "controller": "WorkflowsController",
+    "file": "apps/api/src/modules/platform/workflow/controllers/workflows.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": false
+  },
+  {
+    "method": "GET",
+    "path": "/workflow/:entityType/:entityId/transitions",
+    "controller": "WorkflowsController",
+    "file": "apps/api/src/modules/platform/workflow/controllers/workflows.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [
+      "ADMIN"
+    ],
+    "hasTenantScope": false
+  },
+  {
+    "method": "POST",
+    "path": "/workflow/:entityType/:entityId/transition",
+    "controller": "WorkflowsController",
+    "file": "apps/api/src/modules/platform/workflow/controllers/workflows.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": false
+  },
+  {
+    "method": "GET",
+    "path": "/workflow/:entityType/:entityId/history",
+    "controller": "WorkflowsController",
+    "file": "apps/api/src/modules/platform/workflow/controllers/workflows.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": false
+  },
+  {
+    "method": "GET",
+    "path": "/back-office/queue",
+    "controller": "BackOfficeController",
+    "file": "apps/api/src/modules/policies/controllers/back-office.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": false
+  },
+  {
+    "method": "POST",
+    "path": "/back-office/issue/:quotationId",
+    "controller": "BackOfficeController",
+    "file": "apps/api/src/modules/policies/controllers/back-office.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": false
+  },
+  {
+    "method": "POST",
+    "path": "/policies/issue",
+    "controller": "PoliciesController",
+    "file": "apps/api/src/modules/policies/controllers/policies.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": true
+  },
+  {
+    "method": "POST",
+    "path": "/policies",
+    "controller": "PoliciesController",
+    "file": "apps/api/src/modules/policies/controllers/policies.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": true
+  },
+  {
+    "method": "GET",
+    "path": "/policies/renewals/kpis",
+    "controller": "PoliciesController",
+    "file": "apps/api/src/modules/policies/controllers/policies.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": true
+  },
+  {
+    "method": "GET",
+    "path": "/policies/renewals/upcoming",
+    "controller": "PoliciesController",
+    "file": "apps/api/src/modules/policies/controllers/policies.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": true
+  },
+  {
+    "method": "POST",
+    "path": "/policies/renewals/:id/lost",
+    "controller": "PoliciesController",
+    "file": "apps/api/src/modules/policies/controllers/policies.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": true
+  },
+  {
+    "method": "GET",
+    "path": "/policies/renewal/pipeline",
+    "controller": "PoliciesController",
+    "file": "apps/api/src/modules/policies/controllers/policies.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": true
+  },
+  {
+    "method": "GET",
+    "path": "/policies/renewals/queue",
+    "controller": "PoliciesController",
+    "file": "apps/api/src/modules/policies/controllers/policies.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE",
+      "AGENT"
+    ],
+    "hasTenantScope": true
+  },
+  {
+    "method": "POST",
+    "path": "/policies/renewals/:id/remind",
+    "controller": "PoliciesController",
+    "file": "apps/api/src/modules/policies/controllers/policies.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": true
+  },
+  {
+    "method": "POST",
+    "path": "/policies/renewals/:id/escalate",
+    "controller": "PoliciesController",
+    "file": "apps/api/src/modules/policies/controllers/policies.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE",
+      "AGENT"
+    ],
+    "hasTenantScope": true
+  },
+  {
+    "method": "POST",
+    "path": "/policies/renewal/trigger-scan",
+    "controller": "PoliciesController",
+    "file": "apps/api/src/modules/policies/controllers/policies.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": true
+  },
+  {
+    "method": "GET",
+    "path": "/policies",
+    "controller": "PoliciesController",
+    "file": "apps/api/src/modules/policies/controllers/policies.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [
+      "ADMIN"
+    ],
+    "hasTenantScope": true
+  },
+  {
+    "method": "GET",
+    "path": "/policies/:id",
+    "controller": "PoliciesController",
+    "file": "apps/api/src/modules/policies/controllers/policies.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE",
+      "AGENT"
+    ],
+    "hasTenantScope": true
+  },
+  {
+    "method": "PATCH",
+    "path": "/policies/:id",
+    "controller": "PoliciesController",
+    "file": "apps/api/src/modules/policies/controllers/policies.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE",
+      "AGENT"
+    ],
+    "hasTenantScope": true
+  },
+  {
+    "method": "GET",
+    "path": "/policies/:id/history",
+    "controller": "PoliciesController",
+    "file": "apps/api/src/modules/policies/controllers/policies.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": true
+  },
+  {
+    "method": "POST",
+    "path": "/policies/:id/renew",
+    "controller": "PoliciesController",
+    "file": "apps/api/src/modules/policies/controllers/policies.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE",
+      "AGENT"
+    ],
+    "hasTenantScope": true
+  },
+  {
+    "method": "POST",
+    "path": "/policies/:id/cancel",
+    "controller": "PoliciesController",
+    "file": "apps/api/src/modules/policies/controllers/policies.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE",
+      "AGENT"
+    ],
+    "hasTenantScope": true
+  },
+  {
+    "method": "GET",
+    "path": "/renewals/tasks",
+    "controller": "RenewalsController",
+    "file": "apps/api/src/modules/policies/controllers/renewals.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": true
+  },
+  {
+    "method": "POST",
+    "path": "/renewals/tasks/:id/quote",
+    "controller": "RenewalsController",
+    "file": "apps/api/src/modules/policies/controllers/renewals.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": true
+  },
+  {
+    "method": "POST",
+    "path": "/renewals/tasks/:id/complete",
+    "controller": "RenewalsController",
+    "file": "apps/api/src/modules/policies/controllers/renewals.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": true
+  },
+  {
+    "method": "POST",
+    "path": "/renewals/tasks/:id/lost",
+    "controller": "RenewalsController",
+    "file": "apps/api/src/modules/policies/controllers/renewals.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": true
+  },
+  {
+    "method": "GET",
+    "path": "/proposals",
+    "controller": "ProposalsController",
+    "file": "apps/api/src/modules/proposal/controllers/proposals.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": false
+  },
+  {
+    "method": "GET",
+    "path": "/proposals/:id",
+    "controller": "ProposalsController",
+    "file": "apps/api/src/modules/proposal/controllers/proposals.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE",
+      "AGENT"
+    ],
+    "hasTenantScope": false
+  },
+  {
+    "method": "POST",
+    "path": "/proposals",
+    "controller": "ProposalsController",
+    "file": "apps/api/src/modules/proposal/controllers/proposals.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE",
+      "AGENT"
+    ],
+    "hasTenantScope": false
+  },
+  {
+    "method": "POST",
+    "path": "/proposals/:id/attach",
+    "controller": "ProposalsController",
+    "file": "apps/api/src/modules/proposal/controllers/proposals.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE",
+      "AGENT"
+    ],
+    "hasTenantScope": false
+  },
+  {
+    "method": "POST",
+    "path": "/proposals/:id/submit",
+    "controller": "ProposalsController",
+    "file": "apps/api/src/modules/proposal/controllers/proposals.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": false
+  },
+  {
+    "method": "POST",
+    "path": "/proposals/:id/review",
+    "controller": "ProposalsController",
+    "file": "apps/api/src/modules/proposal/controllers/proposals.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": false
+  },
+  {
+    "method": "POST",
+    "path": "/quotations/motor-capture",
+    "controller": "QuotationController",
+    "file": "apps/api/src/modules/quotation/controllers/quotation.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": false
+  },
+  {
+    "method": "POST",
+    "path": "/quotations/calculate",
+    "controller": "QuotationController",
+    "file": "apps/api/src/modules/quotation/controllers/quotation.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": false
+  },
+  {
+    "method": "POST",
+    "path": "/quotations/enterprise-compare",
+    "controller": "QuotationController",
+    "file": "apps/api/src/modules/quotation/controllers/quotation.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE",
+      "AGENT"
+    ],
+    "hasTenantScope": false
+  },
+  {
+    "method": "POST",
+    "path": "/quotations/wizard/issue-policy",
+    "controller": "QuotationController",
+    "file": "apps/api/src/modules/quotation/controllers/quotation.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE",
+      "AGENT"
+    ],
+    "hasTenantScope": false
+  },
+  {
+    "method": "POST",
+    "path": "/quotations",
+    "controller": "QuotationController",
+    "file": "apps/api/src/modules/quotation/controllers/quotation.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE"
+    ],
+    "hasTenantScope": false
+  },
+  {
+    "method": "GET",
+    "path": "/quotations",
+    "controller": "QuotationController",
+    "file": "apps/api/src/modules/quotation/controllers/quotation.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE",
+      "AGENT"
+    ],
+    "hasTenantScope": false
+  },
+  {
+    "method": "GET",
+    "path": "/quotations/:id/completion",
+    "controller": "QuotationController",
+    "file": "apps/api/src/modules/quotation/controllers/quotation.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE",
+      "AGENT"
+    ],
+    "hasTenantScope": false
+  },
+  {
+    "method": "GET",
+    "path": "/quotations/:id",
+    "controller": "QuotationController",
+    "file": "apps/api/src/modules/quotation/controllers/quotation.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": false
+  },
+  {
+    "method": "GET",
+    "path": "/quotations/:id/history",
+    "controller": "QuotationController",
+    "file": "apps/api/src/modules/quotation/controllers/quotation.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE",
+      "AGENT"
+    ],
+    "hasTenantScope": false
+  },
+  {
+    "method": "POST",
+    "path": "/quotations/compare",
+    "controller": "QuotationController",
+    "file": "apps/api/src/modules/quotation/controllers/quotation.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE",
+      "AGENT"
+    ],
+    "hasTenantScope": false
+  },
+  {
+    "method": "POST",
+    "path": "/quotations/:id/approve",
+    "controller": "QuotationController",
+    "file": "apps/api/src/modules/quotation/controllers/quotation.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE",
+      "AGENT"
+    ],
+    "hasTenantScope": false
+  },
+  {
+    "method": "POST",
+    "path": "/quotations/:id/reject",
+    "controller": "QuotationController",
+    "file": "apps/api/src/modules/quotation/controllers/quotation.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": false
+  },
+  {
+    "method": "POST",
+    "path": "/quotations/:id/convert",
+    "controller": "QuotationController",
+    "file": "apps/api/src/modules/quotation/controllers/quotation.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE"
+    ],
+    "hasTenantScope": false
+  },
+  {
+    "method": "POST",
+    "path": "/quotations/:id/accept",
+    "controller": "QuotationController",
+    "file": "apps/api/src/modules/quotation/controllers/quotation.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE",
+      "AGENT"
+    ],
+    "hasTenantScope": false
+  },
+  {
+    "method": "POST",
+    "path": "/quotations/:id/versions",
+    "controller": "QuotationController",
+    "file": "apps/api/src/modules/quotation/controllers/quotation.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": false
+  },
+  {
+    "method": "GET",
+    "path": "/quotations/:id/versions",
+    "controller": "QuotationController",
+    "file": "apps/api/src/modules/quotation/controllers/quotation.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": false
+  },
+  {
+    "method": "PATCH",
+    "path": "/quotations/:id/details",
+    "controller": "QuotationController",
+    "file": "apps/api/src/modules/quotation/controllers/quotation.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": false
+  },
+  {
+    "method": "GET",
+    "path": "/tasks/today",
+    "controller": "TasksController",
+    "file": "apps/api/src/modules/tasks/tasks.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": false
+  },
+  {
+    "method": "GET",
+    "path": "/tasks/back-office/queue",
+    "controller": "TasksController",
+    "file": "apps/api/src/modules/tasks/tasks.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE",
+      "AGENT"
+    ],
+    "hasTenantScope": false
+  },
+  {
+    "method": "GET",
+    "path": "/tasks/back-office/:id",
+    "controller": "TasksController",
+    "file": "apps/api/src/modules/tasks/tasks.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE"
+    ],
+    "hasTenantScope": false
+  },
+  {
+    "method": "POST",
+    "path": "/tasks/back-office",
+    "controller": "TasksController",
+    "file": "apps/api/src/modules/tasks/tasks.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE"
+    ],
+    "hasTenantScope": false
+  },
+  {
+    "method": "PATCH",
+    "path": "/tasks/back-office/:id/assign",
+    "controller": "TasksController",
+    "file": "apps/api/src/modules/tasks/tasks.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE"
+    ],
+    "hasTenantScope": false
+  },
+  {
+    "method": "PATCH",
+    "path": "/tasks/back-office/:id/resolve",
+    "controller": "TasksController",
+    "file": "apps/api/src/modules/tasks/tasks.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE"
+    ],
+    "hasTenantScope": false
+  },
+  {
+    "method": "GET",
+    "path": "/tasks",
+    "controller": "TasksController",
+    "file": "apps/api/src/modules/tasks/tasks.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": false
+  },
+  {
+    "method": "GET",
+    "path": "/tasks/:id",
+    "controller": "TasksController",
+    "file": "apps/api/src/modules/tasks/tasks.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE",
+      "AGENT"
+    ],
+    "hasTenantScope": false
+  },
+  {
+    "method": "POST",
+    "path": "/tasks",
+    "controller": "TasksController",
+    "file": "apps/api/src/modules/tasks/tasks.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE",
+      "AGENT"
+    ],
+    "hasTenantScope": false
+  },
+  {
+    "method": "PATCH",
+    "path": "/tasks/:id",
+    "controller": "TasksController",
+    "file": "apps/api/src/modules/tasks/tasks.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE",
+      "AGENT"
+    ],
+    "hasTenantScope": false
+  },
+  {
+    "method": "PATCH",
+    "path": "/tasks/:id/complete",
+    "controller": "TasksController",
+    "file": "apps/api/src/modules/tasks/tasks.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE",
+      "AGENT"
+    ],
+    "hasTenantScope": false
+  },
+  {
+    "method": "POST",
+    "path": "/users",
+    "controller": "UsersController",
+    "file": "apps/api/src/modules/users/controllers/users.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": false
+  },
+  {
+    "method": "GET",
+    "path": "/users/roles",
+    "controller": "UsersController",
+    "file": "apps/api/src/modules/users/controllers/users.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [
+      "ADMIN"
+    ],
+    "hasTenantScope": false
+  },
+  {
+    "method": "POST",
+    "path": "/users/change-password",
+    "controller": "UsersController",
+    "file": "apps/api/src/modules/users/controllers/users.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": false
+  },
+  {
+    "method": "GET",
+    "path": "/users",
+    "controller": "UsersController",
+    "file": "apps/api/src/modules/users/controllers/users.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": false
+  },
+  {
+    "method": "GET",
+    "path": "/users/:id",
+    "controller": "UsersController",
+    "file": "apps/api/src/modules/users/controllers/users.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE"
+    ],
+    "hasTenantScope": false
+  },
+  {
+    "method": "PATCH",
+    "path": "/users/:id/status",
+    "controller": "UsersController",
+    "file": "apps/api/src/modules/users/controllers/users.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE"
+    ],
+    "hasTenantScope": false
+  },
+  {
+    "method": "PATCH",
+    "path": "/users/:id",
+    "controller": "UsersController",
+    "file": "apps/api/src/modules/users/controllers/users.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": false
+  },
+  {
+    "method": "DELETE",
+    "path": "/users/:id",
+    "controller": "UsersController",
+    "file": "apps/api/src/modules/users/controllers/users.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [
+      "ADMIN"
+    ],
+    "hasTenantScope": false
+  },
+  {
+    "method": "POST",
+    "path": "/users/:id/lock",
+    "controller": "UsersController",
+    "file": "apps/api/src/modules/users/controllers/users.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [
+      "ADMIN"
+    ],
+    "hasTenantScope": false
+  },
+  {
+    "method": "POST",
+    "path": "/users/:id/unlock",
+    "controller": "UsersController",
+    "file": "apps/api/src/modules/users/controllers/users.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [
+      "ADMIN"
+    ],
+    "hasTenantScope": false
+  },
+  {
+    "method": "POST",
+    "path": "/users/:id/reset-password",
+    "controller": "UsersController",
+    "file": "apps/api/src/modules/users/controllers/users.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [
+      "ADMIN"
+    ],
+    "hasTenantScope": false
+  },
+  {
+    "method": "GET",
+    "path": "/workspace/sales/dashboard",
+    "controller": "SalesWorkspaceController",
+    "file": "apps/api/src/modules/workspace/controllers/sales-workspace.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": true
+  },
+  {
+    "method": "GET",
+    "path": "/workspace/sales/tasks",
+    "controller": "SalesWorkspaceController",
+    "file": "apps/api/src/modules/workspace/controllers/sales-workspace.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": true
+  },
+  {
+    "method": "GET",
+    "path": "/workspace/sales/motor-widgets",
+    "controller": "SalesWorkspaceController",
+    "file": "apps/api/src/modules/workspace/controllers/sales-workspace.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": true
+  },
+  {
+    "method": "GET",
+    "path": "/workspace/sales/kpis",
+    "controller": "SalesWorkspaceController",
+    "file": "apps/api/src/modules/workspace/controllers/sales-workspace.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": true
+  },
+  {
+    "method": "GET",
+    "path": "/workspace/sales/pipeline",
+    "controller": "SalesWorkspaceController",
+    "file": "apps/api/src/modules/workspace/controllers/sales-workspace.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": true
+  },
+  {
+    "method": "POST",
+    "path": "/workspace/sales/lead/:id/move-stage",
+    "controller": "SalesWorkspaceController",
+    "file": "apps/api/src/modules/workspace/controllers/sales-workspace.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": true
+  },
+  {
+    "method": "GET",
+    "path": "/workspace/sales/lead/:id/stage-history",
+    "controller": "SalesWorkspaceController",
+    "file": "apps/api/src/modules/workspace/controllers/sales-workspace.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": true
+  },
+  {
+    "method": "POST",
+    "path": "/workspace/sales/lead/:id/referral",
+    "controller": "SalesWorkspaceController",
+    "file": "apps/api/src/modules/workspace/controllers/sales-workspace.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": true
+  },
+  {
+    "method": "POST",
+    "path": "/workspace/sales/lead/:id/no-referral",
+    "controller": "SalesWorkspaceController",
+    "file": "apps/api/src/modules/workspace/controllers/sales-workspace.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": true
+  },
+  {
+    "method": "POST",
+    "path": "/workspace/sales/lead/:id/calls",
+    "controller": "SalesWorkspaceController",
+    "file": "apps/api/src/modules/workspace/controllers/sales-workspace.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": true
+  },
+  {
+    "method": "POST",
+    "path": "/workspace/sales/lead/:id/crm-update",
+    "controller": "SalesWorkspaceController",
+    "file": "apps/api/src/modules/workspace/controllers/sales-workspace.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": true
+  },
+  {
+    "method": "GET",
+    "path": "/workspace",
+    "controller": "WorkspaceController",
+    "file": "apps/api/src/modules/workspace/controllers/workspace.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": false
+  },
+  {
+    "method": "GET",
+    "path": "/workspace/navigation",
+    "controller": "WorkspaceController",
+    "file": "apps/api/src/modules/workspace/controllers/workspace.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": false
+  },
+  {
+    "method": "GET",
+    "path": "/workspace/widgets",
+    "controller": "WorkspaceController",
+    "file": "apps/api/src/modules/workspace/controllers/workspace.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": false
+  },
+  {
+    "method": "GET",
+    "path": "/workspace/dashboard",
+    "controller": "WorkspaceController",
+    "file": "apps/api/src/modules/workspace/controllers/workspace.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": false
+  },
+  {
+    "method": "GET",
+    "path": "/workspace/profile",
+    "controller": "WorkspaceController",
+    "file": "apps/api/src/modules/workspace/controllers/workspace.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": false
+  },
+  {
+    "method": "GET",
+    "path": "/workspace/user-workspaces",
+    "controller": "WorkspaceController",
+    "file": "apps/api/src/modules/workspace/controllers/workspace.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": false
+  }
+]

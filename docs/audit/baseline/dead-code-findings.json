@@ -1,0 +1,170 @@
+[
+  {
+    "file": "apps/api/src/main.ts",
+    "line": 173,
+    "type": "CONSOLE_LOG",
+    "content": "console.log("
+  },
+  {
+    "file": "apps/api/src/modules/motor/services/motor-migration.service.ts",
+    "line": 30,
+    "type": "CONSOLE_LOG",
+    "content": "console.log('[MIGRATION-POLICY-01] Scanning for duplicate motor policies per quotationId...');"
+  },
+  {
+    "file": "apps/api/src/modules/motor/services/motor-migration.service.ts",
+    "line": 45,
+    "type": "CONSOLE_LOG",
+    "content": "console.log(`[MIGRATION-POLICY-02] Resolving duplicate policies for quotationId: ${quotationId} (${dup.policy_count} policies found)`);"
+  },
+  {
+    "file": "apps/api/src/modules/motor/services/motor-migration.service.ts",
+    "line": 60,
+    "type": "CONSOLE_LOG",
+    "content": "console.log(`   Deduplicating redundant policy ${redundant.policyNumber} (id: ${redundant.id})`);"
+  },
+  {
+    "file": "apps/api/src/modules/motor/services/motor-migration.service.ts",
+    "line": 116,
+    "type": "CONSOLE_LOG",
+    "content": "console.log('========================================================================');"
+  },
+  {
+    "file": "apps/api/src/modules/motor/services/motor-migration.service.ts",
+    "line": 117,
+    "type": "CONSOLE_LOG",
+    "content": "console.log(`🚀 PHASE 32: MOTOR-MIGRATION-01 (DryRun: ${isDryRun})`);"
+  },
+  {
+    "file": "apps/api/src/modules/motor/services/motor-migration.service.ts",
+    "line": 118,
+    "type": "CONSOLE_LOG",
+    "content": "console.log('========================================================================');"
+  },
+  {
+    "file": "apps/api/src/modules/motor/services/motor-migration.service.ts",
+    "line": 133,
+    "type": "CONSOLE_LOG",
+    "content": "console.log(`Found ${legacyMotorQuotes.length} legacy MotorQuotation records to reconcile.`);"
+  },
+  {
+    "file": "apps/api/src/modules/motor/services/motor-migration.service.ts",
+    "line": 274,
+    "type": "CONSOLE_LOG",
+    "content": "console.log('------------------------------------------------------------------------');"
+  },
+  {
+    "file": "apps/api/src/modules/motor/services/motor-migration.service.ts",
+    "line": 275,
+    "type": "CONSOLE_LOG",
+    "content": "console.log('Migration Summary:');"
+  },
+  {
+    "file": "apps/api/src/modules/motor/services/motor-migration.service.ts",
+    "line": 276,
+    "type": "CONSOLE_LOG",
+    "content": "console.log(`  Legacy Records:              ${summary.legacyCount}`);"
+  },
+  {
+    "file": "apps/api/src/modules/motor/services/motor-migration.service.ts",
+    "line": 277,
+    "type": "CONSOLE_LOG",
+    "content": "console.log(`  Migrated:                    ${summary.migratedCount}`);"
+  },
+  {
+    "file": "apps/api/src/modules/motor/services/motor-migration.service.ts",
+    "line": 278,
+    "type": "CONSOLE_LOG",
+    "content": "console.log(`  Skipped (Already migrated):  ${summary.skippedCount}`);"
+  },
+  {
+    "file": "apps/api/src/modules/motor/services/motor-migration.service.ts",
+    "line": 279,
+    "type": "CONSOLE_LOG",
+    "content": "console.log(`  Duplicate Policies Resolved: ${summary.duplicatePoliciesResolved}`);"
+  },
+  {
+    "file": "apps/api/src/modules/motor/services/motor-migration.service.ts",
+    "line": 280,
+    "type": "CONSOLE_LOG",
+    "content": "console.log(`  Legacy Gross Premium:        ₹${summary.legacyTotalGross}`);"
+  },
+  {
+    "file": "apps/api/src/modules/motor/services/motor-migration.service.ts",
+    "line": 281,
+    "type": "CONSOLE_LOG",
+    "content": "console.log(`  Canonical Gross Premium:     ₹${summary.canonicalTotalGross}`);"
+  },
+  {
+    "file": "apps/api/src/modules/motor/services/motor-migration.service.ts",
+    "line": 282,
+    "type": "CONSOLE_LOG",
+    "content": "console.log(`  Legacy GST Amount:           ₹${summary.legacyTotalGst}`);"
+  },
+  {
+    "file": "apps/api/src/modules/motor/services/motor-migration.service.ts",
+    "line": 283,
+    "type": "CONSOLE_LOG",
+    "content": "console.log(`  Canonical GST Amount:        ₹${summary.canonicalTotalGst}`);"
+  },
+  {
+    "file": "apps/api/src/modules/motor/services/motor-migration.service.ts",
+    "line": 284,
+    "type": "CONSOLE_LOG",
+    "content": "console.log(`  Financial Reconciliation:    ${summary.financialReconciliationPass ? '✅ PASS' : '❌ FAIL'}`);"
+  },
+  {
+    "file": "apps/api/src/modules/motor/services/motor-migration.service.ts",
+    "line": 285,
+    "type": "CONSOLE_LOG",
+    "content": "console.log(`  Policy Uniqueness:           ${summary.policyUniquenessPass ? '✅ PASS' : '❌ FAIL'}`);"
+  },
+  {
+    "file": "apps/api/src/modules/motor/services/motor-migration.service.ts",
+    "line": 286,
+    "type": "CONSOLE_LOG",
+    "content": "console.log(`  Zero Orphan Check:           ${summary.zeroOrphanPass ? '✅ PASS' : '❌ FAIL'}`);"
+  },
+  {
+    "file": "apps/api/src/modules/motor/services/motor-migration.service.ts",
+    "line": 287,
+    "type": "CONSOLE_LOG",
+    "content": "console.log('------------------------------------------------------------------------');"
+  },
+  {
+    "file": "apps/api/src/tracing.ts",
+    "line": 17,
+    "type": "CONSOLE_LOG",
+    "content": ".then(() => console.log('Tracing terminated'))"
+  },
+  {
+    "file": "apps/api/src/tracing.ts",
+    "line": 18,
+    "type": "CONSOLE_LOG",
+    "content": ".catch((error) => console.log('Error terminating tracing', error))"
+  },
+  {
+    "file": "apps/web/src/components/customer/customer-alerts-queue.tsx",
+    "line": 23,
+    "type": "EMPTY_CATCH",
+    "content": "} catch (e) {}"
+  },
+  {
+    "file": "apps/web/src/components/customer/customer-alerts-queue.tsx",
+    "line": 35,
+    "type": "EMPTY_CATCH",
+    "content": "} catch (e) {}"
+  },
+  {
+    "file": "apps/web/src/components/customer/tabs/CustomerTabsContainer.tsx",
+    "line": 435,
+    "type": "EMPTY_CATCH",
+    "content": "} catch (e) {}"
+  },
+  {
+    "file": "apps/web/src/hooks/useAuth.ts",
+    "line": 50,
+    "type": "EMPTY_CATCH",
+    "content": "} catch (_) {}"
+  }
+]

@@ -1,0 +1,1067 @@
+[
+  {
+    "file": "apps/api/src/app.controller.spec.ts",
+    "testCount": 1,
+    "describes": [
+      "AppController",
+      "root"
+    ],
+    "module": "root"
+  },
+  {
+    "file": "apps/api/src/common/certification/prod-022-evidence-matrix.spec.ts",
+    "testCount": 3,
+    "describes": [
+      "PROD-022: Authoritative Release Certification Evidence Matrix"
+    ],
+    "module": "common/certification"
+  },
+  {
+    "file": "apps/api/src/common/certification/prod-gates.spec.ts",
+    "testCount": 18,
+    "describes": [
+      "Authoritative Production Gates & Negative Safety Invariants (INV-01 to INV-18)",
+      "Group 1: Authoritative Policy Issuance Gates (IssuePolicyService)",
+      "Group 2: Motor Calculation Server Authority (MotorCalculationService)",
+      "Group 3: Progressive Quotation Completion Engine (QuotationCompletionService)",
+      "Group 4: Renewal Scheduler & Offset Invariants (RenewalScheduler)"
+    ],
+    "module": "common/certification"
+  },
+  {
+    "file": "apps/api/src/common/domain/value-objects/money.value-object.spec.ts",
+    "testCount": 5,
+    "describes": [
+      "Money Value Object & Premium Calculation Invariance (F-039)"
+    ],
+    "module": "common/domain"
+  },
+  {
+    "file": "apps/api/src/common/guards/workspace-access.guard.spec.ts",
+    "testCount": 11,
+    "describes": [
+      "WorkspaceAccessGuard & Matrix (Iteration 2)",
+      "Role-based Workspace Authorization",
+      "Company-Branch Hierarchy Enforcement",
+      "resolvePermittedWorkspaces"
+    ],
+    "module": "common/guards"
+  },
+  {
+    "file": "apps/api/src/common/infrastructure.spec.ts",
+    "testCount": 4,
+    "describes": [
+      "CI/CD & Production Infrastructure Hardening (Iteration 19)"
+    ],
+    "module": "common/infrastructure.spec.ts"
+  },
+  {
+    "file": "apps/api/src/common/interceptors/idempotency.interceptor.spec.ts",
+    "testCount": 5,
+    "describes": [
+      "IdempotencyInterceptor (Iteration 16)"
+    ],
+    "module": "common/interceptors"
+  },
+  {
+    "file": "apps/api/src/common/production-acceptance.spec.ts",
+    "testCount": 17,
+    "describes": [
+      "Production Acceptance Certification Gate (Iteration 20)",
+      "Phase 1 Certification: Security & Boundary Isolation",
+      "Phase 2 Certification: Core Insurance Lifecycle Invariants",
+      "Phase 3 Certification: Multi-User Workspaces, Renewals, Claims & Endorsements",
+      "Phase 4 Certification: Scale, Concurrency, Hardening & Compliance"
+    ],
+    "module": "common/production-acceptance.spec.ts"
+  },
+  {
+    "file": "apps/api/src/common/services/bola.spec.ts",
+    "testCount": 27,
+    "describes": [
+      "BOLA & Multi-User Authorization Suite (R1 Exit Gate)",
+      "1. Quotation BOLA Prevention",
+      "2. Policy BOLA Prevention",
+      "3. Lead BOLA Prevention",
+      "4. Claim BOLA Prevention",
+      "5. Document & Payment BOLA Prevention",
+      "6. Cross-Role Operation Boundary Enforcement",
+      "7. Multi-User Hierarchical Scoping (Branch & Team)",
+      "8. Account Status & Authentication Validation",
+      "9. Multi-Tenant Cross-Organization Isolation",
+      "10. Assignment Boundary Enforcement",
+      "11. ScopeResolver Multi-Tenant Anchoring",
+      "12. Nested Relation Ownership Authorization"
+    ],
+    "module": "common/services"
+  },
+  {
+    "file": "apps/api/src/common/services/resource-authorization.service.spec.ts",
+    "testCount": 15,
+    "describes": [
+      "ResourceAuthorizationService & ScopeResolver"
+    ],
+    "module": "common/services"
+  },
+  {
+    "file": "apps/api/src/common/services/security-abuse.spec.ts",
+    "testCount": 10,
+    "describes": [
+      "Forensic Security Abuse & BOLA Suite (Iteration 17)",
+      "Attack Vector 1: Cross-Branch / Cross-Team BOLA & IDOR Attempt",
+      "Attack Vector 2: Role Privilege Escalation Guards",
+      "Attack Vector 3: Deactivated User Token Defense",
+      "Attack Vector 4: Financial Underpayment Tampering Attack",
+      "Attack Vector 5: Inspection Bypass Attack",
+      "Attack Vector 6: PII Masking & Audited Unmask Enforcement"
+    ],
+    "module": "common/services"
+  },
+  {
+    "file": "apps/api/src/common/utils/csv-sanitizer.spec.ts",
+    "testCount": 3,
+    "describes": [
+      "sanitizeCsvCell"
+    ],
+    "module": "common/utils"
+  },
+  {
+    "file": "apps/api/src/common/utils/optimistic-lock.spec.ts",
+    "testCount": 4,
+    "describes": [
+      "checkOptimisticLock (G028 Optimistic Concurrency Control)"
+    ],
+    "module": "common/utils"
+  },
+  {
+    "file": "apps/api/src/modules/administration/services/numbering-engine/numbering-engine.service.spec.ts",
+    "testCount": 2,
+    "describes": [
+      "NumberingEngineService"
+    ],
+    "module": "administration"
+  },
+  {
+    "file": "apps/api/src/modules/administration/services/organization/organization.service.spec.ts",
+    "testCount": 5,
+    "describes": [
+      "OrganizationService Multi-Tenant Hardening"
+    ],
+    "module": "administration"
+  },
+  {
+    "file": "apps/api/src/modules/administration/services/system-config/system-config.service.spec.ts",
+    "testCount": 4,
+    "describes": [
+      "SystemConfigService"
+    ],
+    "module": "administration"
+  },
+  {
+    "file": "apps/api/src/modules/agents/agents.service.spec.ts",
+    "testCount": 9,
+    "describes": [
+      "AgentsService",
+      "findMe",
+      "findAll",
+      "findById",
+      "create",
+      "getAgentStats"
+    ],
+    "module": "agents"
+  },
+  {
+    "file": "apps/api/src/modules/analytics/controllers/analytics.controller.spec.ts",
+    "testCount": 4,
+    "describes": [
+      "AnalyticsController Security & Delegation Spec"
+    ],
+    "module": "analytics"
+  },
+  {
+    "file": "apps/api/src/modules/analytics/services/dashboard-analytics.service.spec.ts",
+    "testCount": 8,
+    "describes": [
+      "DashboardAnalyticsService (Iteration 13)",
+      "Zero-Mock Telemetry Verification in computeDashboardData",
+      "getBranchGwpBreakdown",
+      "getInsurerMarketShare",
+      "getSalesLeaderboard",
+      "Phase 21: Strict Multi-Tenant Scoping & Cache Namespacing"
+    ],
+    "module": "analytics"
+  },
+  {
+    "file": "apps/api/src/modules/auth/guards/jwt-auth.guard.spec.ts",
+    "testCount": 3,
+    "describes": [
+      "JwtAuthGuard & ActorContext (Iteration 1 Baseline)",
+      "JwtAuthGuard",
+      "JwtStrategy & ActorContext"
+    ],
+    "module": "auth"
+  },
+  {
+    "file": "apps/api/src/modules/auth/guards/roles.guard.spec.ts",
+    "testCount": 6,
+    "describes": [
+      "RolesGuard"
+    ],
+    "module": "auth"
+  },
+  {
+    "file": "apps/api/src/modules/auth/services/auth.service.spec.ts",
+    "testCount": 4,
+    "describes": [
+      "AuthService",
+      "login"
+    ],
+    "module": "auth"
+  },
+  {
+    "file": "apps/api/src/modules/auth/services/tenant-resource-authorization.service.spec.ts",
+    "testCount": 13,
+    "describes": [
+      "TenantResourceAuthorizationService",
+      "assertSameTenant",
+      "assertTenantResource",
+      "assertAssignableAgent",
+      "assertMotorJourneyAccess"
+    ],
+    "module": "auth"
+  },
+  {
+    "file": "apps/api/src/modules/bi/dashboards/services/dashboard-analytics/dashboard-analytics.service.spec.ts",
+    "testCount": 3,
+    "describes": [
+      "DashboardAnalyticsService",
+      "getSalesMetrics",
+      "getSalesManagerMetrics",
+      "getRenewalMetrics"
+    ],
+    "module": "bi"
+  },
+  {
+    "file": "apps/api/src/modules/bi/data-warehouse/services/etl/etl.service.spec.ts",
+    "testCount": 1,
+    "describes": [
+      "EtlService",
+      "extractAndLoadPolicy"
+    ],
+    "module": "bi"
+  },
+  {
+    "file": "apps/api/src/modules/bi/forecasting/services/statistical-prediction/statistical-prediction.service.spec.ts",
+    "testCount": 6,
+    "describes": [
+      "StatisticalPredictionService",
+      "forecastRevenue",
+      "forecastRenewals",
+      "forecastClaims",
+      "predictCustomerRisk"
+    ],
+    "module": "bi"
+  },
+  {
+    "file": "apps/api/src/modules/business-intelligence/tests/bi.service.spec.ts",
+    "testCount": 3,
+    "describes": [
+      "BiService",
+      "getConversionMetrics",
+      "getSalesMetrics",
+      "getKpiValues"
+    ],
+    "module": "business-intelligence"
+  },
+  {
+    "file": "apps/api/src/modules/claims/services/commands/approve-claim.service.spec.ts",
+    "testCount": 7,
+    "describes": [
+      "ApproveClaimService (Claims Lifecycle Assessment & Approval)"
+    ],
+    "module": "claims"
+  },
+  {
+    "file": "apps/api/src/modules/claims/services/commands/reject-claim.service.spec.ts",
+    "testCount": 3,
+    "describes": [
+      "RejectClaimService (Claims Rejection & Auditing)"
+    ],
+    "module": "claims"
+  },
+  {
+    "file": "apps/api/src/modules/claims/services/commands/report-claim.service.spec.ts",
+    "testCount": 10,
+    "describes": [
+      "ReportClaimService (Iteration 14)",
+      "IDOR Prevention & Multi-Tenant Scoping (Finding 8 & 9)"
+    ],
+    "module": "claims"
+  },
+  {
+    "file": "apps/api/src/modules/claims/services/commands/settle-claim.service.spec.ts",
+    "testCount": 3,
+    "describes": [
+      "SettleClaimService (Claims Settlement & Payment Confirmation)"
+    ],
+    "module": "claims"
+  },
+  {
+    "file": "apps/api/src/modules/claims/tests/claims.controller.spec.ts",
+    "testCount": 10,
+    "describes": [
+      "ClaimsController",
+      "Happy Path",
+      "Exception Handling"
+    ],
+    "module": "claims"
+  },
+  {
+    "file": "apps/api/src/modules/contacts/services/contacts.service.spec.ts",
+    "testCount": 12,
+    "describes": [
+      "ContactsService",
+      "deactivate",
+      "reactivate",
+      "ContactMapper"
+    ],
+    "module": "contacts"
+  },
+  {
+    "file": "apps/api/src/modules/customer/analytics/services/customer-analytics-cron/customer-analytics-cron.service.spec.ts",
+    "testCount": 2,
+    "describes": [
+      "CustomerAnalyticsCronService",
+      "calculateMetricsForCustomer"
+    ],
+    "module": "customer"
+  },
+  {
+    "file": "apps/api/src/modules/customer/communication/services/communication/communication.service.spec.ts",
+    "testCount": 3,
+    "describes": [
+      "CommunicationService",
+      "logOutboundMessage",
+      "updateDeliveryStatus"
+    ],
+    "module": "customer"
+  },
+  {
+    "file": "apps/api/src/modules/customer/customer-360/services/customer-360/customer-360.service.spec.ts",
+    "testCount": 2,
+    "describes": [
+      "Customer360Service (Iteration 9 Real Aggregation)",
+      "getCustomer360"
+    ],
+    "module": "customer"
+  },
+  {
+    "file": "apps/api/src/modules/customers/customers.service.spec.ts",
+    "testCount": 10,
+    "describes": [
+      "CustomersService",
+      "checkDuplicate",
+      "create",
+      "findAll",
+      "findById",
+      "alerts"
+    ],
+    "module": "customers"
+  },
+  {
+    "file": "apps/api/src/modules/dashboard/tests/dashboard.controller.spec.ts",
+    "testCount": 2,
+    "describes": [
+      "DashboardController",
+      "Dashboard Fetching"
+    ],
+    "module": "dashboard"
+  },
+  {
+    "file": "apps/api/src/modules/documents/services/document-verification.service.spec.ts",
+    "testCount": 6,
+    "describes": [
+      "DocumentVerificationService (G017 Lifecycle & Segregation of Duties)",
+      "startReview",
+      "submitVerification"
+    ],
+    "module": "documents"
+  },
+  {
+    "file": "apps/api/src/modules/documents/tests/documents.controller.spec.ts",
+    "testCount": 3,
+    "describes": [
+      "DocumentsController",
+      "Documents API"
+    ],
+    "module": "documents"
+  },
+  {
+    "file": "apps/api/src/modules/documents/tests/dual-storage.spec.ts",
+    "testCount": 8,
+    "describes": [
+      "Phase 28: DualStorageProvider, Replication & Read-Repair",
+      "uploadWithFailover",
+      "downloadWithReadRepair",
+      "DocumentService Integration with Read-Repair"
+    ],
+    "module": "documents"
+  },
+  {
+    "file": "apps/api/src/modules/endorsements/services/endorsement.service.spec.ts",
+    "testCount": 7,
+    "describes": [
+      "EndorsementService (Iteration 15)",
+      "calculateProRataPremium",
+      "approveEndorsement",
+      "rejectEndorsement"
+    ],
+    "module": "endorsements"
+  },
+  {
+    "file": "apps/api/src/modules/finance/accounting/services/ledger/ledger.service.spec.ts",
+    "testCount": 7,
+    "describes": [
+      "LedgerService",
+      "postEntry",
+      "getAccountBalance",
+      "getLedgerEntries"
+    ],
+    "module": "finance"
+  },
+  {
+    "file": "apps/api/src/modules/finance/commission/services/commission-engine/commission-engine.service.spec.ts",
+    "testCount": 2,
+    "describes": [
+      "CommissionEngineService",
+      "accrueCommissions",
+      "realizeCommissions"
+    ],
+    "module": "finance"
+  },
+  {
+    "file": "apps/api/src/modules/finance/revenue/services/payment/payment.service.spec.ts",
+    "testCount": 4,
+    "describes": [
+      "PaymentService"
+    ],
+    "module": "finance"
+  },
+  {
+    "file": "apps/api/src/modules/finance/services/finance-reconciliation.service.spec.ts",
+    "testCount": 5,
+    "describes": [
+      "FinanceReconciliationService (G020 Reconciliation Queue)",
+      "getReconciliationQueue",
+      "reconcilePayment",
+      "flagDiscrepancy"
+    ],
+    "module": "finance"
+  },
+  {
+    "file": "apps/api/src/modules/health/health.controller.spec.ts",
+    "testCount": 3,
+    "describes": [
+      "HealthController Live HTTP Readiness & Liveness Probes (Task 7.4)"
+    ],
+    "module": "health"
+  },
+  {
+    "file": "apps/api/src/modules/health/metrics.controller.spec.ts",
+    "testCount": 6,
+    "describes": [
+      "MetricsController Security Hardening (F-028)"
+    ],
+    "module": "health"
+  },
+  {
+    "file": "apps/api/src/modules/leads/controllers/leads.controller.spec.ts",
+    "testCount": 7,
+    "describes": [
+      "LeadsController",
+      "create",
+      "findAll",
+      "findOne",
+      "update",
+      "remove",
+      "merge"
+    ],
+    "module": "leads"
+  },
+  {
+    "file": "apps/api/src/modules/leads/deduplication/services/duplicate-detection/duplicate-detection.service.spec.ts",
+    "testCount": 6,
+    "describes": [
+      "DuplicateDetectionService",
+      "checkDuplicates",
+      "detectDuplicates (backward compatible)"
+    ],
+    "module": "leads"
+  },
+  {
+    "file": "apps/api/src/modules/leads/routing/services/lead-routing-engine/lead-routing-engine.service.spec.ts",
+    "testCount": 2,
+    "describes": [
+      "LeadRoutingEngineService"
+    ],
+    "module": "leads"
+  },
+  {
+    "file": "apps/api/src/modules/leads/services/lead-assignment.service.spec.ts",
+    "testCount": 7,
+    "describes": [
+      "LeadAssignmentService (Iteration 11)",
+      "Hierarchy Boundary Enforcement in assignLead",
+      "autoAssignRoundRobin",
+      "bulkAssign"
+    ],
+    "module": "leads"
+  },
+  {
+    "file": "apps/api/src/modules/leads/services/lead-completion.service.spec.ts",
+    "testCount": 3,
+    "describes": [
+      "LeadCompletionService (G019 Stage-Gate Enforcement)"
+    ],
+    "module": "leads"
+  },
+  {
+    "file": "apps/api/src/modules/leads/services/lead-lifecycle.service.spec.ts",
+    "testCount": 8,
+    "describes": [
+      "LeadLifecycleService",
+      "getAllowedTransitions",
+      "validateTransition",
+      "transition"
+    ],
+    "module": "leads"
+  },
+  {
+    "file": "apps/api/src/modules/leads/services/leads.service.spec.ts",
+    "testCount": 12,
+    "describes": [
+      "LeadsService",
+      "findAll",
+      "findById",
+      "create",
+      "convert",
+      "update - state machine",
+      "getLeadContext",
+      "remove"
+    ],
+    "module": "leads"
+  },
+  {
+    "file": "apps/api/src/modules/motor/motor.controller.spec.ts",
+    "testCount": 4,
+    "describes": [
+      "MotorController"
+    ],
+    "module": "motor"
+  },
+  {
+    "file": "apps/api/src/modules/motor/services/motor-calculation.service.spec.ts",
+    "testCount": 18,
+    "describes": [
+      "MotorCalculationService (Iteration 5 Financial Math)",
+      "Comprehensive Private Car Calculation",
+      "Validation & Edge Cases"
+    ],
+    "module": "motor"
+  },
+  {
+    "file": "apps/api/src/modules/motor/services/motor-document-rule.service.spec.ts",
+    "testCount": 6,
+    "describes": [
+      "MotorDocumentRuleService"
+    ],
+    "module": "motor"
+  },
+  {
+    "file": "apps/api/src/modules/motor/services/motor-inspection.service.spec.ts",
+    "testCount": 15,
+    "describes": [
+      "MotorInspectionService (Production State Machine & Role Segregation)",
+      "State Machine Transitions (validateTransition)",
+      "submitForReview",
+      "approveInspection",
+      "rejectInspection & waiveInspection"
+    ],
+    "module": "motor"
+  },
+  {
+    "file": "apps/api/src/modules/motor/services/motor-journey.service.spec.ts",
+    "testCount": 4,
+    "describes": [
+      "MotorJourneyService",
+      "createJourney",
+      "getJourney"
+    ],
+    "module": "motor"
+  },
+  {
+    "file": "apps/api/src/modules/motor/services/motor-payment-tracking.service.spec.ts",
+    "testCount": 9,
+    "describes": [
+      "MotorPaymentTrackingService & Reconciliation (Iteration 7)",
+      "recordPayment",
+      "canProceedToPolicy"
+    ],
+    "module": "motor"
+  },
+  {
+    "file": "apps/api/src/modules/motor/services/motor-policy-date.service.spec.ts",
+    "testCount": 7,
+    "describes": [
+      "MotorPolicyDateService"
+    ],
+    "module": "motor"
+  },
+  {
+    "file": "apps/api/src/modules/motor/services/motor-policy-issuance.service.spec.ts",
+    "testCount": 7,
+    "describes": [
+      "MotorPolicyIssuanceService (Iteration 8)",
+      "issuePolicy"
+    ],
+    "module": "motor"
+  },
+  {
+    "file": "apps/api/src/modules/motor/services/motor-quotation-case.service.spec.ts",
+    "testCount": 11,
+    "describes": [
+      "MotorQuotationCaseService",
+      "createCase",
+      "getCase",
+      "selectQuotation",
+      "compareCaseQuotations",
+      "Lifecycle State Machine (MOTOR-0010)"
+    ],
+    "module": "motor"
+  },
+  {
+    "file": "apps/api/src/modules/motor/services/motor-quotation-document.service.spec.ts",
+    "testCount": 4,
+    "describes": [
+      "MotorQuotationDocumentService",
+      "attachDocument",
+      "verifyDocument"
+    ],
+    "module": "motor"
+  },
+  {
+    "file": "apps/api/src/modules/motor/services/motor-quote-workflow.service.spec.ts",
+    "testCount": 10,
+    "describes": [
+      "MotorQuoteWorkflowService (Authoritative State Machine)",
+      "validateTransition",
+      "transitionWorkflowState"
+    ],
+    "module": "motor"
+  },
+  {
+    "file": "apps/api/src/modules/motor/services/motor-rule-engine.service.spec.ts",
+    "testCount": 11,
+    "describes": [
+      "MotorRuleEngineService (Business Invariants)",
+      "MOTOR-REG-13: TP Inspection Bypass",
+      "MOTOR-REG-14: TP NCB Bypass",
+      "MOTOR-REG-04: NEW Vehicle NCB = 0",
+      "MOTOR-REG-09: Same-day Expiry Semantics",
+      "Break-in & Expired Policy Inspection",
+      "MOTOR-0060: Dedicated Server-Side SAOD Validator"
+    ],
+    "module": "motor"
+  },
+  {
+    "file": "apps/api/src/modules/motor/services/motor-workflow-gates.service.spec.ts",
+    "testCount": 7,
+    "describes": [
+      "MotorWorkflowGatesService"
+    ],
+    "module": "motor"
+  },
+  {
+    "file": "apps/api/src/modules/motor/services/previous-policy.service.spec.ts",
+    "testCount": 6,
+    "describes": [
+      "PreviousPolicyService"
+    ],
+    "module": "motor"
+  },
+  {
+    "file": "apps/api/src/modules/motor/services/vehicle-data.service.spec.ts",
+    "testCount": 17,
+    "describes": [
+      "VehicleDataService (R4 Integrity)",
+      "normalizeRegistrationNumber",
+      "validateVehicleSpecs (8 IRDAI Categories)",
+      "upsertVehicle",
+      "recordVerificationAttempt (ACCEPT-REG-01 to ACCEPT-REG-04)"
+    ],
+    "module": "motor"
+  },
+  {
+    "file": "apps/api/src/modules/motor/tests/motor-24-flows-matrix.spec.ts",
+    "testCount": 8,
+    "describes": [
+      "Phase 9: 24-Flow Comprehensive Matrix Suite (8 Categories × 3 Policy Types)",
+      "Matrix Verification: 8 Categories × 3 Policy Types (24 Flows)",
+      "Category: ${category}",
+      "Statutory Multi-Year Tenures on NEW Vehicles",
+      "Universal Underwriting Rules across all Categories"
+    ],
+    "module": "motor"
+  },
+  {
+    "file": "apps/api/src/modules/motor/tests/motor-e2e-department-workflow.spec.ts",
+    "testCount": 6,
+    "describes": [
+      "BO-10: End-to-End Department Handoff Workflow (Agent -> BO -> Finance -> BO)",
+      "Full Department Lifecycle Execution"
+    ],
+    "module": "motor"
+  },
+  {
+    "file": "apps/api/src/modules/motor/tests/motor-migration.spec.ts",
+    "testCount": 5,
+    "describes": [
+      "Phase 32: MotorQuotation Migration & Financial Graph Reconciliation (MOTOR-MIGRATION-01)",
+      "Policy Deduplication (MIGRATION-POLICY-01..03)",
+      "Zero Orphan Invariant Assertion",
+      "Full Migration Execution & Financial Reconciliation"
+    ],
+    "module": "motor"
+  },
+  {
+    "file": "apps/api/src/modules/motor/tests/motor-security-tampering.spec.ts",
+    "testCount": 8,
+    "describes": [
+      "Phase 8: Motor Security & Financial Tampering Gates",
+      "BOLA / IDOR Cross-Tenant Isolation",
+      "Financial Tampering Prevention & Server Authority"
+    ],
+    "module": "motor"
+  },
+  {
+    "file": "apps/api/src/modules/motor-admin/services/rating-engine.service.spec.ts",
+    "testCount": 10,
+    "describes": [
+      "RatingEngineService",
+      "calculatePremium",
+      "computeComprehensivePolicyMath — Arbitrary-Precision Financial Invariance (SDP Vol 3)"
+    ],
+    "module": "motor-admin"
+  },
+  {
+    "file": "apps/api/src/modules/motor-quotations/motor-quotations.service.spec.ts",
+    "testCount": 4,
+    "describes": [
+      "MotorQuotationsService",
+      "create",
+      "compareQuotes",
+      "acceptQuotation"
+    ],
+    "module": "motor-quotations"
+  },
+  {
+    "file": "apps/api/src/modules/platform/audit/services/audit.service.spec.ts",
+    "testCount": 4,
+    "describes": [
+      "AuditService (G022 Transactional & G023 Immutable Audit Trails)",
+      "logInTransaction (G022)",
+      "assertImmutableOperation (G023)",
+      "getAuditLogs"
+    ],
+    "module": "platform"
+  },
+  {
+    "file": "apps/api/src/modules/platform/integrations/core/services/integration-http/integration-http.service.spec.ts",
+    "testCount": 3,
+    "describes": [
+      "IntegrationHttpClient"
+    ],
+    "module": "platform"
+  },
+  {
+    "file": "apps/api/src/modules/platform/integrations/core/services/provider-registry/provider-registry.service.spec.ts",
+    "testCount": 1,
+    "describes": [
+      "ProviderRegistryService"
+    ],
+    "module": "platform"
+  },
+  {
+    "file": "apps/api/src/modules/platform/integrations/webhooks/controllers/webhook-gateway/webhook-gateway.controller.spec.ts",
+    "testCount": 5,
+    "describes": [
+      "WebhookGatewayController"
+    ],
+    "module": "platform"
+  },
+  {
+    "file": "apps/api/src/modules/platform/notifications/services/notification-dispatcher.service.spec.ts",
+    "testCount": 5,
+    "describes": [
+      "NotificationDispatcher (NOTIFY-002 Deduplication & Preference Enforcement)"
+    ],
+    "module": "platform"
+  },
+  {
+    "file": "apps/api/src/modules/platform/notifications/tests/notifications.controller.spec.ts",
+    "testCount": 3,
+    "describes": [
+      "NotificationsController",
+      "Notifications API"
+    ],
+    "module": "platform"
+  },
+  {
+    "file": "apps/api/src/modules/platform/observability/observability.spec.ts",
+    "testCount": 3,
+    "describes": [
+      "Observability & Prometheus Telemetry (Iteration 18)"
+    ],
+    "module": "platform"
+  },
+  {
+    "file": "apps/api/src/modules/platform/outbox/outbox.service.spec.ts",
+    "testCount": 5,
+    "describes": [
+      "OutboxService"
+    ],
+    "module": "platform"
+  },
+  {
+    "file": "apps/api/src/modules/platform/queue/workers/notification.worker.spec.ts",
+    "testCount": 3,
+    "describes": [
+      "NotificationWorker"
+    ],
+    "module": "platform"
+  },
+  {
+    "file": "apps/api/src/modules/platform/queue/workers/renewal.worker.spec.ts",
+    "testCount": 3,
+    "describes": [
+      "RenewalWorker Spec"
+    ],
+    "module": "platform"
+  },
+  {
+    "file": "apps/api/src/modules/platform/reporting/tests/report-builder.service.spec.ts",
+    "testCount": 5,
+    "describes": [
+      "ReportBuilderService"
+    ],
+    "module": "platform"
+  },
+  {
+    "file": "apps/api/src/modules/platform/reporting/tests/reports-tenancy-persistence.spec.ts",
+    "testCount": 7,
+    "describes": [
+      "Reporting Tenancy & Database Persistence (Phases 18, 19, 20)",
+      "PHASE 20: Removal of Fake Data & Full Database Persistence",
+      "PHASE 18 & 20: Cross-Tenant Schedule Isolation & Deletion",
+      "PHASE 19: Scheduled Report Tenant Context Security"
+    ],
+    "module": "platform"
+  },
+  {
+    "file": "apps/api/src/modules/platform/workflow/services/workflow-engine.service.spec.ts",
+    "testCount": 2,
+    "describes": [
+      "WorkflowEngineService"
+    ],
+    "module": "platform"
+  },
+  {
+    "file": "apps/api/src/modules/policies/domain/policy-state-machine.spec.ts",
+    "testCount": 6,
+    "describes": [
+      "PolicyStateMachine"
+    ],
+    "module": "policies"
+  },
+  {
+    "file": "apps/api/src/modules/policies/processors/renewal-reminder.processor.spec.ts",
+    "testCount": 4,
+    "describes": [
+      "RenewalReminderProcessor (Iteration 12)"
+    ],
+    "module": "policies"
+  },
+  {
+    "file": "apps/api/src/modules/policies/services/commands/issue-policy.service.spec.ts",
+    "testCount": 5,
+    "describes": [
+      "IssuePolicyService"
+    ],
+    "module": "policies"
+  },
+  {
+    "file": "apps/api/src/modules/policies/services/queries/back-office-queue.service.spec.ts",
+    "testCount": 9,
+    "describes": [
+      "BackOfficeQueueService (G021 Multi-Gate Policy Issuance Queue)"
+    ],
+    "module": "policies"
+  },
+  {
+    "file": "apps/api/src/modules/policies/services/queries/get-policy-history.service.spec.ts",
+    "testCount": 2,
+    "describes": [
+      "GetPolicyHistoryService (IDOR Defense)"
+    ],
+    "module": "policies"
+  },
+  {
+    "file": "apps/api/src/modules/policies/services/renewal-engine.service.spec.ts",
+    "testCount": 6,
+    "describes": [
+      "RenewalEngineService (Iteration 10)",
+      "calculateNextNCBSlab",
+      "findPoliciesRequiringRenewal",
+      "createRenewalRecord",
+      "getRenewalQueue",
+      "triggerManualReminder"
+    ],
+    "module": "policies"
+  },
+  {
+    "file": "apps/api/src/modules/policies/tests/concurrency-issuance.spec.ts",
+    "testCount": 2,
+    "describes": [
+      "100-Concurrent Policy Issuance Stress & Atomic Conflict Guarantee"
+    ],
+    "module": "policies"
+  },
+  {
+    "file": "apps/api/src/modules/policies/tests/policies.controller.spec.ts",
+    "testCount": 7,
+    "describes": [
+      "PoliciesController",
+      "Happy Path",
+      "Unauthorized",
+      "Forbidden",
+      "Not Found"
+    ],
+    "module": "policies"
+  },
+  {
+    "file": "apps/api/src/modules/proposal/services/proposal.service.spec.ts",
+    "testCount": 5,
+    "describes": [
+      "ProposalService & Inspection Gateway (Iteration 6)",
+      "createProposal with Inspection Gateway"
+    ],
+    "module": "proposal"
+  },
+  {
+    "file": "apps/api/src/modules/proposal/tests/proposals.controller.spec.ts",
+    "testCount": 2,
+    "describes": [
+      "ProposalsController",
+      "Proposals API"
+    ],
+    "module": "proposal"
+  },
+  {
+    "file": "apps/api/src/modules/quotation/engine/pdf.service.spec.ts",
+    "testCount": 2,
+    "describes": [
+      "PdfService (Tamper-Evident Authoritative PDF Engine)"
+    ],
+    "module": "quotation"
+  },
+  {
+    "file": "apps/api/src/modules/quotation/services/commands/accept-quotation.service.spec.ts",
+    "testCount": 3,
+    "describes": [
+      "AcceptQuotationService (R5 Multi-Version & Single Accepted Rule)"
+    ],
+    "module": "quotation"
+  },
+  {
+    "file": "apps/api/src/modules/quotation/services/commands/convert-quotation.service.spec.ts",
+    "testCount": 4,
+    "describes": [
+      "ConvertQuotationService (Phase 11 Motor Generic Conversion Gate)"
+    ],
+    "module": "quotation"
+  },
+  {
+    "file": "apps/api/src/modules/quotation/services/commands/create-motor-quotation.command.spec.ts",
+    "testCount": 18,
+    "describes": [
+      "CreateMotorQuotationCommand (Authoritative Command)",
+      "Phase 1.2: Cross-Tenant Resource Rejection Tests",
+      "MOTOR-0042: Proposer details validation"
+    ],
+    "module": "quotation"
+  },
+  {
+    "file": "apps/api/src/modules/quotation/services/commands/create-quotation-version.service.spec.ts",
+    "testCount": 3,
+    "describes": [
+      "CreateQuotationVersionService (R5 Versioning Engine)"
+    ],
+    "module": "quotation"
+  },
+  {
+    "file": "apps/api/src/modules/quotation/services/queries/quotation-completion.service.spec.ts",
+    "testCount": 6,
+    "describes": [
+      "QuotationCompletionService",
+      "evaluateQuotationCompletion",
+      "updateDetails"
+    ],
+    "module": "quotation"
+  },
+  {
+    "file": "apps/api/src/modules/quotation/tests/quotation.controller.spec.ts",
+    "testCount": 8,
+    "describes": [
+      "QuotationController",
+      "Happy Path",
+      "Validation Failure",
+      "Unauthorized",
+      "Forbidden",
+      "Not Found",
+      "Conflict"
+    ],
+    "module": "quotation"
+  },
+  {
+    "file": "apps/api/src/modules/tasks/tasks.service.spec.ts",
+    "testCount": 6,
+    "describes": [
+      "TasksService",
+      "getTasksToday",
+      "create",
+      "complete",
+      "Back Office Queue"
+    ],
+    "module": "tasks"
+  },
+  {
+    "file": "apps/api/src/modules/warehouse/tests/warehouse.service.spec.ts",
+    "testCount": 4,
+    "describes": [
+      "WarehouseService",
+      "getReportingContacts",
+      "getReportingLeads",
+      "getReportingPolicies"
+    ],
+    "module": "warehouse"
+  },
+  {
+    "file": "apps/api/src/modules/workspace/services/lead-workflow.service.spec.ts",
+    "testCount": 8,
+    "describes": [
+      "LeadWorkflowService",
+      "transitionStage"
+    ],
+    "module": "workspace"
+  }
+]

@@ -8,7 +8,8 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
       POSTGRES_DB: ${POSTGRES_DB:-jest_policy_crm}
     ports:
-      - "5432:5432"
+      # DEVOPS-001: Bind to loopback only — prevents public network exposure
+      - "127.0.0.1:5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -17,6 +18,9 @@ services:
       timeout: 5s
       retries: 5
     restart: unless-stopped
+    # DEVOPS-004: postgres is internal-only — no direct internet access
+    networks:
+      - jest_internal
 
   redis:
     image: redis:7-alpine
@@ -33,6 +37,9 @@ services:
       timeout: 5s
       retries: 5
     restart: unless-stopped
+    # DEVOPS-004: redis is internal-only — no direct internet access
+    networks:
+      - jest_internal
 
   api:
     build:
@@ -40,7 +47,8 @@ services:
       dockerfile: apps/api/Dockerfile
     container_name: jest-api
     ports:
-      - "4001:3000"
+      # DEVOPS-005: Align with NEXT_PUBLIC_API_URL which expects localhost:4000
+      - "4000:3000"
     environment:
       NODE_ENV: production
       PORT: 3000
@@ -56,6 +64,10 @@ services:
       redis:
         condition: service_healthy
     restart: unless-stopped
+    # DEVOPS-004: api bridges internal (db/redis access) and external (internet) networks
+    networks:
+      - jest_internal
+      - jest_external
 
   web:
     build:
@@ -72,8 +84,20 @@ services:
     depends_on:
       - api
     restart: unless-stopped
+    # DEVOPS-004: web is external-only — serves end users, no direct db/redis access
+    networks:
+      - jest_external
 
 volumes:
   postgres_data:
   redis_data:
 
+# DEVOPS-004: Explicit named networks for isolation
+networks:
+  jest_internal:
+    # Internal network: postgres and redis are NOT reachable from the host internet
+    driver: bridge
+    internal: true
+  jest_external:
+    # External network: web and api can reach the internet / host
+    driver: bridge
