@@ -412,7 +412,7 @@ async function main() {
     for (const u of users) {
       const r = seededRoles[u.role];
       if (r) {
-        await tx.user.upsert({
+        const dbUser = await tx.user.upsert({
           where: { email: u.email },
           update: { 
             passwordHash,
@@ -438,9 +438,27 @@ async function main() {
             employeeCode: `EMP-${String(empCounter++).padStart(6, '0')}`,
           }
         });
+
+        if (u.role === "AGENT") {
+          await tx.agent.upsert({
+            where: { userId: dbUser.id },
+            update: {
+              companyId: company.id,
+              isActive: true,
+            },
+            create: {
+              userId: dbUser.id,
+              companyId: company.id,
+              agentCode: `AGT-${Math.floor(100000 + Math.random() * 900000)}`,
+              agencyName: `${u.fn} ${u.ln} Agency`,
+              licenseNumber: `LIC-${Math.floor(100000 + Math.random() * 900000)}`,
+              isActive: true,
+            }
+          });
+        }
       }
     }
-    console.log("- Seeded 10 organizational job roles, dashboards, and demo users.");
+    console.log("- Seeded 10 organizational job roles, dashboards, demo users, and agent profiles.");
 
     // -------------------------------------------------------------------------
     // 5. SEED VEHICLE MASTER DATA
