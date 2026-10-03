@@ -127,6 +127,10 @@ export const customerRepository = {
     const response = await apiClient.get(`/customer-360/${id}`);
     return response.data;
   },
+  async addCustomerNote(id: string, content: string): Promise<any> {
+    const response = await apiClient.post(`/customer-360/${id}/notes`, { content });
+    return response.data;
+  },
   async createContact(data: Partial<CustomerContact>): Promise<CustomerContact> {
     const response = await apiClient.post('/contacts', data);
     return response.data;

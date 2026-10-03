@@ -988,7 +988,8 @@ export default function CustomerDetailPage() {
         <NewLeadModal
           isOpen={true}
           onClose={() => setShowNewLeadModal(false)}
-          defaultContactId={customer?.id}
+          defaultContactId={customer?.contactId || undefined}
+          defaultCustomerId={customer?.id}
           defaultName={fullName}
           defaultPhone={customer?.mobile || ''}
         />

@@ -48,6 +48,23 @@ try {
 }
 
 let failed = false;
+if (cert.releaseStatus !== 'PRODUCTION_READY') {
+  console.error(`❌ RELEASE BLOCKED: Certificate status is ${cert.releaseStatus || 'missing'}, not PRODUCTION_READY.`);
+  failed = true;
+}
+
+const gates = Array.isArray(cert.gates) ? cert.gates : [];
+const summary = cert.certificationMatrixSummary || {};
+if (
+  gates.length !== summary.totalGates ||
+  gates.length !== summary.passedGates ||
+  summary.failedGates !== 0 ||
+  gates.some((gate) => gate.result !== 'PASS')
+) {
+  console.error('❌ INVALID GATES: Gate records do not match the claimed all-pass certification matrix.');
+  failed = true;
+}
+
 const isShaValid = headSha && cert.certifiedCommit && (headSha === cert.certifiedCommit || recentShas.includes(cert.certifiedCommit));
 if (!isShaValid && headSha && cert.certifiedCommit) {
   console.error(`❌ INVALID CERTIFICATE: Current HEAD (${headSha}) and recent ancestors [${recentShas.join(', ')}] do not match Certified Commit (${cert.certifiedCommit}). Certificate is stale.`);
@@ -60,7 +77,7 @@ if (currentSchemaHash && cert.certificationSchemaHash && currentSchemaHash !== c
 }
 
 if (failed) {
-  console.error('Rerun "node scripts/generate-evidence.js" after test execution to recertify.');
+  console.error('Release remains blocked until all mandatory gates have current, independently verifiable evidence and an authorized release review.');
   process.exit(1);
 }
 

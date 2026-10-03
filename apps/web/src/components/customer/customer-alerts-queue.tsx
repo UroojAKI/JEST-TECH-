@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
-import { AlertTriangle, CheckSquare, Clock, ArrowRight, CheckCircle2 } from 'lucide-react';
+import { AlertTriangle, CheckSquare, Clock, CheckCircle2 } from 'lucide-react';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
+import { taskRepository } from '../../repositories/task.repository';
 
 interface CustomerAlertsQueueProps {
   workspace?: any;
@@ -10,52 +11,6 @@ interface CustomerAlertsQueueProps {
 
 export function CustomerAlertsQueue({ workspace }: CustomerAlertsQueueProps) {
   const profile = workspace?.profile || workspace?.contact;
-  const customerId = profile?.id || workspace?.id || 'default';
-  const alertsStorageKey = `resolved_alerts_${customerId}`;
-  const tasksStorageKey = `completed_tasks_${customerId}`;
-
-  const [resolvedAlerts, setResolvedAlerts] = useState<string[]>(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem(alertsStorageKey);
-      if (saved) {
-        try {
-          return JSON.parse(saved);
-        } catch (e) {}
-      }
-    }
-    return [];
-  });
-
-  const [completedTasks, setCompletedTasks] = useState<string[]>(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem(tasksStorageKey);
-      if (saved) {
-        try {
-          return JSON.parse(saved);
-        } catch (e) {}
-      }
-    }
-    return [];
-  });
-
-  const handleDismissAlert = (alertId: string) => {
-    const next = [...resolvedAlerts, alertId];
-    setResolvedAlerts(next);
-    if (typeof window !== 'undefined') {
-      localStorage.setItem(alertsStorageKey, JSON.stringify(next));
-    }
-    toast.success('Alert resolved');
-  };
-
-  const handleCompleteTask = (taskId: string) => {
-    const next = [...completedTasks, taskId];
-    setCompletedTasks(next);
-    if (typeof window !== 'undefined') {
-      localStorage.setItem(tasksStorageKey, JSON.stringify(next));
-    }
-    toast.success('Task marked as done');
-  };
-
   const policies = workspace?.policies || [];
   const claims = workspace?.claims || [];
   const openClaims =
@@ -70,7 +25,41 @@ export function CustomerAlertsQueue({ workspace }: CustomerAlertsQueueProps) {
       : 'Assigned Agent';
 
   const alerts: Array<{ id: string; level: 'CRITICAL' | 'WARNING' | 'INFO'; text: string }> = [];
-  const tasks: Array<{ id: string; title: string; due: string; assignee: string }> = [];
+  const tasks: Array<{
+    id: string;
+    title: string;
+    due: string;
+    assignee: string;
+    priority: 'MEDIUM' | 'HIGH' | 'URGENT';
+    policyId?: string;
+    claimId?: string;
+    leadId?: string;
+  }> = [];
+
+  const queryClient = useQueryClient();
+  const createTask = useMutation({
+    mutationFn: (task: (typeof tasks)[number]) => {
+      const customerId = profile?.customerId;
+      if (!customerId) throw new Error('This contact is not linked to a customer account.');
+      return taskRepository.createTask({
+        title: task.title,
+        description: 'Created from a Customer 360 follow-up suggestion.',
+        type: 'FOLLOW_UP',
+        priority: task.priority,
+        customerId,
+        policyId: task.policyId,
+        claimId: task.claimId,
+        leadId: task.leadId,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      toast.success('Follow-up task created');
+    },
+    onError: (error: any) => {
+      toast.error(error?.response?.data?.message || error.message || 'Could not create task');
+    },
+  });
 
   const now = new Date();
 
@@ -91,6 +80,8 @@ export function CustomerAlertsQueue({ workspace }: CustomerAlertsQueueProps) {
             title: `Contact customer for urgent renewal of Policy #${p.policyNumber || 'N/A'}`,
             due: 'Overdue',
             assignee: agentName,
+            priority: 'URGENT',
+            policyId: p.id,
           });
         } else if (diffDays <= 15) {
           alerts.push({
@@ -103,6 +94,8 @@ export function CustomerAlertsQueue({ workspace }: CustomerAlertsQueueProps) {
             title: `Issue renewal quote for Policy #${p.policyNumber || 'N/A'}`,
             due: `${diffDays} days left`,
             assignee: agentName,
+            priority: 'HIGH',
+            policyId: p.id,
           });
         } else if (diffDays <= 30) {
           alerts.push({
@@ -115,6 +108,8 @@ export function CustomerAlertsQueue({ workspace }: CustomerAlertsQueueProps) {
             title: `Initiate renewal discussion for Policy #${p.policyNumber || 'N/A'}`,
             due: `In ${diffDays} days`,
             assignee: agentName,
+            priority: 'MEDIUM',
+            policyId: p.id,
           });
         }
       }
@@ -133,6 +128,8 @@ export function CustomerAlertsQueue({ workspace }: CustomerAlertsQueueProps) {
       title: `Follow up with surveyor/insurer on Claim #${c.claimNumber || 'Pending'}`,
       due: 'Pending Review',
       assignee: agentName,
+      priority: 'HIGH',
+      claimId: c.id,
     });
   }
 
@@ -150,6 +147,7 @@ export function CustomerAlertsQueue({ workspace }: CustomerAlertsQueueProps) {
       title: 'Collect & verify PAN card document from customer',
       due: 'Pending KYC',
       assignee: agentName,
+      priority: 'MEDIUM',
     });
   }
   if (!aadhaar || aadhaar === 'NOT_PROVIDED') {
@@ -172,11 +170,13 @@ export function CustomerAlertsQueue({ workspace }: CustomerAlertsQueueProps) {
       title: `Call customer regarding lead "${l.title || 'Inquiry'}"`,
       due: 'Open Lead',
       assignee: agentName,
+      priority: 'MEDIUM',
+      leadId: l.id,
     });
   }
 
-  const visibleAlerts = alerts.filter((a) => !resolvedAlerts.includes(a.id));
-  const visibleTasks = tasks.filter((t) => !completedTasks.includes(t.id));
+  const visibleAlerts = alerts;
+  const visibleTasks = tasks;
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
@@ -196,7 +196,7 @@ export function CustomerAlertsQueue({ workspace }: CustomerAlertsQueueProps) {
           {visibleAlerts.length === 0 ? (
             <div className="p-4 rounded-lg border border-dashed text-center text-xs text-muted-foreground flex flex-col items-center gap-1">
               <CheckCircle2 className="h-5 w-5 text-emerald-500" />
-              <span>No active alerts. Customer account is in good standing.</span>
+              <span>No current alert conditions were found.</span>
             </div>
           ) : (
             visibleAlerts.map((alert) => (
@@ -213,12 +213,6 @@ export function CustomerAlertsQueue({ workspace }: CustomerAlertsQueueProps) {
                 <div className="flex items-center space-x-2 overflow-hidden">
                   <span className="font-medium truncate">{alert.text}</span>
                 </div>
-                <button
-                  onClick={() => handleDismissAlert(alert.id)}
-                  className="text-[11px] font-bold text-primary hover:underline ml-2 flex items-center whitespace-nowrap shrink-0"
-                >
-                  Dismiss <ArrowRight className="h-3 w-3 ml-0.5" />
-                </button>
               </div>
             ))
           )}
@@ -230,10 +224,10 @@ export function CustomerAlertsQueue({ workspace }: CustomerAlertsQueueProps) {
         <div className="flex items-center justify-between border-b pb-2">
           <div className="flex items-center space-x-2">
             <CheckSquare className="h-4 w-4 text-primary" />
-            <h3 className="text-xs font-bold uppercase tracking-wider">Workspace Queue & Pending Tasks</h3>
+            <h3 className="text-xs font-bold uppercase tracking-wider">Suggested Follow-ups</h3>
           </div>
           <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
-            {visibleTasks.length} Pending
+            {visibleTasks.length} Suggested
           </span>
         </div>
 
@@ -241,7 +235,7 @@ export function CustomerAlertsQueue({ workspace }: CustomerAlertsQueueProps) {
           {visibleTasks.length === 0 ? (
             <div className="p-4 rounded-lg border border-dashed text-center text-xs text-muted-foreground flex flex-col items-center gap-1">
               <CheckCircle2 className="h-5 w-5 text-emerald-500" />
-              <span>All tasks completed. No pending actions for this customer.</span>
+              <span>No follow-up suggestions are currently available.</span>
             </div>
           ) : (
             visibleTasks.map((task) => (
@@ -249,6 +243,16 @@ export function CustomerAlertsQueue({ workspace }: CustomerAlertsQueueProps) {
                 key={task.id}
                 className="p-2.5 rounded-lg border text-xs bg-muted/10 flex items-center justify-between hover:bg-muted/20 transition-all"
               >
+                {profile?.customerId && (
+                  <button
+                    type="button"
+                    onClick={() => createTask.mutate(task)}
+                    disabled={createTask.isPending}
+                    className="order-2 shrink-0 rounded border px-2 py-1 text-[10px] font-semibold text-primary hover:bg-primary/10 disabled:opacity-50"
+                  >
+                    {createTask.isPending ? 'Saving…' : 'Create task'}
+                  </button>
+                )}
                 <div className="space-y-0.5 pr-2">
                   <span className="font-bold text-foreground block">{task.title}</span>
                   <div className="text-[10px] text-muted-foreground flex items-center space-x-2">
@@ -259,12 +263,6 @@ export function CustomerAlertsQueue({ workspace }: CustomerAlertsQueueProps) {
                     <span>• Assigned: {task.assignee}</span>
                   </div>
                 </div>
-                <button
-                  onClick={() => handleCompleteTask(task.id)}
-                  className="px-2.5 py-1 rounded bg-primary/10 text-primary font-bold hover:bg-primary/20 text-[10px] whitespace-nowrap shrink-0"
-                >
-                  Mark Done
-                </button>
               </div>
             ))
           )}

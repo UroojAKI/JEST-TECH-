@@ -28,6 +28,8 @@ import {
 import { StatusBadge } from '../../ui/status-badge';
 import { UnifiedChart } from '../../charts/unified-chart';
 import { useCustomerWorkspace } from '../../../hooks/useCustomer360';
+import { customerRepository } from '../../../repositories/customer.repository';
+import { useMutation } from '@tanstack/react-query';
 import { toast } from 'sonner';
 
 export function CustomerTabsContainer({ customerId }: { customerId: string }) {
@@ -121,7 +123,15 @@ export function CustomerTabsContainer({ customerId }: { customerId: string }) {
         {activeTab === 'ACTIVITIES' && <CommunicationStreamView timeline={timeline} />}
         {activeTab === 'VEHICLES' && <VehicleCardsView vehicles={vehicles} />}
         {activeTab === 'FAMILY' && <FamilyTreePage familyMembers={familyMembers} />}
-        {activeTab === 'NOTES' && <NotesView customerId={customerId} />}
+        {activeTab === 'NOTES' && (
+          <NotesView
+            customerId={customerId}
+            notes={timeline.filter(
+              (item: any) => item.title === 'INTERNAL_NOTE - INTERNAL',
+            )}
+            refetch={refetch}
+          />
+        )}
         {activeTab === 'ANALYTICS' && <CustomerAnalyticsView analytics={analytics} policies={policies} />}
       </div>
     </div>
@@ -262,7 +272,7 @@ function LeadsListView({ leads }: { leads: any[] }) {
   return (
     <div className="space-y-3">
       {leads.map((lead: any) => (
-        <div key={lead.id} className="p-4 rounded-xl border bg-card flex justify-between items-center">
+        <Link key={lead.id} href={`/workspace/sales/leads/${lead.id}`} className="p-4 rounded-xl border bg-card flex justify-between items-center hover:border-primary/50">
           <div>
             <div className="flex items-center gap-2">
               <span className="font-mono text-xs font-bold text-primary px-2 py-0.5 rounded bg-primary/10 border border-primary/20">
@@ -273,6 +283,7 @@ function LeadsListView({ leads }: { leads: any[] }) {
             <p className="text-xs text-muted-foreground mt-1">
               Source: {lead.source || 'Direct'} • Created: {new Date(lead.createdAt).toLocaleDateString('en-IN')}
             </p>
+            <p className="text-[10px] text-muted-foreground">{lead.quotations?.length || 0} quotes · {lead.status}</p>
           </div>
           <div className="flex items-center space-x-3">
             {lead.estimatedValue && (
@@ -280,7 +291,7 @@ function LeadsListView({ leads }: { leads: any[] }) {
             )}
             <StatusBadge status={lead.status} />
           </div>
-        </div>
+        </Link>
       ))}
     </div>
   );
@@ -367,7 +378,7 @@ function PaymentsListView({ payments }: { payments: any[] }) {
                 TXN: {p.transactionId || 'OFFLINE-RECEIPT'}
               </div>
               <div className="text-[11px] text-muted-foreground">
-                Method: {p.paymentMethod || 'Net Banking'} • Date: {p.paymentDate ? new Date(p.paymentDate).toLocaleDateString('en-IN') : 'Recorded'}
+                {p.quotationCode && p.quotationId ? <><Link href={`/sales/quotations/${p.quotationId}`} className="text-primary hover:underline">Quote: {p.quotationCode}</Link> · </> : ''}Method: {p.paymentMethod || 'Net Banking'} • Date: {p.paymentDate ? new Date(p.paymentDate).toLocaleDateString('en-IN') : 'Recorded'}
               </div>
             </div>
           </div>
@@ -423,47 +434,31 @@ function DocumentsListView({
   );
 }
 
-function NotesView({ customerId }: { customerId: string }) {
-  const storageKey = `customer_notes_${customerId}`;
-
-  const [notes, setNotes] = useState<Array<{ id: string; text: string; date: string; author: string }>>(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem(storageKey);
-      if (saved) {
-        try {
-          return JSON.parse(saved);
-        } catch (e) {}
-      }
-    }
-    return [
-      {
-        id: 'init-1',
-        text: 'Customer profile validated during KYC intake. Preferred communication via WhatsApp.',
-        date: new Date().toLocaleDateString('en-IN'),
-        author: 'Operations Executive',
-      },
-    ];
-  });
+function NotesView({
+  customerId,
+  notes,
+  refetch,
+}: {
+  customerId: string;
+  notes: any[];
+  refetch: () => Promise<unknown>;
+}) {
   const [newNote, setNewNote] = useState('');
+  const addNote = useMutation({
+    mutationFn: () => customerRepository.addCustomerNote(customerId, newNote),
+    onSuccess: async () => {
+      setNewNote('');
+      await refetch();
+      toast.success('Note saved to the customer profile');
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || 'Failed to save note');
+    },
+  });
 
   const handleAddNote = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newNote.trim()) return;
-    const updatedNotes = [
-      {
-        id: `note-${Date.now()}`,
-        text: newNote.trim(),
-        date: new Date().toLocaleDateString('en-IN'),
-        author: 'Current User',
-      },
-      ...notes,
-    ];
-    setNotes(updatedNotes);
-    if (typeof window !== 'undefined') {
-      localStorage.setItem(storageKey, JSON.stringify(updatedNotes));
-    }
-    setNewNote('');
-    toast.success('Note added to customer profile and persisted');
+    if (newNote.trim()) addNote.mutate();
   };
 
   return (
@@ -479,6 +474,7 @@ function NotesView({ customerId }: { customerId: string }) {
         <div className="flex justify-end">
           <button
             type="submit"
+            disabled={addNote.isPending}
             className="px-3.5 py-1.5 rounded-lg bg-primary text-primary-foreground font-bold text-xs hover:bg-primary/90 transition-colors"
           >
             Add Note
@@ -487,13 +483,13 @@ function NotesView({ customerId }: { customerId: string }) {
       </form>
 
       <div className="space-y-2 pt-2">
-        {notes.map((n) => (
+        {notes.map((n: any) => (
           <div key={n.id} className="p-3 rounded-xl border bg-card space-y-1">
             <div className="flex justify-between items-center text-[10px] text-muted-foreground">
-              <span className="font-bold text-foreground">{n.author}</span>
-              <span>{n.date}</span>
+              <span className="font-bold text-foreground">Team note</span>
+              <span>{new Date(n.date).toLocaleDateString('en-IN')}</span>
             </div>
-            <p className="text-xs text-foreground/90">{n.text}</p>
+            <p className="text-xs text-foreground/90">{n.description}</p>
           </div>
         ))}
       </div>
@@ -524,7 +520,7 @@ function ExpandablePoliciesView({ policies }: { policies: any[] }) {
               <ShieldCheck className="h-5 w-5 text-primary" />
               <div>
                 <div className="font-bold text-sm text-foreground">
-                  {p.policyNumber || 'Draft Policy'} • {p.policyType || 'General Policy'}
+                  <Link href={`/policies/${p.id}`} onClick={(event) => event.stopPropagation()} className="hover:text-primary hover:underline">{p.policyNumber || 'Draft Policy'}</Link> • {p.policyType || 'General Policy'}
                 </div>
                 <div className="text-[11px] text-muted-foreground">
                   Expires: {p.expiryDate ? new Date(p.expiryDate).toLocaleDateString('en-IN') : 'N/A'}
@@ -581,10 +577,10 @@ function ClaimsLifecycleView({ claims }: { claims: any[] }) {
           <div className="flex justify-between items-center">
             <div>
               <h4 className="font-bold text-sm">
-                Claim #{c.claimNumber} • {c.lossType || 'Claim Incident'}
+                <Link href={`/claims?claimId=${c.id}`} className="text-primary hover:underline">Claim #{c.claimNumber}</Link> • {c.lossType || 'Claim Incident'}
               </h4>
               <span className="text-[11px] text-muted-foreground">
-                Policy: {c.policy?.policyNumber || 'N/A'} • Amount: ₹{Number(c.claimAmount || 0).toLocaleString('en-IN')}
+                Policy: {c.policy?.id ? <Link href={`/policies/${c.policy.id}`} className="text-primary hover:underline">{c.policy.policyNumber}</Link> : c.policy?.policyNumber || 'N/A'} • Amount: ₹{Number(c.claimAmount || 0).toLocaleString('en-IN')}
               </span>
             </div>
             <StatusBadge status={c.status} />
@@ -622,10 +618,13 @@ function QuotationsListView({ quotations }: { quotations: any[] }) {
   return (
     <div className="space-y-3">
       {quotations.map((q) => (
-        <div key={q.id} className="p-4 rounded-xl border bg-card flex justify-between items-center">
+        <div key={q.id} className="p-4 rounded-xl border bg-card flex justify-between items-center gap-4">
           <div>
-            <span className="font-bold text-primary font-mono">{q.quotationCode}</span>
+            <Link href={`/sales/quotations/${q.id}`} className="font-bold text-primary font-mono hover:underline">{q.quotationCode}</Link>
             <p className="text-xs font-semibold">{q.title || 'Motor Quotation'}</p>
+            <p className="text-[10px] text-muted-foreground">
+              Case {q.case?.id ? <Link href={`/workspace/operations/cases/${q.case.id}`} className="text-primary hover:underline">{q.case.caseCode}</Link> : '—'} · Inspection {q.motorInspection?.inspectionCode ? <Link href={`/workspace/operations/inspections/${q.id}`} className="text-primary hover:underline">{q.motorInspection.inspectionCode} {q.motorInspection.status}</Link> : 'NOT STARTED'} · Payment {q.motorPaymentRecord?.status || 'NOT DONE'} · Policy {q.policy?.id ? <Link href={`/policies/${q.policy.id}`} className="text-primary hover:underline">{q.policy.policyNumber}</Link> : 'NOT ISSUED'}
+            </p>
           </div>
           <div className="flex items-center space-x-3">
             <span className="font-bold text-sm">₹{Number(q.totalPremium || 0).toLocaleString('en-IN')}</span>

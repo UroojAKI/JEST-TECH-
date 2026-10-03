@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { AppShell } from '../../../components/layout/app-shell';
 import { Plus, Filter, Phone, ArrowRight, CheckCircle2 } from 'lucide-react';
+import Link from 'next/link';
 import { useAgentLeads } from '../../../hooks/usePortal';
 
 export default function AgentLeadsPage() {
@@ -123,7 +124,7 @@ export default function AgentLeadsPage() {
       )}
 
       <div className="flex border-b text-xs overflow-x-auto p-1 bg-card rounded-xl border space-x-1 my-4">
-        {['ALL', 'NEW', 'QUOTE_SENT', 'NEGOTIATION', 'ISSUED'].map((st) => (
+        {['ALL', 'NEW', 'QUOTE_SENT', 'NEGOTIATION', 'PAYMENT', 'ISSUED'].map((st) => (
           <button
             key={st}
             onClick={() => setStatusFilter(st)}
@@ -144,21 +145,25 @@ export default function AgentLeadsPage() {
             <div className="p-8 text-center text-muted-foreground bg-card border rounded-xl">No leads found.</div>
           ) : (
             leads.map((lead: any) => (
-              <div key={lead.id} className="p-4 rounded-xl border bg-card shadow-sm flex items-center justify-between">
+              <Link key={lead.id} href={`/workspace/sales/leads/${lead.id}`} className="p-4 rounded-xl border bg-card shadow-sm flex items-center justify-between gap-4 hover:border-primary/50">
                 <div className="space-y-1">
                   <div className="flex items-center space-x-2">
-                    <span className="font-mono font-bold text-primary">{lead.id || lead.leadNumber}</span>
+                    <span className="font-mono font-bold text-primary">{lead.leadCode}</span>
                     <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-primary/10 text-primary border">{lead.status}</span>
                   </div>
                   <h4 className="font-extrabold text-sm text-foreground">{lead.customerName} ({lead.mobile || lead.phone})</h4>
                   <p className="text-muted-foreground text-xs">{lead.productLine || lead.productInterest}</p>
+                  <p className="text-[10px] text-muted-foreground">
+                    Quote {lead.quotationCode || '—'} · Inspection {lead.inspectionCode ? `${lead.inspectionCode} ${lead.inspectionStatus}` : lead.inspectionStatus} · Payment {lead.paymentStatus}
+                  </p>
+                  {lead.policyNumber && <p className="text-[10px] font-semibold text-emerald-700">Policy {lead.policyNumber}{lead.claims.length ? ` · Claims ${lead.claims.map((claim: { claimNumber: string }) => claim.claimNumber).join(', ')}` : ''}</p>}
                 </div>
 
                 <div className="text-right">
                   <div className="font-mono font-black text-emerald-600 text-sm">Est. ₹{(lead.estimatedGwp || 0).toLocaleString('en-IN')}</div>
                   <span className="text-[10px] text-muted-foreground">Created {lead.createdAt?.split('T')[0] || 'Recently'}</span>
                 </div>
-              </div>
+              </Link>
             ))
           )}
         </div>

@@ -2,10 +2,12 @@ import { apiClient } from '../lib/api-client';
 
 export interface AgentDashboardMetrics {
   todaysLeads: number;
+  totalLeads: number;
   pendingQuotes: number;
   policiesIssued: number;
   renewalsDue: number;
   claimsPending: number;
+  inspectionsPending: number;
   commissionEarned: number;
   monthlyTargetAchievementPercent: number;
   leaderboardRank: number;
@@ -14,6 +16,7 @@ export interface AgentDashboardMetrics {
 
 export interface AgentCustomer {
   id: string;
+  contactCode?: string;
   name: string;
   mobile: string;
   email: string;
@@ -25,12 +28,24 @@ export interface AgentCustomer {
 
 export interface AgentLead {
   id: string;
+  leadCode: string;
+  contactId: string;
+  contactCode: string;
   customerName: string;
   mobile: string;
   productLine: string;
   estimatedGwp: number;
   status: 'NEW' | 'CONTACTED' | 'QUOTE_SENT' | 'NEGOTIATION' | 'PAYMENT' | 'ISSUED';
   createdAt: string;
+  quotationCount: number;
+  quotationCode?: string;
+  caseCode?: string;
+  inspectionCode?: string;
+  inspectionStatus: string;
+  paymentStatus: string;
+  paymentReference?: string;
+  policyNumber?: string;
+  claims: Array<{ claimNumber: string; status: string }>;
 }
 
 export interface AgentQuoteComparison {
@@ -48,17 +63,25 @@ export interface AgentQuoteComparison {
 export interface AgentPolicy {
   id: string;
   policyNumber: string;
+  contactId: string;
+  contactCode?: string;
   customerName: string;
   productLine: string;
   insurerName: string;
   totalPremium: number;
   startDate: string;
   expiryDate: string;
-  status: 'ACTIVE' | 'EXPIRED' | 'RENEWAL_DUE';
+  status: string;
+  quotationCode?: string;
+  caseCode?: string;
+  inspectionStatus?: string;
+  paymentStatus?: string;
+  claims?: Array<{ claimNumber: string; status: string }>;
 }
 
 export interface AgentRenewalItem {
   id: string;
+  contactId: string;
   policyNumber: string;
   customerName: string;
   mobile: string;

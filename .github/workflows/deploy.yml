@@ -25,6 +25,9 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Scan source for leaked secrets
+        run: docker run --rm -v "$PWD:/repo" zricethezav/gitleaks:v8.30.1 git --redact --no-banner /repo
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -71,6 +74,8 @@ jobs:
   deploy:
     needs: lint-and-test
     runs-on: ubuntu-latest
+    environment:
+      name: ${{ github.ref_name == 'main' && 'production' || 'staging' }}
     steps:
       - name: Deploy to EC2 via SSH
         uses: appleboy/ssh-action@v1.0.3
@@ -81,6 +86,7 @@ jobs:
           script: |
             # Navigate to the project directory
             cd ~/JEST-TECH- || cd ~/jest-policy-crm
+            set -euo pipefail
             
             # Reset to ensure clean state and pull matching branch
             git fetch origin
@@ -94,3 +100,15 @@ jobs:
             
             # Restart the application using PM2
             pm2 restart all || pm2 start pnpm --name "jest-app" -- run start
+
+            # Fail deployment unless the API reports ready after restart.
+            health_url="http://127.0.0.1:${PORT:-4000}/api/v1/health/ready"
+            for attempt in $(seq 1 24); do
+              if curl --fail --silent --show-error "$health_url"; then
+                echo "API readiness check passed."
+                exit 0
+              fi
+              sleep 5
+            done
+            echo "API readiness check failed at $health_url."
+            exit 1

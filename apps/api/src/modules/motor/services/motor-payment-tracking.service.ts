@@ -71,6 +71,11 @@ export class MotorPaymentTrackingService {
 
     const quotation = await this.prisma.quotation.findUnique({
       where: { id: dto.quotationId },
+      include: {
+        lead: {
+          select: { id: true, status: true, currentWorkflowStep: true },
+        },
+      },
     });
     if (!quotation)
       throw new NotFoundException(`Quotation ${dto.quotationId} not found`);
@@ -302,6 +307,37 @@ export class MotorPaymentTrackingService {
           },
         },
       });
+
+      if (
+        quotation.lead &&
+        dto.status !== 'NOT_DONE' &&
+        !['LOST', 'CONVERTED', 'POLICY_ISSUED'].includes(quotation.lead.status) &&
+        quotation.lead.currentWorkflowStep !== 'ISSUED'
+      ) {
+        const fromStage = quotation.lead.currentWorkflowStep || 'QUOTATION';
+        const nextLeadStatus =
+          dto.status === 'PAID' ? 'PAYMENT_RECEIVED' : 'PAYMENT_PENDING';
+        await tx.lead.update({
+          where: { id: quotation.lead.id },
+          data: {
+            status: nextLeadStatus,
+            currentWorkflowStep: 'PAYMENT',
+            ...(dto.recordedById ? { updatedById: dto.recordedById } : {}),
+          },
+        });
+        if (dto.recordedById && fromStage !== 'PAYMENT') {
+          await tx.leadStageHistory.create({
+            data: {
+              leadId: quotation.lead.id,
+              fromStage,
+              toStage: 'PAYMENT',
+              performedById: dto.recordedById,
+              performerRole: String(actor?.role || dto.recordedByRole || 'SYSTEM'),
+              remarks: `Motor payment status recorded as ${dto.status}.`,
+            },
+          });
+        }
+      }
 
       if (dto.status === 'PAID' && quotation.caseId) {
         await tx.motorQuotationCase.update({

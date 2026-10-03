@@ -1,14 +1,11 @@
 'use client';
 
-import React from 'react';
 import { AppShell } from '../../../components/layout/app-shell';
-import { Sliders, Plus, Save, Hash, Loader2 } from 'lucide-react';
+import { Hash } from 'lucide-react';
 import { useNumberSeries } from '../../../hooks/useAdmin';
-import { toast } from 'sonner';
 
 export default function NumberSeriesPage() {
   const { data: numberSeries = [], isLoading } = useNumberSeries();
-  const [isUpdating, setIsUpdating] = React.useState(false);
   return (
     <AppShell>
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b pb-4">
@@ -19,15 +16,6 @@ export default function NumberSeriesPage() {
           <p className="text-xs text-muted-foreground">Configure document numbering formats, sequence counters, financial year resets, and live sample previews</p>
         </div>
 
-        <div className="flex items-center space-x-2">
-          <button
-            onClick={() => toast.info('Numbering series saved!')}
-            className="flex items-center space-x-1 px-4 py-2 text-xs font-bold rounded-lg bg-primary text-primary-foreground shadow hover:bg-primary/90"
-          >
-            <Save className="h-4 w-4" />
-            <span>Save Sequence Rules</span>
-          </button>
-        </div>
       </div>
       
       {isLoading ? (

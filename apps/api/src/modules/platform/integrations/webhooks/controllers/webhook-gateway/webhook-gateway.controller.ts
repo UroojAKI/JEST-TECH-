@@ -4,8 +4,8 @@ import {
   Body,
   Param,
   Headers,
-  Logger,
   Req,
+  Logger,
   BadRequestException,
   UnauthorizedException,
   ConflictException,
@@ -31,8 +31,11 @@ export class WebhookGatewayController {
     @Param('provider') provider: string,
     @Body() payload: any,
     @Headers() headers: Record<string, string>,
-    @Req() req: any,
+    @Req() req?: { rawBody?: Buffer },
   ) {
+    if (provider !== 'razorpay') {
+      throw new BadRequestException(`Unsupported webhook provider: ${provider}`);
+    }
     this.logger.log(`Received webhook from provider: ${provider}`);
 
     // 1. Extract Provider Event ID for Idempotency
@@ -45,13 +48,22 @@ export class WebhookGatewayController {
     }
 
     // 2. Validate Cryptographic Webhook Signature
-    await this.validateSignature(provider, payload, headers, providerEventId);
+    await this.validateSignature(
+      provider,
+      payload,
+      headers,
+      providerEventId,
+      req?.rawBody,
+    );
 
     // Timestamp replay protection for Razorpay
     if (provider === 'razorpay') {
       const razorpayTimestamp = headers['x-razorpay-timestamp'];
       if (razorpayTimestamp) {
-        const webhookTime = parseInt(razorpayTimestamp, 10) * 1000; // convert seconds to ms
+        if (!/^\d+$/.test(razorpayTimestamp)) {
+          throw new UnauthorizedException('Invalid webhook timestamp');
+        }
+        const webhookTime = Number(razorpayTimestamp) * 1000; // convert seconds to ms
         const now = Date.now();
         const MAX_AGE_MS = 5 * 60 * 1000; // 5 minutes
         if (Math.abs(now - webhookTime) > MAX_AGE_MS) {
@@ -172,6 +184,7 @@ export class WebhookGatewayController {
     payload: any,
     headers: any,
     providerEventId: string | null,
+    rawBody?: Buffer,
   ): Promise<void> {
     const signature =
       headers['x-razorpay-signature'] ||
@@ -191,8 +204,11 @@ export class WebhookGatewayController {
         throw new UnauthorizedException('Missing x-razorpay-signature header');
       }
 
-      const rawPayload =
-        typeof payload === 'string' ? payload : JSON.stringify(payload || {});
+      const rawPayload = rawBody
+        ? rawBody.toString('utf8')
+        : typeof payload === 'string'
+          ? payload
+          : JSON.stringify(payload || {});
       const expectedSignature = crypto
         .createHmac('sha256', razorpaySecret)
         .update(rawPayload)

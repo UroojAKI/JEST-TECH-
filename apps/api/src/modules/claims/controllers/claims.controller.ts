@@ -14,7 +14,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags, ApiOperation } from '@nestjs/swagger';
-import { RoleType, Prisma } from '@prisma/client';
+import { ClaimStatus, RoleType, Prisma } from '@prisma/client';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
 import { Roles } from '../../auth/decorators/roles.decorator';
@@ -105,11 +105,10 @@ export class ClaimsController {
     @Body() dto: UpdateClaimDto,
     @CurrentUser() user: RequestUser,
   ) {
-    const claim = await this.claimRepository.findById(id);
-    if (!claim || (claim as any).deletedAt) {
-      throw new NotFoundException(`Claim with ID ${id} not found`);
+    const claim = await this.getAuthorizedClaim(id, user, 'UPDATE');
+    if (claim.status === ClaimStatus.CLOSED) {
+      throw new BadRequestException('Closed claims cannot be updated');
     }
-    this.authzService.authorize(user, 'CLAIM', 'UPDATE', claim);
     const data: any = {
       ...(dto.surveyorName !== undefined
         ? { surveyorName: dto.surveyorName }
@@ -131,7 +130,8 @@ export class ClaimsController {
     user: RequestUser,
     action: 'READ' | 'UPDATE' | 'DELETE' | 'APPROVE' | 'ASSIGN' = 'UPDATE',
   ) {
-    const claim = await this.claimRepository.findById(id);
+    const companyId = user.companyId || user.organizationId;
+    const claim = await this.claimRepository.findById(id, companyId);
     if (!claim || (claim as any).deletedAt) {
       throw new NotFoundException(`Claim with ID ${id} not found`);
     }
@@ -188,7 +188,7 @@ export class ClaimsController {
     @Body() dto: SettleClaimDto,
     @CurrentUser() user: RequestUser,
   ) {
-    const claim = await this.getAuthorizedClaim(id, user, 'UPDATE');
+    await this.getAuthorizedClaim(id, user, 'UPDATE');
     return this.settleClaimService.execute(
       id,
       dto,

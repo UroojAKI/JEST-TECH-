@@ -350,7 +350,10 @@ describe('Round 2 Adversarial Security Audit Verification (Findings R2-001..R2-0
         expect.objectContaining({
           where: expect.objectContaining({
             companyId: 'company-a',
-            createdById: 'agent-user-1',
+            OR: expect.arrayContaining([
+              { agentId: 'agent-profile-1' },
+              { createdById: 'agent-user-1' },
+            ]),
           }),
         }),
       );
@@ -358,7 +361,10 @@ describe('Round 2 Adversarial Security Audit Verification (Findings R2-001..R2-0
         expect.objectContaining({
           where: expect.objectContaining({
             companyId: 'company-a',
-            agentId: 'agent-profile-1',
+            OR: expect.arrayContaining([
+              { agentId: 'agent-profile-1' },
+              { createdById: 'agent-user-1' },
+            ]),
           }),
         }),
       );

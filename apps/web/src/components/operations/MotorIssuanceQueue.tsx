@@ -151,9 +151,9 @@ export function MotorIssuanceQueue() {
       {/* Header & Controls */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-bold">Back-Office Operations & Underwriter Workbench</h1>
+          <h1 className="text-xl font-bold">Policy Issuance Queue</h1>
           <p className="text-xs text-muted-foreground">
-            Multi-gate issuance validator enforcing Customer KYC, Vehicle Specs, Inspection & Payment Clearance.
+            Review underwriting gates, resolve blockers, and issue eligible policies.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -446,7 +446,7 @@ export function MotorIssuanceQueue() {
                   {/* Inspection Link */}
                   {!item.gates.inspection.passed && (
                     <Link
-                      href="/workspace/operations?tab=inspections"
+                      href={`/workspace/operations/inspections/${item.id}`}
                       className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md border border-purple-500/30 bg-purple-500/10 text-purple-700 dark:text-purple-400 text-xs font-bold hover:bg-purple-500/20 transition"
                     >
                       <ShieldCheck className="h-3.5 w-3.5" />
@@ -455,22 +455,34 @@ export function MotorIssuanceQueue() {
                     </Link>
                   )}
 
-                  {/* 1-Click Issuance (when all gates pass and status is approved/accepted) */}
-                  {item.allGatesPassed && (item.status === 'APPROVED' || item.status === 'ACCEPTED') && (
-                    <button
-                      type="button"
-                      disabled={issuingId === item.id}
-                      onClick={() => handleDirectIssue(item.id)}
-                      className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-xs transition disabled:opacity-50"
-                    >
-                      {issuingId === item.id ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <CheckCircle2 className="h-4 w-4" />
-                      )}
-                      <span>1-Click Issue Policy</span>
-                    </button>
-                  )}
+                  <button
+                    type="button"
+                    disabled={
+                      issuingId === item.id ||
+                      !item.allGatesPassed ||
+                      !['APPROVED', 'ACCEPTED'].includes(item.status)
+                    }
+                    title={
+                      !item.allGatesPassed
+                        ? item.nextAction
+                        : !['APPROVED', 'ACCEPTED'].includes(item.status)
+                          ? `Quotation must be approved before issuance (currently ${item.status})`
+                          : 'Issue policy'
+                    }
+                    onClick={() => handleDirectIssue(item.id)}
+                    className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold shadow-xs transition disabled:cursor-not-allowed disabled:opacity-60 ${
+                      item.allGatesPassed && ['APPROVED', 'ACCEPTED'].includes(item.status)
+                        ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                        : 'bg-muted text-muted-foreground'
+                    }`}
+                  >
+                    {issuingId === item.id ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <CheckCircle2 className="h-4 w-4" />
+                    )}
+                    <span>{issuingId === item.id ? 'Issuing Policy...' : 'Issue Policy'}</span>
+                  </button>
 
                   <button
                     type="button"

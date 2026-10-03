@@ -26,7 +26,9 @@ export function MotorProposalWizard({ isOpen, quote, onClose, onSuccess }: Props
   const [isSaving, setIsSaving] = useState(false);
   const [uploadedDocs, setUploadedDocs] = useState<UploadedDoc[]>([]);
   const [quoteFile, setQuoteFile] = useState<File | null>(null);
-  const [paymentRecord, setPaymentRecord] = useState<PaymentRecord>({ status: 'NOT_DONE' });
+  const [paymentRecord, setPaymentRecord] = useState<PaymentRecord>(
+    quote?.paymentRecord || { status: 'NOT_DONE' },
+  );
 
   if (!isOpen || !quote) return null;
 
@@ -35,7 +37,7 @@ export function MotorProposalWizard({ isOpen, quote, onClose, onSuccess }: Props
     'APPROVED',
     'PROPOSAL_APPROVED',
     'CUSTOMER_ACCEPTED',
-  ].includes(quote.status);
+  ].includes(quote.status) || quote.proposalStatus === 'APPROVED';
 
   const canProceed = () => {
     if (step === 1) return true;
@@ -97,7 +99,7 @@ export function MotorProposalWizard({ isOpen, quote, onClose, onSuccess }: Props
             <div>
               <h2 className="font-bold text-base text-foreground tracking-tight">Complete Proposal & Payment</h2>
               <p className="text-xs text-muted-foreground font-medium">
-                {quote.proposerDetails?.customerName} • {quote.quotationCode} • ₹{quote.totalPremium.toLocaleString('en-IN')}
+                {quote.customerName || quote.proposerDetails?.customerName || 'Customer'} • {quote.quotationCode} • ₹{quote.totalPremium.toLocaleString('en-IN')}
               </p>
             </div>
           </div>

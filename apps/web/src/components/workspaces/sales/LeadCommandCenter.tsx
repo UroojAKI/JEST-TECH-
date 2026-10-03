@@ -8,7 +8,12 @@ import { useSalesWorkspace } from '../../../hooks/useSalesWorkspace';
 import { apiClient } from '../../../lib/api-client';
 import { salesWorkspaceRepository } from '../../../repositories/sales-workspace.repository';
 import { MotorQuoteWizard } from '../../leads/motor-quote/MotorQuoteWizard';
+import { MotorProposalWizard } from '../../leads/motor-quote/MotorProposalWizard';
 import { QuotationCompletionView } from '../../leads/motor-quote/QuotationCompletionView';
+import type { SavedMotorQuote } from '../../leads/motor-quote/motorFormTypes';
+import { MarkLostModal } from '../../leads/drawers/MarkLostModal';
+import { leadsRepository } from '../../../repositories/leads.repository';
+import type { LostReason } from '../../../types/leads';
 import {
   User,
   Phone,
@@ -52,6 +57,10 @@ export function LeadCommandCenter({ lead, onRefresh }: LeadCommandCenterProps) {
 
   // Motor Quote Wizard State
   const [isQuoteWizardOpen, setIsQuoteWizardOpen] = useState(false);
+  const [paymentQuote, setPaymentQuote] = useState<SavedMotorQuote | null>(null);
+  const [showMarkLost, setShowMarkLost] = useState(false);
+  const [isMarkingLost, setIsMarkingLost] = useState(false);
+  const [selectingQuoteId, setSelectingQuoteId] = useState<string | null>(null);
 
   // Call & Meeting Form State
   const [callOutcome, setCallOutcome] = useState('CONNECTED');
@@ -77,19 +86,18 @@ export function LeadCommandCenter({ lead, onRefresh }: LeadCommandCenterProps) {
   const {
     data: leadQuotes = [],
     isLoading: isQuotesLoading,
+    isError: isQuotesError,
     refetch: refetchQuotes,
   } = useQuery({
     queryKey: ['lead-quotations', lead?.id],
     queryFn: async () => {
-      try {
-        const res = await apiClient.get('/quotations', { params: { leadId: lead.id } });
-        const list = res.data?.data || res.data?.items || res.data || [];
-        return Array.isArray(list) ? list : [];
-      } catch {
-        return [];
-      }
+      const res = await apiClient.get('/quotations', { params: { leadId: lead.id } });
+      const list = res.data?.data || res.data?.items || res.data || [];
+      return Array.isArray(list) ? list : [];
     },
     enabled: !!lead?.id,
+    refetchInterval: 30_000,
+    refetchOnWindowFocus: true,
   });
 
   // Query Stage History for this Lead
@@ -119,6 +127,74 @@ export function LeadCommandCenter({ lead, onRefresh }: LeadCommandCenterProps) {
         },
       }
     );
+  };
+
+  const handleSelectQuote = async (quote: any) => {
+    const caseId = quote.caseId || quote.case?.id || quote.motorMetadata?.caseId;
+    if (!caseId) {
+      toast.error('This quotation is not linked to a motor case yet.');
+      return;
+    }
+
+    setSelectingQuoteId(quote.id);
+    try {
+      await apiClient.post(`/motor/quotation-cases/${caseId}/select`, {
+        quotationId: quote.id,
+      });
+      await refetchQuotes();
+      onRefresh?.();
+      toast.success(`${quote.quotationCode || 'Quotation'} selected for this customer.`);
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Could not select this quotation.');
+    } finally {
+      setSelectingQuoteId(null);
+    }
+  };
+
+  const handleMarkLost = async (
+    reason: LostReason,
+    competitor?: string,
+    priceDiff?: number,
+    remarks?: string,
+  ) => {
+    setIsMarkingLost(true);
+    try {
+      await leadsRepository.markLost(lead.id, reason, competitor, priceDiff, remarks);
+      setShowMarkLost(false);
+      toast.success('Lead closed as lost.');
+      onRefresh?.();
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Could not close this lead.');
+    } finally {
+      setIsMarkingLost(false);
+    }
+  };
+
+  const openPayment = (quote: any) => {
+    setPaymentQuote({
+      id: quote.id,
+      quotationCode: quote.quotationCode,
+      vehicleCategory: quote.vehicleCategory || quote.motorMetadata?.vehicleCategory || 'PRIVATE_CAR',
+      policyType: quote.policyType || quote.motorMetadata?.policyType || 'PACKAGE',
+      insurerName: quote.insurerName || 'Partner Insurer',
+      registrationNumber: quote.registrationNumber || quote.motorMetadata?.registrationNumber || '',
+      totalPremium: Number(quote.totalPremium || 0),
+      status: quote.status,
+      createdAt: quote.createdAt,
+      leadId: lead.id,
+      caseId: quote.caseId || quote.case?.id,
+      proposalStatus: quote.proposal?.status,
+      paymentRecord: quote.motorPaymentRecord
+        ? {
+            status: quote.motorPaymentRecord.status,
+            amount: Number(quote.motorPaymentRecord.amount || 0) || undefined,
+            paymentMethod: quote.motorPaymentRecord.paymentMethod || undefined,
+            referenceNumber: quote.motorPaymentRecord.referenceNumber || undefined,
+            paidAt: quote.motorPaymentRecord.paidAt || undefined,
+          }
+        : { status: 'NOT_DONE' },
+      customerName: `${contact.firstName || ''} ${contact.lastName || ''}`.trim(),
+    });
   };
 
   const handleLogCall = async (e: React.FormEvent) => {
@@ -217,6 +293,14 @@ export function LeadCommandCenter({ lead, onRefresh }: LeadCommandCenterProps) {
 
         {/* Quick Action Triggers */}
         <div className="flex flex-wrap items-center gap-2">
+          {!['LOST', 'CONVERTED', 'POLICY_ISSUED'].includes(String(lead.status)) && (
+            <button
+              onClick={() => setShowMarkLost(true)}
+              className="px-3.5 py-2 rounded-xl border border-destructive/30 text-destructive text-xs font-bold hover:bg-destructive/5"
+            >
+              Close as Lost
+            </button>
+          )}
           <button
             onClick={() => {
               setActiveTab('QUOTATION');
@@ -558,7 +642,12 @@ export function LeadCommandCenter({ lead, onRefresh }: LeadCommandCenterProps) {
             </div>
           </div>
 
-          {leadQuotes.length === 0 ? (
+          {isQuotesError ? (
+            <div className="p-6 rounded-xl border border-destructive/30 bg-destructive/5 text-center text-sm">
+              <p className="font-bold text-destructive">Could not load this lead&apos;s quotations.</p>
+              <button onClick={() => void refetchQuotes()} className="mt-2 text-primary underline">Try again</button>
+            </div>
+          ) : leadQuotes.length === 0 ? (
             <div className="p-8 rounded-2xl border bg-card text-center space-y-4">
               <div className="h-16 w-16 mx-auto rounded-2xl bg-primary/10 text-primary flex items-center justify-center">
                 <Car className="h-8 w-8" />
@@ -583,6 +672,9 @@ export function LeadCommandCenter({ lead, onRefresh }: LeadCommandCenterProps) {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {leadQuotes.map((quote: any) => {
                 const isIssued = quote.issuanceStatus === 'ISSUED' || quote.status === 'ISSUED';
+                const caseId = quote.caseId || quote.case?.id || quote.motorMetadata?.caseId;
+                const isSelected = quote.case?.selectedQuoteId === quote.id;
+                const paymentStatus = quote.motorPaymentRecord?.status || 'NOT_DONE';
                 const totalPrem = quote.totalPremium || quote.motorMetadata?.policyDetails?.totalPremium || 0;
                 const regNo = quote.registrationNumber || quote.motorMetadata?.registrationNumber || 'New Vehicle';
                 const category = quote.vehicleCategory || quote.motorMetadata?.vehicleCategory || 'PRIVATE_CAR';
@@ -626,11 +718,40 @@ export function LeadCommandCenter({ lead, onRefresh }: LeadCommandCenterProps) {
                       />
                     </div>
 
+                    <div className="rounded-lg bg-muted/20 border p-3 text-[11px] space-y-1.5">
+                      <div className="font-bold text-foreground">Customer journey</div>
+                      <div className="flex flex-wrap gap-x-3 gap-y-1 text-muted-foreground">
+                        <span>Lead {lead.leadCode}</span>
+                        <span>Customer {contact.contactCode || 'linked'}</span>
+                        <span>Case {quote.case?.id ? <Link href={`/workspace/operations/cases/${quote.case.id}`} className="text-primary hover:underline">{quote.case.caseCode}</Link> : caseId ? 'linked' : 'not linked'}</span>
+                        {quote.motorInspection && <span>Inspection <Link href={`/workspace/operations/inspections/${quote.id}`} className="text-primary hover:underline">{quote.motorInspection.inspectionCode}: {quote.motorInspection.status}</Link></span>}
+                        {quote.motorPaymentRecord && <span>Payment {paymentStatus}{quote.motorPaymentRecord.referenceNumber ? ` · ${quote.motorPaymentRecord.referenceNumber}` : ''}</span>}
+                        {quote.policy && <span>Policy <Link href={`/policies/${quote.policy.id}`} className="text-primary hover:underline">{quote.policy.policyNumber}</Link>: {quote.policy.status}</span>}
+                      </div>
+                    </div>
+
                     <div className="flex items-center justify-between pt-2 border-t text-[11px]">
                       <span className="text-muted-foreground">
                         Created: {new Date(quote.createdAt).toLocaleDateString('en-IN')}
                       </span>
                       <div className="flex items-center space-x-2">
+                        {caseId && (
+                          <button
+                            onClick={() => void handleSelectQuote(quote)}
+                            disabled={isSelected || selectingQuoteId === quote.id || Boolean(quote.policy)}
+                            className="font-bold text-primary hover:underline disabled:text-muted-foreground disabled:no-underline"
+                          >
+                            {isSelected ? 'Selected' : selectingQuoteId === quote.id ? 'Selecting…' : 'Select Quote'}
+                          </button>
+                        )}
+                        {quote.productType === 'MOTOR' && !quote.policy && paymentStatus !== 'PAID' && (
+                          <button
+                            onClick={() => openPayment(quote)}
+                            className="font-bold text-emerald-700 hover:underline"
+                          >
+                            {paymentStatus === 'UNDER_PROCESS' ? 'Update Payment' : 'Record Payment'}
+                          </button>
+                        )}
                         <Link
                           href={`/sales/quotations?leadId=${lead.id}`}
                           className="font-bold text-primary hover:underline flex items-center space-x-1"
@@ -669,6 +790,28 @@ export function LeadCommandCenter({ lead, onRefresh }: LeadCommandCenterProps) {
             </Link>
           </div>
 
+          {leadQuotes.length > 0 ? (
+            <div className="space-y-3">
+              {leadQuotes.map((quote: any) => (
+                <div key={quote.id} className="p-4 rounded-xl border flex flex-wrap items-center justify-between gap-3 text-xs">
+                  <div>
+                    <div className="font-bold text-primary">{quote.quotationCode}</div>
+                    <div className="text-muted-foreground mt-1">
+                      Proposal {quote.proposal?.status || 'PENDING'} · Inspection {quote.motorInspection?.status || 'NOT STARTED'} · Payment {quote.motorPaymentRecord?.status || 'NOT DONE'} · Policy {quote.policy?.policyNumber || 'NOT ISSUED'}
+                    </div>
+                  </div>
+                  {quote.productType === 'MOTOR' && !quote.policy && quote.motorPaymentRecord?.status !== 'PAID' && (
+                    <button
+                      onClick={() => openPayment(quote)}
+                      className="px-3 py-2 rounded-lg bg-emerald-600 text-white font-bold hover:bg-emerald-700"
+                    >
+                      {quote.motorPaymentRecord?.status === 'UNDER_PROCESS' ? 'Update Payment' : 'Record Payment'}
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          ) : (
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
             <div className="p-4 rounded-xl border bg-muted/20 space-y-1">
               <span className="text-[10px] font-bold uppercase text-muted-foreground">Stage 1: Proposal</span>
@@ -694,6 +837,7 @@ export function LeadCommandCenter({ lead, onRefresh }: LeadCommandCenterProps) {
               </p>
             </div>
           </div>
+          )}
         </div>
       )}
 
@@ -790,6 +934,25 @@ export function LeadCommandCenter({ lead, onRefresh }: LeadCommandCenterProps) {
           if (onRefresh) onRefresh();
           toast.success('Motor quotation created and linked to lead!');
         }}
+      />
+
+      <MotorProposalWizard
+        key={`${paymentQuote?.id || 'none'}-${paymentQuote?.paymentRecord?.status || 'NOT_DONE'}`}
+        isOpen={!!paymentQuote}
+        quote={paymentQuote}
+        onClose={() => setPaymentQuote(null)}
+        onSuccess={() => {
+          setPaymentQuote(null);
+          void refetchQuotes();
+          onRefresh?.();
+        }}
+      />
+
+      <MarkLostModal
+        isOpen={showMarkLost}
+        onClose={() => setShowMarkLost(false)}
+        onSubmit={handleMarkLost}
+        isSubmitting={isMarkingLost}
       />
 
       {/* Referral Modal */}

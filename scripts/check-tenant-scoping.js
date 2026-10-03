@@ -174,7 +174,8 @@ function run() {
     process.exit(1);
   }
 
-  console.log('✅ PASSED: All controllers strictly enforce fail-closed tenant scoping.');
+  console.log('✅ Heuristic scan passed: no obvious unscoped direct controller queries found.');
+  console.log('   This does not prove tenant isolation in delegated services, repositories, or relations.');
   console.log('=================================================================\n');
 }
 

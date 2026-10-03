@@ -74,6 +74,7 @@ describe('Customer360Service (Wave 7 Tenancy & PII Protection)', () => {
       },
       communicationLog: {
         findMany: jest.fn().mockResolvedValue([]),
+        create: jest.fn().mockResolvedValue({ id: 'note-1' }),
       },
       lead: {
         findMany: jest.fn().mockResolvedValue([]),
@@ -264,6 +265,37 @@ describe('Customer360Service (Wave 7 Tenancy & PII Protection)', () => {
 
       expect(result.profile.panNumber).toBe('ABCDE1234F');
       expect(result.profile.aadhaarNumber).toBe('998877665544');
+    });
+  });
+
+  describe('addCustomerNote', () => {
+    it('persists an internal note only after tenant-scoped contact lookup', async () => {
+      prisma.contact.findFirst.mockResolvedValue({
+        id: 'contact-1',
+        companyId: 'company-a',
+      });
+
+      await service.addCustomerNote('contact-1', '  Call back Friday  ', mockAdminActor);
+
+      expect(prisma.contact.findFirst).toHaveBeenCalledWith({
+        where: { id: 'contact-1', companyId: 'company-a', deletedAt: null },
+      });
+      expect(prisma.communicationLog.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          contactId: 'contact-1',
+          channel: 'INTERNAL_NOTE',
+          messageBody: 'Call back Friday',
+        }),
+      });
+    });
+
+    it('does not create a note when the contact is outside the caller tenant', async () => {
+      prisma.contact.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.addCustomerNote('foreign-contact', 'Do not persist', mockAdminActor),
+      ).rejects.toThrow(NotFoundException);
+      expect(prisma.communicationLog.create).not.toHaveBeenCalled();
     });
   });
 });

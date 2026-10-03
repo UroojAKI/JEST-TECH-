@@ -17,6 +17,15 @@ export const quotationWithRelations =
       account: true,
       lead: true,
       vehicle: true,
+      case: { select: { id: true, caseCode: true, status: true, selectedQuoteId: true } },
+      motorInspection: {
+        select: { id: true, inspectionCode: true, status: true, completedAt: true, updatedAt: true },
+      },
+      motorPaymentRecord: {
+        select: { id: true, status: true, amount: true, paymentMethod: true, referenceNumber: true, paidAt: true, updatedAt: true },
+      },
+      proposal: { select: { status: true } },
+      policy: { select: { id: true, policyNumber: true, status: true } },
       versions: { orderBy: { versionNumber: 'desc' } },
       addons: true,
       discounts: true,

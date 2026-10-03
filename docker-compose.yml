@@ -26,7 +26,7 @@ services:
     image: redis:7-alpine
     container_name: jest-redis
     ports:
-      - "6380:6379"
+      - "127.0.0.1:6380:6379"
     volumes:
       # Persistent Redis storage — prevents job queue and cache loss on container restart
       - redis_data:/data

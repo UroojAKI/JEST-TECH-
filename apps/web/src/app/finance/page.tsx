@@ -12,11 +12,7 @@ import {
   PieChart,
   Award,
   Building2,
-  AlertCircle,
   CheckCircle2,
-  FileSpreadsheet,
-  ArrowUpRight,
-  ArrowDownRight,
   Shield,
   Layers,
   Clock,
@@ -31,6 +27,8 @@ import {
   useSettlements,
   useIncentives,
   useReconciliationQueue,
+  useOutstandingInvoices,
+  useRecordInvoicePayment,
 } from '../../hooks/useFinance';
 import { VoucherPreviewModal, VoucherData } from '../../components/finance/vouchers/VoucherPreviewModal';
 import { EnterpriseTable } from '../../components/table/enterprise-table';
@@ -42,6 +40,9 @@ export default function FinanceOperationsHubPage() {
 
   const { data: metrics } = useFinanceDashboard();
   const { data: receipts = [] } = useReceipts();
+  const { data: outstandingInvoices = [], isLoading: isLoadingInvoices } =
+    useOutstandingInvoices(activeTab === 'RECEIPTS');
+  const { recordPayment, isRecordingPayment } = useRecordInvoicePayment();
   const { data: payments = [] } = usePayments();
   const { ledgerEntries, postJournalEntry, isPosting } = useLedgerEntries();
   const { commissions = [], approveCommission } = useCommissions();
@@ -57,6 +58,13 @@ export default function FinanceOperationsHubPage() {
   } = useReconciliationQueue();
 
   const [isJournalModalOpen, setIsJournalModalOpen] = useState(false);
+  const [isReceiptModalOpen, setIsReceiptModalOpen] = useState(false);
+  const [paymentForm, setPaymentForm] = useState({
+    invoiceId: '',
+    amount: '',
+    mode: 'BANK_TRANSFER',
+    reference: '',
+  });
   const [journalForm, setJournalForm] = useState({
     description: '',
     referenceType: 'GENERAL',
@@ -134,6 +142,19 @@ export default function FinanceOperationsHubPage() {
     setSelectedVoucher(v);
   };
 
+  const handleRecordPayment = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!paymentForm.invoiceId) return;
+
+    try {
+      await recordPayment(paymentForm);
+      setIsReceiptModalOpen(false);
+      setPaymentForm({ invoiceId: '', amount: '', mode: 'BANK_TRANSFER', reference: '' });
+    } catch {
+      // Error is reported by the mutation.
+    }
+  };
+
   return (
     <AppShell>
       {/* 1. Page Header */}
@@ -147,86 +168,52 @@ export default function FinanceOperationsHubPage() {
           </p>
         </div>
 
-        <div className="flex items-center space-x-2">
-          <button
-            onClick={() =>
-              handleOpenVoucher({
-                title: 'Financial Summary Statement',
-                voucherNumber: 'STMT-2026-07',
-                date: '2026-07-24',
-                type: 'JOURNAL',
-                partyName: 'JEST Insurance Brokering Ltd',
-                amount: metrics?.monthlyGwp || 4850000,
-                details: [
-                  { label: 'Gross Written Premium (GWP)', value: 4850000 },
-                  { label: 'Total Brokerage Commission Retained', value: 485000 },
-                  { label: 'Net Payable to Insurers', value: 4365000 },
-                  { label: 'Agent Commission Accrued', value: 390000 },
-                ],
-              })
-            }
-            className="flex items-center space-x-1 px-3 py-2 text-xs font-semibold rounded-lg border bg-card hover:bg-accent shadow-sm"
-          >
-            <FileSpreadsheet className="h-3.5 w-3.5" />
-            <span>Generate Statement</span>
-          </button>
-        </div>
       </div>
 
       {/* 2. Top Finance KPI Ribbon */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3 text-xs">
+      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 gap-3 text-xs">
         <div className="p-3.5 rounded-xl border bg-card space-y-1">
           <span className="text-[10px] font-bold uppercase text-muted-foreground">Today's Collections</span>
           <div className="font-black text-emerald-600 text-sm">
-            ₹{(metrics?.todayCollections || 248500).toLocaleString('en-IN')}
+            ₹{(metrics?.todayCollections ?? 0).toLocaleString('en-IN')}
           </div>
-          <span className="text-[10px] text-emerald-600 font-semibold flex items-center">
-            <ArrowUpRight className="h-3 w-3 mr-0.5" /> +14.2% vs yesterday
+          <span className="text-[10px] text-muted-foreground font-semibold">
+            Recorded receipts today
           </span>
         </div>
 
         <div className="p-3.5 rounded-xl border bg-card space-y-1">
           <span className="text-[10px] font-bold uppercase text-muted-foreground">Monthly GWP</span>
           <div className="font-black text-foreground text-sm">
-            ₹{(metrics?.monthlyGwp || 4850000).toLocaleString('en-IN')}
+            ₹{(metrics?.monthlyGwp ?? 0).toLocaleString('en-IN')}
           </div>
-          <span className="text-[10px] text-muted-foreground font-semibold">Jul 2026 Run Rate</span>
+          <span className="text-[10px] text-muted-foreground font-semibold">Policies issued this month</span>
         </div>
 
         <div className="p-3.5 rounded-xl border bg-card space-y-1">
           <span className="text-[10px] font-bold uppercase text-muted-foreground">Outstanding Premium</span>
           <div className="font-black text-amber-600 text-sm">
-            ₹{(metrics?.outstandingPremium || 185000).toLocaleString('en-IN')}
+            ₹{(metrics?.outstandingPremium ?? 0).toLocaleString('en-IN')}
           </div>
-          <span className="text-[10px] text-amber-600 font-semibold flex items-center">
-            <AlertCircle className="h-3 w-3 mr-0.5" /> 3 Policies Due
+          <span className="text-[10px] text-muted-foreground font-semibold">
+            Unpaid and partial policy invoices
           </span>
         </div>
 
         <div className="p-3.5 rounded-xl border bg-card space-y-1">
           <span className="text-[10px] font-bold uppercase text-muted-foreground">Commission Accrued</span>
           <div className="font-black text-primary text-sm">
-            ₹{(metrics?.totalCommissionAccrued || 485000).toLocaleString('en-IN')}
+            ₹{(metrics?.totalCommissionAccrued ?? 0).toLocaleString('en-IN')}
           </div>
-          <span className="text-[10px] text-muted-foreground font-semibold">10% Average Rate</span>
+          <span className="text-[10px] text-muted-foreground font-semibold">Current accrued commission</span>
         </div>
 
         <div className="p-3.5 rounded-xl border bg-card space-y-1">
-          <span className="text-[10px] font-bold uppercase text-muted-foreground">Net Profit Today</span>
+          <span className="text-[10px] font-bold uppercase text-muted-foreground">Commission Paid</span>
           <div className="font-black text-emerald-600 text-sm">
-            ₹{(metrics?.netProfitToday || 68500).toLocaleString('en-IN')}
+            ₹{(metrics?.totalCommissionPaid ?? 0).toLocaleString('en-IN')}
           </div>
-          <span className="text-[10px] text-emerald-600 font-semibold flex items-center">
-            <ArrowUpRight className="h-3 w-3 mr-0.5" /> +8.4% Net Margin
-          </span>
-        </div>
-
-        <div className="p-3.5 rounded-xl border bg-card space-y-1">
-          <span className="text-[10px] font-bold uppercase text-muted-foreground">Ledger Balance</span>
-          <div className="font-black text-foreground text-sm">
-            ₹{(metrics?.ledgerBalance || 18450000).toLocaleString('en-IN')}
-          </div>
-          <span className="text-[10px] text-muted-foreground font-semibold">Balanced JE Pool</span>
+          <span className="text-[10px] text-muted-foreground font-semibold">Recorded paid commissions</span>
         </div>
       </div>
 
@@ -238,27 +225,32 @@ export default function FinanceOperationsHubPage() {
             <h3 className="text-xs font-bold uppercase tracking-wider">Accounts & Finance Executive "My Work" Queue</h3>
           </div>
           <span className="text-[10px] font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-full border border-primary/20">
-            15 Pending Action Items
+            {metrics ? [
+              metrics.myWorkQueue.pendingVerification,
+              metrics.myWorkQueue.settlementsPending,
+              metrics.myWorkQueue.commissionApproval,
+              metrics.myWorkQueue.reconciliationQueue,
+            ].reduce((total, count) => total + count, 0) : 'Loading…'} Pending Action Items
           </span>
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
           <div className="p-3 rounded-xl border bg-muted/10 space-y-0.5">
-            <span className="text-[10px] text-muted-foreground uppercase font-bold">Pending Receipt Verification</span>
+            <span className="text-[10px] text-muted-foreground uppercase font-bold">Pending Verifications</span>
             <div className="font-extrabold text-amber-600 text-sm">
-              {metrics?.myWorkQueue.pendingVerification || 4} Receipts
+              {metrics?.myWorkQueue.pendingVerification ?? 0} Items
             </div>
           </div>
           <div className="p-3 rounded-xl border bg-muted/10 space-y-0.5">
             <span className="text-[10px] text-muted-foreground uppercase font-bold">Insurer Settlements Pending</span>
             <div className="font-extrabold text-primary text-sm">
-              {metrics?.myWorkQueue.settlementsPending || 2} Insurers
+              {metrics?.myWorkQueue.settlementsPending ?? 0} Insurers
             </div>
           </div>
           <div className="p-3 rounded-xl border bg-muted/10 space-y-0.5">
             <span className="text-[10px] text-muted-foreground uppercase font-bold">Commission Approvals Due</span>
             <div className="font-extrabold text-emerald-600 text-sm">
-              {metrics?.myWorkQueue.commissionApproval || 6} Payouts
+              {metrics?.myWorkQueue.commissionApproval ?? 0} Entries
             </div>
           </div>
           <button
@@ -268,7 +260,7 @@ export default function FinanceOperationsHubPage() {
           >
             <span className="text-[10px] text-muted-foreground uppercase font-bold">Bank Reconciliation Queue</span>
             <div className="font-extrabold text-foreground text-sm flex items-center justify-between">
-              <span>{reconSummary?.pendingCount ?? (metrics?.myWorkQueue.reconciliationQueue || 0)} Pending</span>
+              <span>{reconSummary?.pendingCount ?? 0} Pending</span>
               <span className="text-[10px] text-primary underline font-medium">View Queue →</span>
             </div>
           </button>
@@ -315,24 +307,24 @@ export default function FinanceOperationsHubPage() {
           {activeTab === 'OVERVIEW' && (
             <div className="space-y-6">
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                {/* Cash Flow Summary */}
+                {/* Recorded finance totals */}
                 <div className="p-4 rounded-xl border bg-card space-y-3">
                   <div className="flex justify-between items-center border-b pb-2">
-                    <span className="font-bold uppercase text-[10px] text-muted-foreground">Cash Flow & Liquidity</span>
+                    <span className="font-bold uppercase text-[10px] text-muted-foreground">Recorded Finance Totals</span>
                     <TrendingUp className="h-4 w-4 text-emerald-500" />
                   </div>
                   <div className="space-y-2">
                     <div className="flex justify-between">
-                      <span className="text-muted-foreground">Total Inflows (7 Days)</span>
-                      <strong className="text-emerald-600 font-bold">₹{((metrics?.todayCollections || 0) * 7).toLocaleString('en-IN')}</strong>
+                      <span className="text-muted-foreground">Collections Today</span>
+                      <strong className="text-emerald-600 font-bold">₹{(metrics?.todayCollections ?? 0).toLocaleString('en-IN')}</strong>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-muted-foreground">Total Outflows (7 Days)</span>
-                      <strong className="text-amber-600 font-bold">₹{((metrics?.totalCommissionPaid || 0) * 7).toLocaleString('en-IN')}</strong>
+                      <span className="text-muted-foreground">Commission Paid (recorded)</span>
+                      <strong className="text-amber-600 font-bold">₹{(metrics?.totalCommissionPaid ?? 0).toLocaleString('en-IN')}</strong>
                     </div>
-                    <div className="flex justify-between border-t pt-2 font-bold">
-                      <span>Net Cash Position</span>
-                      <span className="text-primary text-sm font-black">₹{(metrics?.cashFlow || 0).toLocaleString('en-IN')}</span>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Outstanding Premium</span>
+                      <strong className="text-primary font-bold">₹{(metrics?.outstandingPremium ?? 0).toLocaleString('en-IN')}</strong>
                     </div>
                   </div>
                 </div>
@@ -353,8 +345,8 @@ export default function FinanceOperationsHubPage() {
                       <strong className="text-amber-600">₹{safeSettlements.filter((s: any) => s.status !== 'SETTLED').reduce((acc: number, s: any) => acc + (s.grossPremiumCollected || 0), 0).toLocaleString('en-IN')}</strong>
                     </div>
                     <div className="flex justify-between border-t pt-2 font-bold">
-                      <span>Total Insurer Payable</span>
-                      <span className="text-foreground text-sm font-black">₹{(metrics?.payables || 0).toLocaleString('en-IN')}</span>
+                      <span>Outstanding Customer Premium</span>
+                      <span className="text-foreground text-sm font-black">₹{(metrics?.outstandingPremium ?? 0).toLocaleString('en-IN')}</span>
                     </div>
                   </div>
                 </div>
@@ -371,8 +363,8 @@ export default function FinanceOperationsHubPage() {
                       <strong>₹{(metrics?.totalCommissionAccrued || 0).toLocaleString('en-IN')}</strong>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-muted-foreground">Manager Override (Tier 2/3)</span>
-                      <strong>₹{Math.round((metrics?.totalCommissionAccrued || 0) * 0.2).toLocaleString('en-IN')}</strong>
+                      <span className="text-muted-foreground">Paid Commission</span>
+                      <strong>₹{(metrics?.totalCommissionPaid ?? 0).toLocaleString('en-IN')}</strong>
                     </div>
                     <div className="flex justify-between border-t pt-2 font-bold">
                       <span>Approved Payout Pool</span>
@@ -556,10 +548,11 @@ export default function FinanceOperationsHubPage() {
               <div className="flex justify-between items-center">
                 <h4 className="font-bold text-sm">Customer Premium Receipts Register</h4>
                 <button
-                  onClick={() => toast.success('Issued premium receipt REC-2026-9901 for ₹16,545!')}
+                  type="button"
+                  onClick={() => setIsReceiptModalOpen(true)}
                   className="px-3 py-1.5 rounded-lg bg-primary text-primary-foreground font-bold text-xs shadow"
                 >
-                  + Issue Premium Receipt
+                  + Record Payment &amp; Issue Receipt
                 </button>
               </div>
 
@@ -980,6 +973,129 @@ export default function FinanceOperationsHubPage() {
                   className="px-4 py-2 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-xs shadow disabled:opacity-50"
                 >
                   {isPosting ? 'Posting...' : 'Post Entry'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {isReceiptModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="w-full max-w-lg overflow-hidden rounded-2xl border bg-card shadow-2xl">
+            <div className="flex items-center justify-between border-b p-4">
+              <div>
+                <h3 className="text-sm font-bold">Record Premium Payment</h3>
+                <p className="mt-1 text-[11px] text-muted-foreground">
+                  A receipt is issued only after payment is allocated to an outstanding invoice.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsReceiptModalOpen(false)}
+                className="rounded-lg p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+                aria-label="Close payment form"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleRecordPayment} className="space-y-3 p-4 text-xs">
+              <div>
+                <label htmlFor="receipt-invoice" className="mb-1 block font-semibold text-muted-foreground">
+                  Policy invoice
+                </label>
+                <select
+                  id="receipt-invoice"
+                  required
+                  value={paymentForm.invoiceId}
+                  onChange={(event) => {
+                    const invoice = outstandingInvoices.find((item) => item.id === event.target.value);
+                    setPaymentForm({
+                      ...paymentForm,
+                      invoiceId: event.target.value,
+                      amount: invoice?.outstandingAmount || '',
+                    });
+                  }}
+                  disabled={isLoadingInvoices || outstandingInvoices.length === 0}
+                  className="w-full rounded-lg border bg-background px-3 py-2 text-foreground"
+                >
+                  <option value="">
+                    {isLoadingInvoices ? 'Loading invoices…' : 'Select an outstanding invoice'}
+                  </option>
+                  {outstandingInvoices.map((invoice) => (
+                    <option key={invoice.id} value={invoice.id}>
+                      {invoice.policyNumber} · {invoice.customerName} · ₹{invoice.outstandingAmount} outstanding
+                    </option>
+                  ))}
+                </select>
+                {!isLoadingInvoices && outstandingInvoices.length === 0 && (
+                  <p className="mt-1 text-muted-foreground">No payable policy invoices are available.</p>
+                )}
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label htmlFor="receipt-amount" className="mb-1 block font-semibold text-muted-foreground">
+                    Amount (₹)
+                  </label>
+                  <input
+                    id="receipt-amount"
+                    type="number"
+                    min="0.0001"
+                    step="0.0001"
+                    required
+                    value={paymentForm.amount}
+                    onChange={(event) => setPaymentForm({ ...paymentForm, amount: event.target.value })}
+                    className="w-full rounded-lg border bg-background px-3 py-2 font-mono text-foreground"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="receipt-mode" className="mb-1 block font-semibold text-muted-foreground">
+                    Payment mode
+                  </label>
+                  <select
+                    id="receipt-mode"
+                    value={paymentForm.mode}
+                    onChange={(event) => setPaymentForm({ ...paymentForm, mode: event.target.value })}
+                    className="w-full rounded-lg border bg-background px-3 py-2 text-foreground"
+                  >
+                    <option value="BANK_TRANSFER">Bank transfer</option>
+                    <option value="CASH">Cash</option>
+                    <option value="CHEQUE">Cheque</option>
+                    <option value="CARD">Card</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label htmlFor="receipt-reference" className="mb-1 block font-semibold text-muted-foreground">
+                  Reference (optional)
+                </label>
+                <input
+                  id="receipt-reference"
+                  maxLength={100}
+                  value={paymentForm.reference}
+                  onChange={(event) => setPaymentForm({ ...paymentForm, reference: event.target.value })}
+                  placeholder="UTR / cheque number"
+                  className="w-full rounded-lg border bg-background px-3 py-2 text-foreground"
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 border-t pt-3">
+                <button
+                  type="button"
+                  onClick={() => setIsReceiptModalOpen(false)}
+                  className="rounded-lg border px-3 py-2 font-semibold text-muted-foreground hover:bg-muted"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isRecordingPayment || isLoadingInvoices || outstandingInvoices.length === 0}
+                  className="rounded-lg bg-primary px-4 py-2 font-bold text-primary-foreground disabled:opacity-50"
+                >
+                  {isRecordingPayment ? 'Recording…' : 'Record Payment'}
                 </button>
               </div>
             </form>

@@ -16,6 +16,7 @@ export class PaymentService {
     invoiceId: string,
     amountStr: string,
     mode: string,
+    companyId: string,
     reference?: string,
   ): Promise<{
     receipt: Receipt;
@@ -72,23 +73,39 @@ export class PaymentService {
         );
       }
 
-      // The invoice is authoritative for the commercial entity. In the current
-      // schema invoices are linked to policies via entityId, and policies carry
-      // the authoritative customer/contact relationship.
+      // Invoices are linked to policies by entityId. Verify that policy inside
+      // the transaction so invoice IDs cannot cross company boundaries.
       if (invoice.entityType !== 'POLICY') {
         throw new BadRequestException(
           `Unsupported invoice entity type: ${invoice.entityType}`,
         );
       }
 
-      const policy = await tx.policy.findUnique({
-        where: { id: invoice.entityId },
-        select: { id: true, contactId: true },
+      const policy = await tx.policy.findFirst({
+        where: { id: invoice.entityId, companyId, deletedAt: null },
+        select: { id: true, contactId: true, customerId: true },
       });
 
-      if (!policy?.contactId) {
+      if (!policy) {
         throw new BadRequestException(
-          'Invoice is not linked to a valid policy customer',
+          'Invoice is not payable for this company',
+        );
+      }
+
+      const customer = await tx.customer.findFirst({
+        where: {
+          companyId,
+          deletedAt: null,
+          ...(policy.customerId
+            ? { id: policy.customerId }
+            : { contactId: policy.contactId }),
+        },
+        select: { id: true },
+      });
+
+      if (!customer) {
+        throw new BadRequestException(
+          'Invoice is not linked to a customer in this company',
         );
       }
 
@@ -98,7 +115,7 @@ export class PaymentService {
           where: {
             reference: reference.trim(),
             paymentMode: mode.trim(),
-            customerId: policy.contactId,
+            customerId: customer.id,
           },
           include: { allocations: true },
         });
@@ -133,7 +150,7 @@ export class PaymentService {
           amount,
           paymentMode: mode.trim(),
           reference,
-          customerId: policy.contactId,
+          customerId: customer.id,
         },
       });
 
@@ -164,7 +181,7 @@ export class PaymentService {
           metadata: {
             invoiceId: invoice.id,
             policyId: policy.id,
-            customerId: policy.contactId,
+            customerId: customer.id,
             amount: amount.toString(),
             paymentMode: mode.trim(),
           },

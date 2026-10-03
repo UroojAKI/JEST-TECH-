@@ -559,8 +559,8 @@ export class WorkspaceFactory {
         },
         {
           id: 'policy-ops',
-          title: 'Policy Verification',
-          href: '/policies',
+          title: 'Policy Issuance Queue',
+          href: '/workspace/operations/issuance',
           icon: 'ShieldCheck',
         },
       ],

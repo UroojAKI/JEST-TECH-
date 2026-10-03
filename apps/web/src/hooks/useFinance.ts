@@ -18,6 +18,45 @@ export function useReceipts(status?: string) {
   });
 }
 
+export function useOutstandingInvoices(enabled = true) {
+  return useQuery({
+    queryKey: ['finance-outstanding-invoices'],
+    queryFn: () => financeRepository.getOutstandingInvoices(),
+    enabled,
+  });
+}
+
+export function useRecordInvoicePayment() {
+  const queryClient = useQueryClient();
+  const mutation = useMutation({
+    mutationFn: ({
+      invoiceId,
+      amount,
+      mode,
+      reference,
+    }: {
+      invoiceId: string;
+      amount: string;
+      mode: string;
+      reference?: string;
+    }) => financeRepository.recordInvoicePayment(invoiceId, { amount, mode, reference }),
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ['finance-receipts'] });
+      queryClient.invalidateQueries({ queryKey: ['finance-outstanding-invoices'] });
+      queryClient.invalidateQueries({ queryKey: ['finance-dashboard'] });
+      toast.success(`Receipt ${result?.receipt?.receiptNum || ''} recorded`);
+    },
+    onError: (error: any) => {
+      toast.error(error?.response?.data?.message || 'Payment could not be recorded');
+    },
+  });
+
+  return {
+    recordPayment: mutation.mutateAsync,
+    isRecordingPayment: mutation.isPending,
+  };
+}
+
 export function usePayments(type?: string) {
   return useQuery({
     queryKey: ['finance-payments', type],

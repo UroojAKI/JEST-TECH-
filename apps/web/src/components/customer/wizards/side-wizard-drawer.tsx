@@ -73,7 +73,7 @@ export function SideWizardDrawer({ type, customerId, onClose }: SideWizardDrawer
         estimatedValue: leadForm.estimatedValue ? Number(leadForm.estimatedValue) : undefined,
         description: leadForm.description.trim() || undefined,
       });
-      await queryClient.invalidateQueries({ queryKey: ['customer-360', customerId] });
+      await queryClient.invalidateQueries({ queryKey: ['customer-workspace', customerId] });
       await queryClient.invalidateQueries({ queryKey: ['leads'] });
       await queryClient.invalidateQueries({ queryKey: ['workspace-recent-leads'] });
       await queryClient.invalidateQueries({ queryKey: ['dashboard-dynamic'] });
@@ -119,7 +119,7 @@ export function SideWizardDrawer({ type, customerId, onClose }: SideWizardDrawer
         claimAmount: Number(claimForm.claimAmount),
         description: claimForm.description.trim(),
       });
-      await queryClient.invalidateQueries({ queryKey: ['customer-360', customerId] });
+      await queryClient.invalidateQueries({ queryKey: ['customer-workspace', customerId] });
       await queryClient.invalidateQueries({ queryKey: ['claims'] });
       toast.success('Claim reported successfully and registered in Back-Office queue');
       onClose();
@@ -168,7 +168,7 @@ export function SideWizardDrawer({ type, customerId, onClose }: SideWizardDrawer
                 entityType="CONTACT"
                 entityId={customerId}
                 onSuccess={() => {
-                  queryClient.invalidateQueries({ queryKey: ['customer-360', customerId] });
+                  queryClient.invalidateQueries({ queryKey: ['customer-workspace', customerId] });
                   toast.success('Document uploaded and linked to customer profile');
                   onClose();
                 }}
@@ -428,7 +428,7 @@ export function SideWizardDrawer({ type, customerId, onClose }: SideWizardDrawer
                 type="button"
                 onClick={() => {
                   onClose();
-                  router.push(`/workspace/operations`);
+                  router.push('/workspace/operations/issuance');
                 }}
                 className="w-full py-2.5 rounded-xl bg-primary text-primary-foreground font-bold text-xs shadow hover:bg-primary/90 flex items-center justify-center gap-1.5"
               >

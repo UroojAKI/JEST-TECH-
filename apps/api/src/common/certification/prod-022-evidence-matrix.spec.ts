@@ -1,7 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 
-describe('PROD-022: Authoritative Release Certification Evidence Matrix', () => {
+describe('PROD-022: Historical Release Certification Evidence Matrix', () => {
   const certDir = path.resolve(__dirname, '../../../../../certification');
 
   it('verifies existence and completeness of certification directory', () => {
@@ -20,7 +20,9 @@ describe('PROD-022: Authoritative Release Certification Evidence Matrix', () => 
 
       // Validate strict schema requirements
       expect(content.gateId).toBe(gateId);
-      expect(content.result).toBe('PASS');
+      expect(content.recordedResult).toBe('PASS');
+      expect(content.result).toBe('WITHDRAWN');
+      expect(content.invalidationReason).toContain('release evidence');
       expect(content.implementationCommit).toBeDefined();
       expect(content.testCommit).toBeDefined();
       expect(content.environment).toMatch(/staging|clean-isolated/);
@@ -37,13 +39,16 @@ describe('PROD-022: Authoritative Release Certification Evidence Matrix', () => 
     }
   });
 
-  it('validates RELEASE_CERTIFICATE_PRODUCTION.json integrity and 100% pass rate', () => {
+  it('keeps historical gate results while blocking the withdrawn release certificate', () => {
     const certPath = path.join(certDir, 'RELEASE_CERTIFICATE_PRODUCTION.json');
     expect(fs.existsSync(certPath)).toBe(true);
 
     const certificate = JSON.parse(fs.readFileSync(certPath, 'utf8'));
 
-    expect(certificate.releaseStatus).toBe('PRODUCTION_READY');
+    expect(certificate.releaseStatus).toBe('WITHDRAWN');
+    expect(certificate.evidenceValidity).toBe('WITHDRAWN');
+    expect(certificate.withdrawalReason).toContain('G16-G20');
+    expect(certificate.certificationMatrixSummary.state).toBe('HISTORICAL_WITHDRAWN');
     expect(certificate.certificationMatrixSummary.totalGates).toBe(25);
     expect(certificate.certificationMatrixSummary.passedGates).toBe(25);
     expect(certificate.certificationMatrixSummary.failedGates).toBe(0);
@@ -56,9 +61,10 @@ describe('PROD-022: Authoritative Release Certification Evidence Matrix', () => 
     expect(certificate.defectRemediationSummary.p1DefectsFixed).toBe(19);
     expect(certificate.defectRemediationSummary.p2DefectsFixed).toBe(12);
     expect(certificate.defectRemediationSummary.p3DefectsFixed).toBe(8);
-    expect(certificate.defectRemediationSummary.status).toBe(
-      'ALL_DEFECTS_RESOLVED',
-    );
+    expect(certificate.defectRemediationSummary.recordedStatus).toBe('ALL_DEFECTS_RESOLVED');
+    expect(certificate.defectRemediationSummary.status).toBe('NOT_REVALIDATED');
+    expect(certificate.gates).toHaveLength(25);
+    expect(certificate.gates.every((gate: any) => gate.result === 'WITHDRAWN' && gate.recordedResult === 'PASS')).toBe(true);
 
     // Five-pillar governance approval sign-off
     const { governanceSignOff } = certificate;

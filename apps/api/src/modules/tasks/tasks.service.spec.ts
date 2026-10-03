@@ -71,8 +71,13 @@ describe('TasksService', () => {
         update: jest.fn(),
       },
       user: {
-        findFirst: jest.fn(),
+        findFirst: jest.fn().mockResolvedValue({ id: 'user-1', companyId: 'tenant-a' }),
       },
+      customer: { findFirst: jest.fn() },
+      lead: { findFirst: jest.fn() },
+      policy: { findFirst: jest.fn() },
+      claim: { findFirst: jest.fn() },
+      vehicle: { findFirst: jest.fn() },
       motorQuotationCase: {
         findUnique: jest.fn(),
       },
@@ -101,6 +106,7 @@ describe('TasksService', () => {
       const result = await service.getTasksToday({
         id: 'user-1',
         role: RoleType.AGENT,
+        companyId: 'tenant-a',
       } as any);
       expect(result.dueTodayCount).toBe(1);
       expect(result.overdueCount).toBe(0);
@@ -118,6 +124,7 @@ describe('TasksService', () => {
       const result = await service.create({ title: 'Follow-up with client' }, {
         id: 'user-1',
         role: RoleType.AGENT,
+        companyId: 'tenant-a',
       } as any);
 
       expect(prisma.task.create).toHaveBeenCalledWith(
@@ -129,6 +136,18 @@ describe('TasksService', () => {
         }),
       );
       expect(result).toEqual(mockTask);
+    });
+
+    it('rejects a linked customer outside the caller company', async () => {
+      prisma.customer.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.create(
+          { title: 'Cross-tenant follow-up', customerId: 'foreign-customer' },
+          { id: 'user-1', role: RoleType.AGENT, companyId: 'tenant-a' } as any,
+        ),
+      ).rejects.toThrow(NotFoundException);
+      expect(prisma.task.create).not.toHaveBeenCalled();
     });
   });
 
@@ -144,6 +163,7 @@ describe('TasksService', () => {
       const result = await service.complete('task-1', {
         id: 'user-1',
         role: RoleType.AGENT,
+        companyId: 'tenant-a',
       } as any);
       expect(prisma.task.update).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -154,6 +174,35 @@ describe('TasksService', () => {
         }),
       );
       expect(result.status).toBe(TaskStatus.COMPLETED);
+    });
+
+    it('does not complete a task outside the caller company', async () => {
+      prisma.task.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.complete('foreign-task', {
+          id: 'user-1',
+          role: RoleType.AGENT,
+          companyId: 'tenant-a',
+        } as any),
+      ).rejects.toThrow(NotFoundException);
+      expect(prisma.task.update).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('findAll tenant search', () => {
+    it('keeps the tenant scope when applying a text search', async () => {
+      prisma.task.findMany.mockResolvedValue([]);
+      prisma.task.count.mockResolvedValue(0);
+
+      await service.findAll(
+        { search: 'renewal' } as any,
+        { id: 'user-1', role: RoleType.BACK_OFFICE, companyId: 'tenant-a' } as any,
+      );
+
+      const where = prisma.task.findMany.mock.calls[0][0].where;
+      expect(where.AND[0].OR).toContainEqual({ customer: { companyId: 'tenant-a' } });
+      expect(where.AND[1].OR).toContainEqual({ title: { contains: 'renewal', mode: 'insensitive' } });
     });
   });
 

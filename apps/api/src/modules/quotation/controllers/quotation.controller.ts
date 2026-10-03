@@ -141,7 +141,13 @@ export class QuotationController {
   }
 
   @Get(':id/completion')
-  @SkipThrottle()
+  @SkipThrottle({
+    default: true,
+    authentication: true,
+    login: true,
+    upload: true,
+    report: true,
+  })
   @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT)
   @ApiOperation({
     summary:

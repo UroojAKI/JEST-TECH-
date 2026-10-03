@@ -20,6 +20,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Scan source for leaked secrets
+        run: docker run --rm -v "$PWD:/repo" zricethezav/gitleaks:v8.30.1 git --redact --no-banner /repo
+
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
@@ -51,7 +54,7 @@ jobs:
         working-directory: apps/web
         run: pnpm exec tsc --noEmit
 
-      - name: Architecture Guard — Fail-Closed Multi-Tenant Scoping (Section 15)
+      - name: Heuristic controller tenant-scope scan (not a complete isolation proof)
         run: pnpm run check:tenancy
 
       - name: Quality Gate — Production Mock Data & AST Scanner (F-036)
@@ -59,11 +62,11 @@ jobs:
 
       - name: API unit tests
         working-directory: apps/api
-        run: pnpm test -- --runInBand
+        run: pnpm test --runInBand
 
       - name: Web tests
         working-directory: apps/web
-        run: pnpm test -- --runInBand
+        run: pnpm test
 
       - name: API build
         working-directory: apps/api

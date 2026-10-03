@@ -37,18 +37,24 @@ export class TasksService {
     todayEnd.setHours(23, 59, 59, 999);
 
     const companyId = user.companyId || (user as any).organizationId;
+    if (!companyId) {
+      throw new ForbiddenException('Company context is required for tasks');
+    }
     const where: Prisma.TaskWhereInput = {
       deletedAt: null,
-      ...(companyId
-        ? {
-            OR: [
-              { lead: { companyId } },
-              { customer: { companyId } },
-              { policy: { companyId } },
-              { assignedTo: { companyId } },
-            ],
-          }
-        : {}),
+      AND: [
+        {
+          OR: [
+            { lead: { companyId } },
+            { customer: { companyId } },
+            { policy: { companyId } },
+            { claim: { companyId } },
+            { vehicle: { companyId } },
+            { vehicle: { customer: { companyId } } },
+            { assignedTo: { companyId } },
+          ],
+        },
+      ],
     };
 
     if (user.role === RoleType.AGENT) {
@@ -138,18 +144,24 @@ export class TasksService {
     const skip = (page - 1) * limit;
 
     const companyId = user.companyId || (user as any).organizationId;
+    if (!companyId) {
+      throw new ForbiddenException('Company context is required for tasks');
+    }
     const where: Prisma.TaskWhereInput = {
       deletedAt: null,
-      ...(companyId
-        ? {
-            OR: [
-              { lead: { companyId } },
-              { customer: { companyId } },
-              { policy: { companyId } },
-              { assignedTo: { companyId } },
-            ],
-          }
-        : {}),
+      AND: [
+        {
+          OR: [
+            { lead: { companyId } },
+            { customer: { companyId } },
+            { policy: { companyId } },
+            { claim: { companyId } },
+            { vehicle: { companyId } },
+            { vehicle: { customer: { companyId } } },
+            { assignedTo: { companyId } },
+          ],
+        },
+      ],
     };
 
     if (user.role === RoleType.AGENT) {
@@ -165,11 +177,13 @@ export class TasksService {
     if (leadId) where.leadId = leadId;
 
     if (search) {
-      where.OR = [
+      (where.AND as Prisma.TaskWhereInput[]).push({
+        OR: [
         { title: { contains: search, mode: 'insensitive' } },
         { description: { contains: search, mode: 'insensitive' } },
         { taskCode: { contains: search, mode: 'insensitive' } },
-      ];
+        ],
+      });
     }
 
     const [tasks, total] = await Promise.all([
@@ -211,8 +225,25 @@ export class TasksService {
   }
 
   async findById(id: string, user: RequestUser) {
+    const companyId = user.companyId || (user as any).organizationId;
+    if (!companyId) {
+      throw new ForbiddenException('Company context is required for tasks');
+    }
+
     const task = await this.prisma.task.findFirst({
-      where: { id, deletedAt: null },
+      where: {
+        id,
+        deletedAt: null,
+        OR: [
+          { lead: { companyId } },
+          { customer: { companyId } },
+          { policy: { companyId } },
+          { claim: { companyId } },
+          { vehicle: { companyId } },
+          { vehicle: { customer: { companyId } } },
+          { assignedTo: { companyId } },
+        ],
+      },
       include: {
         assignedTo: {
           select: { id: true, firstName: true, lastName: true, email: true },
@@ -241,6 +272,41 @@ export class TasksService {
   }
 
   async create(dto: CreateTaskDto, user: RequestUser) {
+    const companyId = user.companyId || (user as any).organizationId;
+    if (!companyId) {
+      throw new ForbiddenException('Company context is required for tasks');
+    }
+
+    const tenantChecks = [
+      dto.customerId && this.prisma.customer.findFirst({
+        where: { id: dto.customerId, companyId, deletedAt: null },
+        select: { id: true },
+      }),
+      dto.leadId && this.prisma.lead.findFirst({
+        where: { id: dto.leadId, companyId, deletedAt: null },
+        select: { id: true },
+      }),
+      dto.policyId && this.prisma.policy.findFirst({
+        where: { id: dto.policyId, companyId, deletedAt: null },
+        select: { id: true },
+      }),
+      dto.claimId && this.prisma.claim.findFirst({
+        where: { id: dto.claimId, companyId, deletedAt: null },
+        select: { id: true },
+      }),
+      dto.vehicleId && this.prisma.vehicle.findFirst({
+        where: {
+          id: dto.vehicleId,
+          OR: [{ companyId }, { customer: { companyId } }],
+        },
+        select: { id: true },
+      }),
+    ].filter(Boolean);
+    const tenantResources = await Promise.all(tenantChecks);
+    if (tenantResources.some((resource) => !resource)) {
+      throw new NotFoundException('A linked task resource was not found');
+    }
+
     const count = await this.prisma.task.count();
     let nextNum = count + 1;
     let taskCode = `TSK-${String(nextNum).padStart(5, '0')}`;
@@ -251,6 +317,11 @@ export class TasksService {
     }
 
     const assignedToId = dto.assignedToId || user.id;
+    const assignee = await this.prisma.user.findFirst({
+      where: { id: assignedToId, companyId, status: 'ACTIVE' },
+      select: { id: true },
+    });
+    if (!assignee) throw new NotFoundException('Task assignee not found');
 
     return this.prisma.task.create({
       data: {
@@ -291,6 +362,17 @@ export class TasksService {
     if (dto.dueDate !== undefined)
       data.dueDate = dto.dueDate ? new Date(dto.dueDate) : null;
     if (dto.assignedToId !== undefined) {
+      const companyId = user.companyId || (user as any).organizationId;
+      if (!companyId) {
+        throw new ForbiddenException('Company context is required for tasks');
+      }
+      if (dto.assignedToId) {
+        const assignee = await this.prisma.user.findFirst({
+          where: { id: dto.assignedToId, companyId, status: 'ACTIVE' },
+          select: { id: true },
+        });
+        if (!assignee) throw new NotFoundException('Task assignee not found');
+      }
       data.assignedTo = dto.assignedToId
         ? { connect: { id: dto.assignedToId } }
         : { disconnect: true };

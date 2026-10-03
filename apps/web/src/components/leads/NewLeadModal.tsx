@@ -10,11 +10,19 @@ interface NewLeadModalProps {
   isOpen: boolean;
   onClose: () => void;
   defaultContactId?: string;
+  defaultCustomerId?: string;
   defaultName?: string;
   defaultPhone?: string;
 }
 
-export function NewLeadModal({ isOpen, onClose, defaultContactId, defaultName = '', defaultPhone = '' }: NewLeadModalProps) {
+export function NewLeadModal({
+  isOpen,
+  onClose,
+  defaultContactId,
+  defaultCustomerId,
+  defaultName = '',
+  defaultPhone = '',
+}: NewLeadModalProps) {
   const queryClient = useQueryClient();
   const [source, setSource] = useState('WALK_IN');
   const [name, setName] = useState(defaultName);
@@ -88,6 +96,7 @@ export function NewLeadModal({ isOpen, onClose, defaultContactId, defaultName = 
       productInterest: product,
       remarks,
       contactId: defaultContactId,
+      customerId: defaultCustomerId,
     });
   };
 

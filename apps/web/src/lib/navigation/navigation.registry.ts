@@ -56,12 +56,17 @@ export const AGENT_NAVIGATION: NavigationItem[] = [
 
 export const BACK_OFFICE_NAVIGATION: NavigationItem[] = [
   {
+    id: 'ops-issuance',
+    title: 'Policy Issuance',
+    href: '/workspace/operations/issuance',
+    icon: 'ShieldCheck',
+  },
+  {
     id: 'operations-hub',
     title: 'Operations Hub',
     href: '/workspace/operations',
     icon: 'Briefcase',
     children: [
-      { id: 'ops-issuance', title: 'Issuance Queue', href: '/workspace/operations?tab=issuance' },
       { id: 'ops-inspections', title: 'Inspection & Verification', href: '/workspace/operations?tab=inspections' },
       { id: 'ops-metrics', title: 'Operational Metrics', href: '/workspace/operations?tab=metrics' },
     ],

@@ -244,7 +244,7 @@ export class AuthService {
       r.includes('BACK_OFFICE') ||
       r.includes('OPERATIONS')
     ) {
-      return '/workspace/operations';
+      return '/workspace/operations/issuance';
     }
     if (r === 'AGENT' || r.includes('AGENT') || r.includes('SALES')) {
       return '/workspace/sales';

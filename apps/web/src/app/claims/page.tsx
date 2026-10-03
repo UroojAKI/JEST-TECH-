@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { AppShell } from '../../components/layout/app-shell';
 import { EnterpriseTable } from '../../components/table/enterprise-table';
@@ -27,6 +28,11 @@ export default function ClaimsPage() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
+  useEffect(() => {
+    const claimId = new URLSearchParams(window.location.search).get('claimId');
+    if (claimId) setSelectedClaimId(claimId);
+  }, []);
+
   const isAuthorizedToReport =
     user?.roles?.includes('BACK_OFFICE') ||
     user?.roles?.includes('ADMIN') ||
@@ -39,6 +45,7 @@ export default function ClaimsPage() {
   });
 
   const claims = Array.isArray(data) ? data : (data as any)?.data || [];
+  const selectedClaim = claims.find((claim: any) => claim.id === selectedClaimId);
 
   const handleSubmitClaim = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -99,22 +106,22 @@ export default function ClaimsPage() {
     {
       accessorKey: 'policyId',
       header: 'Policy Reference',
-      cell: ({ row }: any) => (
-        <span className="font-mono text-muted-foreground text-xs">
-          {row.original.policy?.policyNumber || row.original.policyId || '—'}
-        </span>
+      cell: ({ row }: any) => row.original.policy?.id ? (
+        <Link href={`/policies/${row.original.policy.id}`} className="font-mono text-primary text-xs hover:underline">
+          {row.original.policy.policyNumber || 'Policy'}
+        </Link>
+      ) : (
+        <span className="font-mono text-muted-foreground text-xs">{row.original.policyId || '—'}</span>
       ),
     },
     {
       accessorKey: 'contact',
       header: 'Customer / Claimant',
-      cell: ({ row }: any) => (
-        <span>
-          {row.original.contact
-            ? `${row.original.contact.firstName || ''} ${row.original.contact.lastName || ''}`.trim()
-            : row.original.contactId || '—'}
-        </span>
-      ),
+      cell: ({ row }: any) => row.original.contact?.id ? (
+        <Link href={`/crm/contacts/${row.original.contact.id}`} className="hover:text-primary hover:underline">
+          {`${row.original.contact.firstName || ''} ${row.original.contact.lastName || ''}`.trim()}
+        </Link>
+      ) : <span>{row.original.contactId || '—'}</span>,
     },
     {
       accessorKey: 'claimAmount',
@@ -191,7 +198,7 @@ export default function ClaimsPage() {
           {selectedClaimId ? (
             <div className="space-y-2">
               <p className="text-xs text-muted-foreground">
-                Uploading evidence for Claim ID: <span className="font-mono font-bold text-foreground">{selectedClaimId}</span>
+                Uploading evidence for Claim: <span className="font-mono font-bold text-foreground">{selectedClaim?.claimNumber || 'Loading claim'}</span>
               </p>
               <ChunkedFileUploader entityType="CLAIM" entityId={selectedClaimId} />
             </div>

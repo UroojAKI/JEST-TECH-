@@ -12,6 +12,10 @@ export interface TaskItem {
   dueDate?: string | null;
   completedAt?: string | null;
   assignedTo?: { id: string; firstName: string; lastName: string; email: string } | null;
+  customerId?: string | null;
+  leadId?: string | null;
+  policyId?: string | null;
+  claimId?: string | null;
   customer?: { id: string; customerCode: string; firstName: string; lastName?: string; mobile: string } | null;
   lead?: { id: string; leadCode: string; title: string; status: string } | null;
   vehicle?: { id: string; registrationNumber: string; category: string } | null;

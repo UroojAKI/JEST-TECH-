@@ -6,11 +6,6 @@ export interface FinanceDashboardMetrics {
   outstandingPremium: number;
   totalCommissionAccrued: number;
   totalCommissionPaid: number;
-  netProfitToday: number;
-  payables: number;
-  receivables: number;
-  cashFlow: number;
-  ledgerBalance: number;
   myWorkQueue: {
     pendingVerification: number;
     settlementsPending: number;
@@ -26,10 +21,21 @@ export interface ReceiptItem {
   policyNumber: string;
   amount: number;
   paymentMode: string;
-  status: 'PENDING' | 'VERIFIED' | 'RECONCILED' | 'FAILED' | 'REFUNDED';
+  status: 'CLEARED' | 'BOUNCED';
   receivedBy: string;
   date: string;
   txnRef: string;
+}
+
+export interface OutstandingInvoiceItem {
+  id: string;
+  invoiceNumber: string;
+  policyNumber: string;
+  customerName: string;
+  totalAmount: string;
+  paidAmount: string;
+  outstandingAmount: string;
+  dueDate: string;
 }
 
 export interface PaymentItem {
@@ -113,6 +119,29 @@ export const financeRepository = {
   async getReceipts(status?: string): Promise<ReceiptItem[]> {
     const response = await apiClient.get('/finance/receipts', { params: { status } });
     return toArray<ReceiptItem>(response.data);
+  },
+
+  async exportReceipts(): Promise<Blob> {
+    const response = await apiClient.get('/finance/receipts/export', {
+      responseType: 'blob',
+    });
+    return response.data;
+  },
+
+  async getOutstandingInvoices(): Promise<OutstandingInvoiceItem[]> {
+    const response = await apiClient.get('/finance/invoices/outstanding');
+    return toArray<OutstandingInvoiceItem>(response.data);
+  },
+
+  async recordInvoicePayment(
+    invoiceId: string,
+    payment: { amount: string; mode: string; reference?: string },
+  ) {
+    const response = await apiClient.post(
+      `/finance/invoices/${invoiceId}/pay`,
+      payment,
+    );
+    return response.data;
   },
 
   async getPayments(type?: string): Promise<PaymentItem[]> {

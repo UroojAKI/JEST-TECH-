@@ -70,7 +70,6 @@ describe('WebhookGatewayController', () => {
       'razorpay',
       payload,
       headers,
-      {},
     );
 
     expect(prisma.webhookAuditLog.findUnique).toHaveBeenCalledWith({
@@ -93,8 +92,58 @@ describe('WebhookGatewayController', () => {
     };
 
     await expect(
-      controller.handleWebhook('razorpay', payload, headers, {}),
+      controller.handleWebhook('razorpay', payload, headers),
     ).rejects.toThrow();
+  });
+
+  it('verifies the exact raw request bytes when Nest provides them', async () => {
+    const payload = { id: 'evt_raw', event: 'payment.captured' };
+    const rawBody = '{\n  "id": "evt_raw", "event": "payment.captured"\n}';
+    const signature = crypto
+      .createHmac('sha256', webhookSecret)
+      .update(rawBody)
+      .digest('hex');
+    (prisma.webhookAuditLog.findUnique as jest.Mock).mockResolvedValue(null);
+
+    const result = await controller.handleWebhook(
+      'razorpay',
+      payload,
+      {
+        'x-razorpay-event-id': payload.id,
+        'x-razorpay-signature': signature,
+      },
+      { rawBody: Buffer.from(rawBody) },
+    );
+
+    expect(result).toEqual({ status: 'success' });
+  });
+
+  it('rejects unsigned providers instead of accepting their payloads', async () => {
+    await expect(
+      controller.handleWebhook('twilio', { MessageSid: 'msg_1' }, {}),
+    ).rejects.toThrow(BadRequestException);
+    expect(prisma.webhookAuditLog.create).not.toHaveBeenCalled();
+  });
+
+  it('rejects a malformed Razorpay timestamp when supplied', async () => {
+    const payload = { id: 'evt_no_timestamp', event: 'payment.captured' };
+    const signature = crypto
+      .createHmac('sha256', webhookSecret)
+      .update(JSON.stringify(payload))
+      .digest('hex');
+
+    await expect(
+      controller.handleWebhook(
+        'razorpay',
+        payload,
+        {
+          'x-razorpay-event-id': payload.id,
+          'x-razorpay-signature': signature,
+          'x-razorpay-timestamp': 'not-a-timestamp',
+        },
+      ),
+    ).rejects.toThrow('Invalid webhook timestamp');
+    expect(prisma.webhookAuditLog.create).not.toHaveBeenCalled();
   });
 
   it('should ignore a duplicate webhook (idempotency)', async () => {
@@ -122,7 +171,6 @@ describe('WebhookGatewayController', () => {
       'razorpay',
       payload,
       headers,
-      {},
     );
 
     expect(prisma.webhookAuditLog.findUnique).toHaveBeenCalledWith({
@@ -143,7 +191,7 @@ describe('WebhookGatewayController', () => {
     const headers = {}; // Missing custom header
 
     await expect(
-      controller.handleWebhook('unknown', payload, headers, {}),
+      controller.handleWebhook('unknown', payload, headers),
     ).rejects.toThrow(BadRequestException);
   });
 });

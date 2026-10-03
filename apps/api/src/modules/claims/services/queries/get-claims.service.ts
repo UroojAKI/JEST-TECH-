@@ -16,7 +16,10 @@ export class GetClaimsService {
   ) {}
 
   async executeOne(id: string, user: ActorContext) {
-    const claim = await this.claimRepository.findById(id);
+    const claim = await this.claimRepository.findById(
+      id,
+      user.companyId || user.organizationId,
+    );
     if (!claim || claim.deletedAt) {
       throw new NotFoundException(`Claim with ID ${id} not found`);
     }

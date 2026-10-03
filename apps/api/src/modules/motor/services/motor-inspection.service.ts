@@ -280,6 +280,7 @@ export class MotorInspectionService {
           companyId: quotation.companyId,
           status: {
             in: [
+              MotorCaseStatus.QUOTED,
               MotorCaseStatus.QUOTE_GENERATED,
               MotorCaseStatus.PROPOSAL_READY,
               MotorCaseStatus.SUBMITTED_FOR_REVIEW,
@@ -522,6 +523,8 @@ export class MotorInspectionService {
       });
 
       if (caseId) {
+        const canSubmitQuotedCase =
+          inspection.quotation?.workflowState === 'INSPECTION_REQUIRED';
         const caseTransition = await tx.motorQuotationCase.updateMany({
           where: {
             id: caseId,
@@ -530,6 +533,7 @@ export class MotorInspectionService {
               in: [
                 MotorCaseStatus.INSPECTION_REQUIRED,
                 MotorCaseStatus.REWORK_REQUIRED,
+                ...(canSubmitQuotedCase ? [MotorCaseStatus.QUOTED] : []),
               ],
             },
           },

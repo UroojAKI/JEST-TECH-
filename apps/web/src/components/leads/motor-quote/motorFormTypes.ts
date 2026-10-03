@@ -318,11 +318,14 @@ export interface SavedMotorQuote {
   policyEndDate?: string;
   status: string;
   createdAt: string;
+  customerName?: string;
   proposerDetails?: ProposerDetails;
   vehicleDetails?: Record<string, any>;
   policyDetails?: Record<string, any>;
   leadId?: string;
   caseId?: string;
+  proposalStatus?: string;
+  paymentRecord?: PaymentRecord;
   motorDocuments?: Array<{
     id: string;
     documentId: string;

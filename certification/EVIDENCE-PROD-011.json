@@ -18,7 +18,10 @@
   "primaryTestPath": "src/common/certification/prod-gates.spec.ts#PROD-011",
   "negativeTestPath": "src/modules/contacts/services/contacts.service.spec.ts",
   "alternatePathTestPath": "src/common/certification/prod-gates.spec.ts#PROD-011-alt",
-  "result": "PASS",
+  "recordedResult": "PASS",
+  "result": "WITHDRAWN",
+  "invalidationReason": "Production exit gates remain open; this historical record is not current release evidence.",
+  "invalidatedAt": "2026-10-03T00:00:00.000Z",
   "reviewer": "Lead Systems Architect & Security Auditor",
   "timestamp": "2026-10-01T11:28:23.269Z"
 }

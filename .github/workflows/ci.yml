@@ -40,6 +40,9 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Scan source for leaked secrets
+        run: docker run --rm -v "$PWD:/repo" zricethezav/gitleaks:v8.30.1 git --redact --no-banner /repo
+
       - name: Install pnpm
         uses: pnpm/action-setup@v4
         with:
@@ -48,7 +51,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '24'
           cache: 'pnpm'
 
       - name: Frozen lockfile install
@@ -60,7 +63,7 @@ jobs:
       - name: TypeScript typecheck — API
         run: pnpm exec tsc --noEmit --project apps/api/tsconfig.json
 
-      - name: Architecture Guard — Fail-Closed Multi-Tenant Scoping (Section 15)
+      - name: Heuristic controller tenant-scope scan (not a complete isolation proof)
         run: pnpm run check:tenancy
 
       - name: Quality Gate — Production Mock Data & AST Scanner (F-036)
@@ -103,7 +106,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '24'
           cache: 'pnpm'
 
       - name: Frozen lockfile install
