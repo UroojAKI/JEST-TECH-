@@ -33,5 +33,3 @@ DO $$ BEGIN
 END $$;
 
 CREATE INDEX IF NOT EXISTS "back_office_tasks_case_id_idx" ON "back_office_tasks"("case_id");
-
-ALTER TABLE "motor_quotation_cases" ALTER COLUMN "status" SET DEFAULT 'DRAFT'::"MotorCaseStatus";

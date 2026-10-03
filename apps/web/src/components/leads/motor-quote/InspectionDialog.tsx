@@ -36,6 +36,7 @@ export function InspectionDialog({
   const { user } = useAuth();
   const userRole = (user as any)?.role || 'AGENT';
   const isBackOfficeOrAdmin = userRole === 'ADMIN' || userRole === 'BACK_OFFICE';
+  const canWorkInspection = isBackOfficeOrAdmin || userRole === 'AGENT';
 
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -53,6 +54,7 @@ export function InspectionDialog({
   });
 
   const [rejectionModalOpen, setRejectionModalOpen] = useState(false);
+  const [rejectionCode, setRejectionCode] = useState('BLURRY_PHOTO');
   const [rejectionReason, setRejectionReason] = useState('');
   const [waiverModalOpen, setWaiverModalOpen] = useState(false);
   const [waiverReason, setWaiverReason] = useState('');
@@ -64,12 +66,11 @@ export function InspectionDialog({
       const res = await apiClient.get(`/motor/inspections/${quotationId}`);
       if (res.data) {
         setServerInspection(res.data);
-      } else if (isBackOfficeOrAdmin) {
-        // Back office can initialize inspection aggregate
+      } else if (canWorkInspection) {
+        // Opening the dialog requests initialization for this assigned user.
         const createRes = await apiClient.post('/motor/inspections', { quotationId });
         setServerInspection(createRes.data);
       } else {
-        // Agent sees pending initiation state
         setServerInspection(null);
       }
     } catch (e: any) {
@@ -94,7 +95,8 @@ export function InspectionDialog({
   const inspectionId = serverInspection?.id || initialInspectionId;
 
   const uploadedCount = Object.values(inspection.photos).filter(Boolean).length;
-  const canSubmitReview = uploadedCount === 7 || serverInspection?.canSubmit;
+  const canSubmitReview =
+    Boolean(inspectionId) && (uploadedCount === 7 || serverInspection?.canSubmit);
 
   // Agent action: Upload 7 photos and call submit-for-review
   const handleSubmitForReview = async () => {
@@ -177,7 +179,8 @@ export function InspectionDialog({
     setIsSaving(true);
     try {
       const res = await apiClient.post(`/motor/inspections/${inspectionId}/reject`, {
-        reason: rejectionReason.trim(),
+        reasonCode: rejectionCode,
+        reasonText: rejectionReason.trim(),
       });
       setServerInspection(res.data);
       setRejectionModalOpen(false);
@@ -299,16 +302,20 @@ export function InspectionDialog({
                 </div>
               )}
 
-              {/* Show inspection form for Back Office, or informative note for Agents */}
+              {/* Assigned agents provide evidence; Back Office reviews it. */}
               {status !== 'COMPLETED' && status !== 'WAIVED' && (
-                isBackOfficeOrAdmin ? (
+                canWorkInspection && inspectionId ? (
                   <InspectionForm value={inspection} onChange={setInspection} />
                 ) : (
                   <div className="p-4 rounded-xl border border-muted bg-muted/20 text-xs text-muted-foreground flex items-center gap-3">
                     <ShieldCheck className="h-5 w-5 shrink-0 text-primary" />
                     <div>
-                      <div className="font-bold text-foreground">Underwriting Process</div>
-                      Pre-issuance vehicle inspection evidence recording and approval is operated by the Back Office Underwriting team. As soon as Back Office verifies the inspection, this gate will clear automatically.
+                      <div className="font-bold text-foreground">
+                        {inspectionId ? 'Underwriting Process' : 'Inspection Not Initialized'}
+                      </div>
+                      {inspectionId
+                        ? 'Back Office reviews the submitted evidence and clears this gate after approval.'
+                        : 'The quotation workflow has not created an inspection record yet. Return to the quotation and retry after inspection is required.'}
                     </div>
                   </div>
                 )
@@ -320,12 +327,14 @@ export function InspectionDialog({
         {/* Footer Actions */}
         <div className="px-6 py-4 border-t bg-card flex items-center justify-between">
           <div className="text-xs text-muted-foreground">
-            {isBackOfficeOrAdmin ? `${uploadedCount}/7 photos selected locally` : 'Underwriting Verification'}
+            {canWorkInspection && inspectionId
+              ? `${uploadedCount}/7 photos selected locally`
+              : 'Underwriting Verification'}
           </div>
 
           <div className="flex items-center gap-2">
-            {/* Back Office Action: Submit for Review */}
-            {isBackOfficeOrAdmin && status !== 'COMPLETED' && status !== 'WAIVED' && status !== 'SUBMITTED_FOR_REVIEW' && (
+            {/* Assigned Agent submits evidence; Back Office/Admin may submit corrections. */}
+            {canWorkInspection && inspectionId && status !== 'COMPLETED' && status !== 'WAIVED' && status !== 'SUBMITTED_FOR_REVIEW' && (
               <button
                 type="button"
                 onClick={handleSubmitForReview}
@@ -389,6 +398,17 @@ export function InspectionDialog({
             <p className="text-xs text-muted-foreground">
               Please specify the rejection reason so the agent knows what evidence to rectify.
             </p>
+            <select
+              value={rejectionCode}
+              onChange={(e) => setRejectionCode(e.target.value)}
+              className="w-full rounded-md border bg-background p-2.5 text-xs"
+              aria-label="Rejection reason code"
+            >
+              <option value="BLURRY_PHOTO">Blurry photo</option>
+              <option value="MISSING_EVIDENCE">Missing evidence</option>
+              <option value="VEHICLE_MISMATCH">Vehicle mismatch</option>
+              <option value="OTHER">Other</option>
+            </select>
             <textarea
               value={rejectionReason}
               onChange={(e) => setRejectionReason(e.target.value)}

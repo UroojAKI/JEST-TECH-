@@ -179,7 +179,7 @@ describe('Customer360Service (Wave 7 Tenancy & PII Protection)', () => {
       expect(result.timeline.length).toBeGreaterThanOrEqual(3);
     });
 
-    it('should throw ForbiddenException if actor from Tenant B attempts cross-tenant access to Tenant A contact', async () => {
+    it('should hide Tenant A contacts from actors in Tenant B', async () => {
       const mockContact = {
         id: 'contact-tenant-a',
         firstName: 'Alice',
@@ -194,7 +194,16 @@ describe('Customer360Service (Wave 7 Tenancy & PII Protection)', () => {
       // Tenant B actor attempts access
       await expect(
         service.getCustomer360('contact-tenant-a', mockTenantBActor),
-      ).rejects.toThrow(ForbiddenException);
+      ).rejects.toThrow(NotFoundException);
+
+      expect(prisma.contact.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            id: 'contact-tenant-a',
+            companyId: 'company-b',
+          }),
+        }),
+      );
     });
 
     it('should throw ForbiddenException if Agent attempts to access a customer they did not create and are not assigned to', async () => {

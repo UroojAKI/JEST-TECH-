@@ -275,6 +275,20 @@ export class MotorQuoteWorkflowService {
 
         if (existingInspection) {
           createdOrExistingInspection = existingInspection;
+          if (
+            existingInspection.caseId &&
+            existingInspection.caseId !== currentQuote.caseId
+          ) {
+            throw new ConflictException(
+              'Inspection and quotation must reference the same motor case',
+            );
+          }
+          if (!existingInspection.caseId && currentQuote.caseId) {
+            createdOrExistingInspection = await tx.motorInspection.update({
+              where: { id: existingInspection.id },
+              data: { caseId: currentQuote.caseId },
+            });
+          }
         } else {
           const inspectionCode = await this.numberingEngine.generateNext(
             'INSPECTION',
@@ -283,6 +297,7 @@ export class MotorQuoteWorkflowService {
           createdOrExistingInspection = await tx.motorInspection.create({
             data: {
               quotationId: dto.quotationId,
+              caseId: currentQuote.caseId,
               companyId: currentQuote.companyId,
               inspectionCode,
               status: InspectionStatus.REQUIRED,
@@ -326,9 +341,13 @@ export class MotorQuoteWorkflowService {
             status: 'PENDING',
             priority: 'HIGH',
             verificationNotes: `Inspection required: ${result.inspectionReasons.join(', ')}`,
+            caseId: currentQuote.caseId,
+            quotationId: dto.quotationId,
           },
           update: {
             status: 'PENDING',
+            caseId: currentQuote.caseId,
+            quotationId: dto.quotationId,
           },
         });
 
@@ -343,6 +362,7 @@ export class MotorQuoteWorkflowService {
             eventType: 'inspection.required',
             payload: {
               quotationId: dto.quotationId,
+              caseId: currentQuote.caseId,
               inspectionId: createdOrExistingInspection.id,
               companyId: currentQuote.companyId,
               reasons: result.inspectionReasons,

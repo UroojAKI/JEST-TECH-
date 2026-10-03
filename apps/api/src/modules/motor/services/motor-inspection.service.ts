@@ -13,6 +13,7 @@ import {
   InspectionConductedBy,
   RoleType,
   QuotationStatus,
+  MotorCaseStatus,
   Prisma,
 } from '@prisma/client';
 import { ActorContext } from '../../../common/interfaces/actor-context.interface';
@@ -34,6 +35,18 @@ export interface CreateInspectionDto {
 
 export type InspectionPhotoType =
   'front' | 'back' | 'left' | 'right' | 'windshield' | 'chassis' | 'odometer';
+
+export const INSPECTION_REJECTION_CODES = [
+  'BLURRY_PHOTO',
+  'MISSING_EVIDENCE',
+  'VEHICLE_MISMATCH',
+  'OTHER',
+] as const;
+
+export interface RejectInspectionDto {
+  reasonCode: (typeof INSPECTION_REJECTION_CODES)[number];
+  reasonText: string;
+}
 
 export const MANDATORY_PHOTO_FIELDS: Array<{
   key: string;
@@ -140,6 +153,36 @@ export class MotorInspectionService {
     }
   }
 
+  private assertInspectionContributor(actor: ActorContext, inspection: any) {
+    if (actor.role !== RoleType.AGENT) {
+      this.assertBackOfficeOrAdmin(actor.role);
+      return;
+    }
+
+    const isAssignedAgent =
+      inspection.createdById === actor.userId ||
+      inspection.inspectorUserId === actor.userId ||
+      inspection.quotation?.createdById === actor.userId ||
+      (actor.agentId && inspection.quotation?.agentId === actor.agentId);
+
+    if (!isAssignedAgent) {
+      throw new ForbiddenException(
+        'Only the agent assigned to this quotation can update its inspection',
+      );
+    }
+  }
+
+  private getLinkedCaseId(inspection: any): string | null {
+    const inspectionCaseId = inspection.caseId ?? null;
+    const quotationCaseId = inspection.quotation?.caseId ?? null;
+    if (inspectionCaseId !== quotationCaseId) {
+      throw new ConflictException(
+        'Inspection and quotation do not reference the same motor case',
+      );
+    }
+    return inspectionCaseId;
+  }
+
   private async generateCode(tx?: Prisma.TransactionClient): Promise<string> {
     return this.numberingEngine.generateNext('INSPECTION', tx);
   }
@@ -149,11 +192,13 @@ export class MotorInspectionService {
     actor?: ActorContext,
     txClient?: Prisma.TransactionClient,
   ) {
-    if (actor) {
-      this.assertBackOfficeOrAdmin(actor.role);
+    if (!txClient) {
+      return this.prisma.$transaction((tx) =>
+        this.createInspection(dto, actor, tx),
+      );
     }
 
-    const client = txClient || this.prisma;
+    const client = txClient;
 
     const quotation = await client.quotation.findUnique({
       where: { id: dto.quotationId },
@@ -167,43 +212,133 @@ export class MotorInspectionService {
       );
     }
 
+    if (actor?.role === RoleType.AGENT) {
+      this.assertInspectionContributor(actor, { createdById: null, quotation });
+    } else if (actor) {
+      this.assertBackOfficeOrAdmin(actor.role);
+    }
+
     const existing = await client.motorInspection.findUnique({
       where: { quotationId: dto.quotationId },
     });
-    if (existing) return existing;
 
-    const inspectionCode = await this.generateCode(txClient);
-    const inspection = await client.motorInspection.create({
-      data: {
-        inspectionCode,
+    let inspection = existing;
+    if (inspection) {
+      if (!inspection.caseId && quotation.caseId) {
+        inspection = await client.motorInspection.update({
+          where: { id: inspection.id },
+          data: { caseId: quotation.caseId },
+        });
+      }
+    } else {
+      const inspectionCode = await this.generateCode(txClient);
+      inspection = await client.motorInspection.create({
+        data: {
+          inspectionCode,
+          companyId: quotation.companyId,
+          quotationId: dto.quotationId,
+          caseId: quotation.caseId,
+          status: InspectionStatus.REQUIRED,
+          conductedByType: dto.conductedByType,
+          inspectorName: dto.inspectorName,
+          inspectorPhone: dto.inspectorPhone,
+          inspectorEmail: dto.inspectorEmail,
+          inspectorCompany: dto.inspectorCompany || null,
+          inspectorEmployeeId: dto.inspectorEmployeeId,
+          inspectorUserId: dto.inspectorUserId,
+          inspectionDate: dto.inspectionDate
+            ? new Date(dto.inspectionDate)
+            : null,
+          inspectionTime: dto.inspectionTime,
+          createdById: dto.createdById || actor?.userId,
+        },
+      });
+
+      await client.motorInspectionHistory.create({
+        data: {
+          inspectionId: inspection.id,
+          fromStatus: InspectionStatus.NOT_REQUIRED,
+          toStatus: InspectionStatus.REQUIRED,
+          action: 'CREATE',
+          actorId: actor?.userId || dto.createdById || 'SYSTEM',
+          actorRole: (actor?.role as string) || 'SYSTEM',
+          reason: 'Inspection aggregate initialized',
+        },
+      });
+    }
+
+    if ((inspection.caseId ?? null) !== (quotation.caseId ?? null)) {
+      throw new ConflictException(
+        'Inspection and quotation must reference the same motor case',
+      );
+    }
+
+    if (quotation.caseId) {
+      const caseTransition = await client.motorQuotationCase.updateMany({
+        where: {
+          id: quotation.caseId,
+          companyId: quotation.companyId,
+          status: {
+            in: [
+              MotorCaseStatus.QUOTE_GENERATED,
+              MotorCaseStatus.PROPOSAL_READY,
+              MotorCaseStatus.SUBMITTED_FOR_REVIEW,
+              MotorCaseStatus.BACK_OFFICE_REVIEW,
+              MotorCaseStatus.SELECTED,
+              MotorCaseStatus.INSPECTION_REQUIRED,
+            ],
+          },
+        },
+        data: { status: MotorCaseStatus.INSPECTION_REQUIRED },
+      });
+      if (caseTransition.count !== 1) {
+        throw new ConflictException(
+          'The linked motor case cannot request an inspection from its current status',
+        );
+      }
+    }
+
+    const taskKey = `INSPECTION:${dto.quotationId}:ASSIGNMENT`;
+    const taskCode = await this.numberingEngine
+      .generateNext('TASK', txClient)
+      .catch(() => `TASK-${Date.now()}`);
+    await client.backOfficeTask.upsert({
+      where: {
+        companyId_idempotencyKey: {
+          companyId: quotation.companyId,
+          idempotencyKey: taskKey,
+        },
+      },
+      create: {
+        taskCode,
         companyId: quotation.companyId,
+        caseId: quotation.caseId,
         quotationId: dto.quotationId,
-        status: InspectionStatus.REQUIRED,
-        conductedByType: dto.conductedByType,
-        inspectorName: dto.inspectorName,
-        inspectorPhone: dto.inspectorPhone,
-        inspectorEmail: dto.inspectorEmail,
-        inspectorCompany: dto.inspectorCompany || null,
-        inspectorEmployeeId: dto.inspectorEmployeeId,
-        inspectorUserId: dto.inspectorUserId,
-        inspectionDate: dto.inspectionDate
-          ? new Date(dto.inspectionDate)
-          : null,
-        inspectionTime: dto.inspectionTime,
-        createdById: dto.createdById || actor?.userId,
+        idempotencyKey: taskKey,
+        taskType: 'MOTOR_INSPECTION_REVIEW',
+        sourceType: 'MOTOR_QUOTATION',
+        sourceEntityId: dto.quotationId,
+        status: 'PENDING',
+        priority: 'HIGH',
       },
+      update: { caseId: quotation.caseId, quotationId: dto.quotationId },
     });
-
-    await client.motorInspectionHistory.create({
-      data: {
-        inspectionId: inspection.id,
-        fromStatus: InspectionStatus.NOT_REQUIRED,
-        toStatus: InspectionStatus.REQUIRED,
-        action: 'CREATE',
-        actorId: actor?.userId || dto.createdById || 'SYSTEM',
-        actorRole: (actor?.role as string) || 'SYSTEM',
-        reason: 'Inspection aggregate initialized',
+    await client.outboxEvent.upsert({
+      where: { eventKey: `inspection.required:${dto.quotationId}` },
+      create: {
+        eventKey: `inspection.required:${dto.quotationId}`,
+        aggregateType: 'INSPECTION',
+        aggregateId: inspection.id,
+        eventType: 'inspection.required',
+        payload: {
+          quotationId: dto.quotationId,
+          inspectionId: inspection.id,
+          caseId: quotation.caseId,
+          companyId: quotation.companyId,
+        },
+        status: 'PENDING',
       },
+      update: {},
     });
 
     this.logger.log(
@@ -216,7 +351,7 @@ export class MotorInspectionService {
     inspectionId: string,
     photoType: InspectionPhotoType,
     storageKey: string,
-    actor?: ActorContext,
+    actor: ActorContext,
     sha256?: string,
   ) {
     if (!storageKey?.trim()) {
@@ -257,20 +392,22 @@ export class MotorInspectionService {
 
     const inspection = await this.prisma.motorInspection.findUnique({
       where: { id: inspectionId },
+      include: {
+        quotation: { select: { createdById: true, agentId: true, caseId: true } },
+      },
     });
     if (!inspection) {
       throw new NotFoundException(`Inspection ${inspectionId} not found`);
     }
 
-    if (actor && inspection.companyId !== actor.companyId) {
+    if (inspection.companyId !== actor.companyId) {
       throw new ForbiddenException(
         'Tenant isolation violation: Inspection belongs to another company',
       );
     }
 
-    if (actor) {
-      this.assertBackOfficeOrAdmin(actor.role);
-    }
+    this.assertInspectionContributor(actor, inspection);
+    this.getLinkedCaseId(inspection);
 
     const nextStatus = this.validateTransition(
       inspection.status,
@@ -301,8 +438,8 @@ export class MotorInspectionService {
           fromStatus: inspection.status,
           toStatus: nextStatus,
           action: 'UPLOAD_PHOTO',
-          actorId: actor?.userId || 'SYSTEM',
-          actorRole: (actor?.role as string) || 'SYSTEM',
+          actorId: actor.userId,
+          actorRole: actor.role as string,
           reason: JSON.stringify(provenancePayload),
         },
       });
@@ -323,15 +460,13 @@ export class MotorInspectionService {
       throw new NotFoundException(`Inspection ${inspectionId} not found`);
     }
 
-    if (actor && inspection.companyId !== actor.companyId) {
+    if (inspection.companyId !== actor.companyId) {
       throw new ForbiddenException(
         'Tenant isolation violation: Inspection belongs to another company',
       );
     }
 
-    if (actor) {
-      this.assertBackOfficeOrAdmin(actor.role);
-    }
+    this.assertInspectionContributor(actor, inspection);
 
     const nextStatus = this.validateTransition(
       inspection.status,
@@ -348,6 +483,7 @@ export class MotorInspectionService {
     }
 
     return this.prisma.$transaction(async (tx) => {
+      const caseId = this.getLinkedCaseId(inspection);
       const updated = await tx.motorInspection.update({
         where: { id: inspectionId },
         data: {
@@ -377,12 +513,60 @@ export class MotorInspectionService {
       await tx.quotation.update({
         where: { id: inspection.quotationId },
         data: {
-          workflowState: 'INSPECTION_REQUIRED',
+          workflowState: 'INSPECTION_SUBMITTED',
           motorMetadata: {
             ...((inspection.quotation?.motorMetadata as any) || {}),
             inspectionStatus: 'SUBMITTED_FOR_REVIEW',
           },
         },
+      });
+
+      if (caseId) {
+        const caseTransition = await tx.motorQuotationCase.updateMany({
+          where: {
+            id: caseId,
+            companyId: inspection.companyId,
+            status: {
+              in: [
+                MotorCaseStatus.INSPECTION_REQUIRED,
+                MotorCaseStatus.REWORK_REQUIRED,
+              ],
+            },
+          },
+          data: { status: MotorCaseStatus.INSPECTION_SUBMITTED },
+        });
+        if (caseTransition.count !== 1) {
+          throw new ConflictException(
+            'The linked motor case is not in INSPECTION_REQUIRED status',
+          );
+        }
+
+        await tx.backOfficeTask.updateMany({
+          where: {
+            companyId: inspection.companyId,
+            idempotencyKey: `INSPECTION:${inspection.quotationId}:ASSIGNMENT`,
+            status: { in: ['PENDING', 'REJECTED'] },
+          },
+          data: { status: 'IN_REVIEW' },
+        });
+      }
+
+      await tx.outboxEvent.upsert({
+        where: { eventKey: `inspection.submitted:${inspectionId}` },
+        create: {
+          eventKey: `inspection.submitted:${inspectionId}`,
+          aggregateType: 'INSPECTION',
+          aggregateId: inspectionId,
+          eventType: 'inspection.submitted',
+          payload: {
+            inspectionId,
+            quotationId: inspection.quotationId,
+            caseId,
+            companyId: inspection.companyId,
+          },
+          status: 'PENDING',
+        },
+        update: {},
       });
 
       this.logger.log(
@@ -476,6 +660,7 @@ export class MotorInspectionService {
 
     const meta =
       (inspection.quotation?.motorMetadata as Record<string, any>) || {};
+    const caseId = this.getLinkedCaseId(inspection);
 
     return this.prisma.$transaction(async (tx) => {
       const updated = await tx.motorInspection.update({
@@ -513,6 +698,42 @@ export class MotorInspectionService {
         },
       });
 
+      if (caseId) {
+        const transition = await tx.motorQuotationCase.updateMany({
+          where: {
+            id: caseId,
+            companyId: inspection.companyId,
+            status: MotorCaseStatus.INSPECTION_SUBMITTED,
+          },
+          data: { status: MotorCaseStatus.INSPECTION_APPROVED },
+        });
+        if (transition.count !== 1) {
+          throw new ConflictException(
+            'The linked motor case is not in INSPECTION_SUBMITTED status',
+          );
+        }
+        await tx.backOfficeTask.updateMany({
+          where: {
+            companyId: inspection.companyId,
+            idempotencyKey: `INSPECTION:${inspection.quotationId}:ASSIGNMENT`,
+            status: 'IN_REVIEW',
+          },
+          data: { status: 'COMPLETED', resolvedAt: new Date() },
+        });
+        await tx.outboxEvent.upsert({
+          where: { eventKey: `inspection.approved:${inspectionId}` },
+          create: {
+            eventKey: `inspection.approved:${inspectionId}`,
+            aggregateType: 'INSPECTION',
+            aggregateId: inspectionId,
+            eventType: 'inspection.approved',
+            payload: { inspectionId, quotationId: inspection.quotationId, caseId, companyId: inspection.companyId },
+            status: 'PENDING',
+          },
+          update: {},
+        });
+      }
+
       this.logger.log(
         `Inspection ${inspectionId} approved by ${actor.role} (${actor.userId})`,
       );
@@ -522,11 +743,16 @@ export class MotorInspectionService {
 
   async rejectInspection(
     inspectionId: string,
-    reason: string,
+    reason: RejectInspectionDto,
     actor?: ActorContext,
   ) {
-    if (!reason?.trim()) {
-      throw new BadRequestException('A non-empty rejection reason is required');
+    if (
+      !reason?.reasonText?.trim() ||
+      !INSPECTION_REJECTION_CODES.includes(reason.reasonCode)
+    ) {
+      throw new BadRequestException(
+        'A supported rejection reason code and non-empty reason text are required',
+      );
     }
     if (actor) {
       this.assertBackOfficeOrAdmin(actor.role);
@@ -551,6 +777,11 @@ export class MotorInspectionService {
       'REJECT',
       actor?.role,
     );
+    const rejection = {
+      reasonCode: reason.reasonCode,
+      reasonText: reason.reasonText.trim(),
+    };
+    const caseId = this.getLinkedCaseId(inspection);
 
     return this.prisma.$transaction(async (tx) => {
       const updated = await tx.motorInspection.update({
@@ -558,7 +789,8 @@ export class MotorInspectionService {
         data: {
           status: nextStatus,
           rejectedAt: new Date(),
-          rejectionReason: reason.trim(),
+          rejectionCode: rejection.reasonCode,
+          rejectionReason: rejection.reasonText,
         },
       });
 
@@ -570,7 +802,7 @@ export class MotorInspectionService {
           action: 'REJECT',
           actorId: actor?.userId || 'SYSTEM',
           actorRole: (actor?.role as string) || 'SYSTEM',
-          reason: reason.trim(),
+          reason: JSON.stringify(rejection),
         },
       });
 
@@ -581,12 +813,67 @@ export class MotorInspectionService {
           motorMetadata: {
             ...((inspection.quotation?.motorMetadata as any) || {}),
             inspectionStatus: 'REJECTED',
-            rejectionReason: reason.trim(),
+            rejectionCode: rejection.reasonCode,
+            rejectionReason: rejection.reasonText,
           },
         },
       });
 
-      this.logger.log(`Inspection ${inspectionId} rejected: ${reason}`);
+      if (caseId) {
+        const transition = await tx.motorQuotationCase.updateMany({
+          where: {
+            id: caseId,
+            companyId: inspection.companyId,
+            status: {
+              in: [
+                MotorCaseStatus.INSPECTION_SUBMITTED,
+                MotorCaseStatus.INSPECTION_REQUIRED,
+              ],
+            },
+          },
+          data: { status: MotorCaseStatus.REWORK_REQUIRED },
+        });
+        if (transition.count !== 1) {
+          throw new ConflictException(
+            'The linked motor case is not in INSPECTION_SUBMITTED status',
+          );
+        }
+        await tx.backOfficeTask.updateMany({
+          where: {
+            companyId: inspection.companyId,
+            idempotencyKey: `INSPECTION:${inspection.quotationId}:ASSIGNMENT`,
+            status: { in: ['IN_REVIEW', 'PENDING'] },
+          },
+          data: {
+            status: 'REJECTED',
+            assignedToId: inspection.quotation?.createdById,
+            rejectedReason: `${rejection.reasonCode}: ${rejection.reasonText}`,
+            resolvedAt: new Date(),
+          },
+        });
+        await tx.outboxEvent.upsert({
+          where: { eventKey: `inspection.rejected:${inspectionId}` },
+          create: {
+            eventKey: `inspection.rejected:${inspectionId}`,
+            aggregateType: 'INSPECTION',
+            aggregateId: inspectionId,
+            eventType: 'inspection.rejected',
+            payload: {
+              inspectionId,
+              quotationId: inspection.quotationId,
+              caseId,
+              companyId: inspection.companyId,
+              ...rejection,
+            },
+            status: 'PENDING',
+          },
+          update: {},
+        });
+      }
+
+      this.logger.log(
+        `Inspection ${inspectionId} rejected with ${rejection.reasonCode}`,
+      );
       return updated;
     });
   }
@@ -622,6 +909,7 @@ export class MotorInspectionService {
       'WAIVE',
       actor.role,
     );
+    const caseId = this.getLinkedCaseId(inspection);
 
     return this.prisma.$transaction(async (tx) => {
       const updated = await tx.motorInspection.update({
@@ -660,6 +948,58 @@ export class MotorInspectionService {
         },
       });
 
+      if (caseId) {
+        const transition = await tx.motorQuotationCase.updateMany({
+          where: {
+            id: caseId,
+            companyId: inspection.companyId,
+            status: {
+              in: [
+                MotorCaseStatus.INSPECTION_REQUIRED,
+                MotorCaseStatus.INSPECTION_SUBMITTED,
+              ],
+            },
+          },
+          data: { status: MotorCaseStatus.INSPECTION_WAIVED },
+        });
+        if (transition.count !== 1) {
+          throw new ConflictException(
+            'The linked motor case cannot waive inspection from its current status',
+          );
+        }
+        await tx.backOfficeTask.updateMany({
+          where: {
+            companyId: inspection.companyId,
+            idempotencyKey: `INSPECTION:${inspection.quotationId}:ASSIGNMENT`,
+            status: { in: ['PENDING', 'IN_REVIEW'] },
+          },
+          data: {
+            status: 'COMPLETED',
+            verificationNotes: `Inspection waived: ${reason.trim()}`,
+            resolvedAt: new Date(),
+          },
+        });
+        await tx.outboxEvent.upsert({
+          where: { eventKey: `inspection.waived:${inspectionId}` },
+          create: {
+            eventKey: `inspection.waived:${inspectionId}`,
+            aggregateType: 'INSPECTION',
+            aggregateId: inspectionId,
+            eventType: 'inspection.waived',
+            payload: {
+              inspectionId,
+              quotationId: inspection.quotationId,
+              caseId,
+              companyId: inspection.companyId,
+              reason: reason.trim(),
+              waivedById: actor.userId,
+            },
+            status: 'PENDING',
+          },
+          update: {},
+        });
+      }
+
       this.logger.log(
         `Inspection ${inspectionId} waived by ${actor.role} (${actor.userId}): ${reason}`,
       );
@@ -667,18 +1007,22 @@ export class MotorInspectionService {
     });
   }
 
-  async getInspection(quotationId: string, actor?: ActorContext) {
+  async getInspection(quotationId: string, actor: ActorContext) {
     const inspection = await this.prisma.motorInspection.findUnique({
       where: { quotationId },
-      include: { history: { orderBy: { createdAt: 'desc' } } },
+      include: {
+        history: { orderBy: { createdAt: 'desc' } },
+        quotation: { select: { createdById: true, agentId: true, caseId: true } },
+      },
     });
     if (!inspection) return null;
 
-    if (actor && inspection.companyId !== actor.companyId) {
+    if (inspection.companyId !== actor.companyId) {
       throw new ForbiddenException(
         'Tenant isolation violation: Inspection belongs to another company',
       );
     }
+    this.assertInspectionContributor(actor, inspection);
 
     const missingPhotos = this.getMissingPhotos(inspection);
     const canSubmit =

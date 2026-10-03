@@ -309,6 +309,10 @@ describe('Round 2 Adversarial Security Audit Verification (Findings R2-001..R2-0
             id: 'contact-1',
             companyId: 'company-a',
           }),
+          findFirst: jest.fn().mockResolvedValue({
+            id: 'contact-1',
+            companyId: 'company-a',
+          }),
         },
         agent: {
           findUnique: jest.fn().mockResolvedValue({ id: 'agent-profile-1' }),

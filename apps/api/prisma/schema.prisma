@@ -1079,6 +1079,7 @@ enum MotorCaseStatus {
   INSPECTION_REQUIRED
   INSPECTION_SUBMITTED
   INSPECTION_APPROVED
+  INSPECTION_WAIVED
   PAYMENT_VERIFIED
   DOCUMENTS_VERIFIED
   READY_FOR_ISSUANCE
@@ -1201,6 +1202,7 @@ model Quotation {
   case            MotorQuotationCase?      @relation("CaseQuotations", fields: [caseId], references: [id], onDelete: SetNull)
   selectedInCases MotorQuotationCase[]     @relation("SelectedCaseQuote")
   motorDocuments  MotorQuotationDocument[]
+  backOfficeTasks BackOfficeTask[]         @relation("CanonicalQuotationBackOfficeTasks")
 
   // Motor module relations
   motorJourney        MotorJourney?
@@ -3959,6 +3961,9 @@ model MotorInspection {
   quotationId    String    @unique
   quotation      Quotation @relation(fields: [quotationId], references: [id])
 
+  caseId         String?
+  case           MotorQuotationCase? @relation(fields: [caseId], references: [id], onDelete: SetNull)
+
   status          InspectionStatus       @default(REQUIRED)
   conductedByType InspectionConductedBy?
 
@@ -3975,6 +3980,7 @@ model MotorInspection {
   inspectionTime  String? // "HH:MM" format
   completedAt     DateTime?
   rejectedAt      DateTime?
+  rejectionCode   String?
   rejectionReason String?
 
   // Waiver persistence
@@ -4005,6 +4011,7 @@ model MotorInspection {
   @@index([companyId])
   @@index([companyId, status])
   @@index([quotationId])
+  @@index([caseId])
   @@index([status])
   @@map("motor_inspections")
 }
@@ -4396,6 +4403,9 @@ model BackOfficeTask {
   motorQuotationId  String?
   motorQuotation    MotorQuotation?      @relation("QuotationBackOfficeTasks", fields: [motorQuotationId], references: [id], onDelete: SetNull)
 
+  quotationId       String?
+  quotation         Quotation?           @relation("CanonicalQuotationBackOfficeTasks", fields: [quotationId], references: [id], onDelete: SetNull)
+
   caseId            String?              @map("case_id")
   case              MotorQuotationCase?  @relation(fields: [caseId], references: [id], onDelete: SetNull)
 
@@ -4423,6 +4433,7 @@ model BackOfficeTask {
   @@index([status])
   @@index([leadId])
   @@index([motorQuotationId])
+  @@index([quotationId])
   @@index([caseId])
   @@index([taskCode])
   @@index([deletedAt])
@@ -4587,6 +4598,7 @@ model MotorQuotationCase {
   previousPolicySnapshot Json?
 
   quotations Quotation[]              @relation("CaseQuotations")
+  inspections MotorInspection[]
   documents  MotorQuotationDocument[]
   tasks      BackOfficeTask[]
 

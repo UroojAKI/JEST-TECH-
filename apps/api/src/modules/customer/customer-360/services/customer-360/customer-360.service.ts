@@ -48,6 +48,9 @@ export class Customer360Service {
     if (!contact) {
       throw new NotFoundException('Customer not found');
     }
+    if (companyId && contact.companyId && contact.companyId !== companyId) {
+      throw new NotFoundException('Customer not found');
+    }
 
     if (actor) {
       this.authzService.authorize(actor, 'CUSTOMER_360', 'READ', contact);
