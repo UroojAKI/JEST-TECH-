@@ -295,10 +295,12 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, caseId, initialCat
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [vehicleDetails.vehicleStatus]);
 
-  // ── NOT_AVAILABLE Mode Normalization ──────────────────────────────────────
-  // When previousPolicyType changes to NOT_AVAILABLE on an EXISTING vehicle,
-  // clear previous-insurer fields from premium forms.
+  // ── Auto-Sync Previous Policy Details to Premium Forms ───────────────────
+  // Whenever the previous policy details change (e.g. user fills Previous Policy section),
+  // automatically sync those details into the corresponding fields of the Premium forms.
   useEffect(() => {
+    if (vehicleDetails.vehicleStatus === 'NEW') return; // Handled by Domain Mode Normalization
+
     if (previousPolicy.previousPolicyType === 'NOT_AVAILABLE') {
       setPackageForm((prev) => ({
         ...prev,
@@ -307,9 +309,52 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, caseId, initialCat
         previousInsurerName: '',
         previousPolicyNumber: '',
       }));
+      setTpForm((prev) => ({
+        ...prev,
+        previousTPInsurerName: '',
+        previousTPPolicyNumber: '',
+      }));
+      setSaodForm((prev) => ({
+        ...prev,
+        ncbPercentage: '0',
+        claimInExpiringODPolicy: 'No',
+        previousODInsurerName: '',
+        previousODPolicyNumber: '',
+      }));
+    } else {
+      setPackageForm((prev) => ({
+        ...prev,
+        ncbPercentage: previousPolicy.eligibleNcbPercentage.toString(),
+        claimInExpiringPolicy: previousPolicy.claimInPreviousYear ? 'Yes' : 'No',
+        previousInsurerName: previousPolicy.previousInsurerName || '',
+        previousPolicyNumber: previousPolicy.previousPolicyNumber || '',
+      }));
+
+      setTpForm((prev) => ({
+        ...prev,
+        previousTPInsurerName: previousPolicy.previousInsurerName || '',
+        previousTPPolicyNumber: previousPolicy.previousPolicyNumber || '',
+      }));
+
+      setSaodForm((prev) => ({
+        ...prev,
+        ncbPercentage: previousPolicy.eligibleNcbPercentage.toString(),
+        claimInExpiringODPolicy: previousPolicy.claimInPreviousYear ? 'Yes' : 'No',
+        previousODInsurerName: previousPolicy.previousOdInsurerName || previousPolicy.previousInsurerName || '',
+        previousODPolicyNumber: previousPolicy.previousOdPolicyNumber || previousPolicy.previousPolicyNumber || '',
+      }));
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [previousPolicy.previousPolicyType]);
+  }, [
+    previousPolicy.previousPolicyType,
+    previousPolicy.eligibleNcbPercentage,
+    previousPolicy.claimInPreviousYear,
+    previousPolicy.previousInsurerName,
+    previousPolicy.previousPolicyNumber,
+    previousPolicy.previousOdInsurerName,
+    previousPolicy.previousOdPolicyNumber,
+    vehicleDetails.vehicleStatus
+  ]);
 
   useEffect(() => {
     if (isOpen) {
