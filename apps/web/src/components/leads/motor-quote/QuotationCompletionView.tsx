@@ -66,7 +66,7 @@ export function QuotationCompletionView({
   const { data: completion, isLoading, error } = useQuery<QuotationCompletionResult>({
     queryKey: ['quotation-completion', quotationId],
     queryFn: () => quotationsRepository.getQuotationCompletion(quotationId),
-    enabled: !!quotationId,
+    enabled: !!quotationId && isOpen,
     staleTime: 15000,
   });
 
@@ -106,9 +106,23 @@ export function QuotationCompletionView({
 
   if (isLoading) {
     return (
-      <div className="flex items-center gap-2 text-xs text-muted-foreground animate-pulse">
+      <div className="flex items-center gap-2 text-xs text-muted-foreground animate-pulse p-2 border rounded">
         <div className="h-2 w-16 bg-muted rounded-full" />
-        <span className="text-[10px]">Calculating...</span>
+        <span className="text-[10px]">Loading Profile...</span>
+      </div>
+    );
+  }
+
+  if (!isOpen && !completion) {
+    return (
+      <div
+        onClick={() => setIsOpen(true)}
+        className="cursor-pointer flex items-center justify-between p-2 rounded bg-muted/30 border border-border/50 hover:bg-muted/60 transition-colors w-full"
+      >
+        <div className="flex items-center gap-1.5 text-[10px] font-bold text-muted-foreground uppercase">
+          <span className="text-primary/70">§</span> Completion Profile
+        </div>
+        <span className="text-[10px] text-primary font-medium hover:underline">View</span>
       </div>
     );
   }
