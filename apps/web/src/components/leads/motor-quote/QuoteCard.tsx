@@ -45,6 +45,7 @@ const CAT_ICONS: Record<string, string> = {
 
 export function QuoteCard({ quote, onUploadQuote, onConductInspection, onCompleteProposal, onIssuePolicy, onAddComparisonQuote, userRole }: Props) {
   const [isUploading, setIsUploading] = React.useState(false);
+  const [isHovered, setIsHovered] = React.useState(false);
   const authUser = useAuthStore((s) => s.user);
   const activeRole = userRole || authUser?.role;
   const isAgent = activeRole === 'AGENT' || activeRole === 'SALES_EXECUTIVE' || activeRole === 'POSP_ADVISOR' || activeRole === 'SALES_AGENT';
@@ -59,7 +60,7 @@ export function QuoteCard({ quote, onUploadQuote, onConductInspection, onComplet
         return null;
       }
     },
-    enabled: Boolean(quote.id),
+    enabled: Boolean(quote.id) && isHovered,
     staleTime: 10_000,
   });
 
@@ -71,7 +72,10 @@ export function QuoteCard({ quote, onUploadQuote, onConductInspection, onComplet
   const blockingReasons = projection?.blockingReasons || [];
 
   return (
-    <div className="p-4 rounded-xl border bg-card hover:shadow-sm transition-all space-y-3 flex flex-col justify-between">
+    <div 
+      className="p-4 rounded-xl border bg-card hover:shadow-sm transition-all space-y-3 flex flex-col justify-between"
+      onMouseEnter={() => setIsHovered(true)}
+    >
       <div>
         <div className="flex items-start justify-between gap-2">
           <div className="flex items-center gap-2 min-w-0">
