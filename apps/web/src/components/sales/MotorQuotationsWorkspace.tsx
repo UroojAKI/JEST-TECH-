@@ -179,12 +179,16 @@ export function MotorQuotationsWorkspace() {
     return { activeFiltered: active, renewalsFiltered: renewals };
   }, [allQuotes, searchQuery]);
 
-  const groupedQuotes = useMemo(() => {
+  const filteredQuotes = useMemo(() => {
     let target = activeTab === 'ACTIVE' ? activeFiltered : renewalsFiltered;
     if (leadFilterActive && leadIdParam && leadIdParam !== 'new') {
       target = target.filter((q) => q.leadId === leadIdParam);
     }
-    return target.reduce((acc, q) => {
+    return target;
+  }, [activeFiltered, renewalsFiltered, activeTab, leadFilterActive, leadIdParam]);
+
+  const groupedQuotes = useMemo(() => {
+    return filteredQuotes.reduce((acc, q) => {
       // 1. Group by registration number if available (unique vehicle)
       // 2. If new vehicle, group by mobile number
       // 3. Fallback to leadId or quote id
@@ -199,7 +203,7 @@ export function MotorQuotationsWorkspace() {
       (acc[keyStr] ||= []).push(q);
       return acc;
     }, {} as Record<string, SavedMotorQuote[]>);
-  }, [activeFiltered, renewalsFiltered, activeTab, leadFilterActive, leadIdParam]);
+  }, [filteredQuotes]);
 
   const handleOpenWizard = (category?: VehicleCategory | string, cloneData?: any) => {
     let finalCat = category as VehicleCategory | undefined;
@@ -213,7 +217,7 @@ export function MotorQuotationsWorkspace() {
     setIsWizardOpen(true);
   };
 
-  const totalValue = allQuotes.reduce((sum, q) => sum + Number(q.totalPremium || 0), 0);
+  const totalValue = filteredQuotes.reduce((sum, q) => sum + Number(q.totalPremium || 0), 0);
 
   return (
     <div className="space-y-6 pb-12">
@@ -293,9 +297,9 @@ export function MotorQuotationsWorkspace() {
       )}
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <div className="p-4 rounded-xl border bg-card"><div className="flex items-center gap-2"><FileSpreadsheet className="h-4 w-4" /><span className="text-xs">Total Quotes</span></div><div className="text-lg font-bold mt-1">{allQuotes.length}</div></div>
+        <div className="p-4 rounded-xl border bg-card"><div className="flex items-center gap-2"><FileSpreadsheet className="h-4 w-4" /><span className="text-xs">Total Quotes</span></div><div className="text-lg font-bold mt-1">{filteredQuotes.length}</div></div>
         <div className="p-4 rounded-xl border bg-card"><div className="flex items-center gap-2"><Award className="h-4 w-4" /><span className="text-xs">Quote Value</span></div><div className="text-lg font-bold mt-1">₹{totalValue.toLocaleString('en-IN')}</div></div>
-        <div className="p-4 rounded-xl border bg-card"><div className="flex items-center gap-2"><AlertTriangle className="h-4 w-4" /><span className="text-xs">Pending Inspections</span></div><div className="text-lg font-bold mt-1">{allQuotes.filter(q => q.status === 'PENDING_INSPECTION').length}</div></div>
+        <div className="p-4 rounded-xl border bg-card"><div className="flex items-center gap-2"><AlertTriangle className="h-4 w-4" /><span className="text-xs">Pending Inspections</span></div><div className="text-lg font-bold mt-1">{filteredQuotes.filter(q => q.status === 'PENDING_INSPECTION').length}</div></div>
         <div className="p-4 rounded-xl border bg-card"><div className="flex items-center gap-2"><History className="h-4 w-4" /><span className="text-xs">Upcoming Renewals</span></div><div className="text-lg font-bold mt-1">{renewalsFiltered.length}</div></div>
       </div>
 

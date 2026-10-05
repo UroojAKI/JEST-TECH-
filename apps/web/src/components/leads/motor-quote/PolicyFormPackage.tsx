@@ -149,8 +149,8 @@ export function PolicyFormPackageForm({ category, vehicleStatus, data, onChange,
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {/* Policy Tenure */}
-        <FieldRow label="Policy Tenure">
-          <select value={data.policyTenure} onChange={set('policyTenure')} className={inputBase}>
+        <FieldRow label="Policy Tenure" mandatory>
+          <select value={data.policyTenure} onChange={set('policyTenure')} className={mandatoryInput(data.policyTenure)}>
             <option value="">— Select Tenure —</option>
             {tenureOptions.map((t) => <option key={t} value={t}>{t}</option>)}
           </select>
