@@ -32,6 +32,7 @@ export function MotorQuotationsWorkspace() {
   const [proposalQuote, setProposalQuote] = useState<SavedMotorQuote | null>(null);
   const [completionQuote, setCompletionQuote] = useState<SavedMotorQuote | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [listLimit, setListLimit] = useState(25);
 
   // Fetch linked lead context if leadId is provided in URL
   const { data: linkedLead } = useQuery({
@@ -101,13 +102,14 @@ export function MotorQuotationsWorkspace() {
     }
   }, [openQuoteParam, leadIdParam, contactIdParam, typeParam]);
 
-  const { data: apiQuotes = [], isLoading, refetch } = useQuery({
-    queryKey: ['motor-quotations-all'],
+  const { data = { quotes: [], total: 0 }, isLoading, refetch } = useQuery({
+    queryKey: ['motor-quotations-all', listLimit],
     queryFn: async () => {
       try {
-        const res = await apiClient.get('/quotations', { params: { productType: 'MOTOR' } });
+        const res = await apiClient.get('/quotations', { params: { productType: 'MOTOR', limit: listLimit } });
         const list = res.data?.data || res.data?.items || res.data || [];
-        return (Array.isArray(list) ? list : []).map((item: any) => ({
+        const total = res.data?.meta?.total || res.data?.total || list.length;
+        const quotes = (Array.isArray(list) ? list : []).map((item: any) => ({
           id: item.id,
           quotationCode: item.quotationCode,
           vehicleCategory: item.motorMetadata?.vehicleCategory || item.vehicleCategory || 'PRIVATE_CAR',
@@ -131,16 +133,18 @@ export function MotorQuotationsWorkspace() {
           policyDetails: item.motorMetadata?.policyDetails,
           leadId: item.leadId,
         } as SavedMotorQuote));
+        return { quotes, total };
       } catch (error) {
         // Silently return empty array on auth failure so the apiClient can handle the redirect
-        return [];
+        return { quotes: [], total: 0 };
       }
     },
+    placeholderData: (prevData) => prevData,
   });
 
   const allQuotes = useMemo(() => {
     const seen = new Set<string>();
-    return (Array.isArray(apiQuotes) ? apiQuotes : [])
+    return (Array.isArray(data.quotes) ? data.quotes : [])
       .filter((q) => {
         const key = q.quotationCode || q.id;
         if (seen.has(key)) return false;
@@ -148,7 +152,7 @@ export function MotorQuotationsWorkspace() {
         return true;
       })
       .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
-  }, [apiQuotes]);
+  }, [data.quotes]);
 
   const { activeFiltered, renewalsFiltered } = useMemo(() => {
     const matched = allQuotes.filter((q) => {
@@ -297,7 +301,7 @@ export function MotorQuotationsWorkspace() {
       )}
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <div className="p-4 rounded-xl border bg-card"><div className="flex items-center gap-2"><FileSpreadsheet className="h-4 w-4" /><span className="text-xs">Total Quotes</span></div><div className="text-lg font-bold mt-1">{filteredQuotes.length}</div></div>
+        <div className="p-4 rounded-xl border bg-card"><div className="flex items-center gap-2"><FileSpreadsheet className="h-4 w-4" /><span className="text-xs">Total Quotes</span></div><div className="text-lg font-bold mt-1">{data.total > filteredQuotes.length ? data.total : filteredQuotes.length}</div></div>
         <div className="p-4 rounded-xl border bg-card"><div className="flex items-center gap-2"><Award className="h-4 w-4" /><span className="text-xs">Quote Value</span></div><div className="text-lg font-bold mt-1">₹{totalValue.toLocaleString('en-IN')}</div></div>
         <div className="p-4 rounded-xl border bg-card"><div className="flex items-center gap-2"><AlertTriangle className="h-4 w-4" /><span className="text-xs">Pending Inspections</span></div><div className="text-lg font-bold mt-1">{filteredQuotes.filter(q => q.status === 'PENDING_INSPECTION').length}</div></div>
         <div className="p-4 rounded-xl border bg-card"><div className="flex items-center gap-2"><History className="h-4 w-4" /><span className="text-xs">Upcoming Renewals</span></div><div className="text-lg font-bold mt-1">{renewalsFiltered.length}</div></div>
@@ -307,8 +311,8 @@ export function MotorQuotationsWorkspace() {
 
       <div className="flex flex-col sm:flex-row items-center justify-between gap-4 border-b pb-4">
         <div className="flex items-center gap-4 text-sm font-semibold">
-          <button onClick={() => setActiveTab('ACTIVE')} className={`pb-1 border-b-2 ${activeTab === 'ACTIVE' ? 'border-primary text-foreground' : 'border-transparent text-muted-foreground'}`}>Active Quotes ({activeFiltered.length})</button>
-          <button onClick={() => setActiveTab('RENEWALS')} className={`pb-1 border-b-2 ${activeTab === 'RENEWALS' ? 'border-primary text-foreground' : 'border-transparent text-muted-foreground'}`}>Renewals ({renewalsFiltered.length})</button>
+          <button onClick={() => setActiveTab('ACTIVE')} className={`pb-1 border-b-2 ${activeTab === 'ACTIVE' ? 'border-primary text-foreground' : 'border-transparent text-muted-foreground'}`}>Active Quotes ({listLimit < data.total ? `${activeFiltered.length}+` : activeFiltered.length})</button>
+          <button onClick={() => setActiveTab('RENEWALS')} className={`pb-1 border-b-2 ${activeTab === 'RENEWALS' ? 'border-primary text-foreground' : 'border-transparent text-muted-foreground'}`}>Renewals ({listLimit < data.total ? `${renewalsFiltered.length}+` : renewalsFiltered.length})</button>
         </div>
         <div className="relative w-full sm:max-w-xs">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -347,6 +351,17 @@ export function MotorQuotationsWorkspace() {
               </div>
             );
           })}
+          
+          {data.total > listLimit && (
+            <div className="pt-6 flex justify-center">
+              <button 
+                onClick={() => setListLimit(prev => prev + 25)} 
+                className="px-6 py-2.5 rounded-full border bg-card hover:bg-muted text-sm font-semibold transition-colors shadow-sm text-foreground"
+              >
+                Load More Quotes ({data.total - listLimit} remaining)
+              </button>
+            </div>
+          )}
         </div>
       )}
 
