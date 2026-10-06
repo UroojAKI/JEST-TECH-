@@ -40,9 +40,27 @@ export class DashboardController {
     return this.dashboardService.getDashboard(RoleType.ADMIN, user.id, companyId);
   }
 
+  @Get('super-admin')
+  @Roles(RoleType.ADMIN)
+  getSuperAdminDashboard(@CurrentUser() user: RequestUser) {
+    const companyId = user.companyId || user.organizationId;
+    return this.dashboardService.getDashboard(RoleType.ADMIN, user.id, companyId);
+  }
+
   @Get('back-office')
   @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE)
   getBackOfficeDashboard(@CurrentUser() user: RequestUser) {
+    const companyId = user.companyId || user.organizationId;
+    return this.dashboardService.getDashboard(
+      RoleType.BACK_OFFICE,
+      user.id,
+      companyId,
+    );
+  }
+
+  @Get('manager')
+  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE)
+  getManagerDashboard(@CurrentUser() user: RequestUser) {
     const companyId = user.companyId || user.organizationId;
     return this.dashboardService.getDashboard(
       RoleType.BACK_OFFICE,

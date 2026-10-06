@@ -6,13 +6,13 @@
   ],
   "title": "Login role claims authority (strips client-side query role parameter)",
   "remediatingEpic": "EPIC-01, 02",
-  "implementationCommit": "99d226d7b617afdee7626c386ffc6d607c8fc9aa",
-  "testCommit": "99d226d7b617afdee7626c386ffc6d607c8fc9aa",
+  "implementationCommit": "d7737a28730f49906607673aebb80e522ba2f10c",
+  "testCommit": "d7737a28730f49906607673aebb80e522ba2f10c",
   "environment": "staging",
   "environmentBuild": "v4.2.0-prod-rebuild",
   "databaseMigrationVersion": "20260908_epic05_schema_invariants",
   "schemaHash": "sha256:d7c698122af143d6eda3a2675631455be7d7cff6e545644a77ec9b7c1fc404d3",
-  "containerImageDigest": "sha256:21b0a61a3220a39ac565c01f3e4f3631a95de4e72df617da44bae17b96c53fa5",
+  "containerImageDigest": "sha256:7a0e189ba827c7a839ed93ea083c05d3010b32136ae90a2f259b7ce3ab9cd8a5",
   "testDataVersion": "v4.2.0-clean-seed",
   "testRunId": "TR-PROD-013-CERT-2026",
   "primaryTestPath": "src/modules/auth/guards/jwt-auth.guard.spec.ts",
@@ -20,5 +20,5 @@
   "alternatePathTestPath": "src/common/services/bola.spec.ts",
   "result": "PASS",
   "reviewer": "Lead Systems Architect & Security Auditor",
-  "timestamp": "2026-10-01T06:32:51.192Z"
+  "timestamp": "2026-10-01T11:28:23.269Z"
 }

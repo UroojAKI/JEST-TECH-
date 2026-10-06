@@ -235,6 +235,108 @@ export default function CaseDetailPage() {
     },
   });
 
+  // 6. Payment & 6-Gate Issuance Queries & Mutations
+  const [recordPaymentModalOpen, setRecordPaymentModalOpen] = useState(false);
+  const [paymentForm, setPaymentForm] = useState({
+    amount: '',
+    paymentMethod: 'UPI',
+    referenceNumber: '',
+    status: 'PAID' as 'PAID' | 'UNDER_PROCESS',
+    notes: '',
+  });
+
+  const [issuePolicyModalOpen, setIssuePolicyModalOpen] = useState(false);
+  const [issuePolicyForm, setIssuePolicyForm] = useState({
+    startDate: new Date().toISOString().split('T')[0],
+    endDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+    actualPolicyNumber: '',
+    nomineeName: '',
+    nomineeRelation: 'Spouse',
+  });
+
+  const {
+    data: workflowProjection,
+    isLoading: isLoadingProjection,
+  } = useQuery({
+    queryKey: ['case-workflow-projection', quotationId],
+    queryFn: async () => {
+      if (!quotationId) return null;
+      try {
+        const res = await apiClient.get(`/motor/quotations/${quotationId}/workflow-projection`);
+        return res.data;
+      } catch {
+        return null;
+      }
+    },
+    enabled: Boolean(quotationId),
+    staleTime: 5_000,
+  });
+
+  const {
+    data: paymentRecord,
+    isLoading: isLoadingPayment,
+  } = useQuery({
+    queryKey: ['case-payment-record', quotationId],
+    queryFn: async () => {
+      if (!quotationId) return null;
+      try {
+        const res = await apiClient.get(`/motor/quotations/${quotationId}/payment`);
+        return res.data;
+      } catch {
+        return null;
+      }
+    },
+    enabled: Boolean(quotationId),
+    staleTime: 5_000,
+  });
+
+  const recordPaymentMutation = useMutation({
+    mutationFn: async (payload: {
+      amount: number;
+      paymentMethod: string;
+      referenceNumber: string;
+      status: 'PAID' | 'UNDER_PROCESS';
+      notes?: string;
+    }) => {
+      const res = await apiClient.post(`/motor/quotations/${quotationId}/payment`, payload);
+      return res.data;
+    },
+    onSuccess: () => {
+      toast.success('Payment recorded successfully.');
+      setRecordPaymentModalOpen(false);
+      void queryClient.invalidateQueries({ queryKey: ['case-payment-record', quotationId] });
+      void queryClient.invalidateQueries({ queryKey: ['case-workflow-projection', quotationId] });
+      void queryClient.invalidateQueries({ queryKey: ['case-detail', caseId] });
+      void queryClient.invalidateQueries({ queryKey: ['case-available-commands', caseId] });
+    },
+    onError: (err: any) => {
+      toast.error(err.response?.data?.message || 'Failed to record payment');
+    },
+  });
+
+  const issuePolicyMutation = useMutation({
+    mutationFn: async (payload: {
+      startDate: string;
+      endDate: string;
+      actualPolicyNumber?: string;
+      nomineeName?: string;
+      nomineeRelation?: string;
+    }) => {
+      const res = await apiClient.post(`/motor/quotes/${quotationId}/issue`, payload);
+      return res.data;
+    },
+    onSuccess: (data) => {
+      toast.success(`Policy issued successfully! Policy No: ${data?.policyNumber || 'Active'}`);
+      setIssuePolicyModalOpen(false);
+      void queryClient.invalidateQueries({ queryKey: ['case-workflow-projection', quotationId] });
+      void queryClient.invalidateQueries({ queryKey: ['case-detail', caseId] });
+      void queryClient.invalidateQueries({ queryKey: ['case-available-commands', caseId] });
+    },
+    onError: (err: any) => {
+      toast.error(err.response?.data?.message || 'Failed to issue policy');
+    },
+  });
+
   if (isLoadingCase) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[50vh] space-y-3">
@@ -1140,83 +1242,322 @@ export default function CaseDetailPage() {
 
       {/* TAB 6: PAYMENT & 6-GATES */}
       {activeTab === 'PAYMENT_GATES' && (
-        <div className="rounded-2xl border bg-card p-6 space-y-4">
-          <div className="flex items-center gap-2 border-b pb-3">
-            <CheckSquare className="h-5 w-5 text-emerald-600" />
-            <h3 className="font-bold text-sm text-foreground">
-              Authoritative 6-Gate Issuance Checklist (PAY-003)
-            </h3>
-          </div>
-
-          <div className="space-y-3 text-xs">
-            {[
-              {
-                id: 1,
-                name: 'GATE 1: Quotation Valid',
-                desc: 'Tariff validated, IDV within statutory limits, quote not expired.',
-                passed: Boolean(selectedQuote),
-              },
-              {
-                id: 2,
-                name: 'GATE 2: Proposal Approved',
-                desc: 'Customer KYC and vehicle baseline snapshots immutable.',
-                passed:
-                  status === 'DOCUMENTS_VERIFIED' ||
-                  status === 'READY_FOR_ISSUANCE' ||
-                  status === 'ISSUED',
-              },
-              {
-                id: 3,
-                name: 'GATE 3: Inspection Cleared',
-                desc: 'Break-in inspection verified or waived with justification.',
-                passed: status !== 'INSPECTION_REQUIRED',
-              },
-              {
-                id: 4,
-                name: 'GATE 4: Documents Verified',
-                desc: 'RC, KYC and proposal signed documents accepted.',
-                passed:
-                  status === 'DOCUMENTS_VERIFIED' ||
-                  status === 'READY_FOR_ISSUANCE' ||
-                  status === 'ISSUED',
-              },
-              {
-                id: 5,
-                name: 'GATE 5: Payment Verified',
-                desc: 'Authoritative payment record reconciled with bank UTR in INR.',
-                passed:
-                  status === 'PAYMENT_VERIFIED' ||
-                  status === 'READY_FOR_ISSUANCE' ||
-                  status === 'ISSUED',
-              },
-              {
-                id: 6,
-                name: 'GATE 6: Actor Authorized (SoD)',
-                desc: 'Back Office / Admin authority with separation from quote creator.',
-                passed: true,
-              },
-            ].map((gate) => (
-              <div
-                key={gate.id}
-                className={`p-3.5 rounded-xl border flex items-start gap-3 transition-colors ${
-                  gate.passed
-                    ? 'bg-emerald-500/5 border-emerald-500/20'
-                    : 'bg-muted/30 border-border'
-                }`}
-              >
-                {gate.passed ? (
-                  <CheckCircle2 className="h-4 w-4 text-emerald-600 mt-0.5 shrink-0" />
-                ) : (
-                  <Clock className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
-                )}
+        <div className="space-y-6">
+          {/* Financial Ledger & Payment Reconciliation Card (PAY-001 & PAY-002) */}
+          <div className="rounded-2xl border bg-card p-6 space-y-4 shadow-xs">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b pb-3">
+              <div className="flex items-center gap-2">
+                <Wallet className="h-5 w-5 text-primary" />
                 <div>
-                  <div className="font-bold text-foreground">{gate.name}</div>
-                  <div className="text-muted-foreground text-[11px]">
-                    {gate.desc}
-                  </div>
+                  <h3 className="font-bold text-sm text-foreground">
+                    Financial Ledger & Payment Reconciliation (PAY-001 / PAY-002)
+                  </h3>
+                  <p className="text-[11px] text-muted-foreground">
+                    Exact decimal match verification and multi-tenant payment records
+                  </p>
                 </div>
               </div>
-            ))}
+
+              <div className="flex items-center gap-2">
+                {paymentRecord?.status === 'PAID' ? (
+                  <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 flex items-center gap-1.5">
+                    <CheckCircle2 className="h-3.5 w-3.5" />
+                    <span>PAID & RECONCILED</span>
+                  </span>
+                ) : paymentRecord?.status === 'UNDER_PROCESS' ? (
+                  <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-amber-500/10 text-amber-600 border border-amber-500/20 flex items-center gap-1.5">
+                    <Clock className="h-3.5 w-3.5 animate-spin" />
+                    <span>PAYMENT UNDER PROCESS</span>
+                  </span>
+                ) : (
+                  <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-muted text-muted-foreground border flex items-center gap-1.5">
+                    <Clock className="h-3.5 w-3.5" />
+                    <span>PAYMENT PENDING</span>
+                  </span>
+                )}
+
+                <button
+                  onClick={() => {
+                    setPaymentForm({
+                      amount: selectedQuote?.totalPremium ? String(selectedQuote.totalPremium) : '',
+                      paymentMethod: 'UPI',
+                      referenceNumber: '',
+                      status: 'PAID',
+                      notes: '',
+                    });
+                    setRecordPaymentModalOpen(true);
+                  }}
+                  className="px-3 py-1.5 rounded-lg text-xs font-bold bg-primary text-primary-foreground hover:bg-primary/90 transition flex items-center gap-1.5"
+                >
+                  <Wallet className="h-3.5 w-3.5" />
+                  <span>Record / Verify Payment</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Financial Ledger Grid */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 text-xs">
+              <div className="p-3 rounded-xl border bg-muted/20 space-y-1">
+                <span className="text-[10px] text-muted-foreground uppercase font-bold">
+                  Authoritative Premium
+                </span>
+                <div className="font-black text-foreground text-sm">
+                  ₹{Number(selectedQuote?.totalPremium || 0).toLocaleString('en-IN')}
+                </div>
+              </div>
+
+              <div className="p-3 rounded-xl border bg-muted/20 space-y-1">
+                <span className="text-[10px] text-muted-foreground uppercase font-bold">
+                  Amount Reconciled
+                </span>
+                <div className={`font-black text-sm ${paymentRecord?.status === 'PAID' ? 'text-emerald-600' : 'text-muted-foreground'}`}>
+                  ₹{Number(paymentRecord?.amount || 0).toLocaleString('en-IN')}
+                </div>
+              </div>
+
+              <div className="p-3 rounded-xl border bg-muted/20 space-y-1">
+                <span className="text-[10px] text-muted-foreground uppercase font-bold">
+                  Payment Method
+                </span>
+                <div className="font-semibold text-foreground">
+                  {paymentRecord?.paymentMethod || '—'}
+                </div>
+              </div>
+
+              <div className="p-3 rounded-xl border bg-muted/20 space-y-1">
+                <span className="text-[10px] text-muted-foreground uppercase font-bold">
+                  Bank Reference / UTR
+                </span>
+                <div className="font-mono text-xs font-bold text-foreground truncate" title={paymentRecord?.referenceNumber || ''}>
+                  {paymentRecord?.referenceNumber || '—'}
+                </div>
+              </div>
+
+              <div className="p-3 rounded-xl border bg-muted/20 space-y-1">
+                <span className="text-[10px] text-muted-foreground uppercase font-bold">
+                  Settlement Date
+                </span>
+                <div className="font-medium text-foreground">
+                  {paymentRecord?.paidAt
+                    ? new Date(paymentRecord.paidAt).toLocaleDateString('en-IN', {
+                        day: 'numeric',
+                        month: 'short',
+                        year: 'numeric',
+                      })
+                    : '—'}
+                </div>
+              </div>
+
+              <div className="p-3 rounded-xl border bg-muted/20 space-y-1">
+                <span className="text-[10px] text-muted-foreground uppercase font-bold">
+                  Reconciliation Status
+                </span>
+                <div className="font-bold">
+                  {paymentRecord?.status === 'PAID' ? (
+                    <span className="text-emerald-600 flex items-center gap-1">
+                      <CheckCircle2 className="h-3 w-3" /> Exact Match (₹0 diff)
+                    </span>
+                  ) : (
+                    <span className="text-amber-600">Pending</span>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Authoritative 6-Gate Issuance Engine (PAY-003) */}
+          <div className="rounded-2xl border bg-card p-6 space-y-4 shadow-xs">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b pb-3">
+              <div className="flex items-center gap-2">
+                <CheckSquare className="h-5 w-5 text-emerald-600" />
+                <div>
+                  <h3 className="font-bold text-sm text-foreground">
+                    Authoritative 6-Gate Issuance Engine (PAY-003)
+                  </h3>
+                  <p className="text-[11px] text-muted-foreground">
+                    Pre-issuance underwriting compliance checklist computed server-authoritatively
+                  </p>
+                </div>
+              </div>
+
+              <div>
+                {workflowProjection?.canIssue ? (
+                  <span className="px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 flex items-center gap-1.5">
+                    <CheckCircle2 className="h-4 w-4" />
+                    <span>All 6 Gates Cleared — Ready for Issuance</span>
+                  </span>
+                ) : (
+                  <span className="px-3 py-1 rounded-full text-xs font-bold bg-amber-500/10 text-amber-600 border border-amber-500/20 flex items-center gap-1.5">
+                    <Clock className="h-4 w-4" />
+                    <span>
+                      {6 - (workflowProjection?.blockingReasons?.length || 0)} / 6 Gates Passed
+                    </span>
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* Blockers alert if any */}
+            {workflowProjection?.blockingReasons && workflowProjection.blockingReasons.length > 0 && (
+              <div className="p-4 rounded-xl border border-amber-500/30 bg-amber-500/5 text-xs space-y-1.5">
+                <div className="font-bold text-amber-700 flex items-center gap-1.5">
+                  <AlertTriangle className="h-4 w-4 shrink-0" />
+                  <span>The following underwriting gates are pending:</span>
+                </div>
+                <ul className="list-disc list-inside space-y-1 text-amber-900 dark:text-amber-200 pl-1">
+                  {workflowProjection.blockingReasons.map((reason: string, i: number) => (
+                    <li key={i}>{reason}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {/* The 6 Canonical Gates Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+              {[
+                {
+                  id: 1,
+                  name: 'GATE 1: Calculation & Tariff Snapshot Valid',
+                  desc: 'Tariff rules evaluated, premium non-zero, and calculation snapshot cryptographically sealed.',
+                  passed: Boolean(workflowProjection?.blockingGates?.calculationValid),
+                  detail: workflowProjection?.meta?.totalPremium
+                    ? `Premium: ₹${Number(workflowProjection.meta.totalPremium).toLocaleString('en-IN')}`
+                    : 'Calculation pending',
+                },
+                {
+                  id: 2,
+                  name: 'GATE 2: Customer KYC Verified',
+                  desc: 'Customer PAN or corporate KYC verified against statutory databases.',
+                  passed: Boolean(workflowProjection?.blockingGates?.kycVerified),
+                  detail: `KYC Status: ${workflowProjection?.meta?.kycStatus || 'VERIFIED'}`,
+                },
+                {
+                  id: 3,
+                  name: 'GATE 3: Vehicle Inspection Cleared',
+                  desc: 'Break-in inspection completed with 7-photo evidence or formally waived by underwriter.',
+                  passed: Boolean(workflowProjection?.blockingGates?.inspectionCleared),
+                  detail: `Inspection Status: ${workflowProjection?.meta?.inspectionStatus || 'COMPLETED / WAIVED'}`,
+                },
+                {
+                  id: 4,
+                  name: 'GATE 4: Insurance Proposal Approved',
+                  desc: 'Proposal signed and accepted by underwriting with immutable risk terms.',
+                  passed: Boolean(workflowProjection?.blockingGates?.proposalApproved),
+                  detail: 'Terms & schedules verified',
+                },
+                {
+                  id: 5,
+                  name: 'GATE 5: Payment Reconciled (Exact INR)',
+                  desc: 'Exact decimal match between customer payment UTR and authoritative quotation premium.',
+                  passed: Boolean(workflowProjection?.blockingGates?.paymentVerified),
+                  detail: workflowProjection?.meta?.paidAmount
+                    ? `Paid ₹${Number(workflowProjection.meta.paidAmount).toLocaleString('en-IN')} / ₹${Number(workflowProjection?.meta?.totalPremium || 0).toLocaleString('en-IN')}`
+                    : 'Payment verification pending',
+                },
+                {
+                  id: 6,
+                  name: 'GATE 6: Mandatory Documents Verified',
+                  desc: 'RC copy, previous policy, and customer identity documents signed off by Back Office.',
+                  passed: Boolean(workflowProjection?.blockingGates?.documentsVerified),
+                  detail: 'All mandatory documents verified',
+                },
+              ].map((gate) => (
+                <div
+                  key={gate.id}
+                  className={`p-4 rounded-xl border flex items-start gap-3 transition-colors ${
+                    gate.passed
+                      ? 'bg-emerald-500/5 border-emerald-500/20'
+                      : 'bg-muted/30 border-border'
+                  }`}
+                >
+                  {gate.passed ? (
+                    <CheckCircle2 className="h-4 w-4 text-emerald-600 mt-0.5 shrink-0" />
+                  ) : (
+                    <Clock className="h-4 w-4 text-amber-500 mt-0.5 shrink-0" />
+                  )}
+                  <div className="space-y-1 flex-1">
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-foreground">{gate.name}</span>
+                      <span className={`text-[10px] font-bold ${gate.passed ? 'text-emerald-600' : 'text-amber-600'}`}>
+                        {gate.passed ? 'PASSED' : 'PENDING'}
+                      </span>
+                    </div>
+                    <p className="text-muted-foreground text-[11px] leading-relaxed">
+                      {gate.desc}
+                    </p>
+                    <div className="text-[10px] font-mono text-muted-foreground pt-0.5">
+                      {gate.detail}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Policy Issuance Action Banner */}
+            <div className="pt-4 border-t flex flex-wrap items-center justify-between gap-4">
+              <div>
+                {status === 'ISSUED' || workflowProjection?.meta?.policyNumber ? (
+                  <div className="space-y-1">
+                    <div className="text-xs font-bold text-emerald-700 flex items-center gap-1.5">
+                      <ShieldCheck className="h-4 w-4 text-emerald-600" />
+                      <span>Policy In Force: {workflowProjection?.meta?.policyNumber || 'ISSUED'}</span>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground">
+                      This policy has been officially issued and registered in the core insurance registry.
+                    </p>
+                  </div>
+                ) : workflowProjection?.canIssue ? (
+                  <div className="space-y-1">
+                    <div className="text-xs font-bold text-emerald-700 flex items-center gap-1.5">
+                      <Sparkles className="h-4 w-4 text-emerald-600" />
+                      <span>All 6 Underwriting Gates Passed</span>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground">
+                      Authoritative checks complete. Ready for instant policy numbering and activation.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-1">
+                    <div className="text-xs font-bold text-muted-foreground flex items-center gap-1.5">
+                      <ShieldAlert className="h-4 w-4" />
+                      <span>Issuance Gate Guard Active</span>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground">
+                      Policy issuance is strictly locked until all 6 underwriting gates pass server verification.
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              <div>
+                {status === 'ISSUED' || workflowProjection?.meta?.policyNumber ? (
+                  <button
+                    onClick={() => {
+                      toast.info(`Policy document download ready: ${workflowProjection?.meta?.policyNumber || 'Active'}`);
+                    }}
+                    className="px-4 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white transition flex items-center gap-1.5 shadow-xs"
+                  >
+                    <FileText className="h-4 w-4" />
+                    <span>Download Policy Document</span>
+                  </button>
+                ) : (
+                  <button
+                    disabled={!workflowProjection?.canIssue || issuePolicyMutation.isPending}
+                    onClick={() => {
+                      setIssuePolicyModalOpen(true);
+                    }}
+                    className={`px-4 py-2.5 rounded-xl text-xs font-bold text-white transition flex items-center gap-1.5 shadow-xs ${
+                      workflowProjection?.canIssue
+                        ? 'bg-emerald-600 hover:bg-emerald-700 cursor-pointer'
+                        : 'bg-muted-foreground/30 cursor-not-allowed'
+                    }`}
+                  >
+                    <ShieldCheck className="h-4 w-4" />
+                    <span>Issue Policy Now (PAY-003)</span>
+                  </button>
+                )}
+              </div>
+            </div>
           </div>
         </div>
       )}
@@ -1384,6 +1725,241 @@ export default function CaseDetailPage() {
                   : inspectionModal === 'REJECT'
                   ? 'Confirm Rejection'
                   : 'Confirm Waiver'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Record / Verify Payment Modal */}
+      {recordPaymentModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in">
+          <div className="w-full max-w-md rounded-2xl border border-border bg-card p-6 shadow-2xl space-y-4">
+            <div>
+              <h3 className="text-base font-bold text-foreground flex items-center gap-2">
+                <Wallet className="h-5 w-5 text-primary" />
+                <span>Record & Verify Payment (PAY-001 / PAY-002)</span>
+              </h3>
+              <p className="text-xs text-muted-foreground mt-1">
+                Enter payment details. Authoritative payable premium is ₹{Number(selectedQuote?.totalPremium || 0).toLocaleString('en-IN')}. Exact decimal match required for PAID status.
+              </p>
+            </div>
+
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs font-bold block mb-1">
+                  Payment Amount (₹ INR) <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={paymentForm.amount}
+                  onChange={(e) => setPaymentForm({ ...paymentForm, amount: e.target.value })}
+                  placeholder="e.g. 17638.88"
+                  className="w-full px-3 py-2 text-xs rounded-lg border bg-background font-mono focus:outline-none focus:ring-1 focus:ring-primary"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold block mb-1">
+                  Payment Method <span className="text-rose-500">*</span>
+                </label>
+                <select
+                  value={paymentForm.paymentMethod}
+                  onChange={(e) => setPaymentForm({ ...paymentForm, paymentMethod: e.target.value })}
+                  className="w-full px-3 py-2 text-xs rounded-lg border bg-background focus:outline-none focus:ring-1 focus:ring-primary"
+                >
+                  <option value="UPI">UPI / QR Code</option>
+                  <option value="NET_BANKING">Net Banking / IMPS</option>
+                  <option value="NEFT_RTGS">NEFT / RTGS</option>
+                  <option value="DEBIT_CARD">Debit Card</option>
+                  <option value="CREDIT_CARD">Credit Card</option>
+                  <option value="CHEQUE">Bank Cheque</option>
+                  <option value="CASH">Cash / Counter Deposit</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="text-xs font-bold block mb-1">
+                  Bank Reference Number / UTR <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={paymentForm.referenceNumber}
+                  onChange={(e) => setPaymentForm({ ...paymentForm, referenceNumber: e.target.value })}
+                  placeholder="e.g. UTR-HDFC-9988776655"
+                  className="w-full px-3 py-2 text-xs rounded-lg border bg-background font-mono focus:outline-none focus:ring-1 focus:ring-primary"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold block mb-1">
+                  Reconciliation Status <span className="text-rose-500">*</span>
+                </label>
+                <select
+                  value={paymentForm.status}
+                  onChange={(e) => setPaymentForm({ ...paymentForm, status: e.target.value as any })}
+                  className="w-full px-3 py-2 text-xs rounded-lg border bg-background focus:outline-none focus:ring-1 focus:ring-primary"
+                >
+                  <option value="PAID">PAID (Reconcile & Clear Gate 5)</option>
+                  <option value="UNDER_PROCESS">UNDER_PROCESS (Awaiting Clearance)</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="text-xs font-bold block mb-1">
+                  Internal Notes (Optional)
+                </label>
+                <textarea
+                  rows={2}
+                  value={paymentForm.notes}
+                  onChange={(e) => setPaymentForm({ ...paymentForm, notes: e.target.value })}
+                  placeholder="e.g. Verified with ICICI bank statement on 01-Oct-2026..."
+                  className="w-full px-3 py-2 text-xs rounded-lg border bg-background focus:outline-none focus:ring-1 focus:ring-primary"
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-3 border-t border-border">
+              <button
+                onClick={() => setRecordPaymentModalOpen(false)}
+                className="px-4 py-2 rounded-lg border text-xs font-semibold hover:bg-muted"
+              >
+                Cancel
+              </button>
+              <button
+                disabled={
+                  !paymentForm.amount ||
+                  !paymentForm.referenceNumber.trim() ||
+                  recordPaymentMutation.isPending
+                }
+                onClick={() => {
+                  recordPaymentMutation.mutate({
+                    amount: parseFloat(paymentForm.amount),
+                    paymentMethod: paymentForm.paymentMethod,
+                    referenceNumber: paymentForm.referenceNumber.trim(),
+                    status: paymentForm.status,
+                    notes: paymentForm.notes.trim() || undefined,
+                  });
+                }}
+                className="px-4 py-2 rounded-lg text-xs font-bold text-white bg-primary hover:bg-primary/90 transition disabled:opacity-50"
+              >
+                {recordPaymentMutation.isPending ? 'Recording...' : 'Confirm Payment'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Issue Policy Modal (PAY-003) */}
+      {issuePolicyModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in">
+          <div className="w-full max-w-md rounded-2xl border border-border bg-card p-6 shadow-2xl space-y-4">
+            <div>
+              <h3 className="text-base font-bold text-foreground flex items-center gap-2">
+                <ShieldCheck className="h-5 w-5 text-emerald-600" />
+                <span>Issue Insurance Policy (PAY-003)</span>
+              </h3>
+              <p className="text-xs text-muted-foreground mt-1">
+                All 6 underwriting gates have passed. Policy will be assigned a sequential number and activated in the insurance registry.
+              </p>
+            </div>
+
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-bold block mb-1">
+                    Effective Start Date <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="date"
+                    value={issuePolicyForm.startDate}
+                    onChange={(e) => setIssuePolicyForm({ ...issuePolicyForm, startDate: e.target.value })}
+                    className="w-full px-3 py-2 text-xs rounded-lg border bg-background focus:outline-none focus:ring-1 focus:ring-primary"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold block mb-1">
+                    Expiry Date <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="date"
+                    value={issuePolicyForm.endDate}
+                    onChange={(e) => setIssuePolicyForm({ ...issuePolicyForm, endDate: e.target.value })}
+                    className="w-full px-3 py-2 text-xs rounded-lg border bg-background focus:outline-none focus:ring-1 focus:ring-primary"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-bold block mb-1">
+                  Actual Policy Number Override (Optional)
+                </label>
+                <input
+                  type="text"
+                  value={issuePolicyForm.actualPolicyNumber}
+                  onChange={(e) => setIssuePolicyForm({ ...issuePolicyForm, actualPolicyNumber: e.target.value })}
+                  placeholder="Auto-generated sequential (POL-YYYY-XXXXXX) if empty"
+                  className="w-full px-3 py-2 text-xs rounded-lg border bg-background font-mono focus:outline-none focus:ring-1 focus:ring-primary"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-bold block mb-1">
+                    Nominee Full Name (Optional)
+                  </label>
+                  <input
+                    type="text"
+                    value={issuePolicyForm.nomineeName}
+                    onChange={(e) => setIssuePolicyForm({ ...issuePolicyForm, nomineeName: e.target.value })}
+                    placeholder="e.g. Priya Sharma"
+                    className="w-full px-3 py-2 text-xs rounded-lg border bg-background focus:outline-none focus:ring-1 focus:ring-primary"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold block mb-1">
+                    Nominee Relation
+                  </label>
+                  <select
+                    value={issuePolicyForm.nomineeRelation}
+                    onChange={(e) => setIssuePolicyForm({ ...issuePolicyForm, nomineeRelation: e.target.value })}
+                    className="w-full px-3 py-2 text-xs rounded-lg border bg-background focus:outline-none focus:ring-1 focus:ring-primary"
+                  >
+                    <option value="Spouse">Spouse</option>
+                    <option value="Parent">Parent</option>
+                    <option value="Child">Child</option>
+                    <option value="Sibling">Sibling</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-3 border-t border-border">
+              <button
+                onClick={() => setIssuePolicyModalOpen(false)}
+                className="px-4 py-2 rounded-lg border text-xs font-semibold hover:bg-muted"
+              >
+                Cancel
+              </button>
+              <button
+                disabled={issuePolicyMutation.isPending}
+                onClick={() => {
+                  issuePolicyMutation.mutate({
+                    startDate: issuePolicyForm.startDate,
+                    endDate: issuePolicyForm.endDate,
+                    actualPolicyNumber: issuePolicyForm.actualPolicyNumber.trim() || undefined,
+                    nomineeName: issuePolicyForm.nomineeName.trim() || undefined,
+                    nomineeRelation: issuePolicyForm.nomineeRelation,
+                  });
+                }}
+                className="px-4 py-2 rounded-lg text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 transition disabled:opacity-50 flex items-center gap-1.5"
+              >
+                <ShieldCheck className="h-4 w-4" />
+                <span>{issuePolicyMutation.isPending ? 'Issuing Policy...' : 'Confirm & Issue Policy'}</span>
               </button>
             </div>
           </div>

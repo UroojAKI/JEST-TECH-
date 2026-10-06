@@ -78,6 +78,8 @@ describe('BO-10: End-to-End Department Handoff Workflow (Agent -> BO -> Finance 
       motorInspectionHistory: {
         create: jest.fn(),
       },
+      backOfficeTask: { upsert: jest.fn().mockResolvedValue({}) },
+      outboxEvent: { upsert: jest.fn().mockResolvedValue({}) },
       motorPaymentRecord: {
         findUnique: jest.fn(),
         upsert: jest.fn(),
@@ -150,17 +152,24 @@ describe('BO-10: End-to-End Department Handoff Workflow (Agent -> BO -> Finance 
       policy: null,
     };
 
-    it('Step 1: Agent creates Quotation requiring inspection; cannot self-approve inspection', async () => {
+    it('Step 1: Assigned agent initializes the inspection but cannot approve it', async () => {
       prisma.quotation.findUnique.mockResolvedValue(baseQuotation);
+      prisma.motorInspection.findUnique.mockResolvedValue(null);
+      prisma.motorInspection.create.mockResolvedValue({
+        id: 'insp-101',
+        inspectionCode: 'INSP-2026-0001',
+        companyId: 'comp-jest-1',
+        quotationId,
+        status: InspectionStatus.REQUIRED,
+      });
 
-      // Agent attempts to call createInspection or approveInspection -> Blocked
-      await expect(
-        inspectionService.createInspection(
-          { quotationId },
-          agentActor,
-        ),
-      ).rejects.toThrow(ForbiddenException);
+      const requested = await inspectionService.createInspection(
+        { quotationId },
+        agentActor,
+      );
+      expect(requested.status).toBe(InspectionStatus.REQUIRED);
 
+      // Approval remains restricted to Back Office and Admin.
       await expect(
         inspectionService.approveInspection(
           'insp-101',

@@ -270,5 +270,106 @@ describe('MotorPolicyIssuanceService (Iteration 8)', () => {
         service.issuePolicy('q-100', validDto, opsActor),
       ).rejects.toThrow('ISSUANCE_IN_PROGRESS');
     });
+
+    it('PAY-003: Maker-Checker: should reject policy issuance when actor is the quotation creator', async () => {
+      const opsActor = createActor(RoleType.BACK_OFFICE);
+      const creatorQuote = {
+        ...validQuote,
+        createdById: opsActor.userId, // Creator attempting to self-issue!
+      };
+      prisma.quotation.findUnique.mockResolvedValue(creatorQuote);
+
+      await expect(
+        service.issuePolicy('q-100', validDto, opsActor),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('PAY-003: Maker-Checker: should reject policy issuance when actor is the assigned sales agent', async () => {
+      const opsActor = createActor(RoleType.BACK_OFFICE);
+      const agentQuote = {
+        ...validQuote,
+        agentId: opsActor.userId, // Agent attempting to self-issue!
+      };
+      prisma.quotation.findUnique.mockResolvedValue(agentQuote);
+
+      await expect(
+        service.issuePolicy('q-100', validDto, opsActor),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('PAY-003 Gate 2: should block policy issuance when customer KYC is unverified', async () => {
+      const opsActor = createActor(RoleType.BACK_OFFICE);
+      const unverifiedKycQuote = {
+        ...validQuote,
+        contact: { id: 'c-100', panNumber: null }, // No PAN
+        account: { id: 'acc-1', kycStatus: 'PENDING' }, // KYC Pending
+      };
+      prisma.quotation.findUnique.mockResolvedValue(unverifiedKycQuote);
+
+      await expect(
+        service.issuePolicy('q-100', validDto, opsActor),
+      ).rejects.toThrow('Customer KYC is pending or unverified');
+    });
+
+    it('PAY-003 Gate 3: should block policy issuance when mandatory inspection is not completed or waived', async () => {
+      const opsActor = createActor(RoleType.BACK_OFFICE);
+      const pendingInspQuote = {
+        ...validQuote,
+        motorInspection: { id: 'insp-1', status: 'REQUIRED' },
+      };
+      prisma.quotation.findUnique.mockResolvedValue(pendingInspQuote);
+
+      await expect(
+        service.issuePolicy('q-100', validDto, opsActor),
+      ).rejects.toThrow('Mandatory vehicle inspection is in');
+    });
+
+    it('PAY-003 Gate 4: should block policy issuance when proposal is not approved', async () => {
+      const opsActor = createActor(RoleType.BACK_OFFICE);
+      const unapprovedPropQuote = {
+        ...validQuote,
+        proposal: { id: 'prop-1', status: 'SUBMITTED' },
+      };
+      prisma.quotation.findUnique.mockResolvedValue(unapprovedPropQuote);
+
+      await expect(
+        service.issuePolicy('q-100', validDto, opsActor),
+      ).rejects.toThrow('Insurance proposal has not been approved');
+    });
+
+    it('PAY-003 Gate 5: should block policy issuance on payment amount mismatch', async () => {
+      const opsActor = createActor(RoleType.BACK_OFFICE);
+      prisma.quotation.findUnique.mockResolvedValue(validQuote);
+      prisma.motorPaymentRecord.findUnique.mockResolvedValue({
+        quotationId: 'q-100',
+        status: 'PAID',
+        amount: 15000.00, // Mismatched (expected 17638.88)
+      });
+
+      await expect(
+        service.issuePolicy('q-100', validDto, opsActor),
+      ).rejects.toThrow('must exactly equal authoritative payable premium');
+    });
+
+    it('PAY-003 Gate 6: should block policy issuance when mandatory documents are unverified', async () => {
+      const opsActor = createActor(RoleType.BACK_OFFICE);
+      const unverifiedDocsQuote = {
+        ...validQuote,
+        motorDocuments: [
+          { id: 'doc-1', documentType: 'RC', verificationStatus: 'VERIFIED' },
+          { id: 'doc-2', documentType: 'AADHAAR', verificationStatus: 'PENDING' },
+        ],
+      };
+      prisma.quotation.findUnique.mockResolvedValue(unverifiedDocsQuote);
+      prisma.motorPaymentRecord.findUnique.mockResolvedValue({
+        quotationId: 'q-100',
+        status: 'PAID',
+        amount: 17638.88,
+      });
+
+      await expect(
+        service.issuePolicy('q-100', validDto, opsActor),
+      ).rejects.toThrow('Vehicle & policy documents pending Back Office verification');
+    });
   });
 });

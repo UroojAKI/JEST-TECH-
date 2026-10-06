@@ -98,14 +98,18 @@ export class BiController {
 
   @Patch('kpi/definitions/:id')
   @Roles(RoleType.ADMIN)
-  updateKpi(@Param('id') id: string, @Body() dto: UpdateKpiDto) {
-    return this.kpiService.updateKpi(id, dto);
+  updateKpi(
+    @Param('id') id: string,
+    @Body() dto: UpdateKpiDto,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.kpiService.updateKpi(id, dto, this.getActorCompanyId(user));
   }
 
   @Delete('kpi/definitions/:id')
   @Roles(RoleType.ADMIN)
-  deleteKpi(@Param('id') id: string) {
-    return this.kpiService.deleteKpi(id);
+  deleteKpi(@Param('id') id: string, @CurrentUser() user: RequestUser) {
+    return this.kpiService.deleteKpi(id, this.getActorCompanyId(user));
   }
 
   @Post('kpi/seed')

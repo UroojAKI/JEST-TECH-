@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { ReportsRepository } from '../repositories/reports.repository';
 import { ReportBuilderService } from '../services/report-builder.service';
 import {
@@ -36,6 +40,16 @@ export class ReportQueriesService {
     const report = await this.repository.findById(query.reportId);
     if (!report) {
       throw new NotFoundException(`Report with ID ${query.reportId} not found`);
+    }
+
+    if (
+      query.companyId &&
+      report.companyId &&
+      report.companyId !== query.companyId
+    ) {
+      throw new ForbiddenException(
+        'Cross-organization report preview is strictly prohibited',
+      );
     }
 
     return this.builder.buildReportData(

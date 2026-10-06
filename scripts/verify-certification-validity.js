@@ -17,6 +17,10 @@ try {
   console.warn('⚠️ Unable to resolve git HEAD SHA; checking environment variables.');
   headSha = process.env.CERTIFICATION_COMMIT_SHA || process.env.GIT_COMMIT || process.env.GITHUB_SHA;
 }
+if (!headSha) {
+  console.error('❌ FAIL: Cannot verify certification without a current Git SHA.');
+  process.exit(1);
+}
 
 const schemaPath = path.resolve(__dirname, '..', 'apps/api/prisma/schema.prisma');
 let currentSchemaHash = '';

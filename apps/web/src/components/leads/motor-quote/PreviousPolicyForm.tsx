@@ -3,20 +3,13 @@
 import React, { useEffect } from 'react';
 import { AlertTriangle, Lock, CheckCircle2, Info } from 'lucide-react';
 import type { PreviousPolicyDetails, PreviousPolicyType } from './motorFormTypes';
-import { NCB_OPTIONS } from './motorFormConfig';
+import { NCB_OPTIONS, INSURER_OPTIONS } from './motorFormConfig';
 
 interface Props {
   value: PreviousPolicyDetails;
   onChange: (v: PreviousPolicyDetails) => void;
   newPolicyType?: 'TP_ONLY' | 'SAOD' | 'PACKAGE' | null;
 }
-
-
-const INSURER_LIST = [
-  'ICICI Lombard', 'HDFC ERGO', 'Bajaj Allianz', 'Tata AIG', 'New India Assurance',
-  'United India Insurance', 'National Insurance', 'Oriental Insurance', 'SBI General',
-  'Reliance General', 'Go Digit', 'Chola MS', 'Royal Sundaram', 'Shriram General', 'Future Generali',
-];
 
 /**
  * Returns today's date as a YYYY-MM-DD string in local time.
@@ -70,6 +63,7 @@ export function PreviousPolicyForm({ value, onChange, newPolicyType }: Props) {
   }, [value.policyExpiryDate]);
 
   const isNotAvailable = value.previousPolicyType === 'NOT_AVAILABLE';
+  const isThirdParty = value.previousPolicyType === 'THIRD_PARTY';
   const ncbLocked = isNotAvailable || value.claimInPreviousYear || value.ownershipTransfer || expired90;
   const ncbLockReason = isNotAvailable
     ? 'No previous policy declared (break-in/lapse)'
@@ -105,8 +99,11 @@ export function PreviousPolicyForm({ value, onChange, newPolicyType }: Props) {
                     update({
                       previousPolicyType: pt,
                       policyExpiryDate: '',
+                    });
+                  } else if (pt === 'THIRD_PARTY') {
+                    update({
+                      previousPolicyType: pt,
                       claimInPreviousYear: false,
-                      expiredMoreThan90Days: false,
                       eligibleNcbPercentage: 0,
                     });
                   } else {
@@ -169,25 +166,35 @@ export function PreviousPolicyForm({ value, onChange, newPolicyType }: Props) {
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-xs font-medium text-muted-foreground">
-                  Claim in Previous Year? <span className="text-destructive">*</span>
-                </label>
-                <div className="flex gap-3">
-                  {[false, true].map((v) => (
-                    <button
-                      key={String(v)}
-                      type="button"
-                      onClick={() => update({ claimInPreviousYear: v })}
-                      className={`flex-1 py-1.5 rounded-md text-xs font-semibold border transition-colors ${
-                        value.claimInPreviousYear === v
-                          ? v ? 'bg-destructive/10 text-destructive border-destructive/30' : 'bg-primary text-primary-foreground border-primary'
-                          : 'bg-background hover:bg-muted border-border'
-                      }`}
-                    >
-                      {v ? 'Yes (Claim Made)' : 'No Claim'}
-                    </button>
-                  ))}
-                </div>
+                {isThirdParty ? (
+                  <div className="flex flex-col justify-center h-full pt-6">
+                    <p className="text-xs text-muted-foreground bg-muted/30 p-2 rounded-md border border-border">
+                      Claim history not applicable for Third Party policy.
+                    </p>
+                  </div>
+                ) : (
+                  <>
+                    <label className="text-xs font-medium text-muted-foreground">
+                      Claim in Previous Year? <span className="text-destructive">*</span>
+                    </label>
+                    <div className="flex gap-3">
+                      {[false, true].map((v) => (
+                        <button
+                          key={String(v)}
+                          type="button"
+                          onClick={() => update({ claimInPreviousYear: v })}
+                          className={`flex-1 py-1.5 rounded-md text-xs font-semibold border transition-colors ${
+                            value.claimInPreviousYear === v
+                              ? v ? 'bg-destructive/10 text-destructive border-destructive/30' : 'bg-primary text-primary-foreground border-primary'
+                              : 'bg-background hover:bg-muted border-border'
+                          }`}
+                        >
+                          {v ? 'Yes (Claim Made)' : 'No Claim'}
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
               </div>
             </div>
 
@@ -200,7 +207,7 @@ export function PreviousPolicyForm({ value, onChange, newPolicyType }: Props) {
                   className="w-full px-3 py-2 rounded-md border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
                 >
                   <option value="">Select Insurer</option>
-                  {INSURER_LIST.map((i) => <option key={i} value={i}>{i}</option>)}
+                  {INSURER_OPTIONS.map((i) => <option key={i} value={i}>{i}</option>)}
                 </select>
               </div>
               <div className="space-y-1.5">
@@ -314,7 +321,7 @@ export function PreviousPolicyForm({ value, onChange, newPolicyType }: Props) {
                 className="w-full px-3 py-2 rounded-md border bg-white text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/50"
               >
                 <option value="">Select TP Insurer</option>
-                {INSURER_LIST.map((i) => <option key={i} value={i}>{i}</option>)}
+                {INSURER_OPTIONS.map((i) => <option key={i} value={i}>{i}</option>)}
               </select>
             </div>
             <div className="space-y-1.5">
@@ -343,49 +350,51 @@ export function PreviousPolicyForm({ value, onChange, newPolicyType }: Props) {
       )}
 
       {/* SECTION D: NCB Summary */}
-      <div className="p-5 rounded-lg border bg-card shadow-sm space-y-3">
-        <h3 className="text-sm font-semibold text-foreground border-b pb-2">D. NCB Declaration</h3>
+      {!isThirdParty && (
+        <div className="p-5 rounded-lg border bg-card shadow-sm space-y-3">
+          <h3 className="text-sm font-semibold text-foreground border-b pb-2">D. NCB Declaration</h3>
 
-        {!ncbLocked && (
-          <div className="space-y-2">
-            <label className="text-xs font-medium text-muted-foreground">Eligible NCB % (Previous Year)</label>
-            <div className="flex flex-wrap gap-2">
-              {NCB_OPTIONS.map((n) => {
-                const ncbVal = Number(n.value);
-                return (
-                  <button
-                    key={n.value}
-                    type="button"
-                    onClick={() => update({ eligibleNcbPercentage: ncbVal })}
-                    className={`py-1.5 px-3 rounded-md text-xs font-semibold border transition-colors ${
-                      value.eligibleNcbPercentage === ncbVal
-                        ? 'bg-primary text-primary-foreground border-primary'
-                        : 'bg-background hover:bg-muted border-border'
-                    }`}
-                  >
-                    {ncbVal}%
-                  </button>
-                );
-              })}
+          {!ncbLocked && (
+            <div className="space-y-2">
+              <label className="text-xs font-medium text-muted-foreground">Eligible NCB % (Previous Year)</label>
+              <div className="flex flex-wrap gap-2">
+                {NCB_OPTIONS.map((n) => {
+                  const ncbVal = Number(n.value);
+                  return (
+                    <button
+                      key={n.value}
+                      type="button"
+                      onClick={() => update({ eligibleNcbPercentage: ncbVal })}
+                      className={`py-1.5 px-3 rounded-md text-xs font-semibold border transition-colors ${
+                        value.eligibleNcbPercentage === ncbVal
+                          ? 'bg-primary text-primary-foreground border-primary'
+                          : 'bg-background hover:bg-muted border-border'
+                      }`}
+                    >
+                      {ncbVal}%
+                    </button>
+                  );
+                })}
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {ncbLocked && (
-          <div className="flex items-center gap-3 p-3 rounded-md bg-muted/50 border border-border/50 max-w-md">
-            <Lock className="h-4 w-4 text-muted-foreground" />
-            <div>
-              <div className="text-sm font-semibold text-foreground">NCB Locked at 0%</div>
-              <div className="text-[11px] text-muted-foreground">Reason: {ncbLockReason}</div>
+          {ncbLocked && (
+            <div className="flex items-center gap-3 p-3 rounded-md bg-muted/50 border border-border/50 max-w-md">
+              <Lock className="h-4 w-4 text-muted-foreground" />
+              <div>
+                <div className="text-sm font-semibold text-foreground">NCB Locked at 0%</div>
+                <div className="text-[11px] text-muted-foreground">Reason: {ncbLockReason}</div>
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
-        <p className="text-[10px] text-muted-foreground flex items-start gap-1 mt-2">
-          <Info className="h-3 w-3 mt-0.5 shrink-0" />
-          The final NCB is subject to strict rule engine evaluation.
-        </p>
-      </div>
+          <p className="text-[10px] text-muted-foreground flex items-start gap-1 mt-2">
+            <Info className="h-3 w-3 mt-0.5 shrink-0" />
+            The final NCB is subject to strict rule engine evaluation.
+          </p>
+        </div>
+      )}
     </div>
   );
 }

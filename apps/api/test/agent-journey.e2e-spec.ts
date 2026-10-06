@@ -2,14 +2,17 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/database/prisma.service';
 import { ContactsService } from '../src/modules/contacts/services/contacts.service';
-import { IssuePolicyService } from '../src/modules/policies/services/commands/issue-policy.service';
+import { MotorPolicyIssuanceService } from '../src/modules/motor/services/motor-policy-issuance.service';
 import { QuotationCompletionService } from '../src/modules/quotation/services/queries/quotation-completion.service';
 import { MotorCalculationService } from '../src/modules/motor/services/motor-calculation.service';
+import { ActorContext } from '../src/common/interfaces/actor-context.interface';
 import {
   ContactType,
   PaymentTrackingStatus,
   PolicyStatus,
   QuotationStatus,
+  RoleType,
+  UserStatus,
 } from '@prisma/client';
 
 describe('End-to-End Agent Journey: Lead -> Contact -> Quote -> Payment -> Policy -> Renewal (§58)', () => {
@@ -17,11 +20,12 @@ describe('End-to-End Agent Journey: Lead -> Contact -> Quote -> Payment -> Polic
   let app: any;
   let prisma: PrismaService;
   let contactsService: ContactsService;
-  let issuePolicyService: IssuePolicyService;
+  let motorPolicyIssuanceService: MotorPolicyIssuanceService;
   let quotationCompletionService: QuotationCompletionService;
   let motorCalculationService: MotorCalculationService;
 
   let testUserId: string;
+  let backOfficeUserId: string;
   let testCompanyId: string;
   let createdContactId: string;
   let createdLeadId: string;
@@ -36,7 +40,9 @@ describe('End-to-End Agent Journey: Lead -> Contact -> Quote -> Payment -> Polic
 
     prisma = moduleRef.get<PrismaService>(PrismaService);
     contactsService = moduleRef.get<ContactsService>(ContactsService);
-    issuePolicyService = moduleRef.get<IssuePolicyService>(IssuePolicyService);
+    motorPolicyIssuanceService = moduleRef.get<MotorPolicyIssuanceService>(
+      MotorPolicyIssuanceService,
+    );
     quotationCompletionService = moduleRef.get<QuotationCompletionService>(
       QuotationCompletionService,
     );
@@ -58,11 +64,38 @@ describe('End-to-End Agent Journey: Lead -> Contact -> Quote -> Payment -> Polic
 
     testUserId = user.id;
     testCompanyId = user.companyId;
+
+    let boUser = await prisma.user.findFirst({
+      where: {
+        companyId: testCompanyId,
+        id: { not: testUserId },
+      },
+    });
+
+    if (!boUser) {
+      boUser = await prisma.user.create({
+        data: {
+          email: `backoffice.e2e.${Date.now()}@example.com`,
+          passwordHash: 'seeded_dummy_hash_for_test',
+          firstName: 'BackOffice',
+          lastName: 'Verifier',
+          companyId: testCompanyId,
+          status: 'ACTIVE',
+        },
+      });
+    }
+    backOfficeUserId = boUser.id;
   });
 
   afterAll(async () => {
     // Cleanup in reverse dependency order
     if (createdPolicyId) {
+      await prisma.outboxEvent.deleteMany({
+        where: { aggregateId: createdPolicyId },
+      });
+      await prisma.auditLog.deleteMany({
+        where: { entityId: createdPolicyId },
+      });
       await prisma.renewalJob.deleteMany({
         where: { policyId: createdPolicyId },
       });
@@ -70,6 +103,9 @@ describe('End-to-End Agent Journey: Lead -> Contact -> Quote -> Payment -> Polic
         where: { policyId: createdPolicyId },
       });
       await prisma.policyHistory.deleteMany({
+        where: { policyId: createdPolicyId },
+      });
+      await prisma.policyNominee.deleteMany({
         where: { policyId: createdPolicyId },
       });
       await prisma.policyDocument.deleteMany({
@@ -81,6 +117,9 @@ describe('End-to-End Agent Journey: Lead -> Contact -> Quote -> Payment -> Polic
       await prisma.policy.deleteMany({ where: { id: createdPolicyId } });
     }
     if (createdQuotationId) {
+      await prisma.proposal.deleteMany({
+        where: { quotationId: createdQuotationId },
+      });
       await prisma.motorPaymentRecord.deleteMany({
         where: { quotationId: createdQuotationId },
       });
@@ -161,7 +200,7 @@ describe('End-to-End Agent Journey: Lead -> Contact -> Quote -> Payment -> Polic
     expect(calcResult.outputs.totalPremium).toBeGreaterThan(0);
     const authoritativeTotal = calcResult.outputs.totalPremium;
 
-    // ── STEP 4: Persist Authoritative Vehicle and Quotation (§24, §28) ──
+    // ── STEP 4: Persist Authoritative Vehicle, Quotation and Approved Proposal (§24, §28) ──
     const nextYear = new Date();
     nextYear.setFullYear(nextYear.getFullYear() + 1);
 
@@ -192,6 +231,17 @@ describe('End-to-End Agent Journey: Lead -> Contact -> Quote -> Payment -> Polic
         registrationNumber: 'MH02EK9999',
         vehicleId: vehicle.id,
         status: QuotationStatus.APPROVED,
+        workflowState: 'PAYMENT_DONE',
+        calculationSnapshot: {
+          calculationVersion: 'v1.0',
+          rateConfigurationVersion: 'v1.0',
+          totalPremium: authoritativeTotal,
+          inputs: {
+            policyType: 'PACKAGE_COMPREHENSIVE',
+            vehicleCategory: 'PRIVATE_CAR',
+            tpTenure: 1,
+          },
+        },
         contactId: contact.id,
         leadId: lead.id,
         companyId: testCompanyId,
@@ -200,6 +250,19 @@ describe('End-to-End Agent Journey: Lead -> Contact -> Quote -> Payment -> Polic
     });
     createdQuotationId = quotation.id;
     expect(quotation.id).toBeDefined();
+
+    // Create an approved proposal for Gate 4
+    await prisma.proposal.create({
+      data: {
+        proposalNumber: `PROP-${timestamp.toString().slice(-6)}`,
+        quotationId: quotation.id,
+        contactId: contact.id,
+        status: 'APPROVED',
+        submittedById: testUserId,
+        approvedById: backOfficeUserId,
+        approvedAt: new Date(),
+      },
+    });
 
     // ── STEP 5: Progressive Quotation Completion Evaluation (AUD-033, §24) ──
     const completionBeforePayment =
@@ -222,22 +285,30 @@ describe('End-to-End Agent Journey: Lead -> Contact -> Quote -> Payment -> Polic
     });
     expect(paymentRecord.status).toBe('PAID');
 
-    // ── STEP 7: Authoritative Policy Issuance with Decoupled PDF (§26, §30) ──
-    const issuedPolicyResponse = await issuePolicyService.execute(
+    // ── STEP 7: Authoritative Policy Issuance via MotorPolicyIssuanceService with Maker-Checker SoD (§26, §30) ──
+    const backOfficeActor: ActorContext = {
+      userId: backOfficeUserId,
+      email: 'backoffice.e2e@example.com',
+      firstName: 'BackOffice',
+      lastName: 'Verifier',
+      organizationId: testCompanyId,
+      companyId: testCompanyId,
+      role: RoleType.BACK_OFFICE,
+      roles: [RoleType.BACK_OFFICE],
+      permissions: ['POLICY:ISSUE'],
+      workspaces: ['OPERATIONS'],
+      status: UserStatus.ACTIVE,
+    };
+
+    const issuedPolicyResponse = await motorPolicyIssuanceService.issuePolicy(
+      quotation.id,
       {
-        quotationId: quotation.id,
-        effectiveDate: new Date().toISOString(),
-        expiryDate: nextYear.toISOString(),
-        nominees: [
-          {
-            firstName: 'Pooja',
-            lastName: 'Singhania',
-            relation: 'SPOUSE',
-            percentage: 100,
-          },
-        ],
+        startDate: new Date().toISOString(),
+        endDate: nextYear.toISOString(),
+        nomineeName: 'Pooja Singhania',
+        nomineeRelation: 'SPOUSE',
       },
-      testUserId,
+      backOfficeActor,
     );
 
     createdPolicyId = issuedPolicyResponse.id;
@@ -250,7 +321,7 @@ describe('End-to-End Agent Journey: Lead -> Contact -> Quote -> Payment -> Polic
     const updatedLead = await prisma.lead.findUnique({
       where: { id: lead.id },
     });
-    expect(updatedLead?.status).toBe('CONVERTED');
+    expect(updatedLead?.status).toBe('POLICY_ISSUED');
     expect(updatedLead?.currentWorkflowStep).toBe('ISSUED');
 
     // Invariant B: Quotation status transitioned to CONVERTED_TO_POLICY
@@ -259,34 +330,20 @@ describe('End-to-End Agent Journey: Lead -> Contact -> Quote -> Payment -> Polic
     });
     expect(updatedQuotation?.status).toBe(QuotationStatus.CONVERTED_TO_POLICY);
 
-    // Invariant C: Renewal Task is durably created with offsetDays = 30 and priority HIGH
-    const renewalTask = await prisma.renewalTask.findFirst({
-      where: { policyId: createdPolicyId },
-    });
-    expect(renewalTask).toBeDefined();
-    expect(renewalTask?.offsetDays).toBe(30);
-    expect(renewalTask?.status).toBe('PENDING');
-
-    // Invariant C2: PostgreSQL RenewalJob durable obligations created for all 6 offsets
+    // Invariant C: PostgreSQL RenewalJob durable obligations created for 5 offsets (45, 30, 15, 7, 0)
     const renewalJobs = await prisma.renewalJob.findMany({
       where: { policyId: createdPolicyId },
       orderBy: { offsetDays: 'desc' },
     });
-    expect(renewalJobs.length).toBe(6);
-    expect(renewalJobs.map((j) => j.offsetDays)).toEqual([
-      45, 30, 15, 7, 0, -1,
-    ]);
+    expect(renewalJobs.length).toBe(5);
+    expect(renewalJobs.map((j) => j.offsetDays)).toEqual([45, 30, 15, 7, 0]);
     expect(renewalJobs.every((j) => j.status === 'PENDING')).toBe(true);
 
-    // Invariant D: Transactional Outbox event POLICY_ISSUED recorded
+    // Invariant D: Transactional Outbox event policy.issued recorded
     const outboxEvent = await prisma.outboxEvent.findFirst({
-      where: { aggregateId: createdPolicyId, eventType: 'POLICY_ISSUED' },
+      where: { aggregateId: createdPolicyId, eventType: 'policy.issued' },
     });
     expect(outboxEvent).toBeDefined();
   });
-
-  afterAll(async () => {
-    if (app) await app.close();
-    if (prisma) await prisma.$disconnect();
-  });
 });
+

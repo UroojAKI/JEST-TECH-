@@ -264,12 +264,13 @@
   },
   {
     "file": "apps/api/src/modules/business-intelligence/tests/bi.service.spec.ts",
-    "testCount": 3,
+    "testCount": 8,
     "describes": [
-      "BiService",
+      "BiService & KpiService (Wave 7 Tenancy Isolation)",
       "getConversionMetrics",
       "getSalesMetrics",
-      "getKpiValues"
+      "getKpiValues",
+      "KpiService (Wave 7 Tenancy Isolation)"
     ],
     "module": "business-intelligence"
   },
@@ -348,9 +349,9 @@
   },
   {
     "file": "apps/api/src/modules/customer/customer-360/services/customer-360/customer-360.service.spec.ts",
-    "testCount": 2,
+    "testCount": 6,
     "describes": [
-      "Customer360Service (Iteration 9 Real Aggregation)",
+      "Customer360Service (Wave 7 Tenancy & PII Protection)",
       "getCustomer360"
     ],
     "module": "customer"
@@ -614,7 +615,7 @@
   },
   {
     "file": "apps/api/src/modules/motor/services/motor-payment-tracking.service.spec.ts",
-    "testCount": 9,
+    "testCount": 14,
     "describes": [
       "MotorPaymentTrackingService & Reconciliation (Iteration 7)",
       "recordPayment",
@@ -632,7 +633,7 @@
   },
   {
     "file": "apps/api/src/modules/motor/services/motor-policy-issuance.service.spec.ts",
-    "testCount": 7,
+    "testCount": 14,
     "describes": [
       "MotorPolicyIssuanceService (Iteration 8)",
       "issuePolicy"
@@ -758,6 +759,18 @@
     "module": "motor"
   },
   {
+    "file": "apps/api/src/modules/motor/tests/persona-e2e-verification.spec.ts",
+    "testCount": 16,
+    "describes": [
+      "Wave 6: End-to-End Persona Verification Suite (AGENT, BACK_OFFICE, FINANCE, ADMIN)",
+      "1. AGENT Persona Verification",
+      "2. BACK_OFFICE Persona Verification",
+      "3. FINANCE Persona Verification",
+      "4. ADMIN Persona Verification"
+    ],
+    "module": "motor"
+  },
+  {
     "file": "apps/api/src/modules/motor-admin/services/rating-engine.service.spec.ts",
     "testCount": 10,
     "describes": [
@@ -810,6 +823,14 @@
     "testCount": 5,
     "describes": [
       "WebhookGatewayController"
+    ],
+    "module": "platform"
+  },
+  {
+    "file": "apps/api/src/modules/platform/integrations/webhooks/listeners/payment-webhook-reconciliation.listener.spec.ts",
+    "testCount": 5,
+    "describes": [
+      "PaymentWebhookReconciliationListener (PAY-001 Gateway Automated Reconciliation)"
     ],
     "module": "platform"
   },
@@ -872,12 +893,13 @@
   },
   {
     "file": "apps/api/src/modules/platform/reporting/tests/reports-tenancy-persistence.spec.ts",
-    "testCount": 7,
+    "testCount": 14,
     "describes": [
       "Reporting Tenancy & Database Persistence (Phases 18, 19, 20)",
       "PHASE 20: Removal of Fake Data & Full Database Persistence",
       "PHASE 18 & 20: Cross-Tenant Schedule Isolation & Deletion",
-      "PHASE 19: Scheduled Report Tenant Context Security"
+      "PHASE 19: Scheduled Report Tenant Context Security",
+      "WAVE 7: Cross-Tenant Report Isolation (CRUD, Query & Execution)"
     ],
     "module": "platform"
   },

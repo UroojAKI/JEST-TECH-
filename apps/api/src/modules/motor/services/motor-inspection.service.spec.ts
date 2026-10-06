@@ -9,6 +9,23 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { ActorContext } from '../../../common/interfaces/actor-context.interface';
+import { MotorInspectionController } from '../controllers/motor-inspection.controller';
+import { ROLES_KEY } from '../../auth/decorators/roles.decorator';
+
+describe('MotorInspectionController role contract', () => {
+  it('allows agents to upload and submit, but not approve', () => {
+    const prototype = MotorInspectionController.prototype;
+    const createRoles = Reflect.getMetadata(ROLES_KEY, prototype.createInspection);
+    const uploadRoles = Reflect.getMetadata(ROLES_KEY, prototype.recordPhoto);
+    const submitRoles = Reflect.getMetadata(ROLES_KEY, prototype.submitForReview);
+    const approveRoles = Reflect.getMetadata(ROLES_KEY, prototype.approveInspection);
+
+    expect(createRoles).toContain(RoleType.AGENT);
+    expect(uploadRoles).toContain(RoleType.AGENT);
+    expect(submitRoles).toContain(RoleType.AGENT);
+    expect(approveRoles).not.toContain(RoleType.AGENT);
+  });
+});
 
 describe('MotorInspectionService (Production State Machine & Role Segregation)', () => {
   let service: MotorInspectionService;
@@ -29,6 +46,16 @@ describe('MotorInspectionService (Production State Machine & Role Segregation)',
     },
     motorInspectionHistory: {
       create: jest.fn(),
+    },
+    motorQuotationCase: {
+      updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+    },
+    backOfficeTask: {
+      updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+      upsert: jest.fn().mockResolvedValue({}),
+    },
+    outboxEvent: {
+      upsert: jest.fn().mockResolvedValue({}),
     },
   };
 
@@ -54,11 +81,58 @@ describe('MotorInspectionService (Production State Machine & Role Segregation)',
   const backOfficeActor = createMockActor('bo-1', RoleType.BACK_OFFICE);
   const adminActor = createMockActor('admin-1', RoleType.ADMIN);
 
+  it('allows an assigned agent to initialize an inspection and review task', async () => {
+    mockPrisma.quotation.findUnique.mockResolvedValue({
+      id: 'q-100',
+      companyId: 'comp-1',
+      caseId: 'case-1',
+      createdById: agentActor.userId,
+      agentId: null,
+    });
+    mockPrisma.motorInspection.findUnique.mockResolvedValue(null);
+    mockPrisma.motorInspection.create.mockResolvedValue({
+      id: 'ins-new',
+      inspectionCode: 'INS-0001',
+      caseId: 'case-1',
+    });
+
+    const result = await service.createInspection(
+      { quotationId: 'q-100' },
+      agentActor,
+    );
+
+    expect(result.id).toBe('ins-new');
+    expect(mockPrisma.motorInspection.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ caseId: 'case-1' }),
+      }),
+    );
+    expect(mockPrisma.backOfficeTask.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        create: expect.objectContaining({
+          caseId: 'case-1',
+          quotationId: 'q-100',
+        }),
+      }),
+    );
+    expect(mockPrisma.motorQuotationCase.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          id: 'case-1',
+          companyId: 'comp-1',
+        }),
+        data: { status: 'INSPECTION_REQUIRED' },
+      }),
+    );
+  });
+
   const completePhotosInspection = {
     id: 'ins-1',
     inspectionCode: 'INS-0001',
     quotationId: 'q-100',
     companyId: 'comp-1',
+    createdById: 'agent-1',
+    quotation: { createdById: 'agent-1', agentId: null, motorMetadata: {} },
     status: InspectionStatus.SUBMITTED_FOR_REVIEW,
     frontImageKey: 'photos/front.jpg',
     backImageKey: 'photos/back.jpg',
@@ -178,14 +252,91 @@ describe('MotorInspectionService (Production State Machine & Role Segregation)',
     });
   });
 
-  describe('submitForReview', () => {
-    it('blocks agent from submitting inspection for review (P0-02 SoD)', async () => {
-      mockPrisma.motorInspection.findUnique.mockResolvedValue(
-        completePhotosInspection,
+  describe('Agent contribution authorization', () => {
+    it('denies agents from viewing another agent’s same-tenant inspection', async () => {
+      mockPrisma.motorInspection.findUnique.mockResolvedValue({
+        ...completePhotosInspection,
+        createdById: 'other-agent',
+        quotation: { createdById: 'other-agent', agentId: 'other-profile' },
+        history: [],
+      });
+
+      await expect(service.getInspection('q-100', agentActor)).rejects.toThrow(
+        ForbiddenException,
       );
-      await expect(
-        service.submitForReview('ins-1', agentActor),
-      ).rejects.toThrow(ForbiddenException);
+    });
+  });
+
+  describe('submitForReview', () => {
+    it('allows the assigned agent to submit after all seven photos exist', async () => {
+      mockPrisma.motorInspection.findUnique.mockResolvedValue(
+        { ...completePhotosInspection, status: InspectionStatus.IN_PROGRESS },
+      );
+      mockPrisma.motorInspection.update.mockResolvedValue({
+        ...completePhotosInspection,
+        status: InspectionStatus.SUBMITTED_FOR_REVIEW,
+      });
+
+      const result = await service.submitForReview('ins-1', agentActor);
+      expect(result.status).toBe(InspectionStatus.SUBMITTED_FOR_REVIEW);
+      expect(mockPrisma.quotation.update).toHaveBeenCalledWith({
+        where: { id: 'q-100' },
+        data: expect.objectContaining({ workflowState: 'INSPECTION_SUBMITTED' }),
+      });
+    });
+
+    it('transitions the linked case and review task atomically and emits an outbox event', async () => {
+      mockPrisma.motorInspection.findUnique.mockResolvedValue({
+        ...completePhotosInspection,
+        caseId: 'case-1',
+        quotation: { ...completePhotosInspection.quotation, caseId: 'case-1' },
+        status: InspectionStatus.IN_PROGRESS,
+      });
+      mockPrisma.motorInspection.update.mockResolvedValue({
+        ...completePhotosInspection,
+        status: InspectionStatus.SUBMITTED_FOR_REVIEW,
+      });
+
+      await service.submitForReview('ins-1', agentActor);
+
+      expect(mockPrisma.motorQuotationCase.updateMany).toHaveBeenCalledWith({
+        where: {
+          id: 'case-1',
+          companyId: 'comp-1',
+          status: { in: ['INSPECTION_REQUIRED', 'REWORK_REQUIRED'] },
+        },
+        data: { status: 'INSPECTION_SUBMITTED' },
+      });
+      expect(mockPrisma.backOfficeTask.updateMany).toHaveBeenCalledWith({
+        where: {
+          companyId: 'comp-1',
+          idempotencyKey: 'INSPECTION:q-100:ASSIGNMENT',
+          status: { in: ['PENDING', 'REJECTED'] },
+        },
+        data: { status: 'IN_REVIEW' },
+      });
+      expect(mockPrisma.outboxEvent.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { eventKey: 'inspection.submitted:ins-1' },
+          create: expect.objectContaining({
+            eventType: 'inspection.submitted',
+            payload: expect.objectContaining({ caseId: 'case-1' }),
+          }),
+        }),
+      );
+    });
+
+    it('rejects an agent who does not own or have assignment to the quotation', async () => {
+      mockPrisma.motorInspection.findUnique.mockResolvedValue({
+        ...completePhotosInspection,
+        status: InspectionStatus.IN_PROGRESS,
+        createdById: 'other-agent',
+        quotation: { createdById: 'other-agent', agentId: 'other-profile' },
+      });
+
+      await expect(service.submitForReview('ins-1', agentActor)).rejects.toThrow(
+        ForbiddenException,
+      );
     });
 
     it('allows back office to submit when all 7 photos exist', async () => {
@@ -206,7 +357,7 @@ describe('MotorInspectionService (Production State Machine & Role Segregation)',
       expect(res.status).toBe(InspectionStatus.SUBMITTED_FOR_REVIEW);
       expect(mockPrisma.quotation.update).toHaveBeenCalledWith({
         where: { id: 'q-100' },
-        data: expect.objectContaining({ workflowState: 'INSPECTION_REQUIRED' }),
+        data: expect.objectContaining({ workflowState: 'INSPECTION_SUBMITTED' }),
       });
     });
 
@@ -284,7 +435,13 @@ describe('MotorInspectionService (Production State Machine & Role Segregation)',
     it('allows Back Office to approve an inspection submitted for review', async () => {
       mockPrisma.motorInspection.findUnique.mockResolvedValue({
         ...completePhotosInspection,
-        quotation: { id: 'q-100', createdById: 'agent-1', motorMetadata: {} },
+        caseId: 'case-1',
+        quotation: {
+          id: 'q-100',
+          caseId: 'case-1',
+          createdById: 'agent-1',
+          motorMetadata: {},
+        },
       });
       mockPrisma.motorInspection.update.mockResolvedValue({
         ...completePhotosInspection,
@@ -299,13 +456,25 @@ describe('MotorInspectionService (Production State Machine & Role Segregation)',
           workflowState: 'INSPECTION_COMPLETED',
         }),
       });
+      expect(mockPrisma.motorQuotationCase.updateMany).toHaveBeenCalledWith({
+        where: {
+          id: 'case-1',
+          companyId: 'comp-1',
+          status: 'INSPECTION_SUBMITTED',
+        },
+        data: { status: 'INSPECTION_APPROVED' },
+      });
     });
   });
 
   describe('rejectInspection & waiveInspection', () => {
     it('rejects inspection with reason and sets quotation to INSPECTION_REQUIRED with rejection in metadata', async () => {
       mockPrisma.motorInspection.findUnique.mockResolvedValue(
-        completePhotosInspection,
+        {
+          ...completePhotosInspection,
+          caseId: 'case-1',
+          quotation: { ...completePhotosInspection.quotation, caseId: 'case-1' },
+        },
       );
       mockPrisma.motorInspection.update.mockResolvedValue({
         ...completePhotosInspection,
@@ -314,7 +483,10 @@ describe('MotorInspectionService (Production State Machine & Role Segregation)',
 
       const res = await service.rejectInspection(
         'ins-1',
-        'Blurry chassis number photograph',
+        {
+          reasonCode: 'BLURRY_PHOTO',
+          reasonText: 'Blurry chassis number photograph',
+        },
         backOfficeActor,
       );
       expect(res.status).toBe(InspectionStatus.REJECTED);
@@ -322,11 +494,23 @@ describe('MotorInspectionService (Production State Machine & Role Segregation)',
         where: { id: 'q-100' },
         data: expect.objectContaining({ workflowState: 'INSPECTION_REQUIRED' }),
       });
+      expect(mockPrisma.motorQuotationCase.updateMany).toHaveBeenCalledWith({
+        where: {
+          id: 'case-1',
+          companyId: 'comp-1',
+          status: { in: ['INSPECTION_SUBMITTED', 'INSPECTION_REQUIRED'] },
+        },
+        data: { status: 'REWORK_REQUIRED' },
+      });
     });
 
-    it('waives inspection with reason and clears gate with INSPECTION_COMPLETED', async () => {
+    it('waives inspection with an audited case transition distinct from approval', async () => {
       mockPrisma.motorInspection.findUnique.mockResolvedValue(
-        completePhotosInspection,
+        {
+          ...completePhotosInspection,
+          caseId: 'case-1',
+          quotation: { ...completePhotosInspection.quotation, caseId: 'case-1' },
+        },
       );
       mockPrisma.motorInspection.update.mockResolvedValue({
         ...completePhotosInspection,
@@ -345,6 +529,14 @@ describe('MotorInspectionService (Production State Machine & Role Segregation)',
           workflowState: 'INSPECTION_COMPLETED',
         }),
       });
+      expect(mockPrisma.motorQuotationCase.updateMany).toHaveBeenCalledWith({
+        where: {
+          id: 'case-1',
+          companyId: 'comp-1',
+          status: { in: ['INSPECTION_REQUIRED', 'INSPECTION_SUBMITTED'] },
+        },
+        data: { status: 'INSPECTION_WAIVED' },
+      });
     });
   });
 
@@ -352,11 +544,12 @@ describe('MotorInspectionService (Production State Machine & Role Segregation)',
     const validSha256 =
       'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855';
 
-    it('records photo with valid SHA-256 and writes structured provenance to history', async () => {
+    it('allows the assigned agent to record a photo with SHA-256 provenance', async () => {
       mockPrisma.motorInspection.findUnique.mockResolvedValue({
         id: 'ins-1',
         status: InspectionStatus.REQUIRED,
         companyId: 'comp-1',
+        quotation: { createdById: 'agent-1', agentId: null },
       });
       mockPrisma.motorInspection.update.mockResolvedValue({
         id: 'ins-1',
@@ -368,7 +561,7 @@ describe('MotorInspectionService (Production State Machine & Role Segregation)',
         'ins-1',
         'front',
         'documents/front.jpg',
-        backOfficeActor,
+        agentActor,
         validSha256,
       );
 

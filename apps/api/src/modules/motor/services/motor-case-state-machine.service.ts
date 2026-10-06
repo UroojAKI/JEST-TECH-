@@ -84,7 +84,7 @@ export const CASE_TRANSITION_RULES: Record<CaseCommand, TransitionRule> = {
   },
   SUBMIT_INSPECTION: {
     command: 'SUBMIT_INSPECTION',
-    from: [MotorCaseStatus.INSPECTION_REQUIRED],
+    from: [MotorCaseStatus.INSPECTION_REQUIRED, MotorCaseStatus.REWORK_REQUIRED],
     to: MotorCaseStatus.INSPECTION_SUBMITTED,
     allowedRoles: [RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT],
   },
@@ -103,13 +103,21 @@ export const CASE_TRANSITION_RULES: Record<CaseCommand, TransitionRule> = {
   },
   VERIFY_PAYMENT: {
     command: 'VERIFY_PAYMENT',
-    from: [MotorCaseStatus.INSPECTION_APPROVED, MotorCaseStatus.BACK_OFFICE_REVIEW],
+    from: [
+      MotorCaseStatus.INSPECTION_APPROVED,
+      MotorCaseStatus.INSPECTION_WAIVED,
+      MotorCaseStatus.BACK_OFFICE_REVIEW,
+    ],
     to: MotorCaseStatus.PAYMENT_VERIFIED,
     allowedRoles: [RoleType.ADMIN, RoleType.BACK_OFFICE],
   },
   VERIFY_DOCUMENTS: {
     command: 'VERIFY_DOCUMENTS',
-    from: [MotorCaseStatus.PAYMENT_VERIFIED, MotorCaseStatus.BACK_OFFICE_REVIEW],
+    from: [
+      MotorCaseStatus.PAYMENT_VERIFIED,
+      MotorCaseStatus.INSPECTION_WAIVED,
+      MotorCaseStatus.BACK_OFFICE_REVIEW,
+    ],
     to: MotorCaseStatus.DOCUMENTS_VERIFIED,
     allowedRoles: [RoleType.ADMIN, RoleType.BACK_OFFICE],
   },
@@ -124,7 +132,7 @@ export const CASE_TRANSITION_RULES: Record<CaseCommand, TransitionRule> = {
     command: 'ISSUE_POLICY',
     from: [MotorCaseStatus.READY_FOR_ISSUANCE],
     to: MotorCaseStatus.ISSUED,
-    allowedRoles: [RoleType.ADMIN],
+    allowedRoles: [RoleType.ADMIN, RoleType.BACK_OFFICE],
   },
   COMPLETE_CASE: {
     command: 'COMPLETE_CASE',
@@ -173,6 +181,7 @@ export const CASE_TRANSITION_RULES: Record<CaseCommand, TransitionRule> = {
       MotorCaseStatus.BACK_OFFICE_REVIEW,
       MotorCaseStatus.INSPECTION_REQUIRED,
       MotorCaseStatus.INSPECTION_SUBMITTED,
+      MotorCaseStatus.INSPECTION_WAIVED,
       MotorCaseStatus.REWORK_REQUIRED,
       MotorCaseStatus.RESUBMITTED,
     ],

@@ -10,7 +10,7 @@ export function TeamLeaderboardWidget() {
     queryKey: ['sales-team-leaderboard'],
     queryFn: async () => {
       try {
-        const res = await apiClient.get('/analytics/leaderboard');
+        const res = await apiClient.get('/dashboard/management/leaderboard');
         return res.data?.data || res.data || [];
       } catch {
         return [];

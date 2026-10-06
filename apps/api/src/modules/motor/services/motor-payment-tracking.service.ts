@@ -184,10 +184,11 @@ export class MotorPaymentTrackingService {
       if (
         (ruleEval?.inspectionRequired ||
           quotation.workflowState === 'INSPECTION_REQUIRED') &&
-        inspection?.status !== InspectionStatus.COMPLETED
+        inspection?.status !== InspectionStatus.COMPLETED &&
+        inspection?.status !== InspectionStatus.WAIVED
       ) {
         throw new BadRequestException(
-          'Vehicle inspection is required for this quotation before payment can be verified. Please complete and sign off the inspection first.',
+          'Vehicle inspection is required for this quotation before payment can be verified. Please complete or waive the inspection first.',
         );
       }
     }
@@ -302,6 +303,15 @@ export class MotorPaymentTrackingService {
         },
       });
 
+      if (dto.status === 'PAID' && quotation.caseId) {
+        await tx.motorQuotationCase.update({
+          where: { id: quotation.caseId },
+          data: {
+            status: 'PAYMENT_VERIFIED',
+          },
+        });
+      }
+
       if (dto.idempotencyKey && requestHash) {
         const actorId = dto.recordedById || 'SYSTEM';
         const companyId = quotation.companyId;
@@ -388,6 +398,7 @@ export class MotorPaymentTrackingService {
       if (!inspection) blockers.push('INSPECTION_RECORD_MISSING');
       else if (
         inspection.status !== InspectionStatus.COMPLETED &&
+        inspection.status !== InspectionStatus.WAIVED &&
         inspection.status !== InspectionStatus.NOT_REQUIRED
       )
         blockers.push(`INSPECTION_NOT_COMPLETE_STATUS_${inspection.status}`);

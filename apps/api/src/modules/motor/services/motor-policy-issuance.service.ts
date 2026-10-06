@@ -61,9 +61,12 @@ export class MotorPolicyIssuanceService {
         where: { id: quotationId },
         include: {
           contact: true,
+          account: true,
           lead: true,
           policy: true,
           motorInspection: true,
+          proposal: true,
+          motorDocuments: true,
         },
       });
 
@@ -79,6 +82,16 @@ export class MotorPolicyIssuanceService {
       ) {
         throw new ForbiddenException(
           'Cross-organization policy issuance is strictly prohibited',
+        );
+      }
+
+      // Maker-Checker Separation of Duties: Quotation creator/agent cannot issue their own policy
+      if (
+        (quote.createdById && quote.createdById === actorId) ||
+        (quote.agentId && quote.agentId === actorId)
+      ) {
+        throw new ForbiddenException(
+          'Maker-checker violation: Quotation creator or assigned sales agent cannot issue policies for their own quotations.',
         );
       }
 
@@ -207,8 +220,42 @@ export class MotorPolicyIssuanceService {
         );
       }
 
-      // ─── Inside-Transaction Gating Checks ──────────────────────────────────
-      // 1. Canonical Payment Gate: Re-verify payment record inside transaction
+      // ─── Inside-Transaction 6-Gate Checks (PAY-003) ───────────────────────
+      // Gate 1: Calculation Snapshot & Tariff Valid (verified above)
+
+      // Gate 2: Customer KYC Gate
+      if (quote.contact || quote.account) {
+        const kycVerified = quote.account
+          ? quote.account.kycStatus === 'VERIFIED'
+          : Boolean(quote.contact?.panNumber);
+        if (!kycVerified) {
+          throw new ConflictException(
+            'Policy issuance blocked: Customer KYC is pending or unverified. Contact PAN or verified Account KYC required.',
+          );
+        }
+      }
+
+      // Gate 3: Vehicle Inspection Gate
+      if (metadata.inspectionRequired || quote.motorInspection) {
+        const inspectionStatus = quote.motorInspection?.status;
+        if (
+          inspectionStatus !== InspectionStatus.COMPLETED &&
+          inspectionStatus !== InspectionStatus.WAIVED
+        ) {
+          throw new ConflictException(
+            `Policy issuance blocked: Mandatory vehicle inspection is in '${inspectionStatus || 'PENDING'}' status. Inspection must be COMPLETED or WAIVED before policy can be issued.`,
+          );
+        }
+      }
+
+      // Gate 4: Proposal Approval Gate
+      if (quote.proposal && quote.proposal.status !== 'APPROVED') {
+        throw new ConflictException(
+          `Policy issuance blocked: Insurance proposal has not been approved (Current status: ${quote.proposal.status}).`,
+        );
+      }
+
+      // Gate 5: Payment Reconciled Gate
       const paymentRecord = await tx.motorPaymentRecord.findUnique({
         where: { quotationId },
       });
@@ -225,15 +272,14 @@ export class MotorPolicyIssuanceService {
         );
       }
 
-      // 2. Inspection Gate: If quotation required inspection, verify COMPLETED or WAIVED
-      if (metadata.inspectionRequired || quote.motorInspection) {
-        const inspectionStatus = quote.motorInspection?.status;
-        if (
-          inspectionStatus !== InspectionStatus.COMPLETED &&
-          inspectionStatus !== InspectionStatus.WAIVED
-        ) {
+      // Gate 6: Mandatory Documents Gate
+      if (quote.motorDocuments && quote.motorDocuments.length > 0) {
+        const hasUnverifiedDocs = quote.motorDocuments.some(
+          (doc) => doc.verificationStatus !== 'VERIFIED',
+        );
+        if (hasUnverifiedDocs) {
           throw new ConflictException(
-            `Policy issuance blocked: Mandatory vehicle inspection is in '${inspectionStatus || 'PENDING'}' status. Inspection must be COMPLETED or WAIVED before policy can be issued.`,
+            'Policy issuance blocked: Vehicle & policy documents pending Back Office verification.',
           );
         }
       }
@@ -424,6 +470,13 @@ export class MotorPolicyIssuanceService {
           createdById: actorId,
         },
       });
+
+      if (quote.caseId) {
+        await tx.motorQuotationCase.update({
+          where: { id: quote.caseId },
+          data: { status: 'ISSUED' },
+        });
+      }
 
       if (quote.leadId) {
         const fromLead = quote.lead?.currentWorkflowStep || 'PAYMENT';

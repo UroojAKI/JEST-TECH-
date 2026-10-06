@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { ReportsRepository } from '../repositories/reports.repository';
@@ -60,6 +61,16 @@ export class ReportCommandsService {
     if (!report) {
       throw new NotFoundException(
         `Report with ID ${command.reportId} not found`,
+      );
+    }
+
+    if (
+      command.companyId &&
+      report.companyId &&
+      report.companyId !== command.companyId
+    ) {
+      throw new ForbiddenException(
+        'Cross-organization report execution is strictly prohibited',
       );
     }
 

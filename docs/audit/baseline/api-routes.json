@@ -1105,12 +1105,35 @@
   },
   {
     "method": "GET",
+    "path": "/dashboard/super-admin",
+    "controller": "DashboardController",
+    "file": "apps/api/src/modules/dashboard/controllers/dashboard.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [
+      "ADMIN"
+    ],
+    "hasTenantScope": true
+  },
+  {
+    "method": "GET",
     "path": "/dashboard/back-office",
     "controller": "DashboardController",
     "file": "apps/api/src/modules/dashboard/controllers/dashboard.controller.ts",
     "hasRolesGuard": true,
     "roles": [
       "ADMIN"
+    ],
+    "hasTenantScope": true
+  },
+  {
+    "method": "GET",
+    "path": "/dashboard/manager",
+    "controller": "DashboardController",
+    "file": "apps/api/src/modules/dashboard/controllers/dashboard.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE"
     ],
     "hasTenantScope": true
   },

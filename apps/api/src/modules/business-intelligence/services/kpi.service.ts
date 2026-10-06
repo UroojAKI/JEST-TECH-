@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { PrismaService } from '../../../database/prisma.service';
 
 @Injectable()
@@ -46,16 +50,43 @@ export class KpiService {
       displayOrder: number;
       isActive: boolean;
     }>,
+    companyId?: string,
   ) {
-    const kpi = await this.prisma.kpiDefinition.findUnique({ where: { id } });
+    const kpi = await this.prisma.kpiDefinition.findUnique({
+      where: { id },
+      include: { createdBy: true },
+    });
     if (!kpi) throw new NotFoundException('KPI not found');
+    if (
+      companyId &&
+      kpi.createdBy?.companyId &&
+      kpi.createdBy.companyId !== companyId
+    ) {
+      throw new ForbiddenException(
+        'Cross-organization KPI update is strictly prohibited',
+      );
+    }
     return this.prisma.kpiDefinition.update({
       where: { id },
       data: data as any,
     });
   }
 
-  async deleteKpi(id: string) {
+  async deleteKpi(id: string, companyId?: string) {
+    const kpi = await this.prisma.kpiDefinition.findUnique({
+      where: { id },
+      include: { createdBy: true },
+    });
+    if (!kpi) throw new NotFoundException('KPI not found');
+    if (
+      companyId &&
+      kpi.createdBy?.companyId &&
+      kpi.createdBy.companyId !== companyId
+    ) {
+      throw new ForbiddenException(
+        'Cross-organization KPI deletion is strictly prohibited',
+      );
+    }
     return this.prisma.kpiDefinition.update({
       where: { id },
       data: { isActive: false },

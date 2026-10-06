@@ -5,6 +5,7 @@ import { CACHE_PROVIDER_TOKEN } from '../../../../platform/cache/cache.provider'
 import { RedisCacheService } from '../../../../platform/cache/redis-cache.service';
 import { ActorContext } from '../../../../../common/interfaces/actor-context.interface';
 import { ResourceAuthorizationService } from '../../../../../common/services/resource-authorization.service';
+import { EncryptionUtil } from '../../../../../common/utils/encryption.util';
 
 @Injectable()
 export class Customer360Service {
@@ -28,8 +29,14 @@ export class Customer360Service {
     contactId: string,
     actor?: ActorContext,
   ) {
-    const contact = await this.prisma.contact.findUnique({
-      where: { id: contactId },
+    const companyId = actor?.companyId;
+
+    const contact = await this.prisma.contact.findFirst({
+      where: {
+        id: contactId,
+        ...(companyId ? { companyId } : {}),
+        deletedAt: null,
+      },
       include: {
         analytics: true,
         familyMembers: true,
@@ -39,6 +46,9 @@ export class Customer360Service {
     });
 
     if (!contact) {
+      throw new NotFoundException('Customer not found');
+    }
+    if (companyId && contact.companyId && contact.companyId !== companyId) {
       throw new NotFoundException('Customer not found');
     }
 
@@ -53,8 +63,6 @@ export class Customer360Service {
       });
       agentId = agent?.id;
     }
-
-    const companyId = actor?.companyId;
 
     // 1. Fetch Real Operational Data Concurrently
     const [policies, quotations, claims, comms, leads, documents] =
@@ -117,6 +125,7 @@ export class Customer360Service {
             entityId: contactId,
             entityType: { in: ['CONTACT', 'CUSTOMER'] },
             deletedAt: null,
+            ...(companyId ? { companyId } : {}),
             ...(agentId && actor ? { uploadedById: actor.userId } : {}),
           },
           orderBy: { createdAt: 'desc' },
@@ -238,6 +247,13 @@ export class Customer360Service {
       (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
     );
 
+    const isPrivileged =
+      actor?.role === RoleType.ADMIN ||
+      actor?.role === RoleType.BACK_OFFICE ||
+      actor?.permissions?.includes('CONTACT_UNMASK') ||
+      actor?.permissions?.includes('CUSTOMER_UNMASK') ||
+      actor?.permissions?.includes('*');
+
     return {
       profile: {
         id: contact.id,
@@ -248,9 +264,15 @@ export class Customer360Service {
         email: contact.email,
         phone: contact.phone,
         type: contact.type,
-        panNumber: contact.panNumber || 'NOT_PROVIDED',
+        panNumber: contact.panNumber
+          ? isPrivileged
+            ? contact.panNumber
+            : EncryptionUtil.maskPan(contact.panNumber)
+          : 'NOT_PROVIDED',
         aadhaarNumber: contact.aadhaarNumber
-          ? `•••• •••• ${contact.aadhaarNumber.slice(-4)}`
+          ? isPrivileged
+            ? contact.aadhaarNumber
+            : EncryptionUtil.maskAadhaar(contact.aadhaarNumber)
           : 'NOT_PROVIDED',
         agentCode: contact.agentCode || contact.createdBy?.employeeCode || null,
         agent: contact.agentCode

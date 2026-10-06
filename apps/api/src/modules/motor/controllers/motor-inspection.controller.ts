@@ -18,6 +18,7 @@ import {
   MotorInspectionService,
   CreateInspectionDto,
   InspectionPhotoType,
+  RejectInspectionDto,
 } from '../services/motor-inspection.service';
 
 @ApiTags('Motor Inspection')
@@ -28,7 +29,7 @@ export class MotorInspectionController {
   constructor(private readonly inspectionService: MotorInspectionService) {}
 
   @Post()
-  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE)
+  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT)
   @ApiOperation({
     summary: 'Create or initialize a vehicle inspection record for quotation',
   })
@@ -56,7 +57,7 @@ export class MotorInspectionController {
   }
 
   @Post(':id/photos')
-  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE)
+  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT)
   @ApiOperation({
     summary: 'Record uploaded photo key for a specific vehicle view',
   })
@@ -84,7 +85,7 @@ export class MotorInspectionController {
   }
 
   @Post(':id/submit-for-review')
-  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE)
+  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT)
   @ApiOperation({
     summary:
       'Submit inspection for underwriting review once all 7 mandatory photographs are uploaded',
@@ -123,15 +124,17 @@ export class MotorInspectionController {
   })
   async rejectInspection(
     @Param('id') inspectionId: string,
-    @Body() body: { reason: string },
+    @Body() body: RejectInspectionDto,
     @CurrentUser() actor: ActorContext,
   ) {
-    if (!body.reason) {
-      throw new BadRequestException('Rejection reason is required');
+    if (!body.reasonCode || !body.reasonText?.trim()) {
+      throw new BadRequestException(
+        'Rejection reason code and text are required',
+      );
     }
     return this.inspectionService.rejectInspection(
       inspectionId,
-      body.reason,
+      body,
       actor,
     );
   }
