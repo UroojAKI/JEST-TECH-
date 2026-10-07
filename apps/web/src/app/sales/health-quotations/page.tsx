@@ -1,0 +1,15 @@
+'use client';
+
+import React, { Suspense } from 'react';
+import { AppShell } from '../../../components/layout/app-shell';
+import { HealthQuotationsWorkspace } from '../../../components/sales/HealthQuotationsWorkspace';
+
+export default function HealthQuotationsPage() {
+  return (
+    <AppShell>
+      <Suspense fallback={<div className="p-8 text-center text-xs font-semibold text-muted-foreground animate-pulse">Loading Health Proposals...</div>}>
+        <HealthQuotationsWorkspace />
+      </Suspense>
+    </AppShell>
+  );
+}

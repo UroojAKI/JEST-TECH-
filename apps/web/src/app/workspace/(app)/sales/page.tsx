@@ -4,12 +4,13 @@ import React, { useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { SalesDashboard } from '../../../../components/workspaces/sales/SalesDashboard';
 import { MotorQuotationsWorkspace } from '../../../../components/sales/MotorQuotationsWorkspace';
-import { LayoutDashboard, Car, Loader2 } from 'lucide-react';
+import { HealthQuotationsWorkspace } from '../../../../components/sales/HealthQuotationsWorkspace';
+import { LayoutDashboard, Car, HeartPulse, Loader2 } from 'lucide-react';
 
 function SalesWorkspaceContent() {
   const searchParams = useSearchParams();
-  const initialTab = searchParams.get('tab') === 'quotes' ? 'QUOTES' : 'OVERVIEW';
-  const [activeTab, setActiveTab] = useState<'OVERVIEW' | 'QUOTES'>(initialTab);
+  const initialTab = searchParams.get('tab') === 'quotes' ? 'QUOTES' : searchParams.get('tab') === 'health' ? 'HEALTH_QUOTES' : 'OVERVIEW';
+  const [activeTab, setActiveTab] = useState<'OVERVIEW' | 'QUOTES' | 'HEALTH_QUOTES'>(initialTab);
 
   return (
     <div className="space-y-6">
@@ -48,14 +49,27 @@ function SalesWorkspaceContent() {
             <Car className="h-3.5 w-3.5 text-primary" />
             <span>Motor Quotations</span>
           </button>
+          <button
+            onClick={() => setActiveTab('HEALTH_QUOTES')}
+            className={`flex items-center space-x-2 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
+              activeTab === 'HEALTH_QUOTES'
+                ? 'bg-card text-foreground shadow-xs'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            <HeartPulse className="h-3.5 w-3.5 text-primary" />
+            <span>Health Quotations</span>
+          </button>
         </div>
       </div>
 
       {/* Tab Body */}
       {activeTab === 'OVERVIEW' ? (
         <SalesDashboard />
-      ) : (
+      ) : activeTab === 'QUOTES' ? (
         <MotorQuotationsWorkspace />
+      ) : (
+        <HealthQuotationsWorkspace />
       )}
     </div>
   );

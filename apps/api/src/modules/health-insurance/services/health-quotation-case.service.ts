@@ -70,7 +70,7 @@ export class HealthQuotationCaseService {
     );
     if (Object.keys(contactUpdates).length) {
       // Stored on Contact the same way the Contacts module stores them (masked on read).
-      await this.prisma.contact.update({ where: { id: contact.id }, data: { ...contactUpdates, updatedById: user.id } });
+      await this.prisma.contact.update({ where: { id: contact.id }, data: contactUpdates });
     }
 
     const caseCode = await this.numberingEngine.generateNext('HEALTH_CASE');
@@ -126,7 +126,7 @@ export class HealthQuotationCaseService {
 
   async getCase(caseId: string, user: RequestUser) {
     const healthCase = await this.prisma.healthQuotationCase.findFirst({
-      where: { id: caseId, companyId: user.companyId, deletedAt: null },
+      where: { id: caseId, companyId: user.companyId },
       include: caseInclude,
     });
     if (!healthCase) {
@@ -138,7 +138,15 @@ export class HealthQuotationCaseService {
   async getCasesForLead(leadId: string, user: RequestUser) {
     await this.tenantAuthService.assertTenantResource('Lead', leadId, user);
     return this.prisma.healthQuotationCase.findMany({
-      where: { leadId, companyId: user.companyId, deletedAt: null },
+      where: { leadId, companyId: user.companyId },
+      include: caseInclude,
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  async getAllCases(user: RequestUser) {
+    return this.prisma.healthQuotationCase.findMany({
+      where: { companyId: user.companyId },
       include: caseInclude,
       orderBy: { createdAt: 'desc' },
     });

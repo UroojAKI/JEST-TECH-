@@ -42,6 +42,12 @@ export class HealthQuotationCaseController {
     return this.caseService.createCase(dto, user);
   }
 
+  @Get()
+  @ApiOperation({ summary: 'List all Health cases for the tenant' })
+  findAll(@CurrentUser() user: RequestUser) {
+    return this.caseService.getAllCases(user);
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Get a Health case with members, quotes and documents' })
   getCase(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: RequestUser) {
