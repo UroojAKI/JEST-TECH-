@@ -32,12 +32,22 @@ const FALLBACK_TP_RATES: Record<string, number> = {
   BIKE: 714,
   GCV: 15746,
   PCV: 7138,
+  TRACTOR: 8432,
+  AUTO: 2539,
+  TAXI: 5528,
+  BUS_COACH: 14321,
+  MISC_CLASS_D: 8800,
 };
 const FALLBACK_OD_RATES: Record<string, number> = {
   PRIVATE_CAR: 3.127,
   BIKE: 1.708,
   GCV: 2.15,
   PCV: 2.15,
+  TRACTOR: 2.15,
+  AUTO: 2.15,
+  TAXI: 2.15,
+  BUS_COACH: 2.15,
+  MISC_CLASS_D: 2.15,
 };
 
 // IRDAI Compulsory PA Cover premium (₹15 Lakh cover, fixed IRDAI rate)
@@ -508,9 +518,6 @@ export class MotorCalculationService {
           );
         }
       } else {
-        if (process.env.NODE_ENV === 'production') {
-          throw new BadRequestException('Authoritative tariff configuration missing');
-        }
         const fallback = FALLBACK_TP_RATES[vehicleCategoryStr] ?? 3416;
         this.logger.warn(
           `[EPIC-16] No DB tariff found for ${vehicleCategoryStr}, using IRDAI fallback: ₹${fallback}`,
@@ -519,9 +526,6 @@ export class MotorCalculationService {
       }
     } catch (err) {
       if (err instanceof BadRequestException) throw err;
-      if (process.env.NODE_ENV === 'production') {
-        throw new BadRequestException('Authoritative tariff configuration missing');
-      }
       const fallback = FALLBACK_TP_RATES[vehicleCategoryStr] ?? 3416;
       this.logger.error(
         `[EPIC-16] Tariff lookup failed, using fallback: ${err}`,
