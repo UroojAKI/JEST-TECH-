@@ -57,14 +57,12 @@ export class KpiService {
       include: { createdBy: true },
     });
     if (!kpi) throw new NotFoundException('KPI not found');
-    if (
-      companyId &&
-      kpi.createdBy?.companyId &&
-      kpi.createdBy.companyId !== companyId
-    ) {
-      throw new ForbiddenException(
-        'Cross-organization KPI update is strictly prohibited',
-      );
+    if (kpi.createdBy?.companyId) {
+      if (!companyId || kpi.createdBy.companyId !== companyId) {
+        throw new ForbiddenException(
+          'Cross-organization KPI update is strictly prohibited',
+        );
+      }
     }
     return this.prisma.kpiDefinition.update({
       where: { id },
@@ -78,14 +76,12 @@ export class KpiService {
       include: { createdBy: true },
     });
     if (!kpi) throw new NotFoundException('KPI not found');
-    if (
-      companyId &&
-      kpi.createdBy?.companyId &&
-      kpi.createdBy.companyId !== companyId
-    ) {
-      throw new ForbiddenException(
-        'Cross-organization KPI deletion is strictly prohibited',
-      );
+    if (kpi.createdBy?.companyId) {
+      if (!companyId || kpi.createdBy.companyId !== companyId) {
+        throw new ForbiddenException(
+          'Cross-organization KPI deletion is strictly prohibited',
+        );
+      }
     }
     return this.prisma.kpiDefinition.update({
       where: { id },

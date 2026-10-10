@@ -82,7 +82,7 @@ export class MotorPolicyIssuanceService {
         quote.companyId !== actorCompanyId
       ) {
         throw new ForbiddenException(
-          'Cross-organization policy issuance is strictly prohibited',
+          'Cross-organization policy issuance is strictly prohibited: Quotation does not belong to your company.',
         );
       }
 

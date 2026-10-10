@@ -91,10 +91,11 @@ export class IssuePolicyService {
     }
 
     // BOLA defense: Tenant ownership enforcement
+    const actorCompanyId = actor?.companyId || actor?.organizationId;
     if (
-      actor?.companyId &&
+      actorCompanyId &&
       quotation.companyId &&
-      quotation.companyId !== actor.companyId
+      quotation.companyId !== actorCompanyId
     ) {
       throw new ForbiddenException(
         'Cross-tenant policy issuance forbidden: Quotation does not belong to your company.',

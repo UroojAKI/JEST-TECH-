@@ -155,8 +155,22 @@ export class MotorPaymentTrackingService {
     }
 
     if (dto.status === 'PAID') {
-      const role = String(actor?.role || dto.recordedByRole || '').toUpperCase();
-      if (role && !FINANCE_PAYMENT_ROLES.has(role)) {
+      // SEC-04: Fail-closed role verification. Must not trust client dto.recordedByRole when actor is present.
+      if (actor) {
+        const roles = actor.roles?.length
+          ? actor.roles
+          : actor.role
+            ? [actor.role]
+            : [];
+        const hasAuthorizedRole = roles.some((r: any) =>
+          FINANCE_PAYMENT_ROLES.has(String(r).toUpperCase()),
+        );
+        if (!hasAuthorizedRole) {
+          throw new ForbiddenException(
+            'Only Finance or an authorized Administrator can verify a payment as PAID. Sales users may record UNDER_PROCESS only.',
+          );
+        }
+      } else if (dto.recordedByRole && !FINANCE_PAYMENT_ROLES.has(String(dto.recordedByRole).toUpperCase())) {
         throw new ForbiddenException(
           'Only Finance or an authorized Administrator can verify a payment as PAID. Sales users may record UNDER_PROCESS only.',
         );

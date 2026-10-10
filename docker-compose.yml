@@ -47,16 +47,16 @@ services:
       dockerfile: apps/api/Dockerfile
     container_name: jest-api
     ports:
-      # DEVOPS-005: Align with NEXT_PUBLIC_API_URL which expects localhost:4000
-      - "4000:3000"
+      # DEVOPS-005: Bind API to loopback to prevent public exposure on host network
+      - "127.0.0.1:4000:3000"
     environment:
       NODE_ENV: production
       PORT: 3000
       DATABASE_URL: ${DATABASE_URL:-postgresql://postgres:postgres@postgres:5432/jest_policy_crm?schema=public}
       REDIS_URL: ${REDIS_URL:-redis://redis:6379}
       REDIS_ENABLED: ${REDIS_ENABLED:-true}
-      JWT_SECRET: ${JWT_SECRET:-JEST_POLICY_SUPER_SECRET_KEY_CHANGE_IN_PRODUCTION_2026}
-      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-JEST_POLICY_REFRESH_SECRET_KEY_CHANGE_IN_PRODUCTION_2026}
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:3001,http://localhost:4000}
     depends_on:
       postgres:

@@ -53,6 +53,7 @@ const orgScope = (
       return { companyId };
     case 'RENEWAL_TASK':
       return {
+        policy: { companyId },
         OR: [
           { policy: { companyId } },
           { agent: userFilter },
@@ -117,6 +118,7 @@ const agentScope = (
       };
     case 'RENEWAL_TASK':
       return {
+        policy: { companyId: actor.companyId || actor.organizationId },
         OR: [
           { agentId: actor.userId },
           ...(agentId ? [{ policy: { agentId } }] : []),

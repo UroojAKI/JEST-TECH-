@@ -1,8 +1,11 @@
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { Decimal } from '@prisma/client/runtime/library';
 import { MotorPaymentTrackingService } from '../../src/modules/motor/services/motor-payment-tracking.service';
 import { CommissionEngineService } from '../../src/modules/finance/commission/services/commission-engine/commission-engine.service';
 import { MotorPolicyDateService } from '../../src/modules/motor/services/motor-policy-date.service';
+import { RenewPolicyService } from '../../src/modules/policies/services/commands/renew-policy.service';
+import { CancelPolicyService } from '../../src/modules/policies/services/commands/cancel-policy.service';
+import { MotorPolicyIssuanceService } from '../../src/modules/motor/services/motor-policy-issuance.service';
 
 describe('Authoritative Workflow Invariants & Financial Correctness Audit', () => {
   // ── INVARIANT 1: Payment & Selected Quotation Alignment (P0) ───────────────
@@ -197,6 +200,178 @@ describe('Authoritative Workflow Invariants & Financial Correctness Audit', () =
       const expectedStart = dateService.addDays(prevExpiry, 1);
       expect(dates.effectiveStartDate).toBe(expectedStart);
       expect(dates.odEndDate).toBe(dateService.addYearsMinusOneDay(expectedStart, 1));
+    });
+  });
+
+  // ── INVARIANT 4: SEC-01 & SEC-02 Policy Renewal & Cancellation Scoping (P0) ─
+  describe('P0 Invariant: SEC-01 & SEC-02 Renewal and Cancellation Tenant Scoping', () => {
+    it('SEC-01: rejects policy renewal if actor is from a different company', async () => {
+      const mockPrisma: any = {
+        $transaction: jest.fn().mockImplementation(async (cb) => {
+          const tx: any = {
+            policy: {
+              findFirst: jest.fn().mockImplementation(async ({ where }) => {
+                // If companyId is checked, policy in company-b cannot be found by company-a actor
+                if (where.companyId === 'company-a') return null;
+                return { id: 'policy-b', companyId: 'company-b', status: 'ACTIVE' };
+              }),
+            },
+          };
+          return cb(tx);
+        }),
+      };
+
+      const renewService = new RenewPolicyService(
+        {} as any,
+        {} as any,
+        mockPrisma,
+        {} as any,
+      );
+
+      await expect(
+        renewService.execute(
+          'policy-b',
+          { renewalNumber: 1, premiumAmount: 10000, newExpiry: '2027-10-10' },
+          'user-1',
+          { role: 'ADMIN', companyId: 'company-a' },
+        ),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('SEC-02: rejects policy cancellation for ADMIN from a different company', async () => {
+      const mockPrisma: any = {
+        $transaction: jest.fn().mockImplementation(async (cb) => {
+          const tx: any = {
+            policy: {
+              findFirst: jest.fn().mockImplementation(async ({ where }) => {
+                // Admin from company-a must NOT match policy in company-b
+                if (where.companyId === 'company-a') return null;
+                return { id: 'policy-b', companyId: 'company-b', status: 'ACTIVE' };
+              }),
+            },
+          };
+          return cb(tx);
+        }),
+      };
+
+      const cancelService = new CancelPolicyService(
+        {} as any,
+        {} as any,
+        mockPrisma,
+      );
+
+      await expect(
+        cancelService.execute(
+          'policy-b',
+          'Customer requested cancellation',
+          'admin-a',
+          { role: 'ADMIN', companyId: 'company-a' },
+        ),
+      ).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  // ── INVARIANT 5: SEC-04 Payment Role Fail-Closed Verification (P0) ──────────
+  describe('P0 Invariant: SEC-04 Fail-Closed Payment Verification Role Guard', () => {
+    it('rejects PAID status if actor role is not Finance/Admin even if client sends recordedByRole', async () => {
+      const mockPrisma: any = {
+        quotation: {
+          findUnique: jest.fn().mockResolvedValue({
+            id: 'quote-1',
+            companyId: 'company-1',
+            status: 'ACCEPTED',
+            totalPremium: '10000',
+            case: { selectedQuoteId: 'quote-1' },
+          }),
+        },
+        motorPaymentRecord: { findUnique: jest.fn().mockResolvedValue(null) },
+      };
+
+      const paymentService = new MotorPaymentTrackingService(mockPrisma);
+
+      // Caller is an AGENT trying to verify payment by passing recordedByRole: 'ADMIN'
+      await expect(
+        paymentService.recordPayment(
+          {
+            quotationId: 'quote-1',
+            status: 'PAID',
+            amount: 10000,
+            referenceNumber: 'UTR-12345',
+            recordedByRole: 'ADMIN', // Untrusted forged role in DTO
+          },
+          'company-1',
+          { userId: 'agent-1', role: 'AGENT' } as any, // Trusted server-side actor context
+        ),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('rejects PAID status if actor context is completely missing role', async () => {
+      const mockPrisma: any = {
+        quotation: {
+          findUnique: jest.fn().mockResolvedValue({
+            id: 'quote-1',
+            companyId: 'company-1',
+            status: 'ACCEPTED',
+            totalPremium: '10000',
+            case: { selectedQuoteId: 'quote-1' },
+          }),
+        },
+        motorPaymentRecord: { findUnique: jest.fn().mockResolvedValue(null) },
+      };
+
+      const paymentService = new MotorPaymentTrackingService(mockPrisma);
+
+      await expect(
+        paymentService.recordPayment(
+          {
+            quotationId: 'quote-1',
+            status: 'PAID',
+            amount: 10000,
+            referenceNumber: 'UTR-12345',
+          },
+          'company-1',
+          { userId: 'anon' } as any, // No role!
+        ),
+      ).rejects.toThrow(ForbiddenException);
+    });
+  });
+
+  // ── INVARIANT 6: SEC-05 Policy Issuance Fail-Closed Company Guard (P0) ─────
+  describe('P0 Invariant: SEC-05 Fail-Closed Issuance Cross-Tenant Guard', () => {
+    it('rejects issuance when actor companyId does not match quotation companyId', async () => {
+      const mockPrisma: any = {
+        $transaction: jest.fn().mockImplementation(async (cb) => {
+          const tx: any = {
+            quotation: {
+              findUnique: jest.fn().mockResolvedValue({
+                id: 'quote-1',
+                companyId: 'company-victim',
+                createdById: 'creator-1',
+                agentId: 'agent-1',
+                totalPremium: '10000',
+                case: { selectedQuoteId: 'quote-1' },
+              }),
+            },
+          };
+          return cb(tx);
+        }),
+      };
+
+      const mockAuthz: any = { authorize: jest.fn() };
+      const issuanceService = new MotorPolicyIssuanceService(
+        mockPrisma,
+        {} as any,
+        mockAuthz,
+        {} as any,
+      );
+
+      await expect(
+        issuanceService.issuePolicy(
+          'quote-1',
+          { actualPolicyNumber: 'POL-1' } as any,
+          { userId: 'admin-attacker', companyId: 'company-attacker', role: 'ADMIN' } as any,
+        ),
+      ).rejects.toThrow(ForbiddenException);
     });
   });
 });
