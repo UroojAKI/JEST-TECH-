@@ -67,6 +67,7 @@ export class MotorPolicyIssuanceService {
           motorInspection: true,
           proposal: true,
           motorDocuments: true,
+          case: { select: { id: true, selectedQuoteId: true } },
         },
       });
 
@@ -82,6 +83,16 @@ export class MotorPolicyIssuanceService {
       ) {
         throw new ForbiddenException(
           'Cross-organization policy issuance is strictly prohibited',
+        );
+      }
+
+      // P0 INVARIANT: Policy issuance must be for the case-selected quotation.
+      if (
+        quote.case?.selectedQuoteId &&
+        quote.case.selectedQuoteId !== quotationId
+      ) {
+        throw new BadRequestException(
+          `SELECTED_QUOTE_INVARIANT_VIOLATION: Policy issuance must be for the case-selected quotation (selectedQuoteId: ${quote.case.selectedQuoteId}). Cannot issue policy for an unselected quotation (${quotationId}).`,
         );
       }
 
@@ -293,30 +304,27 @@ export class MotorPolicyIssuanceService {
       const actualPremium = quote.totalPremium;
 
       const inputs = snapshot.inputs || {};
-      const policyType = quote.policyType || inputs.policyType;
+      const policyType = quote.policyType || inputs.policyType || 'PACKAGE_COMPREHENSIVE';
       const tenure = Number(inputs.tpTenure || quote.policyTenure || 1);
 
-      const odStart = dto.odStartDate ? new Date(dto.odStartDate) : startDate;
-      const tpStart = dto.tpStartDate ? new Date(dto.tpStartDate) : startDate;
-      let odExpiry = dto.odExpiryDate ? new Date(dto.odExpiryDate) : null;
-      let tpExpiry = dto.tpExpiryDate ? new Date(dto.tpExpiryDate) : null;
+      // Central authoritative date calculation via MotorPolicyDateService
+      const calculatedDates = this.policyDateService.calculateMotorDates({
+        vehicleStatus: inputs.vehicleStatus || (quote as any).vehicleStatus,
+        vehicleCategory: quote.vehicleCategory || inputs.vehicleCategory,
+        policyType,
+        policyTenure: tenure,
+        previousExpiryDate: inputs.previousPolicyExpiryDate || inputs.previousExpiryDate,
+        requestedStartDate: dto.startDate,
+      });
 
-      if (policyType === 'THIRD_PARTY_ONLY') {
-        tpExpiry = tpExpiry || endDate;
-      } else if (policyType === 'STANDALONE_OD' || policyType === 'SAOD') {
-        odExpiry = odExpiry || endDate;
-      } else {
-        odExpiry = odExpiry || endDate;
-        if (!tpExpiry) {
-          tpExpiry = new Date(tpStart);
-          tpExpiry.setFullYear(tpExpiry.getFullYear() + tenure);
-        }
-      }
+      const odStart = dto.odStartDate ? new Date(dto.odStartDate) : new Date(calculatedDates.odStartDate);
+      const odExpiry = dto.odExpiryDate ? new Date(dto.odExpiryDate) : new Date(calculatedDates.odEndDate);
+      const tpStart = dto.tpStartDate ? new Date(dto.tpStartDate) : new Date(calculatedDates.tpStartDate);
+      const tpExpiry = dto.tpExpiryDate ? new Date(dto.tpExpiryDate) : new Date(calculatedDates.tpEndDate);
 
-      const effectiveExpiry =
-        [odExpiry, tpExpiry, endDate]
-          .filter((date): date is Date => Boolean(date))
-          .sort((a, b) => a.getTime() - b.getTime())[0] || endDate;
+      const effectiveExpiry = dto.endDate
+        ? new Date(dto.endDate)
+        : new Date(calculatedDates.effectiveEndDate);
 
       const normalizedReg = dto.registrationNumber
         ? dto.registrationNumber.toUpperCase().replace(/[\s\-\.]/g, '')

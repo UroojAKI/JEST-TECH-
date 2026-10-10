@@ -124,17 +124,25 @@ export class MotorInspectionController {
   })
   async rejectInspection(
     @Param('id') inspectionId: string,
-    @Body() body: RejectInspectionDto,
+    @Body() body: RejectInspectionDto | any,
     @CurrentUser() actor: ActorContext,
   ) {
-    if (!body.reasonCode || !body.reasonText?.trim()) {
+    const validCodes = ['BLURRY_PHOTO', 'MISSING_EVIDENCE', 'VEHICLE_MISMATCH', 'OTHER'] as const;
+    const reasonCode = validCodes.includes(body.reasonCode)
+      ? (body.reasonCode as (typeof validCodes)[number])
+      : 'OTHER';
+    const reasonText = (body.reasonText || body.reason || '').trim();
+    if (!reasonText) {
       throw new BadRequestException(
         'Rejection reason code and text are required',
       );
     }
     return this.inspectionService.rejectInspection(
       inspectionId,
-      body,
+      {
+        reasonCode,
+        reasonText,
+      },
       actor,
     );
   }

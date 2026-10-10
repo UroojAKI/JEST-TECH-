@@ -127,6 +127,7 @@ export default function CaseDetailPage() {
   const {
     data: inspectionData,
     isLoading: isLoadingInspection,
+    isError: isErrorInspection,
     refetch: refetchInspection,
   } = useQuery({
     queryKey: ['case-inspection', quotationId],
@@ -135,8 +136,9 @@ export default function CaseDetailPage() {
       try {
         const res = await apiClient.get(`/motor/inspections/${quotationId}`);
         return res.data;
-      } catch {
-        return null;
+      } catch (err: any) {
+        if (err.response?.status === 404) return null;
+        throw err;
       }
     },
     enabled: Boolean(quotationId),
@@ -181,7 +183,11 @@ export default function CaseDetailPage() {
     }) => {
       const res = await apiClient.post(
         `/motor/inspections/${inspId}/reject`,
-        { reason },
+        {
+          reasonCode: 'UNDERWRITING_REJECTED',
+          reasonText: reason,
+          reason,
+        },
       );
       return res.data;
     },
@@ -1120,6 +1126,16 @@ export default function CaseDetailPage() {
             <div className="py-8 flex flex-col items-center justify-center gap-2 text-muted-foreground text-xs">
               <Loader2 className="h-5 w-5 animate-spin text-primary" />
               <span>Loading inspection aggregate and provenance data...</span>
+            </div>
+          ) : isErrorInspection ? (
+            <div className="p-4 rounded-xl border border-destructive/30 bg-destructive/10 text-destructive flex items-center justify-between text-xs">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="h-4 w-4 shrink-0" />
+                <span>Failed to load inspection record. A server error occurred.</span>
+              </div>
+              <button onClick={() => refetchInspection()} className="px-2.5 py-1 bg-destructive text-destructive-foreground rounded font-bold hover:opacity-90">
+                Retry
+              </button>
             </div>
           ) : !inspectionData ? (
             <div className="p-4 rounded-xl border bg-muted/20 text-xs text-muted-foreground">

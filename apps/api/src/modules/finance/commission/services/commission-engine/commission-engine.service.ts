@@ -94,8 +94,28 @@ export class CommissionEngineService {
       );
     }
 
+    // Authoritative Server-side Net Commission Base (Excluding GST)
+    // IRDAI Statutory Mandate: Commissions can only be calculated on net premium (base + addons - discounts), NEVER on GST
+    let commissionableBase = premiumAmount;
+    if (typeof this.prisma?.policy?.findUnique === 'function') {
+      const policy = await this.prisma.policy.findUnique({
+        where: { id: policyId },
+        include: { quotation: true },
+      });
+
+      if (policy?.quotation) {
+        const q = policy.quotation;
+        const total = new Decimal(q.totalPremium || policy.premiumAmount);
+        const gst = new Decimal(q.gstAmount || 0);
+        const netWithoutGst = total.sub(gst);
+        if (netWithoutGst.gt(0)) {
+          commissionableBase = netWithoutGst;
+        }
+      }
+    }
+
     const commissionsData: Prisma.CommissionCreateManyInput[] = [];
-    const agentCommissionAmt = premiumAmount
+    const agentCommissionAmt = commissionableBase
       .mul(new Decimal(agentPercent))
       .div(100);
 
@@ -133,7 +153,7 @@ export class CommissionEngineService {
           );
         }
 
-        const overrideAmt = premiumAmount.mul(new Decimal(percent)).div(100);
+        const overrideAmt = commissionableBase.mul(new Decimal(percent)).div(100);
 
         commissionsData.push({
           policyId,

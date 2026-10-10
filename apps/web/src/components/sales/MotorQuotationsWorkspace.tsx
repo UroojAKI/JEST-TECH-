@@ -102,7 +102,7 @@ export function MotorQuotationsWorkspace() {
     }
   }, [openQuoteParam, leadIdParam, contactIdParam, typeParam]);
 
-  const { data = { quotes: [], total: 0 }, isLoading, refetch } = useQuery({
+  const { data = { quotes: [], total: 0 }, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['motor-quotations-all', listLimit],
     queryFn: async () => {
       try {
@@ -134,9 +134,11 @@ export function MotorQuotationsWorkspace() {
           leadId: item.leadId,
         } as SavedMotorQuote));
         return { quotes, total };
-      } catch (error) {
-        // Silently return empty array on auth failure so the apiClient can handle the redirect
-        return { quotes: [], total: 0 };
+      } catch (error: any) {
+        if (error?.response?.status === 401) {
+          return { quotes: [], total: 0 };
+        }
+        throw error;
       }
     },
     placeholderData: (prevData) => prevData,
@@ -246,6 +248,27 @@ export function MotorQuotationsWorkspace() {
           <button onClick={() => handleOpenWizard()} className="px-5 py-2.5 rounded-md bg-foreground text-background font-semibold text-sm flex items-center gap-2"><Plus className="h-4 w-4" />New Quotation</button>
         </div>
       </div>
+
+      {/* Error state banner */}
+      {isError && (
+        <div className="p-4 rounded-xl border border-destructive/30 bg-destructive/10 text-destructive flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <AlertTriangle className="h-5 w-5 shrink-0" />
+            <div>
+              <p className="font-bold text-sm">Failed to load quotations</p>
+              <p className="text-xs opacity-90">
+                {(error as any)?.response?.data?.message || (error as any)?.message || 'An error occurred while communicating with the server.'}
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => refetch()}
+            className="px-3 py-1.5 text-xs bg-destructive text-destructive-foreground rounded-lg font-bold hover:opacity-90 shadow-xs"
+          >
+            Retry
+          </button>
+        </div>
+      )}
 
       {/* Linked Lead Context Banner */}
       {leadIdParam && leadIdParam !== 'new' && (

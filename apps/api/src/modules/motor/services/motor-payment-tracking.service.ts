@@ -75,6 +75,9 @@ export class MotorPaymentTrackingService {
         lead: {
           select: { id: true, status: true, currentWorkflowStep: true },
         },
+        case: {
+          select: { id: true, selectedQuoteId: true },
+        },
       },
     });
     if (!quotation)
@@ -87,6 +90,16 @@ export class MotorPaymentTrackingService {
     ) {
       throw new ForbiddenException(
         'Cross-organization access is strictly prohibited',
+      );
+    }
+
+    // P0 INVARIANT: Payment must target the case-selected winner quotation.
+    if (
+      quotation.case?.selectedQuoteId &&
+      quotation.case.selectedQuoteId !== dto.quotationId
+    ) {
+      throw new BadRequestException(
+        `SELECTED_QUOTE_INVARIANT_VIOLATION: Payment can only be recorded for the selected quotation of this case (selectedQuoteId: ${quotation.case.selectedQuoteId}). Cannot pay for an unselected quotation (${dto.quotationId}).`,
       );
     }
 
@@ -399,7 +412,10 @@ export class MotorPaymentTrackingService {
     const [quotation, inspection, payment, evaluation] = await Promise.all([
       this.prisma.quotation.findUnique({
         where: { id: quotationId },
-        include: { motorPreviousPolicy: true },
+        include: {
+          motorPreviousPolicy: true,
+          case: { select: { selectedQuoteId: true } },
+        },
       }),
       this.prisma.motorInspection.findUnique({ where: { quotationId } }),
       this.prisma.motorPaymentRecord.findUnique({ where: { quotationId } }),
@@ -408,6 +424,13 @@ export class MotorPaymentTrackingService {
 
     if (!quotation)
       return { allowed: false, blockers: ['QUOTATION_NOT_FOUND'] };
+
+    if (quotation.case?.selectedQuoteId && quotation.case.selectedQuoteId !== quotationId) {
+      return {
+        allowed: false,
+        blockers: ['QUOTATION_NOT_CASE_SELECTED_WINNER'],
+      };
+    }
 
     if (
       actorCompanyId &&
