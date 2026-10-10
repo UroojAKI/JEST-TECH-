@@ -19,6 +19,7 @@ import type { RequestUser } from '../../auth/decorators/current-user.decorator';
 import { PrismaService } from '../../../database/prisma.service';
 import { ScopeResolver } from '../../../common/services/scope-resolver.service';
 import { NumberingEngineService } from '../../administration/services/numbering-engine/numbering-engine.service';
+import { RenewalEngineService } from '../services/renewal-engine.service';
 
 @ApiTags('Renewals')
 @ApiBearerAuth()
@@ -29,6 +30,7 @@ export class RenewalsController {
     private readonly prisma: PrismaService,
     private readonly scopeResolver: ScopeResolver,
     private readonly numberingEngine: NumberingEngineService,
+    private readonly renewalEngine: RenewalEngineService,
   ) {}
 
   @Get('tasks')
@@ -128,27 +130,37 @@ export class RenewalsController {
       this.prisma,
     );
 
-    // Calculate authoritative renewal parameters with depreciation and NCB progression:
+    // Calculate authoritative renewal parameters derived from IRDAI rating config & statutory depreciation:
     const prevSumInsured = Number(
       existingQuote?.sumInsured || task.policy.premiumAmount || 500000,
     );
-    const revisedIdv = Math.max(10000, Math.round(prevSumInsured * 0.9)); // 10% standard annual IRDAI depreciation
-
-    // NCB Slab progression
-    const prevNcb = Number(existingQuote?.ncbPercentage || 0);
-    let nextNcb = 20;
-    if (prevNcb >= 50) nextNcb = 50;
-    else if (prevNcb >= 45) nextNcb = 50;
-    else if (prevNcb >= 35) nextNcb = 45;
-    else if (prevNcb >= 25) nextNcb = 35;
-    else if (prevNcb >= 20) nextNcb = 25;
-
-    const basePrem = Number(
+    const prevBasePrem = Number(
       existingQuote?.basePremium || task.policy.premiumAmount || 10000,
     );
-    const revisedBase = Math.round(basePrem * 0.95);
-    const gstAmount = Math.round(revisedBase * 0.18);
-    const totalPremium = revisedBase + gstAmount;
+    const prevNcb = Number(existingQuote?.ncbPercentage || 0);
+
+    const vehicleMeta = (task.policy.motorMetadata as Record<string, any>) || {};
+    const regYear = Number(vehicleMeta.registrationYear || vehicleMeta.manufacturingYear || (new Date().getFullYear() - 1));
+    const vehicleAgeYears = Math.max(1, new Date().getFullYear() - regYear);
+
+    const claimsCount = await this.prisma.claim.count({
+      where: { policyId: task.policyId, companyId: task.policy.companyId },
+    });
+    const hasClaims = claimsCount > 0;
+
+    const pricing = this.renewalEngine.calculateRenewalPricing({
+      prevSumInsured,
+      prevBasePremium: prevBasePrem,
+      prevNcb,
+      hasClaims,
+      vehicleAgeYears,
+    });
+
+    const revisedIdv = pricing.revisedIdv;
+    const nextNcb = pricing.nextNcb;
+    const revisedBase = pricing.revisedBase;
+    const gstAmount = pricing.gstAmount;
+    const totalPremium = pricing.totalPremium;
 
     const renewalQuote = await this.prisma.quotation.create({
       data: {
@@ -174,7 +186,7 @@ export class RenewalsController {
           gstAmount,
           totalPremium,
           ncbPercentage: nextNcb,
-          depreciationApplied: '10%',
+          depreciationApplied: `${pricing.depreciationPercentage}%`,
           calculatedAt: new Date().toISOString(),
         },
         calculationVersion: 'RENEWAL_V2',
