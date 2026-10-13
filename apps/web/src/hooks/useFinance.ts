@@ -2,12 +2,21 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { financeRepository } from '../repositories/finance.repository';
+import type { CreateSettlementBatchRequest, CreateJournalEntryRequest } from '../repositories/finance.repository';
 import { toast } from 'sonner';
 
 export function useFinanceDashboard() {
   return useQuery({
     queryKey: ['finance-dashboard'],
     queryFn: () => financeRepository.getDashboardMetrics(),
+  });
+}
+
+export function useChartOfAccounts() {
+  return useQuery({
+    queryKey: ['finance-chart-of-accounts'],
+    queryFn: () => financeRepository.getChartOfAccounts(),
+    staleTime: 5 * 60 * 1000, // Accounts rarely change — cache for 5 minutes
   });
 }
 
@@ -73,7 +82,7 @@ export function useLedgerEntries(params?: { search?: string; referenceType?: str
   });
 
   const postJournalMutation = useMutation({
-    mutationFn: (data: any) => financeRepository.postJournalEntry(data),
+    mutationFn: (data: CreateJournalEntryRequest) => financeRepository.postJournalEntry(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['finance-ledger'] });
       queryClient.invalidateQueries({ queryKey: ['finance-dashboard'] });
@@ -133,6 +142,32 @@ export function useSettlements() {
     queryKey: ['finance-settlements'],
     queryFn: () => financeRepository.getSettlements(),
   });
+}
+
+export function useCreateSettlement() {
+  const queryClient = useQueryClient();
+  const mutation = useMutation({
+    mutationFn: (data: CreateSettlementBatchRequest) =>
+      financeRepository.createSettlementBatch(data),
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ['finance-settlements'] });
+      queryClient.invalidateQueries({ queryKey: ['finance-dashboard'] });
+      toast.success(
+        `Settlement batch ${result.batchNumber} created — Net payable: ₹${result.netPayable.toLocaleString('en-IN')}`,
+      );
+    },
+    onError: (error: any) => {
+      toast.error(
+        error?.response?.data?.message || 'Failed to create settlement batch',
+      );
+    },
+  });
+
+  return {
+    createSettlement: mutation.mutateAsync,
+    isCreating: mutation.isPending,
+    error: mutation.error,
+  };
 }
 
 export function useIncentives() {

@@ -2909,6 +2909,8 @@ model Company {
   vehicles               Vehicle[]               @relation("CompanyVehicles")
   motorQuotationCases    MotorQuotationCase[]
   motorQuotationDocuments MotorQuotationDocument[]
+  commissions             Commission[]              @relation("CompanyCommissions")
+  settlements             Settlement[]              @relation("CompanySettlements")
 
   @@index([taxId])
 }
@@ -3387,29 +3389,41 @@ model Commission {
   id        String   @id @default(uuid())
   policyId  String
   userId    String // Agent or Manager getting the commission
+  companyId String?  // Direct tenant key for belt-and-suspenders isolation (post-migration backfill)
   roleTier  String // 'AGENT', 'BRANCH_MANAGER', 'ZONAL_MANAGER'
   amount    Decimal  @db.Decimal(19, 4)
-  status    String   @default("ACCRUED") // 'ACCRUED', 'REALIZED', 'PAID', 'CANCELLED'
+  status    String   @default("ACCRUED") // 'ACCRUED', 'APPROVED', 'REALIZED', 'PAID', 'CANCELLED'
   planId    String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  user User @relation(fields: [userId], references: [id])
+  user    User     @relation(fields: [userId], references: [id])
+  company Company? @relation("CompanyCommissions", fields: [companyId], references: [id], onDelete: SetNull)
 
   @@index([policyId])
   @@index([userId])
+  @@index([companyId])
   @@index([status])
   @@index([planId])
 }
 
 model Settlement {
-  id          String   @id @default(uuid())
-  batchNumber String   @unique
-  date        DateTime @default(now())
-  totalAmount Decimal  @db.Decimal(19, 4)
-  status      String   @default("PENDING") // 'PENDING', 'APPROVED', 'PROCESSED'
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id                 String   @id @default(uuid())
+  batchNumber        String   @unique
+  date               DateTime @default(now())
+  totalAmount        Decimal  @db.Decimal(19, 4)
+  status             String   @default("PENDING") // 'PENDING', 'APPROVED', 'PROCESSED'
+  companyId          String?
+  insurerName        String?
+  retainedCommission Decimal? @default(0) @db.Decimal(19, 4)
+  netPayable         Decimal? @db.Decimal(19, 4)
+  period             String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  company Company? @relation("CompanySettlements", fields: [companyId], references: [id], onDelete: SetNull)
+
+  @@index([companyId])
 }
 
 // ==========================================
@@ -4639,6 +4653,7 @@ model MotorQuotationDocument {
   @@index([documentId])
   @@map("motor_quotation_documents")
 }
+
 
 
 

@@ -29,6 +29,7 @@ import {
   useReconciliationQueue,
   useOutstandingInvoices,
   useRecordInvoicePayment,
+  useChartOfAccounts,
 } from '../../hooks/useFinance';
 import { VoucherPreviewModal, VoucherData } from '../../components/finance/vouchers/VoucherPreviewModal';
 import { EnterpriseTable } from '../../components/table/enterprise-table';
@@ -65,11 +66,14 @@ export default function FinanceOperationsHubPage() {
     mode: 'BANK_TRANSFER',
     reference: '',
   });
+  const { data: chartOfAccounts = [] } = useChartOfAccounts();
+
   const [journalForm, setJournalForm] = useState({
     description: '',
     referenceType: 'GENERAL',
-    debitAccount: 'Cash at Bank',
-    creditAccount: 'Premium Collection Clearing',
+    date: new Date().toISOString().split('T')[0],
+    debitAccountId: '',
+    creditAccountId: '',
     amount: '',
   });
 
@@ -108,18 +112,27 @@ export default function FinanceOperationsHubPage() {
       toast.error('Please enter a valid amount');
       return;
     }
+    if (!journalForm.debitAccountId || !journalForm.creditAccountId) {
+      toast.error('Please select both debit and credit accounts');
+      return;
+    }
+    if (journalForm.debitAccountId === journalForm.creditAccountId) {
+      toast.error('Debit and credit accounts must be different');
+      return;
+    }
     try {
       await postJournalEntry({
+        date: journalForm.date || new Date().toISOString(),
         description: journalForm.description || 'Manual Journal Entry',
         referenceType: journalForm.referenceType,
         lines: [
           {
-            accountName: journalForm.debitAccount,
+            accountId: journalForm.debitAccountId,
             debit: amountNum,
             credit: 0,
           },
           {
-            accountName: journalForm.creditAccount,
+            accountId: journalForm.creditAccountId,
             debit: 0,
             credit: amountNum,
           },
@@ -129,8 +142,9 @@ export default function FinanceOperationsHubPage() {
       setJournalForm({
         description: '',
         referenceType: 'GENERAL',
-        debitAccount: 'Cash at Bank',
-        creditAccount: 'Premium Collection Clearing',
+        date: new Date().toISOString().split('T')[0],
+        debitAccountId: '',
+        creditAccountId: '',
         amount: '',
       });
     } catch (err) {
@@ -779,7 +793,19 @@ export default function FinanceOperationsHubPage() {
                               Approve Payout
                             </button>
                           ) : (
-                            <span className="text-emerald-600 font-bold text-[10px]">✓ Disbursed</span>
+                            <span className={`font-bold text-[10px] ${
+                              c.payoutStatus === 'PAID'
+                                ? 'text-emerald-600'
+                                : c.payoutStatus === 'APPROVED'
+                                ? 'text-blue-600'
+                                : 'text-muted-foreground'
+                            }`}>
+                              {c.payoutStatus === 'PAID'
+                                ? '✓ Paid'
+                                : c.payoutStatus === 'APPROVED'
+                                ? '✓ Approved'
+                                : c.status}
+                            </span>
                           )}
                         </td>
                       </tr>
@@ -902,7 +928,17 @@ export default function FinanceOperationsHubPage() {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-3 gap-2">
+                <div>
+                  <label className="block font-semibold mb-1 text-muted-foreground">Entry Date</label>
+                  <input
+                    type="date"
+                    required
+                    value={journalForm.date}
+                    onChange={(e) => setJournalForm({ ...journalForm, date: e.target.value })}
+                    className="w-full px-3 py-2 rounded-lg border bg-background text-foreground text-xs focus:ring-1 focus:ring-primary focus:outline-none"
+                  />
+                </div>
                 <div>
                   <label className="block font-semibold mb-1 text-muted-foreground">Reference Type</label>
                   <select
@@ -934,28 +970,34 @@ export default function FinanceOperationsHubPage() {
               <div>
                 <label className="block font-semibold mb-1 text-muted-foreground">Debit (Dr) Account</label>
                 <select
-                  value={journalForm.debitAccount}
-                  onChange={(e) => setJournalForm({ ...journalForm, debitAccount: e.target.value })}
+                  required
+                  value={journalForm.debitAccountId}
+                  onChange={(e) => setJournalForm({ ...journalForm, debitAccountId: e.target.value })}
                   className="w-full px-3 py-2 rounded-lg border bg-background text-foreground text-xs focus:ring-1 focus:ring-primary focus:outline-none"
                 >
-                  <option value="Cash at Bank">Cash at Bank (Asset)</option>
-                  <option value="Premium Receivable">Premium Receivable (Asset)</option>
-                  <option value="Commission Expense">Commission Expense (Expense)</option>
-                  <option value="GST Input Tax Credit">GST Input Tax Credit (Asset)</option>
+                  <option value="">-- Select Debit Account --</option>
+                  {chartOfAccounts.map((acc: any) => (
+                    <option key={acc.id} value={acc.id}>
+                      {acc.code} — {acc.name} ({acc.type})
+                    </option>
+                  ))}
                 </select>
               </div>
 
               <div>
                 <label className="block font-semibold mb-1 text-muted-foreground">Credit (Cr) Account</label>
                 <select
-                  value={journalForm.creditAccount}
-                  onChange={(e) => setJournalForm({ ...journalForm, creditAccount: e.target.value })}
+                  required
+                  value={journalForm.creditAccountId}
+                  onChange={(e) => setJournalForm({ ...journalForm, creditAccountId: e.target.value })}
                   className="w-full px-3 py-2 rounded-lg border bg-background text-foreground text-xs focus:ring-1 focus:ring-primary focus:outline-none"
                 >
-                  <option value="Premium Collection Clearing">Premium Collection Clearing (Liability)</option>
-                  <option value="Insurer Premium Payable">Insurer Premium Payable (Liability)</option>
-                  <option value="Brokerage Revenue">Brokerage Revenue (Revenue)</option>
-                  <option value="Agent Commission Payable">Agent Commission Payable (Liability)</option>
+                  <option value="">-- Select Credit Account --</option>
+                  {chartOfAccounts.map((acc: any) => (
+                    <option key={acc.id} value={acc.id}>
+                      {acc.code} — {acc.name} ({acc.type})
+                    </option>
+                  ))}
                 </select>
               </div>
 

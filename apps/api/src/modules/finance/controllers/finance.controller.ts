@@ -1,3 +1,4 @@
+import { SettlementService, CreateSettlementBatchDto } from '../services/settlement.service';
 import {
   Controller,
   Get,
@@ -44,6 +45,7 @@ export class FinanceController {
     private readonly commissionEngineService: CommissionEngineService,
     private readonly paymentService: PaymentService,
     private readonly reconciliationService: FinanceReconciliationService,
+    private readonly settlementService: SettlementService,
     private readonly prisma: PrismaService,
   ) {}
 
@@ -357,10 +359,13 @@ export class FinanceController {
     @Query('type') type?: string,
   ) {
     const companyId = actor.companyId || (actor as any).organizationId;
+    // Build WHERE clause; optionally filter by paymentMethod when type query param is provided
+    const where: any = { quotation: { companyId } };
+    if (type && type !== 'ALL') {
+      where.paymentMethod = type;
+    }
     const motorPayments = await this.prisma.motorPaymentRecord.findMany({
-      where: {
-        quotation: { companyId },
-      },
+      where,
       orderBy: { createdAt: 'desc' },
       take: 100,
       include: { quotation: true },
@@ -370,12 +375,29 @@ export class FinanceController {
       id: p.id,
       paymentNumber: p.referenceNumber || p.id.substring(0, 10).toUpperCase(),
       payee: p.quotation?.insurerName || 'Unassigned Insurer',
-      type: 'INSURER_SETTLEMENT',
+      // MotorPaymentRecord represents inbound motor premium receipts, not insurer settlements
+      type: 'MOTOR_PREMIUM',
       amount: Number(p.amount),
       mode: p.paymentMethod,
       status: p.status === 'PAID' ? 'COMPLETED' : 'PENDING_APPROVAL',
       date: p.createdAt.toISOString(),
     }));
+  }
+
+  @Get('accounts')
+  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE)
+  @ApiOperation({ summary: 'List chart of accounts for journal entry selection' })
+  async getChartOfAccounts() {
+    return this.prisma.chartOfAccount.findMany({
+      where: { isActive: true },
+      select: {
+        id: true,
+        code: true,
+        name: true,
+        type: true,
+      },
+      orderBy: [{ type: 'asc' }, { code: 'asc' }],
+    });
   }
 
   @Get('ledger')
@@ -418,7 +440,10 @@ export class FinanceController {
     const companyId = actor.companyId || (actor as any).organizationId;
     const commissions = await this.prisma.commission.findMany({
       where: {
-        user: { companyId },
+        OR: [
+          { companyId },
+          { user: { companyId } },
+        ],
       },
       orderBy: { createdAt: 'desc' },
       take: 100,
@@ -496,7 +521,7 @@ export class FinanceController {
     }
     return this.prisma.commission.update({
       where: { id },
-      data: { status: 'REALIZED' },
+      data: { status: 'APPROVED' },
     });
   }
 
@@ -505,23 +530,23 @@ export class FinanceController {
   @ApiOperation({ summary: 'List insurer settlements' })
   async getSettlements(@CurrentUser() actor: RequestUser) {
     const companyId = actor.companyId || (actor as any).organizationId;
-    const companyClaims = companyId
-      ? await this.prisma.claim.findMany({
-          where: { companyId },
+    if (!companyId) return [];
+
+    const companyClaims = await this.prisma.claim.findMany({
+      where: { companyId },
+      select: {
+        id: true,
+        policy: {
           select: {
-            id: true,
-            policy: {
+            quotation: {
               select: {
-                quotation: {
-                  select: {
-                    insurerName: true,
-                  },
-                },
+                insurerName: true,
               },
             },
           },
-        })
-      : [];
+        },
+      },
+    });
     const claimInsurerMap = new Map(
       companyClaims.map((c) => [
         `CLAIM-${c.id}`,
@@ -531,29 +556,56 @@ export class FinanceController {
     const companyClaimBatchNumbers = companyClaims.map((c) => `CLAIM-${c.id}`);
 
     const settlements = await this.prisma.settlement.findMany({
-      where:
-        companyClaimBatchNumbers.length > 0
-          ? { batchNumber: { in: companyClaimBatchNumbers } }
-          : { id: '__no_tenant_settlements__' },
+      where: {
+        OR: [
+          { companyId },
+          ...(companyClaimBatchNumbers.length > 0
+            ? [{ batchNumber: { in: companyClaimBatchNumbers } }]
+            : []),
+        ],
+      },
       orderBy: { createdAt: 'desc' },
       take: 50,
     });
 
     return settlements.map((s) => {
-      const total = Number(s.totalAmount);
-      const insurerName = claimInsurerMap.get(s.batchNumber) || null;
+      const gross = Number(s.totalAmount);
+      const retained = s.retainedCommission !== null && s.retainedCommission !== undefined
+        ? Number(s.retainedCommission)
+        : 0;
+      const net = s.netPayable !== null && s.netPayable !== undefined
+        ? Number(s.netPayable)
+        : gross - retained;
+      const insurerName = s.insurerName || claimInsurerMap.get(s.batchNumber) || 'General Carrier Settlement';
+      const period = s.period || s.date.toISOString().substring(0, 7);
+
       return {
         id: s.id,
+        batchNumber: s.batchNumber,
         insurerName,
-        period: s.date.toISOString().substring(0, 7),
-        grossPremiumCollected: total,
-        commissionRetained: 0,
-        netPayable: total,
+        period,
+        grossPremiumCollected: gross,
+        commissionRetained: retained,
+        netPayable: net,
         status: s.status === 'PROCESSED' ? 'SETTLED' : 'PENDING_SETTLEMENT',
         settledDate:
           s.status === 'PROCESSED' ? s.updatedAt.toISOString() : null,
       };
     });
+  }
+
+  @Post('settlements')
+  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE)
+  @ApiOperation({ summary: 'Create insurer net-payable settlement batch' })
+  async createSettlementBatch(
+    @Body() dto: CreateSettlementBatchDto,
+    @CurrentUser() actor: RequestUser,
+  ) {
+    const companyId = actor.companyId || (actor as any).organizationId;
+    if (!companyId) {
+      throw new ForbiddenException('Company context is required for settlement');
+    }
+    return this.settlementService.createBatch(dto, companyId, actor.id);
   }
 
   @Get('incentives')

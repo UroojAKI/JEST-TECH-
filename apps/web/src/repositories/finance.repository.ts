@@ -14,6 +14,46 @@ export interface FinanceDashboardMetrics {
   };
 }
 
+export interface ChartOfAccountItem {
+  id: string;
+  code: string;
+  name: string;
+  type: 'ASSET' | 'LIABILITY' | 'EQUITY' | 'REVENUE' | 'EXPENSE';
+}
+
+export interface JournalEntryLine {
+  accountId: string; // UUID — NOT accountName
+  debit: number;
+  credit: number;
+  description?: string;
+}
+
+export interface CreateJournalEntryRequest {
+  date: string; // ISO date string
+  description: string;
+  referenceType?: string;
+  lines: JournalEntryLine[];
+}
+
+export interface CreateSettlementBatchRequest {
+  insurerName: string;
+  period: string; // 'YYYY-MM'
+  description?: string;
+}
+
+export interface SettlementBatchResult {
+  id: string;
+  batchNumber: string;
+  insurerName: string;
+  period: string;
+  status: 'PENDING' | 'APPROVED' | 'PROCESSED';
+  grossPremiumCollected: number;
+  commissionRetained: number;
+  netPayable: number;
+  policyCount: number;
+  createdAt: string;
+}
+
 export interface ReceiptItem {
   id: string;
   receiptNumber: string;
@@ -116,6 +156,11 @@ export const financeRepository = {
     return response.data;
   },
 
+  async getChartOfAccounts(): Promise<ChartOfAccountItem[]> {
+    const response = await apiClient.get('/finance/accounts');
+    return Array.isArray(response.data) ? response.data : [];
+  },
+
   async getReceipts(status?: string): Promise<ReceiptItem[]> {
     const response = await apiClient.get('/finance/receipts', { params: { status } });
     return toArray<ReceiptItem>(response.data);
@@ -154,7 +199,7 @@ export const financeRepository = {
     return response.data;
   },
 
-  async postJournalEntry(data: any): Promise<LedgerEntryItem> {
+  async postJournalEntry(data: CreateJournalEntryRequest): Promise<LedgerEntryItem> {
     const response = await apiClient.post('/finance/ledger/journal', data);
     return response.data;
   },
@@ -172,6 +217,11 @@ export const financeRepository = {
   async getSettlements(): Promise<SettlementItem[]> {
     const response = await apiClient.get('/finance/settlements');
     return toArray<SettlementItem>(response.data);
+  },
+
+  async createSettlementBatch(data: CreateSettlementBatchRequest): Promise<SettlementBatchResult> {
+    const response = await apiClient.post('/finance/settlements', data);
+    return response.data;
   },
 
   async getIncentives(): Promise<IncentiveItem[]> {
