@@ -143,6 +143,38 @@ export class UsersService {
       department: departmentConnect,
     });
 
+    if (canonicalRole === RoleType.AGENT && targetCompanyId) {
+      try {
+        const count = await this.prisma.agent.count({
+          where: { companyId: targetCompanyId },
+        });
+        let nextNum = count + 1;
+        let agentCode = `AGT-${String(nextNum).padStart(6, '0')}`;
+        while (
+          await this.prisma.agent.findFirst({
+            where: { companyId: targetCompanyId, agentCode },
+          })
+        ) {
+          nextNum++;
+          agentCode = `AGT-${String(nextNum).padStart(6, '0')}`;
+        }
+
+        const name = `${user.firstName || ''} ${user.lastName || ''}`.trim();
+        await this.prisma.agent.create({
+          data: {
+            companyId: targetCompanyId,
+            userId: user.id,
+            agentCode,
+            agencyName: name ? `${name} Agency` : `Agency ${agentCode}`,
+            commissionTier: 'STANDARD',
+            isActive: true,
+          },
+        });
+      } catch {
+        // Safe fallback if agent profile already exists or in case of concurrency
+      }
+    }
+
     const response: any = UserMapper.toResponse(user);
     response.initialPassword = initialPassword;
     return response;

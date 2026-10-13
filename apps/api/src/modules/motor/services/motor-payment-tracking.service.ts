@@ -103,6 +103,20 @@ export class MotorPaymentTrackingService {
       );
     }
 
+    const proposal =
+      quotation.productType === 'MOTOR'
+        ? await this.prisma.proposal.findUnique({
+            where: { quotationId: dto.quotationId },
+          })
+        : null;
+
+    const isQuotationApproved =
+      quotation.status === QuotationStatus.APPROVED ||
+      quotation.status === QuotationStatus.ACCEPTED ||
+      quotation.workflowState === 'PROPOSAL_APPROVED' ||
+      quotation.workflowState === 'READY_FOR_PROPOSAL' ||
+      proposal?.status === 'APPROVED';
+
     if (actor) {
       const roles = actor.roles?.length ? actor.roles : [actor.role];
       const isAgentRole =
@@ -110,17 +124,17 @@ export class MotorPaymentTrackingService {
         !roles.includes(RoleType.ADMIN) &&
         !roles.includes(RoleType.BACK_OFFICE);
       if (isAgentRole) {
-        if (dto.status === 'PAID') {
-          throw new ForbiddenException(
-            'Agents are prohibited from verifying payments as PAID. Only Finance or Back Office may verify payments.',
-          );
-        }
         const isOwner =
           quotation.createdById === actor.userId ||
           quotation.agentId === actor.userId;
         if (!isOwner) {
           throw new ForbiddenException(
             'You do not have permission to record payment for this quotation',
+          );
+        }
+        if (dto.status === 'PAID' && !isQuotationApproved) {
+          throw new ForbiddenException(
+            'Agents can only mark payment as PAID after the quotation is approved by Back Office. Sales users may record UNDER_PROCESS only while pending approval.',
           );
         }
       }
@@ -162,17 +176,26 @@ export class MotorPaymentTrackingService {
           : actor.role
             ? [actor.role]
             : [];
-        const hasAuthorizedRole = roles.some((r: any) =>
+        const hasAuthorizedFinanceRole = roles.some((r: any) =>
           FINANCE_PAYMENT_ROLES.has(String(r).toUpperCase()),
         );
-        if (!hasAuthorizedRole) {
+        const isAgent = roles.some(
+          (r: any) => String(r).toUpperCase() === 'AGENT',
+        );
+        const isAuthorizedAgent = isAgent && isQuotationApproved;
+
+        if (!hasAuthorizedFinanceRole && !isAuthorizedAgent) {
           throw new ForbiddenException(
-            'Only Finance or an authorized Administrator can verify a payment as PAID. Sales users may record UNDER_PROCESS only.',
+            'Only Finance or an authorized Administrator can verify a payment as PAID. Sales users may record UNDER_PROCESS only unless approved by Back Office.',
           );
         }
-      } else if (dto.recordedByRole && !FINANCE_PAYMENT_ROLES.has(String(dto.recordedByRole).toUpperCase())) {
+      } else if (
+        dto.recordedByRole &&
+        !FINANCE_PAYMENT_ROLES.has(String(dto.recordedByRole).toUpperCase()) &&
+        !isQuotationApproved
+      ) {
         throw new ForbiddenException(
-          'Only Finance or an authorized Administrator can verify a payment as PAID. Sales users may record UNDER_PROCESS only.',
+          'Only Finance or an authorized Administrator can verify a payment as PAID. Sales users may record UNDER_PROCESS only unless approved by Back Office.',
         );
       }
       if (!dto.amount || dto.amount <= 0) {
@@ -186,12 +209,9 @@ export class MotorPaymentTrackingService {
         );
       }
 
-      // MOTOR-REG-07: Proposal must be approved before payment can be recorded
+      // MOTOR-REG-07: Proposal / quotation must be approved before payment can be recorded
       if (quotation.productType === 'MOTOR') {
-        const proposal = await this.prisma.proposal.findUnique({
-          where: { quotationId: dto.quotationId },
-        });
-        if (!proposal || proposal.status !== 'APPROVED') {
+        if (!isQuotationApproved) {
           throw new BadRequestException(
             'Proposal has not been approved yet. Payment can only be recorded after proposal approval.',
           );

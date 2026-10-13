@@ -10,6 +10,7 @@ interface Props {
   onChange: (v: PaymentRecord) => void;
   totalPremium?: number;
   userRole?: string;
+  isApproved?: boolean;
 }
 
 const PAYMENT_OPTIONS: Array<{ value: PaymentTrackingStatus; label: string; description: string; icon: React.ReactNode; color: string }> = [
@@ -20,16 +21,18 @@ const PAYMENT_OPTIONS: Array<{ value: PaymentTrackingStatus; label: string; desc
 
 const PAYMENT_METHODS = ['Cash', 'Cheque', 'NEFT/RTGS', 'UPI', 'Credit Card', 'Debit Card', 'Online Banking', 'Other'];
 
-export function PaymentStatusForm({ value, onChange, totalPremium, userRole }: Props) {
+export function PaymentStatusForm({ value, onChange, totalPremium, userRole, isApproved }: Props) {
   const authUser = useAuthStore((s) => s.user);
   const activeRole = userRole || authUser?.role;
   const roleUpper = String(activeRole || '').toUpperCase();
-  const canVerifyPaid =
+  const isBackOfficeOrFinance =
     roleUpper === 'ADMIN' ||
     roleUpper === 'BACK_OFFICE' ||
     roleUpper === 'SUPER_ADMIN' ||
     roleUpper.includes('FINANCE') ||
     roleUpper.includes('ACCOUNTANT');
+
+  const canVerifyPaid = isBackOfficeOrFinance || Boolean(isApproved);
 
   const visibleOptions = !canVerifyPaid
     ? PAYMENT_OPTIONS.filter((opt) => opt.value !== 'PAID')
@@ -49,10 +52,16 @@ export function PaymentStatusForm({ value, onChange, totalPremium, userRole }: P
 
       <div className="space-y-3">
         <h3 className="text-xs font-extrabold uppercase tracking-widest text-foreground">Payment Status</h3>
-        {!canVerifyPaid && (
+        {!canVerifyPaid ? (
           <div className="text-[11px] text-muted-foreground bg-muted/40 border border-border/60 rounded-xl p-2.5">
-            <strong>Payment Authority Notice:</strong> Sales agents can record payment as <strong>Under Process</strong>. Formal verification and reconciliation (PAID) is strictly reserved for Finance / Back Office.
+            <strong>Payment Authority Notice:</strong> Sales agents can record payment as <strong>Under Process</strong> while pending approval. Once approved by Back Office, <strong>Payment Done</strong> is enabled.
           </div>
+        ) : (
+          !isBackOfficeOrFinance && isApproved && (
+            <div className="text-[11px] text-emerald-700 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-2.5 font-medium">
+              ✓ <strong>Quotation Approved:</strong> You are authorized to record <strong>Payment Done</strong> for this approved quotation.
+            </div>
+          )
         )}
         {visibleOptions.map(({ value: v, label, description, icon, color }) => (
           <button

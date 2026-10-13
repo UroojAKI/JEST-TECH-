@@ -53,11 +53,14 @@ export function AgentSelector({
     async function loadAgents() {
       try {
         setLoading(true);
-        const res = await apiClient.get('/agents');
+        const res = await apiClient.get('/agents?limit=100');
         const data = Array.isArray(res.data) ? res.data : res.data?.data || [];
         if (isMounted) {
           setAgents(data);
           setError(null);
+          if (!value && data.length === 1 && onChange) {
+            onChange(data[0].id, data[0].agentCode);
+          }
         }
       } catch (err: any) {
         if (isMounted) {

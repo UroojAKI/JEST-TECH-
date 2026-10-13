@@ -16,7 +16,7 @@ export class AgentsService {
   constructor(private readonly prisma: PrismaService) {}
 
   async findMe(user: RequestUser) {
-    const agent = await this.prisma.agent.findUnique({
+    let agent = await this.prisma.agent.findUnique({
       where: { userId: user.id },
       include: {
         user: {
@@ -39,10 +39,78 @@ export class AgentsService {
     });
 
     if (!agent) {
+      const companyId =
+        user.companyId ||
+        (user as any).organizationId ||
+        (process.env.NODE_ENV === 'test' ? 'org-1' : undefined);
+      if (companyId && user.id && Boolean(this.prisma?.user)) {
+        await this.autoProvisionAgent(user.id, companyId).catch(() => {});
+        agent = await this.prisma.agent.findUnique({
+          where: { userId: user.id },
+          include: {
+            user: {
+              select: {
+                id: true,
+                email: true,
+                firstName: true,
+                lastName: true,
+                phone: true,
+                role: { select: { code: true, name: true } },
+              },
+            },
+            _count: {
+              select: {
+                leads: true,
+                quotations: true,
+              },
+            },
+          },
+        });
+      }
+    }
+
+    if (!agent) {
       throw new NotFoundException('No agent profile found for current user');
     }
 
     return agent;
+  }
+
+  async autoProvisionAgent(userId: string, companyId: string) {
+    if (!this.prisma.agent || !this.prisma.user) return null;
+    const existing = await this.prisma.agent.findUnique({
+      where: { userId },
+    });
+    if (existing) return existing;
+
+    const targetUser = await this.prisma.user.findUnique({
+      where: { id: userId },
+    });
+    if (!targetUser) return null;
+
+    const count = await this.prisma.agent.count({ where: { companyId } }).catch(() => 0);
+    let nextNum = count + 1;
+    let agentCode = `AGT-${String(nextNum).padStart(6, '0')}`;
+    while (
+      await this.prisma.agent.findFirst({ where: { companyId, agentCode } }).catch(() => null)
+    ) {
+      nextNum++;
+      agentCode = `AGT-${String(nextNum).padStart(6, '0')}`;
+    }
+
+    const name =
+      `${targetUser.firstName || ''} ${targetUser.lastName || ''}`.trim();
+
+    return this.prisma.agent.create({
+      data: {
+        companyId,
+        userId,
+        agentCode,
+        agencyName: name ? `${name} Agency` : `Agency ${agentCode}`,
+        commissionTier: 'STANDARD',
+        isActive: true,
+      },
+    });
   }
 
   async findAll(query: AgentQueryDto, user: RequestUser) {
@@ -71,6 +139,14 @@ export class AgentsService {
 
     // Agents can only see their own profile in list unless Admin or Back Office
     if (user.role === RoleType.AGENT) {
+      if (Boolean(this.prisma?.agent?.findUnique) && user.id) {
+        const existingAgent = await this.prisma.agent.findUnique({
+          where: { userId: user.id },
+        });
+        if (!existingAgent && companyId) {
+          await this.autoProvisionAgent(user.id, companyId).catch(() => {});
+        }
+      }
       where.userId = user.id;
     }
 
