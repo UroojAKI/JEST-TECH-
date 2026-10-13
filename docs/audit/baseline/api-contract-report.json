@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-13T12:17:51.214Z",
+  "generatedAt": "2026-10-13T12:23:36.026Z",
   "mismatches": [],
   "uncalledBackendRoutes": [
     {
@@ -1271,8 +1271,8 @@
     }
   ],
   "summary": {
-    "totalFrontendCalls": 302,
-    "matched": 302,
+    "totalFrontendCalls": 303,
+    "matched": 303,
     "unmatched": 0,
     "uncalledBackend": 181,
     "uncalledByClassification": {
