@@ -14,23 +14,19 @@ export class PrismaService extends PrismaClient implements OnModuleInit {
   constructor() {
     super();
     // Enforce AuditLog immutability / append-only at the database client level (G023)
-    (this as any).$use?.(async (params: any, next: any) => {
-      if (params.model === 'AuditLog') {
-        const forbiddenActions = [
-          'update',
-          'updateMany',
-          'delete',
-          'deleteMany',
-          'upsert',
-        ];
-        if (forbiddenActions.includes(params.action)) {
-          throw new ForbiddenException(
-            'Audit logs are append-only and strictly immutable under IRDAI regulations (G023). Updates and deletions are forbidden.',
-          );
-        }
-      }
-      return next(params);
-    });
+    const enforceAuditLogImmutability = () => {
+      throw new ForbiddenException(
+        'Audit logs are append-only and strictly immutable under IRDAI regulations (G023). Updates and deletions are forbidden.',
+      );
+    };
+
+    if (this.auditLog) {
+      (this.auditLog as any).update = enforceAuditLogImmutability;
+      (this.auditLog as any).updateMany = enforceAuditLogImmutability;
+      (this.auditLog as any).delete = enforceAuditLogImmutability;
+      (this.auditLog as any).deleteMany = enforceAuditLogImmutability;
+      (this.auditLog as any).upsert = enforceAuditLogImmutability;
+    }
   }
 
   async onModuleInit() {

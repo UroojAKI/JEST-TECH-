@@ -15,6 +15,20 @@ const PROTECTED_PREFIXES = [
   '/workspace',
 ];
 
+function getSafeReturnUrl(rawUrl: string | null): string {
+  if (!rawUrl) return '/workspace';
+  // Must start with single '/', not '//', and not contain '://' or backslashes
+  if (
+    rawUrl.startsWith('/') &&
+    !rawUrl.startsWith('//') &&
+    !rawUrl.includes('://') &&
+    !rawUrl.includes('\\')
+  ) {
+    return rawUrl;
+  }
+  return '/workspace';
+}
+
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const token = request.cookies.get('access_token')?.value;
@@ -82,12 +96,11 @@ export function proxy(request: NextRequest) {
     }
   }
 
-  // If user is already authenticated and visits /login, redirect to /workspace
+  // If user is already authenticated and visits /login, redirect to /workspace (with safe returnUrl validation)
   if (pathname === '/login' && token) {
-    const returnUrl = request.nextUrl.searchParams.get('returnUrl');
-    return NextResponse.redirect(
-      new URL(returnUrl || '/workspace', request.url)
-    );
+    const rawReturnUrl = request.nextUrl.searchParams.get('returnUrl');
+    const safeUrl = getSafeReturnUrl(rawReturnUrl);
+    return NextResponse.redirect(new URL(safeUrl, request.url));
   }
 
   return NextResponse.next();

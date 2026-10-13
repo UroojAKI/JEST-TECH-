@@ -20,7 +20,7 @@ describe('WebhookGatewayController', () => {
       providers: [
         {
           provide: EventEmitter2,
-          useValue: { emit: jest.fn() },
+          useValue: { emit: jest.fn(), emitAsync: jest.fn().mockResolvedValue([]) },
         },
         {
           provide: PrismaService,
@@ -76,7 +76,10 @@ describe('WebhookGatewayController', () => {
       where: { providerEventId: 'evt_123' },
     });
     expect(prisma.webhookAuditLog.create).toHaveBeenCalled();
-    expect(eventEmitter.emit).toHaveBeenCalledWith(
+    const emitted = (eventEmitter.emitAsync as jest.Mock).mock.calls.length > 0
+      ? eventEmitter.emitAsync
+      : eventEmitter.emit;
+    expect(emitted).toHaveBeenCalledWith(
       'integration.webhook.razorpay.payment.captured',
       payload,
     );

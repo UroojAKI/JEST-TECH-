@@ -111,7 +111,7 @@ export class PaymentWebhookReconciliationListener {
         `Error auto-reconciling webhook payment: ${err.message}`,
         err.stack,
       );
-      return { reconciled: false, error: err.message };
+      throw err;
     }
   }
 }

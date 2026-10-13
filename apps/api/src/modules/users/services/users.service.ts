@@ -154,6 +154,11 @@ export class UsersService {
       newPassword || `${crypto.randomBytes(16).toString('hex')}A1`;
     const passwordHash = await argon2.hash(password);
     await this.userRepository.update(userId, { passwordHash });
+    await this.revokeAllUserRefreshTokens(userId);
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { authVersion: { increment: 1 } },
+    });
     return {
       success: true,
       message: 'Password reset successfully',
@@ -170,21 +175,27 @@ export class UsersService {
     if (!user) {
       throw new NotFoundException('User not found');
     }
+    if (!currentPassword) {
+      throw new BadRequestException('Current password is required');
+    }
     if (!newPassword || newPassword.length < 6) {
       throw new BadRequestException(
         'New password must be at least 6 characters long',
       );
     }
 
-    if (currentPassword) {
-      const isValid = await argon2.verify(user.passwordHash, currentPassword);
-      if (!isValid) {
-        throw new BadRequestException('Current password is incorrect');
-      }
+    const isValid = await argon2.verify(user.passwordHash, currentPassword);
+    if (!isValid) {
+      throw new BadRequestException('Current password is incorrect');
     }
 
     const passwordHash = await argon2.hash(newPassword);
     await this.userRepository.update(userId, { passwordHash });
+    await this.revokeAllUserRefreshTokens(userId);
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { authVersion: { increment: 1 } },
+    });
     return { success: true, message: 'Password changed successfully' };
   }
 

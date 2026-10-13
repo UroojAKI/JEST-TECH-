@@ -39,13 +39,23 @@ function validateJwtSecrets(): void {
   }
 
   if (isProduction) {
-    if (KNOWN_DEFAULT_JWT_SECRETS.includes(jwtSecret)) {
+    const isPlaceholder = (secret: string) => {
+      const lower = secret.toLowerCase();
+      return (
+        KNOWN_DEFAULT_JWT_SECRETS.includes(secret) ||
+        lower.includes('change_me') ||
+        lower.includes('changeme') ||
+        lower.includes('placeholder')
+      );
+    };
+
+    if (isPlaceholder(jwtSecret)) {
       throw new Error(
         'CRITICAL: JWT_SECRET is set to a known default/placeholder value. ' +
           'This is forbidden in production. Set a strong, unique secret.',
       );
     }
-    if (KNOWN_DEFAULT_JWT_SECRETS.includes(jwtRefreshSecret)) {
+    if (isPlaceholder(jwtRefreshSecret)) {
       throw new Error(
         'CRITICAL: JWT_REFRESH_SECRET is set to a known default/placeholder value. ' +
           'This is forbidden in production. Set a strong, unique secret.',
@@ -78,6 +88,7 @@ async function bootstrap() {
   }
 
   const app = await NestFactory.create(AppModule, { rawBody: true });
+  app.enableShutdownHooks();
 
   // Trust Nginx Proxy to correctly parse X-Forwarded-For for IP rate limiting
   app.getHttpAdapter().getInstance().set('trust proxy', 1);

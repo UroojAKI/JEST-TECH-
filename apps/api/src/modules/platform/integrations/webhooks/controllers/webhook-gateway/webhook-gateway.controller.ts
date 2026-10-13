@@ -9,6 +9,7 @@ import {
   BadRequestException,
   UnauthorizedException,
   ConflictException,
+  InternalServerErrorException,
 } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { PrismaService } from '../../../../../../database/prisma.service';
@@ -136,21 +137,41 @@ export class WebhookGatewayController {
       }
     }
 
-    // Case A: New webhook -> record log, emit event for business reconciliation
-    await this.prisma.webhookAuditLog.create({
-      data: {
-        provider,
-        providerEventId,
-        eventType: this.extractEventType(provider, payload),
-        payload: payloadString,
-      },
-    });
-
-    // 5. Emit Event for Business Modules
+    // 5. Emit Event for Business Modules asynchronously and verify
     const eventName = `integration.webhook.${provider}.${this.extractEventType(provider, payload)}`;
-    this.eventEmitter.emit(eventName, payload);
+    try {
+      if (typeof this.eventEmitter.emitAsync === 'function') {
+        const results = await this.eventEmitter.emitAsync(eventName, payload);
+        const failure = results?.find(
+          (r: any) => r && typeof r === 'object' && r.reconciled === false && r.error,
+        );
+        if (failure) {
+          throw new Error(failure.error);
+        }
+      } else {
+        this.eventEmitter.emit(eventName, payload);
+      }
 
-    return { status: 'success' };
+      // Case A: Record audit log ONLY after successful dispatch
+      await this.prisma.webhookAuditLog.create({
+        data: {
+          provider,
+          providerEventId,
+          eventType: this.extractEventType(provider, payload),
+          payload: payloadString,
+        },
+      });
+
+      return { status: 'success' };
+    } catch (dispatchErr: any) {
+      this.logger.error(
+        `[Webhook] Processing failed for ${providerEventId}: ${dispatchErr.message}`,
+        dispatchErr.stack,
+      );
+      throw new InternalServerErrorException(
+        `Webhook reconciliation processing failed: ${dispatchErr.message}`,
+      );
+    }
   }
 
   private extractEventId(

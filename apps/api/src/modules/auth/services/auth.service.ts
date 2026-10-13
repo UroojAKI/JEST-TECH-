@@ -369,8 +369,44 @@ export class AuthService {
     );
   }
 
-  async logout(userId: string): Promise<void> {
-    if (userId) await this.usersService.revokeAllUserRefreshTokens(userId);
+  async logout(
+    userId?: string,
+    refreshToken?: string,
+    accessToken?: string,
+  ): Promise<void> {
+    let resolvedUserId = userId;
+    if (!resolvedUserId && refreshToken) {
+      const tokenHash = crypto
+        .createHash('sha256')
+        .update(refreshToken)
+        .digest('hex');
+      const tokenRecord = await this.prisma.refreshToken.findFirst({
+        where: { tokenHash },
+        select: { userId: true },
+      });
+      if (tokenRecord) {
+        resolvedUserId = tokenRecord.userId;
+      }
+    }
+    if (!resolvedUserId && accessToken) {
+      try {
+        const decoded = (this.tokenService as any).jwtService?.decode?.(
+          accessToken,
+        ) as any;
+        if (decoded?.sub) {
+          resolvedUserId = decoded.sub;
+        }
+      } catch {}
+    }
+    if (resolvedUserId) {
+      await this.usersService.revokeAllUserRefreshTokens(resolvedUserId);
+      await this.prisma.user
+        .update({
+          where: { id: resolvedUserId },
+          data: { authVersion: { increment: 1 } },
+        })
+        .catch(() => {});
+    }
   }
 
   private parseExpiry(duration: string): Date {

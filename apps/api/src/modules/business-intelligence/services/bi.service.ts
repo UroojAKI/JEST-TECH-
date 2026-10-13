@@ -498,14 +498,46 @@ export class BiService {
       policies_mom_growth: sales.monthOverMonthGrowth,
     };
 
+    const SAFE_FORMULA_REGEX = /^[a-zA-Z0-9_\s\+\-\*\/\(\)\.\^\%]+$/;
+    const BLOCKED_IDENTIFIERS = [
+      'constructor',
+      'prototype',
+      '__proto__',
+      'function',
+      'this',
+      'window',
+      'global',
+      'process',
+      'require',
+      'eval',
+    ];
+
     return kpis.map((kpi) => {
       let value = 0;
       try {
-        // Strict safe formula evaluation using expr-eval
-        const parser = new Parser();
-        const expr = parser.parse(kpi.formula);
-        value = expr.evaluate(metricRegistry);
-        value = Math.round(value * 100) / 100;
+        const formula = (kpi.formula || '').trim();
+        const isSafe =
+          SAFE_FORMULA_REGEX.test(formula) &&
+          !BLOCKED_IDENTIFIERS.some((bad) =>
+            formula.toLowerCase().includes(bad),
+          );
+
+        if (isSafe && formula.length > 0) {
+          // Strict safe formula evaluation using expr-eval with restricted operators
+          const parser = new Parser({
+            operators: {
+              add: true,
+              subtract: true,
+              multiply: true,
+              divide: true,
+              power: true,
+              remainder: true,
+            },
+          });
+          const expr = parser.parse(formula);
+          value = expr.evaluate(metricRegistry);
+          value = Math.round(value * 100) / 100;
+        }
       } catch {
         value = 0;
       }

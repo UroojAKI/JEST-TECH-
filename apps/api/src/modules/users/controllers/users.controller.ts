@@ -23,6 +23,7 @@ import type { RequestUser } from '../../auth/decorators/current-user.decorator';
 
 import { CreateUserDto } from '../dto/create-user.dto';
 import { UpdateUserDto } from '../dto/update-user.dto';
+import { ChangePasswordDto } from '../dto/change-password.dto';
 import { UsersService } from '../services/users.service';
 
 @ApiTags('Users')
@@ -65,7 +66,7 @@ export class UsersController {
   @ApiOperation({ summary: 'Change current user password' })
   changePassword(
     @CurrentUser() user: RequestUser,
-    @Body() dto: { currentPassword?: string; newPassword: string },
+    @Body() dto: ChangePasswordDto,
   ) {
     return this.usersService.changePassword(
       user.id,
