@@ -4,7 +4,7 @@ ALTER TABLE "Commission" ADD COLUMN "companyId" TEXT;
 -- BackfillFromUser: populate companyId from the related user record
 UPDATE "Commission" c
 SET "companyId" = u."companyId"
-FROM "User" u
+FROM "users" u
 WHERE c."userId" = u."id"
   AND u."companyId" IS NOT NULL;
 

@@ -1,8 +1,10 @@
+/// <reference types="jest" />
 import { Test, TestingModule } from '@nestjs/testing';
 import { MotorPaymentTrackingService } from './motor-payment-tracking.service';
 import { PrismaService } from '../../../database/prisma.service';
 import { BadRequestException, ForbiddenException } from '@nestjs/common';
 import { RoleType } from '@prisma/client';
+import { createHash } from 'crypto';
 
 describe('MotorPaymentTrackingService & Reconciliation (Iteration 7)', () => {
   let service: MotorPaymentTrackingService;
@@ -197,9 +199,7 @@ describe('MotorPaymentTrackingService & Reconciliation (Iteration 7)', () => {
       prisma.motorPaymentRecord.findUnique.mockResolvedValue(null);
 
       // Compute identical hash
-      const crypto = require('crypto');
-      const hash = crypto
-        .createHash('sha256')
+      const hash = createHash('sha256')
         .update(
           JSON.stringify({
             quotationId: 'q-10',
@@ -286,6 +286,44 @@ describe('MotorPaymentTrackingService & Reconciliation (Iteration 7)', () => {
           agentActor,
         ),
       ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('PAY-002: should allow Sales Agents to mark payment as PAID when quotation is APPROVED by Back Office', async () => {
+      prisma.quotation.findUnique.mockResolvedValue({
+        ...mockQuote,
+        companyId: 'org-1',
+        createdById: 'agent-1',
+        status: 'APPROVED',
+      });
+      prisma.motorPaymentRecord.findUnique.mockResolvedValue(null);
+      prisma.motorPaymentRecord.upsert.mockResolvedValue({
+        id: 'pay-approved',
+        quotationId: 'q-10',
+        status: 'PAID',
+        amount: 17638.88,
+        referenceNumber: 'REF-BANK-999',
+      });
+
+      const agentActor: any = {
+        userId: 'agent-1',
+        role: RoleType.AGENT,
+        roles: [RoleType.AGENT],
+        companyId: 'org-1',
+      };
+
+      const result = await service.recordPayment(
+        {
+          quotationId: 'q-10',
+          status: 'PAID',
+          amount: 17638.88,
+          referenceNumber: 'REF-BANK-999',
+          paymentMethod: 'UPI',
+        },
+        'org-1',
+        agentActor,
+      );
+
+      expect(result).toBeDefined();
     });
 
     it('PAY-002: should block PAID payment when proposal is not approved', async () => {

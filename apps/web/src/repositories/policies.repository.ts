@@ -69,8 +69,8 @@ export const policiesRepository = {
     return response.data;
   },
 
-  async issueFromQueue(quotationId: string): Promise<any> {
-    const response = await apiClient.post(`/back-office/issue/${quotationId}`);
+  async issueFromQueue(quotationId: string, data?: any): Promise<any> {
+    const response = await apiClient.post(`/back-office/issue/${quotationId}`, data || {});
     return response.data;
   },
 

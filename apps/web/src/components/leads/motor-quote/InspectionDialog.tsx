@@ -34,9 +34,21 @@ export function InspectionDialog({
   onSuccess,
 }: Props) {
   const { user } = useAuth();
-  const userRole = (user as any)?.role || 'AGENT';
-  const isBackOfficeOrAdmin = userRole === 'ADMIN' || userRole === 'BACK_OFFICE';
-  const canWorkInspection = isBackOfficeOrAdmin || userRole === 'AGENT';
+  const userRoles: string[] = Array.isArray((user as any)?.roles)
+    ? (user as any).roles
+    : (user as any)?.role
+    ? [(user as any).role]
+    : [];
+  const userRole = (user as any)?.role || userRoles[0] || 'AGENT';
+  const isBackOfficeOrAdmin =
+    userRoles.includes('ADMIN') ||
+    userRoles.includes('BACK_OFFICE') ||
+    userRole === 'ADMIN' ||
+    userRole === 'BACK_OFFICE';
+  const canWorkInspection =
+    isBackOfficeOrAdmin ||
+    userRoles.includes('AGENT') ||
+    userRole === 'AGENT';
 
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -66,6 +78,17 @@ export function InspectionDialog({
       const res = await apiClient.get(`/motor/inspections/${quotationId}`);
       if (res.data) {
         setServerInspection(res.data);
+        if (res.data.conductedByType) {
+          setInspection((prev) => ({
+            ...prev,
+            conductedByType: res.data.conductedByType,
+            inspectorName: res.data.inspectorName || '',
+            inspectorPhone: res.data.inspectorPhone || '',
+            inspectorCompany: res.data.inspectorCompany || '',
+            inspectionDate: res.data.inspectionDate ? String(res.data.inspectionDate).split('T')[0] : '',
+            inspectionTime: res.data.inspectionTime || '',
+          }));
+        }
       } else if (canWorkInspection) {
         // Opening the dialog requests initialization for this assigned user.
         const createRes = await apiClient.post('/motor/inspections', { quotationId });

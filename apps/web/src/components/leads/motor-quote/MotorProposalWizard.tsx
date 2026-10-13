@@ -37,6 +37,8 @@ export function MotorProposalWizard({ isOpen, quote, onClose, onSuccess }: Props
     'APPROVED',
     'PROPOSAL_APPROVED',
     'CUSTOMER_ACCEPTED',
+    'PAYMENT_UNDER_PROCESS',
+    'READY_FOR_PROPOSAL',
   ].includes(quote.status) || quote.proposalStatus === 'APPROVED';
 
   const canProceed = () => {
@@ -165,6 +167,7 @@ export function MotorProposalWizard({ isOpen, quote, onClose, onSuccess }: Props
                   value={paymentRecord}
                   onChange={setPaymentRecord}
                   totalPremium={quote.totalPremium}
+                  isApproved={isApprovedForPayment}
                 />
                 <p className="text-xs text-muted-foreground rounded-md border bg-muted/20 p-3">
                   Sales records payment only. A successful payment does not issue the policy. The quotation moves to the Back Office issuance queue.
