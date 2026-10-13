@@ -205,13 +205,17 @@ export class MotorPolicyIssuanceService {
           'Authoritative calculationVersion is required and must be valid before issuance',
         );
       }
-      if (!snapshot.rateConfigurationVersion) {
+      if (!snapshot.rateConfigurationVersion && !snapshot.rateConfig) {
         throw new ConflictException(
           'Authoritative rateConfigurationVersion is required and must be valid before issuance',
         );
       }
-      if (snapshot.totalPremium !== undefined) {
-        const snapTotal = new Prisma.Decimal(snapshot.totalPremium);
+      const snapTotalVal =
+        snapshot.totalPremium !== undefined
+          ? snapshot.totalPremium
+          : snapshot.outputs?.totalPremium;
+      if (snapTotalVal !== undefined) {
+        const snapTotal = new Prisma.Decimal(snapTotalVal);
         const quoteTotal = new Prisma.Decimal(quote.totalPremium);
         if (!snapTotal.equals(quoteTotal)) {
           throw new ConflictException(

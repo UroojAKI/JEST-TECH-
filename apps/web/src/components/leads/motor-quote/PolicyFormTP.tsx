@@ -67,15 +67,15 @@ export function PolicyFormTPOnlyForm({ category, vehicleStatus, data, onChange, 
 
   React.useEffect(() => {
     if (result && result.outputs) {
-      if (data.calculatedResult === result) return;
       onChange({ 
         ...data, 
-        thirdPartyPremium: result.outputs.baseTpPremium.toString(),
-        totalPremiumInclGST: result.outputs.totalPremium.toString(),
+        thirdPartyPremium: (result.outputs.baseTpPremium ?? 0).toString(),
+        totalPremiumInclGST: (result.outputs.totalPremium ?? 0).toString(),
         calculatedResult: result 
       });
     }
-  }, [result, data, onChange]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [result]);
 
   const tenureOptions = getPolicyTenureOptions(category, 'TP_ONLY');
 
@@ -275,7 +275,7 @@ export function PolicyFormTPOnlyForm({ category, vehicleStatus, data, onChange, 
             <input
               type="text"
               readOnly
-              value={data.calculatedResult?.outputs?.totalPremium?.toString() || data.totalPremiumInclGST || '0.00'}
+              value={result?.outputs?.totalPremium?.toString() || data.calculatedResult?.outputs?.totalPremium?.toString() || data.totalPremiumInclGST || '0.00'}
               className="w-full p-2 rounded-lg border text-xs font-bold text-sky-700 bg-sky-50 border-sky-200"
             />
           </div>

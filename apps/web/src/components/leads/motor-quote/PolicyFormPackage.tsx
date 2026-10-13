@@ -95,7 +95,6 @@ export function PolicyFormPackageForm({ category, vehicleStatus, data, onChange,
 
   useEffect(() => {
     if (result && result.outputs) {
-      if (data.calculatedResult === result) return;
       onChange({ 
         ...data, 
         totalPremiumInclGST: (result.outputs.finalPayableAmount ?? result.outputs.totalPremium ?? 0).toString(),
@@ -105,7 +104,8 @@ export function PolicyFormPackageForm({ category, vehicleStatus, data, onChange,
         calculatedResult: result 
       });
     }
-  }, [result, data, onChange]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [result]);
 
   const handleClaimChange = (val: string) => {
     const updated = { ...data, claimInExpiringPolicy: val };
@@ -130,7 +130,11 @@ export function PolicyFormPackageForm({ category, vehicleStatus, data, onChange,
   const discountAmt = outputs.totalDiscount ?? 0;
   const netBase = outputs.netCustomerPremium ?? outputs.netPreTaxPremium ?? (grossBase - discountAmt);
   const gstAmt = outputs.totalGst ?? outputs.gstAmount ?? 0;
-  const finalPayable = outputs.finalPayableAmount ?? outputs.totalPremium ?? 0;
+  const finalPayable =
+    outputs.finalPayableAmount ??
+    outputs.totalPremium ??
+    ((data.finalPayableAmount ? parseFloat(data.finalPayableAmount) : 0) ||
+      (data.totalPremiumInclGST ? parseFloat(data.totalPremiumInclGST) : 0));
 
   return (
     <div className="space-y-4">

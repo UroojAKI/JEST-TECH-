@@ -14,7 +14,7 @@ export function useMotorCalculator(inputData: any) {
     }
 
     if (['STANDALONE_OD', 'PACKAGE_COMPREHENSIVE'].includes(inputData.policyType)) {
-      if (!inputData.idv || inputData.idv < 50000) {
+      if (!inputData.idv || inputData.idv <= 0) {
         setResult(null);
         setError(null);
         return;

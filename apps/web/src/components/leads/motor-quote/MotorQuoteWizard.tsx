@@ -578,7 +578,13 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, caseId, initialCat
   const getNetPayable = () => {
     const pd = getPolicyDetails() as any;
     return (
-      parseFloat(pd.calculatedResult?.outputs?.totalPremium || pd.totalPremiumInclGST || '0') || 0
+      parseFloat(
+        pd.calculatedResult?.outputs?.finalPayableAmount ||
+        pd.calculatedResult?.outputs?.totalPremium ||
+        pd.finalPayableAmount ||
+        pd.totalPremiumInclGST ||
+        '0'
+      ) || 0
     );
   };
 
@@ -956,7 +962,7 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, caseId, initialCat
 
           <div className="flex items-center gap-4">
             {getNetPayable() > 0 && (
-              <div className="hidden sm:flex items-center gap-2 text-xs font-medium px-3 py-1.5 rounded bg-muted">
+              <div className="flex flex-wrap items-center gap-2 text-xs font-medium px-3 py-1.5 rounded bg-muted">
                 <span className="text-foreground font-bold">Net Payable: ₹{getNetPayable().toLocaleString('en-IN')}</span>
                 <span className="text-muted-foreground border-l pl-2">Tax: ₹{getGst().toLocaleString('en-IN')}</span>
                 {getTotalDiscount() > 0 && (
