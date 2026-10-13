@@ -80,6 +80,13 @@ export class ApproveQuotationService {
         where: { id },
         data: {
           status: QuotationStatus.APPROVED,
+          workflowState: 'PROPOSAL_APPROVED',
+          motorMetadata: existing.motorMetadata
+            ? {
+                ...(existing.motorMetadata as any),
+                workflowStatus: 'PROPOSAL_APPROVED',
+              }
+            : undefined,
           updatedById: approvedById,
         },
       });
