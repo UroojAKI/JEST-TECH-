@@ -312,7 +312,7 @@ export class MotorPaymentTrackingService {
 
       const cleanReferenceNumber = dto.referenceNumber?.trim() || null;
 
-      if (cleanReferenceNumber && dto.paymentMethod) {
+      if (cleanReferenceNumber && dto.paymentMethod && (tx as any).motorPaymentRecord?.findFirst) {
         const duplicateRef = await (tx as any).motorPaymentRecord.findFirst({
           where: {
             companyId: quotation.companyId,

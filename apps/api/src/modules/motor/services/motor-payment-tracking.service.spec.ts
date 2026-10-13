@@ -21,6 +21,7 @@ describe('MotorPaymentTrackingService & Reconciliation (Iteration 7)', () => {
       },
       motorPaymentRecord: {
         findUnique: jest.fn(),
+        findFirst: jest.fn().mockResolvedValue(null),
         upsert: jest.fn(),
       },
       motorInspection: {
