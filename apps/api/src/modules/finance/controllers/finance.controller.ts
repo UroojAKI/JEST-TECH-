@@ -188,11 +188,11 @@ export class FinanceController {
           status: 'PENDING',
         },
       }),
-      companyClaimBatchNumbers.length > 0
+      companyId
         ? this.prisma.settlement.count({
             where: {
+              companyId,
               status: 'PENDING',
-              batchNumber: { in: companyClaimBatchNumbers },
             },
           })
         : 0,
@@ -200,7 +200,10 @@ export class FinanceController {
         ? this.prisma.commission.count({
             where: {
               status: 'ACCRUED',
-              user: { companyId },
+              OR: [
+                { companyId },
+                { user: { companyId } },
+              ],
             },
           })
         : 0,
@@ -353,16 +356,18 @@ export class FinanceController {
 
   @Get('payments')
   @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE)
-  @ApiOperation({ summary: 'List outgoing payments / disbursements' })
+  @ApiOperation({ summary: 'List financial payments register (inbound motor premiums and disbursements)' })
   async getPayments(
     @CurrentUser() actor: RequestUser,
     @Query('type') type?: string,
+    @Query('method') method?: string,
   ) {
     const companyId = actor.companyId || (actor as any).organizationId;
-    // Build WHERE clause; optionally filter by paymentMethod when type query param is provided
+    // Build WHERE clause; support both method param and backward-compatible type param
     const where: any = { quotation: { companyId } };
-    if (type && type !== 'ALL') {
-      where.paymentMethod = type;
+    const methodFilter = method || (type && type !== 'ALL' && type !== 'MOTOR_PREMIUM' ? type : undefined);
+    if (methodFilter) {
+      where.paymentMethod = methodFilter;
     }
     const motorPayments = await this.prisma.motorPaymentRecord.findMany({
       where,
@@ -492,13 +497,15 @@ export class FinanceController {
         grossPremium,
         commissionPercent,
         commissionAmount: Number(c.amount),
-        status: c.status === 'PAID' ? 'REALIZED' : 'ACCRUED',
+        status: c.status,
         payoutStatus:
           c.status === 'PAID'
             ? 'PAID'
-            : c.status === 'REALIZED'
+            : c.status === 'APPROVED'
               ? 'APPROVED'
-              : 'PENDING_APPROVAL',
+              : c.status === 'REALIZED'
+                ? 'REALIZED'
+                : 'PENDING_APPROVAL',
         createdAt: c.createdAt.toISOString(),
       };
     });

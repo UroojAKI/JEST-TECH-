@@ -60,6 +60,11 @@ jobs:
       - name: Generate Prisma Client
         run: pnpm --filter api run prisma:generate
 
+      - name: Apply database migrations to test container
+        run: pnpm --filter api exec prisma migrate deploy
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/jest_test
+
       - name: TypeScript typecheck — API
         run: pnpm exec tsc --noEmit --project apps/api/tsconfig.json
 
@@ -74,23 +79,64 @@ jobs:
         env:
           NODE_ENV: test
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/jest_test
+          JWT_SECRET: "ci_test_jwt_secret_min_32_characters_for_testing_purposes"
+          JWT_REFRESH_SECRET: "ci_test_jwt_refresh_secret_min_32_characters_for_testing"
+          PII_ENCRYPTION_KEY: "ci_test_pii_encryption_key_32_chars_testing!!"
+          COOKIE_SECRET: "ci_test_cookie_secret_min_32_characters_testing"
+          CSRF_SECRET: "ci_test_csrf_secret_min_32_characters_testing"
+          REDIS_ENABLED: "false"
 
       - name: Certification & Security tests — API
         run: pnpm --filter api test:cert
         env:
           NODE_ENV: test
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/jest_test
+          JWT_SECRET: "ci_test_jwt_secret_min_32_characters_for_testing_purposes"
+          JWT_REFRESH_SECRET: "ci_test_jwt_refresh_secret_min_32_characters_for_testing"
+          PII_ENCRYPTION_KEY: "ci_test_pii_encryption_key_32_chars_testing!!"
+          COOKIE_SECRET: "ci_test_cookie_secret_min_32_characters_testing"
+          CSRF_SECRET: "ci_test_csrf_secret_min_32_characters_testing"
+          REDIS_ENABLED: "false"
 
       - name: End-to-End tests — API
         run: pnpm --filter api test:e2e
         env:
           NODE_ENV: test
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/jest_test
+          JWT_SECRET: "ci_test_jwt_secret_min_32_characters_for_testing_purposes"
+          JWT_REFRESH_SECRET: "ci_test_jwt_refresh_secret_min_32_characters_for_testing"
+          PII_ENCRYPTION_KEY: "ci_test_pii_encryption_key_32_chars_testing!!"
+          COOKIE_SECRET: "ci_test_cookie_secret_min_32_characters_testing"
+          CSRF_SECRET: "ci_test_csrf_secret_min_32_characters_testing"
+          REDIS_ENABLED: "false"
 
       - name: Live Health Readiness Probe (HTTP smoke test)
         run: |
-          echo "Executing real HTTP readiness probe against /health/ready..."
-          pnpm --filter api exec jest src/modules/health/health.controller.spec.ts --runInBand
+          echo "Building API artifact..."
+          pnpm --filter api run build
+          echo "Launching API daemon in background..."
+          node apps/api/dist/src/main.js &
+          API_PID=$!
+          echo "Polling HTTP readiness probe on http://127.0.0.1:4000/api/v1/health/ready..."
+          for i in {1..30}; do
+            if curl -s -f http://127.0.0.1:4000/api/v1/health/ready; then
+              echo "API is live and ready!"
+              kill $API_PID || true
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "Health probe timed out."
+          kill $API_PID || true
+          exit 1
+        env:
+          PORT: "4000"
+          NODE_ENV: test
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/jest_test
+          JWT_SECRET: "ci_test_jwt_secret_min_32_characters_for_testing_purposes"
+          JWT_REFRESH_SECRET: "ci_test_jwt_refresh_secret_min_32_characters_for_testing"
+          PII_ENCRYPTION_KEY: "ci_test_pii_encryption_key_32_chars_testing!!"
+          REDIS_ENABLED: "false"
 
   web-quality-gates:
     name: Web Quality Gates & Independent Reporting (F-032)

@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { SettlementService, CreateSettlementBatchDto } from './settlement.service';
 import { PrismaService } from '../../../database/prisma.service';
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, ConflictException } from '@nestjs/common';
 import { Decimal } from '@prisma/client/runtime/library';
 
 describe('SettlementService', () => {
@@ -21,12 +21,14 @@ describe('SettlementService', () => {
             invoice: {
               findMany: jest.fn(),
             },
-            commission: {
-              findMany: jest.fn(),
-            },
             settlement: {
               create: jest.fn(),
               count: jest.fn().mockResolvedValue(0),
+              findFirst: jest.fn().mockResolvedValue(null),
+            },
+            commission: {
+              findMany: jest.fn(),
+              updateMany: jest.fn(),
             },
             auditLog: {
               create: jest.fn(),
@@ -159,5 +161,20 @@ describe('SettlementService', () => {
     expect(result.commissionRetained).toBe(0);
     expect(result.netPayable).toBe(0);
     expect(result.policyCount).toBe(0);
+  });
+  it('should throw ConflictException if batch already exists for insurer and period', async () => {
+    const dto: CreateSettlementBatchDto = {
+      insurerName: 'HDFC ERGO',
+      period: '2026-10',
+    };
+
+    jest.spyOn(prisma.settlement, 'findFirst').mockResolvedValue({
+      id: 'existing-batch',
+      batchNumber: 'STL-00000001',
+    } as any);
+
+    await expect(service.createBatch(dto, 'company-1')).rejects.toThrow(
+      ConflictException,
+    );
   });
 });

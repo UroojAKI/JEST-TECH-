@@ -73,12 +73,27 @@ describe('Workflow & Proposal Integration', () => {
       ),
     );
 
-    // Fetch a user from the seeded database
-    const user = await prisma.user.findFirst();
-    if (!user)
-      throw new Error(
-        'No user found in seeded database. Please seed database first.',
-      );
+    // Fetch a user from the seeded database or auto-provision test fixture
+    let user = await prisma.user.findFirst();
+    if (!user) {
+      const company = await prisma.company.create({
+        data: {
+          name: 'E2E Proposal Company',
+          code: `PROPCO_${Date.now()}`,
+          isActive: true,
+        },
+      });
+      user = await prisma.user.create({
+        data: {
+          email: `proposal.e2e.${Date.now()}@example.com`,
+          passwordHash: 'seeded_dummy_hash_for_test',
+          firstName: 'Workflow',
+          lastName: 'Tester',
+          companyId: company.id,
+          status: 'ACTIVE',
+        },
+      });
+    }
     testUserId = user.id;
     testCompanyId = user.companyId;
   });
