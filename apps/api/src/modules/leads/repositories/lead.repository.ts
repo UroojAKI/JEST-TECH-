@@ -155,6 +155,13 @@ export class LeadRepository extends BaseRepository<
     super(prismaService.lead);
   }
 
+  protected override getClient(tx?: TransactionClient): Prisma.LeadDelegate {
+    if (tx) {
+      return (tx.lead || (typeof tx.create === 'function' ? tx : this.prismaService.lead)) as Prisma.LeadDelegate;
+    }
+    return this.prismaService.lead;
+  }
+
   async generateLeadCode(tx?: TransactionClient): Promise<string> {
     const client = tx || this.prismaService;
     try {

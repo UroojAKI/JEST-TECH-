@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { X, ChevronRight, ChevronLeft, CheckCircle2, Loader2, FileText } from 'lucide-react';
 import { toast } from 'sonner';
 import { apiClient } from '../../../lib/api-client';
@@ -30,16 +31,40 @@ export function MotorProposalWizard({ isOpen, quote, onClose, onSuccess }: Props
     quote?.paymentRecord || { status: 'NOT_DONE' },
   );
 
+  const { data: freshQuoteData } = useQuery({
+    queryKey: ['quotation-wizard-detail', quote?.id],
+    queryFn: async () => {
+      const res = await apiClient.get(`/quotations/${quote?.id}`);
+      return res.data?.data || res.data;
+    },
+    enabled: isOpen && !!quote?.id && !quote.id.startsWith('temp-'),
+    refetchInterval: isOpen ? 3000 : false,
+  });
+
   if (!isOpen || !quote) return null;
 
-  const isApprovedForPayment = [
-    'PAYMENT_PENDING',
-    'APPROVED',
-    'PROPOSAL_APPROVED',
-    'CUSTOMER_ACCEPTED',
-    'PAYMENT_UNDER_PROCESS',
-    'READY_FOR_PROPOSAL',
-  ].includes(quote.status) || quote.proposalStatus === 'APPROVED';
+  const currentQuote: SavedMotorQuote = freshQuoteData
+    ? {
+        ...quote,
+        ...freshQuoteData,
+        status:
+          freshQuoteData.status === 'APPROVED' ? 'APPROVED' :
+          freshQuoteData.status === 'ACCEPTED' ? 'ACCEPTED' :
+          freshQuoteData.workflowState === 'PROPOSAL_APPROVED' ? 'APPROVED' :
+          freshQuoteData.status || quote.status,
+        workflowState: freshQuoteData.workflowState || quote.workflowState,
+        totalPremium: Number(freshQuoteData.totalPremium ?? quote.totalPremium ?? 0),
+      }
+    : quote;
+
+  const rawStatus = String(currentQuote.status || '').toUpperCase();
+  const workflowState = String(currentQuote.workflowState || (currentQuote as any)?.motorMetadata?.workflowState || '').toUpperCase();
+  const proposalStatus = String(currentQuote.proposalStatus || (currentQuote as any)?.proposal?.status || '').toUpperCase();
+
+  const isApprovedForPayment =
+    ['APPROVED', 'ACCEPTED', 'CUSTOMER_ACCEPTED', 'PROPOSAL_APPROVED', 'PAYMENT_PENDING', 'PAYMENT_UNDER_PROCESS'].includes(rawStatus) ||
+    ['APPROVED', 'ACCEPTED', 'PROPOSAL_APPROVED'].includes(workflowState) ||
+    proposalStatus === 'APPROVED';
 
   const canProceed = () => {
     if (step === 1) return true;
@@ -47,9 +72,10 @@ export function MotorProposalWizard({ isOpen, quote, onClose, onSuccess }: Props
       if (!isApprovedForPayment) return false;
       if (paymentRecord.status === 'NOT_DONE') return false;
       if (paymentRecord.status === 'PAID') {
+        const amt = paymentRecord.amount ?? currentQuote.totalPremium;
         return Boolean(
-          paymentRecord.amount &&
-            Number(paymentRecord.amount) > 0 &&
+          amt &&
+            Number(amt) > 0 &&
             paymentRecord.referenceNumber?.trim(),
         );
       }
@@ -63,12 +89,19 @@ export function MotorProposalWizard({ isOpen, quote, onClose, onSuccess }: Props
   const handleComplete = async () => {
     setIsSaving(true);
     try {
-      if (quote.id && !quote.id.startsWith('temp-')) {
-        await apiClient.post(`/motor/quotations/${quote.id}/payment`, {
+      if (currentQuote.id && !currentQuote.id.startsWith('temp-')) {
+        const effectiveAmount =
+          paymentRecord.amount !== undefined && paymentRecord.amount !== null
+            ? Number(paymentRecord.amount)
+            : paymentRecord.status === 'PAID'
+              ? Number(currentQuote.totalPremium)
+              : undefined;
+
+        await apiClient.post(`/motor/quotations/${currentQuote.id}/payment`, {
           status: paymentRecord.status,
-          amount: paymentRecord.amount ? Number(paymentRecord.amount) : undefined,
+          amount: effectiveAmount,
           paymentMethod: paymentRecord.paymentMethod,
-          referenceNumber: paymentRecord.referenceNumber,
+          referenceNumber: paymentRecord.referenceNumber?.trim() || undefined,
           notes: paymentRecord.notes,
         });
       }
@@ -79,7 +112,7 @@ export function MotorProposalWizard({ isOpen, quote, onClose, onSuccess }: Props
           ? 'Payment confirmed. The quotation is now waiting for Back Office policy issuance.'
           : 'Payment status recorded.'
       );
-      onSuccess({ ...quote, status: nextStatus });
+      onSuccess({ ...currentQuote, status: nextStatus });
       onClose();
     } catch (e: any) {
       console.error(e);
@@ -101,7 +134,7 @@ export function MotorProposalWizard({ isOpen, quote, onClose, onSuccess }: Props
             <div>
               <h2 className="font-bold text-base text-foreground tracking-tight">Complete Proposal & Payment</h2>
               <p className="text-xs text-muted-foreground font-medium">
-                {quote.customerName || quote.proposerDetails?.customerName || 'Customer'} • {quote.quotationCode} • ₹{quote.totalPremium.toLocaleString('en-IN')}
+                {currentQuote.customerName || currentQuote.proposerDetails?.customerName || 'Customer'} • {currentQuote.quotationCode} • ₹{currentQuote.totalPremium.toLocaleString('en-IN')}
               </p>
             </div>
           </div>
@@ -140,8 +173,8 @@ export function MotorProposalWizard({ isOpen, quote, onClose, onSuccess }: Props
               <div className="space-y-4">
                 <h3 className="text-sm font-bold text-foreground border-b pb-2">Document Checklist</h3>
                 <DocumentChecklist
-                  category={quote.vehicleCategory}
-                  policyType={quote.policyType}
+                  category={currentQuote.vehicleCategory}
+                  policyType={currentQuote.policyType}
                   uploadedDocs={uploadedDocs}
                   onDocChange={setUploadedDocs}
                   quoteFile={quoteFile}
@@ -159,14 +192,15 @@ export function MotorProposalWizard({ isOpen, quote, onClose, onSuccess }: Props
                       ⚠️ Underwriting Approval Required Before Payment
                     </div>
                     <div>
-                      This motor quotation is currently in status <strong>{quote.status}</strong>. Under IRDAI statutory workflow, payment cannot be collected until the proposal is formally approved by underwriting.
+                      This motor quotation is currently in status <strong>{currentQuote.status}</strong>. Under IRDAI statutory workflow, payment cannot be collected until the proposal is formally approved by underwriting.
                     </div>
                   </div>
                 )}
                 <PaymentStatusForm
                   value={paymentRecord}
                   onChange={setPaymentRecord}
-                  totalPremium={quote.totalPremium}
+                  totalPremium={currentQuote.totalPremium}
+                  quotationCode={currentQuote.quotationCode}
                   isApproved={isApprovedForPayment}
                 />
                 <p className="text-xs text-muted-foreground rounded-md border bg-muted/20 p-3">

@@ -317,6 +317,7 @@ export interface SavedMotorQuote {
   policyStartDate?: string;
   policyEndDate?: string;
   status: string;
+  workflowState?: string;
   createdAt: string;
   customerName?: string;
   proposerDetails?: ProposerDetails;

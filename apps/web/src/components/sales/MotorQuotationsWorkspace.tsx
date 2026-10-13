@@ -121,11 +121,16 @@ export function MotorQuotationsWorkspace() {
           idv: Number(item.sumInsured || 0),
           ncbPercentage: Number(item.ncbPercentage || 0),
           status:
+            item.status === 'APPROVED' ? 'APPROVED' :
+            item.status === 'ACCEPTED' ? 'ACCEPTED' :
+            item.status === 'CONVERTED_TO_POLICY' ? 'ISSUED' :
+            item.workflowState === 'PROPOSAL_APPROVED' ? 'APPROVED' :
             item.workflowState === 'PAYMENT_DONE' ? 'PENDING_ISSUANCE' :
             item.workflowState === 'PAYMENT_UNDER_PROCESS' ? 'PAYMENT_UNDER_PROCESS' :
             item.workflowState === 'INSPECTION_REQUIRED' ? 'PENDING_INSPECTION' :
             item.issuanceStatus === 'ISSUED' ? 'ISSUED' :
-            item.motorMetadata?.workflowStatus || item.status || 'DRAFT',
+            item.status || item.motorMetadata?.workflowStatus || 'DRAFT',
+          workflowState: item.workflowState,
           createdAt: item.createdAt || new Date().toISOString(),
           policyStartDate: item.motorMetadata?.policyDetails?.policyStartDate,
           policyEndDate: item.motorMetadata?.policyDetails?.policyEndDate,
@@ -142,6 +147,7 @@ export function MotorQuotationsWorkspace() {
         throw error;
       }
     },
+    refetchInterval: 10_000,
     placeholderData: (prevData) => prevData,
   });
 

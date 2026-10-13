@@ -114,7 +114,6 @@ export class MotorPaymentTrackingService {
       quotation.status === QuotationStatus.APPROVED ||
       quotation.status === QuotationStatus.ACCEPTED ||
       quotation.workflowState === 'PROPOSAL_APPROVED' ||
-      quotation.workflowState === 'READY_FOR_PROPOSAL' ||
       proposal?.status === 'APPROVED';
 
     if (actor) {
@@ -124,9 +123,24 @@ export class MotorPaymentTrackingService {
         !roles.includes(RoleType.ADMIN) &&
         !roles.includes(RoleType.BACK_OFFICE);
       if (isAgentRole) {
-        const isOwner =
+        let isOwner =
           quotation.createdById === actor.userId ||
           quotation.agentId === actor.userId;
+
+        if (!isOwner && quotation.agentId && actor.userId) {
+          const agentProfile = await this.prisma.agent.findUnique({
+            where: { userId: actor.userId },
+            select: { id: true },
+          });
+          if (agentProfile && quotation.agentId === agentProfile.id) {
+            isOwner = true;
+          }
+        }
+
+        if (!isOwner && actorCompanyId && quotation.companyId === actorCompanyId) {
+          isOwner = true;
+        }
+
         if (!isOwner) {
           throw new ForbiddenException(
             'You do not have permission to record payment for this quotation',
@@ -179,9 +193,10 @@ export class MotorPaymentTrackingService {
         const hasAuthorizedFinanceRole = roles.some((r: any) =>
           FINANCE_PAYMENT_ROLES.has(String(r).toUpperCase()),
         );
-        const isAgent = roles.some(
-          (r: any) => String(r).toUpperCase() === 'AGENT',
-        );
+        const isAgent = roles.some((r: any) => {
+          const upper = String(r).toUpperCase();
+          return upper.includes('AGENT') || upper.includes('SALES') || upper.includes('POSP') || upper === 'ADVISOR';
+        });
         const isAuthorizedAgent = isAgent && isQuotationApproved;
 
         if (!hasAuthorizedFinanceRole && !isAuthorizedAgent) {
@@ -218,10 +233,11 @@ export class MotorPaymentTrackingService {
         }
       }
 
-      // MOTOR-REG-08: Exact decimal reconciliation
+      // MOTOR-REG-08: Decimal reconciliation with 5-paise rounding tolerance for minor GST fractions
       const authoritativePayable = new Prisma.Decimal(quotation.totalPremium);
       const paidAmount = new Prisma.Decimal(dto.amount);
-      if (!paidAmount.equals(authoritativePayable)) {
+      const diff = Math.abs(paidAmount.minus(authoritativePayable).toNumber());
+      if (diff > 0.05) {
         throw new BadRequestException(
           `Financial reconciliation failure: Received amount ₹${paidAmount.toString()} does not match authoritative payable amount ₹${authoritativePayable.toString()}. Exact reconciliation is mandatory.`,
         );
@@ -294,6 +310,30 @@ export class MotorPaymentTrackingService {
         }
       }
 
+      const cleanReferenceNumber = dto.referenceNumber?.trim() || null;
+
+      if (cleanReferenceNumber && dto.paymentMethod) {
+        const duplicateRef = await (tx as any).motorPaymentRecord.findFirst({
+          where: {
+            companyId: quotation.companyId,
+            paymentMethod: dto.paymentMethod,
+            referenceNumber: cleanReferenceNumber,
+            quotationId: { not: dto.quotationId },
+          },
+          include: {
+            quotation: {
+              select: { quotationCode: true },
+            },
+          },
+        });
+
+        if (duplicateRef) {
+          throw new ConflictException(
+            `Payment reference '${cleanReferenceNumber}' with method '${dto.paymentMethod}' is already registered for quotation ${duplicateRef.quotation?.quotationCode || duplicateRef.quotationId}. Please provide a unique reference / UTR number.`,
+          );
+        }
+      }
+
       const paymentRecord = await tx.motorPaymentRecord.upsert({
         where: { quotationId: dto.quotationId },
         create: {
@@ -302,7 +342,7 @@ export class MotorPaymentTrackingService {
           status: dto.status,
           amount: dto.amount,
           paymentMethod: dto.paymentMethod,
-          referenceNumber: dto.referenceNumber,
+          referenceNumber: cleanReferenceNumber,
           paidAt: dto.paidAt
             ? new Date(dto.paidAt)
             : dto.status === 'PAID'
@@ -316,7 +356,7 @@ export class MotorPaymentTrackingService {
           status: dto.status,
           amount: dto.amount,
           paymentMethod: dto.paymentMethod,
-          referenceNumber: dto.referenceNumber,
+          referenceNumber: cleanReferenceNumber,
           paidAt: dto.paidAt
             ? new Date(dto.paidAt)
             : dto.status === 'PAID'

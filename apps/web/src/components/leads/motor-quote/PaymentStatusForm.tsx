@@ -9,6 +9,7 @@ interface Props {
   value: PaymentRecord;
   onChange: (v: PaymentRecord) => void;
   totalPremium?: number;
+  quotationCode?: string;
   userRole?: string;
   isApproved?: boolean;
 }
@@ -21,7 +22,7 @@ const PAYMENT_OPTIONS: Array<{ value: PaymentTrackingStatus; label: string; desc
 
 const PAYMENT_METHODS = ['Cash', 'Cheque', 'NEFT/RTGS', 'UPI', 'Credit Card', 'Debit Card', 'Online Banking', 'Other'];
 
-export function PaymentStatusForm({ value, onChange, totalPremium, userRole, isApproved }: Props) {
+export function PaymentStatusForm({ value, onChange, totalPremium, quotationCode, userRole, isApproved }: Props) {
   const authUser = useAuthStore((s) => s.user);
   const activeRole = userRole || authUser?.role;
   const roleUpper = String(activeRole || '').toUpperCase();
@@ -67,7 +68,13 @@ export function PaymentStatusForm({ value, onChange, totalPremium, userRole, isA
           <button
             key={v}
             type="button"
-            onClick={() => update({ status: v })}
+            onClick={() => {
+              const newAmount =
+                v === 'PAID' && !value.amount && totalPremium
+                  ? totalPremium
+                  : value.amount;
+              update({ status: v, amount: newAmount });
+            }}
             className={`w-full flex items-center gap-4 p-4 rounded-2xl border text-left transition-all ${value.status === v ? `bg-${color}-500/10 border-${color}-400 text-${color}-700` : 'bg-background hover:bg-accent border-border'}`}
           >
             <div className={value.status === v ? `text-${color}-600` : 'text-muted-foreground'}>{icon}</div>
@@ -99,19 +106,47 @@ export function PaymentStatusForm({ value, onChange, totalPremium, userRole, isA
             )}
             <div>
               <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide">Payment Method</label>
-              <select value={value.paymentMethod || ''} onChange={(e) => update({ paymentMethod: e.target.value })} className="w-full mt-1 px-3 py-2 rounded-xl border bg-background text-sm">
+              <select
+                value={value.paymentMethod || ''}
+                onChange={(e) => {
+                  const m = e.target.value;
+                  const autoRef =
+                    m === 'Cash' && (!value.referenceNumber || !value.referenceNumber.trim())
+                      ? `REC-${quotationCode || Date.now().toString().slice(-6)}`
+                      : value.referenceNumber;
+                  update({ paymentMethod: m, referenceNumber: autoRef });
+                }}
+                className="w-full mt-1 px-3 py-2 rounded-xl border bg-background text-sm"
+              >
                 <option value="">Select Method</option>
                 {PAYMENT_METHODS.map(m => <option key={m} value={m}>{m}</option>)}
               </select>
             </div>
             <div>
-              <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide">Reference / Cheque / UTR No.</label>
-              <input type="text" value={value.referenceNumber || ''} onChange={(e) => update({ referenceNumber: e.target.value })} placeholder="Transaction reference" className="w-full mt-1 px-3 py-2 rounded-xl border bg-background text-sm" />
+              <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide">
+                Reference / Cheque / UTR No. {value.status === 'PAID' && <span className="text-rose-500">*</span>}
+              </label>
+              <input
+                type="text"
+                required={value.status === 'PAID'}
+                value={value.referenceNumber || ''}
+                onChange={(e) => update({ referenceNumber: e.target.value })}
+                placeholder={value.paymentMethod === 'Cash' ? 'e.g. Cash Receipt No.' : 'Unique Bank UTR / Cheque No.'}
+                className="w-full mt-1 px-3 py-2 rounded-xl border bg-background text-sm"
+              />
+              <span className="text-[10px] text-muted-foreground mt-0.5 block">
+                Must be a unique transaction / UTR reference.
+              </span>
             </div>
             {value.status === 'PAID' && (
               <div>
                 <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide">Payment Date</label>
-                <input type="date" value={value.paidAt || ''} onChange={(e) => update({ paidAt: e.target.value })} className="w-full mt-1 px-3 py-2 rounded-xl border bg-background text-sm" />
+                <input
+                  type="date"
+                  value={value.paidAt || new Date().toISOString().split('T')[0]}
+                  onChange={(e) => update({ paidAt: e.target.value })}
+                  className="w-full mt-1 px-3 py-2 rounded-xl border bg-background text-sm"
+                />
               </div>
             )}
             <div className="sm:col-span-2">

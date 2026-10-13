@@ -91,6 +91,13 @@ export class AccountRepository extends BaseRepository<
     super(prismaService.account);
   }
 
+  protected override getClient(tx?: TransactionClient): Prisma.AccountDelegate {
+    if (tx) {
+      return (tx.account || (typeof tx.create === 'function' ? tx : this.prismaService.account)) as Prisma.AccountDelegate;
+    }
+    return this.prismaService.account;
+  }
+
   async generateAccountCode(tx?: TransactionClient): Promise<string> {
     try {
       const result = await (tx || this.prismaService).$queryRaw<
