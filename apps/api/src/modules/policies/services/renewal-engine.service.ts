@@ -330,7 +330,13 @@ export class RenewalEngineService {
     const policies = await this.prisma.policy.findMany({
       where: {
         ...scope,
-        status: { in: [PolicyStatus.ACTIVE, PolicyStatus.PENDING_RENEWAL] },
+        status: {
+          in: [
+            PolicyStatus.ACTIVE,
+            PolicyStatus.PENDING_RENEWAL,
+            PolicyStatus.LAPSED,
+          ],
+        },
         OR: [
           { expiryDate: { lte: sixtyDaysFromNow } },
           { odExpiryDate: { lte: sixtyDaysFromNow } },

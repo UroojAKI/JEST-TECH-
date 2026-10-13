@@ -495,7 +495,111 @@ export class CustomersService {
       }
     }
 
-    return customer;
+    // Aggregate canonical quotations, policies, claims, and leads across customerId and contactId
+    let canonicalQuotations: any[] = [];
+    const quotationOrConditions: any[] = [];
+    if (customer.contactId) {
+      quotationOrConditions.push({ contactId: customer.contactId });
+    }
+    quotationOrConditions.push({ lead: { customerId: customer.id } });
+
+    if (this.prisma.quotation?.findMany && quotationOrConditions.length > 0) {
+      canonicalQuotations = await this.prisma.quotation.findMany({
+        where: {
+          companyId,
+          deletedAt: null,
+          OR: quotationOrConditions,
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 20,
+      });
+    }
+
+    let canonicalPolicies = customer.policies || [];
+    if (customer.contactId && this.prisma.policy?.findMany) {
+      const contactPolicies = await this.prisma.policy.findMany({
+        where: {
+          companyId,
+          contactId: customer.contactId,
+          deletedAt: null,
+          id: { notIn: canonicalPolicies.map((p: any) => p.id) },
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 20,
+      });
+      canonicalPolicies = [...canonicalPolicies, ...contactPolicies];
+    }
+
+    let canonicalClaims = customer.claims || [];
+    if (this.prisma.claim?.findMany) {
+      const claimWhereOr: any[] = [];
+      if (customer.contactId) {
+        claimWhereOr.push({ contactId: customer.contactId });
+      }
+      if (canonicalPolicies.length > 0) {
+        claimWhereOr.push({
+          policyId: { in: canonicalPolicies.map((p: any) => p.id) },
+        });
+      }
+      if (claimWhereOr.length > 0) {
+        const extraClaims = await this.prisma.claim.findMany({
+          where: {
+            companyId,
+            deletedAt: null,
+            OR: claimWhereOr,
+            id: { notIn: canonicalClaims.map((c: any) => c.id) },
+          },
+          orderBy: { createdAt: 'desc' },
+          take: 20,
+        });
+        canonicalClaims = [...canonicalClaims, ...extraClaims];
+      }
+    }
+
+    let canonicalLeads = customer.leads || [];
+    if (customer.contactId && this.prisma.lead?.findMany) {
+      const extraLeads = await this.prisma.lead.findMany({
+        where: {
+          companyId,
+          contactId: customer.contactId,
+          deletedAt: null,
+          id: { notIn: canonicalLeads.map((l: any) => l.id) },
+        },
+        orderBy: { updatedAt: 'desc' },
+        take: 20,
+      });
+      canonicalLeads = [...canonicalLeads, ...extraLeads];
+    }
+
+    return {
+      ...customer,
+      quotations:
+        canonicalQuotations.length > 0
+          ? canonicalQuotations
+          : customer.quotations,
+      policies: canonicalPolicies,
+      claims: canonicalClaims,
+      leads: canonicalLeads,
+      _count: {
+        ...customer._count,
+        quotations:
+          canonicalQuotations.length > 0
+            ? canonicalQuotations.length
+            : customer._count?.quotations || 0,
+        policies: Math.max(
+          canonicalPolicies.length,
+          customer._count?.policies || 0,
+        ),
+        claims: Math.max(
+          canonicalClaims.length,
+          customer._count?.claims || 0,
+        ),
+        leads: Math.max(
+          canonicalLeads.length,
+          customer._count?.leads || 0,
+        ),
+      },
+    };
   }
 
   async update(id: string, dto: UpdateCustomerDto, user: RequestUser) {

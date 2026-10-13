@@ -395,6 +395,86 @@ export class MotorPaymentTrackingService {
         });
       }
 
+      // Synchronize verified PAID payment with authoritative double-entry finance ledger (Invoice, Receipt, Allocation)
+      if (dto.status === 'PAID' && dto.amount && tx.invoice?.findFirst) {
+        const paidAmountDec = new Prisma.Decimal(dto.amount);
+        const entityId = (quotation as any).policy?.id || dto.quotationId;
+
+        let invoice = await tx.invoice.findFirst({
+          where: {
+            entityId: {
+              in: [
+                dto.quotationId,
+                ...((quotation as any).policy?.id ? [(quotation as any).policy.id] : []),
+              ],
+            },
+            entityType: 'POLICY',
+          },
+        });
+
+        if (!invoice) {
+          const invoiceCount = await tx.invoice.count();
+          const invoiceNum = `INV-${Date.now().toString().slice(-6)}-${(invoiceCount + 1).toString().padStart(4, '0')}`;
+          invoice = await tx.invoice.create({
+            data: {
+              invoiceNum,
+              date: new Date(),
+              dueDate: new Date(),
+              totalAmount: paidAmountDec,
+              status: 'PAID',
+              entityId,
+              entityType: 'POLICY',
+            },
+          });
+        } else if (invoice.status !== 'PAID') {
+          invoice = await tx.invoice.update({
+            where: { id: invoice.id },
+            data: { status: 'PAID' },
+          });
+        }
+
+        if (tx.paymentAllocation?.findMany && tx.receipt?.create) {
+          const existingAllocations = await tx.paymentAllocation.findMany({
+            where: { invoiceId: invoice.id },
+          });
+
+          const totalAllocated = existingAllocations.reduce(
+            (acc: any, a: any) => acc.add(a.amount),
+            new Prisma.Decimal(0),
+          );
+
+          if (totalAllocated.lt(paidAmountDec)) {
+            const remainingToAllocate = paidAmountDec.sub(totalAllocated);
+            const receiptCount = await tx.receipt.count();
+            const receiptNum = `RCP-${Date.now().toString().slice(-6)}-${(receiptCount + 1).toString().padStart(4, '0')}`;
+            const customerId =
+              quotation.contactId ||
+              (quotation.lead as any)?.contactId ||
+              quotation.id;
+
+            const receipt = await tx.receipt.create({
+              data: {
+                receiptNum,
+                date: dto.paidAt ? new Date(dto.paidAt) : new Date(),
+                amount: remainingToAllocate,
+                paymentMode: dto.paymentMethod || 'BANK_TRANSFER',
+                reference: dto.referenceNumber || null,
+                status: 'CLEARED',
+                customerId,
+              },
+            });
+
+            await tx.paymentAllocation.create({
+              data: {
+                receiptId: receipt.id,
+                invoiceId: invoice.id,
+                amount: remainingToAllocate,
+              },
+            });
+          }
+        }
+      }
+
       if (dto.idempotencyKey && requestHash) {
         const actorId = dto.recordedById || 'SYSTEM';
         const companyId = quotation.companyId;

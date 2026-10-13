@@ -35,6 +35,7 @@ interface Props {
   isOpen: boolean;
   leadId?: string;
   contactId?: string;
+  customerId?: string;
   caseId?: string;
   initialCategory?: VehicleCategory | null;
   cloneQuoteData?: {
@@ -193,7 +194,7 @@ function computeEligibilityContext(
 }
 
 
-export function MotorQuoteWizard({ isOpen, leadId, contactId, caseId, initialCategory, cloneQuoteData, leadContact, onClose, onSaved }: Props) {
+export function MotorQuoteWizard({ isOpen, leadId, contactId, customerId, caseId, initialCategory, cloneQuoteData, leadContact, onClose, onSaved }: Props) {
   const [step, setStep] = useState(1);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -644,6 +645,7 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, caseId, initialCat
         insurerName: insurerName || 'Partner Insurer',
         leadId: leadId && leadId !== 'new' ? leadId : undefined,
         contactId: contactId || undefined,
+        customerId: customerId || undefined,
         agentId: isManualAgent ? undefined : (selectedAgentId || undefined),
         manualAgent: isManualAgent ? {
           isManual: true,

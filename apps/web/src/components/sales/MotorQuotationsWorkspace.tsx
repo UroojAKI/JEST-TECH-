@@ -20,6 +20,7 @@ export function MotorQuotationsWorkspace() {
   const searchParams = useSearchParams();
   const leadIdParam = searchParams?.get('leadId') || undefined;
   const contactIdParam = searchParams?.get('contactId') || undefined;
+  const customerIdParam = searchParams?.get('customerId') || undefined;
   const typeParam = searchParams?.get('type') || undefined;
   const openQuoteParam = searchParams?.get('openQuote');
   const [leadFilterActive, setLeadFilterActive] = useState<boolean>(!!leadIdParam);
@@ -173,9 +174,23 @@ export function MotorQuotationsWorkspace() {
     future45Days.setDate(today.getDate() + 45);
 
     for (const q of matched) {
-      if (q.status === 'ISSUED' && q.policyEndDate) {
-        const endDate = new Date(q.policyEndDate);
-        if (endDate >= today && endDate <= future45Days) {
+      const qAny = q as any;
+      const isPolicyIssued =
+        qAny.issuanceStatus === 'ISSUED' ||
+        q.status === 'CONVERTED_TO_POLICY' ||
+        qAny.workflowState === 'ACTIVE' ||
+        qAny.workflowState === 'POLICY_ISSUED' ||
+        Boolean(qAny.policy);
+
+      const effectiveExpiry =
+        qAny.policyEndDate ||
+        qAny.policy?.expiryDate ||
+        qAny.policy?.odExpiryDate ||
+        qAny.expiryDate;
+
+      if (isPolicyIssued && effectiveExpiry) {
+        const endDate = new Date(effectiveExpiry);
+        if (!isNaN(endDate.getTime()) && endDate <= future45Days) {
           renewals.push(q);
           continue;
         }
@@ -392,6 +407,7 @@ export function MotorQuotationsWorkspace() {
         isOpen={isWizardOpen}
         leadId={leadIdParam}
         contactId={contactIdParam}
+        customerId={customerIdParam}
         leadContact={leadContact}
         initialCategory={initialCategory || undefined}
         cloneQuoteData={cloneQuoteData}

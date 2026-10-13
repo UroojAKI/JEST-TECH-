@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-13T11:26:24.026Z",
+  "generatedAt": "2026-10-13T12:17:51.214Z",
   "mismatches": [],
   "uncalledBackendRoutes": [
     {
@@ -273,13 +273,6 @@
       "path": "/bi/kpi/seed",
       "controller": "BiController",
       "file": "apps/api/src/modules/business-intelligence/controllers/bi.controller.ts",
-      "classification": "UNUSED"
-    },
-    {
-      "method": "PATCH",
-      "path": "/claims/:param",
-      "controller": "ClaimsController",
-      "file": "apps/api/src/modules/claims/controllers/claims.controller.ts",
       "classification": "UNUSED"
     },
     {
@@ -892,6 +885,13 @@
       "classification": "UNUSED"
     },
     {
+      "method": "POST",
+      "path": "/motor-quotations/:param/accept",
+      "controller": "MotorQuotationsController",
+      "file": "apps/api/src/modules/motor-quotations/motor-quotations.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
       "method": "GET",
       "path": "/organization/departments/:param",
       "controller": "OrganizationController",
@@ -1271,8 +1271,8 @@
     }
   ],
   "summary": {
-    "totalFrontendCalls": 301,
-    "matched": 301,
+    "totalFrontendCalls": 302,
+    "matched": 302,
     "unmatched": 0,
     "uncalledBackend": 181,
     "uncalledByClassification": {

@@ -263,7 +263,17 @@ export class MotorPolicyIssuanceService {
         }
       }
 
-      // Gate 4: Proposal Approval Gate
+      // Gate 4: Customer Acceptance & Proposal Approval Gate
+      if (
+        quote.status === 'DRAFT' ||
+        quote.status === 'REJECTED' ||
+        quote.status === 'EXPIRED'
+      ) {
+        throw new ConflictException(
+          `Policy issuance blocked: Quotation must be accepted before issuance (Current status: ${quote.status}).`,
+        );
+      }
+
       if (quote.proposal && quote.proposal.status !== 'APPROVED') {
         throw new ConflictException(
           `Policy issuance blocked: Insurance proposal has not been approved (Current status: ${quote.proposal.status}).`,
@@ -392,6 +402,18 @@ export class MotorPolicyIssuanceService {
       const initialPolicyStatus = isEffectiveImmediately ? 'ACTIVE' : 'ISSUED';
       const finalWorkflowState = isEffectiveImmediately ? 'ACTIVE' : 'POLICY_ISSUED';
 
+      // Auto-resolve customerId from quote or contact migration link
+      let customerId = (quote as any).customerId;
+      if (!customerId && quote.contactId && tx.customer?.findFirst) {
+        const customer = await tx.customer.findFirst({
+          where: { contactId: quote.contactId },
+          select: { id: true },
+        });
+        if (customer) {
+          customerId = customer.id;
+        }
+      }
+
       // ─── Create Policy with Concurrency Handling (P2002 -> 409) ───────────
       let policy: any;
       try {
@@ -402,6 +424,7 @@ export class MotorPolicyIssuanceService {
             actualPolicyNumber: policyNumber,
             quotationId: quote.id,
             contactId: quote.contactId,
+            customerId: customerId || undefined,
             accountId: quote.accountId || undefined,
             status: initialPolicyStatus as any,
             premiumAmount: quote.totalPremium,
@@ -428,6 +451,14 @@ export class MotorPolicyIssuanceService {
             updatedById: actorId,
           },
         });
+
+        // Link any pre-issued quotation invoices directly to the new policy
+        if (tx.invoice?.updateMany) {
+          await tx.invoice.updateMany({
+            where: { entityId: quote.id, entityType: 'POLICY' },
+            data: { entityId: policy.id },
+          });
+        }
       } catch (err: any) {
         if (
           err instanceof Prisma.PrismaClientKnownRequestError &&

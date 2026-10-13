@@ -72,7 +72,7 @@ export class Customer360Service {
   ) {
     const companyId = actor?.companyId || actor?.organizationId;
 
-    const contact = await this.prisma.contact.findFirst({
+    let contact = await this.prisma.contact.findFirst({
       where: {
         id: contactId,
         ...(companyId ? { companyId } : {}),
@@ -86,6 +86,32 @@ export class Customer360Service {
         customer: { select: { id: true, companyId: true } },
       },
     });
+
+    if (!contact && this.prisma.customer?.findFirst) {
+      const customerRecord = await this.prisma.customer.findFirst({
+        where: {
+          id: contactId,
+          ...(companyId ? { companyId } : {}),
+          deletedAt: null,
+        },
+      });
+      if (customerRecord?.contactId) {
+        contact = await this.prisma.contact.findFirst({
+          where: {
+            id: customerRecord.contactId,
+            ...(companyId ? { companyId } : {}),
+            deletedAt: null,
+          },
+          include: {
+            analytics: true,
+            familyMembers: true,
+            createdBy: true,
+            branch: true,
+            customer: { select: { id: true, companyId: true } },
+          },
+        });
+      }
+    }
 
     if (!contact) {
       throw new NotFoundException('Customer not found');
@@ -111,7 +137,7 @@ export class Customer360Service {
       await Promise.all([
         this.prisma.policy.findMany({
           where: {
-            contactId,
+            contactId: contact.id,
             deletedAt: null,
             ...(companyId ? { companyId } : {}),
             ...(agentId && actor?.userId
@@ -149,7 +175,7 @@ export class Customer360Service {
         }),
         this.prisma.quotation.findMany({
           where: {
-            contactId,
+            contactId: contact.id,
             deletedAt: null,
             ...(companyId ? { companyId } : {}),
             ...(agentId && actor?.userId
@@ -187,7 +213,7 @@ export class Customer360Service {
         }),
         this.prisma.claim.findMany({
           where: {
-            contactId,
+            contactId: contact.id,
             deletedAt: null,
             ...(companyId ? { companyId } : {}),
           ...(agentId && actor?.userId
@@ -223,13 +249,13 @@ export class Customer360Service {
           take: 50,
         }),
         this.prisma.communicationLog.findMany({
-          where: { contactId },
+          where: { contactId: contact.id },
           orderBy: { createdAt: 'desc' },
           take: 50,
         }),
         this.prisma.lead.findMany({
           where: {
-            contactId,
+            contactId: contact.id,
             deletedAt: null,
             ...(companyId ? { companyId } : {}),
             ...(agentId && actor?.userId
@@ -248,7 +274,7 @@ export class Customer360Service {
         }),
         this.prisma.document.findMany({
           where: {
-            entityId: contactId,
+            entityId: contact.id,
             entityType: { in: ['CONTACT', 'CUSTOMER'] },
             deletedAt: null,
             ...(agentId && actor?.userId

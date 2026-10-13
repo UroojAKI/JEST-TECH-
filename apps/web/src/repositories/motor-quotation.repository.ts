@@ -94,7 +94,13 @@ export const motorQuotationRepository = {
   },
 
   async acceptQuotation(id: string): Promise<{ success: boolean; message: string; quotationId: string; nextStep: string }> {
-    const response = await apiClient.post(`/motor-quotations/${id}/accept`);
-    return response.data;
+    const response = await apiClient.post(`/quotations/${id}/accept`);
+    return {
+      success: true,
+      message: 'Quotation accepted by customer! Opportunity qualified.',
+      quotationId: id,
+      nextStep: 'PROPOSAL',
+      ...response.data,
+    };
   },
 };

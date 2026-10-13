@@ -199,6 +199,22 @@ export class ReportClaimService {
     const claimNumber = await this.claimRepository.generateClaimNumber();
 
     const companyId = policy.companyId || (actorContext as any)?.companyId;
+
+    let resolvedCustomerId = policy.customerId;
+    if (!resolvedCustomerId && policy.contactId && this.prisma?.customer?.findFirst) {
+      const customer = await this.prisma.customer.findFirst({
+        where: {
+          companyId,
+          contactId: policy.contactId,
+          deletedAt: null,
+        },
+        select: { id: true },
+      });
+      if (customer) {
+        resolvedCustomerId = customer.id;
+      }
+    }
+
     const claimData: Prisma.ClaimCreateInput = {
       claimNumber,
       status: ClaimStatus.REPORTED,
@@ -211,6 +227,10 @@ export class ReportClaimService {
       createdBy: { connect: { id: createdById } },
       updatedBy: { connect: { id: createdById } },
     };
+
+    if (resolvedCustomerId) {
+      claimData.customer = { connect: { id: resolvedCustomerId } };
+    }
 
     if (policy.agentId) {
       claimData.agent = { connect: { id: policy.agentId } };
