@@ -328,45 +328,6 @@ export class RenewalEngineService {
     const skip = (page - 1) * limit;
     const scope = await this.buildPolicyScope(effectiveActor);
 
-    // Dynamic date filter based on urgency parameter
-    let dateFilter: any = {};
-    if (params?.urgency === 'CRITICAL') {
-      const d = new Date();
-      d.setDate(d.getDate() + 7);
-      dateFilter = {
-        OR: [
-          { expiryDate: { lte: d } },
-          { odExpiryDate: { lte: d } },
-        ],
-      };
-    } else if (params?.urgency === 'HIGH') {
-      const d = new Date();
-      d.setDate(d.getDate() + 15);
-      dateFilter = {
-        OR: [
-          { expiryDate: { lte: d } },
-          { odExpiryDate: { lte: d } },
-        ],
-      };
-    } else if (params?.urgency === 'MEDIUM') {
-      const d = new Date();
-      d.setDate(d.getDate() + 30);
-      dateFilter = {
-        OR: [
-          { expiryDate: { lte: d } },
-          { odExpiryDate: { lte: d } },
-        ],
-      };
-    } else if (params?.urgency === 'EXPIRED') {
-      const now = new Date();
-      dateFilter = {
-        OR: [
-          { expiryDate: { lt: now } },
-          { odExpiryDate: { lt: now } },
-        ],
-      };
-    }
-
     const policies = await this.prisma.policy.findMany({
       where: {
         ...scope,
@@ -378,7 +339,6 @@ export class RenewalEngineService {
             PolicyStatus.LAPSED,
           ],
         },
-        ...dateFilter,
         deletedAt: null,
       },
       include: {
@@ -443,15 +403,50 @@ export class RenewalEngineService {
         insurerName: p.quotation?.insurerName || 'HDFC ERGO',
         escalated:
           p.renewalTasks?.[0]?.priority === 'CRITICAL' ||
-          p.renewalTasks?.[0]?.priority === 'HIGH',
+          (p.renewalTasks?.[0]?.priority === 'HIGH' && daysRemaining <= 0),
       };
 
-      if (
-        params?.urgency &&
-        params.urgency !== 'ALL' &&
-        item.urgency !== params.urgency
-      )
-        continue;
+      if (params?.urgency && params.urgency !== 'ALL') {
+        const u = params.urgency.toUpperCase();
+        if (
+          u === '7_DAYS' ||
+          u === 'CRITICAL' ||
+          u === '<7' ||
+          u === '<7DAYS' ||
+          u === 'LE_7'
+        ) {
+          if (daysRemaining < 0 || daysRemaining > 7) continue;
+        } else if (
+          u === '15_DAYS' ||
+          u === 'HIGH' ||
+          u === '<15' ||
+          u === '<15DAYS' ||
+          u === 'LE_15'
+        ) {
+          if (daysRemaining < 0 || daysRemaining > 15) continue;
+        } else if (
+          u === '30_DAYS' ||
+          u === 'MEDIUM' ||
+          u === '<30' ||
+          u === '<30DAYS' ||
+          u === 'LE_30'
+        ) {
+          if (daysRemaining < 0 || daysRemaining > 30) continue;
+        } else if (
+          u === 'GT_30' ||
+          u === 'LOW' ||
+          u === '>30' ||
+          u === '>30DAYS'
+        ) {
+          if (daysRemaining <= 30) continue;
+        } else if (u === 'OVERDUE' || u === 'EXPIRED') {
+          if (daysRemaining >= 0) continue;
+        } else if (u === 'ESCALATED') {
+          if (!item.escalated) continue;
+        } else if (item.urgency !== params.urgency) {
+          continue;
+        }
+      }
       if (params?.search?.trim()) {
         const q = params.search.toLowerCase().trim();
         if (

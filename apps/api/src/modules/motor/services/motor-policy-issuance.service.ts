@@ -742,7 +742,7 @@ export class MotorPolicyIssuanceService {
             dueDate: renewalDueDate,
             offsetDays: 30,
             status: 'PENDING',
-            priority: 'HIGH' as any,
+            priority: 'MEDIUM' as any,
           },
           update: {
             dueDate: renewalDueDate,

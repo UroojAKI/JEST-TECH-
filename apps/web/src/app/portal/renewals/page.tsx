@@ -91,6 +91,19 @@ export default function RenewalManagementPage() {
         .sort((a: any, b: any) => a.rawExpiry - b.rawExpiry)
     : [];
 
+  const filteredRenewalsList = React.useMemo(() => {
+    const now = Date.now();
+    return renewalsList.filter((r: any) => {
+      const days = Math.ceil((r.rawExpiry - now) / 86400000);
+      if (activeTab === 'DUE_TODAY') return days >= 0 && days <= 1;
+      if (activeTab === '7_DAYS') return days >= 0 && days <= 7;
+      if (activeTab === '15_DAYS') return days >= 0 && days <= 15;
+      if (activeTab === '30_DAYS') return days >= 0 && days <= 30;
+      if (activeTab === 'OVERDUE') return days < 0;
+      return true;
+    });
+  }, [renewalsList, activeTab]);
+
   return (
     <AppShell>
       <div className="space-y-6">
@@ -209,14 +222,14 @@ export default function RenewalManagementPage() {
                 </tr>
               </thead>
               <tbody className="divide-y text-xs font-semibold">
-                {renewalsList.length === 0 ? (
+                {filteredRenewalsList.length === 0 ? (
                   <tr>
                     <td colSpan={7} className="py-8 text-center text-muted-foreground font-normal">
                       No upcoming renewal tasks scheduled. All policies active.
                     </td>
                   </tr>
                 ) : (
-                  renewalsList.map((r: any) => (
+                  filteredRenewalsList.map((r: any) => (
                     <tr key={r.id} className="hover:bg-muted/10 transition-colors">
                       <td className="py-3 px-3">
                       <span

@@ -334,7 +334,7 @@ export class IssuePolicyService {
           dueDate: renewalDueDate,
           offsetDays: 30,
           status: 'PENDING',
-          priority: NotificationPriority.HIGH,
+          priority: NotificationPriority.MEDIUM,
         },
       });
 

@@ -210,6 +210,92 @@ describe('RenewalEngineService (Iteration 10)', () => {
       expect(result.data[2].daysRemaining).toBeGreaterThan(300);
       expect(result.data[2].urgency).toBe('LOW');
     });
+
+    it('should filter queue items by < 7 days and < 15 days correctly', async () => {
+      const now = new Date();
+      const in5Days = new Date(now.getTime() + 5 * 86400000);
+      const in12Days = new Date(now.getTime() + 12 * 86400000);
+      const in25Days = new Date(now.getTime() + 25 * 86400000);
+
+      const mockPolicies = [
+        {
+          id: 'pol-5',
+          policyNumber: 'POL-5',
+          expiryDate: in5Days,
+          contact: { firstName: 'Five' },
+          claims: [],
+          quotation: { ncbPercentage: 20 },
+          renewalTasks: [],
+        },
+        {
+          id: 'pol-12',
+          policyNumber: 'POL-12',
+          expiryDate: in12Days,
+          contact: { firstName: 'Twelve' },
+          claims: [],
+          quotation: { ncbPercentage: 20 },
+          renewalTasks: [],
+        },
+        {
+          id: 'pol-25',
+          policyNumber: 'POL-25',
+          expiryDate: in25Days,
+          contact: { firstName: 'TwentyFive' },
+          claims: [],
+          quotation: { ncbPercentage: 20 },
+          renewalTasks: [],
+        },
+      ];
+
+      prisma.policy.findMany.mockResolvedValue(mockPolicies);
+
+      // Filter < 7 days
+      const result7 = await service.getRenewalQueue(undefined, { urgency: '7_DAYS' });
+      expect(result7.data).toHaveLength(1);
+      expect(result7.data[0].policyNumber).toBe('POL-5');
+
+      // Filter < 15 days (includes 5 days and 12 days)
+      const result15 = await service.getRenewalQueue(undefined, { urgency: '15_DAYS' });
+      expect(result15.data).toHaveLength(2);
+      expect(result15.data.map((p: any) => p.policyNumber)).toEqual(['POL-5', 'POL-12']);
+    });
+
+    it('should not mark fresh policies as escalated unless priority is CRITICAL', async () => {
+      const now = new Date();
+      const in364Days = new Date(now.getTime() + 364 * 86400000);
+
+      const mockPolicies = [
+        {
+          id: 'pol-fresh',
+          policyNumber: 'POL-FRESH',
+          expiryDate: in364Days,
+          contact: { firstName: 'Fresh' },
+          claims: [],
+          quotation: { ncbPercentage: 20 },
+          // Even if task has HIGH priority, it's not overdue and not CRITICAL
+          renewalTasks: [{ priority: 'HIGH' }],
+        },
+        {
+          id: 'pol-escalated',
+          policyNumber: 'POL-ESCALATED',
+          expiryDate: in364Days,
+          contact: { firstName: 'Escalated' },
+          claims: [],
+          quotation: { ncbPercentage: 20 },
+          // Explicitly escalated
+          renewalTasks: [{ priority: 'CRITICAL' }],
+        },
+      ];
+
+      prisma.policy.findMany.mockResolvedValue(mockPolicies);
+
+      const result = await service.getRenewalQueue();
+      const freshItem = result.data.find((p: any) => p.policyNumber === 'POL-FRESH');
+      const escalatedItem = result.data.find((p: any) => p.policyNumber === 'POL-ESCALATED');
+
+      expect(freshItem?.escalated).toBe(false);
+      expect(escalatedItem?.escalated).toBe(true);
+    });
   });
 
   describe('calculateStatutoryDepreciation & calculateRevisedIdv', () => {
