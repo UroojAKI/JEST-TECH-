@@ -97,13 +97,40 @@ export class MotorPolicyIssuanceService {
       }
 
       // Maker-Checker Separation of Duties: Quotation creator/agent cannot issue their own policy
-      if (
-        (quote.createdById && quote.createdById === actorId) ||
-        (quote.agentId && quote.agentId === actorId)
-      ) {
-        throw new ForbiddenException(
-          'Maker-checker violation: Quotation creator or assigned sales agent cannot issue policies for their own quotations.',
+      const isAdmin =
+        actor.role === RoleType.ADMIN ||
+        (actor as any).role === 'ADMIN';
+      if (!isAdmin) {
+        // Sales agents can never issue policies for quotations assigned to them
+        if (quote.agentId && quote.agentId === actorId) {
+          throw new ForbiddenException(
+            'Maker-checker violation: Assigned sales agent cannot issue policies for their own quotations.',
+          );
+        }
+
+        const isBackOffice =
+          actor.role === RoleType.BACK_OFFICE ||
+          (actor as any).role === 'BACK_OFFICE';
+
+        // An independent sales agent was assigned to this quotation, and Back Office is acting as checker
+        const isBackOfficeWithIndependentAgent =
+          isBackOffice && quote.agentId && quote.agentId !== actorId;
+
+        // Or Back Office / Ops is performing offline manual policy entry with payment confirmation
+        const isManualEntryWithConfirmation = Boolean(
+          isBackOffice && dto.actualPolicyNumber && dto.confirmPaymentReceived,
         );
+
+        if (
+          quote.createdById &&
+          quote.createdById === actorId &&
+          !isBackOfficeWithIndependentAgent &&
+          !isManualEntryWithConfirmation
+        ) {
+          throw new ForbiddenException(
+            'Maker-checker violation: Quotation creator or assigned sales agent cannot issue policies for their own quotations.',
+          );
+        }
       }
 
       if (quote.policy) {
@@ -185,14 +212,72 @@ export class MotorPolicyIssuanceService {
           where: { id: quote.id },
           data: { workflowState: 'ISSUANCE_PENDING' as any },
         });
-      } else if (
-        quote.workflowState !== 'PAYMENT_DONE' &&
-        quote.workflowState !== 'ISSUANCE_PENDING'
-      ) {
-        throw new ConflictException(
-          `Quotation is not in PAYMENT_DONE or ISSUANCE_PENDING state (Current: ${quote.workflowState})`,
-        );
       }
+
+      // Reconcile or retrieve payment record upfront
+      let paymentRecord = await tx.motorPaymentRecord.findUnique({
+        where: { quotationId },
+      });
+
+      const isBackOfficeOrAdmin =
+        actor.role === RoleType.BACK_OFFICE ||
+        actor.role === RoleType.ADMIN ||
+        (actor as any).role === 'BACK_OFFICE' ||
+        (actor as any).role === 'ADMIN';
+
+      // Offline / Back Office manual issuance: auto-reconcile payment if Back Office confirmed payment receipt
+      if (
+        (!paymentRecord || paymentRecord.status !== 'PAID') &&
+        dto.actualPolicyNumber &&
+        (dto.confirmPaymentReceived || dto.paymentReference) &&
+        typeof (tx.motorPaymentRecord as any)?.upsert === 'function'
+      ) {
+        const refNo =
+          dto.paymentReference?.trim() ||
+          `MANUAL-${dto.actualPolicyNumber.trim()}`;
+        paymentRecord = await tx.motorPaymentRecord.upsert({
+          where: { quotationId },
+          create: {
+            companyId: quote.companyId,
+            quotationId,
+            amount: quote.totalPremium,
+            status: 'PAID',
+            paymentMethod: dto.paymentMethod || 'OFFLINE_INSURER_DIRECT',
+            referenceNumber: refNo,
+            paidAt: new Date(),
+            recordedById: actorId,
+          },
+          update: {
+            status: 'PAID',
+            amount: quote.totalPremium,
+            referenceNumber: refNo,
+            paidAt: new Date(),
+          },
+        });
+      }
+
+      const isPaid = paymentRecord?.status === 'PAID';
+      const validWorkflowStates = ['PAYMENT_DONE', 'ISSUANCE_PENDING'];
+
+      if (!validWorkflowStates.includes(quote.workflowState as string)) {
+        if (
+          isPaid ||
+          ['ACCEPTED', 'APPROVED', 'PROPOSAL_APPROVED', 'PAYMENT_UNDER_PROCESS'].includes(
+            quote.workflowState as string,
+          ) ||
+          ['ACCEPTED', 'APPROVED'].includes(quote.status as string)
+        ) {
+          await tx.quotation.update({
+            where: { id: quote.id },
+            data: { workflowState: 'ISSUANCE_PENDING' as any },
+          });
+        } else {
+          throw new ConflictException(
+            `Quotation is not in PAYMENT_DONE or ISSUANCE_PENDING state (Current: ${quote.workflowState})`,
+          );
+        }
+      }
+
       if (!quote.calculationSnapshot) {
         throw new ConflictException(
           'Authoritative calculation snapshot is required before issuance',
@@ -238,11 +323,20 @@ export class MotorPolicyIssuanceService {
       // ─── Inside-Transaction 6-Gate Checks (PAY-003) ───────────────────────
       // Gate 1: Calculation Snapshot & Tariff Valid (verified above)
 
+      // Update PAN on contact if supplied in DTO
+      if (dto.customerPan?.trim() && quote.contact) {
+        await tx.contact.update({
+          where: { id: quote.contact.id },
+          data: { panNumber: dto.customerPan.trim() },
+        });
+        quote.contact.panNumber = dto.customerPan.trim();
+      }
+
       // Gate 2: Customer KYC Gate
       if (quote.contact || quote.account) {
-        const kycVerified = quote.account
-          ? quote.account.kycStatus === 'VERIFIED'
-          : Boolean(quote.contact?.panNumber);
+        const kycVerified =
+          Boolean(quote.contact?.panNumber) ||
+          quote.account?.kycStatus === 'VERIFIED';
         if (!kycVerified) {
           throw new ConflictException(
             'Policy issuance blocked: Customer KYC is pending or unverified. Contact PAN or verified Account KYC required.',
@@ -253,7 +347,21 @@ export class MotorPolicyIssuanceService {
       // Gate 3: Vehicle Inspection Gate
       if (metadata.inspectionRequired || quote.motorInspection) {
         const inspectionStatus = quote.motorInspection?.status;
+
         if (
+          inspectionStatus === InspectionStatus.SUBMITTED_FOR_REVIEW &&
+          isBackOfficeOrAdmin &&
+          quote.motorInspection
+        ) {
+          // Authoritative Underwriting Sign-Off: Back Office / Admin policy issuance approves submitted inspection
+          await tx.motorInspection.update({
+            where: { id: quote.motorInspection.id },
+            data: {
+              status: InspectionStatus.COMPLETED,
+              completedAt: new Date(),
+            },
+          });
+        } else if (
           inspectionStatus !== InspectionStatus.COMPLETED &&
           inspectionStatus !== InspectionStatus.WAIVED
         ) {
@@ -281,9 +389,6 @@ export class MotorPolicyIssuanceService {
       }
 
       // Gate 5: Payment Reconciled Gate
-      const paymentRecord = await tx.motorPaymentRecord.findUnique({
-        where: { quotationId },
-      });
       if (!paymentRecord || paymentRecord.status !== 'PAID') {
         throw new ConflictException(
           'Policy issuance blocked: Authoritative payment must be verified as PAID before issuance',
@@ -570,6 +675,30 @@ export class MotorPolicyIssuanceService {
           },
           update: {
             scheduledFor,
+          },
+        });
+      }
+
+      const renewalDueDate = new Date(effectiveExpiry);
+      renewalDueDate.setDate(renewalDueDate.getDate() - 30);
+      if (tx.renewalTask?.upsert) {
+        await tx.renewalTask.upsert({
+          where: {
+            policyId_offsetDays: {
+              policyId: policy.id,
+              offsetDays: 30,
+            },
+          },
+          create: {
+            policyId: policy.id,
+            agentId: quote.agentId || quote.createdById || actorId,
+            dueDate: renewalDueDate,
+            offsetDays: 30,
+            status: 'PENDING',
+            priority: 'HIGH' as any,
+          },
+          update: {
+            dueDate: renewalDueDate,
           },
         });
       }

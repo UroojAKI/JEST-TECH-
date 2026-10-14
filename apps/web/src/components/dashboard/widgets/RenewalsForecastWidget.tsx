@@ -13,8 +13,8 @@ export function RenewalsForecastWidget() {
     queryKey: ['renewals-forecast-summary'],
     queryFn: async () => {
       try {
-        const res = await apiClient.get('/renewals/tasks?limit=5');
-        return res.data?.data || res.data || [];
+        const res = await apiClient.get('/policies/renewals/queue?limit=5');
+        return res.data?.data || res.data?.items || res.data || [];
       } catch {
         return [];
       }
@@ -64,7 +64,9 @@ export function RenewalsForecastWidget() {
               </span>
               <span className="truncate max-w-[150px]">{item.customerName || item.vehicleNumber || '--'}</span>
               <span className="font-bold text-xs">
-                {item.premium ? `₹${Number(item.premium).toLocaleString('en-IN')}` : item.status || 'DUE'}
+                {item.estimatedRenewalPremium || item.lastPremium || item.premium
+                  ? `₹${Number(item.estimatedRenewalPremium || item.lastPremium || item.premium).toLocaleString('en-IN')}`
+                  : item.status || 'DUE'}
               </span>
             </div>
           ))}

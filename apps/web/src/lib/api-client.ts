@@ -171,8 +171,14 @@ apiClient.interceptors.response.use(
       return apiClient(originalRequest);
     } catch (refreshError) {
       processQueue(refreshError as AxiosError);
-      if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
-        window.location.href = '/login?reason=session_expired';
+      if (typeof window !== 'undefined') {
+        try {
+          localStorage.removeItem('jest-auth-storage');
+          sessionStorage.clear();
+        } catch (_) {}
+        if (window.location.pathname !== '/login') {
+          window.location.href = '/login?reason=session_expired';
+        }
       }
       return Promise.reject(refreshError);
     } finally {

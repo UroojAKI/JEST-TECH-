@@ -153,6 +153,63 @@ describe('RenewalEngineService (Iteration 10)', () => {
       expect(item.nextNcb).toBe(0); // Reset to 0 due to claim!
       expect(item.estimatedRenewalPremium).toBe(20000);
     });
+
+    it('should sort policies strictly ascending by days remaining (fewest days left on top, more renewal days last)', async () => {
+      const now = new Date();
+      const in365Days = new Date(now.getTime() + 365 * 86400000);
+      const in5Days = new Date(now.getTime() + 5 * 86400000);
+      const in25Days = new Date(now.getTime() + 25 * 86400000);
+
+      const mockPolicies = [
+        {
+          id: 'pol-new',
+          policyNumber: 'POL-NEW-365',
+          premiumAmount: 12000,
+          expiryDate: in365Days,
+          contact: { firstName: 'New', lastName: 'Customer' },
+          claims: [],
+          quotation: { ncbPercentage: 20 },
+          renewalTasks: [],
+        },
+        {
+          id: 'pol-soon',
+          policyNumber: 'POL-SOON-5',
+          premiumAmount: 15000,
+          expiryDate: in5Days,
+          contact: { firstName: 'Urgent', lastName: 'Customer' },
+          claims: [],
+          quotation: { ncbPercentage: 35 },
+          renewalTasks: [],
+        },
+        {
+          id: 'pol-mid',
+          policyNumber: 'POL-MID-25',
+          premiumAmount: 18000,
+          expiryDate: in25Days,
+          contact: { firstName: 'Medium', lastName: 'Customer' },
+          claims: [],
+          quotation: { ncbPercentage: 25 },
+          renewalTasks: [],
+        },
+      ];
+
+      prisma.policy.findMany.mockResolvedValue(mockPolicies);
+
+      const result = await service.getRenewalQueue();
+
+      expect(result.data).toHaveLength(3);
+      // Soonest expiry (5 days) must be on TOP (index 0)
+      expect(result.data[0].policyNumber).toBe('POL-SOON-5');
+      expect(result.data[0].daysRemaining).toBeLessThanOrEqual(5);
+
+      // Mid expiry (25 days) next
+      expect(result.data[1].policyNumber).toBe('POL-MID-25');
+
+      // Newly issued policy with 365 days must be LAST (at the bottom)
+      expect(result.data[2].policyNumber).toBe('POL-NEW-365');
+      expect(result.data[2].daysRemaining).toBeGreaterThan(300);
+      expect(result.data[2].urgency).toBe('LOW');
+    });
   });
 
   describe('calculateStatutoryDepreciation & calculateRevisedIdv', () => {

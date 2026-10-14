@@ -15,8 +15,18 @@ import { MotorProposalWizard } from '../leads/motor-quote/MotorProposalWizard';
 import { PolicyCompletionDialog } from '../leads/motor-quote/PolicyCompletionDialog';
 import type { VehicleCategory, SavedMotorQuote } from '../leads/motor-quote/motorFormTypes';
 import { MotorProductCards } from '../workspaces/sales/MotorProductCards';
+import { useAuthStore } from '../../store/auth-store';
 
 export function MotorQuotationsWorkspace() {
+  const authUser = useAuthStore((s) => s.user);
+  const userRoles = [
+    ...(authUser?.roles || []),
+    authUser?.role,
+  ].filter(Boolean).map((r) => String(r).toUpperCase());
+  const isBackOfficeOrAdmin = userRoles.some((r) =>
+    ['ADMIN', 'SUPER_ADMIN', 'SYSTEM_ADMINISTRATOR', 'BACK_OFFICE', 'OPERATIONS', 'UNDERWRITER'].includes(r)
+  );
+
   const searchParams = useSearchParams();
   const leadIdParam = searchParams?.get('leadId') || undefined;
   const contactIdParam = searchParams?.get('contactId') || undefined;
@@ -175,9 +185,6 @@ export function MotorQuotationsWorkspace() {
 
     const active: SavedMotorQuote[] = [];
     const renewals: SavedMotorQuote[] = [];
-    const today = new Date();
-    const future45Days = new Date();
-    future45Days.setDate(today.getDate() + 45);
 
     for (const q of matched) {
       const qAny = q as any;
@@ -196,13 +203,33 @@ export function MotorQuotationsWorkspace() {
 
       if (isPolicyIssued && effectiveExpiry) {
         const endDate = new Date(effectiveExpiry);
-        if (!isNaN(endDate.getTime()) && endDate <= future45Days) {
+        if (!isNaN(endDate.getTime())) {
           renewals.push(q);
           continue;
         }
       }
       active.push(q);
     }
+
+    // Sort renewals in days order: renewals ending soonest on top, more renewal days last
+    renewals.sort((a, b) => {
+      const expA = new Date(
+        (a as any).policyEndDate ||
+        (a as any).policy?.expiryDate ||
+        (a as any).policy?.odExpiryDate ||
+        (a as any).expiryDate ||
+        0,
+      ).getTime();
+      const expB = new Date(
+        (b as any).policyEndDate ||
+        (b as any).policy?.expiryDate ||
+        (b as any).policy?.odExpiryDate ||
+        (b as any).expiryDate ||
+        0,
+      ).getTime();
+      return expA - expB;
+    });
+
     return { activeFiltered: active, renewalsFiltered: renewals };
   }, [allQuotes, searchQuery]);
 
@@ -368,7 +395,26 @@ export function MotorQuotationsWorkspace() {
         <div className="text-center py-16 rounded-xl border bg-card/50"><Car className="h-8 w-8 mx-auto mb-3 text-muted-foreground" /><p className="font-medium">No {activeTab === 'RENEWALS' ? 'renewals' : 'quotations'} found.</p></div>
       ) : (
         <div className="space-y-6">
-          {Object.entries(groupedQuotes).map(([groupId, quotes]) => {
+          {Object.entries(groupedQuotes)
+            .sort(([_, quotesA], [__, quotesB]) => {
+              if (activeTab !== 'RENEWALS') return 0;
+              const expA = new Date(
+                (quotesA[0] as any)?.policyEndDate ||
+                (quotesA[0] as any)?.policy?.expiryDate ||
+                (quotesA[0] as any)?.policy?.odExpiryDate ||
+                (quotesA[0] as any)?.expiryDate ||
+                0,
+              ).getTime();
+              const expB = new Date(
+                (quotesB[0] as any)?.policyEndDate ||
+                (quotesB[0] as any)?.policy?.expiryDate ||
+                (quotesB[0] as any)?.policy?.odExpiryDate ||
+                (quotesB[0] as any)?.expiryDate ||
+                0,
+              ).getTime();
+              return expA - expB;
+            })
+            .map(([groupId, quotes]) => {
             const first = quotes[0];
             const customerName = first?.proposerDetails?.customerName || 'Customer';
             const mobile = first?.proposerDetails?.mobileNumber || '';
@@ -387,7 +433,7 @@ export function MotorQuotationsWorkspace() {
                       onUploadQuote={(id) => toast.success(`Quotation document uploaded for record #${id.slice(-6)}`)}
                       onConductInspection={setInspectionQuoteId}
                       onCompleteProposal={setProposalQuote}
-                      onIssuePolicy={setCompletionQuote}
+                      onIssuePolicy={isBackOfficeOrAdmin ? setCompletionQuote : undefined}
                       onAddComparisonQuote={(q) => handleOpenWizard(q.vehicleCategory, { vehicleDetails: q.vehicleDetails, proposerDetails: q.proposerDetails })}
                     />
                   ))}
@@ -440,7 +486,7 @@ export function MotorQuotationsWorkspace() {
           onSuccess={(updated) => {
             setProposalQuote(null);
             void refetch();
-            if (updated?.status === 'PENDING_ISSUANCE' || updated?.status === 'PAYMENT_DONE') {
+            if (isBackOfficeOrAdmin && (updated?.status === 'PENDING_ISSUANCE' || updated?.status === 'PAYMENT_DONE')) {
               setCompletionQuote(updated);
             }
           }}

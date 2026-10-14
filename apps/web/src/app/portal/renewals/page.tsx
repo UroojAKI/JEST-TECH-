@@ -71,18 +71,24 @@ export default function RenewalManagementPage() {
   };
 
   const renewalsList = (upcomingTasks && upcomingTasks.length > 0)
-    ? upcomingTasks.map((t: any) => ({
-        id: t.id || t.taskId,
-        vehicleReg: t.vehicleReg || t.policy?.vehicleRegistrationNumber || 'KA-PENDING',
-        customerName: t.customerName || `${t.policy?.customer?.firstName || ''} ${t.policy?.customer?.lastName || ''}`.trim() || 'Valued Customer',
-        phone: t.phone || t.policy?.customer?.phone || 'N/A',
-        policyNo: t.policyNo || t.policy?.policyNumber || 'POL-REF',
-        insurer: t.insurer || t.policy?.insurerName || 'HDFC ERGO',
-        premium: t.premium || (t.policy?.premiumAmount ? `₹${Number(t.policy.premiumAmount).toLocaleString('en-IN')}` : '₹0'),
-        expiry: t.expiry || (t.policy?.expiryDate ? new Date(t.policy.expiryDate).toLocaleDateString() : 'Active'),
-        priority: t.priority || 'MEDIUM',
-        retentionScore: t.retentionScore || 4,
-      }))
+    ? upcomingTasks
+        .map((t: any) => {
+          const rawExpiry = t.expiry || t.policy?.expiryDate || t.dueDate;
+          return {
+            id: t.id || t.taskId,
+            vehicleReg: t.vehicleReg || t.policy?.vehicleRegistrationNumber || 'KA-PENDING',
+            customerName: t.customerName || `${t.policy?.customer?.firstName || ''} ${t.policy?.customer?.lastName || ''}`.trim() || 'Valued Customer',
+            phone: t.phone || t.policy?.customer?.phone || 'N/A',
+            policyNo: t.policyNo || t.policy?.policyNumber || 'POL-REF',
+            insurer: t.insurer || t.policy?.insurerName || 'HDFC ERGO',
+            premium: t.premium || (t.policy?.premiumAmount ? `₹${Number(t.policy.premiumAmount).toLocaleString('en-IN')}` : '₹0'),
+            expiry: rawExpiry ? new Date(rawExpiry).toLocaleDateString('en-IN') : 'Active',
+            rawExpiry: rawExpiry ? new Date(rawExpiry).getTime() : 0,
+            priority: t.priority || 'MEDIUM',
+            retentionScore: t.retentionScore || 4,
+          };
+        })
+        .sort((a: any, b: any) => a.rawExpiry - b.rawExpiry)
     : [];
 
   return (

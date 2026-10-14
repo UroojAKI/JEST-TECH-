@@ -288,11 +288,14 @@ export class RenewalEngineService {
 
     const where = {
       ...scope,
-      status: PolicyStatus.ACTIVE,
-      OR: [
-        { expiryDate: { lte: targetDate } },
-        { odExpiryDate: { lte: targetDate } },
-      ],
+      status: {
+        in: [
+          PolicyStatus.ACTIVE,
+          PolicyStatus.ISSUED,
+          PolicyStatus.PENDING_RENEWAL,
+          PolicyStatus.LAPSED,
+        ],
+      },
       deletedAt: null,
     };
 
@@ -323,9 +326,46 @@ export class RenewalEngineService {
     const page = Math.max(1, Number(params?.page) || 1);
     const limit = Math.min(100, Math.max(1, Number(params?.limit) || 20));
     const skip = (page - 1) * limit;
-    const sixtyDaysFromNow = new Date();
-    sixtyDaysFromNow.setDate(sixtyDaysFromNow.getDate() + 60);
     const scope = await this.buildPolicyScope(effectiveActor);
+
+    // Dynamic date filter based on urgency parameter
+    let dateFilter: any = {};
+    if (params?.urgency === 'CRITICAL') {
+      const d = new Date();
+      d.setDate(d.getDate() + 7);
+      dateFilter = {
+        OR: [
+          { expiryDate: { lte: d } },
+          { odExpiryDate: { lte: d } },
+        ],
+      };
+    } else if (params?.urgency === 'HIGH') {
+      const d = new Date();
+      d.setDate(d.getDate() + 15);
+      dateFilter = {
+        OR: [
+          { expiryDate: { lte: d } },
+          { odExpiryDate: { lte: d } },
+        ],
+      };
+    } else if (params?.urgency === 'MEDIUM') {
+      const d = new Date();
+      d.setDate(d.getDate() + 30);
+      dateFilter = {
+        OR: [
+          { expiryDate: { lte: d } },
+          { odExpiryDate: { lte: d } },
+        ],
+      };
+    } else if (params?.urgency === 'EXPIRED') {
+      const now = new Date();
+      dateFilter = {
+        OR: [
+          { expiryDate: { lt: now } },
+          { odExpiryDate: { lt: now } },
+        ],
+      };
+    }
 
     const policies = await this.prisma.policy.findMany({
       where: {
@@ -333,14 +373,12 @@ export class RenewalEngineService {
         status: {
           in: [
             PolicyStatus.ACTIVE,
+            PolicyStatus.ISSUED,
             PolicyStatus.PENDING_RENEWAL,
             PolicyStatus.LAPSED,
           ],
         },
-        OR: [
-          { expiryDate: { lte: sixtyDaysFromNow } },
-          { odExpiryDate: { lte: sixtyDaysFromNow } },
-        ],
+        ...dateFilter,
         deletedAt: null,
       },
       include: {
@@ -425,6 +463,10 @@ export class RenewalEngineService {
       }
       items.push(item);
     }
+
+    // Strict Days Order: Renewals ending soonest (fewest days left) on top;
+    // policies with more renewal days remaining last (at the bottom).
+    items.sort((a, b) => a.daysRemaining - b.daysRemaining);
 
     const total = items.length;
     return {

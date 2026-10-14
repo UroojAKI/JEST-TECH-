@@ -47,8 +47,15 @@ export function QuoteCard({ quote, onUploadQuote, onConductInspection, onComplet
   const [isUploading, setIsUploading] = React.useState(false);
   const [isHovered, setIsHovered] = React.useState(false);
   const authUser = useAuthStore((s) => s.user);
-  const activeRole = userRole || authUser?.role;
-  const isAgent = activeRole === 'AGENT' || activeRole === 'SALES_EXECUTIVE' || activeRole === 'POSP_ADVISOR' || activeRole === 'SALES_AGENT';
+  const userRoles = [
+    ...(authUser?.roles || []),
+    authUser?.role,
+    userRole,
+  ].filter(Boolean).map((r) => String(r).toUpperCase());
+  const isBackOfficeOrAdmin = userRoles.some((r) =>
+    ['ADMIN', 'SUPER_ADMIN', 'SYSTEM_ADMINISTRATOR', 'BACK_OFFICE', 'OPERATIONS', 'UNDERWRITER'].includes(r)
+  );
+  const isAgent = !isBackOfficeOrAdmin;
 
   const { data: projection } = useQuery({
     queryKey: ['quote-workflow-projection', quote.id],

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { AppShell } from '../../components/layout/app-shell';
@@ -48,13 +48,14 @@ export default function RenewalsWorkspacePage() {
       policiesRepository.getRenewalQueue({
         urgency: urgencyFilter,
         search: debouncedSearch,
+        limit: 100,
       }),
   });
 
-  if (isQueueLoading || isKpisLoading) return <AppShell><PageLoadingState message="Loading renewals queue..." /></AppShell>;
-  if (isQueueError) return <AppShell><PageErrorState message="Failed to load renewals. Please try again." onRetry={refetch} /></AppShell>;
-
-  const queueItems = queueResponse.data || [];
+  const queueItems = useMemo(() => {
+    const raw = queueResponse.data || [];
+    return [...raw].sort((a: any, b: any) => (a.daysRemaining ?? 0) - (b.daysRemaining ?? 0));
+  }, [queueResponse.data]);
   const summary = queueResponse.summary || {};
 
   const handleSendReminder = async (policyId: string) => {
