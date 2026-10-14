@@ -112,7 +112,6 @@ export class MotorPaymentTrackingService {
 
     const isQuotationApproved =
       quotation.status === QuotationStatus.APPROVED ||
-      quotation.status === QuotationStatus.ACCEPTED ||
       quotation.workflowState === 'PROPOSAL_APPROVED' ||
       proposal?.status === 'APPROVED';
 
@@ -243,12 +242,16 @@ export class MotorPaymentTrackingService {
         );
       }
 
-      const inspection = await this.prisma.motorInspection.findUnique({
-        where: { quotationId: dto.quotationId },
-      });
-      const ruleEval = await this.prisma.motorRuleEvaluation.findUnique({
-        where: { quotationId: dto.quotationId },
-      });
+      const inspection = this.prisma.motorInspection
+        ? await this.prisma.motorInspection.findUnique({
+            where: { quotationId: dto.quotationId },
+          })
+        : null;
+      const ruleEval = this.prisma.motorRuleEvaluation
+        ? await this.prisma.motorRuleEvaluation.findUnique({
+            where: { quotationId: dto.quotationId },
+          })
+        : null;
       if (
         (ruleEval?.inspectionRequired ||
           quotation.workflowState === 'INSPECTION_REQUIRED') &&

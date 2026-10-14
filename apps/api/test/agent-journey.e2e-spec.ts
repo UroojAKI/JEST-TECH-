@@ -66,11 +66,27 @@ describe('End-to-End Agent Journey: Lead -> Contact -> Quote -> Payment -> Polic
           isActive: true,
         },
       });
+      const region = await prisma.region.create({
+        data: {
+          name: 'E2E Agent Region',
+          code: `REG_${Date.now()}`,
+          companyId: company.id,
+          isActive: true,
+        },
+      });
+      const zone = await prisma.zone.create({
+        data: {
+          name: 'E2E Agent Zone',
+          code: `ZN_${Date.now()}`,
+          regionId: region.id,
+          isActive: true,
+        },
+      });
       const branch = await prisma.branch.create({
         data: {
           name: 'E2E Agent Branch',
           code: `BR_${Date.now()}`,
-          companyId: company.id,
+          zoneId: zone.id,
           isActive: true,
         },
       });
@@ -118,9 +134,6 @@ describe('End-to-End Agent Journey: Lead -> Contact -> Quote -> Payment -> Polic
     if (createdPolicyId) {
       await prisma.outboxEvent.deleteMany({
         where: { aggregateId: createdPolicyId },
-      });
-      await prisma.auditLog.deleteMany({
-        where: { entityId: createdPolicyId },
       });
       await prisma.renewalJob.deleteMany({
         where: { policyId: createdPolicyId },

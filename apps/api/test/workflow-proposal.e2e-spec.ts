@@ -144,9 +144,9 @@ describe('Workflow & Proposal Integration', () => {
     const quotation = await prisma.quotation.create({
       data: {
         quotationCode: `QTN-TEST-${Date.now()}`,
-        title: 'Integration Test Motor Quote',
+        title: 'Integration Test Health Quote',
         insurerName: 'Test Insurer',
-        productType: 'MOTOR',
+        productType: 'HEALTH',
         sumInsured: 500000,
         gstAmount: 1800,
         expiryDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
