@@ -1,5 +1,6 @@
 import { PrismaClient, PermissionCategory, RoleType, AccessScope, NotificationType, UserStatus } from '@prisma/client';
 import * as argon2 from 'argon2';
+import { seedKarnatakaRtos } from './seed-karnataka-rtos';
 
 const prisma = new PrismaClient();
 
@@ -915,7 +916,12 @@ async function main() {
       }
       console.log("- Seeded system default proposal workflow.");
     }
-  }, { timeout: 30000 });
+
+    // -------------------------------------------------------------------------
+    // 9. SEED AUTHORITATIVE RTO MASTER DIRECTORY (WP-04)
+    // -------------------------------------------------------------------------
+    await seedKarnatakaRtos(tx);
+  }, { timeout: 60000 });
   
   console.log("✅ Database seeded successfully.");
 }

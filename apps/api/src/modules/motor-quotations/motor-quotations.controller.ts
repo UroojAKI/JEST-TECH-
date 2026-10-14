@@ -20,12 +20,13 @@ import type { RequestUser } from '../auth/decorators/current-user.decorator';
 import { MotorQuotationsService } from './motor-quotations.service';
 import { CreateMotorQuotationDto } from './dto/create-motor-quotation.dto';
 import { MotorQuotationQueryDto } from './dto/motor-quotation-query.dto';
+import { CustomerAcceptanceDto } from '../quotation/dto/customer-acceptance.dto';
 import { ParseUUIDPipe } from '../../common/utils/parse-uuid.pipe';
 
 @ApiTags('Motor Quotations')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Controller('motor-quotations')
+@Controller(['motor-quotations', 'motor/quotations'])
 export class MotorQuotationsController {
   constructor(
     private readonly motorQuotationsService: MotorQuotationsService,
@@ -76,6 +77,20 @@ export class MotorQuotationsController {
     throw new ConflictException(
       'LEGACY_MOTOR_QUOTATION_CREATION_DISABLED: Direct creation of legacy MotorQuotation is permanently retired. Motor quotations must be captured via canonical POST /quotations/motor-capture backed by MotorCalculationService.',
     );
+  }
+
+  @Post(':id/customer-acceptance')
+  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Record customer acceptance evidence on a motor quotation (WP-05)',
+  })
+  customerAcceptance(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: CustomerAcceptanceDto,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.motorQuotationsService.customerAcceptance(id, user, dto);
   }
 
   @Post(':id/accept')

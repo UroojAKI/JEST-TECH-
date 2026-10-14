@@ -39,19 +39,19 @@ import { CreateRtoDto, UpdateRtoDto } from '../dto/rto.dto';
 @ApiTags('Motor Admin - Vehicles & RTO')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Controller('motor/vehicles')
+@Controller(['motor/vehicles', 'motor/admin'])
 export class VehicleMasterController {
   constructor(private readonly vehicleService: VehicleMasterService) {}
 
   // RTO Endpoints
-  @Get('rto')
+  @Get(['rto', 'rtos'])
   @AnyAuthenticatedRole()
   @ApiOperation({ summary: 'Search and filter RTO Code master records' })
   getRtos(@Query('search') search?: string, @Query('state') state?: string) {
     return this.vehicleService.getRtos(search, state);
   }
 
-  @Get('rto/:code')
+  @Get(['rto/:code', 'rtos/:code'])
   @AnyAuthenticatedRole()
   @ApiOperation({
     summary: 'Get RTO master record by RTO Code (e.g. MH12, KA01)',

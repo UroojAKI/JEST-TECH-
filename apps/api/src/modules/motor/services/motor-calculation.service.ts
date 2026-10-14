@@ -554,23 +554,36 @@ export class MotorCalculationService {
       // RatingEngineRule table may not exist yet — fallback is safe.
     }
 
-    // ── GST Rate (from TaxRule DB, fallback to 18%) ───────────────────────
+    // ── GST Rate (Selector: 5% vs 18%, or from TaxRule DB fallback to 18%) ──
     let gstRate = 0.18; // Default: 18% per GST Act for motor insurance
-    try {
-      const taxRule = await (this.prisma as any).taxRule?.findFirst({
-        where: {
-          code: 'GST_MOTOR',
-          isActive: true,
-          effectiveFrom: { lte: quotationDate },
-          OR: [{ effectiveTo: null }, { effectiveTo: { gte: quotationDate } }],
-        },
-        orderBy: { effectiveFrom: 'desc' },
-      });
-      if (taxRule && Number(taxRule.ratePercent) > 0) {
-        gstRate = Number(taxRule.ratePercent) / 100;
+    if (input.gstRate !== undefined && input.gstRate !== null) {
+      const rawGst = Number(input.gstRate);
+      if (rawGst === 5 || Math.abs(rawGst - 0.05) < 0.001) {
+        gstRate = 0.05;
+      } else if (rawGst === 18 || Math.abs(rawGst - 0.18) < 0.001) {
+        gstRate = 0.18;
+      } else {
+        throw new BadRequestException(
+          `Invalid GST rate: ${rawGst}%. The GST selector supports exactly 5% and 18% options.`,
+        );
       }
-    } catch {
-      // TaxRule table may not exist yet — 18% fallback is IRDAI-compliant.
+    } else {
+      try {
+        const taxRule = await (this.prisma as any).taxRule?.findFirst({
+          where: {
+            code: 'GST_MOTOR',
+            isActive: true,
+            effectiveFrom: { lte: quotationDate },
+            OR: [{ effectiveTo: null }, { effectiveTo: { gte: quotationDate } }],
+          },
+          orderBy: { effectiveFrom: 'desc' },
+        });
+        if (taxRule && Number(taxRule.ratePercent) > 0) {
+          gstRate = Number(taxRule.ratePercent) / 100;
+        }
+      } catch {
+        // TaxRule table may not exist yet — 18% fallback is IRDAI-compliant.
+      }
     }
 
     // ── Discount Configuration (from SystemConfig DB) ─────────────────────

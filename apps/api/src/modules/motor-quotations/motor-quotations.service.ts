@@ -10,6 +10,9 @@ import {
   Prisma,
   MotorQuotationStatus,
   LeadStatus,
+  QuotationStatus,
+  MotorWorkflowState,
+  IssuanceStatus,
 } from '@prisma/client';
 import { CreateMotorQuotationDto } from './dto/create-motor-quotation.dto';
 import { MotorQuotationQueryDto } from './dto/motor-quotation-query.dto';
@@ -17,6 +20,7 @@ import { LeadLifecycleService } from '../leads/services/lead-lifecycle.service';
 import { getCategoryConfig } from '../motor/config/category-registry';
 import { VehicleCategoryKey } from '../motor/config/types';
 import type { RequestUser } from '../auth/decorators/current-user.decorator';
+import { CustomerAcceptanceDto, CustomerAcceptanceMethod } from '../quotation/dto/customer-acceptance.dto';
 
 @Injectable()
 export class MotorQuotationsService {
@@ -560,5 +564,114 @@ export class MotorQuotationsService {
       finalPremium: quote.finalPremium,
       nextStep: 'PAYMENT_AND_COMPLETION',
     };
+  }
+
+  async customerAcceptance(id: string, user: RequestUser, dto: CustomerAcceptanceDto) {
+    const canonicalQuotation = await this.prisma.quotation.findFirst({
+      where: { id, deletedAt: null },
+    });
+
+    if (canonicalQuotation) {
+      return this.prisma.$transaction(async (tx) => {
+        if (
+          canonicalQuotation.status === QuotationStatus.REJECTED ||
+          canonicalQuotation.status === QuotationStatus.EXPIRED
+        ) {
+          throw new BadRequestException(
+            `Cannot accept quotation in ${canonicalQuotation.status} state. Only active draft quotations can be accepted.`,
+          );
+        }
+
+        if (canonicalQuotation.status === QuotationStatus.CONVERTED_TO_POLICY) {
+          throw new BadRequestException('Quotation has already been converted to a policy.');
+        }
+
+        const evidenceMethod = dto?.evidenceMethod || CustomerAcceptanceMethod.PORTAL_CLICK;
+        const evidenceReference = dto?.evidenceReference || null;
+        const quotationVersion = canonicalQuotation.calculationVersion || '1.0';
+        const selectedGstRate =
+          dto?.selectedGstRate ||
+          (canonicalQuotation.calculationSnapshot as any)?.rateConfig?.gstRatePercent ||
+          18;
+        const acceptanceTimestamp = new Date().toISOString();
+
+        const customerAcceptanceRecord = {
+          agentId: user.id,
+          timestamp: acceptanceTimestamp,
+          quotationVersion,
+          selectedGstRate,
+          evidenceMethod,
+          evidenceReference,
+          comments: dto?.comments || null,
+        };
+
+        const existingMetadata = (canonicalQuotation.motorMetadata as Record<string, any>) || {};
+        const updatedMetadata = {
+          ...existingMetadata,
+          customerAcceptance: customerAcceptanceRecord,
+        };
+
+        if (canonicalQuotation.leadId) {
+          await tx.quotation.updateMany({
+            where: {
+              leadId: canonicalQuotation.leadId,
+              id: { not: canonicalQuotation.id },
+              status: {
+                in: [QuotationStatus.DRAFT, QuotationStatus.PENDING_APPROVAL],
+              },
+              deletedAt: null,
+            },
+            data: {
+              status: QuotationStatus.REJECTED,
+              updatedById: user.id,
+            },
+          });
+
+          await tx.lead.update({
+            where: { id: canonicalQuotation.leadId },
+            data: {
+              status: 'QUALIFIED',
+              updatedById: user.id,
+            },
+          });
+        }
+
+        await tx.quotation.update({
+          where: { id },
+          data: {
+            status: QuotationStatus.APPROVED,
+            workflowState: MotorWorkflowState.READY_FOR_PROPOSAL,
+            issuanceStatus: IssuanceStatus.PROPOSAL_READY,
+            motorMetadata: updatedMetadata,
+            updatedById: user.id,
+          },
+        });
+
+        const auditComment =
+          dto?.comments ||
+          `Customer accepted quotation version ${quotationVersion} via ${evidenceMethod}${
+            evidenceReference ? ` (Ref: ${evidenceReference})` : ''
+          } with ${selectedGstRate}% GST.`;
+
+        await tx.quotationHistory.create({
+          data: {
+            quotationId: id,
+            status: QuotationStatus.APPROVED,
+            comments: auditComment,
+            createdById: user.id,
+          },
+        });
+
+        return {
+          success: true,
+          message: `Customer acceptance recorded for quotation ${canonicalQuotation.quotationCode}.`,
+          quotationId: id,
+          quotationCode: canonicalQuotation.quotationCode,
+          acceptance: customerAcceptanceRecord,
+        };
+      });
+    }
+
+    return this.acceptQuotation(id, user);
   }
 }

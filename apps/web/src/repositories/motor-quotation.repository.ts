@@ -93,8 +93,22 @@ export const motorQuotationRepository = {
     return response.data;
   },
 
-  async acceptQuotation(id: string): Promise<{ success: boolean; message: string; quotationId: string; nextStep: string }> {
-    const response = await apiClient.post(`/quotations/${id}/accept`);
+  async acceptQuotation(
+    id: string,
+    evidence?: {
+      evidenceMethod?: string;
+      evidenceReference?: string;
+      selectedGstRate?: number;
+      comments?: string;
+    },
+  ): Promise<{ success: boolean; message: string; quotationId: string; nextStep: string }> {
+    const payload = {
+      evidenceMethod: evidence?.evidenceMethod || 'PORTAL_CLICK',
+      evidenceReference: evidence?.evidenceReference || undefined,
+      selectedGstRate: evidence?.selectedGstRate || 18,
+      comments: evidence?.comments || undefined,
+    };
+    const response = await apiClient.post(`/motor/quotations/${id}/customer-acceptance`, payload);
     return {
       success: true,
       message: 'Quotation accepted by customer! Opportunity qualified.',

@@ -4,6 +4,7 @@ import React, { useEffect } from 'react';
 import { getPolicyTenureOptions, INSURER_OPTIONS, NCB_OPTIONS, ADDON_OPTIONS } from './motorFormConfig';
 import type { VehicleCategory, PolicyFormPackage, MotorEligibilityContext } from './motorFormTypes';
 import { useMotorCalculator } from './useMotorCalculator';
+import { GstRateSelector } from './GstRateSelector';
 
 interface Props {
   category: VehicleCategory;
@@ -87,6 +88,7 @@ export function PolicyFormPackageForm({ category, vehicleStatus, data, onChange,
     paidDriverLiability: false,
     discountPercent: parseFloat(data.odDiscountPercent || data.odCommissionCalc || '0') || 0,
     tpDiscountPercent: parseFloat(data.tpDiscountPercent || data.tpCommissionCalc || '0') || 0,
+    gstRate: data.gstRate ? parseInt(data.gstRate) : 18,
     addons: (data.addonsSelected || []).map(a => ({
       addonCode: a,
       manualPrice: data.addonPrices?.[a] ? (parseFloat(data.addonPrices[a]) || 0) : undefined
@@ -101,6 +103,7 @@ export function PolicyFormPackageForm({ category, vehicleStatus, data, onChange,
         finalCommissionCalc: (result.outputs.totalDiscount ?? 0).toString(),
         finalPayableAmount: (result.outputs.finalPayableAmount ?? result.outputs.totalPremium ?? 0).toString(),
         finalGstAmount: (result.outputs.totalGst ?? 0).toString(),
+        gstRate: (result.rateConfig?.gstRatePercent ?? (data.gstRate ? parseInt(data.gstRate) : 18)).toString(),
         calculatedResult: result 
       });
     }
@@ -314,7 +317,11 @@ export function PolicyFormPackageForm({ category, vehicleStatus, data, onChange,
             />
           </FieldRow>
         </div>
-      </div>
+      {/* Applicable GST Rate Selector (5% vs 18%) */}
+      <GstRateSelector
+        value={data.gstRate}
+        onChange={(rate) => onChange({ ...data, gstRate: rate })}
+      />
 
       {/* Live Financial Breakdown & Total Paying Amount Card */}
       <div className="rounded-2xl border bg-card shadow-xs overflow-hidden">
@@ -344,9 +351,11 @@ export function PolicyFormPackageForm({ category, vehicleStatus, data, onChange,
             </div>
 
             <div className="p-2.5 rounded-xl border bg-muted/10">
-              <span className="text-[10px] text-muted-foreground block font-medium">Statutory GST (18%)</span>
+              <span className="text-[10px] text-muted-foreground block font-medium">
+                Statutory GST ({outputs.gstRatePercent ?? (data.gstRate ? parseInt(data.gstRate) : 18)}%)
+              </span>
               <span className="text-sm font-bold text-foreground">+₹{gstAmt.toLocaleString('en-IN')}</span>
-              <span className="text-[9px] text-muted-foreground block">Calculated on Gross Base</span>
+              <span className="text-[9px] text-muted-foreground block">Calculated on Net Component</span>
             </div>
           </div>
 

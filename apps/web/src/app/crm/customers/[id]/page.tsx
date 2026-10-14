@@ -33,6 +33,7 @@ import { taskRepository } from '../../../../repositories/task.repository';
 import { motorQuotationRepository } from '../../../../repositories/motor-quotation.repository';
 import { toast } from 'sonner';
 import { NewLeadModal } from '../../../../components/leads/NewLeadModal';
+import { CustomerAcceptanceDialog } from '../../../../components/leads/motor-quote/CustomerAcceptanceDialog';
 
 export default function CustomerDetailPage() {
   const params = useParams();
@@ -43,6 +44,7 @@ export default function CustomerDetailPage() {
   const [activeTab, setActiveTab] = useState<'OVERVIEW' | 'VEHICLES' | 'QUOTATIONS' | 'POLICIES' | 'LEADS' | 'TASKS' | 'CLAIMS'>('OVERVIEW');
   const [showEditModal, setShowEditModal] = useState(false);
   const [showNewLeadModal, setShowNewLeadModal] = useState(false);
+  const [selectedQuoteForAcceptance, setSelectedQuoteForAcceptance] = useState<any>(null);
 
   // Edit form state
   const [editFormData, setEditFormData] = useState<Partial<Customer>>({});
@@ -88,9 +90,11 @@ export default function CustomerDetailPage() {
 
   // Accept quote mutation
   const acceptQuoteMutation = useMutation({
-    mutationFn: (quoteId: string) => motorQuotationRepository.acceptQuotation(quoteId),
+    mutationFn: ({ quoteId, evidence }: { quoteId: string; evidence?: any }) =>
+      motorQuotationRepository.acceptQuotation(quoteId, evidence),
     onSuccess: (res) => {
       toast.success(res.message || 'Quotation accepted!');
+      setSelectedQuoteForAcceptance(null);
       void queryClient.invalidateQueries({ queryKey: ['customer-detail', customerId] });
     },
     onError: (err: any) => {
@@ -485,7 +489,7 @@ export default function CustomerDetailPage() {
                       </div>
                       {q.status === 'SHARED' && (
                         <button
-                          onClick={() => acceptQuoteMutation.mutate(q.id)}
+                          onClick={() => setSelectedQuoteForAcceptance(q)}
                           className="w-full py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition"
                         >
                           Accept Quotation
@@ -639,7 +643,7 @@ export default function CustomerDetailPage() {
                         <td className="px-4 py-3 text-right">
                           {q.status === 'SHARED' && (
                             <button
-                              onClick={() => acceptQuoteMutation.mutate(q.id)}
+                              onClick={() => setSelectedQuoteForAcceptance(q)}
                               className="px-2.5 py-1 rounded bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px]"
                             >
                               Accept
@@ -992,6 +996,20 @@ export default function CustomerDetailPage() {
           defaultCustomerId={customer?.id}
           defaultName={fullName}
           defaultPhone={customer?.mobile || ''}
+        />
+      )}
+      {selectedQuoteForAcceptance && (
+        <CustomerAcceptanceDialog
+          isOpen={true}
+          quotation={selectedQuoteForAcceptance}
+          isLoading={acceptQuoteMutation.isPending}
+          onClose={() => setSelectedQuoteForAcceptance(null)}
+          onConfirm={(evidence) =>
+            acceptQuoteMutation.mutate({
+              quoteId: selectedQuoteForAcceptance.id,
+              evidence,
+            })
+          }
         />
       )}
     </AppShell>

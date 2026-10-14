@@ -5,6 +5,7 @@ import { getPolicyTenureOptions, INSURER_OPTIONS } from './motorFormConfig';
 import type { VehicleCategory, PolicyFormTPOnly, MotorEligibilityContext } from './motorFormTypes';
 
 import { useMotorCalculator } from './useMotorCalculator';
+import { GstRateSelector } from './GstRateSelector';
 
 interface Props {
   category: VehicleCategory;
@@ -62,7 +63,8 @@ export function PolicyFormTPOnlyForm({ category, vehicleStatus, data, onChange, 
     policyTenure: parseInt(data.policyTenure || '1') || 1,
     paCover: !!data.paCoverOwner,
     paidDriverLiability: data.legalLiabilityPaidDriver === 'Yes',
-    tpDiscountPercent: parseFloat(data.discountPercent || '0') || 0
+    tpDiscountPercent: parseFloat(data.discountPercent || '0') || 0,
+    gstRate: data.gstRate ? parseInt(data.gstRate) : 18,
   });
 
   React.useEffect(() => {
@@ -71,6 +73,7 @@ export function PolicyFormTPOnlyForm({ category, vehicleStatus, data, onChange, 
         ...data, 
         thirdPartyPremium: (result.outputs.baseTpPremium ?? 0).toString(),
         totalPremiumInclGST: (result.outputs.totalPremium ?? 0).toString(),
+        gstRate: (result.rateConfig?.gstRatePercent ?? (data.gstRate ? parseInt(data.gstRate) : 18)).toString(),
         calculatedResult: result 
       });
     }
@@ -209,6 +212,12 @@ export function PolicyFormTPOnlyForm({ category, vehicleStatus, data, onChange, 
         </FieldRow>
       </div>
 
+      {/* Applicable GST Rate Selector (5% vs 18%) */}
+      <GstRateSelector
+        value={data.gstRate}
+        onChange={(rate) => onChange({ ...data, gstRate: rate })}
+      />
+
       {/* TP Discount & Final Payable Calculator */}
       <div className="p-4 rounded-xl border border-sky-200 bg-sky-500/5 space-y-3">
         <div className="flex items-center justify-between">
@@ -282,7 +291,7 @@ export function PolicyFormTPOnlyForm({ category, vehicleStatus, data, onChange, 
         </div>
 
         <p className="text-[10px] text-muted-foreground font-mono">
-          Formula: (TP Base - TP Discount) + 18% GST = Final Payable
+          Formula: (TP Base - TP Discount) + {data.calculatedResult?.rateConfig?.gstRatePercent ?? (data.gstRate ? parseInt(data.gstRate) : 18)}% GST = Final Payable
         </p>
       </div>
     </div>

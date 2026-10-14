@@ -362,5 +362,54 @@ describe('MotorCalculationService (Iteration 5 Financial Math)', () => {
         }),
       ).rejects.toThrow('Negative premium, IDV, or discount parameters are disallowed.');
     });
+
+    it('WP-03: should calculate with explicit 5% GST rate when selected', async () => {
+      const result: any = await service.calculate({
+        vehicleCategory: 'PRIVATE_CAR',
+        vehicleStatus: 'EXISTING',
+        policyType: 'PACKAGE_COMPREHENSIVE',
+        idv: 500000,
+        ncbPercent: 20,
+        gstRate: 5,
+      });
+
+      expect(result.rateConfig.gstRatePercent).toBe(5);
+      expect(result.outputs.gstRatePercent).toBe(5);
+      expect(result.outputs.totalGst).toBe(
+        Number(((result.outputs.netCustomerPremium * 0.05)).toFixed(2)),
+      );
+      expect(result.outputs.finalPayableAmount).toBe(
+        Number((result.outputs.netCustomerPremium + result.outputs.totalGst).toFixed(2)),
+      );
+    });
+
+    it('WP-03: should calculate with explicit 18% GST rate when selected', async () => {
+      const result: any = await service.calculate({
+        vehicleCategory: 'PRIVATE_CAR',
+        vehicleStatus: 'EXISTING',
+        policyType: 'PACKAGE_COMPREHENSIVE',
+        idv: 500000,
+        ncbPercent: 20,
+        gstRate: 18,
+      });
+
+      expect(result.rateConfig.gstRatePercent).toBe(18);
+      expect(result.outputs.gstRatePercent).toBe(18);
+      expect(result.outputs.totalGst).toBe(
+        Number(((result.outputs.netCustomerPremium * 0.18)).toFixed(2)),
+      );
+    });
+
+    it('WP-03: should fail-closed and reject unapproved GST rate (e.g. 12%)', async () => {
+      await expect(
+        service.calculate({
+          vehicleCategory: 'PRIVATE_CAR',
+          vehicleStatus: 'EXISTING',
+          policyType: 'PACKAGE_COMPREHENSIVE',
+          idv: 500000,
+          gstRate: 12,
+        }),
+      ).rejects.toThrow('The GST selector supports exactly 5% and 18% options');
+    });
   });
 });

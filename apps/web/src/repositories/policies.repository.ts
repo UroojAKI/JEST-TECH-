@@ -1,21 +1,54 @@
 import { apiClient } from '../lib/api-client';
 import { PaginatedResult, PaginationParams } from '../types';
 
+export interface PolicyVehicle {
+  id?: string;
+  registrationNumber?: string | null;
+  makeModel?: string | null;
+  manufactureYearMonth?: string | null;
+  engineNumber?: string | null;
+  chassisNumber?: string | null;
+  fuelType?: string | null;
+  rtoLocation?: string | null;
+  category?: string | null;
+}
+
 export interface PolicyItem {
   id: string;
   policyNumber: string;
-  contactName: string;
-  productLine: string;
-  insurerName: string;
-  idvValue: number;
-  totalPremium: number;
-  status: 'ACTIVE' | 'RENEWAL_DUE' | 'GRACE_PERIOD' | 'EXPIRED' | 'CANCELLED';
-  startDate: string;
-  expiryDate: string;
-  renewalExecutive: string;
-  healthScore: number;
-  claimsCount: number;
+  contactName?: string | null;
+  contactPhone?: string | null;
+  contactEmail?: string | null;
+  customerName?: string | null;
+  customerId?: string | null;
+  productLine?: string;
+  policyType?: string | null;
+  insurerName?: string;
+  idvValue?: number;
+  totalPremium?: number;
+  premiumAmount?: number;
+  status: 'ACTIVE' | 'RENEWAL_DUE' | 'GRACE_PERIOD' | 'EXPIRED' | 'CANCELLED' | string;
+  startDate?: string;
+  endDate?: string;
+  expiryDate?: string;
+  odStartDate?: string | null;
+  odExpiryDate?: string | null;
+  tpStartDate?: string | null;
+  tpExpiryDate?: string | null;
+  paymentStatus?: string | null;
+  paidAmount?: number;
+  outstandingBalance?: number;
+  renewalExecutive?: string | null;
+  healthScore?: number;
+  claimsCount?: number;
   createdAt: string;
+  vehicle?: PolicyVehicle | null;
+  claims?: any[];
+  endorsements?: any[];
+  documents?: any[];
+  payments?: any[];
+  renewals?: any[];
+  histories?: any[];
 }
 
 export const policiesRepository = {

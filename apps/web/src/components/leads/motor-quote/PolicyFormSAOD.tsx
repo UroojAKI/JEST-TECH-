@@ -4,6 +4,7 @@ import React from 'react';
 import { ShieldCheck, AlertTriangle, CheckCircle, Info, Calculator, Percent } from 'lucide-react';
 import { INSURER_OPTIONS, NCB_OPTIONS, ADDON_OPTIONS } from './motorFormConfig';
 import type { PolicyFormSAOD, SaodTpVerification } from './motorFormTypes';
+import { GstRateSelector } from './GstRateSelector';
 
 interface Props {
   data: PolicyFormSAOD;
@@ -79,8 +80,9 @@ export function PolicyFormSAODForm({ data, onChange }: Props) {
     // Calculate final OD after discount
     const discountedNetOd = Math.max(0, netOd - discountAmt);
     
-    // Recalculate GST based on discounted OD
-    const gst = Math.round(discountedNetOd * 0.18 * 100) / 100;
+    // Recalculate GST based on discounted OD and selected gstRate (5% or 18%)
+    const gstRateDec = String(updated.gstRate || '18') === '5' ? 0.05 : 0.18;
+    const gst = Math.round(discountedNetOd * gstRateDec * 100) / 100;
     const total = Math.round((discountedNetOd + gst) * 100) / 100;
     
     const finalPayable = total;
@@ -374,8 +376,16 @@ export function PolicyFormSAODForm({ data, onChange }: Props) {
             <ShieldCheck className="h-4 w-4 text-primary" />
             <span className="text-xs font-black text-foreground">OD Premium Calculator (Fields 10 & 11)</span>
           </div>
-          <span className="text-[9px] text-muted-foreground font-semibold">OD Filed Rate + 18% GST</span>
+          <span className="text-[9px] text-muted-foreground font-semibold">
+            OD Filed Rate + {String(data.gstRate || '18') === '5' ? '5%' : '18%'} GST
+          </span>
         </div>
+
+        <GstRateSelector
+          value={data.gstRate}
+          onChange={(rate) => onChange(recalcPremium({ ...data, gstRate: rate }))}
+        />
+
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
           <FieldRow label="OD Base Premium (₹)" mandatory hint="Insurer OD rate applied to IDV" formula="IDV × Insurer OD Rate %">
             <input type="number" value={data.odPremiumBase} onChange={(e) => handleOdBaseChange(e.target.value)} placeholder="Enter base OD premium" className={mandatoryInput(data.odPremiumBase)} />
@@ -389,7 +399,7 @@ export function PolicyFormSAODForm({ data, onChange }: Props) {
           <FieldRow label="Net OD Premium (₹) [Field 10]" hint="Auto-calc: OD Base - NCB + Add-ons">
             <input type="number" value={data.odPremium} readOnly className={`${readonlyInput} font-bold text-foreground`} placeholder="Auto-calculated" />
           </FieldRow>
-          <FieldRow label="Statutory GST (18%) ₹" hint="18% of Net OD Premium">
+          <FieldRow label={`Statutory GST (${String(data.gstRate || '18') === '5' ? '5%' : '18%'}) ₹`} hint={`${String(data.gstRate || '18') === '5' ? '5%' : '18%'} of Net OD Premium`}>
             <input type="number" value={data.gstAmount} readOnly className={readonlyInput} placeholder="Auto-calculated" />
           </FieldRow>
           <FieldRow label="Total Premium incl. GST (₹) [Field 11]" mandatory hint="System-calculated authoritative gross">

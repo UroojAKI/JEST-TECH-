@@ -1,8 +1,9 @@
 'use client';
 
 import React, { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
-import { X, CheckCircle2, ChevronRight, RefreshCw, Loader2, ShieldCheck, AlertCircle } from 'lucide-react';
+import { X, CheckCircle2, ChevronRight, RefreshCw, Loader2, ShieldCheck, AlertCircle, ExternalLink } from 'lucide-react';
 import { policiesRepository } from '../../../repositories/policies.repository';
 import { toast } from 'sonner';
 
@@ -13,6 +14,7 @@ interface RenewalWizardDrawerProps {
 }
 
 export function RenewalWizardDrawer({ isOpen, policyId, onClose }: RenewalWizardDrawerProps) {
+  const router = useRouter();
   const [step, setStep] = useState<number>(1);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [paymentMode, setPaymentMode] = useState<string>('ONLINE');
@@ -27,16 +29,19 @@ export function RenewalWizardDrawer({ isOpen, policyId, onClose }: RenewalWizard
 
   const currentIdv = Number(policy?.idvValue || 0);
   const revisedIdv = currentIdv > 0 ? Math.round(currentIdv * 0.9) : 0;
-  const currentPremium = Number(policy?.totalPremium || 0);
-  const renewalPremium = currentPremium > 0 ? Math.round(currentPremium * 0.95) : 0;
+  const authoritativePremium = Number(policy?.premiumAmount ?? policy?.totalPremium ?? 0);
+  const currentExpiry = policy?.expiryDate ? new Date(policy.expiryDate) : new Date();
+  const nextExpiry = new Date(currentExpiry);
+  nextExpiry.setFullYear(nextExpiry.getFullYear() + 1);
+  const nextRenewalNumber = (policy?.renewals?.length || 0) + 1;
 
   const handleRenewPolicy = async () => {
     try {
       setIsSubmitting(true);
       await policiesRepository.renewPolicy(policyId, {
-        revisedIdv,
-        renewalPremium,
-        paymentMode,
+        renewalNumber: nextRenewalNumber,
+        premiumAmount: authoritativePremium,
+        newExpiry: nextExpiry.toISOString(),
       });
       toast.success(`Policy ${policy?.policyNumber || policyId} renewed successfully!`);
       onClose();
@@ -125,13 +130,13 @@ export function RenewalWizardDrawer({ isOpen, policyId, onClose }: RenewalWizard
 
               {step === 2 && (
                 <div className="space-y-3">
-                  <h4 className="font-bold text-sm">Step 2: Live Premium Recalculation</h4>
+                  <h4 className="font-bold text-sm">Step 2: Authoritative Policy Premium & Slabs</h4>
                   <p className="text-muted-foreground">Depreciation and NCB retention evaluated according to IRDAI guidelines.</p>
                   <div className="p-3 rounded-lg border bg-emerald-500/10 text-emerald-800 dark:text-emerald-200 font-bold space-y-2">
-                    {revisedIdv > 0 && <div>Revised IDV: ₹{revisedIdv.toLocaleString('en-IN')}</div>}
-                    <div>Renewal Premium: ₹{renewalPremium.toLocaleString('en-IN')}</div>
+                    {revisedIdv > 0 && <div>Baseline IDV: ₹{revisedIdv.toLocaleString('en-IN')}</div>}
+                    <div>Authoritative Renewal Premium: ₹{authoritativePremium.toLocaleString('en-IN')}</div>
                     <div className="text-[11px] font-normal text-muted-foreground">
-                      Prior Premium: ₹{currentPremium.toLocaleString('en-IN')}
+                      Expiry Date: {policy.expiryDate ? new Date(policy.expiryDate).toLocaleDateString('en-IN') : 'Upcoming'}
                     </div>
                   </div>
                 </div>
@@ -142,11 +147,22 @@ export function RenewalWizardDrawer({ isOpen, policyId, onClose }: RenewalWizard
                   <h4 className="font-bold text-sm">Step 3: Insurer Portability & Comparison</h4>
                   <div className="p-3 rounded-lg border bg-primary/5 space-y-2">
                     <div className="font-bold text-primary">
-                      {policy.insurerName || 'Primary Insurer'} (Current Provider) — ₹{renewalPremium.toLocaleString('en-IN')}
+                      {policy.insurerName || 'Primary Insurer'} (Current Provider) — ₹{authoritativePremium.toLocaleString('en-IN')}
                     </div>
                     <div className="text-muted-foreground text-[11px]">
-                      Portability options available upon customer request through partner aggregator APIs.
+                      To recalculate premium under new tariff rates, change add-ons, or switch insurer, generate a fresh comparison quote.
                     </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onClose();
+                        router.push(`/sales/quotations?renewPolicyId=${policyId}`);
+                      }}
+                      className="mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/90"
+                    >
+                      <ExternalLink className="h-3.5 w-3.5" />
+                      <span>Create Comparative Renewal Quote</span>
+                    </button>
                   </div>
                 </div>
               )}
@@ -179,7 +195,7 @@ export function RenewalWizardDrawer({ isOpen, policyId, onClose }: RenewalWizard
                       <option value="NEFT">Bank Transfer (NEFT / RTGS)</option>
                     </select>
                     <div className="p-3 rounded-lg border bg-muted/20 font-mono text-xs">
-                      <div>Payable Amount: ₹{renewalPremium.toLocaleString('en-IN')}</div>
+                      <div>Payable Amount: ₹{authoritativePremium.toLocaleString('en-IN')}</div>
                     </div>
                   </div>
                 </div>

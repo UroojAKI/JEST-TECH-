@@ -18,6 +18,104 @@ export class PolicyMapper {
     dto.createdAt = p.createdAt;
     dto.updatedAt = p.updatedAt;
 
+    const contact = p.contact;
+    const customer = (p as any).customer;
+    dto.contactName = contact
+      ? `${contact.firstName} ${contact.lastName || ''}`.trim()
+      : customer
+      ? `${customer.firstName} ${customer.lastName || ''}`.trim()
+      : null;
+    dto.contactPhone = contact?.phone || customer?.mobile || null;
+    dto.contactEmail = contact?.email || customer?.email || null;
+    dto.customerName = customer
+      ? `${customer.firstName} ${customer.lastName || ''}`.trim()
+      : dto.contactName;
+    dto.customerId = p.customerId || null;
+
+    dto.insurerName =
+      (p as any).insurerDetail?.insurerName ||
+      p.quotation?.insurerName ||
+      '—';
+    dto.productLine =
+      p.policyType || p.quotation?.productType || 'MOTOR COMPREHENSIVE';
+    dto.policyType = p.policyType || p.quotation?.policyType || null;
+
+    const actualPrem = (p as any).actualPremium;
+    dto.totalPremium = actualPrem !== null && actualPrem !== undefined
+      ? Number(actualPrem)
+      : Number(p.premiumAmount || 0);
+
+    const snap = (p.quotation?.calculationSnapshot as Record<string, any>) || {};
+    dto.idvValue = Number(snap.idv || snap.outputs?.idv || 0);
+
+    dto.startDate = (p as any).startDate || p.effectiveDate;
+    dto.endDate = (p as any).endDate || p.expiryDate;
+    dto.odStartDate = (p as any).odStartDate || null;
+    dto.odExpiryDate = (p as any).odExpiryDate || null;
+    dto.tpStartDate = (p as any).tpStartDate || null;
+    dto.tpExpiryDate = (p as any).tpExpiryDate || null;
+
+    dto.paymentStatus =
+      (p as any).paymentStatus ||
+      (p.payments && p.payments.length > 0 ? 'PAID' : 'PENDING');
+    const totalPayments =
+      p.payments?.reduce((sum, pay) => sum + Number(pay.amount || 0), 0) || 0;
+    dto.paidAmount =
+      totalPayments > 0
+        ? totalPayments
+        : dto.paymentStatus === 'PAID'
+        ? dto.totalPremium
+        : 0;
+    dto.outstandingBalance = Math.max(0, dto.totalPremium - dto.paidAmount);
+
+    const agentUser = (p as any).agent?.user;
+    dto.renewalExecutive = agentUser
+      ? `${agentUser.firstName || ''} ${agentUser.lastName || ''}`.trim()
+      : null;
+
+    const claimsList = (p as any).claims || [];
+    dto.claimsCount = claimsList.length;
+
+    const vehicle = (p as any).vehicle;
+    if (vehicle) {
+      dto.vehicle = {
+        id: vehicle.id,
+        registrationNumber: vehicle.registrationNumber || null,
+        makeModel: vehicle.makeModel || null,
+        manufactureYearMonth: vehicle.manufactureYearMonth || null,
+        engineNumber: vehicle.engineNumber || null,
+        chassisNumber: vehicle.chassisNumber || null,
+        fuelType: vehicle.fuelType || null,
+        rtoLocation: vehicle.rtoLocation || null,
+        category: vehicle.category || null,
+      };
+    }
+
+    if (claimsList.length > 0) {
+      dto.claims = claimsList.map((c: any) => ({
+        id: c.id,
+        claimNumber: c.claimNumber,
+        status: c.status,
+        incidentDate: c.incidentDate || null,
+        claimAmount: Number(c.claimAmount || 0),
+        approvedAmount: c.approvedAmount !== null && c.approvedAmount !== undefined ? Number(c.approvedAmount) : null,
+        description: c.description || null,
+        createdAt: c.createdAt,
+      }));
+    }
+
+    const endorsementsList = (p as any).endorsements || [];
+    if (endorsementsList.length > 0) {
+      dto.endorsements = endorsementsList.map((e: any) => ({
+        id: e.id,
+        endorsementNumber: e.endorsementNumber || null,
+        type: e.type,
+        status: e.status,
+        reason: e.reason || null,
+        createdAt: e.createdAt,
+      }));
+    }
+
     if (p.members) {
       dto.members = p.members.map((m) => ({
         id: m.id,

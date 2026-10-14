@@ -16,13 +16,18 @@ export const policyWithRelations = Prisma.validator<Prisma.PolicyDefaultArgs>()(
   {
     include: {
       contact: true,
+      customer: true,
       account: true,
       quotation: true,
+      vehicle: true,
+      agent: { include: { user: true } },
       members: true,
       nominees: true,
       renewals: { orderBy: { renewalNumber: 'desc' } },
       payments: { orderBy: { paymentDate: 'desc' } },
       documents: true,
+      claims: { orderBy: { createdAt: 'desc' } },
+      endorsements: { orderBy: { createdAt: 'desc' } },
       histories: { orderBy: { createdAt: 'desc' } },
     },
   },

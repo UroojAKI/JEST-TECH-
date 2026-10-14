@@ -4,6 +4,7 @@ import { QuotationRepository } from '../../repositories/quotation.repository';
 import { PrismaService } from '../../../../database/prisma.service';
 import { QuotationStatus, MotorWorkflowState } from '@prisma/client';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
+import { CustomerAcceptanceMethod } from '../../dto/customer-acceptance.dto';
 
 describe('AcceptQuotationService (R5 Multi-Version & Single Accepted Rule)', () => {
   let service: AcceptQuotationService;
@@ -144,6 +145,76 @@ describe('AcceptQuotationService (R5 Multi-Version & Single Accepted Rule)', () 
 
     await expect(service.execute('q-expired', 'user-1')).rejects.toThrow(
       BadRequestException,
+    );
+  });
+
+  it('WP-05: records agentId, timestamp, quotationVersion, selectedGstRate, and evidenceMethod in acceptance audit trail', async () => {
+    const targetQuote = {
+      id: 'q-audit',
+      quotationCode: 'QTN-AUDIT-01',
+      status: QuotationStatus.DRAFT,
+      calculationVersion: 'v2.1',
+      calculationSnapshot: {
+        rateConfig: { gstRatePercent: 18 },
+      },
+      motorMetadata: {
+        vehicleCategory: 'PRIVATE_CAR',
+      },
+    };
+
+    mockTx.quotation.findFirst
+      .mockResolvedValueOnce(targetQuote)
+      .mockResolvedValueOnce({
+        ...targetQuote,
+        status: QuotationStatus.APPROVED,
+        workflowState: MotorWorkflowState.READY_FOR_PROPOSAL,
+        versions: [{ versionNumber: 1 }],
+        addons: [],
+        discounts: [],
+        histories: [],
+        documents: [],
+      });
+
+    mockTx.quotation.update.mockResolvedValue({
+      ...targetQuote,
+      status: QuotationStatus.APPROVED,
+    });
+
+    const result = await service.execute('q-audit', 'agent-007', {
+      evidenceMethod: CustomerAcceptanceMethod.EMAIL,
+      evidenceReference: 'MSG-EM-9921',
+      selectedGstRate: 5,
+      comments: 'Customer approved comprehensive plan via email.',
+    });
+
+    expect(mockTx.quotation.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 'q-audit' },
+        data: expect.objectContaining({
+          status: QuotationStatus.APPROVED,
+          workflowState: MotorWorkflowState.READY_FOR_PROPOSAL,
+          motorMetadata: expect.objectContaining({
+            customerAcceptance: expect.objectContaining({
+              agentId: 'agent-007',
+              evidenceMethod: CustomerAcceptanceMethod.EMAIL,
+              evidenceReference: 'MSG-EM-9921',
+              selectedGstRate: 5,
+              quotationVersion: 'v2.1',
+              comments: 'Customer approved comprehensive plan via email.',
+            }),
+          }),
+        }),
+      }),
+    );
+
+    expect(mockTx.quotationHistory.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          quotationId: 'q-audit',
+          status: QuotationStatus.APPROVED,
+          createdById: 'agent-007',
+        }),
+      }),
     );
   });
 });

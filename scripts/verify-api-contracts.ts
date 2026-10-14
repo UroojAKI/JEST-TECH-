@@ -87,7 +87,19 @@ interface BackendRoute {
   hasRolesGuard: boolean;
 }
 
-const CONTROLLER_PREFIX_RE = /@Controller\(['"](.*?)['"]\)/;
+function parseDecoratorPaths(raw: string): string[] {
+  const trimmed = raw.trim();
+  if (!trimmed) return [''];
+  if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+    return trimmed
+      .slice(1, -1)
+      .split(',')
+      .map((s) => s.replace(/['"` ]/g, ''))
+      .filter((s) => s.length > 0);
+  }
+  return [trimmed.replace(/['"` ]/g, '')];
+}
+
 const CONTROLLER_CLASS_RE = /export\s+class\s+(\w+)/;
 
 function extractBackendRoutes(): BackendRoute[] {
@@ -96,9 +108,9 @@ function extractBackendRoutes(): BackendRoute[] {
 
   for (const file of controllerFiles) {
     const content = fs.readFileSync(file, 'utf8');
-    const prefixMatch = CONTROLLER_PREFIX_RE.exec(content);
+    const controllerMatch = /@Controller\(([^)]*)\)/.exec(content);
     const classMatch = CONTROLLER_CLASS_RE.exec(content);
-    const prefix = prefixMatch ? prefixMatch[1] : '';
+    const prefixes = controllerMatch ? parseDecoratorPaths(controllerMatch[1]) : [''];
     const controllerName = classMatch ? classMatch[1] : path.basename(file, '.ts');
     const hasRolesGuard = /RolesGuard/.test(content);
     const lines = content.split(/\r?\n/);
@@ -107,13 +119,16 @@ function extractBackendRoutes(): BackendRoute[] {
       const verbMatch = /@(Get|Post|Put|Patch|Delete)\(([^)]*)\)/.exec(line);
       if (verbMatch) {
         const method = verbMatch[1].toUpperCase();
-        const rawPath = verbMatch[2].replace(/['"` ]/g, '');
-        const endpointPath = rawPath
-          ? ('/' + prefix + '/' + rawPath).replace(/\/+/g, '/')
-          : ('/' + prefix).replace(/\/+/g, '/') || '/';
-        // Normalize :id, :uuid patterns
-        const normalized = normalizePathTemplate(endpointPath);
-        routes.push({ method, path: normalized, controller: controllerName, file: relPath(file), hasRolesGuard });
+        const subpaths = parseDecoratorPaths(verbMatch[2]);
+        for (const prefix of prefixes) {
+          for (const subpath of subpaths) {
+            const endpointPath = subpath
+              ? ('/' + prefix + '/' + subpath).replace(/\/+/g, '/')
+              : ('/' + prefix).replace(/\/+/g, '/') || '/';
+            const normalized = normalizePathTemplate(endpointPath);
+            routes.push({ method, path: normalized, controller: controllerName, file: relPath(file), hasRolesGuard });
+          }
+        }
       }
     }
   }
