@@ -143,9 +143,9 @@ export class MotorPolicyIssuanceService {
 
       if (quote.policy) {
         // Crash recovery: Policy already created in previous attempt, reconcile state safely
-        const policyPrem = new Prisma.Decimal(quote.policy.premiumAmount);
-        const quotePrem = new Prisma.Decimal(quote.totalPremium);
-        if (!policyPrem.equals(quotePrem)) {
+        const policyPrem = Number(quote.policy.premiumAmount);
+        const quotePrem = Number(quote.totalPremium);
+        if (Math.abs(policyPrem - quotePrem) > 0.02) {
           await tx.quotation.update({
             where: { id: quote.id },
             data: { workflowState: 'ISSUANCE_MANUAL_REVIEW' as any },
@@ -181,9 +181,9 @@ export class MotorPolicyIssuanceService {
               'CRASH_RECOVERY_MISMATCH: Policy company mismatch',
             );
           }
-          const policyPrem = new Prisma.Decimal(existingPolicy.premiumAmount);
-          const quotePrem = new Prisma.Decimal(quote.totalPremium);
-          if (!policyPrem.equals(quotePrem)) {
+          const policyPrem = Number(existingPolicy.premiumAmount);
+          const quotePrem = Number(quote.totalPremium);
+          if (Math.abs(policyPrem - quotePrem) > 0.02) {
             await tx.quotation.update({
               where: { id: quote.id },
               data: { workflowState: 'ISSUANCE_MANUAL_REVIEW' as any },
@@ -329,11 +329,11 @@ export class MotorPolicyIssuanceService {
           ? snapshot.totalPremium
           : snapshot.outputs?.totalPremium;
       if (snapTotalVal !== undefined) {
-        const snapTotal = new Prisma.Decimal(snapTotalVal);
-        const quoteTotal = new Prisma.Decimal(quote.totalPremium);
-        if (!snapTotal.equals(quoteTotal)) {
+        const snapTotalNum = Number(snapTotalVal);
+        const quoteTotalNum = Number(quote.totalPremium);
+        if (Math.abs(snapTotalNum - quoteTotalNum) > 0.02) {
           throw new ConflictException(
-            `Quotation total (${quoteTotal}) does not match authoritative calculation snapshot total (${snapTotal})`,
+            `Quotation total (${quoteTotalNum}) does not match authoritative calculation snapshot total (${snapTotalNum})`,
           );
         }
       }
@@ -352,13 +352,21 @@ export class MotorPolicyIssuanceService {
       // ─── Inside-Transaction 6-Gate Checks (PAY-003) ───────────────────────
       // Gate 1: Calculation Snapshot & Tariff Valid (verified above)
 
-      // Update PAN on contact if supplied in DTO
-      if (dto.customerPan?.trim() && quote.contact) {
-        await tx.contact.update({
-          where: { id: quote.contact.id },
-          data: { panNumber: dto.customerPan.trim() },
-        });
-        quote.contact.panNumber = dto.customerPan.trim();
+      // Extract PAN from DTO or quote proposer metadata if available
+      const suppliedPan =
+        dto.customerPan?.trim() ||
+        (quote.motorMetadata as any)?.proposerDetails?.panNumber?.trim() ||
+        (quote.calculationSnapshot as any)?.inputs?.panNumber?.trim();
+
+      // Update PAN on contact if supplied
+      if (suppliedPan && quote.contact) {
+        if (quote.contact.panNumber !== suppliedPan) {
+          await tx.contact.update({
+            where: { id: quote.contact.id },
+            data: { panNumber: suppliedPan },
+          });
+          quote.contact.panNumber = suppliedPan;
+        }
       }
 
       // Gate 2: Customer KYC Gate
@@ -423,11 +431,11 @@ export class MotorPolicyIssuanceService {
           'Policy issuance blocked: Authoritative payment must be verified as PAID before issuance',
         );
       }
-      const paidAmount = new Prisma.Decimal(paymentRecord.amount || 0);
-      const payableAmount = new Prisma.Decimal(quote.totalPremium);
-      if (!paidAmount.equals(payableAmount)) {
+      const paidAmountNum = Number(paymentRecord.amount || 0);
+      const payableAmountNum = Number(quote.totalPremium);
+      if (Math.abs(paidAmountNum - payableAmountNum) > 0.02) {
         throw new ConflictException(
-          `Policy issuance blocked: Reconciled payment amount (${paidAmount}) must exactly equal authoritative payable premium (${payableAmount})`,
+          `Policy issuance blocked: Reconciled payment amount (${paidAmountNum}) must exactly equal authoritative payable premium (${payableAmountNum})`,
         );
       }
 

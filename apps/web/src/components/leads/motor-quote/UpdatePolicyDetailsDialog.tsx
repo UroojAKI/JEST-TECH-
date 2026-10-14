@@ -43,8 +43,13 @@ export function UpdatePolicyDetailsDialog({ isOpen, onClose, quotationId, onSave
         if (q.totalPremium && !actualPremium) {
           setActualPremium(String(q.totalPremium));
         }
-        if (q.contact?.panNumber && !customerPan) {
-          setCustomerPan(q.contact.panNumber);
+        const fetchedPan =
+          q.contact?.panNumber ||
+          (q.motorMetadata as any)?.proposerDetails?.panNumber ||
+          q.proposerDetails?.panNumber ||
+          '';
+        if (fetchedPan && !customerPan) {
+          setCustomerPan(fetchedPan);
         }
         if (q.motorPaymentRecord?.referenceNumber && !paymentReference) {
           setPaymentReference(q.motorPaymentRecord.referenceNumber);

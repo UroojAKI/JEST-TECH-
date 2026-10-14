@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, Loader2, ShieldCheck, FileCheck, Car, UserCheck, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
 import { apiClient } from '../../../lib/api-client';
@@ -18,33 +18,114 @@ export function PolicyCompletionDialog({ isOpen, quote, onClose, onSuccess }: Pr
   const [endDate, setEndDate] = useState(() => {
     const d = new Date();
     d.setFullYear(d.getFullYear() + 1);
+    d.setDate(d.getDate() - 1);
     return d.toISOString().split('T')[0];
   });
 
+  // Customer & KYC info
+  const [customerName, setCustomerName] = useState('');
+  const [customerPan, setCustomerPan] = useState('');
+
   // Vehicle info
-  const vehicleDetails = quote?.vehicleDetails || (quote?.motorMetadata as any)?.vehicleDetails || {};
-  const [regNumber, setRegNumber] = useState(quote?.registrationNumber || vehicleDetails?.registrationNumber || '');
-  const [engineNumber, setEngineNumber] = useState(vehicleDetails?.engineNumber || '');
-  const [chassisNumber, setChassisNumber] = useState(vehicleDetails?.chassisNumber || '');
-  const [makeModel, setMakeModel] = useState(vehicleDetails?.makeModel || vehicleDetails?.vehicleMake || '');
-  const [yearMonth, setYearMonth] = useState(vehicleDetails?.manufactureYearMonth || '2023');
+  const [regNumber, setRegNumber] = useState('');
+  const [engineNumber, setEngineNumber] = useState('');
+  const [chassisNumber, setChassisNumber] = useState('');
+  const [makeModel, setMakeModel] = useState('');
+  const [yearMonth, setYearMonth] = useState('2023');
 
   // Nominee info
-  const proposer = quote?.proposerDetails || (quote?.motorMetadata as any)?.proposerDetails || {};
-  const [nomineeName, setNomineeName] = useState(proposer?.nomineeName || '');
-  const [nomineeRelation, setNomineeRelation] = useState(proposer?.nomineeRelation || 'Spouse');
-  const [nomineeAge, setNomineeAge] = useState(proposer?.nomineeAge ? String(proposer.nomineeAge) : '30');
+  const [nomineeName, setNomineeName] = useState('');
+  const [nomineeRelation, setNomineeRelation] = useState('Spouse');
+  const [nomineeAge, setNomineeAge] = useState('30');
 
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isLoadingDetails, setIsLoadingDetails] = useState(false);
+
+  // Autofill from quote prop immediately and refresh authoritative details from backend
+  useEffect(() => {
+    if (!isOpen || !quote?.id) return;
+    let isMounted = true;
+
+    // Helper to safely extract and populate form fields from any quote representation
+    const populateFromData = (data: any) => {
+      if (!data) return;
+      const vehicleDetails = data.vehicle || data.vehicleDetails || (data.motorMetadata as any)?.vehicleDetails || {};
+      const proposer = data.proposerDetails || (data.motorMetadata as any)?.proposerDetails || {};
+      const contact = data.contact || {};
+
+      const pan = contact.panNumber || proposer.panNumber || data.customerPan || data.panNumber || '';
+      if (pan) setCustomerPan((prev) => prev || pan);
+
+      const name = (contact.firstName ? `${contact.firstName} ${contact.lastName || ''}`.trim() : null) ||
+        proposer.customerName ||
+        data.customerName ||
+        '';
+      if (name) setCustomerName((prev) => prev || name);
+
+      const reg = data.registrationNumber || vehicleDetails.registrationNumber || '';
+      if (reg) setRegNumber((prev) => prev || reg);
+
+      const eng = vehicleDetails.engineNumber || '';
+      if (eng) setEngineNumber((prev) => prev || eng);
+
+      const chas = vehicleDetails.chassisNumber || '';
+      if (chas) setChassisNumber((prev) => prev || chas);
+
+      const mm = vehicleDetails.makeModel || vehicleDetails.makeModelVariant || vehicleDetails.vehicleMake || '';
+      if (mm) setMakeModel((prev) => prev || mm);
+
+      const ym = vehicleDetails.manufactureYearMonth || '';
+      if (ym) setYearMonth((prev) => (prev && prev !== '2023' ? prev : ym));
+
+      const nomName = proposer.nomineeName || (data.motorMetadata as any)?.nomineeName || (data.motorMetadata as any)?.proposerDetails?.nomineeName || '';
+      if (nomName) setNomineeName((prev) => prev || nomName);
+
+      const nomRel = proposer.nomineeRelation || (data.motorMetadata as any)?.nomineeRelation || (data.motorMetadata as any)?.proposerDetails?.nomineeRelation || '';
+      if (nomRel) setNomineeRelation((prev) => (prev && prev !== 'Spouse' ? prev : nomRel));
+
+      const nomAge = proposer.nomineeAge ? String(proposer.nomineeAge) : ((data.motorMetadata as any)?.nomineeAge ? String((data.motorMetadata as any).nomineeAge) : '');
+      if (nomAge) setNomineeAge((prev) => (prev && prev !== '30' ? prev : nomAge));
+    };
+
+    // 1. Initial pass from existing props
+    populateFromData(quote);
+
+    // 2. Fetch fresh quotation from API to pull latest updates (e.g., from Missing Details view or wizard)
+    setIsLoadingDetails(true);
+    apiClient
+      .get(`/quotations/${quote.id}`)
+      .then((res) => {
+        if (!isMounted) return;
+        const fresh = res.data?.data || res.data;
+        populateFromData(fresh);
+      })
+      .catch((err) => {
+        console.warn('Could not refresh quotation details for dialog:', err);
+      })
+      .finally(() => {
+        if (isMounted) setIsLoadingDetails(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [isOpen, quote?.id]);
 
   if (!isOpen || !quote) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!customerPan.trim()) {
+      toast.error('Customer PAN / KYC is mandatory for statutory compliance before policy issuance.');
+      return;
+    }
+
     if (!engineNumber.trim() || !chassisNumber.trim()) {
       toast.error('Engine Number and Chassis Number are mandatory for policy issuance.');
       return;
     }
+
     if (!nomineeName.trim()) {
       toast.error('Nominee Full Name is required for statutory IRDAI compliance.');
       return;
@@ -55,6 +136,7 @@ export function PolicyCompletionDialog({ isOpen, quote, onClose, onSuccess }: Pr
       const payload = {
         actualPolicyNumber: policyNumber.trim() || undefined,
         actualPremium: Number(quote.totalPremium || 0),
+        customerPan: customerPan.trim().toUpperCase(),
         startDate,
         endDate,
         registrationNumber: regNumber.trim() || quote.registrationNumber,
@@ -96,6 +178,12 @@ export function PolicyCompletionDialog({ isOpen, quote, onClose, onSuccess }: Pr
                 <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">
                   Instant Issuance
                 </span>
+                {isLoadingDetails && (
+                  <span className="flex items-center gap-1 text-[9px] text-muted-foreground animate-pulse">
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                    Autofetching...
+                  </span>
+                )}
               </div>
               <p className="text-xs text-muted-foreground mt-0.5">
                 Quote: <span className="font-mono font-bold text-foreground">{quote.quotationCode}</span> • Premium: <span className="font-bold text-primary">₹{Number(quote.totalPremium || 0).toLocaleString('en-IN')}</span>
@@ -112,7 +200,53 @@ export function PolicyCompletionDialog({ isOpen, quote, onClose, onSuccess }: Pr
 
         {/* Content form */}
         <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 space-y-5 bg-background">
-          {/* Section 1: Policy Identification */}
+          {/* Section 1: Customer & KYC Details */}
+          <div className="p-4 rounded-xl border bg-card shadow-xs space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-xs font-bold text-foreground">
+                <UserCheck className="h-4 w-4 text-primary" />
+                <span>Customer & Statutory KYC Verification</span>
+              </div>
+              {customerPan ? (
+                <span className="text-[9px] text-emerald-600 font-bold bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
+                  ✓ KYC Available
+                </span>
+              ) : (
+                <span className="text-[9px] text-amber-600 font-bold bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
+                  Customer PAN Required
+                </span>
+              )}
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-[10px] font-bold uppercase text-muted-foreground mb-1">
+                  Customer Full Name
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. Rajesh Sharma"
+                  value={customerName}
+                  onChange={(e) => setCustomerName(e.target.value)}
+                  className="w-full px-3 py-2 border rounded-lg text-xs font-semibold bg-background focus:ring-1 focus:ring-primary"
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold uppercase text-foreground mb-1">
+                  Customer PAN / KYC <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. ABCDE1234F"
+                  value={customerPan}
+                  onChange={(e) => setCustomerPan(e.target.value.toUpperCase())}
+                  className="w-full px-3 py-2 border rounded-lg text-xs font-mono font-bold bg-background uppercase focus:ring-1 focus:ring-primary"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Section 2: Policy Identification */}
           <div className="p-4 rounded-xl border bg-card shadow-xs space-y-3">
             <div className="flex items-center gap-2 text-xs font-bold text-foreground">
               <FileCheck className="h-4 w-4 text-primary" />
@@ -167,7 +301,7 @@ export function PolicyCompletionDialog({ isOpen, quote, onClose, onSuccess }: Pr
             </div>
           </div>
 
-          {/* Section 2: Missing Vehicle Information */}
+          {/* Section 3: Missing Vehicle Information */}
           <div className="p-4 rounded-xl border bg-card shadow-xs space-y-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2 text-xs font-bold text-foreground">
@@ -244,7 +378,7 @@ export function PolicyCompletionDialog({ isOpen, quote, onClose, onSuccess }: Pr
             </div>
           </div>
 
-          {/* Section 3: Nominee Details */}
+          {/* Section 4: Nominee Details */}
           <div className="p-4 rounded-xl border bg-card shadow-xs space-y-3">
             <div className="flex items-center gap-2 text-xs font-bold text-foreground">
               <UserCheck className="h-4 w-4 text-primary" />

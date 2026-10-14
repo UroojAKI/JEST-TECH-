@@ -136,6 +136,38 @@ export class QuotationMapper {
         createdAt: md.createdAt,
       }));
 
+    if (q.contact) {
+      const c = q.contact;
+      dto.contact = {
+        id: c.id,
+        firstName: c.firstName,
+        lastName: c.lastName,
+        email: c.email,
+        phone: c.phone,
+        panNumber: c.panNumber,
+        aadhaarNumber: (c as any).aadhaarNumber,
+        address: (c as any).address,
+      };
+    }
+
+    if (q.vehicle) {
+      const v = q.vehicle;
+      dto.vehicle = {
+        id: v.id,
+        vehicleCode: v.vehicleCode,
+        category: v.category,
+        registrationNumber: v.registrationNumber,
+        engineNumber: v.engineNumber,
+        chassisNumber: v.chassisNumber,
+        makeModel: v.makeModel,
+        manufactureYearMonth: v.manufactureYearMonth,
+      };
+    }
+
+    if ((q as any).motorPaymentRecord) {
+      dto.motorPaymentRecord = (q as any).motorPaymentRecord;
+    }
+
     return dto;
   }
 
