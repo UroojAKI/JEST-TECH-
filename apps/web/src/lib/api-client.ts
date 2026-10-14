@@ -1,4 +1,5 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
+import { toast } from 'sonner';
 
 const defaultApiUrl =
   typeof window !== 'undefined' ? '/api/v1' : 'http://localhost:4000/api/v1';
@@ -125,6 +126,16 @@ apiClient.interceptors.response.use(
     return response;
   },
   async (error: AxiosError) => {
+    // Enrich error with request/correlation ID for downstream handlers
+    const reqId =
+      (error.response?.data as any)?.meta?.requestId ||
+      (error.response?.headers?.['x-correlation-id'] as string) ||
+      (error.config?.headers?.['X-Correlation-ID'] as string);
+    if (reqId) {
+      (error as any).requestId = reqId;
+      (error as any).correlationId = reqId;
+    }
+
     const originalRequest = error.config as InternalAxiosRequestConfig & {
       _retry?: boolean;
     };
@@ -169,3 +180,76 @@ apiClient.interceptors.response.use(
     }
   },
 );
+
+/**
+ * Extracts correlation / request ID from an API error or response.
+ */
+export function getApiCorrelationId(error: unknown): string | null {
+  if (axios.isAxiosError(error)) {
+    const data = error.response?.data as any;
+    if (data?.meta?.requestId) return String(data.meta.requestId);
+    const headerId =
+      error.response?.headers?.['x-correlation-id'] ||
+      error.config?.headers?.['X-Correlation-ID'];
+    if (headerId) return String(headerId);
+    if ((error as any).requestId) return String((error as any).requestId);
+  }
+  return null;
+}
+
+/**
+ * Extracts a user-facing error message from an API error.
+ */
+export function getApiErrorMessage(
+  error: unknown,
+  fallback = 'An unexpected error occurred',
+): string {
+  if (axios.isAxiosError(error)) {
+    const data = error.response?.data as any;
+    if (data?.error?.message) {
+      return Array.isArray(data.error.message)
+        ? data.error.message.join(' | ')
+        : String(data.error.message);
+    }
+    if (data?.message) {
+      return Array.isArray(data.message)
+        ? data.message.join(' | ')
+        : String(data.message);
+    }
+    if (error.message) {
+      return error.message;
+    }
+  } else if (error instanceof Error) {
+    return error.message;
+  }
+  return fallback;
+}
+
+/**
+ * Displays a Sonner toast notification with a user-friendly error message
+ * and a one-click "Copy Trace ID" action if a correlation/request ID is present.
+ */
+export function showApiErrorToast(
+  error: unknown,
+  fallbackMessage = 'An unexpected error occurred',
+) {
+  const message = getApiErrorMessage(error, fallbackMessage);
+  const traceId = getApiCorrelationId(error);
+
+  if (traceId) {
+    return toast.error(message, {
+      description: `Trace ID: ${traceId}`,
+      action: {
+        label: 'Copy Trace ID',
+        onClick: () => {
+          if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+            navigator.clipboard.writeText(traceId);
+            toast.info('Trace ID copied to clipboard');
+          }
+        },
+      },
+    });
+  }
+
+  return toast.error(message);
+}
