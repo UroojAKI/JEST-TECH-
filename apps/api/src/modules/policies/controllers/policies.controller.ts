@@ -25,6 +25,7 @@ import { PaginationDto } from '../../../common/pagination/pagination.dto';
 import { CreatePolicyDto } from '../dto/create-policy.dto';
 import { UpdatePolicyDto } from '../dto/update-policy.dto';
 import { RenewPolicyDto } from '../dto/renew-policy.dto';
+import { RecordLostRenewalDto } from '../dto/record-lost-renewal.dto';
 import { CancelPolicyService } from '../services/commands/cancel-policy.service';
 import { RenewPolicyService } from '../services/commands/renew-policy.service';
 import { GetPolicyService } from '../services/queries/get-policy.service';
@@ -249,7 +250,7 @@ export class PoliciesController {
   @ApiOperation({ summary: 'Capture lost renewal reason analysis' })
   async captureLostReason(
     @Param('id') taskId: string,
-    @Body() dto: { reason: string; competitorName?: string; notes?: string },
+    @Body() dto: RecordLostRenewalDto,
     @CurrentUser() user: RequestUser,
   ) {
     if (!dto.reason?.trim())

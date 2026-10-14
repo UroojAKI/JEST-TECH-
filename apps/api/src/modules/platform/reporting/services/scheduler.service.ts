@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { ReportScheduleFrequency } from '@prisma/client';
 import { PrismaService } from '../../../../database/prisma.service';
+import { withDistributedLock } from '../../../../common/utils/distributed-lock.util';
 import { ReportCommandsService } from '../commands/report-commands.service';
 import { ExecuteReportCommand } from '../commands/report.commands';
 
@@ -16,55 +17,62 @@ export class SchedulerService {
 
   @Cron(CronExpression.EVERY_DAY_AT_6AM)
   async runScheduledReports() {
-    this.logger.log('Running scheduled report execution...');
+    return withDistributedLock(
+      this.prisma,
+      'cron:scheduled-reports-run',
+      async () => {
+        this.logger.log('Running scheduled report execution...');
 
-    // Find all active schedules
-    const schedules = await this.prisma.reportSchedule.findMany({
-      where: { active: true },
-      include: { report: true },
-      take: 50,
-    });
-
-    for (const schedule of schedules) {
-      try {
-        const companyId = schedule.companyId || schedule.report.companyId;
-        if (!companyId && !schedule.report.isSystem) {
-          this.logger.warn(
-            `[PHASE 19] Rejecting scheduled execution for report ${schedule.report.name} (${schedule.report.id}): Missing mandatory companyId tenant context on non-system report schedule.`,
-          );
-          continue;
-        }
-
-        const actorId =
-          (schedule as any).createdById ||
-          schedule.report.createdById ||
-          'SYSTEM';
-
-        this.logger.log(
-          `Running scheduled report: ${schedule.report.name} (${schedule.report.id}) for tenant: ${companyId || 'SYSTEM'}`,
-        );
-
-        // Execute the report with explicit tenant context (Phase 19)
-        const command = new ExecuteReportCommand(
-          schedule.reportId,
-          {},
-          actorId,
-          companyId || undefined,
-        );
-        await this.commands.handleExecuteReport(command, 'csv');
-
-        // Compute authoritative nextRun from schedule frequency
-        const nextRun = this.computeNextRun(schedule.frequency);
-        await this.prisma.reportSchedule.update({
-          where: { id: schedule.id },
-          data: { nextRun },
+        // Find all active schedules
+        const schedules = await this.prisma.reportSchedule.findMany({
+          where: { active: true },
+          include: { report: true },
+          take: 50,
         });
-      } catch (err: any) {
-        this.logger.error(
-          `Scheduled run failed for report ${schedule.report.name}: ${err.message}`,
-        );
-      }
-    }
+
+        for (const schedule of schedules) {
+          try {
+            const companyId = schedule.companyId || schedule.report.companyId;
+            if (!companyId && !schedule.report.isSystem) {
+              this.logger.warn(
+                `[PHASE 19] Rejecting scheduled execution for report ${schedule.report.name} (${schedule.report.id}): Missing mandatory companyId tenant context on non-system report schedule.`,
+              );
+              continue;
+            }
+
+            const actorId =
+              (schedule as any).createdById ||
+              schedule.report.createdById ||
+              'SYSTEM';
+
+            this.logger.log(
+              `Running scheduled report: ${schedule.report.name} (${schedule.report.id}) for tenant: ${companyId || 'SYSTEM'}`,
+            );
+
+            // Execute the report with explicit tenant context (Phase 19)
+            const command = new ExecuteReportCommand(
+              schedule.reportId,
+              {},
+              actorId,
+              companyId || undefined,
+            );
+            await this.commands.handleExecuteReport(command, 'csv');
+
+            // Compute authoritative nextRun from schedule frequency
+            const nextRun = this.computeNextRun(schedule.frequency);
+            await this.prisma.reportSchedule.update({
+              where: { id: schedule.id },
+              data: { nextRun },
+            });
+          } catch (err: any) {
+            this.logger.error(
+              `Scheduled run failed for report ${schedule.report.name}: ${err.message}`,
+            );
+          }
+        }
+      },
+      this.logger,
+    );
   }
 
   private computeNextRun(

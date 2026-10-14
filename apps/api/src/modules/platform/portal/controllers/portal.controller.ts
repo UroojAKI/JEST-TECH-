@@ -19,6 +19,7 @@ import { PrismaService } from '../../../../database/prisma.service';
 import {
   CreatePortalLeadDto,
   PortalCompareQuotationsDto,
+  CreateSupportTicketDto,
 } from '../dto/portal.dto';
 
 @ApiTags('Portal')
@@ -680,7 +681,7 @@ export class PortalController {
   @AnyAuthenticatedRole()
   @ApiOperation({ summary: 'Submit new support ticket' })
   async createSupportTicket(
-    @Body() dto: { subject: string; priority: string; description: string },
+    @Body() dto: CreateSupportTicketDto,
     @CurrentUser() user: RequestUser,
   ) {
     const ticketId = `tkt_${Date.now()}`;

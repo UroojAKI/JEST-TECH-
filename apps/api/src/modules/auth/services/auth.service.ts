@@ -390,11 +390,11 @@ export class AuthService {
     }
     if (!resolvedUserId && accessToken) {
       try {
-        const decoded = (this.tokenService as any).jwtService?.decode?.(
+        const payload = await (this.tokenService as any).jwtService?.verifyAsync?.(
           accessToken,
-        ) as any;
-        if (decoded?.sub) {
-          resolvedUserId = decoded.sub;
+        );
+        if (payload?.sub) {
+          resolvedUserId = payload.sub;
         }
       } catch {}
     }

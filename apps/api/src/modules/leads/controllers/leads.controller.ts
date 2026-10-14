@@ -27,6 +27,9 @@ import { UpdateLeadDto } from '../dto/update-lead.dto';
 import { CreateNoteDto } from '../dto/create-note.dto';
 import { CreateActivityDto } from '../dto/create-activity.dto';
 import { GetLeadsQueryDto } from '../dto/get-leads-query.dto';
+import { BulkAssignLeadsDto } from '../dto/bulk-assign-leads.dto';
+import { MarkLeadLostDto } from '../dto/mark-lead-lost.dto';
+import { TransitionLeadDto } from '../dto/transition-lead.dto';
 import { LeadsService } from '../services/leads.service';
 import { LeadAssignmentService } from '../services/lead-assignment.service';
 import { PrismaService } from '../../../database/prisma.service';
@@ -289,7 +292,7 @@ export class LeadsController {
     summary: 'Bulk reassign leads to a target agent within branch/team scope',
   })
   bulkAssign(
-    @Body() body: { leadIds: string[]; targetAgentId: string },
+    @Body() body: BulkAssignLeadsDto,
     @CurrentUser() actor: ActorContext,
   ) {
     return this.leadAssignmentService.bulkAssign(
@@ -354,7 +357,7 @@ export class LeadsController {
   @Roles(...LEAD_MANAGE_ROLES)
   async markLost(
     @Param('id', ParseUUIDPipe) id: string,
-    @Body() body: { lossReason: string },
+    @Body() body: MarkLeadLostDto,
     @CurrentUser() user: RequestUser,
   ) {
     if (
@@ -401,7 +404,7 @@ export class LeadsController {
   })
   async executeTransition(
     @Param('id', ParseUUIDPipe) id: string,
-    @Body() body: { targetStatus: LeadStatus; remarks?: string },
+    @Body() body: TransitionLeadDto,
     @CurrentUser() user: RequestUser,
   ) {
     if (!body.targetStatus) {

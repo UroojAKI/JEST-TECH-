@@ -20,6 +20,7 @@ import { PrismaService } from '../../../database/prisma.service';
 import { ScopeResolver } from '../../../common/services/scope-resolver.service';
 import { NumberingEngineService } from '../../administration/services/numbering-engine/numbering-engine.service';
 import { RenewalEngineService } from '../services/renewal-engine.service';
+import { MarkTaskLostDto } from '../dto/mark-task-lost.dto';
 
 @ApiTags('Renewals')
 @ApiBearerAuth()
@@ -232,7 +233,7 @@ export class RenewalsController {
   @ApiOperation({ summary: 'Transition renewal task to LOST/CANCELLED' })
   async markTaskLost(
     @Param('id') taskId: string,
-    @Body() dto: { reason?: string },
+    @Body() dto: MarkTaskLostDto,
     @CurrentUser() user: RequestUser,
   ) {
     const scopedFilter = this.scopeResolver.resolveScopeFilter(

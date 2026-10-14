@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../../database/prisma.service';
 import { WarehouseService } from '../../warehouse/services/warehouse.service';
-import { Parser } from 'expr-eval';
+import { evaluateSafeFormula } from '../../../common/utils/formula-evaluator.util';
 
 export interface ConversionMetrics {
   totalLeads: number;
@@ -523,20 +523,7 @@ export class BiService {
           );
 
         if (isSafe && formula.length > 0) {
-          // Strict safe formula evaluation using expr-eval with restricted operators
-          const parser = new Parser({
-            operators: {
-              add: true,
-              subtract: true,
-              multiply: true,
-              divide: true,
-              power: true,
-              remainder: true,
-            },
-          });
-          const expr = parser.parse(formula);
-          value = expr.evaluate(metricRegistry);
-          value = Math.round(value * 100) / 100;
+          value = evaluateSafeFormula(formula, metricRegistry);
         }
       } catch {
         value = 0;
