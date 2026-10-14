@@ -60,6 +60,13 @@ describe('MotorPolicyIssuanceService (Iteration 8)', () => {
       },
       motorPaymentRecord: {
         findUnique: jest.fn(),
+        upsert: jest.fn(),
+      },
+      renewalTask: {
+        upsert: jest.fn(),
+      },
+      user: {
+        findUnique: jest.fn(),
       },
       motorInspection: {
         findUnique: jest.fn(),
@@ -370,6 +377,84 @@ describe('MotorPolicyIssuanceService (Iteration 8)', () => {
       await expect(
         service.issuePolicy('q-100', validDto, opsActor),
       ).rejects.toThrow('Vehicle & policy documents pending Back Office verification');
+    });
+
+    it('should normalize cash payment reference and method during manual issuance to avoid duplicate key collision', async () => {
+      const opsActor = createActor(RoleType.BACK_OFFICE);
+      const manualCashQuote = {
+        ...validQuote,
+        workflowState: 'READY_FOR_PROPOSAL',
+      };
+      prisma.quotation.findUnique.mockResolvedValue(manualCashQuote);
+      prisma.motorPaymentRecord.findUnique.mockResolvedValue(null);
+      prisma.motorPaymentRecord.upsert.mockResolvedValue({
+        id: 'pay-cash-1',
+        quotationId: 'q-100',
+        status: 'PAID',
+        paymentMethod: 'Cash',
+        referenceNumber: 'CASH-QTN-000100',
+        amount: 17638.88,
+      });
+      prisma.policy.create.mockResolvedValue({
+        id: 'pol-cash-1',
+        policyNumber: 'POL-CASH-001',
+        status: 'ACTIVE',
+      });
+
+      const cashDto = {
+        ...validDto,
+        paymentReference: 'cash',
+        confirmPaymentReceived: true,
+      };
+
+      const result = await service.issuePolicy('q-100', cashDto, opsActor);
+
+      expect(result).toBeDefined();
+      expect(prisma.motorPaymentRecord.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          create: expect.objectContaining({
+            paymentMethod: 'Cash',
+            referenceNumber: 'CASH-QTN-000100',
+            status: 'PAID',
+          }),
+        }),
+      );
+    });
+
+    it('should assign agent User ID to RenewalTask instead of Agent profile ID', async () => {
+      const opsActor = createActor(RoleType.BACK_OFFICE);
+      const quoteWithAgent = {
+        ...validQuote,
+        agentId: 'agent-profile-uuid',
+        agent: {
+          id: 'agent-profile-uuid',
+          userId: 'user-sales-agent-uuid',
+        },
+      };
+      prisma.quotation.findUnique.mockResolvedValue(quoteWithAgent);
+      prisma.motorPaymentRecord.findUnique.mockResolvedValue({
+        quotationId: 'q-100',
+        status: 'PAID',
+        amount: 17638.88,
+      });
+      prisma.user.findUnique.mockResolvedValue({ id: 'user-sales-agent-uuid' });
+      prisma.policy.create.mockResolvedValue({
+        id: 'pol-agent-1',
+        policyNumber: 'POL-AGENT-001',
+        status: 'ACTIVE',
+      });
+
+      await service.issuePolicy('q-100', validDto, opsActor);
+
+      expect(prisma.renewalTask.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          create: expect.objectContaining({
+            agentId: 'user-sales-agent-uuid',
+            offsetDays: 30,
+            status: 'PENDING',
+          }),
+        }),
+      );
     });
   });
 });

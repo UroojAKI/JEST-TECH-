@@ -63,6 +63,7 @@ export class MotorPolicyIssuanceService {
           contact: true,
           account: true,
           lead: true,
+          agent: { select: { id: true, userId: true } },
           policy: true,
           motorInspection: true,
           proposal: true,
@@ -101,8 +102,12 @@ export class MotorPolicyIssuanceService {
         actor.role === RoleType.ADMIN ||
         (actor as any).role === 'ADMIN';
       if (!isAdmin) {
+        const salesAgentUserId = quote.agent?.userId;
         // Sales agents can never issue policies for quotations assigned to them
-        if (quote.agentId && quote.agentId === actorId) {
+        if (
+          (salesAgentUserId && salesAgentUserId === actorId) ||
+          (quote.agentId && quote.agentId === actorId)
+        ) {
           throw new ForbiddenException(
             'Maker-checker violation: Assigned sales agent cannot issue policies for their own quotations.',
           );
@@ -113,8 +118,11 @@ export class MotorPolicyIssuanceService {
           (actor as any).role === 'BACK_OFFICE';
 
         // An independent sales agent was assigned to this quotation, and Back Office is acting as checker
-        const isBackOfficeWithIndependentAgent =
-          isBackOffice && quote.agentId && quote.agentId !== actorId;
+        const isBackOfficeWithIndependentAgent = Boolean(
+          isBackOffice &&
+            ((salesAgentUserId && salesAgentUserId !== actorId) ||
+              (quote.agentId && quote.agentId !== actorId)),
+        );
 
         // Or Back Office / Ops is performing offline manual policy entry with payment confirmation
         const isManualEntryWithConfirmation = Boolean(
@@ -232,9 +240,29 @@ export class MotorPolicyIssuanceService {
         (dto.confirmPaymentReceived || dto.paymentReference) &&
         typeof (tx.motorPaymentRecord as any)?.upsert === 'function'
       ) {
-        const refNo =
-          dto.paymentReference?.trim() ||
-          `MANUAL-${dto.actualPolicyNumber.trim()}`;
+        const rawRef = dto.paymentReference?.trim() || '';
+        const rawRefUpper = rawRef.toUpperCase();
+        const rawMethodUpper = (dto.paymentMethod || '').trim().toUpperCase();
+
+        const isCash =
+          rawMethodUpper === 'CASH' ||
+          rawRefUpper === 'CASH' ||
+          rawRefUpper === 'HAND CASH' ||
+          rawRefUpper === 'BY CASH' ||
+          rawRefUpper === 'PAID IN CASH' ||
+          rawRefUpper === 'COUNTER CASH';
+
+        const paymentMethod = isCash
+          ? 'Cash'
+          : dto.paymentMethod || 'OFFLINE_INSURER_DIRECT';
+
+        const refNo = isCash
+          ? (rawRef &&
+            !['CASH', 'HAND CASH', 'BY CASH', 'PAID IN CASH', 'COUNTER CASH'].includes(rawRefUpper)
+              ? rawRef
+              : `CASH-${quote.quotationCode || dto.actualPolicyNumber.trim() || quote.id.slice(0, 8)}`)
+          : rawRef || `MANUAL-${dto.actualPolicyNumber.trim()}`;
+
         paymentRecord = await tx.motorPaymentRecord.upsert({
           where: { quotationId },
           create: {
@@ -242,7 +270,7 @@ export class MotorPolicyIssuanceService {
             quotationId,
             amount: quote.totalPremium,
             status: 'PAID',
-            paymentMethod: dto.paymentMethod || 'OFFLINE_INSURER_DIRECT',
+            paymentMethod,
             referenceNumber: refNo,
             paidAt: new Date(),
             recordedById: actorId,
@@ -250,6 +278,7 @@ export class MotorPolicyIssuanceService {
           update: {
             status: 'PAID',
             amount: quote.totalPremium,
+            paymentMethod,
             referenceNumber: refNo,
             paidAt: new Date(),
           },
@@ -679,9 +708,27 @@ export class MotorPolicyIssuanceService {
         });
       }
 
+      let renewalAgentUserId =
+        quote.agent?.userId ||
+        quote.createdById ||
+        quote.lead?.assignedToId ||
+        actorId;
+
+      if (renewalAgentUserId && typeof tx.user?.findUnique === 'function') {
+        const userExists = await tx.user.findUnique({
+          where: { id: renewalAgentUserId },
+          select: { id: true },
+        });
+        if (!userExists) {
+          renewalAgentUserId = actorId;
+        }
+      } else if (!renewalAgentUserId) {
+        renewalAgentUserId = actorId;
+      }
+
       const renewalDueDate = new Date(effectiveExpiry);
       renewalDueDate.setDate(renewalDueDate.getDate() - 30);
-      if (tx.renewalTask?.upsert) {
+      if (typeof tx.renewalTask?.upsert === 'function') {
         await tx.renewalTask.upsert({
           where: {
             policyId_offsetDays: {
@@ -691,7 +738,7 @@ export class MotorPolicyIssuanceService {
           },
           create: {
             policyId: policy.id,
-            agentId: quote.agentId || quote.createdById || actorId,
+            agentId: renewalAgentUserId,
             dueDate: renewalDueDate,
             offsetDays: 30,
             status: 'PENDING',
@@ -699,6 +746,7 @@ export class MotorPolicyIssuanceService {
           },
           update: {
             dueDate: renewalDueDate,
+            agentId: renewalAgentUserId,
           },
         });
       }
