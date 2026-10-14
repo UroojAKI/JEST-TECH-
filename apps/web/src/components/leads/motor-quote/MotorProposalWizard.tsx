@@ -62,9 +62,9 @@ export function MotorProposalWizard({ isOpen, quote, onClose, onSuccess }: Props
   const proposalStatus = String(currentQuote.proposalStatus || (currentQuote as any)?.proposal?.status || '').toUpperCase();
 
   const isApprovedForPayment =
-    ['APPROVED', 'ACCEPTED', 'CUSTOMER_ACCEPTED', 'PROPOSAL_APPROVED', 'PAYMENT_PENDING', 'PAYMENT_UNDER_PROCESS'].includes(rawStatus) ||
-    ['APPROVED', 'ACCEPTED', 'PROPOSAL_APPROVED'].includes(workflowState) ||
-    proposalStatus === 'APPROVED';
+    ['APPROVED', 'ACCEPTED', 'CUSTOMER_ACCEPTED', 'PROPOSAL_APPROVED', 'PAYMENT_PENDING', 'PAYMENT_UNDER_PROCESS', 'READY_FOR_PROPOSAL', 'PROPOSAL_COMPLETED'].includes(rawStatus) ||
+    ['APPROVED', 'ACCEPTED', 'CUSTOMER_ACCEPTED', 'PROPOSAL_APPROVED', 'PAYMENT_PENDING', 'PAYMENT_UNDER_PROCESS', 'READY_FOR_PROPOSAL', 'PROPOSAL_COMPLETED'].includes(workflowState) ||
+    ['APPROVED', 'ACCEPTED', 'SUBMITTED'].includes(proposalStatus);
 
   const canProceed = () => {
     if (step === 1) return true;
@@ -73,10 +73,11 @@ export function MotorProposalWizard({ isOpen, quote, onClose, onSuccess }: Props
       if (paymentRecord.status === 'NOT_DONE') return false;
       if (paymentRecord.status === 'PAID') {
         const amt = paymentRecord.amount ?? currentQuote.totalPremium;
+        const isCash = paymentRecord.paymentMethod === 'Cash';
         return Boolean(
           amt &&
             Number(amt) > 0 &&
-            paymentRecord.referenceNumber?.trim(),
+            (isCash || paymentRecord.referenceNumber?.trim()),
         );
       }
     }
@@ -97,11 +98,18 @@ export function MotorProposalWizard({ isOpen, quote, onClose, onSuccess }: Props
               ? Number(currentQuote.totalPremium)
               : undefined;
 
+        const isCash = paymentRecord.paymentMethod === 'Cash';
+        const cleanRef = paymentRecord.referenceNumber?.trim();
+        const fallbackRef =
+          isCash && !cleanRef
+            ? `CASH-${currentQuote.quotationCode || Date.now().toString().slice(-6)}`
+            : undefined;
+
         await apiClient.post(`/motor/quotations/${currentQuote.id}/payment`, {
           status: paymentRecord.status,
           amount: effectiveAmount,
           paymentMethod: paymentRecord.paymentMethod,
-          referenceNumber: paymentRecord.referenceNumber?.trim() || undefined,
+          referenceNumber: cleanRef || fallbackRef,
           notes: paymentRecord.notes,
         });
       }

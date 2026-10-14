@@ -261,11 +261,13 @@ describe('MotorPaymentTrackingService & Reconciliation (Iteration 7)', () => {
       ).rejects.toThrow(ForbiddenException);
     });
 
-    it('PAY-002: should prohibit Sales Agents from marking payment as PAID', async () => {
+    it('PAY-002: should prohibit Sales Agents from marking payment as PAID when quotation is not approved', async () => {
       prisma.quotation.findUnique.mockResolvedValue({
         ...mockQuote,
         companyId: 'org-1',
         createdById: 'agent-1',
+        status: 'DRAFT',
+        workflowState: 'DRAFT',
       });
 
       const agentActor: any = {
@@ -289,7 +291,7 @@ describe('MotorPaymentTrackingService & Reconciliation (Iteration 7)', () => {
       ).rejects.toThrow(ForbiddenException);
     });
 
-    it('PAY-002: should prohibit Sales Agents from marking payment as PAID even when quotation is APPROVED by Back Office', async () => {
+    it('PAY-002: should allow Sales Agents to mark payment as PAID when quotation is APPROVED', async () => {
       prisma.quotation.findUnique.mockResolvedValue({
         ...mockQuote,
         companyId: 'org-1',
@@ -297,6 +299,13 @@ describe('MotorPaymentTrackingService & Reconciliation (Iteration 7)', () => {
         status: 'APPROVED',
       });
       prisma.motorPaymentRecord.findUnique.mockResolvedValue(null);
+      prisma.motorPaymentRecord.upsert.mockResolvedValue({
+        id: 'pay-agent-approved',
+        quotationId: 'q-10',
+        status: 'PAID',
+        amount: 17638.88,
+        referenceNumber: 'REF-BANK-999',
+      });
 
       const agentActor: any = {
         userId: 'agent-1',
@@ -305,19 +314,58 @@ describe('MotorPaymentTrackingService & Reconciliation (Iteration 7)', () => {
         companyId: 'org-1',
       };
 
-      await expect(
-        service.recordPayment(
-          {
-            quotationId: 'q-10',
-            status: 'PAID',
-            amount: 17638.88,
-            referenceNumber: 'REF-BANK-999',
-            paymentMethod: 'UPI',
-          },
-          'org-1',
-          agentActor,
-        ),
-      ).rejects.toThrow(ForbiddenException);
+      const result = await service.recordPayment(
+        {
+          quotationId: 'q-10',
+          status: 'PAID',
+          amount: 17638.88,
+          referenceNumber: 'REF-BANK-999',
+          paymentMethod: 'UPI',
+        },
+        'org-1',
+        agentActor,
+      );
+
+      expect(result).toBeDefined();
+      expect(result.status).toBe('PAID');
+    });
+
+    it('PAY-002: should allow Cash payment without mandatory reference number', async () => {
+      prisma.quotation.findUnique.mockResolvedValue({
+        ...mockQuote,
+        companyId: 'org-1',
+        createdById: 'agent-1',
+        status: 'APPROVED',
+        quotationCode: 'Q-CASH-001',
+      });
+      prisma.motorPaymentRecord.findUnique.mockResolvedValue(null);
+      prisma.motorPaymentRecord.upsert.mockImplementation(({ create }: any) => ({
+        id: 'pay-cash',
+        ...create,
+      }));
+
+      const agentActor: any = {
+        userId: 'agent-1',
+        role: RoleType.AGENT,
+        roles: [RoleType.AGENT],
+        companyId: 'org-1',
+      };
+
+      const result = await service.recordPayment(
+        {
+          quotationId: 'q-10',
+          status: 'PAID',
+          amount: 17638.88,
+          paymentMethod: 'Cash',
+          // No referenceNumber provided
+        },
+        'org-1',
+        agentActor,
+      );
+
+      expect(result).toBeDefined();
+      expect(result.status).toBe('PAID');
+      expect(result.referenceNumber).toContain('CASH-');
     });
 
     it('PAY-002: should allow Back Office or Finance to mark payment as PAID when quotation is APPROVED', async () => {

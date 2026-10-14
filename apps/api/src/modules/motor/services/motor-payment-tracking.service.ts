@@ -110,10 +110,32 @@ export class MotorPaymentTrackingService {
           })
         : null;
 
+    const rawStatus = String(quotation.status || '').toUpperCase();
+    const rawWorkflowState = String(quotation.workflowState || '').toUpperCase();
+    const rawProposalStatus = String(proposal?.status || '').toUpperCase();
+    const rawLeadStatus = String(quotation.lead?.status || '').toUpperCase();
+
+    const isProposalApproved = proposal
+      ? ['APPROVED', 'ACCEPTED'].includes(rawProposalStatus)
+      : true;
+
     const isQuotationApproved =
-      quotation.status === QuotationStatus.APPROVED ||
-      quotation.workflowState === 'PROPOSAL_APPROVED' ||
-      proposal?.status === 'APPROVED';
+      isProposalApproved &&
+      (quotation.status === QuotationStatus.APPROVED ||
+        quotation.status === QuotationStatus.ACCEPTED ||
+        [
+          'APPROVED',
+          'ACCEPTED',
+          'CUSTOMER_ACCEPTED',
+          'PROPOSAL_APPROVED',
+          'PAYMENT_PENDING',
+          'PAYMENT_UNDER_PROCESS',
+          'PAYMENT_DONE',
+          'ISSUANCE_PENDING',
+          'PROPOSAL_COMPLETED',
+          'READY_FOR_PROPOSAL',
+        ].includes(rawWorkflowState) ||
+        ['PAYMENT_PENDING', 'CUSTOMER_ACCEPTED', 'QUOTE_PREPARED', 'QUOTATION', 'POST_PAYMENT'].includes(rawLeadStatus));
 
     if (actor) {
       const roles = actor.roles?.length ? actor.roles : [actor.role];
@@ -124,7 +146,8 @@ export class MotorPaymentTrackingService {
       if (isAgentRole) {
         let isOwner =
           quotation.createdById === actor.userId ||
-          quotation.agentId === actor.userId;
+          quotation.agentId === actor.userId ||
+          Boolean(actor.agentId && quotation.agentId === actor.agentId);
 
         if (!isOwner && quotation.agentId && actor.userId) {
           const agentProfile = await this.prisma.agent.findUnique({
@@ -138,6 +161,16 @@ export class MotorPaymentTrackingService {
 
         if (!isOwner && actorCompanyId && quotation.companyId === actorCompanyId) {
           isOwner = true;
+        }
+
+        if (!isOwner && quotation.leadId) {
+          const lead = await this.prisma.lead.findUnique({
+            where: { id: quotation.leadId },
+            select: { assignedToId: true, createdById: true },
+          });
+          if (lead && (lead.assignedToId === actor.userId || lead.createdById === actor.userId)) {
+            isOwner = true;
+          }
         }
 
         if (!isOwner) {
@@ -196,25 +229,39 @@ export class MotorPaymentTrackingService {
           const upper = String(r).toUpperCase();
           return upper.includes('AGENT') || upper.includes('SALES') || upper.includes('POSP') || upper === 'ADVISOR';
         });
-        if (!hasAuthorizedFinanceRole) {
+
+        // Authorized finance roles can verify PAID anytime. Agents may record PAID once proposal/quotation is approved/ready.
+        if (!hasAuthorizedFinanceRole && !(isAgent && isQuotationApproved)) {
           throw new ForbiddenException(
-            'Only Finance, Back Office, or an authorized Administrator can verify a payment as PAID. Sales users may record UNDER_PROCESS only.',
+            'Only Finance, Back Office, or an authorized Administrator can verify a payment as PAID. Sales users may record UNDER_PROCESS only while pending approval.',
           );
         }
       } else if (
         dto.recordedByRole &&
         !FINANCE_PAYMENT_ROLES.has(String(dto.recordedByRole).toUpperCase())
       ) {
-        throw new ForbiddenException(
-          'Only Finance, Back Office, or an authorized Administrator can verify a payment as PAID. Sales users may record UNDER_PROCESS only.',
-        );
+        const roleUpper = String(dto.recordedByRole).toUpperCase();
+        const isAgent =
+          roleUpper.includes('AGENT') ||
+          roleUpper.includes('SALES') ||
+          roleUpper.includes('POSP') ||
+          roleUpper === 'ADVISOR';
+        if (!isAgent || !isQuotationApproved) {
+          throw new ForbiddenException(
+            'Only Finance, Back Office, or an authorized Administrator can verify a payment as PAID. Sales users may record UNDER_PROCESS only while pending approval.',
+          );
+        }
       }
       if (!dto.amount || dto.amount <= 0) {
         throw new BadRequestException(
           'A positive payment amount is required before marking payment as PAID',
         );
       }
-      if (!dto.referenceNumber?.trim()) {
+
+      const isCash =
+        String(dto.paymentMethod || '').trim().toLowerCase() === 'cash';
+
+      if (!isCash && !dto.referenceNumber?.trim()) {
         throw new BadRequestException(
           'Payment reference number is required before marking payment as PAID',
         );
@@ -310,9 +357,15 @@ export class MotorPaymentTrackingService {
         }
       }
 
-      const cleanReferenceNumber = dto.referenceNumber?.trim() || null;
+      const isCash =
+        String(dto.paymentMethod || '').trim().toLowerCase() === 'cash';
 
-      if (cleanReferenceNumber && dto.paymentMethod && (tx as any).motorPaymentRecord?.findFirst) {
+      let cleanReferenceNumber = dto.referenceNumber?.trim() || null;
+      if (isCash && !cleanReferenceNumber) {
+        cleanReferenceNumber = `CASH-${quotation.quotationCode || Date.now().toString().slice(-6)}`;
+      }
+
+      if (cleanReferenceNumber && !isCash && dto.paymentMethod && (tx as any).motorPaymentRecord?.findFirst) {
         const duplicateRef = await (tx as any).motorPaymentRecord.findFirst({
           where: {
             companyId: quotation.companyId,

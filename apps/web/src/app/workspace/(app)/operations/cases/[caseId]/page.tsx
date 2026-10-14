@@ -1797,13 +1797,13 @@ export default function CaseDetailPage() {
 
               <div>
                 <label className="text-xs font-bold block mb-1">
-                  Bank Reference Number / UTR <span className="text-rose-500">*</span>
+                  Bank Reference Number / UTR {paymentForm.paymentMethod !== 'CASH' && <span className="text-rose-500">*</span>}
                 </label>
                 <input
                   type="text"
                   value={paymentForm.referenceNumber}
                   onChange={(e) => setPaymentForm({ ...paymentForm, referenceNumber: e.target.value })}
-                  placeholder="e.g. UTR-HDFC-9988776655"
+                  placeholder={paymentForm.paymentMethod === 'CASH' ? 'e.g. Cash Receipt No. (Optional)' : 'e.g. UTR-HDFC-9988776655'}
                   className="w-full px-3 py-2 text-xs rounded-lg border bg-background font-mono focus:outline-none focus:ring-1 focus:ring-primary"
                 />
               </div>
@@ -1846,14 +1846,16 @@ export default function CaseDetailPage() {
               <button
                 disabled={
                   !paymentForm.amount ||
-                  !paymentForm.referenceNumber.trim() ||
+                  (paymentForm.paymentMethod !== 'CASH' && !paymentForm.referenceNumber.trim()) ||
                   recordPaymentMutation.isPending
                 }
                 onClick={() => {
+                  const isCash = paymentForm.paymentMethod === 'CASH';
+                  const ref = paymentForm.referenceNumber.trim();
                   recordPaymentMutation.mutate({
                     amount: parseFloat(paymentForm.amount),
                     paymentMethod: paymentForm.paymentMethod,
-                    referenceNumber: paymentForm.referenceNumber.trim(),
+                    referenceNumber: ref || (isCash ? `CASH-REC-${Date.now().toString().slice(-6)}` : ''),
                     status: paymentForm.status,
                     notes: paymentForm.notes.trim() || undefined,
                   });
