@@ -104,11 +104,12 @@ export class MotorPaymentTrackingService {
     }
 
     const proposal =
-      quotation.productType === 'MOTOR'
+      (quotation as any).proposal ||
+      (quotation.productType === 'MOTOR'
         ? await this.prisma.proposal.findUnique({
             where: { quotationId: dto.quotationId },
           })
-        : null;
+        : null);
 
     const rawStatus = String(quotation.status || '').toUpperCase();
     const rawWorkflowState = String(quotation.workflowState || '').toUpperCase();
@@ -120,22 +121,23 @@ export class MotorPaymentTrackingService {
       : true;
 
     const isQuotationApproved =
-      isProposalApproved &&
-      (quotation.status === QuotationStatus.APPROVED ||
-        quotation.status === QuotationStatus.ACCEPTED ||
-        [
-          'APPROVED',
-          'ACCEPTED',
-          'CUSTOMER_ACCEPTED',
-          'PROPOSAL_APPROVED',
-          'PAYMENT_PENDING',
-          'PAYMENT_UNDER_PROCESS',
-          'PAYMENT_DONE',
-          'ISSUANCE_PENDING',
-          'PROPOSAL_COMPLETED',
-          'READY_FOR_PROPOSAL',
-        ].includes(rawWorkflowState) ||
-        ['PAYMENT_PENDING', 'CUSTOMER_ACCEPTED', 'QUOTE_PREPARED', 'QUOTATION', 'POST_PAYMENT'].includes(rawLeadStatus));
+      (proposal && ['APPROVED', 'ACCEPTED'].includes(rawProposalStatus)) ||
+      (isProposalApproved &&
+        (quotation.status === QuotationStatus.APPROVED ||
+          quotation.status === QuotationStatus.ACCEPTED ||
+          [
+            'APPROVED',
+            'ACCEPTED',
+            'CUSTOMER_ACCEPTED',
+            'PROPOSAL_APPROVED',
+            'PAYMENT_PENDING',
+            'PAYMENT_UNDER_PROCESS',
+            'PAYMENT_DONE',
+            'ISSUANCE_PENDING',
+            'PROPOSAL_COMPLETED',
+            'READY_FOR_PROPOSAL',
+          ].includes(rawWorkflowState) ||
+          ['PAYMENT_PENDING', 'CUSTOMER_ACCEPTED', 'QUOTE_PREPARED', 'QUOTATION', 'POST_PAYMENT'].includes(rawLeadStatus)));
 
     if (actor) {
       const roles = actor.roles?.length ? actor.roles : [actor.role];
@@ -230,8 +232,14 @@ export class MotorPaymentTrackingService {
           return upper.includes('AGENT') || upper.includes('SALES') || upper.includes('POSP') || upper === 'ADVISOR';
         });
 
-        // Authorized finance roles can verify PAID anytime. Agents may record PAID once proposal/quotation is approved/ready.
-        if (!hasAuthorizedFinanceRole && !(isAgent && isQuotationApproved)) {
+        const isAgentPaymentPermitted =
+          isAgent &&
+          (quotation.status === QuotationStatus.APPROVED ||
+            rawWorkflowState === 'PROPOSAL_APPROVED' ||
+            rawProposalStatus === 'APPROVED');
+
+        // Authorized finance roles can verify PAID anytime. Agents may record PAID once proposal/quotation is formally APPROVED.
+        if (!hasAuthorizedFinanceRole && !isAgentPaymentPermitted) {
           throw new ForbiddenException(
             'Only Finance, Back Office, or an authorized Administrator can verify a payment as PAID. Sales users may record UNDER_PROCESS only while pending approval.',
           );
@@ -246,7 +254,13 @@ export class MotorPaymentTrackingService {
           roleUpper.includes('SALES') ||
           roleUpper.includes('POSP') ||
           roleUpper === 'ADVISOR';
-        if (!isAgent || !isQuotationApproved) {
+        const isAgentPaymentPermitted =
+          isAgent &&
+          (quotation.status === QuotationStatus.APPROVED ||
+            rawWorkflowState === 'PROPOSAL_APPROVED' ||
+            rawProposalStatus === 'APPROVED');
+
+        if (!isAgentPaymentPermitted) {
           throw new ForbiddenException(
             'Only Finance, Back Office, or an authorized Administrator can verify a payment as PAID. Sales users may record UNDER_PROCESS only while pending approval.',
           );

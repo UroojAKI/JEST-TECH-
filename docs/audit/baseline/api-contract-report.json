@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-14T06:38:31.418Z",
+  "generatedAt": "2026-10-14T13:28:24.379Z",
   "mismatches": [],
   "uncalledBackendRoutes": [
     {
@@ -1179,6 +1179,13 @@
       "classification": "UNUSED"
     },
     {
+      "method": "GET",
+      "path": "/renewals/tasks",
+      "controller": "RenewalsController",
+      "file": "apps/api/src/modules/policies/controllers/renewals.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
       "method": "POST",
       "path": "/renewals/tasks/:param/quote",
       "controller": "RenewalsController",
@@ -1274,12 +1281,12 @@
     "totalFrontendCalls": 303,
     "matched": 303,
     "unmatched": 0,
-    "uncalledBackend": 181,
+    "uncalledBackend": 182,
     "uncalledByClassification": {
       "WEBHOOK": 1,
       "CRON": 3,
       "INTERNAL": 8,
-      "UNUSED": 169
+      "UNUSED": 170
     }
   }
 }
