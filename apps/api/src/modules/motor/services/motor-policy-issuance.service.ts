@@ -466,9 +466,17 @@ export class MotorPolicyIssuanceService {
       });
 
       const odStart = dto.odStartDate ? new Date(dto.odStartDate) : new Date(calculatedDates.odStartDate);
-      const odExpiry = dto.odExpiryDate ? new Date(dto.odExpiryDate) : new Date(calculatedDates.odEndDate);
+      const odExpiry = dto.odExpiryDate
+        ? new Date(dto.odExpiryDate)
+        : dto.endDate
+          ? new Date(dto.endDate)
+          : new Date(calculatedDates.odEndDate);
       const tpStart = dto.tpStartDate ? new Date(dto.tpStartDate) : new Date(calculatedDates.tpStartDate);
-      const tpExpiry = dto.tpExpiryDate ? new Date(dto.tpExpiryDate) : new Date(calculatedDates.tpEndDate);
+      const tpExpiry = dto.tpExpiryDate
+        ? new Date(dto.tpExpiryDate)
+        : dto.endDate
+          ? new Date(dto.endDate)
+          : new Date(calculatedDates.tpEndDate);
 
       const effectiveExpiry = dto.endDate
         ? new Date(dto.endDate)

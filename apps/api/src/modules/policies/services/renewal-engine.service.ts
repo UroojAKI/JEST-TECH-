@@ -358,7 +358,7 @@ export class RenewalEngineService {
     let lowCount = 0;
 
     for (const p of policies) {
-      const effectiveExpiry = p.odExpiryDate || p.expiryDate;
+      const effectiveExpiry = this.getEffectiveRenewalExpiry(p);
       const daysRemaining = Math.ceil(
         (new Date(effectiveExpiry).getTime() - now) / 86400000,
       );
@@ -487,7 +487,7 @@ export class RenewalEngineService {
     if (!policy)
       return { success: false, message: `Policy ${policyId} not found` };
 
-    const effectiveExpiry = policy.odExpiryDate || policy.expiryDate;
+    const effectiveExpiry = this.getEffectiveRenewalExpiry(policy);
 
     await this.renewalQueue.add('send-renewal-reminder', {
       policyId: policy.id,
@@ -513,7 +513,7 @@ export class RenewalEngineService {
     if (!policy)
       return { success: false, message: `Policy ${policyId} not found` };
 
-    const effectiveExpiry = policy.odExpiryDate || policy.expiryDate;
+    const effectiveExpiry = this.getEffectiveRenewalExpiry(policy);
 
     const existingTask = await this.prisma.renewalTask.findFirst({
       where: { policyId },
@@ -540,5 +540,20 @@ export class RenewalEngineService {
       success: true,
       message: `Policy ${policy.policyNumber} renewal successfully escalated.`,
     };
+  }
+
+  private getEffectiveRenewalExpiry(policy: {
+    odExpiryDate?: Date | string | null;
+    expiryDate?: Date | string | null;
+  }): Date {
+    const od = policy.odExpiryDate ? new Date(policy.odExpiryDate) : null;
+    const exp = policy.expiryDate ? new Date(policy.expiryDate) : null;
+    if (od && exp && !isNaN(od.getTime()) && !isNaN(exp.getTime())) {
+      // The earlier expiry date dictates the renewal (e.g. 1-year OD on bundled 3-year TP, or short-term policies)
+      return od.getTime() < exp.getTime() ? od : exp;
+    }
+    if (od && !isNaN(od.getTime())) return od;
+    if (exp && !isNaN(exp.getTime())) return exp;
+    return new Date();
   }
 }

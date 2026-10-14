@@ -296,6 +296,33 @@ describe('RenewalEngineService (Iteration 10)', () => {
       expect(freshItem?.escalated).toBe(false);
       expect(escalatedItem?.escalated).toBe(true);
     });
+
+    it('should use earlier expiry date when policy has short expiryDate despite distant odExpiryDate', async () => {
+      const now = new Date();
+      const in6Days = new Date(now.getTime() + 6 * 86400000);
+      const in365Days = new Date(now.getTime() + 365 * 86400000);
+
+      const mockPolicies = [
+        {
+          id: 'pol-short',
+          policyNumber: 'POL-SHORT-7DAYS',
+          expiryDate: in6Days,
+          odExpiryDate: in365Days,
+          contact: { firstName: 'ShortTerm' },
+          claims: [],
+          quotation: { ncbPercentage: 20 },
+          renewalTasks: [],
+        },
+      ];
+
+      prisma.policy.findMany.mockResolvedValue(mockPolicies);
+
+      const result = await service.getRenewalQueue();
+      expect(result.data).toHaveLength(1);
+      const item = result.data[0];
+      expect(item.daysRemaining).toBeLessThanOrEqual(7);
+      expect(item.urgency).toBe('CRITICAL');
+    });
   });
 
   describe('calculateStatutoryDepreciation & calculateRevisedIdv', () => {
