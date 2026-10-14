@@ -2,10 +2,12 @@ import {
   Injectable,
   BadRequestException,
   NotFoundException,
+  ForbiddenException,
   Inject,
 } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import {
+  RoleType,
   WorkflowEntityType,
   WorkflowModule as PrismaWorkflowModule,
 } from '@prisma/client';
@@ -94,6 +96,8 @@ export class WorkflowEngineService {
       );
     }
 
+    const eventsToEmit: Array<{ event: string; payload: any }> = [];
+
     await this.prisma.$transaction(async (tx) => {
       const currentStateCode = await adapter.getCurrentState(entityId);
 
@@ -141,6 +145,7 @@ export class WorkflowEngineService {
       if (transition.assignments && transition.assignments.length > 0) {
         const user = await tx.user.findUnique({
           where: { id: userId },
+          include: { role: true },
         });
         if (!user) throw new BadRequestException('Executing user not found');
 
@@ -155,6 +160,33 @@ export class WorkflowEngineService {
           throw new BadRequestException(
             'User is not authorized to execute this transition',
           );
+        }
+      } else {
+        // Finding N3: Enforce that approval transitions require ADMIN or BACK_OFFICE role
+        const isApprovalTransition =
+          transition.toState?.code?.toUpperCase().includes('APPROV') ||
+          transition.name?.toUpperCase().includes('APPROV');
+        if (isApprovalTransition) {
+          const user = await tx.user.findUnique({
+            where: { id: userId },
+            include: { role: true },
+          });
+          if (!user) throw new BadRequestException('Executing user not found');
+
+          const roleType = user.role?.type;
+          const roleCode = user.role?.code?.toUpperCase();
+          const isPrivileged =
+            roleType === RoleType.ADMIN ||
+            roleType === RoleType.BACK_OFFICE ||
+            roleCode === 'ADMIN' ||
+            roleCode === 'BACK_OFFICE' ||
+            roleCode === 'SUPER_ADMIN';
+
+          if (!isPrivileged) {
+            throw new ForbiddenException(
+              'User is not authorized to approve workflow transitions. Requires Back Office or Admin role.',
+            );
+          }
         }
       }
 
@@ -181,33 +213,47 @@ export class WorkflowEngineService {
         userId,
       );
 
-      this.eventEmitter.emit('workflow.transitioned', {
-        workflowId: workflow.id,
-        entityType,
-        entityId,
-        fromState: transition.fromState?.code || 'DRAFT',
-        toState: transition.toState.code,
-        performedBy: userId,
-      });
-
-      if (transition.toState.isTerminal) {
-        this.eventEmitter.emit('workflow.completed', {
+      eventsToEmit.push({
+        event: 'workflow.transitioned',
+        payload: {
           workflowId: workflow.id,
           entityType,
           entityId,
-          finalState: transition.toState.code,
+          fromState: transition.fromState?.code || 'DRAFT',
+          toState: transition.toState.code,
+          performedBy: userId,
+        },
+      });
+
+      if (transition.toState.isTerminal) {
+        eventsToEmit.push({
+          event: 'workflow.completed',
+          payload: {
+            workflowId: workflow.id,
+            entityType,
+            entityId,
+            finalState: transition.toState.code,
+          },
         });
       }
 
       if (transition.toState.code.toUpperCase() === 'REJECTED') {
-        this.eventEmitter.emit('workflow.rejected', {
-          workflowId: workflow.id,
-          entityType,
-          entityId,
-          comments,
+        eventsToEmit.push({
+          event: 'workflow.rejected',
+          payload: {
+            workflowId: workflow.id,
+            entityType,
+            entityId,
+            comments,
+          },
         });
       }
     });
+
+    // Finding N3: Emit lifecycle events only after transaction successfully commits
+    for (const { event, payload } of eventsToEmit) {
+      this.eventEmitter.emit(event, payload);
+    }
   }
 
   private mapEntityTypeToModule(

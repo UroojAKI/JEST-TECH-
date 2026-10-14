@@ -28,6 +28,7 @@ export class CommunicationController {
   ) {}
 
   @Get('communications')
+  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT)
   @ApiOperation({ summary: 'Get outgoing and incoming communications' })
   async getCommunications(@Query('channel') channel?: string) {
     return [
@@ -55,6 +56,7 @@ export class CommunicationController {
   }
 
   @Post('communications')
+  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT)
   @ApiOperation({ summary: 'Send message via email, SMS, or WhatsApp' })
   async sendMessage(
     @Body()
@@ -77,7 +79,7 @@ export class CommunicationController {
   }
 
   @Get('notifications/templates')
-  @Roles(RoleType.ADMIN, RoleType.ADMIN)
+  @Roles(RoleType.ADMIN)
   @ApiOperation({ summary: 'Get notification templates' })
   async getTemplates() {
     return [
@@ -101,7 +103,7 @@ export class CommunicationController {
   }
 
   @Put('notifications/templates/:id')
-  @Roles(RoleType.ADMIN, RoleType.ADMIN)
+  @Roles(RoleType.ADMIN)
   @ApiOperation({ summary: 'Update notification template' })
   async updateTemplate(
     @Param('id') id: string,
@@ -111,7 +113,7 @@ export class CommunicationController {
   }
 
   @Get('notifications/delivery-logs')
-  @Roles(RoleType.ADMIN, RoleType.ADMIN)
+  @Roles(RoleType.ADMIN)
   @ApiOperation({ summary: 'Get notification delivery logs' })
   async getDeliveryLogs() {
     return [
@@ -133,7 +135,7 @@ export class CommunicationController {
   }
 
   @Get('notifications/events')
-  @Roles(RoleType.ADMIN, RoleType.ADMIN)
+  @Roles(RoleType.ADMIN)
   @ApiOperation({ summary: 'Get system notification events' })
   async getNotificationEvents() {
     return [

@@ -6,6 +6,7 @@ import {
   ProposalStatus,
   PolicyStatus,
   ContactType,
+  RoleType,
   Prisma,
 } from '@prisma/client';
 
@@ -73,8 +74,14 @@ describe('Workflow & Proposal Integration', () => {
       ),
     );
 
-    // Fetch a user from the seeded database or auto-provision test fixture
-    let user = await prisma.user.findFirst();
+    // Fetch a Back Office / Admin reviewer user from the seeded database or auto-provision
+    let user = await prisma.user.findFirst({
+      where: {
+        role: {
+          type: { in: [RoleType.ADMIN, RoleType.BACK_OFFICE] },
+        },
+      },
+    });
     if (!user) {
       const company = await prisma.company.create({
         data: {
@@ -83,6 +90,9 @@ describe('Workflow & Proposal Integration', () => {
           isActive: true,
         },
       });
+      const boRole = await prisma.role.findFirst({
+        where: { type: RoleType.BACK_OFFICE },
+      });
       user = await prisma.user.create({
         data: {
           email: `proposal.e2e.${Date.now()}@example.com`,
@@ -90,6 +100,7 @@ describe('Workflow & Proposal Integration', () => {
           firstName: 'Workflow',
           lastName: 'Tester',
           companyId: company.id,
+          roleId: boRole?.id,
           status: 'ACTIVE',
         },
       });

@@ -13,6 +13,7 @@ import { RoleType } from '@prisma/client';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
 import { Roles } from '../../auth/decorators/roles.decorator';
+import { AnyAuthenticatedRole } from '../../auth/decorators/any-authenticated.decorator';
 import { DashboardRegistryService } from '../services/dashboard-registry.service';
 import {
   CreateDashboardRegistryDto,
@@ -29,26 +30,28 @@ export class DashboardRegistryController {
   constructor(private readonly service: DashboardRegistryService) {}
 
   @Get()
+  @AnyAuthenticatedRole()
   @ApiOperation({ summary: 'Get all registered dashboard configurations' })
   getAll(@Query() pagination: PaginationDto) {
     return this.service.getAll(pagination);
   }
 
   @Get(':code')
+  @AnyAuthenticatedRole()
   @ApiOperation({ summary: 'Get dashboard configuration by dashboard code' })
   getByCode(@Param('code') code: string) {
     return this.service.getByCode(code);
   }
 
   @Post()
-  @Roles(RoleType.ADMIN, RoleType.ADMIN)
+  @Roles(RoleType.ADMIN)
   @ApiOperation({ summary: 'Register a new dashboard configuration' })
   create(@Body() dto: CreateDashboardRegistryDto) {
     return this.service.create(dto);
   }
 
   @Put(':code')
-  @Roles(RoleType.ADMIN, RoleType.ADMIN)
+  @Roles(RoleType.ADMIN)
   @ApiOperation({ summary: 'Update an existing dashboard configuration' })
   update(@Param('code') code: string, @Body() dto: UpdateDashboardRegistryDto) {
     return this.service.update(code, dto);

@@ -13,6 +13,7 @@ import { RoleType, WorkflowEntityType } from '@prisma/client';
 import { JwtAuthGuard } from '../../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../../auth/guards/roles.guard';
 import { Roles } from '../../../auth/decorators/roles.decorator';
+import { AnyAuthenticatedRole } from '../../../auth/decorators/any-authenticated.decorator';
 import {
   CurrentUser,
   RequestUser,
@@ -178,6 +179,7 @@ export class WorkflowsController {
   }
 
   @Get(':entityType/:entityId/transitions')
+  @AnyAuthenticatedRole()
   async getTransitions(
     @Param('entityType') entityType: WorkflowEntityType,
     @Param('entityId') entityId: string,
@@ -187,6 +189,7 @@ export class WorkflowsController {
   }
 
   @Post(':entityType/:entityId/transition')
+  @AnyAuthenticatedRole()
   async triggerTransition(
     @Param('entityType') entityType: WorkflowEntityType,
     @Param('entityId') entityId: string,
@@ -204,6 +207,7 @@ export class WorkflowsController {
   }
 
   @Get(':entityType/:entityId/history')
+  @AnyAuthenticatedRole()
   async getHistory(
     @Param('entityType') entityType: WorkflowEntityType,
     @Param('entityId') entityId: string,

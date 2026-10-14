@@ -18,6 +18,7 @@ import { ParseUUIDPipe } from '../../../common/utils/parse-uuid.pipe';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
 import { Roles } from '../../auth/decorators/roles.decorator';
+import { AnyAuthenticatedRole } from '../../auth/decorators/any-authenticated.decorator';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import type { RequestUser } from '../../auth/decorators/current-user.decorator';
 
@@ -63,6 +64,7 @@ export class UsersController {
   }
 
   @Post('change-password')
+  @AnyAuthenticatedRole()
   @ApiOperation({ summary: 'Change current user password' })
   changePassword(
     @CurrentUser() user: RequestUser,

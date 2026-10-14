@@ -12,6 +12,7 @@ import { RoleType, AuditAction } from '@prisma/client';
 import { JwtAuthGuard } from '../../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../../auth/guards/roles.guard';
 import { Roles } from '../../../auth/decorators/roles.decorator';
+import { AnyAuthenticatedRole } from '../../../auth/decorators/any-authenticated.decorator';
 import { CurrentUser } from '../../../auth/decorators/current-user.decorator';
 import type { RequestUser } from '../../../auth/decorators/current-user.decorator';
 import { PrismaService } from '../../../../database/prisma.service';
@@ -101,6 +102,7 @@ export class PortalController {
   }
 
   @Get('metrics')
+  @AnyAuthenticatedRole()
   @ApiOperation({ summary: 'Get agent portal performance metrics' })
   async getAgentMetrics(@CurrentUser() user: RequestUser) {
     const { companyId, leadWhere, quotationWhere, policyWhere, claimWhere } =
@@ -179,6 +181,7 @@ export class PortalController {
   }
 
   @Get('customers')
+  @AnyAuthenticatedRole()
   @ApiOperation({ summary: 'Get agent portfolio customers' })
   async getAgentCustomers(
     @CurrentUser() user: RequestUser,
@@ -234,6 +237,7 @@ export class PortalController {
   }
 
   @Get('leads')
+  @AnyAuthenticatedRole()
   @ApiOperation({ summary: 'Get agent lead pipeline' })
   async getAgentLeads(
     @CurrentUser() user: RequestUser,
@@ -306,6 +310,7 @@ export class PortalController {
   }
 
   @Post('leads')
+  @AnyAuthenticatedRole()
   @ApiOperation({
     summary: 'Create new agent lead with deterministic contact isolation',
   })
@@ -400,6 +405,7 @@ export class PortalController {
   }
 
   @Get('quotations/compare')
+  @AnyAuthenticatedRole()
   @ApiOperation({
     summary: 'Compare quotations (F-002: genuine DB quotations)',
   })
@@ -450,6 +456,7 @@ export class PortalController {
   }
 
   @Post('quotations/compare')
+  @AnyAuthenticatedRole()
   @ApiOperation({ summary: 'Compare quotations via POST' })
   async compareQuotationsPost(
     @Body() data: PortalCompareQuotationsDto,
@@ -459,6 +466,7 @@ export class PortalController {
   }
 
   @Get('policies')
+  @AnyAuthenticatedRole()
   @ApiOperation({ summary: 'Get agent portfolio active policies' })
   async getAgentPolicies(@CurrentUser() user: RequestUser) {
     const { companyId, policyWhere } = await this.getAgentScope(user);
@@ -502,6 +510,7 @@ export class PortalController {
   }
 
   @Get('renewals')
+  @AnyAuthenticatedRole()
   @ApiOperation({ summary: 'Get upcoming agent renewals' })
   async getAgentRenewals(
     @CurrentUser() user: RequestUser,
@@ -557,6 +566,7 @@ export class PortalController {
   }
 
   @Get('commissions')
+  @AnyAuthenticatedRole()
   @ApiOperation({
     summary:
       'Get agent earned commissions (F-003: authoritative database records)',
@@ -637,6 +647,7 @@ export class PortalController {
 
   // ── EPIC-14: Support & Service Requests (DEF-011 Fix) ─────────────────────
   @Get('support/tickets')
+  @AnyAuthenticatedRole()
   @ApiOperation({ summary: 'Get submitted support tickets' })
   async getSupportTickets(@CurrentUser() user: RequestUser) {
     const companyId = this.getActorCompanyId(user);
@@ -666,6 +677,7 @@ export class PortalController {
   }
 
   @Post('support/tickets')
+  @AnyAuthenticatedRole()
   @ApiOperation({ summary: 'Submit new support ticket' })
   async createSupportTicket(
     @Body() dto: { subject: string; priority: string; description: string },

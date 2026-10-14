@@ -14,6 +14,7 @@ import { RoleType } from '@prisma/client';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
 import { Roles } from '../../auth/decorators/roles.decorator';
+import { AnyAuthenticatedRole } from '../../auth/decorators/any-authenticated.decorator';
 
 import { PaginationDto } from '../../../common/pagination/pagination.dto';
 import { ParseUUIDPipe } from '../../../common/utils/parse-uuid.pipe';
@@ -34,26 +35,28 @@ export class OrganizationController {
   constructor(private readonly organizationService: OrganizationService) {}
 
   @Get('departments')
+  @AnyAuthenticatedRole()
   @ApiOperation({ summary: 'Get all organization departments' })
   getDepartments(@Query() pagination: PaginationDto) {
     return this.organizationService.getDepartments(pagination);
   }
 
   @Get('departments/:id')
+  @AnyAuthenticatedRole()
   @ApiOperation({ summary: 'Get department details' })
   getDepartmentById(@Param('id', ParseUUIDPipe) id: string) {
     return this.organizationService.getDepartmentById(id);
   }
 
   @Post('departments')
-  @Roles(RoleType.ADMIN, RoleType.ADMIN)
+  @Roles(RoleType.ADMIN)
   @ApiOperation({ summary: 'Create new department' })
   createDepartment(@Body() dto: CreateDepartmentDto) {
     return this.organizationService.createDepartment(dto);
   }
 
   @Put('departments/:id')
-  @Roles(RoleType.ADMIN, RoleType.ADMIN)
+  @Roles(RoleType.ADMIN)
   @ApiOperation({ summary: 'Update department' })
   updateDepartment(
     @Param('id', ParseUUIDPipe) id: string,
@@ -63,33 +66,35 @@ export class OrganizationController {
   }
 
   @Delete('departments/:id')
-  @Roles(RoleType.ADMIN, RoleType.ADMIN)
+  @Roles(RoleType.ADMIN)
   @ApiOperation({ summary: 'Delete department' })
   deleteDepartment(@Param('id', ParseUUIDPipe) id: string) {
     return this.organizationService.deleteDepartment(id);
   }
 
   @Get('job-roles')
+  @AnyAuthenticatedRole()
   @ApiOperation({ summary: 'Get all job roles' })
   getJobRoles(@Query() pagination: PaginationDto) {
     return this.organizationService.getJobRoles(pagination);
   }
 
   @Get('job-roles/:id')
+  @AnyAuthenticatedRole()
   @ApiOperation({ summary: 'Get job role details' })
   getJobRoleById(@Param('id', ParseUUIDPipe) id: string) {
     return this.organizationService.getJobRoleById(id);
   }
 
   @Post('job-role')
-  @Roles(RoleType.ADMIN, RoleType.ADMIN)
+  @Roles(RoleType.ADMIN)
   @ApiOperation({ summary: 'Create new job role' })
   createJobRole(@Body() dto: CreateJobRoleDto) {
     return this.organizationService.createJobRole(dto);
   }
 
   @Put('job-role/:id')
-  @Roles(RoleType.ADMIN, RoleType.ADMIN)
+  @Roles(RoleType.ADMIN)
   @ApiOperation({ summary: 'Update job role' })
   updateJobRole(
     @Param('id', ParseUUIDPipe) id: string,
@@ -99,13 +104,14 @@ export class OrganizationController {
   }
 
   @Delete('job-role/:id')
-  @Roles(RoleType.ADMIN, RoleType.ADMIN)
+  @Roles(RoleType.ADMIN)
   @ApiOperation({ summary: 'Delete job role' })
   deleteJobRole(@Param('id', ParseUUIDPipe) id: string) {
     return this.organizationService.deleteJobRole(id);
   }
 
   @Get('hierarchy')
+  @AnyAuthenticatedRole()
   @ApiOperation({ summary: 'Get full organization hierarchy tree' })
   getHierarchy() {
     return this.organizationService.getHierarchy();

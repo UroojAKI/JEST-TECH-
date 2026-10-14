@@ -196,20 +196,17 @@ export class MotorPaymentTrackingService {
           const upper = String(r).toUpperCase();
           return upper.includes('AGENT') || upper.includes('SALES') || upper.includes('POSP') || upper === 'ADVISOR';
         });
-        const isAuthorizedAgent = isAgent && isQuotationApproved;
-
-        if (!hasAuthorizedFinanceRole && !isAuthorizedAgent) {
+        if (!hasAuthorizedFinanceRole) {
           throw new ForbiddenException(
-            'Only Finance or an authorized Administrator can verify a payment as PAID. Sales users may record UNDER_PROCESS only unless approved by Back Office.',
+            'Only Finance, Back Office, or an authorized Administrator can verify a payment as PAID. Sales users may record UNDER_PROCESS only.',
           );
         }
       } else if (
         dto.recordedByRole &&
-        !FINANCE_PAYMENT_ROLES.has(String(dto.recordedByRole).toUpperCase()) &&
-        !isQuotationApproved
+        !FINANCE_PAYMENT_ROLES.has(String(dto.recordedByRole).toUpperCase())
       ) {
         throw new ForbiddenException(
-          'Only Finance or an authorized Administrator can verify a payment as PAID. Sales users may record UNDER_PROCESS only unless approved by Back Office.',
+          'Only Finance, Back Office, or an authorized Administrator can verify a payment as PAID. Sales users may record UNDER_PROCESS only.',
         );
       }
       if (!dto.amount || dto.amount <= 0) {

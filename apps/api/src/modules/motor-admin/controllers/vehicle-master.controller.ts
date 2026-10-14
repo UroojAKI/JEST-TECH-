@@ -22,6 +22,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
 import { Roles } from '../../auth/decorators/roles.decorator';
+import { AnyAuthenticatedRole } from '../../auth/decorators/any-authenticated.decorator';
 import {
   RoleType,
   FuelType,
@@ -44,12 +45,14 @@ export class VehicleMasterController {
 
   // RTO Endpoints
   @Get('rto')
+  @AnyAuthenticatedRole()
   @ApiOperation({ summary: 'Search and filter RTO Code master records' })
   getRtos(@Query('search') search?: string, @Query('state') state?: string) {
     return this.vehicleService.getRtos(search, state);
   }
 
   @Get('rto/:code')
+  @AnyAuthenticatedRole()
   @ApiOperation({
     summary: 'Get RTO master record by RTO Code (e.g. MH12, KA01)',
   })
@@ -83,6 +86,7 @@ export class VehicleMasterController {
 
   // Manufacturer Endpoints
   @Get('manufacturers')
+  @AnyAuthenticatedRole()
   getManufacturers(@Query() pagination: PaginationDto) {
     return this.vehicleService.getManufacturers(pagination);
   }
@@ -95,6 +99,7 @@ export class VehicleMasterController {
 
   // Model Endpoints
   @Get('models')
+  @AnyAuthenticatedRole()
   getModels(
     @Query() pagination: PaginationDto,
     @Query('manufacturerId') manufacturerId?: string,
@@ -115,6 +120,7 @@ export class VehicleMasterController {
 
   // Variant Endpoints
   @Get('variants')
+  @AnyAuthenticatedRole()
   getVariants(
     @Query() pagination: PaginationDto,
     @Query('modelId') modelId?: string,

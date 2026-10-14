@@ -289,7 +289,38 @@ describe('MotorPaymentTrackingService & Reconciliation (Iteration 7)', () => {
       ).rejects.toThrow(ForbiddenException);
     });
 
-    it('PAY-002: should allow Sales Agents to mark payment as PAID when quotation is APPROVED by Back Office', async () => {
+    it('PAY-002: should prohibit Sales Agents from marking payment as PAID even when quotation is APPROVED by Back Office', async () => {
+      prisma.quotation.findUnique.mockResolvedValue({
+        ...mockQuote,
+        companyId: 'org-1',
+        createdById: 'agent-1',
+        status: 'APPROVED',
+      });
+      prisma.motorPaymentRecord.findUnique.mockResolvedValue(null);
+
+      const agentActor: any = {
+        userId: 'agent-1',
+        role: RoleType.AGENT,
+        roles: [RoleType.AGENT],
+        companyId: 'org-1',
+      };
+
+      await expect(
+        service.recordPayment(
+          {
+            quotationId: 'q-10',
+            status: 'PAID',
+            amount: 17638.88,
+            referenceNumber: 'REF-BANK-999',
+            paymentMethod: 'UPI',
+          },
+          'org-1',
+          agentActor,
+        ),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('PAY-002: should allow Back Office or Finance to mark payment as PAID when quotation is APPROVED', async () => {
       prisma.quotation.findUnique.mockResolvedValue({
         ...mockQuote,
         companyId: 'org-1',
@@ -305,10 +336,10 @@ describe('MotorPaymentTrackingService & Reconciliation (Iteration 7)', () => {
         referenceNumber: 'REF-BANK-999',
       });
 
-      const agentActor: any = {
-        userId: 'agent-1',
-        role: RoleType.AGENT,
-        roles: [RoleType.AGENT],
+      const backOfficeActor: any = {
+        userId: 'bo-1',
+        role: RoleType.BACK_OFFICE,
+        roles: [RoleType.BACK_OFFICE],
         companyId: 'org-1',
       };
 
@@ -321,10 +352,11 @@ describe('MotorPaymentTrackingService & Reconciliation (Iteration 7)', () => {
           paymentMethod: 'UPI',
         },
         'org-1',
-        agentActor,
+        backOfficeActor,
       );
 
       expect(result).toBeDefined();
+      expect(result.status).toBe('PAID');
     });
 
     it('PAY-002: should block PAID payment when proposal is not approved', async () => {
