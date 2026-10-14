@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { AppShell } from '../../../../components/layout/app-shell';
 import {
   UserCheck,
@@ -41,7 +42,7 @@ export default function CustomerDetailPage() {
   const queryClient = useQueryClient();
   const customerId = (params?.id as string) || '';
 
-  const [activeTab, setActiveTab] = useState<'OVERVIEW' | 'VEHICLES' | 'QUOTATIONS' | 'POLICIES' | 'LEADS' | 'TASKS' | 'CLAIMS'>('OVERVIEW');
+  const [activeTab, setActiveTab] = useState<'OVERVIEW' | 'VEHICLES' | 'QUOTATIONS' | 'POLICIES' | 'PAYMENTS' | 'LEADS' | 'TASKS' | 'CLAIMS'>('OVERVIEW');
   const [showEditModal, setShowEditModal] = useState(false);
   const [showNewLeadModal, setShowNewLeadModal] = useState(false);
   const [selectedQuoteForAcceptance, setSelectedQuoteForAcceptance] = useState<any>(null);
@@ -329,6 +330,7 @@ export default function CustomerDetailPage() {
             { id: 'VEHICLES', label: 'Vehicles', icon: <Car className="h-3.5 w-3.5" />, count: customer.vehicles?.length },
             { id: 'QUOTATIONS', label: 'Quotations', icon: <FileSpreadsheet className="h-3.5 w-3.5" />, count: customer.quotations?.length },
             { id: 'POLICIES', label: 'Policies', icon: <ShieldCheck className="h-3.5 w-3.5" />, count: customer.policies?.length },
+            { id: 'PAYMENTS', label: 'Payments & Receipts', icon: <CreditCard className="h-3.5 w-3.5" />, count: (customer.payments?.length || 0) + (customer.receipts?.length || 0) },
             { id: 'LEADS', label: 'Leads', icon: <TrendingUp className="h-3.5 w-3.5" />, count: customer.leads?.length },
             { id: 'TASKS', label: 'Tasks', icon: <Clock className="h-3.5 w-3.5" />, count: customer.tasks?.length },
             { id: 'CLAIMS', label: 'Claims', icon: <FileText className="h-3.5 w-3.5" />, count: customer.claims?.length },
@@ -702,6 +704,26 @@ export default function CustomerDetailPage() {
                         </span>
                       </div>
                     </div>
+                    <div className="flex items-center justify-between pt-2 border-t border-border text-xs">
+                      <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+                        {p.payments?.length ? (
+                          <span className="font-semibold text-emerald-600">✓ {p.payments.length} Payment(s)</span>
+                        ) : null}
+                        {p.renewals?.length ? (
+                          <span className="font-semibold text-primary">• {p.renewals.length} Renewal(s)</span>
+                        ) : null}
+                        {p.documents?.length ? (
+                          <span>• {p.documents.length} Doc(s)</span>
+                        ) : null}
+                      </div>
+                      <Link
+                        href={`/policies/${p.id}`}
+                        className="inline-flex items-center gap-1 text-primary hover:text-primary/80 font-bold text-xs"
+                      >
+                        <span>View Policy</span>
+                        <ExternalLink className="h-3 w-3" />
+                      </Link>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -846,6 +868,146 @@ export default function CustomerDetailPage() {
                     </div>
                   </div>
                 ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* 11. Payments & Receipts Ledger Tab */}
+        {activeTab === 'PAYMENTS' && (
+          <div className="space-y-4">
+            <div>
+              <h3 className="font-bold text-base">Payments & Receipts Ledger</h3>
+              <p className="text-xs text-muted-foreground">Reconciled customer receipts, policy premium payments, and financial settlement records.</p>
+            </div>
+
+            {/* Financial Overview Metrics */}
+            {(() => {
+              const allReceipts = customer.receipts || [];
+              const allPayments = customer.payments || [];
+              const totalReceiptAmount = allReceipts.reduce((acc: number, r: any) => acc + Number(r.amount || 0), 0);
+              const totalPolicyPaymentAmount = allPayments.reduce((acc: number, p: any) => acc + Number(p.amount || 0), 0);
+              const totalAmountCollected = totalReceiptAmount > 0 ? totalReceiptAmount : totalPolicyPaymentAmount;
+
+              return (
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                  <div className="p-3.5 rounded-xl border bg-card space-y-1">
+                    <span className="text-[10px] font-bold uppercase text-muted-foreground">Total Paid / Receipts</span>
+                    <div className="font-black text-emerald-600 text-sm">
+                      ₹{totalAmountCollected.toLocaleString('en-IN')}
+                    </div>
+                    <span className="text-[10px] text-muted-foreground font-semibold">Authoritative collected premium</span>
+                  </div>
+                  <div className="p-3.5 rounded-xl border bg-card space-y-1">
+                    <span className="text-[10px] font-bold uppercase text-muted-foreground">Receipts Issued</span>
+                    <div className="font-black text-foreground text-sm">
+                      {allReceipts.length}
+                    </div>
+                    <span className="text-[10px] text-muted-foreground font-semibold">Official double-entry receipts</span>
+                  </div>
+                  <div className="p-3.5 rounded-xl border bg-card space-y-1">
+                    <span className="text-[10px] font-bold uppercase text-muted-foreground">Policy Reconciliations</span>
+                    <div className="font-black text-primary text-sm">
+                      {allPayments.length}
+                    </div>
+                    <span className="text-[10px] text-muted-foreground font-semibold">Linked policy payment records</span>
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* Ledger Items */}
+            {(!customer.receipts?.length && !customer.payments?.length) ? (
+              <div className="p-12 text-center rounded-xl border bg-card space-y-2">
+                <CreditCard className="h-8 w-8 text-muted-foreground mx-auto" />
+                <h4 className="font-bold text-sm">No Payment Records Found</h4>
+                <p className="text-xs text-muted-foreground">Payments and official receipts appear here once premiums are settled.</p>
+              </div>
+            ) : (
+              <div className="rounded-xl border bg-card overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse text-xs">
+                    <thead>
+                      <tr className="bg-muted/40 text-[10px] text-muted-foreground font-bold border-b uppercase">
+                        <th className="p-3">Date</th>
+                        <th className="p-3">Record / Ref</th>
+                        <th className="p-3">Policy / Plan</th>
+                        <th className="p-3">Mode</th>
+                        <th className="p-3">Status</th>
+                        <th className="p-3 text-right">Amount</th>
+                        <th className="p-3 text-right">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y">
+                      {(customer.receipts || []).map((r: any) => (
+                        <tr key={r.id} className="hover:bg-accent/40">
+                          <td className="p-3 whitespace-nowrap text-muted-foreground">
+                            {r.date ? new Date(r.date).toLocaleDateString('en-IN') : '—'}
+                          </td>
+                          <td className="p-3 font-mono font-bold text-foreground">
+                            <div>{r.receiptNum}</div>
+                            {r.reference && <div className="text-[10px] text-muted-foreground font-normal">Ref: {r.reference}</div>}
+                          </td>
+                          <td className="p-3 text-muted-foreground">
+                            {r.allocations?.[0]?.invoice?.policyNumber || 'General Account Receipt'}
+                          </td>
+                          <td className="p-3 uppercase font-semibold text-muted-foreground">
+                            {r.paymentMode || 'ONLINE'}
+                          </td>
+                          <td className="p-3">
+                            <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-emerald-500/10 text-emerald-600">
+                              {r.status || 'CLEARED'}
+                            </span>
+                          </td>
+                          <td className="p-3 text-right font-mono font-bold text-foreground">
+                            ₹{Number(r.amount || 0).toLocaleString('en-IN')}
+                          </td>
+                          <td className="p-3 text-right">
+                            <span className="text-[10px] text-emerald-600 font-bold">Official Receipt</span>
+                          </td>
+                        </tr>
+                      ))}
+                      {(customer.payments || []).map((p: any) => (
+                        <tr key={p.id} className="hover:bg-accent/40">
+                          <td className="p-3 whitespace-nowrap text-muted-foreground">
+                            {p.paymentDate ? new Date(p.paymentDate).toLocaleDateString('en-IN') : '—'}
+                          </td>
+                          <td className="p-3 font-mono font-bold text-foreground">
+                            <div>{p.transactionRef || p.reference || 'PAY-REF'}</div>
+                            <div className="text-[10px] text-muted-foreground font-normal">Policy Payment</div>
+                          </td>
+                          <td className="p-3">
+                            <span className="font-mono text-xs font-semibold">{p.policyNumber || 'POLICY'}</span>
+                            {p.insurerName && <div className="text-[10px] text-muted-foreground">{p.insurerName}</div>}
+                          </td>
+                          <td className="p-3 uppercase font-semibold text-muted-foreground">
+                            {p.paymentMethod || 'BANK_TRANSFER'}
+                          </td>
+                          <td className="p-3">
+                            <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-primary/10 text-primary">
+                              {p.status || 'SUCCESS'}
+                            </span>
+                          </td>
+                          <td className="p-3 text-right font-mono font-bold text-foreground">
+                            ₹{Number(p.amount || 0).toLocaleString('en-IN')}
+                          </td>
+                          <td className="p-3 text-right">
+                            {p.policyId ? (
+                              <Link
+                                href={`/policies/${p.policyId}`}
+                                className="inline-flex items-center gap-1 text-primary hover:underline font-bold text-[11px]"
+                              >
+                                View Policy <ExternalLink className="h-3 w-3" />
+                              </Link>
+                            ) : (
+                              <span className="text-muted-foreground">—</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             )}
           </div>

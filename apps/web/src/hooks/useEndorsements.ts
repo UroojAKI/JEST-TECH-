@@ -15,21 +15,35 @@ export function useEndorsements() {
   const createMutation = useMutation({
     mutationFn: ({
       policyId,
-      category,
       type,
       reason,
+      requestedChanges,
     }: {
       policyId: string;
-      category: 'FINANCIAL' | 'NON_FINANCIAL';
       type: string;
       reason: string;
-    }) => endorsementsRepository.createEndorsement(policyId, category, type, reason),
+      requestedChanges?: Record<string, any>;
+    }) => endorsementsRepository.createEndorsement(policyId, type, reason, requestedChanges),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['endorsements'] });
-      toast.success('Endorsement request submitted');
+      queryClient.invalidateQueries({ queryKey: ['policy-detail'] });
+      toast.success('Endorsement request submitted successfully');
     },
     onError: (err: any) => {
-      toast.error(err.response?.data?.message || 'Failed to submit endorsement');
+      toast.error(err.response?.data?.message || 'Failed to submit endorsement request');
+    },
+  });
+
+  const approveMutation = useMutation({
+    mutationFn: ({ id, comments }: { id: string; comments: string }) =>
+      endorsementsRepository.approveEndorsement(id, comments),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['endorsements'] });
+      queryClient.invalidateQueries({ queryKey: ['policy-detail'] });
+      toast.success('Endorsement approved and applied to policy');
+    },
+    onError: (err: any) => {
+      toast.error(err.response?.data?.message || 'Failed to approve endorsement');
     },
   });
 
@@ -39,5 +53,7 @@ export function useEndorsements() {
     isError: query.isError,
     createEndorsement: createMutation.mutate,
     isCreating: createMutation.isPending,
+    approveEndorsement: approveMutation.mutate,
+    isApproving: approveMutation.isPending,
   };
 }

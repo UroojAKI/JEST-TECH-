@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-14T15:45:13.371Z",
+  "generatedAt": "2026-10-14T16:07:00.289Z",
   "mismatches": [],
   "uncalledBackendRoutes": [
     {
@@ -439,13 +439,6 @@
     {
       "method": "GET",
       "path": "/endorsements/:param",
-      "controller": "EndorsementsController",
-      "file": "apps/api/src/modules/endorsements/controllers/endorsements.controller.ts",
-      "classification": "UNUSED"
-    },
-    {
-      "method": "POST",
-      "path": "/endorsements/policies/:param/calculate-prorata",
       "controller": "EndorsementsController",
       "file": "apps/api/src/modules/endorsements/controllers/endorsements.controller.ts",
       "classification": "UNUSED"
@@ -1442,12 +1435,12 @@
     "totalFrontendCalls": 304,
     "matched": 304,
     "unmatched": 0,
-    "uncalledBackend": 205,
+    "uncalledBackend": 204,
     "uncalledByClassification": {
       "WEBHOOK": 1,
       "CRON": 3,
       "INTERNAL": 8,
-      "UNUSED": 193
+      "UNUSED": 192
     }
   }
 }

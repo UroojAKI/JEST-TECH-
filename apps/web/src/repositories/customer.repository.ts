@@ -47,6 +47,7 @@ export interface Customer {
     claims: number;
     tasks?: number;
     alerts?: number;
+    payments?: number;
   };
   leads?: any[];
   vehicles?: any[];
@@ -55,6 +56,8 @@ export interface Customer {
   claims?: any[];
   tasks?: any[];
   alerts?: any[];
+  payments?: any[];
+  receipts?: any[];
 }
 
 export interface DuplicateCheckResult {

@@ -4,6 +4,7 @@ import {
   ForbiddenException,
   BadRequestException,
   ConflictException,
+  Logger,
 } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
 import { RoleType, Prisma } from '@prisma/client';
@@ -16,6 +17,8 @@ import type { RequestUser } from '../auth/decorators/current-user.decorator';
 
 @Injectable()
 export class CustomersService {
+  private readonly logger = new Logger(CustomersService.name);
+
   constructor(private readonly prisma: PrismaService) {}
 
   private normalizePhone(phone?: string): string | undefined {
@@ -446,8 +449,13 @@ export class CustomersService {
         },
         policies: {
           where: { deletedAt: null },
+          include: {
+            payments: { orderBy: { paymentDate: 'desc' } },
+            documents: true,
+            renewals: true,
+          },
           orderBy: { createdAt: 'desc' },
-          take: 10,
+          take: 20,
         },
         claims: {
           where: { deletedAt: null },
@@ -524,11 +532,50 @@ export class CustomersService {
           deletedAt: null,
           id: { notIn: canonicalPolicies.map((p: any) => p.id) },
         },
+        include: {
+          payments: { orderBy: { paymentDate: 'desc' } },
+          documents: true,
+          renewals: true,
+        },
         orderBy: { createdAt: 'desc' },
         take: 20,
       });
       canonicalPolicies = [...canonicalPolicies, ...contactPolicies];
     }
+
+    let canonicalReceipts: any[] = [];
+    if (this.prisma.receipt?.findMany) {
+      try {
+        canonicalReceipts = await this.prisma.receipt.findMany({
+          where: {
+            customerId: customer.id,
+          },
+          include: {
+            allocations: {
+              include: {
+                invoice: true,
+              },
+            },
+          },
+          orderBy: { date: 'desc' },
+          take: 50,
+        });
+      } catch (err) {
+        this.logger.warn(
+          `Failed to fetch receipts for customer ${customer.id}: ${err}`,
+        );
+      }
+    }
+
+    const policyPayments = canonicalPolicies.flatMap((p: any) =>
+      (p.payments || []).map((pay: any) => ({
+        ...pay,
+        policyId: p.id,
+        policyNumber: p.policyNumber,
+        insurerName: p.insurerName,
+        planName: p.planName,
+      })),
+    );
 
     let canonicalClaims = customer.claims || [];
     if (this.prisma.claim?.findMany) {
@@ -580,6 +627,8 @@ export class CustomersService {
       policies: canonicalPolicies,
       claims: canonicalClaims,
       leads: canonicalLeads,
+      receipts: canonicalReceipts,
+      payments: policyPayments,
       _count: {
         ...customer._count,
         quotations:
@@ -598,6 +647,7 @@ export class CustomersService {
           canonicalLeads.length,
           customer._count?.leads || 0,
         ),
+        payments: policyPayments.length + canonicalReceipts.length,
       },
     };
   }

@@ -28,6 +28,8 @@ import { useQuery } from '@tanstack/react-query';
 import { policiesRepository } from '../../../repositories/policies.repository';
 import { RenewalWizardDrawer } from '../../../components/policies/drawers/RenewalWizardDrawer';
 import { EndorsementRequestDrawer } from '../../../components/policies/drawers/EndorsementRequestDrawer';
+import { useEndorsements } from '../../../hooks/useEndorsements';
+import { useAuthStore } from '../../../store/auth-store';
 
 export default function PolicyWorkspacePage() {
   const params = useParams();
@@ -37,6 +39,15 @@ export default function PolicyWorkspacePage() {
   const [isRenewalOpen, setIsRenewalOpen] = useState(false);
   const [isEndorsementOpen, setIsEndorsementOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<string>('OVERVIEW');
+  const { approveEndorsement, isApproving } = useEndorsements();
+  const authUser = useAuthStore((s) => s.user);
+  const userRoles = [
+    ...(authUser?.roles || []),
+    authUser?.role,
+  ].filter(Boolean).map((r) => String(r).toUpperCase());
+  const canApproveEndorsement = userRoles.some((r) =>
+    ['ADMIN', 'SUPER_ADMIN', 'SYSTEM_ADMINISTRATOR', 'BACK_OFFICE', 'OPERATIONS', 'UNDERWRITER'].includes(r),
+  );
 
   const { data: policyData, isLoading, isError } = useQuery({
     queryKey: ['policy-workspace', policyId],
@@ -366,7 +377,7 @@ export default function PolicyWorkspacePage() {
 
               {endorsementsList.length > 0 ? (
                 endorsementsList.map((endorsement: any) => (
-                  <div key={endorsement.id} className="p-4 rounded-xl border bg-card space-y-2">
+                  <div key={endorsement.id} className="p-4 rounded-xl border bg-card space-y-2.5">
                     <div className="flex justify-between items-center">
                       <div className="font-bold text-sm">
                         {endorsement.endorsementNumber || endorsement.type || 'POLICY_MODIFICATION'}
@@ -376,9 +387,36 @@ export default function PolicyWorkspacePage() {
                     <p className="text-muted-foreground text-xs">
                       {endorsement.description || endorsement.reason || 'Endorsement in progress.'}
                     </p>
-                    <span className="text-[10px] text-muted-foreground block">
-                      Requested: {new Date(endorsement.createdAt).toLocaleDateString('en-IN')}
-                    </span>
+                    {endorsement.requestedChanges && typeof endorsement.requestedChanges === 'object' && Object.keys(endorsement.requestedChanges).length > 0 && (
+                      <div className="p-2.5 rounded-lg bg-muted/40 border text-[11px] font-mono space-y-1">
+                        <span className="font-bold text-foreground block text-[10px] uppercase font-sans">Proposed Changes (Pending Approval)</span>
+                        {Object.entries(endorsement.requestedChanges).map(([k, v]) => (
+                          <div key={k} className="flex justify-between text-muted-foreground">
+                            <span className="font-semibold">{k}:</span>
+                            <span className="text-foreground">{typeof v === 'boolean' ? (v ? 'Yes' : 'No') : String(v)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    <div className="flex items-center justify-between pt-2 border-t border-border text-xs">
+                      <span className="text-[10px] text-muted-foreground block">
+                        Requested: {new Date(endorsement.createdAt).toLocaleDateString('en-IN')}
+                      </span>
+                      {canApproveEndorsement && ['REQUESTED', 'UNDER_REVIEW'].includes(endorsement.status) && (
+                        <button
+                          onClick={() => {
+                            approveEndorsement({
+                              id: endorsement.id,
+                              comments: 'Approved by back-office reviewer',
+                            });
+                          }}
+                          disabled={isApproving}
+                          className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-xs transition-colors"
+                        >
+                          {isApproving ? 'Approving...' : '✓ Review & Approve'}
+                        </button>
+                      )}
+                    </div>
                   </div>
                 ))
               ) : (

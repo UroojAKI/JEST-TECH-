@@ -17,7 +17,9 @@ import {
   Layers,
   Clock,
   X,
+  ExternalLink,
 } from 'lucide-react';
+import Link from 'next/link';
 import {
   useFinanceDashboard,
   useReceipts,
@@ -848,7 +850,19 @@ export default function FinanceOperationsHubPage() {
           {/* 4.7 SETTLEMENTS */}
           {activeTab === 'SETTLEMENTS' && (
             <div className="space-y-4">
-              <h4 className="font-bold text-sm">Insurer Net Payable Settlement Workspace</h4>
+              <div className="flex justify-between items-center">
+                <div>
+                  <h4 className="font-bold text-sm">Insurer Net Payable Settlement Workspace</h4>
+                  <p className="text-xs text-muted-foreground">Persisted insurer settlement batches and net payable reconciliation</p>
+                </div>
+                <Link
+                  href="/finance/settlements"
+                  className="px-3 py-1.5 rounded-lg bg-primary text-primary-foreground font-bold text-xs flex items-center gap-1 hover:bg-primary/90 transition-colors shadow-xs"
+                >
+                  <span>Open Full Settlement Cockpit</span>
+                  <ExternalLink className="h-3 w-3" />
+                </Link>
+              </div>
               <div className="border rounded-xl overflow-hidden">
                 <table className="w-full text-left border-collapse">
                   <thead>

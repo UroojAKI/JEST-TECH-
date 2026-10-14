@@ -170,18 +170,33 @@ export class DashboardAnalyticsService {
     const in30Days = new Date();
     in30Days.setDate(in30Days.getDate() + 30);
 
-    const expiring30d = await this.prisma.policy.count({
-      where: {
-        expiryDate: { gte: today, lte: in30Days },
-        ...(companyId ? { companyId } : {}),
-      },
-    });
+    const [expiring30d, renewed, lapsed] = await Promise.all([
+      this.prisma.policy.count({
+        where: {
+          expiryDate: { gte: today, lte: in30Days },
+          status: { in: ['ACTIVE', 'PENDING_RENEWAL'] },
+          ...(companyId ? { companyId } : {}),
+        },
+      }),
+      this.prisma.policy.count({
+        where: {
+          status: 'RENEWED',
+          ...(companyId ? { companyId } : {}),
+        },
+      }),
+      this.prisma.policy.count({
+        where: {
+          status: 'LAPSED',
+          ...(companyId ? { companyId } : {}),
+        },
+      }),
+    ]);
 
     return {
       kpi: {
         expiring30d,
-        renewed: 0,
-        lapsed: 0,
+        renewed,
+        lapsed,
       },
     };
   }
