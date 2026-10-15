@@ -77,6 +77,19 @@ export function PolicyFormTPOnlyForm({ category, vehicleStatus, data, onChange, 
   });
 
   React.useEffect(() => {
+    if ((loading || error) && (data.calculatedResult || data.totalPremiumInclGST || data.thirdPartyPremium)) {
+      onChange({
+        ...data,
+        calculatedResult: undefined,
+        totalPremiumInclGST: '',
+        thirdPartyPremium: '',
+      });
+    }
+    // Do not leave a previous vehicle's TP amount available for quotation save.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, error]);
+
+  React.useEffect(() => {
     if (result && result.outputs) {
       onChange({ 
         ...data, 
