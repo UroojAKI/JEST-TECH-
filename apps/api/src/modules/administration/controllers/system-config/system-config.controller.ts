@@ -75,18 +75,55 @@ export class SystemConfigController {
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(RoleType.ADMIN)
-  @ApiOperation({ summary: 'Get all system configurations' })
-  async getAllConfigs() {
-    return this.systemConfigService.getAllPublicConfigs();
+  @ApiOperation({ summary: 'Get configured system parameters' })
+  async getAllConfigs(@CurrentUser() user: RequestUser) {
+    const isPlatformAdmin = (user as any).permissions?.includes('*');
+    const configs = await this.prisma.systemConfig.findMany({
+      where: {
+        key: { in: Object.values(SystemConfigKey) },
+        ...(!isPlatformAdmin ? { isPublic: true } : {}),
+      },
+      orderBy: { key: 'asc' },
+    });
+    return Object.fromEntries(configs.map((config) => [
+      config.key,
+      this.parseConfigValue(config.value, config.valueType),
+    ]));
   }
 
   @Put()
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(RoleType.ADMIN)
-  @ApiOperation({ summary: 'Update system configuration parameters' })
-  async updateAllConfigs(@Body() body: Record<string, any>) {
-    return { success: true, updatedCount: Object.keys(body || {}).length };
+  @ApiOperation({ summary: 'Persist a batch of validated system parameters' })
+  async updateAllConfigs(
+    @Body() body: Record<string, any>,
+    @CurrentUser() user: RequestUser,
+  ) {
+    if (!(user as any).permissions?.includes('*')) {
+      throw new ForbiddenException('Platform super-administrator permission is required to update global system parameters');
+    }
+    const entries = Object.entries(body || {});
+    if (entries.length === 0) throw new BadRequestException('At least one configuration value is required');
+
+    const allowedKeys = new Set<string>(Object.values(SystemConfigKey));
+    const prepared = entries.map(([key, value]) => {
+      if (!allowedKeys.has(key)) throw new BadRequestException('Unsupported system configuration key: ' + key);
+      if (value === undefined) throw new BadRequestException('Configuration value cannot be undefined: ' + key);
+      let valueType: 'STRING' | 'NUMBER' | 'BOOLEAN' | 'JSON';
+      if (typeof value === 'boolean') valueType = 'BOOLEAN';
+      else if (typeof value === 'number') {
+        if (!Number.isFinite(value)) throw new BadRequestException('Configuration number must be finite: ' + key);
+        valueType = 'NUMBER';
+      } else if (value !== null && typeof value === 'object') valueType = 'JSON';
+      else valueType = 'STRING';
+      return { key: key as SystemConfigKey, value, valueType };
+    });
+
+    await Promise.all(prepared.map((entry) =>
+      this.systemConfigService.setValue(entry.key, entry.value, entry.valueType),
+    ));
+    return { success: true, updatedCount: prepared.length, updatedKeys: prepared.map((entry) => entry.key) };
   }
 
   @Get('public')
@@ -200,34 +237,39 @@ export class SystemConfigController {
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(RoleType.ADMIN)
-  @ApiOperation({ summary: 'Get all feature flags' })
+  @ApiOperation({ summary: 'Get persisted feature flags' })
   async getFeatureFlags() {
-    return [
-      {
-        id: 'ENABLE_NEW_DASHBOARD',
-        name: 'New Dashboard',
-        description: 'Enable the new dashboard layout',
-        isEnabled: true,
-      },
-      {
-        id: 'ENABLE_ADVANCED_REPORTS',
-        name: 'Advanced Reports',
-        description: 'Enable advanced reporting features',
-        isEnabled: false,
-      },
-    ];
+    const flags = await this.prisma.featureFlag.findMany({ orderBy: { key: 'asc' } });
+    return flags.map((flag) => ({
+      id: flag.key,
+      key: flag.key,
+      name: flag.key,
+      environment: 'GLOBAL',
+      description: flag.description || '',
+      isEnabled: flag.isEnabled,
+      updatedAt: flag.updatedAt,
+    }));
   }
 
   @Patch('flags/:id')
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(RoleType.ADMIN)
-  @ApiOperation({ summary: 'Update a feature flag' })
+  @ApiOperation({ summary: 'Persist a feature flag change' })
   async updateFeatureFlag(
     @Param('id') id: string,
     @Body() dto: UpdateFeatureFlagDto,
+    @CurrentUser() user: RequestUser,
   ) {
-    return { success: true, id, isEnabled: dto.isEnabled };
+    if (!(user as any).permissions?.includes('*')) {
+      throw new ForbiddenException('Platform super-administrator permission is required to change global feature flags');
+    }
+    const current = await this.prisma.featureFlag.findUnique({ where: { key: id } });
+    if (!current) throw new NotFoundException('Feature flag ' + id + ' is not configured');
+    return this.prisma.featureFlag.update({
+      where: { key: id },
+      data: { isEnabled: dto.isEnabled },
+    });
   }
 
   @Get(':key')
@@ -235,30 +277,46 @@ export class SystemConfigController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(RoleType.ADMIN)
   @ApiOperation({ summary: 'Get a specific configuration' })
-  async getConfig(@Param('key') key: string) {
+  async getConfig(@Param('key') key: string, @CurrentUser() user: RequestUser) {
     if (!Object.values(SystemConfigKey).includes(key as SystemConfigKey)) {
       throw new BadRequestException('Invalid configuration key');
     }
     const configKey = key as SystemConfigKey;
-    const value = await this.systemConfigService.getValue(configKey);
-    return { key, value };
+    const record = await this.prisma.systemConfig.findUnique({ where: { key } });
+    if (!record) throw new NotFoundException('Configuration key ' + key + ' is not configured');
+    if (!record.isPublic && !(user as any).permissions?.includes('*')) {
+      throw new ForbiddenException('Platform super-administrator permission is required to read this configuration');
+    }
+    return { key, value: this.parseConfigValue(record.value, record.valueType), valueType: record.valueType };
   }
 
   @Put(':key')
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(RoleType.ADMIN)
-  @ApiOperation({ summary: 'Update a specific configuration' })
-  async updateConfig(@Param('key') key: string, @Body() dto: UpdateConfigDto) {
+  @ApiOperation({ summary: 'Persist a specific configuration' })
+  async updateConfig(
+    @Param('key') key: string,
+    @Body() dto: UpdateConfigDto,
+    @CurrentUser() user: RequestUser,
+  ) {
     if (!Object.values(SystemConfigKey).includes(key as SystemConfigKey)) {
       throw new BadRequestException('Invalid configuration key');
     }
+    if (!(user as any).permissions?.includes('*')) {
+      throw new ForbiddenException('Platform super-administrator permission is required to update global system parameters');
+    }
     const configKey = key as SystemConfigKey;
-    await this.systemConfigService.setValue(
-      configKey,
-      dto.value,
-      dto.valueType,
-    );
-    return { success: true, key };
+    await this.systemConfigService.setValue(configKey, dto.value, dto.valueType);
+    return { success: true, key, value: dto.value, valueType: dto.valueType };
+  }
+
+  private parseConfigValue(value: string, valueType: string): any {
+    switch (valueType) {
+      case 'NUMBER': return Number(value);
+      case 'BOOLEAN': return value === 'true';
+      case 'JSON': return JSON.parse(value);
+      default: return value;
+    }
   }
 }
