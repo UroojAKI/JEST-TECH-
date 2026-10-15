@@ -345,18 +345,20 @@ export function PolicyFormSAODForm({ category, vehicleStatus, data, onChange, el
                   />
                   <span>{a.label}</span>
                 </label>
-                {isSelected && (
-                  <div className="mt-1 flex items-center gap-1.5">
-                    <span className="text-[10px] font-bold text-muted-foreground">₹</span>
-                    <input
-                      type="number"
-                      placeholder="Add-on Amount (₹)"
-                      value={data.addonPrices?.[a.key] || ''}
-                      onChange={(e) => handleAddonPriceChange(a.key, e.target.value)}
-                      className="w-full p-1.5 rounded-md border text-xs font-mono font-semibold bg-background focus:outline-none focus:ring-1 focus:ring-primary"
-                    />
-                  </div>
-                )}
+                {isSelected && (() => {
+                  const pricedAddon = itemizedAddons.find((item: any) => item.addonCode === a.key);
+                  return (
+                    <div className="mt-1 rounded-md bg-muted/50 px-2 py-1.5 text-[10px]">
+                      {pricedAddon
+                        ? <span className="font-semibold">Calculated premium: ₹{Number(pricedAddon.amount).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                        : error
+                          ? <span className="text-destructive">Price unavailable — resolve the calculator error below.</span>
+                          : loading
+                            ? <span className="text-muted-foreground">Calculating configured premium…</span>
+                            : <span className="text-muted-foreground">Price is calculated by the server.</span>}
+                    </div>
+                  );
+                })()}
               </div>
             );
           })}
@@ -382,7 +384,7 @@ export function PolicyFormSAODForm({ category, vehicleStatus, data, onChange, el
 
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
           <FieldRow label="OD Base Premium (₹)" mandatory hint="Insurer OD rate applied to IDV" formula="IDV × Insurer OD Rate %">
-            <input type="number" value={data.odPremiumBase} onChange={(e) => handleOdBaseChange(e.target.value)} placeholder="Enter base OD premium" className={mandatoryInput(data.odPremiumBase)} />
+            <input type="number" value={outputs.baseOdPremium?.toString() ?? data.odPremiumBase} readOnly aria-readonly="true" className={readonlyInput} placeholder="Calculated from configured insurer OD rate" />
           </FieldRow>
           <FieldRow label="NCB Discount (₹)" hint="Auto-calculated from NCB %">
             <input type="number" value={data.ncbDiscountAmount} readOnly className={readonlyInput} placeholder="Auto-calculated" />
