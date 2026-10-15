@@ -287,7 +287,7 @@ describe('MotorCalculationService (Iteration 5 Financial Math)', () => {
       expect(result.authoritativeDates.effectiveEndDate).toBeDefined();
     });
 
-    it('PHASE 7: should reject add-on manual price override without approvalReference and approvedBy', async () => {
+    it('PHASE 7: rejects all client-supplied add-on prices, even when approval metadata is omitted', async () => {
       await expect(
         service.calculate({
           vehicleCategory: 'PRIVATE_CAR',
@@ -296,30 +296,38 @@ describe('MotorCalculationService (Iteration 5 Financial Math)', () => {
           idv: 500000,
           addons: [{ addonCode: 'RSA', manualPrice: 300 }],
         }),
-      ).rejects.toThrow('Untrusted manual pricing is prohibited');
-    });
-
-    it('PHASE 7: should allow add-on manual price override with approvals and deviation <= 50%', async () => {
-      // RSA standard is 499. Manual 400 is ~20% deviation (within 50% max)
-      const result: any = await service.calculate({
-        vehicleCategory: 'PRIVATE_CAR',
-        vehicleStatus: 'EXISTING',
-        policyType: 'PACKAGE_COMPREHENSIVE',
-        idv: 500000,
-        addons: [
-          {
-            addonCode: 'RSA',
-            manualPrice: 400,
-            approvalReference: 'APP-RSA-01',
-            approvedBy: 'mgr-user',
-          },
-        ],
+      ).rejects.toMatchObject({
+        response: expect.objectContaining({
+          errorCode: 'ADDON_MANUAL_OVERRIDE_DISABLED',
+        }),
       });
-      expect(result.outputs.addonPremium).toBe(400);
     });
 
-    it('PHASE 7: should reject add-on manual price override exceeding 50% deviation', async () => {
-      // RSA standard is 499. Manual 100 is ~80% deviation (exceeds 50% max)
+    it('PHASE 7: does not trust client-supplied approvalReference/approvedBy for add-on overrides', async () => {
+      await expect(
+        service.calculate({
+          vehicleCategory: 'PRIVATE_CAR',
+          vehicleStatus: 'EXISTING',
+          policyType: 'PACKAGE_COMPREHENSIVE',
+          idv: 500000,
+          addons: [
+            {
+              addonCode: 'RSA',
+              manualPrice: 400,
+              approvalReference: 'APP-RSA-01',
+              approvedBy: 'mgr-user',
+              overrideReason: 'manual approval text is not proof of authorization',
+            },
+          ],
+        }),
+      ).rejects.toMatchObject({
+        response: expect.objectContaining({
+          errorCode: 'ADDON_MANUAL_OVERRIDE_DISABLED',
+        }),
+      });
+    });
+
+    it('PHASE 7: rejects large client-supplied add-on amounts before premium arithmetic', async () => {
       await expect(
         service.calculate({
           vehicleCategory: 'PRIVATE_CAR',
@@ -335,7 +343,11 @@ describe('MotorCalculationService (Iteration 5 Financial Math)', () => {
             },
           ],
         }),
-      ).rejects.toThrow('exceeds maximum allowable deviation of 50%');
+      ).rejects.toMatchObject({
+        response: expect.objectContaining({
+          errorCode: 'ADDON_MANUAL_OVERRIDE_DISABLED',
+        }),
+      });
     });
 
     it('PHASE 9: should reject 100% TP discount per IRDAI statutory regulations', async () => {
