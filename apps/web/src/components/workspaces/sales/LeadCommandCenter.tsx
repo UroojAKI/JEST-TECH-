@@ -642,7 +642,7 @@ export function LeadCommandCenter({ lead, onRefresh }: LeadCommandCenterProps) {
                 </div>
               );
             })}
-          </div>          </div>
+          </div>
         </div>
       )}
 
