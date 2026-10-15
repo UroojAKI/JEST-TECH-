@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { StepTracker } from './StepTracker';
 import { useSalesWorkspace } from '../../../hooks/useSalesWorkspace';
 import { apiClient } from '../../../lib/api-client';
@@ -13,6 +13,7 @@ import { QuotationCompletionView } from '../../leads/motor-quote/QuotationComple
 import type { SavedMotorQuote } from '../../leads/motor-quote/motorFormTypes';
 import { MarkLostModal } from '../../leads/drawers/MarkLostModal';
 import { leadsRepository } from '../../../repositories/leads.repository';
+import { documentsRepository } from '../../../repositories/documents.repository';
 import type { LostReason } from '../../../types/leads';
 import {
   User,
@@ -51,6 +52,7 @@ interface LeadCommandCenterProps {
 
 export function LeadCommandCenter({ lead, onRefresh }: LeadCommandCenterProps) {
   const { moveStage, isMovingStage, createReferral } = useSalesWorkspace();
+  const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<
     'OVERVIEW' | 'CUSTOMER_360' | 'DOCUMENTS' | 'QUOTATION' | 'PROPOSAL' | 'ACTIVITIES' | 'REFERRAL'
   >('OVERVIEW');
@@ -74,13 +76,25 @@ export function LeadCommandCenter({ lead, onRefresh }: LeadCommandCenterProps) {
   const [refProduct, setRefProduct] = useState('MOTOR');
 
   // Documents Local State
-  const [documentsState, setDocumentsState] = useState<Record<string, { status: string; fileName?: string }>>({
-    rc_book: { status: 'PENDING' },
-    previous_policy: { status: 'PENDING' },
-    pan_card: { status: 'VERIFIED', fileName: 'PAN_Card.pdf' },
-    aadhaar_kyc: { status: 'PENDING' },
-    inspection_report: { status: 'NOT_REQUIRED' },
+  const [uploadingDocKey, setUploadingDocKey] = useState<string | null>(null);
+  const {
+    data: leadDocumentsResponse,
+    isLoading: isDocumentsLoading,
+    isError: isDocumentsError,
+    refetch: refetchLeadDocuments,
+  } = useQuery({
+    queryKey: ['lead-documents', lead?.id],
+    queryFn: async () => {
+      const response = await apiClient.get('/documents/entity/LEAD/' + lead.id, { params: { limit: 100 } });
+      const body = response.data;
+      if (Array.isArray(body)) return body;
+      if (Array.isArray(body?.data)) return body.data;
+      if (Array.isArray(body?.items)) return body.items;
+      return [];
+    },
+    enabled: !!lead?.id,
   });
+  const leadDocuments: any[] = Array.isArray(leadDocumentsResponse) ? leadDocumentsResponse : [];
 
   // Query Quotations linked to this Lead
   const {
@@ -243,12 +257,23 @@ export function LeadCommandCenter({ lead, onRefresh }: LeadCommandCenterProps) {
     );
   };
 
-  const handleDocumentUpload = (docKey: string, docLabel: string) => {
-    setDocumentsState((prev) => ({
-      ...prev,
-      [docKey]: { status: 'VERIFIED', fileName: `${docLabel.replace(/\s+/g, '_')}_Uploaded.pdf` },
-    }));
-    toast.success(`${docLabel} uploaded and verified for this lead!`);
+  const handleDocumentUpload = async (docKey: string, docLabel: string, file?: File) => {
+    if (!file || !lead?.id) return;
+    setUploadingDocKey(docKey);
+    try {
+      await documentsRepository.uploadDocument(file, 'LEAD', lead.id, {
+        name: docLabel,
+        category: docKey,
+        tags: docKey,
+      });
+      await queryClient.invalidateQueries({ queryKey: ['lead-documents', lead.id] });
+      await refetchLeadDocuments();
+      toast.success(docLabel + ' uploaded. It remains pending until an authorized reviewer verifies it.');
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'Failed to upload ' + docLabel);
+    } finally {
+      setUploadingDocKey(null);
+    }
   };
 
   return (
