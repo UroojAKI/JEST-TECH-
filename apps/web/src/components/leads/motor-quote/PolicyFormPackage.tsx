@@ -5,6 +5,7 @@ import { getPolicyTenureOptions, INSURER_OPTIONS, NCB_OPTIONS, ADDON_OPTIONS } f
 import type { VehicleCategory, PolicyFormPackage, MotorEligibilityContext } from './motorFormTypes';
 import { useMotorCalculator } from './useMotorCalculator';
 import { GstRateSelector } from './GstRateSelector';
+import { CommissionBreakdownPanel } from './CommissionBreakdownPanel';
 
 interface Props {
   category: VehicleCategory;
@@ -89,10 +90,8 @@ export function PolicyFormPackageForm({ category, vehicleStatus, data, onChange,
     discountPercent: parseFloat(data.odDiscountPercent || '0') || 0,
     tpDiscountPercent: parseFloat(data.tpDiscountPercent || '0') || 0,
     gstRate: data.gstRate ? parseInt(data.gstRate) : 18,
-    addons: (data.addonsSelected || []).map(a => ({
-      addonCode: a,
-      manualPrice: data.addonPrices?.[a] ? (parseFloat(data.addonPrices[a]) || 0) : undefined
-    }))
+    // Selected add-ons use the authoritative server-side rate; agents cannot override price here.
+    addons: (data.addonsSelected || []).map(a => ({ addonCode: a }))
   });
 
   useEffect(() => {
@@ -132,6 +131,9 @@ export function PolicyFormPackageForm({ category, vehicleStatus, data, onChange,
   const discountAmt = outputs.totalDiscount ?? 0;
   const netBase = outputs.netCustomerPremium ?? outputs.netPreTaxPremium ?? (grossBase - discountAmt);
   const gstAmt = outputs.totalGst ?? outputs.gstAmount ?? 0;
+  const itemizedAddons: any[] = Array.isArray(outputs.itemizedAddons) ? outputs.itemizedAddons : [];
+  const odDiscountAmount = outputs.specialDiscount ?? outputs.od?.specialDiscount ?? 0;
+  const tpDiscountAmount = outputs.tp?.discount ?? outputs.tpDiscountAmount ?? 0;
   const finalPayable =
     outputs.finalPayableAmount ??
     outputs.totalPremium ??
@@ -146,7 +148,7 @@ export function PolicyFormPackageForm({ category, vehicleStatus, data, onChange,
         <div>
           <div className="text-xs font-black text-emerald-700 dark:text-emerald-400">Package / Comprehensive (OD + TP Combined)</div>
           <div className="text-[10px] text-muted-foreground">
-            {isCommercial ? 'Commercial Vehicle: TP GST (12%) and OD GST (18%) calculated separately' : 'Standard policy covering Own Damage, Third Party liability, and Owner-Driver PA'}
+            {isCommercial ? 'Commercial vehicle: premium components are calculated by the server; applicable tax treatment must come from approved tax configuration' : 'Standard policy covering Own Damage, Third Party liability, and Owner-Driver PA'}
           </div>
         </div>
         {loading && <div className="ml-auto text-xs text-primary animate-pulse">Calculating...</div>}
@@ -257,15 +259,20 @@ export function PolicyFormPackageForm({ category, vehicleStatus, data, onChange,
                   />
                   {a.label}
                 </label>
-                {isSelected && (
-                  <input
-                    type="number"
-                    placeholder="Manual Price (₹) - Optional"
-                    value={data.addonPrices?.[a.key] || ''}
-                    onChange={(e) => onChange({ ...data, addonPrices: { ...data.addonPrices, [a.key]: e.target.value } })}
-                    className="mt-1 w-full p-1.5 rounded-md border text-[10px] bg-background focus:outline-none focus:ring-1 focus:ring-primary"
-                  />
-                )}
+                {isSelected && (() => {
+                  const pricedAddon = itemizedAddons.find((item: any) => item.addonCode === a.key);
+                  return (
+                    <div className="mt-1 rounded-md bg-muted/50 px-2 py-1.5 text-[10px]">
+                      {pricedAddon
+                        ? <span className="font-semibold">Calculated premium: ₹{Number(pricedAddon.amount).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                        : error
+                          ? <span className="text-destructive">Price unavailable — resolve the calculator error below.</span>
+                          : loading
+                            ? <span className="text-muted-foreground">Calculating configured premium…</span>
+                            : <span className="text-muted-foreground">Price is calculated by the server.</span>}
+                    </div>
+                  );
+                })()}
               </div>
             );
           })}
@@ -314,6 +321,12 @@ export function PolicyFormPackageForm({ category, vehicleStatus, data, onChange,
               placeholder="e.g. 0%"
               className={inputBase}
             />
+          </FieldRow>
+          <FieldRow label="OD Discount Amount (₹)" hint="Calculated by the backend from the OD premium and approved discount">
+            <input type="text" readOnly value={Number(odDiscountAmount).toFixed(2)} className={inputBase + ' bg-muted'} />
+          </FieldRow>
+          <FieldRow label="TP Discount Amount (₹)" hint="Calculated by the backend from the TP premium and approved discount">
+            <input type="text" readOnly value={Number(tpDiscountAmount).toFixed(2)} className={inputBase + ' bg-muted'} />
           </FieldRow>
         </div>
       </div>
@@ -376,6 +389,7 @@ export function PolicyFormPackageForm({ category, vehicleStatus, data, onChange,
           </div>
         </div>
       </div>
+      <CommissionBreakdownPanel calculation={result || data.calculatedResult} components={['OD', 'TP']} loading={loading} error={error} />
     </div>
   );
 }
