@@ -301,13 +301,13 @@ export class VehicleDataService {
       }
       if (attachmentUsed === 'Trailer 1') {
         sanitizedSpecs.trailer1RegistrationNumber = String(specs.trailer1RegistrationNumber || '').trim().toUpperCase();
-        sanitizedSpecs.trailer2RegistrationNumber = undefined;
+        delete sanitizedSpecs.trailer2RegistrationNumber;
       } else if (attachmentUsed === 'Trailer 2') {
-        sanitizedSpecs.trailer1RegistrationNumber = undefined;
+        delete sanitizedSpecs.trailer1RegistrationNumber;
         sanitizedSpecs.trailer2RegistrationNumber = String(specs.trailer2RegistrationNumber || '').trim().toUpperCase();
       } else {
-        sanitizedSpecs.trailer1RegistrationNumber = undefined;
-        sanitizedSpecs.trailer2RegistrationNumber = undefined;
+        delete sanitizedSpecs.trailer1RegistrationNumber;
+        delete sanitizedSpecs.trailer2RegistrationNumber;
       }
     }
 
