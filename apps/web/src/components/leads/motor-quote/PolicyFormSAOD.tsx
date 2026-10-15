@@ -403,12 +403,7 @@ export function PolicyFormSAODForm({ category, vehicleStatus, data, onChange, el
           </FieldRow>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-border">
-          <FieldRow label="OD Commission %" mandatory hint="Insurer commission rate for OD">
-            <input type="number" value={data.odCommissionPercent} onChange={(e) => handleCommissionChange(e.target.value)} placeholder="e.g. 15" min="0" max="100" className={mandatoryInput(data.odCommissionPercent)} />
-          </FieldRow>
-          <FieldRow label="Commission Amount (₹)" hint="Auto-calc: Net OD × Commission %">
-            <input type="number" value={data.commissionAmount} readOnly className={readonlyInput} placeholder="Auto-calculated" />
-          </FieldRow>
+
         </div>
       </div>
 
@@ -439,7 +434,7 @@ export function PolicyFormSAODForm({ category, vehicleStatus, data, onChange, el
             <Calculator className="h-4 w-4 text-primary" />
             <span className="text-xs font-black text-foreground">Commision / Discount Calculator</span>
             <span className="text-[9px] font-bold text-primary px-2 py-0.5 rounded bg-primary/10 border border-primary/20">
-              IRDAI Formula: Sum of 10* D% - 11
+              Server-calculated OD discount
             </span>
           </div>
           <span className="text-[10px] text-muted-foreground font-mono">Field 13</span>
@@ -487,7 +482,7 @@ export function PolicyFormSAODForm({ category, vehicleStatus, data, onChange, el
               Final Net Payable by Customer
             </span>
             <span className="text-[10px] text-muted-foreground font-mono">
-              Total Premium (Field 11) - Discount Amount (10 × D%)
+              Server-calculated premium after applicable discounts and tax
             </span>
           </div>
           <div className="text-2xl font-black text-emerald-700 dark:text-emerald-400">
@@ -495,6 +490,7 @@ export function PolicyFormSAODForm({ category, vehicleStatus, data, onChange, el
           </div>
         </div>
       </div>
+      <CommissionBreakdownPanel calculation={result || data.calculatedResult} components={['OD']} loading={loading} error={error} />
     </div>
   );
 }
