@@ -82,6 +82,7 @@ export function PolicyFormTPOnlyForm({ category, vehicleStatus, data, onChange, 
         ...data, 
         thirdPartyPremium: (result.outputs.baseTpPremium ?? 0).toString(),
         totalPremiumInclGST: (result.outputs.totalPremium ?? 0).toString(),
+        tpCommissionCalc: '',
         gstRate: (result.rateConfig?.gstRatePercent ?? (data.gstRate ? parseInt(data.gstRate) : 18)).toString(),
         calculatedResult: result 
       });
