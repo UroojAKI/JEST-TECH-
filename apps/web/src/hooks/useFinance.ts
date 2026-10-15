@@ -132,7 +132,7 @@ export function useCommissions() {
     commissions: query.data || [],
     isLoading: query.isLoading,
     isError: query.isError,
-    approveCommission: approveMutation.mutate,
+    approveCommission: approveMutation.mutateAsync,
     isApproving: approveMutation.isPending,
   };
 }
