@@ -363,7 +363,7 @@ export class WorkflowsController {
     for (const item of quotations) output.set([WorkflowEntityType.QUOTATION, item.id].join('|'), { entityNumber: item.quotationCode, customerName: item.title, status: String(item.status) });
     for (const item of policies) output.set([WorkflowEntityType.POLICY, item.id].join('|'), { entityNumber: item.policyNumber, status: String(item.status) });
     for (const item of claims) output.set([WorkflowEntityType.CLAIM, item.id].join('|'), { entityNumber: item.claimNumber, status: String(item.status) });
-    for (const item of proposals) output.set([WorkflowEntityType.PROPOSAL, item.id].join('|'), { entityNumber: item.proposalNumber, customerName: [item.contact.firstName, item.contact.lastName].filter(Boolean).join(' '), status: String(item.status) });
+    for (const item of proposals) output.set([WorkflowEntityType.PROPOSAL, item.id].join('|'), { entityNumber: item.proposalNumber, customerName: item.contact ? [item.contact.firstName, item.contact.lastName].filter(Boolean).join(' ') : null, status: String(item.status) });
     for (const item of endorsements) output.set([WorkflowEntityType.ENDORSEMENT, item.id].join('|'), { entityNumber: item.endorsementNumber, status: String(item.status) });
     return output;
   }
@@ -413,11 +413,11 @@ export class WorkflowsController {
         ? /APPROV|ACCEPT|ISSUED|VERIFIED|COMPLETE/.test(value)
         : /REJECT|DECLIN|RETURN/.test(value);
     });
-    const candidates = matchesDecision.length ? matchesDecision : assignedTransitions;
+    const candidates = matchesDecision;
     if (candidates.length !== 1) {
       throw new BadRequestException(
         candidates.length === 0
-          ? 'No assigned workflow transition is available for this decision.'
+          ? 'No assigned transition explicitly represents this approval/rejection decision. Name or configure the workflow transition/state accordingly.'
           : 'Multiple transitions match this decision. Choose a specific transition in the workflow instead of applying an ambiguous approval.',
       );
     }
