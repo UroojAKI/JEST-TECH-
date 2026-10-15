@@ -935,7 +935,13 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, customerId, caseId
                   />
                 )}
                 {policyType === 'SAOD' && (
-                  <PolicyFormSAODForm data={saodForm} onChange={setSaodForm} />
+                  <PolicyFormSAODForm
+                    category={vehicleCategory}
+                    vehicleStatus={vehicleDetails.vehicleStatus === 'NEW' ? 'NEW' : 'EXISTING'}
+                    data={saodForm}
+                    onChange={setSaodForm}
+                    eligibility={eligibilityContext}
+                  />
                 )}
                 {policyType === 'PACKAGE' && (
                   <PolicyFormPackageForm

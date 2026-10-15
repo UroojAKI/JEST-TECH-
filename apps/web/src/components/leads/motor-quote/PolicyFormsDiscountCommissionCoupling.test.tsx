@@ -3,6 +3,7 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { PolicyFormPackageForm } from './PolicyFormPackage';
 import { PolicyFormTPOnlyForm } from './PolicyFormTP';
+import { PolicyFormSAODForm } from './PolicyFormSAOD';
 import { useMotorCalculator } from './useMotorCalculator';
 
 vi.mock('./useMotorCalculator', () => ({
@@ -159,6 +160,73 @@ describe('Work Package 2 & PR-01: Discount & Commission Decoupling Regression Su
       // FAILING REGRESSION ASSERTION:
       // Current code sets `tpCommissionCalc: "10"` on TP discount interaction.
       expect(emittedPayload.tpCommissionCalc).toBeUndefined();
+    });
+  });
+
+  describe('PolicyFormSAOD Server-Side Calculator & Decoupling', () => {
+    it('T-05 regression: SAOD delegates to useMotorCalculator and keeps commission separate from discount', () => {
+      const mockOnChange = vi.fn();
+      const initialData: any = {
+        insuredDeclaredValue: '600000',
+        odPremiumBase: '18000',
+        odCommissionPercent: '15',
+        commissionAmount: '2700',
+        discountPercent: '5',
+        discountAmount: '900',
+        tpVerification: {
+          tpInsurer: 'ICICI Lombard',
+          tpPolicyNumber: 'TP12345',
+          tpStartDate: '2026-01-01',
+          tpExpiryDate: '2027-01-01',
+          verificationStatus: 'VERIFIED',
+          verifiedByUserConfirmed: true,
+        },
+      };
+
+      vi.mocked(useMotorCalculator).mockReturnValue({
+        result: {
+          outputs: {
+            baseOdPremium: 18000,
+            netOdPremium: 17100,
+            addonPremium: 0,
+            ncbDiscount: 0,
+            totalDiscount: 900,
+            totalGst: 3078,
+            finalPayableAmount: 20178,
+            totalPremium: 20178,
+          },
+          rateConfig: {
+            gstRatePercent: 18,
+          },
+        },
+        loading: false,
+        error: null,
+      });
+
+      render(
+        <PolicyFormSAODForm
+          category="PRIVATE_CAR"
+          vehicleStatus="EXISTING"
+          data={initialData}
+          onChange={mockOnChange}
+        />
+      );
+
+      expect(useMotorCalculator).toHaveBeenCalledWith(
+        expect.objectContaining({
+          policyType: 'STANDALONE_OD',
+          idv: 600000,
+          discountPercent: 5,
+        })
+      );
+
+      // Verify that onChange received authoritative server figures without overwriting commission with discount
+      expect(mockOnChange).toHaveBeenCalled();
+      const lastPayload = mockOnChange.mock.calls[mockOnChange.mock.calls.length - 1][0];
+      expect(lastPayload.totalPremiumInclGST).toBe('20178');
+      expect(lastPayload.discountAmount).toBe('900');
+      // Commission must remain based on commission rate, not discount amount
+      expect(lastPayload.commissionAmount).not.toBe('900');
     });
   });
 });

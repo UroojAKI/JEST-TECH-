@@ -86,8 +86,8 @@ export function PolicyFormPackageForm({ category, vehicleStatus, data, onChange,
     claimInExpiringPolicy: data.claimInExpiringPolicy === 'Yes',
     paCover: true,
     paidDriverLiability: false,
-    discountPercent: parseFloat(data.odDiscountPercent || data.odCommissionCalc || '0') || 0,
-    tpDiscountPercent: parseFloat(data.tpDiscountPercent || data.tpCommissionCalc || '0') || 0,
+    discountPercent: parseFloat(data.odDiscountPercent || '0') || 0,
+    tpDiscountPercent: parseFloat(data.tpDiscountPercent || '0') || 0,
     gstRate: data.gstRate ? parseInt(data.gstRate) : 18,
     addons: (data.addonsSelected || []).map(a => ({
       addonCode: a,
@@ -100,7 +100,6 @@ export function PolicyFormPackageForm({ category, vehicleStatus, data, onChange,
       onChange({ 
         ...data, 
         totalPremiumInclGST: (result.outputs.finalPayableAmount ?? result.outputs.totalPremium ?? 0).toString(),
-        finalCommissionCalc: (result.outputs.totalDiscount ?? 0).toString(),
         finalPayableAmount: (result.outputs.finalPayableAmount ?? result.outputs.totalPremium ?? 0).toString(),
         finalGstAmount: (result.outputs.totalGst ?? 0).toString(),
         gstRate: (result.rateConfig?.gstRatePercent ?? (data.gstRate ? parseInt(data.gstRate) : 18)).toString(),
@@ -287,10 +286,10 @@ export function PolicyFormPackageForm({ category, vehicleStatus, data, onChange,
               min="0"
               max="85"
               step="0.5"
-              value={data.odDiscountPercent ?? data.odCommissionCalc ?? ''}
+              value={data.odDiscountPercent ?? ''}
               onChange={(e) => {
                 const val = e.target.value;
-                onChange({ ...data, odDiscountPercent: val, odCommissionCalc: val });
+                onChange({ ...data, odDiscountPercent: val });
               }}
               placeholder="e.g. 10%"
               className={inputBase}
@@ -307,10 +306,10 @@ export function PolicyFormPackageForm({ category, vehicleStatus, data, onChange,
               min="0"
               max="20"
               step="0.5"
-              value={data.tpDiscountPercent ?? data.tpCommissionCalc ?? ''}
+              value={data.tpDiscountPercent ?? ''}
               onChange={(e) => {
                 const val = e.target.value;
-                onChange({ ...data, tpDiscountPercent: val, tpCommissionCalc: val });
+                onChange({ ...data, tpDiscountPercent: val });
               }}
               placeholder="e.g. 0%"
               className={inputBase}

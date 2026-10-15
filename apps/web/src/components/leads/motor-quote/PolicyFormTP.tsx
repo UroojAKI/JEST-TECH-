@@ -246,7 +246,7 @@ export function PolicyFormTPOnlyForm({ category, vehicleStatus, data, onChange, 
                 onChange({
                   ...data,
                   discountPercent: val,
-                  tpCommissionCalc: val,
+                  tpDiscountPercent: val,
                 });
               }}
               className="w-full p-2 rounded-lg border text-xs font-semibold bg-background focus:outline-none focus:ring-1 focus:ring-primary border-border"

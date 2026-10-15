@@ -1,14 +1,16 @@
-'use client';
-
-import React from 'react';
+import React, { useEffect } from 'react';
 import { ShieldCheck, AlertTriangle, CheckCircle, Info, Calculator, Percent } from 'lucide-react';
 import { INSURER_OPTIONS, NCB_OPTIONS, ADDON_OPTIONS } from './motorFormConfig';
-import type { PolicyFormSAOD, SaodTpVerification } from './motorFormTypes';
+import type { PolicyFormSAOD, SaodTpVerification, VehicleCategory, MotorEligibilityContext } from './motorFormTypes';
 import { GstRateSelector } from './GstRateSelector';
+import { useMotorCalculator } from './useMotorCalculator';
 
 interface Props {
+  category?: VehicleCategory;
+  vehicleStatus?: 'NEW' | 'EXISTING';
   data: PolicyFormSAOD;
   onChange: (data: PolicyFormSAOD) => void;
+  eligibility?: MotorEligibilityContext;
 }
 
 const inputBase = 'w-full p-2 rounded-lg border text-xs font-semibold bg-background focus:outline-none focus:ring-1 focus:ring-primary transition-colors border-border';
@@ -41,7 +43,7 @@ function FieldRow({ label, mandatory, conditional, children, hint, formula }: {
   );
 }
 
-export function PolicyFormSAODForm({ data, onChange }: Props) {
+export function PolicyFormSAODForm({ category, vehicleStatus, data, onChange, eligibility }: Props) {
   const set = (key: keyof PolicyFormSAOD) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
     onChange({ ...data, [key]: e.target.value });
 
@@ -55,77 +57,84 @@ export function PolicyFormSAODForm({ data, onChange }: Props) {
     });
   };
 
-  const recalcPremium = (updated: PolicyFormSAOD): PolicyFormSAOD => {
-    const odBase = parseFloat(updated.odPremiumBase || '0') || 0;
-    const ncb = parseFloat(updated.ncbPercentage || '0') || 0;
+  const effectiveCategory = category || 'PRIVATE_CAR';
+  const effectiveStatus = eligibility ? eligibility.vehicleStatus : (vehicleStatus || 'EXISTING');
 
-    // Sum prices of selected addons (Field 9)
-    const selectedAddons = updated.addonsSelected || [];
-    const addOnsTotal = selectedAddons.reduce((sum, key) => {
-      const price = parseFloat(updated.addonPrices?.[key] || '0') || 0;
-      return sum + price;
-    }, 0);
+  const { result, loading, error } = useMotorCalculator({
+    vehicleCategory: effectiveCategory,
+    vehicleStatus: effectiveStatus,
+    policyType: 'STANDALONE_OD',
+    policyTenure: 1,
+    idv: parseFloat(data.insuredDeclaredValue || '0') || 0,
+    ncbPercent: parseInt(data.ncbPercentage || '0') || 0,
+    claimInExpiringPolicy: data.claimInExpiringODPolicy === 'Yes',
+    discountPercent: parseFloat(data.discountPercent || '0') || 0,
+    gstRate: data.gstRate ? parseInt(data.gstRate) : 18,
+    addons: (data.addonsSelected || []).map((a) => ({
+      addonCode: a,
+      manualPrice: data.addonPrices?.[a] ? (parseFloat(data.addonPrices[a]) || 0) : undefined,
+    })),
+  });
 
-    const ncbDiscount = Math.round(odBase * (ncb / 100));
-    const netOd = Math.max(0, odBase - ncbDiscount + addOnsTotal);
+  useEffect(() => {
+    if (result && result.outputs) {
+      const outputs = result.outputs;
+      const netOd = (outputs.netOdPremium ?? outputs.netOdComponent ?? 0).toString();
+      const ncbDiscount = (outputs.ncbDiscount ?? 0).toString();
+      const addOnsTotal = (outputs.addonPremium ?? 0).toString();
+      const gst = (outputs.totalGst ?? outputs.gstOnOd ?? 0).toString();
+      const total = (outputs.finalPayableAmount ?? outputs.totalPremium ?? 0).toString();
+      const dAmt = (outputs.totalDiscount ?? outputs.specialDiscount ?? 0).toString();
+      const baseOd = (outputs.baseOdPremium ?? 0).toString();
 
-    // Commission
-    const commPct = parseFloat(updated.odCommissionPercent || '0') || 0;
+      const commPct = parseFloat(data.odCommissionPercent || '0') || 0;
+      const commission = Math.round(Number(netOd) * (commPct / 100));
+
+      onChange({
+        ...data,
+        odPremiumBase: baseOd || data.odPremiumBase,
+        addOnsPremium: addOnsTotal,
+        ncbDiscountAmount: ncbDiscount,
+        odPremium: netOd,
+        gstAmount: gst,
+        totalPremiumInclGST: total,
+        commissionAmount: commission.toString(),
+        discountAmount: dAmt,
+        finalPayableAmount: total,
+        gstRate: (result.rateConfig?.gstRatePercent ?? (data.gstRate ? parseInt(data.gstRate) : 18)).toString(),
+        calculatedResult: result,
+      });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [result]);
+
+  const handleOdBaseChange = (val: string) => onChange({ ...data, odPremiumBase: val });
+  const handleNcbChange = (val: string) => onChange({ ...data, ncbPercentage: val });
+  const handleCommissionChange = (val: string) => {
+    const commPct = parseFloat(val || '0') || 0;
+    const netOd = parseFloat(data.odPremium || '0') || 0;
     const commission = Math.round(netOd * (commPct / 100));
-
-    // Field 13: Discount / Commission Calculator
-    const dPct = parseFloat(updated.discountPercent || '0') || 0;
-    const discountAmt = Math.round((netOd * (dPct / 100)) * 100) / 100;
-    
-    // Calculate final OD after discount
-    const discountedNetOd = Math.max(0, netOd - discountAmt);
-    
-    // Recalculate GST based on discounted OD and selected gstRate (5% or 18%)
-    const gstRateDec = String(updated.gstRate || '18') === '5' ? 0.05 : 0.18;
-    const gst = Math.round(discountedNetOd * gstRateDec * 100) / 100;
-    const total = Math.round((discountedNetOd + gst) * 100) / 100;
-    
-    const finalPayable = total;
-    const calcStr = discountAmt > 0
-      ? `₹${discountAmt.toLocaleString('en-IN')} (Discount ${dPct}%: Final ₹${finalPayable.toLocaleString('en-IN')})`
-      : `₹0 (Gross: ₹${total.toLocaleString('en-IN')})`;
-
-    return {
-      ...updated,
-      addOnsPremium: addOnsTotal.toString(),
-      ncbDiscountAmount: ncbDiscount.toString(),
-      odPremium: netOd.toString(),
-      gstAmount: gst.toString(),
-      totalPremiumInclGST: total.toString(),
-      commissionAmount: commission.toString(),
-      discountAmount: discountAmt.toString(),
-      finalPayableAmount: finalPayable.toString(),
-      commissionDiscountCalc: calcStr,
-    };
+    onChange({ ...data, odCommissionPercent: val, commissionAmount: commission.toString() });
   };
-
-  const handleOdBaseChange = (val: string) => onChange(recalcPremium({ ...data, odPremiumBase: val }));
-  const handleNcbChange = (val: string) => onChange(recalcPremium({ ...data, ncbPercentage: val }));
-  const handleCommissionChange = (val: string) => onChange(recalcPremium({ ...data, odCommissionPercent: val }));
 
   const handleClaimChange = (val: string) => {
     const ncb = val === 'Yes' ? '0' : data.ncbPercentage;
-    onChange(recalcPremium({ ...data, claimInExpiringODPolicy: val, ncbPercentage: ncb }));
+    onChange({ ...data, claimInExpiringODPolicy: val, ncbPercentage: ncb });
   };
 
   const toggleAddon = (key: string) => {
     const current = data.addonsSelected || [];
     const updated = current.includes(key) ? current.filter((a) => a !== key) : [...current, key];
-    onChange(recalcPremium({ ...data, addonsSelected: updated }));
+    onChange({ ...data, addonsSelected: updated });
   };
 
   const handleAddonPriceChange = (key: string, price: string) => {
     const updatedPrices = { ...(data.addonPrices || {}), [key]: price };
-    onChange(recalcPremium({ ...data, addonPrices: updatedPrices }));
+    onChange({ ...data, addonPrices: updatedPrices });
   };
 
   const handleDiscountPercentChange = (val: string) => {
-    onChange(recalcPremium({ ...data, discountPercent: val }));
+    onChange({ ...data, discountPercent: val });
   };
 
   const verification = data.tpVerification;
@@ -383,7 +392,7 @@ export function PolicyFormSAODForm({ data, onChange }: Props) {
 
         <GstRateSelector
           value={data.gstRate}
-          onChange={(rate) => onChange(recalcPremium({ ...data, gstRate: rate }))}
+          onChange={(rate) => onChange({ ...data, gstRate: rate })}
         />
 
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
