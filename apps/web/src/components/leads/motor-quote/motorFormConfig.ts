@@ -86,7 +86,7 @@ export const VEHICLE_FIELDS: Record<VehicleCategory, FieldDef[]> = {
   TRACTOR: [
     { key: 'registrationNumber', label: 'Registration Number', type: 'alphanumeric', mandatory: true },
     { key: 'makeModel', label: 'Make & Model', type: 'text', mandatory: false },
-    { key: 'horsePower', label: 'Horse Power (HP)', type: 'numeric', mandatory: false },
+    { key: 'horsePower', label: 'Horse Power (HP)', type: 'numeric', mandatory: true },
     { key: 'manufactureYearMonth', label: 'Manufacture Year / Month', type: 'date', mandatory: false },
     { key: 'dateOfRegistration', label: 'Date of Registration', type: 'date', mandatory: false },
     { key: 'engineChassisNumber', label: 'Engine / Chassis Number', type: 'alphanumeric', mandatory: false },
