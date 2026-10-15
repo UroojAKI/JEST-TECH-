@@ -307,14 +307,9 @@ export class TasksService {
       throw new NotFoundException('A linked task resource was not found');
     }
 
-    const count = await this.prisma.task.count();
-    let nextNum = count + 1;
-    let taskCode = `TSK-${String(nextNum).padStart(5, '0')}`;
-
-    while (await this.prisma.task.findUnique({ where: { taskCode } })) {
-      nextNum++;
-      taskCode = `TSK-${String(nextNum).padStart(5, '0')}`;
-    }
+    // Use the shared database sequence so concurrent task creation cannot
+    // collide and task creation does not scan/count another tenant's records.
+    const taskCode = await this.numberingEngine.generateNext('TSK');
 
     const assignedToId = dto.assignedToId || user.id;
     const assignee = await this.prisma.user.findFirst({
