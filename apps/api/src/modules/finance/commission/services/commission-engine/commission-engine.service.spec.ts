@@ -111,6 +111,23 @@ describe('CommissionEngineService', () => {
 
     });
 
+    it('rejects a caller-supplied premium base that differs from the policy quotation excluding GST', async () => {
+      jest.spyOn(prisma.commissionPlan, 'findUnique').mockResolvedValue({
+        id: 'plan-1',
+        isActive: true,
+        rules: JSON.stringify({
+          agentPercent: 10,
+          maxAgentPercent: 15,
+          maxTotalPercent: 20,
+          overrides: [],
+        }),
+      } as any);
+
+      await expect(
+        service.accrueCommissions('pol-1', 'agent-1', '59000', 'plan-1'),
+      ).rejects.toThrow(/does not match the policy-linked quotation/);
+    });
+
     it('T-05: throws structured COMMISSION_CONFIG_PENDING when no active commission plan matches', async () => {
       jest.spyOn(prisma.commissionPlan, 'findUnique').mockResolvedValue(null);
 
