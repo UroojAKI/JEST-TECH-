@@ -82,11 +82,9 @@ export function PolicyFormSAODForm({ category, vehicleStatus, data, onChange, el
       const addOnsTotal = (outputs.addonPremium ?? 0).toString();
       const gst = (outputs.totalGst ?? outputs.gstOnOd ?? 0).toString();
       const total = (outputs.finalPayableAmount ?? outputs.totalPremium ?? 0).toString();
-      const dAmt = (outputs.totalDiscount ?? outputs.specialDiscount ?? 0).toString();
+      // Keep the discretionary OD discount separate from NCB in the user-facing breakdown.
+      const dAmt = (outputs.specialDiscount ?? 0).toString();
       const baseOd = (outputs.baseOdPremium ?? 0).toString();
-
-      const commPct = parseFloat(data.odCommissionPercent || '0') || 0;
-      const commission = Math.round(Number(netOd) * (commPct / 100));
 
       onChange({
         ...data,
@@ -96,7 +94,6 @@ export function PolicyFormSAODForm({ category, vehicleStatus, data, onChange, el
         odPremium: netOd,
         gstAmount: gst,
         totalPremiumInclGST: total,
-        commissionAmount: commission.toString(),
         discountAmount: dAmt,
         finalPayableAmount: total,
         gstRate: (result.rateConfig?.gstRatePercent ?? (data.gstRate ? parseInt(data.gstRate) : 18)).toString(),
@@ -106,14 +103,7 @@ export function PolicyFormSAODForm({ category, vehicleStatus, data, onChange, el
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [result]);
 
-  const handleOdBaseChange = (val: string) => onChange({ ...data, odPremiumBase: val });
   const handleNcbChange = (val: string) => onChange({ ...data, ncbPercentage: val });
-  const handleCommissionChange = (val: string) => {
-    const commPct = parseFloat(val || '0') || 0;
-    const netOd = parseFloat(data.odPremium || '0') || 0;
-    const commission = Math.round(netOd * (commPct / 100));
-    onChange({ ...data, odCommissionPercent: val, commissionAmount: commission.toString() });
-  };
 
   const handleClaimChange = (val: string) => {
     const ncb = val === 'Yes' ? '0' : data.ncbPercentage;
@@ -126,11 +116,6 @@ export function PolicyFormSAODForm({ category, vehicleStatus, data, onChange, el
     onChange({ ...data, addonsSelected: updated });
   };
 
-  const handleAddonPriceChange = (key: string, price: string) => {
-    const updatedPrices = { ...(data.addonPrices || {}), [key]: price };
-    onChange({ ...data, addonPrices: updatedPrices });
-  };
-
   const handleDiscountPercentChange = (val: string) => {
     onChange({ ...data, discountPercent: val });
   };
@@ -138,6 +123,8 @@ export function PolicyFormSAODForm({ category, vehicleStatus, data, onChange, el
   const verification = data.tpVerification;
   const isVerified = verification?.verificationStatus === 'VERIFIED' && verification?.verifiedByUserConfirmed;
   const tpExpired = verification?.tpExpiryDate ? new Date(verification.tpExpiryDate) <= new Date() : false;
+  const outputs = result?.outputs || data.calculatedResult?.outputs || {};
+  const itemizedAddons: any[] = Array.isArray(outputs.itemizedAddons) ? outputs.itemizedAddons : [];
 
   return (
     <div className="space-y-4">
