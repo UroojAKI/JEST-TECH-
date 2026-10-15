@@ -711,7 +711,6 @@ export class LeadsService {
       firstResponseDueAt,
       slaStatus: lead.slaStatus,
       priority: lead.priority,
-      source: lead.source,
       estimatedPremium: lead.estimatedPremium,
       nextFollowup: lead.nextFollowup,
       leadCode: lead.leadCode,
