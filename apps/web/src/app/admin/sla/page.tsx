@@ -13,7 +13,7 @@ function metric(value: number | null | undefined, suffix = '') {
 
 export default function SlaDashboardPage() {
   const { data, isLoading, isError, refetch, isFetching } = useSlaMetrics();
-  const hasTrackedData = Boolean(data && data.trackedInstances > 0);
+  const hasTrackedData = Boolean(data && (data.trackedInstances ?? 0) > 0);
 
   return (
     <AppShell>
