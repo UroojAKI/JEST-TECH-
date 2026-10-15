@@ -18,6 +18,7 @@ export class CommissionEngineService {
     agentId: string,
     premiumAmountStr: string,
     planId: string,
+    actorCompanyId?: string,
   ) {
     const premiumAmount = new Decimal(premiumAmountStr);
 
@@ -120,6 +121,9 @@ export class CommissionEngineService {
       throw new BadRequestException(
         'Commission accrual requires an existing policy with a company/tenant assignment.',
       );
+    }
+    if (actorCompanyId && policy.companyId !== actorCompanyId) {
+      throw new BadRequestException('Commission accrual is restricted to the current organization.');
     }
     const policyCompanyId = policy.companyId;
     const quotation = policy.quotation;
@@ -240,16 +244,19 @@ export class CommissionEngineService {
    * Called when a policy is fully paid. Only approved commissions can become realized.
    */
   async realizeCommissions(policyId: string, companyId?: string) {
-    let effectiveCompanyId = companyId;
-    if (!effectiveCompanyId) {
-      const policy = await this.prisma.policy.findUnique({
-        where: { id: policyId },
-        select: { companyId: true },
-      });
-      effectiveCompanyId = policy?.companyId;
+    const policy = await this.prisma.policy.findUnique({
+      where: { id: policyId },
+      select: { companyId: true, paymentStatus: true, deletedAt: true },
+    });
+    if (!policy || policy.deletedAt || !policy.companyId) {
+      throw new BadRequestException('Commission realization requires an existing active policy.');
     }
-    if (!effectiveCompanyId) {
-      throw new BadRequestException('Commission realization requires a valid policy tenant.');
+    const effectiveCompanyId = companyId || policy.companyId;
+    if (policy.companyId !== effectiveCompanyId) {
+      throw new BadRequestException('Commission realization is restricted to the current organization.');
+    }
+    if (policy.paymentStatus !== 'PAID') {
+      throw new BadRequestException('Commissions cannot be realized until the linked policy payment status is PAID.');
     }
 
     const result = await this.prisma.commission.updateMany({
