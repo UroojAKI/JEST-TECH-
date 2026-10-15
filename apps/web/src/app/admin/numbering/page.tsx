@@ -58,10 +58,10 @@ export default function NumberSeriesPage() {
     }));
   };
 
-  const saveFormat = async (entityType: string, draft: NumberFormatDraft) => {
+  const saveFormat = async (entityType: string, draft: NumberFormatDraft): Promise<boolean> => {
     if (!canEdit) {
       toast.error('Only a platform super-administrator can change global numbering formats.');
-      return;
+      return false;
     }
     setSavingEntity(entityType);
     try {
@@ -72,8 +72,10 @@ export default function NumberSeriesPage() {
       });
       await queryClient.invalidateQueries({ queryKey: ['admin-number-series'] });
       toast.success(entityType + ' numbering format saved. Existing issued identifiers are unchanged.');
+      return true;
     } catch (error: any) {
       toast.error(error?.response?.data?.message || 'Could not save numbering format');
+      return false;
     } finally {
       setSavingEntity(null);
     }
@@ -86,7 +88,8 @@ export default function NumberSeriesPage() {
       toast.error('Entity type, prefix, and format are required.');
       return;
     }
-    await saveFormat(entityType, { prefix: newPrefix.trim(), format: newFormat.trim(), padding: Number(newPadding) });
+    const saved = await saveFormat(entityType, { prefix: newPrefix.trim(), format: newFormat.trim(), padding: Number(newPadding) });
+    if (!saved) return;
     setShowCreateForm(false);
     setNewEntityType('');
     setNewPrefix('');
