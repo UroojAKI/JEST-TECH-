@@ -137,10 +137,25 @@ export class InsurerProductService {
     });
   }
 
-  async updateInsuranceProduct(id: string, data: any) {
+  async updateInsuranceProduct(
+    id: string,
+    data: {
+      productName?: string;
+      code?: string;
+      vehicleType?: string;
+      policyType?: string;
+      isActive?: boolean;
+    },
+  ) {
+    const existing = await this.prisma.insuranceProduct.findUnique({ where: { id } });
+    if (!existing) throw new NotFoundException(`Insurance product '${id}' not found`);
     return this.prisma.insuranceProduct.update({
       where: { id },
-      data,
+      data: {
+        ...data,
+        ...(data.code !== undefined ? { code: data.code.trim().toUpperCase() } : {}),
+      },
+      include: { insurer: true },
     });
   }
 
