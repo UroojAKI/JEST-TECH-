@@ -648,10 +648,22 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, customerId, caseId
       }
     }
 
+    const calcResult = pDetails.calculatedResult;
+    const authoritativeTotal = Number(
+      calcResult?.outputs?.finalPayableAmount ?? calcResult?.outputs?.totalPremium,
+    );
+    if (
+      !calcResult?.outputs ||
+      !Number.isFinite(authoritativeTotal) ||
+      authoritativeTotal <= 0
+    ) {
+      toast.error('Cannot save this quotation: a successful current server-side premium calculation is required. Resolve tariff, add-on, or discount errors and retry.');
+      return;
+    }
+
     setIsSaving(true);
     try {
-      const calcResult = pDetails.calculatedResult || {};
-      const outputs = calcResult.outputs || {};
+      const outputs = calcResult.outputs;
       const payload = {
         journeyId: journeyId || undefined,
         caseId: caseId || cloneQuoteData?.caseId || undefined,
@@ -670,7 +682,7 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, customerId, caseId
           contact: manualAgentDetails?.phone,
         } : undefined,
         basePremium: outputs.basePremium ?? outputs.netOdPremium ?? outputs.netTpPremium,
-        discountAmount: outputs.discountAmount ?? outputs.ncbDiscountAmount,
+        discountAmount: outputs.totalDiscount ?? outputs.discountAmount ?? outputs.ncbDiscount ?? 0,
         gstAmount: outputs.totalGst ?? getGst(),
         totalPremium: outputs.finalPayableAmount ?? outputs.totalPremium ?? (getNetPayable() > 0 ? getNetPayable() : getTotalPremium()),
         calculationVersion: calcResult.calculationVersion || '1.0',
