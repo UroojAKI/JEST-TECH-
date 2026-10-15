@@ -223,16 +223,29 @@ export class VehicleDataService {
         }
         break;
 
-      case VehicleCategory.TRACTOR:
-        if (!specs.horsePowerHp && !specs.hp) {
+      case VehicleCategory.TRACTOR: {
+        const horsepowerValue = specs.horsePowerHp ?? specs.hp ?? specs.horsePower;
+        if (horsepowerValue === undefined || horsepowerValue === null || horsepowerValue === '') {
           missingFields.push('horsePowerHp');
         } else {
-          const hp = Number(specs.horsePowerHp || specs.hp);
+          const hp = Number(horsepowerValue);
           if (isNaN(hp) || hp <= 0 || hp > 500) {
             errors.push('Horsepower (HP) must be a valid positive number between 1 and 500 HP');
           }
         }
+
+        const attachmentUsed = String(specs.attachmentUsed || '').trim();
+        if (!attachmentUsed) {
+          missingFields.push('attachmentUsed');
+        } else if (!['Trailer 1', 'Trailer 2', 'Harvester', 'Cultivator', 'None'].includes(attachmentUsed)) {
+          errors.push('Attachment Used must be Trailer 1, Trailer 2, Harvester, Cultivator, or None');
+        } else if (attachmentUsed === 'Trailer 1' && !String(specs.trailer1RegistrationNumber || '').trim()) {
+          missingFields.push('trailer1RegistrationNumber');
+        } else if (attachmentUsed === 'Trailer 2' && !String(specs.trailer2RegistrationNumber || '').trim()) {
+          missingFields.push('trailer2RegistrationNumber');
+        }
         break;
+      }
 
       case VehicleCategory.AUTO:
         if (!specs.seatingOrLoadCapacity && !specs.seatingCapacity) {
@@ -279,13 +292,32 @@ export class VehicleDataService {
         break;
     }
 
+    const sanitizedSpecs: Record<string, any> = { ...specs };
+    if (category === VehicleCategory.TRACTOR) {
+      const attachmentUsed = String(specs.attachmentUsed || '').trim();
+      const horsepowerValue = specs.horsePowerHp ?? specs.hp ?? specs.horsePower;
+      if (horsepowerValue !== undefined && horsepowerValue !== null && horsepowerValue !== '') {
+        sanitizedSpecs.horsePowerHp = Number(horsepowerValue);
+      }
+      if (attachmentUsed === 'Trailer 1') {
+        sanitizedSpecs.trailer1RegistrationNumber = String(specs.trailer1RegistrationNumber || '').trim().toUpperCase();
+        sanitizedSpecs.trailer2RegistrationNumber = undefined;
+      } else if (attachmentUsed === 'Trailer 2') {
+        sanitizedSpecs.trailer1RegistrationNumber = undefined;
+        sanitizedSpecs.trailer2RegistrationNumber = String(specs.trailer2RegistrationNumber || '').trim().toUpperCase();
+      } else {
+        sanitizedSpecs.trailer1RegistrationNumber = undefined;
+        sanitizedSpecs.trailer2RegistrationNumber = undefined;
+      }
+    }
+
     return {
       isValid: missingFields.length === 0 && errors.length === 0,
       category,
       missingFields,
       errors,
       sanitizedSpecs: {
-        ...specs,
+        ...sanitizedSpecs,
         validatedAt: new Date().toISOString(),
       },
     };
