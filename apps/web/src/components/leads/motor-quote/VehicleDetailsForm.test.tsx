@@ -25,8 +25,8 @@ describe('VehicleDetailsForm tractor trailer registration', () => {
       />,
     );
 
-    expect(screen.getByLabelText('Trailer 1 Registration Number')).toBeRequired();
-    expect(screen.queryByLabelText('Trailer 2 Registration Number')).not.toBeInTheDocument();
+    expect(screen.getByLabelText(/Trailer 1 Registration Number/)).toBeRequired();
+    expect(screen.queryByLabelText(/Trailer 2 Registration Number/)).not.toBeInTheDocument();
   });
 
   it('shows only the selected Trailer 2 field and makes it required', () => {
@@ -38,8 +38,8 @@ describe('VehicleDetailsForm tractor trailer registration', () => {
       />,
     );
 
-    expect(screen.getByLabelText('Trailer 2 Registration Number')).toBeRequired();
-    expect(screen.queryByLabelText('Trailer 1 Registration Number')).not.toBeInTheDocument();
+    expect(screen.getByLabelText(/Trailer 2 Registration Number/)).toBeRequired();
+    expect(screen.queryByLabelText(/Trailer 1 Registration Number/)).not.toBeInTheDocument();
   });
 
   it('clears the inactive trailer number when the selected attachment changes', () => {
@@ -57,7 +57,7 @@ describe('VehicleDetailsForm tractor trailer registration', () => {
       />,
     );
 
-    fireEvent.change(screen.getByLabelText('Attachment Used'), {
+    fireEvent.change(screen.getByLabelText(/Attachment Used/), {
       target: { value: 'Trailer 2' },
     });
 
