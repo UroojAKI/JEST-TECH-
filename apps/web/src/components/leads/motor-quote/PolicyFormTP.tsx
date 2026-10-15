@@ -270,7 +270,7 @@ export function PolicyFormTPOnlyForm({ category, vehicleStatus, data, onChange, 
             <input
               type="text"
               readOnly
-              value={error ? '—' : loading ? 'Calculating…' : data.calculatedResult?.outputs?.totalDiscount?.toString() || '—'}
+              value={error ? '—' : loading ? 'Calculating…' : result?.outputs?.totalDiscount?.toString() || '—'}
               className="w-full p-2 rounded-lg border text-xs font-semibold bg-muted border-border opacity-80"
             />
           </div>
@@ -282,7 +282,7 @@ export function PolicyFormTPOnlyForm({ category, vehicleStatus, data, onChange, 
             <input
               type="text"
               readOnly
-              value={error ? '—' : loading ? 'Calculating…' : data.calculatedResult?.outputs?.netTpPremium?.toString() || (data.thirdPartyPremium || '—')}
+              value={error ? '—' : loading ? 'Calculating…' : result?.outputs?.netTpPremium?.toString() || data.thirdPartyPremium || '—'}
               className="w-full p-2 rounded-lg border text-xs font-semibold bg-muted border-border opacity-80"
             />
           </div>
@@ -294,7 +294,7 @@ export function PolicyFormTPOnlyForm({ category, vehicleStatus, data, onChange, 
             <input
               type="text"
               readOnly
-              value={error ? '—' : loading ? 'Calculating…' : result?.outputs?.totalPremium?.toString() || data.calculatedResult?.outputs?.totalPremium?.toString() || data.totalPremiumInclGST || '—'}
+              value={error ? '—' : loading ? 'Calculating…' : result?.outputs?.totalPremium?.toString() || data.totalPremiumInclGST || '—'}
               className="w-full p-2 rounded-lg border text-xs font-bold text-sky-700 bg-sky-50 border-sky-200"
             />
           </div>
@@ -305,7 +305,7 @@ export function PolicyFormTPOnlyForm({ category, vehicleStatus, data, onChange, 
         </p>
       </div>
       {error && <div role="alert" className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-xs text-destructive">Premium calculation failed: {error}</div>}
-      <CommissionBreakdownPanel calculation={loading || error ? undefined : (result || data.calculatedResult)} components={['TP']} loading={loading} error={error} />
+      <CommissionBreakdownPanel calculation={loading || error ? undefined : result} components={['TP']} loading={loading} error={error} />
     </div>
   );
 }
