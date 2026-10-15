@@ -46,7 +46,6 @@ import {
   GetReportQuery,
   GetReportsQuery,
   PreviewReportQuery,
-  GetExecutionHistoryQuery,
 } from '../queries/report.queries';
 
 @ApiTags('Reports')
@@ -424,9 +423,21 @@ export class ReportsController {
 
   @Get(':id/history')
   @RequirePermissions('REPORT_VIEW')
-  async getExecutionHistory(@Param('id') id: string) {
-    const query = new GetExecutionHistoryQuery(id);
-    return this.queries.handleGetExecutionHistory(query);
+  async getExecutionHistory(
+    @Param('id') id: string,
+    @CurrentUser() user: RequestUser,
+  ) {
+    const scope = this.getTenantScope(user);
+    const report = await this.queries.handleGetReport(new GetReportQuery(id));
+    this.assertReportScope(report, scope, 'READ');
+    return this.prisma.reportExecution.findMany({
+      where: {
+        reportId: report.id,
+        ...(scope.isPlatformAdmin ? {} : { companyId: scope.companyId! }),
+      },
+      orderBy: { startedAt: 'desc' },
+      take: 50,
+    });
   }
 
   // --- Schedules ---
@@ -494,7 +505,10 @@ export class ReportsController {
     @Param('id') id: string,
     @CurrentUser() user: RequestUser,
   ) {
-    return this.queries.favoriteReport(id, user.id);
+    const scope = this.getTenantScope(user);
+    const report = await this.queries.handleGetReport(new GetReportQuery(id));
+    this.assertReportScope(report, scope, 'READ');
+    return this.queries.favoriteReport(report.id, user.id);
   }
 
   @Delete(':id/favorite')
@@ -503,7 +517,10 @@ export class ReportsController {
     @Param('id') id: string,
     @CurrentUser() user: RequestUser,
   ) {
-    return this.queries.unfavoriteReport(id, user.id);
+    const scope = this.getTenantScope(user);
+    const report = await this.queries.handleGetReport(new GetReportQuery(id));
+    this.assertReportScope(report, scope, 'READ');
+    return this.queries.unfavoriteReport(report.id, user.id);
   }
 
   // --- Saved Filters Operations ---
@@ -515,7 +532,10 @@ export class ReportsController {
     @Body() dto: SaveFilterDto,
     @CurrentUser() user: RequestUser,
   ) {
-    return this.queries.saveFilter(id, user.id, dto.name, dto.filters);
+    const scope = this.getTenantScope(user);
+    const report = await this.queries.handleGetReport(new GetReportQuery(id));
+    this.assertReportScope(report, scope, 'READ');
+    return this.queries.saveFilter(report.id, user.id, dto.name, dto.filters);
   }
 
   @Get(':id/filters')
@@ -524,7 +544,10 @@ export class ReportsController {
     @Param('id') id: string,
     @CurrentUser() user: RequestUser,
   ) {
-    return this.queries.getSavedFilters(id, user.id);
+    const scope = this.getTenantScope(user);
+    const report = await this.queries.handleGetReport(new GetReportQuery(id));
+    this.assertReportScope(report, scope, 'READ');
+    return this.queries.getSavedFilters(report.id, user.id);
   }
 
   @Delete('filters/:filterId')
