@@ -13,7 +13,7 @@ Remediation must proceed sequentially across four strictly ordered phases. No re
 
 ```text
 +-------------------------------------------------------------------------------+
-| PHASE A: Contain Critical Security & Financial Defects (CRITICAL / P1)       |
+| PHASE A: Contain Critical Security & Financial Defects (CRITICAL / P1) [COMPLETED]       |
 | - DEF-003: Claims state machine terminal protection on PATCH /claims/:id      |
 | - DEF-004: Webhook gateway provider allow-list and signature default-deny     |
 | - DEF-001: Unauthenticated Redis host publication and password protection     |
@@ -24,7 +24,7 @@ Remediation must proceed sequentially across four strictly ordered phases. No re
                                     │
                                     ▼
 +-------------------------------------------------------------------------------+
-| PHASE B: Close UI Integrity, Persistence & State Gaps (HIGH / P2)             |
+| PHASE B: Close UI Integrity, Persistence & State Gaps (HIGH / P2) [COMPLETED]             |
 | - DEF-006: Fake report and voucher download buttons wired to real streams      |
 | - DEF-007: Fake save button on read-only numbering configuration resolved     |
 | - DEF-008: Customer notes & alert dismissals migrated from localStorage to DB |
@@ -34,7 +34,7 @@ Remediation must proceed sequentially across four strictly ordered phases. No re
                                     │
                                     ▼
 +-------------------------------------------------------------------------------+
-| PHASE C: Operations, CI/CD & Environment Normalization (MEDIUM / P2)          |
+| PHASE C: Operations, CI/CD & Environment Normalization (MEDIUM / P2) [COMPLETED]          |
 | - DEF-012: Node.js runtime version pinned consistently (Node 22 LTS)          |
 | - DEF-013: CI workflow test invocation command extra separator removed        |
 | - DEF-014: Jest package.json test scripts configured with --runInBand         |

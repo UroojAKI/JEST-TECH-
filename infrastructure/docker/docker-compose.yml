@@ -29,6 +29,8 @@ services:
 
     restart: unless-stopped
 
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-jestredissecret2026}
+
     ports:
       - "127.0.0.1:6380:6379"
 

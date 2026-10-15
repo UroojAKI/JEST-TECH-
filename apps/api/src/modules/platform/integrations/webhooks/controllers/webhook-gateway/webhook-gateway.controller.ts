@@ -263,6 +263,8 @@ export class WebhookGatewayController {
         }
         throw new UnauthorizedException('Invalid webhook signature');
       }
+    } else {
+      throw new UnauthorizedException(`Unsupported webhook provider: ${provider}`);
     }
   }
 }
