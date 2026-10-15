@@ -17,7 +17,7 @@ import { RuleEngineResult } from './RuleEngineResult';
 import { InspectionDialog } from './InspectionDialog';
 import { AgentSelector } from '../../agents/AgentSelector';
 
-import { INSURER_OPTIONS, CATEGORY_LABEL, POLICY_TYPE_LABEL } from './motorFormConfig';
+import { INSURER_OPTIONS, CATEGORY_LABEL, POLICY_TYPE_LABEL, VEHICLE_FIELDS } from './motorFormConfig';
 import type {
   VehicleCategory,
   PolicyType,
@@ -477,7 +477,23 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, customerId, caseId
 
   const canProceed = () => {
     if (step === 1) return !!(proposer.customerName && proposer.mobileNumber);
-    if (step === 2) return !!vehicleCategory;
+    if (step === 2) {
+      if (!vehicleCategory) return false;
+      const fields = VEHICLE_FIELDS[vehicleCategory] || [];
+      const requiredFieldsValid = fields
+        .filter((field) =>
+          field.mandatory === true &&
+          !(vehicleDetails.vehicleStatus === 'NEW' && field.key === 'registrationNumber')
+        )
+        .every((field) => Boolean(String(vehicleDetails[field.key] || '').trim()));
+      const selectedTrailerValid =
+        vehicleDetails.attachmentUsed === 'Trailer 1'
+          ? Boolean(String(vehicleDetails.trailer1RegistrationNumber || '').trim())
+          : vehicleDetails.attachmentUsed === 'Trailer 2'
+            ? Boolean(String(vehicleDetails.trailer2RegistrationNumber || '').trim())
+            : true;
+      return requiredFieldsValid && selectedTrailerValid;
+    }
     if (step === 3) {
       return (
         previousPolicy.previousPolicyType === 'NOT_AVAILABLE' ||
