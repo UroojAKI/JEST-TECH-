@@ -77,6 +77,14 @@ export function PolicyFormPackageForm({ category, vehicleStatus, data, onChange,
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isNew, prevPolicyApplicable, ncbApplicable, claimHistoryApplicable]);
 
+  useEffect(() => {
+    if (data.odCommissionCalc || data.tpCommissionCalc || data.finalCommissionCalc) {
+      onChange({ ...data, odCommissionCalc: '', tpCommissionCalc: '', finalCommissionCalc: '' });
+    }
+    // Clear legacy fields once when a quote is opened; discounts must never represent commission.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const { result, loading, error } = useMotorCalculator({
     vehicleCategory: category,
     vehicleStatus: vehicleStatus,
