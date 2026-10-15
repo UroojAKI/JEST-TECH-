@@ -10,14 +10,18 @@ import { toast } from 'sonner';
 export default function CommissionsWorkspacePage() {
   const { commissions = [], approveCommission, isLoading, isError, isApproving } = useCommissions();
 
-  const handleBulkApprove = () => {
-    const pendingCommissions = (Array.isArray(commissions) ? commissions : (((commissions as any)?.data || (commissions as any)?.items || []))).filter((c: any) => c.payoutStatus === 'PENDING_APPROVAL');
+  const handleBulkApprove = async () => {
+    const rows = Array.isArray(commissions) ? commissions : (((commissions as any)?.data || (commissions as any)?.items || []));
+    const pendingCommissions = rows.filter((c: any) => c.payoutStatus === 'PENDING_APPROVAL');
     if (pendingCommissions.length === 0) {
       toast.info('No pending commissions to approve.');
       return;
     }
-    pendingCommissions.forEach((c: any) => approveCommission(c.id));
-    toast.success(`Bulk approval started for ${pendingCommissions.length} commissions.`);
+    const results = await Promise.allSettled(pendingCommissions.map((commission: any) => approveCommission(commission.id)));
+    const succeeded = results.filter((result) => result.status === 'fulfilled').length;
+    const failed = results.length - succeeded;
+    if (failed === 0) toast.success(`Approved ${succeeded} commission record(s).`);
+    else toast.error(`${succeeded} commission(s) approved; ${failed} failed. Refresh and inspect failed rows.`);
   };
 
   if (isLoading) {
@@ -83,15 +87,15 @@ export default function CommissionsWorkspacePage() {
             ) : (
               commissions.map((c: any) => (
                 <tr key={c.id} className="hover:bg-accent/40">
-                  <td className="p-3 font-mono font-bold text-primary">{c.policyNumber}</td>
-                  <td className="p-3 font-semibold">{c.agentName}</td>
+                  <td className="p-3 font-mono font-bold text-primary">{c.policyNumber || 'Policy unavailable'}</td>
+                  <td className="p-3 font-semibold">{c.agentName || 'Recipient unavailable'}</td>
                   <td className="p-3 font-bold">
                     <span className="px-2 py-0.5 rounded bg-muted text-foreground border text-[10px]">
                       {c.roleTier}
                     </span>
                   </td>
-                  <td className="p-3 font-mono">₹{c.grossPremium?.toLocaleString('en-IN') || 0}</td>
-                  <td className="p-3 font-bold text-primary">{c.commissionPercent}%</td>
+                  <td className="p-3 font-mono">{c.grossPremium == null ? '—' : '₹' + Number(c.grossPremium).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                  <td className="p-3 font-bold text-primary">{c.commissionPercent == null ? '—' : Number(c.commissionPercent).toFixed(2) + '%'}</td>
                   <td className="p-3 font-extrabold text-emerald-600 font-mono">
                     ₹{c.commissionAmount?.toLocaleString('en-IN') || 0}
                   </td>
@@ -107,7 +111,15 @@ export default function CommissionsWorkspacePage() {
                         Approve Payout
                       </button>
                     ) : (
-                      <span className="text-emerald-600 font-bold text-[10px]">✓ Disbursed</span>
+                      <span className={`font-bold text-[10px] ${
+                        c.payoutStatus === 'PAID' ? 'text-emerald-600' :
+                        c.payoutStatus === 'CANCELLED' ? 'text-destructive' : 'text-muted-foreground'
+                      }`}>
+                        {c.payoutStatus === 'PAID' ? 'Paid' :
+                         c.payoutStatus === 'REALIZED' ? 'Realized — awaiting payout' :
+                         c.payoutStatus === 'APPROVED' ? 'Approved — awaiting realization' :
+                         c.payoutStatus === 'CANCELLED' ? 'Cancelled' : 'Not payable yet'}
+                      </span>
                     )}
                   </td>
                 </tr>
