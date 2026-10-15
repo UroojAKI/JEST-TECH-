@@ -169,24 +169,50 @@ export class CommissionController {
       premiumAmount: string;
       planId: string;
     },
+    @CurrentUser() actor: RequestUser,
   ) {
+    const companyId = actor.companyId || (actor as any).organizationId;
+    if (!companyId) {
+      throw new ForbiddenException('Tenant organizational context is required for commission accrual.');
+    }
+    const [policy, agent] = await Promise.all([
+      this.prisma.policy.findFirst({
+        where: { id: dto.policyId, companyId, deletedAt: null },
+        select: { id: true },
+      }),
+      this.prisma.user.findFirst({
+        where: { id: dto.agentId, companyId, status: 'ACTIVE' },
+        select: { id: true },
+      }),
+    ]);
+    if (!policy) throw new NotFoundException('Policy not found in the current organization.');
+    if (!agent) throw new NotFoundException('Active commission recipient not found in the current organization.');
+
     return this.commissionEngineService.accrueCommissions(
       dto.policyId,
       dto.agentId,
       dto.premiumAmount,
       dto.planId,
+      companyId,
     );
   }
 
   @Post('realize/:policyId')
-  @Roles(RoleType.ADMIN, RoleType.ADMIN, RoleType.BACK_OFFICE)
+  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE)
   @ApiOperation({
     summary:
-      'Mark accrued commissions as realized upon policy payment confirmation',
+      'Mark approved commission accruals as realized after confirmed policy payment',
   })
-  async realize(@Param('policyId') policyId: string) {
+  async realize(
+    @Param('policyId') policyId: string,
+    @CurrentUser() actor: RequestUser,
+  ) {
+    const companyId = actor.companyId || (actor as any).organizationId;
+    if (!companyId) {
+      throw new ForbiddenException('Tenant organizational context is required for commission realization.');
+    }
     const count =
-      await this.commissionEngineService.realizeCommissions(policyId);
+      await this.commissionEngineService.realizeCommissions(policyId, companyId);
     return { status: 'success', realizedCount: count };
   }
 }
