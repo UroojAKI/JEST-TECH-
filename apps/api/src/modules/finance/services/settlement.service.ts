@@ -142,7 +142,12 @@ export class SettlementService {
     if (settledPolicyIds.length > 0) {
       const commissions = await this.prisma.commission.findMany({
         where: {
+          // Policy IDs are already selected from this company; the tenant key
+          // also excludes commissions explicitly assigned to another company.
+          // Null-company legacy commissions remain eligible only for these
+          // tenant-owned policy IDs until the backfill is complete.
           policyId: { in: settledPolicyIds },
+          OR: [{ companyId }, { companyId: null }],
           status: { in: ['APPROVED', 'REALIZED'] },
         },
         select: { id: true, amount: true },
