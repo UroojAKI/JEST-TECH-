@@ -397,7 +397,7 @@ export class AuthService {
           resolvedUserId = payload.sub;
         }
       } catch {
-        // Invalid optional access token must not prevent logout for an otherwise authenticated session.
+        // Invalid optional bearer tokens must not resolve an identity, nor prevent logout for an otherwise authenticated session.
       }
     }
     if (resolvedUserId) {

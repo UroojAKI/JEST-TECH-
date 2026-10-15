@@ -123,9 +123,10 @@ describe('VehicleDataService (R4 Integrity)', () => {
       expect(result.isValid).toBe(true);
     });
 
-    it('validates TRACTOR with horsePower', () => {
+    it('validates TRACTOR with horsePower and attachmentUsed', () => {
       const result = service.validateVehicleSpecs(VehicleCategory.TRACTOR, {
         horsePowerHp: 45,
+        attachmentUsed: 'None',
       });
 
       expect(result.isValid).toBe(true);

@@ -266,11 +266,29 @@ function analyzeFile(
           }
         }
 
-        // Exempt system health checks and sequences
+        // Exempt SQL primitives that do not read or mutate tenant records.
+        // PostgreSQL advisory locks coordinate a global scheduled job; the lock
+        // calls operate on PostgreSQL lock state, not application-table rows.
+        const isAdvisoryLockPrimitive =
+          block.includes('pg_try_advisory_lock') ||
+          block.includes('pg_advisory_unlock');
+
+        // The outbox is a platform-level queue without a companyId column. This
+        // exact worker operation atomically claims due PENDING rows with SKIP
+        // LOCKED; handlers must enforce tenant scope when resolving each event's
+        // aggregate. Keep this exception limited to this file and claim pattern.
+        const isGlobalOutboxClaim =
+          relativeFile === 'apps/api/src/modules/platform/outbox/outbox.service.ts' &&
+          block.includes('UPDATE "OutboxEvent"') &&
+          block.includes('FOR UPDATE SKIP LOCKED') &&
+          block.includes("status = 'PENDING'");
+
         if (
           block.includes('SELECT 1') ||
           block.includes('nextval') ||
-          block.includes('CREATE SEQUENCE')
+          block.includes('CREATE SEQUENCE') ||
+          isAdvisoryLockPrimitive ||
+          isGlobalOutboxClaim
         ) {
           continue;
         }
