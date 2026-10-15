@@ -42,7 +42,7 @@ export default function AuditCenterPage() {
     : Array.isArray((auditResponse as any)?.data) ? (auditResponse as any).data : [];
   const meta = (auditResponse as any)?.meta || {};
   const total = Number(meta.total ?? logs.length);
-  const totalPages = Math.max(1, Number(meta.totalPages ?? Math.ceil(total / PAGE_SIZE) || 1));
+  const totalPages = Math.max(1, Number(meta.totalPages ?? Math.max(1, Math.ceil(total / PAGE_SIZE))));
 
   const handleExport = async () => {
     setIsExporting(true);
