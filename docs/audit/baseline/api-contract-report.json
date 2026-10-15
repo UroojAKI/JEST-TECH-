@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-15T08:45:21.941Z",
+  "generatedAt": "2026-10-15T08:48:40.347Z",
   "mismatches": [],
   "uncalledBackendRoutes": [
     {
@@ -670,6 +670,13 @@
     {
       "method": "POST",
       "path": "/motor/quotes/:param/finalize",
+      "controller": "MotorQuoteController",
+      "file": "apps/api/src/modules/motor/controllers/motor-quote.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "POST",
+      "path": "/motor/quotes/:param/accept",
       "controller": "MotorQuoteController",
       "file": "apps/api/src/modules/motor/controllers/motor-quote.controller.ts",
       "classification": "UNUSED"
@@ -1442,12 +1449,12 @@
     "totalFrontendCalls": 304,
     "matched": 304,
     "unmatched": 0,
-    "uncalledBackend": 205,
+    "uncalledBackend": 206,
     "uncalledByClassification": {
       "WEBHOOK": 1,
       "CRON": 3,
       "INTERNAL": 8,
-      "UNUSED": 193
+      "UNUSED": 194
     }
   }
 }
