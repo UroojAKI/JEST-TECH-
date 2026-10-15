@@ -30,7 +30,14 @@ export class CommissionEngineService {
     });
 
     if (!plan || !plan.isActive) {
-      throw new BadRequestException('Active Commission Plan not found');
+      throw new BadRequestException({
+        statusCode: 400,
+        error: 'Bad Request',
+        errorCode: 'COMMISSION_CONFIG_PENDING',
+        missingEntity: 'COMMISSION_CONFIG',
+        planId,
+        message: `No active commission plan found for planId=${planId}. Commission posting is blocked until an approved commission agreement is configured (Decision D-02, Scenario T-05).`,
+      });
     }
 
     let rules: {
