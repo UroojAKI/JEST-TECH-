@@ -25,6 +25,12 @@ export class ApprovalActionDto {
   @IsOptional()
   @IsString()
   remarks?: string;
+
+  /** Backward-compatible alias used by the current approval queue client. */
+  @ApiPropertyOptional({ description: 'Backward-compatible comment field' })
+  @IsOptional()
+  @IsString()
+  comments?: string;
 }
 
 export class BulkApprovalActionDto {
