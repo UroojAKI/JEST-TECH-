@@ -396,7 +396,9 @@ export class AuthService {
         if (payload?.sub) {
           resolvedUserId = payload.sub;
         }
-      } catch {}
+      } catch {
+        // Invalid optional access token must not prevent logout for an otherwise authenticated session.
+      }
     }
     if (resolvedUserId) {
       await this.usersService.revokeAllUserRefreshTokens(resolvedUserId);
