@@ -1,11 +1,11 @@
-import { BadRequestException, Body, Controller, Get, NotFoundException, Param, Patch, Post, Put, UseGuards } from '@nestjs/common';
+import { BadRequestException, Body, Controller, ForbiddenException, Get, NotFoundException, Param, Patch, Post, Put, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '../../../auth/decorators/current-user.decorator';
 import type { RequestUser } from '../../../auth/decorators/current-user.decorator';
 import { PermissionsGuard } from '../../../auth/guards/permissions.guard';
 import { RequirePermissions } from '../../../auth/decorators/permissions.decorator';
-import { PrismaService } from '../../../../database/prisma.service';
-import { UpsertCommissionPlanDto } from '../dto/commission-plan.dto';
+import { PrismaService } from '../../../database/prisma.service';
+import { UpsertCommissionPlanDto } from '../commission-plan.dto';
 import { RoleType } from '@prisma/client';
 import { JwtAuthGuard } from '../../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../../auth/guards/roles.guard';
@@ -117,7 +117,7 @@ export class CommissionController {
 
   private assertPlatformPlanAdmin(user: RequestUser) {
     if (!(user as any).permissions?.includes('*')) {
-      throw new BadRequestException('Commission plans are global in the current data model and can only be changed by a platform super-administrator.');
+      throw new ForbiddenException('Commission plans are global in the current data model and can only be changed by a platform super-administrator.');
     }
   }
 
