@@ -242,8 +242,28 @@ export const adminRepository = {
     return response.data;
   },
 
-  async getAuditLogs(params?: { search?: string; module?: string }): Promise<AuditLogItem[]> {
+  async getAuditLogs(params?: {
+    search?: string;
+    entity?: string;
+    action?: string;
+    userId?: string;
+    page?: number;
+    limit?: number;
+  }): Promise<any> {
     const response = await apiClient.get('/audit', { params });
+    return response.data;
+  },
+
+  async exportAuditLogs(params?: {
+    search?: string;
+    entity?: string;
+    action?: string;
+    userId?: string;
+  }, format: 'csv' | 'json' = 'csv'): Promise<Blob> {
+    const response = await apiClient.get('/audit/export', {
+      params: { ...params, format },
+      responseType: 'blob',
+    });
     return response.data;
   },
 
