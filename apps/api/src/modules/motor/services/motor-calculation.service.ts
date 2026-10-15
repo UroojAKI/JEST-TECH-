@@ -131,28 +131,6 @@ export class MotorCalculationService {
           );
         }
 
-        // Phase 7: Add-on Price Authority & Override Governance
-        if (addon.manualPrice !== undefined) {
-          if (addon.manualPrice !== price) {
-            if (!addon.approvalReference || !addon.approvedBy) {
-              throw new BadRequestException(
-                `Manual price override for add-on "${addon.addonCode}" requires approvalReference and approvedBy. Untrusted manual pricing is prohibited.`,
-              );
-            }
-            const maxDeviationPercent = 50;
-            const deviationPercent =
-              price > 0
-                ? Math.abs((addon.manualPrice - price) / price) * 100
-                : 0;
-            if (deviationPercent > maxDeviationPercent) {
-              throw new BadRequestException(
-                `Manual price override for add-on "${addon.addonCode}" exceeds maximum allowable deviation of ${maxDeviationPercent}% (requested ₹${addon.manualPrice} vs authoritative ₹${price}).`,
-              );
-            }
-            price = round2(addon.manualPrice);
-          }
-        }
-
         // Zero-premium add-on prevention (IRDAI compliance).
         if (price <= 0) {
           throw new BadRequestException(
@@ -328,6 +306,16 @@ export class MotorCalculationService {
   // ── Private Helpers ───────────────────────────────────────────────────────
 
   private validateInputs(input: MotorCalculationInputDto) {
+    // Approval references and approver names supplied by the client are not trusted authorization.
+    // Add-on pricing must come from configured rates; no public calculation endpoint accepts manual prices.
+    if ((input.addons || []).some((addon) => addon.manualPrice !== undefined)) {
+      throw new BadRequestException({
+        statusCode: 400,
+        error: 'Bad Request',
+        errorCode: 'ADDON_MANUAL_OVERRIDE_DISABLED',
+        message: 'Client-supplied add-on prices are disabled. Configure the add-on rate through the approved rate master; approval text fields cannot authorize a price override.',
+      });
+    }
     if (
       (input.idv !== undefined && input.idv < 0) ||
       (input.discountPercent !== undefined && input.discountPercent < 0) ||
