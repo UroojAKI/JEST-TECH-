@@ -57,6 +57,14 @@ export function PolicyFormTPOnlyForm({ category, vehicleStatus, data, onChange, 
   // For TP only, previous TP policy fields are only applicable for renewal/existing vehicles
   const prevTpApplicable = eligibility ? eligibility.previousPolicyApplicable : !isNew;
 
+  React.useEffect(() => {
+    if (data.tpCommissionCalc) {
+      onChange({ ...data, tpCommissionCalc: '' });
+    }
+    // Legacy TP commission field was previously coupled to customer discount.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const { result, loading, error } = useMotorCalculator({
     vehicleCategory: category,
     vehicleStatus: vehicleStatus,
