@@ -73,6 +73,7 @@ export class WorkflowsController {
       where: { workflow: { active: true, deletedAt: null } },
       include: {
         workflow: { select: { id: true, name: true, code: true, version: true } },
+        fromState: { select: { name: true, code: true } },
         toState: {
           include: {
             assignments: {
@@ -101,13 +102,36 @@ export class WorkflowsController {
       allTenantAccess,
     );
 
-    // Keep the newest transition for each workflow/entity pair, then determine whether
-    // the resulting state is terminal. Filtering terminal rows before grouping would
-    // incorrectly resurrect an older non-terminal state.
-    const latestByEntity = new Map<string, (typeof historyRows)[number]>();
-    for (const row of historyRows) {
+    // Keep only entities owned by the current tenant unless this is an explicit
+    // platform super-admin. Build a real state-transition timeline from persisted history.
+    const scopedHistories = historyRows.filter((row) =>
+      entityDetails.has([row.entityType, row.entityId].join('|')),
+    );
+    const timelineByEntity = new Map<string, any[]>();
+    for (const row of scopedHistories) {
       const key = [row.workflowId, row.entityType, row.entityId].join('|');
-      if (!entityDetails.has([row.entityType, row.entityId].join('|'))) continue;
+      if (!timelineByEntity.has(key)) timelineByEntity.set(key, []);
+      timelineByEntity.get(key)!.push({
+        state: row.toState.name,
+        action: row.fromState?.name
+          ? row.fromState.name + ' → ' + row.toState.name
+          : row.toState.name,
+        performedBy: row.performedBy
+          ? [row.performedBy.firstName, row.performedBy.lastName].filter(Boolean).join(' ') || row.performedBy.email
+          : 'System',
+        timestamp: row.createdAt.toISOString(),
+        comments: row.comments || null,
+      });
+    }
+    for (const timeline of timelineByEntity.values()) {
+      timeline.sort((a, b) => Date.parse(a.timestamp) - Date.parse(b.timestamp));
+    }
+
+    // Determine the current state from the newest persisted transition. Filtering
+    // terminal rows before grouping would incorrectly resurrect an older active state.
+    const latestByEntity = new Map<string, (typeof scopedHistories)[number]>();
+    for (const row of scopedHistories) {
+      const key = [row.workflowId, row.entityType, row.entityId].join('|');
       if (!latestByEntity.has(key)) latestByEntity.set(key, row);
     }
 
@@ -158,7 +182,7 @@ export class WorkflowsController {
           slaDeadline: slaMinutes == null ? null : new Date(enteredAt.getTime() + slaMinutes * 60000).toISOString(),
           slaStatus,
           assignedApprover: assignedApprover || null,
-          timeline: undefined,
+          timeline: timelineByEntity.get([row.workflowId, row.entityType, row.entityId].join('|')) || [],
         };
       });
   }
