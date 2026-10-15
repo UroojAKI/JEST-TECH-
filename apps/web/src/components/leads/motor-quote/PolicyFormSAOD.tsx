@@ -133,8 +133,8 @@ export function PolicyFormSAODForm({ category, vehicleStatus, data, onChange, el
   const verification = data.tpVerification;
   const isVerified = verification?.verificationStatus === 'VERIFIED' && verification?.verifiedByUserConfirmed;
   const tpExpired = verification?.tpExpiryDate ? new Date(verification.tpExpiryDate) <= new Date() : false;
-  const hasValidCalculation = !loading && !error && Boolean(result || data.calculatedResult);
-  const outputs = hasValidCalculation ? (result?.outputs || data.calculatedResult?.outputs || {}) : {};
+  const hasValidCalculation = !loading && !error && Boolean(result);
+  const outputs = hasValidCalculation ? (result?.outputs || {}) : {};
   const itemizedAddons: any[] = Array.isArray(outputs.itemizedAddons) ? outputs.itemizedAddons : [];
 
   return (
@@ -502,7 +502,7 @@ export function PolicyFormSAODForm({ category, vehicleStatus, data, onChange, el
         </div>
       </div>
       {error && <div role="alert" className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-xs text-destructive">Premium calculation failed: {error}</div>}
-      <CommissionBreakdownPanel calculation={loading || error ? undefined : (result || data.calculatedResult)} components={['OD']} loading={loading} error={error} />
+      <CommissionBreakdownPanel calculation={loading || error ? undefined : result} components={['OD']} loading={loading} error={error} />
     </div>
   );
 }
