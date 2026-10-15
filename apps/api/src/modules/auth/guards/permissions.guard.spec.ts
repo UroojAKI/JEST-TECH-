@@ -48,6 +48,20 @@ describe('PermissionsGuard canonical permission compatibility', () => {
     expect(guard.canActivate(context())).toBe(true);
   });
 
+  it('allows report scheduling only with the dedicated report:schedule grant', () => {
+    requiredPermissions = ['REPORT_SCHEDULE'];
+    permissions = ['report:schedule'];
+
+    expect(guard.canActivate(context())).toBe(true);
+  });
+
+  it('does not treat report creation as report scheduling permission', () => {
+    requiredPermissions = ['REPORT_SCHEDULE'];
+    permissions = ['report:create'];
+
+    expect(() => guard.canActivate(context())).toThrow(ForbiddenException);
+  });
+
   it('does not grant reporting access when the actor has unrelated permissions', () => {
     requiredPermissions = ['REPORT_VIEW'];
     permissions = ['lead:read', 'policy:read'];
