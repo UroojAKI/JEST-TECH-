@@ -25,21 +25,37 @@ export default function LeadWorkspacePage() {
   const foundHookLead = (leads || []).find((l: any) => l.id === leadId || l.leadCode === leadId);
   const rawLead = workspaceLead || foundHookLead;
 
+  const resolvedContact = rawLead?.contact || rawLead?.lead?.contact || null;
   const leadData = {
-    id: leadId,
-    code: rawLead?.leadCode || leadId,
-    name: rawLead ? `${rawLead.firstName || ''} ${rawLead.lastName || ''}`.trim() : (leadId ? `Lead (${leadId})` : 'Lead Workspace'),
-    firstName: rawLead?.firstName || '',
-    lastName: rawLead?.lastName || '',
-    phone: rawLead?.phone || '',
-    email: rawLead?.email || '',
-    productInterest: rawLead?.productInterest || 'Motor Comprehensive',
-    expectedPremium: rawLead?.expectedPremium || 0,
-    priority: rawLead?.priority || 'WARM',
-    source: rawLead?.source || 'WEBSITE',
-    agent: rawLead?.assignedAgentName || 'Sales Agent',
+    id: rawLead?.id || rawLead?.leadId || leadId,
+    code: rawLead?.leadCode || rawLead?.code || leadId,
+    name: rawLead?.name || resolvedContact?.fullName || `${resolvedContact?.firstName || rawLead?.firstName || ''} ${resolvedContact?.lastName || rawLead?.lastName || ''}`.trim() || (leadId ? `Lead (${leadId})` : 'Lead Workspace'),
+    firstName: resolvedContact?.firstName || rawLead?.firstName || '',
+    lastName: resolvedContact?.lastName || rawLead?.lastName || '',
+    contact: resolvedContact,
+    phone: resolvedContact?.phone || rawLead?.phone || '',
+    email: resolvedContact?.email || rawLead?.email || '',
+    productInterest: rawLead?.productInterest || rawLead?.product || null,
+    expectedPremium: rawLead?.estimatedPremium ?? rawLead?.expectedPremium ?? null,
+    score: rawLead?.score ?? null,
+    probabilityScore: rawLead?.probabilityScore ?? null,
+    priority: rawLead?.priority ?? null,
+    source: rawLead?.source ?? null,
+    agent: rawLead?.assignedTo
+      ? [rawLead.assignedTo.firstName, rawLead.assignedTo.lastName].filter(Boolean).join(' ') || rawLead.assignedTo.email
+      : rawLead?.assignedAgentName || rawLead?.agent || null,
     duplicateWarning: rawLead?.duplicateWarning ?? false,
     status: rawLead?.status || 'NEW',
+    createdAt: rawLead?.createdAt ?? null,
+    updatedAt: rawLead?.updatedAt ?? null,
+    currentWorkflowStep: rawLead?.currentWorkflowStep ?? null,
+    firstResponseAt: rawLead?.firstResponseAt ?? null,
+    firstResponseDueAt: rawLead?.firstResponseDueAt ?? null,
+    slaStatus: rawLead?.slaStatus ?? null,
+    nextFollowup: rawLead?.nextFollowup ?? null,
+    nextAction: rawLead?.nextAction ?? null,
+    pendingDocuments: rawLead?.pendingDocuments ?? rawLead?.missingDocuments ?? null,
+    expectedCloseDate: rawLead?.expectedCloseDate ?? rawLead?.expectedCloseAt ?? null,
   };
 
   const handleConfirmLost = (reason: any, competitor?: string, priceDiff?: number, remarks?: string) => {
