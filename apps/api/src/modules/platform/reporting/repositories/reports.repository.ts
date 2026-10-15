@@ -256,15 +256,16 @@ export class ReportsRepository {
       });
     }
 
+    const whereClause = {
+      deletedAt: null,
+      category: params.category,
+      module: params.module,
+      status: params.status,
+      isSystem: params.isSystem,
+      ...(andFilters.length ? { AND: andFilters } : {}),
+    };
     return this.prisma.report.findMany({
-      where: {
-        deletedAt: null,
-        category: params.category,
-        module: params.module,
-        status: params.status,
-        isSystem: params.isSystem,
-        ...(andFilters.length ? { AND: andFilters } : {}),
-      },
+      where: whereClause,
       include: {
         columns: { orderBy: { order: 'asc' } },
         filters: true,
