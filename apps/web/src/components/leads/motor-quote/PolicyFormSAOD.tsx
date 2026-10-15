@@ -398,19 +398,19 @@ export function PolicyFormSAODForm({ category, vehicleStatus, data, onChange, el
             <input type="number" value={hasValidCalculation ? (outputs.baseOdPremium?.toString() ?? data.odPremiumBase) : ''} readOnly aria-readonly="true" className={readonlyInput} placeholder="Calculated from configured insurer OD rate" />
           </FieldRow>
           <FieldRow label="NCB Discount (₹)" hint="Auto-calculated from NCB %">
-            <input type="number" value={hasValidCalculation ? data.ncbDiscountAmount : ''} readOnly className={readonlyInput} placeholder="Auto-calculated" />
+            <input type="number" value={hasValidCalculation ? (outputs.ncbDiscount ?? data.ncbDiscountAmount) : ''} readOnly className={readonlyInput} placeholder="Auto-calculated" />
           </FieldRow>
           <FieldRow label="Add-ons Premium (₹)" hint="Sum of individual add-on inputs">
-            <input type="number" value={hasValidCalculation ? data.addOnsPremium : ''} readOnly className={readonlyInput} placeholder="₹0" />
+            <input type="number" value={hasValidCalculation ? (outputs.addonPremium ?? data.addOnsPremium) : ''} readOnly className={readonlyInput} placeholder="₹0" />
           </FieldRow>
           <FieldRow label="Net OD Premium (₹) [Field 10]" hint="Auto-calc: OD Base - NCB + Add-ons">
-            <input type="number" value={hasValidCalculation ? data.odPremium : ''} readOnly className={`${readonlyInput} font-bold text-foreground`} placeholder="Auto-calculated" />
+            <input type="number" value={hasValidCalculation ? (outputs.netOdPremium ?? outputs.netOdComponent ?? data.odPremium) : ''} readOnly className={`${readonlyInput} font-bold text-foreground`} placeholder="Auto-calculated" />
           </FieldRow>
           <FieldRow label={`Statutory GST (${String(data.gstRate || '18') === '5' ? '5%' : '18%'}) ₹`} hint={`${String(data.gstRate || '18') === '5' ? '5%' : '18%'} of Net OD Premium`}>
-            <input type="number" value={hasValidCalculation ? data.gstAmount : ''} readOnly className={readonlyInput} placeholder="Auto-calculated" />
+            <input type="number" value={hasValidCalculation ? (outputs.gstOnOd ?? outputs.totalGst ?? data.gstAmount) : ''} readOnly className={readonlyInput} placeholder="Auto-calculated" />
           </FieldRow>
           <FieldRow label="Total Premium incl. GST (₹) [Field 11]" mandatory hint="System-calculated authoritative gross">
-            <input type="number" value={hasValidCalculation ? data.totalPremiumInclGST : ''} readOnly className={`${readonlyInput} font-black text-primary text-sm`} placeholder="Auto-calculated" />
+            <input type="number" value={hasValidCalculation ? (outputs.finalPayableAmount ?? outputs.totalPremium ?? data.totalPremiumInclGST) : ''} readOnly className={`${readonlyInput} font-black text-primary text-sm`} placeholder="Auto-calculated" />
           </FieldRow>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-border">
@@ -478,7 +478,7 @@ export function PolicyFormSAODForm({ category, vehicleStatus, data, onChange, el
           >
             <input
               type="number"
-              value={hasValidCalculation ? (data.discountAmount || '0') : ''}
+              value={hasValidCalculation ? (outputs.specialDiscount ?? data.discountAmount ?? '0') : ''}
               readOnly
               className={`${readonlyInput} font-mono font-bold text-amber-600`}
               placeholder="₹0"
@@ -497,7 +497,7 @@ export function PolicyFormSAODForm({ category, vehicleStatus, data, onChange, el
             </span>
           </div>
           <div className="text-2xl font-black text-emerald-700 dark:text-emerald-400">
-            {hasValidCalculation ? '₹' + Number(data.finalPayableAmount || data.totalPremiumInclGST || 0).toLocaleString('en-IN') : '—'}
+            {hasValidCalculation ? '₹' + Number(outputs.finalPayableAmount ?? outputs.totalPremium ?? data.finalPayableAmount ?? data.totalPremiumInclGST ?? 0).toLocaleString('en-IN') : '—'}
           </div>
         </div>
       </div>
