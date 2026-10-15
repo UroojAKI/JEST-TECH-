@@ -20,7 +20,17 @@ import { RoleType } from '@prisma/client';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 
 import { PrismaService } from '../../../../database/prisma.service';
-import { IsNotEmpty, IsString, IsIn, IsBoolean } from 'class-validator';
+import {
+  IsNotEmpty,
+  IsString,
+  IsIn,
+  IsBoolean,
+  IsInt,
+  Max,
+  MaxLength,
+  Matches,
+  Min,
+} from 'class-validator';
 
 export class UpdateConfigDto {
   @IsNotEmpty()
@@ -31,6 +41,23 @@ export class UpdateConfigDto {
   valueType: 'STRING' | 'NUMBER' | 'BOOLEAN' | 'JSON';
 }
 
+export class UpdateNumberingFormatDto {
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(12)
+  @Matches(/^[A-Z0-9_-]+$/, { message: 'Prefix must contain only uppercase letters, numbers, underscore or hyphen' })
+  prefix: string;
+
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(120)
+  format: string;
+
+  @IsInt()
+  @Min(1)
+  @Max(12)
+  padding: number;
+}
 export class UpdateFeatureFlagDto {
   @IsBoolean()
   isEnabled: boolean;
@@ -72,70 +99,74 @@ export class SystemConfigController {
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(RoleType.ADMIN)
-  @ApiOperation({ summary: 'Get numbering series rules' })
+  @ApiOperation({ summary: 'Get persisted numbering formats and current-period counters' })
   async getNumberingSeries() {
-    const formats = await this.prisma.numberingFormat.findMany();
-    if (formats.length > 0) {
-      return formats.map((f) => ({
-        id: f.entityType,
-        entityType: f.entityType,
-        prefix: f.prefix,
-        suffix: '',
-        format: f.format,
-        paddingLength: f.padding,
-        isAutoIncrement: true,
-      }));
+    const formats = await this.prisma.numberingFormat.findMany({ orderBy: { entityType: 'asc' } });
+    if (formats.length === 0) return [];
+
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = now.getMonth() + 1;
+    const sequences = await this.prisma.numberingSequence.findMany({
+      where: {
+        entityType: { in: formats.map((format) => format.entityType) },
+        year,
+        month,
+      },
+    });
+    const sequenceByEntity = new Map(sequences.map((row) => [row.entityType, row.sequence]));
+    const periodLabel = year + '-' + String(month).padStart(2, '0');
+
+    return formats.map((format) => {
+      const currentSequence = sequenceByEntity.get(format.entityType) || 0;
+      const nextSequence = String(currentSequence + 1).padStart(format.padding, '0');
+      const previewSample = format.format
+        .replaceAll('{PREFIX}', format.prefix)
+        .replaceAll('{YYYY}', String(year))
+        .replaceAll('{MM}', String(month).padStart(2, '0'))
+        .replaceAll('{SEQUENCE}', nextSequence);
+      return {
+        id: format.entityType,
+        entityType: format.entityType,
+        prefix: format.prefix,
+        format: format.format,
+        padding: format.padding,
+        currentSequence,
+        periodLabel,
+        previewSample,
+      };
+    });
+  }
+
+  @Put('numbering/:entityType')
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(RoleType.ADMIN)
+  @ApiOperation({ summary: 'Create or update a global numbering format' })
+  async updateNumberingFormat(
+    @Param('entityType') entityTypeParam: string,
+    @Body() dto: UpdateNumberingFormatDto,
+    @CurrentUser() user: RequestUser,
+  ) {
+    // Numbering formats are global in the current schema, so only platform administrators may change them.
+    if (!(user as any).permissions?.includes('*')) {
+      throw new ForbiddenException('Platform super-administrator permission is required to change global numbering formats');
     }
-    return [
-      {
-        id: '1',
-        entityType: 'LEAD',
-        prefix: 'LEAD-',
-        suffix: '',
-        paddingLength: 6,
-        isAutoIncrement: true,
-      },
-      {
-        id: '2',
-        entityType: 'QUOTATION',
-        prefix: 'QT-',
-        suffix: '',
-        paddingLength: 6,
-        isAutoIncrement: true,
-      },
-      {
-        id: '3',
-        entityType: 'POLICY',
-        prefix: 'POL-',
-        suffix: '',
-        paddingLength: 6,
-        isAutoIncrement: true,
-      },
-      {
-        id: '4',
-        entityType: 'CLAIM',
-        prefix: 'CLM-',
-        suffix: '',
-        paddingLength: 6,
-        isAutoIncrement: true,
-      },
-      {
-        id: '5',
-        entityType: 'CONTACT',
-        prefix: 'CONT-',
-        suffix: '',
-        paddingLength: 6,
-        isAutoIncrement: true,
-      },
-      {
-        id: '6',
-        entityType: 'INSPECTION',
-        prefix: 'INS-',
-        suffix: '',
-        paddingLength: 6,
-        isAutoIncrement: true,
-      },
-    ];
+    const entityType = entityTypeParam.trim().toUpperCase();
+    if (!/^[A-Z][A-Z0-9_]{1,39}$/.test(entityType)) {
+      throw new BadRequestException('Invalid entity type for numbering format');
+    }
+    const allowedTokens = new Set(['PREFIX', 'YYYY', 'MM', 'SEQUENCE']);
+    const usedTokens = dto.format.match(/\{[^}]+\}/g) || [];
+    if (!dto.format.includes('{PREFIX}') || !dto.format.includes('{SEQUENCE}') ||
+        usedTokens.some((token) => !allowedTokens.has(token.slice(1, -1)))) {
+      throw new BadRequestException('Format must include {PREFIX} and {SEQUENCE}; allowed placeholders are {PREFIX}, {YYYY}, {MM}, and {SEQUENCE}');
+    }
+    return this.prisma.numberingFormat.upsert({
+      where: { entityType },
+      create: { entityType, prefix: dto.prefix.trim(), format: dto.format.trim(), padding: dto.padding },
+      update: { prefix: dto.prefix.trim(), format: dto.format.trim(), padding: dto.padding },
+    });
   }
 
   @Get('metrics')
