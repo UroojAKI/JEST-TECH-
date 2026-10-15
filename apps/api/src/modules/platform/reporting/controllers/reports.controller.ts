@@ -114,11 +114,11 @@ export class ReportsController {
   @Get()
   @RequirePermissions('REPORT_VIEW')
   async getReports(
+    @CurrentUser() user: RequestUser,
     @Query('category') category?: string,
     @Query('module') module?: string,
     @Query('status') status?: string,
     @Query('search') search?: string,
-    @CurrentUser() user: RequestUser,
   ) {
     const scope = this.getTenantScope(user);
     const companyId = scope.isPlatformAdmin ? undefined : scope.companyId;
