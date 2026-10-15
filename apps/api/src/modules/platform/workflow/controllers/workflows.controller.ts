@@ -7,6 +7,8 @@ import {
   Param,
   Body,
   UseGuards,
+  BadRequestException,
+  NotFoundException,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { RoleType, WorkflowEntityType } from '@prisma/client';
@@ -146,7 +148,7 @@ export class WorkflowsController {
 
     const now = Date.now();
     return Array.from(latestByEntity.values())
-      .filter((row) => !statesById.get(row.toStateId)?.isTerminal)
+      .filter((row) => statesById.has(row.toStateId) && !statesById.get(row.toStateId)?.isTerminal)
       .map((row) => {
         const entityKey = [row.entityType, row.entityId].join('|');
         const metadata = entityDetails.get(entityKey)!;
