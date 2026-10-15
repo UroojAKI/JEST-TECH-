@@ -497,10 +497,24 @@ export class WorkflowsController {
   async getHistory(
     @Param('entityType') entityType: WorkflowEntityType,
     @Param('entityId') entityId: string,
+    @CurrentUser() user: RequestUser,
   ) {
-    return this.prisma.workflowHistory.findMany({
-      where: { entityId, entityType },
+    const allTenantAccess = Array.isArray((user as any).permissions) &&
+      (user as any).permissions.includes('*');
+    const companyId = user.companyId || (user as any).organizationId;
+    if (!allTenantAccess && !companyId) {
+      throw new NotFoundException('Workflow entity not found in the current organization.');
+    }
+    const scopedIds = new Map<string, Set<string>>([[entityType, new Set([entityId])]]);
+    const entityDetails = await this.resolveEntityDetails(scopedIds, companyId, allTenantAccess);
+    if (!entityDetails.has([entityType, entityId].join('|'))) {
+      throw new NotFoundException('Workflow entity not found in the current organization.');
+    }
+
+    const history = await this.prisma.workflowHistory.findMany({
+      where: { entityId, entityType, workflow: { deletedAt: null } },
       include: {
+        workflow: { select: { id: true, name: true, code: true } },
         performedBy: {
           select: {
             id: true,
@@ -512,5 +526,17 @@ export class WorkflowsController {
       },
       orderBy: { createdAt: 'desc' },
     });
+    const stateIds = Array.from(new Set(
+      history.flatMap((row) => [row.fromStateId, row.toStateId].filter(Boolean) as string[]),
+    ));
+    const states = stateIds.length
+      ? await this.prisma.workflowState.findMany({ where: { id: { in: stateIds } } })
+      : [];
+    const statesById = new Map(states.map((state) => [state.id, state]));
+    return history.map((row) => ({
+      ...row,
+      fromState: row.fromStateId ? statesById.get(row.fromStateId) || null : null,
+      toState: statesById.get(row.toStateId) || null,
+    }));
   }
 }
