@@ -188,6 +188,7 @@ export interface PolicyFormTPOnly {
   discountPercent?: string;       // Y — numeric discount
   tpDiscountPercent?: string;     // Y — numeric discount
   tpCommissionCalc?: string;      // Y — numeric discount fallback
+  gstRate?: string;               // 5% vs 18% selectable GST
   calculatedResult?: any;
 }
 
@@ -247,6 +248,7 @@ export interface PolicyFormSAOD {
   discountAmount?: string;       // Auto-calc: OD Premium × D%
   finalPayableAmount?: string;   // Total Premium - Discount Amount
   commissionDiscountCalc: string; // Y — formatted calculator string
+  gstRate?: string;               // 5% vs 18% selectable GST
   calculatedResult?: any;
 }
 
@@ -276,6 +278,7 @@ export interface PolicyFormPackage {
   tpCommissionPercent?: string;  // Y — broker commission on TP
   finalPayableAmount?: string;   // Net premium payable after discount + GST
   finalGstAmount?: string;       // Re-calculated GST after discount
+  gstRate?: string;               // 5% vs 18% selectable GST
   calculatedResult?: any;
 }
 

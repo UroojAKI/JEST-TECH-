@@ -317,6 +317,8 @@ export function PolicyFormPackageForm({ category, vehicleStatus, data, onChange,
             />
           </FieldRow>
         </div>
+      </div>
+
       {/* Applicable GST Rate Selector (5% vs 18%) */}
       <GstRateSelector
         value={data.gstRate}
