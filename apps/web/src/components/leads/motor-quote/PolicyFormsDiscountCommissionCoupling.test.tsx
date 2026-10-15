@@ -250,7 +250,8 @@ describe('Work Package 2 & PR-01: Discount & Commission Decoupling Regression Su
       />,
     );
 
-    const call = vi.mocked(useMotorCalculator).mock.calls.at(-1)?.[0];
+    const calls = vi.mocked(useMotorCalculator).mock.calls;
+    const call = calls[calls.length - 1]?.[0];
     expect(call.addons).toEqual([{ addonCode: 'ZERO_DEP' }]);
     expect(call.addons[0]).not.toHaveProperty('manualPrice');
     expect(screen.queryByPlaceholderText(/Manual Price/)).not.toBeInTheDocument();
