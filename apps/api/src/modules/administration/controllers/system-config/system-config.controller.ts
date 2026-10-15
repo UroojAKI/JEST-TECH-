@@ -8,6 +8,7 @@ import {
   UseGuards,
   BadRequestException,
   ForbiddenException,
+  NotFoundException,
 } from '@nestjs/common';
 import { SystemConfigService } from '../../services/system-config/system-config.service';
 import { SystemConfigKey } from '../../constants/system-config-key.enum';
