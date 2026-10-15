@@ -38,7 +38,6 @@ export class PermissionsGuard implements CanActivate {
       // Scheduling is currently governed by the existing report-create grant.
       // Split this into a dedicated report:schedule permission when role grants
       // are migrated consistently across existing tenants.
-      REPORT_SCHEDULE: ['report:create'],
     };
     const actorPermissions = new Set<string>(user.permissions);
     const isGranted = (permission: string) =>
