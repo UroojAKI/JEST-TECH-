@@ -191,6 +191,7 @@ describe('Work Package 2 & PR-01: Discount & Commission Decoupling Regression Su
             addonPremium: 0,
             ncbDiscount: 0,
             totalDiscount: 900,
+            specialDiscount: 900,
             totalGst: 3078,
             finalPayableAmount: 20178,
             totalPremium: 20178,
@@ -225,8 +226,83 @@ describe('Work Package 2 & PR-01: Discount & Commission Decoupling Regression Su
       const lastPayload = mockOnChange.mock.calls[mockOnChange.mock.calls.length - 1][0];
       expect(lastPayload.totalPremiumInclGST).toBe('20178');
       expect(lastPayload.discountAmount).toBe('900');
-      // Commission must remain based on commission rate, not discount amount
-      expect(lastPayload.commissionAmount).not.toBe('900');
+      // Unapproved legacy commission inputs must be cleared, not recalculated in the browser.
+      expect(lastPayload.odCommissionPercent).toBe('');
+      expect(lastPayload.commissionAmount).toBe('');
     });
   });
+
+  it('sends selected add-ons to the server without a manual price override', () => {
+    const mockOnChange = vi.fn();
+    const initialData: any = {
+      policyTenure: '1',
+      insuredDeclaredValue: '500000',
+      addonsSelected: ['ZERO_DEP'],
+      addonPrices: { ZERO_DEP: '1' },
+    };
+
+    render(
+      <PolicyFormPackageForm
+        category="PRIVATE_CAR"
+        vehicleStatus="EXISTING"
+        data={initialData}
+        onChange={mockOnChange}
+      />,
+    );
+
+    const call = vi.mocked(useMotorCalculator).mock.calls.at(-1)?.[0];
+    expect(call.addons).toEqual([{ addonCode: 'ZERO_DEP' }]);
+    expect(call.addons[0]).not.toHaveProperty('manualPrice');
+    expect(screen.queryByPlaceholderText(/Manual Price/)).not.toBeInTheDocument();
+  });
+
+  it('shows server-calculated OD and TP discount amounts independently', () => {
+    vi.mocked(useMotorCalculator).mockReturnValue({
+      result: {
+        outputs: {
+          baseOdPremium: 10000,
+          baseTpPremium: 3000,
+          specialDiscount: 750,
+          tp: { discount: 250 },
+          totalDiscount: 1000,
+          grossBasePremium: 13000,
+          netCustomerPremium: 12000,
+          totalGst: 2160,
+          finalPayableAmount: 14160,
+          totalPremium: 14160,
+        },
+        rateConfig: { gstRatePercent: 18 },
+      },
+      loading: false,
+      error: null,
+    });
+
+    render(
+      <PolicyFormPackageForm
+        category="PRIVATE_CAR"
+        vehicleStatus="EXISTING"
+        data={{ policyTenure: '1', insuredDeclaredValue: '500000' } as any}
+        onChange={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByDisplayValue('750.00')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('250.00')).toBeInTheDocument();
+  });
+
+  it('renders commission status as pending instead of inventing a percentage', () => {
+    render(
+      <PolicyFormPackageForm
+        category="PRIVATE_CAR"
+        vehicleStatus="EXISTING"
+        data={{ policyTenure: '1', insuredDeclaredValue: '500000' } as any}
+        onChange={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText('Commission Calculation')).toBeInTheDocument();
+    expect(screen.getByText('CONFIGURATION PENDING')).toBeInTheDocument();
+    expect(screen.getByText(/No default percentage or commissionable base is assumed/)).toBeInTheDocument();
+  });
+
 });
