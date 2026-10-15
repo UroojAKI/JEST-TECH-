@@ -34,6 +34,16 @@ export function VehicleDetailsForm({ category, data, onChange }: Props) {
     let value = e.target.value;
     const next = { ...data, [key]: value };
 
+    if (key === 'attachmentUsed') {
+      // Only the registration number for the selected attachment is applicable.
+      if (value === 'Trailer 1') next.trailer2RegistrationNumber = '';
+      else if (value === 'Trailer 2') next.trailer1RegistrationNumber = '';
+      else {
+        next.trailer1RegistrationNumber = '';
+        next.trailer2RegistrationNumber = '';
+      }
+    }
+
     if (key === 'registrationNumber') {
       value = value.toUpperCase().replace(/[\s\-\.]/g, '');
       next[key] = value;
