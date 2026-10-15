@@ -262,8 +262,8 @@ export class CommissionEngineService {
     if (policy.companyId !== effectiveCompanyId) {
       throw new BadRequestException('Commission realization is restricted to the current organization.');
     }
-    if (policy.paymentStatus !== 'PAID') {
-      throw new BadRequestException('Commissions cannot be realized until the linked policy payment status is PAID.');
+    if (policy.paymentStatus !== 'SUCCESS') {
+      throw new BadRequestException('Commissions cannot be realized until the linked policy payment status is SUCCESS.');
     }
 
     const result = await this.prisma.commission.updateMany({
