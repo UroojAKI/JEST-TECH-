@@ -5,9 +5,10 @@ import { PrismaService } from '../../../../../database/prisma.service';
 describe('CommissionEngineService', () => {
   let service: CommissionEngineService;
   let prisma: PrismaService;
+  let mockTx: any;
 
   beforeEach(async () => {
-    const mockTx: any = {
+    mockTx = {
       $executeRaw: jest.fn().mockResolvedValue(undefined),
       commission: {
         findMany: jest
@@ -86,8 +87,15 @@ describe('CommissionEngineService', () => {
       // The policy-linked quotation has ₹59,000 total premium less ₹9,000 tax.
       // The configured plan calculates all recipients from the ₹50,000 commissionable base.
       expect(result.length).toBe(3);
-      const createCall = (prisma as any).$transaction.mock.calls.length;
-      expect(createCall).toBe(1);
+      expect((prisma as any).policy.findUnique).toHaveBeenCalledWith({
+        where: { id: 'pol-1' },
+        include: { quotation: true },
+      });
+      expect(mockTx.commission.createMany).toHaveBeenCalledWith({
+        data: expect.arrayContaining([
+          expect.objectContaining({ policyId: 'pol-1', companyId: 'company-1', roleTier: 'AGENT' }),
+        ]),
+      });
 
       expect(result[0].roleTier).toBe('AGENT');
       expect(Number(result[0].amount)).toBe(5000);
@@ -98,9 +106,7 @@ describe('CommissionEngineService', () => {
       expect(result[2].roleTier).toBe('ZONAL_MANAGER');
       expect(Number(result[2].amount)).toBe(250);
 
-      const createdRows = (prisma as any).$transaction.mock.calls[0][0];
-      expect(createdRows).toBeDefined();
-      const txMock = (prisma as any).$transaction.mock.results[0].value;
+
     });
 
     it('T-05: throws structured COMMISSION_CONFIG_PENDING when no active commission plan matches', async () => {
