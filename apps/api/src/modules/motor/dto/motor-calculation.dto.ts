@@ -16,6 +16,10 @@ export class MotorAddonInputDto {
   @IsString()
   addonCode: string;
 
+  /**
+   * Deprecated client field. MotorCalculationService rejects supplied manual prices;
+   * rates must be maintained in the approved configuration master.
+   */
   @IsOptional()
   @IsNumber()
   @Min(0)
