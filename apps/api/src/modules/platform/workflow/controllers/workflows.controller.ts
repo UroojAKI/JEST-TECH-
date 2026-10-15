@@ -73,8 +73,21 @@ export class WorkflowsController {
       where: { workflow: { active: true, deletedAt: null } },
       include: {
         workflow: { select: { id: true, name: true, code: true, version: true } },
-        fromState: { select: { name: true, code: true } },
-        toState: {
+        performedBy: { select: { id: true, firstName: true, lastName: true, email: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 2000,
+    });
+    if (!historyRows.length) return [];
+
+    // WorkflowHistory stores state IDs but does not define Prisma relations to WorkflowState.
+    // Resolve these IDs through the state table instead of requesting nonexistent nested includes.
+    const referencedStateIds = Array.from(new Set(
+      historyRows.flatMap((row) => [row.fromStateId, row.toStateId].filter(Boolean) as string[]),
+    ));
+    const stateRows = referencedStateIds.length
+      ? await this.prisma.workflowState.findMany({
+          where: { id: { in: referencedStateIds } },
           include: {
             assignments: {
               include: {
@@ -83,13 +96,9 @@ export class WorkflowsController {
               },
             },
           },
-        },
-        performedBy: { select: { id: true, firstName: true, lastName: true, email: true } },
-      },
-      orderBy: { createdAt: 'desc' },
-      take: 2000,
-    });
-    if (!historyRows.length) return [];
+        })
+      : [];
+    const statesById = new Map(stateRows.map((state) => [state.id, state]));
 
     const idsByType = new Map<string, Set<string>>();
     for (const row of historyRows) {
@@ -112,10 +121,10 @@ export class WorkflowsController {
       const key = [row.workflowId, row.entityType, row.entityId].join('|');
       if (!timelineByEntity.has(key)) timelineByEntity.set(key, []);
       timelineByEntity.get(key)!.push({
-        state: row.toState.name,
-        action: row.fromState?.name
-          ? row.fromState.name + ' → ' + row.toState.name
-          : row.toState.name,
+        state: statesById.get(row.toStateId)?.name || row.toStateId,
+        action: statesById.get(row.fromStateId || '')?.name
+          ? statesById.get(row.fromStateId || '')!.name + ' → ' + (statesById.get(row.toStateId)?.name || row.toStateId)
+          : statesById.get(row.toStateId)?.name || row.toStateId,
         performedBy: row.performedBy
           ? [row.performedBy.firstName, row.performedBy.lastName].filter(Boolean).join(' ') || row.performedBy.email
           : 'System',
@@ -137,18 +146,19 @@ export class WorkflowsController {
 
     const now = Date.now();
     return Array.from(latestByEntity.values())
-      .filter((row) => !row.toState.isTerminal)
+      .filter((row) => !statesById.get(row.toStateId)?.isTerminal)
       .map((row) => {
         const entityKey = [row.entityType, row.entityId].join('|');
         const metadata = entityDetails.get(entityKey)!;
         const enteredAt = row.createdAt;
+        const currentState = statesById.get(row.toStateId);
         const minutesInState = Math.max(0, Math.floor((now - enteredAt.getTime()) / 60000));
-        const slaMinutes = row.toState.slaMinutes;
+        const slaMinutes = currentState?.slaMinutes ?? null;
         const minutesRemaining = slaMinutes == null ? null : slaMinutes - minutesInState;
         const slaStatus =
           slaMinutes == null ? 'NOT_CONFIGURED' :
           minutesRemaining! < 0 ? 'BREACHED' : 'ON_TRACK';
-        const assigned = row.toState.assignments || [];
+        const assigned = currentState?.assignments || [];
         const assignedApprover = assigned
           .map((assignment) =>
             assignment.user
@@ -168,8 +178,8 @@ export class WorkflowsController {
           entityNumber: metadata.entityNumber || row.entityId,
           customerName: metadata.customerName || null,
           status: metadata.status || null,
-          currentState: row.toState.name,
-          currentStateCode: row.toState.code,
+          currentState: currentState?.name || row.toStateId,
+          currentStateCode: currentState?.code || row.toStateId,
           enteredAt: enteredAt.toISOString(),
           lastTransitionAt: enteredAt.toISOString(),
           lastTransitionBy: row.performedBy
