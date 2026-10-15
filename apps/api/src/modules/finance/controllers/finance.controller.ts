@@ -468,6 +468,9 @@ export class FinanceController {
         id: true,
         policyNumber: true,
         premiumAmount: true,
+        quotation: {
+          select: { totalPremium: true, gstAmount: true },
+        },
         contact: { select: { firstName: true, lastName: true } },
       },
     });
@@ -475,38 +478,44 @@ export class FinanceController {
 
     return commissions.map((c) => {
       const pol = policyMap.get(c.policyId);
-      const grossPremium = pol ? Number(pol.premiumAmount) : Number(c.amount);
-      const commissionPercent =
-        grossPremium > 0
-          ? Math.round((Number(c.amount) / grossPremium) * 100)
-          : 0;
+      const grossPremium = pol
+        ? Number(pol.quotation?.totalPremium ?? pol.premiumAmount ?? NaN)
+        : null;
+      const commissionableBase = pol?.quotation
+        ? Number(pol.quotation.totalPremium) - Number(pol.quotation.gstAmount || 0)
+        : null;
+      const commissionPercent = commissionableBase != null && commissionableBase > 0
+        ? Math.round((Number(c.amount) / commissionableBase) * 10000) / 100
+        : null;
       const customerName = pol?.contact
-        ? `${pol.contact.firstName} ${pol.contact.lastName || ''}`.trim()
-        : 'Customer';
-      const policyNumber =
-        pol?.policyNumber || 'POL-' + c.policyId.substring(0, 8).toUpperCase();
+        ? [pol.contact.firstName, pol.contact.lastName].filter(Boolean).join(' ')
+        : null;
+      const policyNumber = pol?.policyNumber || null;
+      const agentName = [c.user?.firstName, c.user?.lastName].filter(Boolean).join(' ') || c.user?.email || null;
 
       return {
         id: c.id,
         policyNumber,
         customerName,
-        agentName:
-          `${c.user?.firstName || ''} ${c.user?.lastName || ''}`.trim() ||
-          'Agent',
+        agentName,
         roleTier: c.roleTier,
         grossPremium,
+        commissionableBase,
         commissionPercent,
         commissionAmount: Number(c.amount),
         status: c.status,
         payoutStatus:
           c.status === 'PAID'
             ? 'PAID'
-            : c.status === 'APPROVED'
-              ? 'APPROVED'
-              : c.status === 'REALIZED'
-                ? 'REALIZED'
-                : 'PENDING_APPROVAL',
+            : c.status === 'REALIZED'
+              ? 'REALIZED'
+              : c.status === 'APPROVED'
+                ? 'APPROVED'
+                : c.status === 'CANCELLED'
+                  ? 'CANCELLED'
+                  : 'PENDING_APPROVAL',
         createdAt: c.createdAt.toISOString(),
+        policyAvailable: Boolean(pol),
       };
     });
   }
