@@ -109,6 +109,9 @@ export function PolicyFormPackageForm({ category, vehicleStatus, data, onChange,
         totalPremiumInclGST: (result.outputs.finalPayableAmount ?? result.outputs.totalPremium ?? 0).toString(),
         finalPayableAmount: (result.outputs.finalPayableAmount ?? result.outputs.totalPremium ?? 0).toString(),
         finalGstAmount: (result.outputs.totalGst ?? 0).toString(),
+        odCommissionCalc: '',
+        tpCommissionCalc: '',
+        finalCommissionCalc: '',
         gstRate: (result.rateConfig?.gstRatePercent ?? (data.gstRate ? parseInt(data.gstRate) : 18)).toString(),
         calculatedResult: result 
       });
