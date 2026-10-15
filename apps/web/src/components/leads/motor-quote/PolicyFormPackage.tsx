@@ -124,7 +124,8 @@ export function PolicyFormPackageForm({ category, vehicleStatus, data, onChange,
   const isCommercial = !['BIKE', 'PRIVATE_CAR'].includes(category);
 
   // Authoritative Backend Calculation Outputs (Single Source of Truth)
-  const outputs = result?.outputs || data.calculatedResult?.outputs || {};
+  const hasValidCalculation = !loading && !error && Boolean(result || data.calculatedResult);
+  const outputs = hasValidCalculation ? (result?.outputs || data.calculatedResult?.outputs || {}) : {};
   const rawOd = outputs.baseOdPremium ?? 0;
   const rawTp = outputs.baseTpPremium ?? 0;
   const grossBase = outputs.grossBasePremium ?? (rawOd + rawTp);
@@ -134,11 +135,11 @@ export function PolicyFormPackageForm({ category, vehicleStatus, data, onChange,
   const itemizedAddons: any[] = Array.isArray(outputs.itemizedAddons) ? outputs.itemizedAddons : [];
   const odDiscountAmount = outputs.specialDiscount ?? outputs.od?.specialDiscount ?? 0;
   const tpDiscountAmount = outputs.tp?.discount ?? outputs.tpDiscountAmount ?? 0;
-  const finalPayable =
-    outputs.finalPayableAmount ??
-    outputs.totalPremium ??
-    ((data.finalPayableAmount ? parseFloat(data.finalPayableAmount) : 0) ||
-      (data.totalPremiumInclGST ? parseFloat(data.totalPremiumInclGST) : 0));
+  const finalPayable = hasValidCalculation
+    ? Number(outputs.finalPayableAmount ?? outputs.totalPremium ??
+        ((data.finalPayableAmount ? parseFloat(data.finalPayableAmount) : 0) ||
+          (data.totalPremiumInclGST ? parseFloat(data.totalPremiumInclGST) : 0)))
+    : null;
 
   return (
     <div className="space-y-4">
@@ -323,10 +324,10 @@ export function PolicyFormPackageForm({ category, vehicleStatus, data, onChange,
             />
           </FieldRow>
           <FieldRow label="OD Discount Amount (₹)" hint="Calculated by the backend from the OD premium and approved discount">
-            <input type="text" readOnly value={Number(odDiscountAmount).toFixed(2)} className={inputBase + ' bg-muted'} />
+            <input type="text" readOnly value={hasValidCalculation ? Number(odDiscountAmount).toFixed(2) : '—'} className={inputBase + ' bg-muted'} />
           </FieldRow>
           <FieldRow label="TP Discount Amount (₹)" hint="Calculated by the backend from the TP premium and approved discount">
-            <input type="text" readOnly value={Number(tpDiscountAmount).toFixed(2)} className={inputBase + ' bg-muted'} />
+            <input type="text" readOnly value={hasValidCalculation ? Number(tpDiscountAmount).toFixed(2) : '—'} className={inputBase + ' bg-muted'} />
           </FieldRow>
         </div>
       </div>
@@ -348,19 +349,19 @@ export function PolicyFormPackageForm({ category, vehicleStatus, data, onChange,
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
             <div className="p-2.5 rounded-xl border bg-muted/10">
               <span className="text-[10px] text-muted-foreground block font-medium">Gross Base Premium</span>
-              <span className="text-sm font-bold text-foreground">₹{grossBase.toLocaleString('en-IN')}</span>
-              <span className="text-[9px] text-muted-foreground block">OD: ₹{rawOd} | TP: ₹{rawTp}</span>
+              <span className="text-sm font-bold text-foreground">{hasValidCalculation ? '₹' + grossBase.toLocaleString('en-IN') : '—'}</span>
+              <span className="text-[9px] text-muted-foreground block">{hasValidCalculation ? 'OD: ₹' + rawOd + ' | TP: ₹' + rawTp : 'OD/TP breakdown unavailable'}</span>
             </div>
 
             <div className="p-2.5 rounded-xl border bg-amber-500/10 border-amber-500/20">
               <span className="text-[10px] text-amber-800 dark:text-amber-300 block font-medium">Total Discount Amount</span>
-              <span className="text-sm font-bold text-amber-700 dark:text-amber-400">-₹{discountAmt.toLocaleString('en-IN')}</span>
+              <span className="text-sm font-bold text-amber-700 dark:text-amber-400">{hasValidCalculation ? '-₹' + discountAmt.toLocaleString('en-IN') : '—'}</span>
               <span className="text-[9px] text-amber-700/80 block">Applied pre-tax</span>
             </div>
 
             <div className="p-2.5 rounded-xl border bg-muted/10">
               <span className="text-[10px] text-muted-foreground block font-medium">Net Customer Premium</span>
-              <span className="text-sm font-bold text-foreground">₹{netBase.toLocaleString('en-IN')}</span>
+              <span className="text-sm font-bold text-foreground">{hasValidCalculation ? '₹' + netBase.toLocaleString('en-IN') : '—'}</span>
               <span className="text-[9px] text-muted-foreground block">Gross minus discounts</span>
             </div>
 
@@ -368,7 +369,7 @@ export function PolicyFormPackageForm({ category, vehicleStatus, data, onChange,
               <span className="text-[10px] text-muted-foreground block font-medium">
                 Statutory GST ({outputs.gstRatePercent ?? (data.gstRate ? parseInt(data.gstRate) : 18)}%)
               </span>
-              <span className="text-sm font-bold text-foreground">+₹{gstAmt.toLocaleString('en-IN')}</span>
+              <span className="text-sm font-bold text-foreground">{hasValidCalculation ? '+₹' + gstAmt.toLocaleString('en-IN') : '—'}</span>
               <span className="text-[9px] text-muted-foreground block">Calculated on Net Component</span>
             </div>
           </div>
@@ -384,12 +385,12 @@ export function PolicyFormPackageForm({ category, vehicleStatus, data, onChange,
               </span>
             </div>
             <div className="text-2xl font-black text-emerald-700 dark:text-emerald-400">
-              ₹{finalPayable.toLocaleString('en-IN')}
+              {finalPayable === null ? '—' : '₹' + finalPayable.toLocaleString('en-IN')}
             </div>
           </div>
         </div>
       </div>
-      <CommissionBreakdownPanel calculation={result || data.calculatedResult} components={['OD', 'TP']} loading={loading} error={error} />
+      <CommissionBreakdownPanel calculation={loading || error ? undefined : (result || data.calculatedResult)} components={['OD', 'TP']} loading={loading} error={error} />
     </div>
   );
 }
