@@ -31,7 +31,9 @@ export type Permission =
   | 'admin:read'
   | 'admin:manage'
   | 'report:read'
-  | 'report:export';
+  | 'report:create'
+  | 'report:export'
+  | 'report:schedule';
 
 export interface UserSession {
   id: string;
