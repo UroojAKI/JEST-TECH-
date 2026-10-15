@@ -4,7 +4,7 @@ import { CurrentUser } from '../../../auth/decorators/current-user.decorator';
 import type { RequestUser } from '../../../auth/decorators/current-user.decorator';
 import { PermissionsGuard } from '../../../auth/guards/permissions.guard';
 import { RequirePermissions } from '../../../auth/decorators/permissions.decorator';
-import { PrismaService } from '../../../database/prisma.service';
+import { PrismaService } from '../../../../database/prisma.service';
 import { UpsertCommissionPlanDto } from '../commission-plan.dto';
 import { RoleType } from '@prisma/client';
 import { JwtAuthGuard } from '../../../auth/guards/jwt-auth.guard';
