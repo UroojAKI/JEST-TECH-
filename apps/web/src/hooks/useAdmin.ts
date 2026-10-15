@@ -109,20 +109,22 @@ export function useSystemConfig() {
   });
 
   const updateConfigMutation = useMutation({
-    mutationFn: (data: any) => adminRepository.updateSystemConfig(data),
+    mutationFn: (data: Record<string, unknown>) => adminRepository.updateSystemConfig(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-system-config'] });
-      toast.success('System configuration updated successfully!');
+      toast.success('System configuration persisted successfully.');
     },
     onError: (err: any) => {
-      toast.error(err.response?.data?.message || 'Failed to update configuration');
+      toast.error(err.response?.data?.message || 'Failed to persist system configuration');
     },
   });
 
   return {
     config: query.data,
     isLoading: query.isLoading,
-    updateConfig: updateConfigMutation.mutate,
+    isError: query.isError,
+    refetch: query.refetch,
+    updateConfig: updateConfigMutation.mutateAsync,
     isUpdating: updateConfigMutation.isPending,
   };
 }
