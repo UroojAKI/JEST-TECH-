@@ -114,20 +114,31 @@ jobs:
         run: |
           echo "Building API artifact..."
           pnpm --filter api run build
-          echo "Launching API daemon in background..."
-          node apps/api/dist/src/main.js &
+          API_ENTRY="apps/api/dist/main.js"
+          if [ ! -f "$API_ENTRY" ]; then
+            echo "ERROR: Expected Nest build artifact not found: $API_ENTRY"
+            echo "Available main.js artifacts:"
+            find apps/api/dist -maxdepth 3 -type f -name 'main.js' -print || true
+            exit 1
+          fi
+          echo "Launching API daemon from $API_ENTRY..."
+          node "$API_ENTRY" &
           API_PID=$!
+          cleanup() { kill "$API_PID" 2>/dev/null || true; }
+          trap cleanup EXIT
           echo "Polling HTTP readiness probe on http://127.0.0.1:4000/api/v1/health/ready..."
           for i in {1..30}; do
-            if curl -s -f http://127.0.0.1:4000/api/v1/health/ready; then
+            if curl --silent --show-error --fail http://127.0.0.1:4000/api/v1/health/ready; then
               echo "API is live and ready!"
-              kill $API_PID || true
               exit 0
+            fi
+            if ! kill -0 "$API_PID" 2>/dev/null; then
+              echo "ERROR: API process exited before readiness succeeded."
+              exit 1
             fi
             sleep 1
           done
-          echo "Health probe timed out."
-          kill $API_PID || true
+          echo "ERROR: Health probe timed out."
           exit 1
         env:
           PORT: "4000"
