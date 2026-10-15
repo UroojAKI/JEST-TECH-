@@ -19,6 +19,8 @@ describe('Workflow & Proposal Integration', () => {
   let testContactId: string;
   let testUserId: string;
   let testCompanyId: string;
+  let testWorkflowId: string | undefined;
+  let shouldDeleteTestWorkflow = false;
   let app: any;
 
   beforeAll(async () => {
@@ -107,6 +109,109 @@ describe('Workflow & Proposal Integration', () => {
     }
     testUserId = user.id;
     testCompanyId = user.companyId;
+
+    // This E2E suite runs after migrations, not after the full demo seed.
+    // Create the required system workflow fixture when it is absent so the test
+    // remains repeatable against a fresh CI database.
+    let proposalWorkflow = await prisma.workflow.findUnique({
+      where: { code: 'PROPOSAL_WORKFLOW' },
+      include: {
+        states: true,
+        transitions: { include: { fromState: true, toState: true } },
+      },
+    });
+
+    if (!proposalWorkflow) {
+      proposalWorkflow = await prisma.workflow.create({
+        data: {
+          name: 'Standard Proposal Workflow',
+          code: 'PROPOSAL_WORKFLOW',
+          module: 'PROPOSALS',
+          isSystem: true,
+        },
+        include: {
+          states: true,
+          transitions: { include: { fromState: true, toState: true } },
+        },
+      });
+      testWorkflowId = proposalWorkflow.id;
+      shouldDeleteTestWorkflow = true;
+    } else {
+      testWorkflowId = proposalWorkflow.id;
+    }
+
+    const stateDefinitions = [
+      { code: 'DRAFT', name: 'Draft', isInitial: true, isTerminal: false },
+      { code: 'SUBMITTED', name: 'Submitted', isInitial: false, isTerminal: false, slaMinutes: 1440 },
+      { code: 'UNDER_REVIEW', name: 'Under Review', isInitial: false, isTerminal: false, slaMinutes: 2880 },
+      { code: 'APPROVED', name: 'Approved', isInitial: false, isTerminal: true },
+      { code: 'REJECTED', name: 'Rejected', isInitial: false, isTerminal: true },
+    ];
+
+    const stateIds: Record<string, string> = {};
+    for (const state of stateDefinitions) {
+      let stateRecord = proposalWorkflow.states.find(
+        (candidate) => candidate.code === state.code,
+      );
+      if (!stateRecord) {
+        stateRecord = await prisma.workflowState.create({
+          data: { workflowId: proposalWorkflow.id, ...state },
+        });
+      }
+      stateIds[state.code] = stateRecord.id;
+    }
+
+    const transitionDefinitions: Array<{
+      name: string;
+      fromCode: string;
+      toCode: string;
+      conditions?: Prisma.InputJsonValue;
+    }> = [
+      { name: 'Submit Proposal', fromCode: 'DRAFT', toCode: 'SUBMITTED' },
+      { name: 'Start Review', fromCode: 'SUBMITTED', toCode: 'UNDER_REVIEW' },
+      {
+        name: 'Approve Proposal',
+        fromCode: 'UNDER_REVIEW',
+        toCode: 'APPROVED',
+        conditions: {
+          logic: 'AND',
+          rules: [{ field: 'premiumAmount', operator: 'lte', value: 50000 }],
+        },
+      },
+      {
+        name: 'Approve High Premium',
+        fromCode: 'UNDER_REVIEW',
+        toCode: 'APPROVED',
+        conditions: {
+          logic: 'AND',
+          rules: [{ field: 'premiumAmount', operator: 'gt', value: 50000 }],
+        },
+      },
+      { name: 'Reject Proposal', fromCode: 'UNDER_REVIEW', toCode: 'REJECTED' },
+    ];
+
+    for (const transition of transitionDefinitions) {
+      const existingTransition = await prisma.workflowTransition.findFirst({
+        where: {
+          workflowId: proposalWorkflow.id,
+          name: transition.name,
+        },
+      });
+      if (!existingTransition) {
+        await prisma.workflowTransition.create({
+          data: {
+            workflowId: proposalWorkflow.id,
+            name: transition.name,
+            triggerType: 'MANUAL',
+            fromStateId: stateIds[transition.fromCode],
+            toStateId: stateIds[transition.toCode],
+            ...(transition.conditions
+              ? { conditions: transition.conditions }
+              : {}),
+          },
+        });
+      }
+    }
   });
 
   afterAll(async () => {
@@ -129,6 +234,9 @@ describe('Workflow & Proposal Integration', () => {
     }
     if (testContactId) {
       await prisma.contact.delete({ where: { id: testContactId } });
+    }
+    if (shouldDeleteTestWorkflow && testWorkflowId) {
+      await prisma.workflow.delete({ where: { id: testWorkflowId } });
     }
     if (app) {
       await app.close();
