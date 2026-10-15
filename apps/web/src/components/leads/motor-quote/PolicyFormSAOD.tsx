@@ -103,6 +103,8 @@ export function PolicyFormSAODForm({ category, vehicleStatus, data, onChange, el
         gstAmount: gst,
         totalPremiumInclGST: total,
         discountAmount: dAmt,
+        odCommissionPercent: '',
+        commissionAmount: '',
         finalPayableAmount: total,
         gstRate: (result.rateConfig?.gstRatePercent ?? (data.gstRate ? parseInt(data.gstRate) : 18)).toString(),
         calculatedResult: result,
