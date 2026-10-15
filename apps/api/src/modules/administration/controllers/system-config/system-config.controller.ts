@@ -85,10 +85,34 @@ export class SystemConfigController {
       },
       orderBy: { key: 'asc' },
     });
-    return Object.fromEntries(configs.map((config) => [
-      config.key,
-      this.parseConfigValue(config.value, config.valueType),
-    ]));
+    const byKey = new Map(configs.map((config) => [config.key, config]));
+    const defaultTypes: Record<SystemConfigKey, 'STRING' | 'NUMBER' | 'BOOLEAN' | 'JSON'> = {
+      [SystemConfigKey.PASSWORD_MIN_LENGTH]: 'NUMBER',
+      [SystemConfigKey.SESSION_TIMEOUT]: 'NUMBER',
+      [SystemConfigKey.JWT_ACCESS_EXPIRY]: 'STRING',
+      [SystemConfigKey.JWT_REFRESH_EXPIRY]: 'STRING',
+      [SystemConfigKey.DEFAULT_TIMEZONE]: 'STRING',
+      [SystemConfigKey.DEFAULT_CURRENCY]: 'STRING',
+      [SystemConfigKey.MAX_UPLOAD_SIZE]: 'NUMBER',
+      [SystemConfigKey.MAX_LOGIN_ATTEMPTS]: 'NUMBER',
+      [SystemConfigKey.ACCOUNT_LOCK_DURATION]: 'NUMBER',
+      [SystemConfigKey.DEFAULT_BRANCH]: 'STRING',
+      [SystemConfigKey.DEFAULT_LANGUAGE]: 'STRING',
+      [SystemConfigKey.ENABLE_AUDIT_LOGS]: 'BOOLEAN',
+      [SystemConfigKey.ENABLE_NOTIFICATIONS]: 'BOOLEAN',
+    };
+    const keys = isPlatformAdmin
+      ? Object.values(SystemConfigKey)
+      : configs.map((config) => config.key as SystemConfigKey);
+    return Object.fromEntries(keys.map((key) => {
+      const config = byKey.get(key);
+      return [key, {
+        value: config ? this.parseConfigValue(config.value, config.valueType) : null,
+        valueType: config?.valueType || defaultTypes[key],
+        configured: Boolean(config),
+        isPublic: Boolean(config?.isPublic),
+      }];
+    }));
   }
 
   @Put()
