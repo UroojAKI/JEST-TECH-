@@ -118,8 +118,8 @@ export function PolicyFormTPOnlyForm({ category, vehicleStatus, data, onChange, 
             type="number"
             readOnly
             disabled
-            value={data.thirdPartyPremium}
-            placeholder="Auto-filled from tariff"
+            value={error || loading ? '' : result?.outputs?.baseTpPremium?.toString() || ''}
+            placeholder={loading ? 'Calculating…' : error ? 'Approved TP tariff required' : 'Auto-filled from tariff'}
             className={`${inputBase} bg-muted text-muted-foreground cursor-not-allowed opacity-80`}
           />
         </FieldRow>
@@ -282,7 +282,7 @@ export function PolicyFormTPOnlyForm({ category, vehicleStatus, data, onChange, 
             <input
               type="text"
               readOnly
-              value={error ? '—' : loading ? 'Calculating…' : result?.outputs?.netTpPremium?.toString() || data.thirdPartyPremium || '—'}
+              value={error ? '—' : loading ? 'Calculating…' : result?.outputs?.netTpPremium?.toString() || '—'}
               className="w-full p-2 rounded-lg border text-xs font-semibold bg-muted border-border opacity-80"
             />
           </div>
@@ -294,7 +294,7 @@ export function PolicyFormTPOnlyForm({ category, vehicleStatus, data, onChange, 
             <input
               type="text"
               readOnly
-              value={error ? '—' : loading ? 'Calculating…' : result?.outputs?.totalPremium?.toString() || data.totalPremiumInclGST || '—'}
+              value={error ? '—' : loading ? 'Calculating…' : result?.outputs?.totalPremium?.toString() || '—'}
               className="w-full p-2 rounded-lg border text-xs font-bold text-sky-700 bg-sky-50 border-sky-200"
             />
           </div>
