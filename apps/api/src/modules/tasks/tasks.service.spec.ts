@@ -21,7 +21,7 @@ describe('TasksService', () => {
 
   const mockTask = {
     id: 'task-1',
-    taskCode: 'TSK-00001',
+    taskCode: 'TSK-000001',
     title: 'Customer Follow-up',
     type: TaskType.FOLLOW_UP,
     priority: TaskPriority.HIGH,
@@ -46,7 +46,7 @@ describe('TasksService', () => {
 
   beforeEach(async () => {
     mockNumberingEngine = {
-      generateNext: jest.fn().mockResolvedValue('BOT-000001'),
+      generateNext: jest.fn((prefix: string) => Promise.resolve(`${prefix}-000001`)),
     };
 
     mockStateMachine = {
@@ -116,9 +116,7 @@ describe('TasksService', () => {
   });
 
   describe('create', () => {
-    it('should create task with sequential TSK-XXXXX code', async () => {
-      prisma.task.count.mockResolvedValue(0);
-      prisma.task.findUnique.mockResolvedValue(null);
+    it('should create task with sequence-generated TSK code', async () => {
       prisma.task.create.mockResolvedValue(mockTask);
 
       const result = await service.create({ title: 'Follow-up with client' }, {
@@ -130,7 +128,7 @@ describe('TasksService', () => {
       expect(prisma.task.create).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({
-            taskCode: 'TSK-00001',
+            taskCode: 'TSK-000001',
             title: 'Follow-up with client',
           }),
         }),
