@@ -92,13 +92,17 @@ export function LeadHeader({ lead, onLaunchConvert, onLaunchMarkLost, onStatusCh
 
   const isDuplicate = lead?.duplicateWarning ?? false;
 
-  const displayName = lead?.name || `${lead?.firstName || ''} ${lead?.lastName || ''}`.trim() || `Lead ${lead?.code || lead?.id || ''}`;
+  const displayName = lead?.name || lead?.contact?.fullName || `${lead?.firstName || lead?.contact?.firstName || ''} ${lead?.lastName || lead?.contact?.lastName || ''}`.trim() || `Lead ${lead?.code || lead?.id || ''}`;
   const displayCode = lead?.code || lead?.leadCode || lead?.id || 'LD-00000';
-  const displayProduct = lead?.productInterest || lead?.product || 'Motor Comprehensive';
-  const displayPriority = (lead?.priority || 'HOT').toUpperCase();
-  const displaySource = (lead?.source || 'WEBSITE').toUpperCase();
-  const displayPremium = formatCurrency(lead?.expectedPremium || 25000);
-  const displayScore = lead?.probabilityScore || lead?.score || 80;
+  const displayProduct = lead?.productInterest || lead?.product || 'Not specified';
+  const displayPriority = String(lead?.priority || 'NOT SET').toUpperCase();
+  const displaySource = String(lead?.source || 'NOT SET').toUpperCase();
+  const rawPremium = lead?.expectedPremium ?? lead?.estimatedPremium;
+  const displayPremium = rawPremium === null || rawPremium === undefined || rawPremium === ''
+    ? 'Not estimated'
+    : formatCurrency(Number(rawPremium));
+  const rawScore = lead?.probabilityScore ?? lead?.score;
+  const displayScore = rawScore === null || rawScore === undefined ? null : Number(rawScore);
   const displayAgent = currentAgentName || lead?.agent || lead?.assignedAgentName || 'Unassigned';
   const rawStatus = currentStatus || lead?.status || lead?.stage || 'NEW';
   const statusString = typeof rawStatus === 'object' && rawStatus !== null ? rawStatus.status || rawStatus.value || 'NEW' : rawStatus || 'NEW';
@@ -124,10 +128,8 @@ export function LeadHeader({ lead, onLaunchConvert, onLaunchMarkLost, onStatusCh
       toast.success(`Lead successfully reassigned to ${agentName}!`);
       setIsAssignModalOpen(false);
     } catch (err: any) {
-      // Optimistic fallback for UI responsiveness
-      setCurrentAgentName(agentName);
-      toast.success(`Lead reassigned to ${agentName}!`);
-      setIsAssignModalOpen(false);
+      // Do not claim success when the server did not persist the assignment.
+      toast.error(err.response?.data?.message || 'Lead reassignment failed. The assignment was not changed.');
     } finally {
       setIsSubmitting(false);
     }
@@ -180,7 +182,7 @@ export function LeadHeader({ lead, onLaunchConvert, onLaunchMarkLost, onStatusCh
               <div className="flex items-center space-x-4 text-xs text-muted-foreground flex-wrap gap-2">
                 <span>Code: <strong className="text-foreground">{displayCode}</strong></span>
                 <span>Expected GWP: <strong className="text-emerald-600">{displayPremium}</strong></span>
-                <span>Lead Score: <strong className="text-primary font-bold">{displayScore} / 100</strong></span>
+                <span>Lead Score: <strong className="text-primary font-bold">{displayScore === null ? 'Not scored' : `${displayScore} / 100`}</strong></span>
                 <span>Assigned Agent: <strong className="text-foreground">{displayAgent}</strong></span>
               </div>
             </div>
@@ -326,41 +328,91 @@ export function LeadHeader({ lead, onLaunchConvert, onLaunchMarkLost, onStatusCh
           </div>
         </div>
 
-        {/* SLA Panel & Quick Summary Ribbon */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 pt-3 border-t text-xs">
-          <div className="space-y-0.5">
-            <span className="text-[10px] text-muted-foreground uppercase font-bold">SLA Response Status</span>
-            <div className="flex items-center space-x-1 text-emerald-600 font-bold">
-              <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-              <span>🟢 On Track (2h remaining)</span>
+        {/* SLA Panel & Quick Summary Ribbon: show record-derived values only */}
+        {(() => {
+          const createdAt = lead?.createdAt ? new Date(lead.createdAt) : null;
+          const daysInPipeline = createdAt && Number.isFinite(createdAt.getTime())
+            ? Math.max(0, Math.floor((Date.now() - createdAt.getTime()) / 86400000))
+            : null;
+          const firstResponseAt = lead?.firstResponseAt ? new Date(lead.firstResponseAt) : null;
+          const dueAtValue = lead?.firstResponseDueAt || lead?.slaResponseDueAt;
+          const dueAt = dueAtValue ? new Date(dueAtValue) : null;
+          const minutesRemaining = dueAt && Number.isFinite(dueAt.getTime())
+            ? Math.ceil((dueAt.getTime() - Date.now()) / 60000)
+            : null;
+          const rawSla = String(lead?.slaStatus || '').toUpperCase();
+          const slaLabel = firstResponseAt && Number.isFinite(firstResponseAt.getTime())
+            ? 'Response recorded'
+            : rawSla === 'BREACHED' || (minutesRemaining !== null && minutesRemaining < 0)
+              ? 'Breached'
+              : minutesRemaining !== null
+                ? `On track (${Math.floor(minutesRemaining / 60)}h ${minutesRemaining % 60}m left)`
+                : rawSla === 'IN_SLA' || rawSla === 'ON_TRACK'
+                  ? 'On track'
+                  : 'Not calculated';
+          const slaTone = slaLabel === 'Breached'
+            ? 'text-red-600'
+            : slaLabel.startsWith('On track')
+              ? 'text-emerald-600'
+              : 'text-muted-foreground';
+          const nextActionByStage: Record<string, string> = {
+            NEW: 'Contact customer',
+            ASSIGNED: 'Contact customer',
+            CONTACTED: 'Complete needs analysis',
+            QUALIFIED: 'Prepare quotation',
+            QUOTE_PREPARED: 'Send / review quotation',
+            PROPOSAL_SENT: 'Follow up on proposal',
+            PAYMENT_PENDING: 'Verify payment',
+            CONVERTED: 'Review customer and policy record',
+            POLICY_ISSUED: 'Confirm issuance documents',
+            LOST: 'No next action — lead is closed',
+            CLOSED_LOST: 'No next action — lead is closed',
+          };
+          const actionLabel = lead?.nextAction?.label || (typeof lead?.nextAction === 'string' ? lead.nextAction : null) || nextActionByStage[normalizedStatus] || 'No next action configured';
+          const rawPendingDocs = lead?.pendingDocuments ?? lead?.missingDocuments;
+          const pendingDocLabel = Array.isArray(rawPendingDocs)
+            ? (rawPendingDocs.length ? rawPendingDocs.map((item: any) => typeof item === 'string' ? item : item.name || item.label || item.documentType).filter(Boolean).join(', ') || 'Not tracked' : 'None reported')
+            : typeof rawPendingDocs === 'number'
+              ? (rawPendingDocs > 0 ? `${rawPendingDocs} pending` : 'None reported')
+              : 'Not tracked';
+          const expectedCloseRaw = lead?.expectedCloseDate || lead?.expectedCloseAt || lead?.expectedClosingDate;
+          const expectedClose = expectedCloseRaw && Number.isFinite(new Date(expectedCloseRaw).getTime())
+            ? new Date(expectedCloseRaw).toLocaleDateString('en-IN')
+            : 'Not set';
+          return (
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 pt-3 border-t text-xs">
+              <div className="space-y-0.5">
+                <span className="text-[10px] text-muted-foreground uppercase font-bold">SLA Response Status</span>
+                <div className={`flex items-center gap-1 font-bold ${slaTone}`}>
+                  <span className={`h-2 w-2 rounded-full ${slaLabel === 'Breached' ? 'bg-red-500' : slaLabel.startsWith('On track') ? 'bg-emerald-500' : 'bg-muted-foreground'}`} />
+                  <span>{slaLabel}</span>
+                </div>
+                {dueAt && <div className="text-[10px] text-muted-foreground">Due {dueAt.toLocaleString('en-IN')}</div>}
+              </div>
+              <div className="space-y-0.5">
+                <span className="text-[10px] text-muted-foreground uppercase font-bold">Current Stage</span>
+                <div className="font-bold text-foreground uppercase">{lead?.currentWorkflowStep || displayStage}</div>
+              </div>
+              <div className="space-y-0.5">
+                <span className="text-[10px] text-muted-foreground uppercase font-bold">Next Action</span>
+                <div className="font-bold text-primary">{actionLabel}</div>
+                {lead?.nextFollowup && <div className="text-[10px] text-muted-foreground">Follow-up {new Date(lead.nextFollowup).toLocaleString('en-IN')}</div>}
+              </div>
+              <div className="space-y-0.5">
+                <span className="text-[10px] text-muted-foreground uppercase font-bold">Days in Pipeline</span>
+                <div className="font-bold text-foreground">{daysInPipeline === null ? 'Unavailable' : `${daysInPipeline} day${daysInPipeline === 1 ? '' : 's'}`}</div>
+              </div>
+              <div className="space-y-0.5">
+                <span className="text-[10px] text-muted-foreground uppercase font-bold">Pending Docs</span>
+                <div className={`font-bold ${pendingDocLabel === 'None reported' ? 'text-emerald-600' : 'text-amber-600'}`}>{pendingDocLabel}</div>
+              </div>
+              <div className="space-y-0.5">
+                <span className="text-[10px] text-muted-foreground uppercase font-bold">Expected Close</span>
+                <div className="font-bold text-foreground">{expectedClose}</div>
+              </div>
             </div>
-          </div>
-
-          <div className="space-y-0.5">
-            <span className="text-[10px] text-muted-foreground uppercase font-bold">Current Stage</span>
-            <div className="font-bold text-foreground uppercase">{displayStage}</div>
-          </div>
-
-          <div className="space-y-0.5">
-            <span className="text-[10px] text-muted-foreground uppercase font-bold">Next Action</span>
-            <div className="font-bold text-primary">Call client for terms</div>
-          </div>
-
-          <div className="space-y-0.5">
-            <span className="text-[10px] text-muted-foreground uppercase font-bold">Days in Pipeline</span>
-            <div className="font-bold text-foreground">2 Days</div>
-          </div>
-
-          <div className="space-y-0.5">
-            <span className="text-[10px] text-muted-foreground uppercase font-bold">Pending Docs</span>
-            <div className="font-bold text-amber-600">ID & KYC Required</div>
-          </div>
-
-          <div className="space-y-0.5">
-            <span className="text-[10px] text-muted-foreground uppercase font-bold">Expected Close</span>
-            <div className="font-bold text-foreground">2026-07-30</div>
-          </div>
-        </div>
+          );
+        })()}
       </div>
 
       {/* Reassign Agent Modal */}
