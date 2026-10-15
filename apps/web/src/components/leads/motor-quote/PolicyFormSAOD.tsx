@@ -3,6 +3,7 @@ import { ShieldCheck, AlertTriangle, CheckCircle, Info, Calculator, Percent } fr
 import { INSURER_OPTIONS, NCB_OPTIONS, ADDON_OPTIONS } from './motorFormConfig';
 import type { PolicyFormSAOD, SaodTpVerification, VehicleCategory, MotorEligibilityContext } from './motorFormTypes';
 import { GstRateSelector } from './GstRateSelector';
+import { CommissionBreakdownPanel } from './CommissionBreakdownPanel';
 import { useMotorCalculator } from './useMotorCalculator';
 
 interface Props {
@@ -70,10 +71,7 @@ export function PolicyFormSAODForm({ category, vehicleStatus, data, onChange, el
     claimInExpiringPolicy: data.claimInExpiringODPolicy === 'Yes',
     discountPercent: parseFloat(data.discountPercent || '0') || 0,
     gstRate: data.gstRate ? parseInt(data.gstRate) : 18,
-    addons: (data.addonsSelected || []).map((a) => ({
-      addonCode: a,
-      manualPrice: data.addonPrices?.[a] ? (parseFloat(data.addonPrices[a]) || 0) : undefined,
-    })),
+    addons: (data.addonsSelected || []).map((a) => ({ addonCode: a })),
   });
 
   useEffect(() => {
