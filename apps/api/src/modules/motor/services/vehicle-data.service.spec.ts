@@ -244,19 +244,41 @@ describe('VehicleDataService (R4 Integrity)', () => {
   });
 
   describe('Tractor Trailer Fields Persistence (Section 11.2, PR-08)', () => {
-    it('validates tractor specs and preserves structured trailer1 and trailer2 registration numbers', () => {
+    it('requires and persists Trailer 2 registration when Trailer 2 is selected', () => {
       const result = service.validateVehicleSpecs(VehicleCategory.TRACTOR, {
-        horsePowerHp: 45,
+        horsePower: 45,
         attachmentUsed: 'Trailer 2',
-        trailer1RegistrationNumber: 'KA01TR1111',
-        trailer2RegistrationNumber: 'KA01TR2222',
+        trailer2RegistrationNumber: 'ka01tr2222',
         usageType: 'Agricultural',
       });
 
       expect(result.isValid).toBe(true);
       expect(result.missingFields).toHaveLength(0);
-      expect(result.sanitizedSpecs.trailer1RegistrationNumber).toBe('KA01TR1111');
+      expect(result.sanitizedSpecs.horsePowerHp).toBe(45);
+      expect(result.sanitizedSpecs.trailer1RegistrationNumber).toBeUndefined();
       expect(result.sanitizedSpecs.trailer2RegistrationNumber).toBe('KA01TR2222');
+    });
+
+    it('blocks a tractor when Trailer 1 is selected without its registration number', () => {
+      const result = service.validateVehicleSpecs(VehicleCategory.TRACTOR, {
+        horsePowerHp: 45,
+        attachmentUsed: 'Trailer 1',
+        trailer1RegistrationNumber: '   ',
+        usageType: 'Agricultural',
+      });
+
+      expect(result.isValid).toBe(false);
+      expect(result.missingFields).toContain('trailer1RegistrationNumber');
+    });
+
+    it('blocks tractor specs when Attachment Used was not selected', () => {
+      const result = service.validateVehicleSpecs(VehicleCategory.TRACTOR, {
+        horsePowerHp: 45,
+        usageType: 'Agricultural',
+      });
+
+      expect(result.isValid).toBe(false);
+      expect(result.missingFields).toContain('attachmentUsed');
     });
   });
 });
