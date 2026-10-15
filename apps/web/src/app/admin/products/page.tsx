@@ -10,24 +10,22 @@ import {
   Layers,
   PlusCircle,
   Search,
-  Building,
   Power,
-  Trash2,
-  CheckCircle,
-  Tag,
+  Pencil,
 } from 'lucide-react';
 
 export default function ProductMasterAdminPage() {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
   const [showModal, setShowModal] = useState(false);
+  const [editingProductId, setEditingProductId] = useState<string | null>(null);
 
   // Form State
   const [insurerId, setInsurerId] = useState('');
   const [productName, setProductName] = useState('');
   const [code, setCode] = useState('');
   const [vehicleType, setVehicleType] = useState('FOUR_WHEELER');
-  const [policyType, setPolicyType] = useState('COMPREHENSIVE');
+  const [policyType, setPolicyType] = useState('PACKAGE_COMPREHENSIVE');
 
   // Queries
   const { data: products = [], isLoading: isProductsLoading, isError: isProductsError, refetch: refetchProducts } = useQuery({
@@ -64,19 +62,71 @@ export default function ProductMasterAdminPage() {
     },
   });
 
+  const updateProductMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: any }) => {
+      const res = await apiClient.put('/motor/rating/insurance-products/' + id, data);
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-products-master'] });
+      toast.success('Insurance product updated.');
+      setShowModal(false);
+      setEditingProductId(null);
+      setProductName('');
+      setCode('');
+    },
+    onError: (err: any) => toast.error(err.response?.data?.message || 'Failed to update product'),
+  });
+
+  const toggleProductMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await apiClient.patch('/motor/rating/insurance-products/' + id + '/toggle');
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-products-master'] });
+      toast.success('Product status updated.');
+    },
+    onError: (err: any) => toast.error(err.response?.data?.message || 'Failed to update product status'),
+  });
+
+  const openEditModal = (product: any) => {
+    setEditingProductId(product.id);
+    setInsurerId(product.insurerId || product.insurer?.id || '');
+    setProductName(product.productName || '');
+    setCode(product.code || '');
+    setVehicleType(product.vehicleType || 'FOUR_WHEELER');
+    setPolicyType(product.policyType || 'PACKAGE_COMPREHENSIVE');
+    setShowModal(true);
+  };
+
+  const resetForm = () => {
+    setEditingProductId(null);
+    setProductName('');
+    setCode('');
+    setInsurerId('');
+    setVehicleType('FOUR_WHEELER');
+    setPolicyType('PACKAGE_COMPREHENSIVE');
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!insurerId || !productName || !code) {
       toast.error('Insurer, Product Name, and Product Code are required');
       return;
     }
-    createProductMutation.mutate({
-      insurerId,
-      productName,
-      code: code.toUpperCase(),
+    const productFields = {
+      productName: productName.trim(),
+      code: code.trim().toUpperCase(),
       vehicleType,
       policyType,
-    });
+    };
+    if (editingProductId) {
+      // The insurer-product association is immutable in the current API contract.
+      updateProductMutation.mutate({ id: editingProductId, data: productFields });
+    } else {
+      createProductMutation.mutate({ insurerId, ...productFields });
+    }
   };
 
   if (isProductsLoading) return <AppShell><PageLoadingState message="Loading products..." /></AppShell>;
@@ -102,12 +152,12 @@ export default function ProductMasterAdminPage() {
               Insurance Product Master
             </h1>
             <p className="text-xs text-muted-foreground mt-1 max-w-xl">
-              Configure product packages (Comprehensive, Third Party Only, Standalone OD, EV, Commercial) belonging to partner insurers.
+              Maintain insurer-linked products using the API-supported vehicle categories and policy types. Product activation affects future selection; it does not rewrite issued policies.
             </p>
           </div>
 
           <button
-            onClick={() => setShowModal(true)}
+            onClick={() => { resetForm(); setShowModal(true); }}
             className="px-4 py-2 rounded-xl bg-primary text-primary-foreground text-xs font-extrabold flex items-center space-x-1.5 shadow-xs hover:bg-primary/90 transition-all"
             aria-label="Add new insurance product"
           >
@@ -130,7 +180,7 @@ export default function ProductMasterAdminPage() {
             />
           </div>
           <div className="text-xs font-bold text-muted-foreground">
-            Total Products Configured: <span className="text-foreground font-extrabold">{products.length}</span>
+            Total Products Configured: <span className="text-foreground font-extrabold">{Array.isArray(products) ? products.length : ((products as any)?.data || (products as any)?.items || []).length}</span>
           </div>
         </div>
 
@@ -157,7 +207,8 @@ export default function ProductMasterAdminPage() {
                     <th className="py-3 px-3">Belongs To (Insurer)</th>
                     <th className="py-3 px-3">Vehicle Category</th>
                     <th className="py-3 px-3">Policy Type</th>
-                    <th className="py-3 px-3">Status</th>
+                            <th className="py-3 px-3">Status</th>
+                    <th className="py-3 px-3 text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y text-xs font-semibold">
@@ -169,7 +220,7 @@ export default function ProductMasterAdminPage() {
                       <td className="py-3 px-3">{p.vehicleType || 'FOUR_WHEELER'}</td>
                       <td className="py-3 px-3">
                         <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-primary/10 text-primary">
-                          {p.policyType || 'COMPREHENSIVE'}
+                          {p.policyType || 'Not configured'}
                         </span>
                       </td>
                       <td className="py-3 px-3">
@@ -182,6 +233,16 @@ export default function ProductMasterAdminPage() {
                         >
                           {p.isActive ? 'ACTIVE' : 'INACTIVE'}
                         </span>
+                      </td>
+                      <td className="py-3 px-3">
+                        <div className="flex justify-end gap-2">
+                          <button type="button" onClick={() => openEditModal(p)} className="inline-flex items-center gap-1 rounded-md border px-2 py-1.5 text-[10px] font-semibold hover:bg-accent" aria-label={'Edit ' + p.productName}>
+                            <Pencil className="h-3 w-3" /> Edit
+                          </button>
+                          <button type="button" onClick={() => toggleProductMutation.mutate(p.id)} disabled={toggleProductMutation.isPending} className="inline-flex items-center gap-1 rounded-md border px-2 py-1.5 text-[10px] font-semibold hover:bg-accent disabled:opacity-50" aria-label={(p.isActive ? 'Deactivate ' : 'Activate ') + p.productName}>
+                            <Power className="h-3 w-3" /> {p.isActive ? 'Deactivate' : 'Activate'}
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -197,20 +258,21 @@ export default function ProductMasterAdminPage() {
             <div className="w-full max-w-md p-6 rounded-2xl border bg-card shadow-2xl space-y-4 text-xs">
               <div className="flex items-center space-x-2 text-primary">
                 <Layers className="h-5 w-5" />
-                <h3 className="text-sm font-extrabold text-foreground">Add Insurance Product</h3>
+                <h3 className="text-sm font-extrabold text-foreground">{editingProductId ? 'Edit Insurance Product' : 'Add Insurance Product'}</h3>
               </div>
 
               <form onSubmit={handleSubmit} className="space-y-3">
                 <div>
-                  <label className="font-bold text-foreground block mb-1">Select Insurer *</label>
+                  <label className="font-bold text-foreground block mb-1">{editingProductId ? 'Insurer (cannot be changed here)' : 'Select Insurer *'}</label>
                   <select
                     required
+                    disabled={Boolean(editingProductId)}
                     value={insurerId}
                     onChange={(e) => setInsurerId(e.target.value)}
-                    className="w-full p-2.5 rounded-xl border bg-background font-semibold"
+                    className="w-full p-2.5 rounded-xl border bg-background font-semibold disabled:bg-muted"
                   >
                     <option value="">-- Choose Partner Insurer --</option>
-                    {insurers.map((ins: any) => (
+                    {insurers.filter((ins: any) => ins.isActive !== false).map((ins: any) => (
                       <option key={ins.id} value={ins.id}>
                         {ins.name} ({ins.code})
                       </option>
@@ -252,8 +314,12 @@ export default function ProductMasterAdminPage() {
                     >
                       <option value="FOUR_WHEELER">Private Car</option>
                       <option value="TWO_WHEELER">Two Wheeler</option>
-                      <option value="COMMERCIAL">Commercial Vehicle</option>
-                      <option value="ELECTRIC_EV">Electric EV</option>
+                      <option value="COMMERCIAL_GCV">Goods Carrier (GCV)</option>
+                      <option value="TRACTOR">Tractor</option>
+                      <option value="AUTO_RICKSHAW">Auto Rickshaw</option>
+                      <option value="TAXI">Taxi</option>
+                      <option value="BUS_COACH">Bus / Coach</option>
+                      <option value="MISC_CLASS_D">Miscellaneous Class D</option>
                     </select>
                   </div>
                   <div>
@@ -263,9 +329,9 @@ export default function ProductMasterAdminPage() {
                       onChange={(e) => setPolicyType(e.target.value)}
                       className="w-full p-2.5 rounded-xl border bg-background font-semibold"
                     >
-                      <option value="COMPREHENSIVE">Comprehensive Package</option>
-                      <option value="STANDALONE_OD">Standalone OD</option>
-                      <option value="THIRD_PARTY">Third Party Only</option>
+                      <option value="PACKAGE_COMPREHENSIVE">Comprehensive Package</option>
+                      <option value="STANDALONE_OWN_DAMAGE">Standalone OD</option>
+                      <option value="THIRD_PARTY_ONLY">Third Party Only</option>
                     </select>
                   </div>
                 </div>
@@ -273,17 +339,17 @@ export default function ProductMasterAdminPage() {
                 <div className="flex justify-end space-x-2 pt-3 border-t">
                   <button
                     type="button"
-                    onClick={() => setShowModal(false)}
+                    onClick={() => { setShowModal(false); resetForm(); }}
                     className="px-3.5 py-1.5 font-semibold rounded-xl border hover:bg-accent"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
-                    disabled={createProductMutation.isPending}
+                    disabled={createProductMutation.isPending || updateProductMutation.isPending}
                     className="px-4 py-1.5 font-extrabold rounded-xl bg-primary text-primary-foreground shadow-xs hover:bg-primary/90 disabled:opacity-50"
                   >
-                    Save Product Record
+                    {createProductMutation.isPending || updateProductMutation.isPending ? 'Saving…' : editingProductId ? 'Update Product' : 'Save Product Record'}
                   </button>
                 </div>
               </form>

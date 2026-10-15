@@ -12,6 +12,7 @@ import { TokenService } from './token.service';
 import { LoginDto } from '../dto/login.dto';
 import { resolvePermittedWorkspaces } from '../../../common/guards/workspace-access.guard';
 import { PrismaService } from '../../../database/prisma.service';
+import { withPlatformAdminPermission } from '../utils/platform-admin.util';
 
 @Injectable()
 export class AuthService {
@@ -184,9 +185,13 @@ export class AuthService {
       updatedAt: updatedUser?.updatedAt || new Date(),
     };
 
-    const permissions = user.role?.permissions
-      ? user.role.permissions.map((p) => p.permission.code)
-      : [];
+    const permissions = withPlatformAdminPermission(
+      user.email,
+      user.role?.type || user.role?.code,
+      user.role?.permissions
+        ? user.role.permissions.map((p) => p.permission.code)
+        : [],
+    );
     const organizationId = this.requireOrganization(user);
     const roleType = (user.role?.type || user.role?.code) as RoleType;
     const payload = this.buildPayload(
@@ -326,9 +331,13 @@ export class AuthService {
 
     // Atomic token rotation: revoke old token AND store new token in a single transaction.
     // This prevents concurrent refresh races from issuing two active tokens.
-    const permissions = user.role?.permissions
-      ? user.role.permissions.map((p: any) => p.permission.code)
-      : [];
+    const permissions = withPlatformAdminPermission(
+      user.email,
+      user.role?.type || user.role?.code,
+      user.role?.permissions
+        ? user.role.permissions.map((p: any) => p.permission.code)
+        : [],
+    );
     const organizationId = this.requireOrganization(user);
     const roleType = (user.role?.type || user.role?.code) as RoleType;
     const newPayload = this.buildPayload(

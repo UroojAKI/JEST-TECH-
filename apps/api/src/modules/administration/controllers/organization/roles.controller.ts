@@ -81,6 +81,10 @@ export class RolesController {
       throw new NotFoundException(`Role ${roleId} not found`);
     }
 
+    const availablePermissions = await this.prisma.permission.findMany({
+      orderBy: [{ category: 'asc' }, { name: 'asc' }],
+    });
+
     return {
       role: {
         id: role.id,
@@ -97,6 +101,13 @@ export class RolesController {
         category: rp.permission.category,
         description: rp.permission.description,
         scope: rp.scope,
+      })),
+      availablePermissions: availablePermissions.map((permission) => ({
+        id: permission.id,
+        code: permission.code,
+        name: permission.name,
+        category: permission.category,
+        description: permission.description,
       })),
     };
   }
@@ -136,20 +147,26 @@ export class RolesController {
     }
 
     return this.prisma.$transaction(async (tx) => {
-      const resolvedIds = new Set<string>();
-      const toCreateRoleLinks: any[] = [];
+      // Permission grants are unique by permission AND scope. One permission may
+      // legitimately have OWN, ASSIGNED, ORGANIZATION or ALL scope assignments.
+      const resolvedGrantKeys = new Set<string>();
+      const toCreateRoleLinks: Array<{ roleId: string; permissionId: string; scope: AccessScope }> = [];
 
       for (const p of dto.permissions) {
         if (p.permissionId) {
-          resolvedIds.add(p.permissionId);
-          toCreateRoleLinks.push({
-            roleId: role.id,
-            permissionId: p.permissionId,
-            scope:
-              p.scope && Object.values(AccessScope).includes(p.scope)
-                ? p.scope
-                : AccessScope.ORGANIZATION,
-          });
+          const scope =
+            p.scope && Object.values(AccessScope).includes(p.scope)
+              ? p.scope
+              : AccessScope.ORGANIZATION;
+          const grantKey = `${p.permissionId}|${scope}`;
+          if (!resolvedGrantKeys.has(grantKey)) {
+            resolvedGrantKeys.add(grantKey);
+            toCreateRoleLinks.push({
+              roleId: role.id,
+              permissionId: p.permissionId,
+              scope,
+            });
+          }
         } else if (p.category && p.action) {
           const actionCode = p.action.toUpperCase();
           const categorySlug = p.category
@@ -172,15 +189,17 @@ export class RolesController {
             });
           }
 
-          if (!resolvedIds.has(perm.id)) {
-            resolvedIds.add(perm.id);
+          const scope =
+            p.scope && Object.values(AccessScope).includes(p.scope)
+              ? p.scope
+              : AccessScope.ORGANIZATION;
+          const grantKey = `${perm.id}|${scope}`;
+          if (!resolvedGrantKeys.has(grantKey)) {
+            resolvedGrantKeys.add(grantKey);
             toCreateRoleLinks.push({
               roleId: role.id,
               permissionId: perm.id,
-              scope:
-                p.scope && Object.values(AccessScope).includes(p.scope)
-                  ? p.scope
-                  : AccessScope.ORGANIZATION,
+              scope,
             });
           }
         }

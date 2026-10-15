@@ -89,11 +89,39 @@ export class InsurerProductService {
     });
   }
 
-  async updateInsurer(id: string, data: any) {
+  async updateInsurer(
+    id: string,
+    data: {
+      name?: string;
+      code?: string;
+      logoUrl?: string;
+      irdaiRegistrationNumber?: string;
+      contactEmail?: string;
+      contactPhone?: string;
+      address?: string;
+      rating?: number;
+      supportedVehicleTypes?: VehicleType[];
+      supportedPolicyTypes?: ProductType[];
+      supportsZeroDep?: boolean;
+      supportsRTI?: boolean;
+      supportsEngineProtect?: boolean;
+      supportsRSA?: boolean;
+      supportsNCBProtection?: boolean;
+      supportsConsumables?: boolean;
+      supportsKeyProtect?: boolean;
+      supportsTyreProtect?: boolean;
+      isActive?: boolean;
+    },
+  ) {
     await this.getInsurerById(id);
+    const updateData = {
+      ...data,
+      ...(data.name !== undefined ? { name: data.name.trim() } : {}),
+      ...(data.code !== undefined ? { code: data.code.trim().toUpperCase() } : {}),
+    };
     return this.prisma.insurer.update({
       where: { id },
-      data,
+      data: updateData,
     });
   }
 
@@ -137,10 +165,25 @@ export class InsurerProductService {
     });
   }
 
-  async updateInsuranceProduct(id: string, data: any) {
+  async updateInsuranceProduct(
+    id: string,
+    data: {
+      productName?: string;
+      code?: string;
+      vehicleType?: string;
+      policyType?: string;
+      isActive?: boolean;
+    },
+  ) {
+    const existing = await this.prisma.insuranceProduct.findUnique({ where: { id } });
+    if (!existing) throw new NotFoundException(`Insurance product '${id}' not found`);
     return this.prisma.insuranceProduct.update({
       where: { id },
-      data,
+      data: {
+        ...data,
+        ...(data.code !== undefined ? { code: data.code.trim().toUpperCase() } : {}),
+      },
+      include: { insurer: true },
     });
   }
 

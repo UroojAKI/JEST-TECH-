@@ -109,20 +109,22 @@ export function useSystemConfig() {
   });
 
   const updateConfigMutation = useMutation({
-    mutationFn: (data: any) => adminRepository.updateSystemConfig(data),
+    mutationFn: (data: Record<string, unknown>) => adminRepository.updateSystemConfig(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-system-config'] });
-      toast.success('System configuration updated successfully!');
+      toast.success('System configuration persisted successfully.');
     },
     onError: (err: any) => {
-      toast.error(err.response?.data?.message || 'Failed to update configuration');
+      toast.error(err.response?.data?.message || 'Failed to persist system configuration');
     },
   });
 
   return {
     config: query.data,
     isLoading: query.isLoading,
-    updateConfig: updateConfigMutation.mutate,
+    isError: query.isError,
+    refetch: query.refetch,
+    updateConfig: updateConfigMutation.mutateAsync,
     isUpdating: updateConfigMutation.isPending,
   };
 }
@@ -139,18 +141,31 @@ export function useFeatureFlags() {
     mutationFn: ({ id, isEnabled }: { id: string; isEnabled: boolean }) => adminRepository.toggleFeatureFlag(id, isEnabled),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-feature-flags'] });
-      toast.success('Feature flag state updated!');
+      toast.success('Persisted feature flag state updated.');
+    },
+    onError: (err: any) => {
+      toast.error(err.response?.data?.message || 'Failed to persist feature flag change');
     },
   });
 
   return {
     flags: query.data || [],
     isLoading: query.isLoading,
+    isError: query.isError,
+    refetch: query.refetch,
     toggleFlag: toggleFlagMutation.mutate,
+    isUpdating: toggleFlagMutation.isPending,
   };
 }
 
-export function useAuditLogs(params?: { search?: string; module?: string }) {
+export function useAuditLogs(params?: {
+  search?: string;
+  entity?: string;
+  action?: string;
+  userId?: string;
+  page?: number;
+  limit?: number;
+}) {
   return useQuery({
     queryKey: ['admin-audit-logs', params],
     queryFn: () => adminRepository.getAuditLogs(params),

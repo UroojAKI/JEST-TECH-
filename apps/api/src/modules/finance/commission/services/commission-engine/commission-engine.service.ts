@@ -18,6 +18,7 @@ export class CommissionEngineService {
     agentId: string,
     premiumAmountStr: string,
     planId: string,
+    actorCompanyId?: string,
   ) {
     const premiumAmount = new Decimal(premiumAmountStr);
 
@@ -42,6 +43,8 @@ export class CommissionEngineService {
 
     let rules: {
       agentPercent?: number;
+      maxAgentPercent?: number;
+      maxTotalPercent?: number;
       overrides?: Array<{
         roleTier?: string;
         percent?: number;
@@ -66,59 +69,94 @@ export class CommissionEngineService {
       );
     }
 
-    // IRDAI Statutory Regulatory Cap Validation
-    // Statutory Motor Own-Damage cap: 15.0%, Statutory Total Combined cap: 20.0%
-    const IRDAI_STATUTORY_MAX_AGENT_CAP = 15.0;
-    const IRDAI_STATUTORY_MAX_TOTAL_CAP = 20.0;
-
-    if (agentPercent > IRDAI_STATUTORY_MAX_AGENT_CAP) {
+    // Commission caps are plan-specific configuration, not universal hardcoded rates.
+    // Missing caps must be approved in the active plan before posting money.
+    const maxAgentPercent = Number(rules.maxAgentPercent);
+    const maxTotalPercent = Number(rules.maxTotalPercent);
+    if (
+      !Number.isFinite(maxAgentPercent) ||
+      maxAgentPercent < 0 ||
+      maxAgentPercent > 100 ||
+      !Number.isFinite(maxTotalPercent) ||
+      maxTotalPercent < 0 ||
+      maxTotalPercent > 100
+    ) {
+      throw new BadRequestException({
+        statusCode: 400,
+        error: 'Bad Request',
+        errorCode: 'COMMISSION_CONFIG_PENDING',
+        missingEntity: 'COMMISSION_CAPS',
+        planId,
+        message: 'The active commission plan must contain approved maxAgentPercent and maxTotalPercent limits before commission accrual.',
+      });
+    }
+    if (agentPercent > maxAgentPercent) {
       throw new BadRequestException(
-        `Agent commission percentage (${agentPercent}%) exceeds IRDAI statutory maximum ceiling cap of ${IRDAI_STATUTORY_MAX_AGENT_CAP}%`,
+        `Agent commission percentage (${agentPercent}%) exceeds the active plan limit of ${maxAgentPercent}%`,
       );
     }
 
     let totalCommissionPercent = agentPercent;
     if (rules.overrides && Array.isArray(rules.overrides)) {
       for (const override of rules.overrides) {
-        totalCommissionPercent += Number(override.percent || 0);
+        const percent = Number(override.percent);
+        if (!Number.isFinite(percent) || percent < 0 || percent > 100) {
+          throw new BadRequestException(`Invalid commission override percentage for ${override.userId || 'unknown recipient'}`);
+        }
+        totalCommissionPercent += percent;
       }
     }
 
-    if (totalCommissionPercent > IRDAI_STATUTORY_MAX_TOTAL_CAP) {
+    if (totalCommissionPercent > maxTotalPercent) {
       throw new BadRequestException(
-        `Total combined commission percentage (${totalCommissionPercent}%) exceeds IRDAI statutory maximum total ceiling of ${IRDAI_STATUTORY_MAX_TOTAL_CAP}%`,
+        `Total commission percentage (${totalCommissionPercent}%) exceeds the active plan limit of ${maxTotalPercent}%`,
+      );
+    }
+
+    const policy = await this.prisma.policy.findUnique({
+      where: { id: policyId },
+      include: { quotation: true },
+    });
+    if (!policy || !policy.companyId) {
+      throw new BadRequestException(
+        'Commission accrual requires an existing policy with a company/tenant assignment.',
+      );
+    }
+    if (actorCompanyId && policy.companyId !== actorCompanyId) {
+      throw new BadRequestException('Commission accrual is restricted to the current organization.');
+    }
+    const policyCompanyId = policy.companyId;
+    const quotation = policy.quotation;
+    if (!quotation) {
+      throw new BadRequestException(
+        'Commission accrual requires the policy-linked quotation for an authoritative commissionable base.',
+      );
+    }
+    const totalPremium = new Decimal(quotation.totalPremium);
+    const taxAmount = new Decimal(quotation.gstAmount || 0);
+    const commissionableBase = totalPremium.sub(taxAmount);
+    if (commissionableBase.lte(0)) {
+      throw new BadRequestException(
+        'The policy-linked quotation has no positive premium base after tax is removed.',
+      );
+    }
+    // Keep the legacy input contract honest, but never trust it as the source of money.
+    // Current accrual rules use the policy-linked quotation excluding GST as the basis.
+    if (premiumAmount.sub(commissionableBase).abs().gt(new Decimal('0.01'))) {
+      throw new BadRequestException(
+        'Supplied premium amount does not match the policy-linked quotation premium excluding GST. Refresh the quote before accruing commission.',
       );
     }
 
     const agent = await this.prisma.user.findUnique({
       where: { id: agentId },
-      select: { id: true, status: true },
+      select: { id: true, status: true, companyId: true },
     });
-
     if (!agent || agent.status !== 'ACTIVE') {
-      throw new BadRequestException(
-        'Commission recipient is not an active user',
-      );
+      throw new BadRequestException('Commission recipient is not an active user');
     }
-
-    // Authoritative Server-side Net Commission Base (Excluding GST)
-    // IRDAI Statutory Mandate: Commissions can only be calculated on net premium (base + addons - discounts), NEVER on GST
-    let commissionableBase = premiumAmount;
-    if (typeof this.prisma?.policy?.findUnique === 'function') {
-      const policy = await this.prisma.policy.findUnique({
-        where: { id: policyId },
-        include: { quotation: true },
-      });
-
-      if (policy?.quotation) {
-        const q = policy.quotation;
-        const total = new Decimal(q.totalPremium || policy.premiumAmount);
-        const gst = new Decimal(q.gstAmount || 0);
-        const netWithoutGst = total.sub(gst);
-        if (netWithoutGst.gt(0)) {
-          commissionableBase = netWithoutGst;
-        }
-      }
+    if (agent.companyId !== policyCompanyId) {
+      throw new BadRequestException('Commission recipient and policy must belong to the same organization');
     }
 
     const commissionsData: Prisma.CommissionCreateManyInput[] = [];
@@ -133,6 +171,7 @@ export class CommissionEngineService {
       amount: agentCommissionAmt,
       status: 'ACCRUED',
       planId,
+      companyId: policyCompanyId,
     });
 
     if (rules.overrides && Array.isArray(rules.overrides)) {
@@ -151,12 +190,17 @@ export class CommissionEngineService {
 
         const recipient = await this.prisma.user.findUnique({
           where: { id: override.userId },
-          select: { id: true, status: true },
+          select: { id: true, status: true, companyId: true },
         });
 
         if (!recipient || recipient.status !== 'ACTIVE') {
           throw new BadRequestException(
             `Commission override recipient ${override.userId} is not an active user`,
+          );
+        }
+        if (recipient.companyId !== policyCompanyId) {
+          throw new BadRequestException(
+            `Commission override recipient ${override.userId} belongs to a different organization`,
           );
         }
 
@@ -169,6 +213,7 @@ export class CommissionEngineService {
           amount: overrideAmt,
           status: 'ACCRUED',
           planId,
+          companyId: policyCompanyId,
         });
       }
     }
@@ -177,7 +222,7 @@ export class CommissionEngineService {
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${policyId}))`;
 
       const existing = await tx.commission.findMany({
-        where: { policyId },
+        where: { policyId, companyId: policyCompanyId },
         orderBy: { createdAt: 'asc' },
       });
 
@@ -191,7 +236,7 @@ export class CommissionEngineService {
       await tx.commission.createMany({ data: commissionsData });
 
       return tx.commission.findMany({
-        where: { policyId },
+        where: { policyId, companyId: policyCompanyId },
         orderBy: { createdAt: 'asc' },
       });
     });
@@ -206,20 +251,26 @@ export class CommissionEngineService {
    * Called when a policy is fully paid. Only approved commissions can become realized.
    */
   async realizeCommissions(policyId: string, companyId?: string) {
-    let effectiveCompanyId = companyId;
-    if (!effectiveCompanyId && typeof this.prisma?.policy?.findUnique === 'function') {
-      const policy = await this.prisma.policy.findUnique({
-        where: { id: policyId },
-        select: { companyId: true },
-      });
-      effectiveCompanyId = policy?.companyId;
+    const policy = await this.prisma.policy.findUnique({
+      where: { id: policyId },
+      select: { companyId: true, paymentStatus: true, deletedAt: true },
+    });
+    if (!policy || policy.deletedAt || !policy.companyId) {
+      throw new BadRequestException('Commission realization requires an existing active policy.');
+    }
+    const effectiveCompanyId = companyId || policy.companyId;
+    if (policy.companyId !== effectiveCompanyId) {
+      throw new BadRequestException('Commission realization is restricted to the current organization.');
+    }
+    if (policy.paymentStatus !== 'SUCCESS') {
+      throw new BadRequestException('Commissions cannot be realized until the linked policy payment status is SUCCESS.');
     }
 
     const result = await this.prisma.commission.updateMany({
       where: {
         policyId,
+        companyId: effectiveCompanyId,
         status: 'APPROVED',
-        ...(effectiveCompanyId ? { companyId: effectiveCompanyId } : {}),
       },
       data: {
         status: 'REALIZED',

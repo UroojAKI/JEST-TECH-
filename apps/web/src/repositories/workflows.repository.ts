@@ -66,13 +66,22 @@ export interface ApprovalItem {
 }
 
 export interface SlaMetrics {
-  approvalsDueToday: number;
-  overdueApprovals: number;
-  escalatedCount: number;
-  avgApprovalDurationHours: number;
-  fastestDepartment: string;
-  slowestDepartment: string;
-  bottleneckStage: string;
+  // Legacy dashboard fields remain optional for older consumers; the live API returns the current-stage metrics below.
+  approvalsDueToday?: number;
+  overdueApprovals?: number;
+  escalatedCount?: number;
+  avgApprovalDurationHours?: number;
+  fastestDepartment?: string;
+  slowestDepartment?: string;
+  bottleneckStage?: string;
+  overallCompliancePct?: number | null;
+  leadsSlaCompliancePct?: number | null;
+  claimsSlaCompliancePct?: number | null;
+  breachedCount?: number;
+  trackedInstances?: number;
+  runningInstances?: number;
+  avgCurrentStageHours?: number | null;
+  dataAvailable?: boolean;
 }
 
 export const workflowsRepository = {

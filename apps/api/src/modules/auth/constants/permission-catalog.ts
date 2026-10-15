@@ -300,7 +300,7 @@ export const PERMISSION_CATALOG: PermissionDefinition[] = [
     description: 'Export commission disbursement reports',
   },
 
-  // REPORT (3 permissions)
+  // REPORT (4 permissions)
   {
     code: 'report:read',
     name: 'Read Reports',
@@ -318,6 +318,12 @@ export const PERMISSION_CATALOG: PermissionDefinition[] = [
     name: 'Export Reports',
     category: 'REPORT',
     description: 'Export raw analytical datasets',
+  },
+  {
+    code: 'report:schedule',
+    name: 'Schedule Reports',
+    category: 'REPORT',
+    description: 'Create, update, and manage scheduled report deliveries',
   },
 
   // USER (5 permissions)

@@ -46,7 +46,6 @@ import {
   GetReportQuery,
   GetReportsQuery,
   PreviewReportQuery,
-  GetExecutionHistoryQuery,
 } from '../queries/report.queries';
 
 @ApiTags('Reports')
@@ -70,8 +69,8 @@ export class ReportsController {
     @Body() dto: CreateReportDto,
     @CurrentUser() user: RequestUser,
   ) {
-    const companyId = user.companyId || (user as any).organizationId;
-    const command = new CreateReportCommand(dto, user.id, companyId);
+    const scope = this.getTenantScope(user);
+    const command = new CreateReportCommand(dto, user.id, scope.companyId);
     return this.commands.handleCreateReport(command);
   }
 
@@ -82,18 +81,14 @@ export class ReportsController {
     @Body() dto: UpdateReportDto,
     @CurrentUser() user: RequestUser,
   ) {
-    const companyId = user.companyId || (user as any).organizationId;
+    const scope = this.getTenantScope(user);
     const report = await this.prisma.report.findFirst({
       where: { id, deletedAt: null },
     });
     if (!report) {
       throw new NotFoundException(`Report ${id} not found`);
     }
-    if (companyId && report.companyId && report.companyId !== companyId) {
-      throw new ForbiddenException(
-        'Cross-organization report update is strictly prohibited',
-      );
-    }
+    this.assertReportScope(report, scope, 'WRITE');
     const command = new UpdateReportCommand(id, dto, user.id);
     return this.commands.handleUpdateReport(command);
   }
@@ -104,18 +99,14 @@ export class ReportsController {
     @Param('id') id: string,
     @CurrentUser() user: RequestUser,
   ) {
-    const companyId = user.companyId || (user as any).organizationId;
+    const scope = this.getTenantScope(user);
     const report = await this.prisma.report.findFirst({
       where: { id, deletedAt: null },
     });
     if (!report) {
       throw new NotFoundException(`Report ${id} not found`);
     }
-    if (companyId && report.companyId && report.companyId !== companyId) {
-      throw new ForbiddenException(
-        'Cross-organization report deletion is strictly prohibited',
-      );
-    }
+    this.assertReportScope(report, scope, 'WRITE');
     const command = new DeleteReportCommand(id, user.id);
     return this.commands.handleDeleteReport(command);
   }
@@ -123,13 +114,14 @@ export class ReportsController {
   @Get()
   @RequirePermissions('REPORT_VIEW')
   async getReports(
+    @CurrentUser() user: RequestUser,
     @Query('category') category?: string,
     @Query('module') module?: string,
     @Query('status') status?: string,
     @Query('search') search?: string,
-    @CurrentUser() user?: RequestUser,
   ) {
-    const companyId = user?.companyId || (user as any)?.organizationId;
+    const scope = this.getTenantScope(user);
+    const companyId = scope.isPlatformAdmin ? undefined : scope.companyId;
     const query = new GetReportsQuery({
       category,
       module,
@@ -150,7 +142,8 @@ export class ReportsController {
   @Get('custom')
   @RequirePermissions('REPORT_VIEW')
   async getCustomReports(@CurrentUser() user: RequestUser) {
-    const companyId = user.companyId || (user as any).organizationId;
+    const scope = this.getTenantScope(user);
+    const companyId = scope.isPlatformAdmin ? undefined : scope.companyId;
     const query = new GetReportsQuery({ isSystem: false, companyId });
     return this.queries.handleGetReports(query);
   }
@@ -177,9 +170,9 @@ export class ReportsController {
   @Get('schedules')
   @RequirePermissions('REPORT_SCHEDULE')
   async getAllSchedules(@CurrentUser() user: RequestUser) {
-    const companyId = user.companyId || (user as any).organizationId;
+    const scope = this.getTenantScope(user);
     const schedules = await this.prisma.reportSchedule.findMany({
-      where: companyId ? { companyId } : undefined,
+      where: scope.isPlatformAdmin ? undefined : { companyId: scope.companyId! },
       include: { report: true },
       orderBy: { id: 'desc' },
     });
@@ -201,7 +194,8 @@ export class ReportsController {
     @Body() dto: CreateTopLevelScheduleDto,
     @CurrentUser() user: RequestUser,
   ) {
-    const companyId = user.companyId || (user as any).organizationId;
+    const scope = this.getTenantScope(user);
+    const companyId = scope.companyId;
     let report = await this.prisma.report.findFirst({
       where: {
         ...(companyId ? { OR: [{ companyId }, { companyId: null }] } : {}),
@@ -266,9 +260,9 @@ export class ReportsController {
   @Get('history')
   @RequirePermissions('REPORT_VIEW')
   async getAllHistory(@CurrentUser() user: RequestUser) {
-    const companyId = user.companyId || (user as any).organizationId;
+    const scope = this.getTenantScope(user);
     const executions = await this.prisma.reportExecution.findMany({
-      where: companyId ? { companyId } : undefined,
+      where: scope.isPlatformAdmin ? undefined : { companyId: scope.companyId! },
       include: { report: true },
       orderBy: { startedAt: 'desc' },
       take: 50,
@@ -291,14 +285,10 @@ export class ReportsController {
     @Param('idOrCode') idOrCode: string,
     @CurrentUser() user: RequestUser,
   ) {
+    const scope = this.getTenantScope(user);
     const query = new GetReportQuery(idOrCode);
     const report = await this.queries.handleGetReport(query);
-    const companyId = user.companyId || (user as any).organizationId;
-    if (companyId && report.companyId && report.companyId !== companyId) {
-      throw new ForbiddenException(
-        'Cross-organization report access is strictly prohibited',
-      );
-    }
+    this.assertReportScope(report, scope, 'READ');
     return report;
   }
 
@@ -311,7 +301,10 @@ export class ReportsController {
     @Res() res: Response,
   ) {
     const fmt = (format as 'pdf' | 'excel' | 'csv') || 'pdf';
-    const companyId = user.companyId || (user as any).organizationId;
+    const scope = this.getTenantScope(user);
+    const report = await this.queries.handleGetReport(new GetReportQuery(id));
+    this.assertReportScope(report, scope, 'READ');
+    const companyId = scope.isPlatformAdmin ? undefined : scope.companyId;
     const command = new ExecuteReportCommand(id, {}, user.id, companyId);
     const result = await this.commands.handleExecuteReport(command, fmt);
 
@@ -332,10 +325,12 @@ export class ReportsController {
     @Res() res: Response,
   ) {
     const format = dto.format || 'csv';
-    const companyId = user.companyId || (user as any).organizationId;
+    const scope = this.getTenantScope(user);
+    const report = await this.queries.handleGetReport(new GetReportQuery(id));
+    this.assertReportScope(report, scope, 'READ');
+    const companyId = scope.isPlatformAdmin ? undefined : scope.companyId;
 
     if (dto.stream && format === 'csv') {
-      const report = await this.queries.handleGetReport(new GetReportQuery(id));
       const provider = this.registry.getProvider(report.code);
       if (provider && provider.stream) {
         const filtersList = report.filters.map((f) => ({
@@ -388,7 +383,10 @@ export class ReportsController {
     @Body() dto: ExecuteReportDto,
     @CurrentUser() user: RequestUser,
   ) {
-    const companyId = user.companyId || (user as any).organizationId;
+    const scope = this.getTenantScope(user);
+    const report = await this.queries.handleGetReport(new GetReportQuery(id));
+    this.assertReportScope(report, scope, 'READ');
+    const companyId = scope.isPlatformAdmin ? undefined : scope.companyId;
     const query = new PreviewReportQuery(
       id,
       dto.parameters || {},
@@ -406,8 +404,10 @@ export class ReportsController {
     dto: { field: string; value: any; parameters?: Record<string, any> },
     @CurrentUser() user: RequestUser,
   ) {
-    const companyId = user.companyId || (user as any).organizationId;
+    const scope = this.getTenantScope(user);
     const report = await this.queries.handleGetReport(new GetReportQuery(id));
+    this.assertReportScope(report, scope, 'READ');
+    const companyId = scope.isPlatformAdmin ? undefined : scope.companyId;
     const combinedParams = {
       ...(dto.parameters || {}),
       [dto.field]: dto.value,
@@ -423,9 +423,21 @@ export class ReportsController {
 
   @Get(':id/history')
   @RequirePermissions('REPORT_VIEW')
-  async getExecutionHistory(@Param('id') id: string) {
-    const query = new GetExecutionHistoryQuery(id);
-    return this.queries.handleGetExecutionHistory(query);
+  async getExecutionHistory(
+    @Param('id') id: string,
+    @CurrentUser() user: RequestUser,
+  ) {
+    const scope = this.getTenantScope(user);
+    const report = await this.queries.handleGetReport(new GetReportQuery(id));
+    this.assertReportScope(report, scope, 'READ');
+    return this.prisma.reportExecution.findMany({
+      where: {
+        reportId: report.id,
+        ...(scope.isPlatformAdmin ? {} : { companyId: scope.companyId! }),
+      },
+      orderBy: { startedAt: 'desc' },
+      take: 50,
+    });
   }
 
   // --- Schedules ---
@@ -437,8 +449,10 @@ export class ReportsController {
     @Body() dto: CreateScheduleDto,
     @CurrentUser() user: RequestUser,
   ) {
-    const companyId = user.companyId || (user as any).organizationId;
-    const command = new CreateScheduleCommand(id, dto, companyId);
+    const scope = this.getTenantScope(user);
+    const report = await this.queries.handleGetReport(new GetReportQuery(id));
+    this.assertReportScope(report, scope, 'READ');
+    const command = new CreateScheduleCommand(id, dto, scope.companyId);
     return this.commands.handleCreateSchedule(command);
   }
 
@@ -449,17 +463,15 @@ export class ReportsController {
     @Body() dto: UpdateScheduleDto,
     @CurrentUser() user: RequestUser,
   ) {
-    const companyId = user.companyId || (user as any).organizationId;
+    const scope = this.getTenantScope(user);
     const schedule = await this.prisma.reportSchedule.findUnique({
       where: { id: scheduleId },
     });
     if (!schedule) {
       throw new NotFoundException(`Schedule ${scheduleId} not found`);
     }
-    if (companyId && schedule.companyId && schedule.companyId !== companyId) {
-      throw new ForbiddenException(
-        'Cross-organization schedule update is strictly prohibited',
-      );
+    if (!scope.isPlatformAdmin && schedule.companyId !== scope.companyId) {
+      throw new ForbiddenException('Cross-organization schedule update is strictly prohibited');
     }
     const command = new UpdateScheduleCommand(scheduleId, dto);
     return this.commands.handleUpdateSchedule(command);
@@ -471,17 +483,15 @@ export class ReportsController {
     @Param('scheduleId') scheduleId: string,
     @CurrentUser() user: RequestUser,
   ) {
-    const companyId = user.companyId || (user as any).organizationId;
+    const scope = this.getTenantScope(user);
     const schedule = await this.prisma.reportSchedule.findUnique({
       where: { id: scheduleId },
     });
     if (!schedule) {
       throw new NotFoundException(`Schedule ${scheduleId} not found`);
     }
-    if (companyId && schedule.companyId && schedule.companyId !== companyId) {
-      throw new ForbiddenException(
-        'Cross-organization schedule deletion is strictly prohibited',
-      );
+    if (!scope.isPlatformAdmin && schedule.companyId !== scope.companyId) {
+      throw new ForbiddenException('Cross-organization schedule deletion is strictly prohibited');
     }
     const command = new DeleteScheduleCommand(scheduleId);
     return this.commands.handleDeleteSchedule(command);
@@ -495,7 +505,10 @@ export class ReportsController {
     @Param('id') id: string,
     @CurrentUser() user: RequestUser,
   ) {
-    return this.queries.favoriteReport(id, user.id);
+    const scope = this.getTenantScope(user);
+    const report = await this.queries.handleGetReport(new GetReportQuery(id));
+    this.assertReportScope(report, scope, 'READ');
+    return this.queries.favoriteReport(report.id, user.id);
   }
 
   @Delete(':id/favorite')
@@ -504,7 +517,10 @@ export class ReportsController {
     @Param('id') id: string,
     @CurrentUser() user: RequestUser,
   ) {
-    return this.queries.unfavoriteReport(id, user.id);
+    const scope = this.getTenantScope(user);
+    const report = await this.queries.handleGetReport(new GetReportQuery(id));
+    this.assertReportScope(report, scope, 'READ');
+    return this.queries.unfavoriteReport(report.id, user.id);
   }
 
   // --- Saved Filters Operations ---
@@ -516,7 +532,10 @@ export class ReportsController {
     @Body() dto: SaveFilterDto,
     @CurrentUser() user: RequestUser,
   ) {
-    return this.queries.saveFilter(id, user.id, dto.name, dto.filters);
+    const scope = this.getTenantScope(user);
+    const report = await this.queries.handleGetReport(new GetReportQuery(id));
+    this.assertReportScope(report, scope, 'READ');
+    return this.queries.saveFilter(report.id, user.id, dto.name, dto.filters);
   }
 
   @Get(':id/filters')
@@ -525,7 +544,10 @@ export class ReportsController {
     @Param('id') id: string,
     @CurrentUser() user: RequestUser,
   ) {
-    return this.queries.getSavedFilters(id, user.id);
+    const scope = this.getTenantScope(user);
+    const report = await this.queries.handleGetReport(new GetReportQuery(id));
+    this.assertReportScope(report, scope, 'READ');
+    return this.queries.getSavedFilters(report.id, user.id);
   }
 
   @Delete('filters/:filterId')
@@ -535,5 +557,31 @@ export class ReportsController {
     @CurrentUser() user: RequestUser,
   ) {
     return this.queries.deleteSavedFilter(filterId, user.id);
+  }
+  private getTenantScope(user: RequestUser): { companyId?: string; isPlatformAdmin: boolean } {
+    const companyId = user.companyId || (user as any).organizationId;
+    const isPlatformAdmin =
+      Array.isArray((user as any).permissions) &&
+      (user as any).permissions.includes('*');
+    if (!companyId && !isPlatformAdmin) {
+      throw new ForbiddenException('Tenant organizational context is required for reporting access.');
+    }
+    return { companyId, isPlatformAdmin };
+  }
+
+  private assertReportScope(
+    report: any,
+    scope: { companyId?: string; isPlatformAdmin: boolean },
+    access: 'READ' | 'WRITE',
+  ): void {
+    if (scope.isPlatformAdmin) return;
+    if (access === 'READ' && report.isSystem === true) return;
+    if (!scope.companyId || report.companyId !== scope.companyId || report.isSystem === true) {
+      throw new ForbiddenException(
+        access === 'READ'
+          ? 'Cross-organization report access is strictly prohibited'
+          : 'Only organization-owned custom reports can be changed by tenant administrators',
+      );
+    }
   }
 }

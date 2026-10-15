@@ -8,13 +8,9 @@ import { AppShell } from '../../../components/layout/app-shell';
 import {
   Building2,
   PlusCircle,
-  ShieldCheck,
   Power,
   Edit,
   Trash2,
-  CheckCircle,
-  AlertCircle,
-  Percent,
   Search,
 } from 'lucide-react';
 
@@ -22,6 +18,7 @@ export default function InsurerMasterAdminPage() {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
   const [showModal, setShowModal] = useState(false);
+  const [editingInsurerId, setEditingInsurerId] = useState<string | null>(null);
 
   // Form State
   const [name, setName] = useState('');
@@ -53,16 +50,54 @@ export default function InsurerMasterAdminPage() {
       queryClient.invalidateQueries({ queryKey: ['admin-insurers-master'] });
       toast.success('Insurer master record created successfully!');
       setShowModal(false);
-      setName('');
-      setCode('');
-      setIrdaiNo('');
-      setContactEmail('');
-      setContactPhone('');
+      resetForm();
     },
     onError: (err: any) => {
       toast.error(err.response?.data?.message || 'Failed to create insurer');
     },
   });
+
+  const updateInsurerMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: any }) => {
+      const res = await apiClient.put('/motor/rating/insurers/' + id, data);
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-insurers-master'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-insurers-lookup'] });
+      toast.success('Insurer configuration updated.');
+      setShowModal(false);
+      resetForm();
+    },
+    onError: (err: any) => toast.error(err.response?.data?.message || 'Failed to update insurer'),
+  });
+
+  const resetForm = () => {
+    setEditingInsurerId(null);
+    setName('');
+    setCode('');
+    setIrdaiNo('');
+    setContactEmail('');
+    setContactPhone('');
+    setSupportsZeroDep(true);
+    setSupportsRTI(true);
+    setSupportsEngineProtect(true);
+    setSupportsRSA(true);
+  };
+
+  const openEditModal = (ins: any) => {
+    setEditingInsurerId(ins.id);
+    setName(ins.name || '');
+    setCode(ins.code || '');
+    setIrdaiNo(ins.irdaiRegistrationNumber || '');
+    setContactEmail(ins.contactEmail || '');
+    setContactPhone(ins.contactPhone || '');
+    setSupportsZeroDep(Boolean(ins.supportsZeroDep));
+    setSupportsRTI(Boolean(ins.supportsRTI));
+    setSupportsEngineProtect(Boolean(ins.supportsEngineProtect));
+    setSupportsRSA(Boolean(ins.supportsRSA));
+    setShowModal(true);
+  };
 
   // Toggle Insurer Status
   const toggleStatusMutation = useMutation({
@@ -72,8 +107,10 @@ export default function InsurerMasterAdminPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-insurers-master'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-insurers-lookup'] });
       toast.success('Insurer active status updated!');
     },
+    onError: (err: any) => toast.error(err.response?.data?.message || 'Failed to update insurer status'),
   });
 
   // Delete Insurer
@@ -84,8 +121,10 @@ export default function InsurerMasterAdminPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-insurers-master'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-insurers-lookup'] });
       toast.success('Insurer record deleted.');
     },
+    onError: (err: any) => toast.error(err.response?.data?.message || 'Could not delete insurer. Products or policy records may depend on it.'),
   });
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -94,20 +133,23 @@ export default function InsurerMasterAdminPage() {
       toast.error('Insurer Name and Code are required');
       return;
     }
-    createInsurerMutation.mutate({
-      name,
-      code: code.toUpperCase(),
-      irdaiRegistrationNumber: irdaiNo,
-      contactEmail,
-      contactPhone,
+    const payload = {
+      name: name.trim(),
+      code: code.trim().toUpperCase(),
+      irdaiRegistrationNumber: irdaiNo.trim() || undefined,
+      contactEmail: contactEmail.trim() || undefined,
+      contactPhone: contactPhone.trim() || undefined,
       supportsZeroDep,
       supportsRTI,
       supportsEngineProtect,
       supportsRSA,
-    });
+    };
+    if (editingInsurerId) updateInsurerMutation.mutate({ id: editingInsurerId, data: payload });
+    else createInsurerMutation.mutate(payload);
   };
 
-  const filteredInsurers = (Array.isArray(insurers) ? insurers : ((insurers as any)?.data || (insurers as any)?.items || [])).filter(
+  const insurerRows: any[] = Array.isArray(insurers) ? insurers : ((insurers as any)?.data || (insurers as any)?.items || []);
+  const filteredInsurers = insurerRows.filter(
     (ins: any) =>
       ins.name.toLowerCase().includes(search.toLowerCase()) ||
       ins.code.toLowerCase().includes(search.toLowerCase())
@@ -131,7 +173,7 @@ export default function InsurerMasterAdminPage() {
           </div>
 
           <button
-            onClick={() => setShowModal(true)}
+            onClick={() => { resetForm(); setShowModal(true); }}
             className="px-4 py-2 rounded-xl bg-primary text-primary-foreground text-xs font-extrabold flex items-center space-x-1.5 shadow-xs hover:bg-primary/90 transition-all"
           >
             <PlusCircle className="h-4 w-4" />
@@ -152,7 +194,7 @@ export default function InsurerMasterAdminPage() {
             />
           </div>
           <div className="text-xs font-bold text-muted-foreground">
-            Total Insurers Configured: <span className="text-foreground font-extrabold">{insurers.length}</span>
+            Total Insurers Configured: <span className="text-foreground font-extrabold">{insurerRows.length}</span>
           </div>
         </div>
 
@@ -173,7 +215,7 @@ export default function InsurerMasterAdminPage() {
               The Insurer Master is currently empty. Click "Add Partner Insurer" to register insurance companies dynamically.
             </p>
             <button
-              onClick={() => setShowModal(true)}
+              onClick={() => { resetForm(); setShowModal(true); }}
               className="px-4 py-2 rounded-xl bg-primary text-primary-foreground text-xs font-bold shadow-xs hover:bg-primary/90"
             >
               Add First Insurer
@@ -199,7 +241,7 @@ export default function InsurerMasterAdminPage() {
                       <td className="py-3 px-3 font-mono font-bold text-primary">{ins.code}</td>
                       <td className="py-3 px-3 text-foreground font-bold">{ins.name}</td>
                       <td className="py-3 px-3 text-muted-foreground font-mono">
-                        {ins.irdaiRegistrationNumber || 'IRDAI-REG-9910'}
+                        {ins.irdaiRegistrationNumber || 'Not provided'}
                       </td>
                       <td className="py-3 px-3">
                         <div className="flex flex-wrap gap-1">
@@ -234,16 +276,35 @@ export default function InsurerMasterAdminPage() {
                       <td className="py-3 px-3 text-right">
                         <div className="flex items-center justify-end space-x-2">
                           <button
-                            onClick={() => toggleStatusMutation.mutate(ins.id)}
-                            title={ins.isActive ? 'Disable' : 'Enable'}
+                            type="button"
+                            onClick={() => openEditModal(ins)}
+                            title="Edit insurer configuration"
+                            aria-label={'Edit ' + ins.name}
                             className="p-1.5 rounded-lg border text-muted-foreground hover:text-foreground hover:bg-accent"
+                          >
+                            <Edit className="h-3.5 w-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => toggleStatusMutation.mutate(ins.id)}
+                            disabled={toggleStatusMutation.isPending}
+                            title={ins.isActive ? 'Disable' : 'Enable'}
+                            aria-label={(ins.isActive ? 'Disable ' : 'Enable ') + ins.name}
+                            className="p-1.5 rounded-lg border text-muted-foreground hover:text-foreground hover:bg-accent disabled:opacity-50"
                           >
                             <Power className="h-3.5 w-3.5" />
                           </button>
                           <button
-                            onClick={() => deleteInsurerMutation.mutate(ins.id)}
-                            title="Delete"
-                            className="p-1.5 rounded-lg border text-muted-foreground hover:text-rose-600 hover:bg-rose-500/10"
+                            type="button"
+                            onClick={() => {
+                              if (window.confirm('Delete insurer ' + ins.name + '? This may fail if policy/product records depend on it. Prefer deactivate when historical records exist.')) {
+                                deleteInsurerMutation.mutate(ins.id);
+                              }
+                            }}
+                            disabled={deleteInsurerMutation.isPending}
+                            title="Delete insurer"
+                            aria-label={'Delete ' + ins.name}
+                            className="p-1.5 rounded-lg border text-muted-foreground hover:text-rose-600 hover:bg-rose-500/10 disabled:opacity-50"
                           >
                             <Trash2 className="h-3.5 w-3.5" />
                           </button>
@@ -263,7 +324,7 @@ export default function InsurerMasterAdminPage() {
             <div className="w-full max-w-lg p-6 rounded-2xl border bg-card shadow-2xl space-y-4 text-xs">
               <div className="flex items-center space-x-2 text-primary">
                 <Building2 className="h-5 w-5" />
-                <h3 className="text-sm font-extrabold text-foreground">Configure Partner Insurer</h3>
+                <h3 className="text-sm font-extrabold text-foreground">{editingInsurerId ? 'Edit Partner Insurer' : 'Configure Partner Insurer'}</h3>
               </div>
 
               <form onSubmit={handleSubmit} className="space-y-3">
@@ -356,17 +417,17 @@ export default function InsurerMasterAdminPage() {
                 <div className="flex justify-end space-x-2 pt-3 border-t">
                   <button
                     type="button"
-                    onClick={() => setShowModal(false)}
+                    onClick={() => { setShowModal(false); resetForm(); }}
                     className="px-3.5 py-1.5 font-semibold rounded-xl border hover:bg-accent"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
-                    disabled={createInsurerMutation.isPending}
+                    disabled={createInsurerMutation.isPending || updateInsurerMutation.isPending}
                     className="px-4 py-1.5 font-extrabold rounded-xl bg-primary text-primary-foreground shadow-xs hover:bg-primary/90 disabled:opacity-50"
                   >
-                    {createInsurerMutation.isPending ? 'Saving...' : 'Save Insurer Configuration'}
+                    {createInsurerMutation.isPending || updateInsurerMutation.isPending ? 'Saving...' : editingInsurerId ? 'Save Insurer Changes' : 'Save Insurer Configuration'}
                   </button>
                 </div>
               </form>

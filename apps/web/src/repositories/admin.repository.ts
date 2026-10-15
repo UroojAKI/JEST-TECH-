@@ -73,10 +73,10 @@ export interface NumberSeriesItem {
   id: string;
   entityType: string;
   prefix: string;
-  suffix?: string;
+  format: string;
+  padding: number;
   currentSequence: number;
-  paddingDigits: number;
-  financialYearReset: boolean;
+  periodLabel: string;
   previewSample: string;
 }
 
@@ -219,6 +219,14 @@ export const adminRepository = {
 
   async getNumberSeries(): Promise<NumberSeriesItem[]> {
     const response = await apiClient.get('/admin/config/numbering');
+    return Array.isArray(response.data) ? response.data : (response.data?.data || []);
+  },
+
+  async updateNumberSeries(
+    entityType: string,
+    data: { prefix: string; format: string; padding: number },
+  ): Promise<NumberSeriesItem> {
+    const response = await apiClient.put('/admin/config/numbering/' + encodeURIComponent(entityType), data);
     return response.data;
   },
 
@@ -242,8 +250,28 @@ export const adminRepository = {
     return response.data;
   },
 
-  async getAuditLogs(params?: { search?: string; module?: string }): Promise<AuditLogItem[]> {
+  async getAuditLogs(params?: {
+    search?: string;
+    entity?: string;
+    action?: string;
+    userId?: string;
+    page?: number;
+    limit?: number;
+  }): Promise<any> {
     const response = await apiClient.get('/audit', { params });
+    return response.data;
+  },
+
+  async exportAuditLogs(params?: {
+    search?: string;
+    entity?: string;
+    action?: string;
+    userId?: string;
+  }, format: 'csv' | 'json' = 'csv'): Promise<Blob> {
+    const response = await apiClient.get('/audit/export', {
+      params: { ...params, format },
+      responseType: 'blob',
+    });
     return response.data;
   },
 

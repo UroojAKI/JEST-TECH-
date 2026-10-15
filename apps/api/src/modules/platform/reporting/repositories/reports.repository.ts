@@ -233,29 +233,39 @@ export class ReportsRepository {
     isSystem?: boolean;
     companyId?: string | null;
   }): Promise<ReportWithRelations[]> {
+    // Tenant visibility and free-text search are independent predicates. Keeping
+    // them in separate OR branches prevents a search term from overwriting the
+    // tenant restriction and returning another organization's report definitions.
+    const andFilters: any[] = [];
+    if (params.companyId) {
+      andFilters.push({
+        OR: [
+          { companyId: params.companyId },
+          { isSystem: true, companyId: null },
+        ],
+      });
+    }
+    if (params.search?.trim()) {
+      const search = params.search.trim();
+      andFilters.push({
+        OR: [
+          { name: { contains: search, mode: 'insensitive' } },
+          { code: { contains: search, mode: 'insensitive' } },
+          { description: { contains: search, mode: 'insensitive' } },
+        ],
+      });
+    }
+
+    const whereClause = {
+      deletedAt: null,
+      category: params.category,
+      module: params.module,
+      status: params.status,
+      isSystem: params.isSystem,
+      ...(andFilters.length ? { AND: andFilters } : {}),
+    };
     return this.prisma.report.findMany({
-      where: {
-        deletedAt: null,
-        category: params.category,
-        module: params.module,
-        status: params.status,
-        isSystem: params.isSystem,
-        ...(params.companyId
-          ? {
-              OR: [
-                { companyId: params.companyId },
-                { isSystem: true, companyId: null },
-              ],
-            }
-          : {}),
-        ...(params.search && {
-          OR: [
-            { name: { contains: params.search, mode: 'insensitive' } },
-            { code: { contains: params.search, mode: 'insensitive' } },
-            { description: { contains: params.search, mode: 'insensitive' } },
-          ],
-        }),
-      },
+      where: whereClause,
       include: {
         columns: { orderBy: { order: 'asc' } },
         filters: true,

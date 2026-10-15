@@ -33,7 +33,7 @@ async function main() {
     console.log(`- Seeded ${roles.length} canonical roles (ADMIN, BACK_OFFICE, AGENT).`);
 
     // -------------------------------------------------------------------------
-    // 2. SEED AUTHORITATIVE CANONICAL PERMISSIONS (56 Permissions)
+    // 2. SEED AUTHORITATIVE CANONICAL PERMISSIONS (57 Permissions)
     // -------------------------------------------------------------------------
     const permissions: Array<[string, string, PermissionCategory]> = [
       ["Read Leads", "lead:read", PermissionCategory.LEAD],
@@ -94,6 +94,7 @@ async function main() {
       ["Read Reports", "report:read", PermissionCategory.REPORT],
       ["Create Reports", "report:create", PermissionCategory.REPORT],
       ["Export Reports", "report:export", PermissionCategory.REPORT],
+      ["Schedule Reports", "report:schedule", PermissionCategory.REPORT],
 
       ["Read Users", "user:read", PermissionCategory.USER],
       ["Create Users", "user:create", PermissionCategory.USER],
@@ -128,7 +129,7 @@ async function main() {
     // -------------------------------------------------------------------------
     await tx.rolePermission.deleteMany({});
 
-    // ADMIN: All 56 permissions with ALL scope
+    // ADMIN: All 57 permissions with ALL scope
     const adminRole = seededRoles["ADMIN"];
     for (const permObj of seededPermissions) {
       await tx.rolePermission.create({

@@ -24,6 +24,9 @@ export class SlaMonitorService {
         const policies = await this.prisma.slaPolicy.findMany({
           where: { targetEntity: 'LEAD', isActive: true },
         });
+        const prioritySpecificPolicies = policies
+          .map((policy) => policy.priority)
+          .filter((priority): priority is string => Boolean(priority));
 
         for (const policy of policies) {
           if (!policy.firstResponseMin) continue;
@@ -34,11 +37,25 @@ export class SlaMonitorService {
           );
 
           // Find leads created before breachThreshold that don't have firstResponseAt set
+          const priorityCondition = policy.priority
+            ? { priority: policy.priority }
+            : prioritySpecificPolicies.length
+              ? {
+                  OR: [
+                    { priority: null },
+                    { priority: { notIn: prioritySpecificPolicies } },
+                  ],
+                }
+              : null;
           const breachedLeads = await this.prisma.lead.findMany({
             where: {
+              deletedAt: null,
               firstResponseAt: null,
               createdAt: { lt: breachThreshold },
-              slaStatus: { not: 'BREACHED' },
+              AND: [
+                ...(priorityCondition ? [priorityCondition] : []),
+                { OR: [{ slaStatus: { not: 'BREACHED' } }, { slaStatus: null }] },
+              ],
             },
           });
 

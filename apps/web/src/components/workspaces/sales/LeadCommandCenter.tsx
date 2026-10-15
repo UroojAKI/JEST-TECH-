@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { StepTracker } from './StepTracker';
 import { useSalesWorkspace } from '../../../hooks/useSalesWorkspace';
 import { apiClient } from '../../../lib/api-client';
@@ -13,6 +13,7 @@ import { QuotationCompletionView } from '../../leads/motor-quote/QuotationComple
 import type { SavedMotorQuote } from '../../leads/motor-quote/motorFormTypes';
 import { MarkLostModal } from '../../leads/drawers/MarkLostModal';
 import { leadsRepository } from '../../../repositories/leads.repository';
+import { documentsRepository } from '../../../repositories/documents.repository';
 import type { LostReason } from '../../../types/leads';
 import {
   User,
@@ -51,6 +52,7 @@ interface LeadCommandCenterProps {
 
 export function LeadCommandCenter({ lead, onRefresh }: LeadCommandCenterProps) {
   const { moveStage, isMovingStage, createReferral } = useSalesWorkspace();
+  const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<
     'OVERVIEW' | 'CUSTOMER_360' | 'DOCUMENTS' | 'QUOTATION' | 'PROPOSAL' | 'ACTIVITIES' | 'REFERRAL'
   >('OVERVIEW');
@@ -74,13 +76,25 @@ export function LeadCommandCenter({ lead, onRefresh }: LeadCommandCenterProps) {
   const [refProduct, setRefProduct] = useState('MOTOR');
 
   // Documents Local State
-  const [documentsState, setDocumentsState] = useState<Record<string, { status: string; fileName?: string }>>({
-    rc_book: { status: 'PENDING' },
-    previous_policy: { status: 'PENDING' },
-    pan_card: { status: 'VERIFIED', fileName: 'PAN_Card.pdf' },
-    aadhaar_kyc: { status: 'PENDING' },
-    inspection_report: { status: 'NOT_REQUIRED' },
+  const [uploadingDocKey, setUploadingDocKey] = useState<string | null>(null);
+  const {
+    data: leadDocumentsResponse,
+    isLoading: isDocumentsLoading,
+    isError: isDocumentsError,
+    refetch: refetchLeadDocuments,
+  } = useQuery({
+    queryKey: ['lead-documents', lead?.id],
+    queryFn: async () => {
+      const response = await apiClient.get('/documents/entity/LEAD/' + lead.id, { params: { limit: 100 } });
+      const body = response.data;
+      if (Array.isArray(body)) return body;
+      if (Array.isArray(body?.data)) return body.data;
+      if (Array.isArray(body?.items)) return body.items;
+      return [];
+    },
+    enabled: !!lead?.id,
   });
+  const leadDocuments: any[] = Array.isArray(leadDocumentsResponse) ? leadDocumentsResponse : [];
 
   // Query Quotations linked to this Lead
   const {
@@ -243,12 +257,23 @@ export function LeadCommandCenter({ lead, onRefresh }: LeadCommandCenterProps) {
     );
   };
 
-  const handleDocumentUpload = (docKey: string, docLabel: string) => {
-    setDocumentsState((prev) => ({
-      ...prev,
-      [docKey]: { status: 'VERIFIED', fileName: `${docLabel.replace(/\s+/g, '_')}_Uploaded.pdf` },
-    }));
-    toast.success(`${docLabel} uploaded and verified for this lead!`);
+  const handleDocumentUpload = async (docKey: string, docLabel: string, file?: File) => {
+    if (!file || !lead?.id) return;
+    setUploadingDocKey(docKey);
+    try {
+      await documentsRepository.uploadDocument(file, 'LEAD', lead.id, {
+        name: docLabel,
+        category: docKey,
+        tags: docKey,
+      });
+      await queryClient.invalidateQueries({ queryKey: ['lead-documents', lead.id] });
+      await refetchLeadDocuments();
+      toast.success(docLabel + ' uploaded. It remains pending until an authorized reviewer verifies it.');
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'Failed to upload ' + docLabel);
+    } finally {
+      setUploadingDocKey(null);
+    }
   };
 
   return (
@@ -547,58 +572,72 @@ export function LeadCommandCenter({ lead, onRefresh }: LeadCommandCenterProps) {
             </div>
           </div>
 
+          {isDocumentsError && (
+            <div role="alert" className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-xs">
+              Document records could not be loaded. The checklist does not mark any file as verified without a stored verification result.
+              <button type="button" onClick={() => void refetchLeadDocuments()} className="ml-2 underline font-semibold">Retry</button>
+            </div>
+          )}
           <div className="space-y-3">
             {[
-              { key: 'rc_book', label: 'Registration Certificate (RC Copy)', required: true, desc: 'Both sides of RC showing chassis, engine, and seating capacity' },
-              { key: 'previous_policy', label: 'Expiring Policy Copy', required: true, desc: 'Previous policy schedule verifying NCB entitlement and claims history' },
-              { key: 'pan_card', label: 'PAN Card / Form 60', required: true, desc: 'Mandatory for AML compliance on premiums above ₹50,000' },
-              { key: 'aadhaar_kyc', label: 'Customer KYC (Aadhaar / Passport)', required: false, desc: 'Address proof for registered owner' },
-              { key: 'inspection_report', label: 'Vehicle Inspection Photos (Break-in)', required: false, desc: 'Required only if previous policy expired > 90 days or break-in policy' },
+              { key: 'rc_book', label: 'Registration Certificate (RC Copy)', required: true, desc: 'Vehicle registration proof' },
+              { key: 'previous_policy', label: 'Expiring Policy Copy', required: true, desc: 'Previous policy schedule and NCB evidence' },
+              { key: 'pan_card', label: 'PAN Card / Form 60', required: true, desc: 'Customer identity / tax documentation' },
+              { key: 'aadhaar_kyc', label: 'Customer KYC (Aadhaar / Passport)', required: false, desc: 'Customer identity/address proof' },
+              { key: 'inspection_report', label: 'Vehicle Inspection Report', required: false, desc: 'Required only when underwriting rules call for inspection' },
             ].map((doc) => {
-              const state = documentsState[doc.key] || { status: 'PENDING' };
-              const isVerified = state.status === 'VERIFIED';
+              const matching = leadDocuments.filter((item: any) => {
+                const metadata = item.metadata && typeof item.metadata === 'object' ? item.metadata : {};
+                const category = String(metadata.category || item.category || '').toLowerCase();
+                const tags = Array.isArray(item.tags) ? item.tags.map((tag: any) => String(tag).toLowerCase()) : [];
+                const fileName = String(item.originalFileName || item.name || '').toLowerCase();
+                return category === doc.key || tags.includes(doc.key) || fileName.includes(doc.key) ||
+                  String(item.name || '').toLowerCase() === doc.label.toLowerCase();
+              }).sort((a: any, b: any) =>
+                new Date(b.createdAt || b.uploadedAt || 0).getTime() - new Date(a.createdAt || a.uploadedAt || 0).getTime(),
+              );
+              const latest = matching[0];
+              const lifecycleState = String(latest?.metadata?.lifecycleState || '').toUpperCase();
+              const verificationStatus = String(latest?.verificationStatus || '').toUpperCase();
+              const isVerified = Boolean(latest && (verificationStatus === 'VERIFIED' || lifecycleState === 'VERIFIED'));
+              const statusLabel = !latest ? 'PENDING UPLOAD' : isVerified ? 'VERIFIED' :
+                lifecycleState === 'UNDER_REVIEW' ? 'UNDER REVIEW' :
+                lifecycleState === 'REJECTED' || verificationStatus === 'REJECTED' ? 'REJECTED — REUPLOAD' : 'UPLOADED — NOT VERIFIED';
+              const inputId = 'lead-doc-' + doc.key;
               return (
-                <div
-                  key={doc.key}
-                  className="p-3.5 rounded-xl border bg-muted/20 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs"
-                >
+                <div key={doc.key} className="p-3.5 rounded-xl border bg-muted/20 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
                   <div className="space-y-1">
-                    <div className="flex items-center space-x-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <span className="font-bold text-foreground">{doc.label}</span>
-                      {doc.required ? (
-                        <span className="text-[9px] font-extrabold px-1.5 py-0.5 rounded bg-rose-500/10 text-rose-600">
-                          MANDATORY
-                        </span>
-                      ) : (
-                        <span className="text-[9px] font-semibold text-muted-foreground">OPTIONAL</span>
-                      )}
-                      {isVerified ? (
-                        <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 flex items-center space-x-1">
-                          <CheckCircle2 className="h-3 w-3" />
-                          <span>VERIFIED</span>
-                        </span>
-                      ) : (
-                        <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-600">
-                          PENDING UPLOAD
-                        </span>
-                      )}
+                      {doc.required && <span className="text-[9px] font-extrabold px-1.5 py-0.5 rounded bg-rose-500/10 text-rose-600">REQUIRED</span>}
+                      <span className={'text-[9px] font-bold px-2 py-0.5 rounded-full ' + (isVerified ? 'bg-emerald-500/10 text-emerald-700' : 'bg-amber-500/10 text-amber-700')}>{statusLabel}</span>
                     </div>
                     <p className="text-[11px] text-muted-foreground">{doc.desc}</p>
-                    {state.fileName && (
-                      <p className="text-[10px] font-mono text-primary flex items-center space-x-1">
-                        <FileText className="h-3 w-3" />
-                        <span>Attached: {state.fileName}</span>
+                    {latest && (
+                      <p className="text-[10px] font-mono text-primary">
+                        {latest.originalFileName || latest.name || 'Uploaded document'}
+                        {' · '}
+                        {latest.createdAt || latest.uploadedAt ? new Date(latest.createdAt || latest.uploadedAt).toLocaleDateString('en-IN') : 'Upload date unavailable'}
                       </p>
                     )}
+                    {matching.length > 1 && <p className="text-[10px] text-muted-foreground">{matching.length} files are associated with this checklist item; latest shown.</p>}
                   </div>
-                  <div className="shrink-0 flex items-center space-x-2">
-                    <button
-                      onClick={() => handleDocumentUpload(doc.key, doc.label)}
-                      className="px-3 py-1.5 rounded-lg border bg-background hover:bg-muted text-xs font-bold text-foreground transition-colors flex items-center space-x-1"
-                    >
-                      <Upload className="h-3.5 w-3.5" />
-                      <span>{isVerified ? 'Replace' : 'Upload'}</span>
-                    </button>
+                  <div className="shrink-0 flex items-center gap-2">
+                    <label htmlFor={inputId} className={'px-3 py-1.5 rounded-lg border bg-background text-xs font-bold cursor-pointer hover:bg-muted ' + (isDocumentsLoading || uploadingDocKey === doc.key ? 'opacity-50 pointer-events-none' : '')}>
+                      {uploadingDocKey === doc.key ? 'Uploading…' : latest ? 'Upload replacement' : 'Select file'}
+                    </label>
+                    <input
+                      id={inputId}
+                      type="file"
+                      accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx"
+                      className="sr-only"
+                      disabled={isDocumentsLoading || uploadingDocKey === doc.key}
+                      onChange={(event) => {
+                        const file = event.target.files?.[0];
+                        event.currentTarget.value = '';
+                        if (file) void handleDocumentUpload(doc.key, doc.label, file);
+                      }}
+                    />
                   </div>
                 </div>
               );
