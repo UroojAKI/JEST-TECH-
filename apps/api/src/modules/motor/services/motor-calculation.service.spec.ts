@@ -296,11 +296,7 @@ describe('MotorCalculationService (Iteration 5 Financial Math)', () => {
           idv: 500000,
           addons: [{ addonCode: 'RSA', manualPrice: 300 }],
         }),
-      ).rejects.toMatchObject({
-        response: expect.objectContaining({
-          errorCode: 'ADDON_MANUAL_OVERRIDE_DISABLED',
-        }),
-      });
+      ).rejects.toThrow('Client-supplied add-on prices are disabled');
     });
 
     it('PHASE 7: does not trust client-supplied approvalReference/approvedBy for add-on overrides', async () => {
