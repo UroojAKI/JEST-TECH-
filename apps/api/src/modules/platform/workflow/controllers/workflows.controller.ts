@@ -8,6 +8,7 @@ import {
   Body,
   UseGuards,
   BadRequestException,
+  ForbiddenException,
   NotFoundException,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
@@ -440,7 +441,11 @@ export class WorkflowsController {
 
   @Post('definitions')
   @Roles(RoleType.ADMIN)
-  async createWorkflow(@Body() body: CreateWorkflowDefinitionDto) {
+  async createWorkflow(
+    @Body() body: CreateWorkflowDefinitionDto,
+    @CurrentUser() user: RequestUser,
+  ) {
+    this.assertPlatformWorkflowAdmin(user);
     return this.prisma.workflow.create({
       data: body,
     });
@@ -451,7 +456,14 @@ export class WorkflowsController {
   async updateWorkflow(
     @Param('id') id: string,
     @Body() body: UpdateWorkflowDefinitionDto,
+    @CurrentUser() user: RequestUser,
   ) {
+    this.assertPlatformWorkflowAdmin(user);
+    const existing = await this.prisma.workflow.findFirst({
+      where: { id, deletedAt: null },
+      select: { id: true },
+    });
+    if (!existing) throw new NotFoundException('Workflow definition not found');
     return this.prisma.workflow.update({
       where: { id },
       data: body,
@@ -460,11 +472,28 @@ export class WorkflowsController {
 
   @Delete('definitions/:id')
   @Roles(RoleType.ADMIN)
-  async deleteWorkflow(@Param('id') id: string) {
+  async deleteWorkflow(
+    @Param('id') id: string,
+    @CurrentUser() user: RequestUser,
+  ) {
+    this.assertPlatformWorkflowAdmin(user);
+    const existing = await this.prisma.workflow.findFirst({
+      where: { id, deletedAt: null },
+      select: { id: true },
+    });
+    if (!existing) throw new NotFoundException('Workflow definition not found');
     return this.prisma.workflow.update({
       where: { id },
       data: { deletedAt: new Date(), active: false },
     });
+  }
+
+  private assertPlatformWorkflowAdmin(user: RequestUser): void {
+    if (!(user as any).permissions?.includes('*')) {
+      throw new ForbiddenException(
+        'Workflow definitions are global in the current data model and can only be changed by a platform super-administrator.',
+      );
+    }
   }
 
   @Get(':entityType/:entityId/transitions')
