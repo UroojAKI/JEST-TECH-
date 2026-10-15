@@ -93,17 +93,23 @@ export function VehicleDetailsForm({ category, data, onChange }: Props) {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {fields.map((f) => {
-          // If NEW, hide registration number
+          // Registration details belong only to the attachment selected for this tractor.
+          if (f.key === 'trailer1RegistrationNumber' && data.attachmentUsed !== 'Trailer 1') return null;
+          if (f.key === 'trailer2RegistrationNumber' && data.attachmentUsed !== 'Trailer 2') return null;
+          // If NEW, hide vehicle registration number; trailer registration remains mandatory when selected.
           if (data.vehicleStatus === 'NEW' && f.key === 'registrationNumber') return null;
           const val = data[f.key] || '';
-          const isMandatory = f.mandatory === true;
+          const isSelectedTrailer =
+            (f.key === 'trailer1RegistrationNumber' && data.attachmentUsed === 'Trailer 1') ||
+            (f.key === 'trailer2RegistrationNumber' && data.attachmentUsed === 'Trailer 2');
+          const isMandatory = f.mandatory === true || isSelectedTrailer;
           const isConditional = f.mandatory === 'conditional';
           const hasError = isMandatory && !val;
           const borderCls = hasError ? 'border-destructive focus:ring-destructive/50' : 'border-border';
 
           return (
             <div key={f.key}>
-              <label className="block text-xs font-semibold text-muted-foreground mb-1.5">
+              <label htmlFor={f.key} className="block text-xs font-semibold text-muted-foreground mb-1.5">
                 {f.label}
                 {isMandatory && <span className="text-destructive ml-1">*</span>}
                 {isConditional && (
@@ -116,7 +122,9 @@ export function VehicleDetailsForm({ category, data, onChange }: Props) {
 
               {f.type === 'dropdown' ? (
                 <select
+                  id={f.key}
                   value={val}
+                  required={isMandatory}
                   onChange={set(f.key)}
                   className={`${inputBase} ${borderCls}`}
                 >
@@ -140,8 +148,10 @@ export function VehicleDetailsForm({ category, data, onChange }: Props) {
                 </select>
               ) : f.type === 'date' ? (
                 <input
+                  id={f.key}
                   type="month"
                   value={val}
+                  required={isMandatory}
                   onChange={set(f.key)}
                   className={`${inputBase} ${borderCls}`}
                 />
@@ -163,8 +173,10 @@ export function VehicleDetailsForm({ category, data, onChange }: Props) {
                 </div>
               ) : (
                 <input
+                  id={f.key}
                   type={f.type === 'numeric' ? 'number' : 'text'}
                   value={val}
+                  required={isMandatory}
                   onChange={set(f.key)}
                   maxLength={f.key === 'registrationNumber' ? 11 : undefined}
                   placeholder={f.placeholder || ''}
