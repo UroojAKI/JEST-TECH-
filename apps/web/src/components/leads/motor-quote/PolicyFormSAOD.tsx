@@ -83,6 +83,24 @@ export function PolicyFormSAODForm({ category, vehicleStatus, data, onChange, el
   });
 
   useEffect(() => {
+    if ((loading || error) && (data.calculatedResult || data.totalPremiumInclGST || data.finalPayableAmount || data.odPremium || data.gstAmount || data.addOnsPremium)) {
+      onChange({
+        ...data,
+        calculatedResult: undefined,
+        totalPremiumInclGST: '',
+        finalPayableAmount: '',
+        odPremium: '',
+        gstAmount: '',
+        addOnsPremium: '',
+        ncbDiscountAmount: '',
+        discountAmount: '',
+      });
+    }
+    // Prevent a prior vehicle calculation being submitted after a failed request.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, error]);
+
+  useEffect(() => {
     if (result && result.outputs) {
       const outputs = result.outputs;
       const netOd = (outputs.netOdPremium ?? outputs.netOdComponent ?? 0).toString();
