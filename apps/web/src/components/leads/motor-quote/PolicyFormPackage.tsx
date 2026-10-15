@@ -103,6 +103,20 @@ export function PolicyFormPackageForm({ category, vehicleStatus, data, onChange,
   });
 
   useEffect(() => {
+    if ((loading || error) && (data.calculatedResult || data.totalPremiumInclGST || data.finalPayableAmount || data.finalGstAmount)) {
+      onChange({
+        ...data,
+        calculatedResult: undefined,
+        totalPremiumInclGST: '',
+        finalPayableAmount: '',
+        finalGstAmount: '',
+      });
+    }
+    // Do not keep a prior quote result while current inputs are unresolved.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, error]);
+
+  useEffect(() => {
     if (result && result.outputs) {
       onChange({ 
         ...data, 
