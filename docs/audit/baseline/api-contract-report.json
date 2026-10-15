@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-15T08:34:43.911Z",
+  "generatedAt": "2026-10-15T08:45:21.941Z",
   "mismatches": [],
   "uncalledBackendRoutes": [
     {
@@ -567,6 +567,13 @@
       "path": "/leads/:param/transition",
       "controller": "LeadsController",
       "file": "apps/api/src/modules/leads/controllers/leads.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "POST",
+      "path": "/motor/calculate/override",
+      "controller": "MotorCalculationController",
+      "file": "apps/api/src/modules/motor/controllers/motor-calculation.controller.ts",
       "classification": "UNUSED"
     },
     {
@@ -1435,12 +1442,12 @@
     "totalFrontendCalls": 304,
     "matched": 304,
     "unmatched": 0,
-    "uncalledBackend": 204,
+    "uncalledBackend": 205,
     "uncalledByClassification": {
       "WEBHOOK": 1,
       "CRON": 3,
       "INTERNAL": 8,
-      "UNUSED": 192
+      "UNUSED": 193
     }
   }
 }

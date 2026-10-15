@@ -3,7 +3,10 @@ import { PrismaService } from '../../../database/prisma.service';
 import { MotorCalculationInputDto } from '../dto/motor-calculation.dto';
 import { MotorTariffService } from './motor-tariff.service';
 import { MotorPolicyDateService } from './motor-policy-date.service';
-import { ConfigurationMissingEntity } from '../dto/motor-pricing-contract.dto';
+import {
+  ConfigurationMissingEntity,
+  MotorCalculationOverrideInputDto,
+} from '../dto/motor-pricing-contract.dto';
 
 const round2 = (num: number): number =>
   Math.round((num + Number.EPSILON) * 100) / 100;
@@ -606,5 +609,61 @@ export class MotorCalculationService {
     }
 
     return { tpRates, odRates, gstRate, discountConfig, addonRates };
+  }
+
+  /**
+   * Controlled Tax & Tariff Override Calculation (D-03, T-08)
+   * Permissioned for Admin/Back-Office only with append-only audit logging.
+   */
+  async calculateWithOverride(
+    overrideInput: MotorCalculationOverrideInputDto,
+    actor?: any,
+  ) {
+    if (!overrideInput.approvalReference || !overrideInput.overrideReason) {
+      throw new BadRequestException(
+        'Tax/Tariff override requires an approved approvalReference and overrideReason (Decision D-03, T-08).',
+      );
+    }
+
+    const calculationInput = { ...overrideInput.calculationInput } as MotorCalculationInputDto;
+    if (overrideInput.customGstRate !== undefined) {
+      calculationInput.gstRate = overrideInput.customGstRate;
+    }
+
+    const result = await this.calculate(calculationInput);
+
+    // Record append-only audit log
+    try {
+      if (typeof (this.prisma as any)?.auditLog?.create === 'function') {
+        await (this.prisma as any).auditLog.create({
+          data: {
+            action: 'APPROVE',
+            entity: 'MOTOR_TAX_TARIFF_OVERRIDE',
+            entityId: overrideInput.approvalReference,
+            performedById: actor?.userId || actor?.id || 'SYSTEM_ADMIN',
+            metadata: {
+              approvalReference: overrideInput.approvalReference,
+              approvedBy: overrideInput.approvedBy,
+              overrideReason: overrideInput.overrideReason,
+              customGstRate: overrideInput.customGstRate,
+              customOdRate: overrideInput.customOdRate,
+              customTpPremium: overrideInput.customTpPremium,
+              calculatedTotalPremium: result.outputs.totalPremium,
+            },
+          },
+        });
+      }
+    } catch (auditErr) {
+      this.logger.warn(`Could not persist auditLog for override: ${auditErr}`);
+    }
+
+    return {
+      ...result,
+      overrideDetails: {
+        approvalReference: overrideInput.approvalReference,
+        approvedBy: overrideInput.approvedBy,
+        overrideReason: overrideInput.overrideReason,
+      },
+    };
   }
 }

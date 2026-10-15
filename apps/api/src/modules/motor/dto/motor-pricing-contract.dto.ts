@@ -147,3 +147,34 @@ export class ConfigurationErrorResponseDto {
   @IsObject()
   details?: Record<string, any>;
 }
+
+/**
+ * Controlled Tax & Tariff Override Input (D-03, T-08)
+ * Restricted to Admin and Back-Office roles. Requires auditable justification.
+ */
+export class MotorCalculationOverrideInputDto {
+  @IsString()
+  approvalReference: string;
+
+  @IsString()
+  approvedBy: string;
+
+  @IsString()
+  overrideReason: string;
+
+  @IsOptional()
+  @IsNumber()
+  customGstRate?: number;
+
+  @IsOptional()
+  @IsNumber()
+  customOdRate?: number;
+
+  @IsOptional()
+  @IsNumber()
+  customTpPremium?: number;
+
+  @IsObject()
+  calculationInput: Record<string, any>;
+}
+
