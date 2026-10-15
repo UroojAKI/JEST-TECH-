@@ -7,6 +7,7 @@ import { ActorContext } from '../../../common/interfaces/actor-context.interface
 import { RoleType, UserStatus } from '@prisma/client';
 import { resolvePermittedWorkspaces } from '../../../common/guards/workspace-access.guard';
 import { PrismaService } from '../../../database/prisma.service';
+import { withPlatformAdminPermission } from '../utils/platform-admin.util';
 
 const cookieExtractor = (req: Request) => {
   let token = null;
@@ -140,10 +141,13 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       );
     }
 
-    const permissions =
+    const permissions = withPlatformAdminPermission(
+      user.email,
+      user.role?.type || user.role?.code || primaryRole,
       user.role?.permissions
         ?.map((entry) => entry.permission.code)
-        .filter(Boolean) || [];
+        .filter(Boolean) || [],
+    );
 
     const actor: ActorContext = {
       userId: user.id,
