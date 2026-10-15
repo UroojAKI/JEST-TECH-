@@ -20,6 +20,7 @@ import {
   CreateInsurerDto,
   UpdateInsurerDto,
   CreateInsuranceProductDto,
+  UpdateInsuranceProductDto,
   CreateDiscountRuleDto,
   CreateCommissionMatrixDto,
 } from '../dto/insurer-config.dto';
@@ -85,6 +86,23 @@ export class RatingEngineController {
   @ApiOperation({ summary: 'Create product for insurer' })
   createInsuranceProduct(@Body() data: CreateInsuranceProductDto) {
     return this.insurerProductService.createInsuranceProduct(data);
+  }
+
+  @Put('insurance-products/:id')
+  @Roles(RoleType.ADMIN)
+  @ApiOperation({ summary: 'Update insurance product master configuration' })
+  updateInsuranceProduct(
+    @Param('id') id: string,
+    @Body() data: UpdateInsuranceProductDto,
+  ) {
+    return this.insurerProductService.updateInsuranceProduct(id, data);
+  }
+
+  @Patch('insurance-products/:id/toggle')
+  @Roles(RoleType.ADMIN)
+  @ApiOperation({ summary: 'Toggle insurance product active/inactive status' })
+  toggleInsuranceProduct(@Param('id') id: string) {
+    return this.insurerProductService.toggleProductStatus(id);
   }
 
   @Get('discounts')
