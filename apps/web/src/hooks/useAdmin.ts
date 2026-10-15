@@ -141,14 +141,20 @@ export function useFeatureFlags() {
     mutationFn: ({ id, isEnabled }: { id: string; isEnabled: boolean }) => adminRepository.toggleFeatureFlag(id, isEnabled),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-feature-flags'] });
-      toast.success('Feature flag state updated!');
+      toast.success('Persisted feature flag state updated.');
+    },
+    onError: (err: any) => {
+      toast.error(err.response?.data?.message || 'Failed to persist feature flag change');
     },
   });
 
   return {
     flags: query.data || [],
     isLoading: query.isLoading,
+    isError: query.isError,
+    refetch: query.refetch,
     toggleFlag: toggleFlagMutation.mutate,
+    isUpdating: toggleFlagMutation.isPending,
   };
 }
 
