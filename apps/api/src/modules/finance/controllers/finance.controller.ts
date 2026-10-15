@@ -443,11 +443,14 @@ export class FinanceController {
   @ApiOperation({ summary: 'List broker / agent commissions' })
   async getCommissions(@CurrentUser() actor: RequestUser) {
     const companyId = actor.companyId || (actor as any).organizationId;
+    if (!companyId) {
+      throw new ForbiddenException('Tenant organizational context is required to list commissions.');
+    }
     const commissions = await this.prisma.commission.findMany({
       where: {
         OR: [
           { companyId },
-          { user: { companyId } },
+          { companyId: null, user: { companyId } },
         ],
       },
       orderBy: { createdAt: 'desc' },
@@ -528,12 +531,24 @@ export class FinanceController {
     @CurrentUser() actor: RequestUser,
   ) {
     const companyId = actor.companyId || (actor as any).organizationId;
+    if (!companyId) {
+      throw new ForbiddenException('Tenant organizational context is required to approve commissions.');
+    }
     const commission = await this.prisma.commission.findUnique({
       where: { id },
       include: { user: true },
     });
-    if (!commission || commission.user?.companyId !== companyId) {
+    if (
+      !commission ||
+      commission.user?.companyId !== companyId ||
+      (commission.companyId != null && commission.companyId !== companyId)
+    ) {
       throw new NotFoundException('Commission record not found');
+    }
+    if (!['ACCRUED', 'PENDING_APPROVAL'].includes(commission.status)) {
+      throw new BadRequestException(
+        'Only accrued or pending commissions can be approved. Current status: ' + commission.status,
+      );
     }
     return this.prisma.commission.update({
       where: { id },
