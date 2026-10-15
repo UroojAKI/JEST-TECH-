@@ -245,7 +245,7 @@ describe('Reporting Tenancy & Database Persistence (Phases 18, 19, 20)', () => {
 
   describe('WAVE 7: Cross-Tenant Report Isolation (CRUD, Query & Execution)', () => {
     it('scopes getReports to caller companyId', async () => {
-      await controller.getReports(undefined, undefined, undefined, undefined, mockUserTenantA as any);
+      await controller.getReports(mockUserTenantA as any, undefined, undefined, undefined, undefined);
 
       expect(mockQueries.handleGetReports).toHaveBeenCalledWith(
         expect.objectContaining({
