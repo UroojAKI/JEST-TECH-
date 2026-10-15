@@ -33,7 +33,8 @@ export type Permission =
   | 'report:read'
   | 'report:create'
   | 'report:export'
-  | 'report:schedule';
+  | 'report:schedule'
+  | '*';
 
 export interface UserSession {
   id: string;
