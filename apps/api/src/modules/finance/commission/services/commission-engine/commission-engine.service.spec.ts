@@ -34,7 +34,15 @@ describe('CommissionEngineService', () => {
             user: {
               findUnique: jest
                 .fn()
-                .mockResolvedValue({ id: 'u-1', status: 'ACTIVE' }),
+                .mockResolvedValue({ id: 'u-1', status: 'ACTIVE', companyId: 'company-1' }),
+            },
+            policy: {
+              findUnique: jest.fn().mockResolvedValue({
+                id: 'pol-1',
+                companyId: 'company-1',
+                premiumAmount: '59000',
+                quotation: { totalPremium: '59000', gstAmount: '9000' },
+              }),
             },
             commission: {
               createMany: jest.fn(),
@@ -59,6 +67,8 @@ describe('CommissionEngineService', () => {
         isActive: true,
         rules: JSON.stringify({
           agentPercent: 10,
+          maxAgentPercent: 15,
+          maxTotalPercent: 20,
           overrides: [
             { roleTier: 'BRANCH_MANAGER', percent: 2, userId: 'bm-1' },
             { roleTier: 'ZONAL_MANAGER', percent: 0.5, userId: 'zm-1' },
@@ -73,9 +83,11 @@ describe('CommissionEngineService', () => {
         'plan-1',
       );
 
-      // We know there are 3 items: agent (10%), bm (2%), zm (0.5%) of 50,000
-      // Agent = 5000, BM = 1000, ZM = 250
+      // The policy-linked quotation has ₹59,000 total premium less ₹9,000 tax.
+      // The configured plan calculates all recipients from the ₹50,000 commissionable base.
       expect(result.length).toBe(3);
+      const createCall = (prisma as any).$transaction.mock.calls.length;
+      expect(createCall).toBe(1);
 
       expect(result[0].roleTier).toBe('AGENT');
       expect(Number(result[0].amount)).toBe(5000);
@@ -85,6 +97,10 @@ describe('CommissionEngineService', () => {
 
       expect(result[2].roleTier).toBe('ZONAL_MANAGER');
       expect(Number(result[2].amount)).toBe(250);
+
+      const createdRows = (prisma as any).$transaction.mock.calls[0][0];
+      expect(createdRows).toBeDefined();
+      const txMock = (prisma as any).$transaction.mock.results[0].value;
     });
 
     it('T-05: throws structured COMMISSION_CONFIG_PENDING when no active commission plan matches', async () => {
@@ -116,7 +132,7 @@ describe('CommissionEngineService', () => {
 
       expect(count).toBe(2);
       expect(prisma.commission.updateMany).toHaveBeenCalledWith({
-        where: { policyId: 'pol-1', status: 'APPROVED' },
+        where: { policyId: 'pol-1', companyId: 'company-1', status: 'APPROVED' },
         data: { status: 'REALIZED' },
       });
     });
