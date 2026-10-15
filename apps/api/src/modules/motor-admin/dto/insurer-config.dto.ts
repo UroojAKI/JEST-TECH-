@@ -149,12 +149,61 @@ export class UpdateInsurerDto {
   @IsOptional()
   rating?: number;
 
+  @ApiPropertyOptional({ enum: VehicleType, isArray: true })
+  @IsArray()
+  @IsOptional()
+  supportedVehicleTypes?: VehicleType[];
+
+  @ApiPropertyOptional({ enum: ProductType, isArray: true })
+  @IsArray()
+  @IsOptional()
+  supportedPolicyTypes?: ProductType[];
+
+  @ApiPropertyOptional()
+  @IsBoolean()
+  @IsOptional()
+  supportsZeroDep?: boolean;
+
+  @ApiPropertyOptional()
+  @IsBoolean()
+  @IsOptional()
+  supportsRTI?: boolean;
+
+  @ApiPropertyOptional()
+  @IsBoolean()
+  @IsOptional()
+  supportsEngineProtect?: boolean;
+
+  @ApiPropertyOptional()
+  @IsBoolean()
+  @IsOptional()
+  supportsRSA?: boolean;
+
+  @ApiPropertyOptional()
+  @IsBoolean()
+  @IsOptional()
+  supportsNCBProtection?: boolean;
+
+  @ApiPropertyOptional()
+  @IsBoolean()
+  @IsOptional()
+  supportsConsumables?: boolean;
+
+  @ApiPropertyOptional()
+  @IsBoolean()
+  @IsOptional()
+  supportsKeyProtect?: boolean;
+
+  @ApiPropertyOptional()
+  @IsBoolean()
+  @IsOptional()
+  supportsTyreProtect?: boolean;
+
   @ApiPropertyOptional()
   @IsBoolean()
   @IsOptional()
   isActive?: boolean;
 }
-
 export class CreateInsuranceProductDto {
   @ApiProperty({ example: 'ins-123' })
   @IsString()
