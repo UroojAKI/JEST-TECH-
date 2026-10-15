@@ -265,13 +265,16 @@ export class WorkflowsController {
     @Body() body: BulkApprovalActionDto,
     @CurrentUser() user: RequestUser,
   ) {
-    const results = [];
+    const results: Array<{
+      id: string;
+      success: boolean;
+      message?: string;
+      action?: 'APPROVE' | 'REJECT';
+      transitionId?: string;
+    }> = [];
     for (const id of body.ids) {
       try {
-        results.push({
-          id,
-          ...(await this.executeApprovalAction(id, body.action, undefined, user)),
-        });
+        results.push(await this.executeApprovalAction(id, body.action, undefined, user));
       } catch (error: any) {
         results.push({
           id,
