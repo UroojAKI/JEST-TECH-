@@ -10,11 +10,7 @@ import {
   Layers,
   PlusCircle,
   Search,
-  Building,
   Power,
-  Trash2,
-  CheckCircle,
-  Tag,
   Pencil,
 } from 'lucide-react';
 
@@ -119,17 +115,17 @@ export default function ProductMasterAdminPage() {
       toast.error('Insurer, Product Name, and Product Code are required');
       return;
     }
-    const payload = {
-      insurerId,
+    const productFields = {
       productName: productName.trim(),
       code: code.trim().toUpperCase(),
       vehicleType,
       policyType,
     };
     if (editingProductId) {
-      updateProductMutation.mutate({ id: editingProductId, data: payload });
+      // The insurer-product association is immutable in the current API contract.
+      updateProductMutation.mutate({ id: editingProductId, data: productFields });
     } else {
-      createProductMutation.mutate(payload);
+      createProductMutation.mutate({ insurerId, ...productFields });
     }
   };
 
@@ -156,7 +152,7 @@ export default function ProductMasterAdminPage() {
               Insurance Product Master
             </h1>
             <p className="text-xs text-muted-foreground mt-1 max-w-xl">
-              Configure product packages (Comprehensive, Third Party Only, Standalone OD, EV, Commercial) belonging to partner insurers.
+              Maintain insurer-linked products using the API-supported vehicle categories and policy types. Product activation affects future selection; it does not rewrite issued policies.
             </p>
           </div>
 
@@ -184,7 +180,7 @@ export default function ProductMasterAdminPage() {
             />
           </div>
           <div className="text-xs font-bold text-muted-foreground">
-            Total Products Configured: <span className="text-foreground font-extrabold">{products.length}</span>
+            Total Products Configured: <span className="text-foreground font-extrabold">{Array.isArray(products) ? products.length : ((products as any)?.data || (products as any)?.items || []).length}</span>
           </div>
         </div>
 
@@ -211,8 +207,8 @@ export default function ProductMasterAdminPage() {
                     <th className="py-3 px-3">Belongs To (Insurer)</th>
                     <th className="py-3 px-3">Vehicle Category</th>
                     <th className="py-3 px-3">Policy Type</th>
-                    <th className="py-3 px-3">Status</th>
-            <th className="py-3 px-3 text-right">Actions</th>
+                            <th className="py-3 px-3">Status</th>
+                    <th className="py-3 px-3 text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y text-xs font-semibold">
@@ -224,7 +220,7 @@ export default function ProductMasterAdminPage() {
                       <td className="py-3 px-3">{p.vehicleType || 'FOUR_WHEELER'}</td>
                       <td className="py-3 px-3">
                         <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-primary/10 text-primary">
-                          {p.policyType || 'COMPREHENSIVE'}
+                          {p.policyType || 'Not configured'}
                         </span>
                       </td>
                       <td className="py-3 px-3">
@@ -262,17 +258,18 @@ export default function ProductMasterAdminPage() {
             <div className="w-full max-w-md p-6 rounded-2xl border bg-card shadow-2xl space-y-4 text-xs">
               <div className="flex items-center space-x-2 text-primary">
                 <Layers className="h-5 w-5" />
-                <h3 className="text-sm font-extrabold text-foreground">Add Insurance Product</h3>
+                <h3 className="text-sm font-extrabold text-foreground">{editingProductId ? 'Edit Insurance Product' : 'Add Insurance Product'}</h3>
               </div>
 
               <form onSubmit={handleSubmit} className="space-y-3">
                 <div>
-                  <label className="font-bold text-foreground block mb-1">Select Insurer *</label>
+                  <label className="font-bold text-foreground block mb-1">{editingProductId ? 'Insurer (cannot be changed here)' : 'Select Insurer *'}</label>
                   <select
                     required
+                    disabled={Boolean(editingProductId)}
                     value={insurerId}
                     onChange={(e) => setInsurerId(e.target.value)}
-                    className="w-full p-2.5 rounded-xl border bg-background font-semibold"
+                    className="w-full p-2.5 rounded-xl border bg-background font-semibold disabled:bg-muted"
                   >
                     <option value="">-- Choose Partner Insurer --</option>
                     {insurers.filter((ins: any) => ins.isActive !== false).map((ins: any) => (
