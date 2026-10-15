@@ -688,9 +688,32 @@ export class LeadsService {
     this.authzService.authorize(user, 'LEAD', 'READ', lead);
 
     const vehicle = lead.contact?.vehicles?.[0] || null;
+    // SLA response deadline is based on the active policy matching this lead's priority.
+    // Do not invent a default SLA when no policy exists.
+    const activeLeadSlaPolicies = await this.prisma.slaPolicy.findMany({
+      where: { targetEntity: 'LEAD', isActive: true },
+    });
+    const matchingSlaPolicy =
+      activeLeadSlaPolicies.find((policy) => policy.priority && policy.priority === lead.priority) ||
+      activeLeadSlaPolicies.find((policy) => !policy.priority) ||
+      null;
+    const firstResponseDueAt =
+      !lead.firstResponseAt && matchingSlaPolicy?.firstResponseMin != null
+        ? new Date(lead.createdAt.getTime() + matchingSlaPolicy.firstResponseMin * 60000)
+        : null;
 
     return {
       leadId: lead.id,
+      createdAt: lead.createdAt,
+      updatedAt: lead.updatedAt,
+      currentWorkflowStep: lead.currentWorkflowStep,
+      firstResponseAt: lead.firstResponseAt,
+      firstResponseDueAt,
+      slaStatus: lead.slaStatus,
+      priority: lead.priority,
+      source: lead.source,
+      estimatedPremium: lead.estimatedPremium,
+      nextFollowup: lead.nextFollowup,
       leadCode: lead.leadCode,
       title: lead.title,
       status: lead.status,
