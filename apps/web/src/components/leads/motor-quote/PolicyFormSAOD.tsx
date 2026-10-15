@@ -123,7 +123,8 @@ export function PolicyFormSAODForm({ category, vehicleStatus, data, onChange, el
   const verification = data.tpVerification;
   const isVerified = verification?.verificationStatus === 'VERIFIED' && verification?.verifiedByUserConfirmed;
   const tpExpired = verification?.tpExpiryDate ? new Date(verification.tpExpiryDate) <= new Date() : false;
-  const outputs = result?.outputs || data.calculatedResult?.outputs || {};
+  const hasValidCalculation = !loading && !error && Boolean(result || data.calculatedResult);
+  const outputs = hasValidCalculation ? (result?.outputs || data.calculatedResult?.outputs || {}) : {};
   const itemizedAddons: any[] = Array.isArray(outputs.itemizedAddons) ? outputs.itemizedAddons : [];
 
   return (
@@ -384,22 +385,22 @@ export function PolicyFormSAODForm({ category, vehicleStatus, data, onChange, el
 
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
           <FieldRow label="OD Base Premium (₹)" mandatory hint="Insurer OD rate applied to IDV" formula="IDV × Insurer OD Rate %">
-            <input type="number" value={outputs.baseOdPremium?.toString() ?? data.odPremiumBase} readOnly aria-readonly="true" className={readonlyInput} placeholder="Calculated from configured insurer OD rate" />
+            <input type="number" value={hasValidCalculation ? (outputs.baseOdPremium?.toString() ?? data.odPremiumBase) : ''} readOnly aria-readonly="true" className={readonlyInput} placeholder="Calculated from configured insurer OD rate" />
           </FieldRow>
           <FieldRow label="NCB Discount (₹)" hint="Auto-calculated from NCB %">
-            <input type="number" value={data.ncbDiscountAmount} readOnly className={readonlyInput} placeholder="Auto-calculated" />
+            <input type="number" value={hasValidCalculation ? data.ncbDiscountAmount : ''} readOnly className={readonlyInput} placeholder="Auto-calculated" />
           </FieldRow>
           <FieldRow label="Add-ons Premium (₹)" hint="Sum of individual add-on inputs">
-            <input type="number" value={data.addOnsPremium} readOnly className={readonlyInput} placeholder="₹0" />
+            <input type="number" value={hasValidCalculation ? data.addOnsPremium : ''} readOnly className={readonlyInput} placeholder="₹0" />
           </FieldRow>
           <FieldRow label="Net OD Premium (₹) [Field 10]" hint="Auto-calc: OD Base - NCB + Add-ons">
-            <input type="number" value={data.odPremium} readOnly className={`${readonlyInput} font-bold text-foreground`} placeholder="Auto-calculated" />
+            <input type="number" value={hasValidCalculation ? data.odPremium : ''} readOnly className={`${readonlyInput} font-bold text-foreground`} placeholder="Auto-calculated" />
           </FieldRow>
           <FieldRow label={`Statutory GST (${String(data.gstRate || '18') === '5' ? '5%' : '18%'}) ₹`} hint={`${String(data.gstRate || '18') === '5' ? '5%' : '18%'} of Net OD Premium`}>
-            <input type="number" value={data.gstAmount} readOnly className={readonlyInput} placeholder="Auto-calculated" />
+            <input type="number" value={hasValidCalculation ? data.gstAmount : ''} readOnly className={readonlyInput} placeholder="Auto-calculated" />
           </FieldRow>
           <FieldRow label="Total Premium incl. GST (₹) [Field 11]" mandatory hint="System-calculated authoritative gross">
-            <input type="number" value={data.totalPremiumInclGST} readOnly className={`${readonlyInput} font-black text-primary text-sm`} placeholder="Auto-calculated" />
+            <input type="number" value={hasValidCalculation ? data.totalPremiumInclGST : ''} readOnly className={`${readonlyInput} font-black text-primary text-sm`} placeholder="Auto-calculated" />
           </FieldRow>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-border">
@@ -467,7 +468,7 @@ export function PolicyFormSAODForm({ category, vehicleStatus, data, onChange, el
           >
             <input
               type="number"
-              value={data.discountAmount || '0'}
+              value={hasValidCalculation ? (data.discountAmount || '0') : ''}
               readOnly
               className={`${readonlyInput} font-mono font-bold text-amber-600`}
               placeholder="₹0"
@@ -486,11 +487,12 @@ export function PolicyFormSAODForm({ category, vehicleStatus, data, onChange, el
             </span>
           </div>
           <div className="text-2xl font-black text-emerald-700 dark:text-emerald-400">
-            ₹{Number(data.finalPayableAmount || data.totalPremiumInclGST || 0).toLocaleString('en-IN')}
+            {hasValidCalculation ? '₹' + Number(data.finalPayableAmount || data.totalPremiumInclGST || 0).toLocaleString('en-IN') : '—'}
           </div>
         </div>
       </div>
-      <CommissionBreakdownPanel calculation={result || data.calculatedResult} components={['OD']} loading={loading} error={error} />
+      {error && <div role="alert" className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-xs text-destructive">Premium calculation failed: {error}</div>}
+      <CommissionBreakdownPanel calculation={loading || error ? undefined : (result || data.calculatedResult)} components={['OD']} loading={loading} error={error} />
     </div>
   );
 }
