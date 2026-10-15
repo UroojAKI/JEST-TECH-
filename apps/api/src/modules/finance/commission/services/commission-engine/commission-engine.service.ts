@@ -140,6 +140,13 @@ export class CommissionEngineService {
         'The policy-linked quotation has no positive premium base after tax is removed.',
       );
     }
+    // Keep the legacy input contract honest, but never trust it as the source of money.
+    // Current accrual rules use the policy-linked quotation excluding GST as the basis.
+    if (premiumAmount.sub(commissionableBase).abs().gt(new Decimal('0.01'))) {
+      throw new BadRequestException(
+        'Supplied premium amount does not match the policy-linked quotation premium excluding GST. Refresh the quote before accruing commission.',
+      );
+    }
 
     const agent = await this.prisma.user.findUnique({
       where: { id: agentId },
