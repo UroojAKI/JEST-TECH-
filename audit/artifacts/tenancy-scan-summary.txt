@@ -1,0 +1,8 @@
+=================================================================
+🔍 CI Architecture Guard: Tenant Scoping & Isolation Validator
+=================================================================
+Found 56 controller files to scan.
+✅ Heuristic scan passed: no obvious unscoped direct controller queries found.
+   This does not prove tenant isolation in delegated services, repositories, or relations.
+=================================================================
+

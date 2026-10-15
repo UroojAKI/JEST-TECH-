@@ -443,11 +443,39 @@ function NotesView({
   notes: any[];
   refetch: () => Promise<unknown>;
 }) {
-  const [newNote, setNewNote] = useState('');
+  const draftKey = `customer_note_draft_${customerId}`;
+  const [newNote, setNewNote] = useState(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        return localStorage.getItem(draftKey) || '';
+      } catch {
+        return '';
+      }
+    }
+    return '';
+  });
+
+  const handleNoteChange = (val: string) => {
+    setNewNote(val);
+    if (typeof window !== 'undefined') {
+      try {
+        if (val) localStorage.setItem(draftKey, val);
+        else localStorage.removeItem(draftKey);
+      } catch {
+        // storage disabled/quota
+      }
+    }
+  };
+
   const addNote = useMutation({
     mutationFn: () => customerRepository.addCustomerNote(customerId, newNote),
     onSuccess: async () => {
       setNewNote('');
+      if (typeof window !== 'undefined') {
+        try {
+          localStorage.removeItem(draftKey);
+        } catch {}
+      }
       await refetch();
       toast.success('Note saved to the customer profile');
     },
@@ -466,18 +494,21 @@ function NotesView({
       <form onSubmit={handleAddNote} className="space-y-2">
         <textarea
           value={newNote}
-          onChange={(e) => setNewNote(e.target.value)}
-          placeholder="Add an internal note or interaction log about this customer..."
+          onChange={(e) => handleNoteChange(e.target.value)}
+          placeholder="Add an internal note or interaction log about this customer (auto-saved as local draft)..."
           className="w-full p-3 rounded-xl border bg-background text-xs focus:ring-1 focus:ring-primary outline-none"
           rows={3}
         />
-        <div className="flex justify-end">
+        <div className="flex justify-between items-center">
+          <span className="text-[10px] text-muted-foreground">
+            {newNote ? '📝 Draft saved locally on this browser' : 'Auto-saves as local browser draft'}
+          </span>
           <button
             type="submit"
-            disabled={addNote.isPending}
-            className="px-3.5 py-1.5 rounded-lg bg-primary text-primary-foreground font-bold text-xs hover:bg-primary/90 transition-colors"
+            disabled={addNote.isPending || !newNote.trim()}
+            className="px-3.5 py-1.5 rounded-lg bg-primary text-primary-foreground font-bold text-xs hover:bg-primary/90 transition-colors disabled:opacity-50"
           >
-            Add Note
+            {addNote.isPending ? 'Saving…' : 'Add Note to Profile'}
           </button>
         </div>
       </form>

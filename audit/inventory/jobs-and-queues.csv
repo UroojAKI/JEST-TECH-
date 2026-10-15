@@ -1,0 +1,11 @@
+JobID,QueueName,JobName,ProcessorWorkerFile,ScheduleOrTrigger,PayloadSchema,Concurrency,RetryPolicy,IdempotencyKey,Status
+JOB-001,renewal-reminders,send-renewal-reminder,apps/api/src/modules/policies/processors/renewal-reminder.processor.ts,Scheduled / BullMQ Delay,"{ policyId, policyNumber, expiryDate }",5,"3 retries, exponential backoff",renewal-reminder:${policyId}:${daysBefore},PASS
+JOB-002,notifications,send-notification,apps/api/src/modules/platform/queue/workers/notification.worker.ts,Event-Triggered,"{ userId, channel, templateId, data }",10,"5 retries, 5s delay",notif:${userId}:${templateId}:${timestamp},PASS
+JOB-003,audit,record-audit,apps/api/src/modules/platform/queue/workers/audit.worker.ts,Event-Triggered,"{ action, entity, entityId, performedById }",20,3 retries,None,PASS
+JOB-004,renewals,process-renewal-batch,apps/api/src/modules/platform/queue/workers/renewal.worker.ts,Cron (0 2 * * *),"{ batchDate, companyId }",1,2 retries,renewal-batch:${date}:${companyId},PASS
+JOB-005,reports,execute-report,apps/api/src/modules/platform/queue/workers/report.worker.ts,On-Demand / Schedule,"{ reportId, executionId, filters }",2,1 retry,report-exec:${executionId},PASS
+JOB-006,workflows,advance-workflow,apps/api/src/modules/platform/queue/workers/workflow.worker.ts,Event-Triggered,"{ workflowId, transition, actorId }",5,3 retries,wf:${workflowId}:${transition},PASS
+JOB-007,outbox,publish-outbox-events,apps/api/src/modules/platform/outbox/outbox.processor.ts,Polling Interval (5s),OutboxEvent entity batch,1,Unlimited with error logging,outboxEvent.id,PASS
+JOB-008,system-cron,RenewalSchedulerCron,apps/api/src/modules/policies/crons/renewal-scheduler.cron.ts,Cron 0 2 * * *,None (Queries expiring policies),1,Handled internally,None,PASS
+JOB-009,system-cron,CustomerAnalyticsCron,apps/api/src/modules/customer/analytics/services/customer-analytics-cron.service.ts,Cron 0 3 * * *,None (Aggregates customer KPIs),1,Handled internally,None,PASS
+JOB-010,system-cron,ReportSchedulerCron,apps/api/src/modules/platform/reporting/services/scheduler.service.ts,Cron * * * * *,None (Checks due scheduled reports),1,Handled internally,None,PASS

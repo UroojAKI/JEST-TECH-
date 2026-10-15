@@ -1,0 +1,11 @@
+IntegrationID,Provider,Type,Category,ConfigurationKeys,AuthenticationMethod,ReplayProtection,SandboxSupported,HealthCheck,Status
+INT-001,Razorpay,PAYMENT_GATEWAY,FINANCE,"RAZORPAY_WEBHOOK_SECRET, RAZORPAY_KEY_ID",HMAC-SHA256 Signature,YES (x-razorpay-timestamp <= 5m),YES (Test Mode Keys),PASS,PASS
+INT-002,Generic Webhook Provider,WEBHOOK_GATEWAY,INTEGRATION,None,None (Unsigned Fallthrough),NO,NO,FAIL,FAIL
+INT-003,Redis BullMQ,CACHE_AND_QUEUE,INFRASTRUCTURE,"REDIS_URL, REDIS_ENABLED",None (Loopback Unauthenticated),YES (Job Deduplication IDs),YES (Local Docker),PASS (redis-cli ping),FAIL
+INT-004,PostgreSQL 16,RELATIONAL_DATABASE,PERSISTENCE,DATABASE_URL,Password Authentication,YES (ACID Transactions),YES (Local Docker),PASS (SELECT 1),PASS
+INT-005,MinIO / S3,OBJECT_STORAGE,STORAGE,"MINIO_ENDPOINT, MINIO_ACCESS_KEY",S3 V4 Signatures,YES,YES (Local Docker MinIO),NOT VERIFIED,NOT VERIFIED
+INT-006,Mailhog / SMTP,EMAIL_NOTIFICATIONS,COMMUNICATION,"SMTP_HOST, SMTP_PORT",PLAIN / LOGIN,NO,YES (Local Mailhog),NOT VERIFIED,NOT VERIFIED
+INT-007,Twilio / SMS,SMS_NOTIFICATIONS,COMMUNICATION,"TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN",HTTP Basic Auth,NO,YES (Sandbox),NOT VERIFIED,NOT VERIFIED
+INT-008,IRDAI Motor Tariffs,STATUTORY_TARIFFS,UNDERWRITING,"SystemConfig (tp_rates_pc, etc.)",Database Master Lookup,N/A,YES (Seed Data),PASS,PASS
+INT-009,Prometheus Metrics,OBSERVABILITY,MONITORING,METRICS_SCRAPE_TOKEN,Bearer Token / Header,N/A,YES,PASS (/metrics),PASS
+INT-010,Health & Terminus,SERVICE_HEALTH,RELIABILITY,None,Public / Health Gate,N/A,YES,PASS (/health),PASS

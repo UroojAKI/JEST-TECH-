@@ -1,0 +1,126 @@
+PathOrPackage,Type,PackageContext,VersionOrLines,Purpose,DeadOrActive,Status
+@playwright/test,NPM_DEV_DEPENDENCY,ROOT,^1.63.0,Build & Testing Tooling,ACTIVE,PASS
+playwright,NPM_DEV_DEPENDENCY,ROOT,^1.63.0,Build & Testing Tooling,ACTIVE,PASS
+tsx,NPM_DEV_DEPENDENCY,ROOT,^4.19.2,Build & Testing Tooling,ACTIVE,PASS
+turbo,NPM_DEV_DEPENDENCY,ROOT,^2.5.6,Build & Testing Tooling,ACTIVE,PASS
+typescript,NPM_DEV_DEPENDENCY,ROOT,^5.8.3,Build & Testing Tooling,ACTIVE,PASS
+@aws-sdk/client-s3,NPM_DEPENDENCY,APPS/API,^3.1090.0,Backend Core Dependency,ACTIVE,PASS
+@nestjs/axios,NPM_DEPENDENCY,APPS/API,^4.0.1,Backend Core Dependency,ACTIVE,PASS
+@nestjs/bullmq,NPM_DEPENDENCY,APPS/API,^11.0.4,Backend Core Dependency,ACTIVE,PASS
+@nestjs/cache-manager,NPM_DEPENDENCY,APPS/API,^3.1.3,Backend Core Dependency,ACTIVE,PASS
+@nestjs/common,NPM_DEPENDENCY,APPS/API,^11.0.1,Backend Core Dependency,ACTIVE,PASS
+@nestjs/config,NPM_DEPENDENCY,APPS/API,^4.0.4,Backend Core Dependency,ACTIVE,PASS
+@nestjs/core,NPM_DEPENDENCY,APPS/API,^11.0.1,Backend Core Dependency,ACTIVE,PASS
+@nestjs/event-emitter,NPM_DEPENDENCY,APPS/API,^3.1.0,Backend Core Dependency,ACTIVE,PASS
+@nestjs/jwt,NPM_DEPENDENCY,APPS/API,^11.0.2,Backend Core Dependency,ACTIVE,PASS
+@nestjs/passport,NPM_DEPENDENCY,APPS/API,^11.0.5,Backend Core Dependency,ACTIVE,PASS
+@nestjs/platform-express,NPM_DEPENDENCY,APPS/API,^11.0.1,Backend Core Dependency,ACTIVE,PASS
+@nestjs/schedule,NPM_DEPENDENCY,APPS/API,^6.1.3,Backend Core Dependency,ACTIVE,PASS
+@nestjs/swagger,NPM_DEPENDENCY,APPS/API,^11.4.5,Backend Core Dependency,ACTIVE,PASS
+@nestjs/terminus,NPM_DEPENDENCY,APPS/API,^11.0.0,Backend Core Dependency,ACTIVE,PASS
+@nestjs/throttler,NPM_DEPENDENCY,APPS/API,^6.5.0,Backend Core Dependency,ACTIVE,PASS
+@opentelemetry/api,NPM_DEPENDENCY,APPS/API,^1.9.1,Backend Core Dependency,ACTIVE,PASS
+@opentelemetry/auto-instrumentations-node,NPM_DEPENDENCY,APPS/API,^0.78.0,Backend Core Dependency,ACTIVE,PASS
+@opentelemetry/sdk-node,NPM_DEPENDENCY,APPS/API,^0.220.0,Backend Core Dependency,ACTIVE,PASS
+@prisma/client,NPM_DEPENDENCY,APPS/API,6.16.2,Backend Core Dependency,ACTIVE,PASS
+@types/opossum,NPM_DEPENDENCY,APPS/API,^8.1.9,Backend Core Dependency,ACTIVE,PASS
+@types/pdfmake,NPM_DEPENDENCY,APPS/API,^0.3.3,Backend Core Dependency,ACTIVE,PASS
+@willsoto/nestjs-prometheus,NPM_DEPENDENCY,APPS/API,^6.1.0,Backend Core Dependency,ACTIVE,PASS
+argon2,NPM_DEPENDENCY,APPS/API,^0.44.0,Backend Core Dependency,ACTIVE,PASS
+axios,NPM_DEPENDENCY,APPS/API,^1.18.1,Backend Core Dependency,ACTIVE,PASS
+bullmq,NPM_DEPENDENCY,APPS/API,^5.80.9,Backend Core Dependency,ACTIVE,PASS
+cache-manager,NPM_DEPENDENCY,APPS/API,^7.2.9,Backend Core Dependency,ACTIVE,PASS
+cache-manager-redis-yet,NPM_DEPENDENCY,APPS/API,^5.1.5,Backend Core Dependency,ACTIVE,PASS
+class-transformer,NPM_DEPENDENCY,APPS/API,^0.5.1,Backend Core Dependency,ACTIVE,PASS
+class-validator,NPM_DEPENDENCY,APPS/API,^0.15.1,Backend Core Dependency,ACTIVE,PASS
+cookie-parser,NPM_DEPENDENCY,APPS/API,^1.4.7,Backend Core Dependency,ACTIVE,PASS
+dotenv,NPM_DEPENDENCY,APPS/API,^17.4.2,Backend Core Dependency,ACTIVE,PASS
+exceljs,NPM_DEPENDENCY,APPS/API,^4.4.0,Backend Core Dependency,ACTIVE,PASS
+express,NPM_DEPENDENCY,APPS/API,^4.21.2,Backend Core Dependency,ACTIVE,PASS
+helmet,NPM_DEPENDENCY,APPS/API,^8.3.0,Backend Core Dependency,ACTIVE,PASS
+ioredis,NPM_DEPENDENCY,APPS/API,^5.11.1,Backend Core Dependency,ACTIVE,PASS
+joi,NPM_DEPENDENCY,APPS/API,^18.2.3,Backend Core Dependency,ACTIVE,PASS
+jsonwebtoken,NPM_DEPENDENCY,APPS/API,^9.0.3,Backend Core Dependency,ACTIVE,PASS
+minio,NPM_DEPENDENCY,APPS/API,^8.0.0,Backend Core Dependency,ACTIVE,PASS
+nestjs-throttler-storage-redis,NPM_DEPENDENCY,APPS/API,^0.5.1,Backend Core Dependency,ACTIVE,PASS
+opossum,NPM_DEPENDENCY,APPS/API,^10.0.0,Backend Core Dependency,ACTIVE,PASS
+passport,NPM_DEPENDENCY,APPS/API,^0.7.0,Backend Core Dependency,ACTIVE,PASS
+passport-jwt,NPM_DEPENDENCY,APPS/API,^4.0.1,Backend Core Dependency,ACTIVE,PASS
+pdf-lib,NPM_DEPENDENCY,APPS/API,^1.17.1,Backend Core Dependency,ACTIVE,PASS
+pdfmake,NPM_DEPENDENCY,APPS/API,^0.3.11,Backend Core Dependency,ACTIVE,PASS
+prisma,NPM_DEPENDENCY,APPS/API,6.16.2,Backend Core Dependency,ACTIVE,PASS
+prom-client,NPM_DEPENDENCY,APPS/API,^15.1.3,Backend Core Dependency,ACTIVE,PASS
+reflect-metadata,NPM_DEPENDENCY,APPS/API,^0.2.2,Backend Core Dependency,ACTIVE,PASS
+rxjs,NPM_DEPENDENCY,APPS/API,^7.8.1,Backend Core Dependency,ACTIVE,PASS
+swagger-ui-express,NPM_DEPENDENCY,APPS/API,^5.0.1,Backend Core Dependency,ACTIVE,PASS
+uuid,NPM_DEPENDENCY,APPS/API,^9.0.1,Backend Core Dependency,ACTIVE,PASS
+zod,NPM_DEPENDENCY,APPS/API,^4.4.3,Backend Core Dependency,ACTIVE,PASS
+@eslint/eslintrc,NPM_DEV_DEPENDENCY,APPS/API,^3.2.0,Backend Dev/Test Dependency,ACTIVE,PASS
+@eslint/js,NPM_DEV_DEPENDENCY,APPS/API,^9.18.0,Backend Dev/Test Dependency,ACTIVE,PASS
+@nestjs/cli,NPM_DEV_DEPENDENCY,APPS/API,^11.0.0,Backend Dev/Test Dependency,ACTIVE,PASS
+@nestjs/schematics,NPM_DEV_DEPENDENCY,APPS/API,^11.0.0,Backend Dev/Test Dependency,ACTIVE,PASS
+@nestjs/testing,NPM_DEV_DEPENDENCY,APPS/API,^11.0.1,Backend Dev/Test Dependency,ACTIVE,PASS
+@types/cookie-parser,NPM_DEV_DEPENDENCY,APPS/API,^1.4.10,Backend Dev/Test Dependency,ACTIVE,PASS
+@types/express,NPM_DEV_DEPENDENCY,APPS/API,^5.0.0,Backend Dev/Test Dependency,ACTIVE,PASS
+@types/jest,NPM_DEV_DEPENDENCY,APPS/API,^30.0.0,Backend Dev/Test Dependency,ACTIVE,PASS
+@types/multer,NPM_DEV_DEPENDENCY,APPS/API,^2.2.0,Backend Dev/Test Dependency,ACTIVE,PASS
+@types/node,NPM_DEV_DEPENDENCY,APPS/API,^24.0.0,Backend Dev/Test Dependency,ACTIVE,PASS
+@types/passport-jwt,NPM_DEV_DEPENDENCY,APPS/API,^4.0.1,Backend Dev/Test Dependency,ACTIVE,PASS
+@types/supertest,NPM_DEV_DEPENDENCY,APPS/API,^7.0.0,Backend Dev/Test Dependency,ACTIVE,PASS
+@types/uuid,NPM_DEV_DEPENDENCY,APPS/API,^10.0.0,Backend Dev/Test Dependency,ACTIVE,PASS
+eslint,NPM_DEV_DEPENDENCY,APPS/API,^9.18.0,Backend Dev/Test Dependency,ACTIVE,PASS
+eslint-config-prettier,NPM_DEV_DEPENDENCY,APPS/API,^10.0.1,Backend Dev/Test Dependency,ACTIVE,PASS
+eslint-plugin-prettier,NPM_DEV_DEPENDENCY,APPS/API,^5.2.2,Backend Dev/Test Dependency,ACTIVE,PASS
+globals,NPM_DEV_DEPENDENCY,APPS/API,^17.0.0,Backend Dev/Test Dependency,ACTIVE,PASS
+jest,NPM_DEV_DEPENDENCY,APPS/API,^30.0.0,Backend Dev/Test Dependency,ACTIVE,PASS
+prettier,NPM_DEV_DEPENDENCY,APPS/API,^3.4.2,Backend Dev/Test Dependency,ACTIVE,PASS
+source-map-support,NPM_DEV_DEPENDENCY,APPS/API,^0.5.21,Backend Dev/Test Dependency,ACTIVE,PASS
+supertest,NPM_DEV_DEPENDENCY,APPS/API,^7.0.0,Backend Dev/Test Dependency,ACTIVE,PASS
+ts-jest,NPM_DEV_DEPENDENCY,APPS/API,^29.2.5,Backend Dev/Test Dependency,ACTIVE,PASS
+ts-loader,NPM_DEV_DEPENDENCY,APPS/API,^9.5.2,Backend Dev/Test Dependency,ACTIVE,PASS
+ts-node,NPM_DEV_DEPENDENCY,APPS/API,^10.9.2,Backend Dev/Test Dependency,ACTIVE,PASS
+tsconfig-paths,NPM_DEV_DEPENDENCY,APPS/API,^4.2.0,Backend Dev/Test Dependency,ACTIVE,PASS
+tsx,NPM_DEV_DEPENDENCY,APPS/API,^4.23.1,Backend Dev/Test Dependency,ACTIVE,PASS
+typescript,NPM_DEV_DEPENDENCY,APPS/API,^5.7.3,Backend Dev/Test Dependency,ACTIVE,PASS
+typescript-eslint,NPM_DEV_DEPENDENCY,APPS/API,^8.20.0,Backend Dev/Test Dependency,ACTIVE,PASS
+@base-ui/react,NPM_DEPENDENCY,APPS/WEB,^1.6.0,Frontend Core Dependency,ACTIVE,PASS
+@hookform/resolvers,NPM_DEPENDENCY,APPS/WEB,^5.4.0,Frontend Core Dependency,ACTIVE,PASS
+@tanstack/react-query,NPM_DEPENDENCY,APPS/WEB,^5.101.2,Frontend Core Dependency,ACTIVE,PASS
+@tanstack/react-table,NPM_DEPENDENCY,APPS/WEB,^8.21.3,Frontend Core Dependency,ACTIVE,PASS
+axios,NPM_DEPENDENCY,APPS/WEB,^1.18.1,Frontend Core Dependency,ACTIVE,PASS
+class-variance-authority,NPM_DEPENDENCY,APPS/WEB,^0.7.1,Frontend Core Dependency,ACTIVE,PASS
+clsx,NPM_DEPENDENCY,APPS/WEB,^2.1.1,Frontend Core Dependency,ACTIVE,PASS
+lucide-react,NPM_DEPENDENCY,APPS/WEB,^1.24.0,Frontend Core Dependency,ACTIVE,PASS
+next,NPM_DEPENDENCY,APPS/WEB,16.2.11,Frontend Core Dependency,ACTIVE,PASS
+next-themes,NPM_DEPENDENCY,APPS/WEB,^0.4.6,Frontend Core Dependency,ACTIVE,PASS
+react,NPM_DEPENDENCY,APPS/WEB,19.2.4,Frontend Core Dependency,ACTIVE,PASS
+react-dom,NPM_DEPENDENCY,APPS/WEB,19.2.4,Frontend Core Dependency,ACTIVE,PASS
+react-hook-form,NPM_DEPENDENCY,APPS/WEB,^7.81.0,Frontend Core Dependency,ACTIVE,PASS
+recharts,NPM_DEPENDENCY,APPS/WEB,^3.9.2,Frontend Core Dependency,ACTIVE,PASS
+shadcn,NPM_DEPENDENCY,APPS/WEB,^4.13.0,Frontend Core Dependency,ACTIVE,PASS
+sonner,NPM_DEPENDENCY,APPS/WEB,^2.0.7,Frontend Core Dependency,ACTIVE,PASS
+tailwind-merge,NPM_DEPENDENCY,APPS/WEB,^3.6.0,Frontend Core Dependency,ACTIVE,PASS
+tw-animate-css,NPM_DEPENDENCY,APPS/WEB,^1.4.0,Frontend Core Dependency,ACTIVE,PASS
+zod,NPM_DEPENDENCY,APPS/WEB,^4.4.3,Frontend Core Dependency,ACTIVE,PASS
+zustand,NPM_DEPENDENCY,APPS/WEB,^5.0.14,Frontend Core Dependency,ACTIVE,PASS
+@tailwindcss/postcss,NPM_DEV_DEPENDENCY,APPS/WEB,^4,Frontend Dev/Test Dependency,ACTIVE,PASS
+@testing-library/dom,NPM_DEV_DEPENDENCY,APPS/WEB,^10.4.0,Frontend Dev/Test Dependency,ACTIVE,PASS
+@testing-library/jest-dom,NPM_DEV_DEPENDENCY,APPS/WEB,^6.4.2,Frontend Dev/Test Dependency,ACTIVE,PASS
+@testing-library/react,NPM_DEV_DEPENDENCY,APPS/WEB,^16.0.0,Frontend Dev/Test Dependency,ACTIVE,PASS
+@testing-library/user-event,NPM_DEV_DEPENDENCY,APPS/WEB,^14.5.2,Frontend Dev/Test Dependency,ACTIVE,PASS
+@types/node,NPM_DEV_DEPENDENCY,APPS/WEB,^20,Frontend Dev/Test Dependency,ACTIVE,PASS
+@types/react,NPM_DEV_DEPENDENCY,APPS/WEB,^19,Frontend Dev/Test Dependency,ACTIVE,PASS
+@types/react-dom,NPM_DEV_DEPENDENCY,APPS/WEB,^19,Frontend Dev/Test Dependency,ACTIVE,PASS
+@vitejs/plugin-react,NPM_DEV_DEPENDENCY,APPS/WEB,^4.2.1,Frontend Dev/Test Dependency,ACTIVE,PASS
+eslint,NPM_DEV_DEPENDENCY,APPS/WEB,^9,Frontend Dev/Test Dependency,ACTIVE,PASS
+eslint-config-next,NPM_DEV_DEPENDENCY,APPS/WEB,16.2.11,Frontend Dev/Test Dependency,ACTIVE,PASS
+jsdom,NPM_DEV_DEPENDENCY,APPS/WEB,^24.1.0,Frontend Dev/Test Dependency,ACTIVE,PASS
+tailwindcss,NPM_DEV_DEPENDENCY,APPS/WEB,^4,Frontend Dev/Test Dependency,ACTIVE,PASS
+typescript,NPM_DEV_DEPENDENCY,APPS/WEB,^5,Frontend Dev/Test Dependency,ACTIVE,PASS
+vite-tsconfig-paths,NPM_DEV_DEPENDENCY,APPS/WEB,^4.3.2,Frontend Dev/Test Dependency,ACTIVE,PASS
+vitest,NPM_DEV_DEPENDENCY,APPS/WEB,^2.0.0,Frontend Dev/Test Dependency,ACTIVE,PASS
+apps/api/src,SOURCE_DIRECTORY,APPS/API,700+ files,NestJS API Backend,ACTIVE,PASS
+apps/web/src,SOURCE_DIRECTORY,APPS/WEB,300+ files,Next.js 15 Web Application,ACTIVE,PASS
+apps/api/prisma,PERSISTENCE_SCHEMA,APPS/API,158 models,Prisma ORM & PostgreSQL Migrations,ACTIVE,PASS
+infrastructure/docker,INFRASTRUCTURE,ROOT,2 manifests,Docker Compose definitions,ACTIVE,FAIL (JEST-AUDIT-0001)
+.github/workflows,CI_CD_PIPELINES,ROOT,5 workflows,GitHub Actions automation,ACTIVE,"FAIL (JEST-AUDIT-0003, 0015, 0017)"

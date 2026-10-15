@@ -1,0 +1,18 @@
+ConfigKey,Source,Category,RequiredInProd,DefaultValue,Secret,ValidationSchema,Status
+NODE_ENV,".env.example, env.schema.ts",ENVIRONMENT,YES,development,NO,"z.enum([""development"",""production"",""test""])",PASS
+PORT,".env.example, env.schema.ts",SERVER,NO,4000,NO,z.string().transform(Number),PASS
+APP_NAME,".env.example, env.schema.ts",SERVER,NO,JEST Policy CRM API,NO,z.string(),PASS
+DATABASE_URL,".env.example, env.schema.ts",PERSISTENCE,YES,None (Must be provided),YES,z.string().refine(no-localhost/default),PASS
+JWT_SECRET,".env.example, env.schema.ts",AUTHENTICATION,YES,None (Must be provided),YES,z.string().min(32),PASS
+JWT_EXPIRES_IN,".env.example, env.schema.ts",AUTHENTICATION,NO,15m,NO,z.string(),PASS
+JWT_REFRESH_SECRET,".env.example, env.schema.ts",AUTHENTICATION,YES,None (Must be provided),YES,z.string().min(32),PASS
+JWT_REFRESH_EXPIRES_IN,".env.example, env.schema.ts",AUTHENTICATION,NO,7d,NO,z.string(),PASS
+REDIS_ENABLED,".env.example, env.schema.ts",CACHE_QUEUE,NO,false,NO,z.boolean(),PASS
+REDIS_URL,".env.example, env.schema.ts",CACHE_QUEUE,NO,redis://localhost:6379,NO,z.string(),FAIL
+ALLOWED_ORIGINS,".env.example, env.schema.ts",SECURITY_CORS,NO,"http://localhost:3000,http://localhost:3001",NO,z.string(),PASS
+PII_ENCRYPTION_KEY,".env.example, env.schema.ts",DATA_SECURITY,YES,None (Must be provided),YES,z.string().min(32),PASS
+RAZORPAY_WEBHOOK_SECRET,".env.example, env.schema.ts",PAYMENTS,YES,None (Must be provided),YES,z.string().min(16),PASS
+METRICS_SCRAPE_TOKEN,.env.example,OBSERVABILITY,NO,generate_at_least_16_chars,YES,Header match,PASS
+ENABLE_SWAGGER,.env.example,DOCUMENTATION,NO,true (disabled in prod),NO,z.boolean(),PASS
+NEXT_PUBLIC_API_URL,apps/web/.env.example,FRONTEND_NETWORKING,YES,http://localhost:4000/api/v1,NO,Valid URL,PASS
+INTERNAL_API_URL,docker-compose.yml,CONTAINER_NETWORKING,NO,http://api:3000,NO,Valid URL,PASS
