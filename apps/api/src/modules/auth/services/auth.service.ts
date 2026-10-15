@@ -396,7 +396,9 @@ export class AuthService {
         if (payload?.sub) {
           resolvedUserId = payload.sub;
         }
-      } catch {}
+      } catch {
+        // Invalid optional bearer tokens must not resolve an identity during logout.
+      }
     }
     if (resolvedUserId) {
       await this.usersService.revokeAllUserRefreshTokens(resolvedUserId);
