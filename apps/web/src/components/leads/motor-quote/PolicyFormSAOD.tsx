@@ -61,6 +61,14 @@ export function PolicyFormSAODForm({ category, vehicleStatus, data, onChange, el
   const effectiveCategory = category || 'PRIVATE_CAR';
   const effectiveStatus = eligibility ? eligibility.vehicleStatus : (vehicleStatus || 'EXISTING');
 
+  useEffect(() => {
+    if (data.odCommissionPercent || data.commissionAmount) {
+      onChange({ ...data, odCommissionPercent: '', commissionAmount: '' });
+    }
+    // Legacy commission values were user-entered and are not an approved calculation result.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const { result, loading, error } = useMotorCalculator({
     vehicleCategory: effectiveCategory,
     vehicleStatus: effectiveStatus,
