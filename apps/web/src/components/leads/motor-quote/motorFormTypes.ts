@@ -104,6 +104,8 @@ export interface TractorVehicleDetails {
   dateOfRegistration: string;    // N
   engineChassisNumber: string;   // N
   attachmentUsed: string;        // Y — Trailer1/Trailer2/Harvester/Cultivator/None
+  trailer1RegistrationNumber?: string; // Conditional — structured registration for Trailer 1
+  trailer2RegistrationNumber?: string; // Conditional — structured registration for Trailer 2
   usageType: string;             // Y — Agricultural/Commercial
   rtoLocation: string;           // N
 }

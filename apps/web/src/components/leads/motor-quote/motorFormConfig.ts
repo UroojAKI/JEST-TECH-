@@ -91,6 +91,8 @@ export const VEHICLE_FIELDS: Record<VehicleCategory, FieldDef[]> = {
     { key: 'dateOfRegistration', label: 'Date of Registration', type: 'date', mandatory: false },
     { key: 'engineChassisNumber', label: 'Engine / Chassis Number', type: 'alphanumeric', mandatory: false },
     { key: 'attachmentUsed', label: 'Attachment Used', type: 'dropdown', mandatory: true, options: ['Trailer 1', 'Trailer 2', 'Harvester', 'Cultivator', 'None'] },
+    { key: 'trailer1RegistrationNumber', label: 'Trailer 1 Registration Number', type: 'alphanumeric', mandatory: false },
+    { key: 'trailer2RegistrationNumber', label: 'Trailer 2 Registration Number', type: 'alphanumeric', mandatory: false },
     { key: 'usageType', label: 'Usage Type', type: 'dropdown', mandatory: true, options: ['Agricultural', 'Commercial Haulage'] },
     { key: 'rtoLocation', label: 'RTO Location', type: 'dropdown', mandatory: false },
   ],
