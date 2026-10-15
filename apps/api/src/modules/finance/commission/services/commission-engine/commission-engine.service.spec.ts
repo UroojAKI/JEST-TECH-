@@ -42,6 +42,8 @@ describe('CommissionEngineService', () => {
                 id: 'pol-1',
                 companyId: 'company-1',
                 premiumAmount: '59000',
+                paymentStatus: 'PAID',
+                deletedAt: null,
                 quotation: { totalPremium: '59000', gstAmount: '9000' },
               }),
             },
