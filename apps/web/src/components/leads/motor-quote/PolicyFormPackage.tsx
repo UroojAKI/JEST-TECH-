@@ -135,8 +135,8 @@ export function PolicyFormPackageForm({ category, vehicleStatus, data, onChange,
   const isCommercial = !['BIKE', 'PRIVATE_CAR'].includes(category);
 
   // Authoritative Backend Calculation Outputs (Single Source of Truth)
-  const hasValidCalculation = !loading && !error && Boolean(result || data.calculatedResult);
-  const outputs = hasValidCalculation ? (result?.outputs || data.calculatedResult?.outputs || {}) : {};
+  const hasValidCalculation = !loading && !error && Boolean(result);
+  const outputs = hasValidCalculation ? (result?.outputs || {}) : {};
   const rawOd = outputs.baseOdPremium ?? 0;
   const rawTp = outputs.baseTpPremium ?? 0;
   const grossBase = outputs.grossBasePremium ?? (rawOd + rawTp);
@@ -401,7 +401,7 @@ export function PolicyFormPackageForm({ category, vehicleStatus, data, onChange,
           </div>
         </div>
       </div>
-      <CommissionBreakdownPanel calculation={loading || error ? undefined : (result || data.calculatedResult)} components={['OD', 'TP']} loading={loading} error={error} />
+      <CommissionBreakdownPanel calculation={loading || error ? undefined : result} components={['OD', 'TP']} loading={loading} error={error} />
     </div>
   );
 }
