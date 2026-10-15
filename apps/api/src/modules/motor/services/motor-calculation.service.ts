@@ -3,41 +3,12 @@ import { PrismaService } from '../../../database/prisma.service';
 import { MotorCalculationInputDto } from '../dto/motor-calculation.dto';
 import { MotorTariffService } from './motor-tariff.service';
 import { MotorPolicyDateService } from './motor-policy-date.service';
-
-/**
- * EPIC-16 — Motor Calculation Engine V3
- *
- * Canonical formula (per specification v4.2):
- *
- *   Gross Premium Components  = OD + TP + PA + PaidDriver + Addons
- *   NCB Discount              = ncbPercent applied to OD base only
- *   Special Discount          = applied to (OD - NCB) component only
- *   Net Discounted Components = Each component after applicable discounts
- *   Tax Base                  = Net discounted premium (NOT gross)
- *   GST per component         = round2(componentNet * gstRate)
- *   Final Payable             = Σ Net components + Σ GST per component
- *
- * GST rate is configuration-driven from TaxRule DB table.
- * Discount thresholds are configuration-driven from SystemConfig/ProductConfig.
- * TP tariff is DB-backed via MotorTariffService.
- */
+import { ConfigurationMissingEntity } from '../dto/motor-pricing-contract.dto';
 
 const round2 = (num: number): number =>
   Math.round((num + Number.EPSILON) * 100) / 100;
 
-// Default fallback rates (used only when no DB tariff is found).
-// These are IRDAI-published standard rates — kept here as a VERIFIED last resort.
-const FALLBACK_TP_RATES: Record<string, number> = {
-  PRIVATE_CAR: 3416,
-  BIKE: 714,
-  GCV: 15746,
-  PCV: 7138,
-  TRACTOR: 8432,
-  AUTO: 2539,
-  TAXI: 5528,
-  BUS_COACH: 14321,
-  MISC_CLASS_D: 8800,
-};
+// Statutory OD Base Rate fallback (filed insurer schedule)
 const FALLBACK_OD_RATES: Record<string, number> = {
   PRIVATE_CAR: 3.127,
   BIKE: 1.708,
@@ -488,49 +459,65 @@ export class MotorCalculationService {
       input.vehicleCategory?.toString() ?? 'PRIVATE_CAR';
     const quotationDate = new Date();
 
-    // ── TP Tariff (DB-backed via MotorTariffService) ─────────────────────
+    // ── TP Tariff (DB-backed via MotorTariffService, Fail-Closed per D-04/T-06) ──
     let tpRates: {
       annualPremium: number;
       tariffId?: string;
       source?: string;
       isVerified?: boolean;
-    };
-    try {
-      const tariffResult = await this.motorTariffService.lookupTpTariff({
-        vehicleCategory: input.vehicleCategory,
-        engineCc: (input as any).engineCc,
-        seatingCapacity: (input as any).seatingCapacity,
-        gvwKg: (input as any).gvwKg,
-        policyType:
-          input.policyType === 'THIRD_PARTY_ONLY' ? 'TP_ONLY' : 'PACKAGE',
-        quotationDate,
-      });
-      if (tariffResult.found && tariffResult.annualPremium > 0) {
+    } = { annualPremium: 0, source: 'NOT_APPLICABLE' };
+
+    if (input.policyType !== 'STANDALONE_OD') {
+      try {
+        const tariffResult = await this.motorTariffService.lookupTpTariff({
+          vehicleCategory: input.vehicleCategory,
+          engineCc: (input as any).engineCc,
+          seatingCapacity: (input as any).seatingCapacity,
+          gvwKg: (input as any).gvwKg,
+          policyType:
+            input.policyType === 'THIRD_PARTY_ONLY' ? 'TP_ONLY' : 'PACKAGE',
+          quotationDate,
+        });
+
+        if (!tariffResult.found || tariffResult.annualPremium <= 0) {
+          throw new BadRequestException({
+            statusCode: 400,
+            error: 'Bad Request',
+            errorCode: 'CONFIGURATION_ERROR',
+            missingEntity: ConfigurationMissingEntity.TP_TARIFF,
+            vehicleCategory: vehicleCategoryStr,
+            policyType: input.policyType,
+            message: `No active regulatory TP tariff found for vehicleCategory=${vehicleCategoryStr}, policyType=${input.policyType} on date ${quotationDate.toISOString().split('T')[0]}. Calculation cannot proceed without approved regulatory tariff schedule (Decision D-04, T-06).`,
+            effectiveDate: quotationDate.toISOString(),
+          });
+        }
+
         tpRates = {
           annualPremium: tariffResult.annualPremium,
           tariffId: tariffResult.tariffId,
           source: tariffResult.source ?? 'MOTOR_TARIFF_DB',
           isVerified: tariffResult.isVerified,
         };
+
         if (!tariffResult.isVerified) {
           this.logger.warn(
             `[EPIC-16] Unverified tariff used for ${vehicleCategoryStr}: ${tariffResult.warning}`,
           );
         }
-      } else {
-        const fallback = FALLBACK_TP_RATES[vehicleCategoryStr] ?? 3416;
-        this.logger.warn(
-          `[EPIC-16] No DB tariff found for ${vehicleCategoryStr}, using IRDAI fallback: ₹${fallback}`,
-        );
-        tpRates = { annualPremium: fallback, source: 'IRDAI_FALLBACK' };
+      } catch (err) {
+        if (err instanceof BadRequestException) throw err;
+        this.logger.error(`[EPIC-16] Tariff lookup failed: ${err}`);
+        throw new BadRequestException({
+          statusCode: 400,
+          error: 'Bad Request',
+          errorCode: 'CONFIGURATION_ERROR',
+          missingEntity: ConfigurationMissingEntity.TP_TARIFF,
+          vehicleCategory: vehicleCategoryStr,
+          policyType: input.policyType,
+          message: `Tariff lookup failed for ${vehicleCategoryStr}: ${(err as Error)?.message || err}`,
+          effectiveDate: quotationDate.toISOString(),
+        });
       }
-    } catch (err) {
-      if (err instanceof BadRequestException) throw err;
-      const fallback = FALLBACK_TP_RATES[vehicleCategoryStr] ?? 3416;
-      this.logger.error(
-        `[EPIC-16] Tariff lookup failed, using fallback: ${err}`,
-      );
-      tpRates = { annualPremium: fallback, source: 'IRDAI_FALLBACK' };
     }
 
     // ── OD Rate (from ProductRate or RatingEngine DB, fallback to IRDAI) ──
