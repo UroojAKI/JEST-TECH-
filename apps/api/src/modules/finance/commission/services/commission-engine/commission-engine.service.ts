@@ -148,17 +148,6 @@ export class CommissionEngineService {
       throw new BadRequestException('Commission recipient and policy must belong to the same organization');
     }
 
-    const agent = await this.prisma.user.findUnique({
-      where: { id: agentId },
-      select: { id: true, status: true },
-    });
-
-    if (!agent || agent.status !== 'ACTIVE') {
-      throw new BadRequestException(
-        'Commission recipient is not an active user',
-      );
-    }
-
     const commissionsData: Prisma.CommissionCreateManyInput[] = [];
     const agentCommissionAmt = commissionableBase
       .mul(new Decimal(agentPercent))
