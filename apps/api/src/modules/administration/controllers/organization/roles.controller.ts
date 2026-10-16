@@ -21,6 +21,7 @@ import { PrismaService } from '../../../../database/prisma.service';
 export interface UpdateRolePermissionsDto {
   permissions: Array<{
     permissionId?: string;
+    code?: string;
     category?: string;
     action?: string;
     scope?: AccessScope;
@@ -150,6 +151,39 @@ export class RolesController {
                 ? p.scope
                 : AccessScope.ORGANIZATION,
           });
+        } else if (p.code) {
+          let perm = await tx.permission.findFirst({
+            where: {
+              OR: [
+                { code: p.code },
+                { code: p.code.toLowerCase() },
+                { code: p.code.toUpperCase() },
+              ],
+            },
+          });
+
+          if (!perm) {
+            perm = await tx.permission.create({
+              data: {
+                name: p.code,
+                code: p.code,
+                category: 'SYSTEM',
+                description: `Permission for ${p.code}`,
+              },
+            });
+          }
+
+          if (!resolvedIds.has(perm.id)) {
+            resolvedIds.add(perm.id);
+            toCreateRoleLinks.push({
+              roleId: role.id,
+              permissionId: perm.id,
+              scope:
+                p.scope && Object.values(AccessScope).includes(p.scope)
+                  ? p.scope
+                  : AccessScope.ORGANIZATION,
+            });
+          }
         } else if (p.category && p.action) {
           const actionCode = p.action.toUpperCase();
           const categorySlug = p.category

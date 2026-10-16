@@ -189,10 +189,12 @@ export class AuditService {
     userId?: string;
     page?: number;
     limit?: number;
+    maxLimit?: number;
     companyId?: string; // required for tenant-scoped access
   }) {
     const page = Math.max(1, Number(params?.page) || 1);
-    const limit = Math.min(100, Math.max(1, Number(params?.limit) || 50));
+    const maxAllowed = params?.maxLimit || 1000;
+    const limit = Math.min(maxAllowed, Math.max(1, Number(params?.limit) || 50));
     const skip = (page - 1) * limit;
 
     const where: any = {};

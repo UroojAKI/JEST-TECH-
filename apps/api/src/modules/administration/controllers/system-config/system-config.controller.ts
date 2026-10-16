@@ -50,7 +50,7 @@ export class SystemConfigController {
   @Roles(RoleType.ADMIN)
   @ApiOperation({ summary: 'Get all system configurations' })
   async getAllConfigs() {
-    return this.systemConfigService.getAllPublicConfigs();
+    return this.systemConfigService.getAllConfigs();
   }
 
   @Put()
@@ -59,7 +59,43 @@ export class SystemConfigController {
   @Roles(RoleType.ADMIN)
   @ApiOperation({ summary: 'Update system configuration parameters' })
   async updateAllConfigs(@Body() body: Record<string, any>) {
-    return { success: true, updatedCount: Object.keys(body || {}).length };
+    if (!body || typeof body !== 'object') {
+      throw new BadRequestException('Request body must be a valid configuration object');
+    }
+
+    const updates = Object.entries(body);
+    for (const [key, value] of updates) {
+      let valueType: 'STRING' | 'NUMBER' | 'BOOLEAN' | 'JSON' = 'STRING';
+      let stringValue: string;
+
+      if (typeof value === 'boolean') {
+        valueType = 'BOOLEAN';
+        stringValue = String(value);
+      } else if (typeof value === 'number') {
+        valueType = 'NUMBER';
+        stringValue = String(value);
+      } else if (typeof value === 'object' && value !== null) {
+        valueType = 'JSON';
+        stringValue = JSON.stringify(value);
+      } else {
+        valueType = 'STRING';
+        stringValue = String(value ?? '');
+      }
+
+      await this.prisma.systemConfig.upsert({
+        where: { key },
+        update: { value: stringValue, valueType },
+        create: {
+          key,
+          value: stringValue,
+          valueType,
+          isPublic: true,
+        },
+      });
+      await this.systemConfigService.invalidateKey(key);
+    }
+
+    return { success: true, updatedCount: updates.length };
   }
 
   @Get('public')
@@ -171,6 +207,21 @@ export class SystemConfigController {
   @Roles(RoleType.ADMIN)
   @ApiOperation({ summary: 'Get all feature flags' })
   async getFeatureFlags() {
+    const flags = await this.prisma.featureFlag.findMany({
+      orderBy: { key: 'asc' },
+    });
+    if (flags.length > 0) {
+      return flags.map((f) => ({
+        id: f.key,
+        name: f.key
+          .replace(/^ENABLE_/, '')
+          .replace(/_/g, ' ')
+          .toLowerCase()
+          .replace(/\b\w/g, (c) => c.toUpperCase()),
+        description: f.description || `Feature flag for ${f.key}`,
+        isEnabled: f.isEnabled,
+      }));
+    }
     return [
       {
         id: 'ENABLE_NEW_DASHBOARD',
@@ -196,8 +247,18 @@ export class SystemConfigController {
     @Param('id') id: string,
     @Body() dto: UpdateFeatureFlagDto,
   ) {
-    return { success: true, id, isEnabled: dto.isEnabled };
+    const flag = await this.prisma.featureFlag.upsert({
+      where: { key: id },
+      update: { isEnabled: dto.isEnabled },
+      create: {
+        key: id,
+        isEnabled: dto.isEnabled,
+        description: `Feature flag for ${id}`,
+      },
+    });
+    return { success: true, id: flag.key, isEnabled: flag.isEnabled };
   }
+
 
   @Get(':key')
   @ApiBearerAuth()

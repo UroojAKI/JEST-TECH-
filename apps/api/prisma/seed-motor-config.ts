@@ -1,9 +1,9 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, VehicleCategory } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
-async function main() {
-  console.log('Seeding motor configuration...');
+export async function seedMotorConfig(client: PrismaClient) {
+  console.log('Seeding motor configuration and statutory IRDAI tariffs...');
 
   const configs = [
     {
@@ -12,41 +12,41 @@ async function main() {
         pc: {
           "upto_1000cc": 2094,
           "1001_to_1500cc": 3416,
-          "above_1500cc": 7897
+          "above_1500cc": 7897,
         },
         tw: {
           "upto_75cc": 538,
           "76_to_150cc": 714,
           "151_to_350cc": 1366,
-          "above_350cc": 2804
+          "above_350cc": 2804,
         },
         cv: {
           "upto_7500kg": 16049,
           "7501_to_12000kg": 27186,
           "12001_to_20000kg": 35313,
           "20001_to_40000kg": 43950,
-          "above_40000kg": 44242
-        }
+          "above_40000kg": 44242,
+        },
       },
       description: 'TP rates by CC/GVW',
-      valueType: 'JSON'
+      valueType: 'JSON',
     },
     {
       key: 'cpa_premium',
       value: '788',
       description: 'Compulsory PA cover premium',
-      valueType: 'STRING'
+      valueType: 'STRING',
     },
     {
       key: 'ncb_slabs',
       value: '[0, 20, 25, 35, 45, 50]',
       description: 'Standard NCB slabs',
-      valueType: 'JSON'
-    }
+      valueType: 'JSON',
+    },
   ];
 
   for (const config of configs) {
-    await prisma.systemConfig.upsert({
+    await client.systemConfig.upsert({
       where: { key: config.key },
       update: {
         value: typeof config.value === 'string' ? config.value : JSON.stringify(config.value),
@@ -59,18 +59,466 @@ async function main() {
         value: typeof config.value === 'string' ? config.value : JSON.stringify(config.value),
         description: config.description,
         valueType: config.valueType,
-      }
+      },
     });
   }
 
-  console.log('Motor configuration seeding completed.');
+  // Seed statutory IRDAI motor_tariffs table records
+  const statutoryTariffs = [
+    // TRACTOR
+    {
+      vehicleCategory: VehicleCategory.TRACTOR,
+      vehicleSubCategory: 'AGRICULTURAL_TRACTOR',
+      policyType: 'TP_ONLY',
+      annualPremium: 3472,
+      effectiveFrom: new Date('2024-04-01'),
+      effectiveTo: null,
+      source: 'IRDAI/NL/NTFN/MOTP/2024-25',
+      version: '2024-25',
+      isActive: true,
+      isVerified: true,
+    },
+    {
+      vehicleCategory: VehicleCategory.TRACTOR,
+      vehicleSubCategory: 'AGRICULTURAL_TRACTOR',
+      policyType: 'PACKAGE',
+      annualPremium: 3472,
+      effectiveFrom: new Date('2024-04-01'),
+      effectiveTo: null,
+      source: 'IRDAI/NL/NTFN/MOTP/2024-25',
+      version: '2024-25',
+      isActive: true,
+      isVerified: true,
+    },
+    // PRIVATE_CAR
+    {
+      vehicleCategory: VehicleCategory.PRIVATE_CAR,
+      vehicleSubCategory: 'UPTO_1000CC',
+      engineCcMin: 0,
+      engineCcMax: 1000,
+      policyType: 'TP_ONLY',
+      annualPremium: 2094,
+      effectiveFrom: new Date('2024-04-01'),
+      effectiveTo: null,
+      source: 'IRDAI/NL/NTFN/MOTP/2024-25',
+      version: '2024-25',
+      isActive: true,
+      isVerified: true,
+    },
+    {
+      vehicleCategory: VehicleCategory.PRIVATE_CAR,
+      vehicleSubCategory: 'UPTO_1000CC',
+      engineCcMin: 0,
+      engineCcMax: 1000,
+      policyType: 'PACKAGE',
+      annualPremium: 2094,
+      effectiveFrom: new Date('2024-04-01'),
+      effectiveTo: null,
+      source: 'IRDAI/NL/NTFN/MOTP/2024-25',
+      version: '2024-25',
+      isActive: true,
+      isVerified: true,
+    },
+    {
+      vehicleCategory: VehicleCategory.PRIVATE_CAR,
+      vehicleSubCategory: '1001_TO_1500CC',
+      engineCcMin: 1001,
+      engineCcMax: 1500,
+      policyType: 'TP_ONLY',
+      annualPremium: 3416,
+      effectiveFrom: new Date('2024-04-01'),
+      effectiveTo: null,
+      source: 'IRDAI/NL/NTFN/MOTP/2024-25',
+      version: '2024-25',
+      isActive: true,
+      isVerified: true,
+    },
+    {
+      vehicleCategory: VehicleCategory.PRIVATE_CAR,
+      vehicleSubCategory: '1001_TO_1500CC',
+      engineCcMin: 1001,
+      engineCcMax: 1500,
+      policyType: 'PACKAGE',
+      annualPremium: 3416,
+      effectiveFrom: new Date('2024-04-01'),
+      effectiveTo: null,
+      source: 'IRDAI/NL/NTFN/MOTP/2024-25',
+      version: '2024-25',
+      isActive: true,
+      isVerified: true,
+    },
+    {
+      vehicleCategory: VehicleCategory.PRIVATE_CAR,
+      vehicleSubCategory: 'ABOVE_1500CC',
+      engineCcMin: 1501,
+      engineCcMax: null,
+      policyType: 'TP_ONLY',
+      annualPremium: 7897,
+      effectiveFrom: new Date('2024-04-01'),
+      effectiveTo: null,
+      source: 'IRDAI/NL/NTFN/MOTP/2024-25',
+      version: '2024-25',
+      isActive: true,
+      isVerified: true,
+    },
+    {
+      vehicleCategory: VehicleCategory.PRIVATE_CAR,
+      vehicleSubCategory: 'ABOVE_1500CC',
+      engineCcMin: 1501,
+      engineCcMax: null,
+      policyType: 'PACKAGE',
+      annualPremium: 7897,
+      effectiveFrom: new Date('2024-04-01'),
+      effectiveTo: null,
+      source: 'IRDAI/NL/NTFN/MOTP/2024-25',
+      version: '2024-25',
+      isActive: true,
+      isVerified: true,
+    },
+    // BIKE
+    {
+      vehicleCategory: VehicleCategory.BIKE,
+      vehicleSubCategory: 'UPTO_75CC',
+      engineCcMin: 0,
+      engineCcMax: 75,
+      policyType: 'TP_ONLY',
+      annualPremium: 538,
+      effectiveFrom: new Date('2024-04-01'),
+      effectiveTo: null,
+      source: 'IRDAI/NL/NTFN/MOTP/2024-25',
+      version: '2024-25',
+      isActive: true,
+      isVerified: true,
+    },
+    {
+      vehicleCategory: VehicleCategory.BIKE,
+      vehicleSubCategory: 'UPTO_75CC',
+      engineCcMin: 0,
+      engineCcMax: 75,
+      policyType: 'PACKAGE',
+      annualPremium: 538,
+      effectiveFrom: new Date('2024-04-01'),
+      effectiveTo: null,
+      source: 'IRDAI/NL/NTFN/MOTP/2024-25',
+      version: '2024-25',
+      isActive: true,
+      isVerified: true,
+    },
+    {
+      vehicleCategory: VehicleCategory.BIKE,
+      vehicleSubCategory: '76_TO_150CC',
+      engineCcMin: 76,
+      engineCcMax: 150,
+      policyType: 'TP_ONLY',
+      annualPremium: 714,
+      effectiveFrom: new Date('2024-04-01'),
+      effectiveTo: null,
+      source: 'IRDAI/NL/NTFN/MOTP/2024-25',
+      version: '2024-25',
+      isActive: true,
+      isVerified: true,
+    },
+    {
+      vehicleCategory: VehicleCategory.BIKE,
+      vehicleSubCategory: '76_TO_150CC',
+      engineCcMin: 76,
+      engineCcMax: 150,
+      policyType: 'PACKAGE',
+      annualPremium: 714,
+      effectiveFrom: new Date('2024-04-01'),
+      effectiveTo: null,
+      source: 'IRDAI/NL/NTFN/MOTP/2024-25',
+      version: '2024-25',
+      isActive: true,
+      isVerified: true,
+    },
+    {
+      vehicleCategory: VehicleCategory.BIKE,
+      vehicleSubCategory: '151_TO_350CC',
+      engineCcMin: 151,
+      engineCcMax: 350,
+      policyType: 'TP_ONLY',
+      annualPremium: 1366,
+      effectiveFrom: new Date('2024-04-01'),
+      effectiveTo: null,
+      source: 'IRDAI/NL/NTFN/MOTP/2024-25',
+      version: '2024-25',
+      isActive: true,
+      isVerified: true,
+    },
+    {
+      vehicleCategory: VehicleCategory.BIKE,
+      vehicleSubCategory: '151_TO_350CC',
+      engineCcMin: 151,
+      engineCcMax: 350,
+      policyType: 'PACKAGE',
+      annualPremium: 1366,
+      effectiveFrom: new Date('2024-04-01'),
+      effectiveTo: null,
+      source: 'IRDAI/NL/NTFN/MOTP/2024-25',
+      version: '2024-25',
+      isActive: true,
+      isVerified: true,
+    },
+    {
+      vehicleCategory: VehicleCategory.BIKE,
+      vehicleSubCategory: 'ABOVE_350CC',
+      engineCcMin: 351,
+      engineCcMax: null,
+      policyType: 'TP_ONLY',
+      annualPremium: 2804,
+      effectiveFrom: new Date('2024-04-01'),
+      effectiveTo: null,
+      source: 'IRDAI/NL/NTFN/MOTP/2024-25',
+      version: '2024-25',
+      isActive: true,
+      isVerified: true,
+    },
+    {
+      vehicleCategory: VehicleCategory.BIKE,
+      vehicleSubCategory: 'ABOVE_350CC',
+      engineCcMin: 351,
+      engineCcMax: null,
+      policyType: 'PACKAGE',
+      annualPremium: 2804,
+      effectiveFrom: new Date('2024-04-01'),
+      effectiveTo: null,
+      source: 'IRDAI/NL/NTFN/MOTP/2024-25',
+      version: '2024-25',
+      isActive: true,
+      isVerified: true,
+    },
+    // GCV
+    {
+      vehicleCategory: VehicleCategory.GCV,
+      vehicleSubCategory: 'UPTO_7500KG',
+      gvwMin: 0,
+      gvwMax: 7500,
+      policyType: 'TP_ONLY',
+      annualPremium: 16049,
+      effectiveFrom: new Date('2024-04-01'),
+      effectiveTo: null,
+      source: 'IRDAI/NL/NTFN/MOTP/2024-25',
+      version: '2024-25',
+      isActive: true,
+      isVerified: true,
+    },
+    {
+      vehicleCategory: VehicleCategory.GCV,
+      vehicleSubCategory: 'UPTO_7500KG',
+      gvwMin: 0,
+      gvwMax: 7500,
+      policyType: 'PACKAGE',
+      annualPremium: 16049,
+      effectiveFrom: new Date('2024-04-01'),
+      effectiveTo: null,
+      source: 'IRDAI/NL/NTFN/MOTP/2024-25',
+      version: '2024-25',
+      isActive: true,
+      isVerified: true,
+    },
+    {
+      vehicleCategory: VehicleCategory.GCV,
+      vehicleSubCategory: '7501_TO_12000KG',
+      gvwMin: 7501,
+      gvwMax: 12000,
+      policyType: 'TP_ONLY',
+      annualPremium: 27186,
+      effectiveFrom: new Date('2024-04-01'),
+      effectiveTo: null,
+      source: 'IRDAI/NL/NTFN/MOTP/2024-25',
+      version: '2024-25',
+      isActive: true,
+      isVerified: true,
+    },
+    {
+      vehicleCategory: VehicleCategory.GCV,
+      vehicleSubCategory: '7501_TO_12000KG',
+      gvwMin: 7501,
+      gvwMax: 12000,
+      policyType: 'PACKAGE',
+      annualPremium: 27186,
+      effectiveFrom: new Date('2024-04-01'),
+      effectiveTo: null,
+      source: 'IRDAI/NL/NTFN/MOTP/2024-25',
+      version: '2024-25',
+      isActive: true,
+      isVerified: true,
+    },
+    {
+      vehicleCategory: VehicleCategory.GCV,
+      vehicleSubCategory: 'ABOVE_12000KG',
+      gvwMin: 12001,
+      gvwMax: null,
+      policyType: 'TP_ONLY',
+      annualPremium: 35313,
+      effectiveFrom: new Date('2024-04-01'),
+      effectiveTo: null,
+      source: 'IRDAI/NL/NTFN/MOTP/2024-25',
+      version: '2024-25',
+      isActive: true,
+      isVerified: true,
+    },
+    {
+      vehicleCategory: VehicleCategory.GCV,
+      vehicleSubCategory: 'ABOVE_12000KG',
+      gvwMin: 12001,
+      gvwMax: null,
+      policyType: 'PACKAGE',
+      annualPremium: 35313,
+      effectiveFrom: new Date('2024-04-01'),
+      effectiveTo: null,
+      source: 'IRDAI/NL/NTFN/MOTP/2024-25',
+      version: '2024-25',
+      isActive: true,
+      isVerified: true,
+    },
+    // AUTO
+    {
+      vehicleCategory: VehicleCategory.AUTO,
+      vehicleSubCategory: 'PASSENGER_3W',
+      policyType: 'TP_ONLY',
+      annualPremium: 2539,
+      effectiveFrom: new Date('2024-04-01'),
+      effectiveTo: null,
+      source: 'IRDAI/NL/NTFN/MOTP/2024-25',
+      version: '2024-25',
+      isActive: true,
+      isVerified: true,
+    },
+    {
+      vehicleCategory: VehicleCategory.AUTO,
+      vehicleSubCategory: 'PASSENGER_3W',
+      policyType: 'PACKAGE',
+      annualPremium: 2539,
+      effectiveFrom: new Date('2024-04-01'),
+      effectiveTo: null,
+      source: 'IRDAI/NL/NTFN/MOTP/2024-25',
+      version: '2024-25',
+      isActive: true,
+      isVerified: true,
+    },
+    // TAXI
+    {
+      vehicleCategory: VehicleCategory.TAXI,
+      vehicleSubCategory: '4W_TAXI',
+      policyType: 'TP_ONLY',
+      annualPremium: 4468,
+      effectiveFrom: new Date('2024-04-01'),
+      effectiveTo: null,
+      source: 'IRDAI/NL/NTFN/MOTP/2024-25',
+      version: '2024-25',
+      isActive: true,
+      isVerified: true,
+    },
+    {
+      vehicleCategory: VehicleCategory.TAXI,
+      vehicleSubCategory: '4W_TAXI',
+      policyType: 'PACKAGE',
+      annualPremium: 4468,
+      effectiveFrom: new Date('2024-04-01'),
+      effectiveTo: null,
+      source: 'IRDAI/NL/NTFN/MOTP/2024-25',
+      version: '2024-25',
+      isActive: true,
+      isVerified: true,
+    },
+    // BUS_COACH
+    {
+      vehicleCategory: VehicleCategory.BUS_COACH,
+      vehicleSubCategory: 'PASSENGER_BUS',
+      policyType: 'TP_ONLY',
+      annualPremium: 14349,
+      effectiveFrom: new Date('2024-04-01'),
+      effectiveTo: null,
+      source: 'IRDAI/NL/NTFN/MOTP/2024-25',
+      version: '2024-25',
+      isActive: true,
+      isVerified: true,
+    },
+    {
+      vehicleCategory: VehicleCategory.BUS_COACH,
+      vehicleSubCategory: 'PASSENGER_BUS',
+      policyType: 'PACKAGE',
+      annualPremium: 14349,
+      effectiveFrom: new Date('2024-04-01'),
+      effectiveTo: null,
+      source: 'IRDAI/NL/NTFN/MOTP/2024-25',
+      version: '2024-25',
+      isActive: true,
+      isVerified: true,
+    },
+    // MISC_CLASS_D
+    {
+      vehicleCategory: VehicleCategory.MISC_CLASS_D,
+      vehicleSubCategory: 'SPECIAL_VEHICLES',
+      policyType: 'TP_ONLY',
+      annualPremium: 5000,
+      effectiveFrom: new Date('2024-04-01'),
+      effectiveTo: null,
+      source: 'IRDAI/NL/NTFN/MOTP/2024-25',
+      version: '2024-25',
+      isActive: true,
+      isVerified: true,
+    },
+    {
+      vehicleCategory: VehicleCategory.MISC_CLASS_D,
+      vehicleSubCategory: 'SPECIAL_VEHICLES',
+      policyType: 'PACKAGE',
+      annualPremium: 5000,
+      effectiveFrom: new Date('2024-04-01'),
+      effectiveTo: null,
+      source: 'IRDAI/NL/NTFN/MOTP/2024-25',
+      version: '2024-25',
+      isActive: true,
+      isVerified: true,
+    },
+  ];
+
+  for (const tariff of statutoryTariffs) {
+    const existing = await client.motorTariff.findFirst({
+      where: {
+        vehicleCategory: tariff.vehicleCategory,
+        policyType: tariff.policyType,
+        vehicleSubCategory: tariff.vehicleSubCategory,
+        engineCcMin: tariff.engineCcMin ?? null,
+        gvwMin: tariff.gvwMin ?? null,
+      },
+    });
+
+    if (existing) {
+      await client.motorTariff.update({
+        where: { id: existing.id },
+        data: {
+          annualPremium: tariff.annualPremium,
+          effectiveFrom: tariff.effectiveFrom,
+          source: tariff.source,
+          version: tariff.version,
+          isActive: tariff.isActive,
+          isVerified: tariff.isVerified,
+        },
+      });
+    } else {
+      await client.motorTariff.create({
+        data: tariff,
+      });
+    }
+  }
+
+  console.log(`- Seeded ${statutoryTariffs.length} statutory IRDAI motor tariffs successfully.`);
 }
 
-main()
-  .catch((e) => {
-    console.error(e);
-    process.exit(1);
-  })
-  .finally(async () => {
-    await prisma.$disconnect();
-  });
+async function main() {
+  await seedMotorConfig(prisma);
+}
+
+if (require.main === module) {
+  main()
+    .catch((e) => {
+      console.error(e);
+      process.exit(1);
+    })
+    .finally(async () => {
+      await prisma.$disconnect();
+    });
+}

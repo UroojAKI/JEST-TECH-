@@ -199,7 +199,9 @@ export default function InsurerMasterAdminPage() {
                       <td className="py-3 px-3 font-mono font-bold text-primary">{ins.code}</td>
                       <td className="py-3 px-3 text-foreground font-bold">{ins.name}</td>
                       <td className="py-3 px-3 text-muted-foreground font-mono">
-                        {ins.irdaiRegistrationNumber || 'IRDAI-REG-9910'}
+                        {ins.irdaiRegistrationNumber || (
+                          <span className="text-muted-foreground/60 italic font-sans text-xs">Not configured</span>
+                        )}
                       </td>
                       <td className="py-3 px-3">
                         <div className="flex flex-wrap gap-1">

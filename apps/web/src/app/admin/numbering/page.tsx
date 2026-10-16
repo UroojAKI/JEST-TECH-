@@ -58,8 +58,8 @@ export default function NumberSeriesPage() {
             </div>
 
             <div className="flex justify-between items-center pt-2 text-[11px]">
-              <span className="text-muted-foreground">Financial Year Auto-Reset:</span>
-              <span className="font-bold text-emerald-600">Enabled (Apr 1st)</span>
+              <span className="text-muted-foreground">Sequence Partitioning:</span>
+              <span className="font-bold text-primary font-mono">Calendar Month ({'{YYYY}-{MM}'})</span>
             </div>
           </div>
         ))}

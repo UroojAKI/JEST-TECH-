@@ -109,5 +109,18 @@ describe('AuditService (G022 Transactional & G023 Immutable Audit Trails)', () =
         }),
       );
     });
+
+    it('allows export queries up to 1000 records without being capped to 100', async () => {
+      mockPrisma.auditLog.count.mockResolvedValue(0);
+      mockPrisma.auditLog.findMany.mockResolvedValue([]);
+
+      await service.exportAuditLogs({ entity: 'Policy', format: 'json' });
+
+      expect(mockPrisma.auditLog.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          take: 1000,
+        }),
+      );
+    });
   });
 });
