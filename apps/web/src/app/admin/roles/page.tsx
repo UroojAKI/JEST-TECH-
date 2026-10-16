@@ -18,6 +18,96 @@ const MODULES = [
   'System Administration',
 ];
 
+const MODULE_CANONICAL_MAP: Record<
+  string,
+  Record<'view' | 'create' | 'update' | 'delete' | 'approve' | 'export', string[]>
+> = {
+  'Customer 360': {
+    view: ['contact:read', 'VIEW_CUSTOMER_360'],
+    create: ['contact:create', 'CREATE_CUSTOMER_360'],
+    update: ['contact:update', 'UPDATE_CUSTOMER_360'],
+    delete: ['contact:delete', 'DELETE_CUSTOMER_360'],
+    approve: ['contact:update', 'APPROVE_CUSTOMER_360'],
+    export: ['contact:read', 'EXPORT_CUSTOMER_360'],
+  },
+  'Lead Workspace': {
+    view: ['lead:read', 'VIEW_LEAD_WORKSPACE'],
+    create: ['lead:create', 'CREATE_LEAD_WORKSPACE'],
+    update: ['lead:update', 'UPDATE_LEAD_WORKSPACE'],
+    delete: ['lead:delete', 'DELETE_LEAD_WORKSPACE'],
+    approve: ['lead:convert', 'APPROVE_LEAD_WORKSPACE'],
+    export: ['lead:read', 'EXPORT_LEAD_WORKSPACE'],
+  },
+  'Quotation Engine': {
+    view: ['quotation:read', 'VIEW_QUOTATION_ENGINE'],
+    create: ['quotation:create', 'CREATE_QUOTATION_ENGINE'],
+    update: ['quotation:update', 'UPDATE_QUOTATION_ENGINE'],
+    delete: ['quotation:reject', 'DELETE_QUOTATION_ENGINE'],
+    approve: ['quotation:approve', 'APPROVE_QUOTATION_ENGINE'],
+    export: ['quotation:export', 'EXPORT_QUOTATION_ENGINE'],
+  },
+  'Proposals & Underwriting': {
+    view: ['policy:read', 'VIEW_PROPOSALS___UNDERWRITING'],
+    create: ['policy:create', 'CREATE_PROPOSALS___UNDERWRITING'],
+    update: ['policy:update', 'UPDATE_PROPOSALS___UNDERWRITING'],
+    delete: ['policy:cancel', 'DELETE_PROPOSALS___UNDERWRITING'],
+    approve: ['policy:issue', 'APPROVE_PROPOSALS___UNDERWRITING'],
+    export: ['policy:export', 'EXPORT_PROPOSALS___UNDERWRITING'],
+  },
+  'Policy Operations': {
+    view: ['policy:read', 'VIEW_POLICY_OPERATIONS'],
+    create: ['policy:create', 'CREATE_POLICY_OPERATIONS'],
+    update: ['policy:update', 'UPDATE_POLICY_OPERATIONS'],
+    delete: ['policy:cancel', 'DELETE_POLICY_OPERATIONS'],
+    approve: ['policy:issue', 'APPROVE_POLICY_OPERATIONS'],
+    export: ['policy:export', 'EXPORT_POLICY_OPERATIONS'],
+  },
+  'Claims Operations': {
+    view: ['claim:read', 'VIEW_CLAIMS_OPERATIONS'],
+    create: ['claim:create', 'CREATE_CLAIMS_OPERATIONS'],
+    update: ['claim:update', 'UPDATE_CLAIMS_OPERATIONS'],
+    delete: ['claim:reject', 'DELETE_CLAIMS_OPERATIONS'],
+    approve: ['claim:approve', 'claim:settle', 'APPROVE_CLAIMS_OPERATIONS'],
+    export: ['claim:export', 'EXPORT_CLAIMS_OPERATIONS'],
+  },
+  'Finance & Accounting': {
+    view: ['commission:read', 'VIEW_FINANCE___ACCOUNTING'],
+    create: ['commission:configure', 'CREATE_FINANCE___ACCOUNTING'],
+    update: ['commission:process', 'UPDATE_FINANCE___ACCOUNTING'],
+    delete: ['commission:process', 'DELETE_FINANCE___ACCOUNTING'],
+    approve: ['commission:process', 'APPROVE_FINANCE___ACCOUNTING'],
+    export: ['commission:export', 'EXPORT_FINANCE___ACCOUNTING'],
+  },
+  'Reports & BI': {
+    view: ['report:read', 'report:view', 'VIEW_REPORTS___BI'],
+    create: ['report:create', 'CREATE_REPORTS___BI'],
+    update: ['report:execute', 'UPDATE_REPORTS___BI'],
+    delete: ['report:export', 'DELETE_REPORTS___BI'],
+    approve: ['report:export', 'APPROVE_REPORTS___BI'],
+    export: ['report:export', 'EXPORT_REPORTS___BI'],
+  },
+  'System Administration': {
+    view: ['user:read', 'audit:read', 'VIEW_SYSTEM_ADMINISTRATION'],
+    create: ['user:create', 'CREATE_SYSTEM_ADMINISTRATION'],
+    update: ['user:update', 'UPDATE_SYSTEM_ADMINISTRATION'],
+    delete: ['user:delete', 'DELETE_SYSTEM_ADMINISTRATION'],
+    approve: ['system:manage', 'APPROVE_SYSTEM_ADMINISTRATION'],
+    export: ['audit:read', 'EXPORT_SYSTEM_ADMINISTRATION'],
+  },
+};
+
+const CANONICAL_SAVE_CODE: Record<string, Record<'view' | 'create' | 'update' | 'delete' | 'approve' | 'export', string>> = {
+  'Customer 360': { view: 'contact:read', create: 'contact:create', update: 'contact:update', delete: 'contact:delete', approve: 'contact:update', export: 'contact:read' },
+  'Lead Workspace': { view: 'lead:read', create: 'lead:create', update: 'lead:update', delete: 'lead:delete', approve: 'lead:convert', export: 'lead:read' },
+  'Quotation Engine': { view: 'quotation:read', create: 'quotation:create', update: 'quotation:update', delete: 'quotation:reject', approve: 'quotation:approve', export: 'quotation:export' },
+  'Proposals & Underwriting': { view: 'policy:read', create: 'policy:create', update: 'policy:update', delete: 'policy:cancel', approve: 'policy:issue', export: 'policy:export' },
+  'Policy Operations': { view: 'policy:read', create: 'policy:create', update: 'policy:update', delete: 'policy:cancel', approve: 'policy:issue', export: 'policy:export' },
+  'Claims Operations': { view: 'claim:read', create: 'claim:create', update: 'claim:update', delete: 'claim:reject', approve: 'claim:approve', export: 'claim:export' },
+  'Finance & Accounting': { view: 'commission:read', create: 'commission:configure', update: 'commission:process', delete: 'commission:process', approve: 'commission:process', export: 'commission:export' },
+  'Reports & BI': { view: 'report:read', create: 'report:create', update: 'report:execute', delete: 'report:export', approve: 'report:export', export: 'report:export' },
+  'System Administration': { view: 'audit:read', create: 'user:create', update: 'user:update', delete: 'user:delete', approve: 'system:manage', export: 'audit:read' },
+};
+
 const CANONICAL_ROLES = [
   { id: 'ADMIN', name: 'System Administrator', designation: 'Tenant Governance & Config' },
   { id: 'BACK_OFFICE', name: 'Back Office Operations', designation: 'Operations, Underwriting, Finance' },
@@ -50,23 +140,19 @@ export default function RolePermissionMatrixPage() {
 
     if (rolePermissions?.permissions && Array.isArray(rolePermissions.permissions)) {
       rolePermissions.permissions.forEach((p: any) => {
-        const matchingMod = MODULES.find((m) => {
-          const slug = m.toUpperCase().replace(/[^A-Z0-9]+/g, '_');
-          return p.code && String(p.code).includes(slug);
-        });
+        const permCode = (p.code || '').toLowerCase();
+        
+        MODULES.forEach((mod) => {
+          const actionMap = MODULE_CANONICAL_MAP[mod];
+          if (!actionMap) return;
 
-        if (matchingMod && initialState[matchingMod]) {
-          let action = (p.action || '').toLowerCase();
-          if (!action && p.code) {
-            const prefix = p.code.split('_')[0].toLowerCase();
-            if (['view', 'create', 'update', 'delete', 'approve', 'export'].includes(prefix)) {
-              action = prefix;
+          (['view', 'create', 'update', 'delete', 'approve', 'export'] as const).forEach((act) => {
+            const matches = actionMap[act].some((candidate) => candidate.toLowerCase() === permCode);
+            if (matches) {
+              initialState[mod][act] = true;
             }
-          }
-          if (['view', 'create', 'update', 'delete', 'approve', 'export'].includes(action)) {
-            (initialState[matchingMod] as any)[action] = true;
-          }
-        }
+          });
+        });
       });
     }
 
@@ -85,14 +171,20 @@ export default function RolePermissionMatrixPage() {
 
   const handleSave = async () => {
     try {
-      const activePermissions: Array<{ permissionId?: string; category?: string; action?: string; scope: string }> = [];
-      // Build permission payload from current matrix
+      const activePermissions: Array<{ code?: string; category?: string; action?: string; scope: string }> = [];
+      // Build permission payload with canonical codes from current matrix
       MODULES.forEach((mod) => {
         const state = permissionsState[mod];
         if (!state) return;
         (['view', 'create', 'update', 'delete', 'approve', 'export'] as const).forEach((act) => {
           if (state[act]) {
-            activePermissions.push({ category: mod, action: act, scope: 'ORGANIZATION' });
+            const canonicalCode = CANONICAL_SAVE_CODE[mod]?.[act] || `${act.toUpperCase()}_${mod.toUpperCase().replace(/[^A-Z0-9]+/g, '_')}`;
+            activePermissions.push({
+              code: canonicalCode,
+              category: mod,
+              action: act,
+              scope: 'ORGANIZATION',
+            });
           }
         });
       });
@@ -101,10 +193,12 @@ export default function RolePermissionMatrixPage() {
         roleId: selectedRole,
         permissions: activePermissions,
       });
+      toast.success(`Saved permissions for role ${selectedRole}`);
     } catch (err: any) {
       toast.error(err.response?.data?.message || 'Failed to save role permissions');
     }
   };
+
 
   return (
     <AppShell>

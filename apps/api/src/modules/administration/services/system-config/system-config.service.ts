@@ -71,6 +71,36 @@ export class SystemConfigService {
     await this.cacheManager.del(`system_config_${key}`);
   }
 
+  async invalidateKey(key: string): Promise<void> {
+    await this.cacheManager.del(`system_config_${key}`);
+  }
+
+  async getAllConfigs(): Promise<Record<string, any>> {
+    const configs = await this.prisma.systemConfig.findMany();
+
+    const result: Record<string, any> = {};
+    for (const config of configs) {
+      switch (config.valueType) {
+        case 'NUMBER':
+          result[config.key] = Number(config.value);
+          break;
+        case 'BOOLEAN':
+          result[config.key] = config.value === 'true';
+          break;
+        case 'JSON':
+          try {
+            result[config.key] = JSON.parse(config.value);
+          } catch {
+            result[config.key] = config.value;
+          }
+          break;
+        default:
+          result[config.key] = config.value;
+      }
+    }
+    return result;
+  }
+
   async getAllPublicConfigs(): Promise<Record<string, any>> {
     const configs = await this.prisma.systemConfig.findMany({
       where: { isPublic: true },
@@ -95,3 +125,4 @@ export class SystemConfigService {
     return result;
   }
 }
+
