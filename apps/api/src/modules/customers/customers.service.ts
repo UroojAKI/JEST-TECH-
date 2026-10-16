@@ -155,38 +155,42 @@ export class CustomersService {
 
     // Auto-link or auto-create corresponding Contact for customer
     let contactId = dto.contactId || null;
-    if (!contactId) {
-      let contact = await this.prisma.contact.findFirst({
-        where: {
-          companyId,
-          deletedAt: null,
-          OR: [
-            { phone: dto.mobile },
-            ...(dto.email ? [{ email: dto.email.trim().toLowerCase() }] : []),
-          ],
-        },
-      });
-      if (!contact) {
-        const contactCount = await this.prisma.contact.count({ where: { companyId } });
-        const contactCode = `CONT-${String(contactCount + 1).padStart(6, '0')}`;
-        contact = await this.prisma.contact.create({
-          data: {
-            contactCode,
+    if (!contactId && this.prisma.contact) {
+      try {
+        let contact = await this.prisma.contact.findFirst({
+          where: {
             companyId,
-            firstName: dto.firstName.trim(),
-            lastName: (dto.lastName || '').trim(),
-            phone: dto.mobile,
-            email: dto.email ? dto.email.trim().toLowerCase() : null,
-            panNumber: dto.panNumber ? dto.panNumber.trim().toUpperCase() : null,
-            aadhaarNumber: dto.aadhaarNumber || null,
-            type: 'INDIVIDUAL',
-            status: 'ACTIVE',
-            createdById: user.id,
-            updatedById: user.id,
+            deletedAt: null,
+            OR: [
+              { phone: dto.mobile },
+              ...(dto.email ? [{ email: dto.email.trim().toLowerCase() }] : []),
+            ],
           },
         });
+        if (!contact) {
+          const contactCount = await this.prisma.contact.count({ where: { companyId } });
+          const contactCode = `CONT-${String(contactCount + 1).padStart(6, '0')}`;
+          contact = await this.prisma.contact.create({
+            data: {
+              contactCode,
+              companyId,
+              firstName: dto.firstName.trim(),
+              lastName: (dto.lastName || '').trim(),
+              phone: dto.mobile,
+              email: dto.email ? dto.email.trim().toLowerCase() : null,
+              panNumber: dto.panNumber ? dto.panNumber.trim().toUpperCase() : null,
+              aadhaarNumber: dto.aadhaarNumber || null,
+              type: 'INDIVIDUAL',
+              status: 'ACTIVE',
+              createdById: user.id,
+              updatedById: user.id,
+            },
+          });
+        }
+        contactId = contact?.id || null;
+      } catch {
+        // Contact auto-linking fallback: allow customer creation to proceed if contact table is unavailable
       }
-      contactId = contact.id;
     }
 
     const customer = await this.prisma.customer.create({

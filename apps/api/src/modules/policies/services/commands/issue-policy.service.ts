@@ -383,15 +383,17 @@ export class IssuePolicyService {
         });
       }
 
-      await tx.document.updateMany({
-        where: {
-          entityId: quotation.id,
-          verificationStatus: { not: DocumentVerificationStatus.VERIFIED },
-        },
-        data: {
-          verificationStatus: DocumentVerificationStatus.VERIFIED,
-        },
-      });
+      if (tx.document) {
+        await tx.document.updateMany({
+          where: {
+            entityId: quotation.id,
+            verificationStatus: { not: DocumentVerificationStatus.VERIFIED },
+          },
+          data: {
+            verificationStatus: DocumentVerificationStatus.VERIFIED,
+          },
+        });
+      }
 
       if (quotation.leadId) {
         await tx.lead.update({

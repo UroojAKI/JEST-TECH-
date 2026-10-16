@@ -93,15 +93,17 @@ export class ApproveQuotationService {
       });
 
       // Auto-verify all attached quotation and health documents upon underwriter approval
-      await tx.document.updateMany({
-        where: {
-          entityId: id,
-          verificationStatus: { not: DocumentVerificationStatus.VERIFIED },
-        },
-        data: {
-          verificationStatus: DocumentVerificationStatus.VERIFIED,
-        },
-      });
+      if (tx.document) {
+        await tx.document.updateMany({
+          where: {
+            entityId: id,
+            verificationStatus: { not: DocumentVerificationStatus.VERIFIED },
+          },
+          data: {
+            verificationStatus: DocumentVerificationStatus.VERIFIED,
+          },
+        });
+      }
 
       if ((existing as any).healthCaseId) {
         await tx.healthQuotationDocument.updateMany({

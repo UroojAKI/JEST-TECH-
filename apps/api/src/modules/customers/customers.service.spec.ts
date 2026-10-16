@@ -57,6 +57,11 @@ describe('CustomersService', () => {
         create: jest.fn(),
         update: jest.fn(),
       },
+      contact: {
+        findFirst: jest.fn().mockResolvedValue(null),
+        count: jest.fn().mockResolvedValue(0),
+        create: jest.fn().mockResolvedValue({ id: 'contact-uuid-1' }),
+      },
     };
 
     const module: TestingModule = await Test.createTestingModule({
