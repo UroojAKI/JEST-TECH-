@@ -4,7 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { AuditAction, QuotationStatus, RoleType } from '@prisma/client';
+import { AuditAction, QuotationStatus, RoleType, DocumentVerificationStatus } from '@prisma/client';
 import { PrismaService } from '../../../../database/prisma.service';
 import { QuotationRepository } from '../../repositories/quotation.repository';
 import { QuotationMapper } from '../../mappers/quotation.mapper';
@@ -14,7 +14,7 @@ export class ApproveQuotationService {
   constructor(
     private readonly quotationRepository: QuotationRepository,
     private readonly prisma: PrismaService,
-  ) {}
+  ) { }
 
   async execute(
     id: string,
@@ -29,10 +29,11 @@ export class ApproveQuotationService {
 
     if (
       existing.status !== QuotationStatus.PENDING_APPROVAL &&
-      existing.status !== QuotationStatus.DRAFT
+      existing.status !== QuotationStatus.DRAFT &&
+      existing.status !== QuotationStatus.ACCEPTED
     ) {
       throw new BadRequestException(
-        `Cannot approve quotation in status ${existing.status}. Must be DRAFT or PENDING_APPROVAL.`,
+        `Cannot approve quotation in status ${existing.status}. Must be DRAFT, PENDING_APPROVAL, or ACCEPTED.`,
       );
     }
 
@@ -83,6 +84,34 @@ export class ApproveQuotationService {
           updatedById: approvedById,
         },
       });
+
+      // Auto-verify all attached quotation and health documents upon underwriter approval
+      await tx.document.updateMany({
+        where: {
+          entityId: id,
+          verificationStatus: { not: DocumentVerificationStatus.VERIFIED },
+        },
+        data: {
+          verificationStatus: DocumentVerificationStatus.VERIFIED,
+        },
+      });
+
+      if ((existing as any).healthCaseId) {
+        await tx.healthQuotationDocument.updateMany({
+          where: {
+            OR: [
+              { quotationId: id },
+              { caseId: (existing as any).healthCaseId },
+            ],
+            verificationStatus: { not: DocumentVerificationStatus.VERIFIED },
+          },
+          data: {
+            verificationStatus: DocumentVerificationStatus.VERIFIED,
+            verifiedById: approvedById,
+            verifiedAt: new Date(),
+          },
+        });
+      }
 
       await tx.quotationHistory.create({
         data: {

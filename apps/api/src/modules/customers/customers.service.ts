@@ -150,6 +150,42 @@ export class CustomersService {
       customerCode = `CUST-${String(nextNum).padStart(6, '0')}`;
     }
 
+    // Auto-link or auto-create corresponding Contact for customer
+    let contactId = dto.contactId || null;
+    if (!contactId) {
+      let contact = await this.prisma.contact.findFirst({
+        where: {
+          companyId,
+          deletedAt: null,
+          OR: [
+            { phone: dto.mobile },
+            ...(dto.email ? [{ email: dto.email.trim().toLowerCase() }] : []),
+          ],
+        },
+      });
+      if (!contact) {
+        const contactCount = await this.prisma.contact.count({ where: { companyId } });
+        const contactCode = `CONT-${String(contactCount + 1).padStart(6, '0')}`;
+        contact = await this.prisma.contact.create({
+          data: {
+            contactCode,
+            companyId,
+            firstName: dto.firstName.trim(),
+            lastName: (dto.lastName || '').trim(),
+            phone: dto.mobile,
+            email: dto.email ? dto.email.trim().toLowerCase() : null,
+            panNumber: dto.panNumber ? dto.panNumber.trim().toUpperCase() : null,
+            aadhaarNumber: dto.aadhaarNumber || null,
+            type: 'INDIVIDUAL',
+            status: 'ACTIVE',
+            createdById: user.id,
+            updatedById: user.id,
+          },
+        });
+      }
+      contactId = contact.id;
+    }
+
     const customer = await this.prisma.customer.create({
       data: {
         companyId,
@@ -167,7 +203,7 @@ export class CustomersService {
         state: dto.state || null,
         pincode: dto.pincode || null,
         isVip: dto.isVip || false,
-        contactId: dto.contactId || null,
+        contactId,
         createdById: user.id,
       },
     });

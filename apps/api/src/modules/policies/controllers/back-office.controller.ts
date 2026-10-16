@@ -59,7 +59,6 @@ export class BackOfficeController {
     const policy = await this.issuePolicyService.execute(
       {
         quotationId,
-        productLine: 'Motor Policy',
       },
       user.id,
       user,

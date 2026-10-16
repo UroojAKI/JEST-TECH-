@@ -20,6 +20,7 @@ import { HealthPremiumService } from '../services/health-premium.service';
 import {
   AddHealthQuoteDto,
   CreateHealthQuotationCaseDto,
+  RecordHealthPaymentDto,
   SelectHealthQuoteDto,
 } from '../dto/health-quotation-case.dto';
 
@@ -90,5 +91,24 @@ export class HealthQuotationCaseController {
       commissionPercent: dto.commissionPercent,
       riderCommissionPercent: dto.riderCommissionPercent,
     });
+  }
+
+  @Post(':id/payment')
+  @ApiOperation({ summary: 'Record or verify payment for the selected quote in the health case' })
+  recordPayment(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: RecordHealthPaymentDto,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.caseService.recordPayment(id, dto, user);
+  }
+
+  @Get(':id/payment')
+  @ApiOperation({ summary: 'Get payment record for the health case' })
+  getPayment(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.caseService.getPayment(id, user);
   }
 }

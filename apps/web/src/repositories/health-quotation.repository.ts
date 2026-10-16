@@ -3,8 +3,37 @@ import { documentsRepository } from './documents.repository';
 
 export const healthQuotationRepository = {
   async getContact(contactId: string): Promise<any> {
-    const response = await apiClient.get(`/contacts/${contactId}`);
-    return response.data;
+    try {
+      const response = await apiClient.get(`/contacts/${contactId}`);
+      return response.data;
+    } catch (err: any) {
+      if (err?.response?.status === 404) {
+        try {
+          const custRes = await apiClient.get(`/customers/${contactId}`);
+          const cust = custRes.data?.data || custRes.data;
+          if (cust) {
+            return {
+              id: cust.contactId || cust.id,
+              contactCode: cust.customerCode,
+              firstName: cust.firstName,
+              lastName: cust.lastName || '',
+              phone: cust.mobile,
+              email: cust.email,
+              panNumber: cust.panNumber,
+              aadhaarNumber: cust.aadhaarNumber,
+              addressLine1: cust.addressLine1,
+              addressLine2: cust.addressLine2,
+              city: cust.city,
+              state: cust.state,
+              pincode: cust.pincode,
+            };
+          }
+        } catch {
+          // Re-throw original error
+        }
+      }
+      throw err;
+    }
   },
 
   async createCase(payload: Record<string, any>): Promise<any> {
@@ -55,6 +84,16 @@ export const healthQuotationRepository = {
       documentType,
       ...(quotationId ? { quotationId } : {}),
     });
+    return response.data;
+  },
+
+  async recordPayment(caseId: string, payload: Record<string, any>): Promise<any> {
+    const response = await apiClient.post(`/health/quotation-cases/${caseId}/payment`, payload);
+    return response.data;
+  },
+
+  async getPayment(caseId: string): Promise<any> {
+    const response = await apiClient.get(`/health/quotation-cases/${caseId}/payment`);
     return response.data;
   },
 };

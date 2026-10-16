@@ -17,6 +17,7 @@ import {
   ThumbsDown,
   Search,
   ExternalLink,
+  HeartPulse,
 } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
@@ -344,31 +345,51 @@ export function MotorIssuanceQueue() {
                       <span>Customer KYC: {item.gates.customer.status}</span>
                     </div>
 
-                    {/* Vehicle Gate */}
-                    <div
-                      className={`flex items-center gap-1 px-2 py-1 rounded-md border text-[11px] ${
-                        item.gates.vehicle.passed
-                          ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-700 dark:text-emerald-300'
-                          : 'bg-red-500/10 border-red-500/30 text-red-700 dark:text-red-300'
-                      }`}
-                      title={item.gates.vehicle.detail}
-                    >
-                      <Car className="h-3.5 w-3.5" />
-                      <span>Vehicle Specs: {item.gates.vehicle.status}</span>
-                    </div>
+                    {/* Vehicle Gate / Health Plan Gate */}
+                    {item.productType === 'HEALTH' ? (
+                      <div
+                        className="flex items-center gap-1 px-2 py-1 rounded-md border text-[11px] bg-emerald-500/10 border-emerald-500/30 text-emerald-700 dark:text-emerald-300"
+                        title={item.gates.vehicle.detail || 'Health plan coverage verified'}
+                      >
+                        <HeartPulse className="h-3.5 w-3.5 text-rose-500" />
+                        <span>Health Plan: READY</span>
+                      </div>
+                    ) : (
+                      <div
+                        className={`flex items-center gap-1 px-2 py-1 rounded-md border text-[11px] ${
+                          item.gates.vehicle.passed
+                            ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-700 dark:text-emerald-300'
+                            : 'bg-red-500/10 border-red-500/30 text-red-700 dark:text-red-300'
+                        }`}
+                        title={item.gates.vehicle.detail}
+                      >
+                        <Car className="h-3.5 w-3.5" />
+                        <span>Vehicle Specs: {item.gates.vehicle.status}</span>
+                      </div>
+                    )}
 
                     {/* Inspection Gate */}
-                    <div
-                      className={`flex items-center gap-1 px-2 py-1 rounded-md border text-[11px] ${
-                        item.gates.inspection.passed
-                          ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-700 dark:text-emerald-300'
-                          : 'bg-amber-500/10 border-amber-500/30 text-amber-700 dark:text-amber-300'
-                      }`}
-                      title={item.gates.inspection.detail}
-                    >
-                      <ShieldCheck className="h-3.5 w-3.5" />
-                      <span>Inspection: {item.gates.inspection.status}</span>
-                    </div>
+                    {item.productType === 'HEALTH' ? (
+                      <div
+                        className="flex items-center gap-1 px-2 py-1 rounded-md border text-[11px] bg-emerald-500/10 border-emerald-500/30 text-emerald-700 dark:text-emerald-300"
+                        title={item.gates.inspection.detail || 'Medical checkup waived / not required'}
+                      >
+                        <ShieldCheck className="h-3.5 w-3.5" />
+                        <span>Underwriting: EXEMPT</span>
+                      </div>
+                    ) : (
+                      <div
+                        className={`flex items-center gap-1 px-2 py-1 rounded-md border text-[11px] ${
+                          item.gates.inspection.passed
+                            ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-700 dark:text-emerald-300'
+                            : 'bg-amber-500/10 border-amber-500/30 text-amber-700 dark:text-amber-300'
+                        }`}
+                        title={item.gates.inspection.detail}
+                      >
+                        <ShieldCheck className="h-3.5 w-3.5" />
+                        <span>Inspection: {item.gates.inspection.status}</span>
+                      </div>
+                    )}
 
                     {/* Payment Gate */}
                     <div
@@ -444,7 +465,7 @@ export function MotorIssuanceQueue() {
                   )}
 
                   {/* Inspection Link */}
-                  {!item.gates.inspection.passed && (
+                  {item.productType !== 'HEALTH' && !item.gates.inspection.passed && (
                     <Link
                       href="/workspace/operations?tab=inspections"
                       className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md border border-purple-500/30 bg-purple-500/10 text-purple-700 dark:text-purple-400 text-xs font-bold hover:bg-purple-500/20 transition"

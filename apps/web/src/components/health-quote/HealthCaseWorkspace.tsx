@@ -3,7 +3,21 @@
 import React, { useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { CheckCircle2, FileText, HeartPulse, Loader2, Plus, Trash2, UploadCloud } from 'lucide-react';
+import {
+  AlertCircle,
+  CheckCircle2,
+  Clock,
+  FileText,
+  HeartPulse,
+  Loader2,
+  Plus,
+  ShieldCheck,
+  Trash2,
+  UploadCloud,
+  Wallet,
+  X,
+} from 'lucide-react';
+import { useAuthStore } from '../../store/auth-store';
 import { healthApiError, healthQuotationRepository } from '../../repositories/health-quotation.repository';
 import {
   NOMINEE_RELATIONS,
@@ -84,6 +98,21 @@ export function HealthCaseWorkspace({ caseId }: { caseId: string }) {
     }
   };
 
+  const user = useAuthStore((s) => s.user);
+  const isBackOfficeOrAdmin =
+    user?.role === 'ADMIN' ||
+    user?.role === 'BACK_OFFICE' ||
+    Boolean(user?.roles?.includes('ADMIN' as any) || user?.roles?.includes('BACK_OFFICE' as any));
+
+  const [paymentModalOpen, setPaymentModalOpen] = useState(false);
+  const [paymentForm, setPaymentForm] = useState({
+    amount: '',
+    paymentMethod: 'UPI',
+    referenceNumber: '',
+    status: (isBackOfficeOrAdmin ? 'PAID' : 'UNDER_PROCESS') as 'PAID' | 'UNDER_PROCESS',
+    notes: '',
+  });
+
   const selectMutation = useMutation({
     mutationFn: (quotationId: string) => healthQuotationRepository.selectQuote(caseId, quotationId),
     onSuccess: () => {
@@ -93,12 +122,41 @@ export function HealthCaseWorkspace({ caseId }: { caseId: string }) {
     onError: (err) => toast.error(healthApiError(err, 'Could not select quote')),
   });
 
+  const recordPaymentMutation = useMutation({
+    mutationFn: (payload: any) => healthQuotationRepository.recordPayment(caseId, payload),
+    onSuccess: () => {
+      toast.success('Payment recorded successfully');
+      setPaymentModalOpen(false);
+      refresh();
+    },
+    onError: (err) => toast.error(healthApiError(err, 'Failed to record payment')),
+  });
+
   if (caseQuery.isLoading) return <div className="p-8 text-center text-xs text-muted-foreground animate-pulse">Loading Health proposal...</div>;
   if (caseQuery.isError || !caseQuery.data) return <div className="p-8 text-center text-xs text-rose-500">Health proposal not found.</div>;
 
   const hc = caseQuery.data;
   const checklist = checklistQuery.data;
   const canQuote = hc.status === 'OPEN' || hc.status === 'QUOTED';
+
+  const selectedQuote = hc.selectedQuote || hc.quotations?.find((q: any) => q.id === hc.selectedQuoteId);
+  const paymentRecord = selectedQuote?.motorPaymentRecord;
+  const paymentStatus = paymentRecord?.status || 'NOT_DONE';
+
+  const openPaymentModal = (quote: any) => {
+    const prem = quote?.healthMetadata?.premium?.totalPremium ?? quote?.totalPremium ?? 0;
+    const existing = quote?.motorPaymentRecord;
+    setPaymentForm({
+      amount: existing?.amount ? String(existing.amount) : String(prem),
+      paymentMethod: existing?.paymentMethod || 'UPI',
+      referenceNumber: existing?.referenceNumber || '',
+      status: isBackOfficeOrAdmin
+        ? (existing?.status === 'PAID' ? 'PAID' : 'PAID')
+        : 'UNDER_PROCESS',
+      notes: existing?.notes || '',
+    });
+    setPaymentModalOpen(true);
+  };
 
   return (
     <div className="max-w-5xl mx-auto space-y-5">
@@ -115,7 +173,30 @@ export function HealthCaseWorkspace({ caseId }: { caseId: string }) {
             </p>
           </div>
         </div>
-        <span className="px-3 py-1 rounded-full text-[11px] font-black bg-primary/10 text-primary">{hc.status}</span>
+        <div className="flex items-center gap-2">
+          {selectedQuote && (
+            <>
+              {paymentStatus === 'PAID' ? (
+                <span className="px-3 py-1 rounded-full text-[11px] font-black bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 flex items-center gap-1">
+                  <CheckCircle2 className="h-3.5 w-3.5" /> Paid & Reconciled
+                </span>
+              ) : paymentStatus === 'UNDER_PROCESS' ? (
+                <span className="px-3 py-1 rounded-full text-[11px] font-black bg-amber-500/10 text-amber-600 border border-amber-500/20 flex items-center gap-1">
+                  <Clock className="h-3.5 w-3.5" /> Payment Under Verification
+                </span>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => openPaymentModal(selectedQuote)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-primary text-primary-foreground text-[11px] font-bold hover:bg-primary/90 transition shadow-sm"
+                >
+                  <Wallet className="h-3.5 w-3.5" /> Record Payment
+                </button>
+              )}
+            </>
+          )}
+          <span className="px-3 py-1 rounded-full text-[11px] font-black bg-primary/10 text-primary">{hc.status}</span>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
@@ -242,6 +323,59 @@ export function HealthCaseWorkspace({ caseId }: { caseId: string }) {
                     </div>
                   ))}
                 </div>
+                {selected && (
+                  <div className="pt-2 border-t space-y-2">
+                    {q.motorPaymentRecord?.status === 'PAID' ? (
+                      <div className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-700 space-y-1">
+                        <div className="flex items-center justify-between font-bold">
+                          <span className="flex items-center gap-1">
+                            <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" /> Premium Paid & Reconciled
+                          </span>
+                          <span className="font-mono">{inr(Number(q.motorPaymentRecord.amount))}</span>
+                        </div>
+                        <div className="text-[10px] text-muted-foreground flex flex-wrap gap-x-2">
+                          <span>Mode: <b>{q.motorPaymentRecord.paymentMethod}</b></span>
+                          <span>Ref: <b className="font-mono">{q.motorPaymentRecord.referenceNumber}</b></span>
+                          {q.motorPaymentRecord.paidAt && (
+                            <span>Date: <b>{new Date(q.motorPaymentRecord.paidAt).toLocaleDateString('en-IN')}</b></span>
+                          )}
+                        </div>
+                      </div>
+                    ) : q.motorPaymentRecord?.status === 'UNDER_PROCESS' ? (
+                      <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-700 space-y-1">
+                        <div className="flex items-center justify-between font-bold">
+                          <span className="flex items-center gap-1">
+                            <Clock className="h-3.5 w-3.5 text-amber-600" /> Payment Under Verification
+                          </span>
+                          <span className="font-mono">{inr(Number(q.motorPaymentRecord.amount))}</span>
+                        </div>
+                        <div className="text-[10px] text-muted-foreground flex flex-wrap gap-x-2">
+                          <span>Mode: <b>{q.motorPaymentRecord.paymentMethod}</b></span>
+                          <span>Ref: <b className="font-mono">{q.motorPaymentRecord.referenceNumber}</b></span>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="p-2.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-700 flex items-center justify-between">
+                        <span className="flex items-center gap-1 font-bold">
+                          <AlertCircle className="h-3.5 w-3.5 text-rose-600" /> Payment Pending
+                        </span>
+                        <span className="text-[10px] text-muted-foreground">Due: {inr(p.totalPremium || q.totalPremium)}</span>
+                      </div>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => openPaymentModal(q)}
+                      className="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/90 transition shadow-sm"
+                    >
+                      <Wallet className="h-3.5 w-3.5" />
+                      {q.motorPaymentRecord?.status === 'PAID'
+                        ? (isBackOfficeOrAdmin ? 'Update Reconciled Payment' : 'View Payment Details')
+                        : q.motorPaymentRecord?.status === 'UNDER_PROCESS'
+                          ? (isBackOfficeOrAdmin ? 'Verify & Mark Paid' : 'Update Payment Details')
+                          : 'Record Payment'}
+                    </button>
+                  </div>
+                )}
                 <div className="flex gap-2 pt-1">
                   <UploadButton
                     label="Upload Quote"
@@ -264,6 +398,80 @@ export function HealthCaseWorkspace({ caseId }: { caseId: string }) {
           })}
         </div>
       </div>
+
+      {selectedQuote && (
+        <div className="p-5 rounded-2xl border bg-card space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 rounded-xl bg-primary/10 text-primary">
+                <Wallet className="h-5 w-5" />
+              </div>
+              <div>
+                <h2 className="font-black text-sm">Premium Payment & Reconciliation</h2>
+                <p className="text-xs text-muted-foreground">
+                  Winning Plan: {selectedQuote.insurerName} ({selectedQuote.quotationCode}) • Sum Insured: {inr(selectedQuote.sumInsured)}
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => openPaymentModal(selectedQuote)}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/90 transition shadow-sm"
+            >
+              <Wallet className="h-4 w-4" />
+              {paymentStatus === 'PAID'
+                ? (isBackOfficeOrAdmin ? 'Update Reconciled Payment' : 'View Payment Record')
+                : paymentStatus === 'UNDER_PROCESS'
+                  ? (isBackOfficeOrAdmin ? 'Verify & Confirm Paid' : 'Update Payment Details')
+                  : 'Record Payment'}
+            </button>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+            <div className="p-3.5 rounded-xl border bg-muted/20 space-y-1">
+              <div className="text-[10px] text-muted-foreground uppercase font-black">Authoritative Premium</div>
+              <div className="font-black text-sm text-foreground">
+                {inr(selectedQuote.healthMetadata?.premium?.totalPremium ?? selectedQuote.totalPremium)}
+              </div>
+            </div>
+            <div className="p-3.5 rounded-xl border bg-muted/20 space-y-1">
+              <div className="text-[10px] text-muted-foreground uppercase font-black">Payment Status</div>
+              <div>
+                {paymentStatus === 'PAID' ? (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black bg-emerald-500/10 text-emerald-600">
+                    <CheckCircle2 className="h-3 w-3" /> PAID & RECONCILED
+                  </span>
+                ) : paymentStatus === 'UNDER_PROCESS' ? (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black bg-amber-500/10 text-amber-600">
+                    <Clock className="h-3 w-3" /> VERIFICATION PENDING
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black bg-rose-500/10 text-rose-600">
+                    <AlertCircle className="h-3 w-3" /> PAYMENT PENDING
+                  </span>
+                )}
+              </div>
+            </div>
+            <div className="p-3.5 rounded-xl border bg-muted/20 space-y-1">
+              <div className="text-[10px] text-muted-foreground uppercase font-black">Payment Method</div>
+              <div className="font-bold text-foreground">
+                {paymentRecord?.paymentMethod || '—'}
+              </div>
+            </div>
+            <div className="p-3.5 rounded-xl border bg-muted/20 space-y-1">
+              <div className="text-[10px] text-muted-foreground uppercase font-black">Ref / UTR Number</div>
+              <div className="font-mono font-bold text-foreground truncate">
+                {paymentRecord?.referenceNumber || '—'}
+              </div>
+            </div>
+          </div>
+          {paymentRecord?.notes && (
+            <div className="text-[11px] text-muted-foreground p-2.5 rounded-xl bg-muted/20 border">
+              <span className="font-bold text-foreground">Remarks:</span> {paymentRecord.notes}
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="p-5 rounded-2xl border bg-card space-y-3">
         <div className="flex items-center justify-between">
@@ -299,6 +507,229 @@ export function HealthCaseWorkspace({ caseId }: { caseId: string }) {
             />
           </div>
         ))}
+      </div>
+
+      {selectedQuote && (
+        <RecordPaymentModal
+          healthCase={hc}
+          selectedQuote={selectedQuote}
+          initialForm={paymentForm}
+          isBackOfficeOrAdmin={isBackOfficeOrAdmin}
+          isOpen={paymentModalOpen}
+          onClose={() => setPaymentModalOpen(false)}
+          onSubmit={(payload) => recordPaymentMutation.mutate(payload)}
+          isPending={recordPaymentMutation.isPending}
+        />
+      )}
+    </div>
+  );
+}
+
+function RecordPaymentModal({
+  healthCase,
+  selectedQuote,
+  initialForm,
+  isBackOfficeOrAdmin,
+  isOpen,
+  onClose,
+  onSubmit,
+  isPending,
+}: {
+  healthCase: any;
+  selectedQuote: any;
+  initialForm: { amount: string; paymentMethod: string; referenceNumber: string; status: 'PAID' | 'UNDER_PROCESS'; notes: string };
+  isBackOfficeOrAdmin: boolean;
+  isOpen: boolean;
+  onClose: () => void;
+  onSubmit: (form: any) => void;
+  isPending: boolean;
+}) {
+  const [form, setForm] = useState(initialForm);
+
+  React.useEffect(() => {
+    setForm(initialForm);
+  }, [initialForm, isOpen]);
+
+  if (!isOpen) return null;
+
+  const quotePremium = selectedQuote?.healthMetadata?.premium?.totalPremium ?? selectedQuote?.totalPremium ?? 0;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+      <div className="bg-card w-full max-w-lg rounded-2xl border shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+        <div className="px-6 py-4 border-b flex items-center justify-between bg-muted/30">
+          <div className="flex items-center gap-2.5">
+            <div className="p-2 rounded-xl bg-primary/10 text-primary">
+              <Wallet className="h-5 w-5" />
+            </div>
+            <div>
+              <h3 className="font-black text-sm tracking-tight">Record / Verify Premium Payment</h3>
+              <p className="text-[11px] text-muted-foreground">
+                Case {healthCase.caseCode} • {selectedQuote.insurerName}
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (!form.referenceNumber?.trim()) {
+              toast.error('Please enter the transaction reference / UTR number');
+              return;
+            }
+            if (!form.amount || Number(form.amount) <= 0) {
+              toast.error('Please enter a valid payment amount');
+              return;
+            }
+            onSubmit({
+              amount: Number(form.amount),
+              paymentMethod: form.paymentMethod,
+              referenceNumber: form.referenceNumber.trim(),
+              status: form.status,
+              notes: form.notes?.trim() || undefined,
+            });
+          }}
+          className="p-6 space-y-4 overflow-y-auto text-xs"
+        >
+          <div className="p-3.5 rounded-xl border bg-muted/20 flex items-center justify-between">
+            <div>
+              <div className="text-[10px] text-muted-foreground uppercase font-black tracking-wider">Total Authoritative Premium</div>
+              <div className="font-black text-base text-foreground mt-0.5">
+                {inr(quotePremium)}
+              </div>
+            </div>
+            <div className="text-right">
+              <div className="text-[10px] text-muted-foreground uppercase font-black tracking-wider">Plan & Quote Code</div>
+              <div className="font-semibold text-foreground text-xs mt-0.5">
+                {selectedQuote.healthMetadata?.planName || selectedQuote.insurerName}
+              </div>
+              <div className="text-[10px] font-mono text-muted-foreground">{selectedQuote.quotationCode}</div>
+            </div>
+          </div>
+
+          <div>
+            <label className="block font-black text-[11px] mb-1">
+              Amount Paid (₹) <span className="text-rose-500">*</span>
+            </label>
+            <input
+              type="number"
+              step="0.01"
+              value={form.amount}
+              onChange={(e) => setForm({ ...form, amount: e.target.value })}
+              className={inputCls}
+              placeholder="e.g. 15000"
+              required
+            />
+            {Math.abs(Number(form.amount) - Number(quotePremium)) > 0.01 && (
+              <p className="text-[10px] text-amber-600 mt-1">
+                Note: Amount differs from quote total premium ({inr(quotePremium)}). Exact reconciliation is mandatory for PAID verification.
+              </p>
+            )}
+          </div>
+
+          <div>
+            <label className="block font-black text-[11px] mb-1">
+              Payment Method <span className="text-rose-500">*</span>
+            </label>
+            <select
+              value={form.paymentMethod}
+              onChange={(e) => setForm({ ...form, paymentMethod: e.target.value })}
+              className={inputCls}
+              required
+            >
+              <option value="UPI">UPI (Google Pay, PhonePe, Paytm, BHIM)</option>
+              <option value="NET_BANKING">Net Banking / Direct Bank Transfer</option>
+              <option value="NEFT">NEFT</option>
+              <option value="RTGS">RTGS</option>
+              <option value="CREDIT_CARD">Credit Card</option>
+              <option value="DEBIT_CARD">Debit Card</option>
+              <option value="CHEQUE">Cheque / Demand Draft</option>
+              <option value="CASH">Cash Deposit</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block font-black text-[11px] mb-1">
+              Transaction Reference / UTR / Cheque No. <span className="text-rose-500">*</span>
+            </label>
+            <input
+              type="text"
+              value={form.referenceNumber}
+              onChange={(e) => setForm({ ...form, referenceNumber: e.target.value })}
+              className={inputCls}
+              placeholder="e.g. UTR / Bank Reference No / UPI Ref ID"
+              required
+            />
+            <p className="text-[10px] text-muted-foreground mt-1">
+              Used for audit trail and finance bank reconciliation.
+            </p>
+          </div>
+
+          <div>
+            <label className="block font-black text-[11px] mb-1">
+              Payment Verification Status <span className="text-rose-500">*</span>
+            </label>
+            {isBackOfficeOrAdmin ? (
+              <select
+                value={form.status}
+                onChange={(e) => setForm({ ...form, status: e.target.value as any })}
+                className={inputCls}
+                required
+              >
+                <option value="PAID">PAID — Verified & Reconciled (Back Office Sign-off)</option>
+                <option value="UNDER_PROCESS">UNDER_PROCESS — Payment Received, Awaiting Reconciliation</option>
+              </select>
+            ) : (
+              <div className="p-3 rounded-xl border bg-muted/20 space-y-1">
+                <div className="flex items-center gap-1.5 font-bold text-amber-600">
+                  <Clock className="h-3.5 w-3.5" />
+                  <span>UNDER_PROCESS (Agent Submission)</span>
+                </div>
+                <p className="text-[10px] text-muted-foreground">
+                  IRDAI Segregation of Duties: Sales agents submit payments for verification. Back Office / Accounts reconciles the UTR and verifies it as PAID.
+                </p>
+              </div>
+            )}
+          </div>
+
+          <div>
+            <label className="block font-black text-[11px] mb-1">Internal Notes / Remarks</label>
+            <textarea
+              rows={2}
+              value={form.notes}
+              onChange={(e) => setForm({ ...form, notes: e.target.value })}
+              className={inputCls}
+              placeholder="e.g. Paid from customer's personal HDFC account"
+            />
+          </div>
+
+          <div className="pt-2 flex items-center justify-end gap-2 border-t">
+            <button
+              type="button"
+              disabled={isPending}
+              onClick={onClose}
+              className="px-4 py-2 rounded-xl border text-xs font-bold hover:bg-muted transition"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={isPending}
+              className="px-5 py-2 rounded-xl bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/90 transition flex items-center gap-1.5 disabled:opacity-50 shadow-sm"
+            >
+              {isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+              {form.status === 'PAID' ? 'Verify & Confirm Paid' : 'Record Payment'}
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   );

@@ -360,3 +360,36 @@ export class VerifyHealthDocumentDto {
   @MaxLength(500)
   rejectionReason?: string;
 }
+
+export class RecordHealthPaymentDto {
+  @ApiPropertyOptional({ example: 12500, description: 'Amount paid in INR' })
+  @IsOptional()
+  @IsNumber()
+  amount?: number;
+
+  @ApiProperty({ example: 'UPI', description: 'Payment method (UPI, NEFT, RTGS, NET_BANKING, CREDIT_CARD, DEBIT_CARD, CHEQUE, CASH)' })
+  @IsString()
+  @IsNotEmpty()
+  paymentMethod: string;
+
+  @ApiProperty({ example: 'UPI123456789012', description: 'Transaction UTR, UPI reference number, or Cheque number' })
+  @IsString()
+  @IsNotEmpty()
+  referenceNumber: string;
+
+  @ApiPropertyOptional({ enum: ['PAID', 'UNDER_PROCESS'], default: 'UNDER_PROCESS' })
+  @IsOptional()
+  @IsIn(['PAID', 'UNDER_PROCESS'])
+  status?: 'PAID' | 'UNDER_PROCESS';
+
+  @ApiPropertyOptional({ example: '2026-10-16T10:00:00.000Z' })
+  @IsOptional()
+  @IsDateString()
+  paidAt?: string;
+
+  @ApiPropertyOptional({ example: 'Customer paid via Google Pay' })
+  @IsOptional()
+  @IsString()
+  notes?: string;
+}
+

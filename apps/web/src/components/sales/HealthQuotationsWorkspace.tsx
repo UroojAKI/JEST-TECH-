@@ -29,11 +29,11 @@ export function HealthQuotationsWorkspace() {
     },
   });
 
-  const { data: contactsData, isLoading: isLoadingContacts } = useQuery({
-    queryKey: ['contacts-search', customerSearchQuery],
+  const { data: customersData = [], isLoading: isLoadingCustomers } = useQuery({
+    queryKey: ['customers-search', customerSearchQuery],
     queryFn: async () => {
       try {
-        const res = await apiClient.get('/contacts', { params: { search: customerSearchQuery, limit: 5 } });
+        const res = await apiClient.get('/customers', { params: { search: customerSearchQuery, limit: 50 } });
         return Array.isArray(res.data) ? res.data : (res.data?.data || res.data?.items || []);
       } catch {
         return [];
@@ -189,21 +189,28 @@ export function HealthQuotationsWorkspace() {
               </div>
             </div>
             <div className="flex-1 overflow-y-auto p-2">
-              {isLoadingContacts ? (
+              {isLoadingCustomers ? (
                 <div className="p-8 text-center text-muted-foreground flex flex-col items-center gap-2">
                   <Loader2 className="h-6 w-6 animate-spin" />
                   <span className="text-sm">Searching customers...</span>
                 </div>
-              ) : contactsData && contactsData.length > 0 ? (
+              ) : customersData && customersData.length > 0 ? (
                 <div className="flex flex-col gap-1">
-                  {contactsData.map((c: any) => (
+                  {customersData.map((c: any) => (
                     <button 
                       key={c.id} 
-                      onClick={() => router.push(`/sales/health-quotations/new?contactId=${c.id}`)}
+                      onClick={() => router.push(`/sales/health-quotations/new?customerId=${c.id}&contactId=${c.contactId || c.id}`)}
                       className="flex flex-col text-left p-3 rounded-lg hover:bg-muted/50 transition-colors"
                     >
-                      <span className="font-semibold">{c.firstName} {c.lastName}</span>
-                      <span className="text-xs text-muted-foreground mt-0.5">{c.phone} {c.email ? `• ${c.email}` : ''}</span>
+                      <div className="flex items-center justify-between">
+                        <span className="font-semibold">{c.firstName} {c.lastName}</span>
+                        {c.customerCode && (
+                          <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
+                            {c.customerCode}
+                          </span>
+                        )}
+                      </div>
+                      <span className="text-xs text-muted-foreground mt-0.5">{c.mobile || c.phone} {c.email ? `• ${c.email}` : ''}</span>
                     </button>
                   ))}
                 </div>

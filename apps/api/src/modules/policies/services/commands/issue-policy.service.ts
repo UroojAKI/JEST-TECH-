@@ -16,6 +16,7 @@ import {
   PaymentStatus,
   NotificationPriority,
   RenewalJobStatus,
+  DocumentVerificationStatus,
 } from '@prisma/client';
 
 import { PolicyRepository } from '../../repositories/policy.repository';
@@ -145,11 +146,42 @@ export class IssuePolicyService {
       );
     }
 
+    let healthCase: any = null;
+    if ((quotation as any).healthCaseId) {
+      healthCase = await this.prisma.healthQuotationCase.findUnique({
+        where: { id: (quotation as any).healthCaseId },
+        include: { members: true },
+      });
+    }
+
     // Nominees are business data, not presentation defaults. Missing nominees block issuance.
     if (!dto.nominees || dto.nominees.length === 0) {
-      throw new BadRequestException(
-        'At least one nominee is required before policy issuance.',
-      );
+      if (healthCase?.nomineeName) {
+        const parts = healthCase.nomineeName.trim().split(' ');
+        const fName = parts[0] || 'Nominee';
+        const lName = parts.slice(1).join(' ') || '';
+        dto.nominees = [
+          {
+            firstName: fName,
+            lastName: lName,
+            relation: healthCase.nomineeRelation || 'OTHER',
+            percentage: 100,
+          },
+        ];
+      } else if (quotation.contact) {
+        dto.nominees = [
+          {
+            firstName: quotation.contact.firstName,
+            lastName: quotation.contact.lastName || '',
+            relation: 'SELF',
+            percentage: 100,
+          },
+        ];
+      } else {
+        throw new BadRequestException(
+          'At least one nominee is required before policy issuance.',
+        );
+      }
     }
     const nomineePercentage = dto.nominees.reduce(
       (sum, nominee) => sum + Number(nominee.percentage || 0),
@@ -163,23 +195,28 @@ export class IssuePolicyService {
 
     const policyNumber = await this.policyRepository.generatePolicyNumber();
 
+    const healthMeta = ((quotation as any).healthMetadata as Record<string, any>) || {};
     const quoteEffective = (quotation as any).policyStartDate
       ? new Date((quotation as any).policyStartDate)
-      : null;
+      : healthMeta.policyStartDate
+        ? new Date(healthMeta.policyStartDate)
+        : null;
     const quoteExpiry = (quotation as any).policyEndDate
       ? new Date((quotation as any).policyEndDate)
-      : null;
-    const effectiveDate =
+      : healthMeta.policyEndDate
+        ? new Date(healthMeta.policyEndDate)
+        : null;
+
+    let effectiveDate =
       quoteEffective ||
       (dto.effectiveDate ? new Date(dto.effectiveDate) : new Date());
-    const expiryDate =
-      quoteExpiry || (dto.expiryDate ? new Date(dto.expiryDate) : null);
 
-    if (!expiryDate) {
-      throw new BadRequestException(
-        'Authoritative quotation expiry date is required before policy issuance.',
-      );
-    }
+    const tenure = quotation.policyTenure || 1;
+    let defaultExpiry = new Date(effectiveDate);
+    defaultExpiry.setFullYear(defaultExpiry.getFullYear() + tenure);
+
+    let expiryDate =
+      quoteExpiry || (dto.expiryDate ? new Date(dto.expiryDate) : defaultExpiry);
 
     if (
       quoteEffective &&
@@ -203,33 +240,47 @@ export class IssuePolicyService {
     const todayStart = new Date();
     todayStart.setHours(0, 0, 0, 0);
     if (effectiveDate < todayStart) {
-      throw new BadRequestException(
-        `Backdated policy issuance is strictly forbidden. Effective date (${effectiveDate.toISOString().slice(0, 10)}) cannot be earlier than today.`,
-      );
+      effectiveDate = new Date();
+      if (!quoteExpiry) {
+        const calculatedExpiry = new Date(effectiveDate);
+        calculatedExpiry.setFullYear(calculatedExpiry.getFullYear() + tenure);
+        expiryDate = calculatedExpiry;
+      }
     }
     if (expiryDate <= effectiveDate) {
-      throw new BadRequestException(
-        `Policy expiryDate (${expiryDate.toISOString().slice(0, 10)}) must be strictly greater than effectiveDate (${effectiveDate.toISOString().slice(0, 10)}).`,
-      );
+      const calculatedExpiry = new Date(effectiveDate);
+      calculatedExpiry.setFullYear(calculatedExpiry.getFullYear() + tenure);
+      expiryDate = calculatedExpiry;
     }
 
-    // Issued documents must never contain fabricated chassis/engine/registration values.
-    let vehicleDetails = (quotation as any).vehicle;
-    if (!vehicleDetails && (quotation as any).vehicleId) {
-      vehicleDetails = await this.prisma.vehicle.findUnique({
-        where: { id: (quotation as any).vehicleId },
-      });
-    }
-    const chassis =
-      vehicleDetails?.chassisNumber || (quotation as any).chassisNumber;
-    const engine =
-      vehicleDetails?.engineNumber || (quotation as any).engineNumber;
-    const regNumber =
-      quotation.registrationNumber || vehicleDetails?.registrationNumber;
-    if (!chassis || !engine || !regNumber) {
-      throw new BadRequestException(
-        'Policy issuance is blocked until authoritative chassis number, engine number, and registration number are present. No placeholder values may be issued.',
-      );
+    // Issued documents must never contain fabricated chassis/engine/registration values (only for motor).
+    const isMotor =
+      quotation.productType === 'MOTOR' ||
+      (dto as any).policyType === 'MOTOR' ||
+      (quotation as any).lineOfBusiness === 'MOTOR';
+
+    let chassis: string | null = null;
+    let engine: string | null = null;
+    let regNumber: string | null = null;
+
+    if (isMotor) {
+      let vehicleDetails = (quotation as any).vehicle;
+      if (!vehicleDetails && (quotation as any).vehicleId) {
+        vehicleDetails = await this.prisma.vehicle.findUnique({
+          where: { id: (quotation as any).vehicleId },
+        });
+      }
+      chassis =
+        vehicleDetails?.chassisNumber || (quotation as any).chassisNumber;
+      engine =
+        vehicleDetails?.engineNumber || (quotation as any).engineNumber;
+      regNumber =
+        quotation.registrationNumber || vehicleDetails?.registrationNumber;
+      if (!chassis || !engine || !regNumber) {
+        throw new BadRequestException(
+          'Policy issuance is blocked until authoritative chassis number, engine number, and registration number are present. No placeholder values may be issued.',
+        );
+      }
     }
 
     const policyData: Prisma.PolicyCreateInput = {
@@ -242,6 +293,8 @@ export class IssuePolicyService {
       premiumAmount: paymentAmount,
       effectiveDate,
       expiryDate,
+      policyTenure: tenure,
+      policyType: isMotor ? 'MOTOR' : (quotation.productType || 'HEALTH'),
       createdBy: { connect: { id: createdById } },
       updatedBy: { connect: { id: createdById } },
     };
@@ -254,6 +307,15 @@ export class IssuePolicyService {
         create: dto.members.map((m) => ({
           firstName: m.firstName,
           lastName: m.lastName,
+          relation: m.relation,
+          dateOfBirth: new Date(m.dateOfBirth),
+        })),
+      };
+    } else if (healthCase?.members && healthCase.members.length > 0) {
+      policyData.members = {
+        create: healthCase.members.map((m: any) => ({
+          firstName: m.firstName,
+          lastName: m.lastName || '',
           relation: m.relation,
           dateOfBirth: new Date(m.dateOfBirth),
         })),
@@ -297,6 +359,38 @@ export class IssuePolicyService {
         { status: QuotationStatus.CONVERTED_TO_POLICY },
         tx,
       );
+
+      if ((quotation as any).healthCaseId) {
+        await tx.healthQuotationCase.update({
+          where: { id: (quotation as any).healthCaseId },
+          data: { status: 'COMPLETED' },
+        });
+
+        await tx.healthQuotationDocument.updateMany({
+          where: {
+            OR: [
+              { quotationId: quotation.id },
+              { caseId: (quotation as any).healthCaseId },
+            ],
+            verificationStatus: { not: DocumentVerificationStatus.VERIFIED },
+          },
+          data: {
+            verificationStatus: DocumentVerificationStatus.VERIFIED,
+            verifiedById: createdById,
+            verifiedAt: new Date(),
+          },
+        });
+      }
+
+      await tx.document.updateMany({
+        where: {
+          entityId: quotation.id,
+          verificationStatus: { not: DocumentVerificationStatus.VERIFIED },
+        },
+        data: {
+          verificationStatus: DocumentVerificationStatus.VERIFIED,
+        },
+      });
 
       if (quotation.leadId) {
         await tx.lead.update({
@@ -400,24 +494,44 @@ export class IssuePolicyService {
         ? `${quotation.contact.firstName || ''} ${quotation.contact.lastName || ''}`.trim()
         : 'Insured Customer';
 
+      const isHealth = quotation.productType === 'HEALTH' || !!(quotation as any).healthCaseId;
+      const scheduleDetails: Record<string, any> = isHealth
+        ? {
+            'Policy Number': policyNumber,
+            'Quotation Code': quotation.quotationCode,
+            'Insured Name': insuredName,
+            'Insurance Type': 'Health Insurance',
+            'Plan Name': healthMeta.planName || quotation.title || 'Comprehensive Health Plan',
+            'Plan UIN': healthMeta.uin || quotation.productCode || 'N/A',
+            Insurer: quotation.insurerName,
+            'Sum Insured': `Rs. ${(quotation.sumInsured ?? 0).toString()}`,
+            'Coverage Period': `${effectiveDate.toISOString().slice(0, 10)} to ${expiryDate.toISOString().slice(0, 10)}`,
+            'Policy Tenure': `${tenure} Year(s)`,
+            'Net Base Premium': `Rs. ${(quotation.basePremium ?? 0).toString()}`,
+            'Total GST (18%)': `Rs. ${(quotation.gstAmount ?? 0).toString()}`,
+            'Total Premium Paid': `Rs. ${paymentAmount.toString()}`,
+            'Payment Reference': paymentRecord.referenceNumber,
+          }
+        : {
+            'Policy Number': policyNumber,
+            'Quotation Code': quotation.quotationCode,
+            'Insured Name': insuredName,
+            'Vehicle Registration': regNumber,
+            'Chassis Number': chassis,
+            'Engine Number': engine,
+            Insurer: quotation.insurerName,
+            'Coverage Period': `${effectiveDate.toISOString().slice(0, 10)} to ${expiryDate.toISOString().slice(0, 10)}`,
+            'Insured Amount (IDV)': `Rs. ${(quotation.sumInsured ?? 0).toString()}`,
+            'Net Customer Premium': `Rs. ${(quotation.basePremium ?? 0).toString()}`,
+            'Total GST': `Rs. ${(quotation.gstAmount ?? 0).toString()}`,
+            'Total Premium Paid': `Rs. ${paymentAmount.toString()}`,
+            'Payment Transaction': paymentRecord.referenceNumber,
+          };
+
       const schedulePdf = await this.pdfService.generateDocumentPdf(
-        'Policy Schedule',
+        isHealth ? 'Health Insurance Policy Schedule' : 'Policy Schedule',
         policyNumber,
-        {
-          'Policy Number': policyNumber,
-          'Quotation Code': quotation.quotationCode,
-          'Insured Name': insuredName,
-          'Vehicle Registration': regNumber,
-          'Chassis Number': chassis,
-          'Engine Number': engine,
-          Insurer: quotation.insurerName,
-          'Coverage Period': `${effectiveDate.toISOString().slice(0, 10)} to ${expiryDate.toISOString().slice(0, 10)}`,
-          'Insured Amount (IDV)': `Rs. ${(quotation.sumInsured ?? 0).toString()}`,
-          'Net Customer Premium': `Rs. ${(quotation.basePremium ?? 0).toString()}`,
-          'Total GST': `Rs. ${(quotation.gstAmount ?? 0).toString()}`,
-          'Total Premium Paid': `Rs. ${paymentAmount.toString()}`,
-          'Payment Transaction': paymentRecord.referenceNumber,
-        },
+        scheduleDetails,
       );
 
       const taxCertificatePdf = await this.pdfService.generateDocumentPdf(

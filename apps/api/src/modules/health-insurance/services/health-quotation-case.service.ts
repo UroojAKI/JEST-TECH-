@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import {
   HealthCaseStatus,
   HealthPlanCategory,
@@ -6,12 +6,13 @@ import {
   InsuredRelation,
   Prisma,
   QuotationStatus,
+  RoleType,
 } from '@prisma/client';
 import { PrismaService } from '../../../database/prisma.service';
 import { TenantResourceAuthorizationService } from '../../auth/services/tenant-resource-authorization.service';
 import { NumberingEngineService } from '../../administration/services/numbering-engine/numbering-engine.service';
 import { RequestUser } from '../../auth/decorators/current-user.decorator';
-import { AddHealthQuoteDto, CreateHealthQuotationCaseDto } from '../dto/health-quotation-case.dto';
+import { AddHealthQuoteDto, CreateHealthQuotationCaseDto, RecordHealthPaymentDto } from '../dto/health-quotation-case.dto';
 import { HealthPremiumService } from './health-premium.service';
 import { HealthPlanValidationService } from './health-plan-validation.service';
 
@@ -25,8 +26,17 @@ const caseInclude = {
   contact: { select: { id: true, contactCode: true, firstName: true, lastName: true, phone: true, email: true } },
   lead: { select: { id: true, leadCode: true, title: true } },
   members: { orderBy: { createdAt: 'asc' as const } },
-  quotations: { orderBy: { createdAt: 'desc' as const } },
-  selectedQuote: true,
+  quotations: {
+    include: {
+      motorPaymentRecord: true,
+    },
+    orderBy: { createdAt: 'desc' as const },
+  },
+  selectedQuote: {
+    include: {
+      motorPaymentRecord: true,
+    },
+  },
   documents: true,
 };
 
@@ -39,9 +49,45 @@ export class HealthQuotationCaseService {
     private readonly premiumService: HealthPremiumService,
     private readonly planValidation: HealthPlanValidationService,
   ) {}
-
   async createCase(dto: CreateHealthQuotationCaseDto, user: RequestUser) {
-    const contact = await this.tenantAuthService.assertTenantResource<any>('Contact', dto.contactId, user);
+    let contact: any;
+    try {
+      contact = await this.tenantAuthService.assertTenantResource<any>('Contact', dto.contactId, user);
+    } catch (err) {
+      // Check if dto.contactId was a customerId
+      const customer = await this.prisma.customer.findFirst({
+        where: { id: dto.contactId, companyId: user.companyId },
+        include: { contact: true },
+      });
+      if (customer) {
+        if (customer.contact) {
+          contact = customer.contact;
+          dto.contactId = customer.contact.id;
+        } else {
+          const contactCount = await this.prisma.contact.count({ where: { companyId: user.companyId } });
+          contact = await this.prisma.contact.create({
+            data: {
+              contactCode: `CONT-${String(contactCount + 1).padStart(6, '0')}`,
+              companyId: user.companyId,
+              firstName: customer.firstName.trim(),
+              lastName: (customer.lastName || '').trim(),
+              phone: customer.mobile,
+              email: customer.email,
+              panNumber: customer.panNumber,
+              aadhaarNumber: customer.aadhaarNumber,
+              type: 'INDIVIDUAL',
+              status: 'ACTIVE',
+              createdById: user.id,
+              updatedById: user.id,
+            },
+          });
+          await this.prisma.customer.update({ where: { id: customer.id }, data: { contactId: contact.id } });
+          dto.contactId = contact.id;
+        }
+      } else {
+        throw err;
+      }
+    }
     if (dto.leadId) {
       await this.tenantAuthService.assertTenantResource('Lead', dto.leadId, user);
     }
@@ -262,6 +308,90 @@ export class HealthQuotationCaseService {
       });
     });
   }
+
+  async recordPayment(caseId: string, dto: RecordHealthPaymentDto, user: RequestUser) {
+    const healthCase = await this.getCase(caseId, user);
+    if (!healthCase.selectedQuoteId) {
+      throw new BadRequestException('Please select a quotation before recording payment');
+    }
+
+    const quotation = await this.prisma.quotation.findUnique({
+      where: { id: healthCase.selectedQuoteId },
+    });
+    if (!quotation) {
+      throw new NotFoundException(`Selected quotation ${healthCase.selectedQuoteId} not found`);
+    }
+
+    const isAgent = user.role === RoleType.AGENT;
+    const targetStatus = dto.status || (isAgent ? 'UNDER_PROCESS' : 'PAID');
+    if (isAgent && targetStatus === 'PAID') {
+      throw new ForbiddenException(
+        'Agents are prohibited from verifying payments as PAID. Only Back Office or Finance may verify payments.',
+      );
+    }
+
+    const payableAmount = Number(quotation.totalPremium);
+    const amount = dto.amount !== undefined ? Number(dto.amount) : payableAmount;
+
+    if (targetStatus === 'PAID') {
+      if (Math.abs(amount - payableAmount) > 0.01) {
+        throw new BadRequestException(
+          `Payment amount ₹${amount} does not match authoritative quotation premium ₹${payableAmount}`,
+        );
+      }
+      if (!dto.referenceNumber?.trim()) {
+        throw new BadRequestException('Payment reference number / UTR is required before marking as PAID');
+      }
+    }
+
+    await this.prisma.motorPaymentRecord.upsert({
+      where: { quotationId: quotation.id },
+      create: {
+        companyId: user.companyId,
+        quotationId: quotation.id,
+        status: targetStatus,
+        amount: new Prisma.Decimal(amount),
+        paymentMethod: dto.paymentMethod,
+        referenceNumber: dto.referenceNumber,
+        paidAt: targetStatus === 'PAID' ? (dto.paidAt ? new Date(dto.paidAt) : new Date()) : null,
+        notes: dto.notes,
+        recordedById: user.id,
+      },
+      update: {
+        companyId: user.companyId,
+        status: targetStatus,
+        amount: new Prisma.Decimal(amount),
+        paymentMethod: dto.paymentMethod,
+        referenceNumber: dto.referenceNumber,
+        paidAt: targetStatus === 'PAID' ? (dto.paidAt ? new Date(dto.paidAt) : new Date()) : null,
+        notes: dto.notes,
+        recordedById: user.id,
+      },
+    });
+
+    const workflowState = targetStatus === 'PAID' ? 'PAYMENT_DONE' : 'PAYMENT_UNDER_PROCESS';
+    await this.prisma.quotation.update({
+      where: { id: quotation.id },
+      data: {
+        status: targetStatus === 'PAID' ? QuotationStatus.ACCEPTED : quotation.status,
+        workflowState: workflowState as any,
+        issuanceStatus: (targetStatus === 'PAID' ? 'ISSUANCE_PENDING' : 'PAYMENT_PENDING') as any,
+      },
+    });
+
+    return this.getCase(caseId, user);
+  }
+
+  async getPayment(caseId: string, user: RequestUser) {
+    const healthCase = await this.getCase(caseId, user);
+    if (!healthCase.selectedQuoteId) {
+      return null;
+    }
+    return this.prisma.motorPaymentRecord.findUnique({
+      where: { quotationId: healthCase.selectedQuoteId },
+    });
+  }
+
 
   /** Category / policy-form rules that the PDF implies but a DTO cannot express. */
   validateCategoryRules(dto: CreateHealthQuotationCaseDto): void {
