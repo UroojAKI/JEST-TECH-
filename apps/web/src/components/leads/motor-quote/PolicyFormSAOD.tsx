@@ -79,7 +79,11 @@ export function PolicyFormSAODForm({ category, vehicleStatus, data, onChange, el
     claimInExpiringPolicy: data.claimInExpiringODPolicy === 'Yes',
     discountPercent: parseFloat(data.discountPercent || '0') || 0,
     gstRate: data.gstRate ? parseInt(data.gstRate) : 18,
-    addons: (data.addonsSelected || []).map((a) => ({ addonCode: a })),
+    editedOdRate: data.editedOdRate ? parseFloat(data.editedOdRate) : undefined,
+    addons: (data.addonsSelected || []).map((a) => ({
+      addonCode: a,
+      editedPrice: data.addonPrices?.[a] ? parseFloat(data.addonPrices[a]) : undefined,
+    })),
   });
 
   useEffect(() => {

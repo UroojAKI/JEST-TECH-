@@ -12,18 +12,43 @@ import {
 import { Type } from 'class-transformer';
 import { VehicleCategory } from '@prisma/client';
 
+export class MotorPricingOverrideItemDto {
+  @IsString()
+  field: string;
+
+  @IsNumber()
+  overrideValue: number;
+
+  @IsOptional()
+  @IsString()
+  reason?: string;
+
+  @IsOptional()
+  @IsString()
+  approvalReference?: string;
+
+  @IsOptional()
+  @IsString()
+  approvedById?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  isApproved?: boolean;
+}
+
 export class MotorAddonInputDto {
   @IsString()
   addonCode: string;
 
-  /**
-   * Deprecated client field. MotorCalculationService rejects supplied manual prices;
-   * rates must be maintained in the approved configuration master.
-   */
   @IsOptional()
   @IsNumber()
   @Min(0)
   manualPrice?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  editedPrice?: number;
 
   @IsOptional()
   @IsString()
@@ -142,5 +167,55 @@ export class MotorCalculationInputDto {
   @IsOptional()
   @IsNumber()
   gstRate?: number;
+
+  /** Agent edited OD rate % (subject to rate bounds / approval) */
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  editedOdRate?: number;
+
+  /** Agent edited TP premium ₹ (subject to tariff bounds / approval) */
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  editedTpPremium?: number;
+
+  /** Agent edited PA premium ₹ */
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  editedPaPremium?: number;
+
+  /** Agent edited Paid Driver premium ₹ */
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  editedPaidDriverPremium?: number;
+
+  /** Component-level OD GST rate */
+  @IsOptional()
+  @IsNumber()
+  odGstRate?: number;
+
+  /** Component-level TP GST rate */
+  @IsOptional()
+  @IsNumber()
+  tpGstRate?: number;
+
+  /** Component-level PA GST rate */
+  @IsOptional()
+  @IsNumber()
+  paGstRate?: number;
+
+  /** Component-level Paid Driver GST rate */
+  @IsOptional()
+  @IsNumber()
+  paidDriverGstRate?: number;
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => MotorPricingOverrideItemDto)
+  overrides?: MotorPricingOverrideItemDto[];
 }
 

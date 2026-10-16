@@ -98,8 +98,13 @@ export function PolicyFormPackageForm({ category, vehicleStatus, data, onChange,
     discountPercent: parseFloat(data.odDiscountPercent || '0') || 0,
     tpDiscountPercent: parseFloat(data.tpDiscountPercent || '0') || 0,
     gstRate: data.gstRate ? parseInt(data.gstRate) : 18,
-    // Selected add-ons use the authoritative server-side rate; agents cannot override price here.
-    addons: (data.addonsSelected || []).map(a => ({ addonCode: a }))
+    editedOdRate: data.editedOdRate ? parseFloat(data.editedOdRate) : undefined,
+    editedTpPremium: data.editedTpPremium ? parseFloat(data.editedTpPremium) : undefined,
+    editedPaPremium: data.editedPaPremium ? parseFloat(data.editedPaPremium) : undefined,
+    addons: (data.addonsSelected || []).map((a) => ({
+      addonCode: a,
+      editedPrice: data.addonPrices?.[a] ? parseFloat(data.addonPrices[a]) : undefined,
+    })),
   });
 
   useEffect(() => {
@@ -287,15 +292,53 @@ export function PolicyFormPackageForm({ category, vehicleStatus, data, onChange,
                 </label>
                 {isSelected && (() => {
                   const pricedAddon = itemizedAddons.find((item: any) => item.addonCode === a.key);
+                  const isInvalid = pricedAddon?.isInvalid;
+                  const isEdited = Boolean(data.addonPrices?.[a.key]);
                   return (
-                    <div className="mt-1 rounded-md bg-muted/50 px-2 py-1.5 text-[10px]">
-                      {pricedAddon
-                        ? <span className="font-semibold">Calculated premium: ₹{Number(pricedAddon.amount).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                        : error
-                          ? <span className="text-destructive">Price unavailable — resolve the calculator error below.</span>
-                          : loading
-                            ? <span className="text-muted-foreground">Calculating configured premium…</span>
-                            : <span className="text-muted-foreground">Price is calculated by the server.</span>}
+                    <div className="mt-1 rounded-md bg-muted/50 p-2 text-[10px] space-y-1">
+                      <div className="flex items-center justify-between">
+                        <span className="font-semibold text-muted-foreground">Calculated:</span>
+                        <span className="font-bold text-foreground">
+                          {pricedAddon ? `₹${Number(pricedAddon.systemRate ?? pricedAddon.amount).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '—'}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1.5 mt-1">
+                        <span className="text-muted-foreground">Price ₹:</span>
+                        <input
+                          type="number"
+                          step="1"
+                          placeholder={pricedAddon ? `${pricedAddon.amount}` : '0'}
+                          value={data.addonPrices?.[a.key] ?? ''}
+                          onChange={(e) => {
+                            const newPrices = { ...(data.addonPrices || {}), [a.key]: e.target.value };
+                            onChange({ ...data, addonPrices: newPrices });
+                          }}
+                          className="w-20 p-1 text-[10px] font-bold rounded border bg-background text-foreground"
+                        />
+                        {isEdited && (
+                          <span className="text-[8px] font-bold px-1 py-0.5 rounded bg-amber-500/10 text-amber-600 border border-amber-300">
+                            [Edited]
+                          </span>
+                        )}
+                        {isEdited && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const newPrices = { ...(data.addonPrices || {}) };
+                              delete newPrices[a.key];
+                              onChange({ ...data, addonPrices: newPrices });
+                            }}
+                            className="text-[9px] text-muted-foreground hover:text-foreground underline"
+                          >
+                            Reset
+                          </button>
+                        )}
+                      </div>
+                      {isInvalid && (
+                        <div className="text-[9px] text-rose-500 font-bold mt-1">
+                          ⚠️ {pricedAddon?.warning || 'Invalid add-on — omitted from calculation'}
+                        </div>
+                      )}
                     </div>
                   );
                 })()}
@@ -363,54 +406,214 @@ export function PolicyFormPackageForm({ category, vehicleStatus, data, onChange,
         onChange={(rate) => onChange({ ...data, gstRate: rate })}
       />
 
-      {/* Live Financial Breakdown & Total Paying Amount Card */}
-      <div className="rounded-2xl border bg-card shadow-xs overflow-hidden">
+      {/* Live Financial Breakdown — Component-Level GST & Editable Pricing */}
+      <div className="rounded-2xl border bg-card shadow-xs overflow-hidden space-y-0">
         <div className="p-3.5 border-b bg-muted/20 flex items-center justify-between">
-          <span className="text-xs font-black text-foreground">Authoritative Premium Calculation Breakdown</span>
-          <span className="text-[10px] font-semibold text-muted-foreground">IRDAI Tariff Compliant</span>
+          <div>
+            <span className="text-xs font-black text-foreground block">Component-Level Tariff & Tax Calculation</span>
+            <span className="text-[10px] text-muted-foreground font-semibold">
+              Statutory IRDAI rule: Tax is itemized per component on Gross Base (OD Gross → OD GST, TP Gross → TP GST)
+            </span>
+          </div>
+          <span className="text-[10px] font-bold text-primary px-2 py-0.5 rounded-full bg-primary/10 border border-primary/20">
+            GST Base = GROSS
+          </span>
         </div>
 
         <div className="p-4 space-y-3">
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
-            <div className="p-2.5 rounded-xl border bg-muted/10">
-              <span className="text-[10px] text-muted-foreground block font-medium">Gross Base Premium</span>
-              <span className="text-sm font-bold text-foreground">{hasValidCalculation ? '₹' + grossBase.toLocaleString('en-IN') : '—'}</span>
-              <span className="text-[9px] text-muted-foreground block">{hasValidCalculation ? 'OD: ₹' + rawOd + ' | TP: ₹' + rawTp : 'OD/TP breakdown unavailable'}</span>
+          {/* Component 1: Own Damage (OD) */}
+          <div className="p-3 rounded-xl border bg-accent/20 space-y-2">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs font-black text-foreground">1. Own Damage (OD)</span>
+                {data.editedOdRate && (
+                  <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-600 border border-amber-300">
+                    [Edited]
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] text-muted-foreground">OD Rate:</span>
+                <input
+                  type="number"
+                  step="0.001"
+                  placeholder={result?.rateConfig?.systemOdRate ? `${result.rateConfig.systemOdRate}%` : 'Rate %'}
+                  value={data.editedOdRate ?? ''}
+                  onChange={(e) => onChange({ ...data, editedOdRate: e.target.value })}
+                  className="w-20 p-1 text-[11px] font-bold rounded border bg-background text-foreground"
+                  title="Edit OD Rate %"
+                />
+                {data.editedOdRate && (
+                  <button
+                    type="button"
+                    onClick={() => onChange({ ...data, editedOdRate: undefined })}
+                    className="text-[10px] font-semibold text-muted-foreground hover:text-foreground underline"
+                  >
+                    Reset
+                  </button>
+                )}
+              </div>
             </div>
 
-            <div className="p-2.5 rounded-xl border bg-amber-500/10 border-amber-500/20">
-              <span className="text-[10px] text-amber-800 dark:text-amber-300 block font-medium">Total Discount Amount</span>
-              <span className="text-sm font-bold text-amber-700 dark:text-amber-400">{hasValidCalculation ? '-₹' + discountAmt.toLocaleString('en-IN') : '—'}</span>
-              <span className="text-[9px] text-amber-700/80 block">Applied pre-tax</span>
-            </div>
-
-            <div className="p-2.5 rounded-xl border bg-muted/10">
-              <span className="text-[10px] text-muted-foreground block font-medium">Net Customer Premium</span>
-              <span className="text-sm font-bold text-foreground">{hasValidCalculation ? '₹' + netBase.toLocaleString('en-IN') : '—'}</span>
-              <span className="text-[9px] text-muted-foreground block">Gross minus discounts</span>
-            </div>
-
-            <div className="p-2.5 rounded-xl border bg-muted/10">
-              <span className="text-[10px] text-muted-foreground block font-medium">
-                Statutory GST ({outputs.gstRatePercent ?? (data.gstRate ? parseInt(data.gstRate) : 18)}%)
-              </span>
-              <span className="text-sm font-bold text-foreground">{hasValidCalculation ? '+₹' + gstAmt.toLocaleString('en-IN') : '—'}</span>
-              <span className="text-[9px] text-muted-foreground block">Calculated on Net Component</span>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+              <div className="p-2 rounded-lg bg-card border">
+                <span className="text-[9px] text-muted-foreground block">OD Gross</span>
+                <span className="font-bold text-foreground">
+                  {hasValidCalculation ? '₹' + Number(outputs.od?.gross ?? rawOd).toLocaleString('en-IN') : '—'}
+                </span>
+              </div>
+              <div className="p-2 rounded-lg bg-card border text-amber-700 dark:text-amber-400">
+                <span className="text-[9px] text-muted-foreground block">Total OD Discounts</span>
+                <span className="font-bold">
+                  {hasValidCalculation ? '-₹' + Number((outputs.od?.ncbDiscount ?? 0) + (outputs.od?.specialDiscount ?? odDiscountAmount)).toLocaleString('en-IN') : '—'}
+                </span>
+              </div>
+              <div className="p-2 rounded-lg bg-card border">
+                <span className="text-[9px] text-muted-foreground block">OD Net Payable</span>
+                <span className="font-bold text-foreground">
+                  {hasValidCalculation ? '₹' + Number(outputs.od?.net ?? outputs.netOdPremium ?? 0).toLocaleString('en-IN') : '—'}
+                </span>
+              </div>
+              <div className="p-2 rounded-lg bg-card border border-primary/20 bg-primary/5">
+                <span className="text-[9px] text-primary block font-bold">OD GST (@ {data.gstRate || 18}%)</span>
+                <span className="font-bold text-primary">
+                  {hasValidCalculation ? '+₹' + Number(outputs.od?.gst ?? outputs.gstOnOd ?? 0).toLocaleString('en-IN') : '—'}
+                </span>
+              </div>
             </div>
           </div>
 
-          {/* Final Total Paying Amount */}
-          <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex flex-col sm:flex-row items-center justify-between gap-2">
+          {/* Component 2: Third Party (TP) */}
+          <div className="p-3 rounded-xl border bg-accent/20 space-y-2">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs font-black text-foreground">2. Third Party (TP) Liability</span>
+                {data.editedTpPremium && (
+                  <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-600 border border-amber-300">
+                    [Edited]
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] text-muted-foreground">TP Premium ₹:</span>
+                <input
+                  type="number"
+                  step="1"
+                  placeholder={result?.rateConfig?.systemTpAnnualRate ? `₹${result.rateConfig.systemTpAnnualRate}` : '₹ TP'}
+                  value={data.editedTpPremium ?? ''}
+                  onChange={(e) => onChange({ ...data, editedTpPremium: e.target.value })}
+                  className="w-24 p-1 text-[11px] font-bold rounded border bg-background text-foreground"
+                  title="Edit TP Premium ₹"
+                />
+                {data.editedTpPremium && (
+                  <button
+                    type="button"
+                    onClick={() => onChange({ ...data, editedTpPremium: undefined })}
+                    className="text-[10px] font-semibold text-muted-foreground hover:text-foreground underline"
+                  >
+                    Reset
+                  </button>
+                )}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+              <div className="p-2 rounded-lg bg-card border">
+                <span className="text-[9px] text-muted-foreground block">TP Base</span>
+                <span className="font-bold text-foreground">
+                  {hasValidCalculation ? '₹' + Number(outputs.tp?.base ?? rawTp).toLocaleString('en-IN') : '—'}
+                </span>
+              </div>
+              <div className="p-2 rounded-lg bg-card border text-amber-700 dark:text-amber-400">
+                <span className="text-[9px] text-muted-foreground block">TP Discount</span>
+                <span className="font-bold">
+                  {hasValidCalculation ? '-₹' + Number(outputs.tp?.discount ?? tpDiscountAmount).toLocaleString('en-IN') : '—'}
+                </span>
+              </div>
+              <div className="p-2 rounded-lg bg-card border">
+                <span className="text-[9px] text-muted-foreground block">TP Net Payable</span>
+                <span className="font-bold text-foreground">
+                  {hasValidCalculation ? '₹' + Number(outputs.tp?.net ?? outputs.netTpComponent ?? 0).toLocaleString('en-IN') : '—'}
+                </span>
+              </div>
+              <div className="p-2 rounded-lg bg-card border border-primary/20 bg-primary/5">
+                <span className="text-[9px] text-primary block font-bold">TP GST (@ {data.gstRate || 18}%)</span>
+                <span className="font-bold text-primary">
+                  {hasValidCalculation ? '+₹' + Number(outputs.tp?.gst ?? outputs.gstOnTp ?? 0).toLocaleString('en-IN') : '—'}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Component 3: Compulsory PA (Owner-Driver) */}
+          <div className="p-3 rounded-xl border bg-accent/20 space-y-2">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs font-black text-foreground">3. Compulsory PA (Owner-Driver — ₹15L Cover)</span>
+                {data.editedPaPremium && (
+                  <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-600 border border-amber-300">
+                    [Edited]
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] text-muted-foreground">PA Premium ₹:</span>
+                <input
+                  type="number"
+                  step="1"
+                  placeholder="₹275"
+                  value={data.editedPaPremium ?? ''}
+                  onChange={(e) => onChange({ ...data, editedPaPremium: e.target.value })}
+                  className="w-20 p-1 text-[11px] font-bold rounded border bg-background text-foreground"
+                />
+                {data.editedPaPremium && (
+                  <button
+                    type="button"
+                    onClick={() => onChange({ ...data, editedPaPremium: undefined })}
+                    className="text-[10px] font-semibold text-muted-foreground hover:text-foreground underline"
+                  >
+                    Reset
+                  </button>
+                )}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs">
+              <div className="p-2 rounded-lg bg-card border">
+                <span className="text-[9px] text-muted-foreground block">PA Base Premium</span>
+                <span className="font-bold text-foreground">
+                  {hasValidCalculation ? '₹' + Number(outputs.pa?.premium ?? 275).toLocaleString('en-IN') : '—'}
+                </span>
+              </div>
+              <div className="p-2 rounded-lg bg-card border border-primary/20 bg-primary/5">
+                <span className="text-[9px] text-primary block font-bold">PA GST (@ {data.gstRate || 18}%)</span>
+                <span className="font-bold text-primary">
+                  {hasValidCalculation ? '+₹' + Number(outputs.pa?.gst ?? outputs.gstOnPa ?? 0).toLocaleString('en-IN') : '—'}
+                </span>
+              </div>
+              <div className="p-2 rounded-lg bg-card border">
+                <span className="text-[9px] text-muted-foreground block">PA Total</span>
+                <span className="font-bold text-foreground">
+                  {hasValidCalculation ? '₹' + Number((outputs.pa?.premium ?? 275) + (outputs.pa?.gst ?? outputs.gstOnPa ?? 0)).toLocaleString('en-IN') : '—'}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Final Total Payable Summary (Zero post-total statutory GST row) */}
+          <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex flex-col sm:flex-row items-center justify-between gap-3">
             <div>
               <span className="text-xs font-black text-emerald-800 dark:text-emerald-300 block">
                 Final Total Payable Amount
               </span>
-              <span className="text-[10px] text-muted-foreground">
-                Authoritative amount to be collected from customer (Net Customer Premium + Statutory GST)
-              </span>
+              <div className="text-[10px] text-muted-foreground flex items-center gap-2 mt-0.5">
+                <span>Net Customer Premium: <strong className="text-foreground">₹{Number(netBase).toLocaleString('en-IN')}</strong></span>
+                <span>•</span>
+                <span>Total Itemized GST: <strong className="text-foreground">₹{Number(gstAmt).toLocaleString('en-IN')}</strong></span>
+              </div>
             </div>
             <div className="text-2xl font-black text-emerald-700 dark:text-emerald-400">
-              {finalPayable === null ? '—' : '₹' + finalPayable.toLocaleString('en-IN')}
+              {finalPayable === null ? '—' : '₹' + Number(finalPayable).toLocaleString('en-IN')}
             </div>
           </div>
         </div>

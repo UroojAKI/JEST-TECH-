@@ -21,6 +21,7 @@ import { MotorProposalWizard } from '../leads/motor-quote/MotorProposalWizard';
 import { PolicyCompletionDialog } from '../leads/motor-quote/PolicyCompletionDialog';
 import type { VehicleCategory, SavedMotorQuote } from '../leads/motor-quote/motorFormTypes';
 import { useAuthStore } from '../../store/auth-store';
+import { buildRenewalUrl } from '../../lib/renewal-url';
 
 interface DynamicWorkspaceProps {
   roleLabel: string;
@@ -681,7 +682,7 @@ export function DynamicWorkspace({ roleLabel, roleIcon, fallbackRole, customCont
                       <td className="p-3.5 text-right font-bold text-primary">₹{Number(r.estimatedRenewalPremium || r.lastPremium || r.premiumAmount || 0).toLocaleString('en-IN')}</td>
                       <td className="p-3.5 text-center">
                         <Link
-                          href={`/sales/quotations?renewPolicyId=${r.id}`}
+                          href={buildRenewalUrl(r.id)}
                           className="px-3 py-1 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary font-bold text-xs transition-colors inline-block"
                         >
                           Generate Renewal Quote

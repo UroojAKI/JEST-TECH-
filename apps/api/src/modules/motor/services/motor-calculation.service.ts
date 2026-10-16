@@ -64,6 +64,133 @@ export class MotorCalculationService {
     this.validateDiscountAuthority(input, discountConfig);
     this.validateTpDiscountAuthority(input, discountConfig);
 
+    // ── 5b. Pricing Overrides & Editable Fields Resolution ────────────────
+    const overridesApplied: Array<{
+      field: string;
+      systemValue: number;
+      overrideValue: number;
+      status: 'APPLIED' | 'REQUIRES_APPROVAL';
+      reason?: string;
+    }> = [];
+
+    // OD Rate Override / Edit
+    const odOverride = input.overrides?.find((o) => o.field === 'OD_RATE');
+    let effectiveOdRate = odRates.rate;
+    let isOdRateEdited = false;
+    if (input.editedOdRate !== undefined || odOverride) {
+      const candidateOd = input.editedOdRate !== undefined
+        ? Number(input.editedOdRate)
+        : Number(odOverride?.overrideValue);
+
+      if (candidateOd >= 0.1 && candidateOd <= 15.0) {
+        effectiveOdRate = candidateOd;
+        isOdRateEdited = Math.abs(candidateOd - odRates.rate) > 0.0001;
+        if (isOdRateEdited) {
+          overridesApplied.push({
+            field: 'OD_RATE',
+            systemValue: odRates.rate,
+            overrideValue: candidateOd,
+            status: 'APPLIED',
+            reason: odOverride?.reason || 'Agent OD rate edit within permissible range',
+          });
+        }
+      } else if (odOverride?.isApproved || odOverride?.approvalReference) {
+        effectiveOdRate = candidateOd;
+        isOdRateEdited = true;
+        overridesApplied.push({
+          field: 'OD_RATE',
+          systemValue: odRates.rate,
+          overrideValue: candidateOd,
+          status: 'APPLIED',
+          reason: odOverride?.reason || 'Approved out-of-range OD rate override',
+        });
+      } else {
+        throw new BadRequestException({
+          statusCode: 400,
+          error: 'Bad Request',
+          errorCode: 'OD_RATE_OUT_OF_BOUNDS',
+          message: `Edited OD rate (${candidateOd}%) is outside permissible range (0.1% - 15.0%) and requires authorized approval.`,
+        });
+      }
+    }
+
+    // TP Premium Override / Edit
+    const tpOverride = input.overrides?.find((o) => o.field === 'TP_PREMIUM');
+    let effectiveTpAnnual = tpRates.annualPremium;
+    let isTpEdited = false;
+    if (input.editedTpPremium !== undefined || tpOverride) {
+      const candidateTp = input.editedTpPremium !== undefined
+        ? Number(input.editedTpPremium)
+        : Number(tpOverride?.overrideValue);
+
+      if (candidateTp >= 0 && (candidateTp >= tpRates.annualPremium * 0.5 || tpOverride?.isApproved || tpOverride?.approvalReference)) {
+        effectiveTpAnnual = candidateTp;
+        isTpEdited = Math.abs(candidateTp - tpRates.annualPremium) > 0.01;
+        if (isTpEdited) {
+          overridesApplied.push({
+            field: 'TP_PREMIUM',
+            systemValue: tpRates.annualPremium,
+            overrideValue: candidateTp,
+            status: 'APPLIED',
+            reason: tpOverride?.reason || 'Agent TP premium edit within permissible bounds',
+          });
+        }
+      } else {
+        throw new BadRequestException({
+          statusCode: 400,
+          error: 'Bad Request',
+          errorCode: 'TP_PREMIUM_OUT_OF_BOUNDS',
+          message: `Edited TP premium (₹${candidateTp}) is outside permissible statutory tariff range and requires authorized approval.`,
+        });
+      }
+    }
+
+    // PA Premium Override / Edit
+    const paOverride = input.overrides?.find((o) => o.field === 'PA_PREMIUM');
+    let effectivePaRate = COMPULSORY_PA_OWNER_DRIVER;
+    let isPaEdited = false;
+    if (input.editedPaPremium !== undefined || paOverride) {
+      const candidatePa = input.editedPaPremium !== undefined
+        ? Number(input.editedPaPremium)
+        : Number(paOverride?.overrideValue);
+      if (candidatePa >= 0 && candidatePa <= 5000) {
+        effectivePaRate = candidatePa;
+        isPaEdited = Math.abs(candidatePa - COMPULSORY_PA_OWNER_DRIVER) > 0.01;
+        if (isPaEdited) {
+          overridesApplied.push({
+            field: 'PA_PREMIUM',
+            systemValue: COMPULSORY_PA_OWNER_DRIVER,
+            overrideValue: candidatePa,
+            status: 'APPLIED',
+            reason: paOverride?.reason || 'Agent PA premium edit within bounds',
+          });
+        }
+      }
+    }
+
+    // Paid Driver Premium Override / Edit
+    const driverOverride = input.overrides?.find((o) => o.field === 'PAID_DRIVER_PREMIUM');
+    let effectiveDriverRate = PAID_DRIVER_LL_RATE;
+    let isDriverEdited = false;
+    if (input.editedPaidDriverPremium !== undefined || driverOverride) {
+      const candidateDriver = input.editedPaidDriverPremium !== undefined
+        ? Number(input.editedPaidDriverPremium)
+        : Number(driverOverride?.overrideValue);
+      if (candidateDriver >= 0 && candidateDriver <= 2000) {
+        effectiveDriverRate = candidateDriver;
+        isDriverEdited = Math.abs(candidateDriver - PAID_DRIVER_LL_RATE) > 0.01;
+        if (isDriverEdited) {
+          overridesApplied.push({
+            field: 'PAID_DRIVER_PREMIUM',
+            systemValue: PAID_DRIVER_LL_RATE,
+            overrideValue: candidateDriver,
+            status: 'APPLIED',
+            reason: driverOverride?.reason || 'Agent Paid Driver edit within bounds',
+          });
+        }
+      }
+    }
+
     // ── 6. OD Component ────────────────────────────────────────────────────
     let baseOdPremium = 0;
     let ncbDiscountAmount = 0;
@@ -74,6 +201,10 @@ export class MotorCalculationService {
       addonCode: string;
       name: string;
       amount: number;
+      systemRate?: number;
+      isEdited?: boolean;
+      isInvalid?: boolean;
+      warning?: string;
     }> = [];
 
     if (['STANDALONE_OD', 'PACKAGE_COMPREHENSIVE'].includes(input.policyType)) {
@@ -88,7 +219,7 @@ export class MotorCalculationService {
         );
       }
 
-      baseOdPremium = round2(input.idv * (odRates.rate / 100));
+      baseOdPremium = round2(input.idv * (effectiveOdRate / 100));
 
       // NCB discount applies only to OD base premium.
       ncbDiscountAmount = round2(baseOdPremium * (effectiveNcb / 100));
@@ -105,47 +236,92 @@ export class MotorCalculationService {
       );
 
       // Add-on premiums (not subject to NCB/special discount)
+      // SPEC RULE: The quote should continue calculating other components if one add-on has an invalid value.
       for (const addon of input.addons || []) {
         let price = 0;
-        const config = addonRates[addon.addonCode];
-        if (config) {
-          switch (config.pricingModel) {
-            case 'PERCENT_OF_IDV':
-              price = round2(input.idv * (Number(config.rateValue) / 100));
-              break;
-            case 'PERCENT_OF_OD':
-              price = round2(baseOdPremium * (Number(config.rateValue) / 100));
-              break;
-            case 'FIXED':
-              price = round2(Number(config.rateValue));
-              break;
-            default:
-              price = 0;
+        let systemPrice = 0;
+        let isAddonEdited = false;
+
+        try {
+          const config = addonRates[addon.addonCode];
+          if (config) {
+            switch (config.pricingModel) {
+              case 'PERCENT_OF_IDV':
+                systemPrice = round2(input.idv * (Number(config.rateValue) / 100));
+                break;
+              case 'PERCENT_OF_OD':
+                systemPrice = round2(baseOdPremium * (Number(config.rateValue) / 100));
+                break;
+              case 'FIXED':
+                systemPrice = round2(Number(config.rateValue));
+                break;
+              default:
+                systemPrice = 0;
+            }
+          } else {
+            systemPrice = this.resolveStandardAddonRate(
+              addon.addonCode,
+              input.idv,
+              baseOdPremium,
+            );
           }
-        } else {
-          // Standard IRDAI-aligned defaults for well-known add-ons.
-          price = this.resolveStandardAddonRate(
-            addon.addonCode,
-            input.idv,
-            baseOdPremium,
-          );
-        }
 
-        // Zero-premium add-on prevention (IRDAI compliance).
-        if (price <= 0) {
-          throw new BadRequestException(
-            `Add-on "${addon.addonCode}" has zero or negative calculated premium (₹${price}). ` +
-              `Zero-premium add-ons are prohibited per IRDAI compliance. ` +
-              `Provide a valid rate or deselect this add-on.`,
-          );
-        }
+          // Check for authorized edit
+          const addonOverride = input.overrides?.find((o) => o.field === `ADDON:${addon.addonCode}`);
+          const candidatePrice = addon.editedPrice !== undefined
+            ? Number(addon.editedPrice)
+            : (addonOverride ? Number(addonOverride.overrideValue) : undefined);
 
-        addonPremiumTotal = round2(addonPremiumTotal + price);
-        itemizedAddons.push({
-          addonCode: addon.addonCode,
-          name: addon.addonCode.replace(/_/g, ' '),
-          amount: price,
-        });
+          if (candidatePrice !== undefined && candidatePrice > 0) {
+            price = round2(candidatePrice);
+            isAddonEdited = Math.abs(price - systemPrice) > 0.01;
+            if (isAddonEdited) {
+              overridesApplied.push({
+                field: `ADDON:${addon.addonCode}`,
+                systemValue: systemPrice,
+                overrideValue: price,
+                status: 'APPLIED',
+                reason: addon.overrideReason || addonOverride?.reason || 'Agent add-on edit within bounds',
+              });
+            }
+          } else {
+            price = systemPrice;
+          }
+
+          if (price > 0) {
+            addonPremiumTotal = round2(addonPremiumTotal + price);
+            itemizedAddons.push({
+              addonCode: addon.addonCode,
+              name: addon.addonCode.replace(/_/g, ' '),
+              amount: price,
+              systemRate: systemPrice,
+              isEdited: isAddonEdited,
+            });
+          } else {
+            itemizedAddons.push({
+              addonCode: addon.addonCode,
+              name: addon.addonCode.replace(/_/g, ' '),
+              amount: 0,
+              systemRate: systemPrice,
+              isEdited: isAddonEdited,
+              isInvalid: true,
+              warning: `Add-on "${addon.addonCode}" has zero or unresolvable premium and was omitted from calculation total.`,
+            });
+          }
+        } catch (addonErr) {
+          this.logger.warn(
+            `Skipping invalid add-on "${addon.addonCode}": ${(addonErr as Error)?.message || addonErr}`,
+          );
+          itemizedAddons.push({
+            addonCode: addon.addonCode,
+            name: addon.addonCode.replace(/_/g, ' '),
+            amount: 0,
+            systemRate: 0,
+            isEdited: false,
+            isInvalid: true,
+            warning: (addonErr as Error)?.message || 'Invalid add-on',
+          });
+        }
       }
     }
 
@@ -158,40 +334,92 @@ export class MotorCalculationService {
     if (
       ['THIRD_PARTY_ONLY', 'PACKAGE_COMPREHENSIVE'].includes(input.policyType)
     ) {
-      baseTpPremium = round2(tpRates.annualPremium * tpTenure);
+      baseTpPremium = round2(effectiveTpAnnual * tpTenure);
       // PA for Owner-Driver is COMPULSORY unless explicitly opted out with a waiver.
-      if (input.paCover !== false) paPremium = COMPULSORY_PA_OWNER_DRIVER;
-      if (input.paidDriverLiability) paidDriverPremium = PAID_DRIVER_LL_RATE;
+      if (input.paCover !== false) paPremium = effectivePaRate;
+      if (input.paidDriverLiability) paidDriverPremium = effectiveDriverRate;
 
       const tpDiscountPercent = input.tpDiscountPercent || 0;
       tpDiscountAmount = round2(baseTpPremium * (tpDiscountPercent / 100));
     }
 
     // ── 8. Net Premium per Component (post-discount, pre-tax) ─────────────
-    // SPEC: Tax is applied to net discounted premium per component, NOT gross.
     const netOdComponent = round2(netOdAfterDiscount + addonPremiumTotal);
     const netTpComponent = round2(
       Math.max(0, baseTpPremium - tpDiscountAmount),
     );
-    const netPaComponent = paPremium; // PA is fixed IRDAI rate, no discount
+    const netPaComponent = paPremium; // PA is fixed, no discount
     const netPaidDriverComponent = paidDriverPremium; // Fixed, no discount
 
     const netCustomerPremium = round2(
       netOdComponent + netTpComponent + netPaComponent + netPaidDriverComponent,
     );
 
-    // ── 9. Component-Level GST Calculation ────────────────────────────────
-    // GST is applied to each net component separately, then summed.
-    // This ensures discounts correctly reduce the tax base (per specification v4.2).
-    const gstOnOd = round2(netOdComponent * gstRate);
-    const gstOnTp = round2(netTpComponent * gstRate);
-    const gstOnPa = round2(netPaComponent * gstRate);
-    const gstOnPaidDriver = round2(netPaidDriverComponent * gstRate);
+    // ── 9. Component-Level GST Calculation on GROSS Premium Base ──────────
+    // CORE BUSINESS RULE: GST base = gross premium before discount.
+    // OD Gross -> OD GST
+    // TP Gross -> TP GST
+    // PA Gross -> PA GST
+    // Paid Driver Gross -> Paid Driver GST
+    // A discount must NOT reduce the GST base when configured GST base is GROSS.
+
+    const odGrossBase = round2(baseOdPremium + addonPremiumTotal);
+    const tpGrossBase = baseTpPremium;
+    const paGrossBase = paPremium;
+    const paidDriverGrossBase = paidDriverPremium;
+
+    // Resolve component GST rates:
+    const odGstRate = input.odGstRate !== undefined
+      ? (Number(input.odGstRate) > 1 ? Number(input.odGstRate) / 100 : Number(input.odGstRate))
+      : gstRate;
+
+    const tpGstRate = input.tpGstRate !== undefined
+      ? (Number(input.tpGstRate) > 1 ? Number(input.tpGstRate) / 100 : Number(input.tpGstRate))
+      : (gstRate === 0.05 ? 0.05 : gstRate);
+
+    const paGstRate = input.paGstRate !== undefined
+      ? (Number(input.paGstRate) > 1 ? Number(input.paGstRate) / 100 : Number(input.paGstRate))
+      : gstRate;
+
+    const paidDriverGstRate = input.paidDriverGstRate !== undefined
+      ? (Number(input.paidDriverGstRate) > 1 ? Number(input.paidDriverGstRate) / 100 : Number(input.paidDriverGstRate))
+      : gstRate;
+
+    const gstOnOd = round2(odGrossBase * odGstRate);
+    const gstOnTp = round2(tpGrossBase * tpGstRate);
+    const gstOnPa = round2(paGrossBase * paGstRate);
+    const gstOnPaidDriver = round2(paidDriverGrossBase * paidDriverGstRate);
+
     const totalGst = round2(gstOnOd + gstOnTp + gstOnPa + gstOnPaidDriver);
     const cgst = round2(totalGst / 2);
     const sgst = round2(totalGst - cgst);
 
+    const gstBreakdown = {
+      base: 'GROSS',
+      od: {
+        base: odGrossBase,
+        rate: odGstRate,
+        amount: gstOnOd,
+      },
+      tp: {
+        base: tpGrossBase,
+        rate: tpGstRate,
+        amount: gstOnTp,
+      },
+      pa: {
+        base: paGrossBase,
+        rate: paGstRate,
+        amount: gstOnPa,
+      },
+      paidDriver: {
+        base: paidDriverGrossBase,
+        rate: paidDriverGstRate,
+        amount: gstOnPaidDriver,
+      },
+    };
+
     // ── 10. Final Payable ─────────────────────────────────────────────────
+    // Total Premium = Net Customer Premium + Total GST
     const finalPayableAmount = round2(netCustomerPremium + totalGst);
 
     // ── 11. Gross (pre-discount) totals for transparency ─────────────────
@@ -219,14 +447,21 @@ export class MotorCalculationService {
       inputs: { ...input, effectiveNcb, tpTenure },
       authoritativeDates,
       rateConfig: {
-        odRate: odRates.rate,
-        tpAnnualRate: tpRates.annualPremium,
+        odRate: effectiveOdRate,
+        systemOdRate: odRates.rate,
+        tpAnnualRate: effectiveTpAnnual,
+        systemTpAnnualRate: tpRates.annualPremium,
         tpSource: tpRates.source ?? 'IRDAI_TARIFF',
         tpTariffId: tpRates.tariffId,
         gstRatePercent: gstRate * 100,
         discountConfig,
+        overridesApplied,
       },
+      overridesApplied,
+      gstBreakdown,
       outputs: {
+        gstBreakdown,
+        overridesApplied,
         // Structured Component Breakdown (Phase 4 Specification)
         od: {
           gross: baseOdPremium,
@@ -235,20 +470,24 @@ export class MotorCalculationService {
           addons: round2(addonPremiumTotal),
           net: netOdComponent,
           gst: gstOnOd,
+          isEdited: isOdRateEdited,
         },
         tp: {
           base: baseTpPremium,
           discount: tpDiscountAmount,
           net: netTpComponent,
           gst: gstOnTp,
+          isEdited: isTpEdited,
         },
         pa: {
           premium: paPremium,
           gst: gstOnPa,
+          isEdited: isPaEdited,
         },
         paidDriver: {
           premium: paidDriverPremium,
           gst: gstOnPaidDriver,
+          isEdited: isDriverEdited,
         },
         summary: {
           grossPremium: grossBasePremium,
@@ -256,6 +495,7 @@ export class MotorCalculationService {
           netPremium: netCustomerPremium,
           totalGst,
           finalPayable: finalPayableAmount,
+          gstBreakdown,
         },
 
         // Own Damage

@@ -423,7 +423,8 @@ describe('Authoritative Production Gates & Negative Safety Invariants (INV-01 to
       const result = await motorCalculationService.calculate(
         clientTamperedPayload,
       );
-      expect(result.outputs.totalPremium).toBe(17638.88);
+      // Server authoritatively recalculates with gross-base GST: 18426.88
+      expect(result.outputs.totalPremium).toBe(18426.88);
       expect(result.outputs.totalPremium).not.toBe(
         clientTamperedPayload.totalPremium,
       );

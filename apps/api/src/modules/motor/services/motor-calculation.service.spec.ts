@@ -78,16 +78,16 @@ describe('MotorCalculationService (Iteration 5 Financial Math)', () => {
       expect(outputs.netCustomerPremium).toBe(14948.2);
       expect(outputs.basePremium).toBe(14948.2);
 
-      // Component-level 18% GST (per v4.2 spec: tax applied on net discounted component):
-      // GST on OD (11257.2 * 0.18) = 2026.3
+      // Component-level 18% GST (Mandatory rule: GST base = gross premium before discount):
+      // GST on OD (15635 * 0.18) = 2814.3
       // GST on TP (3416 * 0.18) = 614.88
       // GST on PA (275 * 0.18) = 49.5
-      // Total GST = 2690.68
-      expect(outputs.totalGst).toBe(2690.68);
+      // Total GST = 3478.68
+      expect(outputs.totalGst).toBe(3478.68);
 
-      // Final Payable = Net Customer Premium (14948.2) + GST (2690.68) = 17638.88
-      expect(outputs.totalPremium).toBe(17638.88);
-      expect(outputs.finalPayableAmount).toBe(17638.88);
+      // Final Payable = Net Customer Premium (14948.2) + GST (3478.68) = 18426.88
+      expect(outputs.totalPremium).toBe(18426.88);
+      expect(outputs.finalPayableAmount).toBe(18426.88);
 
       // Phase 4 Specification: Structured Component Breakdown
       expect(outputs.od).toEqual({
@@ -96,24 +96,33 @@ describe('MotorCalculationService (Iteration 5 Financial Math)', () => {
         specialDiscount: 1250.8,
         addons: 0,
         net: 11257.2,
-        gst: 2026.3,
+        gst: 2814.3,
+        isEdited: false,
       });
       expect(outputs.tp).toEqual({
         base: 3416,
         discount: 0,
         net: 3416,
         gst: 614.88,
+        isEdited: false,
       });
       expect(outputs.pa).toEqual({
         premium: 275,
         gst: 49.5,
+        isEdited: false,
       });
       expect(outputs.summary).toEqual({
         grossPremium: 19326,
         totalDiscount: 4377.8,
         netPremium: 14948.2,
-        totalGst: 2690.68,
-        finalPayable: 17638.88,
+        totalGst: 3478.68,
+        finalPayable: 18426.88,
+        gstBreakdown: expect.objectContaining({
+          base: 'GROSS',
+          od: { base: 15635, rate: 0.18, amount: 2814.3 },
+          tp: { base: 3416, rate: 0.18, amount: 614.88 },
+          pa: { base: 275, rate: 0.18, amount: 49.5 },
+        }),
       });
 
       // Verify that base premium is strictly different from total payable
@@ -203,16 +212,19 @@ describe('MotorCalculationService (Iteration 5 Financial Math)', () => {
       expect(result.outputs.ncbDiscount).toBe(0);
     });
 
-    it('should reject zero-premium addon selection per IRDAI compliance (G018)', async () => {
-      await expect(
-        service.calculate({
-          vehicleCategory: 'PRIVATE_CAR',
-          vehicleStatus: 'EXISTING',
-          policyType: 'PACKAGE_COMPREHENSIVE',
-          idv: 500000,
-          addons: [{ addonCode: 'UNKNOWN_CUSTOM_ADDON' }],
-        }),
-      ).rejects.toThrow(BadRequestException);
+    it('should flag zero-premium or invalid addon without crashing the quote calculation', async () => {
+      const result = await service.calculate({
+        vehicleCategory: 'PRIVATE_CAR',
+        vehicleStatus: 'EXISTING',
+        policyType: 'PACKAGE_COMPREHENSIVE',
+        idv: 500000,
+        addons: [{ addonCode: 'UNKNOWN_CUSTOM_ADDON' }],
+      });
+
+      expect(result.outputs.itemizedAddons).toHaveLength(1);
+      expect(result.outputs.itemizedAddons[0].isInvalid).toBe(true);
+      expect(result.outputs.addonPremium).toBe(0);
+      expect(result.outputs.baseOdPremium).toBeGreaterThan(0);
     });
 
     it('MOTOR-REG-03: should reject SAOD for NEW vehicles with HTTP 400', async () => {
@@ -241,7 +253,7 @@ describe('MotorCalculationService (Iteration 5 Financial Math)', () => {
       expect(result.outputs.ncbDiscount).toBe(0);
     });
 
-    it('MOTOR-REG-05: should calculate TP discount and apply GST to net TP correctly', async () => {
+    it('MOTOR-REG-05: should calculate TP discount and apply GST to gross TP correctly', async () => {
       const result: any = await service.calculate({
         vehicleCategory: 'PRIVATE_CAR',
         vehicleStatus: 'EXISTING',
@@ -253,9 +265,10 @@ describe('MotorCalculationService (Iteration 5 Financial Math)', () => {
       // Base TP = 3416. 10% discount = 341.6. Net TP = 3074.4
       expect(result.outputs.baseTpPremium).toBe(3416);
       expect(result.outputs.netTpComponent).toBe(3074.4);
-      // GST on net TP: 3074.4 * 0.18 = 553.39
-      expect(result.outputs.gstOnTp).toBe(553.39);
-      expect(result.outputs.totalPremium).toBe(3627.79);
+      // GST on gross TP (statutory rule): 3416 * 0.18 = 614.88
+      expect(result.outputs.gstOnTp).toBe(614.88);
+      // Total Premium = Net TP (3074.4) + GST (614.88) = 3689.28
+      expect(result.outputs.totalPremium).toBe(3689.28);
     });
 
     it('MOTOR-REG-06: should enforce TP discount authority limit', async () => {
@@ -371,7 +384,7 @@ describe('MotorCalculationService (Iteration 5 Financial Math)', () => {
       ).rejects.toThrow('Negative premium, IDV, or discount parameters are disallowed.');
     });
 
-    it('WP-03: should calculate with explicit 5% GST rate when selected', async () => {
+    it('WP-03: should calculate with explicit 5% GST rate on gross base when selected', async () => {
       const result: any = await service.calculate({
         vehicleCategory: 'PRIVATE_CAR',
         vehicleStatus: 'EXISTING',
@@ -383,15 +396,16 @@ describe('MotorCalculationService (Iteration 5 Financial Math)', () => {
 
       expect(result.rateConfig.gstRatePercent).toBe(5);
       expect(result.outputs.gstRatePercent).toBe(5);
-      expect(result.outputs.totalGst).toBe(
-        Number(((result.outputs.netCustomerPremium * 0.05)).toFixed(2)),
-      );
+      // Mandatory Rule: GST base is gross before discount (15635*0.05 + 3416*0.05 + 275*0.05 = 966.30)
+      expect(result.outputs.totalGst).toBe(966.3);
       expect(result.outputs.finalPayableAmount).toBe(
         Number((result.outputs.netCustomerPremium + result.outputs.totalGst).toFixed(2)),
       );
+      expect(result.outputs.gstBreakdown.base).toBe('GROSS');
+      expect(result.outputs.gstBreakdown.od.rate).toBe(0.05);
     });
 
-    it('WP-03: should calculate with explicit 18% GST rate when selected', async () => {
+    it('WP-03: should calculate with explicit 18% GST rate on gross base when selected', async () => {
       const result: any = await service.calculate({
         vehicleCategory: 'PRIVATE_CAR',
         vehicleStatus: 'EXISTING',
@@ -403,9 +417,63 @@ describe('MotorCalculationService (Iteration 5 Financial Math)', () => {
 
       expect(result.rateConfig.gstRatePercent).toBe(18);
       expect(result.outputs.gstRatePercent).toBe(18);
-      expect(result.outputs.totalGst).toBe(
-        Number(((result.outputs.netCustomerPremium * 0.18)).toFixed(2)),
+      // Mandatory Rule: Gross base (15635*0.18 + 3416*0.18 + 275*0.18 = 3478.68)
+      expect(result.outputs.totalGst).toBe(3478.68);
+      expect(result.outputs.finalPayableAmount).toBe(
+        Number((result.outputs.netCustomerPremium + result.outputs.totalGst).toFixed(2)),
       );
+    });
+
+    it('WP-03: should calculate component-level GST with mixed rates (OD 18%, TP 5%)', async () => {
+      const result: any = await service.calculate({
+        vehicleCategory: 'PRIVATE_CAR',
+        vehicleStatus: 'EXISTING',
+        policyType: 'PACKAGE_COMPREHENSIVE',
+        idv: 500000,
+        ncbPercent: 20,
+        odGstRate: 18,
+        tpGstRate: 5,
+        paGstRate: 18,
+      });
+
+      // OD Gross = 15635 * 0.18 = 2814.30
+      // TP Gross = 3416 * 0.05 = 170.80
+      // PA Gross = 275 * 0.18 = 49.50
+      // Total GST = 2814.30 + 170.80 + 49.50 = 3034.60
+      expect(result.outputs.gstBreakdown.od.amount).toBe(2814.3);
+      expect(result.outputs.gstBreakdown.tp.amount).toBe(170.8);
+      expect(result.outputs.gstBreakdown.pa.amount).toBe(49.5);
+      expect(result.outputs.totalGst).toBe(3034.6);
+      expect(result.outputs.finalPayableAmount).toBe(
+        Number((result.outputs.netCustomerPremium + 3034.6).toFixed(2)),
+      );
+    });
+
+    it('should support editable OD rate and recalculate OD gross and GST correctly', async () => {
+      const result: any = await service.calculate({
+        vehicleCategory: 'PRIVATE_CAR',
+        vehicleStatus: 'EXISTING',
+        policyType: 'PACKAGE_COMPREHENSIVE',
+        idv: 500000,
+        editedOdRate: 3.0,
+      });
+
+      // IDV 500000 * 3.0% = 15000
+      expect(result.outputs.od.gross).toBe(15000);
+      expect(result.outputs.od.isEdited).toBe(true);
+      expect(result.rateConfig.odRate).toBe(3.0);
+      expect(result.rateConfig.systemOdRate).toBe(3.127);
+      expect(result.outputs.overridesApplied).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            field: 'OD_RATE',
+            overrideValue: 3.0,
+            status: 'APPLIED',
+          }),
+        ]),
+      );
+      // OD GST @ 18% on 15000 = 2700
+      expect(result.outputs.od.gst).toBe(2700);
     });
 
     it('WP-03: should fail-closed and reject unapproved GST rate (e.g. 12%)', async () => {

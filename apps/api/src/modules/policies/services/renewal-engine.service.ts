@@ -112,7 +112,10 @@ export class RenewalEngineService {
     const revisedTp = tpBase;
 
     const revisedBase = revisedOd + revisedTp;
-    const gstAmount = Math.round(revisedBase * 0.18);
+    // Core Business Rule: GST base = gross premium before discount.
+    const gstOnOd = Math.round(odBase * 0.18);
+    const gstOnTp = Math.round(tpBase * 0.18);
+    const gstAmount = gstOnOd + gstOnTp;
     const totalPremium = revisedBase + gstAmount;
 
     return {

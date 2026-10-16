@@ -360,8 +360,8 @@ describe('RenewalEngineService (Iteration 10)', () => {
       // OD: 6500 * (1 - 0.25) = 4875. TP: 3500. Base: 8375.
       expect(pricing.revisedOd).toBe(4875);
       expect(pricing.revisedTp).toBe(3500);
-      expect(pricing.revisedBase).toBe(8375);
-      expect(pricing.gstAmount).toBe(Math.round(8375 * 0.18));
+      // GST base is gross components before discount: 6500 * 0.18 + 3500 * 0.18 = 1800
+      expect(pricing.gstAmount).toBe(1800);
       expect(pricing.totalPremium).toBe(8375 + pricing.gstAmount);
     });
 

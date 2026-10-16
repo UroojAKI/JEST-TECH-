@@ -191,6 +191,10 @@ export interface PolicyFormTPOnly {
   tpDiscountPercent?: string;     // Y — numeric discount
   tpCommissionCalc?: string;      // Legacy field only; must not be derived from customer discount
   gstRate?: string;               // 5% vs 18% selectable GST
+  editedTpPremium?: string;       // Agent editable TP premium within bounds
+  editedPaPremium?: string;       // Agent editable PA premium within bounds
+  tpGstRate?: string;             // Component-specific GST rate
+  paGstRate?: string;             // Component-specific GST rate
   calculatedResult?: any;
 }
 
@@ -251,6 +255,8 @@ export interface PolicyFormSAOD {
   finalPayableAmount?: string;   // Authoritative server-calculated total including applicable tax
   commissionDiscountCalc: string; // Y — formatted calculator string
   gstRate?: string;               // 5% vs 18% selectable GST
+  editedOdRate?: string;          // Agent editable OD rate % within permissible bounds
+  odGstRate?: string;             // Component-specific GST rate
   calculatedResult?: any;
 }
 
@@ -281,6 +287,14 @@ export interface PolicyFormPackage {
   finalPayableAmount?: string;   // Net premium payable after discount + GST
   finalGstAmount?: string;       // Re-calculated GST after discount
   gstRate?: string;               // 5% vs 18% selectable GST
+  editedOdRate?: string;          // Agent editable OD rate %
+  editedTpPremium?: string;       // Agent editable TP premium ₹
+  editedPaPremium?: string;       // Agent editable PA premium ₹
+  editedPaidDriverPremium?: string; // Agent editable Paid Driver liability ₹
+  odGstRate?: string;             // Component-specific GST rate
+  tpGstRate?: string;             // Component-specific GST rate
+  paGstRate?: string;             // Component-specific GST rate
+  paidDriverGstRate?: string;     // Component-specific GST rate
   calculatedResult?: any;
 }
 

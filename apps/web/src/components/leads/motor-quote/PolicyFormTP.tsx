@@ -74,6 +74,8 @@ export function PolicyFormTPOnlyForm({ category, vehicleStatus, data, onChange, 
     paidDriverLiability: data.legalLiabilityPaidDriver === 'Yes',
     tpDiscountPercent: parseFloat(data.discountPercent || '0') || 0,
     gstRate: data.gstRate ? parseInt(data.gstRate) : 18,
+    editedTpPremium: data.editedTpPremium ? parseFloat(data.editedTpPremium) : undefined,
+    editedPaPremium: data.editedPaPremium ? parseFloat(data.editedPaPremium) : undefined,
   });
 
   React.useEffect(() => {
@@ -314,7 +316,7 @@ export function PolicyFormTPOnlyForm({ category, vehicleStatus, data, onChange, 
         </div>
 
         <p className="text-[10px] text-muted-foreground font-mono">
-          Formula: (TP Base - TP Discount) + {data.calculatedResult?.rateConfig?.gstRatePercent ?? (data.gstRate ? parseInt(data.gstRate) : 18)}% GST = Final Payable
+          Formula: Net TP Premium (Base - Discount) + TP GST (calculated on Gross Base) + PA = Final Total Payable
         </p>
       </div>
       {error && <div role="alert" className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-xs text-destructive">Premium calculation failed: {error}</div>}

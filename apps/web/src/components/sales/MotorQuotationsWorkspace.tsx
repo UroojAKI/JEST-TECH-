@@ -16,6 +16,7 @@ import { PolicyCompletionDialog } from '../leads/motor-quote/PolicyCompletionDia
 import type { VehicleCategory, SavedMotorQuote } from '../leads/motor-quote/motorFormTypes';
 import { MotorProductCards } from '../workspaces/sales/MotorProductCards';
 import { useAuthStore } from '../../store/auth-store';
+import { policiesRepository } from '../../repositories/policies.repository';
 
 export function MotorQuotationsWorkspace() {
   const authUser = useAuthStore((s) => s.user);
@@ -33,17 +34,84 @@ export function MotorQuotationsWorkspace() {
   const customerIdParam = searchParams?.get('customerId') || undefined;
   const typeParam = searchParams?.get('type') || undefined;
   const openQuoteParam = searchParams?.get('openQuote');
+  const renewPolicyId = searchParams?.get('renewPolicyId') || undefined;
   const [leadFilterActive, setLeadFilterActive] = useState<boolean>(!!leadIdParam);
 
   const [activeTab, setActiveTab] = useState<'ACTIVE' | 'RENEWALS'>('ACTIVE');
   const [isWizardOpen, setIsWizardOpen] = useState(false);
   const [initialCategory, setInitialCategory] = useState<VehicleCategory | null>(null);
-  const [cloneQuoteData, setCloneQuoteData] = useState<{ vehicleDetails?: any; proposerDetails?: any } | null>(null);
+  const [cloneQuoteData, setCloneQuoteData] = useState<{
+    vehicleDetails?: any;
+    proposerDetails?: any;
+    previousPolicyDetails?: any;
+    category?: VehicleCategory;
+    policyType?: any;
+    caseId?: string;
+  } | null>(null);
   const [inspectionQuoteId, setInspectionQuoteId] = useState<string | null>(null);
   const [proposalQuote, setProposalQuote] = useState<SavedMotorQuote | null>(null);
   const [completionQuote, setCompletionQuote] = useState<SavedMotorQuote | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [listLimit, setListLimit] = useState(25);
+
+  const hasHandledRenewRef = React.useRef<string | null>(null);
+
+  // Authoritative single-consumption of renewPolicyId parameter
+  useEffect(() => {
+    if (!renewPolicyId || hasHandledRenewRef.current === renewPolicyId) return;
+    hasHandledRenewRef.current = renewPolicyId;
+
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href);
+      url.searchParams.delete('renewPolicyId');
+      window.history.replaceState({}, '', url.pathname + (url.search ? url.search : ''));
+    }
+
+    (async () => {
+      try {
+        const res = await policiesRepository.getRenewalQuotePrefill(renewPolicyId);
+        if (res.success && res.prefill) {
+          const { prefill } = res;
+          const cat = (prefill.vehicle?.vehicleCategory || 'PRIVATE_CAR') as VehicleCategory;
+          setInitialCategory(cat);
+          setCloneQuoteData({
+            category: cat,
+            policyType: (prefill.policyType === 'THIRD_PARTY_ONLY' ? 'TP_ONLY' : prefill.policyType === 'STANDALONE_OD' ? 'SAOD' : 'PACKAGE') as any,
+            proposerDetails: {
+              customerName: `${prefill.customer.firstName || ''} ${prefill.customer.lastName || ''}`.trim(),
+              mobileNumber: prefill.customer.phone || '',
+              emailId: prefill.customer.email || '',
+              address: prefill.customer.address || '',
+              pincode: prefill.customer.pincode || '',
+              state: prefill.customer.state || '',
+              city: prefill.customer.city || '',
+              contactId: prefill.customer.contactId,
+            },
+            vehicleDetails: {
+              ...prefill.vehicle,
+              vehicleStatus: 'EXISTING',
+              idv: prefill.pricing.suggestedIdv,
+            },
+            previousPolicyDetails: {
+              policyNumber: prefill.policyNumber,
+              expiryDate: prefill.expiryDate ? new Date(prefill.expiryDate).toISOString().slice(0, 10) : '',
+              previousInsurerName: prefill.insurer?.insurerName || '',
+              claimInExpiringPolicy: prefill.pricing.hasClaims,
+              ncbPercentage: prefill.pricing.previousNcb,
+              renewalNcbPercentage: prefill.pricing.renewalNcb,
+            },
+          });
+          setIsWizardOpen(true);
+          if (prefill.warnings && prefill.warnings.length > 0) {
+            prefill.warnings.forEach((w: string) => toast.warning(w));
+          }
+          toast.success(`Renewal prefilled for Policy ${prefill.policyNumber}`);
+        }
+      } catch (err: any) {
+        toast.error(err.response?.data?.message || 'Failed to prefill renewal policy data');
+      }
+    })();
+  }, [renewPolicyId]);
 
   // Fetch linked lead context if leadId is provided in URL
   const { data: linkedLead } = useQuery({

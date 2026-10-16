@@ -1707,6 +1707,7 @@ enum NotificationStatus {
 
 enum RenewalTaskStatus {
   PENDING
+  QUOTED
   COMPLETED
   CANCELLED
 }
