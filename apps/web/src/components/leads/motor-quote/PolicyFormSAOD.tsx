@@ -3,7 +3,6 @@ import { ShieldCheck, AlertTriangle, CheckCircle, Info, Calculator, Percent } fr
 import { INSURER_OPTIONS, NCB_OPTIONS, ADDON_OPTIONS } from './motorFormConfig';
 import type { PolicyFormSAOD, SaodTpVerification, VehicleCategory, MotorEligibilityContext } from './motorFormTypes';
 import { GstRateSelector } from './GstRateSelector';
-import { CommissionBreakdownPanel } from './CommissionBreakdownPanel';
 import { useMotorCalculator } from './useMotorCalculator';
 
 interface Props {
@@ -79,11 +78,16 @@ export function PolicyFormSAODForm({ category, vehicleStatus, data, onChange, el
     claimInExpiringPolicy: data.claimInExpiringODPolicy === 'Yes',
     discountPercent: parseFloat(data.discountPercent || '0') || 0,
     gstRate: data.gstRate ? parseInt(data.gstRate) : 18,
-    editedOdRate: data.editedOdRate ? parseFloat(data.editedOdRate) : undefined,
-    addons: (data.addonsSelected || []).map((a) => ({
-      addonCode: a,
-      editedPrice: data.addonPrices?.[a] ? parseFloat(data.addonPrices[a]) : undefined,
-    })),
+    odGstRate: data.odGstRate ? parseInt(data.odGstRate) : (data.gstRate ? parseInt(data.gstRate) : 18),
+    editedOdRate: data.editedOdRate !== undefined && data.editedOdRate !== '' && !isNaN(parseFloat(data.editedOdRate))
+      ? parseFloat(data.editedOdRate)
+      : undefined,
+    addons: (data.addonsSelected || [])
+      .filter((a) => data.addonPrices?.[a] && parseFloat(data.addonPrices[a]) > 0)
+      .map((a) => ({
+        addonCode: a,
+        editedPrice: parseFloat(data.addonPrices![a]),
+      })),
   });
 
   useEffect(() => {
@@ -378,20 +382,47 @@ export function PolicyFormSAODForm({ category, vehicleStatus, data, onChange, el
                   />
                   <span>{a.label}</span>
                 </label>
-                {isSelected && (() => {
-                  const pricedAddon = itemizedAddons.find((item: any) => item.addonCode === a.key);
-                  return (
-                    <div className="mt-1 rounded-md bg-muted/50 px-2 py-1.5 text-[10px]">
-                      {pricedAddon
-                        ? <span className="font-semibold">Calculated premium: ₹{Number(pricedAddon.amount).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                        : error
-                          ? <span className="text-destructive">Price unavailable — resolve the calculator error below.</span>
-                          : loading
-                            ? <span className="text-muted-foreground">Calculating configured premium…</span>
-                            : <span className="text-muted-foreground">Price is calculated by the server.</span>}
+                {isSelected && (
+                  <div className="mt-1.5 rounded-md bg-muted/40 p-2 text-[10px] space-y-1.5 border border-border">
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-foreground">Manual Premium (₹):</span>
+                      {data.addonPrices?.[a.key] && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const newPrices = { ...(data.addonPrices || {}) };
+                            delete newPrices[a.key];
+                            onChange({ ...data, addonPrices: newPrices });
+                          }}
+                          className="text-[9px] text-muted-foreground hover:text-foreground underline"
+                        >
+                          Clear
+                        </button>
+                      )}
                     </div>
-                  );
-                })()}
+                    <input
+                      type="number"
+                      step="1"
+                      min="0"
+                      placeholder="Enter amount ₹"
+                      value={data.addonPrices?.[a.key] ?? ''}
+                      onChange={(e) => {
+                        const newPrices = { ...(data.addonPrices || {}), [a.key]: e.target.value };
+                        onChange({ ...data, addonPrices: newPrices });
+                      }}
+                      className="w-full p-1 text-[11px] font-bold rounded border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                    />
+                    {data.addonPrices?.[a.key] ? (
+                      <span className="text-[9px] text-emerald-600 dark:text-emerald-400 font-semibold block">
+                        Applied: ₹{Number(data.addonPrices[a.key]).toLocaleString('en-IN')}
+                      </span>
+                    ) : (
+                      <span className="text-[9px] text-muted-foreground block">
+                        Enter amount to include in quotation
+                      </span>
+                    )}
+                  </div>
+                )}
               </div>
             );
           })}
@@ -410,10 +441,17 @@ export function PolicyFormSAODForm({ category, vehicleStatus, data, onChange, el
           </span>
         </div>
 
-        <GstRateSelector
-          value={data.gstRate}
-          onChange={(rate) => onChange({ ...data, gstRate: rate })}
-        />
+        <div className="flex items-center justify-between p-2.5 rounded-lg border bg-card">
+          <span className="text-xs font-bold text-foreground">OD Applicable GST Rate:</span>
+          <select
+            value={data.odGstRate || data.gstRate || '18'}
+            onChange={(e) => onChange({ ...data, gstRate: e.target.value, odGstRate: e.target.value })}
+            className="p-1 text-xs font-bold rounded border bg-background text-primary"
+          >
+            <option value="18">18% GST (Standard)</option>
+            <option value="5">5% GST (Concessional)</option>
+          </select>
+        </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
           <FieldRow label="OD Base Premium (₹)" mandatory hint="Insurer OD rate applied to IDV" formula="IDV × Insurer OD Rate %">
@@ -524,7 +562,6 @@ export function PolicyFormSAODForm({ category, vehicleStatus, data, onChange, el
         </div>
       </div>
       {error && <div role="alert" className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-xs text-destructive">Premium calculation failed: {error}</div>}
-      <CommissionBreakdownPanel calculation={loading || error ? undefined : result} components={['OD']} loading={loading} error={error} />
     </div>
   );
 }

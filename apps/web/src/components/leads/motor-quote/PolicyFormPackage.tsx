@@ -5,7 +5,6 @@ import { getPolicyTenureOptions, INSURER_OPTIONS, NCB_OPTIONS, ADDON_OPTIONS } f
 import type { VehicleCategory, PolicyFormPackage, MotorEligibilityContext } from './motorFormTypes';
 import { useMotorCalculator } from './useMotorCalculator';
 import { GstRateSelector } from './GstRateSelector';
-import { CommissionBreakdownPanel } from './CommissionBreakdownPanel';
 
 interface Props {
   category: VehicleCategory;
@@ -93,18 +92,29 @@ export function PolicyFormPackageForm({ category, vehicleStatus, data, onChange,
     idv: parseFloat(data.insuredDeclaredValue || '0') || 0,
     ncbPercent: parseInt(data.ncbPercentage || '0') || 0,
     claimInExpiringPolicy: data.claimInExpiringPolicy === 'Yes',
-    paCover: true,
+    paCover: data.paCoverOwner !== false,
     paidDriverLiability: false,
     discountPercent: parseFloat(data.odDiscountPercent || '0') || 0,
     tpDiscountPercent: parseFloat(data.tpDiscountPercent || '0') || 0,
     gstRate: data.gstRate ? parseInt(data.gstRate) : 18,
-    editedOdRate: data.editedOdRate ? parseFloat(data.editedOdRate) : undefined,
-    editedTpPremium: data.editedTpPremium ? parseFloat(data.editedTpPremium) : undefined,
-    editedPaPremium: data.editedPaPremium ? parseFloat(data.editedPaPremium) : undefined,
-    addons: (data.addonsSelected || []).map((a) => ({
-      addonCode: a,
-      editedPrice: data.addonPrices?.[a] ? parseFloat(data.addonPrices[a]) : undefined,
-    })),
+    odGstRate: data.odGstRate ? parseInt(data.odGstRate) : (data.gstRate ? parseInt(data.gstRate) : 18),
+    tpGstRate: data.tpGstRate ? parseInt(data.tpGstRate) : (data.gstRate ? parseInt(data.gstRate) : 18),
+    paGstRate: data.paGstRate ? parseInt(data.paGstRate) : (data.gstRate ? parseInt(data.gstRate) : 18),
+    editedOdRate: data.editedOdRate !== undefined && data.editedOdRate !== '' && !isNaN(parseFloat(data.editedOdRate))
+      ? parseFloat(data.editedOdRate)
+      : undefined,
+    editedTpPremium: data.editedTpPremium !== undefined && data.editedTpPremium !== '' && !isNaN(parseFloat(data.editedTpPremium))
+      ? parseFloat(data.editedTpPremium)
+      : undefined,
+    editedPaPremium: data.editedPaPremium !== undefined && data.editedPaPremium !== '' && !isNaN(parseFloat(data.editedPaPremium))
+      ? parseFloat(data.editedPaPremium)
+      : undefined,
+    addons: (data.addonsSelected || [])
+      .filter((addonCode) => data.addonPrices?.[addonCode] && parseFloat(data.addonPrices[addonCode]) > 0)
+      .map((addonCode) => ({
+        addonCode,
+        editedPrice: parseFloat(data.addonPrices![addonCode]),
+      })),
   });
 
   useEffect(() => {
@@ -186,6 +196,7 @@ export function PolicyFormPackageForm({ category, vehicleStatus, data, onChange,
         {error && <div className="ml-auto text-xs text-destructive">{error}</div>}
       </div>
 
+      {/* 1. Policy Tenure & IDV */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {/* Policy Tenure */}
         <FieldRow label="Policy Tenure" mandatory>
@@ -199,7 +210,433 @@ export function PolicyFormPackageForm({ category, vehicleStatus, data, onChange,
         <FieldRow label="Insured Declared Value (IDV) ₹" mandatory hint="Vehicle market value">
           <input type="number" value={data.insuredDeclaredValue} onChange={set('insuredDeclaredValue')} placeholder="e.g. 850000" className={mandatoryInput(data.insuredDeclaredValue)} />
         </FieldRow>
+      </div>
 
+      {/* 2. Component-Level Tariff & Tax Calculation — Positioned directly under IDV */}
+      <div className="rounded-2xl border bg-card shadow-xs overflow-hidden space-y-0">
+        <div className="p-3.5 border-b bg-muted/20 flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <span className="text-xs font-black text-foreground block">Component-Level Tariff & Tax Calculation</span>
+            <span className="text-[10px] text-muted-foreground font-semibold">
+              Statutory IRDAI rule: Tax is itemized per component on Gross Base (OD Gross → OD GST, TP Gross → TP GST)
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-bold text-primary px-2 py-0.5 rounded-full bg-primary/10 border border-primary/20">
+              GST Base = GROSS
+            </span>
+            <GstRateSelector
+              value={data.gstRate}
+              onChange={(rate) => onChange({ ...data, gstRate: rate, odGstRate: rate, tpGstRate: rate, paGstRate: rate })}
+            />
+          </div>
+        </div>
+
+        <div className="p-4 space-y-3">
+          {/* Component 1: Own Damage (OD) */}
+          <div className="p-3 rounded-xl border bg-accent/20 space-y-2">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs font-black text-foreground">1. Own Damage (OD)</span>
+                {data.editedOdRate && (
+                  <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-600 border border-amber-300">
+                    [Edited]
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] text-muted-foreground font-medium">OD Rate %:</span>
+                <input
+                  type="number"
+                  step="0.001"
+                  placeholder={result?.rateConfig?.systemOdRate ? `${result.rateConfig.systemOdRate}%` : 'Rate %'}
+                  value={data.editedOdRate ?? ''}
+                  onChange={(e) => onChange({ ...data, editedOdRate: e.target.value })}
+                  className="w-20 p-1 text-[11px] font-bold rounded border bg-background text-foreground"
+                  title="Edit OD Rate %"
+                />
+                {data.editedOdRate && (
+                  <button
+                    type="button"
+                    onClick={() => onChange({ ...data, editedOdRate: undefined })}
+                    className="text-[10px] font-semibold text-muted-foreground hover:text-foreground underline"
+                  >
+                    Reset
+                  </button>
+                )}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 text-xs">
+              {/* OD Gross */}
+              <div className="p-2.5 rounded-lg bg-card border space-y-1">
+                <span className="text-[9px] text-muted-foreground block font-bold">OD Gross (₹)</span>
+                <input
+                  type="number"
+                  step="1"
+                  placeholder={hasValidCalculation ? String(Math.round(outputs.od?.gross ?? rawOd)) : 'OD Gross ₹'}
+                  value={data.editedOdRate && parseFloat(data.insuredDeclaredValue || '0') > 0
+                    ? Math.round(parseFloat(data.insuredDeclaredValue || '0') * (parseFloat(data.editedOdRate) / 100))
+                    : (hasValidCalculation ? Math.round(outputs.od?.gross ?? rawOd) : '')}
+                  onChange={(e) => {
+                    const val = parseFloat(e.target.value);
+                    const idvVal = parseFloat(data.insuredDeclaredValue || '0');
+                    if (idvVal > 0 && !isNaN(val)) {
+                      const rate = ((val / idvVal) * 100).toFixed(3);
+                      onChange({ ...data, editedOdRate: rate });
+                    } else if (!e.target.value) {
+                      onChange({ ...data, editedOdRate: undefined });
+                    }
+                  }}
+                  className="w-full p-1 text-xs font-bold rounded border bg-background text-foreground"
+                  title="Edit OD Gross ₹"
+                />
+                <span className="text-[9px] text-muted-foreground block">
+                  {hasValidCalculation ? 'Calc: ₹' + Number(outputs.od?.gross ?? rawOd).toLocaleString('en-IN') : 'Based on IDV × Rate'}
+                </span>
+              </div>
+
+              {/* OD Discount */}
+              <div className="p-2.5 rounded-lg bg-card border text-amber-700 dark:text-amber-400 space-y-1">
+                <span className="text-[9px] text-muted-foreground block font-bold">OD Discount (%)</span>
+                <input
+                  type="number"
+                  min="0"
+                  max="85"
+                  step="0.5"
+                  value={data.odDiscountPercent ?? ''}
+                  onChange={(e) => onChange({ ...data, odDiscountPercent: e.target.value })}
+                  placeholder="e.g. 10%"
+                  className="w-full p-1 text-xs font-bold rounded border bg-background text-amber-700 dark:text-amber-400"
+                />
+                <input
+                  type="text"
+                  readOnly
+                  value={hasValidCalculation ? Number(odDiscountAmount).toFixed(2) : '—'}
+                  className="hidden"
+                />
+                <span className="text-[9px] block">
+                  Amount: {hasValidCalculation ? '-₹' + Number((outputs.od?.ncbDiscount ?? 0) + (outputs.od?.specialDiscount ?? odDiscountAmount)).toLocaleString('en-IN') : '—'}
+                </span>
+              </div>
+
+              {/* OD Net Payable */}
+              <div className="p-2.5 rounded-lg bg-card border space-y-1">
+                <span className="text-[9px] text-muted-foreground block font-bold">OD Net Payable</span>
+                <span className="text-xs font-bold text-foreground block pt-1">
+                  {hasValidCalculation ? '₹' + Number(outputs.od?.net ?? outputs.netOdPremium ?? 0).toLocaleString('en-IN') : '—'}
+                </span>
+                <span className="text-[9px] text-muted-foreground block">OD Gross minus discounts</span>
+              </div>
+
+              {/* OD GST */}
+              <div className="p-2.5 rounded-lg bg-card border border-primary/20 bg-primary/5 space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-[9px] text-primary font-bold">OD GST</span>
+                  <select
+                    value={data.odGstRate || data.gstRate || '18'}
+                    onChange={(e) => onChange({ ...data, odGstRate: e.target.value })}
+                    className="p-0.5 text-[10px] font-bold rounded border bg-background text-primary"
+                  >
+                    <option value="18">18% GST</option>
+                    <option value="5">5% GST</option>
+                  </select>
+                </div>
+                <span className="text-xs font-bold text-primary block pt-1">
+                  {hasValidCalculation ? '+₹' + Number(outputs.od?.gst ?? outputs.gstOnOd ?? 0).toLocaleString('en-IN') : '—'}
+                </span>
+                <span className="text-[9px] text-muted-foreground block">Itemized on OD Gross</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Component 2: Third Party (TP) */}
+          <div className="p-3 rounded-xl border bg-accent/20 space-y-2">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs font-black text-foreground">2. Third Party (TP) Liability</span>
+                {data.editedTpPremium && (
+                  <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-600 border border-amber-300">
+                    [Edited]
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] text-muted-foreground font-medium">TP Base ₹:</span>
+                <input
+                  type="number"
+                  step="1"
+                  placeholder={result?.rateConfig?.systemTpAnnualRate ? `₹${result.rateConfig.systemTpAnnualRate}` : '₹ TP'}
+                  value={data.editedTpPremium ?? ''}
+                  onChange={(e) => onChange({ ...data, editedTpPremium: e.target.value })}
+                  className="w-24 p-1 text-[11px] font-bold rounded border bg-background text-foreground"
+                  title="Edit TP Premium ₹"
+                />
+                {data.editedTpPremium && (
+                  <button
+                    type="button"
+                    onClick={() => onChange({ ...data, editedTpPremium: undefined })}
+                    className="text-[10px] font-semibold text-muted-foreground hover:text-foreground underline"
+                  >
+                    Reset
+                  </button>
+                )}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 text-xs">
+              {/* TP Base */}
+              <div className="p-2.5 rounded-lg bg-card border space-y-1">
+                <span className="text-[9px] text-muted-foreground block font-bold">TP Base Premium ₹</span>
+                <input
+                  type="number"
+                  step="1"
+                  placeholder={hasValidCalculation ? String(outputs.tp?.base ?? rawTp) : 'TP Base ₹'}
+                  value={data.editedTpPremium ?? ''}
+                  onChange={(e) => onChange({ ...data, editedTpPremium: e.target.value })}
+                  className="w-full p-1 text-xs font-bold rounded border bg-background text-foreground"
+                  title="Edit TP Base ₹"
+                />
+                <span className="text-[9px] text-muted-foreground block">
+                  {hasValidCalculation ? 'Statutory: ₹' + Number(outputs.tp?.base ?? rawTp).toLocaleString('en-IN') : 'Statutory tariff'}
+                </span>
+              </div>
+
+              {/* TP Discount */}
+              <div className="p-2.5 rounded-lg bg-card border text-amber-700 dark:text-amber-400 space-y-1">
+                <span className="text-[9px] text-muted-foreground block font-bold">TP Discount (%)</span>
+                <input
+                  type="number"
+                  min="0"
+                  max="20"
+                  step="0.5"
+                  value={data.tpDiscountPercent ?? ''}
+                  onChange={(e) => onChange({ ...data, tpDiscountPercent: e.target.value })}
+                  placeholder="e.g. 0%"
+                  className="w-full p-1 text-xs font-bold rounded border bg-background text-amber-700 dark:text-amber-400"
+                />
+                <input
+                  type="text"
+                  readOnly
+                  value={hasValidCalculation ? Number(tpDiscountAmount).toFixed(2) : '—'}
+                  className="hidden"
+                />
+                <span className="text-[9px] block">
+                  Amount: {hasValidCalculation ? '-₹' + Number(outputs.tp?.discount ?? tpDiscountAmount).toLocaleString('en-IN') : '—'}
+                </span>
+              </div>
+
+              {/* TP Net Payable */}
+              <div className="p-2.5 rounded-lg bg-card border space-y-1">
+                <span className="text-[9px] text-muted-foreground block font-bold">TP Net Payable</span>
+                <span className="text-xs font-bold text-foreground block pt-1">
+                  {hasValidCalculation ? '₹' + Number(outputs.tp?.net ?? outputs.netTpComponent ?? 0).toLocaleString('en-IN') : '—'}
+                </span>
+                <span className="text-[9px] text-muted-foreground block">TP Base minus discount</span>
+              </div>
+
+              {/* TP GST */}
+              <div className="p-2.5 rounded-lg bg-card border border-primary/20 bg-primary/5 space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-[9px] text-primary font-bold">TP GST</span>
+                  <select
+                    value={data.tpGstRate || data.gstRate || '18'}
+                    onChange={(e) => onChange({ ...data, tpGstRate: e.target.value })}
+                    className="p-0.5 text-[10px] font-bold rounded border bg-background text-primary"
+                  >
+                    <option value="18">18% GST</option>
+                    <option value="5">5% GST</option>
+                  </select>
+                </div>
+                <span className="text-xs font-bold text-primary block pt-1">
+                  {hasValidCalculation ? '+₹' + Number(outputs.tp?.gst ?? outputs.gstOnTp ?? 0).toLocaleString('en-IN') : '—'}
+                </span>
+                <span className="text-[9px] text-muted-foreground block">Itemized on TP Gross</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Component 3: Compulsory PA (Owner-Driver) — Optional */}
+          <div className={`p-3 rounded-xl border transition-colors space-y-2 ${
+            data.paCoverOwner === false ? 'bg-muted/10 border-border opacity-70' : 'bg-accent/20 border-border'
+          }`}>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  id="paCoverPackage"
+                  checked={data.paCoverOwner !== false}
+                  onChange={(e) => onChange({ ...data, paCoverOwner: e.target.checked })}
+                  className="h-4 w-4 rounded text-primary cursor-pointer"
+                />
+                <span className="text-xs font-black text-foreground">3. Compulsory PA (Owner-Driver — ₹15L Cover)</span>
+                <span className="text-[9px] font-semibold text-muted-foreground">(Optional)</span>
+              </label>
+              {data.paCoverOwner !== false ? (
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] text-muted-foreground font-medium">PA Premium ₹:</span>
+                  <input
+                    type="number"
+                    step="1"
+                    placeholder="₹275"
+                    value={data.editedPaPremium ?? ''}
+                    onChange={(e) => onChange({ ...data, editedPaPremium: e.target.value })}
+                    className="w-20 p-1 text-[11px] font-bold rounded border bg-background text-foreground"
+                  />
+                  {data.editedPaPremium && (
+                    <button
+                      type="button"
+                      onClick={() => onChange({ ...data, editedPaPremium: undefined })}
+                      className="text-[10px] font-semibold text-muted-foreground hover:text-foreground underline"
+                    >
+                      Reset
+                    </button>
+                  )}
+                </div>
+              ) : (
+                <span className="text-[10px] font-bold text-muted-foreground bg-muted/40 px-2 py-0.5 rounded">
+                  Opted Out / Excluded
+                </span>
+              )}
+            </div>
+
+            {data.paCoverOwner !== false && (
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs pt-1">
+                <div className="p-2.5 rounded-lg bg-card border space-y-1">
+                  <span className="text-[9px] text-muted-foreground block font-bold">PA Base Premium</span>
+                  <input
+                    type="number"
+                    step="1"
+                    placeholder="275"
+                    value={data.editedPaPremium ?? ''}
+                    onChange={(e) => onChange({ ...data, editedPaPremium: e.target.value })}
+                    className="w-full p-1 text-xs font-bold rounded border bg-background text-foreground"
+                  />
+                  <span className="text-[9px] text-muted-foreground block">
+                    {hasValidCalculation ? 'Base: ₹' + Number(outputs.pa?.premium ?? 275).toLocaleString('en-IN') : 'Standard: ₹275'}
+                  </span>
+                </div>
+                <div className="p-2.5 rounded-lg bg-card border border-primary/20 bg-primary/5 space-y-1">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[9px] text-primary font-bold">PA GST</span>
+                    <select
+                      value={data.paGstRate || data.gstRate || '18'}
+                      onChange={(e) => onChange({ ...data, paGstRate: e.target.value })}
+                      className="p-0.5 text-[10px] font-bold rounded border bg-background text-primary"
+                    >
+                      <option value="18">18% GST</option>
+                      <option value="5">5% GST</option>
+                    </select>
+                  </div>
+                  <span className="text-xs font-bold text-primary block pt-1">
+                    {hasValidCalculation ? '+₹' + Number(outputs.pa?.gst ?? outputs.gstOnPa ?? 0).toLocaleString('en-IN') : '—'}
+                  </span>
+                </div>
+                <div className="p-2.5 rounded-lg bg-card border space-y-1">
+                  <span className="text-[9px] text-muted-foreground block font-bold">PA Total</span>
+                  <span className="text-xs font-bold text-foreground block pt-1">
+                    {hasValidCalculation ? '₹' + Number((outputs.pa?.premium ?? 275) + (outputs.pa?.gst ?? outputs.gstOnPa ?? 0)).toLocaleString('en-IN') : '—'}
+                  </span>
+                  <span className="text-[9px] text-muted-foreground block">Premium + GST</span>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Component 4: Add-on Covers */}
+          <div className="p-3.5 rounded-xl border bg-card space-y-2">
+            <div className="flex items-center justify-between">
+              <label className="text-[11px] font-bold text-foreground block">
+                Add-on Covers <span className="text-muted-foreground text-[9px] ml-1">(Optional)</span>
+              </label>
+              {outputs.od?.addons ? (
+                <span className="text-[10px] font-mono font-bold text-primary px-2 py-0.5 rounded bg-primary/10 border border-primary/20">
+                  Total Add-ons: ₹{Number(outputs.od.addons).toLocaleString('en-IN')}
+                </span>
+              ) : null}
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+              {ADDON_OPTIONS.map((a) => {
+                const isSelected = (data.addonsSelected || []).includes(a.key);
+                return (
+                  <div key={a.key} className={`flex flex-col gap-1 p-2 rounded-lg border transition-colors ${isSelected ? 'bg-accent border-primary/50' : 'hover:bg-accent/50'}`}>
+                    <label className="flex items-center gap-2 text-[11px] font-semibold cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={() => toggleAddon(a.key)}
+                        className="h-3.5 w-3.5 rounded text-primary"
+                      />
+                      {a.label}
+                    </label>
+                    {isSelected && (
+                      <div className="mt-1.5 rounded-md bg-muted/40 p-2 text-[10px] space-y-1.5 border border-border">
+                        <div className="flex items-center justify-between">
+                          <span className="font-bold text-foreground">Manual Premium (₹):</span>
+                          {data.addonPrices?.[a.key] && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const newPrices = { ...(data.addonPrices || {}) };
+                                delete newPrices[a.key];
+                                onChange({ ...data, addonPrices: newPrices });
+                              }}
+                              className="text-[9px] text-muted-foreground hover:text-foreground underline"
+                            >
+                              Clear
+                            </button>
+                          )}
+                        </div>
+                        <input
+                          type="number"
+                          step="1"
+                          min="0"
+                          placeholder="Enter amount ₹"
+                          value={data.addonPrices?.[a.key] ?? ''}
+                          onChange={(e) => {
+                            const newPrices = { ...(data.addonPrices || {}), [a.key]: e.target.value };
+                            onChange({ ...data, addonPrices: newPrices });
+                          }}
+                          className="w-full p-1 text-[11px] font-bold rounded border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                        />
+                        {data.addonPrices?.[a.key] ? (
+                          <span className="text-[9px] text-emerald-600 dark:text-emerald-400 font-semibold block">
+                            Applied: ₹{Number(data.addonPrices[a.key]).toLocaleString('en-IN')}
+                          </span>
+                        ) : (
+                          <span className="text-[9px] text-muted-foreground block">
+                            Enter amount to include in quotation
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Final Total Payable Summary */}
+          <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex flex-col sm:flex-row items-center justify-between gap-3">
+            <div>
+              <span className="text-xs font-black text-emerald-800 dark:text-emerald-300 block">
+                Final Total Payable Amount
+              </span>
+              <div className="text-[10px] text-muted-foreground flex items-center gap-2 mt-0.5">
+                <span>Net Customer Premium: <strong className="text-foreground">₹{Number(netBase).toLocaleString('en-IN')}</strong></span>
+                <span>•</span>
+                <span>Total Itemized GST: <strong className="text-foreground">₹{Number(gstAmt).toLocaleString('en-IN')}</strong></span>
+              </div>
+            </div>
+            <div className="text-2xl font-black text-emerald-700 dark:text-emerald-400">
+              {finalPayable === null ? '—' : '₹' + Number(finalPayable).toLocaleString('en-IN')}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* 3. Expiring Policy & NCB Details */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {/* Claim in Expiring Policy — only applicable when previous policy is available */}
         {claimHistoryApplicable ? (
           <FieldRow label="Claim in Expiring Policy?" mandatory hint="If Yes → NCB resets to 0%">
@@ -247,10 +684,9 @@ export function PolicyFormPackageForm({ category, vehicleStatus, data, onChange,
             <span className="font-semibold">NCB:</span> 0% — Not applicable ({isNew ? 'New Vehicle' : 'No Previous Policy'})
           </div>
         )}
-
       </div>
 
-      {/* Previous Insurer & Policy Number — only shown when previous policy is applicable */}
+      {/* 4. Previous Insurer & Policy Number — only shown when previous policy is applicable */}
       {prevPolicyApplicable && (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <FieldRow label="Previous Insurer Name" conditional>
@@ -270,355 +706,6 @@ export function PolicyFormPackageForm({ category, vehicleStatus, data, onChange,
           </FieldRow>
         </div>
       )}
-
-      {/* Add-ons */}
-      <div className="p-3.5 rounded-xl border bg-card space-y-2">
-        <label className="text-[11px] font-bold text-foreground block">
-          Add-on Covers <span className="text-muted-foreground text-[9px] ml-1">(Optional)</span>
-        </label>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-          {ADDON_OPTIONS.map((a) => {
-            const isSelected = (data.addonsSelected || []).includes(a.key);
-            return (
-              <div key={a.key} className={`flex flex-col gap-1 p-2 rounded-lg border transition-colors ${isSelected ? 'bg-accent border-primary/50' : 'hover:bg-accent/50'}`}>
-                <label className="flex items-center gap-2 text-[11px] font-semibold cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={isSelected}
-                    onChange={() => toggleAddon(a.key)}
-                    className="h-3.5 w-3.5 rounded text-primary"
-                  />
-                  {a.label}
-                </label>
-                {isSelected && (() => {
-                  const pricedAddon = itemizedAddons.find((item: any) => item.addonCode === a.key);
-                  const isInvalid = pricedAddon?.isInvalid;
-                  const isEdited = Boolean(data.addonPrices?.[a.key]);
-                  return (
-                    <div className="mt-1 rounded-md bg-muted/50 p-2 text-[10px] space-y-1">
-                      <div className="flex items-center justify-between">
-                        <span className="font-semibold text-muted-foreground">Calculated:</span>
-                        <span className="font-bold text-foreground">
-                          {pricedAddon ? `₹${Number(pricedAddon.systemRate ?? pricedAddon.amount).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '—'}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-1.5 mt-1">
-                        <span className="text-muted-foreground">Price ₹:</span>
-                        <input
-                          type="number"
-                          step="1"
-                          placeholder={pricedAddon ? `${pricedAddon.amount}` : '0'}
-                          value={data.addonPrices?.[a.key] ?? ''}
-                          onChange={(e) => {
-                            const newPrices = { ...(data.addonPrices || {}), [a.key]: e.target.value };
-                            onChange({ ...data, addonPrices: newPrices });
-                          }}
-                          className="w-20 p-1 text-[10px] font-bold rounded border bg-background text-foreground"
-                        />
-                        {isEdited && (
-                          <span className="text-[8px] font-bold px-1 py-0.5 rounded bg-amber-500/10 text-amber-600 border border-amber-300">
-                            [Edited]
-                          </span>
-                        )}
-                        {isEdited && (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const newPrices = { ...(data.addonPrices || {}) };
-                              delete newPrices[a.key];
-                              onChange({ ...data, addonPrices: newPrices });
-                            }}
-                            className="text-[9px] text-muted-foreground hover:text-foreground underline"
-                          >
-                            Reset
-                          </button>
-                        )}
-                      </div>
-                      {isInvalid && (
-                        <div className="text-[9px] text-rose-500 font-bold mt-1">
-                          ⚠️ {pricedAddon?.warning || 'Invalid add-on — omitted from calculation'}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })()}
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Discount Percentage Inputs */}
-      <div className="space-y-3 p-3.5 rounded-xl border bg-muted/10">
-        <p className="text-[11px] font-black text-foreground">Discounts & Commission Percentages</p>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <FieldRow
-            label="Own Damage (OD) Discount (%)"
-            hint="Deducted from OD Base prior to tax"
-            formula="OD Net × (Discount % / 100)"
-          >
-            <input
-              type="number"
-              min="0"
-              max="85"
-              step="0.5"
-              value={data.odDiscountPercent ?? ''}
-              onChange={(e) => {
-                const val = e.target.value;
-                onChange({ ...data, odDiscountPercent: val });
-              }}
-              placeholder="e.g. 10%"
-              className={inputBase}
-            />
-          </FieldRow>
-
-          <FieldRow
-            label="Third Party (TP) Discount (%)"
-            hint="Deducted from TP Base prior to tax (if permitted)"
-            formula="TP Net × (Discount % / 100)"
-          >
-            <input
-              type="number"
-              min="0"
-              max="20"
-              step="0.5"
-              value={data.tpDiscountPercent ?? ''}
-              onChange={(e) => {
-                const val = e.target.value;
-                onChange({ ...data, tpDiscountPercent: val });
-              }}
-              placeholder="e.g. 0%"
-              className={inputBase}
-            />
-          </FieldRow>
-          <FieldRow label="OD Discount Amount (₹)" hint="Calculated by the backend from the OD premium and approved discount">
-            <input type="text" readOnly value={hasValidCalculation ? Number(odDiscountAmount).toFixed(2) : '—'} className={inputBase + ' bg-muted'} />
-          </FieldRow>
-          <FieldRow label="TP Discount Amount (₹)" hint="Calculated by the backend from the TP premium and approved discount">
-            <input type="text" readOnly value={hasValidCalculation ? Number(tpDiscountAmount).toFixed(2) : '—'} className={inputBase + ' bg-muted'} />
-          </FieldRow>
-        </div>
-      </div>
-
-      {/* Applicable GST Rate Selector (5% vs 18%) */}
-      <GstRateSelector
-        value={data.gstRate}
-        onChange={(rate) => onChange({ ...data, gstRate: rate })}
-      />
-
-      {/* Live Financial Breakdown — Component-Level GST & Editable Pricing */}
-      <div className="rounded-2xl border bg-card shadow-xs overflow-hidden space-y-0">
-        <div className="p-3.5 border-b bg-muted/20 flex items-center justify-between">
-          <div>
-            <span className="text-xs font-black text-foreground block">Component-Level Tariff & Tax Calculation</span>
-            <span className="text-[10px] text-muted-foreground font-semibold">
-              Statutory IRDAI rule: Tax is itemized per component on Gross Base (OD Gross → OD GST, TP Gross → TP GST)
-            </span>
-          </div>
-          <span className="text-[10px] font-bold text-primary px-2 py-0.5 rounded-full bg-primary/10 border border-primary/20">
-            GST Base = GROSS
-          </span>
-        </div>
-
-        <div className="p-4 space-y-3">
-          {/* Component 1: Own Damage (OD) */}
-          <div className="p-3 rounded-xl border bg-accent/20 space-y-2">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-1.5">
-                <span className="text-xs font-black text-foreground">1. Own Damage (OD)</span>
-                {data.editedOdRate && (
-                  <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-600 border border-amber-300">
-                    [Edited]
-                  </span>
-                )}
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-[10px] text-muted-foreground">OD Rate:</span>
-                <input
-                  type="number"
-                  step="0.001"
-                  placeholder={result?.rateConfig?.systemOdRate ? `${result.rateConfig.systemOdRate}%` : 'Rate %'}
-                  value={data.editedOdRate ?? ''}
-                  onChange={(e) => onChange({ ...data, editedOdRate: e.target.value })}
-                  className="w-20 p-1 text-[11px] font-bold rounded border bg-background text-foreground"
-                  title="Edit OD Rate %"
-                />
-                {data.editedOdRate && (
-                  <button
-                    type="button"
-                    onClick={() => onChange({ ...data, editedOdRate: undefined })}
-                    className="text-[10px] font-semibold text-muted-foreground hover:text-foreground underline"
-                  >
-                    Reset
-                  </button>
-                )}
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
-              <div className="p-2 rounded-lg bg-card border">
-                <span className="text-[9px] text-muted-foreground block">OD Gross</span>
-                <span className="font-bold text-foreground">
-                  {hasValidCalculation ? '₹' + Number(outputs.od?.gross ?? rawOd).toLocaleString('en-IN') : '—'}
-                </span>
-              </div>
-              <div className="p-2 rounded-lg bg-card border text-amber-700 dark:text-amber-400">
-                <span className="text-[9px] text-muted-foreground block">Total OD Discounts</span>
-                <span className="font-bold">
-                  {hasValidCalculation ? '-₹' + Number((outputs.od?.ncbDiscount ?? 0) + (outputs.od?.specialDiscount ?? odDiscountAmount)).toLocaleString('en-IN') : '—'}
-                </span>
-              </div>
-              <div className="p-2 rounded-lg bg-card border">
-                <span className="text-[9px] text-muted-foreground block">OD Net Payable</span>
-                <span className="font-bold text-foreground">
-                  {hasValidCalculation ? '₹' + Number(outputs.od?.net ?? outputs.netOdPremium ?? 0).toLocaleString('en-IN') : '—'}
-                </span>
-              </div>
-              <div className="p-2 rounded-lg bg-card border border-primary/20 bg-primary/5">
-                <span className="text-[9px] text-primary block font-bold">OD GST (@ {data.gstRate || 18}%)</span>
-                <span className="font-bold text-primary">
-                  {hasValidCalculation ? '+₹' + Number(outputs.od?.gst ?? outputs.gstOnOd ?? 0).toLocaleString('en-IN') : '—'}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* Component 2: Third Party (TP) */}
-          <div className="p-3 rounded-xl border bg-accent/20 space-y-2">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-1.5">
-                <span className="text-xs font-black text-foreground">2. Third Party (TP) Liability</span>
-                {data.editedTpPremium && (
-                  <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-600 border border-amber-300">
-                    [Edited]
-                  </span>
-                )}
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-[10px] text-muted-foreground">TP Premium ₹:</span>
-                <input
-                  type="number"
-                  step="1"
-                  placeholder={result?.rateConfig?.systemTpAnnualRate ? `₹${result.rateConfig.systemTpAnnualRate}` : '₹ TP'}
-                  value={data.editedTpPremium ?? ''}
-                  onChange={(e) => onChange({ ...data, editedTpPremium: e.target.value })}
-                  className="w-24 p-1 text-[11px] font-bold rounded border bg-background text-foreground"
-                  title="Edit TP Premium ₹"
-                />
-                {data.editedTpPremium && (
-                  <button
-                    type="button"
-                    onClick={() => onChange({ ...data, editedTpPremium: undefined })}
-                    className="text-[10px] font-semibold text-muted-foreground hover:text-foreground underline"
-                  >
-                    Reset
-                  </button>
-                )}
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
-              <div className="p-2 rounded-lg bg-card border">
-                <span className="text-[9px] text-muted-foreground block">TP Base</span>
-                <span className="font-bold text-foreground">
-                  {hasValidCalculation ? '₹' + Number(outputs.tp?.base ?? rawTp).toLocaleString('en-IN') : '—'}
-                </span>
-              </div>
-              <div className="p-2 rounded-lg bg-card border text-amber-700 dark:text-amber-400">
-                <span className="text-[9px] text-muted-foreground block">TP Discount</span>
-                <span className="font-bold">
-                  {hasValidCalculation ? '-₹' + Number(outputs.tp?.discount ?? tpDiscountAmount).toLocaleString('en-IN') : '—'}
-                </span>
-              </div>
-              <div className="p-2 rounded-lg bg-card border">
-                <span className="text-[9px] text-muted-foreground block">TP Net Payable</span>
-                <span className="font-bold text-foreground">
-                  {hasValidCalculation ? '₹' + Number(outputs.tp?.net ?? outputs.netTpComponent ?? 0).toLocaleString('en-IN') : '—'}
-                </span>
-              </div>
-              <div className="p-2 rounded-lg bg-card border border-primary/20 bg-primary/5">
-                <span className="text-[9px] text-primary block font-bold">TP GST (@ {data.gstRate || 18}%)</span>
-                <span className="font-bold text-primary">
-                  {hasValidCalculation ? '+₹' + Number(outputs.tp?.gst ?? outputs.gstOnTp ?? 0).toLocaleString('en-IN') : '—'}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* Component 3: Compulsory PA (Owner-Driver) */}
-          <div className="p-3 rounded-xl border bg-accent/20 space-y-2">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-1.5">
-                <span className="text-xs font-black text-foreground">3. Compulsory PA (Owner-Driver — ₹15L Cover)</span>
-                {data.editedPaPremium && (
-                  <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-600 border border-amber-300">
-                    [Edited]
-                  </span>
-                )}
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-[10px] text-muted-foreground">PA Premium ₹:</span>
-                <input
-                  type="number"
-                  step="1"
-                  placeholder="₹275"
-                  value={data.editedPaPremium ?? ''}
-                  onChange={(e) => onChange({ ...data, editedPaPremium: e.target.value })}
-                  className="w-20 p-1 text-[11px] font-bold rounded border bg-background text-foreground"
-                />
-                {data.editedPaPremium && (
-                  <button
-                    type="button"
-                    onClick={() => onChange({ ...data, editedPaPremium: undefined })}
-                    className="text-[10px] font-semibold text-muted-foreground hover:text-foreground underline"
-                  >
-                    Reset
-                  </button>
-                )}
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs">
-              <div className="p-2 rounded-lg bg-card border">
-                <span className="text-[9px] text-muted-foreground block">PA Base Premium</span>
-                <span className="font-bold text-foreground">
-                  {hasValidCalculation ? '₹' + Number(outputs.pa?.premium ?? 275).toLocaleString('en-IN') : '—'}
-                </span>
-              </div>
-              <div className="p-2 rounded-lg bg-card border border-primary/20 bg-primary/5">
-                <span className="text-[9px] text-primary block font-bold">PA GST (@ {data.gstRate || 18}%)</span>
-                <span className="font-bold text-primary">
-                  {hasValidCalculation ? '+₹' + Number(outputs.pa?.gst ?? outputs.gstOnPa ?? 0).toLocaleString('en-IN') : '—'}
-                </span>
-              </div>
-              <div className="p-2 rounded-lg bg-card border">
-                <span className="text-[9px] text-muted-foreground block">PA Total</span>
-                <span className="font-bold text-foreground">
-                  {hasValidCalculation ? '₹' + Number((outputs.pa?.premium ?? 275) + (outputs.pa?.gst ?? outputs.gstOnPa ?? 0)).toLocaleString('en-IN') : '—'}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* Final Total Payable Summary (Zero post-total statutory GST row) */}
-          <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex flex-col sm:flex-row items-center justify-between gap-3">
-            <div>
-              <span className="text-xs font-black text-emerald-800 dark:text-emerald-300 block">
-                Final Total Payable Amount
-              </span>
-              <div className="text-[10px] text-muted-foreground flex items-center gap-2 mt-0.5">
-                <span>Net Customer Premium: <strong className="text-foreground">₹{Number(netBase).toLocaleString('en-IN')}</strong></span>
-                <span>•</span>
-                <span>Total Itemized GST: <strong className="text-foreground">₹{Number(gstAmt).toLocaleString('en-IN')}</strong></span>
-              </div>
-            </div>
-            <div className="text-2xl font-black text-emerald-700 dark:text-emerald-400">
-              {finalPayable === null ? '—' : '₹' + Number(finalPayable).toLocaleString('en-IN')}
-            </div>
-          </div>
-        </div>
-      </div>
-      <CommissionBreakdownPanel calculation={loading || error ? undefined : result} components={['OD', 'TP']} loading={loading} error={error} />
     </div>
   );
 }

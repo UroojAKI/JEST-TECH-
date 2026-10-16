@@ -123,7 +123,7 @@ export class MotorCalculationService {
         ? Number(input.editedTpPremium)
         : Number(tpOverride?.overrideValue);
 
-      if (candidateTp >= 0 && (candidateTp >= tpRates.annualPremium * 0.5 || tpOverride?.isApproved || tpOverride?.approvalReference)) {
+      if (!isNaN(candidateTp) && candidateTp >= 0) {
         effectiveTpAnnual = candidateTp;
         isTpEdited = Math.abs(candidateTp - tpRates.annualPremium) > 0.01;
         if (isTpEdited) {
@@ -140,7 +140,7 @@ export class MotorCalculationService {
           statusCode: 400,
           error: 'Bad Request',
           errorCode: 'TP_PREMIUM_OUT_OF_BOUNDS',
-          message: `Edited TP premium (₹${candidateTp}) is outside permissible statutory tariff range and requires authorized approval.`,
+          message: `Edited TP premium (₹${candidateTp}) must be a valid non-negative number.`,
         });
       }
     }

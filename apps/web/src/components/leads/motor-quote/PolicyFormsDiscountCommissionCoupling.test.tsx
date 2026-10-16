@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { PolicyFormPackageForm } from './PolicyFormPackage';
 import { PolicyFormTPOnlyForm } from './PolicyFormTP';
 import { PolicyFormSAODForm } from './PolicyFormSAOD';
+import { CommissionBreakdownPanel } from './CommissionBreakdownPanel';
 import { useMotorCalculator } from './useMotorCalculator';
 
 vi.mock('./useMotorCalculator', () => ({
@@ -232,7 +233,7 @@ describe('Work Package 2 & PR-01: Discount & Commission Decoupling Regression Su
     });
   });
 
-  it('sends selected add-ons to the server without a manual price override', () => {
+  it('sends selected add-ons to the server with manual entry price and without legacy manualPrice', () => {
     const mockOnChange = vi.fn();
     const initialData: any = {
       policyTenure: '1',
@@ -252,7 +253,7 @@ describe('Work Package 2 & PR-01: Discount & Commission Decoupling Regression Su
 
     const calls = vi.mocked(useMotorCalculator).mock.calls;
     const call = calls[calls.length - 1]?.[0];
-    expect(call?.addons).toEqual([{ addonCode: 'ZERO_DEP' }]);
+    expect(call?.addons).toEqual([{ addonCode: 'ZERO_DEP', editedPrice: 1 }]);
     expect(call?.addons?.[0]).not.toHaveProperty('manualPrice');
     expect(screen.queryByPlaceholderText(/Manual Price/)).not.toBeInTheDocument();
   });
@@ -291,7 +292,7 @@ describe('Work Package 2 & PR-01: Discount & Commission Decoupling Regression Su
     expect(screen.getByDisplayValue('250.00')).toBeInTheDocument();
   });
 
-  it('renders commission status as pending instead of inventing a percentage', () => {
+  it('does not render commission calculation on the customer-facing form', () => {
     render(
       <PolicyFormPackageForm
         category="PRIVATE_CAR"
@@ -301,9 +302,97 @@ describe('Work Package 2 & PR-01: Discount & Commission Decoupling Regression Su
       />,
     );
 
+    expect(screen.queryByText('Commission Calculation')).not.toBeInTheDocument();
+  });
+
+  it('renders commission status as pending in CommissionBreakdownPanel when no rate matches', () => {
+    render(
+      <CommissionBreakdownPanel
+        components={['OD', 'TP']}
+      />,
+    );
+
     expect(screen.getByText('Commission Calculation')).toBeInTheDocument();
     expect(screen.getByText('CONFIGURATION PENDING')).toBeInTheDocument();
     expect(screen.getByText(/No default percentage or commissionable base is assumed/)).toBeInTheDocument();
+  });
+
+  it('allows opting out of Compulsory PA cover by passing paCover: false to calculator', () => {
+    render(
+      <PolicyFormPackageForm
+        category="PRIVATE_CAR"
+        vehicleStatus="EXISTING"
+        data={{ policyTenure: '1', insuredDeclaredValue: '500000', paCoverOwner: false } as any}
+        onChange={vi.fn()}
+      />,
+    );
+
+    const calls = vi.mocked(useMotorCalculator).mock.calls;
+    const call = calls[calls.length - 1]?.[0];
+    expect(call?.paCover).toBe(false);
+    expect(screen.getByText('Opted Out / Excluded')).toBeInTheDocument();
+  });
+
+  it('does not send unpriced add-ons to calculator, avoiding automatic tariff calculation', () => {
+    render(
+      <PolicyFormPackageForm
+        category="PRIVATE_CAR"
+        vehicleStatus="EXISTING"
+        data={{
+          policyTenure: '1',
+          insuredDeclaredValue: '500000',
+          addonsSelected: ['ZERO_DEP', 'ENGINE_PROTECTOR'],
+          addonPrices: {},
+        } as any}
+        onChange={vi.fn()}
+      />,
+    );
+
+    const calls = vi.mocked(useMotorCalculator).mock.calls;
+    const call = calls[calls.length - 1]?.[0];
+    expect(call?.addons).toEqual([]);
+  });
+
+  it('correctly passes editedTpPremium to calculator when agent enters custom TP base', () => {
+    render(
+      <PolicyFormPackageForm
+        category="PRIVATE_CAR"
+        vehicleStatus="EXISTING"
+        data={{
+          policyTenure: '1',
+          insuredDeclaredValue: '500000',
+          editedTpPremium: '2500',
+        } as any}
+        onChange={vi.fn()}
+      />,
+    );
+
+    const calls = vi.mocked(useMotorCalculator).mock.calls;
+    const call = calls[calls.length - 1]?.[0];
+    expect(call?.editedTpPremium).toBe(2500);
+  });
+
+  it('dispatches editedTpPremium update when agent types in TP Base field', () => {
+    const mockOnChange = vi.fn();
+    render(
+      <PolicyFormPackageForm
+        category="PRIVATE_CAR"
+        vehicleStatus="EXISTING"
+        data={{
+          policyTenure: '1',
+          insuredDeclaredValue: '500000',
+          editedTpPremium: undefined,
+        } as any}
+        onChange={mockOnChange}
+      />,
+    );
+
+    const tpInputs = screen.getAllByTitle('Edit TP Base ₹');
+    fireEvent.change(tpInputs[0], { target: { value: '3000' } });
+
+    expect(mockOnChange).toHaveBeenCalled();
+    const emitted = mockOnChange.mock.calls[0][0];
+    expect(emitted.editedTpPremium).toBe('3000');
   });
 
 });

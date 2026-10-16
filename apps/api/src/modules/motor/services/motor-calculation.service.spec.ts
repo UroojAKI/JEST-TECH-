@@ -476,6 +476,57 @@ describe('MotorCalculationService (Iteration 5 Financial Math)', () => {
       expect(result.outputs.od.gst).toBe(2700);
     });
 
+    it('should support editable TP premium and recalculate TP gross, net and GST correctly', async () => {
+      const result: any = await service.calculate({
+        vehicleCategory: 'PRIVATE_CAR',
+        vehicleStatus: 'EXISTING',
+        policyType: 'PACKAGE_COMPREHENSIVE',
+        idv: 500000,
+        editedTpPremium: 2500,
+      });
+
+      expect(result.outputs.tp.base).toBe(2500);
+      expect(result.outputs.tp.isEdited).toBe(true);
+      expect(result.rateConfig.tpAnnualRate).toBe(2500);
+      expect(result.rateConfig.systemTpAnnualRate).toBe(3416);
+      expect(result.outputs.overridesApplied).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            field: 'TP_PREMIUM',
+            overrideValue: 2500,
+            status: 'APPLIED',
+          }),
+        ]),
+      );
+      // TP GST @ 18% on 2500 = 450
+      expect(result.outputs.tp.gst).toBe(450);
+    });
+
+    it('should allow small or customized TP premium without throwing out-of-bounds error', async () => {
+      const result: any = await service.calculate({
+        vehicleCategory: 'PRIVATE_CAR',
+        vehicleStatus: 'EXISTING',
+        policyType: 'PACKAGE_COMPREHENSIVE',
+        idv: 500000,
+        editedTpPremium: 100,
+      });
+
+      expect(result.outputs.tp.base).toBe(100);
+      expect(result.outputs.tp.isEdited).toBe(true);
+    });
+
+    it('should reject negative edited TP premium with HTTP 400', async () => {
+      await expect(
+        service.calculate({
+          vehicleCategory: 'PRIVATE_CAR',
+          vehicleStatus: 'EXISTING',
+          policyType: 'PACKAGE_COMPREHENSIVE',
+          idv: 500000,
+          editedTpPremium: -50,
+        }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
     it('WP-03: should fail-closed and reject unapproved GST rate (e.g. 12%)', async () => {
       await expect(
         service.calculate({

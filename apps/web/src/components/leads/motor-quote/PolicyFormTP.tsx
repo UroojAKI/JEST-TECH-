@@ -5,7 +5,6 @@ import { getPolicyTenureOptions, INSURER_OPTIONS } from './motorFormConfig';
 import type { VehicleCategory, PolicyFormTPOnly, MotorEligibilityContext } from './motorFormTypes';
 
 import { useMotorCalculator } from './useMotorCalculator';
-import { CommissionBreakdownPanel } from './CommissionBreakdownPanel';
 import { GstRateSelector } from './GstRateSelector';
 
 interface Props {
@@ -74,8 +73,13 @@ export function PolicyFormTPOnlyForm({ category, vehicleStatus, data, onChange, 
     paidDriverLiability: data.legalLiabilityPaidDriver === 'Yes',
     tpDiscountPercent: parseFloat(data.discountPercent || '0') || 0,
     gstRate: data.gstRate ? parseInt(data.gstRate) : 18,
-    editedTpPremium: data.editedTpPremium ? parseFloat(data.editedTpPremium) : undefined,
-    editedPaPremium: data.editedPaPremium ? parseFloat(data.editedPaPremium) : undefined,
+    tpGstRate: data.tpGstRate ? parseInt(data.tpGstRate) : (data.gstRate ? parseInt(data.gstRate) : 18),
+    editedTpPremium: data.editedTpPremium !== undefined && data.editedTpPremium !== '' && !isNaN(parseFloat(data.editedTpPremium))
+      ? parseFloat(data.editedTpPremium)
+      : undefined,
+    editedPaPremium: data.editedPaPremium !== undefined && data.editedPaPremium !== '' && !isNaN(parseFloat(data.editedPaPremium))
+      ? parseFloat(data.editedPaPremium)
+      : undefined,
   });
 
   React.useEffect(() => {
@@ -182,7 +186,7 @@ export function PolicyFormTPOnlyForm({ category, vehicleStatus, data, onChange, 
         </FieldRow>
       </div>
 
-      {/* PA Cover */}
+      {/* PA Cover — Optional */}
       <div className="p-3 rounded-xl border bg-card flex items-start gap-3">
         <input
           type="checkbox"
@@ -193,8 +197,8 @@ export function PolicyFormTPOnlyForm({ category, vehicleStatus, data, onChange, 
         />
         <label htmlFor="paCoverTP" className="text-xs cursor-pointer">
           <span className="font-bold text-foreground">Personal Accident (PA) Cover — Owner / Owner-cum-Driver</span>
-          <span className="text-rose-500 ml-0.5">*</span>
-          <p className="text-[10px] text-muted-foreground mt-0.5">Statutory cover unless already held. Sum Insured: ₹15 Lakh (standard)</p>
+          <span className="text-muted-foreground text-[10px] ml-1">(Optional)</span>
+          <p className="text-[10px] text-muted-foreground mt-0.5">Sum Insured: ₹15 Lakh (standard). Uncheck if customer holds existing PA cover or waiver.</p>
         </label>
       </div>
 
@@ -238,10 +242,20 @@ export function PolicyFormTPOnlyForm({ category, vehicleStatus, data, onChange, 
       </div>
 
       {/* Applicable GST Rate Selector (5% vs 18%) */}
-      <GstRateSelector
-        value={data.gstRate}
-        onChange={(rate) => onChange({ ...data, gstRate: rate })}
-      />
+      <div className="flex items-center justify-between p-3 rounded-xl border bg-card">
+        <div>
+          <span className="text-xs font-bold text-foreground block">TP Applicable GST Rate:</span>
+          <span className="text-[10px] text-muted-foreground">Select statutory 18% or concessional 5%</span>
+        </div>
+        <select
+          value={data.tpGstRate || data.gstRate || '18'}
+          onChange={(e) => onChange({ ...data, gstRate: e.target.value, tpGstRate: e.target.value })}
+          className="p-1.5 text-xs font-bold rounded border bg-background text-primary"
+        >
+          <option value="18">18% GST (Standard)</option>
+          <option value="5">5% GST (Concessional)</option>
+        </select>
+      </div>
 
       {/* TP Discount & Final Payable Calculator */}
       <div className="p-4 rounded-xl border border-sky-200 bg-sky-500/5 space-y-3">
@@ -320,7 +334,6 @@ export function PolicyFormTPOnlyForm({ category, vehicleStatus, data, onChange, 
         </p>
       </div>
       {error && <div role="alert" className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-xs text-destructive">Premium calculation failed: {error}</div>}
-      <CommissionBreakdownPanel calculation={loading || error ? undefined : result} components={['TP']} loading={loading} error={error} />
     </div>
   );
 }
