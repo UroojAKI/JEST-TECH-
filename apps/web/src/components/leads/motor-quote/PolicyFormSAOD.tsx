@@ -12,6 +12,8 @@ interface Props {
   data: PolicyFormSAOD;
   onChange: (data: PolicyFormSAOD) => void;
   eligibility?: MotorEligibilityContext;
+  vehicleDetails?: Record<string, string>;
+  targetInsurer?: string;
 }
 
 const inputBase = 'w-full p-2 rounded-lg border text-xs font-semibold bg-background focus:outline-none focus:ring-1 focus:ring-primary transition-colors border-border';
@@ -44,7 +46,7 @@ function FieldRow({ label, mandatory, conditional, children, hint, formula }: {
   );
 }
 
-export function PolicyFormSAODForm({ category, vehicleStatus, data, onChange, eligibility }: Props) {
+export function PolicyFormSAODForm({ category, vehicleStatus, data, onChange, eligibility, vehicleDetails, targetInsurer }: Props) {
   const set = (key: keyof PolicyFormSAOD) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
     onChange({ ...data, [key]: e.target.value });
 
@@ -69,6 +71,10 @@ export function PolicyFormSAODForm({ category, vehicleStatus, data, onChange, el
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const engineCc = parseFloat(vehicleDetails?.engineCapacity || vehicleDetails?.engineCc || '0') || undefined;
+  const seatingCapacity = parseInt(vehicleDetails?.seatingCapacity || vehicleDetails?.seatLoadCapacity || '0') || undefined;
+  const gvwKg = parseFloat(vehicleDetails?.grossVehicleWeight || vehicleDetails?.gvw || '0') || undefined;
+
   const { result, loading, error } = useMotorCalculator({
     vehicleCategory: effectiveCategory,
     vehicleStatus: effectiveStatus,
@@ -79,6 +85,9 @@ export function PolicyFormSAODForm({ category, vehicleStatus, data, onChange, el
     claimInExpiringPolicy: data.claimInExpiringODPolicy === 'Yes',
     discountPercent: parseFloat(data.discountPercent || '0') || 0,
     gstRate: data.gstRate ? parseInt(data.gstRate) : 18,
+    engineCc,
+    seatingCapacity,
+    gvwKg,
     addons: (data.addonsSelected || []).map((a) => ({ addonCode: a })),
   });
 

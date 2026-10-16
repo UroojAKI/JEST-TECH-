@@ -15,6 +15,8 @@ interface Props {
   onChange: (data: PolicyFormTPOnly) => void;
   /** Canonical eligibility context computed by MotorQuoteWizard. */
   eligibility?: MotorEligibilityContext;
+  vehicleDetails?: Record<string, string>;
+  targetInsurer?: string;
 }
 
 const inputBase = 'w-full p-2 rounded-lg border text-xs font-semibold bg-background focus:outline-none focus:ring-1 focus:ring-primary transition-colors border-border';
@@ -46,7 +48,7 @@ function FieldRow({ label, mandatory, conditional, children, hint, formula }: {
   );
 }
 
-export function PolicyFormTPOnlyForm({ category, vehicleStatus, data, onChange, eligibility }: Props) {
+export function PolicyFormTPOnlyForm({ category, vehicleStatus, data, onChange, eligibility, vehicleDetails, targetInsurer }: Props) {
   const set = (key: keyof PolicyFormTPOnly) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
     onChange({ ...data, [key]: e.target.value });
   const setBool = (key: keyof PolicyFormTPOnly) => (e: React.ChangeEvent<HTMLInputElement>) =>
@@ -65,6 +67,10 @@ export function PolicyFormTPOnlyForm({ category, vehicleStatus, data, onChange, 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const engineCc = parseFloat(vehicleDetails?.engineCapacity || vehicleDetails?.engineCc || '0') || undefined;
+  const seatingCapacity = parseInt(vehicleDetails?.seatingCapacity || vehicleDetails?.seatLoadCapacity || '0') || undefined;
+  const gvwKg = parseFloat(vehicleDetails?.grossVehicleWeight || vehicleDetails?.gvw || '0') || undefined;
+
   const { result, loading, error } = useMotorCalculator({
     vehicleCategory: category,
     vehicleStatus: vehicleStatus,
@@ -74,6 +80,9 @@ export function PolicyFormTPOnlyForm({ category, vehicleStatus, data, onChange, 
     paidDriverLiability: data.legalLiabilityPaidDriver === 'Yes',
     tpDiscountPercent: parseFloat(data.discountPercent || '0') || 0,
     gstRate: data.gstRate ? parseInt(data.gstRate) : 18,
+    engineCc,
+    seatingCapacity,
+    gvwKg,
   });
 
   React.useEffect(() => {
