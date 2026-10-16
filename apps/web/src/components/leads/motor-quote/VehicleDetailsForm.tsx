@@ -34,13 +34,21 @@ export function VehicleDetailsForm({ category, data, onChange }: Props) {
     let value = e.target.value;
     const next = { ...data, [key]: value };
 
-    if (key === 'attachmentUsed') {
-      // Only the registration number for the selected attachment is applicable.
-      if (value === 'Trailer 1') next.trailer2RegistrationNumber = '';
-      else if (value === 'Trailer 2') next.trailer1RegistrationNumber = '';
-      else {
+    if (key === 'trailerCount') {
+      const count = String(value);
+      if (count === '0') {
         next.trailer1RegistrationNumber = '';
         next.trailer2RegistrationNumber = '';
+      } else if (count === '1') {
+        next.trailer2RegistrationNumber = '';
+      }
+      // When count is '2', both trailer1 and trailer2 are retained and active
+    } else if (key === 'attachmentUsed') {
+      if (value === 'Trailer 1' && !next.trailerCount) {
+        next.trailerCount = '1';
+        next.trailer2RegistrationNumber = '';
+      } else if (value === 'Trailer 2' && !next.trailerCount) {
+        next.trailerCount = '2';
       }
     }
 
@@ -103,17 +111,26 @@ export function VehicleDetailsForm({ category, data, onChange }: Props) {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {fields.map((f) => {
-          // Registration details belong only to the attachment selected for this tractor.
-          if (f.key === 'trailer1RegistrationNumber' && data.attachmentUsed !== 'Trailer 1') return null;
-          if (f.key === 'trailer2RegistrationNumber' && data.attachmentUsed !== 'Trailer 2') return null;
+          // Registration details based on trailerCount (or legacy attachmentUsed)
+          const effectiveTrailerCount =
+            data.trailerCount !== undefined && data.trailerCount !== ''
+              ? Number(data.trailerCount)
+              : data.attachmentUsed === 'Trailer 2'
+              ? 2
+              : data.attachmentUsed === 'Trailer 1'
+              ? 1
+              : 0;
+
+          if (f.key === 'trailer1RegistrationNumber' && effectiveTrailerCount < 1) return null;
+          if (f.key === 'trailer2RegistrationNumber' && effectiveTrailerCount < 2) return null;
           // If NEW, hide vehicle registration number; trailer registration remains mandatory when selected.
           if (data.vehicleStatus === 'NEW' && f.key === 'registrationNumber') return null;
           const val = data[f.key] || '';
           const isSelectedTrailer =
-            (f.key === 'trailer1RegistrationNumber' && data.attachmentUsed === 'Trailer 1') ||
-            (f.key === 'trailer2RegistrationNumber' && data.attachmentUsed === 'Trailer 2');
+            (f.key === 'trailer1RegistrationNumber' && effectiveTrailerCount >= 1) ||
+            (f.key === 'trailer2RegistrationNumber' && effectiveTrailerCount >= 2);
           const isMandatory = f.mandatory === true || isSelectedTrailer;
-          const isConditional = f.mandatory === 'conditional';
+          const isConditional = f.mandatory === 'conditional' && !isSelectedTrailer;
           const hasError = isMandatory && !val;
           const borderCls = hasError ? 'border-destructive focus:ring-destructive/50' : 'border-border';
 

@@ -234,15 +234,27 @@ export class VehicleDataService {
           }
         }
 
-        const attachmentUsed = String(specs.attachmentUsed || '').trim();
-        if (!attachmentUsed) {
-          missingFields.push('attachmentUsed');
-        } else if (!['Trailer 1', 'Trailer 2', 'Harvester', 'Cultivator', 'None'].includes(attachmentUsed)) {
-          errors.push('Attachment Used must be Trailer 1, Trailer 2, Harvester, Cultivator, or None');
-        } else if (attachmentUsed === 'Trailer 1' && !String(specs.trailer1RegistrationNumber || '').trim()) {
-          missingFields.push('trailer1RegistrationNumber');
-        } else if (attachmentUsed === 'Trailer 2' && !String(specs.trailer2RegistrationNumber || '').trim()) {
-          missingFields.push('trailer2RegistrationNumber');
+        const rawTrailerCount = specs.trailerCount !== undefined && specs.trailerCount !== null && specs.trailerCount !== ''
+          ? Number(specs.trailerCount)
+          : specs.attachmentUsed === 'Trailer 2'
+          ? 2
+          : specs.attachmentUsed === 'Trailer 1'
+          ? 1
+          : (specs.attachmentUsed === 'None' || specs.attachmentUsed === 'Harvester' || specs.attachmentUsed === 'Cultivator')
+          ? 0
+          : undefined;
+
+        if (rawTrailerCount === undefined) {
+          missingFields.push('trailerCount');
+        } else if (![0, 1, 2].includes(rawTrailerCount)) {
+          errors.push('Trailer count must be 0, 1, or 2');
+        } else {
+          if (rawTrailerCount >= 1 && !String(specs.trailer1RegistrationNumber || '').trim()) {
+            missingFields.push('trailer1RegistrationNumber');
+          }
+          if (rawTrailerCount === 2 && !String(specs.trailer2RegistrationNumber || '').trim()) {
+            missingFields.push('trailer2RegistrationNumber');
+          }
         }
         break;
       }
@@ -294,20 +306,28 @@ export class VehicleDataService {
 
     const sanitizedSpecs: Record<string, any> = { ...specs };
     if (category === VehicleCategory.TRACTOR) {
-      const attachmentUsed = String(specs.attachmentUsed || '').trim();
       const horsepowerValue = specs.horsePowerHp ?? specs.hp ?? specs.horsePower;
       if (horsepowerValue !== undefined && horsepowerValue !== null && horsepowerValue !== '') {
         sanitizedSpecs.horsePowerHp = Number(horsepowerValue);
       }
-      if (attachmentUsed === 'Trailer 1') {
+      const rawTrailerCount = specs.trailerCount !== undefined && specs.trailerCount !== null && specs.trailerCount !== ''
+        ? Number(specs.trailerCount)
+        : specs.attachmentUsed === 'Trailer 2'
+        ? 2
+        : specs.attachmentUsed === 'Trailer 1'
+        ? 1
+        : 0;
+      sanitizedSpecs.trailerCount = rawTrailerCount;
+
+      if (rawTrailerCount === 0) {
+        delete sanitizedSpecs.trailer1RegistrationNumber;
+        delete sanitizedSpecs.trailer2RegistrationNumber;
+      } else if (rawTrailerCount === 1) {
         sanitizedSpecs.trailer1RegistrationNumber = String(specs.trailer1RegistrationNumber || '').trim().toUpperCase();
         delete sanitizedSpecs.trailer2RegistrationNumber;
-      } else if (attachmentUsed === 'Trailer 2') {
-        delete sanitizedSpecs.trailer1RegistrationNumber;
+      } else if (rawTrailerCount === 2) {
+        sanitizedSpecs.trailer1RegistrationNumber = String(specs.trailer1RegistrationNumber || '').trim().toUpperCase();
         sanitizedSpecs.trailer2RegistrationNumber = String(specs.trailer2RegistrationNumber || '').trim().toUpperCase();
-      } else {
-        delete sanitizedSpecs.trailer1RegistrationNumber;
-        delete sanitizedSpecs.trailer2RegistrationNumber;
       }
     }
 

@@ -151,29 +151,42 @@ export default function WorkflowAdminPage() {
 
       {/* 3. WORKFLOW ANALYTICS */}
       {activeTab === 'ANALYTICS' && (
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs">
-          <div className="p-4 rounded-xl border bg-card space-y-1">
-            <span className="text-[10px] font-bold text-muted-foreground uppercase">Most Used Workflow</span>
-            <div className="text-base font-extrabold text-primary">Proposal Underwriting</div>
-            <span className="text-[10px] text-muted-foreground">1,420 Executions/Mo</span>
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs">
+            <div className="p-4 rounded-xl border bg-card space-y-1">
+              <span className="text-[10px] font-bold text-muted-foreground uppercase">Active Instances</span>
+              <div className="text-base font-extrabold text-primary">{instances.length}</div>
+              <span className="text-[10px] text-muted-foreground">In active pipeline</span>
+            </div>
+
+            <div className="p-4 rounded-xl border bg-card space-y-1">
+              <span className="text-[10px] font-bold text-muted-foreground uppercase">Workflows Defined</span>
+              <div className="text-base font-extrabold text-emerald-600">{workflows.length}</div>
+              <span className="text-[10px] text-emerald-600 font-semibold">Configured schemas</span>
+            </div>
+
+            <div className="p-4 rounded-xl border bg-card space-y-1">
+              <span className="text-[10px] font-bold text-muted-foreground uppercase">SLA Status</span>
+              <div className="text-base font-extrabold text-amber-600">
+                {instances.filter((i: any) => i.slaStatus === 'BREACHED').length} Breached
+              </div>
+              <span className="text-[10px] text-muted-foreground">
+                {instances.filter((i: any) => i.slaStatus !== 'BREACHED').length} On Track
+              </span>
+            </div>
+
+            <div className="p-4 rounded-xl border bg-card space-y-1">
+              <span className="text-[10px] font-bold text-muted-foreground uppercase">Active Stages</span>
+              <div className="text-base font-extrabold text-foreground">
+                {new Set(instances.map((i: any) => i.currentState || i.status)).size}
+              </div>
+              <span className="text-[10px] text-muted-foreground">Distinct transition states</span>
+            </div>
           </div>
 
-          <div className="p-4 rounded-xl border bg-card space-y-1">
-            <span className="text-[10px] font-bold text-muted-foreground uppercase">Average Duration</span>
-            <div className="text-base font-extrabold text-emerald-600">4h 15m</div>
-            <span className="text-[10px] text-emerald-600 font-semibold">-22% vs last month</span>
-          </div>
-
-          <div className="p-4 rounded-xl border bg-card space-y-1">
-            <span className="text-[10px] font-bold text-muted-foreground uppercase">Bottleneck Stage</span>
-            <div className="text-base font-extrabold text-amber-600">Underwriting Review</div>
-            <span className="text-[10px] text-amber-600 font-semibold">Avg 3h 12m delay</span>
-          </div>
-
-          <div className="p-4 rounded-xl border bg-card space-y-1">
-            <span className="text-[10px] font-bold text-muted-foreground uppercase">Auto-Approved %</span>
-            <div className="text-base font-extrabold text-emerald-600">42.8%</div>
-            <span className="text-[10px] text-muted-foreground">Straight-Through Processing</span>
+          <div className="p-4 rounded-xl border bg-muted/20 text-xs text-muted-foreground flex items-center justify-between">
+            <span>Historical transition duration, stage bottleneck delay, and auto-approval rates require connected audit log streaming.</span>
+            <span className="font-semibold text-primary">Live Data Active</span>
           </div>
         </div>
       )}

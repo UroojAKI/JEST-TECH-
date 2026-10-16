@@ -1,6 +1,7 @@
 import { PrismaClient, PermissionCategory, RoleType, AccessScope, NotificationType, UserStatus } from '@prisma/client';
 import * as argon2 from 'argon2';
 import { seedKarnatakaRtos } from './seed-karnataka-rtos';
+import { seedMotorConfig } from './seed-motor-config';
 
 const prisma = new PrismaClient();
 
@@ -94,6 +95,7 @@ async function main() {
       ["Read Reports", "report:read", PermissionCategory.REPORT],
       ["Create Reports", "report:create", PermissionCategory.REPORT],
       ["Export Reports", "report:export", PermissionCategory.REPORT],
+      ["Execute Reports", "report:execute", PermissionCategory.REPORT],
 
       ["Read Users", "user:read", PermissionCategory.USER],
       ["Create Users", "user:create", PermissionCategory.USER],
@@ -921,6 +923,11 @@ async function main() {
     // 9. SEED AUTHORITATIVE RTO MASTER DIRECTORY (WP-04)
     // -------------------------------------------------------------------------
     await seedKarnatakaRtos(tx);
+
+    // -------------------------------------------------------------------------
+    // 10. SEED STATUTORY MOTOR TARIFFS & CONFIGURATION (WP-01)
+    // -------------------------------------------------------------------------
+    await seedMotorConfig(tx as any);
   }, { timeout: 60000 });
   
   console.log("✅ Database seeded successfully.");

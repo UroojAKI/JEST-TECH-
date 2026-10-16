@@ -55,20 +55,27 @@ export class MotorTariffService {
     });
 
     if (tariffs.length === 0) {
-      this.logger.warn(
-        `No active TP tariff found for category=${vehicleCategory}, policyType=${policyType}, date=${quotationDate}`,
-      );
+      const anyCategoryTariff = await this.prisma.motorTariff.findFirst({
+        where: { vehicleCategory },
+      });
+      let diagnostic = `No active IRDAI TP tariff found for category=${vehicleCategory}, policyType=${policyType}, date=${quotationDate.toISOString().slice(0, 10)}.`;
+      if (!anyCategoryTariff) {
+        diagnostic += ` [Reason: Zero tariffs configured for category ${vehicleCategory} in motor_tariffs master table. Please run seed-motor-config or configure tariff rates in Tariff Master.]`;
+      } else {
+        diagnostic += ` [Reason: Tariffs exist for ${vehicleCategory} but none match status=active, policyType=${policyType}, and effective date range.]`;
+      }
+
+      this.logger.warn(diagnostic);
       return {
         found: false,
         annualPremium: 0,
         isVerified: false,
-        warning:
-          'No active IRDAI TP tariff configuration found for this vehicle category. Please contact the CRM administrator to configure tariff rates from the applicable IRDAI notification.',
+        warning: diagnostic,
       };
     }
 
     // Filter by capacity ranges if provided
-    let matchedTariff = tariffs[0]; // default to first (most recent)
+    let matchedTariff: (typeof tariffs)[0] | null = null;
 
     for (const t of tariffs) {
       let matches = true;
@@ -92,6 +99,17 @@ export class MotorTariffService {
         matchedTariff = t;
         break;
       }
+    }
+
+    if (!matchedTariff) {
+      const bandDiagnostic = `No matching capacity band in ${tariffs.length} active tariff(s) for category=${vehicleCategory}, policyType=${policyType} (engineCc=${engineCc}, seating=${seatingCapacity}, gvw=${gvwKg}).`;
+      this.logger.warn(bandDiagnostic);
+      return {
+        found: false,
+        annualPremium: 0,
+        isVerified: false,
+        warning: bandDiagnostic,
+      };
     }
 
     return {

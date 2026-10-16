@@ -16,11 +16,24 @@ describe('VehicleDetailsForm tractor trailer registration', () => {
     vi.clearAllMocks();
   });
 
-  it('shows only the selected Trailer 1 field and makes it required', () => {
+  it('shows no trailer fields when trailerCount is 0', () => {
     render(
       <VehicleDetailsForm
         category="TRACTOR"
-        data={{ vehicleStatus: 'EXISTING', attachmentUsed: 'Trailer 1' }}
+        data={{ vehicleStatus: 'EXISTING', trailerCount: '0' }}
+        onChange={vi.fn()}
+      />,
+    );
+
+    expect(screen.queryByLabelText(/Trailer 1 Registration Number/)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/Trailer 2 Registration Number/)).not.toBeInTheDocument();
+  });
+
+  it('shows only Trailer 1 field and makes it required when trailerCount is 1', () => {
+    render(
+      <VehicleDetailsForm
+        category="TRACTOR"
+        data={{ vehicleStatus: 'EXISTING', trailerCount: '1' }}
         onChange={vi.fn()}
       />,
     );
@@ -29,41 +42,40 @@ describe('VehicleDetailsForm tractor trailer registration', () => {
     expect(screen.queryByLabelText(/Trailer 2 Registration Number/)).not.toBeInTheDocument();
   });
 
-  it('shows only the selected Trailer 2 field and makes it required', () => {
+  it('shows BOTH Trailer 1 and Trailer 2 fields and makes both required when trailerCount is 2', () => {
     render(
       <VehicleDetailsForm
         category="TRACTOR"
-        data={{ vehicleStatus: 'EXISTING', attachmentUsed: 'Trailer 2' }}
+        data={{ vehicleStatus: 'EXISTING', trailerCount: '2' }}
         onChange={vi.fn()}
       />,
     );
 
+    expect(screen.getByLabelText(/Trailer 1 Registration Number/)).toBeRequired();
     expect(screen.getByLabelText(/Trailer 2 Registration Number/)).toBeRequired();
-    expect(screen.queryByLabelText(/Trailer 1 Registration Number/)).not.toBeInTheDocument();
   });
 
-  it('clears the inactive trailer number when the selected attachment changes', () => {
+  it('preserves Trailer 1 registration when trailerCount is increased from 1 to 2', () => {
     const onChange = vi.fn();
     render(
       <VehicleDetailsForm
         category="TRACTOR"
         data={{
           vehicleStatus: 'EXISTING',
-          attachmentUsed: 'Trailer 1',
+          trailerCount: '1',
           trailer1RegistrationNumber: 'KA01TR1111',
-          trailer2RegistrationNumber: 'KA01TR2222',
         }}
         onChange={onChange}
       />,
     );
 
-    fireEvent.change(screen.getByLabelText(/Attachment Used/), {
-      target: { value: 'Trailer 2' },
+    fireEvent.change(screen.getByLabelText(/Number of Attached Trailers/), {
+      target: { value: '2' },
     });
 
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({
-      attachmentUsed: 'Trailer 2',
-      trailer1RegistrationNumber: '',
+      trailerCount: '2',
+      trailer1RegistrationNumber: 'KA01TR1111',
     }));
   });
 });

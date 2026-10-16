@@ -65,7 +65,7 @@ export class ReportsController {
   // --- CRUD Operations ---
 
   @Post()
-  @RequirePermissions('REPORT_CREATE')
+  @RequirePermissions('report:create')
   async createReport(
     @Body() dto: CreateReportDto,
     @CurrentUser() user: RequestUser,
@@ -76,7 +76,7 @@ export class ReportsController {
   }
 
   @Put(':id')
-  @RequirePermissions('REPORT_CREATE')
+  @RequirePermissions('report:create')
   async updateReport(
     @Param('id') id: string,
     @Body() dto: UpdateReportDto,
@@ -99,7 +99,7 @@ export class ReportsController {
   }
 
   @Delete(':id')
-  @RequirePermissions('REPORT_CREATE')
+  @RequirePermissions('report:create')
   async deleteReport(
     @Param('id') id: string,
     @CurrentUser() user: RequestUser,
@@ -121,7 +121,7 @@ export class ReportsController {
   }
 
   @Get()
-  @RequirePermissions('REPORT_VIEW')
+  @RequirePermissions('report:read')
   async getReports(
     @Query('category') category?: string,
     @Query('module') module?: string,
@@ -141,14 +141,14 @@ export class ReportsController {
   }
 
   @Get('system')
-  @RequirePermissions('REPORT_VIEW')
+  @RequirePermissions('report:read')
   async getSystemReports() {
     const query = new GetReportsQuery({ isSystem: true });
     return this.queries.handleGetReports(query);
   }
 
   @Get('custom')
-  @RequirePermissions('REPORT_VIEW')
+  @RequirePermissions('report:read')
   async getCustomReports(@CurrentUser() user: RequestUser) {
     const companyId = user.companyId || (user as any).organizationId;
     const query = new GetReportsQuery({ isSystem: false, companyId });
@@ -156,7 +156,7 @@ export class ReportsController {
   }
 
   @Get('providers')
-  @RequirePermissions('REPORT_VIEW')
+  @RequirePermissions('report:read')
   async getProviders() {
     return [
       {
@@ -175,7 +175,7 @@ export class ReportsController {
   }
 
   @Get('schedules')
-  @RequirePermissions('REPORT_SCHEDULE')
+  @RequirePermissions('report:create')
   async getAllSchedules(@CurrentUser() user: RequestUser) {
     const companyId = user.companyId || (user as any).organizationId;
     const schedules = await this.prisma.reportSchedule.findMany({
@@ -196,7 +196,7 @@ export class ReportsController {
   }
 
   @Post('schedules')
-  @RequirePermissions('REPORT_SCHEDULE')
+  @RequirePermissions('report:create')
   async createTopLevelSchedule(
     @Body() dto: CreateTopLevelScheduleDto,
     @CurrentUser() user: RequestUser,
@@ -264,7 +264,7 @@ export class ReportsController {
   }
 
   @Get('history')
-  @RequirePermissions('REPORT_VIEW')
+  @RequirePermissions('report:read')
   async getAllHistory(@CurrentUser() user: RequestUser) {
     const companyId = user.companyId || (user as any).organizationId;
     const executions = await this.prisma.reportExecution.findMany({
@@ -286,7 +286,7 @@ export class ReportsController {
   }
 
   @Get(':idOrCode')
-  @RequirePermissions('REPORT_VIEW')
+  @RequirePermissions('report:read')
   async getReport(
     @Param('idOrCode') idOrCode: string,
     @CurrentUser() user: RequestUser,
@@ -303,7 +303,7 @@ export class ReportsController {
   }
 
   @Get(':id/export')
-  @RequirePermissions('REPORT_EXECUTE')
+  @RequirePermissions('report:export')
   async exportReport(
     @Param('id') id: string,
     @Query('format') format: string,
@@ -324,7 +324,7 @@ export class ReportsController {
   }
 
   @Post(':id/execute')
-  @RequirePermissions('REPORT_EXECUTE')
+  @RequirePermissions('report:export')
   async executeReport(
     @Param('id') id: string,
     @Body() dto: ExecuteReportDto,
@@ -382,7 +382,7 @@ export class ReportsController {
   }
 
   @Post(':id/preview')
-  @RequirePermissions('REPORT_VIEW')
+  @RequirePermissions('report:read')
   async previewReport(
     @Param('id') id: string,
     @Body() dto: ExecuteReportDto,
@@ -399,7 +399,7 @@ export class ReportsController {
   }
 
   @Post(':id/drilldown')
-  @RequirePermissions('REPORT_VIEW')
+  @RequirePermissions('report:read')
   async drilldownReport(
     @Param('id') id: string,
     @Body()
@@ -422,7 +422,7 @@ export class ReportsController {
   }
 
   @Get(':id/history')
-  @RequirePermissions('REPORT_VIEW')
+  @RequirePermissions('report:read')
   async getExecutionHistory(@Param('id') id: string) {
     const query = new GetExecutionHistoryQuery(id);
     return this.queries.handleGetExecutionHistory(query);
@@ -431,7 +431,7 @@ export class ReportsController {
   // --- Schedules ---
 
   @Post(':id/schedules')
-  @RequirePermissions('REPORT_SCHEDULE')
+  @RequirePermissions('report:create')
   async createSchedule(
     @Param('id') id: string,
     @Body() dto: CreateScheduleDto,
@@ -443,7 +443,7 @@ export class ReportsController {
   }
 
   @Put('schedules/:scheduleId')
-  @RequirePermissions('REPORT_SCHEDULE')
+  @RequirePermissions('report:create')
   async updateSchedule(
     @Param('scheduleId') scheduleId: string,
     @Body() dto: UpdateScheduleDto,
@@ -466,7 +466,7 @@ export class ReportsController {
   }
 
   @Delete('schedules/:scheduleId')
-  @RequirePermissions('REPORT_SCHEDULE')
+  @RequirePermissions('report:create')
   async deleteSchedule(
     @Param('scheduleId') scheduleId: string,
     @CurrentUser() user: RequestUser,
@@ -490,7 +490,7 @@ export class ReportsController {
   // --- Favorite Operations ---
 
   @Post(':id/favorite')
-  @RequirePermissions('REPORT_VIEW')
+  @RequirePermissions('report:read')
   async favoriteReport(
     @Param('id') id: string,
     @CurrentUser() user: RequestUser,
@@ -499,7 +499,7 @@ export class ReportsController {
   }
 
   @Delete(':id/favorite')
-  @RequirePermissions('REPORT_VIEW')
+  @RequirePermissions('report:read')
   async unfavoriteReport(
     @Param('id') id: string,
     @CurrentUser() user: RequestUser,
@@ -510,7 +510,7 @@ export class ReportsController {
   // --- Saved Filters Operations ---
 
   @Post(':id/filters')
-  @RequirePermissions('REPORT_VIEW')
+  @RequirePermissions('report:read')
   async saveFilter(
     @Param('id') id: string,
     @Body() dto: SaveFilterDto,
@@ -520,7 +520,7 @@ export class ReportsController {
   }
 
   @Get(':id/filters')
-  @RequirePermissions('REPORT_VIEW')
+  @RequirePermissions('report:read')
   async getSavedFilters(
     @Param('id') id: string,
     @CurrentUser() user: RequestUser,
@@ -529,7 +529,7 @@ export class ReportsController {
   }
 
   @Delete('filters/:filterId')
-  @RequirePermissions('REPORT_VIEW')
+  @RequirePermissions('report:read')
   async deleteSavedFilter(
     @Param('filterId') filterId: string,
     @CurrentUser() user: RequestUser,
