@@ -11,6 +11,7 @@ import {
 import { PrismaService } from '../../../../database/prisma.service';
 import { QuotationRepository } from '../../repositories/quotation.repository';
 import { QuotationMapper } from '../../mappers/quotation.mapper';
+import { CustomerAcceptanceDto, CustomerAcceptanceMethod } from '../../dto/customer-acceptance.dto';
 
 @Injectable()
 export class AcceptQuotationService {
@@ -21,10 +22,11 @@ export class AcceptQuotationService {
 
   /**
    * Customer acceptance of a quotation version.
-   * G006 & Contract 02 §2: Enforces that exactly ONE quotation version can be accepted per lead group.
+   * G006 & Contract 02 §2 & WP-05: Enforces that exactly ONE quotation version can be accepted per lead group.
+   * Records agentId, timestamp, quotationVersion, selectedGstRate, and evidenceMethod.
    * Supercedes/rejects competing draft versions under the same lead.
    */
-  async execute(id: string, actorId: string, comments?: string) {
+  async execute(id: string, actorId: string, commentsOrDto?: string | CustomerAcceptanceDto) {
     return this.prisma.$transaction(async (tx) => {
       const quotation = await tx.quotation.findFirst({
         where: { id, deletedAt: null },
@@ -101,6 +103,36 @@ export class AcceptQuotationService {
         });
       }
 
+      const dto: Partial<CustomerAcceptanceDto> =
+        typeof commentsOrDto === 'object' && commentsOrDto !== null
+          ? commentsOrDto
+          : { comments: typeof commentsOrDto === 'string' ? commentsOrDto : undefined };
+
+      const evidenceMethod = dto.evidenceMethod || CustomerAcceptanceMethod.PORTAL_CLICK;
+      const evidenceReference = dto.evidenceReference || null;
+      const quotationVersion = quotation.calculationVersion || '1.0';
+      const selectedGstRate =
+        dto.selectedGstRate ||
+        (quotation.calculationSnapshot as any)?.rateConfig?.gstRatePercent ||
+        18;
+      const acceptanceTimestamp = new Date().toISOString();
+
+      const customerAcceptanceRecord = {
+        agentId: actorId,
+        timestamp: acceptanceTimestamp,
+        quotationVersion,
+        selectedGstRate,
+        evidenceMethod,
+        evidenceReference,
+        comments: dto.comments || null,
+      };
+
+      const existingMetadata = (quotation.motorMetadata as Record<string, any>) || {};
+      const updatedMetadata = {
+        ...existingMetadata,
+        customerAcceptance: customerAcceptanceRecord,
+      };
+
       // Mark this quotation as ACCEPTED (APPROVED + READY_FOR_PROPOSAL)
       const updated = await tx.quotation.update({
         where: { id },
@@ -108,18 +140,23 @@ export class AcceptQuotationService {
           status: QuotationStatus.APPROVED,
           workflowState: MotorWorkflowState.READY_FOR_PROPOSAL,
           issuanceStatus: IssuanceStatus.PROPOSAL_READY,
+          motorMetadata: updatedMetadata,
           updatedById: actorId,
         },
       });
+
+      const auditComment =
+        dto.comments ||
+        `Customer accepted quotation version ${quotationVersion} via ${evidenceMethod}${
+          evidenceReference ? ` (Ref: ${evidenceReference})` : ''
+        } with ${selectedGstRate}% GST.`;
 
       // Record audit history
       await tx.quotationHistory.create({
         data: {
           quotationId: id,
           status: QuotationStatus.APPROVED,
-          comments:
-            comments ||
-            'Customer accepted quotation version. Opportunity qualified.',
+          comments: auditComment,
           createdById: actorId,
         },
       });

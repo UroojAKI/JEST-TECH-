@@ -136,6 +136,7 @@ export class BackOfficeQueueService {
 
       include: {
         contact: true,
+        account: true,
         vehicle: true,
         createdBy: {
           select: { id: true, firstName: true, lastName: true, email: true },
@@ -172,15 +173,22 @@ export class BackOfficeQueueService {
       const isMotor = !isHealth && (q.productType === 'MOTOR' || (q as any).lineOfBusiness === 'MOTOR');
 
       // 1. Customer Gate
-      const hasCustomer = !!q.contact;
+      const hasCustomer = !!q.contact || !!(q as any).account;
       const hasContactDetails = !!(q.contact?.phone || q.contact?.email);
+      const hasKyc =
+        Boolean(q.contact?.panNumber) ||
+        (q as any).account?.kycStatus === 'VERIFIED';
+      const customerPassed = hasCustomer && hasContactDetails && hasKyc;
       const customerGate: GateStatus = {
-        passed: hasCustomer && hasContactDetails,
-        status: hasCustomer && hasContactDetails ? 'PASSED' : 'FAILED',
-        detail:
-          hasCustomer && hasContactDetails
-            ? 'Customer details complete'
-            : 'Missing customer contact phone/email',
+        passed: customerPassed,
+        status: customerPassed ? 'PASSED' : 'BLOCKED',
+        detail: !hasCustomer
+          ? 'Missing customer details'
+          : !hasContactDetails
+            ? 'Missing customer contact phone/email'
+            : !hasKyc
+              ? 'Customer PAN / KYC verification required'
+              : 'Customer KYC verified',
       };
 
       // 2. Vehicle Integrity Gate (only applicable to MOTOR)
@@ -216,10 +224,14 @@ export class BackOfficeQueueService {
           detail: 'Not applicable for Health insurance',
         };
       } else {
-        const isInspectionRequired =
-          q.motorPreviousPolicy?.ruleEvaluation?.inspectionRequired ||
-          q.workflowState === 'INSPECTION_REQUIRED';
+        const vehicleMetadata = (q.motorMetadata as Record<string, any>) || {};
         const inspection = q.motorInspection;
+        const isInspectionRequired = Boolean(
+          q.motorPreviousPolicy?.ruleEvaluation?.inspectionRequired ||
+            q.workflowState === 'INSPECTION_REQUIRED' ||
+            vehicleMetadata?.inspectionRequired ||
+            inspection,
+        );
         let inspectionPassed = true;
         let inspectionDetail = 'Inspection waived / not required';
 
@@ -227,10 +239,19 @@ export class BackOfficeQueueService {
           if (inspection?.status === InspectionStatus.COMPLETED) {
             inspectionPassed = true;
             inspectionDetail = 'Break-in inspection approved';
+          } else if (inspection?.status === InspectionStatus.WAIVED) {
+            inspectionPassed = true;
+            inspectionDetail = 'Break-in inspection waived';
+          } else if (
+            inspection?.status === InspectionStatus.SUBMITTED_FOR_REVIEW
+          ) {
+            inspectionPassed = true;
+            inspectionDetail =
+              'Break-in inspection submitted (approved on issuance)';
           } else {
             inspectionPassed = false;
             inspectionDetail = inspection
-              ? `Inspection in ${inspection.status} status (requires COMPLETED)`
+              ? `Inspection in ${inspection.status} status (requires approval)`
               : 'Break-in inspection required but not scheduled';
           }
         }

@@ -11,7 +11,7 @@ services:
       POSTGRES_DB: jest_policy_crm
 
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
 
     volumes:
       - postgres_data:/var/lib/postgresql/data
@@ -29,8 +29,10 @@ services:
 
     restart: unless-stopped
 
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-jestredissecret2026}
+
     ports:
-      - "6380:6379"
+      - "127.0.0.1:6380:6379"
 
   minio:
     image: minio/minio

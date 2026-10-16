@@ -27,6 +27,21 @@ export class MotorQuotationMigrationService {
    * Phase 32 / MIGRATION-POLICY-01..03: Pre-Migration Policy Deduplication Routine
    */
   async deduplicateMotorPolicies(isDryRun = false): Promise<number> {
+    if (isDryRun) return this.resolveDuplicateMotorPolicies(true);
+
+    const prisma = this.prisma as PrismaClient;
+    return prisma.$transaction(
+      (tx) =>
+        new MotorQuotationMigrationService(
+          tx as unknown as PrismaClient,
+        ).resolveDuplicateMotorPolicies(false),
+      { maxWait: 10_000, timeout: 120_000 },
+    );
+  }
+
+  private async resolveDuplicateMotorPolicies(
+    isDryRun: boolean,
+  ): Promise<number> {
     console.log('[MIGRATION-POLICY-01] Scanning for duplicate motor policies per quotationId...');
 
     // Find all quotation IDs that have more than 1 motor policy
@@ -113,12 +128,38 @@ export class MotorQuotationMigrationService {
    * Execute full financial object graph migration
    */
   async executeMigration(isDryRun = false): Promise<MigrationSummary> {
+    if (isDryRun) return this.runMigration(true);
+
+    const prisma = this.prisma as PrismaClient;
+    return prisma.$transaction(
+      async (tx) => {
+        const summary = await new MotorQuotationMigrationService(
+          tx as unknown as PrismaClient,
+        ).runMigration(false);
+        if (
+          !summary.financialReconciliationPass ||
+          !summary.policyUniquenessPass ||
+          !summary.zeroOrphanPass
+        ) {
+          throw new Error(
+            'Migration invariant checks failed; rolling back all changes.',
+          );
+        }
+        return summary;
+      },
+      { maxWait: 10_000, timeout: 120_000 },
+    );
+  }
+
+  private async runMigration(isDryRun: boolean): Promise<MigrationSummary> {
     console.log('========================================================================');
     console.log(`🚀 PHASE 32: MOTOR-MIGRATION-01 (DryRun: ${isDryRun})`);
     console.log('========================================================================');
 
     // 1. Pre-migration deduplication
-    const duplicatePoliciesResolved = await this.deduplicateMotorPolicies(isDryRun);
+    const duplicatePoliciesResolved = isDryRun
+      ? await this.resolveDuplicateMotorPolicies(true)
+      : await this.resolveDuplicateMotorPolicies(false);
 
     // 2. Fetch all legacy MotorQuotation records
     const legacyMotorQuotes = await (this.prisma as any).motorQuotation.findMany({

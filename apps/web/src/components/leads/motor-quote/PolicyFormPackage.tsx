@@ -4,6 +4,8 @@ import React, { useEffect } from 'react';
 import { getPolicyTenureOptions, INSURER_OPTIONS, NCB_OPTIONS, ADDON_OPTIONS } from './motorFormConfig';
 import type { VehicleCategory, PolicyFormPackage, MotorEligibilityContext } from './motorFormTypes';
 import { useMotorCalculator } from './useMotorCalculator';
+import { GstRateSelector } from './GstRateSelector';
+import { CommissionBreakdownPanel } from './CommissionBreakdownPanel';
 
 interface Props {
   category: VehicleCategory;
@@ -75,6 +77,14 @@ export function PolicyFormPackageForm({ category, vehicleStatus, data, onChange,
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isNew, prevPolicyApplicable, ncbApplicable, claimHistoryApplicable]);
 
+  useEffect(() => {
+    if (data.odCommissionCalc || data.tpCommissionCalc || data.finalCommissionCalc) {
+      onChange({ ...data, odCommissionCalc: '', tpCommissionCalc: '', finalCommissionCalc: '' });
+    }
+    // Clear legacy fields once when a quote is opened; discounts must never represent commission.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const { result, loading, error } = useMotorCalculator({
     vehicleCategory: category,
     vehicleStatus: vehicleStatus,
@@ -85,27 +95,43 @@ export function PolicyFormPackageForm({ category, vehicleStatus, data, onChange,
     claimInExpiringPolicy: data.claimInExpiringPolicy === 'Yes',
     paCover: true,
     paidDriverLiability: false,
-    discountPercent: parseFloat(data.odDiscountPercent || data.odCommissionCalc || '0') || 0,
-    tpDiscountPercent: parseFloat(data.tpDiscountPercent || data.tpCommissionCalc || '0') || 0,
-    addons: (data.addonsSelected || []).map(a => ({
-      addonCode: a,
-      manualPrice: data.addonPrices?.[a] ? (parseFloat(data.addonPrices[a]) || 0) : undefined
-    }))
+    discountPercent: parseFloat(data.odDiscountPercent || '0') || 0,
+    tpDiscountPercent: parseFloat(data.tpDiscountPercent || '0') || 0,
+    gstRate: data.gstRate ? parseInt(data.gstRate) : 18,
+    // Selected add-ons use the authoritative server-side rate; agents cannot override price here.
+    addons: (data.addonsSelected || []).map(a => ({ addonCode: a }))
   });
 
   useEffect(() => {
+    if ((loading || error) && (data.calculatedResult || data.totalPremiumInclGST || data.finalPayableAmount || data.finalGstAmount)) {
+      onChange({
+        ...data,
+        calculatedResult: undefined,
+        totalPremiumInclGST: '',
+        finalPayableAmount: '',
+        finalGstAmount: '',
+      });
+    }
+    // Do not keep a prior quote result while current inputs are unresolved.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, error]);
+
+  useEffect(() => {
     if (result && result.outputs) {
-      if (data.calculatedResult === result) return;
       onChange({ 
         ...data, 
         totalPremiumInclGST: (result.outputs.finalPayableAmount ?? result.outputs.totalPremium ?? 0).toString(),
-        finalCommissionCalc: (result.outputs.totalDiscount ?? 0).toString(),
         finalPayableAmount: (result.outputs.finalPayableAmount ?? result.outputs.totalPremium ?? 0).toString(),
         finalGstAmount: (result.outputs.totalGst ?? 0).toString(),
+        odCommissionCalc: '',
+        tpCommissionCalc: '',
+        finalCommissionCalc: '',
+        gstRate: (result.rateConfig?.gstRatePercent ?? (data.gstRate ? parseInt(data.gstRate) : 18)).toString(),
         calculatedResult: result 
       });
     }
-  }, [result, data, onChange]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [result]);
 
   const handleClaimChange = (val: string) => {
     const updated = { ...data, claimInExpiringPolicy: val };
@@ -123,14 +149,22 @@ export function PolicyFormPackageForm({ category, vehicleStatus, data, onChange,
   const isCommercial = !['BIKE', 'PRIVATE_CAR'].includes(category);
 
   // Authoritative Backend Calculation Outputs (Single Source of Truth)
-  const outputs = result?.outputs || data.calculatedResult?.outputs || {};
+  const hasValidCalculation = !loading && !error && Boolean(result);
+  const outputs = hasValidCalculation ? (result?.outputs || {}) : {};
   const rawOd = outputs.baseOdPremium ?? 0;
   const rawTp = outputs.baseTpPremium ?? 0;
   const grossBase = outputs.grossBasePremium ?? (rawOd + rawTp);
   const discountAmt = outputs.totalDiscount ?? 0;
   const netBase = outputs.netCustomerPremium ?? outputs.netPreTaxPremium ?? (grossBase - discountAmt);
   const gstAmt = outputs.totalGst ?? outputs.gstAmount ?? 0;
-  const finalPayable = outputs.finalPayableAmount ?? outputs.totalPremium ?? 0;
+  const itemizedAddons: any[] = Array.isArray(outputs.itemizedAddons) ? outputs.itemizedAddons : [];
+  const odDiscountAmount = outputs.specialDiscount ?? outputs.od?.specialDiscount ?? 0;
+  const tpDiscountAmount = outputs.tp?.discount ?? outputs.tpDiscountAmount ?? 0;
+  const finalPayable = hasValidCalculation
+    ? Number(outputs.finalPayableAmount ?? outputs.totalPremium ??
+        ((data.finalPayableAmount ? parseFloat(data.finalPayableAmount) : 0) ||
+          (data.totalPremiumInclGST ? parseFloat(data.totalPremiumInclGST) : 0)))
+    : null;
 
   return (
     <div className="space-y-4">
@@ -140,7 +174,7 @@ export function PolicyFormPackageForm({ category, vehicleStatus, data, onChange,
         <div>
           <div className="text-xs font-black text-emerald-700 dark:text-emerald-400">Package / Comprehensive (OD + TP Combined)</div>
           <div className="text-[10px] text-muted-foreground">
-            {isCommercial ? 'Commercial Vehicle: TP GST (12%) and OD GST (18%) calculated separately' : 'Standard policy covering Own Damage, Third Party liability, and Owner-Driver PA'}
+            {isCommercial ? 'Commercial vehicle: premium components are calculated by the server; applicable tax treatment must come from approved tax configuration' : 'Standard policy covering Own Damage, Third Party liability, and Owner-Driver PA'}
           </div>
         </div>
         {loading && <div className="ml-auto text-xs text-primary animate-pulse">Calculating...</div>}
@@ -251,15 +285,20 @@ export function PolicyFormPackageForm({ category, vehicleStatus, data, onChange,
                   />
                   {a.label}
                 </label>
-                {isSelected && (
-                  <input
-                    type="number"
-                    placeholder="Manual Price (₹) - Optional"
-                    value={data.addonPrices?.[a.key] || ''}
-                    onChange={(e) => onChange({ ...data, addonPrices: { ...data.addonPrices, [a.key]: e.target.value } })}
-                    className="mt-1 w-full p-1.5 rounded-md border text-[10px] bg-background focus:outline-none focus:ring-1 focus:ring-primary"
-                  />
-                )}
+                {isSelected && (() => {
+                  const pricedAddon = itemizedAddons.find((item: any) => item.addonCode === a.key);
+                  return (
+                    <div className="mt-1 rounded-md bg-muted/50 px-2 py-1.5 text-[10px]">
+                      {pricedAddon
+                        ? <span className="font-semibold">Calculated premium: ₹{Number(pricedAddon.amount).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                        : error
+                          ? <span className="text-destructive">Price unavailable — resolve the calculator error below.</span>
+                          : loading
+                            ? <span className="text-muted-foreground">Calculating configured premium…</span>
+                            : <span className="text-muted-foreground">Price is calculated by the server.</span>}
+                    </div>
+                  );
+                })()}
               </div>
             );
           })}
@@ -280,10 +319,10 @@ export function PolicyFormPackageForm({ category, vehicleStatus, data, onChange,
               min="0"
               max="85"
               step="0.5"
-              value={data.odDiscountPercent ?? data.odCommissionCalc ?? ''}
+              value={data.odDiscountPercent ?? ''}
               onChange={(e) => {
                 const val = e.target.value;
-                onChange({ ...data, odDiscountPercent: val, odCommissionCalc: val });
+                onChange({ ...data, odDiscountPercent: val });
               }}
               placeholder="e.g. 10%"
               className={inputBase}
@@ -300,17 +339,29 @@ export function PolicyFormPackageForm({ category, vehicleStatus, data, onChange,
               min="0"
               max="20"
               step="0.5"
-              value={data.tpDiscountPercent ?? data.tpCommissionCalc ?? ''}
+              value={data.tpDiscountPercent ?? ''}
               onChange={(e) => {
                 const val = e.target.value;
-                onChange({ ...data, tpDiscountPercent: val, tpCommissionCalc: val });
+                onChange({ ...data, tpDiscountPercent: val });
               }}
               placeholder="e.g. 0%"
               className={inputBase}
             />
           </FieldRow>
+          <FieldRow label="OD Discount Amount (₹)" hint="Calculated by the backend from the OD premium and approved discount">
+            <input type="text" readOnly value={hasValidCalculation ? Number(odDiscountAmount).toFixed(2) : '—'} className={inputBase + ' bg-muted'} />
+          </FieldRow>
+          <FieldRow label="TP Discount Amount (₹)" hint="Calculated by the backend from the TP premium and approved discount">
+            <input type="text" readOnly value={hasValidCalculation ? Number(tpDiscountAmount).toFixed(2) : '—'} className={inputBase + ' bg-muted'} />
+          </FieldRow>
         </div>
       </div>
+
+      {/* Applicable GST Rate Selector (5% vs 18%) */}
+      <GstRateSelector
+        value={data.gstRate}
+        onChange={(rate) => onChange({ ...data, gstRate: rate })}
+      />
 
       {/* Live Financial Breakdown & Total Paying Amount Card */}
       <div className="rounded-2xl border bg-card shadow-xs overflow-hidden">
@@ -323,26 +374,28 @@ export function PolicyFormPackageForm({ category, vehicleStatus, data, onChange,
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
             <div className="p-2.5 rounded-xl border bg-muted/10">
               <span className="text-[10px] text-muted-foreground block font-medium">Gross Base Premium</span>
-              <span className="text-sm font-bold text-foreground">₹{grossBase.toLocaleString('en-IN')}</span>
-              <span className="text-[9px] text-muted-foreground block">OD: ₹{rawOd} | TP: ₹{rawTp}</span>
+              <span className="text-sm font-bold text-foreground">{hasValidCalculation ? '₹' + grossBase.toLocaleString('en-IN') : '—'}</span>
+              <span className="text-[9px] text-muted-foreground block">{hasValidCalculation ? 'OD: ₹' + rawOd + ' | TP: ₹' + rawTp : 'OD/TP breakdown unavailable'}</span>
             </div>
 
             <div className="p-2.5 rounded-xl border bg-amber-500/10 border-amber-500/20">
               <span className="text-[10px] text-amber-800 dark:text-amber-300 block font-medium">Total Discount Amount</span>
-              <span className="text-sm font-bold text-amber-700 dark:text-amber-400">-₹{discountAmt.toLocaleString('en-IN')}</span>
+              <span className="text-sm font-bold text-amber-700 dark:text-amber-400">{hasValidCalculation ? '-₹' + discountAmt.toLocaleString('en-IN') : '—'}</span>
               <span className="text-[9px] text-amber-700/80 block">Applied pre-tax</span>
             </div>
 
             <div className="p-2.5 rounded-xl border bg-muted/10">
               <span className="text-[10px] text-muted-foreground block font-medium">Net Customer Premium</span>
-              <span className="text-sm font-bold text-foreground">₹{netBase.toLocaleString('en-IN')}</span>
+              <span className="text-sm font-bold text-foreground">{hasValidCalculation ? '₹' + netBase.toLocaleString('en-IN') : '—'}</span>
               <span className="text-[9px] text-muted-foreground block">Gross minus discounts</span>
             </div>
 
             <div className="p-2.5 rounded-xl border bg-muted/10">
-              <span className="text-[10px] text-muted-foreground block font-medium">Statutory GST (18%)</span>
-              <span className="text-sm font-bold text-foreground">+₹{gstAmt.toLocaleString('en-IN')}</span>
-              <span className="text-[9px] text-muted-foreground block">Calculated on Gross Base</span>
+              <span className="text-[10px] text-muted-foreground block font-medium">
+                Statutory GST ({outputs.gstRatePercent ?? (data.gstRate ? parseInt(data.gstRate) : 18)}%)
+              </span>
+              <span className="text-sm font-bold text-foreground">{hasValidCalculation ? '+₹' + gstAmt.toLocaleString('en-IN') : '—'}</span>
+              <span className="text-[9px] text-muted-foreground block">Calculated on Net Component</span>
             </div>
           </div>
 
@@ -357,11 +410,12 @@ export function PolicyFormPackageForm({ category, vehicleStatus, data, onChange,
               </span>
             </div>
             <div className="text-2xl font-black text-emerald-700 dark:text-emerald-400">
-              ₹{finalPayable.toLocaleString('en-IN')}
+              {finalPayable === null ? '—' : '₹' + finalPayable.toLocaleString('en-IN')}
             </div>
           </div>
         </div>
       </div>
+      <CommissionBreakdownPanel calculation={loading || error ? undefined : result} components={['OD', 'TP']} loading={loading} error={error} />
     </div>
   );
 }

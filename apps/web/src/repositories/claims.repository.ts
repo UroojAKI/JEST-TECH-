@@ -56,6 +56,11 @@ export const claimsRepository = {
     return response.data;
   },
 
+  async updateClaim(id: string, data: { surveyorName?: string; surveyorDetails?: string; approvedAmount?: number }): Promise<Claim> {
+    const response = await apiClient.patch(`/claims/${id}`, data);
+    return response.data;
+  },
+
   async updateClaimStatus(id: string, status: string, approvedAmount?: number): Promise<Claim> {
     let response;
     if (status === 'UNDER_REVIEW') {

@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-01T11:24:50.433Z",
+  "generatedAt": "2026-10-15T12:06:38.942Z",
   "mismatches": [],
   "uncalledBackendRoutes": [
     {
@@ -276,13 +276,6 @@
       "classification": "UNUSED"
     },
     {
-      "method": "PATCH",
-      "path": "/claims/:param",
-      "controller": "ClaimsController",
-      "file": "apps/api/src/modules/claims/controllers/claims.controller.ts",
-      "classification": "UNUSED"
-    },
-    {
       "method": "POST",
       "path": "/claims/:param/documents",
       "controller": "ClaimsController",
@@ -452,13 +445,6 @@
     },
     {
       "method": "POST",
-      "path": "/endorsements/policies/:param/calculate-prorata",
-      "controller": "EndorsementsController",
-      "file": "apps/api/src/modules/endorsements/controllers/endorsements.controller.ts",
-      "classification": "UNUSED"
-    },
-    {
-      "method": "POST",
       "path": "/endorsements/:param/attach",
       "controller": "EndorsementsController",
       "file": "apps/api/src/modules/endorsements/controllers/endorsements.controller.ts",
@@ -476,13 +462,6 @@
       "path": "/finance/commissions/accrue",
       "controller": "CommissionController",
       "file": "apps/api/src/modules/finance/commission/controllers/commission.controller.ts",
-      "classification": "UNUSED"
-    },
-    {
-      "method": "GET",
-      "path": "/finance/receipts/export",
-      "controller": "FinanceController",
-      "file": "apps/api/src/modules/finance/controllers/finance.controller.ts",
       "classification": "UNUSED"
     },
     {
@@ -592,6 +571,13 @@
     },
     {
       "method": "POST",
+      "path": "/motor/calculate/override",
+      "controller": "MotorCalculationController",
+      "file": "apps/api/src/modules/motor/controllers/motor-calculation.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "POST",
       "path": "/motor/journeys",
       "controller": "MotorJourneyController",
       "file": "apps/api/src/modules/motor/controllers/motor-journey.controller.ts",
@@ -684,6 +670,13 @@
     {
       "method": "POST",
       "path": "/motor/quotes/:param/finalize",
+      "controller": "MotorQuoteController",
+      "file": "apps/api/src/modules/motor/controllers/motor-quote.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "POST",
+      "path": "/motor/quotes/:param/accept",
       "controller": "MotorQuoteController",
       "file": "apps/api/src/modules/motor/controllers/motor-quote.controller.ts",
       "classification": "UNUSED"
@@ -865,7 +858,56 @@
     },
     {
       "method": "GET",
+      "path": "/motor/vehicles/rtos",
+      "controller": "VehicleMasterController",
+      "file": "apps/api/src/modules/motor-admin/controllers/vehicle-master.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "GET",
+      "path": "/motor/admin/rto",
+      "controller": "VehicleMasterController",
+      "file": "apps/api/src/modules/motor-admin/controllers/vehicle-master.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "GET",
+      "path": "/motor/admin/rtos",
+      "controller": "VehicleMasterController",
+      "file": "apps/api/src/modules/motor-admin/controllers/vehicle-master.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "GET",
       "path": "/motor/vehicles/rto/:param",
+      "controller": "VehicleMasterController",
+      "file": "apps/api/src/modules/motor-admin/controllers/vehicle-master.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "GET",
+      "path": "/motor/vehicles/rtos/:param",
+      "controller": "VehicleMasterController",
+      "file": "apps/api/src/modules/motor-admin/controllers/vehicle-master.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "GET",
+      "path": "/motor/admin/rto/:param",
+      "controller": "VehicleMasterController",
+      "file": "apps/api/src/modules/motor-admin/controllers/vehicle-master.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "GET",
+      "path": "/motor/admin/rtos/:param",
+      "controller": "VehicleMasterController",
+      "file": "apps/api/src/modules/motor-admin/controllers/vehicle-master.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "POST",
+      "path": "/motor/admin/rto",
       "controller": "VehicleMasterController",
       "file": "apps/api/src/modules/motor-admin/controllers/vehicle-master.controller.ts",
       "classification": "UNUSED"
@@ -878,8 +920,64 @@
       "classification": "UNUSED"
     },
     {
+      "method": "PUT",
+      "path": "/motor/admin/rto/:param",
+      "controller": "VehicleMasterController",
+      "file": "apps/api/src/modules/motor-admin/controllers/vehicle-master.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
       "method": "DELETE",
       "path": "/motor/vehicles/rto/:param",
+      "controller": "VehicleMasterController",
+      "file": "apps/api/src/modules/motor-admin/controllers/vehicle-master.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "DELETE",
+      "path": "/motor/admin/rto/:param",
+      "controller": "VehicleMasterController",
+      "file": "apps/api/src/modules/motor-admin/controllers/vehicle-master.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "GET",
+      "path": "/motor/admin/manufacturers",
+      "controller": "VehicleMasterController",
+      "file": "apps/api/src/modules/motor-admin/controllers/vehicle-master.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "POST",
+      "path": "/motor/admin/manufacturers",
+      "controller": "VehicleMasterController",
+      "file": "apps/api/src/modules/motor-admin/controllers/vehicle-master.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "GET",
+      "path": "/motor/admin/models",
+      "controller": "VehicleMasterController",
+      "file": "apps/api/src/modules/motor-admin/controllers/vehicle-master.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "POST",
+      "path": "/motor/admin/models",
+      "controller": "VehicleMasterController",
+      "file": "apps/api/src/modules/motor-admin/controllers/vehicle-master.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "GET",
+      "path": "/motor/admin/variants",
+      "controller": "VehicleMasterController",
+      "file": "apps/api/src/modules/motor-admin/controllers/vehicle-master.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "POST",
+      "path": "/motor/admin/variants",
       "controller": "VehicleMasterController",
       "file": "apps/api/src/modules/motor-admin/controllers/vehicle-master.controller.ts",
       "classification": "UNUSED"
@@ -892,8 +990,64 @@
       "classification": "UNUSED"
     },
     {
+      "method": "POST",
+      "path": "/motor/admin/variants/import",
+      "controller": "VehicleMasterController",
+      "file": "apps/api/src/modules/motor-admin/controllers/vehicle-master.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "GET",
+      "path": "/motor/quotations/compare",
+      "controller": "MotorQuotationsController",
+      "file": "apps/api/src/modules/motor-quotations/motor-quotations.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "GET",
+      "path": "/motor/quotations",
+      "controller": "MotorQuotationsController",
+      "file": "apps/api/src/modules/motor-quotations/motor-quotations.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
       "method": "GET",
       "path": "/motor-quotations/:param",
+      "controller": "MotorQuotationsController",
+      "file": "apps/api/src/modules/motor-quotations/motor-quotations.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "GET",
+      "path": "/motor/quotations/:param",
+      "controller": "MotorQuotationsController",
+      "file": "apps/api/src/modules/motor-quotations/motor-quotations.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "POST",
+      "path": "/motor/quotations",
+      "controller": "MotorQuotationsController",
+      "file": "apps/api/src/modules/motor-quotations/motor-quotations.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "POST",
+      "path": "/motor-quotations/:param/customer-acceptance",
+      "controller": "MotorQuotationsController",
+      "file": "apps/api/src/modules/motor-quotations/motor-quotations.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "POST",
+      "path": "/motor-quotations/:param/accept",
+      "controller": "MotorQuotationsController",
+      "file": "apps/api/src/modules/motor-quotations/motor-quotations.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "POST",
+      "path": "/motor/quotations/:param/accept",
       "controller": "MotorQuotationsController",
       "file": "apps/api/src/modules/motor-quotations/motor-quotations.controller.ts",
       "classification": "UNUSED"
@@ -1186,6 +1340,13 @@
       "classification": "UNUSED"
     },
     {
+      "method": "GET",
+      "path": "/renewals/tasks",
+      "controller": "RenewalsController",
+      "file": "apps/api/src/modules/policies/controllers/renewals.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
       "method": "POST",
       "path": "/renewals/tasks/:param/quote",
       "controller": "RenewalsController",
@@ -1209,6 +1370,13 @@
     {
       "method": "POST",
       "path": "/quotations/wizard/issue-policy",
+      "controller": "QuotationController",
+      "file": "apps/api/src/modules/quotation/controllers/quotation.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "POST",
+      "path": "/quotations/:param/customer-acceptance",
       "controller": "QuotationController",
       "file": "apps/api/src/modules/quotation/controllers/quotation.controller.ts",
       "classification": "UNUSED"
@@ -1278,15 +1446,15 @@
     }
   ],
   "summary": {
-    "totalFrontendCalls": 296,
-    "matched": 296,
+    "totalFrontendCalls": 304,
+    "matched": 304,
     "unmatched": 0,
-    "uncalledBackend": 182,
+    "uncalledBackend": 206,
     "uncalledByClassification": {
       "WEBHOOK": 1,
       "CRON": 3,
       "INTERNAL": 8,
-      "UNUSED": 170
+      "UNUSED": 194
     }
   }
 }

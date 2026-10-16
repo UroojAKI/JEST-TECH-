@@ -7,6 +7,7 @@ describe('Phase 32: MotorQuotation Migration & Financial Graph Reconciliation (M
 
   beforeEach(() => {
     mockPrisma = {
+      $transaction: jest.fn((callback) => callback(mockPrisma)),
       $queryRaw: jest.fn(),
       policy: {
         findMany: jest.fn(),
@@ -99,6 +100,21 @@ describe('Phase 32: MotorQuotation Migration & Financial Graph Reconciliation (M
   });
 
   describe('Full Migration Execution & Financial Reconciliation', () => {
+    it('runs apply work in a transaction and rolls back when an invariant fails', async () => {
+      mockPrisma.$queryRaw
+        .mockResolvedValueOnce([]) // duplicate policies
+        .mockResolvedValueOnce([{ count: 1 }]) // duplicate policies remain
+        .mockResolvedValueOnce([{ count: 0 }]) // orphan proposals
+        .mockResolvedValueOnce([{ count: 0 }]) // orphan payments
+        .mockResolvedValueOnce([{ count: 0 }]); // orphan inspections
+      mockPrisma.motorQuotation.findMany.mockResolvedValueOnce([]);
+
+      await expect(migrationService.executeMigration(false)).rejects.toThrow(
+        'Migration invariant checks failed; rolling back all changes.',
+      );
+      expect(mockPrisma.$transaction).toHaveBeenCalledTimes(1);
+    });
+
     it('should reconcile exact gross premium and GST sums between legacy and canonical records', async () => {
       // No duplicate policies
       mockPrisma.$queryRaw

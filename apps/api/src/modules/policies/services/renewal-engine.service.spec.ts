@@ -153,6 +153,232 @@ describe('RenewalEngineService (Iteration 10)', () => {
       expect(item.nextNcb).toBe(0); // Reset to 0 due to claim!
       expect(item.estimatedRenewalPremium).toBe(20000);
     });
+
+    it('should sort policies strictly ascending by days remaining (fewest days left on top, more renewal days last)', async () => {
+      const now = new Date();
+      const in365Days = new Date(now.getTime() + 365 * 86400000);
+      const in5Days = new Date(now.getTime() + 5 * 86400000);
+      const in25Days = new Date(now.getTime() + 25 * 86400000);
+
+      const mockPolicies = [
+        {
+          id: 'pol-new',
+          policyNumber: 'POL-NEW-365',
+          premiumAmount: 12000,
+          expiryDate: in365Days,
+          contact: { firstName: 'New', lastName: 'Customer' },
+          claims: [],
+          quotation: { ncbPercentage: 20 },
+          renewalTasks: [],
+        },
+        {
+          id: 'pol-soon',
+          policyNumber: 'POL-SOON-5',
+          premiumAmount: 15000,
+          expiryDate: in5Days,
+          contact: { firstName: 'Urgent', lastName: 'Customer' },
+          claims: [],
+          quotation: { ncbPercentage: 35 },
+          renewalTasks: [],
+        },
+        {
+          id: 'pol-mid',
+          policyNumber: 'POL-MID-25',
+          premiumAmount: 18000,
+          expiryDate: in25Days,
+          contact: { firstName: 'Medium', lastName: 'Customer' },
+          claims: [],
+          quotation: { ncbPercentage: 25 },
+          renewalTasks: [],
+        },
+      ];
+
+      prisma.policy.findMany.mockResolvedValue(mockPolicies);
+
+      const result = await service.getRenewalQueue();
+
+      expect(result.data).toHaveLength(3);
+      // Soonest expiry (5 days) must be on TOP (index 0)
+      expect(result.data[0].policyNumber).toBe('POL-SOON-5');
+      expect(result.data[0].daysRemaining).toBeLessThanOrEqual(5);
+
+      // Mid expiry (25 days) next
+      expect(result.data[1].policyNumber).toBe('POL-MID-25');
+
+      // Newly issued policy with 365 days must be LAST (at the bottom)
+      expect(result.data[2].policyNumber).toBe('POL-NEW-365');
+      expect(result.data[2].daysRemaining).toBeGreaterThan(300);
+      expect(result.data[2].urgency).toBe('LOW');
+    });
+
+    it('should filter queue items by < 7 days and < 15 days correctly', async () => {
+      const now = new Date();
+      const in5Days = new Date(now.getTime() + 5 * 86400000);
+      const in12Days = new Date(now.getTime() + 12 * 86400000);
+      const in25Days = new Date(now.getTime() + 25 * 86400000);
+
+      const mockPolicies = [
+        {
+          id: 'pol-5',
+          policyNumber: 'POL-5',
+          expiryDate: in5Days,
+          contact: { firstName: 'Five' },
+          claims: [],
+          quotation: { ncbPercentage: 20 },
+          renewalTasks: [],
+        },
+        {
+          id: 'pol-12',
+          policyNumber: 'POL-12',
+          expiryDate: in12Days,
+          contact: { firstName: 'Twelve' },
+          claims: [],
+          quotation: { ncbPercentage: 20 },
+          renewalTasks: [],
+        },
+        {
+          id: 'pol-25',
+          policyNumber: 'POL-25',
+          expiryDate: in25Days,
+          contact: { firstName: 'TwentyFive' },
+          claims: [],
+          quotation: { ncbPercentage: 20 },
+          renewalTasks: [],
+        },
+      ];
+
+      prisma.policy.findMany.mockResolvedValue(mockPolicies);
+
+      // Filter < 7 days
+      const result7 = await service.getRenewalQueue(undefined, { urgency: '7_DAYS' });
+      expect(result7.data).toHaveLength(1);
+      expect(result7.data[0].policyNumber).toBe('POL-5');
+
+      // Filter < 15 days (includes 5 days and 12 days)
+      const result15 = await service.getRenewalQueue(undefined, { urgency: '15_DAYS' });
+      expect(result15.data).toHaveLength(2);
+      expect(result15.data.map((p: any) => p.policyNumber)).toEqual(['POL-5', 'POL-12']);
+    });
+
+    it('should not mark fresh policies as escalated unless priority is CRITICAL', async () => {
+      const now = new Date();
+      const in364Days = new Date(now.getTime() + 364 * 86400000);
+
+      const mockPolicies = [
+        {
+          id: 'pol-fresh',
+          policyNumber: 'POL-FRESH',
+          expiryDate: in364Days,
+          contact: { firstName: 'Fresh' },
+          claims: [],
+          quotation: { ncbPercentage: 20 },
+          // Even if task has HIGH priority, it's not overdue and not CRITICAL
+          renewalTasks: [{ priority: 'HIGH' }],
+        },
+        {
+          id: 'pol-escalated',
+          policyNumber: 'POL-ESCALATED',
+          expiryDate: in364Days,
+          contact: { firstName: 'Escalated' },
+          claims: [],
+          quotation: { ncbPercentage: 20 },
+          // Explicitly escalated
+          renewalTasks: [{ priority: 'CRITICAL' }],
+        },
+      ];
+
+      prisma.policy.findMany.mockResolvedValue(mockPolicies);
+
+      const result = await service.getRenewalQueue();
+      const freshItem = result.data.find((p: any) => p.policyNumber === 'POL-FRESH');
+      const escalatedItem = result.data.find((p: any) => p.policyNumber === 'POL-ESCALATED');
+
+      expect(freshItem?.escalated).toBe(false);
+      expect(escalatedItem?.escalated).toBe(true);
+    });
+
+    it('should use earlier expiry date when policy has short expiryDate despite distant odExpiryDate', async () => {
+      const now = new Date();
+      const in6Days = new Date(now.getTime() + 6 * 86400000);
+      const in365Days = new Date(now.getTime() + 365 * 86400000);
+
+      const mockPolicies = [
+        {
+          id: 'pol-short',
+          policyNumber: 'POL-SHORT-7DAYS',
+          expiryDate: in6Days,
+          odExpiryDate: in365Days,
+          contact: { firstName: 'ShortTerm' },
+          claims: [],
+          quotation: { ncbPercentage: 20 },
+          renewalTasks: [],
+        },
+      ];
+
+      prisma.policy.findMany.mockResolvedValue(mockPolicies);
+
+      const result = await service.getRenewalQueue();
+      expect(result.data).toHaveLength(1);
+      const item = result.data[0];
+      expect(item.daysRemaining).toBeLessThanOrEqual(7);
+      expect(item.urgency).toBe('CRITICAL');
+    });
+  });
+
+  describe('calculateStatutoryDepreciation & calculateRevisedIdv', () => {
+    it('should derive statutory IDV depreciation per IRDAI GR.8 age schedule', () => {
+      expect(service.calculateStatutoryDepreciation(0)).toBe(5);
+      expect(service.calculateStatutoryDepreciation(1)).toBe(15);
+      expect(service.calculateStatutoryDepreciation(2)).toBe(20);
+      expect(service.calculateStatutoryDepreciation(3)).toBe(30);
+      expect(service.calculateStatutoryDepreciation(4)).toBe(40);
+      expect(service.calculateStatutoryDepreciation(5)).toBe(50);
+      expect(service.calculateStatutoryDepreciation(6)).toBe(60);
+      expect(service.calculateStatutoryDepreciation(10)).toBe(80);
+    });
+
+    it('should compute revised IDV applying statutory step down', () => {
+      const res = service.calculateRevisedIdv(500000, 2);
+      expect(res.depreciationPercentage).toBe(20);
+      expect(res.revisedIdv).toBe(450000); // 500000 * 0.90
+    });
+  });
+
+  describe('calculateRenewalPricing', () => {
+    it('should calculate renewal pricing with NCB progression and statutory TP unchanged', () => {
+      const pricing = service.calculateRenewalPricing({
+        prevSumInsured: 500000,
+        prevBasePremium: 10000,
+        prevNcb: 20,
+        hasClaims: false,
+        vehicleAgeYears: 2,
+      });
+
+      expect(pricing.nextNcb).toBe(25); // 20 -> 25
+      expect(pricing.depreciationPercentage).toBe(20);
+      expect(pricing.revisedIdv).toBe(450000);
+      // OD: 6500 * (1 - 0.25) = 4875. TP: 3500. Base: 8375.
+      expect(pricing.revisedOd).toBe(4875);
+      expect(pricing.revisedTp).toBe(3500);
+      expect(pricing.revisedBase).toBe(8375);
+      expect(pricing.gstAmount).toBe(Math.round(8375 * 0.18));
+      expect(pricing.totalPremium).toBe(8375 + pricing.gstAmount);
+    });
+
+    it('should reset NCB to 0 when previous claims exist', () => {
+      const pricing = service.calculateRenewalPricing({
+        prevSumInsured: 400000,
+        prevBasePremium: 8000,
+        prevNcb: 35,
+        hasClaims: true,
+        vehicleAgeYears: 3,
+      });
+
+      expect(pricing.nextNcb).toBe(0);
+      // OD gets 0% discount
+      expect(pricing.revisedOd).toBe(Math.round(8000 * 0.65));
+      expect(pricing.revisedTp).toBe(Math.round(8000 * 0.35));
+    });
   });
 
   describe('triggerManualReminder', () => {

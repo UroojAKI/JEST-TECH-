@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { AppShell } from '../../components/layout/app-shell';
@@ -24,7 +24,9 @@ import { policiesRepository } from '../../repositories/policies.repository';
 
 export default function RenewalsWorkspacePage() {
   const queryClient = useQueryClient();
-  const [urgencyFilter, setUrgencyFilter] = useState<'ALL' | 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW'>('ALL');
+  const [urgencyFilter, setUrgencyFilter] = useState<
+    'ALL' | '7_DAYS' | '15_DAYS' | '30_DAYS' | 'GT_30' | 'OVERDUE' | 'ESCALATED' | 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW'
+  >('ALL');
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [remindingId, setRemindingId] = useState<string | null>(null);
@@ -48,13 +50,27 @@ export default function RenewalsWorkspacePage() {
       policiesRepository.getRenewalQueue({
         urgency: urgencyFilter,
         search: debouncedSearch,
+        limit: 100,
       }),
   });
 
-  if (isQueueLoading || isKpisLoading) return <AppShell><PageLoadingState message="Loading renewals queue..." /></AppShell>;
-  if (isQueueError) return <AppShell><PageErrorState message="Failed to load renewals. Please try again." onRetry={refetch} /></AppShell>;
-
-  const queueItems = queueResponse.data || [];
+  const queueItems = useMemo(() => {
+    let list = queueResponse.data || [];
+    if (urgencyFilter && urgencyFilter !== 'ALL') {
+      const u = urgencyFilter;
+      list = list.filter((item: any) => {
+        const days = item.daysRemaining ?? 0;
+        if (u === '7_DAYS' || u === 'CRITICAL') return days >= 0 && days <= 7;
+        if (u === '15_DAYS' || u === 'HIGH') return days >= 0 && days <= 15;
+        if (u === '30_DAYS' || u === 'MEDIUM') return days >= 0 && days <= 30;
+        if (u === 'GT_30' || u === 'LOW') return days > 30;
+        if (u === 'OVERDUE') return days < 0;
+        if (u === 'ESCALATED') return !!item.escalated;
+        return true;
+      });
+    }
+    return [...list].sort((a: any, b: any) => (a.daysRemaining ?? 0) - (b.daysRemaining ?? 0));
+  }, [queueResponse.data, urgencyFilter]);
   const summary = queueResponse.summary || {};
 
   const handleSendReminder = async (policyId: string) => {
@@ -100,19 +116,39 @@ export default function RenewalsWorkspacePage() {
 
         {/* Real KPI Cards */}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-          <div className="p-4 rounded-2xl border bg-card shadow-xs">
+          <div
+            onClick={() => setUrgencyFilter('7_DAYS')}
+            className={`p-4 rounded-2xl border bg-card shadow-xs cursor-pointer transition hover:border-primary/50 ${
+              urgencyFilter === '7_DAYS' || urgencyFilter === 'CRITICAL' ? 'ring-2 ring-primary/40' : ''
+            }`}
+          >
             <span className="text-[11px] font-bold text-muted-foreground block">Due Today</span>
             <span className="text-xl font-black text-primary mt-1 block">{kpis.dueToday ?? 0}</span>
           </div>
-          <div className="p-4 rounded-2xl border bg-red-500/5 border-red-500/20 shadow-xs">
+          <div
+            onClick={() => setUrgencyFilter('7_DAYS')}
+            className={`p-4 rounded-2xl border bg-red-500/5 border-red-500/20 shadow-xs cursor-pointer transition hover:border-red-500/50 ${
+              urgencyFilter === '7_DAYS' || urgencyFilter === 'CRITICAL' ? 'ring-2 ring-red-500/50' : ''
+            }`}
+          >
             <span className="text-[11px] font-bold text-red-600 block">Critical (&le; 7 Days)</span>
             <span className="text-xl font-black text-red-600 mt-1 block">{summary.criticalCount ?? kpis.in7Days ?? 0}</span>
           </div>
-          <div className="p-4 rounded-2xl border bg-amber-500/5 border-amber-500/20 shadow-xs">
+          <div
+            onClick={() => setUrgencyFilter('15_DAYS')}
+            className={`p-4 rounded-2xl border bg-amber-500/5 border-amber-500/20 shadow-xs cursor-pointer transition hover:border-amber-500/50 ${
+              urgencyFilter === '15_DAYS' || urgencyFilter === 'HIGH' ? 'ring-2 ring-amber-500/50' : ''
+            }`}
+          >
             <span className="text-[11px] font-bold text-amber-600 block">High (&le; 15 Days)</span>
             <span className="text-xl font-black text-amber-600 mt-1 block">{summary.highCount ?? kpis.in15Days ?? 0}</span>
           </div>
-          <div className="p-4 rounded-2xl border bg-card shadow-xs">
+          <div
+            onClick={() => setUrgencyFilter('30_DAYS')}
+            className={`p-4 rounded-2xl border bg-card shadow-xs cursor-pointer transition hover:border-primary/50 ${
+              urgencyFilter === '30_DAYS' || urgencyFilter === 'MEDIUM' ? 'ring-2 ring-primary/40' : ''
+            }`}
+          >
             <span className="text-[11px] font-bold text-muted-foreground block">Medium (&le; 30 Days)</span>
             <span className="text-xl font-black text-foreground mt-1 block">{summary.mediumCount ?? kpis.in30Days ?? 0}</span>
           </div>
@@ -142,19 +178,35 @@ export default function RenewalsWorkspacePage() {
 
           {/* Urgency Filter Tabs */}
           <div className="flex items-center gap-1.5 overflow-x-auto w-full sm:w-auto p-1 bg-muted/40 rounded-xl border">
-            {(['ALL', 'CRITICAL', 'HIGH', 'MEDIUM', 'LOW'] as const).map((urgency) => (
-              <button
-                key={urgency}
-                onClick={() => setUrgencyFilter(urgency)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition whitespace-nowrap ${
-                  urgencyFilter === urgency
-                    ? 'bg-primary text-primary-foreground shadow-xs'
-                    : 'text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                {urgency === 'ALL' ? 'All Expiring' : urgency}
-              </button>
-            ))}
+            {[
+              { id: 'ALL', label: 'All Expiring' },
+              { id: '7_DAYS', label: '< 7 Days' },
+              { id: '15_DAYS', label: '< 15 Days' },
+              { id: '30_DAYS', label: '< 30 Days' },
+              { id: 'GT_30', label: '> 30 Days' },
+              { id: 'OVERDUE', label: 'Overdue' },
+              { id: 'ESCALATED', label: 'Escalated' },
+            ].map((tab) => {
+              const isActive =
+                urgencyFilter === tab.id ||
+                (tab.id === '7_DAYS' && urgencyFilter === 'CRITICAL') ||
+                (tab.id === '15_DAYS' && urgencyFilter === 'HIGH') ||
+                (tab.id === '30_DAYS' && urgencyFilter === 'MEDIUM') ||
+                (tab.id === 'GT_30' && urgencyFilter === 'LOW');
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setUrgencyFilter(tab.id as any)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition whitespace-nowrap ${
+                    isActive
+                      ? 'bg-primary text-primary-foreground shadow-xs'
+                      : 'text-muted-foreground hover:text-foreground hover:bg-muted/60'
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              );
+            })}
           </div>
         </div>
 

@@ -71,8 +71,9 @@ export class IdempotencyInterceptor implements NestInterceptor {
     return next.handle().pipe(
       tap({
         next: async (data) => {
-          // Store completed response for 24 hours (86400s)
-          await this.cache.set(cacheKey, { status: 'COMPLETED', data }, 86400);
+          // Store completed response for 24 hours (86400s), sanitizing any sensitive credentials
+          const sanitizedData = this.sanitizeData(data);
+          await this.cache.set(cacheKey, { status: 'COMPLETED', data: sanitizedData }, 86400);
         },
         error: async () => {
           // In case of execution error, clear the lock so client can safely retry
@@ -80,5 +81,16 @@ export class IdempotencyInterceptor implements NestInterceptor {
         },
       }),
     );
+  }
+
+  private sanitizeData(data: any): any {
+    if (!data || typeof data !== 'object') return data;
+    if (Array.isArray(data)) return data.map((item) => this.sanitizeData(item));
+    const sanitized = { ...data };
+    if ('initialPassword' in sanitized) delete sanitized.initialPassword;
+    if ('newPassword' in sanitized) delete sanitized.newPassword;
+    if ('password' in sanitized) delete sanitized.password;
+    if ('passwordHash' in sanitized) delete sanitized.passwordHash;
+    return sanitized;
   }
 }

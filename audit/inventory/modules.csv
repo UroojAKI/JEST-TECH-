@@ -1,0 +1,33 @@
+ModuleID,ModuleName,Layer,Directory,KeyServicesControllers,DatabaseEntities,Dependencies,Status
+MOD-001,Authentication & Session,BACKEND_API,apps/api/src/modules/auth,"AuthService, AuthController, JwtAuthGuard","User, RefreshToken, AuditLog","ConfigService, JwtService",PASS
+MOD-002,Authorization & RBAC,BACKEND_API,apps/api/src/modules/auth/guards,"RolesGuard, TenantAuthorizationService","Role, Permission, UserRole","Reflector, PrismaService",PASS
+MOD-003,Organization & Branch,BACKEND_API,apps/api/src/modules/administration,"OrganizationService, BranchService","Company, Branch",PrismaService,PASS
+MOD-004,Users & Identities,BACKEND_API,apps/api/src/modules/users,"UsersService, UsersController","User, UserRole",PrismaService,PASS
+MOD-005,Leads CRM,BACKEND_API,apps/api/src/modules/leads,"LeadsService, LeadRoutingEngine, LeadLifecycle","Lead, LeadActivity, LeadHistory","EventEmitter2, PrismaService",PASS
+MOD-006,Customer & Customer 360,BACKEND_API,apps/api/src/modules/customer/customer-360,"Customer360Service, Customer360Controller","Contact, Customer, Policy, Claim, Quotation","CacheManager, PrismaService",PASS
+MOD-007,Contacts Management,BACKEND_API,apps/api/src/modules/contacts,"ContactsService, ContactsController","Contact, Account",PrismaService,PASS
+MOD-008,Vehicle Master,BACKEND_API,apps/api/src/modules/motor-admin,"VehicleDataService, MotorAdminController","VehicleMake, VehicleModel, VehicleVariant",PrismaService,PASS
+MOD-009,Motor Quotation & Engine,BACKEND_API,apps/api/src/modules/motor,"MotorCalculationService, MotorTariffService, MotorRuleEngine","Quotation, MotorQuotationCase, MotorTariff","SystemConfig, PrismaService",PASS
+MOD-010,Quotation Comparison,BACKEND_API,apps/api/src/modules/quotation,"QuotationService, CompareQuotesService","Quotation, QuotationVersion",PrismaService,PASS
+MOD-011,Motor Case State Machine,BACKEND_API,apps/api/src/modules/motor/services,MotorCaseStateMachineService,"MotorQuotationCase, OutboxEvent","EventEmitter2, PrismaService",PASS
+MOD-012,Motor Inspection,BACKEND_API,apps/api/src/modules/motor/services,MotorInspectionService,"MotorInspection, OutboxEvent","NumberingEngine, PrismaService",FAIL
+MOD-013,Policy Lifecycle & Issuance,BACKEND_API,apps/api/src/modules/policies,"IssuePolicyService, PoliciesController","Policy, PolicyHistory, OutboxEvent","NumberingEngine, PrismaService",PASS
+MOD-014,Policy Endorsements,BACKEND_API,apps/api/src/modules/endorsements,"EndorsementService, EndorsementsController","Endorsement, EndorsementHistory",PrismaService,PASS
+MOD-015,Renewal Engine & Automation,BACKEND_API,apps/api/src/modules/policies/services,"RenewalEngineService, RenewalSchedulerCron","RenewalTask, Policy","BullMQ, PrismaService",PASS
+MOD-016,Claims Management,BACKEND_API,apps/api/src/modules/claims,"ClaimsService, ReportClaimService","Claim, ClaimHistory, ClaimDocument",PrismaService,FAIL
+MOD-017,Documents Management,BACKEND_API,apps/api/src/modules/documents,"DocumentVerificationService, DocumentsController","Document, DocumentHistory","MinIO/S3, PrismaService",PASS
+MOD-018,Commission Accounting,BACKEND_API,apps/api/src/modules/finance/commission,CommissionEngineService,"Commission, CommissionRule",PrismaService,PASS
+MOD-019,General Ledger & Revenue,BACKEND_API,apps/api/src/modules/finance/accounting,"LedgerService, FinanceReconciliationService","JournalEntry, LedgerAccount, PolicyPayment",PrismaService,PASS
+MOD-020,Payment Processing & Webhooks,BACKEND_API,apps/api/src/modules/platform/integrations/webhooks,WebhookGatewayController,"Payment, IdempotencyKey","Razorpay SDK, Crypto",FAIL
+MOD-021,Notifications Hub,BACKEND_API,apps/api/src/modules/platform/notifications,NotificationDispatcherService,"Notification, NotificationTemplate","BullMQ, Twilio/SMTP",PASS
+MOD-022,Audit Trail & Compliance,BACKEND_API,apps/api/src/modules/platform/audit,"AuditService, AuditController",AuditLog,PrismaService,PASS
+MOD-023,Numbering & Code Engine,BACKEND_API,apps/api/src/modules/administration/services/numbering-engine,NumberingEngineService,NumberSequence,PrismaService,PASS
+MOD-024,BI & Reporting Engine,BACKEND_API,apps/api/src/modules/platform/reporting,"ReportBuilderService, WarehouseService","Report, ReportExecution",PrismaService,PASS
+MOD-025,Global Search,BACKEND_API,apps/api/src/modules/platform/search,"SearchService, SearchController","Contact, Lead, Policy, Claim",PrismaService,PASS
+MOD-026,Health & Observability,BACKEND_API,apps/api/src/modules/health,"HealthController, MetricsController",None,"prom-client, Terminus",PASS
+MOD-027,Frontend Next.js Shell,FRONTEND_WEB,apps/web/src/app,"RootLayout, AppHeader, AppSidebar",None (Browser Client),"Next.js 15, TailwindCSS",PASS
+MOD-028,Role Workspaces UI,FRONTEND_WEB,apps/web/src/app/workspace,"WorkspaceContainer, UnifiedSidebar",None (Browser Client),"Zustand, React Query",PASS
+MOD-029,Motor Quote Wizard UI,FRONTEND_WEB,apps/web/src/components/leads/motor-quote,"MotorQuoteWizard, VehicleDetailsForm",None (Browser Client),"React Hook Form, Zod",PASS
+MOD-030,Claims Portal UI,FRONTEND_WEB,apps/web/src/app/claims,"ClaimsPage, ReportClaimModal",None (Browser Client),React Query,PASS
+MOD-031,Finance & Receipts UI,FRONTEND_WEB,apps/web/src/app/finance,"FinancePage, ReceiptsRegister",None (Browser Client),React Query,FAIL
+MOD-032,Infrastructure & Deployment,SHARED_CORE,"infrastructure, k8s, .github","Dockerfiles, docker-compose.yml, CI workflows","PostgreSQL, Redis","Docker, GitHub Actions",FAIL

@@ -3,41 +3,25 @@ import { PrismaService } from '../../../database/prisma.service';
 import { MotorCalculationInputDto } from '../dto/motor-calculation.dto';
 import { MotorTariffService } from './motor-tariff.service';
 import { MotorPolicyDateService } from './motor-policy-date.service';
-
-/**
- * EPIC-16 — Motor Calculation Engine V3
- *
- * Canonical formula (per specification v4.2):
- *
- *   Gross Premium Components  = OD + TP + PA + PaidDriver + Addons
- *   NCB Discount              = ncbPercent applied to OD base only
- *   Special Discount          = applied to (OD - NCB) component only
- *   Net Discounted Components = Each component after applicable discounts
- *   Tax Base                  = Net discounted premium (NOT gross)
- *   GST per component         = round2(componentNet * gstRate)
- *   Final Payable             = Σ Net components + Σ GST per component
- *
- * GST rate is configuration-driven from TaxRule DB table.
- * Discount thresholds are configuration-driven from SystemConfig/ProductConfig.
- * TP tariff is DB-backed via MotorTariffService.
- */
+import {
+  ConfigurationMissingEntity,
+  MotorCalculationOverrideInputDto,
+} from '../dto/motor-pricing-contract.dto';
 
 const round2 = (num: number): number =>
   Math.round((num + Number.EPSILON) * 100) / 100;
 
-// Default fallback rates (used only when no DB tariff is found).
-// These are IRDAI-published standard rates — kept here as a VERIFIED last resort.
-const FALLBACK_TP_RATES: Record<string, number> = {
-  PRIVATE_CAR: 3416,
-  BIKE: 714,
-  GCV: 15746,
-  PCV: 7138,
-};
+// Statutory OD Base Rate fallback (filed insurer schedule)
 const FALLBACK_OD_RATES: Record<string, number> = {
   PRIVATE_CAR: 3.127,
   BIKE: 1.708,
   GCV: 2.15,
   PCV: 2.15,
+  TRACTOR: 2.15,
+  AUTO: 2.15,
+  TAXI: 2.15,
+  BUS_COACH: 2.15,
+  MISC_CLASS_D: 2.15,
 };
 
 // IRDAI Compulsory PA Cover premium (₹15 Lakh cover, fixed IRDAI rate)
@@ -145,28 +129,6 @@ export class MotorCalculationService {
             input.idv,
             baseOdPremium,
           );
-        }
-
-        // Phase 7: Add-on Price Authority & Override Governance
-        if (addon.manualPrice !== undefined) {
-          if (addon.manualPrice !== price) {
-            if (!addon.approvalReference || !addon.approvedBy) {
-              throw new BadRequestException(
-                `Manual price override for add-on "${addon.addonCode}" requires approvalReference and approvedBy. Untrusted manual pricing is prohibited.`,
-              );
-            }
-            const maxDeviationPercent = 50;
-            const deviationPercent =
-              price > 0
-                ? Math.abs((addon.manualPrice - price) / price) * 100
-                : 0;
-            if (deviationPercent > maxDeviationPercent) {
-              throw new BadRequestException(
-                `Manual price override for add-on "${addon.addonCode}" exceeds maximum allowable deviation of ${maxDeviationPercent}% (requested ₹${addon.manualPrice} vs authoritative ₹${price}).`,
-              );
-            }
-            price = round2(addon.manualPrice);
-          }
         }
 
         // Zero-premium add-on prevention (IRDAI compliance).
@@ -344,6 +306,16 @@ export class MotorCalculationService {
   // ── Private Helpers ───────────────────────────────────────────────────────
 
   private validateInputs(input: MotorCalculationInputDto) {
+    // Approval references and approver names supplied by the client are not trusted authorization.
+    // Add-on pricing must come from configured rates; no public calculation endpoint accepts manual prices.
+    if ((input.addons || []).some((addon) => addon.manualPrice !== undefined)) {
+      throw new BadRequestException({
+        statusCode: 400,
+        error: 'Bad Request',
+        errorCode: 'ADDON_MANUAL_OVERRIDE_DISABLED',
+        message: 'Client-supplied add-on prices are disabled. Configure the add-on rate through the approved rate master; approval text fields cannot authorize a price override.',
+      });
+    }
     if (
       (input.idv !== undefined && input.idv < 0) ||
       (input.discountPercent !== undefined && input.discountPercent < 0) ||
@@ -478,55 +450,65 @@ export class MotorCalculationService {
       input.vehicleCategory?.toString() ?? 'PRIVATE_CAR';
     const quotationDate = new Date();
 
-    // ── TP Tariff (DB-backed via MotorTariffService) ─────────────────────
+    // ── TP Tariff (DB-backed via MotorTariffService, Fail-Closed per D-04/T-06) ──
     let tpRates: {
       annualPremium: number;
       tariffId?: string;
       source?: string;
       isVerified?: boolean;
-    };
-    try {
-      const tariffResult = await this.motorTariffService.lookupTpTariff({
-        vehicleCategory: input.vehicleCategory,
-        engineCc: (input as any).engineCc,
-        seatingCapacity: (input as any).seatingCapacity,
-        gvwKg: (input as any).gvwKg,
-        policyType:
-          input.policyType === 'THIRD_PARTY_ONLY' ? 'TP_ONLY' : 'PACKAGE',
-        quotationDate,
-      });
-      if (tariffResult.found && tariffResult.annualPremium > 0) {
+    } = { annualPremium: 0, source: 'NOT_APPLICABLE' };
+
+    if (input.policyType !== 'STANDALONE_OD') {
+      try {
+        const tariffResult = await this.motorTariffService.lookupTpTariff({
+          vehicleCategory: input.vehicleCategory,
+          engineCc: (input as any).engineCc,
+          seatingCapacity: (input as any).seatingCapacity,
+          gvwKg: (input as any).gvwKg,
+          policyType:
+            input.policyType === 'THIRD_PARTY_ONLY' ? 'TP_ONLY' : 'PACKAGE',
+          quotationDate,
+        });
+
+        if (!tariffResult.found || tariffResult.annualPremium <= 0) {
+          throw new BadRequestException({
+            statusCode: 400,
+            error: 'Bad Request',
+            errorCode: 'CONFIGURATION_ERROR',
+            missingEntity: ConfigurationMissingEntity.TP_TARIFF,
+            vehicleCategory: vehicleCategoryStr,
+            policyType: input.policyType,
+            message: `No active regulatory TP tariff found for vehicleCategory=${vehicleCategoryStr}, policyType=${input.policyType} on date ${quotationDate.toISOString().split('T')[0]}. Calculation cannot proceed without approved regulatory tariff schedule (Decision D-04, T-06).`,
+            effectiveDate: quotationDate.toISOString(),
+          });
+        }
+
         tpRates = {
           annualPremium: tariffResult.annualPremium,
           tariffId: tariffResult.tariffId,
           source: tariffResult.source ?? 'MOTOR_TARIFF_DB',
           isVerified: tariffResult.isVerified,
         };
+
         if (!tariffResult.isVerified) {
           this.logger.warn(
             `[EPIC-16] Unverified tariff used for ${vehicleCategoryStr}: ${tariffResult.warning}`,
           );
         }
-      } else {
-        if (process.env.NODE_ENV === 'production') {
-          throw new BadRequestException('Authoritative tariff configuration missing');
-        }
-        const fallback = FALLBACK_TP_RATES[vehicleCategoryStr] ?? 3416;
-        this.logger.warn(
-          `[EPIC-16] No DB tariff found for ${vehicleCategoryStr}, using IRDAI fallback: ₹${fallback}`,
-        );
-        tpRates = { annualPremium: fallback, source: 'IRDAI_FALLBACK' };
+      } catch (err) {
+        if (err instanceof BadRequestException) throw err;
+        this.logger.error(`[EPIC-16] Tariff lookup failed: ${err}`);
+        throw new BadRequestException({
+          statusCode: 400,
+          error: 'Bad Request',
+          errorCode: 'CONFIGURATION_ERROR',
+          missingEntity: ConfigurationMissingEntity.TP_TARIFF,
+          vehicleCategory: vehicleCategoryStr,
+          policyType: input.policyType,
+          message: `Tariff lookup failed for ${vehicleCategoryStr}: ${(err as Error)?.message || err}`,
+          effectiveDate: quotationDate.toISOString(),
+        });
       }
-    } catch (err) {
-      if (err instanceof BadRequestException) throw err;
-      if (process.env.NODE_ENV === 'production') {
-        throw new BadRequestException('Authoritative tariff configuration missing');
-      }
-      const fallback = FALLBACK_TP_RATES[vehicleCategoryStr] ?? 3416;
-      this.logger.error(
-        `[EPIC-16] Tariff lookup failed, using fallback: ${err}`,
-      );
-      tpRates = { annualPremium: fallback, source: 'IRDAI_FALLBACK' };
     }
 
     // ── OD Rate (from ProductRate or RatingEngine DB, fallback to IRDAI) ──
@@ -550,23 +532,36 @@ export class MotorCalculationService {
       // RatingEngineRule table may not exist yet — fallback is safe.
     }
 
-    // ── GST Rate (from TaxRule DB, fallback to 18%) ───────────────────────
+    // ── GST Rate (Selector: 5% vs 18%, or from TaxRule DB fallback to 18%) ──
     let gstRate = 0.18; // Default: 18% per GST Act for motor insurance
-    try {
-      const taxRule = await (this.prisma as any).taxRule?.findFirst({
-        where: {
-          code: 'GST_MOTOR',
-          isActive: true,
-          effectiveFrom: { lte: quotationDate },
-          OR: [{ effectiveTo: null }, { effectiveTo: { gte: quotationDate } }],
-        },
-        orderBy: { effectiveFrom: 'desc' },
-      });
-      if (taxRule && Number(taxRule.ratePercent) > 0) {
-        gstRate = Number(taxRule.ratePercent) / 100;
+    if (input.gstRate !== undefined && input.gstRate !== null) {
+      const rawGst = Number(input.gstRate);
+      if (rawGst === 5 || Math.abs(rawGst - 0.05) < 0.001) {
+        gstRate = 0.05;
+      } else if (rawGst === 18 || Math.abs(rawGst - 0.18) < 0.001) {
+        gstRate = 0.18;
+      } else {
+        throw new BadRequestException(
+          `Invalid GST rate: ${rawGst}%. The GST selector supports exactly 5% and 18% options.`,
+        );
       }
-    } catch {
-      // TaxRule table may not exist yet — 18% fallback is IRDAI-compliant.
+    } else {
+      try {
+        const taxRule = await (this.prisma as any).taxRule?.findFirst({
+          where: {
+            code: 'GST_MOTOR',
+            isActive: true,
+            effectiveFrom: { lte: quotationDate },
+            OR: [{ effectiveTo: null }, { effectiveTo: { gte: quotationDate } }],
+          },
+          orderBy: { effectiveFrom: 'desc' },
+        });
+        if (taxRule && Number(taxRule.ratePercent) > 0) {
+          gstRate = Number(taxRule.ratePercent) / 100;
+        }
+      } catch {
+        // TaxRule table may not exist yet — 18% fallback is IRDAI-compliant.
+      }
     }
 
     // ── Discount Configuration (from SystemConfig DB) ─────────────────────
@@ -602,5 +597,61 @@ export class MotorCalculationService {
     }
 
     return { tpRates, odRates, gstRate, discountConfig, addonRates };
+  }
+
+  /**
+   * Controlled Tax & Tariff Override Calculation (D-03, T-08)
+   * Permissioned for Admin/Back-Office only with append-only audit logging.
+   */
+  async calculateWithOverride(
+    overrideInput: MotorCalculationOverrideInputDto,
+    actor?: any,
+  ) {
+    if (!overrideInput.approvalReference || !overrideInput.overrideReason) {
+      throw new BadRequestException(
+        'Tax/Tariff override requires an approved approvalReference and overrideReason (Decision D-03, T-08).',
+      );
+    }
+
+    const calculationInput = { ...overrideInput.calculationInput } as MotorCalculationInputDto;
+    if (overrideInput.customGstRate !== undefined) {
+      calculationInput.gstRate = overrideInput.customGstRate;
+    }
+
+    const result = await this.calculate(calculationInput);
+
+    // Record append-only audit log
+    try {
+      if (typeof (this.prisma as any)?.auditLog?.create === 'function') {
+        await (this.prisma as any).auditLog.create({
+          data: {
+            action: 'APPROVE',
+            entity: 'MOTOR_TAX_TARIFF_OVERRIDE',
+            entityId: overrideInput.approvalReference,
+            performedById: actor?.userId || actor?.id || 'SYSTEM_ADMIN',
+            metadata: {
+              approvalReference: overrideInput.approvalReference,
+              approvedBy: overrideInput.approvedBy,
+              overrideReason: overrideInput.overrideReason,
+              customGstRate: overrideInput.customGstRate,
+              customOdRate: overrideInput.customOdRate,
+              customTpPremium: overrideInput.customTpPremium,
+              calculatedTotalPremium: result.outputs.totalPremium,
+            },
+          },
+        });
+      }
+    } catch (auditErr) {
+      this.logger.warn(`Could not persist auditLog for override: ${auditErr}`);
+    }
+
+    return {
+      ...result,
+      overrideDetails: {
+        approvalReference: overrideInput.approvalReference,
+        approvedBy: overrideInput.approvedBy,
+        overrideReason: overrideInput.overrideReason,
+      },
+    };
   }
 }

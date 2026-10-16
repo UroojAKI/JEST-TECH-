@@ -2,27 +2,42 @@
 
 import React, { useState } from 'react';
 import { AppShell } from '../../../components/layout/app-shell';
-import { Building2, Plus, Download } from 'lucide-react';
-import { useSettlements } from '../../../hooks/useFinance';
+import { Building2, Plus } from 'lucide-react';
+import { useSettlements, useCreateSettlement } from '../../../hooks/useFinance';
 import { StatusBadge } from '../../../components/ui/status-badge';
 import { toast } from 'sonner';
 
 export default function SettlementsWorkspacePage() {
   const { data: settlements = [], isLoading, isError } = useSettlements();
+  const { createSettlement, isCreating } = useCreateSettlement();
   const [showForm, setShowForm] = useState(false);
   const [insurerName, setInsurerName] = useState('');
-  const [amount, setAmount] = useState<number>(0);
   const [period, setPeriod] = useState('');
   const [description, setDescription] = useState('');
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    toast.info('Settlement batch submitted for processing!');
-    setShowForm(false);
-    setInsurerName('');
-    setAmount(0);
-    setPeriod('');
-    setDescription('');
+    if (!insurerName.trim()) return;
+    // Validate period format: must be YYYY-MM
+    if (!/^\d{4}-(?:0[1-9]|1[0-2])$/.test(period)) {
+      toast.error('Period must be in YYYY-MM format (e.g. 2026-10)');
+      return;
+    }
+    try {
+      await createSettlement({
+        insurerName: insurerName.trim(),
+        period,
+        description: description.trim() || undefined,
+      });
+      // Only reset form and close on SUCCESS (not before)
+      setShowForm(false);
+      setInsurerName('');
+      setPeriod('');
+      setDescription('');
+    } catch {
+      // Error is shown via toast in the mutation's onError.
+      // Form data is preserved so user can correct and retry.
+    }
   };
 
   return (
@@ -32,7 +47,7 @@ export default function SettlementsWorkspacePage() {
           <h1 className="text-xl font-bold tracking-tight flex items-center gap-2">
             <Building2 className="h-5 w-5 text-primary" /> Insurer Net Payable Settlement Cockpit
           </h1>
-          <p className="text-xs text-muted-foreground">Calculate net insurer payables (Gross Premium Collected - Retained Commission) & generate settlement batches</p>
+          <p className="text-xs text-muted-foreground">Calculate net insurer payables (Gross Premium Collected - Retained Commission) &amp; generate settlement batches</p>
         </div>
 
         <div className="flex items-center space-x-2">
@@ -61,27 +76,19 @@ export default function SettlementsWorkspacePage() {
               />
             </div>
             <div className="space-y-1">
-              <label className="font-semibold">Amount (₹)</label>
-              <input
-                required
-                type="number"
-                min="1"
-                className="w-full p-2 border rounded-md bg-background"
-                value={amount}
-                onChange={(e) => setAmount(Number(e.target.value))}
-              />
-            </div>
-            <div className="space-y-1">
-              <label className="font-semibold">Period</label>
+              <label className="font-semibold">Period <span className="text-muted-foreground font-normal">(YYYY-MM)</span></label>
               <input
                 required
                 className="w-full p-2 border rounded-md bg-background"
                 value={period}
                 onChange={(e) => setPeriod(e.target.value)}
-                placeholder="e.g. July 2026"
+                placeholder="e.g. 2026-10"
+                pattern="^\d{4}-(?:0[1-9]|1[0-2])$"
+                title="Use YYYY-MM format, e.g. 2026-10"
               />
+              <p className="text-[10px] text-muted-foreground">Amounts are calculated from authoritative premium and commission records</p>
             </div>
-            <div className="space-y-1">
+            <div className="space-y-1 sm:col-span-2">
               <label className="font-semibold">Description</label>
               <input
                 className="w-full p-2 border rounded-md bg-background"
@@ -101,9 +108,10 @@ export default function SettlementsWorkspacePage() {
             </button>
             <button
               type="submit"
-              className="px-4 py-2 text-xs font-bold rounded-lg bg-primary text-primary-foreground shadow hover:bg-primary/90"
+              disabled={isCreating}
+              className="px-4 py-2 text-xs font-bold rounded-lg bg-primary text-primary-foreground shadow hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Submit Batch
+              {isCreating ? 'Creating...' : 'Submit Batch'}
             </button>
           </div>
         </form>

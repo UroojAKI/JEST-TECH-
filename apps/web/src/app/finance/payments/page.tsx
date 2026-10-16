@@ -6,18 +6,12 @@ import { CreditCard, Download } from 'lucide-react';
 import { usePayments } from '../../../hooks/useFinance';
 import { StatusBadge } from '../../../components/ui/status-badge';
 import { VoucherPreviewModal, VoucherData } from '../../../components/finance/vouchers/VoucherPreviewModal';
-import { toast } from 'sonner';
 
 export default function PaymentsRegisterPage() {
   const [typeFilter, setTypeFilter] = useState<string>('ALL');
   const [selectedVoucher, setSelectedVoucher] = useState<VoucherData | null>(null);
 
   const { data: payments = [], isLoading, isError } = usePayments(typeFilter);
-
-  const handleExport = () => {
-    window.open('/api/v1/finance/payments/export?format=csv', '_blank');
-    toast.success('Export started!');
-  };
 
   return (
     <AppShell>
@@ -31,8 +25,10 @@ export default function PaymentsRegisterPage() {
 
         <div className="flex items-center space-x-2">
           <button
-            onClick={handleExport}
-            className="flex items-center space-x-1 px-3 py-2 text-xs font-semibold rounded-lg border bg-card hover:bg-accent"
+            type="button"
+            disabled
+            title="Payment export is unavailable until the API endpoint is implemented"
+            className="flex cursor-not-allowed items-center space-x-1 rounded-lg border bg-card px-3 py-2 text-xs font-semibold opacity-50"
           >
             <Download className="h-3.5 w-3.5" />
             <span>Export Register</span>

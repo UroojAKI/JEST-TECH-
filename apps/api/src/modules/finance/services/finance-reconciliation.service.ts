@@ -101,7 +101,7 @@ export class FinanceReconciliationService {
       },
     };
 
-    // Tenant scope: actor.companyId is authoritative when available
+    // Tenant scope: enforce strict fail-closed tenant boundary (G020 / P0-SEC-01)
     const targetCompanyId = actor?.companyId || params.companyId;
     if (targetCompanyId) {
       baseWhere.quotation = { companyId: targetCompanyId };
@@ -129,11 +129,17 @@ export class FinanceReconciliationService {
     const now = Date.now();
     const items: ReconciliationQueueItem[] = [];
 
-    let pendingCount = 0;
-    let reconciledCount = 0;
-    let discrepancyCount = 0;
-    let totalPendingAmount = 0;
-    let totalReconciledAmount = 0;
+    let globalPendingCount = 0;
+    let globalReconciledCount = 0;
+    let globalDiscrepancyCount = 0;
+    let globalPendingAmount = 0;
+    let globalReconciledAmount = 0;
+
+    let filteredPendingCount = 0;
+    let filteredReconciledCount = 0;
+    let filteredDiscrepancyCount = 0;
+    let filteredPendingAmount = 0;
+    let filteredReconciledAmount = 0;
 
     for (const p of payments) {
       let parsedNotes: Record<string, any> = {};
@@ -168,13 +174,13 @@ export class FinanceReconciliationService {
       }
 
       if (reconStatus === 'RECONCILED') {
-        reconciledCount++;
-        totalReconciledAmount += paidAmt;
+        globalReconciledCount++;
+        globalReconciledAmount += paidAmt;
       } else if (reconStatus === 'DISCREPANCY') {
-        discrepancyCount++;
+        globalDiscrepancyCount++;
       } else {
-        pendingCount++;
-        totalPendingAmount += paidAmt;
+        globalPendingCount++;
+        globalPendingAmount += paidAmt;
       }
 
       const item: ReconciliationQueueItem = {
@@ -217,6 +223,16 @@ export class FinanceReconciliationService {
         if (!matches) continue;
       }
 
+      if (reconStatus === 'RECONCILED') {
+        filteredReconciledCount++;
+        filteredReconciledAmount += paidAmt;
+      } else if (reconStatus === 'DISCREPANCY') {
+        filteredDiscrepancyCount++;
+      } else {
+        filteredPendingCount++;
+        filteredPendingAmount += paidAmt;
+      }
+
       items.push(item);
     }
 
@@ -232,11 +248,18 @@ export class FinanceReconciliationService {
         totalPages: Math.ceil(total / limit) || 1,
       },
       summary: {
-        pendingCount,
-        reconciledCount,
-        discrepancyCount,
-        totalPendingAmount: Math.round(totalPendingAmount * 100) / 100,
-        totalReconciledAmount: Math.round(totalReconciledAmount * 100) / 100,
+        pendingCount: filteredPendingCount,
+        reconciledCount: filteredReconciledCount,
+        discrepancyCount: filteredDiscrepancyCount,
+        totalPendingAmount: Math.round(filteredPendingAmount * 100) / 100,
+        totalReconciledAmount: Math.round(filteredReconciledAmount * 100) / 100,
+        global: {
+          pendingCount: globalPendingCount,
+          reconciledCount: globalReconciledCount,
+          discrepancyCount: globalDiscrepancyCount,
+          totalPendingAmount: Math.round(globalPendingAmount * 100) / 100,
+          totalReconciledAmount: Math.round(globalReconciledAmount * 100) / 100,
+        },
       },
     };
   }
@@ -268,6 +291,12 @@ export class FinanceReconciliationService {
       throw new NotFoundException(`Payment record with ID ${id} not found`);
     }
 
+    if (payment.status !== PaymentTrackingStatus.PAID) {
+      throw new BadRequestException(
+        `Cannot reconcile payment in ${payment.status} status. Payment must be recorded as PAID first.`,
+      );
+    }
+
     if (
       actorCompanyId &&
       payment.quotation?.companyId &&
@@ -275,12 +304,6 @@ export class FinanceReconciliationService {
     ) {
       throw new ForbiddenException(
         'Cross-tenant payment reconciliation forbidden: Payment does not belong to your company.',
-      );
-    }
-
-    if (payment.status !== PaymentTrackingStatus.PAID) {
-      throw new BadRequestException(
-        `Cannot reconcile payment in ${payment.status} status. Payment must be recorded as PAID first.`,
       );
     }
 
@@ -423,6 +446,12 @@ export class FinanceReconciliationService {
         ? actorIdOrContext.companyId
         : undefined;
 
+    if (!dto.reason || !dto.reason.trim()) {
+      throw new BadRequestException(
+        'A non-empty discrepancy reason is required.',
+      );
+    }
+
     const payment = await this.prisma.motorPaymentRecord.findUnique({
       where: { id },
       include: { quotation: true },
@@ -439,12 +468,6 @@ export class FinanceReconciliationService {
     ) {
       throw new ForbiddenException(
         'Cross-tenant payment discrepancy flagging forbidden: Payment does not belong to your company.',
-      );
-    }
-
-    if (!dto.reason || !dto.reason.trim()) {
-      throw new BadRequestException(
-        'A non-empty discrepancy reason is required.',
       );
     }
 

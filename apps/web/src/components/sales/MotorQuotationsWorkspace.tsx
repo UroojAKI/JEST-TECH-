@@ -15,11 +15,22 @@ import { MotorProposalWizard } from '../leads/motor-quote/MotorProposalWizard';
 import { PolicyCompletionDialog } from '../leads/motor-quote/PolicyCompletionDialog';
 import type { VehicleCategory, SavedMotorQuote } from '../leads/motor-quote/motorFormTypes';
 import { MotorProductCards } from '../workspaces/sales/MotorProductCards';
+import { useAuthStore } from '../../store/auth-store';
 
 export function MotorQuotationsWorkspace() {
+  const authUser = useAuthStore((s) => s.user);
+  const userRoles = [
+    ...(authUser?.roles || []),
+    authUser?.role,
+  ].filter(Boolean).map((r) => String(r).toUpperCase());
+  const isBackOfficeOrAdmin = userRoles.some((r) =>
+    ['ADMIN', 'SUPER_ADMIN', 'SYSTEM_ADMINISTRATOR', 'BACK_OFFICE', 'OPERATIONS', 'UNDERWRITER'].includes(r)
+  );
+
   const searchParams = useSearchParams();
   const leadIdParam = searchParams?.get('leadId') || undefined;
   const contactIdParam = searchParams?.get('contactId') || undefined;
+  const customerIdParam = searchParams?.get('customerId') || undefined;
   const typeParam = searchParams?.get('type') || undefined;
   const openQuoteParam = searchParams?.get('openQuote');
   const [leadFilterActive, setLeadFilterActive] = useState<boolean>(!!leadIdParam);
@@ -102,7 +113,7 @@ export function MotorQuotationsWorkspace() {
     }
   }, [openQuoteParam, leadIdParam, contactIdParam, typeParam]);
 
-  const { data = { quotes: [], total: 0 }, isLoading, refetch } = useQuery({
+  const { data = { quotes: [], total: 0 }, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['motor-quotations-all', listLimit],
     queryFn: async () => {
       try {
@@ -120,11 +131,16 @@ export function MotorQuotationsWorkspace() {
           idv: Number(item.sumInsured || 0),
           ncbPercentage: Number(item.ncbPercentage || 0),
           status:
+            item.status === 'APPROVED' ? 'APPROVED' :
+            item.status === 'ACCEPTED' ? 'ACCEPTED' :
+            item.status === 'CONVERTED_TO_POLICY' ? 'ISSUED' :
+            item.workflowState === 'PROPOSAL_APPROVED' ? 'APPROVED' :
             item.workflowState === 'PAYMENT_DONE' ? 'PENDING_ISSUANCE' :
             item.workflowState === 'PAYMENT_UNDER_PROCESS' ? 'PAYMENT_UNDER_PROCESS' :
             item.workflowState === 'INSPECTION_REQUIRED' ? 'PENDING_INSPECTION' :
             item.issuanceStatus === 'ISSUED' ? 'ISSUED' :
-            item.motorMetadata?.workflowStatus || item.status || 'DRAFT',
+            item.status || item.motorMetadata?.workflowStatus || 'DRAFT',
+          workflowState: item.workflowState,
           createdAt: item.createdAt || new Date().toISOString(),
           policyStartDate: item.motorMetadata?.policyDetails?.policyStartDate,
           policyEndDate: item.motorMetadata?.policyDetails?.policyEndDate,
@@ -134,11 +150,15 @@ export function MotorQuotationsWorkspace() {
           leadId: item.leadId,
         } as SavedMotorQuote));
         return { quotes, total };
-      } catch (error) {
-        // Silently return empty array on auth failure so the apiClient can handle the redirect
-        return { quotes: [], total: 0 };
+      } catch (error: any) {
+        if (error?.response?.status === 401) {
+          return { quotes: [], total: 0 };
+        }
+        throw error;
       }
     },
+    refetchInterval: 10_000,
+
     placeholderData: (prevData) => prevData,
   });
 
@@ -166,20 +186,51 @@ export function MotorQuotationsWorkspace() {
 
     const active: SavedMotorQuote[] = [];
     const renewals: SavedMotorQuote[] = [];
-    const today = new Date();
-    const future45Days = new Date();
-    future45Days.setDate(today.getDate() + 45);
 
     for (const q of matched) {
-      if (q.status === 'ISSUED' && q.policyEndDate) {
-        const endDate = new Date(q.policyEndDate);
-        if (endDate >= today && endDate <= future45Days) {
+      const qAny = q as any;
+      const isPolicyIssued =
+        qAny.issuanceStatus === 'ISSUED' ||
+        q.status === 'CONVERTED_TO_POLICY' ||
+        qAny.workflowState === 'ACTIVE' ||
+        qAny.workflowState === 'POLICY_ISSUED' ||
+        Boolean(qAny.policy);
+
+      const effectiveExpiry =
+        qAny.policyEndDate ||
+        qAny.policy?.expiryDate ||
+        qAny.policy?.odExpiryDate ||
+        qAny.expiryDate;
+
+      if (isPolicyIssued && effectiveExpiry) {
+        const endDate = new Date(effectiveExpiry);
+        if (!isNaN(endDate.getTime())) {
           renewals.push(q);
           continue;
         }
       }
       active.push(q);
     }
+
+    // Sort renewals in days order: renewals ending soonest on top, more renewal days last
+    renewals.sort((a, b) => {
+      const expA = new Date(
+        (a as any).policyEndDate ||
+        (a as any).policy?.expiryDate ||
+        (a as any).policy?.odExpiryDate ||
+        (a as any).expiryDate ||
+        0,
+      ).getTime();
+      const expB = new Date(
+        (b as any).policyEndDate ||
+        (b as any).policy?.expiryDate ||
+        (b as any).policy?.odExpiryDate ||
+        (b as any).expiryDate ||
+        0,
+      ).getTime();
+      return expA - expB;
+    });
+
     return { activeFiltered: active, renewalsFiltered: renewals };
   }, [allQuotes, searchQuery]);
 
@@ -246,6 +297,27 @@ export function MotorQuotationsWorkspace() {
           <button onClick={() => handleOpenWizard()} className="px-5 py-2.5 rounded-md bg-foreground text-background font-semibold text-sm flex items-center gap-2"><Plus className="h-4 w-4" />New Quotation</button>
         </div>
       </div>
+
+      {/* Error state banner */}
+      {isError && (
+        <div className="p-4 rounded-xl border border-destructive/30 bg-destructive/10 text-destructive flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <AlertTriangle className="h-5 w-5 shrink-0" />
+            <div>
+              <p className="font-bold text-sm">Failed to load quotations</p>
+              <p className="text-xs opacity-90">
+                {(error as any)?.response?.data?.message || (error as any)?.message || 'An error occurred while communicating with the server.'}
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => refetch()}
+            className="px-3 py-1.5 text-xs bg-destructive text-destructive-foreground rounded-lg font-bold hover:opacity-90 shadow-xs"
+          >
+            Retry
+          </button>
+        </div>
+      )}
 
       {/* Linked Lead Context Banner */}
       {leadIdParam && leadIdParam !== 'new' && (
@@ -324,7 +396,26 @@ export function MotorQuotationsWorkspace() {
         <div className="text-center py-16 rounded-xl border bg-card/50"><Car className="h-8 w-8 mx-auto mb-3 text-muted-foreground" /><p className="font-medium">No {activeTab === 'RENEWALS' ? 'renewals' : 'quotations'} found.</p></div>
       ) : (
         <div className="space-y-6">
-          {Object.entries(groupedQuotes).map(([groupId, quotes]) => {
+          {Object.entries(groupedQuotes)
+            .sort(([_, quotesA], [__, quotesB]) => {
+              if (activeTab !== 'RENEWALS') return 0;
+              const expA = new Date(
+                (quotesA[0] as any)?.policyEndDate ||
+                (quotesA[0] as any)?.policy?.expiryDate ||
+                (quotesA[0] as any)?.policy?.odExpiryDate ||
+                (quotesA[0] as any)?.expiryDate ||
+                0,
+              ).getTime();
+              const expB = new Date(
+                (quotesB[0] as any)?.policyEndDate ||
+                (quotesB[0] as any)?.policy?.expiryDate ||
+                (quotesB[0] as any)?.policy?.odExpiryDate ||
+                (quotesB[0] as any)?.expiryDate ||
+                0,
+              ).getTime();
+              return expA - expB;
+            })
+            .map(([groupId, quotes]) => {
             const first = quotes[0];
             const customerName = first?.proposerDetails?.customerName || 'Customer';
             const mobile = first?.proposerDetails?.mobileNumber || '';
@@ -343,7 +434,7 @@ export function MotorQuotationsWorkspace() {
                       onUploadQuote={(id) => toast.success(`Quotation document uploaded for record #${id.slice(-6)}`)}
                       onConductInspection={setInspectionQuoteId}
                       onCompleteProposal={setProposalQuote}
-                      onIssuePolicy={setCompletionQuote}
+                      onIssuePolicy={isBackOfficeOrAdmin ? setCompletionQuote : undefined}
                       onAddComparisonQuote={(q) => handleOpenWizard(q.vehicleCategory, { vehicleDetails: q.vehicleDetails, proposerDetails: q.proposerDetails })}
                     />
                   ))}
@@ -369,6 +460,7 @@ export function MotorQuotationsWorkspace() {
         isOpen={isWizardOpen}
         leadId={leadIdParam}
         contactId={contactIdParam}
+        customerId={customerIdParam}
         leadContact={leadContact}
         initialCategory={initialCategory || undefined}
         cloneQuoteData={cloneQuoteData}
@@ -395,7 +487,7 @@ export function MotorQuotationsWorkspace() {
           onSuccess={(updated) => {
             setProposalQuote(null);
             void refetch();
-            if (updated?.status === 'PENDING_ISSUANCE' || updated?.status === 'PAYMENT_DONE') {
+            if (isBackOfficeOrAdmin && (updated?.status === 'PENDING_ISSUANCE' || updated?.status === 'PAYMENT_DONE')) {
               setCompletionQuote(updated);
             }
           }}

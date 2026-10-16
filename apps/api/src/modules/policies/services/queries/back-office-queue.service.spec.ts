@@ -51,6 +51,7 @@ describe('BackOfficeQueueService (G021 Multi-Gate Policy Issuance Queue)', () =>
       lastName: 'Malhotra',
       phone: '9812345678',
       email: 'vikram@example.com',
+      panNumber: 'ABCDE1234F',
     },
     createdBy: {
       id: 'agent-1',

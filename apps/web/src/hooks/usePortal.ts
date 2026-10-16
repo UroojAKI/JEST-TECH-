@@ -8,6 +8,8 @@ export function useAgentDashboard() {
   return useQuery({
     queryKey: ['agent-dashboard'],
     queryFn: () => portalRepository.getDashboardMetrics(),
+    refetchInterval: 30_000,
+    refetchOnWindowFocus: true,
   });
 }
 
@@ -15,6 +17,7 @@ export function useAgentCustomers(search?: string) {
   return useQuery({
     queryKey: ['agent-customers', search],
     queryFn: () => portalRepository.getCustomers(search),
+    refetchOnWindowFocus: true,
   });
 }
 
@@ -24,12 +27,16 @@ export function useAgentLeads(status?: string) {
   const query = useQuery({
     queryKey: ['agent-leads', status],
     queryFn: () => portalRepository.getLeads(status),
+    refetchInterval: 30_000,
+    refetchOnWindowFocus: true,
   });
 
   const createMutation = useMutation({
     mutationFn: (data: any) => portalRepository.createLead(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['agent-leads'] });
+      queryClient.invalidateQueries({ queryKey: ['agent-dashboard'] });
+      queryClient.invalidateQueries({ queryKey: ['agent-customers'] });
       toast.success('Agent Lead created successfully!');
     },
   });
@@ -46,6 +53,8 @@ export function useAgentPolicies(status?: string) {
   return useQuery({
     queryKey: ['agent-policies', status],
     queryFn: () => portalRepository.getPolicies(status),
+    refetchInterval: 30_000,
+    refetchOnWindowFocus: true,
   });
 }
 
@@ -53,6 +62,8 @@ export function useAgentRenewals(bucket?: string) {
   return useQuery({
     queryKey: ['agent-renewals', bucket],
     queryFn: () => portalRepository.getRenewals(bucket),
+    refetchInterval: 60_000,
+    refetchOnWindowFocus: true,
   });
 }
 

@@ -127,6 +127,7 @@ export default function CaseDetailPage() {
   const {
     data: inspectionData,
     isLoading: isLoadingInspection,
+    isError: isErrorInspection,
     refetch: refetchInspection,
   } = useQuery({
     queryKey: ['case-inspection', quotationId],
@@ -135,8 +136,9 @@ export default function CaseDetailPage() {
       try {
         const res = await apiClient.get(`/motor/inspections/${quotationId}`);
         return res.data;
-      } catch {
-        return null;
+      } catch (err: any) {
+        if (err.response?.status === 404) return null;
+        throw err;
       }
     },
     enabled: Boolean(quotationId),
@@ -181,7 +183,11 @@ export default function CaseDetailPage() {
     }) => {
       const res = await apiClient.post(
         `/motor/inspections/${inspId}/reject`,
-        { reason },
+        {
+          reasonCode: 'UNDERWRITING_REJECTED',
+          reasonText: reason,
+          reason,
+        },
       );
       return res.data;
     },
@@ -1121,6 +1127,16 @@ export default function CaseDetailPage() {
               <Loader2 className="h-5 w-5 animate-spin text-primary" />
               <span>Loading inspection aggregate and provenance data...</span>
             </div>
+          ) : isErrorInspection ? (
+            <div className="p-4 rounded-xl border border-destructive/30 bg-destructive/10 text-destructive flex items-center justify-between text-xs">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="h-4 w-4 shrink-0" />
+                <span>Failed to load inspection record. A server error occurred.</span>
+              </div>
+              <button onClick={() => refetchInspection()} className="px-2.5 py-1 bg-destructive text-destructive-foreground rounded font-bold hover:opacity-90">
+                Retry
+              </button>
+            </div>
           ) : !inspectionData ? (
             <div className="p-4 rounded-xl border bg-muted/20 text-xs text-muted-foreground">
               No break-in inspection aggregate found for selected quotation ({caseData?.selectedQuoteId || 'None'}).
@@ -1781,13 +1797,13 @@ export default function CaseDetailPage() {
 
               <div>
                 <label className="text-xs font-bold block mb-1">
-                  Bank Reference Number / UTR <span className="text-rose-500">*</span>
+                  Bank Reference Number / UTR {paymentForm.paymentMethod !== 'CASH' && <span className="text-rose-500">*</span>}
                 </label>
                 <input
                   type="text"
                   value={paymentForm.referenceNumber}
                   onChange={(e) => setPaymentForm({ ...paymentForm, referenceNumber: e.target.value })}
-                  placeholder="e.g. UTR-HDFC-9988776655"
+                  placeholder={paymentForm.paymentMethod === 'CASH' ? 'e.g. Cash Receipt No. (Optional)' : 'e.g. UTR-HDFC-9988776655'}
                   className="w-full px-3 py-2 text-xs rounded-lg border bg-background font-mono focus:outline-none focus:ring-1 focus:ring-primary"
                 />
               </div>
@@ -1830,14 +1846,16 @@ export default function CaseDetailPage() {
               <button
                 disabled={
                   !paymentForm.amount ||
-                  !paymentForm.referenceNumber.trim() ||
+                  (paymentForm.paymentMethod !== 'CASH' && !paymentForm.referenceNumber.trim()) ||
                   recordPaymentMutation.isPending
                 }
                 onClick={() => {
+                  const isCash = paymentForm.paymentMethod === 'CASH';
+                  const ref = paymentForm.referenceNumber.trim();
                   recordPaymentMutation.mutate({
                     amount: parseFloat(paymentForm.amount),
                     paymentMethod: paymentForm.paymentMethod,
-                    referenceNumber: paymentForm.referenceNumber.trim(),
+                    referenceNumber: ref || (isCash ? `CASH-REC-${Date.now().toString().slice(-6)}` : ''),
                     status: paymentForm.status,
                     notes: paymentForm.notes.trim() || undefined,
                   });

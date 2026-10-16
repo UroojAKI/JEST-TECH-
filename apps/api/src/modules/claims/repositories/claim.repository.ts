@@ -62,9 +62,12 @@ export class ClaimRepository {
     });
   }
 
-  async findById(id: string): Promise<ClaimWithRelations | null> {
+  async findById(
+    id: string,
+    companyId?: string,
+  ): Promise<ClaimWithRelations | null> {
     return this.prisma.claim.findFirst({
-      where: { id, deletedAt: null },
+      where: { id, deletedAt: null, ...(companyId ? { companyId } : {}) },
       include: {
         policy: true,
         contact: true,
@@ -78,9 +81,14 @@ export class ClaimRepository {
 
   async findByClaimNumber(
     claimNumber: string,
+    companyId?: string,
   ): Promise<ClaimWithRelations | null> {
     return this.prisma.claim.findFirst({
-      where: { claimNumber, deletedAt: null },
+      where: {
+        claimNumber,
+        deletedAt: null,
+        ...(companyId ? { companyId } : {}),
+      },
       include: {
         policy: true,
         contact: true,

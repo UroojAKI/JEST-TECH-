@@ -2,7 +2,6 @@
 
 import React from 'react';
 import { X, FileText, Download, Printer, Shield, CheckCircle2 } from 'lucide-react';
-import { toast } from 'sonner';
 
 export interface VoucherData {
   title: string;
@@ -39,8 +38,10 @@ export function VoucherPreviewModal({ isOpen, onClose, voucher }: VoucherPreview
           </div>
           <div className="flex items-center space-x-2">
             <button
-              onClick={() => toast.success(`Downloading voucher ${voucher.voucherNumber} PDF...`)}
-              className="flex items-center space-x-1 px-3 py-1.5 rounded-lg border bg-background hover:bg-accent text-xs font-semibold"
+              type="button"
+              disabled
+              title="PDF export is not available"
+              className="flex items-center space-x-1 px-3 py-1.5 rounded-lg border bg-background text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-50"
             >
               <Download className="h-3.5 w-3.5" />
               <span>Download PDF</span>
@@ -139,12 +140,12 @@ export function VoucherPreviewModal({ isOpen, onClose, voucher }: VoucherPreview
             <div className="space-y-1">
               <div className="flex items-center space-x-1 text-emerald-600 font-bold">
                 <CheckCircle2 className="h-3.5 w-3.5" />
-                <span>Digitally Verified & Ledger Posted</span>
+                <span>Preview only — not a ledger document</span>
               </div>
-              <p>System Generated Voucher • No Physical Signature Required</p>
+              <p>Preview only • Not issued or posted</p>
             </div>
             <div className="text-center space-y-4">
-              <div className="font-mono text-[9px] text-muted-foreground">AUTH-SIGN-889102-JEST</div>
+              <div className="font-mono text-[9px] text-muted-foreground">DRAFT PREVIEW</div>
               <div className="border-t pt-1 font-bold text-foreground">Authorized Signatory</div>
             </div>
           </div>

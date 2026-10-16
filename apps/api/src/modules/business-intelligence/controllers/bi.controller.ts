@@ -86,14 +86,18 @@ export class BiController {
   // KPI Management
   @Get('kpi/definitions')
   @Roles(RoleType.ADMIN)
-  listKpiDefinitions() {
-    return this.kpiService.listKpis();
+  listKpiDefinitions(@CurrentUser() user: RequestUser) {
+    return this.kpiService.listKpis(this.getActorCompanyId(user));
   }
 
   @Post('kpi/definitions')
   @Roles(RoleType.ADMIN)
   createKpi(@Body() dto: CreateKpiDto, @CurrentUser() user: RequestUser) {
-    return this.kpiService.createKpi({ ...dto, userId: user.id });
+    return this.kpiService.createKpi({
+      ...dto,
+      userId: user.id,
+      companyId: this.getActorCompanyId(user),
+    });
   }
 
   @Patch('kpi/definitions/:id')

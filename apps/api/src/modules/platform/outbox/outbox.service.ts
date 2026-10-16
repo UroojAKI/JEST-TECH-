@@ -64,6 +64,31 @@ export class OutboxService {
    * Respects exponential backoff via nextRetryAt.
    */
   async getPendingEvents(limit = 25) {
+    try {
+      if (typeof this.prisma.$queryRaw === 'function') {
+        const events = await this.prisma.$queryRaw<any[]>`
+          UPDATE "OutboxEvent"
+          SET status = 'PROCESSING',
+              attempts = attempts + 1
+          WHERE id IN (
+            SELECT id FROM "OutboxEvent"
+            WHERE status = 'PENDING'
+              AND attempts < 5
+              AND ("nextRetryAt" IS NULL OR "nextRetryAt" <= NOW())
+            ORDER BY "createdAt" ASC
+            LIMIT ${limit}
+            FOR UPDATE SKIP LOCKED
+          )
+          RETURNING id, "aggregateType", "aggregateId", "eventType", payload, status, attempts, "maxAttempts", "createdAt"
+        `;
+        if (Array.isArray(events) && events.length > 0) {
+          return events;
+        }
+      }
+    } catch {
+      // Fall back to Prisma findMany (e.g. SQLite, in-memory mock, or test environments)
+    }
+
     return this.prisma.outboxEvent.findMany({
       where: {
         status: OutboxStatus.PENDING,

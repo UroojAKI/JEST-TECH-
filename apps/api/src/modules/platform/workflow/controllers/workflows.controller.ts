@@ -13,6 +13,7 @@ import { RoleType, WorkflowEntityType } from '@prisma/client';
 import { JwtAuthGuard } from '../../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../../auth/guards/roles.guard';
 import { Roles } from '../../../auth/decorators/roles.decorator';
+import { AnyAuthenticatedRole } from '../../../auth/decorators/any-authenticated.decorator';
 import {
   CurrentUser,
   RequestUser,
@@ -23,6 +24,11 @@ import {
   CreateWorkflowDefinitionDto,
   UpdateWorkflowDefinitionDto,
 } from '../dto/workflow-definition.dto';
+import {
+  ApprovalActionDto,
+  BulkApprovalActionDto,
+  TriggerWorkflowTransitionDto,
+} from '../dto/workflow-action.dto';
 
 @ApiTags('Workflows')
 @ApiBearerAuth()
@@ -112,7 +118,7 @@ export class WorkflowsController {
   @ApiOperation({ summary: 'Approve or reject a workflow approval request' })
   async handleApprovalAction(
     @Param('id') id: string,
-    @Body() body: { action: 'APPROVE' | 'REJECT'; remarks?: string },
+    @Body() body: ApprovalActionDto,
   ) {
     return { success: true, id, action: body.action, remarks: body.remarks };
   }
@@ -121,7 +127,7 @@ export class WorkflowsController {
   @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE)
   @ApiOperation({ summary: 'Bulk approve/reject workflow requests' })
   async handleBulkApprovals(
-    @Body() body: { ids: string[]; action: 'APPROVE' | 'REJECT' },
+    @Body() body: BulkApprovalActionDto,
   ) {
     return { success: true, count: body.ids?.length || 0, action: body.action };
   }
@@ -178,6 +184,7 @@ export class WorkflowsController {
   }
 
   @Get(':entityType/:entityId/transitions')
+  @AnyAuthenticatedRole()
   async getTransitions(
     @Param('entityType') entityType: WorkflowEntityType,
     @Param('entityId') entityId: string,
@@ -187,10 +194,11 @@ export class WorkflowsController {
   }
 
   @Post(':entityType/:entityId/transition')
+  @AnyAuthenticatedRole()
   async triggerTransition(
     @Param('entityType') entityType: WorkflowEntityType,
     @Param('entityId') entityId: string,
-    @Body() body: { transitionId: string; comments?: string },
+    @Body() body: TriggerWorkflowTransitionDto,
     @CurrentUser() user: any,
   ) {
     await this.engine.transition(
@@ -204,6 +212,7 @@ export class WorkflowsController {
   }
 
   @Get(':entityType/:entityId/history')
+  @AnyAuthenticatedRole()
   async getHistory(
     @Param('entityType') entityType: WorkflowEntityType,
     @Param('entityId') entityId: string,

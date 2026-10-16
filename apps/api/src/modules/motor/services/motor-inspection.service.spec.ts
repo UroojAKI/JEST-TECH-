@@ -574,6 +574,57 @@ describe('MotorInspectionService (Production State Machine & Role Segregation)',
       });
     });
 
+    it('rejects external URL schemes in storage key with BadRequestException', async () => {
+      mockPrisma.motorInspection.findUnique.mockResolvedValue({
+        id: 'ins-1',
+        status: InspectionStatus.REQUIRED,
+        companyId: 'comp-1',
+      });
+
+      await expect(
+        service.recordPhoto(
+          'ins-1',
+          'front',
+          'https://malicious-site.com/exploit.jpg',
+          backOfficeActor,
+        ),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('rejects path traversal characters in storage key with BadRequestException', async () => {
+      mockPrisma.motorInspection.findUnique.mockResolvedValue({
+        id: 'ins-1',
+        status: InspectionStatus.REQUIRED,
+        companyId: 'comp-1',
+      });
+
+      await expect(
+        service.recordPhoto(
+          'ins-1',
+          'front',
+          '../../etc/passwd',
+          backOfficeActor,
+        ),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('rejects cross-tenant prefix in storage key with ForbiddenException', async () => {
+      mockPrisma.motorInspection.findUnique.mockResolvedValue({
+        id: 'ins-1',
+        status: InspectionStatus.REQUIRED,
+        companyId: 'comp-1',
+      });
+
+      await expect(
+        service.recordPhoto(
+          'ins-1',
+          'front',
+          'companies/other-tenant/front.jpg',
+          backOfficeActor,
+        ),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
     it('rejects malformed SHA-256 hash with BadRequestException', async () => {
       mockPrisma.motorInspection.findUnique.mockResolvedValue({
         id: 'ins-1',

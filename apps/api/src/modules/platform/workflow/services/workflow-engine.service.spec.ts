@@ -6,7 +6,7 @@ import { WorkflowStateMachine } from './workflow-state-machine.service';
 import { AuditService } from '../../audit/services/audit.service';
 import { NotificationDispatcher } from '../../notifications/services/notification-dispatcher.service';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException } from '@nestjs/common';
 
 describe('WorkflowEngineService', () => {
   let service: WorkflowEngineService;
@@ -174,5 +174,100 @@ describe('WorkflowEngineService', () => {
         'Test comments',
       ),
     ).rejects.toThrow(BadRequestException);
+  });
+  it('should reject unassigned approval transition when user is an AGENT', async () => {
+    const transitionId = 't_appr';
+    const entityId = 'e1';
+    const userId = 'u_agent';
+
+    const mockTransition = {
+      id: transitionId,
+      name: 'Approve Proposal',
+      code: 'APPROVE_PROP',
+      fromStateId: 's1',
+      toStateId: 's2',
+      conditions: null,
+      fromState: { code: 'UNDER_REVIEW' },
+      toState: { code: 'APPROVED' },
+      workflow: { id: 'w1', module: 'PROPOSALS' },
+      assignments: [],
+      actions: [],
+    };
+
+    mockPrisma.workflowTransition.findUnique.mockResolvedValue(mockTransition);
+    mockPrisma.user.findUnique.mockResolvedValue({
+      id: userId,
+      role: { type: 'AGENT', code: 'AGENT' },
+    });
+
+    const mockAdapter = {
+      supports: jest.fn().mockReturnValue(true),
+      getCurrentState: jest.fn().mockResolvedValue('UNDER_REVIEW'),
+      updateState: jest.fn().mockResolvedValue(undefined),
+      getVariables: jest.fn().mockResolvedValue({}),
+    };
+
+    mockRegistry.getAdapter.mockReturnValue(mockAdapter);
+    jest.spyOn(mockStateMachine, 'validateTransition').mockReturnValue(true);
+
+    await expect(
+      service.transition(
+        'PROPOSAL',
+        entityId,
+        transitionId,
+        userId,
+        'Agent trying to approve',
+      ),
+    ).rejects.toThrow(ForbiddenException);
+  });
+
+  it('should permit unassigned approval transition when user is BACK_OFFICE', async () => {
+    const transitionId = 't_appr';
+    const entityId = 'e1';
+    const userId = 'u_bo';
+
+    const mockTransition = {
+      id: transitionId,
+      name: 'Approve Proposal',
+      code: 'APPROVE_PROP',
+      fromStateId: 's1',
+      toStateId: 's2',
+      conditions: null,
+      fromState: { code: 'UNDER_REVIEW' },
+      toState: { code: 'APPROVED', isTerminal: false },
+      workflow: { id: 'w1', module: 'PROPOSALS' },
+      assignments: [],
+      actions: [],
+    };
+
+    mockPrisma.workflowTransition.findUnique.mockResolvedValue(mockTransition);
+    mockPrisma.user.findUnique.mockResolvedValue({
+      id: userId,
+      role: { type: 'BACK_OFFICE', code: 'BACK_OFFICE' },
+    });
+
+    const mockAdapter = {
+      supports: jest.fn().mockReturnValue(true),
+      getCurrentState: jest.fn().mockResolvedValue('UNDER_REVIEW'),
+      updateState: jest.fn().mockResolvedValue(undefined),
+      getVariables: jest.fn().mockResolvedValue({}),
+    };
+
+    mockRegistry.getAdapter.mockReturnValue(mockAdapter);
+    jest.spyOn(mockStateMachine, 'validateTransition').mockReturnValue(true);
+
+    await service.transition(
+      'PROPOSAL',
+      entityId,
+      transitionId,
+      userId,
+      'Approved by back office',
+    );
+
+    expect(mockAdapter.updateState).toHaveBeenCalledWith(entityId, 'APPROVED', expect.any(Object));
+    expect(mockEventEmitter.emit).toHaveBeenCalledWith(
+      'workflow.transitioned',
+      expect.objectContaining({ toState: 'APPROVED', performedBy: userId }),
+    );
   });
 });

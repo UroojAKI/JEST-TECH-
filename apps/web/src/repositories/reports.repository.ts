@@ -105,7 +105,7 @@ export const reportsRepository = {
 
   async exportReport(id: string, format: 'PDF' | 'EXCEL' | 'CSV'): Promise<Blob> {
     const response = await apiClient.get(`/reports/${id}/export`, {
-      params: { format },
+      params: { format: format.toLowerCase() },
       responseType: 'blob',
     });
     return response.data;

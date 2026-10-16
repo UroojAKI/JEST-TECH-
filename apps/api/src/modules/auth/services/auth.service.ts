@@ -244,7 +244,7 @@ export class AuthService {
       r.includes('BACK_OFFICE') ||
       r.includes('OPERATIONS')
     ) {
-      return '/workspace/operations';
+      return '/workspace/operations/issuance';
     }
     if (r === 'AGENT' || r.includes('AGENT') || r.includes('SALES')) {
       return '/workspace/sales';
@@ -369,8 +369,46 @@ export class AuthService {
     );
   }
 
-  async logout(userId: string): Promise<void> {
-    if (userId) await this.usersService.revokeAllUserRefreshTokens(userId);
+  async logout(
+    userId?: string,
+    refreshToken?: string,
+    accessToken?: string,
+  ): Promise<void> {
+    let resolvedUserId = userId;
+    if (!resolvedUserId && refreshToken) {
+      const tokenHash = crypto
+        .createHash('sha256')
+        .update(refreshToken)
+        .digest('hex');
+      const tokenRecord = await this.prisma.refreshToken.findFirst({
+        where: { tokenHash },
+        select: { userId: true },
+      });
+      if (tokenRecord) {
+        resolvedUserId = tokenRecord.userId;
+      }
+    }
+    if (!resolvedUserId && accessToken) {
+      try {
+        const payload = await (this.tokenService as any).jwtService?.verifyAsync?.(
+          accessToken,
+        );
+        if (payload?.sub) {
+          resolvedUserId = payload.sub;
+        }
+      } catch {
+        // Invalid optional bearer tokens must not resolve an identity, nor prevent logout for an otherwise authenticated session.
+      }
+    }
+    if (resolvedUserId) {
+      await this.usersService.revokeAllUserRefreshTokens(resolvedUserId);
+      await this.prisma.user
+        .update({
+          where: { id: resolvedUserId },
+          data: { authVersion: { increment: 1 } },
+        })
+        .catch(() => {});
+    }
   }
 
   private parseExpiry(duration: string): Date {

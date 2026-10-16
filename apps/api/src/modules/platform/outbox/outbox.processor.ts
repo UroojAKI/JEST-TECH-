@@ -28,8 +28,14 @@ export class OutboxProcessor {
 
       for (const event of events) {
         try {
-          await this.outboxService.markProcessing(event.id);
-          this.eventEmitter.emit(event.eventType, event.payload);
+          if ((event as any).status !== 'PROCESSING') {
+            await this.outboxService.markProcessing(event.id);
+          }
+          if (typeof this.eventEmitter.emitAsync === 'function') {
+            await this.eventEmitter.emitAsync(event.eventType, event.payload);
+          } else {
+            this.eventEmitter.emit(event.eventType, event.payload);
+          }
           await this.outboxService.markPublished(event.id);
         } catch (dispatchErr: any) {
           this.logger.error(

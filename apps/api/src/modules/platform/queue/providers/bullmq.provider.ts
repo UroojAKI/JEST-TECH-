@@ -8,6 +8,7 @@ import {
 } from '../interfaces/queue-provider.interface';
 import { JobType, JobStatus } from '@prisma/client';
 import { v4 as uuidv4 } from 'uuid';
+import { correlationStorage } from '../../../../common/logger/correlation.context';
 
 @Injectable()
 export class BullMQProvider implements QueueProvider, OnApplicationShutdown {
@@ -31,6 +32,18 @@ export class BullMQProvider implements QueueProvider, OnApplicationShutdown {
     options?: EnqueueOptions,
   ): Promise<string> {
     const id = uuidv4();
+    const correlationId =
+      options?.correlationId || correlationStorage.getStore() || undefined;
+
+    const resolvedPayload =
+      payload && typeof payload === 'object'
+        ? {
+            ...payload,
+            ...(correlationId && !payload.correlationId
+              ? { correlationId }
+              : {}),
+          }
+        : payload;
 
     // 1. Save to DB first
     await this.prisma.backgroundJob.create({
@@ -39,9 +52,9 @@ export class BullMQProvider implements QueueProvider, OnApplicationShutdown {
         queue: this.systemQueue.name,
         type,
         status: JobStatus.QUEUED,
-        payload: payload ? payload : undefined,
+        payload: resolvedPayload ? resolvedPayload : undefined,
         maxAttempts: options?.attempts || 3,
-        correlationId: options?.correlationId,
+        correlationId,
         createdBy: options?.createdBy,
       },
     });
@@ -49,7 +62,7 @@ export class BullMQProvider implements QueueProvider, OnApplicationShutdown {
     // 2. Add to BullMQ if Redis is active
     if (process.env.REDIS_ENABLED === 'true') {
       try {
-        const job = await this.systemQueue.add(type, payload, {
+        const job = await this.systemQueue.add(type, resolvedPayload, {
           jobId: id,
           attempts: options?.attempts || 3,
           delay: options?.delay,

@@ -30,6 +30,7 @@ import {
   CalculateComparativeQuotesDto,
   EnterpriseCompareDto,
 } from '../dto/calculate-quotes.dto';
+import { CustomerAcceptanceDto } from '../dto/customer-acceptance.dto';
 import { ContactsService } from '../../contacts/services/contacts.service';
 import { NumberingEngineService } from '../../administration/services/numbering-engine/numbering-engine.service';
 import { GenerateQuotationService } from '../services/commands/generate-quotation.service';
@@ -141,7 +142,13 @@ export class QuotationController {
   }
 
   @Get(':id/completion')
-  @SkipThrottle()
+  @SkipThrottle({
+    default: true,
+    authentication: true,
+    login: true,
+    upload: true,
+    report: true,
+  })
   @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT)
   @ApiOperation({
     summary:
@@ -216,7 +223,7 @@ export class QuotationController {
     return this.convertQuotationService.execute(id, user.id);
   }
 
-  @Post(':id/accept')
+  @Post([':id/accept', ':id/customer-acceptance'])
   @HttpCode(HttpStatus.OK)
   @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT)
   @ApiOperation({
@@ -225,10 +232,10 @@ export class QuotationController {
   })
   accept(
     @Param('id', ParseUUIDPipe) id: string,
-    @Body('comments') comments: string,
+    @Body() dto: CustomerAcceptanceDto,
     @CurrentUser() user: RequestUser,
   ) {
-    return this.acceptQuotationService.execute(id, user.id, comments);
+    return this.acceptQuotationService.execute(id, user.id, dto);
   }
 
   @Post(':id/versions')

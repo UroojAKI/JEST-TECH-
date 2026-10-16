@@ -3,9 +3,11 @@ import {
   Get,
   Post,
   Param,
+  Body,
   Query,
   UseGuards,
   ParseUUIDPipe,
+  NotFoundException,
 } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { RoleType } from '@prisma/client';
@@ -18,6 +20,9 @@ import type { RequestUser } from '../../auth/decorators/current-user.decorator';
 
 import { BackOfficeQueueService } from '../services/queries/back-office-queue.service';
 import { IssuePolicyService } from '../services/commands/issue-policy.service';
+import { MotorPolicyIssuanceService } from '../../motor/services/motor-policy-issuance.service';
+import { IssueMotorPolicyDto } from '../../motor/dto/issue-motor-policy.dto';
+import { PrismaService } from '../../../database/prisma.service';
 
 @ApiTags('Back Office Workbench & Policy Issuance')
 @ApiBearerAuth()
@@ -27,6 +32,8 @@ export class BackOfficeController {
   constructor(
     private readonly backOfficeQueueService: BackOfficeQueueService,
     private readonly issuePolicyService: IssuePolicyService,
+    private readonly motorPolicyIssuanceService: MotorPolicyIssuanceService,
+    private readonly prisma: PrismaService,
   ) {}
 
   @Get('queue')
@@ -51,18 +58,42 @@ export class BackOfficeController {
   async issuePolicy(
     @Param('quotationId', ParseUUIDPipe) quotationId: string,
     @CurrentUser() user: RequestUser,
+    @Body() dto?: IssueMotorPolicyDto,
   ) {
-    // 1. Validate all 4 hard gates with tenant context
+    // 1. Validate all hard gates with tenant context
     await this.backOfficeQueueService.validateIssuanceGates(quotationId, user);
 
-    // 2. Execute transactional policy issuance with actor context
-    const policy = await this.issuePolicyService.execute(
-      {
+    const quotation = await this.prisma.quotation.findUnique({
+      where: { id: quotationId },
+      select: { productType: true },
+    });
+
+    if (!quotation) {
+      throw new NotFoundException(`Quotation with ID ${quotationId} not found.`);
+    }
+
+    let policy: any;
+
+    if (quotation.productType === 'MOTOR') {
+      // Motor policies must be issued exclusively via MotorPolicyIssuanceService
+      policy = await this.motorPolicyIssuanceService.issuePolicy(
         quotationId,
-      },
-      user.id,
-      user,
-    );
+        dto || {},
+        user,
+      );
+    } else {
+      // Non-motor policies use standard IssuePolicyService
+      policy = await this.issuePolicyService.execute(
+        {
+          quotationId,
+          productLine: quotation.productType === 'HEALTH' ? 'Health Insurance' : 'General Policy',
+          ...dto,
+        },
+        user.id,
+        user,
+      );
+    }
+
 
     return {
       success: true,

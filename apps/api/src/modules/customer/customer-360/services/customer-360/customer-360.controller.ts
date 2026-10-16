@@ -1,5 +1,6 @@
-import { Controller, Get, Param, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
 import { Customer360Service } from './customer-360.service';
+import { AddCustomerNoteDto } from '../../dto/add-customer-note.dto';
 import { JwtAuthGuard } from '../../../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../../../auth/guards/roles.guard';
 import { Roles } from '../../../../auth/decorators/roles.decorator';
@@ -19,5 +20,14 @@ export class Customer360Controller {
     @CurrentUser() user: RequestUser,
   ) {
     return this.customer360Service.getCustomer360(id, user);
+  }
+
+  @Post(':id/notes')
+  addCustomerNote(
+    @Param('id') id: string,
+    @Body() body: AddCustomerNoteDto,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.customer360Service.addCustomerNote(id, body?.content || '', user);
   }
 }

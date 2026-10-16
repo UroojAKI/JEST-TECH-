@@ -47,8 +47,15 @@ export function QuoteCard({ quote, onUploadQuote, onConductInspection, onComplet
   const [isUploading, setIsUploading] = React.useState(false);
   const [isHovered, setIsHovered] = React.useState(false);
   const authUser = useAuthStore((s) => s.user);
-  const activeRole = userRole || authUser?.role;
-  const isAgent = activeRole === 'AGENT' || activeRole === 'SALES_EXECUTIVE' || activeRole === 'POSP_ADVISOR' || activeRole === 'SALES_AGENT';
+  const userRoles = [
+    ...(authUser?.roles || []),
+    authUser?.role,
+    userRole,
+  ].filter(Boolean).map((r) => String(r).toUpperCase());
+  const isBackOfficeOrAdmin = userRoles.some((r) =>
+    ['ADMIN', 'SUPER_ADMIN', 'SYSTEM_ADMINISTRATOR', 'BACK_OFFICE', 'OPERATIONS', 'UNDERWRITER'].includes(r)
+  );
+  const isAgent = !isBackOfficeOrAdmin;
 
   const { data: projection } = useQuery({
     queryKey: ['quote-workflow-projection', quote.id],
@@ -235,10 +242,23 @@ export function QuoteCard({ quote, onUploadQuote, onConductInspection, onComplet
           )
         )}
 
-        {quote.status === 'READY_FOR_PROPOSAL' && onCompleteProposal && (
-          <button onClick={() => onCompleteProposal(quote)} className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold transition-colors mt-1">
+        {(quote.status === 'READY_FOR_PROPOSAL' ||
+          quote.status === 'APPROVED' ||
+          quote.status === 'PAYMENT_UNDER_PROCESS' ||
+          quote.status === 'PAYMENT_PENDING' ||
+          canonicalState === 'READY_FOR_PROPOSAL' ||
+          canonicalState === 'PROPOSAL_APPROVED' ||
+          canonicalState === 'APPROVED' ||
+          canonicalState === 'PAYMENT_UNDER_PROCESS') &&
+          onCompleteProposal && (
+          <button
+            onClick={() => onCompleteProposal(quote)}
+            className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold transition-colors mt-1"
+          >
             <FileText className="h-3.5 w-3.5" />
-            Complete Proposal & Payment
+            {quote.status === 'PAYMENT_UNDER_PROCESS'
+              ? 'Update Payment / Mark Paid'
+              : 'Complete Proposal & Payment'}
           </button>
         )}
 

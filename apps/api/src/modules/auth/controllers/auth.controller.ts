@@ -54,13 +54,40 @@ export class AuthController {
   }
 
   @Post('logout')
+  @Throttle({ default: { ttl: 60000, limit: 30 } })
   async logout(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
     const user = (req as any).user;
-    if (user?.userId || user?.id) {
-      await this.authService.logout(user.userId || user.id);
-    }
-    res.clearCookie('access_token');
-    res.clearCookie('refresh_token');
+    const refreshToken = req.cookies?.['refresh_token'];
+    const authHeader = req.headers?.authorization;
+    const bearerToken = authHeader?.startsWith('Bearer ')
+      ? authHeader.slice(7)
+      : undefined;
+    const accessToken = req.cookies?.['access_token'] || bearerToken;
+    const userId = user?.userId || user?.id || user?.sub;
+
+    await this.authService.logout(userId, refreshToken, accessToken);
+
+    const isSecure =
+      process.env.NODE_ENV === 'production' &&
+      process.env.SECURE_COOKIES !== 'false';
+
+    res.clearCookie('access_token', {
+      path: '/',
+      httpOnly: true,
+      secure: isSecure,
+      sameSite: 'lax',
+    });
+    res.clearCookie('refresh_token', {
+      path: '/',
+      httpOnly: true,
+      secure: isSecure,
+      sameSite: 'lax',
+    });
+    res.clearCookie('csrf_token', {
+      path: '/',
+      secure: isSecure,
+      sameSite: 'lax',
+    });
     return { success: true };
   }
 

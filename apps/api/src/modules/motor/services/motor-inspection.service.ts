@@ -280,6 +280,7 @@ export class MotorInspectionService {
           companyId: quotation.companyId,
           status: {
             in: [
+              MotorCaseStatus.QUOTED,
               MotorCaseStatus.QUOTE_GENERATED,
               MotorCaseStatus.PROPOSAL_READY,
               MotorCaseStatus.SUBMITTED_FOR_REVIEW,
@@ -354,9 +355,34 @@ export class MotorInspectionService {
     actor: ActorContext,
     sha256?: string,
   ) {
-    if (!storageKey?.trim()) {
+    const trimmedKey = storageKey?.trim();
+    if (!trimmedKey) {
       throw new BadRequestException(
         'A valid storage key is required for an inspection photo',
+      );
+    }
+
+    if (
+      trimmedKey.includes('://') ||
+      trimmedKey.startsWith('//') ||
+      trimmedKey.startsWith('data:') ||
+      trimmedKey.startsWith('javascript:')
+    ) {
+      throw new BadRequestException(
+        'Storage key must be an internal object storage key, not an external URL',
+      );
+    }
+
+    if (trimmedKey.includes('..') || trimmedKey.includes('\\')) {
+      throw new BadRequestException(
+        'Storage key contains invalid path traversal characters',
+      );
+    }
+
+    const tenantPrefixMatch = trimmedKey.match(/^(?:companies|tenants|orgs)\/([^/]+)/i);
+    if (tenantPrefixMatch && tenantPrefixMatch[1] !== actor.companyId) {
+      throw new ForbiddenException(
+        'Storage key namespace violation: Storage key belongs to another company',
       );
     }
 
@@ -522,6 +548,8 @@ export class MotorInspectionService {
       });
 
       if (caseId) {
+        const canSubmitQuotedCase =
+          inspection.quotation?.workflowState === 'INSPECTION_REQUIRED';
         const caseTransition = await tx.motorQuotationCase.updateMany({
           where: {
             id: caseId,
@@ -530,6 +558,7 @@ export class MotorInspectionService {
               in: [
                 MotorCaseStatus.INSPECTION_REQUIRED,
                 MotorCaseStatus.REWORK_REQUIRED,
+                ...(canSubmitQuotedCase ? [MotorCaseStatus.QUOTED] : []),
               ],
             },
           },

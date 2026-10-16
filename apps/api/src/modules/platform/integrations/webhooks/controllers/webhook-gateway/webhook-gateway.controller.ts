@@ -4,11 +4,12 @@ import {
   Body,
   Param,
   Headers,
-  Logger,
   Req,
+  Logger,
   BadRequestException,
   UnauthorizedException,
   ConflictException,
+  InternalServerErrorException,
 } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { PrismaService } from '../../../../../../database/prisma.service';
@@ -31,8 +32,11 @@ export class WebhookGatewayController {
     @Param('provider') provider: string,
     @Body() payload: any,
     @Headers() headers: Record<string, string>,
-    @Req() req: any,
+    @Req() req?: { rawBody?: Buffer },
   ) {
+    if (provider !== 'razorpay') {
+      throw new BadRequestException(`Unsupported webhook provider: ${provider}`);
+    }
     this.logger.log(`Received webhook from provider: ${provider}`);
 
     // 1. Extract Provider Event ID for Idempotency
@@ -45,13 +49,22 @@ export class WebhookGatewayController {
     }
 
     // 2. Validate Cryptographic Webhook Signature
-    await this.validateSignature(provider, payload, headers, providerEventId);
+    await this.validateSignature(
+      provider,
+      payload,
+      headers,
+      providerEventId,
+      req?.rawBody,
+    );
 
     // Timestamp replay protection for Razorpay
     if (provider === 'razorpay') {
       const razorpayTimestamp = headers['x-razorpay-timestamp'];
       if (razorpayTimestamp) {
-        const webhookTime = parseInt(razorpayTimestamp, 10) * 1000; // convert seconds to ms
+        if (!/^\d+$/.test(razorpayTimestamp)) {
+          throw new UnauthorizedException('Invalid webhook timestamp');
+        }
+        const webhookTime = Number(razorpayTimestamp) * 1000; // convert seconds to ms
         const now = Date.now();
         const MAX_AGE_MS = 5 * 60 * 1000; // 5 minutes
         if (Math.abs(now - webhookTime) > MAX_AGE_MS) {
@@ -124,21 +137,41 @@ export class WebhookGatewayController {
       }
     }
 
-    // Case A: New webhook -> record log, emit event for business reconciliation
-    await this.prisma.webhookAuditLog.create({
-      data: {
-        provider,
-        providerEventId,
-        eventType: this.extractEventType(provider, payload),
-        payload: payloadString,
-      },
-    });
-
-    // 5. Emit Event for Business Modules
+    // 5. Emit Event for Business Modules asynchronously and verify
     const eventName = `integration.webhook.${provider}.${this.extractEventType(provider, payload)}`;
-    this.eventEmitter.emit(eventName, payload);
+    try {
+      if (typeof this.eventEmitter.emitAsync === 'function') {
+        const results = await this.eventEmitter.emitAsync(eventName, payload);
+        const failure = results?.find(
+          (r: any) => r && typeof r === 'object' && r.reconciled === false && r.error,
+        );
+        if (failure) {
+          throw new Error(failure.error);
+        }
+      } else {
+        this.eventEmitter.emit(eventName, payload);
+      }
 
-    return { status: 'success' };
+      // Case A: Record audit log ONLY after successful dispatch
+      await this.prisma.webhookAuditLog.create({
+        data: {
+          provider,
+          providerEventId,
+          eventType: this.extractEventType(provider, payload),
+          payload: payloadString,
+        },
+      });
+
+      return { status: 'success' };
+    } catch (dispatchErr: any) {
+      this.logger.error(
+        `[Webhook] Processing failed for ${providerEventId}: ${dispatchErr.message}`,
+        dispatchErr.stack,
+      );
+      throw new InternalServerErrorException(
+        `Webhook reconciliation processing failed: ${dispatchErr.message}`,
+      );
+    }
   }
 
   private extractEventId(
@@ -172,6 +205,7 @@ export class WebhookGatewayController {
     payload: any,
     headers: any,
     providerEventId: string | null,
+    rawBody?: Buffer,
   ): Promise<void> {
     const signature =
       headers['x-razorpay-signature'] ||
@@ -191,8 +225,11 @@ export class WebhookGatewayController {
         throw new UnauthorizedException('Missing x-razorpay-signature header');
       }
 
-      const rawPayload =
-        typeof payload === 'string' ? payload : JSON.stringify(payload || {});
+      const rawPayload = rawBody
+        ? rawBody.toString('utf8')
+        : typeof payload === 'string'
+          ? payload
+          : JSON.stringify(payload || {});
       const expectedSignature = crypto
         .createHmac('sha256', razorpaySecret)
         .update(rawPayload)
@@ -226,6 +263,8 @@ export class WebhookGatewayController {
         }
         throw new UnauthorizedException('Invalid webhook signature');
       }
+    } else {
+      throw new UnauthorizedException(`Unsupported webhook provider: ${provider}`);
     }
   }
 }

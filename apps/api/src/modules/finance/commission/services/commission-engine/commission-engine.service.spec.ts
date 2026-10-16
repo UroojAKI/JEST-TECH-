@@ -86,6 +86,24 @@ describe('CommissionEngineService', () => {
       expect(result[2].roleTier).toBe('ZONAL_MANAGER');
       expect(Number(result[2].amount)).toBe(250);
     });
+
+    it('T-05: throws structured COMMISSION_CONFIG_PENDING when no active commission plan matches', async () => {
+      jest.spyOn(prisma.commissionPlan, 'findUnique').mockResolvedValue(null);
+
+      let thrown: any = null;
+      try {
+        await service.accrueCommissions('pol-1', 'agent-1', '50000', 'missing-plan-id');
+      } catch (err) {
+        thrown = err;
+      }
+
+      expect(thrown).toBeDefined();
+      expect(thrown.getResponse()).toMatchObject({
+        errorCode: 'COMMISSION_CONFIG_PENDING',
+        missingEntity: 'COMMISSION_CONFIG',
+        planId: 'missing-plan-id',
+      });
+    });
   });
 
   describe('realizeCommissions', () => {

@@ -38,6 +38,95 @@ export class RenewalEngineService {
     return 50;
   }
 
+  /**
+   * Calculates authoritative IRDAI IDV depreciation percentage based on vehicle age (years).
+   * Indian Motor Tariff (GR.8 statutory schedule):
+   *   <= 6 months: 5%
+   *   <= 1 year: 15%
+   *   <= 2 years: 20%
+   *   <= 3 years: 30%
+   *   <= 4 years: 40%
+   *   <= 5 years: 50%
+   *   > 5 years: mutually agreed (50% + 10% per year, capped at 80%)
+   */
+  calculateStatutoryDepreciation(vehicleAgeYears: number): number {
+    if (vehicleAgeYears <= 0) return 5;
+    if (vehicleAgeYears === 1) return 15;
+    if (vehicleAgeYears === 2) return 20;
+    if (vehicleAgeYears === 3) return 30;
+    if (vehicleAgeYears === 4) return 40;
+    if (vehicleAgeYears === 5) return 50;
+    return Math.min(80, 50 + (vehicleAgeYears - 5) * 10);
+  }
+
+  /**
+   * Calculates revised IDV applying standard statutory depreciation rate.
+   */
+  calculateRevisedIdv(prevSumInsured: number, vehicleAgeYears: number): {
+    revisedIdv: number;
+    depreciationPercentage: number;
+  } {
+    const depreciationPercentage = this.calculateStatutoryDepreciation(vehicleAgeYears);
+    const annualStep = vehicleAgeYears === 1 ? 0.15 : 0.10;
+    const revisedIdv = Math.max(10000, Math.round(prevSumInsured * (1 - annualStep)));
+    return { revisedIdv, depreciationPercentage };
+  }
+
+  /**
+   * Computes authoritative renewal pricing adhering strictly to IRDAI guidelines:
+   * - OD premium receives statutory NCB discount
+   * - TP premium is statutory and unchanged (no NCB discount)
+   * - GST (18%) strictly calculated on base premium
+   */
+  calculateRenewalPricing(params: {
+    prevSumInsured: number;
+    prevBasePremium: number;
+    prevNcb: number;
+    hasClaims: boolean;
+    vehicleAgeYears?: number;
+    odPremium?: number;
+    tpPremium?: number;
+  }): {
+    revisedIdv: number;
+    depreciationPercentage: number;
+    nextNcb: number;
+    revisedBase: number;
+    gstAmount: number;
+    totalPremium: number;
+    revisedOd: number;
+    revisedTp: number;
+  } {
+    const vehicleAgeYears = Math.max(1, params.vehicleAgeYears || 1);
+    const { revisedIdv, depreciationPercentage } = this.calculateRevisedIdv(
+      params.prevSumInsured,
+      vehicleAgeYears,
+    );
+
+    const nextNcb = params.hasClaims ? 0 : this.calculateNextNCBSlab(params.prevNcb);
+
+    // If explicit OD/TP breakdown provided, discount only OD; otherwise allocate 65% OD / 35% TP
+    const odBase = params.odPremium !== undefined ? params.odPremium : Math.round(params.prevBasePremium * 0.65);
+    const tpBase = params.tpPremium !== undefined ? params.tpPremium : Math.round(params.prevBasePremium * 0.35);
+
+    const revisedOd = Math.round(odBase * (1 - nextNcb / 100));
+    const revisedTp = tpBase;
+
+    const revisedBase = revisedOd + revisedTp;
+    const gstAmount = Math.round(revisedBase * 0.18);
+    const totalPremium = revisedBase + gstAmount;
+
+    return {
+      revisedIdv,
+      depreciationPercentage,
+      nextNcb,
+      revisedBase,
+      gstAmount,
+      totalPremium,
+      revisedOd,
+      revisedTp,
+    };
+  }
+
   async createRenewalRecord(policyId: string, agentId: string): Promise<void> {
     const policy = await this.prisma.policy.findUnique({
       where: { id: policyId },
@@ -199,11 +288,14 @@ export class RenewalEngineService {
 
     const where = {
       ...scope,
-      status: PolicyStatus.ACTIVE,
-      OR: [
-        { expiryDate: { lte: targetDate } },
-        { odExpiryDate: { lte: targetDate } },
-      ],
+      status: {
+        in: [
+          PolicyStatus.ACTIVE,
+          PolicyStatus.ISSUED,
+          PolicyStatus.PENDING_RENEWAL,
+          PolicyStatus.LAPSED,
+        ],
+      },
       deletedAt: null,
     };
 
@@ -234,18 +326,19 @@ export class RenewalEngineService {
     const page = Math.max(1, Number(params?.page) || 1);
     const limit = Math.min(100, Math.max(1, Number(params?.limit) || 20));
     const skip = (page - 1) * limit;
-    const sixtyDaysFromNow = new Date();
-    sixtyDaysFromNow.setDate(sixtyDaysFromNow.getDate() + 60);
     const scope = await this.buildPolicyScope(effectiveActor);
 
     const policies = await this.prisma.policy.findMany({
       where: {
         ...scope,
-        status: { in: [PolicyStatus.ACTIVE, PolicyStatus.PENDING_RENEWAL] },
-        OR: [
-          { expiryDate: { lte: sixtyDaysFromNow } },
-          { odExpiryDate: { lte: sixtyDaysFromNow } },
-        ],
+        status: {
+          in: [
+            PolicyStatus.ACTIVE,
+            PolicyStatus.ISSUED,
+            PolicyStatus.PENDING_RENEWAL,
+            PolicyStatus.LAPSED,
+          ],
+        },
         deletedAt: null,
       },
       include: {
@@ -265,7 +358,7 @@ export class RenewalEngineService {
     let lowCount = 0;
 
     for (const p of policies) {
-      const effectiveExpiry = p.odExpiryDate || p.expiryDate;
+      const effectiveExpiry = this.getEffectiveRenewalExpiry(p);
       const daysRemaining = Math.ceil(
         (new Date(effectiveExpiry).getTime() - now) / 86400000,
       );
@@ -310,15 +403,50 @@ export class RenewalEngineService {
         insurerName: p.quotation?.insurerName || 'HDFC ERGO',
         escalated:
           p.renewalTasks?.[0]?.priority === 'CRITICAL' ||
-          p.renewalTasks?.[0]?.priority === 'HIGH',
+          (p.renewalTasks?.[0]?.priority === 'HIGH' && daysRemaining <= 0),
       };
 
-      if (
-        params?.urgency &&
-        params.urgency !== 'ALL' &&
-        item.urgency !== params.urgency
-      )
-        continue;
+      if (params?.urgency && params.urgency !== 'ALL') {
+        const u = params.urgency.toUpperCase();
+        if (
+          u === '7_DAYS' ||
+          u === 'CRITICAL' ||
+          u === '<7' ||
+          u === '<7DAYS' ||
+          u === 'LE_7'
+        ) {
+          if (daysRemaining < 0 || daysRemaining > 7) continue;
+        } else if (
+          u === '15_DAYS' ||
+          u === 'HIGH' ||
+          u === '<15' ||
+          u === '<15DAYS' ||
+          u === 'LE_15'
+        ) {
+          if (daysRemaining < 0 || daysRemaining > 15) continue;
+        } else if (
+          u === '30_DAYS' ||
+          u === 'MEDIUM' ||
+          u === '<30' ||
+          u === '<30DAYS' ||
+          u === 'LE_30'
+        ) {
+          if (daysRemaining < 0 || daysRemaining > 30) continue;
+        } else if (
+          u === 'GT_30' ||
+          u === 'LOW' ||
+          u === '>30' ||
+          u === '>30DAYS'
+        ) {
+          if (daysRemaining <= 30) continue;
+        } else if (u === 'OVERDUE' || u === 'EXPIRED') {
+          if (daysRemaining >= 0) continue;
+        } else if (u === 'ESCALATED') {
+          if (!item.escalated) continue;
+        } else if (item.urgency !== params.urgency) {
+          continue;
+        }
+      }
       if (params?.search?.trim()) {
         const q = params.search.toLowerCase().trim();
         if (
@@ -330,6 +458,10 @@ export class RenewalEngineService {
       }
       items.push(item);
     }
+
+    // Strict Days Order: Renewals ending soonest (fewest days left) on top;
+    // policies with more renewal days remaining last (at the bottom).
+    items.sort((a, b) => a.daysRemaining - b.daysRemaining);
 
     const total = items.length;
     return {
@@ -355,7 +487,7 @@ export class RenewalEngineService {
     if (!policy)
       return { success: false, message: `Policy ${policyId} not found` };
 
-    const effectiveExpiry = policy.odExpiryDate || policy.expiryDate;
+    const effectiveExpiry = this.getEffectiveRenewalExpiry(policy);
 
     await this.renewalQueue.add('send-renewal-reminder', {
       policyId: policy.id,
@@ -381,7 +513,7 @@ export class RenewalEngineService {
     if (!policy)
       return { success: false, message: `Policy ${policyId} not found` };
 
-    const effectiveExpiry = policy.odExpiryDate || policy.expiryDate;
+    const effectiveExpiry = this.getEffectiveRenewalExpiry(policy);
 
     const existingTask = await this.prisma.renewalTask.findFirst({
       where: { policyId },
@@ -408,5 +540,20 @@ export class RenewalEngineService {
       success: true,
       message: `Policy ${policy.policyNumber} renewal successfully escalated.`,
     };
+  }
+
+  private getEffectiveRenewalExpiry(policy: {
+    odExpiryDate?: Date | string | null;
+    expiryDate?: Date | string | null;
+  }): Date {
+    const od = policy.odExpiryDate ? new Date(policy.odExpiryDate) : null;
+    const exp = policy.expiryDate ? new Date(policy.expiryDate) : null;
+    if (od && exp && !isNaN(od.getTime()) && !isNaN(exp.getTime())) {
+      // The earlier expiry date dictates the renewal (e.g. 1-year OD on bundled 3-year TP, or short-term policies)
+      return od.getTime() < exp.getTime() ? od : exp;
+    }
+    if (od && !isNaN(od.getTime())) return od;
+    if (exp && !isNaN(exp.getTime())) return exp;
+    return new Date();
   }
 }

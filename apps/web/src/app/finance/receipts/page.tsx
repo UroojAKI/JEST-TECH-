@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { AppShell } from '../../../components/layout/app-shell';
 import { Receipt, Download, Filter } from 'lucide-react';
 import { useReceipts } from '../../../hooks/useFinance';
+import { financeRepository } from '../../../repositories/finance.repository';
 import { StatusBadge } from '../../../components/ui/status-badge';
 import { VoucherPreviewModal, VoucherData } from '../../../components/finance/vouchers/VoucherPreviewModal';
 import { toast } from 'sonner';
@@ -14,9 +15,19 @@ export default function ReceiptsRegisterPage() {
 
   const { data: receipts = [], isLoading, isError } = useReceipts(statusFilter);
 
-  const handleExport = () => {
-    window.open('/api/v1/finance/receipts/export?format=csv', '_blank');
-    toast.success('Export started!');
+  const handleExport = async () => {
+    try {
+      const blob = await financeRepository.exportReceipts();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `receipts-register-${Date.now()}.csv`;
+      link.click();
+      URL.revokeObjectURL(url);
+      toast.success('Receipt register downloaded');
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || 'Could not export receipts');
+    }
   };
 
   return (
@@ -44,9 +55,8 @@ export default function ReceiptsRegisterPage() {
       <div className="flex border-b text-xs overflow-x-auto p-1 bg-card rounded-lg border space-x-1 my-4">
         {[
           { id: 'ALL', label: 'All Receipts' },
-          { id: 'VERIFIED', label: 'Verified' },
-          { id: 'RECONCILED', label: 'Reconciled' },
-          { id: 'PENDING', label: 'Pending Verification' },
+          { id: 'CLEARED', label: 'Cleared' },
+          { id: 'BOUNCED', label: 'Bounced' },
         ].map((view) => (
           <button
             key={view.id}

@@ -1,0 +1,6 @@
+# Gitleaks baseline ignore list for known historical false positives
+# 1. Historical README mock token parameter in initial commit
+185ec540c22ef2a88cd2cc05ed387ec79786de49:apps/api/README.md:generic-api-key:5
+
+# 2. Historical localStorage storage key name in early quotations prototype
+c0d3643792550bcc2fe2780566bd229dc95b9ea5:apps/web/src/app/sales/quotations/page.tsx:generic-api-key:25

@@ -10,19 +10,27 @@ export function useMotorCalculator(inputData: any) {
   useEffect(() => {
     // Basic validation to avoid empty calls
     if (!inputData.vehicleCategory || !inputData.policyType || !inputData.vehicleStatus) {
+      setResult(null);
+      setError(null);
+      setLoading(false);
       return;
     }
 
     if (['STANDALONE_OD', 'PACKAGE_COMPREHENSIVE'].includes(inputData.policyType)) {
-      if (!inputData.idv || inputData.idv < 50000) {
+      if (!inputData.idv || inputData.idv <= 0) {
         setResult(null);
         setError(null);
+        setLoading(false);
         return;
       }
     }
 
     const abortController = new AbortController();
     abortControllerRef.current = abortController;
+    // Never leave a prior vehicle's premium visible while recalculating the current input.
+    setResult(null);
+    setError(null);
+    setLoading(true);
 
     const calculate = async () => {
       setLoading(true);
@@ -34,6 +42,7 @@ export function useMotorCalculator(inputData: any) {
         setResult(response.data);
       } catch (err: any) {
         if (err.name !== 'CanceledError' && err.message !== 'canceled') {
+          setResult(null);
           setError(err.response?.data?.message || 'Failed to calculate premium');
         }
       } finally {

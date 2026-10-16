@@ -4,6 +4,7 @@ import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { PrismaService } from '../../../database/prisma.service';
 import { PolicyStatus } from '@prisma/client';
+import { withDistributedLock } from '../../../common/utils/distributed-lock.util';
 
 @Injectable()
 export class RenewalSchedulerCron {
@@ -16,7 +17,12 @@ export class RenewalSchedulerCron {
 
   @Cron('0 2 * * *')
   async handleCron() {
-    await this.runManually();
+    return withDistributedLock(
+      this.prisma,
+      'cron:renewal-scheduler-scan',
+      () => this.runManually(),
+      this.logger,
+    );
   }
 
   async runManually() {

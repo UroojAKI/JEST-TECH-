@@ -4,6 +4,7 @@ import {
   ForbiddenException,
   BadRequestException,
   ConflictException,
+  Logger,
 } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
 import { RoleType, Prisma } from '@prisma/client';
@@ -16,6 +17,8 @@ import type { RequestUser } from '../auth/decorators/current-user.decorator';
 
 @Injectable()
 export class CustomersService {
+  private readonly logger = new Logger(CustomersService.name);
+
   constructor(private readonly prisma: PrismaService) {}
 
   private normalizePhone(phone?: string): string | undefined {
@@ -482,8 +485,13 @@ export class CustomersService {
         },
         policies: {
           where: { deletedAt: null },
+          include: {
+            payments: { orderBy: { paymentDate: 'desc' } },
+            documents: true,
+            renewals: true,
+          },
           orderBy: { createdAt: 'desc' },
-          take: 10,
+          take: 20,
         },
         claims: {
           where: { deletedAt: null },
@@ -531,7 +539,153 @@ export class CustomersService {
       }
     }
 
-    return customer;
+    // Aggregate canonical quotations, policies, claims, and leads across customerId and contactId
+    let canonicalQuotations: any[] = [];
+    const quotationOrConditions: any[] = [];
+    if (customer.contactId) {
+      quotationOrConditions.push({ contactId: customer.contactId });
+    }
+    quotationOrConditions.push({ lead: { customerId: customer.id } });
+
+    if (this.prisma.quotation?.findMany && quotationOrConditions.length > 0) {
+      canonicalQuotations = await this.prisma.quotation.findMany({
+        where: {
+          companyId,
+          deletedAt: null,
+          OR: quotationOrConditions,
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 20,
+      });
+    }
+
+    let canonicalPolicies = customer.policies || [];
+    if (customer.contactId && this.prisma.policy?.findMany) {
+      const contactPolicies = await this.prisma.policy.findMany({
+        where: {
+          companyId,
+          contactId: customer.contactId,
+          deletedAt: null,
+          id: { notIn: canonicalPolicies.map((p: any) => p.id) },
+        },
+        include: {
+          payments: { orderBy: { paymentDate: 'desc' } },
+          documents: true,
+          renewals: true,
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 20,
+      });
+      canonicalPolicies = [...canonicalPolicies, ...contactPolicies];
+    }
+
+    let canonicalReceipts: any[] = [];
+    if (this.prisma.receipt?.findMany) {
+      try {
+        canonicalReceipts = await this.prisma.receipt.findMany({
+          where: {
+            customerId: customer.id,
+          },
+          include: {
+            allocations: {
+              include: {
+                invoice: true,
+              },
+            },
+          },
+          orderBy: { date: 'desc' },
+          take: 50,
+        });
+      } catch (err) {
+        this.logger.warn(
+          `Failed to fetch receipts for customer ${customer.id}: ${err}`,
+        );
+      }
+    }
+
+    const policyPayments = canonicalPolicies.flatMap((p: any) =>
+      (p.payments || []).map((pay: any) => ({
+        ...pay,
+        policyId: p.id,
+        policyNumber: p.policyNumber,
+        insurerName: p.insurerName,
+        planName: p.planName,
+      })),
+    );
+
+    let canonicalClaims = customer.claims || [];
+    if (this.prisma.claim?.findMany) {
+      const claimWhereOr: any[] = [];
+      if (customer.contactId) {
+        claimWhereOr.push({ contactId: customer.contactId });
+      }
+      if (canonicalPolicies.length > 0) {
+        claimWhereOr.push({
+          policyId: { in: canonicalPolicies.map((p: any) => p.id) },
+        });
+      }
+      if (claimWhereOr.length > 0) {
+        const extraClaims = await this.prisma.claim.findMany({
+          where: {
+            companyId,
+            deletedAt: null,
+            OR: claimWhereOr,
+            id: { notIn: canonicalClaims.map((c: any) => c.id) },
+          },
+          orderBy: { createdAt: 'desc' },
+          take: 20,
+        });
+        canonicalClaims = [...canonicalClaims, ...extraClaims];
+      }
+    }
+
+    let canonicalLeads = customer.leads || [];
+    if (customer.contactId && this.prisma.lead?.findMany) {
+      const extraLeads = await this.prisma.lead.findMany({
+        where: {
+          companyId,
+          contactId: customer.contactId,
+          deletedAt: null,
+          id: { notIn: canonicalLeads.map((l: any) => l.id) },
+        },
+        orderBy: { updatedAt: 'desc' },
+        take: 20,
+      });
+      canonicalLeads = [...canonicalLeads, ...extraLeads];
+    }
+
+    return {
+      ...customer,
+      quotations:
+        canonicalQuotations.length > 0
+          ? canonicalQuotations
+          : customer.quotations,
+      policies: canonicalPolicies,
+      claims: canonicalClaims,
+      leads: canonicalLeads,
+      receipts: canonicalReceipts,
+      payments: policyPayments,
+      _count: {
+        ...customer._count,
+        quotations:
+          canonicalQuotations.length > 0
+            ? canonicalQuotations.length
+            : customer._count?.quotations || 0,
+        policies: Math.max(
+          canonicalPolicies.length,
+          customer._count?.policies || 0,
+        ),
+        claims: Math.max(
+          canonicalClaims.length,
+          customer._count?.claims || 0,
+        ),
+        leads: Math.max(
+          canonicalLeads.length,
+          customer._count?.leads || 0,
+        ),
+        payments: policyPayments.length + canonicalReceipts.length,
+      },
+    };
   }
 
   async update(id: string, dto: UpdateCustomerDto, user: RequestUser) {

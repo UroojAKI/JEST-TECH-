@@ -51,10 +51,10 @@ export default function AgentPortalDashboardPage() {
       {/* Sub-workspace Navigation Strip */}
       <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2 text-xs">
         {[
-          { label: 'My Customers', path: '/crm/contacts' },
-          { label: 'My Leads', path: '/crm/leads' },
+          { label: 'My Customers', path: '/portal/customers' },
+          { label: 'My Leads', path: '/portal/leads' },
           { label: 'Quotations', path: '/sales/quotations' },
-          { label: 'My Policies', path: '/policies' },
+          { label: 'My Policies', path: '/portal/policies' },
           { label: 'Renewal Cockpit', path: '/workspace/renewal' },
           { label: 'Claims Track', path: '/claims' },
           { label: 'Commissions', path: '/finance/commissions' },
@@ -77,7 +77,7 @@ export default function AgentPortalDashboardPage() {
           <span className="text-xs">Loading performance metrics...</span>
         </div>
       ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 text-xs">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-8 gap-3 text-xs">
           <div className="p-4 rounded-xl border bg-card shadow-xs space-y-1">
             <span className="text-[10px] font-bold text-muted-foreground uppercase">Today's Leads</span>
             <div className="text-xl font-black text-primary">{metrics?.todaysLeads ?? 0} Active</div>
@@ -89,6 +89,18 @@ export default function AgentPortalDashboardPage() {
             <div className="text-xl font-black text-amber-600">{metrics?.pendingQuotes ?? 0} Drafts</div>
             <span className="text-[10px] text-muted-foreground">Awaiting submission</span>
           </div>
+
+          <Link href="/portal/leads" className="p-4 rounded-xl border bg-card shadow-xs space-y-1 hover:border-primary/50">
+            <span className="text-[10px] font-bold text-muted-foreground uppercase">Pending Inspections</span>
+            <div className="text-xl font-black text-amber-600">{metrics?.inspectionsPending ?? 0} Vehicles</div>
+            <span className="text-[10px] text-muted-foreground">Open my leads</span>
+          </Link>
+
+          <Link href="/claims" className="p-4 rounded-xl border bg-card shadow-xs space-y-1 hover:border-primary/50">
+            <span className="text-[10px] font-bold text-muted-foreground uppercase">Open Claims</span>
+            <div className="text-xl font-black text-rose-600">{metrics?.claimsPending ?? 0} Claims</div>
+            <span className="text-[10px] text-muted-foreground">View claim records</span>
+          </Link>
 
           <div className="p-4 rounded-xl border bg-card shadow-xs space-y-1">
             <span className="text-[10px] font-bold text-muted-foreground uppercase">Policies Issued</span>

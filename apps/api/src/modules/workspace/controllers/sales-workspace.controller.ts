@@ -242,17 +242,21 @@ export class SalesWorkspaceController {
       this.prisma.policy.count({
         where: {
           ...policyWhere,
-          status: 'ACTIVE' as any,
+          status: { in: ['ACTIVE', 'LAPSED'] } as any,
           expiryDate: { lt: startOfToday },
         },
       }),
       this.prisma.policy.count({
         where: {
           ...policyWhere,
-          status: { in: ['CANCELLED', 'LAPSED'] } as any,
+          status: 'CANCELLED' as any,
         },
       }),
-      this.prisma.policyRenewal.count(),
+      this.prisma.policyRenewal.count({
+        where: {
+          policy: policyWhere,
+        },
+      }),
     ]);
 
     const renewals = [

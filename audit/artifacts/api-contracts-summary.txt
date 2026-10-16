@@ -1,0 +1,20 @@
+
+> jest-policy-crm@1.0.0 check:api-contracts E:\JEST TECH\JEST POLICY\jest-policy-crm
+> tsx scripts/verify-api-contracts.ts
+
+=== JEST Policy CRM API Contract Validator ===
+
+Extracting frontend API calls... done (304 unique calls)
+Extracting backend routes... done (450 routes)
+
+=== API Contract Report ===
+Total Frontend Calls:  304
+Matched:               304
+Unmatched:             0
+Uncalled Backend:      206
+  WEBHOOK:             1
+  CRON:                3
+  INTERNAL:            8
+  UNUSED:              194
+
+Report: E:\JEST TECH\JEST POLICY\jest-policy-crm\docs\audit\baseline\api-contract-report.json

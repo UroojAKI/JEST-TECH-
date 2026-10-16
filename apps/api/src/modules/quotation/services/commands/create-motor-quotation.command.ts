@@ -377,6 +377,9 @@ export class CreateMotorQuotationCommand {
       ),
       previousPolicyExpiryDate: prevPolicy.policyExpiryDate || undefined,
       policyStartDate: policyDetails.policyStartDate || undefined,
+      gstRate: policyDetails.gstRate !== undefined && policyDetails.gstRate !== null && policyDetails.gstRate !== ''
+        ? Number(policyDetails.gstRate)
+        : undefined,
     };
 
     const calcResult = await this.motorCalculationService.calculate(calculationInput);

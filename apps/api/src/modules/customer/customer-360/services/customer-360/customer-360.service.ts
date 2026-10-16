@@ -1,4 +1,10 @@
-import { Injectable, NotFoundException, Inject } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+  Inject,
+} from '@nestjs/common';
 import { ClaimStatus, PolicyStatus, RoleType } from '@prisma/client';
 import { PrismaService } from '../../../../../database/prisma.service';
 import { CACHE_PROVIDER_TOKEN } from '../../../../platform/cache/cache.provider';
@@ -25,13 +31,48 @@ export class Customer360Service {
     await this.cache.clear(`customer360${tenantKey}:${contactId}`);
   }
 
+  async addCustomerNote(
+    contactId: string,
+    content: string,
+    actor: ActorContext,
+  ) {
+    const text = typeof content === 'string' ? content.trim() : '';
+    if (!text || text.length > 5000) {
+      throw new BadRequestException('Note must contain 1 to 5000 characters');
+    }
+
+    const companyId = actor.companyId || actor.organizationId;
+    if (!companyId) {
+      throw new ForbiddenException('Customer organization context is required');
+    }
+    const contact = await this.prisma.contact.findFirst({
+      where: { id: contactId, companyId, deletedAt: null },
+    });
+    if (!contact) throw new NotFoundException('Customer not found');
+
+    this.authzService.authorize(actor, 'CUSTOMER_360', 'UPDATE', contact);
+
+    return this.prisma.communicationLog.create({
+      data: {
+        contactId,
+        channel: 'INTERNAL_NOTE',
+        direction: 'INTERNAL',
+        status: 'LOGGED',
+        entityType: 'CUSTOMER_NOTE',
+        entityId: contactId,
+        messageBody: text,
+        messagePreview: text.slice(0, 280),
+      },
+    });
+  }
+
   private async buildCustomer360Profile(
     contactId: string,
     actor?: ActorContext,
   ) {
-    const companyId = actor?.companyId;
+    const companyId = actor?.companyId || actor?.organizationId;
 
-    const contact = await this.prisma.contact.findFirst({
+    let contact = await this.prisma.contact.findFirst({
       where: {
         id: contactId,
         ...(companyId ? { companyId } : {}),
@@ -42,8 +83,35 @@ export class Customer360Service {
         familyMembers: true,
         createdBy: true,
         branch: true,
+        customer: { select: { id: true, companyId: true } },
       },
     });
+
+    if (!contact && this.prisma.customer?.findFirst) {
+      const customerRecord = await this.prisma.customer.findFirst({
+        where: {
+          id: contactId,
+          ...(companyId ? { companyId } : {}),
+          deletedAt: null,
+        },
+      });
+      if (customerRecord?.contactId) {
+        contact = await this.prisma.contact.findFirst({
+          where: {
+            id: customerRecord.contactId,
+            ...(companyId ? { companyId } : {}),
+            deletedAt: null,
+          },
+          include: {
+            analytics: true,
+            familyMembers: true,
+            createdBy: true,
+            branch: true,
+            customer: { select: { id: true, companyId: true } },
+          },
+        });
+      }
+    }
 
     if (!contact) {
       throw new NotFoundException('Customer not found');
@@ -69,10 +137,32 @@ export class Customer360Service {
       await Promise.all([
         this.prisma.policy.findMany({
           where: {
-            contactId,
+            contactId: contact.id,
             deletedAt: null,
             ...(companyId ? { companyId } : {}),
-            ...(agentId && actor ? { createdById: actor.userId } : {}),
+            ...(agentId && actor?.userId
+              ? {
+                  OR: [
+                    { agentId },
+                    { createdById: actor.userId },
+                    {
+                      quotation: {
+                        is: {
+                          lead: {
+                            is: {
+                              OR: [
+                                { agentId },
+                                { assignedToId: actor.userId },
+                                { createdById: actor.userId },
+                              ],
+                            },
+                          },
+                        },
+                      },
+                    },
+                  ],
+                }
+              : {}),
           },
           include: {
             documents: true,
@@ -85,36 +175,98 @@ export class Customer360Service {
         }),
         this.prisma.quotation.findMany({
           where: {
-            contactId,
+            contactId: contact.id,
             deletedAt: null,
             ...(companyId ? { companyId } : {}),
-            ...(agentId ? { agentId } : {}),
+            ...(agentId && actor?.userId
+              ? {
+                  OR: [
+                    { agentId },
+                    { createdById: actor.userId },
+                    {
+                      lead: {
+                        is: {
+                          OR: [
+                            { agentId },
+                            { assignedToId: actor.userId },
+                            { createdById: actor.userId },
+                          ],
+                        },
+                      },
+                    },
+                  ],
+                }
+              : {}),
+          },
+          include: {
+            case: { select: { id: true, caseCode: true, status: true, selectedQuoteId: true } },
+            motorInspection: {
+              select: { id: true, inspectionCode: true, status: true, completedAt: true, updatedAt: true },
+            },
+            motorPaymentRecord: {
+              select: { id: true, status: true, amount: true, paymentMethod: true, referenceNumber: true, paidAt: true, updatedAt: true },
+            },
+            policy: { select: { id: true, policyNumber: true, status: true } },
           },
           orderBy: { createdAt: 'desc' },
           take: 50,
         }),
         this.prisma.claim.findMany({
           where: {
-            contactId,
+            contactId: contact.id,
             deletedAt: null,
             ...(companyId ? { companyId } : {}),
-            ...(agentId ? { agentId } : {}),
+          ...(agentId && actor?.userId
+            ? {
+                OR: [
+                  { agentId },
+                  { createdById: actor.userId },
+                  {
+                    policy: {
+                      is: {
+                        quotation: {
+                          is: {
+                            lead: {
+                              is: {
+                                OR: [
+                                  { agentId },
+                                  { assignedToId: actor.userId },
+                                  { createdById: actor.userId },
+                                ],
+                              },
+                            },
+                          },
+                        },
+                      },
+                    },
+                  },
+                ],
+              }
+            : {}),
           },
           include: { policy: true },
           orderBy: { createdAt: 'desc' },
           take: 50,
         }),
         this.prisma.communicationLog.findMany({
-          where: { contactId },
+          where: { contactId: contact.id },
           orderBy: { createdAt: 'desc' },
           take: 50,
         }),
         this.prisma.lead.findMany({
           where: {
-            contactId,
+            contactId: contact.id,
             deletedAt: null,
             ...(companyId ? { companyId } : {}),
-            ...(agentId ? { agentId } : {}),
+            ...(agentId && actor?.userId
+              ? {
+                  OR: [
+                    { agentId },
+                    { assignedToId: actor.userId },
+                    { createdById: actor.userId },
+                  ],
+                }
+              : {}),
           },
           include: { stageHistory: { orderBy: { createdAt: 'desc' } } },
           orderBy: { createdAt: 'desc' },
@@ -122,11 +274,12 @@ export class Customer360Service {
         }),
         this.prisma.document.findMany({
           where: {
-            entityId: contactId,
+            entityId: contact.id,
             entityType: { in: ['CONTACT', 'CUSTOMER'] },
             deletedAt: null,
-            ...(companyId ? { companyId } : {}),
-            ...(agentId && actor ? { uploadedById: actor.userId } : {}),
+            ...(agentId && actor?.userId
+              ? { uploadedBy: { is: { id: actor.userId } } }
+              : {}),
           },
           orderBy: { createdAt: 'desc' },
           take: 50,
@@ -213,6 +366,18 @@ export class Customer360Service {
       });
     }
 
+    for (const lead of leads) {
+      for (const stage of lead.stageHistory) {
+        timeline.push({
+          date: stage.createdAt,
+          type: 'LEAD_STAGE',
+          title: `${lead.leadCode} · ${stage.toStage}`,
+          description: stage.remarks || `Moved from ${stage.fromStage}`,
+          meta: { leadId: lead.id, fromStage: stage.fromStage, toStage: stage.toStage },
+        });
+      }
+    }
+
     for (const p of policies) {
       timeline.push({
         date: p.issueDate || p.createdAt,
@@ -231,6 +396,24 @@ export class Customer360Service {
         description: `Total Payable: ₹${Number(q.totalPremium).toLocaleString('en-IN')}`,
         meta: { quotationId: q.id, status: q.status },
       });
+      if (q.motorInspection) {
+        timeline.push({
+          date: q.motorInspection.completedAt || q.motorInspection.updatedAt,
+          type: 'MOTOR_INSPECTION',
+          title: `Inspection ${q.motorInspection.inspectionCode}`,
+          description: `${q.quotationCode} · ${q.motorInspection.status}`,
+          meta: { quotationId: q.id, inspectionId: q.motorInspection.id, status: q.motorInspection.status },
+        });
+      }
+      if (q.motorPaymentRecord) {
+        timeline.push({
+          date: q.motorPaymentRecord.paidAt || q.motorPaymentRecord.updatedAt,
+          type: 'MOTOR_PAYMENT',
+          title: `Payment ${q.motorPaymentRecord.status}`,
+          description: `${q.quotationCode} · ₹${Number(q.motorPaymentRecord.amount || 0).toLocaleString('en-IN')} · ${q.motorPaymentRecord.referenceNumber || 'Reference pending'}`,
+          meta: { quotationId: q.id, paymentId: q.motorPaymentRecord.id, status: q.motorPaymentRecord.status },
+        });
+      }
     }
 
     for (const cl of claims) {
@@ -257,6 +440,10 @@ export class Customer360Service {
     return {
       profile: {
         id: contact.id,
+        customerId:
+          contact.customer?.companyId === contact.companyId
+            ? contact.customer.id
+            : null,
         contactCode: contact.contactCode,
         name: `${contact.firstName} ${contact.lastName}`,
         firstName: contact.firstName,
@@ -302,7 +489,16 @@ export class Customer360Service {
       openClaims,
       leads,
       documents,
-      payments: policies.flatMap((p) => p.payments || []),
+      payments: [
+        ...policies.flatMap((p) => p.payments || []),
+        ...quotations.flatMap((q) => q.motorPaymentRecord ? [{
+          ...q.motorPaymentRecord,
+          quotationId: q.id,
+          transactionId: q.motorPaymentRecord.referenceNumber,
+          paymentDate: q.motorPaymentRecord.paidAt || q.motorPaymentRecord.updatedAt,
+          quotationCode: q.quotationCode,
+        }] : []),
+      ],
       renewals: policies.flatMap((p) => p.renewals || []),
       timeline,
       familyMembers: contact.familyMembers,

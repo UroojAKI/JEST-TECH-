@@ -80,4 +80,19 @@ export class IssueMotorPolicyDto {
   @IsNumber()
   @Min(0)
   documentFileSize?: number;
+
+  @IsOptional()
+  @IsString()
+  customerPan?: string;
+
+  @IsOptional()
+  @IsString()
+  paymentReference?: string;
+
+  @IsOptional()
+  @IsString()
+  paymentMethod?: string;
+
+  @IsOptional()
+  confirmPaymentReceived?: boolean;
 }

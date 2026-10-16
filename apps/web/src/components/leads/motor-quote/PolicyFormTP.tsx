@@ -5,6 +5,8 @@ import { getPolicyTenureOptions, INSURER_OPTIONS } from './motorFormConfig';
 import type { VehicleCategory, PolicyFormTPOnly, MotorEligibilityContext } from './motorFormTypes';
 
 import { useMotorCalculator } from './useMotorCalculator';
+import { CommissionBreakdownPanel } from './CommissionBreakdownPanel';
+import { GstRateSelector } from './GstRateSelector';
 
 interface Props {
   category: VehicleCategory;
@@ -55,6 +57,14 @@ export function PolicyFormTPOnlyForm({ category, vehicleStatus, data, onChange, 
   // For TP only, previous TP policy fields are only applicable for renewal/existing vehicles
   const prevTpApplicable = eligibility ? eligibility.previousPolicyApplicable : !isNew;
 
+  React.useEffect(() => {
+    if (data.tpCommissionCalc) {
+      onChange({ ...data, tpCommissionCalc: '' });
+    }
+    // Legacy TP commission field was previously coupled to customer discount.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const { result, loading, error } = useMotorCalculator({
     vehicleCategory: category,
     vehicleStatus: vehicleStatus,
@@ -62,20 +72,36 @@ export function PolicyFormTPOnlyForm({ category, vehicleStatus, data, onChange, 
     policyTenure: parseInt(data.policyTenure || '1') || 1,
     paCover: !!data.paCoverOwner,
     paidDriverLiability: data.legalLiabilityPaidDriver === 'Yes',
-    tpDiscountPercent: parseFloat(data.discountPercent || '0') || 0
+    tpDiscountPercent: parseFloat(data.discountPercent || '0') || 0,
+    gstRate: data.gstRate ? parseInt(data.gstRate) : 18,
   });
 
   React.useEffect(() => {
+    if ((loading || error) && (data.calculatedResult || data.totalPremiumInclGST || data.thirdPartyPremium)) {
+      onChange({
+        ...data,
+        calculatedResult: undefined,
+        totalPremiumInclGST: '',
+        thirdPartyPremium: '',
+      });
+    }
+    // Do not leave a previous vehicle's TP amount available for quotation save.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, error]);
+
+  React.useEffect(() => {
     if (result && result.outputs) {
-      if (data.calculatedResult === result) return;
       onChange({ 
         ...data, 
-        thirdPartyPremium: result.outputs.baseTpPremium.toString(),
-        totalPremiumInclGST: result.outputs.totalPremium.toString(),
+        thirdPartyPremium: (result.outputs.baseTpPremium ?? 0).toString(),
+        totalPremiumInclGST: (result.outputs.totalPremium ?? 0).toString(),
+        tpCommissionCalc: '',
+        gstRate: (result.rateConfig?.gstRatePercent ?? (data.gstRate ? parseInt(data.gstRate) : 18)).toString(),
         calculatedResult: result 
       });
     }
-  }, [result, data, onChange]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [result]);
 
   const tenureOptions = getPolicyTenureOptions(category, 'TP_ONLY');
 
@@ -105,8 +131,8 @@ export function PolicyFormTPOnlyForm({ category, vehicleStatus, data, onChange, 
             type="number"
             readOnly
             disabled
-            value={data.thirdPartyPremium}
-            placeholder="Auto-filled from tariff"
+            value={error || loading ? '' : result?.outputs?.baseTpPremium?.toString() || ''}
+            placeholder={loading ? 'Calculating…' : error ? 'Approved TP tariff required' : 'Auto-filled from tariff'}
             className={`${inputBase} bg-muted text-muted-foreground cursor-not-allowed opacity-80`}
           />
         </FieldRow>
@@ -209,6 +235,12 @@ export function PolicyFormTPOnlyForm({ category, vehicleStatus, data, onChange, 
         </FieldRow>
       </div>
 
+      {/* Applicable GST Rate Selector (5% vs 18%) */}
+      <GstRateSelector
+        value={data.gstRate}
+        onChange={(rate) => onChange({ ...data, gstRate: rate })}
+      />
+
       {/* TP Discount & Final Payable Calculator */}
       <div className="p-4 rounded-xl border border-sky-200 bg-sky-500/5 space-y-3">
         <div className="flex items-center justify-between">
@@ -237,7 +269,7 @@ export function PolicyFormTPOnlyForm({ category, vehicleStatus, data, onChange, 
                 onChange({
                   ...data,
                   discountPercent: val,
-                  tpCommissionCalc: val,
+                  tpDiscountPercent: val,
                 });
               }}
               className="w-full p-2 rounded-lg border text-xs font-semibold bg-background focus:outline-none focus:ring-1 focus:ring-primary border-border"
@@ -251,7 +283,7 @@ export function PolicyFormTPOnlyForm({ category, vehicleStatus, data, onChange, 
             <input
               type="text"
               readOnly
-              value={data.calculatedResult?.outputs?.totalDiscount?.toString() || '0.00'}
+              value={error ? '—' : loading ? 'Calculating…' : result?.outputs?.totalDiscount?.toString() || '—'}
               className="w-full p-2 rounded-lg border text-xs font-semibold bg-muted border-border opacity-80"
             />
           </div>
@@ -263,7 +295,7 @@ export function PolicyFormTPOnlyForm({ category, vehicleStatus, data, onChange, 
             <input
               type="text"
               readOnly
-              value={data.calculatedResult?.outputs?.netTpPremium?.toString() || (data.thirdPartyPremium || '0.00')}
+              value={error ? '—' : loading ? 'Calculating…' : result?.outputs?.netTpPremium?.toString() || '—'}
               className="w-full p-2 rounded-lg border text-xs font-semibold bg-muted border-border opacity-80"
             />
           </div>
@@ -275,16 +307,18 @@ export function PolicyFormTPOnlyForm({ category, vehicleStatus, data, onChange, 
             <input
               type="text"
               readOnly
-              value={data.calculatedResult?.outputs?.totalPremium?.toString() || data.totalPremiumInclGST || '0.00'}
+              value={error ? '—' : loading ? 'Calculating…' : result?.outputs?.totalPremium?.toString() || '—'}
               className="w-full p-2 rounded-lg border text-xs font-bold text-sky-700 bg-sky-50 border-sky-200"
             />
           </div>
         </div>
 
         <p className="text-[10px] text-muted-foreground font-mono">
-          Formula: (TP Base - TP Discount) + 18% GST = Final Payable
+          Formula: (TP Base - TP Discount) + {data.calculatedResult?.rateConfig?.gstRatePercent ?? (data.gstRate ? parseInt(data.gstRate) : 18)}% GST = Final Payable
         </p>
       </div>
+      {error && <div role="alert" className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-xs text-destructive">Premium calculation failed: {error}</div>}
+      <CommissionBreakdownPanel calculation={loading || error ? undefined : result} components={['TP']} loading={loading} error={error} />
     </div>
   );
 }

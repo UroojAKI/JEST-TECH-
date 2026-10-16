@@ -53,13 +53,55 @@ describe('End-to-End Agent Journey: Lead -> Contact -> Quote -> Payment -> Polic
     app = moduleRef.createNestApplication();
     await app.init();
 
-    const user = await prisma.user.findFirst({
+    let user = await prisma.user.findFirst({
       where: { branchId: { not: null } },
       include: { branch: true },
     });
 
     if (!user) {
-      throw new Error('Test requires a seeded user with a valid branchId.');
+      const company = await prisma.company.create({
+        data: {
+          name: 'E2E Agent Company',
+          code: `AGTCO_${Date.now()}`,
+          isActive: true,
+        },
+      });
+      const region = await prisma.region.create({
+        data: {
+          name: 'E2E Agent Region',
+          code: `REG_${Date.now()}`,
+          companyId: company.id,
+          isActive: true,
+        },
+      });
+      const zone = await prisma.zone.create({
+        data: {
+          name: 'E2E Agent Zone',
+          code: `ZN_${Date.now()}`,
+          regionId: region.id,
+          isActive: true,
+        },
+      });
+      const branch = await prisma.branch.create({
+        data: {
+          name: 'E2E Agent Branch',
+          code: `BR_${Date.now()}`,
+          zoneId: zone.id,
+          isActive: true,
+        },
+      });
+      user = await prisma.user.create({
+        data: {
+          email: `agent.e2e.${Date.now()}@example.com`,
+          passwordHash: 'seeded_dummy_hash_for_test',
+          firstName: 'Agent',
+          lastName: 'Tester',
+          companyId: company.id,
+          branchId: branch.id,
+          status: 'ACTIVE',
+        },
+        include: { branch: true },
+      });
     }
 
     testUserId = user.id;
@@ -92,9 +134,6 @@ describe('End-to-End Agent Journey: Lead -> Contact -> Quote -> Payment -> Polic
     if (createdPolicyId) {
       await prisma.outboxEvent.deleteMany({
         where: { aggregateId: createdPolicyId },
-      });
-      await prisma.auditLog.deleteMany({
-        where: { entityId: createdPolicyId },
       });
       await prisma.renewalJob.deleteMany({
         where: { policyId: createdPolicyId },

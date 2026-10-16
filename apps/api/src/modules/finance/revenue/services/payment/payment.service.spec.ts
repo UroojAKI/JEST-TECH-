@@ -20,9 +20,12 @@ describe('PaymentService', () => {
               update: jest.fn(),
             },
             policy: {
-              findUnique: jest
+              findFirst: jest
                 .fn()
-                .mockResolvedValue({ id: 'pol-1', contactId: 'con-1' }),
+                .mockResolvedValue({ id: 'pol-1', contactId: 'con-1', customerId: 'customer-1' }),
+            },
+            customer: {
+              findFirst: jest.fn().mockResolvedValue({ id: 'customer-1' }),
             },
             receipt: {
               create: jest.fn(),
@@ -47,11 +50,11 @@ describe('PaymentService', () => {
   });
 
   it('should throw if payment amount is zero or negative', async () => {
-    await expect(service.processPayment('inv-1', '0', 'CASH')).rejects.toThrow(
+    await expect(service.processPayment('inv-1', '0', 'CASH', 'company-1')).rejects.toThrow(
       BadRequestException,
     );
     await expect(
-      service.processPayment('inv-1', '-50', 'CASH'),
+      service.processPayment('inv-1', '-50', 'CASH', 'company-1'),
     ).rejects.toThrow(BadRequestException);
   });
 
@@ -67,7 +70,7 @@ describe('PaymentService', () => {
     } as any);
 
     await expect(
-      service.processPayment('inv-1', '500', 'CASH'),
+      service.processPayment('inv-1', '500', 'CASH', 'company-1'),
     ).rejects.toThrow(/exceeds outstanding balance/);
   });
 
@@ -90,7 +93,7 @@ describe('PaymentService', () => {
       .spyOn(prisma.invoice, 'update')
       .mockResolvedValue({ id: 'inv-1', status: 'PARTIAL' } as any);
 
-    const result = await service.processPayment('inv-1', '400', 'CASH');
+    const result = await service.processPayment('inv-1', '400', 'CASH', 'company-1');
 
     expect(result.invoice.status).toBe('PARTIAL');
     expect(prisma.invoice.update).toHaveBeenCalledWith(
@@ -121,13 +124,36 @@ describe('PaymentService', () => {
       .spyOn(prisma.invoice, 'update')
       .mockResolvedValue({ id: 'inv-1', status: 'PAID' } as any);
 
-    const result = await service.processPayment('inv-1', '400', 'CASH');
+    const result = await service.processPayment('inv-1', '400', 'CASH', 'company-1');
 
     expect(result.invoice.status).toBe('PAID');
+    expect(prisma.policy.findFirst).toHaveBeenCalledWith({
+      where: { id: 'pol-1', companyId: 'company-1', deletedAt: null },
+      select: { id: true, contactId: true, customerId: true },
+    });
+    expect(prisma.receipt.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({ customerId: 'customer-1' }),
+    });
     expect(prisma.invoice.update).toHaveBeenCalledWith(
       expect.objectContaining({
         data: { status: 'PAID' },
       }),
     );
+  });
+
+  it('does not allocate a receipt for a policy outside the caller company', async () => {
+    jest.spyOn(prisma.invoice, 'findUnique').mockResolvedValue({
+      id: 'inv-1',
+      entityType: 'POLICY',
+      entityId: 'pol-1',
+      totalAmount: new Decimal(1000),
+      allocations: [],
+    } as any);
+    jest.spyOn(prisma.policy, 'findFirst').mockResolvedValue(null as any);
+
+    await expect(
+      service.processPayment('inv-1', '100', 'CASH', 'company-2'),
+    ).rejects.toThrow(/not payable for this company/);
+    expect(prisma.receipt.create).not.toHaveBeenCalled();
   });
 });

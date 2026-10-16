@@ -1,13 +1,17 @@
-'use client';
-
-import React from 'react';
+import React, { useEffect } from 'react';
 import { ShieldCheck, AlertTriangle, CheckCircle, Info, Calculator, Percent } from 'lucide-react';
 import { INSURER_OPTIONS, NCB_OPTIONS, ADDON_OPTIONS } from './motorFormConfig';
-import type { PolicyFormSAOD, SaodTpVerification } from './motorFormTypes';
+import type { PolicyFormSAOD, SaodTpVerification, VehicleCategory, MotorEligibilityContext } from './motorFormTypes';
+import { GstRateSelector } from './GstRateSelector';
+import { CommissionBreakdownPanel } from './CommissionBreakdownPanel';
+import { useMotorCalculator } from './useMotorCalculator';
 
 interface Props {
+  category?: VehicleCategory;
+  vehicleStatus?: 'NEW' | 'EXISTING';
   data: PolicyFormSAOD;
   onChange: (data: PolicyFormSAOD) => void;
+  eligibility?: MotorEligibilityContext;
 }
 
 const inputBase = 'w-full p-2 rounded-lg border text-xs font-semibold bg-background focus:outline-none focus:ring-1 focus:ring-primary transition-colors border-border';
@@ -40,7 +44,7 @@ function FieldRow({ label, mandatory, conditional, children, hint, formula }: {
   );
 }
 
-export function PolicyFormSAODForm({ data, onChange }: Props) {
+export function PolicyFormSAODForm({ category, vehicleStatus, data, onChange, eligibility }: Props) {
   const set = (key: keyof PolicyFormSAOD) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
     onChange({ ...data, [key]: e.target.value });
 
@@ -54,81 +58,102 @@ export function PolicyFormSAODForm({ data, onChange }: Props) {
     });
   };
 
-  const recalcPremium = (updated: PolicyFormSAOD): PolicyFormSAOD => {
-    const odBase = parseFloat(updated.odPremiumBase || '0') || 0;
-    const ncb = parseFloat(updated.ncbPercentage || '0') || 0;
+  const effectiveCategory = category || 'PRIVATE_CAR';
+  const effectiveStatus = eligibility ? eligibility.vehicleStatus : (vehicleStatus || 'EXISTING');
 
-    // Sum prices of selected addons (Field 9)
-    const selectedAddons = updated.addonsSelected || [];
-    const addOnsTotal = selectedAddons.reduce((sum, key) => {
-      const price = parseFloat(updated.addonPrices?.[key] || '0') || 0;
-      return sum + price;
-    }, 0);
+  useEffect(() => {
+    if (data.odCommissionPercent || data.commissionAmount) {
+      onChange({ ...data, odCommissionPercent: '', commissionAmount: '' });
+    }
+    // Legacy commission values were user-entered and are not an approved calculation result.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-    const ncbDiscount = Math.round(odBase * (ncb / 100));
-    const netOd = Math.max(0, odBase - ncbDiscount + addOnsTotal);
+  const { result, loading, error } = useMotorCalculator({
+    vehicleCategory: effectiveCategory,
+    vehicleStatus: effectiveStatus,
+    policyType: 'STANDALONE_OD',
+    policyTenure: 1,
+    idv: parseFloat(data.insuredDeclaredValue || '0') || 0,
+    ncbPercent: parseInt(data.ncbPercentage || '0') || 0,
+    claimInExpiringPolicy: data.claimInExpiringODPolicy === 'Yes',
+    discountPercent: parseFloat(data.discountPercent || '0') || 0,
+    gstRate: data.gstRate ? parseInt(data.gstRate) : 18,
+    addons: (data.addonsSelected || []).map((a) => ({ addonCode: a })),
+  });
 
-    // Commission
-    const commPct = parseFloat(updated.odCommissionPercent || '0') || 0;
-    const commission = Math.round(netOd * (commPct / 100));
+  useEffect(() => {
+    if ((loading || error) && (data.calculatedResult || data.totalPremiumInclGST || data.finalPayableAmount || data.odPremium || data.gstAmount || data.addOnsPremium)) {
+      onChange({
+        ...data,
+        calculatedResult: undefined,
+        totalPremiumInclGST: '',
+        finalPayableAmount: '',
+        odPremium: '',
+        gstAmount: '',
+        addOnsPremium: '',
+        ncbDiscountAmount: '',
+        discountAmount: '',
+      });
+    }
+    // Prevent a prior vehicle calculation being submitted after a failed request.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, error]);
 
-    // Field 13: Discount / Commission Calculator
-    const dPct = parseFloat(updated.discountPercent || '0') || 0;
-    const discountAmt = Math.round((netOd * (dPct / 100)) * 100) / 100;
-    
-    // Calculate final OD after discount
-    const discountedNetOd = Math.max(0, netOd - discountAmt);
-    
-    // Recalculate GST based on discounted OD
-    const gst = Math.round(discountedNetOd * 0.18 * 100) / 100;
-    const total = Math.round((discountedNetOd + gst) * 100) / 100;
-    
-    const finalPayable = total;
-    const calcStr = discountAmt > 0
-      ? `₹${discountAmt.toLocaleString('en-IN')} (Discount ${dPct}%: Final ₹${finalPayable.toLocaleString('en-IN')})`
-      : `₹0 (Gross: ₹${total.toLocaleString('en-IN')})`;
+  useEffect(() => {
+    if (result && result.outputs) {
+      const outputs = result.outputs;
+      const netOd = (outputs.netOdPremium ?? outputs.netOdComponent ?? 0).toString();
+      const ncbDiscount = (outputs.ncbDiscount ?? 0).toString();
+      const addOnsTotal = (outputs.addonPremium ?? 0).toString();
+      const gst = (outputs.totalGst ?? outputs.gstOnOd ?? 0).toString();
+      const total = (outputs.finalPayableAmount ?? outputs.totalPremium ?? 0).toString();
+      // Keep the discretionary OD discount separate from NCB in the user-facing breakdown.
+      const dAmt = (outputs.specialDiscount ?? 0).toString();
+      const baseOd = (outputs.baseOdPremium ?? 0).toString();
 
-    return {
-      ...updated,
-      addOnsPremium: addOnsTotal.toString(),
-      ncbDiscountAmount: ncbDiscount.toString(),
-      odPremium: netOd.toString(),
-      gstAmount: gst.toString(),
-      totalPremiumInclGST: total.toString(),
-      commissionAmount: commission.toString(),
-      discountAmount: discountAmt.toString(),
-      finalPayableAmount: finalPayable.toString(),
-      commissionDiscountCalc: calcStr,
-    };
-  };
+      onChange({
+        ...data,
+        odPremiumBase: baseOd || data.odPremiumBase,
+        addOnsPremium: addOnsTotal,
+        ncbDiscountAmount: ncbDiscount,
+        odPremium: netOd,
+        gstAmount: gst,
+        totalPremiumInclGST: total,
+        discountAmount: dAmt,
+        odCommissionPercent: '',
+        commissionAmount: '',
+        finalPayableAmount: total,
+        gstRate: (result.rateConfig?.gstRatePercent ?? (data.gstRate ? parseInt(data.gstRate) : 18)).toString(),
+        calculatedResult: result,
+      });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [result]);
 
-  const handleOdBaseChange = (val: string) => onChange(recalcPremium({ ...data, odPremiumBase: val }));
-  const handleNcbChange = (val: string) => onChange(recalcPremium({ ...data, ncbPercentage: val }));
-  const handleCommissionChange = (val: string) => onChange(recalcPremium({ ...data, odCommissionPercent: val }));
+  const handleNcbChange = (val: string) => onChange({ ...data, ncbPercentage: val });
 
   const handleClaimChange = (val: string) => {
     const ncb = val === 'Yes' ? '0' : data.ncbPercentage;
-    onChange(recalcPremium({ ...data, claimInExpiringODPolicy: val, ncbPercentage: ncb }));
+    onChange({ ...data, claimInExpiringODPolicy: val, ncbPercentage: ncb });
   };
 
   const toggleAddon = (key: string) => {
     const current = data.addonsSelected || [];
     const updated = current.includes(key) ? current.filter((a) => a !== key) : [...current, key];
-    onChange(recalcPremium({ ...data, addonsSelected: updated }));
-  };
-
-  const handleAddonPriceChange = (key: string, price: string) => {
-    const updatedPrices = { ...(data.addonPrices || {}), [key]: price };
-    onChange(recalcPremium({ ...data, addonPrices: updatedPrices }));
+    onChange({ ...data, addonsSelected: updated });
   };
 
   const handleDiscountPercentChange = (val: string) => {
-    onChange(recalcPremium({ ...data, discountPercent: val }));
+    onChange({ ...data, discountPercent: val });
   };
 
   const verification = data.tpVerification;
   const isVerified = verification?.verificationStatus === 'VERIFIED' && verification?.verifiedByUserConfirmed;
   const tpExpired = verification?.tpExpiryDate ? new Date(verification.tpExpiryDate) <= new Date() : false;
+  const hasValidCalculation = !loading && !error && Boolean(result);
+  const outputs = hasValidCalculation ? (result?.outputs || {}) : {};
+  const itemizedAddons: any[] = Array.isArray(outputs.itemizedAddons) ? outputs.itemizedAddons : [];
 
   return (
     <div className="space-y-4">
@@ -349,18 +374,20 @@ export function PolicyFormSAODForm({ data, onChange }: Props) {
                   />
                   <span>{a.label}</span>
                 </label>
-                {isSelected && (
-                  <div className="mt-1 flex items-center gap-1.5">
-                    <span className="text-[10px] font-bold text-muted-foreground">₹</span>
-                    <input
-                      type="number"
-                      placeholder="Add-on Amount (₹)"
-                      value={data.addonPrices?.[a.key] || ''}
-                      onChange={(e) => handleAddonPriceChange(a.key, e.target.value)}
-                      className="w-full p-1.5 rounded-md border text-xs font-mono font-semibold bg-background focus:outline-none focus:ring-1 focus:ring-primary"
-                    />
-                  </div>
-                )}
+                {isSelected && (() => {
+                  const pricedAddon = itemizedAddons.find((item: any) => item.addonCode === a.key);
+                  return (
+                    <div className="mt-1 rounded-md bg-muted/50 px-2 py-1.5 text-[10px]">
+                      {pricedAddon
+                        ? <span className="font-semibold">Calculated premium: ₹{Number(pricedAddon.amount).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                        : error
+                          ? <span className="text-destructive">Price unavailable — resolve the calculator error below.</span>
+                          : loading
+                            ? <span className="text-muted-foreground">Calculating configured premium…</span>
+                            : <span className="text-muted-foreground">Price is calculated by the server.</span>}
+                    </div>
+                  );
+                })()}
               </div>
             );
           })}
@@ -374,35 +401,38 @@ export function PolicyFormSAODForm({ data, onChange }: Props) {
             <ShieldCheck className="h-4 w-4 text-primary" />
             <span className="text-xs font-black text-foreground">OD Premium Calculator (Fields 10 & 11)</span>
           </div>
-          <span className="text-[9px] text-muted-foreground font-semibold">OD Filed Rate + 18% GST</span>
+          <span className="text-[9px] text-muted-foreground font-semibold">
+            OD Filed Rate + {String(data.gstRate || '18') === '5' ? '5%' : '18%'} GST
+          </span>
         </div>
+
+        <GstRateSelector
+          value={data.gstRate}
+          onChange={(rate) => onChange({ ...data, gstRate: rate })}
+        />
+
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
           <FieldRow label="OD Base Premium (₹)" mandatory hint="Insurer OD rate applied to IDV" formula="IDV × Insurer OD Rate %">
-            <input type="number" value={data.odPremiumBase} onChange={(e) => handleOdBaseChange(e.target.value)} placeholder="Enter base OD premium" className={mandatoryInput(data.odPremiumBase)} />
+            <input type="number" value={hasValidCalculation ? (outputs.baseOdPremium?.toString() ?? data.odPremiumBase) : ''} readOnly aria-readonly="true" className={readonlyInput} placeholder="Calculated from configured insurer OD rate" />
           </FieldRow>
           <FieldRow label="NCB Discount (₹)" hint="Auto-calculated from NCB %">
-            <input type="number" value={data.ncbDiscountAmount} readOnly className={readonlyInput} placeholder="Auto-calculated" />
+            <input type="number" value={hasValidCalculation ? (outputs.ncbDiscount ?? data.ncbDiscountAmount) : ''} readOnly className={readonlyInput} placeholder="Auto-calculated" />
           </FieldRow>
           <FieldRow label="Add-ons Premium (₹)" hint="Sum of individual add-on inputs">
-            <input type="number" value={data.addOnsPremium} readOnly className={readonlyInput} placeholder="₹0" />
+            <input type="number" value={hasValidCalculation ? (outputs.addonPremium ?? data.addOnsPremium) : ''} readOnly className={readonlyInput} placeholder="₹0" />
           </FieldRow>
           <FieldRow label="Net OD Premium (₹) [Field 10]" hint="Auto-calc: OD Base - NCB + Add-ons">
-            <input type="number" value={data.odPremium} readOnly className={`${readonlyInput} font-bold text-foreground`} placeholder="Auto-calculated" />
+            <input type="number" value={hasValidCalculation ? (outputs.netOdPremium ?? outputs.netOdComponent ?? data.odPremium) : ''} readOnly className={`${readonlyInput} font-bold text-foreground`} placeholder="Auto-calculated" />
           </FieldRow>
-          <FieldRow label="Statutory GST (18%) ₹" hint="18% of Net OD Premium">
-            <input type="number" value={data.gstAmount} readOnly className={readonlyInput} placeholder="Auto-calculated" />
+          <FieldRow label={`Statutory GST (${String(data.gstRate || '18') === '5' ? '5%' : '18%'}) ₹`} hint={`${String(data.gstRate || '18') === '5' ? '5%' : '18%'} of Net OD Premium`}>
+            <input type="number" value={hasValidCalculation ? (outputs.gstOnOd ?? outputs.totalGst ?? data.gstAmount) : ''} readOnly className={readonlyInput} placeholder="Auto-calculated" />
           </FieldRow>
           <FieldRow label="Total Premium incl. GST (₹) [Field 11]" mandatory hint="System-calculated authoritative gross">
-            <input type="number" value={data.totalPremiumInclGST} readOnly className={`${readonlyInput} font-black text-primary text-sm`} placeholder="Auto-calculated" />
+            <input type="number" value={hasValidCalculation ? (outputs.finalPayableAmount ?? outputs.totalPremium ?? data.totalPremiumInclGST) : ''} readOnly className={`${readonlyInput} font-black text-primary text-sm`} placeholder="Auto-calculated" />
           </FieldRow>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-border">
-          <FieldRow label="OD Commission %" mandatory hint="Insurer commission rate for OD">
-            <input type="number" value={data.odCommissionPercent} onChange={(e) => handleCommissionChange(e.target.value)} placeholder="e.g. 15" min="0" max="100" className={mandatoryInput(data.odCommissionPercent)} />
-          </FieldRow>
-          <FieldRow label="Commission Amount (₹)" hint="Auto-calc: Net OD × Commission %">
-            <input type="number" value={data.commissionAmount} readOnly className={readonlyInput} placeholder="Auto-calculated" />
-          </FieldRow>
+
         </div>
       </div>
 
@@ -433,7 +463,7 @@ export function PolicyFormSAODForm({ data, onChange }: Props) {
             <Calculator className="h-4 w-4 text-primary" />
             <span className="text-xs font-black text-foreground">Commision / Discount Calculator</span>
             <span className="text-[9px] font-bold text-primary px-2 py-0.5 rounded bg-primary/10 border border-primary/20">
-              IRDAI Formula: Sum of 10* D% - 11
+              Server-calculated OD discount
             </span>
           </div>
           <span className="text-[10px] text-muted-foreground font-mono">Field 13</span>
@@ -466,7 +496,7 @@ export function PolicyFormSAODForm({ data, onChange }: Props) {
           >
             <input
               type="number"
-              value={data.discountAmount || '0'}
+              value={hasValidCalculation ? (outputs.specialDiscount ?? data.discountAmount ?? '0') : ''}
               readOnly
               className={`${readonlyInput} font-mono font-bold text-amber-600`}
               placeholder="₹0"
@@ -481,14 +511,16 @@ export function PolicyFormSAODForm({ data, onChange }: Props) {
               Final Net Payable by Customer
             </span>
             <span className="text-[10px] text-muted-foreground font-mono">
-              Total Premium (Field 11) - Discount Amount (10 × D%)
+              Server-calculated premium after applicable discounts and tax
             </span>
           </div>
           <div className="text-2xl font-black text-emerald-700 dark:text-emerald-400">
-            ₹{Number(data.finalPayableAmount || data.totalPremiumInclGST || 0).toLocaleString('en-IN')}
+            {hasValidCalculation ? '₹' + Number(outputs.finalPayableAmount ?? outputs.totalPremium ?? data.finalPayableAmount ?? data.totalPremiumInclGST ?? 0).toLocaleString('en-IN') : '—'}
           </div>
         </div>
       </div>
+      {error && <div role="alert" className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-xs text-destructive">Premium calculation failed: {error}</div>}
+      <CommissionBreakdownPanel calculation={loading || error ? undefined : result} components={['OD']} loading={loading} error={error} />
     </div>
   );
 }

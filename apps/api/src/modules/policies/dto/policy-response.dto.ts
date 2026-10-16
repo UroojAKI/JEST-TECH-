@@ -51,6 +51,38 @@ export class PolicyHistoryResponseDto {
   createdAt: Date;
 }
 
+export class PolicyVehicleResponseDto {
+  id: string;
+  registrationNumber?: string | null;
+  makeModel?: string | null;
+  manufactureYearMonth?: string | null;
+  engineNumber?: string | null;
+  chassisNumber?: string | null;
+  fuelType?: string | null;
+  rtoLocation?: string | null;
+  category?: string | null;
+}
+
+export class PolicyClaimResponseDto {
+  id: string;
+  claimNumber: string;
+  status: string;
+  incidentDate?: Date | null;
+  claimAmount?: number;
+  approvedAmount?: number | null;
+  description?: string | null;
+  createdAt?: Date;
+}
+
+export class PolicyEndorsementResponseDto {
+  id: string;
+  endorsementNumber?: string | null;
+  type: string;
+  status: string;
+  reason?: string | null;
+  createdAt: Date;
+}
+
 export class PolicyResponseDto {
   id: string;
   policyNumber: string;
@@ -65,6 +97,33 @@ export class PolicyResponseDto {
   updatedById: string | null;
   createdAt: Date;
   updatedAt: Date;
+
+  // Authoritative linked and derived fields
+  contactName?: string | null;
+  contactPhone?: string | null;
+  contactEmail?: string | null;
+  customerName?: string | null;
+  customerId?: string | null;
+  insurerName?: string | null;
+  productLine?: string | null;
+  policyType?: string | null;
+  totalPremium?: number;
+  idvValue?: number;
+  startDate?: Date | null;
+  endDate?: Date | null;
+  odStartDate?: Date | null;
+  odExpiryDate?: Date | null;
+  tpStartDate?: Date | null;
+  tpExpiryDate?: Date | null;
+  paymentStatus?: string | null;
+  paidAmount?: number;
+  outstandingBalance?: number;
+  renewalExecutive?: string | null;
+  claimsCount?: number;
+
+  vehicle?: PolicyVehicleResponseDto | null;
+  claims?: PolicyClaimResponseDto[];
+  endorsements?: PolicyEndorsementResponseDto[];
 
   members?: PolicyMemberResponseDto[];
   nominees?: PolicyNomineeResponseDto[];

@@ -19,8 +19,12 @@ export default function DashboardPage() {
 
     if (roles.some((r) => ['ADMIN', 'SUPER_ADMIN', 'SYSTEM_ADMINISTRATOR'].includes(r))) {
       router.replace('/workspace/admin');
-    } else if (roles.some((r) => ['BACK_OFFICE', 'OPERATIONS', 'UNDERWRITER', 'FINANCE', 'FINANCE_OFFICER', 'CLAIMS_HANDLER'].includes(r))) {
-      router.replace('/workspace/operations');
+    } else if (roles.some((r) => ['BACK_OFFICE', 'OPERATIONS', 'UNDERWRITER'].includes(r))) {
+      router.replace('/workspace/operations/issuance');
+    } else if (roles.some((r) => ['FINANCE', 'FINANCE_OFFICER'].includes(r))) {
+      router.replace('/workspace/finance');
+    } else if (roles.includes('CLAIMS_HANDLER')) {
+      router.replace('/claims');
     } else if (roles.some((r) => ['AGENT', 'SALES_AGENT'].includes(r))) {
       router.replace('/workspace/sales');
     } else {

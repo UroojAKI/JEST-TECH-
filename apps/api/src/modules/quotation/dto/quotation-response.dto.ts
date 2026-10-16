@@ -107,4 +107,7 @@ export class QuotationResponseDto {
   histories?: QuotationHistoryResponseDto[];
   documents?: QuotationDocumentResponseDto[];
   motorDocuments?: QuotationMotorDocumentResponseDto[];
+  contact?: any;
+  vehicle?: any;
+  motorPaymentRecord?: any;
 }

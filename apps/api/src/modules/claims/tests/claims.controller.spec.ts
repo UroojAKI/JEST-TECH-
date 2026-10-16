@@ -281,6 +281,14 @@ describe('ClaimsController', () => {
   });
 
   describe('Exception Handling', () => {
+    it('does not allow generic edits to closed claims', async () => {
+      jest.spyOn(controller['claimRepository'], 'findById').mockResolvedValueOnce({
+        ...mockClaimResponse,
+        status: ClaimStatus.CLOSED,
+      } as any);
+      await expect(controller.update('claim-123', { surveyorName: 'Changed' }, mockUser))
+        .rejects.toThrow(BadRequestException);
+    });
     it('should propagate NotFoundException when claim is missing', async () => {
       jest
         .spyOn(getClaimsService, 'executeOne')

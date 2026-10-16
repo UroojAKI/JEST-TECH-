@@ -26,12 +26,14 @@ export class PremiumService {
       coverType === ProductType.PACKAGE_COMPREHENSIVE ||
       coverType === ProductType.STANDALONE_OWN_DAMAGE
     ) {
-      const baseOdRate = rtoZone === 'ZONE_A' ? 0.03127 : 0.03082;
-      let ccMultiplier = 1.0;
-      if (engineCc > 1500) ccMultiplier = 1.3;
-      else if (engineCc > 1000) ccMultiplier = 1.15;
-
-      odPremium = Math.round(idv * baseOdRate * ccMultiplier);
+      const baseRateNumerator = rtoZone === 'ZONE_A' ? 3127n : 3082n;
+      const rateDenominator = 100_000n;
+      const multiplierNumerator =
+        engineCc > 1500 ? 130n : engineCc > 1000 ? 115n : 100n;
+      const idvCents = BigInt(Math.round(idv * 100));
+      const numerator = idvCents * baseRateNumerator * multiplierNumerator;
+      const denominator = rateDenominator * 100n * 100n;
+      odPremium = Number((numerator + denominator / 2n) / denominator);
     }
 
     // 2. Third Party (TP) IRDAI Tariff Table Calculation

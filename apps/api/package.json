@@ -17,13 +17,13 @@
     "start:debug": "nest start --debug --watch",
     "start:prod": "node dist/main",
     "lint": "eslint \"src/**/*.ts\" \"test/**/*.ts\" --fix",
-    "test": "jest",
+    "test": "jest --runInBand",
     "test:watch": "jest --watch",
-    "test:cov": "jest --coverage",
+    "test:cov": "jest --coverage --runInBand",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
-    "test:e2e": "jest --config ./test/jest-e2e.json --forceExit",
+    "test:e2e": "jest --config ./test/jest-e2e.json --forceExit --runInBand",
     "test:inspection:db": "jest --runInBand --runTestsByPath src/modules/motor/tests/motor-inspection-journey.db.spec.ts",
-    "test:cert": "jest --config ./test/jest-cert.json"
+    "test:cert": "jest --config ./test/jest-cert.json --runInBand"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1090.0",
@@ -58,7 +58,6 @@
     "cookie-parser": "^1.4.7",
     "dotenv": "^17.4.2",
     "exceljs": "^4.4.0",
-    "expr-eval": "^2.0.2",
     "express": "^4.21.2",
     "helmet": "^8.3.0",
     "ioredis": "^5.11.1",
@@ -86,7 +85,6 @@
     "@nestjs/schematics": "^11.0.0",
     "@nestjs/testing": "^11.0.1",
     "@types/cookie-parser": "^1.4.10",
-    "@types/expr-eval": "^1.1.2",
     "@types/express": "^5.0.0",
     "@types/jest": "^30.0.0",
     "@types/multer": "^2.2.0",

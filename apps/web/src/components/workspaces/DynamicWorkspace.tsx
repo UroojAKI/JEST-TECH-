@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../../lib/api-client';
@@ -20,6 +20,7 @@ import { InspectionDialog } from '../leads/motor-quote/InspectionDialog';
 import { MotorProposalWizard } from '../leads/motor-quote/MotorProposalWizard';
 import { PolicyCompletionDialog } from '../leads/motor-quote/PolicyCompletionDialog';
 import type { VehicleCategory, SavedMotorQuote } from '../leads/motor-quote/motorFormTypes';
+import { useAuthStore } from '../../store/auth-store';
 
 interface DynamicWorkspaceProps {
   roleLabel: string;
@@ -75,6 +76,15 @@ function KpiCard({ title, value, subtitle, trend, trendValue, color = 'primary' 
 }
 
 export function DynamicWorkspace({ roleLabel, roleIcon, fallbackRole, customContent }: DynamicWorkspaceProps) {
+  const authUser = useAuthStore((s) => s.user);
+  const userRoles = [
+    ...(authUser?.roles || []),
+    authUser?.role,
+  ].filter(Boolean).map((r) => String(r).toUpperCase());
+  const isBackOfficeOrAdmin = userRoles.some((r) =>
+    ['ADMIN', 'SUPER_ADMIN', 'SYSTEM_ADMINISTRATOR', 'BACK_OFFICE', 'OPERATIONS', 'UNDERWRITER'].includes(r)
+  );
+
   const [activeTab, setActiveTab] = useState<'OVERVIEW' | 'QUOTATIONS' | 'INSPECTIONS' | 'POLICIES' | 'RENEWALS' | 'CLAIMS'>('OVERVIEW');
   const [quoteFilter, setQuoteFilter] = useState<'ALL' | 'PENDING_INSPECTION' | 'PAYMENT_PENDING' | 'READY_TO_ISSUE' | 'ISSUED'>('ALL');
 
@@ -145,15 +155,18 @@ export function DynamicWorkspace({ roleLabel, roleIcon, fallbackRole, customCont
 
   // 6. Renewals
   const { data: renewalsData = [] } = useQuery({
-    queryKey: ['workspace-renewals-upcoming'],
+    queryKey: ['workspace-renewals-queue'],
     queryFn: async () => {
-      const res = await apiClient.get('/renewals/tasks', { params: { urgencyDays: 30 } });
-      const items = res.data?.items || res.data?.data || (Array.isArray(res.data) ? res.data : []);
+      const res = await apiClient.get('/policies/renewals/queue', { params: { limit: 100 } });
+      const items = res.data?.data || res.data?.items || (Array.isArray(res.data) ? res.data : []);
       return Array.isArray(items) ? items : [];
     },
     staleTime: 60 * 1000,
   });
-  const renewals = Array.isArray(renewalsData) ? renewalsData : [];
+  const renewals = useMemo(() => {
+    const list = Array.isArray(renewalsData) ? [...renewalsData] : [];
+    return list.sort((a: any, b: any) => (a.daysRemaining ?? 0) - (b.daysRemaining ?? 0));
+  }, [renewalsData]);
 
   // 7. Claims
   const { data: claimsData = [] } = useQuery({
@@ -242,7 +255,7 @@ export function DynamicWorkspace({ roleLabel, roleIcon, fallbackRole, customCont
         <KpiCard title="Pending Inspections" value={inspectionNeededQuotes.length} subtitle="Action required" color="amber" />
         <KpiCard title="Ready to Issue" value={readyToIssueQuotes.length} subtitle="Payment confirmed" color="emerald" />
         <KpiCard title="Issued Policies" value={policies.length} subtitle="In-force portfolio" color="violet" />
-        <KpiCard title="Renewals (30D)" value={renewals.length} subtitle="Retention target" color="rose" />
+        <KpiCard title="Renewals" value={renewals.length} subtitle="Retention target" color="rose" />
       </div>
 
       {/* Unified Pipeline Navigation Tabs */}
@@ -519,7 +532,7 @@ export function DynamicWorkspace({ roleLabel, roleIcon, fallbackRole, customCont
                   onUploadQuote={(id) => toast.success(`Document uploaded for quote #${id.slice(-6)}`)}
                   onConductInspection={setInspectionQuoteId}
                   onCompleteProposal={setProposalQuote}
-                  onIssuePolicy={setCompletionQuote}
+                  onIssuePolicy={isBackOfficeOrAdmin ? setCompletionQuote : undefined}
                   onAddComparisonQuote={(q) => handleOpenWizard(q.vehicleCategory, { vehicleDetails: q.vehicleDetails, proposerDetails: q.proposerDetails })}
                 />
               ))}
@@ -556,7 +569,7 @@ export function DynamicWorkspace({ roleLabel, roleIcon, fallbackRole, customCont
                   onUploadQuote={() => {}}
                   onConductInspection={setInspectionQuoteId}
                   onCompleteProposal={setProposalQuote}
-                  onIssuePolicy={setCompletionQuote}
+                  onIssuePolicy={isBackOfficeOrAdmin ? setCompletionQuote : undefined}
                 />
               ))}
             </div>
@@ -653,24 +666,32 @@ export function DynamicWorkspace({ roleLabel, roleIcon, fallbackRole, customCont
                       <td className="p-3.5 font-semibold text-foreground">{r.customerName || r.proposerName || 'Customer'}</td>
                       <td className="p-3.5 font-mono text-[11px] text-muted-foreground">{r.expiryDate ? new Date(r.expiryDate).toLocaleDateString('en-IN') : 'Soon'}</td>
                       <td className="p-3.5">
-                        <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-rose-500/10 text-rose-600 border border-rose-500/20">
-                          {r.daysRemaining ? `${r.daysRemaining} days left` : 'Due Soon'}
+                        <span
+                          className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${
+                            (r.daysRemaining ?? 0) <= 7
+                              ? 'bg-rose-500/10 text-rose-600 border border-rose-500/20'
+                              : (r.daysRemaining ?? 0) <= 30
+                                ? 'bg-amber-500/10 text-amber-600 border border-amber-500/20'
+                                : 'bg-emerald-500/10 text-emerald-600 border border-emerald-500/20'
+                          }`}
+                        >
+                          {(r.daysRemaining ?? 0) < 0 ? 'EXPIRED' : `${r.daysRemaining ?? 0} days left`}
                         </span>
                       </td>
-                      <td className="p-3.5 text-right font-bold text-primary">₹{Number(r.premiumAmount || 0).toLocaleString('en-IN')}</td>
+                      <td className="p-3.5 text-right font-bold text-primary">₹{Number(r.estimatedRenewalPremium || r.lastPremium || r.premiumAmount || 0).toLocaleString('en-IN')}</td>
                       <td className="p-3.5 text-center">
-                        <button
-                          onClick={() => handleOpenWizard()}
-                          className="px-3 py-1 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary font-bold text-xs transition-colors"
+                        <Link
+                          href={`/sales/quotations?renewPolicyId=${r.id}`}
+                          className="px-3 py-1 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary font-bold text-xs transition-colors inline-block"
                         >
                           Generate Renewal Quote
-                        </button>
+                        </Link>
                       </td>
                     </tr>
                   )) : (
                     <tr>
                       <td colSpan={6} className="text-center py-10 text-muted-foreground text-xs">
-                        No upcoming renewals due in the next 30 days.
+                        No renewal policies found.
                       </td>
                     </tr>
                   )}
@@ -771,7 +792,7 @@ export function DynamicWorkspace({ roleLabel, roleIcon, fallbackRole, customCont
           onSuccess={(updated) => {
             setProposalQuote(null);
             void refetch();
-            if (updated?.status === 'PENDING_ISSUANCE' || updated?.status === 'PAYMENT_DONE') {
+            if (isBackOfficeOrAdmin && (updated?.status === 'PENDING_ISSUANCE' || updated?.status === 'PAYMENT_DONE')) {
               setCompletionQuote(updated);
             }
           }}

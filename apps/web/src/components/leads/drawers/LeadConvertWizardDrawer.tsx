@@ -138,7 +138,7 @@ export function LeadConvertWizardDrawer({ isOpen, leadId, lead, onClose }: LeadC
     { num: 1, title: 'Verify Customer' },
     { num: 2, title: 'Motor Pricing Engine' },
     { num: 3, title: 'Proposal Approval' },
-    { num: 4, title: 'Issue Policy' },
+    { num: 4, title: 'Submit for Issuance' },
   ];
 
   return (
@@ -419,8 +419,8 @@ export function LeadConvertWizardDrawer({ isOpen, leadId, lead, onClose }: LeadC
 
           {step === 4 && (
             <div className="space-y-3">
-              <h4 className="font-bold text-sm">Step 4: Issue Policy & Generate Certificate</h4>
-              <p className="text-muted-foreground">Finalize payment confirmation and issue active policy record via API backend.</p>
+              <h4 className="font-bold text-sm">Step 4: Submit Quotation for Policy Issuance</h4>
+              <p className="text-muted-foreground">Finalize quotation details and submit to Back Office queue for authoritative policy issuance.</p>
               <div className="p-4 rounded-xl border bg-muted/20 space-y-1.5 font-mono text-xs">
                 <div>Lead Reference: <strong className="text-foreground">{leadId}</strong></div>
                 <div>Customer Name: <strong className="text-foreground">{leadName}</strong></div>
@@ -455,7 +455,7 @@ export function LeadConvertWizardDrawer({ isOpen, leadId, lead, onClose }: LeadC
               className="px-4 py-2 rounded-lg bg-emerald-600 text-white font-bold hover:bg-emerald-700 shadow-sm flex items-center space-x-1"
             >
               {isSubmitting && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
-              <span>{isSubmitting ? 'Issuing Policy...' : 'Issue Policy Now'}</span>
+              <span>{isSubmitting ? 'Submitting...' : 'Submit for Policy Issuance'}</span>
             </button>
           )}
         </div>

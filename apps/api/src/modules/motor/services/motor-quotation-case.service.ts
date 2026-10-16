@@ -270,7 +270,17 @@ export class MotorQuotationCaseService {
       throw new NotFoundException(`MotorQuotationCase '${caseId}' not found or access denied`);
     }
 
-    this.validateCaseTransition(motorCase.status, MotorCaseStatus.SELECTED);
+    const inspectionGateStatuses: MotorCaseStatus[] = [
+      MotorCaseStatus.INSPECTION_REQUIRED,
+      MotorCaseStatus.INSPECTION_SUBMITTED,
+      MotorCaseStatus.INSPECTION_APPROVED,
+      MotorCaseStatus.INSPECTION_WAIVED,
+      MotorCaseStatus.REWORK_REQUIRED,
+    ];
+    const keepsInspectionGate = inspectionGateStatuses.includes(motorCase.status);
+    if (!keepsInspectionGate) {
+      this.validateCaseTransition(motorCase.status, MotorCaseStatus.SELECTED);
+    }
 
     const quotation = await this.prisma.quotation.findFirst({
       where: { id: quotationId, companyId: user.companyId, caseId },
@@ -308,7 +318,9 @@ export class MotorQuotationCaseService {
         where: { id: caseId },
         data: {
           selectedQuoteId: quotationId,
-          status: MotorCaseStatus.SELECTED,
+          status: keepsInspectionGate
+            ? motorCase.status
+            : MotorCaseStatus.SELECTED,
         },
         include: {
           selectedQuote: true,
@@ -318,7 +330,9 @@ export class MotorQuotationCaseService {
       await tx.quotation.update({
         where: { id: quotationId },
         data: {
-          workflowState: 'READY_FOR_PROPOSAL',
+          workflowState: keepsInspectionGate
+            ? quotation.workflowState
+            : 'READY_FOR_PROPOSAL',
           motorMetadata: {
             ...((quotation.motorMetadata as any) || {}),
             caseSelection: 'SELECTED',

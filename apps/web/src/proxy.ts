@@ -15,6 +15,20 @@ const PROTECTED_PREFIXES = [
   '/workspace',
 ];
 
+function getSafeReturnUrl(rawUrl: string | null): string {
+  if (!rawUrl) return '/workspace';
+  // Must start with single '/', not '//', and not contain '://' or backslashes
+  if (
+    rawUrl.startsWith('/') &&
+    !rawUrl.startsWith('//') &&
+    !rawUrl.includes('://') &&
+    !rawUrl.includes('\\')
+  ) {
+    return rawUrl;
+  }
+  return '/workspace';
+}
+
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const token = request.cookies.get('access_token')?.value;
@@ -30,7 +44,7 @@ export function proxy(request: NextRequest) {
       return NextResponse.redirect(loginUrl);
     }
 
-    // Role-based route guard
+    // Role-based route guard & token expiry check
     let userRoles: string[] = [];
     try {
       const payloadBase64 = token.split('.')[1];
@@ -38,6 +52,15 @@ export function proxy(request: NextRequest) {
         const payload = JSON.parse(
           Buffer.from(payloadBase64, 'base64').toString('utf-8')
         );
+        // If access token has expired, redirect to login and clear the stale cookie
+        if (payload.exp && payload.exp * 1000 <= Date.now()) {
+          const loginUrl = new URL('/login', request.url);
+          loginUrl.searchParams.set('returnUrl', pathname);
+          const response = NextResponse.redirect(loginUrl);
+          response.cookies.delete('access_token');
+          return response;
+        }
+
         userRoles = (payload.roles?.length ? payload.roles : [payload.role])
           .filter(Boolean)
           .map((r: string) => r.toUpperCase());
@@ -45,7 +68,9 @@ export function proxy(request: NextRequest) {
     } catch {
       const loginUrl = new URL('/login', request.url);
       loginUrl.searchParams.set('returnUrl', pathname);
-      return NextResponse.redirect(loginUrl);
+      const response = NextResponse.redirect(loginUrl);
+      response.cookies.delete('access_token');
+      return response;
     }
 
     const isAdmin = userRoles.some((r) =>
@@ -82,12 +107,35 @@ export function proxy(request: NextRequest) {
     }
   }
 
-  // If user is already authenticated and visits /login, redirect to /workspace
-  if (pathname === '/login' && token) {
-    const returnUrl = request.nextUrl.searchParams.get('returnUrl');
-    return NextResponse.redirect(
-      new URL(returnUrl || '/workspace', request.url)
-    );
+  // If user visits /login: only redirect to /workspace if token is genuinely valid and unexpired
+  if (pathname === '/login') {
+    if (token) {
+      let isExpired = false;
+      try {
+        const payloadBase64 = token.split('.')[1];
+        if (payloadBase64) {
+          const payload = JSON.parse(
+            Buffer.from(payloadBase64, 'base64').toString('utf-8')
+          );
+          if (payload.exp && payload.exp * 1000 <= Date.now()) {
+            isExpired = true;
+          }
+        }
+      } catch {
+        isExpired = true;
+      }
+
+      if (!isExpired) {
+        const rawReturnUrl = request.nextUrl.searchParams.get('returnUrl');
+        const safeUrl = getSafeReturnUrl(rawReturnUrl);
+        return NextResponse.redirect(new URL(safeUrl, request.url));
+      } else {
+        // Clear expired token cookie so browser isn't trapped in redirect loop
+        const response = NextResponse.next();
+        response.cookies.delete('access_token');
+        return response;
+      }
+    }
   }
 
   return NextResponse.next();

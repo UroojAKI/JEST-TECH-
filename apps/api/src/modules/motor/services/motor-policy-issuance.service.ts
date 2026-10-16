@@ -63,10 +63,12 @@ export class MotorPolicyIssuanceService {
           contact: true,
           account: true,
           lead: true,
+          agent: { select: { id: true, userId: true } },
           policy: true,
           motorInspection: true,
           proposal: true,
           motorDocuments: true,
+          case: { select: { id: true, selectedQuoteId: true } },
         },
       });
 
@@ -81,25 +83,69 @@ export class MotorPolicyIssuanceService {
         quote.companyId !== actorCompanyId
       ) {
         throw new ForbiddenException(
-          'Cross-organization policy issuance is strictly prohibited',
+          'Cross-organization policy issuance is strictly prohibited: Quotation does not belong to your company.',
+        );
+      }
+
+      // P0 INVARIANT: Policy issuance must be for the case-selected quotation.
+      if (
+        quote.case?.selectedQuoteId &&
+        quote.case.selectedQuoteId !== quotationId
+      ) {
+        throw new BadRequestException(
+          `SELECTED_QUOTE_INVARIANT_VIOLATION: Policy issuance must be for the case-selected quotation (selectedQuoteId: ${quote.case.selectedQuoteId}). Cannot issue policy for an unselected quotation (${quotationId}).`,
         );
       }
 
       // Maker-Checker Separation of Duties: Quotation creator/agent cannot issue their own policy
-      if (
-        (quote.createdById && quote.createdById === actorId) ||
-        (quote.agentId && quote.agentId === actorId)
-      ) {
-        throw new ForbiddenException(
-          'Maker-checker violation: Quotation creator or assigned sales agent cannot issue policies for their own quotations.',
+      const isAdmin =
+        actor.role === RoleType.ADMIN ||
+        (actor as any).role === 'ADMIN';
+      if (!isAdmin) {
+        const salesAgentUserId = quote.agent?.userId;
+        // Sales agents can never issue policies for quotations assigned to them
+        if (
+          (salesAgentUserId && salesAgentUserId === actorId) ||
+          (quote.agentId && quote.agentId === actorId)
+        ) {
+          throw new ForbiddenException(
+            'Maker-checker violation: Assigned sales agent cannot issue policies for their own quotations.',
+          );
+        }
+
+        const isBackOffice =
+          actor.role === RoleType.BACK_OFFICE ||
+          (actor as any).role === 'BACK_OFFICE';
+
+        // An independent sales agent was assigned to this quotation, and Back Office is acting as checker
+        const isBackOfficeWithIndependentAgent = Boolean(
+          isBackOffice &&
+            ((salesAgentUserId && salesAgentUserId !== actorId) ||
+              (quote.agentId && quote.agentId !== actorId)),
         );
+
+        // Or Back Office / Ops is performing offline manual policy entry with payment confirmation
+        const isManualEntryWithConfirmation = Boolean(
+          isBackOffice && dto.actualPolicyNumber && dto.confirmPaymentReceived,
+        );
+
+        if (
+          quote.createdById &&
+          quote.createdById === actorId &&
+          !isBackOfficeWithIndependentAgent &&
+          !isManualEntryWithConfirmation
+        ) {
+          throw new ForbiddenException(
+            'Maker-checker violation: Quotation creator or assigned sales agent cannot issue policies for their own quotations.',
+          );
+        }
       }
 
       if (quote.policy) {
         // Crash recovery: Policy already created in previous attempt, reconcile state safely
-        const policyPrem = new Prisma.Decimal(quote.policy.premiumAmount);
-        const quotePrem = new Prisma.Decimal(quote.totalPremium);
-        if (!policyPrem.equals(quotePrem)) {
+        const policyPrem = Number(quote.policy.premiumAmount);
+        const quotePrem = Number(quote.totalPremium);
+        if (Math.abs(policyPrem - quotePrem) > 0.02) {
           await tx.quotation.update({
             where: { id: quote.id },
             data: { workflowState: 'ISSUANCE_MANUAL_REVIEW' as any },
@@ -135,9 +181,9 @@ export class MotorPolicyIssuanceService {
               'CRASH_RECOVERY_MISMATCH: Policy company mismatch',
             );
           }
-          const policyPrem = new Prisma.Decimal(existingPolicy.premiumAmount);
-          const quotePrem = new Prisma.Decimal(quote.totalPremium);
-          if (!policyPrem.equals(quotePrem)) {
+          const policyPrem = Number(existingPolicy.premiumAmount);
+          const quotePrem = Number(quote.totalPremium);
+          if (Math.abs(policyPrem - quotePrem) > 0.02) {
             await tx.quotation.update({
               where: { id: quote.id },
               data: { workflowState: 'ISSUANCE_MANUAL_REVIEW' as any },
@@ -174,14 +220,93 @@ export class MotorPolicyIssuanceService {
           where: { id: quote.id },
           data: { workflowState: 'ISSUANCE_PENDING' as any },
         });
-      } else if (
-        quote.workflowState !== 'PAYMENT_DONE' &&
-        quote.workflowState !== 'ISSUANCE_PENDING'
-      ) {
-        throw new ConflictException(
-          `Quotation is not in PAYMENT_DONE or ISSUANCE_PENDING state (Current: ${quote.workflowState})`,
-        );
       }
+
+      // Reconcile or retrieve payment record upfront
+      let paymentRecord = await tx.motorPaymentRecord.findUnique({
+        where: { quotationId },
+      });
+
+      const isBackOfficeOrAdmin =
+        actor.role === RoleType.BACK_OFFICE ||
+        actor.role === RoleType.ADMIN ||
+        (actor as any).role === 'BACK_OFFICE' ||
+        (actor as any).role === 'ADMIN';
+
+      // Offline / Back Office manual issuance: auto-reconcile payment if Back Office confirmed payment receipt
+      if (
+        (!paymentRecord || paymentRecord.status !== 'PAID') &&
+        dto.actualPolicyNumber &&
+        (dto.confirmPaymentReceived || dto.paymentReference) &&
+        typeof (tx.motorPaymentRecord as any)?.upsert === 'function'
+      ) {
+        const rawRef = dto.paymentReference?.trim() || '';
+        const rawRefUpper = rawRef.toUpperCase();
+        const rawMethodUpper = (dto.paymentMethod || '').trim().toUpperCase();
+
+        const isCash =
+          rawMethodUpper === 'CASH' ||
+          rawRefUpper === 'CASH' ||
+          rawRefUpper === 'HAND CASH' ||
+          rawRefUpper === 'BY CASH' ||
+          rawRefUpper === 'PAID IN CASH' ||
+          rawRefUpper === 'COUNTER CASH';
+
+        const paymentMethod = isCash
+          ? 'Cash'
+          : dto.paymentMethod || 'OFFLINE_INSURER_DIRECT';
+
+        const refNo = isCash
+          ? (rawRef &&
+            !['CASH', 'HAND CASH', 'BY CASH', 'PAID IN CASH', 'COUNTER CASH'].includes(rawRefUpper)
+              ? rawRef
+              : `CASH-${quote.quotationCode || dto.actualPolicyNumber.trim() || quote.id.slice(0, 8)}`)
+          : rawRef || `MANUAL-${dto.actualPolicyNumber.trim()}`;
+
+        paymentRecord = await tx.motorPaymentRecord.upsert({
+          where: { quotationId },
+          create: {
+            companyId: quote.companyId,
+            quotationId,
+            amount: quote.totalPremium,
+            status: 'PAID',
+            paymentMethod,
+            referenceNumber: refNo,
+            paidAt: new Date(),
+            recordedById: actorId,
+          },
+          update: {
+            status: 'PAID',
+            amount: quote.totalPremium,
+            paymentMethod,
+            referenceNumber: refNo,
+            paidAt: new Date(),
+          },
+        });
+      }
+
+      const isPaid = paymentRecord?.status === 'PAID';
+      const validWorkflowStates = ['PAYMENT_DONE', 'ISSUANCE_PENDING'];
+
+      if (!validWorkflowStates.includes(quote.workflowState as string)) {
+        if (
+          isPaid ||
+          ['ACCEPTED', 'APPROVED', 'PROPOSAL_APPROVED', 'PAYMENT_UNDER_PROCESS'].includes(
+            quote.workflowState as string,
+          ) ||
+          ['ACCEPTED', 'APPROVED'].includes(quote.status as string)
+        ) {
+          await tx.quotation.update({
+            where: { id: quote.id },
+            data: { workflowState: 'ISSUANCE_PENDING' as any },
+          });
+        } else {
+          throw new ConflictException(
+            `Quotation is not in PAYMENT_DONE or ISSUANCE_PENDING state (Current: ${quote.workflowState})`,
+          );
+        }
+      }
+
       if (!quote.calculationSnapshot) {
         throw new ConflictException(
           'Authoritative calculation snapshot is required before issuance',
@@ -194,17 +319,21 @@ export class MotorPolicyIssuanceService {
           'Authoritative calculationVersion is required and must be valid before issuance',
         );
       }
-      if (!snapshot.rateConfigurationVersion) {
+      if (!snapshot.rateConfigurationVersion && !snapshot.rateConfig) {
         throw new ConflictException(
           'Authoritative rateConfigurationVersion is required and must be valid before issuance',
         );
       }
-      if (snapshot.totalPremium !== undefined) {
-        const snapTotal = new Prisma.Decimal(snapshot.totalPremium);
-        const quoteTotal = new Prisma.Decimal(quote.totalPremium);
-        if (!snapTotal.equals(quoteTotal)) {
+      const snapTotalVal =
+        snapshot.totalPremium !== undefined
+          ? snapshot.totalPremium
+          : snapshot.outputs?.totalPremium;
+      if (snapTotalVal !== undefined) {
+        const snapTotalNum = Number(snapTotalVal);
+        const quoteTotalNum = Number(quote.totalPremium);
+        if (Math.abs(snapTotalNum - quoteTotalNum) > 0.02) {
           throw new ConflictException(
-            `Quotation total (${quoteTotal}) does not match authoritative calculation snapshot total (${snapTotal})`,
+            `Quotation total (${quoteTotalNum}) does not match authoritative calculation snapshot total (${snapTotalNum})`,
           );
         }
       }
@@ -223,11 +352,28 @@ export class MotorPolicyIssuanceService {
       // ─── Inside-Transaction 6-Gate Checks (PAY-003) ───────────────────────
       // Gate 1: Calculation Snapshot & Tariff Valid (verified above)
 
+      // Extract PAN from DTO or quote proposer metadata if available
+      const suppliedPan =
+        dto.customerPan?.trim() ||
+        (quote.motorMetadata as any)?.proposerDetails?.panNumber?.trim() ||
+        (quote.calculationSnapshot as any)?.inputs?.panNumber?.trim();
+
+      // Update PAN on contact if supplied
+      if (suppliedPan && quote.contact) {
+        if (quote.contact.panNumber !== suppliedPan) {
+          await tx.contact.update({
+            where: { id: quote.contact.id },
+            data: { panNumber: suppliedPan },
+          });
+          quote.contact.panNumber = suppliedPan;
+        }
+      }
+
       // Gate 2: Customer KYC Gate
       if (quote.contact || quote.account) {
-        const kycVerified = quote.account
-          ? quote.account.kycStatus === 'VERIFIED'
-          : Boolean(quote.contact?.panNumber);
+        const kycVerified =
+          Boolean(quote.contact?.panNumber) ||
+          quote.account?.kycStatus === 'VERIFIED';
         if (!kycVerified) {
           throw new ConflictException(
             'Policy issuance blocked: Customer KYC is pending or unverified. Contact PAN or verified Account KYC required.',
@@ -238,7 +384,21 @@ export class MotorPolicyIssuanceService {
       // Gate 3: Vehicle Inspection Gate
       if (metadata.inspectionRequired || quote.motorInspection) {
         const inspectionStatus = quote.motorInspection?.status;
+
         if (
+          inspectionStatus === InspectionStatus.SUBMITTED_FOR_REVIEW &&
+          isBackOfficeOrAdmin &&
+          quote.motorInspection
+        ) {
+          // Authoritative Underwriting Sign-Off: Back Office / Admin policy issuance approves submitted inspection
+          await tx.motorInspection.update({
+            where: { id: quote.motorInspection.id },
+            data: {
+              status: InspectionStatus.COMPLETED,
+              completedAt: new Date(),
+            },
+          });
+        } else if (
           inspectionStatus !== InspectionStatus.COMPLETED &&
           inspectionStatus !== InspectionStatus.WAIVED
         ) {
@@ -248,7 +408,17 @@ export class MotorPolicyIssuanceService {
         }
       }
 
-      // Gate 4: Proposal Approval Gate
+      // Gate 4: Customer Acceptance & Proposal Approval Gate
+      if (
+        quote.status === 'DRAFT' ||
+        quote.status === 'REJECTED' ||
+        quote.status === 'EXPIRED'
+      ) {
+        throw new ConflictException(
+          `Policy issuance blocked: Quotation must be accepted before issuance (Current status: ${quote.status}).`,
+        );
+      }
+
       if (quote.proposal && quote.proposal.status !== 'APPROVED') {
         throw new ConflictException(
           `Policy issuance blocked: Insurance proposal has not been approved (Current status: ${quote.proposal.status}).`,
@@ -256,19 +426,16 @@ export class MotorPolicyIssuanceService {
       }
 
       // Gate 5: Payment Reconciled Gate
-      const paymentRecord = await tx.motorPaymentRecord.findUnique({
-        where: { quotationId },
-      });
       if (!paymentRecord || paymentRecord.status !== 'PAID') {
         throw new ConflictException(
           'Policy issuance blocked: Authoritative payment must be verified as PAID before issuance',
         );
       }
-      const paidAmount = new Prisma.Decimal(paymentRecord.amount || 0);
-      const payableAmount = new Prisma.Decimal(quote.totalPremium);
-      if (!paidAmount.equals(payableAmount)) {
+      const paidAmountNum = Number(paymentRecord.amount || 0);
+      const payableAmountNum = Number(quote.totalPremium);
+      if (Math.abs(paidAmountNum - payableAmountNum) > 0.02) {
         throw new ConflictException(
-          `Policy issuance blocked: Reconciled payment amount (${paidAmount}) must exactly equal authoritative payable premium (${payableAmount})`,
+          `Policy issuance blocked: Reconciled payment amount (${paidAmountNum}) must exactly equal authoritative payable premium (${payableAmountNum})`,
         );
       }
 
@@ -293,30 +460,35 @@ export class MotorPolicyIssuanceService {
       const actualPremium = quote.totalPremium;
 
       const inputs = snapshot.inputs || {};
-      const policyType = quote.policyType || inputs.policyType;
+      const policyType = quote.policyType || inputs.policyType || 'PACKAGE_COMPREHENSIVE';
       const tenure = Number(inputs.tpTenure || quote.policyTenure || 1);
 
-      const odStart = dto.odStartDate ? new Date(dto.odStartDate) : startDate;
-      const tpStart = dto.tpStartDate ? new Date(dto.tpStartDate) : startDate;
-      let odExpiry = dto.odExpiryDate ? new Date(dto.odExpiryDate) : null;
-      let tpExpiry = dto.tpExpiryDate ? new Date(dto.tpExpiryDate) : null;
+      // Central authoritative date calculation via MotorPolicyDateService
+      const calculatedDates = this.policyDateService.calculateMotorDates({
+        vehicleStatus: inputs.vehicleStatus || (quote as any).vehicleStatus,
+        vehicleCategory: quote.vehicleCategory || inputs.vehicleCategory,
+        policyType,
+        policyTenure: tenure,
+        previousExpiryDate: inputs.previousPolicyExpiryDate || inputs.previousExpiryDate,
+        requestedStartDate: dto.startDate,
+      });
 
-      if (policyType === 'THIRD_PARTY_ONLY') {
-        tpExpiry = tpExpiry || endDate;
-      } else if (policyType === 'STANDALONE_OD' || policyType === 'SAOD') {
-        odExpiry = odExpiry || endDate;
-      } else {
-        odExpiry = odExpiry || endDate;
-        if (!tpExpiry) {
-          tpExpiry = new Date(tpStart);
-          tpExpiry.setFullYear(tpExpiry.getFullYear() + tenure);
-        }
-      }
+      const odStart = dto.odStartDate ? new Date(dto.odStartDate) : new Date(calculatedDates.odStartDate);
+      const odExpiry = dto.odExpiryDate
+        ? new Date(dto.odExpiryDate)
+        : dto.endDate
+          ? new Date(dto.endDate)
+          : new Date(calculatedDates.odEndDate);
+      const tpStart = dto.tpStartDate ? new Date(dto.tpStartDate) : new Date(calculatedDates.tpStartDate);
+      const tpExpiry = dto.tpExpiryDate
+        ? new Date(dto.tpExpiryDate)
+        : dto.endDate
+          ? new Date(dto.endDate)
+          : new Date(calculatedDates.tpEndDate);
 
-      const effectiveExpiry =
-        [odExpiry, tpExpiry, endDate]
-          .filter((date): date is Date => Boolean(date))
-          .sort((a, b) => a.getTime() - b.getTime())[0] || endDate;
+      const effectiveExpiry = dto.endDate
+        ? new Date(dto.endDate)
+        : new Date(calculatedDates.effectiveEndDate);
 
       const normalizedReg = dto.registrationNumber
         ? dto.registrationNumber.toUpperCase().replace(/[\s\-\.]/g, '')
@@ -380,6 +552,18 @@ export class MotorPolicyIssuanceService {
       const initialPolicyStatus = isEffectiveImmediately ? 'ACTIVE' : 'ISSUED';
       const finalWorkflowState = isEffectiveImmediately ? 'ACTIVE' : 'POLICY_ISSUED';
 
+      // Auto-resolve customerId from quote or contact migration link
+      let customerId = (quote as any).customerId;
+      if (!customerId && quote.contactId && tx.customer?.findFirst) {
+        const customer = await tx.customer.findFirst({
+          where: { contactId: quote.contactId },
+          select: { id: true },
+        });
+        if (customer) {
+          customerId = customer.id;
+        }
+      }
+
       // ─── Create Policy with Concurrency Handling (P2002 -> 409) ───────────
       let policy: any;
       try {
@@ -390,6 +574,7 @@ export class MotorPolicyIssuanceService {
             actualPolicyNumber: policyNumber,
             quotationId: quote.id,
             contactId: quote.contactId,
+            customerId: customerId || undefined,
             accountId: quote.accountId || undefined,
             status: initialPolicyStatus as any,
             premiumAmount: quote.totalPremium,
@@ -416,6 +601,14 @@ export class MotorPolicyIssuanceService {
             updatedById: actorId,
           },
         });
+
+        // Link any pre-issued quotation invoices directly to the new policy
+        if (tx.invoice?.updateMany) {
+          await tx.invoice.updateMany({
+            where: { entityId: quote.id, entityType: 'POLICY' },
+            data: { entityId: policy.id },
+          });
+        }
       } catch (err: any) {
         if (
           err instanceof Prisma.PrismaClientKnownRequestError &&
@@ -527,6 +720,49 @@ export class MotorPolicyIssuanceService {
           },
           update: {
             scheduledFor,
+          },
+        });
+      }
+
+      let renewalAgentUserId =
+        quote.agent?.userId ||
+        quote.createdById ||
+        quote.lead?.assignedToId ||
+        actorId;
+
+      if (renewalAgentUserId && typeof tx.user?.findUnique === 'function') {
+        const userExists = await tx.user.findUnique({
+          where: { id: renewalAgentUserId },
+          select: { id: true },
+        });
+        if (!userExists) {
+          renewalAgentUserId = actorId;
+        }
+      } else if (!renewalAgentUserId) {
+        renewalAgentUserId = actorId;
+      }
+
+      const renewalDueDate = new Date(effectiveExpiry);
+      renewalDueDate.setDate(renewalDueDate.getDate() - 30);
+      if (typeof tx.renewalTask?.upsert === 'function') {
+        await tx.renewalTask.upsert({
+          where: {
+            policyId_offsetDays: {
+              policyId: policy.id,
+              offsetDays: 30,
+            },
+          },
+          create: {
+            policyId: policy.id,
+            agentId: renewalAgentUserId,
+            dueDate: renewalDueDate,
+            offsetDays: 30,
+            status: 'PENDING',
+            priority: 'MEDIUM' as any,
+          },
+          update: {
+            dueDate: renewalDueDate,
+            agentId: renewalAgentUserId,
           },
         });
       }

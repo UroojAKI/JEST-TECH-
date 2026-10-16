@@ -3,6 +3,7 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 import { PolicyStatus } from '@prisma/client';
 import { PrismaService } from '../../../../../database/prisma.service';
 import { Decimal } from '@prisma/client/runtime/library';
+import { withDistributedLock } from '../../../../../common/utils/distributed-lock.util';
 
 @Injectable()
 export class CustomerAnalyticsCronService {
@@ -12,17 +13,27 @@ export class CustomerAnalyticsCronService {
 
   @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
   async recalculateCustomerAnalytics() {
-    this.logger.log('Starting nightly Customer Analytics recalculation...');
+    return withDistributedLock(
+      this.prisma,
+      'cron:customer-analytics-recalculate',
+      async () => {
+        this.logger.log('Starting nightly Customer Analytics recalculation...');
 
-    const contacts = await this.prisma.contact.findMany({
-      select: { id: true, companyId: true },
-    });
+        const contacts = await this.prisma.contact.findMany({
+          select: { id: true, companyId: true },
+        });
 
-    for (const contact of contacts) {
-      await this.calculateMetricsForCustomer(contact.id, contact.companyId || undefined);
-    }
+        for (const contact of contacts) {
+          await this.calculateMetricsForCustomer(
+            contact.id,
+            contact.companyId || undefined,
+          );
+        }
 
-    this.logger.log('Finished nightly Customer Analytics recalculation.');
+        this.logger.log('Finished nightly Customer Analytics recalculation.');
+      },
+      this.logger,
+    );
   }
 
   async calculateMetricsForCustomer(contactId: string, companyId?: string) {

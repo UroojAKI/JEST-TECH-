@@ -9,9 +9,17 @@ import { PrismaService } from '../../../database/prisma.service';
 export class KpiService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async listKpis() {
+  async listKpis(companyId?: string) {
+    const where: any = { isActive: true };
+    if (companyId) {
+      where.OR = [
+        { createdBy: { companyId } },
+        { createdBy: null },
+        { createdById: null },
+      ];
+    }
     return this.prisma.kpiDefinition.findMany({
-      where: { isActive: true },
+      where,
       orderBy: { displayOrder: 'asc' },
     });
   }
@@ -25,6 +33,7 @@ export class KpiService {
     unit: string;
     displayOrder?: number;
     userId: string;
+    companyId?: string;
   }) {
     return this.prisma.kpiDefinition.create({
       data: {
@@ -57,11 +66,12 @@ export class KpiService {
       include: { createdBy: true },
     });
     if (!kpi) throw new NotFoundException('KPI not found');
-    if (
-      companyId &&
-      kpi.createdBy?.companyId &&
-      kpi.createdBy.companyId !== companyId
-    ) {
+    if (!kpi.createdBy?.companyId) {
+      throw new ForbiddenException(
+        'System template KPIs are immutable and cannot be updated by tenants',
+      );
+    }
+    if (!companyId || kpi.createdBy.companyId !== companyId) {
       throw new ForbiddenException(
         'Cross-organization KPI update is strictly prohibited',
       );
@@ -78,11 +88,12 @@ export class KpiService {
       include: { createdBy: true },
     });
     if (!kpi) throw new NotFoundException('KPI not found');
-    if (
-      companyId &&
-      kpi.createdBy?.companyId &&
-      kpi.createdBy.companyId !== companyId
-    ) {
+    if (!kpi.createdBy?.companyId) {
+      throw new ForbiddenException(
+        'System template KPIs cannot be deleted by tenants',
+      );
+    }
+    if (!companyId || kpi.createdBy.companyId !== companyId) {
       throw new ForbiddenException(
         'Cross-organization KPI deletion is strictly prohibited',
       );

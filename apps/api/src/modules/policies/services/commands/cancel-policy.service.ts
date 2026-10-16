@@ -31,16 +31,15 @@ export class CancelPolicyService {
       );
     }
 
+    const actorCompanyId = actor?.companyId || actor?.organizationId;
+
     return this.prisma.$transaction(async (tx) => {
       const existing = await tx.policy.findFirst({
         where: {
           id,
+          ...(actorCompanyId ? { companyId: actorCompanyId } : {}),
           deletedAt: null,
-          ...(actor.role !== 'ADMIN' &&
-          (actor.companyId || actor.organizationId)
-            ? { companyId: actor.companyId || actor.organizationId }
-            : {}),
-          ...(actor.role === 'AGENT'
+          ...(actor?.role === 'AGENT'
             ? {
                 OR: [
                   { createdById: actor.id || actor.userId },

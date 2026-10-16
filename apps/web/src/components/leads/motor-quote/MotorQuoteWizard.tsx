@@ -17,7 +17,7 @@ import { RuleEngineResult } from './RuleEngineResult';
 import { InspectionDialog } from './InspectionDialog';
 import { AgentSelector } from '../../agents/AgentSelector';
 
-import { INSURER_OPTIONS, CATEGORY_LABEL, POLICY_TYPE_LABEL } from './motorFormConfig';
+import { INSURER_OPTIONS, CATEGORY_LABEL, POLICY_TYPE_LABEL, VEHICLE_FIELDS } from './motorFormConfig';
 import type {
   VehicleCategory,
   PolicyType,
@@ -35,6 +35,7 @@ interface Props {
   isOpen: boolean;
   leadId?: string;
   contactId?: string;
+  customerId?: string;
   caseId?: string;
   initialCategory?: VehicleCategory | null;
   cloneQuoteData?: {
@@ -193,7 +194,7 @@ function computeEligibilityContext(
 }
 
 
-export function MotorQuoteWizard({ isOpen, leadId, contactId, caseId, initialCategory, cloneQuoteData, leadContact, onClose, onSaved }: Props) {
+export function MotorQuoteWizard({ isOpen, leadId, contactId, customerId, caseId, initialCategory, cloneQuoteData, leadContact, onClose, onSaved }: Props) {
   const [step, setStep] = useState(1);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -476,7 +477,23 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, caseId, initialCat
 
   const canProceed = () => {
     if (step === 1) return !!(proposer.customerName && proposer.mobileNumber);
-    if (step === 2) return !!vehicleCategory;
+    if (step === 2) {
+      if (!vehicleCategory) return false;
+      const fields = VEHICLE_FIELDS[vehicleCategory] || [];
+      const requiredFieldsValid = fields
+        .filter((field) =>
+          field.mandatory === true &&
+          !(vehicleDetails.vehicleStatus === 'NEW' && field.key === 'registrationNumber')
+        )
+        .every((field) => Boolean(String(vehicleDetails[field.key] || '').trim()));
+      const selectedTrailerValid =
+        vehicleDetails.attachmentUsed === 'Trailer 1'
+          ? Boolean(String(vehicleDetails.trailer1RegistrationNumber || '').trim())
+          : vehicleDetails.attachmentUsed === 'Trailer 2'
+            ? Boolean(String(vehicleDetails.trailer2RegistrationNumber || '').trim())
+            : true;
+      return requiredFieldsValid && selectedTrailerValid;
+    }
     if (step === 3) {
       return (
         previousPolicy.previousPolicyType === 'NOT_AVAILABLE' ||
@@ -578,7 +595,13 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, caseId, initialCat
   const getNetPayable = () => {
     const pd = getPolicyDetails() as any;
     return (
-      parseFloat(pd.calculatedResult?.outputs?.totalPremium || pd.totalPremiumInclGST || '0') || 0
+      parseFloat(
+        pd.calculatedResult?.outputs?.finalPayableAmount ||
+        pd.calculatedResult?.outputs?.totalPremium ||
+        pd.finalPayableAmount ||
+        pd.totalPremiumInclGST ||
+        '0'
+      ) || 0
     );
   };
 
@@ -625,10 +648,22 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, caseId, initialCat
       }
     }
 
+    const calcResult = pDetails.calculatedResult;
+    const authoritativeTotal = Number(
+      calcResult?.outputs?.finalPayableAmount ?? calcResult?.outputs?.totalPremium,
+    );
+    if (
+      !calcResult?.outputs ||
+      !Number.isFinite(authoritativeTotal) ||
+      authoritativeTotal <= 0
+    ) {
+      toast.error('Cannot save this quotation: a successful current server-side premium calculation is required. Resolve tariff, add-on, or discount errors and retry.');
+      return;
+    }
+
     setIsSaving(true);
     try {
-      const calcResult = pDetails.calculatedResult || {};
-      const outputs = calcResult.outputs || {};
+      const outputs = calcResult.outputs;
       const payload = {
         journeyId: journeyId || undefined,
         caseId: caseId || cloneQuoteData?.caseId || undefined,
@@ -638,6 +673,7 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, caseId, initialCat
         insurerName: insurerName || 'Partner Insurer',
         leadId: leadId && leadId !== 'new' ? leadId : undefined,
         contactId: contactId || undefined,
+        customerId: customerId || undefined,
         agentId: isManualAgent ? undefined : (selectedAgentId || undefined),
         manualAgent: isManualAgent ? {
           isManual: true,
@@ -646,7 +682,7 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, caseId, initialCat
           contact: manualAgentDetails?.phone,
         } : undefined,
         basePremium: outputs.basePremium ?? outputs.netOdPremium ?? outputs.netTpPremium,
-        discountAmount: outputs.discountAmount ?? outputs.ncbDiscountAmount,
+        discountAmount: outputs.totalDiscount ?? outputs.discountAmount ?? outputs.ncbDiscount ?? 0,
         gstAmount: outputs.totalGst ?? getGst(),
         totalPremium: outputs.finalPayableAmount ?? outputs.totalPremium ?? (getNetPayable() > 0 ? getNetPayable() : getTotalPremium()),
         calculationVersion: calcResult.calculationVersion || '1.0',
@@ -927,7 +963,13 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, caseId, initialCat
                   />
                 )}
                 {policyType === 'SAOD' && (
-                  <PolicyFormSAODForm data={saodForm} onChange={setSaodForm} />
+                  <PolicyFormSAODForm
+                    category={vehicleCategory}
+                    vehicleStatus={vehicleDetails.vehicleStatus === 'NEW' ? 'NEW' : 'EXISTING'}
+                    data={saodForm}
+                    onChange={setSaodForm}
+                    eligibility={eligibilityContext}
+                  />
                 )}
                 {policyType === 'PACKAGE' && (
                   <PolicyFormPackageForm
@@ -956,7 +998,7 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, caseId, initialCat
 
           <div className="flex items-center gap-4">
             {getNetPayable() > 0 && (
-              <div className="hidden sm:flex items-center gap-2 text-xs font-medium px-3 py-1.5 rounded bg-muted">
+              <div className="flex flex-wrap items-center gap-2 text-xs font-medium px-3 py-1.5 rounded bg-muted">
                 <span className="text-foreground font-bold">Net Payable: ₹{getNetPayable().toLocaleString('en-IN')}</span>
                 <span className="text-muted-foreground border-l pl-2">Tax: ₹{getGst().toLocaleString('en-IN')}</span>
                 {getTotalDiscount() > 0 && (

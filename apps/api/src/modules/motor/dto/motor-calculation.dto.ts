@@ -16,6 +16,10 @@ export class MotorAddonInputDto {
   @IsString()
   addonCode: string;
 
+  /**
+   * Deprecated client field. MotorCalculationService rejects supplied manual prices;
+   * rates must be maintained in the approved configuration master.
+   */
   @IsOptional()
   @IsNumber()
   @Min(0)
@@ -133,4 +137,10 @@ export class MotorCalculationInputDto {
   @IsOptional()
   @IsString()
   policyStartDate?: string;
+
+  /** GST Rate selector: supports exactly 5% or 18% per IRDAI/GST matrix specifications. */
+  @IsOptional()
+  @IsNumber()
+  gstRate?: number;
 }
+

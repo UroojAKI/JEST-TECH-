@@ -47,6 +47,7 @@ export interface Customer {
     claims: number;
     tasks?: number;
     alerts?: number;
+    payments?: number;
   };
   leads?: any[];
   vehicles?: any[];
@@ -55,6 +56,8 @@ export interface Customer {
   claims?: any[];
   tasks?: any[];
   alerts?: any[];
+  payments?: any[];
+  receipts?: any[];
 }
 
 export interface DuplicateCheckResult {
@@ -125,6 +128,10 @@ export const customerRepository = {
   },
   async getCustomerWorkspace(id: string): Promise<any> {
     const response = await apiClient.get(`/customer-360/${id}`);
+    return response.data;
+  },
+  async addCustomerNote(id: string, content: string): Promise<any> {
+    const response = await apiClient.post(`/customer-360/${id}/notes`, { content });
     return response.data;
   },
   async createContact(data: Partial<CustomerContact>): Promise<CustomerContact> {

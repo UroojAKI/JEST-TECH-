@@ -54,3 +54,22 @@ export class PortalCompareQuotationsDto {
   @IsOptional()
   ncb?: number;
 }
+
+export class CreateSupportTicketDto {
+  @ApiPropertyOptional({ example: 'Policy document download error' })
+  @IsString()
+  subject: string;
+
+  @ApiPropertyOptional({ example: 'HIGH', default: 'MEDIUM' })
+  @IsString()
+  @IsOptional()
+  priority?: string;
+
+  @ApiPropertyOptional({
+    example:
+      'Unable to download policy certificate PDF for policy POL-12345',
+  })
+  @IsString()
+  description: string;
+}
+

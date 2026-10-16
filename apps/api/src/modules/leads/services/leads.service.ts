@@ -65,7 +65,26 @@ export class LeadsService {
       throw new ForbiddenException('Tenant organizational context is required');
     }
 
-    let targetContactId = dto.contactId;
+    let linkedCustomer = dto.customerId
+      ? await this.prisma.customer.findFirst({
+          where: { id: dto.customerId, companyId, deletedAt: null },
+          select: { id: true, contactId: true },
+        })
+      : null;
+    if (dto.customerId && !linkedCustomer) {
+      throw new NotFoundException('Customer not found');
+    }
+    if (
+      linkedCustomer?.contactId &&
+      dto.contactId &&
+      dto.contactId !== linkedCustomer.contactId
+    ) {
+      throw new BadRequestException(
+        'The selected contact is not linked to this customer',
+      );
+    }
+
+    let targetContactId = linkedCustomer?.contactId || dto.contactId;
 
     if (targetContactId) {
       try {
@@ -125,6 +144,13 @@ export class LeadsService {
         );
         targetContactId = createdContact.id;
       }
+    }
+
+    if (!linkedCustomer && this.prisma.customer?.findFirst) {
+      linkedCustomer = await this.prisma.customer.findFirst({
+        where: { contactId: targetContactId, companyId, deletedAt: null },
+        select: { id: true, contactId: true },
+      });
     }
 
     // Validate Account exists if provided
@@ -204,6 +230,10 @@ export class LeadsService {
       updatedBy: { connect: { id: createdById } },
     };
 
+    if (linkedCustomer) {
+      leadData.customer = { connect: { id: linkedCustomer.id } };
+    }
+
     if (dto.accountId) {
       leadData.account = { connect: { id: dto.accountId } };
     }
@@ -213,7 +243,16 @@ export class LeadsService {
       leadData.assignedTo = { connect: { id: effectiveAssignedToId } };
     }
 
-    const lead = await this.leadRepository.create(leadData);
+    const lead =
+      linkedCustomer && !linkedCustomer.contactId
+        ? await this.prisma.$transaction(async (tx) => {
+            await tx.customer.update({
+              where: { id: linkedCustomer.id },
+              data: { contactId: targetContactId },
+            });
+            return this.leadRepository.create(leadData, tx);
+          })
+        : await this.leadRepository.create(leadData);
     return LeadMapper.toResponse(lead);
   }
 

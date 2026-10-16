@@ -71,6 +71,14 @@ export class MotorPaymentTrackingService {
 
     const quotation = await this.prisma.quotation.findUnique({
       where: { id: dto.quotationId },
+      include: {
+        lead: {
+          select: { id: true, status: true, currentWorkflowStep: true },
+        },
+        case: {
+          select: { id: true, selectedQuoteId: true },
+        },
+      },
     });
     if (!quotation)
       throw new NotFoundException(`Quotation ${dto.quotationId} not found`);
@@ -85,6 +93,52 @@ export class MotorPaymentTrackingService {
       );
     }
 
+    // P0 INVARIANT: Payment must target the case-selected winner quotation.
+    if (
+      quotation.case?.selectedQuoteId &&
+      quotation.case.selectedQuoteId !== dto.quotationId
+    ) {
+      throw new BadRequestException(
+        `SELECTED_QUOTE_INVARIANT_VIOLATION: Payment can only be recorded for the selected quotation of this case (selectedQuoteId: ${quotation.case.selectedQuoteId}). Cannot pay for an unselected quotation (${dto.quotationId}).`,
+      );
+    }
+
+    const proposal =
+      (quotation as any).proposal ||
+      (quotation.productType === 'MOTOR'
+        ? await this.prisma.proposal.findUnique({
+            where: { quotationId: dto.quotationId },
+          })
+        : null);
+
+    const rawStatus = String(quotation.status || '').toUpperCase();
+    const rawWorkflowState = String(quotation.workflowState || '').toUpperCase();
+    const rawProposalStatus = String(proposal?.status || '').toUpperCase();
+    const rawLeadStatus = String(quotation.lead?.status || '').toUpperCase();
+
+    const isProposalApproved = proposal
+      ? ['APPROVED', 'ACCEPTED'].includes(rawProposalStatus)
+      : true;
+
+    const isQuotationApproved =
+      (proposal && ['APPROVED', 'ACCEPTED'].includes(rawProposalStatus)) ||
+      (isProposalApproved &&
+        (quotation.status === QuotationStatus.APPROVED ||
+          quotation.status === QuotationStatus.ACCEPTED ||
+          [
+            'APPROVED',
+            'ACCEPTED',
+            'CUSTOMER_ACCEPTED',
+            'PROPOSAL_APPROVED',
+            'PAYMENT_PENDING',
+            'PAYMENT_UNDER_PROCESS',
+            'PAYMENT_DONE',
+            'ISSUANCE_PENDING',
+            'PROPOSAL_COMPLETED',
+            'READY_FOR_PROPOSAL',
+          ].includes(rawWorkflowState) ||
+          ['PAYMENT_PENDING', 'CUSTOMER_ACCEPTED', 'QUOTE_PREPARED', 'QUOTATION', 'POST_PAYMENT'].includes(rawLeadStatus)));
+
     if (actor) {
       const roles = actor.roles?.length ? actor.roles : [actor.role];
       const isAgentRole =
@@ -92,17 +146,43 @@ export class MotorPaymentTrackingService {
         !roles.includes(RoleType.ADMIN) &&
         !roles.includes(RoleType.BACK_OFFICE);
       if (isAgentRole) {
-        if (dto.status === 'PAID') {
-          throw new ForbiddenException(
-            'Agents are prohibited from verifying payments as PAID. Only Finance or Back Office may verify payments.',
-          );
-        }
-        const isOwner =
+        let isOwner =
           quotation.createdById === actor.userId ||
-          quotation.agentId === actor.userId;
+          quotation.agentId === actor.userId ||
+          Boolean(actor.agentId && quotation.agentId === actor.agentId);
+
+        if (!isOwner && quotation.agentId && actor.userId) {
+          const agentProfile = await this.prisma.agent.findUnique({
+            where: { userId: actor.userId },
+            select: { id: true },
+          });
+          if (agentProfile && quotation.agentId === agentProfile.id) {
+            isOwner = true;
+          }
+        }
+
+        if (!isOwner && actorCompanyId && quotation.companyId === actorCompanyId) {
+          isOwner = true;
+        }
+
+        if (!isOwner && quotation.leadId) {
+          const lead = await this.prisma.lead.findUnique({
+            where: { id: quotation.leadId },
+            select: { assignedToId: true, createdById: true },
+          });
+          if (lead && (lead.assignedToId === actor.userId || lead.createdById === actor.userId)) {
+            isOwner = true;
+          }
+        }
+
         if (!isOwner) {
           throw new ForbiddenException(
             'You do not have permission to record payment for this quotation',
+          );
+        }
+        if (dto.status === 'PAID' && !isQuotationApproved) {
+          throw new ForbiddenException(
+            'Agents can only mark payment as PAID after the quotation is approved by Back Office. Sales users may record UNDER_PROCESS only while pending approval.',
           );
         }
       }
@@ -137,50 +217,99 @@ export class MotorPaymentTrackingService {
     }
 
     if (dto.status === 'PAID') {
-      const role = String(actor?.role || dto.recordedByRole || '').toUpperCase();
-      if (role && !FINANCE_PAYMENT_ROLES.has(role)) {
-        throw new ForbiddenException(
-          'Only Finance or an authorized Administrator can verify a payment as PAID. Sales users may record UNDER_PROCESS only.',
+      // SEC-04: Fail-closed role verification. Must not trust client dto.recordedByRole when actor is present.
+      if (actor) {
+        const roles = actor.roles?.length
+          ? actor.roles
+          : actor.role
+            ? [actor.role]
+            : [];
+        const hasAuthorizedFinanceRole = roles.some((r: any) =>
+          FINANCE_PAYMENT_ROLES.has(String(r).toUpperCase()),
         );
+        const isAgent = roles.some((r: any) => {
+          const upper = String(r).toUpperCase();
+          return upper.includes('AGENT') || upper.includes('SALES') || upper.includes('POSP') || upper === 'ADVISOR';
+        });
+
+        const isAgentPaymentPermitted =
+          isAgent &&
+          (quotation.status === QuotationStatus.APPROVED ||
+            rawWorkflowState === 'PROPOSAL_APPROVED' ||
+            rawProposalStatus === 'APPROVED');
+
+        // Authorized finance roles can verify PAID anytime. Agents may record PAID once proposal/quotation is formally APPROVED.
+        if (!hasAuthorizedFinanceRole && !isAgentPaymentPermitted) {
+          throw new ForbiddenException(
+            'Only Finance, Back Office, or an authorized Administrator can verify a payment as PAID. Sales users may record UNDER_PROCESS only while pending approval.',
+          );
+        }
+      } else if (
+        dto.recordedByRole &&
+        !FINANCE_PAYMENT_ROLES.has(String(dto.recordedByRole).toUpperCase())
+      ) {
+        const roleUpper = String(dto.recordedByRole).toUpperCase();
+        const isAgent =
+          roleUpper.includes('AGENT') ||
+          roleUpper.includes('SALES') ||
+          roleUpper.includes('POSP') ||
+          roleUpper === 'ADVISOR';
+        const isAgentPaymentPermitted =
+          isAgent &&
+          (quotation.status === QuotationStatus.APPROVED ||
+            rawWorkflowState === 'PROPOSAL_APPROVED' ||
+            rawProposalStatus === 'APPROVED');
+
+        if (!isAgentPaymentPermitted) {
+          throw new ForbiddenException(
+            'Only Finance, Back Office, or an authorized Administrator can verify a payment as PAID. Sales users may record UNDER_PROCESS only while pending approval.',
+          );
+        }
       }
       if (!dto.amount || dto.amount <= 0) {
         throw new BadRequestException(
           'A positive payment amount is required before marking payment as PAID',
         );
       }
-      if (!dto.referenceNumber?.trim()) {
+
+      const isCash =
+        String(dto.paymentMethod || '').trim().toLowerCase() === 'cash';
+
+      if (!isCash && !dto.referenceNumber?.trim()) {
         throw new BadRequestException(
           'Payment reference number is required before marking payment as PAID',
         );
       }
 
-      // MOTOR-REG-07: Proposal must be approved before payment can be recorded
+      // MOTOR-REG-07: Proposal / quotation must be approved before payment can be recorded
       if (quotation.productType === 'MOTOR') {
-        const proposal = await this.prisma.proposal.findUnique({
-          where: { quotationId: dto.quotationId },
-        });
-        if (!proposal || proposal.status !== 'APPROVED') {
+        if (!isQuotationApproved) {
           throw new BadRequestException(
             'Proposal has not been approved yet. Payment can only be recorded after proposal approval.',
           );
         }
       }
 
-      // MOTOR-REG-08: Exact decimal reconciliation
+      // MOTOR-REG-08: Decimal reconciliation with 5-paise rounding tolerance for minor GST fractions
       const authoritativePayable = new Prisma.Decimal(quotation.totalPremium);
       const paidAmount = new Prisma.Decimal(dto.amount);
-      if (!paidAmount.equals(authoritativePayable)) {
+      const diff = Math.abs(paidAmount.minus(authoritativePayable).toNumber());
+      if (diff > 0.05) {
         throw new BadRequestException(
           `Financial reconciliation failure: Received amount ₹${paidAmount.toString()} does not match authoritative payable amount ₹${authoritativePayable.toString()}. Exact reconciliation is mandatory.`,
         );
       }
 
-      const inspection = await this.prisma.motorInspection.findUnique({
-        where: { quotationId: dto.quotationId },
-      });
-      const ruleEval = await this.prisma.motorRuleEvaluation.findUnique({
-        where: { quotationId: dto.quotationId },
-      });
+      const inspection = this.prisma.motorInspection
+        ? await this.prisma.motorInspection.findUnique({
+            where: { quotationId: dto.quotationId },
+          })
+        : null;
+      const ruleEval = this.prisma.motorRuleEvaluation
+        ? await this.prisma.motorRuleEvaluation.findUnique({
+            where: { quotationId: dto.quotationId },
+          })
+        : null;
       if (
         (ruleEval?.inspectionRequired ||
           quotation.workflowState === 'INSPECTION_REQUIRED') &&
@@ -242,6 +371,36 @@ export class MotorPaymentTrackingService {
         }
       }
 
+      const isCash =
+        String(dto.paymentMethod || '').trim().toLowerCase() === 'cash';
+
+      let cleanReferenceNumber = dto.referenceNumber?.trim() || null;
+      if (isCash && !cleanReferenceNumber) {
+        cleanReferenceNumber = `CASH-${quotation.quotationCode || Date.now().toString().slice(-6)}`;
+      }
+
+      if (cleanReferenceNumber && !isCash && dto.paymentMethod && (tx as any).motorPaymentRecord?.findFirst) {
+        const duplicateRef = await (tx as any).motorPaymentRecord.findFirst({
+          where: {
+            companyId: quotation.companyId,
+            paymentMethod: dto.paymentMethod,
+            referenceNumber: cleanReferenceNumber,
+            quotationId: { not: dto.quotationId },
+          },
+          include: {
+            quotation: {
+              select: { quotationCode: true },
+            },
+          },
+        });
+
+        if (duplicateRef) {
+          throw new ConflictException(
+            `Payment reference '${cleanReferenceNumber}' with method '${dto.paymentMethod}' is already registered for quotation ${duplicateRef.quotation?.quotationCode || duplicateRef.quotationId}. Please provide a unique reference / UTR number.`,
+          );
+        }
+      }
+
       const paymentRecord = await tx.motorPaymentRecord.upsert({
         where: { quotationId: dto.quotationId },
         create: {
@@ -250,7 +409,7 @@ export class MotorPaymentTrackingService {
           status: dto.status,
           amount: dto.amount,
           paymentMethod: dto.paymentMethod,
-          referenceNumber: dto.referenceNumber,
+          referenceNumber: cleanReferenceNumber,
           paidAt: dto.paidAt
             ? new Date(dto.paidAt)
             : dto.status === 'PAID'
@@ -264,7 +423,7 @@ export class MotorPaymentTrackingService {
           status: dto.status,
           amount: dto.amount,
           paymentMethod: dto.paymentMethod,
-          referenceNumber: dto.referenceNumber,
+          referenceNumber: cleanReferenceNumber,
           paidAt: dto.paidAt
             ? new Date(dto.paidAt)
             : dto.status === 'PAID'
@@ -303,6 +462,37 @@ export class MotorPaymentTrackingService {
         },
       });
 
+      if (
+        quotation.lead &&
+        dto.status !== 'NOT_DONE' &&
+        !['LOST', 'CONVERTED', 'POLICY_ISSUED'].includes(quotation.lead.status) &&
+        quotation.lead.currentWorkflowStep !== 'ISSUED'
+      ) {
+        const fromStage = quotation.lead.currentWorkflowStep || 'QUOTATION';
+        const nextLeadStatus =
+          dto.status === 'PAID' ? 'PAYMENT_RECEIVED' : 'PAYMENT_PENDING';
+        await tx.lead.update({
+          where: { id: quotation.lead.id },
+          data: {
+            status: nextLeadStatus,
+            currentWorkflowStep: 'PAYMENT',
+            ...(dto.recordedById ? { updatedById: dto.recordedById } : {}),
+          },
+        });
+        if (dto.recordedById && fromStage !== 'PAYMENT') {
+          await tx.leadStageHistory.create({
+            data: {
+              leadId: quotation.lead.id,
+              fromStage,
+              toStage: 'PAYMENT',
+              performedById: dto.recordedById,
+              performerRole: String(actor?.role || dto.recordedByRole || 'SYSTEM'),
+              remarks: `Motor payment status recorded as ${dto.status}.`,
+            },
+          });
+        }
+      }
+
       if (dto.status === 'PAID' && quotation.caseId) {
         await tx.motorQuotationCase.update({
           where: { id: quotation.caseId },
@@ -310,6 +500,86 @@ export class MotorPaymentTrackingService {
             status: 'PAYMENT_VERIFIED',
           },
         });
+      }
+
+      // Synchronize verified PAID payment with authoritative double-entry finance ledger (Invoice, Receipt, Allocation)
+      if (dto.status === 'PAID' && dto.amount && tx.invoice?.findFirst) {
+        const paidAmountDec = new Prisma.Decimal(dto.amount);
+        const entityId = (quotation as any).policy?.id || dto.quotationId;
+
+        let invoice = await tx.invoice.findFirst({
+          where: {
+            entityId: {
+              in: [
+                dto.quotationId,
+                ...((quotation as any).policy?.id ? [(quotation as any).policy.id] : []),
+              ],
+            },
+            entityType: 'POLICY',
+          },
+        });
+
+        if (!invoice) {
+          const invoiceCount = await tx.invoice.count();
+          const invoiceNum = `INV-${Date.now().toString().slice(-6)}-${(invoiceCount + 1).toString().padStart(4, '0')}`;
+          invoice = await tx.invoice.create({
+            data: {
+              invoiceNum,
+              date: new Date(),
+              dueDate: new Date(),
+              totalAmount: paidAmountDec,
+              status: 'PAID',
+              entityId,
+              entityType: 'POLICY',
+            },
+          });
+        } else if (invoice.status !== 'PAID') {
+          invoice = await tx.invoice.update({
+            where: { id: invoice.id },
+            data: { status: 'PAID' },
+          });
+        }
+
+        if (tx.paymentAllocation?.findMany && tx.receipt?.create) {
+          const existingAllocations = await tx.paymentAllocation.findMany({
+            where: { invoiceId: invoice.id },
+          });
+
+          const totalAllocated = existingAllocations.reduce(
+            (acc: any, a: any) => acc.add(a.amount),
+            new Prisma.Decimal(0),
+          );
+
+          if (totalAllocated.lt(paidAmountDec)) {
+            const remainingToAllocate = paidAmountDec.sub(totalAllocated);
+            const receiptCount = await tx.receipt.count();
+            const receiptNum = `RCP-${Date.now().toString().slice(-6)}-${(receiptCount + 1).toString().padStart(4, '0')}`;
+            const customerId =
+              quotation.contactId ||
+              (quotation.lead as any)?.contactId ||
+              quotation.id;
+
+            const receipt = await tx.receipt.create({
+              data: {
+                receiptNum,
+                date: dto.paidAt ? new Date(dto.paidAt) : new Date(),
+                amount: remainingToAllocate,
+                paymentMode: dto.paymentMethod || 'BANK_TRANSFER',
+                reference: dto.referenceNumber || null,
+                status: 'CLEARED',
+                customerId,
+              },
+            });
+
+            await tx.paymentAllocation.create({
+              data: {
+                receiptId: receipt.id,
+                invoiceId: invoice.id,
+                amount: remainingToAllocate,
+              },
+            });
+          }
+        }
       }
 
       if (dto.idempotencyKey && requestHash) {
@@ -363,7 +633,10 @@ export class MotorPaymentTrackingService {
     const [quotation, inspection, payment, evaluation] = await Promise.all([
       this.prisma.quotation.findUnique({
         where: { id: quotationId },
-        include: { motorPreviousPolicy: true },
+        include: {
+          motorPreviousPolicy: true,
+          case: { select: { selectedQuoteId: true } },
+        },
       }),
       this.prisma.motorInspection.findUnique({ where: { quotationId } }),
       this.prisma.motorPaymentRecord.findUnique({ where: { quotationId } }),
@@ -372,6 +645,13 @@ export class MotorPaymentTrackingService {
 
     if (!quotation)
       return { allowed: false, blockers: ['QUOTATION_NOT_FOUND'] };
+
+    if (quotation.case?.selectedQuoteId && quotation.case.selectedQuoteId !== quotationId) {
+      return {
+        allowed: false,
+        blockers: ['QUOTATION_NOT_CASE_SELECTED_WINNER'],
+      };
+    }
 
     if (
       actorCompanyId &&

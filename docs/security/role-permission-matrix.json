@@ -1,15 +1,15 @@
 {
-  "generatedAt": "2026-10-01T10:56:39.749Z",
-  "gitSha": "0743d9ce33c31ecc0a665847436220820b5bef80",
+  "generatedAt": "2026-10-14T06:38:40.012Z",
+  "gitSha": "8b02f5f6a847c57395fadcacf76375f061ec49c2",
   "roles": [
     "ADMIN",
     "BACK_OFFICE",
     "AGENT"
   ],
   "roleSummary": {
-    "ADMIN": 244,
-    "BACK_OFFICE": 176,
-    "AGENT": 107
+    "ADMIN": 249,
+    "BACK_OFFICE": 181,
+    "AGENT": 112
   },
   "matrix": [
     {
@@ -624,9 +624,30 @@
     },
     {
       "controller": "CommunicationController",
-      "endpoint": "PUT /notifications/templates/:id",
+      "endpoint": "POST /communications",
       "allowedRoles": [
         "ADMIN",
+        "BACK_OFFICE",
+        "AGENT"
+      ],
+      "agentAllowed": true,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "CommunicationController",
+      "endpoint": "GET /notifications/templates",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE",
+        "AGENT"
+      ],
+      "agentAllowed": true,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "CommunicationController",
+      "endpoint": "PUT /notifications/templates/:id",
+      "allowedRoles": [
         "ADMIN"
       ],
       "agentAllowed": false,
@@ -636,7 +657,6 @@
       "controller": "CommunicationController",
       "endpoint": "GET /notifications/delivery-logs",
       "allowedRoles": [
-        "ADMIN",
         "ADMIN"
       ],
       "agentAllowed": false,
@@ -646,7 +666,6 @@
       "controller": "CommunicationController",
       "endpoint": "GET /notifications/events",
       "allowedRoles": [
-        "ADMIN",
         "ADMIN"
       ],
       "agentAllowed": false,
@@ -843,7 +862,6 @@
       "controller": "DashboardRegistryController",
       "endpoint": "PUT /dashboard-registry/:code",
       "allowedRoles": [
-        "ADMIN",
         "ADMIN"
       ],
       "agentAllowed": false,
@@ -977,6 +995,16 @@
     },
     {
       "controller": "FinanceController",
+      "endpoint": "GET /finance/accounts",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE"
+      ],
+      "agentAllowed": false,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "FinanceController",
       "endpoint": "GET /finance/ledger",
       "allowedRoles": [
         "ADMIN",
@@ -1027,6 +1055,16 @@
     },
     {
       "controller": "FinanceController",
+      "endpoint": "POST /finance/settlements",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE"
+      ],
+      "agentAllowed": false,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "FinanceController",
       "endpoint": "GET /finance/incentives",
       "allowedRoles": [
         "ADMIN",
@@ -1058,6 +1096,16 @@
     {
       "controller": "FinanceController",
       "endpoint": "POST /finance/reconciliation-queue/:id/discrepancy",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE"
+      ],
+      "agentAllowed": false,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "FinanceController",
+      "endpoint": "GET /finance/invoices/outstanding",
       "allowedRoles": [
         "ADMIN",
         "BACK_OFFICE"
@@ -1150,9 +1198,10 @@
       "endpoint": "GET /motor/inspections/:quotationId",
       "allowedRoles": [
         "ADMIN",
-        "BACK_OFFICE"
+        "BACK_OFFICE",
+        "AGENT"
       ],
-      "agentAllowed": false,
+      "agentAllowed": true,
       "hasRolesGuard": true
     },
     {
@@ -1171,9 +1220,10 @@
       "endpoint": "POST /motor/inspections/:id/submit-for-review",
       "allowedRoles": [
         "ADMIN",
-        "BACK_OFFICE"
+        "BACK_OFFICE",
+        "AGENT"
       ],
-      "agentAllowed": false,
+      "agentAllowed": true,
       "hasRolesGuard": true
     },
     {
@@ -1181,9 +1231,10 @@
       "endpoint": "POST /motor/inspections/:id/approve",
       "allowedRoles": [
         "ADMIN",
-        "BACK_OFFICE"
+        "BACK_OFFICE",
+        "AGENT"
       ],
-      "agentAllowed": false,
+      "agentAllowed": true,
       "hasRolesGuard": true
     },
     {
@@ -1688,7 +1739,6 @@
       "controller": "OrganizationController",
       "endpoint": "PUT /organization/departments/:id",
       "allowedRoles": [
-        "ADMIN",
         "ADMIN"
       ],
       "agentAllowed": false,
@@ -1698,7 +1748,6 @@
       "controller": "OrganizationController",
       "endpoint": "DELETE /organization/departments/:id",
       "allowedRoles": [
-        "ADMIN",
         "ADMIN"
       ],
       "agentAllowed": false,
@@ -1708,7 +1757,6 @@
       "controller": "OrganizationController",
       "endpoint": "GET /organization/job-roles",
       "allowedRoles": [
-        "ADMIN",
         "ADMIN"
       ],
       "agentAllowed": false,
@@ -1718,7 +1766,6 @@
       "controller": "OrganizationController",
       "endpoint": "PUT /organization/job-role/:id",
       "allowedRoles": [
-        "ADMIN",
         "ADMIN"
       ],
       "agentAllowed": false,
@@ -1728,7 +1775,6 @@
       "controller": "OrganizationController",
       "endpoint": "DELETE /organization/job-role/:id",
       "allowedRoles": [
-        "ADMIN",
         "ADMIN"
       ],
       "agentAllowed": false,
@@ -1738,7 +1784,6 @@
       "controller": "OrganizationController",
       "endpoint": "GET /organization/hierarchy",
       "allowedRoles": [
-        "ADMIN",
         "ADMIN"
       ],
       "agentAllowed": false,
@@ -2632,14 +2677,9 @@
       "file": "apps/api/src/modules/customer/communication/controllers/communication.controller.ts"
     },
     {
-      "endpoint": "POST /communications",
-      "controller": "CommunicationController",
-      "file": "apps/api/src/modules/customer/communication/controllers/communication.controller.ts"
-    },
-    {
-      "endpoint": "GET /notifications/templates",
-      "controller": "CommunicationController",
-      "file": "apps/api/src/modules/customer/communication/controllers/communication.controller.ts"
+      "endpoint": "POST /customer-360/:id/notes",
+      "controller": "Customer360Controller",
+      "file": "apps/api/src/modules/customer/customer-360/services/customer-360/customer-360.controller.ts"
     },
     {
       "endpoint": "GET /customers/check-duplicate",
@@ -3388,10 +3428,10 @@
     }
   ],
   "summary": {
-    "totalEndpoints": 420,
-    "roleGuarded": 245,
-    "unguarded": 175,
-    "agentAccessibleEndpoints": 107,
-    "adminOnlyEndpoints": 57
+    "totalEndpoints": 424,
+    "roleGuarded": 250,
+    "unguarded": 174,
+    "agentAccessibleEndpoints": 112,
+    "adminOnlyEndpoints": 67
   }
 }

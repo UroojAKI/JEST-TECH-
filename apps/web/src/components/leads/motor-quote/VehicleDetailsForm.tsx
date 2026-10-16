@@ -1,6 +1,8 @@
 'use client';
 
 import React from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { apiClient } from '@/lib/api-client';
 import { VEHICLE_FIELDS } from './motorFormConfig';
 import type { VehicleCategory } from './motorFormTypes';
 
@@ -14,12 +16,56 @@ const inputBase = 'w-full px-3 py-2 rounded-md border text-sm font-medium bg-bac
 
 export function VehicleDetailsForm({ category, data, onChange }: Props) {
   const fields = VEHICLE_FIELDS[category];
+
+  const { data: rtoList = [] } = useQuery({
+    queryKey: ['rto-master-directory'],
+    queryFn: async () => {
+      try {
+        const res = await apiClient.get('/motor/vehicles/rto');
+        return Array.isArray(res.data) ? res.data : [];
+      } catch {
+        return [];
+      }
+    },
+    staleTime: 10 * 60 * 1000,
+  });
+
   const set = (key: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     let value = e.target.value;
+    const next = { ...data, [key]: value };
+
+    if (key === 'attachmentUsed') {
+      // Only the registration number for the selected attachment is applicable.
+      if (value === 'Trailer 1') next.trailer2RegistrationNumber = '';
+      else if (value === 'Trailer 2') next.trailer1RegistrationNumber = '';
+      else {
+        next.trailer1RegistrationNumber = '';
+        next.trailer2RegistrationNumber = '';
+      }
+    }
+
     if (key === 'registrationNumber') {
       value = value.toUpperCase().replace(/[\s\-\.]/g, '');
+      next[key] = value;
+      // Auto-detect RTO from registration plate prefix (e.g. KA01, MH02)
+      if (value.length >= 4 && !data.rtoLocation && rtoList.length > 0) {
+        const prefix = value.substring(0, 4);
+        const match = rtoList.find((r: any) => r.code === prefix);
+        if (match) {
+          next.rtoLocation = `${match.code} - ${match.rtoOfficeName}`;
+          next.rtoCode = match.code;
+          next.rtoZone = match.rtoZone;
+        }
+      }
+    } else if (key === 'rtoLocation') {
+      const match = rtoList.find((r: any) => `${r.code} - ${r.rtoOfficeName}` === value || r.code === value);
+      if (match) {
+        next.rtoCode = match.code;
+        next.rtoZone = match.rtoZone;
+      }
     }
-    onChange({ ...data, [key]: value });
+
+    onChange(next);
   };
 
   return (
@@ -57,17 +103,23 @@ export function VehicleDetailsForm({ category, data, onChange }: Props) {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {fields.map((f) => {
-          // If NEW, hide registration number
+          // Registration details belong only to the attachment selected for this tractor.
+          if (f.key === 'trailer1RegistrationNumber' && data.attachmentUsed !== 'Trailer 1') return null;
+          if (f.key === 'trailer2RegistrationNumber' && data.attachmentUsed !== 'Trailer 2') return null;
+          // If NEW, hide vehicle registration number; trailer registration remains mandatory when selected.
           if (data.vehicleStatus === 'NEW' && f.key === 'registrationNumber') return null;
           const val = data[f.key] || '';
-          const isMandatory = f.mandatory === true;
+          const isSelectedTrailer =
+            (f.key === 'trailer1RegistrationNumber' && data.attachmentUsed === 'Trailer 1') ||
+            (f.key === 'trailer2RegistrationNumber' && data.attachmentUsed === 'Trailer 2');
+          const isMandatory = f.mandatory === true || isSelectedTrailer;
           const isConditional = f.mandatory === 'conditional';
           const hasError = isMandatory && !val;
           const borderCls = hasError ? 'border-destructive focus:ring-destructive/50' : 'border-border';
 
           return (
             <div key={f.key}>
-              <label className="block text-xs font-semibold text-muted-foreground mb-1.5">
+              <label htmlFor={f.key} className="block text-xs font-semibold text-muted-foreground mb-1.5">
                 {f.label}
                 {isMandatory && <span className="text-destructive ml-1">*</span>}
                 {isConditional && (
@@ -80,19 +132,36 @@ export function VehicleDetailsForm({ category, data, onChange }: Props) {
 
               {f.type === 'dropdown' ? (
                 <select
+                  id={f.key}
                   value={val}
+                  required={isMandatory}
                   onChange={set(f.key)}
                   className={`${inputBase} ${borderCls}`}
                 >
                   <option value="">— Select —</option>
-                  {(f.options || []).map((opt) => (
-                    <option key={opt} value={opt}>{opt}</option>
-                  ))}
+                  {f.key === 'rtoLocation' && rtoList.length > 0 ? (
+                    <>
+                      {val && !rtoList.some((r: any) => `${r.code} - ${r.rtoOfficeName}` === val || r.code === val) && (
+                        <option value={val}>{val}</option>
+                      )}
+                      {rtoList.map((r: any) => (
+                        <option key={r.id || r.code} value={`${r.code} - ${r.rtoOfficeName}`}>
+                          {r.code} — {r.rtoOfficeName} ({r.district}, {r.state})
+                        </option>
+                      ))}
+                    </>
+                  ) : (
+                    (f.options || []).map((opt) => (
+                      <option key={opt} value={opt}>{opt}</option>
+                    ))
+                  )}
                 </select>
               ) : f.type === 'date' ? (
                 <input
+                  id={f.key}
                   type="month"
                   value={val}
+                  required={isMandatory}
                   onChange={set(f.key)}
                   className={`${inputBase} ${borderCls}`}
                 />
@@ -114,8 +183,10 @@ export function VehicleDetailsForm({ category, data, onChange }: Props) {
                 </div>
               ) : (
                 <input
+                  id={f.key}
                   type={f.type === 'numeric' ? 'number' : 'text'}
                   value={val}
+                  required={isMandatory}
                   onChange={set(f.key)}
                   maxLength={f.key === 'registrationNumber' ? 11 : undefined}
                   placeholder={f.placeholder || ''}

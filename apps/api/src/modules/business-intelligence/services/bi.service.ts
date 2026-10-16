@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../../database/prisma.service';
 import { WarehouseService } from '../../warehouse/services/warehouse.service';
-import { Parser } from 'expr-eval';
+import { evaluateSafeFormula } from '../../../common/utils/formula-evaluator.util';
 
 export interface ConversionMetrics {
   totalLeads: number;
@@ -203,8 +203,60 @@ export class BiService {
       }),
     ]);
 
-    const thisMonthVal = Number(thisMonth._sum.amount ?? 0);
-    const lastMonthVal = Number(lastMonth._sum.amount ?? 0);
+    // Also include motor insurance revenue from MotorPaymentRecord (PAID status)
+    let motorThisMonth = 0;
+    let motorLastMonth = 0;
+    let motorThisYear = 0;
+    let motorPayments: Array<{ amount: any; paidAt?: any; createdAt: any; quotation?: { insurerName?: string } }> = [];
+
+    if (this.prisma.motorPaymentRecord) {
+      const motorCompanyWhere = companyId ? { quotation: { companyId } } : {};
+      const [mMonth, mLast, mYear, mAll] = await Promise.all([
+        this.prisma.motorPaymentRecord.aggregate({
+          _sum: { amount: true },
+          where: {
+            status: 'PAID' as any,
+            createdAt: { gte: somThisMonth },
+            ...motorCompanyWhere,
+          },
+        }).catch(() => ({ _sum: { amount: 0 } })),
+        this.prisma.motorPaymentRecord.aggregate({
+          _sum: { amount: true },
+          where: {
+            status: 'PAID' as any,
+            createdAt: { gte: somLastMonth, lte: eomLastMonth },
+            ...motorCompanyWhere,
+          },
+        }).catch(() => ({ _sum: { amount: 0 } })),
+        this.prisma.motorPaymentRecord.aggregate({
+          _sum: { amount: true },
+          where: {
+            status: 'PAID' as any,
+            createdAt: { gte: somThisYear },
+            ...motorCompanyWhere,
+          },
+        }).catch(() => ({ _sum: { amount: 0 } })),
+        this.prisma.motorPaymentRecord.findMany({
+          where: {
+            status: 'PAID' as any,
+            createdAt: { gte: somThisYear },
+            ...motorCompanyWhere,
+          },
+          include: {
+            quotation: { select: { insurerName: true } },
+          },
+        }).catch(() => []),
+      ]);
+
+      motorThisMonth = Number(mMonth._sum.amount ?? 0);
+      motorLastMonth = Number(mLast._sum.amount ?? 0);
+      motorThisYear = Number(mYear._sum.amount ?? 0);
+      motorPayments = mAll as any;
+    }
+
+    const thisMonthVal = Number(thisMonth._sum.amount ?? 0) + motorThisMonth;
+    const lastMonthVal = Number(lastMonth._sum.amount ?? 0) + motorLastMonth;
+    const totalThisYear = Number(thisYear._sum.amount ?? 0) + motorThisYear;
     const momGrowth =
       lastMonthVal > 0
         ? Math.round(
@@ -212,7 +264,7 @@ export class BiService {
           ) / 10
         : 0;
 
-    // By insurer aggregation
+    // By insurer aggregation (PolicyPayment + MotorPaymentRecord)
     const byInsurerMap = new Map<string, number>();
     for (const p of allPayments) {
       const insurer = p.policy?.quotation?.insurerName ?? 'Unknown';
@@ -221,12 +273,19 @@ export class BiService {
         (byInsurerMap.get(insurer) ?? 0) + Number(p.amount),
       );
     }
+    for (const m of motorPayments) {
+      const insurer = m.quotation?.insurerName ?? 'Motor Insurer';
+      byInsurerMap.set(
+        insurer,
+        (byInsurerMap.get(insurer) ?? 0) + Number(m.amount ?? 0),
+      );
+    }
     const byInsurer = [...byInsurerMap.entries()]
       .map(([insurerName, premium]) => ({ insurerName, premium }))
       .sort((a, b) => b.premium - a.premium)
       .slice(0, 10);
 
-    // By month (last 12 months)
+    // By month (last 12 months, PolicyPayment + MotorPaymentRecord)
     const byMonthMap = new Map<string, number>();
     for (const p of allPayments) {
       if (!p.paymentDate) continue;
@@ -234,15 +293,22 @@ export class BiService {
       const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
       byMonthMap.set(key, (byMonthMap.get(key) ?? 0) + Number(p.amount));
     }
+    for (const m of motorPayments) {
+      const date = m.paidAt || m.createdAt;
+      if (!date) continue;
+      const d = new Date(date);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      byMonthMap.set(key, (byMonthMap.get(key) ?? 0) + Number(m.amount ?? 0));
+    }
     const byMonth = [...byMonthMap.entries()]
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([month, premium]) => ({ month, premium }));
 
     return {
-      totalPremium: Number(thisYear._sum.amount ?? 0),
+      totalPremium: totalThisYear,
       thisMonth: thisMonthVal,
       lastMonth: lastMonthVal,
-      thisYear: Number(thisYear._sum.amount ?? 0),
+      thisYear: totalThisYear,
       monthOverMonthGrowth: momGrowth,
       byInsurer,
       byMonth,
@@ -432,14 +498,33 @@ export class BiService {
       policies_mom_growth: sales.monthOverMonthGrowth,
     };
 
+    const SAFE_FORMULA_REGEX = /^[a-zA-Z0-9_\s\+\-\*\/\(\)\.\^\%]+$/;
+    const BLOCKED_IDENTIFIERS = [
+      'constructor',
+      'prototype',
+      '__proto__',
+      'function',
+      'this',
+      'window',
+      'global',
+      'process',
+      'require',
+      'eval',
+    ];
+
     return kpis.map((kpi) => {
       let value = 0;
       try {
-        // Strict safe formula evaluation using expr-eval
-        const parser = new Parser();
-        const expr = parser.parse(kpi.formula);
-        value = expr.evaluate(metricRegistry);
-        value = Math.round(value * 100) / 100;
+        const formula = (kpi.formula || '').trim();
+        const isSafe =
+          SAFE_FORMULA_REGEX.test(formula) &&
+          !BLOCKED_IDENTIFIERS.some((bad) =>
+            formula.toLowerCase().includes(bad),
+          );
+
+        if (isSafe && formula.length > 0) {
+          value = evaluateSafeFormula(formula, metricRegistry);
+        }
       } catch {
         value = 0;
       }

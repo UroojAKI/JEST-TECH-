@@ -104,6 +104,8 @@ export interface TractorVehicleDetails {
   dateOfRegistration: string;    // N
   engineChassisNumber: string;   // N
   attachmentUsed: string;        // Y — Trailer1/Trailer2/Harvester/Cultivator/None
+  trailer1RegistrationNumber?: string; // Conditional — structured registration for Trailer 1
+  trailer2RegistrationNumber?: string; // Conditional — structured registration for Trailer 2
   usageType: string;             // Y — Agricultural/Commercial
   rtoLocation: string;           // N
 }
@@ -187,7 +189,8 @@ export interface PolicyFormTPOnly {
   commissionDiscountCalc: string; // Y — free text employee
   discountPercent?: string;       // Y — numeric discount
   tpDiscountPercent?: string;     // Y — numeric discount
-  tpCommissionCalc?: string;      // Y — numeric discount fallback
+  tpCommissionCalc?: string;      // Legacy field only; must not be derived from customer discount
+  gstRate?: string;               // 5% vs 18% selectable GST
   calculatedResult?: any;
 }
 
@@ -232,7 +235,7 @@ export interface PolicyFormSAOD {
   ncbPercentage: string;         // Y — 0/20/25/35/45/50
   claimInExpiringODPolicy: string; // Y — Y/N
   addonsSelected: string[];      // N
-  addonPrices?: Record<string, string>; // Individual prices entered for each selected add-on
+  addonPrices?: Record<string, string>; // Legacy draft field; authoritative calculator ignores client-entered prices
   odPremium: string;             // Y — insurer-specific OD premium
   odPremiumBase: string;         // Auto-calc: IDV × insurer OD rate
   ncbDiscountAmount: string;     // Auto-calc: odPremiumBase × NCB%
@@ -241,12 +244,13 @@ export interface PolicyFormSAOD {
   totalPremiumInclGST: string;   // Auto-calc: locked, system-generated
   policyStartDate: string;       // N — must be within active TP period
   policyEndDate: string;         // N
-  odCommissionPercent: string;   // Employee enters insurer commission %
-  commissionAmount: string;      // Auto-calc: odPremium × commission%
-  discountPercent?: string;      // Employee enters discount % D% (Sum of 10* D% - 11)
-  discountAmount?: string;       // Auto-calc: OD Premium × D%
-  finalPayableAmount?: string;   // Total Premium - Discount Amount
+  odCommissionPercent: string;   // Legacy draft field; commission requires approved insurer-specific configuration
+  commissionAmount: string;      // Legacy draft field; do not calculate locally without approved commission rules
+  discountPercent?: string;      // Customer OD discount percentage; premium amount is server-calculated
+  discountAmount?: string;       // Server-calculated OD discount amount
+  finalPayableAmount?: string;   // Authoritative server-calculated total including applicable tax
   commissionDiscountCalc: string; // Y — formatted calculator string
+  gstRate?: string;               // 5% vs 18% selectable GST
   calculatedResult?: any;
 }
 
@@ -263,19 +267,20 @@ export interface PolicyFormPackage {
   thirdPartyPremium: string;     // Y
   paCoverOwner: boolean;         // Y
   addonsSelected: string[];      // N
-  addonPrices?: Record<string, string>; // User entered manual prices
+  addonPrices?: Record<string, string>; // Legacy draft field; ignored by authoritative calculator
   totalPremiumInclGST: string;   // Y
   policyStartDate: string;       // N
   policyEndDate: string;         // N
-  tpCommissionCalc: string;      // Y — free text employee
-  odCommissionCalc: string;      // Y — free text employee
-  finalCommissionCalc: string;   // Y — free text employee
+  tpCommissionCalc: string;      // Legacy draft field only; not a commission source
+  odCommissionCalc: string;      // Legacy draft field only; not a commission source
+  finalCommissionCalc: string;   // Legacy draft field only; never store customer discount here
   odDiscountPercent?: string;    // Y — numeric discount on OD
   tpDiscountPercent?: string;    // Y — numeric discount on TP
-  odCommissionPercent?: string;  // Y — broker commission on OD
-  tpCommissionPercent?: string;  // Y — broker commission on TP
+  odCommissionPercent?: string;  // Legacy draft field; requires an approved insurer/product/component rule
+  tpCommissionPercent?: string;  // Legacy draft field; requires an approved insurer/product/component rule
   finalPayableAmount?: string;   // Net premium payable after discount + GST
   finalGstAmount?: string;       // Re-calculated GST after discount
+  gstRate?: string;               // 5% vs 18% selectable GST
   calculatedResult?: any;
 }
 
@@ -317,12 +322,16 @@ export interface SavedMotorQuote {
   policyStartDate?: string;
   policyEndDate?: string;
   status: string;
+  workflowState?: string;
   createdAt: string;
+  customerName?: string;
   proposerDetails?: ProposerDetails;
   vehicleDetails?: Record<string, any>;
   policyDetails?: Record<string, any>;
   leadId?: string;
   caseId?: string;
+  proposalStatus?: string;
+  paymentRecord?: PaymentRecord;
   motorDocuments?: Array<{
     id: string;
     documentId: string;

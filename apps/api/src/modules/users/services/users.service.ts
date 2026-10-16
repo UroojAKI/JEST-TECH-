@@ -143,6 +143,38 @@ export class UsersService {
       department: departmentConnect,
     });
 
+    if (canonicalRole === RoleType.AGENT && targetCompanyId) {
+      try {
+        const count = await this.prisma.agent.count({
+          where: { companyId: targetCompanyId },
+        });
+        let nextNum = count + 1;
+        let agentCode = `AGT-${String(nextNum).padStart(6, '0')}`;
+        while (
+          await this.prisma.agent.findFirst({
+            where: { companyId: targetCompanyId, agentCode },
+          })
+        ) {
+          nextNum++;
+          agentCode = `AGT-${String(nextNum).padStart(6, '0')}`;
+        }
+
+        const name = `${user.firstName || ''} ${user.lastName || ''}`.trim();
+        await this.prisma.agent.create({
+          data: {
+            companyId: targetCompanyId,
+            userId: user.id,
+            agentCode,
+            agencyName: name ? `${name} Agency` : `Agency ${agentCode}`,
+            commissionTier: 'STANDARD',
+            isActive: true,
+          },
+        });
+      } catch {
+        // Safe fallback if agent profile already exists or in case of concurrency
+      }
+    }
+
     const response: any = UserMapper.toResponse(user);
     response.initialPassword = initialPassword;
     return response;
@@ -154,6 +186,11 @@ export class UsersService {
       newPassword || `${crypto.randomBytes(16).toString('hex')}A1`;
     const passwordHash = await argon2.hash(password);
     await this.userRepository.update(userId, { passwordHash });
+    await this.revokeAllUserRefreshTokens(userId);
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { authVersion: { increment: 1 } },
+    });
     return {
       success: true,
       message: 'Password reset successfully',
@@ -170,21 +207,27 @@ export class UsersService {
     if (!user) {
       throw new NotFoundException('User not found');
     }
+    if (!currentPassword) {
+      throw new BadRequestException('Current password is required');
+    }
     if (!newPassword || newPassword.length < 6) {
       throw new BadRequestException(
         'New password must be at least 6 characters long',
       );
     }
 
-    if (currentPassword) {
-      const isValid = await argon2.verify(user.passwordHash, currentPassword);
-      if (!isValid) {
-        throw new BadRequestException('Current password is incorrect');
-      }
+    const isValid = await argon2.verify(user.passwordHash, currentPassword);
+    if (!isValid) {
+      throw new BadRequestException('Current password is incorrect');
     }
 
     const passwordHash = await argon2.hash(newPassword);
     await this.userRepository.update(userId, { passwordHash });
+    await this.revokeAllUserRefreshTokens(userId);
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { authVersion: { increment: 1 } },
+    });
     return { success: true, message: 'Password changed successfully' };
   }
 

@@ -19,8 +19,9 @@
     "forceConsistentCasingInFileNames": false,
     "noImplicitAny": false,
     "strictBindCallApply": false,
-    "noFallthroughCasesInSwitch": false
+    "noFallthroughCasesInSwitch": false,
+    "types": ["jest", "node", "multer"]
   },
   "include": ["src/**/*"],
-  "exclude": ["node_modules", "test", "dist", "**/*spec.ts", "prisma", "scripts"]
+  "exclude": ["node_modules", "dist", "prisma", "scripts"]
 }

@@ -27,16 +27,15 @@ export class RenewPolicyService {
     renewedById: string,
     actor: any,
   ) {
+    const actorCompanyId = actor?.companyId || actor?.organizationId;
+
     return this.prisma.$transaction(async (tx) => {
       const existing = await tx.policy.findFirst({
         where: {
           id,
+          ...(actorCompanyId ? { companyId: actorCompanyId } : {}),
           deletedAt: null,
-          // Resource authorization: ensure policy belongs to actor's organization.
-          // Policy links to Contact which has companyId, but Policy itself doesn't.
-          // Use createdById scope for AGENT (can only renew policies they created/own)
-          // ADMIN and BACK_OFFICE can renew any policy in their org via audit trail.
-          ...(actor.role === 'AGENT' ? { createdById: actor.id } : {}),
+          ...(actor?.role === 'AGENT' ? { createdById: actor.id || actor.userId } : {}),
         },
         include: { quotation: true },
       });

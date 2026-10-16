@@ -420,3 +420,58 @@ No additional delete/simplify recommendation is included without stronger usage 
 ## Final assessment
 
 **Production readiness: FAIL / NOT VERIFIED.** The certificate cannot certify this modified working tree because its schema hash differs; this does not prove the committed `main` schema has a mismatch. Binding release and recovery gates remain unchecked, Redis host exposure is unsafe by default, and live application/data-plane verification is absent. Passing unit tests and builds do not close these blockers.
+
+## Implementation follow-up — 2026-10-03
+
+The repository changes below address the listed findings in the current working tree. They are not yet deployed or verified in production. This section supersedes earlier statements for the named code findings only.
+
+### Implemented in source; local regression checks are listed below
+
+- **0001 Redis host exposure:** both Compose configurations bind host port 6380 to `127.0.0.1` only. Runtime firewall/service exposure still needs deployment review.
+- **0002 release-certificate contradiction:** the checked-in certificate and 25 evidence records are now explicitly withdrawn, retaining their historical PASS results and recording that they are not current release approval. Synthetic evidence generation now refuses to write records, and certification tests check the withdrawn state. New independent evidence is still required for G16–G20.
+- **0003 deploy health gate:** deploy now selects a GitHub Environment, performs a readiness probe after restart, and fails if readiness does not recover. Hosted Environment protection rules, a tested rollback path, backup/restore, and staging deployment remain unverified.
+- **0004 migration history:** the current working tree has no modified files under `apps/api/prisma/migrations`; target database checksum/history still must be inspected before rollout.
+- **0005 tenant-scanner claim:** scanner output and CI step names now explicitly call this a heuristic controller scan, not proof of complete tenant isolation. Direct portal queries now carry an explicit company filter; focused tests cover portal query scope and changed task, payment, and customer flows. Full HTTP two-company coverage remains open.
+- **0006 operations runbook:** queue service, retry route, and health references were corrected against the checked-in application topology. A live rehearsal remains open.
+- **0007 motor reconciliation:** CLI now defaults to dry-run and requires `--apply` for writes; service applies execute transactionally and check invariants. Unit coverage passes, but disposable-PostgreSQL fault injection and restore rehearsal remain open.
+- **0008 terminal claim updates:** the generic PATCH path now rejects CLOSED claims; claim reads for GET/PATCH and other controller commands constrain lookup by the caller company before hydrating relations.
+- **0009 unsigned provider webhook:** the public gateway now accepts Razorpay only; Twilio and other providers are rejected until a verifier is implemented. Nest captures raw request bytes and Razorpay HMAC verification uses those bytes. Timestamp replay checks run when a timestamp header is supplied (malformed/stale values are rejected); event-ID idempotency remains active when the provider omits it. Live Razorpay delivery still needs staging verification.
+- **0010 premium rounding:** OD premium now uses integer arithmetic and positive half-up rounding. A regression case covers the 3,000,000 IDV boundary that previously returned 107,881 instead of 107,882.
+- **0011 receipt/payment flow:** finance now records invoice payments through a tenant-scoped API, validates input, persists allocation/receipt records, and refreshes the register. Receipt exports use an authenticated API. Payment-register export remains unavailable and is disabled; live finance reconciliation was not run.
+- **0012 report/voucher downloads:** reports use the API-backed export and browser download flow. Voucher PDF export is clearly unavailable and disabled; preview copy no longer implies issuance or ledger posting. Browser download behavior still needs staging/browser verification.
+- **0013 no-op numbering Save:** removed from the read-only numbering page.
+- **0014 customer notes/alerts/tasks:** notes use a tenant-scoped API. Customer-linked suggestions can create persistent tasks; task create/list/complete and linked customer/policy/claim/lead/assignee validation are tenant-scoped. Local alert dismissal is no longer presented as authoritative task completion. Cross-tenant regression tests pass.
+- **0015 Node version mismatch:** CI, deploy build, and API/web container stages now use Node 24; `.node-version` records the selected major.
+- **0016 cross-tenant claim hydration:** claim reads and mutations now scope the claim lookup to the caller's company before loading related records.
+- **0017 broken workflow invocation:** removed the extra `--` from both remediation workflow test commands.
+- **0018 secret scanning:** pinned Gitleaks scans are configured in CI/deploy workflows; remote execution is still pending.
+- **0019 supplied arithmetic example:** corrected the report: the supplied 500,000-IDV example does not reproduce a rounding error; the separate 3,000,000-IDV boundary does.
+- **Migration safety:** `scripts/motor-migration-01.ts` now defaults to dry-run; writes require explicit `--apply`.
+
+### Still open; needs additional implementation or environment access
+
+- **0001 runtime exposure:** verify host firewall/network policy and Redis access on the deployed hosts.
+- **0002/0004 certification and migration history:** the false readiness claim is withdrawn; reconcile schema and checksums against each real target DB and replace it only with independent current release evidence. No target DB was inspected or migrated.
+- **0003/0006 deployment and operations:** health-gated configuration and runbook corrections are in source; hosted approval rules, immutable rollback, staging deployment, restore rehearsal, and live runbook rehearsal remain unverified.
+- **0005 tenant isolation:** expand the focused regressions to a two-company HTTP matrix for high-risk read, mutation, export, document, approval, and reporting paths; the scanner is a heuristic only.
+- **0007 migration recovery:** transactionality is implemented, but database fault injection, financial reconciliation, and restore rehearsal have not been performed against disposable PostgreSQL.
+- **0009 webhook runtime behavior:** live Razorpay signature, secret configuration, retry, replay, and event-processing checks still need staging verification.
+- **0012 exports:** report and receipt downloads are API-backed in source; voucher PDF and payment export remain unavailable. Verify the available download flows in a browser against staging.
+- **0018 secret scanning:** pinned Gitleaks checks are configured in CI/deploy workflows; the hosted runs and organization policy have not been verified.
+- **Production gates:** no staging credentials, live provider secrets, or production database were available, so deployment, live integrations, backup restore, human UAT, and certification remain NOT VERIFIED.
+
+The code changes are not deployed. No finding should be treated as production-closed solely from these local checks.
+
+### Local verification results for this follow-up
+
+- Targeted API regressions: **4 suites, 36 tests passed**, covering tasks, withdrawn certification state, payment tenant scoping, and migration safety.
+- Portal tenant-scope regression: **1 suite, 2 tests passed**, including scoped portal reads/payments and POST quotation argument order.
+- API and web TypeScript checks: passed after the latest source changes.
+- Full API suite: **114 suites passed, 811 tests passed, 1 DB-dependent suite/test skipped** (requires `E2E_DATABASE_URL`).
+- Web tests: **4 files passed, 9 tests passed**.
+- Tenant-scoping heuristic passed (56 controllers scanned) and production mock-data guard passed (682 files scanned); neither proves complete isolation or production behavior.
+- `git diff --check`: passed after the source, test, workflow, certification, and report edits.
+- Certification verifier intentionally exits nonzero because the certificate is withdrawn, its recorded gates do not prove current readiness, and the working-tree commit/schema do not match the historical certification. This is the required release block, not a claim of current release approval.
+- The prior full API run exposed a missing task-query `AND`, stale certificate expectation, motor status-array typing, and malformed agent-claim scope syntax. All were corrected; targeted task/certification/payment/migration tests (36 tests), affected motor tests (44 tests), and the portal tenant-scope tests (2 tests) pass.
+
+These are source-level checks only. They do not verify production behavior, Docker service reachability, provider signatures against live Razorpay deliveries, target database migration safety, deployment rollback, hosted approval settings, or backup restoration. The release certificate remains deliberately withdrawn.

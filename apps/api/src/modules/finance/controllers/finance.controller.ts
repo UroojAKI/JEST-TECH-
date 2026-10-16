@@ -1,3 +1,4 @@
+import { SettlementService, CreateSettlementBatchDto } from '../services/settlement.service';
 import {
   Controller,
   Get,
@@ -16,6 +17,7 @@ import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
 import { Roles } from '../../auth/decorators/roles.decorator';
 import { RoleType } from '@prisma/client';
+import { Decimal } from '@prisma/client/runtime/library';
 import {
   LedgerService,
   CreateJournalEntryDto,
@@ -31,6 +33,7 @@ import { PrismaService } from '../../../database/prisma.service';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import type { RequestUser } from '../../auth/decorators/current-user.decorator';
 import { sanitizeCsvCell } from '../../../common/utils/csv-sanitizer';
+import { RecordInvoicePaymentDto } from '../dto/record-invoice-payment.dto';
 
 @ApiTags('Finance')
 @ApiBearerAuth()
@@ -42,6 +45,7 @@ export class FinanceController {
     private readonly commissionEngineService: CommissionEngineService,
     private readonly paymentService: PaymentService,
     private readonly reconciliationService: FinanceReconciliationService,
+    private readonly settlementService: SettlementService,
     private readonly prisma: PrismaService,
   ) {}
 
@@ -57,13 +61,18 @@ export class FinanceController {
     monthStart.setHours(0, 0, 0, 0);
 
     const companyId = actor.companyId || (actor as any).organizationId;
+    if (!companyId) {
+      throw new ForbiddenException('Company context is required for finance');
+    }
 
     // 1. Receipts today (scoped to customers of this company)
     const companyCustomers = await this.prisma.customer.findMany({
       where: { companyId },
-      select: { id: true },
+      select: { id: true, contactId: true },
     });
-    const companyCustomerIds = companyCustomers.map((c) => c.id);
+    const companyCustomerIds = companyCustomers.flatMap((c) =>
+      c.contactId ? [c.id, c.contactId] : [c.id],
+    );
 
     const receiptsToday =
       companyCustomerIds.length > 0
@@ -100,7 +109,7 @@ export class FinanceController {
     // 3. Outstanding Premium (Unpaid invoices for this company's policies)
     const companyPolicies = companyId
       ? await this.prisma.policy.findMany({
-          where: { companyId },
+          where: { companyId, deletedAt: null },
           select: { id: true },
         })
       : [];
@@ -109,15 +118,22 @@ export class FinanceController {
     const unpaidInvoices =
       companyPolicyIds.length > 0
         ? await this.prisma.invoice.findMany({
-            where: {
-              status: 'UNPAID',
+          where: {
+              entityType: 'POLICY',
+              status: { in: ['UNPAID', 'PARTIAL'] },
               entityId: { in: companyPolicyIds },
             },
-            select: { totalAmount: true },
+            select: { totalAmount: true, allocations: { select: { amount: true } } },
           })
         : [];
     const outstandingPremium = unpaidInvoices.reduce(
-      (acc, i) => acc + Number(i.totalAmount),
+      (acc, invoice) => {
+        const paid = invoice.allocations.reduce(
+          (sum, allocation) => sum.add(allocation.amount),
+          new Decimal(0),
+        );
+        return acc + Number(invoice.totalAmount.sub(paid));
+      },
       0,
     );
 
@@ -150,21 +166,6 @@ export class FinanceController {
       0,
     );
 
-    // Commissions today for real net margin calculation
-    const commissionsToday = companyId
-      ? await this.prisma.commission.findMany({
-          where: {
-            createdAt: { gte: todayStart },
-            user: { companyId },
-          },
-          select: { amount: true },
-        })
-      : [];
-    const todayCommissions = commissionsToday.reduce(
-      (acc, c) => acc + Number(c.amount),
-      0,
-    );
-
     // 5. Work queues
     const companyClaims = companyId
       ? await this.prisma.claim.findMany({
@@ -187,11 +188,11 @@ export class FinanceController {
           status: 'PENDING',
         },
       }),
-      companyClaimBatchNumbers.length > 0
+      companyId
         ? this.prisma.settlement.count({
             where: {
+              companyId,
               status: 'PENDING',
-              batchNumber: { in: companyClaimBatchNumbers },
             },
           })
         : 0,
@@ -199,7 +200,10 @@ export class FinanceController {
         ? this.prisma.commission.count({
             where: {
               status: 'ACCRUED',
-              user: { companyId },
+              OR: [
+                { companyId },
+                { user: { companyId } },
+              ],
             },
           })
         : 0,
@@ -211,19 +215,12 @@ export class FinanceController {
       }),
     ]);
 
-    const ledgerBalance = Math.max(0, todayCollections - totalCommissionPaid);
-
     return {
       todayCollections,
       monthlyGwp,
       outstandingPremium,
       totalCommissionAccrued,
       totalCommissionPaid,
-      netProfitToday: Math.max(0, todayCollections - todayCommissions),
-      payables: outstandingPremium,
-      receivables: todayCollections,
-      cashFlow: todayCollections - totalCommissionPaid,
-      ledgerBalance: ledgerBalance > 0 ? ledgerBalance : todayCollections,
       myWorkQueue: {
         pendingVerification,
         settlementsPending,
@@ -241,11 +238,16 @@ export class FinanceController {
     @Res() res: Response,
   ) {
     const companyId = actor.companyId || (actor as any).organizationId;
+    if (!companyId) {
+      throw new ForbiddenException('Company context is required');
+    }
     const companyCustomers = await this.prisma.customer.findMany({
       where: { companyId },
-      select: { id: true },
+      select: { id: true, contactId: true },
     });
-    const customerIds = companyCustomers.map((c) => c.id);
+    const customerIds = companyCustomers.flatMap((c) =>
+      c.contactId ? [c.id, c.contactId] : [c.id],
+    );
 
     const receipts =
       customerIds.length > 0
@@ -281,24 +283,27 @@ export class FinanceController {
     @Query('status') status?: string,
   ) {
     const companyId = actor.companyId || (actor as any).organizationId;
+    if (!companyId) return [];
     const companyCustomers = await this.prisma.customer.findMany({
       where: { companyId },
-      select: { id: true, firstName: true, lastName: true },
+      select: { id: true, contactId: true, firstName: true, lastName: true },
     });
-    const customerMap = new Map(
-      companyCustomers.map((c) => [
-        c.id,
-        `${c.firstName} ${c.lastName || ''}`.trim(),
-      ]),
+    const customerMap = new Map<string, string>();
+    for (const customer of companyCustomers) {
+      const name = `${customer.firstName} ${customer.lastName || ''}`.trim();
+      customerMap.set(customer.id, name);
+      if (customer.contactId) customerMap.set(customer.contactId, name);
+    }
+    const customerIds = companyCustomers.flatMap((c) =>
+      c.contactId ? [c.id, c.contactId] : [c.id],
     );
-    const customerIds = companyCustomers.map((c) => c.id);
 
     if (customerIds.length === 0) {
       return [];
     }
 
     const where: any = { customerId: { in: customerIds } };
-    if (status) {
+    if (status && status !== 'ALL') {
       where.status = status;
     }
 
@@ -306,33 +311,66 @@ export class FinanceController {
       where,
       orderBy: { createdAt: 'desc' },
       take: 100,
+      include: {
+        allocations: {
+          include: {
+            invoice: { select: { entityId: true, entityType: true } },
+          },
+        },
+      },
     });
+
+    const policyIds = [
+      ...new Set(
+        receipts.flatMap((receipt) =>
+          receipt.allocations
+            .filter((allocation) => allocation.invoice.entityType === 'POLICY')
+            .map((allocation) => allocation.invoice.entityId),
+        ),
+      ),
+    ];
+    const policies = policyIds.length
+      ? await this.prisma.policy.findMany({
+          where: { companyId, id: { in: policyIds } },
+          select: { id: true, policyNumber: true },
+        })
+      : [];
+    const policyNumbers = new Map(policies.map((policy) => [policy.id, policy.policyNumber]));
 
     return receipts.map((r) => ({
       id: r.id,
       receiptNumber: r.receiptNum,
       customerName: customerMap.get(r.customerId) || r.customerId,
-      policyNumber: `POL-${r.receiptNum}`,
+      policyNumber:
+        r.allocations
+          .map((allocation) => policyNumbers.get(allocation.invoice.entityId))
+          .find(Boolean) || 'Multiple policies',
       amount: Number(r.amount),
       paymentMode: r.paymentMode,
-      reference: r.reference,
+      txnRef: r.reference || '',
+      receivedBy: 'Recorded payment',
       status: r.status,
-      createdAt: r.createdAt,
+      date: r.createdAt.toISOString(),
     }));
   }
 
   @Get('payments')
   @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE)
-  @ApiOperation({ summary: 'List outgoing payments / disbursements' })
+  @ApiOperation({ summary: 'List financial payments register (inbound motor premiums and disbursements)' })
   async getPayments(
     @CurrentUser() actor: RequestUser,
     @Query('type') type?: string,
+    @Query('method') method?: string,
   ) {
     const companyId = actor.companyId || (actor as any).organizationId;
+    // Build WHERE clause; support both method param and backward-compatible type param
+    const where: any = { quotation: { companyId } };
+    const methodFilter = method || (type && type !== 'ALL' && type !== 'MOTOR_PREMIUM' ? type : undefined);
+    if (methodFilter) {
+      where.paymentMethod = methodFilter;
+    }
     const motorPayments = await this.prisma.motorPaymentRecord.findMany({
-      where: {
-        quotation: { companyId },
-      },
+      where,
       orderBy: { createdAt: 'desc' },
       take: 100,
       include: { quotation: true },
@@ -342,12 +380,29 @@ export class FinanceController {
       id: p.id,
       paymentNumber: p.referenceNumber || p.id.substring(0, 10).toUpperCase(),
       payee: p.quotation?.insurerName || 'Unassigned Insurer',
-      type: 'INSURER_SETTLEMENT',
+      // MotorPaymentRecord represents inbound motor premium receipts, not insurer settlements
+      type: 'MOTOR_PREMIUM',
       amount: Number(p.amount),
       mode: p.paymentMethod,
       status: p.status === 'PAID' ? 'COMPLETED' : 'PENDING_APPROVAL',
       date: p.createdAt.toISOString(),
     }));
+  }
+
+  @Get('accounts')
+  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE)
+  @ApiOperation({ summary: 'List chart of accounts for journal entry selection' })
+  async getChartOfAccounts() {
+    return this.prisma.chartOfAccount.findMany({
+      where: { isActive: true },
+      select: {
+        id: true,
+        code: true,
+        name: true,
+        type: true,
+      },
+      orderBy: [{ type: 'asc' }, { code: 'asc' }],
+    });
   }
 
   @Get('ledger')
@@ -390,7 +445,10 @@ export class FinanceController {
     const companyId = actor.companyId || (actor as any).organizationId;
     const commissions = await this.prisma.commission.findMany({
       where: {
-        user: { companyId },
+        OR: [
+          { companyId },
+          { user: { companyId } },
+        ],
       },
       orderBy: { createdAt: 'desc' },
       take: 100,
@@ -439,13 +497,15 @@ export class FinanceController {
         grossPremium,
         commissionPercent,
         commissionAmount: Number(c.amount),
-        status: c.status === 'PAID' ? 'REALIZED' : 'ACCRUED',
+        status: c.status,
         payoutStatus:
           c.status === 'PAID'
             ? 'PAID'
-            : c.status === 'REALIZED'
+            : c.status === 'APPROVED'
               ? 'APPROVED'
-              : 'PENDING_APPROVAL',
+              : c.status === 'REALIZED'
+                ? 'REALIZED'
+                : 'PENDING_APPROVAL',
         createdAt: c.createdAt.toISOString(),
       };
     });
@@ -468,7 +528,7 @@ export class FinanceController {
     }
     return this.prisma.commission.update({
       where: { id },
-      data: { status: 'REALIZED' },
+      data: { status: 'APPROVED' },
     });
   }
 
@@ -477,23 +537,23 @@ export class FinanceController {
   @ApiOperation({ summary: 'List insurer settlements' })
   async getSettlements(@CurrentUser() actor: RequestUser) {
     const companyId = actor.companyId || (actor as any).organizationId;
-    const companyClaims = companyId
-      ? await this.prisma.claim.findMany({
-          where: { companyId },
+    if (!companyId) return [];
+
+    const companyClaims = await this.prisma.claim.findMany({
+      where: { companyId },
+      select: {
+        id: true,
+        policy: {
           select: {
-            id: true,
-            policy: {
+            quotation: {
               select: {
-                quotation: {
-                  select: {
-                    insurerName: true,
-                  },
-                },
+                insurerName: true,
               },
             },
           },
-        })
-      : [];
+        },
+      },
+    });
     const claimInsurerMap = new Map(
       companyClaims.map((c) => [
         `CLAIM-${c.id}`,
@@ -503,29 +563,56 @@ export class FinanceController {
     const companyClaimBatchNumbers = companyClaims.map((c) => `CLAIM-${c.id}`);
 
     const settlements = await this.prisma.settlement.findMany({
-      where:
-        companyClaimBatchNumbers.length > 0
-          ? { batchNumber: { in: companyClaimBatchNumbers } }
-          : { id: '__no_tenant_settlements__' },
+      where: {
+        OR: [
+          { companyId },
+          ...(companyClaimBatchNumbers.length > 0
+            ? [{ batchNumber: { in: companyClaimBatchNumbers } }]
+            : []),
+        ],
+      },
       orderBy: { createdAt: 'desc' },
       take: 50,
     });
 
     return settlements.map((s) => {
-      const total = Number(s.totalAmount);
-      const insurerName = claimInsurerMap.get(s.batchNumber) || null;
+      const gross = Number(s.totalAmount);
+      const retained = s.retainedCommission !== null && s.retainedCommission !== undefined
+        ? Number(s.retainedCommission)
+        : 0;
+      const net = s.netPayable !== null && s.netPayable !== undefined
+        ? Number(s.netPayable)
+        : gross - retained;
+      const insurerName = s.insurerName || claimInsurerMap.get(s.batchNumber) || 'General Carrier Settlement';
+      const period = s.period || s.date.toISOString().substring(0, 7);
+
       return {
         id: s.id,
+        batchNumber: s.batchNumber,
         insurerName,
-        period: s.date.toISOString().substring(0, 7),
-        grossPremiumCollected: total,
-        commissionRetained: 0,
-        netPayable: total,
+        period,
+        grossPremiumCollected: gross,
+        commissionRetained: retained,
+        netPayable: net,
         status: s.status === 'PROCESSED' ? 'SETTLED' : 'PENDING_SETTLEMENT',
         settledDate:
           s.status === 'PROCESSED' ? s.updatedAt.toISOString() : null,
       };
     });
+  }
+
+  @Post('settlements')
+  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE)
+  @ApiOperation({ summary: 'Create insurer net-payable settlement batch' })
+  async createSettlementBatch(
+    @Body() dto: CreateSettlementBatchDto,
+    @CurrentUser() actor: RequestUser,
+  ) {
+    const companyId = actor.companyId || (actor as any).organizationId;
+    if (!companyId) {
+      throw new ForbiddenException('Company context is required for settlement');
+    }
+    return this.settlementService.createBatch(dto, companyId, actor.id);
   }
 
   @Get('incentives')
@@ -597,36 +684,83 @@ export class FinanceController {
     return this.reconciliationService.flagDiscrepancy(id, actor, dto);
   }
 
+  @Get('invoices/outstanding')
+  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE)
+  @ApiOperation({ summary: 'List this company\'s payable policy invoices' })
+  async getOutstandingInvoices(@CurrentUser() actor: RequestUser) {
+    const companyId = actor.companyId || (actor as any).organizationId;
+    if (!companyId) return [];
+
+    const policies = await this.prisma.policy.findMany({
+      where: {
+        companyId,
+        deletedAt: null,
+        customerId: { not: null },
+        customer: { is: { companyId, deletedAt: null } },
+      },
+      select: {
+        id: true,
+        policyNumber: true,
+        customer: { select: { firstName: true, lastName: true } },
+      },
+    });
+    if (!policies.length) return [];
+
+    const policyById = new Map(policies.map((policy) => [policy.id, policy]));
+    const invoices = await this.prisma.invoice.findMany({
+      where: {
+        entityType: 'POLICY',
+        entityId: { in: policies.map((policy) => policy.id) },
+        status: { in: ['UNPAID', 'PARTIAL'] },
+      },
+      include: { allocations: true },
+      orderBy: { dueDate: 'asc' },
+    });
+
+    return invoices.flatMap((invoice) => {
+      const policy = policyById.get(invoice.entityId);
+      if (!policy?.customer) return [];
+
+      const paid = invoice.allocations.reduce(
+        (total, allocation) => total.add(allocation.amount),
+        invoice.totalAmount.minus(invoice.totalAmount),
+      );
+      const outstanding = invoice.totalAmount.minus(paid);
+      if (outstanding.lte(0)) return [];
+
+      return [{
+        id: invoice.id,
+        invoiceNumber: invoice.invoiceNum,
+        policyNumber: policy.policyNumber,
+        customerName: [policy.customer.firstName, policy.customer.lastName]
+          .filter(Boolean)
+          .join(' '),
+        totalAmount: invoice.totalAmount.toString(),
+        paidAmount: paid.toString(),
+        outstandingAmount: outstanding.toString(),
+        dueDate: invoice.dueDate,
+      }];
+    });
+  }
+
   @Post('invoices/:id/pay')
   @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE)
   @ApiOperation({ summary: 'Process payment allocation against an invoice' })
   async processInvoicePayment(
     @Param('id') invoiceId: string,
-    @Body() dto: { amount: string; mode: string; reference?: string },
+    @Body() dto: RecordInvoicePaymentDto,
     @CurrentUser() actor: RequestUser,
   ) {
-    const invoice = await this.prisma.invoice.findUnique({
-      where: { id: invoiceId },
-    });
-    if (!invoice) throw new NotFoundException('Invoice not found');
-
     const companyId = actor.companyId || (actor as any).organizationId;
-    if (invoice.entityType === 'POLICY' && companyId) {
-      const policy = await this.prisma.policy.findUnique({
-        where: { id: invoice.entityId },
-        select: { companyId: true },
-      });
-      if (policy?.companyId && policy.companyId !== companyId) {
-        throw new ForbiddenException(
-          'Cross-organization access is strictly prohibited',
-        );
-      }
+    if (!companyId) {
+      throw new ForbiddenException('Company context is required for payment');
     }
 
     return this.paymentService.processPayment(
       invoiceId,
       dto.amount,
       dto.mode,
+      companyId,
       dto.reference,
     );
   }

@@ -282,11 +282,11 @@ export class WorkspaceService {
       },
       BACK_OFFICE: {
         code: 'BACK_OFFICE',
-        title: 'Operations & Issuance',
-        href: '/workspace/operations',
+        title: 'Policy Issuance',
+        href: '/workspace/operations/issuance',
         icon: 'Briefcase',
         description:
-          'Document verification, inspection review & policy issuance',
+          'Review issuance gates, approve quotations, and issue policies',
       },
       RENEWALS: {
         code: 'RENEWALS',

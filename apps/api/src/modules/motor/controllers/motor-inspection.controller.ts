@@ -18,8 +18,12 @@ import {
   MotorInspectionService,
   CreateInspectionDto,
   InspectionPhotoType,
-  RejectInspectionDto,
 } from '../services/motor-inspection.service';
+import {
+  ApproveInspectionDto,
+  RejectInspectionDto,
+  WaiveInspectionDto,
+} from '../dto/motor-inspection.dto';
 
 @ApiTags('Motor Inspection')
 @ApiBearerAuth()
@@ -105,7 +109,7 @@ export class MotorInspectionController {
   })
   async approveInspection(
     @Param('id') inspectionId: string,
-    @Body() body: { reportPdfKey?: string; reportPdfUrl?: string },
+    @Body() body: ApproveInspectionDto,
     @CurrentUser() actor: ActorContext,
   ) {
     return this.inspectionService.approveInspection(
@@ -127,14 +131,23 @@ export class MotorInspectionController {
     @Body() body: RejectInspectionDto,
     @CurrentUser() actor: ActorContext,
   ) {
-    if (!body.reasonCode || !body.reasonText?.trim()) {
+    const validCodes = ['BLURRY_PHOTO', 'MISSING_EVIDENCE', 'VEHICLE_MISMATCH', 'OTHER'] as const;
+    const reasonCode =
+      body.reasonCode && (validCodes as readonly string[]).includes(body.reasonCode)
+        ? (body.reasonCode as (typeof validCodes)[number])
+        : 'OTHER';
+    const reasonText = (body.reasonText || body.reason || '').trim();
+    if (!reasonText) {
       throw new BadRequestException(
         'Rejection reason code and text are required',
       );
     }
     return this.inspectionService.rejectInspection(
       inspectionId,
-      body,
+      {
+        reasonCode,
+        reasonText,
+      },
       actor,
     );
   }
@@ -147,7 +160,7 @@ export class MotorInspectionController {
   })
   async waiveInspection(
     @Param('id') inspectionId: string,
-    @Body() body: { reason: string },
+    @Body() body: WaiveInspectionDto,
     @CurrentUser() actor: ActorContext,
   ) {
     if (!body.reason) {

@@ -40,6 +40,9 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Scan source for leaked secrets
+        run: docker run --rm -v "$PWD:/repo" zricethezav/gitleaks:v8.30.1 git --redact --no-banner /repo
+
       - name: Install pnpm
         uses: pnpm/action-setup@v4
         with:
@@ -48,7 +51,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '24'
           cache: 'pnpm'
 
       - name: Frozen lockfile install
@@ -57,10 +60,15 @@ jobs:
       - name: Generate Prisma Client
         run: pnpm --filter api run prisma:generate
 
+      - name: Apply database migrations to test container
+        run: pnpm --filter api exec prisma migrate deploy
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/jest_test
+
       - name: TypeScript typecheck — API
         run: pnpm exec tsc --noEmit --project apps/api/tsconfig.json
 
-      - name: Architecture Guard — Fail-Closed Multi-Tenant Scoping (Section 15)
+      - name: Heuristic controller tenant-scope scan (not a complete isolation proof)
         run: pnpm run check:tenancy
 
       - name: Quality Gate — Production Mock Data & AST Scanner (F-036)
@@ -71,23 +79,75 @@ jobs:
         env:
           NODE_ENV: test
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/jest_test
+          JWT_SECRET: "ci_test_jwt_secret_min_32_characters_for_testing_purposes"
+          JWT_REFRESH_SECRET: "ci_test_jwt_refresh_secret_min_32_characters_for_testing"
+          PII_ENCRYPTION_KEY: "ci_test_pii_encryption_key_32_chars_testing!!"
+          COOKIE_SECRET: "ci_test_cookie_secret_min_32_characters_testing"
+          CSRF_SECRET: "ci_test_csrf_secret_min_32_characters_testing"
+          REDIS_ENABLED: "false"
 
       - name: Certification & Security tests — API
         run: pnpm --filter api test:cert
         env:
           NODE_ENV: test
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/jest_test
+          JWT_SECRET: "ci_test_jwt_secret_min_32_characters_for_testing_purposes"
+          JWT_REFRESH_SECRET: "ci_test_jwt_refresh_secret_min_32_characters_for_testing"
+          PII_ENCRYPTION_KEY: "ci_test_pii_encryption_key_32_chars_testing!!"
+          COOKIE_SECRET: "ci_test_cookie_secret_min_32_characters_testing"
+          CSRF_SECRET: "ci_test_csrf_secret_min_32_characters_testing"
+          REDIS_ENABLED: "false"
 
       - name: End-to-End tests — API
         run: pnpm --filter api test:e2e
         env:
           NODE_ENV: test
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/jest_test
+          JWT_SECRET: "ci_test_jwt_secret_min_32_characters_for_testing_purposes"
+          JWT_REFRESH_SECRET: "ci_test_jwt_refresh_secret_min_32_characters_for_testing"
+          PII_ENCRYPTION_KEY: "ci_test_pii_encryption_key_32_chars_testing!!"
+          COOKIE_SECRET: "ci_test_cookie_secret_min_32_characters_testing"
+          CSRF_SECRET: "ci_test_csrf_secret_min_32_characters_testing"
+          REDIS_ENABLED: "false"
 
       - name: Live Health Readiness Probe (HTTP smoke test)
         run: |
-          echo "Executing real HTTP readiness probe against /health/ready..."
-          pnpm --filter api exec jest src/modules/health/health.controller.spec.ts --runInBand
+          echo "Building API artifact..."
+          pnpm --filter api run build
+          API_ENTRY="apps/api/dist/main.js"
+          if [ ! -f "$API_ENTRY" ]; then
+            echo "ERROR: Expected Nest build artifact not found: $API_ENTRY"
+            echo "Available main.js artifacts:"
+            find apps/api/dist -maxdepth 3 -type f -name 'main.js' -print || true
+            exit 1
+          fi
+          echo "Launching API daemon from $API_ENTRY..."
+          node "$API_ENTRY" &
+          API_PID=$!
+          cleanup() { kill "$API_PID" 2>/dev/null || true; }
+          trap cleanup EXIT
+          echo "Polling HTTP readiness probe on http://127.0.0.1:4000/api/v1/health/ready..."
+          for i in {1..30}; do
+            if curl --silent --show-error --fail http://127.0.0.1:4000/api/v1/health/ready; then
+              echo "API is live and ready!"
+              exit 0
+            fi
+            if ! kill -0 "$API_PID" 2>/dev/null; then
+              echo "ERROR: API process exited before readiness succeeded."
+              exit 1
+            fi
+            sleep 1
+          done
+          echo "ERROR: Health probe timed out."
+          exit 1
+        env:
+          PORT: "4000"
+          NODE_ENV: test
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/jest_test
+          JWT_SECRET: "ci_test_jwt_secret_min_32_characters_for_testing_purposes"
+          JWT_REFRESH_SECRET: "ci_test_jwt_refresh_secret_min_32_characters_for_testing"
+          PII_ENCRYPTION_KEY: "ci_test_pii_encryption_key_32_chars_testing!!"
+          REDIS_ENABLED: "false"
 
   web-quality-gates:
     name: Web Quality Gates & Independent Reporting (F-032)
@@ -103,7 +163,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '24'
           cache: 'pnpm'
 
       - name: Frozen lockfile install

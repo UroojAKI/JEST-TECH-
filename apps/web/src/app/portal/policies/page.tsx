@@ -5,6 +5,7 @@ import { AppShell } from '../../../components/layout/app-shell';
 import { ShieldCheck, Download, RefreshCw, FileText, Search } from 'lucide-react';
 import { useAgentPolicies } from '../../../hooks/usePortal';
 import { StatusBadge } from '../../../components/ui/status-badge';
+import Link from 'next/link';
 
 export default function AgentPoliciesPage() {
   const [searchQuery, setSearchQuery] = useState('');
@@ -51,12 +52,17 @@ export default function AgentPoliciesPage() {
                 policies.map((pol: any) => (
                   <tr key={pol.id} className="hover:bg-accent/40">
                     <td className="p-3 font-mono font-bold text-primary">{pol.policyNumber}</td>
-                    <td className="p-3 font-bold">{pol.customerName}</td>
+                    <td className="p-3 font-bold"><Link href={`/crm/contacts/${pol.contactId}`} className="hover:text-primary hover:underline">{pol.customerName}</Link></td>
                     <td className="p-3">{pol.productLine}</td>
                     <td className="p-3 font-semibold">{pol.insurerName}</td>
                     <td className="p-3 font-mono font-bold text-emerald-600">₹{pol.totalPremium?.toLocaleString('en-IN') || 0}</td>
                     <td className="p-3 font-mono text-muted-foreground">{pol.expiryDate}</td>
-                    <td className="p-3"><StatusBadge status={pol.status} /></td>
+                    <td className="p-3">
+                      <StatusBadge status={pol.status} />
+                      <div className="mt-1 text-[9px] text-muted-foreground">
+                        {pol.quotationCode || 'Quote —'} · {pol.caseCode || 'Case —'} · Inspection {pol.inspectionStatus || '—'} · Payment {pol.paymentStatus || '—'}{pol.claims?.length ? ` · Claims ${pol.claims.map((claim: any) => claim.claimNumber).join(', ')}` : ''}
+                      </div>
+                    </td>
                     <td className="p-3 text-right">
                       <button
                         onClick={() => window.open('/api/v1/policies/' + pol.id + '/document', '_blank')}

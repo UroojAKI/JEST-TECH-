@@ -18,11 +18,15 @@ import { ParseUUIDPipe } from '../../../common/utils/parse-uuid.pipe';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
 import { Roles } from '../../auth/decorators/roles.decorator';
+import { AnyAuthenticatedRole } from '../../auth/decorators/any-authenticated.decorator';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import type { RequestUser } from '../../auth/decorators/current-user.decorator';
 
 import { CreateUserDto } from '../dto/create-user.dto';
 import { UpdateUserDto } from '../dto/update-user.dto';
+import { ChangePasswordDto } from '../dto/change-password.dto';
+import { UpdateUserStatusDto } from '../dto/update-user-status.dto';
+import { AdminResetPasswordDto } from '../dto/admin-reset-password.dto';
 import { UsersService } from '../services/users.service';
 
 @ApiTags('Users')
@@ -62,10 +66,11 @@ export class UsersController {
   }
 
   @Post('change-password')
+  @AnyAuthenticatedRole()
   @ApiOperation({ summary: 'Change current user password' })
   changePassword(
     @CurrentUser() user: RequestUser,
-    @Body() dto: { currentPassword?: string; newPassword: string },
+    @Body() dto: ChangePasswordDto,
   ) {
     return this.usersService.changePassword(
       user.id,
@@ -98,7 +103,7 @@ export class UsersController {
   @ApiOperation({ summary: 'Update user status with state machine validation' })
   updateStatus(
     @Param('id', ParseUUIDPipe) id: string,
-    @Body() dto: { status: UserStatus; reason?: string },
+    @Body() dto: UpdateUserStatusDto,
     @CurrentUser() actor: RequestUser,
   ) {
     return this.usersService.updateStatus(
@@ -154,7 +159,7 @@ export class UsersController {
   @ApiOperation({ summary: 'Admin reset user password' })
   resetPassword(
     @Param('id', ParseUUIDPipe) id: string,
-    @Body() dto: { newPassword?: string },
+    @Body() dto: AdminResetPasswordDto,
     @CurrentUser() actor?: RequestUser,
   ) {
     return this.usersService.adminResetPassword(id, dto.newPassword, actor);

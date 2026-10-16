@@ -166,7 +166,7 @@ export default function QuotationWorkspacePage() {
             <div className="flex items-center gap-2">
               {isMotor ? (
                 <button
-                  onClick={() => router.push('/workspace/operations')}
+                  onClick={() => router.push('/workspace/operations/issuance')}
                   className="flex items-center gap-1.5 px-4 py-2 text-xs font-bold rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors shadow-sm"
                 >
                   <span>Operations Workbench</span>
