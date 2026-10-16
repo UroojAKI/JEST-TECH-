@@ -395,4 +395,31 @@ describe('Work Package 2 & PR-01: Discount & Commission Decoupling Regression Su
     expect(emitted.editedTpPremium).toBe('3000');
   });
 
+  it('allows deleting OD Gross entry without auto-resetting the input value', () => {
+    const mockOnChange = vi.fn();
+    render(
+      <PolicyFormPackageForm
+        category="PRIVATE_CAR"
+        vehicleStatus="EXISTING"
+        data={{
+          policyTenure: '1',
+          insuredDeclaredValue: '500000',
+          editedOdGross: '15000',
+          editedOdRate: '3.0',
+        } as any}
+        onChange={mockOnChange}
+      />,
+    );
+
+    const odGrossInput = screen.getByTitle('Edit OD Gross ₹') as HTMLInputElement;
+    expect(odGrossInput.value).toBe('15000');
+
+    fireEvent.change(odGrossInput, { target: { value: '' } });
+
+    expect(mockOnChange).toHaveBeenCalled();
+    const emitted = mockOnChange.mock.calls[0][0];
+    expect(emitted.editedOdGross).toBeUndefined();
+    expect(emitted.editedOdRate).toBeUndefined();
+  });
+
 });

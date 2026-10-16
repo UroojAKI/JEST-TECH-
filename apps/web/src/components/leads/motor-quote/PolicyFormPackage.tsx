@@ -238,7 +238,7 @@ export function PolicyFormPackageForm({ category, vehicleStatus, data, onChange,
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-1.5">
                 <span className="text-xs font-black text-foreground">1. Own Damage (OD)</span>
-                {data.editedOdRate && (
+                {(data.editedOdRate || data.editedOdGross) && (
                   <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-600 border border-amber-300">
                     [Edited]
                   </span>
@@ -251,14 +251,14 @@ export function PolicyFormPackageForm({ category, vehicleStatus, data, onChange,
                   step="0.001"
                   placeholder={result?.rateConfig?.systemOdRate ? `${result.rateConfig.systemOdRate}%` : 'Rate %'}
                   value={data.editedOdRate ?? ''}
-                  onChange={(e) => onChange({ ...data, editedOdRate: e.target.value })}
+                  onChange={(e) => onChange({ ...data, editedOdRate: e.target.value, editedOdGross: undefined })}
                   className="w-20 p-1 text-[11px] font-bold rounded border bg-background text-foreground"
                   title="Edit OD Rate %"
                 />
-                {data.editedOdRate && (
+                {(data.editedOdRate || data.editedOdGross) && (
                   <button
                     type="button"
-                    onClick={() => onChange({ ...data, editedOdRate: undefined })}
+                    onClick={() => onChange({ ...data, editedOdRate: undefined, editedOdGross: undefined })}
                     className="text-[10px] font-semibold text-muted-foreground hover:text-foreground underline"
                   >
                     Reset
@@ -275,17 +275,20 @@ export function PolicyFormPackageForm({ category, vehicleStatus, data, onChange,
                   type="number"
                   step="1"
                   placeholder={hasValidCalculation ? String(Math.round(outputs.od?.gross ?? rawOd)) : 'OD Gross ₹'}
-                  value={data.editedOdRate && parseFloat(data.insuredDeclaredValue || '0') > 0
-                    ? Math.round(parseFloat(data.insuredDeclaredValue || '0') * (parseFloat(data.editedOdRate) / 100))
-                    : (hasValidCalculation ? Math.round(outputs.od?.gross ?? rawOd) : '')}
+                  value={data.editedOdGross !== undefined ? data.editedOdGross : (data.editedOdRate && parseFloat(data.insuredDeclaredValue || '0') > 0
+                    ? String(Math.round(parseFloat(data.insuredDeclaredValue || '0') * (parseFloat(data.editedOdRate) / 100)))
+                    : '')}
                   onChange={(e) => {
-                    const val = parseFloat(e.target.value);
+                    const strVal = e.target.value;
+                    const val = parseFloat(strVal);
                     const idvVal = parseFloat(data.insuredDeclaredValue || '0');
-                    if (idvVal > 0 && !isNaN(val)) {
+                    if (strVal === '') {
+                      onChange({ ...data, editedOdGross: undefined, editedOdRate: undefined });
+                    } else if (idvVal > 0 && !isNaN(val)) {
                       const rate = ((val / idvVal) * 100).toFixed(3);
-                      onChange({ ...data, editedOdRate: rate });
-                    } else if (!e.target.value) {
-                      onChange({ ...data, editedOdRate: undefined });
+                      onChange({ ...data, editedOdGross: strVal, editedOdRate: rate });
+                    } else {
+                      onChange({ ...data, editedOdGross: strVal });
                     }
                   }}
                   className="w-full p-1 text-xs font-bold rounded border bg-background text-foreground"

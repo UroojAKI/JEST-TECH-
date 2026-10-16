@@ -288,6 +288,7 @@ export interface PolicyFormPackage {
   finalGstAmount?: string;       // Re-calculated GST after discount
   gstRate?: string;               // 5% vs 18% selectable GST
   editedOdRate?: string;          // Agent editable OD rate %
+  editedOdGross?: string;         // Agent editable OD Gross ₹
   editedTpPremium?: string;       // Agent editable TP premium ₹
   editedPaPremium?: string;       // Agent editable PA premium ₹
   editedPaidDriverPremium?: string; // Agent editable Paid Driver liability ₹
