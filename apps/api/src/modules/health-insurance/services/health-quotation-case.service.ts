@@ -29,12 +29,14 @@ const caseInclude = {
   quotations: {
     include: {
       motorPaymentRecord: true,
+      policy: true,
     },
     orderBy: { createdAt: 'desc' as const },
   },
   selectedQuote: {
     include: {
       motorPaymentRecord: true,
+      policy: true,
     },
   },
   documents: true,

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useRef, useState } from 'react';
+import Link from 'next/link';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import {
@@ -18,6 +19,7 @@ import {
   X,
 } from 'lucide-react';
 import { useAuthStore } from '../../store/auth-store';
+import { apiClient } from '../../lib/api-client';
 import { healthApiError, healthQuotationRepository } from '../../repositories/health-quotation.repository';
 import {
   NOMINEE_RELATIONS,
@@ -132,6 +134,20 @@ export function HealthCaseWorkspace({ caseId }: { caseId: string }) {
     onError: (err) => toast.error(healthApiError(err, 'Failed to record payment')),
   });
 
+  const issuePolicyMutation = useMutation({
+    mutationFn: async (quotationId: string) => {
+      const res = await apiClient.post(`/back-office/issue/${quotationId}`, {});
+      return res.data;
+    },
+    onSuccess: (data) => {
+      toast.success(`Health Policy issued successfully! Policy No: ${data?.policy?.policyNumber || data?.policyNumber || 'Active'}`);
+      refresh();
+    },
+    onError: (err: any) => {
+      toast.error(err.response?.data?.message || 'Failed to issue health policy');
+    },
+  });
+
   if (caseQuery.isLoading) return <div className="p-8 text-center text-xs text-muted-foreground animate-pulse">Loading Health proposal...</div>;
   if (caseQuery.isError || !caseQuery.data) return <div className="p-8 text-center text-xs text-rose-500">Health proposal not found.</div>;
 
@@ -176,10 +192,31 @@ export function HealthCaseWorkspace({ caseId }: { caseId: string }) {
         <div className="flex items-center gap-2">
           {selectedQuote && (
             <>
-              {paymentStatus === 'PAID' ? (
-                <span className="px-3 py-1 rounded-full text-[11px] font-black bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 flex items-center gap-1">
-                  <CheckCircle2 className="h-3.5 w-3.5" /> Paid & Reconciled
+              {selectedQuote.policy ? (
+                <span className="px-3 py-1 rounded-full text-[11px] font-black bg-emerald-600 text-white flex items-center gap-1 shadow-sm">
+                  <ShieldCheck className="h-3.5 w-3.5" /> Policy Issued ({selectedQuote.policy.policyNumber})
                 </span>
+              ) : paymentStatus === 'PAID' ? (
+                <div className="flex items-center gap-2">
+                  <span className="px-3 py-1 rounded-full text-[11px] font-black bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 flex items-center gap-1">
+                    <CheckCircle2 className="h-3.5 w-3.5" /> Paid & Reconciled
+                  </span>
+                  {isBackOfficeOrAdmin && (
+                    <button
+                      type="button"
+                      disabled={issuePolicyMutation.isPending}
+                      onClick={() => {
+                        if (confirm(`Confirm issuance of official Health Policy for quotation ${selectedQuote.quotationCode}?`)) {
+                          issuePolicyMutation.mutate(selectedQuote.id);
+                        }
+                      }}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold shadow-sm transition disabled:opacity-50"
+                    >
+                      {issuePolicyMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ShieldCheck className="h-3.5 w-3.5" />}
+                      Issue Policy
+                    </button>
+                  )}
+                </div>
               ) : paymentStatus === 'UNDER_PROCESS' ? (
                 <span className="px-3 py-1 rounded-full text-[11px] font-black bg-amber-500/10 text-amber-600 border border-amber-500/20 flex items-center gap-1">
                   <Clock className="h-3.5 w-3.5" /> Payment Under Verification
@@ -198,6 +235,49 @@ export function HealthCaseWorkspace({ caseId }: { caseId: string }) {
           <span className="px-3 py-1 rounded-full text-[11px] font-black bg-primary/10 text-primary">{hc.status}</span>
         </div>
       </div>
+
+      {selectedQuote?.policy && (
+        <div className="p-5 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 rounded-xl bg-emerald-600 text-white shadow-xs">
+                <ShieldCheck className="h-6 w-6" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="font-black text-sm text-foreground">Official Health Insurance Policy Active</span>
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-emerald-600 text-white uppercase tracking-wider">
+                    {selectedQuote.policy.status || 'ACTIVE'}
+                  </span>
+                </div>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Policy Number:{' '}
+                  <Link
+                    href={`/policies/${selectedQuote.policy.id}`}
+                    className="font-mono text-foreground text-sm font-black hover:text-emerald-600 hover:underline inline-flex items-center gap-1"
+                  >
+                    {selectedQuote.policy.policyNumber}
+                  </Link>
+                  {' • '}
+                  Insurer: <strong className="text-foreground">{selectedQuote.insurerName}</strong>
+                </p>
+              </div>
+            </div>
+            <div className="text-right text-xs bg-card/60 p-2.5 rounded-xl border border-border">
+              <div className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider">Policy Period</div>
+              <div className="font-bold text-foreground">
+                {selectedQuote.policy.effectiveDate || selectedQuote.policy.startDate
+                  ? new Date(selectedQuote.policy.effectiveDate || selectedQuote.policy.startDate).toLocaleDateString('en-IN')
+                  : '—'}{' '}
+                to{' '}
+                {selectedQuote.policy.expiryDate || selectedQuote.policy.endDate
+                  ? new Date(selectedQuote.policy.expiryDate || selectedQuote.policy.endDate).toLocaleDateString('en-IN')
+                  : '—'}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
         <div className="p-4 rounded-2xl border bg-card space-y-2">
@@ -413,18 +493,35 @@ export function HealthCaseWorkspace({ caseId }: { caseId: string }) {
                 </p>
               </div>
             </div>
-            <button
-              type="button"
-              onClick={() => openPaymentModal(selectedQuote)}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/90 transition shadow-sm"
-            >
-              <Wallet className="h-4 w-4" />
-              {paymentStatus === 'PAID'
-                ? (isBackOfficeOrAdmin ? 'Update Reconciled Payment' : 'View Payment Record')
-                : paymentStatus === 'UNDER_PROCESS'
-                  ? (isBackOfficeOrAdmin ? 'Verify & Confirm Paid' : 'Update Payment Details')
-                  : 'Record Payment'}
-            </button>
+            <div className="flex items-center gap-2">
+              {paymentStatus === 'PAID' && !selectedQuote.policy && isBackOfficeOrAdmin && (
+                <button
+                  type="button"
+                  disabled={issuePolicyMutation.isPending}
+                  onClick={() => {
+                    if (confirm(`Confirm issuance of official Health Policy for quotation ${selectedQuote.quotationCode}?`)) {
+                      issuePolicyMutation.mutate(selectedQuote.id);
+                    }
+                  }}
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition shadow-sm disabled:opacity-50"
+                >
+                  {issuePolicyMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
+                  Issue Health Policy
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => openPaymentModal(selectedQuote)}
+                className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/90 transition shadow-sm"
+              >
+                <Wallet className="h-4 w-4" />
+                {paymentStatus === 'PAID'
+                  ? (isBackOfficeOrAdmin ? 'Update Reconciled Payment' : 'View Payment Record')
+                  : paymentStatus === 'UNDER_PROCESS'
+                    ? (isBackOfficeOrAdmin ? 'Verify & Confirm Paid' : 'Update Payment Details')
+                    : 'Record Payment'}
+              </button>
+            </div>
           </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
