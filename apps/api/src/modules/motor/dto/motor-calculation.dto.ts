@@ -150,6 +150,17 @@ export class MotorCalculationInputDto {
   @Max(100)
   commercialDiscountPercent?: number;
 
+  /**
+   * Commercial adjustment in fixed ₹ (Phase 3 canonical path).
+   * When provided, replaces percentage-based commercial discount calculation.
+   * Applied to the payable base after GST; the full rupee amount is deducted exactly once.
+   * Rejected if it would make finalPayable < 0.
+   */
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  commercialAdjustmentAmount?: number;
+
   @IsOptional()
   @IsString()
   discountReason?: string;
@@ -191,6 +202,16 @@ export class MotorCalculationInputDto {
   @IsNumber()
   @Min(0)
   editedOdRate?: number;
+
+  /**
+   * Direct OD premium in ₹ (Phase 2 canonical path).
+   * When provided, bypasses IDV × rate multiplication entirely.
+   * The entered value IS the gross OD premium. Supersedes editedOdRate.
+   */
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  odPremiumAmount?: number;
 
   /** Agent edited TP premium ₹ (subject to tariff bounds / approval) */
   @IsOptional()
@@ -262,9 +283,12 @@ export interface ItemizedDiscounts {
     amount: number;
   };
   commercial: {
+    /** Percentage (legacy / backwards-compat) */
     percent: number;
     base: number;
     amount: number;
+    /** Fixed ₹ amount (canonical Phase 3 path) */
+    fixedRupeeAmount?: number;
   };
   total: number;
 }
@@ -282,6 +306,8 @@ export interface PayableSummary {
   odDiscountAmount?: number;
   tpDiscountAmount?: number;
   commercialDiscountAmount?: number;
+  /** Fixed ₹ commercial adjustment (Phase 3 canonical path). Mirrors commercialDiscountAmount when set. */
+  commercialAdjustmentAmount?: number;
   commercialDiscount: PayableDiscount;
   totalDiscount?: number;
   totalDiscounts?: number;

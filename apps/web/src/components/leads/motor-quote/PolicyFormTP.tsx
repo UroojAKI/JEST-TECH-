@@ -72,7 +72,11 @@ export function PolicyFormTPOnlyForm({ category, vehicleStatus, data, onChange, 
     paCover: !!data.paCoverOwner,
     paidDriverLiability: data.legalLiabilityPaidDriver === 'Yes',
     tpDiscountPercent: parseFloat(data.tpDiscountPercent || data.discountPercent || '0') || 0,
-    commercialDiscountPercent: parseFloat(data.commercialDiscountPercent || '0') || 0,
+    ...(data.commercialAdjustmentAmount !== undefined && data.commercialAdjustmentAmount !== '' && !isNaN(parseFloat(data.commercialAdjustmentAmount))
+      ? { commercialAdjustmentAmount: parseFloat(data.commercialAdjustmentAmount) }
+      : {
+          commercialDiscountPercent: parseFloat(data.commercialDiscountPercent || '0') || 0,
+        }),
     discountReason: data.discountReason || undefined,
     gstRate: data.gstRate ? parseInt(data.gstRate) : 18,
     tpGstRate: data.tpGstRate ? parseInt(data.tpGstRate) : (data.gstRate ? parseInt(data.gstRate) : 18),
@@ -337,20 +341,20 @@ export function PolicyFormTPOnlyForm({ category, vehicleStatus, data, onChange, 
 
           <div>
             <label className="block text-[10px] font-bold text-muted-foreground uppercase tracking-wide mb-1">
-              Commercial Discount (%)
+              Commercial Adjustment (₹)
             </label>
             <input
               type="number"
               min="0"
-              max="50"
-              step="0.5"
-              placeholder="e.g. 5"
-              value={data.commercialDiscountPercent || ''}
+              step="1"
+              placeholder="e.g. 500"
+              value={data.commercialAdjustmentAmount || ''}
               onChange={(e) => {
                 const val = e.target.value;
                 onChange({
                   ...data,
-                  commercialDiscountPercent: val,
+                  commercialAdjustmentAmount: val,
+                  commercialDiscountPercent: undefined,
                 });
               }}
               className="w-full p-2 rounded-lg border text-xs font-semibold bg-background focus:outline-none focus:ring-1 focus:ring-primary border-border"

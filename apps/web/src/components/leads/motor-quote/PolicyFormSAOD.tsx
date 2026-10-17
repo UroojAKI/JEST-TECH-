@@ -79,13 +79,19 @@ export function PolicyFormSAODForm({ category, vehicleStatus, data, onChange, el
     claimInExpiringPolicy: data.claimInExpiringODPolicy === 'Yes',
     odDiscountPercent: parseFloat(data.odDiscountPercent || data.discountPercent || '0') || 0,
     discountPercent: parseFloat(data.discountPercent || '0') || 0,
-    commercialDiscountPercent: parseFloat(data.commercialDiscountPercent || '0') || 0,
+    ...(data.commercialAdjustmentAmount !== undefined && data.commercialAdjustmentAmount !== '' && !isNaN(parseFloat(data.commercialAdjustmentAmount))
+      ? { commercialAdjustmentAmount: parseFloat(data.commercialAdjustmentAmount) }
+      : {
+          commercialDiscountPercent: parseFloat(data.commercialDiscountPercent || '0') || 0,
+        }),
     discountReason: data.discountReason || undefined,
     gstRate: data.gstRate ? parseInt(data.gstRate) : 18,
     odGstRate: data.odGstRate ? parseInt(data.odGstRate) : (data.gstRate ? parseInt(data.gstRate) : 18),
-    editedOdRate: data.editedOdRate !== undefined && data.editedOdRate !== '' && !isNaN(parseFloat(data.editedOdRate))
-      ? parseFloat(data.editedOdRate)
-      : undefined,
+    ...(data.odPremiumAmount !== undefined && data.odPremiumAmount !== '' && !isNaN(parseFloat(data.odPremiumAmount))
+      ? { odPremiumAmount: parseFloat(data.odPremiumAmount) }
+      : data.editedOdRate !== undefined && data.editedOdRate !== '' && !isNaN(parseFloat(data.editedOdRate))
+        ? { editedOdRate: parseFloat(data.editedOdRate) }
+        : {}),
     addons: (data.addonsSelected || [])
       .filter((a) => data.addonPrices?.[a] && parseFloat(data.addonPrices[a]) > 0)
       .map((a) => ({

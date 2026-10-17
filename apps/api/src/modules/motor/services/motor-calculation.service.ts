@@ -80,11 +80,11 @@ export class MotorCalculationService {
       reason?: string;
     }> = [];
 
-    // OD Rate Override / Edit
+    // OD Rate Override / Edit — ONLY used when odPremiumAmount is NOT provided
     const odOverride = input.overrides?.find((o) => o.field === 'OD_RATE');
     let effectiveOdRate = odRates.rate;
     let isOdRateEdited = false;
-    if (input.editedOdRate !== undefined || odOverride) {
+    if (input.odPremiumAmount === undefined && (input.editedOdRate !== undefined || odOverride)) {
       const candidateOd = input.editedOdRate !== undefined
         ? Number(input.editedOdRate)
         : Number(odOverride?.overrideValue);
@@ -232,7 +232,22 @@ export class MotorCalculationService {
         );
       }
 
-      baseOdPremium = round2(input.idv * (effectiveOdRate / 100));
+      // Phase 2 — Direct ₹ OD Premium path (canonical): bypasses IDV × rate formula entirely.
+      // Phase Legacy — IDV × rate path: retained for backward compatibility only.
+      if (input.odPremiumAmount !== undefined) {
+        baseOdPremium = round2(Number(input.odPremiumAmount));
+        isOdRateEdited = true; // Flag so UI shows [Edited] and response notes the override
+        overridesApplied.push({
+          field: 'OD_PREMIUM_DIRECT',
+          systemValue: round2(input.idv! * (effectiveOdRate / 100)),
+          overrideValue: baseOdPremium,
+          status: 'APPLIED',
+          reason: 'Direct OD premium ₹ input (agent-entered gross)',
+        });
+      } else {
+        baseOdPremium = round2(input.idv! * (effectiveOdRate / 100));
+      }
+
 
       // Canonical Business Rule: NCB is strictly underwriting risk metadata;
       // it does NOT deduct a monetary discount from baseOdPremium or the payable total.
@@ -453,7 +468,10 @@ export class MotorCalculationService {
     // Step 4: Independent Discounts (OD, TP, Commercial)
     // D_OD: Calculated from gross OD premium
     // D_TP: Calculated from gross TP premium (annual * tenure)
-    // D_C:  Calculated from payable base (Gross + GST)
+    // D_C:  Phase 3 canonical path — fixed ₹ amount entered directly.
+    //        Legacy fallback — percentage of payable base.
+
+    // Resolve commercial discount: fixed-₹ supersedes percentage.
     const commercialDiscountPercent = Number(
       input.commercialDiscountPercent !== undefined
         ? input.commercialDiscountPercent
@@ -462,9 +480,11 @@ export class MotorCalculationService {
             : 0),
     );
 
-    const commercialDiscountAmount = round2(
-      payableBase * (commercialDiscountPercent / 100),
-    );
+    // Phase 3 canonical: fixed ₹ amount takes priority over percentage
+    const isFixedRupeeCommercial = input.commercialAdjustmentAmount !== undefined;
+    const commercialDiscountAmount = isFixedRupeeCommercial
+      ? round2(Number(input.commercialAdjustmentAmount))
+      : round2(payableBase * (commercialDiscountPercent / 100));
 
     // Total Discounts: OD discount + TP discount + Commercial discount (each deducted exactly once)
     const totalDiscountAmount = round2(
@@ -472,16 +492,27 @@ export class MotorCalculationService {
     );
 
     const commercialDiscount: PayableDiscount = {
-      percentage: commercialDiscountPercent,
+      percentage: isFixedRupeeCommercial ? 0 : commercialDiscountPercent,
       baseAmount: payableBase,
       amount: commercialDiscountAmount,
       reason: input.discountReason || input.approvalReference || undefined,
     };
 
     // Step 5: Final Payable Amount = Payable Base - Total Discounts
+    // Reject if commercial adjustment alone would make payable negative (never silently clamp)
+    if (isFixedRupeeCommercial && commercialDiscountAmount > payableBase) {
+      throw new BadRequestException({
+        statusCode: 400,
+        error: 'Bad Request',
+        errorCode: 'COMMERCIAL_ADJUSTMENT_EXCEEDS_PAYABLE',
+        message: `Commercial adjustment ₹${commercialDiscountAmount.toLocaleString('en-IN')} exceeds payable base ₹${payableBase.toLocaleString('en-IN')}. Final payable cannot be negative.`,
+      });
+    }
+
     const finalPayableAmount = round2(
       Math.max(0, payableBase - totalDiscountAmount),
     );
+
 
     // Underwriting Metadata (NCB selection & claim history)
     const underwriting: UnderwritingMetadata = {
@@ -504,6 +535,7 @@ export class MotorCalculationService {
       odDiscountAmount,
       tpDiscountAmount,
       commercialDiscountAmount,
+      commercialAdjustmentAmount: isFixedRupeeCommercial ? commercialDiscountAmount : undefined,
       commercialDiscount,
       totalDiscount: totalDiscountAmount,
       totalDiscounts: totalDiscountAmount,

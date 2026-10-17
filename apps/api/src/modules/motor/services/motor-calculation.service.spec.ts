@@ -1316,6 +1316,137 @@ describe('MotorCalculationService (Iteration 5 Financial Math)', () => {
           }),
         ).rejects.toThrow('exceeds the absolute configured ceiling');
       });
+
+      describe('Phase 2/3/4 Direct Rupees & High IDV Suite', () => {
+        it('DIRECT-OD-01: Direct OD premium ₹ input bypasses IDV × rate formula', async () => {
+          const res = await service.calculate({
+            vehicleCategory: 'PRIVATE_CAR',
+            vehicleStatus: 'EXISTING',
+            policyType: 'PACKAGE_COMPREHENSIVE',
+            idv: 500000,
+            odPremiumAmount: 3000,
+            editedTpAnnualPremium: 1000,
+            policyTenure: 1,
+            paCover: false,
+            paidDriverLiability: false,
+          });
+          expect(res.outputs.od.gross).toBe(3000);
+          expect(res.outputs.baseOdPremium).toBe(3000);
+          expect(res.outputs.od.isEdited).toBe(true);
+        });
+
+        it('COMM-ADJ-01: Fixed rupee commercial adjustment deducted from payable base', async () => {
+          const res = await service.calculate({
+            vehicleCategory: 'PRIVATE_CAR',
+            vehicleStatus: 'EXISTING',
+            policyType: 'PACKAGE_COMPREHENSIVE',
+            idv: 500000,
+            odPremiumAmount: 3000,
+            editedTpAnnualPremium: 1000,
+            policyTenure: 1,
+            paCover: false,
+            paidDriverLiability: false,
+            commercialAdjustmentAmount: 500,
+          });
+          // Gross = 3000 + 1000 = 4000
+          // GST 18% = 540 + 180 = 720
+          // Payable Base = 4720
+          // Commercial Adj = 500
+          // Final Payable = 4720 - 500 = 4220
+          expect(res.outputs.payableSummary.payableBase).toBe(4720);
+          expect(res.outputs.payableSummary.commercialAdjustmentAmount).toBe(500);
+          expect(res.outputs.totalDiscountAmount).toBe(500);
+          expect(res.outputs.finalPayableAmount).toBe(4220);
+        });
+
+        it('COMM-ADJ-02: Commercial adjustment exceeding payable base is rejected', async () => {
+          await expect(
+            service.calculate({
+              vehicleCategory: 'PRIVATE_CAR',
+              vehicleStatus: 'EXISTING',
+              policyType: 'PACKAGE_COMPREHENSIVE',
+              idv: 500000,
+              odPremiumAmount: 1000,
+              editedTpAnnualPremium: 1000,
+              policyTenure: 1,
+              paCover: false,
+              paidDriverLiability: false,
+              commercialAdjustmentAmount: 50000, // Payable base is only ₹2,360
+            }),
+          ).rejects.toThrow('exceeds payable base');
+        });
+
+        it('IDV-01: Large IDV values (> 6 digits, e.g. ₹15,00,000 and ₹50,00,000) are fully supported', async () => {
+          const res15L = await service.calculate({
+            vehicleCategory: 'PRIVATE_CAR',
+            vehicleStatus: 'EXISTING',
+            policyType: 'PACKAGE_COMPREHENSIVE',
+            idv: 1500000,
+            editedTpAnnualPremium: 1000,
+            policyTenure: 1,
+            paCover: false,
+            paidDriverLiability: false,
+          });
+          expect(res15L.outputs.od.gross).toBeGreaterThan(0);
+
+          const res50L = await service.calculate({
+            vehicleCategory: 'PRIVATE_CAR',
+            vehicleStatus: 'EXISTING',
+            policyType: 'PACKAGE_COMPREHENSIVE',
+            idv: 5000000,
+            editedTpAnnualPremium: 1000,
+            policyTenure: 1,
+            paCover: false,
+            paidDriverLiability: false,
+          });
+          expect(res50L.outputs.od.gross).toBeGreaterThan(0);
+        });
+
+        it('DETERMINISTIC-FIXTURE-CANONICAL: OD ₹3,000, Annual TP ₹1,000 × 3, OD 10%, TP 10%, Comm Adj ₹500 -> ₹5,980', async () => {
+          const res = await service.calculate({
+            vehicleCategory: 'PRIVATE_CAR',
+            vehicleStatus: 'EXISTING',
+            policyType: 'PACKAGE_COMPREHENSIVE',
+            idv: 250000,
+            odPremiumAmount: 3000,
+            editedTpAnnualPremium: 1000,
+            policyTenure: 3,
+            odDiscountPercent: 10,
+            tpDiscountPercent: 10,
+            commercialAdjustmentAmount: 500,
+            paCover: false,
+            paidDriverLiability: false,
+            odGstRate: 18,
+            tpGstRate: 18,
+          });
+
+          // Reconciliation Verification:
+          // OD Premium: ₹3,000 | TP Gross: ₹1,000 × 3 = ₹3,000
+          expect(res.outputs.od.gross).toBe(3000);
+          expect(res.outputs.tp.base).toBe(3000);
+
+          // Gross Premium Before Discount: ₹6,000
+          expect(res.outputs.payableSummary.grossPremium).toBe(6000);
+
+          // Itemized GST: OD ₹540 + TP ₹540 = ₹1,080
+          expect(res.outputs.od.gst).toBe(540);
+          expect(res.outputs.tp.gst).toBe(540);
+          expect(res.outputs.payableSummary.componentGstTotal).toBe(1080);
+
+          // Payable Base: ₹7,080
+          expect(res.outputs.payableSummary.payableBase).toBe(7080);
+
+          // Deductions: OD ₹300, TP ₹300, Commercial Adj ₹500 = ₹1,100
+          expect(res.outputs.odDiscountAmount).toBe(300);
+          expect(res.outputs.tpDiscountAmount).toBe(300);
+          expect(res.outputs.commercialDiscountAmount).toBe(500);
+          expect(res.outputs.totalDiscountAmount).toBe(1100);
+
+          // Final Payable: ₹7,080 - ₹1,100 = ₹5,980
+          expect(res.outputs.finalPayableAmount).toBe(5980);
+          expect(res.outputs.summary.finalPayable).toBe(5980);
+        });
+      });
     });
   });
 });
