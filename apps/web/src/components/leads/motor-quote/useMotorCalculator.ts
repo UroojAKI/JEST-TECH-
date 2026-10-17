@@ -36,7 +36,9 @@ export function useMotorCalculator(inputData: any) {
       setLoading(true);
       setError(null);
       try {
-        const response = await apiClient.post('/motor/calculate', inputData, {
+        // Sanitize payload: strip any legacy editedOdRate to ensure OD-rate validation is never triggered
+        const { editedOdRate: _discarded, ...sanitizedInput } = inputData;
+        const response = await apiClient.post('/motor/calculate', sanitizedInput, {
           signal: abortController.signal
         });
         setResult(response.data);

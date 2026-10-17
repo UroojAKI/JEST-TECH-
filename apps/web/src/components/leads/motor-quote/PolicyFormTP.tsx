@@ -73,13 +73,19 @@ export function PolicyFormTPOnlyForm({ category, vehicleStatus, data, onChange, 
     paidDriverLiability: data.legalLiabilityPaidDriver === 'Yes',
     tpDiscountPercent: parseFloat(data.tpDiscountPercent || data.discountPercent || '0') || 0,
     ...(data.commercialAdjustmentAmount !== undefined && data.commercialAdjustmentAmount !== '' && !isNaN(parseFloat(data.commercialAdjustmentAmount))
-      ? { commercialAdjustmentAmount: parseFloat(data.commercialAdjustmentAmount) }
+      ? {
+          commercialAdjustment: parseFloat(data.commercialAdjustmentAmount),
+          commercialAdjustmentAmount: parseFloat(data.commercialAdjustmentAmount),
+        }
       : {
           commercialDiscountPercent: parseFloat(data.commercialDiscountPercent || '0') || 0,
         }),
     discountReason: data.discountReason || undefined,
     gstRate: data.gstRate ? parseInt(data.gstRate) : 18,
     tpGstRate: data.tpGstRate ? parseInt(data.tpGstRate) : (data.gstRate ? parseInt(data.gstRate) : 18),
+    annualTpPremium: data.editedTpPremium !== undefined && data.editedTpPremium !== '' && !isNaN(parseFloat(data.editedTpPremium))
+      ? parseFloat(data.editedTpPremium)
+      : undefined,
     editedTpAnnualPremium: data.editedTpPremium !== undefined && data.editedTpPremium !== '' && !isNaN(parseFloat(data.editedTpPremium))
       ? parseFloat(data.editedTpPremium)
       : undefined,

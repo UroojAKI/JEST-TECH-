@@ -1446,6 +1446,127 @@ describe('MotorCalculationService (Iteration 5 Financial Math)', () => {
           expect(res.outputs.finalPayableAmount).toBe(5980);
           expect(res.outputs.summary.finalPayable).toBe(5980);
         });
+
+        describe('Phase 10: Complete OD Rate Removal & Canonical Contract Verification', () => {
+          it('OD-RATE-REMOVAL-01: OD premium ₹3,000 with valid IDV succeeds without OD-rate validation', async () => {
+            const res = await service.calculate({
+              vehicleCategory: 'PRIVATE_CAR',
+              vehicleStatus: 'EXISTING',
+              policyType: 'PACKAGE_COMPREHENSIVE',
+              idv: 500000,
+              odPremium: 3000,
+              editedTpAnnualPremium: 1000,
+              policyTenure: 1,
+              paCover: false,
+              paidDriverLiability: false,
+            });
+            expect(res.outputs.baseOdPremium).toBe(3000);
+            expect(res.outputs.od.gross).toBe(3000);
+            expect(res.outputs.odPremium).toBe(3000);
+          });
+
+          it('OD-RATE-REMOVAL-02: Same OD premium ₹3,000 with different IDVs produces identical OD gross premium ₹3,000', async () => {
+            const res1 = await service.calculate({
+              vehicleCategory: 'PRIVATE_CAR',
+              vehicleStatus: 'EXISTING',
+              policyType: 'PACKAGE_COMPREHENSIVE',
+              idv: 300000,
+              odPremium: 3000,
+              editedTpAnnualPremium: 1000,
+              policyTenure: 1,
+              paCover: false,
+              paidDriverLiability: false,
+            });
+            const res2 = await service.calculate({
+              vehicleCategory: 'PRIVATE_CAR',
+              vehicleStatus: 'EXISTING',
+              policyType: 'PACKAGE_COMPREHENSIVE',
+              idv: 1200000,
+              odPremium: 3000,
+              editedTpAnnualPremium: 1000,
+              policyTenure: 1,
+              paCover: false,
+              paidDriverLiability: false,
+            });
+            expect(res1.outputs.baseOdPremium).toBe(3000);
+            expect(res2.outputs.baseOdPremium).toBe(3000);
+            expect(res1.outputs.od.gross).toBe(res2.outputs.od.gross);
+          });
+
+          it('OD-RATE-REMOVAL-03: Legacy input passing editedOdRate of 0.013% does not throw OD_RATE_OUT_OF_BOUNDS', async () => {
+            const res = await service.calculate({
+              vehicleCategory: 'PRIVATE_CAR',
+              vehicleStatus: 'EXISTING',
+              policyType: 'PACKAGE_COMPREHENSIVE',
+              idv: 500000,
+              editedOdRate: 0.013,
+              editedTpAnnualPremium: 1000,
+              policyTenure: 1,
+              paCover: false,
+              paidDriverLiability: false,
+            });
+            expect(res).toBeDefined();
+            expect(res.outputs.finalPayableAmount).toBeGreaterThan(0);
+          });
+
+          it('DISCOUNTS-EXCEED-PAYABLE-BASE: Total deductions exceeding payable base are rejected', async () => {
+            await expect(
+              service.calculate({
+                vehicleCategory: 'PRIVATE_CAR',
+                vehicleStatus: 'EXISTING',
+                policyType: 'PACKAGE_COMPREHENSIVE',
+                idv: 500000,
+                odPremium: 1000,
+                editedTpAnnualPremium: 1000,
+                policyTenure: 1,
+                odDiscountPercent: 50,
+                tpDiscountPercent: 50,
+                approvalReference: 'BM-APPROVED',
+                commercialAdjustment: 2000, // Payable base is ₹2,360, discounts = ₹500 + ₹500 + ₹2,000 = ₹3,000 > ₹2,360
+                paCover: false,
+                paidDriverLiability: false,
+              }),
+            ).rejects.toThrow('exceed payable base');
+          });
+
+          it('CANONICAL-CONTRACT-FIELDS: Outputs and payableSummary expose all canonical contract fields', async () => {
+            const res = await service.calculate({
+              vehicleCategory: 'PRIVATE_CAR',
+              vehicleStatus: 'EXISTING',
+              policyType: 'PACKAGE_COMPREHENSIVE',
+              idv: 450000,
+              odPremium: 3000,
+              annualTpPremium: 1000,
+              tenure: 3,
+              odDiscountPercent: 10,
+              tpDiscountPercent: 10,
+              commercialAdjustment: 500,
+              paCover: false,
+              paidDriverLiability: false,
+            });
+
+            // Canonical Contract on outputs:
+            expect(res.outputs.idv).toBe(450000);
+            expect(res.outputs.odPremium).toBe(3000);
+            expect(res.outputs.annualTpPremium).toBe(1000);
+            expect(res.outputs.tenure).toBe(3);
+            expect(res.outputs.odDiscount).toBe(300);
+            expect(res.outputs.tpDiscount).toBe(300);
+            expect(res.outputs.commercialAdjustment).toBe(500);
+            expect(res.outputs.gstTotal).toBe(1080);
+            expect(res.outputs.finalPayable).toBe(5980);
+
+            // Canonical Contract on payableSummary:
+            expect(res.outputs.payableSummary.odPremium).toBe(3000);
+            expect(res.outputs.payableSummary.annualTpPremium).toBe(1000);
+            expect(res.outputs.payableSummary.tenure).toBe(3);
+            expect(res.outputs.payableSummary.odDiscount).toBe(300);
+            expect(res.outputs.payableSummary.tpDiscount).toBe(300);
+            expect(res.outputs.payableSummary.commercialAdjustment).toBe(500);
+            expect(res.outputs.payableSummary.gstTotal).toBe(1080);
+            expect(res.outputs.payableSummary.finalPayable).toBe(5980);
+          });
+        });
       });
     });
   });

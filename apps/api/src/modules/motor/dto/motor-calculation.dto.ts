@@ -159,6 +159,11 @@ export class MotorCalculationInputDto {
   @IsOptional()
   @IsNumber()
   @Min(0)
+  commercialAdjustment?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
   commercialAdjustmentAmount?: number;
 
   @IsOptional()
@@ -201,17 +206,37 @@ export class MotorCalculationInputDto {
   @IsOptional()
   @IsNumber()
   @Min(0)
+  /** Agent edited OD rate % (deprecated legacy path) */
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
   editedOdRate?: number;
 
   /**
-   * Direct OD premium in ₹ (Phase 2 canonical path).
+   * Direct OD premium in ₹ (Phase 1 & 3 canonical path).
    * When provided, bypasses IDV × rate multiplication entirely.
    * The entered value IS the gross OD premium. Supersedes editedOdRate.
    */
   @IsOptional()
   @IsNumber()
   @Min(0)
+  odPremium?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
   odPremiumAmount?: number;
+
+  /** Applicable TP policy tenure */
+  @IsOptional()
+  @IsNumber()
+  tenure?: number;
+
+  /** Annual TP premium in ₹ (canonical naming) */
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  annualTpPremium?: number;
 
   /** Agent edited TP premium ₹ (subject to tariff bounds / approval) */
   @IsOptional()
@@ -295,23 +320,31 @@ export interface ItemizedDiscounts {
 
 export interface PayableSummary {
   odGrossPremium?: number;
+  odPremium?: number;
   tpGrossPremium?: number;
+  annualTpPremium?: number;
+  tenure?: number;
   paGrossPremium?: number;
   paidDriverGrossPremium?: number;
   addonGrossPremium?: number;
   grossPremium?: number;
   premiumBeforeDiscount: number;
   componentGstTotal: number;
+  gstTotal?: number;
   payableBase: number;
   odDiscountAmount?: number;
+  odDiscount?: number;
   tpDiscountAmount?: number;
+  tpDiscount?: number;
   commercialDiscountAmount?: number;
+  commercialAdjustment?: number;
   /** Fixed ₹ commercial adjustment (Phase 3 canonical path). Mirrors commercialDiscountAmount when set. */
   commercialAdjustmentAmount?: number;
   commercialDiscount: PayableDiscount;
   totalDiscount?: number;
   totalDiscounts?: number;
   finalPayableAmount: number;
+  finalPayable?: number;
   gstBreakdown: any;
 }
 

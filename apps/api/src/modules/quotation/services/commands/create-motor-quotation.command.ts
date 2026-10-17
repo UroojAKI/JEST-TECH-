@@ -375,9 +375,16 @@ export class CreateMotorQuotationCommand {
       commercialDiscountPercent: policyDetails.commercialDiscountPercent !== undefined && policyDetails.commercialDiscountPercent !== ''
         ? Number(policyDetails.commercialDiscountPercent)
         : undefined,
+      commercialAdjustment: (policyDetails as any).commercialAdjustment !== undefined && (policyDetails as any).commercialAdjustment !== '' && !isNaN(Number((policyDetails as any).commercialAdjustment))
+        ? Number((policyDetails as any).commercialAdjustment)
+        : (policyDetails.commercialAdjustmentAmount !== undefined && policyDetails.commercialAdjustmentAmount !== '' && !isNaN(Number(policyDetails.commercialAdjustmentAmount))
+            ? Number(policyDetails.commercialAdjustmentAmount)
+            : undefined),
       commercialAdjustmentAmount: policyDetails.commercialAdjustmentAmount !== undefined && policyDetails.commercialAdjustmentAmount !== '' && !isNaN(Number(policyDetails.commercialAdjustmentAmount))
         ? Number(policyDetails.commercialAdjustmentAmount)
-        : undefined,
+        : ((policyDetails as any).commercialAdjustment !== undefined && (policyDetails as any).commercialAdjustment !== '' && !isNaN(Number((policyDetails as any).commercialAdjustment))
+            ? Number((policyDetails as any).commercialAdjustment)
+            : undefined),
       tpDiscountPercent: policyDetails.tpDiscountPercent !== undefined && policyDetails.tpDiscountPercent !== ''
         ? Number(policyDetails.tpDiscountPercent)
         : 0,
@@ -394,12 +401,22 @@ export class CreateMotorQuotationCommand {
       gstRate: policyDetails.gstRate !== undefined && policyDetails.gstRate !== null && policyDetails.gstRate !== ''
         ? Number(policyDetails.gstRate)
         : undefined,
+      odPremium: (policyDetails as any).odPremium !== undefined && (policyDetails as any).odPremium !== '' && !isNaN(Number((policyDetails as any).odPremium))
+        ? Number((policyDetails as any).odPremium)
+        : (policyDetails.odPremiumAmount !== undefined && policyDetails.odPremiumAmount !== '' && !isNaN(Number(policyDetails.odPremiumAmount))
+            ? Number(policyDetails.odPremiumAmount)
+            : undefined),
       odPremiumAmount: policyDetails.odPremiumAmount !== undefined && policyDetails.odPremiumAmount !== '' && !isNaN(Number(policyDetails.odPremiumAmount))
         ? Number(policyDetails.odPremiumAmount)
-        : undefined,
-      editedOdRate: policyDetails.editedOdRate !== undefined && policyDetails.editedOdRate !== '' && !isNaN(Number(policyDetails.editedOdRate))
-        ? Number(policyDetails.editedOdRate)
-        : undefined,
+        : ((policyDetails as any).odPremium !== undefined && (policyDetails as any).odPremium !== '' && !isNaN(Number((policyDetails as any).odPremium))
+            ? Number((policyDetails as any).odPremium)
+            : undefined),
+      editedOdRate: undefined,
+      annualTpPremium: policyDetails.editedTpAnnualPremium !== undefined && policyDetails.editedTpAnnualPremium !== '' && !isNaN(Number(policyDetails.editedTpAnnualPremium))
+        ? Number(policyDetails.editedTpAnnualPremium)
+        : (policyDetails.editedTpPremium !== undefined && policyDetails.editedTpPremium !== '' && !isNaN(Number(policyDetails.editedTpPremium))
+            ? Number(policyDetails.editedTpPremium)
+            : undefined),
       editedTpAnnualPremium: policyDetails.editedTpAnnualPremium !== undefined && policyDetails.editedTpAnnualPremium !== '' && !isNaN(Number(policyDetails.editedTpAnnualPremium))
         ? Number(policyDetails.editedTpAnnualPremium)
         : (policyDetails.editedTpPremium !== undefined && policyDetails.editedTpPremium !== '' && !isNaN(Number(policyDetails.editedTpPremium))

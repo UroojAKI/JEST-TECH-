@@ -80,16 +80,36 @@ export class MotorCalculationService {
       reason?: string;
     }> = [];
 
-    // OD Rate Override / Edit — ONLY used when odPremiumAmount is NOT provided
-    const odOverride = input.overrides?.find((o) => o.field === 'OD_RATE');
+    // ── Phase 1 & 3: Direct OD Premium Resolution ─────────────────────────
+    // Direct OD Premium in ₹ (canonical path) takes total precedence.
+    // The obsolete OD-rate bounds validation (0.1% - 15.0%) is completely removed.
+    const directOdInput = input.odPremium !== undefined
+      ? input.odPremium
+      : input.odPremiumAmount;
+    const hasDirectOd = directOdInput !== undefined && directOdInput !== null && !isNaN(Number(directOdInput));
+    const directOdAmount = hasDirectOd ? round2(Number(directOdInput)) : undefined;
+
     let effectiveOdRate = odRates.rate;
     let isOdRateEdited = false;
-    if (input.odPremiumAmount === undefined && (input.editedOdRate !== undefined || odOverride)) {
+
+    if (hasDirectOd && directOdAmount !== undefined) {
+      isOdRateEdited = true;
+      overridesApplied.push({
+        field: 'OD_PREMIUM_DIRECT',
+        systemValue: round2((input.idv ?? 0) * (odRates.rate / 100)),
+        overrideValue: directOdAmount,
+        status: 'APPLIED',
+        reason: 'Direct OD premium ₹ input (agent-entered gross)',
+      });
+    } else {
+      // Legacy / backwards-compatible path for callers providing editedOdRate or OD_RATE override.
+      // Crucial: No out-of-bounds error is thrown regardless of rate percentage (e.g. 0.013%).
+      const odOverride = input.overrides?.find((o) => o.field === 'OD_RATE');
       const candidateOd = input.editedOdRate !== undefined
         ? Number(input.editedOdRate)
-        : Number(odOverride?.overrideValue);
+        : (odOverride ? Number(odOverride.overrideValue) : undefined);
 
-      if (candidateOd >= 0.1 && candidateOd <= 15.0) {
+      if (candidateOd !== undefined && !isNaN(candidateOd) && candidateOd >= 0) {
         effectiveOdRate = candidateOd;
         isOdRateEdited = Math.abs(candidateOd - odRates.rate) > 0.0001;
         if (isOdRateEdited) {
@@ -98,37 +118,22 @@ export class MotorCalculationService {
             systemValue: odRates.rate,
             overrideValue: candidateOd,
             status: 'APPLIED',
-            reason: odOverride?.reason || 'Agent OD rate edit within permissible range',
+            reason: odOverride?.reason || 'Agent OD rate edit',
           });
         }
-      } else if (odOverride?.isApproved || odOverride?.approvalReference) {
-        effectiveOdRate = candidateOd;
-        isOdRateEdited = true;
-        overridesApplied.push({
-          field: 'OD_RATE',
-          systemValue: odRates.rate,
-          overrideValue: candidateOd,
-          status: 'APPLIED',
-          reason: odOverride?.reason || 'Approved out-of-range OD rate override',
-        });
-      } else {
-        throw new BadRequestException({
-          statusCode: 400,
-          error: 'Bad Request',
-          errorCode: 'OD_RATE_OUT_OF_BOUNDS',
-          message: `Edited OD rate (${candidateOd}%) is outside permissible range (0.1% - 15.0%) and requires authorized approval.`,
-        });
       }
     }
 
-    // TP Premium Override / Edit (Canonical: editedTpAnnualPremium)
+    // TP Premium Override / Edit (Canonical: annualTpPremium / editedTpAnnualPremium)
     const tpOverride = input.overrides?.find((o) => o.field === 'TP_PREMIUM');
     let effectiveTpAnnual = tpRates.annualPremium;
     let isTpEdited = false;
     const rawEditedTp =
-      input.editedTpAnnualPremium !== undefined
-        ? input.editedTpAnnualPremium
-        : input.editedTpPremium;
+      (input as any).annualTpPremium !== undefined
+        ? (input as any).annualTpPremium
+        : input.editedTpAnnualPremium !== undefined
+          ? input.editedTpAnnualPremium
+          : input.editedTpPremium;
     if (rawEditedTp !== undefined || tpOverride) {
       const candidateTp = rawEditedTp !== undefined
         ? Number(rawEditedTp)
@@ -232,18 +237,11 @@ export class MotorCalculationService {
         );
       }
 
-      // Phase 2 — Direct ₹ OD Premium path (canonical): bypasses IDV × rate formula entirely.
-      // Phase Legacy — IDV × rate path: retained for backward compatibility only.
-      if (input.odPremiumAmount !== undefined) {
-        baseOdPremium = round2(Number(input.odPremiumAmount));
-        isOdRateEdited = true; // Flag so UI shows [Edited] and response notes the override
-        overridesApplied.push({
-          field: 'OD_PREMIUM_DIRECT',
-          systemValue: round2(input.idv! * (effectiveOdRate / 100)),
-          overrideValue: baseOdPremium,
-          status: 'APPLIED',
-          reason: 'Direct OD premium ₹ input (agent-entered gross)',
-        });
+      // Phase 1, 2, 3, 4 — Direct ₹ OD Premium path (canonical):
+      // When directOdAmount is provided, it IS the gross OD premium.
+      // Bypasses IDV × rate formula entirely.
+      if (hasDirectOd && directOdAmount !== undefined) {
+        baseOdPremium = directOdAmount;
       } else {
         baseOdPremium = round2(input.idv! * (effectiveOdRate / 100));
       }
@@ -481,9 +479,12 @@ export class MotorCalculationService {
     );
 
     // Phase 3 canonical: fixed ₹ amount takes priority over percentage
-    const isFixedRupeeCommercial = input.commercialAdjustmentAmount !== undefined;
+    const directCommAdj = (input as any).commercialAdjustment !== undefined
+      ? (input as any).commercialAdjustment
+      : input.commercialAdjustmentAmount;
+    const isFixedRupeeCommercial = directCommAdj !== undefined && directCommAdj !== null && !isNaN(Number(directCommAdj));
     const commercialDiscountAmount = isFixedRupeeCommercial
-      ? round2(Number(input.commercialAdjustmentAmount))
+      ? round2(Number(directCommAdj))
       : round2(payableBase * (commercialDiscountPercent / 100));
 
     // Total Discounts: OD discount + TP discount + Commercial discount (each deducted exactly once)
@@ -509,10 +510,18 @@ export class MotorCalculationService {
       });
     }
 
+    if (totalDiscountAmount > payableBase) {
+      throw new BadRequestException({
+        statusCode: 400,
+        error: 'Bad Request',
+        errorCode: 'DISCOUNTS_EXCEED_PAYABLE_BASE',
+        message: `Total discounts and adjustments (₹${totalDiscountAmount.toLocaleString('en-IN')}) exceed payable base (₹${payableBase.toLocaleString('en-IN')}). Final payable cannot be negative.`,
+      });
+    }
+
     const finalPayableAmount = round2(
       Math.max(0, payableBase - totalDiscountAmount),
     );
-
 
     // Underwriting Metadata (NCB selection & claim history)
     const underwriting: UnderwritingMetadata = {
@@ -524,22 +533,30 @@ export class MotorCalculationService {
     // Canonical Payable Summary
     const payableSummary: PayableSummary = {
       odGrossPremium: baseOdPremium,
+      odPremium: baseOdPremium,
       tpGrossPremium: baseTpPremium,
+      annualTpPremium: effectiveTpAnnual,
+      tenure: tpTenure,
       paGrossPremium: paPremium,
       paidDriverGrossPremium: paidDriverPremium,
       addonGrossPremium: round2(addonPremiumTotal),
       grossPremium: premiumBeforeDiscount,
       premiumBeforeDiscount,
       componentGstTotal,
+      gstTotal: componentGstTotal,
       payableBase,
       odDiscountAmount,
+      odDiscount: odDiscountAmount,
       tpDiscountAmount,
+      tpDiscount: tpDiscountAmount,
       commercialDiscountAmount,
+      commercialAdjustment: isFixedRupeeCommercial ? commercialDiscountAmount : undefined,
       commercialAdjustmentAmount: isFixedRupeeCommercial ? commercialDiscountAmount : undefined,
       commercialDiscount,
       totalDiscount: totalDiscountAmount,
       totalDiscounts: totalDiscountAmount,
       finalPayableAmount,
+      finalPayable: finalPayableAmount,
       gstBreakdown,
     };
 
@@ -579,6 +596,17 @@ export class MotorCalculationService {
       overridesApplied,
       gstBreakdown,
       outputs: {
+        // Phase 3 Canonical Contract Fields
+        idv: input.idv ?? 0,
+        odPremium: baseOdPremium,
+        annualTpPremium: effectiveTpAnnual,
+        tenure: tpTenure,
+        odDiscount: odDiscountAmount,
+        tpDiscount: tpDiscountAmount,
+        commercialAdjustment: commercialDiscountAmount,
+        gstTotal: componentGstTotal,
+        finalPayable: finalPayableAmount,
+
         gstBreakdown,
         overridesApplied,
         underwriting,
@@ -702,12 +730,25 @@ export class MotorCalculationService {
         message: 'Client-supplied add-on prices are disabled. Configure the add-on rate through the approved rate master; approval text fields cannot authorize a price override.',
       });
     }
+    const directOd = input.odPremium !== undefined ? input.odPremium : input.odPremiumAmount;
+    if (directOd !== undefined && (isNaN(Number(directOd)) || Number(directOd) < 0)) {
+      throw new BadRequestException('OD premium amount must be a valid non-negative number.');
+    }
+    const commAdj = (input as any).commercialAdjustment !== undefined
+      ? (input as any).commercialAdjustment
+      : input.commercialAdjustmentAmount;
+    if (commAdj !== undefined && (isNaN(Number(commAdj)) || Number(commAdj) < 0)) {
+      throw new BadRequestException('Commercial adjustment amount must be a valid non-negative number.');
+    }
+
     if (
       (input.idv !== undefined && input.idv < 0) ||
       (input.discountPercent !== undefined && input.discountPercent < 0) ||
       (input.commercialDiscountPercent !== undefined && input.commercialDiscountPercent < 0) ||
       (input.tpDiscountPercent !== undefined && input.tpDiscountPercent < 0) ||
-      (input.odDiscountPercent !== undefined && input.odDiscountPercent < 0)
+      (input.odDiscountPercent !== undefined && input.odDiscountPercent < 0) ||
+      (directOd !== undefined && Number(directOd) < 0) ||
+      (commAdj !== undefined && Number(commAdj) < 0)
     ) {
       throw new BadRequestException(
         'Negative premium, IDV, or discount parameters are disallowed.',
@@ -823,7 +864,7 @@ export class MotorCalculationService {
       if (cat === 'PRIVATE_CAR') return 3;
       if (cat === 'BIKE') return 5;
     }
-    return input.policyTenure || 1;
+    return (input as any).tenure || input.policyTenure || 1;
   }
 
   private resolveStandardAddonRate(

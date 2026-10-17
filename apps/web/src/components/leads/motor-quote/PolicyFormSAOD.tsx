@@ -80,18 +80,23 @@ export function PolicyFormSAODForm({ category, vehicleStatus, data, onChange, el
     odDiscountPercent: parseFloat(data.odDiscountPercent || data.discountPercent || '0') || 0,
     discountPercent: parseFloat(data.discountPercent || '0') || 0,
     ...(data.commercialAdjustmentAmount !== undefined && data.commercialAdjustmentAmount !== '' && !isNaN(parseFloat(data.commercialAdjustmentAmount))
-      ? { commercialAdjustmentAmount: parseFloat(data.commercialAdjustmentAmount) }
+      ? {
+          commercialAdjustment: parseFloat(data.commercialAdjustmentAmount),
+          commercialAdjustmentAmount: parseFloat(data.commercialAdjustmentAmount),
+        }
       : {
           commercialDiscountPercent: parseFloat(data.commercialDiscountPercent || '0') || 0,
         }),
     discountReason: data.discountReason || undefined,
     gstRate: data.gstRate ? parseInt(data.gstRate) : 18,
     odGstRate: data.odGstRate ? parseInt(data.odGstRate) : (data.gstRate ? parseInt(data.gstRate) : 18),
+    // Direct OD premium ₹ (canonical)
     ...(data.odPremiumAmount !== undefined && data.odPremiumAmount !== '' && !isNaN(parseFloat(data.odPremiumAmount))
-      ? { odPremiumAmount: parseFloat(data.odPremiumAmount) }
-      : data.editedOdRate !== undefined && data.editedOdRate !== '' && !isNaN(parseFloat(data.editedOdRate))
-        ? { editedOdRate: parseFloat(data.editedOdRate) }
-        : {}),
+      ? {
+          odPremium: parseFloat(data.odPremiumAmount),
+          odPremiumAmount: parseFloat(data.odPremiumAmount),
+        }
+      : {}),
     addons: (data.addonsSelected || [])
       .filter((a) => data.addonPrices?.[a] && parseFloat(data.addonPrices[a]) > 0)
       .map((a) => ({

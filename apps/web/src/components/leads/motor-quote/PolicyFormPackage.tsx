@@ -97,7 +97,10 @@ export function PolicyFormPackageForm({ category, vehicleStatus, data, onChange,
     paidDriverLiability: false,
     // Phase 3 canonical: fixed ₹ commercial adjustment (supersedes percentage if set)
     ...(data.commercialAdjustmentAmount !== undefined && data.commercialAdjustmentAmount !== '' && !isNaN(parseFloat(data.commercialAdjustmentAmount))
-      ? { commercialAdjustmentAmount: parseFloat(data.commercialAdjustmentAmount) }
+      ? {
+          commercialAdjustment: parseFloat(data.commercialAdjustmentAmount),
+          commercialAdjustmentAmount: parseFloat(data.commercialAdjustmentAmount),
+        }
       : {
           discountPercent: parseFloat(data.commercialDiscountPercent || '0') || 0,
           commercialDiscountPercent: parseFloat(data.commercialDiscountPercent || '0') || 0,
@@ -109,12 +112,19 @@ export function PolicyFormPackageForm({ category, vehicleStatus, data, onChange,
     odGstRate: data.odGstRate ? parseInt(data.odGstRate) : (data.gstRate ? parseInt(data.gstRate) : 18),
     tpGstRate: data.tpGstRate ? parseInt(data.tpGstRate) : (data.gstRate ? parseInt(data.gstRate) : 18),
     paGstRate: data.paGstRate ? parseInt(data.paGstRate) : (data.gstRate ? parseInt(data.gstRate) : 18),
-    // Phase 2 canonical: direct OD premium ₹ (supersedes editedOdRate when set)
+    // Direct OD premium ₹ (canonical)
     ...(data.odPremiumAmount !== undefined && data.odPremiumAmount !== '' && !isNaN(parseFloat(data.odPremiumAmount))
-      ? { odPremiumAmount: parseFloat(data.odPremiumAmount) }
-      : data.editedOdRate !== undefined && data.editedOdRate !== '' && !isNaN(parseFloat(data.editedOdRate))
-        ? { editedOdRate: parseFloat(data.editedOdRate) }
-        : {}),
+      ? {
+          odPremium: parseFloat(data.odPremiumAmount),
+          odPremiumAmount: parseFloat(data.odPremiumAmount),
+        }
+      : {}),
+    annualTpPremium: data.editedTpPremium !== undefined && data.editedTpPremium !== '' && !isNaN(parseFloat(data.editedTpPremium))
+      ? parseFloat(data.editedTpPremium)
+      : undefined,
+    editedTpAnnualPremium: data.editedTpPremium !== undefined && data.editedTpPremium !== '' && !isNaN(parseFloat(data.editedTpPremium))
+      ? parseFloat(data.editedTpPremium)
+      : undefined,
     editedTpPremium: data.editedTpPremium !== undefined && data.editedTpPremium !== '' && !isNaN(parseFloat(data.editedTpPremium))
       ? parseFloat(data.editedTpPremium)
       : undefined,

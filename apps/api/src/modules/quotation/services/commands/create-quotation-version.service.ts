@@ -115,11 +115,24 @@ export class CreateQuotationVersionService {
             dto.metadata?.commercialDiscountPercent ??
             (quotation.versions?.[0]?.metadata as any)?.commercialDiscountPercent ??
             (quotation.calculationSnapshot as any)?.inputs?.commercialDiscountPercent,
+          commercialAdjustment:
+            (dto.metadata as any)?.commercialAdjustment ??
+            dto.metadata?.commercialAdjustmentAmount ??
+            (quotation.versions?.[0]?.metadata as any)?.commercialAdjustment ??
+            (quotation.versions?.[0]?.metadata as any)?.commercialAdjustmentAmount ??
+            (quotation.calculationSnapshot as any)?.inputs?.commercialAdjustment ??
+            (quotation.calculationSnapshot as any)?.inputs?.commercialAdjustmentAmount ??
+            (quotation.motorMetadata as any)?.policyDetails?.commercialAdjustment ??
+            (quotation.motorMetadata as any)?.policyDetails?.commercialAdjustmentAmount,
           commercialAdjustmentAmount:
             dto.metadata?.commercialAdjustmentAmount ??
+            (dto.metadata as any)?.commercialAdjustment ??
             (quotation.versions?.[0]?.metadata as any)?.commercialAdjustmentAmount ??
+            (quotation.versions?.[0]?.metadata as any)?.commercialAdjustment ??
             (quotation.calculationSnapshot as any)?.inputs?.commercialAdjustmentAmount ??
-            (quotation.motorMetadata as any)?.policyDetails?.commercialAdjustmentAmount,
+            (quotation.calculationSnapshot as any)?.inputs?.commercialAdjustment ??
+            (quotation.motorMetadata as any)?.policyDetails?.commercialAdjustmentAmount ??
+            (quotation.motorMetadata as any)?.policyDetails?.commercialAdjustment,
           odDiscountPercent:
             dto.metadata?.odDiscountPercent ??
             (quotation.versions?.[0]?.metadata as any)?.odDiscountPercent ??
@@ -147,16 +160,35 @@ export class CreateQuotationVersionService {
           approvalReference: dto.metadata?.approvalReference,
           previousPolicyExpiryDate: dto.metadata?.previousPolicyExpiryDate,
           policyStartDate: dto.metadata?.policyStartDate,
+          odPremium:
+            (dto.metadata as any)?.odPremium ??
+            dto.metadata?.odPremiumAmount ??
+            (quotation.versions?.[0]?.metadata as any)?.odPremium ??
+            (quotation.versions?.[0]?.metadata as any)?.odPremiumAmount ??
+            (quotation.calculationSnapshot as any)?.inputs?.odPremium ??
+            (quotation.calculationSnapshot as any)?.inputs?.odPremiumAmount ??
+            (quotation.motorMetadata as any)?.policyDetails?.odPremium ??
+            (quotation.motorMetadata as any)?.policyDetails?.odPremiumAmount,
           odPremiumAmount:
             dto.metadata?.odPremiumAmount ??
+            (dto.metadata as any)?.odPremium ??
             (quotation.versions?.[0]?.metadata as any)?.odPremiumAmount ??
+            (quotation.versions?.[0]?.metadata as any)?.odPremium ??
             (quotation.calculationSnapshot as any)?.inputs?.odPremiumAmount ??
-            (quotation.motorMetadata as any)?.policyDetails?.odPremiumAmount,
-          editedOdRate:
-            dto.metadata?.editedOdRate ??
-            (quotation.versions?.[0]?.metadata as any)?.editedOdRate ??
-            (quotation.calculationSnapshot as any)?.inputs?.editedOdRate ??
-            (quotation.motorMetadata as any)?.policyDetails?.editedOdRate,
+            (quotation.calculationSnapshot as any)?.inputs?.odPremium ??
+            (quotation.motorMetadata as any)?.policyDetails?.odPremiumAmount ??
+            (quotation.motorMetadata as any)?.policyDetails?.odPremium,
+          editedOdRate: undefined,
+          annualTpPremium:
+            (dto.metadata as any)?.annualTpPremium ??
+            dto.metadata?.editedTpAnnualPremium ??
+            dto.metadata?.editedTpPremium ??
+            (quotation.versions?.[0]?.metadata as any)?.annualTpPremium ??
+            (quotation.versions?.[0]?.metadata as any)?.editedTpAnnualPremium ??
+            (quotation.versions?.[0]?.metadata as any)?.editedTpPremium ??
+            (quotation.calculationSnapshot as any)?.inputs?.annualTpPremium ??
+            (quotation.calculationSnapshot as any)?.inputs?.editedTpAnnualPremium ??
+            (quotation.calculationSnapshot as any)?.inputs?.editedTpPremium,
           editedTpAnnualPremium:
             dto.metadata?.editedTpAnnualPremium ??
             dto.metadata?.editedTpPremium ??
