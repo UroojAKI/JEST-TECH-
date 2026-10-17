@@ -313,7 +313,7 @@ export function PolicyFormTPOnlyForm({ category, vehicleStatus, data, onChange, 
             <input
               type="text"
               readOnly
-              value={error ? '—' : loading ? 'Calculating…' : result?.outputs?.payableSummary?.commercialDiscount?.amount?.toString() || result?.outputs?.totalDiscount?.toString() || '—'}
+              value={error ? '—' : loading ? 'Calculating…' : result?.outputs?.tp?.discount?.toString() || result?.outputs?.tpDiscountAmount?.toString() || result?.outputs?.payableSummary?.commercialDiscount?.amount?.toString() || result?.outputs?.totalDiscount?.toString() || '—'}
               className="w-full p-2 rounded-lg border text-xs font-semibold bg-muted border-border opacity-80"
             />
           </div>
