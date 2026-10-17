@@ -168,13 +168,13 @@ export function PolicyFormTPOnlyForm({ category, vehicleStatus, data, onChange, 
               value={data.editedTpPremium !== undefined ? data.editedTpPremium : (error || loading ? '' : result?.outputs?.tp?.annualPremium?.toString() || result?.outputs?.tp?.statutoryAnnual?.toString() || '')}
               onChange={(e) => {
                 const val = e.target.value;
-                onChange({ ...data, editedTpPremium: val === '' ? undefined : val });
+                onChange({ ...data, editedTpPremium: val });
               }}
-              placeholder={loading ? 'Calculating…' : error ? 'Approved TP tariff required' : 'Annual TP ₹'}
+              placeholder={loading ? 'Calculating…' : error ? 'Approved TP tariff required' : (result?.outputs?.tp?.annualPremium?.toString() || result?.outputs?.tp?.statutoryAnnual?.toString() || 'Annual TP ₹')}
               className={inputBase}
               title="Edit Annual TP Premium ₹"
             />
-            {data.editedTpPremium && (
+            {data.editedTpPremium !== undefined && (
               <button
                 type="button"
                 onClick={() => onChange({ ...data, editedTpPremium: undefined })}

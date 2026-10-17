@@ -422,4 +422,52 @@ describe('Work Package 2 & PR-01: Discount & Commission Decoupling Regression Su
     expect(emitted.editedOdRate).toBeUndefined();
   });
 
+  it('allows deleting Third Party Liability entry without auto-resetting when left blank', () => {
+    const mockOnChange = vi.fn();
+    const { rerender } = render(
+      <PolicyFormPackageForm
+        category="PRIVATE_CAR"
+        vehicleStatus="EXISTING"
+        data={{
+          policyTenure: '1',
+          insuredDeclaredValue: '500000',
+          editedTpPremium: '2500',
+        } as any}
+        onChange={mockOnChange}
+      />,
+    );
+
+    const tpInput = screen.getByTitle('Edit TP Base ₹') as HTMLInputElement;
+    expect(tpInput.value).toBe('2500');
+
+    fireEvent.change(tpInput, { target: { value: '' } });
+
+    expect(mockOnChange).toHaveBeenCalled();
+    const emitted = mockOnChange.mock.calls[0][0];
+    expect(emitted.editedTpPremium).toBe('');
+
+    // Rerender with the empty string value as emitted to confirm it does not auto-set back to calculated statutory value
+    rerender(
+      <PolicyFormPackageForm
+        category="PRIVATE_CAR"
+        vehicleStatus="EXISTING"
+        data={{
+          policyTenure: '1',
+          insuredDeclaredValue: '500000',
+          editedTpPremium: '',
+        } as any}
+        onChange={mockOnChange}
+      />,
+    );
+
+    const updatedTpInput = screen.getByTitle('Edit TP Base ₹') as HTMLInputElement;
+    expect(updatedTpInput.value).toBe('');
+
+    // Clicking Reset to Tariff restores editedTpPremium to undefined
+    const resetBtn = screen.getByText('Reset to Tariff');
+    fireEvent.click(resetBtn);
+    expect(mockOnChange).toHaveBeenLastCalledWith(expect.objectContaining({ editedTpPremium: undefined }));
+  });
+
 });
+

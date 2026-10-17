@@ -387,7 +387,7 @@ export function PolicyFormPackageForm({ category, vehicleStatus, data, onChange,
                 <span className="text-[10px] text-muted-foreground font-medium">
                   • Gross TP: <strong className="text-foreground">₹{Number(result?.inputs?.tpGrossPremium ?? outputs.tp?.base ?? 0).toLocaleString('en-IN')}</strong>
                 </span>
-                {data.editedTpPremium && (
+                {data.editedTpPremium !== undefined && (
                   <button
                     type="button"
                     onClick={() => onChange({ ...data, editedTpPremium: undefined })}
@@ -404,7 +404,7 @@ export function PolicyFormPackageForm({ category, vehicleStatus, data, onChange,
               <div className="p-2.5 rounded-lg bg-card border space-y-1">
                 <div className="flex items-center justify-between">
                   <span className="text-[9px] text-muted-foreground block font-bold">Annual TP Premium ₹</span>
-                  {data.editedTpPremium && (
+                  {data.editedTpPremium !== undefined && (
                     <button
                       type="button"
                       onClick={() => onChange({ ...data, editedTpPremium: undefined })}
@@ -421,7 +421,7 @@ export function PolicyFormPackageForm({ category, vehicleStatus, data, onChange,
                   value={data.editedTpPremium !== undefined ? data.editedTpPremium : (hasValidCalculation ? String(result?.inputs?.effectiveAnnualTpPremium ?? '') : '')}
                   onChange={(e) => {
                     const val = e.target.value;
-                    onChange({ ...data, editedTpPremium: val === '' ? undefined : val });
+                    onChange({ ...data, editedTpPremium: val });
                   }}
                   className="w-full p-1 text-xs font-bold rounded border bg-background text-foreground"
                   title="Edit TP Base ₹"
