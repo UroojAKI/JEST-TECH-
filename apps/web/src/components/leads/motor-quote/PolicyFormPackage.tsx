@@ -178,17 +178,16 @@ export function PolicyFormPackageForm({ category, vehicleStatus, data, onChange,
   const hasValidCalculation = !loading && !error && Boolean(result);
   const outputs = hasValidCalculation ? (result?.outputs || {}) : {};
   const rawOd = outputs.od?.gross ?? outputs.baseOdPremium ?? 0;
-  const rawTp = outputs.tp?.base ?? outputs.baseTpPremium ?? 0;
+  const rawTp = outputs.tp?.gross ?? outputs.tp?.base ?? outputs.baseTpPremium ?? 0;
   const grossBase = outputs.summary?.grossPremium ?? outputs.grossBasePremium ?? (rawOd + rawTp);
-  const discountAmt = outputs.summary?.totalDiscount ?? outputs.totalDiscount ?? 0;
-  const netBase = outputs.summary?.netPremium ?? outputs.netCustomerPremium ?? outputs.netPreTaxPremium ?? (grossBase - discountAmt);
   const gstAmt = outputs.summary?.totalGst ?? outputs.totalGst ?? outputs.gstAmount ?? 0;
   const payableSummary = outputs.payableSummary || {};
-  const payableBase = payableSummary.payableBase ?? (grossBase + gstAmt);
-  const commDiscount = outputs.summary?.totalDiscount ?? outputs.totalDiscount ?? outputs.commercialDiscountAmount ?? payableSummary.commercialDiscount?.amount ?? 0;
-  const itemizedAddons: any[] = Array.isArray(outputs.itemizedAddons) ? outputs.itemizedAddons : [];
-  const odDiscountAmount = outputs.od?.specialDiscount ?? outputs.specialDiscount ?? 0;
+  const payableBase = outputs.summary?.payableBase ?? payableSummary.payableBase ?? (grossBase + gstAmt);
+  const odDiscountAmount = outputs.od?.discount ?? outputs.od?.specialDiscount ?? outputs.odDiscountAmount ?? outputs.specialDiscount ?? 0;
   const tpDiscountAmount = outputs.tp?.discount ?? outputs.tpDiscountAmount ?? 0;
+  const commDiscount = outputs.summary?.commercialDiscountAmount ?? outputs.commercialDiscountAmount ?? payableSummary.commercialDiscount?.amount ?? 0;
+  const totalDiscount = outputs.summary?.totalDiscount ?? outputs.totalDiscount ?? (odDiscountAmount + tpDiscountAmount + commDiscount);
+  const itemizedAddons: any[] = Array.isArray(outputs.itemizedAddons) ? outputs.itemizedAddons : [];
   const finalPayable = hasValidCalculation
     ? Number(outputs.summary?.finalPayable ?? outputs.finalPayableAmount ?? outputs.totalPremium ??
         ((data.finalPayableAmount ? parseFloat(data.finalPayableAmount) : 0) ||
@@ -374,13 +373,19 @@ export function PolicyFormPackageForm({ category, vehicleStatus, data, onChange,
                 <span className="text-xs font-black text-foreground">2. Third Party (TP) Liability</span>
                 {data.editedTpPremium && (
                   <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-600 border border-amber-300">
-                    [Edited Base]
+                    [Edited Annual Base]
                   </span>
                 )}
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-[10px] text-muted-foreground font-medium">
-                  Statutory Tariff: <strong className="text-foreground">₹{Number(outputs.tp?.statutory ?? result?.rateConfig?.systemTpAnnualRate ?? 0).toLocaleString('en-IN')}</strong>
+                  Statutory Tariff: <strong className="text-foreground">₹{Number(result?.inputs?.statutoryAnnualTpPremium ?? result?.rateConfig?.systemTpAnnualRate ?? 0).toLocaleString('en-IN')}/yr</strong>
+                </span>
+                <span className="text-[10px] text-muted-foreground font-medium">
+                  • Tenure: <strong className="text-foreground">{data.policyTenure || 1} yr(s)</strong>
+                </span>
+                <span className="text-[10px] text-muted-foreground font-medium">
+                  • Gross TP: <strong className="text-foreground">₹{Number(result?.inputs?.tpGrossPremium ?? outputs.tp?.base ?? 0).toLocaleString('en-IN')}</strong>
                 </span>
                 {data.editedTpPremium && (
                   <button
@@ -395,10 +400,10 @@ export function PolicyFormPackageForm({ category, vehicleStatus, data, onChange,
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 text-xs">
-              {/* TP Base */}
+              {/* Annual TP Premium */}
               <div className="p-2.5 rounded-lg bg-card border space-y-1">
                 <div className="flex items-center justify-between">
-                  <span className="text-[9px] text-muted-foreground block font-bold">TP Base Premium ₹</span>
+                  <span className="text-[9px] text-muted-foreground block font-bold">Annual TP Premium ₹</span>
                   {data.editedTpPremium && (
                     <button
                       type="button"
@@ -412,8 +417,8 @@ export function PolicyFormPackageForm({ category, vehicleStatus, data, onChange,
                 <input
                   type="number"
                   step="1"
-                  placeholder={hasValidCalculation ? String(outputs.tp?.base ?? outputs.tp?.statutory ?? rawTp) : 'TP Base ₹'}
-                  value={data.editedTpPremium !== undefined ? data.editedTpPremium : (hasValidCalculation ? String(outputs.tp?.base ?? '') : '')}
+                  placeholder={hasValidCalculation ? String(result?.inputs?.effectiveAnnualTpPremium ?? result?.rateConfig?.tpAnnualRate ?? rawTp) : 'Annual TP ₹'}
+                  value={data.editedTpPremium !== undefined ? data.editedTpPremium : (hasValidCalculation ? String(result?.inputs?.effectiveAnnualTpPremium ?? '') : '')}
                   onChange={(e) => {
                     const val = e.target.value;
                     onChange({ ...data, editedTpPremium: val === '' ? undefined : val });
@@ -424,9 +429,9 @@ export function PolicyFormPackageForm({ category, vehicleStatus, data, onChange,
                 <span className="text-[9px] text-muted-foreground block">
                   {hasValidCalculation
                     ? (data.editedTpPremium
-                        ? `Custom Base (Statutory: ₹${Number(outputs.tp?.statutory ?? result?.rateConfig?.systemTpAnnualRate ?? 0).toLocaleString('en-IN')})`
-                        : `Statutory: ₹${Number(outputs.tp?.statutory ?? result?.rateConfig?.systemTpAnnualRate ?? outputs.tp?.base ?? rawTp).toLocaleString('en-IN')}`)
-                    : 'Statutory tariff'}
+                        ? `Custom: ₹${Number(data.editedTpPremium).toLocaleString('en-IN')} × ${data.policyTenure || 1} yr = ₹${Number(result?.inputs?.tpGrossPremium ?? outputs.tp?.base ?? 0).toLocaleString('en-IN')}`
+                        : `Statutory: ₹${Number(result?.inputs?.statutoryAnnualTpPremium ?? result?.rateConfig?.systemTpAnnualRate ?? 0).toLocaleString('en-IN')}/yr × ${data.policyTenure || 1} yr`)
+                    : 'Statutory annual tariff'}
                 </span>
               </div>
 
@@ -462,8 +467,8 @@ export function PolicyFormPackageForm({ category, vehicleStatus, data, onChange,
                 </span>
                 <span className="text-[9px] text-muted-foreground block">
                   {hasValidCalculation && outputs.tp?.discount
-                    ? `₹${Number(outputs.tp?.base ?? 0).toLocaleString('en-IN')} − ₹${Number(outputs.tp.discount).toLocaleString('en-IN')}`
-                    : 'TP Base minus discount'}
+                    ? `₹${Number(outputs.tp?.gross ?? outputs.tp?.base ?? 0).toLocaleString('en-IN')} − ₹${Number(outputs.tp.discount).toLocaleString('en-IN')}`
+                    : 'Gross TP minus TP discount'}
                 </span>
               </div>
 
@@ -483,7 +488,7 @@ export function PolicyFormPackageForm({ category, vehicleStatus, data, onChange,
                 <span className="text-xs font-bold text-primary block pt-1">
                   {hasValidCalculation ? '+₹' + Number(outputs.tp?.gst ?? outputs.gstOnTp ?? 0).toLocaleString('en-IN') : '—'}
                 </span>
-                <span className="text-[9px] text-muted-foreground block">Itemized on TP Gross</span>
+                <span className="text-[9px] text-muted-foreground block">Itemized on Gross TP</span>
               </div>
             </div>
           </div>
@@ -648,6 +653,50 @@ export function PolicyFormPackageForm({ category, vehicleStatus, data, onChange,
             </div>
           </div>
 
+          {/* Commercial Discount on Payable Base */}
+          <div className="p-3.5 rounded-xl border bg-card space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-black text-foreground">Commercial Discount (Payable Base)</span>
+              <span className="text-[10px] text-muted-foreground">
+                Payable Base: <strong className="text-foreground">₹{Number(payableBase).toLocaleString('en-IN')}</strong>
+              </span>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
+              <div className="p-2.5 rounded-lg bg-background border space-y-1">
+                <span className="text-[9px] text-muted-foreground block font-bold">Commercial Discount (%)</span>
+                <input
+                  type="number"
+                  min="0"
+                  max="50"
+                  step="0.5"
+                  value={data.commercialDiscountPercent ?? ''}
+                  onChange={(e) => onChange({ ...data, commercialDiscountPercent: e.target.value })}
+                  placeholder="e.g. 5%"
+                  className="w-full p-1 text-xs font-bold rounded border bg-background text-amber-700 dark:text-amber-400"
+                />
+              </div>
+              <div className="p-2.5 rounded-lg bg-background border space-y-1">
+                <span className="text-[9px] text-muted-foreground block font-bold">Discount Amount (₹)</span>
+                <span className="text-xs font-bold text-amber-600 block pt-1">
+                  {hasValidCalculation && commDiscount > 0
+                    ? '-₹' + Number(commDiscount).toLocaleString('en-IN')
+                    : '—'}
+                </span>
+                <span className="text-[9px] text-muted-foreground block">Payable Base × Commercial %</span>
+              </div>
+              <div className="p-2.5 rounded-lg bg-background border space-y-1">
+                <span className="text-[9px] text-muted-foreground block font-bold">Justification / Approval Ref</span>
+                <input
+                  type="text"
+                  value={data.discountReason ?? ''}
+                  onChange={(e) => onChange({ ...data, discountReason: e.target.value })}
+                  placeholder="Approval reference or note"
+                  className="w-full p-1 text-xs rounded border bg-background text-foreground"
+                />
+              </div>
+            </div>
+          </div>
+
           {/* Final Total Payable Summary */}
           <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex flex-col sm:flex-row items-center justify-between gap-3">
             <div>
@@ -660,10 +709,28 @@ export function PolicyFormPackageForm({ category, vehicleStatus, data, onChange,
                 <span>Total Itemized GST: <strong className="text-foreground">₹{Number(gstAmt).toLocaleString('en-IN')}</strong></span>
                 <span>•</span>
                 <span>Payable Base: <strong className="text-foreground">₹{Number(payableBase).toLocaleString('en-IN')}</strong></span>
+                {odDiscountAmount > 0 && (
+                  <>
+                    <span>•</span>
+                    <span>OD Discount: <strong className="text-amber-600">-₹{Number(odDiscountAmount).toLocaleString('en-IN')}</strong></span>
+                  </>
+                )}
+                {tpDiscountAmount > 0 && (
+                  <>
+                    <span>•</span>
+                    <span>TP Discount: <strong className="text-amber-600">-₹{Number(tpDiscountAmount).toLocaleString('en-IN')}</strong></span>
+                  </>
+                )}
                 {commDiscount > 0 && (
                   <>
                     <span>•</span>
-                    <span>Total Discount: <strong className="text-amber-600">-₹{Number(commDiscount).toLocaleString('en-IN')}</strong></span>
+                    <span>Commercial Discount: <strong className="text-amber-600">-₹{Number(commDiscount).toLocaleString('en-IN')}</strong></span>
+                  </>
+                )}
+                {totalDiscount > 0 && (
+                  <>
+                    <span>•</span>
+                    <span>Total Discounts: <strong className="text-amber-700 font-bold">-₹{Number(totalDiscount).toLocaleString('en-IN')}</strong></span>
                   </>
                 )}
               </div>

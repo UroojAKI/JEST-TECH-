@@ -121,13 +121,17 @@ export class MotorCalculationService {
       }
     }
 
-    // TP Premium Override / Edit
+    // TP Premium Override / Edit (Canonical: editedTpAnnualPremium)
     const tpOverride = input.overrides?.find((o) => o.field === 'TP_PREMIUM');
     let effectiveTpAnnual = tpRates.annualPremium;
     let isTpEdited = false;
-    if (input.editedTpPremium !== undefined || tpOverride) {
-      const candidateTp = input.editedTpPremium !== undefined
-        ? Number(input.editedTpPremium)
+    const rawEditedTp =
+      input.editedTpAnnualPremium !== undefined
+        ? input.editedTpAnnualPremium
+        : input.editedTpPremium;
+    if (rawEditedTp !== undefined || tpOverride) {
+      const candidateTp = rawEditedTp !== undefined
+        ? Number(rawEditedTp)
         : Number(tpOverride?.overrideValue);
 
       if (!isNaN(candidateTp) && candidateTp >= 0) {
@@ -446,40 +450,35 @@ export class MotorCalculationService {
     // Step 3: Payable Base = Gross Premium Before Discount + Component GST Total
     const payableBase = round2(premiumBeforeDiscount + componentGstTotal);
 
-    // Step 4: Commercial Discount calculated against Payable Base
-    const commercialDiscountPercent = input.commercialDiscountPercent !== undefined
-      ? input.commercialDiscountPercent
-      : (['THIRD_PARTY_ONLY', 'STANDALONE_OD'].includes(input.policyType)
-          ? (input.policyType === 'THIRD_PARTY_ONLY' ? effectiveTpDiscountPercent : effectiveOdDiscountPercent)
-          : (input.odDiscountPercent !== undefined || input.tpDiscountPercent !== undefined ? 0 : (input.discountPercent ?? 0)));
+    // Step 4: Independent Discounts (OD, TP, Commercial)
+    // D_OD: Calculated from gross OD premium
+    // D_TP: Calculated from gross TP premium (annual * tenure)
+    // D_C:  Calculated from payable base (Gross + GST)
+    const commercialDiscountPercent = Number(
+      input.commercialDiscountPercent !== undefined
+        ? input.commercialDiscountPercent
+        : (input.odDiscountPercent === undefined && input.tpDiscountPercent === undefined && input.discountPercent !== undefined
+            ? input.discountPercent
+            : 0),
+    );
 
-    let commercialDiscountAmount = 0;
-    if (['THIRD_PARTY_ONLY', 'STANDALONE_OD'].includes(input.policyType)) {
-      const compDiscount = input.policyType === 'THIRD_PARTY_ONLY' ? tpDiscountAmount : odDiscountAmount;
-      commercialDiscountAmount = compDiscount > 0
-        ? compDiscount
-        : round2(payableBase * (commercialDiscountPercent / 100));
-    } else {
-      commercialDiscountAmount = round2(
-        payableBase * (commercialDiscountPercent / 100),
-      );
-    }
+    const commercialDiscountAmount = round2(
+      payableBase * (commercialDiscountPercent / 100),
+    );
 
+    // Total Discounts: OD discount + TP discount + Commercial discount (each deducted exactly once)
     const totalDiscountAmount = round2(
-      commercialDiscountAmount +
-        (['THIRD_PARTY_ONLY', 'STANDALONE_OD'].includes(input.policyType)
-          ? 0
-          : round2(odDiscountAmount + tpDiscountAmount)),
+      odDiscountAmount + tpDiscountAmount + commercialDiscountAmount,
     );
 
     const commercialDiscount: PayableDiscount = {
-      percentage: commercialDiscountPercent || (input.policyType === 'THIRD_PARTY_ONLY' ? effectiveTpDiscountPercent : effectiveOdDiscountPercent),
+      percentage: commercialDiscountPercent,
       baseAmount: payableBase,
-      amount: totalDiscountAmount,
+      amount: commercialDiscountAmount,
       reason: input.discountReason || input.approvalReference || undefined,
     };
 
-    // Step 5: Final Payable Amount = Payable Base - Approved Commercial Discount
+    // Step 5: Final Payable Amount = Payable Base - Total Discounts
     const finalPayableAmount = round2(
       Math.max(0, payableBase - totalDiscountAmount),
     );
@@ -493,10 +492,21 @@ export class MotorCalculationService {
 
     // Canonical Payable Summary
     const payableSummary: PayableSummary = {
+      odGrossPremium: baseOdPremium,
+      tpGrossPremium: baseTpPremium,
+      paGrossPremium: paPremium,
+      paidDriverGrossPremium: paidDriverPremium,
+      addonGrossPremium: round2(addonPremiumTotal),
+      grossPremium: premiumBeforeDiscount,
       premiumBeforeDiscount,
       componentGstTotal,
       payableBase,
+      odDiscountAmount,
+      tpDiscountAmount,
+      commercialDiscountAmount,
       commercialDiscount,
+      totalDiscount: totalDiscountAmount,
+      totalDiscounts: totalDiscountAmount,
       finalPayableAmount,
       gstBreakdown,
     };
@@ -511,7 +521,17 @@ export class MotorCalculationService {
     });
 
     return {
-      inputs: { ...input, effectiveNcb, tpTenure },
+      inputs: {
+        ...input,
+        effectiveNcb,
+        tpTenure,
+        statutoryAnnualTpPremium: tpRates.annualPremium,
+        tpTenureYears: tpTenure,
+        statutoryTotalTpPremium: round2(tpRates.annualPremium * tpTenure),
+        effectiveAnnualTpPremium: effectiveTpAnnual,
+        tpGrossPremium: baseTpPremium,
+        odGrossPremium: baseOdPremium,
+      },
       authoritativeDates,
       rateConfig: {
         odRate: effectiveOdRate,
@@ -533,12 +553,15 @@ export class MotorCalculationService {
         payableSummary,
         commercialDiscount,
         commercialDiscountAmount,
+        odDiscountAmount,
+        tpDiscountAmount,
+        totalDiscountAmount,
 
         // Structured Component Breakdown (preserves undiscounted reference figures)
         od: {
           gross: baseOdPremium,
           ncbDiscount: 0,
-          specialDiscount: specialDiscountAmount,
+          specialDiscount: odDiscountAmount,
           addons: round2(addonPremiumTotal),
           net: netOdComponent,
           gst: gstOnOd,
@@ -562,6 +585,24 @@ export class MotorCalculationService {
           gst: gstOnPaidDriver,
           isEdited: isDriverEdited,
         },
+        discounts: {
+          od: {
+            percent: effectiveOdDiscountPercent,
+            base: baseOdPremium,
+            amount: odDiscountAmount,
+          },
+          tp: {
+            percent: effectiveTpDiscountPercent,
+            base: baseTpPremium,
+            amount: tpDiscountAmount,
+          },
+          commercial: {
+            percent: commercialDiscountPercent,
+            base: payableBase,
+            amount: commercialDiscountAmount,
+          },
+          total: totalDiscountAmount,
+        },
         summary: {
           grossPremium: premiumBeforeDiscount,
           totalDiscount: totalDiscountAmount,
@@ -574,8 +615,7 @@ export class MotorCalculationService {
         // Own Damage
         baseOdPremium,
         ncbDiscount: 0,
-        specialDiscount: specialDiscountAmount,
-        odDiscountAmount: specialDiscountAmount,
+        specialDiscount: odDiscountAmount,
         netOdAfterDiscount,
         netOdPremium: netOdComponent,
         addonPremium: round2(addonPremiumTotal),
@@ -584,7 +624,6 @@ export class MotorCalculationService {
 
         // Third Party (including PA and Paid Driver as sub-components)
         baseTpPremium,
-        tpDiscountAmount,
         paPremium, // Compulsory Owner-Driver PA
         paidDriverPremium, // Legal Liability to Paid Driver
         netTpComponent,
@@ -717,8 +756,8 @@ export class MotorCalculationService {
   ) {
     const d =
       input.tpDiscountPercent ??
-      (input.policyType === 'THIRD_PARTY_ONLY'
-        ? (input.commercialDiscountPercent ?? input.discountPercent ?? 0)
+      (input.policyType === 'THIRD_PARTY_ONLY' && input.commercialDiscountPercent === undefined
+        ? (input.discountPercent ?? 0)
         : 0);
     if (d <= 0) return;
 

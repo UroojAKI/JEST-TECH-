@@ -198,6 +198,12 @@ export class MotorCalculationInputDto {
   @Min(0)
   editedTpPremium?: number;
 
+  /** Agent edited Annual TP premium ₹ (canonical naming) */
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  editedTpAnnualPremium?: number;
+
   /** Agent edited PA premium ₹ */
   @IsOptional()
   @IsNumber()
@@ -244,11 +250,41 @@ export interface PayableDiscount {
   reason?: string;
 }
 
+export interface ItemizedDiscounts {
+  od: {
+    percent: number;
+    base: number;
+    amount: number;
+  };
+  tp: {
+    percent: number;
+    base: number;
+    amount: number;
+  };
+  commercial: {
+    percent: number;
+    base: number;
+    amount: number;
+  };
+  total: number;
+}
+
 export interface PayableSummary {
+  odGrossPremium?: number;
+  tpGrossPremium?: number;
+  paGrossPremium?: number;
+  paidDriverGrossPremium?: number;
+  addonGrossPremium?: number;
+  grossPremium?: number;
   premiumBeforeDiscount: number;
   componentGstTotal: number;
   payableBase: number;
+  odDiscountAmount?: number;
+  tpDiscountAmount?: number;
+  commercialDiscountAmount?: number;
   commercialDiscount: PayableDiscount;
+  totalDiscount?: number;
+  totalDiscounts?: number;
   finalPayableAmount: number;
   gstBreakdown: any;
 }
@@ -258,4 +294,5 @@ export interface UnderwritingMetadata {
   ncbEligible: boolean;
   claimReported: boolean;
 }
+
 

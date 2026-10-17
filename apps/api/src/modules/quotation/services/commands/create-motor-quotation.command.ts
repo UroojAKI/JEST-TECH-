@@ -369,19 +369,23 @@ export class CreateMotorQuotationCommand {
         policyDetails.activeTPPolicyNumberValidity ||
         undefined,
       activeTpExpiryDate: saodVerification.tpExpiryDate || undefined,
-      odDiscountPercent: Number(
-        policyDetails.odDiscountPercent ?? 0,
-      ),
-      discountPercent: Number(
-        policyDetails.commercialDiscountPercent ?? policyDetails.odDiscountPercent ?? policyDetails.discountPercent ?? 0,
-      ),
-      commercialDiscountPercent: Number(
-        policyDetails.commercialDiscountPercent ?? 0,
-      ),
+      odDiscountPercent: policyDetails.odDiscountPercent !== undefined && policyDetails.odDiscountPercent !== ''
+        ? Number(policyDetails.odDiscountPercent)
+        : undefined,
+      commercialDiscountPercent: policyDetails.commercialDiscountPercent !== undefined && policyDetails.commercialDiscountPercent !== ''
+        ? Number(policyDetails.commercialDiscountPercent)
+        : undefined,
+      tpDiscountPercent: policyDetails.tpDiscountPercent !== undefined && policyDetails.tpDiscountPercent !== ''
+        ? Number(policyDetails.tpDiscountPercent)
+        : 0,
+      discountPercent: policyDetails.discountPercent !== undefined && policyDetails.discountPercent !== ''
+        ? Number(policyDetails.discountPercent)
+        : (policyDetails.commercialDiscountPercent !== undefined && policyDetails.commercialDiscountPercent !== ''
+            ? Number(policyDetails.commercialDiscountPercent)
+            : (policyDetails.odDiscountPercent !== undefined && policyDetails.odDiscountPercent !== ''
+                ? Number(policyDetails.odDiscountPercent)
+                : 0)),
       discountReason: policyDetails.discountReason || undefined,
-      tpDiscountPercent: Number(
-        policyDetails.tpDiscountPercent ?? 0,
-      ),
       previousPolicyExpiryDate: prevPolicy.policyExpiryDate || undefined,
       policyStartDate: policyDetails.policyStartDate || undefined,
       gstRate: policyDetails.gstRate !== undefined && policyDetails.gstRate !== null && policyDetails.gstRate !== ''
@@ -390,6 +394,11 @@ export class CreateMotorQuotationCommand {
       editedOdRate: policyDetails.editedOdRate !== undefined && policyDetails.editedOdRate !== '' && !isNaN(Number(policyDetails.editedOdRate))
         ? Number(policyDetails.editedOdRate)
         : undefined,
+      editedTpAnnualPremium: policyDetails.editedTpAnnualPremium !== undefined && policyDetails.editedTpAnnualPremium !== '' && !isNaN(Number(policyDetails.editedTpAnnualPremium))
+        ? Number(policyDetails.editedTpAnnualPremium)
+        : (policyDetails.editedTpPremium !== undefined && policyDetails.editedTpPremium !== '' && !isNaN(Number(policyDetails.editedTpPremium))
+            ? Number(policyDetails.editedTpPremium)
+            : undefined),
       editedTpPremium: policyDetails.editedTpPremium !== undefined && policyDetails.editedTpPremium !== '' && !isNaN(Number(policyDetails.editedTpPremium))
         ? Number(policyDetails.editedTpPremium)
         : undefined,
@@ -427,6 +436,15 @@ export class CreateMotorQuotationCommand {
       policyDetails: dto.policyDetails,
       saodVerification: dto.saodVerification,
       previousPolicyDetails: dto.previousPolicyDetails,
+      discounts: {
+        odDiscountPercent: calcResult.outputs.discounts?.od?.percent ?? 0,
+        odDiscountAmount: calcResult.outputs.odDiscountAmount ?? 0,
+        tpDiscountPercent: calcResult.outputs.discounts?.tp?.percent ?? 0,
+        tpDiscountAmount: calcResult.outputs.tpDiscountAmount ?? 0,
+        commercialDiscountPercent: calcResult.outputs.discounts?.commercial?.percent ?? 0,
+        commercialDiscountAmount: calcResult.outputs.commercialDiscountAmount ?? 0,
+        totalDiscountAmount: calcResult.outputs.totalDiscountAmount ?? 0,
+      },
       commissions: {
         odCommissionPercent,
         tpCommissionPercent,

@@ -77,9 +77,9 @@ export function PolicyFormSAODForm({ category, vehicleStatus, data, onChange, el
     idv: parseFloat(data.insuredDeclaredValue || '0') || 0,
     ncbPercent: parseInt(data.ncbPercentage || '0') || 0,
     claimInExpiringPolicy: data.claimInExpiringODPolicy === 'Yes',
-    odDiscountPercent: parseFloat(data.discountPercent || '0') || 0,
-    discountPercent: parseFloat(data.commercialDiscountPercent || data.discountPercent || '0') || 0,
-    commercialDiscountPercent: parseFloat(data.commercialDiscountPercent || data.discountPercent || '0') || 0,
+    odDiscountPercent: parseFloat(data.odDiscountPercent || data.discountPercent || '0') || 0,
+    discountPercent: parseFloat(data.discountPercent || '0') || 0,
+    commercialDiscountPercent: parseFloat(data.commercialDiscountPercent || '0') || 0,
     discountReason: data.discountReason || undefined,
     gstRate: data.gstRate ? parseInt(data.gstRate) : 18,
     odGstRate: data.odGstRate ? parseInt(data.odGstRate) : (data.gstRate ? parseInt(data.gstRate) : 18),
@@ -545,7 +545,7 @@ export function PolicyFormSAODForm({ category, vehicleStatus, data, onChange, el
           >
             <input
               type="number"
-              value={hasValidCalculation ? (outputs.payableSummary?.commercialDiscount?.amount ?? outputs.commercialDiscountAmount ?? outputs.totalDiscount ?? outputs.specialDiscount ?? data.discountAmount ?? '0') : ''}
+              value={hasValidCalculation ? (outputs.summary?.odDiscountAmount ?? outputs.od?.discount ?? outputs.odDiscountAmount ?? outputs.summary?.totalDiscount ?? '0') : ''}
               readOnly
               className={`${readonlyInput} font-mono font-bold text-amber-600`}
               placeholder="₹0"

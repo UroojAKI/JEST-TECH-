@@ -111,8 +111,20 @@ export class CreateQuotationVersionService {
                   (Number(dto.discountAmount) / Number(dto.basePremium)) * 100,
                 )
               : 0),
-          odDiscountPercent: dto.metadata?.odDiscountPercent ?? 0,
-          tpDiscountPercent: dto.metadata?.tpDiscountPercent ?? 0,
+          commercialDiscountPercent:
+            dto.metadata?.commercialDiscountPercent ??
+            (quotation.versions?.[0]?.metadata as any)?.commercialDiscountPercent ??
+            (quotation.calculationSnapshot as any)?.inputs?.commercialDiscountPercent,
+          odDiscountPercent:
+            dto.metadata?.odDiscountPercent ??
+            (quotation.versions?.[0]?.metadata as any)?.odDiscountPercent ??
+            (quotation.calculationSnapshot as any)?.inputs?.odDiscountPercent ??
+            0,
+          tpDiscountPercent:
+            dto.metadata?.tpDiscountPercent ??
+            (quotation.versions?.[0]?.metadata as any)?.tpDiscountPercent ??
+            (quotation.calculationSnapshot as any)?.inputs?.tpDiscountPercent ??
+            0,
           addons: dto.addons?.map((a) => ({
             addonCode: a.addonCode,
             manualPrice: undefined,
@@ -135,9 +147,18 @@ export class CreateQuotationVersionService {
             (quotation.versions?.[0]?.metadata as any)?.editedOdRate ??
             (quotation.calculationSnapshot as any)?.inputs?.editedOdRate ??
             (quotation.motorMetadata as any)?.policyDetails?.editedOdRate,
+          editedTpAnnualPremium:
+            dto.metadata?.editedTpAnnualPremium ??
+            dto.metadata?.editedTpPremium ??
+            (quotation.versions?.[0]?.metadata as any)?.editedTpAnnualPremium ??
+            (quotation.versions?.[0]?.metadata as any)?.editedTpPremium ??
+            (quotation.calculationSnapshot as any)?.inputs?.editedTpAnnualPremium ??
+            (quotation.calculationSnapshot as any)?.inputs?.editedTpPremium,
           editedTpPremium:
             dto.metadata?.editedTpPremium ??
+            dto.metadata?.editedTpAnnualPremium ??
             (quotation.versions?.[0]?.metadata as any)?.editedTpPremium ??
+            (quotation.versions?.[0]?.metadata as any)?.editedTpAnnualPremium ??
             (quotation.calculationSnapshot as any)?.inputs?.editedTpPremium ??
             (quotation.motorMetadata as any)?.policyDetails?.editedTpPremium,
           editedPaPremium:

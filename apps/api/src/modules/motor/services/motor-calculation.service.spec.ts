@@ -286,7 +286,9 @@ describe('MotorCalculationService (Iteration 5 Financial Math)', () => {
       // Payable Base = 3416 + 614.88 = 4030.88
       expect(result.outputs.payableSummary.payableBase).toBe(4030.88);
       // 10% TP discount on base TP = 341.6
-      expect(result.outputs.payableSummary.commercialDiscount.amount).toBe(341.6);
+      expect(result.outputs.tpDiscountAmount).toBe(341.6);
+      expect(result.outputs.totalDiscount).toBe(341.6);
+      expect(result.outputs.payableSummary.commercialDiscount.amount).toBe(0);
       // Total Premium = Net TP (3074.4) + GST (614.88) = 3689.28
       expect(result.outputs.totalPremium).toBe(3689.28);
       expect(result.outputs.finalPayableAmount).toBe(3689.28);
@@ -318,8 +320,9 @@ describe('MotorCalculationService (Iteration 5 Financial Math)', () => {
       expect(result.outputs.totalGst).toBe(3429.18);
       // Payable Base = 19051 + 3429.18 = 22480.18
       expect(result.outputs.payableSummary.payableBase).toBe(22480.18);
-      // Commercial discount contains TP discount (341.6)
-      expect(result.outputs.payableSummary.commercialDiscount.amount).toBe(341.6);
+      // Commercial discount is 0 (TP discount is 341.6)
+      expect(result.outputs.payableSummary.commercialDiscount.amount).toBe(0);
+      expect(result.outputs.tpDiscountAmount).toBe(341.6);
       expect(result.outputs.totalDiscount).toBe(341.6);
       // Final Payable = 22480.18 - 341.6 = 22138.58
       expect(result.outputs.finalPayableAmount).toBe(22138.58);
@@ -370,7 +373,9 @@ describe('MotorCalculationService (Iteration 5 Financial Math)', () => {
 
       // Total Discount = 1563.50 + 341.60 = 1905.10
       expect(result.outputs.totalDiscount).toBe(1905.1);
-      expect(result.outputs.payableSummary.commercialDiscount.amount).toBe(1905.1);
+      expect(result.outputs.payableSummary.commercialDiscount.amount).toBe(0);
+      expect(result.outputs.odDiscountAmount).toBe(1563.5);
+      expect(result.outputs.tpDiscountAmount).toBe(341.6);
 
       // Final Payable = 22480.18 - 1905.10 = 20575.08
       // Reconciliation: OD Net (14071.5) + TP Net (3074.4) + Total GST (3429.18) = 20575.08
@@ -964,5 +969,354 @@ describe('MotorCalculationService (Iteration 5 Financial Math)', () => {
         expect(reset.outputs.summary.finalPayable).toBe(statutory.outputs.summary.finalPayable);
       });
     });
+
+    describe('Phase 9.1: Deterministic Financial Fixture & Phase 9.2 Regression Matrix', () => {
+      it('Phase 9.1 Deterministic Financial Fixture: OD ₹1,000, Annual TP ₹1,000, Tenure 3, OD 10%, TP 10%, Comm 10%, GST 18%', async () => {
+        const result: any = await service.calculate({
+          vehicleCategory: 'PRIVATE_CAR',
+          vehicleStatus: 'EXISTING',
+          policyType: 'PACKAGE_COMPREHENSIVE',
+          idv: 100000,
+          editedOdRate: 1.0, // 100,000 * 1% = ₹1,000 OD Gross
+          editedTpAnnualPremium: 1000, // ₹1,000 Annual TP
+          policyTenure: 3, // 3 Years Tenure -> ₹3,000 TP Gross
+          paCover: false,
+          paidDriverLiability: false,
+          odDiscountPercent: 10,
+          tpDiscountPercent: 10,
+          commercialDiscountPercent: 10,
+          odGstRate: 18,
+          tpGstRate: 18,
+        });
+
+        // Step 1: Gross Premiums
+        expect(result.outputs.od.gross).toBe(1000);
+        expect(result.outputs.tp.base).toBe(3000);
+        expect(result.outputs.baseTpPremium).toBe(3000);
+        expect(result.outputs.payableSummary.tpGrossPremium).toBe(3000);
+        expect(result.outputs.summary.grossPremium).toBe(4000);
+
+        // Step 2: Component GST (on Gross Bases)
+        expect(result.outputs.od.gst).toBe(180); // 1000 * 18%
+        expect(result.outputs.tp.gst).toBe(540); // 3000 * 18%
+        expect(result.outputs.summary.totalGst).toBe(720); // 180 + 540
+
+        // Step 3: Payable Base (Gross + GST)
+        expect(result.outputs.payableSummary.payableBase).toBe(4720); // 4000 + 720
+
+        // Step 4: Independent Discounts
+        expect(result.outputs.od.specialDiscount).toBe(100); // 1000 * 10%
+        expect(result.outputs.odDiscountAmount).toBe(100);
+        expect(result.outputs.tp.discount).toBe(300); // 3000 * 10%
+        expect(result.outputs.tpDiscountAmount).toBe(300);
+        expect(result.outputs.commercialDiscountAmount).toBe(472); // 4720 * 10%
+        expect(result.outputs.summary.totalDiscount).toBe(872); // 100 + 300 + 472
+        expect(result.outputs.payableSummary.totalDiscounts).toBe(872);
+
+        // Step 5: Final Payable
+        expect(result.outputs.summary.finalPayable).toBe(3848); // 4720 - 872
+        expect(result.outputs.finalPayableAmount).toBe(3848);
+
+        // Invariants check
+        expect(result.outputs.summary.grossPremium).toBe(
+          result.outputs.od.gross + result.outputs.tp.base,
+        );
+        expect(result.outputs.summary.totalGst).toBe(
+          result.outputs.od.gst + result.outputs.tp.gst,
+        );
+        expect(result.outputs.summary.totalDiscount).toBe(
+          result.outputs.odDiscountAmount +
+            result.outputs.tpDiscountAmount +
+            result.outputs.commercialDiscountAmount,
+        );
+        expect(result.outputs.summary.finalPayable).toBe(
+          result.outputs.payableSummary.payableBase -
+            result.outputs.summary.totalDiscount,
+        );
+      });
+
+      it('TP-01: Annual TP ₹1,000, tenure 1 -> TP gross ₹1,000', async () => {
+        const result: any = await service.calculate({
+          vehicleCategory: 'PRIVATE_CAR',
+          vehicleStatus: 'EXISTING',
+          policyType: 'THIRD_PARTY_ONLY',
+          editedTpAnnualPremium: 1000,
+          policyTenure: 1,
+          paCover: false,
+          paidDriverLiability: false,
+        });
+        expect(result.inputs.effectiveAnnualTpPremium).toBe(1000);
+        expect(result.inputs.tpTenure).toBe(1);
+        expect(result.outputs.tp.base).toBe(1000);
+        expect(result.outputs.baseTpPremium).toBe(1000);
+        expect(result.outputs.payableSummary.tpGrossPremium).toBe(1000);
+      });
+
+      it('TP-02: Annual TP ₹1,000, tenure 3 -> TP gross ₹3,000', async () => {
+        const result: any = await service.calculate({
+          vehicleCategory: 'PRIVATE_CAR',
+          vehicleStatus: 'EXISTING',
+          policyType: 'THIRD_PARTY_ONLY',
+          editedTpAnnualPremium: 1000,
+          policyTenure: 3,
+          paCover: false,
+          paidDriverLiability: false,
+        });
+        expect(result.inputs.effectiveAnnualTpPremium).toBe(1000);
+        expect(result.inputs.tpTenure).toBe(3);
+        expect(result.outputs.tp.base).toBe(3000);
+        expect(result.outputs.baseTpPremium).toBe(3000);
+        expect(result.outputs.payableSummary.tpGrossPremium).toBe(3000);
+      });
+
+      it('TP-03: TP discount 10% -> Discount ₹300 on ₹3,000 gross', async () => {
+        const result: any = await service.calculate({
+          vehicleCategory: 'PRIVATE_CAR',
+          vehicleStatus: 'EXISTING',
+          policyType: 'THIRD_PARTY_ONLY',
+          editedTpAnnualPremium: 1000,
+          policyTenure: 3,
+          tpDiscountPercent: 10,
+          paCover: false,
+          paidDriverLiability: false,
+        });
+        expect(result.outputs.tp.base).toBe(3000);
+        expect(result.outputs.baseTpPremium).toBe(3000);
+        expect(result.outputs.tp.discount).toBe(300);
+        expect(result.outputs.tpDiscountAmount).toBe(300);
+        expect(result.outputs.tp.net).toBe(2700);
+      });
+
+      it('TP-04: Change tenure from 1 to 3 years -> TP gross and dependent calculations update', async () => {
+        const quote1Year: any = await service.calculate({
+          vehicleCategory: 'PRIVATE_CAR',
+          vehicleStatus: 'EXISTING',
+          policyType: 'THIRD_PARTY_ONLY',
+          editedTpAnnualPremium: 1000,
+          policyTenure: 1,
+          tpDiscountPercent: 10,
+          paCover: false,
+          paidDriverLiability: false,
+          gstRate: 18,
+        });
+        expect(quote1Year.outputs.tp.base).toBe(1000);
+        expect(quote1Year.outputs.baseTpPremium).toBe(1000);
+        expect(quote1Year.outputs.tp.discount).toBe(100);
+        expect(quote1Year.outputs.tp.gst).toBe(180);
+        expect(quote1Year.outputs.finalPayableAmount).toBe(1080); // 1000 + 180 - 100
+
+        const quote3Year: any = await service.calculate({
+          vehicleCategory: 'PRIVATE_CAR',
+          vehicleStatus: 'EXISTING',
+          policyType: 'THIRD_PARTY_ONLY',
+          editedTpAnnualPremium: 1000,
+          policyTenure: 3,
+          tpDiscountPercent: 10,
+          paCover: false,
+          paidDriverLiability: false,
+          gstRate: 18,
+        });
+        expect(quote3Year.outputs.tp.base).toBe(3000);
+        expect(quote3Year.outputs.baseTpPremium).toBe(3000);
+        expect(quote3Year.outputs.tp.discount).toBe(300);
+        expect(quote3Year.outputs.tp.gst).toBe(540);
+        expect(quote3Year.outputs.finalPayableAmount).toBe(3240); // 3000 + 540 - 300
+      });
+
+      it('OD-01: OD discount 10% -> OD gross unchanged; discount ₹100', async () => {
+        const result: any = await service.calculate({
+          vehicleCategory: 'PRIVATE_CAR',
+          vehicleStatus: 'EXISTING',
+          policyType: 'STANDALONE_OD',
+          idv: 100000,
+          editedOdRate: 1.0,
+          odDiscountPercent: 10,
+          activeTpPolicyNumber: 'POL-12345',
+          activeTpExpiryDate: new Date(Date.now() + 180 * 86400000).toISOString(),
+        });
+        expect(result.outputs.od.gross).toBe(1000);
+        expect(result.outputs.od.specialDiscount).toBe(100);
+        expect(result.outputs.odDiscountAmount).toBe(100);
+        expect(result.outputs.od.net).toBe(900);
+        expect(result.outputs.od.gst).toBe(180); // 18% on gross 1000
+      });
+
+      it('DISC-01: Commercial discount 10% -> Discount calculated on payable base', async () => {
+        const result: any = await service.calculate({
+          vehicleCategory: 'PRIVATE_CAR',
+          vehicleStatus: 'EXISTING',
+          policyType: 'PACKAGE_COMPREHENSIVE',
+          idv: 100000,
+          editedOdRate: 1.0,
+          editedTpAnnualPremium: 1000,
+          policyTenure: 1,
+          commercialDiscountPercent: 10,
+          paCover: false,
+          paidDriverLiability: false,
+          gstRate: 18,
+        });
+        // Gross: 1000 + 1000 = 2000. GST: 180 + 180 = 360. Payable base: 2360.
+        expect(result.outputs.payableSummary.payableBase).toBe(2360);
+        expect(result.outputs.commercialDiscountAmount).toBe(236);
+        expect(result.outputs.summary.finalPayable).toBe(2124);
+      });
+
+      it('DISC-02: All three discounts -> Each calculated and deducted once', async () => {
+        const result: any = await service.calculate({
+          vehicleCategory: 'PRIVATE_CAR',
+          vehicleStatus: 'EXISTING',
+          policyType: 'PACKAGE_COMPREHENSIVE',
+          idv: 100000,
+          editedOdRate: 1.0,
+          editedTpAnnualPremium: 1000,
+          policyTenure: 1,
+          odDiscountPercent: 10, // 10% of 1000 = 100
+          tpDiscountPercent: 10, // 10% of 1000 = 100
+          commercialDiscountPercent: 10, // 10% of 2360 = 236
+          paCover: false,
+          paidDriverLiability: false,
+          gstRate: 18,
+        });
+        expect(result.outputs.odDiscountAmount).toBe(100);
+        expect(result.outputs.tpDiscountAmount).toBe(100);
+        expect(result.outputs.commercialDiscountAmount).toBe(236);
+        expect(result.outputs.summary.totalDiscount).toBe(436);
+        expect(result.outputs.summary.finalPayable).toBe(2360 - 436);
+      });
+
+      it('DISC-03: Change OD discount only -> TP and commercial input percentages remain unchanged', async () => {
+        const input1 = {
+          vehicleCategory: 'PRIVATE_CAR' as const,
+          vehicleStatus: 'EXISTING' as const,
+          policyType: 'PACKAGE_COMPREHENSIVE' as const,
+          idv: 100000,
+          editedOdRate: 1.0,
+          editedTpAnnualPremium: 1000,
+          odDiscountPercent: 10,
+          tpDiscountPercent: 5,
+          commercialDiscountPercent: 8,
+          paCover: false,
+          paidDriverLiability: false,
+        };
+        const r1: any = await service.calculate(input1);
+        const r2: any = await service.calculate({ ...input1, odDiscountPercent: 15 });
+
+        expect(r2.outputs.tpDiscountAmount).toBe(r1.outputs.tpDiscountAmount);
+        expect(r2.outputs.commercialDiscountAmount).toBe(r1.outputs.commercialDiscountAmount);
+        expect(r2.outputs.odDiscountAmount).toBe(150);
+      });
+
+      it('DISC-04: Change TP discount only -> OD and commercial input percentages remain unchanged', async () => {
+        const input1 = {
+          vehicleCategory: 'PRIVATE_CAR' as const,
+          vehicleStatus: 'EXISTING' as const,
+          policyType: 'PACKAGE_COMPREHENSIVE' as const,
+          idv: 100000,
+          editedOdRate: 1.0,
+          editedTpAnnualPremium: 1000,
+          odDiscountPercent: 10,
+          tpDiscountPercent: 5,
+          commercialDiscountPercent: 8,
+          paCover: false,
+          paidDriverLiability: false,
+        };
+        const r1: any = await service.calculate(input1);
+        const r2: any = await service.calculate({ ...input1, tpDiscountPercent: 12 });
+
+        expect(r2.outputs.odDiscountAmount).toBe(r1.outputs.odDiscountAmount);
+        expect(r2.outputs.commercialDiscountAmount).toBe(r1.outputs.commercialDiscountAmount);
+        expect(r2.outputs.tpDiscountAmount).toBe(120);
+      });
+
+      it('GST-01: GST calculation -> Each component GST uses its approved gross base', async () => {
+        const result: any = await service.calculate({
+          vehicleCategory: 'PRIVATE_CAR',
+          vehicleStatus: 'EXISTING',
+          policyType: 'PACKAGE_COMPREHENSIVE',
+          idv: 100000,
+          editedOdRate: 2.0, // 2000 OD Gross
+          editedTpAnnualPremium: 1000, // 1000 TP Gross
+          odDiscountPercent: 20, // 400 OD Discount -> Net OD = 1600
+          tpDiscountPercent: 15, // 150 TP Discount -> Net TP = 850
+          approvalReference: 'BM-AUTH-01',
+          odGstRate: 18,
+          tpGstRate: 5,
+          paCover: false,
+          paidDriverLiability: false,
+        });
+
+        // GST is strictly computed on Gross Bases (2000 and 1000), not Net (1600 and 850)
+        expect(result.outputs.gstBreakdown.od.base).toBe(2000);
+        expect(result.outputs.gstBreakdown.od.amount).toBe(360); // 2000 * 18%
+        expect(result.outputs.gstBreakdown.tp.base).toBe(1000);
+        expect(result.outputs.gstBreakdown.tp.amount).toBe(50); // 1000 * 5%
+        expect(result.outputs.summary.totalGst).toBe(410); // 360 + 50
+      });
+
+      it('NCB-01: Change NCB tier -> No monetary output changes', async () => {
+        const quote0 = await service.calculate({
+          vehicleCategory: 'PRIVATE_CAR',
+          vehicleStatus: 'EXISTING',
+          policyType: 'PACKAGE_COMPREHENSIVE',
+          idv: 100000,
+          editedOdRate: 1.0,
+          editedTpAnnualPremium: 1000,
+          ncbPercent: 0,
+          paCover: false,
+          paidDriverLiability: false,
+        });
+        const quote50 = await service.calculate({
+          vehicleCategory: 'PRIVATE_CAR',
+          vehicleStatus: 'EXISTING',
+          policyType: 'PACKAGE_COMPREHENSIVE',
+          idv: 100000,
+          editedOdRate: 1.0,
+          editedTpAnnualPremium: 1000,
+          ncbPercent: 50,
+          paCover: false,
+          paidDriverLiability: false,
+        });
+        expect(quote0.outputs.summary.grossPremium).toBe(quote50.outputs.summary.grossPremium);
+        expect(quote0.outputs.summary.totalGst).toBe(quote50.outputs.summary.totalGst);
+        expect(quote0.outputs.summary.finalPayable).toBe(quote50.outputs.summary.finalPayable);
+      });
+
+      it('VALID-01: Negative or non-finite premium is rejected', async () => {
+        await expect(
+          service.calculate({
+            vehicleCategory: 'PRIVATE_CAR',
+            vehicleStatus: 'EXISTING',
+            policyType: 'THIRD_PARTY_ONLY',
+            editedTpAnnualPremium: -100,
+          }),
+        ).rejects.toThrow();
+      });
+
+      it('VALID-02: Unauthorized discount override is rejected server-side', async () => {
+        await expect(
+          service.calculate({
+            vehicleCategory: 'PRIVATE_CAR',
+            vehicleStatus: 'EXISTING',
+            policyType: 'PACKAGE_COMPREHENSIVE',
+            idv: 500000,
+            commercialDiscountPercent: 25, // Exceeds standard limit 20%
+          }),
+        ).rejects.toThrow('A Branch Manager approval reference is required.');
+      });
+
+      it('VALID-03: Discount outside configured absolute limit is rejected', async () => {
+        await expect(
+          service.calculate({
+            vehicleCategory: 'PRIVATE_CAR',
+            vehicleStatus: 'EXISTING',
+            policyType: 'PACKAGE_COMPREHENSIVE',
+            idv: 500000,
+            commercialDiscountPercent: 60, // Exceeds ceiling 50%
+            approvalReference: 'BM-AUTH-999',
+          }),
+        ).rejects.toThrow('exceeds the absolute configured ceiling');
+      });
+    });
   });
 });
+

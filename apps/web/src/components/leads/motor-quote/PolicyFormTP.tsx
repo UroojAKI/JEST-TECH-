@@ -71,11 +71,14 @@ export function PolicyFormTPOnlyForm({ category, vehicleStatus, data, onChange, 
     policyTenure: parseInt(data.policyTenure || '1') || 1,
     paCover: !!data.paCoverOwner,
     paidDriverLiability: data.legalLiabilityPaidDriver === 'Yes',
-    tpDiscountPercent: parseFloat(data.discountPercent || '0') || 0,
-    commercialDiscountPercent: parseFloat(data.commercialDiscountPercent || data.discountPercent || '0') || 0,
+    tpDiscountPercent: parseFloat(data.tpDiscountPercent || data.discountPercent || '0') || 0,
+    commercialDiscountPercent: parseFloat(data.commercialDiscountPercent || '0') || 0,
     discountReason: data.discountReason || undefined,
     gstRate: data.gstRate ? parseInt(data.gstRate) : 18,
     tpGstRate: data.tpGstRate ? parseInt(data.tpGstRate) : (data.gstRate ? parseInt(data.gstRate) : 18),
+    editedTpAnnualPremium: data.editedTpPremium !== undefined && data.editedTpPremium !== '' && !isNaN(parseFloat(data.editedTpPremium))
+      ? parseFloat(data.editedTpPremium)
+      : undefined,
     editedTpPremium: data.editedTpPremium !== undefined && data.editedTpPremium !== '' && !isNaN(parseFloat(data.editedTpPremium))
       ? parseFloat(data.editedTpPremium)
       : undefined,
@@ -151,25 +154,25 @@ export function PolicyFormTPOnlyForm({ category, vehicleStatus, data, onChange, 
           </select>
         </FieldRow>
 
-        {/* TP Premium */}
+        {/* Annual TP Premium */}
         <FieldRow
-          label="Third Party Premium (₹)"
+          label="Annual TP Premium (₹)"
           hint={data.editedTpPremium
-            ? `Custom edited premium (Statutory Tariff: ₹${Number(result?.outputs?.tp?.statutory ?? result?.rateConfig?.systemTpAnnualRate ?? 0).toLocaleString('en-IN')})`
-            : "Statutory IRDAI tariff (editable by authorized agents)"}
+            ? `Custom: ₹${Number(data.editedTpPremium).toLocaleString('en-IN')}/yr × ${data.policyTenure || '1'} yr(s) = ₹${Number(result?.outputs?.tp?.gross ?? result?.outputs?.tp?.base ?? 0).toLocaleString('en-IN')} (Statutory: ₹${Number(result?.outputs?.tp?.statutoryAnnual ?? result?.rateConfig?.systemTpAnnualRate ?? 0).toLocaleString('en-IN')}/yr)`
+            : `Statutory Annual Tariff: ₹${Number(result?.outputs?.tp?.statutoryAnnual ?? result?.rateConfig?.systemTpAnnualRate ?? 0).toLocaleString('en-IN')}/yr (Tenure: ${data.policyTenure || '1'} yr(s) → Gross: ₹${Number(result?.outputs?.tp?.gross ?? result?.outputs?.tp?.base ?? 0).toLocaleString('en-IN')})`}
         >
           <div className="flex items-center gap-2">
             <input
               type="number"
               step="1"
-              value={data.editedTpPremium !== undefined ? data.editedTpPremium : (error || loading ? '' : result?.outputs?.tp?.base?.toString() || result?.outputs?.baseTpPremium?.toString() || '')}
+              value={data.editedTpPremium !== undefined ? data.editedTpPremium : (error || loading ? '' : result?.outputs?.tp?.annualPremium?.toString() || result?.outputs?.tp?.statutoryAnnual?.toString() || '')}
               onChange={(e) => {
                 const val = e.target.value;
                 onChange({ ...data, editedTpPremium: val === '' ? undefined : val });
               }}
-              placeholder={loading ? 'Calculating…' : error ? 'Approved TP tariff required' : 'Auto-filled from tariff'}
+              placeholder={loading ? 'Calculating…' : error ? 'Approved TP tariff required' : 'Annual TP ₹'}
               className={inputBase}
-              title="Edit TP Base ₹"
+              title="Edit Annual TP Premium ₹"
             />
             {data.editedTpPremium && (
               <button
@@ -177,7 +180,7 @@ export function PolicyFormTPOnlyForm({ category, vehicleStatus, data, onChange, 
                 onClick={() => onChange({ ...data, editedTpPremium: undefined })}
                 className="text-[10px] font-semibold text-muted-foreground hover:text-foreground underline whitespace-nowrap"
               >
-                Reset
+                Reset to Tariff
               </button>
             )}
           </div>
@@ -308,7 +311,7 @@ export function PolicyFormTPOnlyForm({ category, vehicleStatus, data, onChange, 
           </span>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
           <div>
             <label className="block text-[10px] font-bold text-muted-foreground uppercase tracking-wide mb-1">
               TP Discount (%)
@@ -316,16 +319,37 @@ export function PolicyFormTPOnlyForm({ category, vehicleStatus, data, onChange, 
             <input
               type="number"
               min="0"
-              max="100"
+              max="20"
               step="0.5"
               placeholder="0"
-              value={data.discountPercent || ''}
+              value={data.tpDiscountPercent ?? data.discountPercent ?? ''}
               onChange={(e) => {
                 const val = e.target.value;
                 onChange({
                   ...data,
-                  discountPercent: val,
                   tpDiscountPercent: val,
+                  discountPercent: val,
+                });
+              }}
+              className="w-full p-2 rounded-lg border text-xs font-semibold bg-background focus:outline-none focus:ring-1 focus:ring-primary border-border"
+            />
+          </div>
+
+          <div>
+            <label className="block text-[10px] font-bold text-muted-foreground uppercase tracking-wide mb-1">
+              Commercial Discount (%)
+            </label>
+            <input
+              type="number"
+              min="0"
+              max="50"
+              step="0.5"
+              placeholder="e.g. 5"
+              value={data.commercialDiscountPercent || ''}
+              onChange={(e) => {
+                const val = e.target.value;
+                onChange({
+                  ...data,
                   commercialDiscountPercent: val,
                 });
               }}
@@ -335,12 +359,12 @@ export function PolicyFormTPOnlyForm({ category, vehicleStatus, data, onChange, 
 
           <div>
             <label className="block text-[10px] font-bold text-muted-foreground uppercase tracking-wide mb-1">
-              Discount Amount (₹)
+              Total Discounts (₹)
             </label>
             <input
               type="text"
               readOnly
-              value={error ? '—' : loading ? 'Calculating…' : result?.outputs?.tp?.discount?.toString() || result?.outputs?.tpDiscountAmount?.toString() || result?.outputs?.payableSummary?.commercialDiscount?.amount?.toString() || result?.outputs?.totalDiscount?.toString() || '—'}
+              value={error ? '—' : loading ? 'Calculating…' : result?.outputs?.summary?.totalDiscount !== undefined ? '₹' + Number(result.outputs.summary.totalDiscount).toLocaleString('en-IN') : '—'}
               className="w-full p-2 rounded-lg border text-xs font-semibold bg-muted border-border opacity-80"
             />
           </div>
@@ -352,26 +376,26 @@ export function PolicyFormTPOnlyForm({ category, vehicleStatus, data, onChange, 
             <input
               type="text"
               readOnly
-              value={error ? '—' : loading ? 'Calculating…' : result?.outputs?.payableSummary?.payableBase?.toString() || '—'}
+              value={error ? '—' : loading ? 'Calculating…' : result?.outputs?.payableSummary?.payableBase !== undefined ? '₹' + Number(result.outputs.payableSummary.payableBase).toLocaleString('en-IN') : '—'}
               className="w-full p-2 rounded-lg border text-xs font-semibold bg-muted border-border opacity-80"
             />
           </div>
 
           <div>
             <label className="block text-[10px] font-bold text-muted-foreground uppercase tracking-wide mb-1">
-              Payable Incl. GST (₹)
+              Final Payable (₹)
             </label>
             <input
               type="text"
               readOnly
-              value={error ? '—' : loading ? 'Calculating…' : result?.outputs?.finalPayableAmount?.toString() || result?.outputs?.totalPremium?.toString() || '—'}
+              value={error ? '—' : loading ? 'Calculating…' : result?.outputs?.finalPayableAmount !== undefined ? '₹' + Number(result.outputs.finalPayableAmount).toLocaleString('en-IN') : '—'}
               className="w-full p-2 rounded-lg border text-xs font-bold text-sky-700 bg-sky-50 border-sky-200"
             />
           </div>
         </div>
 
         <p className="text-[10px] text-muted-foreground font-mono">
-          Formula: Payable Base (Gross TP + GST) - Commercial Discount = Final Total Payable
+          Formula: Payable Base (Gross TP + GST) − TP Discount − Commercial Discount = Final Total Payable
         </p>
       </div>
       {error && <div role="alert" className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-xs text-destructive">Premium calculation failed: {error}</div>}
