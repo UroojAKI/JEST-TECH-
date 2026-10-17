@@ -545,6 +545,7 @@ export class MotorCalculationService {
           isEdited: isOdRateEdited,
         },
         tp: {
+          statutory: round2(tpRates.annualPremium * tpTenure),
           base: baseTpPremium,
           discount: tpDiscountAmount,
           net: netTpComponent,

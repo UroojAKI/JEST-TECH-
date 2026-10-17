@@ -387,6 +387,24 @@ export class CreateMotorQuotationCommand {
       gstRate: policyDetails.gstRate !== undefined && policyDetails.gstRate !== null && policyDetails.gstRate !== ''
         ? Number(policyDetails.gstRate)
         : undefined,
+      editedOdRate: policyDetails.editedOdRate !== undefined && policyDetails.editedOdRate !== '' && !isNaN(Number(policyDetails.editedOdRate))
+        ? Number(policyDetails.editedOdRate)
+        : undefined,
+      editedTpPremium: policyDetails.editedTpPremium !== undefined && policyDetails.editedTpPremium !== '' && !isNaN(Number(policyDetails.editedTpPremium))
+        ? Number(policyDetails.editedTpPremium)
+        : undefined,
+      editedPaPremium: policyDetails.editedPaPremium !== undefined && policyDetails.editedPaPremium !== '' && !isNaN(Number(policyDetails.editedPaPremium))
+        ? Number(policyDetails.editedPaPremium)
+        : undefined,
+      odGstRate: policyDetails.odGstRate !== undefined && policyDetails.odGstRate !== '' && !isNaN(Number(policyDetails.odGstRate))
+        ? Number(policyDetails.odGstRate)
+        : undefined,
+      tpGstRate: policyDetails.tpGstRate !== undefined && policyDetails.tpGstRate !== '' && !isNaN(Number(policyDetails.tpGstRate))
+        ? Number(policyDetails.tpGstRate)
+        : undefined,
+      paGstRate: policyDetails.paGstRate !== undefined && policyDetails.paGstRate !== '' && !isNaN(Number(policyDetails.paGstRate))
+        ? Number(policyDetails.paGstRate)
+        : undefined,
     };
 
     const calcResult = await this.motorCalculationService.calculate(calculationInput);

@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { ShieldCheck, AlertTriangle, CheckCircle, Info, Calculator, Percent } from 'lucide-react';
 import { INSURER_OPTIONS, NCB_OPTIONS, ADDON_OPTIONS } from './motorFormConfig';
 import type { PolicyFormSAOD, SaodTpVerification, VehicleCategory, MotorEligibilityContext } from './motorFormTypes';
@@ -94,10 +94,16 @@ export function PolicyFormSAODForm({ category, vehicleStatus, data, onChange, el
       })),
   });
 
+  const dataRef = useRef(data);
+  useEffect(() => {
+    dataRef.current = data;
+  }, [data]);
+
   useEffect(() => {
     if ((loading || error) && (data.calculatedResult || data.totalPremiumInclGST || data.finalPayableAmount || data.odPremium || data.gstAmount || data.addOnsPremium)) {
+      const current = dataRef.current;
       onChange({
-        ...data,
+        ...current,
         calculatedResult: undefined,
         totalPremiumInclGST: '',
         finalPayableAmount: '',
@@ -115,18 +121,19 @@ export function PolicyFormSAODForm({ category, vehicleStatus, data, onChange, el
   useEffect(() => {
     if (result && result.outputs) {
       const outputs = result.outputs;
+      const current = dataRef.current;
       const netOd = (outputs.netOdPremium ?? outputs.netOdComponent ?? 0).toString();
       const ncbDiscount = (outputs.ncbDiscount ?? 0).toString();
       const addOnsTotal = (outputs.addonPremium ?? 0).toString();
-      const gst = (outputs.totalGst ?? outputs.gstOnOd ?? 0).toString();
-      const total = (outputs.finalPayableAmount ?? outputs.totalPremium ?? 0).toString();
+      const gst = (outputs.summary?.totalGst ?? outputs.totalGst ?? outputs.gstOnOd ?? 0).toString();
+      const total = (outputs.summary?.finalPayable ?? outputs.finalPayableAmount ?? outputs.totalPremium ?? 0).toString();
       // Keep the discretionary OD discount separate from NCB in the user-facing breakdown.
       const dAmt = (outputs.specialDiscount ?? 0).toString();
       const baseOd = (outputs.baseOdPremium ?? 0).toString();
 
       onChange({
-        ...data,
-        odPremiumBase: baseOd || data.odPremiumBase,
+        ...current,
+        odPremiumBase: baseOd || current.odPremiumBase,
         addOnsPremium: addOnsTotal,
         ncbDiscountAmount: ncbDiscount,
         odPremium: netOd,
@@ -136,7 +143,7 @@ export function PolicyFormSAODForm({ category, vehicleStatus, data, onChange, el
         odCommissionPercent: '',
         commissionAmount: '',
         finalPayableAmount: total,
-        gstRate: (result.rateConfig?.gstRatePercent ?? (data.gstRate ? parseInt(data.gstRate) : 18)).toString(),
+        gstRate: (result.rateConfig?.gstRatePercent ?? (current.gstRate ? parseInt(current.gstRate) : 18)).toString(),
         calculatedResult: result,
       });
     }

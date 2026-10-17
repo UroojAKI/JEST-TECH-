@@ -130,6 +130,36 @@ export class CreateQuotationVersionService {
           approvalReference: dto.metadata?.approvalReference,
           previousPolicyExpiryDate: dto.metadata?.previousPolicyExpiryDate,
           policyStartDate: dto.metadata?.policyStartDate,
+          editedOdRate:
+            dto.metadata?.editedOdRate ??
+            (quotation.versions?.[0]?.metadata as any)?.editedOdRate ??
+            (quotation.calculationSnapshot as any)?.inputs?.editedOdRate ??
+            (quotation.motorMetadata as any)?.policyDetails?.editedOdRate,
+          editedTpPremium:
+            dto.metadata?.editedTpPremium ??
+            (quotation.versions?.[0]?.metadata as any)?.editedTpPremium ??
+            (quotation.calculationSnapshot as any)?.inputs?.editedTpPremium ??
+            (quotation.motorMetadata as any)?.policyDetails?.editedTpPremium,
+          editedPaPremium:
+            dto.metadata?.editedPaPremium ??
+            (quotation.versions?.[0]?.metadata as any)?.editedPaPremium ??
+            (quotation.calculationSnapshot as any)?.inputs?.editedPaPremium ??
+            (quotation.motorMetadata as any)?.policyDetails?.editedPaPremium,
+          odGstRate:
+            dto.metadata?.odGstRate ??
+            (quotation.versions?.[0]?.metadata as any)?.odGstRate ??
+            (quotation.calculationSnapshot as any)?.inputs?.odGstRate ??
+            (quotation.motorMetadata as any)?.policyDetails?.odGstRate,
+          tpGstRate:
+            dto.metadata?.tpGstRate ??
+            (quotation.versions?.[0]?.metadata as any)?.tpGstRate ??
+            (quotation.calculationSnapshot as any)?.inputs?.tpGstRate ??
+            (quotation.motorMetadata as any)?.policyDetails?.tpGstRate,
+          paGstRate:
+            dto.metadata?.paGstRate ??
+            (quotation.versions?.[0]?.metadata as any)?.paGstRate ??
+            (quotation.calculationSnapshot as any)?.inputs?.paGstRate ??
+            (quotation.motorMetadata as any)?.policyDetails?.paGstRate,
         };
 
         const calc = await this.motorCalculationService.calculate(motorInput);

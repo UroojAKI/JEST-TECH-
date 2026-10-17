@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { getPolicyTenureOptions, INSURER_OPTIONS, NCB_OPTIONS, ADDON_OPTIONS } from './motorFormConfig';
 import type { VehicleCategory, PolicyFormPackage, MotorEligibilityContext } from './motorFormTypes';
 import { useMotorCalculator } from './useMotorCalculator';
@@ -121,10 +121,16 @@ export function PolicyFormPackageForm({ category, vehicleStatus, data, onChange,
       })),
   });
 
+  const dataRef = useRef(data);
+  useEffect(() => {
+    dataRef.current = data;
+  }, [data]);
+
   useEffect(() => {
     if ((loading || error) && (data.calculatedResult || data.totalPremiumInclGST || data.finalPayableAmount || data.finalGstAmount)) {
+      const current = dataRef.current;
       onChange({
-        ...data,
+        ...current,
         calculatedResult: undefined,
         totalPremiumInclGST: '',
         finalPayableAmount: '',
@@ -137,15 +143,16 @@ export function PolicyFormPackageForm({ category, vehicleStatus, data, onChange,
 
   useEffect(() => {
     if (result && result.outputs) {
+      const current = dataRef.current;
       onChange({ 
-        ...data, 
+        ...current, 
         totalPremiumInclGST: (result.outputs.finalPayableAmount ?? result.outputs.totalPremium ?? 0).toString(),
         finalPayableAmount: (result.outputs.finalPayableAmount ?? result.outputs.totalPremium ?? 0).toString(),
         finalGstAmount: (result.outputs.totalGst ?? 0).toString(),
         odCommissionCalc: '',
         tpCommissionCalc: '',
         finalCommissionCalc: '',
-        gstRate: (result.rateConfig?.gstRatePercent ?? (data.gstRate ? parseInt(data.gstRate) : 18)).toString(),
+        gstRate: (result.rateConfig?.gstRatePercent ?? (current.gstRate ? parseInt(current.gstRate) : 18)).toString(),
         calculatedResult: result 
       });
     }
@@ -170,20 +177,20 @@ export function PolicyFormPackageForm({ category, vehicleStatus, data, onChange,
   // Authoritative Backend Calculation Outputs (Single Source of Truth)
   const hasValidCalculation = !loading && !error && Boolean(result);
   const outputs = hasValidCalculation ? (result?.outputs || {}) : {};
-  const rawOd = outputs.baseOdPremium ?? 0;
-  const rawTp = outputs.baseTpPremium ?? 0;
-  const grossBase = outputs.grossBasePremium ?? (rawOd + rawTp);
-  const discountAmt = outputs.totalDiscount ?? 0;
-  const netBase = outputs.netCustomerPremium ?? outputs.netPreTaxPremium ?? (grossBase - discountAmt);
-  const gstAmt = outputs.totalGst ?? outputs.gstAmount ?? 0;
+  const rawOd = outputs.od?.gross ?? outputs.baseOdPremium ?? 0;
+  const rawTp = outputs.tp?.base ?? outputs.baseTpPremium ?? 0;
+  const grossBase = outputs.summary?.grossPremium ?? outputs.grossBasePremium ?? (rawOd + rawTp);
+  const discountAmt = outputs.summary?.totalDiscount ?? outputs.totalDiscount ?? 0;
+  const netBase = outputs.summary?.netPremium ?? outputs.netCustomerPremium ?? outputs.netPreTaxPremium ?? (grossBase - discountAmt);
+  const gstAmt = outputs.summary?.totalGst ?? outputs.totalGst ?? outputs.gstAmount ?? 0;
   const payableSummary = outputs.payableSummary || {};
   const payableBase = payableSummary.payableBase ?? (grossBase + gstAmt);
-  const commDiscount = outputs.totalDiscount ?? outputs.commercialDiscountAmount ?? payableSummary.commercialDiscount?.amount ?? 0;
+  const commDiscount = outputs.summary?.totalDiscount ?? outputs.totalDiscount ?? outputs.commercialDiscountAmount ?? payableSummary.commercialDiscount?.amount ?? 0;
   const itemizedAddons: any[] = Array.isArray(outputs.itemizedAddons) ? outputs.itemizedAddons : [];
-  const odDiscountAmount = outputs.specialDiscount ?? outputs.od?.specialDiscount ?? 0;
+  const odDiscountAmount = outputs.od?.specialDiscount ?? outputs.specialDiscount ?? 0;
   const tpDiscountAmount = outputs.tp?.discount ?? outputs.tpDiscountAmount ?? 0;
   const finalPayable = hasValidCalculation
-    ? Number(outputs.finalPayableAmount ?? outputs.totalPremium ??
+    ? Number(outputs.summary?.finalPayable ?? outputs.finalPayableAmount ?? outputs.totalPremium ??
         ((data.finalPayableAmount ? parseFloat(data.finalPayableAmount) : 0) ||
           (data.totalPremiumInclGST ? parseFloat(data.totalPremiumInclGST) : 0)))
     : null;
@@ -367,28 +374,21 @@ export function PolicyFormPackageForm({ category, vehicleStatus, data, onChange,
                 <span className="text-xs font-black text-foreground">2. Third Party (TP) Liability</span>
                 {data.editedTpPremium && (
                   <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-600 border border-amber-300">
-                    [Edited]
+                    [Edited Base]
                   </span>
                 )}
               </div>
               <div className="flex items-center gap-2">
-                <span className="text-[10px] text-muted-foreground font-medium">TP Base ₹:</span>
-                <input
-                  type="number"
-                  step="1"
-                  placeholder={result?.rateConfig?.systemTpAnnualRate ? `₹${result.rateConfig.systemTpAnnualRate}` : '₹ TP'}
-                  value={data.editedTpPremium ?? ''}
-                  onChange={(e) => onChange({ ...data, editedTpPremium: e.target.value })}
-                  className="w-24 p-1 text-[11px] font-bold rounded border bg-background text-foreground"
-                  title="Edit TP Premium ₹"
-                />
+                <span className="text-[10px] text-muted-foreground font-medium">
+                  Statutory Tariff: <strong className="text-foreground">₹{Number(outputs.tp?.statutory ?? result?.rateConfig?.systemTpAnnualRate ?? 0).toLocaleString('en-IN')}</strong>
+                </span>
                 {data.editedTpPremium && (
                   <button
                     type="button"
                     onClick={() => onChange({ ...data, editedTpPremium: undefined })}
                     className="text-[10px] font-semibold text-muted-foreground hover:text-foreground underline"
                   >
-                    Reset
+                    Reset to Tariff
                   </button>
                 )}
               </div>
@@ -397,18 +397,36 @@ export function PolicyFormPackageForm({ category, vehicleStatus, data, onChange,
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 text-xs">
               {/* TP Base */}
               <div className="p-2.5 rounded-lg bg-card border space-y-1">
-                <span className="text-[9px] text-muted-foreground block font-bold">TP Base Premium ₹</span>
+                <div className="flex items-center justify-between">
+                  <span className="text-[9px] text-muted-foreground block font-bold">TP Base Premium ₹</span>
+                  {data.editedTpPremium && (
+                    <button
+                      type="button"
+                      onClick={() => onChange({ ...data, editedTpPremium: undefined })}
+                      className="text-[9px] font-semibold text-muted-foreground hover:text-foreground underline"
+                    >
+                      Reset
+                    </button>
+                  )}
+                </div>
                 <input
                   type="number"
                   step="1"
-                  placeholder={hasValidCalculation ? String(outputs.tp?.base ?? rawTp) : 'TP Base ₹'}
-                  value={data.editedTpPremium ?? ''}
-                  onChange={(e) => onChange({ ...data, editedTpPremium: e.target.value })}
+                  placeholder={hasValidCalculation ? String(outputs.tp?.base ?? outputs.tp?.statutory ?? rawTp) : 'TP Base ₹'}
+                  value={data.editedTpPremium !== undefined ? data.editedTpPremium : (hasValidCalculation ? String(outputs.tp?.base ?? '') : '')}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    onChange({ ...data, editedTpPremium: val === '' ? undefined : val });
+                  }}
                   className="w-full p-1 text-xs font-bold rounded border bg-background text-foreground"
                   title="Edit TP Base ₹"
                 />
                 <span className="text-[9px] text-muted-foreground block">
-                  {hasValidCalculation ? 'Statutory: ₹' + Number(outputs.tp?.base ?? rawTp).toLocaleString('en-IN') : 'Statutory tariff'}
+                  {hasValidCalculation
+                    ? (data.editedTpPremium
+                        ? `Custom Base (Statutory: ₹${Number(outputs.tp?.statutory ?? result?.rateConfig?.systemTpAnnualRate ?? 0).toLocaleString('en-IN')})`
+                        : `Statutory: ₹${Number(outputs.tp?.statutory ?? result?.rateConfig?.systemTpAnnualRate ?? outputs.tp?.base ?? rawTp).toLocaleString('en-IN')}`)
+                    : 'Statutory tariff'}
                 </span>
               </div>
 
@@ -442,7 +460,11 @@ export function PolicyFormPackageForm({ category, vehicleStatus, data, onChange,
                 <span className="text-xs font-bold text-foreground block pt-1">
                   {hasValidCalculation ? '₹' + Number(outputs.tp?.net ?? outputs.netTpComponent ?? 0).toLocaleString('en-IN') : '—'}
                 </span>
-                <span className="text-[9px] text-muted-foreground block">TP Base minus discount</span>
+                <span className="text-[9px] text-muted-foreground block">
+                  {hasValidCalculation && outputs.tp?.discount
+                    ? `₹${Number(outputs.tp?.base ?? 0).toLocaleString('en-IN')} − ₹${Number(outputs.tp.discount).toLocaleString('en-IN')}`
+                    : 'TP Base minus discount'}
+                </span>
               </div>
 
               {/* TP GST */}
@@ -641,7 +663,7 @@ export function PolicyFormPackageForm({ category, vehicleStatus, data, onChange,
                 {commDiscount > 0 && (
                   <>
                     <span>•</span>
-                    <span>Commercial Discount: <strong className="text-amber-600">-₹{Number(commDiscount).toLocaleString('en-IN')}</strong></span>
+                    <span>Total Discount: <strong className="text-amber-600">-₹{Number(commDiscount).toLocaleString('en-IN')}</strong></span>
                   </>
                 )}
               </div>

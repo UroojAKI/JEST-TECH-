@@ -84,10 +84,16 @@ export function PolicyFormTPOnlyForm({ category, vehicleStatus, data, onChange, 
       : undefined,
   });
 
+  const dataRef = React.useRef(data);
+  React.useEffect(() => {
+    dataRef.current = data;
+  }, [data]);
+
   React.useEffect(() => {
     if ((loading || error) && (data.calculatedResult || data.totalPremiumInclGST || data.thirdPartyPremium)) {
+      const current = dataRef.current;
       onChange({
-        ...data,
+        ...current,
         calculatedResult: undefined,
         totalPremiumInclGST: '',
         thirdPartyPremium: '',
@@ -99,12 +105,13 @@ export function PolicyFormTPOnlyForm({ category, vehicleStatus, data, onChange, 
 
   React.useEffect(() => {
     if (result && result.outputs) {
+      const current = dataRef.current;
       onChange({ 
-        ...data, 
-        thirdPartyPremium: (result.outputs.baseTpPremium ?? 0).toString(),
-        totalPremiumInclGST: (result.outputs.totalPremium ?? 0).toString(),
+        ...current, 
+        thirdPartyPremium: (result.outputs.tp?.base ?? result.outputs.baseTpPremium ?? 0).toString(),
+        totalPremiumInclGST: (result.outputs.finalPayableAmount ?? result.outputs.totalPremium ?? 0).toString(),
         tpCommissionCalc: '',
-        gstRate: (result.rateConfig?.gstRatePercent ?? (data.gstRate ? parseInt(data.gstRate) : 18)).toString(),
+        gstRate: (result.rateConfig?.gstRatePercent ?? (current.gstRate ? parseInt(current.gstRate) : 18)).toString(),
         calculatedResult: result 
       });
     }
@@ -144,16 +151,36 @@ export function PolicyFormTPOnlyForm({ category, vehicleStatus, data, onChange, 
           </select>
         </FieldRow>
 
-        {/* TP Premium — Non-editable, authoritative from IRDAI tariff */}
-        <FieldRow label="Third Party Premium (₹)" hint="As per IRDAI notified tariff — non-editable">
-          <input
-            type="number"
-            readOnly
-            disabled
-            value={error || loading ? '' : result?.outputs?.baseTpPremium?.toString() || ''}
-            placeholder={loading ? 'Calculating…' : error ? 'Approved TP tariff required' : 'Auto-filled from tariff'}
-            className={`${inputBase} bg-muted text-muted-foreground cursor-not-allowed opacity-80`}
-          />
+        {/* TP Premium */}
+        <FieldRow
+          label="Third Party Premium (₹)"
+          hint={data.editedTpPremium
+            ? `Custom edited premium (Statutory Tariff: ₹${Number(result?.outputs?.tp?.statutory ?? result?.rateConfig?.systemTpAnnualRate ?? 0).toLocaleString('en-IN')})`
+            : "Statutory IRDAI tariff (editable by authorized agents)"}
+        >
+          <div className="flex items-center gap-2">
+            <input
+              type="number"
+              step="1"
+              value={data.editedTpPremium !== undefined ? data.editedTpPremium : (error || loading ? '' : result?.outputs?.tp?.base?.toString() || result?.outputs?.baseTpPremium?.toString() || '')}
+              onChange={(e) => {
+                const val = e.target.value;
+                onChange({ ...data, editedTpPremium: val === '' ? undefined : val });
+              }}
+              placeholder={loading ? 'Calculating…' : error ? 'Approved TP tariff required' : 'Auto-filled from tariff'}
+              className={inputBase}
+              title="Edit TP Base ₹"
+            />
+            {data.editedTpPremium && (
+              <button
+                type="button"
+                onClick={() => onChange({ ...data, editedTpPremium: undefined })}
+                className="text-[10px] font-semibold text-muted-foreground hover:text-foreground underline whitespace-nowrap"
+              >
+                Reset
+              </button>
+            )}
+          </div>
         </FieldRow>
 
         {/* Previous TP Insurer — only for renewal/existing vehicles */}
