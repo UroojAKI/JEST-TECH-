@@ -375,6 +375,9 @@ export class CreateMotorQuotationCommand {
       commercialDiscountPercent: policyDetails.commercialDiscountPercent !== undefined && policyDetails.commercialDiscountPercent !== ''
         ? Number(policyDetails.commercialDiscountPercent)
         : undefined,
+      commercialAdjustmentAmount: policyDetails.commercialAdjustmentAmount !== undefined && policyDetails.commercialAdjustmentAmount !== '' && !isNaN(Number(policyDetails.commercialAdjustmentAmount))
+        ? Number(policyDetails.commercialAdjustmentAmount)
+        : undefined,
       tpDiscountPercent: policyDetails.tpDiscountPercent !== undefined && policyDetails.tpDiscountPercent !== ''
         ? Number(policyDetails.tpDiscountPercent)
         : 0,
@@ -390,6 +393,9 @@ export class CreateMotorQuotationCommand {
       policyStartDate: policyDetails.policyStartDate || undefined,
       gstRate: policyDetails.gstRate !== undefined && policyDetails.gstRate !== null && policyDetails.gstRate !== ''
         ? Number(policyDetails.gstRate)
+        : undefined,
+      odPremiumAmount: policyDetails.odPremiumAmount !== undefined && policyDetails.odPremiumAmount !== '' && !isNaN(Number(policyDetails.odPremiumAmount))
+        ? Number(policyDetails.odPremiumAmount)
         : undefined,
       editedOdRate: policyDetails.editedOdRate !== undefined && policyDetails.editedOdRate !== '' && !isNaN(Number(policyDetails.editedOdRate))
         ? Number(policyDetails.editedOdRate)
@@ -443,6 +449,7 @@ export class CreateMotorQuotationCommand {
         tpDiscountAmount: calcResult.outputs.tpDiscountAmount ?? 0,
         commercialDiscountPercent: calcResult.outputs.discounts?.commercial?.percent ?? 0,
         commercialDiscountAmount: calcResult.outputs.commercialDiscountAmount ?? 0,
+        commercialAdjustmentAmount: calcResult.outputs.payableSummary?.commercialAdjustmentAmount ?? calcResult.outputs.commercialDiscountAmount ?? 0,
         totalDiscountAmount: calcResult.outputs.totalDiscountAmount ?? 0,
       },
       commissions: {

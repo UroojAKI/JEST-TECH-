@@ -115,6 +115,11 @@ export class CreateQuotationVersionService {
             dto.metadata?.commercialDiscountPercent ??
             (quotation.versions?.[0]?.metadata as any)?.commercialDiscountPercent ??
             (quotation.calculationSnapshot as any)?.inputs?.commercialDiscountPercent,
+          commercialAdjustmentAmount:
+            dto.metadata?.commercialAdjustmentAmount ??
+            (quotation.versions?.[0]?.metadata as any)?.commercialAdjustmentAmount ??
+            (quotation.calculationSnapshot as any)?.inputs?.commercialAdjustmentAmount ??
+            (quotation.motorMetadata as any)?.policyDetails?.commercialAdjustmentAmount,
           odDiscountPercent:
             dto.metadata?.odDiscountPercent ??
             (quotation.versions?.[0]?.metadata as any)?.odDiscountPercent ??
@@ -142,6 +147,11 @@ export class CreateQuotationVersionService {
           approvalReference: dto.metadata?.approvalReference,
           previousPolicyExpiryDate: dto.metadata?.previousPolicyExpiryDate,
           policyStartDate: dto.metadata?.policyStartDate,
+          odPremiumAmount:
+            dto.metadata?.odPremiumAmount ??
+            (quotation.versions?.[0]?.metadata as any)?.odPremiumAmount ??
+            (quotation.calculationSnapshot as any)?.inputs?.odPremiumAmount ??
+            (quotation.motorMetadata as any)?.policyDetails?.odPremiumAmount,
           editedOdRate:
             dto.metadata?.editedOdRate ??
             (quotation.versions?.[0]?.metadata as any)?.editedOdRate ??

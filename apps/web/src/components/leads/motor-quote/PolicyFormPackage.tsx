@@ -95,8 +95,13 @@ export function PolicyFormPackageForm({ category, vehicleStatus, data, onChange,
     claimInExpiringPolicy: data.claimInExpiringPolicy === 'Yes',
     paCover: data.paCoverOwner !== false,
     paidDriverLiability: false,
-    discountPercent: parseFloat(data.commercialDiscountPercent || '0') || 0,
-    commercialDiscountPercent: parseFloat(data.commercialDiscountPercent || '0') || 0,
+    // Phase 3 canonical: fixed ₹ commercial adjustment (supersedes percentage if set)
+    ...(data.commercialAdjustmentAmount !== undefined && data.commercialAdjustmentAmount !== '' && !isNaN(parseFloat(data.commercialAdjustmentAmount))
+      ? { commercialAdjustmentAmount: parseFloat(data.commercialAdjustmentAmount) }
+      : {
+          discountPercent: parseFloat(data.commercialDiscountPercent || '0') || 0,
+          commercialDiscountPercent: parseFloat(data.commercialDiscountPercent || '0') || 0,
+        }),
     discountReason: data.discountReason || undefined,
     odDiscountPercent: parseFloat(data.odDiscountPercent || '0') || 0,
     tpDiscountPercent: parseFloat(data.tpDiscountPercent || '0') || 0,
@@ -104,9 +109,12 @@ export function PolicyFormPackageForm({ category, vehicleStatus, data, onChange,
     odGstRate: data.odGstRate ? parseInt(data.odGstRate) : (data.gstRate ? parseInt(data.gstRate) : 18),
     tpGstRate: data.tpGstRate ? parseInt(data.tpGstRate) : (data.gstRate ? parseInt(data.gstRate) : 18),
     paGstRate: data.paGstRate ? parseInt(data.paGstRate) : (data.gstRate ? parseInt(data.gstRate) : 18),
-    editedOdRate: data.editedOdRate !== undefined && data.editedOdRate !== '' && !isNaN(parseFloat(data.editedOdRate))
-      ? parseFloat(data.editedOdRate)
-      : undefined,
+    // Phase 2 canonical: direct OD premium ₹ (supersedes editedOdRate when set)
+    ...(data.odPremiumAmount !== undefined && data.odPremiumAmount !== '' && !isNaN(parseFloat(data.odPremiumAmount))
+      ? { odPremiumAmount: parseFloat(data.odPremiumAmount) }
+      : data.editedOdRate !== undefined && data.editedOdRate !== '' && !isNaN(parseFloat(data.editedOdRate))
+        ? { editedOdRate: parseFloat(data.editedOdRate) }
+        : {}),
     editedTpPremium: data.editedTpPremium !== undefined && data.editedTpPremium !== '' && !isNaN(parseFloat(data.editedTpPremium))
       ? parseFloat(data.editedTpPremium)
       : undefined,
@@ -118,6 +126,7 @@ export function PolicyFormPackageForm({ category, vehicleStatus, data, onChange,
       .map((addonCode) => ({
         addonCode,
         editedPrice: parseFloat(data.addonPrices![addonCode]),
+
       })),
   });
 
@@ -251,64 +260,51 @@ export function PolicyFormPackageForm({ category, vehicleStatus, data, onChange,
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-1.5">
                 <span className="text-xs font-black text-foreground">1. Own Damage (OD)</span>
-                {(data.editedOdRate || data.editedOdGross) && (
+                {(data.odPremiumAmount || data.editedOdGross || data.editedOdRate) && (
                   <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-600 border border-amber-300">
                     [Edited]
                   </span>
                 )}
               </div>
               <div className="flex items-center gap-2">
-                <span className="text-[10px] text-muted-foreground font-medium">OD Rate %:</span>
-                <input
-                  type="number"
-                  step="0.001"
-                  placeholder={result?.rateConfig?.systemOdRate ? `${result.rateConfig.systemOdRate}%` : 'Rate %'}
-                  value={data.editedOdRate ?? ''}
-                  onChange={(e) => onChange({ ...data, editedOdRate: e.target.value, editedOdGross: undefined })}
-                  className="w-20 p-1 text-[11px] font-bold rounded border bg-background text-foreground"
-                  title="Edit OD Rate %"
-                />
-                {(data.editedOdRate || data.editedOdGross) && (
+                <span className="text-[10px] text-muted-foreground font-medium">
+                  Tariff Rate: <strong className="text-foreground">{result?.rateConfig?.systemOdRate ? `${result.rateConfig.systemOdRate}%` : '—'}</strong>
+                </span>
+                {(data.odPremiumAmount || data.editedOdGross || data.editedOdRate) && (
                   <button
                     type="button"
-                    onClick={() => onChange({ ...data, editedOdRate: undefined, editedOdGross: undefined })}
+                    onClick={() => onChange({ ...data, odPremiumAmount: undefined, editedOdGross: undefined, editedOdRate: undefined })}
                     className="text-[10px] font-semibold text-muted-foreground hover:text-foreground underline"
                   >
-                    Reset
+                    Reset to System
                   </button>
                 )}
               </div>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 text-xs">
-              {/* OD Gross */}
+              {/* OD Premium (Direct ₹ Input) */}
               <div className="p-2.5 rounded-lg bg-card border space-y-1">
-                <span className="text-[9px] text-muted-foreground block font-bold">OD Gross (₹)</span>
+                <span className="text-[9px] text-muted-foreground block font-bold">OD Premium (₹)</span>
                 <input
                   type="number"
                   step="1"
-                  placeholder={hasValidCalculation ? String(Math.round(outputs.od?.gross ?? rawOd)) : 'OD Gross ₹'}
-                  value={data.editedOdGross !== undefined ? data.editedOdGross : (data.editedOdRate && parseFloat(data.insuredDeclaredValue || '0') > 0
-                    ? String(Math.round(parseFloat(data.insuredDeclaredValue || '0') * (parseFloat(data.editedOdRate) / 100)))
-                    : '')}
+                  min="0"
+                  placeholder={hasValidCalculation ? String(Math.round(outputs.od?.gross ?? rawOd)) : 'OD Premium ₹'}
+                  value={data.odPremiumAmount ?? data.editedOdGross ?? ''}
                   onChange={(e) => {
                     const strVal = e.target.value;
-                    const val = parseFloat(strVal);
-                    const idvVal = parseFloat(data.insuredDeclaredValue || '0');
                     if (strVal === '') {
-                      onChange({ ...data, editedOdGross: undefined, editedOdRate: undefined });
-                    } else if (idvVal > 0 && !isNaN(val)) {
-                      const rate = ((val / idvVal) * 100).toFixed(3);
-                      onChange({ ...data, editedOdGross: strVal, editedOdRate: rate });
+                      onChange({ ...data, odPremiumAmount: undefined, editedOdGross: undefined, editedOdRate: undefined });
                     } else {
-                      onChange({ ...data, editedOdGross: strVal });
+                      onChange({ ...data, odPremiumAmount: strVal, editedOdGross: undefined, editedOdRate: undefined });
                     }
                   }}
                   className="w-full p-1 text-xs font-bold rounded border bg-background text-foreground"
-                  title="Edit OD Gross ₹"
+                  title="Direct OD Premium ₹"
                 />
                 <span className="text-[9px] text-muted-foreground block">
-                  {hasValidCalculation ? 'Calc: ₹' + Number(outputs.od?.gross ?? rawOd).toLocaleString('en-IN') : 'Based on IDV × Rate'}
+                  {hasValidCalculation ? 'Calc: ₹' + Number(outputs.od?.gross ?? rawOd).toLocaleString('en-IN') : 'Direct ₹ Premium'}
                 </span>
               </div>
 
@@ -653,36 +649,35 @@ export function PolicyFormPackageForm({ category, vehicleStatus, data, onChange,
             </div>
           </div>
 
-          {/* Commercial Discount on Payable Base */}
+          {/* Commercial Adjustment (Fixed ₹) */}
           <div className="p-3.5 rounded-xl border bg-card space-y-2">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-black text-foreground">Commercial Discount (Payable Base)</span>
+              <span className="text-xs font-black text-foreground">Commercial Adjustment (₹)</span>
               <span className="text-[10px] text-muted-foreground">
                 Payable Base: <strong className="text-foreground">₹{Number(payableBase).toLocaleString('en-IN')}</strong>
               </span>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
               <div className="p-2.5 rounded-lg bg-background border space-y-1">
-                <span className="text-[9px] text-muted-foreground block font-bold">Commercial Discount (%)</span>
+                <span className="text-[9px] text-muted-foreground block font-bold">Commercial Adjustment (₹)</span>
                 <input
                   type="number"
                   min="0"
-                  max="50"
-                  step="0.5"
-                  value={data.commercialDiscountPercent ?? ''}
-                  onChange={(e) => onChange({ ...data, commercialDiscountPercent: e.target.value })}
-                  placeholder="e.g. 5%"
+                  step="1"
+                  value={data.commercialAdjustmentAmount ?? ''}
+                  onChange={(e) => onChange({ ...data, commercialAdjustmentAmount: e.target.value, commercialDiscountPercent: undefined })}
+                  placeholder="e.g. 500"
                   className="w-full p-1 text-xs font-bold rounded border bg-background text-amber-700 dark:text-amber-400"
                 />
               </div>
               <div className="p-2.5 rounded-lg bg-background border space-y-1">
-                <span className="text-[9px] text-muted-foreground block font-bold">Discount Amount (₹)</span>
+                <span className="text-[9px] text-muted-foreground block font-bold">Deduction (₹)</span>
                 <span className="text-xs font-bold text-amber-600 block pt-1">
                   {hasValidCalculation && commDiscount > 0
                     ? '-₹' + Number(commDiscount).toLocaleString('en-IN')
                     : '—'}
                 </span>
-                <span className="text-[9px] text-muted-foreground block">Payable Base × Commercial %</span>
+                <span className="text-[9px] text-muted-foreground block">Fixed ₹ deduction from Payable Base</span>
               </div>
               <div className="p-2.5 rounded-lg bg-background border space-y-1">
                 <span className="text-[9px] text-muted-foreground block font-bold">Justification / Approval Ref</span>
@@ -724,7 +719,7 @@ export function PolicyFormPackageForm({ category, vehicleStatus, data, onChange,
                 {commDiscount > 0 && (
                   <>
                     <span>•</span>
-                    <span>Commercial Discount: <strong className="text-amber-600">-₹{Number(commDiscount).toLocaleString('en-IN')}</strong></span>
+                    <span>Commercial Adj: <strong className="text-amber-600">-₹{Number(commDiscount).toLocaleString('en-IN')}</strong></span>
                   </>
                 )}
                 {totalDiscount > 0 && (
