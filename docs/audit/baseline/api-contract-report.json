@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-16T08:10:10.413Z",
+  "generatedAt": "2026-10-17T09:04:16.192Z",
   "mismatches": [],
   "uncalledBackendRoutes": [
     {
@@ -504,6 +504,41 @@
       "path": "/metrics",
       "controller": "MetricsController",
       "file": "apps/api/src/modules/health/metrics.controller.ts",
+      "classification": "INTERNAL"
+    },
+    {
+      "method": "POST",
+      "path": "/health/quotation-cases/premium/preview",
+      "controller": "HealthQuotationCaseController",
+      "file": "apps/api/src/modules/health-insurance/controllers/health-quotation-case.controller.ts",
+      "classification": "INTERNAL"
+    },
+    {
+      "method": "GET",
+      "path": "/health/quotation-cases/:param/payment",
+      "controller": "HealthQuotationCaseController",
+      "file": "apps/api/src/modules/health-insurance/controllers/health-quotation-case.controller.ts",
+      "classification": "INTERNAL"
+    },
+    {
+      "method": "GET",
+      "path": "/health/quotation-cases/:param/documents",
+      "controller": "HealthQuotationDocumentController",
+      "file": "apps/api/src/modules/health-insurance/controllers/health-quotation-document.controller.ts",
+      "classification": "INTERNAL"
+    },
+    {
+      "method": "POST",
+      "path": "/health/quotation-documents/:param/verify",
+      "controller": "HealthQuotationDocumentController",
+      "file": "apps/api/src/modules/health-insurance/controllers/health-quotation-document.controller.ts",
+      "classification": "INTERNAL"
+    },
+    {
+      "method": "DELETE",
+      "path": "/health/quotation-documents/:param",
+      "controller": "HealthQuotationDocumentController",
+      "file": "apps/api/src/modules/health-insurance/controllers/health-quotation-document.controller.ts",
       "classification": "INTERNAL"
     },
     {
@@ -1446,14 +1481,14 @@
     }
   ],
   "summary": {
-    "totalFrontendCalls": 305,
-    "matched": 305,
+    "totalFrontendCalls": 318,
+    "matched": 318,
     "unmatched": 0,
-    "uncalledBackend": 206,
+    "uncalledBackend": 211,
     "uncalledByClassification": {
       "WEBHOOK": 1,
       "CRON": 3,
-      "INTERNAL": 8,
+      "INTERNAL": 13,
       "UNUSED": 194
     }
   }

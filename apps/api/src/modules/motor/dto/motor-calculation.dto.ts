@@ -136,6 +136,17 @@ export class MotorCalculationInputDto {
   @Max(100)
   discountPercent?: number;
 
+  /** Commercial payable discount percentage applied on Payable Base (Gross Premium + Component GST). */
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Max(100)
+  commercialDiscountPercent?: number;
+
+  @IsOptional()
+  @IsString()
+  discountReason?: string;
+
   @IsOptional()
   @IsNumber()
   @Min(0)
@@ -217,5 +228,27 @@ export class MotorCalculationInputDto {
   @ValidateNested({ each: true })
   @Type(() => MotorPricingOverrideItemDto)
   overrides?: MotorPricingOverrideItemDto[];
+}
+
+export interface PayableDiscount {
+  percentage: number;
+  baseAmount: number;
+  amount: number;
+  reason?: string;
+}
+
+export interface PayableSummary {
+  premiumBeforeDiscount: number;
+  componentGstTotal: number;
+  payableBase: number;
+  commercialDiscount: PayableDiscount;
+  finalPayableAmount: number;
+  gstBreakdown: any;
+}
+
+export interface UnderwritingMetadata {
+  ncbPercentage: number;
+  ncbEligible: boolean;
+  claimReported: boolean;
 }
 

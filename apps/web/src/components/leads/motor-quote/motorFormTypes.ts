@@ -189,6 +189,8 @@ export interface PolicyFormTPOnly {
   commissionDiscountCalc: string; // Y — free text employee
   discountPercent?: string;       // Y — numeric discount
   tpDiscountPercent?: string;     // Y — numeric discount
+  commercialDiscountPercent?: string; // Canonical commercial discount on payable base
+  discountReason?: string;        // Justification or approval reference
   tpCommissionCalc?: string;      // Legacy field only; must not be derived from customer discount
   gstRate?: string;               // 5% vs 18% selectable GST
   editedTpPremium?: string;       // Agent editable TP premium within bounds
@@ -251,6 +253,8 @@ export interface PolicyFormSAOD {
   odCommissionPercent: string;   // Legacy draft field; commission requires approved insurer-specific configuration
   commissionAmount: string;      // Legacy draft field; do not calculate locally without approved commission rules
   discountPercent?: string;      // Customer OD discount percentage; premium amount is server-calculated
+  commercialDiscountPercent?: string; // Canonical commercial discount on payable base
+  discountReason?: string;        // Justification or approval reference
   discountAmount?: string;       // Server-calculated OD discount amount
   finalPayableAmount?: string;   // Authoritative server-calculated total including applicable tax
   commissionDiscountCalc: string; // Y — formatted calculator string
@@ -282,6 +286,8 @@ export interface PolicyFormPackage {
   finalCommissionCalc: string;   // Legacy draft field only; never store customer discount here
   odDiscountPercent?: string;    // Y — numeric discount on OD
   tpDiscountPercent?: string;    // Y — numeric discount on TP
+  commercialDiscountPercent?: string; // Canonical commercial discount on payable base
+  discountReason?: string;        // Justification or approval reference
   odCommissionPercent?: string;  // Legacy draft field; requires an approved insurer/product/component rule
   tpCommissionPercent?: string;  // Legacy draft field; requires an approved insurer/product/component rule
   finalPayableAmount?: string;   // Net premium payable after discount + GST

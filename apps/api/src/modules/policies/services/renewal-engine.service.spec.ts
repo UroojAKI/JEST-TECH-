@@ -356,13 +356,13 @@ describe('RenewalEngineService (Iteration 10)', () => {
 
       expect(pricing.nextNcb).toBe(25); // 20 -> 25
       expect(pricing.depreciationPercentage).toBe(20);
-      expect(pricing.revisedIdv).toBe(450000);
-      // OD: 6500 * (1 - 0.25) = 4875. TP: 3500. Base: 8375.
-      expect(pricing.revisedOd).toBe(4875);
+      // Canonical rule: OD and TP are preserved undiscounted; NCB is metadata (25%)
+      expect(pricing.revisedOd).toBe(6500);
       expect(pricing.revisedTp).toBe(3500);
+      expect(pricing.revisedBase).toBe(10000);
       // GST base is gross components before discount: 6500 * 0.18 + 3500 * 0.18 = 1800
       expect(pricing.gstAmount).toBe(1800);
-      expect(pricing.totalPremium).toBe(8375 + pricing.gstAmount);
+      expect(pricing.totalPremium).toBe(11800);
     });
 
     it('should reset NCB to 0 when previous claims exist', () => {

@@ -1,8 +1,15 @@
 import { Injectable, BadRequestException, Logger, Optional } from '@nestjs/common';
 import { PrismaService } from '../../../database/prisma.service';
-import { MotorCalculationInputDto } from '../dto/motor-calculation.dto';
+import {
+  MotorCalculationInputDto,
+  PayableDiscount,
+  PayableSummary,
+  UnderwritingMetadata,
+} from '../dto/motor-calculation.dto';
 import { MotorTariffService } from './motor-tariff.service';
 import { MotorPolicyDateService } from './motor-policy-date.service';
+
+export const VALID_NCB_PERCENTAGES = [0, 20, 25, 35, 45, 50];
 import {
   ConfigurationMissingEntity,
   MotorCalculationOverrideInputDto,
@@ -221,19 +228,14 @@ export class MotorCalculationService {
 
       baseOdPremium = round2(input.idv * (effectiveOdRate / 100));
 
-      // NCB discount applies only to OD base premium.
-      ncbDiscountAmount = round2(baseOdPremium * (effectiveNcb / 100));
-      const odAfterNcb = round2(Math.max(0, baseOdPremium - ncbDiscountAmount));
+      // Canonical Business Rule: NCB is strictly underwriting risk metadata;
+      // it does NOT deduct a monetary discount from baseOdPremium or the payable total.
+      ncbDiscountAmount = 0;
 
-      // Special/commercial discount applies to (OD after NCB) only.
-      const specialDiscountPercent = input.discountPercent || 0;
-      specialDiscountAmount = round2(
-        odAfterNcb * (specialDiscountPercent / 100),
-      );
-
-      netOdAfterDiscount = round2(
-        Math.max(0, odAfterNcb - specialDiscountAmount),
-      );
+      // Commercial discount is applied separately to the Payable Base,
+      // and does NOT reduce the reference OD premium.
+      specialDiscountAmount = 0;
+      netOdAfterDiscount = baseOdPremium;
 
       // Add-on premiums (not subject to NCB/special discount)
       // SPEC RULE: The quote should continue calculating other components if one add-on has an invalid value.
@@ -339,21 +341,21 @@ export class MotorCalculationService {
       if (input.paCover !== false) paPremium = effectivePaRate;
       if (input.paidDriverLiability) paidDriverPremium = effectiveDriverRate;
 
-      const tpDiscountPercent = input.tpDiscountPercent || 0;
-      tpDiscountAmount = round2(baseTpPremium * (tpDiscountPercent / 100));
+      // Statutory TP is non-discountable. Commercial discount applies to the Payable Base.
+      tpDiscountAmount = 0;
     }
 
-    // ── 8. Net Premium per Component (post-discount, pre-tax) ─────────────
-    const netOdComponent = round2(netOdAfterDiscount + addonPremiumTotal);
-    const netTpComponent = round2(
-      Math.max(0, baseTpPremium - tpDiscountAmount),
-    );
-    const netPaComponent = paPremium; // PA is fixed, no discount
-    const netPaidDriverComponent = paidDriverPremium; // Fixed, no discount
+    // ── 8. Undiscounted Gross Components (pre-discount, pre-tax) ───────────
+    const netOdComponent = round2(baseOdPremium + addonPremiumTotal);
+    const netTpComponent = baseTpPremium;
+    const netPaComponent = paPremium; // PA is fixed
+    const netPaidDriverComponent = paidDriverPremium; // Fixed
 
-    const netCustomerPremium = round2(
+    // Step 1: Gross Premium Before Discount (undiscounted reference total)
+    const premiumBeforeDiscount = round2(
       netOdComponent + netTpComponent + netPaComponent + netPaidDriverComponent,
     );
+    const netCustomerPremium = premiumBeforeDiscount;
 
     // ── 9. Component-Level GST Calculation on GROSS Premium Base ──────────
     // CORE BUSINESS RULE: GST base = gross premium before discount.
@@ -361,7 +363,7 @@ export class MotorCalculationService {
     // TP Gross -> TP GST
     // PA Gross -> PA GST
     // Paid Driver Gross -> Paid Driver GST
-    // A discount must NOT reduce the GST base when configured GST base is GROSS.
+    // A commercial discount does NOT reduce the statutory GST base.
 
     const odGrossBase = round2(baseOdPremium + addonPremiumTotal);
     const tpGrossBase = baseTpPremium;
@@ -390,7 +392,9 @@ export class MotorCalculationService {
     const gstOnPa = round2(paGrossBase * paGstRate);
     const gstOnPaidDriver = round2(paidDriverGrossBase * paidDriverGstRate);
 
-    const totalGst = round2(gstOnOd + gstOnTp + gstOnPa + gstOnPaidDriver);
+    // Step 2: Component-Level GST Total
+    const componentGstTotal = round2(gstOnOd + gstOnTp + gstOnPa + gstOnPaidDriver);
+    const totalGst = componentGstTotal;
     const cgst = round2(totalGst / 2);
     const sgst = round2(totalGst - cgst);
 
@@ -418,21 +422,47 @@ export class MotorCalculationService {
       },
     };
 
-    // ── 10. Final Payable ─────────────────────────────────────────────────
-    // Total Premium = Net Customer Premium + Total GST
-    const finalPayableAmount = round2(netCustomerPremium + totalGst);
+    // ── 10. Payable Base, Commercial Discount, and Final Payable ──────────
+    // Step 3: Payable Base = Gross Premium Before Discount + Component GST Total
+    const payableBase = round2(premiumBeforeDiscount + componentGstTotal);
 
-    // ── 11. Gross (pre-discount) totals for transparency ─────────────────
-    const grossBasePremium = round2(
-      baseOdPremium +
-        addonPremiumTotal +
-        baseTpPremium +
-        paPremium +
-        paidDriverPremium,
+    // Step 4: Commercial Discount calculated against Payable Base
+    const commercialDiscountPercent = input.commercialDiscountPercent !== undefined
+      ? input.commercialDiscountPercent
+      : (input.discountPercent ?? input.tpDiscountPercent ?? 0);
+
+    const commercialDiscountAmount = round2(
+      payableBase * (commercialDiscountPercent / 100),
     );
-    const totalDiscountAmount = round2(
-      ncbDiscountAmount + specialDiscountAmount + tpDiscountAmount,
+
+    const commercialDiscount: PayableDiscount = {
+      percentage: commercialDiscountPercent,
+      baseAmount: payableBase,
+      amount: commercialDiscountAmount,
+      reason: input.discountReason || input.approvalReference || undefined,
+    };
+
+    // Step 5: Final Payable Amount = Payable Base - Approved Commercial Discount
+    const finalPayableAmount = round2(
+      Math.max(0, payableBase - commercialDiscountAmount),
     );
+
+    // Underwriting Metadata (NCB selection & claim history)
+    const underwriting: UnderwritingMetadata = {
+      ncbPercentage: effectiveNcb,
+      ncbEligible: effectiveNcb > 0,
+      claimReported: Boolean(input.claimInExpiringPolicy),
+    };
+
+    // Canonical Payable Summary
+    const payableSummary: PayableSummary = {
+      premiumBeforeDiscount,
+      componentGstTotal,
+      payableBase,
+      commercialDiscount,
+      finalPayableAmount,
+      gstBreakdown,
+    };
 
     const authoritativeDates = this.policyDateService.calculateMotorDates({
       vehicleStatus: input.vehicleStatus,
@@ -462,11 +492,16 @@ export class MotorCalculationService {
       outputs: {
         gstBreakdown,
         overridesApplied,
-        // Structured Component Breakdown (Phase 4 Specification)
+        underwriting,
+        payableSummary,
+        commercialDiscount,
+        commercialDiscountAmount,
+
+        // Structured Component Breakdown (preserves undiscounted reference figures)
         od: {
           gross: baseOdPremium,
-          ncbDiscount: ncbDiscountAmount,
-          specialDiscount: specialDiscountAmount,
+          ncbDiscount: 0,
+          specialDiscount: 0,
           addons: round2(addonPremiumTotal),
           net: netOdComponent,
           gst: gstOnOd,
@@ -474,7 +509,7 @@ export class MotorCalculationService {
         },
         tp: {
           base: baseTpPremium,
-          discount: tpDiscountAmount,
+          discount: 0,
           net: netTpComponent,
           gst: gstOnTp,
           isEdited: isTpEdited,
@@ -490,19 +525,19 @@ export class MotorCalculationService {
           isEdited: isDriverEdited,
         },
         summary: {
-          grossPremium: grossBasePremium,
-          totalDiscount: totalDiscountAmount,
-          netPremium: netCustomerPremium,
-          totalGst,
+          grossPremium: premiumBeforeDiscount,
+          totalDiscount: commercialDiscountAmount,
+          netPremium: premiumBeforeDiscount,
+          totalGst: componentGstTotal,
           finalPayable: finalPayableAmount,
           gstBreakdown,
         },
 
         // Own Damage
         baseOdPremium,
-        ncbDiscount: ncbDiscountAmount,
-        specialDiscount: specialDiscountAmount,
-        netOdAfterDiscount,
+        ncbDiscount: 0,
+        specialDiscount: 0,
+        netOdAfterDiscount: baseOdPremium,
         netOdPremium: netOdComponent,
         addonPremium: round2(addonPremiumTotal),
         itemizedAddons,
@@ -519,11 +554,11 @@ export class MotorCalculationService {
         netPaComponent,
         netPaidDriverComponent,
 
-        // Combined
-        grossBasePremium,
-        totalDiscount: totalDiscountAmount,
-        netCustomerPremium,
-        basePremium: netCustomerPremium,
+        // Compatibility Aliases (explicitly mapped)
+        grossBasePremium: premiumBeforeDiscount,
+        totalDiscount: commercialDiscountAmount,
+        netCustomerPremium: premiumBeforeDiscount,
+        basePremium: premiumBeforeDiscount,
 
         // GST — per component and total
         gstOnOd,
@@ -532,14 +567,14 @@ export class MotorCalculationService {
         gstOnPaidDriver,
         cgst,
         sgst,
-        totalGst,
+        totalGst: componentGstTotal,
         gstRatePercent: gstRate * 100,
 
         // Final
         totalPremium: finalPayableAmount,
         finalPayableAmount,
       },
-      calculationVersion: 'motor-v3-epic16',
+      calculationVersion: 'motor-v4-payable-discount',
     };
   }
 
@@ -559,11 +594,22 @@ export class MotorCalculationService {
     if (
       (input.idv !== undefined && input.idv < 0) ||
       (input.discountPercent !== undefined && input.discountPercent < 0) ||
+      (input.commercialDiscountPercent !== undefined && input.commercialDiscountPercent < 0) ||
       (input.tpDiscountPercent !== undefined && input.tpDiscountPercent < 0)
     ) {
       throw new BadRequestException(
         'Negative premium, IDV, or discount parameters are disallowed.',
       );
+    }
+
+    // Discrete NCB validation & claim / vehicle status rules:
+    if (input.ncbPercent !== undefined && !VALID_NCB_PERCENTAGES.includes(input.ncbPercent)) {
+      throw new BadRequestException({
+        statusCode: 400,
+        error: 'Bad Request',
+        errorCode: 'UNSUPPORTED_NCB_PERCENTAGE',
+        message: `NCB percentage (${input.ncbPercent}%) is unsupported. Permitted discrete tiers are 0%, 20%, 25%, 35%, 45%, 50%.`,
+      });
     }
 
     if (input.vehicleStatus === 'NEW' && input.policyType === 'STANDALONE_OD') {
@@ -590,8 +636,19 @@ export class MotorCalculationService {
     input: MotorCalculationInputDto,
     discountConfig: { standardLimit: number; absoluteLimit: number },
   ) {
-    const d = input.discountPercent ?? 0;
+    const d = input.commercialDiscountPercent !== undefined
+      ? input.commercialDiscountPercent
+      : (input.discountPercent ?? 0);
     if (d <= 0) return;
+
+    if (d >= 100) {
+      throw new BadRequestException({
+        statusCode: 400,
+        error: 'Bad Request',
+        errorCode: 'DISCOUNT_CEILING_EXCEEDED',
+        message: 'Discounts of 100% or higher are strictly prohibited.',
+      });
+    }
 
     if (d > discountConfig.absoluteLimit) {
       throw new BadRequestException(

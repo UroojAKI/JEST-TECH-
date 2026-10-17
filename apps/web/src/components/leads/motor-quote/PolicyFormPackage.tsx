@@ -5,6 +5,7 @@ import { getPolicyTenureOptions, INSURER_OPTIONS, NCB_OPTIONS, ADDON_OPTIONS } f
 import type { VehicleCategory, PolicyFormPackage, MotorEligibilityContext } from './motorFormTypes';
 import { useMotorCalculator } from './useMotorCalculator';
 import { GstRateSelector } from './GstRateSelector';
+import { NcbSlider } from './NcbSlider';
 
 interface Props {
   category: VehicleCategory;
@@ -94,7 +95,9 @@ export function PolicyFormPackageForm({ category, vehicleStatus, data, onChange,
     claimInExpiringPolicy: data.claimInExpiringPolicy === 'Yes',
     paCover: data.paCoverOwner !== false,
     paidDriverLiability: false,
-    discountPercent: parseFloat(data.odDiscountPercent || '0') || 0,
+    discountPercent: parseFloat(data.commercialDiscountPercent || data.odDiscountPercent || '0') || 0,
+    commercialDiscountPercent: parseFloat(data.commercialDiscountPercent || data.odDiscountPercent || '0') || 0,
+    discountReason: data.discountReason || undefined,
     tpDiscountPercent: parseFloat(data.tpDiscountPercent || '0') || 0,
     gstRate: data.gstRate ? parseInt(data.gstRate) : 18,
     odGstRate: data.odGstRate ? parseInt(data.odGstRate) : (data.gstRate ? parseInt(data.gstRate) : 18),
@@ -172,6 +175,9 @@ export function PolicyFormPackageForm({ category, vehicleStatus, data, onChange,
   const discountAmt = outputs.totalDiscount ?? 0;
   const netBase = outputs.netCustomerPremium ?? outputs.netPreTaxPremium ?? (grossBase - discountAmt);
   const gstAmt = outputs.totalGst ?? outputs.gstAmount ?? 0;
+  const payableSummary = outputs.payableSummary || {};
+  const payableBase = payableSummary.payableBase ?? (grossBase + gstAmt);
+  const commDiscount = outputs.commercialDiscountAmount ?? payableSummary.commercialDiscount?.amount ?? outputs.totalDiscount ?? 0;
   const itemizedAddons: any[] = Array.isArray(outputs.itemizedAddons) ? outputs.itemizedAddons : [];
   const odDiscountAmount = outputs.specialDiscount ?? outputs.od?.specialDiscount ?? 0;
   const tpDiscountAmount = outputs.tp?.discount ?? outputs.tpDiscountAmount ?? 0;
@@ -625,10 +631,18 @@ export function PolicyFormPackageForm({ category, vehicleStatus, data, onChange,
               <span className="text-xs font-black text-emerald-800 dark:text-emerald-300 block">
                 Final Total Payable Amount
               </span>
-              <div className="text-[10px] text-muted-foreground flex items-center gap-2 mt-0.5">
-                <span>Net Customer Premium: <strong className="text-foreground">₹{Number(netBase).toLocaleString('en-IN')}</strong></span>
+              <div className="text-[10px] text-muted-foreground flex flex-wrap items-center gap-2 mt-0.5">
+                <span>Gross Premium: <strong className="text-foreground">₹{Number(grossBase).toLocaleString('en-IN')}</strong></span>
                 <span>•</span>
                 <span>Total Itemized GST: <strong className="text-foreground">₹{Number(gstAmt).toLocaleString('en-IN')}</strong></span>
+                <span>•</span>
+                <span>Payable Base: <strong className="text-foreground">₹{Number(payableBase).toLocaleString('en-IN')}</strong></span>
+                {commDiscount > 0 && (
+                  <>
+                    <span>•</span>
+                    <span>Commercial Discount: <strong className="text-amber-600">-₹{Number(commDiscount).toLocaleString('en-IN')}</strong></span>
+                  </>
+                )}
               </div>
             </div>
             <div className="text-2xl font-black text-emerald-700 dark:text-emerald-400">
@@ -667,21 +681,14 @@ export function PolicyFormPackageForm({ category, vehicleStatus, data, onChange,
 
         {/* NCB % — only applicable when previous policy is available */}
         {ncbApplicable ? (
-          <FieldRow label="No Claim Bonus (NCB) %" mandatory hint={data.claimInExpiringPolicy === 'Yes' ? 'Reset to 0% due to claim' : 'Discount on OD Base'}>
-            <select
-              value={data.ncbPercentage}
-              onChange={set('ncbPercentage')}
+          <div className="col-span-1">
+            <NcbSlider
+              value={data.ncbPercentage || '0'}
+              onChange={(val) => onChange({ ...data, ncbPercentage: val })}
               disabled={data.claimInExpiringPolicy === 'Yes'}
-              className={mandatoryInput(data.ncbPercentage)}
-            >
-              <option value="">— Select NCB % —</option>
-              {NCB_OPTIONS.map((n) => (
-                <option key={n.value} value={n.value}>
-                  {n.label}
-                </option>
-              ))}
-            </select>
-          </FieldRow>
+              disabledReason={data.claimInExpiringPolicy === 'Yes' ? 'Locked to 0% due to claim in expiring policy' : undefined}
+            />
+          </div>
         ) : (
           <div className="p-2.5 rounded-lg border border-muted bg-muted/30 text-xs text-muted-foreground col-span-1">
             <span className="font-semibold">NCB:</span> 0% — Not applicable ({isNew ? 'New Vehicle' : 'No Previous Policy'})

@@ -72,6 +72,8 @@ export function PolicyFormTPOnlyForm({ category, vehicleStatus, data, onChange, 
     paCover: !!data.paCoverOwner,
     paidDriverLiability: data.legalLiabilityPaidDriver === 'Yes',
     tpDiscountPercent: parseFloat(data.discountPercent || '0') || 0,
+    commercialDiscountPercent: parseFloat(data.commercialDiscountPercent || data.discountPercent || '0') || 0,
+    discountReason: data.discountReason || undefined,
     gstRate: data.gstRate ? parseInt(data.gstRate) : 18,
     tpGstRate: data.tpGstRate ? parseInt(data.tpGstRate) : (data.gstRate ? parseInt(data.gstRate) : 18),
     editedTpPremium: data.editedTpPremium !== undefined && data.editedTpPremium !== '' && !isNaN(parseFloat(data.editedTpPremium))
@@ -120,6 +122,17 @@ export function PolicyFormTPOnlyForm({ category, vehicleStatus, data, onChange, 
           <div className="text-xs font-black text-sky-700 dark:text-sky-400">Third Party (TP) Only — Liability Only</div>
           <div className="text-[10px] text-muted-foreground">Premium as per IRDAI notified tariff — non-editable</div>
         </div>
+      </div>
+
+      {/* NCB Status for TP Only */}
+      <div className="p-2.5 rounded-lg border border-muted bg-muted/30 text-xs text-muted-foreground flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <span className="font-semibold text-foreground">No Claim Bonus (NCB):</span>
+          <span>Not applicable to Third-Party statutory liability</span>
+        </div>
+        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-muted text-muted-foreground border">
+          0% (Statutory)
+        </span>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -261,10 +274,10 @@ export function PolicyFormTPOnlyForm({ category, vehicleStatus, data, onChange, 
       <div className="p-4 rounded-xl border border-sky-200 bg-sky-500/5 space-y-3">
         <div className="flex items-center justify-between">
           <label className="text-xs font-bold text-foreground">
-            TP Discount & Final Payable Calculator
+            Commercial Discount & Final Payable Calculator
           </label>
           <span className="text-[10px] font-mono bg-sky-100 text-sky-800 dark:bg-sky-900/40 dark:text-sky-300 px-2 py-0.5 rounded">
-            Statutory Net Calculation
+            Payable Base Calculation
           </span>
         </div>
 
@@ -286,6 +299,7 @@ export function PolicyFormTPOnlyForm({ category, vehicleStatus, data, onChange, 
                   ...data,
                   discountPercent: val,
                   tpDiscountPercent: val,
+                  commercialDiscountPercent: val,
                 });
               }}
               className="w-full p-2 rounded-lg border text-xs font-semibold bg-background focus:outline-none focus:ring-1 focus:ring-primary border-border"
@@ -299,19 +313,19 @@ export function PolicyFormTPOnlyForm({ category, vehicleStatus, data, onChange, 
             <input
               type="text"
               readOnly
-              value={error ? '—' : loading ? 'Calculating…' : result?.outputs?.totalDiscount?.toString() || '—'}
+              value={error ? '—' : loading ? 'Calculating…' : result?.outputs?.payableSummary?.commercialDiscount?.amount?.toString() || result?.outputs?.totalDiscount?.toString() || '—'}
               className="w-full p-2 rounded-lg border text-xs font-semibold bg-muted border-border opacity-80"
             />
           </div>
 
           <div>
             <label className="block text-[10px] font-bold text-muted-foreground uppercase tracking-wide mb-1">
-              Net TP Premium (₹)
+              Payable Base (₹)
             </label>
             <input
               type="text"
               readOnly
-              value={error ? '—' : loading ? 'Calculating…' : result?.outputs?.netTpPremium?.toString() || '—'}
+              value={error ? '—' : loading ? 'Calculating…' : result?.outputs?.payableSummary?.payableBase?.toString() || '—'}
               className="w-full p-2 rounded-lg border text-xs font-semibold bg-muted border-border opacity-80"
             />
           </div>
@@ -323,14 +337,14 @@ export function PolicyFormTPOnlyForm({ category, vehicleStatus, data, onChange, 
             <input
               type="text"
               readOnly
-              value={error ? '—' : loading ? 'Calculating…' : result?.outputs?.totalPremium?.toString() || '—'}
+              value={error ? '—' : loading ? 'Calculating…' : result?.outputs?.finalPayableAmount?.toString() || result?.outputs?.totalPremium?.toString() || '—'}
               className="w-full p-2 rounded-lg border text-xs font-bold text-sky-700 bg-sky-50 border-sky-200"
             />
           </div>
         </div>
 
         <p className="text-[10px] text-muted-foreground font-mono">
-          Formula: Net TP Premium (Base - Discount) + TP GST (calculated on Gross Base) + PA = Final Total Payable
+          Formula: Payable Base (Gross TP + GST) - Commercial Discount = Final Total Payable
         </p>
       </div>
       {error && <div role="alert" className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-xs text-destructive">Premium calculation failed: {error}</div>}

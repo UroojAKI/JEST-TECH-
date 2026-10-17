@@ -56,15 +56,14 @@ describe('MotorCalculationService (Iteration 5 Financial Math)', () => {
       // OD Base = 500000 * (3.127 / 100) = 15635
       expect(outputs.baseOdPremium).toBe(15635);
 
-      // NCB 20% = 15635 * 0.20 = 3127
-      expect(outputs.ncbDiscount).toBe(3127);
+      // NCB is underwriting metadata; monetary deduction is strictly 0
+      expect(outputs.ncbDiscount).toBe(0);
 
-      // OD After NCB = 15635 - 3127 = 12508
-      // Special Discount 10% = 12508 * 0.10 = 1250.8
-      expect(outputs.specialDiscount).toBe(1250.8);
+      // Commercial discount is on Payable Base; special in-line discount is 0
+      expect(outputs.specialDiscount).toBe(0);
 
-      // Net OD = 12508 - 1250.8 = 11257.2
-      expect(outputs.netOdPremium).toBe(11257.2);
+      // Net OD preserved undiscounted
+      expect(outputs.netOdPremium).toBe(15635);
 
       // TP Base = 3416, PA Cover = 275 -> Net TP = 3691
       expect(outputs.baseTpPremium).toBe(3416);
@@ -73,10 +72,8 @@ describe('MotorCalculationService (Iteration 5 Financial Math)', () => {
 
       // Gross Base Premium = Base OD (15635) + Base TP (3416) + PA (275) = 19326
       expect(outputs.grossBasePremium).toBe(19326);
-
-      // Net Customer Premium = Net OD (11257.2) + Net TP (3691) = 14948.2
-      expect(outputs.netCustomerPremium).toBe(14948.2);
-      expect(outputs.basePremium).toBe(14948.2);
+      expect(outputs.netCustomerPremium).toBe(19326);
+      expect(outputs.basePremium).toBe(19326);
 
       // Component-level 18% GST (Mandatory rule: GST base = gross premium before discount):
       // GST on OD (15635 * 0.18) = 2814.3
@@ -85,17 +82,31 @@ describe('MotorCalculationService (Iteration 5 Financial Math)', () => {
       // Total GST = 3478.68
       expect(outputs.totalGst).toBe(3478.68);
 
-      // Final Payable = Net Customer Premium (14948.2) + GST (3478.68) = 18426.88
-      expect(outputs.totalPremium).toBe(18426.88);
-      expect(outputs.finalPayableAmount).toBe(18426.88);
+      // Payable Base = 19326 + 3478.68 = 22804.68
+      expect(outputs.payableSummary.payableBase).toBe(22804.68);
+
+      // Commercial discount: 10% on 22804.68 = 2280.47
+      expect(outputs.payableSummary.commercialDiscount.amount).toBe(2280.47);
+      expect(outputs.totalDiscount).toBe(2280.47);
+
+      // Final Payable = Payable Base (22804.68) - Commercial Discount (2280.47) = 20524.21
+      expect(outputs.totalPremium).toBe(20524.21);
+      expect(outputs.finalPayableAmount).toBe(20524.21);
+
+      // Underwriting Metadata
+      expect(outputs.underwriting).toEqual({
+        ncbPercentage: 20,
+        ncbEligible: true,
+        claimReported: false,
+      });
 
       // Phase 4 Specification: Structured Component Breakdown
       expect(outputs.od).toEqual({
         gross: 15635,
-        ncbDiscount: 3127,
-        specialDiscount: 1250.8,
+        ncbDiscount: 0,
+        specialDiscount: 0,
         addons: 0,
-        net: 11257.2,
+        net: 15635,
         gst: 2814.3,
         isEdited: false,
       });
@@ -113,10 +124,10 @@ describe('MotorCalculationService (Iteration 5 Financial Math)', () => {
       });
       expect(outputs.summary).toEqual({
         grossPremium: 19326,
-        totalDiscount: 4377.8,
-        netPremium: 14948.2,
+        totalDiscount: 2280.47,
+        netPremium: 19326,
         totalGst: 3478.68,
-        finalPayable: 18426.88,
+        finalPayable: 20524.21,
         gstBreakdown: expect.objectContaining({
           base: 'GROSS',
           od: { base: 15635, rate: 0.18, amount: 2814.3 },
@@ -162,7 +173,8 @@ describe('MotorCalculationService (Iteration 5 Financial Math)', () => {
         discountPercent: 25,
         approvalReference: 'APP-REF-12345',
       });
-      expect(result.outputs.specialDiscount).toBeGreaterThan(0);
+      expect(result.outputs.payableSummary.commercialDiscount.amount).toBeGreaterThan(0);
+      expect(result.outputs.commercialDiscountAmount).toBeGreaterThan(0);
     });
 
     it('should compute Add-ons correctly as percentage of IDV and fixed amounts', async () => {
@@ -262,13 +274,53 @@ describe('MotorCalculationService (Iteration 5 Financial Math)', () => {
         paCover: false,
       });
 
-      // Base TP = 3416. 10% discount = 341.6. Net TP = 3074.4
+      // Base TP = 3416. Component is preserved undiscounted
       expect(result.outputs.baseTpPremium).toBe(3416);
-      expect(result.outputs.netTpComponent).toBe(3074.4);
+      expect(result.outputs.netTpComponent).toBe(3416);
       // GST on gross TP (statutory rule): 3416 * 0.18 = 614.88
       expect(result.outputs.gstOnTp).toBe(614.88);
-      // Total Premium = Net TP (3074.4) + GST (614.88) = 3689.28
-      expect(result.outputs.totalPremium).toBe(3689.28);
+      // Payable Base = 3416 + 614.88 = 4030.88
+      expect(result.outputs.payableSummary.payableBase).toBe(4030.88);
+      // 10% Commercial discount against payable base = 403.09
+      expect(result.outputs.payableSummary.commercialDiscount.amount).toBe(403.09);
+      // Total Premium = 4030.88 - 403.09 = 3627.79
+      expect(result.outputs.totalPremium).toBe(3627.79);
+      expect(result.outputs.finalPayableAmount).toBe(3627.79);
+    });
+
+    it('should reject unsupported NCB percentage outside discrete tiers [0, 20, 25, 35, 45, 50]', async () => {
+      await expect(
+        service.calculate({
+          vehicleCategory: 'PRIVATE_CAR',
+          vehicleStatus: 'EXISTING',
+          policyType: 'PACKAGE_COMPREHENSIVE',
+          idv: 500000,
+          ncbPercent: 30,
+        }),
+      ).rejects.toMatchObject({
+        response: expect.objectContaining({
+          errorCode: 'UNSUPPORTED_NCB_PERCENTAGE',
+        }),
+      });
+    });
+
+    it('Deterministic Fixture: should calculate 10% commercial discount on payable base (₹20,000 - ₹2,000 = ₹18,000)', async () => {
+      // Custom edited TP premium: 16949.15 + 18% GST (3050.85) = ₹20,000.00 Payable Base
+      const result: any = await service.calculate({
+        vehicleCategory: 'PRIVATE_CAR',
+        vehicleStatus: 'EXISTING',
+        policyType: 'THIRD_PARTY_ONLY',
+        paCover: false,
+        editedTpPremium: 16949.15,
+        commercialDiscountPercent: 10,
+      });
+
+      expect(result.outputs.baseTpPremium).toBe(16949.15);
+      expect(result.outputs.gstOnTp).toBe(3050.85);
+      expect(result.outputs.payableSummary.payableBase).toBe(20000);
+      expect(result.outputs.payableSummary.commercialDiscount.amount).toBe(2000);
+      expect(result.outputs.payableSummary.finalPayableAmount).toBe(18000);
+      expect(result.outputs.finalPayableAmount).toBe(18000);
     });
 
     it('MOTOR-REG-06: should enforce TP discount authority limit', async () => {

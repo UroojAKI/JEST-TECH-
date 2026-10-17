@@ -108,7 +108,8 @@ export class RenewalEngineService {
     const odBase = params.odPremium !== undefined ? params.odPremium : Math.round(params.prevBasePremium * 0.65);
     const tpBase = params.tpPremium !== undefined ? params.tpPremium : Math.round(params.prevBasePremium * 0.35);
 
-    const revisedOd = Math.round(odBase * (1 - nextNcb / 100));
+    // Canonical Business Rule: NCB is underwriting metadata; reference OD and TP are preserved undiscounted
+    const revisedOd = odBase;
     const revisedTp = tpBase;
 
     const revisedBase = revisedOd + revisedTp;
