@@ -325,6 +325,121 @@ describe('MotorCalculationService (Iteration 5 Financial Math)', () => {
       expect(result.outputs.totalPremium).toBe(22138.58);
     });
 
+    it('MOTOR-REG-26: should calculate both OD and TP discounts in package comprehensive and deduct from respective net components and final payable', async () => {
+      const result: any = await service.calculate({
+        vehicleCategory: 'PRIVATE_CAR',
+        vehicleStatus: 'EXISTING',
+        policyType: 'PACKAGE_COMPREHENSIVE',
+        idv: 500000,
+        odDiscountPercent: 10,
+        tpDiscountPercent: 10,
+        paCover: false,
+      });
+
+      // Base OD = 500000 * 3.127% = 15635
+      expect(result.outputs.baseOdPremium).toBe(15635);
+      expect(result.outputs.od.specialDiscount).toBe(1563.5);
+      expect(result.outputs.specialDiscount).toBe(1563.5);
+      expect(result.outputs.odDiscountAmount).toBe(1563.5);
+      expect(result.outputs.netOdAfterDiscount).toBe(14071.5);
+      expect(result.outputs.od.net).toBe(14071.5);
+      expect(result.outputs.netOdComponent).toBe(14071.5);
+      expect(result.outputs.netOdPremium).toBe(14071.5);
+
+      // Base TP = 3416
+      expect(result.outputs.baseTpPremium).toBe(3416);
+      expect(result.outputs.tp.discount).toBe(341.6);
+      expect(result.outputs.tpDiscountAmount).toBe(341.6);
+      expect(result.outputs.tp.net).toBe(3074.4);
+      expect(result.outputs.netTpComponent).toBe(3074.4);
+
+      // Gross Base (Undiscounted reference) = 15635 + 3416 = 19051
+      expect(result.outputs.grossBasePremium).toBe(19051);
+
+      // Statutory GST on gross bases:
+      // OD GST: 15635 * 0.18 = 2814.3
+      // TP GST: 3416 * 0.18 = 614.88
+      // Total GST: 3429.18
+      expect(result.outputs.od.gst).toBe(2814.3);
+      expect(result.outputs.tp.gst).toBe(614.88);
+      expect(result.outputs.totalGst).toBe(3429.18);
+
+      // Payable Base = 19051 + 3429.18 = 22480.18
+      expect(result.outputs.payableSummary.payableBase).toBe(22480.18);
+
+      // Total Discount = 1563.50 + 341.60 = 1905.10
+      expect(result.outputs.totalDiscount).toBe(1905.1);
+      expect(result.outputs.payableSummary.commercialDiscount.amount).toBe(1905.1);
+
+      // Final Payable = 22480.18 - 1905.10 = 20575.08
+      // Reconciliation: OD Net (14071.5) + TP Net (3074.4) + Total GST (3429.18) = 20575.08
+      expect(result.outputs.finalPayableAmount).toBe(20575.08);
+      expect(result.outputs.totalPremium).toBe(20575.08);
+    });
+
+    it('MOTOR-REG-27: should calculate OD discount alone in package comprehensive without affecting TP component', async () => {
+      const result: any = await service.calculate({
+        vehicleCategory: 'PRIVATE_CAR',
+        vehicleStatus: 'EXISTING',
+        policyType: 'PACKAGE_COMPREHENSIVE',
+        idv: 500000,
+        odDiscountPercent: 10,
+        paCover: false,
+      });
+
+      expect(result.outputs.baseOdPremium).toBe(15635);
+      expect(result.outputs.od.specialDiscount).toBe(1563.5);
+      expect(result.outputs.od.net).toBe(14071.5);
+
+      expect(result.outputs.baseTpPremium).toBe(3416);
+      expect(result.outputs.tp.discount).toBe(0);
+      expect(result.outputs.tp.net).toBe(3416);
+
+      expect(result.outputs.totalDiscount).toBe(1563.5);
+      expect(result.outputs.totalGst).toBe(3429.18);
+      // Final Payable = 22480.18 - 1563.50 = 20916.68
+      expect(result.outputs.finalPayableAmount).toBe(20916.68);
+    });
+
+    it('MOTOR-REG-28: should calculate OD discount in standalone OD (SAOD) and apply GST to gross OD base', async () => {
+      const futureDate = new Date();
+      futureDate.setFullYear(futureDate.getFullYear() + 1);
+      const activeTpExpiryDate = futureDate.toISOString().slice(0, 10);
+
+      const result: any = await service.calculate({
+        vehicleCategory: 'PRIVATE_CAR',
+        vehicleStatus: 'EXISTING',
+        policyType: 'STANDALONE_OD',
+        idv: 500000,
+        odDiscountPercent: 10,
+        activeTpPolicyNumber: 'TP-POL-998877',
+        activeTpExpiryDate,
+      });
+
+      expect(result.outputs.baseOdPremium).toBe(15635);
+      expect(result.outputs.od.specialDiscount).toBe(1563.5);
+      expect(result.outputs.specialDiscount).toBe(1563.5);
+      expect(result.outputs.od.net).toBe(14071.5);
+      expect(result.outputs.netOdComponent).toBe(14071.5);
+
+      // SAOD has no TP premium
+      expect(result.outputs.baseTpPremium).toBe(0);
+      expect(result.outputs.tp.net).toBe(0);
+
+      // Statutory GST on gross OD base (15635 * 0.18 = 2814.30)
+      expect(result.outputs.gstOnOd).toBe(2814.3);
+      expect(result.outputs.totalGst).toBe(2814.3);
+
+      // Payable Base = 15635 + 2814.30 = 18449.30
+      expect(result.outputs.payableSummary.payableBase).toBe(18449.3);
+      expect(result.outputs.totalDiscount).toBe(1563.5);
+
+      // Final Payable = 18449.30 - 1563.50 = 16885.80
+      // Reconciliation: OD Net (14071.5) + GST (2814.30) = 16885.80
+      expect(result.outputs.finalPayableAmount).toBe(16885.8);
+      expect(result.outputs.totalPremium).toBe(16885.8);
+    });
+
     it('should reject unsupported NCB percentage outside discrete tiers [0, 20, 25, 35, 45, 50]', async () => {
       await expect(
         service.calculate({

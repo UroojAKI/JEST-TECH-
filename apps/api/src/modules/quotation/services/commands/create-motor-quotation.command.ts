@@ -369,11 +369,14 @@ export class CreateMotorQuotationCommand {
         policyDetails.activeTPPolicyNumberValidity ||
         undefined,
       activeTpExpiryDate: saodVerification.tpExpiryDate || undefined,
+      odDiscountPercent: Number(
+        policyDetails.odDiscountPercent ?? 0,
+      ),
       discountPercent: Number(
         policyDetails.commercialDiscountPercent ?? policyDetails.odDiscountPercent ?? policyDetails.discountPercent ?? 0,
       ),
       commercialDiscountPercent: Number(
-        policyDetails.commercialDiscountPercent ?? policyDetails.odDiscountPercent ?? policyDetails.discountPercent ?? 0,
+        policyDetails.commercialDiscountPercent ?? 0,
       ),
       discountReason: policyDetails.discountReason || undefined,
       tpDiscountPercent: Number(

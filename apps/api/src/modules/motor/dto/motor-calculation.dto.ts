@@ -136,6 +136,13 @@ export class MotorCalculationInputDto {
   @Max(100)
   discountPercent?: number;
 
+  /** Own Damage discount percentage applied to base OD premium. */
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Max(100)
+  odDiscountPercent?: number;
+
   /** Commercial payable discount percentage applied on Payable Base (Gross Premium + Component GST). */
   @IsOptional()
   @IsNumber()

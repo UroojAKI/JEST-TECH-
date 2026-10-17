@@ -111,6 +111,7 @@ export class CreateQuotationVersionService {
                   (Number(dto.discountAmount) / Number(dto.basePremium)) * 100,
                 )
               : 0),
+          odDiscountPercent: dto.metadata?.odDiscountPercent ?? 0,
           tpDiscountPercent: dto.metadata?.tpDiscountPercent ?? 0,
           addons: dto.addons?.map((a) => ({
             addonCode: a.addonCode,

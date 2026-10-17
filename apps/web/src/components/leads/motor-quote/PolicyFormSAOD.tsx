@@ -77,6 +77,7 @@ export function PolicyFormSAODForm({ category, vehicleStatus, data, onChange, el
     idv: parseFloat(data.insuredDeclaredValue || '0') || 0,
     ncbPercent: parseInt(data.ncbPercentage || '0') || 0,
     claimInExpiringPolicy: data.claimInExpiringODPolicy === 'Yes',
+    odDiscountPercent: parseFloat(data.discountPercent || '0') || 0,
     discountPercent: parseFloat(data.commercialDiscountPercent || data.discountPercent || '0') || 0,
     commercialDiscountPercent: parseFloat(data.commercialDiscountPercent || data.discountPercent || '0') || 0,
     discountReason: data.discountReason || undefined,

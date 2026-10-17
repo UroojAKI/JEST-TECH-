@@ -95,9 +95,10 @@ export function PolicyFormPackageForm({ category, vehicleStatus, data, onChange,
     claimInExpiringPolicy: data.claimInExpiringPolicy === 'Yes',
     paCover: data.paCoverOwner !== false,
     paidDriverLiability: false,
-    discountPercent: parseFloat(data.commercialDiscountPercent || data.odDiscountPercent || '0') || 0,
-    commercialDiscountPercent: parseFloat(data.commercialDiscountPercent || data.odDiscountPercent || '0') || 0,
+    discountPercent: parseFloat(data.commercialDiscountPercent || '0') || 0,
+    commercialDiscountPercent: parseFloat(data.commercialDiscountPercent || '0') || 0,
     discountReason: data.discountReason || undefined,
+    odDiscountPercent: parseFloat(data.odDiscountPercent || '0') || 0,
     tpDiscountPercent: parseFloat(data.tpDiscountPercent || '0') || 0,
     gstRate: data.gstRate ? parseInt(data.gstRate) : 18,
     odGstRate: data.odGstRate ? parseInt(data.odGstRate) : (data.gstRate ? parseInt(data.gstRate) : 18),
@@ -177,7 +178,7 @@ export function PolicyFormPackageForm({ category, vehicleStatus, data, onChange,
   const gstAmt = outputs.totalGst ?? outputs.gstAmount ?? 0;
   const payableSummary = outputs.payableSummary || {};
   const payableBase = payableSummary.payableBase ?? (grossBase + gstAmt);
-  const commDiscount = outputs.commercialDiscountAmount ?? payableSummary.commercialDiscount?.amount ?? outputs.totalDiscount ?? 0;
+  const commDiscount = outputs.totalDiscount ?? outputs.commercialDiscountAmount ?? payableSummary.commercialDiscount?.amount ?? 0;
   const itemizedAddons: any[] = Array.isArray(outputs.itemizedAddons) ? outputs.itemizedAddons : [];
   const odDiscountAmount = outputs.specialDiscount ?? outputs.od?.specialDiscount ?? 0;
   const tpDiscountAmount = outputs.tp?.discount ?? outputs.tpDiscountAmount ?? 0;

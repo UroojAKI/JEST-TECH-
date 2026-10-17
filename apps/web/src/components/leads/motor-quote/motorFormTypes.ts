@@ -253,6 +253,7 @@ export interface PolicyFormSAOD {
   odCommissionPercent: string;   // Legacy draft field; commission requires approved insurer-specific configuration
   commissionAmount: string;      // Legacy draft field; do not calculate locally without approved commission rules
   discountPercent?: string;      // Customer OD discount percentage; premium amount is server-calculated
+  odDiscountPercent?: string;    // Customer OD discount percentage; premium amount is server-calculated
   commercialDiscountPercent?: string; // Canonical commercial discount on payable base
   discountReason?: string;        // Justification or approval reference
   discountAmount?: string;       // Server-calculated OD discount amount

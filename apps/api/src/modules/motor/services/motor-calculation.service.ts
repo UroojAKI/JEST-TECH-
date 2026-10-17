@@ -204,6 +204,8 @@ export class MotorCalculationService {
     let specialDiscountAmount = 0;
     let netOdAfterDiscount = 0;
     let addonPremiumTotal = 0;
+    let odDiscountAmount = 0;
+    let effectiveOdDiscountPercent = 0;
     const itemizedAddons: Array<{
       addonCode: string;
       name: string;
@@ -232,10 +234,18 @@ export class MotorCalculationService {
       // it does NOT deduct a monetary discount from baseOdPremium or the payable total.
       ncbDiscountAmount = 0;
 
-      // Commercial discount is applied separately to the Payable Base,
-      // and does NOT reduce the reference OD premium.
-      specialDiscountAmount = 0;
-      netOdAfterDiscount = baseOdPremium;
+      effectiveOdDiscountPercent = Number(
+        input.odDiscountPercent ||
+          (input.policyType === 'STANDALONE_OD'
+            ? (input.commercialDiscountPercent ?? input.discountPercent ?? 0)
+            : 0),
+      );
+
+      odDiscountAmount = round2(
+        baseOdPremium * (effectiveOdDiscountPercent / 100),
+      );
+      specialDiscountAmount = odDiscountAmount;
+      netOdAfterDiscount = round2(Math.max(0, baseOdPremium - odDiscountAmount));
 
       // Add-on premiums (not subject to NCB/special discount)
       // SPEC RULE: The quote should continue calculating other components if one add-on has an invalid value.
@@ -354,7 +364,7 @@ export class MotorCalculationService {
     }
 
     // ── 8. Undiscounted Gross Components (pre-discount, pre-tax) ───────────
-    const netOdComponent = round2(baseOdPremium + addonPremiumTotal);
+    const netOdComponent = round2(netOdAfterDiscount + addonPremiumTotal);
     const netTpComponent = round2(
       Math.max(0, baseTpPremium - tpDiscountAmount),
     );
@@ -363,7 +373,7 @@ export class MotorCalculationService {
 
     // Step 1: Gross Premium Before Discount (undiscounted reference total)
     const premiumBeforeDiscount = round2(
-      netOdComponent + baseTpPremium + netPaComponent + netPaidDriverComponent,
+      round2(baseOdPremium + addonPremiumTotal) + baseTpPremium + netPaComponent + netPaidDriverComponent,
     );
     const netCustomerPremium = premiumBeforeDiscount;
 
@@ -439,12 +449,15 @@ export class MotorCalculationService {
     // Step 4: Commercial Discount calculated against Payable Base
     const commercialDiscountPercent = input.commercialDiscountPercent !== undefined
       ? input.commercialDiscountPercent
-      : (input.discountPercent ?? (input.policyType === 'THIRD_PARTY_ONLY' ? effectiveTpDiscountPercent : 0));
+      : (['THIRD_PARTY_ONLY', 'STANDALONE_OD'].includes(input.policyType)
+          ? (input.policyType === 'THIRD_PARTY_ONLY' ? effectiveTpDiscountPercent : effectiveOdDiscountPercent)
+          : (input.odDiscountPercent !== undefined || input.tpDiscountPercent !== undefined ? 0 : (input.discountPercent ?? 0)));
 
     let commercialDiscountAmount = 0;
-    if (input.policyType === 'THIRD_PARTY_ONLY') {
-      commercialDiscountAmount = tpDiscountAmount > 0
-        ? tpDiscountAmount
+    if (['THIRD_PARTY_ONLY', 'STANDALONE_OD'].includes(input.policyType)) {
+      const compDiscount = input.policyType === 'THIRD_PARTY_ONLY' ? tpDiscountAmount : odDiscountAmount;
+      commercialDiscountAmount = compDiscount > 0
+        ? compDiscount
         : round2(payableBase * (commercialDiscountPercent / 100));
     } else {
       commercialDiscountAmount = round2(
@@ -454,11 +467,13 @@ export class MotorCalculationService {
 
     const totalDiscountAmount = round2(
       commercialDiscountAmount +
-        (input.policyType === 'THIRD_PARTY_ONLY' ? 0 : tpDiscountAmount),
+        (['THIRD_PARTY_ONLY', 'STANDALONE_OD'].includes(input.policyType)
+          ? 0
+          : round2(odDiscountAmount + tpDiscountAmount)),
     );
 
     const commercialDiscount: PayableDiscount = {
-      percentage: commercialDiscountPercent || effectiveTpDiscountPercent,
+      percentage: commercialDiscountPercent || (input.policyType === 'THIRD_PARTY_ONLY' ? effectiveTpDiscountPercent : effectiveOdDiscountPercent),
       baseAmount: payableBase,
       amount: totalDiscountAmount,
       reason: input.discountReason || input.approvalReference || undefined,
@@ -523,7 +538,7 @@ export class MotorCalculationService {
         od: {
           gross: baseOdPremium,
           ncbDiscount: 0,
-          specialDiscount: 0,
+          specialDiscount: specialDiscountAmount,
           addons: round2(addonPremiumTotal),
           net: netOdComponent,
           gst: gstOnOd,
@@ -558,8 +573,9 @@ export class MotorCalculationService {
         // Own Damage
         baseOdPremium,
         ncbDiscount: 0,
-        specialDiscount: 0,
-        netOdAfterDiscount: baseOdPremium,
+        specialDiscount: specialDiscountAmount,
+        odDiscountAmount: specialDiscountAmount,
+        netOdAfterDiscount,
         netOdPremium: netOdComponent,
         addonPremium: round2(addonPremiumTotal),
         itemizedAddons,
@@ -618,7 +634,8 @@ export class MotorCalculationService {
       (input.idv !== undefined && input.idv < 0) ||
       (input.discountPercent !== undefined && input.discountPercent < 0) ||
       (input.commercialDiscountPercent !== undefined && input.commercialDiscountPercent < 0) ||
-      (input.tpDiscountPercent !== undefined && input.tpDiscountPercent < 0)
+      (input.tpDiscountPercent !== undefined && input.tpDiscountPercent < 0) ||
+      (input.odDiscountPercent !== undefined && input.odDiscountPercent < 0)
     ) {
       throw new BadRequestException(
         'Negative premium, IDV, or discount parameters are disallowed.',
@@ -659,9 +676,11 @@ export class MotorCalculationService {
     input: MotorCalculationInputDto,
     discountConfig: { standardLimit: number; absoluteLimit: number },
   ) {
-    const d = input.commercialDiscountPercent !== undefined
-      ? input.commercialDiscountPercent
-      : (input.discountPercent ?? 0);
+    const d = Math.max(
+      input.commercialDiscountPercent ?? 0,
+      input.discountPercent ?? 0,
+      input.odDiscountPercent ?? 0,
+    );
     if (d <= 0) return;
 
     if (d >= 100) {
