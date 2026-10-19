@@ -49,6 +49,9 @@ describe('CreateMotorQuotationCommand (Authoritative Command)', () => {
       quotation: {
         create: jest.fn(),
       },
+      saodTpVerification: {
+        create: jest.fn().mockResolvedValue({ id: 'saod-verification-1' }),
+      },
       motorPreviousPolicy: {
         create: jest.fn(),
       },
@@ -352,6 +355,79 @@ describe('CreateMotorQuotationCommand (Authoritative Command)', () => {
         }),
       }),
     );
+  });
+
+  it('persists confirmed SAOD TP verification against the quotation and records the authenticated verifier', async () => {
+    prisma.quotation.create.mockResolvedValue({
+      id: 'q-saod-1',
+      quotationCode: 'QTN-2026-SAOD-1',
+      totalPremium: 11800,
+      workflowState: 'READY_FOR_PROPOSAL',
+      status: 'DRAFT',
+      createdAt: new Date(),
+    });
+
+    const saodVerification = {
+      tpInsurer: 'TATA AIG',
+      tpPolicyNumber: 'TP-123456',
+      tpStartDate: '2026-01-01',
+      tpExpiryDate: '2027-12-31',
+      verificationMethod: 'POLICY_DOCUMENT',
+      verificationStatus: 'VERIFIED',
+      verifiedByUserConfirmed: true,
+      evidenceDocumentUrl: 'https://evidence.example.test/tp-policy.pdf',
+      verifierNotes: 'Checked against submitted TP document',
+    };
+
+    await command.execute(
+      {
+        vehicleCategory: 'PRIVATE_CAR',
+        policyType: 'SAOD',
+        insurerName: 'HDFC ERGO',
+        contactId: 'c-1',
+        vehicleDetails: {
+          vehicleStatus: 'EXISTING',
+          registrationNumber: 'KA22AB1234',
+        },
+        saodVerification,
+        policyDetails: {
+          policyTenure: 1,
+          insuredDeclaredValue: '500000',
+          odPremiumAmount: '8002',
+          totalPremiumOverride: '8500',
+        },
+      },
+      mockUser,
+    );
+
+    expect(calcService.calculate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        policyType: 'STANDALONE_OD',
+        activeTpInsurer: 'TATA AIG',
+        activeTpPolicyNumber: 'TP-123456',
+        activeTpStartDate: '2026-01-01',
+        activeTpExpiryDate: '2027-12-31',
+        activeTpVerificationMethod: 'POLICY_DOCUMENT',
+        activeTpVerificationStatus: 'VERIFIED',
+        activeTpVerifiedByUserConfirmed: true,
+        odPremiumAmount: 8002,
+        totalPremiumOverride: 8500,
+      }),
+    );
+
+    expect(prisma.saodTpVerification.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        quotationId: 'q-saod-1',
+        tpInsurer: 'TATA AIG',
+        tpPolicyNumber: 'TP-123456',
+        verificationStatus: 'VERIFIED',
+        verificationMethod: 'POLICY_DOCUMENT',
+        evidenceDocumentUrl: 'https://evidence.example.test/tp-policy.pdf',
+        verifierNotes: 'Checked against submitted TP document',
+        verifiedById: mockUser.id,
+        verifiedAt: expect.any(Date),
+      }),
+    });
   });
 
   it('MOTOR-REG-03: should reject NEW vehicle with SAOD policy type', async () => {
