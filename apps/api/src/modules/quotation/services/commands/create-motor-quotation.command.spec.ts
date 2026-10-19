@@ -367,6 +367,23 @@ describe('CreateMotorQuotationCommand (Authoritative Command)', () => {
       createdAt: new Date(),
     });
 
+    calcService.calculate.mockResolvedValueOnce({
+      inputs: { effectiveNcb: 0, tpTenure: 1 },
+      outputs: {
+        basePremium: 8002,
+        totalGst: 1200,
+        totalPremium: 8500,
+        finalPayableAmount: 8500,
+      },
+      calculationVersion: 'motor-v5',
+      authoritativeDates: {
+        odStartDate: '2026-10-19',
+        odEndDate: '2027-10-18',
+        effectiveStartDate: '2026-10-19',
+        effectiveEndDate: '2027-10-18',
+      },
+    });
+
     const saodVerification = {
       tpInsurer: 'TATA AIG',
       tpPolicyNumber: 'TP-123456',
@@ -394,6 +411,11 @@ describe('CreateMotorQuotationCommand (Authoritative Command)', () => {
           policyTenure: 1,
           insuredDeclaredValue: '500000',
           odPremiumAmount: '8002',
+          ncbDiscountAmount: '200',
+          addOnsPremium: '300',
+          odPremiumNet: '7500',
+          odGstAmount: '1440.36',
+          totalPremiumInclGST: '9442.36',
           totalPremiumOverride: '8500',
         },
       },
@@ -411,7 +433,17 @@ describe('CreateMotorQuotationCommand (Authoritative Command)', () => {
         activeTpVerificationStatus: 'VERIFIED',
         activeTpVerifiedByUserConfirmed: true,
         odPremiumAmount: 8002,
+        ncbDiscount: undefined,
+        addonPremium: undefined,
+        netOdPremium: undefined,
+        gstAmount: undefined,
         totalPremiumOverride: 8500,
+      }),
+    );
+
+    expect(prisma.quotation.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ totalPremium: 8500 }),
       }),
     );
 
