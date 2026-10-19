@@ -1218,7 +1218,7 @@ export class MotorCalculationService {
     }
 
     // ── Discount Configuration (from SystemConfig DB) ─────────────────────
-    const discountConfig = { standardLimit: 20, absoluteLimit: 100 };
+    const discountConfig = { standardLimit: 100, absoluteLimit: 100 };
     try {
       const stdConfig = await this.prisma.systemConfig.findFirst({
         where: { key: 'MOTOR_DISCOUNT_STANDARD_LIMIT' },
@@ -1227,7 +1227,7 @@ export class MotorCalculationService {
         where: { key: 'MOTOR_DISCOUNT_ABSOLUTE_LIMIT' },
       });
       if (stdConfig)
-        discountConfig.standardLimit = Number(stdConfig.value) || 20;
+        discountConfig.standardLimit = Number(stdConfig.value) || 100;
       if (absConfig)
         discountConfig.absoluteLimit = Number(absConfig.value) || 100;
     } catch {
