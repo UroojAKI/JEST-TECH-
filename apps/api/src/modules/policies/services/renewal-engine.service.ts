@@ -14,6 +14,7 @@ export class RenewalEngineService {
 
   async findPoliciesRequiringRenewal(
     daysBeforeExpiry: number,
+    companyId?: string,
   ): Promise<Policy[]> {
     const targetDate = new Date();
     targetDate.setDate(targetDate.getDate() + daysBeforeExpiry);
@@ -21,6 +22,7 @@ export class RenewalEngineService {
     return this.prisma.policy.findMany({
       where: {
         status: PolicyStatus.ACTIVE,
+        ...(companyId ? { companyId } : {}),
         OR: [
           { expiryDate: { lte: targetDate, gte: new Date() } },
           { odExpiryDate: { lte: targetDate, gte: new Date() } },

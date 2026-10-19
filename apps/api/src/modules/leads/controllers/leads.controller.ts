@@ -152,16 +152,19 @@ export class LeadsController {
       'Check mobile, email, PAN, and vehicle registration duplicate matches',
   })
   async checkDuplicate(
+    @CurrentUser() user: RequestUser,
     @Query('phone') phone?: string,
     @Query('email') email?: string,
     @Query('panNumber') panNumber?: string,
     @Query('registrationNumber') registrationNumber?: string,
   ) {
+    const companyId = user?.companyId || (user as any)?.organizationId;
     return this.duplicateDetectionService.checkDuplicates({
       phone,
       email,
       panNumber,
       registrationNumber,
+      companyId,
     });
   }
 
@@ -171,6 +174,7 @@ export class LeadsController {
     summary: 'Check duplicate customer/lead/vehicle matches via POST payload',
   })
   async checkDuplicatePost(
+    @CurrentUser() user: RequestUser,
     @Body()
     body: {
       phone?: string;
@@ -179,7 +183,11 @@ export class LeadsController {
       registrationNumber?: string;
     },
   ) {
-    return this.duplicateDetectionService.checkDuplicates(body);
+    const companyId = user?.companyId || (user as any)?.organizationId;
+    return this.duplicateDetectionService.checkDuplicates({
+      ...body,
+      companyId,
+    });
   }
 
   @Post()

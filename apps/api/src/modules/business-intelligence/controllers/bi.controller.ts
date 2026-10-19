@@ -119,6 +119,7 @@ export class BiController {
   @Post('kpi/seed')
   @Roles(RoleType.ADMIN)
   seedKpis(@CurrentUser() user: RequestUser) {
-    return this.kpiService.seedDefaultKpis(user.id);
+    const companyId = this.getActorCompanyId(user);
+    return this.kpiService.seedDefaultKpis(user.id, companyId);
   }
 }

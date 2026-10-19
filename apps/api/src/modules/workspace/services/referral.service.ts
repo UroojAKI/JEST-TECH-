@@ -45,10 +45,6 @@ export class ReferralService {
     });
 
     // 2. Auto-Provision Linked Lead for the Referral
-    let contact = await this.prisma.contact.findFirst({
-      where: { phone: dto.phone, deletedAt: null },
-    });
-
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
       select: { companyId: true },
@@ -58,8 +54,14 @@ export class ReferralService {
       throw new ForbiddenException('Tenant organizational context is required');
     }
 
+    let contact = await this.prisma.contact.findFirst({
+      where: { phone: dto.phone, companyId, deletedAt: null },
+    });
+
     if (!contact) {
-      const contactCount = await this.prisma.contact.count();
+      const contactCount = await this.prisma.contact.count({
+        where: { companyId },
+      });
       const contactCode = `CNT-${String(contactCount + 1).padStart(5, '0')}`;
 
       contact = await this.prisma.contact.create({

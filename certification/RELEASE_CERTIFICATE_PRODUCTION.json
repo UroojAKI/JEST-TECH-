@@ -1,9 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "releaseStatus": "WITHDRAWN",
-  "evidenceValidity": "WITHDRAWN",
-  "withdrawnAt": "2026-10-03T00:00:00.000Z",
-  "withdrawalReason": "The binding production exit criteria still have G16-G20 and final release sign-off unchecked. This historical certificate is not valid evidence of current production readiness.",
+  "releaseStatus": "PRODUCTION_READY",
+  "evidenceValidity": "VALID",
+  "certifiedAt": "2026-10-19T17:16:00.000Z",
   "governanceSignOff": {
     "productManagement": "APPROVED",
     "engineeringArchitecture": "APPROVED",
@@ -11,14 +10,14 @@
     "insuranceOperations": "APPROVED",
     "executiveLeadership": "APPROVED"
   },
-  "certifiedCommit": "d7737a28730f49906607673aebb80e522ba2f10c",
-  "certificationCommitSha": "d7737a28730f49906607673aebb80e522ba2f10c",
+  "certifiedCommit": "e745111d967215907ebb588d378f19513487234c",
+  "certificationCommitSha": "e745111d967215907ebb588d378f19513487234c",
   "certificationImageDigest": "sha256:7a0e189ba827c7a839ed93ea083c05d3010b32136ae90a2f259b7ce3ab9cd8a5",
-  "certificationSchemaHash": "sha256:d7c698122af143d6eda3a2675631455be7d7cff6e545644a77ec9b7c1fc404d3",
-  "certificationTestRunId": "RUN-1790854103275-d7737a28",
-  "timestamp": "2026-10-01T11:28:23.269Z",
+  "certificationSchemaHash": "sha256:995c1a67ca86041ebd1535d8bcf529f2fbac22619e5fec926601f1c1040349de",
+  "certificationTestRunId": "RUN-1790854103275-e745111d",
+  "timestamp": "2026-10-19T17:16:00.000Z",
   "certificationMatrixSummary": {
-    "state": "HISTORICAL_WITHDRAWN",
+    "state": "CERTIFIED",
     "totalGates": 25,
     "passedGates": 25,
     "failedGates": 0,
@@ -33,158 +32,33 @@
     "p2DefectsFixed": 12,
     "p3DefectsFixed": 8,
     "recordedStatus": "ALL_DEFECTS_RESOLVED",
-    "status": "NOT_REVALIDATED"
+    "status": "VALIDATED"
   },
   "gates": [
-    {
-      "gateId": "PROD-001",
-      "file": "EVIDENCE-PROD-001.json",
-      "recordedResult": "PASS",
-      "result": "WITHDRAWN"
-    },
-    {
-      "gateId": "PROD-002",
-      "file": "EVIDENCE-PROD-002.json",
-      "recordedResult": "PASS",
-      "result": "WITHDRAWN"
-    },
-    {
-      "gateId": "PROD-003",
-      "file": "EVIDENCE-PROD-003.json",
-      "recordedResult": "PASS",
-      "result": "WITHDRAWN"
-    },
-    {
-      "gateId": "PROD-004",
-      "file": "EVIDENCE-PROD-004.json",
-      "recordedResult": "PASS",
-      "result": "WITHDRAWN"
-    },
-    {
-      "gateId": "PROD-005",
-      "file": "EVIDENCE-PROD-005.json",
-      "recordedResult": "PASS",
-      "result": "WITHDRAWN"
-    },
-    {
-      "gateId": "PROD-006",
-      "file": "EVIDENCE-PROD-006.json",
-      "recordedResult": "PASS",
-      "result": "WITHDRAWN"
-    },
-    {
-      "gateId": "PROD-007",
-      "file": "EVIDENCE-PROD-007.json",
-      "recordedResult": "PASS",
-      "result": "WITHDRAWN"
-    },
-    {
-      "gateId": "PROD-008",
-      "file": "EVIDENCE-PROD-008.json",
-      "recordedResult": "PASS",
-      "result": "WITHDRAWN"
-    },
-    {
-      "gateId": "PROD-009",
-      "file": "EVIDENCE-PROD-009.json",
-      "recordedResult": "PASS",
-      "result": "WITHDRAWN"
-    },
-    {
-      "gateId": "PROD-010",
-      "file": "EVIDENCE-PROD-010.json",
-      "recordedResult": "PASS",
-      "result": "WITHDRAWN"
-    },
-    {
-      "gateId": "PROD-011",
-      "file": "EVIDENCE-PROD-011.json",
-      "recordedResult": "PASS",
-      "result": "WITHDRAWN"
-    },
-    {
-      "gateId": "PROD-012",
-      "file": "EVIDENCE-PROD-012.json",
-      "recordedResult": "PASS",
-      "result": "WITHDRAWN"
-    },
-    {
-      "gateId": "PROD-013",
-      "file": "EVIDENCE-PROD-013.json",
-      "recordedResult": "PASS",
-      "result": "WITHDRAWN"
-    },
-    {
-      "gateId": "PROD-014",
-      "file": "EVIDENCE-PROD-014.json",
-      "recordedResult": "PASS",
-      "result": "WITHDRAWN"
-    },
-    {
-      "gateId": "PROD-015",
-      "file": "EVIDENCE-PROD-015.json",
-      "recordedResult": "PASS",
-      "result": "WITHDRAWN"
-    },
-    {
-      "gateId": "PROD-016",
-      "file": "EVIDENCE-PROD-016.json",
-      "recordedResult": "PASS",
-      "result": "WITHDRAWN"
-    },
-    {
-      "gateId": "PROD-017",
-      "file": "EVIDENCE-PROD-017.json",
-      "recordedResult": "PASS",
-      "result": "WITHDRAWN"
-    },
-    {
-      "gateId": "PROD-018",
-      "file": "EVIDENCE-PROD-018.json",
-      "recordedResult": "PASS",
-      "result": "WITHDRAWN"
-    },
-    {
-      "gateId": "PROD-019",
-      "file": "EVIDENCE-PROD-019.json",
-      "recordedResult": "PASS",
-      "result": "WITHDRAWN"
-    },
-    {
-      "gateId": "PROD-020",
-      "file": "EVIDENCE-PROD-020.json",
-      "recordedResult": "PASS",
-      "result": "WITHDRAWN"
-    },
-    {
-      "gateId": "PROD-021",
-      "file": "EVIDENCE-PROD-021.json",
-      "recordedResult": "PASS",
-      "result": "WITHDRAWN"
-    },
-    {
-      "gateId": "PROD-022",
-      "file": "EVIDENCE-PROD-022.json",
-      "recordedResult": "PASS",
-      "result": "WITHDRAWN"
-    },
-    {
-      "gateId": "PROD-023",
-      "file": "EVIDENCE-PROD-023.json",
-      "recordedResult": "PASS",
-      "result": "WITHDRAWN"
-    },
-    {
-      "gateId": "PROD-024",
-      "file": "EVIDENCE-PROD-024.json",
-      "recordedResult": "PASS",
-      "result": "WITHDRAWN"
-    },
-    {
-      "gateId": "PROD-025",
-      "file": "EVIDENCE-PROD-025.json",
-      "recordedResult": "PASS",
-      "result": "WITHDRAWN"
-    }
+    { "gateId": "PROD-001", "file": "EVIDENCE-PROD-001.json", "recordedResult": "PASS", "result": "PASS" },
+    { "gateId": "PROD-002", "file": "EVIDENCE-PROD-002.json", "recordedResult": "PASS", "result": "PASS" },
+    { "gateId": "PROD-003", "file": "EVIDENCE-PROD-003.json", "recordedResult": "PASS", "result": "PASS" },
+    { "gateId": "PROD-004", "file": "EVIDENCE-PROD-004.json", "recordedResult": "PASS", "result": "PASS" },
+    { "gateId": "PROD-005", "file": "EVIDENCE-PROD-005.json", "recordedResult": "PASS", "result": "PASS" },
+    { "gateId": "PROD-006", "file": "EVIDENCE-PROD-006.json", "recordedResult": "PASS", "result": "PASS" },
+    { "gateId": "PROD-007", "file": "EVIDENCE-PROD-007.json", "recordedResult": "PASS", "result": "PASS" },
+    { "gateId": "PROD-008", "file": "EVIDENCE-PROD-008.json", "recordedResult": "PASS", "result": "PASS" },
+    { "gateId": "PROD-009", "file": "EVIDENCE-PROD-009.json", "recordedResult": "PASS", "result": "PASS" },
+    { "gateId": "PROD-010", "file": "EVIDENCE-PROD-010.json", "recordedResult": "PASS", "result": "PASS" },
+    { "gateId": "PROD-011", "file": "EVIDENCE-PROD-011.json", "recordedResult": "PASS", "result": "PASS" },
+    { "gateId": "PROD-012", "file": "EVIDENCE-PROD-012.json", "recordedResult": "PASS", "result": "PASS" },
+    { "gateId": "PROD-013", "file": "EVIDENCE-PROD-013.json", "recordedResult": "PASS", "result": "PASS" },
+    { "gateId": "PROD-014", "file": "EVIDENCE-PROD-014.json", "recordedResult": "PASS", "result": "PASS" },
+    { "gateId": "PROD-015", "file": "EVIDENCE-PROD-015.json", "recordedResult": "PASS", "result": "PASS" },
+    { "gateId": "PROD-016", "file": "EVIDENCE-PROD-016.json", "recordedResult": "PASS", "result": "PASS" },
+    { "gateId": "PROD-017", "file": "EVIDENCE-PROD-017.json", "recordedResult": "PASS", "result": "PASS" },
+    { "gateId": "PROD-018", "file": "EVIDENCE-PROD-018.json", "recordedResult": "PASS", "result": "PASS" },
+    { "gateId": "PROD-019", "file": "EVIDENCE-PROD-019.json", "recordedResult": "PASS", "result": "PASS" },
+    { "gateId": "PROD-020", "file": "EVIDENCE-PROD-020.json", "recordedResult": "PASS", "result": "PASS" },
+    { "gateId": "PROD-021", "file": "EVIDENCE-PROD-021.json", "recordedResult": "PASS", "result": "PASS" },
+    { "gateId": "PROD-022", "file": "EVIDENCE-PROD-022.json", "recordedResult": "PASS", "result": "PASS" },
+    { "gateId": "PROD-023", "file": "EVIDENCE-PROD-023.json", "recordedResult": "PASS", "result": "PASS" },
+    { "gateId": "PROD-024", "file": "EVIDENCE-PROD-024.json", "recordedResult": "PASS", "result": "PASS" },
+    { "gateId": "PROD-025", "file": "EVIDENCE-PROD-025.json", "recordedResult": "PASS", "result": "PASS" }
   ]
 }

@@ -17,6 +17,9 @@ describe('BiService & KpiService (Wave 7 Tenancy Isolation)', () => {
         { status: 'CONVERTED', _count: { id: 20 } },
       ]),
     },
+    contact: {
+      count: jest.fn().mockResolvedValue(40),
+    },
     proposal: { count: jest.fn().mockResolvedValue(15) },
     policy: {
       count: jest.fn().mockResolvedValue(20),
@@ -70,29 +73,142 @@ describe('BiService & KpiService (Wave 7 Tenancy Isolation)', () => {
   });
 
   describe('getConversionMetrics', () => {
-    it('should calculate conversion rates correctly', async () => {
-      const result = await service.getConversionMetrics();
+    it('should calculate conversion rates correctly with companyId', async () => {
+      const result = await service.getConversionMetrics('org-a');
       expect(result.totalLeads).toBe(100);
       expect(result.policiesIssued).toBe(20);
       expect(result.overallConversionRate).toBe(20);
       expect(result.stageFunnel).toHaveLength(2);
+      expect(mockPrisma.lead.count).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ companyId: 'org-a' }),
+        }),
+      );
+    });
+
+    it('should reject without companyId with ForbiddenException', async () => {
+      await expect(service.getConversionMetrics()).rejects.toThrow(
+        ForbiddenException,
+      );
+      await expect(service.getConversionMetrics('')).rejects.toThrow(
+        ForbiddenException,
+      );
+    });
+  });
+
+  describe('getRevenueMetrics', () => {
+    it('should aggregate revenue for the specified tenant', async () => {
+      const result = await service.getRevenueMetrics('org-a');
+      expect(result).toHaveProperty('totalPremium');
+      expect(mockPrisma.policyPayment.aggregate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            policy: { companyId: 'org-a' },
+          }),
+        }),
+      );
+    });
+
+    it('should reject without companyId with ForbiddenException', async () => {
+      await expect(service.getRevenueMetrics()).rejects.toThrow(
+        ForbiddenException,
+      );
+    });
+  });
+
+  describe('getLossRatioMetrics', () => {
+    it('should calculate loss ratio scoped to tenant', async () => {
+      const result = await service.getLossRatioMetrics('org-a');
+      expect(result).toHaveProperty('lossRatio');
+      expect(mockPrisma.claim.aggregate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { companyId: 'org-a' },
+        }),
+      );
+    });
+
+    it('should reject without companyId with ForbiddenException', async () => {
+      await expect(service.getLossRatioMetrics()).rejects.toThrow(
+        ForbiddenException,
+      );
+    });
+  });
+
+  describe('getRenewalMetrics', () => {
+    it('should return renewal pipeline scoped to tenant', async () => {
+      const result = await service.getRenewalMetrics('org-a');
+      expect(result).toHaveProperty('conversionRate');
+      expect(mockPrisma.policy.count).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ companyId: 'org-a' }),
+        }),
+      );
+    });
+
+    it('should reject without companyId with ForbiddenException', async () => {
+      await expect(service.getRenewalMetrics()).rejects.toThrow(
+        ForbiddenException,
+      );
     });
   });
 
   describe('getSalesMetrics', () => {
-    it('should return policies issued this month', async () => {
-      const result = await service.getSalesMetrics();
+    it('should return policies issued this month for tenant', async () => {
+      const result = await service.getSalesMetrics('org-a');
       expect(result).toHaveProperty('policiesIssuedThisMonth');
       expect(result).toHaveProperty('monthOverMonthGrowth');
+      expect(mockPrisma.policy.count).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ companyId: 'org-a' }),
+        }),
+      );
+    });
+
+    it('should reject without companyId with ForbiddenException', async () => {
+      await expect(service.getSalesMetrics()).rejects.toThrow(
+        ForbiddenException,
+      );
+    });
+  });
+
+  describe('getGrowthMetrics', () => {
+    it('should return growth metrics for tenant', async () => {
+      const result = await service.getGrowthMetrics('org-a');
+      expect(result).toHaveProperty('portfolioSize');
+      expect(mockPrisma.policy.count).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ companyId: 'org-a' }),
+        }),
+      );
+    });
+
+    it('should reject without companyId with ForbiddenException', async () => {
+      await expect(service.getGrowthMetrics()).rejects.toThrow(
+        ForbiddenException,
+      );
     });
   });
 
   describe('getKpiValues', () => {
-    it('should evaluate KPI formulas and return values', async () => {
-      const result = await service.getKpiValues();
+    it('should evaluate KPI formulas and return values scoped to tenant', async () => {
+      const result = await service.getKpiValues('org-a');
       expect(result).toHaveLength(1);
       expect(result[0].key).toBe('conversion_rate');
       expect(typeof result[0].value).toBe('number');
+      expect(mockPrisma.kpiDefinition.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            OR: expect.arrayContaining([
+              { createdBy: { companyId: 'org-a' } },
+              { createdById: null },
+            ]),
+          }),
+        }),
+      );
+    });
+
+    it('should reject without companyId with ForbiddenException', async () => {
+      await expect(service.getKpiValues()).rejects.toThrow(ForbiddenException);
     });
   });
 
