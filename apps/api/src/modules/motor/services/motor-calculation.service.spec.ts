@@ -214,6 +214,30 @@ describe('MotorCalculationService (Iteration 5 Financial Math)', () => {
   });
 
   describe('Validation & Edge Cases', () => {
+    it('rejects active TP cover whose start date is in the future', async () => {
+      const futureStart = new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+      const futureExpiry = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+      await expect(
+        service.calculate({
+          vehicleCategory: 'PRIVATE_CAR',
+          vehicleStatus: 'EXISTING',
+          policyType: 'STANDALONE_OD',
+          idv: 400000,
+          activeTpInsurer: 'TATA AIG',
+          activeTpPolicyNumber: 'TP-FUTURE-123',
+          activeTpStartDate: futureStart,
+          activeTpExpiryDate: futureExpiry,
+          activeTpVerificationMethod: 'POLICY_DOCUMENT',
+          activeTpVerificationStatus: 'VERIFIED',
+          activeTpVerifiedByUserConfirmed: true,
+        }),
+      ).rejects.toMatchObject({
+        response: expect.objectContaining({
+          errorCode: 'ACTIVE_TP_NOT_YET_IN_FORCE',
+        }),
+      });
+    });
+
     it('should reject SAOD calculation when active TP verification is not confirmed', async () => {
       await expect(
         service.calculate({
