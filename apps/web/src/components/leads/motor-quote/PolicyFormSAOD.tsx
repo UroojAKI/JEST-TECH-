@@ -135,6 +135,15 @@ export function PolicyFormSAODForm({ category, vehicleStatus, data, onChange, el
 
   const effectiveCategory = category || 'PRIVATE_CAR';
   const effectiveStatus = eligibility ? eligibility.vehicleStatus : (vehicleStatus || 'EXISTING');
+  const activeTpIsVerified = Boolean(
+    data.tpVerification?.tpInsurer &&
+    data.tpVerification?.tpPolicyNumber &&
+    data.tpVerification?.tpStartDate &&
+    data.tpVerification?.tpExpiryDate &&
+    data.tpVerification?.verificationMethod &&
+    data.tpVerification?.verificationStatus === 'VERIFIED' &&
+    data.tpVerification?.verifiedByUserConfirmed
+  );
 
   useEffect(() => {
     if (data.odCommissionPercent || data.commissionAmount) {
@@ -149,8 +158,14 @@ export function PolicyFormSAODForm({ category, vehicleStatus, data, onChange, el
     vehicleStatus: effectiveStatus,
     policyType: 'STANDALONE_OD',
     policyTenure: 1,
-    activeTpPolicyNumber: data.tpVerification?.tpPolicyNumber || undefined,
-    activeTpExpiryDate: data.tpVerification?.tpExpiryDate || undefined,
+    // Do not calculate SAOD premium against unconfirmed TP information.
+    activeTpPolicyNumber: activeTpIsVerified ? data.tpVerification?.tpPolicyNumber : undefined,
+    activeTpExpiryDate: activeTpIsVerified ? data.tpVerification?.tpExpiryDate : undefined,
+    activeTpInsurer: activeTpIsVerified ? data.tpVerification?.tpInsurer : undefined,
+    activeTpStartDate: activeTpIsVerified ? data.tpVerification?.tpStartDate : undefined,
+    activeTpVerificationMethod: activeTpIsVerified ? data.tpVerification?.verificationMethod : undefined,
+    activeTpVerificationStatus: activeTpIsVerified ? data.tpVerification?.verificationStatus : undefined,
+    activeTpVerifiedByUserConfirmed: activeTpIsVerified ? data.tpVerification?.verifiedByUserConfirmed : false,
     idv: parseFloat(data.insuredDeclaredValue || '0') || 0,
     ncbPercent: parseInt(data.ncbPercentage || '0') || 0,
     claimInExpiringPolicy: data.claimInExpiringODPolicy === 'Yes',
@@ -200,7 +215,7 @@ export function PolicyFormSAODForm({ category, vehicleStatus, data, onChange, el
       : {}),
     // Field 6: Total Premium override (Field 11)
     ...(data.totalPremiumOverride !== undefined && data.totalPremiumOverride !== '' && !isNaN(parseFloat(data.totalPremiumOverride))
-      ? { totalPremium: parseFloat(data.totalPremiumOverride) }
+      ? { totalPremiumOverride: parseFloat(data.totalPremiumOverride) }
       : {}),
     addons: (data.addonsSelected || []).map((a) => ({
       addonCode: a,
@@ -217,17 +232,21 @@ export function PolicyFormSAODForm({ category, vehicleStatus, data, onChange, el
   }, [data]);
 
   useEffect(() => {
-    if (error && (data.calculatedResult || data.totalPremiumInclGST || data.finalPayableAmount)) {
+    // Any changed calculator input clears the accepted result while the request
+    // is pending, incomplete, or failed. This prevents saving a prior premium.
+    if ((loading || error || !result) && dataRef.current.calculatedResult) {
       const current = dataRef.current;
       onChange({
         ...current,
         calculatedResult: undefined,
-        totalPremiumInclGST: current.totalPremiumOverride ?? '',
-        finalPayableAmount: current.totalPremiumOverride ?? '',
+        ...(error ? {
+          totalPremiumInclGST: current.totalPremiumOverride ?? '',
+          finalPayableAmount: current.totalPremiumOverride ?? '',
+        } : {}),
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [error]);
+  }, [loading, error, result]);
 
   useEffect(() => {
     if (result && result.outputs) {
@@ -426,12 +445,12 @@ export function PolicyFormSAODForm({ category, vehicleStatus, data, onChange, el
             <div>
               <div className="text-xs font-black text-foreground">I have verified the active TP policy</div>
               <div className="text-[10px] text-muted-foreground mt-0.5">
-                By checking this, you confirm you have independently verified the TP policy details above. This verification is recorded in the compliance audit trail.
+                By checking this, you attest that you independently verified the TP policy details above. The server records your authenticated identity, method, evidence reference, notes and verification timestamp when the quotation is saved.
               </div>
               {verification?.verifiedByUserConfirmed && (
                 <div className="mt-1.5 flex items-center gap-2 text-[10px] font-bold text-emerald-600">
                   <CheckCircle className="h-3 w-3" />
-                  Confirmed at {new Date().toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}
+                  Confirmation selected — the server records the verifier and timestamp when the quotation is saved.
                 </div>
               )}
             </div>

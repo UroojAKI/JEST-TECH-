@@ -303,11 +303,36 @@ export class CreateMotorQuotationCommand {
 
     // MOTOR-0060 & MOTOR-REG-03: Authoritative server-side SAOD eligibility validation
     if (policyType === 'STANDALONE_OD') {
-      this.motorRuleEngineService.validateSaodEligibility({
-        vehicleStatus: isVehicleNew ? 'NEW' : 'EXISTING',
+      const activeTpVerification = {
         activeTpPolicyNumber: saodVerification.tpPolicyNumber || policyDetails.activeTpPolicyNumber,
         activeTpInsurer: saodVerification.tpInsurer || policyDetails.activeTpInsurer,
+        activeTpStartDate: saodVerification.tpStartDate || policyDetails.activeTpStartDate,
         activeTpExpiryDate: saodVerification.tpExpiryDate || policyDetails.activeTpExpiryDate,
+        activeTpVerificationMethod: saodVerification.verificationMethod || policyDetails.activeTpVerificationMethod,
+        activeTpVerificationStatus: saodVerification.verificationStatus || policyDetails.activeTpVerificationStatus,
+        activeTpVerifiedByUserConfirmed:
+          saodVerification.verifiedByUserConfirmed === true ||
+          policyDetails.activeTpVerifiedByUserConfirmed === true,
+      };
+
+      if (
+        !activeTpVerification.activeTpVerificationMethod ||
+        activeTpVerification.activeTpVerificationStatus !== 'VERIFIED' ||
+        activeTpVerification.activeTpVerifiedByUserConfirmed !== true
+      ) {
+        throw new BadRequestException({
+          statusCode: 400,
+          error: 'Bad Request',
+          errorCode: 'ACTIVE_TP_VERIFICATION_REQUIRED',
+          message: 'SAOD quotation creation requires verified and explicitly confirmed active TP details.',
+        });
+      }
+
+      this.motorRuleEngineService.validateSaodEligibility({
+        vehicleStatus: isVehicleNew ? 'NEW' : 'EXISTING',
+        activeTpPolicyNumber: activeTpVerification.activeTpPolicyNumber,
+        activeTpInsurer: activeTpVerification.activeTpInsurer,
+        activeTpExpiryDate: activeTpVerification.activeTpExpiryDate,
       });
     }
 
@@ -339,6 +364,27 @@ export class CreateMotorQuotationCommand {
     });
 
     const authoritativeNcb = ruleResult.ncb;
+
+    // SAOD manual overrides must come only from explicit override properties.
+    // Legacy display fields also contain calculated values and must not freeze stale totals.
+    const parseOptionalAmount = (...values: unknown[]): number | undefined => {
+      for (const value of values) {
+        if (value !== undefined && value !== null && value !== '' && Number.isFinite(Number(value))) {
+          return Number(value);
+        }
+      }
+      return undefined;
+    };
+    const saodOverrides = policyType === 'STANDALONE_OD'
+      ? {
+          odPremium: parseOptionalAmount(policyDetails.odPremiumAmount, policyDetails.odBasePremiumOverride),
+          ncbDiscount: parseOptionalAmount(policyDetails.ncbDiscountOverride),
+          addonPremium: parseOptionalAmount(policyDetails.addonPremiumOverride),
+          netOdPremium: parseOptionalAmount(policyDetails.netOdPremiumOverride),
+          gstAmount: parseOptionalAmount(policyDetails.gstAmountOverride),
+          totalPremiumOverride: parseOptionalAmount(policyDetails.totalPremiumOverride),
+        }
+      : undefined;
 
     // ── 6. Authoritative Pricing via MotorCalculationService ──
     const calculationInput: any = {
@@ -381,11 +427,15 @@ export class CreateMotorQuotationCommand {
             })
             .filter((addon: any) => addon.addonCode)
         : [],
-      activeTpPolicyNumber:
-        saodVerification.tpPolicyNumber ||
-        policyDetails.activeTPPolicyNumberValidity ||
-        undefined,
+      activeTpPolicyNumber: saodVerification.tpPolicyNumber || policyDetails.activeTpPolicyNumber || undefined,
       activeTpExpiryDate: saodVerification.tpExpiryDate || undefined,
+      activeTpInsurer: saodVerification.tpInsurer || policyDetails.activeTpInsurer || undefined,
+      activeTpStartDate: saodVerification.tpStartDate || policyDetails.activeTpStartDate || undefined,
+      activeTpVerificationMethod: saodVerification.verificationMethod || policyDetails.activeTpVerificationMethod || undefined,
+      activeTpVerificationStatus: saodVerification.verificationStatus || policyDetails.activeTpVerificationStatus || undefined,
+      activeTpVerifiedByUserConfirmed:
+        saodVerification.verifiedByUserConfirmed === true ||
+        policyDetails.activeTpVerifiedByUserConfirmed === true,
       odDiscountPercent: policyDetails.odDiscountPercent !== undefined && policyDetails.odDiscountPercent !== ''
         ? Number(policyDetails.odDiscountPercent)
         : undefined,
@@ -419,16 +469,20 @@ export class CreateMotorQuotationCommand {
       gstRate: policyDetails.gstRate !== undefined && policyDetails.gstRate !== null && policyDetails.gstRate !== ''
         ? Number(policyDetails.gstRate)
         : undefined,
-      odPremium: (policyDetails as any).odPremium !== undefined && (policyDetails as any).odPremium !== '' && !isNaN(Number((policyDetails as any).odPremium))
-        ? Number((policyDetails as any).odPremium)
-        : (policyDetails.odPremiumAmount !== undefined && policyDetails.odPremiumAmount !== '' && !isNaN(Number(policyDetails.odPremiumAmount))
-            ? Number(policyDetails.odPremiumAmount)
-            : undefined),
-      odPremiumAmount: policyDetails.odPremiumAmount !== undefined && policyDetails.odPremiumAmount !== '' && !isNaN(Number(policyDetails.odPremiumAmount))
-        ? Number(policyDetails.odPremiumAmount)
+      odPremium: policyType === 'STANDALONE_OD'
+        ? saodOverrides?.odPremium
         : ((policyDetails as any).odPremium !== undefined && (policyDetails as any).odPremium !== '' && !isNaN(Number((policyDetails as any).odPremium))
             ? Number((policyDetails as any).odPremium)
-            : undefined),
+            : (policyDetails.odPremiumAmount !== undefined && policyDetails.odPremiumAmount !== '' && !isNaN(Number(policyDetails.odPremiumAmount))
+                ? Number(policyDetails.odPremiumAmount)
+                : undefined)),
+      odPremiumAmount: policyType === 'STANDALONE_OD'
+        ? saodOverrides?.odPremium
+        : (policyDetails.odPremiumAmount !== undefined && policyDetails.odPremiumAmount !== '' && !isNaN(Number(policyDetails.odPremiumAmount))
+            ? Number(policyDetails.odPremiumAmount)
+            : ((policyDetails as any).odPremium !== undefined && (policyDetails as any).odPremium !== '' && !isNaN(Number((policyDetails as any).odPremium))
+                ? Number((policyDetails as any).odPremium)
+                : undefined)),
       editedOdRate: undefined,
       annualTpPremium: policyDetails.editedTpAnnualPremium !== undefined && policyDetails.editedTpAnnualPremium !== '' && !isNaN(Number(policyDetails.editedTpAnnualPremium))
         ? Number(policyDetails.editedTpAnnualPremium)
@@ -455,38 +509,60 @@ export class CreateMotorQuotationCommand {
       paGstRate: policyDetails.paGstRate !== undefined && policyDetails.paGstRate !== '' && !isNaN(Number(policyDetails.paGstRate))
         ? Number(policyDetails.paGstRate)
         : undefined,
-      odBasePremium: (policyDetails as any).odBasePremium !== undefined && (policyDetails as any).odBasePremium !== '' && !isNaN(Number((policyDetails as any).odBasePremium))
-        ? Number((policyDetails as any).odBasePremium)
-        : ((policyDetails as any).odPremium !== undefined && (policyDetails as any).odPremium !== '' && !isNaN(Number((policyDetails as any).odPremium))
-            ? Number((policyDetails as any).odPremium)
-            : undefined),
-      ncbDiscount: (policyDetails as any).ncbDiscount !== undefined && (policyDetails as any).ncbDiscount !== '' && !isNaN(Number((policyDetails as any).ncbDiscount))
-        ? Number((policyDetails as any).ncbDiscount)
-        : ((policyDetails as any).ncbDiscountAmount !== undefined && (policyDetails as any).ncbDiscountAmount !== '' && !isNaN(Number((policyDetails as any).ncbDiscountAmount))
-            ? Number((policyDetails as any).ncbDiscountAmount)
-            : undefined),
-      addonPremium: (policyDetails as any).addonPremium !== undefined && (policyDetails as any).addonPremium !== '' && !isNaN(Number((policyDetails as any).addonPremium))
-        ? Number((policyDetails as any).addonPremium)
-        : ((policyDetails as any).addOnsPremium !== undefined && (policyDetails as any).addOnsPremium !== '' && !isNaN(Number((policyDetails as any).addOnsPremium))
-            ? Number((policyDetails as any).addOnsPremium)
-            : undefined),
-      netOdPremium: (policyDetails as any).netOdPremium !== undefined && (policyDetails as any).netOdPremium !== '' && !isNaN(Number((policyDetails as any).netOdPremium))
-        ? Number((policyDetails as any).netOdPremium)
-        : ((policyDetails as any).odPremiumNet !== undefined && (policyDetails as any).odPremiumNet !== '' && !isNaN(Number((policyDetails as any).odPremiumNet))
-            ? Number((policyDetails as any).odPremiumNet)
-            : undefined),
-      gstAmount: (policyDetails as any).gstAmount !== undefined && (policyDetails as any).gstAmount !== '' && !isNaN(Number((policyDetails as any).gstAmount))
-        ? Number((policyDetails as any).gstAmount)
-        : ((policyDetails as any).odGstAmount !== undefined && (policyDetails as any).odGstAmount !== '' && !isNaN(Number((policyDetails as any).odGstAmount))
-            ? Number((policyDetails as any).odGstAmount)
-            : undefined),
-      totalPremium: (policyDetails as any).totalPremium !== undefined && (policyDetails as any).totalPremium !== '' && !isNaN(Number((policyDetails as any).totalPremium))
-        ? Number((policyDetails as any).totalPremium)
-        : ((policyDetails as any).totalPremiumInclGST !== undefined && (policyDetails as any).totalPremiumInclGST !== '' && !isNaN(Number((policyDetails as any).totalPremiumInclGST))
-            ? Number((policyDetails as any).totalPremiumInclGST)
-            : ((policyDetails as any).finalPayableAmount !== undefined && (policyDetails as any).finalPayableAmount !== '' && !isNaN(Number((policyDetails as any).finalPayableAmount))
-                ? Number((policyDetails as any).finalPayableAmount)
+      odBasePremium: policyType === 'STANDALONE_OD'
+        ? saodOverrides?.odPremium
+        : ((policyDetails as any).odBasePremium !== undefined && (policyDetails as any).odBasePremium !== '' && !isNaN(Number((policyDetails as any).odBasePremium))
+            ? Number((policyDetails as any).odBasePremium)
+            : ((policyDetails as any).odPremium !== undefined && (policyDetails as any).odPremium !== '' && !isNaN(Number((policyDetails as any).odPremium))
+                ? Number((policyDetails as any).odPremium)
                 : undefined)),
+      ncbDiscount: policyType === 'STANDALONE_OD'
+        ? saodOverrides?.ncbDiscount
+        : ((policyDetails as any).ncbDiscountOverride !== undefined && (policyDetails as any).ncbDiscountOverride !== '' && !isNaN(Number((policyDetails as any).ncbDiscountOverride))
+            ? Number((policyDetails as any).ncbDiscountOverride)
+            : ((policyDetails as any).ncbDiscount !== undefined && (policyDetails as any).ncbDiscount !== '' && !isNaN(Number((policyDetails as any).ncbDiscount))
+                ? Number((policyDetails as any).ncbDiscount)
+                : ((policyDetails as any).ncbDiscountAmount !== undefined && (policyDetails as any).ncbDiscountAmount !== '' && !isNaN(Number((policyDetails as any).ncbDiscountAmount))
+                    ? Number((policyDetails as any).ncbDiscountAmount)
+                    : undefined))),
+      addonPremium: policyType === 'STANDALONE_OD'
+        ? saodOverrides?.addonPremium
+        : ((policyDetails as any).addonPremiumOverride !== undefined && (policyDetails as any).addonPremiumOverride !== '' && !isNaN(Number((policyDetails as any).addonPremiumOverride))
+            ? Number((policyDetails as any).addonPremiumOverride)
+            : ((policyDetails as any).addonPremium !== undefined && (policyDetails as any).addonPremium !== '' && !isNaN(Number((policyDetails as any).addonPremium))
+                ? Number((policyDetails as any).addonPremium)
+                : ((policyDetails as any).addOnsPremium !== undefined && (policyDetails as any).addOnsPremium !== '' && !isNaN(Number((policyDetails as any).addOnsPremium))
+                    ? Number((policyDetails as any).addOnsPremium)
+                    : undefined))),
+      netOdPremium: policyType === 'STANDALONE_OD'
+        ? saodOverrides?.netOdPremium
+        : ((policyDetails as any).netOdPremiumOverride !== undefined && (policyDetails as any).netOdPremiumOverride !== '' && !isNaN(Number((policyDetails as any).netOdPremiumOverride))
+            ? Number((policyDetails as any).netOdPremiumOverride)
+            : ((policyDetails as any).netOdPremium !== undefined && (policyDetails as any).netOdPremium !== '' && !isNaN(Number((policyDetails as any).netOdPremium))
+                ? Number((policyDetails as any).netOdPremium)
+                : ((policyDetails as any).odPremiumNet !== undefined && (policyDetails as any).odPremiumNet !== '' && !isNaN(Number((policyDetails as any).odPremiumNet))
+                    ? Number((policyDetails as any).odPremiumNet)
+                    : undefined))),
+      gstAmount: policyType === 'STANDALONE_OD'
+        ? saodOverrides?.gstAmount
+        : ((policyDetails as any).gstAmountOverride !== undefined && (policyDetails as any).gstAmountOverride !== '' && !isNaN(Number((policyDetails as any).gstAmountOverride))
+            ? Number((policyDetails as any).gstAmountOverride)
+            : ((policyDetails as any).gstAmount !== undefined && (policyDetails as any).gstAmount !== '' && !isNaN(Number((policyDetails as any).gstAmount))
+                ? Number((policyDetails as any).gstAmount)
+                : ((policyDetails as any).odGstAmount !== undefined && (policyDetails as any).odGstAmount !== '' && !isNaN(Number((policyDetails as any).odGstAmount))
+                    ? Number((policyDetails as any).odGstAmount)
+                    : undefined))),
+      totalPremiumOverride: policyType === 'STANDALONE_OD'
+        ? saodOverrides?.totalPremiumOverride
+        : ((policyDetails as any).totalPremiumOverride !== undefined && (policyDetails as any).totalPremiumOverride !== '' && !isNaN(Number((policyDetails as any).totalPremiumOverride))
+            ? Number((policyDetails as any).totalPremiumOverride)
+            : ((policyDetails as any).totalPremium !== undefined && (policyDetails as any).totalPremium !== '' && !isNaN(Number((policyDetails as any).totalPremium))
+                ? Number((policyDetails as any).totalPremium)
+                : ((policyDetails as any).totalPremiumInclGST !== undefined && (policyDetails as any).totalPremiumInclGST !== '' && !isNaN(Number((policyDetails as any).totalPremiumInclGST))
+                    ? Number((policyDetails as any).totalPremiumInclGST)
+                    : ((policyDetails as any).finalPayableAmount !== undefined && (policyDetails as any).finalPayableAmount !== '' && !isNaN(Number((policyDetails as any).finalPayableAmount))
+                        ? Number((policyDetails as any).finalPayableAmount)
+                        : undefined)))),
       overrides: Array.isArray((policyDetails as any).overrides)
         ? (policyDetails as any).overrides
         : (Array.isArray((dto as any).overrides) ? (dto as any).overrides : undefined),
@@ -602,6 +678,26 @@ export class CreateMotorQuotationCommand {
             createdById: user.id,
           },
         });
+
+        // Persist SAOD verification evidence against the quotation so the
+        // confirmed verifier, method, timestamps and TP details are auditable.
+        if (policyType === 'STANDALONE_OD') {
+          await tx.saodTpVerification.create({
+            data: {
+              quotationId: createdQuotation.id,
+              tpInsurer: saodVerification.tpInsurer,
+              tpPolicyNumber: saodVerification.tpPolicyNumber,
+              tpStartDate: new Date(saodVerification.tpStartDate),
+              tpExpiryDate: new Date(saodVerification.tpExpiryDate),
+              verificationStatus: 'VERIFIED',
+              verificationMethod: saodVerification.verificationMethod,
+              evidenceDocumentUrl: saodVerification.evidenceDocumentUrl || null,
+              verifierNotes: saodVerification.verifierNotes || null,
+              verifiedById: user.id,
+              verifiedAt: new Date(),
+            },
+          });
+        }
 
       // Bind journey 1:1
       if (journey) {

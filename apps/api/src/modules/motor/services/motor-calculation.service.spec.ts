@@ -214,6 +214,69 @@ describe('MotorCalculationService (Iteration 5 Financial Math)', () => {
   });
 
   describe('Validation & Edge Cases', () => {
+    it('rejects active TP cover whose start date is in the future', async () => {
+      const futureStart = new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+      const futureExpiry = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+      await expect(
+        service.calculate({
+          vehicleCategory: 'PRIVATE_CAR',
+          vehicleStatus: 'EXISTING',
+          policyType: 'STANDALONE_OD',
+          idv: 400000,
+          activeTpInsurer: 'TATA AIG',
+          activeTpPolicyNumber: 'TP-FUTURE-123',
+          activeTpStartDate: futureStart,
+          activeTpExpiryDate: futureExpiry,
+          activeTpVerificationMethod: 'POLICY_DOCUMENT',
+          activeTpVerificationStatus: 'VERIFIED' as const,
+          activeTpVerifiedByUserConfirmed: true,
+        }),
+      ).rejects.toMatchObject({
+        response: expect.objectContaining({
+          errorCode: 'ACTIVE_TP_NOT_YET_IN_FORCE',
+        }),
+      });
+    });
+
+    it('should reject SAOD calculation when active TP verification is not confirmed', async () => {
+      await expect(
+        service.calculate({
+          vehicleCategory: 'PRIVATE_CAR',
+          vehicleStatus: 'EXISTING',
+          policyType: 'STANDALONE_OD',
+          idv: 400000,
+          activeTpInsurer: 'TATA AIG',
+          activeTpPolicyNumber: 'TP-12345',
+          activeTpStartDate: '2026-01-01',
+          activeTpExpiryDate: '2028-12-31',
+          activeTpVerificationMethod: 'POLICY_DOCUMENT',
+          activeTpVerificationStatus: 'PENDING',
+          activeTpVerifiedByUserConfirmed: false,
+        }),
+      ).rejects.toMatchObject({
+        response: expect.objectContaining({
+          errorCode: 'ACTIVE_TP_VERIFICATION_REQUIRED',
+        }),
+      });
+    });
+
+    it('should reject SAOD calculation when active TP verification evidence is missing', async () => {
+      await expect(
+        service.calculate({
+          vehicleCategory: 'PRIVATE_CAR',
+          vehicleStatus: 'EXISTING',
+          policyType: 'STANDALONE_OD',
+          idv: 400000,
+          activeTpPolicyNumber: 'TP-12345',
+          activeTpExpiryDate: '2028-12-31',
+        }),
+      ).rejects.toMatchObject({
+        response: expect.objectContaining({
+          errorCode: 'ACTIVE_TP_DETAILS_REQUIRED',
+        }),
+      });
+    });
+
     it('should reject Standalone OD without active TP policy details', async () => {
       await expect(
         service.calculate({
@@ -263,6 +326,11 @@ describe('MotorCalculationService (Iteration 5 Financial Math)', () => {
           idv: 500000,
           activeTpPolicyNumber: 'TP-12345',
           activeTpExpiryDate: '2028-12-31',
+          activeTpInsurer: 'TATA AIG',
+                      activeTpStartDate: '2026-01-01',
+                      activeTpVerificationMethod: 'POLICY_DOCUMENT',
+                      activeTpVerificationStatus: 'VERIFIED' as const,
+                      activeTpVerifiedByUserConfirmed: true,
         }),
       ).rejects.toThrow('Standalone OD is not applicable for new vehicles');
     });
@@ -434,6 +502,11 @@ describe('MotorCalculationService (Iteration 5 Financial Math)', () => {
         odDiscountPercent: 10,
         activeTpPolicyNumber: 'TP-POL-998877',
         activeTpExpiryDate,
+        activeTpInsurer: 'TATA AIG',
+                    activeTpStartDate: '2026-01-01',
+                    activeTpVerificationMethod: 'POLICY_DOCUMENT',
+                    activeTpVerificationStatus: 'VERIFIED' as const,
+                    activeTpVerifiedByUserConfirmed: true,
       });
 
       expect(result.outputs.baseOdPremium).toBe(15635);
@@ -756,6 +829,29 @@ describe('MotorCalculationService (Iteration 5 Financial Math)', () => {
           editedTpPremium: -50,
         }),
       ).rejects.toThrow(BadRequestException);
+    });
+
+    it('preserves a manual Field 11 total premium override as the authoritative final payable', async () => {
+      const result: any = await service.calculate({
+        vehicleCategory: 'PRIVATE_CAR',
+        vehicleStatus: 'EXISTING',
+        policyType: 'PACKAGE_COMPREHENSIVE',
+        idv: 500000,
+        totalPremiumOverride: 7777,
+      });
+
+      expect(result.outputs.finalPayableAmount).toBe(7777);
+      expect(result.outputs.totalPremium).toBe(7777);
+      expect(result.outputs.isOverridden.totalPremium).toBe(true);
+      expect(result.outputs.overridesApplied).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            field: 'TOTAL_PREMIUM',
+            overrideValue: 7777,
+            status: 'APPLIED',
+          }),
+        ]),
+      );
     });
 
     it('WP-03: should fail-closed and reject unapproved GST rate (e.g. 12%)', async () => {
@@ -1154,6 +1250,11 @@ describe('MotorCalculationService (Iteration 5 Financial Math)', () => {
           odDiscountPercent: 10,
           activeTpPolicyNumber: 'POL-12345',
           activeTpExpiryDate: new Date(Date.now() + 180 * 86400000).toISOString(),
+          activeTpInsurer: 'TATA AIG',
+                      activeTpStartDate: '2026-01-01',
+                      activeTpVerificationMethod: 'POLICY_DOCUMENT',
+                      activeTpVerificationStatus: 'VERIFIED' as const,
+                      activeTpVerifiedByUserConfirmed: true,
         });
         expect(result.outputs.od.gross).toBe(1000);
         expect(result.outputs.od.specialDiscount).toBe(100);
@@ -1599,6 +1700,11 @@ describe('MotorCalculationService (Iteration 5 Financial Math)', () => {
               odPremiumAmount: 4500,
               activeTpPolicyNumber: 'TP-POL-12345',
               activeTpExpiryDate: new Date(Date.now() + 180 * 24 * 60 * 60 * 1000).toISOString(),
+              activeTpInsurer: 'TATA AIG',
+                          activeTpStartDate: '2026-01-01',
+                          activeTpVerificationMethod: 'POLICY_DOCUMENT',
+                          activeTpVerificationStatus: 'VERIFIED' as const,
+                          activeTpVerifiedByUserConfirmed: true,
             });
             const res2 = await service.calculate({
               vehicleCategory: 'PRIVATE_CAR',
@@ -1608,6 +1714,11 @@ describe('MotorCalculationService (Iteration 5 Financial Math)', () => {
               odPremiumAmount: 4500,
               activeTpPolicyNumber: 'TP-POL-12345',
               activeTpExpiryDate: new Date(Date.now() + 180 * 24 * 60 * 60 * 1000).toISOString(),
+              activeTpInsurer: 'TATA AIG',
+              activeTpStartDate: '2026-01-01',
+              activeTpVerificationMethod: 'POLICY_DOCUMENT',
+              activeTpVerificationStatus: 'VERIFIED' as const,
+              activeTpVerifiedByUserConfirmed: true,
             });
 
             expect(res1.outputs.baseOdPremium).toBe(4500);
@@ -1807,6 +1918,11 @@ describe('MotorCalculationService (Iteration 5 Financial Math)', () => {
               idv: 500000,
               activeTpPolicyNumber: 'TP-VALID-99999',
               activeTpExpiryDate: '2027-12-31',
+              activeTpInsurer: 'TATA AIG',
+                          activeTpStartDate: '2026-01-01',
+                          activeTpVerificationMethod: 'POLICY_DOCUMENT',
+                          activeTpVerificationStatus: 'VERIFIED' as const,
+                          activeTpVerifiedByUserConfirmed: true,
               odPremiumAmount: 8002,
               gstRate: 18,
             };
@@ -1944,6 +2060,11 @@ describe('MotorCalculationService (Iteration 5 Financial Math)', () => {
                 idv: 500000,
                 activeTpPolicyNumber: 'TP-VALID-99999',
                 activeTpExpiryDate: '2027-12-31',
+                activeTpInsurer: 'TATA AIG',
+                            activeTpStartDate: '2026-01-01',
+                            activeTpVerificationMethod: 'POLICY_DOCUMENT',
+                            activeTpVerificationStatus: 'VERIFIED' as const,
+                            activeTpVerifiedByUserConfirmed: true,
                 // No manual overrides provided — defaults to tariff
               });
               expect(res.outputs.isOverridden?.odBasePremium).toBe(false);

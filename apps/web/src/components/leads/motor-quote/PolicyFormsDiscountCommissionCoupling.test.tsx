@@ -499,6 +499,7 @@ describe('Work Package 2 & PR-01: Discount & Commission Decoupling Regression Su
               tpPolicyNumber: 'POL-123456',
               tpStartDate: '2026-01-01',
               tpExpiryDate: '2027-01-01',
+              verificationMethod: 'POLICY_DOCUMENT',
               verificationStatus: 'VERIFIED',
               verifiedByUserConfirmed: true,
             },
@@ -514,6 +515,67 @@ describe('Work Package 2 & PR-01: Discount & Commission Decoupling Regression Su
           activeTpExpiryDate: '2027-01-01',
         })
       );
+    });
+
+    it('does not submit active TP details to calculation until verification is confirmed', () => {
+      render(
+        <PolicyFormSAODForm
+          category="PRIVATE_CAR"
+          vehicleStatus="EXISTING"
+          data={{
+            insuredDeclaredValue: '500000',
+            tpVerification: {
+              tpInsurer: 'TATA AIG',
+              tpPolicyNumber: 'POL-123456',
+              tpStartDate: '2026-01-01',
+              tpExpiryDate: '2027-01-01',
+              verificationMethod: 'POLICY_DOCUMENT',
+              verificationStatus: 'PENDING',
+              verifiedByUserConfirmed: false,
+            },
+          } as any}
+          onChange={vi.fn()}
+        />
+      );
+
+      expect(useMotorCalculator).toHaveBeenCalledWith(
+        expect.objectContaining({
+          policyType: 'STANDALONE_OD',
+          activeTpPolicyNumber: undefined,
+          activeTpExpiryDate: undefined,
+        })
+      );
+    });
+
+    it('sends the Field 11 override through the backend canonical totalPremiumOverride field', () => {
+      render(
+        <PolicyFormSAODForm
+          category="PRIVATE_CAR"
+          vehicleStatus="EXISTING"
+          data={{
+            insuredDeclaredValue: '500000',
+            totalPremiumOverride: '7080',
+            tpVerification: {
+              tpInsurer: 'TATA AIG',
+              tpPolicyNumber: 'POL-123456',
+              tpStartDate: '2026-01-01',
+              tpExpiryDate: '2027-01-01',
+              verificationMethod: 'POLICY_DOCUMENT',
+              verificationStatus: 'VERIFIED',
+              verifiedByUserConfirmed: true,
+            },
+          } as any}
+          onChange={vi.fn()}
+        />
+      );
+
+      expect(useMotorCalculator).toHaveBeenCalledWith(
+        expect.objectContaining({
+          totalPremiumOverride: 7080,
+        })
+      );
+      const calculatorInput = vi.mocked(useMotorCalculator).mock.calls[0][0];
+      expect(calculatorInput).not.toHaveProperty('totalPremium');
     });
 
     it('invalidates TP verification (verifiedByUserConfirmed: false, PENDING) when agent edits TP fields', () => {
