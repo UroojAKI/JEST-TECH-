@@ -1180,23 +1180,28 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, customerId, caseId
                   />
                 )}
                 {policyType === 'SAOD' && (
-                  <div className="p-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 flex items-center justify-between gap-4">
+                  <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-3 space-y-3">
                     <div className="space-y-0.5">
                       <div className="text-xs font-bold text-emerald-700 dark:text-emerald-400 flex items-center gap-1.5">
                         <Shield className="h-4 w-4" />
-                        Active Third-Party Policy In Force (Verified)
+                        Active TP Policy Details (SAOD)
                       </div>
-                      <div className="text-[11px] text-muted-foreground font-mono">
-                        {saodForm.tpVerification?.tpInsurer} | Policy: {saodForm.tpVerification?.tpPolicyNumber} | Expiry: {saodForm.tpVerification?.tpExpiryDate}
-                      </div>
+                      <p className="text-[11px] text-muted-foreground">
+                        Edit these details here without leaving the quotation. Changes invalidate the previous verification and require confirmation again.
+                      </p>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => setStep(5)}
-                      className="text-xs text-primary hover:underline font-semibold shrink-0"
-                    >
-                      Edit TP Details
-                    </button>
+                    <SaodTpVerificationCard
+                      key="saod-active-tp-quotation"
+                      value={saodForm.tpVerification}
+                      onChange={(updated) => {
+                        setSaodForm((prev) => ({
+                          ...prev,
+                          tpVerification: updated,
+                          activeTPInsurerName: updated.tpInsurer,
+                          activeTPPolicyNumberValidity: `${updated.tpPolicyNumber} | Valid Till ${updated.tpExpiryDate}`,
+                        }));
+                      }}
+                    />
                   </div>
                 )}
                 {policyType === 'SAOD' && (
