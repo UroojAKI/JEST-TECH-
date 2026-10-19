@@ -1095,7 +1095,14 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, customerId, caseId
                         Enter and confirm the active Third-Party policy details below. Eligibility refreshes automatically after verification; no back-and-forth navigation is required.
                       </p>
                     </div>
-                    <RuleEngineResult result={ruleResult} isLoading={ruleLoading} onRetry={() => { void evaluateRules(); }} />
+                    {saodForm.tpVerification?.verificationStatus === 'VERIFIED' &&
+                    saodForm.tpVerification?.verifiedByUserConfirmed ? (
+                      <RuleEngineResult result={ruleResult} isLoading={ruleLoading} onRetry={() => { void evaluateRules(); }} />
+                    ) : (
+                      <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-800 dark:text-amber-300" role="status">
+                        Complete the active TP policy details and confirm verification to run SAOD eligibility checks and calculate the premium.
+                      </div>
+                    )}
                   </div>
                 )}
                 {policyType === 'SAOD' && (
@@ -1158,7 +1165,16 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, customerId, caseId
               <button
                 type="button"
                 onClick={handleSave}
-                disabled={isSaving}
+                disabled={
+                  isSaving ||
+                  !canProceed() ||
+                  (policyType === 'SAOD' && (
+                    ruleLoading ||
+                    !ruleResult ||
+                    ruleEvaluationKey !== JSON.stringify(buildRuleEvaluationPayload()) ||
+                    ruleResult.nextStep === 'TP_VERIFICATION'
+                  ))
+                }
                 className="flex items-center gap-2 px-5 py-2 rounded-md bg-primary text-primary-foreground font-medium text-sm hover:bg-primary/90 disabled:opacity-50 transition-colors focus:outline-none focus:ring-2 focus:ring-primary/50"
               >
                 {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
