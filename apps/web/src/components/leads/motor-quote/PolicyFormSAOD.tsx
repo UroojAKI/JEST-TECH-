@@ -418,13 +418,14 @@ export function PolicyFormSAODForm({ category, vehicleStatus, data, onChange, el
 
           <OverrideFieldCard
             label="Discount (%)"
-            status={data.discountPercent !== undefined && data.discountPercent !== '' ? 'MANUAL' : (hasValidCalculation ? 'CALCULATED' : 'PENDING')}
+            status={data.discountPercent !== undefined && data.discountPercent !== '' ? 'MANUAL' : 'CALCULATED'}
             value={data.discountPercent ?? ''}
             onChange={handleDiscountPercentChange}
             onReset={() => onChange({ ...data, discountPercent: '', odDiscountPercent: '' })}
             hint="Enter OD discount percentage; the discount amount is calculated by the server."
             placeholder="e.g. 10"
-            inputType="number"
+            min={0}
+            step={0.5}
           />
 
           <OverrideFieldCard
