@@ -103,6 +103,11 @@ describe('PR-04: Versioned Tariff Master & Fail-Closed Enforcement (D-04, T-06)'
       ncbPercent: 20,
       activeTpPolicyNumber: 'TP-123456789',
       activeTpExpiryDate: '2027-12-31',
+      activeTpInsurer: 'TATA AIG',
+      activeTpStartDate: '2026-01-01',
+      activeTpVerificationMethod: 'POLICY_DOCUMENT',
+      activeTpVerificationStatus: 'VERIFIED' as const,
+      activeTpVerifiedByUserConfirmed: true,
     });
 
     expect(tariffService.lookupTpTariff).not.toHaveBeenCalled();

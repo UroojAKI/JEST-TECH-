@@ -145,6 +145,11 @@ describe('Phase 9: 24-Flow Comprehensive Matrix Suite (8 Categories × 3 Policy 
             ncbPercent: 20,
             activeTpPolicyNumber: 'TP-POL-998877',
             activeTpExpiryDate: activeTpExpiry,
+            activeTpInsurer: 'TATA AIG',
+            activeTpStartDate: '2026-01-01',
+            activeTpVerificationMethod: 'POLICY_DOCUMENT',
+            activeTpVerificationStatus: 'VERIFIED' as const,
+            activeTpVerifiedByUserConfirmed: true,
           });
 
           expect(calcResult.outputs.baseOdPremium).toBeGreaterThan(0);

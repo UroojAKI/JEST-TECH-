@@ -1714,6 +1714,11 @@ describe('MotorCalculationService (Iteration 5 Financial Math)', () => {
               odPremiumAmount: 4500,
               activeTpPolicyNumber: 'TP-POL-12345',
               activeTpExpiryDate: new Date(Date.now() + 180 * 24 * 60 * 60 * 1000).toISOString(),
+              activeTpInsurer: 'TATA AIG',
+              activeTpStartDate: '2026-01-01',
+              activeTpVerificationMethod: 'POLICY_DOCUMENT',
+              activeTpVerificationStatus: 'VERIFIED' as const,
+              activeTpVerifiedByUserConfirmed: true,
             });
 
             expect(res1.outputs.baseOdPremium).toBe(4500);
