@@ -259,9 +259,7 @@
     "controller": "UpdateConfigDto",
     "file": "apps/api/src/modules/administration/controllers/system-config/system-config.controller.ts",
     "hasRolesGuard": true,
-    "roles": [
-      "ADMIN"
-    ],
+    "roles": [],
     "hasTenantScope": true
   },
   {
@@ -306,9 +304,7 @@
     "controller": "UpdateConfigDto",
     "file": "apps/api/src/modules/administration/controllers/system-config/system-config.controller.ts",
     "hasRolesGuard": true,
-    "roles": [
-      "ADMIN"
-    ],
+    "roles": [],
     "hasTenantScope": true
   },
   {
@@ -481,7 +477,7 @@
     "file": "apps/api/src/modules/bi/dashboards/services/dashboard-analytics/dashboard-analytics.controller.ts",
     "hasRolesGuard": true,
     "roles": [],
-    "hasTenantScope": false
+    "hasTenantScope": true
   },
   {
     "method": "GET",
@@ -494,7 +490,7 @@
       "BACK_OFFICE",
       "ADMIN"
     ],
-    "hasTenantScope": false
+    "hasTenantScope": true
   },
   {
     "method": "GET",
@@ -506,7 +502,7 @@
       "BACK_OFFICE",
       "ADMIN"
     ],
-    "hasTenantScope": false
+    "hasTenantScope": true
   },
   {
     "method": "GET",
@@ -944,7 +940,6 @@
     "file": "apps/api/src/modules/customer/communication/controllers/communication.controller.ts",
     "hasRolesGuard": true,
     "roles": [
-      "ADMIN",
       "ADMIN"
     ],
     "hasTenantScope": false
@@ -969,6 +964,15 @@
       "BACK_OFFICE",
       "AGENT"
     ],
+    "hasTenantScope": false
+  },
+  {
+    "method": "POST",
+    "path": "/customer-360/:id/notes",
+    "controller": "Customer360Controller",
+    "file": "apps/api/src/modules/customer/customer-360/services/customer-360/customer-360.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
     "hasTenantScope": false
   },
   {
@@ -1218,7 +1222,6 @@
     "file": "apps/api/src/modules/dashboard-registry/controllers/dashboard-registry.controller.ts",
     "hasRolesGuard": true,
     "roles": [
-      "ADMIN",
       "ADMIN"
     ],
     "hasTenantScope": false
@@ -1466,6 +1469,15 @@
   },
   {
     "method": "GET",
+    "path": "/finance/accounts",
+    "controller": "FinanceController",
+    "file": "apps/api/src/modules/finance/controllers/finance.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": true
+  },
+  {
+    "method": "GET",
     "path": "/finance/ledger",
     "controller": "FinanceController",
     "file": "apps/api/src/modules/finance/controllers/finance.controller.ts",
@@ -1513,6 +1525,15 @@
     "hasTenantScope": true
   },
   {
+    "method": "POST",
+    "path": "/finance/settlements",
+    "controller": "FinanceController",
+    "file": "apps/api/src/modules/finance/controllers/finance.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": true
+  },
+  {
     "method": "GET",
     "path": "/finance/incentives",
     "controller": "FinanceController",
@@ -1552,8 +1573,8 @@
     "hasTenantScope": true
   },
   {
-    "method": "POST",
-    "path": "/finance/invoices/:id/pay",
+    "method": "GET",
+    "path": "/finance/invoices/outstanding",
     "controller": "FinanceController",
     "file": "apps/api/src/modules/finance/controllers/finance.controller.ts",
     "hasRolesGuard": true,
@@ -1561,6 +1582,15 @@
       "ADMIN",
       "BACK_OFFICE"
     ],
+    "hasTenantScope": true
+  },
+  {
+    "method": "POST",
+    "path": "/finance/invoices/:id/pay",
+    "controller": "FinanceController",
+    "file": "apps/api/src/modules/finance/controllers/finance.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
     "hasTenantScope": true
   },
   {
@@ -1811,6 +1841,15 @@
     "controller": "MotorCalculationController",
     "file": "apps/api/src/modules/motor/controllers/motor-calculation.controller.ts",
     "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": false
+  },
+  {
+    "method": "POST",
+    "path": "/motor/calculate/override",
+    "controller": "MotorCalculationController",
+    "file": "apps/api/src/modules/motor/controllers/motor-calculation.controller.ts",
+    "hasRolesGuard": true,
     "roles": [
       "ADMIN",
       "BACK_OFFICE",
@@ -2041,6 +2080,15 @@
   {
     "method": "POST",
     "path": "/motor/quotes/:id/finalize",
+    "controller": "MotorQuoteController",
+    "file": "apps/api/src/modules/motor/controllers/motor-quote.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": true
+  },
+  {
+    "method": "POST",
+    "path": "/motor/quotes/:id/accept",
     "controller": "MotorQuoteController",
     "file": "apps/api/src/modules/motor/controllers/motor-quote.controller.ts",
     "hasRolesGuard": true,
@@ -2411,7 +2459,7 @@
   },
   {
     "method": "GET",
-    "path": "/motor/vehicles/rto",
+    "path": "/[rto,rtos]",
     "controller": "VehicleMasterController",
     "file": "apps/api/src/modules/motor-admin/controllers/vehicle-master.controller.ts",
     "hasRolesGuard": true,
@@ -2420,7 +2468,7 @@
   },
   {
     "method": "GET",
-    "path": "/motor/vehicles/rto/:code",
+    "path": "/[rto/:code,rtos/:code]",
     "controller": "VehicleMasterController",
     "file": "apps/api/src/modules/motor-admin/controllers/vehicle-master.controller.ts",
     "hasRolesGuard": true,
@@ -2429,7 +2477,7 @@
   },
   {
     "method": "POST",
-    "path": "/motor/vehicles/rto",
+    "path": "/rto",
     "controller": "VehicleMasterController",
     "file": "apps/api/src/modules/motor-admin/controllers/vehicle-master.controller.ts",
     "hasRolesGuard": true,
@@ -2438,7 +2486,7 @@
   },
   {
     "method": "PUT",
-    "path": "/motor/vehicles/rto/:id",
+    "path": "/rto/:id",
     "controller": "VehicleMasterController",
     "file": "apps/api/src/modules/motor-admin/controllers/vehicle-master.controller.ts",
     "hasRolesGuard": true,
@@ -2449,7 +2497,7 @@
   },
   {
     "method": "DELETE",
-    "path": "/motor/vehicles/rto/:id",
+    "path": "/rto/:id",
     "controller": "VehicleMasterController",
     "file": "apps/api/src/modules/motor-admin/controllers/vehicle-master.controller.ts",
     "hasRolesGuard": true,
@@ -2460,7 +2508,7 @@
   },
   {
     "method": "GET",
-    "path": "/motor/vehicles/manufacturers",
+    "path": "/manufacturers",
     "controller": "VehicleMasterController",
     "file": "apps/api/src/modules/motor-admin/controllers/vehicle-master.controller.ts",
     "hasRolesGuard": true,
@@ -2471,7 +2519,7 @@
   },
   {
     "method": "POST",
-    "path": "/motor/vehicles/manufacturers",
+    "path": "/manufacturers",
     "controller": "VehicleMasterController",
     "file": "apps/api/src/modules/motor-admin/controllers/vehicle-master.controller.ts",
     "hasRolesGuard": true,
@@ -2480,7 +2528,7 @@
   },
   {
     "method": "GET",
-    "path": "/motor/vehicles/models",
+    "path": "/models",
     "controller": "VehicleMasterController",
     "file": "apps/api/src/modules/motor-admin/controllers/vehicle-master.controller.ts",
     "hasRolesGuard": true,
@@ -2491,7 +2539,7 @@
   },
   {
     "method": "POST",
-    "path": "/motor/vehicles/models",
+    "path": "/models",
     "controller": "VehicleMasterController",
     "file": "apps/api/src/modules/motor-admin/controllers/vehicle-master.controller.ts",
     "hasRolesGuard": true,
@@ -2500,7 +2548,7 @@
   },
   {
     "method": "GET",
-    "path": "/motor/vehicles/variants",
+    "path": "/variants",
     "controller": "VehicleMasterController",
     "file": "apps/api/src/modules/motor-admin/controllers/vehicle-master.controller.ts",
     "hasRolesGuard": true,
@@ -2509,7 +2557,7 @@
   },
   {
     "method": "POST",
-    "path": "/motor/vehicles/variants",
+    "path": "/variants",
     "controller": "VehicleMasterController",
     "file": "apps/api/src/modules/motor-admin/controllers/vehicle-master.controller.ts",
     "hasRolesGuard": true,
@@ -2518,7 +2566,7 @@
   },
   {
     "method": "POST",
-    "path": "/motor/vehicles/variants/import",
+    "path": "/variants/import",
     "controller": "VehicleMasterController",
     "file": "apps/api/src/modules/motor-admin/controllers/vehicle-master.controller.ts",
     "hasRolesGuard": true,
@@ -2527,7 +2575,7 @@
   },
   {
     "method": "GET",
-    "path": "/motor-quotations/compare",
+    "path": "/compare",
     "controller": "MotorQuotationsController",
     "file": "apps/api/src/modules/motor-quotations/motor-quotations.controller.ts",
     "hasRolesGuard": true,
@@ -2536,7 +2584,7 @@
   },
   {
     "method": "GET",
-    "path": "/motor-quotations",
+    "path": "/",
     "controller": "MotorQuotationsController",
     "file": "apps/api/src/modules/motor-quotations/motor-quotations.controller.ts",
     "hasRolesGuard": true,
@@ -2545,7 +2593,7 @@
   },
   {
     "method": "GET",
-    "path": "/motor-quotations/:id",
+    "path": "/:id",
     "controller": "MotorQuotationsController",
     "file": "apps/api/src/modules/motor-quotations/motor-quotations.controller.ts",
     "hasRolesGuard": true,
@@ -2558,7 +2606,7 @@
   },
   {
     "method": "POST",
-    "path": "/motor-quotations",
+    "path": "/",
     "controller": "MotorQuotationsController",
     "file": "apps/api/src/modules/motor-quotations/motor-quotations.controller.ts",
     "hasRolesGuard": true,
@@ -2567,7 +2615,16 @@
   },
   {
     "method": "POST",
-    "path": "/motor-quotations/:id/accept",
+    "path": "/:id/customer-acceptance",
+    "controller": "MotorQuotationsController",
+    "file": "apps/api/src/modules/motor-quotations/motor-quotations.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": false
+  },
+  {
+    "method": "POST",
+    "path": "/:id/accept",
     "controller": "MotorQuotationsController",
     "file": "apps/api/src/modules/motor-quotations/motor-quotations.controller.ts",
     "hasRolesGuard": true,
@@ -2608,7 +2665,6 @@
     "file": "apps/api/src/modules/organization/controllers/organization.controller.ts",
     "hasRolesGuard": true,
     "roles": [
-      "ADMIN",
       "ADMIN"
     ],
     "hasTenantScope": false
@@ -2620,7 +2676,6 @@
     "file": "apps/api/src/modules/organization/controllers/organization.controller.ts",
     "hasRolesGuard": true,
     "roles": [
-      "ADMIN",
       "ADMIN"
     ],
     "hasTenantScope": false
@@ -2632,7 +2687,6 @@
     "file": "apps/api/src/modules/organization/controllers/organization.controller.ts",
     "hasRolesGuard": true,
     "roles": [
-      "ADMIN",
       "ADMIN"
     ],
     "hasTenantScope": false
@@ -2662,7 +2716,6 @@
     "file": "apps/api/src/modules/organization/controllers/organization.controller.ts",
     "hasRolesGuard": true,
     "roles": [
-      "ADMIN",
       "ADMIN"
     ],
     "hasTenantScope": false
@@ -2674,7 +2727,6 @@
     "file": "apps/api/src/modules/organization/controllers/organization.controller.ts",
     "hasRolesGuard": true,
     "roles": [
-      "ADMIN",
       "ADMIN"
     ],
     "hasTenantScope": false
@@ -2686,7 +2738,6 @@
     "file": "apps/api/src/modules/organization/controllers/organization.controller.ts",
     "hasRolesGuard": true,
     "roles": [
-      "ADMIN",
       "ADMIN"
     ],
     "hasTenantScope": false
@@ -2697,9 +2748,7 @@
     "controller": "AuditController",
     "file": "apps/api/src/modules/platform/audit/controllers/audit.controller.ts",
     "hasRolesGuard": true,
-    "roles": [
-      "ADMIN"
-    ],
+    "roles": [],
     "hasTenantScope": true
   },
   {
@@ -2731,7 +2780,7 @@
       "BACK_OFFICE",
       "AGENT"
     ],
-    "hasTenantScope": false
+    "hasTenantScope": true
   },
   {
     "method": "GET",
@@ -2740,7 +2789,7 @@
     "file": "apps/api/src/modules/platform/notifications/controllers/notifications.controller.ts",
     "hasRolesGuard": true,
     "roles": [],
-    "hasTenantScope": false
+    "hasTenantScope": true
   },
   {
     "method": "GET",
@@ -2749,7 +2798,7 @@
     "file": "apps/api/src/modules/platform/notifications/controllers/notifications.controller.ts",
     "hasRolesGuard": true,
     "roles": [],
-    "hasTenantScope": false
+    "hasTenantScope": true
   },
   {
     "method": "GET",
@@ -2758,7 +2807,7 @@
     "file": "apps/api/src/modules/platform/notifications/controllers/notifications.controller.ts",
     "hasRolesGuard": true,
     "roles": [],
-    "hasTenantScope": false
+    "hasTenantScope": true
   },
   {
     "method": "PUT",
@@ -2767,7 +2816,7 @@
     "file": "apps/api/src/modules/platform/notifications/controllers/notifications.controller.ts",
     "hasRolesGuard": true,
     "roles": [],
-    "hasTenantScope": false
+    "hasTenantScope": true
   },
   {
     "method": "GET",
@@ -2776,7 +2825,7 @@
     "file": "apps/api/src/modules/platform/notifications/controllers/notifications.controller.ts",
     "hasRolesGuard": true,
     "roles": [],
-    "hasTenantScope": false
+    "hasTenantScope": true
   },
   {
     "method": "GET",
@@ -2785,7 +2834,7 @@
     "file": "apps/api/src/modules/platform/notifications/controllers/notifications.controller.ts",
     "hasRolesGuard": true,
     "roles": [],
-    "hasTenantScope": false
+    "hasTenantScope": true
   },
   {
     "method": "PATCH",
@@ -2794,7 +2843,7 @@
     "file": "apps/api/src/modules/platform/notifications/controllers/notifications.controller.ts",
     "hasRolesGuard": true,
     "roles": [],
-    "hasTenantScope": false
+    "hasTenantScope": true
   },
   {
     "method": "PATCH",
@@ -2803,7 +2852,7 @@
     "file": "apps/api/src/modules/platform/notifications/controllers/notifications.controller.ts",
     "hasRolesGuard": true,
     "roles": [],
-    "hasTenantScope": false
+    "hasTenantScope": true
   },
   {
     "method": "DELETE",
@@ -2812,7 +2861,7 @@
     "file": "apps/api/src/modules/platform/notifications/controllers/notifications.controller.ts",
     "hasRolesGuard": true,
     "roles": [],
-    "hasTenantScope": false
+    "hasTenantScope": true
   },
   {
     "method": "GET",
@@ -2821,7 +2870,7 @@
     "file": "apps/api/src/modules/platform/notifications/controllers/notifications.controller.ts",
     "hasRolesGuard": true,
     "roles": [],
-    "hasTenantScope": false
+    "hasTenantScope": true
   },
   {
     "method": "PATCH",
@@ -2830,7 +2879,7 @@
     "file": "apps/api/src/modules/platform/notifications/controllers/notifications.controller.ts",
     "hasRolesGuard": true,
     "roles": [],
-    "hasTenantScope": false
+    "hasTenantScope": true
   },
   {
     "method": "GET",
@@ -3543,6 +3592,15 @@
     "hasTenantScope": true
   },
   {
+    "method": "GET",
+    "path": "/renewals/policies/:policyId/quote-prefill",
+    "controller": "RenewalsController",
+    "file": "apps/api/src/modules/policies/controllers/renewals.controller.ts",
+    "hasRolesGuard": true,
+    "roles": [],
+    "hasTenantScope": true
+  },
+  {
     "method": "POST",
     "path": "/renewals/tasks/:id/quote",
     "controller": "RenewalsController",
@@ -3788,7 +3846,7 @@
   },
   {
     "method": "POST",
-    "path": "/quotations/:id/accept",
+    "path": "/quotations/[:id/accept,:id/customer-acceptance]",
     "controller": "QuotationController",
     "file": "apps/api/src/modules/quotation/controllers/quotation.controller.ts",
     "hasRolesGuard": true,

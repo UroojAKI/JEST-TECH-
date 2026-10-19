@@ -18,7 +18,10 @@
     "check:api-contracts": "tsx scripts/verify-api-contracts.ts",
     "migrate:case-status": "tsx scripts/migrate-motor-case-status.ts",
     "rollback:case-status": "tsx scripts/rollback-motor-case-status.ts",
-    "backfill:task-case-ids": "tsx scripts/backfill-task-case-ids.ts"
+    "backfill:task-case-ids": "tsx scripts/backfill-task-case-ids.ts",
+    "clean:test-data": "tsx scripts/clean-test-data.ts",
+    "clean:test-data:apply": "tsx scripts/clean-test-data.ts --apply",
+    "motor:migrate": "tsx scripts/motor-migration-01.ts"
   },
   "devDependencies": {
     "@playwright/test": "^1.63.0",

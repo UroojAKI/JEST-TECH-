@@ -12,7 +12,7 @@
     "file": "apps/api/src/common/certification/prod-022-evidence-matrix.spec.ts",
     "testCount": 3,
     "describes": [
-      "PROD-022: Authoritative Release Certification Evidence Matrix"
+      "PROD-022: Historical Release Certification Evidence Matrix"
     ],
     "module": "common/certification"
   },
@@ -126,6 +126,30 @@
     "module": "common/utils"
   },
   {
+    "file": "apps/api/src/common/utils/distributed-lock.util.spec.ts",
+    "testCount": 4,
+    "describes": [
+      "withDistributedLock"
+    ],
+    "module": "common/utils"
+  },
+  {
+    "file": "apps/api/src/common/utils/formula-evaluator.util.spec.ts",
+    "testCount": 6,
+    "describes": [
+      "evaluateSafeFormula (SEC-008)"
+    ],
+    "module": "common/utils"
+  },
+  {
+    "file": "apps/api/src/common/utils/identity.util.spec.ts",
+    "testCount": 4,
+    "describes": [
+      "IdentityUtil (RFC 9562 UUIDv7)"
+    ],
+    "module": "common/utils"
+  },
+  {
     "file": "apps/api/src/common/utils/optimistic-lock.spec.ts",
     "testCount": 4,
     "describes": [
@@ -232,7 +256,7 @@
   },
   {
     "file": "apps/api/src/modules/bi/dashboards/services/dashboard-analytics/dashboard-analytics.service.spec.ts",
-    "testCount": 3,
+    "testCount": 6,
     "describes": [
       "DashboardAnalyticsService",
       "getSalesMetrics",
@@ -264,11 +288,15 @@
   },
   {
     "file": "apps/api/src/modules/business-intelligence/tests/bi.service.spec.ts",
-    "testCount": 8,
+    "testCount": 19,
     "describes": [
       "BiService & KpiService (Wave 7 Tenancy Isolation)",
       "getConversionMetrics",
+      "getRevenueMetrics",
+      "getLossRatioMetrics",
+      "getRenewalMetrics",
       "getSalesMetrics",
+      "getGrowthMetrics",
       "getKpiValues",
       "KpiService (Wave 7 Tenancy Isolation)"
     ],
@@ -309,7 +337,7 @@
   },
   {
     "file": "apps/api/src/modules/claims/tests/claims.controller.spec.ts",
-    "testCount": 10,
+    "testCount": 11,
     "describes": [
       "ClaimsController",
       "Happy Path",
@@ -349,10 +377,11 @@
   },
   {
     "file": "apps/api/src/modules/customer/customer-360/services/customer-360/customer-360.service.spec.ts",
-    "testCount": 6,
+    "testCount": 8,
     "describes": [
       "Customer360Service (Wave 7 Tenancy & PII Protection)",
-      "getCustomer360"
+      "getCustomer360",
+      "addCustomerNote"
     ],
     "module": "customer"
   },
@@ -432,7 +461,7 @@
   },
   {
     "file": "apps/api/src/modules/finance/commission/services/commission-engine/commission-engine.service.spec.ts",
-    "testCount": 2,
+    "testCount": 3,
     "describes": [
       "CommissionEngineService",
       "accrueCommissions",
@@ -441,8 +470,20 @@
     "module": "finance"
   },
   {
+    "file": "apps/api/src/modules/finance/controllers/finance.controller.spec.ts",
+    "testCount": 6,
+    "describes": [
+      "FinanceController",
+      "getChartOfAccounts",
+      "approveCommission",
+      "getPayments",
+      "createSettlementBatch"
+    ],
+    "module": "finance"
+  },
+  {
     "file": "apps/api/src/modules/finance/revenue/services/payment/payment.service.spec.ts",
-    "testCount": 4,
+    "testCount": 5,
     "describes": [
       "PaymentService"
     ],
@@ -456,6 +497,14 @@
       "getReconciliationQueue",
       "reconcilePayment",
       "flagDiscrepancy"
+    ],
+    "module": "finance"
+  },
+  {
+    "file": "apps/api/src/modules/finance/services/settlement.service.spec.ts",
+    "testCount": 5,
+    "describes": [
+      "SettlementService"
     ],
     "module": "finance"
   },
@@ -553,6 +602,14 @@
     "module": "leads"
   },
   {
+    "file": "apps/api/src/modules/motor/controllers/motor-rules-evaluate.controller.spec.ts",
+    "testCount": 4,
+    "describes": [
+      "MotorRulesEvaluateController SAOD TP verification"
+    ],
+    "module": "motor"
+  },
+  {
     "file": "apps/api/src/modules/motor/motor.controller.spec.ts",
     "testCount": 4,
     "describes": [
@@ -562,11 +619,17 @@
   },
   {
     "file": "apps/api/src/modules/motor/services/motor-calculation.service.spec.ts",
-    "testCount": 18,
+    "testCount": 81,
     "describes": [
       "MotorCalculationService (Iteration 5 Financial Math)",
       "Comprehensive Private Car Calculation",
-      "Validation & Edge Cases"
+      "Validation & Edge Cases",
+      "Mandatory Financial Correction & Reconciliation Regression Tests (Oct 17 Audit)",
+      "Phase 9.1: Deterministic Financial Fixture & Phase 9.2 Regression Matrix",
+      "Phase 2/3/4 Direct Rupees & High IDV Suite",
+      "Phase 10: Complete OD Rate Removal & Canonical Contract Verification",
+      "Final Motor Quotation Plan: SAOD, TP Tenure, TP Add-ons, Signed Commercial Adjustment",
+      "Phase 11: Explicit 6-Field Overrides and Recalculation Chain"
     ],
     "module": "motor"
   },
@@ -591,10 +654,12 @@
   },
   {
     "file": "apps/api/src/modules/motor/services/motor-inspection.service.spec.ts",
-    "testCount": 21,
+    "testCount": 29,
     "describes": [
+      "MotorInspectionController role contract",
       "MotorInspectionService (Production State Machine & Role Segregation)",
       "State Machine Transitions (validateTransition)",
+      "Agent contribution authorization",
       "submitForReview",
       "approveInspection",
       "rejectInspection & waiveInspection",
@@ -615,7 +680,7 @@
   },
   {
     "file": "apps/api/src/modules/motor/services/motor-payment-tracking.service.spec.ts",
-    "testCount": 14,
+    "testCount": 17,
     "describes": [
       "MotorPaymentTrackingService & Reconciliation (Iteration 7)",
       "recordPayment",
@@ -633,7 +698,7 @@
   },
   {
     "file": "apps/api/src/modules/motor/services/motor-policy-issuance.service.spec.ts",
-    "testCount": 14,
+    "testCount": 16,
     "describes": [
       "MotorPolicyIssuanceService (Iteration 8)",
       "issuePolicy"
@@ -706,13 +771,14 @@
   },
   {
     "file": "apps/api/src/modules/motor/services/vehicle-data.service.spec.ts",
-    "testCount": 17,
+    "testCount": 22,
     "describes": [
       "VehicleDataService (R4 Integrity)",
       "normalizeRegistrationNumber",
       "validateVehicleSpecs (8 IRDAI Categories)",
       "upsertVehicle",
-      "recordVerificationAttempt (ACCEPT-REG-01 to ACCEPT-REG-04)"
+      "recordVerificationAttempt (ACCEPT-REG-01 to ACCEPT-REG-04)",
+      "Tractor Trailer Fields Persistence (Section 11.2, PR-08)"
     ],
     "module": "motor"
   },
@@ -729,6 +795,17 @@
     "module": "motor"
   },
   {
+    "file": "apps/api/src/modules/motor/tests/motor-acceptance-issuance-lifecycle.spec.ts",
+    "testCount": 3,
+    "describes": [
+      "PR-07: Quote Revisions, Customer Acceptance & Policy Issuance Gates (D-01, T-11, T-12, T-13)",
+      "T-11: Quote Revision & Prior Acceptance Invalidation",
+      "T-12: Customer Acceptance Recording",
+      "T-13: Policy Issuance Delegation"
+    ],
+    "module": "motor"
+  },
+  {
     "file": "apps/api/src/modules/motor/tests/motor-e2e-department-workflow.spec.ts",
     "testCount": 6,
     "describes": [
@@ -738,13 +815,27 @@
     "module": "motor"
   },
   {
+    "file": "apps/api/src/modules/motor/tests/motor-inspection-journey.db.spec.ts",
+    "testCount": 1,
+    "describes": [],
+    "module": "motor"
+  },
+  {
     "file": "apps/api/src/modules/motor/tests/motor-migration.spec.ts",
-    "testCount": 5,
+    "testCount": 6,
     "describes": [
       "Phase 32: MotorQuotation Migration & Financial Graph Reconciliation (MOTOR-MIGRATION-01)",
       "Policy Deduplication (MIGRATION-POLICY-01..03)",
       "Zero Orphan Invariant Assertion",
       "Full Migration Execution & Financial Reconciliation"
+    ],
+    "module": "motor"
+  },
+  {
+    "file": "apps/api/src/modules/motor/tests/motor-pricing-contract.spec.ts",
+    "testCount": 4,
+    "describes": [
+      "PR-02: Pricing & Configuration Contracts Parity & Validation"
     ],
     "module": "motor"
   },
@@ -755,6 +846,24 @@
       "Phase 8: Motor Security & Financial Tampering Gates",
       "BOLA / IDOR Cross-Tenant Isolation",
       "Financial Tampering Prevention & Server Authority"
+    ],
+    "module": "motor"
+  },
+  {
+    "file": "apps/api/src/modules/motor/tests/motor-tariff-fail-closed.spec.ts",
+    "testCount": 4,
+    "describes": [
+      "PR-04: Versioned Tariff Master & Fail-Closed Enforcement (D-04, T-06)"
+    ],
+    "module": "motor"
+  },
+  {
+    "file": "apps/api/src/modules/motor/tests/motor-tax-override-security.spec.ts",
+    "testCount": 3,
+    "describes": [
+      "PR-05: Controlled Tax/Tariff Override Security & Role Enforcement (D-03, T-08, T-09)",
+      "T-08: Role enforcement on calculate vs override",
+      "T-08 & T-09: calculateWithOverride validation and audit trail"
     ],
     "module": "motor"
   },
@@ -792,13 +901,22 @@
     "module": "motor-quotations"
   },
   {
+    "file": "apps/api/src/modules/platform/audit/controllers/audit.controller.spec.ts",
+    "testCount": 5,
+    "describes": [
+      "AuditController (Phase 1 / DEF-024 Tenant Isolation)",
+      "resolveAuditAccess & getAuditLogs"
+    ],
+    "module": "platform"
+  },
+  {
     "file": "apps/api/src/modules/platform/audit/services/audit.service.spec.ts",
-    "testCount": 4,
+    "testCount": 13,
     "describes": [
       "AuditService (G022 Transactional & G023 Immutable Audit Trails)",
       "logInTransaction (G022)",
       "assertImmutableOperation (G023)",
-      "getAuditLogs"
+      "getAuditLogs & exportAuditLogs Multi-Tenant Isolation (Phase 1 / DEF-024)"
     ],
     "module": "platform"
   },
@@ -820,7 +938,7 @@
   },
   {
     "file": "apps/api/src/modules/platform/integrations/webhooks/controllers/webhook-gateway/webhook-gateway.controller.spec.ts",
-    "testCount": 5,
+    "testCount": 8,
     "describes": [
       "WebhookGatewayController"
     ],
@@ -868,6 +986,14 @@
     "module": "platform"
   },
   {
+    "file": "apps/api/src/modules/platform/portal/controllers/portal.controller.spec.ts",
+    "testCount": 2,
+    "describes": [
+      "PortalController tenant scoping"
+    ],
+    "module": "platform"
+  },
+  {
     "file": "apps/api/src/modules/platform/queue/workers/notification.worker.spec.ts",
     "testCount": 3,
     "describes": [
@@ -880,6 +1006,14 @@
     "testCount": 3,
     "describes": [
       "RenewalWorker Spec"
+    ],
+    "module": "platform"
+  },
+  {
+    "file": "apps/api/src/modules/platform/rate-limiting/guards/custom-throttler.guard.spec.ts",
+    "testCount": 3,
+    "describes": [
+      "CustomThrottlerGuard"
     ],
     "module": "platform"
   },
@@ -905,7 +1039,7 @@
   },
   {
     "file": "apps/api/src/modules/platform/workflow/services/workflow-engine.service.spec.ts",
-    "testCount": 2,
+    "testCount": 4,
     "describes": [
       "WorkflowEngineService"
     ],
@@ -953,13 +1087,15 @@
   },
   {
     "file": "apps/api/src/modules/policies/services/renewal-engine.service.spec.ts",
-    "testCount": 6,
+    "testCount": 14,
     "describes": [
       "RenewalEngineService (Iteration 10)",
       "calculateNextNCBSlab",
       "findPoliciesRequiringRenewal",
       "createRenewalRecord",
       "getRenewalQueue",
+      "calculateStatutoryDepreciation & calculateRevisedIdv",
+      "calculateRenewalPricing",
       "triggerManualReminder"
     ],
     "module": "policies"
@@ -1011,8 +1147,16 @@
     "module": "quotation"
   },
   {
+    "file": "apps/api/src/modules/quotation/engine/premium.service.spec.ts",
+    "testCount": 1,
+    "describes": [
+      "PremiumService"
+    ],
+    "module": "quotation"
+  },
+  {
     "file": "apps/api/src/modules/quotation/services/commands/accept-quotation.service.spec.ts",
-    "testCount": 3,
+    "testCount": 4,
     "describes": [
       "AcceptQuotationService (R5 Multi-Version & Single Accepted Rule)"
     ],
@@ -1028,7 +1172,7 @@
   },
   {
     "file": "apps/api/src/modules/quotation/services/commands/create-motor-quotation.command.spec.ts",
-    "testCount": 18,
+    "testCount": 19,
     "describes": [
       "CreateMotorQuotationCommand (Authoritative Command)",
       "Phase 1.2: Cross-Tenant Resource Rejection Tests",
@@ -1078,12 +1222,13 @@
   },
   {
     "file": "apps/api/src/modules/tasks/tasks.service.spec.ts",
-    "testCount": 19,
+    "testCount": 22,
     "describes": [
       "TasksService",
       "getTasksToday",
       "create",
       "complete",
+      "findAll tenant search",
       "Back Office Queue",
       "6-Point Task Assignment Validation (Wave 3)",
       "Domain Command Task Resolution (Wave 3)"

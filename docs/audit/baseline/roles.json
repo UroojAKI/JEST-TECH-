@@ -487,9 +487,26 @@
   },
   {
     "file": "apps/api/src/modules/customer/communication/controllers/communication.controller.ts",
-    "endpoint": "PUT /notifications/templates/:id",
+    "endpoint": "POST /communications",
     "roles": [
       "ADMIN",
+      "BACK_OFFICE",
+      "AGENT"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/customer/communication/controllers/communication.controller.ts",
+    "endpoint": "GET /notifications/templates",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE",
+      "AGENT"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/customer/communication/controllers/communication.controller.ts",
+    "endpoint": "PUT /notifications/templates/:id",
+    "roles": [
       "ADMIN"
     ]
   },
@@ -497,7 +514,6 @@
     "file": "apps/api/src/modules/customer/communication/controllers/communication.controller.ts",
     "endpoint": "GET /notifications/delivery-logs",
     "roles": [
-      "ADMIN",
       "ADMIN"
     ]
   },
@@ -505,7 +521,6 @@
     "file": "apps/api/src/modules/customer/communication/controllers/communication.controller.ts",
     "endpoint": "GET /notifications/events",
     "roles": [
-      "ADMIN",
       "ADMIN"
     ]
   },
@@ -664,7 +679,6 @@
     "file": "apps/api/src/modules/dashboard-registry/controllers/dashboard-registry.controller.ts",
     "endpoint": "PUT /dashboard-registry/:code",
     "roles": [
-      "ADMIN",
       "ADMIN"
     ]
   },
@@ -772,6 +786,14 @@
   },
   {
     "file": "apps/api/src/modules/finance/controllers/finance.controller.ts",
+    "endpoint": "GET /finance/accounts",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/finance/controllers/finance.controller.ts",
     "endpoint": "GET /finance/ledger",
     "roles": [
       "ADMIN",
@@ -812,6 +834,14 @@
   },
   {
     "file": "apps/api/src/modules/finance/controllers/finance.controller.ts",
+    "endpoint": "POST /finance/settlements",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/finance/controllers/finance.controller.ts",
     "endpoint": "GET /finance/incentives",
     "roles": [
       "ADMIN",
@@ -837,6 +867,14 @@
   {
     "file": "apps/api/src/modules/finance/controllers/finance.controller.ts",
     "endpoint": "POST /finance/reconciliation-queue/:id/discrepancy",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/finance/controllers/finance.controller.ts",
+    "endpoint": "GET /finance/invoices/outstanding",
     "roles": [
       "ADMIN",
       "BACK_OFFICE"
@@ -899,7 +937,7 @@
   },
   {
     "file": "apps/api/src/modules/motor/controllers/motor-calculation.controller.ts",
-    "endpoint": "POST /motor/calculate",
+    "endpoint": "POST /motor/calculate/override",
     "roles": [
       "ADMIN",
       "BACK_OFFICE",
@@ -911,7 +949,8 @@
     "endpoint": "GET /motor/inspections/:quotationId",
     "roles": [
       "ADMIN",
-      "BACK_OFFICE"
+      "BACK_OFFICE",
+      "AGENT"
     ]
   },
   {
@@ -928,7 +967,8 @@
     "endpoint": "POST /motor/inspections/:id/submit-for-review",
     "roles": [
       "ADMIN",
-      "BACK_OFFICE"
+      "BACK_OFFICE",
+      "AGENT"
     ]
   },
   {
@@ -936,7 +976,8 @@
     "endpoint": "POST /motor/inspections/:id/approve",
     "roles": [
       "ADMIN",
-      "BACK_OFFICE"
+      "BACK_OFFICE",
+      "AGENT"
     ]
   },
   {
@@ -1077,6 +1118,15 @@
     "roles": [
       "BACK_OFFICE",
       "ADMIN"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/motor/controllers/motor-quote.controller.ts",
+    "endpoint": "POST /motor/quotes/:id/accept",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE",
+      "AGENT"
     ]
   },
   {
@@ -1265,49 +1315,49 @@
   },
   {
     "file": "apps/api/src/modules/motor-admin/controllers/vehicle-master.controller.ts",
-    "endpoint": "PUT /motor/vehicles/rto/:id",
+    "endpoint": "PUT /rto/:id",
     "roles": [
       "ADMIN"
     ]
   },
   {
     "file": "apps/api/src/modules/motor-admin/controllers/vehicle-master.controller.ts",
-    "endpoint": "DELETE /motor/vehicles/rto/:id",
+    "endpoint": "DELETE /rto/:id",
     "roles": [
       "ADMIN"
     ]
   },
   {
     "file": "apps/api/src/modules/motor-admin/controllers/vehicle-master.controller.ts",
-    "endpoint": "GET /motor/vehicles/manufacturers",
+    "endpoint": "GET /manufacturers",
     "roles": [
       "ADMIN"
     ]
   },
   {
     "file": "apps/api/src/modules/motor-admin/controllers/vehicle-master.controller.ts",
-    "endpoint": "GET /motor/vehicles/models",
+    "endpoint": "GET /models",
     "roles": [
       "ADMIN"
     ]
   },
   {
     "file": "apps/api/src/modules/motor-admin/controllers/vehicle-master.controller.ts",
-    "endpoint": "GET /motor/vehicles/variants",
+    "endpoint": "GET /variants",
     "roles": [
       "ADMIN"
     ]
   },
   {
     "file": "apps/api/src/modules/motor-admin/controllers/vehicle-master.controller.ts",
-    "endpoint": "POST /motor/vehicles/variants/import",
+    "endpoint": "POST /variants/import",
     "roles": [
       "ADMIN"
     ]
   },
   {
     "file": "apps/api/src/modules/motor-quotations/motor-quotations.controller.ts",
-    "endpoint": "GET /motor-quotations",
+    "endpoint": "GET /",
     "roles": [
       "ADMIN",
       "BACK_OFFICE",
@@ -1316,7 +1366,7 @@
   },
   {
     "file": "apps/api/src/modules/motor-quotations/motor-quotations.controller.ts",
-    "endpoint": "GET /motor-quotations/:id",
+    "endpoint": "GET /:id",
     "roles": [
       "ADMIN",
       "BACK_OFFICE",
@@ -1325,7 +1375,7 @@
   },
   {
     "file": "apps/api/src/modules/motor-quotations/motor-quotations.controller.ts",
-    "endpoint": "POST /motor-quotations",
+    "endpoint": "POST /",
     "roles": [
       "ADMIN",
       "BACK_OFFICE",
@@ -1334,7 +1384,16 @@
   },
   {
     "file": "apps/api/src/modules/motor-quotations/motor-quotations.controller.ts",
-    "endpoint": "POST /motor-quotations/:id/accept",
+    "endpoint": "POST /:id/customer-acceptance",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE",
+      "AGENT"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/motor-quotations/motor-quotations.controller.ts",
+    "endpoint": "POST /:id/accept",
     "roles": [
       "ADMIN",
       "BACK_OFFICE",
@@ -1345,7 +1404,6 @@
     "file": "apps/api/src/modules/organization/controllers/organization.controller.ts",
     "endpoint": "PUT /organization/departments/:id",
     "roles": [
-      "ADMIN",
       "ADMIN"
     ]
   },
@@ -1353,7 +1411,6 @@
     "file": "apps/api/src/modules/organization/controllers/organization.controller.ts",
     "endpoint": "DELETE /organization/departments/:id",
     "roles": [
-      "ADMIN",
       "ADMIN"
     ]
   },
@@ -1361,7 +1418,6 @@
     "file": "apps/api/src/modules/organization/controllers/organization.controller.ts",
     "endpoint": "GET /organization/job-roles",
     "roles": [
-      "ADMIN",
       "ADMIN"
     ]
   },
@@ -1369,7 +1425,6 @@
     "file": "apps/api/src/modules/organization/controllers/organization.controller.ts",
     "endpoint": "PUT /organization/job-role/:id",
     "roles": [
-      "ADMIN",
       "ADMIN"
     ]
   },
@@ -1377,7 +1432,6 @@
     "file": "apps/api/src/modules/organization/controllers/organization.controller.ts",
     "endpoint": "DELETE /organization/job-role/:id",
     "roles": [
-      "ADMIN",
       "ADMIN"
     ]
   },
@@ -1385,7 +1439,6 @@
     "file": "apps/api/src/modules/organization/controllers/organization.controller.ts",
     "endpoint": "GET /organization/hierarchy",
     "roles": [
-      "ADMIN",
       "ADMIN"
     ]
   },
@@ -1645,6 +1698,15 @@
   },
   {
     "file": "apps/api/src/modules/policies/controllers/renewals.controller.ts",
+    "endpoint": "GET /renewals/policies/:policyId/quote-prefill",
+    "roles": [
+      "ADMIN",
+      "BACK_OFFICE",
+      "AGENT"
+    ]
+  },
+  {
+    "file": "apps/api/src/modules/policies/controllers/renewals.controller.ts",
     "endpoint": "POST /renewals/tasks/:id/quote",
     "roles": [
       "ADMIN",
@@ -1822,7 +1884,7 @@
   },
   {
     "file": "apps/api/src/modules/quotation/controllers/quotation.controller.ts",
-    "endpoint": "POST /quotations/:id/accept",
+    "endpoint": "POST /quotations/[:id/accept,:id/customer-acceptance]",
     "roles": [
       "ADMIN",
       "BACK_OFFICE",

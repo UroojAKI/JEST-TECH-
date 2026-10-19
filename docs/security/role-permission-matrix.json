@@ -1,15 +1,15 @@
 {
-  "generatedAt": "2026-10-14T06:38:40.012Z",
-  "gitSha": "8b02f5f6a847c57395fadcacf76375f061ec49c2",
+  "generatedAt": "2026-10-19T22:11:48.919Z",
+  "gitSha": "f60adcc2f36ac0d8847f09243dee2d1aaaa3a7e6",
   "roles": [
     "ADMIN",
     "BACK_OFFICE",
     "AGENT"
   ],
   "roleSummary": {
-    "ADMIN": 249,
-    "BACK_OFFICE": 181,
-    "AGENT": 112
+    "ADMIN": 252,
+    "BACK_OFFICE": 184,
+    "AGENT": 115
   },
   "matrix": [
     {
@@ -1184,7 +1184,7 @@
     },
     {
       "controller": "MotorCalculationController",
-      "endpoint": "POST /motor/calculate",
+      "endpoint": "POST /motor/calculate/override",
       "allowedRoles": [
         "ADMIN",
         "BACK_OFFICE",
@@ -1407,6 +1407,17 @@
         "ADMIN"
       ],
       "agentAllowed": false,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "MotorQuoteController",
+      "endpoint": "POST /motor/quotes/:id/accept",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE",
+        "AGENT"
+      ],
+      "agentAllowed": true,
       "hasRolesGuard": true
     },
     {
@@ -1639,7 +1650,7 @@
     },
     {
       "controller": "VehicleMasterController",
-      "endpoint": "PUT /motor/vehicles/rto/:id",
+      "endpoint": "PUT /rto/:id",
       "allowedRoles": [
         "ADMIN"
       ],
@@ -1648,7 +1659,7 @@
     },
     {
       "controller": "VehicleMasterController",
-      "endpoint": "DELETE /motor/vehicles/rto/:id",
+      "endpoint": "DELETE /rto/:id",
       "allowedRoles": [
         "ADMIN"
       ],
@@ -1657,7 +1668,7 @@
     },
     {
       "controller": "VehicleMasterController",
-      "endpoint": "GET /motor/vehicles/manufacturers",
+      "endpoint": "GET /manufacturers",
       "allowedRoles": [
         "ADMIN"
       ],
@@ -1666,7 +1677,7 @@
     },
     {
       "controller": "VehicleMasterController",
-      "endpoint": "GET /motor/vehicles/models",
+      "endpoint": "GET /models",
       "allowedRoles": [
         "ADMIN"
       ],
@@ -1675,7 +1686,7 @@
     },
     {
       "controller": "VehicleMasterController",
-      "endpoint": "GET /motor/vehicles/variants",
+      "endpoint": "GET /variants",
       "allowedRoles": [
         "ADMIN"
       ],
@@ -1684,7 +1695,7 @@
     },
     {
       "controller": "VehicleMasterController",
-      "endpoint": "POST /motor/vehicles/variants/import",
+      "endpoint": "POST /variants/import",
       "allowedRoles": [
         "ADMIN"
       ],
@@ -1693,7 +1704,7 @@
     },
     {
       "controller": "MotorQuotationsController",
-      "endpoint": "GET /motor-quotations",
+      "endpoint": "GET /",
       "allowedRoles": [
         "ADMIN",
         "BACK_OFFICE",
@@ -1704,7 +1715,7 @@
     },
     {
       "controller": "MotorQuotationsController",
-      "endpoint": "GET /motor-quotations/:id",
+      "endpoint": "GET /:id",
       "allowedRoles": [
         "ADMIN",
         "BACK_OFFICE",
@@ -1715,7 +1726,7 @@
     },
     {
       "controller": "MotorQuotationsController",
-      "endpoint": "POST /motor-quotations",
+      "endpoint": "POST /",
       "allowedRoles": [
         "ADMIN",
         "BACK_OFFICE",
@@ -1726,7 +1737,18 @@
     },
     {
       "controller": "MotorQuotationsController",
-      "endpoint": "POST /motor-quotations/:id/accept",
+      "endpoint": "POST /:id/customer-acceptance",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE",
+        "AGENT"
+      ],
+      "agentAllowed": true,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "MotorQuotationsController",
+      "endpoint": "POST /:id/accept",
       "allowedRoles": [
         "ADMIN",
         "BACK_OFFICE",
@@ -2107,6 +2129,17 @@
     },
     {
       "controller": "RenewalsController",
+      "endpoint": "GET /renewals/policies/:policyId/quote-prefill",
+      "allowedRoles": [
+        "ADMIN",
+        "BACK_OFFICE",
+        "AGENT"
+      ],
+      "agentAllowed": true,
+      "hasRolesGuard": true
+    },
+    {
+      "controller": "RenewalsController",
       "endpoint": "POST /renewals/tasks/:id/quote",
       "allowedRoles": [
         "ADMIN",
@@ -2324,7 +2357,7 @@
     },
     {
       "controller": "QuotationController",
-      "endpoint": "POST /quotations/:id/accept",
+      "endpoint": "POST /quotations/[:id/accept,:id/customer-acceptance]",
       "allowedRoles": [
         "ADMIN",
         "BACK_OFFICE",
@@ -2872,6 +2905,11 @@
       "file": "apps/api/src/modules/leads/controllers/leads.controller.ts"
     },
     {
+      "endpoint": "POST /motor/calculate",
+      "controller": "MotorCalculationController",
+      "file": "apps/api/src/modules/motor/controllers/motor-calculation.controller.ts"
+    },
+    {
       "endpoint": "POST /motor/inspections",
       "controller": "MotorInspectionController",
       "file": "apps/api/src/modules/motor/controllers/motor-inspection.controller.ts"
@@ -2967,37 +3005,37 @@
       "file": "apps/api/src/modules/motor-admin/controllers/rating-engine.controller.ts"
     },
     {
-      "endpoint": "GET /motor/vehicles/rto",
+      "endpoint": "GET /[rto,rtos]",
       "controller": "VehicleMasterController",
       "file": "apps/api/src/modules/motor-admin/controllers/vehicle-master.controller.ts"
     },
     {
-      "endpoint": "GET /motor/vehicles/rto/:code",
+      "endpoint": "GET /[rto/:code,rtos/:code]",
       "controller": "VehicleMasterController",
       "file": "apps/api/src/modules/motor-admin/controllers/vehicle-master.controller.ts"
     },
     {
-      "endpoint": "POST /motor/vehicles/rto",
+      "endpoint": "POST /rto",
       "controller": "VehicleMasterController",
       "file": "apps/api/src/modules/motor-admin/controllers/vehicle-master.controller.ts"
     },
     {
-      "endpoint": "POST /motor/vehicles/manufacturers",
+      "endpoint": "POST /manufacturers",
       "controller": "VehicleMasterController",
       "file": "apps/api/src/modules/motor-admin/controllers/vehicle-master.controller.ts"
     },
     {
-      "endpoint": "POST /motor/vehicles/models",
+      "endpoint": "POST /models",
       "controller": "VehicleMasterController",
       "file": "apps/api/src/modules/motor-admin/controllers/vehicle-master.controller.ts"
     },
     {
-      "endpoint": "POST /motor/vehicles/variants",
+      "endpoint": "POST /variants",
       "controller": "VehicleMasterController",
       "file": "apps/api/src/modules/motor-admin/controllers/vehicle-master.controller.ts"
     },
     {
-      "endpoint": "GET /motor-quotations/compare",
+      "endpoint": "GET /compare",
       "controller": "MotorQuotationsController",
       "file": "apps/api/src/modules/motor-quotations/motor-quotations.controller.ts"
     },
@@ -3428,10 +3466,10 @@
     }
   ],
   "summary": {
-    "totalEndpoints": 424,
-    "roleGuarded": 250,
-    "unguarded": 174,
-    "agentAccessibleEndpoints": 112,
+    "totalEndpoints": 428,
+    "roleGuarded": 253,
+    "unguarded": 175,
+    "agentAccessibleEndpoints": 115,
     "adminOnlyEndpoints": 67
   }
 }

@@ -1,0 +1,29 @@
+{
+  "timestamp": "2026-10-19T22:12:00.883Z",
+  "migratedRows": {
+    "openToDraft": 0,
+    "quotedToGenerated": 0,
+    "selectedToReady": 0
+  },
+  "beforeCounts": {
+    "OPEN": 0,
+    "QUOTED": 0,
+    "SELECTED": 0,
+    "DRAFT": 0,
+    "QUOTE_GENERATED": 0,
+    "PROPOSAL_READY": 0,
+    "COMPLETED": 0,
+    "CANCELLED": 0
+  },
+  "afterCounts": {
+    "OPEN": 0,
+    "QUOTED": 0,
+    "SELECTED": 0,
+    "DRAFT": 0,
+    "QUOTE_GENERATED": 0,
+    "PROPOSAL_READY": 0,
+    "COMPLETED": 0,
+    "CANCELLED": 0
+  },
+  "success": true
+}

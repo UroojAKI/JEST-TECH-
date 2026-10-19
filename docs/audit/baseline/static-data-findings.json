@@ -7,13 +7,6 @@
     "classification": "REAL_BUG"
   },
   {
-    "file": "apps/web/src/app/admin/numbering/page.tsx",
-    "line": 24,
-    "type": "FAKE_SUCCESS_TOAST",
-    "value": "toast.info(",
-    "classification": "REAL_BUG"
-  },
-  {
     "file": "apps/web/src/app/admin/users/page.tsx",
     "line": 146,
     "type": "FAKE_SUCCESS_TOAST",
@@ -22,7 +15,14 @@
   },
   {
     "file": "apps/web/src/app/claims/page.tsx",
-    "line": 67,
+    "line": 104,
+    "type": "FAKE_SUCCESS_TOAST",
+    "value": "toast.success(",
+    "classification": "REAL_BUG"
+  },
+  {
+    "file": "apps/web/src/app/claims/page.tsx",
+    "line": 212,
     "type": "FAKE_SUCCESS_TOAST",
     "value": "toast.success(",
     "classification": "REAL_BUG"
@@ -50,28 +50,28 @@
   },
   {
     "file": "apps/web/src/app/crm/customers/[id]/page.tsx",
-    "line": 61,
+    "line": 64,
     "type": "FAKE_SUCCESS_TOAST",
     "value": "toast.success(",
     "classification": "REAL_BUG"
   },
   {
     "file": "apps/web/src/app/crm/customers/[id]/page.tsx",
-    "line": 75,
+    "line": 78,
     "type": "FAKE_SUCCESS_TOAST",
     "value": "toast.success(",
     "classification": "REAL_BUG"
   },
   {
     "file": "apps/web/src/app/crm/customers/[id]/page.tsx",
-    "line": 84,
+    "line": 87,
     "type": "FAKE_SUCCESS_TOAST",
     "value": "toast.success(",
     "classification": "REAL_BUG"
   },
   {
     "file": "apps/web/src/app/crm/customers/[id]/page.tsx",
-    "line": 93,
+    "line": 97,
     "type": "FAKE_SUCCESS_TOAST",
     "value": "toast.success(",
     "classification": "REAL_BUG"
@@ -127,42 +127,7 @@
   },
   {
     "file": "apps/web/src/app/finance/page.tsx",
-    "line": 156,
-    "type": "HARDCODED_DATE",
-    "value": "2026-07-24",
-    "classification": "REAL_BUG"
-  },
-  {
-    "file": "apps/web/src/app/finance/page.tsx",
-    "line": 81,
-    "type": "FAKE_SUCCESS_TOAST",
-    "value": "toast.info(",
-    "classification": "REAL_BUG"
-  },
-  {
-    "file": "apps/web/src/app/finance/page.tsx",
-    "line": 559,
-    "type": "FAKE_SUCCESS_TOAST",
-    "value": "toast.success(",
-    "classification": "REAL_BUG"
-  },
-  {
-    "file": "apps/web/src/app/finance/payments/page.tsx",
-    "line": 19,
-    "type": "FAKE_SUCCESS_TOAST",
-    "value": "toast.success(",
-    "classification": "REAL_BUG"
-  },
-  {
-    "file": "apps/web/src/app/finance/receipts/page.tsx",
-    "line": 19,
-    "type": "FAKE_SUCCESS_TOAST",
-    "value": "toast.success(",
-    "classification": "REAL_BUG"
-  },
-  {
-    "file": "apps/web/src/app/finance/settlements/page.tsx",
-    "line": 20,
+    "line": 95,
     "type": "FAKE_SUCCESS_TOAST",
     "value": "toast.info(",
     "classification": "REAL_BUG"
@@ -204,14 +169,7 @@
   },
   {
     "file": "apps/web/src/app/reports/page.tsx",
-    "line": 24,
-    "type": "FAKE_SUCCESS_TOAST",
-    "value": "toast.success(",
-    "classification": "REAL_BUG"
-  },
-  {
-    "file": "apps/web/src/app/reports/page.tsx",
-    "line": 184,
+    "line": 71,
     "type": "FAKE_SUCCESS_TOAST",
     "value": "toast.success(",
     "classification": "REAL_BUG"
@@ -232,28 +190,14 @@
   },
   {
     "file": "apps/web/src/app/workspace/(app)/operations/cases/[caseId]/page.tsx",
-    "line": 1536,
+    "line": 1552,
     "type": "FAKE_SUCCESS_TOAST",
     "value": "toast.info(",
     "classification": "REAL_BUG"
   },
   {
     "file": "apps/web/src/components/customer/customer-alerts-queue.tsx",
-    "line": 47,
-    "type": "FAKE_SUCCESS_TOAST",
-    "value": "toast.success(",
-    "classification": "REAL_BUG"
-  },
-  {
-    "file": "apps/web/src/components/customer/customer-alerts-queue.tsx",
-    "line": 56,
-    "type": "FAKE_SUCCESS_TOAST",
-    "value": "toast.success(",
-    "classification": "REAL_BUG"
-  },
-  {
-    "file": "apps/web/src/components/customer/tabs/CustomerTabsContainer.tsx",
-    "line": 466,
+    "line": 57,
     "type": "FAKE_SUCCESS_TOAST",
     "value": "toast.success(",
     "classification": "REAL_BUG"
@@ -280,13 +224,6 @@
     "classification": "REAL_BUG"
   },
   {
-    "file": "apps/web/src/components/finance/vouchers/VoucherPreviewModal.tsx",
-    "line": 42,
-    "type": "FAKE_SUCCESS_TOAST",
-    "value": "toast.success(",
-    "classification": "REAL_BUG"
-  },
-  {
     "file": "apps/web/src/components/leads/drawers/LeadConvertWizardDrawer.tsx",
     "line": 83,
     "type": "HARDCODED_PHONE_NUMBER",
@@ -309,65 +246,156 @@
   },
   {
     "file": "apps/web/src/components/leads/motor-quote/InspectionDialog.tsx",
-    "line": 144,
+    "line": 169,
     "type": "FAKE_SUCCESS_TOAST",
     "value": "toast.success(",
     "classification": "REAL_BUG"
   },
   {
     "file": "apps/web/src/components/leads/motor-quote/motorFormConfig.ts",
-    "line": 275,
+    "line": 286,
     "type": "HARDCODED_INSURER_NAME",
     "value": "National Insurance",
     "classification": "REAL_BUG"
   },
   {
     "file": "apps/web/src/components/leads/motor-quote/MotorProposalWizard.tsx",
-    "line": 73,
+    "line": 118,
     "type": "FAKE_SUCCESS_TOAST",
     "value": "toast.success(",
     "classification": "REAL_BUG"
   },
   {
     "file": "apps/web/src/components/leads/motor-quote/MotorQuoteWizard.tsx",
-    "line": 401,
+    "line": 469,
     "type": "FAKE_SUCCESS_TOAST",
     "value": "toast.info(",
     "classification": "REAL_BUG"
   },
   {
     "file": "apps/web/src/components/leads/motor-quote/MotorQuoteWizard.tsx",
-    "line": 650,
+    "line": 903,
     "type": "FAKE_SUCCESS_TOAST",
     "value": "toast.success(",
     "classification": "REAL_BUG"
   },
   {
     "file": "apps/web/src/components/leads/motor-quote/MotorQuoteWizard.tsx",
-    "line": 959,
+    "line": 1297,
     "type": "FAKE_SUCCESS_TOAST",
     "value": "toast.success(",
     "classification": "REAL_BUG"
   },
   {
-    "file": "apps/web/src/components/leads/motor-quote/PreviousPolicyForm.tsx",
-    "line": 16,
+    "file": "apps/web/src/components/leads/motor-quote/MotorQuoteWizardSaodNavigation.test.tsx",
+    "line": 100,
+    "type": "HARDCODED_CUSTOMER_NAME",
+    "value": "Rajesh",
+    "classification": "REAL_BUG"
+  },
+  {
+    "file": "apps/web/src/components/leads/motor-quote/MotorQuoteWizardSaodNavigation.test.tsx",
+    "line": 101,
+    "type": "HARDCODED_PHONE_NUMBER",
+    "value": "9876543210",
+    "classification": "REAL_BUG"
+  },
+  {
+    "file": "apps/web/src/components/leads/motor-quote/MotorQuoteWizardSaodNavigation.test.tsx",
+    "line": 158,
+    "type": "HARDCODED_DATE",
+    "value": "2025-01-01",
+    "classification": "REAL_BUG"
+  },
+  {
+    "file": "apps/web/src/components/leads/motor-quote/MotorQuoteWizardSaodNavigation.test.tsx",
+    "line": 159,
+    "type": "HARDCODED_DATE",
+    "value": "2027-01-01",
+    "classification": "REAL_BUG"
+  },
+  {
+    "file": "apps/web/src/components/leads/motor-quote/PolicyFormsDiscountCommissionCoupling.test.tsx",
+    "line": 179,
     "type": "HARDCODED_INSURER_NAME",
     "value": "ICICI Lombard",
     "classification": "REAL_BUG"
   },
   {
-    "file": "apps/web/src/components/leads/motor-quote/PreviousPolicyForm.tsx",
-    "line": 17,
-    "type": "HARDCODED_INSURER_NAME",
-    "value": "National Insurance",
+    "file": "apps/web/src/components/leads/motor-quote/PolicyFormsDiscountCommissionCoupling.test.tsx",
+    "line": 181,
+    "type": "HARDCODED_DATE",
+    "value": "2026-01-01",
     "classification": "REAL_BUG"
   },
   {
-    "file": "apps/web/src/components/leads/motor-quote/PreviousPolicyForm.tsx",
-    "line": 18,
-    "type": "HARDCODED_INSURER_NAME",
-    "value": "Reliance General",
+    "file": "apps/web/src/components/leads/motor-quote/PolicyFormsDiscountCommissionCoupling.test.tsx",
+    "line": 182,
+    "type": "HARDCODED_DATE",
+    "value": "2027-01-01",
+    "classification": "REAL_BUG"
+  },
+  {
+    "file": "apps/web/src/components/leads/motor-quote/PolicyFormsDiscountCommissionCoupling.test.tsx",
+    "line": 500,
+    "type": "HARDCODED_DATE",
+    "value": "2026-01-01",
+    "classification": "REAL_BUG"
+  },
+  {
+    "file": "apps/web/src/components/leads/motor-quote/PolicyFormsDiscountCommissionCoupling.test.tsx",
+    "line": 501,
+    "type": "HARDCODED_DATE",
+    "value": "2027-01-01",
+    "classification": "REAL_BUG"
+  },
+  {
+    "file": "apps/web/src/components/leads/motor-quote/PolicyFormsDiscountCommissionCoupling.test.tsx",
+    "line": 515,
+    "type": "HARDCODED_DATE",
+    "value": "2027-01-01",
+    "classification": "REAL_BUG"
+  },
+  {
+    "file": "apps/web/src/components/leads/motor-quote/PolicyFormsDiscountCommissionCoupling.test.tsx",
+    "line": 530,
+    "type": "HARDCODED_DATE",
+    "value": "2026-01-01",
+    "classification": "REAL_BUG"
+  },
+  {
+    "file": "apps/web/src/components/leads/motor-quote/PolicyFormsDiscountCommissionCoupling.test.tsx",
+    "line": 531,
+    "type": "HARDCODED_DATE",
+    "value": "2027-01-01",
+    "classification": "REAL_BUG"
+  },
+  {
+    "file": "apps/web/src/components/leads/motor-quote/PolicyFormsDiscountCommissionCoupling.test.tsx",
+    "line": 561,
+    "type": "HARDCODED_DATE",
+    "value": "2026-01-01",
+    "classification": "REAL_BUG"
+  },
+  {
+    "file": "apps/web/src/components/leads/motor-quote/PolicyFormsDiscountCommissionCoupling.test.tsx",
+    "line": 562,
+    "type": "HARDCODED_DATE",
+    "value": "2027-01-01",
+    "classification": "REAL_BUG"
+  },
+  {
+    "file": "apps/web/src/components/leads/motor-quote/PolicyFormsDiscountCommissionCoupling.test.tsx",
+    "line": 588,
+    "type": "HARDCODED_DATE",
+    "value": "2026-01-01",
+    "classification": "REAL_BUG"
+  },
+  {
+    "file": "apps/web/src/components/leads/motor-quote/PolicyFormsDiscountCommissionCoupling.test.tsx",
+    "line": 589,
+    "type": "HARDCODED_DATE",
+    "value": "2027-01-01",
     "classification": "REAL_BUG"
   },
   {
@@ -378,8 +406,43 @@
     "classification": "REAL_BUG"
   },
   {
+    "file": "apps/web/src/components/leads/motor-quote/SaodTpVerificationCard.tsx",
+    "line": 10,
+    "type": "HARDCODED_INSURER_NAME",
+    "value": "ICICI Lombard",
+    "classification": "REAL_BUG"
+  },
+  {
+    "file": "apps/web/src/components/leads/motor-quote/SaodTpVerificationCard.tsx",
+    "line": 11,
+    "type": "HARDCODED_INSURER_NAME",
+    "value": "Bajaj Allianz",
+    "classification": "REAL_BUG"
+  },
+  {
+    "file": "apps/web/src/components/leads/motor-quote/SaodTpVerificationCard.tsx",
+    "line": 13,
+    "type": "HARDCODED_INSURER_NAME",
+    "value": "National Insurance",
+    "classification": "REAL_BUG"
+  },
+  {
+    "file": "apps/web/src/components/leads/motor-quote/useMotorCalculator.test.ts",
+    "line": 55,
+    "type": "HARDCODED_DATE",
+    "value": "2027-01-01",
+    "classification": "REAL_BUG"
+  },
+  {
+    "file": "apps/web/src/components/leads/motor-quote/useMotorCalculator.test.ts",
+    "line": 68,
+    "type": "HARDCODED_DATE",
+    "value": "2027-01-01",
+    "classification": "REAL_BUG"
+  },
+  {
     "file": "apps/web/src/components/leads/NewLeadModal.tsx",
-    "line": 57,
+    "line": 65,
     "type": "FAKE_SUCCESS_TOAST",
     "value": "toast.success(",
     "classification": "REAL_BUG"
@@ -400,70 +463,77 @@
   },
   {
     "file": "apps/web/src/components/operations/MotorIssuanceQueue.tsx",
-    "line": 549,
+    "line": 561,
     "type": "FAKE_SUCCESS_TOAST",
     "value": "toast.success(",
     "classification": "REAL_BUG"
   },
   {
     "file": "apps/web/src/components/sales/MotorQuotationsWorkspace.tsx",
-    "line": 335,
+    "line": 108,
     "type": "FAKE_SUCCESS_TOAST",
     "value": "toast.success(",
     "classification": "REAL_BUG"
   },
   {
     "file": "apps/web/src/components/sales/MotorQuotationsWorkspace.tsx",
-    "line": 362,
+    "line": 501,
+    "type": "FAKE_SUCCESS_TOAST",
+    "value": "toast.success(",
+    "classification": "REAL_BUG"
+  },
+  {
+    "file": "apps/web/src/components/sales/MotorQuotationsWorkspace.tsx",
+    "line": 540,
     "type": "FAKE_SUCCESS_TOAST",
     "value": "toast.info(",
     "classification": "REAL_BUG"
   },
   {
     "file": "apps/web/src/components/sales/MotorQuotationsWorkspace.tsx",
-    "line": 364,
+    "line": 542,
     "type": "FAKE_SUCCESS_TOAST",
     "value": "toast.success(",
     "classification": "REAL_BUG"
   },
   {
     "file": "apps/web/src/components/workspaces/DynamicWorkspace.tsx",
-    "line": 519,
+    "line": 533,
     "type": "FAKE_SUCCESS_TOAST",
     "value": "toast.success(",
     "classification": "REAL_BUG"
   },
   {
     "file": "apps/web/src/components/workspaces/DynamicWorkspace.tsx",
-    "line": 747,
+    "line": 769,
     "type": "FAKE_SUCCESS_TOAST",
     "value": "toast.info(",
     "classification": "REAL_BUG"
   },
   {
     "file": "apps/web/src/components/workspaces/DynamicWorkspace.tsx",
-    "line": 749,
+    "line": 771,
     "type": "FAKE_SUCCESS_TOAST",
     "value": "toast.success(",
     "classification": "REAL_BUG"
   },
   {
     "file": "apps/web/src/components/workspaces/sales/LeadCommandCenter.tsx",
-    "line": 825,
+    "line": 988,
     "type": "HARDCODED_PHONE_NUMBER",
     "value": "9876543210",
     "classification": "REAL_BUG"
   },
   {
     "file": "apps/web/src/components/workspaces/sales/LeadCommandCenter.tsx",
-    "line": 175,
+    "line": 251,
     "type": "FAKE_SUCCESS_TOAST",
     "value": "toast.success(",
     "classification": "REAL_BUG"
   },
   {
     "file": "apps/web/src/components/workspaces/sales/LeadCommandCenter.tsx",
-    "line": 791,
+    "line": 935,
     "type": "FAKE_SUCCESS_TOAST",
     "value": "toast.success(",
     "classification": "REAL_BUG"
@@ -540,35 +610,56 @@
   },
   {
     "file": "apps/web/src/hooks/useEndorsements.ts",
-    "line": 29,
+    "line": 30,
+    "type": "FAKE_SUCCESS_TOAST",
+    "value": "toast.success(",
+    "classification": "REAL_BUG"
+  },
+  {
+    "file": "apps/web/src/hooks/useEndorsements.ts",
+    "line": 43,
     "type": "FAKE_SUCCESS_TOAST",
     "value": "toast.success(",
     "classification": "REAL_BUG"
   },
   {
     "file": "apps/web/src/hooks/useFinance.ts",
-    "line": 41,
+    "line": 56,
     "type": "FAKE_SUCCESS_TOAST",
     "value": "toast.success(",
     "classification": "REAL_BUG"
   },
   {
     "file": "apps/web/src/hooks/useFinance.ts",
-    "line": 76,
+    "line": 89,
     "type": "FAKE_SUCCESS_TOAST",
     "value": "toast.success(",
     "classification": "REAL_BUG"
   },
   {
     "file": "apps/web/src/hooks/useFinance.ts",
-    "line": 120,
+    "line": 124,
     "type": "FAKE_SUCCESS_TOAST",
     "value": "toast.success(",
     "classification": "REAL_BUG"
   },
   {
     "file": "apps/web/src/hooks/useFinance.ts",
-    "line": 133,
+    "line": 155,
+    "type": "FAKE_SUCCESS_TOAST",
+    "value": "toast.success(",
+    "classification": "REAL_BUG"
+  },
+  {
+    "file": "apps/web/src/hooks/useFinance.ts",
+    "line": 194,
+    "type": "FAKE_SUCCESS_TOAST",
+    "value": "toast.success(",
+    "classification": "REAL_BUG"
+  },
+  {
+    "file": "apps/web/src/hooks/useFinance.ts",
+    "line": 207,
     "type": "FAKE_SUCCESS_TOAST",
     "value": "toast.success(",
     "classification": "REAL_BUG"
@@ -603,7 +694,7 @@
   },
   {
     "file": "apps/web/src/hooks/usePortal.ts",
-    "line": 33,
+    "line": 40,
     "type": "FAKE_SUCCESS_TOAST",
     "value": "toast.success(",
     "classification": "REAL_BUG"
@@ -662,6 +753,13 @@
     "line": 47,
     "type": "FAKE_SUCCESS_TOAST",
     "value": "toast.success(",
+    "classification": "REAL_BUG"
+  },
+  {
+    "file": "apps/web/src/lib/api-client.ts",
+    "line": 253,
+    "type": "FAKE_SUCCESS_TOAST",
+    "value": "toast.info(",
     "classification": "REAL_BUG"
   }
 ]

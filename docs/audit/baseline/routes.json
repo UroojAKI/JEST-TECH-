@@ -293,10 +293,8 @@
   {
     "route": "/portal/customers",
     "pageFile": "apps/web/src/app/portal/customers/page.tsx",
-    "apiCalls": [
-      "GET /contacts"
-    ],
-    "status": "WORKING"
+    "apiCalls": [],
+    "status": "STATIC"
   },
   {
     "route": "/portal/downloads",
@@ -394,10 +392,8 @@
   {
     "route": "/sales/leads",
     "pageFile": "apps/web/src/app/sales/leads/page.tsx",
-    "apiCalls": [
-      "GET /leads"
-    ],
-    "status": "WORKING"
+    "apiCalls": [],
+    "status": "STATIC"
   },
   {
     "route": "/sales/proposals",
@@ -512,6 +508,18 @@
       "POST /motor/quotes/${quotationId}/issue"
     ],
     "status": "WORKING"
+  },
+  {
+    "route": "/workspace/(app)/operations/inspections/[quotationId]",
+    "pageFile": "apps/web/src/app/workspace/(app)/operations/inspections/[quotationId]/page.tsx",
+    "apiCalls": [],
+    "status": "STATIC"
+  },
+  {
+    "route": "/workspace/(app)/operations/issuance",
+    "pageFile": "apps/web/src/app/workspace/(app)/operations/issuance/page.tsx",
+    "apiCalls": [],
+    "status": "STATIC"
   },
   {
     "route": "/workspace/(app)/renewal",
