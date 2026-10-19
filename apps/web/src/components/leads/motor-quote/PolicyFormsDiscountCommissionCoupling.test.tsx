@@ -838,7 +838,7 @@ describe('Work Package 2 & PR-01: Discount & Commission Decoupling Regression Su
           vehicleStatus="EXISTING"
           data={{
             insuredDeclaredValue: '500000',
-            ncbDiscountOverride: '1500',
+            netOdPremiumOverride: '6000',
           } as any}
           onChange={mockOnChange}
         />
@@ -849,7 +849,7 @@ describe('Work Package 2 & PR-01: Discount & Commission Decoupling Regression Su
 
       expect(mockOnChange).toHaveBeenCalledWith(
         expect.objectContaining({
-          ncbDiscountOverride: undefined,
+          netOdPremiumOverride: undefined,
         })
       );
     });
@@ -858,7 +858,6 @@ describe('Work Package 2 & PR-01: Discount & Commission Decoupling Regression Su
       const mockOnChange = vi.fn();
       const initialData: any = {
         insuredDeclaredValue: '500000',
-        ncbDiscountOverride: '1200',
         netOdPremiumOverride: '6000',
         totalPremiumOverride: '7080',
       };
@@ -890,7 +889,6 @@ describe('Work Package 2 & PR-01: Discount & Commission Decoupling Regression Su
 
       expect(mockOnChange).toHaveBeenCalledWith(
         expect.objectContaining({
-          ncbDiscountAmount: '1200',
           odPremium: '6000',
           totalPremiumInclGST: '7080',
           finalPayableAmount: '7080',

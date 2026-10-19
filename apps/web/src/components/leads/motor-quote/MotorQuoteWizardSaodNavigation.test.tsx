@@ -189,8 +189,8 @@ describe('MotorQuoteWizard SAOD Navigation & TP Verification Control-Flow', () =
 
     // Step 6: Premium & Coverages with SAOD Verified TP Banner
     await waitFor(() => {
-      expect(screen.getByText('Active Third-Party Policy In Force (Verified)')).toBeInTheDocument();
-      expect(screen.getByText(/TP\/2025\/99887766/i)).toBeInTheDocument();
+      expect(screen.getByText(/Active TP Policy Details \(SAOD\)/i)).toBeInTheDocument();
+      expect(screen.getAllByDisplayValue('TP/2025/99887766').length).toBeGreaterThanOrEqual(1);
     });
 
     // Test Back button navigation: Step 6 -> Step 5
