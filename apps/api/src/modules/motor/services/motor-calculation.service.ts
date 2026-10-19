@@ -1066,8 +1066,8 @@ export class MotorCalculationService {
         });
       }
 
-      const start = new Date(input.activeTpStartDate);
-      const expiry = new Date(input.activeTpExpiryDate);
+      const start = new Date(input.activeTpStartDate!);
+      const expiry = new Date(input.activeTpExpiryDate!);
       if (
         Number.isNaN(start.getTime()) ||
         Number.isNaN(expiry.getTime()) ||
