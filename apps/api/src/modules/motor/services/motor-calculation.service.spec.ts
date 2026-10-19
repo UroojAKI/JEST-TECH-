@@ -1567,6 +1567,217 @@ describe('MotorCalculationService (Iteration 5 Financial Math)', () => {
             expect(res.outputs.payableSummary.finalPayable).toBe(5980);
           });
         });
+
+        describe('Final Motor Quotation Plan: SAOD, TP Tenure, TP Add-ons, Signed Commercial Adjustment', () => {
+          it('SAOD-01: Manual direct OD premium entry is independent of IDV', async () => {
+            const res1 = await service.calculate({
+              vehicleCategory: 'PRIVATE_CAR',
+              vehicleStatus: 'EXISTING',
+              policyType: 'STANDALONE_OD',
+              idv: 500000,
+              odPremiumAmount: 4500,
+              activeTpPolicyNumber: 'TP-POL-12345',
+              activeTpExpiryDate: new Date(Date.now() + 180 * 24 * 60 * 60 * 1000).toISOString(),
+            });
+            const res2 = await service.calculate({
+              vehicleCategory: 'PRIVATE_CAR',
+              vehicleStatus: 'EXISTING',
+              policyType: 'STANDALONE_OD',
+              idv: 2500000,
+              odPremiumAmount: 4500,
+              activeTpPolicyNumber: 'TP-POL-12345',
+              activeTpExpiryDate: new Date(Date.now() + 180 * 24 * 60 * 60 * 1000).toISOString(),
+            });
+
+            expect(res1.outputs.baseOdPremium).toBe(4500);
+            expect(res2.outputs.baseOdPremium).toBe(4500);
+            expect(res1.outputs.odPremium).toBe(4500);
+            expect(res2.outputs.odPremium).toBe(4500);
+          });
+
+          it('TP-TENURE-01: Validates and enforces mandated tenures for NEW vehicles without silent fallback', async () => {
+            // NEW Private Car must be 3 years
+            const newCarValid = await service.calculate({
+              vehicleCategory: 'PRIVATE_CAR',
+              vehicleStatus: 'NEW',
+              policyType: 'PACKAGE_COMPREHENSIVE',
+              idv: 800000,
+              odPremium: 10000,
+              annualTpPremium: 2000,
+              policyTenure: 3,
+            });
+            expect(newCarValid.outputs.tenure).toBe(3);
+            expect(newCarValid.outputs.baseTpPremium).toBe(6000);
+
+            // NEW Private Car with tenure 1 must be rejected with explanation
+            await expect(
+              service.calculate({
+                vehicleCategory: 'PRIVATE_CAR',
+                vehicleStatus: 'NEW',
+                policyType: 'PACKAGE_COMPREHENSIVE',
+                idv: 800000,
+                odPremium: 10000,
+                annualTpPremium: 2000,
+                policyTenure: 1,
+              }),
+            ).rejects.toThrow('IRDAI mandates a 3-Year Long Term TP policy');
+
+            // NEW Bike must be 5 years
+            const newBikeValid = await service.calculate({
+              vehicleCategory: 'BIKE',
+              vehicleStatus: 'NEW',
+              policyType: 'PACKAGE_COMPREHENSIVE',
+              idv: 100000,
+              odPremium: 2000,
+              annualTpPremium: 1000,
+              policyTenure: 5,
+            });
+            expect(newBikeValid.outputs.tenure).toBe(5);
+            expect(newBikeValid.outputs.baseTpPremium).toBe(5000);
+
+            // NEW Bike with tenure 3 must be rejected
+            await expect(
+              service.calculate({
+                vehicleCategory: 'BIKE',
+                vehicleStatus: 'NEW',
+                policyType: 'PACKAGE_COMPREHENSIVE',
+                idv: 100000,
+                odPremium: 2000,
+                annualTpPremium: 1000,
+                policyTenure: 3,
+              }),
+            ).rejects.toThrow('IRDAI mandates a 5-Year Long Term TP policy');
+
+            // Commercial vehicle with tenure 3 must be rejected
+            await expect(
+              service.calculate({
+                vehicleCategory: 'GOODS_CARRYING_PUBLIC' as any,
+                vehicleStatus: 'NEW',
+                policyType: 'PACKAGE_COMPREHENSIVE',
+                idv: 1500000,
+                odPremium: 25000,
+                annualTpPremium: 15000,
+                policyTenure: 3,
+              }),
+            ).rejects.toThrow('Commercial vehicles only support a 1-Year TP policy');
+          });
+
+          it('TP-TENURE-02: Existing bike supports 5-year tenure and calculates TP gross = annual × tenure', async () => {
+            const res = await service.calculate({
+              vehicleCategory: 'BIKE',
+              vehicleStatus: 'EXISTING',
+              policyType: 'THIRD_PARTY_ONLY',
+              annualTpPremium: 1000,
+              policyTenure: 5,
+              paCover: false,
+              paidDriverLiability: false,
+            });
+            expect(res.outputs.tenure).toBe(5);
+            expect(res.outputs.baseTpPremium).toBe(5000);
+            expect(res.outputs.finalPayableAmount).toBe(5900); // 5000 + 18% GST (900)
+          });
+
+          it('TP-ADDONS-01: TP-only policy supports independent add-on selection, discounts, and mixed GST rates', async () => {
+            const res = await service.calculate({
+              vehicleCategory: 'PRIVATE_CAR',
+              vehicleStatus: 'EXISTING',
+              policyType: 'THIRD_PARTY_ONLY',
+              annualTpPremium: 1000,
+              policyTenure: 1,
+              paCover: false,
+              paidDriverLiability: false,
+              addons: [
+                {
+                  addonCode: 'PA_UNNAMED_PASSENGER',
+                  amount: 250,
+                  discountPercent: 10,
+                  gstRate: 18,
+                },
+                {
+                  addonCode: 'LEGAL_LIABILITY_PAID_DRIVER',
+                  amount: 50,
+                  discountPercent: 0,
+                  gstRate: 5,
+                },
+              ],
+            });
+
+            // TP Gross = 1000, GST 18% = 180
+            // PA_UNNAMED: Gross = 250, Discount 10% = 25, GST 18% on gross = 45
+            // LL_PAID_DRIVER: Gross = 50, Discount 0% = 0, GST 5% on gross = 2.5
+            // Total Add-on Gross = 300
+            // Total Add-on Discount = 25
+            // Total Add-on GST = 47.5
+            // Component GST Total = 180 + 47.5 = 227.5
+            // Gross Premium = 1000 + 300 = 1300
+            // Total Discounts = 25
+            // Final Payable = 1300 + 227.5 - 25 = 1502.5
+            expect(res.outputs.addonPremium).toBe(300);
+            expect(res.outputs.payableSummary.addonDiscountAmount).toBe(25);
+            expect(res.outputs.payableSummary.addonGstTotal).toBe(47.5);
+            expect(res.outputs.gstTotal).toBe(227.5);
+            expect(res.outputs.finalPayableAmount).toBe(1502.5);
+
+            // Itemized breakdown:
+            expect(res.outputs.itemizedAddons).toHaveLength(2);
+            const paAddon = res.outputs.itemizedAddons?.find((a: any) => a.addonCode === 'PA_UNNAMED_PASSENGER');
+            expect(paAddon).toBeDefined();
+            expect(paAddon?.amount).toBe(250);
+            expect(paAddon?.discountAmount).toBe(25);
+            expect(paAddon?.gstAmount).toBe(45);
+            expect(paAddon?.totalAmount).toBe(270);
+          });
+
+          it('COMM-ADJ-DIRECTION-01: Commercial adjustment ADD increases payable; SUBTRACT decreases payable', async () => {
+            const baseInput = {
+              vehicleCategory: 'PRIVATE_CAR' as const,
+              vehicleStatus: 'EXISTING' as const,
+              policyType: 'PACKAGE_COMPREHENSIVE' as const,
+              idv: 500000,
+              odPremium: 5000,
+              annualTpPremium: 3000,
+              policyTenure: 1,
+              paCover: false,
+              paidDriverLiability: false,
+            };
+            // Gross = 8000, GST 18% = 1440. Payable before adjustment = 9440.
+
+            // 1. Direction: ADD (+500) -> 9440 + 500 = 9940
+            const addRes = await service.calculate({
+              ...baseInput,
+              commercialAdjustmentAmount: 500,
+              commercialAdjustmentDirection: 'ADD',
+            });
+            expect(addRes.outputs.payableBeforeAdjustment).toBe(9440);
+            expect(addRes.outputs.signedCommercialAdjustment).toBe(500);
+            expect(addRes.outputs.commercialAdjustmentDirection).toBe('ADD');
+            expect(addRes.outputs.commercialDiscountAmount).toBe(0); // Loading, not a discount
+            expect(addRes.outputs.finalPayableAmount).toBe(9940);
+            expect(addRes.outputs.payableSummary.finalPayableAmount).toBe(9940);
+
+            // 2. Direction: SUBTRACT (-500) -> 9440 - 500 = 8940
+            const subRes = await service.calculate({
+              ...baseInput,
+              commercialAdjustmentAmount: 500,
+              commercialAdjustmentDirection: 'SUBTRACT',
+            });
+            expect(subRes.outputs.payableBeforeAdjustment).toBe(9440);
+            expect(subRes.outputs.signedCommercialAdjustment).toBe(-500);
+            expect(subRes.outputs.commercialAdjustmentDirection).toBe('SUBTRACT');
+            expect(subRes.outputs.commercialDiscountAmount).toBe(500);
+            expect(subRes.outputs.finalPayableAmount).toBe(8940);
+            expect(subRes.outputs.payableSummary.finalPayableAmount).toBe(8940);
+
+            // 3. Direction: SUBTRACT exceeding payable before adjustment is rejected
+            await expect(
+              service.calculate({
+                ...baseInput,
+                commercialAdjustmentAmount: 15000,
+                commercialAdjustmentDirection: 'SUBTRACT',
+              }),
+            ).rejects.toThrow('exceeds payable base');
+          });
+        });
       });
     });
   });

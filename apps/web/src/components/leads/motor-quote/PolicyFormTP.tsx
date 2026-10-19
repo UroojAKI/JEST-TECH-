@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { getPolicyTenureOptions, INSURER_OPTIONS } from './motorFormConfig';
+import { getPolicyTenureOptions, INSURER_OPTIONS, TP_ADDON_OPTIONS } from './motorFormConfig';
 import type { VehicleCategory, PolicyFormTPOnly, MotorEligibilityContext } from './motorFormTypes';
 
 import { useMotorCalculator } from './useMotorCalculator';
@@ -80,6 +80,7 @@ export function PolicyFormTPOnlyForm({ category, vehicleStatus, data, onChange, 
       : {
           commercialDiscountPercent: parseFloat(data.commercialDiscountPercent || '0') || 0,
         }),
+    commercialAdjustmentDirection: data.commercialAdjustmentDirection || 'SUBTRACT',
     discountReason: data.discountReason || undefined,
     gstRate: data.gstRate ? parseInt(data.gstRate) : 18,
     tpGstRate: data.tpGstRate ? parseInt(data.tpGstRate) : (data.gstRate ? parseInt(data.gstRate) : 18),
@@ -95,6 +96,18 @@ export function PolicyFormTPOnlyForm({ category, vehicleStatus, data, onChange, 
     editedPaPremium: data.editedPaPremium !== undefined && data.editedPaPremium !== '' && !isNaN(parseFloat(data.editedPaPremium))
       ? parseFloat(data.editedPaPremium)
       : undefined,
+    addons: (data.addonsSelected || []).map((addonKey) => ({
+      addonCode: addonKey,
+      amount: data.addonPrices?.[addonKey] !== undefined && data.addonPrices[addonKey] !== ''
+        ? parseFloat(data.addonPrices[addonKey])
+        : undefined,
+      discountPercent: data.addonDiscounts?.[addonKey] !== undefined && data.addonDiscounts[addonKey] !== ''
+        ? parseFloat(data.addonDiscounts[addonKey])
+        : undefined,
+      gstRate: data.addonGstRates?.[addonKey] !== undefined && data.addonGstRates[addonKey] !== ''
+        ? parseInt(data.addonGstRates[addonKey])
+        : undefined,
+    })),
   });
 
   const dataRef = React.useRef(data);
@@ -274,6 +287,100 @@ export function PolicyFormTPOnlyForm({ category, vehicleStatus, data, onChange, 
         </div>
       </FieldRow>
 
+      {/* TP Add-ons Section */}
+      <div className="p-3.5 rounded-xl border bg-card space-y-3">
+        <div className="flex items-center justify-between">
+          <label className="text-[11px] font-bold text-foreground block">
+            Third-Party Add-on Covers <span className="text-muted-foreground text-[9px] ml-1">(Optional)</span>
+          </label>
+          <span className="text-[10px] font-mono font-bold text-primary px-2 py-0.5 rounded bg-primary/10 border border-primary/20">
+            Total Add-on Gross: ₹{Number(result?.outputs?.addonGrossPremium ?? result?.outputs?.addonPremium ?? 0).toLocaleString('en-IN')}
+          </span>
+        </div>
+        <p className="text-[10px] text-muted-foreground">
+          Select TP add-ons. Each add-on has its own price, independent discount, and 5%/18% GST selection.
+        </p>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+          {TP_ADDON_OPTIONS.map((addon) => {
+            const isSelected = (data.addonsSelected || []).includes(addon.key);
+            const price = data.addonPrices?.[addon.key] ?? '';
+            const discount = data.addonDiscounts?.[addon.key] ?? '';
+            const gst = data.addonGstRates?.[addon.key] ?? '18';
+            return (
+              <div
+                key={addon.key}
+                className={`p-2.5 rounded-lg border transition-colors ${
+                  isSelected ? 'bg-primary/5 border-primary/40' : 'hover:bg-accent/40'
+                }`}
+              >
+                <label className="flex items-center gap-2 text-xs font-semibold cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={isSelected}
+                    onChange={() => {
+                      const current = data.addonsSelected || [];
+                      const updated = isSelected
+                        ? current.filter((k) => k !== addon.key)
+                        : [...current, addon.key];
+                      onChange({ ...data, addonsSelected: updated });
+                    }}
+                    className="h-4 w-4 rounded text-primary"
+                  />
+                  <span>{addon.label}</span>
+                </label>
+                {isSelected && (
+                  <div className="mt-2 grid grid-cols-3 gap-2 p-2 rounded-md bg-muted/40 border border-border text-[10px]">
+                    <div>
+                      <span className="font-bold text-foreground block mb-0.5">Amount (₹)</span>
+                      <input
+                        type="number"
+                        min="0"
+                        placeholder="Default"
+                        value={price}
+                        onChange={(e) => {
+                          const newPrices = { ...(data.addonPrices || {}), [addon.key]: e.target.value };
+                          onChange({ ...data, addonPrices: newPrices });
+                        }}
+                        className="w-full p-1 rounded border bg-background text-foreground font-mono"
+                      />
+                    </div>
+                    <div>
+                      <span className="font-bold text-foreground block mb-0.5">Discount (%)</span>
+                      <input
+                        type="number"
+                        min="0"
+                        max="100"
+                        placeholder="0%"
+                        value={discount}
+                        onChange={(e) => {
+                          const newDiscounts = { ...(data.addonDiscounts || {}), [addon.key]: e.target.value };
+                          onChange({ ...data, addonDiscounts: newDiscounts });
+                        }}
+                        className="w-full p-1 rounded border bg-background text-amber-600 font-mono"
+                      />
+                    </div>
+                    <div>
+                      <span className="font-bold text-foreground block mb-0.5">GST Rate</span>
+                      <select
+                        value={gst}
+                        onChange={(e) => {
+                          const newGsts = { ...(data.addonGstRates || {}), [addon.key]: e.target.value };
+                          onChange({ ...data, addonGstRates: newGsts });
+                        }}
+                        className="w-full p-1 rounded border bg-background text-primary"
+                      >
+                        <option value="18">18%</option>
+                        <option value="5">5%</option>
+                      </select>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
       {/* Premium Split */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <FieldRow label="Total Premium (incl. GST) ₹" hint="Calculated by backend rule engine">
@@ -288,7 +395,7 @@ export function PolicyFormTPOnlyForm({ category, vehicleStatus, data, onChange, 
           <div className="p-2 rounded-lg border border-sky-200 bg-sky-50 text-sky-800 font-bold text-sm">
             {data.totalPremiumInclGST ? `₹${data.totalPremiumInclGST}` : '₹0'}
             <span className="text-[10px] ml-2 text-sky-600 font-normal">
-              (TP: ₹{data.calculatedResult?.outputs?.netTpPremium || 0} | GST: ₹{data.calculatedResult?.outputs?.totalGst || 0})
+              (TP: ₹{data.calculatedResult?.outputs?.netTpPremium || 0} | Add-ons: ₹{data.calculatedResult?.outputs?.addonGrossPremium || data.calculatedResult?.outputs?.addonPremium || 0} | GST: ₹{data.calculatedResult?.outputs?.totalGst || 0})
             </span>
           </div>
         </FieldRow>
@@ -321,7 +428,7 @@ export function PolicyFormTPOnlyForm({ category, vehicleStatus, data, onChange, 
           </span>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3">
           <div>
             <label className="block text-[10px] font-bold text-muted-foreground uppercase tracking-wide mb-1">
               TP Discount (%)
@@ -345,26 +452,36 @@ export function PolicyFormTPOnlyForm({ category, vehicleStatus, data, onChange, 
             />
           </div>
 
-          <div>
+          <div className="lg:col-span-2">
             <label className="block text-[10px] font-bold text-muted-foreground uppercase tracking-wide mb-1">
               Commercial Adjustment (₹)
             </label>
-            <input
-              type="number"
-              min="0"
-              step="1"
-              placeholder="e.g. 500"
-              value={data.commercialAdjustmentAmount || ''}
-              onChange={(e) => {
-                const val = e.target.value;
-                onChange({
-                  ...data,
-                  commercialAdjustmentAmount: val,
-                  commercialDiscountPercent: undefined,
-                });
-              }}
-              className="w-full p-2 rounded-lg border text-xs font-semibold bg-background focus:outline-none focus:ring-1 focus:ring-primary border-border"
-            />
+            <div className="flex gap-1.5">
+              <select
+                value={data.commercialAdjustmentDirection || 'SUBTRACT'}
+                onChange={(e) => onChange({ ...data, commercialAdjustmentDirection: e.target.value as 'ADD' | 'SUBTRACT' })}
+                className="p-1 text-xs font-bold rounded border bg-background text-foreground shrink-0 w-24"
+              >
+                <option value="SUBTRACT">SUB (−)</option>
+                <option value="ADD">ADD (+)</option>
+              </select>
+              <input
+                type="number"
+                min="0"
+                step="1"
+                placeholder="e.g. 500"
+                value={data.commercialAdjustmentAmount || ''}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  onChange({
+                    ...data,
+                    commercialAdjustmentAmount: val,
+                    commercialDiscountPercent: undefined,
+                  });
+                }}
+                className="w-full p-2 rounded-lg border text-xs font-semibold bg-background focus:outline-none focus:ring-1 focus:ring-primary border-border"
+              />
+            </div>
           </div>
 
           <div>
@@ -405,7 +522,7 @@ export function PolicyFormTPOnlyForm({ category, vehicleStatus, data, onChange, 
         </div>
 
         <p className="text-[10px] text-muted-foreground font-mono">
-          Formula: Payable Base (Gross TP + GST) − TP Discount − Commercial Discount = Final Total Payable
+          Formula: Payable Base (Gross TP + Add-ons + GST) − TP Discount − Add-on Discount {data.commercialAdjustmentDirection === 'ADD' ? '+' : '−'} Commercial Adjustment = Final Total Payable
         </p>
       </div>
       {error && <div role="alert" className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-xs text-destructive">Premium calculation failed: {error}</div>}

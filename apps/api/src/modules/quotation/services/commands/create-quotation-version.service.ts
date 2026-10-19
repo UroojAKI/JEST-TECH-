@@ -133,6 +133,13 @@ export class CreateQuotationVersionService {
             (quotation.calculationSnapshot as any)?.inputs?.commercialAdjustment ??
             (quotation.motorMetadata as any)?.policyDetails?.commercialAdjustmentAmount ??
             (quotation.motorMetadata as any)?.policyDetails?.commercialAdjustment,
+          commercialAdjustmentDirection:
+            dto.metadata?.commercialAdjustmentDirection ??
+            (dto.metadata as any)?.commercialAdjustmentType ??
+            (quotation.versions?.[0]?.metadata as any)?.commercialAdjustmentDirection ??
+            (quotation.calculationSnapshot as any)?.inputs?.commercialAdjustmentDirection ??
+            (quotation.motorMetadata as any)?.policyDetails?.commercialAdjustmentDirection ??
+            'SUBTRACT',
           odDiscountPercent:
             dto.metadata?.odDiscountPercent ??
             (quotation.versions?.[0]?.metadata as any)?.odDiscountPercent ??
@@ -143,9 +150,12 @@ export class CreateQuotationVersionService {
             (quotation.versions?.[0]?.metadata as any)?.tpDiscountPercent ??
             (quotation.calculationSnapshot as any)?.inputs?.tpDiscountPercent ??
             0,
-          addons: dto.addons?.map((a) => ({
+          addons: dto.addons?.map((a: any) => ({
             addonCode: a.addonCode,
             manualPrice: undefined,
+            amount: a.amount !== undefined ? Number(a.amount) : (a.premium !== undefined ? Number(a.premium) : undefined),
+            discountPercent: a.discountPercent !== undefined ? Number(a.discountPercent) : undefined,
+            gstRate: a.gstRate !== undefined ? Number(a.gstRate) : undefined,
           })),
           engineCc:
             vehicleData.engineCapacityCcOrKw ?? dto.metadata?.engineCc,

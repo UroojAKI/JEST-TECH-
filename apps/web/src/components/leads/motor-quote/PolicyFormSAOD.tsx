@@ -87,6 +87,7 @@ export function PolicyFormSAODForm({ category, vehicleStatus, data, onChange, el
       : {
           commercialDiscountPercent: parseFloat(data.commercialDiscountPercent || '0') || 0,
         }),
+    commercialAdjustmentDirection: data.commercialAdjustmentDirection || 'SUBTRACT',
     discountReason: data.discountReason || undefined,
     gstRate: data.gstRate ? parseInt(data.gstRate) : 18,
     odGstRate: data.odGstRate ? parseInt(data.odGstRate) : (data.gstRate ? parseInt(data.gstRate) : 18),
@@ -97,12 +98,13 @@ export function PolicyFormSAODForm({ category, vehicleStatus, data, onChange, el
           odPremiumAmount: parseFloat(data.odPremiumAmount),
         }
       : {}),
-    addons: (data.addonsSelected || [])
-      .filter((a) => data.addonPrices?.[a] && parseFloat(data.addonPrices[a]) > 0)
-      .map((a) => ({
-        addonCode: a,
-        editedPrice: parseFloat(data.addonPrices![a]),
-      })),
+    addons: (data.addonsSelected || []).map((a) => ({
+      addonCode: a,
+      editedPrice: data.addonPrices?.[a] && parseFloat(data.addonPrices[a]) > 0 ? parseFloat(data.addonPrices[a]) : undefined,
+      amount: data.addonPrices?.[a] && parseFloat(data.addonPrices[a]) > 0 ? parseFloat(data.addonPrices[a]) : undefined,
+      discountPercent: data.addonDiscounts?.[a] && !isNaN(parseFloat(data.addonDiscounts[a])) ? parseFloat(data.addonDiscounts[a]) : undefined,
+      gstRate: data.addonGstRates?.[a] && !isNaN(parseInt(data.addonGstRates[a])) ? parseInt(data.addonGstRates[a]) : undefined,
+    })),
   });
 
   const dataRef = useRef(data);
@@ -472,9 +474,39 @@ export function PolicyFormSAODForm({ category, vehicleStatus, data, onChange, el
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-          <FieldRow label="OD Base Premium (₹)" mandatory hint="Insurer OD rate applied to IDV" formula="IDV × Insurer OD Rate %">
-            <input type="number" value={hasValidCalculation ? (outputs.baseOdPremium?.toString() ?? data.odPremiumBase) : ''} readOnly aria-readonly="true" className={readonlyInput} placeholder="Calculated from configured insurer OD rate" />
-          </FieldRow>
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <label className="text-[11px] font-bold text-foreground">
+                OD Base Premium (₹) <span className="text-rose-500">*</span>
+              </label>
+              {data.odPremiumAmount && (
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[9px] font-black bg-amber-500/20 text-amber-600 px-1.5 py-0.5 rounded">
+                    [Edited]
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => onChange({ ...data, odPremiumAmount: undefined })}
+                    className="text-[9px] text-muted-foreground hover:text-foreground underline"
+                  >
+                    Reset
+                  </button>
+                </div>
+              )}
+            </div>
+            <input
+              type="number"
+              step="1"
+              min="0"
+              value={data.odPremiumAmount ?? (hasValidCalculation ? (outputs.baseOdPremium?.toString() ?? data.odPremiumBase) : '')}
+              onChange={(e) => onChange({ ...data, odPremiumAmount: e.target.value })}
+              className={mandatoryInput(data.odPremiumAmount ?? (hasValidCalculation ? (outputs.baseOdPremium?.toString() ?? data.odPremiumBase) : ''))}
+              placeholder="Direct OD premium ₹"
+            />
+            <p className="text-[9px] text-muted-foreground mt-0.5">
+              Direct OD premium in ₹. Enter manually or defaults from tariff.
+            </p>
+          </div>
           <FieldRow label="NCB Discount (₹)" hint="Auto-calculated from NCB %">
             <input type="number" value={hasValidCalculation ? (outputs.ncbDiscount ?? data.ncbDiscountAmount) : ''} readOnly className={readonlyInput} placeholder="Auto-calculated" />
           </FieldRow>
@@ -559,6 +591,46 @@ export function PolicyFormSAODForm({ category, vehicleStatus, data, onChange, el
               value={hasValidCalculation ? (outputs.summary?.odDiscountAmount ?? outputs.od?.discount ?? outputs.odDiscountAmount ?? outputs.summary?.totalDiscount ?? '0') : ''}
               readOnly
               className={`${readonlyInput} font-mono font-bold text-amber-600`}
+              placeholder="₹0"
+            />
+          </FieldRow>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-border/50">
+          <FieldRow
+            label="Commercial Adjustment (₹)"
+            hint="Fixed ₹ adjustment to payable base"
+            formula="Direction: SUBTRACT (−) or ADD (+)"
+          >
+            <div className="flex gap-2">
+              <select
+                value={data.commercialAdjustmentDirection || 'SUBTRACT'}
+                onChange={(e) => onChange({ ...data, commercialAdjustmentDirection: e.target.value as 'ADD' | 'SUBTRACT' })}
+                className="p-2 rounded-lg border text-xs font-semibold bg-background border-border w-32 shrink-0"
+              >
+                <option value="SUBTRACT">SUBTRACT (−)</option>
+                <option value="ADD">ADD (+)</option>
+              </select>
+              <input
+                type="number"
+                min="0"
+                step="1"
+                value={data.commercialAdjustmentAmount || ''}
+                onChange={(e) => onChange({ ...data, commercialAdjustmentAmount: e.target.value, commercialDiscountPercent: undefined })}
+                placeholder="₹0"
+                className={`${inputBase} font-mono`}
+              />
+            </div>
+          </FieldRow>
+          <FieldRow
+            label="Total Deductions / Discounts (₹)"
+            hint="Itemized OD discount + Commercial adjustment"
+          >
+            <input
+              type="text"
+              readOnly
+              value={hasValidCalculation ? '₹' + Number(outputs.summary?.totalDiscount ?? outputs.totalDiscountAmount ?? 0).toLocaleString('en-IN') : '—'}
+              className={`${readonlyInput} font-mono font-bold text-amber-700`}
               placeholder="₹0"
             />
           </FieldRow>

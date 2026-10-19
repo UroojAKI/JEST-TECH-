@@ -105,6 +105,7 @@ export function PolicyFormPackageForm({ category, vehicleStatus, data, onChange,
           discountPercent: parseFloat(data.commercialDiscountPercent || '0') || 0,
           commercialDiscountPercent: parseFloat(data.commercialDiscountPercent || '0') || 0,
         }),
+    commercialAdjustmentDirection: data.commercialAdjustmentDirection || 'SUBTRACT',
     discountReason: data.discountReason || undefined,
     odDiscountPercent: parseFloat(data.odDiscountPercent || '0') || 0,
     tpDiscountPercent: parseFloat(data.tpDiscountPercent || '0') || 0,
@@ -136,7 +137,12 @@ export function PolicyFormPackageForm({ category, vehicleStatus, data, onChange,
       .map((addonCode) => ({
         addonCode,
         editedPrice: parseFloat(data.addonPrices![addonCode]),
-
+        ...(data.addonDiscounts?.[addonCode] !== undefined && data.addonDiscounts[addonCode] !== ''
+          ? { discountPercent: parseFloat(data.addonDiscounts[addonCode]) }
+          : {}),
+        ...(data.addonGstRates?.[addonCode] !== undefined && data.addonGstRates[addonCode] !== ''
+          ? { gstRate: parseInt(data.addonGstRates[addonCode]) }
+          : {}),
       })),
   });
 
@@ -670,24 +676,38 @@ export function PolicyFormPackageForm({ category, vehicleStatus, data, onChange,
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
               <div className="p-2.5 rounded-lg bg-background border space-y-1">
                 <span className="text-[9px] text-muted-foreground block font-bold">Commercial Adjustment (₹)</span>
-                <input
-                  type="number"
-                  min="0"
-                  step="1"
-                  value={data.commercialAdjustmentAmount ?? ''}
-                  onChange={(e) => onChange({ ...data, commercialAdjustmentAmount: e.target.value, commercialDiscountPercent: undefined })}
-                  placeholder="e.g. 500"
-                  className="w-full p-1 text-xs font-bold rounded border bg-background text-amber-700 dark:text-amber-400"
-                />
+                <div className="flex gap-1.5">
+                  <select
+                    value={data.commercialAdjustmentDirection || 'SUBTRACT'}
+                    onChange={(e) => onChange({ ...data, commercialAdjustmentDirection: e.target.value as 'ADD' | 'SUBTRACT' })}
+                    className="p-1 text-xs font-bold rounded border bg-background text-foreground shrink-0 w-24"
+                  >
+                    <option value="SUBTRACT">SUB (−)</option>
+                    <option value="ADD">ADD (+)</option>
+                  </select>
+                  <input
+                    type="number"
+                    min="0"
+                    step="1"
+                    value={data.commercialAdjustmentAmount ?? ''}
+                    onChange={(e) => onChange({ ...data, commercialAdjustmentAmount: e.target.value, commercialDiscountPercent: undefined })}
+                    placeholder="e.g. 500"
+                    className="w-full p-1 text-xs font-bold rounded border bg-background text-amber-700 dark:text-amber-400"
+                  />
+                </div>
               </div>
               <div className="p-2.5 rounded-lg bg-background border space-y-1">
-                <span className="text-[9px] text-muted-foreground block font-bold">Deduction (₹)</span>
-                <span className="text-xs font-bold text-amber-600 block pt-1">
-                  {hasValidCalculation && commDiscount > 0
-                    ? '-₹' + Number(commDiscount).toLocaleString('en-IN')
+                <span className="text-[9px] text-muted-foreground block font-bold">
+                  {data.commercialAdjustmentDirection === 'ADD' ? 'Loading / Addition (₹)' : 'Deduction (₹)'}
+                </span>
+                <span className={`text-xs font-bold block pt-1 ${data.commercialAdjustmentDirection === 'ADD' ? 'text-primary' : 'text-amber-600'}`}>
+                  {hasValidCalculation && Number(data.commercialAdjustmentAmount || 0) > 0
+                    ? (data.commercialAdjustmentDirection === 'ADD' ? '+₹' : '-₹') + Number(data.commercialAdjustmentAmount).toLocaleString('en-IN')
                     : '—'}
                 </span>
-                <span className="text-[9px] text-muted-foreground block">Fixed ₹ deduction from Payable Base</span>
+                <span className="text-[9px] text-muted-foreground block">
+                  {data.commercialAdjustmentDirection === 'ADD' ? 'Fixed ₹ addition to Payable Base' : 'Fixed ₹ deduction from Payable Base'}
+                </span>
               </div>
               <div className="p-2.5 rounded-lg bg-background border space-y-1">
                 <span className="text-[9px] text-muted-foreground block font-bold">Justification / Approval Ref</span>
@@ -726,10 +746,12 @@ export function PolicyFormPackageForm({ category, vehicleStatus, data, onChange,
                     <span>TP Discount: <strong className="text-amber-600">-₹{Number(tpDiscountAmount).toLocaleString('en-IN')}</strong></span>
                   </>
                 )}
-                {commDiscount > 0 && (
+                {Number(data.commercialAdjustmentAmount || 0) > 0 && (
                   <>
                     <span>•</span>
-                    <span>Commercial Adj: <strong className="text-amber-600">-₹{Number(commDiscount).toLocaleString('en-IN')}</strong></span>
+                    <span className={data.commercialAdjustmentDirection === 'ADD' ? 'text-primary font-bold' : 'text-amber-600'}>
+                      Commercial Adj: <strong>{data.commercialAdjustmentDirection === 'ADD' ? '+₹' : '-₹'}{Number(data.commercialAdjustmentAmount).toLocaleString('en-IN')}</strong>
+                    </span>
                   </>
                 )}
                 {totalDiscount > 0 && (

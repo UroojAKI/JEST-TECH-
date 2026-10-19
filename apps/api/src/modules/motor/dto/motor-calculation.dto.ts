@@ -51,6 +51,21 @@ export class MotorAddonInputDto {
   editedPrice?: number;
 
   @IsOptional()
+  @IsNumber()
+  @Min(0)
+  amount?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Max(100)
+  discountPercent?: number;
+
+  @IsOptional()
+  @IsNumber()
+  gstRate?: number;
+
+  @IsOptional()
   @IsString()
   approvalReference?: string;
 
@@ -165,6 +180,18 @@ export class MotorCalculationInputDto {
   @IsNumber()
   @Min(0)
   commercialAdjustmentAmount?: number;
+
+  /**
+   * Commercial adjustment direction: 'ADD' increases payable; 'SUBTRACT' decreases payable.
+   * Defaults to 'SUBTRACT' if omitted.
+   */
+  @IsOptional()
+  @IsString()
+  commercialAdjustmentDirection?: 'ADD' | 'SUBTRACT';
+
+  @IsOptional()
+  @IsString()
+  commercialAdjustmentType?: 'ADD' | 'SUBTRACT';
 
   @IsOptional()
   @IsString()
@@ -294,6 +321,7 @@ export interface PayableDiscount {
   baseAmount: number;
   amount: number;
   reason?: string;
+  fixedRupeeAmount?: number;
 }
 
 export interface ItemizedDiscounts {
@@ -340,6 +368,11 @@ export interface PayableSummary {
   commercialAdjustment?: number;
   /** Fixed ₹ commercial adjustment (Phase 3 canonical path). Mirrors commercialDiscountAmount when set. */
   commercialAdjustmentAmount?: number;
+  commercialAdjustmentDirection?: 'ADD' | 'SUBTRACT';
+  addonDiscountAmount?: number;
+  addonDiscount?: number;
+  addonGstTotal?: number;
+  addonGst?: number;
   commercialDiscount: PayableDiscount;
   totalDiscount?: number;
   totalDiscounts?: number;
