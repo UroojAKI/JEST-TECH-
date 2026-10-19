@@ -100,7 +100,8 @@ export function PolicyFormSAODForm({ category, vehicleStatus, data, onChange, el
     activeTpVerificationStatus: activeTpIsVerified ? data.tpVerification?.verificationStatus : undefined,
     activeTpVerifiedByUserConfirmed: activeTpIsVerified ? data.tpVerification?.verifiedByUserConfirmed : false,
     idv: parseFloat(data.insuredDeclaredValue || '0') || 0,
-    ncbPercent: parseInt(data.ncbPercentage || '0') || 0,
+    // SAOD uses the explicit percentage discount field; NCB is not a separate SAOD discount input.
+    ncbPercent: 0,
     claimInExpiringPolicy: data.claimInExpiringODPolicy === 'Yes',
     odDiscountPercent: parseFloat(data.odDiscountPercent || data.discountPercent || '0') || 0,
     discountPercent: parseFloat(data.discountPercent || '0') || 0,
@@ -130,10 +131,7 @@ export function PolicyFormSAODForm({ category, vehicleStatus, data, onChange, el
               odBasePremium: parseFloat(data.odBasePremiumOverride),
             }
           : {})),
-    // Field 2: NCB Discount override
-    ...(data.ncbDiscountOverride !== undefined && data.ncbDiscountOverride !== '' && !isNaN(parseFloat(data.ncbDiscountOverride))
-      ? { ncbDiscount: parseFloat(data.ncbDiscountOverride) }
-      : {}),
+    // SAOD discount is entered as a percentage through discountPercent/odDiscountPercent.
     // Field 3: Add-on Premium override
     ...(data.addonPremiumOverride !== undefined && data.addonPremiumOverride !== '' && !isNaN(parseFloat(data.addonPremiumOverride))
       ? { addonPremium: parseFloat(data.addonPremiumOverride) }
@@ -222,7 +220,7 @@ export function PolicyFormSAODForm({ category, vehicleStatus, data, onChange, el
   };
 
   const handleDiscountPercentChange = (val: string) => {
-    onChange({ ...data, discountPercent: val });
+    onChange({ ...data, discountPercent: val, odDiscountPercent: val });
   };
 
   const verification = data.tpVerification;
@@ -234,18 +232,16 @@ export function PolicyFormSAODForm({ category, vehicleStatus, data, onChange, el
   const itemizedAddons: any[] = Array.isArray(outputs.itemizedAddons) ? outputs.itemizedAddons : [];
 
   const hasOdBaseOverride = Boolean((data.odPremiumAmount !== undefined && data.odPremiumAmount !== '') || (data.odBasePremiumOverride !== undefined && data.odBasePremiumOverride !== ''));
-  const hasNcbOverride = Boolean(data.ncbDiscountOverride !== undefined && data.ncbDiscountOverride !== '');
   const hasAddonOverride = Boolean(data.addonPremiumOverride !== undefined && data.addonPremiumOverride !== '');
   const hasNetOdOverride = Boolean(data.netOdPremiumOverride !== undefined && data.netOdPremiumOverride !== '');
   const hasGstOverride = Boolean(data.gstAmountOverride !== undefined && data.gstAmountOverride !== '');
   const hasTotalOverride = Boolean(data.totalPremiumOverride !== undefined && data.totalPremiumOverride !== '');
 
   const odBaseStatus = hasOdBaseOverride ? 'MANUAL' : 'CALCULATED';
-  const ncbStatus = hasNcbOverride ? 'MANUAL' : 'CALCULATED';
   const addonStatus = hasAddonOverride ? 'MANUAL' : 'CALCULATED';
-  const netOdStatus = hasNetOdOverride ? 'MANUAL' : ((hasOdBaseOverride || hasNcbOverride || hasAddonOverride) ? 'RECALCULATED' : 'CALCULATED');
-  const gstStatus = hasGstOverride ? 'MANUAL' : ((hasOdBaseOverride || hasNcbOverride || hasAddonOverride || hasNetOdOverride) ? 'RECALCULATED' : 'CALCULATED');
-  const totalStatus = hasTotalOverride ? 'MANUAL' : ((hasOdBaseOverride || hasNcbOverride || hasAddonOverride || hasNetOdOverride || hasGstOverride) ? 'RECALCULATED' : 'CALCULATED');
+  const netOdStatus = hasNetOdOverride ? 'MANUAL' : ((hasOdBaseOverride || hasAddonOverride) ? 'RECALCULATED' : 'CALCULATED');
+  const gstStatus = hasGstOverride ? 'MANUAL' : ((hasOdBaseOverride || hasAddonOverride || hasNetOdOverride) ? 'RECALCULATED' : 'CALCULATED');
+  const totalStatus = hasTotalOverride ? 'MANUAL' : ((hasOdBaseOverride || hasAddonOverride || hasNetOdOverride || hasGstOverride) ? 'RECALCULATED' : 'CALCULATED');
 
   return (
     <div className="space-y-4">
@@ -421,13 +417,14 @@ export function PolicyFormSAODForm({ category, vehicleStatus, data, onChange, el
           />
 
           <OverrideFieldCard
-            label="NCB Discount (₹)"
-            status={ncbStatus}
-            value={data.ncbDiscountOverride ?? (hasValidCalculation ? (outputs.ncbDiscount?.toString() ?? data.ncbDiscountAmount) : '')}
-            onChange={(val) => onChange({ ...data, ncbDiscountOverride: val })}
-            onReset={() => onChange({ ...data, ncbDiscountOverride: undefined })}
-            hint="NCB discount in ₹. Enter manually or auto-calculated."
-            placeholder="Auto-calculated"
+            label="Discount (%)"
+            status={data.discountPercent !== undefined && data.discountPercent !== '' ? 'MANUAL' : (hasValidCalculation ? 'CALCULATED' : 'PENDING')}
+            value={data.discountPercent ?? ''}
+            onChange={handleDiscountPercentChange}
+            onReset={() => onChange({ ...data, discountPercent: '', odDiscountPercent: '' })}
+            hint="Enter OD discount percentage; the discount amount is calculated by the server."
+            placeholder="e.g. 10"
+            inputType="number"
           />
 
           <OverrideFieldCard
@@ -512,30 +509,12 @@ export function PolicyFormSAODForm({ category, vehicleStatus, data, onChange, el
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <FieldRow
-            label="OD Discount %"
-            hint="Enter discretionary OD discount percentage"
-          >
-            <div className="relative">
-              <input
-                type="number"
-                min="0"
-                max="100"
-                step="0.5"
-                value={data.discountPercent || ''}
-                onChange={(e) => handleDiscountPercentChange(e.target.value)}
-                placeholder="e.g. 10"
-                className={`${inputBase} pr-7 font-mono`}
-              />
-              <Percent className="h-3.5 w-3.5 absolute right-2.5 top-2.5 text-muted-foreground" />
-            </div>
-          </FieldRow>
-          <FieldRow
             label="OD Discount Amount (₹)"
-            hint="Server-calculated OD discount"
+            hint="Server-calculated amount from the entered discount percentage"
           >
             <input
               type="number"
-              value={hasValidCalculation ? (outputs.summary?.odDiscountAmount ?? outputs.od?.discount ?? outputs.odDiscountAmount ?? outputs.summary?.totalDiscount ?? '0') : ''}
+              value={hasValidCalculation ? (outputs.summary?.odDiscountAmount ?? outputs.od?.discount ?? outputs.odDiscountAmount ?? '0') : ''}
               readOnly
               className={`${readonlyInput} font-mono font-bold text-amber-600`}
               placeholder="₹0"
