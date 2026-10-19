@@ -74,6 +74,30 @@ export class EvaluateMotorRulesDto {
 
   @IsOptional()
   @IsString()
+  activeTpInsurer?: string;
+
+  @IsOptional()
+  @IsString()
+  activeTpPolicyNumber?: string;
+
+  @IsOptional()
+  @IsString()
+  activeTpStartDate?: string;
+
+  @IsOptional()
+  @IsString()
+  activeTpVerificationMethod?: string;
+
+  @IsOptional()
+  @IsString()
+  activeTpVerificationStatus?: 'PENDING' | 'VERIFIED' | 'REJECTED';
+
+  @IsOptional()
+  @IsBoolean()
+  activeTpVerifiedByUserConfirmed?: boolean;
+
+  @IsOptional()
+  @IsString()
   odExpiryDate?: string;
 
   @IsOptional()
@@ -119,6 +143,40 @@ export class MotorRulesEvaluateController {
       }
       if (journey.status !== 'IN_PROGRESS') {
         throw new BadRequestException(`Journey is no longer in progress (${journey.status})`);
+      }
+    }
+
+    if (dto.newPolicyType === 'SAOD') {
+      if (
+        !dto.activeTpInsurer?.trim() ||
+        !dto.activeTpPolicyNumber?.trim() ||
+        !dto.activeTpStartDate ||
+        !dto.tpExpiryDate ||
+        !dto.activeTpVerificationMethod ||
+        dto.activeTpVerificationStatus !== 'VERIFIED' ||
+        dto.activeTpVerifiedByUserConfirmed !== true
+      ) {
+        throw new BadRequestException({
+          statusCode: 400,
+          error: 'Bad Request',
+          errorCode: 'ACTIVE_TP_VERIFICATION_REQUIRED',
+          message: 'SAOD underwriting evaluation requires complete, verified and confirmed active TP details.',
+        });
+      }
+
+      const tpStart = new Date(dto.activeTpStartDate);
+      const tpExpiry = new Date(dto.tpExpiryDate);
+      if (
+        Number.isNaN(tpStart.getTime()) ||
+        Number.isNaN(tpExpiry.getTime()) ||
+        tpExpiry < tpStart
+      ) {
+        throw new BadRequestException({
+          statusCode: 400,
+          error: 'Bad Request',
+          errorCode: 'ACTIVE_TP_DATES_INVALID',
+          message: 'Active TP policy dates are invalid; expiry must not precede the start date.',
+        });
       }
     }
 
