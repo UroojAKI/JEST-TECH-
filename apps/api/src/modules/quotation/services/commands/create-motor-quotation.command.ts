@@ -642,6 +642,26 @@ export class CreateMotorQuotationCommand {
           },
         });
 
+        // Persist SAOD verification evidence against the quotation so the
+        // confirmed verifier, method, timestamps and TP details are auditable.
+        if (policyType === 'STANDALONE_OD') {
+          await tx.saodTpVerification.create({
+            data: {
+              quotationId: createdQuotation.id,
+              tpInsurer: saodVerification.tpInsurer,
+              tpPolicyNumber: saodVerification.tpPolicyNumber,
+              tpStartDate: new Date(saodVerification.tpStartDate),
+              tpExpiryDate: new Date(saodVerification.tpExpiryDate),
+              verificationStatus: 'VERIFIED',
+              verificationMethod: saodVerification.verificationMethod,
+              evidenceDocumentUrl: saodVerification.evidenceDocumentUrl || null,
+              verifierNotes: saodVerification.verifierNotes || null,
+              verifiedById: user.id,
+              verifiedAt: new Date(),
+            },
+          });
+        }
+
       // Bind journey 1:1
       if (journey) {
         await tx.motorJourney.update({
