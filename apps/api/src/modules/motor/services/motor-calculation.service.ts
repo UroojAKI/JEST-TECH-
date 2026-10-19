@@ -83,9 +83,14 @@ export class MotorCalculationService {
     // ── Phase 1 & 3: Direct OD Premium Resolution ─────────────────────────
     // Direct OD Premium in ₹ (canonical path) takes total precedence.
     // The obsolete OD-rate bounds validation (0.1% - 15.0%) is completely removed.
+    const odBaseOverride = input.overrides?.find((o) => o.field === 'OD_BASE' || o.field === 'OD_PREMIUM_DIRECT');
     const directOdInput = input.odPremium !== undefined
       ? input.odPremium
-      : input.odPremiumAmount;
+      : input.odPremiumAmount !== undefined
+        ? input.odPremiumAmount
+        : (input.odBasePremium !== undefined
+            ? input.odBasePremium
+            : (odBaseOverride ? odBaseOverride.overrideValue : undefined));
     const hasDirectOd = directOdInput !== undefined && directOdInput !== null && !isNaN(Number(directOdInput));
     const directOdAmount = hasDirectOd ? round2(Number(directOdInput)) : undefined;
 
@@ -99,7 +104,7 @@ export class MotorCalculationService {
         systemValue: round2((input.idv ?? 0) * (odRates.rate / 100)),
         overrideValue: directOdAmount,
         status: 'APPLIED',
-        reason: 'Direct OD premium ₹ input (agent-entered gross)',
+        reason: odBaseOverride?.reason || 'Direct OD premium ₹ input (agent-entered gross)',
       });
     } else {
       // Legacy / backwards-compatible path for callers providing editedOdRate or OD_RATE override.
@@ -217,6 +222,15 @@ export class MotorCalculationService {
     let totalAddonGstAmount = 0;
     let odDiscountAmount = 0;
     let effectiveOdDiscountPercent = 0;
+    let isNcbOverridden = false;
+    let isAddonTotalOverridden = false;
+    let isNetOdOverridden = false;
+    let isGstOverridden = false;
+    let isTotalOverridden = false;
+    let systemAddonPremiumTotal = 0;
+    let systemNetOdComponent = 0;
+    let systemGstOnOd = 0;
+    let systemFinalPayable = 0;
     const itemizedAddons: Array<{
       addonCode: string;
       name: string;
@@ -255,8 +269,37 @@ export class MotorCalculationService {
       }
 
       // Canonical Business Rule: NCB is strictly underwriting risk metadata;
-      // it does NOT deduct a monetary discount from baseOdPremium or the payable total.
-      ncbDiscountAmount = 0;
+      // it does NOT deduct a monetary discount from baseOdPremium or the payable total,
+      // UNLESS an explicit manual override is provided.
+      const ncbOverride = input.overrides?.find((o) => o.field === 'NCB_DISCOUNT');
+      const candidateNcbDiscount = input.ncbDiscount !== undefined
+        ? input.ncbDiscount
+        : (input.ncbDiscountAmount !== undefined
+            ? input.ncbDiscountAmount
+            : (ncbOverride ? ncbOverride.overrideValue : undefined));
+
+      if (candidateNcbDiscount !== undefined && candidateNcbDiscount !== null && !isNaN(Number(candidateNcbDiscount))) {
+        const manualNcb = round2(Math.max(0, Number(candidateNcbDiscount)));
+        if (manualNcb > baseOdPremium) {
+          throw new BadRequestException({
+            statusCode: 400,
+            error: 'Bad Request',
+            errorCode: 'NCB_DISCOUNT_EXCEEDS_BASE',
+            message: `NCB discount (₹${manualNcb.toLocaleString('en-IN')}) cannot exceed OD base premium (₹${baseOdPremium.toLocaleString('en-IN')}).`,
+          });
+        }
+        ncbDiscountAmount = manualNcb;
+        isNcbOverridden = true;
+        overridesApplied.push({
+          field: 'NCB_DISCOUNT',
+          systemValue: 0,
+          overrideValue: ncbDiscountAmount,
+          status: 'APPLIED',
+          reason: ncbOverride?.reason || 'User manual override of NCB discount amount',
+        });
+      } else {
+        ncbDiscountAmount = 0;
+      }
 
       effectiveOdDiscountPercent = Number(
         input.odDiscountPercent ||
@@ -269,7 +312,7 @@ export class MotorCalculationService {
         baseOdPremium * (effectiveOdDiscountPercent / 100),
       );
       specialDiscountAmount = odDiscountAmount;
-      netOdAfterDiscount = round2(Math.max(0, baseOdPremium - odDiscountAmount));
+      netOdAfterDiscount = round2(Math.max(0, baseOdPremium - ncbDiscountAmount - odDiscountAmount));
     }
 
     // ── 7. TP Component (PA and Paid Driver are separate sub-components) ───
@@ -426,9 +469,53 @@ export class MotorCalculationService {
       }
     }
 
+    // ── 8b. Add-ons Total Override ─────────────────────────────────────────
+    systemAddonPremiumTotal = addonPremiumTotal;
+    const addonTotalOverride = input.overrides?.find((o) => o.field === 'ADDON_TOTAL' || o.field === 'ADDON_PREMIUM');
+    const candidateAddonTotal = input.addonPremium !== undefined
+      ? input.addonPremium
+      : (input.addOnsPremium !== undefined
+          ? input.addOnsPremium
+          : (addonTotalOverride ? addonTotalOverride.overrideValue : undefined));
+
+    if (candidateAddonTotal !== undefined && candidateAddonTotal !== null && !isNaN(Number(candidateAddonTotal))) {
+      const manualAddon = round2(Math.max(0, Number(candidateAddonTotal)));
+      addonPremiumTotal = manualAddon;
+      isAddonTotalOverridden = true;
+      overridesApplied.push({
+        field: 'ADDON_TOTAL',
+        systemValue: systemAddonPremiumTotal,
+        overrideValue: addonPremiumTotal,
+        status: 'APPLIED',
+        reason: addonTotalOverride?.reason || 'User manual override of add-ons total premium',
+      });
+    }
+
     // ── 9. Undiscounted Gross Components (pre-discount, pre-tax) ───────────
     const hasOd = ['STANDALONE_OD', 'PACKAGE_COMPREHENSIVE'].includes(input.policyType);
-    const netOdComponent = round2(netOdAfterDiscount + (hasOd ? addonPremiumTotal : 0));
+    systemNetOdComponent = round2(netOdAfterDiscount + (hasOd ? addonPremiumTotal : 0));
+
+    let netOdComponent = systemNetOdComponent;
+    const netOdOverride = input.overrides?.find((o) => o.field === 'NET_OD_PREMIUM');
+    const candidateNetOd = input.netOdPremium !== undefined
+      ? input.netOdPremium
+      : ((input as any).odPremiumNet !== undefined
+          ? (input as any).odPremiumNet
+          : (netOdOverride ? netOdOverride.overrideValue : undefined));
+
+    if (candidateNetOd !== undefined && candidateNetOd !== null && !isNaN(Number(candidateNetOd))) {
+      const manualNetOd = round2(Math.max(0, Number(candidateNetOd)));
+      netOdComponent = manualNetOd;
+      isNetOdOverridden = true;
+      overridesApplied.push({
+        field: 'NET_OD_PREMIUM',
+        systemValue: systemNetOdComponent,
+        overrideValue: netOdComponent,
+        status: 'APPLIED',
+        reason: netOdOverride?.reason || 'User manual override of Net OD Premium (Field 10)',
+      });
+    }
+
     const netTpComponent = round2(
       Math.max(0, baseTpPremium - tpDiscountAmount),
     );
@@ -443,13 +530,10 @@ export class MotorCalculationService {
 
     // ── 10. Component-Level GST Calculation on GROSS Premium Base ──────────
     // CORE BUSINESS RULE: GST base = gross premium before discount.
-    // OD Gross -> OD GST
-    // TP Gross -> TP GST
-    // PA Gross -> PA GST
-    // Paid Driver Gross -> Paid Driver GST
-    // A commercial discount does NOT reduce the statutory GST base.
-
-    const odGrossBase = round2(baseOdPremium + (hasOd ? addonPremiumTotal : 0));
+    // If Net OD (Field 10) was overridden, the accepted Net OD becomes the taxable base for OD GST.
+    const odGrossBase = hasOd
+      ? (isNetOdOverridden ? netOdComponent : round2(baseOdPremium + addonPremiumTotal))
+      : 0;
     const tpGrossBase = baseTpPremium;
     const paGrossBase = paPremium;
     const paidDriverGrossBase = paidDriverPremium;
@@ -471,7 +555,28 @@ export class MotorCalculationService {
       ? (Number(input.paidDriverGstRate) > 1 ? Number(input.paidDriverGstRate) / 100 : Number(input.paidDriverGstRate))
       : gstRate;
 
-    const gstOnOd = hasOd ? round2(odGrossBase * odGstRate) : 0;
+    systemGstOnOd = hasOd ? round2(odGrossBase * odGstRate) : 0;
+    let gstOnOd = systemGstOnOd;
+    const gstOverride = input.overrides?.find((o) => o.field === 'GST_AMOUNT');
+    const candidateGst = input.gstAmount !== undefined
+      ? input.gstAmount
+      : ((input as any).odGstAmount !== undefined
+          ? (input as any).odGstAmount
+          : (gstOverride ? gstOverride.overrideValue : undefined));
+
+    if (candidateGst !== undefined && candidateGst !== null && !isNaN(Number(candidateGst))) {
+      const manualGst = round2(Math.max(0, Number(candidateGst)));
+      gstOnOd = manualGst;
+      isGstOverridden = true;
+      overridesApplied.push({
+        field: 'GST_AMOUNT',
+        systemValue: systemGstOnOd,
+        overrideValue: gstOnOd,
+        status: 'APPLIED',
+        reason: gstOverride?.reason || 'User manual override of Statutory GST amount',
+      });
+    }
+
     const gstOnTp = round2(tpGrossBase * tpGstRate);
     const gstOnPa = round2(paGrossBase * paGstRate);
     const gstOnPaidDriver = round2(paidDriverGrossBase * paidDriverGstRate);
@@ -561,7 +666,27 @@ export class MotorCalculationService {
     // Signed Commercial Adjustment: S = +1 for ADD, S = -1 for SUBTRACT
     // P_final = P_before adjustment + S * A
     const signedCommercialAdjustment = isAdd ? commercialAdjustmentRupees : -commercialAdjustmentRupees;
-    const finalPayableAmount = round2(payableBeforeAdjustment + signedCommercialAdjustment);
+    systemFinalPayable = isNetOdOverridden && input.policyType === 'STANDALONE_OD'
+      ? round2(Math.max(0, netOdComponent + gstOnOd + signedCommercialAdjustment))
+      : round2(payableBeforeAdjustment + signedCommercialAdjustment);
+    let finalPayableAmount = systemFinalPayable;
+
+    const totalOverride = input.overrides?.find((o) => o.field === 'TOTAL_PREMIUM' || o.field === 'FIELD_11');
+    const candidateTotal = (input as any).totalPremiumOverride !== undefined && (input as any).totalPremiumOverride !== '' && !isNaN(Number((input as any).totalPremiumOverride))
+      ? Number((input as any).totalPremiumOverride)
+      : (totalOverride ? totalOverride.overrideValue : undefined);
+
+    if (candidateTotal !== undefined && candidateTotal !== null && !isNaN(Number(candidateTotal))) {
+      finalPayableAmount = round2(Math.max(0, Number(candidateTotal)));
+      isTotalOverridden = true;
+      overridesApplied.push({
+        field: 'TOTAL_PREMIUM',
+        systemValue: systemFinalPayable,
+        overrideValue: finalPayableAmount,
+        status: 'APPLIED',
+        reason: totalOverride?.reason || 'Field 11 total premium manual override',
+      });
+    }
 
     if (finalPayableAmount < 0) {
       throw new BadRequestException({
@@ -689,10 +814,27 @@ export class MotorCalculationService {
         tpDiscountAmount,
         totalDiscountAmount,
 
+        isOverridden: {
+          odBasePremium: hasDirectOd,
+          ncbDiscount: isNcbOverridden,
+          addonPremium: isAddonTotalOverridden,
+          netOdPremium: isNetOdOverridden,
+          gstAmount: isGstOverridden,
+          totalPremium: isTotalOverridden,
+        },
+        referenceValues: {
+          odBasePremium: round2((input.idv ?? 0) * (odRates.rate / 100)),
+          ncbDiscount: 0,
+          addonPremium: systemAddonPremiumTotal,
+          netOdPremium: systemNetOdComponent,
+          gstAmount: systemGstOnOd,
+          totalPremium: systemFinalPayable,
+        },
+
         // Structured Component Breakdown (preserves undiscounted reference figures)
         od: {
           gross: baseOdPremium,
-          ncbDiscount: 0,
+          ncbDiscount: ncbDiscountAmount,
           specialDiscount: odDiscountAmount,
           addons: round2(addonPremiumTotal),
           net: netOdComponent,
@@ -746,7 +888,7 @@ export class MotorCalculationService {
 
         // Own Damage
         baseOdPremium,
-        ncbDiscount: 0,
+        ncbDiscount: ncbDiscountAmount,
         specialDiscount: odDiscountAmount,
         netOdAfterDiscount,
         netOdPremium: netOdComponent,
@@ -802,9 +944,38 @@ export class MotorCalculationService {
         message: 'Client-supplied add-on prices are disabled. Configure the add-on rate through the approved rate master; approval text fields cannot authorize a price override.',
       });
     }
-    const directOd = input.odPremium !== undefined ? input.odPremium : input.odPremiumAmount;
+    const directOd = input.odPremium !== undefined
+      ? input.odPremium
+      : (input.odPremiumAmount !== undefined ? input.odPremiumAmount : input.odBasePremium);
     if (directOd !== undefined && (isNaN(Number(directOd)) || Number(directOd) < 0)) {
       throw new BadRequestException('OD premium amount must be a valid non-negative number.');
+    }
+    const ncbDisc = input.ncbDiscount !== undefined ? input.ncbDiscount : input.ncbDiscountAmount;
+    if (ncbDisc !== undefined && (isNaN(Number(ncbDisc)) || Number(ncbDisc) < 0)) {
+      throw new BadRequestException('NCB discount must be a valid non-negative number.');
+    }
+    const addonPrem = input.addonPremium !== undefined ? input.addonPremium : input.addOnsPremium;
+    if (addonPrem !== undefined && (isNaN(Number(addonPrem)) || Number(addonPrem) < 0)) {
+      throw new BadRequestException('Add-on premium must be a valid non-negative number.');
+    }
+    const netOd = input.netOdPremium !== undefined ? input.netOdPremium : (input as any).odPremiumNet;
+    if (netOd !== undefined && (isNaN(Number(netOd)) || Number(netOd) < 0)) {
+      throw new BadRequestException('Net OD premium must be a valid non-negative number.');
+    }
+    const gstAmt = input.gstAmount !== undefined ? input.gstAmount : (input as any).odGstAmount;
+    if (gstAmt !== undefined && (isNaN(Number(gstAmt)) || Number(gstAmt) < 0)) {
+      throw new BadRequestException('GST amount must be a valid non-negative number.');
+    }
+    const totPrem = input.totalPremium !== undefined
+      ? input.totalPremium
+      : (input.totalPremiumInclGST !== undefined ? input.totalPremiumInclGST : input.finalPayableAmount);
+    if (totPrem !== undefined && (isNaN(Number(totPrem)) || Number(totPrem) < 0)) {
+      throw new BadRequestException('Total premium must be a valid non-negative number.');
+    }
+    for (const ov of input.overrides || []) {
+      if (ov.overrideValue !== undefined && (isNaN(Number(ov.overrideValue)) || Number(ov.overrideValue) < 0)) {
+        throw new BadRequestException(`Override value for ${ov.field} must be a valid non-negative number.`);
+      }
     }
     const commAdj = (input as any).commercialAdjustment !== undefined
       ? (input as any).commercialAdjustment
@@ -836,7 +1007,12 @@ export class MotorCalculationService {
       (input.tpDiscountPercent !== undefined && input.tpDiscountPercent < 0) ||
       (input.odDiscountPercent !== undefined && input.odDiscountPercent < 0) ||
       (directOd !== undefined && Number(directOd) < 0) ||
-      (commAdj !== undefined && Number(commAdj) < 0)
+      (commAdj !== undefined && Number(commAdj) < 0) ||
+      (ncbDisc !== undefined && Number(ncbDisc) < 0) ||
+      (addonPrem !== undefined && Number(addonPrem) < 0) ||
+      (netOd !== undefined && Number(netOd) < 0) ||
+      (gstAmt !== undefined && Number(gstAmt) < 0) ||
+      (totPrem !== undefined && Number(totPrem) < 0)
     ) {
       throw new BadRequestException(
         'Negative premium, IDV, or discount parameters are disallowed.',

@@ -45,6 +45,7 @@ interface Props {
     category?: VehicleCategory;
     policyType?: PolicyType;
     caseId?: string;
+    policyDetails?: any;
   } | null;
   leadContact?: {
     name?: string;
@@ -251,6 +252,15 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, customerId, caseId
       }
       if (cloneQuoteData.policyType) {
         setPolicyType(cloneQuoteData.policyType);
+      }
+      if (cloneQuoteData.policyDetails) {
+        if (cloneQuoteData.policyType === 'SAOD') {
+          setSaodForm((prev) => ({ ...prev, ...cloneQuoteData.policyDetails }));
+        } else if (cloneQuoteData.policyType === 'PACKAGE') {
+          setPackageForm((prev) => ({ ...prev, ...cloneQuoteData.policyDetails }));
+        } else if (cloneQuoteData.policyType === 'TP_ONLY') {
+          setTpForm((prev) => ({ ...prev, ...cloneQuoteData.policyDetails }));
+        }
       }
       // Advance directly to Policy Type / Insurer selection
       setStep(4);

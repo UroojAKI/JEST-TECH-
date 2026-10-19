@@ -44,6 +44,76 @@ function FieldRow({ label, mandatory, conditional, children, hint, formula }: {
   );
 }
 
+function OverrideFieldCard({
+  label,
+  value,
+  status,
+  mandatory,
+  hint,
+  placeholder,
+  onChange,
+  onReset,
+  accentColor,
+}: {
+  label: string;
+  value: string;
+  status: 'MANUAL' | 'RECALCULATED' | 'CALCULATED';
+  mandatory?: boolean;
+  hint?: string;
+  placeholder?: string;
+  onChange: (val: string) => void;
+  onReset?: () => void;
+  accentColor?: string;
+}) {
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-1">
+        <label className="text-[11px] font-bold text-foreground">
+          {label} {mandatory && <span className="text-rose-500">*</span>}
+        </label>
+        <div className="flex items-center gap-1.5">
+          {status === 'MANUAL' && (
+            <>
+              <span className="text-[9px] font-black bg-amber-500/20 text-amber-600 px-1.5 py-0.5 rounded border border-amber-500/30">
+                [Manually Overridden]
+              </span>
+              {onReset && (
+                <button
+                  type="button"
+                  onClick={onReset}
+                  className="text-[9px] text-muted-foreground hover:text-foreground underline cursor-pointer"
+                >
+                  Reset
+                </button>
+              )}
+            </>
+          )}
+          {status === 'RECALCULATED' && (
+            <span className="text-[9px] font-black bg-blue-500/20 text-blue-600 px-1.5 py-0.5 rounded border border-blue-500/30">
+              [Recalculated]
+            </span>
+          )}
+          {status === 'CALCULATED' && (
+            <span className="text-[9px] font-medium bg-muted text-muted-foreground px-1.5 py-0.5 rounded">
+              [Calculated]
+            </span>
+          )}
+        </div>
+      </div>
+      <input
+        type="number"
+        step="1"
+        min="0"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className={`${mandatory ? mandatoryInput(value) : inputBase} ${accentColor || ''}`}
+        placeholder={placeholder || '₹0'}
+      />
+      {hint && <p className="text-[9px] text-muted-foreground mt-0.5">{hint}</p>}
+    </div>
+  );
+}
+
 export function PolicyFormSAODForm({ category, vehicleStatus, data, onChange, eligibility }: Props) {
   const set = (key: keyof PolicyFormSAOD) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
     onChange({ ...data, [key]: e.target.value });
@@ -98,12 +168,39 @@ export function PolicyFormSAODForm({ category, vehicleStatus, data, onChange, el
     discountReason: data.discountReason || undefined,
     gstRate: data.gstRate ? parseInt(data.gstRate) : 18,
     odGstRate: data.odGstRate ? parseInt(data.odGstRate) : (data.gstRate ? parseInt(data.gstRate) : 18),
-    // Direct OD premium ₹ (canonical)
+    // Direct OD premium ₹ (canonical Field 1)
     ...(data.odPremiumAmount !== undefined && data.odPremiumAmount !== '' && !isNaN(parseFloat(data.odPremiumAmount))
       ? {
           odPremium: parseFloat(data.odPremiumAmount),
           odPremiumAmount: parseFloat(data.odPremiumAmount),
+          odBasePremium: parseFloat(data.odPremiumAmount),
         }
+      : (data.odBasePremiumOverride !== undefined && data.odBasePremiumOverride !== '' && !isNaN(parseFloat(data.odBasePremiumOverride))
+          ? {
+              odPremium: parseFloat(data.odBasePremiumOverride),
+              odPremiumAmount: parseFloat(data.odBasePremiumOverride),
+              odBasePremium: parseFloat(data.odBasePremiumOverride),
+            }
+          : {})),
+    // Field 2: NCB Discount override
+    ...(data.ncbDiscountOverride !== undefined && data.ncbDiscountOverride !== '' && !isNaN(parseFloat(data.ncbDiscountOverride))
+      ? { ncbDiscount: parseFloat(data.ncbDiscountOverride) }
+      : {}),
+    // Field 3: Add-on Premium override
+    ...(data.addonPremiumOverride !== undefined && data.addonPremiumOverride !== '' && !isNaN(parseFloat(data.addonPremiumOverride))
+      ? { addonPremium: parseFloat(data.addonPremiumOverride) }
+      : {}),
+    // Field 4: Net OD Premium override (Field 10)
+    ...(data.netOdPremiumOverride !== undefined && data.netOdPremiumOverride !== '' && !isNaN(parseFloat(data.netOdPremiumOverride))
+      ? { netOdPremium: parseFloat(data.netOdPremiumOverride) }
+      : {}),
+    // Field 5: Statutory GST override
+    ...(data.gstAmountOverride !== undefined && data.gstAmountOverride !== '' && !isNaN(parseFloat(data.gstAmountOverride))
+      ? { gstAmount: parseFloat(data.gstAmountOverride) }
+      : {}),
+    // Field 6: Total Premium override (Field 11)
+    ...(data.totalPremiumOverride !== undefined && data.totalPremiumOverride !== '' && !isNaN(parseFloat(data.totalPremiumOverride))
+      ? { totalPremium: parseFloat(data.totalPremiumOverride) }
       : {}),
     addons: (data.addonsSelected || []).map((a) => ({
       addonCode: a,
@@ -120,23 +217,17 @@ export function PolicyFormSAODForm({ category, vehicleStatus, data, onChange, el
   }, [data]);
 
   useEffect(() => {
-    if ((loading || error) && (data.calculatedResult || data.totalPremiumInclGST || data.finalPayableAmount || data.odPremium || data.gstAmount || data.addOnsPremium)) {
+    if (error && (data.calculatedResult || data.totalPremiumInclGST || data.finalPayableAmount)) {
       const current = dataRef.current;
       onChange({
         ...current,
         calculatedResult: undefined,
-        totalPremiumInclGST: '',
-        finalPayableAmount: '',
-        odPremium: '',
-        gstAmount: '',
-        addOnsPremium: '',
-        ncbDiscountAmount: '',
-        discountAmount: '',
+        totalPremiumInclGST: current.totalPremiumOverride ?? '',
+        finalPayableAmount: current.totalPremiumOverride ?? '',
       });
     }
-    // Prevent a prior vehicle calculation being submitted after a failed request.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loading, error]);
+  }, [error]);
 
   useEffect(() => {
     if (result && result.outputs) {
@@ -147,22 +238,21 @@ export function PolicyFormSAODForm({ category, vehicleStatus, data, onChange, el
       const addOnsTotal = (outputs.addonPremium ?? 0).toString();
       const gst = (outputs.summary?.totalGst ?? outputs.totalGst ?? outputs.gstOnOd ?? 0).toString();
       const total = (outputs.summary?.finalPayable ?? outputs.finalPayableAmount ?? outputs.totalPremium ?? 0).toString();
-      // Keep the discretionary OD discount separate from NCB in the user-facing breakdown.
       const dAmt = (outputs.specialDiscount ?? 0).toString();
       const baseOd = (outputs.baseOdPremium ?? 0).toString();
 
       onChange({
         ...current,
         odPremiumBase: baseOd || current.odPremiumBase,
-        addOnsPremium: addOnsTotal,
-        ncbDiscountAmount: ncbDiscount,
-        odPremium: netOd,
-        gstAmount: gst,
-        totalPremiumInclGST: total,
+        addOnsPremium: current.addonPremiumOverride ?? addOnsTotal,
+        ncbDiscountAmount: current.ncbDiscountOverride ?? ncbDiscount,
+        odPremium: current.netOdPremiumOverride ?? netOd,
+        gstAmount: current.gstAmountOverride ?? gst,
+        totalPremiumInclGST: current.totalPremiumOverride ?? total,
         discountAmount: dAmt,
         odCommissionPercent: '',
         commissionAmount: '',
-        finalPayableAmount: total,
+        finalPayableAmount: current.totalPremiumOverride ?? total,
         gstRate: (result.rateConfig?.gstRatePercent ?? (current.gstRate ? parseInt(current.gstRate) : 18)).toString(),
         calculatedResult: result,
       });
@@ -190,9 +280,24 @@ export function PolicyFormSAODForm({ category, vehicleStatus, data, onChange, el
   const verification = data.tpVerification;
   const isVerified = verification?.verificationStatus === 'VERIFIED' && verification?.verifiedByUserConfirmed;
   const tpExpired = verification?.tpExpiryDate ? new Date(verification.tpExpiryDate) <= new Date() : false;
-  const hasValidCalculation = !loading && !error && Boolean(result);
-  const outputs = hasValidCalculation ? (result?.outputs || {}) : {};
+  const effectiveResult = result || data.calculatedResult;
+  const hasValidCalculation = Boolean(effectiveResult?.outputs);
+  const outputs = effectiveResult?.outputs || {};
   const itemizedAddons: any[] = Array.isArray(outputs.itemizedAddons) ? outputs.itemizedAddons : [];
+
+  const hasOdBaseOverride = Boolean((data.odPremiumAmount !== undefined && data.odPremiumAmount !== '') || (data.odBasePremiumOverride !== undefined && data.odBasePremiumOverride !== ''));
+  const hasNcbOverride = Boolean(data.ncbDiscountOverride !== undefined && data.ncbDiscountOverride !== '');
+  const hasAddonOverride = Boolean(data.addonPremiumOverride !== undefined && data.addonPremiumOverride !== '');
+  const hasNetOdOverride = Boolean(data.netOdPremiumOverride !== undefined && data.netOdPremiumOverride !== '');
+  const hasGstOverride = Boolean(data.gstAmountOverride !== undefined && data.gstAmountOverride !== '');
+  const hasTotalOverride = Boolean(data.totalPremiumOverride !== undefined && data.totalPremiumOverride !== '');
+
+  const odBaseStatus = hasOdBaseOverride ? 'MANUAL' : 'CALCULATED';
+  const ncbStatus = hasNcbOverride ? 'MANUAL' : 'CALCULATED';
+  const addonStatus = hasAddonOverride ? 'MANUAL' : 'CALCULATED';
+  const netOdStatus = hasNetOdOverride ? 'MANUAL' : ((hasOdBaseOverride || hasNcbOverride || hasAddonOverride) ? 'RECALCULATED' : 'CALCULATED');
+  const gstStatus = hasGstOverride ? 'MANUAL' : ((hasOdBaseOverride || hasNcbOverride || hasAddonOverride || hasNetOdOverride) ? 'RECALCULATED' : 'CALCULATED');
+  const totalStatus = hasTotalOverride ? 'MANUAL' : ((hasOdBaseOverride || hasNcbOverride || hasAddonOverride || hasNetOdOverride || hasGstOverride) ? 'RECALCULATED' : 'CALCULATED');
 
   return (
     <div className="space-y-4">
@@ -481,54 +586,69 @@ export function PolicyFormSAODForm({ category, vehicleStatus, data, onChange, el
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-          <div>
-            <div className="flex items-center justify-between mb-1">
-              <label className="text-[11px] font-bold text-foreground">
-                OD Base Premium (₹) <span className="text-rose-500">*</span>
-              </label>
-              {data.odPremiumAmount && (
-                <div className="flex items-center gap-1.5">
-                  <span className="text-[9px] font-black bg-amber-500/20 text-amber-600 px-1.5 py-0.5 rounded">
-                    [Edited]
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => onChange({ ...data, odPremiumAmount: undefined })}
-                    className="text-[9px] text-muted-foreground hover:text-foreground underline"
-                  >
-                    Reset
-                  </button>
-                </div>
-              )}
-            </div>
-            <input
-              type="number"
-              step="1"
-              min="0"
-              value={data.odPremiumAmount ?? (hasValidCalculation ? (outputs.baseOdPremium?.toString() ?? data.odPremiumBase) : '')}
-              onChange={(e) => onChange({ ...data, odPremiumAmount: e.target.value })}
-              className={mandatoryInput(data.odPremiumAmount ?? (hasValidCalculation ? (outputs.baseOdPremium?.toString() ?? data.odPremiumBase) : ''))}
-              placeholder="Direct OD premium ₹"
-            />
-            <p className="text-[9px] text-muted-foreground mt-0.5">
-              Direct OD premium in ₹. Enter manually or defaults from tariff.
-            </p>
-          </div>
-          <FieldRow label="NCB Discount (₹)" hint="Auto-calculated from NCB %">
-            <input type="number" value={hasValidCalculation ? (outputs.ncbDiscount ?? data.ncbDiscountAmount) : ''} readOnly className={readonlyInput} placeholder="Auto-calculated" />
-          </FieldRow>
-          <FieldRow label="Add-ons Premium (₹)" hint="Sum of individual add-on inputs">
-            <input type="number" value={hasValidCalculation ? (outputs.addonPremium ?? data.addOnsPremium) : ''} readOnly className={readonlyInput} placeholder="₹0" />
-          </FieldRow>
-          <FieldRow label="Net OD Premium (₹) [Field 10]" hint="Auto-calc: OD Base - NCB + Add-ons">
-            <input type="number" value={hasValidCalculation ? (outputs.netOdPremium ?? outputs.netOdComponent ?? data.odPremium) : ''} readOnly className={`${readonlyInput} font-bold text-foreground`} placeholder="Auto-calculated" />
-          </FieldRow>
-          <FieldRow label={`Statutory GST (${String(data.gstRate || '18') === '5' ? '5%' : '18%'}) ₹`} hint={`${String(data.gstRate || '18') === '5' ? '5%' : '18%'} of Net OD Premium`}>
-            <input type="number" value={hasValidCalculation ? (outputs.gstOnOd ?? outputs.totalGst ?? data.gstAmount) : ''} readOnly className={readonlyInput} placeholder="Auto-calculated" />
-          </FieldRow>
-          <FieldRow label="Total Premium incl. GST (₹) [Field 11]" mandatory hint="System-calculated authoritative gross">
-            <input type="number" value={hasValidCalculation ? (outputs.finalPayableAmount ?? outputs.totalPremium ?? data.totalPremiumInclGST) : ''} readOnly className={`${readonlyInput} font-black text-primary text-sm`} placeholder="Auto-calculated" />
-          </FieldRow>
+          <OverrideFieldCard
+            label="OD Base Premium (₹)"
+            mandatory
+            status={odBaseStatus}
+            value={data.odPremiumAmount ?? data.odBasePremiumOverride ?? (hasValidCalculation ? (outputs.baseOdPremium?.toString() ?? data.odPremiumBase) : '')}
+            onChange={(val) => onChange({ ...data, odPremiumAmount: val, odBasePremiumOverride: val })}
+            onReset={() => onChange({ ...data, odPremiumAmount: undefined, odBasePremiumOverride: undefined })}
+            hint="Direct OD premium in ₹. Enter manually or defaults from tariff."
+            placeholder="Direct OD premium ₹"
+          />
+
+          <OverrideFieldCard
+            label="NCB Discount (₹)"
+            status={ncbStatus}
+            value={data.ncbDiscountOverride ?? (hasValidCalculation ? (outputs.ncbDiscount?.toString() ?? data.ncbDiscountAmount) : '')}
+            onChange={(val) => onChange({ ...data, ncbDiscountOverride: val })}
+            onReset={() => onChange({ ...data, ncbDiscountOverride: undefined })}
+            hint="NCB discount in ₹. Enter manually or auto-calculated."
+            placeholder="Auto-calculated"
+          />
+
+          <OverrideFieldCard
+            label="Add-ons Premium (₹)"
+            status={addonStatus}
+            value={data.addonPremiumOverride ?? (hasValidCalculation ? (outputs.addonPremium?.toString() ?? data.addOnsPremium) : '')}
+            onChange={(val) => onChange({ ...data, addonPremiumOverride: val })}
+            onReset={() => onChange({ ...data, addonPremiumOverride: undefined })}
+            hint="Sum of individual add-on inputs. Editable override."
+            placeholder="₹0"
+          />
+
+          <OverrideFieldCard
+            label="Net OD Premium (₹) [Field 10]"
+            status={netOdStatus}
+            value={data.netOdPremiumOverride ?? (hasValidCalculation ? (outputs.netOdPremium?.toString() ?? outputs.netOdComponent?.toString() ?? data.odPremium) : '')}
+            onChange={(val) => onChange({ ...data, netOdPremiumOverride: val })}
+            onReset={() => onChange({ ...data, netOdPremiumOverride: undefined })}
+            hint="Auto-calc: OD Base - NCB + Add-ons. Editable override."
+            placeholder="Auto-calculated"
+            accentColor="font-bold text-foreground"
+          />
+
+          <OverrideFieldCard
+            label={`Statutory GST (${String(data.gstRate || '18') === '5' ? '5%' : '18%'}) ₹`}
+            status={gstStatus}
+            value={data.gstAmountOverride ?? (hasValidCalculation ? (outputs.gstOnOd?.toString() ?? outputs.totalGst?.toString() ?? data.gstAmount) : '')}
+            onChange={(val) => onChange({ ...data, gstAmountOverride: val })}
+            onReset={() => onChange({ ...data, gstAmountOverride: undefined })}
+            hint={`${String(data.gstRate || '18') === '5' ? '5%' : '18%'} of Net OD Premium. Editable override.`}
+            placeholder="Auto-calculated"
+          />
+
+          <OverrideFieldCard
+            label="Total Premium incl. GST (₹) [Field 11]"
+            mandatory
+            status={totalStatus}
+            value={data.totalPremiumOverride ?? (hasValidCalculation ? (outputs.finalPayableAmount?.toString() ?? outputs.totalPremium?.toString() ?? data.totalPremiumInclGST) : '')}
+            onChange={(val) => onChange({ ...data, totalPremiumOverride: val })}
+            onReset={() => onChange({ ...data, totalPremiumOverride: undefined })}
+            hint="System-calculated authoritative gross. Editable override."
+            placeholder="Auto-calculated"
+            accentColor="font-black text-primary text-sm"
+          />
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-border">
 

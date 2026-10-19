@@ -276,6 +276,13 @@ export interface PolicyFormSAOD {
   /** Phase 2 canonical: direct OD premium ₹ input */
   odPremiumAmount?: string;
   odGstRate?: string;             // Component-specific GST rate
+  odBasePremiumOverride?: string;
+  ncbDiscountOverride?: string;
+  addonPremiumOverride?: string;
+  netOdPremiumOverride?: string;
+  gstAmountOverride?: string;
+  totalPremiumOverride?: string;
+  overrides?: Array<{ field: string; overrideValue: number; reason?: string }>;
   calculatedResult?: any;
 }
 
@@ -324,6 +331,13 @@ export interface PolicyFormPackage {
   tpGstRate?: string;             // Component-specific GST rate
   paGstRate?: string;             // Component-specific GST rate
   paidDriverGstRate?: string;     // Component-specific GST rate
+  odBasePremiumOverride?: string;
+  ncbDiscountOverride?: string;
+  addonPremiumOverride?: string;
+  netOdPremiumOverride?: string;
+  gstAmountOverride?: string;
+  totalPremiumOverride?: string;
+  overrides?: Array<{ field: string; overrideValue: number; reason?: string }>;
   calculatedResult?: any;
 }
 

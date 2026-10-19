@@ -254,6 +254,77 @@ export class MotorCalculationInputDto {
   @Min(0)
   odPremiumAmount?: number;
 
+  /** Canonical alias for Direct OD Base Premium ₹ */
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  odBasePremium?: number;
+
+  /** NCB Discount in ₹ (manual override) */
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  ncbDiscount?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  ncbDiscountAmount?: number;
+
+  /** Add-ons Premium Total in ₹ (manual override) */
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  addonPremium?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  addOnsPremium?: number;
+
+  /** Net OD Premium / Field 10 in ₹ (manual override) */
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  netOdPremium?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  odPremiumNet?: number;
+
+  /** Statutory GST in ₹ (manual override) */
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  gstAmount?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  odGstAmount?: number;
+
+  /** Total Premium incl. GST / Field 11 in ₹ (explicit manual override) */
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  totalPremiumOverride?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  totalPremium?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  totalPremiumInclGST?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  finalPayableAmount?: number;
+
   /** Applicable TP policy tenure */
   @IsOptional()
   @IsNumber()

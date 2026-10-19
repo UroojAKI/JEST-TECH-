@@ -1798,6 +1798,162 @@ describe('MotorCalculationService (Iteration 5 Financial Math)', () => {
               }),
             ).rejects.toThrow('exceeds payable base');
           });
+
+          describe('Phase 11: Explicit 6-Field Overrides and Recalculation Chain', () => {
+            const saodBaseInput = {
+              vehicleCategory: 'PRIVATE_CAR' as const,
+              vehicleStatus: 'EXISTING' as const,
+              policyType: 'STANDALONE_OD' as const,
+              idv: 500000,
+              activeTpPolicyNumber: 'TP-VALID-99999',
+              activeTpExpiryDate: '2027-12-31',
+              odPremiumAmount: 8002,
+              gstRate: 18,
+            };
+
+            it('OVERRIDE-01: Base OD ₹8,002 -> Field 10 override -> GST override -> Field 11 gross override', async () => {
+              // 1. Initial State: OD Base ₹8,002, no other overrides
+              const init = await service.calculate(saodBaseInput);
+              expect(init.outputs.baseOdPremium).toBe(8002);
+              expect(init.outputs.netOdPremium).toBe(8002);
+              expect(init.outputs.gstOnOd).toBe(1440.36); // 8002 * 0.18 = 1440.36
+              expect(init.outputs.finalPayableAmount).toBe(9442.36); // 8002 + 1440.36
+              expect(init.outputs.isOverridden?.odBasePremium).toBe(true);
+              expect(init.outputs.isOverridden?.netOdPremium).toBe(false);
+              expect(init.outputs.isOverridden?.gstAmount).toBe(false);
+              expect(init.outputs.isOverridden?.totalPremium).toBe(false);
+
+              // 2. Field 10 (Net OD) override to ₹7,500 -> downstream GST and Field 11 recalculate
+              const netOdOverridden = await service.calculate({
+                ...saodBaseInput,
+                netOdPremium: 7500,
+              });
+              expect(netOdOverridden.outputs.baseOdPremium).toBe(8002);
+              expect(netOdOverridden.outputs.netOdPremium).toBe(7500);
+              expect(netOdOverridden.outputs.gstOnOd).toBe(1350); // 7500 * 0.18 = 1350
+              expect(netOdOverridden.outputs.finalPayableAmount).toBe(8850); // 7500 + 1350
+              expect(netOdOverridden.outputs.isOverridden?.netOdPremium).toBe(true);
+              expect(netOdOverridden.outputs.referenceValues?.netOdPremium).toBe(8002);
+
+              // 3. GST override to ₹1,200 -> Field 11 recalculates to ₹7,500 + ₹1,200 = ₹8,700
+              const gstOverridden = await service.calculate({
+                ...saodBaseInput,
+                netOdPremium: 7500,
+                gstAmount: 1200,
+              });
+              expect(gstOverridden.outputs.netOdPremium).toBe(7500);
+              expect(gstOverridden.outputs.gstOnOd).toBe(1200);
+              expect(gstOverridden.outputs.finalPayableAmount).toBe(8700); // 7500 + 1200
+              expect(gstOverridden.outputs.isOverridden?.gstAmount).toBe(true);
+              expect(gstOverridden.outputs.referenceValues?.gstAmount).toBe(1350);
+
+              // 4. Field 11 (Total Premium) override to ₹8,500
+              const totalOverridden = await service.calculate({
+                ...saodBaseInput,
+                netOdPremium: 7500,
+                gstAmount: 1200,
+                totalPremiumOverride: 8500,
+              });
+              expect(totalOverridden.outputs.netOdPremium).toBe(7500);
+              expect(totalOverridden.outputs.gstOnOd).toBe(1200);
+              expect(totalOverridden.outputs.finalPayableAmount).toBe(8500);
+              expect(totalOverridden.outputs.isOverridden?.totalPremium).toBe(true);
+              expect(totalOverridden.outputs.referenceValues?.totalPremium).toBe(8700);
+            });
+
+            it('OVERRIDE-02: NCB Discount override reduces Net OD and is recorded in outputs', async () => {
+              const res = await service.calculate({
+                ...saodBaseInput,
+                odPremiumAmount: 10000,
+                ncbDiscount: 2000,
+              });
+              expect(res.outputs.baseOdPremium).toBe(10000);
+              expect(res.outputs.ncbDiscount).toBe(2000);
+              expect(res.outputs.od.ncbDiscount).toBe(2000);
+              expect(res.outputs.netOdPremium).toBe(8000); // 10000 - 2000
+              expect(res.outputs.isOverridden?.ncbDiscount).toBe(true);
+              expect(res.outputs.referenceValues?.ncbDiscount).toBe(0);
+            });
+
+            it('OVERRIDE-03: Add-on total override updates Net OD and component totals', async () => {
+              const res = await service.calculate({
+                ...saodBaseInput,
+                odPremiumAmount: 5000,
+                addonPremium: 1500,
+              });
+              expect(res.outputs.baseOdPremium).toBe(5000);
+              expect(res.outputs.addonPremium).toBe(1500);
+              expect(res.outputs.netOdPremium).toBe(6500); // 5000 + 1500
+              expect(res.outputs.gstOnOd).toBe(1170); // 6500 * 0.18
+              expect(res.outputs.finalPayableAmount).toBe(7670);
+              expect(res.outputs.isOverridden?.addonPremium).toBe(true);
+            });
+
+            it('OVERRIDE-04: NCB Discount exceeding Base OD is rejected with NCB_DISCOUNT_EXCEEDS_BASE', async () => {
+              await expect(
+                service.calculate({
+                  ...saodBaseInput,
+                  odPremiumAmount: 5000,
+                  ncbDiscount: 6000,
+                }),
+              ).rejects.toThrow('cannot exceed OD base premium');
+            });
+
+            it('OVERRIDE-05: Negative values for any override field are rejected', async () => {
+              await expect(
+                service.calculate({
+                  ...saodBaseInput,
+                  ncbDiscount: -50,
+                }),
+              ).rejects.toThrow('NCB discount must be a valid non-negative number.');
+
+              await expect(
+                service.calculate({
+                  ...saodBaseInput,
+                  addonPremium: -100,
+                }),
+              ).rejects.toThrow('Add-on premium must be a valid non-negative number.');
+
+              await expect(
+                service.calculate({
+                  ...saodBaseInput,
+                  netOdPremium: -500,
+                }),
+              ).rejects.toThrow('Net OD premium must be a valid non-negative number.');
+
+              await expect(
+                service.calculate({
+                  ...saodBaseInput,
+                  gstAmount: -20,
+                }),
+              ).rejects.toThrow('GST amount must be a valid non-negative number.');
+
+              await expect(
+                service.calculate({
+                  ...saodBaseInput,
+                  totalPremium: -1000,
+                }),
+              ).rejects.toThrow('Total premium must be a valid non-negative number.');
+            });
+
+            it('OVERRIDE-06: Reset to calculated restores reference calculations without overrides', async () => {
+              const res = await service.calculate({
+                vehicleCategory: 'PRIVATE_CAR',
+                vehicleStatus: 'EXISTING',
+                policyType: 'STANDALONE_OD',
+                idv: 500000,
+                activeTpPolicyNumber: 'TP-VALID-99999',
+                activeTpExpiryDate: '2027-12-31',
+                // No manual overrides provided — defaults to tariff
+              });
+              expect(res.outputs.isOverridden?.odBasePremium).toBe(false);
+              expect(res.outputs.isOverridden?.ncbDiscount).toBe(false);
+              expect(res.outputs.isOverridden?.addonPremium).toBe(false);
+              expect(res.outputs.isOverridden?.netOdPremium).toBe(false);
+              expect(res.outputs.isOverridden?.gstAmount).toBe(false);
+              expect(res.outputs.isOverridden?.totalPremium).toBe(false);
+            });
+          });
         });
       });
     });

@@ -658,5 +658,181 @@ describe('Work Package 2 & PR-01: Discount & Commission Decoupling Regression Su
       expect(screen.getByText('Proceed to generate QUOTE')).toBeInTheDocument();
     });
   });
+
+  describe('PolicyFormSAOD 6-Field Overrides & Recalculation Chain', () => {
+    it('renders all 6 fields with [Calculated] state when no overrides exist', () => {
+      vi.mocked(useMotorCalculator).mockReturnValue({
+        result: {
+          outputs: {
+            baseOdPremium: 5000,
+            ncbDiscount: 0,
+            addonPremium: 0,
+            netOdPremium: 5000,
+            gstOnOd: 900,
+            finalPayableAmount: 5900,
+          },
+        },
+        loading: false,
+        error: null,
+      });
+
+      render(
+        <PolicyFormSAODForm
+          category="PRIVATE_CAR"
+          vehicleStatus="EXISTING"
+          data={{ insuredDeclaredValue: '500000' } as any}
+          onChange={vi.fn()}
+        />
+      );
+
+      const calculatedBadges = screen.getAllByText('[Calculated]');
+      expect(calculatedBadges.length).toBe(6);
+    });
+
+    it('editing OD Base Premium emits override and shows [Manually Overridden]', () => {
+      const mockOnChange = vi.fn();
+      render(
+        <PolicyFormSAODForm
+          category="PRIVATE_CAR"
+          vehicleStatus="EXISTING"
+          data={{ insuredDeclaredValue: '500000' } as any}
+          onChange={mockOnChange}
+        />
+      );
+
+      const odBaseInput = screen.getByPlaceholderText('Direct OD premium ₹');
+      fireEvent.change(odBaseInput, { target: { value: '8002' } });
+
+      expect(mockOnChange).toHaveBeenCalledWith(
+        expect.objectContaining({
+          odPremiumAmount: '8002',
+          odBasePremiumOverride: '8002',
+        })
+      );
+    });
+
+    it('shows [Manually Overridden] and [Recalculated] on downstream fields when OD Base is overridden', () => {
+      vi.mocked(useMotorCalculator).mockReturnValue({
+        result: {
+          outputs: {
+            baseOdPremium: 8002,
+            ncbDiscount: 0,
+            addonPremium: 0,
+            netOdPremium: 8002,
+            gstOnOd: 1440.36,
+            finalPayableAmount: 9442.36,
+          },
+        },
+        loading: false,
+        error: null,
+      });
+
+      render(
+        <PolicyFormSAODForm
+          category="PRIVATE_CAR"
+          vehicleStatus="EXISTING"
+          data={{
+            insuredDeclaredValue: '500000',
+            odPremiumAmount: '8002',
+            odBasePremiumOverride: '8002',
+          } as any}
+          onChange={vi.fn()}
+        />
+      );
+
+      expect(screen.getByText('[Manually Overridden]')).toBeInTheDocument();
+      const recalculatedBadges = screen.getAllByText('[Recalculated]');
+      expect(recalculatedBadges.length).toBe(3);
+    });
+
+    it('editing NCB Discount emits ncbDiscountOverride', () => {
+      const mockOnChange = vi.fn();
+      render(
+        <PolicyFormSAODForm
+          category="PRIVATE_CAR"
+          vehicleStatus="EXISTING"
+          data={{ insuredDeclaredValue: '500000' } as any}
+          onChange={mockOnChange}
+        />
+      );
+
+      const ncbInputs = screen.getAllByPlaceholderText('Auto-calculated');
+      fireEvent.change(ncbInputs[0], { target: { value: '1500' } });
+
+      expect(mockOnChange).toHaveBeenCalledWith(
+        expect.objectContaining({
+          ncbDiscountOverride: '1500',
+        })
+      );
+    });
+
+    it('clicking Reset on an overridden field clears the override', () => {
+      const mockOnChange = vi.fn();
+      render(
+        <PolicyFormSAODForm
+          category="PRIVATE_CAR"
+          vehicleStatus="EXISTING"
+          data={{
+            insuredDeclaredValue: '500000',
+            ncbDiscountOverride: '1500',
+          } as any}
+          onChange={mockOnChange}
+        />
+      );
+
+      const resetBtn = screen.getByRole('button', { name: /Reset/i });
+      fireEvent.click(resetBtn);
+
+      expect(mockOnChange).toHaveBeenCalledWith(
+        expect.objectContaining({
+          ncbDiscountOverride: undefined,
+        })
+      );
+    });
+
+    it('server calculation results do NOT clobber active manual overrides', () => {
+      const mockOnChange = vi.fn();
+      const initialData: any = {
+        insuredDeclaredValue: '500000',
+        ncbDiscountOverride: '1200',
+        netOdPremiumOverride: '6000',
+        totalPremiumOverride: '7080',
+      };
+
+      vi.mocked(useMotorCalculator).mockReturnValue({
+        result: {
+          outputs: {
+            baseOdPremium: 5000,
+            ncbDiscount: 0,
+            addonPremium: 0,
+            netOdPremium: 5000,
+            gstOnOd: 900,
+            finalPayableAmount: 5900,
+          },
+          rateConfig: { gstRatePercent: 18 },
+        },
+        loading: false,
+        error: null,
+      });
+
+      render(
+        <PolicyFormSAODForm
+          category="PRIVATE_CAR"
+          vehicleStatus="EXISTING"
+          data={initialData}
+          onChange={mockOnChange}
+        />
+      );
+
+      expect(mockOnChange).toHaveBeenCalledWith(
+        expect.objectContaining({
+          ncbDiscountAmount: '1200',
+          odPremium: '6000',
+          totalPremiumInclGST: '7080',
+          finalPayableAmount: '7080',
+        })
+      );
+    });
+  });
 });
 
