@@ -96,6 +96,12 @@ export function PolicyFormTPOnlyForm({ category, vehicleStatus, data, onChange, 
     editedPaPremium: data.editedPaPremium !== undefined && data.editedPaPremium !== '' && !isNaN(parseFloat(data.editedPaPremium))
       ? parseFloat(data.editedPaPremium)
       : undefined,
+    ...(data.totalPremiumOverride !== undefined && data.totalPremiumOverride !== '' && !isNaN(parseFloat(data.totalPremiumOverride))
+      ? { totalPremiumOverride: parseFloat(data.totalPremiumOverride) }
+      : {}),
+    ...(data.gstAmountOverride !== undefined && data.gstAmountOverride !== '' && !isNaN(parseFloat(data.gstAmountOverride))
+      ? { gstAmount: parseFloat(data.gstAmountOverride) }
+      : {}),
     addons: (data.addonsSelected || []).map((addonKey) => ({
       addonCode: addonKey,
       amount: data.addonPrices?.[addonKey] !== undefined && data.addonPrices[addonKey] !== ''
@@ -116,26 +122,25 @@ export function PolicyFormTPOnlyForm({ category, vehicleStatus, data, onChange, 
   }, [data]);
 
   React.useEffect(() => {
-    if ((loading || error) && (data.calculatedResult || data.totalPremiumInclGST || data.thirdPartyPremium)) {
+    if (error && dataRef.current.calculatedResult) {
       const current = dataRef.current;
       onChange({
         ...current,
         calculatedResult: undefined,
-        totalPremiumInclGST: '',
-        thirdPartyPremium: '',
+        totalPremiumInclGST: current.totalPremiumOverride ?? '',
       });
     }
-    // Do not leave a previous vehicle's TP amount available for quotation save.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loading, error]);
+  }, [error]);
 
   React.useEffect(() => {
     if (result && result.outputs) {
       const current = dataRef.current;
+      const payableTotal = (result.outputs.finalPayableAmount ?? result.outputs.totalPremium ?? 0).toString();
       onChange({ 
         ...current, 
         thirdPartyPremium: (result.outputs.tp?.base ?? result.outputs.baseTpPremium ?? 0).toString(),
-        totalPremiumInclGST: (result.outputs.finalPayableAmount ?? result.outputs.totalPremium ?? 0).toString(),
+        totalPremiumInclGST: current.totalPremiumOverride ?? payableTotal,
         tpCommissionCalc: '',
         gstRate: (result.rateConfig?.gstRatePercent ?? (current.gstRate ? parseInt(current.gstRate) : 18)).toString(),
         calculatedResult: result 

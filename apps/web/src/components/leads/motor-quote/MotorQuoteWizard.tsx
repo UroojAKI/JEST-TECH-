@@ -16,6 +16,7 @@ import { PreviousPolicyForm } from './PreviousPolicyForm';
 import { RuleEngineResult } from './RuleEngineResult';
 import { InspectionDialog } from './InspectionDialog';
 import { AgentSelector } from '../../agents/AgentSelector';
+import { SaodTpVerificationCard } from './SaodTpVerificationCard';
 
 import { INSURER_OPTIONS, CATEGORY_LABEL, POLICY_TYPE_LABEL, VEHICLE_FIELDS } from './motorFormConfig';
 import type {
@@ -236,6 +237,15 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, customerId, caseId
   const [showInspectionDialog, setShowInspectionDialog] = useState(false);
   const [isContextLoading, setIsContextLoading] = useState(false);
   const [prefilledFromLeadCode, setPrefilledFromLeadCode] = useState<string | null>(null);
+
+  const steps = useMemo(() => [
+    { num: 1, label: 'Customer Info' },
+    { num: 2, label: 'Vehicle Details' },
+    { num: 3, label: 'Previous Policy' },
+    { num: 4, label: 'Policy Type' },
+    { num: 5, label: policyType === 'SAOD' ? 'TP Verification & Eligibility' : 'Rule Evaluation' },
+    { num: 6, label: 'Premium & Coverages' },
+  ], [policyType]);
 
   // ── Clone / Comparison Pre-Fill Hydration ──────────────────────────────────
   useEffect(() => {
@@ -511,14 +521,27 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, customerId, caseId
       );
     }
     if (step === 4) return !!policyType;
-    if (step === 5) return !!ruleResult;
+    if (step === 5) {
+      if (policyType === 'SAOD') {
+        const v = saodForm.tpVerification;
+        if (!v?.tpInsurer || !v?.tpPolicyNumber || !v?.tpStartDate || !v?.tpExpiryDate) return false;
+        if (!v?.verificationMethod) return false;
+        if (!v?.verifiedByUserConfirmed) return false;
+        if (new Date(v.tpExpiryDate) <= new Date()) return false;
+        if (ruleLoading || !ruleResult) return false;
+        if (ruleResult.saodTpValid !== true || ruleResult.nextStep === 'TP_VERIFICATION') return false;
+        return true;
+      }
+      return !!ruleResult && !ruleLoading;
+    }
     if (step === 6) {
       if (policyType === 'SAOD') {
         const v = saodForm.tpVerification;
-        if (!v.tpInsurer || !v.tpPolicyNumber || !v.tpStartDate || !v.tpExpiryDate) return false;
-        if (!v.verificationMethod) return false;
-        if (!v.verifiedByUserConfirmed) return false;
+        if (!v?.tpInsurer || !v?.tpPolicyNumber || !v?.tpStartDate || !v?.tpExpiryDate) return false;
+        if (!v?.verificationMethod) return false;
+        if (!v?.verifiedByUserConfirmed) return false;
         if (new Date(v.tpExpiryDate) <= new Date()) return false;
+        if (ruleLoading || !ruleResult || ruleResult.saodTpValid !== true || ruleResult.nextStep === 'TP_VERIFICATION') return false;
       }
       return true;
     }
@@ -593,11 +616,11 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, customerId, caseId
     }
   };
 
-  // SAOD now opens directly to the active-TP details. Re-evaluate rules from
-  // that form as the verified expiry/context changes; users never need to
-  // navigate away and return to refresh eligibility.
+  // SAOD Step 5 (and Step 6) evaluates active-TP details automatically.
+  // When active TP details change and are confirmed, re-evaluate underwriting
+  // rules on the server so the agent can immediately continue.
   useEffect(() => {
-    if (!isOpen || policyType !== 'SAOD' || step !== 6) return;
+    if (!isOpen || policyType !== 'SAOD' || (step !== 5 && step !== 6)) return;
     const tp = saodForm.tpVerification;
     const hasVerifiedActiveTp = Boolean(
       tp?.tpInsurer &&
@@ -606,7 +629,8 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, customerId, caseId
       tp?.tpExpiryDate &&
       tp?.verificationMethod &&
       tp?.verificationStatus === 'VERIFIED' &&
-      tp?.verifiedByUserConfirmed
+      tp?.verifiedByUserConfirmed &&
+      new Date(tp.tpExpiryDate) > new Date()
     );
     if (!hasVerifiedActiveTp) {
       ++ruleEvaluationRequestIdRef.current;
@@ -660,11 +684,23 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, customerId, caseId
       if (policyType === 'SAOD') {
         setRuleResult(null);
         setRuleEvaluationKey(null);
-        setStep(6);
+        setStep(5);
         return;
       }
       const evaluated = await evaluateRules();
       if (evaluated) setStep(5);
+      return;
+    }
+
+    if (step === 5) {
+      if (policyType === 'SAOD') {
+        const currentRuleKey = JSON.stringify(buildRuleEvaluationPayload());
+        if (!ruleResult || ruleEvaluationKey !== currentRuleKey || !ruleResult.saodTpValid || ruleResult.nextStep === 'TP_VERIFICATION') {
+          const evaluated = await evaluateRules();
+          if (!evaluated) return;
+        }
+      }
+      setStep(6);
       return;
     }
     
@@ -673,6 +709,10 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, customerId, caseId
 
   const handleBack = () => {
     if (step === 6 && policyType === 'SAOD') {
+      setStep(5);
+      return;
+    }
+    if (step === 5 && policyType === 'SAOD') {
       setRuleResult(null);
       setRuleEvaluationKey(null);
       setStep(4);
@@ -909,7 +949,7 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, customerId, caseId
         {/* Professional Stepper */}
         <div className="px-6 py-4 border-b bg-muted/10">
           <div className="flex items-center gap-2 overflow-x-auto">
-            {STEPS.map((s, idx) => {
+            {steps.map((s, idx) => {
               const isDone = step > s.num;
               const isActive = step === s.num;
               return (
@@ -928,7 +968,7 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, customerId, caseId
                     </div>
                     {s.label}
                   </div>
-                  {idx < STEPS.length - 1 && (
+                  {idx < steps.length - 1 && (
                     <div className={`h-px w-6 mx-1 ${step > s.num ? 'bg-foreground' : 'bg-border'}`} />
                   )}
                 </React.Fragment>
@@ -1056,30 +1096,73 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, customerId, caseId
 
             {step === 5 && (
               <div className="space-y-4">
-                <h3 className="text-sm font-bold text-foreground border-b pb-2">Rule Engine Evaluation</h3>
-                <RuleEngineResult 
-                  result={ruleResult} 
-                  isLoading={ruleLoading} 
-                  onRetry={evaluateRules} 
-                />
-                {ruleResult?.inspectionRequired && (
-                  <div className="p-4 rounded-xl border border-amber-500/30 bg-amber-500/10 flex items-center justify-between gap-4">
-                    <div className="space-y-0.5">
-                      <div className="text-xs font-bold text-amber-600 dark:text-amber-400">
-                        Pre-Issuance Vehicle Inspection Required
-                      </div>
-                      <div className="text-[11px] text-muted-foreground">
-                        Policy gap over 90 days or break-in detected. 7 real evidence photos must be captured.
-                      </div>
+                <h3 className="text-sm font-bold text-foreground border-b pb-2">
+                  {policyType === 'SAOD' ? 'Active TP Verification & Eligibility' : 'Rule Engine Evaluation'}
+                </h3>
+
+                {policyType === 'SAOD' && (
+                  <div className="space-y-4">
+                    <div className="rounded-lg border bg-card p-3 space-y-1">
+                      <h4 className="text-xs font-bold text-foreground">Active Third-Party Policy Verification</h4>
+                      <p className="text-[11px] text-muted-foreground">
+                        A Standalone Own Damage (SAOD) policy legally requires an active Third-Party policy in force. Enter and confirm the active TP details below to verify eligibility.
+                      </p>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => setShowInspectionDialog(true)}
-                      className="px-3.5 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold shrink-0 shadow-xs"
-                    >
-                      Conduct Inspection Now
-                    </button>
+
+                    <SaodTpVerificationCard
+                      value={saodForm.tpVerification}
+                      onChange={(updated) => {
+                        setSaodForm((prev) => ({
+                          ...prev,
+                          tpVerification: updated,
+                          activeTPInsurerName: updated.tpInsurer,
+                          activeTPPolicyNumberValidity: `${updated.tpPolicyNumber} | Valid Till ${updated.tpExpiryDate}`,
+                        }));
+                      }}
+                    />
+
+                    {saodForm.tpVerification?.verificationStatus === 'VERIFIED' &&
+                    saodForm.tpVerification?.verifiedByUserConfirmed ? (
+                      <RuleEngineResult
+                        result={ruleResult}
+                        isLoading={ruleLoading}
+                        onRetry={() => { void evaluateRules(); }}
+                      />
+                    ) : (
+                      <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-800 dark:text-amber-300" role="status">
+                        Complete all mandatory active TP details, ensure expiry date is in the future, and click &quot;I confirm this TP policy is active and verified&quot; to run underwriting checks.
+                      </div>
+                    )}
                   </div>
+                )}
+
+                {policyType !== 'SAOD' && (
+                  <>
+                    <RuleEngineResult 
+                      result={ruleResult} 
+                      isLoading={ruleLoading} 
+                      onRetry={evaluateRules} 
+                    />
+                    {ruleResult?.inspectionRequired && (
+                      <div className="p-4 rounded-xl border border-amber-500/30 bg-amber-500/10 flex items-center justify-between gap-4">
+                        <div className="space-y-0.5">
+                          <div className="text-xs font-bold text-amber-600 dark:text-amber-400">
+                            Pre-Issuance Vehicle Inspection Required
+                          </div>
+                          <div className="text-[11px] text-muted-foreground">
+                            Policy gap over 90 days or break-in detected. 7 real evidence photos must be captured.
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setShowInspectionDialog(true)}
+                          className="px-3.5 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold shrink-0 shadow-xs"
+                        >
+                          Conduct Inspection Now
+                        </button>
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
             )}
@@ -1097,21 +1180,23 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, customerId, caseId
                   />
                 )}
                 {policyType === 'SAOD' && (
-                  <div className="space-y-3">
-                    <div className="rounded-lg border bg-card p-3 space-y-1">
-                      <h4 className="text-xs font-bold text-foreground">Active TP Verification & Eligibility</h4>
-                      <p className="text-[11px] text-muted-foreground">
-                        Enter and confirm the active Third-Party policy details below. Eligibility refreshes automatically after verification; no back-and-forth navigation is required.
-                      </p>
-                    </div>
-                    {saodForm.tpVerification?.verificationStatus === 'VERIFIED' &&
-                    saodForm.tpVerification?.verifiedByUserConfirmed ? (
-                      <RuleEngineResult result={ruleResult} isLoading={ruleLoading} onRetry={() => { void evaluateRules(); }} />
-                    ) : (
-                      <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-800 dark:text-amber-300" role="status">
-                        Complete the active TP policy details and confirm verification to run SAOD eligibility checks and calculate the premium.
+                  <div className="p-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 flex items-center justify-between gap-4">
+                    <div className="space-y-0.5">
+                      <div className="text-xs font-bold text-emerald-700 dark:text-emerald-400 flex items-center gap-1.5">
+                        <Shield className="h-4 w-4" />
+                        Active Third-Party Policy In Force (Verified)
                       </div>
-                    )}
+                      <div className="text-[11px] text-muted-foreground font-mono">
+                        {saodForm.tpVerification?.tpInsurer} | Policy: {saodForm.tpVerification?.tpPolicyNumber} | Expiry: {saodForm.tpVerification?.tpExpiryDate}
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setStep(5)}
+                      className="text-xs text-primary hover:underline font-semibold shrink-0"
+                    >
+                      Edit TP Details
+                    </button>
                   </div>
                 )}
                 {policyType === 'SAOD' && (

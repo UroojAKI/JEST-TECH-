@@ -204,6 +204,10 @@ export interface PolicyFormTPOnly {
   editedPaPremium?: string;       // Agent editable PA premium within bounds
   tpGstRate?: string;             // Component-specific GST rate
   paGstRate?: string;             // Component-specific GST rate
+  tpPremiumOverride?: string;
+  gstAmountOverride?: string;
+  totalPremiumOverride?: string;
+  overrides?: Array<{ field: string; overrideValue: number; reason?: string }>;
   calculatedResult?: any;
 }
 

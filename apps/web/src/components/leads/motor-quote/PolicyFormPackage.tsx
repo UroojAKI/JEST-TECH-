@@ -6,6 +6,7 @@ import type { VehicleCategory, PolicyFormPackage, MotorEligibilityContext } from
 import { useMotorCalculator } from './useMotorCalculator';
 import { GstRateSelector } from './GstRateSelector';
 import { NcbSlider } from './NcbSlider';
+import { OverrideFieldCard } from './OverrideFieldCard';
 
 interface Props {
   category: VehicleCategory;
@@ -113,12 +114,39 @@ export function PolicyFormPackageForm({ category, vehicleStatus, data, onChange,
     odGstRate: data.odGstRate ? parseInt(data.odGstRate) : (data.gstRate ? parseInt(data.gstRate) : 18),
     tpGstRate: data.tpGstRate ? parseInt(data.tpGstRate) : (data.gstRate ? parseInt(data.gstRate) : 18),
     paGstRate: data.paGstRate ? parseInt(data.paGstRate) : (data.gstRate ? parseInt(data.gstRate) : 18),
-    // Direct OD premium ₹ (canonical)
-    ...(data.odPremiumAmount !== undefined && data.odPremiumAmount !== '' && !isNaN(parseFloat(data.odPremiumAmount))
+    // Field 1: OD Base Premium override
+    ...((data.odPremiumAmount !== undefined && data.odPremiumAmount !== '' && !isNaN(parseFloat(data.odPremiumAmount)))
       ? {
           odPremium: parseFloat(data.odPremiumAmount),
           odPremiumAmount: parseFloat(data.odPremiumAmount),
+          odBasePremium: parseFloat(data.odPremiumAmount),
         }
+      : (data.odBasePremiumOverride !== undefined && data.odBasePremiumOverride !== '' && !isNaN(parseFloat(data.odBasePremiumOverride))
+          ? {
+              odPremium: parseFloat(data.odBasePremiumOverride),
+              odPremiumAmount: parseFloat(data.odBasePremiumOverride),
+              odBasePremium: parseFloat(data.odBasePremiumOverride),
+            }
+          : {})),
+    // Field 2: NCB Discount override
+    ...(data.ncbDiscountOverride !== undefined && data.ncbDiscountOverride !== '' && !isNaN(parseFloat(data.ncbDiscountOverride))
+      ? { ncbDiscount: parseFloat(data.ncbDiscountOverride) }
+      : {}),
+    // Field 3: Add-on Premium override
+    ...(data.addonPremiumOverride !== undefined && data.addonPremiumOverride !== '' && !isNaN(parseFloat(data.addonPremiumOverride))
+      ? { addonPremium: parseFloat(data.addonPremiumOverride) }
+      : {}),
+    // Field 4: Net OD Premium override (Field 10)
+    ...(data.netOdPremiumOverride !== undefined && data.netOdPremiumOverride !== '' && !isNaN(parseFloat(data.netOdPremiumOverride))
+      ? { netOdPremium: parseFloat(data.netOdPremiumOverride) }
+      : {}),
+    // Field 5: Statutory GST override
+    ...(data.gstAmountOverride !== undefined && data.gstAmountOverride !== '' && !isNaN(parseFloat(data.gstAmountOverride))
+      ? { gstAmount: parseFloat(data.gstAmountOverride) }
+      : {}),
+    // Field 6: Total Premium override (Field 11)
+    ...(data.totalPremiumOverride !== undefined && data.totalPremiumOverride !== '' && !isNaN(parseFloat(data.totalPremiumOverride))
+      ? { totalPremiumOverride: parseFloat(data.totalPremiumOverride) }
       : {}),
     annualTpPremium: data.editedTpPremium !== undefined && data.editedTpPremium !== '' && !isNaN(parseFloat(data.editedTpPremium))
       ? parseFloat(data.editedTpPremium)
@@ -152,28 +180,28 @@ export function PolicyFormPackageForm({ category, vehicleStatus, data, onChange,
   }, [data]);
 
   useEffect(() => {
-    if ((loading || error) && (data.calculatedResult || data.totalPremiumInclGST || data.finalPayableAmount || data.finalGstAmount)) {
+    if (error && dataRef.current.calculatedResult) {
       const current = dataRef.current;
       onChange({
         ...current,
         calculatedResult: undefined,
-        totalPremiumInclGST: '',
-        finalPayableAmount: '',
-        finalGstAmount: '',
+        totalPremiumInclGST: current.totalPremiumOverride ?? '',
+        finalPayableAmount: current.totalPremiumOverride ?? '',
       });
     }
-    // Do not keep a prior quote result while current inputs are unresolved.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loading, error]);
+  }, [error]);
 
   useEffect(() => {
     if (result && result.outputs) {
       const current = dataRef.current;
+      const outputs = result.outputs;
+      const payableTotal = (outputs.finalPayableAmount ?? outputs.totalPremium ?? 0).toString();
       onChange({ 
         ...current, 
-        totalPremiumInclGST: (result.outputs.finalPayableAmount ?? result.outputs.totalPremium ?? 0).toString(),
-        finalPayableAmount: (result.outputs.finalPayableAmount ?? result.outputs.totalPremium ?? 0).toString(),
-        finalGstAmount: (result.outputs.totalGst ?? 0).toString(),
+        totalPremiumInclGST: current.totalPremiumOverride ?? payableTotal,
+        finalPayableAmount: current.totalPremiumOverride ?? payableTotal,
+        finalGstAmount: current.gstAmountOverride ?? (outputs.totalGst ?? 0).toString(),
         odCommissionCalc: '',
         tpCommissionCalc: '',
         finalCommissionCalc: '',
@@ -782,8 +810,31 @@ export function PolicyFormPackageForm({ category, vehicleStatus, data, onChange,
                 )}
               </div>
             </div>
-            <div className="text-2xl font-black text-emerald-700 dark:text-emerald-400">
-              {finalPayable === null ? '—' : '₹' + Number(finalPayable).toLocaleString('en-IN')}
+            <div className="flex flex-col items-end gap-1.5">
+              <div className="flex items-center gap-2">
+                <input
+                  type="number"
+                  min="0"
+                  step="1"
+                  placeholder="Override Total ₹"
+                  value={data.totalPremiumOverride ?? ''}
+                  onChange={(e) => onChange({ ...data, totalPremiumOverride: e.target.value || undefined })}
+                  className="w-32 p-1 text-xs font-bold rounded border bg-background text-foreground"
+                  title="Manual Total Premium Override"
+                />
+                {data.totalPremiumOverride && (
+                  <button
+                    type="button"
+                    onClick={() => onChange({ ...data, totalPremiumOverride: undefined })}
+                    className="text-[10px] text-muted-foreground hover:text-foreground underline cursor-pointer shrink-0"
+                  >
+                    Reset
+                  </button>
+                )}
+              </div>
+              <div className="text-2xl font-black text-emerald-700 dark:text-emerald-400">
+                {finalPayable === null ? '—' : '₹' + Number(finalPayable).toLocaleString('en-IN')}
+              </div>
             </div>
           </div>
         </div>

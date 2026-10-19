@@ -5,6 +5,8 @@ import type { PolicyFormSAOD, SaodTpVerification, VehicleCategory, MotorEligibil
 import { GstRateSelector } from './GstRateSelector';
 import { useMotorCalculator } from './useMotorCalculator';
 import { NcbSlider } from './NcbSlider';
+import { OverrideFieldCard } from './OverrideFieldCard';
+import { SaodTpVerificationCard } from './SaodTpVerificationCard';
 
 interface Props {
   category?: VehicleCategory;
@@ -44,75 +46,6 @@ function FieldRow({ label, mandatory, conditional, children, hint, formula }: {
   );
 }
 
-function OverrideFieldCard({
-  label,
-  value,
-  status,
-  mandatory,
-  hint,
-  placeholder,
-  onChange,
-  onReset,
-  accentColor,
-}: {
-  label: string;
-  value: string;
-  status: 'MANUAL' | 'RECALCULATED' | 'CALCULATED';
-  mandatory?: boolean;
-  hint?: string;
-  placeholder?: string;
-  onChange: (val: string) => void;
-  onReset?: () => void;
-  accentColor?: string;
-}) {
-  return (
-    <div>
-      <div className="flex items-center justify-between mb-1">
-        <label className="text-[11px] font-bold text-foreground">
-          {label} {mandatory && <span className="text-rose-500">*</span>}
-        </label>
-        <div className="flex items-center gap-1.5">
-          {status === 'MANUAL' && (
-            <>
-              <span className="text-[9px] font-black bg-amber-500/20 text-amber-600 px-1.5 py-0.5 rounded border border-amber-500/30">
-                [Manually Overridden]
-              </span>
-              {onReset && (
-                <button
-                  type="button"
-                  onClick={onReset}
-                  className="text-[9px] text-muted-foreground hover:text-foreground underline cursor-pointer"
-                >
-                  Reset
-                </button>
-              )}
-            </>
-          )}
-          {status === 'RECALCULATED' && (
-            <span className="text-[9px] font-black bg-blue-500/20 text-blue-600 px-1.5 py-0.5 rounded border border-blue-500/30">
-              [Recalculated]
-            </span>
-          )}
-          {status === 'CALCULATED' && (
-            <span className="text-[9px] font-medium bg-muted text-muted-foreground px-1.5 py-0.5 rounded">
-              [Calculated]
-            </span>
-          )}
-        </div>
-      </div>
-      <input
-        type="number"
-        step="1"
-        min="0"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className={`${mandatory ? mandatoryInput(value) : inputBase} ${accentColor || ''}`}
-        placeholder={placeholder || '₹0'}
-      />
-      {hint && <p className="text-[9px] text-muted-foreground mt-0.5">{hint}</p>}
-    </div>
-  );
-}
 
 export function PolicyFormSAODForm({ category, vehicleStatus, data, onChange, eligibility }: Props) {
   const set = (key: keyof PolicyFormSAOD) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
@@ -232,21 +165,17 @@ export function PolicyFormSAODForm({ category, vehicleStatus, data, onChange, el
   }, [data]);
 
   useEffect(() => {
-    // Any changed calculator input clears the accepted result while the request
-    // is pending, incomplete, or failed. This prevents saving a prior premium.
-    if ((loading || error || !result) && dataRef.current.calculatedResult) {
+    if (error && dataRef.current.calculatedResult) {
       const current = dataRef.current;
       onChange({
         ...current,
         calculatedResult: undefined,
-        ...(error ? {
-          totalPremiumInclGST: current.totalPremiumOverride ?? '',
-          finalPayableAmount: current.totalPremiumOverride ?? '',
-        } : {}),
+        totalPremiumInclGST: current.totalPremiumOverride ?? '',
+        finalPayableAmount: current.totalPremiumOverride ?? '',
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loading, error, result]);
+  }, [error]);
 
   useEffect(() => {
     if (result && result.outputs) {
@@ -330,142 +259,17 @@ export function PolicyFormSAODForm({ category, vehicleStatus, data, onChange, el
       </div>
 
       {/* SAOD TP VERIFICATION PANEL */}
-      <div className={`p-4 rounded-xl border-2 space-y-4 ${
-        isVerified
-          ? 'border-emerald-500/40 bg-emerald-500/5'
-          : 'border-amber-400/40 bg-amber-50/30 dark:bg-amber-900/10'
-      }`}>
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            {isVerified
-              ? <CheckCircle className="h-4 w-4 text-emerald-600" />
-              : <AlertTriangle className="h-4 w-4 text-amber-600" />
-            }
-            <span className={`text-sm font-black ${
-              isVerified ? 'text-emerald-700 dark:text-emerald-400' : 'text-amber-700 dark:text-amber-400'
-            }`}>
-              Active TP Policy Verification
-            </span>
-            {isVerified && (
-              <span className="px-2 py-0.5 rounded-full text-[9px] font-black bg-emerald-500/20 text-emerald-700 uppercase">VERIFIED</span>
-            )}
-            {tpExpired && (
-              <span className="px-2 py-0.5 rounded-full text-[9px] font-black bg-rose-500/20 text-rose-700 uppercase">TP EXPIRED</span>
-            )}
-          </div>
-          <div className="text-[9px] text-muted-foreground font-bold">Compliance Required</div>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <FieldRow label="TP Insurer" mandatory hint="The company that issued the Third Party policy">
-            <select
-              value={verification?.tpInsurer || ''}
-              onChange={(e) => setVerification('tpInsurer', e.target.value)}
-              className={mandatoryInput(verification?.tpInsurer || '')}
-            >
-              <option value="">— Select TP Insurer —</option>
-              {INSURER_OPTIONS.map((i) => <option key={i} value={i}>{i}</option>)}
-            </select>
-          </FieldRow>
-          <FieldRow label="TP Policy Number" mandatory hint="Exact policy number as on the TP policy document">
-            <input
-              type="text"
-              value={verification?.tpPolicyNumber || ''}
-              onChange={(e) => setVerification('tpPolicyNumber', e.target.value)}
-              placeholder="e.g. TP/2024/123456789"
-              className={`${mandatoryInput(verification?.tpPolicyNumber || '')} font-mono`}
-            />
-          </FieldRow>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <FieldRow label="TP Start Date" mandatory>
-            <input type="date" value={verification?.tpStartDate || ''} onChange={(e) => setVerification('tpStartDate', e.target.value)} className={mandatoryInput(verification?.tpStartDate || '')} />
-          </FieldRow>
-          <FieldRow label="TP Expiry Date" mandatory hint="Must be a future date for SAOD eligibility">
-            <input
-              type="date"
-              value={verification?.tpExpiryDate || ''}
-              onChange={(e) => setVerification('tpExpiryDate', e.target.value)}
-              className={`${mandatoryInput(verification?.tpExpiryDate || '')} ${tpExpired ? 'border-rose-500' : ''}`}
-            />
-            {tpExpired && <p className="text-[9px] text-rose-500 mt-0.5 font-bold">TP Policy has expired — SAOD cannot be issued</p>}
-          </FieldRow>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <FieldRow label="Verification Method" mandatory hint="How was the active TP policy verified?">
-            <div className="space-y-1.5 mt-1">
-              {[
-                { value: 'POLICY_DOCUMENT', label: '📄 Policy Document' },
-                { value: 'INSURER_PORTAL', label: '🌐 Insurer Portal' },
-                { value: 'INSURER_CONFIRMATION', label: '📞 Insurer Confirmation' },
-                { value: 'OTHER', label: '🔗 Other' },
-              ].map(({ value, label }) => (
-                <label key={value} className="flex items-center gap-2 text-xs font-semibold cursor-pointer">
-                  <input
-                    type="radio"
-                    name="verificationMethod"
-                    value={value}
-                    checked={verification?.verificationMethod === value}
-                    onChange={() => setVerification('verificationMethod', value)}
-                    className="h-3.5 w-3.5 text-primary"
-                  />
-                  {label}
-                </label>
-              ))}
-            </div>
-          </FieldRow>
-          <FieldRow label="Verification Notes" hint="Document reference, portal screenshot, or confirmation details">
-            <textarea
-              rows={4}
-              value={verification?.verifierNotes || ''}
-              onChange={(e) => setVerification('verifierNotes', e.target.value)}
-              placeholder="e.g. Verified via TATA AIG portal, ref: TAGIC/TP/2024/..."
-              className={`${inputBase} resize-none`}
-            />
-          </FieldRow>
-        </div>
-
-        {/* Final Confirmation */}
-        <div className={`p-3 rounded-xl border ${
-          verification?.verifiedByUserConfirmed ? 'border-emerald-500/30 bg-emerald-500/5' : 'border-muted bg-muted/20'
-        }`}>
-          <label className="flex items-start gap-3 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={verification?.verifiedByUserConfirmed || false}
-              onChange={(e) => {
-                const newStatus = e.target.checked ? 'VERIFIED' : 'PENDING';
-                const updated: SaodTpVerification = { ...data.tpVerification, verifiedByUserConfirmed: e.target.checked, verificationStatus: newStatus as 'PENDING' | 'VERIFIED' | 'REJECTED' };
-                onChange({ ...data, tpVerification: updated });
-              }}
-              className="h-4 w-4 rounded text-primary mt-0.5 cursor-pointer"
-            />
-            <div>
-              <div className="text-xs font-black text-foreground">I have verified the active TP policy</div>
-              <div className="text-[10px] text-muted-foreground mt-0.5">
-                By checking this, you attest that you independently verified the TP policy details above. The server records your authenticated identity, method, evidence reference, notes and verification timestamp when the quotation is saved.
-              </div>
-              {verification?.verifiedByUserConfirmed && (
-                <div className="mt-1.5 flex items-center gap-2 text-[10px] font-bold text-emerald-600">
-                  <CheckCircle className="h-3 w-3" />
-                  Confirmation selected — the server records the verifier and timestamp when the quotation is saved.
-                </div>
-              )}
-            </div>
-          </label>
-        </div>
-
-        {!isVerified && (
-          <div className="flex items-start gap-2 p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/20">
-            <Info className="h-3.5 w-3.5 text-amber-600 shrink-0 mt-0.5" />
-            <p className="text-[10px] text-amber-700 dark:text-amber-400 font-semibold">
-              Complete all verification fields and check the confirmation box to proceed. The backend will reject SAOD quotations without verified active TP cover.
-            </p>
-          </div>
-        )}
-      </div>
+      <SaodTpVerificationCard
+        value={data.tpVerification}
+        onChange={(updated) => {
+          onChange({
+            ...data,
+            tpVerification: updated,
+            activeTPInsurerName: updated.tpInsurer,
+            activeTPPolicyNumberValidity: `${updated.tpPolicyNumber} | Valid Till ${updated.tpExpiryDate}`,
+          });
+        }}
+      />
 
       {/* OD Details */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
