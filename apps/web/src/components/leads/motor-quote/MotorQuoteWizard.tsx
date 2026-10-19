@@ -535,11 +535,17 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, customerId, caseId
     ownershipTransfer: previousPolicy.ownershipTransfer,
     previousPolicyTransferred: previousPolicy.previousPolicyTransferred,
     eligibleNcbPercentage: previousPolicy.eligibleNcbPercentage,
-    // SAOD must use the active TP expiry entered for this quote. Never substitute
-    // the previous OD/policy expiry when active TP details are blank.
+    // SAOD rule evaluation is bound to the current active TP verification,
+    // never the unrelated previous-policy expiry.
     tpExpiryDate: policyType === 'SAOD'
       ? (saodForm.tpVerification?.tpExpiryDate || undefined)
       : (previousPolicy.tpExpiryDate || undefined),
+    activeTpInsurer: policyType === 'SAOD' ? saodForm.tpVerification?.tpInsurer : undefined,
+    activeTpPolicyNumber: policyType === 'SAOD' ? saodForm.tpVerification?.tpPolicyNumber : undefined,
+    activeTpStartDate: policyType === 'SAOD' ? saodForm.tpVerification?.tpStartDate : undefined,
+    activeTpVerificationMethod: policyType === 'SAOD' ? saodForm.tpVerification?.verificationMethod : undefined,
+    activeTpVerificationStatus: policyType === 'SAOD' ? saodForm.tpVerification?.verificationStatus : undefined,
+    activeTpVerifiedByUserConfirmed: policyType === 'SAOD' ? saodForm.tpVerification?.verifiedByUserConfirmed : undefined,
     odExpiryDate: previousPolicy.odExpiryDate,
     newOwnerName: previousPolicy.newOwnerName,
   });
