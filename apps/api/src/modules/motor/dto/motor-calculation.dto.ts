@@ -211,6 +211,27 @@ export class MotorCalculationInputDto {
   @IsString()
   activeTpExpiryDate?: string;
 
+  /** Evidence that the active TP policy details were reviewed by the quoting user. */
+  @IsOptional()
+  @IsString()
+  activeTpInsurer?: string;
+
+  @IsOptional()
+  @IsString()
+  activeTpStartDate?: string;
+
+  @IsOptional()
+  @IsString()
+  activeTpVerificationMethod?: string;
+
+  @IsOptional()
+  @IsString()
+  activeTpVerificationStatus?: 'PENDING' | 'VERIFIED' | 'REJECTED';
+
+  @IsOptional()
+  @IsBoolean()
+  activeTpVerifiedByUserConfirmed?: boolean;
+
   /** Required when discountPercent exceeds the configured standard authority limit. */
   @IsOptional()
   @IsString()
