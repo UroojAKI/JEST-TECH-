@@ -153,18 +153,31 @@ describe('MotorCalculationService (Iteration 5 Financial Math)', () => {
       ).rejects.toThrow(BadRequestException);
     });
 
-    it('should allow discount up to 100%', async () => {
+    it('should reject discount exceeding 20% without approvalReference', async () => {
+      await expect(
+        service.calculate({
+          vehicleCategory: 'PRIVATE_CAR',
+          vehicleStatus: 'EXISTING',
+          policyType: 'PACKAGE_COMPREHENSIVE',
+          idv: 500000,
+          discountPercent: 35,
+        }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should allow discount up to 100% with approvalReference', async () => {
       const result: any = await service.calculate({
         vehicleCategory: 'PRIVATE_CAR',
         vehicleStatus: 'EXISTING',
         policyType: 'PACKAGE_COMPREHENSIVE',
         idv: 500000,
         discountPercent: 100,
+        approvalReference: 'BM-APPROVED',
       });
       expect(result.outputs.totalDiscount).toBeGreaterThan(0);
     });
 
-    it('should allow OD discount up to 100% and TP discount up to 100%', async () => {
+    it('should allow OD discount up to 100% and TP discount up to 100% with approvalReference', async () => {
       const result: any = await service.calculate({
         vehicleCategory: 'PRIVATE_CAR',
         vehicleStatus: 'EXISTING',
@@ -172,6 +185,7 @@ describe('MotorCalculationService (Iteration 5 Financial Math)', () => {
         idv: 500000,
         odDiscountPercent: 100,
         tpDiscountPercent: 100,
+        approvalReference: 'BM-APPROVED',
         paCover: false,
       });
       expect(result.outputs.od.net).toBe(0);
@@ -576,6 +590,7 @@ describe('MotorCalculationService (Iteration 5 Financial Math)', () => {
         vehicleStatus: 'EXISTING',
         policyType: 'THIRD_PARTY_ONLY',
         tpDiscountPercent: 100,
+        approvalReference: 'BM-APPROVED',
       });
       expect(result.outputs.tp.discount).toBe(3416);
       expect(result.outputs.tp.net).toBe(0);
