@@ -1081,6 +1081,26 @@ export class MotorCalculationService {
         });
       }
 
+      const startBusinessDate = this.policyDateService.toBusinessDate(input.activeTpStartDate);
+      const expiryBusinessDate = this.policyDateService.toBusinessDate(input.activeTpExpiryDate);
+      const todayBusinessDate = this.policyDateService.getBusinessToday();
+      if (startBusinessDate > todayBusinessDate) {
+        throw new BadRequestException({
+          statusCode: 400,
+          error: 'Bad Request',
+          errorCode: 'ACTIVE_TP_NOT_YET_IN_FORCE',
+          message: 'Active TP policy start date is in the future; it cannot establish current SAOD eligibility.',
+        });
+      }
+      if (expiryBusinessDate < startBusinessDate) {
+        throw new BadRequestException({
+          statusCode: 400,
+          error: 'Bad Request',
+          errorCode: 'ACTIVE_TP_DATES_INVALID',
+          message: 'Active TP policy expiry must not precede its start date.',
+        });
+      }
+
       if (this.policyDateService.isExpired(input.activeTpExpiryDate)) {
         throw new BadRequestException(
           'Active TP Policy has expired. Cannot issue SAOD policy against an expired TP.',
