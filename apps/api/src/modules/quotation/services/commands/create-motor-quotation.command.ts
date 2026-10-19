@@ -406,11 +406,15 @@ export class CreateMotorQuotationCommand {
             })
             .filter((addon: any) => addon.addonCode)
         : [],
-      activeTpPolicyNumber:
-        saodVerification.tpPolicyNumber ||
-        policyDetails.activeTPPolicyNumberValidity ||
-        undefined,
+      activeTpPolicyNumber: saodVerification.tpPolicyNumber || policyDetails.activeTpPolicyNumber || undefined,
       activeTpExpiryDate: saodVerification.tpExpiryDate || undefined,
+      activeTpInsurer: saodVerification.tpInsurer || policyDetails.activeTpInsurer || undefined,
+      activeTpStartDate: saodVerification.tpStartDate || policyDetails.activeTpStartDate || undefined,
+      activeTpVerificationMethod: saodVerification.verificationMethod || policyDetails.activeTpVerificationMethod || undefined,
+      activeTpVerificationStatus: saodVerification.verificationStatus || policyDetails.activeTpVerificationStatus || undefined,
+      activeTpVerifiedByUserConfirmed:
+        saodVerification.verifiedByUserConfirmed === true ||
+        policyDetails.activeTpVerifiedByUserConfirmed === true,
       odDiscountPercent: policyDetails.odDiscountPercent !== undefined && policyDetails.odDiscountPercent !== ''
         ? Number(policyDetails.odDiscountPercent)
         : undefined,
@@ -485,33 +489,43 @@ export class CreateMotorQuotationCommand {
         : ((policyDetails as any).odPremium !== undefined && (policyDetails as any).odPremium !== '' && !isNaN(Number((policyDetails as any).odPremium))
             ? Number((policyDetails as any).odPremium)
             : undefined),
-      ncbDiscount: (policyDetails as any).ncbDiscount !== undefined && (policyDetails as any).ncbDiscount !== '' && !isNaN(Number((policyDetails as any).ncbDiscount))
-        ? Number((policyDetails as any).ncbDiscount)
-        : ((policyDetails as any).ncbDiscountAmount !== undefined && (policyDetails as any).ncbDiscountAmount !== '' && !isNaN(Number((policyDetails as any).ncbDiscountAmount))
-            ? Number((policyDetails as any).ncbDiscountAmount)
-            : undefined),
-      addonPremium: (policyDetails as any).addonPremium !== undefined && (policyDetails as any).addonPremium !== '' && !isNaN(Number((policyDetails as any).addonPremium))
-        ? Number((policyDetails as any).addonPremium)
-        : ((policyDetails as any).addOnsPremium !== undefined && (policyDetails as any).addOnsPremium !== '' && !isNaN(Number((policyDetails as any).addOnsPremium))
-            ? Number((policyDetails as any).addOnsPremium)
-            : undefined),
-      netOdPremium: (policyDetails as any).netOdPremium !== undefined && (policyDetails as any).netOdPremium !== '' && !isNaN(Number((policyDetails as any).netOdPremium))
-        ? Number((policyDetails as any).netOdPremium)
-        : ((policyDetails as any).odPremiumNet !== undefined && (policyDetails as any).odPremiumNet !== '' && !isNaN(Number((policyDetails as any).odPremiumNet))
-            ? Number((policyDetails as any).odPremiumNet)
-            : undefined),
-      gstAmount: (policyDetails as any).gstAmount !== undefined && (policyDetails as any).gstAmount !== '' && !isNaN(Number((policyDetails as any).gstAmount))
-        ? Number((policyDetails as any).gstAmount)
-        : ((policyDetails as any).odGstAmount !== undefined && (policyDetails as any).odGstAmount !== '' && !isNaN(Number((policyDetails as any).odGstAmount))
-            ? Number((policyDetails as any).odGstAmount)
-            : undefined),
-      totalPremium: (policyDetails as any).totalPremium !== undefined && (policyDetails as any).totalPremium !== '' && !isNaN(Number((policyDetails as any).totalPremium))
-        ? Number((policyDetails as any).totalPremium)
-        : ((policyDetails as any).totalPremiumInclGST !== undefined && (policyDetails as any).totalPremiumInclGST !== '' && !isNaN(Number((policyDetails as any).totalPremiumInclGST))
-            ? Number((policyDetails as any).totalPremiumInclGST)
-            : ((policyDetails as any).finalPayableAmount !== undefined && (policyDetails as any).finalPayableAmount !== '' && !isNaN(Number((policyDetails as any).finalPayableAmount))
-                ? Number((policyDetails as any).finalPayableAmount)
+      ncbDiscount: (policyDetails as any).ncbDiscountOverride !== undefined && (policyDetails as any).ncbDiscountOverride !== '' && !isNaN(Number((policyDetails as any).ncbDiscountOverride))
+        ? Number((policyDetails as any).ncbDiscountOverride)
+        : ((policyDetails as any).ncbDiscount !== undefined && (policyDetails as any).ncbDiscount !== '' && !isNaN(Number((policyDetails as any).ncbDiscount))
+            ? Number((policyDetails as any).ncbDiscount)
+            : ((policyDetails as any).ncbDiscountAmount !== undefined && (policyDetails as any).ncbDiscountAmount !== '' && !isNaN(Number((policyDetails as any).ncbDiscountAmount))
+                ? Number((policyDetails as any).ncbDiscountAmount)
                 : undefined)),
+      addonPremium: (policyDetails as any).addonPremiumOverride !== undefined && (policyDetails as any).addonPremiumOverride !== '' && !isNaN(Number((policyDetails as any).addonPremiumOverride))
+        ? Number((policyDetails as any).addonPremiumOverride)
+        : ((policyDetails as any).addonPremium !== undefined && (policyDetails as any).addonPremium !== '' && !isNaN(Number((policyDetails as any).addonPremium))
+            ? Number((policyDetails as any).addonPremium)
+            : ((policyDetails as any).addOnsPremium !== undefined && (policyDetails as any).addOnsPremium !== '' && !isNaN(Number((policyDetails as any).addOnsPremium))
+                ? Number((policyDetails as any).addOnsPremium)
+                : undefined)),
+      netOdPremium: (policyDetails as any).netOdPremiumOverride !== undefined && (policyDetails as any).netOdPremiumOverride !== '' && !isNaN(Number((policyDetails as any).netOdPremiumOverride))
+        ? Number((policyDetails as any).netOdPremiumOverride)
+        : ((policyDetails as any).netOdPremium !== undefined && (policyDetails as any).netOdPremium !== '' && !isNaN(Number((policyDetails as any).netOdPremium))
+            ? Number((policyDetails as any).netOdPremium)
+            : ((policyDetails as any).odPremiumNet !== undefined && (policyDetails as any).odPremiumNet !== '' && !isNaN(Number((policyDetails as any).odPremiumNet))
+                ? Number((policyDetails as any).odPremiumNet)
+                : undefined)),
+      gstAmount: (policyDetails as any).gstAmountOverride !== undefined && (policyDetails as any).gstAmountOverride !== '' && !isNaN(Number((policyDetails as any).gstAmountOverride))
+        ? Number((policyDetails as any).gstAmountOverride)
+        : ((policyDetails as any).gstAmount !== undefined && (policyDetails as any).gstAmount !== '' && !isNaN(Number((policyDetails as any).gstAmount))
+            ? Number((policyDetails as any).gstAmount)
+            : ((policyDetails as any).odGstAmount !== undefined && (policyDetails as any).odGstAmount !== '' && !isNaN(Number((policyDetails as any).odGstAmount))
+                ? Number((policyDetails as any).odGstAmount)
+                : undefined)),
+      totalPremiumOverride: (policyDetails as any).totalPremiumOverride !== undefined && (policyDetails as any).totalPremiumOverride !== '' && !isNaN(Number((policyDetails as any).totalPremiumOverride))
+        ? Number((policyDetails as any).totalPremiumOverride)
+        : ((policyDetails as any).totalPremium !== undefined && (policyDetails as any).totalPremium !== '' && !isNaN(Number((policyDetails as any).totalPremium))
+            ? Number((policyDetails as any).totalPremium)
+            : ((policyDetails as any).totalPremiumInclGST !== undefined && (policyDetails as any).totalPremiumInclGST !== '' && !isNaN(Number((policyDetails as any).totalPremiumInclGST))
+                ? Number((policyDetails as any).totalPremiumInclGST)
+                : ((policyDetails as any).finalPayableAmount !== undefined && (policyDetails as any).finalPayableAmount !== '' && !isNaN(Number((policyDetails as any).finalPayableAmount))
+                    ? Number((policyDetails as any).finalPayableAmount)
+                    : undefined)),
       overrides: Array.isArray((policyDetails as any).overrides)
         ? (policyDetails as any).overrides
         : (Array.isArray((dto as any).overrides) ? (dto as any).overrides : undefined),
