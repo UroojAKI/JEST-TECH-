@@ -830,6 +830,8 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, customerId, caseId
             tpStartDate: saodForm.tpVerification.tpStartDate,
             tpExpiryDate: saodForm.tpVerification.tpExpiryDate,
             verificationMethod: saodForm.tpVerification.verificationMethod,
+            verificationStatus: saodForm.tpVerification.verificationStatus,
+            verifiedByUserConfirmed: saodForm.tpVerification.verifiedByUserConfirmed,
             verifierNotes: saodForm.tpVerification.verifierNotes,
           },
         } : {}),
