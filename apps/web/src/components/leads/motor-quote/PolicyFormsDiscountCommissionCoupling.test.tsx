@@ -807,7 +807,7 @@ describe('Work Package 2 & PR-01: Discount & Commission Decoupling Regression Su
       expect(recalculatedBadges.length).toBe(3);
     });
 
-    it('editing NCB Discount emits ncbDiscountOverride', () => {
+    it('replaces the SAOD NCB amount field with one percentage discount input', () => {
       const mockOnChange = vi.fn();
       render(
         <PolicyFormSAODForm
@@ -818,12 +818,14 @@ describe('Work Package 2 & PR-01: Discount & Commission Decoupling Regression Su
         />
       );
 
-      const ncbInputs = screen.getAllByPlaceholderText('Auto-calculated');
-      fireEvent.change(ncbInputs[0], { target: { value: '1500' } });
+      expect(screen.queryByText('NCB Discount (₹)')).not.toBeInTheDocument();
+      const discount = screen.getByLabelText(/Discount \(%\)/i);
+      fireEvent.change(discount, { target: { value: '10' } });
 
       expect(mockOnChange).toHaveBeenCalledWith(
         expect.objectContaining({
-          ncbDiscountOverride: '1500',
+          discountPercent: '10',
+          odDiscountPercent: '10',
         })
       );
     });
