@@ -79,10 +79,15 @@ export function PolicyFormSAODForm({ category, vehicleStatus, data, onChange, el
   );
 
   useEffect(() => {
-    if (data.odCommissionPercent || data.commissionAmount) {
-      onChange({ ...data, odCommissionPercent: '', commissionAmount: '' });
+    if (data.odCommissionPercent || data.commissionAmount || data.ncbDiscountOverride !== undefined) {
+      onChange({
+        ...data,
+        odCommissionPercent: '',
+        commissionAmount: '',
+        ncbDiscountOverride: undefined,
+      });
     }
-    // Legacy commission values were user-entered and are not an approved calculation result.
+    // Clear legacy commission and manual NCB amount overrides when opening the SAOD form.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -191,7 +196,7 @@ export function PolicyFormSAODForm({ category, vehicleStatus, data, onChange, el
         ...current,
         odPremiumBase: baseOd || current.odPremiumBase,
         addOnsPremium: current.addonPremiumOverride ?? addOnsTotal,
-        ncbDiscountAmount: current.ncbDiscountOverride ?? ncbDiscount,
+        ncbDiscountAmount: ncbDiscount,
         odPremium: current.netOdPremiumOverride ?? netOd,
         gstAmount: current.gstAmountOverride ?? gst,
         totalPremiumInclGST: current.totalPremiumOverride ?? total,
