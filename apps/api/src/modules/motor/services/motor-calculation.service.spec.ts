@@ -758,6 +758,29 @@ describe('MotorCalculationService (Iteration 5 Financial Math)', () => {
       ).rejects.toThrow(BadRequestException);
     });
 
+    it('preserves a manual Field 11 total premium override as the authoritative final payable', async () => {
+      const result: any = await service.calculate({
+        vehicleCategory: 'PRIVATE_CAR',
+        vehicleStatus: 'EXISTING',
+        policyType: 'PACKAGE_COMPREHENSIVE',
+        idv: 500000,
+        totalPremiumOverride: 7777,
+      });
+
+      expect(result.outputs.finalPayableAmount).toBe(7777);
+      expect(result.outputs.totalPremium).toBe(7777);
+      expect(result.outputs.isOverridden.totalPremium).toBe(true);
+      expect(result.outputs.overridesApplied).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            field: 'TOTAL_PREMIUM',
+            overrideValue: 7777,
+            status: 'APPLIED',
+          }),
+        ]),
+      );
+    });
+
     it('WP-03: should fail-closed and reject unapproved GST rate (e.g. 12%)', async () => {
       await expect(
         service.calculate({
