@@ -819,7 +819,7 @@ describe('Work Package 2 & PR-01: Discount & Commission Decoupling Regression Su
       );
 
       expect(screen.queryByText('NCB Discount (₹)')).not.toBeInTheDocument();
-      const discount = screen.getByLabelText(/Discount \(%\)/i);
+      const discount = screen.getByPlaceholderText('e.g. 10');
       fireEvent.change(discount, { target: { value: '10' } });
 
       expect(mockOnChange).toHaveBeenCalledWith(
