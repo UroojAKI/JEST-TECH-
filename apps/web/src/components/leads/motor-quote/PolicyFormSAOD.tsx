@@ -571,7 +571,7 @@ export function PolicyFormSAODForm({ category, vehicleStatus, data, onChange, el
               <input
                 type="number"
                 min="0"
-                max="85"
+                max="100"
                 step="0.5"
                 value={data.discountPercent || ''}
                 onChange={(e) => handleDiscountPercentChange(e.target.value)}

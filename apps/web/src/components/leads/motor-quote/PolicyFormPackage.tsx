@@ -330,7 +330,7 @@ export function PolicyFormPackageForm({ category, vehicleStatus, data, onChange,
                 <input
                   type="number"
                   min="0"
-                  max="85"
+                  max="100"
                   step="0.5"
                   value={data.odDiscountPercent ?? ''}
                   onChange={(e) => onChange({ ...data, odDiscountPercent: e.target.value })}
@@ -453,7 +453,7 @@ export function PolicyFormPackageForm({ category, vehicleStatus, data, onChange,
                 <input
                   type="number"
                   min="0"
-                  max="20"
+                  max="100"
                   step="0.5"
                   value={data.tpDiscountPercent ?? ''}
                   onChange={(e) => onChange({ ...data, tpDiscountPercent: e.target.value })}

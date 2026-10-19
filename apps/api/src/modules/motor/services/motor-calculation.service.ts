@@ -884,12 +884,12 @@ export class MotorCalculationService {
     );
     if (d <= 0) return;
 
-    if (d >= 100) {
+    if (d > 100) {
       throw new BadRequestException({
         statusCode: 400,
         error: 'Bad Request',
         errorCode: 'DISCOUNT_CEILING_EXCEEDED',
-        message: 'Discounts of 100% or higher are strictly prohibited.',
+        message: 'Discounts exceeding 100% are strictly prohibited.',
       });
     }
 
@@ -922,9 +922,9 @@ export class MotorCalculationService {
         : 0);
     if (d <= 0) return;
 
-    if (d >= 100) {
+    if (d > 100) {
       throw new BadRequestException(
-        '100% TP discounts are strictly prohibited per IRDAI statutory regulations.',
+        'Discounts exceeding 100% are strictly prohibited.',
       );
     }
 
@@ -1218,7 +1218,7 @@ export class MotorCalculationService {
     }
 
     // ── Discount Configuration (from SystemConfig DB) ─────────────────────
-    const discountConfig = { standardLimit: 15, absoluteLimit: 50 };
+    const discountConfig = { standardLimit: 100, absoluteLimit: 100 };
     try {
       const stdConfig = await this.prisma.systemConfig.findFirst({
         where: { key: 'MOTOR_DISCOUNT_STANDARD_LIMIT' },
@@ -1227,9 +1227,9 @@ export class MotorCalculationService {
         where: { key: 'MOTOR_DISCOUNT_ABSOLUTE_LIMIT' },
       });
       if (stdConfig)
-        discountConfig.standardLimit = Number(stdConfig.value) || 15;
+        discountConfig.standardLimit = Number(stdConfig.value) || 100;
       if (absConfig)
-        discountConfig.absoluteLimit = Number(absConfig.value) || 50;
+        discountConfig.absoluteLimit = Number(absConfig.value) || 100;
     } catch {
       // SystemConfig table may not exist yet — defaults are permissive-safe.
     }

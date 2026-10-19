@@ -436,7 +436,7 @@ export function PolicyFormTPOnlyForm({ category, vehicleStatus, data, onChange, 
             <input
               type="number"
               min="0"
-              max="20"
+              max="100"
               step="0.5"
               placeholder="0"
               value={data.tpDiscountPercent ?? data.discountPercent ?? ''}

@@ -141,41 +141,42 @@ describe('MotorCalculationService (Iteration 5 Financial Math)', () => {
       expect(outputs.basePremium).not.toBe(outputs.totalPremium);
     });
 
-    it('should reject discount exceeding absolute ceiling (50%)', async () => {
+    it('should reject discount exceeding absolute ceiling (100%)', async () => {
       await expect(
         service.calculate({
           vehicleCategory: 'PRIVATE_CAR',
           vehicleStatus: 'EXISTING',
           policyType: 'PACKAGE_COMPREHENSIVE',
           idv: 500000,
-          discountPercent: 55,
+          discountPercent: 105,
         }),
       ).rejects.toThrow(BadRequestException);
     });
 
-    it('should reject discount exceeding standard authority (20%) without approvalReference', async () => {
-      await expect(
-        service.calculate({
-          vehicleCategory: 'PRIVATE_CAR',
-          vehicleStatus: 'EXISTING',
-          policyType: 'PACKAGE_COMPREHENSIVE',
-          idv: 500000,
-          discountPercent: 25,
-        }),
-      ).rejects.toThrow(BadRequestException);
-    });
-
-    it('should allow discount exceeding standard authority (20%) with valid approvalReference', async () => {
+    it('should allow discount up to 100%', async () => {
       const result: any = await service.calculate({
         vehicleCategory: 'PRIVATE_CAR',
         vehicleStatus: 'EXISTING',
         policyType: 'PACKAGE_COMPREHENSIVE',
         idv: 500000,
-        discountPercent: 25,
-        approvalReference: 'APP-REF-12345',
+        discountPercent: 100,
       });
-      expect(result.outputs.payableSummary.commercialDiscount.amount).toBeGreaterThan(0);
-      expect(result.outputs.commercialDiscountAmount).toBeGreaterThan(0);
+      expect(result.outputs.totalDiscount).toBeGreaterThan(0);
+    });
+
+    it('should allow OD discount up to 100% and TP discount up to 100%', async () => {
+      const result: any = await service.calculate({
+        vehicleCategory: 'PRIVATE_CAR',
+        vehicleStatus: 'EXISTING',
+        policyType: 'PACKAGE_COMPREHENSIVE',
+        idv: 500000,
+        odDiscountPercent: 100,
+        tpDiscountPercent: 100,
+        paCover: false,
+      });
+      expect(result.outputs.od.net).toBe(0);
+      expect(result.outputs.tp.net).toBe(0);
+      expect(result.outputs.finalPayableAmount).toBeGreaterThanOrEqual(0);
     });
 
     it('should compute Add-ons correctly as percentage of IDV and fixed amounts', async () => {
@@ -481,16 +482,16 @@ describe('MotorCalculationService (Iteration 5 Financial Math)', () => {
       expect(result.outputs.finalPayableAmount).toBe(18000);
     });
 
-    it('MOTOR-REG-06: should enforce TP discount authority limit', async () => {
+    it('MOTOR-REG-06: should enforce TP discount ceiling (reject > 100%)', async () => {
       await expect(
         service.calculate({
           vehicleCategory: 'PRIVATE_CAR',
           vehicleStatus: 'EXISTING',
           policyType: 'THIRD_PARTY_ONLY',
-          tpDiscountPercent: 25, // exceeds standard 15% without approvalReference
+          tpDiscountPercent: 105,
           paCover: false,
         }),
-      ).rejects.toThrow('exceeds the configured standard authority limit');
+      ).rejects.toThrow('Discounts exceeding 100% are strictly prohibited.');
     });
 
     it('MOTOR-REG-17: should return authoritative policy dates', async () => {
@@ -569,18 +570,24 @@ describe('MotorCalculationService (Iteration 5 Financial Math)', () => {
       });
     });
 
-    it('PHASE 9: should reject 100% TP discount per IRDAI statutory regulations', async () => {
+    it('PHASE 9: should allow up to 100% TP discount and reject above 100%', async () => {
+      const result: any = await service.calculate({
+        vehicleCategory: 'PRIVATE_CAR',
+        vehicleStatus: 'EXISTING',
+        policyType: 'THIRD_PARTY_ONLY',
+        tpDiscountPercent: 100,
+      });
+      expect(result.outputs.tp.discount).toBe(3416);
+      expect(result.outputs.tp.net).toBe(0);
+
       await expect(
         service.calculate({
           vehicleCategory: 'PRIVATE_CAR',
           vehicleStatus: 'EXISTING',
           policyType: 'THIRD_PARTY_ONLY',
-          tpDiscountPercent: 100,
-          approvalReference: 'APP-100',
+          tpDiscountPercent: 101,
         }),
-      ).rejects.toThrow(
-        '100% TP discounts are strictly prohibited per IRDAI statutory regulations.',
-      );
+      ).rejects.toThrow('Discounts exceeding 100% are strictly prohibited.');
     });
 
     it('should reject negative parameter submissions', async () => {
@@ -1292,16 +1299,16 @@ describe('MotorCalculationService (Iteration 5 Financial Math)', () => {
         ).rejects.toThrow();
       });
 
-      it('VALID-02: Unauthorized discount override is rejected server-side', async () => {
+      it('VALID-02: Discount exceeding 100% is rejected server-side', async () => {
         await expect(
           service.calculate({
             vehicleCategory: 'PRIVATE_CAR',
             vehicleStatus: 'EXISTING',
             policyType: 'PACKAGE_COMPREHENSIVE',
             idv: 500000,
-            commercialDiscountPercent: 25, // Exceeds standard limit 20%
+            commercialDiscountPercent: 105,
           }),
-        ).rejects.toThrow('A Branch Manager approval reference is required.');
+        ).rejects.toThrow('Discounts exceeding 100% are strictly prohibited.');
       });
 
       it('VALID-03: Discount outside configured absolute limit is rejected', async () => {
@@ -1311,10 +1318,10 @@ describe('MotorCalculationService (Iteration 5 Financial Math)', () => {
             vehicleStatus: 'EXISTING',
             policyType: 'PACKAGE_COMPREHENSIVE',
             idv: 500000,
-            commercialDiscountPercent: 60, // Exceeds ceiling 50%
+            commercialDiscountPercent: 105,
             approvalReference: 'BM-AUTH-999',
           }),
-        ).rejects.toThrow('exceeds the absolute configured ceiling');
+        ).rejects.toThrow('Discounts exceeding 100% are strictly prohibited.');
       });
 
       describe('Phase 2/3/4 Direct Rupees & High IDV Suite', () => {
