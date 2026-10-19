@@ -294,7 +294,16 @@
   {
     "type": "WARNING",
     "file": "apps/api/src/modules/policies/controllers/renewals.controller.ts",
-    "line": 216,
+    "line": 432,
+    "operation": "update",
+    "model": "RenewalTask",
+    "snippet": "await this.prisma.renewalTask.update({",
+    "reason": "update executed without detected immediate tenant boundary assertion"
+  },
+  {
+    "type": "WARNING",
+    "file": "apps/api/src/modules/policies/controllers/renewals.controller.ts",
+    "line": 455,
     "operation": "findFirst",
     "model": "RenewalTask",
     "snippet": "const task = await this.prisma.renewalTask.findFirst({",
@@ -303,7 +312,7 @@
   {
     "type": "WARNING",
     "file": "apps/api/src/modules/policies/controllers/renewals.controller.ts",
-    "line": 224,
+    "line": 463,
     "operation": "update",
     "model": "RenewalTask",
     "snippet": "const updated = await this.prisma.renewalTask.update({",
@@ -312,7 +321,7 @@
   {
     "type": "WARNING",
     "file": "apps/api/src/modules/policies/controllers/renewals.controller.ts",
-    "line": 243,
+    "line": 482,
     "operation": "findFirst",
     "model": "RenewalTask",
     "snippet": "const task = await this.prisma.renewalTask.findFirst({",
@@ -321,7 +330,7 @@
   {
     "type": "WARNING",
     "file": "apps/api/src/modules/policies/controllers/renewals.controller.ts",
-    "line": 251,
+    "line": 490,
     "operation": "update",
     "model": "RenewalTask",
     "snippet": "const updated = await this.prisma.renewalTask.update({",
@@ -375,7 +384,7 @@
   {
     "type": "WARNING",
     "file": "apps/api/src/modules/policies/services/renewal-engine.service.ts",
-    "line": 131,
+    "line": 135,
     "operation": "findUnique",
     "model": "Policy",
     "snippet": "const policy = await this.prisma.policy.findUnique({",
@@ -384,7 +393,7 @@
   {
     "type": "WARNING",
     "file": "apps/api/src/modules/policies/services/renewal-engine.service.ts",
-    "line": 138,
+    "line": 142,
     "operation": "upsert",
     "model": "RenewalTask",
     "snippet": "await this.prisma.renewalTask.upsert({",
@@ -393,7 +402,7 @@
   {
     "type": "WARNING",
     "file": "apps/api/src/modules/policies/services/renewal-engine.service.ts",
-    "line": 156,
+    "line": 160,
     "operation": "findUnique",
     "model": "Policy",
     "snippet": "const policy = await this.prisma.policy.findUnique({",
@@ -402,7 +411,7 @@
   {
     "type": "WARNING",
     "file": "apps/api/src/modules/policies/services/renewal-engine.service.ts",
-    "line": 483,
+    "line": 487,
     "operation": "findUnique",
     "model": "Policy",
     "snippet": "const policy = await this.prisma.policy.findUnique({",
@@ -411,7 +420,7 @@
   {
     "type": "WARNING",
     "file": "apps/api/src/modules/policies/services/renewal-engine.service.ts",
-    "line": 510,
+    "line": 514,
     "operation": "findUnique",
     "model": "Policy",
     "snippet": "const policy = await this.prisma.policy.findUnique({",
@@ -420,7 +429,7 @@
   {
     "type": "WARNING",
     "file": "apps/api/src/modules/policies/services/renewal-engine.service.ts",
-    "line": 518,
+    "line": 522,
     "operation": "findFirst",
     "model": "RenewalTask",
     "snippet": "const existingTask = await this.prisma.renewalTask.findFirst({",
@@ -429,7 +438,7 @@
   {
     "type": "WARNING",
     "file": "apps/api/src/modules/policies/services/renewal-engine.service.ts",
-    "line": 523,
+    "line": 527,
     "operation": "update",
     "model": "RenewalTask",
     "snippet": "await this.prisma.renewalTask.update({",
