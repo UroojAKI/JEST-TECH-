@@ -228,7 +228,7 @@ describe('MotorCalculationService (Iteration 5 Financial Math)', () => {
           activeTpStartDate: futureStart,
           activeTpExpiryDate: futureExpiry,
           activeTpVerificationMethod: 'POLICY_DOCUMENT',
-          activeTpVerificationStatus: 'VERIFIED',
+          activeTpVerificationStatus: 'VERIFIED' as const,
           activeTpVerifiedByUserConfirmed: true,
         }),
       ).rejects.toMatchObject({
@@ -329,7 +329,7 @@ describe('MotorCalculationService (Iteration 5 Financial Math)', () => {
           activeTpInsurer: 'TATA AIG',
                       activeTpStartDate: '2026-01-01',
                       activeTpVerificationMethod: 'POLICY_DOCUMENT',
-                      activeTpVerificationStatus: 'VERIFIED',
+                      activeTpVerificationStatus: 'VERIFIED' as const,
                       activeTpVerifiedByUserConfirmed: true,
         }),
       ).rejects.toThrow('Standalone OD is not applicable for new vehicles');
@@ -505,7 +505,7 @@ describe('MotorCalculationService (Iteration 5 Financial Math)', () => {
         activeTpInsurer: 'TATA AIG',
                     activeTpStartDate: '2026-01-01',
                     activeTpVerificationMethod: 'POLICY_DOCUMENT',
-                    activeTpVerificationStatus: 'VERIFIED',
+                    activeTpVerificationStatus: 'VERIFIED' as const,
                     activeTpVerifiedByUserConfirmed: true,
       });
 
@@ -1253,7 +1253,7 @@ describe('MotorCalculationService (Iteration 5 Financial Math)', () => {
           activeTpInsurer: 'TATA AIG',
                       activeTpStartDate: '2026-01-01',
                       activeTpVerificationMethod: 'POLICY_DOCUMENT',
-                      activeTpVerificationStatus: 'VERIFIED',
+                      activeTpVerificationStatus: 'VERIFIED' as const,
                       activeTpVerifiedByUserConfirmed: true,
         });
         expect(result.outputs.od.gross).toBe(1000);
@@ -1703,7 +1703,7 @@ describe('MotorCalculationService (Iteration 5 Financial Math)', () => {
               activeTpInsurer: 'TATA AIG',
                           activeTpStartDate: '2026-01-01',
                           activeTpVerificationMethod: 'POLICY_DOCUMENT',
-                          activeTpVerificationStatus: 'VERIFIED',
+                          activeTpVerificationStatus: 'VERIFIED' as const,
                           activeTpVerifiedByUserConfirmed: true,
             });
             const res2 = await service.calculate({
@@ -1916,7 +1916,7 @@ describe('MotorCalculationService (Iteration 5 Financial Math)', () => {
               activeTpInsurer: 'TATA AIG',
                           activeTpStartDate: '2026-01-01',
                           activeTpVerificationMethod: 'POLICY_DOCUMENT',
-                          activeTpVerificationStatus: 'VERIFIED',
+                          activeTpVerificationStatus: 'VERIFIED' as const,
                           activeTpVerifiedByUserConfirmed: true,
               odPremiumAmount: 8002,
               gstRate: 18,
@@ -2058,7 +2058,7 @@ describe('MotorCalculationService (Iteration 5 Financial Math)', () => {
                 activeTpInsurer: 'TATA AIG',
                             activeTpStartDate: '2026-01-01',
                             activeTpVerificationMethod: 'POLICY_DOCUMENT',
-                            activeTpVerificationStatus: 'VERIFIED',
+                            activeTpVerificationStatus: 'VERIFIED' as const,
                             activeTpVerifiedByUserConfirmed: true,
                 // No manual overrides provided — defaults to tariff
               });
