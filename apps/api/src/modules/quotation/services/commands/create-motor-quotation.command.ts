@@ -303,11 +303,36 @@ export class CreateMotorQuotationCommand {
 
     // MOTOR-0060 & MOTOR-REG-03: Authoritative server-side SAOD eligibility validation
     if (policyType === 'STANDALONE_OD') {
-      this.motorRuleEngineService.validateSaodEligibility({
-        vehicleStatus: isVehicleNew ? 'NEW' : 'EXISTING',
+      const activeTpVerification = {
         activeTpPolicyNumber: saodVerification.tpPolicyNumber || policyDetails.activeTpPolicyNumber,
         activeTpInsurer: saodVerification.tpInsurer || policyDetails.activeTpInsurer,
+        activeTpStartDate: saodVerification.tpStartDate || policyDetails.activeTpStartDate,
         activeTpExpiryDate: saodVerification.tpExpiryDate || policyDetails.activeTpExpiryDate,
+        activeTpVerificationMethod: saodVerification.verificationMethod || policyDetails.activeTpVerificationMethod,
+        activeTpVerificationStatus: saodVerification.verificationStatus || policyDetails.activeTpVerificationStatus,
+        activeTpVerifiedByUserConfirmed:
+          saodVerification.verifiedByUserConfirmed === true ||
+          policyDetails.activeTpVerifiedByUserConfirmed === true,
+      };
+
+      if (
+        !activeTpVerification.activeTpVerificationMethod ||
+        activeTpVerification.activeTpVerificationStatus !== 'VERIFIED' ||
+        activeTpVerification.activeTpVerifiedByUserConfirmed !== true
+      ) {
+        throw new BadRequestException({
+          statusCode: 400,
+          error: 'Bad Request',
+          errorCode: 'ACTIVE_TP_VERIFICATION_REQUIRED',
+          message: 'SAOD quotation creation requires verified and explicitly confirmed active TP details.',
+        });
+      }
+
+      this.motorRuleEngineService.validateSaodEligibility({
+        vehicleStatus: isVehicleNew ? 'NEW' : 'EXISTING',
+        activeTpPolicyNumber: activeTpVerification.activeTpPolicyNumber,
+        activeTpInsurer: activeTpVerification.activeTpInsurer,
+        activeTpExpiryDate: activeTpVerification.activeTpExpiryDate,
       });
     }
 
