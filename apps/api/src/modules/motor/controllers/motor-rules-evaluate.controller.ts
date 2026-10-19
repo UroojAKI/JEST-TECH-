@@ -21,6 +21,7 @@ import {
   MotorRuleEngineService,
   MotorRuleResult,
 } from '../services/motor-rule-engine.service';
+import { MotorPolicyDateService } from '../services/motor-policy-date.service';
 import {
   IsBoolean,
   IsNumber,
@@ -110,6 +111,8 @@ export class EvaluateMotorRulesDto {
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('motor')
 export class MotorRulesEvaluateController {
+  private readonly policyDateService = new MotorPolicyDateService();
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly ruleEngine: MotorRuleEngineService,
@@ -176,6 +179,15 @@ export class MotorRulesEvaluateController {
           error: 'Bad Request',
           errorCode: 'ACTIVE_TP_DATES_INVALID',
           message: 'Active TP policy dates are invalid; expiry must not precede the start date.',
+        });
+      }
+      const startBusinessDate = this.policyDateService.toBusinessDate(tpStart);
+      if (startBusinessDate > this.policyDateService.getBusinessToday()) {
+        throw new BadRequestException({
+          statusCode: 400,
+          error: 'Bad Request',
+          errorCode: 'ACTIVE_TP_NOT_YET_IN_FORCE',
+          message: 'Active TP policy start date is in the future; it cannot establish current SAOD eligibility.',
         });
       }
     }
