@@ -1081,8 +1081,8 @@ export class MotorCalculationService {
         });
       }
 
-      const startBusinessDate = this.policyDateService.toBusinessDate(input.activeTpStartDate);
-      const expiryBusinessDate = this.policyDateService.toBusinessDate(input.activeTpExpiryDate);
+      const startBusinessDate = this.policyDateService.toBusinessDate(input.activeTpStartDate!);
+      const expiryBusinessDate = this.policyDateService.toBusinessDate(input.activeTpExpiryDate!);
       const todayBusinessDate = this.policyDateService.getBusinessToday();
       if (startBusinessDate > todayBusinessDate) {
         throw new BadRequestException({
@@ -1101,7 +1101,7 @@ export class MotorCalculationService {
         });
       }
 
-      if (this.policyDateService.isExpired(input.activeTpExpiryDate)) {
+      if (this.policyDateService.isExpired(input.activeTpExpiryDate!)) {
         throw new BadRequestException(
           'Active TP Policy has expired. Cannot issue SAOD policy against an expired TP.',
         );
