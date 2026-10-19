@@ -213,12 +213,20 @@ export class MotorCalculationService {
     let specialDiscountAmount = 0;
     let netOdAfterDiscount = 0;
     let addonPremiumTotal = 0;
+    let totalAddonDiscountAmount = 0;
+    let totalAddonGstAmount = 0;
     let odDiscountAmount = 0;
     let effectiveOdDiscountPercent = 0;
     const itemizedAddons: Array<{
       addonCode: string;
       name: string;
       amount: number;
+      premium?: number;
+      discountPercent?: number;
+      discountAmount?: number;
+      gstRate?: number;
+      gstAmount?: number;
+      totalAmount?: number;
       systemRate?: number;
       isEdited?: boolean;
       isInvalid?: boolean;
@@ -246,7 +254,6 @@ export class MotorCalculationService {
         baseOdPremium = round2(input.idv! * (effectiveOdRate / 100));
       }
 
-
       // Canonical Business Rule: NCB is strictly underwriting risk metadata;
       // it does NOT deduct a monetary discount from baseOdPremium or the payable total.
       ncbDiscountAmount = 0;
@@ -263,95 +270,6 @@ export class MotorCalculationService {
       );
       specialDiscountAmount = odDiscountAmount;
       netOdAfterDiscount = round2(Math.max(0, baseOdPremium - odDiscountAmount));
-
-      // Add-on premiums (not subject to NCB/special discount)
-      // SPEC RULE: The quote should continue calculating other components if one add-on has an invalid value.
-      for (const addon of input.addons || []) {
-        let price = 0;
-        let systemPrice = 0;
-        let isAddonEdited = false;
-
-        try {
-          const config = addonRates[addon.addonCode];
-          if (config) {
-            switch (config.pricingModel) {
-              case 'PERCENT_OF_IDV':
-                systemPrice = round2(input.idv * (Number(config.rateValue) / 100));
-                break;
-              case 'PERCENT_OF_OD':
-                systemPrice = round2(baseOdPremium * (Number(config.rateValue) / 100));
-                break;
-              case 'FIXED':
-                systemPrice = round2(Number(config.rateValue));
-                break;
-              default:
-                systemPrice = 0;
-            }
-          } else {
-            systemPrice = this.resolveStandardAddonRate(
-              addon.addonCode,
-              input.idv,
-              baseOdPremium,
-            );
-          }
-
-          // Check for authorized edit
-          const addonOverride = input.overrides?.find((o) => o.field === `ADDON:${addon.addonCode}`);
-          const candidatePrice = addon.editedPrice !== undefined
-            ? Number(addon.editedPrice)
-            : (addonOverride ? Number(addonOverride.overrideValue) : undefined);
-
-          if (candidatePrice !== undefined && candidatePrice > 0) {
-            price = round2(candidatePrice);
-            isAddonEdited = Math.abs(price - systemPrice) > 0.01;
-            if (isAddonEdited) {
-              overridesApplied.push({
-                field: `ADDON:${addon.addonCode}`,
-                systemValue: systemPrice,
-                overrideValue: price,
-                status: 'APPLIED',
-                reason: addon.overrideReason || addonOverride?.reason || 'Agent add-on edit within bounds',
-              });
-            }
-          } else {
-            price = systemPrice;
-          }
-
-          if (price > 0) {
-            addonPremiumTotal = round2(addonPremiumTotal + price);
-            itemizedAddons.push({
-              addonCode: addon.addonCode,
-              name: addon.addonCode.replace(/_/g, ' '),
-              amount: price,
-              systemRate: systemPrice,
-              isEdited: isAddonEdited,
-            });
-          } else {
-            itemizedAddons.push({
-              addonCode: addon.addonCode,
-              name: addon.addonCode.replace(/_/g, ' '),
-              amount: 0,
-              systemRate: systemPrice,
-              isEdited: isAddonEdited,
-              isInvalid: true,
-              warning: `Add-on "${addon.addonCode}" has zero or unresolvable premium and was omitted from calculation total.`,
-            });
-          }
-        } catch (addonErr) {
-          this.logger.warn(
-            `Skipping invalid add-on "${addon.addonCode}": ${(addonErr as Error)?.message || addonErr}`,
-          );
-          itemizedAddons.push({
-            addonCode: addon.addonCode,
-            name: addon.addonCode.replace(/_/g, ' '),
-            amount: 0,
-            systemRate: 0,
-            isEdited: false,
-            isInvalid: true,
-            warning: (addonErr as Error)?.message || 'Invalid add-on',
-          });
-        }
-      }
     }
 
     // ── 7. TP Component (PA and Paid Driver are separate sub-components) ───
@@ -380,8 +298,137 @@ export class MotorCalculationService {
       );
     }
 
-    // ── 8. Undiscounted Gross Components (pre-discount, pre-tax) ───────────
-    const netOdComponent = round2(netOdAfterDiscount + addonPremiumTotal);
+    // ── 8. Add-on Premiums with Independent Discounts & GST (Phase 3) ───
+    // Applicable across Standalone OD, Comprehensive Package, and Third-Party Only
+    const defaultAddonGstRate = input.policyType === 'STANDALONE_OD'
+      ? (input.odGstRate !== undefined ? (Number(input.odGstRate) > 1 ? Number(input.odGstRate) / 100 : Number(input.odGstRate)) : gstRate)
+      : (input.tpGstRate !== undefined ? (Number(input.tpGstRate) > 1 ? Number(input.tpGstRate) / 100 : Number(input.tpGstRate)) : gstRate);
+
+    for (const addon of input.addons || []) {
+      let price = 0;
+      let systemPrice = 0;
+      let isAddonEdited = false;
+
+      try {
+        const config = addonRates[addon.addonCode];
+        if (config) {
+          switch (config.pricingModel) {
+            case 'PERCENT_OF_IDV':
+              systemPrice = round2((input.idv || 0) * (Number(config.rateValue) / 100));
+              break;
+            case 'PERCENT_OF_OD':
+              systemPrice = round2(baseOdPremium * (Number(config.rateValue) / 100));
+              break;
+            case 'FIXED':
+              systemPrice = round2(Number(config.rateValue));
+              break;
+            default:
+              systemPrice = 0;
+          }
+        } else {
+          systemPrice = this.resolveStandardAddonRate(
+            addon.addonCode,
+            input.idv || 0,
+            baseOdPremium,
+          );
+        }
+
+        // Check for client-specified or authorized edit
+        const addonOverride = input.overrides?.find((o) => o.field === `ADDON:${addon.addonCode}`);
+        const candidatePrice = addon.editedPrice !== undefined
+          ? Number(addon.editedPrice)
+          : (addon.amount !== undefined
+              ? Number(addon.amount)
+              : (addonOverride ? Number(addonOverride.overrideValue) : undefined));
+
+        if (candidatePrice !== undefined && candidatePrice > 0) {
+          price = round2(candidatePrice);
+          isAddonEdited = Math.abs(price - systemPrice) > 0.01;
+          if (isAddonEdited) {
+            overridesApplied.push({
+              field: `ADDON:${addon.addonCode}`,
+              systemValue: systemPrice,
+              overrideValue: price,
+              status: 'APPLIED',
+              reason: addon.overrideReason || addonOverride?.reason || 'Agent add-on edit within bounds',
+            });
+          }
+        } else {
+          price = systemPrice;
+        }
+
+        if (price > 0) {
+          // Independent Add-on Discount
+          const addonDiscPercent = Number(addon.discountPercent || 0);
+          const addonDiscAmt = round2(price * (addonDiscPercent / 100));
+
+          // Independent Add-on GST (5% vs 18%)
+          const rawAddonGst = addon.gstRate !== undefined
+            ? (Number(addon.gstRate) > 1 ? Number(addon.gstRate) / 100 : Number(addon.gstRate))
+            : defaultAddonGstRate;
+          const addonGstRateFinal = (rawAddonGst === 0.05) ? 0.05 : 0.18;
+          const addonGstAmt = round2(price * addonGstRateFinal);
+          const addonTotalAmt = round2(price - addonDiscAmt + addonGstAmt);
+
+          addonPremiumTotal = round2(addonPremiumTotal + price);
+          totalAddonDiscountAmount = round2(totalAddonDiscountAmount + addonDiscAmt);
+          totalAddonGstAmount = round2(totalAddonGstAmount + addonGstAmt);
+
+          itemizedAddons.push({
+            addonCode: addon.addonCode,
+            name: addon.addonCode.replace(/_/g, ' '),
+            amount: price,
+            premium: price,
+            discountPercent: addonDiscPercent,
+            discountAmount: addonDiscAmt,
+            gstRate: addonGstRateFinal,
+            gstAmount: addonGstAmt,
+            totalAmount: addonTotalAmt,
+            systemRate: systemPrice,
+            isEdited: isAddonEdited,
+          });
+        } else {
+          itemizedAddons.push({
+            addonCode: addon.addonCode,
+            name: addon.addonCode.replace(/_/g, ' '),
+            amount: 0,
+            premium: 0,
+            discountPercent: 0,
+            discountAmount: 0,
+            gstRate: 0.18,
+            gstAmount: 0,
+            totalAmount: 0,
+            systemRate: systemPrice,
+            isEdited: isAddonEdited,
+            isInvalid: true,
+            warning: `Add-on "${addon.addonCode}" has zero or unresolvable premium and was omitted from calculation total.`,
+          });
+        }
+      } catch (addonErr) {
+        this.logger.warn(
+          `Skipping invalid add-on "${addon.addonCode}": ${(addonErr as Error)?.message || addonErr}`,
+        );
+        itemizedAddons.push({
+          addonCode: addon.addonCode,
+          name: addon.addonCode.replace(/_/g, ' '),
+          amount: 0,
+          premium: 0,
+          discountPercent: 0,
+          discountAmount: 0,
+          gstRate: 0.18,
+          gstAmount: 0,
+          totalAmount: 0,
+          systemRate: 0,
+          isEdited: false,
+          isInvalid: true,
+          warning: (addonErr as Error)?.message || 'Invalid add-on',
+        });
+      }
+    }
+
+    // ── 9. Undiscounted Gross Components (pre-discount, pre-tax) ───────────
+    const hasOd = ['STANDALONE_OD', 'PACKAGE_COMPREHENSIVE'].includes(input.policyType);
+    const netOdComponent = round2(netOdAfterDiscount + (hasOd ? addonPremiumTotal : 0));
     const netTpComponent = round2(
       Math.max(0, baseTpPremium - tpDiscountAmount),
     );
@@ -390,11 +437,11 @@ export class MotorCalculationService {
 
     // Step 1: Gross Premium Before Discount (undiscounted reference total)
     const premiumBeforeDiscount = round2(
-      round2(baseOdPremium + addonPremiumTotal) + baseTpPremium + netPaComponent + netPaidDriverComponent,
+      baseOdPremium + (hasOd ? addonPremiumTotal : 0) + baseTpPremium + netPaComponent + netPaidDriverComponent + (hasOd ? 0 : addonPremiumTotal),
     );
     const netCustomerPremium = premiumBeforeDiscount;
 
-    // ── 9. Component-Level GST Calculation on GROSS Premium Base ──────────
+    // ── 10. Component-Level GST Calculation on GROSS Premium Base ──────────
     // CORE BUSINESS RULE: GST base = gross premium before discount.
     // OD Gross -> OD GST
     // TP Gross -> TP GST
@@ -402,7 +449,7 @@ export class MotorCalculationService {
     // Paid Driver Gross -> Paid Driver GST
     // A commercial discount does NOT reduce the statutory GST base.
 
-    const odGrossBase = round2(baseOdPremium + addonPremiumTotal);
+    const odGrossBase = round2(baseOdPremium + (hasOd ? addonPremiumTotal : 0));
     const tpGrossBase = baseTpPremium;
     const paGrossBase = paPremium;
     const paidDriverGrossBase = paidDriverPremium;
@@ -424,13 +471,15 @@ export class MotorCalculationService {
       ? (Number(input.paidDriverGstRate) > 1 ? Number(input.paidDriverGstRate) / 100 : Number(input.paidDriverGstRate))
       : gstRate;
 
-    const gstOnOd = round2(odGrossBase * odGstRate);
+    const gstOnOd = hasOd ? round2(odGrossBase * odGstRate) : 0;
     const gstOnTp = round2(tpGrossBase * tpGstRate);
     const gstOnPa = round2(paGrossBase * paGstRate);
     const gstOnPaidDriver = round2(paidDriverGrossBase * paidDriverGstRate);
 
     // Step 2: Component-Level GST Total
-    const componentGstTotal = round2(gstOnOd + gstOnTp + gstOnPa + gstOnPaidDriver);
+    // If hasOd, odGrossBase already includes addon premiums at odGstRate.
+    // If !hasOd (TP Only), add-on GST is computed per-addon and added to componentGstTotal.
+    const componentGstTotal = round2(gstOnOd + gstOnTp + gstOnPa + gstOnPaidDriver + (hasOd ? 0 : totalAddonGstAmount));
     const totalGst = componentGstTotal;
     const cgst = round2(totalGst / 2);
     const sgst = round2(totalGst - cgst);
@@ -457,19 +506,23 @@ export class MotorCalculationService {
         rate: paidDriverGstRate,
         amount: gstOnPaidDriver,
       },
+      addons: {
+        base: addonPremiumTotal,
+        amount: totalAddonGstAmount,
+      },
     };
 
-    // ── 10. Payable Base, Commercial Discount, and Final Payable ──────────
+    // ── 11. Payable Base, Commercial Adjustment (ADD / SUBTRACT), and Final Payable ──
     // Step 3: Payable Base = Gross Premium Before Discount + Component GST Total
     const payableBase = round2(premiumBeforeDiscount + componentGstTotal);
 
-    // Step 4: Independent Discounts (OD, TP, Commercial)
-    // D_OD: Calculated from gross OD premium
-    // D_TP: Calculated from gross TP premium (annual * tenure)
-    // D_C:  Phase 3 canonical path — fixed ₹ amount entered directly.
-    //        Legacy fallback — percentage of payable base.
+    // Step 4: Independent Discounts & Signed Commercial Adjustment (Phase 4)
+    // Direction: ADD (+ loading/surcharge) or SUBTRACT (- discount)
+    const rawDirection = (input as any).commercialAdjustmentDirection || (input as any).commercialAdjustmentType || 'SUBTRACT';
+    const commercialAdjustmentDirection: 'ADD' | 'SUBTRACT' = String(rawDirection).toUpperCase() === 'ADD' ? 'ADD' : 'SUBTRACT';
+    const isAdd = commercialAdjustmentDirection === 'ADD';
 
-    // Resolve commercial discount: fixed-₹ supersedes percentage.
+    // Commercial discount percentage (legacy fallback)
     const commercialDiscountPercent = Number(
       input.commercialDiscountPercent !== undefined
         ? input.commercialDiscountPercent
@@ -478,50 +531,59 @@ export class MotorCalculationService {
             : 0),
     );
 
-    // Phase 3 canonical: fixed ₹ amount takes priority over percentage
+    // Phase 3 & 4 canonical: fixed ₹ amount takes priority over percentage
     const directCommAdj = (input as any).commercialAdjustment !== undefined
       ? (input as any).commercialAdjustment
       : input.commercialAdjustmentAmount;
     const isFixedRupeeCommercial = directCommAdj !== undefined && directCommAdj !== null && !isNaN(Number(directCommAdj));
-    const commercialDiscountAmount = isFixedRupeeCommercial
-      ? round2(Number(directCommAdj))
+    const commercialAdjustmentRupees = isFixedRupeeCommercial
+      ? round2(Math.abs(Number(directCommAdj)))
       : round2(payableBase * (commercialDiscountPercent / 100));
 
-    // Total Discounts: OD discount + TP discount + Commercial discount (each deducted exactly once)
-    const totalDiscountAmount = round2(
-      odDiscountAmount + tpDiscountAmount + commercialDiscountAmount,
+    // Deductions before commercial adjustment: OD discount + TP discount + Addon discounts
+    const componentDiscountsTotal = round2(
+      odDiscountAmount + tpDiscountAmount + totalAddonDiscountAmount,
     );
 
-    const commercialDiscount: PayableDiscount = {
-      percentage: isFixedRupeeCommercial ? 0 : commercialDiscountPercent,
-      baseAmount: payableBase,
-      amount: commercialDiscountAmount,
-      reason: input.discountReason || input.approvalReference || undefined,
-    };
-
-    // Step 5: Final Payable Amount = Payable Base - Total Discounts
-    // Reject if commercial adjustment alone would make payable negative (never silently clamp)
-    if (isFixedRupeeCommercial && commercialDiscountAmount > payableBase) {
-      throw new BadRequestException({
-        statusCode: 400,
-        error: 'Bad Request',
-        errorCode: 'COMMERCIAL_ADJUSTMENT_EXCEEDS_PAYABLE',
-        message: `Commercial adjustment ₹${commercialDiscountAmount.toLocaleString('en-IN')} exceeds payable base ₹${payableBase.toLocaleString('en-IN')}. Final payable cannot be negative.`,
-      });
-    }
-
-    if (totalDiscountAmount > payableBase) {
+    if (componentDiscountsTotal > payableBase) {
       throw new BadRequestException({
         statusCode: 400,
         error: 'Bad Request',
         errorCode: 'DISCOUNTS_EXCEED_PAYABLE_BASE',
-        message: `Total discounts and adjustments (₹${totalDiscountAmount.toLocaleString('en-IN')}) exceed payable base (₹${payableBase.toLocaleString('en-IN')}). Final payable cannot be negative.`,
+        message: `Total component discounts (₹${componentDiscountsTotal.toLocaleString('en-IN')}) exceed payable base (₹${payableBase.toLocaleString('en-IN')}). Final payable cannot be negative.`,
       });
     }
 
-    const finalPayableAmount = round2(
-      Math.max(0, payableBase - totalDiscountAmount),
+    const payableBeforeAdjustment = round2(
+      Math.max(0, payableBase - componentDiscountsTotal),
     );
+
+    // Signed Commercial Adjustment: S = +1 for ADD, S = -1 for SUBTRACT
+    // P_final = P_before adjustment + S * A
+    const signedCommercialAdjustment = isAdd ? commercialAdjustmentRupees : -commercialAdjustmentRupees;
+    const finalPayableAmount = round2(payableBeforeAdjustment + signedCommercialAdjustment);
+
+    if (finalPayableAmount < 0) {
+      throw new BadRequestException({
+        statusCode: 400,
+        error: 'Bad Request',
+        errorCode: 'COMMERCIAL_ADJUSTMENT_EXCEEDS_PAYABLE',
+        message: `Commercial adjustment of ₹${commercialAdjustmentRupees.toLocaleString('en-IN')} (${commercialAdjustmentDirection}) exceeds payable base (payable before adjustment: ₹${payableBeforeAdjustment.toLocaleString('en-IN')}). Total deductions cannot exceed payable base and final payable cannot be negative.`,
+      });
+    }
+
+    // Commercial discount amount (for total discount reporting):
+    // When SUBTRACT, it's a discount of ₹A. When ADD, commercial discount is 0 (it is a surcharge / loading).
+    const commercialDiscountAmount = isAdd ? 0 : commercialAdjustmentRupees;
+    const totalDiscountAmount = round2(componentDiscountsTotal + commercialDiscountAmount);
+
+    const commercialDiscount: PayableDiscount = {
+      percentage: isFixedRupeeCommercial ? 0 : (isAdd ? 0 : commercialDiscountPercent),
+      baseAmount: payableBase,
+      amount: commercialDiscountAmount,
+      reason: input.discountReason || input.approvalReference || undefined,
+      fixedRupeeAmount: isFixedRupeeCommercial ? commercialAdjustmentRupees : undefined,
+    };
 
     // Underwriting Metadata (NCB selection & claim history)
     const underwriting: UnderwritingMetadata = {
@@ -549,9 +611,14 @@ export class MotorCalculationService {
       odDiscount: odDiscountAmount,
       tpDiscountAmount,
       tpDiscount: tpDiscountAmount,
+      addonDiscountAmount: totalAddonDiscountAmount,
+      addonDiscount: totalAddonDiscountAmount,
+      addonGstTotal: totalAddonGstAmount,
+      addonGst: totalAddonGstAmount,
       commercialDiscountAmount,
-      commercialAdjustment: isFixedRupeeCommercial ? commercialDiscountAmount : undefined,
-      commercialAdjustmentAmount: isFixedRupeeCommercial ? commercialDiscountAmount : undefined,
+      commercialAdjustment: isFixedRupeeCommercial ? commercialAdjustmentRupees : undefined,
+      commercialAdjustmentAmount: isFixedRupeeCommercial ? commercialAdjustmentRupees : undefined,
+      commercialAdjustmentDirection,
       commercialDiscount,
       totalDiscount: totalDiscountAmount,
       totalDiscounts: totalDiscountAmount,
@@ -564,7 +631,7 @@ export class MotorCalculationService {
       vehicleStatus: input.vehicleStatus,
       vehicleCategory: input.vehicleCategory?.toString(),
       policyType: input.policyType,
-      policyTenure: input.policyTenure,
+      policyTenure: tpTenure,
       previousExpiryDate: input.previousPolicyExpiryDate,
       requestedStartDate: input.policyStartDate,
     });
@@ -596,14 +663,19 @@ export class MotorCalculationService {
       overridesApplied,
       gstBreakdown,
       outputs: {
-        // Phase 3 Canonical Contract Fields
+        // Phase 3 & 4 Canonical Contract Fields
         idv: input.idv ?? 0,
         odPremium: baseOdPremium,
         annualTpPremium: effectiveTpAnnual,
         tenure: tpTenure,
         odDiscount: odDiscountAmount,
         tpDiscount: tpDiscountAmount,
-        commercialAdjustment: commercialDiscountAmount,
+        addonDiscount: totalAddonDiscountAmount,
+        commercialAdjustment: isAdd ? commercialAdjustmentRupees : commercialAdjustmentRupees,
+        commercialAdjustmentAmount: commercialAdjustmentRupees,
+        commercialAdjustmentDirection,
+        signedCommercialAdjustment,
+        payableBeforeAdjustment,
         gstTotal: componentGstTotal,
         finalPayable: finalPayableAmount,
 
@@ -740,6 +812,22 @@ export class MotorCalculationService {
     if (commAdj !== undefined && (isNaN(Number(commAdj)) || Number(commAdj) < 0)) {
       throw new BadRequestException('Commercial adjustment amount must be a valid non-negative number.');
     }
+    const commDir = (input as any).commercialAdjustmentDirection || (input as any).commercialAdjustmentType;
+    if (commDir !== undefined && commDir !== 'ADD' && commDir !== 'SUBTRACT') {
+      throw new BadRequestException('Commercial adjustment direction must be either "ADD" or "SUBTRACT".');
+    }
+
+    for (const addon of input.addons || []) {
+      if (addon.discountPercent !== undefined && (isNaN(Number(addon.discountPercent)) || Number(addon.discountPercent) < 0 || Number(addon.discountPercent) > 100)) {
+        throw new BadRequestException(`Add-on discount percent for "${addon.addonCode}" must be between 0 and 100.`);
+      }
+      if (addon.gstRate !== undefined) {
+        const r = Number(addon.gstRate) > 1 ? Number(addon.gstRate) / 100 : Number(addon.gstRate);
+        if (r !== 0.05 && r !== 0.18) {
+          throw new BadRequestException(`Add-on GST rate for "${addon.addonCode}" must be either 5% or 18%.`);
+        }
+      }
+    }
 
     if (
       (input.idv !== undefined && input.idv < 0) ||
@@ -859,12 +947,108 @@ export class MotorCalculationService {
   }
 
   private resolveTpTenure(input: MotorCalculationInputDto): number {
-    if (input.vehicleStatus === 'NEW') {
-      const cat = input.vehicleCategory?.toString() ?? '';
-      if (cat === 'PRIVATE_CAR') return 3;
-      if (cat === 'BIKE') return 5;
+    if (input.policyType === 'STANDALONE_OD') {
+      return 1;
     }
-    return (input as any).tenure || input.policyTenure || 1;
+
+    const explicitTenure = (input as any).tenure !== undefined
+      ? Number((input as any).tenure)
+      : (input.policyTenure !== undefined ? Number(input.policyTenure) : undefined);
+
+    const cat = input.vehicleCategory?.toString() ?? 'PRIVATE_CAR';
+    const isNew = input.vehicleStatus === 'NEW';
+    const isCommercial = [
+      'GOODS_CARRYING_PUBLIC',
+      'GOODS_CARRYING_PRIVATE',
+      'PASSENGER_CARRYING_4_PLUS_1',
+      'TRAILER',
+      'PASSENGER_BUS',
+      'MISCELLANEOUS',
+      'COMMERCIAL',
+    ].includes(cat);
+
+    if (isNew) {
+      if (cat === 'PRIVATE_CAR') {
+        if (explicitTenure !== undefined && explicitTenure !== 3) {
+          throw new BadRequestException({
+            statusCode: 400,
+            error: 'Bad Request',
+            errorCode: 'INVALID_TP_TENURE',
+            message: `For NEW Private Cars, IRDAI mandates a 3-Year Long Term TP policy. Selected tenure (${explicitTenure} year(s)) is unavailable.`,
+          });
+        }
+        return 3;
+      }
+
+      if (cat === 'BIKE') {
+        if (explicitTenure !== undefined && explicitTenure !== 5) {
+          throw new BadRequestException({
+            statusCode: 400,
+            error: 'Bad Request',
+            errorCode: 'INVALID_TP_TENURE',
+            message: `For NEW Two-Wheelers, IRDAI mandates a 5-Year Long Term TP policy. Selected tenure (${explicitTenure} year(s)) is unavailable.`,
+          });
+        }
+        return 5;
+      }
+
+      if (isCommercial) {
+        if (explicitTenure !== undefined && explicitTenure !== 1) {
+          throw new BadRequestException({
+            statusCode: 400,
+            error: 'Bad Request',
+            errorCode: 'INVALID_TP_TENURE',
+            message: `Commercial vehicles only support a 1-Year TP policy. Long-term TP (${explicitTenure} year(s)) is unavailable.`,
+          });
+        }
+        return 1;
+      }
+    } else {
+      // Existing / Renewal vehicles
+      if (isCommercial) {
+        if (explicitTenure !== undefined && explicitTenure !== 1) {
+          throw new BadRequestException({
+            statusCode: 400,
+            error: 'Bad Request',
+            errorCode: 'INVALID_TP_TENURE',
+            message: `Commercial vehicles only support a 1-Year TP policy. Tenure ${explicitTenure} year(s) is unavailable.`,
+          });
+        }
+        return 1;
+      }
+
+      if (cat === 'PRIVATE_CAR') {
+        if (explicitTenure !== undefined) {
+          if (explicitTenure < 1 || explicitTenure > 3 || !Number.isInteger(explicitTenure)) {
+            throw new BadRequestException({
+              statusCode: 400,
+              error: 'Bad Request',
+              errorCode: 'INVALID_TP_TENURE',
+              message: `Invalid policy tenure (${explicitTenure} year(s)). Permitted tenure for Private Car is 1 to 3 years.`,
+            });
+          }
+          return explicitTenure;
+        }
+        return 1;
+      }
+
+      if (cat === 'BIKE') {
+        if (explicitTenure !== undefined) {
+          if (explicitTenure < 1 || explicitTenure > 5 || !Number.isInteger(explicitTenure)) {
+            throw new BadRequestException({
+              statusCode: 400,
+              error: 'Bad Request',
+              errorCode: 'INVALID_TP_TENURE',
+              message: `Invalid policy tenure (${explicitTenure} year(s)). Permitted tenure for Two-Wheeler is 1 to 5 years.`,
+            });
+          }
+          return explicitTenure;
+        }
+        return 1;
+      }
+    }
+
+    return explicitTenure || 1;
   }
 
   private resolveStandardAddonRate(
@@ -892,6 +1076,19 @@ export class MotorCalculationService {
         return 550;
       case 'PERSONAL_BAGGAGE':
         return round2(baseOdPremium * 0.01);
+      case 'PA_UNNAMED_PASSENGER':
+        return 250;
+      case 'LEGAL_LIABILITY_PAID_DRIVER':
+      case 'LL_PAID_DRIVER':
+        return 50;
+      case 'LEGAL_LIABILITY_EMPLOYEES':
+      case 'LL_EMPLOYEES':
+        return 100;
+      case 'BI_FUEL_TP':
+      case 'CNG_KIT_TP':
+        return 60;
+      case 'TPPD_RESTRICTED':
+        return 0;
       default:
         return 0;
     }

@@ -192,6 +192,11 @@ export interface PolicyFormTPOnly {
   commercialDiscountPercent?: string; // Canonical commercial discount on payable base (legacy %)
   /** Phase 3 canonical: fixed ₹ commercial adjustment */
   commercialAdjustmentAmount?: string;
+  commercialAdjustmentDirection?: 'ADD' | 'SUBTRACT';
+  addonsSelected?: string[];
+  addonPrices?: Record<string, string>;
+  addonDiscounts?: Record<string, string>;
+  addonGstRates?: Record<string, string>;
   discountReason?: string;        // Justification or approval reference
   tpCommissionCalc?: string;      // Legacy field only; must not be derived from customer discount
   gstRate?: string;               // 5% vs 18% selectable GST
@@ -259,6 +264,9 @@ export interface PolicyFormSAOD {
   commercialDiscountPercent?: string; // Canonical commercial discount on payable base (legacy %)
   /** Phase 3 canonical: fixed ₹ commercial adjustment */
   commercialAdjustmentAmount?: string;
+  commercialAdjustmentDirection?: 'ADD' | 'SUBTRACT';
+  addonDiscounts?: Record<string, string>;
+  addonGstRates?: Record<string, string>;
   discountReason?: string;        // Justification or approval reference
   discountAmount?: string;       // Server-calculated OD discount amount
   finalPayableAmount?: string;   // Authoritative server-calculated total including applicable tax
@@ -296,6 +304,9 @@ export interface PolicyFormPackage {
   commercialDiscountPercent?: string; // Canonical commercial discount on payable base (legacy %)
   /** Phase 3 canonical: fixed ₹ commercial adjustment (supersedes commercialDiscountPercent) */
   commercialAdjustmentAmount?: string;
+  commercialAdjustmentDirection?: 'ADD' | 'SUBTRACT';
+  addonDiscounts?: Record<string, string>;
+  addonGstRates?: Record<string, string>;
   discountReason?: string;        // Justification or approval reference
   odCommissionPercent?: string;  // Legacy draft field; requires an approved insurer/product/component rule
   tpCommissionPercent?: string;  // Legacy draft field; requires an approved insurer/product/component rule

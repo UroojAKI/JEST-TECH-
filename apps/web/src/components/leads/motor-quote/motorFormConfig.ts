@@ -255,6 +255,14 @@ export const ADDON_OPTIONS = [
   { key: 'NCB_PROTECT', label: 'NCB Protection' },
 ];
 
+export const TP_ADDON_OPTIONS = [
+  { key: 'PA_UNNAMED_PASSENGER', label: 'PA Cover to Unnamed Passengers (₹250 default)' },
+  { key: 'LEGAL_LIABILITY_PAID_DRIVER', label: 'Legal Liability to Paid Driver (₹50 default)' },
+  { key: 'LEGAL_LIABILITY_EMPLOYEES', label: 'Legal Liability to Employees (₹100 default)' },
+  { key: 'BI_FUEL_TP', label: 'CNG / Bi-Fuel Kit TP Cover (₹60 default)' },
+  { key: 'TPPD_RESTRICTED', label: 'TPPD Restricted Cover (₹0 default)' },
+];
+
 export const NCB_OPTIONS = [
   { value: '0', label: '0% — New / Prior Claim' },
   { value: '20', label: '20% — 1 Claim-Free Year' },

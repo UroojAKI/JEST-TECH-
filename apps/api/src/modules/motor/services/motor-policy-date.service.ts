@@ -140,12 +140,11 @@ export class MotorPolicyDateService {
     }
 
     const odTenure = 1;
-    let tpTenure = params.policyTenure || 1;
-    if (params.vehicleStatus === 'NEW') {
-      const cat = params.vehicleCategory?.toString() ?? '';
-      if (cat === 'PRIVATE_CAR') tpTenure = 3;
-      else if (cat === 'BIKE') tpTenure = 5;
-    }
+    let tpTenure = params.policyTenure !== undefined && params.policyTenure > 0
+      ? params.policyTenure
+      : (params.vehicleStatus === 'NEW'
+          ? (params.vehicleCategory === 'PRIVATE_CAR' ? 3 : params.vehicleCategory === 'BIKE' ? 5 : 1)
+          : 1);
 
     const odStartDate = startDate;
     const odEndDate = this.addYearsMinusOneDay(odStartDate, odTenure);

@@ -355,13 +355,30 @@ export class CreateMotorQuotationCommand {
         String(policyDetails.legalLiabilityPaidDriver || '').toLowerCase() === 'yes',
       addons: Array.isArray(policyDetails.addonsSelected)
         ? policyDetails.addonsSelected
-            .map((addon: any) => ({
-              addonCode:
-                typeof addon === 'string' ? addon : addon.addonCode || addon.code,
-              ...(typeof addon === 'object' && addon.manualPrice !== undefined
-                ? { manualPrice: Number(addon.manualPrice) }
-                : {}),
-            }))
+            .map((addon: any) => {
+              const code = typeof addon === 'string' ? addon : addon.addonCode || addon.code;
+              return {
+                addonCode: code,
+                ...(typeof addon === 'object' && addon.manualPrice !== undefined
+                  ? { manualPrice: Number(addon.manualPrice) }
+                  : {}),
+                ...(typeof addon === 'object' && addon.amount !== undefined
+                  ? { amount: Number(addon.amount) }
+                  : (policyDetails.addonPrices && policyDetails.addonPrices[code] !== undefined
+                      ? { amount: Number(policyDetails.addonPrices[code]) }
+                      : {})),
+                ...(typeof addon === 'object' && addon.discountPercent !== undefined
+                  ? { discountPercent: Number(addon.discountPercent) }
+                  : (policyDetails.addonDiscounts && policyDetails.addonDiscounts[code] !== undefined
+                      ? { discountPercent: Number(policyDetails.addonDiscounts[code]) }
+                      : {})),
+                ...(typeof addon === 'object' && addon.gstRate !== undefined
+                  ? { gstRate: Number(addon.gstRate) }
+                  : (policyDetails.addonGstRates && policyDetails.addonGstRates[code] !== undefined
+                      ? { gstRate: Number(policyDetails.addonGstRates[code]) }
+                      : {})),
+              };
+            })
             .filter((addon: any) => addon.addonCode)
         : [],
       activeTpPolicyNumber:
@@ -385,6 +402,7 @@ export class CreateMotorQuotationCommand {
         : ((policyDetails as any).commercialAdjustment !== undefined && (policyDetails as any).commercialAdjustment !== '' && !isNaN(Number((policyDetails as any).commercialAdjustment))
             ? Number((policyDetails as any).commercialAdjustment)
             : undefined),
+      commercialAdjustmentDirection: (policyDetails as any).commercialAdjustmentDirection || (policyDetails as any).commercialAdjustmentType || 'SUBTRACT',
       tpDiscountPercent: policyDetails.tpDiscountPercent !== undefined && policyDetails.tpDiscountPercent !== ''
         ? Number(policyDetails.tpDiscountPercent)
         : 0,
@@ -464,9 +482,11 @@ export class CreateMotorQuotationCommand {
         odDiscountAmount: calcResult.outputs.odDiscountAmount ?? 0,
         tpDiscountPercent: calcResult.outputs.discounts?.tp?.percent ?? 0,
         tpDiscountAmount: calcResult.outputs.tpDiscountAmount ?? 0,
+        addonDiscountAmount: calcResult.outputs.payableSummary?.addonDiscountAmount ?? 0,
         commercialDiscountPercent: calcResult.outputs.discounts?.commercial?.percent ?? 0,
         commercialDiscountAmount: calcResult.outputs.commercialDiscountAmount ?? 0,
         commercialAdjustmentAmount: calcResult.outputs.payableSummary?.commercialAdjustmentAmount ?? calcResult.outputs.commercialDiscountAmount ?? 0,
+        commercialAdjustmentDirection: calcResult.outputs.payableSummary?.commercialAdjustmentDirection ?? 'SUBTRACT',
         totalDiscountAmount: calcResult.outputs.totalDiscountAmount ?? 0,
       },
       commissions: {
