@@ -167,8 +167,8 @@ export class MotorRulesEvaluateController {
         });
       }
 
-      const tpStart = new Date(dto.activeTpStartDate);
-      const tpExpiry = new Date(dto.tpExpiryDate);
+      const tpStart = new Date(dto.activeTpStartDate!);
+      const tpExpiry = new Date(dto.tpExpiryDate!);
       if (
         Number.isNaN(tpStart.getTime()) ||
         Number.isNaN(tpExpiry.getTime()) ||
