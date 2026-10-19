@@ -5,6 +5,7 @@ import { PolicyFormPackageForm } from './PolicyFormPackage';
 import { PolicyFormTPOnlyForm } from './PolicyFormTP';
 import { PolicyFormSAODForm } from './PolicyFormSAOD';
 import { CommissionBreakdownPanel } from './CommissionBreakdownPanel';
+import { RuleEngineResult } from './RuleEngineResult';
 import { useMotorCalculator } from './useMotorCalculator';
 
 vi.mock('./useMotorCalculator', () => ({
@@ -469,5 +470,193 @@ describe('Work Package 2 & PR-01: Discount & Commission Decoupling Regression Su
     expect(mockOnChange).toHaveBeenLastCalledWith(expect.objectContaining({ editedTpPremium: undefined }));
   });
 
+  describe('PolicyFormSAOD Field 13 & Commission Calculator Removal', () => {
+    it('does NOT render Field 13 or Commision / Discount Calculator on customer-facing SAOD form', () => {
+      render(
+        <PolicyFormSAODForm
+          category="PRIVATE_CAR"
+          vehicleStatus="EXISTING"
+          data={{ insuredDeclaredValue: '500000' } as any}
+          onChange={vi.fn()}
+        />
+      );
+
+      expect(screen.queryByText(/Field 13/i)).not.toBeInTheDocument();
+      expect(screen.queryByText(/Commision \/ Discount Calculator/i)).not.toBeInTheDocument();
+      expect(screen.queryByText(/Commission Calculation/i)).not.toBeInTheDocument();
+      expect(screen.getByText('Discounts & Commercial Adjustment')).toBeInTheDocument();
+    });
+
+    it('passes activeTpPolicyNumber and activeTpExpiryDate to useMotorCalculator', () => {
+      render(
+        <PolicyFormSAODForm
+          category="PRIVATE_CAR"
+          vehicleStatus="EXISTING"
+          data={{
+            insuredDeclaredValue: '500000',
+            tpVerification: {
+              tpInsurer: 'TATA AIG',
+              tpPolicyNumber: 'POL-123456',
+              tpStartDate: '2026-01-01',
+              tpExpiryDate: '2027-01-01',
+              verificationStatus: 'VERIFIED',
+              verifiedByUserConfirmed: true,
+            },
+          } as any}
+          onChange={vi.fn()}
+        />
+      );
+
+      expect(useMotorCalculator).toHaveBeenCalledWith(
+        expect.objectContaining({
+          policyType: 'STANDALONE_OD',
+          activeTpPolicyNumber: 'POL-123456',
+          activeTpExpiryDate: '2027-01-01',
+        })
+      );
+    });
+
+    it('invalidates TP verification (verifiedByUserConfirmed: false, PENDING) when agent edits TP fields', () => {
+      const mockOnChange = vi.fn();
+      const initialData: any = {
+        insuredDeclaredValue: '500000',
+        tpVerification: {
+          tpInsurer: 'TATA AIG',
+          tpPolicyNumber: 'POL-123456',
+          tpStartDate: '2026-01-01',
+          tpExpiryDate: '2027-01-01',
+          verificationMethod: 'POLICY_DOCUMENT',
+          verificationStatus: 'VERIFIED',
+          verifiedByUserConfirmed: true,
+        },
+      };
+
+      render(
+        <PolicyFormSAODForm
+          category="PRIVATE_CAR"
+          vehicleStatus="EXISTING"
+          data={initialData}
+          onChange={mockOnChange}
+        />
+      );
+
+      const policyInput = screen.getByPlaceholderText('e.g. TP/2024/123456789');
+      fireEvent.change(policyInput, { target: { value: 'POL-999999' } });
+
+      expect(mockOnChange).toHaveBeenCalled();
+      const updated = mockOnChange.mock.calls[0][0];
+      expect(updated.tpVerification.tpPolicyNumber).toBe('POL-999999');
+      expect(updated.tpVerification.verifiedByUserConfirmed).toBe(false);
+      expect(updated.tpVerification.verificationStatus).toBe('PENDING');
+    });
+  });
+
+  describe('Commercial Adjustment Mutually Exclusive Button Toggles', () => {
+    it('uses - and + toggle buttons in PolicyFormPackageForm', () => {
+      const mockOnChange = vi.fn();
+      render(
+        <PolicyFormPackageForm
+          category="PRIVATE_CAR"
+          vehicleStatus="EXISTING"
+          data={{ policyTenure: '1', insuredDeclaredValue: '500000', commercialAdjustmentDirection: 'SUBTRACT' } as any}
+          onChange={mockOnChange}
+        />
+      );
+
+      const subBtn = screen.getByRole('button', { name: /Subtract commercial adjustment/i });
+      const addBtn = screen.getByRole('button', { name: /Add commercial adjustment/i });
+      expect(subBtn).toHaveAttribute('aria-pressed', 'true');
+      expect(addBtn).toHaveAttribute('aria-pressed', 'false');
+
+      fireEvent.click(addBtn);
+      expect(mockOnChange).toHaveBeenCalledWith(
+        expect.objectContaining({ commercialAdjustmentDirection: 'ADD' })
+      );
+    });
+
+    it('uses - and + toggle buttons in PolicyFormTPOnlyForm', () => {
+      const mockOnChange = vi.fn();
+      render(
+        <PolicyFormTPOnlyForm
+          category="PRIVATE_CAR"
+          vehicleStatus="EXISTING"
+          data={{ policyTenure: '1', commercialAdjustmentDirection: 'ADD' } as any}
+          onChange={mockOnChange}
+        />
+      );
+
+      const subBtn = screen.getByRole('button', { name: /Subtract commercial adjustment/i });
+      const addBtn = screen.getByRole('button', { name: /Add commercial adjustment/i });
+      expect(subBtn).toHaveAttribute('aria-pressed', 'false');
+      expect(addBtn).toHaveAttribute('aria-pressed', 'true');
+
+      fireEvent.click(subBtn);
+      expect(mockOnChange).toHaveBeenCalledWith(
+        expect.objectContaining({ commercialAdjustmentDirection: 'SUBTRACT' })
+      );
+    });
+
+    it('uses - and + toggle buttons in PolicyFormSAODForm', () => {
+      const mockOnChange = vi.fn();
+      render(
+        <PolicyFormSAODForm
+          category="PRIVATE_CAR"
+          vehicleStatus="EXISTING"
+          data={{ insuredDeclaredValue: '500000', commercialAdjustmentDirection: 'SUBTRACT' } as any}
+          onChange={mockOnChange}
+        />
+      );
+
+      const subBtn = screen.getByRole('button', { name: /Subtract commercial adjustment/i });
+      const addBtn = screen.getByRole('button', { name: /Add commercial adjustment/i });
+      expect(subBtn).toHaveAttribute('aria-pressed', 'true');
+      expect(addBtn).toHaveAttribute('aria-pressed', 'false');
+
+      fireEvent.click(addBtn);
+      expect(mockOnChange).toHaveBeenCalledWith(
+        expect.objectContaining({ commercialAdjustmentDirection: 'ADD' })
+      );
+    });
+  });
+
+  describe('RuleEngineResult Workflow Action Handling', () => {
+    it('renders actionable status when nextStep is TP_VERIFICATION', () => {
+      const mockResult: any = {
+        inspectionRequired: false,
+        inspectionReasons: [],
+        ncb: 20,
+        ncbReason: 'ELIGIBLE',
+        tpVerificationRequired: true,
+        saodTpValid: false,
+        saodTpInvalidReason: 'ACTIVE_TP_POLICY_REQUIRED',
+        missingDocuments: ['ACTIVE_TP_POLICY_DETAILS'],
+        nextStep: 'TP_VERIFICATION',
+      };
+
+      render(<RuleEngineResult result={mockResult} />);
+
+      expect(
+        screen.getByText('Action Required: Active TP Policy verification required before quotation')
+      ).toBeInTheDocument();
+      expect(screen.queryByText('Proceed to generate QUOTE')).not.toBeInTheDocument();
+    });
+
+    it('renders Proceed to generate QUOTE when nextStep is QUOTATION', () => {
+      const mockResult: any = {
+        inspectionRequired: false,
+        inspectionReasons: [],
+        ncb: 20,
+        ncbReason: 'ELIGIBLE',
+        tpVerificationRequired: false,
+        saodTpValid: true,
+        missingDocuments: [],
+        nextStep: 'QUOTATION',
+      };
+
+      render(<RuleEngineResult result={mockResult} />);
+
+      expect(screen.getByText('Proceed to generate QUOTE')).toBeInTheDocument();
+    });
+  });
 });
 

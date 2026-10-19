@@ -25,6 +25,15 @@ export function useMotorCalculator(inputData: any) {
       }
     }
 
+    if (inputData.policyType === 'STANDALONE_OD') {
+      if (!inputData.activeTpPolicyNumber || !inputData.activeTpExpiryDate) {
+        setResult(null);
+        setError(null);
+        setLoading(false);
+        return;
+      }
+    }
+
     const abortController = new AbortController();
     abortControllerRef.current = abortController;
     // Never leave a prior vehicle's premium visible while recalculating the current input.

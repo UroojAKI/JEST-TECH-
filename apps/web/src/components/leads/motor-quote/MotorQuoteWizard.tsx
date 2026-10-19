@@ -529,7 +529,7 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, customerId, caseId
         ownershipTransfer: previousPolicy.ownershipTransfer,
         previousPolicyTransferred: previousPolicy.previousPolicyTransferred,
         eligibleNcbPercentage: previousPolicy.eligibleNcbPercentage,
-        tpExpiryDate: previousPolicy.tpExpiryDate,
+        tpExpiryDate: (policyType === 'SAOD' ? saodForm.tpVerification?.tpExpiryDate : previousPolicy.tpExpiryDate) || previousPolicy.tpExpiryDate,
         odExpiryDate: previousPolicy.odExpiryDate,
         newOwnerName: previousPolicy.newOwnerName,
       });

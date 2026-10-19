@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { ShieldCheck, AlertTriangle, CheckCircle, Info, Calculator, Percent } from 'lucide-react';
+import { ShieldCheck, AlertTriangle, CheckCircle, Info, Percent } from 'lucide-react';
 import { INSURER_OPTIONS, NCB_OPTIONS, ADDON_OPTIONS } from './motorFormConfig';
 import type { PolicyFormSAOD, SaodTpVerification, VehicleCategory, MotorEligibilityContext } from './motorFormTypes';
 import { GstRateSelector } from './GstRateSelector';
@@ -49,7 +49,12 @@ export function PolicyFormSAODForm({ category, vehicleStatus, data, onChange, el
     onChange({ ...data, [key]: e.target.value });
 
   const setVerification = (key: keyof SaodTpVerification, value: string | boolean) => {
-    const updatedVerification: SaodTpVerification = { ...data.tpVerification, [key]: value };
+    const shouldResetConfirmation = key !== 'verifiedByUserConfirmed' && key !== 'verificationStatus';
+    const updatedVerification: SaodTpVerification = {
+      ...data.tpVerification,
+      [key]: value,
+      ...(shouldResetConfirmation ? { verifiedByUserConfirmed: false, verificationStatus: 'PENDING' } : {}),
+    };
     onChange({
       ...data,
       tpVerification: updatedVerification,
@@ -74,6 +79,8 @@ export function PolicyFormSAODForm({ category, vehicleStatus, data, onChange, el
     vehicleStatus: effectiveStatus,
     policyType: 'STANDALONE_OD',
     policyTenure: 1,
+    activeTpPolicyNumber: data.tpVerification?.tpPolicyNumber || undefined,
+    activeTpExpiryDate: data.tpVerification?.tpExpiryDate || undefined,
     idv: parseFloat(data.insuredDeclaredValue || '0') || 0,
     ncbPercent: parseInt(data.ncbPercentage || '0') || 0,
     claimInExpiringPolicy: data.claimInExpiringODPolicy === 'Yes',
@@ -548,24 +555,22 @@ export function PolicyFormSAODForm({ category, vehicleStatus, data, onChange, el
         </FieldRow>
       </div>
 
-      {/* Field 13: Commision/Discount Calculator (Document Formula: Sum of 10* D% - 11) */}
+      {/* Discounts & Commercial Adjustment */}
       <div className="p-4 rounded-xl border bg-card shadow-xs space-y-3">
         <div className="flex items-center justify-between border-b pb-2">
           <div className="flex items-center gap-2">
-            <Calculator className="h-4 w-4 text-primary" />
-            <span className="text-xs font-black text-foreground">Commision / Discount Calculator</span>
+            <Percent className="h-4 w-4 text-primary" />
+            <span className="text-xs font-black text-foreground">Discounts & Commercial Adjustment</span>
             <span className="text-[9px] font-bold text-primary px-2 py-0.5 rounded bg-primary/10 border border-primary/20">
-              Server-calculated OD discount
+              Server-Calculated
             </span>
           </div>
-          <span className="text-[10px] text-muted-foreground font-mono">Field 13</span>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <FieldRow
-            label="Discount % (D%)"
-            hint="Enter employee discount percentage"
-            formula="OD Premium (10) × (D% / 100)"
+            label="OD Discount %"
+            hint="Enter discretionary OD discount percentage"
           >
             <div className="relative">
               <input
@@ -582,9 +587,8 @@ export function PolicyFormSAODForm({ category, vehicleStatus, data, onChange, el
             </div>
           </FieldRow>
           <FieldRow
-            label="Discount Amount (₹)"
-            hint="Deduction: Field 10 × D%"
-            formula="Sum of 10 × D%"
+            label="OD Discount Amount (₹)"
+            hint="Server-calculated OD discount"
           >
             <input
               type="number"
@@ -600,17 +604,36 @@ export function PolicyFormSAODForm({ category, vehicleStatus, data, onChange, el
           <FieldRow
             label="Commercial Adjustment (₹)"
             hint="Fixed ₹ adjustment to payable base"
-            formula="Direction: SUBTRACT (−) or ADD (+)"
           >
-            <div className="flex gap-2">
-              <select
-                value={data.commercialAdjustmentDirection || 'SUBTRACT'}
-                onChange={(e) => onChange({ ...data, commercialAdjustmentDirection: e.target.value as 'ADD' | 'SUBTRACT' })}
-                className="p-2 rounded-lg border text-xs font-semibold bg-background border-border w-32 shrink-0"
-              >
-                <option value="SUBTRACT">SUBTRACT (−)</option>
-                <option value="ADD">ADD (+)</option>
-              </select>
+            <div className="flex items-center gap-1.5">
+              <div className="inline-flex rounded-lg border border-border p-0.5 bg-muted/30 shrink-0">
+                <button
+                  type="button"
+                  aria-label="Subtract commercial adjustment"
+                  aria-pressed={(data.commercialAdjustmentDirection || 'SUBTRACT') === 'SUBTRACT'}
+                  onClick={() => onChange({ ...data, commercialAdjustmentDirection: 'SUBTRACT' })}
+                  className={`px-2.5 py-1 text-xs font-bold rounded-md transition-colors ${
+                    (data.commercialAdjustmentDirection || 'SUBTRACT') === 'SUBTRACT'
+                      ? 'bg-amber-600 text-white shadow-xs'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  − SUB
+                </button>
+                <button
+                  type="button"
+                  aria-label="Add commercial adjustment"
+                  aria-pressed={data.commercialAdjustmentDirection === 'ADD'}
+                  onClick={() => onChange({ ...data, commercialAdjustmentDirection: 'ADD' })}
+                  className={`px-2.5 py-1 text-xs font-bold rounded-md transition-colors ${
+                    data.commercialAdjustmentDirection === 'ADD'
+                      ? 'bg-primary text-primary-foreground shadow-xs'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  + ADD
+                </button>
+              </div>
               <input
                 type="number"
                 min="0"
@@ -623,7 +646,7 @@ export function PolicyFormSAODForm({ category, vehicleStatus, data, onChange, el
             </div>
           </FieldRow>
           <FieldRow
-            label="Total Deductions / Discounts (₹)"
+            label="Total Discounts & Adjustments (₹)"
             hint="Itemized OD discount + Commercial adjustment"
           >
             <input

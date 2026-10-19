@@ -456,15 +456,35 @@ export function PolicyFormTPOnlyForm({ category, vehicleStatus, data, onChange, 
             <label className="block text-[10px] font-bold text-muted-foreground uppercase tracking-wide mb-1">
               Commercial Adjustment (₹)
             </label>
-            <div className="flex gap-1.5">
-              <select
-                value={data.commercialAdjustmentDirection || 'SUBTRACT'}
-                onChange={(e) => onChange({ ...data, commercialAdjustmentDirection: e.target.value as 'ADD' | 'SUBTRACT' })}
-                className="p-1 text-xs font-bold rounded border bg-background text-foreground shrink-0 w-24"
-              >
-                <option value="SUBTRACT">SUB (−)</option>
-                <option value="ADD">ADD (+)</option>
-              </select>
+            <div className="flex items-center gap-1.5">
+              <div className="inline-flex rounded-lg border border-border p-0.5 bg-muted/30 shrink-0">
+                <button
+                  type="button"
+                  aria-label="Subtract commercial adjustment"
+                  aria-pressed={(data.commercialAdjustmentDirection || 'SUBTRACT') === 'SUBTRACT'}
+                  onClick={() => onChange({ ...data, commercialAdjustmentDirection: 'SUBTRACT' })}
+                  className={`px-2.5 py-1 text-xs font-bold rounded-md transition-colors ${
+                    (data.commercialAdjustmentDirection || 'SUBTRACT') === 'SUBTRACT'
+                      ? 'bg-amber-600 text-white shadow-xs'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  − SUB
+                </button>
+                <button
+                  type="button"
+                  aria-label="Add commercial adjustment"
+                  aria-pressed={data.commercialAdjustmentDirection === 'ADD'}
+                  onClick={() => onChange({ ...data, commercialAdjustmentDirection: 'ADD' })}
+                  className={`px-2.5 py-1 text-xs font-bold rounded-md transition-colors ${
+                    data.commercialAdjustmentDirection === 'ADD'
+                      ? 'bg-primary text-primary-foreground shadow-xs'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  + ADD
+                </button>
+              </div>
               <input
                 type="number"
                 min="0"
