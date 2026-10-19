@@ -1036,11 +1036,51 @@ export class MotorCalculationService {
     }
 
     if (input.policyType === 'STANDALONE_OD') {
-      if (!input.activeTpPolicyNumber || !input.activeTpExpiryDate) {
-        throw new BadRequestException(
-          'Active TP Policy details are required for Standalone OD policies',
-        );
+      const missingActiveTpDetails =
+        !input.activeTpInsurer?.trim() ||
+        !input.activeTpPolicyNumber?.trim() ||
+        !input.activeTpStartDate ||
+        !input.activeTpExpiryDate ||
+        !input.activeTpVerificationMethod?.trim();
+
+      if (missingActiveTpDetails) {
+        throw new BadRequestException({
+          statusCode: 400,
+          error: 'Bad Request',
+          errorCode: 'ACTIVE_TP_DETAILS_REQUIRED',
+          message:
+            'SAOD requires the active TP insurer, policy number, start date, expiry date, and verification method.',
+        });
       }
+
+      if (
+        input.activeTpVerificationStatus !== 'VERIFIED' ||
+        input.activeTpVerifiedByUserConfirmed !== true
+      ) {
+        throw new BadRequestException({
+          statusCode: 400,
+          error: 'Bad Request',
+          errorCode: 'ACTIVE_TP_VERIFICATION_REQUIRED',
+          message:
+            'Active TP policy details must be marked VERIFIED and explicitly confirmed before SAOD premium calculation.',
+        });
+      }
+
+      const start = new Date(input.activeTpStartDate);
+      const expiry = new Date(input.activeTpExpiryDate);
+      if (
+        Number.isNaN(start.getTime()) ||
+        Number.isNaN(expiry.getTime()) ||
+        expiry < start
+      ) {
+        throw new BadRequestException({
+          statusCode: 400,
+          error: 'Bad Request',
+          errorCode: 'ACTIVE_TP_DATES_INVALID',
+          message: 'Active TP policy start and expiry dates must be valid and expiry must not precede start.',
+        });
+      }
+
       if (this.policyDateService.isExpired(input.activeTpExpiryDate)) {
         throw new BadRequestException(
           'Active TP Policy has expired. Cannot issue SAOD policy against an expired TP.',
