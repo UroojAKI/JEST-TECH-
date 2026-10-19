@@ -445,12 +445,12 @@ export function PolicyFormSAODForm({ category, vehicleStatus, data, onChange, el
             <div>
               <div className="text-xs font-black text-foreground">I have verified the active TP policy</div>
               <div className="text-[10px] text-muted-foreground mt-0.5">
-                By checking this, you confirm you have independently verified the TP policy details above. This verification is recorded in the compliance audit trail.
+                By checking this, you attest that you independently verified the TP policy details above. The server records your authenticated identity, method, evidence reference, notes and verification timestamp when the quotation is saved.
               </div>
               {verification?.verifiedByUserConfirmed && (
                 <div className="mt-1.5 flex items-center gap-2 text-[10px] font-bold text-emerald-600">
                   <CheckCircle className="h-3 w-3" />
-                  Confirmed at {new Date().toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}
+                  Confirmation selected — the server records the verifier and timestamp when the quotation is saved.
                 </div>
               )}
             </div>
