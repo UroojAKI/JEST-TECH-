@@ -153,16 +153,15 @@ describe('MotorCalculationService (Iteration 5 Financial Math)', () => {
       ).rejects.toThrow(BadRequestException);
     });
 
-    it('should reject discount exceeding 20% without approvalReference', async () => {
-      await expect(
-        service.calculate({
-          vehicleCategory: 'PRIVATE_CAR',
-          vehicleStatus: 'EXISTING',
-          policyType: 'PACKAGE_COMPREHENSIVE',
-          idv: 500000,
-          discountPercent: 35,
-        }),
-      ).rejects.toThrow(BadRequestException);
+    it('should allow discount up to 100% without an invented 20% standard cap', async () => {
+      const result: any = await service.calculate({
+        vehicleCategory: 'PRIVATE_CAR',
+        vehicleStatus: 'EXISTING',
+        policyType: 'PACKAGE_COMPREHENSIVE',
+        idv: 500000,
+        discountPercent: 35,
+      });
+      expect(result.outputs.totalDiscount).toBeGreaterThan(0);
     });
 
     it('should allow discount up to 100% with approvalReference', async () => {
