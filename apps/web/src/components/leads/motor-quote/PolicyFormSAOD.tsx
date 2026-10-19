@@ -161,6 +161,11 @@ export function PolicyFormSAODForm({ category, vehicleStatus, data, onChange, el
     // Do not calculate SAOD premium against unconfirmed TP information.
     activeTpPolicyNumber: activeTpIsVerified ? data.tpVerification?.tpPolicyNumber : undefined,
     activeTpExpiryDate: activeTpIsVerified ? data.tpVerification?.tpExpiryDate : undefined,
+    activeTpInsurer: activeTpIsVerified ? data.tpVerification?.tpInsurer : undefined,
+    activeTpStartDate: activeTpIsVerified ? data.tpVerification?.tpStartDate : undefined,
+    activeTpVerificationMethod: activeTpIsVerified ? data.tpVerification?.verificationMethod : undefined,
+    activeTpVerificationStatus: activeTpIsVerified ? data.tpVerification?.verificationStatus : undefined,
+    activeTpVerifiedByUserConfirmed: activeTpIsVerified ? data.tpVerification?.verifiedByUserConfirmed : false,
     idv: parseFloat(data.insuredDeclaredValue || '0') || 0,
     ncbPercent: parseInt(data.ncbPercentage || '0') || 0,
     claimInExpiringPolicy: data.claimInExpiringODPolicy === 'Yes',
