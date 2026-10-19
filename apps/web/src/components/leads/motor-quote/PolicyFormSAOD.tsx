@@ -100,8 +100,8 @@ export function PolicyFormSAODForm({ category, vehicleStatus, data, onChange, el
     activeTpVerificationStatus: activeTpIsVerified ? data.tpVerification?.verificationStatus : undefined,
     activeTpVerifiedByUserConfirmed: activeTpIsVerified ? data.tpVerification?.verifiedByUserConfirmed : false,
     idv: parseFloat(data.insuredDeclaredValue || '0') || 0,
-    // SAOD uses the explicit percentage discount field; NCB is not a separate SAOD discount input.
-    ncbPercent: 0,
+    // NCB eligibility remains derived from the policy; the separate NCB amount override is removed from the SAOD UI.
+    ncbPercent: parseInt(data.ncbPercentage || '0') || 0,
     claimInExpiringPolicy: data.claimInExpiringODPolicy === 'Yes',
     odDiscountPercent: parseFloat(data.odDiscountPercent || data.discountPercent || '0') || 0,
     discountPercent: parseFloat(data.discountPercent || '0') || 0,
