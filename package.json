@@ -21,6 +21,7 @@
     "backfill:task-case-ids": "tsx scripts/backfill-task-case-ids.ts",
     "clean:test-data": "tsx scripts/clean-test-data.ts",
     "clean:test-data:apply": "tsx scripts/clean-test-data.ts --apply",
+    "purge:test-users": "tsx scripts/purge-inactive-test-users.ts",
     "motor:migrate": "tsx scripts/motor-migration-01.ts"
   },
   "devDependencies": {
