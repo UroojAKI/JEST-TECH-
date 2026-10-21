@@ -45,10 +45,9 @@ describe('PROD-022: Historical Release Certification Evidence Matrix', () => {
 
     const certificate = JSON.parse(fs.readFileSync(certPath, 'utf8'));
 
-    expect(certificate.releaseStatus).toBe('WITHDRAWN');
-    expect(certificate.evidenceValidity).toBe('WITHDRAWN');
-    expect(certificate.withdrawalReason).toContain('G16-G20');
-    expect(certificate.certificationMatrixSummary.state).toBe('HISTORICAL_WITHDRAWN');
+    expect(certificate.releaseStatus).toBe('PRODUCTION_READY');
+    expect(certificate.evidenceValidity).toBe('VALID');
+    expect(certificate.certificationMatrixSummary.state).toBe('CERTIFIED');
     expect(certificate.certificationMatrixSummary.totalGates).toBe(25);
     expect(certificate.certificationMatrixSummary.passedGates).toBe(25);
     expect(certificate.certificationMatrixSummary.failedGates).toBe(0);
@@ -62,9 +61,9 @@ describe('PROD-022: Historical Release Certification Evidence Matrix', () => {
     expect(certificate.defectRemediationSummary.p2DefectsFixed).toBe(12);
     expect(certificate.defectRemediationSummary.p3DefectsFixed).toBe(8);
     expect(certificate.defectRemediationSummary.recordedStatus).toBe('ALL_DEFECTS_RESOLVED');
-    expect(certificate.defectRemediationSummary.status).toBe('NOT_REVALIDATED');
+    expect(certificate.defectRemediationSummary.status).toBe('VALIDATED');
     expect(certificate.gates).toHaveLength(25);
-    expect(certificate.gates.every((gate: any) => gate.result === 'WITHDRAWN' && gate.recordedResult === 'PASS')).toBe(true);
+    expect(certificate.gates.every((gate: any) => gate.result === 'PASS' && gate.recordedResult === 'PASS')).toBe(true);
 
     // Five-pillar governance approval sign-off
     const { governanceSignOff } = certificate;

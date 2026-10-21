@@ -39,14 +39,16 @@ export class DuplicateDetectionService {
     aadhaarNumber?: string;
     gstNumber?: string;
     registrationNumber?: string;
+    companyId?: string;
   }): Promise<DuplicateCheckResult> {
     const matches: DuplicateMatch[] = [];
+    const companyWhere = data.companyId ? { companyId: data.companyId } : {};
 
     // 1. Check Phone (Contact & Lead)
     if (data.phone) {
       const normalizedPhone = data.phone.trim();
       const existingContact = await this.prisma.contact.findFirst({
-        where: { phone: normalizedPhone, deletedAt: null },
+        where: { phone: normalizedPhone, deletedAt: null, ...companyWhere },
         select: {
           id: true,
           firstName: true,
@@ -67,7 +69,11 @@ export class DuplicateDetectionService {
       }
 
       const existingLead = await this.prisma.lead.findFirst({
-        where: { contact: { phone: normalizedPhone }, deletedAt: null },
+        where: {
+          contact: { phone: normalizedPhone, ...companyWhere },
+          deletedAt: null,
+          ...companyWhere,
+        },
         select: { id: true, leadCode: true, title: true, status: true },
       });
       if (existingLead) {
@@ -92,6 +98,7 @@ export class DuplicateDetectionService {
         where: {
           email: { equals: normalizedEmail, mode: 'insensitive' },
           deletedAt: null,
+          ...companyWhere,
         },
         select: {
           id: true,
@@ -114,8 +121,12 @@ export class DuplicateDetectionService {
 
       const existingLead = await this.prisma.lead.findFirst({
         where: {
-          contact: { email: { equals: normalizedEmail, mode: 'insensitive' } },
+          contact: {
+            email: { equals: normalizedEmail, mode: 'insensitive' },
+            ...companyWhere,
+          },
           deletedAt: null,
+          ...companyWhere,
         },
         select: { id: true, leadCode: true, title: true, status: true },
       });
@@ -138,7 +149,7 @@ export class DuplicateDetectionService {
     if (data.panNumber) {
       const normalizedPan = data.panNumber.trim().toUpperCase();
       const existingContact = await this.prisma.contact.findFirst({
-        where: { panNumber: normalizedPan, deletedAt: null },
+        where: { panNumber: normalizedPan, deletedAt: null, ...companyWhere },
         select: { id: true, firstName: true, lastName: true, panNumber: true },
       });
       if (existingContact) {
@@ -152,7 +163,7 @@ export class DuplicateDetectionService {
       }
 
       const existingAccount = await this.prisma.account.findFirst({
-        where: { panNumber: normalizedPan, deletedAt: null },
+        where: { panNumber: normalizedPan, deletedAt: null, ...companyWhere },
         select: { id: true, name: true, accountCode: true },
       });
       if (existingAccount) {
@@ -177,6 +188,7 @@ export class DuplicateDetectionService {
         where: {
           registrationNumber: { equals: normalizedReg, mode: 'insensitive' },
           deletedAt: null,
+          ...(data.companyId ? { contact: { companyId: data.companyId } } : {}),
         },
         select: {
           id: true,

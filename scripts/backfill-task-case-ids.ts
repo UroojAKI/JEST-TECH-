@@ -61,7 +61,7 @@ async function main() {
 
   console.log('Reconciliation complete:', {
     totalTasks: tasks.length,
-    linkedViaQuotatiol,
+    linkedViaQuotation,
     linkedViaLead,
     unresolvable,
   });

@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../../../database/prisma.service';
 import { WarehouseService } from '../../warehouse/services/warehouse.service';
 import { evaluateSafeFormula } from '../../../common/utils/formula-evaluator.util';
@@ -96,10 +96,18 @@ export class BiService {
     return new Date(this.startOfMonth().getTime() - 1);
   }
 
-  // ── F-011 FIX: All metric methods accept companyId and scope queries to the tenant ──
+  private assertCompanyId(companyId?: string): string {
+    if (!companyId || typeof companyId !== 'string' || !companyId.trim()) {
+      throw new ForbiddenException('Tenant companyId is required for BI metrics');
+    }
+    return companyId.trim();
+  }
+
+  // ── DEF-024 / Phase 2: All metric methods enforce mandatory companyId scoping ──
 
   async getConversionMetrics(companyId?: string): Promise<ConversionMetrics> {
-    const companyWhere = companyId ? { companyId } : {};
+    const cleanCompanyId = this.assertCompanyId(companyId);
+    const companyWhere = { companyId: cleanCompanyId };
     const [totalLeads, quotedLeads, proposalsCreated, policiesIssued] =
       await Promise.all([
         this.prisma.lead.count({ where: { ...companyWhere, deletedAt: null } }),
@@ -111,7 +119,7 @@ export class BiService {
           },
         }),
         this.prisma.proposal.count({
-          where: companyId ? { quotation: { companyId } } : {},
+          where: { quotation: { companyId: cleanCompanyId } },
         }),
         this.prisma.policy.count({ where: companyWhere }),
       ]);
@@ -157,14 +165,15 @@ export class BiService {
   }
 
   async getRevenueMetrics(companyId?: string): Promise<RevenueMetrics> {
+    const cleanCompanyId = this.assertCompanyId(companyId);
     const now = new Date();
     const somThisMonth = this.startOfMonth();
     const somLastMonth = this.startOfLastMonth();
     const eomLastMonth = this.endOfLastMonth();
     const somThisYear = new Date(now.getFullYear(), 0, 1);
 
-    // Scope to policies within company if provided
-    const policyWhere = companyId ? { policy: { companyId } } : {};
+    // Scope to policies within company
+    const policyWhere = { policy: { companyId: cleanCompanyId } };
 
     const [thisMonth, lastMonth, thisYear, allPayments] = await Promise.all([
       this.prisma.policyPayment.aggregate({
@@ -210,7 +219,7 @@ export class BiService {
     let motorPayments: Array<{ amount: any; paidAt?: any; createdAt: any; quotation?: { insurerName?: string } }> = [];
 
     if (this.prisma.motorPaymentRecord) {
-      const motorCompanyWhere = companyId ? { quotation: { companyId } } : {};
+      const motorCompanyWhere = { quotation: { companyId: cleanCompanyId } };
       const [mMonth, mLast, mYear, mAll] = await Promise.all([
         this.prisma.motorPaymentRecord.aggregate({
           _sum: { amount: true },
@@ -316,16 +325,17 @@ export class BiService {
   }
 
   async getLossRatioMetrics(companyId?: string): Promise<LossRatioMetrics> {
+    const cleanCompanyId = this.assertCompanyId(companyId);
     const [claimsAgg, premiumAgg] = await Promise.all([
       this.prisma.claim.aggregate({
         _sum: { approvedAmount: true },
-        where: companyId ? { companyId } : {},
+        where: { companyId: cleanCompanyId },
       }),
       this.prisma.policyPayment.aggregate({
         _sum: { amount: true },
         where: {
           status: 'SUCCESS' as any,
-          ...(companyId ? { policy: { companyId } } : {}),
+          policy: { companyId: cleanCompanyId },
         },
       }),
     ]);
@@ -342,11 +352,12 @@ export class BiService {
   }
 
   async getRenewalMetrics(companyId?: string): Promise<RenewalMetrics> {
+    const cleanCompanyId = this.assertCompanyId(companyId);
     const now = new Date();
     const in20 = new Date(now.getTime() + 20 * 24 * 60 * 60 * 1000);
     const in30 = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
     const in45 = new Date(now.getTime() + 45 * 24 * 60 * 60 * 1000);
-    const companyWhere = companyId ? { companyId } : {};
+    const companyWhere = { companyId: cleanCompanyId };
 
     const [e20, e30, e45, missed, renewedCount] = await Promise.all([
       this.prisma.policy.count({
@@ -378,7 +389,7 @@ export class BiService {
         },
       }),
       this.prisma.policyRenewal.count({
-        where: companyId ? { policy: { companyId } } : {},
+        where: { policy: { companyId: cleanCompanyId } },
       }),
     ]);
 
@@ -401,10 +412,11 @@ export class BiService {
   }
 
   async getSalesMetrics(companyId?: string): Promise<SalesMetrics> {
+    const cleanCompanyId = this.assertCompanyId(companyId);
     const somThisMonth = this.startOfMonth();
     const somLastMonth = this.startOfLastMonth();
     const eomLastMonth = this.endOfLastMonth();
-    const companyWhere = companyId ? { companyId } : {};
+    const companyWhere = { companyId: cleanCompanyId };
 
     const [thisMonth, lastMonth] = await Promise.all([
       this.prisma.policy.count({
@@ -432,8 +444,9 @@ export class BiService {
   }
 
   async getGrowthMetrics(companyId?: string): Promise<GrowthMetrics> {
+    const cleanCompanyId = this.assertCompanyId(companyId);
     const somThisMonth = this.startOfMonth();
-    const companyWhere = companyId ? { companyId } : {};
+    const companyWhere = { companyId: cleanCompanyId };
 
     const [portfolioSize, newPolicies, newContacts, newLeads] =
       await Promise.all([
@@ -470,17 +483,24 @@ export class BiService {
   }
 
   async getKpiValues(companyId?: string): Promise<KpiValue[]> {
+    const cleanCompanyId = this.assertCompanyId(companyId);
     const kpis = await this.prisma.kpiDefinition.findMany({
-      where: { isActive: true },
+      where: {
+        isActive: true,
+        OR: [
+          { createdBy: { companyId: cleanCompanyId } },
+          { createdById: null },
+        ],
+      },
       orderBy: { displayOrder: 'asc' },
     });
 
     const [conversion, revenue, lossRatio, renewal, sales] = await Promise.all([
-      this.getConversionMetrics(companyId),
-      this.getRevenueMetrics(companyId),
-      this.getLossRatioMetrics(companyId),
-      this.getRenewalMetrics(companyId),
-      this.getSalesMetrics(companyId),
+      this.getConversionMetrics(cleanCompanyId),
+      this.getRevenueMetrics(cleanCompanyId),
+      this.getLossRatioMetrics(cleanCompanyId),
+      this.getRenewalMetrics(cleanCompanyId),
+      this.getSalesMetrics(cleanCompanyId),
     ]);
 
     const metricRegistry: Record<string, number> = {

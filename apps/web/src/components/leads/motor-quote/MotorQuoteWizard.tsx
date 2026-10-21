@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { X, ChevronRight, ChevronLeft, Save, Loader2, Car, Shield } from 'lucide-react';
 import { toast } from 'sonner';
 import { apiClient } from '../../../lib/api-client';
@@ -16,6 +16,7 @@ import { PreviousPolicyForm } from './PreviousPolicyForm';
 import { RuleEngineResult } from './RuleEngineResult';
 import { InspectionDialog } from './InspectionDialog';
 import { AgentSelector } from '../../agents/AgentSelector';
+import { SaodTpVerificationCard } from './SaodTpVerificationCard';
 
 import { INSURER_OPTIONS, CATEGORY_LABEL, POLICY_TYPE_LABEL, VEHICLE_FIELDS } from './motorFormConfig';
 import type {
@@ -45,6 +46,7 @@ interface Props {
     category?: VehicleCategory;
     policyType?: PolicyType;
     caseId?: string;
+    policyDetails?: any;
   } | null;
   leadContact?: {
     name?: string;
@@ -219,6 +221,8 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, customerId, caseId
   
   const [ruleResult, setRuleResult] = useState<MotorRuleResult | null>(null);
   const [ruleLoading, setRuleLoading] = useState(false);
+  const [ruleEvaluationKey, setRuleEvaluationKey] = useState<string | null>(null);
+  const ruleEvaluationRequestIdRef = useRef(0);
   
   const [tpForm, setTpForm] = useState<PolicyFormTPOnly>(emptyTP());
   const [saodForm, setSaodForm] = useState<PolicyFormSAOD>(emptySAOD());
@@ -233,6 +237,15 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, customerId, caseId
   const [showInspectionDialog, setShowInspectionDialog] = useState(false);
   const [isContextLoading, setIsContextLoading] = useState(false);
   const [prefilledFromLeadCode, setPrefilledFromLeadCode] = useState<string | null>(null);
+
+  const steps = useMemo(() => [
+    { num: 1, label: 'Customer Info' },
+    { num: 2, label: 'Vehicle Details' },
+    { num: 3, label: 'Previous Policy' },
+    { num: 4, label: 'Policy Type' },
+    { num: 5, label: policyType === 'SAOD' ? 'TP Verification & Eligibility' : 'Rule Evaluation' },
+    { num: 6, label: 'Premium & Coverages' },
+  ], [policyType]);
 
   // ── Clone / Comparison Pre-Fill Hydration ──────────────────────────────────
   useEffect(() => {
@@ -251,6 +264,15 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, customerId, caseId
       }
       if (cloneQuoteData.policyType) {
         setPolicyType(cloneQuoteData.policyType);
+      }
+      if (cloneQuoteData.policyDetails) {
+        if (cloneQuoteData.policyType === 'SAOD') {
+          setSaodForm((prev) => ({ ...prev, ...cloneQuoteData.policyDetails }));
+        } else if (cloneQuoteData.policyType === 'PACKAGE') {
+          setPackageForm((prev) => ({ ...prev, ...cloneQuoteData.policyDetails }));
+        } else if (cloneQuoteData.policyType === 'TP_ONLY') {
+          setTpForm((prev) => ({ ...prev, ...cloneQuoteData.policyDetails }));
+        }
       }
       // Advance directly to Policy Type / Insurer selection
       setStep(4);
@@ -471,8 +493,6 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, customerId, caseId
     }
   }, [leadContact, cloneQuoteData]);
 
-  if (!isOpen) return null;
-
   const registrationNumber = vehicleDetails['registrationNumber'] || vehicleDetails['regNumber'] || '';
 
   const canProceed = () => {
@@ -501,55 +521,153 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, customerId, caseId
       );
     }
     if (step === 4) return !!policyType;
-    if (step === 5) return !!ruleResult;
+    if (step === 5) {
+      if (policyType === 'SAOD') {
+        const v = saodForm.tpVerification;
+        if (!v?.tpInsurer || !v?.tpPolicyNumber || !v?.tpStartDate || !v?.tpExpiryDate) return false;
+        if (!v?.verificationMethod) return false;
+        if (!v?.verifiedByUserConfirmed) return false;
+        if (new Date(v.tpExpiryDate) <= new Date()) return false;
+        if (ruleLoading || !ruleResult) return false;
+        if (ruleResult.saodTpValid !== true || ruleResult.nextStep === 'TP_VERIFICATION') return false;
+        return true;
+      }
+      return !!ruleResult && !ruleLoading;
+    }
     if (step === 6) {
       if (policyType === 'SAOD') {
         const v = saodForm.tpVerification;
-        if (!v.tpInsurer || !v.tpPolicyNumber || !v.tpStartDate || !v.tpExpiryDate) return false;
-        if (!v.verificationMethod) return false;
-        if (!v.verifiedByUserConfirmed) return false;
+        if (!v?.tpInsurer || !v?.tpPolicyNumber || !v?.tpStartDate || !v?.tpExpiryDate) return false;
+        if (!v?.verificationMethod) return false;
+        if (!v?.verifiedByUserConfirmed) return false;
         if (new Date(v.tpExpiryDate) <= new Date()) return false;
+        if (ruleLoading || !ruleResult || ruleResult.saodTpValid !== true || ruleResult.nextStep === 'TP_VERIFICATION') return false;
       }
       return true;
     }
     return true;
   };
 
-  const evaluateRules = async () => {
+  const buildRuleEvaluationPayload = () => ({
+    journeyId: journeyId || undefined,
+    newPolicyType: policyType || 'PACKAGE',
+    vehicleStatus: vehicleDetails.vehicleStatus || 'EXISTING',
+    previousPolicyType: previousPolicy.previousPolicyType,
+    policyExpiryDate: previousPolicy.policyExpiryDate,
+    claimInPreviousYear: previousPolicy.claimInPreviousYear,
+    ownershipTransfer: previousPolicy.ownershipTransfer,
+    previousPolicyTransferred: previousPolicy.previousPolicyTransferred,
+    eligibleNcbPercentage: previousPolicy.eligibleNcbPercentage,
+    // SAOD rule evaluation is bound to the current active TP verification,
+    // never the unrelated previous-policy expiry.
+    tpExpiryDate: policyType === 'SAOD'
+      ? (saodForm.tpVerification?.tpExpiryDate || undefined)
+      : (previousPolicy.tpExpiryDate || undefined),
+    activeTpInsurer: policyType === 'SAOD' ? saodForm.tpVerification?.tpInsurer : undefined,
+    activeTpPolicyNumber: policyType === 'SAOD' ? saodForm.tpVerification?.tpPolicyNumber : undefined,
+    activeTpStartDate: policyType === 'SAOD' ? saodForm.tpVerification?.tpStartDate : undefined,
+    activeTpVerificationMethod: policyType === 'SAOD' ? saodForm.tpVerification?.verificationMethod : undefined,
+    activeTpVerificationStatus: policyType === 'SAOD' ? saodForm.tpVerification?.verificationStatus : undefined,
+    activeTpVerifiedByUserConfirmed: policyType === 'SAOD' ? saodForm.tpVerification?.verifiedByUserConfirmed : undefined,
+    odExpiryDate: previousPolicy.odExpiryDate,
+    newOwnerName: previousPolicy.newOwnerName,
+  });
+
+  const evaluateRules = async (): Promise<boolean> => {
+    const requestId = ++ruleEvaluationRequestIdRef.current;
+    const payload = buildRuleEvaluationPayload();
+    const evaluationKey = JSON.stringify(payload);
     setRuleLoading(true);
+    setRuleResult(null);
+    setRuleEvaluationKey(null);
     try {
-      // Stateless rule evaluation — does not create premature draft quotations
-      const res = await apiClient.post('/motor/rules/evaluate', {
-        journeyId: journeyId || undefined,
-        newPolicyType: policyType || 'PACKAGE',
-        vehicleStatus: vehicleDetails.vehicleStatus || 'EXISTING',
-        previousPolicyType: previousPolicy.previousPolicyType,
-        policyExpiryDate: previousPolicy.policyExpiryDate,
-        claimInPreviousYear: previousPolicy.claimInPreviousYear,
-        ownershipTransfer: previousPolicy.ownershipTransfer,
-        previousPolicyTransferred: previousPolicy.previousPolicyTransferred,
-        eligibleNcbPercentage: previousPolicy.eligibleNcbPercentage,
-        tpExpiryDate: previousPolicy.tpExpiryDate,
-        odExpiryDate: previousPolicy.odExpiryDate,
-        newOwnerName: previousPolicy.newOwnerName,
-      });
+      const res = await apiClient.post('/motor/rules/evaluate', payload);
       const evaluated = res.data?.ruleEvaluation || res.data;
+      if (
+        requestId !== ruleEvaluationRequestIdRef.current ||
+        !evaluated ||
+        !['QUOTATION', 'INSPECTION', 'TP_VERIFICATION'].includes(evaluated.nextStep)
+      ) {
+        return false;
+      }
       setRuleResult(evaluated);
-      if (evaluated && typeof evaluated.ncb === 'number') {
+      setRuleEvaluationKey(evaluationKey);
+      if (typeof evaluated.ncb === 'number') {
         const authoritativeNcbStr = String(evaluated.ncb);
         setPackageForm((prev) => ({ ...prev, ncbPercentage: authoritativeNcbStr }));
         setSaodForm((prev) => ({ ...prev, ncbPercentage: authoritativeNcbStr }));
       }
+      return true;
     } catch (e: any) {
-      console.error('Rule engine API error:', e);
-      const msg = e?.response?.data?.message;
-      toast.error(
-        Array.isArray(msg) ? msg.join(', ') : (msg || 'Failed to evaluate underwriting rules on server.')
-      );
+      if (requestId === ruleEvaluationRequestIdRef.current) {
+        console.error('Rule engine API error:', e);
+        setRuleResult(null);
+        setRuleEvaluationKey(null);
+        const msg = e?.response?.data?.message;
+        toast.error(
+          Array.isArray(msg) ? msg.join(', ') : (msg || 'Failed to evaluate underwriting rules on server.')
+        );
+      }
+      return false;
     } finally {
-      setRuleLoading(false);
+      if (requestId === ruleEvaluationRequestIdRef.current) {
+        setRuleLoading(false);
+      }
     }
   };
+
+  // SAOD Step 5 (and Step 6) evaluates active-TP details automatically.
+  // When active TP details change and are confirmed, re-evaluate underwriting
+  // rules on the server so the agent can immediately continue.
+  useEffect(() => {
+    if (!isOpen || policyType !== 'SAOD' || (step !== 5 && step !== 6)) return;
+    const tp = saodForm.tpVerification;
+    const hasVerifiedActiveTp = Boolean(
+      tp?.tpInsurer &&
+      tp?.tpPolicyNumber &&
+      tp?.tpStartDate &&
+      tp?.tpExpiryDate &&
+      tp?.verificationMethod &&
+      tp?.verificationStatus === 'VERIFIED' &&
+      tp?.verifiedByUserConfirmed &&
+      new Date(tp.tpExpiryDate) > new Date()
+    );
+    if (!hasVerifiedActiveTp) {
+      ++ruleEvaluationRequestIdRef.current;
+      setRuleResult(null);
+      setRuleEvaluationKey(null);
+      setRuleLoading(false);
+      return;
+    }
+    const timeoutId = setTimeout(() => {
+      void evaluateRules();
+    }, 200);
+    return () => clearTimeout(timeoutId);
+    // evaluateRules intentionally reads the current wizard state; listed
+    // dependencies are the facts that invalidate an underwriting result.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    isOpen,
+    policyType,
+    step,
+    journeyId,
+    vehicleDetails.vehicleStatus,
+    previousPolicy.previousPolicyType,
+    previousPolicy.policyExpiryDate,
+    previousPolicy.claimInPreviousYear,
+    previousPolicy.ownershipTransfer,
+    previousPolicy.previousPolicyTransferred,
+    previousPolicy.eligibleNcbPercentage,
+    previousPolicy.odExpiryDate,
+    previousPolicy.newOwnerName,
+    saodForm.tpVerification?.tpInsurer,
+    saodForm.tpVerification?.tpPolicyNumber,
+    saodForm.tpVerification?.tpStartDate,
+    saodForm.tpVerification?.tpExpiryDate,
+    saodForm.tpVerification?.verificationMethod,
+    saodForm.tpVerification?.verificationStatus,
+    saodForm.tpVerification?.verifiedByUserConfirmed,
+  ]);
 
   const handleNext = async () => {
     if (!canProceed()) {
@@ -563,8 +681,26 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, customerId, caseId
     }
 
     if (step === 4) {
-      await evaluateRules();
-      setStep(5);
+      if (policyType === 'SAOD') {
+        setRuleResult(null);
+        setRuleEvaluationKey(null);
+        setStep(5);
+        return;
+      }
+      const evaluated = await evaluateRules();
+      if (evaluated) setStep(5);
+      return;
+    }
+
+    if (step === 5) {
+      if (policyType === 'SAOD') {
+        const currentRuleKey = JSON.stringify(buildRuleEvaluationPayload());
+        if (!ruleResult || ruleEvaluationKey !== currentRuleKey || !ruleResult.saodTpValid || ruleResult.nextStep === 'TP_VERIFICATION') {
+          const evaluated = await evaluateRules();
+          if (!evaluated) return;
+        }
+      }
+      setStep(6);
       return;
     }
     
@@ -572,6 +708,16 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, customerId, caseId
   };
 
   const handleBack = () => {
+    if (step === 6 && policyType === 'SAOD') {
+      setStep(5);
+      return;
+    }
+    if (step === 5 && policyType === 'SAOD') {
+      setRuleResult(null);
+      setRuleEvaluationKey(null);
+      setStep(4);
+      return;
+    }
     if (step === 4 && vehicleDetails.vehicleStatus === 'NEW') {
       setStep(2);
       return;
@@ -637,7 +783,28 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, customerId, caseId
       toast.error('Vehicle category and policy type are required');
       return;
     }
-    
+
+    if (policyType === 'SAOD') {
+      const tp = saodForm.tpVerification;
+      if (
+        !tp?.tpInsurer || !tp.tpPolicyNumber || !tp.tpStartDate || !tp.tpExpiryDate ||
+        !tp.verificationMethod || tp.verificationStatus !== 'VERIFIED' ||
+        !tp.verifiedByUserConfirmed || new Date(tp.tpExpiryDate) <= new Date()
+      ) {
+        toast.error('Complete and confirm active TP policy verification before saving the SAOD quotation.');
+        return;
+      }
+      const currentRuleKey = JSON.stringify(buildRuleEvaluationPayload());
+      if (ruleLoading || !ruleResult || ruleEvaluationKey !== currentRuleKey) {
+        toast.error('SAOD underwriting is still being evaluated for the current TP details. Wait for the current result before saving.');
+        return;
+      }
+      if (ruleResult.nextStep === 'TP_VERIFICATION' || !ruleResult.saodTpValid) {
+        toast.error('Active TP policy verification has not passed. Resolve the TP verification issue before saving.');
+        return;
+      }
+    }
+
     const pDetails = getPolicyDetails() as any;
     if (pDetails.policyStartDate && pDetails.policyEndDate) {
       const start = new Date(pDetails.policyStartDate);
@@ -650,7 +817,9 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, customerId, caseId
 
     const calcResult = pDetails.calculatedResult;
     const authoritativeTotal = Number(
-      calcResult?.outputs?.finalPayableAmount ?? calcResult?.outputs?.totalPremium,
+      pDetails.totalPremiumOverride ??
+      calcResult?.outputs?.finalPayableAmount ??
+      calcResult?.outputs?.totalPremium,
     );
     if (
       !calcResult?.outputs ||
@@ -684,7 +853,7 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, customerId, caseId
         basePremium: outputs.basePremium ?? outputs.netOdPremium ?? outputs.netTpPremium,
         discountAmount: outputs.totalDiscount ?? outputs.discountAmount ?? outputs.ncbDiscount ?? 0,
         gstAmount: outputs.totalGst ?? getGst(),
-        totalPremium: outputs.finalPayableAmount ?? outputs.totalPremium ?? (getNetPayable() > 0 ? getNetPayable() : getTotalPremium()),
+        totalPremium: pDetails.totalPremiumOverride ?? outputs.finalPayableAmount ?? outputs.totalPremium ?? (getNetPayable() > 0 ? getNetPayable() : getTotalPremium()),
         calculationVersion: calcResult.calculationVersion || '1.0',
         rateConfigurationVersion: calcResult.rateConfigurationVersion || '1.0',
         snapshotId: calcResult.snapshotId,
@@ -707,6 +876,9 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, customerId, caseId
             tpStartDate: saodForm.tpVerification.tpStartDate,
             tpExpiryDate: saodForm.tpVerification.tpExpiryDate,
             verificationMethod: saodForm.tpVerification.verificationMethod,
+            verificationStatus: saodForm.tpVerification.verificationStatus,
+            verifiedByUserConfirmed: saodForm.tpVerification.verifiedByUserConfirmed,
+            evidenceDocumentUrl: saodForm.tpVerification.evidenceDocumentUrl || undefined,
             verifierNotes: saodForm.tpVerification.verifierNotes,
           },
         } : {}),
@@ -749,6 +921,8 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, customerId, caseId
     }
   };
 
+  if (!isOpen) return null;
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
       <div className="w-full max-w-4xl bg-card rounded-xl border border-border shadow-2xl flex flex-col max-h-[95vh] overflow-hidden">
@@ -775,7 +949,7 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, customerId, caseId
         {/* Professional Stepper */}
         <div className="px-6 py-4 border-b bg-muted/10">
           <div className="flex items-center gap-2 overflow-x-auto">
-            {STEPS.map((s, idx) => {
+            {steps.map((s, idx) => {
               const isDone = step > s.num;
               const isActive = step === s.num;
               return (
@@ -794,7 +968,7 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, customerId, caseId
                     </div>
                     {s.label}
                   </div>
-                  {idx < STEPS.length - 1 && (
+                  {idx < steps.length - 1 && (
                     <div className={`h-px w-6 mx-1 ${step > s.num ? 'bg-foreground' : 'bg-border'}`} />
                   )}
                 </React.Fragment>
@@ -922,30 +1096,73 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, customerId, caseId
 
             {step === 5 && (
               <div className="space-y-4">
-                <h3 className="text-sm font-bold text-foreground border-b pb-2">Rule Engine Evaluation</h3>
-                <RuleEngineResult 
-                  result={ruleResult} 
-                  isLoading={ruleLoading} 
-                  onRetry={evaluateRules} 
-                />
-                {ruleResult?.inspectionRequired && (
-                  <div className="p-4 rounded-xl border border-amber-500/30 bg-amber-500/10 flex items-center justify-between gap-4">
-                    <div className="space-y-0.5">
-                      <div className="text-xs font-bold text-amber-600 dark:text-amber-400">
-                        Pre-Issuance Vehicle Inspection Required
-                      </div>
-                      <div className="text-[11px] text-muted-foreground">
-                        Policy gap over 90 days or break-in detected. 7 real evidence photos must be captured.
-                      </div>
+                <h3 className="text-sm font-bold text-foreground border-b pb-2">
+                  {policyType === 'SAOD' ? 'Active TP Verification & Eligibility' : 'Rule Engine Evaluation'}
+                </h3>
+
+                {policyType === 'SAOD' && (
+                  <div className="space-y-4">
+                    <div className="rounded-lg border bg-card p-3 space-y-1">
+                      <h4 className="text-xs font-bold text-foreground">Active Third-Party Policy Verification</h4>
+                      <p className="text-[11px] text-muted-foreground">
+                        A Standalone Own Damage (SAOD) policy legally requires an active Third-Party policy in force. Enter and confirm the active TP details below to verify eligibility.
+                      </p>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => setShowInspectionDialog(true)}
-                      className="px-3.5 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold shrink-0 shadow-xs"
-                    >
-                      Conduct Inspection Now
-                    </button>
+
+                    <SaodTpVerificationCard
+                      value={saodForm.tpVerification}
+                      onChange={(updated) => {
+                        setSaodForm((prev) => ({
+                          ...prev,
+                          tpVerification: updated,
+                          activeTPInsurerName: updated.tpInsurer,
+                          activeTPPolicyNumberValidity: `${updated.tpPolicyNumber} | Valid Till ${updated.tpExpiryDate}`,
+                        }));
+                      }}
+                    />
+
+                    {saodForm.tpVerification?.verificationStatus === 'VERIFIED' &&
+                    saodForm.tpVerification?.verifiedByUserConfirmed ? (
+                      <RuleEngineResult
+                        result={ruleResult}
+                        isLoading={ruleLoading}
+                        onRetry={() => { void evaluateRules(); }}
+                      />
+                    ) : (
+                      <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-800 dark:text-amber-300" role="status">
+                        Complete all mandatory active TP details, ensure expiry date is in the future, and click &quot;I confirm this TP policy is active and verified&quot; to run underwriting checks.
+                      </div>
+                    )}
                   </div>
+                )}
+
+                {policyType !== 'SAOD' && (
+                  <>
+                    <RuleEngineResult 
+                      result={ruleResult} 
+                      isLoading={ruleLoading} 
+                      onRetry={evaluateRules} 
+                    />
+                    {ruleResult?.inspectionRequired && (
+                      <div className="p-4 rounded-xl border border-amber-500/30 bg-amber-500/10 flex items-center justify-between gap-4">
+                        <div className="space-y-0.5">
+                          <div className="text-xs font-bold text-amber-600 dark:text-amber-400">
+                            Pre-Issuance Vehicle Inspection Required
+                          </div>
+                          <div className="text-[11px] text-muted-foreground">
+                            Policy gap over 90 days or break-in detected. 7 real evidence photos must be captured.
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setShowInspectionDialog(true)}
+                          className="px-3.5 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold shrink-0 shadow-xs"
+                        >
+                          Conduct Inspection Now
+                        </button>
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
             )}
@@ -961,6 +1178,31 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, customerId, caseId
                     onChange={setTpForm}
                     eligibility={eligibilityContext}
                   />
+                )}
+                {policyType === 'SAOD' && (
+                  <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-3 space-y-3">
+                    <div className="space-y-0.5">
+                      <div className="text-xs font-bold text-emerald-700 dark:text-emerald-400 flex items-center gap-1.5">
+                        <Shield className="h-4 w-4" />
+                        Active TP Policy Details (SAOD)
+                      </div>
+                      <p className="text-[11px] text-muted-foreground">
+                        Edit these details here without leaving the quotation. Changes invalidate the previous verification and require confirmation again.
+                      </p>
+                    </div>
+                    <SaodTpVerificationCard
+                      key="saod-active-tp-quotation"
+                      value={saodForm.tpVerification}
+                      onChange={(updated) => {
+                        setSaodForm((prev) => ({
+                          ...prev,
+                          tpVerification: updated,
+                          activeTPInsurerName: updated.tpInsurer,
+                          activeTPPolicyNumberValidity: `${updated.tpPolicyNumber} | Valid Till ${updated.tpExpiryDate}`,
+                        }));
+                      }}
+                    />
+                  </div>
                 )}
                 {policyType === 'SAOD' && (
                   <PolicyFormSAODForm
@@ -1022,7 +1264,16 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, customerId, caseId
               <button
                 type="button"
                 onClick={handleSave}
-                disabled={isSaving}
+                disabled={
+                  isSaving ||
+                  !canProceed() ||
+                  (policyType === 'SAOD' && (
+                    ruleLoading ||
+                    !ruleResult ||
+                    ruleEvaluationKey !== JSON.stringify(buildRuleEvaluationPayload()) ||
+                    ruleResult.nextStep === 'TP_VERIFICATION'
+                  ))
+                }
                 className="flex items-center gap-2 px-5 py-2 rounded-md bg-primary text-primary-foreground font-medium text-sm hover:bg-primary/90 disabled:opacity-50 transition-colors focus:outline-none focus:ring-2 focus:ring-primary/50"
               >
                 {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}

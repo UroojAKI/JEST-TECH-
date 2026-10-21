@@ -19,6 +19,26 @@ export interface AuditLogOptions {
 
 export type CreateAuditLogDto = AuditLogOptions;
 
+export type AuditAccessContext =
+  | { scope: 'TENANT'; companyId: string }
+  | { scope: 'GLOBAL'; actorId: string };
+
+export interface AuditFilters {
+  search?: string;
+  entity?: string;
+  action?: string;
+  userId?: string;
+  startDate?: string | Date;
+  endDate?: string | Date;
+  page?: number;
+  limit?: number;
+  maxLimit?: number;
+}
+
+export interface AuditExportFilters extends AuditFilters {
+  format?: string;
+}
+
 @Injectable()
 export class AuditService {
   constructor(private readonly prisma: PrismaService) {}
@@ -179,29 +199,47 @@ export class AuditService {
   }
 
   /**
-   * Retrieves paginated system audit logs with filtering.
-   * F-012 FIX: companyId scopes results to a single tenant; omit only for super-admin.
+   * Retrieves paginated system audit logs with mandatory tenant isolation (DEF-024 / Phase 1).
+   * Unfiltered global queries are strictly limited to authorized GLOBAL access contexts.
    */
-  async getAuditLogs(params?: {
-    search?: string;
-    entity?: string;
-    action?: string;
-    userId?: string;
-    page?: number;
-    limit?: number;
-    maxLimit?: number;
-    companyId?: string; // required for tenant-scoped access
-  }) {
+  async getAuditLogs(
+    access: AuditAccessContext,
+    params?: AuditFilters,
+  ) {
+    if (!access || !access.scope) {
+      throw new ForbiddenException(
+        'Audit access context is required to query audit records.',
+      );
+    }
+
+    if (access.scope === 'TENANT') {
+      if (!access.companyId || typeof access.companyId !== 'string' || !access.companyId.trim()) {
+        throw new ForbiddenException(
+          'Tenant identifier (companyId) is required for tenant-scoped audit access.',
+        );
+      }
+    } else if (access.scope === 'GLOBAL') {
+      if (!access.actorId || typeof access.actorId !== 'string' || !access.actorId.trim()) {
+        throw new ForbiddenException(
+          'Actor identifier is required for global audit access.',
+        );
+      }
+    } else {
+      throw new ForbiddenException(
+        'Invalid audit access scope.',
+      );
+    }
+
     const page = Math.max(1, Number(params?.page) || 1);
     const maxAllowed = params?.maxLimit || 1000;
     const limit = Math.min(maxAllowed, Math.max(1, Number(params?.limit) || 50));
     const skip = (page - 1) * limit;
 
-    const where: any = {};
+    const where: Prisma.AuditLogWhereInput = {};
 
-    // Scope to tenant when companyId is provided
-    if (params?.companyId) {
-      where.user = { companyId: params.companyId };
+    // ── Enforce Tenant Boundary ─────────────────────────────────────────
+    if (access.scope === 'TENANT') {
+      where.user = { companyId: access.companyId.trim() };
     }
 
     if (params?.entity && params.entity !== 'ALL') {
@@ -213,9 +251,18 @@ export class AuditService {
     if (params?.userId) {
       where.userId = params.userId;
     }
+    if (params?.startDate || params?.endDate) {
+      where.createdAt = {};
+      if (params.startDate) {
+        where.createdAt.gte = new Date(params.startDate);
+      }
+      if (params.endDate) {
+        where.createdAt.lte = new Date(params.endDate);
+      }
+    }
     if (params?.search && params.search.trim()) {
       const q = params.search.trim();
-      where.OR = [
+      const searchConditions: Prisma.AuditLogWhereInput[] = [
         { entityId: { contains: q, mode: 'insensitive' } },
         { entity: { contains: q, mode: 'insensitive' } },
         { module: { contains: q, mode: 'insensitive' } },
@@ -224,6 +271,15 @@ export class AuditService {
         { user: { lastName: { contains: q, mode: 'insensitive' } } },
         { user: { email: { contains: q, mode: 'insensitive' } } },
       ];
+
+      if (access.scope === 'TENANT') {
+        where.AND = [
+          { user: { companyId: access.companyId.trim() } },
+          { OR: searchConditions },
+        ];
+      } else {
+        where.OR = searchConditions;
+      }
     }
 
     const [total, logs] = await Promise.all([
@@ -259,22 +315,19 @@ export class AuditService {
   }
 
   /**
-   * Export audit logs in CSV or JSON format (AUD-002).
+   * Export audit logs in CSV or JSON format with mandatory tenant boundary (DEF-024 / Phase 1).
    */
-  async exportAuditLogs(params?: {
-    format?: string;
-    entity?: string;
-    action?: string;
-    userId?: string;
-    search?: string;
-    companyId?: string; // F-012 FIX: tenant-scoped export
-  }) {
-    const logsResult = await this.getAuditLogs({
+  async exportAuditLogs(
+    access: AuditAccessContext,
+    params?: AuditExportFilters,
+  ) {
+    const logsResult = await this.getAuditLogs(access, {
       entity: params?.entity,
       action: params?.action,
       userId: params?.userId,
       search: params?.search,
-      companyId: params?.companyId,
+      startDate: params?.startDate,
+      endDate: params?.endDate,
       page: 1,
       limit: 1000,
     });

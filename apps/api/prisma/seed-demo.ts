@@ -3,6 +3,9 @@ import { PrismaClient, ContactType, LeadSource, LeadStatus, PolicyStatus, Quotat
 const prisma = new PrismaClient();
 
 async function seedDemoData() {
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('FATAL: Demo data seeding is strictly prohibited in production environment.');
+  }
   console.log("🌱 Starting client demo data seeding for JEST POLICY CRM...");
 
   // 1. Fetch default Admin/Agent user for ownership relationships

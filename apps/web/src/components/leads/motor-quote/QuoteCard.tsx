@@ -127,6 +127,30 @@ export function QuoteCard({ quote, onUploadQuote, onConductInspection, onComplet
           </div>
         </div>
 
+        {/* OD, TP, and GST Visibility Mini-Badges */}
+        {(() => {
+          const calcSnapshot = (quote as any).calculationSnapshot || (quote.policyDetails as any)?.calculatedResult?.outputs || {};
+          const odVal = (quote as any).odPremium ?? calcSnapshot.od?.net ?? calcSnapshot.netOdPremium ?? (quote.policyDetails as any)?.odPremium;
+          const tpVal = (quote as any).tpPremium ?? calcSnapshot.tp?.net ?? calcSnapshot.netTpPremium ?? (quote.policyDetails as any)?.thirdPartyPremium;
+          const gstVal = (quote as any).gstAmount ?? calcSnapshot.totalGst ?? calcSnapshot.gstAmount ?? (quote.policyDetails as any)?.finalGstAmount;
+          return (
+            <div className="grid grid-cols-3 gap-1.5 text-[9px] mt-2">
+              <div className="p-1 rounded bg-accent/40 border border-border/40 text-center">
+                <span className="text-muted-foreground block text-[8px] font-bold">OD NET</span>
+                <span className="font-bold text-foreground">{odVal !== undefined && odVal !== null ? `₹${Number(odVal).toLocaleString('en-IN')}` : '—'}</span>
+              </div>
+              <div className="p-1 rounded bg-accent/40 border border-border/40 text-center">
+                <span className="text-muted-foreground block text-[8px] font-bold">TP NET</span>
+                <span className="font-bold text-foreground">{tpVal !== undefined && tpVal !== null ? `₹${Number(tpVal).toLocaleString('en-IN')}` : '—'}</span>
+              </div>
+              <div className="p-1 rounded bg-accent/40 border border-border/40 text-center">
+                <span className="text-muted-foreground block text-[8px] font-bold">GST</span>
+                <span className="font-bold text-foreground">{gstVal !== undefined && gstVal !== null ? `₹${Number(gstVal).toLocaleString('en-IN')}` : '—'}</span>
+              </div>
+            </div>
+          );
+        })()}
+
         <div className="mt-3 pt-2.5 border-t">
           <QuotationCompletionView
             quotationId={quote.id}

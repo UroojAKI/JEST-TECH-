@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { policiesRepository } from '../../repositories/policies.repository';
+import { buildRenewalUrl } from '../../lib/renewal-url';
 
 export default function RenewalsWorkspacePage() {
   const queryClient = useQueryClient();
@@ -341,7 +342,7 @@ export default function RenewalsWorkspacePage() {
                         )}
 
                         <Link
-                          href={`/sales/quotations?renewPolicyId=${item.id}`}
+                          href={buildRenewalUrl(item.id)}
                           className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground font-bold text-xs hover:bg-primary/90 transition shadow-xs"
                         >
                           <span>Renew</span>

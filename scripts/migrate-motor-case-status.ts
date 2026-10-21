@@ -22,13 +22,13 @@ async function main() {
 
   const migrated = await prisma.$transaction(async (tx) => {
     const r1 = await tx.$executeRawUnsafe(
-      UPDATE motor_quotation_cases SET status = 'DRAFT'::"motorCaseStatus" WHERE status = 'OPEN'::"MotorCaseStatus"
+      `UPDATE motor_quotation_cases SET status = 'DRAFT'::"MotorCaseStatus" WHERE status = 'OPEN'::"MotorCaseStatus"`
     );
     const r2 = await tx.$executeRawUnsafe(
-      UPDATE motor_quotation_cases SET status = 'QUOTE_GENERATED'::"MotorCaseStatus" WHERE status = 'QUOTED'::"motorCaseStatus"
+      `UPDATE motor_quotation_cases SET status = 'QUOTE_GENERATED'::"MotorCaseStatus" WHERE status = 'QUOTED'::"MotorCaseStatus"`
     );
     const r3 = await tx.$executeRawUnsafe(
-      UPDATE motor_quotation_cases SET status = 'PROPOSAL_READY'::"MotorCaseStatus" WHERE status = 'SELECTED'::"MotorCaseStatus"
+      `UPDATE motor_quotation_cases SET status = 'PROPOSAL_READY'::"MotorCaseStatus" WHERE status = 'SELECTED'::"MotorCaseStatus"`
     );
     return { openToDraft: r1, quotedToGenerated: r2, selectedToReady: r3 };
   });

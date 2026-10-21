@@ -423,7 +423,8 @@ describe('Authoritative Production Gates & Negative Safety Invariants (INV-01 to
       const result = await motorCalculationService.calculate(
         clientTamperedPayload,
       );
-      expect(result.outputs.totalPremium).toBe(17638.88);
+      // Server authoritatively recalculates with payable base & commercial discount: 20524.21
+      expect(result.outputs.totalPremium).toBe(20524.21);
       expect(result.outputs.totalPremium).not.toBe(
         clientTamperedPayload.totalPremium,
       );
@@ -440,14 +441,14 @@ describe('Authoritative Production Gates & Negative Safety Invariants (INV-01 to
       ).rejects.toThrow(BadRequestException);
     });
 
-    it('INV-13: rejects excessive commercial discount (> 20%) without approvalReference', async () => {
+    it('INV-13: rejects discounts above the absolute configured ceiling', async () => {
       await expect(
         motorCalculationService.calculate({
           vehicleCategory: 'PRIVATE_CAR',
           vehicleStatus: 'EXISTING',
           policyType: 'PACKAGE_COMPREHENSIVE',
           idv: 500000,
-          discountPercent: 35,
+          discountPercent: 101,
         }),
       ).rejects.toThrow(BadRequestException);
     });

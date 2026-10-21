@@ -7,6 +7,8 @@ import { X, CheckCircle2, ChevronRight, RefreshCw, Loader2, ShieldCheck, AlertCi
 import { policiesRepository } from '../../../repositories/policies.repository';
 import { toast } from 'sonner';
 
+import { buildRenewalUrl } from '../../../lib/renewal-url';
+
 interface RenewalWizardDrawerProps {
   isOpen: boolean;
   policyId: string;
@@ -156,7 +158,7 @@ export function RenewalWizardDrawer({ isOpen, policyId, onClose }: RenewalWizard
                       type="button"
                       onClick={() => {
                         onClose();
-                        router.push(`/sales/quotations?renewPolicyId=${policyId}`);
+                        router.push(buildRenewalUrl(policyId));
                       }}
                       className="mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/90"
                     >

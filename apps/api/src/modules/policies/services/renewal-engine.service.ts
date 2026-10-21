@@ -14,6 +14,7 @@ export class RenewalEngineService {
 
   async findPoliciesRequiringRenewal(
     daysBeforeExpiry: number,
+    companyId?: string,
   ): Promise<Policy[]> {
     const targetDate = new Date();
     targetDate.setDate(targetDate.getDate() + daysBeforeExpiry);
@@ -21,6 +22,7 @@ export class RenewalEngineService {
     return this.prisma.policy.findMany({
       where: {
         status: PolicyStatus.ACTIVE,
+        ...(companyId ? { companyId } : {}),
         OR: [
           { expiryDate: { lte: targetDate, gte: new Date() } },
           { odExpiryDate: { lte: targetDate, gte: new Date() } },
@@ -108,11 +110,15 @@ export class RenewalEngineService {
     const odBase = params.odPremium !== undefined ? params.odPremium : Math.round(params.prevBasePremium * 0.65);
     const tpBase = params.tpPremium !== undefined ? params.tpPremium : Math.round(params.prevBasePremium * 0.35);
 
-    const revisedOd = Math.round(odBase * (1 - nextNcb / 100));
+    // Canonical Business Rule: NCB is underwriting metadata; reference OD and TP are preserved undiscounted
+    const revisedOd = odBase;
     const revisedTp = tpBase;
 
     const revisedBase = revisedOd + revisedTp;
-    const gstAmount = Math.round(revisedBase * 0.18);
+    // Core Business Rule: GST base = gross premium before discount.
+    const gstOnOd = Math.round(odBase * 0.18);
+    const gstOnTp = Math.round(tpBase * 0.18);
+    const gstAmount = gstOnOd + gstOnTp;
     const totalPremium = revisedBase + gstAmount;
 
     return {

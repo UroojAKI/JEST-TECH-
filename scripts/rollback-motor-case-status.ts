@@ -9,13 +9,13 @@ async function main() {
 
   const rollback = await prisma.$transaction(async (tx) => {
     const r1 = await tx.$executeRawUnsafe(
-      UPDATE motor_quotation_cases SET status = 'OPEN'::"MotorCaseStatus" WHERE status = 'DRAFT'::"MotorCaseStatus"
+      `UPDATE motor_quotation_cases SET status = 'OPEN'::"MotorCaseStatus" WHERE status = 'DRAFT'::"MotorCaseStatus"`
     );
     const r2 = await tx.$executeRawUnsafe(
-      UPDATE motor_quotation_cases SET status = 'QUOTED'::"MotorCaseStatus" WHERE status = 'QUOTE_GENERATED'::"MotorCaseStatus"
+      `UPDATE motor_quotation_cases SET status = 'QUOTED'::"MotorCaseStatus" WHERE status = 'QUOTE_GENERATED'::"MotorCaseStatus"`
     );
     const r3 = await tx.$executeRawUnsafe(
-      UPDATE motor_quotation_cases SET status = 'SELECTED'::"MotorCaseStatus" WHERE status = 'PROPOSAL_READY'::"MotorCaseStatus"
+      `UPDATE motor_quotation_cases SET status = 'SELECTED'::"MotorCaseStatus" WHERE status = 'PROPOSAL_READY'::"MotorCaseStatus"`
     );
     return { draftToOpen: r1, generatedToQuoted: r2, readyToSelected: r3 };
   });
@@ -27,7 +27,7 @@ async function main() {
   };
 
   const outDir = path.join(process.cwd(), 'docs', 'audit', 'baseline');
-  if (!fs.existsSync((outDir)) fs.mkdirSync(outDir, { recursive: true });
+  if (!fs.existsSync(outDir)) fs.mkdirSync(outDir, { recursive: true });
   fs.writeFileSync(
     path.join(outDir, 'status-rollback-report.json'),
     JSON.stringify(report, null, 2),

@@ -1,11 +1,14 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, BadRequestException } from '@nestjs/common';
+
+export const VALID_NCB_PERCENTAGES = [0, 20, 25, 35, 45, 50];
 
 @Injectable()
 export class NcbService {
   /**
-   * IRDAI No Claim Bonus (NCB) Discount Calculator.
-   * Tiers: 0%, 20%, 25%, 35%, 45%, 50%.
-   * Applied strictly on Own Damage (OD) premium.
+   * IRDAI No Claim Bonus (NCB) Validator.
+   * Allowed discrete tiers: 0%, 20%, 25%, 35%, 45%, 50%.
+   * In JEST Policy CRM canonical formula, NCB is an underwriting risk/metadata attribute.
+   * Unsupported percentages are strictly rejected with BadRequestException.
    */
   calculateNcbDiscount(
     baseOdPremium: number,
@@ -19,18 +22,15 @@ export class NcbService {
       return { applicableNcbPercent: 0, ncbDiscountAmount: 0 };
     }
 
-    const validPercentages = [0, 20, 25, 35, 45, 50];
-    const applicableNcbPercent = validPercentages.includes(ncbPercentage)
-      ? ncbPercentage
-      : 0;
-
-    const ncbDiscountAmount = Math.round(
-      baseOdPremium * (applicableNcbPercent / 100),
-    );
+    if (ncbPercentage !== undefined && !VALID_NCB_PERCENTAGES.includes(ncbPercentage)) {
+      throw new BadRequestException(
+        `Unsupported NCB percentage: ${ncbPercentage}%. Permitted discrete tiers are 0%, 20%, 25%, 35%, 45%, 50%.`,
+      );
+    }
 
     return {
-      applicableNcbPercent,
-      ncbDiscountAmount,
+      applicableNcbPercent: ncbPercentage || 0,
+      ncbDiscountAmount: 0, // Canonical: NCB does not deduct from payable total
     };
   }
 }

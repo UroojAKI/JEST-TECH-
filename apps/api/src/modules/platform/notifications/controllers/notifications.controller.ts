@@ -41,8 +41,12 @@ export class NotificationsController {
 
   @Get('events')
   @ApiOperation({ summary: 'Get domain event telemetry stream' })
-  getEventStream(@Query('category') category?: string) {
-    return this.notificationService.getEventStream(category);
+  getEventStream(
+    @CurrentUser() user: RequestUser,
+    @Query('category') category?: string,
+  ) {
+    const companyId = user.companyId || (user as any).organizationId;
+    return this.notificationService.getEventStream(companyId, category);
   }
 
   @Get('templates')

@@ -54,14 +54,17 @@ export class QuotationCompletionService {
       );
 
     const quotation = await this.prisma.quotation.findFirst({
-      where: isUUID
-        ? {
-            OR: [
-              { id: quotationIdOrCode },
-              { quotationCode: quotationIdOrCode },
-            ],
-          }
-        : { quotationCode: quotationIdOrCode },
+      where: {
+        ...(isUUID
+          ? {
+              OR: [
+                { id: quotationIdOrCode },
+                { quotationCode: quotationIdOrCode },
+              ],
+            }
+          : { quotationCode: quotationIdOrCode }),
+        ...(actor?.companyId ? { companyId: actor.companyId } : {}),
+      },
       include: {
         contact: true,
         vehicle: true,

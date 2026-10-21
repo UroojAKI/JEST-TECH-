@@ -9,17 +9,20 @@ import { PrismaService } from '../../../database/prisma.service';
 export class KpiService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async listKpis(companyId?: string) {
-    const where: any = { isActive: true };
-    if (companyId) {
-      where.OR = [
-        { createdBy: { companyId } },
-        { createdBy: null },
-        { createdById: null },
-      ];
+  async listKpis(companyId: string) {
+    if (!companyId || typeof companyId !== 'string' || !companyId.trim()) {
+      throw new ForbiddenException('Tenant companyId is required to list KPIs');
     }
+    const cleanCompanyId = companyId.trim();
     return this.prisma.kpiDefinition.findMany({
-      where,
+      where: {
+        isActive: true,
+        OR: [
+          { createdBy: { companyId: cleanCompanyId } },
+          { createdBy: null },
+          { createdById: null },
+        ],
+      },
       orderBy: { displayOrder: 'asc' },
     });
   }
@@ -104,10 +107,27 @@ export class KpiService {
     });
   }
 
-  // Seed default KPIs on first run
-  async seedDefaultKpis(userId: string) {
-    const existing = await this.prisma.kpiDefinition.count();
-    if (existing > 0) return { seeded: false, message: 'KPIs already exist' };
+  // Seed default KPIs on first run with tenant scoping and concurrency safety (Phase 2)
+  async seedDefaultKpis(userId: string, companyId?: string) {
+    if (!userId) {
+      throw new ForbiddenException('User context is required to seed KPIs');
+    }
+
+    if (companyId) {
+      const existing = await this.prisma.kpiDefinition.count({
+        where: { createdBy: { companyId } },
+      });
+      if (existing > 0) {
+        return { seeded: false, message: 'KPIs already exist for this tenant' };
+      }
+    } else {
+      const existing = await this.prisma.kpiDefinition.count({
+        where: { createdById: null },
+      });
+      if (existing > 0) {
+        return { seeded: false, message: 'System template KPIs already exist' };
+      }
+    }
 
     const defaults = [
       {
@@ -184,19 +204,29 @@ export class KpiService {
       },
     ];
 
-    await Promise.all(
-      defaults.map((d) =>
-        this.prisma.kpiDefinition.create({
+    let seededCount = 0;
+    for (const d of defaults) {
+      const exists = await this.prisma.kpiDefinition.findFirst({
+        where: {
+          key: d.key,
+          ...(companyId
+            ? { createdBy: { companyId } }
+            : { createdById: null }),
+        },
+      });
+      if (!exists) {
+        await this.prisma.kpiDefinition.create({
           data: {
             ...d,
             unit: d.unit as any,
             isActive: true,
             createdById: userId,
           },
-        }),
-      ),
-    );
+        });
+        seededCount++;
+      }
+    }
 
-    return { seeded: true, count: defaults.length };
+    return { seeded: seededCount > 0, count: seededCount };
   }
 }

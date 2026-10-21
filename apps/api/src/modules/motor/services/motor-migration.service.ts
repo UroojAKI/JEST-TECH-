@@ -46,22 +46,22 @@ export class MotorQuotationMigrationService {
 
     // Find all quotation IDs that have more than 1 motor policy
     const duplicates = await (this.prisma as any).$queryRaw`
-      SELECT quotation_id, COUNT(*) as policy_count
+      SELECT "quotationId" AS "quotationId", "quotationId" AS quotation_id, COUNT(*) as policy_count
       FROM policies
-      WHERE product_type = 'MOTOR' AND quotation_id IS NOT NULL
-      GROUP BY quotation_id
+      WHERE "quotationId" IS NOT NULL
+      GROUP BY "quotationId"
       HAVING COUNT(*) > 1;
     `;
 
     let resolvedCount = 0;
 
     for (const dup of duplicates) {
-      const quotationId = dup.quotation_id;
+      const quotationId = dup.quotationId || dup.quotation_id;
       console.log(`[MIGRATION-POLICY-02] Resolving duplicate policies for quotationId: ${quotationId} (${dup.policy_count} policies found)`);
 
       // Fetch all policies for this quotation ordered by status priority (ISSUED first) and createdAt DESC
       const policies = await (this.prisma as any).policy.findMany({
-        where: { quotationId, productType: 'MOTOR' },
+        where: { quotationId },
         orderBy: [{ createdAt: 'desc' }],
       });
 
@@ -99,7 +99,7 @@ export class MotorQuotationMigrationService {
     // 1. Orphan proposals
     const orphanProposals = await (this.prisma as any).$queryRaw`
       SELECT COUNT(*) as count FROM proposals p
-      LEFT JOIN quotations q ON p.quotation_id = q.id
+      LEFT JOIN quotations q ON p."quotationId" = q.id
       WHERE q.id IS NULL;
     `;
     orphanCounts.proposals = Number(orphanProposals[0]?.count || 0);
@@ -107,7 +107,7 @@ export class MotorQuotationMigrationService {
     // 2. Orphan payments
     const orphanPayments = await (this.prisma as any).$queryRaw`
       SELECT COUNT(*) as count FROM motor_payment_records mpr
-      LEFT JOIN quotations q ON mpr.quotation_id = q.id
+      LEFT JOIN quotations q ON mpr."quotationId" = q.id
       WHERE q.id IS NULL;
     `;
     orphanCounts.payments = Number(orphanPayments[0]?.count || 0);
@@ -115,7 +115,7 @@ export class MotorQuotationMigrationService {
     // 3. Orphan inspections
     const orphanInspections = await (this.prisma as any).$queryRaw`
       SELECT COUNT(*) as count FROM motor_inspections mi
-      LEFT JOIN quotations q ON mi.quotation_id = q.id
+      LEFT JOIN quotations q ON mi."quotationId" = q.id
       WHERE q.id IS NULL;
     `;
     orphanCounts.inspections = Number(orphanInspections[0]?.count || 0);
@@ -280,10 +280,10 @@ export class MotorQuotationMigrationService {
     // 3. Post-migration MIGRATION-POLICY-03 Assertion
     const postDupQuery = await (this.prisma as any).$queryRaw`
       SELECT COUNT(*) as count FROM (
-        SELECT quotation_id
+        SELECT "quotationId"
         FROM policies
-        WHERE product_type = 'MOTOR' AND quotation_id IS NOT NULL
-        GROUP BY quotation_id
+        WHERE "quotationId" IS NOT NULL
+        GROUP BY "quotationId"
         HAVING COUNT(*) > 1
       ) t;
     `;

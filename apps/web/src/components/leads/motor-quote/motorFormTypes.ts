@@ -189,8 +189,25 @@ export interface PolicyFormTPOnly {
   commissionDiscountCalc: string; // Y — free text employee
   discountPercent?: string;       // Y — numeric discount
   tpDiscountPercent?: string;     // Y — numeric discount
+  commercialDiscountPercent?: string; // Canonical commercial discount on payable base (legacy %)
+  /** Phase 3 canonical: fixed ₹ commercial adjustment */
+  commercialAdjustmentAmount?: string;
+  commercialAdjustmentDirection?: 'ADD' | 'SUBTRACT';
+  addonsSelected?: string[];
+  addonPrices?: Record<string, string>;
+  addonDiscounts?: Record<string, string>;
+  addonGstRates?: Record<string, string>;
+  discountReason?: string;        // Justification or approval reference
   tpCommissionCalc?: string;      // Legacy field only; must not be derived from customer discount
   gstRate?: string;               // 5% vs 18% selectable GST
+  editedTpPremium?: string;       // Agent editable TP premium within bounds
+  editedPaPremium?: string;       // Agent editable PA premium within bounds
+  tpGstRate?: string;             // Component-specific GST rate
+  paGstRate?: string;             // Component-specific GST rate
+  tpPremiumOverride?: string;
+  gstAmountOverride?: string;
+  totalPremiumOverride?: string;
+  overrides?: Array<{ field: string; overrideValue: number; reason?: string }>;
   calculatedResult?: any;
 }
 
@@ -247,10 +264,29 @@ export interface PolicyFormSAOD {
   odCommissionPercent: string;   // Legacy draft field; commission requires approved insurer-specific configuration
   commissionAmount: string;      // Legacy draft field; do not calculate locally without approved commission rules
   discountPercent?: string;      // Customer OD discount percentage; premium amount is server-calculated
+  odDiscountPercent?: string;    // Customer OD discount percentage; premium amount is server-calculated
+  commercialDiscountPercent?: string; // Canonical commercial discount on payable base (legacy %)
+  /** Phase 3 canonical: fixed ₹ commercial adjustment */
+  commercialAdjustmentAmount?: string;
+  commercialAdjustmentDirection?: 'ADD' | 'SUBTRACT';
+  addonDiscounts?: Record<string, string>;
+  addonGstRates?: Record<string, string>;
+  discountReason?: string;        // Justification or approval reference
   discountAmount?: string;       // Server-calculated OD discount amount
   finalPayableAmount?: string;   // Authoritative server-calculated total including applicable tax
   commissionDiscountCalc: string; // Y — formatted calculator string
   gstRate?: string;               // 5% vs 18% selectable GST
+  editedOdRate?: string;          // Agent editable OD rate % within permissible bounds (legacy — use odPremiumAmount)
+  /** Phase 2 canonical: direct OD premium ₹ input */
+  odPremiumAmount?: string;
+  odGstRate?: string;             // Component-specific GST rate
+  odBasePremiumOverride?: string;
+  ncbDiscountOverride?: string;
+  addonPremiumOverride?: string;
+  netOdPremiumOverride?: string;
+  gstAmountOverride?: string;
+  totalPremiumOverride?: string;
+  overrides?: Array<{ field: string; overrideValue: number; reason?: string }>;
   calculatedResult?: any;
 }
 
@@ -277,11 +313,36 @@ export interface PolicyFormPackage {
   finalCommissionCalc: string;   // Legacy draft field only; never store customer discount here
   odDiscountPercent?: string;    // Y — numeric discount on OD
   tpDiscountPercent?: string;    // Y — numeric discount on TP
+  commercialDiscountPercent?: string; // Canonical commercial discount on payable base (legacy %)
+  /** Phase 3 canonical: fixed ₹ commercial adjustment (supersedes commercialDiscountPercent) */
+  commercialAdjustmentAmount?: string;
+  commercialAdjustmentDirection?: 'ADD' | 'SUBTRACT';
+  addonDiscounts?: Record<string, string>;
+  addonGstRates?: Record<string, string>;
+  discountReason?: string;        // Justification or approval reference
   odCommissionPercent?: string;  // Legacy draft field; requires an approved insurer/product/component rule
   tpCommissionPercent?: string;  // Legacy draft field; requires an approved insurer/product/component rule
   finalPayableAmount?: string;   // Net premium payable after discount + GST
   finalGstAmount?: string;       // Re-calculated GST after discount
   gstRate?: string;               // 5% vs 18% selectable GST
+  editedOdRate?: string;          // Agent editable OD rate % (legacy/deprecated — use odPremiumAmount)
+  editedOdGross?: string;         // Agent editable OD Gross ₹ (legacy/deprecated — use odPremiumAmount)
+  /** Phase 2 canonical: direct OD premium ₹ input (supersedes editedOdRate + editedOdGross) */
+  odPremiumAmount?: string;
+  editedTpPremium?: string;       // Agent editable TP premium ₹
+  editedPaPremium?: string;       // Agent editable PA premium ₹
+  editedPaidDriverPremium?: string; // Agent editable Paid Driver liability ₹
+  odGstRate?: string;             // Component-specific GST rate
+  tpGstRate?: string;             // Component-specific GST rate
+  paGstRate?: string;             // Component-specific GST rate
+  paidDriverGstRate?: string;     // Component-specific GST rate
+  odBasePremiumOverride?: string;
+  ncbDiscountOverride?: string;
+  addonPremiumOverride?: string;
+  netOdPremiumOverride?: string;
+  gstAmountOverride?: string;
+  totalPremiumOverride?: string;
+  overrides?: Array<{ field: string; overrideValue: number; reason?: string }>;
   calculatedResult?: any;
 }
 

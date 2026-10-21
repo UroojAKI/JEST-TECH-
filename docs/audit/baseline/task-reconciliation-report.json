@@ -1,0 +1,8 @@
+{
+  "timestamp": "2026-10-19T22:12:05.910Z",
+  "totalCandidates": 0,
+  "linkedViaQuotation": 0,
+  "linkedViaLead": 0,
+  "unresolvable": 0,
+  "strategy": "non-destructive reconciliation via UNRESOLVED_MIGRATION as defined in WF-006B"
+}

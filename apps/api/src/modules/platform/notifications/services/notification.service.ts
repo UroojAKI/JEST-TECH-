@@ -121,8 +121,13 @@ export class NotificationService {
     }));
   }
 
-  async getEventStream(category?: string) {
+  async getEventStream(companyId?: string, category?: string) {
+    const where: any = {};
+    if (companyId) {
+      where.user = { companyId };
+    }
     const auditLogs = await this.prisma.auditLog.findMany({
+      where,
       take: 50,
       orderBy: { createdAt: 'desc' },
     });

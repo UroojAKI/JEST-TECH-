@@ -111,10 +111,51 @@ export class CreateQuotationVersionService {
                   (Number(dto.discountAmount) / Number(dto.basePremium)) * 100,
                 )
               : 0),
-          tpDiscountPercent: dto.metadata?.tpDiscountPercent ?? 0,
-          addons: dto.addons?.map((a) => ({
+          commercialDiscountPercent:
+            dto.metadata?.commercialDiscountPercent ??
+            (quotation.versions?.[0]?.metadata as any)?.commercialDiscountPercent ??
+            (quotation.calculationSnapshot as any)?.inputs?.commercialDiscountPercent,
+          commercialAdjustment:
+            (dto.metadata as any)?.commercialAdjustment ??
+            dto.metadata?.commercialAdjustmentAmount ??
+            (quotation.versions?.[0]?.metadata as any)?.commercialAdjustment ??
+            (quotation.versions?.[0]?.metadata as any)?.commercialAdjustmentAmount ??
+            (quotation.calculationSnapshot as any)?.inputs?.commercialAdjustment ??
+            (quotation.calculationSnapshot as any)?.inputs?.commercialAdjustmentAmount ??
+            (quotation.motorMetadata as any)?.policyDetails?.commercialAdjustment ??
+            (quotation.motorMetadata as any)?.policyDetails?.commercialAdjustmentAmount,
+          commercialAdjustmentAmount:
+            dto.metadata?.commercialAdjustmentAmount ??
+            (dto.metadata as any)?.commercialAdjustment ??
+            (quotation.versions?.[0]?.metadata as any)?.commercialAdjustmentAmount ??
+            (quotation.versions?.[0]?.metadata as any)?.commercialAdjustment ??
+            (quotation.calculationSnapshot as any)?.inputs?.commercialAdjustmentAmount ??
+            (quotation.calculationSnapshot as any)?.inputs?.commercialAdjustment ??
+            (quotation.motorMetadata as any)?.policyDetails?.commercialAdjustmentAmount ??
+            (quotation.motorMetadata as any)?.policyDetails?.commercialAdjustment,
+          commercialAdjustmentDirection:
+            dto.metadata?.commercialAdjustmentDirection ??
+            (dto.metadata as any)?.commercialAdjustmentType ??
+            (quotation.versions?.[0]?.metadata as any)?.commercialAdjustmentDirection ??
+            (quotation.calculationSnapshot as any)?.inputs?.commercialAdjustmentDirection ??
+            (quotation.motorMetadata as any)?.policyDetails?.commercialAdjustmentDirection ??
+            'SUBTRACT',
+          odDiscountPercent:
+            dto.metadata?.odDiscountPercent ??
+            (quotation.versions?.[0]?.metadata as any)?.odDiscountPercent ??
+            (quotation.calculationSnapshot as any)?.inputs?.odDiscountPercent ??
+            0,
+          tpDiscountPercent:
+            dto.metadata?.tpDiscountPercent ??
+            (quotation.versions?.[0]?.metadata as any)?.tpDiscountPercent ??
+            (quotation.calculationSnapshot as any)?.inputs?.tpDiscountPercent ??
+            0,
+          addons: dto.addons?.map((a: any) => ({
             addonCode: a.addonCode,
             manualPrice: undefined,
+            amount: a.amount !== undefined ? Number(a.amount) : (a.premium !== undefined ? Number(a.premium) : undefined),
+            discountPercent: a.discountPercent !== undefined ? Number(a.discountPercent) : undefined,
+            gstRate: a.gstRate !== undefined ? Number(a.gstRate) : undefined,
           })),
           engineCc:
             vehicleData.engineCapacityCcOrKw ?? dto.metadata?.engineCc,
@@ -129,6 +170,69 @@ export class CreateQuotationVersionService {
           approvalReference: dto.metadata?.approvalReference,
           previousPolicyExpiryDate: dto.metadata?.previousPolicyExpiryDate,
           policyStartDate: dto.metadata?.policyStartDate,
+          odPremium:
+            (dto.metadata as any)?.odPremium ??
+            dto.metadata?.odPremiumAmount ??
+            (quotation.versions?.[0]?.metadata as any)?.odPremium ??
+            (quotation.versions?.[0]?.metadata as any)?.odPremiumAmount ??
+            (quotation.calculationSnapshot as any)?.inputs?.odPremium ??
+            (quotation.calculationSnapshot as any)?.inputs?.odPremiumAmount ??
+            (quotation.motorMetadata as any)?.policyDetails?.odPremium ??
+            (quotation.motorMetadata as any)?.policyDetails?.odPremiumAmount,
+          odPremiumAmount:
+            dto.metadata?.odPremiumAmount ??
+            (dto.metadata as any)?.odPremium ??
+            (quotation.versions?.[0]?.metadata as any)?.odPremiumAmount ??
+            (quotation.versions?.[0]?.metadata as any)?.odPremium ??
+            (quotation.calculationSnapshot as any)?.inputs?.odPremiumAmount ??
+            (quotation.calculationSnapshot as any)?.inputs?.odPremium ??
+            (quotation.motorMetadata as any)?.policyDetails?.odPremiumAmount ??
+            (quotation.motorMetadata as any)?.policyDetails?.odPremium,
+          editedOdRate: undefined,
+          annualTpPremium:
+            (dto.metadata as any)?.annualTpPremium ??
+            dto.metadata?.editedTpAnnualPremium ??
+            dto.metadata?.editedTpPremium ??
+            (quotation.versions?.[0]?.metadata as any)?.annualTpPremium ??
+            (quotation.versions?.[0]?.metadata as any)?.editedTpAnnualPremium ??
+            (quotation.versions?.[0]?.metadata as any)?.editedTpPremium ??
+            (quotation.calculationSnapshot as any)?.inputs?.annualTpPremium ??
+            (quotation.calculationSnapshot as any)?.inputs?.editedTpAnnualPremium ??
+            (quotation.calculationSnapshot as any)?.inputs?.editedTpPremium,
+          editedTpAnnualPremium:
+            dto.metadata?.editedTpAnnualPremium ??
+            dto.metadata?.editedTpPremium ??
+            (quotation.versions?.[0]?.metadata as any)?.editedTpAnnualPremium ??
+            (quotation.versions?.[0]?.metadata as any)?.editedTpPremium ??
+            (quotation.calculationSnapshot as any)?.inputs?.editedTpAnnualPremium ??
+            (quotation.calculationSnapshot as any)?.inputs?.editedTpPremium,
+          editedTpPremium:
+            dto.metadata?.editedTpPremium ??
+            dto.metadata?.editedTpAnnualPremium ??
+            (quotation.versions?.[0]?.metadata as any)?.editedTpPremium ??
+            (quotation.versions?.[0]?.metadata as any)?.editedTpAnnualPremium ??
+            (quotation.calculationSnapshot as any)?.inputs?.editedTpPremium ??
+            (quotation.motorMetadata as any)?.policyDetails?.editedTpPremium,
+          editedPaPremium:
+            dto.metadata?.editedPaPremium ??
+            (quotation.versions?.[0]?.metadata as any)?.editedPaPremium ??
+            (quotation.calculationSnapshot as any)?.inputs?.editedPaPremium ??
+            (quotation.motorMetadata as any)?.policyDetails?.editedPaPremium,
+          odGstRate:
+            dto.metadata?.odGstRate ??
+            (quotation.versions?.[0]?.metadata as any)?.odGstRate ??
+            (quotation.calculationSnapshot as any)?.inputs?.odGstRate ??
+            (quotation.motorMetadata as any)?.policyDetails?.odGstRate,
+          tpGstRate:
+            dto.metadata?.tpGstRate ??
+            (quotation.versions?.[0]?.metadata as any)?.tpGstRate ??
+            (quotation.calculationSnapshot as any)?.inputs?.tpGstRate ??
+            (quotation.motorMetadata as any)?.policyDetails?.tpGstRate,
+          paGstRate:
+            dto.metadata?.paGstRate ??
+            (quotation.versions?.[0]?.metadata as any)?.paGstRate ??
+            (quotation.calculationSnapshot as any)?.inputs?.paGstRate ??
+            (quotation.motorMetadata as any)?.policyDetails?.paGstRate,
         };
 
         const calc = await this.motorCalculationService.calculate(motorInput);

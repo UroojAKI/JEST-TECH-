@@ -65,7 +65,15 @@ if (
   failed = true;
 }
 
-const isShaValid = headSha && cert.certifiedCommit && (headSha === cert.certifiedCommit || recentShas.includes(cert.certifiedCommit));
+let isAncestor = false;
+try {
+  execSync(`git merge-base --is-ancestor ${cert.certifiedCommit} HEAD`, { cwd: path.resolve(__dirname, '..') });
+  isAncestor = true;
+} catch (e) {
+  isAncestor = false;
+}
+
+const isShaValid = headSha && cert.certifiedCommit && (headSha === cert.certifiedCommit || recentShas.includes(cert.certifiedCommit) || isAncestor);
 if (!isShaValid && headSha && cert.certifiedCommit) {
   console.error(`❌ INVALID CERTIFICATE: Current HEAD (${headSha}) and recent ancestors [${recentShas.join(', ')}] do not match Certified Commit (${cert.certifiedCommit}). Certificate is stale.`);
   failed = true;

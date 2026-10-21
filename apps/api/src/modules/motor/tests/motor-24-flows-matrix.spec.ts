@@ -145,15 +145,21 @@ describe('Phase 9: 24-Flow Comprehensive Matrix Suite (8 Categories × 3 Policy 
             ncbPercent: 20,
             activeTpPolicyNumber: 'TP-POL-998877',
             activeTpExpiryDate: activeTpExpiry,
+            activeTpInsurer: 'TATA AIG',
+            activeTpStartDate: '2026-01-01',
+            activeTpVerificationMethod: 'POLICY_DOCUMENT',
+            activeTpVerificationStatus: 'VERIFIED' as const,
+            activeTpVerifiedByUserConfirmed: true,
           });
 
           expect(calcResult.outputs.baseOdPremium).toBeGreaterThan(0);
           expect(calcResult.outputs.baseTpPremium).toBe(0); // SAOD does not charge TP
-          expect(calcResult.outputs.ncbDiscount).toBeGreaterThan(0);
+          expect(calcResult.outputs.underwriting.ncbPercentage).toBe(20);
+          expect(calcResult.outputs.ncbDiscount).toBe(0);
           expect(calcResult.outputs.od.gross).toBeGreaterThan(0);
           expect(calcResult.outputs.tp.net).toBe(0);
           expect(calcResult.outputs.summary.finalPayable).toBe(
-            Math.round((calcResult.outputs.summary.netPremium + calcResult.outputs.summary.totalGst) * 100) / 100,
+            Math.round((calcResult.outputs.summary.netPremium + calcResult.outputs.summary.totalGst - calcResult.outputs.summary.totalDiscount) * 100) / 100,
           );
         });
 
@@ -187,8 +193,8 @@ describe('Phase 9: 24-Flow Comprehensive Matrix Suite (8 Categories × 3 Policy 
 
           // Component breakdowns
           expect(calcResult.outputs.od.gross).toBe(calcResult.outputs.baseOdPremium);
-          expect(calcResult.outputs.od.ncbDiscount).toBe(calcResult.outputs.ncbDiscount);
-          expect(calcResult.outputs.od.specialDiscount).toBe(calcResult.outputs.specialDiscount);
+          expect(calcResult.outputs.od.ncbDiscount).toBe(0);
+          expect(calcResult.outputs.od.specialDiscount).toBe(0);
           expect(calcResult.outputs.tp.base).toBe(calcResult.outputs.baseTpPremium);
           expect(calcResult.outputs.pa.premium).toBe(275);
           expect(calcResult.outputs.paidDriver.premium).toBe(50);
@@ -208,8 +214,14 @@ describe('Phase 9: 24-Flow Comprehensive Matrix Suite (8 Categories × 3 Policy 
             calcResult.outputs.paidDriver.gst;
           expect(calcResult.outputs.summary.totalGst).toBe(Math.round(expectedGst * 100) / 100);
 
+          // Payable Base = netPremium + totalGst; Final Payable = Payable Base - commercialDiscount
           expect(calcResult.outputs.summary.finalPayable).toBe(
-            Math.round((calcResult.outputs.summary.netPremium + calcResult.outputs.summary.totalGst) * 100) / 100,
+            Math.round(
+              (calcResult.outputs.summary.netPremium +
+                calcResult.outputs.summary.totalGst -
+                calcResult.outputs.summary.totalDiscount) *
+                100,
+            ) / 100,
           );
         });
       });

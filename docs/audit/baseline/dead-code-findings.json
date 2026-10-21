@@ -1,133 +1,133 @@
 [
   {
     "file": "apps/api/src/main.ts",
-    "line": 173,
+    "line": 186,
     "type": "CONSOLE_LOG",
     "content": "console.log("
   },
   {
     "file": "apps/api/src/modules/motor/services/motor-migration.service.ts",
-    "line": 30,
+    "line": 45,
     "type": "CONSOLE_LOG",
     "content": "console.log('[MIGRATION-POLICY-01] Scanning for duplicate motor policies per quotationId...');"
   },
   {
     "file": "apps/api/src/modules/motor/services/motor-migration.service.ts",
-    "line": 45,
+    "line": 60,
     "type": "CONSOLE_LOG",
     "content": "console.log(`[MIGRATION-POLICY-02] Resolving duplicate policies for quotationId: ${quotationId} (${dup.policy_count} policies found)`);"
   },
   {
     "file": "apps/api/src/modules/motor/services/motor-migration.service.ts",
-    "line": 60,
+    "line": 75,
     "type": "CONSOLE_LOG",
     "content": "console.log(`   Deduplicating redundant policy ${redundant.policyNumber} (id: ${redundant.id})`);"
   },
   {
     "file": "apps/api/src/modules/motor/services/motor-migration.service.ts",
-    "line": 116,
+    "line": 155,
     "type": "CONSOLE_LOG",
     "content": "console.log('========================================================================');"
   },
   {
     "file": "apps/api/src/modules/motor/services/motor-migration.service.ts",
-    "line": 117,
+    "line": 156,
     "type": "CONSOLE_LOG",
     "content": "console.log(`🚀 PHASE 32: MOTOR-MIGRATION-01 (DryRun: ${isDryRun})`);"
   },
   {
     "file": "apps/api/src/modules/motor/services/motor-migration.service.ts",
-    "line": 118,
+    "line": 157,
     "type": "CONSOLE_LOG",
     "content": "console.log('========================================================================');"
   },
   {
     "file": "apps/api/src/modules/motor/services/motor-migration.service.ts",
-    "line": 133,
+    "line": 174,
     "type": "CONSOLE_LOG",
     "content": "console.log(`Found ${legacyMotorQuotes.length} legacy MotorQuotation records to reconcile.`);"
   },
   {
     "file": "apps/api/src/modules/motor/services/motor-migration.service.ts",
-    "line": 274,
+    "line": 315,
     "type": "CONSOLE_LOG",
     "content": "console.log('------------------------------------------------------------------------');"
   },
   {
     "file": "apps/api/src/modules/motor/services/motor-migration.service.ts",
-    "line": 275,
+    "line": 316,
     "type": "CONSOLE_LOG",
     "content": "console.log('Migration Summary:');"
   },
   {
     "file": "apps/api/src/modules/motor/services/motor-migration.service.ts",
-    "line": 276,
+    "line": 317,
     "type": "CONSOLE_LOG",
     "content": "console.log(`  Legacy Records:              ${summary.legacyCount}`);"
   },
   {
     "file": "apps/api/src/modules/motor/services/motor-migration.service.ts",
-    "line": 277,
+    "line": 318,
     "type": "CONSOLE_LOG",
     "content": "console.log(`  Migrated:                    ${summary.migratedCount}`);"
   },
   {
     "file": "apps/api/src/modules/motor/services/motor-migration.service.ts",
-    "line": 278,
+    "line": 319,
     "type": "CONSOLE_LOG",
     "content": "console.log(`  Skipped (Already migrated):  ${summary.skippedCount}`);"
   },
   {
     "file": "apps/api/src/modules/motor/services/motor-migration.service.ts",
-    "line": 279,
+    "line": 320,
     "type": "CONSOLE_LOG",
     "content": "console.log(`  Duplicate Policies Resolved: ${summary.duplicatePoliciesResolved}`);"
   },
   {
     "file": "apps/api/src/modules/motor/services/motor-migration.service.ts",
-    "line": 280,
+    "line": 321,
     "type": "CONSOLE_LOG",
     "content": "console.log(`  Legacy Gross Premium:        ₹${summary.legacyTotalGross}`);"
   },
   {
     "file": "apps/api/src/modules/motor/services/motor-migration.service.ts",
-    "line": 281,
+    "line": 322,
     "type": "CONSOLE_LOG",
     "content": "console.log(`  Canonical Gross Premium:     ₹${summary.canonicalTotalGross}`);"
   },
   {
     "file": "apps/api/src/modules/motor/services/motor-migration.service.ts",
-    "line": 282,
+    "line": 323,
     "type": "CONSOLE_LOG",
     "content": "console.log(`  Legacy GST Amount:           ₹${summary.legacyTotalGst}`);"
   },
   {
     "file": "apps/api/src/modules/motor/services/motor-migration.service.ts",
-    "line": 283,
+    "line": 324,
     "type": "CONSOLE_LOG",
     "content": "console.log(`  Canonical GST Amount:        ₹${summary.canonicalTotalGst}`);"
   },
   {
     "file": "apps/api/src/modules/motor/services/motor-migration.service.ts",
-    "line": 284,
+    "line": 325,
     "type": "CONSOLE_LOG",
     "content": "console.log(`  Financial Reconciliation:    ${summary.financialReconciliationPass ? '✅ PASS' : '❌ FAIL'}`);"
   },
   {
     "file": "apps/api/src/modules/motor/services/motor-migration.service.ts",
-    "line": 285,
+    "line": 326,
     "type": "CONSOLE_LOG",
     "content": "console.log(`  Policy Uniqueness:           ${summary.policyUniquenessPass ? '✅ PASS' : '❌ FAIL'}`);"
   },
   {
     "file": "apps/api/src/modules/motor/services/motor-migration.service.ts",
-    "line": 286,
+    "line": 327,
     "type": "CONSOLE_LOG",
     "content": "console.log(`  Zero Orphan Check:           ${summary.zeroOrphanPass ? '✅ PASS' : '❌ FAIL'}`);"
   },
   {
     "file": "apps/api/src/modules/motor/services/motor-migration.service.ts",
-    "line": 287,
+    "line": 328,
     "type": "CONSOLE_LOG",
     "content": "console.log('------------------------------------------------------------------------');"
   },
@@ -144,26 +144,14 @@
     "content": ".catch((error) => console.log('Error terminating tracing', error))"
   },
   {
-    "file": "apps/web/src/components/customer/customer-alerts-queue.tsx",
-    "line": 23,
-    "type": "EMPTY_CATCH",
-    "content": "} catch (e) {}"
-  },
-  {
-    "file": "apps/web/src/components/customer/customer-alerts-queue.tsx",
-    "line": 35,
-    "type": "EMPTY_CATCH",
-    "content": "} catch (e) {}"
-  },
-  {
-    "file": "apps/web/src/components/customer/tabs/CustomerTabsContainer.tsx",
-    "line": 435,
-    "type": "EMPTY_CATCH",
-    "content": "} catch (e) {}"
-  },
-  {
     "file": "apps/web/src/hooks/useAuth.ts",
     "line": 50,
+    "type": "EMPTY_CATCH",
+    "content": "} catch (_) {}"
+  },
+  {
+    "file": "apps/web/src/lib/api-client.ts",
+    "line": 178,
     "type": "EMPTY_CATCH",
     "content": "} catch (_) {}"
   }

@@ -1,10 +1,12 @@
-import React, { useEffect } from 'react';
-import { ShieldCheck, AlertTriangle, CheckCircle, Info, Calculator, Percent } from 'lucide-react';
+import React, { useEffect, useRef } from 'react';
+import { ShieldCheck, AlertTriangle, CheckCircle, Info, Percent } from 'lucide-react';
 import { INSURER_OPTIONS, NCB_OPTIONS, ADDON_OPTIONS } from './motorFormConfig';
 import type { PolicyFormSAOD, SaodTpVerification, VehicleCategory, MotorEligibilityContext } from './motorFormTypes';
 import { GstRateSelector } from './GstRateSelector';
-import { CommissionBreakdownPanel } from './CommissionBreakdownPanel';
 import { useMotorCalculator } from './useMotorCalculator';
+import { NcbSlider } from './NcbSlider';
+import { OverrideFieldCard } from './OverrideFieldCard';
+import { SaodTpVerificationCard } from './SaodTpVerificationCard';
 
 interface Props {
   category?: VehicleCategory;
@@ -51,7 +53,12 @@ export function PolicyFormSAODForm({ category, vehicleStatus, data, onChange, el
     onChange({ ...data, [key]: e.target.value });
 
   const setVerification = (key: keyof SaodTpVerification, value: string | boolean) => {
-    const updatedVerification: SaodTpVerification = { ...data.tpVerification, [key]: value };
+    const shouldResetConfirmation = key !== 'verifiedByUserConfirmed' && key !== 'verificationStatus';
+    const updatedVerification: SaodTpVerification = {
+      ...data.tpVerification,
+      [key]: value,
+      ...(shouldResetConfirmation ? { verifiedByUserConfirmed: false, verificationStatus: 'PENDING' } : {}),
+    };
     onChange({
       ...data,
       tpVerification: updatedVerification,
@@ -62,12 +69,26 @@ export function PolicyFormSAODForm({ category, vehicleStatus, data, onChange, el
 
   const effectiveCategory = category || 'PRIVATE_CAR';
   const effectiveStatus = eligibility ? eligibility.vehicleStatus : (vehicleStatus || 'EXISTING');
+  const activeTpIsVerified = Boolean(
+    data.tpVerification?.tpInsurer &&
+    data.tpVerification?.tpPolicyNumber &&
+    data.tpVerification?.tpStartDate &&
+    data.tpVerification?.tpExpiryDate &&
+    data.tpVerification?.verificationMethod &&
+    data.tpVerification?.verificationStatus === 'VERIFIED' &&
+    data.tpVerification?.verifiedByUserConfirmed
+  );
 
   useEffect(() => {
-    if (data.odCommissionPercent || data.commissionAmount) {
-      onChange({ ...data, odCommissionPercent: '', commissionAmount: '' });
+    if (data.odCommissionPercent || data.commissionAmount || data.ncbDiscountOverride !== undefined) {
+      onChange({
+        ...data,
+        odCommissionPercent: '',
+        commissionAmount: '',
+        ncbDiscountOverride: undefined,
+      });
     }
-    // Legacy commission values were user-entered and are not an approved calculation result.
+    // Clear legacy commission and manual NCB amount overrides when opening the SAOD form.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -80,60 +101,117 @@ export function PolicyFormSAODForm({ category, vehicleStatus, data, onChange, el
     vehicleStatus: effectiveStatus,
     policyType: 'STANDALONE_OD',
     policyTenure: 1,
+    // Do not calculate SAOD premium against unconfirmed TP information.
+    activeTpPolicyNumber: activeTpIsVerified ? data.tpVerification?.tpPolicyNumber : undefined,
+    activeTpExpiryDate: activeTpIsVerified ? data.tpVerification?.tpExpiryDate : undefined,
+    activeTpInsurer: activeTpIsVerified ? data.tpVerification?.tpInsurer : undefined,
+    activeTpStartDate: activeTpIsVerified ? data.tpVerification?.tpStartDate : undefined,
+    activeTpVerificationMethod: activeTpIsVerified ? data.tpVerification?.verificationMethod : undefined,
+    activeTpVerificationStatus: activeTpIsVerified ? data.tpVerification?.verificationStatus : undefined,
+    activeTpVerifiedByUserConfirmed: activeTpIsVerified ? data.tpVerification?.verifiedByUserConfirmed : false,
     idv: parseFloat(data.insuredDeclaredValue || '0') || 0,
+    // NCB eligibility remains derived from the policy; the separate NCB amount override is removed from the SAOD UI.
     ncbPercent: parseInt(data.ncbPercentage || '0') || 0,
     claimInExpiringPolicy: data.claimInExpiringODPolicy === 'Yes',
+    odDiscountPercent: parseFloat(data.odDiscountPercent || data.discountPercent || '0') || 0,
     discountPercent: parseFloat(data.discountPercent || '0') || 0,
-    gstRate: data.gstRate ? parseInt(data.gstRate) : 18,
+    ...(data.commercialAdjustmentAmount !== undefined && data.commercialAdjustmentAmount !== '' && !isNaN(parseFloat(data.commercialAdjustmentAmount))
+      ? {
+          commercialAdjustment: parseFloat(data.commercialAdjustmentAmount),
+          commercialAdjustmentAmount: parseFloat(data.commercialAdjustmentAmount),
+        }
+      : {
+          commercialDiscountPercent: parseFloat(data.commercialDiscountPercent || '0') || 0,
+        }),
+    commercialAdjustmentDirection: data.commercialAdjustmentDirection || 'SUBTRACT',
+    discountReason: data.discountReason || undefined,
     engineCc,
     seatingCapacity,
     gvwKg,
-    addons: (data.addonsSelected || []).map((a) => ({ addonCode: a })),
+    odGstRate: data.odGstRate ? parseInt(data.odGstRate) : (data.gstRate ? parseInt(data.gstRate) : 18),
+    // Direct OD premium ₹ (canonical Field 1)
+    ...(data.odPremiumAmount !== undefined && data.odPremiumAmount !== '' && !isNaN(parseFloat(data.odPremiumAmount))
+      ? {
+          odPremium: parseFloat(data.odPremiumAmount),
+          odPremiumAmount: parseFloat(data.odPremiumAmount),
+          odBasePremium: parseFloat(data.odPremiumAmount),
+        }
+      : (data.odBasePremiumOverride !== undefined && data.odBasePremiumOverride !== '' && !isNaN(parseFloat(data.odBasePremiumOverride))
+          ? {
+              odPremium: parseFloat(data.odBasePremiumOverride),
+              odPremiumAmount: parseFloat(data.odBasePremiumOverride),
+              odBasePremium: parseFloat(data.odBasePremiumOverride),
+            }
+          : {})),
+    // SAOD discount is entered as a percentage through discountPercent/odDiscountPercent.
+    // Field 3: Add-on Premium override
+    ...(data.addonPremiumOverride !== undefined && data.addonPremiumOverride !== '' && !isNaN(parseFloat(data.addonPremiumOverride))
+      ? { addonPremium: parseFloat(data.addonPremiumOverride) }
+      : {}),
+    // Field 4: Net OD Premium override (Field 10)
+    ...(data.netOdPremiumOverride !== undefined && data.netOdPremiumOverride !== '' && !isNaN(parseFloat(data.netOdPremiumOverride))
+      ? { netOdPremium: parseFloat(data.netOdPremiumOverride) }
+      : {}),
+    // Field 5: Statutory GST override
+    ...(data.gstAmountOverride !== undefined && data.gstAmountOverride !== '' && !isNaN(parseFloat(data.gstAmountOverride))
+      ? { gstAmount: parseFloat(data.gstAmountOverride) }
+      : {}),
+    // Field 6: Total Premium override (Field 11)
+    ...(data.totalPremiumOverride !== undefined && data.totalPremiumOverride !== '' && !isNaN(parseFloat(data.totalPremiumOverride))
+      ? { totalPremiumOverride: parseFloat(data.totalPremiumOverride) }
+      : {}),
+    addons: (data.addonsSelected || []).map((a) => ({
+      addonCode: a,
+      editedPrice: data.addonPrices?.[a] && parseFloat(data.addonPrices[a]) > 0 ? parseFloat(data.addonPrices[a]) : undefined,
+      amount: data.addonPrices?.[a] && parseFloat(data.addonPrices[a]) > 0 ? parseFloat(data.addonPrices[a]) : undefined,
+      discountPercent: data.addonDiscounts?.[a] && !isNaN(parseFloat(data.addonDiscounts[a])) ? parseFloat(data.addonDiscounts[a]) : undefined,
+      gstRate: data.addonGstRates?.[a] && !isNaN(parseInt(data.addonGstRates[a])) ? parseInt(data.addonGstRates[a]) : undefined,
+    })),
   });
 
+  const dataRef = useRef(data);
   useEffect(() => {
-    if ((loading || error) && (data.calculatedResult || data.totalPremiumInclGST || data.finalPayableAmount || data.odPremium || data.gstAmount || data.addOnsPremium)) {
+    dataRef.current = data;
+  }, [data]);
+
+  useEffect(() => {
+    if (error && dataRef.current.calculatedResult) {
+      const current = dataRef.current;
       onChange({
-        ...data,
+        ...current,
         calculatedResult: undefined,
-        totalPremiumInclGST: '',
-        finalPayableAmount: '',
-        odPremium: '',
-        gstAmount: '',
-        addOnsPremium: '',
-        ncbDiscountAmount: '',
-        discountAmount: '',
+        totalPremiumInclGST: current.totalPremiumOverride ?? '',
+        finalPayableAmount: current.totalPremiumOverride ?? '',
       });
     }
-    // Prevent a prior vehicle calculation being submitted after a failed request.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loading, error]);
+  }, [error]);
 
   useEffect(() => {
     if (result && result.outputs) {
       const outputs = result.outputs;
+      const current = dataRef.current;
       const netOd = (outputs.netOdPremium ?? outputs.netOdComponent ?? 0).toString();
       const ncbDiscount = (outputs.ncbDiscount ?? 0).toString();
       const addOnsTotal = (outputs.addonPremium ?? 0).toString();
-      const gst = (outputs.totalGst ?? outputs.gstOnOd ?? 0).toString();
-      const total = (outputs.finalPayableAmount ?? outputs.totalPremium ?? 0).toString();
-      // Keep the discretionary OD discount separate from NCB in the user-facing breakdown.
+      const gst = (outputs.summary?.totalGst ?? outputs.totalGst ?? outputs.gstOnOd ?? 0).toString();
+      const total = (outputs.summary?.finalPayable ?? outputs.finalPayableAmount ?? outputs.totalPremium ?? 0).toString();
       const dAmt = (outputs.specialDiscount ?? 0).toString();
       const baseOd = (outputs.baseOdPremium ?? 0).toString();
 
       onChange({
-        ...data,
-        odPremiumBase: baseOd || data.odPremiumBase,
-        addOnsPremium: addOnsTotal,
+        ...current,
+        odPremiumBase: baseOd || current.odPremiumBase,
+        addOnsPremium: current.addonPremiumOverride ?? addOnsTotal,
         ncbDiscountAmount: ncbDiscount,
-        odPremium: netOd,
-        gstAmount: gst,
-        totalPremiumInclGST: total,
+        odPremium: current.netOdPremiumOverride ?? netOd,
+        gstAmount: current.gstAmountOverride ?? gst,
+        totalPremiumInclGST: current.totalPremiumOverride ?? total,
         discountAmount: dAmt,
         odCommissionPercent: '',
         commissionAmount: '',
-        finalPayableAmount: total,
-        gstRate: (result.rateConfig?.gstRatePercent ?? (data.gstRate ? parseInt(data.gstRate) : 18)).toString(),
+        finalPayableAmount: current.totalPremiumOverride ?? total,
+        gstRate: (result.rateConfig?.gstRatePercent ?? (current.gstRate ? parseInt(current.gstRate) : 18)).toString(),
         calculatedResult: result,
       });
     }
@@ -154,15 +232,28 @@ export function PolicyFormSAODForm({ category, vehicleStatus, data, onChange, el
   };
 
   const handleDiscountPercentChange = (val: string) => {
-    onChange({ ...data, discountPercent: val });
+    onChange({ ...data, discountPercent: val, odDiscountPercent: val });
   };
 
   const verification = data.tpVerification;
   const isVerified = verification?.verificationStatus === 'VERIFIED' && verification?.verifiedByUserConfirmed;
   const tpExpired = verification?.tpExpiryDate ? new Date(verification.tpExpiryDate) <= new Date() : false;
-  const hasValidCalculation = !loading && !error && Boolean(result);
-  const outputs = hasValidCalculation ? (result?.outputs || {}) : {};
+  const effectiveResult = result || data.calculatedResult;
+  const hasValidCalculation = Boolean(effectiveResult?.outputs);
+  const outputs = effectiveResult?.outputs || {};
   const itemizedAddons: any[] = Array.isArray(outputs.itemizedAddons) ? outputs.itemizedAddons : [];
+
+  const hasOdBaseOverride = Boolean((data.odPremiumAmount !== undefined && data.odPremiumAmount !== '') || (data.odBasePremiumOverride !== undefined && data.odBasePremiumOverride !== ''));
+  const hasAddonOverride = Boolean(data.addonPremiumOverride !== undefined && data.addonPremiumOverride !== '');
+  const hasNetOdOverride = Boolean(data.netOdPremiumOverride !== undefined && data.netOdPremiumOverride !== '');
+  const hasGstOverride = Boolean(data.gstAmountOverride !== undefined && data.gstAmountOverride !== '');
+  const hasTotalOverride = Boolean(data.totalPremiumOverride !== undefined && data.totalPremiumOverride !== '');
+
+  const odBaseStatus = hasOdBaseOverride ? 'MANUAL' : 'CALCULATED';
+  const addonStatus = hasAddonOverride ? 'MANUAL' : 'CALCULATED';
+  const netOdStatus = hasNetOdOverride ? 'MANUAL' : ((hasOdBaseOverride || hasAddonOverride) ? 'RECALCULATED' : 'CALCULATED');
+  const gstStatus = hasGstOverride ? 'MANUAL' : ((hasOdBaseOverride || hasAddonOverride || hasNetOdOverride) ? 'RECALCULATED' : 'CALCULATED');
+  const totalStatus = hasTotalOverride ? 'MANUAL' : ((hasOdBaseOverride || hasAddonOverride || hasNetOdOverride || hasGstOverride) ? 'RECALCULATED' : 'CALCULATED');
 
   return (
     <div className="space-y-4">
@@ -176,142 +267,17 @@ export function PolicyFormSAODForm({ category, vehicleStatus, data, onChange, el
       </div>
 
       {/* SAOD TP VERIFICATION PANEL */}
-      <div className={`p-4 rounded-xl border-2 space-y-4 ${
-        isVerified
-          ? 'border-emerald-500/40 bg-emerald-500/5'
-          : 'border-amber-400/40 bg-amber-50/30 dark:bg-amber-900/10'
-      }`}>
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            {isVerified
-              ? <CheckCircle className="h-4 w-4 text-emerald-600" />
-              : <AlertTriangle className="h-4 w-4 text-amber-600" />
-            }
-            <span className={`text-sm font-black ${
-              isVerified ? 'text-emerald-700 dark:text-emerald-400' : 'text-amber-700 dark:text-amber-400'
-            }`}>
-              Active TP Policy Verification
-            </span>
-            {isVerified && (
-              <span className="px-2 py-0.5 rounded-full text-[9px] font-black bg-emerald-500/20 text-emerald-700 uppercase">VERIFIED</span>
-            )}
-            {tpExpired && (
-              <span className="px-2 py-0.5 rounded-full text-[9px] font-black bg-rose-500/20 text-rose-700 uppercase">TP EXPIRED</span>
-            )}
-          </div>
-          <div className="text-[9px] text-muted-foreground font-bold">Compliance Required</div>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <FieldRow label="TP Insurer" mandatory hint="The company that issued the Third Party policy">
-            <select
-              value={verification?.tpInsurer || ''}
-              onChange={(e) => setVerification('tpInsurer', e.target.value)}
-              className={mandatoryInput(verification?.tpInsurer || '')}
-            >
-              <option value="">— Select TP Insurer —</option>
-              {INSURER_OPTIONS.map((i) => <option key={i} value={i}>{i}</option>)}
-            </select>
-          </FieldRow>
-          <FieldRow label="TP Policy Number" mandatory hint="Exact policy number as on the TP policy document">
-            <input
-              type="text"
-              value={verification?.tpPolicyNumber || ''}
-              onChange={(e) => setVerification('tpPolicyNumber', e.target.value)}
-              placeholder="e.g. TP/2024/123456789"
-              className={`${mandatoryInput(verification?.tpPolicyNumber || '')} font-mono`}
-            />
-          </FieldRow>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <FieldRow label="TP Start Date" mandatory>
-            <input type="date" value={verification?.tpStartDate || ''} onChange={(e) => setVerification('tpStartDate', e.target.value)} className={mandatoryInput(verification?.tpStartDate || '')} />
-          </FieldRow>
-          <FieldRow label="TP Expiry Date" mandatory hint="Must be a future date for SAOD eligibility">
-            <input
-              type="date"
-              value={verification?.tpExpiryDate || ''}
-              onChange={(e) => setVerification('tpExpiryDate', e.target.value)}
-              className={`${mandatoryInput(verification?.tpExpiryDate || '')} ${tpExpired ? 'border-rose-500' : ''}`}
-            />
-            {tpExpired && <p className="text-[9px] text-rose-500 mt-0.5 font-bold">TP Policy has expired — SAOD cannot be issued</p>}
-          </FieldRow>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <FieldRow label="Verification Method" mandatory hint="How was the active TP policy verified?">
-            <div className="space-y-1.5 mt-1">
-              {[
-                { value: 'POLICY_DOCUMENT', label: '📄 Policy Document' },
-                { value: 'INSURER_PORTAL', label: '🌐 Insurer Portal' },
-                { value: 'INSURER_CONFIRMATION', label: '📞 Insurer Confirmation' },
-                { value: 'OTHER', label: '🔗 Other' },
-              ].map(({ value, label }) => (
-                <label key={value} className="flex items-center gap-2 text-xs font-semibold cursor-pointer">
-                  <input
-                    type="radio"
-                    name="verificationMethod"
-                    value={value}
-                    checked={verification?.verificationMethod === value}
-                    onChange={() => setVerification('verificationMethod', value)}
-                    className="h-3.5 w-3.5 text-primary"
-                  />
-                  {label}
-                </label>
-              ))}
-            </div>
-          </FieldRow>
-          <FieldRow label="Verification Notes" hint="Document reference, portal screenshot, or confirmation details">
-            <textarea
-              rows={4}
-              value={verification?.verifierNotes || ''}
-              onChange={(e) => setVerification('verifierNotes', e.target.value)}
-              placeholder="e.g. Verified via TATA AIG portal, ref: TAGIC/TP/2024/..."
-              className={`${inputBase} resize-none`}
-            />
-          </FieldRow>
-        </div>
-
-        {/* Final Confirmation */}
-        <div className={`p-3 rounded-xl border ${
-          verification?.verifiedByUserConfirmed ? 'border-emerald-500/30 bg-emerald-500/5' : 'border-muted bg-muted/20'
-        }`}>
-          <label className="flex items-start gap-3 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={verification?.verifiedByUserConfirmed || false}
-              onChange={(e) => {
-                const newStatus = e.target.checked ? 'VERIFIED' : 'PENDING';
-                const updated: SaodTpVerification = { ...data.tpVerification, verifiedByUserConfirmed: e.target.checked, verificationStatus: newStatus as 'PENDING' | 'VERIFIED' | 'REJECTED' };
-                onChange({ ...data, tpVerification: updated });
-              }}
-              className="h-4 w-4 rounded text-primary mt-0.5 cursor-pointer"
-            />
-            <div>
-              <div className="text-xs font-black text-foreground">I have verified the active TP policy</div>
-              <div className="text-[10px] text-muted-foreground mt-0.5">
-                By checking this, you confirm you have independently verified the TP policy details above. This verification is recorded in the compliance audit trail.
-              </div>
-              {verification?.verifiedByUserConfirmed && (
-                <div className="mt-1.5 flex items-center gap-2 text-[10px] font-bold text-emerald-600">
-                  <CheckCircle className="h-3 w-3" />
-                  Confirmed at {new Date().toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}
-                </div>
-              )}
-            </div>
-          </label>
-        </div>
-
-        {!isVerified && (
-          <div className="flex items-start gap-2 p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/20">
-            <Info className="h-3.5 w-3.5 text-amber-600 shrink-0 mt-0.5" />
-            <p className="text-[10px] text-amber-700 dark:text-amber-400 font-semibold">
-              Complete all verification fields and check the confirmation box to proceed. The backend will reject SAOD quotations without verified active TP cover.
-            </p>
-          </div>
-        )}
-      </div>
+      <SaodTpVerificationCard
+        value={data.tpVerification}
+        onChange={(updated) => {
+          onChange({
+            ...data,
+            tpVerification: updated,
+            activeTPInsurerName: updated.tpInsurer,
+            activeTPPolicyNumberValidity: `${updated.tpPolicyNumber} | Valid Till ${updated.tpExpiryDate}`,
+          });
+        }}
+      />
 
       {/* OD Details */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -337,18 +303,14 @@ export function PolicyFormSAODForm({ category, vehicleStatus, data, onChange, el
             ))}
           </div>
         </FieldRow>
-        <FieldRow label="No Claim Bonus (NCB) %" mandatory>
-          <select
-            value={data.ncbPercentage}
-            onChange={(e) => handleNcbChange(e.target.value)}
+        <div className="col-span-1">
+          <NcbSlider
+            value={data.ncbPercentage || '0'}
+            onChange={handleNcbChange}
             disabled={data.claimInExpiringODPolicy === 'Yes'}
-            className={`${mandatoryInput(data.ncbPercentage)} ${data.claimInExpiringODPolicy === 'Yes' ? 'opacity-50 cursor-not-allowed' : ''}`}
-          >
-            <option value="">— Select NCB —</option>
-            {NCB_OPTIONS.map((n) => <option key={n.value} value={n.value}>{n.label}</option>)}
-          </select>
-          {data.claimInExpiringODPolicy === 'Yes' && <p className="text-[9px] text-rose-500 mt-0.5 font-bold">NCB reset to 0% — Claim reported</p>}
-        </FieldRow>
+            disabledReason={data.claimInExpiringODPolicy === 'Yes' ? 'Locked to 0% due to claim in expiring OD policy' : undefined}
+          />
+        </div>
       </div>
 
       {/* Field 9: Add-ons Selected with Individual Price Inputs */}
@@ -383,20 +345,47 @@ export function PolicyFormSAODForm({ category, vehicleStatus, data, onChange, el
                   />
                   <span>{a.label}</span>
                 </label>
-                {isSelected && (() => {
-                  const pricedAddon = itemizedAddons.find((item: any) => item.addonCode === a.key);
-                  return (
-                    <div className="mt-1 rounded-md bg-muted/50 px-2 py-1.5 text-[10px]">
-                      {pricedAddon
-                        ? <span className="font-semibold">Calculated premium: ₹{Number(pricedAddon.amount).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                        : error
-                          ? <span className="text-destructive">Price unavailable — resolve the calculator error below.</span>
-                          : loading
-                            ? <span className="text-muted-foreground">Calculating configured premium…</span>
-                            : <span className="text-muted-foreground">Price is calculated by the server.</span>}
+                {isSelected && (
+                  <div className="mt-1.5 rounded-md bg-muted/40 p-2 text-[10px] space-y-1.5 border border-border">
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-foreground">Manual Premium (₹):</span>
+                      {data.addonPrices?.[a.key] && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const newPrices = { ...(data.addonPrices || {}) };
+                            delete newPrices[a.key];
+                            onChange({ ...data, addonPrices: newPrices });
+                          }}
+                          className="text-[9px] text-muted-foreground hover:text-foreground underline"
+                        >
+                          Clear
+                        </button>
+                      )}
                     </div>
-                  );
-                })()}
+                    <input
+                      type="number"
+                      step="1"
+                      min="0"
+                      placeholder="Enter amount ₹"
+                      value={data.addonPrices?.[a.key] ?? ''}
+                      onChange={(e) => {
+                        const newPrices = { ...(data.addonPrices || {}), [a.key]: e.target.value };
+                        onChange({ ...data, addonPrices: newPrices });
+                      }}
+                      className="w-full p-1 text-[11px] font-bold rounded border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                    />
+                    {data.addonPrices?.[a.key] ? (
+                      <span className="text-[9px] text-emerald-600 dark:text-emerald-400 font-semibold block">
+                        Applied: ₹{Number(data.addonPrices[a.key]).toLocaleString('en-IN')}
+                      </span>
+                    ) : (
+                      <span className="text-[9px] text-muted-foreground block">
+                        Enter amount to include in quotation
+                      </span>
+                    )}
+                  </div>
+                )}
               </div>
             );
           })}
@@ -415,30 +404,84 @@ export function PolicyFormSAODForm({ category, vehicleStatus, data, onChange, el
           </span>
         </div>
 
-        <GstRateSelector
-          value={data.gstRate}
-          onChange={(rate) => onChange({ ...data, gstRate: rate })}
-        />
+        <div className="flex items-center justify-between p-2.5 rounded-lg border bg-card">
+          <span className="text-xs font-bold text-foreground">OD Applicable GST Rate:</span>
+          <select
+            value={data.odGstRate || data.gstRate || '18'}
+            onChange={(e) => onChange({ ...data, gstRate: e.target.value, odGstRate: e.target.value })}
+            className="p-1 text-xs font-bold rounded border bg-background text-primary"
+          >
+            <option value="18">18% GST (Standard)</option>
+            <option value="5">5% GST (Concessional)</option>
+          </select>
+        </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-          <FieldRow label="OD Base Premium (₹)" mandatory hint="Insurer OD rate applied to IDV" formula="IDV × Insurer OD Rate %">
-            <input type="number" value={hasValidCalculation ? (outputs.baseOdPremium?.toString() ?? data.odPremiumBase) : ''} readOnly aria-readonly="true" className={readonlyInput} placeholder="Calculated from configured insurer OD rate" />
-          </FieldRow>
-          <FieldRow label="NCB Discount (₹)" hint="Auto-calculated from NCB %">
-            <input type="number" value={hasValidCalculation ? (outputs.ncbDiscount ?? data.ncbDiscountAmount) : ''} readOnly className={readonlyInput} placeholder="Auto-calculated" />
-          </FieldRow>
-          <FieldRow label="Add-ons Premium (₹)" hint="Sum of individual add-on inputs">
-            <input type="number" value={hasValidCalculation ? (outputs.addonPremium ?? data.addOnsPremium) : ''} readOnly className={readonlyInput} placeholder="₹0" />
-          </FieldRow>
-          <FieldRow label="Net OD Premium (₹) [Field 10]" hint="Auto-calc: OD Base - NCB + Add-ons">
-            <input type="number" value={hasValidCalculation ? (outputs.netOdPremium ?? outputs.netOdComponent ?? data.odPremium) : ''} readOnly className={`${readonlyInput} font-bold text-foreground`} placeholder="Auto-calculated" />
-          </FieldRow>
-          <FieldRow label={`Statutory GST (${String(data.gstRate || '18') === '5' ? '5%' : '18%'}) ₹`} hint={`${String(data.gstRate || '18') === '5' ? '5%' : '18%'} of Net OD Premium`}>
-            <input type="number" value={hasValidCalculation ? (outputs.gstOnOd ?? outputs.totalGst ?? data.gstAmount) : ''} readOnly className={readonlyInput} placeholder="Auto-calculated" />
-          </FieldRow>
-          <FieldRow label="Total Premium incl. GST (₹) [Field 11]" mandatory hint="System-calculated authoritative gross">
-            <input type="number" value={hasValidCalculation ? (outputs.finalPayableAmount ?? outputs.totalPremium ?? data.totalPremiumInclGST) : ''} readOnly className={`${readonlyInput} font-black text-primary text-sm`} placeholder="Auto-calculated" />
-          </FieldRow>
+          <OverrideFieldCard
+            label="OD Base Premium (₹)"
+            mandatory
+            status={odBaseStatus}
+            value={data.odPremiumAmount ?? data.odBasePremiumOverride ?? (hasValidCalculation ? (outputs.baseOdPremium?.toString() ?? data.odPremiumBase) : '')}
+            onChange={(val) => onChange({ ...data, odPremiumAmount: val, odBasePremiumOverride: val })}
+            onReset={() => onChange({ ...data, odPremiumAmount: undefined, odBasePremiumOverride: undefined })}
+            hint="Direct OD premium in ₹. Enter manually or defaults from tariff."
+            placeholder="Direct OD premium ₹"
+          />
+
+          <OverrideFieldCard
+            label="Discount (%)"
+            status={data.discountPercent !== undefined && data.discountPercent !== '' ? 'MANUAL' : 'CALCULATED'}
+            value={data.discountPercent ?? ''}
+            onChange={handleDiscountPercentChange}
+            onReset={() => onChange({ ...data, discountPercent: '', odDiscountPercent: '' })}
+            hint="Enter OD discount percentage; the discount amount is calculated by the server."
+            placeholder="e.g. 10"
+            min={0}
+            step={0.5}
+          />
+
+          <OverrideFieldCard
+            label="Add-ons Premium (₹)"
+            status={addonStatus}
+            value={data.addonPremiumOverride ?? (hasValidCalculation ? (outputs.addonPremium?.toString() ?? data.addOnsPremium) : '')}
+            onChange={(val) => onChange({ ...data, addonPremiumOverride: val })}
+            onReset={() => onChange({ ...data, addonPremiumOverride: undefined })}
+            hint="Sum of individual add-on inputs. Editable override."
+            placeholder="₹0"
+          />
+
+          <OverrideFieldCard
+            label="Net OD Premium (₹) [Field 10]"
+            status={netOdStatus}
+            value={data.netOdPremiumOverride ?? (hasValidCalculation ? (outputs.netOdPremium?.toString() ?? outputs.netOdComponent?.toString() ?? data.odPremium) : '')}
+            onChange={(val) => onChange({ ...data, netOdPremiumOverride: val })}
+            onReset={() => onChange({ ...data, netOdPremiumOverride: undefined })}
+            hint="Auto-calc: OD Base - NCB + Add-ons. Editable override."
+            placeholder="Auto-calculated"
+            accentColor="font-bold text-foreground"
+          />
+
+          <OverrideFieldCard
+            label={`Statutory GST (${String(data.gstRate || '18') === '5' ? '5%' : '18%'}) ₹`}
+            status={gstStatus}
+            value={data.gstAmountOverride ?? (hasValidCalculation ? (outputs.gstOnOd?.toString() ?? outputs.totalGst?.toString() ?? data.gstAmount) : '')}
+            onChange={(val) => onChange({ ...data, gstAmountOverride: val })}
+            onReset={() => onChange({ ...data, gstAmountOverride: undefined })}
+            hint={`${String(data.gstRate || '18') === '5' ? '5%' : '18%'} of Net OD Premium. Editable override.`}
+            placeholder="Auto-calculated"
+          />
+
+          <OverrideFieldCard
+            label="Total Premium incl. GST (₹) [Field 11]"
+            mandatory
+            status={totalStatus}
+            value={data.totalPremiumOverride ?? (hasValidCalculation ? (outputs.finalPayableAmount?.toString() ?? outputs.totalPremium?.toString() ?? data.totalPremiumInclGST) : '')}
+            onChange={(val) => onChange({ ...data, totalPremiumOverride: val })}
+            onReset={() => onChange({ ...data, totalPremiumOverride: undefined })}
+            hint="System-calculated authoritative gross. Editable override."
+            placeholder="Auto-calculated"
+            accentColor="font-black text-primary text-sm"
+          />
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-border">
 
@@ -465,49 +508,87 @@ export function PolicyFormSAODForm({ category, vehicleStatus, data, onChange, el
         </FieldRow>
       </div>
 
-      {/* Field 13: Commision/Discount Calculator (Document Formula: Sum of 10* D% - 11) */}
+      {/* Discounts & Commercial Adjustment */}
       <div className="p-4 rounded-xl border bg-card shadow-xs space-y-3">
         <div className="flex items-center justify-between border-b pb-2">
           <div className="flex items-center gap-2">
-            <Calculator className="h-4 w-4 text-primary" />
-            <span className="text-xs font-black text-foreground">Commision / Discount Calculator</span>
+            <Percent className="h-4 w-4 text-primary" />
+            <span className="text-xs font-black text-foreground">Discounts & Commercial Adjustment</span>
             <span className="text-[9px] font-bold text-primary px-2 py-0.5 rounded bg-primary/10 border border-primary/20">
-              Server-calculated OD discount
+              Server-Calculated
             </span>
           </div>
-          <span className="text-[10px] text-muted-foreground font-mono">Field 13</span>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <FieldRow
-            label="Discount % (D%)"
-            hint="Enter employee discount percentage"
-            formula="OD Premium (10) × (D% / 100)"
-          >
-            <div className="relative">
-              <input
-                type="number"
-                min="0"
-                max="85"
-                step="0.5"
-                value={data.discountPercent || ''}
-                onChange={(e) => handleDiscountPercentChange(e.target.value)}
-                placeholder="e.g. 10"
-                className={`${inputBase} pr-7 font-mono`}
-              />
-              <Percent className="h-3.5 w-3.5 absolute right-2.5 top-2.5 text-muted-foreground" />
-            </div>
-          </FieldRow>
-          <FieldRow
-            label="Discount Amount (₹)"
-            hint="Deduction: Field 10 × D%"
-            formula="Sum of 10 × D%"
+            label="OD Discount Amount (₹)"
+            hint="Server-calculated amount from the entered discount percentage"
           >
             <input
               type="number"
-              value={hasValidCalculation ? (outputs.specialDiscount ?? data.discountAmount ?? '0') : ''}
+              value={hasValidCalculation ? (outputs.summary?.odDiscountAmount ?? outputs.od?.discount ?? outputs.odDiscountAmount ?? '0') : ''}
               readOnly
               className={`${readonlyInput} font-mono font-bold text-amber-600`}
+              placeholder="₹0"
+            />
+          </FieldRow>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-border/50">
+          <FieldRow
+            label="Commercial Adjustment (₹)"
+            hint="Fixed ₹ adjustment to payable base"
+          >
+            <div className="flex items-center gap-1.5">
+              <div className="inline-flex rounded-lg border border-border p-0.5 bg-muted/30 shrink-0">
+                <button
+                  type="button"
+                  aria-label="Subtract commercial adjustment"
+                  aria-pressed={(data.commercialAdjustmentDirection || 'SUBTRACT') === 'SUBTRACT'}
+                  onClick={() => onChange({ ...data, commercialAdjustmentDirection: 'SUBTRACT' })}
+                  className={`px-2.5 py-1 text-xs font-bold rounded-md transition-colors ${
+                    (data.commercialAdjustmentDirection || 'SUBTRACT') === 'SUBTRACT'
+                      ? 'bg-amber-600 text-white shadow-xs'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  − SUB
+                </button>
+                <button
+                  type="button"
+                  aria-label="Add commercial adjustment"
+                  aria-pressed={data.commercialAdjustmentDirection === 'ADD'}
+                  onClick={() => onChange({ ...data, commercialAdjustmentDirection: 'ADD' })}
+                  className={`px-2.5 py-1 text-xs font-bold rounded-md transition-colors ${
+                    data.commercialAdjustmentDirection === 'ADD'
+                      ? 'bg-primary text-primary-foreground shadow-xs'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  + ADD
+                </button>
+              </div>
+              <input
+                type="number"
+                min="0"
+                step="1"
+                value={data.commercialAdjustmentAmount || ''}
+                onChange={(e) => onChange({ ...data, commercialAdjustmentAmount: e.target.value, commercialDiscountPercent: undefined })}
+                placeholder="₹0"
+                className={`${inputBase} font-mono`}
+              />
+            </div>
+          </FieldRow>
+          <FieldRow
+            label="Total Discounts & Adjustments (₹)"
+            hint="Itemized OD discount + Commercial adjustment"
+          >
+            <input
+              type="text"
+              readOnly
+              value={hasValidCalculation ? '₹' + Number(outputs.summary?.totalDiscount ?? outputs.totalDiscountAmount ?? 0).toLocaleString('en-IN') : '—'}
+              className={`${readonlyInput} font-mono font-bold text-amber-700`}
               placeholder="₹0"
             />
           </FieldRow>
@@ -529,7 +610,6 @@ export function PolicyFormSAODForm({ category, vehicleStatus, data, onChange, el
         </div>
       </div>
       {error && <div role="alert" className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-xs text-destructive">Premium calculation failed: {error}</div>}
-      <CommissionBreakdownPanel calculation={loading || error ? undefined : result} components={['OD']} loading={loading} error={error} />
     </div>
   );
 }

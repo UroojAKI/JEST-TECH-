@@ -6,6 +6,7 @@ export function useMotorCalculator(inputData: any) {
   const [result, setResult] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
+  const requestIdRef = useRef(0);
 
   useEffect(() => {
     // Basic validation to avoid empty calls
@@ -25,34 +26,50 @@ export function useMotorCalculator(inputData: any) {
       }
     }
 
+    if (inputData.policyType === 'STANDALONE_OD') {
+      if (!inputData.activeTpPolicyNumber || !inputData.activeTpExpiryDate) {
+        setResult(null);
+        setError(null);
+        setLoading(false);
+        return;
+      }
+    }
+
+    const currentRequestId = ++requestIdRef.current;
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
     const abortController = new AbortController();
     abortControllerRef.current = abortController;
-    // Never leave a prior vehicle's premium visible while recalculating the current input.
-    setResult(null);
-    setError(null);
+
     setLoading(true);
+    setError(null);
 
     const calculate = async () => {
-      setLoading(true);
-      setError(null);
       try {
-        const response = await apiClient.post('/motor/calculate', inputData, {
-          signal: abortController.signal
+        // Sanitize payload: strip any legacy editedOdRate to ensure OD-rate validation is never triggered
+        const { editedOdRate: _discarded, ...sanitizedInput } = inputData;
+        const response = await apiClient.post('/motor/calculate', sanitizedInput, {
+          signal: abortController.signal,
         });
-        setResult(response.data);
+
+        if (currentRequestId === requestIdRef.current) {
+          setResult(response.data);
+          setError(null);
+          setLoading(false);
+        }
       } catch (err: any) {
         if (err.name !== 'CanceledError' && err.message !== 'canceled') {
-          setResult(null);
-          setError(err.response?.data?.message || 'Failed to calculate premium');
-        }
-      } finally {
-        if (!abortController.signal.aborted) {
-          setLoading(false);
+          if (currentRequestId === requestIdRef.current) {
+            setResult(null);
+            setError(err.response?.data?.message || 'Failed to calculate premium');
+            setLoading(false);
+          }
         }
       }
     };
 
-    const timeoutId = setTimeout(calculate, 500);
+    const timeoutId = setTimeout(calculate, 400);
 
     return () => {
       abortController.abort();

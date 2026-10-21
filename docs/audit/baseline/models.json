@@ -582,6 +582,7 @@
       "case",
       "selectedInCases",
       "motorDocuments",
+      "backOfficeTasks",
       "motorJourney",
       "motorPreviousPolicy",
       "motorInspection",
@@ -1853,7 +1854,9 @@
       "motorJourneys",
       "vehicles",
       "motorQuotationCases",
-      "motorQuotationDocuments"
+      "motorQuotationDocuments",
+      "commissions",
+      "settlements"
     ],
     "hasCompanyId": false,
     "hasDeletedAt": false
@@ -2352,15 +2355,17 @@
       "id",
       "policyId",
       "userId",
+      "companyId",
       "roleTier",
       "amount",
       "status",
       "planId",
       "createdAt",
       "updatedAt",
-      "user"
+      "user",
+      "company"
     ],
-    "hasCompanyId": false,
+    "hasCompanyId": true,
     "hasDeletedAt": false
   },
   {
@@ -2371,10 +2376,16 @@
       "date",
       "totalAmount",
       "status",
+      "companyId",
+      "insurerName",
+      "retainedCommission",
+      "netPayable",
+      "period",
       "createdAt",
-      "updatedAt"
+      "updatedAt",
+      "company"
     ],
-    "hasCompanyId": false,
+    "hasCompanyId": true,
     "hasDeletedAt": false
   },
   {
@@ -2833,6 +2844,8 @@
       "company",
       "quotationId",
       "quotation",
+      "caseId",
+      "case",
       "status",
       "conductedByType",
       "inspectorUserId",
@@ -2845,6 +2858,7 @@
       "inspectionTime",
       "completedAt",
       "rejectedAt",
+      "rejectionCode",
       "rejectionReason",
       "waivedById",
       "waivedBy",
@@ -3135,6 +3149,8 @@
       "lead",
       "motorQuotationId",
       "motorQuotation",
+      "quotationId",
+      "quotation",
       "caseId",
       "case",
       "assignedToId",
@@ -3294,6 +3310,7 @@
       "vehicleSnapshot",
       "previousPolicySnapshot",
       "quotations",
+      "inspections",
       "documents",
       "tasks",
       "createdAt",

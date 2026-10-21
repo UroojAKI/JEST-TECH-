@@ -126,9 +126,19 @@ export function RuleEngineResult({ result, isLoading, onRetry }: Props) {
       {/* Next Step */}
       <div className="p-4 rounded-lg border bg-card flex items-center justify-between shadow-sm">
         <span className="text-sm font-medium text-muted-foreground">Workflow Action</span>
-        <span className={`text-xs font-bold px-3 py-1 rounded bg-secondary text-secondary-foreground`}>
-          {result.nextStep === 'INSPECTION' ? 'Proceed to generate PENDING INSPECTION quote' : 'Proceed to generate QUOTE'}
-        </span>
+        {result.nextStep === 'TP_VERIFICATION' ? (
+          <span className="text-xs font-bold px-3 py-1 rounded bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/30">
+            Action Required: Active TP Policy verification required before quotation
+          </span>
+        ) : result.nextStep === 'INSPECTION' ? (
+          <span className="text-xs font-bold px-3 py-1 rounded bg-secondary text-secondary-foreground">
+            Proceed to generate PENDING INSPECTION quote
+          </span>
+        ) : (
+          <span className="text-xs font-bold px-3 py-1 rounded bg-secondary text-secondary-foreground">
+            Proceed to generate QUOTE
+          </span>
+        )}
       </div>
     </div>
   );

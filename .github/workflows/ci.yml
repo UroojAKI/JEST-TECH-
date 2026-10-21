@@ -68,6 +68,9 @@ jobs:
       - name: TypeScript typecheck — API
         run: pnpm exec tsc --noEmit --project apps/api/tsconfig.json
 
+      - name: Dependency Security Audit
+        run: pnpm audit --audit-level=high
+
       - name: Heuristic controller tenant-scope scan (not a complete isolation proof)
         run: pnpm run check:tenancy
 
@@ -176,3 +179,9 @@ jobs:
         run: pnpm --filter web test
         env:
           NODE_ENV: test
+
+      - name: Build Web Application
+        run: pnpm --filter web build
+        env:
+          NODE_ENV: production
+          NEXT_TELEMETRY_DISABLED: "1"

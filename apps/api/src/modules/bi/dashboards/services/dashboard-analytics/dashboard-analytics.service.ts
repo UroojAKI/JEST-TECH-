@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../../../../../database/prisma.service';
 
 @Injectable()
@@ -8,6 +8,10 @@ export class DashboardAnalyticsService {
   constructor(private readonly prisma: PrismaService) {}
 
   async getSalesMetrics(userId: string, companyId?: string) {
+    if (!companyId || typeof companyId !== 'string' || !companyId.trim()) {
+      throw new ForbiddenException('Tenant companyId is required for sales dashboard');
+    }
+    const cleanCompanyId = companyId.trim();
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
@@ -15,17 +19,21 @@ export class DashboardAnalyticsService {
       where: {
         assignedToId: userId,
         status: { notIn: ['CONVERTED', 'LOST'] },
-        ...(companyId ? { companyId } : {}),
+        companyId: cleanCompanyId,
       },
     });
+
+    const tenantBranches = await this.prisma.branch.findMany({
+      where: { zone: { region: { companyId: cleanCompanyId } } },
+      select: { id: true },
+    });
+    const branchIds = tenantBranches.map((b) => b.id);
 
     const revenue = await this.prisma.factRevenue.aggregate({
       _sum: { amount: true },
       where: {
         agentId: userId,
-        ...(companyId
-          ? { branch: { zone: { region: { companyId } } } }
-          : {}),
+        branchId: { in: branchIds },
       },
     });
 
@@ -34,7 +42,7 @@ export class DashboardAnalyticsService {
       const policies = await this.prisma.policy.findMany({
         where: {
           createdById: userId,
-          ...(companyId ? { companyId } : {}),
+          companyId: cleanCompanyId,
         },
       });
       myPremium = policies.reduce(
@@ -46,14 +54,14 @@ export class DashboardAnalyticsService {
     const totalLeads = await this.prisma.lead.count({
       where: {
         assignedToId: userId,
-        ...(companyId ? { companyId } : {}),
+        companyId: cleanCompanyId,
       },
     });
     const convertedLeads = await this.prisma.lead.count({
       where: {
         assignedToId: userId,
         status: 'CONVERTED',
-        ...(companyId ? { companyId } : {}),
+        companyId: cleanCompanyId,
       },
     });
     const conversionRatio =
@@ -62,14 +70,14 @@ export class DashboardAnalyticsService {
     const policiesIssued = await this.prisma.policy.count({
       where: {
         createdById: userId,
-        ...(companyId ? { companyId } : {}),
+        companyId: cleanCompanyId,
       },
     });
 
     const recentPolicies = await this.prisma.policy.findMany({
       where: {
         createdById: userId,
-        ...(companyId ? { companyId } : {}),
+        companyId: cleanCompanyId,
       },
       take: 5,
       orderBy: { createdAt: 'desc' },
@@ -88,7 +96,7 @@ export class DashboardAnalyticsService {
       where: {
         assignedToId: userId,
         status: { notIn: ['CONVERTED', 'LOST'] },
-        ...(companyId ? { companyId } : {}),
+        companyId: cleanCompanyId,
       },
       take: 5,
       orderBy: { updatedAt: 'desc' },
@@ -116,21 +124,32 @@ export class DashboardAnalyticsService {
     branchId?: string,
     companyId?: string,
   ) {
+    if (!companyId || typeof companyId !== 'string' || !companyId.trim()) {
+      throw new ForbiddenException('Tenant companyId is required for sales manager dashboard');
+    }
+    const cleanCompanyId = companyId.trim();
+
     const activeLeadsCount = await this.prisma.lead.count({
       where: {
         status: { notIn: ['CONVERTED', 'LOST'] },
+        companyId: cleanCompanyId,
         ...(branchId ? { branchId } : {}),
-        ...(companyId ? { companyId } : {}),
       },
     });
+
+    const tenantBranches = await this.prisma.branch.findMany({
+      where: { zone: { region: { companyId: cleanCompanyId } } },
+      select: { id: true },
+    });
+    const tenantBranchIds = tenantBranches.map((b) => b.id);
+    const effectiveBranchIds = branchId
+      ? tenantBranchIds.filter((id) => id === branchId)
+      : tenantBranchIds;
 
     const revenue = await this.prisma.factRevenue.aggregate({
       _sum: { amount: true },
       where: {
-        ...(branchId ? { branchId } : {}),
-        ...(companyId
-          ? { branch: { zone: { region: { companyId } } } }
-          : {}),
+        branchId: { in: effectiveBranchIds },
       },
     });
 
@@ -138,7 +157,7 @@ export class DashboardAnalyticsService {
     if (teamPremium === 0) {
       const policies = await this.prisma.policy.findMany({
         where: {
-          ...(companyId ? { companyId } : {}),
+          companyId: cleanCompanyId,
           ...(branchId ? { createdBy: { branchId } } : {}),
         },
       });
@@ -150,7 +169,7 @@ export class DashboardAnalyticsService {
 
     const policiesIssued = await this.prisma.policy.count({
       where: {
-        ...(companyId ? { companyId } : {}),
+        companyId: cleanCompanyId,
         ...(branchId ? { createdBy: { branchId } } : {}),
       },
     });
@@ -165,6 +184,11 @@ export class DashboardAnalyticsService {
   }
 
   async getRenewalMetrics(userId: string, companyId?: string) {
+    if (!companyId || typeof companyId !== 'string' || !companyId.trim()) {
+      throw new ForbiddenException('Tenant companyId is required for renewal dashboard');
+    }
+    const cleanCompanyId = companyId.trim();
+
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const in30Days = new Date();
@@ -175,19 +199,19 @@ export class DashboardAnalyticsService {
         where: {
           expiryDate: { gte: today, lte: in30Days },
           status: { in: ['ACTIVE', 'PENDING_RENEWAL'] },
-          ...(companyId ? { companyId } : {}),
+          companyId: cleanCompanyId,
         },
       }),
       this.prisma.policy.count({
         where: {
           status: 'RENEWED',
-          ...(companyId ? { companyId } : {}),
+          companyId: cleanCompanyId,
         },
       }),
       this.prisma.policy.count({
         where: {
           status: 'LAPSED',
-          ...(companyId ? { companyId } : {}),
+          companyId: cleanCompanyId,
         },
       }),
     ]);
