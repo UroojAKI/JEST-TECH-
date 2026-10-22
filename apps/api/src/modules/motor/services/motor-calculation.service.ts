@@ -241,6 +241,8 @@ export class MotorCalculationService {
       discountPercent?: number;
       discountPercentage?: number;
       discountAmount?: number;
+      netPreTaxAmount?: number;
+      netPremium?: number;
       taxableAddonAmount?: number;
       taxableBase?: number;
       gstRate?: number;
@@ -421,7 +423,7 @@ export class MotorCalculationService {
           const addonGstAmt = round2(price * addonGstRateFinal);
           const addonTotalAmt = round2(price - addonDiscAmt + addonGstAmt);
 
-          const taxableAddon = round2(Math.max(0, price - addonDiscAmt));
+          const netPreTaxAddon = round2(Math.max(0, price - addonDiscAmt));
           addonPremiumTotal = round2(addonPremiumTotal + price);
           totalAddonDiscountAmount = round2(totalAddonDiscountAmount + addonDiscAmt);
           totalAddonGstAmount = round2(totalAddonGstAmount + addonGstAmt);
@@ -436,7 +438,9 @@ export class MotorCalculationService {
             discountPercent: addonDiscPercent,
             discountPercentage: addonDiscPercent,
             discountAmount: addonDiscAmt,
-            taxableAddonAmount: taxableAddon,
+            netPreTaxAmount: netPreTaxAddon,
+            netPremium: netPreTaxAddon,
+            taxableAddonAmount: price, // CORE BUSINESS RULE: GST base = gross premium before discount
             taxableBase: price,
             gstRate: addonGstRateFinal,
             gstRatePercent: round2(addonGstRateFinal * 100),
@@ -457,6 +461,8 @@ export class MotorCalculationService {
             discountPercent: 0,
             discountPercentage: 0,
             discountAmount: 0,
+            netPreTaxAmount: 0,
+            netPremium: 0,
             taxableAddonAmount: 0,
             taxableBase: 0,
             gstRate: 0.18,
@@ -484,6 +490,8 @@ export class MotorCalculationService {
           discountPercent: 0,
           discountPercentage: 0,
           discountAmount: 0,
+          netPreTaxAmount: 0,
+          netPremium: 0,
           taxableAddonAmount: 0,
           taxableBase: 0,
           gstRate: 0.18,
@@ -642,8 +650,9 @@ export class MotorCalculationService {
       },
       addons: {
         base: addonPremiumTotal,
+        taxableBase: addonPremiumTotal,
         discount: totalAddonDiscountAmount,
-        taxableBase: round2(Math.max(0, addonPremiumTotal - totalAddonDiscountAmount)),
+        netPreTaxBase: round2(Math.max(0, addonPremiumTotal - totalAddonDiscountAmount)),
         rate: defaultAddonGstRate,
         ratePercent: round2(defaultAddonGstRate * 100),
         amount: totalAddonGstAmount,

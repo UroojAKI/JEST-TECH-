@@ -163,8 +163,9 @@ describe('Work Package: TP GST, Add-on GST & Component Breakdown Verification Su
             paidDriver: { base: 50, rate: 0.18, ratePercent: 18, amount: 9 },
             addons: {
               base: 250,
+              taxableBase: 250,
               discount: 25,
-              taxableBase: 225,
+              netPreTaxBase: 225,
               rate: 0.18,
               ratePercent: 18,
               amount: 45,
@@ -177,7 +178,7 @@ describe('Work Package: TP GST, Add-on GST & Component Breakdown Verification Su
                   systemPremium: 250,
                   discountPercentage: 10,
                   discountAmount: 25,
-                  taxableAddonAmount: 225,
+                  netPreTaxAmount: 225,
                   taxableBase: 250,
                   gstRatePercent: 18,
                   gstAmount: 45,
@@ -195,7 +196,7 @@ describe('Work Package: TP GST, Add-on GST & Component Breakdown Verification Su
               systemPremium: 250,
               discountPercentage: 10,
               discountAmount: 25,
-              taxableAddonAmount: 225,
+              netPreTaxAmount: 225,
               taxableBase: 250,
               gstRatePercent: 18,
               gstAmount: 45,
@@ -258,10 +259,11 @@ describe('Work Package: TP GST, Add-on GST & Component Breakdown Verification Su
 
       // Assert Itemized Add-on Row
       expect(breakdown).toHaveTextContent(/PA Unnamed Passenger/i);
+      expect(breakdown).toHaveTextContent(/Gross Base: ₹250/i);
       expect(breakdown).toHaveTextContent(/Disc: 10% \(−₹25\)/i);
-      expect(breakdown).toHaveTextContent(/Taxable: ₹225/i);
+      expect(breakdown).toHaveTextContent(/Net Pre-tax: ₹225/i);
       expect(breakdown).toHaveTextContent(/GST \(18%\): ₹45/i);
-      expect(breakdown).toHaveTextContent(/Net: ₹270/i);
+      expect(breakdown).toHaveTextContent(/Total: ₹270/i);
 
       // Assert Aggregate Statutory GST and Total Premium
       expect(breakdown).toHaveTextContent(/Statutory GST \(CGST \+ SGST\):/i);
@@ -317,7 +319,7 @@ describe('Work Package: TP GST, Add-on GST & Component Breakdown Verification Su
             addons: {
               base: 250,
               discount: 25,
-              taxableBase: 225,
+              taxableBase: 250,
               rate: 0.18,
               ratePercent: 18,
               amount: 45,

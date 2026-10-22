@@ -554,7 +554,7 @@ export function PolicyFormTPOnlyForm({ category, vehicleStatus, data, onChange, 
             {tpItemizedAddons.length > 0 && (
               <div className="p-3 rounded-lg border bg-background space-y-1.5">
                 <div className="flex items-center justify-between text-[11px] font-bold text-foreground">
-                  <span>Itemized Add-on Tax Breakdown</span>
+                  <span>Itemized Add-on Breakdown (Gross Tax Base Rule)</span>
                   <span className="text-[10px] text-muted-foreground font-normal">
                     {tpItemizedAddons.length} Cover(s) selected
                   </span>
@@ -564,21 +564,21 @@ export function PolicyFormTPOnlyForm({ category, vehicleStatus, data, onChange, 
                     const itemBase = addonItem.systemPremium ?? addonItem.amount ?? addonItem.premium ?? 0;
                     const itemDiscPercent = addonItem.discountPercentage ?? addonItem.discountPercent ?? 0;
                     const itemDiscAmt = addonItem.discountAmount ?? 0;
-                    const itemTaxable = addonItem.taxableAddonAmount ?? Math.max(0, itemBase - itemDiscAmt);
+                    const itemNetPreTax = addonItem.netPreTaxAmount ?? addonItem.netPremium ?? Math.max(0, itemBase - itemDiscAmt);
                     const itemGstRate = addonItem.gstRatePercent ?? (addonItem.gstRate ? addonItem.gstRate * 100 : 18);
                     const itemGstAmt = addonItem.gstAmount ?? 0;
-                    const itemFinal = addonItem.finalAddonAmount ?? addonItem.totalAmount ?? (itemTaxable + itemGstAmt);
+                    const itemFinal = addonItem.finalAddonAmount ?? addonItem.totalAmount ?? (itemNetPreTax + itemGstAmt);
                     return (
                       <div key={addonItem.addonCode || idx} className="py-1.5 flex flex-wrap items-center justify-between gap-2 text-[11px]">
                         <div className="font-semibold text-foreground">
                           {addonItem.name || addonItem.addonCode}
                         </div>
                         <div className="flex items-center gap-3 font-mono text-[10px] text-muted-foreground">
-                          <span>Gross: ₹{Number(itemBase).toLocaleString('en-IN')}</span>
+                          <span>Gross Base: ₹{Number(itemBase).toLocaleString('en-IN')}</span>
                           <span>Disc: {itemDiscPercent}% (−₹{Number(itemDiscAmt).toLocaleString('en-IN')})</span>
-                          <span className="font-semibold text-foreground">Taxable: ₹{Number(itemTaxable).toLocaleString('en-IN')}</span>
+                          <span className="font-semibold text-foreground">Net Pre-tax: ₹{Number(itemNetPreTax).toLocaleString('en-IN')}</span>
                           <span className="text-primary font-bold">GST ({itemGstRate}%): ₹{Number(itemGstAmt).toLocaleString('en-IN')}</span>
-                          <span className="font-extrabold text-foreground">Net: ₹{Number(itemFinal).toLocaleString('en-IN')}</span>
+                          <span className="font-extrabold text-foreground">Total: ₹{Number(itemFinal).toLocaleString('en-IN')}</span>
                         </div>
                       </div>
                     );
