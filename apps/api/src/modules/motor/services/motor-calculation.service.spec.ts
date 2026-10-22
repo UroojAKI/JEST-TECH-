@@ -1856,8 +1856,16 @@ describe('MotorCalculationService (Iteration 5 Financial Math)', () => {
             expect(paAddon).toBeDefined();
             expect(paAddon?.amount).toBe(250);
             expect(paAddon?.discountAmount).toBe(25);
+            expect(paAddon?.taxableAddonAmount).toBe(225);
+            expect(paAddon?.taxableBase).toBe(250);
+            expect(paAddon?.gstRatePercent).toBe(18);
             expect(paAddon?.gstAmount).toBe(45);
             expect(paAddon?.totalAmount).toBe(270);
+            expect(paAddon?.finalAddonAmount).toBe(270);
+            expect(res.gstBreakdown.addons.discount).toBe(25);
+            expect(res.gstBreakdown.addons.taxableBase).toBe(275);
+            expect(res.gstBreakdown.addons.items).toHaveLength(2);
+            expect(res.rateConfig.tpGstRatePercent).toBe(18);
           });
 
           it('COMM-ADJ-DIRECTION-01: Commercial adjustment ADD increases payable; SUBTRACT decreases payable', async () => {
