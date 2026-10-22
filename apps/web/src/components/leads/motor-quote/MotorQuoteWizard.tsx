@@ -5,6 +5,7 @@ import { X, ChevronRight, ChevronLeft, Save, Loader2, Car, Shield } from 'lucide
 import { toast } from 'sonner';
 import { apiClient } from '../../../lib/api-client';
 import { leadsRepository } from '../../../repositories/leads.repository';
+import { customerRepository } from '../../../repositories/customer.repository';
 
 import { VehicleCategorySelector } from './VehicleCategorySelector';
 import { VehicleDetailsForm } from './VehicleDetailsForm';
@@ -39,6 +40,7 @@ interface Props {
   customerId?: string;
   caseId?: string;
   initialCategory?: VehicleCategory | null;
+  initialVehicleDetails?: Record<string, string>;
   cloneQuoteData?: {
     vehicleDetails?: any;
     proposerDetails?: any;
@@ -196,7 +198,7 @@ function computeEligibilityContext(
 }
 
 
-export function MotorQuoteWizard({ isOpen, leadId, contactId, customerId, caseId, initialCategory, cloneQuoteData, leadContact, onClose, onSaved }: Props) {
+export function MotorQuoteWizard({ isOpen, leadId, contactId, customerId, caseId, initialCategory, initialVehicleDetails, cloneQuoteData, leadContact, onClose, onSaved }: Props) {
   const [step, setStep] = useState(1);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -386,7 +388,7 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, customerId, caseId
         setProposer(cloneQuoteData.proposerDetails || emptyProposer(leadContact));
         setStep(3); // Skip to Previous Policy
       } else {
-        setVehicleDetails({ vehicleStatus: 'EXISTING' });
+        setVehicleDetails({ vehicleStatus: 'EXISTING', ...(initialVehicleDetails || {}) });
         setProposer(emptyProposer(leadContact));
         setStep(1);
       }
@@ -476,8 +478,52 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, customerId, caseId
             setIsContextLoading(false);
           });
       }
+
+      // Automatically fetch authoritative Customer Context when customerId is provided
+      if (customerId && !leadId && !cloneQuoteData) {
+        setIsContextLoading(true);
+        customerRepository
+          .getCustomerById(customerId)
+          .then((cust) => {
+            if (cust) {
+              const fullName = `${cust.firstName || ''} ${cust.lastName || ''}`.trim() || cust.customerCode;
+              const addr = [cust.addressLine1, cust.addressLine2, cust.city, cust.state, cust.pincode].filter(Boolean).join(', ');
+              setProposer((prev) => ({
+                ...prev,
+                customerName: prev.customerName || fullName,
+                mobileNumber: prev.mobileNumber || cust.mobile || '',
+                emailId: prev.emailId || cust.email || '',
+                panNumber: prev.panNumber || cust.panNumber || '',
+                address: prev.address || addr,
+              }));
+
+              if (cust.vehicles && cust.vehicles.length > 0) {
+                const primaryVehicle = cust.vehicles[0];
+                setVehicleDetails((prev) => ({
+                  ...prev,
+                  registrationNumber: prev.registrationNumber || primaryVehicle.registrationNumber || '',
+                  make: prev.make || primaryVehicle.make || '',
+                  model: prev.model || primaryVehicle.model || '',
+                  variant: prev.variant || primaryVehicle.variant || '',
+                  fuelType: prev.fuelType || primaryVehicle.fuelType || '',
+                  manufacturingYear: prev.manufacturingYear || (primaryVehicle.manufactureYear ? String(primaryVehicle.manufactureYear) : ''),
+                  engineNumber: prev.engineNumber || primaryVehicle.engineNumber || '',
+                  chassisNumber: prev.chassisNumber || primaryVehicle.chassisNumber || '',
+                  rtoCode: prev.rtoCode || primaryVehicle.rtoCode || '',
+                }));
+              }
+              toast.info(`Prefilled customer details for ${fullName}`);
+            }
+          })
+          .catch((err) => {
+            console.warn('Failed to load customer context for prefill:', err);
+          })
+          .finally(() => {
+            setIsContextLoading(false);
+          });
+      }
     }
-  }, [isOpen, initialCategory, cloneQuoteData, leadContact, leadId]);
+  }, [isOpen, initialCategory, initialVehicleDetails, cloneQuoteData, leadContact, leadId, customerId]);
 
   useEffect(() => {
     if (leadContact && !cloneQuoteData) {
@@ -1028,6 +1074,27 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, customerId, caseId
                       onChange={(e) => setProposer({...proposer, emailId: e.target.value})}
                       className="w-full px-3 py-2 rounded-md border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
                       placeholder="john@example.com"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-muted-foreground">PAN Number</label>
+                    <input
+                      type="text"
+                      maxLength={10}
+                      value={proposer.panNumber || ''}
+                      onChange={(e) => setProposer({...proposer, panNumber: e.target.value.toUpperCase()})}
+                      className="w-full px-3 py-2 rounded-md border bg-background text-sm font-mono uppercase focus:outline-none focus:ring-2 focus:ring-primary/50"
+                      placeholder="ABCDE1234F"
+                    />
+                  </div>
+                  <div className="space-y-1.5 md:col-span-2">
+                    <label className="text-xs font-semibold text-muted-foreground">Communication Address</label>
+                    <input
+                      type="text"
+                      value={proposer.address || ''}
+                      onChange={(e) => setProposer({...proposer, address: e.target.value})}
+                      className="w-full px-3 py-2 rounded-md border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                      placeholder="Street, City, State, PIN"
                     />
                   </div>
                   <div className="space-y-1.5 md:col-span-2 pt-2 border-t border-border">

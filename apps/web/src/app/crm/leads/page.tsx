@@ -20,6 +20,7 @@ import {
   XCircle,
   Clock,
   Car,
+  HeartPulse,
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -259,6 +260,14 @@ export default function LeadsPipelinePage() {
                           >
                             <Car className="h-3.5 w-3.5" />
                             <span>Motor Quote</span>
+                          </Link>
+                          <Link
+                            href={`/sales/health-quotations/new?leadId=${l.id}`}
+                            className="px-3 py-1 rounded-lg bg-emerald-600 text-white text-[11px] font-extrabold shadow-xs hover:bg-emerald-700 flex items-center space-x-1"
+                            aria-label="Create health quote"
+                          >
+                            <HeartPulse className="h-3.5 w-3.5" />
+                            <span>Health Quote</span>
                           </Link>
                         </div>
                       </td>

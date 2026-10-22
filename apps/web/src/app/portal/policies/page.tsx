@@ -55,7 +55,9 @@ export default function AgentPoliciesPage() {
                     <td className="p-3 font-bold"><Link href={`/crm/contacts/${pol.contactId}`} className="hover:text-primary hover:underline">{pol.customerName}</Link></td>
                     <td className="p-3">{pol.productLine}</td>
                     <td className="p-3 font-semibold">{pol.insurerName}</td>
-                    <td className="p-3 font-mono font-bold text-emerald-600">₹{pol.totalPremium?.toLocaleString('en-IN') || 0}</td>
+                    <td className="p-3 font-mono font-bold text-emerald-600">
+                      ₹{Number(pol.premiumAmount || pol.actualPremium || pol.totalPremium || pol.quotation?.totalPremium || 0).toLocaleString('en-IN')}
+                    </td>
                     <td className="p-3 font-mono text-muted-foreground">{pol.expiryDate}</td>
                     <td className="p-3">
                       <StatusBadge status={pol.status} />

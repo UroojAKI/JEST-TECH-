@@ -42,6 +42,7 @@ import {
   History,
   FileCheck2,
   Info,
+  HeartPulse,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -312,6 +313,13 @@ export function LeadCommandCenter({ lead, onRefresh }: LeadCommandCenterProps) {
             <Car className="h-3.5 w-3.5" />
             <span>+ Motor Quote</span>
           </button>
+          <Link
+            href={`/sales/health-quotations/new?leadId=${lead.id}`}
+            className="px-3.5 py-2 rounded-xl bg-emerald-600 text-white text-xs font-extrabold flex items-center space-x-1.5 shadow-xs hover:bg-emerald-700 transition-all"
+          >
+            <HeartPulse className="h-3.5 w-3.5" />
+            <span>+ Health Quote</span>
+          </Link>
           <button
             onClick={() => setShowReferralModal(true)}
             className="px-3.5 py-2 rounded-xl bg-emerald-600 text-white text-xs font-extrabold flex items-center space-x-1.5 shadow-xs hover:bg-emerald-700 transition-all"

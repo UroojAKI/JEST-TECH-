@@ -2,10 +2,12 @@
 
 import React, { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { ArrowLeft, ArrowRight, HeartPulse, Loader2, Plus, Trash2 } from 'lucide-react';
 import { healthApiError, healthQuotationRepository } from '../../repositories/health-quotation.repository';
+import { leadsRepository } from '../../repositories/leads.repository';
 import {
   GENDERS,
   NOMINEE_RELATIONS,
@@ -36,12 +38,12 @@ type Member = {
   isSmoker: boolean;
 };
 
-const emptyMember = (relation = 'SPOUSE'): Member => ({
+const emptyMember = (relation = 'SELF'): Member => ({
   firstName: '',
   lastName: '',
   relation,
   dateOfBirth: '',
-  gender: '',
+  gender: 'MALE',
   heightCm: '',
   weightKg: '',
   preExistingDiseases: 'None',
@@ -54,53 +56,129 @@ const bmi = (m: Member) => {
   return h > 0 && w > 0 ? Math.round((w / (h * h)) * 10) / 10 : null;
 };
 
-export function HealthQuoteWizard({ contactId, leadId }: { contactId: string; leadId?: string }) {
+export function HealthQuoteWizard({
+  contactId: initialContactId,
+  leadId,
+}: {
+  contactId?: string;
+  leadId?: string;
+}) {
   const router = useRouter();
   const [step, setStep] = useState(0);
   const [submitting, setSubmitting] = useState(false);
+  const [resolvedContactId, setResolvedContactId] = useState<string | undefined>(initialContactId);
 
-  const { data: contact, isLoading } = useQuery({
-    queryKey: ['health-contact', contactId],
-    queryFn: () => healthQuotationRepository.getContact(contactId),
-    enabled: Boolean(contactId),
+  // Proposer state (Step 0)
+  const [proposer, setProposer] = useState({
+    firstName: '',
+    lastName: '',
+    phone: '',
+    email: '',
+    panNumber: '',
+    aadhaarNumber: '',
+    gender: 'MALE',
+    dateOfBirth: '',
   });
-
-  // Step 1 - proposer
-  const [kyc, setKyc] = useState({ email: '', panNumber: '', aadhaarNumber: '' });
   const [occupation, setOccupation] = useState('');
   const [annualIncome, setAnnualIncome] = useState('');
   const [address, setAddress] = useState({ line1: '', line2: '', city: '', state: '', pincode: '' });
 
-  // Step 2 - plan
+  // Plan state (Step 1)
   const [planCategory, setPlanCategory] = useState('');
   const [policyForm, setPolicyForm] = useState('NEW_POLICY');
   const sectionAFields = useMemo(() => SECTION_A_FIELDS[planCategory] ?? [], [planCategory]);
   const [planValues, setPlanValues] = useState<Record<string, any>>({});
 
-  // Step 3 - members
+  // Members state (Step 2)
   const [members, setMembers] = useState<Member[]>([emptyMember('SELF')]);
 
-  // Step 4 - nominee & previous policy
+  // Nominee & Previous Policy (Step 3)
   const [nominee, setNominee] = useState({ name: '', relation: '' });
   const [renewalValues, setRenewalValues] = useState<Record<string, any>>(initialValues(RENEWAL_FIELDS));
 
+  const { data: contact, isLoading: isLoadingContact } = useQuery({
+    queryKey: ['health-contact', initialContactId],
+    queryFn: () => (initialContactId ? healthQuotationRepository.getContact(initialContactId) : null),
+    enabled: Boolean(initialContactId),
+  });
+
+  const { data: leadContext } = useQuery({
+    queryKey: ['health-lead-context', leadId],
+    queryFn: () => (leadId ? leadsRepository.getLeadContext(leadId) : null),
+    enabled: Boolean(leadId),
+  });
+
+  // Prefill from Contact
   useEffect(() => {
-    if (!contact) return;
-    setMembers((current) =>
-      current.length === 1 && !current[0].firstName
-        ? [
-            {
-              ...current[0],
-              firstName: contact.firstName ?? '',
-              lastName: contact.lastName ?? '',
-              gender: contact.gender ?? '',
-              dateOfBirth: contact.dateOfBirth ? String(contact.dateOfBirth).slice(0, 10) : '',
-            },
-          ]
-        : current,
-    );
-    if (contact.occupation && OCCUPATIONS.some((o) => o.value === contact.occupation)) setOccupation(contact.occupation);
+    if (contact) {
+      setProposer((prev) => ({
+        firstName: contact.firstName || prev.firstName,
+        lastName: contact.lastName || prev.lastName,
+        phone: contact.phone || contact.mobile || prev.phone,
+        email: contact.email || prev.email,
+        panNumber: contact.panNumber || prev.panNumber,
+        aadhaarNumber: contact.aadhaarNumber || prev.aadhaarNumber,
+        gender: contact.gender || prev.gender,
+        dateOfBirth: contact.dateOfBirth ? String(contact.dateOfBirth).slice(0, 10) : prev.dateOfBirth,
+      }));
+      setAddress((prev) => ({
+        line1: contact.addressLine1 || contact.address || prev.line1,
+        line2: contact.addressLine2 || prev.line2,
+        city: contact.city || prev.city,
+        state: contact.state || prev.state,
+        pincode: contact.pincode || prev.pincode,
+      }));
+      if (contact.occupation && OCCUPATIONS.some((o) => o.value === contact.occupation)) {
+        setOccupation(contact.occupation);
+      }
+      if (contact.id) {
+        setResolvedContactId(contact.id);
+      }
+    }
   }, [contact]);
+
+  // Prefill from Lead Context
+  useEffect(() => {
+    if (leadContext && !contact) {
+      if (leadContext.contactId) {
+        setResolvedContactId(leadContext.contactId);
+      }
+      const [fName, ...lNames] = (leadContext.contact?.fullName || leadContext.title || '').split(' ');
+      setProposer((prev) => ({
+        ...prev,
+        firstName: prev.firstName || leadContext.contact?.firstName || fName || '',
+        lastName: prev.lastName || leadContext.contact?.lastName || lNames.join(' ') || '',
+        phone: prev.phone || leadContext.contact?.phone || '',
+        email: prev.email || leadContext.contact?.email || '',
+        panNumber: prev.panNumber || leadContext.contact?.panNumber || '',
+      }));
+    }
+  }, [leadContext, contact]);
+
+  // Auto-sync Primary Member (SELF) with Proposer
+  useEffect(() => {
+    setMembers((current) => {
+      if (current.length > 0 && current[0].relation === 'SELF') {
+        const selfMember = current[0];
+        const updated = {
+          ...selfMember,
+          firstName: selfMember.firstName || proposer.firstName,
+          lastName: selfMember.lastName || proposer.lastName,
+          gender: selfMember.gender || proposer.gender,
+          dateOfBirth: selfMember.dateOfBirth || proposer.dateOfBirth,
+        };
+        if (
+          updated.firstName !== selfMember.firstName ||
+          updated.lastName !== selfMember.lastName ||
+          updated.gender !== selfMember.gender ||
+          updated.dateOfBirth !== selfMember.dateOfBirth
+        ) {
+          return [updated, ...current.slice(1)];
+        }
+      }
+      return current;
+    });
+  }, [proposer.firstName, proposer.lastName, proposer.gender, proposer.dateOfBirth]);
 
   const chooseCategory = (value: string) => {
     setPlanCategory(value);
@@ -108,20 +186,25 @@ export function HealthQuoteWizard({ contactId, leadId }: { contactId: string; le
     if (value === 'INDIVIDUAL') setMembers((m) => m.slice(0, 1));
   };
 
-  const needs = {
-    email: !contact?.email,
-    panNumber: !contact?.panNumber,
-    aadhaarNumber: !contact?.aadhaarNumber,
-  };
-
   const stepErrors = (index: number): string[] => {
     const errors: string[] = [];
     if (index === 0) {
-      if (needs.email && !kyc.email) errors.push('Email ID');
-      if (needs.panNumber && !/^[A-Z]{5}[0-9]{4}[A-Z]$/.test(kyc.panNumber)) errors.push('PAN (format ABCDE1234F)');
-      if (needs.aadhaarNumber && !/^\d{12}$/.test(kyc.aadhaarNumber)) errors.push('Aadhaar (12 digits)');
+      if (!proposer.firstName.trim()) errors.push('First Name');
+      const cleanPhone = proposer.phone.replace(/\D/g, '');
+      if (!cleanPhone || cleanPhone.length !== 10) errors.push('Valid 10-digit Mobile Number');
+      if (!proposer.email.trim()) errors.push('Email ID');
+      else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(proposer.email.trim())) errors.push('Valid Email Format');
+
+      if (proposer.panNumber && !/^[A-Z]{5}[0-9]{4}[A-Z]$/.test(proposer.panNumber.toUpperCase().trim())) {
+        errors.push('PAN (format ABCDE1234F)');
+      }
+      if (proposer.aadhaarNumber && !/^\d{12}$/.test(proposer.aadhaarNumber.replace(/\D/g, ''))) {
+        errors.push('Aadhaar (12 digits)');
+      }
       if (!occupation) errors.push('Occupation');
-      if (!address.line1 || !address.city || !address.state || !address.pincode) errors.push('Address');
+      if (!address.line1 || !address.city || !address.state || !address.pincode) {
+        errors.push('Address (Line 1, City, State, Pincode)');
+      }
     }
     if (index === 1) {
       if (!planCategory) errors.push('Plan category');
@@ -173,11 +256,29 @@ export function HealthQuoteWizard({ contactId, leadId }: { contactId: string; le
   const submit = async () => {
     setSubmitting(true);
     try {
-      const proposerKyc = Object.fromEntries(Object.entries(kyc).filter(([k, v]) => v && needs[k as keyof typeof needs]));
+      let finalContactId = resolvedContactId;
+      if (!finalContactId) {
+        finalContactId = await healthQuotationRepository.resolveOrCreateContact({
+          firstName: proposer.firstName,
+          lastName: proposer.lastName,
+          phone: proposer.phone,
+          email: proposer.email,
+          panNumber: proposer.panNumber,
+          aadhaarNumber: proposer.aadhaarNumber,
+        });
+        setResolvedContactId(finalContactId);
+      }
+
+      const proposerKyc = {
+        ...(proposer.email ? { email: proposer.email.trim() } : {}),
+        ...(proposer.panNumber ? { panNumber: proposer.panNumber.trim().toUpperCase() } : {}),
+        ...(proposer.aadhaarNumber ? { aadhaarNumber: proposer.aadhaarNumber.trim() } : {}),
+      };
+
       const created = await healthQuotationRepository.createCase({
         planCategory,
         policyForm,
-        contactId,
+        contactId: finalContactId,
         ...(leadId ? { leadId } : {}),
         occupation,
         ...(annualIncome ? { annualIncome: Number(annualIncome) } : {}),
@@ -209,26 +310,34 @@ export function HealthQuoteWizard({ contactId, leadId }: { contactId: string; le
     }
   };
 
-  if (isLoading) {
-    return <div className="p-8 text-center text-xs text-muted-foreground animate-pulse">Loading customer...</div>;
-  }
-  if (!contact) {
-    return <div className="p-8 text-center text-xs text-rose-500">Customer not found. Open this page from a customer or lead.</div>;
-  }
-
-  const setMember = (i: number, patch: Partial<Member>) => setMembers((list) => list.map((m, idx) => (idx === i ? { ...m, ...patch } : m)));
+  const setMember = (i: number, patch: Partial<Member>) =>
+    setMembers((list) => list.map((m, idx) => (idx === i ? { ...m, ...patch } : m)));
 
   return (
     <div className="max-w-4xl mx-auto space-y-5">
-      <div className="flex items-center gap-3">
-        <div className="p-3 rounded-xl bg-primary/10 text-primary">
-          <HeartPulse className="h-6 w-6" />
-        </div>
-        <div>
-          <h1 className="text-lg font-black text-foreground">Generate Health Quotation</h1>
-          <p className="text-xs text-muted-foreground">
-            {contact.firstName} {contact.lastName} • {contact.contactCode} • {contact.phone}
-          </p>
+      <div>
+        <Link
+          href="/sales/health-quotations"
+          className="inline-flex items-center gap-1.5 text-xs font-bold text-muted-foreground hover:text-foreground transition-colors mb-3"
+        >
+          <ArrowLeft className="h-3.5 w-3.5" /> Back to Health Proposals
+        </Link>
+        <div className="flex items-center gap-3">
+          <div className="p-3 rounded-xl bg-primary/10 text-primary">
+            <HeartPulse className="h-6 w-6" />
+          </div>
+          <div>
+            <h1 className="text-lg font-black text-foreground">Generate Health Quotation</h1>
+            <p className="text-xs text-muted-foreground">
+              {isLoadingContact ? (
+                'Loading customer details...'
+              ) : proposer.firstName || proposer.phone ? (
+                `${proposer.firstName} ${proposer.lastName || ''} • ${proposer.phone}`
+              ) : (
+                'Direct Quoting — Enter customer details to create proposal case'
+              )}
+            </p>
+          </div>
         </div>
       </div>
 
@@ -249,44 +358,94 @@ export function HealthQuoteWizard({ contactId, leadId }: { contactId: string; le
       <div className="p-5 rounded-2xl border bg-card space-y-4">
         {step === 0 && (
           <>
-            <h2 className="font-black text-sm">Proposer Details &amp; KYC</h2>
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="font-black text-sm">Proposer Details &amp; KYC</h2>
+                <p className="text-[11px] text-muted-foreground">Common customer CRM identity across Health and Motor</p>
+              </div>
+              <span className="text-[10px] font-bold text-emerald-600 bg-emerald-500/10 px-2.5 py-1 rounded-full border border-emerald-500/20">
+                Single Customer CRM Profile
+              </span>
+            </div>
+
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <FieldLabel label="Proposer Name" required>
-                <input className={inputCls} value={`${contact.firstName ?? ''} ${contact.lastName ?? ''}`} disabled />
+              <FieldLabel label="First Name" required>
+                <input
+                  className={inputCls}
+                  placeholder="e.g. Vikram"
+                  value={proposer.firstName}
+                  onChange={(e) => setProposer({ ...proposer, firstName: e.target.value })}
+                />
               </FieldLabel>
-              <FieldLabel label="Mobile Number" required>
-                <input className={inputCls} value={contact.phone ?? ''} disabled />
+              <FieldLabel label="Last Name">
+                <input
+                  className={inputCls}
+                  placeholder="e.g. Patil"
+                  value={proposer.lastName}
+                  onChange={(e) => setProposer({ ...proposer, lastName: e.target.value })}
+                />
               </FieldLabel>
-              <FieldLabel label="Email ID" required hint={needs.email ? undefined : 'On file'}>
+              <FieldLabel label="Mobile Number" required hint="Used to link customer across Motor & Health">
+                <input
+                  className={`${inputCls} font-mono`}
+                  type="tel"
+                  maxLength={10}
+                  placeholder="e.g. 9876543210"
+                  value={proposer.phone}
+                  onChange={(e) => setProposer({ ...proposer, phone: e.target.value.replace(/\D/g, '') })}
+                />
+              </FieldLabel>
+              <FieldLabel label="Email ID" required hint="For policy communications">
                 <input
                   className={inputCls}
                   type="email"
-                  value={needs.email ? kyc.email : contact.email}
-                  disabled={!needs.email}
-                  onChange={(e) => setKyc({ ...kyc, email: e.target.value })}
+                  placeholder="e.g. vikram.patil@example.com"
+                  value={proposer.email}
+                  onChange={(e) => setProposer({ ...proposer, email: e.target.value })}
                 />
               </FieldLabel>
-              <FieldLabel label="PAN Number" required hint={needs.panNumber ? 'Format ABCDE1234F' : 'On file'}>
+              <FieldLabel label="Gender" required>
+                <select
+                  className={inputCls}
+                  value={proposer.gender}
+                  onChange={(e) => setProposer({ ...proposer, gender: e.target.value })}
+                >
+                  {GENDERS.map((o) => (
+                    <option key={o.value} value={o.value}>
+                      {o.label}
+                    </option>
+                  ))}
+                </select>
+              </FieldLabel>
+              <FieldLabel label="Date of Birth" hint="Proposer must be 18+">
                 <input
                   className={inputCls}
-                  value={needs.panNumber ? kyc.panNumber : contact.panNumber}
-                  disabled={!needs.panNumber}
+                  type="date"
+                  value={proposer.dateOfBirth}
+                  onChange={(e) => setProposer({ ...proposer, dateOfBirth: e.target.value })}
+                />
+              </FieldLabel>
+              <FieldLabel label="PAN Number" hint="Format ABCDE1234F">
+                <input
+                  className={`${inputCls} uppercase font-mono`}
                   maxLength={10}
-                  onChange={(e) => setKyc({ ...kyc, panNumber: e.target.value.toUpperCase() })}
+                  placeholder="ABCDE1234F"
+                  value={proposer.panNumber}
+                  onChange={(e) => setProposer({ ...proposer, panNumber: e.target.value.toUpperCase() })}
                 />
               </FieldLabel>
-              <FieldLabel label="Aadhaar Number" required hint={needs.aadhaarNumber ? '12 digits' : 'On file'}>
+              <FieldLabel label="Aadhaar Number (Optional)" hint="12 digits">
                 <input
-                  className={inputCls}
-                  value={needs.aadhaarNumber ? kyc.aadhaarNumber : contact.aadhaarNumber}
-                  disabled={!needs.aadhaarNumber}
+                  className={`${inputCls} font-mono`}
                   maxLength={12}
-                  onChange={(e) => setKyc({ ...kyc, aadhaarNumber: e.target.value.replace(/\D/g, '') })}
+                  placeholder="12 digit Aadhaar"
+                  value={proposer.aadhaarNumber}
+                  onChange={(e) => setProposer({ ...proposer, aadhaarNumber: e.target.value.replace(/\D/g, '') })}
                 />
               </FieldLabel>
               <FieldLabel label="Occupation" required>
                 <select className={inputCls} value={occupation} onChange={(e) => setOccupation(e.target.value)}>
-                  <option value="">-- Select --</option>
+                  <option value="">-- Select Occupation --</option>
                   {OCCUPATIONS.map((o) => (
                     <option key={o.value} value={o.value}>
                       {o.label}
@@ -295,16 +454,26 @@ export function HealthQuoteWizard({ contactId, leadId }: { contactId: string; le
                 </select>
               </FieldLabel>
               <FieldLabel label="Annual Income" hint="Required for high Sum Insured underwriting">
-                <input className={inputCls} type="number" min={0} value={annualIncome} onChange={(e) => setAnnualIncome(e.target.value)} />
+                <input
+                  className={inputCls}
+                  type="number"
+                  min={0}
+                  placeholder="e.g. 1200000"
+                  value={annualIncome}
+                  onChange={(e) => setAnnualIncome(e.target.value)}
+                />
               </FieldLabel>
             </div>
+
             <h3 className="font-bold text-xs pt-2">Communication Address *</h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {(['line1', 'line2', 'city', 'state', 'pincode'] as const).map((k) => (
                 <input
                   key={k}
                   className={inputCls}
-                  placeholder={{ line1: 'Address line 1 *', line2: 'Address line 2', city: 'City *', state: 'State *', pincode: 'Pincode *' }[k]}
+                  placeholder={
+                    { line1: 'Address line 1 *', line2: 'Address line 2', city: 'City *', state: 'State *', pincode: 'Pincode *' }[k]
+                  }
                   value={address[k]}
                   onChange={(e) => setAddress({ ...address, [k]: e.target.value })}
                 />
@@ -475,6 +644,10 @@ export function HealthQuoteWizard({ contactId, leadId }: { contactId: string; le
           <div className="space-y-3 text-xs">
             <h2 className="font-black text-sm">Review</h2>
             <dl className="grid grid-cols-2 gap-x-6 gap-y-2">
+              <dt className="text-muted-foreground">Proposer</dt>
+              <dd className="font-bold">{proposer.firstName} {proposer.lastName} ({proposer.phone})</dd>
+              <dt className="text-muted-foreground">Email</dt>
+              <dd className="font-bold">{proposer.email}</dd>
               <dt className="text-muted-foreground">Plan category</dt>
               <dd className="font-bold">{labelOf(PLAN_CATEGORIES, planCategory)}</dd>
               <dt className="text-muted-foreground">Policy type</dt>
@@ -497,14 +670,20 @@ export function HealthQuoteWizard({ contactId, leadId }: { contactId: string; le
         )}
       </div>
 
-      <div className="flex justify-between">
+      <div className="flex justify-between items-center pt-2">
         <button
           type="button"
-          disabled={step === 0}
-          onClick={() => setStep((s) => s - 1)}
-          className="flex items-center gap-1 px-4 py-2 rounded-xl border text-xs font-bold disabled:opacity-40"
+          onClick={() => {
+            if (step === 0) {
+              router.push('/sales/health-quotations');
+            } else {
+              setStep((s) => s - 1);
+            }
+          }}
+          className="flex items-center gap-1.5 px-4 py-2 rounded-xl border bg-card hover:bg-muted text-xs font-bold transition-colors"
         >
-          <ArrowLeft className="h-4 w-4" /> Back
+          <ArrowLeft className="h-4 w-4" />
+          <span>{step === 0 ? 'Back to Health Proposals' : 'Back'}</span>
         </button>
         {step < STEPS.length - 1 ? (
           <button type="button" onClick={next} className="flex items-center gap-1 px-5 py-2 rounded-xl bg-primary text-primary-foreground text-xs font-bold">

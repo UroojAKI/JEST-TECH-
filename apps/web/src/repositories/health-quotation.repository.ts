@@ -36,6 +36,52 @@ export const healthQuotationRepository = {
     }
   },
 
+  async resolveOrCreateContact(proposer: {
+    firstName: string;
+    lastName?: string;
+    phone: string;
+    email?: string;
+    panNumber?: string;
+    aadhaarNumber?: string;
+  }): Promise<string> {
+    const cleanPhone = proposer.phone.replace(/\D/g, '');
+
+    // 1. Try to find existing contact by phone
+    try {
+      const searchRes = await apiClient.get('/contacts', { params: { search: cleanPhone, limit: 10 } });
+      const items = Array.isArray(searchRes.data?.data) ? searchRes.data.data : Array.isArray(searchRes.data) ? searchRes.data : [];
+      const match = items.find((c: any) => String(c.phone || '').replace(/\D/g, '') === cleanPhone);
+      if (match?.id) {
+        return match.id;
+      }
+    } catch {
+      // Continue to customer check
+    }
+
+    // 2. Check customer table if contact not found directly
+    try {
+      const custSearchRes = await apiClient.get('/customers', { params: { search: cleanPhone, limit: 10 } });
+      const custItems = Array.isArray(custSearchRes.data?.data) ? custSearchRes.data.data : Array.isArray(custSearchRes.data) ? custSearchRes.data : [];
+      const custMatch = custItems.find((c: any) => String(c.mobile || c.phone || '').replace(/\D/g, '') === cleanPhone);
+      if (custMatch?.contactId || custMatch?.id) {
+        return custMatch.contactId || custMatch.id;
+      }
+    } catch {
+      // Continue to creation
+    }
+
+    // 3. Create new contact
+    const created = await apiClient.post('/contacts', {
+      type: 'INDIVIDUAL',
+      firstName: proposer.firstName.trim() || 'Health',
+      lastName: (proposer.lastName || '').trim(),
+      phone: cleanPhone,
+      email: proposer.email?.trim() || undefined,
+      panNumber: proposer.panNumber?.trim() || undefined,
+    });
+    return created.data?.id;
+  },
+
   async createCase(payload: Record<string, any>): Promise<any> {
     const response = await apiClient.post('/health/quotation-cases', payload);
     return response.data;

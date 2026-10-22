@@ -78,7 +78,7 @@ export function HealthQuotationsWorkspace() {
           <button onClick={() => refetch()} className="p-2.5 rounded-md border bg-background hover:bg-muted text-muted-foreground">
             <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
           </button>
-          <button onClick={() => setIsCustomerModalOpen(true)} className="px-5 py-2.5 rounded-md bg-foreground text-background font-semibold text-sm flex items-center gap-2">
+          <button onClick={() => router.push('/sales/health-quotations/new')} className="px-5 py-2.5 rounded-md bg-foreground text-background font-semibold text-sm flex items-center gap-2 hover:opacity-90 transition-opacity">
             <Plus className="h-4 w-4" /> New Proposal
           </button>
         </div>
@@ -215,8 +215,17 @@ export function HealthQuotationsWorkspace() {
                   ))}
                 </div>
               ) : (
-                <div className="p-8 text-center text-muted-foreground text-sm">
-                  No customers found. Please create the customer in the CRM first.
+                <div className="p-8 text-center text-muted-foreground text-sm space-y-3">
+                  <p>No matching customers found.</p>
+                  <button
+                    onClick={() => {
+                      setIsCustomerModalOpen(false);
+                      router.push('/sales/health-quotations/new');
+                    }}
+                    className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/90"
+                  >
+                    Start Proposal for New Customer Directly
+                  </button>
                 </div>
               )}
             </div>

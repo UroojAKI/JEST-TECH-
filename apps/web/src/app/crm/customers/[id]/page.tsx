@@ -27,6 +27,7 @@ import {
   Loader2,
   Bell,
   RefreshCw,
+  HeartPulse,
 } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { customerRepository, Customer } from '../../../../repositories/customer.repository';
@@ -135,6 +136,53 @@ export default function CustomerDetailPage() {
   const fullName = `${customer.firstName} ${customer.lastName || ''}`.trim();
   const unreadAlerts = (customer.alerts || []).filter((a: any) => !a.isRead);
 
+  const customerMobile = customer.mobile || '';
+  const customerEmail = customer.email || '';
+  const customerPan = customer.panNumber || '';
+  const customerAddress = [customer.addressLine1, customer.addressLine2, customer.city, customer.state, customer.pincode].filter(Boolean).join(', ');
+
+  const motorQuoteParams = new URLSearchParams();
+  motorQuoteParams.set('customerId', customer.id);
+  if (customer.contactId) {
+    motorQuoteParams.set('contactId', customer.contactId);
+  }
+  motorQuoteParams.set('openQuote', '1');
+  if (fullName) {
+    motorQuoteParams.set('customerName', fullName);
+  }
+  if (customerMobile) {
+    motorQuoteParams.set('customerPhone', customerMobile);
+  }
+  if (customerEmail) {
+    motorQuoteParams.set('customerEmail', customerEmail);
+  }
+  if (customerPan) {
+    motorQuoteParams.set('customerPan', customerPan);
+  }
+  if (customerAddress) {
+    motorQuoteParams.set('customerAddress', customerAddress);
+  }
+  const motorQuoteUrl = `/sales/quotations?${motorQuoteParams.toString()}`;
+
+  const getVehicleMotorQuoteUrl = (v: any) => {
+    const params = new URLSearchParams();
+    params.set('customerId', customer.id);
+    if (customer.contactId) params.set('contactId', customer.contactId);
+    params.set('openQuote', '1');
+    if (fullName) params.set('customerName', fullName);
+    if (customerMobile) params.set('customerPhone', customerMobile);
+    if (customerEmail) params.set('customerEmail', customerEmail);
+    if (customerPan) params.set('customerPan', customerPan);
+    if (customerAddress) params.set('customerAddress', customerAddress);
+    if (v?.id) params.set('vehicleId', v.id);
+    if (v?.registrationNumber) params.set('regNumber', v.registrationNumber);
+    const cat = (v?.vehicleCategory || v?.category || '').toLowerCase();
+    if (cat.includes('bike') || cat.includes('two')) params.set('type', 'bike');
+    else if (cat.includes('gcv') || cat.includes('commercial')) params.set('type', 'gcv');
+    else if (cat.includes('car') || cat.includes('private')) params.set('type', 'private_car');
+    return `/sales/quotations?${params.toString()}`;
+  };
+
   return (
     <AppShell>
       <div className="space-y-6 pb-12">
@@ -235,11 +283,25 @@ export default function CustomerDetailPage() {
               </button>
               <button
                 onClick={() => setShowNewLeadModal(true)}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/90 shadow-xs transition"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border bg-card hover:bg-accent text-xs font-semibold shadow-xs transition"
               >
                 <Plus className="h-3.5 w-3.5" />
                 <span>New Lead</span>
               </button>
+              <Link
+                href={motorQuoteUrl}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/90 shadow-xs transition"
+              >
+                <Car className="h-3.5 w-3.5" />
+                <span>Motor Quote</span>
+              </Link>
+              <Link
+                href={`/sales/health-quotations/new?customerId=${customer.id}&contactId=${customer.contactId || customer.id}`}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-700 shadow-xs transition"
+              >
+                <HeartPulse className="h-3.5 w-3.5" />
+                <span>Health Quote</span>
+              </Link>
             </div>
           </div>
 
@@ -439,7 +501,7 @@ export default function CustomerDetailPage() {
                           </p>
                         </div>
                         <button
-                          onClick={() => router.push(`/sales/quotations/new?vehicleId=${v.id}&customerId=${customer.id}`)}
+                          onClick={() => router.push(getVehicleMotorQuoteUrl(v))}
                           className="px-2.5 py-1 rounded bg-primary/10 text-primary text-[11px] font-bold hover:bg-primary/20 transition"
                         >
                           Quote
@@ -565,7 +627,7 @@ export default function CustomerDetailPage() {
 
                     <div className="pt-2 border-t border-border flex items-center gap-2">
                       <button
-                        onClick={() => router.push(`/sales/quotations/new?vehicleId=${v.id}&customerId=${customer.id}`)}
+                        onClick={() => router.push(getVehicleMotorQuoteUrl(v))}
                         className="flex-1 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/90 transition text-center"
                       >
                         Generate Quote
@@ -592,6 +654,13 @@ export default function CustomerDetailPage() {
                 <h3 className="font-bold text-base">Motor Quotations</h3>
                 <p className="text-xs text-muted-foreground">Multi-insurer comparison quotes generated for this customer.</p>
               </div>
+              <Link
+                href={motorQuoteUrl}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/90 shadow-xs transition"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                <span>New Motor Quote</span>
+              </Link>
             </div>
 
             {(!customer.quotations || customer.quotations.length === 0) ? (

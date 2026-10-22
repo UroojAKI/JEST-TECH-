@@ -7,18 +7,11 @@ import { HealthQuoteWizard } from '../../../../components/health-quote/HealthQuo
 
 function NewHealthQuotation() {
   const params = useSearchParams();
-  const contactId = params.get('contactId') ?? '';
-  const customerId = params.get('customerId') ?? '';
+  const contactId = params.get('contactId') ?? undefined;
+  const customerId = params.get('customerId') ?? undefined;
   const leadId = params.get('leadId') ?? undefined;
   const targetId = contactId || customerId;
 
-  if (!targetId) {
-    return (
-      <div className="p-8 text-center text-xs text-muted-foreground">
-        Open the Health quotation from a customer (+ Create Quote) or a lead.
-      </div>
-    );
-  }
   return <HealthQuoteWizard contactId={targetId} leadId={leadId} />;
 }
 
