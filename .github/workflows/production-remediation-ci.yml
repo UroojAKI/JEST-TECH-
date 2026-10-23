@@ -79,7 +79,7 @@ jobs:
         run: pnpm build
 
       - name: Dependency security audit
-        run: pnpm audit --audit-level moderate
+        run: pnpm audit --audit-level=high
 
       - name: Production source safety scan
         shell: bash
