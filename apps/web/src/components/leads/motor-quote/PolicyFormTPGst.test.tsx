@@ -389,5 +389,357 @@ describe('Work Package: TP GST, Add-on GST & Component Breakdown Verification Su
         })
       );
     });
+
+    it('reconciles overridden PA premium (₹315 vs default ₹250) and Paid Driver (₹100 vs default ₹50) in itemized breakdown and summary', () => {
+      const mockOnChange = vi.fn();
+      const calculationFixture = {
+        rateConfig: {
+          tpAnnualRate: 1000,
+          systemTpAnnualRate: 1000,
+          gstRatePercent: 18,
+          tpGstRatePercent: 18,
+        },
+        outputs: {
+          baseTpPremium: 1000,
+          totalGst: 254.7,
+          finalPayableAmount: 1669.7,
+          tp: { base: 1000, discount: 0, gst: 180 },
+          pa: { premium: 0, gst: 0 },
+          paidDriver: { premium: 0, gst: 0 },
+          payableSummary: {
+            addonGrossPremium: 415,
+            addonDiscountAmount: 0,
+            addonGstTotal: 74.7,
+            grossPremium: 1415,
+            componentGstTotal: 254.7,
+            finalPayableAmount: 1669.7,
+          },
+          gstBreakdown: {
+            base: 'GROSS',
+            tp: { base: 1000, rate: 0.18, ratePercent: 18, amount: 180 },
+            pa: { base: 0, rate: 0.18, ratePercent: 18, amount: 0 },
+            paidDriver: { base: 0, rate: 0.18, ratePercent: 18, amount: 0 },
+            addons: {
+              base: 415,
+              taxableBase: 415,
+              discount: 0,
+              netPreTaxBase: 415,
+              rate: 0.18,
+              ratePercent: 18,
+              amount: 74.7,
+              items: [
+                {
+                  addonCode: 'PA_UNNAMED_PASSENGER',
+                  name: 'PA Cover to Unnamed Passengers',
+                  amount: 315,
+                  premium: 315,
+                  systemPremium: 250,
+                  editedPremium: 315,
+                  discountPercentage: 0,
+                  discountAmount: 0,
+                  netPreTaxAmount: 315,
+                  taxableBase: 315,
+                  gstRatePercent: 18,
+                  gstAmount: 56.7,
+                  finalAddonAmount: 371.7,
+                  isEdited: true,
+                },
+                {
+                  addonCode: 'LEGAL_LIABILITY_PAID_DRIVER',
+                  name: 'Legal Liability to Paid Driver',
+                  amount: 100,
+                  premium: 100,
+                  systemPremium: 50,
+                  editedPremium: 100,
+                  discountPercentage: 0,
+                  discountAmount: 0,
+                  netPreTaxAmount: 100,
+                  taxableBase: 100,
+                  gstRatePercent: 18,
+                  gstAmount: 18,
+                  finalAddonAmount: 118,
+                  isEdited: true,
+                },
+              ],
+            },
+          },
+          itemizedAddons: [
+            {
+              addonCode: 'PA_UNNAMED_PASSENGER',
+              name: 'PA Cover to Unnamed Passengers',
+              amount: 315,
+              premium: 315,
+              systemPremium: 250,
+              editedPremium: 315,
+              discountPercentage: 0,
+              discountAmount: 0,
+              netPreTaxAmount: 315,
+              taxableBase: 315,
+              gstRatePercent: 18,
+              gstAmount: 56.7,
+              finalAddonAmount: 371.7,
+              isEdited: true,
+            },
+            {
+              addonCode: 'LEGAL_LIABILITY_PAID_DRIVER',
+              name: 'Legal Liability to Paid Driver',
+              amount: 100,
+              premium: 100,
+              systemPremium: 50,
+              editedPremium: 100,
+              discountPercentage: 0,
+              discountAmount: 0,
+              netPreTaxAmount: 100,
+              taxableBase: 100,
+              gstRatePercent: 18,
+              gstAmount: 18,
+              finalAddonAmount: 118,
+              isEdited: true,
+            },
+          ],
+        },
+      };
+
+      vi.mocked(useMotorCalculator).mockReturnValue({
+        result: calculationFixture,
+        loading: false,
+        error: null,
+      });
+
+      const initialData: any = {
+        policyTenure: '1',
+        gstRate: '18',
+        tpGstRate: '18',
+        addonsSelected: ['PA_UNNAMED_PASSENGER', 'LEGAL_LIABILITY_PAID_DRIVER'],
+        addonPrices: {
+          PA_UNNAMED_PASSENGER: '315',
+          LEGAL_LIABILITY_PAID_DRIVER: '100',
+        },
+        addonDiscounts: {
+          PA_UNNAMED_PASSENGER: '0',
+          LEGAL_LIABILITY_PAID_DRIVER: '0',
+        },
+        addonGstRates: {
+          PA_UNNAMED_PASSENGER: '18',
+          LEGAL_LIABILITY_PAID_DRIVER: '18',
+        },
+      };
+
+      render(
+        <PolicyFormTPOnlyForm
+          category="PRIVATE_CAR"
+          vehicleStatus="EXISTING"
+          data={initialData}
+          onChange={mockOnChange}
+        />
+      );
+
+      const breakdown = screen.getByTestId('tp-premium-breakdown');
+      expect(breakdown).toBeInTheDocument();
+
+      // Assert Summary Card shows ₹415 Gross
+      expect(breakdown).toHaveTextContent(/Add-ons Gross & Tax/i);
+      expect(breakdown).toHaveTextContent(/₹415/i);
+      expect(breakdown).toHaveTextContent(/Add-on Tax: ₹74.7/i);
+
+      // Assert PA Cover uses ₹315 (NOT the ₹250 system default)
+      expect(breakdown).toHaveTextContent(/PA Cover to Unnamed Passengers/i);
+      expect(breakdown).toHaveTextContent(/Gross Base: ₹315/i);
+      expect(breakdown).not.toHaveTextContent(/Gross Base: ₹250/i);
+      expect(breakdown).toHaveTextContent(/Net Pre-tax: ₹315/i);
+      expect(breakdown).toHaveTextContent(/GST \(18%\): ₹56\.7/i);
+      expect(breakdown).toHaveTextContent(/Total: ₹371.7/i);
+
+      // Assert Paid Driver uses ₹100 (NOT the ₹50 system default)
+      expect(breakdown).toHaveTextContent(/Legal Liability to Paid Driver/i);
+      expect(breakdown).toHaveTextContent(/Gross Base: ₹100/i);
+      expect(breakdown).not.toHaveTextContent(/Gross Base: ₹50/i);
+      expect(breakdown).toHaveTextContent(/Net Pre-tax: ₹100/i);
+      expect(breakdown).toHaveTextContent(/GST \(18%\): ₹18/i);
+      expect(breakdown).toHaveTextContent(/Total: ₹118/i);
+
+      // Total Premium reconciles
+      expect(breakdown).toHaveTextContent('Total Premium (incl. GST):');
+      expect(breakdown).toHaveTextContent(/₹1,669.7/i);
+    });
+
+    it('synchronizes add-on default GST rate with overall TP GST selector when individual rate not explicitly set', () => {
+      const mockOnChange = vi.fn();
+      const initialData: any = {
+        policyTenure: '1',
+        gstRate: '5',
+        tpGstRate: '5',
+        addonsSelected: ['PA_UNNAMED_PASSENGER'],
+        addonPrices: { PA_UNNAMED_PASSENGER: '315' },
+      };
+
+      render(
+        <PolicyFormTPOnlyForm
+          category="PRIVATE_CAR"
+          vehicleStatus="EXISTING"
+          data={initialData}
+          onChange={mockOnChange}
+        />
+      );
+
+      // Dropdown should default to 5% to match the TP rate selector, NOT 18%
+      const addonGstSelect = screen.getByTestId('addon-gst-PA_UNNAMED_PASSENGER') as HTMLSelectElement;
+      expect(addonGstSelect.value).toBe('5');
+
+      // Verify useMotorCalculator was called with gstRate: 5 for this addon
+      expect(vi.mocked(useMotorCalculator)).toHaveBeenCalledWith(
+        expect.objectContaining({
+          addons: expect.arrayContaining([
+            expect.objectContaining({
+              addonCode: 'PA_UNNAMED_PASSENGER',
+              amount: 315,
+              gstRate: 5,
+            }),
+          ]),
+        })
+      );
+    });
+
+    it('reconciles add-on discount, taxable base, and tax under Gross Tax Base Rule with non-zero discount', () => {
+      const mockOnChange = vi.fn();
+      const calculationFixture = {
+        rateConfig: {
+          tpAnnualRate: 1000,
+          systemTpAnnualRate: 1000,
+          gstRatePercent: 18,
+          tpGstRatePercent: 18,
+        },
+        outputs: {
+          baseTpPremium: 1000,
+          totalGst: 236.7,
+          finalPayableAmount: 1520.2,
+          tp: { base: 1000, discount: 0, gst: 180 },
+          pa: { premium: 0, gst: 0 },
+          paidDriver: { premium: 0, gst: 0 },
+          payableSummary: {
+            addonGrossPremium: 315,
+            addonDiscountAmount: 31.5,
+            addonGstTotal: 56.7,
+            grossPremium: 1315,
+            componentGstTotal: 236.7,
+            finalPayableAmount: 1520.2,
+          },
+          gstBreakdown: {
+            base: 'GROSS',
+            tp: { base: 1000, rate: 0.18, ratePercent: 18, amount: 180 },
+            pa: { base: 0, rate: 0.18, ratePercent: 18, amount: 0 },
+            paidDriver: { base: 0, rate: 0.18, ratePercent: 18, amount: 0 },
+            addons: {
+              base: 315,
+              taxableBase: 315,
+              discount: 31.5,
+              netPreTaxBase: 283.5,
+              rate: 0.18,
+              ratePercent: 18,
+              amount: 56.7,
+              items: [
+                {
+                  addonCode: 'PA_UNNAMED_PASSENGER',
+                  name: 'PA Cover to Unnamed Passengers',
+                  amount: 315,
+                  premium: 315,
+                  systemPremium: 250,
+                  editedPremium: 315,
+                  discountPercentage: 10,
+                  discountAmount: 31.5,
+                  netPreTaxAmount: 283.5,
+                  taxableBase: 315,
+                  gstRatePercent: 18,
+                  gstAmount: 56.7,
+                  finalAddonAmount: 340.2,
+                  isEdited: true,
+                },
+              ],
+            },
+          },
+          itemizedAddons: [
+            {
+              addonCode: 'PA_UNNAMED_PASSENGER',
+              name: 'PA Cover to Unnamed Passengers',
+              amount: 315,
+              premium: 315,
+              systemPremium: 250,
+              editedPremium: 315,
+              discountPercentage: 10,
+              discountAmount: 31.5,
+              netPreTaxAmount: 283.5,
+              taxableBase: 315,
+              gstRatePercent: 18,
+              gstAmount: 56.7,
+              finalAddonAmount: 340.2,
+              isEdited: true,
+            },
+          ],
+        },
+      };
+
+      vi.mocked(useMotorCalculator).mockReturnValue({
+        result: calculationFixture,
+        loading: false,
+        error: null,
+      });
+
+      const initialData: any = {
+        policyTenure: '1',
+        gstRate: '18',
+        tpGstRate: '18',
+        addonsSelected: ['PA_UNNAMED_PASSENGER'],
+        addonPrices: { PA_UNNAMED_PASSENGER: '315' },
+        addonDiscounts: { PA_UNNAMED_PASSENGER: '10' },
+        addonGstRates: { PA_UNNAMED_PASSENGER: '18' },
+      };
+
+      render(
+        <PolicyFormTPOnlyForm
+          category="PRIVATE_CAR"
+          vehicleStatus="EXISTING"
+          data={initialData}
+          onChange={mockOnChange}
+        />
+      );
+
+      const breakdown = screen.getByTestId('tp-premium-breakdown');
+      expect(breakdown).toHaveTextContent(/PA Cover to Unnamed Passengers/i);
+      expect(breakdown).toHaveTextContent(/Gross Base: ₹315/i);
+      expect(breakdown).toHaveTextContent(/Disc: 10% \(−₹31\.5\)/i);
+      expect(breakdown).toHaveTextContent(/Net Pre-tax: ₹283.5/i);
+      expect(breakdown).toHaveTextContent(/GST \(18%\): ₹56\.7/i);
+      expect(breakdown).toHaveTextContent(/Total: ₹340.2/i);
+    });
+
+    it('omits deselected add-on from calculation payload and breakdown', () => {
+      const mockOnChange = vi.fn();
+      const initialData: any = {
+        policyTenure: '1',
+        gstRate: '18',
+        tpGstRate: '18',
+        addonsSelected: ['PA_UNNAMED_PASSENGER'],
+        addonPrices: { PA_UNNAMED_PASSENGER: '315' },
+      };
+
+      render(
+        <PolicyFormTPOnlyForm
+          category="PRIVATE_CAR"
+          vehicleStatus="EXISTING"
+          data={initialData}
+          onChange={mockOnChange}
+        />
+      );
+
+      // Uncheck the PA cover checkbox
+      const checkbox = screen.getByRole('checkbox', { name: /PA Cover to Unnamed Passengers/i });
+      fireEvent.click(checkbox);
+
+      expect(mockOnChange).toHaveBeenCalledWith(
+        expect.objectContaining({
+          addonsSelected: [],
+        })
+      );
+    });
   });
 });
