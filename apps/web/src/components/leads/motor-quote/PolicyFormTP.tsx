@@ -69,7 +69,7 @@ export function PolicyFormTPOnlyForm({ category, vehicleStatus, data, onChange, 
     vehicleStatus: vehicleStatus,
     policyType: 'THIRD_PARTY_ONLY',
     policyTenure: parseInt(data.policyTenure || '1') || 1,
-    paCover: !!data.paCoverOwner,
+    paCover: data.paCoverOwner !== false,
     paidDriverLiability: data.legalLiabilityPaidDriver === 'Yes',
     tpDiscountPercent: parseFloat(data.tpDiscountPercent || data.discountPercent || '0') || 0,
     ...(data.commercialAdjustmentAmount !== undefined && data.commercialAdjustmentAmount !== '' && !isNaN(parseFloat(data.commercialAdjustmentAmount))
@@ -191,7 +191,7 @@ export function PolicyFormTPOnlyForm({ category, vehicleStatus, data, onChange, 
         <FieldRow
           label="Annual TP Premium (₹)"
           hint={data.editedTpPremium
-            ? `Custom: ₹${Number(data.editedTpPremium).toLocaleString('en-IN')}/yr × ${data.policyTenure || '1'} yr(s) = ₹${Number(result?.outputs?.tp?.gross ?? result?.outputs?.tp?.base ?? 0).toLocaleString('en-IN')} (Statutory: ₹${Number(result?.outputs?.tp?.statutoryAnnual ?? result?.rateConfig?.systemTpAnnualRate ?? 0).toLocaleString('en-IN')}/yr)`
+            ? `Custom Quoted Base: ₹${Number(data.editedTpPremium).toLocaleString('en-IN')}/yr × ${data.policyTenure || '1'} yr(s) = ₹${Number(result?.outputs?.tp?.gross ?? result?.outputs?.tp?.base ?? 0).toLocaleString('en-IN')} (Statutory Reference Tariff: ₹${Number(result?.outputs?.tp?.statutoryAnnual ?? result?.rateConfig?.systemTpAnnualRate ?? 0).toLocaleString('en-IN')}/yr)`
             : `Statutory Annual Tariff: ₹${Number(result?.outputs?.tp?.statutoryAnnual ?? result?.rateConfig?.systemTpAnnualRate ?? 0).toLocaleString('en-IN')}/yr (Tenure: ${data.policyTenure || '1'} yr(s) → Gross: ₹${Number(result?.outputs?.tp?.gross ?? result?.outputs?.tp?.base ?? 0).toLocaleString('en-IN')})`}
         >
           <div className="flex items-center gap-2">
@@ -262,20 +262,55 @@ export function PolicyFormTPOnlyForm({ category, vehicleStatus, data, onChange, 
         </FieldRow>
       </div>
 
-      {/* PA Cover — Optional */}
-      <div className="p-3 rounded-xl border bg-card flex items-start gap-3">
-        <input
-          type="checkbox"
-          id="paCoverTP"
-          checked={!!data.paCoverOwner}
-          onChange={setBool('paCoverOwner')}
-          className="mt-0.5 h-4 w-4 rounded text-primary"
-        />
-        <label htmlFor="paCoverTP" className="text-xs cursor-pointer">
-          <span className="font-bold text-foreground">Personal Accident (PA) Cover — Owner / Owner-cum-Driver</span>
-          <span className="text-muted-foreground text-[10px] ml-1">(Optional)</span>
-          <p className="text-[10px] text-muted-foreground mt-0.5">Sum Insured: ₹15 Lakh (standard). Uncheck if customer holds existing PA cover or waiver.</p>
-        </label>
+      {/* PA Cover — Optional / Compulsory Statutory */}
+      <div className={`p-3 rounded-xl border transition-colors space-y-2 ${
+        data.paCoverOwner === false ? 'bg-muted/10 border-border opacity-70' : 'bg-card border-border'
+      }`}>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              id="paCoverTP"
+              checked={data.paCoverOwner !== false}
+              onChange={(e) => onChange({ ...data, paCoverOwner: e.target.checked })}
+              className="mt-0.5 h-4 w-4 rounded text-primary cursor-pointer"
+            />
+            <span className="text-xs font-bold text-foreground">Personal Accident (PA) Cover — Owner / Owner-cum-Driver</span>
+            <span className="text-[10px] text-muted-foreground font-semibold">
+              {data.paCoverOwner === false ? '(Waived / Opted Out)' : '(Compulsory Statutory ₹15L Cover)'}
+            </span>
+          </label>
+          {data.paCoverOwner !== false ? (
+            <div className="flex items-center gap-1.5 shrink-0">
+              <span className="text-[10px] text-muted-foreground font-semibold">PA Premium ₹:</span>
+              <input
+                type="number"
+                step="1"
+                placeholder={result?.rateConfig?.paRate?.toString() || '275'}
+                value={data.editedPaPremium ?? ''}
+                onChange={(e) => onChange({ ...data, editedPaPremium: e.target.value })}
+                className="w-20 p-1 text-xs font-bold rounded border bg-background text-foreground font-mono"
+                title="Edit Owner-Driver PA Premium ₹"
+              />
+              {data.editedPaPremium !== undefined && (
+                <button
+                  type="button"
+                  onClick={() => onChange({ ...data, editedPaPremium: undefined })}
+                  className="text-[10px] font-semibold text-muted-foreground hover:text-foreground underline"
+                >
+                  Reset
+                </button>
+              )}
+            </div>
+          ) : (
+            <span className="text-[10px] font-bold text-muted-foreground bg-muted/40 px-2 py-0.5 rounded">
+              Waived (Existing PA Held Elsewhere)
+            </span>
+          )}
+        </div>
+        <p className="text-[10px] text-muted-foreground">
+          Sum Insured: ₹15 Lakh (statutory IRDAI tariff ₹275). Uncheck if customer holds existing standalone CPA cover elsewhere or corporate fleet waiver.
+        </p>
       </div>
 
       {/* Legal Liability */}
@@ -466,6 +501,22 @@ export function PolicyFormTPOnlyForm({ category, vehicleStatus, data, onChange, 
         const totalGstAmount = Number(tpOutputs?.totalGst ?? tpOutputs?.componentGstTotal ?? 0);
         const finalPayableTotal = Number(data.totalPremiumOverride ?? tpOutputs?.finalPayableAmount ?? tpOutputs?.totalPremium ?? 0);
 
+        const isTpEdited = Boolean(
+          data.editedTpPremium !== undefined &&
+          data.editedTpPremium !== '' &&
+          !isNaN(parseFloat(data.editedTpPremium))
+        );
+        const statutoryTpAnnualRate = Number(
+          result?.outputs?.tp?.statutoryAnnual ??
+          result?.rateConfig?.systemTpAnnualRate ??
+          result?.rateConfig?.tpAnnualRate ??
+          0
+        );
+        const effectiveTpAnnualRate = isTpEdited
+          ? parseFloat(data.editedTpPremium!)
+          : Number(result?.outputs?.tp?.annualPremium ?? statutoryTpAnnualRate);
+        const tpTenure = parseInt(data.policyTenure || '1') || 1;
+
         return (
           <div className="p-4 rounded-xl border border-sky-200 bg-sky-500/5 space-y-3" data-testid="tp-premium-breakdown">
             <div className="flex items-center justify-between border-b pb-2">
@@ -483,16 +534,32 @@ export function PolicyFormTPOnlyForm({ category, vehicleStatus, data, onChange, 
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-              {/* Statutory TP Base */}
+              {/* Statutory or Custom Quoted TP Base */}
               <div className="p-3 rounded-lg border bg-card space-y-1">
-                <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide block">
-                  Third-Party Statutory Base
+                <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide flex items-center justify-between">
+                  <span>{isTpEdited ? 'Third-Party Quoted Base' : 'Third-Party Statutory Base'}</span>
+                  {isTpEdited ? (
+                    <span className="px-1.5 py-0.5 rounded text-[9px] font-extrabold bg-amber-500/10 text-amber-600 border border-amber-300">
+                      Custom Quoted
+                    </span>
+                  ) : (
+                    <span className="px-1.5 py-0.5 rounded text-[9px] font-extrabold bg-sky-500/10 text-sky-700 border border-sky-300">
+                      Statutory Tariff
+                    </span>
+                  )}
                 </span>
                 <div className="text-base font-extrabold text-foreground font-mono">
                   ₹{tpBaseAmount.toLocaleString('en-IN')}
                 </div>
-                <div className="text-[10px] text-muted-foreground">
-                  Tariff: ₹{Number(result?.rateConfig?.tpAnnualRate ?? result?.rateConfig?.systemTpAnnualRate ?? 0).toLocaleString('en-IN')}/yr
+                <div className="text-[10px] text-muted-foreground space-y-0.5">
+                  {isTpEdited ? (
+                    <div>
+                      <div>Quoted: ₹{Number(effectiveTpAnnualRate).toLocaleString('en-IN')}/yr × {tpTenure} yr(s)</div>
+                      <div className="text-[9px] text-muted-foreground">Statutory Reference: ₹{Number(statutoryTpAnnualRate).toLocaleString('en-IN')}/yr</div>
+                    </div>
+                  ) : (
+                    <div>Statutory Tariff: ₹{Number(statutoryTpAnnualRate).toLocaleString('en-IN')}/yr × {tpTenure} yr(s)</div>
+                  )}
                   {Number(tpOutputs?.tp?.discount ?? 0) > 0 && (
                     <span className="text-amber-600 block">
                       Discount: −₹{Number(tpOutputs?.tp?.discount).toLocaleString('en-IN')}
@@ -506,14 +573,25 @@ export function PolicyFormTPOnlyForm({ category, vehicleStatus, data, onChange, 
 
               {/* Owner-Driver PA */}
               <div className="p-3 rounded-lg border bg-card space-y-1">
-                <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide block">
-                  Owner-Driver PA Cover
+                <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide flex items-center justify-between">
+                  <span>Owner-Driver PA Cover</span>
+                  {data.paCoverOwner === false ? (
+                    <span className="px-1.5 py-0.5 rounded text-[9px] font-extrabold bg-muted text-muted-foreground border">
+                      Waived
+                    </span>
+                  ) : (
+                    <span className="px-1.5 py-0.5 rounded text-[9px] font-extrabold bg-emerald-500/10 text-emerald-600 border border-emerald-300">
+                      Opted (₹15L)
+                    </span>
+                  )}
                 </span>
                 <div className="text-base font-extrabold text-foreground font-mono">
                   ₹{paAmount.toLocaleString('en-IN')}
                 </div>
                 <div className="text-[10px] text-muted-foreground">
-                  {data.paCoverOwner ? 'Opted (₹15L Capital Sum Insured)' : 'Not Opted / Waived'}
+                  {data.paCoverOwner === false
+                    ? 'Waived / Opted Out (Valid PA cover held elsewhere)'
+                    : `Statutory PA Rate: ₹${Number(result?.rateConfig?.paRate ?? 275).toLocaleString('en-IN')}${data.editedPaPremium ? ` (Quoted: ₹${data.editedPaPremium})` : ''}`}
                 </div>
                 <div className="text-[10px] font-bold text-primary pt-1 border-t">
                   PA Tax: ₹{paGstAmount.toLocaleString('en-IN')}
@@ -522,8 +600,17 @@ export function PolicyFormTPOnlyForm({ category, vehicleStatus, data, onChange, 
 
               {/* Paid Driver Liability */}
               <div className="p-3 rounded-lg border bg-card space-y-1">
-                <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide block">
-                  Paid Driver Liability
+                <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide flex items-center justify-between">
+                  <span>Paid Driver Liability</span>
+                  {data.legalLiabilityPaidDriver === 'Yes' ? (
+                    <span className="px-1.5 py-0.5 rounded text-[9px] font-extrabold bg-primary/10 text-primary border border-primary/20">
+                      Opted (IMT 28)
+                    </span>
+                  ) : (
+                    <span className="px-1.5 py-0.5 rounded text-[9px] font-extrabold bg-muted text-muted-foreground border">
+                      Not Opted
+                    </span>
+                  )}
                 </span>
                 <div className="text-base font-extrabold text-foreground font-mono">
                   ₹{driverAmount.toLocaleString('en-IN')}
