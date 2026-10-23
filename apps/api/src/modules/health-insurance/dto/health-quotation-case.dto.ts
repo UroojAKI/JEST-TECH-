@@ -277,6 +277,13 @@ export class AddHealthQuoteDto {
   @Min(0)
   basePremium: number;
 
+  @ApiPropertyOptional({ example: 18, description: 'GST rate percentage (e.g. 18 for 18%, defaults to 18)' })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Max(100)
+  gstPercent?: number;
+
   @ApiPropertyOptional({ type: [HealthRiderLineDto], description: 'Policy Form (iii) riders, one line each' })
   @IsOptional()
   @IsArray()

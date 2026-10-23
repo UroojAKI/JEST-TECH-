@@ -155,8 +155,34 @@ export function HealthQuoteWizard({
     }
   }, [leadContext, contact]);
 
-  // Auto-sync Primary Member (SELF) with Proposer
+  // Auto-sync Primary Member (SELF) with Proposer & enforce single Self for Individual
   useEffect(() => {
+    if (planCategory === 'INDIVIDUAL') {
+      setMembers((current) => {
+        const primary = current[0] || emptyMember('SELF');
+        const updated: Member = {
+          ...primary,
+          relation: 'SELF',
+          firstName: primary.firstName || proposer.firstName,
+          lastName: primary.lastName || proposer.lastName,
+          gender: primary.gender || proposer.gender,
+          dateOfBirth: primary.dateOfBirth || proposer.dateOfBirth,
+        };
+        if (
+          current.length !== 1 ||
+          primary.relation !== 'SELF' ||
+          (!primary.firstName && proposer.firstName) ||
+          (!primary.lastName && proposer.lastName) ||
+          (!primary.gender && proposer.gender) ||
+          (!primary.dateOfBirth && proposer.dateOfBirth)
+        ) {
+          return [updated];
+        }
+        return current;
+      });
+      return;
+    }
+
     setMembers((current) => {
       if (current.length > 0 && current[0].relation === 'SELF') {
         const selfMember = current[0];
@@ -178,12 +204,25 @@ export function HealthQuoteWizard({
       }
       return current;
     });
-  }, [proposer.firstName, proposer.lastName, proposer.gender, proposer.dateOfBirth]);
+  }, [planCategory, proposer.firstName, proposer.lastName, proposer.gender, proposer.dateOfBirth]);
+
+  // Keep existingHealthPolicy true whenever Renewal/Portability is active
+  useEffect(() => {
+    if (policyForm === 'RENEWAL_PORTABILITY') {
+      setPlanValues((prev) => (prev.existingHealthPolicy === true ? prev : { ...prev, existingHealthPolicy: true }));
+    }
+  }, [policyForm]);
 
   const chooseCategory = (value: string) => {
     setPlanCategory(value);
-    setPlanValues(initialValues(SECTION_A_FIELDS[value]));
-    if (value === 'INDIVIDUAL') setMembers((m) => m.slice(0, 1));
+    const initial = initialValues(SECTION_A_FIELDS[value]);
+    if (policyForm === 'RENEWAL_PORTABILITY') {
+      initial.existingHealthPolicy = true;
+    }
+    setPlanValues(initial);
+    if (value === 'INDIVIDUAL') {
+      setMembers((m) => [{ ...(m[0] || emptyMember('SELF')), relation: 'SELF' }]);
+    }
   };
 
   const stepErrors = (index: number): string[] => {
@@ -192,8 +231,9 @@ export function HealthQuoteWizard({
       if (!proposer.firstName.trim()) errors.push('First Name');
       const cleanPhone = proposer.phone.replace(/\D/g, '');
       if (!cleanPhone || cleanPhone.length !== 10) errors.push('Valid 10-digit Mobile Number');
-      if (!proposer.email.trim()) errors.push('Email ID');
-      else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(proposer.email.trim())) errors.push('Valid Email Format');
+      if (proposer.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(proposer.email.trim())) {
+        errors.push('Valid Email Format');
+      }
 
       if (proposer.panNumber && !/^[A-Z]{5}[0-9]{4}[A-Z]$/.test(proposer.panNumber.toUpperCase().trim())) {
         errors.push('PAN (format ABCDE1234F)');
@@ -202,16 +242,22 @@ export function HealthQuoteWizard({
         errors.push('Aadhaar (12 digits)');
       }
       if (!occupation) errors.push('Occupation');
-      if (!address.line1 || !address.city || !address.state || !address.pincode) {
-        errors.push('Address (Line 1, City, State, Pincode)');
+      if (address.pincode?.trim() && !/^\d{6}$/.test(address.pincode.trim())) {
+        errors.push('Valid 6-digit Pincode');
       }
     }
     if (index === 1) {
       if (!planCategory) errors.push('Plan category');
       errors.push(...missingRequired(sectionAFields, planValues));
+      if (policyForm === 'RENEWAL_PORTABILITY' && !renewalValues.previousInsurerName?.trim()) {
+        errors.push('Previous Policy Issuer');
+      }
     }
     if (index === 2) {
-      if (planCategory === 'INDIVIDUAL' && members.length !== 1) errors.push('Individual covers exactly one member');
+      if (planCategory === 'INDIVIDUAL') {
+        if (members.length !== 1) errors.push('Individual covers exactly one member');
+        if (members[0]?.relation !== 'SELF') errors.push('Individual policy member must be Self');
+      }
       if (planCategory === 'FAMILY_FLOATER' && members.length < 2) errors.push('Family Floater needs at least two members');
       if (members.filter((m) => m.relation === 'SELF').length > 1) errors.push('Only one member can be SELF');
       members.forEach((m, i) => {
@@ -256,24 +302,50 @@ export function HealthQuoteWizard({
   const submit = async () => {
     setSubmitting(true);
     try {
+      const cleanPhone = proposer.phone.replace(/\D/g, '');
+      const effectiveEmail =
+        proposer.email.trim() ||
+        contact?.email ||
+        `${cleanPhone || 'customer'}@health.internal`;
+
       let finalContactId = resolvedContactId;
       if (!finalContactId) {
         finalContactId = await healthQuotationRepository.resolveOrCreateContact({
           firstName: proposer.firstName,
           lastName: proposer.lastName,
           phone: proposer.phone,
-          email: proposer.email,
+          email: effectiveEmail,
           panNumber: proposer.panNumber,
           aadhaarNumber: proposer.aadhaarNumber,
         });
         setResolvedContactId(finalContactId);
       }
 
-      const proposerKyc = {
-        ...(proposer.email ? { email: proposer.email.trim() } : {}),
-        ...(proposer.panNumber ? { panNumber: proposer.panNumber.trim().toUpperCase() } : {}),
-        ...(proposer.aadhaarNumber ? { aadhaarNumber: proposer.aadhaarNumber.trim() } : {}),
+      const proposerKyc: Record<string, string> = {
+        email: effectiveEmail,
+        ...(proposer.panNumber ? { panNumber: proposer.panNumber.trim().toUpperCase() } : contact?.panNumber ? { panNumber: contact.panNumber } : {}),
+        ...(proposer.aadhaarNumber ? { aadhaarNumber: proposer.aadhaarNumber.trim() } : contact?.aadhaarNumber ? { aadhaarNumber: contact.aadhaarNumber } : {}),
       };
+
+      const effectiveAddress = {
+        line1: address.line1.trim() || contact?.addressLine1 || contact?.address || 'Not Provided',
+        line2: address.line2.trim() || contact?.addressLine2 || undefined,
+        city: address.city.trim() || contact?.city || 'Not Specified',
+        state: address.state.trim() || contact?.state || 'Not Specified',
+        pincode: address.pincode.trim() || contact?.pincode || '000000',
+      };
+
+      const finalMembers = (planCategory === 'INDIVIDUAL' ? members.slice(0, 1) : members).map((m) => ({
+        firstName: m.firstName,
+        ...(m.lastName ? { lastName: m.lastName } : {}),
+        relation: planCategory === 'INDIVIDUAL' ? 'SELF' : m.relation,
+        dateOfBirth: m.dateOfBirth,
+        gender: m.gender,
+        heightCm: Number(m.heightCm),
+        weightKg: Number(m.weightKg),
+        preExistingDiseases: m.preExistingDiseases,
+        isSmoker: m.isSmoker,
+      }));
 
       const created = await healthQuotationRepository.createCase({
         planCategory,
@@ -282,23 +354,13 @@ export function HealthQuoteWizard({
         ...(leadId ? { leadId } : {}),
         occupation,
         ...(annualIncome ? { annualIncome: Number(annualIncome) } : {}),
-        address: { ...address, ...(address.line2 ? {} : { line2: undefined }) },
+        address: effectiveAddress,
         nomineeName: nominee.name,
         nomineeRelation: nominee.relation,
         planDetails: toPayload(sectionAFields, planValues),
         ...(policyForm === 'RENEWAL_PORTABILITY' ? { previousPolicySnapshot: toPayload(RENEWAL_FIELDS, renewalValues) } : {}),
         ...(Object.keys(proposerKyc).length ? { proposerKyc } : {}),
-        members: members.map((m) => ({
-          firstName: m.firstName,
-          ...(m.lastName ? { lastName: m.lastName } : {}),
-          relation: m.relation,
-          dateOfBirth: m.dateOfBirth,
-          gender: m.gender,
-          heightCm: Number(m.heightCm),
-          weightKg: Number(m.weightKg),
-          preExistingDiseases: m.preExistingDiseases,
-          isSmoker: m.isSmoker,
-        })),
+        members: finalMembers,
       });
       toast.success(`Health proposal ${created.caseCode} created`);
       (created.planDetails?.warnings ?? []).forEach((w: string) => toast.warning(w));
@@ -311,7 +373,13 @@ export function HealthQuoteWizard({
   };
 
   const setMember = (i: number, patch: Partial<Member>) =>
-    setMembers((list) => list.map((m, idx) => (idx === i ? { ...m, ...patch } : m)));
+    setMembers((list) =>
+      list.map((m, idx) => {
+        if (idx !== i) return m;
+        const safePatch = planCategory === 'INDIVIDUAL' && patch.relation ? { ...patch, relation: 'SELF' } : patch;
+        return { ...m, ...safePatch };
+      }),
+    );
 
   return (
     <div className="max-w-4xl mx-auto space-y-5">
@@ -395,11 +463,11 @@ export function HealthQuoteWizard({
                   onChange={(e) => setProposer({ ...proposer, phone: e.target.value.replace(/\D/g, '') })}
                 />
               </FieldLabel>
-              <FieldLabel label="Email ID" required hint="For policy communications">
+              <FieldLabel label="Email ID" hint="For policy communications (Optional)">
                 <input
                   className={inputCls}
                   type="email"
-                  placeholder="e.g. vikram.patil@example.com"
+                  placeholder="e.g. vikram.patil@example.com (Optional)"
                   value={proposer.email}
                   onChange={(e) => setProposer({ ...proposer, email: e.target.value })}
                 />
@@ -465,14 +533,20 @@ export function HealthQuoteWizard({
               </FieldLabel>
             </div>
 
-            <h3 className="font-bold text-xs pt-2">Communication Address *</h3>
+            <h3 className="font-bold text-xs pt-2">Communication Address (Optional)</h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {(['line1', 'line2', 'city', 'state', 'pincode'] as const).map((k) => (
                 <input
                   key={k}
                   className={inputCls}
                   placeholder={
-                    { line1: 'Address line 1 *', line2: 'Address line 2', city: 'City *', state: 'State *', pincode: 'Pincode *' }[k]
+                    {
+                      line1: 'Address line 1 (Optional)',
+                      line2: 'Address line 2 (Optional)',
+                      city: 'City (Optional)',
+                      state: 'State (Optional)',
+                      pincode: 'Pincode (Optional)',
+                    }[k]
                   }
                   value={address[k]}
                   onChange={(e) => setAddress({ ...address, [k]: e.target.value })}
@@ -499,7 +573,17 @@ export function HealthQuoteWizard({
               ))}
             </div>
             <FieldLabel label="Policy Type" required>
-              <select className={inputCls} value={policyForm} onChange={(e) => setPolicyForm(e.target.value)}>
+              <select
+                className={inputCls}
+                value={policyForm}
+                onChange={(e) => {
+                  const newVal = e.target.value;
+                  setPolicyForm(newVal);
+                  if (newVal === 'RENEWAL_PORTABILITY') {
+                    setPlanValues((prev) => ({ ...prev, existingHealthPolicy: true }));
+                  }
+                }}
+              >
                 {POLICY_FORMS.map((o) => (
                   <option key={o.value} value={o.value}>
                     {o.label}
@@ -507,6 +591,38 @@ export function HealthQuoteWizard({
                 ))}
               </select>
             </FieldLabel>
+
+            {policyForm === 'RENEWAL_PORTABILITY' && (
+              <div className="p-4 rounded-xl border bg-muted/20 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="font-bold text-xs text-foreground">Renewal / Portability Details</h3>
+                    <p className="text-[11px] text-muted-foreground">Previous policy information for continuation benefits</p>
+                  </div>
+                  <span className="text-[10px] font-bold text-emerald-600 bg-emerald-500/10 px-2.5 py-0.5 rounded-full border border-emerald-500/20">
+                    Existing Health Policy: Yes
+                  </span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <FieldLabel label="Previous Policy Issuer" required hint="Name of previous insurer / issuer">
+                    <input
+                      className={inputCls}
+                      placeholder="e.g. Star Health / HDFC ERGO / Care / Niva Bupa"
+                      value={renewalValues.previousInsurerName || ''}
+                      onChange={(e) => setRenewalValues((prev) => ({ ...prev, previousInsurerName: e.target.value }))}
+                    />
+                  </FieldLabel>
+                  <FieldLabel label="Previous Policy Expiry Date" hint="Expiring policy end date (Optional)">
+                    <input
+                      className={inputCls}
+                      type="date"
+                      value={renewalValues.previousPolicyExpiryDate || ''}
+                      onChange={(e) => setRenewalValues((prev) => ({ ...prev, previousPolicyExpiryDate: e.target.value }))}
+                    />
+                  </FieldLabel>
+                </div>
+              </div>
+            )}
             {planCategory && (
               <>
                 <h3 className="font-bold text-xs pt-2">Plan-Specific Details — {labelOf(PLAN_CATEGORIES, planCategory)}</h3>
@@ -530,13 +646,23 @@ export function HealthQuoteWizard({
                 </button>
               )}
             </div>
+            {planCategory === 'INDIVIDUAL' && (
+              <div className="p-3 rounded-xl border border-blue-500/30 bg-blue-500/10 text-blue-950 dark:text-blue-200 text-xs flex items-center justify-between">
+                <span>
+                  <strong>Individual Health Policy:</strong> Insured member is automatically set to <strong>Self</strong> (primary insured). Additional members are disabled.
+                </span>
+                <span className="text-[10px] uppercase font-black tracking-wider bg-blue-500/20 px-2 py-0.5 rounded">
+                  Single Insured (Self)
+                </span>
+              </div>
+            )}
             {members.map((m, i) => (
               <div key={i} className="p-4 rounded-xl border space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-black">Member {i + 1}</span>
                   <div className="flex items-center gap-3">
                     {bmi(m) !== null && <span className="text-[10px] font-bold text-muted-foreground">BMI {bmi(m)}</span>}
-                    {members.length > 1 && (
+                    {members.length > 1 && planCategory !== 'INDIVIDUAL' && (
                       <button type="button" onClick={() => setMembers((list) => list.filter((_, idx) => idx !== i))} className="text-rose-500">
                         <Trash2 className="h-4 w-4" />
                       </button>
@@ -551,13 +677,22 @@ export function HealthQuoteWizard({
                     <input className={inputCls} value={m.lastName} onChange={(e) => setMember(i, { lastName: e.target.value })} />
                   </FieldLabel>
                   <FieldLabel label="Relationship to Proposer" required>
-                    <select className={inputCls} value={m.relation} onChange={(e) => setMember(i, { relation: e.target.value })}>
-                      {RELATIONS.map((o) => (
-                        <option key={o.value} value={o.value}>
-                          {o.label}
-                        </option>
-                      ))}
-                    </select>
+                    {planCategory === 'INDIVIDUAL' ? (
+                      <input
+                        className={`${inputCls} bg-muted cursor-not-allowed text-muted-foreground font-semibold`}
+                        value="Self (Primary Insured)"
+                        disabled
+                        readOnly
+                      />
+                    ) : (
+                      <select className={inputCls} value={m.relation} onChange={(e) => setMember(i, { relation: e.target.value })}>
+                        {RELATIONS.map((o) => (
+                          <option key={o.value} value={o.value}>
+                            {o.label}
+                          </option>
+                        ))}
+                      </select>
+                    )}
                   </FieldLabel>
                   <FieldLabel label="Date of Birth" required>
                     <input className={inputCls} type="date" value={m.dateOfBirth} onChange={(e) => setMember(i, { dateOfBirth: e.target.value })} />
@@ -647,13 +782,21 @@ export function HealthQuoteWizard({
               <dt className="text-muted-foreground">Proposer</dt>
               <dd className="font-bold">{proposer.firstName} {proposer.lastName} ({proposer.phone})</dd>
               <dt className="text-muted-foreground">Email</dt>
-              <dd className="font-bold">{proposer.email}</dd>
+              <dd className="font-bold">{proposer.email || '— (Optional)'}</dd>
               <dt className="text-muted-foreground">Plan category</dt>
               <dd className="font-bold">{labelOf(PLAN_CATEGORIES, planCategory)}</dd>
               <dt className="text-muted-foreground">Policy type</dt>
               <dd className="font-bold">{labelOf(POLICY_FORMS, policyForm)}</dd>
+              {policyForm === 'RENEWAL_PORTABILITY' && (
+                <>
+                  <dt className="text-muted-foreground">Previous Issuer</dt>
+                  <dd className="font-bold">{renewalValues.previousInsurerName || '—'}</dd>
+                  <dt className="text-muted-foreground">Previous Expiry</dt>
+                  <dd className="font-bold">{renewalValues.previousPolicyExpiryDate || '—'}</dd>
+                </>
+              )}
               <dt className="text-muted-foreground">Insured members</dt>
-              <dd className="font-bold">{members.map((m) => `${m.firstName} (${labelOf(RELATIONS, m.relation)})`).join(', ')}</dd>
+              <dd className="font-bold">{members.map((m) => `${m.firstName} (${planCategory === 'INDIVIDUAL' ? 'Self' : labelOf(RELATIONS, m.relation)})`).join(', ')}</dd>
               <dt className="text-muted-foreground">Nominee</dt>
               <dd className="font-bold">
                 {nominee.name} ({labelOf(NOMINEE_RELATIONS, nominee.relation)})

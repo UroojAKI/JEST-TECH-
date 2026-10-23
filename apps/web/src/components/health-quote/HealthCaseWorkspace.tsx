@@ -379,7 +379,7 @@ export function HealthCaseWorkspace({ caseId }: { caseId: string }) {
                   <dd className="font-bold text-right">{inr(p.basePremium)}</dd>
                   <dt className="text-muted-foreground">Rider premium</dt>
                   <dd className="font-bold text-right">{inr(p.riderPremium)}</dd>
-                  <dt className="text-muted-foreground">GST (18%)</dt>
+                  <dt className="text-muted-foreground">GST ({p.gstRate !== undefined ? Math.round(p.gstRate * 100) : 18}%)</dt>
                   <dd className="font-bold text-right">{inr(p.gstAmount)}</dd>
                   <dt className="text-muted-foreground">Total premium</dt>
                   <dd className="font-black text-right">{inr(p.totalPremium)}</dd>
@@ -841,6 +841,7 @@ function AddQuoteForm({ healthCase, onCancel, onSaved }: { healthCase: any; onCa
     sumInsured: String(healthCase.planDetails?.sumInsured ?? ''),
     policyTenureYears: '1',
     basePremium: '',
+    gstPercent: '18',
     waitingPeriod: '',
     medicalCheckupRequired: false,
     coPaymentPercent: '',
@@ -852,7 +853,13 @@ function AddQuoteForm({ healthCase, onCancel, onSaved }: { healthCase: any; onCa
   const [saving, setSaving] = useState(false);
   const set = (key: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setForm({ ...form, [key]: e.target.value });
 
-  const preview = previewPremium(Number(form.basePremium), riders.map((r) => Number(r.premium)), Number(form.commissionPercent));
+  const gstRateVal = form.gstPercent === '' ? 18 : Number(form.gstPercent);
+  const preview = previewPremium(
+    Number(form.basePremium),
+    riders.map((r) => Number(r.premium)),
+    Number(form.commissionPercent),
+    gstRateVal,
+  );
 
   const save = async () => {
     const missing = [
@@ -880,6 +887,7 @@ function AddQuoteForm({ healthCase, onCancel, onSaved }: { healthCase: any; onCa
         policyTenureYears: Number(form.policyTenureYears),
         basePremium: Number(form.basePremium),
         medicalCheckupRequired: form.medicalCheckupRequired,
+        ...(form.gstPercent !== '' ? { gstPercent: Number(form.gstPercent) } : {}),
         ...(form.waitingPeriod ? { waitingPeriod: form.waitingPeriod } : {}),
         ...(form.policyStartDate ? { policyStartDate: form.policyStartDate } : {}),
         ...(num(form.coPaymentPercent) !== undefined ? { coPaymentPercent: num(form.coPaymentPercent) } : {}),
@@ -935,6 +943,17 @@ function AddQuoteForm({ healthCase, onCancel, onSaved }: { healthCase: any; onCa
         </FieldLabel>
         <FieldLabel label="Base Premium" required>
           <input className={inputCls} type="number" min={0} value={form.basePremium} onChange={set('basePremium')} />
+        </FieldLabel>
+        <FieldLabel label="GST (%)" required hint="Default is 18%">
+          <input
+            className={inputCls}
+            type="number"
+            min={0}
+            max={100}
+            value={form.gstPercent}
+            onChange={set('gstPercent')}
+            placeholder="18"
+          />
         </FieldLabel>
         <FieldLabel label="Policy Start Date">
           <input className={inputCls} type="date" value={form.policyStartDate} onChange={set('policyStartDate')} />
@@ -1018,7 +1037,7 @@ function AddQuoteForm({ healthCase, onCancel, onSaved }: { healthCase: any; onCa
         {[
           ['Rider premium', preview.rider],
           ['Net premium', preview.net],
-          ['GST 18%', preview.gst],
+          [`GST (${form.gstPercent === '' ? 18 : form.gstPercent}%)`, preview.gst],
           ['Total premium', preview.total],
           ['Commission', preview.commission],
           ['Net payable', preview.netPayable],

@@ -14,6 +14,8 @@ export interface HealthPremiumInput {
   commissionPercent?: number;
   /** Defaults to commissionPercent */
   riderCommissionPercent?: number;
+  /** Defaults to 18 */
+  gstPercent?: number;
 }
 
 export interface HealthPremiumBreakdown {
@@ -41,10 +43,10 @@ const round2 = (value: number) => Math.round(value * 100) / 100;
 /**
  * Health premium maths from Health_Insurance_CRM_Forms.
  *   Form (i)   field 9   Rider Premium = sum of riders selected in Form (iii)
- *              field 10  Total Premium = (Base + Rider) + 18% GST
+ *              field 10  Total Premium = (Base + Rider) + GST
  *              field 13  Commission    = (Base + Rider) x D%
  *                        Net payable   = Total - Commission
- *   Form (iii) field 5   Total Rider Premium (incl. GST) = Rider Premium + 18% GST
+ *   Form (iii) field 5   Total Rider Premium (incl. GST) = Rider Premium + GST
  *              field 6   Rider Commission = Rider Premium x D%
  * Renewal (Form ii) carries no riders, so rider premium is 0 there.
  * Interpretation of "Sum of ... x D% - <total>" pending business confirmation.
@@ -57,19 +59,20 @@ export class HealthPremiumService {
     const riderPremium = round2(lines.reduce((sum, r) => sum + r.premium, 0));
     const commissionPercent = input.commissionPercent ?? 0;
     const riderCommissionPercent = input.riderCommissionPercent ?? commissionPercent;
+    const gstRate = input.gstPercent !== undefined ? round2(input.gstPercent / 100) : HEALTH_GST_RATE;
 
     const netPremium = round2(basePremium + riderPremium);
-    const gstAmount = round2(netPremium * HEALTH_GST_RATE);
+    const gstAmount = round2(netPremium * gstRate);
     const totalPremium = round2(netPremium + gstAmount);
     const commissionAmount = round2((netPremium * commissionPercent) / 100);
 
-    const riderGstAmount = round2(riderPremium * HEALTH_GST_RATE);
+    const riderGstAmount = round2(riderPremium * gstRate);
 
     return {
       basePremium,
       riderPremium,
       netPremium,
-      gstRate: HEALTH_GST_RATE,
+      gstRate,
       gstAmount,
       totalPremium,
       commissionPercent,

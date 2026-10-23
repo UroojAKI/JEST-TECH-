@@ -232,6 +232,7 @@ export class HealthQuotationCaseService {
       riders,
       commissionPercent: dto.commissionPercent,
       riderCommissionPercent: dto.riderCommissionPercent,
+      gstPercent: dto.gstPercent,
     });
 
     const policyStartDate = dto.policyStartDate ? new Date(dto.policyStartDate) : null;

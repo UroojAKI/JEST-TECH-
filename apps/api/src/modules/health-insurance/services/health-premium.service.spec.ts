@@ -60,4 +60,21 @@ describe('HealthPremiumService', () => {
     expect(result.gstAmount).toBe(180);
     expect(result.totalPremium).toBe(1179.99);
   });
+
+  it('calculates with custom gstPercent when provided', () => {
+    const result = service.calculate({ basePremium: 10000, riders: [hospitalCash], gstPercent: 12 });
+
+    expect(result.netPremium).toBe(12000);
+    expect(result.gstRate).toBe(0.12);
+    expect(result.gstAmount).toBe(1440);
+    expect(result.totalPremium).toBe(13440);
+  });
+
+  it('supports 0% GST when specified', () => {
+    const result = service.calculate({ basePremium: 10000, gstPercent: 0 });
+
+    expect(result.gstRate).toBe(0);
+    expect(result.gstAmount).toBe(0);
+    expect(result.totalPremium).toBe(10000);
+  });
 });

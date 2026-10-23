@@ -71,7 +71,7 @@ export const TENURES = opts(['1', '1 Year'], ['2', '2 Years'], ['3', '3 Years'])
 const ROOM_RENT = opts(['SINGLE_PRIVATE_AC', 'Single Private AC'], ['TWIN_SHARING', 'Twin Sharing'], ['NO_CAPPING', 'No Capping']);
 
 const planName: FieldSpec = { key: 'planName', label: 'Plan Name', type: 'text', required: true, hint: 'As filed with IRDAI' };
-const uin: FieldSpec = { key: 'uin', label: 'UIN', type: 'text', required: true, hint: 'Unique Identification Number (IRDAI)' };
+const uin: FieldSpec = { key: 'uin', label: 'UIN', type: 'text', required: false, hint: 'Unique Identification Number (IRDAI) - Optional' };
 const sumInsured = (label = 'Sum Insured'): FieldSpec => ({ key: 'sumInsured', label, type: 'number', required: true });
 const roomRent: FieldSpec = { key: 'roomRentCategory', label: 'Room Rent Category', type: 'select', required: true, options: ROOM_RENT };
 
@@ -253,6 +253,10 @@ export function toPayload(fields: FieldSpec[], values: Record<string, any>): Rec
   for (const f of fields) {
     if (f.showIf && !f.showIf(values)) continue;
     const v = values[f.key];
+    if (f.key === 'uin') {
+      out['uin'] = v && String(v).trim() ? String(v).trim() : 'NA';
+      continue;
+    }
     if (v === '' || v === undefined || v === null) continue;
     if (f.type === 'number') out[f.key] = Number(v);
     else if (f.key === 'gradeWiseSumInsured' && typeof v === 'string') {
@@ -280,11 +284,17 @@ export function missingRequired(fields: FieldSpec[], values: Record<string, any>
 }
 
 /** Mirrors the API premium maths for a live preview (API remains the source of truth). */
-export function previewPremium(basePremium: number, riderPremiums: number[], commissionPercent: number) {
+export function previewPremium(
+  basePremium: number,
+  riderPremiums: number[],
+  commissionPercent: number,
+  gstPercent: number = 18,
+) {
   const round2 = (n: number) => Math.round(n * 100) / 100;
   const rider = round2(riderPremiums.reduce((s, p) => s + (p || 0), 0));
   const net = round2((basePremium || 0) + rider);
-  const gst = round2(net * 0.18);
+  const rate = typeof gstPercent === 'number' && !isNaN(gstPercent) ? gstPercent / 100 : 0.18;
+  const gst = round2(net * rate);
   const total = round2(net + gst);
   const commission = round2((net * (commissionPercent || 0)) / 100);
   return { rider, net, gst, total, commission, netPayable: round2(total - commission) };

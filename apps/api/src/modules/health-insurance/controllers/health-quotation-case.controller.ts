@@ -83,13 +83,14 @@ export class HealthQuotationCaseController {
   }
 
   @Post('premium/preview')
-  @ApiOperation({ summary: 'Preview premium: base + rider + 18% GST, and commission' })
+  @ApiOperation({ summary: 'Preview premium: base + rider + GST, and commission' })
   previewPremium(@Body() dto: AddHealthQuoteDto) {
     return this.premiumService.calculate({
       basePremium: dto.basePremium,
       riders: dto.riders,
       commissionPercent: dto.commissionPercent,
       riderCommissionPercent: dto.riderCommissionPercent,
+      gstPercent: dto.gstPercent,
     });
   }
 
