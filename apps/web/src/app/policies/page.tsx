@@ -31,24 +31,99 @@ export default function PolicyRegisterPage() {
         </span>
       ),
     },
-    { accessorKey: 'contactName', header: 'Policy Holder' },
-    { accessorKey: 'productLine', header: 'Product' },
-    { accessorKey: 'insurerName', header: 'Insurer' },
+    {
+      accessorKey: 'contactName',
+      header: 'Policy Holder',
+      cell: ({ row }: any) => {
+        const rawProposer =
+          row.original.proposerDetails?.customerName ||
+          row.original.motorMetadata?.proposerDetails?.customerName ||
+          row.original.quotation?.motorMetadata?.proposerDetails?.customerName;
+        const cleanProposer = rawProposer
+          ? String(rawProposer).replace(/\u00a0/g, ' ').trim()
+          : null;
+
+        const name =
+          cleanProposer ||
+          row.original.contactName ||
+          row.original.customerName ||
+          (row.original.contact
+            ? `${row.original.contact.firstName || ''} ${row.original.contact.lastName || ''}`.trim()
+            : null) ||
+          (row.original.customer
+            ? `${row.original.customer.firstName || ''} ${row.original.customer.lastName || ''}`.trim()
+            : null);
+        return <span className="font-semibold">{name || '—'}</span>;
+      },
+    },
+    {
+      accessorKey: 'productLine',
+      header: 'Product',
+      cell: ({ row }: any) => {
+        const prod =
+          row.original.productLine ||
+          row.original.policyType ||
+          row.original.quotation?.productType ||
+          row.original.quotation?.policyType;
+        return <span className="font-medium uppercase">{prod || 'MOTOR'}</span>;
+      },
+    },
+    {
+      accessorKey: 'insurerName',
+      header: 'Insurer',
+      cell: ({ row }: any) => {
+        const insurer =
+          row.original.insurerName ||
+          row.original.quotation?.insurerName ||
+          row.original.insurerDetail?.insurerName ||
+          row.original.activeTpInsurer;
+        return <span className="font-medium">{insurer || '—'}</span>;
+      },
+    },
     {
       accessorKey: 'totalPremium',
       header: 'Total Premium',
-      cell: ({ row }: any) => (
-        <span className="font-extrabold text-emerald-600 font-mono" suppressHydrationWarning>
-          {formatCurrency(row.original.totalPremium)}
-        </span>
-      ),
+      cell: ({ row }: any) => {
+        const raw =
+          row.original.totalPremium ??
+          row.original.actualPremium ??
+          row.original.premiumAmount ??
+          row.original.quotation?.totalPremium ??
+          0;
+        const val = Number(raw);
+        return (
+          <span className="font-extrabold text-emerald-600 font-mono" suppressHydrationWarning>
+            {formatCurrency(val)}
+          </span>
+        );
+      },
     },
     {
       accessorKey: 'status',
       header: 'Status',
       cell: ({ row }: any) => <StatusBadge status={row.original.status} />,
     },
-    { accessorKey: 'expiryDate', header: 'Expiry Date' },
+    {
+      accessorKey: 'expiryDate',
+      header: 'Expiry Date',
+      cell: ({ row }: any) => {
+        const val = row.original.expiryDate || row.original.endDate;
+        if (!val) return <span className="text-muted-foreground">—</span>;
+        try {
+          return (
+            <span className="font-mono text-xs">
+              {new Date(val).toLocaleDateString('en-IN', {
+                day: '2-digit',
+                month: 'short',
+                year: 'numeric',
+              })}
+            </span>
+          );
+        } catch {
+          return <span>{String(val)}</span>;
+        }
+      },
+    },
   ];
 
   return (

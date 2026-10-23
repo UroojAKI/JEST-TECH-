@@ -40,8 +40,12 @@ export function UpdatePolicyDetailsDialog({ isOpen, onClose, quotationId, onSave
         if (!isMounted) return;
         const q = res.data;
         setQuoteDetails(q);
-        if (q.totalPremium && !actualPremium) {
-          setActualPremium(String(q.totalPremium));
+        const totalPrem =
+          q.totalPremium ??
+          q.calculationSnapshot?.outputs?.totalPremium ??
+          '';
+        if (totalPrem && !actualPremium) {
+          setActualPremium(String(totalPrem));
         }
         const fetchedPan =
           q.contact?.panNumber ||
@@ -78,6 +82,14 @@ export function UpdatePolicyDetailsDialog({ isOpen, onClose, quotationId, onSave
   }, [isOpen, quotationId]);
 
   if (!isOpen) return null;
+
+  const netPayable =
+    quoteDetails?.basePremium ??
+    quoteDetails?.calculationSnapshot?.outputs?.netCustomerPremium ??
+    quoteDetails?.calculationSnapshot?.outputs?.basePremium ??
+    (quoteDetails?.totalPremium !== undefined && quoteDetails?.gstAmount !== undefined
+      ? Number(quoteDetails.totalPremium) - Number(quoteDetails.gstAmount)
+      : quoteDetails?.totalPremium ?? 0);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -168,9 +180,9 @@ export function UpdatePolicyDetailsDialog({ isOpen, onClose, quotationId, onSave
                 </span>
               </div>
               <div>
-                <span className="text-muted-foreground mr-1">Expected Premium:</span>
+                <span className="text-muted-foreground mr-1">Net Payable:</span>
                 <span className="font-mono font-bold text-emerald-600">
-                  ₹{Number(quoteDetails.totalPremium || 0).toLocaleString('en-IN')}
+                  ₹{Number(netPayable || 0).toLocaleString('en-IN')}
                 </span>
               </div>
             </div>
@@ -190,7 +202,7 @@ export function UpdatePolicyDetailsDialog({ isOpen, onClose, quotationId, onSave
             </div>
 
             <div>
-              <label className="block text-xs font-bold mb-1">Authoritative Premium (₹) *</label>
+              <label className="block text-xs font-bold mb-1">Total Premium (₹) *</label>
               <input
                 required
                 min="0"

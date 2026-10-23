@@ -6,6 +6,7 @@ import { ActorContext } from '../../../../common/interfaces/actor-context.interf
 import { ResourceAuthorizationService } from '../../../../common/services/resource-authorization.service';
 import { ScopeResolver } from '../../../../common/services/scope-resolver.service';
 import { PaginationDto } from '../../../../common/pagination/pagination.dto';
+import { PaginatedResponseDto } from '../../../../common/pagination/paginated-response.dto';
 
 @Injectable()
 export class GetPolicyService {
@@ -29,6 +30,19 @@ export class GetPolicyService {
 
   async executeAll(pagination: PaginationDto, user: ActorContext) {
     const scopedFilter = this.scopeResolver.resolveScopeFilter(user, 'POLICY');
-    return this.policyRepository.findPaginated(pagination, scopedFilter);
+    const result = await this.policyRepository.findPaginated(
+      pagination,
+      scopedFilter,
+    );
+    const page = pagination.page || result.meta?.page || 1;
+    const limit = pagination.limit || result.meta?.limit || 25;
+    const total = result.meta?.total ?? result.data?.length ?? 0;
+    const mappedItems = PolicyMapper.toResponseList(result.data as any);
+    return new PaginatedResponseDto(
+      mappedItems,
+      total,
+      page,
+      limit,
+    );
   }
 }
