@@ -24,8 +24,18 @@ export interface PolicyItem {
   productLine?: string;
   policyType?: string | null;
   insurerName?: string;
+  quotationId?: string | null;
+  quotationCode?: string | null;
   idvValue?: number;
   totalPremium?: number;
+  netPremium?: number;
+  odPremium?: number;
+  tpPremium?: number;
+  addonPremium?: number;
+  discountAmount?: number;
+  ncbPercentage?: number;
+  gstAmount?: number;
+  netPayable?: number;
   premiumAmount?: number;
   status: 'ACTIVE' | 'RENEWAL_DUE' | 'GRACE_PERIOD' | 'EXPIRED' | 'CANCELLED' | string;
   startDate?: string;
@@ -55,6 +65,16 @@ export const policiesRepository = {
   async getPolicies(params?: Partial<PaginationParams> & { status?: string }): Promise<PaginatedResult<PolicyItem>> {
     const response = await apiClient.get('/policies', { params });
     return response.data;
+  },
+
+  async getPolicyAuditReport(params?: Partial<PaginationParams> & { status?: string; search?: string }): Promise<PaginatedResult<PolicyItem>> {
+    try {
+      const response = await apiClient.get('/policies/audit-report', { params });
+      return response.data;
+    } catch {
+      const response = await apiClient.get('/policies', { params });
+      return response.data;
+    }
   },
 
   async getPolicyWorkspace(id: string): Promise<PolicyItem & { health: any; financial: any; campaign: any }> {

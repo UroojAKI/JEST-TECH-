@@ -180,7 +180,7 @@ export function UpdatePolicyDetailsDialog({ isOpen, onClose, quotationId, onSave
                 </span>
               </div>
               <div>
-                <span className="text-muted-foreground mr-1">Net Payable:</span>
+                <span className="text-muted-foreground mr-1">Net Premium:</span>
                 <span className="font-mono font-bold text-emerald-600">
                   ₹{Number(netPayable || 0).toLocaleString('en-IN')}
                 </span>
