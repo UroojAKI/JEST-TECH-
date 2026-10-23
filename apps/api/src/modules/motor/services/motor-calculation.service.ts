@@ -144,7 +144,7 @@ export class MotorCalculationService {
         ? Number(rawEditedTp)
         : Number(tpOverride?.overrideValue);
 
-      if (!isNaN(candidateTp) && candidateTp >= 0) {
+      if (!isNaN(candidateTp) && candidateTp >= 0 && candidateTp <= 500000) {
         effectiveTpAnnual = candidateTp;
         isTpEdited = Math.abs(candidateTp - tpRates.annualPremium) > 0.01;
         if (isTpEdited) {
@@ -161,7 +161,7 @@ export class MotorCalculationService {
           statusCode: 400,
           error: 'Bad Request',
           errorCode: 'TP_PREMIUM_OUT_OF_BOUNDS',
-          message: `Edited TP premium (₹${candidateTp}) must be a valid non-negative number.`,
+          message: `Edited TP premium (₹${candidateTp}) must be a valid non-negative number within maximum permissible limit (₹500,000).`,
         });
       }
     }
@@ -768,6 +768,7 @@ export class MotorCalculationService {
       annualTpPremium: effectiveTpAnnual,
       tenure: tpTenure,
       paGrossPremium: paPremium,
+      paCoverPremium: paPremium,
       paidDriverGrossPremium: paidDriverPremium,
       addonGrossPremium: round2(addonPremiumTotal),
       grossPremium: premiumBeforeDiscount,
@@ -841,6 +842,9 @@ export class MotorCalculationService {
         odPremium: baseOdPremium,
         annualTpPremium: effectiveTpAnnual,
         tenure: tpTenure,
+        paGrossPremium: paPremium,
+        paCoverPremium: paPremium,
+        paidDriverGrossPremium: paidDriverPremium,
         odDiscount: odDiscountAmount,
         tpDiscount: tpDiscountAmount,
         addonDiscount: totalAddonDiscountAmount,

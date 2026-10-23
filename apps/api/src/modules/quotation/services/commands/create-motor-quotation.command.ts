@@ -396,7 +396,7 @@ export class CreateMotorQuotationCommand {
       idv: dto.idv || Number(policyDetails.insuredDeclaredValue || 0) || undefined,
       ncbPercent: authoritativeNcb,
       claimInExpiringPolicy: claimInExpiring,
-      paCover: Boolean(policyDetails.paCoverOwner),
+      paCover: policyDetails.paCoverOwner !== false,
       paidDriverLiability:
         String(policyDetails.legalLiabilityPaidDriver || '').toLowerCase() === 'yes',
       addons: Array.isArray(policyDetails.addonsSelected)

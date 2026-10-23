@@ -2446,6 +2446,129 @@ describe('MotorCalculationService (Iteration 5 Financial Math)', () => {
       });
     });
 
+    describe('TP Quotation Remediation Parity Tests (Defects C & D)', () => {
+      it('TP-ANNUAL-OVERRIDE-TENURE: applies tenure multiplier to custom quoted TP base while preserving statutory reference rate', async () => {
+        // 1-Year Tenure with ₹43,950 custom base
+        const res1yr: any = await service.calculate({
+          vehicleCategory: 'PRIVATE_CAR',
+          vehicleStatus: 'EXISTING',
+          policyType: 'THIRD_PARTY_ONLY',
+          annualTpPremium: 43950,
+          policyTenure: 1,
+          paCover: false,
+          gstRate: 18,
+        });
+
+        expect(res1yr.outputs.baseTpPremium).toBe(43950);
+        expect(res1yr.outputs.tp.base).toBe(43950);
+        expect(res1yr.outputs.annualTpPremium).toBe(43950);
+        expect(res1yr.rateConfig.tpAnnualRate).toBe(43950);
+        expect(res1yr.rateConfig.systemTpAnnualRate).toBe(3416);
+        expect(res1yr.outputs.tp.isEdited).toBe(true);
+        expect(res1yr.outputs.gstOnTp).toBe(7911); // 43950 * 0.18
+        expect(res1yr.outputs.finalPayableAmount).toBe(51861); // 43950 + 7911
+
+        // 3-Year Tenure with ₹43,950 custom base -> ₹131,850 base
+        const res3yr: any = await service.calculate({
+          vehicleCategory: 'PRIVATE_CAR',
+          vehicleStatus: 'EXISTING',
+          policyType: 'THIRD_PARTY_ONLY',
+          annualTpPremium: 43950,
+          policyTenure: 3,
+          paCover: false,
+          gstRate: 18,
+        });
+
+        expect(res3yr.outputs.baseTpPremium).toBe(131850);
+        expect(res3yr.outputs.tp.base).toBe(131850);
+        expect(res3yr.outputs.annualTpPremium).toBe(43950);
+        expect(res3yr.outputs.tenure).toBe(3);
+        expect(res3yr.rateConfig.tpAnnualRate).toBe(43950);
+        expect(res3yr.rateConfig.systemTpAnnualRate).toBe(3416);
+        expect(res3yr.outputs.gstOnTp).toBe(23733); // 131850 * 0.18
+        expect(res3yr.outputs.finalPayableAmount).toBe(155583); // 131850 + 23733
+      });
+
+      it('TP-ANNUAL-OVERRIDE-BOUNDS: rejects negative or excessive custom TP premium with TP_PREMIUM_OUT_OF_BOUNDS', async () => {
+        await expect(
+          service.calculate({
+            vehicleCategory: 'PRIVATE_CAR',
+            vehicleStatus: 'EXISTING',
+            policyType: 'THIRD_PARTY_ONLY',
+            annualTpPremium: -500,
+            paCover: false,
+          }),
+        ).rejects.toThrow('Edited TP premium (₹-500) must be a valid non-negative number within maximum permissible limit (₹500,000).');
+
+        await expect(
+          service.calculate({
+            vehicleCategory: 'PRIVATE_CAR',
+            vehicleStatus: 'EXISTING',
+            policyType: 'THIRD_PARTY_ONLY',
+            annualTpPremium: 600000,
+            paCover: false,
+          }),
+        ).rejects.toThrow('Edited TP premium (₹600000) must be a valid non-negative number within maximum permissible limit (₹500,000).');
+      });
+
+      it('TP-OWNER-DRIVER-PA-DEFAULT-AND-WAIVER: verifies compulsory default (₹275) and explicit waiver (₹0)', async () => {
+        // Default / true: Compulsory PA Cover ₹275
+        const resDefault: any = await service.calculate({
+          vehicleCategory: 'PRIVATE_CAR',
+          vehicleStatus: 'EXISTING',
+          policyType: 'THIRD_PARTY_ONLY',
+          paCover: true,
+          gstRate: 18,
+        });
+
+        expect(resDefault.outputs.paGrossPremium).toBe(275);
+        expect(resDefault.outputs.paCoverPremium).toBe(275);
+        expect(resDefault.outputs.pa.premium).toBe(275);
+        expect(resDefault.outputs.gstOnPa).toBe(49.5);
+        expect(resDefault.outputs.pa.gst).toBe(49.5);
+
+        // Explicit waiver (false): ₹0
+        const resWaived: any = await service.calculate({
+          vehicleCategory: 'PRIVATE_CAR',
+          vehicleStatus: 'EXISTING',
+          policyType: 'THIRD_PARTY_ONLY',
+          paCover: false,
+          gstRate: 18,
+        });
+
+        expect(resWaived.outputs.paGrossPremium).toBe(0);
+        expect(resWaived.outputs.paCoverPremium).toBe(0);
+        expect(resWaived.outputs.pa.premium).toBe(0);
+        expect(resWaived.outputs.gstOnPa).toBe(0);
+      });
+
+      it('TP-OWNER-DRIVER-PA-CUSTOM-OVERRIDE: allows valid customized PA premium and recalculates tax', async () => {
+        const resEdited: any = await service.calculate({
+          vehicleCategory: 'PRIVATE_CAR',
+          vehicleStatus: 'EXISTING',
+          policyType: 'THIRD_PARTY_ONLY',
+          paCover: true,
+          editedPaPremium: 350,
+          gstRate: 18,
+        });
+
+        expect(resEdited.outputs.paGrossPremium).toBe(350);
+        expect(resEdited.outputs.paCoverPremium).toBe(350);
+        expect(resEdited.outputs.pa.premium).toBe(350);
+        expect(resEdited.outputs.pa.isEdited).toBe(true);
+        expect(resEdited.outputs.gstOnPa).toBe(63); // 350 * 0.18
+        expect(resEdited.outputs.overridesApplied).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({
+              field: 'PA_PREMIUM',
+              overrideValue: 350,
+              status: 'APPLIED',
+            }),
+          ]),
+        );
+      });
+    });
+
         });
       });
     });

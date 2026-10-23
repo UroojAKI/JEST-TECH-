@@ -445,6 +445,7 @@ export interface PayableSummary {
   annualTpPremium?: number;
   tenure?: number;
   paGrossPremium?: number;
+  paCoverPremium?: number;
   paidDriverGrossPremium?: number;
   addonGrossPremium?: number;
   grossPremium?: number;
