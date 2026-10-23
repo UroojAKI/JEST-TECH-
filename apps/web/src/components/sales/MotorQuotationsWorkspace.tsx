@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../../lib/api-client';
 import { toast } from 'sonner';
-import { Car, Plus, Search, RefreshCw, FileSpreadsheet, Award, AlertTriangle, History, ArrowLeft, CheckCircle2 } from 'lucide-react';
+import { Car, Plus, Search, RefreshCw, FileSpreadsheet, Award, AlertTriangle, History, ArrowLeft, CheckCircle2, HeartPulse } from 'lucide-react';
 
 import { MotorQuoteWizard } from '../leads/motor-quote/MotorQuoteWizard';
 import { QuoteCard } from '../leads/motor-quote/QuoteCard';
@@ -394,6 +394,24 @@ export function MotorQuotationsWorkspace() {
 
   return (
     <div className="space-y-6 pb-12">
+      {/* Product Line Switcher Tabs */}
+      <div className="flex items-center gap-2 border-b border-border pb-3">
+        <Link
+          href="/sales/quotations"
+          className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition bg-primary text-primary-foreground shadow-xs"
+        >
+          <Car className="h-4 w-4" />
+          <span>Motor Quotations</span>
+        </Link>
+        <Link
+          href="/sales/health-quotations"
+          className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition bg-muted/60 hover:bg-muted text-muted-foreground hover:text-foreground"
+        >
+          <HeartPulse className="h-4 w-4 text-emerald-600" />
+          <span>Health Insurance Proposals</span>
+        </Link>
+      </div>
+
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 p-6 rounded-xl border bg-card">
         <div>
           <div className="flex items-center gap-2">
@@ -581,7 +599,6 @@ export function MotorQuotationsWorkspace() {
         customerId={customerIdParam}
         leadContact={leadContact}
         initialCategory={initialCategory || undefined}
-        initialVehicleDetails={initialVehicleDetails}
         cloneQuoteData={cloneQuoteData}
         onClose={() => setIsWizardOpen(false)}
         onSaved={(saved) => {

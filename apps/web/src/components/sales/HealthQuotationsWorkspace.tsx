@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../../lib/api-client';
-import { HeartPulse, Plus, Search, RefreshCw, Users, FileText, CheckCircle2, AlertCircle, X, Loader2 } from 'lucide-react';
+import { HeartPulse, Plus, Search, RefreshCw, Users, FileText, CheckCircle2, AlertCircle, X, Loader2, Car } from 'lucide-react';
 import { labelOf, PLAN_CATEGORIES, POLICY_FORMS } from '../health-quote/healthFormConfig';
 
 export function HealthQuotationsWorkspace() {
@@ -66,6 +66,24 @@ export function HealthQuotationsWorkspace() {
 
   return (
     <div className="space-y-6 pb-12">
+      {/* Product Line Switcher Tabs */}
+      <div className="flex items-center gap-2 border-b border-border pb-3">
+        <Link
+          href="/sales/quotations"
+          className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition bg-muted/60 hover:bg-muted text-muted-foreground hover:text-foreground"
+        >
+          <Car className="h-4 w-4" />
+          <span>Motor Quotations</span>
+        </Link>
+        <Link
+          href="/sales/health-quotations"
+          className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition bg-primary text-primary-foreground shadow-xs"
+        >
+          <HeartPulse className="h-4 w-4 text-emerald-300" />
+          <span>Health Insurance Proposals</span>
+        </Link>
+      </div>
+
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 p-6 rounded-xl border bg-card">
         <div>
           <div className="flex items-center gap-2">

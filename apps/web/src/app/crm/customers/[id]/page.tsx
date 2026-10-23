@@ -34,6 +34,7 @@ import { customerRepository, Customer } from '../../../../repositories/customer.
 import { taskRepository } from '../../../../repositories/task.repository';
 import { motorQuotationRepository } from '../../../../repositories/motor-quotation.repository';
 import { toast } from 'sonner';
+import { apiClient } from '../../../../lib/api-client';
 import { NewLeadModal } from '../../../../components/leads/NewLeadModal';
 import { CustomerAcceptanceDialog } from '../../../../components/leads/motor-quote/CustomerAcceptanceDialog';
 
@@ -44,6 +45,7 @@ export default function CustomerDetailPage() {
   const customerId = (params?.id as string) || '';
 
   const [activeTab, setActiveTab] = useState<'OVERVIEW' | 'VEHICLES' | 'QUOTATIONS' | 'POLICIES' | 'PAYMENTS' | 'LEADS' | 'TASKS' | 'CLAIMS'>('OVERVIEW');
+  const [quotationTab, setQuotationTab] = useState<'MOTOR' | 'HEALTH'>('MOTOR');
   const [showEditModal, setShowEditModal] = useState(false);
   const [showNewLeadModal, setShowNewLeadModal] = useState(false);
   const [selectedQuoteForAcceptance, setSelectedQuoteForAcceptance] = useState<any>(null);
@@ -56,6 +58,24 @@ export default function CustomerDetailPage() {
     queryFn: () => customerRepository.getCustomerById(customerId),
     enabled: !!customerId,
     staleTime: 30_000,
+  });
+
+  const { data: healthCases = [] } = useQuery({
+    queryKey: ['customer-health-cases', customerId, customer?.contactId],
+    queryFn: async () => {
+      try {
+        const res = await apiClient.get('/health/quotation-cases');
+        const all = Array.isArray(res.data) ? res.data : (res.data?.data || []);
+        return all.filter((c: any) =>
+          c.contactId === customer?.contactId ||
+          c.contactId === customer?.id ||
+          (customer?.contactId && c.contact?.id === customer.contactId)
+        );
+      } catch {
+        return [];
+      }
+    },
+    enabled: !!customer,
   });
 
   // Edit customer mutation
@@ -649,83 +669,184 @@ export default function CustomerDetailPage() {
         {/* 6. Quotations Tab */}
         {activeTab === 'QUOTATIONS' && (
           <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="font-bold text-base">Motor Quotations</h3>
-                <p className="text-xs text-muted-foreground">Multi-insurer comparison quotes generated for this customer.</p>
+            {/* Cross-Product Sub-tabs */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b pb-3">
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setQuotationTab('MOTOR')}
+                  className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-bold transition ${
+                    quotationTab === 'MOTOR'
+                      ? 'bg-primary text-primary-foreground shadow-xs'
+                      : 'border bg-card text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  <Car className="h-3.5 w-3.5" />
+                  <span>Motor Quotations ({customer.quotations?.length || 0})</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setQuotationTab('HEALTH')}
+                  className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-bold transition ${
+                    quotationTab === 'HEALTH'
+                      ? 'bg-emerald-600 text-white shadow-xs'
+                      : 'border bg-card text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  <HeartPulse className="h-3.5 w-3.5" />
+                  <span>Health Proposals ({healthCases.length})</span>
+                </button>
               </div>
-              <Link
-                href={motorQuoteUrl}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/90 shadow-xs transition"
-              >
-                <Plus className="h-3.5 w-3.5" />
-                <span>New Motor Quote</span>
-              </Link>
+
+              {quotationTab === 'MOTOR' ? (
+                <Link
+                  href={motorQuoteUrl}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/90 shadow-xs transition"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  <span>New Motor Quote</span>
+                </Link>
+              ) : (
+                <Link
+                  href={`/sales/health-quotations/new?customerId=${customer.id}&contactId=${customer.contactId || customer.id}`}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-700 shadow-xs transition"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  <span>New Health Proposal</span>
+                </Link>
+              )}
             </div>
 
-            {(!customer.quotations || customer.quotations.length === 0) ? (
-              <div className="p-12 text-center rounded-xl border bg-card space-y-2">
-                <FileSpreadsheet className="h-8 w-8 text-muted-foreground mx-auto" />
-                <h4 className="font-bold text-sm">No Quotations Found</h4>
-                <p className="text-xs text-muted-foreground">Generate a quotation from an active lead or registered vehicle.</p>
-              </div>
-            ) : (
-              <div className="rounded-xl border bg-card overflow-hidden shadow-xs">
-                <table className="w-full text-xs text-left">
-                  <thead className="bg-muted/50 border-b border-border text-muted-foreground font-semibold">
-                    <tr>
-                      <th className="px-4 py-3">Quote #</th>
-                      <th className="px-4 py-3">Insurer & Plan</th>
-                      <th className="px-4 py-3">Type</th>
-                      <th className="px-4 py-3">Agent Code</th>
-                      <th className="px-4 py-3">Final Premium</th>
-                      <th className="px-4 py-3">Status</th>
-                      <th className="px-4 py-3 text-right">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-border">
-                    {customer.quotations.map((q: any) => (
-                      <tr key={q.id} className="hover:bg-muted/20">
-                        <td className="px-4 py-3 font-mono font-bold text-foreground">{q.quotationNumber}</td>
-                        <td className="px-4 py-3">
-                          <span className="font-bold text-foreground block">{q.insurerName}</span>
-                          <span className="text-[11px] text-muted-foreground">{q.planName || 'Standard'}</span>
-                        </td>
-                        <td className="px-4 py-3">
-                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-primary/10 text-primary">
-                            {q.policyType}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 font-mono text-[11px] text-muted-foreground">
-                          {q.agentCodeSnapshot || '—'}
-                        </td>
-                        <td className="px-4 py-3 font-bold text-foreground">
-                          ₹{Number(q.finalPremium).toLocaleString('en-IN')}
-                        </td>
-                        <td className="px-4 py-3">
-                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
-                            q.status === 'ACCEPTED'
-                              ? 'bg-emerald-500/10 text-emerald-600'
-                              : 'bg-primary/10 text-primary'
-                          }`}>
-                            {q.status}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 text-right">
-                          {q.status === 'SHARED' && (
-                            <button
-                              onClick={() => setSelectedQuoteForAcceptance(q)}
-                              className="px-2.5 py-1 rounded bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px]"
-                            >
-                              Accept
-                            </button>
-                          )}
-                        </td>
+            {quotationTab === 'MOTOR' ? (
+              (!customer.quotations || customer.quotations.length === 0) ? (
+                <div className="p-12 text-center rounded-xl border bg-card space-y-2">
+                  <FileSpreadsheet className="h-8 w-8 text-muted-foreground mx-auto" />
+                  <h4 className="font-bold text-sm">No Motor Quotations Found</h4>
+                  <p className="text-xs text-muted-foreground">Generate a motor quotation from an active lead or registered vehicle.</p>
+                </div>
+              ) : (
+                <div className="rounded-xl border bg-card overflow-hidden shadow-xs">
+                  <table className="w-full text-xs text-left">
+                    <thead className="bg-muted/50 border-b border-border text-muted-foreground font-semibold">
+                      <tr>
+                        <th className="px-4 py-3">Quote #</th>
+                        <th className="px-4 py-3">Insurer & Plan</th>
+                        <th className="px-4 py-3">Type</th>
+                        <th className="px-4 py-3">Agent Code</th>
+                        <th className="px-4 py-3">Final Premium</th>
+                        <th className="px-4 py-3">Status</th>
+                        <th className="px-4 py-3 text-right">Actions</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                    </thead>
+                    <tbody className="divide-y divide-border">
+                      {customer.quotations.map((q: any) => (
+                        <tr key={q.id} className="hover:bg-muted/20">
+                          <td className="px-4 py-3 font-mono font-bold text-foreground">{q.quotationNumber}</td>
+                          <td className="px-4 py-3">
+                            <span className="font-bold text-foreground block">{q.insurerName}</span>
+                            <span className="text-[11px] text-muted-foreground">{q.planName || 'Standard'}</span>
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-primary/10 text-primary">
+                              {q.policyType}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 font-mono text-[11px] text-muted-foreground">
+                            {q.agentCodeSnapshot || '—'}
+                          </td>
+                          <td className="px-4 py-3 font-bold text-foreground">
+                            ₹{Number(q.finalPremium).toLocaleString('en-IN')}
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+                              q.status === 'ACCEPTED'
+                                ? 'bg-emerald-500/10 text-emerald-600'
+                                : 'bg-primary/10 text-primary'
+                            }`}>
+                              {q.status}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            {q.status === 'SHARED' && (
+                              <button
+                                onClick={() => setSelectedQuoteForAcceptance(q)}
+                                className="px-2.5 py-1 rounded bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px]"
+                              >
+                                Accept
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )
+            ) : (
+              healthCases.length === 0 ? (
+                <div className="p-12 text-center rounded-xl border bg-card space-y-2">
+                  <HeartPulse className="h-8 w-8 text-emerald-600 mx-auto" />
+                  <h4 className="font-bold text-sm">No Health Proposals Found</h4>
+                  <p className="text-xs text-muted-foreground">Create a new health insurance proposal for this customer.</p>
+                </div>
+              ) : (
+                <div className="rounded-xl border bg-card overflow-hidden shadow-xs">
+                  <table className="w-full text-xs text-left">
+                    <thead className="bg-muted/50 border-b border-border text-muted-foreground font-semibold">
+                      <tr>
+                        <th className="px-4 py-3">Case Code</th>
+                        <th className="px-4 py-3">Plan Category</th>
+                        <th className="px-4 py-3">Policy Form</th>
+                        <th className="px-4 py-3">Members</th>
+                        <th className="px-4 py-3">Quotes</th>
+                        <th className="px-4 py-3">Status</th>
+                        <th className="px-4 py-3 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border">
+                      {healthCases.map((hc: any) => (
+                        <tr key={hc.id} className="hover:bg-muted/20">
+                          <td className="px-4 py-3 font-mono font-bold text-foreground">{hc.caseCode}</td>
+                          <td className="px-4 py-3">
+                            <span className="font-bold text-foreground block">{hc.planCategory?.replace(/_/g, ' ') || 'HEALTH'}</span>
+                            <span className="text-[11px] text-muted-foreground">{hc.planDetails?.basePlan?.planName || 'Comprehensive'}</span>
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/10 text-emerald-600">
+                              {hc.policyForm === 'NEW_POLICY' ? 'New Policy' : 'Renewal / Portability'}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-muted-foreground">
+                            {hc.members?.length || 1} member(s)
+                          </td>
+                          <td className="px-4 py-3 font-bold text-foreground">
+                            {hc.quotes?.length || 0} quote(s)
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+                              hc.status === 'ISSUED' || hc.status === 'APPROVED'
+                                ? 'bg-emerald-500/10 text-emerald-600'
+                                : hc.status === 'QUOTED' || hc.status === 'PAYMENT_DONE'
+                                ? 'bg-blue-500/10 text-blue-600'
+                                : 'bg-primary/10 text-primary'
+                            }`}>
+                              {hc.status}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            <Link
+                              href={`/sales/health-quotations/${hc.id}`}
+                              className="px-2.5 py-1 rounded bg-primary/10 text-primary hover:bg-primary/20 font-bold text-[11px] inline-block"
+                            >
+                              Open Case
+                            </Link>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )
             )}
           </div>
         )}
@@ -749,14 +870,23 @@ export default function CustomerDetailPage() {
                 {customer.policies.map((p: any) => (
                   <div key={p.id} className="rounded-xl border bg-card p-4 space-y-3 shadow-xs">
                     <div className="flex items-center justify-between">
-                      <span className="font-mono text-xs font-bold text-foreground">{p.policyNumber || 'POLICY-PENDING'}</span>
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono text-xs font-bold text-foreground">{p.policyNumber || 'POLICY-PENDING'}</span>
+                        <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase ${
+                          p.policyType === 'HEALTH'
+                            ? 'bg-rose-500/10 text-rose-600 border border-rose-500/20'
+                            : 'bg-primary/10 text-primary border border-primary/20'
+                        }`}>
+                          {p.policyType === 'HEALTH' ? 'Health' : 'Motor'}
+                        </span>
+                      </div>
                       <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-emerald-500/10 text-emerald-600">
                         {p.status || 'ACTIVE'}
                       </span>
                     </div>
                     <div>
                       <h4 className="font-bold text-sm">{p.insurerName || 'Insurer'}</h4>
-                      <span className="text-xs text-muted-foreground">{p.planName || 'Comprehensive Motor Policy'}</span>
+                      <span className="text-xs text-muted-foreground">{p.planName || (p.policyType === 'HEALTH' ? 'Comprehensive Health Policy' : 'Comprehensive Motor Policy')}</span>
                     </div>
                     <div className="grid grid-cols-2 gap-2 text-xs pt-2 border-t border-border text-muted-foreground">
                       <div>
