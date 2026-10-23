@@ -102,7 +102,68 @@ export class PolicyMapper {
         ? quotePremNum
         : 0;
 
+    dto.netPayable = dto.totalPremium;
+    dto.quotationCode = p.quotation?.quotationCode || null;
+
     const snap = (p.quotation?.calculationSnapshot as Record<string, any>) || {};
+    const snapSummary = snap.outputs?.summary || snap.summary || {};
+    const snapOutputs = snap.outputs || {};
+
+    const basePrem =
+      p.quotation?.basePremium !== null && p.quotation?.basePremium !== undefined
+        ? Number(p.quotation.basePremium)
+        : null;
+    dto.netPremium =
+      basePrem !== null && basePrem > 0
+        ? basePrem
+        : Number(snapSummary.netPremium || snap.netPremium || 0);
+
+    dto.odPremium = Number(
+      snapOutputs.od?.net ??
+      snapOutputs.odGrossPremium ??
+      snap.gstBreakdown?.od?.base ??
+      (p as any).motorMetadata?.odPremium ??
+      0
+    );
+
+    dto.tpPremium = Number(
+      snapOutputs.tp?.net ??
+      snapOutputs.tpGrossPremium ??
+      snap.gstBreakdown?.tp?.base ??
+      (p as any).motorMetadata?.tpPremium ??
+      0
+    );
+
+    dto.addonPremium = Number(
+      snapOutputs.addonPremium ??
+      snapOutputs.od?.addons ??
+      snap.addonPremium ??
+      0
+    );
+
+    const disc =
+      p.quotation?.discountAmount !== null && p.quotation?.discountAmount !== undefined
+        ? Number(p.quotation.discountAmount)
+        : null;
+    dto.discountAmount =
+      disc !== null && disc > 0
+        ? disc
+        : Number(snapSummary.totalDiscount || snap.totalDiscount || 0);
+
+    dto.ncbPercentage =
+      p.quotation?.ncbPercentage ??
+      snap.inputs?.effectiveNcb ??
+      0;
+
+    const gst =
+      p.quotation?.gstAmount !== null && p.quotation?.gstAmount !== undefined
+        ? Number(p.quotation.gstAmount)
+        : null;
+    dto.gstAmount =
+      gst !== null && gst > 0
+        ? gst
+        : Number(snapSummary.totalGst || snap.totalGst || 0);
+
     dto.idvValue = Number(snap.idv || snap.outputs?.idv || 0);
 
     dto.startDate = (p as any).startDate || p.effectiveDate;

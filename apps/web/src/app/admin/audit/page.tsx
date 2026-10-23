@@ -5,6 +5,8 @@ import { AppShell } from '../../../components/layout/app-shell';
 import { FileCode, Search, ShieldCheck, Eye, X, Loader2, Lock } from 'lucide-react';
 import { useAuditLogs } from '../../../hooks/useAdmin';
 
+import Link from 'next/link';
+
 export default function AuditCenterPage() {
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [debouncedQuery, setDebouncedQuery] = useState<string>('');
@@ -40,6 +42,24 @@ export default function AuditCenterPage() {
             <Lock className="h-3.5 w-3.5" />
             <span>Append-Only Immutability Active</span>
           </div>
+        </div>
+
+        {/* Audit Sections Tabs */}
+        <div className="flex border-b border-border space-x-6 text-xs font-semibold">
+          <Link
+            href="/admin/audit"
+            className="pb-2.5 border-b-2 border-primary text-primary flex items-center gap-2"
+          >
+            <FileCode className="h-4 w-4" />
+            <span>System Audit Trail</span>
+          </Link>
+          <Link
+            href="/admin/audit-reports"
+            className="pb-2.5 border-b-2 border-transparent text-muted-foreground hover:text-foreground flex items-center gap-2 transition-colors"
+          >
+            <ShieldCheck className="h-4 w-4" />
+            <span>Policy Audit Report</span>
+          </Link>
         </div>
 
         {/* Search Bar */}

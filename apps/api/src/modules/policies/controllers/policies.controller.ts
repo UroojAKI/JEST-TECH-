@@ -331,6 +331,19 @@ export class PoliciesController {
     return this.renewalSchedulerCron.runManually();
   }
 
+  @Get('audit-report')
+  @Roles(RoleType.ADMIN)
+  @ApiOperation({
+    summary:
+      'Authoritative policy audit report with full financial and quotation breakdown (Admin only)',
+  })
+  getAuditReport(
+    @Query() pagination: PaginationDto,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.getPolicyService.executeAll(pagination, user);
+  }
+
   @Get()
   @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT)
   findAll(
