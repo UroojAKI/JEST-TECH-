@@ -2247,6 +2247,100 @@ describe('MotorCalculationService (Iteration 5 Financial Math)', () => {
         expect(a3?.finalAddonAmount).toBe(590);
       });
 
+
+      it('GST-TP-ADDON-RECON-01: TP Add-on overrides (PA ₹315 vs ₹250 default, Paid Driver ₹100 vs ₹50 default) reconcile with itemized tax and totals', async () => {
+        // Test case 1: Standard 18% on both overridden add-ons
+        const res18 = await service.calculate({
+          vehicleCategory: 'PRIVATE_CAR',
+          vehicleStatus: 'EXISTING',
+          policyType: 'THIRD_PARTY_ONLY',
+          annualTpPremium: 1000,
+          policyTenure: 1,
+          paCover: false,
+          paidDriverLiability: false,
+          gstRate: 18,
+          tpGstRate: 18,
+          addons: [
+            {
+              addonCode: 'PA_UNNAMED_PASSENGER',
+              amount: 315,
+              discountPercent: 0,
+              gstRate: 18,
+            },
+            {
+              addonCode: 'LEGAL_LIABILITY_PAID_DRIVER',
+              amount: 100,
+              discountPercent: 0,
+              gstRate: 18,
+            },
+          ],
+        });
+
+        expect(res18.outputs.addonPremium).toBe(415);
+        expect(res18.outputs.payableSummary.addonGrossPremium).toBe(415);
+        expect(res18.outputs.payableSummary.addonDiscountAmount).toBe(0);
+        expect(res18.outputs.payableSummary.addonGstTotal).toBe(74.7);
+        expect(res18.outputs.totalGst).toBe(254.7); // 180 (TP) + 74.7 (Addons)
+        expect(res18.outputs.finalPayableAmount).toBe(1669.7); // 1000 + 415 + 254.7
+
+        const paItem = res18.outputs.itemizedAddons?.find((a: any) => a.addonCode === 'PA_UNNAMED_PASSENGER');
+        expect(paItem?.amount).toBe(315);
+        expect(paItem?.taxableBase).toBe(315);
+        expect(paItem?.systemPremium).toBe(250);
+        expect(paItem?.gstRatePercent).toBe(18);
+        expect(paItem?.gstAmount).toBe(56.7);
+        expect(paItem?.netPreTaxAmount).toBe(315);
+        expect(paItem?.finalAddonAmount).toBe(371.7);
+        expect(paItem?.isEdited).toBe(true);
+
+        const driverItem = res18.outputs.itemizedAddons?.find((a: any) => a.addonCode === 'LEGAL_LIABILITY_PAID_DRIVER');
+        expect(driverItem?.amount).toBe(100);
+        expect(driverItem?.taxableBase).toBe(100);
+        expect(driverItem?.systemPremium).toBe(50);
+        expect(driverItem?.gstRatePercent).toBe(18);
+        expect(driverItem?.gstAmount).toBe(18);
+        expect(driverItem?.netPreTaxAmount).toBe(100);
+        expect(driverItem?.finalAddonAmount).toBe(118);
+        expect(driverItem?.isEdited).toBe(true);
+
+        // Test case 2: Mixed rates (PA at 18%, Paid Driver at 5%)
+        const resMixed = await service.calculate({
+          vehicleCategory: 'PRIVATE_CAR',
+          vehicleStatus: 'EXISTING',
+          policyType: 'THIRD_PARTY_ONLY',
+          annualTpPremium: 1000,
+          policyTenure: 1,
+          paCover: false,
+          paidDriverLiability: false,
+          gstRate: 18,
+          tpGstRate: 18,
+          addons: [
+            {
+              addonCode: 'PA_UNNAMED_PASSENGER',
+              amount: 315,
+              discountPercent: 0,
+              gstRate: 18,
+            },
+            {
+              addonCode: 'LEGAL_LIABILITY_PAID_DRIVER',
+              amount: 100,
+              discountPercent: 0,
+              gstRate: 5,
+            },
+          ],
+        });
+
+        expect(resMixed.outputs.addonPremium).toBe(415);
+        expect(resMixed.outputs.payableSummary.addonGstTotal).toBe(61.7); // 56.7 + 5.0
+        expect(resMixed.outputs.totalGst).toBe(241.7); // 180 + 61.7
+        expect(resMixed.outputs.finalPayableAmount).toBe(1656.7); // 1000 + 415 + 241.7
+
+        const mixedDriverItem = resMixed.outputs.itemizedAddons?.find((a: any) => a.addonCode === 'LEGAL_LIABILITY_PAID_DRIVER');
+        expect(mixedDriverItem?.gstRatePercent).toBe(5);
+        expect(mixedDriverItem?.gstAmount).toBe(5);
+        expect(mixedDriverItem?.finalAddonAmount).toBe(105);
+      });
+
       it('GST-RECON-01: Reconcile component GST, total GST, discounts, and final payable without double-counting', async () => {
         // Package Comprehensive policy with OD, TP, PA, Add-ons, and Commercial Adjustment
         const pkgRes = await service.calculate({

@@ -102,18 +102,20 @@ export function PolicyFormTPOnlyForm({ category, vehicleStatus, data, onChange, 
     ...(data.gstAmountOverride !== undefined && data.gstAmountOverride !== '' && !isNaN(parseFloat(data.gstAmountOverride))
       ? { gstAmount: parseFloat(data.gstAmountOverride) }
       : {}),
-    addons: (data.addonsSelected || []).map((addonKey) => ({
-      addonCode: addonKey,
-      amount: data.addonPrices?.[addonKey] !== undefined && data.addonPrices[addonKey] !== ''
-        ? parseFloat(data.addonPrices[addonKey])
-        : undefined,
-      discountPercent: data.addonDiscounts?.[addonKey] !== undefined && data.addonDiscounts[addonKey] !== ''
-        ? parseFloat(data.addonDiscounts[addonKey])
-        : undefined,
-      gstRate: data.addonGstRates?.[addonKey] !== undefined && data.addonGstRates[addonKey] !== ''
-        ? parseInt(data.addonGstRates[addonKey])
-        : undefined,
-    })),
+    addons: (data.addonsSelected || []).map((addonKey) => {
+      const effectiveDefaultGst = data.tpGstRate || data.gstRate || '18';
+      const selectedGst = data.addonGstRates?.[addonKey] ?? effectiveDefaultGst;
+      return {
+        addonCode: addonKey,
+        amount: data.addonPrices?.[addonKey] !== undefined && data.addonPrices[addonKey] !== ''
+          ? parseFloat(data.addonPrices[addonKey])
+          : undefined,
+        discountPercent: data.addonDiscounts?.[addonKey] !== undefined && data.addonDiscounts[addonKey] !== ''
+          ? parseFloat(data.addonDiscounts[addonKey])
+          : undefined,
+        gstRate: parseInt(selectedGst, 10),
+      };
+    }),
   });
 
   const dataRef = React.useRef(data);
@@ -313,7 +315,8 @@ export function PolicyFormTPOnlyForm({ category, vehicleStatus, data, onChange, 
             const isSelected = (data.addonsSelected || []).includes(addon.key);
             const price = data.addonPrices?.[addon.key] ?? '';
             const discount = data.addonDiscounts?.[addon.key] ?? '';
-            const gst = data.addonGstRates?.[addon.key] ?? '18';
+            const effectiveDefaultGst = data.tpGstRate || data.gstRate || '18';
+            const gst = data.addonGstRates?.[addon.key] ?? effectiveDefaultGst;
             return (
               <div
                 key={addon.key}
@@ -561,7 +564,7 @@ export function PolicyFormTPOnlyForm({ category, vehicleStatus, data, onChange, 
                 </div>
                 <div className="divide-y divide-border">
                   {tpItemizedAddons.map((addonItem: any, idx: number) => {
-                    const itemBase = addonItem.systemPremium ?? addonItem.amount ?? addonItem.premium ?? 0;
+                    const itemBase = addonItem.amount ?? addonItem.taxableBase ?? addonItem.premium ?? addonItem.systemPremium ?? 0;
                     const itemDiscPercent = addonItem.discountPercentage ?? addonItem.discountPercent ?? 0;
                     const itemDiscAmt = addonItem.discountAmount ?? 0;
                     const itemNetPreTax = addonItem.netPreTaxAmount ?? addonItem.netPremium ?? Math.max(0, itemBase - itemDiscAmt);
