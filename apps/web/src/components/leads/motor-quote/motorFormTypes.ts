@@ -302,7 +302,6 @@ export interface PolicyFormPackage {
   ownDamagePremium: string;      // Y
   thirdPartyPremium: string;     // Y
   paCoverOwner: boolean;         // Y
-  legalLiabilityPaidDriver?: string; // Statutory Paid Driver Liability (Yes/No)
   addonsSelected: string[];      // N
   addonPrices?: Record<string, string>; // Legacy draft field; ignored by authoritative calculator
   totalPremiumInclGST: string;   // Y

@@ -16,8 +16,6 @@ interface Props {
   /** Canonical eligibility context computed by MotorQuoteWizard. When not provided,
    * falls back to vehicleStatus for backward compatibility. */
   eligibility?: MotorEligibilityContext;
-  vehicleDetails?: Record<string, string>;
-  targetInsurer?: string;
 }
 
 const inputBase = 'w-full p-2 rounded-lg border text-xs font-semibold bg-background focus:outline-none focus:ring-1 focus:ring-primary transition-colors border-border';
@@ -49,7 +47,7 @@ function FieldRow({ label, mandatory, conditional, children, hint, formula }: {
   );
 }
 
-export function PolicyFormPackageForm({ category, vehicleStatus, data, onChange, eligibility, vehicleDetails, targetInsurer }: Props) {
+export function PolicyFormPackageForm({ category, vehicleStatus, data, onChange, eligibility }: Props) {
   const set = (key: keyof PolicyFormPackage) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
     onChange({ ...data, [key]: e.target.value });
   const setBool = (key: keyof PolicyFormPackage) => (e: React.ChangeEvent<HTMLInputElement>) =>
@@ -88,10 +86,6 @@ export function PolicyFormPackageForm({ category, vehicleStatus, data, onChange,
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const engineCc = parseFloat(vehicleDetails?.engineCapacity || vehicleDetails?.engineCc || '0') || undefined;
-  const seatingCapacity = parseInt(vehicleDetails?.seatingCapacity || vehicleDetails?.seatLoadCapacity || '0') || undefined;
-  const gvwKg = parseFloat(vehicleDetails?.grossVehicleWeight || vehicleDetails?.gvw || '0') || undefined;
-
   const { result, loading, error } = useMotorCalculator({
     vehicleCategory: category,
     vehicleStatus: vehicleStatus,
@@ -101,10 +95,7 @@ export function PolicyFormPackageForm({ category, vehicleStatus, data, onChange,
     ncbPercent: parseInt(data.ncbPercentage || '0') || 0,
     claimInExpiringPolicy: data.claimInExpiringPolicy === 'Yes',
     paCover: data.paCoverOwner !== false,
-    paidDriverLiability: data.legalLiabilityPaidDriver === 'Yes',
-    engineCc,
-    seatingCapacity,
-    gvwKg,
+    paidDriverLiability: false,
     // Phase 3 canonical: fixed ₹ commercial adjustment (supersedes percentage if set)
     ...(data.commercialAdjustmentAmount !== undefined && data.commercialAdjustmentAmount !== '' && !isNaN(parseFloat(data.commercialAdjustmentAmount))
       ? {
@@ -206,8 +197,8 @@ export function PolicyFormPackageForm({ category, vehicleStatus, data, onChange,
       const current = dataRef.current;
       const outputs = result.outputs;
       const payableTotal = (outputs.finalPayableAmount ?? outputs.totalPremium ?? 0).toString();
-      onChange({
-        ...current,
+      onChange({ 
+        ...current, 
         totalPremiumInclGST: current.totalPremiumOverride ?? payableTotal,
         finalPayableAmount: current.totalPremiumOverride ?? payableTotal,
         finalGstAmount: current.gstAmountOverride ?? (outputs.totalGst ?? 0).toString(),
@@ -916,57 +907,6 @@ export function PolicyFormPackageForm({ category, vehicleStatus, data, onChange,
           </FieldRow>
         </div>
       )}
-      {/* 5. Policy Start Date & End Date */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <FieldRow label="Policy Start Date">
-          <input
-            type="date"
-            value={data.policyStartDate || ''}
-            onChange={(e) => {
-              const val = e.target.value;
-              const tenure = parseInt(data.policyTenure || '1') || 1;
-              if (val) {
-                const d = new Date(val);
-                d.setFullYear(d.getFullYear() + tenure);
-                d.setDate(d.getDate() - 1);
-                onChange({ ...data, policyStartDate: val, policyEndDate: d.toISOString().split('T')[0] });
-              } else {
-                onChange({ ...data, policyStartDate: val });
-              }
-            }}
-            className={inputBase}
-          />
-        </FieldRow>
-        <FieldRow label="Policy End Date">
-          <input
-            type="date"
-            value={data.policyEndDate || ''}
-            onChange={set('policyEndDate')}
-            className={inputBase}
-          />
-        </FieldRow>
-      </div>
-
-      {/* 6. Legal Liability to Paid Driver (LL) */}
-      <div className="p-3 rounded-xl border bg-card">
-        <FieldRow label="Legal Liability to Paid Driver (LL)" conditional hint="Statutory ₹50 cover for paid driver">
-          <div className="flex gap-4 mt-1">
-            {['Yes', 'No'].map((v) => (
-              <label key={v} className="flex items-center gap-1.5 text-xs font-semibold cursor-pointer">
-                <input
-                  type="radio"
-                  name="legalLiabilityPkg"
-                  value={v}
-                  checked={(data.legalLiabilityPaidDriver || 'No') === v}
-                  onChange={() => onChange({ ...data, legalLiabilityPaidDriver: v })}
-                  className="h-3.5 w-3.5 text-primary"
-                />
-                {v}
-              </label>
-            ))}
-          </div>
-        </FieldRow>
-      </div>
     </div>
   );
 }

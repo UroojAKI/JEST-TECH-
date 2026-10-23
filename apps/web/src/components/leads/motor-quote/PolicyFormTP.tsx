@@ -14,8 +14,6 @@ interface Props {
   onChange: (data: PolicyFormTPOnly) => void;
   /** Canonical eligibility context computed by MotorQuoteWizard. */
   eligibility?: MotorEligibilityContext;
-  vehicleDetails?: Record<string, string>;
-  targetInsurer?: string;
 }
 
 const inputBase = 'w-full p-2 rounded-lg border text-xs font-semibold bg-background focus:outline-none focus:ring-1 focus:ring-primary transition-colors border-border';
@@ -47,7 +45,7 @@ function FieldRow({ label, mandatory, conditional, children, hint, formula }: {
   );
 }
 
-export function PolicyFormTPOnlyForm({ category, vehicleStatus, data, onChange, eligibility, vehicleDetails, targetInsurer }: Props) {
+export function PolicyFormTPOnlyForm({ category, vehicleStatus, data, onChange, eligibility }: Props) {
   const set = (key: keyof PolicyFormTPOnly) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
     onChange({ ...data, [key]: e.target.value });
   const setBool = (key: keyof PolicyFormTPOnly) => (e: React.ChangeEvent<HTMLInputElement>) =>
@@ -65,10 +63,6 @@ export function PolicyFormTPOnlyForm({ category, vehicleStatus, data, onChange, 
     // Legacy TP commission field was previously coupled to customer discount.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  const engineCc = parseFloat(vehicleDetails?.engineCapacity || vehicleDetails?.engineCc || '0') || undefined;
-  const seatingCapacity = parseInt(vehicleDetails?.seatingCapacity || vehicleDetails?.seatLoadCapacity || '0') || undefined;
-  const gvwKg = parseFloat(vehicleDetails?.grossVehicleWeight || vehicleDetails?.gvw || '0') || undefined;
 
   const { result, loading, error } = useMotorCalculator({
     vehicleCategory: category,
@@ -88,9 +82,6 @@ export function PolicyFormTPOnlyForm({ category, vehicleStatus, data, onChange, 
         }),
     commercialAdjustmentDirection: data.commercialAdjustmentDirection || 'SUBTRACT',
     discountReason: data.discountReason || undefined,
-    engineCc,
-    seatingCapacity,
-    gvwKg,
     gstRate: data.gstRate ? parseInt(data.gstRate) : (data.tpGstRate ? parseInt(data.tpGstRate) : 18),
     tpGstRate: data.tpGstRate ? parseInt(data.tpGstRate) : (data.gstRate ? parseInt(data.gstRate) : 18),
     annualTpPremium: data.editedTpPremium !== undefined && data.editedTpPremium !== '' && !isNaN(parseFloat(data.editedTpPremium))
