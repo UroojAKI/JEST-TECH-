@@ -215,6 +215,9 @@ export function PolicyFormPackageForm({ category, vehicleStatus, data, onChange,
         tpCommissionCalc: '',
         finalCommissionCalc: '',
         gstRate: (result.rateConfig?.gstRatePercent ?? (current.gstRate ? parseInt(current.gstRate) : 18)).toString(),
+        odGstRate: (result.rateConfig?.odGstRatePercent ?? (current.odGstRate ? parseInt(current.odGstRate) : (current.gstRate ? parseInt(current.gstRate) : 18))).toString(),
+        tpGstRate: (result.rateConfig?.tpGstRatePercent ?? (current.tpGstRate ? parseInt(current.tpGstRate) : (current.gstRate ? parseInt(current.gstRate) : 18))).toString(),
+        paGstRate: (result.rateConfig?.paGstRatePercent ?? (current.paGstRate ? parseInt(current.paGstRate) : (current.gstRate ? parseInt(current.gstRate) : 18))).toString(),
         calculatedResult: result 
       });
     }

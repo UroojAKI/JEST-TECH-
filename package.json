@@ -54,7 +54,9 @@
       "proxy-addr": ">=2.0.8",
       "tinypool": ">=2.1.2",
       "@modelcontextprotocol/sdk": ">=1.31.0",
-      "handlebars": ">=4.7.10"
+      "handlebars": ">=4.7.10",
+      "follow-redirects": ">=1.16.1",
+      "vite": ">=6.4.4"
     },
     "auditConfig": {
       "ignoreCves": [

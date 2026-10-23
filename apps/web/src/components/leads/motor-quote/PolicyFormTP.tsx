@@ -91,6 +91,7 @@ export function PolicyFormTPOnlyForm({ category, vehicleStatus, data, onChange, 
     engineCc,
     seatingCapacity,
     gvwKg,
+    gstRate: data.gstRate ? parseInt(data.gstRate) : (data.tpGstRate ? parseInt(data.tpGstRate) : 18),
     tpGstRate: data.tpGstRate ? parseInt(data.tpGstRate) : (data.gstRate ? parseInt(data.gstRate) : 18),
     annualTpPremium: data.editedTpPremium !== undefined && data.editedTpPremium !== '' && !isNaN(parseFloat(data.editedTpPremium))
       ? parseFloat(data.editedTpPremium)
@@ -110,18 +111,20 @@ export function PolicyFormTPOnlyForm({ category, vehicleStatus, data, onChange, 
     ...(data.gstAmountOverride !== undefined && data.gstAmountOverride !== '' && !isNaN(parseFloat(data.gstAmountOverride))
       ? { gstAmount: parseFloat(data.gstAmountOverride) }
       : {}),
-    addons: (data.addonsSelected || []).map((addonKey) => ({
-      addonCode: addonKey,
-      amount: data.addonPrices?.[addonKey] !== undefined && data.addonPrices[addonKey] !== ''
-        ? parseFloat(data.addonPrices[addonKey])
-        : undefined,
-      discountPercent: data.addonDiscounts?.[addonKey] !== undefined && data.addonDiscounts[addonKey] !== ''
-        ? parseFloat(data.addonDiscounts[addonKey])
-        : undefined,
-      gstRate: data.addonGstRates?.[addonKey] !== undefined && data.addonGstRates[addonKey] !== ''
-        ? parseInt(data.addonGstRates[addonKey])
-        : undefined,
-    })),
+    addons: (data.addonsSelected || []).map((addonKey) => {
+      const effectiveDefaultGst = data.tpGstRate || data.gstRate || '18';
+      const selectedGst = data.addonGstRates?.[addonKey] ?? effectiveDefaultGst;
+      return {
+        addonCode: addonKey,
+        amount: data.addonPrices?.[addonKey] !== undefined && data.addonPrices[addonKey] !== ''
+          ? parseFloat(data.addonPrices[addonKey])
+          : undefined,
+        discountPercent: data.addonDiscounts?.[addonKey] !== undefined && data.addonDiscounts[addonKey] !== ''
+          ? parseFloat(data.addonDiscounts[addonKey])
+          : undefined,
+        gstRate: parseInt(selectedGst, 10),
+      };
+    }),
   });
 
   const dataRef = React.useRef(data);
@@ -145,12 +148,15 @@ export function PolicyFormTPOnlyForm({ category, vehicleStatus, data, onChange, 
     if (result && result.outputs) {
       const current = dataRef.current;
       const payableTotal = (result.outputs.finalPayableAmount ?? result.outputs.totalPremium ?? 0).toString();
-      onChange({
-        ...current,
+      const tpGstPercent = (result.rateConfig?.tpGstRatePercent ?? result.rateConfig?.gstRatePercent ?? (current.tpGstRate ? parseInt(current.tpGstRate) : (current.gstRate ? parseInt(current.gstRate) : 18))).toString();
+      const genericGstPercent = (result.rateConfig?.gstRatePercent ?? tpGstPercent).toString();
+      onChange({ 
+        ...current, 
         thirdPartyPremium: (result.outputs.tp?.base ?? result.outputs.baseTpPremium ?? 0).toString(),
         totalPremiumInclGST: current.totalPremiumOverride ?? payableTotal,
         tpCommissionCalc: '',
-        gstRate: (result.rateConfig?.gstRatePercent ?? (current.gstRate ? parseInt(current.gstRate) : 18)).toString(),
+        gstRate: genericGstPercent,
+        tpGstRate: tpGstPercent,
         calculatedResult: result 
       });
     }
@@ -318,7 +324,8 @@ export function PolicyFormTPOnlyForm({ category, vehicleStatus, data, onChange, 
             const isSelected = (data.addonsSelected || []).includes(addon.key);
             const price = data.addonPrices?.[addon.key] ?? '';
             const discount = data.addonDiscounts?.[addon.key] ?? '';
-            const gst = data.addonGstRates?.[addon.key] ?? '18';
+            const effectiveDefaultGst = data.tpGstRate || data.gstRate || '18';
+            const gst = data.addonGstRates?.[addon.key] ?? effectiveDefaultGst;
             return (
               <div
                 key={addon.key}
@@ -375,6 +382,8 @@ export function PolicyFormTPOnlyForm({ category, vehicleStatus, data, onChange, 
                     <div>
                       <span className="font-bold text-foreground block mb-0.5">GST Rate</span>
                       <select
+                        aria-label={`GST Rate for ${addon.label}`}
+                        data-testid={`addon-gst-${addon.key}`}
                         value={gst}
                         onChange={(e) => {
                           const newGsts = { ...(data.addonGstRates || {}), [addon.key]: e.target.value };
@@ -394,41 +403,224 @@ export function PolicyFormTPOnlyForm({ category, vehicleStatus, data, onChange, 
         </div>
       </div>
 
-      {/* Premium Split */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <FieldRow label="Total Premium (incl. GST) ₹" hint="Calculated by backend rule engine">
-          <input
-            type="number"
-            value={data.totalPremiumInclGST || ''}
-            readOnly
-            className="w-full p-2 rounded-lg border text-xs font-semibold bg-muted focus:outline-none focus:ring-1 focus:ring-primary transition-colors border-border opacity-70"
-          />
-        </FieldRow>
-        <FieldRow label="Premium Breakdown" hint="Auto-calculated">
-          <div className="p-2 rounded-lg border border-sky-200 bg-sky-50 text-sky-800 font-bold text-sm">
-            {data.totalPremiumInclGST ? `₹${data.totalPremiumInclGST}` : '₹0'}
-            <span className="text-[10px] ml-2 text-sky-600 font-normal">
-              (TP: ₹{data.calculatedResult?.outputs?.netTpPremium || 0} | Add-ons: ₹{data.calculatedResult?.outputs?.addonGrossPremium || data.calculatedResult?.outputs?.addonPremium || 0} | GST: ₹{data.calculatedResult?.outputs?.totalGst || 0})
+      {/* Applicable GST Rate Selector (5% vs 18%) */}
+      <div className="p-3.5 rounded-xl border bg-card space-y-2">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div>
+            <label htmlFor="tp-gst-rate-selector" className="text-xs font-bold text-foreground block">
+              TP Applicable GST Rate Selector
+            </label>
+            <span className="text-[10px] text-muted-foreground block">
+              Select statutory 18% or concessional 5%. Component-level GST and total payable recalculate automatically.
             </span>
           </div>
-        </FieldRow>
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5 p-1 rounded-xl bg-background border shadow-xs" data-testid="tp-gst-rate-selector">
+              <button
+                type="button"
+                onClick={() => onChange({ ...data, gstRate: '5', tpGstRate: '5' })}
+                className={`px-3 py-1.5 rounded-lg text-xs font-extrabold transition-all ${
+                  (data.tpGstRate || data.gstRate) === '5'
+                    ? 'bg-primary text-primary-foreground shadow-xs'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+                }`}
+              >
+                5% GST (Concessional)
+              </button>
+              <button
+                type="button"
+                onClick={() => onChange({ ...data, gstRate: '18', tpGstRate: '18' })}
+                className={`px-3 py-1.5 rounded-lg text-xs font-extrabold transition-all ${
+                  (data.tpGstRate || data.gstRate || '18') === '18'
+                    ? 'bg-primary text-primary-foreground shadow-xs'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+                }`}
+              >
+                18% GST (Standard)
+              </button>
+            </div>
+            <select
+              id="tp-gst-rate-selector"
+              aria-label="TP Applicable GST Rate"
+              value={data.tpGstRate || data.gstRate || '18'}
+              onChange={(e) => onChange({ ...data, gstRate: e.target.value, tpGstRate: e.target.value })}
+              className="p-1.5 text-xs font-bold rounded border bg-background text-primary"
+            >
+              <option value="18">18% GST (Standard)</option>
+              <option value="5">5% GST (Concessional)</option>
+            </select>
+          </div>
+        </div>
       </div>
 
-      {/* Applicable GST Rate Selector (5% vs 18%) */}
-      <div className="flex items-center justify-between p-3 rounded-xl border bg-card">
-        <div>
-          <span className="text-xs font-bold text-foreground block">TP Applicable GST Rate:</span>
-          <span className="text-[10px] text-muted-foreground">Select statutory 18% or concessional 5%</span>
-        </div>
-        <select
-          value={data.tpGstRate || data.gstRate || '18'}
-          onChange={(e) => onChange({ ...data, gstRate: e.target.value, tpGstRate: e.target.value })}
-          className="p-1.5 text-xs font-bold rounded border bg-background text-primary"
-        >
-          <option value="18">18% GST (Standard)</option>
-          <option value="5">5% GST (Concessional)</option>
-        </select>
-      </div>
+      {/* Component-Level TP Premium & GST Breakdown */}
+      {(() => {
+        const tpOutputs = result?.outputs;
+        const tpSummary = tpOutputs?.payableSummary || tpOutputs?.summary;
+        const tpGstBreakdown = tpOutputs?.gstBreakdown || tpSummary?.gstBreakdown;
+        const tpItemizedAddons: any[] = Array.isArray(tpOutputs?.itemizedAddons)
+          ? tpOutputs.itemizedAddons
+          : (Array.isArray(tpGstBreakdown?.addons?.items) ? tpGstBreakdown.addons.items : []);
+        const tpBaseAmount = Number(tpOutputs?.tp?.base ?? tpOutputs?.baseTpPremium ?? 0);
+        const tpGstRateNum = Number(tpGstBreakdown?.tp?.ratePercent ?? (data.tpGstRate || data.gstRate || 18));
+        const tpGstAmount = Number(tpGstBreakdown?.tp?.amount ?? tpOutputs?.gstOnTp ?? 0);
+        const paAmount = Number(tpOutputs?.pa?.premium ?? tpOutputs?.paPremium ?? 0);
+        const paGstAmount = Number(tpGstBreakdown?.pa?.amount ?? tpOutputs?.gstOnPa ?? 0);
+        const driverAmount = Number(tpOutputs?.paidDriver?.premium ?? tpOutputs?.paidDriverPremium ?? 0);
+        const driverGstAmount = Number(tpGstBreakdown?.paidDriver?.amount ?? tpOutputs?.gstOnPaidDriver ?? 0);
+        const addonGrossAmount = Number(tpSummary?.addonGrossPremium ?? tpOutputs?.addonGrossPremium ?? tpOutputs?.addonPremium ?? 0);
+        const addonDiscountAmount = Number(tpSummary?.addonDiscountAmount ?? tpSummary?.addonDiscount ?? 0);
+        const addonTaxableAmount = Number(tpGstBreakdown?.addons?.taxableBase ?? Math.max(0, addonGrossAmount - addonDiscountAmount));
+        const addonGstAmount = Number(tpSummary?.addonGstTotal ?? tpGstBreakdown?.addons?.amount ?? 0);
+        const totalGstAmount = Number(tpOutputs?.totalGst ?? tpOutputs?.componentGstTotal ?? 0);
+        const finalPayableTotal = Number(data.totalPremiumOverride ?? tpOutputs?.finalPayableAmount ?? tpOutputs?.totalPremium ?? 0);
+
+        return (
+          <div className="p-4 rounded-xl border border-sky-200 bg-sky-500/5 space-y-3" data-testid="tp-premium-breakdown">
+            <div className="flex items-center justify-between border-b pb-2">
+              <div>
+                <label className="text-xs font-bold text-foreground block">
+                  Component-Level Premium & Statutory GST Breakdown
+                </label>
+                <span className="text-[10px] text-muted-foreground">
+                  Statutory tax bases calculated per component according to IRDAI tariff rules
+                </span>
+              </div>
+              <span className="text-[10px] font-mono font-bold bg-sky-100 text-sky-800 dark:bg-sky-900/40 dark:text-sky-300 px-2 py-0.5 rounded">
+                Tenure: {data.policyTenure || 1} Year(s)
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+              {/* Statutory TP Base */}
+              <div className="p-3 rounded-lg border bg-card space-y-1">
+                <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide block">
+                  Third-Party Statutory Base
+                </span>
+                <div className="text-base font-extrabold text-foreground font-mono">
+                  ₹{tpBaseAmount.toLocaleString('en-IN')}
+                </div>
+                <div className="text-[10px] text-muted-foreground">
+                  Tariff: ₹{Number(result?.rateConfig?.tpAnnualRate ?? result?.rateConfig?.systemTpAnnualRate ?? 0).toLocaleString('en-IN')}/yr
+                  {Number(tpOutputs?.tp?.discount ?? 0) > 0 && (
+                    <span className="text-amber-600 block">
+                      Discount: −₹{Number(tpOutputs?.tp?.discount).toLocaleString('en-IN')}
+                    </span>
+                  )}
+                </div>
+                <div className="text-[10px] font-bold text-primary pt-1 border-t">
+                  TP Tax ({tpGstRateNum}%): ₹{tpGstAmount.toLocaleString('en-IN')}
+                </div>
+              </div>
+
+              {/* Owner-Driver PA */}
+              <div className="p-3 rounded-lg border bg-card space-y-1">
+                <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide block">
+                  Owner-Driver PA Cover
+                </span>
+                <div className="text-base font-extrabold text-foreground font-mono">
+                  ₹{paAmount.toLocaleString('en-IN')}
+                </div>
+                <div className="text-[10px] text-muted-foreground">
+                  {data.paCoverOwner ? 'Opted (₹15L Capital Sum Insured)' : 'Not Opted / Waived'}
+                </div>
+                <div className="text-[10px] font-bold text-primary pt-1 border-t">
+                  PA Tax: ₹{paGstAmount.toLocaleString('en-IN')}
+                </div>
+              </div>
+
+              {/* Paid Driver Liability */}
+              <div className="p-3 rounded-lg border bg-card space-y-1">
+                <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide block">
+                  Paid Driver Liability
+                </span>
+                <div className="text-base font-extrabold text-foreground font-mono">
+                  ₹{driverAmount.toLocaleString('en-IN')}
+                </div>
+                <div className="text-[10px] text-muted-foreground">
+                  {data.legalLiabilityPaidDriver === 'Yes' ? 'Opted (IMT 28)' : 'Not Opted'}
+                </div>
+                <div className="text-[10px] font-bold text-primary pt-1 border-t">
+                  Driver Tax: ₹{driverGstAmount.toLocaleString('en-IN')}
+                </div>
+              </div>
+
+              {/* Add-ons Gross & Tax */}
+              <div className="p-3 rounded-lg border bg-card space-y-1">
+                <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide block">
+                  Add-ons Gross & Tax
+                </span>
+                <div className="text-base font-extrabold text-foreground font-mono">
+                  ₹{addonGrossAmount.toLocaleString('en-IN')}
+                </div>
+                <div className="text-[10px] text-muted-foreground">
+                  Discounts: −₹{addonDiscountAmount.toLocaleString('en-IN')}
+                </div>
+                <div className="text-[10px] font-bold text-primary pt-1 border-t">
+                  Add-on Tax: ₹{addonGstAmount.toLocaleString('en-IN')}
+                </div>
+              </div>
+            </div>
+
+            {/* Itemized Add-on Tax Breakdown (when add-ons exist) */}
+            {tpItemizedAddons.length > 0 && (
+              <div className="p-3 rounded-lg border bg-background space-y-1.5">
+                <div className="flex items-center justify-between text-[11px] font-bold text-foreground">
+                  <span>Itemized Add-on Breakdown (Gross Tax Base Rule)</span>
+                  <span className="text-[10px] text-muted-foreground font-normal">
+                    {tpItemizedAddons.length} Cover(s) selected
+                  </span>
+                </div>
+                <div className="divide-y divide-border">
+                  {tpItemizedAddons.map((addonItem: any, idx: number) => {
+                    const itemBase = addonItem.amount ?? addonItem.taxableBase ?? addonItem.premium ?? addonItem.systemPremium ?? 0;
+                    const itemDiscPercent = addonItem.discountPercentage ?? addonItem.discountPercent ?? 0;
+                    const itemDiscAmt = addonItem.discountAmount ?? 0;
+                    const itemNetPreTax = addonItem.netPreTaxAmount ?? addonItem.netPremium ?? Math.max(0, itemBase - itemDiscAmt);
+                    const itemGstRate = addonItem.gstRatePercent ?? (addonItem.gstRate ? addonItem.gstRate * 100 : 18);
+                    const itemGstAmt = addonItem.gstAmount ?? 0;
+                    const itemFinal = addonItem.finalAddonAmount ?? addonItem.totalAmount ?? (itemNetPreTax + itemGstAmt);
+                    return (
+                      <div key={addonItem.addonCode || idx} className="py-1.5 flex flex-wrap items-center justify-between gap-2 text-[11px]">
+                        <div className="font-semibold text-foreground">
+                          {addonItem.name || addonItem.addonCode}
+                        </div>
+                        <div className="flex items-center gap-3 font-mono text-[10px] text-muted-foreground">
+                          <span>Gross Base: ₹{Number(itemBase).toLocaleString('en-IN')}</span>
+                          <span>Disc: {itemDiscPercent}% (−₹{Number(itemDiscAmt).toLocaleString('en-IN')})</span>
+                          <span className="font-semibold text-foreground">Net Pre-tax: ₹{Number(itemNetPreTax).toLocaleString('en-IN')}</span>
+                          <span className="text-primary font-bold">GST ({itemGstRate}%): ₹{Number(itemGstAmt).toLocaleString('en-IN')}</span>
+                          <span className="font-extrabold text-foreground">Total: ₹{Number(itemFinal).toLocaleString('en-IN')}</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Component Tax Summary Banner */}
+            <div className="flex flex-wrap items-center justify-between gap-3 p-3 rounded-lg bg-sky-100/70 dark:bg-sky-950/50 border border-sky-200">
+              <div className="flex flex-wrap items-center gap-2 text-xs">
+                <span className="font-bold text-sky-950 dark:text-sky-100">Statutory GST (CGST + SGST):</span>
+                <span className="font-extrabold text-primary font-mono text-sm">
+                  ₹{totalGstAmount.toLocaleString('en-IN')}
+                </span>
+                <span className="text-[10px] text-muted-foreground">
+                  (TP: ₹{tpGstAmount.toLocaleString('en-IN')} | Add-ons: ₹{addonGstAmount.toLocaleString('en-IN')})
+                </span>
+              </div>
+
+              <div className="flex items-center gap-2 text-xs">
+                <span className="font-bold text-foreground">Total Premium (incl. GST):</span>
+                <span className="font-extrabold text-sky-800 dark:text-sky-200 font-mono text-base">
+                  ₹{finalPayableTotal.toLocaleString('en-IN')}
+                </span>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* TP Discount & Final Payable Calculator */}
       <div className="p-4 rounded-xl border border-sky-200 bg-sky-500/5 space-y-3">

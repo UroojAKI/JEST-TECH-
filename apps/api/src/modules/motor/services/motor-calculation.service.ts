@@ -236,11 +236,20 @@ export class MotorCalculationService {
       name: string;
       amount: number;
       premium?: number;
+      systemPremium?: number;
+      editedPremium?: number;
       discountPercent?: number;
+      discountPercentage?: number;
       discountAmount?: number;
+      netPreTaxAmount?: number;
+      netPremium?: number;
+      taxableAddonAmount?: number;
+      taxableBase?: number;
       gstRate?: number;
+      gstRatePercent?: number;
       gstAmount?: number;
       totalAmount?: number;
+      finalAddonAmount?: number;
       systemRate?: number;
       isEdited?: boolean;
       isInvalid?: boolean;
@@ -343,7 +352,8 @@ export class MotorCalculationService {
 
     // ── 8. Add-on Premiums with Independent Discounts & GST (Phase 3) ───
     // Applicable across Standalone OD, Comprehensive Package, and Third-Party Only
-    const defaultAddonGstRate = input.policyType === 'STANDALONE_OD'
+    const hasOd = ['STANDALONE_OD', 'PACKAGE_COMPREHENSIVE'].includes(input.policyType);
+    const defaultAddonGstRate = hasOd
       ? (input.odGstRate !== undefined ? (Number(input.odGstRate) > 1 ? Number(input.odGstRate) / 100 : Number(input.odGstRate)) : gstRate)
       : (input.tpGstRate !== undefined ? (Number(input.tpGstRate) > 1 ? Number(input.tpGstRate) / 100 : Number(input.tpGstRate)) : gstRate);
 
@@ -413,6 +423,7 @@ export class MotorCalculationService {
           const addonGstAmt = round2(price * addonGstRateFinal);
           const addonTotalAmt = round2(price - addonDiscAmt + addonGstAmt);
 
+          const netPreTaxAddon = round2(Math.max(0, price - addonDiscAmt));
           addonPremiumTotal = round2(addonPremiumTotal + price);
           totalAddonDiscountAmount = round2(totalAddonDiscountAmount + addonDiscAmt);
           totalAddonGstAmount = round2(totalAddonGstAmount + addonGstAmt);
@@ -422,11 +433,20 @@ export class MotorCalculationService {
             name: addon.addonCode.replace(/_/g, ' '),
             amount: price,
             premium: price,
+            systemPremium: systemPrice,
+            editedPremium: isAddonEdited ? price : undefined,
             discountPercent: addonDiscPercent,
+            discountPercentage: addonDiscPercent,
             discountAmount: addonDiscAmt,
+            netPreTaxAmount: netPreTaxAddon,
+            netPremium: netPreTaxAddon,
+            taxableAddonAmount: price, // CORE BUSINESS RULE: GST base = gross premium before discount
+            taxableBase: price,
             gstRate: addonGstRateFinal,
+            gstRatePercent: round2(addonGstRateFinal * 100),
             gstAmount: addonGstAmt,
             totalAmount: addonTotalAmt,
+            finalAddonAmount: addonTotalAmt,
             systemRate: systemPrice,
             isEdited: isAddonEdited,
           });
@@ -436,11 +456,20 @@ export class MotorCalculationService {
             name: addon.addonCode.replace(/_/g, ' '),
             amount: 0,
             premium: 0,
+            systemPremium: systemPrice,
+            editedPremium: undefined,
             discountPercent: 0,
+            discountPercentage: 0,
             discountAmount: 0,
+            netPreTaxAmount: 0,
+            netPremium: 0,
+            taxableAddonAmount: 0,
+            taxableBase: 0,
             gstRate: 0.18,
+            gstRatePercent: 18,
             gstAmount: 0,
             totalAmount: 0,
+            finalAddonAmount: 0,
             systemRate: systemPrice,
             isEdited: isAddonEdited,
             isInvalid: true,
@@ -456,11 +485,20 @@ export class MotorCalculationService {
           name: addon.addonCode.replace(/_/g, ' '),
           amount: 0,
           premium: 0,
+          systemPremium: 0,
+          editedPremium: undefined,
           discountPercent: 0,
+          discountPercentage: 0,
           discountAmount: 0,
+          netPreTaxAmount: 0,
+          netPremium: 0,
+          taxableAddonAmount: 0,
+          taxableBase: 0,
           gstRate: 0.18,
+          gstRatePercent: 18,
           gstAmount: 0,
           totalAmount: 0,
+          finalAddonAmount: 0,
           systemRate: 0,
           isEdited: false,
           isInvalid: true,
@@ -492,7 +530,6 @@ export class MotorCalculationService {
     }
 
     // ── 9. Undiscounted Gross Components (pre-discount, pre-tax) ───────────
-    const hasOd = ['STANDALONE_OD', 'PACKAGE_COMPREHENSIVE'].includes(input.policyType);
     systemNetOdComponent = round2(netOdAfterDiscount + (hasOd ? addonPremiumTotal : 0));
 
     let netOdComponent = systemNetOdComponent;
@@ -613,7 +650,13 @@ export class MotorCalculationService {
       },
       addons: {
         base: addonPremiumTotal,
+        taxableBase: addonPremiumTotal,
+        discount: totalAddonDiscountAmount,
+        netPreTaxBase: round2(Math.max(0, addonPremiumTotal - totalAddonDiscountAmount)),
+        rate: defaultAddonGstRate,
+        ratePercent: round2(defaultAddonGstRate * 100),
         amount: totalAddonGstAmount,
+        items: itemizedAddons,
       },
     };
 
@@ -782,6 +825,11 @@ export class MotorCalculationService {
         tpSource: tpRates.source ?? 'IRDAI_TARIFF',
         tpTariffId: tpRates.tariffId,
         gstRatePercent: gstRate * 100,
+        odGstRatePercent: round2(odGstRate * 100),
+        tpGstRatePercent: round2(tpGstRate * 100),
+        paGstRatePercent: round2(paGstRate * 100),
+        paidDriverGstRatePercent: round2(paidDriverGstRate * 100),
+        addonGstRatePercent: round2(defaultAddonGstRate * 100),
         discountConfig,
         overridesApplied,
       },

@@ -18,34 +18,152 @@ export class PolicyMapper {
     dto.createdAt = p.createdAt;
     dto.updatedAt = p.updatedAt;
 
-    const contact = p.contact;
-    const customer = (p as any).customer;
-    dto.contactName = contact
-      ? `${contact.firstName} ${contact.lastName || ''}`.trim()
-      : customer
-      ? `${customer.firstName} ${customer.lastName || ''}`.trim()
+    const rawProposer =
+      (p as any).motorMetadata?.proposerDetails?.customerName ||
+      (p.quotation as any)?.motorMetadata?.proposerDetails?.customerName ||
+      (p as any).proposerDetails?.customerName ||
+      (p.quotation as any)?.proposerDetails?.customerName;
+    const proposerName = rawProposer
+      ? String(rawProposer).replace(/\u00a0/g, ' ').trim()
       : null;
-    dto.contactPhone = contact?.phone || customer?.mobile || null;
-    dto.contactEmail = contact?.email || customer?.email || null;
-    dto.customerName = customer
-      ? `${customer.firstName} ${customer.lastName || ''}`.trim()
-      : dto.contactName;
+
+    const contact =
+      p.contact ||
+      (p.quotation as any)?.contact ||
+      (p.quotation as any)?.lead?.contact;
+    const customer = (p as any).customer || (p.quotation as any)?.customer;
+
+    const rawContactName = contact
+      ? `${contact.firstName || ''} ${contact.lastName || ''}`.trim()
+      : null;
+    const rawCustomerName = customer
+      ? `${customer.firstName || ''} ${customer.lastName || ''}`.trim()
+      : null;
+
+    dto.contactName =
+      proposerName ||
+      rawContactName ||
+      rawCustomerName ||
+      (p as any).customerName ||
+      null;
+    dto.contactPhone =
+      (p as any).motorMetadata?.proposerDetails?.mobileNumber ||
+      (p.quotation as any)?.motorMetadata?.proposerDetails?.mobileNumber ||
+      contact?.phone ||
+      customer?.mobile ||
+      null;
+    dto.contactEmail =
+      (p as any).motorMetadata?.proposerDetails?.emailId ||
+      (p.quotation as any)?.motorMetadata?.proposerDetails?.emailId ||
+      contact?.email ||
+      customer?.email ||
+      null;
+    dto.customerName =
+      proposerName ||
+      rawCustomerName ||
+      dto.contactName;
     dto.customerId = p.customerId || null;
 
     dto.insurerName =
       (p as any).insurerDetail?.insurerName ||
       p.quotation?.insurerName ||
+      (p as any).activeTpInsurer ||
+      (p.quotation as any)?.activeTpInsurer ||
+      (p as any).motorMetadata?.insurerName ||
+      (p.quotation as any)?.motorMetadata?.insurerName ||
+      (p.quotation?.calculationSnapshot as any)?.inputs?.insurer ||
       '—';
     dto.productLine =
-      p.policyType || p.quotation?.productType || 'MOTOR COMPREHENSIVE';
+      p.policyType ||
+      p.quotation?.productType ||
+      p.quotation?.policyType ||
+      (p as any).motorMetadata?.policyType ||
+      'MOTOR COMPREHENSIVE';
     dto.policyType = p.policyType || p.quotation?.policyType || null;
 
     const actualPrem = (p as any).actualPremium;
-    dto.totalPremium = actualPrem !== null && actualPrem !== undefined
-      ? Number(actualPrem)
-      : Number(p.premiumAmount || 0);
+    const actualPremNum =
+      actualPrem !== null && actualPrem !== undefined ? Number(actualPrem) : 0;
+    const premAmountNum =
+      p.premiumAmount !== null && p.premiumAmount !== undefined
+        ? Number(p.premiumAmount)
+        : 0;
+    const quotePremNum =
+      p.quotation?.totalPremium !== null && p.quotation?.totalPremium !== undefined
+        ? Number(p.quotation.totalPremium)
+        : 0;
+
+    dto.totalPremium =
+      actualPremNum > 0
+        ? actualPremNum
+        : premAmountNum > 0
+        ? premAmountNum
+        : quotePremNum > 0
+        ? quotePremNum
+        : 0;
+
+    dto.netPayable = dto.totalPremium;
+    dto.quotationCode = p.quotation?.quotationCode || null;
 
     const snap = (p.quotation?.calculationSnapshot as Record<string, any>) || {};
+    const snapSummary = snap.outputs?.summary || snap.summary || {};
+    const snapOutputs = snap.outputs || {};
+
+    const basePrem =
+      p.quotation?.basePremium !== null && p.quotation?.basePremium !== undefined
+        ? Number(p.quotation.basePremium)
+        : null;
+    dto.netPremium =
+      basePrem !== null && basePrem > 0
+        ? basePrem
+        : Number(snapSummary.netPremium || snap.netPremium || 0);
+
+    dto.odPremium = Number(
+      snapOutputs.od?.net ??
+      snapOutputs.odGrossPremium ??
+      snap.gstBreakdown?.od?.base ??
+      (p as any).motorMetadata?.odPremium ??
+      0
+    );
+
+    dto.tpPremium = Number(
+      snapOutputs.tp?.net ??
+      snapOutputs.tpGrossPremium ??
+      snap.gstBreakdown?.tp?.base ??
+      (p as any).motorMetadata?.tpPremium ??
+      0
+    );
+
+    dto.addonPremium = Number(
+      snapOutputs.addonPremium ??
+      snapOutputs.od?.addons ??
+      snap.addonPremium ??
+      0
+    );
+
+    const disc =
+      p.quotation?.discountAmount !== null && p.quotation?.discountAmount !== undefined
+        ? Number(p.quotation.discountAmount)
+        : null;
+    dto.discountAmount =
+      disc !== null && disc > 0
+        ? disc
+        : Number(snapSummary.totalDiscount || snap.totalDiscount || 0);
+
+    dto.ncbPercentage =
+      p.quotation?.ncbPercentage ??
+      snap.inputs?.effectiveNcb ??
+      0;
+
+    const gst =
+      p.quotation?.gstAmount !== null && p.quotation?.gstAmount !== undefined
+        ? Number(p.quotation.gstAmount)
+        : null;
+    dto.gstAmount =
+      gst !== null && gst > 0
+        ? gst
+        : Number(snapSummary.totalGst || snap.totalGst || 0);
+
     dto.idvValue = Number(snap.idv || snap.outputs?.idv || 0);
 
     dto.startDate = (p as any).startDate || p.effectiveDate;

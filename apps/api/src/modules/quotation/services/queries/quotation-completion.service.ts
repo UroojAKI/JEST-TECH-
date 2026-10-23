@@ -159,7 +159,10 @@ export class QuotationCompletionService {
     const vehicleApplicable = 5;
     let vehicleCompleted = 0;
 
-    const makeModel = vehicle.make && vehicle.model;
+    const makeModel =
+      (vehicle.make && vehicle.model) ||
+      (vehicle.makeModel && vehicle.makeModel.trim()) ||
+      (quotation.motorMetadata as any)?.vehicleDetails?.makeModel;
     if (makeModel) vehicleCompleted++;
     else
       vehicleMissing.push({
@@ -478,9 +481,22 @@ export class QuotationCompletionService {
       vehicleUpdates.chassisNumber = updates.chassisNumber;
     if (updates.registrationNumber !== undefined)
       vehicleUpdates.registrationNumber = updates.registrationNumber;
-    if (updates.makeModel !== undefined)
-      vehicleUpdates.makeModel = updates.makeModel;
-    else if (updates.make !== undefined || updates.model !== undefined) {
+    if (updates.dateOfRegistration !== undefined)
+      vehicleUpdates.dateOfRegistration = new Date(updates.dateOfRegistration);
+    if (updates.makeModel !== undefined) {
+      vehicleUpdates.makeModel = updates.makeModel.trim();
+      const parts = updates.makeModel.trim().split(' ');
+      if (parts.length > 1) {
+        vehicleUpdates.make = parts[0];
+        vehicleUpdates.model = parts.slice(1).join(' ');
+      } else {
+        vehicleUpdates.make = parts[0];
+        vehicleUpdates.model = parts[0];
+      }
+    }
+    if (updates.make !== undefined) vehicleUpdates.make = updates.make;
+    if (updates.model !== undefined) vehicleUpdates.model = updates.model;
+    if (!vehicleUpdates.makeModel && (updates.make || updates.model)) {
       vehicleUpdates.makeModel =
         `${updates.make || ''} ${updates.model || ''}`.trim();
     }
@@ -540,9 +556,13 @@ export class QuotationCompletionService {
               quotation.registrationNumber ||
               'PENDING',
             makeModel:
+              vehicleUpdates.makeModel ||
               updates.makeModel ||
               `${updates.make || ''} ${updates.model || ''}`.trim() ||
               'Standard Vehicle',
+            make: vehicleUpdates.make,
+            model: vehicleUpdates.model,
+            dateOfRegistration: vehicleUpdates.dateOfRegistration,
             engineNumber: updates.engineNumber,
             chassisNumber: updates.chassisNumber,
             contactId: quotation.contactId,

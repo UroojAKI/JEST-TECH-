@@ -81,9 +81,12 @@ export function UpdatePolicyDetailsDialog({
         if (!isMounted) return;
         const q = res.data?.data || res.data;
         setQuoteDetails(q);
-
-        if (q.totalPremium && !actualPremium) {
-          setActualPremium(String(q.totalPremium));
+        const totalPrem =
+          q.totalPremium ??
+          q.calculationSnapshot?.outputs?.totalPremium ??
+          '';
+        if (totalPrem && !actualPremium) {
+          setActualPremium(String(totalPrem));
         }
 
         const fetchedPan =
@@ -173,6 +176,14 @@ export function UpdatePolicyDetailsDialog({
   }, [isOpen, quotationId, productType]);
 
   if (!isOpen) return null;
+
+  const netPayable =
+    quoteDetails?.basePremium ??
+    quoteDetails?.calculationSnapshot?.outputs?.netCustomerPremium ??
+    quoteDetails?.calculationSnapshot?.outputs?.basePremium ??
+    (quoteDetails?.totalPremium !== undefined && quoteDetails?.gstAmount !== undefined
+      ? Number(quoteDetails.totalPremium) - Number(quoteDetails.gstAmount)
+      : quoteDetails?.totalPremium ?? 0);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -355,10 +366,10 @@ export function UpdatePolicyDetailsDialog({
                 </div>
               </div>
               <div className="text-right">
-                <div className="text-[11px] text-muted-foreground">Expected Premium:</div>
-                <div className="font-mono font-bold text-emerald-600 text-sm">
-                  ₹{Number(quoteDetails.totalPremium || 0).toLocaleString('en-IN')}
-                </div>
+                <span className="text-muted-foreground mr-1 text-[11px]">Net Premium:</span>
+                <span className="font-mono font-bold text-emerald-600 text-sm">
+                  ₹{Number(netPayable || 0).toLocaleString('en-IN')}
+                </span>
               </div>
             </div>
           )}
@@ -381,7 +392,7 @@ export function UpdatePolicyDetailsDialog({
 
             <div>
               <label className="block text-xs font-bold mb-1">
-                Authoritative Premium (₹) <span className="text-rose-500">*</span>
+                Total Premium (₹) <span className="text-rose-500">*</span>
               </label>
               <input
                 required

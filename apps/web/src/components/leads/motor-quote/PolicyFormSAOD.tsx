@@ -212,6 +212,7 @@ export function PolicyFormSAODForm({ category, vehicleStatus, data, onChange, el
         commissionAmount: '',
         finalPayableAmount: current.totalPremiumOverride ?? total,
         gstRate: (result.rateConfig?.gstRatePercent ?? (current.gstRate ? parseInt(current.gstRate) : 18)).toString(),
+        odGstRate: (result.rateConfig?.odGstRatePercent ?? (current.odGstRate ? parseInt(current.odGstRate) : (current.gstRate ? parseInt(current.gstRate) : 18))).toString(),
         calculatedResult: result,
       });
     }

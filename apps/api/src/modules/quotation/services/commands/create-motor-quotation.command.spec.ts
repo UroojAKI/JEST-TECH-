@@ -675,5 +675,130 @@ describe('CreateMotorQuotationCommand (Authoritative Command)', () => {
       ).rejects.toThrow('Invalid mobile number format');
     });
   });
+  describe('Quotation Persistence & Reopen Rate/Total Fidelity', () => {
+    it('persists multi-rate GST, add-ons with independent discounts, and signed commercial adjustment into quotation record', async () => {
+      prisma.lead.findFirst.mockResolvedValue({ id: 'lead-1', companyId: 'company-1', contactId: 'c-1' });
+      prisma.quotation.create.mockImplementation(({ data }) => Promise.resolve({ id: 'q-persist-1', ...data }));
+
+      const calcMockOutput = {
+        inputs: { effectiveNcb: 0, tpTenure: 1 },
+        outputs: {
+          basePremium: 4525,
+          totalGst: 814.5,
+          totalPremium: 4864.5,
+          odDiscountAmount: 300,
+          tpDiscountAmount: 100,
+          commercialDiscountAmount: 50,
+          totalDiscountAmount: 475,
+          payableSummary: {
+            grossPremium: 4525,
+            addonGrossPremium: 250,
+            addonDiscountAmount: 25,
+            commercialAdjustmentAmount: 50,
+            commercialAdjustmentDirection: 'SUBTRACT',
+            componentGstTotal: 814.5,
+            finalPayableAmount: 4864.5,
+          },
+          gstBreakdown: {
+            base: 'GROSS',
+            od: { base: 3250, rate: 0.18, amount: 585 },
+            tp: { base: 1000, rate: 0.18, amount: 180 },
+            pa: { base: 275, rate: 0.18, amount: 49.5 },
+            addons: { base: 250, taxableBase: 250, discount: 25, amount: 45 },
+          },
+        },
+        rateConfig: {
+          gstRatePercent: 18,
+          odGstRatePercent: 18,
+          tpGstRatePercent: 18,
+          paGstRatePercent: 18,
+        },
+        calculationVersion: 'motor-v5',
+        authoritativeDates: {
+          effectiveStartDate: '2026-10-23',
+          effectiveEndDate: '2027-10-22',
+        },
+      };
+
+      calcService.calculate.mockResolvedValue(calcMockOutput);
+
+      const quoteDto = {
+        vehicleCategory: 'PRIVATE_CAR',
+        policyType: 'PACKAGE',
+        insurerName: 'TATA AIG',
+        leadId: 'lead-1',
+        contactId: 'c-1',
+        vehicleDetails: { vehicleStatus: 'EXISTING', makeModel: 'Honda City' },
+        policyDetails: {
+          policyTenure: '1',
+          gstRate: '18',
+          odGstRate: '18',
+          tpGstRate: '18',
+          paCoverOwner: true,
+          odDiscountPercent: '10',
+          tpDiscountPercent: '10',
+          commercialAdjustmentAmount: '50',
+          commercialAdjustmentDirection: 'SUBTRACT',
+          addonsSelected: ['PA_UNNAMED_PASSENGER'],
+          addonPrices: { PA_UNNAMED_PASSENGER: '250' },
+          addonDiscounts: { PA_UNNAMED_PASSENGER: '10' },
+          addonGstRates: { PA_UNNAMED_PASSENGER: '18' },
+        },
+      };
+
+      const result = await command.execute(quoteDto as any, mockUser);
+
+      // Verify that calculation was called with properly formatted add-ons, discounts, and direction
+      expect(calcService.calculate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          policyType: 'PACKAGE_COMPREHENSIVE',
+          policyTenure: 1,
+          odDiscountPercent: 10,
+          tpDiscountPercent: 10,
+          commercialAdjustmentAmount: 50,
+          commercialAdjustmentDirection: 'SUBTRACT',
+          odGstRate: 18,
+          tpGstRate: 18,
+          addons: [
+            expect.objectContaining({
+              addonCode: 'PA_UNNAMED_PASSENGER',
+              amount: 250,
+              discountPercent: 10,
+              gstRate: 18,
+            }),
+          ],
+        }),
+      );
+
+      // Verify that prisma.quotation.create stored the exact calculationSnapshot and motorMetadata
+      expect(prisma.quotation.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          basePremium: 4525,
+          gstAmount: 814.5,
+          totalPremium: 4864.5,
+          calculationSnapshot: calcMockOutput,
+          motorMetadata: expect.objectContaining({
+            discounts: expect.objectContaining({
+              odDiscountAmount: 300,
+              tpDiscountAmount: 100,
+              addonDiscountAmount: 25,
+              commercialAdjustmentAmount: 50,
+              commercialAdjustmentDirection: 'SUBTRACT',
+              totalDiscountAmount: 475,
+            }),
+            policyDetails: expect.objectContaining({
+              addonPrices: { PA_UNNAMED_PASSENGER: '250' },
+              addonDiscounts: { PA_UNNAMED_PASSENGER: '10' },
+              addonGstRates: { PA_UNNAMED_PASSENGER: '18' },
+            }),
+          }),
+        }),
+      });
+
+      expect(result.id).toBe('q-persist-1');
+      expect(result.totalPremium).toBe(4864.5);
+    });
+  });
+
 });
 

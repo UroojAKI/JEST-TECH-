@@ -29,6 +29,7 @@ export const policyWithRelations = Prisma.validator<Prisma.PolicyDefaultArgs>()(
       claims: { orderBy: { createdAt: 'desc' } },
       endorsements: { orderBy: { createdAt: 'desc' } },
       histories: { orderBy: { createdAt: 'desc' } },
+      insurerDetail: true,
     },
   },
 );

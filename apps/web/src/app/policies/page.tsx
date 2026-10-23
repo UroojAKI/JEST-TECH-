@@ -96,12 +96,50 @@ export default function PolicyRegisterPage() {
     },
     {
       id: 'contactName',
-      accessorFn: (row: any) =>
-        row.contactName ||
-        (row.contact ? `${row.contact.firstName} ${row.contact.lastName || ''}`.trim() : null) ||
-        row.customerName ||
-        '—',
       header: 'Policy Holder',
+      accessorFn: (row: any) => {
+        const rawProposer =
+          row.proposerDetails?.customerName ||
+          row.motorMetadata?.proposerDetails?.customerName ||
+          row.quotation?.motorMetadata?.proposerDetails?.customerName;
+        const cleanProposer = rawProposer
+          ? String(rawProposer).replace(/\u00a0/g, ' ').trim()
+          : null;
+
+        return (
+          cleanProposer ||
+          row.contactName ||
+          row.customerName ||
+          (row.contact
+            ? `${row.contact.firstName || ''} ${row.contact.lastName || ''}`.trim()
+            : null) ||
+          (row.customer
+            ? `${row.customer.firstName || ''} ${row.customer.lastName || ''}`.trim()
+            : null) ||
+          '—'
+        );
+      },
+      cell: ({ row }: any) => {
+        const rawProposer =
+          row.original.proposerDetails?.customerName ||
+          row.original.motorMetadata?.proposerDetails?.customerName ||
+          row.original.quotation?.motorMetadata?.proposerDetails?.customerName;
+        const cleanProposer = rawProposer
+          ? String(rawProposer).replace(/\u00a0/g, ' ').trim()
+          : null;
+
+        const name =
+          cleanProposer ||
+          row.original.contactName ||
+          row.original.customerName ||
+          (row.original.contact
+            ? `${row.original.contact.firstName || ''} ${row.original.contact.lastName || ''}`.trim()
+            : null) ||
+          (row.original.customer
+            ? `${row.original.customer.firstName || ''} ${row.original.customer.lastName || ''}`.trim()
+            : null);
+        return <span className="font-semibold">{name || '—'}</span>;
+      },
     },
     {
       accessorKey: 'productLine',
@@ -130,8 +168,21 @@ export default function PolicyRegisterPage() {
     },
     {
       id: 'insurerName',
-      accessorFn: (row: any) => row.insurerName || row.quotation?.insurerName || '—',
       header: 'Insurer',
+      accessorFn: (row: any) =>
+        row.insurerName ||
+        row.quotation?.insurerName ||
+        row.insurerDetail?.insurerName ||
+        row.activeTpInsurer ||
+        '—',
+      cell: ({ row }: any) => {
+        const insurer =
+          row.original.insurerName ||
+          row.original.quotation?.insurerName ||
+          row.original.insurerDetail?.insurerName ||
+          row.original.activeTpInsurer;
+        return <span className="font-medium">{insurer || '—'}</span>;
+      },
     },
     {
       id: 'totalPremium',
@@ -152,21 +203,25 @@ export default function PolicyRegisterPage() {
       cell: ({ row }: any) => <StatusBadge status={row.original.status} />,
     },
     {
-      id: 'expiryDate',
-      accessorFn: (row: any) => {
-        const dateStr = row.expiryDate || row.endDate;
-        if (!dateStr) return '—';
+      accessorKey: 'expiryDate',
+      header: 'Expiry Date',
+      cell: ({ row }: any) => {
+        const val = row.original.expiryDate || row.original.endDate;
+        if (!val) return <span className="text-muted-foreground">—</span>;
         try {
-          return new Date(dateStr).toLocaleDateString('en-IN', {
-            day: '2-digit',
-            month: 'short',
-            year: 'numeric',
-          });
+          return (
+            <span className="font-mono text-xs">
+              {new Date(val).toLocaleDateString('en-IN', {
+                day: '2-digit',
+                month: 'short',
+                year: 'numeric',
+              })}
+            </span>
+          );
         } catch {
-          return String(dateStr);
+          return <span>{String(val)}</span>;
         }
       },
-      header: 'Expiry Date',
     },
   ];
 

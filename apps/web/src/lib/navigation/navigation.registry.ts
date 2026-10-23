@@ -236,6 +236,7 @@ export const ADMIN_NAVIGATION: NavigationItem[] = [
     icon: 'ShieldAlert',
     children: [
       { id: 'adm-audit', title: 'Audit Trail', href: '/admin/audit' },
+      { id: 'adm-policy-audit', title: 'Policy Audit Report', href: '/admin/audit-reports' },
     ],
   },
   {

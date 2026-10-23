@@ -1,4 +1,4 @@
-﻿import { Test, TestingModule } from '@nestjs/testing';
+import { Test, TestingModule } from '@nestjs/testing';
 import { QuotationCompletionService } from './quotation-completion.service';
 import { PrismaService } from '../../../../database/prisma.service';
 import { MotorWorkflowState, QuotationStatus } from '@prisma/client';
@@ -112,6 +112,23 @@ describe('QuotationCompletionService', () => {
       expect(vehicleSection!.missing.some((m) => m.field === 'makeModel')).toBe(true);
     });
 
+    it('accepts vehicle makeModel string when individual make and model columns are null', () => {
+      const quoteWithMakeModel = {
+        ...baseQuotation,
+        vehicle: {
+          ...baseQuotation.vehicle,
+          make: null,
+          model: null,
+          makeModel: 'Maruti Suzuki Swift VXI',
+        },
+      };
+
+      const result = service.evaluateQuotationCompletion(quoteWithMakeModel);
+      const vehicleSection = result.sections.find((s) => s.section === 'vehicle');
+
+      expect(vehicleSection!.missing.some((m) => m.field === 'makeModel')).toBe(false);
+    });
+
     it('suppresses previous insurance section when vehicle status is NEW', () => {
       const newVehicleQuote = {
         ...baseQuotation,
@@ -214,6 +231,55 @@ describe('QuotationCompletionService', () => {
           }),
         }),
       );
+    });
+
+    it('updates vehicle make, model and makeModel when makeModel is passed in updateDetails', async () => {
+      const quotation = {
+        id: 'quote-2',
+        quotationCode: 'Q-2026-002',
+        companyId: 'comp-1',
+        contactId: 'con-1',
+        vehicleId: 'veh-2',
+        title: 'Motor Quote',
+        policyType: 'PACKAGE',
+        sumInsured: 400000,
+        totalPremium: 10000,
+        status: QuotationStatus.DRAFT,
+        workflowState: MotorWorkflowState.READY_FOR_PROPOSAL,
+        motorMetadata: {},
+        contact: { firstName: 'Test', lastName: 'User', phone: '9999999999' },
+        vehicle: { id: 'veh-2', makeModel: null, make: null, model: null, registrationNumber: 'MH01AB1234', dateOfRegistration: new Date() },
+        motorPreviousPolicy: null,
+        motorInspection: null,
+        motorPaymentRecord: { status: 'PAID' },
+        documents: [],
+      };
+
+      mockPrisma.quotation.findUnique.mockResolvedValue(quotation);
+      mockPrisma.quotation.findFirst.mockResolvedValue({
+        ...quotation,
+        vehicle: {
+          ...quotation.vehicle,
+          makeModel: 'Maruti Suzuki Swift VXI',
+          make: 'Maruti',
+          model: 'Suzuki Swift VXI',
+        },
+      });
+      mockPrisma.vehicle.update.mockResolvedValue({});
+      mockPrisma.quotation.update.mockResolvedValue({});
+
+      await service.updateDetails('quote-2', {
+        makeModel: 'Maruti Suzuki Swift VXI',
+      });
+
+      expect(mockPrisma.vehicle.update).toHaveBeenCalledWith({
+        where: { id: 'veh-2' },
+        data: expect.objectContaining({
+          makeModel: 'Maruti Suzuki Swift VXI',
+          make: 'Maruti',
+          model: 'Suzuki Swift VXI',
+        }),
+      });
     });
   });
 });

@@ -1856,8 +1856,17 @@ describe('MotorCalculationService (Iteration 5 Financial Math)', () => {
             expect(paAddon).toBeDefined();
             expect(paAddon?.amount).toBe(250);
             expect(paAddon?.discountAmount).toBe(25);
+            expect(paAddon?.netPreTaxAmount).toBe(225);
+            expect(paAddon?.taxableBase).toBe(250);
+            expect(paAddon?.gstRatePercent).toBe(18);
             expect(paAddon?.gstAmount).toBe(45);
             expect(paAddon?.totalAmount).toBe(270);
+            expect(paAddon?.finalAddonAmount).toBe(270);
+            expect(res.gstBreakdown.addons.discount).toBe(25);
+            expect(res.gstBreakdown.addons.taxableBase).toBe(300);
+            expect(res.gstBreakdown.addons.netPreTaxBase).toBe(275);
+            expect(res.gstBreakdown.addons.items).toHaveLength(2);
+            expect(res.rateConfig.tpGstRatePercent).toBe(18);
           });
 
           it('COMM-ADJ-DIRECTION-01: Commercial adjustment ADD increases payable; SUBTRACT decreases payable', async () => {
@@ -2075,6 +2084,368 @@ describe('MotorCalculationService (Iteration 5 Financial Math)', () => {
               expect(res.outputs.isOverridden?.totalPremium).toBe(false);
             });
           });
+
+    describe('Phase 12: Comprehensive GST & Add-on Gross Tax Base Arithmetic Verification', () => {
+      it('GST-TP-01: TP GST at 18% and 5% with independently calculated expected amounts', async () => {
+        // 1. Single Year TP at 18%
+        const tp18 = await service.calculate({
+          vehicleCategory: 'PRIVATE_CAR',
+          vehicleStatus: 'EXISTING',
+          policyType: 'THIRD_PARTY_ONLY',
+          annualTpPremium: 1000,
+          policyTenure: 1,
+          tpDiscountPercent: 10,
+          paCover: false,
+          paidDriverLiability: false,
+          gstRate: 18,
+          tpGstRate: 18,
+        });
+        // Gross = 1000, TP Discount 10% = 100, Net Pre-tax = 900
+        // GST @ 18% on Gross 1000 = 180
+        // Final Payable = 1000 - 100 + 180 = 1080
+        expect(tp18.outputs.baseTpPremium).toBe(1000);
+        expect(tp18.outputs.tpDiscountAmount).toBe(100);
+        expect(tp18.outputs.netTpComponent).toBe(900);
+        expect(tp18.outputs.gstOnTp).toBe(180);
+        expect(tp18.outputs.totalGst).toBe(180);
+        expect(tp18.outputs.finalPayableAmount).toBe(1080);
+        expect(tp18.rateConfig.tpGstRatePercent).toBe(18);
+
+        // 2. Single Year TP at 5% (Concessional)
+        const tp5 = await service.calculate({
+          vehicleCategory: 'PRIVATE_CAR',
+          vehicleStatus: 'EXISTING',
+          policyType: 'THIRD_PARTY_ONLY',
+          annualTpPremium: 1000,
+          policyTenure: 1,
+          tpDiscountPercent: 10,
+          paCover: false,
+          paidDriverLiability: false,
+          gstRate: 5,
+          tpGstRate: 5,
+        });
+        // Gross = 1000, TP Discount 10% = 100, Net Pre-tax = 900
+        // GST @ 5% on Gross 1000 = 50
+        // Final Payable = 1000 - 100 + 50 = 950
+        expect(tp5.outputs.baseTpPremium).toBe(1000);
+        expect(tp5.outputs.tpDiscountAmount).toBe(100);
+        expect(tp5.outputs.netTpComponent).toBe(900);
+        expect(tp5.outputs.gstOnTp).toBe(50);
+        expect(tp5.outputs.totalGst).toBe(50);
+        expect(tp5.outputs.finalPayableAmount).toBe(950);
+        expect(tp5.rateConfig.tpGstRatePercent).toBe(5);
+
+        // 3. Multi-year TP (3 Years for Private Car) at 18%
+        const tpMultiYear = await service.calculate({
+          vehicleCategory: 'PRIVATE_CAR',
+          vehicleStatus: 'EXISTING',
+          policyType: 'THIRD_PARTY_ONLY',
+          annualTpPremium: 1000,
+          policyTenure: 3,
+          tpDiscountPercent: 10,
+          paCover: false,
+          paidDriverLiability: false,
+          gstRate: 18,
+          tpGstRate: 18,
+        });
+        // Statutory Gross = 1000 * 3 = 3000
+        // TP Discount 10% = 300, Net Pre-tax = 2700
+        // GST @ 18% on Gross 3000 = 540
+        // Final Payable = 3000 - 300 + 540 = 3240
+        expect(tpMultiYear.outputs.baseTpPremium).toBe(3000);
+        expect(tpMultiYear.outputs.tpDiscountAmount).toBe(300);
+        expect(tpMultiYear.outputs.netTpComponent).toBe(2700);
+        expect(tpMultiYear.outputs.gstOnTp).toBe(540);
+        expect(tpMultiYear.outputs.totalGst).toBe(540);
+        expect(tpMultiYear.outputs.finalPayableAmount).toBe(3240);
+      });
+
+      it('GST-ADDON-01: Add-on GST at 5% and 18%, with and without discounts, and with multiple add-ons', async () => {
+        const multiAddonRes = await service.calculate({
+          vehicleCategory: 'PRIVATE_CAR',
+          vehicleStatus: 'EXISTING',
+          policyType: 'THIRD_PARTY_ONLY',
+          annualTpPremium: 1000,
+          policyTenure: 1,
+          paCover: false,
+          paidDriverLiability: false,
+          gstRate: 18,
+          tpGstRate: 18,
+          addons: [
+            // Add-on 1: 250 @ 18% with 10% discount (25) -> GST on Gross 250 = 45, Net pre-tax = 225, Total = 270
+            {
+              addonCode: 'PA_UNNAMED_PASSENGER',
+              amount: 250,
+              discountPercent: 10,
+              gstRate: 18,
+            },
+            // Add-on 2: 100 @ 5% with 20% discount (20) -> GST on Gross 100 = 5, Net pre-tax = 80, Total = 85
+            {
+              addonCode: 'LEGAL_LIABILITY_EMPLOYEES',
+              amount: 100,
+              discountPercent: 20,
+              gstRate: 5,
+            },
+            // Add-on 3: 500 @ 18% with 0% discount (0) -> GST on Gross 500 = 90, Net pre-tax = 500, Total = 590
+            {
+              addonCode: 'PERSONAL_BAGGAGE',
+              amount: 500,
+              discountPercent: 0,
+              gstRate: 18,
+            },
+          ],
+        });
+
+        // Add-ons Summary Verification:
+        // Total Gross = 250 + 100 + 500 = 850
+        // Total Discounts = 25 + 20 + 0 = 45
+        // Net Pre-tax Base = 850 - 45 = 805
+        // Total Add-on GST = 45 + 5 + 90 = 140
+        // Final Add-on Payable = 805 + 140 = 945
+        expect(multiAddonRes.outputs.addonPremium).toBe(850);
+        expect(multiAddonRes.outputs.payableSummary.addonDiscountAmount).toBe(45);
+        expect(multiAddonRes.outputs.payableSummary.addonGstTotal).toBe(140);
+        expect(multiAddonRes.gstBreakdown.addons.base).toBe(850);
+        expect(multiAddonRes.gstBreakdown.addons.taxableBase).toBe(850);
+        expect(multiAddonRes.gstBreakdown.addons.netPreTaxBase).toBe(805);
+        expect(multiAddonRes.gstBreakdown.addons.discount).toBe(45);
+        expect(multiAddonRes.gstBreakdown.addons.amount).toBe(140);
+
+        // Overall Quote Verification:
+        // TP Gross = 1000, TP GST = 180
+        // Component GST Total = 180 + 140 = 320
+        // Total Gross = 1000 + 850 = 1850
+        // Total Discounts = 45
+        // Final Payable = 1850 - 45 + 320 = 2125
+        expect(multiAddonRes.outputs.totalGst).toBe(320);
+        expect(multiAddonRes.outputs.finalPayableAmount).toBe(2125);
+        expect(multiAddonRes.outputs.payableSummary.finalPayableAmount).toBe(2125);
+
+        // Individual Add-on Contract Verification:
+        const a1 = multiAddonRes.outputs.itemizedAddons?.find((a: any) => a.addonCode === 'PA_UNNAMED_PASSENGER');
+        expect(a1?.taxableBase).toBe(250);
+        expect(a1?.netPreTaxAmount).toBe(225);
+        expect(a1?.discountAmount).toBe(25);
+        expect(a1?.gstRatePercent).toBe(18);
+        expect(a1?.gstAmount).toBe(45);
+        expect(a1?.finalAddonAmount).toBe(270);
+
+        const a2 = multiAddonRes.outputs.itemizedAddons?.find((a: any) => a.addonCode === 'LEGAL_LIABILITY_EMPLOYEES');
+        expect(a2?.taxableBase).toBe(100);
+        expect(a2?.netPreTaxAmount).toBe(80);
+        expect(a2?.discountAmount).toBe(20);
+        expect(a2?.gstRatePercent).toBe(5);
+        expect(a2?.gstAmount).toBe(5);
+        expect(a2?.finalAddonAmount).toBe(85);
+
+        const a3 = multiAddonRes.outputs.itemizedAddons?.find((a: any) => a.addonCode === 'PERSONAL_BAGGAGE');
+        expect(a3?.taxableBase).toBe(500);
+        expect(a3?.netPreTaxAmount).toBe(500);
+        expect(a3?.discountAmount).toBe(0);
+        expect(a3?.gstRatePercent).toBe(18);
+        expect(a3?.gstAmount).toBe(90);
+        expect(a3?.finalAddonAmount).toBe(590);
+      });
+
+
+      it('GST-TP-ADDON-RECON-01: TP Add-on overrides (PA ₹315 vs ₹250 default, Paid Driver ₹100 vs ₹50 default) reconcile with itemized tax and totals', async () => {
+        // Test case 1: Standard 18% on both overridden add-ons
+        const res18 = await service.calculate({
+          vehicleCategory: 'PRIVATE_CAR',
+          vehicleStatus: 'EXISTING',
+          policyType: 'THIRD_PARTY_ONLY',
+          annualTpPremium: 1000,
+          policyTenure: 1,
+          paCover: false,
+          paidDriverLiability: false,
+          gstRate: 18,
+          tpGstRate: 18,
+          addons: [
+            {
+              addonCode: 'PA_UNNAMED_PASSENGER',
+              amount: 315,
+              discountPercent: 0,
+              gstRate: 18,
+            },
+            {
+              addonCode: 'LEGAL_LIABILITY_PAID_DRIVER',
+              amount: 100,
+              discountPercent: 0,
+              gstRate: 18,
+            },
+          ],
+        });
+
+        expect(res18.outputs.addonPremium).toBe(415);
+        expect(res18.outputs.payableSummary.addonGrossPremium).toBe(415);
+        expect(res18.outputs.payableSummary.addonDiscountAmount).toBe(0);
+        expect(res18.outputs.payableSummary.addonGstTotal).toBe(74.7);
+        expect(res18.outputs.totalGst).toBe(254.7); // 180 (TP) + 74.7 (Addons)
+        expect(res18.outputs.finalPayableAmount).toBe(1669.7); // 1000 + 415 + 254.7
+
+        const paItem = res18.outputs.itemizedAddons?.find((a: any) => a.addonCode === 'PA_UNNAMED_PASSENGER');
+        expect(paItem?.amount).toBe(315);
+        expect(paItem?.taxableBase).toBe(315);
+        expect(paItem?.systemPremium).toBe(250);
+        expect(paItem?.gstRatePercent).toBe(18);
+        expect(paItem?.gstAmount).toBe(56.7);
+        expect(paItem?.netPreTaxAmount).toBe(315);
+        expect(paItem?.finalAddonAmount).toBe(371.7);
+        expect(paItem?.isEdited).toBe(true);
+
+        const driverItem = res18.outputs.itemizedAddons?.find((a: any) => a.addonCode === 'LEGAL_LIABILITY_PAID_DRIVER');
+        expect(driverItem?.amount).toBe(100);
+        expect(driverItem?.taxableBase).toBe(100);
+        expect(driverItem?.systemPremium).toBe(50);
+        expect(driverItem?.gstRatePercent).toBe(18);
+        expect(driverItem?.gstAmount).toBe(18);
+        expect(driverItem?.netPreTaxAmount).toBe(100);
+        expect(driverItem?.finalAddonAmount).toBe(118);
+        expect(driverItem?.isEdited).toBe(true);
+
+        // Test case 2: Mixed rates (PA at 18%, Paid Driver at 5%)
+        const resMixed = await service.calculate({
+          vehicleCategory: 'PRIVATE_CAR',
+          vehicleStatus: 'EXISTING',
+          policyType: 'THIRD_PARTY_ONLY',
+          annualTpPremium: 1000,
+          policyTenure: 1,
+          paCover: false,
+          paidDriverLiability: false,
+          gstRate: 18,
+          tpGstRate: 18,
+          addons: [
+            {
+              addonCode: 'PA_UNNAMED_PASSENGER',
+              amount: 315,
+              discountPercent: 0,
+              gstRate: 18,
+            },
+            {
+              addonCode: 'LEGAL_LIABILITY_PAID_DRIVER',
+              amount: 100,
+              discountPercent: 0,
+              gstRate: 5,
+            },
+          ],
+        });
+
+        expect(resMixed.outputs.addonPremium).toBe(415);
+        expect(resMixed.outputs.payableSummary.addonGstTotal).toBe(61.7); // 56.7 + 5.0
+        expect(resMixed.outputs.totalGst).toBe(241.7); // 180 + 61.7
+        expect(resMixed.outputs.finalPayableAmount).toBe(1656.7); // 1000 + 415 + 241.7
+
+        const mixedDriverItem = resMixed.outputs.itemizedAddons?.find((a: any) => a.addonCode === 'LEGAL_LIABILITY_PAID_DRIVER');
+        expect(mixedDriverItem?.gstRatePercent).toBe(5);
+        expect(mixedDriverItem?.gstAmount).toBe(5);
+        expect(mixedDriverItem?.finalAddonAmount).toBe(105);
+      });
+
+      it('GST-RECON-01: Reconcile component GST, total GST, discounts, and final payable without double-counting', async () => {
+        // Package Comprehensive policy with OD, TP, PA, Add-ons, and Commercial Adjustment
+        const pkgRes = await service.calculate({
+          vehicleCategory: 'PRIVATE_CAR',
+          vehicleStatus: 'EXISTING',
+          policyType: 'PACKAGE_COMPREHENSIVE',
+          idv: 500000,
+          odPremium: 3000,
+          annualTpPremium: 1000,
+          policyTenure: 1,
+          odDiscountPercent: 10, // 300 discount on 3000
+          tpDiscountPercent: 10, // 100 discount on 1000
+          commercialAdjustmentAmount: 50,
+          commercialAdjustmentDirection: 'SUBTRACT',
+          paCover: true, // 275 PA
+          paidDriverLiability: false,
+          gstRate: 18,
+          odGstRate: 18,
+          tpGstRate: 18,
+          paGstRate: 18,
+          addons: [
+            {
+              addonCode: 'PA_UNNAMED_PASSENGER',
+              amount: 250,
+              discountPercent: 10, // 25 discount
+              gstRate: 18,
+            },
+          ],
+        });
+
+        // 1. Gross Premiums Before Discount:
+        // Base OD: 3000
+        // Addons: 250
+        // Base TP: 1000
+        // PA: 275
+        // Gross Premium = 3000 + 250 + 1000 + 275 = 4525
+        expect(pkgRes.outputs.payableSummary.grossPremium).toBe(4525);
+
+        // 2. Component GST on Gross Bases:
+        // OD Gross Base (OD + Addons) = 3000 + 250 = 3250 -> GST @ 18% = 585
+        // TP Gross Base = 1000 -> GST @ 18% = 180
+        // PA Gross Base = 275 -> GST @ 18% = 49.50
+        // Total GST = 585 + 180 + 49.50 = 814.50
+        expect(pkgRes.outputs.gstOnOd).toBe(585);
+        expect(pkgRes.outputs.gstOnTp).toBe(180);
+        expect(pkgRes.outputs.gstOnPa).toBe(49.5);
+        expect(pkgRes.outputs.totalGst).toBe(814.5);
+
+        // 3. Discounts:
+        // OD Discount = 300
+        // TP Discount = 100
+        // Addon Discount = 25
+        // Commercial Adjustment = 50
+        // Total Discounts = 300 + 100 + 25 + 50 = 475
+        expect(pkgRes.outputs.odDiscountAmount).toBe(300);
+        expect(pkgRes.outputs.tpDiscountAmount).toBe(100);
+        expect(pkgRes.outputs.payableSummary.addonDiscountAmount).toBe(25);
+        expect(pkgRes.outputs.commercialDiscountAmount).toBe(50);
+        expect(pkgRes.outputs.totalDiscountAmount).toBe(475);
+
+        // 4. Final Payable Reconciliation:
+        // Final Payable = Gross (4525) + GST (814.50) - Total Discounts (475) = 4864.50
+        expect(pkgRes.outputs.finalPayableAmount).toBe(4864.5);
+        expect(pkgRes.outputs.payableSummary.finalPayableAmount).toBe(4864.5);
+      });
+
+      it('GST-SAOD-01: Standalone OD (SAOD) preserves manual OD base, add-ons, and exact GST', async () => {
+        const saodRes = await service.calculate({
+          vehicleCategory: 'PRIVATE_CAR',
+          vehicleStatus: 'EXISTING',
+          policyType: 'STANDALONE_OD',
+          idv: 500000,
+          activeTpPolicyNumber: 'TP-POL-VALID',
+          activeTpExpiryDate: '2027-12-31',
+          activeTpInsurer: 'ICICI LOMBARD',
+          activeTpStartDate: '2026-01-01',
+          activeTpVerificationMethod: 'POLICY_DOCUMENT',
+          activeTpVerificationStatus: 'VERIFIED',
+          activeTpVerifiedByUserConfirmed: true,
+          odPremiumAmount: 5000,
+          odDiscountPercent: 10, // 500 discount
+          gstRate: 18,
+          addons: [
+            {
+              addonCode: 'PA_UNNAMED_PASSENGER',
+              amount: 500,
+              discountPercent: 0,
+              gstRate: 18,
+            },
+          ],
+        });
+
+        // Gross Base = 5000 + 500 = 5500
+        // GST @ 18% on 5500 = 990
+        // Discount = 500
+        // Final Payable = 5500 + 990 - 500 = 5990
+        expect(saodRes.outputs.baseOdPremium).toBe(5000);
+        expect(saodRes.outputs.addonPremium).toBe(500);
+        expect(saodRes.outputs.gstOnOd).toBe(990);
+        expect(saodRes.outputs.totalGst).toBe(990);
+        expect(saodRes.outputs.odDiscountAmount).toBe(500);
+        expect(saodRes.outputs.finalPayableAmount).toBe(5990);
+      });
+    });
+
         });
       });
     });

@@ -45,6 +45,10 @@ const FIELD_INPUT_CONFIG: Record<string, { label: string; placeholder: string; t
   dateOfBirth: { label: 'Date of Birth', placeholder: 'YYYY-MM-DD', type: 'date' },
   panNumber: { label: 'PAN or Aadhaar KYC', placeholder: 'e.g. ABCDE1234F' },
   registrationNumber: { label: 'Registration Plate Number', placeholder: 'e.g. MH02AB1234' },
+  makeModel: { label: 'Vehicle Make & Model', placeholder: 'e.g. Maruti Suzuki Swift VXI' },
+  make: { label: 'Vehicle Make', placeholder: 'e.g. Maruti Suzuki' },
+  model: { label: 'Vehicle Model & Variant', placeholder: 'e.g. Swift VXI' },
+  dateOfRegistration: { label: 'Registration Date', placeholder: 'YYYY-MM-DD', type: 'date' },
   engineNumber: { label: 'Engine Number', placeholder: 'e.g. ENG987654321' },
   chassisNumber: { label: 'Chassis Number / VIN', placeholder: 'e.g. MA3ER45S900123456' },
   previousPolicyNumber: { label: 'Previous Policy Number', placeholder: 'e.g. POL-PREV-2025-01' },
@@ -329,7 +333,52 @@ export function QuotationCompletionView({
                                   </span>
                                 </div>
 
-                                {config ? (
+                                {item.field === 'makeModel' ? (
+                                  <div className="pt-1 space-y-1.5">
+                                    <div className="grid grid-cols-2 gap-2">
+                                      <div>
+                                        <label className="text-[10px] font-semibold text-muted-foreground block mb-0.5">
+                                          Vehicle Make
+                                        </label>
+                                        <input
+                                          type="text"
+                                          placeholder="e.g. Maruti Suzuki"
+                                          value={editValues['make'] ?? ''}
+                                          onChange={(e) => {
+                                            const val = e.target.value;
+                                            handleFieldChange('make', val);
+                                            const currentModel = editValues['model'] || '';
+                                            handleFieldChange('makeModel', `${val} ${currentModel}`.trim());
+                                          }}
+                                          className="w-full px-2.5 py-1.5 rounded-md border text-xs bg-background focus:outline-none focus:ring-1 focus:ring-primary border-border font-medium"
+                                        />
+                                      </div>
+                                      <div>
+                                        <label className="text-[10px] font-semibold text-muted-foreground block mb-0.5">
+                                          Model & Variant
+                                        </label>
+                                        <input
+                                          type="text"
+                                          placeholder="e.g. Swift VXI"
+                                          value={editValues['model'] ?? ''}
+                                          onChange={(e) => {
+                                            const val = e.target.value;
+                                            handleFieldChange('model', val);
+                                            const currentMake = editValues['make'] || '';
+                                            handleFieldChange('makeModel', `${currentMake} ${val}`.trim());
+                                          }}
+                                          className="w-full px-2.5 py-1.5 rounded-md border text-xs bg-background focus:outline-none focus:ring-1 focus:ring-primary border-border font-medium"
+                                        />
+                                      </div>
+                                    </div>
+                                    {editValues['makeModel'] && (
+                                      <div className="text-[10px] text-muted-foreground flex items-center gap-1">
+                                        <span>Make & Model:</span>
+                                        <span className="font-semibold text-foreground">{editValues['makeModel']}</span>
+                                      </div>
+                                    )}
+                                  </div>
+                                ) : config ? (
                                   <div className="pt-1">
                                     <input
                                       type={config.type || 'text'}
@@ -340,7 +389,7 @@ export function QuotationCompletionView({
                                       className="w-full px-2.5 py-1.5 rounded-md border text-xs bg-background focus:outline-none focus:ring-1 focus:ring-primary border-border font-medium"
                                     />
                                   </div>
-                                ) : item.field === 'inspection' ? (
+                                ) : item.field === 'inspection' || item.field === 'inspectionApproval' ? (
                                   <div className="pt-1">
                                     <button
                                       type="button"
@@ -354,7 +403,17 @@ export function QuotationCompletionView({
                                       Conduct Break-in / SAOD Inspection
                                     </button>
                                   </div>
-                                ) : null}
+                                ) : (
+                                  <div className="pt-1">
+                                    <input
+                                      type="text"
+                                      placeholder={`Enter ${item.label}`}
+                                      value={editValues[item.field] ?? ''}
+                                      onChange={(e) => handleFieldChange(item.field, e.target.value)}
+                                      className="w-full px-2.5 py-1.5 rounded-md border text-xs bg-background focus:outline-none focus:ring-1 focus:ring-primary border-border font-medium"
+                                    />
+                                  </div>
+                                )}
                               </div>
                             );
                           })}
