@@ -742,4 +742,341 @@ describe('Work Package: TP GST, Add-on GST & Component Breakdown Verification Su
       );
     });
   });
+
+  describe('Finding / Defect C: Owner-Driver PA Cover State & Waiver Reconciliation', () => {
+    it('defaults Owner-Driver PA to opted-in (paCover: true, ₹275 statutory) when paCoverOwner is omitted or true', () => {
+      const mockOnChange = vi.fn();
+      const initialData: any = {
+        policyTenure: '1',
+        gstRate: '18',
+        tpGstRate: '18',
+      };
+
+      const calculationFixture = {
+        rateConfig: {
+          tpAnnualRate: 1000,
+          systemTpAnnualRate: 1000,
+          paRate: 275,
+          gstRatePercent: 18,
+          tpGstRatePercent: 18,
+        },
+        outputs: {
+          baseTpPremium: 1000,
+          totalGst: 229.5,
+          finalPayableAmount: 1504.5,
+          tp: { base: 1000, discount: 0, gst: 180 },
+          pa: { premium: 275, gst: 49.5 },
+          paidDriver: { premium: 0, gst: 0 },
+          payableSummary: {
+            grossPremium: 1275,
+            componentGstTotal: 229.5,
+            finalPayableAmount: 1504.5,
+          },
+          gstBreakdown: {
+            base: 'GROSS',
+            tp: { base: 1000, rate: 0.18, ratePercent: 18, amount: 180 },
+            pa: { base: 275, rate: 0.18, ratePercent: 18, amount: 49.5 },
+          },
+        },
+      };
+
+      vi.mocked(useMotorCalculator).mockReturnValue({
+        result: calculationFixture,
+        loading: false,
+        error: null,
+      });
+
+      render(
+        <PolicyFormTPOnlyForm
+          category="PRIVATE_CAR"
+          vehicleStatus="EXISTING"
+          data={initialData}
+          onChange={mockOnChange}
+        />
+      );
+
+      // Verify calculator was called with paCover: true
+      const calls = vi.mocked(useMotorCalculator).mock.calls;
+      const latestCall = calls[calls.length - 1]?.[0];
+      expect(latestCall?.paCover).toBe(true);
+
+      // Verify checkbox is checked
+      const paCheckbox = screen.getByRole('checkbox', { name: /Personal Accident \(PA\) Cover/i });
+      expect(paCheckbox).toBeChecked();
+
+      // Verify breakdown displays Opted (₹15L) and ₹275
+      const breakdown = screen.getByTestId('tp-premium-breakdown');
+      expect(breakdown).toHaveTextContent(/Owner-Driver PA Cover/i);
+      expect(breakdown).toHaveTextContent(/Opted \(₹15L\)/i);
+      expect(breakdown).toHaveTextContent(/₹275/i);
+      expect(breakdown).toHaveTextContent(/PA Tax: ₹49\.5/i);
+    });
+
+    it('respects explicit PA waiver (paCoverOwner: false), passing paCover: false and displaying Waived / ₹0', () => {
+      const mockOnChange = vi.fn();
+      const initialData: any = {
+        policyTenure: '1',
+        gstRate: '18',
+        tpGstRate: '18',
+        paCoverOwner: false,
+      };
+
+      const calculationFixture = {
+        rateConfig: {
+          tpAnnualRate: 1000,
+          systemTpAnnualRate: 1000,
+          paRate: 275,
+          gstRatePercent: 18,
+          tpGstRatePercent: 18,
+        },
+        outputs: {
+          baseTpPremium: 1000,
+          totalGst: 180,
+          finalPayableAmount: 1180,
+          tp: { base: 1000, discount: 0, gst: 180 },
+          pa: { premium: 0, gst: 0 },
+          paidDriver: { premium: 0, gst: 0 },
+          payableSummary: {
+            grossPremium: 1000,
+            componentGstTotal: 180,
+            finalPayableAmount: 1180,
+          },
+          gstBreakdown: {
+            base: 'GROSS',
+            tp: { base: 1000, rate: 0.18, ratePercent: 18, amount: 180 },
+            pa: { base: 0, rate: 0.18, ratePercent: 18, amount: 0 },
+          },
+        },
+      };
+
+      vi.mocked(useMotorCalculator).mockReturnValue({
+        result: calculationFixture,
+        loading: false,
+        error: null,
+      });
+
+      render(
+        <PolicyFormTPOnlyForm
+          category="PRIVATE_CAR"
+          vehicleStatus="EXISTING"
+          data={initialData}
+          onChange={mockOnChange}
+        />
+      );
+
+      // Verify calculator was called with paCover: false
+      const calls = vi.mocked(useMotorCalculator).mock.calls;
+      const latestCall = calls[calls.length - 1]?.[0];
+      expect(latestCall?.paCover).toBe(false);
+
+      // Verify checkbox is unchecked
+      const paCheckbox = screen.getByRole('checkbox', { name: /Personal Accident \(PA\) Cover/i });
+      expect(paCheckbox).not.toBeChecked();
+
+      // Verify breakdown displays Waived and ₹0
+      const breakdown = screen.getByTestId('tp-premium-breakdown');
+      expect(breakdown).toHaveTextContent(/Owner-Driver PA Cover/i);
+      expect(breakdown).toHaveTextContent(/Waived/i);
+      expect(breakdown).toHaveTextContent(/₹0/i);
+      expect(breakdown).toHaveTextContent(/PA Tax: ₹0/i);
+    });
+
+    it('toggling the PA checkbox calls onChange with updated paCoverOwner', () => {
+      const mockOnChange = vi.fn();
+      const initialData: any = {
+        policyTenure: '1',
+        gstRate: '18',
+        tpGstRate: '18',
+        paCoverOwner: true,
+      };
+
+      render(
+        <PolicyFormTPOnlyForm
+          category="PRIVATE_CAR"
+          vehicleStatus="EXISTING"
+          data={initialData}
+          onChange={mockOnChange}
+        />
+      );
+
+      const paCheckbox = screen.getByRole('checkbox', { name: /Personal Accident \(PA\) Cover/i });
+      fireEvent.click(paCheckbox);
+
+      expect(mockOnChange).toHaveBeenCalledWith(
+        expect.objectContaining({
+          paCoverOwner: false,
+        })
+      );
+    });
+  });
+
+  describe('Finding / Defect D: Annual TP Premium Custom Override vs Statutory Reference Tariff', () => {
+    it('displays Custom Quoted Base badge and reconciles custom annual premium (₹43,950 vs statutory ₹15,746/yr)', () => {
+      const mockOnChange = vi.fn();
+      const initialData: any = {
+        policyTenure: '1',
+        gstRate: '18',
+        tpGstRate: '18',
+        editedTpPremium: '43950',
+      };
+
+      const calculationFixture = {
+        rateConfig: {
+          tpAnnualRate: 43950,
+          systemTpAnnualRate: 15746,
+          gstRatePercent: 18,
+          tpGstRatePercent: 18,
+        },
+        outputs: {
+          baseTpPremium: 43950,
+          totalGst: 7911,
+          finalPayableAmount: 51861,
+          tp: {
+            base: 43950,
+            annualPremium: 43950,
+            statutoryAnnual: 15746,
+            tenure: 1,
+            discount: 0,
+            gst: 7911,
+            isEdited: true,
+          },
+          pa: { premium: 0, gst: 0 },
+          paidDriver: { premium: 0, gst: 0 },
+          payableSummary: {
+            grossPremium: 43950,
+            componentGstTotal: 7911,
+            finalPayableAmount: 51861,
+          },
+          gstBreakdown: {
+            base: 'GROSS',
+            tp: { base: 43950, rate: 0.18, ratePercent: 18, amount: 7911 },
+          },
+        },
+      };
+
+      vi.mocked(useMotorCalculator).mockReturnValue({
+        result: calculationFixture,
+        loading: false,
+        error: null,
+      });
+
+      render(
+        <PolicyFormTPOnlyForm
+          category="PRIVATE_CAR"
+          vehicleStatus="EXISTING"
+          data={initialData}
+          onChange={mockOnChange}
+        />
+      );
+
+      // Verify calculator received editedTpPremium = 43950
+      const calls = vi.mocked(useMotorCalculator).mock.calls;
+      const latestCall = calls[calls.length - 1]?.[0];
+      expect(latestCall?.annualTpPremium).toBe(43950);
+      expect(latestCall?.editedTpPremium).toBe(43950);
+
+      const breakdown = screen.getByTestId('tp-premium-breakdown');
+      expect(breakdown).toHaveTextContent(/Third-Party Quoted Base/i);
+      expect(breakdown).toHaveTextContent(/Custom Quoted/i);
+      expect(breakdown).toHaveTextContent(/₹43,950/i);
+      expect(breakdown).toHaveTextContent(/Quoted: ₹43,950\/yr × 1 yr\(s\)/i);
+      expect(breakdown).toHaveTextContent(/Statutory Reference: ₹15,746\/yr/i);
+      expect(breakdown).toHaveTextContent(/TP Tax \(18%\): ₹7,911/i);
+    });
+
+    it('multiplies custom quoted TP premium by tenure (3 years -> ₹131,850)', () => {
+      const mockOnChange = vi.fn();
+      const initialData: any = {
+        policyTenure: '3',
+        gstRate: '18',
+        tpGstRate: '18',
+        editedTpPremium: '43950',
+      };
+
+      const calculationFixture = {
+        rateConfig: {
+          tpAnnualRate: 43950,
+          systemTpAnnualRate: 15746,
+          gstRatePercent: 18,
+          tpGstRatePercent: 18,
+        },
+        outputs: {
+          baseTpPremium: 131850,
+          totalGst: 23733,
+          finalPayableAmount: 155583,
+          tp: {
+            base: 131850,
+            annualPremium: 43950,
+            statutoryAnnual: 15746,
+            tenure: 3,
+            discount: 0,
+            gst: 23733,
+            isEdited: true,
+          },
+          pa: { premium: 0, gst: 0 },
+          paidDriver: { premium: 0, gst: 0 },
+          payableSummary: {
+            grossPremium: 131850,
+            componentGstTotal: 23733,
+            finalPayableAmount: 155583,
+          },
+          gstBreakdown: {
+            base: 'GROSS',
+            tp: { base: 131850, rate: 0.18, ratePercent: 18, amount: 23733 },
+          },
+        },
+      };
+
+      vi.mocked(useMotorCalculator).mockReturnValue({
+        result: calculationFixture,
+        loading: false,
+        error: null,
+      });
+
+      render(
+        <PolicyFormTPOnlyForm
+          category="PRIVATE_CAR"
+          vehicleStatus="EXISTING"
+          data={initialData}
+          onChange={mockOnChange}
+        />
+      );
+
+      const breakdown = screen.getByTestId('tp-premium-breakdown');
+      expect(breakdown).toHaveTextContent(/Third-Party Quoted Base/i);
+      expect(breakdown).toHaveTextContent(/Custom Quoted/i);
+      expect(breakdown).toHaveTextContent(/₹1,31,850/i);
+      expect(breakdown).toHaveTextContent(/Quoted: ₹43,950\/yr × 3 yr\(s\)/i);
+      expect(breakdown).toHaveTextContent(/Statutory Reference: ₹15,746\/yr/i);
+      expect(breakdown).toHaveTextContent(/TP Tax \(18%\): ₹23,733/i);
+    });
+
+    it('clicking Reset to Tariff clears editedTpPremium', () => {
+      const mockOnChange = vi.fn();
+      const initialData: any = {
+        policyTenure: '1',
+        gstRate: '18',
+        tpGstRate: '18',
+        editedTpPremium: '43950',
+      };
+
+      render(
+        <PolicyFormTPOnlyForm
+          category="PRIVATE_CAR"
+          vehicleStatus="EXISTING"
+          data={initialData}
+          onChange={mockOnChange}
+        />
+      );
+
+      const resetBtn = screen.getByRole('button', { name: /Reset to Tariff/i });
+      fireEvent.click(resetBtn);
+
+      expect(mockOnChange).toHaveBeenCalledWith(
+        expect.objectContaining({
+          editedTpPremium: undefined,
+        })
+      );
+    });
+  });
 });
