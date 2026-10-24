@@ -364,6 +364,7 @@ export function UpdatePolicyDetailsDialog({
                 <div className="text-[11px] text-muted-foreground">
                   Insurer: <strong className="text-foreground">{quoteDetails.insurerName || 'HDFC ERGO'}</strong>
                 </div>
+              </div>
               <div className="text-right">
                 <span className="text-muted-foreground mr-1 text-[11px]">Net Premium:</span>
                 <span className="font-mono font-bold text-emerald-600 text-sm">
