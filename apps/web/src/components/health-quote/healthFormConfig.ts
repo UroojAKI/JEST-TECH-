@@ -74,6 +74,14 @@ const planName: FieldSpec = { key: 'planName', label: 'Plan Name', type: 'text',
 const uin: FieldSpec = { key: 'uin', label: 'UIN', type: 'text', required: false, hint: 'Unique Identification Number (IRDAI) - Optional' };
 const sumInsured = (label = 'Sum Insured'): FieldSpec => ({ key: 'sumInsured', label, type: 'number', required: true });
 const roomRent: FieldSpec = { key: 'roomRentCategory', label: 'Room Rent Category', type: 'select', required: true, options: ROOM_RENT };
+const membersCount = (label = 'Members to Cover in Policy', defaultValue = 2, hint = 'Number of insured members to cover'): FieldSpec => ({
+  key: 'membersCount',
+  label,
+  type: 'number',
+  required: true,
+  defaultValue,
+  hint,
+});
 
 export const SECTION_A_FIELDS: Record<string, FieldSpec[]> = {
   INDIVIDUAL: [
@@ -89,6 +97,7 @@ export const SECTION_A_FIELDS: Record<string, FieldSpec[]> = {
     uin,
     sumInsured('Sum Insured (Floater)'),
     roomRent,
+    membersCount('Members to Cover in Policy', 2, 'Total family members to cover under this floater policy (Minimum 2)'),
     { key: 'maternityCoverRequired', label: 'Maternity Cover Required', type: 'boolean', required: false, hint: 'Subject to plan availability & waiting period' },
   ],
   SENIOR_CITIZEN: [
@@ -155,6 +164,7 @@ export const SECTION_A_FIELDS: Record<string, FieldSpec[]> = {
       required: true,
       options: opts(['EMPLOYER_EMPLOYEE', 'Employer-Employee'], ['AFFINITY_GROUP', 'Affinity Group'], ['ASSOCIATION', 'Association']),
     },
+    membersCount('Members to Cover in Policy', 2, 'Number of insured members to register and cover under this group proposal'),
     { key: 'memberStrength', label: 'Employee / Member Strength', type: 'number', required: true },
     { key: 'sumInsuredBasis', label: 'Sum Insured Basis', type: 'select', required: true, options: opts(['FLAT', 'Flat'], ['GRADED', 'Graded by employee category']) },
     sumInsured(),

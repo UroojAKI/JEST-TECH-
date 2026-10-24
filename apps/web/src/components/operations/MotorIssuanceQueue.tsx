@@ -80,7 +80,7 @@ export function MotorIssuanceQueue() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [productFilter, setProductFilter] = useState<'ALL' | 'MOTOR' | 'HEALTH'>('ALL');
-  const [viewMode, setViewMode] = useState<'SPLIT' | 'TABLE' | 'CARDS'>('SPLIT');
+  const [viewMode, setViewMode] = useState<'TABLE' | 'CARDS'>('TABLE');
   const [issuingId, setIssuingId] = useState<string | null>(null);
   const [selectedQuote, setSelectedQuote] = useState<{ id: string; productType: 'MOTOR' | 'HEALTH' } | null>(null);
 
@@ -728,20 +728,6 @@ export function MotorIssuanceQueue() {
           <div className="flex items-center p-1 rounded-lg bg-muted/60 border border-border text-xs">
             <button
               type="button"
-              onClick={() => setViewMode('SPLIT')}
-              className={`flex items-center gap-1 px-2.5 py-1 rounded-md font-bold transition ${
-                viewMode === 'SPLIT'
-                  ? 'bg-card text-foreground shadow-xs border border-border'
-                  : 'text-muted-foreground hover:text-foreground'
-              }`}
-              title="Separate side-by-side columns for Motor & Health"
-            >
-              <Columns3 className="h-3.5 w-3.5" />
-              <span>Split Columns</span>
-            </button>
-
-            <button
-              type="button"
               onClick={() => setViewMode('TABLE')}
               className={`flex items-center gap-1 px-2.5 py-1 rounded-md font-bold transition ${
                 viewMode === 'TABLE'
@@ -762,7 +748,7 @@ export function MotorIssuanceQueue() {
                   ? 'bg-card text-foreground shadow-xs border border-border'
                   : 'text-muted-foreground hover:text-foreground'
               }`}
-              title="Full-width cards view"
+              title="Full-width cards stream view"
             >
               <LayoutGrid className="h-3.5 w-3.5" />
               <span>Cards Stream</span>
@@ -812,95 +798,6 @@ export function MotorIssuanceQueue() {
           <p className="text-xs text-muted-foreground max-w-md mx-auto">
             All customer quotations in this category have been processed or are awaiting preliminary stages.
           </p>
-        </div>
-      ) : viewMode === 'SPLIT' ? (
-        /* ========================================================================= */
-        /* VIEW MODE 1: SPLIT COLUMNS (Dedicated Motor Column & Health Column)       */
-        /* ========================================================================= */
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-5 items-start">
-          {/* COLUMN 1: MOTOR ISSUANCE CASES */}
-          <div className="space-y-3">
-            <div className="flex items-center justify-between p-3 rounded-xl border border-blue-500/30 bg-blue-500/5">
-              <div className="flex items-center gap-2.5">
-                <div className="p-2 rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400">
-                  <Car className="h-5 w-5" />
-                </div>
-                <div>
-                  <h2 className="font-bold text-sm text-foreground flex items-center gap-2">
-                    <span>🚗 Motor Issuance Cases</span>
-                    <span className="px-2 py-0.5 rounded-full text-xs font-black bg-blue-500/20 text-blue-700 dark:text-blue-300">
-                      {motorQueue.length}
-                    </span>
-                  </h2>
-                  <p className="text-[11px] text-muted-foreground">
-                    Vehicle specs, break-in inspection gates & motor policy issuance
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-1.5 text-[11px]">
-                <span className="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 font-bold">
-                  {motorQueue.filter((q) => q.allGatesPassed).length} Ready
-                </span>
-                <span className="px-2 py-0.5 rounded bg-amber-500/10 text-amber-700 dark:text-amber-300 font-bold">
-                  {motorQueue.filter((q) => !q.allGatesPassed).length} Blocked
-                </span>
-              </div>
-            </div>
-
-            {motorQueue.length === 0 ? (
-              <div className="p-8 text-center rounded-xl border border-dashed border-border bg-card/40 text-xs text-muted-foreground space-y-1">
-                <Car className="h-6 w-6 mx-auto text-muted-foreground/60" />
-                <p className="font-semibold">No Motor cases found in this filter</p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {motorQueue.map((item) => renderCaseCard(item, 'MOTOR'))}
-              </div>
-            )}
-          </div>
-
-          {/* COLUMN 2: HEALTH ISSUANCE CASES */}
-          <div className="space-y-3">
-            <div className="flex items-center justify-between p-3 rounded-xl border border-rose-500/30 bg-rose-500/5">
-              <div className="flex items-center gap-2.5">
-                <div className="p-2 rounded-lg bg-rose-500/10 text-rose-600 dark:text-rose-400">
-                  <HeartPulse className="h-5 w-5" />
-                </div>
-                <div>
-                  <h2 className="font-bold text-sm text-foreground flex items-center gap-2">
-                    <span>❤️ Health Issuance Cases</span>
-                    <span className="px-2 py-0.5 rounded-full text-xs font-black bg-rose-500/20 text-rose-700 dark:text-rose-300">
-                      {healthQueue.length}
-                    </span>
-                  </h2>
-                  <p className="text-[11px] text-muted-foreground">
-                    Medical underwriting, member coverage & health policy issuance
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-1.5 text-[11px]">
-                <span className="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 font-bold">
-                  {healthQueue.filter((q) => q.allGatesPassed).length} Ready
-                </span>
-                <span className="px-2 py-0.5 rounded bg-amber-500/10 text-amber-700 dark:text-amber-300 font-bold">
-                  {healthQueue.filter((q) => !q.allGatesPassed).length} Blocked
-                </span>
-              </div>
-            </div>
-
-            {healthQueue.length === 0 ? (
-              <div className="p-8 text-center rounded-xl border border-dashed border-border bg-card/40 text-xs text-muted-foreground space-y-1">
-                <HeartPulse className="h-6 w-6 mx-auto text-muted-foreground/60" />
-                <p className="font-semibold">No Health cases found in this filter</p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {healthQueue.map((item) => renderCaseCard(item, 'HEALTH'))}
-              </div>
-            )}
-          </div>
         </div>
       ) : viewMode === 'TABLE' ? (
         /* ========================================================================= */

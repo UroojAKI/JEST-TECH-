@@ -56,6 +56,26 @@ const bmi = (m: Member) => {
   return h > 0 && w > 0 ? Math.round((w / (h * h)) * 10) / 10 : null;
 };
 
+const syncMembersWithCount = (targetCount: number, currentMembers: Member[]): Member[] => {
+  const count = Math.max(1, Math.min(targetCount, 50));
+  if (currentMembers.length === count) return currentMembers;
+  if (currentMembers.length < count) {
+    const additions: Member[] = [];
+    for (let i = currentMembers.length; i < count; i++) {
+      let rel = 'OTHER';
+      if (i === 0) rel = 'SELF';
+      else if (i === 1) rel = 'SPOUSE';
+      else if (i === 2 || i === 3) rel = 'CHILD';
+      additions.push(emptyMember(rel));
+    }
+    return [...currentMembers, ...additions];
+  } else {
+    return currentMembers.slice(0, count);
+  }
+};
+
+const isMultiMemberPlan = (cat?: string) => cat === 'FAMILY_FLOATER' || cat === 'GROUP_CORPORATE';
+
 export function HealthQuoteWizard({
   contactId: initialContactId,
   leadId,
@@ -213,15 +233,42 @@ export function HealthQuoteWizard({
     }
   }, [policyForm]);
 
+  // Auto-sync members count for Family Floater & Group Corporate based on customer input
+  useEffect(() => {
+    const isMulti = planCategory === 'FAMILY_FLOATER' || planCategory === 'GROUP_CORPORATE';
+    if (isMulti) {
+      const count = Number(planValues.membersCount);
+      if (count && count >= 1) {
+        setMembers((prev) => syncMembersWithCount(count, prev));
+      }
+    } else if (planCategory) {
+      // Rest of the plans should allow only one entry for insured member form
+      setMembers((prev) => {
+        const first = prev[0] || emptyMember(planCategory === 'INDIVIDUAL' ? 'SELF' : 'SELF');
+        const updated = planCategory === 'INDIVIDUAL' ? { ...first, relation: 'SELF' } : first;
+        if (prev.length !== 1 || (planCategory === 'INDIVIDUAL' && prev[0]?.relation !== 'SELF')) {
+          return [updated];
+        }
+        return prev;
+      });
+    }
+  }, [planCategory, planValues.membersCount]);
+
   const chooseCategory = (value: string) => {
     setPlanCategory(value);
     const initial = initialValues(SECTION_A_FIELDS[value]);
     if (policyForm === 'RENEWAL_PORTABILITY') {
       initial.existingHealthPolicy = true;
     }
-    setPlanValues(initial);
-    if (value === 'INDIVIDUAL') {
-      setMembers((m) => [{ ...(m[0] || emptyMember('SELF')), relation: 'SELF' }]);
+    const isMulti = value === 'FAMILY_FLOATER' || value === 'GROUP_CORPORATE';
+    if (isMulti) {
+      const defaultCount = Number(initial.membersCount) || 2;
+      initial.membersCount = defaultCount;
+      setPlanValues(initial);
+      setMembers((m) => syncMembersWithCount(defaultCount, m));
+    } else {
+      setPlanValues(initial);
+      setMembers((m) => [{ ...(m[0] || emptyMember('SELF')), ...(value === 'INDIVIDUAL' ? { relation: 'SELF' } : {}) }]);
     }
   };
 
@@ -248,17 +295,31 @@ export function HealthQuoteWizard({
     }
     if (index === 1) {
       if (!planCategory) errors.push('Plan category');
+      if (planCategory === 'FAMILY_FLOATER') {
+        const count = Number(planValues.membersCount);
+        if (!count || count < 2) errors.push('Members to Cover in Policy (minimum 2 for Family Floater)');
+      }
+      if (planCategory === 'GROUP_CORPORATE') {
+        const count = Number(planValues.membersCount);
+        if (!count || count < 1) errors.push('Members to Cover in Policy (minimum 1 for Group/Corporate)');
+      }
       errors.push(...missingRequired(sectionAFields, planValues));
       if (policyForm === 'RENEWAL_PORTABILITY' && !renewalValues.previousInsurerName?.trim()) {
         errors.push('Previous Policy Issuer');
       }
     }
     if (index === 2) {
-      if (planCategory === 'INDIVIDUAL') {
-        if (members.length !== 1) errors.push('Individual covers exactly one member');
-        if (members[0]?.relation !== 'SELF') errors.push('Individual policy member must be Self');
+      const isMulti = planCategory === 'FAMILY_FLOATER' || planCategory === 'GROUP_CORPORATE';
+      if (!isMulti) {
+        if (members.length !== 1) errors.push(`${labelOf(PLAN_CATEGORIES, planCategory)} allows exactly one insured member`);
+        if (planCategory === 'INDIVIDUAL' && members[0]?.relation !== 'SELF') {
+          errors.push('Individual policy member must be Self');
+        }
+      } else {
+        if (planCategory === 'FAMILY_FLOATER' && members.length < 2) {
+          errors.push('Family Floater requires at least two members');
+        }
       }
-      if (planCategory === 'FAMILY_FLOATER' && members.length < 2) errors.push('Family Floater needs at least two members');
       if (members.filter((m) => m.relation === 'SELF').length > 1) errors.push('Only one member can be SELF');
       members.forEach((m, i) => {
         const missing = (['firstName', 'relation', 'dateOfBirth', 'gender', 'heightCm', 'weightKg', 'preExistingDiseases'] as const).filter(
@@ -635,35 +696,81 @@ export function HealthQuoteWizard({
         {step === 2 && (
           <>
             <div className="flex items-center justify-between">
-              <h2 className="font-black text-sm">Insured Members</h2>
-              {planCategory !== 'INDIVIDUAL' && (
+              <div>
+                <h2 className="font-black text-sm">Insured Members</h2>
+                <p className="text-[11px] text-muted-foreground">
+                  {isMultiMemberPlan(planCategory)
+                    ? 'Member details automatically populated based on plan input. You can add or adjust members below.'
+                    : 'Individual coverage policy: Single member insured entry.'}
+                </p>
+              </div>
+              {isMultiMemberPlan(planCategory) && (
                 <button
                   type="button"
-                  onClick={() => setMembers((m) => [...m, emptyMember()])}
-                  className="flex items-center gap-1 px-3 py-1.5 rounded-lg border text-xs font-bold hover:bg-accent"
+                  onClick={() => {
+                    const nextCount = members.length + 1;
+                    setPlanValues((prev) => ({ ...prev, membersCount: nextCount }));
+                    setMembers((m) => [...m, emptyMember(m.length === 1 ? 'SPOUSE' : m.length <= 3 ? 'CHILD' : 'OTHER')]);
+                  }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-bold hover:bg-accent transition-colors shadow-xs"
                 >
-                  <Plus className="h-3.5 w-3.5" /> Add member
+                  <Plus className="h-3.5 w-3.5 text-primary" /> Add member
                 </button>
               )}
             </div>
+
             {planCategory === 'INDIVIDUAL' && (
-              <div className="p-3 rounded-xl border border-blue-500/30 bg-blue-500/10 text-blue-950 dark:text-blue-200 text-xs flex items-center justify-between">
+              <div className="p-3.5 rounded-xl border border-blue-500/30 bg-blue-500/10 text-blue-950 dark:text-blue-200 text-xs flex items-center justify-between gap-3">
                 <span>
                   <strong>Individual Health Policy:</strong> Insured member is automatically set to <strong>Self</strong> (primary insured). Additional members are disabled.
                 </span>
-                <span className="text-[10px] uppercase font-black tracking-wider bg-blue-500/20 px-2 py-0.5 rounded">
+                <span className="shrink-0 text-[10px] uppercase font-black tracking-wider bg-blue-500/20 px-2 py-0.5 rounded">
                   Single Insured (Self)
                 </span>
               </div>
             )}
+
+            {isMultiMemberPlan(planCategory) && (
+              <div className="p-3.5 rounded-xl border border-indigo-500/30 bg-indigo-500/10 text-indigo-950 dark:text-indigo-200 text-xs flex items-center justify-between gap-3">
+                <span>
+                  <strong>{labelOf(PLAN_CATEGORIES, planCategory)}:</strong> Showing {members.length} insured member form{members.length > 1 ? 's' : ''} automatically configured from your Plan Details input.
+                </span>
+                <span className="shrink-0 text-[10px] uppercase font-black tracking-wider bg-indigo-500/20 px-2.5 py-0.5 rounded-full border border-indigo-500/30">
+                  {members.length} Members Covered
+                </span>
+              </div>
+            )}
+
+            {!isMultiMemberPlan(planCategory) && planCategory !== 'INDIVIDUAL' && (
+              <div className="p-3.5 rounded-xl border border-amber-500/30 bg-amber-500/10 text-amber-950 dark:text-amber-200 text-xs flex items-center justify-between gap-3">
+                <span>
+                  <strong>{labelOf(PLAN_CATEGORIES, planCategory)}:</strong> This plan category allows a <strong>single insured member</strong> only.
+                </span>
+                <span className="shrink-0 text-[10px] uppercase font-black tracking-wider bg-amber-500/20 px-2.5 py-0.5 rounded-full border border-amber-500/30">
+                  Single Insured
+                </span>
+              </div>
+            )}
+
             {members.map((m, i) => (
-              <div key={i} className="p-4 rounded-xl border space-y-3">
+              <div key={i} className="p-4 rounded-xl border space-y-3 bg-card">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-black">Member {i + 1}</span>
+                  <span className="text-xs font-black">
+                    Member {i + 1} {i === 0 && <span className="text-muted-foreground font-normal">(Primary Insured)</span>}
+                  </span>
                   <div className="flex items-center gap-3">
                     {bmi(m) !== null && <span className="text-[10px] font-bold text-muted-foreground">BMI {bmi(m)}</span>}
-                    {members.length > 1 && planCategory !== 'INDIVIDUAL' && (
-                      <button type="button" onClick={() => setMembers((list) => list.filter((_, idx) => idx !== i))} className="text-rose-500">
+                    {members.length > 1 && isMultiMemberPlan(planCategory) && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const nextCount = Math.max(1, members.length - 1);
+                          setPlanValues((prev) => ({ ...prev, membersCount: nextCount }));
+                          setMembers((list) => list.filter((_, idx) => idx !== i));
+                        }}
+                        className="text-rose-500 hover:text-rose-600 p-1 rounded hover:bg-rose-500/10 transition-colors"
+                        title="Remove member"
+                      >
                         <Trash2 className="h-4 w-4" />
                       </button>
                     )}
