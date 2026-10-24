@@ -124,4 +124,12 @@ export class CreatePolicyDto {
   @IsOptional()
   @IsDateString()
   expiryDate?: string;
+
+  @IsOptional()
+  @IsString()
+  customerPan?: string;
+
+  @IsOptional()
+  @IsString()
+  customerAadhaar?: string;
 }

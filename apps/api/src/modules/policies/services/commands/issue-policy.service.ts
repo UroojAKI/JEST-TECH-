@@ -59,6 +59,31 @@ export class IssuePolicyService {
       );
     }
 
+    const quotation = await this.quotationRepository.findById(dto.quotationId);
+    if (!quotation) {
+      throw new NotFoundException(
+        `Quotation with ID ${dto.quotationId} not found. Cannot issue policy.`,
+      );
+    }
+
+    // Pre-apply supplied customer KYC updates to Contact before gate validation
+    const contactUpdates: Record<string, string> = {};
+    if (dto.customerPan && dto.customerPan !== quotation.contact?.panNumber) {
+      contactUpdates.panNumber = dto.customerPan.trim().toUpperCase();
+    }
+    if (dto.customerAadhaar && dto.customerAadhaar !== quotation.contact?.aadhaarNumber) {
+      contactUpdates.aadhaarNumber = dto.customerAadhaar.trim();
+    }
+    if (Object.keys(contactUpdates).length && quotation.contactId) {
+      await this.prisma.contact.update({
+        where: { id: quotation.contactId },
+        data: contactUpdates,
+      });
+      if (quotation.contact) {
+        Object.assign(quotation.contact, contactUpdates);
+      }
+    }
+
     await this.backOfficeQueueService.validateIssuanceGates(
       dto.quotationId,
       actor,
@@ -70,13 +95,6 @@ export class IssuePolicyService {
     if (existingPolicy) {
       throw new ConflictException(
         `Policy already issued for quotation ${dto.quotationId} (Policy Number: ${existingPolicy.policyNumber}). Duplicate issuance is blocked.`,
-      );
-    }
-
-    const quotation = await this.quotationRepository.findById(dto.quotationId);
-    if (!quotation) {
-      throw new NotFoundException(
-        `Quotation with ID ${dto.quotationId} not found. Cannot issue policy.`,
       );
     }
 
@@ -280,6 +298,24 @@ export class IssuePolicyService {
       if (!chassis || !engine || !regNumber) {
         throw new BadRequestException(
           'Policy issuance is blocked until authoritative chassis number, engine number, and registration number are present. No placeholder values may be issued.',
+        );
+      }
+    }
+
+    const isHealth =
+      quotation.productType === 'HEALTH' ||
+      (dto as any).policyType === 'HEALTH' ||
+      Boolean((quotation as any).healthCaseId);
+
+    if (isHealth) {
+      const contactPan = quotation.contact?.panNumber || dto.customerPan?.trim();
+      const contactAadhaar = quotation.contact?.aadhaarNumber || dto.customerAadhaar?.trim();
+      if (!contactPan || !contactAadhaar) {
+        const missing: string[] = [];
+        if (!contactPan) missing.push('PAN Number');
+        if (!contactAadhaar) missing.push('Aadhaar Number');
+        throw new BadRequestException(
+          `Health policy issuance is blocked until customer KYC is complete. Missing: ${missing.join(' and ')}. Please provide leftover entries before issuance.`,
         );
       }
     }

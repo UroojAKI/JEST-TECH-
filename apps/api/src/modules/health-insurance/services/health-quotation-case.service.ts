@@ -12,7 +12,12 @@ import { PrismaService } from '../../../database/prisma.service';
 import { TenantResourceAuthorizationService } from '../../auth/services/tenant-resource-authorization.service';
 import { NumberingEngineService } from '../../administration/services/numbering-engine/numbering-engine.service';
 import { RequestUser } from '../../auth/decorators/current-user.decorator';
-import { AddHealthQuoteDto, CreateHealthQuotationCaseDto, RecordHealthPaymentDto } from '../dto/health-quotation-case.dto';
+import {
+  AddHealthQuoteDto,
+  CreateHealthQuotationCaseDto,
+  RecordHealthPaymentDto,
+  UpdateHealthCaseLeftoverDetailsDto,
+} from '../dto/health-quotation-case.dto';
 import { HealthPremiumService } from './health-premium.service';
 import { HealthPlanValidationService } from './health-plan-validation.service';
 
@@ -23,7 +28,18 @@ const QUOTE_VALIDITY_DAYS = 30;
 const PROPOSER_MIN_AGE = 18;
 
 const caseInclude = {
-  contact: { select: { id: true, contactCode: true, firstName: true, lastName: true, phone: true, email: true } },
+  contact: {
+    select: {
+      id: true,
+      contactCode: true,
+      firstName: true,
+      lastName: true,
+      phone: true,
+      email: true,
+      panNumber: true,
+      aadhaarNumber: true,
+    },
+  },
   lead: { select: { id: true, leadCode: true, title: true } },
   members: { orderBy: { createdAt: 'asc' as const } },
   quotations: {
@@ -98,24 +114,16 @@ export class HealthQuotationCaseService {
     const planDetails = this.planValidation.validatePlanDetails(dto.planCategory, dto.planDetails, dto.members);
     const previousPolicy = this.planValidation.validateRenewal(dto.policyForm, dto.previousPolicySnapshot);
 
-    // Common fields 9, 11, 12: email, PAN and Aadhaar are mandatory for Health.
-    const kyc = {
-      email: contact.email || dto.proposerKyc?.email,
-      panNumber: contact.panNumber || dto.proposerKyc?.panNumber,
-      aadhaarNumber: contact.aadhaarNumber || dto.proposerKyc?.aadhaarNumber,
-    };
-    const missingKyc = Object.entries(kyc)
-      .filter(([, value]) => !value)
-      .map(([field]) => field);
-    if (missingKyc.length) {
-      throw new BadRequestException(
-        `Proposer KYC incomplete: ${missingKyc.join(', ')} required for Health. Provide them in proposerKyc.`,
-      );
-    }
+    // Proposer KYC is optional for initial health quote creation (IRDAI fields stored if provided)
+    const effectiveEmail = contact.email || dto.proposerKyc?.email || undefined;
+    const effectivePan = contact.panNumber || dto.proposerKyc?.panNumber || undefined;
+    const effectiveAadhaar = contact.aadhaarNumber || dto.proposerKyc?.aadhaarNumber || undefined;
 
-    const contactUpdates = Object.fromEntries(
-      Object.entries(kyc).filter(([field]) => !contact[field]),
-    );
+    const contactUpdates: Record<string, string> = {};
+    if (effectiveEmail && !contact.email) contactUpdates.email = effectiveEmail;
+    if (effectivePan && !contact.panNumber) contactUpdates.panNumber = effectivePan;
+    if (effectiveAadhaar && !contact.aadhaarNumber) contactUpdates.aadhaarNumber = effectiveAadhaar;
+
     if (Object.keys(contactUpdates).length) {
       // Stored on Contact the same way the Contacts module stores them (masked on read).
       await this.prisma.contact.update({ where: { id: contact.id }, data: contactUpdates });
@@ -129,11 +137,11 @@ export class HealthQuotationCaseService {
       firstName: contact.firstName,
       lastName: contact.lastName,
       phone: contact.phone,
-      email: kyc.email,
+      email: effectiveEmail ?? null,
       gender: contact.gender ?? null,
       dateOfBirth: contact.dateOfBirth ?? null,
-      hasPan: true,
-      hasAadhaar: true,
+      hasPan: Boolean(effectivePan),
+      hasAadhaar: Boolean(effectiveAadhaar),
     };
 
     return this.prisma.healthQuotationCase.create({
@@ -430,5 +438,109 @@ export class HealthQuotationCaseService {
     end.setFullYear(end.getFullYear() + tenureYears);
     end.setDate(end.getDate() - 1);
     return end;
+  }
+
+  /**
+   * Updates leftover proposer KYC, address, and nominee details on an existing health quotation case.
+   */
+  async updateLeftoverDetails(caseId: string, dto: UpdateHealthCaseLeftoverDetailsDto, user: RequestUser) {
+    const healthCase = await this.prisma.healthQuotationCase.findFirst({
+      where: { id: caseId, companyId: user.companyId },
+      include: { contact: true, quotations: true },
+    });
+
+    if (!healthCase) {
+      throw new NotFoundException(`Health quotation case ${caseId} not found`);
+    }
+
+    // 1. Update Contact if KYC/contact details provided
+    const contactUpdates: Record<string, string> = {};
+    if (dto.panNumber) contactUpdates.panNumber = dto.panNumber.trim().toUpperCase();
+    if (dto.aadhaarNumber) contactUpdates.aadhaarNumber = dto.aadhaarNumber.trim();
+    if (dto.email) contactUpdates.email = dto.email.trim();
+    if (dto.phone) contactUpdates.phone = dto.phone.trim();
+
+    let updatedContact = healthCase.contact;
+    if (Object.keys(contactUpdates).length) {
+      updatedContact = await this.prisma.contact.update({
+        where: { id: healthCase.contactId },
+        data: contactUpdates,
+      });
+
+      // Also sync customer if linked to this contact
+      await this.prisma.customer.updateMany({
+        where: { contactId: healthCase.contactId },
+        data: {
+          ...(contactUpdates.panNumber ? { panNumber: contactUpdates.panNumber } : {}),
+          ...(contactUpdates.aadhaarNumber ? { aadhaarNumber: contactUpdates.aadhaarNumber } : {}),
+          ...(contactUpdates.email ? { email: contactUpdates.email } : {}),
+          ...(contactUpdates.phone ? { mobile: contactUpdates.phone } : {}),
+          ...(dto.address?.line1 ? { addressLine1: dto.address.line1.trim() } : {}),
+          ...(dto.address?.line2 ? { addressLine2: dto.address.line2.trim() } : {}),
+          ...(dto.address?.city ? { city: dto.address.city.trim() } : {}),
+          ...(dto.address?.state ? { state: dto.address.state.trim() } : {}),
+          ...(dto.address?.pincode ? { pincode: dto.address.pincode.trim() } : {}),
+        },
+      });
+    } else if (dto.address) {
+      await this.prisma.customer.updateMany({
+        where: { contactId: healthCase.contactId },
+        data: {
+          ...(dto.address?.line1 ? { addressLine1: dto.address.line1.trim() } : {}),
+          ...(dto.address?.line2 ? { addressLine2: dto.address.line2.trim() } : {}),
+          ...(dto.address?.city ? { city: dto.address.city.trim() } : {}),
+          ...(dto.address?.state ? { state: dto.address.state.trim() } : {}),
+          ...(dto.address?.pincode ? { pincode: dto.address.pincode.trim() } : {}),
+        },
+      });
+    }
+
+    // 2. Update HealthQuotationCase leftover fields
+    const caseUpdates: Prisma.HealthQuotationCaseUpdateInput = {};
+    if (dto.nomineeName) caseUpdates.nomineeName = dto.nomineeName.trim();
+    if (dto.nomineeRelation) caseUpdates.nomineeRelation = dto.nomineeRelation;
+    if (dto.occupation) caseUpdates.occupation = dto.occupation;
+    if (dto.annualIncome !== undefined) caseUpdates.annualIncome = new Prisma.Decimal(dto.annualIncome);
+    if (dto.address) caseUpdates.addressSnapshot = { ...((healthCase.addressSnapshot as object) || {}), ...dto.address };
+
+    // Update customer snapshot to reflect current KYC presence
+    const prevSnapshot = (healthCase.customerSnapshot as Record<string, any>) || {};
+    const updatedCustomerSnapshot = {
+      ...prevSnapshot,
+      firstName: updatedContact.firstName,
+      lastName: updatedContact.lastName,
+      phone: updatedContact.phone,
+      email: updatedContact.email,
+      hasPan: Boolean(updatedContact.panNumber),
+      hasAadhaar: Boolean(updatedContact.aadhaarNumber),
+    };
+    caseUpdates.customerSnapshot = updatedCustomerSnapshot;
+
+    await this.prisma.healthQuotationCase.update({
+      where: { id: caseId },
+      data: caseUpdates,
+    });
+
+    // 3. Keep linked quotations' healthMetadata synchronized with updated proposer and nominee
+    if (healthCase.quotations.length > 0) {
+      for (const q of healthCase.quotations) {
+        const prevMeta = (q.healthMetadata as Record<string, any>) || {};
+        await this.prisma.quotation.update({
+          where: { id: q.id },
+          data: {
+            healthMetadata: {
+              ...prevMeta,
+              proposerPan: updatedContact.panNumber || prevMeta.proposerPan,
+              proposerAadhaar: updatedContact.aadhaarNumber || prevMeta.proposerAadhaar,
+              proposerEmail: updatedContact.email || prevMeta.proposerEmail,
+              nomineeName: dto.nomineeName?.trim() || prevMeta.nomineeName,
+              nomineeRelation: dto.nomineeRelation || prevMeta.nomineeRelation,
+            },
+          },
+        });
+      }
+    }
+
+    return this.getCase(caseId, user);
   }
 }

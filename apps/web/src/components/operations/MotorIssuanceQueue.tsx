@@ -157,7 +157,27 @@ export function MotorIssuanceQueue() {
     return filteredQueue;
   }, [productFilter, motorQueue, healthQueue, filteredQueue]);
 
-  const handleDirectIssue = async (quotationId: string) => {
+  const handleDirectIssue = async (quotationId: string, item?: BackOfficeQueueItem) => {
+    if (item) {
+      const isApproved = item.status === 'APPROVED' || item.status === 'ACCEPTED';
+      const isHealth = item.productType === 'HEALTH';
+      const gatesOk = Boolean(
+        item.allGatesPassed &&
+        item.gates?.customer?.passed &&
+        item.gates?.payment?.passed &&
+        item.gates?.documents?.passed &&
+        (isHealth ? true : item.gates?.vehicle?.passed && item.gates?.inspection?.passed)
+      );
+      if (!isApproved || !gatesOk) {
+        toast.error(
+          !isApproved
+            ? `Quotation must be approved before issuance (currently ${item.status}).`
+            : `Policy issuance blocked: ${item.nextAction || 'All required compliance & payment gates must be cleared.'}`
+        );
+        return;
+      }
+    }
+
     setIssuingId(quotationId);
     try {
       const res = await policiesRepository.issueFromQueue(quotationId);
@@ -207,49 +227,45 @@ export function MotorIssuanceQueue() {
   const renderCaseCard = (item: BackOfficeQueueItem, domain: 'MOTOR' | 'HEALTH') => {
     const isHealth = domain === 'HEALTH';
     const isApprovedOrAccepted = item.status === 'APPROVED' || item.status === 'ACCEPTED';
-    const canIssue = item.allGatesPassed && isApprovedOrAccepted;
+    const allGatesCleared = Boolean(
+      item.allGatesPassed &&
+      item.gates?.customer?.passed &&
+      item.gates?.payment?.passed &&
+      item.gates?.documents?.passed &&
+      (isHealth ? true : item.gates?.vehicle?.passed && item.gates?.inspection?.passed)
+    );
+    const canIssue = Boolean(isApprovedOrAccepted && allGatesCleared);
 
     return (
       <div
         key={item.id}
-        className={`rounded-xl border bg-card p-4 transition-all shadow-xs space-y-3 ${
-          item.allGatesPassed
-            ? isHealth
-              ? 'border-emerald-500/40 bg-emerald-500/[0.02]'
-              : 'border-blue-500/40 bg-blue-500/[0.02]'
-            : 'border-border'
-        }`}
+        className="rounded-xl border border-border bg-card p-4 transition-all shadow-xs space-y-3"
       >
         {/* Card Header */}
-        <div className="flex items-start justify-between gap-3">
+        <div className="flex items-center justify-between gap-3">
           <div className="space-y-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="font-bold text-sm text-foreground font-mono">{item.quotationCode}</span>
-              
-              {/* Product Badge */}
-              {isHealth ? (
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-rose-500/10 text-rose-700 dark:text-rose-300 border border-rose-500/20">
-                  <HeartPulse className="h-3 w-3" />
-                  Health
-                </span>
-              ) : (
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-blue-500/10 text-blue-700 dark:text-blue-300 border border-blue-500/20">
-                  <Car className="h-3 w-3" />
-                  Motor
-                </span>
-              )}
+              <span
+                className={`inline-flex items-center px-2.5 py-0.5 rounded-lg text-xs font-black uppercase tracking-wide border shadow-2xs ${
+                  isHealth
+                    ? 'bg-rose-500/15 text-rose-700 dark:text-rose-300 border-rose-500/30'
+                    : 'bg-blue-500/15 text-blue-700 dark:text-blue-300 border-blue-500/30'
+                }`}
+              >
+                {isHealth ? 'Health Insurance' : 'Motor Insurance'}
+              </span>
+              <span className="font-mono text-xs font-bold text-foreground">#{item.quotationCode}</span>
 
               {/* Status Badge */}
               <span
-                className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase ${
-                  isApprovedOrAccepted
+                className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase ${item.status === 'APPROVED' || item.status === 'ACCEPTED'
                     ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
                     : item.status === 'INSPECTION_REQUIRED'
-                    ? 'bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300'
-                    : item.status === 'REJECTED'
-                    ? 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300'
-                    : 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
-                }`}
+                      ? 'bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300'
+                      : item.status === 'REJECTED'
+                        ? 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300'
+                        : 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
+                  }`}
               >
                 {item.status.replace('_', ' ')}
               </span>
@@ -279,19 +295,38 @@ export function MotorIssuanceQueue() {
             </div>
           </div>
 
-          {/* SLA Badge */}
-          <span
-            className={`shrink-0 flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
-              item.slaStatus === 'CRITICAL'
-                ? 'bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300'
-                : item.slaStatus === 'WARNING'
-                ? 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300'
-                : 'bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300'
-            }`}
-          >
-            <Clock className="h-3 w-3" />
-            SLA: {item.slaRemainingHours}h Left
-          </span>
+          {/* Right Corner: Centered Symbol + SLA Badge */}
+          <div className="shrink-0 flex flex-col items-center justify-center gap-1.5 self-center">
+            {isHealth ? (
+              <span
+                className="inline-flex items-center justify-center gap-1.5 px-3 py-1 rounded-md text-xs font-bold bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20 shadow-2xs"
+                title="Health Insurance Policy"
+              >
+                <HeartPulse className="h-4 w-4 text-rose-500" />
+                <span>Health</span>
+              </span>
+            ) : (
+              <span
+                className="inline-flex items-center justify-center gap-1.5 px-3 py-1 rounded-md text-xs font-bold bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20 shadow-2xs"
+                title="Motor Insurance Policy"
+              >
+                <Car className="h-4 w-4 text-blue-500" />
+                <span>Motor</span>
+              </span>
+            )}
+
+            <span
+              className={`inline-flex items-center justify-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold uppercase ${item.slaStatus === 'CRITICAL'
+                  ? 'bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300'
+                  : item.slaStatus === 'WARNING'
+                    ? 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300'
+                    : 'bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300'
+                }`}
+            >
+              <Clock className="h-3 w-3" />
+              SLA: {item.slaRemainingHours}h Left
+            </span>
+          </div>
         </div>
 
         {/* Commercial Metadata */}
@@ -318,11 +353,10 @@ export function MotorIssuanceQueue() {
           <div className="flex items-center gap-1.5 flex-wrap text-xs">
             {/* Customer KYC Gate */}
             <div
-              className={`flex items-center gap-1 px-2 py-0.5 rounded-md border text-[11px] ${
-                item.gates.customer.passed
+              className={`flex items-center gap-1 px-2 py-0.5 rounded-md border text-[11px] ${item.gates.customer.passed
                   ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-700 dark:text-emerald-300'
                   : 'bg-red-500/10 border-red-500/30 text-red-700 dark:text-red-300'
-              }`}
+                }`}
               title={item.gates.customer.detail}
             >
               <UserCheck className="h-3.5 w-3.5" />
@@ -340,11 +374,10 @@ export function MotorIssuanceQueue() {
               </div>
             ) : (
               <div
-                className={`flex items-center gap-1 px-2 py-0.5 rounded-md border text-[11px] ${
-                  item.gates.vehicle.passed
+                className={`flex items-center gap-1 px-2 py-0.5 rounded-md border text-[11px] ${item.gates.vehicle.passed
                     ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-700 dark:text-emerald-300'
                     : 'bg-red-500/10 border-red-500/30 text-red-700 dark:text-red-300'
-                }`}
+                  }`}
                 title={item.gates.vehicle.detail}
               >
                 <Car className="h-3.5 w-3.5" />
@@ -363,11 +396,10 @@ export function MotorIssuanceQueue() {
               </div>
             ) : (
               <div
-                className={`flex items-center gap-1 px-2 py-0.5 rounded-md border text-[11px] ${
-                  item.gates.inspection.passed
+                className={`flex items-center gap-1 px-2 py-0.5 rounded-md border text-[11px] ${item.gates.inspection.passed
                     ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-700 dark:text-emerald-300'
                     : 'bg-amber-500/10 border-amber-500/30 text-amber-700 dark:text-amber-300'
-                }`}
+                  }`}
                 title={item.gates.inspection.detail}
               >
                 <ShieldCheck className="h-3.5 w-3.5" />
@@ -377,11 +409,10 @@ export function MotorIssuanceQueue() {
 
             {/* Payment Gate */}
             <div
-              className={`flex items-center gap-1 px-2 py-0.5 rounded-md border text-[11px] ${
-                item.gates.payment.passed
+              className={`flex items-center gap-1 px-2 py-0.5 rounded-md border text-[11px] ${item.gates.payment.passed
                   ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-700 dark:text-emerald-300'
                   : 'bg-red-500/10 border-red-500/30 text-red-700 dark:text-red-300'
-              }`}
+                }`}
               title={item.gates.payment.detail}
             >
               <CreditCard className="h-3.5 w-3.5" />
@@ -390,11 +421,10 @@ export function MotorIssuanceQueue() {
 
             {/* Documents Gate */}
             <div
-              className={`flex items-center gap-1 px-2 py-0.5 rounded-md border text-[11px] ${
-                item.gates.documents.passed
+              className={`flex items-center gap-1 px-2 py-0.5 rounded-md border text-[11px] ${item.gates.documents.passed
                   ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-700 dark:text-emerald-300'
                   : 'bg-amber-500/10 border-amber-500/30 text-amber-700 dark:text-amber-300'
-              }`}
+                }`}
               title={item.gates.documents.detail}
             >
               <FileCheck2 className="h-3.5 w-3.5" />
@@ -485,21 +515,21 @@ export function MotorIssuanceQueue() {
               type="button"
               disabled={issuingId === item.id || !canIssue}
               title={
-                !item.allGatesPassed
-                  ? item.nextAction
+                !allGatesCleared
+                  ? `Blocked: ${item.nextAction || 'All compliance & payment gates must be cleared'}`
                   : !isApprovedOrAccepted
-                  ? `Quotation must be approved before issuance (currently ${item.status})`
-                  : isHealth
-                  ? 'Issue official Health Policy'
-                  : 'Issue official Motor Policy'
+                    ? `Quotation must be approved before issuance (currently ${item.status})`
+                    : isHealth
+                      ? 'Issue official Health Policy'
+                      : 'Issue official Motor Policy'
               }
-              onClick={() => handleDirectIssue(item.id)}
-              className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-bold shadow-xs transition disabled:cursor-not-allowed disabled:opacity-50 ${
+              onClick={() => handleDirectIssue(item.id, item)}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold shadow-xs transition ${
                 canIssue
                   ? isHealth
-                    ? 'bg-rose-600 hover:bg-rose-700 text-white'
-                    : 'bg-emerald-600 hover:bg-emerald-700 text-white'
-                  : 'bg-muted text-muted-foreground'
+                    ? 'bg-rose-600 hover:bg-rose-700 text-white cursor-pointer'
+                    : 'bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer'
+                  : 'bg-muted/80 text-muted-foreground border border-border/80 cursor-not-allowed opacity-60'
               }`}
             >
               {issuingId === item.id ? (
@@ -512,9 +542,13 @@ export function MotorIssuanceQueue() {
               <span>
                 {issuingId === item.id
                   ? 'Issuing...'
-                  : isHealth
-                  ? 'Issue Health Policy'
-                  : 'Issue Motor Policy'}
+                  : canIssue
+                    ? isHealth
+                      ? 'Issue Health Policy'
+                      : 'Issue Motor Policy'
+                    : isHealth
+                      ? 'Issue Health (Gates Pending)'
+                      : 'Issue Motor (Gates Pending)'}
               </span>
             </button>
           </div>
@@ -554,11 +588,10 @@ export function MotorIssuanceQueue() {
       <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
         <div
           onClick={() => setStatusFilter('READY')}
-          className={`p-3.5 rounded-xl border cursor-pointer transition-all space-y-1 ${
-            statusFilter === 'READY'
+          className={`p-3.5 rounded-xl border cursor-pointer transition-all space-y-1 ${statusFilter === 'READY'
               ? 'ring-2 ring-emerald-500 bg-emerald-500/10 border-emerald-500/30'
               : 'bg-emerald-500/5 border-emerald-500/20 hover:bg-emerald-500/10'
-          }`}
+            }`}
         >
           <div className="flex items-center justify-between">
             <span className="text-[10px] uppercase font-bold text-emerald-600">Ready to Issue (100% Gates)</span>
@@ -578,11 +611,10 @@ export function MotorIssuanceQueue() {
 
         <div
           onClick={() => setStatusFilter('BLOCKED')}
-          className={`p-3.5 rounded-xl border cursor-pointer transition-all space-y-1 ${
-            statusFilter === 'BLOCKED'
+          className={`p-3.5 rounded-xl border cursor-pointer transition-all space-y-1 ${statusFilter === 'BLOCKED'
               ? 'ring-2 ring-amber-500 bg-amber-500/10 border-amber-500/30'
               : 'bg-amber-500/5 border-amber-500/20 hover:bg-amber-500/10'
-          }`}
+            }`}
         >
           <div className="flex items-center justify-between">
             <span className="text-[10px] uppercase font-bold text-amber-600">Blocked by Stage Gates</span>
@@ -602,11 +634,10 @@ export function MotorIssuanceQueue() {
 
         <div
           onClick={() => setStatusFilter('INSPECTION_REQUIRED')}
-          className={`p-3.5 rounded-xl border cursor-pointer transition-all space-y-1 ${
-            statusFilter === 'INSPECTION_REQUIRED'
+          className={`p-3.5 rounded-xl border cursor-pointer transition-all space-y-1 ${statusFilter === 'INSPECTION_REQUIRED'
               ? 'ring-2 ring-purple-500 bg-purple-500/10 border-purple-500/30'
               : 'bg-purple-500/5 border-purple-500/20 hover:bg-purple-500/10'
-          }`}
+            }`}
         >
           <div className="flex items-center justify-between">
             <span className="text-[10px] uppercase font-bold text-purple-600">Inspection Required</span>
@@ -622,11 +653,10 @@ export function MotorIssuanceQueue() {
 
         <div
           onClick={() => setStatusFilter('ALL')}
-          className={`p-3.5 rounded-xl border cursor-pointer transition-all space-y-1 ${
-            statusFilter === 'ALL'
+          className={`p-3.5 rounded-xl border cursor-pointer transition-all space-y-1 ${statusFilter === 'ALL'
               ? 'ring-2 ring-primary bg-primary/10 border-primary/30'
               : 'bg-primary/5 border-primary/20 hover:bg-primary/10'
-          }`}
+            }`}
         >
           <div className="flex items-center justify-between">
             <span className="text-[10px] uppercase font-bold text-primary">Total In Queue</span>
@@ -658,11 +688,10 @@ export function MotorIssuanceQueue() {
           <button
             key={tab.id}
             onClick={() => setStatusFilter(tab.id)}
-            className={`px-3 py-1.5 rounded-lg border transition-all whitespace-nowrap ${
-              statusFilter === tab.id
+            className={`px-3 py-1.5 rounded-lg border transition-all whitespace-nowrap ${statusFilter === tab.id
                 ? 'bg-primary text-primary-foreground border-primary font-bold shadow-xs'
                 : 'bg-card text-muted-foreground hover:bg-accent border-border'
-            }`}
+              }`}
           >
             {tab.label}
           </button>
@@ -677,11 +706,10 @@ export function MotorIssuanceQueue() {
           <button
             type="button"
             onClick={() => setProductFilter('ALL')}
-            className={`px-2.5 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
-              productFilter === 'ALL'
+            className={`px-2.5 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${productFilter === 'ALL'
                 ? 'bg-foreground text-background shadow-xs'
                 : 'bg-muted/60 text-muted-foreground hover:text-foreground'
-            }`}
+              }`}
           >
             <span>All Products</span>
             <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-background/20 font-mono">
@@ -692,11 +720,10 @@ export function MotorIssuanceQueue() {
           <button
             type="button"
             onClick={() => setProductFilter('MOTOR')}
-            className={`px-2.5 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
-              productFilter === 'MOTOR'
+            className={`px-2.5 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${productFilter === 'MOTOR'
                 ? 'bg-blue-600 text-white shadow-xs'
                 : 'bg-blue-500/10 text-blue-700 dark:text-blue-300 hover:bg-blue-500/20'
-            }`}
+              }`}
           >
             <Car className="h-3.5 w-3.5" />
             <span>🚗 Motor Cases</span>
@@ -708,11 +735,10 @@ export function MotorIssuanceQueue() {
           <button
             type="button"
             onClick={() => setProductFilter('HEALTH')}
-            className={`px-2.5 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
-              productFilter === 'HEALTH'
+            className={`px-2.5 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${productFilter === 'HEALTH'
                 ? 'bg-rose-600 text-white shadow-xs'
                 : 'bg-rose-500/10 text-rose-700 dark:text-rose-300 hover:bg-rose-500/20'
-            }`}
+              }`}
           >
             <HeartPulse className="h-3.5 w-3.5" />
             <span>❤️ Health Cases</span>
@@ -729,11 +755,10 @@ export function MotorIssuanceQueue() {
             <button
               type="button"
               onClick={() => setViewMode('TABLE')}
-              className={`flex items-center gap-1 px-2.5 py-1 rounded-md font-bold transition ${
-                viewMode === 'TABLE'
+              className={`flex items-center gap-1 px-2.5 py-1 rounded-md font-bold transition ${viewMode === 'TABLE'
                   ? 'bg-card text-foreground shadow-xs border border-border'
                   : 'text-muted-foreground hover:text-foreground'
-              }`}
+                }`}
               title="Table view with dedicated columns for Motor and Health details"
             >
               <TableIcon className="h-3.5 w-3.5" />
@@ -743,11 +768,10 @@ export function MotorIssuanceQueue() {
             <button
               type="button"
               onClick={() => setViewMode('CARDS')}
-              className={`flex items-center gap-1 px-2.5 py-1 rounded-md font-bold transition ${
-                viewMode === 'CARDS'
+              className={`flex items-center gap-1 px-2.5 py-1 rounded-md font-bold transition ${viewMode === 'CARDS'
                   ? 'bg-card text-foreground shadow-xs border border-border'
                   : 'text-muted-foreground hover:text-foreground'
-              }`}
+                }`}
               title="Full-width cards stream view"
             >
               <LayoutGrid className="h-3.5 w-3.5" />
@@ -825,14 +849,20 @@ export function MotorIssuanceQueue() {
                 {displayedQueue.map((item) => {
                   const isHealth = item.productType === 'HEALTH';
                   const isApproved = item.status === 'APPROVED' || item.status === 'ACCEPTED';
-                  const canIssue = item.allGatesPassed && isApproved;
+                  const allGatesCleared = Boolean(
+                    item.allGatesPassed &&
+                    item.gates?.customer?.passed &&
+                    item.gates?.payment?.passed &&
+                    item.gates?.documents?.passed &&
+                    (isHealth ? true : item.gates?.vehicle?.passed && item.gates?.inspection?.passed)
+                  );
+                  const canIssue = Boolean(isApproved && allGatesCleared);
 
                   return (
                     <tr
                       key={item.id}
-                      className={`hover:bg-muted/40 transition ${
-                        item.allGatesPassed ? 'bg-emerald-500/[0.01]' : ''
-                      }`}
+                      className={`hover:bg-muted/40 transition ${item.allGatesPassed ? 'bg-emerald-500/[0.01]' : ''
+                        }`}
                     >
                       {/* Case / Code Column */}
                       <td className="py-3 px-3 align-top space-y-1">
@@ -891,11 +921,10 @@ export function MotorIssuanceQueue() {
                             </div>
                             <div className="flex items-center gap-1 text-[11px]">
                               <span
-                                className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
-                                  item.gates.inspection.passed
+                                className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${item.gates.inspection.passed
                                     ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
                                     : 'bg-purple-500/10 text-purple-700 dark:text-purple-300'
-                                }`}
+                                  }`}
                               >
                                 Inspection: {item.gates.inspection.status}
                               </span>
@@ -939,11 +968,10 @@ export function MotorIssuanceQueue() {
                       <td className="py-3 px-3 align-top space-y-1">
                         <div className="flex items-center gap-1.5 flex-wrap">
                           <span
-                            className={`px-1.5 py-0.5 rounded text-[10px] font-black uppercase ${
-                              isApproved
+                            className={`px-1.5 py-0.5 rounded text-[10px] font-black uppercase ${isApproved
                                 ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
                                 : 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
-                            }`}
+                              }`}
                           >
                             {item.status.replace('_', ' ')}
                           </span>
@@ -977,21 +1005,30 @@ export function MotorIssuanceQueue() {
                           <button
                             type="button"
                             disabled={issuingId === item.id || !canIssue}
-                            onClick={() => handleDirectIssue(item.id)}
-                            className={`px-2.5 py-1 rounded text-[11px] font-bold shadow-xs transition disabled:cursor-not-allowed disabled:opacity-50 ${
+                            onClick={() => handleDirectIssue(item.id, item)}
+                            title={
+                              !allGatesCleared
+                                ? `Blocked: ${item.nextAction || 'All gates must be cleared'}`
+                                : !isApproved
+                                  ? `Quotation must be approved before issuance (currently ${item.status})`
+                                  : isHealth
+                                    ? 'Issue Health Policy'
+                                    : 'Issue Motor Policy'
+                            }
+                            className={`px-2.5 py-1 rounded text-[11px] font-bold shadow-xs transition ${
                               canIssue
                                 ? isHealth
-                                  ? 'bg-rose-600 hover:bg-rose-700 text-white'
-                                  : 'bg-emerald-600 hover:bg-emerald-700 text-white'
-                                : 'bg-muted text-muted-foreground'
+                                  ? 'bg-rose-600 hover:bg-rose-700 text-white cursor-pointer'
+                                  : 'bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer'
+                                : 'bg-muted/80 text-muted-foreground border border-border/80 cursor-not-allowed opacity-60'
                             }`}
                           >
                             {issuingId === item.id ? (
                               <Loader2 className="h-3 w-3 animate-spin inline" />
-                            ) : isHealth ? (
-                              'Issue Health'
+                            ) : canIssue ? (
+                              isHealth ? 'Issue Health' : 'Issue Motor'
                             ) : (
-                              'Issue Motor'
+                              'Pending Gates'
                             )}
                           </button>
                         </div>
@@ -1066,11 +1103,10 @@ export function MotorIssuanceQueue() {
                 type="button"
                 onClick={handleUnderwriterSubmit}
                 disabled={actionSubmitting}
-                className={`px-4 py-1.5 rounded-xl text-xs font-bold text-white shadow-xs flex items-center gap-1.5 ${
-                  underwriterAction.type === 'APPROVE'
+                className={`px-4 py-1.5 rounded-xl text-xs font-bold text-white shadow-xs flex items-center gap-1.5 ${underwriterAction.type === 'APPROVE'
                     ? 'bg-emerald-600 hover:bg-emerald-700'
                     : 'bg-rose-600 hover:bg-rose-700'
-                }`}
+                  }`}
               >
                 {actionSubmitting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
                 <span>Confirm {underwriterAction.type === 'APPROVE' ? 'Approval' : 'Rejection'}</span>

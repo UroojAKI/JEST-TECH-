@@ -142,6 +142,11 @@ export const healthQuotationRepository = {
     const response = await apiClient.get(`/health/quotation-cases/${caseId}/payment`);
     return response.data;
   },
+
+  async updateLeftoverDetails(caseId: string, payload: Record<string, any>): Promise<any> {
+    const response = await apiClient.patch(`/health/quotation-cases/${caseId}`, payload);
+    return response.data;
+  },
 };
 
 /** Pulls a readable message out of the API error envelope (string or validation array). */

@@ -18,6 +18,7 @@ import {
   Max,
   MaxLength,
   Min,
+  ValidateIf,
   ValidateNested,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
@@ -100,20 +101,23 @@ export class HealthInsuredMemberDto {
   isSmoker: boolean;
 }
 
-/** Common fields 9, 11, 12 - mandatory KYC for Health (IRDAI). */
+/** Common fields 9, 11, 12 - proposer KYC for Health (PAN / Aadhaar optional). */
 export class ProposerKycDto {
   @ApiPropertyOptional({ example: 'sneha@example.com' })
   @IsOptional()
+  @ValidateIf((o) => !!o.email)
   @IsEmail()
   email?: string;
 
   @ApiPropertyOptional({ example: 'ABCDE1234F' })
   @IsOptional()
+  @ValidateIf((o) => !!o.panNumber)
   @Matches(/^[A-Z]{5}[0-9]{4}[A-Z]$/, { message: 'panNumber must be in format ABCDE1234F' })
   panNumber?: string;
 
   @ApiPropertyOptional({ example: '123412341234' })
   @IsOptional()
+  @ValidateIf((o) => !!o.aadhaarNumber)
   @Matches(/^\d{12}$/, { message: 'aadhaarNumber must be exactly 12 digits' })
   aadhaarNumber?: string;
 }
@@ -398,5 +402,60 @@ export class RecordHealthPaymentDto {
   @IsOptional()
   @IsString()
   notes?: string;
+}
+
+/**
+ * Leftover entries that can be edited after proposal creation before policy issuance.
+ */
+export class UpdateHealthCaseLeftoverDetailsDto {
+  @ApiPropertyOptional({ example: 'ABCDE1234F' })
+  @IsOptional()
+  @ValidateIf((o) => !!o.panNumber)
+  @Matches(/^[A-Z]{5}[0-9]{4}[A-Z]$/, { message: 'panNumber must be in format ABCDE1234F' })
+  panNumber?: string;
+
+  @ApiPropertyOptional({ example: '123412341234' })
+  @IsOptional()
+  @ValidateIf((o) => !!o.aadhaarNumber)
+  @Matches(/^\d{12}$/, { message: 'aadhaarNumber must be exactly 12 digits' })
+  aadhaarNumber?: string;
+
+  @ApiPropertyOptional({ example: 'user@example.com' })
+  @IsOptional()
+  @ValidateIf((o) => !!o.email)
+  @IsEmail()
+  email?: string;
+
+  @ApiPropertyOptional({ example: '9876543210' })
+  @IsOptional()
+  @ValidateIf((o) => !!o.phone)
+  @Matches(/^[6-9]\d{9}$/, { message: 'Phone number must be a valid 10-digit Indian mobile number' })
+  phone?: string;
+
+  @ApiPropertyOptional({ type: HealthAddressDto })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => HealthAddressDto)
+  address?: HealthAddressDto;
+
+  @ApiPropertyOptional({ example: 'Ravi B' })
+  @IsOptional()
+  @IsString()
+  nomineeName?: string;
+
+  @ApiPropertyOptional({ enum: NomineeRelation })
+  @IsOptional()
+  @IsEnum(NomineeRelation)
+  nomineeRelation?: NomineeRelation;
+
+  @ApiPropertyOptional({ enum: ProposerOccupation })
+  @IsOptional()
+  @IsEnum(ProposerOccupation)
+  occupation?: ProposerOccupation;
+
+  @ApiPropertyOptional({ example: 1200000 })
+  @IsOptional()
+  @IsNumber()
+  annualIncome?: number;
 }
 

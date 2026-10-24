@@ -42,6 +42,7 @@ export function UpdatePolicyDetailsDialog({
   const [actualPolicyNumber, setActualPolicyNumber] = useState('');
   const [actualPremium, setActualPremium] = useState('');
   const [customerPan, setCustomerPan] = useState('');
+  const [customerAadhaar, setCustomerAadhaar] = useState('');
   const [paymentReference, setPaymentReference] = useState('');
   const [confirmPaymentReceived, setConfirmPaymentReceived] = useState(true);
   const [startDate, setStartDate] = useState('');
@@ -97,6 +98,15 @@ export function UpdatePolicyDetailsDialog({
           '';
         if (fetchedPan && !customerPan) {
           setCustomerPan(fetchedPan);
+        }
+
+        const fetchedAadhaar =
+          q.contact?.aadhaarNumber ||
+          (q.healthMetadata as any)?.proposerAadhaar ||
+          q.proposerDetails?.aadhaarNumber ||
+          '';
+        if (fetchedAadhaar && !customerAadhaar) {
+          setCustomerAadhaar(fetchedAadhaar);
         }
 
         const paymentRef =
@@ -227,6 +237,7 @@ export function UpdatePolicyDetailsDialog({
           actualPolicyNumber: actualPolicyNumber.trim(),
           actualPremium: parseFloat(actualPremium),
           customerPan: customerPan.trim() || undefined,
+          customerAadhaar: customerAadhaar.trim() || undefined,
           paymentReference: paymentReference.trim() || undefined,
           confirmPaymentReceived,
           effectiveDate: startDate,
@@ -406,23 +417,43 @@ export function UpdatePolicyDetailsDialog({
             </div>
           </div>
 
-          {/* Section: Customer PAN & Payment Reference */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {/* Section: Customer PAN, Aadhaar & Payment Reference */}
+          <div className={`grid grid-cols-1 ${isHealth ? 'sm:grid-cols-3' : 'sm:grid-cols-2'} gap-4`}>
             <div>
               <label className="block text-xs font-bold mb-1 flex items-center gap-1">
                 <UserCheck className="h-3 w-3 text-muted-foreground" />
-                <span>{isHealth ? 'Proposer PAN / KYC' : 'Customer PAN / KYC'}</span>
+                <span>{isHealth ? 'Proposer PAN' : 'Customer PAN / KYC'}</span>
                 <span className="text-rose-500">*</span>
               </label>
               <input
                 required
                 type="text"
                 value={customerPan}
+                maxLength={10}
                 onChange={(e) => setCustomerPan(e.target.value.toUpperCase())}
                 className="w-full px-3 py-2 border rounded-lg text-xs bg-background font-mono focus:ring-1 focus:ring-primary focus:outline-none"
-                placeholder="e.g. ABCDE1234F"
+                placeholder="ABCDE1234F"
               />
             </div>
+
+            {isHealth && (
+              <div>
+                <label className="block text-xs font-bold mb-1 flex items-center gap-1">
+                  <UserCheck className="h-3 w-3 text-muted-foreground" />
+                  <span>Proposer Aadhaar</span>
+                  <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  required
+                  type="text"
+                  value={customerAadhaar}
+                  maxLength={12}
+                  onChange={(e) => setCustomerAadhaar(e.target.value.replace(/\D/g, '').slice(0, 12))}
+                  className="w-full px-3 py-2 border rounded-lg text-xs bg-background font-mono focus:ring-1 focus:ring-primary focus:outline-none"
+                  placeholder="12-digit Aadhaar"
+                />
+              </div>
+            )}
 
             <div>
               <label className="block text-xs font-bold mb-1 flex items-center gap-1">

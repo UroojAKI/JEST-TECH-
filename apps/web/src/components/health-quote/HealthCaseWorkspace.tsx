@@ -6,15 +6,19 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import {
   AlertCircle,
+  Briefcase,
   CheckCircle2,
   Clock,
+  Edit3,
   FileText,
   HeartPulse,
   Loader2,
+  MapPin,
   Plus,
   ShieldCheck,
   Trash2,
   UploadCloud,
+  UserCheck,
   Wallet,
   X,
 } from 'lucide-react';
@@ -148,6 +152,20 @@ export function HealthCaseWorkspace({ caseId }: { caseId: string }) {
     },
   });
 
+  const [editDetailsModalOpen, setEditDetailsModalOpen] = useState(false);
+
+  const updateLeftoverMutation = useMutation({
+    mutationFn: (payload: any) => healthQuotationRepository.updateLeftoverDetails(caseId, payload),
+    onSuccess: () => {
+      toast.success('Customer and KYC details updated successfully!');
+      setEditDetailsModalOpen(false);
+      refresh();
+    },
+    onError: (err) => {
+      toast.error(healthApiError(err, 'Failed to update details'));
+    },
+  });
+
   if (caseQuery.isLoading) return <div className="p-8 text-center text-xs text-muted-foreground animate-pulse">Loading Health proposal...</div>;
   if (caseQuery.isError || !caseQuery.data) return <div className="p-8 text-center text-xs text-rose-500">Health proposal not found.</div>;
 
@@ -158,6 +176,22 @@ export function HealthCaseWorkspace({ caseId }: { caseId: string }) {
   const selectedQuote = hc.selectedQuote || hc.quotations?.find((q: any) => q.id === hc.selectedQuoteId);
   const paymentRecord = selectedQuote?.motorPaymentRecord;
   const paymentStatus = paymentRecord?.status || 'NOT_DONE';
+
+  const handleIssuePolicy = (quotationId: string, quoteCode?: string) => {
+    const hasPan = Boolean(hc.contact?.panNumber);
+    const hasAadhaar = Boolean(hc.contact?.aadhaarNumber);
+
+    if (!hasPan || !hasAadhaar) {
+      const missing = !hasPan && !hasAadhaar ? 'PAN and Aadhaar numbers' : !hasPan ? 'PAN number' : 'Aadhaar number';
+      toast.error(`Customer ${missing} required before issuing Health policy. Please update leftover KYC entries.`);
+      setEditDetailsModalOpen(true);
+      return;
+    }
+
+    if (confirm(`Confirm issuance of official Health Policy for quotation ${quoteCode || quotationId}?`)) {
+      issuePolicyMutation.mutate(quotationId);
+    }
+  };
 
   const openPaymentModal = (quote: any) => {
     const prem = quote?.healthMetadata?.premium?.totalPremium ?? quote?.totalPremium ?? 0;
@@ -205,11 +239,7 @@ export function HealthCaseWorkspace({ caseId }: { caseId: string }) {
                     <button
                       type="button"
                       disabled={issuePolicyMutation.isPending}
-                      onClick={() => {
-                        if (confirm(`Confirm issuance of official Health Policy for quotation ${selectedQuote.quotationCode}?`)) {
-                          issuePolicyMutation.mutate(selectedQuote.id);
-                        }
-                      }}
+                      onClick={() => handleIssuePolicy(selectedQuote.id, selectedQuote.quotationCode)}
                       className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold shadow-sm transition disabled:opacity-50"
                     >
                       {issuePolicyMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ShieldCheck className="h-3.5 w-3.5" />}
@@ -279,7 +309,127 @@ export function HealthCaseWorkspace({ caseId }: { caseId: string }) {
         </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+      {/* KYC Alert Banner when PAN or Aadhaar is missing */}
+      {(!hc.contact?.panNumber || !hc.contact?.aadhaarNumber) && (
+        <div className="p-4 rounded-2xl border border-amber-500/30 bg-amber-500/10 flex flex-wrap items-center justify-between gap-3 shadow-xs">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 rounded-xl bg-amber-500/20 text-amber-700 dark:text-amber-300">
+              <AlertCircle className="h-5 w-5" />
+            </div>
+            <div>
+              <h3 className="font-bold text-sm text-foreground">Mandatory KYC Required for Health Policy Issuance</h3>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Customer {!hc.contact?.panNumber && !hc.contact?.aadhaarNumber ? 'PAN and Aadhaar numbers are missing' : !hc.contact?.panNumber ? 'PAN number is missing' : 'Aadhaar number is missing'}. IRDAI compliance strictly requires verified PAN and Aadhaar before an official health policy can be issued.
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setEditDetailsModalOpen(true)}
+            className="px-3.5 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold transition shadow-xs flex items-center gap-1.5"
+          >
+            <Edit3 className="h-3.5 w-3.5" />
+            Edit Leftover KYC Entries
+          </button>
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+        {/* Card 1: Proposer & Leftover KYC Details */}
+        <div className="p-4 rounded-2xl border bg-card space-y-2.5">
+          <div className="flex items-center justify-between">
+            <h2 className="font-black text-sm flex items-center gap-1.5">
+              <UserCheck className="h-4 w-4 text-primary" />
+              Proposer & KYC
+            </h2>
+            <button
+              type="button"
+              onClick={() => setEditDetailsModalOpen(true)}
+              className="flex items-center gap-1 px-2 py-1 rounded-lg border bg-muted/40 hover:bg-muted text-[11px] font-bold transition"
+            >
+              <Edit3 className="h-3 w-3" /> Edit
+            </button>
+          </div>
+
+          <div className="space-y-0.5">
+            <div className="font-bold text-foreground text-sm">
+              {hc.contact?.firstName} {hc.contact?.lastName}
+            </div>
+            <div className="text-muted-foreground text-[11px] flex items-center gap-2 flex-wrap">
+              {hc.contact?.phone && <span>📞 {hc.contact.phone}</span>}
+              {hc.contact?.email && <span>✉️ {hc.contact.email}</span>}
+            </div>
+          </div>
+
+          {/* KYC Status Badges */}
+          <div className="grid grid-cols-2 gap-2 pt-1">
+            <div
+              className={`p-2 rounded-xl border flex flex-col gap-0.5 ${
+                hc.contact?.panNumber ? 'bg-emerald-500/5 border-emerald-500/20' : 'bg-rose-500/5 border-rose-500/20'
+              }`}
+            >
+              <div className="text-[10px] uppercase font-bold text-muted-foreground flex items-center justify-between">
+                <span>PAN</span>
+                {hc.contact?.panNumber ? (
+                  <CheckCircle2 className="h-3 w-3 text-emerald-600" />
+                ) : (
+                  <AlertCircle className="h-3 w-3 text-rose-600" />
+                )}
+              </div>
+              <div className="font-mono font-bold text-xs truncate">
+                {hc.contact?.panNumber || <span className="text-rose-500 text-[11px] font-sans">Required</span>}
+              </div>
+            </div>
+
+            <div
+              className={`p-2 rounded-xl border flex flex-col gap-0.5 ${
+                hc.contact?.aadhaarNumber ? 'bg-emerald-500/5 border-emerald-500/20' : 'bg-rose-500/5 border-rose-500/20'
+              }`}
+            >
+              <div className="text-[10px] uppercase font-bold text-muted-foreground flex items-center justify-between">
+                <span>Aadhaar</span>
+                {hc.contact?.aadhaarNumber ? (
+                  <CheckCircle2 className="h-3 w-3 text-emerald-600" />
+                ) : (
+                  <AlertCircle className="h-3 w-3 text-rose-600" />
+                )}
+              </div>
+              <div className="font-mono font-bold text-xs truncate">
+                {hc.contact?.aadhaarNumber ? (
+                  `•••• ${String(hc.contact.aadhaarNumber).slice(-4)}`
+                ) : (
+                  <span className="text-rose-500 text-[11px] font-sans">Required</span>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Address & Profile Details */}
+          <div className="pt-2 border-t space-y-1 text-muted-foreground text-[11px]">
+            <div>
+              <span className="font-semibold text-foreground">Address:</span>{' '}
+              {(hc.addressSnapshot as any)?.line1 || (hc.addressSnapshot as any)?.addressLine1
+                ? [
+                    (hc.addressSnapshot as any)?.line1 || (hc.addressSnapshot as any)?.addressLine1,
+                    (hc.addressSnapshot as any)?.line2 || (hc.addressSnapshot as any)?.addressLine2,
+                    (hc.addressSnapshot as any)?.city,
+                    (hc.addressSnapshot as any)?.state,
+                    (hc.addressSnapshot as any)?.pincode,
+                  ]
+                    .filter(Boolean)
+                    .join(', ')
+                : 'Not specified'}
+            </div>
+            {(hc.occupation || hc.annualIncome) && (
+              <div>
+                <span className="font-semibold text-foreground">Profile:</span>{' '}
+                {[hc.occupation, hc.annualIncome ? inr(hc.annualIncome) : null].filter(Boolean).join(' • ')}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Card 2: Insured Members */}
         <div className="p-4 rounded-2xl border bg-card space-y-2">
           <h2 className="font-black text-sm">Insured Members ({hc.members.length})</h2>
           {hc.members.map((m: any) => (
@@ -293,10 +443,12 @@ export function HealthCaseWorkspace({ caseId }: { caseId: string }) {
             </div>
           ))}
         </div>
+
+        {/* Card 3: Proposal & Plan Details */}
         <div className="p-4 rounded-2xl border bg-card space-y-1.5">
           <h2 className="font-black text-sm">Proposal</h2>
           <p>
-            <span className="text-muted-foreground">Nominee:</span> <b>{hc.nomineeName}</b> ({labelOf(NOMINEE_RELATIONS, hc.nomineeRelation)})
+            <span className="text-muted-foreground">Nominee:</span> <b>{hc.nomineeName || 'Not Set'}</b> ({labelOf(NOMINEE_RELATIONS, hc.nomineeRelation)})
           </p>
           {hc.planDetails?.planName && (
             <p>
@@ -349,7 +501,26 @@ export function HealthCaseWorkspace({ caseId }: { caseId: string }) {
         )}
 
         {hc.quotations.length === 0 && !showQuoteForm && (
-          <p className="text-xs text-muted-foreground">No quotes yet. Add quotes from one or more insurers to compare.</p>
+          <div className="p-8 rounded-xl border border-dashed text-center space-y-3 bg-muted/10">
+            <div className="p-3 rounded-full bg-primary/10 text-primary w-fit mx-auto">
+              <Plus className="h-6 w-6" />
+            </div>
+            <div>
+              <h3 className="font-bold text-sm text-foreground">No Insurer Quotes Added Yet</h3>
+              <p className="text-xs text-muted-foreground max-w-md mx-auto mt-1">
+                Proposal case <b>{hc.caseCode}</b> is registered. In Health Insurance, brokers add one or more quotes from insurers (e.g. Star Health, HDFC ERGO, Care Health, Niva Bupa) to compare premiums and riders.
+              </p>
+            </div>
+            {canQuote && (
+              <button
+                type="button"
+                onClick={() => setShowQuoteForm(true)}
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/90 transition shadow-sm"
+              >
+                <Plus className="h-4 w-4" /> Add First Insurer Quote
+              </button>
+            )}
+          </div>
         )}
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -498,11 +669,7 @@ export function HealthCaseWorkspace({ caseId }: { caseId: string }) {
                 <button
                   type="button"
                   disabled={issuePolicyMutation.isPending}
-                  onClick={() => {
-                    if (confirm(`Confirm issuance of official Health Policy for quotation ${selectedQuote.quotationCode}?`)) {
-                      issuePolicyMutation.mutate(selectedQuote.id);
-                    }
-                  }}
+                  onClick={() => handleIssuePolicy(selectedQuote.id, selectedQuote.quotationCode)}
                   className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition shadow-sm disabled:opacity-50"
                 >
                   {issuePolicyMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
@@ -618,6 +785,14 @@ export function HealthCaseWorkspace({ caseId }: { caseId: string }) {
           isPending={recordPaymentMutation.isPending}
         />
       )}
+
+      <EditLeftoverDetailsModal
+        healthCase={hc}
+        isOpen={editDetailsModalOpen}
+        onClose={() => setEditDetailsModalOpen(false)}
+        onSubmit={(payload) => updateLeftoverMutation.mutate(payload)}
+        isPending={updateLeftoverMutation.isPending}
+      />
     </div>
   );
 }
@@ -824,6 +999,341 @@ function RecordPaymentModal({
             >
               {isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
               {form.status === 'PAID' ? 'Verify & Confirm Paid' : 'Record Payment'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+function EditLeftoverDetailsModal({
+  healthCase,
+  isOpen,
+  onClose,
+  onSubmit,
+  isPending,
+}: {
+  healthCase: any;
+  isOpen: boolean;
+  onClose: () => void;
+  onSubmit: (payload: any) => void;
+  isPending: boolean;
+}) {
+  const c = healthCase.contact || {};
+  const addr = (healthCase.addressSnapshot as any) || {};
+
+  const [form, setForm] = useState({
+    panNumber: c.panNumber || '',
+    aadhaarNumber: c.aadhaarNumber || '',
+    email: c.email || '',
+    phone: c.phone || '',
+    nomineeName: healthCase.nomineeName || '',
+    nomineeRelation: healthCase.nomineeRelation || 'SPOUSE',
+    occupation: healthCase.occupation || '',
+    annualIncome: healthCase.annualIncome ? String(healthCase.annualIncome) : '',
+    addressLine1: addr.line1 || addr.addressLine1 || '',
+    addressLine2: addr.line2 || addr.addressLine2 || '',
+    city: addr.city || '',
+    state: addr.state || '',
+    pincode: addr.pincode || '',
+  });
+
+  React.useEffect(() => {
+    if (isOpen) {
+      const contactObj = healthCase.contact || {};
+      const addrObj = (healthCase.addressSnapshot as any) || {};
+      setForm({
+        panNumber: contactObj.panNumber || (healthCase.customerSnapshot as any)?.panNumber || '',
+        aadhaarNumber: contactObj.aadhaarNumber || (healthCase.customerSnapshot as any)?.aadhaarNumber || '',
+        email: contactObj.email || '',
+        phone: contactObj.phone || '',
+        nomineeName: healthCase.nomineeName || '',
+        nomineeRelation: healthCase.nomineeRelation || 'SPOUSE',
+        occupation: healthCase.occupation || '',
+        annualIncome: healthCase.annualIncome ? String(healthCase.annualIncome) : '',
+        addressLine1: addrObj.line1 || addrObj.addressLine1 || '',
+        addressLine2: addrObj.line2 || addrObj.addressLine2 || '',
+        city: addrObj.city || '',
+        state: addrObj.state || '',
+        pincode: addrObj.pincode || '',
+      });
+    }
+  }, [isOpen, healthCase]);
+
+  if (!isOpen) return null;
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const panClean = form.panNumber.trim().toUpperCase();
+    if (panClean && !/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(panClean)) {
+      toast.error('Invalid PAN format (e.g. ABCDE1234F)');
+      return;
+    }
+    const aadhaarClean = form.aadhaarNumber.replace(/\D/g, '');
+    if (aadhaarClean && aadhaarClean.length !== 12) {
+      toast.error('Aadhaar must be exactly 12 digits');
+      return;
+    }
+
+    const payload: any = {
+      panNumber: panClean || undefined,
+      aadhaarNumber: aadhaarClean || undefined,
+      email: form.email.trim() || undefined,
+      phone: form.phone.trim() || undefined,
+      nomineeName: form.nomineeName.trim() || undefined,
+      nomineeRelation: form.nomineeRelation || undefined,
+      occupation: form.occupation.trim() || undefined,
+      annualIncome: form.annualIncome ? Number(form.annualIncome) : undefined,
+      address: {
+        addressLine1: form.addressLine1.trim() || undefined,
+        addressLine2: form.addressLine2.trim() || undefined,
+        city: form.city.trim() || undefined,
+        state: form.state.trim() || undefined,
+        pincode: form.pincode.trim() || undefined,
+      },
+    };
+
+    onSubmit(payload);
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+      <div className="bg-card w-full max-w-2xl rounded-2xl border shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
+        <div className="px-6 py-4 border-b flex items-center justify-between bg-muted/30">
+          <div className="flex items-center gap-2.5">
+            <div className="p-2 rounded-xl bg-primary/10 text-primary">
+              <UserCheck className="h-5 w-5" />
+            </div>
+            <div>
+              <h3 className="font-black text-sm tracking-tight">Edit Proposer & Leftover KYC Details</h3>
+              <p className="text-[11px] text-muted-foreground">
+                Case {healthCase.caseCode} • {healthCase.contact?.firstName} {healthCase.contact?.lastName}
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto text-xs">
+          {/* Section 1: Mandatory IRDAI KYC */}
+          <div className="p-4 rounded-xl border border-primary/20 bg-primary/5 space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="font-black text-xs text-foreground uppercase tracking-wider flex items-center gap-1.5">
+                <ShieldCheck className="h-4 w-4 text-primary" />
+                Mandatory KYC Details (Required for Policy Issuance)
+              </span>
+              <span className="text-[10px] text-primary font-bold">IRDAI Compliance</span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block font-bold text-[11px] mb-1">
+                  PAN Number <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  maxLength={10}
+                  value={form.panNumber}
+                  onChange={(e) => setForm({ ...form, panNumber: e.target.value.toUpperCase().slice(0, 10) })}
+                  className={`${inputCls} font-mono`}
+                  placeholder="e.g. ABCDE1234F"
+                />
+                <span className="text-[10px] text-muted-foreground">10-character alphanumeric PAN</span>
+              </div>
+
+              <div>
+                <label className="block font-bold text-[11px] mb-1">
+                  Aadhaar Number <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  maxLength={12}
+                  value={form.aadhaarNumber}
+                  onChange={(e) => setForm({ ...form, aadhaarNumber: e.target.value.replace(/\D/g, '').slice(0, 12) })}
+                  className={`${inputCls} font-mono`}
+                  placeholder="e.g. 123456789012"
+                />
+                <span className="text-[10px] text-muted-foreground">12-digit numeric Aadhaar</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Section 2: Contact Information */}
+          <div className="space-y-3 pt-1">
+            <span className="font-black text-[11px] text-muted-foreground uppercase tracking-wider">
+              Contact Information
+            </span>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block font-bold text-[11px] mb-1">Phone Number</label>
+                <input
+                  type="text"
+                  value={form.phone}
+                  onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                  className={inputCls}
+                  placeholder="10-digit mobile number"
+                />
+              </div>
+              <div>
+                <label className="block font-bold text-[11px] mb-1">Email Address</label>
+                <input
+                  type="email"
+                  value={form.email}
+                  onChange={(e) => setForm({ ...form, email: e.target.value })}
+                  className={inputCls}
+                  placeholder="customer@example.com"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Section 3: Nominee Details */}
+          <div className="space-y-3 pt-1">
+            <span className="font-black text-[11px] text-muted-foreground uppercase tracking-wider">
+              Nominee Details
+            </span>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block font-bold text-[11px] mb-1">Nominee Full Name</label>
+                <input
+                  type="text"
+                  value={form.nomineeName}
+                  onChange={(e) => setForm({ ...form, nomineeName: e.target.value })}
+                  className={inputCls}
+                  placeholder="Full name of nominee"
+                />
+              </div>
+              <div>
+                <label className="block font-bold text-[11px] mb-1">Nominee Relationship</label>
+                <select
+                  value={form.nomineeRelation}
+                  onChange={(e) => setForm({ ...form, nomineeRelation: e.target.value })}
+                  className={inputCls}
+                >
+                  {NOMINEE_RELATIONS.map((r) => (
+                    <option key={r.value} value={r.value}>
+                      {r.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          </div>
+
+          {/* Section 4: Address Details */}
+          <div className="space-y-3 pt-1">
+            <span className="font-black text-[11px] text-muted-foreground uppercase tracking-wider">
+              Communication Address
+            </span>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="sm:col-span-2">
+                <label className="block font-bold text-[11px] mb-1">Address Line 1</label>
+                <input
+                  type="text"
+                  value={form.addressLine1}
+                  onChange={(e) => setForm({ ...form, addressLine1: e.target.value })}
+                  className={inputCls}
+                  placeholder="Flat/House No, Building, Street"
+                />
+              </div>
+              <div>
+                <label className="block font-bold text-[11px] mb-1">Address Line 2</label>
+                <input
+                  type="text"
+                  value={form.addressLine2}
+                  onChange={(e) => setForm({ ...form, addressLine2: e.target.value })}
+                  className={inputCls}
+                  placeholder="Area, Landmark"
+                />
+              </div>
+              <div>
+                <label className="block font-bold text-[11px] mb-1">City</label>
+                <input
+                  type="text"
+                  value={form.city}
+                  onChange={(e) => setForm({ ...form, city: e.target.value })}
+                  className={inputCls}
+                  placeholder="City"
+                />
+              </div>
+              <div>
+                <label className="block font-bold text-[11px] mb-1">State</label>
+                <input
+                  type="text"
+                  value={form.state}
+                  onChange={(e) => setForm({ ...form, state: e.target.value })}
+                  className={inputCls}
+                  placeholder="State"
+                />
+              </div>
+              <div>
+                <label className="block font-bold text-[11px] mb-1">Pincode</label>
+                <input
+                  type="text"
+                  maxLength={6}
+                  value={form.pincode}
+                  onChange={(e) => setForm({ ...form, pincode: e.target.value.replace(/\D/g, '').slice(0, 6) })}
+                  className={inputCls}
+                  placeholder="6-digit PIN"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Section 5: Profile & Financials */}
+          <div className="space-y-3 pt-1">
+            <span className="font-black text-[11px] text-muted-foreground uppercase tracking-wider">
+              Profile & Financial Details
+            </span>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block font-bold text-[11px] mb-1">Occupation</label>
+                <input
+                  type="text"
+                  value={form.occupation}
+                  onChange={(e) => setForm({ ...form, occupation: e.target.value })}
+                  className={inputCls}
+                  placeholder="e.g. Salaried, Self-Employed, Business"
+                />
+              </div>
+              <div>
+                <label className="block font-bold text-[11px] mb-1">Annual Income (₹)</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="1000"
+                  value={form.annualIncome}
+                  onChange={(e) => setForm({ ...form, annualIncome: e.target.value })}
+                  className={inputCls}
+                  placeholder="e.g. 750000"
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="pt-3 flex items-center justify-end gap-2 border-t">
+            <button
+              type="button"
+              disabled={isPending}
+              onClick={onClose}
+              className="px-4 py-2 rounded-xl border text-xs font-bold hover:bg-muted transition"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={isPending}
+              className="px-5 py-2 rounded-xl bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/90 transition flex items-center gap-1.5 disabled:opacity-50 shadow-sm"
+            >
+              {isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+              Save Leftover Details
             </button>
           </div>
         </form>

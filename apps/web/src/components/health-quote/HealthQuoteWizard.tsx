@@ -38,12 +38,15 @@ type Member = {
   isSmoker: boolean;
 };
 
-const emptyMember = (relation = 'SELF'): Member => ({
-  firstName: '',
-  lastName: '',
+const emptyMember = (
+  relation = 'SELF',
+  proposerData?: { firstName?: string; lastName?: string; gender?: string; dateOfBirth?: string },
+): Member => ({
+  firstName: relation === 'SELF' ? (proposerData?.firstName || '') : '',
+  lastName: relation === 'SELF' ? (proposerData?.lastName || '') : '',
   relation,
-  dateOfBirth: '',
-  gender: 'MALE',
+  dateOfBirth: relation === 'SELF' ? (proposerData?.dateOfBirth || '') : '',
+  gender: relation === 'SELF' ? (proposerData?.gender || 'MALE') : 'MALE',
   heightCm: '',
   weightKg: '',
   preExistingDiseases: 'None',
@@ -56,21 +59,45 @@ const bmi = (m: Member) => {
   return h > 0 && w > 0 ? Math.round((w / (h * h)) * 10) / 10 : null;
 };
 
-const syncMembersWithCount = (targetCount: number, currentMembers: Member[]): Member[] => {
+const syncMembersWithCount = (
+  targetCount: number,
+  currentMembers: Member[],
+  proposerData?: { firstName?: string; lastName?: string; gender?: string; dateOfBirth?: string },
+): Member[] => {
   const count = Math.max(1, Math.min(targetCount, 50));
-  if (currentMembers.length === count) return currentMembers;
-  if (currentMembers.length < count) {
+  let baseMembers = [...currentMembers];
+  if (baseMembers.length === 0) {
+    baseMembers = [emptyMember('SELF', proposerData)];
+  } else {
+    // Member 1 is always SELF for all plan types and auto-filled from proposer
+    baseMembers[0] = {
+      ...baseMembers[0],
+      relation: 'SELF',
+      firstName: baseMembers[0].firstName || proposerData?.firstName || '',
+      lastName: baseMembers[0].lastName || proposerData?.lastName || '',
+      gender: baseMembers[0].gender || proposerData?.gender || 'MALE',
+      dateOfBirth: baseMembers[0].dateOfBirth || proposerData?.dateOfBirth || '',
+    };
+  }
+  if (baseMembers.length === count) return baseMembers;
+  if (baseMembers.length < count) {
     const additions: Member[] = [];
-    for (let i = currentMembers.length; i < count; i++) {
-      let rel = 'OTHER';
-      if (i === 0) rel = 'SELF';
-      else if (i === 1) rel = 'SPOUSE';
-      else if (i === 2 || i === 3) rel = 'CHILD';
+    let hasSpouse = baseMembers.some((m) => m.relation === 'SPOUSE');
+    for (let i = baseMembers.length; i < count; i++) {
+      let rel = 'CHILD';
+      if (!hasSpouse && i === 1) {
+        rel = 'SPOUSE';
+        hasSpouse = true;
+      } else if (i <= 3) {
+        rel = 'CHILD';
+      } else {
+        rel = 'OTHER';
+      }
       additions.push(emptyMember(rel));
     }
-    return [...currentMembers, ...additions];
+    return [...baseMembers, ...additions];
   } else {
-    return currentMembers.slice(0, count);
+    return baseMembers.slice(0, count);
   }
 };
 
@@ -175,54 +202,40 @@ export function HealthQuoteWizard({
     }
   }, [leadContext, contact]);
 
-  // Auto-sync Primary Member (SELF) with Proposer & enforce single Self for Individual
+  // Auto-sync Primary Member (SELF) with Proposer for ALL plan types
   useEffect(() => {
-    if (planCategory === 'INDIVIDUAL') {
-      setMembers((current) => {
-        const primary = current[0] || emptyMember('SELF');
-        const updated: Member = {
-          ...primary,
-          relation: 'SELF',
-          firstName: primary.firstName || proposer.firstName,
-          lastName: primary.lastName || proposer.lastName,
-          gender: primary.gender || proposer.gender,
-          dateOfBirth: primary.dateOfBirth || proposer.dateOfBirth,
-        };
-        if (
-          current.length !== 1 ||
-          primary.relation !== 'SELF' ||
-          (!primary.firstName && proposer.firstName) ||
-          (!primary.lastName && proposer.lastName) ||
-          (!primary.gender && proposer.gender) ||
-          (!primary.dateOfBirth && proposer.dateOfBirth)
-        ) {
-          return [updated];
-        }
-        return current;
-      });
-      return;
-    }
-
     setMembers((current) => {
-      if (current.length > 0 && current[0].relation === 'SELF') {
-        const selfMember = current[0];
-        const updated = {
-          ...selfMember,
-          firstName: selfMember.firstName || proposer.firstName,
-          lastName: selfMember.lastName || proposer.lastName,
-          gender: selfMember.gender || proposer.gender,
-          dateOfBirth: selfMember.dateOfBirth || proposer.dateOfBirth,
-        };
-        if (
-          updated.firstName !== selfMember.firstName ||
-          updated.lastName !== selfMember.lastName ||
-          updated.gender !== selfMember.gender ||
-          updated.dateOfBirth !== selfMember.dateOfBirth
-        ) {
-          return [updated, ...current.slice(1)];
-        }
+      if (current.length === 0) {
+        return [emptyMember('SELF', proposer)];
       }
-      return current;
+      const first = current[0];
+      const isMulti = planCategory === 'FAMILY_FLOATER' || planCategory === 'GROUP_CORPORATE';
+
+      const updatedFirst: Member = {
+        ...first,
+        relation: 'SELF',
+        firstName: proposer.firstName || first.firstName,
+        lastName: proposer.lastName || first.lastName,
+        gender: proposer.gender || first.gender || 'MALE',
+        dateOfBirth: proposer.dateOfBirth || first.dateOfBirth || '',
+      };
+
+      const changed =
+        first.relation !== 'SELF' ||
+        first.firstName !== updatedFirst.firstName ||
+        first.lastName !== updatedFirst.lastName ||
+        first.gender !== updatedFirst.gender ||
+        first.dateOfBirth !== updatedFirst.dateOfBirth;
+
+      if (!changed && (!planCategory || isMulti || current.length === 1)) {
+        return current;
+      }
+
+      if (!isMulti && planCategory) {
+        return [updatedFirst];
+      }
+
+      return [updatedFirst, ...current.slice(1)];
     });
   }, [planCategory, proposer.firstName, proposer.lastName, proposer.gender, proposer.dateOfBirth]);
 
@@ -239,20 +252,27 @@ export function HealthQuoteWizard({
     if (isMulti) {
       const count = Number(planValues.membersCount);
       if (count && count >= 1) {
-        setMembers((prev) => syncMembersWithCount(count, prev));
+        setMembers((prev) => syncMembersWithCount(count, prev, proposer));
       }
     } else if (planCategory) {
       // Rest of the plans should allow only one entry for insured member form
       setMembers((prev) => {
-        const first = prev[0] || emptyMember(planCategory === 'INDIVIDUAL' ? 'SELF' : 'SELF');
-        const updated = planCategory === 'INDIVIDUAL' ? { ...first, relation: 'SELF' } : first;
-        if (prev.length !== 1 || (planCategory === 'INDIVIDUAL' && prev[0]?.relation !== 'SELF')) {
+        const first = prev[0] || emptyMember('SELF', proposer);
+        const updated: Member = {
+          ...first,
+          relation: 'SELF',
+          firstName: proposer.firstName || first.firstName,
+          lastName: proposer.lastName || first.lastName,
+          gender: proposer.gender || first.gender,
+          dateOfBirth: proposer.dateOfBirth || first.dateOfBirth,
+        };
+        if (prev.length !== 1 || prev[0]?.relation !== 'SELF' || prev[0]?.firstName !== updated.firstName) {
           return [updated];
         }
         return prev;
       });
     }
-  }, [planCategory, planValues.membersCount]);
+  }, [planCategory, planValues.membersCount, proposer.firstName, proposer.lastName, proposer.gender, proposer.dateOfBirth]);
 
   const chooseCategory = (value: string) => {
     setPlanCategory(value);
@@ -262,13 +282,25 @@ export function HealthQuoteWizard({
     }
     const isMulti = value === 'FAMILY_FLOATER' || value === 'GROUP_CORPORATE';
     if (isMulti) {
-      const defaultCount = Number(initial.membersCount) || 2;
+      const defaultCount = Number(initial.membersCount) || (value === 'FAMILY_FLOATER' ? 2 : 1);
       initial.membersCount = defaultCount;
       setPlanValues(initial);
-      setMembers((m) => syncMembersWithCount(defaultCount, m));
+      setMembers((m) => syncMembersWithCount(defaultCount, m, proposer));
     } else {
       setPlanValues(initial);
-      setMembers((m) => [{ ...(m[0] || emptyMember('SELF')), ...(value === 'INDIVIDUAL' ? { relation: 'SELF' } : {}) }]);
+      setMembers((m) => {
+        const first = m[0] || emptyMember('SELF', proposer);
+        return [
+          {
+            ...first,
+            relation: 'SELF',
+            firstName: proposer.firstName || first.firstName,
+            lastName: proposer.lastName || first.lastName,
+            gender: proposer.gender || first.gender,
+            dateOfBirth: proposer.dateOfBirth || first.dateOfBirth,
+          },
+        ];
+      });
     }
   };
 
@@ -282,10 +314,10 @@ export function HealthQuoteWizard({
         errors.push('Valid Email Format');
       }
 
-      if (proposer.panNumber && !/^[A-Z]{5}[0-9]{4}[A-Z]$/.test(proposer.panNumber.toUpperCase().trim())) {
+      if (proposer.panNumber?.trim() && !/^[A-Z]{5}[0-9]{4}[A-Z]$/.test(proposer.panNumber.toUpperCase().trim())) {
         errors.push('PAN (format ABCDE1234F)');
       }
-      if (proposer.aadhaarNumber && !/^\d{12}$/.test(proposer.aadhaarNumber.replace(/\D/g, ''))) {
+      if (proposer.aadhaarNumber?.trim() && !/^\d{12}$/.test(proposer.aadhaarNumber.replace(/\D/g, ''))) {
         errors.push('Aadhaar (12 digits)');
       }
       if (!occupation) errors.push('Occupation');
@@ -312,8 +344,8 @@ export function HealthQuoteWizard({
       const isMulti = planCategory === 'FAMILY_FLOATER' || planCategory === 'GROUP_CORPORATE';
       if (!isMulti) {
         if (members.length !== 1) errors.push(`${labelOf(PLAN_CATEGORIES, planCategory)} allows exactly one insured member`);
-        if (planCategory === 'INDIVIDUAL' && members[0]?.relation !== 'SELF') {
-          errors.push('Individual policy member must be Self');
+        if (members[0]?.relation !== 'SELF') {
+          errors.push('Primary member must be Self');
         }
       } else {
         if (planCategory === 'FAMILY_FLOATER' && members.length < 2) {
@@ -321,6 +353,9 @@ export function HealthQuoteWizard({
         }
       }
       if (members.filter((m) => m.relation === 'SELF').length > 1) errors.push('Only one member can be SELF');
+      if (members.filter((m) => m.relation === 'SPOUSE').length > 1) {
+        errors.push('Only one member can have Relationship: Spouse');
+      }
       members.forEach((m, i) => {
         const missing = (['firstName', 'relation', 'dateOfBirth', 'gender', 'heightCm', 'weightKg', 'preExistingDiseases'] as const).filter(
           (k) => !m[k],
@@ -357,6 +392,23 @@ export function HealthQuoteWizard({
       toast.error(`Please complete: ${errors.join(', ')}`);
       return;
     }
+    if (step === 0 || step === 1) {
+      setMembers((current) => {
+        if (current.length === 0) return [emptyMember('SELF', proposer)];
+        const first = current[0];
+        return [
+          {
+            ...first,
+            relation: 'SELF',
+            firstName: proposer.firstName || first.firstName,
+            lastName: proposer.lastName || first.lastName,
+            gender: proposer.gender || first.gender,
+            dateOfBirth: proposer.dateOfBirth || first.dateOfBirth,
+          },
+          ...current.slice(1),
+        ];
+      });
+    }
     setStep((s) => s + 1);
   };
 
@@ -376,16 +428,16 @@ export function HealthQuoteWizard({
           lastName: proposer.lastName,
           phone: proposer.phone,
           email: effectiveEmail,
-          panNumber: proposer.panNumber,
-          aadhaarNumber: proposer.aadhaarNumber,
+          panNumber: proposer.panNumber?.trim() || undefined,
+          aadhaarNumber: proposer.aadhaarNumber?.trim() || undefined,
         });
         setResolvedContactId(finalContactId);
       }
 
       const proposerKyc: Record<string, string> = {
         email: effectiveEmail,
-        ...(proposer.panNumber ? { panNumber: proposer.panNumber.trim().toUpperCase() } : contact?.panNumber ? { panNumber: contact.panNumber } : {}),
-        ...(proposer.aadhaarNumber ? { aadhaarNumber: proposer.aadhaarNumber.trim() } : contact?.aadhaarNumber ? { aadhaarNumber: contact.aadhaarNumber } : {}),
+        ...(proposer.panNumber?.trim() ? { panNumber: proposer.panNumber.trim().toUpperCase() } : contact?.panNumber ? { panNumber: contact.panNumber } : {}),
+        ...(proposer.aadhaarNumber?.trim() ? { aadhaarNumber: proposer.aadhaarNumber.trim() } : contact?.aadhaarNumber ? { aadhaarNumber: contact.aadhaarNumber } : {}),
       };
 
       const effectiveAddress = {
@@ -396,10 +448,10 @@ export function HealthQuoteWizard({
         pincode: address.pincode.trim() || contact?.pincode || '000000',
       };
 
-      const finalMembers = (planCategory === 'INDIVIDUAL' ? members.slice(0, 1) : members).map((m) => ({
+      const finalMembers = (!isMultiMemberPlan(planCategory) ? members.slice(0, 1) : members).map((m, idx) => ({
         firstName: m.firstName,
         ...(m.lastName ? { lastName: m.lastName } : {}),
-        relation: planCategory === 'INDIVIDUAL' ? 'SELF' : m.relation,
+        relation: idx === 0 ? 'SELF' : m.relation,
         dateOfBirth: m.dateOfBirth,
         gender: m.gender,
         heightCm: Number(m.heightCm),
@@ -437,7 +489,7 @@ export function HealthQuoteWizard({
     setMembers((list) =>
       list.map((m, idx) => {
         if (idx !== i) return m;
-        const safePatch = planCategory === 'INDIVIDUAL' && patch.relation ? { ...patch, relation: 'SELF' } : patch;
+        const safePatch = i === 0 && patch.relation ? { ...patch, relation: 'SELF' } : patch;
         return { ...m, ...safePatch };
       }),
     );
@@ -554,7 +606,7 @@ export function HealthQuoteWizard({
                   onChange={(e) => setProposer({ ...proposer, dateOfBirth: e.target.value })}
                 />
               </FieldLabel>
-              <FieldLabel label="PAN Number" hint="Format ABCDE1234F">
+              <FieldLabel label="PAN Number (Optional)" hint="Format ABCDE1234F">
                 <input
                   className={`${inputCls} uppercase font-mono`}
                   maxLength={10}
@@ -700,22 +752,14 @@ export function HealthQuoteWizard({
                 <h2 className="font-black text-sm">Insured Members</h2>
                 <p className="text-[11px] text-muted-foreground">
                   {isMultiMemberPlan(planCategory)
-                    ? 'Member details automatically populated based on plan input. You can add or adjust members below.'
+                    ? `Showing ${members.length} insured member form${members.length > 1 ? 's' : ''} populated from the coverage count in Plan Details.`
                     : 'Individual coverage policy: Single member insured entry.'}
                 </p>
               </div>
               {isMultiMemberPlan(planCategory) && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    const nextCount = members.length + 1;
-                    setPlanValues((prev) => ({ ...prev, membersCount: nextCount }));
-                    setMembers((m) => [...m, emptyMember(m.length === 1 ? 'SPOUSE' : m.length <= 3 ? 'CHILD' : 'OTHER')]);
-                  }}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-bold hover:bg-accent transition-colors shadow-xs"
-                >
-                  <Plus className="h-3.5 w-3.5 text-primary" /> Add member
-                </button>
+                <span className="text-[11px] font-bold text-muted-foreground bg-muted/60 px-2.5 py-1 rounded-md border">
+                  Total: {members.length} Members
+                </span>
               )}
             </div>
 
@@ -733,7 +777,7 @@ export function HealthQuoteWizard({
             {isMultiMemberPlan(planCategory) && (
               <div className="p-3.5 rounded-xl border border-indigo-500/30 bg-indigo-500/10 text-indigo-950 dark:text-indigo-200 text-xs flex items-center justify-between gap-3">
                 <span>
-                  <strong>{labelOf(PLAN_CATEGORIES, planCategory)}:</strong> Showing {members.length} insured member form{members.length > 1 ? 's' : ''} automatically configured from your Plan Details input.
+                  <strong>{labelOf(PLAN_CATEGORIES, planCategory)}:</strong> Showing {members.length} insured member form{members.length > 1 ? 's' : ''} automatically configured from your Plan Details input. To change member count, edit &quot;Members to Cover in Policy&quot; in Step 1.
                 </span>
                 <span className="shrink-0 text-[10px] uppercase font-black tracking-wider bg-indigo-500/20 px-2.5 py-0.5 rounded-full border border-indigo-500/30">
                   {members.length} Members Covered
@@ -760,31 +804,31 @@ export function HealthQuoteWizard({
                   </span>
                   <div className="flex items-center gap-3">
                     {bmi(m) !== null && <span className="text-[10px] font-bold text-muted-foreground">BMI {bmi(m)}</span>}
-                    {members.length > 1 && isMultiMemberPlan(planCategory) && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const nextCount = Math.max(1, members.length - 1);
-                          setPlanValues((prev) => ({ ...prev, membersCount: nextCount }));
-                          setMembers((list) => list.filter((_, idx) => idx !== i));
-                        }}
-                        className="text-rose-500 hover:text-rose-600 p-1 rounded hover:bg-rose-500/10 transition-colors"
-                        title="Remove member"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    )}
                   </div>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <FieldLabel label="First Name" required>
-                    <input className={inputCls} value={m.firstName} onChange={(e) => setMember(i, { firstName: e.target.value })} />
+                    <input
+                      className={inputCls}
+                      value={m.firstName}
+                      onChange={(e) => {
+                        setMember(i, { firstName: e.target.value });
+                        if (i === 0) setProposer((p) => ({ ...p, firstName: e.target.value }));
+                      }}
+                    />
                   </FieldLabel>
                   <FieldLabel label="Last Name">
-                    <input className={inputCls} value={m.lastName} onChange={(e) => setMember(i, { lastName: e.target.value })} />
+                    <input
+                      className={inputCls}
+                      value={m.lastName}
+                      onChange={(e) => {
+                        setMember(i, { lastName: e.target.value });
+                        if (i === 0) setProposer((p) => ({ ...p, lastName: e.target.value }));
+                      }}
+                    />
                   </FieldLabel>
                   <FieldLabel label="Relationship to Proposer" required>
-                    {planCategory === 'INDIVIDUAL' ? (
+                    {i === 0 ? (
                       <input
                         className={`${inputCls} bg-muted cursor-not-allowed text-muted-foreground font-semibold`}
                         value="Self (Primary Insured)"
@@ -792,12 +836,29 @@ export function HealthQuoteWizard({
                         readOnly
                       />
                     ) : (
-                      <select className={inputCls} value={m.relation} onChange={(e) => setMember(i, { relation: e.target.value })}>
-                        {RELATIONS.map((o) => (
-                          <option key={o.value} value={o.value}>
-                            {o.label}
-                          </option>
-                        ))}
+                      <select
+                        className={inputCls}
+                        value={m.relation}
+                        onChange={(e) => setMember(i, { relation: e.target.value })}
+                      >
+                        {RELATIONS.map((o) => {
+                          const isSpouseTaken =
+                            o.value === 'SPOUSE' &&
+                            members.some((other, idx) => idx !== i && other.relation === 'SPOUSE');
+                          const isSelfTaken = o.value === 'SELF';
+                          const isDisabled = isSpouseTaken || isSelfTaken;
+
+                          return (
+                            <option key={o.value} value={o.value} disabled={isDisabled}>
+                              {o.label}
+                              {isSpouseTaken
+                                ? ' (Only 1 Spouse allowed)'
+                                : isSelfTaken
+                                ? ' (Member 1 is Self)'
+                                : ''}
+                            </option>
+                          );
+                        })}
                       </select>
                     )}
                   </FieldLabel>
@@ -903,7 +964,7 @@ export function HealthQuoteWizard({
                 </>
               )}
               <dt className="text-muted-foreground">Insured members</dt>
-              <dd className="font-bold">{members.map((m) => `${m.firstName} (${planCategory === 'INDIVIDUAL' ? 'Self' : labelOf(RELATIONS, m.relation)})`).join(', ')}</dd>
+              <dd className="font-bold">{members.map((m, idx) => `${m.firstName} (${idx === 0 ? 'Self' : labelOf(RELATIONS, m.relation)})`).join(', ')}</dd>
               <dt className="text-muted-foreground">Nominee</dt>
               <dd className="font-bold">
                 {nominee.name} ({labelOf(NOMINEE_RELATIONS, nominee.relation)})

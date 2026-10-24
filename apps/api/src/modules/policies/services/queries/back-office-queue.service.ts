@@ -175,9 +175,12 @@ export class BackOfficeQueueService {
       // 1. Customer Gate
       const hasCustomer = !!q.contact || !!(q as any).account;
       const hasContactDetails = !!(q.contact?.phone || q.contact?.email);
-      const hasKyc =
-        Boolean(q.contact?.panNumber) ||
-        (q as any).account?.kycStatus === 'VERIFIED';
+      const hasPan = Boolean(q.contact?.panNumber);
+      const hasAadhaar = Boolean(q.contact?.aadhaarNumber);
+      // For Health, policy issuance strictly requires both PAN and Aadhaar on file
+      const hasKyc = isHealth
+        ? hasPan && hasAadhaar
+        : hasPan || (q as any).account?.kycStatus === 'VERIFIED';
       const customerPassed = hasCustomer && hasContactDetails && hasKyc;
       const customerGate: GateStatus = {
         passed: customerPassed,
@@ -187,8 +190,16 @@ export class BackOfficeQueueService {
           : !hasContactDetails
             ? 'Missing customer contact phone/email'
             : !hasKyc
-              ? 'Customer PAN / KYC verification required'
-              : 'Customer KYC verified',
+              ? isHealth
+                ? (!hasPan && !hasAadhaar
+                    ? 'Customer PAN and Aadhaar required for Health policy issuance'
+                    : !hasPan
+                      ? 'Customer PAN required for Health policy issuance'
+                      : 'Customer Aadhaar required for Health policy issuance')
+                : 'Customer PAN / KYC verification required'
+              : isHealth
+                ? 'Customer KYC verified (PAN & Aadhaar on file)'
+                : 'Customer KYC verified',
       };
 
       // 2. Vehicle Integrity Gate (only applicable to MOTOR)
@@ -447,11 +458,10 @@ export class BackOfficeQueueService {
 
     if (
       item.status !== QuotationStatus.APPROVED &&
-      item.status !== QuotationStatus.ACCEPTED &&
-      !item.gates.payment.passed
+      item.status !== QuotationStatus.ACCEPTED
     ) {
       throw new BadRequestException(
-        `Quotation ${quotationId} is in ${item.status} status and payment is not verified. Policy issuance requires payment confirmation or APPROVED/ACCEPTED status.`,
+        `Quotation ${quotationId} is in ${item.status} status. Policy issuance requires quotation to be in APPROVED or ACCEPTED status.`,
       );
     }
 

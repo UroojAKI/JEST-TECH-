@@ -6,6 +6,7 @@ import {
   HttpStatus,
   Param,
   ParseUUIDPipe,
+  Patch,
   Post,
   UseGuards,
 } from '@nestjs/common';
@@ -22,6 +23,7 @@ import {
   CreateHealthQuotationCaseDto,
   RecordHealthPaymentDto,
   SelectHealthQuoteDto,
+  UpdateHealthCaseLeftoverDetailsDto,
 } from '../dto/health-quotation-case.dto';
 
 @ApiTags('Health Quotation Cases')
@@ -111,5 +113,15 @@ export class HealthQuotationCaseController {
     @CurrentUser() user: RequestUser,
   ) {
     return this.caseService.getPayment(id, user);
+  }
+
+  @Patch(':id')
+  @ApiOperation({ summary: 'Update leftover entries (proposer KYC, address, nominee) for a health case' })
+  updateLeftoverDetails(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateHealthCaseLeftoverDetailsDto,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.caseService.updateLeftoverDetails(id, dto, user);
   }
 }
