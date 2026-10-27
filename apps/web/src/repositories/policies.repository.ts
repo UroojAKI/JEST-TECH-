@@ -47,6 +47,7 @@ export interface PolicyItem {
   tpExpiryDate?: string | null;
   paymentStatus?: string | null;
   paidAmount?: number;
+  receiptAmount?: number;
   outstandingBalance?: number;
   renewalExecutive?: string | null;
   healthScore?: number;

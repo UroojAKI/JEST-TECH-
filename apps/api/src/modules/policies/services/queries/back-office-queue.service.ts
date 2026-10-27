@@ -168,13 +168,11 @@ export class BackOfficeQueueService {
         continue;
       }
 
-      // 1. Customer Gate
+      // 1. Customer Gate (PAN details are optional)
       const hasCustomer = !!q.contact || !!(q as any).account;
       const hasContactDetails = !!(q.contact?.phone || q.contact?.email);
-      const hasKyc =
-        Boolean(q.contact?.panNumber) ||
-        (q as any).account?.kycStatus === 'VERIFIED';
-      const customerPassed = hasCustomer && hasContactDetails && hasKyc;
+      const isKycRejected = (q as any).account?.kycStatus === 'REJECTED';
+      const customerPassed = hasCustomer && hasContactDetails && !isKycRejected;
       const customerGate: GateStatus = {
         passed: customerPassed,
         status: customerPassed ? 'PASSED' : 'BLOCKED',
@@ -182,9 +180,9 @@ export class BackOfficeQueueService {
           ? 'Missing customer details'
           : !hasContactDetails
             ? 'Missing customer contact phone/email'
-            : !hasKyc
-              ? 'Customer PAN / KYC verification required'
-              : 'Customer KYC verified',
+            : isKycRejected
+              ? 'Customer KYC has been rejected'
+              : 'Customer verified (PAN optional)',
       };
 
       // 2. Vehicle Integrity Gate

@@ -76,7 +76,7 @@ describe('MotorWorkflowGatesService', () => {
     ).rejects.toThrow(ForbiddenException);
   });
 
-  it('should block issuance when calculation or KYC is not complete', async () => {
+  it('should block issuance when calculation is invalid or KYC is rejected', async () => {
     prisma.quotation.findUnique.mockResolvedValue({
       id: 'quote-1',
       quotationCode: 'QT-1001',
@@ -85,9 +85,11 @@ describe('MotorWorkflowGatesService', () => {
       totalPremium: new Prisma.Decimal(15000),
       calculationSnapshot: null, // Invalid calculation
       contact: {
-        panNumber: null, // No KYC
+        panNumber: null, // No PAN (optional)
       },
-      account: null,
+      account: {
+        kycStatus: 'REJECTED', // Explicitly rejected
+      },
       vehicle: { status: 'OLD' },
       motorInspection: null,
       motorPaymentRecord: null,
@@ -112,7 +114,7 @@ describe('MotorWorkflowGatesService', () => {
       'Quotation premium calculation has not been finalized',
     );
     expect(projection.blockingReasons).toContain(
-      'Customer KYC status is pending or unverified',
+      'Customer KYC status has been rejected',
     );
   });
 

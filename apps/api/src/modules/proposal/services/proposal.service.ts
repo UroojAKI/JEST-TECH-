@@ -229,7 +229,7 @@ export class ProposalService {
         },
       });
 
-      // Seed mandatory documents list
+      // Seed mandatory documents list (PAN is optional)
       const mandatoryDocs = [
         'RC',
         'Previous Policy',
@@ -242,7 +242,7 @@ export class ProposalService {
           data: {
             proposalId: proposal.id,
             documentId: null, // Set to null instead of ''
-            mandatory: true,
+            mandatory: docName !== 'PAN',
             verified: false,
             remarks: docName,
           },

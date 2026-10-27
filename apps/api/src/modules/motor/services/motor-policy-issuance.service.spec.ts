@@ -304,18 +304,45 @@ describe('MotorPolicyIssuanceService (Iteration 8)', () => {
       ).rejects.toThrow(ForbiddenException);
     });
 
-    it('PAY-003 Gate 2: should block policy issuance when customer KYC is unverified', async () => {
+    it('PAY-003 Gate 2: should block policy issuance when customer KYC is rejected', async () => {
       const opsActor = createActor(RoleType.BACK_OFFICE);
-      const unverifiedKycQuote = {
+      const rejectedKycQuote = {
         ...validQuote,
-        contact: { id: 'c-100', panNumber: null }, // No PAN
-        account: { id: 'acc-1', kycStatus: 'PENDING' }, // KYC Pending
+        contact: { id: 'c-100', panNumber: null },
+        account: { id: 'acc-1', kycStatus: 'REJECTED' },
       };
-      prisma.quotation.findUnique.mockResolvedValue(unverifiedKycQuote);
+      prisma.quotation.findUnique.mockResolvedValue(rejectedKycQuote);
 
       await expect(
         service.issuePolicy('q-100', validDto, opsActor),
-      ).rejects.toThrow('Customer KYC is pending or unverified');
+      ).rejects.toThrow('Customer KYC has been rejected');
+    });
+
+    it('PAY-003 Gate 2: should allow policy issuance when PAN details are omitted (optional PAN)', async () => {
+      const opsActor = createActor(RoleType.BACK_OFFICE);
+      paymentService.canProceedToPolicy.mockResolvedValue({
+        allowed: true,
+        blockers: [],
+      });
+      const optionalPanQuote = {
+        ...validQuote,
+        contact: { id: 'c-100', panNumber: null }, // No PAN
+        account: { id: 'acc-1', kycStatus: 'PENDING' }, // Pending is allowed
+      };
+      prisma.quotation.findUnique.mockResolvedValue(optionalPanQuote);
+      prisma.motorPaymentRecord.findUnique.mockResolvedValue({
+        quotationId: 'q-100',
+        status: 'PAID',
+        amount: 17638.88,
+      });
+      prisma.policy.create.mockResolvedValue({
+        id: 'pol-1',
+        policyNumber: 'POL-HDFC-999888',
+        status: 'ACTIVE',
+      });
+
+      const policy = await service.issuePolicy('q-100', validDto, opsActor);
+      expect(policy).toBeDefined();
     });
 
     it('PAY-003 Gate 3: should block policy issuance when mandatory inspection is not completed or waived', async () => {

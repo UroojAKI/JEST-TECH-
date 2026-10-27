@@ -119,13 +119,15 @@ export class MotorWorkflowGatesService {
       totalPremiumNum > 0 &&
       quotation.calculationSnapshot !== null;
 
-    // 2. KYC Verified Gate (Account KYC or Contact PAN present)
+    // 2. KYC Verified Gate (Account KYC or Contact PAN; PAN is now optional for issuance)
+    const hasPanOrVerifiedKyc =
+      Boolean(quotation.contact?.panNumber) ||
+      quotation.account?.kycStatus === 'VERIFIED';
     const kycStatus =
       quotation.account?.kycStatus ||
-      (quotation.contact?.panNumber ? 'VERIFIED' : 'PENDING');
-    const kycVerified = quotation.account
-      ? quotation.account.kycStatus === 'VERIFIED'
-      : Boolean(quotation.contact?.panNumber);
+      (quotation.contact?.panNumber ? 'VERIFIED' : 'NOT_REQUIRED');
+    const isKycRejected = quotation.account?.kycStatus === 'REJECTED';
+    const kycVerified = !isKycRejected;
 
     // 3. Inspection Cleared Gate
     const inspectionRequired =
@@ -189,8 +191,8 @@ export class MotorWorkflowGatesService {
         'Quotation premium calculation has not been finalized',
       );
     }
-    if (!kycVerified) {
-      blockingReasons.push('Customer KYC status is pending or unverified');
+    if (isKycRejected) {
+      blockingReasons.push('Customer KYC status has been rejected');
     }
     if (inspectionRequired && !inspectionCleared) {
       const inspStatus = quotation.motorInspection?.status || 'REQUIRED';
@@ -278,7 +280,7 @@ export class MotorWorkflowGatesService {
     }
 
     // SUBMIT_KYC
-    if (!kycVerified && canonicalState !== 'ISSUED') {
+    if (!hasPanOrVerifiedKyc && !isKycRejected && canonicalState !== 'ISSUED') {
       if (isAgent || isBO) {
         allowedActions.push('SUBMIT_KYC');
       }
