@@ -422,11 +422,16 @@ export function UpdatePolicyDetailsDialog({
             <div>
               <label className="block text-xs font-bold mb-1 flex items-center gap-1">
                 <UserCheck className="h-3 w-3 text-muted-foreground" />
-                <span>{isHealth ? 'Proposer PAN' : 'Customer PAN / KYC'}</span>
-                <span className="text-rose-500">*</span>
+                {isHealth ? (
+                  <>
+                    <span>Proposer PAN</span>
+                    <span className="text-rose-500">*</span>
+                  </>
+                ) : (
+                  <span>Customer PAN / KYC <span className="text-muted-foreground font-normal">(Optional)</span></span>
+                )}
               </label>
               <input
-                required
                 type="text"
                 value={customerPan}
                 maxLength={10}

@@ -102,7 +102,7 @@ export class QuotationCompletionService {
 
     // ── SECTION 1: Customer KYC & Identity ──────────────────────────────
     const customerMissing: MissingFieldItem[] = [];
-    const customerApplicable = 5;
+    const customerApplicable = 4;
     let customerCompleted = 0;
 
     if (contact.firstName && contact.lastName) customerCompleted++;
@@ -134,14 +134,6 @@ export class QuotationCompletionService {
       customerMissing.push({
         field: 'dateOfBirth',
         label: 'Date of Birth',
-        requiredFor: 'POLICY_ISSUANCE',
-      });
-
-    if (contact.panNumber || contact.aadhaarNumber) customerCompleted++;
-    else
-      customerMissing.push({
-        field: 'panNumber',
-        label: 'PAN or Aadhaar KYC',
         requiredFor: 'POLICY_ISSUANCE',
       });
 

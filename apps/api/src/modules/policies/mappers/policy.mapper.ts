@@ -164,6 +164,14 @@ export class PolicyMapper {
         ? gst
         : Number(snapSummary.totalGst || snap.totalGst || 0);
 
+    if ((!dto.netPremium || dto.netPremium <= 0) && dto.totalPremium > 0) {
+      if (dto.gstAmount && dto.totalPremium > dto.gstAmount) {
+        dto.netPremium = Math.round(dto.totalPremium - dto.gstAmount);
+      } else {
+        dto.netPremium = Math.round(dto.totalPremium / 1.18);
+      }
+    }
+
     dto.idvValue = Number(snap.idv || snap.outputs?.idv || 0);
 
     dto.startDate = (p as any).startDate || p.effectiveDate;
@@ -178,12 +186,20 @@ export class PolicyMapper {
       (p.payments && p.payments.length > 0 ? 'PAID' : 'PENDING');
     const totalPayments =
       p.payments?.reduce((sum, pay) => sum + Number(pay.amount || 0), 0) || 0;
-    dto.paidAmount =
+    const quotationPayment = (p.quotation as any)?.motorPaymentRecord?.amount
+      ? Number((p.quotation as any).motorPaymentRecord.amount)
+      : 0;
+    const effectivePaid =
       totalPayments > 0
         ? totalPayments
-        : dto.paymentStatus === 'PAID'
+        : quotationPayment > 0
+        ? quotationPayment
+        : dto.paymentStatus === 'PAID' || (p as any).paymentStatus === 'SUCCESS'
         ? dto.totalPremium
         : 0;
+
+    dto.paidAmount = effectivePaid;
+    dto.receiptAmount = effectivePaid;
     dto.outstandingBalance = Math.max(0, dto.totalPremium - dto.paidAmount);
 
     const agentUser = (p as any).agent?.user;

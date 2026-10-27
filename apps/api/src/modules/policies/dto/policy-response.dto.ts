@@ -126,6 +126,7 @@ export class PolicyResponseDto {
   tpExpiryDate?: Date | null;
   paymentStatus?: string | null;
   paidAmount?: number;
+  receiptAmount?: number;
   outstandingBalance?: number;
   renewalExecutive?: string | null;
   claimsCount?: number;

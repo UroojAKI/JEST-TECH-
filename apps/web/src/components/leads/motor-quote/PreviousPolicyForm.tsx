@@ -4,6 +4,7 @@ import React, { useEffect } from 'react';
 import { AlertTriangle, Lock, CheckCircle2, Info } from 'lucide-react';
 import type { PreviousPolicyDetails, PreviousPolicyType } from './motorFormTypes';
 import { NCB_OPTIONS, INSURER_OPTIONS } from './motorFormConfig';
+import { useInsurers } from '../../../hooks/useInsurers';
 
 interface Props {
   value: PreviousPolicyDetails;
@@ -50,6 +51,7 @@ function computeIsExpired(expiryDateStr: string): boolean {
 }
 
 export function PreviousPolicyForm({ value, onChange, newPolicyType }: Props) {
+  const { insurerOptions } = useInsurers();
   const policyExpired = computeIsExpired(value.policyExpiryDate);
   const expired90 = computeExpired90Days(value.policyExpiryDate);
 
@@ -207,7 +209,7 @@ export function PreviousPolicyForm({ value, onChange, newPolicyType }: Props) {
                   className="w-full px-3 py-2 rounded-md border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
                 >
                   <option value="">Select Insurer</option>
-                  {INSURER_OPTIONS.map((i) => <option key={i} value={i}>{i}</option>)}
+                  {insurerOptions.map((i) => <option key={i} value={i}>{i}</option>)}
                 </select>
               </div>
               <div className="space-y-1.5">
@@ -321,7 +323,7 @@ export function PreviousPolicyForm({ value, onChange, newPolicyType }: Props) {
                 className="w-full px-3 py-2 rounded-md border bg-white text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/50"
               >
                 <option value="">Select TP Insurer</option>
-                {INSURER_OPTIONS.map((i) => <option key={i} value={i}>{i}</option>)}
+                {insurerOptions.map((i) => <option key={i} value={i}>{i}</option>)}
               </select>
             </div>
             <div className="space-y-1.5">

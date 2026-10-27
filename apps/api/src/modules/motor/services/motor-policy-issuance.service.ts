@@ -369,16 +369,11 @@ export class MotorPolicyIssuanceService {
         }
       }
 
-      // Gate 2: Customer KYC Gate
-      if (quote.contact || quote.account) {
-        const kycVerified =
-          Boolean(quote.contact?.panNumber) ||
-          quote.account?.kycStatus === 'VERIFIED';
-        if (!kycVerified) {
-          throw new ConflictException(
-            'Policy issuance blocked: Customer KYC is pending or unverified. Contact PAN or verified Account KYC required.',
-          );
-        }
+      // Gate 2: Customer KYC Gate (PAN details are now optional; block only if KYC is rejected)
+      if (quote.account?.kycStatus === 'REJECTED') {
+        throw new ConflictException(
+          'Policy issuance blocked: Customer KYC has been rejected.',
+        );
       }
 
       // Gate 3: Vehicle Inspection Gate

@@ -2,6 +2,7 @@
 
 import React, { useEffect, useRef } from 'react';
 import { getPolicyTenureOptions, INSURER_OPTIONS, NCB_OPTIONS, ADDON_OPTIONS } from './motorFormConfig';
+import { useInsurers } from '../../../hooks/useInsurers';
 import type { VehicleCategory, PolicyFormPackage, MotorEligibilityContext } from './motorFormTypes';
 import { useMotorCalculator } from './useMotorCalculator';
 import { GstRateSelector } from './GstRateSelector';
@@ -48,6 +49,7 @@ function FieldRow({ label, mandatory, conditional, children, hint, formula }: {
 }
 
 export function PolicyFormPackageForm({ category, vehicleStatus, data, onChange, eligibility }: Props) {
+  const { insurerOptions } = useInsurers();
   const set = (key: keyof PolicyFormPackage) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
     onChange({ ...data, [key]: e.target.value });
   const setBool = (key: keyof PolicyFormPackage) => (e: React.ChangeEvent<HTMLInputElement>) =>
@@ -893,7 +895,7 @@ export function PolicyFormPackageForm({ category, vehicleStatus, data, onChange,
           <FieldRow label="Previous Insurer Name" conditional>
             <select value={data.previousInsurerName || ''} onChange={set('previousInsurerName')} className={inputBase}>
               <option value="">— Select Previous Insurer —</option>
-              {INSURER_OPTIONS.map((i) => <option key={i} value={i}>{i}</option>)}
+              {insurerOptions.map((i) => <option key={i} value={i}>{i}</option>)}
             </select>
           </FieldRow>
           <FieldRow label="Previous Policy Number" conditional>

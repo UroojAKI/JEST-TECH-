@@ -19,6 +19,7 @@ import { AgentSelector } from '../../agents/AgentSelector';
 import { SaodTpVerificationCard } from './SaodTpVerificationCard';
 
 import { INSURER_OPTIONS, CATEGORY_LABEL, POLICY_TYPE_LABEL, VEHICLE_FIELDS } from './motorFormConfig';
+import { useInsurers } from '../../../hooks/useInsurers';
 import type {
   VehicleCategory,
   PolicyType,
@@ -199,6 +200,7 @@ function computeEligibilityContext(
 export function MotorQuoteWizard({ isOpen, leadId, contactId, customerId, caseId, initialCategory, cloneQuoteData, leadContact, onClose, onSaved }: Props) {
   const [step, setStep] = useState(1);
   const [isSaving, setIsSaving] = useState(false);
+  const { insurerOptions } = useInsurers();
 
   // Form state
   const [insurerName, setInsurerName] = useState('');
@@ -987,7 +989,7 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, customerId, caseId
               className="flex-1 max-w-sm px-3 py-1.5 rounded-md border text-sm font-medium bg-background border-border focus:outline-none focus:ring-1 focus:ring-primary shadow-sm"
             >
               <option value="">— Select Insurer —</option>
-              {INSURER_OPTIONS.map((i) => <option key={i} value={i}>{i}</option>)}
+              {insurerOptions.map((i) => <option key={i} value={i}>{i}</option>)}
             </select>
           </div>
         )}
