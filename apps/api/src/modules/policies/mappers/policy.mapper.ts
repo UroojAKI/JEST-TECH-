@@ -102,7 +102,76 @@ export class PolicyMapper {
         ? quotePremNum
         : 0;
 
+    dto.netPayable = dto.totalPremium;
+    dto.quotationCode = p.quotation?.quotationCode || null;
+
     const snap = (p.quotation?.calculationSnapshot as Record<string, any>) || {};
+    const snapSummary = snap.outputs?.summary || snap.summary || {};
+    const snapOutputs = snap.outputs || {};
+
+    const basePrem =
+      p.quotation?.basePremium !== null && p.quotation?.basePremium !== undefined
+        ? Number(p.quotation.basePremium)
+        : null;
+    dto.netPremium =
+      basePrem !== null && basePrem > 0
+        ? basePrem
+        : Number(snapSummary.netPremium || snap.netPremium || 0);
+
+    dto.odPremium = Number(
+      snapOutputs.od?.net ??
+      snapOutputs.odGrossPremium ??
+      snap.gstBreakdown?.od?.base ??
+      (p as any).motorMetadata?.odPremium ??
+      0
+    );
+
+    dto.tpPremium = Number(
+      snapOutputs.tp?.net ??
+      snapOutputs.tpGrossPremium ??
+      snap.gstBreakdown?.tp?.base ??
+      (p as any).motorMetadata?.tpPremium ??
+      0
+    );
+
+    dto.addonPremium = Number(
+      snapOutputs.addonPremium ??
+      snapOutputs.od?.addons ??
+      snap.addonPremium ??
+      0
+    );
+
+    const disc =
+      p.quotation?.discountAmount !== null && p.quotation?.discountAmount !== undefined
+        ? Number(p.quotation.discountAmount)
+        : null;
+    dto.discountAmount =
+      disc !== null && disc > 0
+        ? disc
+        : Number(snapSummary.totalDiscount || snap.totalDiscount || 0);
+
+    dto.ncbPercentage =
+      p.quotation?.ncbPercentage ??
+      snap.inputs?.effectiveNcb ??
+      0;
+
+    const gst =
+      p.quotation?.gstAmount !== null && p.quotation?.gstAmount !== undefined
+        ? Number(p.quotation.gstAmount)
+        : null;
+    dto.gstAmount =
+      gst !== null && gst > 0
+        ? gst
+        : Number(snapSummary.totalGst || snap.totalGst || 0);
+
+    if ((!dto.netPremium || dto.netPremium <= 0) && dto.totalPremium > 0) {
+      if (dto.gstAmount && dto.totalPremium > dto.gstAmount) {
+        dto.netPremium = Math.round(dto.totalPremium - dto.gstAmount);
+      } else {
+        dto.netPremium = Math.round(dto.totalPremium / 1.18);
+      }
+    }
+
     dto.idvValue = Number(snap.idv || snap.outputs?.idv || 0);
 
     dto.startDate = (p as any).startDate || p.effectiveDate;
@@ -117,12 +186,20 @@ export class PolicyMapper {
       (p.payments && p.payments.length > 0 ? 'PAID' : 'PENDING');
     const totalPayments =
       p.payments?.reduce((sum, pay) => sum + Number(pay.amount || 0), 0) || 0;
-    dto.paidAmount =
+    const quotationPayment = (p.quotation as any)?.motorPaymentRecord?.amount
+      ? Number((p.quotation as any).motorPaymentRecord.amount)
+      : 0;
+    const effectivePaid =
       totalPayments > 0
         ? totalPayments
-        : dto.paymentStatus === 'PAID'
+        : quotationPayment > 0
+        ? quotationPayment
+        : dto.paymentStatus === 'PAID' || (p as any).paymentStatus === 'SUCCESS'
         ? dto.totalPremium
         : 0;
+
+    dto.paidAmount = effectivePaid;
+    dto.receiptAmount = effectivePaid;
     dto.outstandingBalance = Math.max(0, dto.totalPremium - dto.paidAmount);
 
     const agentUser = (p as any).agent?.user;

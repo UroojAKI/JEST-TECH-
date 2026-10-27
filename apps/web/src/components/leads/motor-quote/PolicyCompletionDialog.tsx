@@ -116,11 +116,6 @@ export function PolicyCompletionDialog({ isOpen, quote, onClose, onSuccess }: Pr
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!customerPan.trim()) {
-      toast.error('Customer PAN / KYC is mandatory for statutory compliance before policy issuance.');
-      return;
-    }
-
     if (!engineNumber.trim() || !chassisNumber.trim()) {
       toast.error('Engine Number and Chassis Number are mandatory for policy issuance.');
       return;
@@ -136,7 +131,7 @@ export function PolicyCompletionDialog({ isOpen, quote, onClose, onSuccess }: Pr
       const payload = {
         actualPolicyNumber: policyNumber.trim() || undefined,
         actualPremium: Number(quote.totalPremium || 0),
-        customerPan: customerPan.trim().toUpperCase(),
+        customerPan: customerPan.trim() ? customerPan.trim().toUpperCase() : undefined,
         startDate,
         endDate,
         registrationNumber: regNumber.trim() || quote.registrationNumber,
@@ -232,11 +227,10 @@ export function PolicyCompletionDialog({ isOpen, quote, onClose, onSuccess }: Pr
               </div>
               <div>
                 <label className="block text-[10px] font-bold uppercase text-foreground mb-1">
-                  Customer PAN / KYC <span className="text-rose-500">*</span>
+                  Customer PAN / KYC <span className="text-muted-foreground font-normal">(Optional)</span>
                 </label>
                 <input
                   type="text"
-                  required
                   placeholder="e.g. ABCDE1234F"
                   value={customerPan}
                   onChange={(e) => setCustomerPan(e.target.value.toUpperCase())}

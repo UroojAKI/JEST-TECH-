@@ -51,6 +51,7 @@ export default function InsurerMasterAdminPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-insurers-master'] });
+      queryClient.invalidateQueries({ queryKey: ['partner-insurers'] });
       toast.success('Insurer master record created successfully!');
       setShowModal(false);
       setName('');
@@ -72,6 +73,7 @@ export default function InsurerMasterAdminPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-insurers-master'] });
+      queryClient.invalidateQueries({ queryKey: ['partner-insurers'] });
       toast.success('Insurer active status updated!');
     },
   });
@@ -84,6 +86,7 @@ export default function InsurerMasterAdminPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-insurers-master'] });
+      queryClient.invalidateQueries({ queryKey: ['partner-insurers'] });
       toast.success('Insurer record deleted.');
     },
   });

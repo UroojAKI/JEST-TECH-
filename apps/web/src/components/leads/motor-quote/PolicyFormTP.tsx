@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { getPolicyTenureOptions, INSURER_OPTIONS, TP_ADDON_OPTIONS } from './motorFormConfig';
+import { useInsurers } from '../../../hooks/useInsurers';
 import type { VehicleCategory, PolicyFormTPOnly, MotorEligibilityContext } from './motorFormTypes';
 
 import { useMotorCalculator } from './useMotorCalculator';
@@ -46,6 +47,7 @@ function FieldRow({ label, mandatory, conditional, children, hint, formula }: {
 }
 
 export function PolicyFormTPOnlyForm({ category, vehicleStatus, data, onChange, eligibility }: Props) {
+  const { insurerOptions } = useInsurers();
   const set = (key: keyof PolicyFormTPOnly) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
     onChange({ ...data, [key]: e.target.value });
   const setBool = (key: keyof PolicyFormTPOnly) => (e: React.ChangeEvent<HTMLInputElement>) =>
@@ -224,7 +226,7 @@ export function PolicyFormTPOnlyForm({ category, vehicleStatus, data, onChange, 
           <FieldRow label="Previous TP Insurer Name" conditional>
             <select value={data.previousTPInsurerName} onChange={set('previousTPInsurerName')} className={inputBase}>
               <option value="">— Select Insurer (Renewal) —</option>
-              {INSURER_OPTIONS.map((i) => <option key={i} value={i}>{i}</option>)}
+              {insurerOptions.map((i) => <option key={i} value={i}>{i}</option>)}
             </select>
           </FieldRow>
         )}

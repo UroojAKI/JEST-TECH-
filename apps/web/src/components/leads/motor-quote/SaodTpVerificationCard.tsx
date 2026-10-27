@@ -3,6 +3,7 @@
 import React from 'react';
 import { CheckCircle, AlertTriangle, ShieldCheck } from 'lucide-react';
 import type { SaodTpVerification, SaodVerificationMethod } from './motorFormTypes';
+import { useInsurers } from '../../../hooks/useInsurers';
 
 const INSURER_OPTIONS = [
   'TATA AIG',
@@ -29,6 +30,7 @@ export function SaodTpVerificationCard({
   onChange,
   disabled = false,
 }: SaodTpVerificationCardProps) {
+  const { insurerOptions } = useInsurers();
   const verification = value || {
     tpInsurer: '',
     tpPolicyNumber: '',
@@ -118,7 +120,7 @@ export function SaodTpVerificationCard({
             className={mandatoryInput(verification.tpInsurer || '')}
           >
             <option value="">— Select TP Insurer —</option>
-            {INSURER_OPTIONS.map((i) => (
+            {insurerOptions.map((i) => (
               <option key={i} value={i}>
                 {i}
               </option>

@@ -104,10 +104,19 @@ export class PolicyResponseDto {
   contactEmail?: string | null;
   customerName?: string | null;
   customerId?: string | null;
+  quotationCode?: string | null;
   insurerName?: string | null;
   productLine?: string | null;
   policyType?: string | null;
   totalPremium?: number;
+  netPremium?: number;
+  odPremium?: number;
+  tpPremium?: number;
+  addonPremium?: number;
+  discountAmount?: number;
+  ncbPercentage?: number;
+  gstAmount?: number;
+  netPayable?: number;
   idvValue?: number;
   startDate?: Date | null;
   endDate?: Date | null;
@@ -117,6 +126,7 @@ export class PolicyResponseDto {
   tpExpiryDate?: Date | null;
   paymentStatus?: string | null;
   paidAmount?: number;
+  receiptAmount?: number;
   outstandingBalance?: number;
   renewalExecutive?: string | null;
   claimsCount?: number;

@@ -95,12 +95,22 @@ export class QuotationController {
     return this.createMotorQuotationCommand.execute(dto, user);
   }
 
+  @Get('insurers')
+  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT)
+  @ApiOperation({ summary: 'Get active partner insurers for quotation forms' })
+  async getActiveInsurers() {
+    return this.prisma.insurer.findMany({
+      where: { isActive: true },
+      orderBy: { name: 'asc' },
+    });
+  }
+
   @SkipThrottle()
   @Post('calculate')
   @HttpCode(HttpStatus.OK)
   @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT)
-  calculate(@Body() dto: CalculateComparativeQuotesDto) {
-    return this.comparisonEngine.generateComparativeQuotes(dto);
+  async calculate(@Body() dto: CalculateComparativeQuotesDto) {
+    return this.comparisonEngine.generateComparativeQuotesAsync(dto);
   }
 
   @SkipThrottle()

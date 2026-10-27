@@ -180,7 +180,7 @@ export function UpdatePolicyDetailsDialog({ isOpen, onClose, quotationId, onSave
                 </span>
               </div>
               <div>
-                <span className="text-muted-foreground mr-1">Net Payable:</span>
+                <span className="text-muted-foreground mr-1">Net Premium:</span>
                 <span className="font-mono font-bold text-emerald-600">
                   ₹{Number(netPayable || 0).toLocaleString('en-IN')}
                 </span>
@@ -219,10 +219,9 @@ export function UpdatePolicyDetailsDialog({ isOpen, onClose, quotationId, onSave
             <div>
               <label className="block text-xs font-bold mb-1 flex items-center gap-1">
                 <UserCheck className="h-3 w-3 text-muted-foreground" />
-                <span>Customer PAN / KYC *</span>
+                <span>Customer PAN / KYC <span className="text-muted-foreground font-normal">(Optional)</span></span>
               </label>
               <input
-                required
                 type="text"
                 value={customerPan}
                 onChange={(e) => setCustomerPan(e.target.value.toUpperCase())}

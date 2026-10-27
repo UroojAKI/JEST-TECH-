@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { ShieldCheck, AlertTriangle, CheckCircle, Info, Percent } from 'lucide-react';
 import { INSURER_OPTIONS, NCB_OPTIONS, ADDON_OPTIONS } from './motorFormConfig';
+import { useInsurers } from '../../../hooks/useInsurers';
 import type { PolicyFormSAOD, SaodTpVerification, VehicleCategory, MotorEligibilityContext } from './motorFormTypes';
 import { GstRateSelector } from './GstRateSelector';
 import { useMotorCalculator } from './useMotorCalculator';
@@ -48,6 +49,7 @@ function FieldRow({ label, mandatory, conditional, children, hint, formula }: {
 
 
 export function PolicyFormSAODForm({ category, vehicleStatus, data, onChange, eligibility }: Props) {
+  const { insurerOptions } = useInsurers();
   const set = (key: keyof PolicyFormSAOD) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
     onChange({ ...data, [key]: e.target.value });
 
@@ -278,7 +280,7 @@ export function PolicyFormSAODForm({ category, vehicleStatus, data, onChange, el
         <FieldRow label="Previous OD Insurer Name" conditional>
           <select value={data.previousODInsurerName} onChange={set('previousODInsurerName')} className={inputBase}>
             <option value="">— Select Insurer (Renewal) —</option>
-            {INSURER_OPTIONS.map((i) => <option key={i} value={i}>{i}</option>)}
+            {insurerOptions.map((i) => <option key={i} value={i}>{i}</option>)}
           </select>
         </FieldRow>
         <FieldRow label="Previous OD Policy Number" conditional>
