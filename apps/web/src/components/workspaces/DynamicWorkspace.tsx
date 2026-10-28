@@ -11,7 +11,8 @@ import {
   RefreshCw, AlertTriangle, BarChart3,
   Clock, CheckCircle, Phone, Target, Activity, UserCheck,
   Plus, Copy, Car, ShieldCheck, AlertCircle, FileCheck,
-  Layers, ChevronRight, Eye, Calendar, Sparkles
+  Layers, ChevronRight, Eye, Calendar, Sparkles,
+  HeartPulse, Search, ArrowRight
 } from 'lucide-react';
 
 import { MotorQuoteWizard } from '../leads/motor-quote/MotorQuoteWizard';
@@ -21,7 +22,7 @@ import { MotorProposalWizard } from '../leads/motor-quote/MotorProposalWizard';
 import { PolicyCompletionDialog } from '../leads/motor-quote/PolicyCompletionDialog';
 import type { VehicleCategory, SavedMotorQuote } from '../leads/motor-quote/motorFormTypes';
 import { useAuthStore } from '../../store/auth-store';
-import { buildRenewalUrl } from '../../lib/renewal-url';
+import { buildRenewalUrl, buildHealthRenewalUrl } from '../../lib/renewal-url';
 
 interface DynamicWorkspaceProps {
   roleLabel: string;
@@ -89,6 +90,14 @@ export function DynamicWorkspace({ roleLabel, roleIcon, fallbackRole, customCont
   const [activeTab, setActiveTab] = useState<'OVERVIEW' | 'QUOTATIONS' | 'INSPECTIONS' | 'POLICIES' | 'RENEWALS' | 'CLAIMS'>('OVERVIEW');
   const [quoteFilter, setQuoteFilter] = useState<'ALL' | 'PENDING_INSPECTION' | 'PAYMENT_PENDING' | 'READY_TO_ISSUE' | 'ISSUED'>('ALL');
 
+  // Multi-line domain filters for Policies & Renewals on the same page
+  const [policyProductFilter, setPolicyProductFilter] = useState<'ALL' | 'MOTOR' | 'HEALTH'>('ALL');
+  const [policySearch, setPolicySearch] = useState('');
+  const [renewalProductFilter, setRenewalProductFilter] = useState<'ALL' | 'MOTOR' | 'HEALTH'>('ALL');
+  const [renewalSearch, setRenewalSearch] = useState('');
+  const [renewalUrgencyFilter, setRenewalUrgencyFilter] = useState<'ALL' | '7_DAYS' | '15_DAYS' | '30_DAYS' | 'EXPIRED'>('ALL');
+  const [overviewPolicyFilter, setOverviewPolicyFilter] = useState<'ALL' | 'MOTOR' | 'HEALTH'>('ALL');
+
   // Modals state
   const [isWizardOpen, setIsWizardOpen] = useState(false);
   const [initialCategory, setInitialCategory] = useState<VehicleCategory | null>(null);
@@ -131,16 +140,53 @@ export function DynamicWorkspace({ roleLabel, roleIcon, fallbackRole, customCont
     staleTime: 60 * 1000,
   });
 
-  // 4. Policies
+  // 4. Policies (Multi-line Motor & Health)
   const { data: policies = [] } = useQuery({
     queryKey: ['workspace-recent-policies'],
     queryFn: async () => {
-      const res = await apiClient.get('/policies', { params: { limit: 10, sortBy: 'createdAt', sortOrder: 'desc' } });
+      const res = await apiClient.get('/policies', { params: { limit: 100, sortBy: 'createdAt', sortOrder: 'desc' } });
       const items = res.data?.items || res.data?.data || (Array.isArray(res.data) ? res.data : []);
       return Array.isArray(items) ? items : [];
     },
     staleTime: 60 * 1000,
   });
+
+  // Fast policy lookup map
+  const policyMap = useMemo(() => {
+    const map = new Map<string, any>();
+    policies.forEach((p: any) => {
+      if (p.id) map.set(p.id, p);
+      if (p.policyNumber) map.set(p.policyNumber, p);
+    });
+    return map;
+  }, [policies]);
+
+  // Robust Multi-line Categorization
+  const isHealthPolicy = (p: any): boolean => {
+    if (!p) return false;
+    const policyType = String(p.policyType || '').toUpperCase();
+    const productLine = String(p.productLine || '').toUpperCase();
+    const productType = String(p.quotation?.productType || '').toUpperCase();
+    if (policyType === 'HEALTH' || productLine.includes('HEALTH') || productType === 'HEALTH') return true;
+    if (Array.isArray(p.members) && p.members.length > 0) return true;
+    if (p.healthCaseId || p.healthMetadata) return true;
+    return false;
+  };
+
+  const motorPolicies = useMemo(() => policies.filter((p: any) => !isHealthPolicy(p)), [policies]);
+  const healthPolicies = useMemo(() => policies.filter((p: any) => isHealthPolicy(p)), [policies]);
+
+  const totalMotorPremium = useMemo(() => {
+    return motorPolicies.reduce((acc, p) => acc + Number(p.premiumAmount || p.totalPremium || 0), 0);
+  }, [motorPolicies]);
+
+  const totalHealthPremium = useMemo(() => {
+    return healthPolicies.reduce((acc, p) => acc + Number(p.premiumAmount || p.totalPremium || 0), 0);
+  }, [healthPolicies]);
+
+  const totalHealthLives = useMemo(() => {
+    return healthPolicies.reduce((acc, p) => acc + (Array.isArray(p.members) && p.members.length > 0 ? p.members.length : 1), 0);
+  }, [healthPolicies]);
 
   // 5. Quotations
   const { data: quotationsData = [] } = useQuery({
@@ -154,7 +200,7 @@ export function DynamicWorkspace({ roleLabel, roleIcon, fallbackRole, customCont
   });
   const quotations: SavedMotorQuote[] = Array.isArray(quotationsData) ? quotationsData : [];
 
-  // 6. Renewals
+  // 6. Renewals (Multi-line Motor & Health Queue)
   const { data: renewalsData = [] } = useQuery({
     queryKey: ['workspace-renewals-queue'],
     queryFn: async () => {
@@ -168,6 +214,103 @@ export function DynamicWorkspace({ roleLabel, roleIcon, fallbackRole, customCont
     const list = Array.isArray(renewalsData) ? [...renewalsData] : [];
     return list.sort((a: any, b: any) => (a.daysRemaining ?? 0) - (b.daysRemaining ?? 0));
   }, [renewalsData]);
+
+  const isHealthRenewal = (r: any): boolean => {
+    if (!r) return false;
+    const productType = String(r.productType || '').toUpperCase();
+    const policyType = String(r.policyType || '').toUpperCase();
+    if (productType === 'HEALTH' || policyType === 'HEALTH') return true;
+    const matched = policyMap.get(r.id) || policyMap.get(r.policyNumber) || policyMap.get(r.policyId);
+    if (matched && isHealthPolicy(matched)) return true;
+    if (r.planCategory || r.sumInsured || r.membersCount) return true;
+    if ((!r.registrationNumber || r.registrationNumber === 'N/A') && !r.makeModel && !r.vehicleCategory) {
+      if (matched && isHealthPolicy(matched)) return true;
+    }
+    return false;
+  };
+
+  const motorRenewals = useMemo(() => renewals.filter((r: any) => !isHealthRenewal(r)), [renewals, policyMap]);
+  const healthRenewals = useMemo(() => renewals.filter((r: any) => isHealthRenewal(r)), [renewals, policyMap]);
+
+  const totalMotorRenewalPremium = useMemo(() => {
+    return motorRenewals.reduce((acc, r) => acc + Number(r.estimatedRenewalPremium || r.lastPremium || 0), 0);
+  }, [motorRenewals]);
+
+  const totalHealthRenewalPremium = useMemo(() => {
+    return healthRenewals.reduce((acc, r) => acc + Number(r.estimatedRenewalPremium || r.lastPremium || 0), 0);
+  }, [healthRenewals]);
+
+  // Search-filtered policies
+  const filteredMotorPolicies = useMemo(() => {
+    if (!policySearch.trim()) return motorPolicies;
+    const q = policySearch.toLowerCase().trim();
+    return motorPolicies.filter((p: any) =>
+      p.policyNumber?.toLowerCase().includes(q) ||
+      (p.contact?.firstName || p.contactName || '').toLowerCase().includes(q) ||
+      p.insurerName?.toLowerCase().includes(q) ||
+      p.vehicle?.registrationNumber?.toLowerCase().includes(q)
+    );
+  }, [motorPolicies, policySearch]);
+
+  const filteredHealthPolicies = useMemo(() => {
+    if (!policySearch.trim()) return healthPolicies;
+    const q = policySearch.toLowerCase().trim();
+    return healthPolicies.filter((p: any) =>
+      p.policyNumber?.toLowerCase().includes(q) ||
+      (p.contact?.firstName || p.contactName || '').toLowerCase().includes(q) ||
+      p.insurerName?.toLowerCase().includes(q) ||
+      p.productLine?.toLowerCase().includes(q) ||
+      p.quotation?.title?.toLowerCase().includes(q)
+    );
+  }, [healthPolicies, policySearch]);
+
+  // Search- & Urgency-filtered renewals
+  const filteredMotorRenewals = useMemo(() => {
+    let list = motorRenewals;
+    if (renewalUrgencyFilter !== 'ALL') {
+      list = list.filter((r: any) => {
+        const d = r.daysRemaining ?? 0;
+        if (renewalUrgencyFilter === '7_DAYS') return d >= 0 && d <= 7;
+        if (renewalUrgencyFilter === '15_DAYS') return d >= 0 && d <= 15;
+        if (renewalUrgencyFilter === '30_DAYS') return d >= 0 && d <= 30;
+        if (renewalUrgencyFilter === 'EXPIRED') return d < 0;
+        return true;
+      });
+    }
+    if (renewalSearch.trim()) {
+      const q = renewalSearch.toLowerCase().trim();
+      list = list.filter((r: any) =>
+        r.policyNumber?.toLowerCase().includes(q) ||
+        (r.customerName || r.proposerName || '').toLowerCase().includes(q) ||
+        r.registrationNumber?.toLowerCase().includes(q) ||
+        r.insurerName?.toLowerCase().includes(q)
+      );
+    }
+    return list;
+  }, [motorRenewals, renewalUrgencyFilter, renewalSearch]);
+
+  const filteredHealthRenewals = useMemo(() => {
+    let list = healthRenewals;
+    if (renewalUrgencyFilter !== 'ALL') {
+      list = list.filter((r: any) => {
+        const d = r.daysRemaining ?? 0;
+        if (renewalUrgencyFilter === '7_DAYS') return d >= 0 && d <= 7;
+        if (renewalUrgencyFilter === '15_DAYS') return d >= 0 && d <= 15;
+        if (renewalUrgencyFilter === '30_DAYS') return d >= 0 && d <= 30;
+        if (renewalUrgencyFilter === 'EXPIRED') return d < 0;
+        return true;
+      });
+    }
+    if (renewalSearch.trim()) {
+      const q = renewalSearch.toLowerCase().trim();
+      list = list.filter((r: any) =>
+        r.policyNumber?.toLowerCase().includes(q) ||
+        (r.customerName || r.proposerName || '').toLowerCase().includes(q) ||
+        r.insurerName?.toLowerCase().includes(q)
+      );
+    }
+    return list;
+  }, [healthRenewals, renewalUrgencyFilter, renewalSearch]);
 
   // 7. Claims
   const { data: claimsData = [] } = useQuery({
@@ -212,7 +355,7 @@ export function DynamicWorkspace({ roleLabel, roleIcon, fallbackRole, customCont
           <div>
             <div className="text-[10px] uppercase font-bold text-primary tracking-wider">JestPolizy Unified CRM Workspace</div>
             <h1 className="text-xl sm:text-2xl font-black text-foreground tracking-tight mt-0.5">{roleLabel}</h1>
-            <p className="text-xs text-muted-foreground mt-0.5">End-to-end motor policy lifecycle • Zero back-office dependency</p>
+            <p className="text-xs text-muted-foreground mt-0.5">End-to-end multi-line policy lifecycle (Motor & Health) • Unified Back Office Management</p>
           </div>
         </div>
 
@@ -255,8 +398,8 @@ export function DynamicWorkspace({ roleLabel, roleIcon, fallbackRole, customCont
         <KpiCard title="Total Quotes" value={quotations.length} subtitle="Active proposals" color="sky" />
         <KpiCard title="Pending Inspections" value={inspectionNeededQuotes.length} subtitle="Action required" color="amber" />
         <KpiCard title="Ready to Issue" value={readyToIssueQuotes.length} subtitle="Payment confirmed" color="emerald" />
-        <KpiCard title="Issued Policies" value={policies.length} subtitle="In-force portfolio" color="violet" />
-        <KpiCard title="Renewals" value={renewals.length} subtitle="Retention target" color="rose" />
+        <KpiCard title="Issued Policies" value={policies.length} subtitle={`${motorPolicies.length} Motor • ${healthPolicies.length} Health`} color="violet" />
+        <KpiCard title="Renewals" value={renewals.length} subtitle={`${motorRenewals.length} Motor • ${healthRenewals.length} Health`} color="rose" />
       </div>
 
       {/* Unified Pipeline Navigation Tabs */}
@@ -455,23 +598,57 @@ export function DynamicWorkspace({ roleLabel, roleIcon, fallbackRole, customCont
                     <Shield className="h-4 w-4 text-primary" />
                     <h3 className="text-sm font-black text-foreground">Recent Policies</h3>
                   </div>
-                  <span className="text-[10px] font-bold text-muted-foreground">{Array.isArray(policies) ? policies.length : 0} shown</span>
+                  <div className="flex items-center gap-1 text-[10px] font-bold">
+                    <button
+                      onClick={() => setOverviewPolicyFilter('ALL')}
+                      className={`px-1.5 py-0.5 rounded transition ${overviewPolicyFilter === 'ALL' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted'}`}
+                    >
+                      All ({policies.length})
+                    </button>
+                    <button
+                      onClick={() => setOverviewPolicyFilter('MOTOR')}
+                      className={`px-1.5 py-0.5 rounded transition ${overviewPolicyFilter === 'MOTOR' ? 'bg-blue-600 text-white' : 'text-muted-foreground hover:bg-muted'}`}
+                    >
+                      Motor ({motorPolicies.length})
+                    </button>
+                    <button
+                      onClick={() => setOverviewPolicyFilter('HEALTH')}
+                      className={`px-1.5 py-0.5 rounded transition ${overviewPolicyFilter === 'HEALTH' ? 'bg-rose-600 text-white' : 'text-muted-foreground hover:bg-muted'}`}
+                    >
+                      Health ({healthPolicies.length})
+                    </button>
+                  </div>
                 </div>
                 <div className="space-y-2">
-                  {Array.isArray(policies) && policies.length > 0 ? policies.slice(0, 5).map((policy: any) => (
-                    <div key={policy.id} className="flex items-center justify-between p-2.5 rounded-xl bg-muted/30 hover:bg-muted/50 transition-colors text-xs">
-                      <div className="min-w-0 pr-2">
-                        <div className="font-bold text-foreground font-mono truncate">{policy.policyNumber}</div>
-                        <div className="text-muted-foreground text-[10px] truncate">{policy.insurerName || 'Insurance Co.'}</div>
-                      </div>
-                      <div className="text-right shrink-0">
-                        <div className="font-bold text-primary">₹{Number(policy.premiumAmount || policy.totalPremium || 0).toLocaleString('en-IN')}</div>
-                        <div className="text-muted-foreground text-[10px] font-bold text-emerald-600">{policy.status}</div>
-                      </div>
-                    </div>
-                  )) : (
-                    <div className="text-center py-6 text-xs text-muted-foreground">No recent policies</div>
-                  )}
+                  {(() => {
+                    const list = overviewPolicyFilter === 'MOTOR' ? motorPolicies : overviewPolicyFilter === 'HEALTH' ? healthPolicies : policies;
+                    return Array.isArray(list) && list.length > 0 ? list.slice(0, 5).map((policy: any) => {
+                      const isHealth = isHealthPolicy(policy);
+                      return (
+                        <div key={policy.id} className="flex items-center justify-between p-2.5 rounded-xl bg-muted/30 hover:bg-muted/50 transition-colors text-xs">
+                          <div className="min-w-0 pr-2">
+                            <div className="flex items-center gap-1.5">
+                              <span className={`px-1.5 py-0.2 rounded text-[9px] font-bold uppercase shrink-0 ${
+                                isHealth ? 'bg-rose-500/10 text-rose-600 border border-rose-500/20' : 'bg-blue-500/10 text-blue-600 border border-blue-500/20'
+                              }`}>
+                                {isHealth ? 'Health' : 'Motor'}
+                              </span>
+                              <span className="font-bold text-foreground font-mono truncate">{policy.policyNumber}</span>
+                            </div>
+                            <div className="text-muted-foreground text-[10px] truncate mt-0.5">
+                              {isHealth ? (policy.quotation?.title || policy.productLine || 'Comprehensive Health') : (policy.vehicle?.registrationNumber || policy.registrationNumber || policy.insurerName || 'Motor Vehicle')}
+                            </div>
+                          </div>
+                          <div className="text-right shrink-0">
+                            <div className="font-bold text-primary">₹{Number(policy.premiumAmount || policy.totalPremium || 0).toLocaleString('en-IN')}</div>
+                            <div className="text-muted-foreground text-[10px] font-bold text-emerald-600">{policy.status || 'ACTIVE'}</div>
+                          </div>
+                        </div>
+                      );
+                    }) : (
+                      <div className="text-center py-6 text-xs text-muted-foreground">No recent policies</div>
+                    );
+                  })()}
                 </div>
               </div>
               <div className="pt-3 border-t mt-3 flex items-center justify-between text-[11px] text-muted-foreground">
@@ -578,128 +755,669 @@ export function DynamicWorkspace({ roleLabel, roleIcon, fallbackRole, customCont
         </div>
       )}
 
-      {/* TAB 4: ISSUED POLICIES TABLE */}
+      {/* TAB 4: ISSUED POLICIES PORTFOLIO (MOTOR & HEALTH SEPARATE ON SAME PAGE) */}
       {activeTab === 'POLICIES' && (
-        <div className="space-y-4">
-          <div className="p-4 rounded-2xl border bg-card flex items-center justify-between">
+        <div className="space-y-6">
+          {/* Top Header & Multi-line Segmented Controls */}
+          <div className="flex flex-wrap items-center justify-between gap-4 p-5 rounded-2xl border bg-card">
             <div>
-              <h3 className="text-sm font-black text-foreground">Issued Policies Portfolio</h3>
-              <p className="text-xs text-muted-foreground mt-0.5">Authoritative active policies issued across all channels</p>
+              <h3 className="text-base font-black text-foreground flex items-center gap-2">
+                <Shield className="h-5 w-5 text-primary" />
+                Issued Policies Portfolio
+              </h3>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Authoritative active policies issued across Motor and Health lines • IRDAI regulatory register
+              </p>
             </div>
-            <span className="text-xs font-bold text-emerald-600 bg-emerald-500/10 px-3 py-1 rounded-lg border border-emerald-500/20">
-              {policies.length} Policies Active
-            </span>
+
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold text-blue-600 bg-blue-500/10 px-3 py-1 rounded-lg border border-blue-500/20">
+                🚗 {motorPolicies.length} Motor Active
+              </span>
+              <span className="text-xs font-bold text-rose-600 bg-rose-500/10 px-3 py-1 rounded-lg border border-rose-500/20">
+                ❤️ {healthPolicies.length} Health Active
+              </span>
+            </div>
           </div>
 
-          <div className="rounded-2xl border bg-card overflow-hidden shadow-xs">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
-                <thead className="bg-muted/40 text-[10px] font-bold uppercase text-muted-foreground border-b">
-                  <tr>
-                    <th className="p-3.5">Policy Number</th>
-                    <th className="p-3.5">Insured Proposer</th>
-                    <th className="p-3.5">Insurer</th>
-                    <th className="p-3.5">Effective Dates</th>
-                    <th className="p-3.5 text-right">Premium</th>
-                    <th className="p-3.5 text-center">Status</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border/50">
-                  {policies.length > 0 ? policies.map((p: any) => (
-                    <tr key={p.id} className="hover:bg-muted/20 transition-colors">
-                      <td className="p-3.5 font-mono font-bold text-foreground">{p.policyNumber}</td>
-                      <td className="p-3.5 font-semibold text-foreground">{p.contact?.firstName || p.contactName || 'Insured'}</td>
-                      <td className="p-3.5 text-muted-foreground">{p.insurerName || 'Insurance Co.'}</td>
-                      <td className="p-3.5 text-muted-foreground font-mono text-[11px]">
-                        {p.effectiveDate ? new Date(p.effectiveDate).toLocaleDateString('en-IN') : 'Today'} - {p.expiryDate ? new Date(p.expiryDate).toLocaleDateString('en-IN') : '+1 Year'}
-                      </td>
-                      <td className="p-3.5 text-right font-bold text-primary">₹{Number(p.premiumAmount || p.totalPremium || 0).toLocaleString('en-IN')}</td>
-                      <td className="p-3.5 text-center">
-                        <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 uppercase">
-                          {p.status || 'ACTIVE'}
-                        </span>
-                      </td>
-                    </tr>
-                  )) : (
-                    <tr>
-                      <td colSpan={6} className="text-center py-10 text-muted-foreground text-xs">
-                        No issued policies found. Complete quotation proposals to issue policies.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
+          {/* Product Line Filter Bar & Search */}
+          <div className="flex flex-wrap items-center justify-between gap-3 p-3.5 rounded-2xl border bg-card/60">
+            <div className="flex items-center gap-1.5 overflow-x-auto text-xs font-bold">
+              <button
+                onClick={() => setPolicyProductFilter('ALL')}
+                className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl transition-all ${
+                  policyProductFilter === 'ALL'
+                    ? 'bg-primary text-primary-foreground font-black shadow-xs'
+                    : 'bg-muted/40 hover:bg-muted text-muted-foreground'
+                }`}
+              >
+                <Layers className="h-3.5 w-3.5" />
+                <span>All Policies ({policies.length})</span>
+              </button>
+              <button
+                onClick={() => setPolicyProductFilter('MOTOR')}
+                className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl transition-all ${
+                  policyProductFilter === 'MOTOR'
+                    ? 'bg-blue-600 text-white font-black shadow-xs'
+                    : 'bg-muted/40 hover:bg-muted text-muted-foreground'
+                }`}
+              >
+                <Car className="h-3.5 w-3.5" />
+                <span>Motor Policies ({motorPolicies.length})</span>
+              </button>
+              <button
+                onClick={() => setPolicyProductFilter('HEALTH')}
+                className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl transition-all ${
+                  policyProductFilter === 'HEALTH'
+                    ? 'bg-rose-600 text-white font-black shadow-xs'
+                    : 'bg-muted/40 hover:bg-muted text-muted-foreground'
+                }`}
+              >
+                <HeartPulse className="h-3.5 w-3.5" />
+                <span>Health Policies ({healthPolicies.length})</span>
+              </button>
+            </div>
+
+            <div className="relative">
+              <Search className="h-3.5 w-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+              <input
+                type="text"
+                value={policySearch}
+                onChange={(e) => setPolicySearch(e.target.value)}
+                placeholder="Search policy #, proposer, reg..."
+                className="pl-8 pr-3 py-1.5 text-xs bg-muted/40 border rounded-xl focus:outline-hidden focus:ring-1 focus:ring-primary w-60"
+              />
             </div>
           </div>
+
+          {/* Portfolio Metric Overview Strips */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Motor Metrics Card */}
+            <div className="p-4 rounded-2xl border bg-gradient-to-br from-blue-500/5 via-card to-card flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-xl bg-blue-500/10 text-blue-600 border border-blue-500/20">
+                  <Car className="h-5 w-5" />
+                </div>
+                <div>
+                  <div className="text-[10px] uppercase font-bold text-muted-foreground">Motor Insurance Book</div>
+                  <div className="text-lg font-black text-foreground mt-0.5">{motorPolicies.length} Active Policies</div>
+                  <div className="text-xs text-muted-foreground font-medium">GWP: ₹{totalMotorPremium.toLocaleString('en-IN')} • Comprehensive, SAOD, TP</div>
+                </div>
+              </div>
+              <button
+                onClick={() => setPolicyProductFilter('MOTOR')}
+                className={`text-xs font-bold px-3 py-1.5 rounded-lg border transition ${
+                  policyProductFilter === 'MOTOR' ? 'bg-blue-600 text-white border-blue-600' : 'bg-card hover:bg-muted text-muted-foreground'
+                }`}
+              >
+                {policyProductFilter === 'MOTOR' ? 'Viewing' : 'Focus Motor'}
+              </button>
+            </div>
+
+            {/* Health Metrics Card */}
+            <div className="p-4 rounded-2xl border bg-gradient-to-br from-rose-500/5 via-card to-card flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-xl bg-rose-500/10 text-rose-600 border border-rose-500/20">
+                  <HeartPulse className="h-5 w-5" />
+                </div>
+                <div>
+                  <div className="text-[10px] uppercase font-bold text-muted-foreground">Health Insurance Book</div>
+                  <div className="text-lg font-black text-foreground mt-0.5">{healthPolicies.length} Active Policies</div>
+                  <div className="text-xs text-muted-foreground font-medium">GWP: ₹{totalHealthPremium.toLocaleString('en-IN')} • {totalHealthLives} Lives Covered</div>
+                </div>
+              </div>
+              <button
+                onClick={() => setPolicyProductFilter('HEALTH')}
+                className={`text-xs font-bold px-3 py-1.5 rounded-lg border transition ${
+                  policyProductFilter === 'HEALTH' ? 'bg-rose-600 text-white border-rose-600' : 'bg-card hover:bg-muted text-muted-foreground'
+                }`}
+              >
+                {policyProductFilter === 'HEALTH' ? 'Viewing' : 'Focus Health'}
+              </button>
+            </div>
+          </div>
+
+          {/* SECTION A: MOTOR POLICIES TABLE */}
+          {(policyProductFilter === 'MOTOR' || policyProductFilter === 'ALL') && (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between px-1">
+                <div className="flex items-center gap-2">
+                  <span className="p-1.5 rounded-lg bg-blue-500/10 text-blue-600">
+                    <Car className="h-4 w-4" />
+                  </span>
+                  <div>
+                    <h4 className="text-sm font-black text-foreground">Motor Insurance Portfolio</h4>
+                    <p className="text-[11px] text-muted-foreground">Vehicle registration plates, make & model, and motor policy types</p>
+                  </div>
+                </div>
+                <span className="text-[11px] font-bold text-muted-foreground">{filteredMotorPolicies.length} Motor Policies</span>
+              </div>
+
+              <div className="rounded-2xl border bg-card overflow-hidden shadow-xs">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-muted/40 text-[10px] font-bold uppercase text-muted-foreground border-b">
+                      <tr>
+                        <th className="p-3.5">Policy Number</th>
+                        <th className="p-3.5">Insured Proposer</th>
+                        <th className="p-3.5">Vehicle / Reg #</th>
+                        <th className="p-3.5">Insurer</th>
+                        <th className="p-3.5">Effective Dates</th>
+                        <th className="p-3.5 text-right">Premium</th>
+                        <th className="p-3.5 text-center">Status</th>
+                        <th className="p-3.5 text-right">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border/50">
+                      {filteredMotorPolicies.length > 0 ? filteredMotorPolicies.map((p: any) => (
+                        <tr key={p.id} className="hover:bg-muted/20 transition-colors">
+                          <td className="p-3.5">
+                            <Link href={`/policies/${p.id}`} className="font-mono font-bold text-primary hover:underline block">
+                              {p.policyNumber}
+                            </Link>
+                            <span className="inline-block mt-0.5 px-1.5 py-0.2 rounded text-[9px] font-bold bg-blue-500/10 text-blue-600 border border-blue-500/20">
+                              {p.policyType || 'MOTOR'}
+                            </span>
+                          </td>
+                          <td className="p-3.5">
+                            <div className="font-semibold text-foreground">{p.contact?.firstName || p.contactName || 'Insured Customer'}</div>
+                            <div className="text-[10px] text-muted-foreground font-mono">{p.contactPhone || p.contact?.phone || 'Direct'}</div>
+                          </td>
+                          <td className="p-3.5">
+                            <div className="font-mono font-bold text-foreground uppercase">{p.vehicle?.registrationNumber || p.registrationNumber || 'NEW VEHICLE'}</div>
+                            <div className="text-[10px] text-muted-foreground">{p.vehicle?.makeModel || p.vehicleCategory || 'Motor Vehicle'}</div>
+                          </td>
+                          <td className="p-3.5 text-muted-foreground">{p.insurerName || 'Insurance Co.'}</td>
+                          <td className="p-3.5 text-muted-foreground font-mono text-[11px]">
+                            {p.effectiveDate ? new Date(p.effectiveDate).toLocaleDateString('en-IN') : 'Today'} - {p.expiryDate ? new Date(p.expiryDate).toLocaleDateString('en-IN') : '+1 Year'}
+                          </td>
+                          <td className="p-3.5 text-right font-bold text-primary">₹{Number(p.premiumAmount || p.totalPremium || 0).toLocaleString('en-IN')}</td>
+                          <td className="p-3.5 text-center">
+                            <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 uppercase">
+                              {p.status || 'ACTIVE'}
+                            </span>
+                          </td>
+                          <td className="p-3.5 text-right">
+                            <Link
+                              href={`/policies/${p.id}`}
+                              className="px-2.5 py-1 rounded-lg border bg-card hover:bg-muted text-xs font-semibold text-foreground transition inline-block"
+                            >
+                              View Policy
+                            </Link>
+                          </td>
+                        </tr>
+                      )) : (
+                        <tr>
+                          <td colSpan={8} className="text-center py-8 text-muted-foreground text-xs">
+                            No motor policies found matching filter.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* SECTION B: HEALTH POLICIES TABLE */}
+          {(policyProductFilter === 'HEALTH' || policyProductFilter === 'ALL') && (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between px-1">
+                <div className="flex items-center gap-2">
+                  <span className="p-1.5 rounded-lg bg-rose-500/10 text-rose-600">
+                    <HeartPulse className="h-4 w-4" />
+                  </span>
+                  <div>
+                    <h4 className="text-sm font-black text-foreground">Health Insurance Portfolio</h4>
+                    <p className="text-[11px] text-muted-foreground">Covered family members, sum insured, and health plan categories</p>
+                  </div>
+                </div>
+                <span className="text-[11px] font-bold text-muted-foreground">{filteredHealthPolicies.length} Health Policies</span>
+              </div>
+
+              <div className="rounded-2xl border bg-card overflow-hidden shadow-xs">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-muted/40 text-[10px] font-bold uppercase text-muted-foreground border-b">
+                      <tr>
+                        <th className="p-3.5">Policy Number</th>
+                        <th className="p-3.5">Insured Proposer</th>
+                        <th className="p-3.5">Covered Members / Lives</th>
+                        <th className="p-3.5">Plan Category & Sum Insured</th>
+                        <th className="p-3.5">Insurer</th>
+                        <th className="p-3.5">Effective Dates</th>
+                        <th className="p-3.5 text-right">Premium</th>
+                        <th className="p-3.5 text-center">Status</th>
+                        <th className="p-3.5 text-right">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border/50">
+                      {filteredHealthPolicies.length > 0 ? filteredHealthPolicies.map((p: any) => {
+                        const membersCount = Array.isArray(p.members) && p.members.length > 0 ? p.members.length : 1;
+                        const sumInsured = p.idvValue || p.quotation?.sumInsured || 500000;
+                        return (
+                          <tr key={p.id} className="hover:bg-muted/20 transition-colors">
+                            <td className="p-3.5">
+                              <Link href={`/policies/${p.id}`} className="font-mono font-bold text-rose-600 hover:underline block">
+                                {p.policyNumber}
+                              </Link>
+                              <span className="inline-block mt-0.5 px-1.5 py-0.2 rounded text-[9px] font-bold bg-rose-500/10 text-rose-600 border border-rose-500/20">
+                                HEALTH
+                              </span>
+                            </td>
+                            <td className="p-3.5">
+                              <div className="font-semibold text-foreground">{p.contact?.firstName || p.contactName || 'Insured Customer'}</div>
+                              <div className="text-[10px] text-muted-foreground font-mono">{p.contactPhone || p.contact?.phone || 'Direct'}</div>
+                            </td>
+                            <td className="p-3.5">
+                              <div className="flex items-center gap-1.5">
+                                <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-rose-500/10 text-rose-600 border border-rose-500/20">
+                                  {membersCount} {membersCount === 1 ? 'Live' : 'Lives'} Covered
+                                </span>
+                              </div>
+                              {Array.isArray(p.members) && p.members.length > 0 && (
+                                <div className="text-[10px] text-muted-foreground mt-0.5 truncate max-w-xs">
+                                  {p.members.map((m: any) => m.relation || m.firstName).join(', ')}
+                                </div>
+                              )}
+                            </td>
+                            <td className="p-3.5">
+                              <div className="font-bold text-foreground truncate max-w-xs">{p.quotation?.title || p.productLine || 'Comprehensive Health Plan'}</div>
+                              <div className="text-[10px] text-muted-foreground font-mono font-bold text-emerald-600">
+                                SI: ₹{Number(sumInsured).toLocaleString('en-IN')}
+                              </div>
+                            </td>
+                            <td className="p-3.5 text-muted-foreground">{p.insurerName || 'Insurance Co.'}</td>
+                            <td className="p-3.5 text-muted-foreground font-mono text-[11px]">
+                              {p.effectiveDate ? new Date(p.effectiveDate).toLocaleDateString('en-IN') : 'Today'} - {p.expiryDate ? new Date(p.expiryDate).toLocaleDateString('en-IN') : '+1 Year'}
+                            </td>
+                            <td className="p-3.5 text-right font-bold text-primary">₹{Number(p.premiumAmount || p.totalPremium || 0).toLocaleString('en-IN')}</td>
+                            <td className="p-3.5 text-center">
+                              <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 uppercase">
+                                {p.status || 'ACTIVE'}
+                              </span>
+                            </td>
+                            <td className="p-3.5 text-right">
+                              <Link
+                                href={`/policies/${p.id}`}
+                                className="px-2.5 py-1 rounded-lg border bg-card hover:bg-muted text-xs font-semibold text-foreground transition inline-block"
+                              >
+                                View Policy
+                              </Link>
+                            </td>
+                          </tr>
+                        );
+                      }) : (
+                        <tr>
+                          <td colSpan={9} className="text-center py-8 text-muted-foreground text-xs">
+                            No health policies found matching filter. Complete a health quotation to issue policy.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
-      {/* TAB 5: RENEWALS HUB */}
+      {/* TAB 5: RENEWALS & RETENTION HUB (MOTOR & HEALTH SEPARATE ON SAME PAGE) */}
       {activeTab === 'RENEWALS' && (
-        <div className="space-y-4">
-          <div className="p-4 rounded-2xl border bg-card flex items-center justify-between">
+        <div className="space-y-6">
+          {/* Header */}
+          <div className="flex flex-wrap items-center justify-between gap-4 p-5 rounded-2xl border bg-card">
             <div>
-              <h3 className="text-sm font-black text-foreground">Renewals & Retention Hub</h3>
-              <p className="text-xs text-muted-foreground mt-0.5">Policies due for expiry within 30 days • Scheduled retention campaigns</p>
+              <h3 className="text-base font-black text-foreground flex items-center gap-2">
+                <Calendar className="h-5 w-5 text-rose-500" />
+                Renewals & Retention Hub
+              </h3>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Automated expiry tracking, NCB roll-over calculation, health portability, and retention campaigns
+              </p>
             </div>
-            <span className="text-xs font-bold text-rose-600 bg-rose-500/10 px-3 py-1 rounded-lg border border-rose-500/20">
-              {renewals.length} Renewals Due
-            </span>
+
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold text-blue-600 bg-blue-500/10 px-3 py-1 rounded-lg border border-blue-500/20">
+                🚗 {motorRenewals.length} Motor Due
+              </span>
+              <span className="text-xs font-bold text-rose-600 bg-rose-500/10 px-3 py-1 rounded-lg border border-rose-500/20">
+                ❤️ {healthRenewals.length} Health Due
+              </span>
+            </div>
           </div>
 
-          <div className="rounded-2xl border bg-card overflow-hidden shadow-xs">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
-                <thead className="bg-muted/40 text-[10px] font-bold uppercase text-muted-foreground border-b">
-                  <tr>
-                    <th className="p-3.5">Policy Number</th>
-                    <th className="p-3.5">Customer / Contact</th>
-                    <th className="p-3.5">Expiry Date</th>
-                    <th className="p-3.5">Urgency</th>
-                    <th className="p-3.5 text-right">Renewal Premium</th>
-                    <th className="p-3.5 text-center">Action</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border/50">
-                  {renewals.length > 0 ? renewals.map((r: any) => (
-                    <tr key={r.id || r.policyId} className="hover:bg-muted/20 transition-colors">
-                      <td className="p-3.5 font-mono font-bold text-foreground">{r.policyNumber}</td>
-                      <td className="p-3.5 font-semibold text-foreground">{r.customerName || r.proposerName || 'Customer'}</td>
-                      <td className="p-3.5 font-mono text-[11px] text-muted-foreground">{r.expiryDate ? new Date(r.expiryDate).toLocaleDateString('en-IN') : 'Soon'}</td>
-                      <td className="p-3.5">
-                        <span
-                          className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${
-                            (r.daysRemaining ?? 0) <= 7
-                              ? 'bg-rose-500/10 text-rose-600 border border-rose-500/20'
-                              : (r.daysRemaining ?? 0) <= 30
-                                ? 'bg-amber-500/10 text-amber-600 border border-amber-500/20'
-                                : 'bg-emerald-500/10 text-emerald-600 border border-emerald-500/20'
-                          }`}
-                        >
-                          {(r.daysRemaining ?? 0) < 0 ? 'EXPIRED' : `${r.daysRemaining ?? 0} days left`}
-                        </span>
-                      </td>
-                      <td className="p-3.5 text-right font-bold text-primary">₹{Number(r.estimatedRenewalPremium || r.lastPremium || r.premiumAmount || 0).toLocaleString('en-IN')}</td>
-                      <td className="p-3.5 text-center">
-                        <Link
-                          href={buildRenewalUrl(r.id)}
-                          className="px-3 py-1 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary font-bold text-xs transition-colors inline-block"
-                        >
-                          Generate Renewal Quote
-                        </Link>
-                      </td>
-                    </tr>
-                  )) : (
-                    <tr>
-                      <td colSpan={6} className="text-center py-10 text-muted-foreground text-xs">
-                        No renewal policies found.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
+          {/* Product Line Filter Bar, Urgency, & Search */}
+          <div className="space-y-3 p-4 rounded-2xl border bg-card/60">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              {/* Product Line Segmented Pills */}
+              <div className="flex items-center gap-1.5 overflow-x-auto text-xs font-bold">
+                <button
+                  onClick={() => setRenewalProductFilter('ALL')}
+                  className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl transition-all ${
+                    renewalProductFilter === 'ALL'
+                      ? 'bg-primary text-primary-foreground font-black shadow-xs'
+                      : 'bg-muted/40 hover:bg-muted text-muted-foreground'
+                  }`}
+                >
+                  <Layers className="h-3.5 w-3.5" />
+                  <span>All Renewals ({renewals.length})</span>
+                </button>
+                <button
+                  onClick={() => setRenewalProductFilter('MOTOR')}
+                  className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl transition-all ${
+                    renewalProductFilter === 'MOTOR'
+                      ? 'bg-blue-600 text-white font-black shadow-xs'
+                      : 'bg-muted/40 hover:bg-muted text-muted-foreground'
+                  }`}
+                >
+                  <Car className="h-3.5 w-3.5" />
+                  <span>Motor Renewals ({motorRenewals.length})</span>
+                </button>
+                <button
+                  onClick={() => setRenewalProductFilter('HEALTH')}
+                  className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl transition-all ${
+                    renewalProductFilter === 'HEALTH'
+                      ? 'bg-rose-600 text-white font-black shadow-xs'
+                      : 'bg-muted/40 hover:bg-muted text-muted-foreground'
+                  }`}
+                >
+                  <HeartPulse className="h-3.5 w-3.5" />
+                  <span>Health Renewals ({healthRenewals.length})</span>
+                </button>
+              </div>
+
+              {/* Search */}
+              <div className="relative">
+                <Search className="h-3.5 w-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                <input
+                  type="text"
+                  value={renewalSearch}
+                  onChange={(e) => setRenewalSearch(e.target.value)}
+                  placeholder="Search renewals..."
+                  className="pl-8 pr-3 py-1.5 text-xs bg-muted/40 border rounded-xl focus:outline-hidden focus:ring-1 focus:ring-primary w-60"
+                />
+              </div>
+            </div>
+
+            {/* Urgency Filter Row */}
+            <div className="flex items-center gap-2 overflow-x-auto text-[11px] font-bold pt-1 border-t border-border/50">
+              <span className="text-muted-foreground shrink-0">Expiry SLA:</span>
+              {[
+                { id: 'ALL', label: 'All Urgencies' },
+                { id: '7_DAYS', label: 'Critical (≤ 7 Days)' },
+                { id: '15_DAYS', label: 'High (≤ 15 Days)' },
+                { id: '30_DAYS', label: 'Medium (≤ 30 Days)' },
+                { id: 'EXPIRED', label: 'Overdue / Expired' },
+              ].map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => setRenewalUrgencyFilter(tab.id as any)}
+                  className={`px-2.5 py-1 rounded-lg transition whitespace-nowrap ${
+                    renewalUrgencyFilter === tab.id
+                      ? 'bg-primary/10 text-primary border border-primary/20 font-black'
+                      : 'text-muted-foreground hover:text-foreground hover:bg-muted/40'
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
             </div>
           </div>
+
+          {/* Retention Target Overview Strips */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Motor Retention Card */}
+            <div className="p-4 rounded-2xl border bg-gradient-to-br from-blue-500/5 via-card to-card flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-xl bg-blue-500/10 text-blue-600 border border-blue-500/20">
+                  <Car className="h-5 w-5" />
+                </div>
+                <div>
+                  <div className="text-[10px] uppercase font-bold text-muted-foreground">Motor Retention Desk</div>
+                  <div className="text-lg font-black text-foreground mt-0.5">{motorRenewals.length} Expiring Motor Policies</div>
+                  <div className="text-xs text-muted-foreground font-medium">
+                    Est. GWP: ₹{totalMotorRenewalPremium.toLocaleString('en-IN')} • NCB Roll-over Pipeline
+                  </div>
+                </div>
+              </div>
+              <button
+                onClick={() => setRenewalProductFilter('MOTOR')}
+                className={`text-xs font-bold px-3 py-1.5 rounded-lg border transition ${
+                  renewalProductFilter === 'MOTOR' ? 'bg-blue-600 text-white border-blue-600' : 'bg-card hover:bg-muted text-muted-foreground'
+                }`}
+              >
+                {renewalProductFilter === 'MOTOR' ? 'Viewing' : 'Focus Motor'}
+              </button>
+            </div>
+
+            {/* Health Retention Card */}
+            <div className="p-4 rounded-2xl border bg-gradient-to-br from-rose-500/5 via-card to-card flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-xl bg-rose-500/10 text-rose-600 border border-rose-500/20">
+                  <HeartPulse className="h-5 w-5" />
+                </div>
+                <div>
+                  <div className="text-[10px] uppercase font-bold text-muted-foreground">Health Retention & Portability</div>
+                  <div className="text-lg font-black text-foreground mt-0.5">{healthRenewals.length} Expiring Health Policies</div>
+                  <div className="text-xs text-muted-foreground font-medium">
+                    Est. GWP: ₹{totalHealthRenewalPremium.toLocaleString('en-IN')} • Waiting Period & Continuity Protection
+                  </div>
+                </div>
+              </div>
+              <button
+                onClick={() => setRenewalProductFilter('HEALTH')}
+                className={`text-xs font-bold px-3 py-1.5 rounded-lg border transition ${
+                  renewalProductFilter === 'HEALTH' ? 'bg-rose-600 text-white border-rose-600' : 'bg-card hover:bg-muted text-muted-foreground'
+                }`}
+              >
+                {renewalProductFilter === 'HEALTH' ? 'Viewing' : 'Focus Health'}
+              </button>
+            </div>
+          </div>
+
+          {/* SECTION A: MOTOR RENEWALS TABLE */}
+          {(renewalProductFilter === 'MOTOR' || renewalProductFilter === 'ALL') && (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between px-1">
+                <div className="flex items-center gap-2">
+                  <span className="p-1.5 rounded-lg bg-blue-500/10 text-blue-600">
+                    <Car className="h-4 w-4" />
+                  </span>
+                  <div>
+                    <h4 className="text-sm font-black text-foreground">Motor Policy Renewals Queue</h4>
+                    <p className="text-[11px] text-muted-foreground">Expiring motor policies with NCB roll-over progression and vehicle registration plates</p>
+                  </div>
+                </div>
+                <span className="text-[11px] font-bold text-muted-foreground">{filteredMotorRenewals.length} Motor Renewals</span>
+              </div>
+
+              <div className="rounded-2xl border bg-card overflow-hidden shadow-xs">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-muted/40 text-[10px] font-bold uppercase text-muted-foreground border-b">
+                      <tr>
+                        <th className="p-3.5">Policy Number</th>
+                        <th className="p-3.5">Customer & Vehicle</th>
+                        <th className="p-3.5">Expiry Date & SLA</th>
+                        <th className="p-3.5">NCB Roll-over</th>
+                        <th className="p-3.5 text-right">Renewal Premium</th>
+                        <th className="p-3.5 text-center">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border/50">
+                      {filteredMotorRenewals.length > 0 ? filteredMotorRenewals.map((r: any) => (
+                        <tr key={r.id || r.policyId} className="hover:bg-muted/20 transition-colors">
+                          <td className="p-3.5">
+                            <div className="font-mono font-bold text-primary">{r.policyNumber}</div>
+                            <div className="text-[10px] text-muted-foreground">{r.insurerName || 'Insurance Co.'}</div>
+                          </td>
+                          <td className="p-3.5">
+                            <div className="font-bold text-foreground">{r.customerName || r.proposerName || 'Customer'}</div>
+                            <div className="text-[10px] text-muted-foreground flex items-center gap-2">
+                              <span>{r.customerPhone || 'Direct'}</span>
+                              <span>•</span>
+                              <span className="font-mono uppercase font-bold text-foreground/80">{r.registrationNumber || 'VEHICLE'}</span>
+                            </div>
+                          </td>
+                          <td className="p-3.5">
+                            <div className="font-mono text-[11px] font-bold text-foreground">
+                              {r.expiryDate ? new Date(r.expiryDate).toLocaleDateString('en-IN') : 'Soon'}
+                            </div>
+                            <span
+                              className={`inline-block mt-0.5 px-2 py-0.5 rounded-md text-[10px] font-bold ${
+                                (r.daysRemaining ?? 0) <= 7
+                                  ? 'bg-rose-500/10 text-rose-600 border border-rose-500/20'
+                                  : (r.daysRemaining ?? 0) <= 30
+                                    ? 'bg-amber-500/10 text-amber-600 border border-amber-500/20'
+                                    : 'bg-emerald-500/10 text-emerald-600 border border-emerald-500/20'
+                              }`}
+                            >
+                              {(r.daysRemaining ?? 0) < 0 ? 'EXPIRED' : `${r.daysRemaining ?? 0} days left`}
+                            </span>
+                          </td>
+                          <td className="p-3.5">
+                            <div className="font-semibold text-foreground">
+                              {r.currentNcb || 20}% → <strong>{r.nextNcb || 25}%</strong>
+                            </div>
+                            <div className="text-[10px] text-emerald-600">No-claim discount bonus</div>
+                          </td>
+                          <td className="p-3.5 text-right font-bold text-primary">
+                            ₹{Number(r.estimatedRenewalPremium || r.lastPremium || r.premiumAmount || 0).toLocaleString('en-IN')}
+                          </td>
+                          <td className="p-3.5 text-center">
+                            <Link
+                              href={buildRenewalUrl(r.id)}
+                              className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs transition-colors inline-block whitespace-nowrap shadow-xs"
+                            >
+                              Generate Motor Renewal
+                            </Link>
+                          </td>
+                        </tr>
+                      )) : (
+                        <tr>
+                          <td colSpan={6} className="text-center py-8 text-muted-foreground text-xs">
+                            No motor renewals found matching criteria.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* SECTION B: HEALTH RENEWALS TABLE */}
+          {(renewalProductFilter === 'HEALTH' || renewalProductFilter === 'ALL') && (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between px-1">
+                <div className="flex items-center gap-2">
+                  <span className="p-1.5 rounded-lg bg-rose-500/10 text-rose-600">
+                    <HeartPulse className="h-4 w-4" />
+                  </span>
+                  <div>
+                    <h4 className="text-sm font-black text-foreground">Health Policy Renewals & Portability Queue</h4>
+                    <p className="text-[11px] text-muted-foreground">Expiring health policies with covered lives, sum insured continuity, and cumulative bonus</p>
+                  </div>
+                </div>
+                <span className="text-[11px] font-bold text-muted-foreground">{filteredHealthRenewals.length} Health Renewals</span>
+              </div>
+
+              <div className="rounded-2xl border bg-card overflow-hidden shadow-xs">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-muted/40 text-[10px] font-bold uppercase text-muted-foreground border-b">
+                      <tr>
+                        <th className="p-3.5">Policy Number</th>
+                        <th className="p-3.5">Proposer & Family</th>
+                        <th className="p-3.5">Plan Category & Sum Insured</th>
+                        <th className="p-3.5">Expiry Date & SLA</th>
+                        <th className="p-3.5">Continuity / Bonus</th>
+                        <th className="p-3.5 text-right">Renewal Premium</th>
+                        <th className="p-3.5 text-center">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border/50">
+                      {filteredHealthRenewals.length > 0 ? filteredHealthRenewals.map((r: any) => {
+                        const matchedPolicy = policyMap.get(r.id) || policyMap.get(r.policyNumber);
+                        const membersCount = matchedPolicy?.members?.length || 1;
+                        const sumInsured = matchedPolicy?.idvValue || matchedPolicy?.quotation?.sumInsured || 500000;
+                        return (
+                          <tr key={r.id || r.policyId} className="hover:bg-muted/20 transition-colors">
+                            <td className="p-3.5">
+                              <div className="font-mono font-bold text-rose-600">{r.policyNumber}</div>
+                              <div className="text-[10px] text-muted-foreground">{r.insurerName || matchedPolicy?.insurerName || 'Insurance Co.'}</div>
+                            </td>
+                            <td className="p-3.5">
+                              <div className="font-bold text-foreground">{r.customerName || r.proposerName || matchedPolicy?.contactName || 'Insured Customer'}</div>
+                              <div className="text-[10px] text-rose-600 font-semibold flex items-center gap-1.5 mt-0.5">
+                                <span className="px-1.5 py-0.2 rounded bg-rose-500/10 border border-rose-500/20">
+                                  {membersCount} {membersCount === 1 ? 'Live' : 'Lives'} Covered
+                                </span>
+                              </div>
+                            </td>
+                            <td className="p-3.5">
+                              <div className="font-bold text-foreground">{matchedPolicy?.quotation?.title || matchedPolicy?.productLine || 'Comprehensive Health Plan'}</div>
+                              <div className="text-[10px] text-muted-foreground font-mono font-bold text-emerald-600">
+                                SI: ₹{Number(sumInsured).toLocaleString('en-IN')}
+                              </div>
+                            </td>
+                            <td className="p-3.5">
+                              <div className="font-mono text-[11px] font-bold text-foreground">
+                                {r.expiryDate ? new Date(r.expiryDate).toLocaleDateString('en-IN') : 'Soon'}
+                              </div>
+                              <span
+                                className={`inline-block mt-0.5 px-2 py-0.5 rounded-md text-[10px] font-bold ${
+                                  (r.daysRemaining ?? 0) <= 7
+                                    ? 'bg-rose-500/10 text-rose-600 border border-rose-500/20'
+                                    : (r.daysRemaining ?? 0) <= 30
+                                      ? 'bg-amber-500/10 text-amber-600 border border-amber-500/20'
+                                      : 'bg-emerald-500/10 text-emerald-600 border border-emerald-500/20'
+                                }`}
+                              >
+                                {(r.daysRemaining ?? 0) < 0 ? 'EXPIRED' : `${r.daysRemaining ?? 0} days left`}
+                              </span>
+                            </td>
+                            <td className="p-3.5">
+                              <div className="text-xs font-semibold text-emerald-600 flex items-center gap-1">
+                                <ShieldCheck className="h-3.5 w-3.5 shrink-0" />
+                                <span>Waiting Period Continuity</span>
+                              </div>
+                              <div className="text-[10px] text-muted-foreground">Cumulative Bonus Protected</div>
+                            </td>
+                            <td className="p-3.5 text-right font-bold text-primary">
+                              ₹{Number(r.estimatedRenewalPremium || r.lastPremium || r.premiumAmount || 0).toLocaleString('en-IN')}
+                            </td>
+                            <td className="p-3.5 text-center">
+                              <Link
+                                href={buildHealthRenewalUrl(r.id, {
+                                  contactId: r.contactId || matchedPolicy?.contactId,
+                                  leadId: r.leadId || matchedPolicy?.leadId || matchedPolicy?.quotation?.leadId,
+                                  planCategory: 'INDIVIDUAL',
+                                })}
+                                className="px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs transition-colors inline-block whitespace-nowrap shadow-xs"
+                              >
+                                Generate Health Renewal
+                              </Link>
+                            </td>
+                          </tr>
+                        );
+                      }) : (
+                        <tr>
+                          <td colSpan={7} className="text-center py-8 text-muted-foreground text-xs">
+                            No health renewals found matching criteria.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
 

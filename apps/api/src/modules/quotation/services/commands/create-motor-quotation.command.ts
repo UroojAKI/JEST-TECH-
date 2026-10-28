@@ -36,6 +36,26 @@ export class CreateMotorQuotationCommand {
       );
     }
 
+    // ── 0. Vehicle Duplicate Policy & Quotation Prevention ──
+    if (dto.registrationNumber) {
+      const vehicleCheck = await this.vehicleDataService.checkVehicleRunningPolicy(
+        dto.registrationNumber,
+        companyId,
+      );
+      if (vehicleCheck.hasExisting) {
+        throw new ConflictException({
+          statusCode: 409,
+          error: 'Conflict',
+          errorCode: 'VEHICLE_POLICY_ALREADY_RUNNING',
+          message: vehicleCheck.message,
+          policyNumber: (vehicleCheck as any).policyNumber,
+          quotationCode: vehicleCheck.quotationCode,
+          renewalDate: vehicleCheck.renewalDate,
+          formattedRenewalDate: vehicleCheck.formattedRenewalDate,
+        });
+      }
+    }
+
     // ── 1. Journey 1:1 Binding & Expiry Invariant (Section 3.1, A1, A2) ──
     let journey: any = null;
     if (dto.journeyId) {
@@ -159,23 +179,20 @@ export class CreateMotorQuotationCommand {
     }
 
     if (!contactId) {
+      // The quotation keeps a CRM contact relationship, but contact fields are optional.
+      // A minimal placeholder prevents the quote workflow from forcing a phone/email.
       const mobileNumber = String(proposer['mobileNumber'] || '').trim();
-      if (!mobileNumber) {
-        throw new BadRequestException(
-          'Proposer mobile number is required to link or create a customer contact.',
-        );
-      }
-      const [firstName, ...rest] = (
-        proposer['customerName'] || 'Motor Customer'
-      ).split(' ');
+      const [firstName, ...rest] = String(
+        proposer['customerName'] || 'Quotation Customer',
+      ).trim().split(/\s+/);
       const newContact = await this.contactsService.create(
         {
-          firstName: firstName || 'Customer',
-          lastName: rest.join(' ') || '',
+          firstName: firstName || 'Quotation',
+          lastName: rest.join(' ') || 'Customer',
           email: proposer['emailId']
             ? String(proposer['emailId']).trim()
             : undefined,
-          phone: mobileNumber,
+          phone: mobileNumber || undefined,
           panNumber: proposer['panNumber']
             ? String(proposer['panNumber']).trim()
             : undefined,

@@ -87,6 +87,8 @@ describe('IssuePolicyService', () => {
           },
           lead: { update: jest.fn().mockResolvedValue({}) },
           quotation: { update: jest.fn().mockResolvedValue({}) },
+          document: { updateMany: jest.fn().mockResolvedValue({ count: 1 }) },
+          healthQuotationDocument: { updateMany: jest.fn().mockResolvedValue({ count: 1 }) },
         };
         return cb(tx);
       }),

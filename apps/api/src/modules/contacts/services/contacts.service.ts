@@ -79,12 +79,14 @@ export class ContactsService {
       );
     }
 
-    const existingPhone = await this.contactRepository.findByPhone(
-      dto.phone,
-      targetCompanyId,
-    );
-    if (existingPhone) {
-      throw duplicateContactError(existingPhone.id, 'PHONE');
+    if (dto.phone) {
+      const existingPhone = await this.contactRepository.findByPhone(
+        dto.phone,
+        targetCompanyId,
+      );
+      if (existingPhone) {
+        throw duplicateContactError(existingPhone.id, 'PHONE');
+      }
     }
     if (dto.email) {
       const existingEmail = await this.contactRepository.findByEmail(
@@ -255,7 +257,39 @@ export class ContactsService {
   }
 
   async findById(id: string, actor?: ActorContext) {
-    const contact = await this.contactRepository.findById(id);
+    let contact = await this.contactRepository.findById(id);
+    if (!contact || contact.deletedAt) {
+      // Fallback: check if id is a customerId
+      const customer = await this.prisma.customer.findUnique({
+        where: { id },
+        include: { contact: true },
+      });
+      if (customer) {
+        if (customer.contactId) {
+          contact = await this.contactRepository.findById(customer.contactId);
+        } else {
+          const count = await this.prisma.contact.count({ where: { companyId: customer.companyId } });
+          const newContact = await this.prisma.contact.create({
+            data: {
+              contactCode: `CONT-${String(count + 1).padStart(6, '0')}`,
+              companyId: customer.companyId,
+              firstName: customer.firstName.trim(),
+              lastName: (customer.lastName || '').trim(),
+              phone: customer.mobile,
+              email: customer.email,
+              panNumber: customer.panNumber,
+              aadhaarNumber: customer.aadhaarNumber,
+              type: 'INDIVIDUAL',
+              status: 'ACTIVE',
+              createdById: customer.createdById || undefined,
+              updatedById: customer.createdById || undefined,
+            },
+          });
+          await this.prisma.customer.update({ where: { id: customer.id }, data: { contactId: newContact.id } });
+          contact = await this.contactRepository.findById(newContact.id);
+        }
+      }
+    }
     if (!contact || contact.deletedAt)
       throw new NotFoundException(`Contact ${id} not found`);
     if (actor) this.assertRecordAccess(contact, actor);

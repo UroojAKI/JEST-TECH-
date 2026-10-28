@@ -14,7 +14,9 @@ export interface AgentOption {
     lastName: string;
     email: string;
     phone?: string;
+    collectContacts?: boolean;
   };
+  collectContacts?: boolean;
 }
 
 interface Props {

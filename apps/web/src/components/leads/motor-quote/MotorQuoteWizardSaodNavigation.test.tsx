@@ -39,6 +39,9 @@ vi.mock('./InspectionDialog', () => ({
 describe('MotorQuoteWizard SAOD Navigation & TP Verification Control-Flow', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // The wizard performs a vehicle lookup before evaluating the selected policy rules.
+    // Return an explicit empty response unless a test overrides this endpoint.
+    vi.mocked(apiClient.get).mockImplementation(async () => ({ data: {} }) as any);
     vi.mocked(apiClient.post).mockImplementation(async (url: string, data?: any) => {
       if (url === '/motor/journeys') {
         return { data: { journeyId: 'journey-test-123' } } as any;
@@ -148,15 +151,19 @@ describe('MotorQuoteWizard SAOD Navigation & TP Verification Control-Flow', () =
 
     // Fill TP details in Step 5
     const insurerSelect = screen.getByDisplayValue(/— Select TP Insurer —/i);
-    fireEvent.change(insurerSelect, { target: { value: 'TATA AIG' } });
+    fireEvent.change(insurerSelect, { target: { value: 'Tata AIG General Insurance' } });
 
     const policyInput = screen.getByPlaceholderText(/e\.g\. TP\/2024\/123456789/i);
     fireEvent.change(policyInput, { target: { value: 'TP/2025/99887766' } });
 
-    const dateInputs = container.querySelectorAll('input[type="date"]');
-    expect(dateInputs.length).toBeGreaterThanOrEqual(2);
-    fireEvent.change(dateInputs[0], { target: { value: '2025-01-01' } });
-    fireEvent.change(dateInputs[1], { target: { value: '2027-01-01' } });
+    // Target the active TP fields by their labels; other wizard steps can also
+    // contain date inputs, so indexing all date inputs is ambiguous.
+    const tpStartDate = screen.getByText(/TP Start Date/i).parentElement?.querySelector('input[type="date"]');
+    const tpExpiryDate = screen.getByText(/TP Expiry Date/i).parentElement?.querySelector('input[type="date"]');
+    expect(tpStartDate).not.toBeNull();
+    expect(tpExpiryDate).not.toBeNull();
+    fireEvent.change(tpStartDate!, { target: { value: '2025-01-01' } });
+    fireEvent.change(tpExpiryDate!, { target: { value: '2027-01-01' } });
 
     const methodRadio = screen.getByLabelText(/Policy Document/i);
     fireEvent.click(methodRadio);

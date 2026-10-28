@@ -79,6 +79,11 @@ export class NumberingEngineService {
           format: '{PREFIX}-{YYYY}-{SEQUENCE}',
           padding: 5,
         },
+        HEALTH_CASE: {
+          prefix: 'HQC',
+          format: '{PREFIX}-{YYYY}-{SEQUENCE}',
+          padding: 5,
+        },
       };
 
       const defaultCfg = DEFAULT_FORMATS[entityType.toUpperCase()] || {

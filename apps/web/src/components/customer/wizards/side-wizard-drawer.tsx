@@ -404,6 +404,19 @@ export function SideWizardDrawer({ type, customerId, onClose }: SideWizardDrawer
                   <div className="font-bold text-foreground">Other Products</div>
                   <div className="text-[10px] text-muted-foreground mt-0.5">Auto, Taxi, Bus, Tractor</div>
                 </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onClose();
+                    router.push(`/sales/health-quotations/new?contactId=${customerId}`);
+                  }}
+                  className="col-span-2 p-3 rounded-xl border bg-card hover:bg-accent text-left transition-colors"
+                >
+                  <div className="font-bold text-foreground">Health Insurance</div>
+                  <div className="text-[10px] text-muted-foreground mt-0.5">
+                    Individual, Family Floater, Senior Citizen, Critical Illness, Top-up, Group, PA, Misc
+                  </div>
+                </button>
               </div>
             </div>
           )}

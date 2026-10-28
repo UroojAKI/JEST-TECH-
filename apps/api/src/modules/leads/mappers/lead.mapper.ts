@@ -22,7 +22,7 @@ export class LeadMapper {
       response.firstName = lead.contact.firstName;
       response.lastName = lead.contact.lastName;
       response.email = lead.contact.email || undefined;
-      response.phone = lead.contact.phone;
+      response.phone = lead.contact.phone ?? undefined;
       response.contactName =
         `${lead.contact.firstName} ${lead.contact.lastName}`.trim();
     } else {

@@ -15,8 +15,14 @@ export const AGENT_NAVIGATION: NavigationItem[] = [
   },
   {
     id: 'my-quotations',
-    title: 'My Quotations',
+    title: 'Motor Quotations',
     href: '/sales/quotations',
+    icon: 'FileSpreadsheet',
+  },
+  {
+    id: 'my-health-quotations',
+    title: 'Health Quotations',
+    href: '/sales/health-quotations',
     icon: 'FileSpreadsheet',
   },
   {
@@ -85,8 +91,14 @@ export const BACK_OFFICE_NAVIGATION: NavigationItem[] = [
   },
   {
     id: 'bo-quotations',
-    title: 'Quotations',
+    title: 'Motor Quotations',
     href: '/sales/quotations',
+    icon: 'FileSpreadsheet',
+  },
+  {
+    id: 'bo-health-quotations',
+    title: 'Health Quotations',
+    href: '/sales/health-quotations',
     icon: 'FileSpreadsheet',
   },
   {
@@ -224,6 +236,7 @@ export const ADMIN_NAVIGATION: NavigationItem[] = [
     icon: 'ShieldAlert',
     children: [
       { id: 'adm-audit', title: 'Audit Trail', href: '/admin/audit' },
+      { id: 'adm-policy-audit', title: 'Policy Audit Report', href: '/admin/audit-reports' },
     ],
   },
   {

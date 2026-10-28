@@ -86,13 +86,14 @@ export class BackOfficeController {
       policy = await this.issuePolicyService.execute(
         {
           quotationId,
-          productLine: 'General Policy',
+          productLine: quotation.productType === 'HEALTH' ? 'Health Insurance' : 'General Policy',
           ...dto,
         },
         user.id,
         user,
       );
     }
+
 
     return {
       success: true,

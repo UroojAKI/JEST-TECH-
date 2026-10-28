@@ -9,6 +9,8 @@ export class UserResponseDto {
 
   phone?: string | null;
 
+  collectContacts: boolean;
+
   employeeCode?: string | null;
 
   designation?: string | null;

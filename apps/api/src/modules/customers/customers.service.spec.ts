@@ -2,7 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { CustomersService } from './customers.service';
 import { PrismaService } from '../../database/prisma.service';
 import { RoleType } from '@prisma/client';
-import { NotFoundException, ForbiddenException } from '@nestjs/common';
+import { NotFoundException, ForbiddenException, ConflictException } from '@nestjs/common';
 
 describe('CustomersService', () => {
   let service: CustomersService;
@@ -57,6 +57,11 @@ describe('CustomersService', () => {
         create: jest.fn(),
         update: jest.fn(),
       },
+      contact: {
+        findFirst: jest.fn().mockResolvedValue(null),
+        count: jest.fn().mockResolvedValue(0),
+        create: jest.fn().mockResolvedValue({ id: 'contact-uuid-1' }),
+      },
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -90,33 +95,17 @@ describe('CustomersService', () => {
   });
 
   describe('create', () => {
-    it('should return warning payload when duplicate exists and acknowledgeDuplicate is false', async () => {
+    it('should throw ConflictException when duplicate customer mobile or email exists', async () => {
       prisma.customer.findMany.mockResolvedValue([mockCustomer]);
 
-      const result = await service.create(
-        { firstName: 'Amit', mobile: '9876543210' },
-        { id: 'user-uuid-1', role: RoleType.AGENT, companyId: 'org-1' } as any,
-      );
+      await expect(
+        service.create(
+          { firstName: 'Amit', mobile: '9876543210' },
+          { id: 'user-uuid-1', role: RoleType.AGENT, companyId: 'org-1' } as any,
+        ),
+      ).rejects.toThrow(ConflictException);
 
-      expect(result.duplicateWarning).toBe(true);
-      expect(result.matches?.length).toBe(1);
       expect(prisma.customer.create).not.toHaveBeenCalled();
-    });
-
-    it('should create customer when acknowledgeDuplicate is true', async () => {
-      prisma.customer.findMany.mockResolvedValue([mockCustomer]);
-      prisma.customer.count.mockResolvedValue(1);
-      prisma.customer.findUnique.mockResolvedValue(null);
-      prisma.customer.create.mockResolvedValue(mockCustomer);
-
-      const result = await service.create(
-        { firstName: 'Amit', mobile: '9876543210', acknowledgeDuplicate: true },
-        { id: 'user-uuid-1', role: RoleType.AGENT, companyId: 'org-1' } as any,
-      );
-
-      expect(result.duplicateWarning).toBe(false);
-      expect(result.customer).toEqual(mockCustomer);
-      expect(prisma.customer.create).toHaveBeenCalled();
     });
 
     it('should create customer cleanly when no duplicate found', async () => {

@@ -134,6 +134,7 @@ export class UsersService {
       firstName: dto.firstName,
       lastName: dto.lastName,
       phone: dto.phone,
+      collectContacts: canonicalRole === RoleType.AGENT && dto.collectContacts === true,
       employeeCode: empCode,
       designation: (dto as any).designation,
       role: { connect: { id: role.id } },
@@ -400,6 +401,17 @@ export class UsersService {
     if (dto.phone) updateData.phone = dto.phone;
     if (dto.email) updateData.email = dto.email;
     if (dto.status) updateData.status = dto.status;
+    if (dto.collectContacts !== undefined) {
+      const targetUser = await this.userRepository.findById(id);
+      const targetRole = targetUser?.role?.type;
+      if (dto.collectContacts === true && targetRole !== RoleType.AGENT) {
+        throw new BadRequestException(
+          'Contact collection preference can only be enabled for agent users',
+        );
+      }
+      updateData.collectContacts =
+        targetRole === RoleType.AGENT && dto.collectContacts === true;
+    }
     if (dto.role) {
       const role = await this.userRepository.findRoleByType(dto.role);
       if (role) {

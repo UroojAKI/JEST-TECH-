@@ -9,6 +9,7 @@ import {
   FileSpreadsheet,
   Users,
   PhoneCall,
+  HeartPulse,
 } from 'lucide-react';
 
 interface QuickActionsBarProps {
@@ -22,6 +23,12 @@ export function QuickActionsBar({ onNewCustomerClick, onFollowupsClick }: QuickA
       label: 'New Motor Insurance',
       href: '/sales/quotations',
       icon: Car,
+      color: 'bg-primary text-primary-foreground hover:bg-primary/90',
+    },
+    {
+      label: 'New Health Insurance',
+      href: '/sales/health-quotations',
+      icon: HeartPulse,
       color: 'bg-primary text-primary-foreground hover:bg-primary/90',
     },
     {
@@ -61,7 +68,7 @@ export function QuickActionsBar({ onNewCustomerClick, onFollowupsClick }: QuickA
       <div className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">
         Quick Operational Actions
       </div>
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-2.5">
         {actions.map((act, idx) => {
           const Icon = act.icon;
           const content = (

@@ -106,7 +106,7 @@ export default function CustomersPage() {
       }),
     onSuccess: (res) => {
       if (res.duplicateWarning && !res.customer) {
-        toast.warning(res.message || 'Duplicate detected. Please acknowledge to proceed.');
+        toast.error(res.message || 'This entry is already used. Duplicate mobile or email is not allowed.');
         setDuplicateMatches(res.matches || []);
       } else {
         const code = res.customer?.customerCode || '';
@@ -131,12 +131,15 @@ export default function CustomersPage() {
       }
     },
     onError: (err: any) => {
-      toast.error(err.response?.data?.message || 'Failed to create customer');
+      toast.error(err.response?.data?.message || 'This entry is already used.');
     },
   });
 
-  const handleSubmit = (e: React.FormEvent, forceAcknowledge = false) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (duplicateMatches.length > 0) {
+      return toast.error('This entry is already used. A customer with this mobile or email is already registered.');
+    }
     if (!formData.firstName.trim()) {
       return toast.error('First name is required');
     }
@@ -144,7 +147,7 @@ export default function CustomersPage() {
     if (!/^[6-9]\d{9}$/.test(cleanMobile)) {
       return toast.error('Please enter a valid 10-digit Indian mobile number (6-9)');
     }
-    createMutation.mutate(forceAcknowledge);
+    createMutation.mutate(false);
   };
 
   return (
@@ -340,7 +343,7 @@ export default function CustomersPage() {
               Creates a permanent customer entity with real-time soft duplicate detection
             </p>
 
-            <form onSubmit={(e) => handleSubmit(e, false)} className="mt-5 space-y-4">
+            <form onSubmit={handleSubmit} className="mt-5 space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-bold text-muted-foreground mb-1">First Name *</label>
@@ -434,25 +437,28 @@ export default function CustomersPage() {
                 </label>
               </div>
 
-              {/* Soft Duplicate Warning Card */}
+              {/* Duplicate Error Warning Card */}
               {duplicateMatches.length > 0 && (
-                <div className="rounded-xl border border-amber-300 bg-amber-50/80 p-4 space-y-2.5">
-                  <div className="flex items-center gap-2 text-xs font-bold text-amber-900">
-                    <AlertTriangle className="h-4 w-4 text-amber-600 flex-shrink-0" />
-                    Existing Customer Match Detected
+                <div className="rounded-xl border border-rose-300 bg-rose-50/80 p-4 space-y-2.5">
+                  <div className="flex items-center gap-2 text-xs font-bold text-rose-900">
+                    <AlertTriangle className="h-4 w-4 text-rose-600 flex-shrink-0" />
+                    This Entry is Already Used
                   </div>
-                  <p className="text-xs text-amber-800">
-                    The mobile or email matches existing database records. You can open the existing profile or proceed with creation:
+                  <p className="text-xs text-rose-800">
+                    A customer with this mobile number or email address is already registered in the system. Duplicate entries are strictly not allowed. You can open the existing profile below:
                   </p>
                   <div className="space-y-1.5">
                     {duplicateMatches.map((m) => (
                       <div
                         key={m.id}
-                        className="flex items-center justify-between rounded-lg bg-white p-2.5 border border-amber-200 text-xs"
+                        className="flex items-center justify-between rounded-lg bg-white p-2.5 border border-rose-200 text-xs"
                       >
                         <div>
                           <span className="font-semibold text-slate-900">{m.firstName} {m.lastName || ''}</span>
                           <span className="ml-2 font-mono text-slate-500">({m.customerCode})</span>
+                          <div className="text-[11px] text-slate-500">
+                            Mobile: <span className="font-mono font-medium">{m.mobile}</span> {m.email ? `| Email: ${m.email}` : ''}
+                          </div>
                           <div className="text-[11px] text-slate-500">
                             {m.activePoliciesCount} Policies | {m.activeLeadsCount} Leads | {m.city || 'No city'}
                           </div>
@@ -463,9 +469,9 @@ export default function CustomersPage() {
                             setShowAddModal(false);
                             router.push("/crm/customers/" + m.id);
                           }}
-                          className="inline-flex items-center gap-1 rounded bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-800 hover:bg-amber-200"
+                          className="inline-flex items-center gap-1 rounded bg-rose-100 px-2.5 py-1 text-xs font-medium text-rose-800 hover:bg-rose-200"
                         >
-                          Open Profile
+                          View Existing Profile
                           <ExternalLink className="h-3 w-3" />
                         </button>
                       </div>
@@ -486,12 +492,10 @@ export default function CustomersPage() {
                 {duplicateMatches.length > 0 ? (
                   <button
                     type="button"
-                    disabled={createMutation.isPending}
-                    onClick={(e) => handleSubmit(e, true)}
-                    className="inline-flex items-center gap-1.5 rounded-lg bg-amber-600 px-4 py-2 text-xs font-semibold text-white hover:bg-amber-700"
+                    disabled
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-rose-100 text-rose-700 border border-rose-200 px-4 py-2 text-xs font-semibold cursor-not-allowed opacity-90"
                   >
-                    {createMutation.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-                    Confirm &amp; Create As Distinct Customer
+                    Entry Already Exists (Cannot Save)
                   </button>
                 ) : (
                   <button

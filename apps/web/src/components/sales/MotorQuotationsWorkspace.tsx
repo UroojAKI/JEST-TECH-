@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../../lib/api-client';
 import { toast } from 'sonner';
-import { Car, Plus, Search, RefreshCw, FileSpreadsheet, Award, AlertTriangle, History, ArrowLeft, CheckCircle2 } from 'lucide-react';
+import { Car, Plus, Search, RefreshCw, FileSpreadsheet, Award, AlertTriangle, History, ArrowLeft, CheckCircle2, HeartPulse } from 'lucide-react';
 
 import { MotorQuoteWizard } from '../leads/motor-quote/MotorQuoteWizard';
 import { QuoteCard } from '../leads/motor-quote/QuoteCard';
@@ -35,6 +35,13 @@ export function MotorQuotationsWorkspace() {
   const typeParam = searchParams?.get('type') || undefined;
   const openQuoteParam = searchParams?.get('openQuote');
   const renewPolicyId = searchParams?.get('renewPolicyId') || undefined;
+  const customerNameParam = searchParams?.get('customerName') || undefined;
+  const customerPhoneParam = searchParams?.get('customerPhone') || searchParams?.get('mobile') || searchParams?.get('phone') || undefined;
+  const customerEmailParam = searchParams?.get('customerEmail') || searchParams?.get('email') || undefined;
+  const customerPanParam = searchParams?.get('customerPan') || searchParams?.get('pan') || undefined;
+  const customerAddressParam = searchParams?.get('customerAddress') || searchParams?.get('address') || undefined;
+  const vehicleIdParam = searchParams?.get('vehicleId') || undefined;
+  const regNumberParam = searchParams?.get('regNumber') || undefined;
   const [leadFilterActive, setLeadFilterActive] = useState<boolean>(!!leadIdParam);
 
   const [activeTab, setActiveTab] = useState<'ACTIVE' | 'RENEWALS'>('ACTIVE');
@@ -141,31 +148,74 @@ export function MotorQuotationsWorkspace() {
     enabled: !!contactIdParam,
   });
 
+  // Fetch linked customer directly if customerId is provided in URL
+  const { data: linkedCustomer } = useQuery({
+    queryKey: ['linked-customer-context', customerIdParam],
+    queryFn: async () => {
+      try {
+        const res = await apiClient.get(`/customers/${customerIdParam}`);
+        return res.data;
+      } catch {
+        return null;
+      }
+    },
+    enabled: !!customerIdParam,
+  });
+
   const leadContact = useMemo(() => {
+    if (linkedCustomer) {
+      const c = linkedCustomer;
+      const addr = [c.addressLine1, c.addressLine2, c.city, c.state, c.pincode].filter(Boolean).join(', ');
+      return {
+        name: `${c.firstName || ''} ${c.lastName || ''}`.trim() || c.name || customerNameParam || '',
+        phone: c.mobile || c.phone || customerPhoneParam || '',
+        email: c.email || customerEmailParam || '',
+        address: addr || customerAddressParam || '',
+        pan: c.panNumber || c.pan || customerPanParam || '',
+      };
+    }
     if (linkedContact) {
       const c = linkedContact;
       return {
-        name: `${c.firstName || ''} ${c.lastName || ''}`.trim() || c.name || '',
-        phone: c.phone || '',
-        email: c.email || '',
-        address: c.address || '',
-        pan: c.panNumber || c.pan || '',
+        name: `${c.firstName || ''} ${c.lastName || ''}`.trim() || c.name || customerNameParam || '',
+        phone: c.phone || c.mobile || customerPhoneParam || '',
+        email: c.email || customerEmailParam || '',
+        address: c.address || customerAddressParam || '',
+        pan: c.panNumber || c.pan || customerPanParam || '',
       };
     }
-    if (!linkedLead?.contact) return undefined;
-    const c = linkedLead.contact;
-    return {
-      name: c.fullName || `${c.firstName || ''} ${c.lastName || ''}`.trim(),
-      phone: c.phone || '',
-      email: c.email || '',
-      address: c.address || '',
-      pan: c.panNumber || '',
-    };
-  }, [linkedLead, linkedContact]);
+    if (linkedLead?.contact) {
+      const c = linkedLead.contact;
+      return {
+        name: c.fullName || `${c.firstName || ''} ${c.lastName || ''}`.trim() || customerNameParam || '',
+        phone: c.phone || customerPhoneParam || '',
+        email: c.email || customerEmailParam || '',
+        address: c.address || customerAddressParam || '',
+        pan: c.panNumber || customerPanParam || '',
+      };
+    }
+    if (customerNameParam || customerPhoneParam || customerEmailParam || customerPanParam || customerAddressParam) {
+      return {
+        name: customerNameParam || '',
+        phone: customerPhoneParam || '',
+        email: customerEmailParam || '',
+        address: customerAddressParam || '',
+        pan: customerPanParam || '',
+      };
+    }
+    return undefined;
+  }, [linkedCustomer, linkedContact, linkedLead, customerNameParam, customerPhoneParam, customerEmailParam, customerAddressParam, customerPanParam]);
+
+  const initialVehicleDetails = useMemo(() => {
+    if (regNumberParam) {
+      return { registrationNumber: regNumberParam };
+    }
+    return undefined;
+  }, [regNumberParam]);
 
   // Auto-launch wizard if requested via URL
   useEffect(() => {
-    if (openQuoteParam === '1' && (leadIdParam || contactIdParam)) {
+    if (openQuoteParam === '1' && (leadIdParam || contactIdParam || customerIdParam || customerNameParam || customerPhoneParam)) {
       if (typeParam) {
         const typeMap: Record<string, VehicleCategory> = {
           private_car: 'PRIVATE_CAR',
@@ -179,7 +229,7 @@ export function MotorQuotationsWorkspace() {
       }
       setIsWizardOpen(true);
     }
-  }, [openQuoteParam, leadIdParam, contactIdParam, typeParam]);
+  }, [openQuoteParam, leadIdParam, contactIdParam, customerIdParam, customerNameParam, customerPhoneParam, typeParam]);
 
   const { data = { quotes: [], total: 0 }, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['motor-quotations-all', listLimit],
@@ -226,6 +276,7 @@ export function MotorQuotationsWorkspace() {
       }
     },
     refetchInterval: 10_000,
+
     placeholderData: (prevData) => prevData,
   });
 
@@ -343,6 +394,24 @@ export function MotorQuotationsWorkspace() {
 
   return (
     <div className="space-y-6 pb-12">
+      {/* Product Line Switcher Tabs */}
+      <div className="flex items-center gap-2 border-b border-border pb-3">
+        <Link
+          href="/sales/quotations"
+          className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition bg-primary text-primary-foreground shadow-xs"
+        >
+          <Car className="h-4 w-4" />
+          <span>Motor Quotations</span>
+        </Link>
+        <Link
+          href="/sales/health-quotations"
+          className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition bg-muted/60 hover:bg-muted text-muted-foreground hover:text-foreground"
+        >
+          <HeartPulse className="h-4 w-4 text-emerald-600" />
+          <span>Health Insurance Proposals</span>
+        </Link>
+      </div>
+
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 p-6 rounded-xl border bg-card">
         <div>
           <div className="flex items-center gap-2">

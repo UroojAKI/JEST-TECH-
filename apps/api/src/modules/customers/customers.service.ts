@@ -104,7 +104,7 @@ export class CustomersService {
   }
 
   async create(dto: CreateCustomerDto, user: RequestUser) {
-    // Soft deduplication check
+    // Strict deduplication check
     const duplicates = await this.checkDuplicate(
       {
         mobile: dto.mobile,
@@ -112,13 +112,40 @@ export class CustomersService {
       },
       user,
     );
-    if (duplicates.hasDuplicate && !dto.acknowledgeDuplicate) {
-      return {
-        duplicateWarning: true,
-        message:
-          'Potential duplicate customer detected. Please review matches or acknowledge to create.',
+    if (duplicates.hasDuplicate) {
+      const emailMatch =
+        dto.email?.trim() &&
+        duplicates.matches.some(
+          (m) =>
+            m.email &&
+            m.email.trim().toLowerCase() === dto.email!.trim().toLowerCase(),
+        );
+      const phoneMatch =
+        dto.mobile &&
+        duplicates.matches.some(
+          (m) =>
+            m.mobile &&
+            this.normalizePhone(m.mobile) === this.normalizePhone(dto.mobile),
+        );
+
+      let msg = 'This entry is already used.';
+      if (emailMatch && phoneMatch) {
+        msg =
+          'This entry is already used. A customer with this mobile number and email address is already registered.';
+      } else if (emailMatch) {
+        msg =
+          'This entry is already used. A customer with this email address is already registered.';
+      } else if (phoneMatch) {
+        msg =
+          'This entry is already used. A customer with this mobile number is already registered.';
+      }
+
+      throw new ConflictException({
+        statusCode: 409,
+        error: 'Conflict',
+        message: msg,
         matches: duplicates.matches,
-      };
+      });
     }
 
     const companyId = user.companyId || (user as any).organizationId;
@@ -153,6 +180,46 @@ export class CustomersService {
       customerCode = `CUST-${String(nextNum).padStart(6, '0')}`;
     }
 
+    // Auto-link or auto-create corresponding Contact for customer
+    let contactId = dto.contactId || null;
+    if (!contactId && this.prisma.contact) {
+      try {
+        let contact = await this.prisma.contact.findFirst({
+          where: {
+            companyId,
+            deletedAt: null,
+            OR: [
+              { phone: dto.mobile },
+              ...(dto.email ? [{ email: dto.email.trim().toLowerCase() }] : []),
+            ],
+          },
+        });
+        if (!contact) {
+          const contactCount = await this.prisma.contact.count({ where: { companyId } });
+          const contactCode = `CONT-${String(contactCount + 1).padStart(6, '0')}`;
+          contact = await this.prisma.contact.create({
+            data: {
+              contactCode,
+              companyId,
+              firstName: dto.firstName.trim(),
+              lastName: (dto.lastName || '').trim(),
+              phone: dto.mobile,
+              email: dto.email ? dto.email.trim().toLowerCase() : null,
+              panNumber: dto.panNumber ? dto.panNumber.trim().toUpperCase() : null,
+              aadhaarNumber: dto.aadhaarNumber || null,
+              type: 'INDIVIDUAL',
+              status: 'ACTIVE',
+              createdById: user.id,
+              updatedById: user.id,
+            },
+          });
+        }
+        contactId = contact?.id || null;
+      } catch {
+        // Contact auto-linking fallback: allow customer creation to proceed if contact table is unavailable
+      }
+    }
+
     const customer = await this.prisma.customer.create({
       data: {
         companyId,
@@ -170,7 +237,7 @@ export class CustomersService {
         state: dto.state || null,
         pincode: dto.pincode || null,
         isVip: dto.isVip || false,
-        contactId: dto.contactId || null,
+        contactId,
         createdById: user.id,
       },
     });
@@ -654,6 +721,50 @@ export class CustomersService {
 
   async update(id: string, dto: UpdateCustomerDto, user: RequestUser) {
     await this.findById(id, user);
+
+    if (dto.mobile || dto.email) {
+      const companyId = user.companyId || (user as any).organizationId;
+      const conditions: Prisma.CustomerWhereInput[] = [];
+      if (dto.mobile) {
+        const norm = this.normalizePhone(dto.mobile);
+        if (norm) conditions.push({ mobile: { contains: norm } });
+      }
+      if (dto.email?.trim()) {
+        conditions.push({
+          email: { equals: dto.email.trim().toLowerCase(), mode: 'insensitive' },
+        });
+      }
+      if (conditions.length > 0) {
+        const existing = await this.prisma.customer.findFirst({
+          where: {
+            id: { not: id },
+            ...(companyId ? { companyId } : {}),
+            deletedAt: null,
+            OR: conditions,
+          },
+        });
+        if (existing) {
+          const emailMatch =
+            dto.email &&
+            existing.email?.toLowerCase() === dto.email.trim().toLowerCase();
+          const phoneMatch =
+            dto.mobile &&
+            this.normalizePhone(existing.mobile) === this.normalizePhone(dto.mobile);
+          let msg = 'This entry is already used.';
+          if (emailMatch && phoneMatch) {
+            msg =
+              'This entry is already used. A customer with this mobile number and email address is already registered.';
+          } else if (emailMatch) {
+            msg =
+              'This entry is already used. A customer with this email address is already registered.';
+          } else if (phoneMatch) {
+            msg =
+              'This entry is already used. A customer with this mobile number is already registered.';
+          }
+          throw new ConflictException(msg);
+        }
+      }
+    }
 
     return this.prisma.customer.update({
       where: { id },

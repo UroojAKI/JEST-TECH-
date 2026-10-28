@@ -79,6 +79,13 @@ export class UsersController {
     );
   }
 
+  @Get('me')
+  @AnyAuthenticatedRole()
+  @ApiOperation({ summary: 'Get current user profile and agent contact collection preference' })
+  getMe(@CurrentUser() actor: RequestUser) {
+    return this.usersService.findById(actor.id, actor);
+  }
+
   @Get()
   @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE)
   findAll(

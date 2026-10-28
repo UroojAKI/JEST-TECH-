@@ -73,6 +73,28 @@ export default function CustomerRegisterPage() {
     agentCode: '',
   });
 
+
+  const { data: currentUser } = useQuery({
+    queryKey: ['current-user-contact-preference'],
+    queryFn: adminRepository.getCurrentUser,
+    enabled: !isAdminOrBackOffice,
+  });
+  const { data: assignedUsers = [] } = useQuery({
+    queryKey: ['contact-assigned-agent-preference', formData.agentCode],
+    queryFn: async () => {
+      const result = await adminRepository.getUsers({ search: formData.agentCode });
+      return Array.isArray(result) ? result : (result as any)?.data || (result as any)?.items || [];
+    },
+    enabled: isAdminOrBackOffice && Boolean(formData.agentCode.trim()),
+  });
+  const assignedAgentPreference = assignedUsers.find((u: any) =>
+    String(u.employeeCode || '').toUpperCase() === formData.agentCode.trim().toUpperCase() ||
+    String(u.id || '').toLowerCase() === formData.agentCode.trim().toLowerCase()
+  );
+  const effectiveContactCollection = isAdminOrBackOffice
+    ? (assignedAgentPreference?.collectContacts ?? false)
+    : Boolean(currentUser?.collectContacts);
+
   // Default to primary branch once branches load
   useEffect(() => {
     if (dbBranches.length > 0 && !formData.branchId) {
@@ -89,7 +111,7 @@ export default function CustomerRegisterPage() {
     if (!cleanFirstName || !cleanLastName) {
       return void toast.error('First name and last name are required');
     }
-    if (!/^[6-9]\d{9}$/.test(cleanPhone)) {
+    if (cleanPhone && !/^[6-9]\d{9}$/.test(cleanPhone)) {
       return void toast.error('Enter a valid 10-digit Indian mobile number starting with 6, 7, 8, or 9');
     }
 
@@ -97,7 +119,7 @@ export default function CustomerRegisterPage() {
       type: formData.type as 'INDIVIDUAL' | 'CORPORATE',
       firstName: cleanFirstName,
       lastName: cleanLastName,
-      phone: cleanPhone,
+      ...(cleanPhone ? { phone: cleanPhone } : {}),
     };
 
     if (formData.email.trim()) {
@@ -237,6 +259,11 @@ export default function CustomerRegisterPage() {
             <span>Authoritative customer register · Status reflects active CRM standing with zero compliance lapses</span>
           </p>
         </div>
+        <div className="ml-auto flex items-center gap-2 text-[11px] text-muted-foreground">
+          <span className={effectiveContactCollection ? 'text-emerald-600 font-bold' : 'font-semibold'}>
+            {effectiveContactCollection ? 'Contact collection enabled for the selected agent' : 'Contact collection disabled or optional'}
+          </span>
+        </div>
         <button
           onClick={() => setShowAddModal(true)}
           className="flex items-center space-x-1 px-4 py-2 text-xs font-bold rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 shadow"
@@ -296,9 +323,8 @@ export default function CustomerRegisterPage() {
                 </select>
               </div>
               <div>
-                <label className="font-bold text-muted-foreground block mb-1">Phone Number *</label>
+                <label className="font-bold text-muted-foreground block mb-1">Phone Number (Optional)</label>
                 <input
-                  required
                   inputMode="numeric"
                   value={formData.phone}
                   onChange={(e) => setFormData({ ...formData, phone: e.target.value.replace(/\D/g, '').slice(0, 10) })}

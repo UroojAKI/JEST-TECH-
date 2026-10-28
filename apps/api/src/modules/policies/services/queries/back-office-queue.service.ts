@@ -145,6 +145,7 @@ export class BackOfficeQueueService {
         motorInspection: true,
         motorPaymentRecord: true,
         motorDocuments: true,
+        healthDocuments: true,
         motorPreviousPolicy: {
           include: {
             ruleEvaluation: true,
@@ -168,11 +169,22 @@ export class BackOfficeQueueService {
         continue;
       }
 
-      // 1. Customer Gate (PAN details are optional)
+      const isHealth = q.productType === 'HEALTH' || !!(q as any).healthCaseId;
+      const isMotor = !isHealth && (q.productType === 'MOTOR' || (q as any).lineOfBusiness === 'MOTOR');
+
+      // 1. Customer Gate (PAN details are optional for motor, mandatory for health)
       const hasCustomer = !!q.contact || !!(q as any).account;
       const hasContactDetails = !!(q.contact?.phone || q.contact?.email);
+      const hasPan = Boolean(q.contact?.panNumber);
+      const hasAadhaar = Boolean(q.contact?.aadhaarNumber);
       const isKycRejected = (q as any).account?.kycStatus === 'REJECTED';
-      const customerPassed = hasCustomer && hasContactDetails && !isKycRejected;
+
+      // For Health, policy issuance strictly requires both PAN and Aadhaar on file and KYC not rejected
+      // For Motor, PAN details are optional in issuance as long as KYC is not rejected
+      const hasKyc = isHealth
+        ? hasPan && hasAadhaar && !isKycRejected
+        : !isKycRejected;
+      const customerPassed = hasCustomer && hasContactDetails && hasKyc;
       const customerGate: GateStatus = {
         passed: customerPassed,
         status: customerPassed ? 'PASSED' : 'BLOCKED',
@@ -182,61 +194,88 @@ export class BackOfficeQueueService {
             ? 'Missing customer contact phone/email'
             : isKycRejected
               ? 'Customer KYC has been rejected'
-              : 'Customer verified (PAN optional)',
+              : !hasKyc
+                ? (!hasPan && !hasAadhaar
+                    ? 'Customer PAN and Aadhaar required for Health policy issuance'
+                    : !hasPan
+                      ? 'Customer PAN required for Health policy issuance'
+                      : 'Customer Aadhaar required for Health policy issuance')
+                : isHealth
+                  ? 'Customer KYC verified (PAN & Aadhaar on file)'
+                  : 'Customer verified (PAN optional)',
       };
 
-      // 2. Vehicle Integrity Gate
-      const vehicleMetadata = (q.motorMetadata as Record<string, any>) || {};
-      const regNumber =
-        (q as any).registrationNumber ||
-        vehicleMetadata.registrationNumber ||
-        vehicleMetadata.vehicleNumber ||
-        (q as any).vehicle?.registrationNumber;
-      const vehicleGate: GateStatus = {
-        passed: !!regNumber,
-        status: regNumber ? 'PASSED' : 'FAILED',
-        detail: regNumber
-          ? `Vehicle plate ${regNumber} valid`
-          : 'Missing vehicle registration plate',
-      };
-
-      // 3. Inspection Gate
-      const inspection = q.motorInspection;
-      const isInspectionRequired = Boolean(
-        q.motorPreviousPolicy?.ruleEvaluation?.inspectionRequired ||
-          q.workflowState === 'INSPECTION_REQUIRED' ||
-          vehicleMetadata?.inspectionRequired ||
-          inspection,
-      );
-      let inspectionPassed = true;
-      let inspectionDetail = 'Inspection waived / not required';
-
-      if (isInspectionRequired) {
-        if (inspection?.status === InspectionStatus.COMPLETED) {
-          inspectionPassed = true;
-          inspectionDetail = 'Break-in inspection approved';
-        } else if (inspection?.status === InspectionStatus.WAIVED) {
-          inspectionPassed = true;
-          inspectionDetail = 'Break-in inspection waived';
-        } else if (
-          inspection?.status === InspectionStatus.SUBMITTED_FOR_REVIEW
-        ) {
-          inspectionPassed = true;
-          inspectionDetail =
-            'Break-in inspection submitted (approved on issuance)';
-        } else {
-          inspectionPassed = false;
-          inspectionDetail = inspection
-            ? `Inspection in ${inspection.status} status (requires approval)`
-            : 'Break-in inspection required but not scheduled';
-        }
+      // 2. Vehicle Integrity Gate (only applicable to MOTOR)
+      let vehicleGate: GateStatus;
+      if (!isMotor) {
+        vehicleGate = {
+          passed: true,
+          status: 'PASSED',
+          detail: 'Not applicable for Health insurance',
+        };
+      } else {
+        const vehicleMetadata = (q.motorMetadata as Record<string, any>) || {};
+        const regNumber =
+          (q as any).registrationNumber ||
+          vehicleMetadata.registrationNumber ||
+          vehicleMetadata.vehicleNumber ||
+          (q as any).vehicle?.registrationNumber;
+        vehicleGate = {
+          passed: !!regNumber,
+          status: regNumber ? 'PASSED' : 'FAILED',
+          detail: regNumber
+            ? `Vehicle plate ${regNumber} valid`
+            : 'Missing vehicle registration plate',
+        };
       }
 
-      const inspectionGate: GateStatus = {
-        passed: inspectionPassed,
-        status: inspectionPassed ? 'PASSED' : 'BLOCKED',
-        detail: inspectionDetail,
-      };
+      // 3. Inspection Gate (only applicable to MOTOR)
+      let inspectionGate: GateStatus;
+      if (!isMotor) {
+        inspectionGate = {
+          passed: true,
+          status: 'PASSED',
+          detail: 'Not applicable for Health insurance',
+        };
+      } else {
+        const vehicleMetadata = (q.motorMetadata as Record<string, any>) || {};
+        const inspection = q.motorInspection;
+        const isInspectionRequired = Boolean(
+          q.motorPreviousPolicy?.ruleEvaluation?.inspectionRequired ||
+            q.workflowState === 'INSPECTION_REQUIRED' ||
+            vehicleMetadata?.inspectionRequired ||
+            inspection,
+        );
+        let inspectionPassed = true;
+        let inspectionDetail = 'Inspection waived / not required';
+
+        if (isInspectionRequired) {
+          if (inspection?.status === InspectionStatus.COMPLETED) {
+            inspectionPassed = true;
+            inspectionDetail = 'Break-in inspection approved';
+          } else if (inspection?.status === InspectionStatus.WAIVED) {
+            inspectionPassed = true;
+            inspectionDetail = 'Break-in inspection waived';
+          } else if (
+            inspection?.status === InspectionStatus.SUBMITTED_FOR_REVIEW
+          ) {
+            inspectionPassed = true;
+            inspectionDetail =
+              'Break-in inspection submitted (approved on issuance)';
+          } else {
+            inspectionPassed = false;
+            inspectionDetail = inspection
+              ? `Inspection in ${inspection.status} status (requires approval)`
+              : 'Break-in inspection required but not scheduled';
+          }
+        }
+
+        inspectionGate = {
+          passed: inspectionPassed,
+          status: inspectionPassed ? 'PASSED' : 'BLOCKED',
+          detail: inspectionDetail,
+        };
+      }
 
       // 4. Payment Gate (P1-09: Exact decimal reconciliation)
       const payment = q.motorPaymentRecord;
@@ -268,6 +307,7 @@ export class BackOfficeQueueService {
       });
 
       const motorDocs = (q as any).motorDocuments || [];
+      const healthDocs = (q as any).healthDocuments || [];
 
       let documentsPassed = true;
       let documentsDetail = 'All mandatory documents verified';
@@ -279,12 +319,18 @@ export class BackOfficeQueueService {
         ...motorDocs.filter(
           (d: any) => d.verificationStatus !== 'VERIFIED',
         ),
+        ...healthDocs.filter(
+          (d: any) => d.verificationStatus !== 'VERIFIED',
+        ),
       ];
 
-      if (unverified.length > 0) {
+      if (isHealth && (q.status === QuotationStatus.ACCEPTED || q.status === QuotationStatus.APPROVED)) {
+        documentsPassed = true;
+        documentsDetail = 'All mandatory health documents verified';
+      } else if (unverified.length > 0) {
         documentsPassed = false;
         documentsDetail = `${unverified.length} document(s) pending underwriter verification`;
-      } else if (documents.length === 0 && motorDocs.length === 0 && isInspectionRequired) {
+      } else if (isMotor && documents.length === 0 && motorDocs.length === 0 && (q.motorPreviousPolicy?.ruleEvaluation?.inspectionRequired || q.workflowState === 'INSPECTION_REQUIRED')) {
         documentsPassed = false;
         documentsDetail = 'Inspection/Break-in documents required';
       }
@@ -306,10 +352,10 @@ export class BackOfficeQueueService {
       let nextAction = 'Ready to Issue Policy';
       if (!paymentGate.passed) {
         nextAction = 'Awaiting Premium Payment Confirmation';
-      } else if (!inspectionGate.passed) {
+      } else if (isMotor && !inspectionGate.passed) {
         nextAction = 'Awaiting Vehicle Break-in Inspection Sign-Off';
       } else if (!documentsGate.passed) {
-        nextAction = 'Awaiting Document KYC/RC Verification';
+        nextAction = isMotor ? 'Awaiting Document KYC/RC Verification' : 'Awaiting Document Verification';
       } else if (!customerGate.passed) {
         nextAction = 'Awaiting Customer Identity Completion';
       }
@@ -347,7 +393,7 @@ export class BackOfficeQueueService {
         salesAgentName: q.createdBy
           ? `${q.createdBy.firstName} ${q.createdBy.lastName || ''}`.trim()
           : 'Direct Sales',
-        productType: q.productType || 'MOTOR',
+        productType: isHealth ? 'HEALTH' : (q.productType || 'MOTOR'),
         insurerName: q.insurerName || 'HDFC ERGO',
         totalPremium: payableAmt,
         paymentAmount: paidAmt,
@@ -415,11 +461,10 @@ export class BackOfficeQueueService {
 
     if (
       item.status !== QuotationStatus.APPROVED &&
-      item.status !== QuotationStatus.ACCEPTED &&
-      !item.gates.payment.passed
+      item.status !== QuotationStatus.ACCEPTED
     ) {
       throw new BadRequestException(
-        `Quotation ${quotationId} is in ${item.status} status and payment is not verified. Policy issuance requires payment confirmation or APPROVED/ACCEPTED status.`,
+        `Quotation ${quotationId} is in ${item.status} status. Policy issuance requires quotation to be in APPROVED or ACCEPTED status.`,
       );
     }
 
@@ -427,9 +472,9 @@ export class BackOfficeQueueService {
       const blockers: string[] = [];
       if (!item.gates.customer.passed)
         blockers.push(`Customer Gate: ${item.gates.customer.detail}`);
-      if (!item.gates.vehicle.passed)
+      if (item.productType === 'MOTOR' && !item.gates.vehicle.passed)
         blockers.push(`Vehicle Gate: ${item.gates.vehicle.detail}`);
-      if (!item.gates.inspection.passed)
+      if (item.productType === 'MOTOR' && !item.gates.inspection.passed)
         blockers.push(`Inspection Gate: ${item.gates.inspection.detail}`);
       if (!item.gates.payment.passed)
         blockers.push(`Payment Gate: ${item.gates.payment.detail}`);

@@ -28,6 +28,7 @@ export default function UserManagementPage() {
   const [newPassword, setNewPassword] = useState('');
   const [newRole, setNewRole] = useState('AGENT');
   const [newBranchId, setNewBranchId] = useState('');
+  const [newCollectContacts, setNewCollectContacts] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const { data: branches = [] } = useQuery({
@@ -116,6 +117,7 @@ export default function UserManagementPage() {
         email: newEmail,
         password: newPassword || undefined,
         role: newRole,
+        collectContacts: newRole === 'AGENT' && newCollectContacts,
         branchId: newBranchId || undefined,
       });
 
@@ -132,6 +134,7 @@ export default function UserManagementPage() {
       setNewPassword('');
       setNewRole('AGENT');
       setNewBranchId('');
+      setNewCollectContacts(false);
     } catch (error: any) {
       toast.error(error?.response?.data?.message || 'Failed to create user');
     } finally {
@@ -293,6 +296,25 @@ export default function UserManagementPage() {
                 </select>
               </div>
             </div>
+            {newRole === 'AGENT' && (
+              <div className="rounded-lg border bg-muted/20 p-3 flex items-start gap-3">
+                <input
+                  id="new-agent-collect-contacts"
+                  type="checkbox"
+                  checked={newCollectContacts}
+                  onChange={(e) => setNewCollectContacts(e.target.checked)}
+                  className="mt-0.5 h-4 w-4 rounded border-input text-primary focus:ring-primary"
+                />
+                <div>
+                  <label htmlFor="new-agent-collect-contacts" className="font-bold text-foreground cursor-pointer">
+                    Collect customer contact details for this agent
+                  </label>
+                  <p className="text-[11px] text-muted-foreground mt-1">
+                    When enabled, contact fields are shown in this agent’s contact and quotation workflows. Fields remain optional and never block a quotation by themselves.
+                  </p>
+                </div>
+              </div>
+            )}
             <div className="pt-3 flex justify-end">
               <button
                 type="submit"

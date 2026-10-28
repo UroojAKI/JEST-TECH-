@@ -19,6 +19,12 @@ import { toast } from 'sonner';
 export function SalesDashboard() {
   const { kpis, isDashboardLoading, analytics } = useSalesWorkspace();
   const user = useAuthStore((s) => s.user);
+
+  const { data: contactCollectionPreference } = useQuery({
+    queryKey: ['current-user-contact-preference'],
+    queryFn: async () => (await apiClient.get('/users/me')).data,
+    staleTime: 60_000,
+  });
   const [activeFilter, setActiveFilter] = useState('');
   const [selectedContact, setSelectedContact] = useState<any>(null);
   const [globalSearch, setGlobalSearch] = useState('');
@@ -58,6 +64,21 @@ export function SalesDashboard() {
 
   return <div className="space-y-6 pb-12">
     <div className="p-6 rounded-3xl bg-gradient-to-r from-primary/15 via-primary/5 to-transparent border space-y-4"><div className="flex flex-wrap items-center justify-between gap-4"><div><div className="flex items-center space-x-2 text-[10px] font-black uppercase text-primary tracking-wider"><Sparkles className="h-3.5 w-3.5" /><span>JEST Policy CRM • Sales Workspace</span></div><h1 className="text-xl sm:text-2xl font-black tracking-tight mt-0.5">Welcome, {userName}</h1><div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground mt-1 font-semibold">{userBranch && <span className="flex items-center space-x-1"><MapPin className="h-3.5 w-3.5 text-primary" /><span>Branch: {userBranch}</span></span>}<span className="flex items-center space-x-1"><Shield className="h-3.5 w-3.5 text-emerald-600" /><span>{userRole.replace(/_/g, ' ')}</span></span><span className="flex items-center space-x-1"><CalendarIcon className="h-3.5 w-3.5 text-amber-600" /><span>Date: {todayStr}</span></span></div></div><form onSubmit={handleSearchSubmit} className="relative min-w-[280px] sm:min-w-[360px]"><input type="text" value={globalSearch} onChange={(e) => setGlobalSearch(e.target.value)} placeholder="Search customer by name, phone or email..." className="w-full pl-9 pr-4 py-2.5 rounded-2xl border bg-card text-xs font-bold shadow-xs focus:ring-2 focus:ring-primary focus:outline-none" /><Search className="h-4 w-4 text-muted-foreground absolute left-3 top-3" /></form></div></div>
+    <div className="mb-4 rounded-xl border border-border bg-card px-4 py-3 flex flex-wrap items-center justify-between gap-2">
+      <div>
+        <p className="text-xs font-bold text-foreground">Customer Contact Collection</p>
+        <p className="text-[11px] text-muted-foreground">
+          {contactCollectionPreference?.collectContacts
+            ? 'Enabled for your account. Contact fields will be shown where supported, but remain optional.'
+            : 'Disabled for your account. Contact fields remain optional and will not block quotations.'}
+        </p>
+      </div>
+      <span className={contactCollectionPreference?.collectContacts
+        ? 'text-[10px] font-bold rounded-full px-2.5 py-1 bg-emerald-500/10 text-emerald-600'
+        : 'text-[10px] font-bold rounded-full px-2.5 py-1 bg-muted text-muted-foreground'}>
+        {contactCollectionPreference?.collectContacts ? 'ENABLED' : 'DISABLED'}
+      </span>
+    </div>
     <PersistentStepTracker currentStepIndex={activeStepIndex} onStepClick={setActiveStepIndex} />
     <SalesKPIs data={kpis} />
     <MotorProductCards />
