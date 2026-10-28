@@ -120,6 +120,14 @@ export function HealthQuoteWizard({
   const [step, setStep] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [resolvedContactId, setResolvedContactId] = useState<string | undefined>(initialContactId);
+  const { data: selectedAgentPreference } = useQuery({
+    queryKey: ['current-user-agent-profile-contact-preference'],
+    queryFn: async () => (await healthQuotationRepository.getAgentProfile()).data,
+    staleTime: 60_000,
+  });
+  const agentCollectsContacts = Boolean(
+    selectedAgentPreference?.user?.collectContacts ?? currentUserPreference?.collectContacts,
+  );
 
   // Proposer state (Step 0)
   const [proposer, setProposer] = useState({
