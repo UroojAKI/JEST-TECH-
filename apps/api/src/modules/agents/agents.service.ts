@@ -224,6 +224,7 @@ export class AgentsService {
             firstName: true,
             lastName: true,
             phone: true,
+            collectContacts: true,
             role: { select: { code: true, name: true } },
           },
         },
