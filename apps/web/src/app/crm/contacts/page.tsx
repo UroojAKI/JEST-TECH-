@@ -73,7 +73,24 @@ export default function CustomerRegisterPage() {
     agentCode: '',
   });
 
-  const [contactCollectionEnabled, setContactCollectionEnabled] = useState(false);
+
+  const { data: currentUser } = useQuery({
+    queryKey: ['current-user-contact-preference'],
+    queryFn: adminRepository.getCurrentUser,
+    enabled: !isAdminOrBackOffice,
+  });
+  const { data: assignedUsers = [] } = useQuery({
+    queryKey: ['contact-assigned-agent-preference', formData.agentCode],
+    queryFn: () => adminRepository.getUsers({ search: formData.agentCode }),
+    enabled: isAdminOrBackOffice && Boolean(formData.agentCode.trim()),
+  });
+  const assignedAgentPreference = assignedUsers.find((u: any) =>
+    String(u.employeeCode || '').toUpperCase() === formData.agentCode.trim().toUpperCase() ||
+    String(u.id || '').toLowerCase() === formData.agentCode.trim().toLowerCase()
+  );
+  const effectiveContactCollection = isAdminOrBackOffice
+    ? (assignedAgentPreference?.collectContacts ?? false)
+    : Boolean(currentUser?.collectContacts);
 
   // Default to primary branch once branches load
   useEffect(() => {
@@ -240,8 +257,8 @@ export default function CustomerRegisterPage() {
           </p>
         </div>
         <div className="ml-auto flex items-center gap-2 text-[11px] text-muted-foreground">
-          <span className={contactCollectionEnabled ? 'text-emerald-600 font-bold' : 'font-semibold'}>
-            {contactCollectionEnabled ? 'Contact collection enabled for this session' : 'Contact details are optional'}
+          <span className={effectiveContactCollection ? 'text-emerald-600 font-bold' : 'font-semibold'}>
+            {effectiveContactCollection ? 'Contact collection enabled for the selected agent' : 'Contact collection disabled or optional'}
           </span>
         </div>
         <button
