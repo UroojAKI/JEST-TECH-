@@ -433,6 +433,10 @@ export function HealthQuoteWizard({
         `${cleanPhone || 'customer'}@health.internal`;
 
       let finalContactId = resolvedContactId;
+      if (!finalContactId && leadContext?.contactId) {
+        finalContactId = leadContext.contactId;
+        setResolvedContactId(finalContactId);
+      }
       if (!finalContactId) {
         finalContactId = await healthQuotationRepository.resolveOrCreateContact({
           firstName: proposer.firstName,
