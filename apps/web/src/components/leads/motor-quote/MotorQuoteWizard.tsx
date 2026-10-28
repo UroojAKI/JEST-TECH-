@@ -209,10 +209,6 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, customerId, caseId
     enabled: isOpen,
     staleTime: 60_000,
   });
-  const agentCollectsContacts = selectedAgentId
-    ? Boolean(selectedAgentPreferenceQuery.data?.user?.collectContacts ?? selectedAgentPreferenceQuery.data?.collectContacts)
-    : Boolean(currentUserPreference?.collectContacts);
-
   // Form state
   const [insurerName, setInsurerName] = useState('');
   const [proposer, setProposer] = useState<ProposerDetails>(() => emptyProposer(leadContact));
@@ -250,6 +246,10 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, customerId, caseId
     enabled: isOpen && Boolean(selectedAgentId),
     staleTime: 60_000,
   });
+  const agentCollectsContacts = selectedAgentId
+    ? Boolean(selectedAgentPreferenceQuery.data?.user?.collectContacts ?? selectedAgentPreferenceQuery.data?.collectContacts)
+    : Boolean(currentUserPreference?.collectContacts);
+
   const [isManualAgent, setIsManualAgent] = useState(false);
   const [manualAgentDetails, setManualAgentDetails] = useState<{ name: string; code?: string; phone?: string } | null>(null);
   const [journeyId, setJourneyId] = useState<string | null>(null);
