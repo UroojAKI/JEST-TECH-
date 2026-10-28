@@ -111,6 +111,12 @@ export function HealthQuoteWizard({
   leadId?: string;
 }) {
   const router = useRouter();
+  const { data: currentUserPreference } = useQuery({
+    queryKey: ['current-user-contact-preference'],
+    queryFn: async () => (await healthQuotationRepository.getCurrentUser()).data,
+    staleTime: 60_000,
+  });
+  const agentCollectsContacts = Boolean(currentUserPreference?.collectContacts);
   const [step, setStep] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [resolvedContactId, setResolvedContactId] = useState<string | undefined>(initialContactId);
@@ -307,9 +313,7 @@ export function HealthQuoteWizard({
   const stepErrors = (index: number): string[] => {
     const errors: string[] = [];
     if (index === 0) {
-      if (!proposer.firstName.trim()) errors.push('First Name');
-      const cleanPhone = proposer.phone.replace(/\D/g, '');
-      if (!cleanPhone || cleanPhone.length !== 10) errors.push('Valid 10-digit Mobile Number');
+      // Contact details are optional, regardless of the agent's collection preference.
       if (proposer.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(proposer.email.trim())) {
         errors.push('Valid Email Format');
       }
@@ -543,6 +547,9 @@ export function HealthQuoteWizard({
               <div>
                 <h2 className="font-black text-sm">Proposer Details &amp; KYC</h2>
                 <p className="text-[11px] text-muted-foreground">Common customer CRM identity across Health and Motor</p>
+                <p className="text-[11px] text-muted-foreground">
+                  Contact collection for the active user is {agentCollectsContacts ? 'enabled' : 'disabled'}. Contact details may be left blank.
+                </p>
               </div>
               <span className="text-[10px] font-bold text-emerald-600 bg-emerald-500/10 px-2.5 py-1 rounded-full border border-emerald-500/20">
                 Single Customer CRM Profile
