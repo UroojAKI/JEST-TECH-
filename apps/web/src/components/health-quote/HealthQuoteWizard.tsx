@@ -116,7 +116,6 @@ export function HealthQuoteWizard({
     queryFn: async () => (await healthQuotationRepository.getCurrentUser()).data,
     staleTime: 60_000,
   });
-  const agentCollectsContacts = Boolean(currentUserPreference?.collectContacts);
   const [step, setStep] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [resolvedContactId, setResolvedContactId] = useState<string | undefined>(initialContactId);
@@ -125,6 +124,9 @@ export function HealthQuoteWizard({
     queryFn: async () => (await healthQuotationRepository.getAgentProfile()).data,
     staleTime: 60_000,
   });
+  const agentCollectsContacts = Boolean(
+    selectedAgentPreference?.user?.collectContacts ?? currentUserPreference?.collectContacts,
+  );
   const agentCollectsContacts = Boolean(
     selectedAgentPreference?.user?.collectContacts ?? currentUserPreference?.collectContacts,
   );
