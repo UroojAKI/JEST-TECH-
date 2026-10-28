@@ -346,6 +346,8 @@ model User {
 
   workspacePreference WorkspacePreference?
   dashboardPreference String?
+  // Per-agent preference: display and collect optional customer contact details in workflows.
+  collectContacts Boolean @default(false)
 
   agentProfile            Agent?           @relation("UserAgentProfile")
   assignedTasks           Task[]           @relation("TaskAssignedTo")
