@@ -372,7 +372,7 @@ describe('Authoritative Production Gates & Negative Safety Invariants (INV-01 to
       ).rejects.toThrow(BadRequestException);
     });
 
-    it('INV-09: rejects policy issuance when chassis, engine, or registration number is missing', async () => {
+    it('INV-09: blocks motor policy issuance through the generic policy service', async () => {
       mockQuotationRepo.findById.mockResolvedValueOnce({
         id: 'quote-valid-1',
         status: QuotationStatus.APPROVED,
@@ -381,15 +381,15 @@ describe('Authoritative Production Gates & Negative Safety Invariants (INV-01 to
         policyEndDate: new Date('2027-09-30T23:59:59.999Z'),
         expiryDate: new Date('2026-12-31T00:00:00.000Z'),
         totalPremium: 17638.88,
-        registrationNumber: null, // Missing!
-        chassisNumber: null,
-        engineNumber: null,
+        registrationNumber: 'KA01AB1234',
+        chassisNumber: 'CHASSIS-VALID-001',
+        engineNumber: 'ENGINE-VALID-001',
         contact: { firstName: 'Test' },
       });
 
       await expect(
         issuePolicyService.execute(validDto as any, 'usr-1'),
-      ).rejects.toThrow(BadRequestException);
+      ).rejects.toThrow(ConflictException);
     });
 
     it('INV-10: blocks duplicate policy issuance on the same quotationId with ConflictException', async () => {
