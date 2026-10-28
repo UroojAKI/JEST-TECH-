@@ -39,6 +39,9 @@ vi.mock('./InspectionDialog', () => ({
 describe('MotorQuoteWizard SAOD Navigation & TP Verification Control-Flow', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // The wizard performs a vehicle lookup before evaluating the selected policy rules.
+    // Return an explicit empty response unless a test overrides this endpoint.
+    vi.mocked(apiClient.get).mockImplementation(async () => ({ data: {} }) as any);
     vi.mocked(apiClient.post).mockImplementation(async (url: string, data?: any) => {
       if (url === '/motor/journeys') {
         return { data: { journeyId: 'journey-test-123' } } as any;
