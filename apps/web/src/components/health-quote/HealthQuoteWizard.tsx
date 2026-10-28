@@ -127,9 +127,6 @@ export function HealthQuoteWizard({
   const agentCollectsContacts = Boolean(
     selectedAgentPreference?.user?.collectContacts ?? currentUserPreference?.collectContacts,
   );
-  const agentCollectsContacts = Boolean(
-    selectedAgentPreference?.user?.collectContacts ?? currentUserPreference?.collectContacts,
-  );
 
   // Proposer state (Step 0)
   const [proposer, setProposer] = useState({
