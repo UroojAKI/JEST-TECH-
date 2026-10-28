@@ -32,13 +32,25 @@ export function useAdminUsers(params?: { status?: string; role?: string; search?
     },
   });
 
+  const updateUserMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: any }) =>
+      adminRepository.updateUser(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-users'] });
+    },
+    onError: (err: any) => {
+      toast.error(err.response?.data?.message || 'Failed to update user');
+    },
+  });
+
   return {
     users: query.data || [],
     isLoading: query.isLoading,
     isFetching: query.isFetching,
     isError: query.isError,
     updateUserStatus: updateStatusMutation.mutate,
-    isUpdating: updateStatusMutation.isPending,
+    updateUser: updateUserMutation.mutateAsync,
+    isUpdating: updateStatusMutation.isPending || updateUserMutation.isPending,
   };
 }
 

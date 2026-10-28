@@ -111,6 +111,9 @@ export default function CustomerRegisterPage() {
     if (!cleanFirstName || !cleanLastName) {
       return void toast.error('First name and last name are required');
     }
+    if (effectiveContactCollection && !cleanPhone) {
+      return void toast.error('Mobile number is required when contact collection is enabled for this agent');
+    }
     if (cleanPhone && !/^[6-9]\d{9}$/.test(cleanPhone)) {
       return void toast.error('Enter a valid 10-digit Indian mobile number starting with 6, 7, 8, or 9');
     }
@@ -261,7 +264,7 @@ export default function CustomerRegisterPage() {
         </div>
         <div className="ml-auto flex items-center gap-2 text-[11px] text-muted-foreground">
           <span className={effectiveContactCollection ? 'text-emerald-600 font-bold' : 'font-semibold'}>
-            {effectiveContactCollection ? 'Contact collection enabled for the selected agent' : 'Contact collection disabled or optional'}
+            {effectiveContactCollection ? 'Contact collection enabled (Phone number required)' : 'Contact collection optional (Phone number optional)'}
           </span>
         </div>
         <button
@@ -323,13 +326,15 @@ export default function CustomerRegisterPage() {
                 </select>
               </div>
               <div>
-                <label className="font-bold text-muted-foreground block mb-1">Phone Number (Optional)</label>
+                <label className="font-bold text-muted-foreground block mb-1">
+                  Phone Number {effectiveContactCollection ? <span className="text-red-500">*</span> : <span className="text-muted-foreground/60 font-normal">(Optional)</span>}
+                </label>
                 <input
                   inputMode="numeric"
                   value={formData.phone}
                   onChange={(e) => setFormData({ ...formData, phone: e.target.value.replace(/\D/g, '').slice(0, 10) })}
                   placeholder="9876543210"
-                  className="w-full p-2.5 rounded-lg border bg-background text-xs font-mono"
+                  className={`w-full p-2.5 rounded-lg border bg-background text-xs font-mono ${effectiveContactCollection && !formData.phone ? 'border-red-400' : ''}`}
                 />
               </div>
               <div>

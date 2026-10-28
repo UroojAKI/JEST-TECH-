@@ -515,7 +515,21 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, customerId, caseId
   const registrationNumber = vehicleDetails['registrationNumber'] || vehicleDetails['regNumber'] || '';
 
   const canProceed = () => {
-    if (step === 1) return true; // Contact fields are optional for every agent preference.
+    if (step === 1) {
+      // When the agent preference is loading, block until we have an authoritative answer.
+      // Do NOT assume OFF while a request is in flight.
+      if (selectedAgentId && selectedAgentPreferenceQuery.isLoading) return false;
+
+      if (agentCollectsContacts) {
+        // Preference is ON: name and mobile are required
+        const name = (proposer.customerName || '').trim();
+        const mobile = (proposer.mobileNumber || '').replace(/\D/g, '').trim();
+        if (!name) return false;
+        if (!mobile || mobile.length !== 10) return false;
+      }
+      // Preference is OFF (or no agent selected yet): allow proceeding
+      return true;
+    }
     if (step === 2) {
       if (!vehicleCategory) return false;
       const fields = VEHICLE_FIELDS[vehicleCategory] || [];
@@ -1019,7 +1033,7 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, customerId, caseId
                       isDone ? 'bg-foreground text-background' :
                       'bg-muted text-muted-foreground'
                     }`}>
-                      {isDone ? '✓' : s.num}
+                      {isDone ? 'âœ“' : s.num}
                     </div>
                     {s.label}
                   </div>
@@ -1053,33 +1067,54 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, customerId, caseId
             {step === 1 && (
               <div className="space-y-4">
                 <h3 className="text-sm font-bold text-foreground border-b pb-2">Customer Basic Information</h3>
-                <p className="text-[11px] text-muted-foreground">
-                  Contact collection for the active user is {agentCollectsContacts ? 'enabled' : 'disabled'}. Name, mobile and email can be left blank.
-                </p>
+                {selectedAgentId && selectedAgentPreferenceQuery.isLoading ? (
+                  <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                    Loading agent contact-collection preference…
+                  </div>
+                ) : agentCollectsContacts ? (
+                  <div className="flex items-center gap-2 px-3 py-2 rounded-md bg-amber-50 border border-amber-200 text-[11px] text-amber-800">
+                    <span className="font-bold">Contact collection ON:</span> Customer name and mobile number are required before proceeding.
+                  </div>
+                ) : (
+                  <p className="text-[11px] text-muted-foreground">
+                    Contact collection is <span className="font-semibold">OFF</span> for this agent. Name, mobile and email are optional.
+                  </p>
+                )}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-muted-foreground">Customer Name (Optional)</label>
+                    <label className="text-xs font-semibold text-muted-foreground">
+                      Customer Name {agentCollectsContacts ? <span className="text-red-500 ml-0.5">*</span> : <span className="text-muted-foreground/60">(Optional)</span>}
+                    </label>
                     <input
                       type="text"
                       value={proposer.customerName || ''}
                       onChange={(e) => setProposer({...proposer, customerName: e.target.value})}
-                      className="w-full px-3 py-2 rounded-md border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                      className={`w-full px-3 py-2 rounded-md border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 ${agentCollectsContacts && !(proposer.customerName || '').trim() ? 'border-red-400' : ''}`}
                       placeholder="e.g. John Doe"
                     />
+                    {agentCollectsContacts && !(proposer.customerName || '').trim() && (
+                      <p className="text-[10px] text-red-500">Customer name is required</p>
+                    )}
                   </div>
                   <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-muted-foreground">Mobile Number (Optional)</label>
+                    <label className="text-xs font-semibold text-muted-foreground">
+                      Mobile Number {agentCollectsContacts ? <span className="text-red-500 ml-0.5">*</span> : <span className="text-muted-foreground/60">(Optional)</span>}
+                    </label>
                     <input
                       type="tel"
                       maxLength={10}
                       value={proposer.mobileNumber || ''}
                       onChange={(e) => setProposer({...proposer, mobileNumber: e.target.value.replace(/\D/g, '')})}
-                      className="w-full px-3 py-2 rounded-md border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                      className={`w-full px-3 py-2 rounded-md border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 ${agentCollectsContacts && (proposer.mobileNumber || '').replace(/\D/g,'').length !== 10 ? 'border-red-400' : ''}`}
                       placeholder="10-digit number"
                     />
+                    {agentCollectsContacts && (proposer.mobileNumber || '').replace(/\D/g,'').length !== 10 && (proposer.mobileNumber || '') !== '' && (
+                      <p className="text-[10px] text-red-500">Valid 10-digit mobile number is required</p>
+                    )}
                   </div>
                   <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-muted-foreground">Email Address</label>
+                    <label className="text-xs font-semibold text-muted-foreground">Email Address <span className="text-muted-foreground/60">(Optional)</span></label>
                     <input
                       type="email"
                       value={proposer.emailId || ''}
