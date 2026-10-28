@@ -398,8 +398,14 @@ export class HealthQuotationCaseService {
     if (!healthCase.selectedQuoteId) {
       return null;
     }
-    return this.prisma.motorPaymentRecord.findUnique({
-      where: { quotationId: healthCase.selectedQuoteId },
+    // getCase scopes the health case to this tenant. Also assert quotation ownership
+    // explicitly and scope the payment record itself to the authenticated company.
+    await this.tenantAuthService.assertTenantResource('Quotation', healthCase.selectedQuoteId, user);
+    return this.prisma.motorPaymentRecord.findFirst({
+      where: {
+        quotationId: healthCase.selectedQuoteId,
+        companyId: user.companyId,
+      },
     });
   }
 
@@ -463,13 +469,18 @@ export class HealthQuotationCaseService {
     let updatedContact = healthCase.contact;
     if (Object.keys(contactUpdates).length) {
       updatedContact = await this.prisma.contact.update({
-        where: { id: healthCase.contactId },
+        where: {
+          companyId_id: {
+            companyId: user.companyId,
+            id: healthCase.contactId,
+          },
+        },
         data: contactUpdates,
       });
 
       // Also sync customer if linked to this contact
       await this.prisma.customer.updateMany({
-        where: { contactId: healthCase.contactId },
+        where: { contactId: healthCase.contactId, companyId: user.companyId },
         data: {
           ...(contactUpdates.panNumber ? { panNumber: contactUpdates.panNumber } : {}),
           ...(contactUpdates.aadhaarNumber ? { aadhaarNumber: contactUpdates.aadhaarNumber } : {}),
@@ -484,7 +495,7 @@ export class HealthQuotationCaseService {
       });
     } else if (dto.address) {
       await this.prisma.customer.updateMany({
-        where: { contactId: healthCase.contactId },
+        where: { contactId: healthCase.contactId, companyId: user.companyId },
         data: {
           ...(dto.address?.line1 ? { addressLine1: dto.address.line1.trim() } : {}),
           ...(dto.address?.line2 ? { addressLine2: dto.address.line2.trim() } : {}),

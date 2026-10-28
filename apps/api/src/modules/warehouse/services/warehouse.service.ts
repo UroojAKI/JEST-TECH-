@@ -7,7 +7,7 @@ export interface ReportingContact {
   lastName: string;
   fullName: string;
   email: string | null;
-  phone: string;
+  phone: string | null;
   type: string;
   status: string;
   createdAt: Date;

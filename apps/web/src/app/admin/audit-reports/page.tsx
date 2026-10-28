@@ -32,7 +32,6 @@ import {
 import { policiesRepository, PolicyItem } from '../../../repositories/policies.repository';
 import { useAuth } from '../../../hooks/useAuth';
 import { toast } from 'sonner';
-import * as XLSX from 'xlsx';
 
 export default function PolicyAuditReportPage() {
   const { user, isLoading: authLoading } = useAuth();
@@ -169,7 +168,8 @@ export default function PolicyAuditReportPage() {
     return `₹${Number(val).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   };
 
-  // Native Excel (.xlsx) Export for Auditor Compliance
+  // Export spreadsheet-compatible CSV without the unmaintained SheetJS package.
+  // Formula-leading text is escaped to reduce CSV formula-injection risk.
   const exportToExcel = () => {
     if (filteredPolicies.length === 0) {
       toast.error('No policies to export');
@@ -181,12 +181,12 @@ export default function PolicyAuditReportPage() {
         'Policy Number': p.policyNumber || '',
         'Quotation Code': p.quotationCode || '',
         'Quotation ID': p.quotationId || '',
-        'Status': p.status || '',
+        Status: p.status || '',
         'Customer Name': p.customerName || p.contactName || '',
         'Customer Phone': p.contactPhone || '',
         'Vehicle Reg Number': p.vehicle?.registrationNumber || '',
         'Vehicle Make & Model': p.vehicle?.makeModel || '',
-        'Insurer': p.insurerName || '',
+        Insurer: p.insurerName || '',
         'Policy Type': p.policyType || p.productLine || '',
         'OD Premium (INR)': Number(p.odPremium ?? 0),
         'TP Premium (INR)': Number(p.tpPremium ?? 0),
@@ -201,53 +201,30 @@ export default function PolicyAuditReportPage() {
         'Expiry Date': p.endDate ? new Date(p.endDate).toISOString().slice(0, 10) : '',
       }));
 
-      const worksheet = XLSX.utils.json_to_sheet(data);
-
-      // Auto-fit column widths
-      worksheet['!cols'] = [
-        { wch: 22 }, // Policy Number
-        { wch: 20 }, // Quotation Code
-        { wch: 38 }, // Quotation ID
-        { wch: 12 }, // Status
-        { wch: 24 }, // Customer Name
-        { wch: 15 }, // Customer Phone
-        { wch: 18 }, // Vehicle Reg Number
-        { wch: 25 }, // Vehicle Make & Model
-        { wch: 20 }, // Insurer
-        { wch: 18 }, // Policy Type
-        { wch: 16 }, // OD Premium
-        { wch: 16 }, // TP Premium
-        { wch: 18 }, // Addon Premium
-        { wch: 18 }, // Discount Amount
-        { wch: 10 }, // NCB %
-        { wch: 18 }, // Net Premium
-        { wch: 16 }, // GST Amount
-        { wch: 24 }, // Net Payable / Total Premium
-        { wch: 14 }, // Payment Status
-        { wch: 16 }, // Issue / Start Date
-        { wch: 16 }, // Expiry Date
-      ];
-
-      const workbook = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(workbook, worksheet, 'Policy Audit Report');
-
-      const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
-      const blob = new Blob([excelBuffer], {
-        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8',
-      });
+      const headers = Object.keys(data[0]);
+      const escapeCell = (value: unknown) => {
+        let text = String(value ?? '');
+        if (typeof value === 'string' && /^[=+\-@\t\r]/.test(text)) {
+          text = `'${text}`;
+        }
+        return `"${text.replace(/"/g, '""')}"`;
+      };
+      const csv = [headers, ...data.map((row) => headers.map((header) => row[header as keyof typeof row]))]
+        .map((row) => row.map(escapeCell).join(','))
+        .join('\r\n');
+      const blob = new Blob(['\uFEFF', csv], { type: 'text/csv;charset=utf-8;' });
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `Policy_Audit_Report_${new Date().toISOString().slice(0, 10)}.xlsx`;
+      link.download = `Policy_Audit_Report_${new Date().toISOString().slice(0, 10)}.csv`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
-
-      toast.success('Audit report exported to Excel (.xlsx) successfully');
+      toast.success('Audit report exported as Excel-compatible CSV successfully');
     } catch (err) {
-      console.error('Failed to export to Excel', err);
-      toast.error('Failed to export to Excel');
+      console.error('Failed to export audit report', err);
+      toast.error('Failed to export audit report');
     }
   };
 
