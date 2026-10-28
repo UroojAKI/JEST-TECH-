@@ -2,6 +2,10 @@ import { apiClient } from '../lib/api-client';
 import { documentsRepository } from './documents.repository';
 
 export const healthQuotationRepository = {
+  async getCurrentUser(): Promise<any> {
+    return apiClient.get('/users/me');
+  },
+
   async getContact(contactId: string): Promise<any> {
     try {
       const response = await apiClient.get(`/contacts/${contactId}`);
