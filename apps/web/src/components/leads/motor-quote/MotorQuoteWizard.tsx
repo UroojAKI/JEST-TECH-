@@ -209,6 +209,12 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, customerId, caseId
     enabled: isOpen,
     staleTime: 60_000,
   });
+  const selectedAgentPreferenceQuery = useQuery({
+    queryKey: ['agent-contact-preference', selectedAgentId],
+    queryFn: async () => (await apiClient.get(`/agents/${selectedAgentId}`)).data,
+    enabled: isOpen && Boolean(selectedAgentId),
+    staleTime: 60_000,
+  });
   const agentCollectsContacts = selectedAgentId
     ? Boolean(selectedAgentPreferenceQuery.data?.user?.collectContacts ?? selectedAgentPreferenceQuery.data?.collectContacts)
     : Boolean(currentUserPreference?.collectContacts);
