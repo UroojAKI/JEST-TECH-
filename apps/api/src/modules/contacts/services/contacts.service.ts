@@ -79,12 +79,14 @@ export class ContactsService {
       );
     }
 
-    const existingPhone = await this.contactRepository.findByPhone(
-      dto.phone,
-      targetCompanyId,
-    );
-    if (existingPhone) {
-      throw duplicateContactError(existingPhone.id, 'PHONE');
+    if (dto.phone) {
+      const existingPhone = await this.contactRepository.findByPhone(
+        dto.phone,
+        targetCompanyId,
+      );
+      if (existingPhone) {
+        throw duplicateContactError(existingPhone.id, 'PHONE');
+      }
     }
     if (dto.email) {
       const existingEmail = await this.contactRepository.findByEmail(
