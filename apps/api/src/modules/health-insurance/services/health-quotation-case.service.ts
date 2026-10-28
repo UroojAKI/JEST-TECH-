@@ -102,26 +102,8 @@ export class HealthQuotationCaseService {
           await this.prisma.customer.update({ where: { id: customer.id }, data: { contactId: contact.id } });
           dto.contactId = contact.id;
         }
-      } else if (!dto.contactId) {
-        throw err;
       } else {
-        // A contact may be omitted from the user journey; retain the required
-        // case/contact relation with a minimal placeholder rather than blocking quoting.
-        const contactCount = await this.prisma.contact.count({ where: { companyId: user.companyId } });
-        contact = await this.prisma.contact.create({
-          data: {
-            contactCode: `CONT-${String(contactCount + 1).padStart(6, '0')}`,
-            companyId: user.companyId,
-            firstName: 'Quotation',
-            lastName: 'Customer',
-            phone: null,
-            type: 'INDIVIDUAL',
-            status: 'ACTIVE',
-            createdById: user.id,
-            updatedById: user.id,
-          },
-        });
-        dto.contactId = contact.id;
+        throw err;
       }
     }
     if (dto.leadId) {
