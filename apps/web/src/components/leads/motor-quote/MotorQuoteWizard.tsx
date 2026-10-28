@@ -4,6 +4,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { X, ChevronRight, ChevronLeft, Save, Loader2, Car, Shield } from 'lucide-react';
 import { toast } from 'sonner';
 import { apiClient } from '../../../lib/api-client';
+import { useQuery } from '@tanstack/react-query';
 import { leadsRepository } from '../../../repositories/leads.repository';
 
 import { VehicleCategorySelector } from './VehicleCategorySelector';
@@ -201,6 +202,14 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, customerId, caseId
   const [step, setStep] = useState(1);
   const [isSaving, setIsSaving] = useState(false);
   const { insurerOptions } = useInsurers();
+
+  const { data: currentUserPreference } = useQuery({
+    queryKey: ['current-user-contact-preference'],
+    queryFn: async () => (await apiClient.get('/users/me')).data,
+    enabled: isOpen,
+    staleTime: 60_000,
+  });
+  const agentCollectsContacts = Boolean(currentUserPreference?.collectContacts);
 
   // Form state
   const [insurerName, setInsurerName] = useState('');
@@ -498,7 +507,7 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, customerId, caseId
   const registrationNumber = vehicleDetails['registrationNumber'] || vehicleDetails['regNumber'] || '';
 
   const canProceed = () => {
-    if (step === 1) return !!(proposer.customerName && proposer.mobileNumber);
+    if (step === 1) return true; // Contact fields are optional for every agent preference.
     if (step === 2) {
       if (!vehicleCategory) return false;
       const fields = VEHICLE_FIELDS[vehicleCategory] || [];
@@ -1036,9 +1045,12 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, customerId, caseId
             {step === 1 && (
               <div className="space-y-4">
                 <h3 className="text-sm font-bold text-foreground border-b pb-2">Customer Basic Information</h3>
+                <p className="text-[11px] text-muted-foreground">
+                  Contact collection for the active user is {agentCollectsContacts ? 'enabled' : 'disabled'}. Name, mobile and email can be left blank.
+                </p>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-muted-foreground">Customer Name <span className="text-destructive">*</span></label>
+                    <label className="text-xs font-semibold text-muted-foreground">Customer Name (Optional)</label>
                     <input
                       type="text"
                       value={proposer.customerName || ''}
@@ -1048,7 +1060,7 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, customerId, caseId
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-muted-foreground">Mobile Number <span className="text-destructive">*</span></label>
+                    <label className="text-xs font-semibold text-muted-foreground">Mobile Number (Optional)</label>
                     <input
                       type="tel"
                       maxLength={10}
