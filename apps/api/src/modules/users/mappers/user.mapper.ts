@@ -8,6 +8,7 @@ export class UserMapper {
       lastName: user.lastName,
       email: user.email,
       phone: user.phone,
+      collectContacts: user.collectContacts ?? false,
       employeeCode: user.employeeCode,
       designation: user.designation,
       department: user.legacyDepartment,
