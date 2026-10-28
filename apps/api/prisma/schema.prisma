@@ -562,7 +562,7 @@ model Contact {
 
   email String?
 
-  phone String
+  phone String?
 
   alternatePhone String?
 
