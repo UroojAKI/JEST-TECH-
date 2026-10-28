@@ -6,6 +6,10 @@ export const healthQuotationRepository = {
     return apiClient.get('/users/me');
   },
 
+  async getAgentProfile(): Promise<any> {
+    return apiClient.get('/agents/me');
+  },
+
   async getContact(contactId: string): Promise<any> {
     try {
       const response = await apiClient.get(`/contacts/${contactId}`);
