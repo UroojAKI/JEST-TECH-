@@ -259,17 +259,14 @@ export class IssuePolicyService {
     const todayStart = new Date();
     todayStart.setHours(0, 0, 0, 0);
     if (effectiveDate < todayStart) {
-      effectiveDate = new Date();
-      if (!quoteExpiry) {
-        const calculatedExpiry = new Date(effectiveDate);
-        calculatedExpiry.setFullYear(calculatedExpiry.getFullYear() + tenure);
-        expiryDate = calculatedExpiry;
-      }
+      throw new BadRequestException(
+        'Policy effective date cannot be earlier than today. Backdated policy issuance is forbidden.',
+      );
     }
     if (expiryDate <= effectiveDate) {
-      const calculatedExpiry = new Date(effectiveDate);
-      calculatedExpiry.setFullYear(calculatedExpiry.getFullYear() + tenure);
-      expiryDate = calculatedExpiry;
+      throw new BadRequestException(
+        'Policy expiry date must be later than its effective date.',
+      );
     }
 
     // Issued documents must never contain fabricated chassis/engine/registration values (only for motor).

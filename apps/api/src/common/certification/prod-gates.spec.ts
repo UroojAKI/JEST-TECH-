@@ -376,6 +376,7 @@ describe('Authoritative Production Gates & Negative Safety Invariants (INV-01 to
       mockQuotationRepo.findById.mockResolvedValueOnce({
         id: 'quote-valid-1',
         status: QuotationStatus.APPROVED,
+        productType: 'MOTOR',
         policyStartDate: new Date('2026-10-01T00:00:00.000Z'),
         policyEndDate: new Date('2027-09-30T23:59:59.999Z'),
         expiryDate: new Date('2026-12-31T00:00:00.000Z'),
