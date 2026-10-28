@@ -50,36 +50,37 @@ export const healthQuotationRepository = {
   }): Promise<string> {
     const cleanPhone = proposer.phone.replace(/\D/g, '');
 
-    // 1. Try to find existing contact by phone
-    try {
-      const searchRes = await apiClient.get('/contacts', { params: { search: cleanPhone, limit: 10 } });
-      const items = Array.isArray(searchRes.data?.data) ? searchRes.data.data : Array.isArray(searchRes.data) ? searchRes.data : [];
-      const match = items.find((c: any) => String(c.phone || '').replace(/\D/g, '') === cleanPhone);
-      if (match?.id) {
-        return match.id;
+    // Look up by phone only when the user supplied one; missing contact details
+    // should not prevent a health proposal from being created.
+    if (cleanPhone) {
+      try {
+        const searchRes = await apiClient.get('/contacts', { params: { search: cleanPhone, limit: 10 } });
+        const items = Array.isArray(searchRes.data?.data) ? searchRes.data.data : Array.isArray(searchRes.data) ? searchRes.data : [];
+        const match = items.find((c: any) => String(c.phone || '').replace(/\D/g, '') === cleanPhone);
+        if (match?.id) return match.id;
+      } catch {
+        // Continue to creation.
       }
-    } catch {
-      // Continue to customer check
     }
 
-    // 2. Check customer table if contact not found directly
-    try {
-      const custSearchRes = await apiClient.get('/customers', { params: { search: cleanPhone, limit: 10 } });
-      const custItems = Array.isArray(custSearchRes.data?.data) ? custSearchRes.data.data : Array.isArray(custSearchRes.data) ? custSearchRes.data : [];
-      const custMatch = custItems.find((c: any) => String(c.mobile || c.phone || '').replace(/\D/g, '') === cleanPhone);
-      if (custMatch?.contactId || custMatch?.id) {
-        return custMatch.contactId || custMatch.id;
+    if (cleanPhone) {
+      try {
+        const custSearchRes = await apiClient.get('/customers', { params: { search: cleanPhone, limit: 10 } });
+        const custItems = Array.isArray(custSearchRes.data?.data) ? custSearchRes.data.data : Array.isArray(custSearchRes.data) ? custSearchRes.data : [];
+        const custMatch = custItems.find((c: any) => String(c.mobile || c.phone || '').replace(/\D/g, '') === cleanPhone);
+        if (custMatch?.contactId || custMatch?.id) return custMatch.contactId || custMatch.id;
+      } catch {
+        // Continue to creation.
       }
-    } catch {
-      // Continue to creation
     }
 
-    // 3. Create new contact
+    // Keep the required case-to-contact link with a minimal, non-sensitive placeholder
+    // when the customer opted not to provide contact details.
     const created = await apiClient.post('/contacts', {
       type: 'INDIVIDUAL',
-      firstName: proposer.firstName.trim() || 'Health',
-      lastName: (proposer.lastName || '').trim(),
-      phone: cleanPhone,
+      firstName: proposer.firstName.trim() || 'Quotation',
+      lastName: (proposer.lastName || '').trim() || 'Customer',
+      ...(cleanPhone ? { phone: cleanPhone } : {}),
       email: proposer.email?.trim() || undefined,
       panNumber: proposer.panNumber?.trim() || undefined,
     });
