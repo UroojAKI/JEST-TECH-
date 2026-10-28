@@ -162,6 +162,11 @@ export const adminRepository = {
     return response.data;
   },
 
+  async updateUser(id: string, data: Partial<UserItem> & { collectContacts?: boolean }): Promise<UserItem> {
+    const response = await apiClient.patch(`/users/${id}`, data);
+    return response.data;
+  },
+
   async updateUserStatus(id: string, status: string, reason?: string): Promise<UserItem> {
     const dbStatus = status === 'LOCKED' ? 'SUSPENDED' : status === 'DISABLED' ? 'INACTIVE' : status;
     const response = await apiClient.patch(`/users/${id}/status`, { status: dbStatus, reason });

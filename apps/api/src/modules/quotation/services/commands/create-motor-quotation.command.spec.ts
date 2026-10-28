@@ -46,6 +46,10 @@ describe('CreateMotorQuotationCommand (Authoritative Command)', () => {
       agent: {
         findFirst: jest.fn(),
       },
+      user: {
+        findFirst: jest.fn().mockResolvedValue({ collectContacts: false }),
+        findUnique: jest.fn().mockResolvedValue({ collectContacts: false }),
+      },
       quotation: {
         create: jest.fn(),
       },
@@ -822,5 +826,264 @@ describe('CreateMotorQuotationCommand (Authoritative Command)', () => {
     });
   });
 
+  describe('Contact Collection Enforcement (CONTACT-COLLECTION)', () => {
+    beforeEach(() => {
+      prisma.quotation.create.mockResolvedValue({
+        id: 'q-cc-test-1',
+        quotationCode: 'QTN-CC-000001',
+        totalPremium: 11800,
+        workflowState: 'READY_FOR_PROPOSAL',
+        status: 'DRAFT',
+        createdAt: new Date(),
+      });
+    });
+
+    it('CC-01: rejects quotation when assigned agent has collectContacts=true and customerName is missing', async () => {
+      tenantAuthService.assertAssignableAgent.mockResolvedValueOnce({
+        id: 'agent-cc-1',
+        companyId: 'company-1',
+        isActive: true,
+      });
+      prisma.user.findFirst.mockResolvedValueOnce({ collectContacts: true });
+      prisma.contact.findFirst.mockResolvedValue(null);
+
+      await expect(
+        command.execute(
+          {
+            vehicleCategory: 'PRIVATE_CAR',
+            policyType: 'PACKAGE',
+            insurerName: 'HDFC ERGO',
+            agentId: 'agent-cc-1',
+            proposerDetails: {
+              customerName: '',
+              mobileNumber: '9876543210',
+            },
+          },
+          mockUser,
+        ),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('CC-02: rejects when mobile number is missing and collectContacts=true', async () => {
+      tenantAuthService.assertAssignableAgent.mockResolvedValueOnce({
+        id: 'agent-cc-1',
+        companyId: 'company-1',
+        isActive: true,
+      });
+      prisma.user.findFirst.mockResolvedValueOnce({ collectContacts: true });
+      prisma.contact.findFirst.mockResolvedValue(null);
+
+      await expect(
+        command.execute(
+          {
+            vehicleCategory: 'PRIVATE_CAR',
+            policyType: 'PACKAGE',
+            insurerName: 'HDFC ERGO',
+            agentId: 'agent-cc-1',
+            proposerDetails: {
+              customerName: 'John Doe',
+              mobileNumber: '',
+            },
+          },
+          mockUser,
+        ),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('CC-03: allows quotation when collectContacts=true and all required details are present', async () => {
+      tenantAuthService.assertAssignableAgent.mockResolvedValueOnce({
+        id: 'agent-cc-1',
+        companyId: 'company-1',
+        isActive: true,
+      });
+      prisma.user.findFirst.mockResolvedValueOnce({ collectContacts: true });
+      prisma.contact.findFirst.mockResolvedValue(null);
+
+      const result = await command.execute(
+        {
+          vehicleCategory: 'PRIVATE_CAR',
+          policyType: 'PACKAGE',
+          insurerName: 'HDFC ERGO',
+          agentId: 'agent-cc-1',
+          proposerDetails: {
+            customerName: 'John Doe',
+            mobileNumber: '9876543210',
+          },
+        },
+        mockUser,
+      );
+
+      expect(result.id).toBe('q-cc-test-1');
+      expect(contactsService.create).toHaveBeenCalledWith(
+        expect.objectContaining({ firstName: 'John' }),
+        mockUser.id,
+      );
+    });
+
+    it('CC-04: allows quotation when collectContacts=false and no customer details supplied', async () => {
+      prisma.user.findUnique.mockResolvedValueOnce({ collectContacts: false });
+      prisma.contact.findFirst.mockResolvedValue(null);
+
+      const result = await command.execute(
+        {
+          vehicleCategory: 'PRIVATE_CAR',
+          policyType: 'PACKAGE',
+          insurerName: 'HDFC ERGO',
+          proposerDetails: {},
+        },
+        mockUser,
+      );
+
+      expect(result.id).toBe('q-cc-test-1');
+      // Should have created a placeholder contact
+      expect(contactsService.create).toHaveBeenCalled();
+    });
+
+    it('CC-05: client cannot bypass enforcement by sending collectContacts=false in payload', async () => {
+      // The server reads from DB — client-supplied collectContacts field is ignored.
+      // The DTO does not even have a collectContacts field; the server reads from DB.
+      tenantAuthService.assertAssignableAgent.mockResolvedValueOnce({
+        id: 'agent-cc-1',
+        companyId: 'company-1',
+        isActive: true,
+      });
+      // Server reads collectContacts=true from DB for agent
+      prisma.user.findFirst.mockResolvedValueOnce({ collectContacts: true });
+      prisma.contact.findFirst.mockResolvedValue(null);
+
+      // Even if client sends no name/mobile, the server must reject
+      const err: any = await command.execute(
+        {
+          vehicleCategory: 'PRIVATE_CAR',
+          policyType: 'PACKAGE',
+          insurerName: 'HDFC ERGO',
+          agentId: 'agent-cc-1',
+          proposerDetails: {
+            customerName: '',
+            mobileNumber: '',
+          },
+        },
+        mockUser,
+      ).catch((e) => e);
+
+      expect(err).toBeInstanceOf(BadRequestException);
+      expect(err.response?.errorCode).toBe('CONTACT_COLLECTION_REQUIRED');
+    });
+
+    it('CC-06: manual agent uses OFF fallback regardless of payload', async () => {
+      // Manual agents have no DB user record; enforcement must stay OFF
+      prisma.contact.findFirst.mockResolvedValue(null);
+
+      const result = await command.execute(
+        {
+          vehicleCategory: 'PRIVATE_CAR',
+          policyType: 'PACKAGE',
+          insurerName: 'HDFC ERGO',
+          manualAgent: {
+            isManual: true,
+            name: 'Walk-in Agent',
+            code: 'WLK-001',
+            contact: '+919876543210',
+            source: 'DIRECT',
+          },
+          proposerDetails: {},
+        },
+        mockUser,
+      );
+
+      expect(result.id).toBe('q-cc-test-1');
+      // No enforcement check ran for manual agent — contact creation proceeds normally
+      expect(prisma.user.findFirst).not.toHaveBeenCalledWith(
+        expect.objectContaining({ where: { agentProfile: expect.anything() } }),
+      );
+    });
+
+    it('CC-07: rejects quotation when mobile number is invalid (fewer than 10 digits)', async () => {
+      tenantAuthService.assertAssignableAgent.mockResolvedValueOnce({
+        id: 'agent-cc-1',
+        companyId: 'company-1',
+        isActive: true,
+      });
+      prisma.user.findFirst.mockResolvedValueOnce({ collectContacts: true });
+      prisma.contact.findFirst.mockResolvedValue(null);
+
+      await expect(
+        command.execute(
+          {
+            vehicleCategory: 'PRIVATE_CAR',
+            policyType: 'PACKAGE',
+            insurerName: 'HDFC ERGO',
+            agentId: 'agent-cc-1',
+            proposerDetails: {
+              customerName: 'John Doe',
+              mobileNumber: '12345',
+            },
+          },
+          mockUser,
+        ),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('CC-08: allows quotation when collectContacts=true and existing linked contact provides valid details', async () => {
+      tenantAuthService.assertAssignableAgent.mockResolvedValueOnce({
+        id: 'agent-cc-1',
+        companyId: 'company-1',
+        isActive: true,
+      });
+      prisma.user.findFirst.mockResolvedValueOnce({ collectContacts: true });
+      // Existing contact is linked
+      prisma.contact.findFirst.mockResolvedValueOnce({
+        id: 'c-valid-1',
+        firstName: 'Jane',
+        lastName: 'Smith',
+        phone: '9876543210',
+      });
+
+      const result = await command.execute(
+        {
+          vehicleCategory: 'PRIVATE_CAR',
+          policyType: 'PACKAGE',
+          insurerName: 'HDFC ERGO',
+          agentId: 'agent-cc-1',
+          contactId: 'c-valid-1',
+          proposerDetails: {},
+        },
+        mockUser,
+      );
+
+      expect(result.id).toBe('q-cc-test-1');
+    });
+
+    it('CC-09: rejects quotation when collectContacts=true and existing linked contact is missing phone', async () => {
+      tenantAuthService.assertAssignableAgent.mockResolvedValueOnce({
+        id: 'agent-cc-1',
+        companyId: 'company-1',
+        isActive: true,
+      });
+      prisma.user.findFirst.mockResolvedValueOnce({ collectContacts: true });
+      // Existing contact is linked but has no phone
+      prisma.contact.findFirst.mockResolvedValueOnce({
+        id: 'c-invalid-1',
+        firstName: 'Jane',
+        lastName: 'Smith',
+        phone: null,
+      });
+
+      const err: any = await command.execute(
+        {
+          vehicleCategory: 'PRIVATE_CAR',
+          policyType: 'PACKAGE',
+          insurerName: 'HDFC ERGO',
+          agentId: 'agent-cc-1',
+          contactId: 'c-invalid-1',
+          proposerDetails: {},
+        },
+        mockUser,
+      ).catch((e) => e);
+
+      expect(err).toBeInstanceOf(BadRequestException);
+      expect(err.response?.errorCode).toBe('CONTACT_COLLECTION_REQUIRED');
+    });
+  });
 });
 

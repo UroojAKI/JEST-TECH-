@@ -178,31 +178,6 @@ export class CreateMotorQuotationCommand {
       contactId = existingByEmail?.id;
     }
 
-    if (!contactId) {
-      // The quotation keeps a CRM contact relationship, but contact fields are optional.
-      // A minimal placeholder prevents the quote workflow from forcing a phone/email.
-      const mobileNumber = String(proposer['mobileNumber'] || '').trim();
-      const [firstName, ...rest] = String(
-        proposer['customerName'] || 'Quotation Customer',
-      ).trim().split(/\s+/);
-      const newContact = await this.contactsService.create(
-        {
-          firstName: firstName || 'Quotation',
-          lastName: rest.join(' ') || 'Customer',
-          email: proposer['emailId']
-            ? String(proposer['emailId']).trim()
-            : undefined,
-          phone: mobileNumber || undefined,
-          panNumber: proposer['panNumber']
-            ? String(proposer['panNumber']).trim()
-            : undefined,
-          type: 'INDIVIDUAL',
-        },
-        user.id,
-      );
-      contactId = newContact.id;
-    }
-
     // ── 3. Agent Assignment (MOTOR-REG-01, MOTOR-REG-02, Phase 26) ──
     let assignedAgentId: string | null = null;
     let manualAgentSnapshot: any = null;
@@ -272,6 +247,88 @@ export class CreateMotorQuotationCommand {
       assignedAgentId = agent.id;
     }
     // Do NOT silently overwrite with lead.agentId!
+
+    // ── 2c. Server-side enforcement of agent contact-collection preference ──
+    // The server — not the browser — is the source of truth for this rule.
+    // A client cannot bypass enforcement by omitting or spoofing collectContacts.
+    {
+      let enforceContactCollection = false;
+
+      if (assignedAgentId) {
+        // Registered agent: read preference from database
+        const agentUser = await this.prisma.user.findFirst({
+          where: { agentProfile: { id: assignedAgentId } },
+          select: { collectContacts: true },
+        });
+        enforceContactCollection = agentUser?.collectContacts ?? false;
+      } else if (!dto.manualAgent?.isManual) {
+        // No agent assigned yet: use logged-in actor's preference
+        const actorUser = await this.prisma.user.findUnique({
+          where: { id: user.id },
+          select: { collectContacts: true },
+        });
+        enforceContactCollection = actorUser?.collectContacts ?? false;
+      }
+      // Manual agent -> OFF (no authoritative user record to read from)
+
+      if (enforceContactCollection) {
+        let hasValidName = Boolean(String(proposer['customerName'] || '').trim());
+        let hasValidMobile = String(proposer['mobileNumber'] || '').replace(/\D/g, '').trim().length === 10;
+
+        // If a contact is already linked (e.g. from lead or client), check if its records satisfy the requirements
+        if (contactId && (!hasValidName || !hasValidMobile)) {
+          const linkedContact = await this.prisma.contact.findFirst({
+            where: { id: contactId, companyId, deletedAt: null },
+            select: { firstName: true, lastName: true, phone: true },
+          });
+          if (linkedContact) {
+            if (!hasValidName && (linkedContact.firstName || linkedContact.lastName)) {
+              hasValidName = true;
+            }
+            if (!hasValidMobile && linkedContact.phone && linkedContact.phone.replace(/\D/g, '').length === 10) {
+              hasValidMobile = true;
+            }
+          }
+        }
+
+        const missingFields: string[] = [];
+        if (!hasValidName) missingFields.push('customerName');
+        if (!hasValidMobile) missingFields.push('mobileNumber (10 digits)');
+
+        if (missingFields.length > 0) {
+          throw new BadRequestException({
+            statusCode: 400,
+            error: 'Bad Request',
+            errorCode: 'CONTACT_COLLECTION_REQUIRED',
+            message: `The assigned agent requires customer details. Missing or invalid fields: ${missingFields.join(', ')}.`,
+            missingFields,
+          });
+        }
+      }
+    }
+
+    if (!contactId) {
+      // Contact collection OFF or existing contact found; create provisional record with available details.
+      const mobileNumber = String(proposer['mobileNumber'] || '').trim();
+      const rawName = String(proposer['customerName'] || '').trim();
+      const [firstName, ...rest] = (rawName || 'Provisional Customer').split(/\s+/);
+      const newContact = await this.contactsService.create(
+        {
+          firstName: firstName || 'Provisional',
+          lastName: rest.join(' ') || (rawName ? '' : 'Customer'),
+          email: proposer['emailId']
+            ? String(proposer['emailId']).trim()
+            : undefined,
+          phone: mobileNumber || undefined,
+          panNumber: proposer['panNumber']
+            ? String(proposer['panNumber']).trim()
+            : undefined,
+          type: 'INDIVIDUAL',
+        },
+        user.id,
+      );
+      contactId = newContact.id;
+    }
 
     // ── 4. Vehicle Details & Canonical Link ──
     const vehicleDetails = (dto.vehicleDetails || {}) as any;

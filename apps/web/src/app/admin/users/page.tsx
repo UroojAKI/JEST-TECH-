@@ -49,7 +49,7 @@ export default function UserManagementPage() {
   const [customResetPassword, setCustomResetPassword] = useState('');
   const [isResetting, setIsResetting] = useState(false);
 
-  const { users, isLoading, isFetching, isError, updateUserStatus, isUpdating } = useAdminUsers({
+  const { users, isLoading, isFetching, isError, updateUserStatus, updateUser, isUpdating } = useAdminUsers({
     status: statusFilter !== 'ALL' ? statusFilter : undefined,
     search: debouncedSearch || undefined,
   });
@@ -81,6 +81,20 @@ export default function UserManagementPage() {
   const handleToggleLock = (user: any) => {
     const nextStatus = user.status === 'LOCKED' || user.status === 'SUSPENDED' ? 'ACTIVE' : 'LOCKED';
     handleSetStatus(user, nextStatus);
+  };
+
+  const handleToggleCollectContacts = async (user: any) => {
+    try {
+      const nextVal = !user.collectContacts;
+      await updateUser({ id: user.id, data: { collectContacts: nextVal } });
+      toast.success(
+        `Contact collection for ${user.firstName} ${user.lastName} set to ${
+          nextVal ? 'REQUIRED (ON)' : 'OPTIONAL (OFF)'
+        }`
+      );
+    } catch {
+      // Error toast is already displayed by the mutation
+    }
   };
 
   const handleOpenResetModal = (user: any) => {
@@ -310,7 +324,7 @@ export default function UserManagementPage() {
                     Collect customer contact details for this agent
                   </label>
                   <p className="text-[11px] text-muted-foreground mt-1">
-                    When enabled, contact fields are shown in this agent’s contact and quotation workflows. Fields remain optional and never block a quotation by themselves.
+                    When enabled, customer name and mobile number become required fields in this agent's quotation and contact workflows. The API enforces this rule server-side — it cannot be bypassed by manipulating the request.
                   </p>
                 </div>
               </div>
@@ -389,6 +403,21 @@ export default function UserManagementPage() {
                   <span className="px-2 py-0.5 rounded bg-primary/10 text-primary border border-primary/20 text-[10px]">
                     {typeof u.role === 'object' ? (u.role?.name || u.role?.code || u.role?.id || 'USER') : String(u.role || 'USER')}
                   </span>
+                  {(String(typeof u.role === 'object' ? u.role?.name : u.role) === 'AGENT' || u.agentProfile) && (
+                    <button
+                      type="button"
+                      onClick={() => handleToggleCollectContacts(u)}
+                      disabled={isUpdating}
+                      title="Click to toggle required customer contact collection for this agent"
+                      className={`block mt-1 text-[9px] font-mono px-1.5 py-0.5 rounded border transition-colors cursor-pointer ${
+                        u.collectContacts
+                          ? 'bg-emerald-500/10 text-emerald-700 border-emerald-300 hover:bg-emerald-500/20'
+                          : 'bg-muted text-muted-foreground border-border hover:bg-muted/80'
+                      }`}
+                    >
+                      Contacts: {u.collectContacts ? 'REQUIRED' : 'OPTIONAL'}
+                    </button>
+                  )}
                 </td>
                 <td className="p-3">
                   <div className="font-semibold">
