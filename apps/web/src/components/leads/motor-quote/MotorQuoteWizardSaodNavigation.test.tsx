@@ -151,7 +151,7 @@ describe('MotorQuoteWizard SAOD Navigation & TP Verification Control-Flow', () =
 
     // Fill TP details in Step 5
     const insurerSelect = screen.getByDisplayValue(/— Select TP Insurer —/i);
-    fireEvent.change(insurerSelect, { target: { value: 'TATA AIG' } });
+    fireEvent.change(insurerSelect, { target: { value: 'Tata AIG General Insurance' } });
 
     const policyInput = screen.getByPlaceholderText(/e\.g\. TP\/2024\/123456789/i);
     fireEvent.change(policyInput, { target: { value: 'TP/2025/99887766' } });
