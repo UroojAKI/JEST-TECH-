@@ -430,7 +430,7 @@ export function HealthQuoteWizard({
       const effectiveEmail =
         proposer.email.trim() ||
         contact?.email ||
-        `${cleanPhone || 'customer'}@health.internal`;
+        (cleanPhone ? `${cleanPhone}@health.internal` : undefined);
 
       let finalContactId = resolvedContactId;
       if (!finalContactId && leadContext?.contactId) {
@@ -450,7 +450,7 @@ export function HealthQuoteWizard({
       }
 
       const proposerKyc: Record<string, string> = {
-        email: effectiveEmail,
+        ...(effectiveEmail ? { email: effectiveEmail } : {}),
         ...(proposer.panNumber?.trim() ? { panNumber: proposer.panNumber.trim().toUpperCase() } : contact?.panNumber ? { panNumber: contact.panNumber } : {}),
         ...(proposer.aadhaarNumber?.trim() ? { aadhaarNumber: proposer.aadhaarNumber.trim() } : contact?.aadhaarNumber ? { aadhaarNumber: contact.aadhaarNumber } : {}),
       };
