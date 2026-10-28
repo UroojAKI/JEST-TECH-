@@ -179,23 +179,20 @@ export class CreateMotorQuotationCommand {
     }
 
     if (!contactId) {
+      // The quotation keeps a CRM contact relationship, but contact fields are optional.
+      // A minimal placeholder prevents the quote workflow from forcing a phone/email.
       const mobileNumber = String(proposer['mobileNumber'] || '').trim();
-      if (!mobileNumber) {
-        throw new BadRequestException(
-          'Proposer mobile number is required to link or create a customer contact.',
-        );
-      }
-      const [firstName, ...rest] = (
-        proposer['customerName'] || 'Motor Customer'
-      ).split(' ');
+      const [firstName, ...rest] = String(
+        proposer['customerName'] || 'Quotation Customer',
+      ).trim().split(/\s+/);
       const newContact = await this.contactsService.create(
         {
-          firstName: firstName || 'Customer',
-          lastName: rest.join(' ') || '',
+          firstName: firstName || 'Quotation',
+          lastName: rest.join(' ') || 'Customer',
           email: proposer['emailId']
             ? String(proposer['emailId']).trim()
             : undefined,
-          phone: mobileNumber,
+          phone: mobileNumber || undefined,
           panNumber: proposer['panNumber']
             ? String(proposer['panNumber']).trim()
             : undefined,
