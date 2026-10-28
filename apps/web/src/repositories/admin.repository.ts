@@ -22,6 +22,7 @@ export interface UserItem {
   password?: string;
   role: string;
   status: 'ACTIVE' | 'LOCKED' | 'DISABLED';
+  collectContacts?: boolean;
   branchName?: string;
   branchId?: string;
   teamName?: string;
@@ -138,6 +139,11 @@ export interface HealthStatusItem {
 export const adminRepository = {
   async getDashboardMetrics(): Promise<AdminDashboardMetrics> {
     const response = await apiClient.get('/admin/config/metrics');
+    return response.data;
+  },
+
+  async getCurrentUser(): Promise<UserItem> {
+    const response = await apiClient.get('/users/me');
     return response.data;
   },
 
