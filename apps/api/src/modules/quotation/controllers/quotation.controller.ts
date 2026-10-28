@@ -53,6 +53,8 @@ import { QuotationCompletionService } from '../services/queries/quotation-comple
 
 import { CreateMotorQuotationCommand } from '../services/commands/create-motor-quotation.command';
 
+import { VehicleDataService } from '../../motor/services/vehicle-data.service';
+
 @ApiTags('Quotations & Motor Wizard')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -76,7 +78,28 @@ export class QuotationController {
     private readonly quotationCompletionService: QuotationCompletionService,
     @Optional()
     private readonly createMotorQuotationCommand?: CreateMotorQuotationCommand,
+    @Optional()
+    private readonly vehicleDataService?: VehicleDataService,
   ) {}
+
+  @Get('check-vehicle')
+  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT)
+  @ApiOperation({
+    summary: 'Check if a vehicle already has an active policy or quotation running',
+  })
+  async checkVehicle(
+    @Query('registrationNumber') registrationNumber: string,
+    @CurrentUser() user: RequestUser,
+  ) {
+    if (!this.vehicleDataService) {
+      return { hasExisting: false };
+    }
+    const companyId = user.companyId || (user as any).organizationId;
+    return this.vehicleDataService.checkVehicleRunningPolicy(
+      registrationNumber,
+      companyId,
+    );
+  }
 
   @Post('motor-capture')
   @HttpCode(HttpStatus.CREATED)

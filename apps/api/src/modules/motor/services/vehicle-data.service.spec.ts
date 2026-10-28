@@ -17,6 +17,12 @@ describe('VehicleDataService (R4 Integrity)', () => {
       count: jest.fn(),
       findMany: jest.fn(),
     },
+    policy: {
+      findFirst: jest.fn(),
+    },
+    quotation: {
+      findFirst: jest.fn(),
+    },
   };
 
   beforeEach(async () => {
@@ -310,6 +316,56 @@ describe('VehicleDataService (R4 Integrity)', () => {
 
       expect(result.isValid).toBe(false);
       expect(result.missingFields).toContain('trailerCount');
+    });
+  });
+
+  describe('checkVehicleRunningPolicy', () => {
+    it('returns hasExisting: false for empty or NEW vehicle', async () => {
+      const res1 = await service.checkVehicleRunningPolicy('');
+      expect(res1.hasExisting).toBe(false);
+
+      const res2 = await service.checkVehicleRunningPolicy('NEW');
+      expect(res2.hasExisting).toBe(false);
+    });
+
+    it('returns running policy details when active policy is found', async () => {
+      (mockPrisma.policy.findFirst as jest.Mock).mockResolvedValue({
+        id: 'policy-1',
+        policyNumber: 'POL-123456',
+        expiryDate: new Date('2027-10-22T00:00:00.000Z'),
+      });
+
+      const result = await service.checkVehicleRunningPolicy('MH 02 CB 1234', 'comp-1');
+      expect(result.hasExisting).toBe(true);
+      expect(result.type).toBe('POLICY');
+      expect(result.policyNumber).toBe('POL-123456');
+      expect(result.formattedRenewalDate).toBe('22/10/2027');
+      expect(result.message).toContain('already has a policy running (POL-123456). Renewal date is 22/10/2027');
+    });
+
+    it('returns active quotation details when no policy but active quote exists', async () => {
+      (mockPrisma.policy.findFirst as jest.Mock).mockResolvedValue(null);
+      (mockPrisma.quotation.findFirst as jest.Mock).mockResolvedValue({
+        id: 'quote-1',
+        quotationCode: 'QT-2026-000001',
+        expiryDate: new Date('2027-10-25T00:00:00.000Z'),
+        policy: null,
+      });
+
+      const result = await service.checkVehicleRunningPolicy('KA 23 TD 0529', 'comp-1');
+      expect(result.hasExisting).toBe(true);
+      expect(result.type).toBe('QUOTATION');
+      expect(result.quotationCode).toBe('QT-2026-000001');
+      expect(result.formattedRenewalDate).toBe('25/10/2027');
+      expect(result.message).toContain('already has a policy running (QT-2026-000001). Renewal date is 25/10/2027');
+    });
+
+    it('returns hasExisting: false when no policy or active quote is found', async () => {
+      (mockPrisma.policy.findFirst as jest.Mock).mockResolvedValue(null);
+      (mockPrisma.quotation.findFirst as jest.Mock).mockResolvedValue(null);
+
+      const result = await service.checkVehicleRunningPolicy('KA 05 AB 9999', 'comp-1');
+      expect(result.hasExisting).toBe(false);
     });
   });
 });

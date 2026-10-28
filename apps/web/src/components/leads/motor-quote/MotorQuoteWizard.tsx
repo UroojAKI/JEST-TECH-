@@ -682,6 +682,25 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, customerId, caseId
       return;
     }
 
+    if (step === 2 && vehicleDetails.vehicleStatus !== 'NEW') {
+      const regNo = (vehicleDetails.registrationNumber || vehicleDetails.regNumber || '')
+        .toUpperCase()
+        .replace(/[\s\-\.]/g, '');
+      if (regNo && regNo.length >= 6) {
+        try {
+          const res = await apiClient.get('/quotations/check-vehicle', {
+            params: { registrationNumber: regNo },
+          });
+          if (res.data?.hasExisting) {
+            toast.error(res.data.message || `Vehicle ${regNo} already has a policy running.`);
+            return;
+          }
+        } catch (err: any) {
+          console.warn('Vehicle check validation failed on step 2:', err);
+        }
+      }
+    }
+
     if (step === 4) {
       if (policyType === 'SAOD') {
         setRuleResult(null);
@@ -830,6 +849,23 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, customerId, caseId
     ) {
       toast.error('Cannot save this quotation: a successful current server-side premium calculation is required. Resolve tariff, add-on, or discount errors and retry.');
       return;
+    }
+
+    if (vehicleDetails.vehicleStatus !== 'NEW' && registrationNumber) {
+      const cleanReg = registrationNumber.toUpperCase().replace(/[\s\-\.]/g, '');
+      if (cleanReg && cleanReg.length >= 6) {
+        try {
+          const checkRes = await apiClient.get('/quotations/check-vehicle', {
+            params: { registrationNumber: cleanReg },
+          });
+          if (checkRes.data?.hasExisting) {
+            toast.error(checkRes.data.message || `Vehicle ${cleanReg} already has a policy running.`);
+            return;
+          }
+        } catch (err: any) {
+          console.warn('Vehicle check validation failed on save:', err);
+        }
+      }
     }
 
     setIsSaving(true);

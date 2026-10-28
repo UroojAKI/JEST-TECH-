@@ -3,6 +3,8 @@ import {
   NotFoundException,
   BadRequestException,
   ForbiddenException,
+  ConflictException,
+  Optional,
 } from '@nestjs/common';
 import { PrismaService } from '../../../database/prisma.service';
 import { TenantResourceAuthorizationService } from '../../auth/services/tenant-resource-authorization.service';
@@ -11,6 +13,7 @@ import { RequestUser } from '../../auth/decorators/current-user.decorator';
 import { CreateMotorQuotationCaseDto } from '../dto/motor-quotation-case.dto';
 import { MotorCaseStatus, RoleType, BackOfficeTaskStatus } from '@prisma/client';
 import { MotorCaseStateMachineService } from './motor-case-state-machine.service';
+import { VehicleDataService } from './vehicle-data.service';
 
 @Injectable()
 export class MotorQuotationCaseService {
@@ -19,6 +22,8 @@ export class MotorQuotationCaseService {
     private readonly tenantAuthService: TenantResourceAuthorizationService,
     private readonly numberingEngine: NumberingEngineService,
     private readonly stateMachine: MotorCaseStateMachineService,
+    @Optional()
+    private readonly vehicleDataService?: VehicleDataService,
   ) {}
 
   /**
@@ -27,6 +32,16 @@ export class MotorQuotationCaseService {
    */
   async createCase(dto: CreateMotorQuotationCaseDto, user: RequestUser) {
     const companyId = user.companyId;
+
+    if (dto.registrationNumber && this.vehicleDataService) {
+      const runningCheck = await this.vehicleDataService.checkVehicleRunningPolicy(
+        dto.registrationNumber,
+        companyId,
+      );
+      if (runningCheck.hasExisting) {
+        throw new ConflictException(runningCheck.message);
+      }
+    }
 
     // Validate tenant ownership
     await this.tenantAuthService.assertTenantResource('Contact', dto.contactId, user);

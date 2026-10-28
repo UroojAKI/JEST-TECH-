@@ -102,6 +102,7 @@ describe('CreateMotorQuotationCommand (Authoritative Command)', () => {
 
     vehicleService = {
       upsertVehicle: jest.fn().mockResolvedValue({ id: 'veh-upserted-1' }),
+      checkVehicleRunningPolicy: jest.fn().mockResolvedValue({ hasExisting: false }),
     };
 
     numberingEngine = {
@@ -797,6 +798,27 @@ describe('CreateMotorQuotationCommand (Authoritative Command)', () => {
 
       expect(result.id).toBe('q-persist-1');
       expect(result.totalPremium).toBe(4864.5);
+    });
+
+    it('rejects creation with ConflictException when vehicle already has a policy running', async () => {
+      vehicleService.checkVehicleRunningPolicy.mockResolvedValue({
+        hasExisting: true,
+        type: 'POLICY',
+        policyNumber: '1206003126P111405370',
+        renewalDate: new Date('2027-10-22'),
+        formattedRenewalDate: '22/10/2027',
+        message: 'Vehicle KA23TD0529 already has a policy running (1206003126P111405370). Renewal date is 22/10/2027.',
+      });
+
+      const quoteDto = {
+        vehicleCategory: 'PRIVATE_CAR',
+        policyType: 'PACKAGE',
+        registrationNumber: 'KA23TD0529',
+        leadId: 'lead-1',
+        contactId: 'c-1',
+      };
+
+      await expect(command.execute(quoteDto as any, mockUser)).rejects.toThrow(ConflictException);
     });
   });
 

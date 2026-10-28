@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { AlertCircle, Loader2 } from 'lucide-react';
 import { apiClient } from '@/lib/api-client';
 import { VEHICLE_FIELDS } from './motorFormConfig';
 import type { VehicleCategory } from './motorFormTypes';
@@ -16,6 +17,26 @@ const inputBase = 'w-full px-3 py-2 rounded-md border text-sm font-medium bg-bac
 
 export function VehicleDetailsForm({ category, data, onChange }: Props) {
   const fields = VEHICLE_FIELDS[category];
+
+  const cleanReg = (data.registrationNumber || '').toUpperCase().replace(/[\s\-\.]/g, '');
+  const shouldCheckReg = data.vehicleStatus !== 'NEW' && cleanReg.length >= 6;
+
+  const { data: vehicleCheck, isLoading: isCheckingVehicle } = useQuery({
+    queryKey: ['vehicle-policy-check', cleanReg],
+    queryFn: async () => {
+      if (!shouldCheckReg) return { hasExisting: false };
+      try {
+        const res = await apiClient.get('/quotations/check-vehicle', {
+          params: { registrationNumber: cleanReg },
+        });
+        return res.data || { hasExisting: false };
+      } catch {
+        return { hasExisting: false };
+      }
+    },
+    enabled: shouldCheckReg,
+    staleTime: 30 * 1000,
+  });
 
   const { data: rtoList = [] } = useQuery({
     queryKey: ['rto-master-directory'],
@@ -199,21 +220,58 @@ export function VehicleDetailsForm({ category, data, onChange }: Props) {
                   ))}
                 </div>
               ) : (
-                <input
-                  id={f.key}
-                  type={f.type === 'numeric' ? 'number' : 'text'}
-                  value={val}
-                  required={isMandatory}
-                  onChange={set(f.key)}
-                  maxLength={f.key === 'registrationNumber' ? 11 : undefined}
-                  placeholder={f.placeholder || ''}
-                  className={`${inputBase} ${borderCls} ${
-                    f.key === 'registrationNumber' ? 'uppercase font-mono tracking-wider' : ''
-                  }`}
-                />
+                <>
+                  <input
+                    id={f.key}
+                    type={f.type === 'numeric' ? 'number' : 'text'}
+                    value={val}
+                    required={isMandatory}
+                    onChange={set(f.key)}
+                    maxLength={f.key === 'registrationNumber' ? 11 : undefined}
+                    placeholder={f.placeholder || ''}
+                    className={`${inputBase} ${
+                      f.key === 'registrationNumber' && vehicleCheck?.hasExisting
+                        ? 'border-destructive focus:ring-destructive/50 bg-destructive/5'
+                        : borderCls
+                    } ${
+                      f.key === 'registrationNumber' ? 'uppercase font-mono tracking-wider' : ''
+                    }`}
+                  />
+                  {f.key === 'registrationNumber' && isCheckingVehicle && (
+                    <p className="text-[11px] text-muted-foreground mt-1 flex items-center gap-1.5">
+                      <Loader2 className="w-3 h-3 animate-spin text-primary shrink-0" />
+                      <span>Checking active policy / quotation...</span>
+                    </p>
+                  )}
+                  {f.key === 'registrationNumber' && vehicleCheck?.hasExisting && (
+                    <div className="mt-2 p-3 rounded-lg border border-destructive/40 bg-destructive/10 text-destructive text-xs space-y-1 animate-in fade-in duration-200">
+                      <div className="flex items-start gap-2">
+                        <AlertCircle className="w-4 h-4 mt-0.5 shrink-0 text-destructive" />
+                        <div className="flex-1 space-y-0.5">
+                          <p className="font-semibold text-xs leading-snug">
+                            {vehicleCheck.message}
+                          </p>
+                          {vehicleCheck.policyNumber && (
+                            <p className="text-[11px] text-destructive/90">
+                              Active Policy: <span className="font-mono font-medium">{vehicleCheck.policyNumber}</span>
+                              {vehicleCheck.formattedRenewalDate && (
+                                <span> &bull; Renewal Date: <span className="font-medium">{vehicleCheck.formattedRenewalDate}</span></span>
+                              )}
+                            </p>
+                          )}
+                          <p className="text-[10px] text-destructive/80 font-medium pt-0.5">
+                            Only one active quotation or policy is allowed per vehicle number.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </>
               )}
 
-              {f.hint && <p className="text-[11px] text-muted-foreground mt-1">{f.hint}</p>}
+              {f.hint && (!vehicleCheck?.hasExisting || f.key !== 'registrationNumber') && (
+                <p className="text-[11px] text-muted-foreground mt-1">{f.hint}</p>
+              )}
             </div>
           );
         })}

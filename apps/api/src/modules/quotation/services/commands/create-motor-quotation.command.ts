@@ -36,6 +36,26 @@ export class CreateMotorQuotationCommand {
       );
     }
 
+    // ── 0. Vehicle Duplicate Policy & Quotation Prevention ──
+    if (dto.registrationNumber) {
+      const vehicleCheck = await this.vehicleDataService.checkVehicleRunningPolicy(
+        dto.registrationNumber,
+        companyId,
+      );
+      if (vehicleCheck.hasExisting) {
+        throw new ConflictException({
+          statusCode: 409,
+          error: 'Conflict',
+          errorCode: 'VEHICLE_POLICY_ALREADY_RUNNING',
+          message: vehicleCheck.message,
+          policyNumber: (vehicleCheck as any).policyNumber,
+          quotationCode: vehicleCheck.quotationCode,
+          renewalDate: vehicleCheck.renewalDate,
+          formattedRenewalDate: vehicleCheck.formattedRenewalDate,
+        });
+      }
+    }
+
     // ── 1. Journey 1:1 Binding & Expiry Invariant (Section 3.1, A1, A2) ──
     let journey: any = null;
     if (dto.journeyId) {

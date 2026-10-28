@@ -659,4 +659,120 @@ export class VehicleDataService {
       orderBy: { createdAt: 'desc' },
     });
   }
+
+  /**
+   * Checks if a vehicle has an existing active policy or quotation in the system.
+   * If an active policy exists, returns the running policy details and its renewal date.
+   * If an active quotation exists, returns the quotation details and its renewal date.
+   */
+  async checkVehicleRunningPolicy(
+    registrationNumber: string,
+    companyId?: string,
+    excludeQuotationId?: string,
+  ) {
+    if (!registrationNumber || !registrationNumber.trim()) {
+      return { hasExisting: false };
+    }
+
+    const norm = this.normalizeRegistrationNumber(registrationNumber);
+    if (!norm.isValid || norm.isNewVehicle || !norm.normalized || norm.normalized === 'NEW') {
+      return { hasExisting: false };
+    }
+
+    const cleanReg = norm.normalized;
+
+    const formatDate = (date: Date | string): string => {
+      const d = new Date(date);
+      if (isNaN(d.getTime())) return String(date);
+      const day = String(d.getDate()).padStart(2, '0');
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const year = d.getFullYear();
+      return `${day}/${month}/${year}`;
+    };
+
+    // 1. Check for running policy
+    const runningPolicy = await this.prisma.policy.findFirst({
+      where: {
+        deletedAt: null,
+        ...(companyId ? { companyId } : {}),
+        status: { in: ['ACTIVE', 'ISSUED', 'PENDING_RENEWAL', 'DRAFT'] },
+        ...(excludeQuotationId ? { quotationId: { not: excludeQuotationId } } : {}),
+        OR: [
+          { quotation: { registrationNumber: { equals: cleanReg, mode: 'insensitive' } } },
+          { vehicle: { registrationNumber: { equals: cleanReg, mode: 'insensitive' } } },
+        ],
+      },
+      include: {
+        quotation: { select: { id: true, quotationCode: true, registrationNumber: true } },
+        vehicle: { select: { id: true, registrationNumber: true } },
+      },
+      orderBy: { expiryDate: 'desc' },
+    });
+
+    if (runningPolicy) {
+      const policyNumber = runningPolicy.actualPolicyNumber || runningPolicy.policyNumber;
+      const renewalDate = runningPolicy.expiryDate;
+      const formattedRenewalDate = formatDate(renewalDate);
+      const message = `Vehicle ${cleanReg} already has a policy running (${policyNumber}). Renewal date is ${formattedRenewalDate}.`;
+
+      return {
+        hasExisting: true,
+        type: 'POLICY' as const,
+        policyNumber,
+        renewalDate,
+        formattedRenewalDate,
+        quotationCode: runningPolicy.quotation?.quotationCode,
+        message,
+      };
+    }
+
+    // 2. Check for active quotation
+    const existingQuote = await this.prisma.quotation.findFirst({
+      where: {
+        deletedAt: null,
+        ...(companyId ? { companyId } : {}),
+        ...(excludeQuotationId ? { id: { not: excludeQuotationId } } : {}),
+        registrationNumber: { equals: cleanReg, mode: 'insensitive' },
+        status: { in: ['DRAFT', 'PENDING_APPROVAL', 'APPROVED', 'ACCEPTED', 'CONVERTED_TO_POLICY'] },
+      },
+      include: {
+        policy: true,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    if (existingQuote) {
+      if (existingQuote.policy) {
+        const policyNumber = existingQuote.policy.actualPolicyNumber || existingQuote.policy.policyNumber;
+        const renewalDate = existingQuote.policy.expiryDate;
+        const formattedRenewalDate = formatDate(renewalDate);
+        const message = `Vehicle ${cleanReg} already has a policy running (${policyNumber}). Renewal date is ${formattedRenewalDate}.`;
+
+        return {
+          hasExisting: true,
+          type: 'POLICY' as const,
+          policyNumber,
+          renewalDate,
+          formattedRenewalDate,
+          quotationCode: existingQuote.quotationCode,
+          message,
+        };
+      } else {
+        const renewalDate = existingQuote.expiryDate;
+        const formattedRenewalDate = formatDate(renewalDate);
+        const message = `Vehicle ${cleanReg} already has a policy running (${existingQuote.quotationCode}). Renewal date is ${formattedRenewalDate}.`;
+
+        return {
+          hasExisting: true,
+          type: 'QUOTATION' as const,
+          quotationCode: existingQuote.quotationCode,
+          renewalDate,
+          formattedRenewalDate,
+          message,
+        };
+      }
+    }
+
+    return { hasExisting: false };
+  }
 }
