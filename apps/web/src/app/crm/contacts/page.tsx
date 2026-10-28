@@ -81,7 +81,10 @@ export default function CustomerRegisterPage() {
   });
   const { data: assignedUsers = [] } = useQuery({
     queryKey: ['contact-assigned-agent-preference', formData.agentCode],
-    queryFn: async () => {\n      const result = await adminRepository.getUsers({ search: formData.agentCode });\n      return Array.isArray(result) ? result : (result as any)?.data || (result as any)?.items || [];\n    },
+    queryFn: async () => {
+      const result = await adminRepository.getUsers({ search: formData.agentCode });
+      return Array.isArray(result) ? result : (result as any)?.data || (result as any)?.items || [];
+    },
     enabled: isAdminOrBackOffice && Boolean(formData.agentCode.trim()),
   });
   const assignedAgentPreference = assignedUsers.find((u: any) =>
