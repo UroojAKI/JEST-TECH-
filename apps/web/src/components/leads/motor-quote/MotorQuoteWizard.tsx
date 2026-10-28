@@ -244,12 +244,6 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, customerId, caseId
   const [savedQuotationId, setSavedQuotationId] = useState<string | null>(null);
   const [selectedAgentId, setSelectedAgentId] = useState<string>('');
   const [selectedAgentCode, setSelectedAgentCode] = useState<string>('');
-  const selectedAgentPreferenceQuery = useQuery({
-    queryKey: ['agent-contact-preference', selectedAgentId],
-    queryFn: async () => (await apiClient.get(`/agents/${selectedAgentId}`)).data,
-    enabled: isOpen && Boolean(selectedAgentId),
-    staleTime: 60_000,
-  });
   const [isManualAgent, setIsManualAgent] = useState(false);
   const [manualAgentDetails, setManualAgentDetails] = useState<{ name: string; code?: string; phone?: string } | null>(null);
   const [journeyId, setJourneyId] = useState<string | null>(null);
