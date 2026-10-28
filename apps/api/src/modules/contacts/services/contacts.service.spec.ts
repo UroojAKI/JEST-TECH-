@@ -146,6 +146,52 @@ describe('ContactsService', () => {
     ).rejects.toThrow(ForbiddenException);
   });
 
+
+  it('creates a contact without a phone number when contact collection is optional', async () => {
+    repository.findByEmail.mockResolvedValue(null);
+    repository.generateContactCode.mockResolvedValue('CONT-000002');
+    repository.create.mockResolvedValue({
+      id: 'contact-optional-phone',
+      contactCode: 'CONT-000002',
+      type: 'INDIVIDUAL',
+      firstName: 'Optional',
+      middleName: null,
+      lastName: 'Contact',
+      gender: null,
+      dateOfBirth: null,
+      companyName: null,
+      email: null,
+      phone: null,
+      alternatePhone: null,
+      whatsappNumber: null,
+      occupation: null,
+      panNumber: null,
+      aadhaarNumber: null,
+      gstNumber: null,
+      createdById: 'user-1',
+      updatedById: 'user-1',
+      accountId: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+
+    await expect(
+      service.create(
+        {
+          type: 'INDIVIDUAL' as any,
+          firstName: 'Optional',
+          lastName: 'Contact',
+        } as any,
+        'user-1',
+      ),
+    ).resolves.toBeDefined();
+
+    expect(repository.findByPhone).not.toHaveBeenCalled();
+    expect(repository.create).toHaveBeenCalledWith(
+      expect.objectContaining({ phone: undefined }),
+    );
+  });
+
   describe('deactivate', () => {
     const actor = {
       userId: 'admin-1',
