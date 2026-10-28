@@ -252,27 +252,40 @@ export default function CustomerRegisterPage() {
 
   return (
     <AppShell>
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-xl font-bold tracking-tight flex items-center gap-2">
-            <Users className="h-5 w-5 text-primary" /> Customer Directory & Register
-          </h1>
-          <p className="text-xs text-muted-foreground flex items-center gap-1.5 mt-0.5">
-            <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />
+          <div className="flex flex-wrap items-center gap-2.5">
+            <h1 className="text-xl font-bold tracking-tight flex items-center gap-2">
+              <Users className="h-5 w-5 text-primary" /> Customer Directory & Register
+            </h1>
+            <span
+              className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium border ${
+                effectiveContactCollection
+                  ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20'
+                  : 'bg-muted/70 text-muted-foreground border-border/80'
+              }`}
+            >
+              <span
+                className={`h-1.5 w-1.5 rounded-full ${
+                  effectiveContactCollection ? 'bg-emerald-500' : 'bg-muted-foreground/60'
+                }`}
+              />
+              {effectiveContactCollection
+                ? 'Contact collection enabled (Phone number required)'
+                : 'Contact collection optional (Phone number optional)'}
+            </span>
+          </div>
+          <p className="text-xs text-muted-foreground flex items-center gap-1.5 mt-1">
+            <ShieldCheck className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
             <span>Authoritative customer register · Status reflects active CRM standing with zero compliance lapses</span>
           </p>
         </div>
-        <div className="ml-auto flex items-center gap-2 text-[11px] text-muted-foreground">
-          <span className={effectiveContactCollection ? 'text-emerald-600 font-bold' : 'font-semibold'}>
-            {effectiveContactCollection ? 'Contact collection enabled (Phone number required)' : 'Contact collection optional (Phone number optional)'}
-          </span>
-        </div>
         <button
           onClick={() => setShowAddModal(true)}
-          className="flex items-center space-x-1 px-4 py-2 text-xs font-bold rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 shadow"
+          className="flex items-center space-x-1.5 px-4 py-2 text-xs font-bold rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 shadow transition-colors shrink-0 self-start sm:self-center"
         >
           <Plus className="h-4 w-4" />
-          <span>+ Add New Customer</span>
+          <span>Add New Customer</span>
         </button>
       </div>
 
