@@ -352,7 +352,7 @@ export class RenewalsController {
     const hasClaims = task.policy.claims.length > 0;
 
     let revisedIdv = prevSumInsured;
-    let nextNcb = hasClaims ? 0 : this.renewalEngine.calculateNextNCBSlab(prevNcb);
+    const nextNcb = hasClaims ? 0 : this.renewalEngine.calculateNextNCBSlab(prevNcb);
     let revisedBase = prevBasePrem;
     let gstAmount = 0;
     let totalPremium = 0;

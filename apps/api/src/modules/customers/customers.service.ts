@@ -27,16 +27,16 @@ export class CustomersService {
 
   private normalizePhone(phone?: string): string | undefined {
     if (!phone) return undefined;
-    const digits = phone.replace(/\D/g, '');
-    return digits.length >= 10 ? digits.slice(-10) : digits;
+    return this.crmIdentityService.normalizePhone(phone) || undefined;
   }
 
   async checkDuplicate(dto: CheckDuplicateDto, user?: any) {
     const conditions: Prisma.CustomerWhereInput[] = [];
 
-    const normPhone = this.normalizePhone(dto.mobile);
+    const normPhone = this.crmIdentityService.normalizePhone(dto.mobile);
     if (normPhone) {
-      conditions.push({ mobile: { contains: normPhone } });
+      const phoneVariants = this.crmIdentityService.getPhoneVariants(normPhone);
+      conditions.push({ mobile: { in: phoneVariants } });
     }
     if (dto.email?.trim()) {
       conditions.push({
@@ -682,7 +682,10 @@ export class CustomersService {
       const conditions: Prisma.CustomerWhereInput[] = [];
       if (dto.mobile) {
         const norm = this.normalizePhone(dto.mobile);
-        if (norm) conditions.push({ mobile: { contains: norm } });
+        if (norm) {
+          const phoneVariants = this.crmIdentityService.getPhoneVariants(norm);
+          conditions.push({ mobile: { in: phoneVariants } });
+        }
       }
       if (dto.email?.trim()) {
         conditions.push({

@@ -256,17 +256,21 @@ export class CreateMotorQuotationCommand {
 
       if (assignedAgentId) {
         // Registered agent: read preference from database
-        const agentUser = await this.prisma.user.findFirst({
-          where: { agentProfile: { id: assignedAgentId } },
-          select: { collectContacts: true },
-        });
+        const agentUser = this.prisma?.user?.findFirst
+          ? await this.prisma.user.findFirst({
+              where: { agentProfile: { id: assignedAgentId } },
+              select: { collectContacts: true },
+            })
+          : null;
         enforceContactCollection = agentUser?.collectContacts ?? false;
       } else if (!dto.manualAgent?.isManual) {
         // No agent assigned yet: use logged-in actor's preference
-        const actorUser = await this.prisma.user.findUnique({
-          where: { id: user.id },
-          select: { collectContacts: true },
-        });
+        const actorUser = this.prisma?.user?.findUnique
+          ? await this.prisma.user.findUnique({
+              where: { id: user.id },
+              select: { collectContacts: true },
+            })
+          : null;
         enforceContactCollection = actorUser?.collectContacts ?? false;
       }
       // Manual agent -> OFF (no authoritative user record to read from)

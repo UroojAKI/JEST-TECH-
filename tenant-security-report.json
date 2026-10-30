@@ -55,56 +55,11 @@
   {
     "type": "WARNING",
     "file": "apps/api/src/modules/leads/controllers/leads.controller.ts",
-    "line": 381,
+    "line": 389,
     "operation": "findUnique",
     "model": "Lead",
     "snippet": "const lead = await this.prisma.lead.findUnique({",
     "reason": "findUnique executed without detected immediate tenant boundary assertion"
-  },
-  {
-    "type": "WARNING",
-    "file": "apps/api/src/modules/leads/deduplication/services/duplicate-detection/duplicate-detection.service.ts",
-    "line": 48,
-    "operation": "findFirst",
-    "model": "Contact",
-    "snippet": "const existingContact = await this.prisma.contact.findFirst({",
-    "reason": "findFirst executed without detected immediate tenant boundary assertion"
-  },
-  {
-    "type": "WARNING",
-    "file": "apps/api/src/modules/leads/deduplication/services/duplicate-detection/duplicate-detection.service.ts",
-    "line": 69,
-    "operation": "findFirst",
-    "model": "Lead",
-    "snippet": "const existingLead = await this.prisma.lead.findFirst({",
-    "reason": "findFirst executed without detected immediate tenant boundary assertion"
-  },
-  {
-    "type": "WARNING",
-    "file": "apps/api/src/modules/leads/deduplication/services/duplicate-detection/duplicate-detection.service.ts",
-    "line": 91,
-    "operation": "findFirst",
-    "model": "Contact",
-    "snippet": "const existingContact = await this.prisma.contact.findFirst({",
-    "reason": "findFirst executed without detected immediate tenant boundary assertion"
-  },
-  {
-    "type": "WARNING",
-    "file": "apps/api/src/modules/leads/deduplication/services/duplicate-detection/duplicate-detection.service.ts",
-    "line": 115,
-    "operation": "findFirst",
-    "model": "Lead",
-    "snippet": "const existingLead = await this.prisma.lead.findFirst({",
-    "reason": "findFirst executed without detected immediate tenant boundary assertion"
-  },
-  {
-    "type": "WARNING",
-    "file": "apps/api/src/modules/leads/deduplication/services/duplicate-detection/duplicate-detection.service.ts",
-    "line": 140,
-    "operation": "findFirst",
-    "model": "Contact",
-    "snippet": "const existingContact = await this.prisma.contact.findFirst({",
-    "reason": "findFirst executed without detected immediate tenant boundary assertion"
   },
   {
     "type": "WARNING",
@@ -136,7 +91,7 @@
   {
     "type": "WARNING",
     "file": "apps/api/src/modules/leads/services/leads.service.ts",
-    "line": 660,
+    "line": 708,
     "operation": "findUnique",
     "model": "Lead",
     "snippet": "const lead = await this.prisma.lead.findUnique({",
@@ -145,7 +100,7 @@
   {
     "type": "WARNING",
     "file": "apps/api/src/modules/leads/services/leads.service.ts",
-    "line": 849,
+    "line": 897,
     "operation": "findFirst",
     "model": "Lead",
     "snippet": "? await this.prisma.lead.findFirst({",
@@ -339,7 +294,7 @@
   {
     "type": "WARNING",
     "file": "apps/api/src/modules/policies/repositories/policy.repository.ts",
-    "line": 95,
+    "line": 129,
     "operation": "findFirst",
     "model": "Policy",
     "snippet": "return this.prisma.policy.findFirst({",
@@ -348,7 +303,7 @@
   {
     "type": "WARNING",
     "file": "apps/api/src/modules/policies/repositories/policy.repository.ts",
-    "line": 106,
+    "line": 140,
     "operation": "findFirst",
     "model": "Policy",
     "snippet": "return this.prisma.policy.findFirst({",
@@ -357,7 +312,7 @@
   {
     "type": "WARNING",
     "file": "apps/api/src/modules/policies/repositories/policy.repository.ts",
-    "line": 115,
+    "line": 149,
     "operation": "findFirst",
     "model": "Policy",
     "snippet": "return this.prisma.policy.findFirst({",
@@ -366,7 +321,7 @@
   {
     "type": "WARNING",
     "file": "apps/api/src/modules/policies/repositories/policy.repository.ts",
-    "line": 144,
+    "line": 178,
     "operation": "update",
     "model": "Policy",
     "snippet": "await this.prisma.policy.update({",
@@ -375,7 +330,16 @@
   {
     "type": "WARNING",
     "file": "apps/api/src/modules/policies/services/commands/issue-policy.service.ts",
-    "line": 122,
+    "line": 78,
+    "operation": "update",
+    "model": "Contact",
+    "snippet": "await this.prisma.contact.update({",
+    "reason": "update executed without detected immediate tenant boundary assertion"
+  },
+  {
+    "type": "WARNING",
+    "file": "apps/api/src/modules/policies/services/commands/issue-policy.service.ts",
+    "line": 141,
     "operation": "findUnique",
     "model": "MotorPaymentRecord",
     "snippet": "const paymentRecord = await this.prisma.motorPaymentRecord.findUnique({",
@@ -384,7 +348,7 @@
   {
     "type": "WARNING",
     "file": "apps/api/src/modules/policies/services/renewal-engine.service.ts",
-    "line": 135,
+    "line": 137,
     "operation": "findUnique",
     "model": "Policy",
     "snippet": "const policy = await this.prisma.policy.findUnique({",
@@ -393,7 +357,7 @@
   {
     "type": "WARNING",
     "file": "apps/api/src/modules/policies/services/renewal-engine.service.ts",
-    "line": 142,
+    "line": 144,
     "operation": "upsert",
     "model": "RenewalTask",
     "snippet": "await this.prisma.renewalTask.upsert({",
@@ -402,7 +366,7 @@
   {
     "type": "WARNING",
     "file": "apps/api/src/modules/policies/services/renewal-engine.service.ts",
-    "line": 160,
+    "line": 162,
     "operation": "findUnique",
     "model": "Policy",
     "snippet": "const policy = await this.prisma.policy.findUnique({",
@@ -411,7 +375,7 @@
   {
     "type": "WARNING",
     "file": "apps/api/src/modules/policies/services/renewal-engine.service.ts",
-    "line": 487,
+    "line": 489,
     "operation": "findUnique",
     "model": "Policy",
     "snippet": "const policy = await this.prisma.policy.findUnique({",
@@ -420,7 +384,7 @@
   {
     "type": "WARNING",
     "file": "apps/api/src/modules/policies/services/renewal-engine.service.ts",
-    "line": 514,
+    "line": 516,
     "operation": "findUnique",
     "model": "Policy",
     "snippet": "const policy = await this.prisma.policy.findUnique({",
@@ -429,7 +393,7 @@
   {
     "type": "WARNING",
     "file": "apps/api/src/modules/policies/services/renewal-engine.service.ts",
-    "line": 522,
+    "line": 524,
     "operation": "findFirst",
     "model": "RenewalTask",
     "snippet": "const existingTask = await this.prisma.renewalTask.findFirst({",
@@ -438,7 +402,7 @@
   {
     "type": "WARNING",
     "file": "apps/api/src/modules/policies/services/renewal-engine.service.ts",
-    "line": 527,
+    "line": 529,
     "operation": "update",
     "model": "RenewalTask",
     "snippet": "await this.prisma.renewalTask.update({",
@@ -474,7 +438,7 @@
   {
     "type": "WARNING",
     "file": "apps/api/src/modules/quotation/services/queries/quotation-completion.service.ts",
-    "line": 464,
+    "line": 462,
     "operation": "update",
     "model": "Contact",
     "snippet": "await this.prisma.contact.update({",
@@ -483,7 +447,7 @@
   {
     "type": "WARNING",
     "file": "apps/api/src/modules/quotation/services/queries/quotation-completion.service.ts",
-    "line": 548,
+    "line": 563,
     "operation": "update",
     "model": "Quotation",
     "snippet": "await this.prisma.quotation.update({",
@@ -492,7 +456,7 @@
   {
     "type": "WARNING",
     "file": "apps/api/src/modules/quotation/services/queries/quotation-completion.service.ts",
-    "line": 558,
+    "line": 573,
     "operation": "update",
     "model": "Quotation",
     "snippet": "await this.prisma.quotation.update({",
@@ -501,7 +465,7 @@
   {
     "type": "WARNING",
     "file": "apps/api/src/modules/quotation/services/queries/quotation-completion.service.ts",
-    "line": 585,
+    "line": 600,
     "operation": "update",
     "model": "Quotation",
     "snippet": "await this.prisma.quotation.update({",
@@ -510,7 +474,7 @@
   {
     "type": "WARNING",
     "file": "apps/api/src/modules/quotation/services/queries/quotation-completion.service.ts",
-    "line": 623,
+    "line": 638,
     "operation": "update",
     "model": "Quotation",
     "snippet": "await this.prisma.quotation.update({",
@@ -546,7 +510,7 @@
   {
     "type": "WARNING",
     "file": "apps/api/src/modules/workspace/services/referral.service.ts",
-    "line": 113,
+    "line": 115,
     "operation": "findUnique",
     "model": "Lead",
     "snippet": "const lead = await this.prisma.lead.findUnique({ where: { id: leadId } });",
@@ -555,7 +519,7 @@
   {
     "type": "WARNING",
     "file": "apps/api/src/modules/workspace/services/referral.service.ts",
-    "line": 116,
+    "line": 118,
     "operation": "update",
     "model": "Lead",
     "snippet": "return this.prisma.lead.update({",

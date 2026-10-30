@@ -46,15 +46,24 @@ export class HealthController {
   @Get('terminus')
   @HealthCheck()
   checkTerminus() {
+    const rootPath =
+      process.platform === 'win32'
+        ? `${process.cwd().split(/[/\\]/)[0]}\\`
+        : '/';
+    const heapLimitBytes =
+      parseInt(process.env.MAX_HEAP_MB || '1024', 10) * 1024 * 1024;
+    const rssLimitBytes =
+      parseInt(process.env.MAX_RSS_MB || '1536', 10) * 1024 * 1024;
+
     return this.healthCheck.check([
       () => this.db.pingCheck('database', this.prisma),
       () =>
         this.disk.checkStorage('disk', {
-          path: process.platform === 'win32' ? 'C:\\' : '/',
+          path: rootPath,
           thresholdPercent: 0.9,
         }),
-      () => this.memory.checkHeap('memory_heap', 512 * 1024 * 1024),
-      () => this.memory.checkRSS('memory_rss', 512 * 1024 * 1024),
+      () => this.memory.checkHeap('memory_heap', heapLimitBytes),
+      () => this.memory.checkRSS('memory_rss', rssLimitBytes),
     ]);
   }
 

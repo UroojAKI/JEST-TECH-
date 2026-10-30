@@ -140,7 +140,7 @@ export class MotorPolicyDateService {
     }
 
     const odTenure = 1;
-    let tpTenure = params.policyTenure !== undefined && params.policyTenure > 0
+    const tpTenure = params.policyTenure !== undefined && params.policyTenure > 0
       ? params.policyTenure
       : (params.vehicleStatus === 'NEW'
           ? (params.vehicleCategory === 'PRIVATE_CAR' ? 3 : params.vehicleCategory === 'BIKE' ? 5 : 1)

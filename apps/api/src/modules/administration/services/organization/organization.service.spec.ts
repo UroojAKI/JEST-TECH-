@@ -1,4 +1,4 @@
-import { ForbiddenException, NotFoundException } from '@nestjs/common';
+import { ForbiddenException, NotFoundException, BadRequestException } from '@nestjs/common';
 import { RoleType } from '@prisma/client';
 import { OrganizationService } from './organization.service';
 
@@ -17,6 +17,11 @@ describe('OrganizationService Multi-Tenant Hardening', () => {
           .mockResolvedValue([{ id: 'br-1', name: 'Andheri' }]),
         count: jest.fn().mockResolvedValue(1),
         findFirst: jest.fn(),
+        create: jest.fn(),
+      },
+      zone: {
+        findFirst: jest.fn(),
+        findMany: jest.fn().mockResolvedValue([]),
       },
       department: {
         findMany: jest.fn().mockResolvedValue([{ id: 'dept-1' }]),
@@ -94,5 +99,96 @@ describe('OrganizationService Multi-Tenant Hardening', () => {
         branchManager as any,
       ),
     ).rejects.toThrow(NotFoundException);
+  });
+
+  describe('createBranch', () => {
+    it('throws BadRequestException if zoneId is missing', async () => {
+      await expect(
+        service.createBranch(
+          {
+            name: 'Bangalore East',
+            code: 'BLR01',
+            city: 'Bangalore',
+            state: 'Karnataka',
+          },
+          branchManager as any,
+        ),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('throws BadRequestException if specified zone does not exist or belong to organization', async () => {
+      mockPrisma.zone.findFirst.mockResolvedValue(null);
+      await expect(
+        service.createBranch(
+          {
+            name: 'Bangalore East',
+            code: 'BLR01',
+            city: 'Bangalore',
+            zoneId: 'zone-foreign',
+            state: 'Karnataka',
+          },
+          branchManager as any,
+        ),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('throws BadRequestException if duplicate branch code exists in organization', async () => {
+      mockPrisma.zone.findFirst.mockResolvedValue({
+        id: 'zone-1',
+        region: { id: 'reg-1', companyId: 'org-mumbai', name: 'Karnataka' },
+      });
+      mockPrisma.branch.findFirst.mockResolvedValue({ id: 'existing-br' });
+
+      await expect(
+        service.createBranch(
+          {
+            name: 'Bangalore East',
+            code: 'BLR01',
+            city: 'Bangalore',
+            zoneId: 'zone-1',
+            state: 'Karnataka',
+          },
+          branchManager as any,
+        ),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('creates branch cleanly with provided state and explicit hierarchy without default Maharashtra', async () => {
+      mockPrisma.zone.findFirst.mockResolvedValue({
+        id: 'zone-1',
+        region: { id: 'reg-1', companyId: 'org-mumbai', name: 'South' },
+      });
+      mockPrisma.branch.findFirst.mockResolvedValue(null);
+      mockPrisma.branch.create.mockResolvedValue({
+        id: 'br-new',
+        code: 'BLR01',
+        name: 'Bangalore East',
+        state: 'Karnataka',
+        city: 'Bangalore',
+      });
+
+      const res = await service.createBranch(
+        {
+          name: 'Bangalore East',
+          code: 'blr01',
+          city: 'Bangalore',
+          zoneId: 'zone-1',
+          state: 'Karnataka',
+        },
+        branchManager as any,
+      );
+
+      expect(res.id).toBe('br-new');
+      expect(mockPrisma.branch.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            code: 'BLR01',
+            state: 'Karnataka',
+            city: 'Bangalore',
+            zoneId: 'zone-1',
+          }),
+        }),
+      );
+    });
   });
 });
