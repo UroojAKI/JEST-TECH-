@@ -26,6 +26,7 @@ export interface ActorContext {
   permissions: string[];
   workspaces: string[];
   status: UserStatus;
+  isPlatformAdmin?: boolean;
   delegations?: {
     delegatorUserId: string;
     validUntil: Date;

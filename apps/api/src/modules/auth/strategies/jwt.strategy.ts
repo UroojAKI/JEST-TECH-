@@ -72,6 +72,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         role: {
           select: {
             type: true,
+            code: true,
             permissions: {
               select: {
                 permission: { select: { code: true } },
@@ -145,6 +146,13 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         ?.map((entry) => entry.permission.code)
         .filter(Boolean) || [];
 
+    const isPlatformAdmin =
+      permissions.includes('*') ||
+      permissions.includes('PLATFORM_SUPER_ADMIN') ||
+      permissions.includes('platform:super-admin') ||
+      user.role?.code === 'PLATFORM_SUPER_ADMIN' ||
+      user.role?.code === 'SUPER_ADMIN';
+
     const actor: ActorContext = {
       userId: user.id,
       email: user.email,
@@ -163,6 +171,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       permissions,
       workspaces: [],
       status: user.status,
+      isPlatformAdmin,
     };
 
     actor.workspaces = resolvePermittedWorkspaces(actor);

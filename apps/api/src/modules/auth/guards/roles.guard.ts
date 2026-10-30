@@ -1,3 +1,4 @@
+import { PlatformPrivilegeResolver } from '../../../common/services/platform-privilege.resolver';
 import {
   CanActivate,
   ExecutionContext,
@@ -58,6 +59,11 @@ export class RolesGuard implements CanActivate {
 
     // Privileged system roles are explicitly defined as global role bypasses.
     // In canonical 3-role architecture, ADMIN is the sole administrator role.
+    // Platform super-administrators bypass role constraints globally
+    if (PlatformPrivilegeResolver.isPlatformAdmin(user)) {
+      return true;
+    }
+
     if (userRoles.some((r: string) => r === RoleType.ADMIN || r === 'ADMIN')) {
       return true;
     }

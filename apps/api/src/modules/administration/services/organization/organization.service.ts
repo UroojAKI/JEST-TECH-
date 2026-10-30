@@ -1,39 +1,66 @@
 import {
   Injectable,
   NotFoundException,
-  BadRequestException,
   ForbiddenException,
+  BadRequestException,
 } from '@nestjs/common';
-import { Prisma, RoleType } from '@prisma/client';
 import { PrismaService } from '../../../../database/prisma.service';
 import { PaginationDto } from '../../../../common/pagination/pagination.dto';
 import { PaginatedResponseDto } from '../../../../common/pagination/paginated-response.dto';
+import { Prisma, RoleType, UserStatus } from '@prisma/client';
 import { ActorContext } from '../../../../common/interfaces/actor-context.interface';
+import { PlatformPrivilegeResolver } from '../../../../common/services/platform-privilege.resolver';
 
 @Injectable()
 export class OrganizationService {
   constructor(private readonly prisma: PrismaService) {}
 
+  /**
+   * Evaluates if the actor is an authoritative platform super-administrator.
+   * Broad RoleType.ADMIN check is removed: Tenant Admins are strictly company-scoped.
+   */
   private isSuperAdmin(actor?: ActorContext): boolean {
-    return (
-      actor?.roles?.includes(RoleType.ADMIN) ||
-      actor?.role === RoleType.ADMIN ||
-      false
-    );
+    return PlatformPrivilegeResolver.isPlatformAdmin(actor);
   }
 
+  /**
+   * Asserts and returns the actor's company context.
+   * Only verified platform super-administrators can bypass the organization constraint.
+   */
   private assertActorOrg(actor?: ActorContext): string {
     if (this.isSuperAdmin(actor)) return '';
-    if (!actor?.organizationId) {
+    const orgId = actor?.companyId || actor?.organizationId;
+    if (!orgId) {
       throw new ForbiddenException('Actor organizational context is required');
     }
-    return actor.organizationId;
+    return orgId;
   }
 
+  /**
+   * Retrieves organization hierarchy.
+   * - Platform Super Admin: Can view all companies' hierarchies.
+   * - Tenant Admin & Back Office: Strictly restricted to their own company hierarchy.
+   * - Agent: Blocked unless separately authorized.
+   */
   async getHierarchy(actor?: ActorContext) {
-    const orgId = this.assertActorOrg(actor);
+    if (
+      actor?.role === RoleType.AGENT &&
+      !actor.permissions?.includes('organization:read') &&
+      !actor.permissions?.includes('hierarchy:read')
+    ) {
+      throw new ForbiddenException(
+        'Agent is not authorized to access administrative hierarchy',
+      );
+    }
+
+    const isSuper = this.isSuperAdmin(actor);
+    const orgId = actor?.companyId || actor?.organizationId;
+
     const where: Prisma.CompanyWhereInput = { isActive: true };
-    if (orgId) {
+    if (!isSuper) {
+      if (!orgId) {
+        throw new ForbiddenException('Actor organizational context is required');
+      }
       where.id = orgId;
     }
 
@@ -77,7 +104,6 @@ export class OrganizationService {
     if (orgId) {
       where.zone = { region: { companyId: orgId } };
     }
-
     if (pagination.search) {
       where.AND = [
         {
@@ -223,47 +249,181 @@ export class OrganizationService {
     });
   }
 
+  /**
+   * Phase 3: Multi-level hierarchy verification and atomic team assignment.
+   *
+   * Verifies the full relationship:
+   * Company -> Region -> Zone -> Branch -> Department -> Team -> Employee
+   */
   async assignUserToTeam(userId: string, teamId: string, actor?: ActorContext) {
-    const orgId = this.assertActorOrg(actor);
-    const teamWhere: Prisma.TeamWhereInput = { id: teamId };
-    if (orgId) {
-      teamWhere.department = {
-        branch: { zone: { region: { companyId: orgId } } },
-      };
+    const isSuper = this.isSuperAdmin(actor);
+    const actorCompanyId = actor?.companyId || actor?.organizationId;
+    if (!isSuper && !actorCompanyId) {
+      throw new ForbiddenException('Actor organizational context is required');
     }
 
-    const team = await this.prisma.team.findFirst({
-      where: teamWhere,
-      include: { department: true },
-    });
+    return this.prisma.$transaction(async (tx) => {
+      // 1. Verify target employee exists
+      const user = await tx.user.findUnique({
+        where: { id: userId },
+        include: {
+          branch: true,
+          department: true,
+          team: true,
+        },
+      });
 
-    if (!team) {
-      throw new NotFoundException('Team not found in your organization');
-    }
+      if (!user) {
+        throw new NotFoundException('User not found');
+      }
 
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-      select: { id: true, companyId: true },
-    });
+      // 2. Verify target employee is active
+      if (
+        user.status !== UserStatus.ACTIVE &&
+        (user.status as string) !== 'ACTIVE'
+      ) {
+        throw new BadRequestException('Target employee is not active');
+      }
 
-    if (!user) {
-      throw new NotFoundException('User not found');
-    }
+      // 3. Verify employee belongs to permitted company
+      if (!isSuper && user.companyId !== actorCompanyId) {
+        throw new ForbiddenException('User belongs to another organization');
+      }
 
-    if (orgId && user.companyId !== orgId) {
-      throw new ForbiddenException('User belongs to another organization');
-    }
+      // 4. Verify target team exists with full parent hierarchy
+      const team = await tx.team.findUnique({
+        where: { id: teamId },
+        include: {
+          department: {
+            include: {
+              branch: {
+                include: {
+                  zone: {
+                    include: {
+                      region: {
+                        include: {
+                          company: true,
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      });
 
-    return this.prisma.user.update({
-      where: { id: userId },
-      data: {
-        teamId: team.id,
-        departmentId: team.departmentId,
-        branchId: team.department.branchId,
-      },
+      if (!team) {
+        throw new NotFoundException('Team not found in your organization');
+      }
+
+      // 5. Verify target team is active
+      if (team.isActive === false) {
+        throw new BadRequestException('Target team is inactive');
+      }
+
+      // 6. Verify team belongs to an active Department
+      if (!team.department) {
+        throw new BadRequestException(
+          'Target team is not associated with any department',
+        );
+      }
+      if (team.department.isActive === false) {
+        throw new BadRequestException('Target department is inactive');
+      }
+
+      // 7. Verify Department belongs to an active Branch
+      if (!team.department.branch) {
+        throw new BadRequestException(
+          'Target department is not associated with any branch',
+        );
+      }
+      if (team.department.branch.isActive === false) {
+        throw new BadRequestException('Target branch is inactive');
+      }
+
+      // 8. Verify Branch belongs to an active Zone
+      if (!team.department.branch.zone) {
+        throw new BadRequestException(
+          'Target branch is not associated with any zone',
+        );
+      }
+      if (team.department.branch.zone.isActive === false) {
+        throw new BadRequestException('Target zone is inactive');
+      }
+
+      // 9. Verify Region is active
+      if (team.department.branch.zone.region?.isActive === false) {
+        throw new BadRequestException('Target region is inactive');
+      }
+
+      // 10. Verify Zone belongs to the employee's company
+      const teamCompanyId = team.department.branch.zone.region?.companyId;
+      if (!teamCompanyId || teamCompanyId !== user.companyId) {
+        throw new ForbiddenException(
+          'Target team belongs to a different company than the employee',
+        );
+      }
+
+      // If actor is tenant admin, verify team belongs to actor's organization
+      if (!isSuper && teamCompanyId !== actorCompanyId) {
+        throw new ForbiddenException('Team does not belong to your organization');
+      }
+
+      // Check if this assignment constitutes a cross-branch transfer
+      const isBranchTransfer = Boolean(
+        user.branchId && user.branchId !== team.department.branchId,
+      );
+
+      // 11. Atomically update user hierarchy
+      const updatedUser = await tx.user.update({
+        where: { id: userId },
+        data: {
+          teamId: team.id,
+          departmentId: team.departmentId,
+          branchId: team.department.branchId,
+        },
+      });
+
+      // Record before/after state in audit log in the same transaction
+      await tx.auditLog.create({
+        data: {
+          action: 'UPDATE',
+          entity: 'UserHierarchy',
+          entityType: 'USER_HIERARCHY',
+          entityId: user.id,
+          performedById: actor?.userId || (actor as any)?.id || null,
+          metadata: {
+            companyId: user.companyId,
+            transferType: isBranchTransfer
+              ? 'BRANCH_TRANSFER'
+              : 'TEAM_ASSIGNMENT',
+          },
+          oldValue: {
+            branchId: user.branchId,
+            departmentId: user.departmentId,
+            teamId: user.teamId,
+          },
+          newValue: {
+            branchId: team.department.branchId,
+            departmentId: team.departmentId,
+            teamId: team.id,
+            zoneId: team.department.branch.zoneId,
+            regionId: team.department.branch.zone.regionId,
+            companyId: teamCompanyId,
+          },
+          module: 'ORGANIZATION',
+        },
+      });
+
+      return updatedUser;
     });
   }
 
+  /**
+   * Phase 3.2: Branch creation with explicit state requirement (no region name fallback).
+   */
   async createBranch(
     dto: {
       name: string;
@@ -292,6 +452,14 @@ export class OrganizationService {
       );
     }
 
+    // Phase 3.2: State must be explicitly provided. Region display name fallback is removed.
+    const state = dto.state?.trim();
+    if (!state) {
+      throw new BadRequestException(
+        'State is required for branch location and must be explicitly specified',
+      );
+    }
+
     // Verify Zone -> Region -> Company hierarchy
     const zone = await this.prisma.zone.findFirst({
       where: {
@@ -311,13 +479,6 @@ export class OrganizationService {
     if (!zone) {
       throw new BadRequestException(
         'Specified zone does not exist or does not belong to your organization',
-      );
-    }
-
-    const resolvedState = dto.state?.trim() || zone.region?.name;
-    if (!resolvedState) {
-      throw new BadRequestException(
-        'State is required for branch location',
       );
     }
 
@@ -342,7 +503,7 @@ export class OrganizationService {
         name: dto.name.trim(),
         code: branchCode,
         city: dto.city.trim(),
-        state: resolvedState,
+        state,
         address: dto.address?.trim() || null,
         zoneId: zone.id,
         isActive: true,

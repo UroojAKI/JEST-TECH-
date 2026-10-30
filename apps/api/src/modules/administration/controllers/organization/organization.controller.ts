@@ -46,17 +46,17 @@ export class CreateBranchDto {
   @IsNotEmpty()
   city: string;
 
-  @IsOptional()
   @IsString()
-  state?: string;
+  @IsNotEmpty()
+  state: string;
 
   @IsOptional()
   @IsString()
   address?: string;
 
-  @IsOptional()
   @IsString()
-  zoneId?: string;
+  @IsNotEmpty()
+  zoneId: string;
 }
 
 @ApiTags('Administration - Organization')

@@ -18,6 +18,7 @@ import type { RequestUser } from '../../../auth/decorators/current-user.decorato
 import { RoleType, AccessScope, PermissionCategory } from '@prisma/client';
 import { PrismaService } from '../../../../database/prisma.service';
 import { PERMISSION_CATALOG } from '../../../auth/constants/permission-catalog';
+import { PlatformPrivilegeResolver } from '../../../../common/services/platform-privilege.resolver';
 
 export interface UpdateRolePermissionsDto {
   permissions: Array<{
@@ -39,7 +40,11 @@ export class RolesController {
   @Get()
   @Roles(RoleType.ADMIN)
   @ApiOperation({ summary: 'Get all system roles' })
-  async getRoles() {
+  async getRoles(@CurrentUser() actor?: RequestUser) {
+    if (actor && actor.role === RoleType.AGENT) {
+      throw new ForbiddenException('Agents are not authorized to view role definitions');
+    }
+
     const roles = await this.prisma.role.findMany({
       include: {
         permissions: {
@@ -64,7 +69,14 @@ export class RolesController {
   @Get(':roleId/permissions')
   @Roles(RoleType.ADMIN)
   @ApiOperation({ summary: 'Get permissions for a specific role' })
-  async getRolePermissions(@Param('roleId') roleId: string) {
+  async getRolePermissions(
+    @Param('roleId') roleId: string,
+    @CurrentUser() actor?: RequestUser,
+  ) {
+    if (actor && actor.role === RoleType.AGENT) {
+      throw new ForbiddenException('Agents are not authorized to view role definitions');
+    }
+
     // Find role by id or by code/type
     const role = await this.prisma.role.findFirst({
       where: {
@@ -111,6 +123,16 @@ export class RolesController {
     @Body() dto: UpdateRolePermissionsDto,
     @CurrentUser() actor: RequestUser,
   ) {
+    // SEC-010 & Phase 2 Enforce Authoritative Platform Privilege
+    // Role definitions are global platform resources. Only verified platform super-administrators
+    // (verified via server-controlled PlatformPrivilegeResolver) may mutate them.
+    // Tenant Admins, Back Office, and Agents are strictly denied.
+    PlatformPrivilegeResolver.assertPlatformAdmin(actor);
+
+    if (!dto || !Array.isArray(dto.permissions)) {
+      throw new BadRequestException('Permissions must be an array');
+    }
+
     const role = await this.prisma.role.findFirst({
       where: {
         OR: [{ id: roleId }, { code: roleId }, { type: roleId as RoleType }],
@@ -121,49 +143,77 @@ export class RolesController {
       throw new NotFoundException(`Role ${roleId} not found`);
     }
 
-    // SEC-010 FIX: Role definitions are system-wide resources. Only platform super-admins
-    // (identified by permissions: ['*']) may mutate them. Tenant-level ADMINs are blocked
-    // from altering global role definitions to prevent cross-tenant privilege escalation.
-    const isSuperAdmin =
-      (Array.isArray((actor as any).permissions) &&
-        (actor as any).permissions.includes('*')) ||
-      (actor as any).isSuperAdmin === true ||
-      (actor as any).role === 'SUPER_ADMIN' ||
-      (actor as any).role === 'PLATFORM_SUPER_ADMIN';
-    if (!isSuperAdmin) {
-      throw new ForbiddenException(
-        'Only platform super-administrators may modify system-wide role permissions. Contact your platform administrator.',
-      );
-    }
+    // Input-level validation: prevent platform escalation, duplicate keys, and invalid scopes
+    const seenRequestKeys = new Set<string>();
+    for (const p of dto.permissions) {
+      if (!p || (!p.permissionId && !p.code && !(p.category && p.action))) {
+        throw new BadRequestException(
+          'Each permission item must specify at least a permissionId, code, or action and category.',
+        );
+      }
 
-    if (!Array.isArray(dto.permissions)) {
-      throw new BadRequestException('Permissions must be an array');
+      const code = (p.code || '').trim();
+      const cat = (p.category || '').trim().toUpperCase();
+      const act = (p.action || '').trim().toUpperCase();
+
+      // Prevent self-granting of platform-admin privileges through ordinary role updates
+      if (
+        code === '*' ||
+        code.toUpperCase() === 'PLATFORM_SUPER_ADMIN' ||
+        code.toUpperCase() === 'SUPER_ADMIN' ||
+        code.toLowerCase().includes('platform') ||
+        act === '*' ||
+        act === 'PLATFORM_SUPER_ADMIN' ||
+        cat === 'PLATFORM_SUPER_ADMIN'
+      ) {
+        throw new ForbiddenException(
+          'Self-granting platform super-admin privileges or wildcard permissions is strictly prohibited.',
+        );
+      }
+
+      // Validate scope against allowed AccessScope values
+      if (p.scope && !Object.values(AccessScope).includes(p.scope)) {
+        throw new BadRequestException(
+          `Invalid scope '${p.scope}'. Scope must be one of: ${Object.values(AccessScope).join(', ')}`,
+        );
+      }
+
+      let reqKey = '';
+      if (p.permissionId) {
+        reqKey = `id:${p.permissionId.trim()}`;
+      } else if (p.code) {
+        reqKey = `code:${code.toLowerCase()}`;
+      } else {
+        reqKey = `cat_act:${cat}:${act}`;
+      }
+
+      if (seenRequestKeys.has(reqKey)) {
+        throw new BadRequestException(
+          `Duplicate permission entry detected in request: ${reqKey}`,
+        );
+      }
+      seenRequestKeys.add(reqKey);
     }
 
     return this.prisma.$transaction(async (tx) => {
       const resolvedIds = new Set<string>();
-      const toCreateRoleLinks: any[] = [];
+      const toCreateRoleLinks: Array<{
+        roleId: string;
+        permissionId: string;
+        scope: AccessScope;
+      }> = [];
 
       for (const p of dto.permissions) {
+        let perm: { id: string; code: string } | null = null;
+
         if (p.permissionId) {
-          const perm = await tx.permission.findUnique({
+          perm = await tx.permission.findUnique({
             where: { id: p.permissionId },
           });
           if (!perm) {
             throw new BadRequestException(
               `Permission with ID '${p.permissionId}' not found. All permissions must belong to the canonical permission catalog.`,
             );
-          }
-          if (!resolvedIds.has(perm.id)) {
-            resolvedIds.add(perm.id);
-            toCreateRoleLinks.push({
-              roleId: role.id,
-              permissionId: perm.id,
-              scope:
-                p.scope && Object.values(AccessScope).includes(p.scope)
-                  ? p.scope
-                  : AccessScope.ORGANIZATION,
-            });
           }
         } else if (p.code) {
           const rawCode = p.code.trim();
@@ -173,7 +223,7 @@ export class RolesController {
               c.code.toUpperCase() === rawCode.toUpperCase(),
           );
 
-          let perm = await tx.permission.findFirst({
+          perm = await tx.permission.findFirst({
             where: {
               OR: [
                 { code: rawCode },
@@ -199,18 +249,6 @@ export class RolesController {
               },
             });
           }
-
-          if (perm && !resolvedIds.has(perm.id)) {
-            resolvedIds.add(perm.id);
-            toCreateRoleLinks.push({
-              roleId: role.id,
-              permissionId: perm.id,
-              scope:
-                p.scope && Object.values(AccessScope).includes(p.scope)
-                  ? p.scope
-                  : AccessScope.ORGANIZATION,
-            });
-          }
         } else if (p.category && p.action) {
           const actionCode = p.action.toUpperCase();
           const categorySlug = p.category
@@ -225,7 +263,7 @@ export class RolesController {
               c.code.toUpperCase() === codeUpper,
           );
 
-          let perm = await tx.permission.findFirst({
+          perm = await tx.permission.findFirst({
             where: {
               OR: [
                 { code: codeUpper },
@@ -250,23 +288,27 @@ export class RolesController {
               },
             });
           }
+        }
 
-          if (perm && !resolvedIds.has(perm.id)) {
-            resolvedIds.add(perm.id);
-            toCreateRoleLinks.push({
-              roleId: role.id,
-              permissionId: perm.id,
-              scope:
-                p.scope && Object.values(AccessScope).includes(p.scope)
-                  ? p.scope
-                  : AccessScope.ORGANIZATION,
-            });
-          }
-        } else {
+        if (!perm) {
+          throw new BadRequestException('Unable to resolve permission');
+        }
+
+        if (resolvedIds.has(perm.id)) {
           throw new BadRequestException(
-            'Each permission item must specify at least a permissionId, code, or action and category.',
+            `Duplicate permission detected for permission code '${perm.code}'.`,
           );
         }
+
+        resolvedIds.add(perm.id);
+        toCreateRoleLinks.push({
+          roleId: role.id,
+          permissionId: perm.id,
+          scope:
+            p.scope && Object.values(AccessScope).includes(p.scope)
+              ? p.scope
+              : AccessScope.ORGANIZATION,
+        });
       }
 
       // Capture previous permissions before updating for durable audit trail
@@ -291,7 +333,7 @@ export class RolesController {
         });
       }
 
-      // Durable transactional audit logging (no silent catch)
+      // Durable transactional audit logging (no silent catch - if auditLog fails, transaction rolls back)
       await tx.auditLog.create({
         data: {
           action: 'UPDATE',
