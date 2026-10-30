@@ -77,7 +77,20 @@ jobs:
     environment:
       name: ${{ github.ref_name == 'main' && 'production' || 'staging' }}
     steps:
+      - name: Check Deployment Secrets
+        id: check_deploy
+        env:
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+        run: |
+          if [ -z "$EC2_HOST" ]; then
+            echo "::warning::EC2_HOST is not configured in repository/environment secrets. Skipping EC2 deployment."
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Deploy to EC2 via SSH
+        if: steps.check_deploy.outputs.configured == 'true'
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.EC2_HOST }}

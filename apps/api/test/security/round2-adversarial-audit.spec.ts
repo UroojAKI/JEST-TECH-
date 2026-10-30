@@ -140,6 +140,7 @@ describe('Round 2 Adversarial Security Audit Verification (Findings R2-001..R2-0
   describe('[R2-003 & R2-010] CustomersService Scoping & Fallback Elimination', () => {
     let customersService: CustomersService;
     let prismaMock: any;
+    let crmIdentityMock: any;
 
     beforeEach(() => {
       prismaMock = {
@@ -151,7 +152,13 @@ describe('Round 2 Adversarial Security Audit Verification (Findings R2-001..R2-0
         agent: { findUnique: jest.fn() },
         company: { findFirst: jest.fn() },
       };
-      customersService = new CustomersService(prismaMock);
+      crmIdentityMock = {
+        resolveCustomerIdentity: jest.fn().mockResolvedValue({ matchFound: false, record: null, matchedOn: 'NONE' }),
+        resolveContactIdentity: jest.fn().mockResolvedValue({ matchFound: false, record: null, matchedOn: 'NONE' }),
+        nextCustomerCode: jest.fn().mockResolvedValue('CUST-202610-0001'),
+        nextContactCode: jest.fn().mockResolvedValue('CONT-202610-0001'),
+      };
+      customersService = new CustomersService(prismaMock, crmIdentityMock as any);
     });
 
     it('scopes findAll to user.companyId for ADMIN and BACK_OFFICE', async () => {
