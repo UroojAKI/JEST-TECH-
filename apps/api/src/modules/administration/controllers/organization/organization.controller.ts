@@ -73,6 +73,13 @@ export class OrganizationController {
     return this.organizationService.getHierarchy(user);
   }
 
+  @Get('zones')
+  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE)
+  @ApiOperation({ summary: 'Get active zones for organization' })
+  async getZones(@CurrentUser() user: RequestUser) {
+    return this.organizationService.getZones(user);
+  }
+
   @Get('branches')
   @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT)
   @ApiOperation({ summary: 'Get all branches' })

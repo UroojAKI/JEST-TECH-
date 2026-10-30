@@ -97,15 +97,15 @@ const MODULE_CANONICAL_MAP: Record<
 };
 
 const CANONICAL_SAVE_CODE: Record<string, Record<'view' | 'create' | 'update' | 'delete' | 'approve' | 'export', string>> = {
-  'Customer 360': { view: 'contact:read', create: 'contact:create', update: 'contact:update', delete: 'contact:delete', approve: 'contact:update', export: 'contact:read' },
-  'Lead Workspace': { view: 'lead:read', create: 'lead:create', update: 'lead:update', delete: 'lead:delete', approve: 'lead:convert', export: 'lead:read' },
+  'Customer 360': { view: 'contact:read', create: 'contact:create', update: 'contact:update', delete: 'contact:delete', approve: 'contact:update', export: 'contact:export' },
+  'Lead Workspace': { view: 'lead:read', create: 'lead:create', update: 'lead:update', delete: 'lead:delete', approve: 'opportunity:pipeline', export: 'lead:export' },
   'Quotation Engine': { view: 'quotation:read', create: 'quotation:create', update: 'quotation:update', delete: 'quotation:reject', approve: 'quotation:approve', export: 'quotation:export' },
   'Proposals & Underwriting': { view: 'policy:read', create: 'policy:create', update: 'policy:update', delete: 'policy:cancel', approve: 'policy:issue', export: 'policy:export' },
-  'Policy Operations': { view: 'policy:read', create: 'policy:create', update: 'policy:update', delete: 'policy:cancel', approve: 'policy:issue', export: 'policy:export' },
+  'Policy Operations': { view: 'renewal:read', create: 'policy:create', update: 'renewal:update', delete: 'policy:cancel', approve: 'renewal:process', export: 'renewal:export' },
   'Claims Operations': { view: 'claim:read', create: 'claim:create', update: 'claim:update', delete: 'claim:reject', approve: 'claim:approve', export: 'claim:export' },
   'Finance & Accounting': { view: 'commission:read', create: 'commission:configure', update: 'commission:process', delete: 'commission:process', approve: 'commission:process', export: 'commission:export' },
-  'Reports & BI': { view: 'report:read', create: 'report:create', update: 'report:execute', delete: 'report:export', approve: 'report:export', export: 'report:export' },
-  'System Administration': { view: 'audit:read', create: 'user:create', update: 'user:update', delete: 'user:delete', approve: 'system:manage', export: 'audit:read' },
+  'Reports & BI': { view: 'report:read', create: 'report:create', update: 'report:execute', delete: 'report:export', approve: 'report:execute', export: 'report:export' },
+  'System Administration': { view: 'user:read', create: 'user:create', update: 'user:update', delete: 'user:delete', approve: 'system:manage', export: 'audit:read' },
 };
 
 const CANONICAL_ROLES = [

@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 
 import { ContactsModule } from '../contacts/contacts.module';
+import { CrmIdentityModule } from '../crm-identity/crm-identity.module';
 import { AccountsModule } from '../accounts/accounts.module';
 import { UsersModule } from '../users/users.module';
 import { ReportsModule } from '../platform/reporting/reports.module';
@@ -20,6 +21,7 @@ import { LeadLifecycleService } from './services/lead-lifecycle.service';
 @Module({
   imports: [
     ContactsModule,
+    CrmIdentityModule,
     AccountsModule,
     UsersModule,
     ReportsModule,

@@ -11,7 +11,12 @@ import { adminRepository, BranchItem } from '../../../repositories/admin.reposit
 export default function BranchManagementPage() {
   const queryClient = useQueryClient();
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [form, setForm] = useState({ name: '', code: '', city: '', state: '', address: '' });
+  const [form, setForm] = useState({ name: '', code: '', city: '', state: '', address: '', zoneId: '' });
+
+  const { data: zones = [] } = useQuery<any[]>({
+    queryKey: ['admin-zones'],
+    queryFn: adminRepository.getZones,
+  });
 
   const { data: branches = [], isLoading, isError, refetch } = useQuery<BranchItem[]>({
     queryKey: ['admin-branches'],
@@ -23,7 +28,7 @@ export default function BranchManagementPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-branches'] });
       toast.success('Branch created successfully');
-      setForm({ name: '', code: '', city: '', state: '', address: '' });
+      setForm({ name: '', code: '', city: '', state: '', address: '', zoneId: '' });
       setIsModalOpen(false);
     },
     onError: (err: any) => toast.error(err?.response?.data?.message || 'Failed to create branch'),
@@ -41,6 +46,7 @@ export default function BranchManagementPage() {
       city: form.city,
       state: form.state || undefined,
       address: form.address || undefined,
+      zoneId: form.zoneId || undefined,
     });
   };
 
@@ -72,9 +78,24 @@ export default function BranchManagementPage() {
               <div><label className="font-bold text-muted-foreground block mb-1">City *</label><input type="text" required value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} className="w-full p-2.5 rounded-lg border bg-background text-xs" /></div>
             </div>
             <div className="grid grid-cols-2 gap-3">
-              <div><label className="font-bold text-muted-foreground block mb-1">State</label><input type="text" value={form.state} onChange={(e) => setForm({ ...form, state: e.target.value })} className="w-full p-2.5 rounded-lg border bg-background text-xs" /></div>
-              <div><label className="font-bold text-muted-foreground block mb-1">Address / Street</label><input type="text" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} className="w-full p-2.5 rounded-lg border bg-background text-xs" /></div>
+              <div>
+                <label className="font-bold text-muted-foreground block mb-1">Regional Zone</label>
+                <select
+                  value={form.zoneId}
+                  onChange={(e) => setForm({ ...form, zoneId: e.target.value })}
+                  className="w-full p-2.5 rounded-lg border bg-background text-xs"
+                >
+                  <option value="">Default Active Zone</option>
+                  {zones.map((z: any) => (
+                    <option key={z.id} value={z.id}>
+                      {z.name} {z.region ? `(${z.region.name})` : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div><label className="font-bold text-muted-foreground block mb-1">State</label><input type="text" value={form.state} onChange={(e) => setForm({ ...form, state: e.target.value })} className="w-full p-2.5 rounded-lg border bg-background text-xs" placeholder="e.g. Maharashtra" /></div>
             </div>
+            <div><label className="font-bold text-muted-foreground block mb-1">Address / Street</label><input type="text" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} className="w-full p-2.5 rounded-lg border bg-background text-xs" /></div>
             <div className="pt-3 flex justify-end"><button type="submit" disabled={createMutation.isPending} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground font-bold flex items-center">{createMutation.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />}{createMutation.isPending ? 'Creating...' : 'Create Branch'}</button></div>
           </form>
         </div>

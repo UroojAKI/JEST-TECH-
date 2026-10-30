@@ -31,6 +31,88 @@ export interface UserItem {
   createdAt: string;
 }
 
+export interface UserWorkspaceData {
+  profile: {
+    id: string;
+    employeeCode?: string | null;
+    firstName: string;
+    lastName: string;
+    name: string;
+    email: string;
+    phone?: string | null;
+    designation?: string | null;
+    department?: string | null;
+    status: string;
+    companyId: string;
+    collectContacts: boolean;
+    lastLoginAt?: string | null;
+    createdAt: string;
+    updatedAt: string;
+    role?: {
+      id: string;
+      name: string;
+      code: string;
+      type: string;
+      description?: string | null;
+      permissions: {
+        id: string;
+        code: string;
+        name: string;
+        category?: string;
+        scope: string;
+      }[];
+    } | null;
+    branch?: {
+      id: string;
+      code: string;
+      name: string;
+      city?: string | null;
+    } | null;
+    team?: {
+      id: string;
+      name: string;
+    } | null;
+    agentProfile?: {
+      id: string;
+      agentCode: string;
+      agencyName?: string | null;
+      licenseNumber?: string | null;
+      commissionTier?: string | null;
+      isActive: boolean;
+    } | null;
+  };
+  portfolio: {
+    leadsCreated: number;
+    leadsAssigned: number;
+    leadsConverted: number;
+    leadsLost: number;
+    contactsCreated: number;
+    customersCreated: number;
+    customersManaged: number;
+    policiesIssued: number;
+    renewalsPending: number;
+    pendingTasks: number;
+    overdueTasks: number;
+  };
+  recentActivities: {
+    id: string;
+    action: string;
+    entity: string;
+    entityId: string;
+    ipAddress?: string | null;
+    createdAt: string;
+    details?: any;
+  }[];
+  recentTasks: {
+    id: string;
+    title: string;
+    status: string;
+    priority: string;
+    dueDate?: string | null;
+    createdAt: string;
+  }[];
+}
+
 export interface RolePermissionItem {
   roleId: string;
   roleName: string;
@@ -122,9 +204,14 @@ export interface HealthStatusItem {
   checks?: {
     database?: { status: string; latencyMs?: number };
     redis?: { status: string; latencyMs?: number };
-    outbox?: { status: string; pendingEvents?: number };
+    outbox?: {
+      status: string;
+      pendingEvents?: number;
+      failedEvents?: number;
+      oldestAgeSeconds?: number;
+    };
     memory?: { status: string; heapUsedMB?: number; heapLimitMB?: number };
-    disk?: { status: string };
+    disk?: { status: string; freeDiskGB?: number; totalDiskGB?: number };
   };
   info?: {
     database?: { status: string };
@@ -144,6 +231,11 @@ export const adminRepository = {
 
   async getCurrentUser(): Promise<UserItem> {
     const response = await apiClient.get('/users/me');
+    return response.data;
+  },
+
+  async getUserWorkspace(id: string): Promise<UserWorkspaceData> {
+    const response = await apiClient.get(`/users/${id}/workspace`);
     return response.data;
   },
 
@@ -203,7 +295,12 @@ export const adminRepository = {
     return Array.isArray(response.data) ? response.data : (response.data.data || []);
   },
 
-  async createBranch(data: { name: string; code: string; city: string; state?: string; address?: string }): Promise<BranchItem> {
+  async getZones(): Promise<any[]> {
+    const response = await apiClient.get('/admin/organization/zones');
+    return Array.isArray(response.data) ? response.data : (response.data.data || []);
+  },
+
+  async createBranch(data: { name: string; code: string; city: string; state?: string; address?: string; zoneId?: string }): Promise<BranchItem> {
     const response = await apiClient.post('/admin/organization/branches', data);
     return response.data;
   },

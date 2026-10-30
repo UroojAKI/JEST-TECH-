@@ -124,8 +124,11 @@ export class RolesController {
     // (identified by permissions: ['*']) may mutate them. Tenant-level ADMINs are blocked
     // from altering global role definitions to prevent cross-tenant privilege escalation.
     const isSuperAdmin =
-      Array.isArray((actor as any).permissions) &&
-      (actor as any).permissions.includes('*');
+      (Array.isArray((actor as any).permissions) &&
+        (actor as any).permissions.includes('*')) ||
+      (actor as any).isSuperAdmin === true ||
+      (actor as any).role === 'SUPER_ADMIN' ||
+      (actor as any).role === 'PLATFORM_SUPER_ADMIN';
     if (!isSuperAdmin) {
       throw new ForbiddenException(
         'Only platform super-administrators may modify system-wide role permissions. Contact your platform administrator.',

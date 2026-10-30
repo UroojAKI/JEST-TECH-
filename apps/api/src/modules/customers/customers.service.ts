@@ -14,12 +14,16 @@ import { CustomerQueryDto } from './dto/customer-query.dto';
 import { CheckDuplicateDto } from './dto/check-duplicate.dto';
 import { CreateCustomerAlertDto } from './dto/create-alert.dto';
 import type { RequestUser } from '../auth/decorators/current-user.decorator';
+import { CrmIdentityService } from '../crm-identity/services/crm-identity.service';
 
 @Injectable()
 export class CustomersService {
   private readonly logger = new Logger(CustomersService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly crmIdentityService: CrmIdentityService,
+  ) {}
 
   private normalizePhone(phone?: string): string | undefined {
     if (!phone) return undefined;
@@ -168,97 +172,48 @@ export class CustomersService {
       primaryAgentId = defaultAgent?.id;
     }
 
-    // Auto-generate customerCode: CUST-XXXXXX
-    const count = await this.prisma.customer.count({ where: { companyId } });
-    let nextNum = count + 1;
-    let customerCode = `CUST-${String(nextNum).padStart(6, '0')}`;
+    const result = await this.prisma.$transaction(async (tx) => {
+      const { customer } =
+        await this.crmIdentityService.ensureLinkedContactAndCustomer(tx, {
+          companyId,
+          contactId: dto.contactId,
+          phone: dto.mobile,
+          email: dto.email,
+          firstName: dto.firstName,
+          lastName: dto.lastName,
+          panNumber: dto.panNumber,
+          aadhaarNumber: dto.aadhaarNumber,
+          addressLine1: dto.addressLine1,
+          addressLine2: dto.addressLine2,
+          city: dto.city,
+          state: dto.state,
+          pincode: dto.pincode,
+          isVip: dto.isVip || false,
+          primaryAgentId: primaryAgentId || null,
+          createdById: user.id,
+          createCustomerIfMissing: true,
+        });
 
-    while (
-      await this.prisma.customer.findFirst({ where: { companyId, customerCode } })
-    ) {
-      nextNum++;
-      customerCode = `CUST-${String(nextNum).padStart(6, '0')}`;
-    }
-
-    // Auto-link or auto-create corresponding Contact for customer
-    let contactId = dto.contactId || null;
-    if (!contactId && this.prisma.contact) {
-      try {
-        let contact = await this.prisma.contact.findFirst({
-          where: {
+      if (primaryAgentId && tx.customerAgentHistory?.create) {
+        await tx.customerAgentHistory.create({
+          data: {
+            customerId: customer.id,
+            agentId: primaryAgentId,
             companyId,
-            deletedAt: null,
-            OR: [
-              { phone: dto.mobile },
-              ...(dto.email ? [{ email: dto.email.trim().toLowerCase() }] : []),
-            ],
+            assignedById: user.id,
+            reason: 'Initial customer creation assignment',
+            assignedAt: new Date(),
           },
         });
-        if (!contact) {
-          const contactCount = await this.prisma.contact.count({ where: { companyId } });
-          const contactCode = `CONT-${String(contactCount + 1).padStart(6, '0')}`;
-          contact = await this.prisma.contact.create({
-            data: {
-              contactCode,
-              companyId,
-              firstName: dto.firstName.trim(),
-              lastName: (dto.lastName || '').trim(),
-              phone: dto.mobile,
-              email: dto.email ? dto.email.trim().toLowerCase() : null,
-              panNumber: dto.panNumber ? dto.panNumber.trim().toUpperCase() : null,
-              aadhaarNumber: dto.aadhaarNumber || null,
-              type: 'INDIVIDUAL',
-              status: 'ACTIVE',
-              createdById: user.id,
-              updatedById: user.id,
-            },
-          });
-        }
-        contactId = contact?.id || null;
-      } catch {
-        // Contact auto-linking fallback: allow customer creation to proceed if contact table is unavailable
       }
-    }
 
-    const customer = await this.prisma.customer.create({
-      data: {
-        companyId,
-        primaryAgentId: primaryAgentId || null,
-        customerCode,
-        firstName: dto.firstName,
-        lastName: dto.lastName || null,
-        mobile: dto.mobile,
-        email: dto.email ? dto.email.trim().toLowerCase() : null,
-        panNumber: dto.panNumber ? dto.panNumber.trim().toUpperCase() : null,
-        aadhaarNumber: dto.aadhaarNumber || null,
-        addressLine1: dto.addressLine1 || null,
-        addressLine2: dto.addressLine2 || null,
-        city: dto.city || null,
-        state: dto.state || null,
-        pincode: dto.pincode || null,
-        isVip: dto.isVip || false,
-        contactId,
-        createdById: user.id,
-      },
+      return {
+        duplicateWarning: false,
+        customer,
+      };
     });
 
-    if (primaryAgentId) {
-      await this.prisma.customerAgentHistory.create({
-        data: {
-          customerId: customer.id,
-          agentId: primaryAgentId,
-          companyId,
-          assignedById: user.id,
-          reason: 'Initial customer creation assignment',
-          assignedAt: new Date(),
-        },
-      });
-    }
-
-    return {
-      duplicateWarning: false,
-      customer,
-    };
+    return result;
   }
 
   async assignAgent(

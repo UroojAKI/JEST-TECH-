@@ -16,6 +16,7 @@ import { HealthModule } from './modules/health/health.module';
 import { UsersModule } from './modules/users/users.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { ContactsModule } from './modules/contacts/contacts.module';
+import { CrmIdentityModule } from './modules/crm-identity/crm-identity.module';
 import { CustomersModule } from './modules/customers/customers.module';
 import { AgentsModule } from './modules/agents/agents.module';
 import { AccountsModule } from './modules/accounts/accounts.module';
@@ -102,6 +103,7 @@ import { IdempotencyInterceptor } from './common/interceptors/idempotency.interc
     UsersModule,
     AuthModule,
     ContactsModule,
+    CrmIdentityModule,
     CustomersModule,
     AgentsModule,
     AccountsModule,

@@ -1,12 +1,14 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { CustomersService } from './customers.service';
 import { PrismaService } from '../../database/prisma.service';
+import { CrmIdentityService } from '../crm-identity/services/crm-identity.service';
 import { RoleType } from '@prisma/client';
 import { NotFoundException, ForbiddenException, ConflictException } from '@nestjs/common';
 
 describe('CustomersService', () => {
   let service: CustomersService;
   let prisma: any;
+  let crmIdentityService: any;
 
   const mockCustomer = {
     id: 'customer-uuid-1',
@@ -41,6 +43,7 @@ describe('CustomersService', () => {
 
   beforeEach(async () => {
     prisma = {
+      $transaction: jest.fn((cb) => cb(prisma)),
       customer: {
         findMany: jest.fn(),
         findFirst: jest.fn(),
@@ -57,6 +60,9 @@ describe('CustomersService', () => {
         create: jest.fn(),
         update: jest.fn(),
       },
+      customerAgentHistory: {
+        create: jest.fn(),
+      },
       contact: {
         findFirst: jest.fn().mockResolvedValue(null),
         count: jest.fn().mockResolvedValue(0),
@@ -64,10 +70,19 @@ describe('CustomersService', () => {
       },
     };
 
+    crmIdentityService = {
+      resolveIdentity: jest.fn(),
+      ensureLinkedContactAndCustomer: jest.fn().mockResolvedValue({
+        contact: { id: 'contact-uuid-1' },
+        customer: mockCustomer,
+      }),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         CustomersService,
         { provide: PrismaService, useValue: prisma },
+        { provide: CrmIdentityService, useValue: crmIdentityService },
       ],
     }).compile();
 
@@ -110,9 +125,6 @@ describe('CustomersService', () => {
 
     it('should create customer cleanly when no duplicate found', async () => {
       prisma.customer.findMany.mockResolvedValue([]);
-      prisma.customer.count.mockResolvedValue(0);
-      prisma.customer.findUnique.mockResolvedValue(null);
-      prisma.customer.create.mockResolvedValue(mockCustomer);
 
       const result = await service.create(
         { firstName: 'Amit', mobile: '9876543210' },
@@ -120,13 +132,13 @@ describe('CustomersService', () => {
       );
 
       expect(result.duplicateWarning).toBe(false);
-      expect(prisma.customer.create).toHaveBeenCalledWith(
+      expect(crmIdentityService.ensureLinkedContactAndCustomer).toHaveBeenCalledWith(
+        expect.anything(),
         expect.objectContaining({
-          data: expect.objectContaining({
-            customerCode: 'CUST-000001',
-            firstName: 'Amit',
-            mobile: '9876543210',
-          }),
+          companyId: 'org-1',
+          firstName: 'Amit',
+          phone: '9876543210',
+          createCustomerIfMissing: true,
         }),
       );
     });

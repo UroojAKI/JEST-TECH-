@@ -208,6 +208,21 @@ export class OrganizationService {
     return new PaginatedResponseDto(data, total, page, limit);
   }
 
+  async getZones(actor?: ActorContext) {
+    const orgId = this.assertActorOrg(actor);
+    const where: Prisma.ZoneWhereInput = { isActive: true };
+    if (orgId) {
+      where.region = { companyId: orgId };
+    }
+    return this.prisma.zone.findMany({
+      where,
+      include: {
+        region: true,
+      },
+      orderBy: { name: 'asc' },
+    });
+  }
+
   async assignUserToTeam(userId: string, teamId: string, actor?: ActorContext) {
     const orgId = this.assertActorOrg(actor);
     const teamWhere: Prisma.TeamWhereInput = { id: teamId };
@@ -224,6 +239,19 @@ export class OrganizationService {
 
     if (!team) {
       throw new NotFoundException('Team not found in your organization');
+    }
+
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, companyId: true },
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    if (orgId && user.companyId !== orgId) {
+      throw new ForbiddenException('User belongs to another organization');
     }
 
     return this.prisma.user.update({
@@ -249,6 +277,8 @@ export class OrganizationService {
   ) {
     const orgId = this.assertActorOrg(actor);
     let zoneId = dto.zoneId;
+    let resolvedState = dto.state;
+
     if (!zoneId) {
       const zoneWhere: Prisma.ZoneWhereInput = { isActive: true };
       if (orgId) {
@@ -256,6 +286,7 @@ export class OrganizationService {
       }
       const zone = await this.prisma.zone.findFirst({
         where: zoneWhere,
+        include: { region: true },
       });
       if (!zone) {
         throw new BadRequestException(
@@ -263,14 +294,21 @@ export class OrganizationService {
         );
       }
       zoneId = zone.id;
+      if (!resolvedState && zone.region?.name) {
+        resolvedState = zone.region.name;
+      }
     } else if (orgId) {
       const zone = await this.prisma.zone.findFirst({
         where: { id: zoneId, isActive: true, region: { companyId: orgId } },
+        include: { region: true },
       });
       if (!zone) {
         throw new BadRequestException(
           'Specified zone does not belong to your organization',
         );
+      }
+      if (!resolvedState && zone.region?.name) {
+        resolvedState = zone.region.name;
       }
     }
 
@@ -279,7 +317,7 @@ export class OrganizationService {
         name: dto.name,
         code: dto.code.toUpperCase(),
         city: dto.city,
-        state: dto.state || 'Maharashtra',
+        state: resolvedState || 'Maharashtra',
         address: dto.address || null,
         zoneId,
         isActive: true,

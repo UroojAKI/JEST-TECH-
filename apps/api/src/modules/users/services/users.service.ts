@@ -296,6 +296,222 @@ export class UsersService {
     return UserMapper.toResponse(user);
   }
 
+  async getUserWorkspace(id: string, actor?: any) {
+    const user = await this.prisma.user.findUnique({
+      where: { id },
+      include: {
+        role: {
+          include: {
+            permissions: {
+              include: {
+                permission: true,
+              },
+            },
+          },
+        },
+        branch: true,
+        team: true,
+        department: true,
+        agentProfile: true,
+      },
+    });
+
+    if (!user || user.deletedAt) {
+      throw new NotFoundException('User not found');
+    }
+
+    const actorCompanyId =
+      actor?.companyId || actor?.organizationId || actor?.user?.companyId;
+    if (actorCompanyId && user.companyId && user.companyId !== actorCompanyId) {
+      throw new NotFoundException('User not found');
+    }
+
+    const companyId = user.companyId;
+    const agentId = user.agentProfile?.id;
+
+    const [
+      leadsCreated,
+      leadsAssigned,
+      leadsConverted,
+      leadsLost,
+      contactsCreated,
+      customersCreated,
+      customersManaged,
+      policiesIssued,
+      renewalsPending,
+      pendingTasks,
+      overdueTasks,
+      recentActivities,
+      recentTasks,
+    ] = await Promise.all([
+      this.prisma.lead.count({
+        where: { createdById: id, companyId, deletedAt: null },
+      }),
+      this.prisma.lead.count({
+        where: { assignedToId: id, companyId, deletedAt: null },
+      }),
+      this.prisma.lead.count({
+        where: { assignedToId: id, status: 'CONVERTED', companyId, deletedAt: null },
+      }),
+      this.prisma.lead.count({
+        where: { assignedToId: id, status: 'LOST', companyId, deletedAt: null },
+      }),
+      this.prisma.contact.count({
+        where: { createdById: id, companyId, deletedAt: null },
+      }),
+      this.prisma.customer.count({
+        where: { createdById: id, companyId, deletedAt: null },
+      }),
+      agentId
+        ? this.prisma.customer.count({
+            where: { primaryAgentId: agentId, companyId, deletedAt: null },
+          })
+        : this.prisma.customer.count({
+            where: { createdById: id, companyId, deletedAt: null },
+          }),
+      agentId
+        ? this.prisma.policy.count({
+            where: { agentId, status: 'ISSUED', companyId, deletedAt: null },
+          })
+        : this.prisma.policy.count({
+            where: { createdById: id, status: 'ISSUED', companyId, deletedAt: null },
+          }),
+      this.prisma.policy.count({
+        where: {
+          companyId,
+          deletedAt: null,
+          status: 'ACTIVE',
+          expiryDate: {
+            lte: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+            gte: new Date(),
+          },
+          ...(agentId ? { agentId } : { createdById: id }),
+        },
+      }),
+      this.prisma.task.count({
+        where: {
+          assignedToId: id,
+          status: { in: ['PENDING', 'IN_PROGRESS'] },
+          deletedAt: null,
+        },
+      }),
+      this.prisma.task.count({
+        where: {
+          assignedToId: id,
+          status: { in: ['PENDING', 'IN_PROGRESS'] },
+          dueDate: { lt: new Date() },
+          deletedAt: null,
+        },
+      }),
+      this.prisma.auditLog.findMany({
+        where: {
+          OR: [{ userId: id }, { performedById: id }],
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 20,
+      }),
+      this.prisma.task.findMany({
+        where: {
+          assignedToId: id,
+          deletedAt: null,
+        },
+        orderBy: { dueDate: 'asc' },
+        take: 10,
+      }),
+    ]);
+
+    return {
+      profile: {
+        id: user.id,
+        employeeCode: user.employeeCode,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        name: `${user.firstName} ${user.lastName}`.trim(),
+        email: user.email,
+        phone: user.phone,
+        designation: user.designation,
+        department: user.department?.name || user.legacyDepartment,
+        status: user.status,
+        companyId: user.companyId,
+        collectContacts: user.collectContacts,
+        lastLoginAt: user.lastLoginAt ? new Date(user.lastLoginAt).toISOString() : null,
+        createdAt: user.createdAt,
+        updatedAt: user.updatedAt,
+        role: user.role
+          ? {
+              id: user.role.id,
+              name: user.role.name,
+              code: user.role.code,
+              type: user.role.type,
+              description: user.role.description,
+              permissions:
+                user.role.permissions?.map((rp: any) => ({
+                  id: rp.permission?.id,
+                  code: rp.permission?.code,
+                  name: rp.permission?.name,
+                  category: rp.permission?.category,
+                  scope: rp.scope,
+                })) || [],
+            }
+          : null,
+        branch: user.branch
+          ? {
+              id: user.branch.id,
+              code: user.branch.code,
+              name: user.branch.name,
+              city: user.branch.city,
+            }
+          : null,
+        team: user.team
+          ? {
+              id: user.team.id,
+              name: user.team.name,
+            }
+          : null,
+        agentProfile: user.agentProfile
+          ? {
+              id: user.agentProfile.id,
+              agentCode: user.agentProfile.agentCode,
+              agencyName: user.agentProfile.agencyName,
+              licenseNumber: user.agentProfile.licenseNumber,
+              commissionTier: user.agentProfile.commissionTier,
+              isActive: user.agentProfile.isActive,
+            }
+          : null,
+      },
+      portfolio: {
+        leadsCreated,
+        leadsAssigned,
+        leadsConverted,
+        leadsLost,
+        contactsCreated,
+        customersCreated,
+        customersManaged,
+        policiesIssued,
+        renewalsPending,
+        pendingTasks,
+        overdueTasks,
+      },
+      recentActivities: recentActivities.map((a) => ({
+        id: a.id,
+        action: a.action,
+        entity: a.entity,
+        entityId: a.entityId,
+        ipAddress: a.ipAddress,
+        createdAt: a.createdAt,
+        details: a.newValue || a.metadata,
+      })),
+      recentTasks: recentTasks.map((t) => ({
+        id: t.id,
+        title: t.title,
+        status: t.status,
+        priority: t.priority,
+        dueDate: t.dueDate,
+        createdAt: t.createdAt,
+      })),
+    };
+  }
+
   async updateStatus(
     id: string,
     targetStatus: UserStatus,

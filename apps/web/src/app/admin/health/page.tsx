@@ -27,8 +27,12 @@ export default function InfrastructureHealthPage() {
   const memoryHeapLimit = health?.checks?.memory?.heapLimitMB || 512;
   const memoryStatus = health?.checks?.memory?.status || 'ok';
   const outboxPending = health?.checks?.outbox?.pendingEvents ?? 0;
+  const outboxFailed = health?.checks?.outbox?.failedEvents ?? 0;
+  const outboxOldestAge = health?.checks?.outbox?.oldestAgeSeconds ?? 0;
   const outboxStatus = health?.checks?.outbox?.status || 'ok';
   const diskStatus = health?.checks?.disk?.status || 'ok';
+  const freeDiskGB = health?.checks?.disk?.freeDiskGB;
+  const totalDiskGB = health?.checks?.disk?.totalDiskGB;
 
   return (
     <AppShell>
@@ -139,7 +143,19 @@ export default function InfrastructureHealthPage() {
           <div className="p-3 rounded-xl border bg-muted/10">
             <span className="text-[10px] font-bold text-muted-foreground uppercase">Storage File System</span>
             <div className="text-lg font-black text-foreground">
-              {diskStatus === 'ok' ? 'Ready' : 'Error'}
+              {freeDiskGB !== undefined ? `${freeDiskGB} GB Free / ${totalDiskGB || 0} GB` : diskStatus === 'ok' ? 'Ready' : 'Error'}
+            </div>
+          </div>
+          <div className="p-3 rounded-xl border bg-muted/10">
+            <span className="text-[10px] font-bold text-muted-foreground uppercase">Failed Outbox Events</span>
+            <div className={`text-lg font-black ${outboxFailed > 0 ? 'text-destructive' : 'text-emerald-600'}`}>
+              {outboxFailed} Failed
+            </div>
+          </div>
+          <div className="p-3 rounded-xl border bg-muted/10">
+            <span className="text-[10px] font-bold text-muted-foreground uppercase">Oldest Pending Event</span>
+            <div className={`text-lg font-black ${outboxOldestAge > 600 ? 'text-amber-600' : 'text-primary'}`}>
+              {outboxPending > 0 ? `${outboxOldestAge}s old` : 'Queue Empty'}
             </div>
           </div>
         </div>
