@@ -78,10 +78,20 @@ export class HealthController {
 
   @Get('ready')
   async ready() {
-    const isReady = await this.health.checkReady();
+    const result = await this.health.checkReady();
+    const isReady = typeof result === 'boolean' ? result : result?.ready;
     if (!isReady) {
-      throw new ServiceUnavailableException({ status: 'not_ready' });
+      throw new ServiceUnavailableException({
+        status: 'not_ready',
+        reason: typeof result === 'object' ? result?.reason : 'Service dependencies not ready',
+        details: result.details,
+        timestamp: new Date().toISOString(),
+      });
     }
-    return { status: 'ready', timestamp: new Date().toISOString() };
+    return {
+      status: 'ready',
+      details: result.details,
+      timestamp: new Date().toISOString(),
+    };
   }
 }

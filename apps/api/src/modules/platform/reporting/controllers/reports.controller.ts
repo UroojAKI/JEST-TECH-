@@ -94,7 +94,7 @@ export class ReportsController {
         'Cross-organization report update is strictly prohibited',
       );
     }
-    const command = new UpdateReportCommand(id, dto, user.id);
+    const command = new UpdateReportCommand(id, dto, user.id, companyId);
     return this.commands.handleUpdateReport(command);
   }
 
@@ -514,7 +514,7 @@ export class ReportsController {
         'Cross-organization schedule deletion is strictly prohibited',
       );
     }
-    const command = new DeleteScheduleCommand(scheduleId);
+    const command = new DeleteScheduleCommand(scheduleId, companyId);
     return this.commands.handleDeleteSchedule(command);
   }
 

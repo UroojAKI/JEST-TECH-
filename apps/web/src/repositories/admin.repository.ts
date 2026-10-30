@@ -220,11 +220,19 @@ export interface PaginatedAuditResponse {
 
 export interface HealthStatusItem {
   status: 'ok' | 'error' | 'degraded' | 'down';
+  httpStatus?: number;
+  clientLatencyMs?: number;
+  endpoint?: string;
   timestamp?: string;
   uptime?: number;
   checks?: {
     database?: { status: string; latencyMs?: number };
-    redis?: { status: string; latencyMs?: number };
+    redis?: {
+      status: string;
+      latencyMs?: number;
+      configurationState?: 'DISABLED' | 'CONFIGURED' | 'CONFIG_ERROR';
+      message?: string;
+    };
     outbox?: {
       status: string;
       pendingEvents?: number;
@@ -232,7 +240,12 @@ export interface HealthStatusItem {
       oldestAgeSeconds?: number;
     };
     memory?: { status: string; heapUsedMB?: number; heapLimitMB?: number };
-    disk?: { status: string; freeDiskGB?: number; totalDiskGB?: number };
+    disk?: {
+      status: string;
+      freeDiskGB?: number;
+      totalDiskGB?: number;
+      message?: string;
+    };
   };
   info?: {
     database?: { status: string };
@@ -435,7 +448,28 @@ export const adminRepository = {
   },
 
   async getSystemHealth(): Promise<HealthStatusItem> {
-    const response = await apiClient.get('/health');
-    return response.data;
+    const startTime = Date.now();
+    try {
+      const response = await apiClient.get('/health');
+      const clientLatencyMs = Date.now() - startTime;
+      return {
+        ...response.data,
+        httpStatus: response.status,
+        clientLatencyMs,
+        endpoint: '/health',
+      };
+    } catch (err: any) {
+      const clientLatencyMs = Date.now() - startTime;
+      const httpStatus = err?.response?.status || 503;
+      const data = err?.response?.data || {};
+      return {
+        status: 'down',
+        ...data,
+        httpStatus,
+        clientLatencyMs,
+        endpoint: '/health',
+        error: { message: err?.message || 'Failed to reach health endpoint' },
+      };
+    }
   },
 };

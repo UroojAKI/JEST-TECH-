@@ -18,6 +18,7 @@ export class UpdateReportCommand {
     public readonly id: string,
     public readonly dto: UpdateReportDto,
     public readonly userId: string,
+    public readonly companyId?: string | null,
   ) {}
 }
 
@@ -25,6 +26,7 @@ export class DeleteReportCommand {
   constructor(
     public readonly id: string,
     public readonly userId: string,
+    public readonly companyId?: string | null,
   ) {}
 }
 
@@ -63,5 +65,8 @@ export class UpdateScheduleCommand {
 }
 
 export class DeleteScheduleCommand {
-  constructor(public readonly id: string) {}
+  constructor(
+    public readonly id: string,
+    public readonly companyId?: string | null,
+  ) {}
 }

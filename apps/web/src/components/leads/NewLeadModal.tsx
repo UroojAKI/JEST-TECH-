@@ -70,7 +70,15 @@ export function NewLeadModal({
       setDuplicateWarning(null);
     },
     onError: (err: any) => {
-      toast.error(err.response?.data?.message || 'Failed to capture lead');
+      const status = err.response?.status;
+      const message = err.response?.data?.message || 'Failed to capture lead';
+      const errorText = typeof message === 'string' ? message : JSON.stringify(message);
+      if (status === 409) {
+        setDuplicateWarning(errorText);
+        toast.error('Identity Conflict: Ambiguous or duplicate contact detected.');
+      } else {
+        toast.error(errorText);
+      }
     },
   });
 

@@ -42,7 +42,7 @@ export default function InfrastructureHealthPage() {
             <Activity className="h-5 w-5 text-emerald-500" /> Infrastructure Health & Queue Dashboard
           </h1>
           <p className="text-xs text-muted-foreground">
-            Real-time authoritative health monitoring for NestJS API, PostgreSQL connection pool, Redis cache, and transactional outbox
+            Scheduled health monitoring (polling every 15s) for NestJS API, PostgreSQL connection pool, Redis cache, and transactional outbox
           </p>
         </div>
 
@@ -71,10 +71,10 @@ export default function InfrastructureHealthPage() {
             <Server className={`h-4 w-4 ${isHealthy ? 'text-emerald-500' : 'text-amber-500'}`} />
           </div>
           <div className={`text-lg font-black ${isHealthy ? 'text-emerald-600' : 'text-amber-600'}`}>
-            {isLoading ? 'Checking...' : isHealthy ? '200 OK' : 'Degraded'}
+            {isLoading ? 'Checking...' : health?.httpStatus ? `${health.httpStatus} ${isHealthy ? 'OK' : health.httpStatus === 503 ? 'Unavailable' : 'Degraded'}` : isHealthy ? '200 OK' : 'Degraded'}
           </div>
           <span className="text-[10px] text-muted-foreground">
-            {health?.uptime ? `Uptime: ${Math.round(health.uptime)}s` : 'NestJS v10.x API'}
+            {health?.uptime ? `Uptime: ${Math.round(health.uptime)}s (${health.clientLatencyMs ? `${health.clientLatencyMs}ms` : '/health'})` : 'NestJS v10.x API'}
           </span>
         </div>
 
@@ -94,13 +94,13 @@ export default function InfrastructureHealthPage() {
         <div className="p-4 rounded-2xl border bg-card shadow-sm space-y-2">
           <div className="flex justify-between items-center">
             <span className="font-bold text-muted-foreground text-[10px] uppercase">Redis Cache & Queues</span>
-            <RefreshCw className={`h-4 w-4 ${redisStatus === 'ok' ? 'text-emerald-500' : 'text-muted-foreground'}`} />
+            <RefreshCw className={`h-4 w-4 ${redisStatus === 'ok' ? 'text-emerald-500' : redisStatus === 'config_error' ? 'text-destructive' : 'text-muted-foreground'}`} />
           </div>
-          <div className={`text-lg font-black ${redisStatus === 'ok' ? 'text-emerald-600' : 'text-muted-foreground'}`}>
-            {isLoading ? 'Checking...' : redisStatus === 'ok' ? 'Connected' : redisStatus === 'disabled' ? 'Disabled (In-Memory)' : 'Offline'}
+          <div className={`text-lg font-black ${redisStatus === 'ok' ? 'text-emerald-600' : redisStatus === 'config_error' ? 'text-destructive' : 'text-muted-foreground'}`}>
+            {isLoading ? 'Checking...' : redisStatus === 'ok' ? 'Connected' : redisStatus === 'config_error' ? 'Configuration Error' : redisStatus === 'disabled' ? 'Disabled (In-Memory)' : 'Offline'}
           </div>
           <span className="text-[10px] text-muted-foreground">
-            {redisLatency !== undefined && redisLatency > 0 ? `Latency: ${redisLatency}ms` : 'Cache Provider'}
+            {redisStatus === 'config_error' ? 'REDIS_URL missing' : redisLatency !== undefined && redisLatency > 0 ? `Latency: ${redisLatency}ms` : 'Cache Provider'}
           </span>
         </div>
 
@@ -143,7 +143,7 @@ export default function InfrastructureHealthPage() {
           <div className="p-3 rounded-xl border bg-muted/10">
             <span className="text-[10px] font-bold text-muted-foreground uppercase">Storage File System</span>
             <div className="text-lg font-black text-foreground">
-              {freeDiskGB !== undefined ? `${freeDiskGB} GB Free / ${totalDiskGB || 0} GB` : diskStatus === 'ok' ? 'Ready' : 'Error'}
+              {freeDiskGB !== undefined ? `${freeDiskGB} GB Free / ${totalDiskGB || 0} GB` : diskStatus === 'unsupported' ? 'Platform Unsupported' : diskStatus === 'ok' ? 'Ready' : 'Error'}
             </div>
           </div>
           <div className="p-3 rounded-xl border bg-muted/10">

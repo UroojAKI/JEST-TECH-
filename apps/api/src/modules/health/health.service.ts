@@ -5,6 +5,14 @@ import Redis from 'ioredis';
 import * as os from 'os';
 import * as fs from 'fs';
 
+export type RedisConfigState = 'DISABLED' | 'CONFIGURED' | 'CONFIG_ERROR';
+
+export interface RedisHealthState {
+  policyEnabled: boolean;
+  urlConfigured: boolean;
+  state: RedisConfigState;
+}
+
 @Injectable()
 export class HealthService {
   constructor(
@@ -12,49 +20,48 @@ export class HealthService {
     private readonly config: ConfigurationService,
   ) {}
 
-  async checkReady(): Promise<boolean> {
-    try {
-      await this.prisma.$queryRaw`SELECT 1`;
+  getRedisConfigurationState(): RedisHealthState {
+    const policyEnabled = process.env.REDIS_ENABLED === 'true';
+    const redisUrl = this.config.redisUrl || process.env.REDIS_URL;
+    const urlConfigured = !!redisUrl;
 
-      const redisEnabled = process.env.REDIS_ENABLED === 'true';
-      if (redisEnabled && this.config.redisUrl) {
-        const redis = new Redis(this.config.redisUrl, {
-          maxRetriesPerRequest: 1,
-          lazyConnect: true,
-          enableOfflineQueue: false,
-          connectTimeout: 2000,
-        });
-        redis.on('error', () => {});
-        await redis.connect();
-        await redis.ping();
-        await redis.quit();
-      }
-
-      return true;
-    } catch {
-      return false;
+    if (!policyEnabled) {
+      return { policyEnabled: false, urlConfigured, state: 'DISABLED' };
     }
+    if (!urlConfigured) {
+      return { policyEnabled: true, urlConfigured: false, state: 'CONFIG_ERROR' };
+    }
+    return { policyEnabled: true, urlConfigured: true, state: 'CONFIGURED' };
   }
 
-  async checkDeep() {
-    let dbStatus = 'disconnected';
-    let dbLatencyMs = 0;
+  async checkReady(): Promise<{ ready: boolean; reason?: string; details: any }> {
+    const details: any = {};
+
     try {
-      const start = Date.now();
       await this.prisma.$queryRaw`SELECT 1`;
-      dbLatencyMs = Date.now() - start;
-      dbStatus = 'connected';
-    } catch {
-      dbStatus = 'error';
+      details.database = { status: 'ok' };
+    } catch (err: any) {
+      details.database = { status: 'down', error: err?.message || 'Database unreachable' };
+      return { ready: false, reason: 'Database is unreachable', details };
     }
 
-    const redisEnabled = process.env.REDIS_ENABLED === 'true';
-    let redisStatus = redisEnabled ? 'disconnected' : 'disabled';
-    let redisLatencyMs = 0;
-    if (redisEnabled && this.config.redisUrl) {
+    const redisConfig = this.getRedisConfigurationState();
+    if (redisConfig.state === 'CONFIG_ERROR') {
+      details.redis = {
+        status: 'config_error',
+        message: 'Redis is enabled by policy (REDIS_ENABLED=true) but REDIS_URL is not configured',
+      };
+      return {
+        ready: false,
+        reason: 'Redis configuration error: REDIS_ENABLED=true but REDIS_URL is missing',
+        details,
+      };
+    }
+
+    if (redisConfig.state === 'CONFIGURED') {
+      const redisUrl = this.config.redisUrl || process.env.REDIS_URL;
       try {
-        const start = Date.now();
-        const redis = new Redis(this.config.redisUrl, {
+        const redis = new Redis(redisUrl!, {
           maxRetriesPerRequest: 1,
           lazyConnect: true,
           enableOfflineQueue: false,
@@ -64,62 +71,20 @@ export class HealthService {
         await redis.connect();
         await redis.ping();
         await redis.quit();
-        redisLatencyMs = Date.now() - start;
-        redisStatus = 'connected';
-      } catch {
-        redisStatus = 'error';
+        details.redis = { status: 'ok' };
+      } catch (err: any) {
+        details.redis = { status: 'down', error: err?.message || 'Connection failed' };
+        return {
+          ready: false,
+          reason: 'Redis is enabled and configured but unreachable',
+          details,
+        };
       }
+    } else {
+      details.redis = { status: 'disabled' };
     }
 
-    const memory = process.memoryUsage();
-    let activeUsers = 0;
-    let activeJobs = 0;
-    if (dbStatus === 'connected') {
-      activeUsers = await this.prisma.user.count().catch(() => 0);
-      activeJobs = await this.prisma.backgroundJob
-        .count({ where: { status: { in: ['QUEUED', 'RUNNING'] } } })
-        .catch(() => 0);
-    }
-
-    const isHealthy =
-      dbStatus === 'connected' &&
-      (!redisEnabled || redisStatus === 'connected');
-
-    return {
-      status: isHealthy ? 'healthy' : 'unhealthy',
-      timestamp: new Date().toISOString(),
-      uptime: process.uptime(),
-      system: {
-        platform: process.platform,
-        cpuCores: os.cpus().length,
-        freeMemoryBytes: os.freemem(),
-        totalMemoryBytes: os.totalmem(),
-      },
-      process: {
-        memoryUsage: {
-          rss: memory.rss,
-          heapTotal: memory.heapTotal,
-          heapUsed: memory.heapUsed,
-          external: memory.external,
-        },
-      },
-      services: {
-        database: {
-          status: dbStatus,
-          latencyMs: dbLatencyMs,
-        },
-        redis: {
-          status: redisStatus,
-          latencyMs: redisLatencyMs,
-        },
-        queue: {
-          activeJobs,
-        },
-      },
-      metrics: {
-        activeUsers,
-      },
-    };
+    return { ready: true, details };
   }
 
   async checkV2() {
@@ -134,13 +99,19 @@ export class HealthService {
       dbStatus = 'down';
     }
 
+    const redisConfig = this.getRedisConfigurationState();
     let redisStatus = 'disabled';
     let redisLatencyMs = 0;
-    const redisEnabled = process.env.REDIS_ENABLED === 'true';
-    if (redisEnabled && this.config.redisUrl) {
+    let redisMessage: string | undefined = undefined;
+
+    if (redisConfig.state === 'CONFIG_ERROR') {
+      redisStatus = 'config_error';
+      redisMessage = 'Redis is enabled by policy but REDIS_URL is not configured';
+    } else if (redisConfig.state === 'CONFIGURED') {
+      const redisUrl = this.config.redisUrl || process.env.REDIS_URL;
       try {
         const start = Date.now();
-        const redis = new Redis(this.config.redisUrl, {
+        const redis = new Redis(redisUrl!, {
           maxRetriesPerRequest: 1,
           lazyConnect: true,
           enableOfflineQueue: false,
@@ -152,9 +123,13 @@ export class HealthService {
         await redis.quit();
         redisLatencyMs = Date.now() - start;
         redisStatus = 'ok';
-      } catch {
+      } catch (err: any) {
         redisStatus = 'down';
+        redisMessage = err?.message || 'Redis connection failed';
       }
+    } else {
+      redisStatus = 'disabled';
+      redisMessage = 'Redis is disabled by policy';
     }
 
     const memoryUsage = process.memoryUsage();
@@ -163,22 +138,36 @@ export class HealthService {
     const memoryStatus = heapUsedMB > heapLimitMB * 0.9 ? 'degraded' : 'ok';
 
     let diskStatus = 'ok';
-    let freeDiskGB = 0;
-    let totalDiskGB = 0;
+    let freeDiskGB: number | undefined = undefined;
+    let totalDiskGB: number | undefined = undefined;
+    let diskMessage: string | undefined = undefined;
     try {
       const checkPath = process.platform === 'win32' ? process.cwd() : '/';
-      if (typeof fs.statfsSync === 'function') {
-        const stats = fs.statfsSync(checkPath);
-        freeDiskGB = Math.round((stats.bavail * stats.bsize) / (1024 * 1024 * 1024));
-        totalDiskGB = Math.round((stats.blocks * stats.bsize) / (1024 * 1024 * 1024));
-        if (freeDiskGB < 1 || (totalDiskGB > 0 && freeDiskGB / totalDiskGB < 0.05)) {
-          diskStatus = 'degraded';
+      if (typeof (fs as any).statfsSync === 'function') {
+        const stats = (fs as any).statfsSync(checkPath);
+        if (!stats) {
+          diskStatus = 'unsupported';
+          diskMessage = 'statfsSync unsupported in this runtime platform';
+        } else {
+          freeDiskGB = Math.round((stats.bavail * stats.bsize) / (1024 * 1024 * 1024));
+          totalDiskGB = Math.round((stats.blocks * stats.bsize) / (1024 * 1024 * 1024));
+          if (freeDiskGB < 1 || (totalDiskGB > 0 && freeDiskGB / totalDiskGB < 0.05)) {
+            diskStatus = 'degraded';
+          }
         }
       } else {
         fs.statSync(checkPath);
+        diskStatus = 'unsupported';
+        diskMessage = 'statfsSync unsupported in this runtime platform';
       }
-    } catch {
-      diskStatus = 'down';
+    } catch (err: any) {
+      if (err?.code === 'ENOSYS' || err?.message?.includes('ENOSYS') || err?.message?.includes('unsupported')) {
+        diskStatus = 'unsupported';
+        diskMessage = 'statfsSync unsupported in this runtime platform';
+      } else {
+        diskStatus = 'down';
+        diskMessage = err?.message;
+      }
     }
 
     let outboxStatus = 'ok';
@@ -211,7 +200,12 @@ export class HealthService {
 
     const checks = {
       database: { status: dbStatus, latencyMs: dbLatencyMs },
-      redis: { status: redisStatus, latencyMs: redisLatencyMs },
+      redis: {
+        status: redisStatus,
+        latencyMs: redisLatencyMs,
+        configurationState: redisConfig.state,
+        message: redisMessage,
+      },
       outbox: {
         status: outboxStatus,
         pendingEvents: pendingOutboxEvents,
@@ -225,16 +219,17 @@ export class HealthService {
       },
       disk: {
         status: diskStatus,
-        freeDiskGB: freeDiskGB > 0 ? freeDiskGB : undefined,
-        totalDiskGB: totalDiskGB > 0 ? totalDiskGB : undefined,
+        freeDiskGB,
+        totalDiskGB,
+        message: diskMessage,
       },
     };
 
     let overallStatus = 'ok';
-    if (dbStatus === 'down') {
+    if (dbStatus === 'down' || redisStatus === 'config_error') {
       overallStatus = 'down';
     } else if (
-      (redisEnabled && redisStatus === 'down') ||
+      (redisConfig.policyEnabled && redisStatus === 'down') ||
       outboxStatus === 'down' ||
       diskStatus === 'down' ||
       memoryStatus === 'degraded' ||
@@ -250,5 +245,9 @@ export class HealthService {
       uptime: process.uptime(),
       checks,
     };
+  }
+
+  async checkDeep() {
+    return this.checkV2();
   }
 }

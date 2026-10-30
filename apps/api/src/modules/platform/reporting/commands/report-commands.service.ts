@@ -46,11 +46,11 @@ export class ReportCommandsService {
     return this.repository.update(command.id, {
       ...command.dto,
       updatedById: command.userId,
-    });
+    }, command.companyId);
   }
 
   async handleDeleteReport(command: DeleteReportCommand) {
-    return this.repository.softDelete(command.id);
+    return this.repository.softDelete(command.id, command.companyId);
   }
 
   async handleExecuteReport(
@@ -162,6 +162,6 @@ export class ReportCommandsService {
   }
 
   async handleDeleteSchedule(command: DeleteScheduleCommand) {
-    return this.repository.deleteSchedule(command.id);
+    return this.repository.deleteSchedule(command.id, command.companyId);
   }
 }

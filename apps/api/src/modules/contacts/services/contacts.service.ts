@@ -242,17 +242,24 @@ export class ContactsService {
 
   private assertRecordAccess(contact: any, actor: ActorContext): void {
     this.assertActor(actor);
+    const actorOrg = actor.companyId || actor.organizationId;
+    const contactOrg =
+      contact?.companyId ??
+      contact?.createdBy?.companyId ??
+      contact?.createdBy?.organizationId ??
+      contact?.createdBy?.branch?.zone?.region?.company?.id;
+
+    if (contactOrg && contactOrg !== actorOrg) {
+      throw new ForbiddenException('Contact belongs to another organization');
+    }
+
     // ADMIN and BACK_OFFICE can access all contacts within their org
     if (actor.role === RoleType.ADMIN || actor.role === RoleType.BACK_OFFICE) {
-      const owner = contact?.createdBy;
-      const ownerCompanyId = owner?.branch?.zone?.region?.company?.id;
-      if (ownerCompanyId && ownerCompanyId !== actor.organizationId)
-        throw new ForbiddenException('Contact belongs to another organization');
       return;
     }
     // AGENT can only access their own contacts
     const owner = contact?.createdBy;
-    if (owner?.id !== actor.userId)
+    if (owner?.id !== actor.userId && contact?.createdById !== actor.userId)
       throw new ForbiddenException('Contact belongs to another owner');
   }
 

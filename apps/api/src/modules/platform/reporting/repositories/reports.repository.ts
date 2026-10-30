@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
 import {
   Prisma,
   Report,
@@ -131,6 +131,7 @@ export class ReportsRepository {
         required?: boolean;
       }[];
     },
+    companyId?: string | null,
   ): Promise<ReportWithRelations> {
     return this.prisma.$transaction(async (tx) => {
       const existing = await tx.report.findUnique({
@@ -138,6 +139,10 @@ export class ReportsRepository {
       });
       if (!existing)
         throw new NotFoundException(`Report with ID ${id} not found`);
+
+      if (companyId && existing.companyId && existing.companyId !== companyId) {
+        throw new ForbiddenException('Cross-organization report update is strictly prohibited');
+      }
 
       // Update basic fields
       const updateData: Prisma.ReportUpdateInput = {
@@ -265,11 +270,14 @@ export class ReportsRepository {
     });
   }
 
-  async softDelete(id: string): Promise<void> {
+  async softDelete(id: string, companyId?: string | null): Promise<void> {
     const report = await this.prisma.report.findUnique({ where: { id } });
     if (!report) throw new NotFoundException(`Report with ID ${id} not found`);
     if (report.isSystem)
       throw new Error('Cannot delete a system-defined report template.');
+    if (companyId && report.companyId && report.companyId !== companyId) {
+      throw new ForbiddenException('Cross-organization report deletion is strictly prohibited');
+    }
     await this.prisma.report.update({
       where: { id },
       data: { deletedAt: new Date() },
@@ -368,7 +376,18 @@ export class ReportsRepository {
     });
   }
 
-  async deleteSchedule(id: string): Promise<void> {
+  async findScheduleById(id: string): Promise<ReportSchedule | null> {
+    return this.prisma.reportSchedule.findUnique({ where: { id } });
+  }
+
+  async deleteSchedule(id: string, companyId?: string | null): Promise<void> {
+    const schedule = await this.prisma.reportSchedule.findUnique({ where: { id } });
+    if (!schedule) {
+      throw new NotFoundException(`Report schedule with ID ${id} not found`);
+    }
+    if (companyId && schedule.companyId && schedule.companyId !== companyId) {
+      throw new ForbiddenException('Cross-organization report schedule deletion is strictly prohibited');
+    }
     await this.prisma.reportSchedule.delete({ where: { id } });
   }
 
