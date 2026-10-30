@@ -61,8 +61,13 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       },
     };
 
+    const errorDetails =
+      typeof rawResponse === 'object'
+        ? JSON.stringify(rawResponse)
+        : exception?.message || 'Internal server error';
+
     this.logger.error(
-      `Request failed at ${request.method} ${request.url} with status ${status}: ${exception.message || JSON.stringify(rawResponse)}`,
+      `Request failed at ${request.method} ${request.url} with status ${status}: ${errorDetails}`,
       exception.stack,
     );
 

@@ -115,7 +115,10 @@ export default function UserManagementPage() {
       });
       setResetModalUser(null);
     } catch (error: any) {
-      toast.error(error?.response?.data?.message || 'Failed to reset password');
+      const errData = error?.response?.data?.error || error?.response?.data;
+      const rawMessage = errData?.message || error?.message;
+      const displayMsg = Array.isArray(rawMessage) ? rawMessage.join(', ') : (rawMessage || 'Failed to reset password');
+      toast.error(displayMsg);
     } finally {
       setIsResetting(false);
     }
@@ -123,13 +126,28 @@ export default function UserManagementPage() {
 
   const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault();
+    const cleanFirstName = newFirstName.trim();
+    const cleanLastName = newLastName.trim();
+    const cleanEmail = newEmail.trim().toLowerCase();
+    const cleanPassword = newPassword.trim();
+
+    if (!cleanFirstName || !cleanLastName) {
+      return void toast.error('First name and last name are required');
+    }
+    if (!cleanEmail) {
+      return void toast.error('Work email address is required');
+    }
+    if (cleanPassword && cleanPassword.length < 6) {
+      return void toast.error('Initial password must be at least 6 characters long');
+    }
+
     setIsSubmitting(true);
     try {
       const res = await adminRepository.createUser({
-        firstName: newFirstName,
-        lastName: newLastName,
-        email: newEmail,
-        password: newPassword || undefined,
+        firstName: cleanFirstName,
+        lastName: cleanLastName,
+        email: cleanEmail,
+        password: cleanPassword || undefined,
         role: newRole,
         collectContacts: newRole === 'AGENT' && newCollectContacts,
         branchId: newBranchId || undefined,
@@ -137,9 +155,11 @@ export default function UserManagementPage() {
 
       toast.success('User created successfully');
       setCreatedCredentials({
-        email: newEmail,
-        password: (res as any)?.initialPassword || newPassword,
+        email: cleanEmail,
+        password: (res as any)?.initialPassword || cleanPassword,
       });
+
+      queryClient.invalidateQueries({ queryKey: ['admin-users'] });
 
       setShowCreateForm(false);
       setNewFirstName('');
@@ -150,7 +170,12 @@ export default function UserManagementPage() {
       setNewBranchId('');
       setNewCollectContacts(false);
     } catch (error: any) {
-      toast.error(error?.response?.data?.message || 'Failed to create user');
+      const errData = error?.response?.data?.error || error?.response?.data;
+      const rawMessage = errData?.message || error?.message;
+      const displayMsg = Array.isArray(rawMessage)
+        ? rawMessage.join(', ')
+        : (rawMessage || 'Failed to create user');
+      toast.error(displayMsg);
     } finally {
       setIsSubmitting(false);
     }
@@ -261,12 +286,15 @@ export default function UserManagementPage() {
                 />
               </div>
               <div>
-                <label className="font-bold text-muted-foreground block mb-1">Initial Password *</label>
+                <label className="font-bold text-muted-foreground block mb-1">
+                  Initial Password <span className="font-normal text-[10px] text-muted-foreground/80">(Min. 6 chars, or leave blank to auto-generate)</span>
+                </label>
                 <input
                   type="text"
-                  required
+                  minLength={6}
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder="Leave blank to auto-generate"
                   className="w-full p-2.5 rounded-lg border bg-background text-foreground text-xs font-mono focus:ring-1 focus:ring-primary"
                 />
               </div>
