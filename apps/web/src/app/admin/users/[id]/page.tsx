@@ -7,6 +7,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { AppShell } from '../../../../components/layout/app-shell';
 import { StatusBadge } from '../../../../components/ui/status-badge';
 import { adminRepository, UserWorkspaceData } from '../../../../repositories/admin.repository';
+import { apiClient } from '../../../../lib/api-client';
 import { toast } from 'sonner';
 import {
   ArrowLeft,
@@ -39,7 +40,7 @@ export default function User360Page() {
   const queryClient = useQueryClient();
   const userId = params?.id as string;
 
-  const [activeTab, setActiveTab] = useState<'overview' | 'portfolio' | 'activities' | 'tasks' | 'organization' | 'security'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'portfolio' | 'activities' | 'tasks' | 'organization' | 'security' | 'finance'>('overview');
   const [resetModalOpen, setResetModalOpen] = useState(false);
   const [customPassword, setCustomPassword] = useState('');
   const [resetResult, setResetResult] = useState<string | null>(null);
@@ -47,6 +48,35 @@ export default function User360Page() {
   const { data: workspace, isLoading, error, refetch } = useQuery<UserWorkspaceData>({
     queryKey: ['admin', 'users', 'workspace', userId],
     queryFn: () => adminRepository.getUserWorkspace(userId),
+    enabled: !!userId,
+  });
+
+    const { data: userCommissions = [], isLoading: isUserCommissionsLoading } = useQuery({
+    queryKey: ['admin', 'users', 'commissions', userId],
+    queryFn: async () => {
+      const res = await apiClient.get('/finance/commissions');
+      const all = Array.isArray(res.data) ? res.data : [];
+      return all.filter(
+        (c: any) =>
+          c.userId === userId ||
+          c.agentId === userId ||
+          (workspace?.profile?.name && c.agentName?.toLowerCase().includes(workspace.profile.name.toLowerCase()))
+      );
+    },
+    enabled: !!userId,
+  });
+
+  const { data: userIncentives = [], isLoading: isUserIncentivesLoading } = useQuery({
+    queryKey: ['admin', 'users', 'incentives', userId],
+    queryFn: async () => {
+      const res = await apiClient.get('/finance/incentives');
+      const all = Array.isArray(res.data) ? res.data : [];
+      return all.filter(
+        (i: any) =>
+          i.userId === userId ||
+          (workspace?.profile?.name && i.employeeName?.toLowerCase().includes(workspace.profile.name.toLowerCase()))
+      );
+    },
     enabled: !!userId,
   });
 
@@ -286,6 +316,7 @@ export default function User360Page() {
             { id: 'tasks', label: 'Tasks', icon: CheckSquare },
             { id: 'organization', label: 'Organization & Role', icon: Shield },
             { id: 'security', label: 'Security & Access', icon: Key },
+            { id: 'finance', label: 'Commissions & Incentives', icon: Award },
           ].map((tab) => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.id;
@@ -685,6 +716,160 @@ export default function User360Page() {
                   Reset Credentials
                 </button>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* Tab Content: COMMISSIONS & INCENTIVES */}
+        {activeTab === 'finance' && (
+          <div className="space-y-6">
+            {/* Top Summary Cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="border rounded-2xl p-5 bg-card shadow-sm space-y-2">
+                <div className="flex items-center justify-between text-muted-foreground">
+                  <span className="text-xs font-semibold uppercase tracking-wider">Total Commission Accrued</span>
+                  <Award className="h-4 w-4 text-emerald-500" />
+                </div>
+                <div className="text-2xl font-black font-mono text-emerald-600">
+                  ₹{userCommissions.reduce((sum: number, c: any) => sum + Number(c.amount || c.commissionAmount || 0), 0).toLocaleString('en-IN')}
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  Total commission records generated
+                </div>
+              </div>
+
+              <div className="border rounded-2xl p-5 bg-card shadow-sm space-y-2">
+                <div className="flex items-center justify-between text-muted-foreground">
+                  <span className="text-xs font-semibold uppercase tracking-wider">Approved for Payout</span>
+                  <Award className="h-4 w-4 text-blue-500" />
+                </div>
+                <div className="text-2xl font-black font-mono text-primary">
+                  ₹{userCommissions.filter((c: any) => c.status === 'APPROVED' || c.payoutStatus === 'APPROVED').reduce((sum: number, c: any) => sum + Number(c.amount || c.commissionAmount || 0), 0).toLocaleString('en-IN')}
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  Verified by Accounts & Finance
+                </div>
+              </div>
+
+              <div className="border rounded-2xl p-5 bg-card shadow-sm space-y-2">
+                <div className="flex items-center justify-between text-muted-foreground">
+                  <span className="text-xs font-semibold uppercase tracking-wider">Disbursed / Paid</span>
+                  <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                </div>
+                <div className="text-2xl font-black font-mono text-foreground">
+                  ₹{userCommissions.filter((c: any) => c.status === 'PAID' || c.payoutStatus === 'PAID').reduce((sum: number, c: any) => sum + Number(c.amount || c.commissionAmount || 0), 0).toLocaleString('en-IN')}
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  Bank transfer confirmed
+                </div>
+              </div>
+            </div>
+
+            {/* Commissions Register */}
+            <div className="border rounded-2xl p-5 bg-card shadow-sm space-y-4">
+              <div className="flex justify-between items-center">
+                <h2 className="text-base font-bold flex items-center gap-2">
+                  <Award className="h-4 w-4 text-primary" />
+                  Commission History & Status
+                </h2>
+                <span className="text-xs text-muted-foreground font-semibold">
+                  {userCommissions.length} Record(s) Found
+                </span>
+              </div>
+
+              {isUserCommissionsLoading ? (
+                <div className="p-8 text-center text-muted-foreground text-xs flex items-center justify-center gap-2">
+                  <RefreshCw className="h-4 w-4 animate-spin text-primary" /> Loading commissions...
+                </div>
+              ) : userCommissions.length === 0 ? (
+                <div className="p-8 text-center text-muted-foreground text-xs border rounded-xl bg-accent/20">
+                  No commission entries found for this employee in the current company context.
+                </div>
+              ) : (
+                <div className="border rounded-xl overflow-hidden">
+                  <table className="w-full text-left border-collapse text-xs">
+                    <thead>
+                      <tr className="bg-muted/40 text-[10px] text-muted-foreground font-bold border-b uppercase">
+                        <th className="p-3">Policy No.</th>
+                        <th className="p-3">Customer</th>
+                        <th className="p-3">Role Tier</th>
+                        <th className="p-3">Gross Premium</th>
+                        <th className="p-3">Earned Amount</th>
+                        <th className="p-3">Status</th>
+                        <th className="p-3">Payout Status</th>
+                        <th className="p-3">Date</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y">
+                      {userCommissions.map((c: any) => (
+                        <tr key={c.id} className="hover:bg-accent/40">
+                          <td className="p-3 font-mono font-bold text-primary">{c.policyNumber}</td>
+                          <td className="p-3 font-semibold">{c.customerName}</td>
+                          <td className="p-3"><span className="px-1.5 py-0.5 rounded bg-muted text-[10px] font-bold">{c.roleTier || 'AGENT'}</span></td>
+                          <td className="p-3 font-mono">₹{Number(c.grossPremium || 0).toLocaleString('en-IN')}</td>
+                          <td className="p-3 font-mono font-bold text-emerald-600">₹{Number(c.amount || c.commissionAmount || 0).toLocaleString('en-IN')}</td>
+                          <td className="p-3"><StatusBadge status={c.status} /></td>
+                          <td className="p-3"><StatusBadge status={c.payoutStatus} /></td>
+                          <td className="p-3 font-mono text-muted-foreground">{new Date(c.createdAt).toLocaleDateString()}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            {/* Incentives Section */}
+            <div className="border rounded-2xl p-5 bg-card shadow-sm space-y-4">
+              <div className="flex justify-between items-center">
+                <div>
+                  <h2 className="text-base font-bold flex items-center gap-2">
+                    <Award className="h-4 w-4 text-primary" />
+                    Performance Targets & Incentives
+                  </h2>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Target benchmarks and achievements. Incentive formula is pending executive business approval (INC-B01).
+                  </p>
+                </div>
+                <span className="px-2.5 py-1 rounded-md text-[10px] font-bold bg-amber-500/10 text-amber-700 border border-amber-500/20">
+                  Policy Pending (INC-B01)
+                </span>
+              </div>
+
+              {isUserIncentivesLoading ? (
+                <div className="p-8 text-center text-muted-foreground text-xs flex items-center justify-center gap-2">
+                  <RefreshCw className="h-4 w-4 animate-spin text-primary" /> Loading targets...
+                </div>
+              ) : userIncentives.length === 0 ? (
+                <div className="p-8 text-center text-muted-foreground text-xs border rounded-xl bg-accent/20">
+                  No sales targets configured for this employee.
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {userIncentives.map((inc: any) => (
+                    <div key={inc.id} className="p-4 rounded-xl border bg-muted/10 space-y-2">
+                      <div className="flex justify-between items-center border-b pb-2">
+                        <span className="font-bold text-sm">{inc.type || 'Quarterly Target'}</span>
+                        <StatusBadge status={inc.status || 'PENDING'} />
+                      </div>
+                      <div className="space-y-1.5 text-xs">
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Target Benchmark:</span>
+                          <strong>₹{Number(inc.targetAmount || 0).toLocaleString('en-IN')}</strong>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Actual Achieved:</span>
+                          <strong className="text-emerald-600">₹{Number(inc.achievedAmount || 0).toLocaleString('en-IN')}</strong>
+                        </div>
+                      </div>
+                      <div className="p-2.5 rounded-lg bg-amber-500/5 text-amber-700 dark:text-amber-300 border border-amber-500/20 flex items-center justify-between text-xs">
+                        <span className="font-semibold">Payable Incentive:</span>
+                        <span className="font-bold italic">Calculation Pending Business Policy Approval</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         )}

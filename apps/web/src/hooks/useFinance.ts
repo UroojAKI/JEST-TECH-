@@ -102,6 +102,7 @@ export function useLedgerEntries(params?: { search?: string; referenceType?: str
     meta,
     isLoading: query.isLoading,
     isError: query.isError,
+    error: query.error,
     refetch: query.refetch,
     postJournalEntry: postJournalMutation.mutateAsync,
     isPosting: postJournalMutation.isPending,
@@ -120,6 +121,7 @@ export function useCommissions() {
     mutationFn: (id: string) => financeRepository.approveCommission(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['finance-commissions'] });
+      queryClient.invalidateQueries({ queryKey: ['finance-commissions-me'] });
       queryClient.invalidateQueries({ queryKey: ['finance-dashboard'] });
       toast.success('Commission payout approved!');
     },
@@ -132,9 +134,18 @@ export function useCommissions() {
     commissions: query.data || [],
     isLoading: query.isLoading,
     isError: query.isError,
+    error: query.error,
+    refetch: query.refetch,
     approveCommission: approveMutation.mutate,
     isApproving: approveMutation.isPending,
   };
+}
+
+export function useMyCommissions() {
+  return useQuery({
+    queryKey: ['finance-commissions-me'],
+    queryFn: () => financeRepository.getMyCommissions(),
+  });
 }
 
 export function useSettlements() {
@@ -217,6 +228,8 @@ export function useReconciliationQueue(params?: { status?: string; search?: stri
     summary: query.data?.summary,
     isLoading: query.isLoading,
     isError: query.isError,
+    error: query.error,
+    refetch: query.refetch,
     reconcilePayment: reconcileMutation.mutate,
     isReconciling: reconcileMutation.isPending,
     flagDiscrepancy: discrepancyMutation.mutate,

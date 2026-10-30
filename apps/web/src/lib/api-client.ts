@@ -38,6 +38,49 @@ function generateCorrelationId(): string {
   return 'corr-' + Date.now().toString(36);
 }
 
+/**
+ * Validates and sanitizes a return URL to prevent open redirect vulnerabilities.
+ * Only relative internal paths are permitted. Protocol-relative URLs (//)
+ * and backslash variants (/\) are strictly rejected.
+ */
+export function getSafeInternalDestination(targetUrl?: string | null): string {
+  if (!targetUrl || typeof targetUrl !== 'string') return '/workspace';
+  const trimmed = targetUrl.trim();
+  // Must start with a single slash, cannot start with // or /\
+  if (!trimmed.startsWith('/') || trimmed.startsWith('//') || trimmed.startsWith('/\\')) {
+    return '/workspace';
+  }
+  // Cannot contain protocol schemes like javascript:, data:, https:, http:
+  if (/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(trimmed)) {
+    return '/workspace';
+  }
+  // Do not redirect to /login itself to avoid redirect loops
+  if (trimmed === '/login' || trimmed.startsWith('/login?')) {
+    return '/workspace';
+  }
+  return trimmed;
+}
+
+/**
+ * Centralized session expiry handler. Safely preserves the user's current
+ * internal pathname and query parameters before redirecting to /login.
+ */
+export function handleSessionExpiry() {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.removeItem('jest-auth-storage');
+    sessionStorage.clear();
+  } catch {}
+
+  const currentPath = window.location.pathname + window.location.search;
+  const safeDest = getSafeInternalDestination(currentPath);
+
+  if (window.location.pathname !== '/login') {
+    const encodedDest = encodeURIComponent(safeDest);
+    window.location.href = `/login?reason=session_expired&returnUrl=${encodedDest}`;
+  }
+}
+
 // ── Client ───────────────────────────────────────────────────────────────────
 
 /**
@@ -171,15 +214,7 @@ apiClient.interceptors.response.use(
       return apiClient(originalRequest);
     } catch (refreshError) {
       processQueue(refreshError as AxiosError);
-      if (typeof window !== 'undefined') {
-        try {
-          localStorage.removeItem('jest-auth-storage');
-          sessionStorage.clear();
-        } catch (_) {}
-        if (window.location.pathname !== '/login') {
-          window.location.href = '/login?reason=session_expired';
-        }
-      }
+      handleSessionExpiry();
       return Promise.reject(refreshError);
     } finally {
       isRefreshing = false;

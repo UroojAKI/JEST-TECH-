@@ -5,6 +5,7 @@ import { authRepository } from '../repositories/auth.repository';
 import { useAuthStore } from '../store/auth-store';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
+import { getSafeInternalDestination } from '../lib/api-client';
 
 export function useAuth() {
   const { user, isAuthenticated, isLoading, setUser, logout: clearAuthStore } = useAuthStore();
@@ -32,7 +33,21 @@ export function useAuth() {
       setUser(normalizedUser);
       toast.success(`Welcome back, ${normalizedUser.firstName}!`);
 
-      const destination = data?.landingWorkspace || (responseData as any).landingWorkspace || '/workspace';
+      // Respect and sanitize safe internal return destination if present
+      const searchParams =
+        typeof window !== 'undefined'
+          ? new URLSearchParams(window.location.search)
+          : null;
+      const returnUrl = searchParams?.get('returnUrl') || searchParams?.get('from');
+      const safeReturn = returnUrl ? getSafeInternalDestination(returnUrl) : null;
+
+      const fallbackDestination =
+        data?.landingWorkspace || (responseData as any).landingWorkspace || '/workspace';
+      const destination =
+        safeReturn && safeReturn !== '/workspace' && safeReturn !== '/login'
+          ? safeReturn
+          : fallbackDestination;
+
       window.location.href = destination;
     },
     onError: (error: any) => {
@@ -47,7 +62,7 @@ export function useAuth() {
       try {
         localStorage.removeItem('jest-auth-storage');
         sessionStorage.clear();
-      } catch (_) {}
+      } catch {}
       window.location.replace('/login');
     } else {
       router.replace('/login');
@@ -61,7 +76,7 @@ export function useAuth() {
       performCompleteLogout();
     },
     onError: () => {
-      // Clear client session even when the network request fails.
+      // Even if network logout call fails, clear local tokens & storage
       performCompleteLogout();
     },
   });
@@ -72,11 +87,9 @@ export function useAuth() {
     isLoading,
     login: loginMutation.mutate,
     isLoggingIn: loginMutation.isPending,
-    loginError: loginMutation.error
-      ? (loginMutation.error as any).response?.data?.message || 'Invalid email or password'
-      : null,
+    loginError: (loginMutation.error as any)?.response?.data?.message || null,
     logout: logoutMutation.mutate,
-    performCompleteLogout,
     isLoggingOut: logoutMutation.isPending,
+    performCompleteLogout,
   };
 }

@@ -1,11 +1,15 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { useAuth } from '../../hooks/useAuth';
-import { Shield, Key, Mail, Sparkles, Eye, EyeOff } from 'lucide-react';
+import { Shield, Key, Mail, Sparkles, Eye, EyeOff, Clock } from 'lucide-react';
 
-export default function LoginPage() {
+function LoginForm() {
   const { login, isLoggingIn, loginError } = useAuth();
+  const searchParams = useSearchParams();
+  const isSessionExpired = searchParams?.get('reason') === 'session_expired';
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -16,49 +20,95 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-background p-6">
-      <div className="relative z-10 w-full max-w-md rounded-2xl border bg-card p-8 shadow-2xl">
-        <div className="mb-8 text-center">
-          <div className="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-lg mb-4"><Shield className="h-6 w-6" /></div>
-          <h1 className="text-2xl font-bold tracking-tight flex items-center justify-center gap-2">JEST Platform <Sparkles className="h-4 w-4 text-primary" /></h1>
-          <p className="mt-2 text-xs text-muted-foreground">Enterprise Insurance Infrastructure</p>
+    <div className="relative z-10 w-full max-w-md rounded-2xl border bg-card p-8 shadow-2xl">
+      <div className="mb-8 text-center">
+        <div className="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-lg mb-4">
+          <Shield className="h-6 w-6" />
         </div>
-
-        {loginError && <div role="alert" className="mb-4 rounded-lg bg-destructive/10 border border-destructive/20 p-3 text-xs text-destructive font-semibold flex items-center gap-2"><Shield className="h-4 w-4 shrink-0" /><span>{loginError}</span></div>}
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-1.5"><label htmlFor="email" className="text-xs font-semibold uppercase text-muted-foreground">Email Address</label><div className="relative"><Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" /><input id="email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="your.email@company.com" className="w-full rounded-lg border bg-background py-2 pl-9 pr-3 text-xs focus:outline-none focus:ring-1 focus:ring-primary" aria-label="Email address" /></div></div>
-          <div className="space-y-1.5">
-            <label htmlFor="password" className="text-xs font-semibold uppercase text-muted-foreground">Password</label>
-            <div className="relative">
-              <Key className="absolute left-3 top-3 h-4 w-4 text-muted-foreground pointer-events-none" />
-              <input
-                id="password"
-                type={showPassword ? 'text' : 'password'}
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                className="w-full rounded-lg border bg-background py-2 pl-9 pr-10 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
-                aria-label="Password"
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors p-0.5 rounded focus:outline-none focus:ring-1 focus:ring-primary"
-                aria-label={showPassword ? 'Hide password' : 'Show password'}
-              >
-                {showPassword ? (
-                  <EyeOff className="h-4 w-4" />
-                ) : (
-                  <Eye className="h-4 w-4" />
-                )}
-              </button>
-            </div>
-          </div>
-          <button type="submit" disabled={isLoggingIn} className="w-full rounded-lg bg-primary py-2.5 text-xs font-bold text-primary-foreground shadow hover:bg-primary/90 transition-all disabled:opacity-50 mt-2" aria-label="Sign in">{isLoggingIn ? 'Authenticating...' : 'Sign In'}</button>
-        </form>
+        <h1 className="text-2xl font-bold tracking-tight flex items-center justify-center gap-2">
+          JEST Platform <Sparkles className="h-4 w-4 text-primary" />
+        </h1>
+        <p className="mt-2 text-xs text-muted-foreground">Enterprise Insurance Infrastructure</p>
       </div>
+
+      {isSessionExpired && (
+        <div role="status" className="mb-4 rounded-lg bg-amber-500/10 border border-amber-500/20 p-3 text-xs text-amber-700 dark:text-amber-400 font-semibold flex items-center gap-2">
+          <Clock className="h-4 w-4 shrink-0" />
+          <span>Your session has expired. Please sign in again to continue.</span>
+        </div>
+      )}
+
+      {loginError && (
+        <div role="alert" className="mb-4 rounded-lg bg-destructive/10 border border-destructive/20 p-3 text-xs text-destructive font-semibold flex items-center gap-2">
+          <Shield className="h-4 w-4 shrink-0" />
+          <span>{loginError}</span>
+        </div>
+      )}
+
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="space-y-1.5">
+          <label htmlFor="email" className="text-xs font-semibold uppercase text-muted-foreground">Email Address</label>
+          <div className="relative">
+            <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+            <input
+              id="email"
+              type="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="your.email@company.com"
+              className="w-full rounded-lg border bg-background py-2 pl-9 pr-3 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+              aria-label="Email address"
+            />
+          </div>
+        </div>
+        <div className="space-y-1.5">
+          <label htmlFor="password" className="text-xs font-semibold uppercase text-muted-foreground">Password</label>
+          <div className="relative">
+            <Key className="absolute left-3 top-3 h-4 w-4 text-muted-foreground pointer-events-none" />
+            <input
+              id="password"
+              type={showPassword ? 'text' : 'password'}
+              required
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="••••••••"
+              className="w-full rounded-lg border bg-background py-2 pl-9 pr-10 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+              aria-label="Password"
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors p-0.5 rounded focus:outline-none focus:ring-1 focus:ring-primary"
+              aria-label={showPassword ? 'Hide password' : 'Show password'}
+            >
+              {showPassword ? (
+                <EyeOff className="h-4 w-4" />
+              ) : (
+                <Eye className="h-4 w-4" />
+              )}
+            </button>
+          </div>
+        </div>
+        <button
+          type="submit"
+          disabled={isLoggingIn}
+          className="w-full rounded-lg bg-primary py-2.5 text-xs font-bold text-primary-foreground shadow hover:bg-primary/90 transition-all disabled:opacity-50 mt-2"
+          aria-label="Sign in"
+        >
+          {isLoggingIn ? 'Authenticating...' : 'Sign In'}
+        </button>
+      </form>
+    </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <div className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-background p-6">
+      <Suspense fallback={<div className="text-xs text-muted-foreground">Loading login...</div>}>
+        <LoginForm />
+      </Suspense>
     </div>
   );
 }

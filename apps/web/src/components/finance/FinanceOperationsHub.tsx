@@ -1,0 +1,1464 @@
+'use client';
+
+import React, { useState } from 'react';
+import { toast } from 'sonner';
+import {
+  DollarSign,
+  TrendingUp,
+  Receipt,
+  CreditCard,
+  BookOpen,
+  PieChart,
+  Award,
+  Building2,
+  CheckCircle2,
+  Shield,
+  Layers,
+  Clock,
+  X,
+  ExternalLink,
+  AlertTriangle,
+  RefreshCw,
+  Loader2,
+  Info,
+} from 'lucide-react';
+import Link from 'next/link';
+import {
+  useFinanceDashboard,
+  useReceipts,
+  usePayments,
+  useLedgerEntries,
+  useCommissions,
+  useSettlements,
+  useIncentives,
+  useReconciliationQueue,
+  useOutstandingInvoices,
+  useRecordInvoicePayment,
+  useChartOfAccounts,
+} from '../../hooks/useFinance';
+import { VoucherPreviewModal, VoucherData } from './vouchers/VoucherPreviewModal';
+import { StatusBadge } from '../ui/status-badge';
+import { getApiErrorMessage } from '../../lib/api-client';
+
+interface DataSectionStateProps {
+  isLoading: boolean;
+  isError: boolean;
+  error?: any;
+  isEmpty: boolean;
+  emptyTitle: string;
+  emptyDescription: string;
+  onRetry: () => void;
+  children: React.ReactNode;
+}
+
+function DataSectionState({
+  isLoading,
+  isError,
+  error,
+  isEmpty,
+  emptyTitle,
+  emptyDescription,
+  onRetry,
+  children,
+}: DataSectionStateProps) {
+  if (isLoading) {
+    return (
+      <div className="p-12 border rounded-xl bg-card flex flex-col items-center justify-center text-center space-y-3">
+        <Loader2 className="h-6 w-6 animate-spin text-primary" />
+        <p className="text-xs text-muted-foreground font-medium">Loading live data from database...</p>
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div className="p-8 border border-destructive/20 bg-destructive/10 rounded-xl text-center space-y-3">
+        <AlertTriangle className="h-6 w-6 text-destructive mx-auto" />
+        <div className="text-xs font-bold text-destructive">Unable to load data from server</div>
+        <p className="text-xs text-muted-foreground max-w-md mx-auto">{getApiErrorMessage(error, 'Failed to fetch records')}</p>
+        <button
+          onClick={onRetry}
+          className="px-3.5 py-1.5 bg-destructive text-destructive-foreground text-xs font-bold rounded-lg hover:bg-destructive/90 transition flex items-center gap-1.5 mx-auto shadow-xs"
+        >
+          <RefreshCw className="h-3.5 w-3.5" /> Retry Request
+        </button>
+      </div>
+    );
+  }
+
+  if (isEmpty) {
+    return (
+      <div className="p-12 border border-dashed rounded-xl bg-muted/10 text-center space-y-2">
+        <Info className="h-6 w-6 text-muted-foreground mx-auto" />
+        <div className="text-xs font-bold text-foreground">{emptyTitle}</div>
+        <p className="text-xs text-muted-foreground max-w-sm mx-auto">{emptyDescription}</p>
+      </div>
+    );
+  }
+
+  return <>{children}</>;
+}
+
+export function FinanceOperationsHub() {
+  const [activeTab, setActiveTab] = useState<string>('OVERVIEW');
+  const [selectedVoucher, setSelectedVoucher] = useState<VoucherData | null>(null);
+
+  const {
+    data: metrics,
+    isLoading: isMetricsLoading,
+    isError: isMetricsError,
+    error: metricsError,
+    refetch: refetchMetrics,
+  } = useFinanceDashboard();
+
+  const {
+    data: receipts = [],
+    isLoading: isReceiptsLoading,
+    isError: isReceiptsError,
+    error: receiptsError,
+    refetch: refetchReceipts,
+  } = useReceipts();
+
+  const { data: outstandingInvoices = [], isLoading: isLoadingInvoices } =
+    useOutstandingInvoices(activeTab === 'RECEIPTS');
+
+  const { recordPayment, isRecordingPayment } = useRecordInvoicePayment();
+
+  const {
+    data: payments = [],
+    isLoading: isPaymentsLoading,
+    isError: isPaymentsError,
+    error: paymentsError,
+    refetch: refetchPayments,
+  } = usePayments();
+
+  const {
+    ledgerEntries,
+    postJournalEntry,
+    isPosting,
+    isLoading: isLedgerLoading,
+    isError: isLedgerError,
+    error: ledgerError,
+    refetch: refetchLedger,
+  } = useLedgerEntries();
+
+  const {
+    commissions = [],
+    approveCommission,
+    isLoading: isCommissionsLoading,
+    isError: isCommissionsError,
+    error: commissionsError,
+    refetch: refetchCommissions,
+  } = useCommissions();
+
+  const {
+    data: settlements = [],
+    isLoading: isSettlementsLoading,
+    isError: isSettlementsError,
+    error: settlementsError,
+    refetch: refetchSettlements,
+  } = useSettlements();
+
+  const {
+    data: incentives = [],
+    isLoading: isIncentivesLoading,
+    isError: isIncentivesError,
+    error: incentivesError,
+    refetch: refetchIncentives,
+  } = useIncentives();
+
+  const {
+    data: reconQueue = [],
+    summary: reconSummary,
+    reconcilePayment,
+    flagDiscrepancy,
+    isReconciling,
+    isFlagging,
+    isLoading: isReconLoading,
+    isError: isReconError,
+    error: reconError,
+    refetch: refetchRecon,
+  } = useReconciliationQueue();
+
+  const [isJournalModalOpen, setIsJournalModalOpen] = useState(false);
+  const [isReceiptModalOpen, setIsReceiptModalOpen] = useState(false);
+  const [paymentForm, setPaymentForm] = useState({
+    invoiceId: '',
+    amount: '',
+    mode: 'BANK_TRANSFER',
+    reference: '',
+  });
+  const { data: chartOfAccounts = [] } = useChartOfAccounts();
+
+  const [journalForm, setJournalForm] = useState({
+    description: '',
+    referenceType: 'GENERAL',
+    date: new Date().toISOString().split('T')[0],
+    debitAccountId: '',
+    creditAccountId: '',
+    amount: '',
+  });
+
+  const safeReceipts = (Array.isArray(receipts) ? receipts : ((receipts as any)?.items || ((receipts as any)?.data) || [])) as any[];
+  const safePayments = (Array.isArray(payments) ? payments : ((payments as any)?.items || ((payments as any)?.data) || [])) as any[];
+  const safeLedgerEntries = (Array.isArray(ledgerEntries) ? ledgerEntries : ((ledgerEntries as any)?.items || ((ledgerEntries as any)?.data) || [])) as any[];
+  const safeCommissions = (Array.isArray(commissions) ? commissions : ((commissions as any)?.items || ((commissions as any)?.data) || [])) as any[];
+  const safeIncentives = (Array.isArray(incentives) ? incentives : ((incentives as any)?.items || ((incentives as any)?.data) || [])) as any[];
+  const safeSettlements = (Array.isArray(settlements) ? settlements : ((settlements as any)?.items || ((settlements as any)?.data) || [])) as any[];
+
+  const pendingCommissions = safeCommissions.filter(
+    (c: any) => c.payoutStatus === 'PENDING_APPROVAL',
+  );
+
+  const handleApproveBatchPayouts = async () => {
+    if (pendingCommissions.length === 0) {
+      toast.info('No pending commission payouts to approve.');
+      return;
+    }
+    let count = 0;
+    for (const c of pendingCommissions) {
+      try {
+        await approveCommission(c.id);
+        count++;
+      } catch (e) {
+        // Handled in mutation
+      }
+    }
+    toast.success(`Successfully approved ${count} commission payouts!`);
+  };
+
+  const handlePostJournal = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const amountNum = parseFloat(journalForm.amount);
+    if (!amountNum || amountNum <= 0) {
+      toast.error('Please enter a valid amount');
+      return;
+    }
+    if (!journalForm.debitAccountId || !journalForm.creditAccountId) {
+      toast.error('Please select both debit and credit accounts');
+      return;
+    }
+    if (journalForm.debitAccountId === journalForm.creditAccountId) {
+      toast.error('Debit and credit accounts must be different');
+      return;
+    }
+    try {
+      await postJournalEntry({
+        date: journalForm.date || new Date().toISOString(),
+        description: journalForm.description || 'Manual Journal Entry',
+        referenceType: journalForm.referenceType,
+        lines: [
+          {
+            accountId: journalForm.debitAccountId,
+            debit: amountNum,
+            credit: 0,
+          },
+          {
+            accountId: journalForm.creditAccountId,
+            debit: 0,
+            credit: amountNum,
+          },
+        ],
+      });
+      setIsJournalModalOpen(false);
+      setJournalForm({
+        description: '',
+        referenceType: 'GENERAL',
+        date: new Date().toISOString().split('T')[0],
+        debitAccountId: '',
+        creditAccountId: '',
+        amount: '',
+      });
+    } catch (err) {
+      // Handled in mutation
+    }
+  };
+
+  const handleOpenVoucher = (v: VoucherData) => {
+    setSelectedVoucher(v);
+  };
+
+  const handleRecordPayment = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!paymentForm.invoiceId) return;
+
+    try {
+      await recordPayment(paymentForm);
+      setIsReceiptModalOpen(false);
+      setPaymentForm({ invoiceId: '', amount: '', mode: 'BANK_TRANSFER', reference: '' });
+    } catch {
+      // Error is reported by the mutation.
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* 1. Page Header */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+        <div>
+          <h1 className="text-xl font-bold tracking-tight flex items-center gap-2">
+            <DollarSign className="h-5 w-5 text-primary" /> Finance, Accounting & Commission Operations Hub
+          </h1>
+          <p className="text-xs text-muted-foreground">
+            Authoritative Financial Operations Hub for Premium Collections, Double-Entry Ledger, Commission Engine & Settlements
+          </p>
+        </div>
+      </div>
+
+      {/* 2. Top Finance KPI Ribbon with explicit Loading and Error states */}
+      {isMetricsError ? (
+        <div className="p-4 border border-destructive/20 bg-destructive/10 rounded-xl flex items-center justify-between">
+          <div className="flex items-center gap-2 text-xs text-destructive font-semibold">
+            <AlertTriangle className="h-4 w-4" />
+            <span>Failed to load financial dashboard metrics: {getApiErrorMessage(metricsError)}</span>
+          </div>
+          <button
+            onClick={() => refetchMetrics()}
+            className="px-2.5 py-1 text-xs bg-destructive text-destructive-foreground rounded font-bold hover:bg-destructive/90 flex items-center gap-1"
+          >
+            <RefreshCw className="h-3 w-3" /> Retry
+          </button>
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 gap-3 text-xs">
+          <div className="p-3.5 rounded-xl border bg-card space-y-1">
+            <span className="text-[10px] font-bold uppercase text-muted-foreground">Today's Collections</span>
+            <div className="font-black text-emerald-600 text-sm">
+              {isMetricsLoading ? (
+                <span className="text-muted-foreground font-normal">Loading...</span>
+              ) : (
+                `₹${(metrics?.todayCollections ?? 0).toLocaleString('en-IN')}`
+              )}
+            </div>
+            <span className="text-[10px] text-muted-foreground font-semibold">Recorded receipts today</span>
+          </div>
+
+          <div className="p-3.5 rounded-xl border bg-card space-y-1">
+            <span className="text-[10px] font-bold uppercase text-muted-foreground">Monthly GWP</span>
+            <div className="font-black text-foreground text-sm">
+              {isMetricsLoading ? (
+                <span className="text-muted-foreground font-normal">Loading...</span>
+              ) : (
+                `₹${(metrics?.monthlyGwp ?? 0).toLocaleString('en-IN')}`
+              )}
+            </div>
+            <span className="text-[10px] text-muted-foreground font-semibold">Policies issued this month</span>
+          </div>
+
+          <div className="p-3.5 rounded-xl border bg-card space-y-1">
+            <span className="text-[10px] font-bold uppercase text-muted-foreground">Outstanding Premium</span>
+            <div className="font-black text-amber-600 text-sm">
+              {isMetricsLoading ? (
+                <span className="text-muted-foreground font-normal">Loading...</span>
+              ) : (
+                `₹${(metrics?.outstandingPremium ?? 0).toLocaleString('en-IN')}`
+              )}
+            </div>
+            <span className="text-[10px] text-muted-foreground font-semibold">Unpaid & partial invoices</span>
+          </div>
+
+          <div className="p-3.5 rounded-xl border bg-card space-y-1">
+            <span className="text-[10px] font-bold uppercase text-muted-foreground">Commission Accrued</span>
+            <div className="font-black text-primary text-sm">
+              {isMetricsLoading ? (
+                <span className="text-muted-foreground font-normal">Loading...</span>
+              ) : (
+                `₹${(metrics?.totalCommissionAccrued ?? 0).toLocaleString('en-IN')}`
+              )}
+            </div>
+            <span className="text-[10px] text-muted-foreground font-semibold">Current accrued commission</span>
+          </div>
+
+          <div className="p-3.5 rounded-xl border bg-card space-y-1">
+            <span className="text-[10px] font-bold uppercase text-muted-foreground">Commission Paid</span>
+            <div className="font-black text-emerald-600 text-sm">
+              {isMetricsLoading ? (
+                <span className="text-muted-foreground font-normal">Loading...</span>
+              ) : (
+                `₹${(metrics?.totalCommissionPaid ?? 0).toLocaleString('en-IN')}`
+              )}
+            </div>
+            <span className="text-[10px] text-muted-foreground font-semibold">Recorded paid commissions</span>
+          </div>
+        </div>
+      )}
+
+      {/* 3. Accounts Executive "My Work" Queue Bar */}
+      <div className="p-4 rounded-2xl border bg-card shadow-sm space-y-3">
+        <div className="flex justify-between items-center border-b pb-2">
+          <div className="flex items-center space-x-2">
+            <Clock className="h-4 w-4 text-primary" />
+            <h3 className="text-xs font-bold uppercase tracking-wider">Accounts & Finance Executive "My Work" Queue</h3>
+          </div>
+          <span className="text-[10px] font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-full border border-primary/20">
+            {metrics
+              ? [
+                  metrics.myWorkQueue.pendingVerification,
+                  metrics.myWorkQueue.settlementsPending,
+                  metrics.myWorkQueue.commissionApproval,
+                  metrics.myWorkQueue.reconciliationQueue,
+                ].reduce((total, count) => total + count, 0)
+              : isMetricsLoading
+              ? 'Loading…'
+              : '0'}{' '}
+            Pending Action Items
+          </span>
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+          <div className="p-3 rounded-xl border bg-muted/10 space-y-0.5">
+            <span className="text-[10px] text-muted-foreground uppercase font-bold">Pending Verifications</span>
+            <div className="font-extrabold text-amber-600 text-sm">
+              {isMetricsLoading ? '…' : `${metrics?.myWorkQueue.pendingVerification ?? 0} Items`}
+            </div>
+          </div>
+          <div className="p-3 rounded-xl border bg-muted/10 space-y-0.5">
+            <span className="text-[10px] text-muted-foreground uppercase font-bold">Insurer Settlements Pending</span>
+            <div className="font-extrabold text-primary text-sm">
+              {isMetricsLoading ? '…' : `${metrics?.myWorkQueue.settlementsPending ?? 0} Insurers`}
+            </div>
+          </div>
+          <div className="p-3 rounded-xl border bg-muted/10 space-y-0.5">
+            <span className="text-[10px] text-muted-foreground uppercase font-bold">Commission Approvals Due</span>
+            <div className="font-extrabold text-emerald-600 text-sm">
+              {isMetricsLoading ? '…' : `${metrics?.myWorkQueue.commissionApproval ?? 0} Entries`}
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setActiveTab('RECONCILIATION')}
+            className="p-3 rounded-xl border bg-muted/10 hover:bg-muted/30 transition text-left space-y-0.5"
+          >
+            <span className="text-[10px] text-muted-foreground uppercase font-bold">Bank Reconciliation Queue</span>
+            <div className="font-extrabold text-foreground text-sm flex items-center justify-between">
+              <span>{reconSummary?.pendingCount ?? 0} Pending</span>
+              <span className="text-[10px] text-primary underline font-medium">View Queue →</span>
+            </div>
+          </button>
+        </div>
+      </div>
+
+      {/* 4. Workspace Navigation Tabs */}
+      <div className="rounded-2xl border bg-card shadow-sm overflow-hidden">
+        <div className="flex border-b text-xs overflow-x-auto p-1.5 bg-muted/20 space-x-1">
+          {[
+            { id: 'OVERVIEW', label: 'Finance Hub' },
+            { id: 'RECONCILIATION', label: 'Reconciliation Queue', badge: reconQueue.length },
+            { id: 'RECEIPTS', label: 'Receipts Register', badge: safeReceipts.length },
+            { id: 'PAYMENTS', label: 'Payment Register', badge: safePayments.length },
+            { id: 'LEDGER', label: 'Double-Entry Ledger' },
+            { id: 'COMMISSIONS', label: 'Commission Engine', badge: safeCommissions.length },
+            { id: 'INCENTIVES', label: 'Employee Incentives' },
+            { id: 'SETTLEMENTS', label: 'Insurer Settlements' },
+            { id: 'EXECUTIVE', label: 'Admin Executive View' },
+          ].map((t: any) => (
+            <button
+              key={t.id}
+              onClick={() => setActiveTab(t.id)}
+              className={`flex items-center space-x-1.5 px-3.5 py-2 rounded-lg font-semibold whitespace-nowrap transition-colors ${
+                activeTab === t.id
+                  ? 'bg-background shadow text-primary font-bold'
+                  : 'text-muted-foreground hover:bg-accent hover:text-foreground'
+              }`}
+            >
+              <span>{t.label}</span>
+              {t.badge !== undefined && (
+                <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-primary/10 text-primary font-bold">
+                  {t.badge}
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
+
+        {/* Tab Contents */}
+        <div className="p-6 text-xs space-y-4">
+          {/* 4.1 OVERVIEW */}
+          {activeTab === 'OVERVIEW' && (
+            <div className="space-y-6">
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                {/* Recorded finance totals */}
+                <div className="p-4 rounded-xl border bg-card space-y-3">
+                  <div className="flex justify-between items-center border-b pb-2">
+                    <span className="font-bold uppercase text-[10px] text-muted-foreground">Recorded Finance Totals</span>
+                    <TrendingUp className="h-4 w-4 text-emerald-500" />
+                  </div>
+                  <div className="space-y-2">
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Collections Today</span>
+                      <strong className="text-emerald-600 font-bold">
+                        ₹{(metrics?.todayCollections ?? 0).toLocaleString('en-IN')}
+                      </strong>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Commission Paid (recorded)</span>
+                      <strong className="text-amber-600 font-bold">
+                        ₹{(metrics?.totalCommissionPaid ?? 0).toLocaleString('en-IN')}
+                      </strong>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Outstanding Premium</span>
+                      <strong className="text-primary font-bold">
+                        ₹{(metrics?.outstandingPremium ?? 0).toLocaleString('en-IN')}
+                      </strong>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Insurer Settlement Status */}
+                <div className="p-4 rounded-xl border bg-card space-y-3">
+                  <div className="flex justify-between items-center border-b pb-2">
+                    <span className="font-bold uppercase text-[10px] text-muted-foreground">Insurer Settlement Cockpit</span>
+                    <Building2 className="h-4 w-4 text-primary" />
+                  </div>
+                  <div className="space-y-2">
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Settled</span>
+                      <strong className="text-emerald-600">
+                        ₹
+                        {safeSettlements
+                          .filter((s: any) => s.status === 'SETTLED')
+                          .reduce((acc: number, s: any) => acc + (s.grossPremiumCollected || 0), 0)
+                          .toLocaleString('en-IN')}
+                      </strong>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Pending</span>
+                      <strong className="text-amber-600">
+                        ₹
+                        {safeSettlements
+                          .filter((s: any) => s.status !== 'SETTLED')
+                          .reduce((acc: number, s: any) => acc + (s.grossPremiumCollected || 0), 0)
+                          .toLocaleString('en-IN')}
+                      </strong>
+                    </div>
+                    <div className="flex justify-between border-t pt-2 font-bold">
+                      <span>Outstanding Customer Premium</span>
+                      <span className="text-foreground text-sm font-black">
+                        ₹{(metrics?.outstandingPremium ?? 0).toLocaleString('en-IN')}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Commission Disbursal Summary */}
+                <div className="p-4 rounded-xl border bg-card space-y-3">
+                  <div className="flex justify-between items-center border-b pb-2">
+                    <span className="font-bold uppercase text-[10px] text-muted-foreground">Commission Engine Summary</span>
+                    <Award className="h-4 w-4 text-emerald-500" />
+                  </div>
+                  <div className="space-y-2">
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Accrued Agent Commission</span>
+                      <strong>₹{(metrics?.totalCommissionAccrued || 0).toLocaleString('en-IN')}</strong>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Paid Commission</span>
+                      <strong>₹{(metrics?.totalCommissionPaid ?? 0).toLocaleString('en-IN')}</strong>
+                    </div>
+                    <div className="flex justify-between border-t pt-2 font-bold">
+                      <span>Approved Payout Pool</span>
+                      <span className="text-emerald-600 text-sm font-black">
+                        ₹
+                        {safeCommissions
+                          .filter((c: any) => c.payoutStatus === 'APPROVED')
+                          .reduce((acc: number, c: any) => acc + (c.commissionAmount || c.amount || 0), 0)
+                          .toLocaleString('en-IN')}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 4.2 RECONCILIATION QUEUE */}
+          {activeTab === 'RECONCILIATION' && (
+            <DataSectionState
+              isLoading={isReconLoading}
+              isError={isReconError}
+              error={reconError}
+              isEmpty={reconQueue.length === 0}
+              emptyTitle="No Pending Reconciliation Items"
+              emptyDescription="All bank statements and recorded payments are reconciled."
+              onRetry={() => refetchRecon()}
+            >
+              <div className="space-y-4">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+                  <div>
+                    <h4 className="font-bold text-sm flex items-center gap-2">
+                      <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                      Bank & Payment Reconciliation Queue
+                    </h4>
+                    <p className="text-[11px] text-muted-foreground">
+                      Authoritative queue of recorded premium payments requiring bank statement confirmation before policy issuance.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Reconciliation Summary Cards */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="p-3.5 rounded-xl border bg-amber-500/5 border-amber-500/20 space-y-1">
+                    <div className="text-[10px] uppercase font-bold text-amber-600">Pending Bank Clearance</div>
+                    <div className="text-xl font-extrabold text-amber-700">
+                      {reconSummary?.pendingCount || 0}
+                      <span className="text-xs font-normal text-muted-foreground ml-1.5">
+                        (₹{(reconSummary?.totalPendingAmount || 0).toLocaleString('en-IN')})
+                      </span>
+                    </div>
+                  </div>
+                  <div className="p-3.5 rounded-xl border bg-emerald-500/5 border-emerald-500/20 space-y-1">
+                    <div className="text-[10px] uppercase font-bold text-emerald-600">Reconciled & Cleared</div>
+                    <div className="text-xl font-extrabold text-emerald-700">
+                      {reconSummary?.reconciledCount || 0}
+                      <span className="text-xs font-normal text-muted-foreground ml-1.5">
+                        (₹{(reconSummary?.totalReconciledAmount || 0).toLocaleString('en-IN')})
+                      </span>
+                    </div>
+                  </div>
+                  <div className="p-3.5 rounded-xl border bg-red-500/5 border-red-500/20 space-y-1">
+                    <div className="text-[10px] uppercase font-bold text-red-600">Active Discrepancies</div>
+                    <div className="text-xl font-extrabold text-red-700">
+                      {reconSummary?.discrepancyCount || 0}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Reconciliation Table */}
+                <div className="border rounded-xl overflow-hidden">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="bg-muted/40 text-[10px] text-muted-foreground font-bold border-b uppercase">
+                        <th className="p-3">Quote / Customer</th>
+                        <th className="p-3">Payable vs Paid</th>
+                        <th className="p-3">Reference / UTR</th>
+                        <th className="p-3">Method</th>
+                        <th className="p-3">Aging / Urgency</th>
+                        <th className="p-3">Reconciliation Status</th>
+                        <th className="p-3 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y text-xs">
+                      {reconQueue.map((item: any) => (
+                        <tr key={item.id} className="hover:bg-accent/40">
+                          <td className="p-3">
+                            <div className="font-bold text-primary font-mono">{item.quotationCode}</div>
+                            <div className="font-semibold text-foreground">{item.customerName}</div>
+                            <div className="text-[10px] text-muted-foreground">
+                              {item.productType} • {item.insurerName}
+                            </div>
+                          </td>
+                          <td className="p-3 font-mono">
+                            <div className="font-bold text-foreground">₹{item.paidAmount?.toLocaleString('en-IN')}</div>
+                            <div className="text-[10px] text-muted-foreground">
+                              Req: ₹{item.totalPayableAmount?.toLocaleString('en-IN')}
+                            </div>
+                            {item.variance !== 0 && (
+                              <span
+                                className={`text-[10px] font-bold ${
+                                  item.variance < 0 ? 'text-red-500' : 'text-emerald-600'
+                                }`}
+                              >
+                                {item.variance > 0 ? `+₹${item.variance}` : `-₹${Math.abs(item.variance)}`}
+                              </span>
+                            )}
+                          </td>
+                          <td className="p-3 font-mono text-muted-foreground">{item.referenceNumber}</td>
+                          <td className="p-3">
+                            <span className="px-2 py-0.5 rounded bg-muted text-[10px] font-semibold">
+                              {item.paymentMethod}
+                            </span>
+                          </td>
+                          <td className="p-3">
+                            <div className="flex items-center space-x-1.5">
+                              <span
+                                className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+                                  item.urgency === 'HIGH'
+                                    ? 'bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300'
+                                    : item.urgency === 'MEDIUM'
+                                    ? 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300'
+                                    : 'bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300'
+                                }`}
+                              >
+                                {item.urgency}
+                              </span>
+                              <span className="text-[10px] text-muted-foreground">{item.agingHours}h ago</span>
+                            </div>
+                          </td>
+                          <td className="p-3">
+                            <StatusBadge status={item.reconciliationStatus} />
+                            {item.discrepancyReason && (
+                              <div
+                                className="text-[10px] text-red-600 mt-1 font-medium max-w-[180px] truncate"
+                                title={item.discrepancyReason}
+                              >
+                                {item.discrepancyReason}
+                              </div>
+                            )}
+                          </td>
+                          <td className="p-3 text-right">
+                            {item.reconciliationStatus === 'PENDING_RECONCILIATION' ||
+                            item.reconciliationStatus === 'UNDER_PROCESS' ? (
+                              <div className="flex items-center justify-end space-x-1.5">
+                                <button
+                                  type="button"
+                                  disabled={isReconciling}
+                                  onClick={() => {
+                                    const bankRef = window.prompt(
+                                      'Enter Bank Statement UTR / Reference Number:',
+                                      item.referenceNumber,
+                                    );
+                                    if (bankRef) {
+                                      reconcilePayment({
+                                        id: item.id,
+                                        data: { bankReference: bankRef, notes: 'Confirmed with Bank Statement' },
+                                      });
+                                    }
+                                  }}
+                                  className="px-2.5 py-1 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] shadow-sm transition"
+                                >
+                                  Reconcile
+                                </button>
+                                <button
+                                  type="button"
+                                  disabled={isFlagging}
+                                  onClick={() => {
+                                    const reason = window.prompt(
+                                      'Reason for discrepancy (e.g. amount mismatch, UTR invalid):',
+                                    );
+                                    if (reason) {
+                                      flagDiscrepancy({
+                                        id: item.id,
+                                        data: { reason },
+                                      });
+                                    }
+                                  }}
+                                  className="px-2 py-1 rounded-md border border-red-300 hover:bg-red-50 text-red-600 dark:hover:bg-red-950/50 font-semibold text-[11px] transition"
+                                >
+                                  Discrepancy
+                                </button>
+                              </div>
+                            ) : (
+                              <span className="text-[10px] text-muted-foreground italic">
+                                {item.reconciliationStatus === 'RECONCILED' ? 'Cleared' : 'Flagged'}
+                              </span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </DataSectionState>
+          )}
+
+          {/* 4.3 RECEIPTS REGISTER */}
+          {activeTab === 'RECEIPTS' && (
+            <DataSectionState
+              isLoading={isReceiptsLoading}
+              isError={isReceiptsError}
+              error={receiptsError}
+              isEmpty={safeReceipts.length === 0}
+              emptyTitle="No Receipts Found"
+              emptyDescription="No customer payment receipts have been recorded in the current company context."
+              onRetry={() => refetchReceipts()}
+            >
+              <div className="space-y-4">
+                <div className="flex justify-between items-center">
+                  <h4 className="font-bold text-sm">Customer Premium Receipts Register</h4>
+                  <button
+                    type="button"
+                    onClick={() => setIsReceiptModalOpen(true)}
+                    className="px-3 py-1.5 rounded-lg bg-primary text-primary-foreground font-bold text-xs shadow"
+                  >
+                    + Record Payment &amp; Issue Receipt
+                  </button>
+                </div>
+
+                <div className="border rounded-xl overflow-hidden">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="bg-muted/40 text-[10px] text-muted-foreground font-bold border-b uppercase">
+                        <th className="p-3">Receipt No.</th>
+                        <th className="p-3">Customer</th>
+                        <th className="p-3">Policy No.</th>
+                        <th className="p-3">Amount</th>
+                        <th className="p-3">Payment Mode</th>
+                        <th className="p-3">Status</th>
+                        <th className="p-3">Date</th>
+                        <th className="p-3 text-right">Voucher</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y text-xs">
+                      {safeReceipts.map((r: any) => (
+                        <tr key={r.id} className="hover:bg-accent/40">
+                          <td className="p-3 font-bold text-primary font-mono">{r.receiptNumber}</td>
+                          <td className="p-3 font-semibold">{r.customerName}</td>
+                          <td className="p-3 font-mono">{r.policyNumber}</td>
+                          <td className="p-3 font-bold text-emerald-600 font-mono">₹{r.amount.toLocaleString('en-IN')}</td>
+                          <td className="p-3 text-muted-foreground">{r.paymentMode}</td>
+                          <td className="p-3"><StatusBadge status={r.status} /></td>
+                          <td className="p-3 text-muted-foreground">{r.date}</td>
+                          <td className="p-3 text-right">
+                            <button
+                              onClick={() =>
+                                handleOpenVoucher({
+                                  title: 'Premium Payment Receipt',
+                                  voucherNumber: r.receiptNumber,
+                                  date: r.date,
+                                  type: 'RECEIPT',
+                                  partyName: r.customerName,
+                                  amount: r.amount,
+                                  paymentMode: r.paymentMode,
+                                  txnRef: r.txnRef,
+                                  details: [
+                                    { label: `Policy Premium (${r.policyNumber})`, value: r.amount },
+                                    { label: 'GST Tax Receipt (18%)', value: 'Included in Total' },
+                                    { label: 'Received By', value: r.receivedBy },
+                                  ],
+                                })
+                              }
+                              className="px-2 py-1 rounded border bg-background hover:bg-accent font-semibold text-[10px]"
+                            >
+                              View Receipt
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </DataSectionState>
+          )}
+
+          {/* 4.4 PAYMENTS REGISTER */}
+          {activeTab === 'PAYMENTS' && (
+            <DataSectionState
+              isLoading={isPaymentsLoading}
+              isError={isPaymentsError}
+              error={paymentsError}
+              isEmpty={safePayments.length === 0}
+              emptyTitle="No Payments Recorded"
+              emptyDescription="No outgoing vendor, insurer, or commission disbursals found."
+              onRetry={() => refetchPayments()}
+            >
+              <div className="space-y-4">
+                <h4 className="font-bold text-sm">Payment & Disbursal Register</h4>
+                <div className="border rounded-xl overflow-hidden">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="bg-muted/40 text-[10px] text-muted-foreground font-bold border-b uppercase">
+                        <th className="p-3">Payment No.</th>
+                        <th className="p-3">Payee / Vendor</th>
+                        <th className="p-3">Disbursal Type</th>
+                        <th className="p-3">Amount</th>
+                        <th className="p-3">Mode</th>
+                        <th className="p-3">Status</th>
+                        <th className="p-3 text-right">Voucher</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y text-xs">
+                      {safePayments.map((p: any) => (
+                        <tr key={p.id} className="hover:bg-accent/40">
+                          <td className="p-3 font-bold text-primary font-mono">{p.paymentNumber}</td>
+                          <td className="p-3 font-semibold">{p.payee}</td>
+                          <td className="p-3 font-semibold text-muted-foreground">{p.type}</td>
+                          <td className="p-3 font-bold text-foreground font-mono">₹{p.amount.toLocaleString('en-IN')}</td>
+                          <td className="p-3 text-muted-foreground">{p.mode}</td>
+                          <td className="p-3"><StatusBadge status={p.status} /></td>
+                          <td className="p-3 text-right">
+                            <button
+                              onClick={() =>
+                                handleOpenVoucher({
+                                  title: 'Payment Disbursal Voucher',
+                                  voucherNumber: p.paymentNumber,
+                                  date: p.date,
+                                  type: 'INVOICE',
+                                  partyName: p.payee,
+                                  amount: p.amount,
+                                  paymentMode: p.mode,
+                                  details: [
+                                    { label: `Payment Purpose (${p.type})`, value: p.amount },
+                                    { label: 'Bank Disbursal Mode', value: p.mode },
+                                  ],
+                                })
+                              }
+                              className="px-2 py-1 rounded border bg-background hover:bg-accent font-semibold text-[10px]"
+                            >
+                              View Voucher
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </DataSectionState>
+          )}
+
+          {/* 4.5 DOUBLE-ENTRY LEDGER */}
+          {activeTab === 'LEDGER' && (
+            <DataSectionState
+              isLoading={isLedgerLoading}
+              isError={isLedgerError}
+              error={ledgerError}
+              isEmpty={safeLedgerEntries.length === 0}
+              emptyTitle="No Journal Entries"
+              emptyDescription="No double-entry accounting journals have been posted yet."
+              onRetry={() => refetchLedger()}
+            >
+              <div className="space-y-4">
+                <div className="flex justify-between items-center">
+                  <h4 className="font-bold text-sm">Double-Entry Accounting Journal Ledger</h4>
+                  <button
+                    onClick={() => setIsJournalModalOpen(true)}
+                    className="px-3 py-1.5 rounded-lg bg-primary text-primary-foreground font-bold text-xs shadow hover:bg-primary/90 transition"
+                  >
+                    + Post Journal Entry
+                  </button>
+                </div>
+
+                <div className="space-y-3">
+                  {safeLedgerEntries.map((je: any) => (
+                    <div key={je.id} className="p-4 rounded-xl border bg-card space-y-3">
+                      <div className="flex justify-between items-center border-b pb-2">
+                        <div>
+                          <span className="font-bold text-primary font-mono text-sm">{je.entryNumber}</span>
+                          <span className="ml-2 text-muted-foreground">({je.date})</span>
+                          <p className="font-semibold text-xs mt-0.5">{je.description}</p>
+                        </div>
+                        <StatusBadge status={je.status} />
+                      </div>
+
+                      <div className="border rounded-lg overflow-hidden">
+                        <table className="w-full text-left border-collapse text-[11px]">
+                          <thead>
+                            <tr className="bg-muted/30 text-[10px] text-muted-foreground font-bold border-b">
+                              <th className="p-2">Account Name</th>
+                              <th className="p-2">Account Type</th>
+                              <th className="p-2 text-right">Debit (Dr)</th>
+                              <th className="p-2 text-right">Credit (Cr)</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y font-mono">
+                            {je.lines.map((l: any, idx: number) => (
+                              <tr key={idx}>
+                                <td className="p-2 font-semibold font-sans">{l.accountName}</td>
+                                <td className="p-2 text-muted-foreground">{l.accountType}</td>
+                                <td className="p-2 text-right font-bold text-foreground">
+                                  {l.debit > 0 ? `₹${l.debit.toLocaleString('en-IN')}` : '-'}
+                                </td>
+                                <td className="p-2 text-right font-bold text-foreground">
+                                  {l.credit > 0 ? `₹${l.credit.toLocaleString('en-IN')}` : '-'}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </DataSectionState>
+          )}
+
+          {/* 4.6 COMMISSIONS & OVERRIDES */}
+          {activeTab === 'COMMISSIONS' && (
+            <DataSectionState
+              isLoading={isCommissionsLoading}
+              isError={isCommissionsError}
+              error={commissionsError}
+              isEmpty={safeCommissions.length === 0}
+              emptyTitle="No Commission Records Found"
+              emptyDescription="No accrued or realized agent commissions found in the current company context."
+              onRetry={() => refetchCommissions()}
+            >
+              <div className="space-y-4">
+                <div className="flex justify-between items-center">
+                  <div>
+                    <h4 className="font-bold text-sm">Agent Commission & Multi-Tier Override Timeline</h4>
+                    <p className="text-[11px] text-muted-foreground">
+                      Tracking and approval only. Payout disbursement requires banking verification.
+                    </p>
+                  </div>
+                  <button
+                    onClick={handleApproveBatchPayouts}
+                    disabled={pendingCommissions.length === 0}
+                    className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow transition disabled:opacity-50"
+                  >
+                    ✓ Approve Selected Payouts ({pendingCommissions.length} Pending)
+                  </button>
+                </div>
+
+                <div className="border rounded-xl overflow-hidden">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="bg-muted/40 text-[10px] text-muted-foreground font-bold border-b uppercase">
+                        <th className="p-3">Policy No.</th>
+                        <th className="p-3">Recipient</th>
+                        <th className="p-3">Role Tier</th>
+                        <th className="p-3">Gross Premium</th>
+                        <th className="p-3">Rate %</th>
+                        <th className="p-3">Commission Amt</th>
+                        <th className="p-3">Accrual Status</th>
+                        <th className="p-3">Payout Status</th>
+                        <th className="p-3 text-right">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y text-xs">
+                      {safeCommissions.map((c: any) => {
+                        const commissionVal = Number(c.amount ?? c.commissionAmount ?? 0);
+                        return (
+                          <tr key={c.id} className="hover:bg-accent/40">
+                            <td className="p-3 font-mono font-bold text-primary">{c.policyNumber}</td>
+                            <td className="p-3 font-semibold">{c.agentName}</td>
+                            <td className="p-3 font-bold text-xs">
+                              <span className="px-2 py-0.5 rounded bg-muted text-foreground border text-[10px]">
+                                {c.roleTier}
+                              </span>
+                            </td>
+                            <td className="p-3 font-mono">₹{c.grossPremium?.toLocaleString('en-IN')}</td>
+                            <td className="p-3 font-bold text-primary">{c.commissionPercent}%</td>
+                            <td className="p-3 font-extrabold text-emerald-600 font-mono">
+                              ₹{commissionVal.toLocaleString('en-IN')}
+                            </td>
+                            <td className="p-3"><StatusBadge status={c.status} /></td>
+                            <td className="p-3"><StatusBadge status={c.payoutStatus} /></td>
+                            <td className="p-3 text-right">
+                              {c.payoutStatus === 'PENDING_APPROVAL' ? (
+                                <button
+                                  onClick={() => approveCommission(c.id)}
+                                  className="px-2.5 py-1 rounded bg-emerald-600 text-white font-bold text-[10px] hover:bg-emerald-700 shadow"
+                                >
+                                  Approve Payout
+                                </button>
+                              ) : (
+                                <span
+                                  className={`font-bold text-[10px] ${
+                                    c.payoutStatus === 'PAID'
+                                      ? 'text-emerald-600'
+                                      : c.payoutStatus === 'APPROVED'
+                                      ? 'text-blue-600'
+                                      : 'text-muted-foreground'
+                                  }`}
+                                >
+                                  {c.payoutStatus === 'PAID'
+                                    ? '✓ Paid'
+                                    : c.payoutStatus === 'APPROVED'
+                                    ? '✓ Approved'
+                                    : c.status}
+                                </span>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </DataSectionState>
+          )}
+
+          {/* 4.7 INCENTIVES - Hardcoded 5% removed, status: Policy Pending */}
+          {activeTab === 'INCENTIVES' && (
+            <DataSectionState
+              isLoading={isIncentivesLoading}
+              isError={isIncentivesError}
+              error={incentivesError}
+              isEmpty={safeIncentives.length === 0}
+              emptyTitle="No Sales Targets Defined"
+              emptyDescription="No employee quarterly sales targets found for the current company."
+              onRetry={() => refetchIncentives()}
+            >
+              <div className="space-y-4">
+                <div className="flex justify-between items-center">
+                  <div>
+                    <h4 className="font-bold text-sm">Employee Target & Performance Overview</h4>
+                    <p className="text-[11px] text-muted-foreground">
+                      Target and achievement records displayed. Incentive calculation formula is pending executive policy approval (INC-B01).
+                    </p>
+                  </div>
+                  <span className="px-2.5 py-1 rounded-md text-[10px] font-bold bg-amber-500/10 text-amber-700 border border-amber-500/20">
+                    Policy Pending (INC-B01)
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {safeIncentives.map((inc: any) => (
+                    <div key={inc.id} className="p-4 rounded-xl border bg-card space-y-3">
+                      <div className="flex justify-between items-center border-b pb-2">
+                        <div>
+                          <div className="font-bold text-sm">{inc.employeeName}</div>
+                          <span className="text-[10px] text-muted-foreground font-semibold">{inc.role}</span>
+                        </div>
+                        <StatusBadge status={inc.status || 'PENDING'} />
+                      </div>
+                      <div className="space-y-1.5 text-xs">
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Target Period:</span>
+                          <strong>{inc.type}</strong>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Target Benchmark:</span>
+                          <strong>₹{Number(inc.targetAmount || 0).toLocaleString('en-IN')}</strong>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Actual Achieved:</span>
+                          <strong className="text-emerald-600">
+                            ₹{Number(inc.achievedAmount || 0).toLocaleString('en-IN')}
+                          </strong>
+                        </div>
+                      </div>
+                      <div className="p-2.5 rounded-lg bg-amber-500/5 text-amber-700 dark:text-amber-300 border border-amber-500/20 flex items-center justify-between">
+                        <span className="text-[11px] font-semibold">Payable Incentive:</span>
+                        <span className="text-xs font-bold italic">Calculation Pending Business Policy Approval</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </DataSectionState>
+          )}
+
+          {/* 4.8 SETTLEMENTS */}
+          {activeTab === 'SETTLEMENTS' && (
+            <DataSectionState
+              isLoading={isSettlementsLoading}
+              isError={isSettlementsError}
+              error={settlementsError}
+              isEmpty={safeSettlements.length === 0}
+              emptyTitle="No Insurer Settlements"
+              emptyDescription="No insurer settlement batches have been generated."
+              onRetry={() => refetchSettlements()}
+            >
+              <div className="space-y-4">
+                <div className="flex justify-between items-center">
+                  <div>
+                    <h4 className="font-bold text-sm">Insurer Net Payable Settlement Workspace</h4>
+                    <p className="text-xs text-muted-foreground">
+                      Persisted insurer settlement batches and net payable reconciliation
+                    </p>
+                  </div>
+                  <Link
+                    href="/finance/settlements"
+                    className="px-3 py-1.5 rounded-lg bg-primary text-primary-foreground font-bold text-xs flex items-center gap-1 hover:bg-primary/90 transition-colors shadow-xs"
+                  >
+                    <span>Open Full Settlement Cockpit</span>
+                    <ExternalLink className="h-3 w-3" />
+                  </Link>
+                </div>
+                <div className="border rounded-xl overflow-hidden">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="bg-muted/40 text-[10px] text-muted-foreground font-bold border-b uppercase">
+                        <th className="p-3">Insurer Partner</th>
+                        <th className="p-3">Settlement Period</th>
+                        <th className="p-3">Gross Premium Collected</th>
+                        <th className="p-3">Brokerage Retained</th>
+                        <th className="p-3">Net Insurer Payable</th>
+                        <th className="p-3">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y text-xs">
+                      {safeSettlements.map((s: any) => (
+                        <tr key={s.id} className="hover:bg-accent/40">
+                          <td className="p-3 font-bold text-foreground">{s.insurerName}</td>
+                          <td className="p-3 text-muted-foreground">{s.period}</td>
+                          <td className="p-3 font-mono">₹{s.grossPremiumCollected.toLocaleString('en-IN')}</td>
+                          <td className="p-3 font-mono text-emerald-600 font-bold">
+                            ₹{s.commissionRetained.toLocaleString('en-IN')}
+                          </td>
+                          <td className="p-3 font-extrabold text-primary font-mono">
+                            ₹{s.netPayable.toLocaleString('en-IN')}
+                          </td>
+                          <td className="p-3"><StatusBadge status={s.status} /></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </DataSectionState>
+          )}
+
+          {/* 4.9 EXECUTIVE VIEW */}
+          {activeTab === 'EXECUTIVE' && (
+            <div className="py-8 text-center space-y-4 max-w-md mx-auto">
+              <PieChart className="h-10 w-10 text-primary mx-auto" />
+              <div className="font-bold text-base">Executive & Admin Dashboard</div>
+              <p className="text-muted-foreground text-xs">
+                Detailed executive analytics, branch-level Gross Written Premium (GWP), and retention KPIs are consolidated under the System Admin Workspace.
+              </p>
+              <Link
+                href="/workspace/admin"
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground font-bold text-xs shadow hover:bg-primary/90 transition"
+              >
+                Go to Admin Executive Dashboard →
+              </Link>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Universal Voucher Preview Modal */}
+      <VoucherPreviewModal
+        isOpen={!!selectedVoucher}
+        onClose={() => setSelectedVoucher(null)}
+        voucher={selectedVoucher}
+      />
+
+      {/* Post Journal Entry Modal */}
+      {isJournalModalOpen && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-card border rounded-2xl max-w-md w-full shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex justify-between items-center p-4 border-b">
+              <div className="flex items-center space-x-2">
+                <BookOpen className="h-5 w-5 text-primary" />
+                <h3 className="font-bold text-sm">Post Double-Entry Journal</h3>
+              </div>
+              <button
+                onClick={() => setIsJournalModalOpen(false)}
+                className="p-1 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handlePostJournal} className="p-4 space-y-3 text-xs">
+              <div>
+                <label className="block font-semibold mb-1 text-muted-foreground">Description</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. End of month clearing adjustment"
+                  value={journalForm.description}
+                  onChange={(e) => setJournalForm({ ...journalForm, description: e.target.value })}
+                  className="w-full px-3 py-2 rounded-lg border bg-background text-foreground text-xs focus:ring-1 focus:ring-primary focus:outline-none"
+                />
+              </div>
+
+              <div className="grid grid-cols-3 gap-2">
+                <div>
+                  <label className="block font-semibold mb-1 text-muted-foreground">Entry Date</label>
+                  <input
+                    type="date"
+                    required
+                    value={journalForm.date}
+                    onChange={(e) => setJournalForm({ ...journalForm, date: e.target.value })}
+                    className="w-full px-3 py-2 rounded-lg border bg-background text-foreground text-xs focus:ring-1 focus:ring-primary focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block font-semibold mb-1 text-muted-foreground">Reference Type</label>
+                  <select
+                    value={journalForm.referenceType}
+                    onChange={(e) => setJournalForm({ ...journalForm, referenceType: e.target.value })}
+                    className="w-full px-3 py-2 rounded-lg border bg-background text-foreground text-xs focus:ring-1 focus:ring-primary focus:outline-none"
+                  >
+                    <option value="GENERAL">General</option>
+                    <option value="INVOICE">Invoice</option>
+                    <option value="RECEIPT">Receipt</option>
+                    <option value="COMMISSION">Commission</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block font-semibold mb-1 text-muted-foreground">Amount (₹)</label>
+                  <input
+                    type="number"
+                    required
+                    min="1"
+                    step="0.01"
+                    placeholder="0.00"
+                    value={journalForm.amount}
+                    onChange={(e) => setJournalForm({ ...journalForm, amount: e.target.value })}
+                    className="w-full px-3 py-2 rounded-lg border bg-background text-foreground text-xs font-mono font-bold focus:ring-1 focus:ring-primary focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-semibold mb-1 text-muted-foreground">Debit (Dr) Account</label>
+                <select
+                  required
+                  value={journalForm.debitAccountId}
+                  onChange={(e) => setJournalForm({ ...journalForm, debitAccountId: e.target.value })}
+                  className="w-full px-3 py-2 rounded-lg border bg-background text-foreground text-xs focus:ring-1 focus:ring-primary focus:outline-none"
+                >
+                  <option value="">-- Select Debit Account --</option>
+                  {chartOfAccounts.map((acc: any) => (
+                    <option key={acc.id} value={acc.id}>
+                      {acc.code} — {acc.name} ({acc.type})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block font-semibold mb-1 text-muted-foreground">Credit (Cr) Account</label>
+                <select
+                  required
+                  value={journalForm.creditAccountId}
+                  onChange={(e) => setJournalForm({ ...journalForm, creditAccountId: e.target.value })}
+                  className="w-full px-3 py-2 rounded-lg border bg-background text-foreground text-xs focus:ring-1 focus:ring-primary focus:outline-none"
+                >
+                  <option value="">-- Select Credit Account --</option>
+                  {chartOfAccounts.map((acc: any) => (
+                    <option key={acc.id} value={acc.id}>
+                      {acc.code} — {acc.name} ({acc.type})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex justify-end space-x-2 pt-3 border-t">
+                <button
+                  type="button"
+                  onClick={() => setIsJournalModalOpen(false)}
+                  className="px-3 py-2 rounded-lg border text-muted-foreground hover:bg-muted font-semibold text-xs"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isPosting}
+                  className="px-4 py-2 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-xs shadow disabled:opacity-50"
+                >
+                  {isPosting ? 'Posting...' : 'Post Entry'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Record Payment Modal */}
+      {isReceiptModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="w-full max-w-lg overflow-hidden rounded-2xl border bg-card shadow-2xl">
+            <div className="flex items-center justify-between border-b p-4">
+              <div>
+                <h3 className="text-sm font-bold">Record Premium Payment</h3>
+                <p className="mt-1 text-[11px] text-muted-foreground">
+                  A receipt is issued only after payment is allocated to an outstanding invoice.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsReceiptModalOpen(false)}
+                className="rounded-lg p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+                aria-label="Close payment form"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleRecordPayment} className="space-y-3 p-4 text-xs">
+              <div>
+                <label htmlFor="receipt-invoice" className="mb-1 block font-semibold text-muted-foreground">
+                  Policy invoice
+                </label>
+                <select
+                  id="receipt-invoice"
+                  required
+                  value={paymentForm.invoiceId}
+                  onChange={(event) => {
+                    const invoice = outstandingInvoices.find((item) => item.id === event.target.value);
+                    setPaymentForm({
+                      ...paymentForm,
+                      invoiceId: event.target.value,
+                      amount: invoice?.outstandingAmount || '',
+                    });
+                  }}
+                  disabled={isLoadingInvoices || outstandingInvoices.length === 0}
+                  className="w-full rounded-lg border bg-background px-3 py-2 text-foreground"
+                >
+                  <option value="">
+                    {isLoadingInvoices ? 'Loading invoices…' : 'Select an outstanding invoice'}
+                  </option>
+                  {outstandingInvoices.map((invoice) => (
+                    <option key={invoice.id} value={invoice.id}>
+                      {invoice.policyNumber} · {invoice.customerName} · ₹{invoice.outstandingAmount} outstanding
+                    </option>
+                  ))}
+                </select>
+                {!isLoadingInvoices && outstandingInvoices.length === 0 && (
+                  <p className="mt-1 text-muted-foreground">No payable policy invoices are available.</p>
+                )}
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label htmlFor="receipt-amount" className="mb-1 block font-semibold text-muted-foreground">
+                    Amount (₹)
+                  </label>
+                  <input
+                    id="receipt-amount"
+                    type="number"
+                    min="0.0001"
+                    step="0.0001"
+                    required
+                    value={paymentForm.amount}
+                    onChange={(event) => setPaymentForm({ ...paymentForm, amount: event.target.value })}
+                    className="w-full rounded-lg border bg-background px-3 py-2 font-mono text-foreground"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="receipt-mode" className="mb-1 block font-semibold text-muted-foreground">
+                    Payment mode
+                  </label>
+                  <select
+                    id="receipt-mode"
+                    value={paymentForm.mode}
+                    onChange={(event) => setPaymentForm({ ...paymentForm, mode: event.target.value })}
+                    className="w-full rounded-lg border bg-background px-3 py-2 text-foreground"
+                  >
+                    <option value="BANK_TRANSFER">Bank transfer</option>
+                    <option value="CASH">Cash</option>
+                    <option value="CHEQUE">Cheque</option>
+                    <option value="CARD">Card</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label htmlFor="receipt-reference" className="mb-1 block font-semibold text-muted-foreground">
+                  Reference (optional)
+                </label>
+                <input
+                  id="receipt-reference"
+                  maxLength={100}
+                  value={paymentForm.reference}
+                  onChange={(event) => setPaymentForm({ ...paymentForm, reference: event.target.value })}
+                  placeholder="UTR / cheque number"
+                  className="w-full rounded-lg border bg-background px-3 py-2 text-foreground"
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 border-t pt-3">
+                <button
+                  type="button"
+                  onClick={() => setIsReceiptModalOpen(false)}
+                  className="rounded-lg border px-3 py-2 font-semibold text-muted-foreground hover:bg-muted"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isRecordingPayment || isLoadingInvoices || outstandingInvoices.length === 0}
+                  className="rounded-lg bg-primary px-4 py-2 font-bold text-primary-foreground disabled:opacity-50"
+                >
+                  {isRecordingPayment ? 'Recording…' : 'Record Payment'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

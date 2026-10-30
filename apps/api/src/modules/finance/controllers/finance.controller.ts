@@ -438,6 +438,86 @@ export class FinanceController {
     return this.ledgerService.postEntry(data, companyId);
   }
 
+  @Get('commissions/me')
+  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT)
+  @ApiOperation({ summary: 'List authenticated employee commissions' })
+  async getMyCommissions(@CurrentUser() actor: RequestUser) {
+    const companyId = actor.companyId || (actor as any).organizationId;
+    if (!companyId) {
+      throw new ForbiddenException('Company context is required for employee commissions');
+    }
+    const employeeId = actor.userId || actor.id;
+    const commissions = await this.prisma.commission.findMany({
+      where: {
+        userId: employeeId,
+        OR: [
+          { companyId },
+          { user: { companyId } },
+        ],
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 100,
+      include: {
+        user: {
+          include: {
+            agentProfile: true,
+          },
+        },
+      },
+    });
+
+    const policyIds = commissions.map((c) => c.policyId).filter(Boolean);
+    const policies = await this.prisma.policy.findMany({
+      where: { id: { in: policyIds }, companyId, deletedAt: null },
+      select: {
+        id: true,
+        policyNumber: true,
+        premiumAmount: true,
+        contact: { select: { firstName: true, lastName: true } },
+      },
+    });
+    const policyMap = new Map(policies.map((p) => [p.id, p]));
+
+    return commissions.map((c) => {
+      const pol = policyMap.get(c.policyId);
+      const grossPremium = pol ? Number(pol.premiumAmount) : Number(c.amount);
+      const commissionPercent =
+        grossPremium > 0
+          ? Math.round((Number(c.amount) / grossPremium) * 100)
+          : 0;
+      const customerName = pol?.contact
+        ? `${pol.contact.firstName} ${pol.contact.lastName || ''}`.trim()
+        : 'Customer';
+      const policyNumber =
+        pol?.policyNumber || 'POL-' + c.policyId.substring(0, 8).toUpperCase();
+
+      return {
+        id: c.id,
+        policyId: c.policyId,
+        policyNumber,
+        customerName,
+        agentName:
+          `${c.user?.firstName || ''} ${c.user?.lastName || ''}`.trim() ||
+          'Agent',
+        roleTier: c.roleTier,
+        grossPremium,
+        commissionPercent,
+        amount: Number(c.amount),
+        commissionAmount: Number(c.amount),
+        status: c.status,
+        payoutStatus:
+          c.status === 'PAID'
+            ? 'PAID'
+            : c.status === 'APPROVED'
+              ? 'APPROVED'
+              : c.status === 'REALIZED'
+                ? 'REALIZED'
+                : 'PENDING_APPROVAL',
+        createdAt: c.createdAt.toISOString(),
+      };
+    });
+  }
+
   @Get('commissions')
   @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE)
   @ApiOperation({ summary: 'List broker / agent commissions' })
@@ -488,6 +568,7 @@ export class FinanceController {
 
       return {
         id: c.id,
+        policyId: c.policyId,
         policyNumber,
         customerName,
         agentName:
@@ -496,6 +577,7 @@ export class FinanceController {
         roleTier: c.roleTier,
         grossPremium,
         commissionPercent,
+        amount: Number(c.amount),
         commissionAmount: Number(c.amount),
         status: c.status,
         payoutStatus:
@@ -637,8 +719,9 @@ export class FinanceController {
       type: 'QUARTERLY_TARGET',
       targetAmount: Number(t.targetGwp || 100000),
       achievedAmount: Number(t.achievedGwp || 0),
-      incentiveAmount: Math.round(Number(t.achievedGwp || 0) * 0.05),
-      status: 'PENDING',
+      incentiveAmount: null,
+      status: 'POLICY_PENDING',
+      policyStatus: 'PENDING_APPROVAL',
     }));
   }
 

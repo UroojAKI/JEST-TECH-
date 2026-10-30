@@ -3,6 +3,7 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/auth';
+import { getSafeInternalDestination } from '@/lib/api-client';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -20,9 +21,15 @@ export default function ProtectedRoute({ children, allowedRoles }: ProtectedRout
   useEffect(() => {
     if (!_hasHydrated) return;
     if (!isAuthenticated) {
-      router.push('/login');
+      const currentPath =
+        typeof window !== 'undefined'
+          ? window.location.pathname + window.location.search
+          : '';
+      const safeTarget = getSafeInternalDestination(currentPath);
+      const returnUrlParam = encodeURIComponent(safeTarget);
+      router.replace(`/login?returnUrl=${returnUrlParam}`);
     } else if (!hasAllowedRole) {
-      router.push('/unauthorized');
+      router.replace('/unauthorized');
     }
   }, [isAuthenticated, user, allowedRoles, router, _hasHydrated, hasAllowedRole]);
 
@@ -51,7 +58,6 @@ export default function ProtectedRoute({ children, allowedRoles }: ProtectedRout
   if (!hasAllowedRole) {
     return null;
   }
-
 
   return <>{children}</>;
 }

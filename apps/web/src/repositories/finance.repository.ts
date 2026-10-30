@@ -107,6 +107,7 @@ export interface LedgerEntryItem {
 
 export interface CommissionItem {
   id: string;
+  policyId?: string;
   policyNumber: string;
   customerName: string;
   agentName: string;
@@ -114,8 +115,9 @@ export interface CommissionItem {
   grossPremium: number;
   commissionPercent: number;
   commissionAmount: number;
-  status: 'ACCRUED' | 'REALIZED';
-  payoutStatus: 'PENDING_APPROVAL' | 'APPROVED' | 'PAID';
+  amount: number;
+  status: 'ACCRUED' | 'REALIZED' | 'APPROVED' | 'PAID' | 'CANCELLED';
+  payoutStatus: 'PENDING_APPROVAL' | 'APPROVED' | 'PAID' | 'REALIZED';
   createdAt: string;
 }
 
@@ -137,8 +139,9 @@ export interface IncentiveItem {
   type: string;
   targetAmount: number;
   achievedAmount: number;
-  incentiveAmount: number;
-  status: 'PENDING' | 'APPROVED' | 'DISBURSED';
+  incentiveAmount: number | null;
+  status: 'PENDING' | 'APPROVED' | 'DISBURSED' | 'POLICY_PENDING';
+  policyStatus?: string;
 }
 
 /** Safely normalize any API response to an array */
@@ -206,6 +209,11 @@ export const financeRepository = {
 
   async getCommissions(): Promise<CommissionItem[]> {
     const response = await apiClient.get('/finance/commissions');
+    return toArray<CommissionItem>(response.data);
+  },
+
+  async getMyCommissions(): Promise<CommissionItem[]> {
+    const response = await apiClient.get('/finance/commissions/me');
     return toArray<CommissionItem>(response.data);
   },
 

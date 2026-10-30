@@ -77,6 +77,9 @@ describe('FinanceController', () => {
             customer: {
               findMany: jest.fn(),
             },
+            salesTarget: {
+              findMany: jest.fn(),
+            },
           },
         },
       ],
@@ -199,6 +202,112 @@ describe('FinanceController', () => {
           { id: 'user-1' } as any,
         ),
       ).rejects.toThrow(ForbiddenException);
+    });
+  });
+
+  describe('getMyCommissions', () => {
+    it('scopes query strictly to authenticated employee and company', async () => {
+      const actor = {
+        userId: 'agent-42',
+        id: 'agent-42',
+        companyId: 'comp-1',
+        roles: [RoleType.AGENT],
+      };
+
+      jest.spyOn(prisma.commission, 'findMany').mockResolvedValue([
+        {
+          id: 'comm-10',
+          policyId: 'pol-10',
+          amount: '1500',
+          roleTier: 'AGENT',
+          status: 'ACCRUED',
+          createdAt: new Date('2026-10-25T10:00:00Z'),
+          user: { firstName: 'Agent', lastName: 'FortyTwo' },
+        },
+      ] as any);
+
+      jest.spyOn(prisma.policy, 'findMany').mockResolvedValue([
+        {
+          id: 'pol-10',
+          policyNumber: 'POL-202610-0010',
+          premiumAmount: '15000',
+          contact: { firstName: 'Customer', lastName: 'One' },
+        },
+      ] as any);
+
+      const result = await controller.getMyCommissions(actor as any);
+
+      expect(prisma.commission.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            userId: 'agent-42',
+            OR: [{ companyId: 'comp-1' }, { user: { companyId: 'comp-1' } }],
+          }),
+        }),
+      );
+      expect(result).toHaveLength(1);
+      expect(result[0].amount).toBe(1500);
+      expect(result[0].commissionAmount).toBe(1500);
+      expect(result[0].policyNumber).toBe('POL-202610-0010');
+      expect(result[0].customerName).toBe('Customer One');
+    });
+
+    it('rejects employee commission request when company context is missing', async () => {
+      await expect(
+        controller.getMyCommissions({ userId: 'agent-1' } as any),
+      ).rejects.toThrow(ForbiddenException);
+    });
+  });
+
+  describe('getCommissions (Admin)', () => {
+    it('returns both amount and commissionAmount in canonical shape', async () => {
+      jest.spyOn(prisma.commission, 'findMany').mockResolvedValue([
+        {
+          id: 'comm-1',
+          policyId: 'pol-1',
+          amount: '2000',
+          roleTier: 'AGENT',
+          status: 'APPROVED',
+          createdAt: new Date('2026-10-20T10:00:00Z'),
+          user: { firstName: 'Agent', lastName: 'Smith' },
+        },
+      ] as any);
+
+      jest.spyOn(prisma.policy, 'findMany').mockResolvedValue([
+        {
+          id: 'pol-1',
+          policyNumber: 'POL-1001',
+          premiumAmount: '20000',
+          contact: { firstName: 'John', lastName: 'Doe' },
+        },
+      ] as any);
+
+      const result = await controller.getCommissions(mockUser as any);
+      expect(result).toHaveLength(1);
+      expect(result[0].amount).toBe(2000);
+      expect(result[0].commissionAmount).toBe(2000);
+      expect(result[0].payoutStatus).toBe('APPROVED');
+    });
+  });
+
+  describe('getIncentives', () => {
+    it('returns targets with null incentiveAmount and POLICY_PENDING status without inventing formulas', async () => {
+      jest.spyOn(prisma.salesTarget, 'findMany').mockResolvedValue([
+        {
+          id: 'tgt-1',
+          targetGwp: '500000',
+          achievedGwp: '300000',
+          user: { firstName: 'Sales', lastName: 'Rep' },
+        },
+      ] as any);
+
+      const result = await controller.getIncentives(mockUser as any);
+      expect(result).toHaveLength(1);
+      expect(result[0].targetAmount).toBe(500000);
+      expect(result[0].achievedAmount).toBe(300000);
+      expect(result[0].incentiveAmount).toBeNull();
+      expect(result[0].status).toBe('POLICY_PENDING');
+      expect(result[0].policyStatus).toBe('PENDING_APPROVAL');
     });
   });
 });
