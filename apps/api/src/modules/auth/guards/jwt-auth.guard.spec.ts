@@ -111,6 +111,9 @@ describe('JwtAuthGuard & ActorContext (Iteration 1 Baseline)', () => {
         permissions: ['quotation.create', 'quotation.read'],
         workspaces: ['SALES', 'RENEWALS', 'CLAIMS', 'PORTAL'],
         status: UserStatus.ACTIVE,
+        agentId: undefined,
+        agentCode: undefined,
+        isPlatformAdmin: false,
       });
     });
 
