@@ -21,6 +21,7 @@ export class UserMapper {
         name: user.role.name,
         code: user.role.code,
       },
+      lastLoginAt: user.lastLoginAt ? new Date(user.lastLoginAt).toISOString() : null,
       createdAt: user.createdAt,
     };
   }

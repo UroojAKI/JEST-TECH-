@@ -30,6 +30,7 @@ import { RenewalWizardDrawer } from '../../../components/policies/drawers/Renewa
 import { EndorsementRequestDrawer } from '../../../components/policies/drawers/EndorsementRequestDrawer';
 import { useEndorsements } from '../../../hooks/useEndorsements';
 import { useAuthStore } from '../../../store/auth-store';
+import { PolicyDocumentsSection } from '../../../components/policies/PolicyDocumentsSection';
 
 export default function PolicyWorkspacePage() {
   const params = useParams();
@@ -49,7 +50,7 @@ export default function PolicyWorkspacePage() {
     ['ADMIN', 'SUPER_ADMIN', 'SYSTEM_ADMINISTRATOR', 'BACK_OFFICE', 'OPERATIONS', 'UNDERWRITER'].includes(r),
   );
 
-  const { data: policyData, isLoading, isError } = useQuery({
+  const { data: policyData, isLoading, isError, refetch } = useQuery({
     queryKey: ['policy-workspace', policyId],
     queryFn: () => policiesRepository.getPolicyWorkspace(policyId),
     enabled: !!policyId,
@@ -276,7 +277,7 @@ export default function PolicyWorkspacePage() {
             { id: 'OVERVIEW', label: 'Overview' },
             { id: 'ENDORSEMENTS', label: 'Endorsements', badge: endorsementsList.length },
             { id: 'CLAIMS', label: 'Claims History', badge: claimsCount },
-            { id: 'DOCUMENTS', label: 'Foldered Documents', badge: documentsList.length },
+            { id: 'DOCUMENTS', label: 'Documents Vault', badge: documentsList.length },
             { id: 'PAYMENTS', label: 'Payments Ledger', badge: paymentsList.length },
             { id: 'TIMELINE', label: 'Operational Timeline', badge: historiesList.length },
           ].map((t) => (
@@ -471,31 +472,13 @@ export default function PolicyWorkspacePage() {
 
           {/* TAB 4: DOCUMENTS */}
           {activeTab === 'DOCUMENTS' && (
-            <div className="space-y-3">
-              <div className="flex justify-between items-center">
-                <h4 className="font-bold text-sm">Foldered Policy Documents</h4>
-              </div>
-
-              {documentsList.length > 0 ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                  {documentsList.map((doc: any) => (
-                    <div key={doc.id} className="p-4 rounded-xl border bg-card flex items-center space-x-3">
-                      <FileCheck className="h-6 w-6 text-emerald-600 shrink-0" />
-                      <div className="truncate flex-1">
-                        <div className="font-bold text-xs truncate">{doc.fileName || doc.documentType || 'Document'}</div>
-                        <span className="text-[10px] text-muted-foreground block">
-                          {doc.documentType} • {new Date(doc.createdAt).toLocaleDateString('en-IN')}
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="p-8 text-center text-muted-foreground rounded-xl border border-dashed">
-                  No documents currently stored in this policy vault.
-                </div>
-              )}
-            </div>
+            <PolicyDocumentsSection
+              policyId={policyId}
+              quotationId={policyData?.quotationId}
+              documents={documentsList}
+              canUpload={canApproveEndorsement}
+              onDocumentUploaded={() => refetch()}
+            />
           )}
 
           {/* TAB 5: PAYMENTS */}

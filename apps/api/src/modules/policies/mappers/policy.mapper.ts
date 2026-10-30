@@ -2,7 +2,7 @@ import { PolicyResponseDto } from '../dto/policy-response.dto';
 import { PolicyWithRelations } from '../repositories/policy.repository';
 
 export class PolicyMapper {
-  static toResponse(p: PolicyWithRelations): PolicyResponseDto {
+  static toResponse(p: PolicyWithRelations, directDocs?: any[]): PolicyResponseDto {
     const dto = new PolicyResponseDto();
     dto.id = p.id;
     dto.policyNumber = p.policyNumber;
@@ -292,16 +292,139 @@ export class PolicyMapper {
       }));
     }
 
-    if (p.documents) {
-      dto.documents = p.documents.map((doc) => ({
-        id: doc.id,
-        documentType: doc.documentType,
-        fileKey: doc.fileKey,
-        fileName: doc.fileName,
-        fileSize: doc.fileSize,
-        createdAt: doc.createdAt,
-      }));
+    const unifiedDocs: any[] = [];
+    const seenIds = new Set<string>();
+
+    if (Array.isArray(p.documents)) {
+      for (const doc of p.documents) {
+        if (!seenIds.has(doc.id)) {
+          seenIds.add(doc.id);
+          unifiedDocs.push({
+            id: doc.id,
+            documentId: null,
+            documentType: doc.documentType || 'POLICY_DOCUMENT',
+            fileKey: doc.fileKey,
+            fileName: doc.fileName || doc.documentType || 'Policy Document',
+            fileSize: doc.fileSize || 0,
+            createdAt: doc.createdAt,
+            source: 'POLICY',
+            verificationStatus: 'VERIFIED',
+          });
+        }
+      }
     }
+
+    const quote = p.quotation as any;
+    if (quote?.motorDocuments && Array.isArray(quote.motorDocuments)) {
+      for (const mDoc of quote.motorDocuments) {
+        const idKey = mDoc.documentId || mDoc.id;
+        if (!seenIds.has(idKey)) {
+          seenIds.add(idKey);
+          const coreDoc = mDoc.document;
+          unifiedDocs.push({
+            id: mDoc.id,
+            documentId: mDoc.documentId || null,
+            documentType: mDoc.documentType || 'MOTOR_DOCUMENT',
+            fileKey: coreDoc?.fileKey || coreDoc?.fileUrl || '',
+            fileName: coreDoc?.originalFileName || coreDoc?.fileName || coreDoc?.name || mDoc.documentType || 'Quotation Document',
+            fileSize: coreDoc?.fileSize || coreDoc?.size || 0,
+            mimeType: coreDoc?.mimeType || 'application/pdf',
+            createdAt: mDoc.createdAt || coreDoc?.createdAt || p.createdAt,
+            source: 'QUOTATION',
+            verificationStatus: mDoc.verificationStatus || 'PENDING',
+          });
+        }
+      }
+    }
+
+    if (quote?.healthDocuments && Array.isArray(quote.healthDocuments)) {
+      for (const hDoc of quote.healthDocuments) {
+        const idKey = hDoc.documentId || hDoc.id;
+        if (!seenIds.has(idKey)) {
+          seenIds.add(idKey);
+          const coreDoc = hDoc.document;
+          unifiedDocs.push({
+            id: hDoc.id,
+            documentId: hDoc.documentId || null,
+            documentType: hDoc.documentType || 'HEALTH_DOCUMENT',
+            fileKey: coreDoc?.fileKey || coreDoc?.fileUrl || '',
+            fileName: coreDoc?.originalFileName || coreDoc?.fileName || coreDoc?.name || hDoc.documentType || 'Health Document',
+            fileSize: coreDoc?.fileSize || coreDoc?.size || 0,
+            mimeType: coreDoc?.mimeType || 'application/pdf',
+            createdAt: hDoc.createdAt || coreDoc?.createdAt || p.createdAt,
+            source: 'QUOTATION',
+            verificationStatus: hDoc.verificationStatus || 'PENDING',
+          });
+        }
+      }
+    }
+
+    const caseDocs = [
+      ...(Array.isArray(quote?.case?.documents) ? quote.case.documents : []),
+      ...(Array.isArray(quote?.healthCase?.documents) ? quote.healthCase.documents : []),
+    ];
+    for (const cDoc of caseDocs) {
+      const idKey = cDoc.documentId || cDoc.id;
+      if (!seenIds.has(idKey)) {
+        seenIds.add(idKey);
+        const coreDoc = cDoc.document;
+        unifiedDocs.push({
+          id: cDoc.id,
+          documentId: cDoc.documentId || null,
+          documentType: cDoc.documentType || 'CASE_DOCUMENT',
+          fileKey: coreDoc?.fileKey || coreDoc?.fileUrl || '',
+          fileName: coreDoc?.originalFileName || coreDoc?.fileName || coreDoc?.name || cDoc.documentType || 'Case Document',
+          fileSize: coreDoc?.fileSize || coreDoc?.size || 0,
+          mimeType: coreDoc?.mimeType || 'application/pdf',
+          createdAt: cDoc.createdAt || coreDoc?.createdAt || p.createdAt,
+          source: 'QUOTATION',
+          verificationStatus: cDoc.verificationStatus || 'PENDING',
+        });
+      }
+    }
+
+    if (quote?.documents && Array.isArray(quote.documents)) {
+      for (const qDoc of quote.documents) {
+        if (!seenIds.has(qDoc.id)) {
+          seenIds.add(qDoc.id);
+          unifiedDocs.push({
+            id: qDoc.id,
+            documentId: null,
+            documentType: qDoc.documentType || 'QUOTATION_DOCUMENT',
+            fileKey: qDoc.fileKey || '',
+            fileName: qDoc.fileKey ? qDoc.fileKey.split('/').pop() || qDoc.documentType : 'Quotation Document',
+            fileSize: 0,
+            createdAt: qDoc.createdAt || p.createdAt,
+            source: 'QUOTATION',
+            verificationStatus: 'VERIFIED',
+          });
+        }
+      }
+    }
+
+    // 6. Direct Documents from core Document table (matching policy, quote, or inspection)
+    if (directDocs && Array.isArray(directDocs)) {
+      for (const d of directDocs) {
+        if (!seenIds.has(d.id)) {
+          seenIds.add(d.id);
+          const isPolicyDoc = d.entityType === 'POLICY' || d.entityType === 'ENDORSEMENT';
+          unifiedDocs.push({
+            id: d.id,
+            documentId: d.id,
+            documentType: d.name || (isPolicyDoc ? 'POLICY_DOCUMENT' : 'QUOTATION_DOCUMENT'),
+            fileKey: d.storageKey || d.fileUrl || '',
+            fileName: d.originalFileName || d.name || 'Document',
+            fileSize: d.size || 0,
+            mimeType: d.mimeType || 'application/pdf',
+            createdAt: d.createdAt || p.createdAt,
+            source: isPolicyDoc ? 'POLICY' : 'QUOTATION',
+            verificationStatus: d.verificationStatus || 'VERIFIED',
+          });
+        }
+      }
+    }
+
+    dto.documents = unifiedDocs;
 
     if (p.histories) {
       dto.histories = p.histories.map((h) => ({
@@ -353,7 +476,12 @@ export class PolicyMapper {
     return dto;
   }
 
-  static toResponseList(policies: PolicyWithRelations[]): PolicyResponseDto[] {
-    return policies.map((p) => this.toResponse(p));
+  static toResponseList(
+    policies: PolicyWithRelations[],
+    directDocsMap?: Map<string, any[]>,
+  ): PolicyResponseDto[] {
+    return policies.map((p) =>
+      this.toResponse(p, directDocsMap ? directDocsMap.get(p.id) : undefined),
+    );
   }
 }

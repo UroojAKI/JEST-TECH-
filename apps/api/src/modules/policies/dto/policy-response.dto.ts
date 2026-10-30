@@ -41,6 +41,10 @@ export class PolicyDocumentResponseDto {
   fileName: string;
   fileSize: number;
   createdAt: Date;
+  source?: 'POLICY' | 'QUOTATION';
+  verificationStatus?: string | null;
+  documentId?: string | null;
+  mimeType?: string | null;
 }
 
 export class PolicyHistoryResponseDto {

@@ -1,8 +1,9 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { AppShell } from '../../../components/layout/app-shell';
-import { Users, Plus, Key, Lock, Unlock, Search, Loader2, CheckCircle2, Copy } from 'lucide-react';
+import { Users, Plus, Key, Lock, Unlock, Search, Loader2, CheckCircle2, Copy, Eye } from 'lucide-react';
 import { StatusBadge } from '../../../components/ui/status-badge';
 import { toast } from 'sonner';
 import { useAdminUsers } from '../../../hooks/useAdmin';
@@ -424,8 +425,16 @@ export default function UserManagementPage() {
           <tbody className="divide-y">
             {(Array.isArray(users) ? users : ((users as any)?.data || (users as any)?.items || [])).map((u: any) => (
               <tr key={u.id} className="hover:bg-accent/40">
-                <td className="p-3 font-mono font-bold text-primary">{u.employeeCode}</td>
-                <td className="p-3 font-semibold">{u.firstName} {u.lastName}</td>
+                <td className="p-3 font-mono font-bold text-primary">
+                  <Link href={`/admin/users/${u.id}`} className="hover:underline text-primary flex items-center gap-1">
+                    {u.employeeCode || 'N/A'}
+                  </Link>
+                </td>
+                <td className="p-3 font-semibold">
+                  <Link href={`/admin/users/${u.id}`} className="hover:underline hover:text-primary">
+                    {u.firstName} {u.lastName}
+                  </Link>
+                </td>
                 <td className="p-3 text-muted-foreground font-mono">{u.email}</td>
                 <td className="p-3 font-bold">
                   <span className="px-2 py-0.5 rounded bg-primary/10 text-primary border border-primary/20 text-[10px]">
@@ -459,6 +468,13 @@ export default function UserManagementPage() {
                 <td className="p-3 text-muted-foreground font-mono text-[11px]">{u.lastLoginAt || 'Never'}</td>
                 <td className="p-3 text-right">
                   <div className="flex items-center justify-end space-x-1">
+                    <Link
+                      href={`/admin/users/${u.id}`}
+                      className="p-1.5 rounded border bg-background hover:bg-accent text-foreground"
+                      title="View User 360 Workspace"
+                    >
+                      <Eye className="h-3.5 w-3.5 text-primary" />
+                    </Link>
                     <button
                       onClick={() => handleToggleLock(u)}
                       disabled={isUpdating}

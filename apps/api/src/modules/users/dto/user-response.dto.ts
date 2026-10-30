@@ -31,5 +31,7 @@ export class UserResponseDto {
     code: string;
   };
 
+  lastLoginAt?: string | null;
+
   createdAt: Date;
 }

@@ -96,6 +96,16 @@ export class UsersController {
     return this.usersService.findAll(pagination, status, actor);
   }
 
+  @Get(':id/workspace')
+  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE)
+  @ApiOperation({ summary: 'Get comprehensive User 360 workspace portfolio and profile' })
+  getUserWorkspace(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() actor?: RequestUser,
+  ) {
+    return this.usersService.getUserWorkspace(id, actor);
+  }
+
   @Get(':id')
   @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE)
   findOne(

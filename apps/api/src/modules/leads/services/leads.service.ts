@@ -3,6 +3,8 @@ import {
   ForbiddenException,
   Injectable,
   NotFoundException,
+  ConflictException,
+  Optional,
 } from '@nestjs/common';
 import { Prisma, LeadStatus, LeadSource } from '@prisma/client';
 
@@ -16,6 +18,7 @@ import { CreateActivityDto } from '../dto/create-activity.dto';
 import { ContactsService } from '../../contacts/services/contacts.service';
 import { AccountsService } from '../../accounts/services/accounts.service';
 import { UsersService } from '../../users/services/users.service';
+import { CrmIdentityService } from '../../crm-identity/services/crm-identity.service';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { LeadConvertedEvent } from '../events/lead-converted.event';
 import { ActorContext } from '../../../common/interfaces/actor-context.interface';
@@ -36,6 +39,7 @@ export class LeadsService {
     private readonly prisma: PrismaService,
     private readonly authzService: ResourceAuthorizationService,
     private readonly scopeResolver: ScopeResolver,
+    @Optional() private readonly crmIdentityService?: CrmIdentityService,
   ) {}
 
   async create(dto: CreateLeadDto, actor: ActorContext) {
@@ -85,6 +89,33 @@ export class LeadsService {
     }
 
     let targetContactId = linkedCustomer?.contactId || dto.contactId;
+
+    if (!targetContactId && this.crmIdentityService) {
+      const match = await this.crmIdentityService.resolveIdentity({
+        companyId,
+        phone: dto.phone,
+        email: dto.email,
+        contactId: dto.contactId,
+        customerId: dto.customerId,
+      });
+
+      if (match.status === 'AMBIGUOUS') {
+        throw new ConflictException({
+          statusCode: 409,
+          error: 'Conflict',
+          message:
+            match.conflictReason ||
+            'Ambiguous identity matches multiple contacts.',
+        });
+      }
+
+      if (match.contact) {
+        targetContactId = match.contact.id;
+      }
+      if (!linkedCustomer && match.customer) {
+        linkedCustomer = match.customer;
+      }
+    }
 
     if (targetContactId) {
       try {
@@ -632,10 +663,27 @@ export class LeadsService {
     }
 
     const updatedById = actor.userId || (actor as any).id;
-    const updated = await this.leadRepository.update(id, {
+    let customerId = (existing as any).customerId;
+    if (!customerId && (existing as any).contactId && this.prisma.customer?.findFirst) {
+      const customer = await this.prisma.customer.findFirst({
+        where: {
+          contactId: (existing as any).contactId,
+          companyId: existing.companyId,
+          deletedAt: null,
+        },
+      });
+      customerId = customer?.id || null;
+    }
+
+    const updatePayload: any = {
       status: LeadStatus.CONVERTED,
       updatedBy: { connect: { id: updatedById } },
-    });
+    };
+    if (customerId) {
+      updatePayload.customer = { connect: { id: customerId } };
+    }
+
+    const updated = await this.leadRepository.update(id, updatePayload);
 
     const responseDto = LeadMapper.toResponse(updated);
 

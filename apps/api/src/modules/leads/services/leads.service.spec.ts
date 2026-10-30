@@ -266,6 +266,33 @@ describe('LeadsService', () => {
       );
     });
 
+    it('connects customerId on conversion when customer is linked to contact', async () => {
+      const mockLead = {
+        id: 'lead-1',
+        status: LeadStatus.NEW,
+        leadCode: 'LD-0001',
+        contactId: 'contact-1',
+        companyId: 'org-1',
+      };
+      mockLeadRepository.findById.mockResolvedValue(mockLead as any);
+      mockPrismaService.customer = {
+        findFirst: jest.fn().mockResolvedValue({ id: 'cust-123' }),
+      };
+      mockLeadRepository.update.mockResolvedValue({
+        ...mockLead,
+        customerId: 'cust-123',
+        status: LeadStatus.CONVERTED,
+      } as any);
+
+      await service.convert('lead-1', 'user-1');
+
+      expect(mockLeadRepository.update).toHaveBeenCalledWith('lead-1', {
+        status: LeadStatus.CONVERTED,
+        customer: { connect: { id: 'cust-123' } },
+        updatedBy: { connect: { id: 'user-1' } },
+      });
+    });
+
     it('already converted lead -> throws BadRequestException', async () => {
       const mockLead = { id: 'lead-1', status: LeadStatus.CONVERTED };
       mockLeadRepository.findById.mockResolvedValue(mockLead as any);

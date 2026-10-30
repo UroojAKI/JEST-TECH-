@@ -21,6 +21,35 @@ export const policyWithRelations = Prisma.validator<Prisma.PolicyDefaultArgs>()(
       quotation: {
         include: {
           motorPaymentRecord: true,
+          motorDocuments: {
+            include: {
+              document: true,
+            },
+          },
+          healthDocuments: {
+            include: {
+              document: true,
+            },
+          },
+          documents: true,
+          case: {
+            include: {
+              documents: {
+                include: {
+                  document: true,
+                },
+              },
+            },
+          },
+          healthCase: {
+            include: {
+              documents: {
+                include: {
+                  document: true,
+                },
+              },
+            },
+          },
         },
       },
       vehicle: true,

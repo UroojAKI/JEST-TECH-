@@ -58,6 +58,7 @@ export function usePolicyWorkspace(id: string) {
     policy: query.data,
     isLoading: query.isLoading,
     isError: query.isError,
+    refetch: query.refetch,
     renewPolicy: renewMutation.mutate,
     cancelPolicy: cancelMutation.mutate,
     isRenewing: renewMutation.isPending,

@@ -1,6 +1,19 @@
 import { apiClient } from '../lib/api-client';
 import { PaginatedResult, PaginationParams } from '../types';
 
+export interface PolicyDocumentItem {
+  id: string;
+  documentId?: string | null;
+  documentType: string;
+  fileKey?: string;
+  fileName: string;
+  fileSize?: number;
+  mimeType?: string | null;
+  createdAt: string;
+  source?: 'POLICY' | 'QUOTATION';
+  verificationStatus?: string | null;
+}
+
 export interface PolicyVehicle {
   id?: string;
   registrationNumber?: string | null;
@@ -56,7 +69,7 @@ export interface PolicyItem {
   vehicle?: PolicyVehicle | null;
   claims?: any[];
   endorsements?: any[];
-  documents?: any[];
+  documents?: PolicyDocumentItem[];
   payments?: any[];
   renewals?: any[];
   histories?: any[];

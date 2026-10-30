@@ -22,7 +22,9 @@ import {
   Layers,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { usePolicies } from '../../hooks/usePolicies';
+import { usePolicies, usePolicyWorkspace } from '../../hooks/usePolicies';
+import { useAuthStore } from '../../store/auth-store';
+import { PolicyDocumentsSection } from '../../components/policies/PolicyDocumentsSection';
 import { formatCurrency } from '../../lib/formatters';
 
 export default function PolicyRegisterPage() {
@@ -31,9 +33,21 @@ export default function PolicyRegisterPage() {
   const [productFilter, setProductFilter] = useState<'ALL' | 'MOTOR' | 'HEALTH'>('ALL');
   const [selectedPolicy, setSelectedPolicy] = useState<any | null>(null);
 
+  const authUser = useAuthStore((s) => s.user);
+  const userRoles = [
+    ...(authUser?.roles || []),
+    authUser?.role,
+  ].filter(Boolean).map((r) => String(r).toUpperCase());
+  const canUpload = userRoles.some((r) =>
+    ['ADMIN', 'SUPER_ADMIN', 'SYSTEM_ADMINISTRATOR', 'BACK_OFFICE', 'OPERATIONS', 'UNDERWRITER'].includes(r),
+  );
+
   const { policies, isLoading, isError, refetch } = usePolicies({
     status: savedView !== 'ALL' ? savedView : undefined,
   });
+
+  const { policy: activePolicyDetail, refetch: refetchPolicyDetail } = usePolicyWorkspace(selectedPolicy?.id || '');
+  const modalDocuments = activePolicyDetail?.documents || selectedPolicy?.documents || [];
 
   const isHealthPolicy = (p: any): boolean => {
     if (!p) return false;
@@ -681,6 +695,18 @@ export default function PolicyRegisterPage() {
                   </div>
                 </div>
               )}
+
+              {/* Uploaded Documents & Quotation Vault */}
+              <PolicyDocumentsSection
+                policyId={selectedPolicy.id}
+                quotationId={selectedPolicy.quotationId}
+                documents={modalDocuments}
+                canUpload={canUpload}
+                onDocumentUploaded={() => {
+                  refetchPolicyDetail();
+                  refetch();
+                }}
+              />
             </div>
 
             {/* Modal Footer */}
