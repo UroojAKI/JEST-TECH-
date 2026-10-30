@@ -15,8 +15,9 @@ import { RolesGuard } from '../../../auth/guards/roles.guard';
 import { Roles } from '../../../auth/decorators/roles.decorator';
 import { CurrentUser } from '../../../auth/decorators/current-user.decorator';
 import type { RequestUser } from '../../../auth/decorators/current-user.decorator';
-import { RoleType, AccessScope } from '@prisma/client';
+import { RoleType, AccessScope, PermissionCategory } from '@prisma/client';
 import { PrismaService } from '../../../../database/prisma.service';
+import { PERMISSION_CATALOG } from '../../../auth/constants/permission-catalog';
 
 export interface UpdateRolePermissionsDto {
   permissions: Array<{
@@ -145,38 +146,61 @@ export class RolesController {
 
       for (const p of dto.permissions) {
         if (p.permissionId) {
-          resolvedIds.add(p.permissionId);
-          toCreateRoleLinks.push({
-            roleId: role.id,
-            permissionId: p.permissionId,
-            scope:
-              p.scope && Object.values(AccessScope).includes(p.scope)
-                ? p.scope
-                : AccessScope.ORGANIZATION,
+          const perm = await tx.permission.findUnique({
+            where: { id: p.permissionId },
           });
+          if (!perm) {
+            throw new BadRequestException(
+              `Permission with ID '${p.permissionId}' not found. All permissions must belong to the canonical permission catalog.`,
+            );
+          }
+          if (!resolvedIds.has(perm.id)) {
+            resolvedIds.add(perm.id);
+            toCreateRoleLinks.push({
+              roleId: role.id,
+              permissionId: perm.id,
+              scope:
+                p.scope && Object.values(AccessScope).includes(p.scope)
+                  ? p.scope
+                  : AccessScope.ORGANIZATION,
+            });
+          }
         } else if (p.code) {
+          const rawCode = p.code.trim();
+          const catalogEntry = PERMISSION_CATALOG.find(
+            (c) =>
+              c.code.toLowerCase() === rawCode.toLowerCase() ||
+              c.code.toUpperCase() === rawCode.toUpperCase(),
+          );
+
           let perm = await tx.permission.findFirst({
             where: {
               OR: [
-                { code: p.code },
-                { code: p.code.toLowerCase() },
-                { code: p.code.toUpperCase() },
+                { code: rawCode },
+                { code: rawCode.toLowerCase() },
+                { code: rawCode.toUpperCase() },
               ],
             },
           });
 
-          if (!perm) {
+          if (!perm && !catalogEntry) {
+            throw new BadRequestException(
+              `Unknown permission code '${p.code}'. All permissions must belong to the canonical permission catalog.`,
+            );
+          }
+
+          if (!perm && catalogEntry) {
             perm = await tx.permission.create({
               data: {
-                name: p.code,
-                code: p.code,
-                category: 'SYSTEM',
-                description: `Permission for ${p.code}`,
+                name: catalogEntry.name,
+                code: catalogEntry.code,
+                category: (catalogEntry.category as PermissionCategory) || PermissionCategory.SYSTEM,
+                description: catalogEntry.description,
               },
             });
           }
 
-          if (!resolvedIds.has(perm.id)) {
+          if (perm && !resolvedIds.has(perm.id)) {
             resolvedIds.add(perm.id);
             toCreateRoleLinks.push({
               roleId: role.id,
@@ -192,24 +216,42 @@ export class RolesController {
           const categorySlug = p.category
             .toUpperCase()
             .replace(/[^A-Z0-9]+/g, '_');
-          const code = `${actionCode}_${categorySlug}`;
+          const codeUpper = `${actionCode}_${categorySlug}`;
+          const codeColon = `${p.action.toLowerCase()}:${p.category.toLowerCase()}`;
+
+          const catalogEntry = PERMISSION_CATALOG.find(
+            (c) =>
+              c.code.toLowerCase() === codeColon ||
+              c.code.toUpperCase() === codeUpper,
+          );
 
           let perm = await tx.permission.findFirst({
-            where: { code },
+            where: {
+              OR: [
+                { code: codeUpper },
+                { code: codeColon },
+              ],
+            },
           });
 
-          if (!perm) {
+          if (!perm && !catalogEntry) {
+            throw new BadRequestException(
+              `Unknown permission category '${p.category}' and action '${p.action}'. All permissions must belong to the canonical permission catalog.`,
+            );
+          }
+
+          if (!perm && catalogEntry) {
             perm = await tx.permission.create({
               data: {
-                name: `${p.action.charAt(0).toUpperCase() + p.action.slice(1)} ${p.category}`,
-                code,
-                category: 'SYSTEM',
-                description: `Allows ${p.action} operations on ${p.category}`,
+                name: catalogEntry.name,
+                code: catalogEntry.code,
+                category: (catalogEntry.category as PermissionCategory) || PermissionCategory.SYSTEM,
+                description: catalogEntry.description,
               },
             });
           }
 
-          if (!resolvedIds.has(perm.id)) {
+          if (perm && !resolvedIds.has(perm.id)) {
             resolvedIds.add(perm.id);
             toCreateRoleLinks.push({
               roleId: role.id,
@@ -220,8 +262,21 @@ export class RolesController {
                   : AccessScope.ORGANIZATION,
             });
           }
+        } else {
+          throw new BadRequestException(
+            'Each permission item must specify at least a permissionId, code, or action and category.',
+          );
         }
       }
+
+      // Capture previous permissions before updating for durable audit trail
+      const existingRolePerms = await tx.rolePermission.findMany({
+        where: { roleId: role.id },
+        include: { permission: true },
+      });
+      const oldPermissionCodes = existingRolePerms.map(
+        (rp) => rp.permission?.code || rp.permissionId,
+      );
 
       // Delete existing role permissions
       await tx.rolePermission.deleteMany({
@@ -236,20 +291,28 @@ export class RolesController {
         });
       }
 
-      // Log audit
-      await tx.auditLog
-        .create({
-          data: {
-            action: 'UPDATE',
-            entity: 'RolePermission',
-            entityType: 'ROLE_PERMISSION',
-            entityId: role.id,
-            performedById: actor?.id || null,
-            newValue: { permissionsCount: toCreateRoleLinks.length },
-            module: 'ADMIN_RBAC',
+      // Durable transactional audit logging (no silent catch)
+      await tx.auditLog.create({
+        data: {
+          action: 'UPDATE',
+          entity: 'RolePermission',
+          entityType: 'ROLE_PERMISSION',
+          entityId: role.id,
+          performedById: actor?.id || null,
+          metadata: { companyId: actor?.companyId || null },
+          oldValue: {
+            roleCode: role.code || role.type,
+            permissionsCount: oldPermissionCodes.length,
+            permissions: oldPermissionCodes,
           },
-        })
-        .catch(() => {});
+          newValue: {
+            roleCode: role.code || role.type,
+            permissionsCount: toCreateRoleLinks.length,
+            permissions: Array.from(resolvedIds),
+          },
+          module: 'ADMIN_RBAC',
+        },
+      });
 
       return {
         success: true,

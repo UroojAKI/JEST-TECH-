@@ -89,7 +89,7 @@ export class GenerateQuotationService {
       ? this.addonsService.calculateAddonsTotal(dto.addons)
       : 0;
 
-    let baseTp = Number((dto as any).tpPremium || 0);
+    const baseTp = Number((dto as any).tpPremium || 0);
 
     const grossPreTaxPremium = baseOd + addonsTotal + baseTp;
     const totalDiscountAmount = ncbDiscount + specialOdDiscount;

@@ -120,6 +120,9 @@
     "transform": {
       "^.+\\.(t|j)s$": "ts-jest"
     },
+    "moduleNameMapper": {
+      "^decode-uri-component$": "<rootDir>/../test/mocks/decode-uri-component.mock.ts"
+    },
     "collectCoverageFrom": [
       "**/*.(t|j)s"
     ],

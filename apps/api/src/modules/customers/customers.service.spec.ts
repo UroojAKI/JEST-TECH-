@@ -76,6 +76,12 @@ describe('CustomersService', () => {
         contact: { id: 'contact-uuid-1' },
         customer: mockCustomer,
       }),
+      normalizePhone: jest.fn((phone) => {
+        if (!phone) return null;
+        const digits = phone.replace(/\D/g, '');
+        return digits.length >= 10 ? digits.slice(-10) : null;
+      }),
+      getPhoneVariants: jest.fn((norm) => [norm, `+91${norm}`, `0${norm}`]),
     };
 
     const module: TestingModule = await Test.createTestingModule({

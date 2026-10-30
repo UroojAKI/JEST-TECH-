@@ -119,7 +119,7 @@ export default function PolicyAuditReportPage() {
 
   // KPI Calculations
   const kpis = useMemo(() => {
-    let totalPolicies = filteredPolicies.length;
+    const totalPolicies = filteredPolicies.length;
     let totalNetPremium = 0;
     let totalGst = 0;
     let totalNetPayable = 0;

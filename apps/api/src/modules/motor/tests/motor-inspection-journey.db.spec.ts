@@ -28,7 +28,7 @@ databaseSuite('Motor inspection journey (dedicated PostgreSQL)', () => {
   const caseId = `insp-e2e-case-${suffix}`;
   let agentId: string;
   let backOfficeId: string;
-  let userIds: string[] = [];
+  const userIds: string[] = [];
   let contactId: string;
   let inspectionId: string;
   let taskId: string;

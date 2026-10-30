@@ -276,50 +276,75 @@ export class OrganizationService {
     actor?: ActorContext,
   ) {
     const orgId = this.assertActorOrg(actor);
-    let zoneId = dto.zoneId;
-    let resolvedState = dto.state;
 
-    if (!zoneId) {
-      const zoneWhere: Prisma.ZoneWhereInput = { isActive: true };
-      if (orgId) {
-        zoneWhere.region = { companyId: orgId };
-      }
-      const zone = await this.prisma.zone.findFirst({
-        where: zoneWhere,
-        include: { region: true },
-      });
-      if (!zone) {
-        throw new BadRequestException(
-          'No active zone configured to attach branch in your organization',
-        );
-      }
-      zoneId = zone.id;
-      if (!resolvedState && zone.region?.name) {
-        resolvedState = zone.region.name;
-      }
-    } else if (orgId) {
-      const zone = await this.prisma.zone.findFirst({
-        where: { id: zoneId, isActive: true, region: { companyId: orgId } },
-        include: { region: true },
-      });
-      if (!zone) {
-        throw new BadRequestException(
-          'Specified zone does not belong to your organization',
-        );
-      }
-      if (!resolvedState && zone.region?.name) {
-        resolvedState = zone.region.name;
-      }
+    if (!dto.name?.trim()) {
+      throw new BadRequestException('Branch name is required');
+    }
+    if (!dto.code?.trim()) {
+      throw new BadRequestException('Branch code is required');
+    }
+    if (!dto.city?.trim()) {
+      throw new BadRequestException('City is required');
+    }
+    if (!dto.zoneId) {
+      throw new BadRequestException(
+        'Zone ID is required to place branch within the organizational hierarchy',
+      );
+    }
+
+    // Verify Zone -> Region -> Company hierarchy
+    const zone = await this.prisma.zone.findFirst({
+      where: {
+        id: dto.zoneId,
+        isActive: true,
+        ...(orgId ? { region: { companyId: orgId } } : {}),
+      },
+      include: {
+        region: {
+          include: {
+            company: true,
+          },
+        },
+      },
+    });
+
+    if (!zone) {
+      throw new BadRequestException(
+        'Specified zone does not exist or does not belong to your organization',
+      );
+    }
+
+    const resolvedState = dto.state?.trim() || zone.region?.name;
+    if (!resolvedState) {
+      throw new BadRequestException(
+        'State is required for branch location',
+      );
+    }
+
+    const branchCode = dto.code.trim().toUpperCase();
+
+    // Check duplicate branch code within the tenant organization
+    const existing = await this.prisma.branch.findFirst({
+      where: {
+        code: branchCode,
+        zone: { region: { companyId: zone.region.companyId } },
+      },
+    });
+
+    if (existing) {
+      throw new BadRequestException(
+        `Branch with code '${branchCode}' already exists in your organization`,
+      );
     }
 
     return this.prisma.branch.create({
       data: {
-        name: dto.name,
-        code: dto.code.toUpperCase(),
-        city: dto.city,
-        state: resolvedState || 'Maharashtra',
-        address: dto.address || null,
-        zoneId,
+        name: dto.name.trim(),
+        code: branchCode,
+        city: dto.city.trim(),
+        state: resolvedState,
+        address: dto.address?.trim() || null,
+        zoneId: zone.id,
         isActive: true,
       },
       include: {

@@ -27,6 +27,16 @@ export class PermissionsGuard implements CanActivate {
       throw new ForbiddenException('Access denied. No permissions assigned.');
     }
 
+    // Super-admin wildcard / role bypass
+    if (
+      (Array.isArray(user.permissions) && user.permissions.includes('*')) ||
+      user.isSuperAdmin === true ||
+      user.role === 'SUPER_ADMIN' ||
+      user.role === 'PLATFORM_SUPER_ADMIN'
+    ) {
+      return true;
+    }
+
     const PERMISSION_ALIASES: Record<string, string[]> = {
       'REPORT_VIEW': ['report:read', 'report:view', 'REPORT_VIEW'],
       'report:read': ['REPORT_VIEW', 'report:read', 'report:view'],
@@ -41,7 +51,12 @@ export class PermissionsGuard implements CanActivate {
 
     const hasAllPermissions = requiredPermissions.every((required) => {
       const aliases = PERMISSION_ALIASES[required] || [required];
-      return aliases.some((p) => user.permissions.includes(p));
+      return aliases.some(
+        (p) =>
+          user.permissions.includes(p) ||
+          user.permissions.includes(p.toLowerCase()) ||
+          user.permissions.includes(p.toUpperCase()),
+      );
     });
 
     if (!hasAllPermissions) {

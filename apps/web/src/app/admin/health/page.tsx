@@ -24,7 +24,7 @@ export default function InfrastructureHealthPage() {
   const redisStatus = health?.checks?.redis?.status || 'disabled';
   const redisLatency = health?.checks?.redis?.latencyMs;
   const memoryHeapUsed = health?.checks?.memory?.heapUsedMB;
-  const memoryHeapLimit = health?.checks?.memory?.heapLimitMB || 512;
+  const memoryHeapLimit = health?.checks?.memory?.heapLimitMB || 1024;
   const memoryStatus = health?.checks?.memory?.status || 'ok';
   const outboxPending = health?.checks?.outbox?.pendingEvents ?? 0;
   const outboxFailed = health?.checks?.outbox?.failedEvents ?? 0;

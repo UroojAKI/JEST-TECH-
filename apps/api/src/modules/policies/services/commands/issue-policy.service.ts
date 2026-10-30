@@ -226,15 +226,15 @@ export class IssuePolicyService {
         ? new Date(healthMeta.policyEndDate)
         : null;
 
-    let effectiveDate =
+    const effectiveDate =
       quoteEffective ||
       (dto.effectiveDate ? new Date(dto.effectiveDate) : new Date());
 
     const tenure = quotation.policyTenure || 1;
-    let defaultExpiry = new Date(effectiveDate);
+    const defaultExpiry = new Date(effectiveDate);
     defaultExpiry.setFullYear(defaultExpiry.getFullYear() + tenure);
 
-    let expiryDate =
+    const expiryDate =
       quoteExpiry || (dto.expiryDate ? new Date(dto.expiryDate) : defaultExpiry);
 
     if (

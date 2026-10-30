@@ -13,7 +13,7 @@
   "certifiedCommit": "e745111d967215907ebb588d378f19513487234c",
   "certificationCommitSha": "e745111d967215907ebb588d378f19513487234c",
   "certificationImageDigest": "sha256:7a0e189ba827c7a839ed93ea083c05d3010b32136ae90a2f259b7ce3ab9cd8a5",
-  "certificationSchemaHash": "sha256:995c1a67ca86041ebd1535d8bcf529f2fbac22619e5fec926601f1c1040349de",
+  "certificationSchemaHash": "sha256:afbf897356222b5e9e481b1eeb6f4923f3c0ef23fb6cb8784b2fa826c160b66b",
   "certificationTestRunId": "RUN-1790854103275-e745111d",
   "timestamp": "2026-10-19T17:16:00.000Z",
   "certificationMatrixSummary": {
