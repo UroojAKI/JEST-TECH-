@@ -306,13 +306,26 @@ export class ReportsController {
   @RequirePermissions('report:export')
   async exportReport(
     @Param('id') id: string,
-    @Query('format') format: string,
     @CurrentUser() user: RequestUser,
     @Res() res: Response,
+    @Query('format') format = 'pdf',
+    @Query('groupBy') groupBy?: string,
+    @Query('dateRange') dateRange?: string,
   ) {
     const fmt = (format as 'pdf' | 'excel' | 'csv') || 'pdf';
     const companyId = user.companyId || (user as any).organizationId;
-    const command = new ExecuteReportCommand(id, {}, user.id, companyId);
+    const parameters: Record<string, any> = {};
+    if (dateRange) parameters.dateRange = dateRange;
+
+    const command = new ExecuteReportCommand(
+      id,
+      parameters,
+      user.id,
+      companyId,
+      {
+        groupBy: groupBy ? groupBy.split(',') : undefined,
+      },
+    );
     const result = await this.commands.handleExecuteReport(command, fmt);
 
     res.setHeader('Content-Type', result.mimeType);
@@ -348,7 +361,8 @@ export class ReportsController {
         }));
 
         const generator = provider.stream({
-          parameters: { ...(dto.parameters || {}), companyId },
+          companyId,
+          parameters: { ...(dto.parameters || {}) },
           filters: filtersList,
           search: dto.search,
         });
@@ -370,6 +384,13 @@ export class ReportsController {
       dto.parameters || {},
       user.id,
       companyId,
+      {
+        search: dto.search,
+        groupBy: dto.groupBy,
+        aggregations: dto.aggregations,
+        limit: dto.limit,
+        page: dto.page,
+      },
     );
     const result = await this.commands.handleExecuteReport(command, format);
 

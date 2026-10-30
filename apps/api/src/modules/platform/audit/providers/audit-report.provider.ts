@@ -1,4 +1,4 @@
-import { Injectable, OnModuleInit } from '@nestjs/common';
+import { Injectable, OnModuleInit, ForbiddenException } from '@nestjs/common';
 import {
   ReportDataProvider,
   ReportParameters,
@@ -23,13 +23,17 @@ export class AuditReportProvider implements ReportDataProvider, OnModuleInit {
   }
 
   async execute(params: ReportParameters): Promise<ReportResult> {
-    const reportCode = (params.parameters?.reportCode || '').toUpperCase();
-    const whereClause: any = {};
-
-    const companyId = params.companyId || params.parameters?.companyId;
-    if (companyId) {
-      whereClause.user = { companyId };
+    const companyId = params.companyId;
+    if (!companyId) {
+      throw new ForbiddenException(
+        'Tenant company context is required for audit reporting',
+      );
     }
+
+    const reportCode = (params.parameters?.reportCode || '').toUpperCase();
+    const whereClause: any = {
+      user: { companyId },
+    };
 
     if (reportCode === 'USER_ACTIVITY') {
       whereClause.action = { in: ['LOGIN', 'LOGOUT', 'PASSWORD_RESET'] };

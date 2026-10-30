@@ -87,11 +87,11 @@ export class ReportCommandsService {
     const startTime = Date.now();
 
     try {
-      // Build data using builder service
+      // Build data using builder service with parity to preview options
       const { rows, columns } = await this.builder.buildReportData(
         report,
         command.parameters,
-        {},
+        command.options || {},
         command.companyId || undefined,
       );
 

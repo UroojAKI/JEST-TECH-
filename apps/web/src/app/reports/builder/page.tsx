@@ -84,7 +84,7 @@ export default function CustomReportBuilderPage() {
     if (selectedReportId) {
       handleRunQuery(selectedReportId);
     }
-  }, [selectedReportId]);
+  }, [selectedReportId, selectedDimension, dateRange]);
 
   const handleExport = async (format: 'csv' | 'pdf') => {
     if (!selectedReportId) {

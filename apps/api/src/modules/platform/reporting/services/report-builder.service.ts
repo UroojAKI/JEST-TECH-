@@ -123,7 +123,8 @@ export class ReportBuilderService {
       }));
 
       const res = await provider.execute({
-        parameters: { ...inputParams, companyId },
+        companyId,
+        parameters: { ...inputParams },
         filters: filtersList,
         search: options.search,
         limit: options.limit,
@@ -131,6 +132,12 @@ export class ReportBuilderService {
       rows = res.rows;
     } else {
       rows = await this.fetchRawData(report.module, inputParams, companyId);
+    }
+
+    // Bound maximum dataset size to prevent out-of-memory denial of service
+    const MAX_REPORT_ROWS = 10000;
+    if (rows.length > MAX_REPORT_ROWS) {
+      rows = rows.slice(0, MAX_REPORT_ROWS);
     }
 
     // Apply Report Configured Filters
@@ -201,6 +208,47 @@ export class ReportBuilderService {
         : undefined;
 
     if (groupByField) {
+      const allowedFields = new Set([
+        ...report.columns.map((c) => c.field),
+        'insurer',
+        'branch',
+        'agent',
+        'policyType',
+        'month',
+        'status',
+        'source',
+        'state',
+        'city',
+      ]);
+      if (!allowedFields.has(groupByField)) {
+        throw new BadRequestException(
+          `Invalid groupBy dimension: ${groupByField}. Allowed dimensions: ${Array.from(allowedFields).join(', ')}`,
+        );
+      }
+
+      if (options.aggregations && options.aggregations.length > 0) {
+        const allowedAggCols = new Set([
+          ...report.columns.map((c) => c.field),
+          '*',
+          groupByField,
+        ]);
+        for (const agg of options.aggregations) {
+          if (!agg.column) {
+            throw new BadRequestException('Aggregation column must be specified');
+          }
+          if (!allowedAggCols.has(agg.column)) {
+            throw new BadRequestException(
+              `Invalid aggregation column: ${agg.column}. Column does not exist in report definition.`,
+            );
+          }
+          if (!['SUM', 'AVG', 'COUNT', 'MIN', 'MAX'].includes(agg.func)) {
+            throw new BadRequestException(
+              `Invalid aggregation function: ${agg.func}. Allowed functions: SUM, AVG, COUNT, MIN, MAX`,
+            );
+          }
+        }
+      }
+
       const aggColumns = report.columns.map((c) => ({
         field: c.field,
         type: c.type,

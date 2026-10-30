@@ -1,4 +1,4 @@
-import { Injectable, OnModuleInit } from '@nestjs/common';
+import { Injectable, OnModuleInit, ForbiddenException } from '@nestjs/common';
 import {
   ReportDataProvider,
   ReportParameters,
@@ -29,19 +29,27 @@ export class RevenueReportProvider implements ReportDataProvider, OnModuleInit {
   }
 
   async execute(params: ReportParameters): Promise<ReportResult> {
+    const companyId = params.companyId;
+    if (!companyId) {
+      throw new ForbiddenException(
+        'Tenant company context is required for revenue reporting',
+      );
+    }
+
     const reportCode = (params.parameters?.reportCode || '').toUpperCase();
 
     if (reportCode === 'REVENUE_REPORT') {
-      return this.executeRevenueReport(params);
+      return this.executeRevenueReport(params, companyId);
     }
     if (reportCode === 'RENEWAL_REVENUE') {
-      return this.executeRenewalRevenue(params);
+      return this.executeRenewalRevenue(params, companyId);
     }
-    return this.executePremiumCollection(params);
+    return this.executePremiumCollection(params, companyId);
   }
 
   private async executeRevenueReport(
     params: ReportParameters,
+    companyId: string,
   ): Promise<ReportResult> {
     const period = params.parameters?.period || 'month';
     const now = new Date();
@@ -59,7 +67,6 @@ export class RevenueReportProvider implements ReportDataProvider, OnModuleInit {
       startDate.setFullYear(now.getFullYear() - 1);
     }
 
-    const companyId = params.companyId || params.parameters?.companyId;
     const paymentDateFilter: any = {};
     const paramStartDate =
       params.parameters?.startDate || params.parameters?.from;
@@ -76,15 +83,19 @@ export class RevenueReportProvider implements ReportDataProvider, OnModuleInit {
       where: {
         status: 'SUCCESS',
         paymentDate: paymentDateFilter,
-        ...(companyId ? { policy: { companyId } } : {}),
+        policy: { companyId },
       },
-      ...(params.limit ? { take: params.limit } : {}),
     });
 
-    const totalRevenue = payments.reduce((sum, p) => sum + Number(p.amount), 0);
+    const totalRevenue =
+      Math.round(
+        payments.reduce((sum, p) => sum + Number(p.amount || 0), 0) * 100,
+      ) / 100;
     const transactionCount = payments.length;
     const averageTransaction =
-      transactionCount > 0 ? totalRevenue / transactionCount : 0;
+      transactionCount > 0
+        ? Math.round((totalRevenue / transactionCount) * 100) / 100
+        : 0;
 
     return {
       rows: [
@@ -103,13 +114,12 @@ export class RevenueReportProvider implements ReportDataProvider, OnModuleInit {
 
   private async executePremiumCollection(
     params: ReportParameters,
+    companyId: string,
   ): Promise<ReportResult> {
-    const companyId = params.companyId || params.parameters?.companyId;
-    const where: any = {};
-    if (companyId) {
-      where.policy = { companyId };
-    }
-    where.status = params.parameters?.status || 'SUCCESS';
+    const where: any = {
+      policy: { companyId },
+      status: params.parameters?.status || 'SUCCESS',
+    };
 
     const startDate = params.parameters?.startDate || params.parameters?.from;
     const endDate = params.parameters?.endDate || params.parameters?.to;
@@ -138,7 +148,7 @@ export class RevenueReportProvider implements ReportDataProvider, OnModuleInit {
       clientName: p.policy?.contact
         ? `${p.policy.contact.firstName} ${p.policy.contact.lastName}`
         : '',
-      amount: Number(p.amount),
+      amount: Math.round(Number(p.amount || 0) * 100) / 100,
       paymentMethod: p.paymentMethod,
       transactionId: p.transactionId,
       status: p.status,
@@ -150,12 +160,11 @@ export class RevenueReportProvider implements ReportDataProvider, OnModuleInit {
 
   private async executeRenewalRevenue(
     params: ReportParameters,
+    companyId: string,
   ): Promise<ReportResult> {
-    const companyId = params.companyId || params.parameters?.companyId;
-    const where: any = {};
-    if (companyId) {
-      where.policy = { companyId };
-    }
+    const where: any = {
+      policy: { companyId },
+    };
 
     const startDate = params.parameters?.startDate || params.parameters?.from;
     const endDate = params.parameters?.endDate || params.parameters?.to;
@@ -165,10 +174,7 @@ export class RevenueReportProvider implements ReportDataProvider, OnModuleInit {
       if (endDate) where.createdAt.lte = new Date(endDate);
     }
     if (params.parameters?.status) {
-      where.policy = {
-        ...(where.policy || {}),
-        status: params.parameters.status,
-      };
+      where.policy.status = params.parameters.status;
     }
 
     const renewals = await this.prisma.policyRenewal.findMany({
@@ -190,8 +196,8 @@ export class RevenueReportProvider implements ReportDataProvider, OnModuleInit {
       clientName: r.policy?.contact
         ? `${r.policy.contact.firstName} ${r.policy.contact.lastName}`
         : '',
-      premiumAmount: Number(r.premiumAmount),
-      status: (r as any).status || r.policy?.status || 'COMPLETED',
+      premiumAmount: Math.round(Number(r.premiumAmount || 0) * 100) / 100,
+      status: (r as any).status || r.policy?.status || 'ACTIVE',
       renewalDate: r.createdAt,
     }));
 

@@ -1,4 +1,4 @@
-import { Injectable, OnModuleInit } from '@nestjs/common';
+import { Injectable, OnModuleInit, ForbiddenException } from '@nestjs/common';
 import {
   ReportDataProvider,
   ReportParameters,
@@ -29,16 +29,22 @@ export class ClaimReportProvider implements ReportDataProvider, OnModuleInit {
   }
 
   async execute(params: ReportParameters): Promise<ReportResult> {
+    const companyId = params.companyId;
+    if (!companyId) {
+      throw new ForbiddenException(
+        'Tenant company context is required for claims reporting',
+      );
+    }
+
     const reportCode = (params.parameters?.reportCode || '').toUpperCase();
 
     if (reportCode === 'LOSS_RATIO') {
-      return this.executeLossRatio(params);
+      return this.executeLossRatio(params, companyId);
     }
 
-    const companyId = params.companyId || params.parameters?.companyId;
     const whereClause: any = {
       deletedAt: null,
-      ...(companyId ? { companyId } : {}),
+      companyId,
     };
 
     if (reportCode === 'CLAIMS_PENDING') {
@@ -78,9 +84,9 @@ export class ClaimReportProvider implements ReportDataProvider, OnModuleInit {
         ? `${c.contact.firstName} ${c.contact.lastName}`
         : '',
       status: c.status,
-      claimAmount: Number(c.claimAmount || 0),
+      claimAmount: Math.round(Number(c.claimAmount || 0) * 100) / 100,
       surveyorName: c.surveyorName || '',
-      settlementAmount: Number(c.approvedAmount || 0),
+      settlementAmount: Math.round(Number(c.approvedAmount || 0) * 100) / 100,
     }));
 
     return { rows };
@@ -88,16 +94,16 @@ export class ClaimReportProvider implements ReportDataProvider, OnModuleInit {
 
   private async executeLossRatio(
     params: ReportParameters,
+    companyId: string,
   ): Promise<ReportResult> {
-    const companyId = params.companyId || params.parameters?.companyId;
     const claimWhere: any = {
       status: { in: ['SETTLED', 'APPROVED'] },
       deletedAt: null,
-      ...(companyId ? { companyId } : {}),
+      companyId,
     };
     const paymentWhere: any = {
       status: 'SUCCESS',
-      ...(companyId ? { policy: { companyId } } : {}),
+      policy: { companyId },
     };
 
     const startDate = params.parameters?.startDate || params.parameters?.from;
@@ -112,21 +118,20 @@ export class ClaimReportProvider implements ReportDataProvider, OnModuleInit {
       if (endDate) paymentWhere.paymentDate.lte = new Date(endDate);
     }
 
-    const claims = await this.prisma.claim.findMany({
-      where: claimWhere,
-    });
-    const claimsPaid = claims.reduce(
-      (sum, c) => sum + Number(c.approvedAmount || 0),
-      0,
-    );
+    const [claims, payments] = await Promise.all([
+      this.prisma.claim.findMany({ where: claimWhere }),
+      this.prisma.policyPayment.findMany({ where: paymentWhere }),
+    ]);
 
-    const payments = await this.prisma.policyPayment.findMany({
-      where: paymentWhere,
-    });
-    const premiumCollected = payments.reduce(
-      (sum, p) => sum + Number(p.amount || 0),
-      0,
-    );
+    const claimsPaid =
+      Math.round(
+        claims.reduce((sum, c) => sum + Number(c.approvedAmount || 0), 0) * 100,
+      ) / 100;
+
+    const premiumCollected =
+      Math.round(
+        payments.reduce((sum, p) => sum + Number(p.amount || 0), 0) * 100,
+      ) / 100;
 
     const lossRatio =
       premiumCollected > 0 ? (claimsPaid / premiumCollected) * 100 : 0;

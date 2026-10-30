@@ -1,4 +1,4 @@
-import { Injectable, OnModuleInit } from '@nestjs/common';
+import { Injectable, OnModuleInit, ForbiddenException } from '@nestjs/common';
 import {
   ReportDataProvider,
   ReportParameters,
@@ -25,21 +25,25 @@ export class LeadReportProvider implements ReportDataProvider, OnModuleInit {
   }
 
   async execute(params: ReportParameters): Promise<ReportResult> {
+    const companyId = params.companyId;
+    if (!companyId) {
+      throw new ForbiddenException(
+        'Tenant company context is required for lead reporting',
+      );
+    }
+
     const filters = params.parameters || {};
     const reportCode = filters.reportCode || '';
     if (reportCode.toUpperCase() === 'LEAD_CONVERSION') {
-      return this.executeLeadConversion(params);
+      return this.executeLeadConversion(params, companyId);
     }
-    return this.executeLeadSummary(params);
+    return this.executeLeadSummary(params, companyId);
   }
 
-  private async executeLeadSummary(
-    params: ReportParameters,
-  ): Promise<ReportResult> {
-    const companyId = params.companyId || params.parameters?.companyId;
+  private buildWhere(params: ReportParameters, companyId: string) {
     const where: any = {
       deletedAt: null,
-      ...(companyId ? { companyId } : {}),
+      companyId,
     };
 
     const startDate = params.parameters?.startDate || params.parameters?.from;
@@ -49,6 +53,19 @@ export class LeadReportProvider implements ReportDataProvider, OnModuleInit {
       if (startDate) where.createdAt.gte = new Date(startDate);
       if (endDate) where.createdAt.lte = new Date(endDate);
     }
+
+    if (params.parameters?.status) {
+      where.status = params.parameters.status;
+    }
+
+    return where;
+  }
+
+  private async executeLeadSummary(
+    params: ReportParameters,
+    companyId: string,
+  ): Promise<ReportResult> {
+    const where = this.buildWhere(params, companyId);
 
     const leads = await this.prisma.lead.findMany({
       where,
@@ -80,20 +97,9 @@ export class LeadReportProvider implements ReportDataProvider, OnModuleInit {
 
   private async executeLeadConversion(
     params: ReportParameters,
+    companyId: string,
   ): Promise<ReportResult> {
-    const companyId = params.companyId || params.parameters?.companyId;
-    const where: any = {
-      deletedAt: null,
-      ...(companyId ? { companyId } : {}),
-    };
-
-    const startDate = params.parameters?.startDate || params.parameters?.from;
-    const endDate = params.parameters?.endDate || params.parameters?.to;
-    if (startDate || endDate) {
-      where.createdAt = {};
-      if (startDate) where.createdAt.gte = new Date(startDate);
-      if (endDate) where.createdAt.lte = new Date(endDate);
-    }
+    const where = this.buildWhere(params, companyId);
 
     const leads = await this.prisma.lead.findMany({
       where,
@@ -120,25 +126,32 @@ export class LeadReportProvider implements ReportDataProvider, OnModuleInit {
   }
 
   async *stream(params: ReportParameters) {
+    const companyId = params.companyId;
+    if (!companyId) {
+      throw new ForbiddenException(
+        'Tenant company context is required for lead reporting',
+      );
+    }
+
     const reportCode = params.parameters?.reportCode || '';
     if (reportCode.toUpperCase() === 'LEAD_CONVERSION') {
-      const res = await this.executeLeadConversion(params);
+      const res = await this.executeLeadConversion(params, companyId);
       for (const row of res.rows) {
         yield row;
       }
       return;
     }
 
+    const where = this.buildWhere(params, companyId);
+
     const leads = await this.prisma.lead.findMany({
-      where: {
-        deletedAt: null,
-        ...(params?.companyId ? { companyId: params.companyId } : {}),
-      },
+      where,
       include: {
         contact: true,
         assignedTo: true,
       },
       orderBy: { createdAt: 'desc' },
+      ...(params.limit ? { take: params.limit } : {}),
     });
 
     for (const l of leads) {

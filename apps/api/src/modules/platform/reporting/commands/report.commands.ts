@@ -34,6 +34,16 @@ export class ExecuteReportCommand {
     public readonly parameters: Record<string, any>,
     public readonly userId: string | null,
     public readonly companyId?: string | null,
+    public readonly options?: {
+      search?: string;
+      groupBy?: string[];
+      aggregations?: {
+        column: string;
+        func: 'SUM' | 'AVG' | 'COUNT' | 'MIN' | 'MAX';
+      }[];
+      limit?: number;
+      page?: number;
+    },
   ) {}
 }
 

@@ -1,4 +1,4 @@
-import { Injectable, OnModuleInit } from '@nestjs/common';
+import { Injectable, OnModuleInit, ForbiddenException } from '@nestjs/common';
 import {
   ReportDataProvider,
   ReportParameters,
@@ -29,18 +29,20 @@ export class PolicyReportProvider implements ReportDataProvider, OnModuleInit {
   }
 
   async execute(params: ReportParameters): Promise<ReportResult> {
-    const reportCode = (params.parameters?.reportCode || '').toUpperCase();
-
-    const companyId = params.companyId || params.parameters?.companyId;
-    const whereClause: any = { deletedAt: null };
-
-    if (companyId) {
-      whereClause.companyId = companyId;
+    const companyId = params.companyId;
+    if (!companyId) {
+      throw new ForbiddenException(
+        'Tenant company context is required for policy reporting',
+      );
     }
+
+    const reportCode = (params.parameters?.reportCode || '').toUpperCase();
+    const whereClause: any = { deletedAt: null, companyId };
 
     if (reportCode === 'ACTIVE_POLICIES') {
       whereClause.status = 'ACTIVE';
     } else if (reportCode === 'EXPIRING_POLICIES') {
+      whereClause.status = 'ACTIVE';
       const days = Number(params.parameters?.days || 30);
       const now = new Date();
       const future = new Date(now.getTime() + days * 24 * 60 * 60 * 1000);
@@ -80,7 +82,7 @@ export class PolicyReportProvider implements ReportDataProvider, OnModuleInit {
         : '',
       productName: p.quotation?.productType || '',
       insurerName: p.quotation?.insurerName || '',
-      premiumAmount: Number(p.premiumAmount || 0),
+      premiumAmount: Math.round(Number(p.premiumAmount || 0) * 100) / 100,
       status: p.status,
       expiryDate: p.expiryDate,
     }));

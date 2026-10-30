@@ -212,4 +212,35 @@ describe('ReportBuilderService', () => {
     expect(inputParams.startDate).toBeDefined();
     expect(inputParams.endDate).toBeDefined();
   });
+
+  it('should throw BadRequestException when groupBy dimension is unwhitelisted', async () => {
+    const reportMock: any = {
+      module: 'contacts',
+      columns: [{ field: 'fullName', label: 'Full Name', type: 'STRING' }],
+      filters: [],
+    };
+
+    await expect(
+      service.buildReportData(reportMock, {}, { groupBy: ['malicious_dimension'] }),
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it('should throw BadRequestException when aggregation column does not exist', async () => {
+    const reportMock: any = {
+      module: 'contacts',
+      columns: [{ field: 'fullName', label: 'Full Name', type: 'STRING' }],
+      filters: [],
+    };
+
+    await expect(
+      service.buildReportData(
+        reportMock,
+        {},
+        {
+          groupBy: ['fullName'],
+          aggregations: [{ column: 'non_existent_column', func: 'SUM' }],
+        },
+      ),
+    ).rejects.toThrow(BadRequestException);
+  });
 });
