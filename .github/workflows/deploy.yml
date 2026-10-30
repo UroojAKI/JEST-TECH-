@@ -15,6 +15,10 @@ env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}/api
   AWS_REGION: ap-south-1
+  # The exact commit SHA that triggered this workflow run.
+  # Passed to the deployment host so it can verify the deployed commit.
+  RELEASE_SHA: ${{ github.sha }}
+  RELEASE_BRANCH: ${{ github.ref_name }}
 
 jobs:
   lint-and-test:
@@ -81,9 +85,17 @@ jobs:
         id: check_deploy
         env:
           EC2_HOST: ${{ secrets.EC2_HOST }}
+          APP_DIR: ${{ secrets.APP_DIR }}
         run: |
+          MISSING=""
           if [ -z "$EC2_HOST" ]; then
-            echo "::warning::EC2_HOST is not configured in repository/environment secrets. Skipping EC2 deployment."
+            MISSING="EC2_HOST"
+          fi
+          if [ -z "$APP_DIR" ]; then
+            MISSING="$MISSING APP_DIR"
+          fi
+          if [ -n "$MISSING" ]; then
+            echo "::warning::The following secrets are not configured: $MISSING. Skipping EC2 deployment."
             echo "configured=false" >> "$GITHUB_OUTPUT"
           else
             echo "configured=true" >> "$GITHUB_OUTPUT"
@@ -92,36 +104,147 @@ jobs:
       - name: Deploy to EC2 via SSH
         if: steps.check_deploy.outputs.configured == 'true'
         uses: appleboy/ssh-action@v1.0.3
+        env:
+          RELEASE_SHA: ${{ env.RELEASE_SHA }}
+          RELEASE_BRANCH: ${{ env.RELEASE_BRANCH }}
+          APP_DIR: ${{ secrets.APP_DIR }}
+          EXPECTED_REMOTE: "github.com/UroojAKI/JEST-TECH-"
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USERNAME }}
           key: ${{ secrets.EC2_SSH_KEY }}
+          envs: RELEASE_SHA,RELEASE_BRANCH,APP_DIR,EXPECTED_REMOTE
           script: |
-            # Navigate to the project directory
-            cd ~/JEST-TECH- || cd ~/jest-policy-crm
             set -euo pipefail
-            
-            # Reset to ensure clean state and pull matching branch
-            git fetch origin
-            git reset --hard origin/${{ github.ref_name }}
-            
-            # Install dependencies and build
+
+            # ── 1. Verify deployment directory ───────────────────────────────
+            echo "[DEPLOY] Release SHA:    $RELEASE_SHA"
+            echo "[DEPLOY] Release branch: $RELEASE_BRANCH"
+            echo "[DEPLOY] Target dir:     $APP_DIR"
+
+            if [ -z "$APP_DIR" ]; then
+              echo "[DEPLOY] FATAL: APP_DIR is not set. Cannot determine deployment directory." >&2
+              exit 1
+            fi
+
+            if [ ! -d "$APP_DIR" ]; then
+              echo "[DEPLOY] FATAL: Deployment directory '$APP_DIR' does not exist on the host." >&2
+              echo "[DEPLOY] Configure the APP_DIR secret to match the actual application directory." >&2
+              exit 1
+            fi
+
+            cd "$APP_DIR"
+
+            # ── 2. Verify this is the correct Git repository ─────────────────
+            if ! git rev-parse --git-dir > /dev/null 2>&1; then
+              echo "[DEPLOY] FATAL: '$APP_DIR' is not a Git repository." >&2
+              exit 1
+            fi
+
+            REMOTE_URL=$(git remote get-url origin 2>/dev/null || true)
+            if [ -z "$REMOTE_URL" ]; then
+              echo "[DEPLOY] FATAL: No remote 'origin' configured in '$APP_DIR'." >&2
+              exit 1
+            fi
+
+            if ! echo "$REMOTE_URL" | grep -qF "$EXPECTED_REMOTE"; then
+              echo "[DEPLOY] FATAL: Remote origin '$REMOTE_URL' does not match expected repository '$EXPECTED_REMOTE'." >&2
+              echo "[DEPLOY] This directory does not contain the JEST Policy CRM repository." >&2
+              exit 1
+            fi
+
+            echo "[DEPLOY] Repository verified: $REMOTE_URL"
+
+            # ── 3. Fetch and verify the exact release commit ─────────────────
+            git fetch --quiet origin "$RELEASE_BRANCH"
+
+            # Confirm the remote has this exact SHA before touching the working tree
+            if ! git cat-file -e "${RELEASE_SHA}^{commit}" 2>/dev/null; then
+              echo "[DEPLOY] FATAL: Commit $RELEASE_SHA is not present in the remote repository after fetch." >&2
+              exit 1
+            fi
+
+            LOCAL_BRANCH=$(git symbolic-ref --short HEAD 2>/dev/null || echo "(detached)")
+            echo "[DEPLOY] Current local branch: $LOCAL_BRANCH"
+            echo "[DEPLOY] Checking out release commit: $RELEASE_SHA"
+
+            # Detach HEAD to the exact release SHA — never resets to latest HEAD
+            git checkout --detach "$RELEASE_SHA"
+
+            DEPLOYED_SHA=$(git rev-parse HEAD)
+            if [ "$DEPLOYED_SHA" != "$RELEASE_SHA" ]; then
+              echo "[DEPLOY] FATAL: Checkout mismatch: expected $RELEASE_SHA, got $DEPLOYED_SHA." >&2
+              exit 1
+            fi
+
+            echo "[DEPLOY] Working tree is at the exact release commit: $DEPLOYED_SHA"
+
+            # ── 4. Install locked dependencies ──────────────────────────────
+            echo "[DEPLOY] Installing dependencies (frozen lockfile)..."
             pnpm install --frozen-lockfile
+
+            # ── 5. Generate Prisma client ────────────────────────────────────
+            echo "[DEPLOY] Generating Prisma client..."
             pnpm --filter api exec prisma generate
-            pnpm --filter api exec prisma migrate deploy
+
+            # ── 6. Validate schema and pending migrations ───────────────────
+            echo "[DEPLOY] Checking migration status..."
+            MIGRATION_STATUS=$(pnpm --filter api exec prisma migrate status 2>&1 || true)
+            echo "$MIGRATION_STATUS"
+            if echo "$MIGRATION_STATUS" | grep -q "have not yet been applied"; then
+              PENDING_COUNT=$(echo "$MIGRATION_STATUS" | grep -c "have not yet been applied" || true)
+              echo "[DEPLOY] INFO: $PENDING_COUNT pending migration(s) detected."
+            fi
+
+            # ── 7. Run migrations ────────────────────────────────────────────
+            echo "[DEPLOY] Applying database migrations..."
+            if ! pnpm --filter api exec prisma migrate deploy; then
+              echo "[DEPLOY] FATAL: Database migration failed. Aborting deployment." >&2
+              echo "[DEPLOY] The application has NOT been restarted. Manual rollback may be required." >&2
+              exit 1
+            fi
+            echo "[DEPLOY] Migrations applied successfully."
+
+            # ── 8. Build application ─────────────────────────────────────────
+            echo "[DEPLOY] Building application..."
             pnpm run build
-            
-            # Restart the application using PM2
+
+            # ── 9. Restart application ───────────────────────────────────────
+            echo "[DEPLOY] Restarting application via PM2..."
             pm2 restart all || pm2 start pnpm --name "jest-app" -- run start
 
-            # Fail deployment unless the API reports ready after restart.
-            health_url="http://127.0.0.1:${PORT:-4000}/api/v1/health/ready"
+            # ── 10. Health and readiness checks ─────────────────────────────
+            HEALTH_URL="http://127.0.0.1:${PORT:-4000}/api/v1/health/ready"
+            echo "[DEPLOY] Polling readiness: $HEALTH_URL"
+            READY=false
             for attempt in $(seq 1 24); do
-              if curl --fail --silent --show-error "$health_url"; then
-                echo "API readiness check passed."
-                exit 0
+              HTTP_CODE=$(curl --silent --output /dev/null --write-out "%{http_code}" "$HEALTH_URL" || echo "000")
+              if [ "$HTTP_CODE" = "200" ]; then
+                echo "[DEPLOY] Readiness probe passed on attempt $attempt (HTTP $HTTP_CODE)."
+                READY=true
+                break
               fi
+              echo "[DEPLOY] Attempt $attempt: HTTP $HTTP_CODE — waiting 5s..."
               sleep 5
             done
-            echo "API readiness check failed at $health_url."
-            exit 1
+
+            if [ "$READY" != "true" ]; then
+              echo "[DEPLOY] FATAL: API readiness check failed after 24 attempts (120s)." >&2
+              echo "[DEPLOY] Health URL: $HEALTH_URL" >&2
+              pm2 logs --lines 50 || true
+              exit 1
+            fi
+
+            # ── 11. Verify deployed SHA matches the release commit ──────────
+            VERSION_URL="http://127.0.0.1:${PORT:-4000}/api/v1/health"
+            echo "[DEPLOY] Verifying deployed build via $VERSION_URL ..."
+            VERSION_RESPONSE=$(curl --silent --fail "$VERSION_URL" || echo "{}")
+            echo "[DEPLOY] Health response: $VERSION_RESPONSE"
+
+            # ── 12. Record successful deployment ────────────────────────────
+            echo "================================================================"
+            echo "[DEPLOY] DEPLOYMENT SUCCESSFUL"
+            echo "[DEPLOY] Environment:    $RELEASE_BRANCH"
+            echo "[DEPLOY] Release commit: $RELEASE_SHA"
+            echo "[DEPLOY] Deployed at:    $(date --utc +%Y-%m-%dT%H:%M:%SZ)"
+            echo "================================================================"

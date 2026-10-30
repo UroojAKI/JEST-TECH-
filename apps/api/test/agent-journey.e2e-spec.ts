@@ -33,6 +33,10 @@ describe('End-to-End Agent Journey: Lead -> Contact -> Quote -> Payment -> Polic
   let createdQuotationId: string;
   let createdPolicyId: string;
 
+  // E2E test-only tariff fixture ID - deleted in afterAll.
+  // This is NOT a production tariff and must never be seeded to any production database.
+  let createdTariffFixtureId: string | undefined;
+
   beforeAll(async () => {
     moduleRef = await Test.createTestingModule({
       imports: [AppModule],
@@ -127,6 +131,40 @@ describe('End-to-End Agent Journey: Lead -> Contact -> Quote -> Payment -> Polic
       });
     }
     backOfficeUserId = boUser.id;
+    // -- E2E TARIFF FIXTURE (beforeAll) --------------------------------------
+    // Insert a test-only IRDAI TP tariff for PRIVATE_CAR / PACKAGE so that
+    // MotorCalculationService.calculate() can proceed without a real DB tariff.
+    // Reference: IRDAI Circular IRDAI/NL/GDL/MISC/053/04/2023 (FY 2023-24).
+    // effectiveFrom = 2020-01-01 covers all past and future test execution dates.
+    // This fixture is NOT a regulatory document; it is strictly isolated to the
+    // E2E test database and deleted in afterAll.
+    const existingTariff = await prisma.motorTariff.findFirst({
+      where: {
+        vehicleCategory: 'PRIVATE_CAR',
+        policyType: 'PACKAGE',
+        isActive: true,
+        source: 'E2E_TEST_FIXTURE',
+      },
+    });
+    if (!existingTariff) {
+      const tariffFixture = await prisma.motorTariff.create({
+        data: {
+          vehicleCategory: 'PRIVATE_CAR',
+          policyType: 'PACKAGE',
+          annualPremium: 2094,           // IRDAI 2023-24 TP for Private Car <=1000cc
+          effectiveFrom: new Date('2020-01-01T00:00:00.000Z'),
+          effectiveTo: null,             // open-ended: valid for all future dates
+          source: 'E2E_TEST_FIXTURE',
+          version: 'E2E-TEST-ONLY',
+          isActive: true,
+          isVerified: true,
+          verificationNote:
+            'E2E test-only fixture. Not a real IRDAI tariff. Delete after tests.',
+        },
+      });
+      createdTariffFixtureId = tariffFixture.id;
+    }
+    // -- END E2E TARIFF FIXTURE -----------------------------------------------
   });
 
   afterAll(async () => {
@@ -178,6 +216,10 @@ describe('End-to-End Agent Journey: Lead -> Contact -> Quote -> Payment -> Polic
     }
     if (createdContactId) {
       await prisma.contact.deleteMany({ where: { id: createdContactId } });
+    }
+    // Delete E2E tariff fixture if we created it
+    if (createdTariffFixtureId) {
+      await prisma.motorTariff.delete({ where: { id: createdTariffFixtureId } }).catch(() => {});
     }
     if (app) {
       await app.close();
@@ -383,6 +425,45 @@ describe('End-to-End Agent Journey: Lead -> Contact -> Quote -> Payment -> Polic
       where: { aggregateId: createdPolicyId, eventType: 'policy.issued' },
     });
     expect(outboxEvent).toBeDefined();
+  });
+
+  // Sentinel: Verifies the production fail-closed behavior.
+  // If no applicable tariff exists, calculate() must throw CONFIGURATION_ERROR.
+  // Do NOT add a tariff fixture inside this test -- the absence is the precondition.
+  it('sentinel: calculate() throws CONFIGURATION_ERROR when no applicable tariff is present', async () => {
+    // Temporarily deactivate the fixture so the lookup returns nothing
+    if (createdTariffFixtureId) {
+      await prisma.motorTariff.update({
+        where: { id: createdTariffFixtureId },
+        data: { isActive: false },
+      });
+    }
+
+    let caughtError: any;
+    try {
+      await motorCalculationService.calculate({
+        vehicleCategory: 'PRIVATE_CAR',
+        vehicleStatus: 'EXISTING',
+        policyType: 'PACKAGE_COMPREHENSIVE',
+        idv: 600000,
+        ncbPercent: 0,
+        paCover: true,
+      });
+    } catch (err) {
+      caughtError = err;
+    }
+
+    // Restore the fixture regardless of test outcome
+    if (createdTariffFixtureId) {
+      await prisma.motorTariff.update({
+        where: { id: createdTariffFixtureId },
+        data: { isActive: true },
+      });
+    }
+
+    expect(caughtError).toBeDefined();
+    const response = caughtError?.response ?? caughtError;
+    expect(response?.errorCode ?? response?.message).toMatch(/CONFIGURATION_ERROR|tariff/i);
   });
 });
 
