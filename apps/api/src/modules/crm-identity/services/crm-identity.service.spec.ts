@@ -8,7 +8,9 @@ describe('CrmIdentityService', () => {
   let mockPrisma: any;
 
   beforeEach(async () => {
+    let seqCounter = 1n;
     mockPrisma = {
+      $queryRaw: jest.fn(async () => [{ nextval: seqCounter++ }]),
       contact: {
         findUnique: jest.fn(),
         findFirst: jest.fn(),
@@ -315,6 +317,64 @@ describe('CrmIdentityService', () => {
 
       expect(res.contact.id).toBe('con-retry');
       expect(mockPrisma.contact.create).toHaveBeenCalledTimes(2);
+    });
+
+    it('fails clearly with an explicit error when contact sequence is unavailable without count/random fallback', async () => {
+      mockPrisma.contact.findMany.mockResolvedValue([]);
+      mockPrisma.$queryRaw.mockRejectedValue(new Error('relation contact_number_seq does not exist'));
+
+      await expect(
+        service.ensureLinkedContactAndCustomer(mockPrisma as any, {
+          companyId: 'org-1',
+          firstName: 'Amit',
+          phone: '9876543210',
+        }),
+      ).rejects.toThrow('Contact code sequence unavailable');
+      expect(mockPrisma.contact.count).not.toHaveBeenCalled();
+    });
+
+    it('fails clearly with an explicit error when customer sequence is unavailable without count/random fallback', async () => {
+      mockPrisma.contact.findMany.mockResolvedValue([]);
+      mockPrisma.customer.findMany.mockResolvedValue([]);
+      mockPrisma.contact.create.mockResolvedValue({ id: 'con-1' });
+
+      mockPrisma.$queryRaw
+        .mockResolvedValueOnce([{ nextval: 10n }])
+        .mockRejectedValueOnce(new Error('relation customer_number_seq does not exist'));
+
+      await expect(
+        service.ensureLinkedContactAndCustomer(mockPrisma as any, {
+          companyId: 'org-1',
+          firstName: 'Amit',
+          phone: '9876543210',
+          createCustomerIfMissing: true,
+        }),
+      ).rejects.toThrow('Customer code sequence unavailable');
+      expect(mockPrisma.customer.count).not.toHaveBeenCalled();
+    });
+
+    it('handles concurrent same-identity creation requests safely', async () => {
+      mockPrisma.contact.findMany.mockResolvedValue([]);
+      mockPrisma.customer.findMany.mockResolvedValue([]);
+
+      mockPrisma.contact.create
+        .mockResolvedValueOnce({ id: 'con-1', contactCode: 'CONT-000001', firstName: 'Amit' })
+        .mockResolvedValueOnce({ id: 'con-2', contactCode: 'CONT-000002', firstName: 'Amit' });
+
+      const p1 = service.ensureLinkedContactAndCustomer(mockPrisma as any, {
+        companyId: 'org-1',
+        firstName: 'Amit',
+        phone: '9876543210',
+      });
+      const p2 = service.ensureLinkedContactAndCustomer(mockPrisma as any, {
+        companyId: 'org-1',
+        firstName: 'Amit',
+        phone: '9876543210',
+      });
+
+      const [r1, r2] = await Promise.all([p1, p2]);
+      expect(r1.contact.id).toBe('con-1');
+      expect(r2.contact.id).toBe('con-2');
     });
   });
 });

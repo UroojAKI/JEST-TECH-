@@ -51,31 +51,28 @@ export default function User360Page() {
     enabled: !!userId,
   });
 
-    const { data: userCommissions = [], isLoading: isUserCommissionsLoading } = useQuery({
-    queryKey: ['admin', 'users', 'commissions', userId],
+  const {
+    data: userCommissions = [],
+    isLoading: isUserCommissionsLoading,
+    isError: isUserCommissionsError,
+    error: userCommissionsError,
+  } = useQuery({
+    queryKey: ['admin', 'users', userId, 'commissions'],
     queryFn: async () => {
-      const res = await apiClient.get('/finance/commissions');
-      const all = Array.isArray(res.data) ? res.data : [];
-      return all.filter(
-        (c: any) =>
-          c.userId === userId ||
-          c.agentId === userId ||
-          (workspace?.profile?.name && c.agentName?.toLowerCase().includes(workspace.profile.name.toLowerCase()))
-      );
+      return adminRepository.getUserCommissions(userId);
     },
     enabled: !!userId,
   });
 
-  const { data: userIncentives = [], isLoading: isUserIncentivesLoading } = useQuery({
-    queryKey: ['admin', 'users', 'incentives', userId],
+  const {
+    data: userIncentives = [],
+    isLoading: isUserIncentivesLoading,
+    isError: isUserIncentivesError,
+    error: userIncentivesError,
+  } = useQuery({
+    queryKey: ['admin', 'users', userId, 'incentives'],
     queryFn: async () => {
-      const res = await apiClient.get('/finance/incentives');
-      const all = Array.isArray(res.data) ? res.data : [];
-      return all.filter(
-        (i: any) =>
-          i.userId === userId ||
-          (workspace?.profile?.name && i.employeeName?.toLowerCase().includes(workspace.profile.name.toLowerCase()))
-      );
+      return adminRepository.getUserIncentives(userId);
     },
     enabled: !!userId,
   });
@@ -781,6 +778,15 @@ export default function User360Page() {
                 <div className="p-8 text-center text-muted-foreground text-xs flex items-center justify-center gap-2">
                   <RefreshCw className="h-4 w-4 animate-spin text-primary" /> Loading commissions...
                 </div>
+              ) : isUserCommissionsError ? (
+                <div className="p-8 text-center text-destructive text-xs border rounded-xl bg-destructive/10 space-y-1">
+                  <AlertTriangle className="h-5 w-5 mx-auto mb-1 text-destructive" />
+                  <p className="font-semibold">
+                    {(userCommissionsError as any)?.response?.status === 403
+                      ? 'Unauthorized: You do not have permission to view this employee’s financial records.'
+                      : 'Failed to load employee commissions. Please try again later.'}
+                  </p>
+                </div>
               ) : userCommissions.length === 0 ? (
                 <div className="p-8 text-center text-muted-foreground text-xs border rounded-xl bg-accent/20">
                   No commission entries found for this employee in the current company context.
@@ -839,6 +845,15 @@ export default function User360Page() {
               {isUserIncentivesLoading ? (
                 <div className="p-8 text-center text-muted-foreground text-xs flex items-center justify-center gap-2">
                   <RefreshCw className="h-4 w-4 animate-spin text-primary" /> Loading targets...
+                </div>
+              ) : isUserIncentivesError ? (
+                <div className="p-8 text-center text-destructive text-xs border rounded-xl bg-destructive/10 space-y-1">
+                  <AlertTriangle className="h-5 w-5 mx-auto mb-1 text-destructive" />
+                  <p className="font-semibold">
+                    {(userIncentivesError as any)?.response?.status === 403
+                      ? 'Unauthorized: You do not have permission to view this employee’s performance targets.'
+                      : 'Failed to load employee performance targets. Please try again later.'}
+                  </p>
                 </div>
               ) : userIncentives.length === 0 ? (
                 <div className="p-8 text-center text-muted-foreground text-xs border rounded-xl bg-accent/20">

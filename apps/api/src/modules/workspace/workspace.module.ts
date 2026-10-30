@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { DatabaseModule } from '../../database/database.module';
 import { LeadsModule } from '../leads/leads.module';
+import { CrmIdentityModule } from '../crm-identity/crm-identity.module';
 import { WorkspaceController } from './controllers/workspace.controller';
 import { SalesWorkspaceController } from './controllers/sales-workspace.controller';
 import { WorkspaceService } from './services/workspace.service';
@@ -10,7 +11,7 @@ import { ReferralService } from './services/referral.service';
 import { PerformanceService } from './services/performance.service';
 
 @Module({
-  imports: [DatabaseModule, LeadsModule],
+  imports: [DatabaseModule, LeadsModule, CrmIdentityModule],
   controllers: [WorkspaceController, SalesWorkspaceController],
   providers: [
     WorkspaceService,

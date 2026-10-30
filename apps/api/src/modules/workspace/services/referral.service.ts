@@ -3,12 +3,17 @@ import {
   BadRequestException,
   NotFoundException,
   ForbiddenException,
+  Optional,
 } from '@nestjs/common';
+import { CrmIdentityService } from '../../crm-identity/services/crm-identity.service';
 import { PrismaService } from '../../../database/prisma.service';
 
 @Injectable()
 export class ReferralService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Optional() private readonly crmIdentityService?: CrmIdentityService,
+  ) {}
 
   async createReferral(
     dto: {
@@ -54,29 +59,39 @@ export class ReferralService {
       throw new ForbiddenException('Tenant organizational context is required');
     }
 
-    let contact = await this.prisma.contact.findFirst({
-      where: { phone: dto.phone, companyId, deletedAt: null },
-    });
-
-    if (!contact) {
-      const contactCount = await this.prisma.contact.count({
-        where: { companyId },
-      });
-      const contactCode = `CNT-${String(contactCount + 1).padStart(5, '0')}`;
-
-      contact = await this.prisma.contact.create({
-        data: {
+    let contact: any;
+    if (this.crmIdentityService) {
+      const ensured = await this.crmIdentityService.ensureLinkedContactAndCustomer(
+        this.prisma,
+        {
           companyId,
-          contactCode,
-          type: 'INDIVIDUAL',
-          firstName: dto.referralName.split(' ')[0] || dto.referralName,
-          lastName:
-            dto.referralName.split(' ').slice(1).join(' ') || 'Customer',
           phone: dto.phone,
           email: dto.email,
+          firstName: dto.referralName.split(' ')[0] || dto.referralName,
+          lastName: dto.referralName.split(' ').slice(1).join(' ') || 'Customer',
           createdById: userId,
+          createCustomerIfMissing: false,
         },
+      );
+      contact = ensured.contact;
+    } else {
+      contact = await this.prisma.contact.findFirst({
+        where: { phone: dto.phone, companyId, deletedAt: null },
       });
+      if (!contact) {
+        contact = await this.prisma.contact.create({
+          data: {
+            companyId,
+            contactCode: `CONT-${Date.now().toString().slice(-6)}`,
+            type: 'INDIVIDUAL',
+            firstName: dto.referralName.split(' ')[0] || dto.referralName,
+            lastName: dto.referralName.split(' ').slice(1).join(' ') || 'Customer',
+            phone: dto.phone,
+            email: dto.email,
+            createdById: userId,
+          },
+        });
+      }
     }
 
     const leadCount = await this.prisma.lead.count({

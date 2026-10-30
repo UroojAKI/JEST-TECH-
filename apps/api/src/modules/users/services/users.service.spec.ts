@@ -2,7 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { UsersService } from './users.service';
 import { UserRepository } from '../repositories/user.repository';
 import { PrismaService } from '../../../database/prisma.service';
-import { NotFoundException } from '@nestjs/common';
+import { NotFoundException, ForbiddenException } from '@nestjs/common';
 import { RoleType, UserStatus } from '@prisma/client';
 
 describe('UsersService', () => {
@@ -161,6 +161,174 @@ describe('UsersService', () => {
       expect(workspace.portfolio.pendingTasks).toBe(3);
       expect(workspace.recentActivities).toHaveLength(1);
       expect(workspace.recentTasks).toHaveLength(1);
+    });
+  });
+  describe('getEmployeeCommissions & getEmployeeIncentives', () => {
+    beforeEach(() => {
+      prisma.commission = {
+        findMany: jest.fn(),
+      };
+      prisma.salesTarget = {
+        findMany: jest.fn(),
+      };
+      prisma.policy = {
+        count: jest.fn().mockResolvedValue(1),
+        findMany: jest.fn().mockResolvedValue([]),
+      };
+      prisma.auditLog = {
+        findMany: jest.fn().mockResolvedValue([]),
+        create: jest.fn().mockResolvedValue({ id: 'audit-1' }),
+      };
+    });
+
+    it('throws NotFoundException when requested user does not exist', async () => {
+      prisma.user.findUnique.mockResolvedValue(null);
+
+      await expect(
+        service.getEmployeeCommissions('missing-user-id', { companyId: 'org-1' }),
+      ).rejects.toThrow(NotFoundException);
+
+      await expect(
+        service.getEmployeeIncentives('missing-user-id', { companyId: 'org-1' }),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('rejects cross-tenant access with ForbiddenException', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        id: 'user-foreign',
+        companyId: 'org-foreign',
+        firstName: 'Foreign',
+        lastName: 'Agent',
+      });
+
+      const tenantAdminActor = {
+        userId: 'admin-1',
+        companyId: 'org-my-company',
+      };
+
+      await expect(
+        service.getEmployeeCommissions('user-foreign', tenantAdminActor),
+      ).rejects.toThrow(ForbiddenException);
+
+      await expect(
+        service.getEmployeeIncentives('user-foreign', tenantAdminActor),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('queries exact employee database ID avoiding name collision and returns records with audit log', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        id: 'user-123',
+        companyId: 'org-my-company',
+        firstName: 'Amit',
+        lastName: 'Sharma',
+      });
+
+      prisma.commission.findMany.mockResolvedValue([
+        {
+          id: 'comm-1',
+          policyId: 'pol-1',
+          userId: 'user-123',
+          amount: '1500.00',
+          roleTier: 'AGENT',
+          status: 'PAID',
+          createdAt: new Date(),
+        },
+      ]);
+
+      prisma.policy.findMany.mockResolvedValue([
+        {
+          id: 'pol-1',
+          policyNumber: 'POL-1001',
+          premiumAmount: '10000',
+          contact: { firstName: 'Rahul', lastName: 'Verma' },
+        },
+      ]);
+
+      const tenantAdminActor = {
+        userId: 'admin-1',
+        companyId: 'org-my-company',
+      };
+
+      const result = await service.getEmployeeCommissions('user-123', tenantAdminActor);
+
+      expect(result).toHaveLength(1);
+      expect(result[0].policyNumber).toBe('POL-1001');
+      expect(result[0].customerName).toBe('Rahul Verma');
+      expect(result[0].userId).toBe('user-123');
+      expect(result[0].amount).toBe(1500);
+
+      // Verify exact ID filter in query
+      expect(prisma.commission.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            userId: 'user-123',
+          }),
+        }),
+      );
+
+      // Verify audit log creation
+      expect(prisma.auditLog.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            entity: 'Commission',
+            entityType: 'COMMISSION_ACCESS',
+            entityId: 'user-123',
+            module: 'FINANCE_AUDIT',
+          }),
+        }),
+      );
+    });
+
+    it('queries exact employee database ID for incentives and returns records with audit log', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        id: 'user-123',
+        companyId: 'org-my-company',
+        firstName: 'Amit',
+        lastName: 'Sharma',
+      });
+
+      prisma.salesTarget.findMany.mockResolvedValue([
+        {
+          id: 'target-1',
+          userId: 'user-123',
+          year: 2026,
+          month: 10,
+          targetGwp: '500000',
+          achievedGwp: '450000',
+        },
+      ]);
+
+      const tenantAdminActor = {
+        userId: 'admin-1',
+        companyId: 'org-my-company',
+      };
+
+      const result = await service.getEmployeeIncentives('user-123', tenantAdminActor);
+
+      expect(result).toHaveLength(1);
+      expect(result[0].userId).toBe('user-123');
+      expect(result[0].targetAmount).toBe(500000);
+      expect(result[0].achievedAmount).toBe(450000);
+      expect(result[0].status).toBe('POLICY_PENDING');
+
+      expect(prisma.salesTarget.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            userId: 'user-123',
+          }),
+        }),
+      );
+
+      expect(prisma.auditLog.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            entity: 'SalesTarget',
+            entityType: 'INCENTIVE_ACCESS',
+            entityId: 'user-123',
+            module: 'FINANCE_AUDIT',
+          }),
+        }),
+      );
     });
   });
 });

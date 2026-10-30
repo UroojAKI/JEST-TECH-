@@ -403,64 +403,41 @@ export class CrmIdentityService {
    * Generates a globally unique contactCode using PostgreSQL sequence with fallback.
    */
   async generateContactCode(client: any): Promise<string> {
-    if (typeof client?.$queryRaw === 'function') {
-      try {
-        const result = await client.$queryRaw<[{ nextval: bigint }]>`
-          SELECT nextval('contact_number_seq')`;
-        if (result?.[0]?.nextval !== undefined) {
-          return `CONT-${result[0].nextval.toString().padStart(6, '0')}`;
-        }
-      } catch {
-        try {
-          if (typeof client.$executeRaw === 'function') {
-            await client.$executeRaw`CREATE SEQUENCE IF NOT EXISTS contact_number_seq START 1;`;
-            const retry = await client.$queryRaw<[{ nextval: bigint }]>`
-              SELECT nextval('contact_number_seq')`;
-            if (retry?.[0]?.nextval !== undefined) {
-              return `CONT-${retry[0].nextval.toString().padStart(6, '0')}`;
-            }
-          }
-        } catch {
-          // Fallback to high-entropy generation below
-        }
-      }
+    if (!client || typeof client.$queryRaw !== 'function') {
+      throw new Error('Database client does not support query execution for contact sequence');
     }
-
-    const count = (await client.contact?.count?.({ where: {} })) || 0;
-    const rand = Math.floor(1000 + Math.random() * 9000);
-    return `CONT-${String(count + 1).padStart(6, '0')}-${rand}`;
+    try {
+      const result = await client.$queryRaw<[{ nextval: bigint }]>`
+        SELECT nextval('contact_number_seq')`;
+      if (result?.[0]?.nextval !== undefined) {
+        return `CONT-${result[0].nextval.toString().padStart(6, '0')}`;
+      }
+    } catch (err: any) {
+      this.logger.error(`Failed to retrieve next sequence value from contact_number_seq: ${err?.message}`);
+      throw new Error(`Contact code sequence unavailable: ${err?.message || 'contact_number_seq failure'}`);
+    }
+    throw new Error('Contact code sequence unavailable: invalid nextval returned');
   }
 
   /**
-   * Generates a globally unique customerCode using PostgreSQL sequence with fallback.
+   * Generates a globally unique customerCode using PostgreSQL sequence.
+   * Concurrency-safe: fails fast if sequence is unavailable rather than falling back to table count/random.
    */
   async generateCustomerCode(client: any): Promise<string> {
-    if (typeof client?.$queryRaw === 'function') {
-      try {
-        const result = await client.$queryRaw<[{ nextval: bigint }]>`
-          SELECT nextval('customer_number_seq')`;
-        if (result?.[0]?.nextval !== undefined) {
-          return `CUST-${result[0].nextval.toString().padStart(6, '0')}`;
-        }
-      } catch {
-        try {
-          if (typeof client.$executeRaw === 'function') {
-            await client.$executeRaw`CREATE SEQUENCE IF NOT EXISTS customer_number_seq START 1;`;
-            const retry = await client.$queryRaw<[{ nextval: bigint }]>`
-              SELECT nextval('customer_number_seq')`;
-            if (retry?.[0]?.nextval !== undefined) {
-              return `CUST-${retry[0].nextval.toString().padStart(6, '0')}`;
-            }
-          }
-        } catch {
-          // Fallback to high-entropy generation below
-        }
-      }
+    if (!client || typeof client.$queryRaw !== 'function') {
+      throw new Error('Database client does not support query execution for customer sequence');
     }
-
-    const count = (await client.customer?.count?.({ where: {} })) || 0;
-    const rand = Math.floor(1000 + Math.random() * 9000);
-    return `CUST-${String(count + 1).padStart(6, '0')}-${rand}`;
+    try {
+      const result = await client.$queryRaw<[{ nextval: bigint }]>`
+        SELECT nextval('customer_number_seq')`;
+      if (result?.[0]?.nextval !== undefined) {
+        return `CUST-${result[0].nextval.toString().padStart(6, '0')}`;
+      }
+    } catch (err: any) {
+      this.logger.error(`Failed to retrieve next sequence value from customer_number_seq: ${err?.message}`);
+      throw new Error(`Customer code sequence unavailable: ${err?.message || 'customer_number_seq failure'}`);
+    }
+    throw new Error('Customer code sequence unavailable: invalid nextval returned');
   }
 
   /**

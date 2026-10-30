@@ -268,10 +268,10 @@ export class ContactsService {
         if (customer.contactId) {
           contact = await this.contactRepository.findById(customer.contactId);
         } else {
-          const count = await this.prisma.contact.count({ where: { companyId: customer.companyId } });
+          const contactCode = await this.contactRepository.generateContactCode();
           const newContact = await this.prisma.contact.create({
             data: {
-              contactCode: `CONT-${String(count + 1).padStart(6, '0')}`,
+              contactCode,
               companyId: customer.companyId,
               firstName: customer.firstName.trim(),
               lastName: (customer.lastName || '').trim(),

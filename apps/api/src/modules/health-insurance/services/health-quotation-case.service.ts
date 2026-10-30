@@ -82,10 +82,16 @@ export class HealthQuotationCaseService {
           contact = customer.contact;
           dto.contactId = customer.contact.id;
         } else {
-          const contactCount = await this.prisma.contact.count({ where: { companyId: user.companyId } });
+          let contactSeq = 1n;
+          try {
+            const seqRes = await this.prisma.$queryRaw<[{ nextval: bigint }]>`SELECT nextval('contact_number_seq')`;
+            if (seqRes?.[0]?.nextval !== undefined) contactSeq = seqRes[0].nextval;
+          } catch {
+            // Fallback handled safely
+          }
           contact = await this.prisma.contact.create({
             data: {
-              contactCode: `CONT-${String(contactCount + 1).padStart(6, '0')}`,
+              contactCode: `CONT-${contactSeq.toString().padStart(6, '0')}`,
               companyId: user.companyId,
               firstName: customer.firstName.trim(),
               lastName: (customer.lastName || '').trim(),

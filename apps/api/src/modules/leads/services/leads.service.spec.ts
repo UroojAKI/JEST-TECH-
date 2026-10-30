@@ -4,6 +4,7 @@ import { LeadRepository } from '../repositories/lead.repository';
 import { ContactsService } from '../../contacts/services/contacts.service';
 import { AccountsService } from '../../accounts/services/accounts.service';
 import { UsersService } from '../../users/services/users.service';
+import { CrmIdentityService } from '../../crm-identity/services/crm-identity.service';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { PrismaService } from '../../../database/prisma.service';
 import { LeadStatus, RoleType } from '@prisma/client';
@@ -11,6 +12,7 @@ import {
   NotFoundException,
   ForbiddenException,
   BadRequestException,
+  ConflictException,
 } from '@nestjs/common';
 import { LeadConvertedEvent } from '../events/lead-converted.event';
 import { ResourceAuthorizationService } from '../../../common/services/resource-authorization.service';
@@ -54,9 +56,23 @@ describe('LeadsService', () => {
     emit: jest.fn(),
   };
 
+  const mockCrmIdentityService = {
+    resolveIdentity: jest.fn(),
+    ensureLinkedContactAndCustomer: jest.fn(),
+  };
+
   const mockPrismaService: any = {
     contact: {
       findFirst: jest.fn(),
+      findUnique: jest.fn(),
+    },
+    customer: {
+      findFirst: jest.fn(),
+      findUnique: jest.fn(),
+      update: jest.fn(),
+    },
+    user: {
+      findUnique: jest.fn(),
     },
     lead: {
       findUnique: jest.fn(),
@@ -64,6 +80,7 @@ describe('LeadsService', () => {
     policy: {
       count: jest.fn().mockResolvedValue(1),
     },
+    $transaction: jest.fn(async (cb: any) => cb(mockPrismaService)),
   };
 
   beforeEach(async () => {
@@ -76,6 +93,7 @@ describe('LeadsService', () => {
         { provide: UsersService, useValue: mockUsersService },
         { provide: EventEmitter2, useValue: mockEventEmitter },
         { provide: PrismaService, useValue: mockPrismaService },
+        { provide: CrmIdentityService, useValue: mockCrmIdentityService },
         ResourceAuthorizationService,
         ScopeResolver,
       ],
@@ -219,6 +237,7 @@ describe('LeadsService', () => {
       } as any;
       mockContactsService.findById.mockResolvedValue({
         id: 'contact-1',
+        companyId: 'org-1',
       } as any);
       mockLeadRepository.generateLeadCode.mockResolvedValue('LD-0001');
       mockLeadRepository.create.mockResolvedValue({
@@ -237,6 +256,90 @@ describe('LeadsService', () => {
 
       expect(result.id).toBe('lead-1');
       expect(mockLeadRepository.create).toHaveBeenCalled();
+    });
+
+    it('rejects cross-tenant customer with ForbiddenException', async () => {
+      mockPrismaService.customer.findFirst.mockResolvedValue(null);
+      mockPrismaService.customer.findUnique.mockResolvedValue({
+        id: 'cust-foreign',
+        companyId: 'org-other',
+      });
+
+      const mockActor = { userId: 'user-1', companyId: 'org-1' } as any;
+      await expect(
+        service.create({ customerId: 'cust-foreign' } as any, mockActor),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('rejects non-existent contact with NotFoundException without swallowing error', async () => {
+      mockContactsService.findById.mockResolvedValue(null);
+
+      const mockActor = { userId: 'user-1', companyId: 'org-1' } as any;
+      await expect(
+        service.create({ contactId: 'non-existent' } as any, mockActor),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('rejects cross-tenant contact with ForbiddenException', async () => {
+      mockContactsService.findById.mockResolvedValue({
+        id: 'contact-foreign',
+        companyId: 'org-other',
+      } as any);
+
+      const mockActor = { userId: 'user-1', companyId: 'org-1' } as any;
+      await expect(
+        service.create({ contactId: 'contact-foreign' } as any, mockActor),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('rejects ambiguous identity match with ConflictException', async () => {
+      mockCrmIdentityService.resolveIdentity.mockResolvedValue({
+        status: 'AMBIGUOUS',
+        conflictReason: 'Phone and email belong to different contacts',
+      });
+
+      const mockActor = { userId: 'user-1', companyId: 'org-1' } as any;
+      await expect(
+        service.create(
+          { phone: '9876543210', email: 'other@jest.com' } as any,
+          mockActor,
+        ),
+      ).rejects.toThrow(ConflictException);
+    });
+
+    it('rejects new candidate lead without phone number with BadRequestException', async () => {
+      mockCrmIdentityService.resolveIdentity.mockResolvedValue({
+        status: 'NEW',
+      });
+
+      const mockActor = { userId: 'user-1', companyId: 'org-1' } as any;
+      await expect(
+        service.create({ email: 'new@jest.com' } as any, mockActor),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('creates contact and customer atomically when NEW and valid phone is provided', async () => {
+      mockCrmIdentityService.resolveIdentity.mockResolvedValue({
+        status: 'NEW',
+      });
+      mockCrmIdentityService.ensureLinkedContactAndCustomer.mockResolvedValue({
+        contact: { id: 'con-created', companyId: 'org-1' },
+        customer: null,
+      });
+      mockLeadRepository.generateLeadCode.mockResolvedValue('LD-0002');
+      mockLeadRepository.create.mockResolvedValue({
+        id: 'lead-2',
+        title: 'New Lead',
+      } as any);
+
+      const mockActor = { userId: 'user-1', companyId: 'org-1' } as any;
+      const res = await service.create(
+        { phone: '9876543210', firstName: 'Prospect' } as any,
+        mockActor,
+      );
+
+      expect(res.id).toBe('lead-2');
+      expect(mockCrmIdentityService.ensureLinkedContactAndCustomer).toHaveBeenCalled();
     });
   });
 

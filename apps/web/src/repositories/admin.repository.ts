@@ -255,6 +255,17 @@ export const adminRepository = {
     return response.data;
   },
 
+
+  async getUserCommissions(userId: string): Promise<any[]> {
+    const response = await apiClient.get(`/admin/users/${userId}/commissions`);
+    return Array.isArray(response.data) ? response.data : [];
+  },
+
+  async getUserIncentives(userId: string): Promise<any[]> {
+    const response = await apiClient.get(`/admin/users/${userId}/incentives`);
+    return Array.isArray(response.data) ? response.data : [];
+  },
+
   async getUserWorkspace(id: string): Promise<UserWorkspaceData> {
     const response = await apiClient.get(`/users/${id}/workspace`);
     return response.data;

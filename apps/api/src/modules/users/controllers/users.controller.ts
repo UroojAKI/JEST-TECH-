@@ -32,7 +32,7 @@ import { UsersService } from '../services/users.service';
 @ApiTags('Users')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Controller('users')
+@Controller(['users', 'admin/users'])
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
@@ -180,5 +180,24 @@ export class UsersController {
     @CurrentUser() actor?: RequestUser,
   ) {
     return this.usersService.adminResetPassword(id, dto.newPassword, actor);
+  }
+  @Get(':id/commissions')
+  @Roles(RoleType.ADMIN)
+  @ApiOperation({ summary: 'Get employee commissions for Admin User 360' })
+  getEmployeeCommissions(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() actor: RequestUser,
+  ) {
+    return this.usersService.getEmployeeCommissions(id, actor);
+  }
+
+  @Get(':id/incentives')
+  @Roles(RoleType.ADMIN)
+  @ApiOperation({ summary: 'Get employee performance targets and incentives for Admin User 360' })
+  getEmployeeIncentives(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() actor: RequestUser,
+  ) {
+    return this.usersService.getEmployeeIncentives(id, actor);
   }
 }

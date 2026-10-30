@@ -69,14 +69,19 @@ export class LeadsService {
       throw new ForbiddenException('Tenant organizational context is required');
     }
 
-    let linkedCustomer = dto.customerId
-      ? await this.prisma.customer.findFirst({
-          where: { id: dto.customerId, companyId, deletedAt: null },
-          select: { id: true, contactId: true },
-        })
-      : null;
-    if (dto.customerId && !linkedCustomer) {
-      throw new NotFoundException('Customer not found');
+    let linkedCustomer: any = null;
+    if (dto.customerId) {
+      const anyCustomer = await this.prisma.customer.findUnique({
+        where: { id: dto.customerId },
+        select: { id: true, companyId: true, contactId: true, deletedAt: true },
+      });
+      if (!anyCustomer || anyCustomer.deletedAt) {
+        throw new NotFoundException('Customer not found');
+      }
+      if (anyCustomer.companyId !== companyId) {
+        throw new ForbiddenException('Customer belongs to another organization');
+      }
+      linkedCustomer = anyCustomer;
     }
     if (
       linkedCustomer?.contactId &&
@@ -118,48 +123,49 @@ export class LeadsService {
     }
 
     if (targetContactId) {
-      try {
-        const contact = await this.contactsService.findById(targetContactId);
-        if (
-          contact &&
-          (contact as any).companyId &&
-          (contact as any).companyId !== companyId
-        ) {
-          throw new ForbiddenException(
-            'Contact belongs to another organization',
-          );
-        }
-      } catch (err) {
-        if (err instanceof ForbiddenException) throw err;
-        targetContactId = undefined;
+      const contact = await this.contactsService.findById(targetContactId);
+      if (!contact || (contact as any).deletedAt) {
+        throw new NotFoundException('Contact not found');
+      }
+      if (
+        (contact as any).companyId &&
+        (contact as any).companyId !== companyId
+      ) {
+        throw new ForbiddenException(
+          'Contact belongs to another organization',
+        );
       }
     }
 
     if (!targetContactId) {
-      let existingContact: any = null;
-      if (dto.phone) {
-        existingContact = await this.prisma.contact.findFirst({
-          where: { phone: dto.phone, companyId, deletedAt: null },
-        });
-      }
-      if (!existingContact && dto.email) {
-        existingContact = await this.prisma.contact.findFirst({
-          where: { email: dto.email, companyId, deletedAt: null },
-        });
+      if (!dto.phone) {
+        throw new BadRequestException(
+          'A phone number is required to create a new contact from a lead. ' +
+            'Provide dto.phone or link an existing contact via dto.contactId.',
+        );
       }
 
-      if (existingContact) {
-        targetContactId = existingContact.id;
-      } else {
-        // DEF fix: Never generate a fake phone number. A lead that auto-creates a
-        // contact MUST provide a real phone. Random numbers corrupt the contacts
-        // register and violate UNIQUE(company_id, normalized_phone).
-        if (!dto.phone) {
-          throw new BadRequestException(
-            'A phone number is required to create a new contact from a lead. ' +
-              'Provide dto.phone or link an existing contact via dto.contactId.',
+      if (this.crmIdentityService) {
+        const { contact, customer } =
+          await this.crmIdentityService.ensureLinkedContactAndCustomer(
+            this.prisma,
+            {
+              companyId,
+              phone: dto.phone,
+              email: dto.email,
+              firstName:
+                dto.firstName ||
+                (dto.title ? dto.title.split(' ')[0] : 'Prospect'),
+              lastName: dto.lastName || '',
+              createdById,
+              createCustomerIfMissing: false,
+            },
           );
+        targetContactId = contact.id;
+        if (!linkedCustomer && customer) {
+          linkedCustomer = customer;
         }
+      } else {
         const createdContact = await this.contactsService.create(
           {
             firstName:

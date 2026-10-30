@@ -16,6 +16,7 @@ import { UserMapper } from '../mappers/user.mapper';
 import { CreateUserDto } from '../dto/create-user.dto';
 import { UserRepository } from '../repositories/user.repository';
 import { PrismaService } from '../../../database/prisma.service';
+import { PlatformPrivilegeResolver } from '../../../common/services/platform-privilege.resolver';
 
 @Injectable()
 export class UsersService {
@@ -687,5 +688,206 @@ export class UsersService {
     userAgent?: string;
   }): Promise<void> {
     return this.userRepository.createAuditLog(data);
+  }
+  /**
+   * Retrieves commissions exclusively for the specified employee with company-scoped authorization.
+   * Replaces unsafe local frontend name matching with authoritative database-scoped retrieval.
+   */
+  async getEmployeeCommissions(userId: string, actor: any) {
+    const isSuperAdmin = PlatformPrivilegeResolver.isPlatformAdmin(actor);
+    const callerCompanyId = actor?.companyId || actor?.organizationId;
+
+    const targetUser = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        companyId: true,
+        firstName: true,
+        lastName: true,
+        status: true,
+        role: { select: { type: true, name: true } },
+      },
+    });
+
+    if (!targetUser) {
+      throw new NotFoundException(`User with ID ${userId} not found`);
+    }
+
+    if (!isSuperAdmin) {
+      if (!callerCompanyId) {
+        throw new ForbiddenException('Tenant organizational context is required');
+      }
+      if (targetUser.companyId !== callerCompanyId) {
+        throw new ForbiddenException('User belongs to another organization');
+      }
+    }
+
+    const effectiveCompanyId = targetUser.companyId || callerCompanyId;
+
+    const commissions = await this.prisma.commission.findMany({
+      where: {
+        userId: targetUser.id,
+        ...(effectiveCompanyId
+          ? {
+              OR: [
+                { companyId: effectiveCompanyId },
+                { user: { companyId: effectiveCompanyId } },
+              ],
+            }
+          : {}),
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 100,
+    });
+
+    const policyIds = commissions.map((c) => c.policyId).filter(Boolean);
+    const policies =
+      policyIds.length > 0
+        ? await this.prisma.policy.findMany({
+            where: {
+              id: { in: policyIds },
+              ...(effectiveCompanyId ? { companyId: effectiveCompanyId } : {}),
+              deletedAt: null,
+            },
+            select: {
+              id: true,
+              policyNumber: true,
+              premiumAmount: true,
+              contact: { select: { firstName: true, lastName: true } },
+            },
+          })
+        : [];
+    const policyMap = new Map(policies.map((p) => [p.id, p]));
+
+    // Audit access where required by financial data audit policy
+    await this.prisma.auditLog.create({
+      data: {
+        action: AuditAction.LOGIN,
+        entity: 'Commission',
+        entityType: 'COMMISSION_ACCESS',
+        entityId: targetUser.id,
+        performedById: actor?.userId || actor?.id || null,
+        metadata: {
+          targetUserId: targetUser.id,
+          companyId: effectiveCompanyId,
+          recordsCount: commissions.length,
+          endpoint: '/admin/users/:userId/commissions',
+        },
+        module: 'FINANCE_AUDIT',
+      },
+    });
+
+    return commissions.map((c) => {
+      const pol = policyMap.get(c.policyId);
+      const grossPremium = pol ? Number(pol.premiumAmount) : Number(c.amount);
+      const customerName = pol?.contact
+        ? `${pol.contact.firstName} ${pol.contact.lastName || ''}`.trim()
+        : 'Customer';
+      const policyNumber =
+        pol?.policyNumber || `POL-${c.policyId.slice(0, 8).toUpperCase()}`;
+
+      return {
+        id: c.id,
+        policyId: c.policyId,
+        policyNumber,
+        customerName,
+        userId: targetUser.id,
+        agentName: `${targetUser.firstName || ''} ${targetUser.lastName || ''}`.trim(),
+        roleTier: c.roleTier || 'AGENT',
+        grossPremium,
+        amount: Number(c.amount),
+        commissionAmount: Number(c.amount),
+        status: c.status,
+        payoutStatus:
+          c.status === 'PAID'
+            ? 'PAID'
+            : c.status === 'APPROVED'
+              ? 'APPROVED'
+              : 'PENDING',
+        createdAt: c.createdAt,
+      };
+    });
+  }
+
+  /**
+   * Retrieves performance incentives exclusively for the specified employee with company-scoped authorization.
+   * Replaces unsafe local frontend name matching with authoritative database-scoped retrieval.
+   */
+  async getEmployeeIncentives(userId: string, actor: any) {
+    const isSuperAdmin = PlatformPrivilegeResolver.isPlatformAdmin(actor);
+    const callerCompanyId = actor?.companyId || actor?.organizationId;
+
+    const targetUser = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        companyId: true,
+        firstName: true,
+        lastName: true,
+        status: true,
+      },
+    });
+
+    if (!targetUser) {
+      throw new NotFoundException(`User with ID ${userId} not found`);
+    }
+
+    if (!isSuperAdmin) {
+      if (!callerCompanyId) {
+        throw new ForbiddenException('Tenant organizational context is required');
+      }
+      if (targetUser.companyId !== callerCompanyId) {
+        throw new ForbiddenException('User belongs to another organization');
+      }
+    }
+
+    const effectiveCompanyId = targetUser.companyId || callerCompanyId;
+
+    const targets = await this.prisma.salesTarget.findMany({
+      where: {
+        userId: targetUser.id,
+        ...(effectiveCompanyId
+          ? { user: { companyId: effectiveCompanyId } }
+          : {}),
+      },
+      orderBy: { year: 'desc' },
+      take: 50,
+    });
+
+    // Audit access where required by financial data audit policy
+    await this.prisma.auditLog.create({
+      data: {
+        action: AuditAction.LOGIN,
+        entity: 'SalesTarget',
+        entityType: 'INCENTIVE_ACCESS',
+        entityId: targetUser.id,
+        performedById: actor?.userId || actor?.id || null,
+        metadata: {
+          targetUserId: targetUser.id,
+          companyId: effectiveCompanyId,
+          recordsCount: targets.length,
+          endpoint: '/admin/users/:userId/incentives',
+        },
+        module: 'FINANCE_AUDIT',
+      },
+    });
+
+    return targets.map((t) => ({
+      id: t.id,
+      userId: targetUser.id,
+      employeeName:
+        `${targetUser.firstName || ''} ${targetUser.lastName || ''}`.trim() ||
+        'Employee',
+      role: 'Sales Executive',
+      type: 'QUARTERLY_TARGET',
+      year: t.year,
+      month: t.month,
+      targetAmount: Number(t.targetGwp || 100000),
+      achievedAmount: Number(t.achievedGwp || 0),
+      incentiveAmount: null,
+      status: 'POLICY_PENDING',
+      policyStatus: 'PENDING_APPROVAL',
+      note: 'Incentive calculation pending executive business policy approval (INC-B01)',
+    }));
   }
 }

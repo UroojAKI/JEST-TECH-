@@ -6,6 +6,7 @@ import {
   Query,
   UseGuards,
   ForbiddenException,
+  ConflictException,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { RoleType, AuditAction } from '@prisma/client';
@@ -16,6 +17,8 @@ import { AnyAuthenticatedRole } from '../../../auth/decorators/any-authenticated
 import { CurrentUser } from '../../../auth/decorators/current-user.decorator';
 import type { RequestUser } from '../../../auth/decorators/current-user.decorator';
 import { PrismaService } from '../../../../database/prisma.service';
+import { CrmIdentityService } from '../../../crm-identity/services/crm-identity.service';
+import { Optional } from '@nestjs/common';
 import {
   CreatePortalLeadDto,
   PortalCompareQuotationsDto,
@@ -27,7 +30,10 @@ import {
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('portal')
 export class PortalController {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Optional() private readonly crmIdentityService?: CrmIdentityService,
+  ) {}
 
   // Agent records are owner-scoped; privileged roles stay tenant-scoped.
 
@@ -346,36 +352,62 @@ export class PortalController {
       (nameParts.length > 1 ? nameParts.slice(1).join(' ') : 'Lead');
 
     let contact: any = null;
-    const searchConditions: any[] = [];
-    if (phone) searchConditions.push({ phone });
-    if (email) searchConditions.push({ email });
-
-    if (searchConditions.length > 0) {
-      contact = await this.prisma.contact.findFirst({
-        where: {
-          companyId,
-          deletedAt: null,
-          OR: searchConditions,
-        },
+    if (this.crmIdentityService) {
+      const match = await this.crmIdentityService.resolveIdentity({
+        companyId,
+        phone,
+        email,
       });
-    }
-
-    if (!contact) {
-      const contactCode = `CONT-${leadSeq.toString().padStart(6, '0')}`;
-      contact = await this.prisma.contact.create({
-        data: {
-          contactCode,
-          type: 'INDIVIDUAL' as any,
-          firstName,
-          lastName,
-          phone: phone || `PROSPECT-${leadCode}`,
-          email: email || undefined,
-          createdById: user.id,
-          agentCode: agent?.agentCode,
-          companyId,
-          status: 'ACTIVE',
-        },
-      });
+      if (match.status === 'AMBIGUOUS') {
+        throw new ConflictException({
+          statusCode: 409,
+          error: 'Conflict',
+          message: match.conflictReason || 'Ambiguous identity match across multiple records.',
+        });
+      }
+      if (match.status === 'MATCH' && match.contact) {
+        contact = match.contact;
+      } else {
+        const result = await this.crmIdentityService.ensureLinkedContactAndCustomer(
+          this.prisma,
+          {
+            companyId,
+            phone: phone || null,
+            email: email || null,
+            firstName,
+            lastName,
+            createdById: user.id,
+            createCustomerIfMissing: false,
+          },
+        );
+        contact = result.contact;
+      }
+    } else {
+      const searchConditions: any[] = [];
+      if (phone) searchConditions.push({ phone });
+      if (email) searchConditions.push({ email });
+      if (searchConditions.length > 0) {
+        contact = await this.prisma.contact.findFirst({
+          where: { companyId, deletedAt: null, OR: searchConditions },
+        });
+      }
+      if (!contact) {
+        const contactCode = `CONT-${leadSeq.toString().padStart(6, '0')}`;
+        contact = await this.prisma.contact.create({
+          data: {
+            contactCode,
+            type: 'INDIVIDUAL' as any,
+            firstName,
+            lastName,
+            phone: phone || `PROSPECT-${leadCode}`,
+            email: email || undefined,
+            createdById: user.id,
+            agentCode: agent?.agentCode,
+            companyId,
+            status: 'ACTIVE',
+          },
+        });
+      }
     }
 
     const created = await this.prisma.lead.create({
