@@ -108,17 +108,31 @@ export interface LedgerEntryItem {
 export interface CommissionItem {
   id: string;
   policyId?: string;
-  policyNumber: string;
-  customerName: string;
+  policyNumber: string | null;
+  customerName: string | null;
   agentName: string;
   roleTier: string;
-  grossPremium: number;
-  commissionPercent: number;
+  grossPremium: number | null;
+  commissionPercent: number | null;
   commissionAmount: number;
   amount: number;
   status: 'ACCRUED' | 'REALIZED' | 'APPROVED' | 'PAID' | 'CANCELLED';
   payoutStatus: 'PENDING_APPROVAL' | 'APPROVED' | 'PAID' | 'REALIZED';
+  integrityStatus?: 'VERIFIED' | 'DATA_INTEGRITY_EXCEPTION';
   createdAt: string;
+}
+
+export interface BulkCommissionApprovalResult {
+  totalSelected: number;
+  successfulCount: number;
+  alreadyProcessedCount: number;
+  stateMismatchCount: number;
+  failedCount: number;
+  results: Array<{
+    id: string;
+    status: 'SUCCESS' | 'ALREADY_PROCESSED' | 'STATE_MISMATCH' | 'NOT_FOUND' | 'FORBIDDEN' | 'FAILED';
+    message: string;
+  }>;
 }
 
 export interface SettlementItem {
@@ -219,6 +233,11 @@ export const financeRepository = {
 
   async approveCommission(id: string): Promise<any> {
     const response = await apiClient.post(`/finance/commissions/${id}/approve`);
+    return response.data;
+  },
+
+  async bulkApproveCommissions(ids: string[]): Promise<BulkCommissionApprovalResult> {
+    const response = await apiClient.post('/finance/commissions/bulk-approve', { ids });
     return response.data;
   },
 

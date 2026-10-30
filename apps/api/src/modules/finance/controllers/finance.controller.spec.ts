@@ -13,6 +13,7 @@ describe('FinanceController', () => {
   let controller: FinanceController;
   let prisma: PrismaService;
   let settlementService: SettlementService;
+  let commissionEngineService: CommissionEngineService;
 
   const mockUser = {
     id: 'user-1',
@@ -33,7 +34,10 @@ describe('FinanceController', () => {
         },
         {
           provide: CommissionEngineService,
-          useValue: {},
+          useValue: {
+            approveCommission: jest.fn(),
+            bulkApproveCommissions: jest.fn(),
+          },
         },
         {
           provide: PaymentService,
@@ -62,6 +66,9 @@ describe('FinanceController', () => {
               findMany: jest.fn(),
               update: jest.fn(),
             },
+            commissionPlan: {
+              findMany: jest.fn().mockResolvedValue([]),
+            },
             motorPaymentRecord: {
               findMany: jest.fn(),
             },
@@ -88,6 +95,36 @@ describe('FinanceController', () => {
     controller = module.get<FinanceController>(FinanceController);
     prisma = module.get<PrismaService>(PrismaService);
     settlementService = module.get<SettlementService>(SettlementService);
+    commissionEngineService = module.get<CommissionEngineService>(
+      CommissionEngineService,
+    );
+  });
+
+  describe('resolveCompanyContext', () => {
+    it('rejects requests with missing company context across all finance methods', async () => {
+      const userWithoutCompany = { id: 'user-no-company', roles: [RoleType.ADMIN] };
+      await expect(controller.getCommissions(userWithoutCompany as any)).rejects.toThrow(
+        ForbiddenException,
+      );
+      await expect(controller.getReceipts(userWithoutCompany as any)).rejects.toThrow(
+        ForbiddenException,
+      );
+      await expect(controller.getSettlements(userWithoutCompany as any)).rejects.toThrow(
+        ForbiddenException,
+      );
+    });
+
+    it('rejects conflicting companyId and organizationId', async () => {
+      const conflictingUser = {
+        id: 'user-conflict',
+        companyId: 'comp-A',
+        organizationId: 'comp-B',
+        roles: [RoleType.ADMIN],
+      };
+      await expect(controller.getCommissions(conflictingUser as any)).rejects.toThrow(
+        ForbiddenException,
+      );
+    });
   });
 
   describe('getChartOfAccounts', () => {
@@ -108,34 +145,58 @@ describe('FinanceController', () => {
   });
 
   describe('approveCommission', () => {
-    it('updates commission status to APPROVED (not REALIZED)', async () => {
-      jest.spyOn(prisma.commission, 'findUnique').mockResolvedValue({
-        id: 'comm-1',
-        user: { companyId: 'comp-1' },
-      } as any);
-
-      jest.spyOn(prisma.commission, 'update').mockResolvedValue({
+    it('delegates to commissionEngineService and updates status to APPROVED', async () => {
+      jest.spyOn(commissionEngineService, 'approveCommission').mockResolvedValue({
         id: 'comm-1',
         status: 'APPROVED',
       } as any);
 
       const result = await controller.approveCommission('comm-1', mockUser as any);
       expect(result.status).toBe('APPROVED');
-      expect(prisma.commission.update).toHaveBeenCalledWith({
-        where: { id: 'comm-1' },
-        data: { status: 'APPROVED' },
-      });
+      expect(commissionEngineService.approveCommission).toHaveBeenCalledWith(
+        'comm-1',
+        mockUser,
+      );
     });
 
     it('rejects cross-tenant commission approval', async () => {
-      jest.spyOn(prisma.commission, 'findUnique').mockResolvedValue({
-        id: 'comm-1',
-        user: { companyId: 'other-comp' },
-      } as any);
+      jest
+        .spyOn(commissionEngineService, 'approveCommission')
+        .mockRejectedValue(
+          new ForbiddenException('Commission belongs to another organization'),
+        );
 
       await expect(
         controller.approveCommission('comm-1', mockUser as any),
-      ).rejects.toThrow(NotFoundException);
+      ).rejects.toThrow(ForbiddenException);
+    });
+  });
+
+  describe('bulkApproveCommissions', () => {
+    it('delegates to commissionEngineService.bulkApproveCommissions with itemized counts', async () => {
+      jest
+        .spyOn(commissionEngineService, 'bulkApproveCommissions')
+        .mockResolvedValue({
+          totalSelected: 2,
+          successfulCount: 2,
+          alreadyProcessedCount: 0,
+          stateMismatchCount: 0,
+          failedCount: 0,
+          results: [
+            { id: 'c1', status: 'SUCCESS', message: 'Commission successfully approved' },
+            { id: 'c2', status: 'SUCCESS', message: 'Commission successfully approved' },
+          ],
+        });
+
+      const res = await controller.bulkApproveCommissions(
+        { ids: ['c1', 'c2'] },
+        mockUser as any,
+      );
+      expect(res.successfulCount).toBe(2);
+      expect(commissionEngineService.bulkApproveCommissions).toHaveBeenCalledWith(
+        ['c1', 'c2'],
+        mockUser,
+      );
     });
   });
 
@@ -287,6 +348,38 @@ describe('FinanceController', () => {
       expect(result[0].amount).toBe(2000);
       expect(result[0].commissionAmount).toBe(2000);
       expect(result[0].payoutStatus).toBe('APPROVED');
+      expect(result[0].integrityStatus).toBe('VERIFIED');
+    });
+
+    it('removes fabricated fallbacks when linked policy is missing', async () => {
+      jest.spyOn(prisma.commission, 'findMany').mockResolvedValue([
+        {
+          id: 'comm-orphan',
+          policyId: 'pol-nonexistent',
+          amount: '3500',
+          roleTier: 'AGENT',
+          status: 'ACCRUED',
+          createdAt: new Date('2026-10-20T10:00:00Z'),
+          user: { firstName: 'Orphan', lastName: 'Agent' },
+        },
+      ] as any);
+
+      jest.spyOn(prisma.policy, 'findMany').mockResolvedValue([]);
+
+      const result = await controller.getCommissions(mockUser as any);
+      expect(result).toHaveLength(1);
+      expect(result[0].amount).toBe(3500);
+      expect(result[0].commissionAmount).toBe(3500);
+      // F-036 / 6.3: Must not substitute commission amount for gross premium
+      expect(result[0].grossPremium).toBeNull();
+      // Must not invent 'POL-POL-NONEX' policy number
+      expect(result[0].policyNumber).toBeNull();
+      // Must not invent 'Customer'
+      expect(result[0].customerName).toBeNull();
+      // Must not round ratio into commission percentage
+      expect(result[0].commissionPercent).toBeNull();
+      // Expose explicit integrity status
+      expect(result[0].integrityStatus).toBe('DATA_INTEGRITY_EXCEPTION');
     });
   });
 

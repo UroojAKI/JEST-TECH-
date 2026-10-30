@@ -130,6 +130,31 @@ export function useCommissions() {
     },
   });
 
+  const bulkApproveMutation = useMutation({
+    mutationFn: (ids: string[]) => financeRepository.bulkApproveCommissions(ids),
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ['finance-commissions'] });
+      queryClient.invalidateQueries({ queryKey: ['finance-commissions-me'] });
+      queryClient.invalidateQueries({ queryKey: ['finance-dashboard'] });
+      if (result.failedCount === 0 && result.stateMismatchCount === 0) {
+        if (result.alreadyProcessedCount > 0) {
+          toast.info(
+            `Processed ${result.totalSelected}: ${result.successfulCount} approved, ${result.alreadyProcessedCount} already processed.`,
+          );
+        } else {
+          toast.success(`Successfully approved ${result.successfulCount} commission payouts!`);
+        }
+      } else {
+        toast.warning(
+          `Bulk approval completed with issues — Approved: ${result.successfulCount}, Already processed: ${result.alreadyProcessedCount}, Failed/Mismatch: ${result.stateMismatchCount + result.failedCount}`,
+        );
+      }
+    },
+    onError: (err: any) => {
+      toast.error(err.response?.data?.message || 'Failed to bulk approve commissions');
+    },
+  });
+
   return {
     commissions: query.data || [],
     isLoading: query.isLoading,
@@ -138,6 +163,8 @@ export function useCommissions() {
     refetch: query.refetch,
     approveCommission: approveMutation.mutate,
     isApproving: approveMutation.isPending,
+    bulkApproveCommissions: bulkApproveMutation.mutateAsync,
+    isBulkApproving: bulkApproveMutation.isPending,
   };
 }
 

@@ -145,6 +145,8 @@ export function FinanceOperationsHub() {
   const {
     commissions = [],
     approveCommission,
+    bulkApproveCommissions,
+    isBulkApproving,
     isLoading: isCommissionsLoading,
     isError: isCommissionsError,
     error: commissionsError,
@@ -215,16 +217,8 @@ export function FinanceOperationsHub() {
       toast.info('No pending commission payouts to approve.');
       return;
     }
-    let count = 0;
-    for (const c of pendingCommissions) {
-      try {
-        await approveCommission(c.id);
-        count++;
-      } catch (e) {
-        // Handled in mutation
-      }
-    }
-    toast.success(`Successfully approved ${count} commission payouts!`);
+    const ids = pendingCommissions.map((c: any) => c.id);
+    await bulkApproveCommissions(ids);
   };
 
   const handlePostJournal = async (e: React.FormEvent) => {
@@ -987,10 +981,16 @@ export function FinanceOperationsHub() {
                   </div>
                   <button
                     onClick={handleApproveBatchPayouts}
-                    disabled={pendingCommissions.length === 0}
-                    className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow transition disabled:opacity-50"
+                    disabled={pendingCommissions.length === 0 || isBulkApproving}
+                    className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow transition disabled:opacity-50 flex items-center gap-1.5"
                   >
-                    ✓ Approve Selected Payouts ({pendingCommissions.length} Pending)
+                    {isBulkApproving ? (
+                      <>
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" /> Approving...
+                      </>
+                    ) : (
+                      <>✓ Approve Selected Payouts ({pendingCommissions.length} Pending)</>
+                    )}
                   </button>
                 </div>
 
@@ -1014,15 +1014,45 @@ export function FinanceOperationsHub() {
                         const commissionVal = Number(c.amount ?? c.commissionAmount ?? 0);
                         return (
                           <tr key={c.id} className="hover:bg-accent/40">
-                            <td className="p-3 font-mono font-bold text-primary">{c.policyNumber}</td>
-                            <td className="p-3 font-semibold">{c.agentName}</td>
+                            <td className="p-3 font-mono font-bold text-primary">
+                              {c.policyNumber ? (
+                                <span>{c.policyNumber}</span>
+                              ) : (
+                                <span className="text-[10px] text-destructive bg-destructive/10 px-1.5 py-0.5 rounded font-semibold border border-destructive/20">
+                                  Missing Policy
+                                </span>
+                              )}
+                              {c.integrityStatus === 'DATA_INTEGRITY_EXCEPTION' && (
+                                <span className="ml-1.5 text-[9px] px-1 py-0.5 rounded bg-amber-500/10 text-amber-600 font-semibold border border-amber-500/20">
+                                  Exception
+                                </span>
+                              )}
+                            </td>
+                            <td className="p-3 font-semibold">
+                              <div>{c.agentName}</div>
+                              {c.customerName && (
+                                <div className="text-[10px] text-muted-foreground">Cust: {c.customerName}</div>
+                              )}
+                            </td>
                             <td className="p-3 font-bold text-xs">
                               <span className="px-2 py-0.5 rounded bg-muted text-foreground border text-[10px]">
                                 {c.roleTier}
                               </span>
                             </td>
-                            <td className="p-3 font-mono">₹{c.grossPremium?.toLocaleString('en-IN')}</td>
-                            <td className="p-3 font-bold text-primary">{c.commissionPercent}%</td>
+                            <td className="p-3 font-mono">
+                              {c.grossPremium !== null && c.grossPremium !== undefined ? (
+                                `₹${c.grossPremium.toLocaleString('en-IN')}`
+                              ) : (
+                                <span className="text-[10px] text-muted-foreground italic">Unavailable</span>
+                              )}
+                            </td>
+                            <td className="p-3 font-bold text-primary">
+                              {c.commissionPercent !== null && c.commissionPercent !== undefined ? (
+                                `${c.commissionPercent}%`
+                              ) : (
+                                <span className="text-[10px] text-muted-foreground font-normal italic">N/A</span>
+                              )}
+                            </td>
                             <td className="p-3 font-extrabold text-emerald-600 font-mono">
                               ₹{commissionVal.toLocaleString('en-IN')}
                             </td>

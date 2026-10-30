@@ -1,4 +1,4 @@
-import { Injectable, Inject } from '@nestjs/common';
+import { Injectable, Inject, ForbiddenException } from '@nestjs/common';
 import {
   CACHE_PROVIDER_TOKEN,
   ICacheProvider,
@@ -41,8 +41,15 @@ export class DashboardAnalyticsService {
       effectiveCompanyId = userRec?.companyId;
     }
 
-    const tenantPrefix = effectiveCompanyId ? `tenant:${effectiveCompanyId}:` : '';
-    const cacheKey = `${tenantPrefix}dashboard:analytics:${userId}:${role}`;
+    if (role !== 'SUPER_ADMIN' && !effectiveCompanyId) {
+      throw new ForbiddenException(
+        'Tenant organizational context is required for dashboard analytics',
+      );
+    }
+
+    const cacheKey = effectiveCompanyId
+      ? `tenant:${effectiveCompanyId}:dashboard:analytics:${userId}:${role}`
+      : `platform:super-admin:dashboard:analytics:${userId}`;
     const cached = await this.cache.get(cacheKey);
     if (cached) return cached;
 
@@ -72,6 +79,13 @@ export class DashboardAnalyticsService {
         : null;
       effectiveCompanyId = userRec?.companyId;
     }
+
+    if (role !== 'SUPER_ADMIN' && !effectiveCompanyId) {
+      throw new ForbiddenException(
+        'Tenant organizational context is required for dashboard analytics',
+      );
+    }
+
     const actor: any = {
       id: userId,
       userId,
@@ -162,15 +176,18 @@ export class DashboardAnalyticsService {
       const auditCount = await this.prisma.auditLog.count();
       const userCount = await this.prisma.user.count();
       const redisPing = await this.cache.ping();
-      const apiHealth = dbPing < 100 && redisPing >= 0 ? '99.9%' : '98.2%';
+      const serviceHealth = dbPing < 200 && redisPing >= 0 ? 'HEALTHY' : 'DEGRADED';
 
       return {
         role,
         kpis: {
-          apiHealth,
+          serviceHealth,
+          uptimePercentage: null,
           dbStatus: dbPing < 200 ? 'HEALTHY' : 'DEGRADED',
           dbPing: `${dbPing}ms`,
+          dbLatencyMs: dbPing,
           redisStatus: redisPing >= 0 ? 'HEALTHY' : 'DOWN',
+          redisLatencyMs: redisPing >= 0 ? redisPing : null,
           activeSessions,
           auditEvents: auditCount,
           systemUsers: userCount,
@@ -273,11 +290,12 @@ export class DashboardAnalyticsService {
         })
       : null;
 
-    const myTarget = salesTarget ? Number(salesTarget.targetGwp) : 500000;
+    const myTarget = salesTarget ? Number(salesTarget.targetGwp) : null;
+    const targetConfigured = salesTarget !== null;
     const achievement =
-      myTarget > 0
+      myTarget !== null && myTarget > 0
         ? Number(((revenue.thisMonth / myTarget) * 100).toFixed(1))
-        : 0;
+        : null;
 
     return {
       role,
@@ -290,6 +308,7 @@ export class DashboardAnalyticsService {
         renewalsAlerts: renewals.expiring30,
         todayRevenue: revenue.today,
         myTarget,
+        targetConfigured,
         achievement,
       },
       charts: {
@@ -313,8 +332,14 @@ export class DashboardAnalyticsService {
    * Aggregates Gross Written Premium (GWP) by Branch scoped by company.
    */
   async getBranchGwpBreakdown(companyId?: string) {
+    if (!companyId) {
+      throw new ForbiddenException(
+        'Tenant company context is required for branch performance',
+      );
+    }
+
     const branches = await this.prisma.branch.findMany({
-      where: companyId ? { zone: { region: { companyId } } } : {},
+      where: { zone: { region: { companyId } } },
       select: {
         id: true,
         name: true,
@@ -323,9 +348,9 @@ export class DashboardAnalyticsService {
           select: {
             policiesCreated: {
               where: {
-                status: PolicyStatus.ACTIVE,
+                status: { in: [PolicyStatus.ACTIVE, PolicyStatus.ISSUED] },
                 deletedAt: null,
-                ...(companyId ? { companyId } : {}),
+                companyId,
               },
               select: { premiumAmount: true },
             },
@@ -359,11 +384,17 @@ export class DashboardAnalyticsService {
    * Computes Insurer Market Share and Volume Distribution scoped by company.
    */
   async getInsurerMarketShare(companyId?: string) {
+    if (!companyId) {
+      throw new ForbiddenException(
+        'Tenant company context is required for insurer market share',
+      );
+    }
+
     const policies = await this.prisma.policy.findMany({
       where: {
-        status: PolicyStatus.ACTIVE,
+        status: { in: [PolicyStatus.ACTIVE, PolicyStatus.ISSUED] },
         deletedAt: null,
-        ...(companyId ? { companyId } : {}),
+        companyId,
       },
       select: {
         premiumAmount: true,
@@ -393,6 +424,12 @@ export class DashboardAnalyticsService {
    * Generates real sales agent leaderboard ranked by Gross Written Premium scoped by company.
    */
   async getSalesLeaderboard(limit = 10, companyId?: string) {
+    if (!companyId) {
+      throw new ForbiddenException(
+        'Tenant company context is required for sales leaderboard',
+      );
+    }
+
     const agents = await this.prisma.user.findMany({
       where: {
         status: UserStatus.ACTIVE,
@@ -402,7 +439,7 @@ export class DashboardAnalyticsService {
           },
         },
         deletedAt: null,
-        ...(companyId ? { companyId } : {}),
+        companyId,
       },
       select: {
         id: true,

@@ -10,6 +10,7 @@ import { RenewalAnalyticsService } from './renewal-analytics.service';
 import { RevenueAnalyticsService } from './revenue-analytics.service';
 import { CACHE_PROVIDER_TOKEN } from '../../platform/cache/cache.provider';
 import { PolicyStatus } from '@prisma/client';
+import { ForbiddenException } from '@nestjs/common';
 
 describe('DashboardAnalyticsService (Iteration 13)', () => {
   let service: DashboardAnalyticsService;
@@ -20,13 +21,13 @@ describe('DashboardAnalyticsService (Iteration 13)', () => {
     prisma = {
       $queryRaw: jest.fn().mockResolvedValue([{ 1: 1 }]),
       renewalTask: {
-        count: jest.fn(),
+        count: jest.fn().mockResolvedValue(0),
       },
       claim: {
-        aggregate: jest.fn(),
+        aggregate: jest.fn().mockResolvedValue({ _sum: { claimAmount: null } }),
       },
       policyPayment: {
-        aggregate: jest.fn(),
+        aggregate: jest.fn().mockResolvedValue({ _sum: { amount: null } }),
       },
       activity: {
         findMany: jest.fn().mockResolvedValue([]),
@@ -137,7 +138,7 @@ describe('DashboardAnalyticsService (Iteration 13)', () => {
         _sum: { amount: 1000000 },
       });
 
-      const data: any = await service.getDashboardData('ADMIN', 'admin-1');
+      const data: any = await service.getDashboardData('ADMIN', 'admin-1', 'tenant-123');
 
       expect(data.kpis.renewalRate).toBe('80.0%');
       expect(data.kpis.lossRatio).toBe('20.0%');
@@ -153,7 +154,7 @@ describe('DashboardAnalyticsService (Iteration 13)', () => {
         _sum: { amount: null },
       });
 
-      const data: any = await service.getDashboardData('ADMIN', 'admin-1');
+      const data: any = await service.getDashboardData('ADMIN', 'admin-1', 'tenant-123');
 
       expect(data.kpis.renewalRate).toBe('0.0%');
       expect(data.kpis.lossRatio).toBe('0.0%');
@@ -189,7 +190,7 @@ describe('DashboardAnalyticsService (Iteration 13)', () => {
       ];
       prisma.branch.findMany.mockResolvedValue(mockBranches);
 
-      const result = await service.getBranchGwpBreakdown();
+      const result = await service.getBranchGwpBreakdown('tenant-123');
 
       expect(result).toHaveLength(2);
       expect(result[0].gwp).toBe(60000);
@@ -208,7 +209,7 @@ describe('DashboardAnalyticsService (Iteration 13)', () => {
       ];
       prisma.policy.findMany.mockResolvedValue(mockPolicies);
 
-      const result = await service.getInsurerMarketShare();
+      const result = await service.getInsurerMarketShare('tenant-123');
 
       expect(result).toHaveLength(2);
       expect(result[0].insurer).toBe('HDFC ERGO');
@@ -242,7 +243,7 @@ describe('DashboardAnalyticsService (Iteration 13)', () => {
       ];
       prisma.user.findMany.mockResolvedValue(mockAgents);
 
-      const result = await service.getSalesLeaderboard(5);
+      const result = await service.getSalesLeaderboard(5, 'tenant-123');
 
       expect(result).toHaveLength(2);
       expect(result[0].agentName).toBe('Kavita Sharma');
@@ -327,4 +328,42 @@ describe('DashboardAnalyticsService (Iteration 13)', () => {
       );
     });
   });
+
+  describe('Phase 9: Fail-closed tenant context & telemetry integrity', () => {
+    it('fails closed when company context is missing on analytics helpers', async () => {
+      await expect(service.getBranchGwpBreakdown()).rejects.toThrow(ForbiddenException);
+      await expect(service.getInsurerMarketShare()).rejects.toThrow(ForbiddenException);
+      await expect(service.getSalesLeaderboard(10)).rejects.toThrow(ForbiddenException);
+      await expect(service.getDashboardData('ADMIN', 'user-no-tenant')).rejects.toThrow(
+        ForbiddenException,
+      );
+    });
+
+    it('SUPER_ADMIN: returns measured latency and null uptimePercentage without synthetic 99.9%', async () => {
+      prisma.refreshToken.count.mockResolvedValue(10);
+      prisma.auditLog.count.mockResolvedValue(250);
+      prisma.user.count.mockResolvedValue(30);
+
+      const data: any = await service.getDashboardData('SUPER_ADMIN', 'super-1');
+
+      expect(data.kpis.serviceHealth).toBe('HEALTHY');
+      expect(data.kpis.uptimePercentage).toBeNull();
+      expect(data.kpis.apiHealth).toBeUndefined(); // Synthetic percentage removed
+      expect(data.kpis.activeSessions).toBe(10);
+      expect(data.kpis.auditEvents).toBe(250);
+      expect(data.kpis.systemUsers).toBe(30);
+    });
+
+    it('Agent: returns null target and achievement when no salesTarget configured without ₹500,000 fallback', async () => {
+      // Mock salesTarget to return null
+      prisma.salesTarget = { findFirst: jest.fn().mockResolvedValue(null) };
+
+      const data: any = await service.getDashboardData('SALES_AGENT', 'agent-1', 'tenant-123');
+
+      expect(data.kpis.myTarget).toBeNull();
+      expect(data.kpis.targetConfigured).toBe(false);
+      expect(data.kpis.achievement).toBeNull();
+    });
+  });
+
 });

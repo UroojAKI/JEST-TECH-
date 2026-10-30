@@ -1,5 +1,6 @@
-import { Injectable, Logger, BadRequestException } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { Injectable, Logger, BadRequestException, NotFoundException, ForbiddenException, ConflictException } from '@nestjs/common';
+import { Prisma, AuditAction } from '@prisma/client';
+import type { RequestUser } from '../../../../auth/decorators/current-user.decorator';
 import { PrismaService } from '../../../../../database/prisma.service';
 import { Decimal } from '@prisma/client/runtime/library';
 
@@ -230,5 +231,163 @@ export class CommissionEngineService {
       `Realized ${result.count} approved commissions for policy ${policyId}`,
     );
     return result.count;
+  }
+
+  /**
+   * Approves an accrued commission atomically with company context and audit logging.
+   */
+  async approveCommission(id: string, actor: RequestUser) {
+    const companyId = actor.companyId || (actor as any).organizationId;
+    if (!companyId) {
+      throw new ForbiddenException('Company context is required for commission approval');
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      const commission = await tx.commission.findUnique({
+        where: { id },
+        include: { user: true },
+      });
+
+      if (!commission) {
+        throw new NotFoundException('Commission record not found');
+      }
+
+      const recordCompanyId = commission.companyId || commission.user?.companyId;
+      if (recordCompanyId && recordCompanyId !== companyId) {
+        throw new ForbiddenException('Commission belongs to another organization');
+      }
+
+      if (commission.status === 'APPROVED') {
+        throw new ConflictException('Commission is already approved');
+      }
+      if (commission.status === 'PAID') {
+        throw new ConflictException('Commission has already been paid');
+      }
+      if (commission.status === 'REALIZED') {
+        throw new ConflictException('Commission is already realized');
+      }
+      if (commission.status === 'CANCELLED') {
+        throw new BadRequestException('Cannot approve a cancelled commission');
+      }
+      if (commission.status !== 'ACCRUED') {
+        throw new BadRequestException(
+          `Commission with status "${commission.status}" cannot be approved`,
+        );
+      }
+
+      const updated = await tx.commission.update({
+        where: { id },
+        data: {
+          status: 'APPROVED',
+          companyId: commission.companyId || companyId,
+        },
+      });
+
+      await tx.auditLog.create({
+        data: {
+          action: AuditAction.APPROVE,
+          entity: 'Commission',
+          entityId: id,
+          module: 'FINANCE',
+          userId: actor.id || actor.userId || null,
+          oldValue: { status: commission.status },
+          newValue: { status: 'APPROVED' },
+          metadata: {
+            policyId: commission.policyId,
+            recipientId: commission.userId,
+            amount: commission.amount.toString(),
+            roleTier: commission.roleTier,
+            approvedAt: new Date().toISOString(),
+            companyId,
+          },
+        },
+      });
+
+      this.logger.log(`Approved commission ${id} by user ${actor.id || actor.userId}`);
+      return updated;
+    });
+  }
+
+  /**
+   * Bulk approves commissions with explicit per-record outcome semantics.
+   */
+  async bulkApproveCommissions(ids: string[], actor: RequestUser) {
+    const companyId = actor.companyId || (actor as any).organizationId;
+    if (!companyId) {
+      throw new ForbiddenException('Company context is required for bulk commission approval');
+    }
+
+    if (!Array.isArray(ids) || ids.length === 0) {
+      throw new BadRequestException('At least one commission ID must be provided');
+    }
+
+    const results: Array<{
+      id: string;
+      status: 'SUCCESS' | 'ALREADY_PROCESSED' | 'STATE_MISMATCH' | 'NOT_FOUND' | 'FORBIDDEN' | 'FAILED';
+      message: string;
+    }> = [];
+
+    let successfulCount = 0;
+    let alreadyProcessedCount = 0;
+    let stateMismatchCount = 0;
+    let failedCount = 0;
+
+    for (const id of ids) {
+      try {
+        await this.approveCommission(id, actor);
+        successfulCount++;
+        results.push({
+          id,
+          status: 'SUCCESS',
+          message: 'Commission successfully approved',
+        });
+      } catch (err: any) {
+        if (err instanceof ConflictException) {
+          alreadyProcessedCount++;
+          results.push({
+            id,
+            status: 'ALREADY_PROCESSED',
+            message: err.message || 'Commission already processed',
+          });
+        } else if (err instanceof NotFoundException) {
+          failedCount++;
+          results.push({
+            id,
+            status: 'NOT_FOUND',
+            message: err.message || 'Commission record not found',
+          });
+        } else if (err instanceof ForbiddenException) {
+          failedCount++;
+          results.push({
+            id,
+            status: 'FORBIDDEN',
+            message: err.message || 'Cross-tenant access forbidden',
+          });
+        } else if (err instanceof BadRequestException) {
+          stateMismatchCount++;
+          results.push({
+            id,
+            status: 'STATE_MISMATCH',
+            message: err.message || 'Invalid state transition',
+          });
+        } else {
+          failedCount++;
+          results.push({
+            id,
+            status: 'FAILED',
+            message: err?.message || 'Failed to approve commission',
+          });
+        }
+      }
+    }
+
+    return {
+      totalSelected: ids.length,
+      successfulCount,
+      alreadyProcessedCount,
+      stateMismatchCount,
+      failedCount,
+      results,
+    };
   }
 }

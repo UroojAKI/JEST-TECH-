@@ -9,6 +9,8 @@ import {
   UseGuards,
   Res,
   NotFoundException,
+  BadRequestException,
+  ConflictException,
   ForbiddenException,
 } from '@nestjs/common';
 import type { Response } from 'express';
@@ -49,6 +51,19 @@ export class FinanceController {
     private readonly prisma: PrismaService,
   ) {}
 
+  private resolveCompanyContext(actor: RequestUser): string {
+    const companyId = actor.companyId;
+    const organizationId = (actor as any).organizationId;
+    if (companyId && organizationId && companyId !== organizationId) {
+      throw new ForbiddenException('Conflicting company and organization context');
+    }
+    const resolved = companyId || organizationId;
+    if (!resolved) {
+      throw new ForbiddenException('Company context is required for financial operations');
+    }
+    return resolved;
+  }
+
   @Get('dashboard')
   @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE)
   @ApiOperation({ summary: 'Get finance dashboard metrics and queue counts' })
@@ -60,10 +75,7 @@ export class FinanceController {
     monthStart.setDate(1);
     monthStart.setHours(0, 0, 0, 0);
 
-    const companyId = actor.companyId || (actor as any).organizationId;
-    if (!companyId) {
-      throw new ForbiddenException('Company context is required for finance');
-    }
+    const companyId = this.resolveCompanyContext(actor);
 
     // 1. Receipts today (scoped to customers of this company)
     const companyCustomers = await this.prisma.customer.findMany({
@@ -237,10 +249,7 @@ export class FinanceController {
     @CurrentUser() actor: RequestUser,
     @Res() res: Response,
   ) {
-    const companyId = actor.companyId || (actor as any).organizationId;
-    if (!companyId) {
-      throw new ForbiddenException('Company context is required');
-    }
+    const companyId = this.resolveCompanyContext(actor);
     const companyCustomers = await this.prisma.customer.findMany({
       where: { companyId },
       select: { id: true, contactId: true },
@@ -282,8 +291,7 @@ export class FinanceController {
     @CurrentUser() actor: RequestUser,
     @Query('status') status?: string,
   ) {
-    const companyId = actor.companyId || (actor as any).organizationId;
-    if (!companyId) return [];
+    const companyId = this.resolveCompanyContext(actor);
     const companyCustomers = await this.prisma.customer.findMany({
       where: { companyId },
       select: { id: true, contactId: true, firstName: true, lastName: true },
@@ -362,7 +370,7 @@ export class FinanceController {
     @Query('type') type?: string,
     @Query('method') method?: string,
   ) {
-    const companyId = actor.companyId || (actor as any).organizationId;
+    const companyId = this.resolveCompanyContext(actor);
     // Build WHERE clause; support both method param and backward-compatible type param
     const where: any = { quotation: { companyId } };
     const methodFilter = method || (type && type !== 'ALL' && type !== 'MOTOR_PREMIUM' ? type : undefined);
@@ -415,7 +423,7 @@ export class FinanceController {
     @Query('page') page?: number,
     @Query('limit') limit?: number,
   ) {
-    const companyId = actor.companyId || (actor as any).organizationId;
+    const companyId = this.resolveCompanyContext(actor);
     return this.ledgerService.getLedgerEntries(
       {
         search,
@@ -434,7 +442,7 @@ export class FinanceController {
     @Body() data: CreateJournalEntryDto,
     @CurrentUser() actor: RequestUser,
   ) {
-    const companyId = actor.companyId || (actor as any).organizationId;
+    const companyId = this.resolveCompanyContext(actor);
     return this.ledgerService.postEntry(data, companyId);
   }
 
@@ -442,10 +450,7 @@ export class FinanceController {
   @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT)
   @ApiOperation({ summary: 'List authenticated employee commissions' })
   async getMyCommissions(@CurrentUser() actor: RequestUser) {
-    const companyId = actor.companyId || (actor as any).organizationId;
-    if (!companyId) {
-      throw new ForbiddenException('Company context is required for employee commissions');
-    }
+    const companyId = this.resolveCompanyContext(actor);
     const employeeId = actor.userId || actor.id;
     const commissions = await this.prisma.commission.findMany({
       where: {
@@ -478,18 +483,42 @@ export class FinanceController {
     });
     const policyMap = new Map(policies.map((p) => [p.id, p]));
 
+const planIds = [
+      ...new Set(commissions.map((c) => c.planId).filter(Boolean)),
+    ] as string[];
+    const plans = planIds.length
+      ? await this.prisma.commissionPlan.findMany({
+          where: { id: { in: planIds } },
+          select: { id: true, rules: true },
+        })
+      : [];
+    const planRateMap = new Map<string, number>();
+    for (const plan of plans) {
+      try {
+        const rules = JSON.parse(plan.rules);
+        if (
+          rules.agentPercent !== undefined &&
+          Number.isFinite(Number(rules.agentPercent))
+        ) {
+          planRateMap.set(plan.id, Number(rules.agentPercent));
+        }
+      } catch {
+        // Ignore unparseable rules
+      }
+    }
+
     return commissions.map((c) => {
       const pol = policyMap.get(c.policyId);
-      const grossPremium = pol ? Number(pol.premiumAmount) : Number(c.amount);
-      const commissionPercent =
-        grossPremium > 0
-          ? Math.round((Number(c.amount) / grossPremium) * 100)
-          : 0;
+      const grossPremium = pol ? Number(pol.premiumAmount) : null;
+      const policyNumber = pol?.policyNumber || null;
       const customerName = pol?.contact
         ? `${pol.contact.firstName} ${pol.contact.lastName || ''}`.trim()
-        : 'Customer';
-      const policyNumber =
-        pol?.policyNumber || 'POL-' + c.policyId.substring(0, 8).toUpperCase();
+        : null;
+      const commissionPercent =
+        c.planId && planRateMap.has(c.planId)
+          ? planRateMap.get(c.planId)!
+          : null;
+      const integrityStatus = pol ? 'VERIFIED' : 'DATA_INTEGRITY_EXCEPTION';
 
       return {
         id: c.id,
@@ -513,6 +542,7 @@ export class FinanceController {
               : c.status === 'REALIZED'
                 ? 'REALIZED'
                 : 'PENDING_APPROVAL',
+        integrityStatus,
         createdAt: c.createdAt.toISOString(),
       };
     });
@@ -522,7 +552,7 @@ export class FinanceController {
   @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE)
   @ApiOperation({ summary: 'List broker / agent commissions' })
   async getCommissions(@CurrentUser() actor: RequestUser) {
-    const companyId = actor.companyId || (actor as any).organizationId;
+    const companyId = this.resolveCompanyContext(actor);
     const commissions = await this.prisma.commission.findMany({
       where: {
         OR: [
@@ -553,18 +583,42 @@ export class FinanceController {
     });
     const policyMap = new Map(policies.map((p) => [p.id, p]));
 
+const planIds = [
+      ...new Set(commissions.map((c) => c.planId).filter(Boolean)),
+    ] as string[];
+    const plans = planIds.length
+      ? await this.prisma.commissionPlan.findMany({
+          where: { id: { in: planIds } },
+          select: { id: true, rules: true },
+        })
+      : [];
+    const planRateMap = new Map<string, number>();
+    for (const plan of plans) {
+      try {
+        const rules = JSON.parse(plan.rules);
+        if (
+          rules.agentPercent !== undefined &&
+          Number.isFinite(Number(rules.agentPercent))
+        ) {
+          planRateMap.set(plan.id, Number(rules.agentPercent));
+        }
+      } catch {
+        // Ignore unparseable rules
+      }
+    }
+
     return commissions.map((c) => {
       const pol = policyMap.get(c.policyId);
-      const grossPremium = pol ? Number(pol.premiumAmount) : Number(c.amount);
-      const commissionPercent =
-        grossPremium > 0
-          ? Math.round((Number(c.amount) / grossPremium) * 100)
-          : 0;
+      const grossPremium = pol ? Number(pol.premiumAmount) : null;
+      const policyNumber = pol?.policyNumber || null;
       const customerName = pol?.contact
         ? `${pol.contact.firstName} ${pol.contact.lastName || ''}`.trim()
-        : 'Customer';
-      const policyNumber =
-        pol?.policyNumber || 'POL-' + c.policyId.substring(0, 8).toUpperCase();
+        : null;
+      const commissionPercent =
+        c.planId && planRateMap.has(c.planId)
+          ? planRateMap.get(c.planId)!
+          : null;
+      const integrityStatus = pol ? 'VERIFIED' : 'DATA_INTEGRITY_EXCEPTION';
 
       return {
         id: c.id,
@@ -588,6 +642,7 @@ export class FinanceController {
               : c.status === 'REALIZED'
                 ? 'REALIZED'
                 : 'PENDING_APPROVAL',
+        integrityStatus,
         createdAt: c.createdAt.toISOString(),
       };
     });
@@ -600,26 +655,26 @@ export class FinanceController {
     @Param('id') id: string,
     @CurrentUser() actor: RequestUser,
   ) {
-    const companyId = actor.companyId || (actor as any).organizationId;
-    const commission = await this.prisma.commission.findUnique({
-      where: { id },
-      include: { user: true },
-    });
-    if (!commission || commission.user?.companyId !== companyId) {
-      throw new NotFoundException('Commission record not found');
-    }
-    return this.prisma.commission.update({
-      where: { id },
-      data: { status: 'APPROVED' },
-    });
+    this.resolveCompanyContext(actor);
+    return this.commissionEngineService.approveCommission(id, actor);
+  }
+
+  @Post('commissions/bulk-approve')
+  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE)
+  @ApiOperation({ summary: 'Bulk approve agent commission payouts with itemized outcomes' })
+  async bulkApproveCommissions(
+    @Body() dto: { ids: string[] },
+    @CurrentUser() actor: RequestUser,
+  ) {
+    this.resolveCompanyContext(actor);
+    return this.commissionEngineService.bulkApproveCommissions(dto?.ids || [], actor);
   }
 
   @Get('settlements')
   @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE)
   @ApiOperation({ summary: 'List insurer settlements' })
   async getSettlements(@CurrentUser() actor: RequestUser) {
-    const companyId = actor.companyId || (actor as any).organizationId;
-    if (!companyId) return [];
+    const companyId = this.resolveCompanyContext(actor);
 
     const companyClaims = await this.prisma.claim.findMany({
       where: { companyId },
@@ -690,10 +745,7 @@ export class FinanceController {
     @Body() dto: CreateSettlementBatchDto,
     @CurrentUser() actor: RequestUser,
   ) {
-    const companyId = actor.companyId || (actor as any).organizationId;
-    if (!companyId) {
-      throw new ForbiddenException('Company context is required for settlement');
-    }
+    const companyId = this.resolveCompanyContext(actor);
     return this.settlementService.createBatch(dto, companyId, actor.id);
   }
 
@@ -701,7 +753,7 @@ export class FinanceController {
   @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE)
   @ApiOperation({ summary: 'List sales performance incentives' })
   async getIncentives(@CurrentUser() actor: RequestUser) {
-    const companyId = actor.companyId || (actor as any).organizationId;
+    const companyId = this.resolveCompanyContext(actor);
     const targets = await this.prisma.salesTarget.findMany({
       where: {
         user: { companyId },
@@ -717,7 +769,7 @@ export class FinanceController {
         'Employee',
       role: 'Sales Executive',
       type: 'QUARTERLY_TARGET',
-      targetAmount: Number(t.targetGwp || 100000),
+      targetAmount: t.targetGwp ? Number(t.targetGwp) : null,
       achievedAmount: Number(t.achievedGwp || 0),
       incentiveAmount: null,
       status: 'POLICY_PENDING',
@@ -735,7 +787,7 @@ export class FinanceController {
     @Query('page') page?: number,
     @Query('limit') limit?: number,
   ) {
-    const companyId = actor.companyId || (actor as any).organizationId;
+    const companyId = this.resolveCompanyContext(actor);
     return this.reconciliationService.getReconciliationQueue({
       status,
       search,
@@ -771,8 +823,7 @@ export class FinanceController {
   @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE)
   @ApiOperation({ summary: 'List this company\'s payable policy invoices' })
   async getOutstandingInvoices(@CurrentUser() actor: RequestUser) {
-    const companyId = actor.companyId || (actor as any).organizationId;
-    if (!companyId) return [];
+    const companyId = this.resolveCompanyContext(actor);
 
     const policies = await this.prisma.policy.findMany({
       where: {
@@ -834,10 +885,7 @@ export class FinanceController {
     @Body() dto: RecordInvoicePaymentDto,
     @CurrentUser() actor: RequestUser,
   ) {
-    const companyId = actor.companyId || (actor as any).organizationId;
-    if (!companyId) {
-      throw new ForbiddenException('Company context is required for payment');
-    }
+    const companyId = this.resolveCompanyContext(actor);
 
     return this.paymentService.processPayment(
       invoiceId,
