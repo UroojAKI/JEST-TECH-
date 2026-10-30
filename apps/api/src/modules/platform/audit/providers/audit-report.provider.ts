@@ -26,9 +26,34 @@ export class AuditReportProvider implements ReportDataProvider, OnModuleInit {
     const reportCode = (params.parameters?.reportCode || '').toUpperCase();
     const whereClause: any = {};
 
+    const companyId = params.companyId || params.parameters?.companyId;
+    if (companyId) {
+      whereClause.user = { companyId };
+    }
+
     if (reportCode === 'USER_ACTIVITY') {
       whereClause.action = { in: ['LOGIN', 'LOGOUT', 'PASSWORD_RESET'] };
+    } else if (params.parameters?.action && params.parameters.action !== 'ALL') {
+      whereClause.action = params.parameters.action;
     }
+
+    if (params.parameters?.entity && params.parameters.entity !== 'ALL') {
+      whereClause.entity = params.parameters.entity;
+    }
+
+    if (params.parameters?.userId) {
+      whereClause.userId = params.parameters.userId;
+    }
+
+    const startDate = params.parameters?.startDate || params.parameters?.from;
+    const endDate = params.parameters?.endDate || params.parameters?.to;
+    if (startDate || endDate) {
+      whereClause.createdAt = {};
+      if (startDate) whereClause.createdAt.gte = new Date(startDate);
+      if (endDate) whereClause.createdAt.lte = new Date(endDate);
+    }
+
+    const limit = params.limit ? Number(params.limit) : 1000;
 
     const logs = await this.prisma.auditLog.findMany({
       where: whereClause,
@@ -36,7 +61,7 @@ export class AuditReportProvider implements ReportDataProvider, OnModuleInit {
         user: true,
       },
       orderBy: { createdAt: 'desc' },
-      take: 1000,
+      take: limit,
     });
 
     const rows = logs.map((log) => ({

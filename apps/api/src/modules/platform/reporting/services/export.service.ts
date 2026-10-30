@@ -200,7 +200,7 @@ export class ExportService implements ExportProvider {
     columns: { field: string; label: string }[],
     reportName: string,
   ): Promise<ExportResult> {
-    const PdfPrinter = require('pdfmake');
+    const pdfmake = require('pdfmake');
     const fonts = {
       Helvetica: {
         normal: 'Helvetica',
@@ -209,7 +209,9 @@ export class ExportService implements ExportProvider {
         bolditalics: 'Helvetica-BoldOblique',
       },
     };
-    const printer = new PdfPrinter(fonts);
+    pdfmake.setFonts(fonts);
+    pdfmake.setUrlAccessPolicy(() => false);
+    pdfmake.setLocalAccessPolicy(() => true);
 
     const tableBody: any[] = [];
     // Header Row
@@ -306,15 +308,8 @@ export class ExportService implements ExportProvider {
       },
     };
 
-    const pdfDoc = printer.createPdfKitDocument(docDefinition);
-
-    const buffer = await new Promise<Buffer>((resolve, reject) => {
-      const chunks: Buffer[] = [];
-      pdfDoc.on('data', (chunk: any) => chunks.push(chunk));
-      pdfDoc.on('end', () => resolve(Buffer.concat(chunks)));
-      pdfDoc.on('error', (err: any) => reject(err));
-      pdfDoc.end();
-    });
+    const pdfDoc = pdfmake.createPdf(docDefinition);
+    const buffer = await pdfDoc.getBuffer();
 
     return {
       buffer,

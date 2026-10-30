@@ -225,6 +225,22 @@ export class ExecuteReportDto {
   @IsBoolean()
   @IsOptional()
   stream?: boolean;
+
+  @ApiProperty({ required: false, example: ['insurer'] })
+  @IsOptional()
+  groupBy?: string[];
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  aggregations?: { column: string; func: 'SUM' | 'AVG' | 'COUNT' | 'MIN' | 'MAX' }[];
+
+  @ApiProperty({ required: false, example: 1 })
+  @IsOptional()
+  page?: number;
+
+  @ApiProperty({ required: false, example: 50 })
+  @IsOptional()
+  limit?: number;
 }
 
 export class CreateScheduleDto {

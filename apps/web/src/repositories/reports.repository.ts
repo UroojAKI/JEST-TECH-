@@ -98,16 +98,39 @@ export const reportsRepository = {
     return response.data;
   },
 
+  async previewReport(id: string, params?: ExecuteReportParams): Promise<ReportExecutionResult> {
+    const response = await apiClient.post(`/reports/${id}/preview`, {
+      parameters: params?.filters,
+      groupBy: params?.groupBy,
+      aggregations: params?.aggregations,
+      page: params?.page,
+      limit: params?.limit,
+    });
+    return response.data;
+  },
+
   async getDataProviders(): Promise<ReportDataProvider[]> {
     const response = await apiClient.get('/reports/providers');
     return response.data;
   },
 
-  async exportReport(id: string, format: 'PDF' | 'EXCEL' | 'CSV'): Promise<Blob> {
-    const response = await apiClient.get(`/reports/${id}/export`, {
-      params: { format: format.toLowerCase() },
-      responseType: 'blob',
-    });
+  async exportReport(
+    id: string,
+    format: 'PDF' | 'EXCEL' | 'CSV',
+    params?: ExecuteReportParams,
+  ): Promise<Blob> {
+    const response = await apiClient.post(
+      `/reports/${id}/execute`,
+      {
+        format: format.toLowerCase(),
+        parameters: params?.filters,
+        groupBy: params?.groupBy,
+        aggregations: params?.aggregations,
+      },
+      {
+        responseType: 'blob',
+      },
+    );
     return response.data;
   },
 

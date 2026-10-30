@@ -162,7 +162,16 @@ export function useFeatureFlags() {
   };
 }
 
-export function useAuditLogs(params?: { search?: string; module?: string }) {
+export function useAuditLogs(params?: {
+  search?: string;
+  entity?: string;
+  action?: string;
+  userId?: string;
+  startDate?: string;
+  endDate?: string;
+  page?: number;
+  limit?: number;
+}) {
   return useQuery({
     queryKey: ['admin-audit-logs', params],
     queryFn: () => adminRepository.getAuditLogs(params),

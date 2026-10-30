@@ -45,19 +45,70 @@ export class ReportBuilderService {
       case 'REVENUE':
         return this.warehouse.getReportingRevenue(companyId, parsedFilters);
       default:
-        return [];
+        throw new BadRequestException(`Unsupported reporting module: ${module}`);
     }
   }
 
   async buildReportData(
     report: ReportWithRelations,
     inputParams: Record<string, any> = {},
-    options: { limit?: number; search?: string } = {},
+    options: {
+      limit?: number;
+      page?: number;
+      search?: string;
+      groupBy?: string[];
+      aggregations?: {
+        column: string;
+        func: 'SUM' | 'AVG' | 'COUNT' | 'MIN' | 'MAX';
+      }[];
+    } = {},
     companyId?: string,
   ): Promise<{
     rows: Record<string, any>[];
     columns: { field: string; label: string; type: string }[];
+    summary?: Record<string, number>;
+    pagination?: {
+      page: number;
+      limit: number;
+      total: number;
+      totalPages: number;
+    };
   }> {
+    if (inputParams.dateRange && !inputParams.from && !inputParams.startDate) {
+      const now = new Date();
+      let fromDate: Date | undefined;
+      switch (inputParams.dateRange) {
+        case 'TODAY':
+          fromDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+          break;
+        case 'LAST_7_DAYS':
+          fromDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+          break;
+        case 'LAST_30_DAYS':
+          fromDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+          break;
+        case 'THIS_QUARTER':
+          fromDate = new Date(
+            now.getFullYear(),
+            Math.floor(now.getMonth() / 3) * 3,
+            1,
+          );
+          break;
+        case 'YTD': {
+          const fyYear =
+            now.getMonth() >= 3 ? now.getFullYear() : now.getFullYear() - 1;
+          fromDate = new Date(fyYear, 3, 1);
+          break;
+        }
+      }
+      if (fromDate) {
+        inputParams.from = fromDate.toISOString();
+        inputParams.startDate = fromDate.toISOString();
+        inputParams.endDate = now.toISOString();
+        inputParams.to = now.toISOString();
+      }
+    }
+
     let rows: Record<string, any>[] = [];
     const provider = this.registry.getProvider(report.code);
 
@@ -127,7 +178,7 @@ export class ReportBuilderService {
     }
 
     // Project columns
-    const columns = report.columns.map((c) => ({
+    let columns = report.columns.map((c) => ({
       field: c.field,
       label: c.label,
       type: c.type,
@@ -141,14 +192,67 @@ export class ReportBuilderService {
       return projected;
     });
 
-    // Apply Limit (useful for preview mode)
-    const limitedRows = options.limit
-      ? projectedRows.slice(0, options.limit)
-      : projectedRows;
+    let finalRows = projectedRows;
+    let summary: Record<string, number> | undefined;
+
+    const groupByField =
+      options.groupBy && options.groupBy.length > 0
+        ? options.groupBy[0]
+        : undefined;
+
+    if (groupByField) {
+      const aggColumns = report.columns.map((c) => ({
+        field: c.field,
+        type: c.type,
+        aggregation: (options.aggregations?.find((a) => a.column === c.field)
+          ?.func ||
+          (c.type === 'NUMBER' || c.type === 'CURRENCY'
+            ? 'SUM'
+            : undefined)) as any,
+      }));
+
+      finalRows = this.aggregateData(projectedRows, aggColumns, groupByField);
+      const hasGroupCol = columns.some((c) => c.field === groupByField);
+      if (!hasGroupCol) {
+        columns = [
+          {
+            field: groupByField,
+            label:
+              groupByField.charAt(0).toUpperCase() + groupByField.slice(1),
+            type: 'STRING',
+          },
+          ...columns,
+        ];
+      }
+    } else {
+      const aggColumns = report.columns
+        .filter((c) => c.type === 'NUMBER' || c.type === 'CURRENCY')
+        .map((c) => ({
+          field: c.field,
+          type: c.type,
+          aggregation: 'SUM' as const,
+        }));
+      if (aggColumns.length > 0) {
+        summary = this.aggregateData(projectedRows, aggColumns);
+      }
+    }
+
+    const total = finalRows.length;
+    const page = Math.max(1, Number(options.page) || 1);
+    const limit = options.limit ? Number(options.limit) : total;
+    const skip = (page - 1) * limit;
+    const paginatedRows = finalRows.slice(skip, skip + limit);
 
     return {
-      rows: limitedRows,
+      rows: paginatedRows,
       columns,
+      summary,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit) || 1,
+      },
     };
   }
 

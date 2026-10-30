@@ -36,16 +36,28 @@ export class LeadReportProvider implements ReportDataProvider, OnModuleInit {
   private async executeLeadSummary(
     params: ReportParameters,
   ): Promise<ReportResult> {
+    const companyId = params.companyId || params.parameters?.companyId;
+    const where: any = {
+      deletedAt: null,
+      ...(companyId ? { companyId } : {}),
+    };
+
+    const startDate = params.parameters?.startDate || params.parameters?.from;
+    const endDate = params.parameters?.endDate || params.parameters?.to;
+    if (startDate || endDate) {
+      where.createdAt = {};
+      if (startDate) where.createdAt.gte = new Date(startDate);
+      if (endDate) where.createdAt.lte = new Date(endDate);
+    }
+
     const leads = await this.prisma.lead.findMany({
-      where: {
-        deletedAt: null,
-        ...(params?.companyId ? { companyId: params.companyId } : {}),
-      },
+      where,
       include: {
         contact: true,
         assignedTo: true,
       },
       orderBy: { createdAt: 'desc' },
+      ...(params.limit ? { take: params.limit } : {}),
     });
 
     const rows = leads.map((l) => ({
@@ -69,11 +81,22 @@ export class LeadReportProvider implements ReportDataProvider, OnModuleInit {
   private async executeLeadConversion(
     params: ReportParameters,
   ): Promise<ReportResult> {
+    const companyId = params.companyId || params.parameters?.companyId;
+    const where: any = {
+      deletedAt: null,
+      ...(companyId ? { companyId } : {}),
+    };
+
+    const startDate = params.parameters?.startDate || params.parameters?.from;
+    const endDate = params.parameters?.endDate || params.parameters?.to;
+    if (startDate || endDate) {
+      where.createdAt = {};
+      if (startDate) where.createdAt.gte = new Date(startDate);
+      if (endDate) where.createdAt.lte = new Date(endDate);
+    }
+
     const leads = await this.prisma.lead.findMany({
-      where: {
-        deletedAt: null,
-        ...(params?.companyId ? { companyId: params.companyId } : {}),
-      },
+      where,
     });
 
     const totalLeads = leads.length;

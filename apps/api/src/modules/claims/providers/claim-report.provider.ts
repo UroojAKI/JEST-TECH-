@@ -35,9 +35,10 @@ export class ClaimReportProvider implements ReportDataProvider, OnModuleInit {
       return this.executeLossRatio(params);
     }
 
+    const companyId = params.companyId || params.parameters?.companyId;
     const whereClause: any = {
       deletedAt: null,
-      ...(params?.companyId ? { companyId: params.companyId } : {}),
+      ...(companyId ? { companyId } : {}),
     };
 
     if (reportCode === 'CLAIMS_PENDING') {
@@ -52,6 +53,14 @@ export class ClaimReportProvider implements ReportDataProvider, OnModuleInit {
       };
     }
 
+    const startDate = params.parameters?.startDate || params.parameters?.from;
+    const endDate = params.parameters?.endDate || params.parameters?.to;
+    if (startDate || endDate) {
+      whereClause.createdAt = {};
+      if (startDate) whereClause.createdAt.gte = new Date(startDate);
+      if (endDate) whereClause.createdAt.lte = new Date(endDate);
+    }
+
     const claims = await this.prisma.claim.findMany({
       where: whereClause,
       include: {
@@ -59,11 +68,12 @@ export class ClaimReportProvider implements ReportDataProvider, OnModuleInit {
         contact: true,
       },
       orderBy: { createdAt: 'desc' },
+      ...(params.limit ? { take: params.limit } : {}),
     });
 
     const rows = claims.map((c) => ({
       claimNumber: c.claimNumber,
-      policyNumber: c.policy.policyNumber,
+      policyNumber: c.policy?.policyNumber || '',
       contactName: c.contact
         ? `${c.contact.firstName} ${c.contact.lastName}`
         : '',
@@ -79,12 +89,31 @@ export class ClaimReportProvider implements ReportDataProvider, OnModuleInit {
   private async executeLossRatio(
     params: ReportParameters,
   ): Promise<ReportResult> {
+    const companyId = params.companyId || params.parameters?.companyId;
+    const claimWhere: any = {
+      status: { in: ['SETTLED', 'APPROVED'] },
+      deletedAt: null,
+      ...(companyId ? { companyId } : {}),
+    };
+    const paymentWhere: any = {
+      status: 'SUCCESS',
+      ...(companyId ? { policy: { companyId } } : {}),
+    };
+
+    const startDate = params.parameters?.startDate || params.parameters?.from;
+    const endDate = params.parameters?.endDate || params.parameters?.to;
+    if (startDate || endDate) {
+      claimWhere.createdAt = {};
+      if (startDate) claimWhere.createdAt.gte = new Date(startDate);
+      if (endDate) claimWhere.createdAt.lte = new Date(endDate);
+
+      paymentWhere.paymentDate = {};
+      if (startDate) paymentWhere.paymentDate.gte = new Date(startDate);
+      if (endDate) paymentWhere.paymentDate.lte = new Date(endDate);
+    }
+
     const claims = await this.prisma.claim.findMany({
-      where: {
-        status: { in: ['SETTLED', 'APPROVED'] },
-        deletedAt: null,
-        ...(params?.companyId ? { companyId: params.companyId } : {}),
-      },
+      where: claimWhere,
     });
     const claimsPaid = claims.reduce(
       (sum, c) => sum + Number(c.approvedAmount || 0),
@@ -92,10 +121,7 @@ export class ClaimReportProvider implements ReportDataProvider, OnModuleInit {
     );
 
     const payments = await this.prisma.policyPayment.findMany({
-      where: {
-        status: 'SUCCESS',
-        ...(params?.companyId ? { policy: { companyId: params.companyId } } : {}),
-      },
+      where: paymentWhere,
     });
     const premiumCollected = payments.reduce(
       (sum, p) => sum + Number(p.amount || 0),

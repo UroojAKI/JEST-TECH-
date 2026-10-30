@@ -21,9 +21,18 @@ export class PreviewReportQuery {
     public readonly parameters: Record<string, any>,
     public readonly search?: string,
     public readonly companyId?: string | null,
+    public readonly options?: {
+      page?: number;
+      limit?: number;
+      groupBy?: string[];
+      aggregations?: { column: string; func: 'SUM' | 'AVG' | 'COUNT' | 'MIN' | 'MAX' }[];
+    },
   ) {}
 }
 
 export class GetExecutionHistoryQuery {
-  constructor(public readonly reportId: string) {}
+  constructor(
+    public readonly reportId: string,
+    public readonly companyId?: string | null,
+  ) {}
 }

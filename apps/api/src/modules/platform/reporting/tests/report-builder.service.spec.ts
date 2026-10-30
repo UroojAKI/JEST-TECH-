@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { BadRequestException } from '@nestjs/common';
 import { ReportFilterOperator } from '@prisma/client';
 import { ReportBuilderService } from '../services/report-builder.service';
 import { WarehouseService } from '../../../warehouse/services/warehouse.service';
@@ -160,5 +161,55 @@ describe('ReportBuilderService', () => {
 
     const result = await service.buildReportData(reportMock, {}, { limit: 1 });
     expect(result.rows).toHaveLength(1);
+  });
+
+  it('should throw BadRequestException when reporting module is unsupported', async () => {
+    const reportMock: any = {
+      module: 'INVALID_MODULE',
+      columns: [{ field: 'fullName', label: 'Full Name', type: 'STRING' }],
+      filters: [],
+    };
+
+    await expect(service.buildReportData(reportMock, {})).rejects.toThrow(
+      BadRequestException,
+    );
+  });
+
+  it('should support grouping and aggregations across dimensions', async () => {
+    const reportMock: any = {
+      module: 'contacts',
+      columns: [
+        { field: 'state', label: 'State', type: 'STRING' },
+        { field: 'id', label: 'ID', type: 'STRING' },
+      ],
+      filters: [],
+    };
+
+    const result = await service.buildReportData(
+      reportMock,
+      {},
+      {
+        groupBy: ['state'],
+        aggregations: [{ column: 'id', func: 'COUNT' }],
+      },
+    );
+
+    expect(result.rows).toBeDefined();
+    expect(result.rows.length).toBeGreaterThanOrEqual(1);
+    expect(result.columns).toBeDefined();
+  });
+
+  it('should expand dateRange parameter for LAST_30_DAYS', async () => {
+    const reportMock: any = {
+      module: 'contacts',
+      columns: [{ field: 'fullName', label: 'Full Name', type: 'STRING' }],
+      filters: [],
+    };
+
+    const inputParams: any = { dateRange: 'LAST_30_DAYS' };
+    await service.buildReportData(reportMock, inputParams);
+
+    expect(inputParams.startDate).toBeDefined();
+    expect(inputParams.endDate).toBeDefined();
   });
 });

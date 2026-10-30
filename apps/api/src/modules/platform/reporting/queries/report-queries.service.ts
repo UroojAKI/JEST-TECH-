@@ -52,19 +52,53 @@ export class ReportQueriesService {
       );
     }
 
-    return this.builder.buildReportData(
+    const previewResult = await this.builder.buildReportData(
       report,
       query.parameters,
       {
-        limit: 20,
+        limit: query.options?.limit || 50,
+        page: query.options?.page,
         search: query.search,
+        groupBy: query.options?.groupBy,
+        aggregations: query.options?.aggregations,
       },
       query.companyId || undefined,
     );
+
+    return {
+      reportId: report.id,
+      reportName: report.name,
+      executedAt: new Date().toISOString(),
+      rowCount: previewResult.rows.length,
+      data: previewResult.rows,
+      rows: previewResult.rows,
+      columns: previewResult.columns.map((c) => ({
+        key: c.field,
+        field: c.field,
+        label: c.label,
+        dataType: c.type,
+        type: c.type,
+      })),
+      summary: previewResult.summary,
+      pagination: (previewResult as any).pagination,
+    };
   }
 
   async handleGetExecutionHistory(query: GetExecutionHistoryQuery) {
-    return this.repository.getExecutions(query.reportId);
+    const report = await this.repository.findById(query.reportId);
+    if (!report) {
+      throw new NotFoundException(`Report with ID ${query.reportId} not found`);
+    }
+    if (
+      query.companyId &&
+      report.companyId &&
+      report.companyId !== query.companyId
+    ) {
+      throw new ForbiddenException(
+        'Cross-organization report execution history access is strictly prohibited',
+      );
+    }
+    return this.repository.getExecutions(query.reportId, query.companyId);
   }
 
   async favoriteReport(reportId: string, userId: string) {

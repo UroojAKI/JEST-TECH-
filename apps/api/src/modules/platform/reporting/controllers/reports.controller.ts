@@ -394,6 +394,12 @@ export class ReportsController {
       dto.parameters || {},
       dto.search,
       companyId,
+      {
+        page: dto.page,
+        limit: dto.limit,
+        groupBy: dto.groupBy,
+        aggregations: dto.aggregations,
+      },
     );
     return this.queries.handlePreviewReport(query);
   }
@@ -423,8 +429,12 @@ export class ReportsController {
 
   @Get(':id/history')
   @RequirePermissions('report:read')
-  async getExecutionHistory(@Param('id') id: string) {
-    const query = new GetExecutionHistoryQuery(id);
+  async getExecutionHistory(
+    @Param('id') id: string,
+    @CurrentUser() user: RequestUser,
+  ) {
+    const companyId = user.companyId || (user as any).organizationId;
+    const query = new GetExecutionHistoryQuery(id, companyId);
     return this.queries.handleGetExecutionHistory(query);
   }
 

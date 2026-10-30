@@ -59,12 +59,26 @@ export class RevenueReportProvider implements ReportDataProvider, OnModuleInit {
       startDate.setFullYear(now.getFullYear() - 1);
     }
 
+    const companyId = params.companyId || params.parameters?.companyId;
+    const paymentDateFilter: any = {};
+    const paramStartDate =
+      params.parameters?.startDate || params.parameters?.from;
+    const paramEndDate = params.parameters?.endDate || params.parameters?.to;
+
+    if (paramStartDate || paramEndDate) {
+      if (paramStartDate) paymentDateFilter.gte = new Date(paramStartDate);
+      if (paramEndDate) paymentDateFilter.lte = new Date(paramEndDate);
+    } else {
+      paymentDateFilter.gte = startDate;
+    }
+
     const payments = await this.prisma.policyPayment.findMany({
       where: {
         status: 'SUCCESS',
-        paymentDate: { gte: startDate },
-        ...(params?.companyId ? { policy: { companyId: params.companyId } } : {}),
+        paymentDate: paymentDateFilter,
+        ...(companyId ? { policy: { companyId } } : {}),
       },
+      ...(params.limit ? { take: params.limit } : {}),
     });
 
     const totalRevenue = payments.reduce((sum, p) => sum + Number(p.amount), 0);
@@ -75,7 +89,10 @@ export class RevenueReportProvider implements ReportDataProvider, OnModuleInit {
     return {
       rows: [
         {
-          period,
+          period:
+            paramStartDate && paramEndDate
+              ? `${paramStartDate} to ${paramEndDate}`
+              : period,
           totalRevenue,
           transactionCount,
           averageTransaction,
@@ -87,10 +104,23 @@ export class RevenueReportProvider implements ReportDataProvider, OnModuleInit {
   private async executePremiumCollection(
     params: ReportParameters,
   ): Promise<ReportResult> {
+    const companyId = params.companyId || params.parameters?.companyId;
+    const where: any = {};
+    if (companyId) {
+      where.policy = { companyId };
+    }
+    where.status = params.parameters?.status || 'SUCCESS';
+
+    const startDate = params.parameters?.startDate || params.parameters?.from;
+    const endDate = params.parameters?.endDate || params.parameters?.to;
+    if (startDate || endDate) {
+      where.paymentDate = {};
+      if (startDate) where.paymentDate.gte = new Date(startDate);
+      if (endDate) where.paymentDate.lte = new Date(endDate);
+    }
+
     const payments = await this.prisma.policyPayment.findMany({
-      where: {
-        ...(params?.companyId ? { policy: { companyId: params.companyId } } : {}),
-      },
+      where,
       include: {
         policy: {
           include: {
@@ -99,12 +129,13 @@ export class RevenueReportProvider implements ReportDataProvider, OnModuleInit {
         },
       },
       orderBy: { paymentDate: 'desc' },
+      ...(params.limit ? { take: params.limit } : {}),
     });
 
     const rows = payments.map((p) => ({
       paymentId: p.id,
-      policyNumber: p.policy.policyNumber,
-      clientName: p.policy.contact
+      policyNumber: p.policy?.policyNumber || '',
+      clientName: p.policy?.contact
         ? `${p.policy.contact.firstName} ${p.policy.contact.lastName}`
         : '',
       amount: Number(p.amount),
@@ -120,7 +151,28 @@ export class RevenueReportProvider implements ReportDataProvider, OnModuleInit {
   private async executeRenewalRevenue(
     params: ReportParameters,
   ): Promise<ReportResult> {
+    const companyId = params.companyId || params.parameters?.companyId;
+    const where: any = {};
+    if (companyId) {
+      where.policy = { companyId };
+    }
+
+    const startDate = params.parameters?.startDate || params.parameters?.from;
+    const endDate = params.parameters?.endDate || params.parameters?.to;
+    if (startDate || endDate) {
+      where.createdAt = {};
+      if (startDate) where.createdAt.gte = new Date(startDate);
+      if (endDate) where.createdAt.lte = new Date(endDate);
+    }
+    if (params.parameters?.status) {
+      where.policy = {
+        ...(where.policy || {}),
+        status: params.parameters.status,
+      };
+    }
+
     const renewals = await this.prisma.policyRenewal.findMany({
+      where,
       include: {
         policy: {
           include: {
@@ -129,16 +181,17 @@ export class RevenueReportProvider implements ReportDataProvider, OnModuleInit {
         },
       },
       orderBy: { createdAt: 'desc' },
+      ...(params.limit ? { take: params.limit } : {}),
     });
 
     const rows = renewals.map((r) => ({
       renewalNumber: r.renewalNumber,
-      policyNumber: r.policy.policyNumber,
-      clientName: r.policy.contact
+      policyNumber: r.policy?.policyNumber || '',
+      clientName: r.policy?.contact
         ? `${r.policy.contact.firstName} ${r.policy.contact.lastName}`
         : '',
       premiumAmount: Number(r.premiumAmount),
-      status: 'COMPLETED',
+      status: (r as any).status || r.policy?.status || 'COMPLETED',
       renewalDate: r.createdAt,
     }));
 

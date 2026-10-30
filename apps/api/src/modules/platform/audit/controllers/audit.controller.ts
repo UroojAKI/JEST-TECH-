@@ -1,5 +1,6 @@
-import { Controller, Get, Query, UseGuards, ForbiddenException } from '@nestjs/common';
+import { Controller, Get, Query, UseGuards, ForbiddenException, Res } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import type { Response } from 'express';
 import { RoleType } from '@prisma/client';
 import { JwtAuthGuard } from '../../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../../auth/guards/roles.guard';
@@ -70,10 +71,11 @@ export class AuditController {
     @Query('search') search?: string,
     @Query('startDate') startDate?: string,
     @Query('endDate') endDate?: string,
+    @Res({ passthrough: true }) res?: Response,
   ) {
     const access = this.resolveAuditAccess(user);
 
-    return this.auditService.exportAuditLogs(access, {
+    const result = await this.auditService.exportAuditLogs(access, {
       format,
       entity,
       action,
@@ -82,6 +84,20 @@ export class AuditController {
       startDate,
       endDate,
     });
+
+    if (res) {
+      if (format === 'json') {
+        res.setHeader('Content-Type', 'application/json');
+      } else {
+        res.setHeader('Content-Type', 'text/csv');
+        res.setHeader(
+          'Content-Disposition',
+          `attachment; filename="audit-log-${Date.now()}.csv"`,
+        );
+      }
+    }
+
+    return result;
   }
 
   @Get()

@@ -1,6 +1,6 @@
 export interface ReportParameters {
   parameters: Record<string, any>;
-  filters: any[];
+  filters?: any[];
   search?: string;
   limit?: number;
   offset?: number;

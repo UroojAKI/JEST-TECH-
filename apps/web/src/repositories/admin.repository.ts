@@ -103,16 +103,37 @@ export interface FeatureFlagItem {
 
 export interface AuditLogItem {
   id: string;
-  timestamp: string;
-  userEmail: string;
-  userRole: string;
-  module: string;
+  timestamp?: string;
+  createdAt?: string;
+  userEmail?: string;
+  userRole?: string;
+  module?: string;
   action: string;
+  entity?: string;
   entityId: string;
-  correlationId: string;
+  correlationId?: string;
   beforeState?: Record<string, any>;
   afterState?: Record<string, any>;
-  ipAddress: string;
+  oldValue?: Record<string, any>;
+  newValue?: Record<string, any>;
+  ipAddress?: string;
+  user?: {
+    id: string;
+    firstName?: string;
+    lastName?: string;
+    email?: string;
+    role?: string;
+  };
+}
+
+export interface PaginatedAuditResponse {
+  data: AuditLogItem[];
+  meta: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
 }
 
 export interface HealthStatusItem {
@@ -253,8 +274,55 @@ export const adminRepository = {
     return response.data;
   },
 
-  async getAuditLogs(params?: { search?: string; module?: string }): Promise<AuditLogItem[]> {
+  async getAuditLogs(params?: {
+    search?: string;
+    entity?: string;
+    action?: string;
+    userId?: string;
+    startDate?: string;
+    endDate?: string;
+    page?: number;
+    limit?: number;
+  }): Promise<PaginatedAuditResponse> {
     const response = await apiClient.get('/audit', { params });
+    if (response.data && response.data.meta && Array.isArray(response.data.data)) {
+      return response.data;
+    }
+    if (Array.isArray(response.data)) {
+      return {
+        data: response.data,
+        meta: {
+          page: 1,
+          limit: response.data.length,
+          total: response.data.length,
+          totalPages: 1,
+        },
+      };
+    }
+    return {
+      data: (response.data as any)?.data || [],
+      meta: (response.data as any)?.meta || {
+        page: 1,
+        limit: 50,
+        total: 0,
+        totalPages: 1,
+      },
+    };
+  },
+
+  async exportAuditLogs(params?: {
+    format?: 'csv' | 'json';
+    entity?: string;
+    action?: string;
+    userId?: string;
+    search?: string;
+    startDate?: string;
+    endDate?: string;
+  }): Promise<Blob> {
+    const response = await apiClient.get('/audit/export', {
+      params: { ...params, format: params?.format || 'csv' },
+      responseType: 'blob',
+    });
     return response.data;
   },
 

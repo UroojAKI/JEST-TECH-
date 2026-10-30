@@ -64,7 +64,7 @@ export default function CustomReportBuilderPage() {
     try {
       setIsExecuting(true);
       setError(null);
-      const result = await reportsRepository.executeReport(reportId, {
+      const result = await reportsRepository.previewReport(reportId, {
         filters: { dateRange, dimension: selectedDimension },
         groupBy: [selectedDimension],
       });
@@ -97,7 +97,10 @@ export default function CustomReportBuilderPage() {
       const exportFormat = format === 'pdf' ? 'PDF' : 'CSV';
       toast.info(`Preparing ${exportFormat} export from backend engine...`);
       
-      const blob = await reportsRepository.exportReport(selectedReportId, exportFormat);
+      const blob = await reportsRepository.exportReport(selectedReportId, exportFormat, {
+        filters: { dateRange, dimension: selectedDimension },
+        groupBy: [selectedDimension],
+      });
       const url = window.URL.createObjectURL(new Blob([blob], {
         type: format === 'pdf' ? 'application/pdf' : 'text/csv;charset=utf-8;'
       }));
@@ -125,7 +128,7 @@ export default function CustomReportBuilderPage() {
 
   const activeReport = reports.find((r) => r.id === selectedReportId);
   const columns = executionResult?.columns || activeReport?.columns || [];
-  const rows = executionResult?.data || [];
+  const rows = executionResult?.data || (executionResult as any)?.rows || [];
 
   return (
     <AppShell>
@@ -325,23 +328,26 @@ export default function CustomReportBuilderPage() {
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="bg-muted/40 text-[10px] text-muted-foreground font-bold border-b uppercase">
-                    {columns.map((col) => (
-                      <th key={col.key} className="p-3.5">
+                    {columns.map((col: any) => (
+                      <th key={col.key || col.field} className="p-3.5">
                         {col.label}
                       </th>
                     ))}
                   </tr>
                 </thead>
                 <tbody className="divide-y">
-                  {rows.map((row, idx) => (
+                  {rows.map((row: any, idx: number) => (
                     <tr key={idx} className="hover:bg-accent/40">
-                      {columns.map((col) => (
-                        <td key={col.key} className="p-3.5 font-mono text-[11px]">
-                          {row[col.key] !== undefined && row[col.key] !== null
-                            ? String(row[col.key])
-                            : '—'}
-                        </td>
-                      ))}
+                      {columns.map((col: any) => {
+                        const colKey = col.key || col.field;
+                        return (
+                          <td key={colKey} className="p-3.5 font-mono text-[11px]">
+                            {row[colKey] !== undefined && row[colKey] !== null
+                              ? String(row[colKey])
+                              : '—'}
+                          </td>
+                        );
+                      })}
                     </tr>
                   ))}
                 </tbody>
