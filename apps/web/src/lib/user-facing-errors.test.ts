@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { formatUserFacingError } from './user-facing-errors';
+import { formatUserFacingError, getAuthErrorMessage } from './user-facing-errors';
 
 describe('formatUserFacingError (REQ-8 Plain Language Error Handling)', () => {
   it('translates 409 pending change request conflict into plain language with approval instructions', () => {
@@ -161,6 +161,108 @@ describe('formatUserFacingError (REQ-8 Plain Language Error Handling)', () => {
 
     expect(formatted.title).toBe('Service Temporarily Unavailable');
     expect(formatted.dataPreserved).toBe(true);
+  });
+});
+
+describe('getAuthErrorMessage (Login & Connection Error Diagnostics)', () => {
+  it('correctly diagnoses network error / connection in progress instead of invalid credentials', () => {
+    const error: any = {
+      isAxiosError: true,
+      code: 'ERR_NETWORK',
+      message: 'Network Error',
+      response: undefined,
+    };
+
+    const authErr = getAuthErrorMessage(error);
+
+    expect(authErr.title).toBe('Backend Connection in Progress');
+    expect(authErr.message).toContain('try again after some time');
+    expect(authErr.actionHint).toContain('wait a moment');
+    expect(authErr.isNetworkError).toBe(true);
+    expect(authErr.isServerError).toBe(false);
+    expect(authErr.isInvalidCredentials).toBe(false);
+  });
+
+  it('correctly diagnoses ECONNREFUSED error when server is starting up or offline', () => {
+    const error: any = {
+      isAxiosError: true,
+      code: 'ECONNREFUSED',
+      message: 'connect ECONNREFUSED 127.0.0.1:4000',
+    };
+
+    const authErr = getAuthErrorMessage(error);
+
+    expect(authErr.title).toBe('Backend Connection in Progress');
+    expect(authErr.isNetworkError).toBe(true);
+    expect(authErr.isInvalidCredentials).toBe(false);
+  });
+
+  it('correctly diagnoses HTTP 500 / 502 / 503 server error as a server error', () => {
+    const error: any = {
+      isAxiosError: true,
+      response: {
+        status: 502,
+        data: { message: 'Bad Gateway' },
+      },
+    };
+
+    const authErr = getAuthErrorMessage(error);
+
+    expect(authErr.title).toBe('Server Error');
+    expect(authErr.message).toContain('Bad Gateway');
+    expect(authErr.isServerError).toBe(true);
+    expect(authErr.isNetworkError).toBe(false);
+    expect(authErr.isInvalidCredentials).toBe(false);
+  });
+
+  it('correctly diagnoses HTTP 401 as genuine invalid credentials', () => {
+    const error: any = {
+      isAxiosError: true,
+      response: {
+        status: 401,
+        data: { message: 'Invalid email or password' },
+      },
+    };
+
+    const authErr = getAuthErrorMessage(error);
+
+    expect(authErr.title).toBe('Invalid Credentials');
+    expect(authErr.message).toBe('Invalid email or password');
+    expect(authErr.isInvalidCredentials).toBe(true);
+    expect(authErr.isNetworkError).toBe(false);
+    expect(authErr.isServerError).toBe(false);
+  });
+
+  it('correctly diagnoses HTTP 403 as restricted or suspended account', () => {
+    const error: any = {
+      isAxiosError: true,
+      response: {
+        status: 403,
+        data: { message: 'Account is deactivated' },
+      },
+    };
+
+    const authErr = getAuthErrorMessage(error);
+
+    expect(authErr.title).toBe('Account Access Restricted');
+    expect(authErr.message).toBe('Account is deactivated');
+    expect(authErr.isInvalidCredentials).toBe(false);
+  });
+
+  it('correctly diagnoses HTTP 429 as rate limiting', () => {
+    const error: any = {
+      isAxiosError: true,
+      response: {
+        status: 429,
+        data: { message: 'Too Many Requests' },
+      },
+    };
+
+    const authErr = getAuthErrorMessage(error);
+
+    expect(authErr.title).toBe('Too Many Attempts');
+    expect(authErr.message).toContain('Too many sign-in attempts');
+    expect(authErr.isInvalidCredentials).toBe(false);
   });
 });
 

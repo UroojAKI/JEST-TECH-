@@ -1,6 +1,11 @@
-import { formatUserFacingError, UserFacingError } from './user-facing-errors';
-export { formatUserFacingError };
-export type { UserFacingError };
+import {
+  formatUserFacingError,
+  UserFacingError,
+  getAuthErrorMessage,
+  AuthErrorInfo,
+} from './user-facing-errors';
+export { formatUserFacingError, getAuthErrorMessage };
+export type { UserFacingError, AuthErrorInfo };
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
 import { toast } from 'sonner';
 

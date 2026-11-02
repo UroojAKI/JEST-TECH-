@@ -3,10 +3,21 @@
 import { useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useAuth } from '../../hooks/useAuth';
-import { Shield, Key, Mail, Sparkles, Eye, EyeOff, Clock } from 'lucide-react';
+import {
+  Shield,
+  Key,
+  Mail,
+  Sparkles,
+  Eye,
+  EyeOff,
+  Clock,
+  ServerCrash,
+  AlertCircle,
+  Loader2,
+} from 'lucide-react';
 
 function LoginForm() {
-  const { login, isLoggingIn, loginError } = useAuth();
+  const { login, isLoggingIn, loginError, loginErrorInfo } = useAuth();
   const searchParams = useSearchParams();
   const isSessionExpired = searchParams?.get('reason') === 'session_expired';
 
@@ -38,10 +49,35 @@ function LoginForm() {
         </div>
       )}
 
-      {loginError && (
-        <div role="alert" className="mb-4 rounded-lg bg-destructive/10 border border-destructive/20 p-3 text-xs text-destructive font-semibold flex items-center gap-2">
-          <Shield className="h-4 w-4 shrink-0" />
-          <span>{loginError}</span>
+      {loginErrorInfo && (
+        <div
+          role="alert"
+          className={`mb-4 rounded-xl p-3.5 text-xs border transition-all ${
+            loginErrorInfo.isNetworkError || loginErrorInfo.isServerError
+              ? 'bg-amber-500/10 border-amber-500/30 text-amber-900 dark:text-amber-200'
+              : 'bg-destructive/10 border-destructive/25 text-destructive'
+          }`}
+        >
+          <div className="flex items-start gap-2.5">
+            {loginErrorInfo.isNetworkError ? (
+              <ServerCrash className="h-4 w-4 shrink-0 mt-0.5 text-amber-600 dark:text-amber-400" />
+            ) : loginErrorInfo.isServerError ? (
+              <AlertCircle className="h-4 w-4 shrink-0 mt-0.5 text-amber-600 dark:text-amber-400" />
+            ) : (
+              <Shield className="h-4 w-4 shrink-0 mt-0.5 text-destructive" />
+            )}
+            <div className="space-y-0.5 min-w-0">
+              <div className="font-bold text-xs">{loginErrorInfo.title}</div>
+              <div className="text-[11px] font-normal leading-relaxed opacity-95">
+                {loginErrorInfo.message}
+              </div>
+              {loginErrorInfo.actionHint && (
+                <div className="text-[10px] font-medium opacity-80 pt-1">
+                  💡 {loginErrorInfo.actionHint}
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       )}
 
@@ -93,10 +129,17 @@ function LoginForm() {
         <button
           type="submit"
           disabled={isLoggingIn}
-          className="w-full rounded-lg bg-primary py-2.5 text-xs font-bold text-primary-foreground shadow hover:bg-primary/90 transition-all disabled:opacity-50 mt-2"
+          className="w-full rounded-lg bg-primary py-2.5 text-xs font-bold text-primary-foreground shadow hover:bg-primary/90 transition-all disabled:opacity-50 mt-2 flex items-center justify-center gap-2"
           aria-label="Sign in"
         >
-          {isLoggingIn ? 'Authenticating...' : 'Sign In'}
+          {isLoggingIn ? (
+            <>
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              <span>Connecting & Authenticating...</span>
+            </>
+          ) : (
+            'Sign In'
+          )}
         </button>
       </form>
     </div>

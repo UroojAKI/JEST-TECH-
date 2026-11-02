@@ -387,3 +387,160 @@ export function formatUserFacingError(
     statusCode,
   };
 }
+
+export interface AuthErrorInfo {
+  title: string;
+  message: string;
+  actionHint?: string;
+  isServerError: boolean;
+  isNetworkError: boolean;
+  isInvalidCredentials: boolean;
+  correlationId?: string;
+}
+
+/**
+ * Translates authentication failures into accurate user-facing causes.
+ * Disambiguates between:
+ * 1. Network / connection in progress / server offline (NOT invalid credentials)
+ * 2. 500+ Internal server errors (NOT invalid credentials)
+ * 3. 429 Rate limiting
+ * 4. 403 Forbidden / deactivated account
+ * 5. 401 Actual invalid credentials
+ */
+export function getAuthErrorMessage(error: unknown): AuthErrorInfo {
+  if (!error) {
+    return {
+      title: '',
+      message: '',
+      isServerError: false,
+      isNetworkError: false,
+      isInvalidCredentials: false,
+    };
+  }
+
+  const isAxios = axios.isAxiosError(error);
+  const status = isAxios ? error.response?.status : (error as any)?.response?.status;
+  const code = isAxios ? error.code : (error as any)?.code || '';
+  const rawMsg = (
+    (isAxios ? error.response?.data?.message : null) ||
+    (error as any)?.message ||
+    ''
+  ).toString();
+  const lower = rawMsg.toLowerCase();
+  const correlationId = isAxios
+    ? (error.response?.data as any)?.meta?.requestId ||
+      (error.response?.headers?.['x-correlation-id'] as string)
+    : undefined;
+
+  // 1. Connection in progress / Network / Server offline
+  const isNetwork =
+    (isAxios && !error.response) ||
+    code === 'ERR_NETWORK' ||
+    code === 'ECONNREFUSED' ||
+    code === 'ECONNABORTED' ||
+    code === 'ETIMEDOUT' ||
+    lower.includes('network error') ||
+    lower.includes('failed to fetch') ||
+    lower.includes('econnrefused') ||
+    lower.includes('connection refused') ||
+    lower.includes('load failed') ||
+    lower.includes('timeout');
+
+  if (isNetwork) {
+    return {
+      title: 'Backend Connection in Progress',
+      message:
+        'Unable to connect to the backend server. The service connection is in process or temporarily offline. Please try again after some time.',
+      actionHint: 'Please wait a moment for the backend service to finish connecting, then retry.',
+      isServerError: false,
+      isNetworkError: true,
+      isInvalidCredentials: false,
+      correlationId,
+    };
+  }
+
+  // 2. Server Errors (HTTP 500, 502, 503, 504)
+  if (status && status >= 500) {
+    return {
+      title: 'Server Error',
+      message:
+        (isAxios ? (error.response?.data as any)?.message : null) ||
+        `An error occurred on the server (HTTP ${status}). The service is temporarily unavailable. Please try again after some time.`,
+      actionHint: 'Please wait a moment and try again. If the issue persists, contact IT support.',
+      isServerError: true,
+      isNetworkError: false,
+      isInvalidCredentials: false,
+      correlationId,
+    };
+  }
+
+  // 3. Rate Limiting (HTTP 429)
+  if (status === 429) {
+    return {
+      title: 'Too Many Attempts',
+      message: 'Too many sign-in attempts have been made. Please wait a few moments before trying again.',
+      actionHint: 'Please wait a few seconds before retrying.',
+      isServerError: false,
+      isNetworkError: false,
+      isInvalidCredentials: false,
+      correlationId,
+    };
+  }
+
+  // 4. Forbidden / Account Suspended / Inactive (HTTP 403)
+  if (status === 403) {
+    return {
+      title: 'Account Access Restricted',
+      message:
+        (isAxios ? (error.response?.data as any)?.message : null) ||
+        'Your account access has been restricted or deactivated. Please contact your company administrator.',
+      actionHint: 'Please contact IT or HR administration for assistance.',
+      isServerError: false,
+      isNetworkError: false,
+      isInvalidCredentials: false,
+      correlationId,
+    };
+  }
+
+  // 5. Genuine Invalid Credentials (HTTP 401)
+  if (status === 401) {
+    const serverMessage = isAxios ? (error.response?.data as any)?.message : null;
+    return {
+      title: 'Invalid Credentials',
+      message:
+        serverMessage ||
+        'Invalid email or password. Please check your credentials and try again.',
+      actionHint: 'Please check your email address and password.',
+      isServerError: false,
+      isNetworkError: false,
+      isInvalidCredentials: true,
+      correlationId,
+    };
+  }
+
+  // 6. Bad Request / Validation (HTTP 400)
+  if (status === 400) {
+    return {
+      title: 'Invalid Login Details',
+      message:
+        (isAxios ? (error.response?.data as any)?.message : null) ||
+        'Please enter a valid email address and password.',
+      actionHint: 'Please check the formatting of your email address.',
+      isServerError: false,
+      isNetworkError: false,
+      isInvalidCredentials: false,
+      correlationId,
+    };
+  }
+
+  // 7. General Fallback
+  return {
+    title: 'Sign-In Failed',
+    message: rawMsg || 'An error occurred while attempting to sign in. Please try again after some time.',
+    actionHint: 'Please try again after some time.',
+    isServerError: false,
+    isNetworkError: false,
+    isInvalidCredentials: false,
+    correlationId,
+  };
+}

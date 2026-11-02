@@ -6,6 +6,7 @@ import { useAuthStore } from '../store/auth-store';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
 import { getSafeInternalDestination } from '../lib/api-client';
+import { getAuthErrorMessage, type AuthErrorInfo } from '../lib/user-facing-errors';
 
 export function useAuth() {
   const { user, isAuthenticated, isLoading, setUser, logout: clearAuthStore } = useAuthStore();
@@ -51,7 +52,24 @@ export function useAuth() {
       window.location.href = destination;
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.message || 'Invalid email or password');
+      const authErr = getAuthErrorMessage(error);
+      if (authErr.isNetworkError) {
+        toast.error('Backend connection in progress', {
+          description: 'Unable to reach the server. Please try again after some time.',
+        });
+      } else if (authErr.isServerError) {
+        toast.error('Server error', {
+          description: authErr.message || 'An error occurred on the server. Please try again after some time.',
+        });
+      } else if (authErr.isInvalidCredentials) {
+        toast.error('Invalid email or password', {
+          description: 'Please check your credentials and try again.',
+        });
+      } else {
+        toast.error(authErr.title || 'Sign-In Failed', {
+          description: authErr.message,
+        });
+      }
     },
   });
 
@@ -81,13 +99,18 @@ export function useAuth() {
     },
   });
 
+  const loginErrorInfo = loginMutation.error
+    ? getAuthErrorMessage(loginMutation.error)
+    : null;
+
   return {
     user,
     isAuthenticated,
     isLoading,
     login: loginMutation.mutate,
     isLoggingIn: loginMutation.isPending,
-    loginError: (loginMutation.error as any)?.response?.data?.message || null,
+    loginError: loginErrorInfo ? loginErrorInfo.message : null,
+    loginErrorInfo,
     logout: logoutMutation.mutate,
     isLoggingOut: logoutMutation.isPending,
     performCompleteLogout,
