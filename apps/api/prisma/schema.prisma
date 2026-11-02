@@ -1383,6 +1383,8 @@ model Policy {
   paymentStatus          PaymentStatus?
   verificationStatus     DocumentVerificationStatus?
   issuedPolicyDocumentId String?
+  documentComplianceStatus DocumentComplianceStatus @default(PENDING_UPLOAD)
+  hasPendingApproval       Boolean                  @default(false)
 
   // PRD §6.5: Unified Vehicle entity - vehicleId replaces 8 separate MotorDetail FKs
   vehicleId String?
@@ -1438,6 +1440,8 @@ model Policy {
   @@index([vehicleId])
   @@index([companyId])
   @@index([agentId])
+  @@index([companyId, documentComplianceStatus])
+  @@index([companyId, hasPendingApproval])
   @@map("policies")
 }
 
@@ -1859,6 +1863,14 @@ model RenewalJob {
 //////////////////////////////////////////////////////////
 // SECURE DOCUMENT MANAGEMENT
 //////////////////////////////////////////////////////////
+
+enum DocumentComplianceStatus {
+  VERIFIED
+  REQUIRES_VERIFICATION
+  PENDING_UPLOAD
+  INVALID
+  MISSING_LEGACY
+}
 
 enum DocumentVerificationStatus {
   PENDING
@@ -2332,6 +2344,7 @@ enum EndorsementType {
   NOMINEE_CHANGE // Update policy nominee details
   OWNER_TRANSFER // Transfer of ownership
   PREMIUM_CHANGE // General premium correction
+  GENERAL_CHANGE // General policy metadata, dates, or details modification
 }
 
 enum EndorsementStatus {
@@ -2349,11 +2362,14 @@ model Endorsement {
   policy            Policy            @relation(fields: [policyId], references: [id], onDelete: Cascade)
   type              EndorsementType
   status            EndorsementStatus @default(REQUESTED)
+  baseVersion       Int               @default(1)
   requestedById     String
   requestedBy       User              @relation("EndorsementRequestedBy", fields: [requestedById], references: [id])
   approvedById      String?
   approvedBy        User?             @relation("EndorsementApprovedBy", fields: [approvedById], references: [id])
   reason            String
+  rejectionReason   String?
+  beforeSnapshot    Json?
   requestedChanges  Json?
   validatedChanges  Json?
   effectiveDate     DateTime          @default(now())
@@ -4030,6 +4046,7 @@ model MotorInspection {
   windshieldImageKey String?
   chassisImageKey    String?
   odometerImageKey   String?
+  additionalEvidence Json?
 
   // Generated inspection PDF
   reportPdfKey String?

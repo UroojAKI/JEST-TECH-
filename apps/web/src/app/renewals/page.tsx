@@ -447,12 +447,21 @@ export default function RenewalsWorkspacePage() {
                           </div>
                         </td>
                         <td className="px-5 py-3.5 text-right space-x-1.5">
+                          {/* REQ-5: Remind restricted to <= 90 days */}
                           <button
                             onClick={() => handleSendReminder(item.id)}
-                            disabled={remindingId === item.id}
-                            title="Dispatch instant reminder SMS/Email"
+                            disabled={remindingId === item.id || item.daysRemaining > 90}
+                            title={
+                              item.daysRemaining > 90
+                                ? `Renewal reminders open within 90 days before expiry (${item.daysRemaining} days remaining)`
+                                : 'Dispatch instant reminder SMS/Email'
+                            }
                             aria-label={`Send reminder to ${item.customerName}`}
-                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border bg-card hover:bg-accent text-xs font-semibold shadow-xs transition"
+                            className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border text-xs font-semibold shadow-xs transition ${
+                              item.daysRemaining > 90
+                                ? 'opacity-40 bg-muted text-muted-foreground border-border cursor-not-allowed'
+                                : 'bg-card hover:bg-accent text-foreground'
+                            }`}
                           >
                             {remindingId === item.id ? (
                               <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -479,7 +488,16 @@ export default function RenewalsWorkspacePage() {
                             </button>
                           )}
 
-                          {isHealth ? (
+                          {/* REQ-5: Renew restricted to <= 45 days */}
+                          {item.daysRemaining > 45 ? (
+                            <button
+                              disabled
+                              title={`Renewal opens 45 days before expiry (${item.daysRemaining} days remaining)`}
+                              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-muted text-muted-foreground font-semibold text-xs border border-border cursor-not-allowed opacity-60"
+                            >
+                              <span>Renew (in {item.daysRemaining - 45}d)</span>
+                            </button>
+                          ) : isHealth ? (
                             <Link
                               href={buildHealthRenewalUrl(item.id, {
                                 contactId: item.contactId || matchedPolicy?.contactId,

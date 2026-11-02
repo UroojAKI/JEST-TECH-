@@ -239,6 +239,14 @@ export class PolicyMapper {
     }
 
     const endorsementsList = (p as any).endorsements || [];
+    const pendingEndorsements = endorsementsList.filter(
+      (e: any) => e.status === 'REQUESTED' || e.status === 'UNDER_REVIEW',
+    );
+    dto.hasPendingApproval =
+      (p as any).hasPendingApproval ?? pendingEndorsements.length > 0;
+    dto.pendingApprovalCount = pendingEndorsements.length;
+    dto.version = p.version ?? 1;
+
     if (endorsementsList.length > 0) {
       dto.endorsements = endorsementsList.map((e: any) => ({
         id: e.id,
@@ -246,6 +254,11 @@ export class PolicyMapper {
         type: e.type,
         status: e.status,
         reason: e.reason || null,
+        baseVersion: e.baseVersion ?? 1,
+        rejectionReason: e.rejectionReason || null,
+        beforeSnapshot: e.beforeSnapshot || null,
+        requestedChanges: e.requestedChanges || null,
+        validatedChanges: e.validatedChanges || null,
         createdAt: e.createdAt,
       }));
     }

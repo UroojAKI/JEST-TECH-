@@ -31,6 +31,7 @@ export interface MotorRuleContext {
 
   // Ownership transfer context
   newOwnerName?: string;
+  packageRequiresInspection?: boolean;
 }
 
 export interface MotorRuleResult {
@@ -215,6 +216,26 @@ export class MotorRuleEngineService {
       }
     }
 
+    // Rule: Package explicitly requires inspection
+    if (ctx.packageRequiresInspection) {
+      inspectionRequired = true;
+      if (!reasons.includes('PACKAGE_REQUIRES_INSPECTION')) {
+        reasons.push('PACKAGE_REQUIRES_INSPECTION');
+      }
+    }
+
+    // Rule: Previous policy details unavailable / not entered for existing vehicle
+    const isExistingVehicle = ctx.vehicleStatus !== 'NEW';
+    const previousPolicyDetailsUnavailable =
+      isExistingVehicle &&
+      ((!ctx.policyExpiryDate || ctx.previousPolicyType === 'NOT_AVAILABLE'));
+    if (previousPolicyDetailsUnavailable && (ctx.newPolicyType === 'PACKAGE' || ctx.newPolicyType === 'SAOD')) {
+      inspectionRequired = true;
+      if (!reasons.includes('PREVIOUS_POLICY_DETAILS_UNAVAILABLE')) {
+        reasons.push('PREVIOUS_POLICY_DETAILS_UNAVAILABLE');
+      }
+    }
+
     return { inspectionRequired, reasons };
   }
 
@@ -279,8 +300,18 @@ export class MotorRuleEngineService {
     const policyTransferRequired = ctx.ownershipTransfer === true;
 
     // ─── Step 6: Missing documents ───
-    if (policyExpired && !ctx.previousPolicyType && ctx.newPolicyType !== 'TP_ONLY') {
-      missingDocs.push('PREVIOUS_POLICY_COPY');
+    const isExistingVehicle = ctx.vehicleStatus !== 'NEW';
+    const previousPolicyDetailsUnavailable =
+      isExistingVehicle &&
+      ((!ctx.policyExpiryDate || ctx.previousPolicyType === 'NOT_AVAILABLE'));
+
+    if (
+      (policyExpired || previousPolicyDetailsUnavailable) &&
+      ctx.newPolicyType !== 'TP_ONLY'
+    ) {
+      if (!missingDocs.includes('PREVIOUS_POLICY_COPY')) {
+        missingDocs.push('PREVIOUS_POLICY_COPY');
+      }
     }
     if (ctx.ownershipTransfer && !ctx.newOwnerName) {
       missingDocs.push('NEW_OWNER_DETAILS');

@@ -84,6 +84,11 @@ export class PolicyEndorsementResponseDto {
   type: string;
   status: string;
   reason?: string | null;
+  baseVersion?: number;
+  rejectionReason?: string | null;
+  beforeSnapshot?: any;
+  requestedChanges?: any;
+  validatedChanges?: any;
   createdAt: Date;
 }
 
@@ -108,6 +113,9 @@ export class PolicyResponseDto {
   contactEmail?: string | null;
   customerName?: string | null;
   customerId?: string | null;
+  hasPendingApproval?: boolean;
+  pendingApprovalCount?: number;
+  version?: number;
   quotationCode?: string | null;
   insurerName?: string | null;
   productLine?: string | null;

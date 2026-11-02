@@ -1,5 +1,4 @@
 /**
-/**
  * Utility functions for consistent, SSR-safe locale formatting
  */
 
@@ -15,4 +14,19 @@ export function formatNumber(value: number | string | null | undefined): string 
     return '0';
   }
   return Number(value).toLocaleString('en-US');
+}
+
+export function formatDate(val: string | Date | null | undefined): string {
+  if (!val) return '—';
+  try {
+    const d = typeof val === 'string' ? new Date(val) : val;
+    if (isNaN(d.getTime())) return String(val);
+    return d.toLocaleDateString('en-IN', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+    });
+  } catch {
+    return String(val);
+  }
 }

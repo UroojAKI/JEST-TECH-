@@ -171,4 +171,55 @@ describe('MotorRuleEngineService (Business Invariants)', () => {
       expect(res.valid).toBe(true);
     });
   });
+
+  describe('REQ-1: Mandatory Vehicle Inspection Rules', () => {
+    it('triggers inspection when previous policy details are not entered or unavailable for existing vehicle', () => {
+      const result = service.evaluateQuotation({
+        newPolicyType: 'PACKAGE',
+        vehicleStatus: 'EXISTING',
+        eligibleNcbPercentage: 20,
+      });
+
+      expect(result.inspectionRequired).toBe(true);
+      expect(result.inspectionReasons).toContain('PREVIOUS_POLICY_DETAILS_UNAVAILABLE');
+      expect(result.nextStep).toBe('INSPECTION');
+      expect(result.missingDocuments).toContain('PREVIOUS_POLICY_COPY');
+    });
+
+    it('triggers inspection when previousPolicyType is NOT_AVAILABLE', () => {
+      const result = service.evaluateQuotation({
+        newPolicyType: 'PACKAGE',
+        vehicleStatus: 'EXISTING',
+        previousPolicyType: 'NOT_AVAILABLE',
+        eligibleNcbPercentage: 20,
+      });
+
+      expect(result.inspectionRequired).toBe(true);
+      expect(result.inspectionReasons).toContain('PREVIOUS_POLICY_DETAILS_UNAVAILABLE');
+    });
+
+    it('triggers inspection when package explicitly requires it', () => {
+      const today = dateService.getBusinessToday();
+      const result = service.evaluateQuotation({
+        newPolicyType: 'PACKAGE',
+        vehicleStatus: 'EXISTING',
+        policyExpiryDate: today,
+        previousPolicyType: 'COMPREHENSIVE',
+        packageRequiresInspection: true,
+      });
+
+      expect(result.inspectionRequired).toBe(true);
+      expect(result.inspectionReasons).toContain('PACKAGE_REQUIRES_INSPECTION');
+    });
+
+    it('does NOT trigger inspection for TP_ONLY statutory bypass even if previous details are unavailable', () => {
+      const result = service.evaluateQuotation({
+        newPolicyType: 'TP_ONLY',
+        vehicleStatus: 'EXISTING',
+      });
+
+      expect(result.inspectionRequired).toBe(false);
+      expect(result.inspectionReasons).toHaveLength(0);
+    });
+  });
 });

@@ -59,6 +59,10 @@ export interface PolicyItem {
   tpStartDate?: string | null;
   tpExpiryDate?: string | null;
   paymentStatus?: string | null;
+  documentComplianceStatus?: 'VERIFIED' | 'REQUIRES_VERIFICATION' | 'PENDING_UPLOAD' | 'INVALID' | 'MISSING_LEGACY' | string | null;
+  hasPendingApproval?: boolean;
+  pendingApprovalCount?: number;
+  version?: number;
   paidAmount?: number;
   receiptAmount?: number;
   outstandingBalance?: number;

@@ -3,6 +3,7 @@ import {
   NotFoundException,
   BadRequestException,
   ForbiddenException,
+  ConflictException,
 } from '@nestjs/common';
 import { PrismaService } from '../../../database/prisma.service';
 import { EndorsementType, EndorsementStatus, Prisma } from '@prisma/client';
@@ -308,6 +309,42 @@ export class EndorsementService {
         };
       }
 
+      case EndorsementType.GENERAL_CHANGE: {
+        const allowed = [
+          'actualPolicyNumber',
+          'startDate',
+          'endDate',
+          'odStartDate',
+          'odExpiryDate',
+          'tpStartDate',
+          'tpExpiryDate',
+          'effectiveDate',
+          'expiryDate',
+          'premiumAmount',
+          'motorMetadata',
+        ];
+        const before = Object.fromEntries(
+          allowed.map((k) => [k, (policy as any)[k]]),
+        );
+        const validated = Object.fromEntries(
+          allowed
+            .filter((k) => requestedChanges[k] !== undefined)
+            .map((k) => [k, requestedChanges[k]]),
+        );
+        return {
+          validatedChanges: validated,
+          beforeSnapshot: before,
+          updateFn: async () => {
+            if (Object.keys(validated).length > 0) {
+              await tx.policy.update({
+                where: { id: policy.id },
+                data: validated,
+              });
+            }
+          },
+        };
+      }
+
       default: {
         // For IDV_CHANGE, COVERAGE_CHANGE, NCB_CHANGE
         return {
@@ -387,6 +424,59 @@ export class EndorsementService {
     return end;
   }
 
+  private async captureBeforeSnapshot(
+    policy: any,
+    type: EndorsementType,
+    requestedChanges: Record<string, any> = {},
+    tx: any = this.prisma,
+  ): Promise<Record<string, any>> {
+    switch (type) {
+      case EndorsementType.CONTACT_CHANGE: {
+        const allowed = ['firstName', 'lastName', 'email', 'phone'];
+        const contact = policy.contactId
+          ? await tx.contact.findUnique({ where: { id: policy.contactId } })
+          : null;
+        return contact ? Object.fromEntries(allowed.map((k) => [k, contact[k]])) : {};
+      }
+      case EndorsementType.ADDRESS_CHANGE: {
+        const allowed = ['address', 'city', 'state', 'pincode'];
+        const contact = policy.contactId
+          ? await tx.contact.findUnique({ where: { id: policy.contactId } })
+          : null;
+        return contact ? Object.fromEntries(allowed.map((k) => [k, contact[k]])) : {};
+      }
+      case EndorsementType.VEHICLE_CHANGE: {
+        const allowed = ['registrationNumber', 'engineNumber', 'chassisNumber'];
+        const vehicle = policy.vehicleId
+          ? await tx.vehicle.findUnique({ where: { id: policy.vehicleId } })
+          : null;
+        return vehicle ? Object.fromEntries(allowed.map((k) => [k, vehicle[k]])) : {};
+      }
+      case EndorsementType.OWNER_TRANSFER: {
+        return {
+          contactId: policy.contactId,
+          motorMetadata: policy.motorMetadata,
+        };
+      }
+      case EndorsementType.PREMIUM_CHANGE: {
+        return {
+          premiumAmount: Number(policy.premiumAmount || 0),
+        };
+      }
+      case EndorsementType.GENERAL_CHANGE:
+      default: {
+        const keys = Object.keys(requestedChanges);
+        const snapshot: Record<string, any> = {};
+        for (const k of keys) {
+          if ((policy as any)[k] !== undefined) {
+            snapshot[k] = (policy as any)[k];
+          }
+        }
+        return snapshot;
+      }
+    }
+  }
+
   async createEndorsement(
     policyId: string,
     type: EndorsementType,
@@ -413,9 +503,10 @@ export class EndorsementService {
       throw new ForbiddenException('Policy belongs to another organization');
     }
 
-    if (policy.status !== 'ACTIVE') {
+    const eligibleStatuses = ['ISSUED', 'ACTIVE', 'RENEWED', 'LAPSED', 'PENDING_RENEWAL'];
+    if (!eligibleStatuses.includes(policy.status)) {
       throw new BadRequestException(
-        `Endorsements can only be requested on ACTIVE policies. Current policy status is ${policy.status}.`,
+        `Endorsements can only be requested on official policies (${eligibleStatuses.join(', ')}). Current policy status is ${policy.status}.`,
       );
     }
 
@@ -424,6 +515,13 @@ export class EndorsementService {
         'A reason is mandatory when requesting an endorsement.',
       );
     }
+
+    const beforeSnapshot = await this.captureBeforeSnapshot(
+      policy,
+      type,
+      requestedChanges || {},
+      this.prisma,
+    );
 
     const endorsementNumber = await this.generateEndNumber();
 
@@ -434,10 +532,17 @@ export class EndorsementService {
           policyId,
           type,
           status: EndorsementStatus.REQUESTED,
+          baseVersion: policy.version ?? 1,
           requestedById: userId,
           reason,
+          beforeSnapshot: beforeSnapshot as any,
           requestedChanges: requestedChanges || Prisma.DbNull,
         },
+      });
+
+      await tx.policy.update({
+        where: { id: policyId },
+        data: { hasPendingApproval: true },
       });
 
       await tx.endorsementHistory.create({
@@ -525,6 +630,19 @@ export class EndorsementService {
       );
     }
 
+    // Optimistic Concurrency / Stale Base Version Check (Section 4.5 & 6.1)
+    if (end.baseVersion && end.policy.version !== end.baseVersion) {
+      throw new ConflictException({
+        statusCode: 409,
+        error: 'Conflict',
+        errorCode: 'POLICY_CHANGE_STALE_VERSION',
+        message:
+          'This policy was updated while your request was being reviewed. The proposed changes are based on an older policy version. Please refresh the policy and submit the changes again.',
+        policyVersion: end.policy.version,
+        changeRequestBaseVersion: end.baseVersion,
+      });
+    }
+
     let requestedChanges: Record<string, any> = {};
     if (end.requestedChanges) {
       requestedChanges =
@@ -589,10 +707,33 @@ export class EndorsementService {
         },
       });
 
-      // 6. Mark COMPLETED
+      // 6. Synchronize hasPendingApproval flag and increment official policy version
+      const remainingPending = await tx.endorsement.count({
+        where: {
+          policyId: end.policyId,
+          id: { not: id },
+          status: { in: [EndorsementStatus.REQUESTED, EndorsementStatus.UNDER_REVIEW] },
+        },
+      });
+
+      const policySyncData: any = {
+        version: { increment: 1 },
+      };
+      if (remainingPending === 0) {
+        policySyncData.hasPendingApproval = false;
+      }
+
+      await tx.policy.update({
+        where: { id: end.policyId },
+        data: policySyncData,
+      });
+
       const updated = await tx.endorsement.update({
         where: { id },
-        data: { status: EndorsementStatus.COMPLETED },
+        data: {
+          status: EndorsementStatus.COMPLETED,
+          beforeSnapshot: (end.beforeSnapshot || beforeSnapshot) as any,
+        },
       });
 
       await tx.endorsementHistory.create({
@@ -642,7 +783,11 @@ export class EndorsementService {
     return this.prisma.$transaction(async (tx) => {
       const updated = await tx.endorsement.update({
         where: { id },
-        data: { status: EndorsementStatus.REJECTED },
+        data: {
+          status: EndorsementStatus.REJECTED,
+          rejectionReason: reason || 'Endorsement rejected by reviewer.',
+          approvedById: reviewerId,
+        },
       });
 
       await tx.endorsementHistory.create({
@@ -653,6 +798,21 @@ export class EndorsementService {
           performedById: reviewerId,
         },
       });
+
+      // Synchronize hasPendingApproval flag
+      const remainingPending = await tx.endorsement.count({
+        where: {
+          policyId: end.policyId,
+          id: { not: id },
+          status: { in: [EndorsementStatus.REQUESTED, EndorsementStatus.UNDER_REVIEW] },
+        },
+      });
+      if (remainingPending === 0) {
+        await tx.policy.update({
+          where: { id: end.policyId },
+          data: { hasPendingApproval: false },
+        });
+      }
 
       return updated;
     });

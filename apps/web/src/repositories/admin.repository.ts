@@ -257,6 +257,99 @@ export interface HealthStatusItem {
   details?: Record<string, any>;
 }
 
+
+export interface UserActivityMetrics {
+  userId: string;
+  userName: string;
+  email: string;
+  role: string;
+  creates: number;
+  updates: number;
+  deletes: number;
+  approvals: number;
+  rejections: number;
+  logins: number;
+  logouts: number;
+  totalActions: number;
+  lastActive: string | null;
+}
+
+export interface AuditSummaryResponse {
+  totals: {
+    totalEvents: number;
+    creates: number;
+    updates: number;
+    deletes: number;
+    approvals: number;
+    rejections: number;
+    logins: number;
+    logouts: number;
+  };
+  userBreakdown: UserActivityMetrics[];
+}
+
+export interface UserSessionItem {
+  sessionId: string;
+  userId: string;
+  user: {
+    id: string;
+    name: string;
+    email: string;
+    role: string;
+  };
+  loginTime: string;
+  logoutTime: string | null;
+  durationMinutes: number | null;
+  durationFormatted: string;
+  status: 'ENDED' | 'ACTIVE' | 'EXPIRED';
+  ipAddress: string | null;
+  userAgent: string | null;
+}
+
+export interface PaginatedSessionsResponse {
+  data: UserSessionItem[];
+  meta: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
+  disclaimer: string;
+}
+
+export interface UserTimelineItem {
+  id: string;
+  timestamp: string;
+  action: string;
+  entity: string;
+  entityId: string;
+  module?: string;
+  correlationId?: string;
+  ipAddress?: string;
+  userAgent?: string;
+  description: string;
+  user: {
+    id: string;
+    name: string;
+    email: string;
+    role: string;
+  };
+  hasDiff: boolean;
+  oldValue?: any;
+  newValue?: any;
+  metadata?: any;
+}
+
+export interface PaginatedTimelineResponse {
+  data: UserTimelineItem[];
+  meta: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
+}
+
 export const adminRepository = {
   async getDashboardMetrics(): Promise<AdminDashboardMetrics> {
     const response = await apiClient.get('/admin/config/metrics');
@@ -444,6 +537,38 @@ export const adminRepository = {
       params: { ...params, format: params?.format || 'csv' },
       responseType: 'blob',
     });
+    return response.data;
+  },
+
+  async getAuditSummary(params?: {
+    startDate?: string;
+    endDate?: string;
+  }): Promise<AuditSummaryResponse> {
+    const response = await apiClient.get('/audit/summary', { params });
+    return response.data;
+  },
+
+  async getUserSessions(params?: {
+    userId?: string;
+    startDate?: string;
+    endDate?: string;
+    page?: number;
+    limit?: number;
+  }): Promise<PaginatedSessionsResponse> {
+    const response = await apiClient.get('/audit/sessions', { params });
+    return response.data;
+  },
+
+  async getActivityTimeline(params?: {
+    userId?: string;
+    action?: string;
+    entity?: string;
+    startDate?: string;
+    endDate?: string;
+    page?: number;
+    limit?: number;
+  }): Promise<PaginatedTimelineResponse> {
+    const response = await apiClient.get('/audit/timeline', { params });
     return response.data;
   },
 

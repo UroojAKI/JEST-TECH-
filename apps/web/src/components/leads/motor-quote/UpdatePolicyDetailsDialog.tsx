@@ -15,9 +15,10 @@ import {
   FileCheck2,
   Sparkles,
   Loader2,
+  FileText,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { apiClient } from '@/lib/api-client';
+import { apiClient, showApiErrorToast } from '@/lib/api-client';
 
 interface Props {
   isOpen: boolean;
@@ -48,6 +49,7 @@ export function UpdatePolicyDetailsDialog({
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [policyPdf, setPolicyPdf] = useState<File | null>(null);
+  const [pdfError, setPdfError] = useState<string | null>(null);
 
   // Motor-specific fields (Only for Motor policies)
   const [odStartDate, setOdStartDate] = useState('');
@@ -197,6 +199,32 @@ export function UpdatePolicyDetailsDialog({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setPdfError(null);
+
+    // Existing policy PDF document check from quotation (REQ-2)
+    const existingPolicyDoc =
+      quoteDetails?.documents?.find(
+        (d: any) =>
+          (d.documentType === 'POLICY_DOCUMENT' || d.documentType === 'POLICY_SCHEDULE') &&
+          d.fileKey,
+      ) ||
+      quoteDetails?.motorDocuments?.find(
+        (d: any) =>
+          (d.documentType === 'POLICY_DOCUMENT' || d.documentType === 'POLICY_SCHEDULE') &&
+          d.fileKey,
+      );
+
+    if (!policyPdf && !existingPolicyDoc) {
+      setPdfError('Official Policy PDF Schedule document is mandatory before issuing this policy.');
+      showApiErrorToast(
+        new Error(
+          'Policy issuance blocked: Official policy schedule PDF document is mandatory before policy can be completed or issued. Please upload the policy PDF.'
+        ),
+        'Policy PDF Required'
+      );
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -300,17 +328,17 @@ export function UpdatePolicyDetailsDialog({
 
       onSaved();
     } catch (error: any) {
-      console.error(error);
-      const serverMsg = error?.response?.data?.message;
-      const blockers = error?.response?.data?.blockers;
-      const displayMsg =
-        serverMsg ||
-        (Array.isArray(blockers) && blockers.length
-          ? `Policy issuance blocked: ${blockers.join(', ')}`
-          : null) ||
-        error?.message ||
-        'Unable to issue policy. Please verify the quotation and payment state.';
-      toast.error(displayMsg);
+      console.error('Policy issuance error:', error);
+      const isPdfError =
+        error?.response?.data?.message?.toString().toLowerCase().includes('pdf') ||
+        error?.message?.toString().toLowerCase().includes('pdf');
+      if (isPdfError) {
+        setPdfError('Official Policy PDF Schedule document is mandatory before issuing this policy.');
+      }
+      showApiErrorToast(
+        error,
+        'Policy issuance blocked: Official policy schedule PDF document is mandatory before policy can be issued.'
+      );
     } finally {
       setLoading(false);
     }
@@ -714,28 +742,107 @@ export function UpdatePolicyDetailsDialog({
             </>
           )}
 
-          {/* Upload Issued Policy PDF Document */}
-          <div className="border rounded-xl p-3 space-y-2 bg-card">
-            <div className="text-xs font-bold text-foreground flex items-center justify-between">
-              <span>Issued Policy Document (PDF)</span>
-              <span className="text-[10px] text-muted-foreground">Official Schedule</span>
-            </div>
-            <label className="flex items-center gap-2 px-3 py-2.5 border border-dashed rounded-lg cursor-pointer hover:bg-muted text-xs transition">
-              <Upload className="h-4 w-4 text-muted-foreground" />
-              <span className="truncate">
-                {policyPdf
-                  ? policyPdf.name
-                  : isHealth
-                  ? 'Upload official Health Policy Schedule (PDF)'
-                  : 'Upload official Motor Policy Schedule (PDF)'}
+          {/* Upload Issued Policy PDF Document (Statutory REQ-2 Requirement) */}
+          <div
+            className={`border rounded-xl p-4 space-y-2.5 transition-all ${
+              pdfError
+                ? 'border-rose-500 bg-rose-500/5 ring-2 ring-rose-500/20'
+                : policyPdf
+                ? 'border-emerald-500 bg-emerald-500/5'
+                : 'border-border bg-card'
+            }`}
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <FileText className={`h-4 w-4 ${policyPdf ? 'text-emerald-600' : 'text-rose-500'}`} />
+                <span className="text-xs font-bold text-foreground">
+                  Official Policy Schedule Document (PDF) <span className="text-rose-500 font-bold">* (Mandatory)</span>
+                </span>
+              </div>
+              <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-rose-500/10 text-rose-600 border border-rose-500/20">
+                Required for Issuance
               </span>
+            </div>
+
+            <p className="text-[11px] text-muted-foreground">
+              Under IRDAI underwriting regulations, the official signed policy schedule PDF must be attached before this policy can be completed or legally issued.
+            </p>
+
+            <label
+              className={`flex items-center justify-between gap-3 px-3.5 py-3 border-2 border-dashed rounded-xl cursor-pointer transition ${
+                policyPdf
+                  ? 'border-emerald-500/60 bg-emerald-500/10 hover:bg-emerald-500/15'
+                  : pdfError
+                  ? 'border-rose-500 bg-rose-500/10 hover:bg-rose-500/15'
+                  : 'border-border/80 hover:border-primary/80 bg-muted/20'
+              }`}
+            >
+              <div className="flex items-center gap-2.5 min-w-0">
+                {policyPdf ? (
+                  <FileCheck2 className="h-5 w-5 text-emerald-600 shrink-0" />
+                ) : (
+                  <Upload className={`h-5 w-5 shrink-0 ${pdfError ? 'text-rose-500' : 'text-muted-foreground'}`} />
+                )}
+                <div className="min-w-0">
+                  <div className="text-xs font-bold truncate text-foreground">
+                    {policyPdf
+                      ? policyPdf.name
+                      : isHealth
+                      ? 'Upload official Health Policy Schedule (PDF) *'
+                      : 'Upload official Motor Policy Schedule (PDF) *'}
+                  </div>
+                  <div className="text-[10px] text-muted-foreground">
+                    {policyPdf
+                      ? `${(policyPdf.size / 1024).toFixed(1)} KB • Attached and verified`
+                      : 'PDF format only, maximum 15MB'}
+                  </div>
+                </div>
+              </div>
+
+              {policyPdf ? (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setPolicyPdf(null);
+                  }}
+                  className="p-1 rounded text-muted-foreground hover:text-rose-600 hover:bg-rose-500/10 transition"
+                  title="Remove file"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              ) : (
+                <span className="px-2.5 py-1 rounded-md text-[10px] font-bold bg-primary text-primary-foreground shrink-0 shadow-xs">
+                  Browse PDF
+                </span>
+              )}
+
               <input
                 type="file"
-                accept="application/pdf"
+                accept="application/pdf,.pdf"
                 className="hidden"
-                onChange={(e) => setPolicyPdf(e.target.files?.[0] || null)}
+                onChange={(e) => {
+                  const file = e.target.files?.[0] || null;
+                  if (file) {
+                    if (!file.name.toLowerCase().endsWith('.pdf') && file.type !== 'application/pdf') {
+                      toast.error('Only PDF documents are supported for official policy schedules');
+                      setPdfError('Only PDF files are accepted');
+                      return;
+                    }
+                    setPolicyPdf(file);
+                    setPdfError(null);
+                  }
+                }}
               />
             </label>
+
+            {pdfError && (
+              <div className="flex items-center gap-1.5 text-xs text-rose-600 font-semibold pt-1">
+                <AlertCircle className="h-4 w-4 shrink-0" />
+                <span>{pdfError}</span>
+              </div>
+            )}
           </div>
 
           {/* Dialog Action Buttons */}
@@ -752,7 +859,9 @@ export function UpdatePolicyDetailsDialog({
               type="submit"
               disabled={loading}
               className={`px-5 py-2 text-white rounded-xl text-xs font-bold flex items-center gap-2 disabled:opacity-50 transition shadow-xs ${
-                isHealth
+                !policyPdf
+                  ? 'bg-amber-600 hover:bg-amber-700'
+                  : isHealth
                   ? 'bg-rose-600 hover:bg-rose-700'
                   : 'bg-emerald-600 hover:bg-emerald-700'
               }`}
@@ -761,6 +870,11 @@ export function UpdatePolicyDetailsDialog({
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />
                   <span>Issuing Policy...</span>
+                </>
+              ) : !policyPdf ? (
+                <>
+                  <Upload className="h-4 w-4" />
+                  <span>Upload Policy PDF to Issue</span>
                 </>
               ) : (
                 <>

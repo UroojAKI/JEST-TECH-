@@ -118,15 +118,31 @@ export function ProposerDetailsForm({ data, onChange }: Props) {
         </Field>
       </div>
 
-      <Field label="Communication Address" mandatory={false}>
-        <textarea
-          rows={2}
-          value={data.address}
-          onChange={set('address')}
-          placeholder="Full communication address"
-          className={`${inputCls(false, data.address)} resize-none`}
-        />
-      </Field>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div className="sm:col-span-2">
+          <Field label="Communication Address" mandatory={true} hint="Street address, building, locality">
+            <textarea
+              rows={2}
+              value={data.address}
+              onChange={set('address')}
+              placeholder="Full communication address (mandatory)"
+              className={`${inputCls(true, data.address)} resize-none`}
+            />
+          </Field>
+        </div>
+        <div>
+          <Field label="PIN Code" mandatory={true} hint="6-digit postal code">
+            <input
+              type="text"
+              value={data.pincode || ''}
+              onChange={(e) => onChange({ ...data, pincode: e.target.value.replace(/\D/g, '').slice(0, 6) })}
+              placeholder="e.g. 400001"
+              maxLength={6}
+              className={`${inputCls(true, data.pincode || '')} font-mono`}
+            />
+          </Field>
+        </div>
+      </div>
 
       <Field label="Relationship Manager / Sales Executive" mandatory={false} hint="Auto-mapped to logged-in user">
         <input

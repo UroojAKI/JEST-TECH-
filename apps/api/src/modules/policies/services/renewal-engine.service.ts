@@ -1,4 +1,4 @@
-import { ForbiddenException, Injectable } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable } from '@nestjs/common';
 import { PrismaService } from '../../../database/prisma.service';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
@@ -494,6 +494,17 @@ export class RenewalEngineService {
       return { success: false, message: `Policy ${policyId} not found` };
 
     const effectiveExpiry = this.getEffectiveRenewalExpiry(policy);
+
+    // REQ-5: Remind button must remain unavailable until 90 days before policy expiry
+    const now = new Date();
+    const daysRemaining = Math.ceil(
+      (effectiveExpiry.getTime() - now.getTime()) / (1000 * 60 * 60 * 24),
+    );
+    if (daysRemaining > 90) {
+      throw new BadRequestException(
+        `Renewal reminder is only permitted within 90 days of policy expiry. Current policy expires in ${daysRemaining} days.`,
+      );
+    }
 
     await this.renewalQueue.add('send-renewal-reminder', {
       policyId: policy.id,

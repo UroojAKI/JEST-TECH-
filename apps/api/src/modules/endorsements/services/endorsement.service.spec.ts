@@ -2,9 +2,13 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { EndorsementService } from './endorsement.service';
 import { PrismaService } from '../../../database/prisma.service';
 import { EndorsementType, EndorsementStatus } from '@prisma/client';
-import { ForbiddenException, NotFoundException } from '@nestjs/common';
+import {
+  ConflictException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
 
-describe('EndorsementService (Iteration 15)', () => {
+describe('EndorsementService (Iteration 15 & Phase 2)', () => {
   let service: EndorsementService;
   let prisma: any;
 
@@ -26,6 +30,7 @@ describe('EndorsementService (Iteration 15)', () => {
         findUnique: jest.fn(),
         create: jest.fn(),
         update: jest.fn(),
+        count: jest.fn().mockResolvedValue(0),
       },
       endorsementHistory: {
         create: jest.fn(),
@@ -58,7 +63,6 @@ describe('EndorsementService (Iteration 15)', () => {
   describe('calculateProRataPremium', () => {
     it('should compute exact pro-rata differential with 18% GST based on remaining days', async () => {
       const now = new Date();
-      // Effective: 180 days ago, Expiry: 185 days in future (approx 365 total days, ~50% remaining)
       const effectiveDate = new Date(now.getTime() - 180 * 24 * 60 * 60 * 1000);
       const expiryDate = new Date(now.getTime() + 185 * 24 * 60 * 60 * 1000);
 
@@ -69,7 +73,6 @@ describe('EndorsementService (Iteration 15)', () => {
         expiryDate,
       });
 
-      // Increasing annual premium from 10,000 to 20,000 (diff: +10,000)
       const result = await service.calculateProRataPremium('pol-1', 20000);
 
       expect(result.currentAnnualPremium).toBe(10000);
@@ -95,6 +98,56 @@ describe('EndorsementService (Iteration 15)', () => {
     });
   });
 
+  describe('createEndorsement (Phase 2)', () => {
+    it('should create a GENERAL_CHANGE endorsement with beforeSnapshot, baseVersion, and mark policy pending', async () => {
+      prisma.policy.findUnique.mockResolvedValue({
+        id: 'pol-1',
+        status: 'ACTIVE',
+        version: 3,
+        actualPolicyNumber: 'POL-OLD-123',
+        premiumAmount: 12500,
+        startDate: new Date('2026-01-01'),
+        endDate: new Date('2027-01-01'),
+      });
+
+      prisma.endorsement.create.mockImplementation(({ data }: any) => ({
+        id: 'end-gen-1',
+        ...data,
+      }));
+
+      const result = await service.createEndorsement(
+        'pol-1',
+        EndorsementType.GENERAL_CHANGE,
+        'Customer requested premium adjustment and correct policy number',
+        'user-agent-1',
+        {
+          actualPolicyNumber: 'POL-NEW-456',
+          premiumAmount: 14000,
+        },
+      );
+
+      expect(result.id).toBe('end-gen-1');
+      expect(result.baseVersion).toBe(3);
+      expect(result.beforeSnapshot).toMatchObject({
+        actualPolicyNumber: 'POL-OLD-123',
+        premiumAmount: 12500,
+      });
+      expect(prisma.policy.update).toHaveBeenCalledWith({
+        where: { id: 'pol-1' },
+        data: { hasPendingApproval: true },
+      });
+      expect(prisma.endorsementHistory.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            endorsementId: 'end-gen-1',
+            status: EndorsementStatus.REQUESTED,
+            performedById: 'user-agent-1',
+          }),
+        }),
+      );
+    });
+  });
+
   describe('approveEndorsement', () => {
     it('should throw ForbiddenException if requester attempts to approve their own endorsement (Four-Eye Violation)', async () => {
       prisma.endorsement.findUnique.mockResolvedValue({
@@ -110,6 +163,27 @@ describe('EndorsementService (Iteration 15)', () => {
       ).rejects.toThrow(ForbiddenException);
     });
 
+    it('should throw ConflictException (POLICY_CHANGE_STALE_VERSION) if policy version does not match baseVersion', async () => {
+      prisma.endorsement.findUnique.mockResolvedValue({
+        id: 'end-stale-1',
+        policyId: 'pol-1',
+        requestedById: 'user-agent-1',
+        status: EndorsementStatus.REQUESTED,
+        type: EndorsementType.GENERAL_CHANGE,
+        baseVersion: 2,
+        requestedChanges: JSON.stringify({ premiumAmount: 20000 }),
+        policy: {
+          id: 'pol-1',
+          version: 4, // Changed concurrently
+          status: 'ACTIVE',
+        },
+      });
+
+      await expect(
+        service.approveEndorsement('end-stale-1', 'Approving stale change', 'user-manager-2'),
+      ).rejects.toThrow(ConflictException);
+    });
+
     it('should approve non-financial contact change, update contact details, and write transactional audit log', async () => {
       prisma.endorsement.findUnique.mockResolvedValue({
         id: 'end-1',
@@ -118,11 +192,12 @@ describe('EndorsementService (Iteration 15)', () => {
         requestedById: 'user-agent-1',
         status: EndorsementStatus.REQUESTED,
         type: EndorsementType.CONTACT_CHANGE,
+        baseVersion: 1,
         requestedChanges: JSON.stringify({
           phone: '+919876543210',
           firstName: 'Rohit',
         }),
-        policy: { id: 'pol-1', contactId: 'cont-1' },
+        policy: { id: 'pol-1', version: 1, contactId: 'cont-1' },
       });
 
       prisma.contact.findUnique.mockResolvedValue({
@@ -147,12 +222,69 @@ describe('EndorsementService (Iteration 15)', () => {
         where: { id: 'cont-1' },
         data: { firstName: 'Rohit', phone: '+919876543210' },
       });
+      expect(prisma.policy.update).toHaveBeenCalledWith({
+        where: { id: 'pol-1' },
+        data: {
+          version: { increment: 1 },
+          hasPendingApproval: false,
+        },
+      });
       expect(prisma.auditLog.create).toHaveBeenCalledWith({
         data: expect.objectContaining({
           action: 'APPROVE',
           entity: 'ENDORSEMENT',
           userId: 'user-underwriter-2',
         }),
+      });
+      expect(result.status).toBe('COMPLETED');
+    });
+
+    it('should approve GENERAL_CHANGE, apply updates, increment version, and sync pending flag', async () => {
+      prisma.endorsement.findUnique.mockResolvedValue({
+        id: 'end-gen-app',
+        endorsementNumber: 'END-GEN-01',
+        policyId: 'pol-1',
+        requestedById: 'user-agent-1',
+        status: EndorsementStatus.REQUESTED,
+        type: EndorsementType.GENERAL_CHANGE,
+        baseVersion: 2,
+        requestedChanges: JSON.stringify({
+          actualPolicyNumber: 'POL-NEW-789',
+          premiumAmount: 18500,
+        }),
+        policy: {
+          id: 'pol-1',
+          version: 2,
+          actualPolicyNumber: 'POL-OLD-111',
+          premiumAmount: 15000,
+          contactId: 'cont-1',
+        },
+      });
+
+      prisma.endorsement.update.mockResolvedValue({
+        id: 'end-gen-app',
+        status: EndorsementStatus.COMPLETED,
+      });
+
+      const result = await service.approveEndorsement(
+        'end-gen-app',
+        'Approved general policy update',
+        'user-underwriter-2',
+      );
+
+      expect(prisma.policy.update).toHaveBeenCalledWith({
+        where: { id: 'pol-1' },
+        data: {
+          actualPolicyNumber: 'POL-NEW-789',
+          premiumAmount: 18500,
+        },
+      });
+      expect(prisma.policy.update).toHaveBeenCalledWith({
+        where: { id: 'pol-1' },
+        data: {
+          version: { increment: 1 },
+          hasPendingApproval: false,
+        },
       });
       expect(result.status).toBe('COMPLETED');
     });
@@ -165,6 +297,7 @@ describe('EndorsementService (Iteration 15)', () => {
         requestedById: 'user-agent-1',
         status: EndorsementStatus.REQUESTED,
         type: EndorsementType.OWNER_TRANSFER,
+        baseVersion: 1,
         requestedChanges: JSON.stringify({
           newContactId: 'cont-new-owner',
           transferDate: '2026-08-20T00:00:00Z',
@@ -172,6 +305,7 @@ describe('EndorsementService (Iteration 15)', () => {
         }),
         policy: {
           id: 'pol-1',
+          version: 1,
           contactId: 'cont-old-owner',
           motorMetadata: JSON.stringify({ ncbPercentage: 35 }),
         },
@@ -197,6 +331,13 @@ describe('EndorsementService (Iteration 15)', () => {
           }),
         }),
       });
+      expect(prisma.policy.update).toHaveBeenCalledWith({
+        where: { id: 'pol-1' },
+        data: {
+          version: { increment: 1 },
+          hasPendingApproval: false,
+        },
+      });
     });
   });
 
@@ -213,9 +354,10 @@ describe('EndorsementService (Iteration 15)', () => {
       ).rejects.toThrow(ForbiddenException);
     });
 
-    it('should update status to REJECTED and record history', async () => {
+    it('should update status to REJECTED, record rejectionReason, clear pending flag, and leave policy untouched', async () => {
       prisma.endorsement.findUnique.mockResolvedValue({
         id: 'end-3',
+        policyId: 'pol-1',
         requestedById: 'user-agent-1',
         status: EndorsementStatus.REQUESTED,
       });
@@ -232,6 +374,17 @@ describe('EndorsementService (Iteration 15)', () => {
       );
 
       expect(result.status).toBe(EndorsementStatus.REJECTED);
+      expect(prisma.endorsement.update).toHaveBeenCalledWith({
+        where: { id: 'end-3' },
+        data: expect.objectContaining({
+          status: EndorsementStatus.REJECTED,
+          rejectionReason: 'Incomplete KYC documents',
+        }),
+      });
+      expect(prisma.policy.update).toHaveBeenCalledWith({
+        where: { id: 'pol-1' },
+        data: { hasPendingApproval: false },
+      });
       expect(prisma.endorsementHistory.create).toHaveBeenCalledWith({
         data: expect.objectContaining({
           endorsementId: 'end-3',

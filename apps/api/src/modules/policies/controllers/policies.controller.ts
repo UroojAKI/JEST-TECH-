@@ -14,7 +14,8 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags, ApiOperation } from '@nestjs/swagger';
-import { RoleType } from '@prisma/client';
+import { RoleType, EndorsementType } from '@prisma/client';
+import { EndorsementService } from '../../endorsements/services/endorsement.service';
 
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
@@ -56,6 +57,7 @@ export class PoliciesController {
     private readonly backOfficeQueueService: BackOfficeQueueService,
     private readonly policyRepository: PolicyRepository,
     private readonly authzService: ResourceAuthorizationService,
+    private readonly endorsementService: EndorsementService,
   ) {}
 
   @Post('issue')
@@ -362,7 +364,7 @@ export class PoliciesController {
   @Patch(':id')
   @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE)
   @ApiOperation({
-    summary: 'Update policy editable metadata and contact notes',
+    summary: 'Update policy editable metadata and contact notes (creates pending change request for official policies)',
   })
   async update(
     @Param('id') id: string,
@@ -374,6 +376,40 @@ export class PoliciesController {
       throw new NotFoundException(`Policy with ID ${id} not found`);
     }
     this.authzService.authorize(user, 'POLICY', 'UPDATE', policy);
+
+    const isOfficialPolicy = [
+      'ISSUED',
+      'ACTIVE',
+      'RENEWED',
+      'LAPSED',
+      'PENDING_RENEWAL',
+    ].includes(policy.status);
+
+    if (isOfficialPolicy) {
+      // Per Section 4.5 & REQ-3: Editing an existing official policy creates a change request;
+      // it must not directly overwrite official policy fields until approved.
+      const reason =
+        (dto as any).reason ||
+        'User-initiated modification to official policy details';
+      const changeRequest = await this.endorsementService.createEndorsement(
+        id,
+        EndorsementType.GENERAL_CHANGE,
+        reason,
+        user.id,
+        dto as any,
+        user,
+      );
+
+      return {
+        message:
+          'Policy modification request submitted for approval. Changes will not take effect until approved by an Admin or Back-Office user.',
+        isPendingApproval: true,
+        changeRequest,
+        policy: PolicyMapper.toResponse(policy),
+      };
+    }
+
+    // For DRAFT policies, direct updates are permitted (drafts are non-official)
     const updated = await this.policyRepository.update(
       id,
       dto as any,

@@ -25,6 +25,7 @@ import { toast } from 'sonner';
 import { usePolicies, usePolicyWorkspace } from '../../hooks/usePolicies';
 import { useAuthStore } from '../../store/auth-store';
 import { PolicyDocumentsSection } from '../../components/policies/PolicyDocumentsSection';
+import { PolicyChangeReviewModal } from '../../components/policies/PolicyChangeReviewModal';
 import { formatCurrency } from '../../lib/formatters';
 
 export default function PolicyRegisterPage() {
@@ -32,6 +33,7 @@ export default function PolicyRegisterPage() {
   const [savedView, setSavedView] = useState<string>('ALL');
   const [productFilter, setProductFilter] = useState<'ALL' | 'MOTOR' | 'HEALTH'>('ALL');
   const [selectedPolicy, setSelectedPolicy] = useState<any | null>(null);
+  const [reviewingPolicy, setReviewingPolicy] = useState<any | null>(null);
 
   const authUser = useAuthStore((s) => s.user);
   const userRoles = [
@@ -39,6 +41,9 @@ export default function PolicyRegisterPage() {
     authUser?.role,
   ].filter(Boolean).map((r) => String(r).toUpperCase());
   const canUpload = userRoles.some((r) =>
+    ['ADMIN', 'SUPER_ADMIN', 'SYSTEM_ADMINISTRATOR', 'BACK_OFFICE', 'OPERATIONS', 'UNDERWRITER'].includes(r),
+  );
+  const canApprove = userRoles.some((r) =>
     ['ADMIN', 'SUPER_ADMIN', 'SYSTEM_ADMINISTRATOR', 'BACK_OFFICE', 'OPERATIONS', 'UNDERWRITER'].includes(r),
   );
 
@@ -265,7 +270,17 @@ export default function PolicyRegisterPage() {
     {
       accessorKey: 'status',
       header: 'Status',
-      cell: ({ row }: any) => <StatusBadge status={row.original.status} />,
+      cell: ({ row }: any) => (
+        <div className="flex flex-col gap-1 items-start">
+          <StatusBadge status={row.original.status} />
+          {row.original.hasPendingApproval && (
+            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30">
+              <Clock className="w-2.5 h-2.5 text-amber-500 shrink-0" />
+              Pending Approval
+            </span>
+          )}
+        </div>
+      ),
     },
     {
       accessorKey: 'expiryDate',
@@ -280,14 +295,26 @@ export default function PolicyRegisterPage() {
       id: 'actions',
       header: 'Action',
       cell: ({ row }: any) => (
-        <button
-          onClick={() => setSelectedPolicy(row.original)}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border bg-background hover:bg-muted text-foreground transition-colors shadow-xs"
-          title="View full policy details"
-        >
-          <Eye className="h-3.5 w-3.5 text-primary" />
-          <span>View</span>
-        </button>
+        <div className="flex items-center gap-1.5">
+          <button
+            onClick={() => setSelectedPolicy(row.original)}
+            className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold rounded-lg border bg-background hover:bg-muted text-foreground transition-colors shadow-xs"
+            title="View full policy details"
+          >
+            <Eye className="h-3.5 w-3.5 text-primary" />
+            <span>View</span>
+          </button>
+          {canApprove && row.original.hasPendingApproval && (
+            <button
+              onClick={() => setReviewingPolicy(row.original)}
+              className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-bold rounded-lg bg-amber-500 hover:bg-amber-600 text-white transition-colors shadow-xs"
+              title="Review & Approve Pending Changes"
+            >
+              <CheckCircle2 className="h-3.5 w-3.5" />
+              <span>Approve</span>
+            </button>
+          )}
+        </div>
       ),
     },
   ];
@@ -732,6 +759,16 @@ export default function PolicyRegisterPage() {
             </div>
           </div>
         </div>
+      )}
+      {reviewingPolicy && (
+        <PolicyChangeReviewModal
+          isOpen={!!reviewingPolicy}
+          policy={reviewingPolicy}
+          onClose={() => setReviewingPolicy(null)}
+          onSuccess={() => {
+            refetch();
+          }}
+        />
       )}
     </AppShell>
   );

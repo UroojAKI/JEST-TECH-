@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { X, ChevronRight, ChevronLeft, Save, Loader2, Car, Shield } from 'lucide-react';
 import { toast } from 'sonner';
-import { apiClient } from '../../../lib/api-client';
+import { apiClient, getApiErrorMessage, showApiErrorToast } from '../../../lib/api-client';
 import { useQuery } from '@tanstack/react-query';
 import { leadsRepository } from '../../../repositories/leads.repository';
 
@@ -79,6 +79,7 @@ function emptyProposer(contact?: Props['leadContact']): ProposerDetails {
     mobileNumber: contact?.phone || '',
     emailId: contact?.email || '',
     address: contact?.address || '',
+    pincode: (contact as any)?.pincode || '',
     panNumber: contact?.pan || '',
     relationshipManager: contact?.rm || '',
   };
@@ -633,7 +634,7 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, customerId, caseId
       return true;
     } catch (e: any) {
       if (requestId === ruleEvaluationRequestIdRef.current) {
-        console.error('Rule engine API error:', e);
+        console.warn('Rule engine API error:', e);
         setRuleResult(null);
         setRuleEvaluationKey(null);
         const msg = e?.response?.data?.message;
@@ -867,6 +868,34 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, customerId, caseId
       }
     }
 
+    // REQ-4: Address and PIN code validation
+    if (proposer.customerName || proposer.mobileNumber) {
+      if (!proposer.address || proposer.address.trim().length < 5) {
+        toast.error('Customer communication address is mandatory (minimum 5 characters)');
+        return;
+      }
+      if (!proposer.pincode || !/^[1-9][0-9]{5}$/.test(proposer.pincode.trim())) {
+        toast.error('Customer PIN code must be a valid 6-digit postal code');
+        return;
+      }
+    }
+
+    // REQ-5: Renewal quotations allowed only from 45 days before expiry
+    const prevExpiryStr = (previousPolicy as any)?.policyExpiryDate;
+    if (prevExpiryStr && (previousPolicy as any)?.previousPolicyType !== 'NOT_AVAILABLE') {
+      const prevExpiry = new Date(prevExpiryStr);
+      if (!isNaN(prevExpiry.getTime())) {
+        const now = new Date();
+        const daysToExpiry = Math.ceil((prevExpiry.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+        if (daysToExpiry > 45) {
+          toast.error(
+            `New renewal quotations can only be generated within 45 days of policy expiry. Expiring policy has ${daysToExpiry} days remaining.`,
+          );
+          return;
+        }
+      }
+    }
+
     const calcResult = pDetails.calculatedResult;
     const authoritativeTotal = Number(
       pDetails.totalPremiumOverride ??
@@ -976,15 +1005,54 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, customerId, caseId
         onClose();
       }
     } catch (err: any) {
-      const data = err.response?.data;
-      const errorMsg =
-        data?.message ||
-        data?.error?.message ||
-        data?.error ||
-        err.message ||
-        'Failed to generate quotation.';
-      console.error('Validation failure on motor-capture payload:', data || err);
-      toast.error(Array.isArray(errorMsg) ? errorMsg.join(' | ') : String(errorMsg));
+      const responseData = err.response?.data;
+      const status = err.response?.status;
+      const errorCode = responseData?.error?.errorCode || responseData?.errorCode;
+
+      console.warn('Failed to capture motor quotation:', {
+        message: err?.message,
+        status,
+        code: err?.code,
+        errorCode,
+        data: responseData,
+        url: err?.config?.url,
+      });
+
+      // 1. Connection / Network / Offline Backend check
+      if (
+        err?.code === 'ERR_NETWORK' ||
+        !err.response ||
+        (status === 500 && (!responseData || (typeof responseData === 'object' && Object.keys(responseData).length === 0)))
+      ) {
+        toast.error(
+          'Unable to reach backend service. Please ensure that the API server (http://localhost:4000) and database are running.',
+        );
+        return;
+      }
+
+      // 2. Conflict: Policy already running for this vehicle (Requirement 8)
+      if (errorCode === 'VEHICLE_POLICY_ALREADY_RUNNING' || status === 409) {
+        const policyNo = responseData?.error?.policyNumber || responseData?.policyNumber;
+        const renewalDate = responseData?.error?.formattedRenewalDate || responseData?.formattedRenewalDate;
+        toast.error(
+          policyNo
+            ? 'Vehicle already has an active policy (' + policyNo + (renewalDate ? ', expires ' + renewalDate : '') + '). Cannot issue duplicate quotation.'
+            : (responseData?.error?.message || responseData?.message || 'A policy is already active for this vehicle.'),
+        );
+        return;
+      }
+
+      // 3. Contact details required by assigned agent
+      if (errorCode === 'CONTACT_COLLECTION_REQUIRED') {
+        const missing = responseData?.error?.missingFields || responseData?.missingFields || ['Customer Name', 'Mobile Number'];
+        toast.error(
+          'Customer details required: Please provide ' + (Array.isArray(missing) ? missing.join(' and ') : missing) + ' in Step 1.',
+        );
+        return;
+      }
+
+      // 4. Default user-friendly error toast preserving entered data
+      showApiErrorToast(err, 'Failed to generate quotation. Please review the entered details and retry.');
     } finally {
       setIsSaving(false);
     }
@@ -1122,6 +1190,37 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, customerId, caseId
                       className="w-full px-3 py-2 rounded-md border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
                       placeholder="john@example.com"
                     />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-muted-foreground">
+                      PIN Code <span className="text-red-500 ml-0.5">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      maxLength={6}
+                      value={proposer.pincode || ''}
+                      onChange={(e) => setProposer({...proposer, pincode: e.target.value.replace(/\D/g, '').slice(0, 6)})}
+                      className={`w-full px-3 py-2 rounded-md border bg-background text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary/50 ${proposer.pincode && !/^[1-9][0-9]{5}$/.test(proposer.pincode.trim()) ? 'border-red-400' : ''}`}
+                      placeholder="6-digit PIN (e.g. 400001)"
+                    />
+                    {proposer.pincode && !/^[1-9][0-9]{5}$/.test(proposer.pincode.trim()) && (
+                      <p className="text-[10px] text-red-500">Must be a valid 6-digit Indian PIN code</p>
+                    )}
+                  </div>
+                  <div className="space-y-1.5 md:col-span-2">
+                    <label className="text-xs font-semibold text-muted-foreground">
+                      Communication Address <span className="text-red-500 ml-0.5">*</span>
+                    </label>
+                    <textarea
+                      rows={2}
+                      value={proposer.address || ''}
+                      onChange={(e) => setProposer({...proposer, address: e.target.value})}
+                      className={`w-full px-3 py-2 rounded-md border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none ${proposer.address && proposer.address.trim().length < 5 ? 'border-red-400' : ''}`}
+                      placeholder="Full communication street address, building, locality (minimum 5 characters)"
+                    />
+                    {proposer.address && proposer.address.trim().length > 0 && proposer.address.trim().length < 5 && (
+                      <p className="text-[10px] text-red-500">Address must be at least 5 characters in length</p>
+                    )}
                   </div>
                   <div className="space-y-1.5 md:col-span-2 pt-2 border-t border-border">
                     <AgentSelector

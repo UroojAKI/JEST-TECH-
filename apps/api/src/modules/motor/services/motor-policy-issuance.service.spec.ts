@@ -38,7 +38,11 @@ describe('MotorPolicyIssuanceService (Iteration 8)', () => {
       },
       policy: {
         create: jest.fn(),
+        update: jest.fn().mockResolvedValue({ id: 'pol-1' }),
         findFirst: jest.fn().mockResolvedValue(null),
+      },
+      policyDocument: {
+        create: jest.fn().mockResolvedValue({ id: 'pdoc-1' }),
       },
       policyHistory: {
         create: jest.fn(),
@@ -118,6 +122,8 @@ describe('MotorPolicyIssuanceService (Iteration 8)', () => {
     actualPremium: 17638.88,
     startDate: '2026-09-01T00:00:00.000Z',
     endDate: '2027-08-31T23:59:59.000Z',
+    documentFileKey: 'docs/test-policy.pdf',
+    documentFileName: 'test-policy.pdf',
   };
 
   const validQuote = {
@@ -139,6 +145,28 @@ describe('MotorPolicyIssuanceService (Iteration 8)', () => {
   };
 
   describe('issuePolicy', () => {
+
+    it('should reject policy issuance if policy PDF document is missing (REQ-2)', async () => {
+      const opsActor = createActor(RoleType.BACK_OFFICE);
+      paymentService.canProceedToPolicy.mockResolvedValue({ allowed: true });
+      prisma.quotation.findUnique.mockResolvedValue({
+        ...validQuote,
+        paymentRecord: { status: 'PAID', amount: 17638.88, referenceNumber: 'TXN-1' },
+        documents: [],
+        motorDocuments: [],
+      });
+      prisma.motorPaymentRecord.findUnique.mockResolvedValue({
+        status: 'PAID',
+        amount: 17638.88,
+        referenceNumber: 'TXN-1',
+      });
+
+      const dtoWithoutPdf = { ...validDto, documentFileKey: undefined };
+      await expect(
+        service.issuePolicy('q-100', dtoWithoutPdf, opsActor),
+      ).rejects.toThrow('Official policy schedule PDF document is mandatory');
+    });
+
     it('should successfully issue policy and schedule renewal when called by OPERATIONS', async () => {
       const opsActor = createActor(RoleType.BACK_OFFICE);
       paymentService.canProceedToPolicy.mockResolvedValue({

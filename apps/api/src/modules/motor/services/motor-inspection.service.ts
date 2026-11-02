@@ -477,6 +477,182 @@ export class MotorInspectionService {
     });
   }
 
+  async assignSlots(
+    inspectionId: string,
+    body: {
+      assignments?: Array<{
+        slot: InspectionPhotoType;
+        storageKey: string;
+        sha256?: string;
+      }>;
+      additionalEvidence?: Array<{
+        storageKey: string;
+        label?: string;
+        notes?: string;
+        sha256?: string;
+      }>;
+    },
+    actor: ActorContext,
+  ) {
+    const inspection = await this.prisma.motorInspection.findUnique({
+      where: { id: inspectionId },
+      include: {
+        quotation: { select: { createdById: true, agentId: true, caseId: true } },
+      },
+    });
+    if (!inspection) {
+      throw new NotFoundException(`Inspection ${inspectionId} not found`);
+    }
+
+    if (inspection.companyId !== actor.companyId) {
+      throw new ForbiddenException(
+        'Tenant isolation violation: Inspection belongs to another company',
+      );
+    }
+
+    this.assertInspectionContributor(actor, inspection);
+
+    const assignments = body?.assignments || [];
+    if (!assignments.length && !body?.additionalEvidence) {
+      throw new BadRequestException('At least one slot assignment or additional evidence is required');
+    }
+
+    const fieldMap: Record<InspectionPhotoType, string> = {
+      front: 'frontImageKey',
+      back: 'backImageKey',
+      left: 'leftImageKey',
+      right: 'rightImageKey',
+      windshield: 'windshieldImageKey',
+      chassis: 'chassisImageKey',
+      odometer: 'odometerImageKey',
+    };
+
+    // Check no duplicate keys among the batch assignments
+    const assignmentKeys = assignments.map((a) => a.storageKey?.trim());
+    if (new Set(assignmentKeys).size !== assignmentKeys.length) {
+      throw new BadRequestException(
+        'Each inspection slot must be assigned a distinct photograph. Duplicate image assigned across slots in batch.',
+      );
+    }
+
+    const updateData: Record<string, any> = {};
+    const provenanceList: any[] = [];
+
+    for (const a of assignments) {
+      const slot = a.slot;
+      if (!fieldMap[slot]) {
+        throw new BadRequestException(`Unsupported inspection photo slot: ${slot}`);
+      }
+
+      const trimmedKey = a.storageKey?.trim();
+      if (!trimmedKey) {
+        throw new BadRequestException(`A valid storage key is required for slot ${slot}`);
+      }
+
+      if (
+        trimmedKey.includes('://') ||
+        trimmedKey.startsWith('//') ||
+        trimmedKey.startsWith('data:') ||
+        trimmedKey.startsWith('javascript:')
+      ) {
+        throw new BadRequestException(
+          'Storage key must be an internal object storage key, not an external URL',
+        );
+      }
+
+      if (trimmedKey.includes('..') || trimmedKey.includes('\\')) {
+        throw new BadRequestException(
+          'Storage key contains invalid path traversal characters',
+        );
+      }
+
+      const tenantPrefixMatch = trimmedKey.match(/^(?:companies|tenants|orgs)\/([^/]+)/i);
+      if (tenantPrefixMatch && tenantPrefixMatch[1] !== actor.companyId) {
+        throw new ForbiddenException(
+          'Storage key namespace violation: Storage key belongs to another company',
+        );
+      }
+
+      let provenanceHash = a.sha256?.trim().toLowerCase();
+      if (provenanceHash) {
+        if (!/^[a-f0-9]{64}$/.test(provenanceHash)) {
+          throw new BadRequestException(
+            'Invalid SHA-256 provenance hash. Must be a 64-character hexadecimal string.',
+          );
+        }
+      } else {
+        provenanceHash = crypto
+          .createHash('sha256')
+          .update(`${inspectionId}:${slot}:${trimmedKey}`)
+          .digest('hex');
+      }
+
+      updateData[fieldMap[slot]] = trimmedKey;
+      provenanceList.push({
+        event: 'SLOT_ASSIGNED',
+        slot,
+        storageKey: trimmedKey,
+        sha256: provenanceHash,
+        recordedAt: new Date().toISOString(),
+      });
+    }
+
+    if (body.additionalEvidence !== undefined) {
+      if (!Array.isArray(body.additionalEvidence)) {
+        throw new BadRequestException('additionalEvidence must be an array');
+      }
+      for (const ev of body.additionalEvidence) {
+        const trimmedKey = ev.storageKey?.trim();
+        if (!trimmedKey) {
+          throw new BadRequestException('A valid storageKey is required for each additional evidence item');
+        }
+        if (
+          trimmedKey.includes('://') ||
+          trimmedKey.startsWith('//') ||
+          trimmedKey.startsWith('data:') ||
+          trimmedKey.startsWith('javascript:') ||
+          trimmedKey.includes('..') ||
+          trimmedKey.includes('\\')
+        ) {
+          throw new BadRequestException('Invalid storage key in additional evidence');
+        }
+      }
+      updateData.additionalEvidence = body.additionalEvidence;
+    }
+
+    const nextStatus = this.validateTransition(
+      inspection.status,
+      'UPLOAD_PHOTO',
+      actor?.role,
+    );
+
+    return this.prisma.$transaction(async (tx) => {
+      const updated = await tx.motorInspection.update({
+        where: { id: inspectionId },
+        data: {
+          ...updateData,
+          status: nextStatus,
+        },
+      });
+
+      for (const prov of provenanceList) {
+        await tx.motorInspectionHistory.create({
+          data: {
+            inspectionId,
+            fromStatus: inspection.status,
+            toStatus: nextStatus,
+            action: 'UPLOAD_PHOTO',
+            actorId: actor.userId,
+            actorRole: actor.role as string,
+            reason: JSON.stringify(prov),
+          },
+        });
+      }
+
+      return updated;
+    });
+  }
+
   async submitForReview(inspectionId: string, actor: ActorContext, payload?: any) {
     const inspection = await this.prisma.motorInspection.findUnique({
       where: { id: inspectionId },
@@ -508,6 +684,23 @@ export class MotorInspectionService {
       );
     }
 
+    // Verify all 7 mandatory slots contain distinct photographs
+    const slotKeys = [
+      inspection.frontImageKey,
+      inspection.backImageKey,
+      inspection.leftImageKey,
+      inspection.rightImageKey,
+      inspection.windshieldImageKey,
+      inspection.chassisImageKey,
+      inspection.odometerImageKey,
+    ].filter(Boolean);
+
+    if (new Set(slotKeys).size !== 7) {
+      throw new BadRequestException(
+        'Each of the 7 mandatory inspection slots must contain a distinct photograph. Duplicate image detected across slots.',
+      );
+    }
+
     return this.prisma.$transaction(async (tx) => {
       const caseId = this.getLinkedCaseId(inspection);
       const updated = await tx.motorInspection.update({
@@ -520,6 +713,7 @@ export class MotorInspectionService {
           ...(payload?.inspectorCompany !== undefined && { inspectorCompany: payload.inspectorCompany }),
           ...(payload?.inspectionDate && { inspectionDate: new Date(payload.inspectionDate) }),
           ...(payload?.inspectionTime !== undefined && { inspectionTime: payload.inspectionTime }),
+          ...(payload?.additionalEvidence !== undefined && { additionalEvidence: payload.additionalEvidence }),
         },
       });
 

@@ -27,6 +27,7 @@ export function useEndorsements() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['endorsements'] });
       queryClient.invalidateQueries({ queryKey: ['policy-detail'] });
+      queryClient.invalidateQueries({ queryKey: ['policies'] });
       toast.success('Endorsement request submitted successfully');
     },
     onError: (err: any) => {
@@ -40,10 +41,25 @@ export function useEndorsements() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['endorsements'] });
       queryClient.invalidateQueries({ queryKey: ['policy-detail'] });
+      queryClient.invalidateQueries({ queryKey: ['policies'] });
       toast.success('Endorsement approved and applied to policy');
     },
     onError: (err: any) => {
       toast.error(err.response?.data?.message || 'Failed to approve endorsement');
+    },
+  });
+
+  const rejectMutation = useMutation({
+    mutationFn: ({ id, reason }: { id: string; reason: string }) =>
+      endorsementsRepository.rejectEndorsement(id, reason),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['endorsements'] });
+      queryClient.invalidateQueries({ queryKey: ['policy-detail'] });
+      queryClient.invalidateQueries({ queryKey: ['policies'] });
+      toast.success('Endorsement change request rejected');
+    },
+    onError: (err: any) => {
+      toast.error(err.response?.data?.message || 'Failed to reject endorsement');
     },
   });
 
@@ -54,6 +70,10 @@ export function useEndorsements() {
     createEndorsement: createMutation.mutate,
     isCreating: createMutation.isPending,
     approveEndorsement: approveMutation.mutate,
+    approveEndorsementAsync: approveMutation.mutateAsync,
     isApproving: approveMutation.isPending,
+    rejectEndorsement: rejectMutation.mutate,
+    rejectEndorsementAsync: rejectMutation.mutateAsync,
+    isRejecting: rejectMutation.isPending,
   };
 }

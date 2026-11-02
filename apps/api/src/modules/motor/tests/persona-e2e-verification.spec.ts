@@ -665,6 +665,7 @@ describe('Wave 6: End-to-End Persona Verification Suite (AGENT, BACK_OFFICE, FIN
           endDate: nextYear.toISOString(),
           nomineeName: 'Pooja Singhania',
           nomineeRelation: 'Spouse',
+          documentFileKey: 'documents/policies/pol-2026-0001.pdf',
         },
         backOfficeActor, // Independent Back Office Actor (Maker-Checker compliant)
       );

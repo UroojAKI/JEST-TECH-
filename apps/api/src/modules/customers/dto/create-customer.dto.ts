@@ -45,10 +45,10 @@ export class CreateCustomerDto {
   @IsString()
   aadhaarNumber?: string;
 
-  @ApiPropertyOptional({ description: 'Street address line 1' })
-  @IsOptional()
+  @ApiProperty({ description: 'Street address line 1' })
+  @IsNotEmpty({ message: 'Customer address is mandatory' })
   @IsString()
-  addressLine1?: string;
+  addressLine1: string;
 
   @ApiPropertyOptional({ description: 'Street address line 2' })
   @IsOptional()
@@ -65,10 +65,13 @@ export class CreateCustomerDto {
   @IsString()
   state?: string;
 
-  @ApiPropertyOptional({ description: 'PIN code' })
-  @IsOptional()
+  @ApiProperty({ description: '6-digit Indian PIN code' })
+  @IsNotEmpty({ message: 'Customer PIN code is mandatory' })
   @IsString()
-  pincode?: string;
+  @Matches(/^[1-9][0-9]{5}$/, {
+    message: 'PIN code must be a valid 6-digit Indian postal code',
+  })
+  pincode: string;
 
   @ApiPropertyOptional({ description: 'VIP client status' })
   @IsOptional()

@@ -121,7 +121,7 @@ describe('CustomersService', () => {
 
       await expect(
         service.create(
-          { firstName: 'Amit', mobile: '9876543210' },
+          { firstName: 'Amit', mobile: '9876543210', addressLine1: '123 MG Road', pincode: '400001' },
           { id: 'user-uuid-1', role: RoleType.AGENT, companyId: 'org-1' } as any,
         ),
       ).rejects.toThrow(ConflictException);
@@ -133,7 +133,7 @@ describe('CustomersService', () => {
       prisma.customer.findMany.mockResolvedValue([]);
 
       const result = await service.create(
-        { firstName: 'Amit', mobile: '9876543210' },
+        { firstName: 'Amit', mobile: '9876543210', addressLine1: '123 MG Road', pincode: '400001' },
         { id: 'user-uuid-1', role: RoleType.AGENT, companyId: 'org-1' } as any,
       );
 

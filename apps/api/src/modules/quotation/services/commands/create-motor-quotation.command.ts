@@ -149,6 +149,23 @@ export class CreateMotorQuotationCommand {
         );
       }
     }
+    // REQ-4: Address and PIN code validation whenever customer details are provided
+    if (proposer['address'] || proposer['communicationAddress']) {
+      const addr = String(proposer['address'] || proposer['communicationAddress']).trim();
+      if (addr.length < 5) {
+        throw new BadRequestException(
+          'Customer address must be at least 5 characters in length',
+        );
+      }
+    }
+    if (proposer['pincode'] || proposer['pinCode']) {
+      const pin = String(proposer['pincode'] || proposer['pinCode']).trim();
+      if (!/^[1-9][0-9]{5}$/.test(pin)) {
+        throw new BadRequestException(
+          `Invalid PIN code format: expected a valid 6-digit Indian postal code, received '${pin}'`,
+        );
+      }
+    }
     // MOTOR-0041: Relationship Manager derived from authenticated user / assignment if missing
     if (!proposer['relationshipManager']) {
       proposer['relationshipManager'] = (user as any).name || (user as any).email || 'Authenticated User';
@@ -415,6 +432,24 @@ export class CreateMotorQuotationCommand {
     }
 
     const prevPolicy = dto.previousPolicyDetails || {};
+    // REQ-5: New renewal quotations can only be generated within 45 days of policy expiry
+    const prevExpiryStr =
+      prevPolicy.policyExpiryDate ||
+      (policyDetails as any)?.previousPolicyExpiryDate;
+    if (prevExpiryStr) {
+      const prevExpiry = new Date(prevExpiryStr);
+      if (!isNaN(prevExpiry.getTime())) {
+        const now = new Date();
+        const daysToExpiry = Math.ceil(
+          (prevExpiry.getTime() - now.getTime()) / (1000 * 60 * 60 * 24),
+        );
+        if (daysToExpiry > 45) {
+          throw new BadRequestException(
+            `RENEWAL_RESTRICTION_45_DAYS: New renewal quotations can only be generated within 45 days of policy expiry. Expiring policy has ${daysToExpiry} days remaining.`,
+          );
+        }
+      }
+    }
     const claimInExpiring =
       String(policyDetails.claimInExpiringPolicy || prevPolicy.claimInPreviousYear || '').toLowerCase() === 'yes' ||
       Boolean(prevPolicy.claimInPreviousYear);

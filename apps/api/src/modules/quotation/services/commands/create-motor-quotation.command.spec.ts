@@ -824,6 +824,37 @@ describe('CreateMotorQuotationCommand (Authoritative Command)', () => {
 
       await expect(command.execute(quoteDto as any, mockUser)).rejects.toThrow(ConflictException);
     });
+
+    it('REQ-4: rejects quotation when customer pincode is invalid', async () => {
+      const quoteDto = {
+        vehicleCategory: 'PRIVATE_CAR',
+        policyType: 'PACKAGE',
+        insurerName: 'HDFC ERGO',
+        proposerDetails: {
+          customerName: 'Aarav Patel',
+          mobileNumber: '9876543210',
+          pincode: '123',
+        },
+      };
+
+      await expect(command.execute(quoteDto as any, mockUser)).rejects.toThrow(BadRequestException);
+    });
+
+    it('REQ-5: rejects new renewal quotation when expiring policy has > 45 days remaining', async () => {
+      const distantExpiry = new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+      const quoteDto = {
+        vehicleCategory: 'PRIVATE_CAR',
+        policyType: 'PACKAGE',
+        insurerName: 'HDFC ERGO',
+        previousPolicyDetails: {
+          policyNumber: 'PREV-123',
+          policyExpiryDate: distantExpiry,
+          policyType: 'COMPREHENSIVE',
+        },
+      };
+
+      await expect(command.execute(quoteDto as any, mockUser)).rejects.toThrow(BadRequestException);
+    });
   });
 
   describe('Contact Collection Enforcement (CONTACT-COLLECTION)', () => {

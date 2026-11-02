@@ -100,6 +100,71 @@ export class AuditController {
     return result;
   }
 
+
+  @Get('summary')
+  @ApiOperation({
+    summary: 'Get user-wise activity summary and aggregated event metrics (REQ-6)',
+  })
+  async getUserActivitySummary(
+    @CurrentUser() user: RequestUser,
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+  ) {
+    const access = this.resolveAuditAccess(user);
+    return this.auditService.getUserActivitySummary(access, {
+      startDate,
+      endDate,
+    });
+  }
+
+  @Get('sessions')
+  @ApiOperation({
+    summary: 'Get user login/logout session history and duration intervals (REQ-6)',
+  })
+  async getUserSessions(
+    @CurrentUser() user: RequestUser,
+    @Query('userId') userId?: string,
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+    const access = this.resolveAuditAccess(user);
+    return this.auditService.getUserSessions(access, {
+      userId,
+      startDate,
+      endDate,
+      page: page ? parseInt(page) : undefined,
+      limit: limit ? parseInt(limit) : undefined,
+    });
+  }
+
+  @Get('timeline')
+  @ApiOperation({
+    summary: 'Get chronological user activity timeline with formatted descriptions (REQ-6)',
+  })
+  async getActivityTimeline(
+    @CurrentUser() user: RequestUser,
+    @Query('userId') userId?: string,
+    @Query('action') action?: string,
+    @Query('entity') entity?: string,
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+    const access = this.resolveAuditAccess(user);
+    return this.auditService.getActivityTimeline(access, {
+      userId,
+      action,
+      entity,
+      startDate,
+      endDate,
+      page: page ? parseInt(page) : undefined,
+      limit: limit ? parseInt(limit) : undefined,
+    });
+  }
+
   @Get()
   @ApiOperation({
     summary: 'Get system audit trail logs with filtering & pagination',

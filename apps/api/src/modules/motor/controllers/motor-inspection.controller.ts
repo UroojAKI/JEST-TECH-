@@ -88,6 +88,19 @@ export class MotorInspectionController {
     );
   }
 
+  @Post(':id/assign-slots')
+  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT)
+  @ApiOperation({
+    summary: 'Batch assign photographs to inspection slots and save optional additional evidence',
+  })
+  async assignSlots(
+    @Param('id') inspectionId: string,
+    @Body() body: any,
+    @CurrentUser() actor: ActorContext,
+  ) {
+    return this.inspectionService.assignSlots(inspectionId, body, actor);
+  }
+
   @Post(':id/submit-for-review')
   @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT)
   @ApiOperation({

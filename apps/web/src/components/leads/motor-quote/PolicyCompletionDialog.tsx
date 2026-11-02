@@ -1,9 +1,9 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { X, Loader2, ShieldCheck, FileCheck, Car, UserCheck, Sparkles } from 'lucide-react';
+import { X, Loader2, ShieldCheck, FileCheck, Car, UserCheck, Sparkles, FileText, Upload, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
-import { apiClient } from '../../../lib/api-client';
+import { apiClient, showApiErrorToast } from '../../../lib/api-client';
 
 interface Props {
   isOpen: boolean;
@@ -37,6 +37,11 @@ export function PolicyCompletionDialog({ isOpen, quote, onClose, onSuccess }: Pr
   const [nomineeName, setNomineeName] = useState('');
   const [nomineeRelation, setNomineeRelation] = useState('Spouse');
   const [nomineeAge, setNomineeAge] = useState('30');
+
+  // Policy PDF Document (REQ-2)
+  const [policyPdfFile, setPolicyPdfFile] = useState<File | null>(null);
+  const [pdfError, setPdfError] = useState<string | null>(null);
+  const pdfInputRef = React.useRef<HTMLInputElement | null>(null);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoadingDetails, setIsLoadingDetails] = useState(false);
@@ -126,8 +131,36 @@ export function PolicyCompletionDialog({ isOpen, quote, onClose, onSuccess }: Pr
       return;
     }
 
+    if (!policyPdfFile) {
+      setPdfError('Official Policy PDF Schedule document is mandatory before policy can be issued.');
+      showApiErrorToast(
+        new Error(
+          'Policy issuance blocked: Official policy schedule PDF document is mandatory before policy can be completed or issued. Please upload the policy PDF.'
+        ),
+        'Policy PDF Required'
+      );
+      return;
+    }
+
     setIsSubmitting(true);
+    setPdfError(null);
     try {
+      // 1. Upload PDF document to get storageKey
+      const formData = new FormData();
+      formData.append('file', policyPdfFile);
+      formData.append('name', policyPdfFile.name);
+      formData.append('category', 'POLICY_DOCUMENT');
+      formData.append('entityType', 'POLICY');
+      formData.append('entityId', quote.id);
+
+      const uploadRes = await apiClient.post('/documents/upload', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      const storageKey = uploadRes.data?.storageKey;
+      if (!storageKey) {
+        throw new Error('Failed to obtain document storage key from upload');
+      }
+
       const payload = {
         actualPolicyNumber: policyNumber.trim() || undefined,
         actualPremium: Number(quote.totalPremium || 0),
@@ -142,6 +175,9 @@ export function PolicyCompletionDialog({ isOpen, quote, onClose, onSuccess }: Pr
         nomineeName: nomineeName.trim(),
         nomineeRelation,
         nomineeAge: parseInt(nomineeAge, 10) || 30,
+        documentFileKey: storageKey,
+        documentFileName: policyPdfFile.name,
+        documentFileSize: policyPdfFile.size,
       };
 
       const res = await apiClient.post(`/motor/quotes/${quote.id}/issue`, payload);
@@ -150,9 +186,17 @@ export function PolicyCompletionDialog({ isOpen, quote, onClose, onSuccess }: Pr
       onSuccess(policy);
       onClose();
     } catch (err: any) {
-      console.error(err);
-      const msg = err.response?.data?.message || err.message || 'Failed to issue policy';
-      toast.error(Array.isArray(msg) ? msg.join(' | ') : msg);
+      console.warn('Policy issuance error:', err);
+      const isPdfError =
+        err?.response?.data?.message?.toString().toLowerCase().includes('pdf') ||
+        err?.message?.toString().toLowerCase().includes('pdf');
+      if (isPdfError) {
+        setPdfError('Official Policy PDF Schedule document is mandatory before policy can be issued.');
+      }
+      showApiErrorToast(
+        err,
+        'Policy issuance blocked: Official policy schedule PDF document is mandatory before policy can be completed or issued.'
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -427,6 +471,98 @@ export function PolicyCompletionDialog({ isOpen, quote, onClose, onSuccess }: Pr
             </div>
           </div>
 
+          {/* Section 5: Mandatory Policy Schedule PDF Document (REQ-2) */}
+          <div
+            className={`p-4 rounded-xl border bg-card shadow-xs space-y-3 transition-all ${
+              pdfError
+                ? 'border-rose-500 bg-rose-500/5 ring-2 ring-rose-500/20'
+                : policyPdfFile
+                ? 'border-emerald-500/60 bg-emerald-500/5'
+                : 'border-border'
+            }`}
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-xs font-bold text-foreground">
+                <FileText className={`h-4 w-4 ${policyPdfFile ? 'text-emerald-600' : 'text-rose-500'}`} />
+                <span>
+                  Official Policy Schedule PDF <span className="text-rose-500 font-bold">* (Mandatory)</span>
+                </span>
+              </div>
+              <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-rose-500/10 text-rose-600 border border-rose-500/20">
+                Required by IRDAI
+              </span>
+            </div>
+            <p className="text-[11px] text-muted-foreground">
+              Under insurance underwriting rules, a policy cannot be completed or legally issued without the official signed policy schedule attached in PDF format.
+            </p>
+
+            <div
+              className={`p-4 rounded-xl border-2 border-dashed flex flex-col items-center justify-center gap-2 cursor-pointer transition-all ${
+                policyPdfFile
+                  ? 'border-emerald-500 bg-emerald-500/5'
+                  : pdfError
+                  ? 'border-rose-500 bg-rose-500/10 hover:bg-rose-500/15'
+                  : 'border-border hover:border-primary bg-muted/20'
+              }`}
+              onClick={() => pdfInputRef.current?.click()}
+            >
+              <input
+                type="file"
+                ref={pdfInputRef}
+                accept="application/pdf,.pdf"
+                className="hidden"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) {
+                    if (!f.name.toLowerCase().endsWith('.pdf') && f.type !== 'application/pdf') {
+                      toast.error('Only PDF documents are supported for official policy schedule');
+                      setPdfError('Only PDF files are accepted');
+                      return;
+                    }
+                    setPolicyPdfFile(f);
+                    setPdfError(null);
+                  }
+                }}
+              />
+              {policyPdfFile ? (
+                <div className="flex items-center justify-between w-full px-2">
+                  <div className="flex items-center gap-2.5">
+                    <FileCheck className="h-6 w-6 text-emerald-600 shrink-0" />
+                    <div className="text-left">
+                      <div className="text-xs font-bold text-foreground">{policyPdfFile.name}</div>
+                      <div className="text-[10px] text-muted-foreground">
+                        {(policyPdfFile.size / 1024).toFixed(1)} KB • Ready for issuance
+                      </div>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setPolicyPdfFile(null);
+                    }}
+                    className="p-1 rounded-md text-muted-foreground hover:text-destructive hover:bg-muted"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              ) : (
+                <div className="text-center py-2">
+                  <Upload className={`h-6 w-6 mx-auto mb-1 ${pdfError ? 'text-rose-500' : 'text-muted-foreground'}`} />
+                  <div className="text-xs font-bold text-foreground">Click to upload or drag & drop Policy PDF <span className="text-rose-500">*</span></div>
+                  <div className="text-[10px] text-muted-foreground mt-0.5">PDF format only, maximum 15MB</div>
+                </div>
+              )}
+            </div>
+
+            {pdfError && (
+              <div className="flex items-center gap-1.5 text-xs text-rose-600 font-semibold pt-1">
+                <AlertCircle className="h-4 w-4 shrink-0" />
+                <span>{pdfError}</span>
+              </div>
+            )}
+          </div>
+
           <div className="flex items-center justify-between pt-2 border-t">
             <button
               type="button"
@@ -438,12 +574,21 @@ export function PolicyCompletionDialog({ isOpen, quote, onClose, onSuccess }: Pr
             <button
               type="submit"
               disabled={isSubmitting}
-              className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black shadow-md shadow-emerald-600/20 disabled:opacity-50 transition-all"
+              className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-white text-xs font-black shadow-md transition-all ${
+                !policyPdfFile
+                  ? 'bg-amber-600 hover:bg-amber-700 shadow-amber-600/20'
+                  : 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/20'
+              } disabled:opacity-50`}
             >
               {isSubmitting ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />
                   Issuing Policy...
+                </>
+              ) : !policyPdfFile ? (
+                <>
+                  <Upload className="h-4 w-4" />
+                  Upload Policy PDF to Issue
                 </>
               ) : (
                 <>

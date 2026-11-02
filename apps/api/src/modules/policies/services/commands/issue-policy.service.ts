@@ -317,6 +317,32 @@ export class IssuePolicyService {
       }
     }
 
+    // REQ-4: Carry forward address and PIN code to Customer record
+    const proposer = ((quotation as any).motorMetadata as any)?.proposerDetails || {};
+    const customer = (quotation as any).customer;
+    const resolvedAddress =
+      dto.customerAddress ||
+      (dto as any).address ||
+      proposer.address ||
+      proposer.communicationAddress ||
+      customer?.addressLine1;
+    const resolvedPincode =
+      dto.customerPincode ||
+      (dto as any).pincode ||
+      proposer.pincode ||
+      proposer.pinCode ||
+      customer?.pincode;
+
+    if (customer?.id && (resolvedAddress || resolvedPincode)) {
+      await this.prisma.customer.update({
+        where: { id: customer.id },
+        data: {
+          ...(resolvedAddress ? { addressLine1: String(resolvedAddress).trim() } : {}),
+          ...(resolvedPincode ? { pincode: String(resolvedPincode).trim() } : {}),
+        },
+      });
+    }
+
     const policyData: Prisma.PolicyCreateInput = {
       policyNumber,
       status:
@@ -581,13 +607,13 @@ export class IssuePolicyService {
         },
       );
 
-      await Promise.all([
+      const [scheduleDoc] = await Promise.all([
         this.policyRepository.addDocument({
           policy: { connect: { id: policy.id } },
           documentType: 'POLICY_SCHEDULE',
-          fileKey: schedulePdf.fileKey,
-          fileName: schedulePdf.fileName,
-          fileSize: schedulePdf.fileSize,
+          fileKey: (dto as any).documentFileKey || schedulePdf.fileKey,
+          fileName: (dto as any).documentFileName || schedulePdf.fileName,
+          fileSize: (dto as any).documentFileSize || schedulePdf.fileSize,
         }),
         this.policyRepository.addDocument({
           policy: { connect: { id: policy.id } },
@@ -597,6 +623,16 @@ export class IssuePolicyService {
           fileSize: taxCertificatePdf.fileSize,
         }),
       ]);
+
+      if (this.prisma.policy?.update) {
+        await this.prisma.policy.update({
+        where: { id: policy.id },
+        data: {
+          issuedPolicyDocumentId: scheduleDoc.id,
+          documentComplianceStatus: 'VERIFIED' as any,
+        },
+      });
+      }
     } catch (docErr: any) {
       this.logger.error(
         `[PDF-GENERATION-FAILED] Failed to generate policy documents for policy ${policy.id} (${policyNumber}): ${docErr?.message}`,
