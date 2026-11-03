@@ -3,6 +3,7 @@ import { MotorQuotationCaseService } from '../services/motor-quotation-case.serv
 import { MotorQuotationDocumentService } from '../services/motor-quotation-document.service';
 import { MotorQuoteWorkflowService } from '../services/motor-quote-workflow.service';
 import { CreateMotorQuotationCommand } from '../../quotation/services/commands/create-motor-quotation.command';
+import { AgentIdentityResolverService } from '../../agents/agent-identity-resolver.service';
 import { MotorCalculationService } from '../services/motor-calculation.service';
 import { MotorRuleEngineService } from '../services/motor-rule-engine.service';
 import { ContactsService } from '../../contacts/services/contacts.service';
@@ -143,6 +144,13 @@ describe('Phase 8: Motor Security & Financial Tampering Gates', () => {
         MotorQuotationDocumentService,
         MotorQuoteWorkflowService,
         CreateMotorQuotationCommand,
+        {
+          provide: AgentIdentityResolverService,
+          useValue: {
+            resolveExternalCodeForAssignment: jest.fn(),
+            validateAgentOwnership: jest.fn(),
+          },
+        },
         { provide: PrismaService, useValue: prisma },
         { provide: MotorCalculationService, useValue: calcService },
         {

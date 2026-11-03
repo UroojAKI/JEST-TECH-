@@ -162,7 +162,7 @@ export class QuotationController {
   @Post()
   @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT)
   create(@Body() dto: CreateQuotationDto, @CurrentUser() user: RequestUser) {
-    return this.generateQuotationService.execute(dto, user.id);
+    return this.generateQuotationService.execute(dto, user.id, user);
   }
 
   @Get()

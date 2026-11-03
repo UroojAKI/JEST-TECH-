@@ -15,6 +15,7 @@ import { VehicleDataService } from '../../../motor/services/vehicle-data.service
 import { NumberingEngineService } from '../../../administration/services/numbering-engine/numbering-engine.service';
 import { VehicleCategory } from '@prisma/client';
 import { TenantResourceAuthorizationService } from '../../../auth/services/tenant-resource-authorization.service';
+import { AgentIdentityResolverService } from '../../../agents/agent-identity-resolver.service';
 
 @Injectable()
 export class CreateMotorQuotationCommand {
@@ -26,6 +27,7 @@ export class CreateMotorQuotationCommand {
     private readonly vehicleDataService: VehicleDataService,
     private readonly numberingEngine: NumberingEngineService,
     private readonly tenantAuthService: TenantResourceAuthorizationService,
+    private readonly agentIdentityResolver: AgentIdentityResolverService,
   ) {}
 
   async execute(dto: CreateMotorCaptureDto, user: RequestUser) {
@@ -197,6 +199,7 @@ export class CreateMotorQuotationCommand {
 
     // ── 3. Agent Assignment (MOTOR-REG-01, MOTOR-REG-02, Phase 26) ──
     let assignedAgentId: string | null = null;
+    let assignedExternalCodeId: string | null = null;
     let manualAgentSnapshot: any = null;
 
     if (dto.manualAgent?.isManual) {
@@ -261,7 +264,11 @@ export class CreateMotorQuotationCommand {
         dto.agentId,
         user,
       );
-      assignedAgentId = agent.id;
+      const canonical = await this.agentIdentityResolver.validateAgentOwnership(
+        agent.id,
+        companyId,
+      );
+      assignedAgentId = canonical.id;
     }
     // Do NOT silently overwrite with lead.agentId!
 
@@ -349,6 +356,16 @@ export class CreateMotorQuotationCommand {
         user.id,
       );
       contactId = newContact.id;
+    }
+
+    if (assignedAgentId && contactId) {
+      const contactAssignment = await this.prisma.contact.findFirst({
+        where: { id: contactId, companyId, deletedAt: null },
+        select: { assignedAgentId: true, assignedExternalCodeId: true },
+      });
+      if (contactAssignment?.assignedAgentId === assignedAgentId) {
+        assignedExternalCodeId = contactAssignment.assignedExternalCodeId;
+      }
     }
 
     // ── 4. Vehicle Details & Canonical Link ──
@@ -788,6 +805,7 @@ export class CreateMotorQuotationCommand {
             leadId: dto.leadId || null,
             caseId: activeCaseId,
             agentId: assignedAgentId,
+            agentExternalCodeId: assignedExternalCodeId,
             createdById: user.id,
           },
         });

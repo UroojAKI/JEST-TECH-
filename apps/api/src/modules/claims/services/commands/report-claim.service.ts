@@ -235,6 +235,9 @@ export class ReportClaimService {
     if (policy.agentId) {
       claimData.agent = { connect: { id: policy.agentId } };
     }
+    if (policy.agentExternalCodeId) {
+      claimData.agentExternalCode = { connect: { id: policy.agentExternalCodeId } };
+    }
 
     if (policy.accountId) {
       claimData.account = { connect: { id: policy.accountId } };

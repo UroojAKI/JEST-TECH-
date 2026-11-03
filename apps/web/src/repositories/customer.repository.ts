@@ -37,6 +37,9 @@ export interface Customer {
   pincode?: string | null;
   isVip: boolean;
   contactId?: string | null;
+  agentId?: string | null;
+  externalAgentCode?: string | null;
+  agentCodeSystem?: string | null;
   createdAt: string;
   updatedAt: string;
   _count?: {

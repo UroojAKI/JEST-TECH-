@@ -34,6 +34,17 @@ const mockPrisma = {
   auditLog: {
     create: jest.fn().mockResolvedValue({}),
   },
+  agentAssignmentHistory: {
+    create: jest.fn().mockResolvedValue({ id: 'assignment-1' }),
+  },
+  $transaction: jest.fn((work: (tx: any) => Promise<any>) => work(mockPrisma)),
+};
+
+const identityResolver = {
+  resolveExternalCodeForAssignment: jest.fn(),
+  resolveLegacyAgentCode: jest.fn(),
+  resolveAgentIdentifier: jest.fn(),
+  validateAgentOwnership: jest.fn(),
 };
 
 describe('ContactsService', () => {
@@ -49,7 +60,7 @@ describe('ContactsService', () => {
       id: 'user-1',
       companyId: 'org-1',
     });
-    service = new ContactsService(repository as any, mockPrisma as any);
+    service = new ContactsService(repository as any, mockPrisma as any, identityResolver as any);
   });
 
   it('creates a new contact instead of silently returning an existing duplicate', async () => {
@@ -133,6 +144,56 @@ describe('ContactsService', () => {
     ).rejects.toThrow(ConflictException);
   });
 
+  it('keeps the authenticated creator separate from the canonical assigned Agent', async () => {
+    repository.findByPhone.mockResolvedValue(null);
+    repository.findByEmail.mockResolvedValue(null);
+    repository.generateContactCode.mockResolvedValue('CONT-EXT-001');
+    repository.create.mockResolvedValue({ id: 'contact-ext-1' });
+    mockPrisma.user.findUnique.mockResolvedValue({ branchId: 'branch-1' });
+    identityResolver.resolveExternalCodeForAssignment.mockResolvedValue({
+      agentId: 'agent-1',
+      agentCode: 'AGT-000001',
+      userId: 'agent-user-1',
+      externalCodeId: 'external-code-1',
+      originalIdentifier: 'IGSK001',
+    });
+
+    await service.create(
+      {
+        type: 'INDIVIDUAL' as any,
+        firstName: 'External',
+        lastName: 'Agent',
+        agentCode: 'IGSK001',
+        agentCodeSystem: 'CLIENT_A',
+      } as any,
+      'creator-user-1',
+      {
+        userId: 'creator-user-1',
+        organizationId: 'org-1',
+        companyId: 'org-1',
+        role: 'BACK_OFFICE',
+        status: 'ACTIVE',
+      } as any,
+      'correlation-1',
+    );
+
+    const createInput = repository.create.mock.calls[0][0];
+    expect(createInput.createdBy.connect.id).toBe('creator-user-1');
+    expect(createInput.assignedAgent.connect.id).toBe('agent-1');
+    expect(createInput.assignedExternalCode.connect.id).toBe('external-code-1');
+    expect(createInput.agentCode).toBe('IGSK001');
+    expect(mockPrisma.agentAssignmentHistory.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          newAgentId: 'agent-1',
+          newExternalCodeId: 'external-code-1',
+          changedById: 'creator-user-1',
+          correlationId: 'correlation-1',
+        }),
+      }),
+    );
+  });
+
   it('requires branch context for branch-scoped listing', async () => {
     await expect(
       service.findAll(
@@ -189,6 +250,7 @@ describe('ContactsService', () => {
     expect(repository.findByPhone).not.toHaveBeenCalled();
     expect(repository.create).toHaveBeenCalledWith(
       expect.objectContaining({ phone: undefined }),
+      mockPrisma,
     );
   });
 

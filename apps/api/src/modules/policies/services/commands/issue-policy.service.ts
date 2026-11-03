@@ -348,6 +348,10 @@ export class IssuePolicyService {
       status:
         effectiveDate <= new Date() ? PolicyStatus.ACTIVE : PolicyStatus.ISSUED,
       quotation: { connect: { id: quotation.id } },
+      ...(quotation.agentId ? { agent: { connect: { id: quotation.agentId } } } : {}),
+      ...(quotation.agentExternalCodeId
+        ? { agentExternalCode: { connect: { id: quotation.agentExternalCodeId } } }
+        : {}),
       contact: { connect: { id: quotation.contactId } },
       company: { connect: { id: quotation.companyId } },
       premiumAmount: paymentAmount,

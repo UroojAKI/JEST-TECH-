@@ -9,6 +9,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useCustomers } from '../../../hooks/useCustomer360';
 import { customerRepository } from '../../../repositories/customer.repository';
 import { adminRepository } from '../../../repositories/admin.repository';
+import { apiClient } from '../../../lib/api-client';
 import { useAuthStore } from '../../../store/auth-store';
 import { toast } from 'sonner';
 
@@ -71,6 +72,7 @@ export default function CustomerRegisterPage() {
     email: '',
     branchId: '',
     agentCode: '',
+    agentCodeSystem: '',
   });
 
 
@@ -90,12 +92,10 @@ export default function CustomerRegisterPage() {
 
   const availableAgents = React.useMemo(() => {
     if (!Array.isArray(availableUsers)) return [];
-    const agents = availableUsers.filter((u: any) => {
+    return availableUsers.filter((u: any) => {
       const roleCode = typeof u.role === 'string' ? u.role : u.role?.code;
       return String(roleCode || '').toUpperCase() === 'AGENT';
     });
-    // If registered agents exist, return agents; otherwise fallback to active users
-    return agents.length > 0 ? agents : availableUsers;
   }, [availableUsers]);
 
   const selectedAgent = React.useMemo(() => {
@@ -111,6 +111,19 @@ export default function CustomerRegisterPage() {
       }) || null
     );
   }, [availableUsers, formData.agentCode]);
+
+  const externalAgentLookup = useQuery({
+    queryKey: ['external-agent-code-resolution', formData.agentCode.trim(), formData.agentCodeSystem.trim().toUpperCase()],
+    queryFn: async () => (await apiClient.get('/agents/external-codes/resolve', {
+      params: {
+        identifier: formData.agentCode.trim(),
+        identifierType: 'EXTERNAL_CODE',
+        codeSystem: formData.agentCodeSystem.trim().toUpperCase(),
+      },
+    })).data,
+    enabled: false,
+    retry: false,
+  });
 
   const effectiveContactCollection = selectedAgent
     ? Boolean(selectedAgent.collectContacts)
@@ -159,7 +172,15 @@ export default function CustomerRegisterPage() {
     }
 
     if (formData.agentCode.trim()) {
-      payload.agentCode = formData.agentCode.trim().toUpperCase();
+      payload.agentCode = formData.agentCode.trim();
+      if (formData.agentCodeSystem.trim()) {
+        if (!externalAgentLookup.data?.agent?.id) {
+          return void toast.error('Resolve this external Agent code before registering the contact');
+        }
+        payload.agentCodeSystem = formData.agentCodeSystem.trim().toUpperCase();
+      }
+    } else if (formData.agentCodeSystem.trim()) {
+      return void toast.error('Enter an external Agent code for the selected code system');
     }
 
     setIsSubmitting(true);
@@ -177,6 +198,7 @@ export default function CustomerRegisterPage() {
         email: '',
         branchId: dbBranches[0]?.id || '',
         agentCode: '',
+        agentCodeSystem: '',
       });
       router.replace('/crm/contacts');
     } catch (err: any) {
@@ -400,33 +422,47 @@ export default function CustomerRegisterPage() {
                 <label className="font-bold text-muted-foreground block mb-1">
                   Assigned Agent <span className="text-muted-foreground/60 font-normal">(Optional)</span>
                 </label>
-                <select
+                <input
+                  list="registered-agent-codes"
                   value={formData.agentCode}
                   onChange={(e) => setFormData({ ...formData, agentCode: e.target.value })}
                   disabled={isLoadingAgents}
-                  className="w-full p-2.5 rounded-lg border bg-background text-xs cursor-pointer"
-                >
-                  <option value="">
-                    {user
-                      ? `Default (Assign to ${user.firstName || ''} ${user.lastName || ''} - ${user.employeeCode || 'Self'})`
-                      : 'Select an Agent...'}
-                  </option>
+                  placeholder="Choose an Agent or enter an external code"
+                  className="w-full p-2.5 rounded-lg border bg-background text-xs"
+                />
+                <datalist id="registered-agent-codes">
                   {availableAgents.map((ag: any) => {
                     const code = ag.agentCode || ag.employeeCode || ag.id;
-                    const roleName = typeof ag.role === 'string' ? ag.role : ag.role?.name || ag.role?.code || 'Agent';
                     const fullName = `${ag.firstName || ''} ${ag.lastName || ''}`.trim() || ag.email;
-                    const isMe = user?.id === ag.id || (user?.email && ag.email === user.email);
                     return (
-                      <option key={ag.id} value={code}>
-                        {fullName} — {code} ({roleName}){isMe ? ' [You]' : ''}
-                      </option>
+                      <option key={ag.id} value={code}>{fullName}</option>
                     );
                   })}
-                </select>
+                </datalist>
+                <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-2 mt-2">
+                  <input
+                    value={formData.agentCodeSystem}
+                    onChange={(e) => setFormData({ ...formData, agentCodeSystem: e.target.value.toUpperCase() })}
+                    placeholder="External code namespace (e.g. CLIENT_A)"
+                    className="w-full p-2.5 rounded-lg border bg-background text-xs"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => externalAgentLookup.refetch()}
+                    disabled={!formData.agentCode.trim() || !formData.agentCodeSystem.trim() || externalAgentLookup.isFetching}
+                    className="rounded-lg border px-3 py-2 text-xs font-semibold hover:bg-accent disabled:opacity-50"
+                  >
+                    {externalAgentLookup.isFetching ? 'Resolving…' : 'Resolve code'}
+                  </button>
+                </div>
                 <span className="text-[10px] text-muted-foreground mt-1 block">
-                  {selectedAgent
+                  {externalAgentLookup.data?.agent
+                    ? `Verified: ${externalAgentLookup.data.agent.name} · ${externalAgentLookup.data.agent.agentCode} · ${externalAgentLookup.data.identifier.value} (${externalAgentLookup.data.identifier.codeSystem})`
+                    : externalAgentLookup.isError
+                      ? 'Code was not found, is inactive, or still needs verification.'
+                      : selectedAgent
                     ? `Assigned to: ${selectedAgent.firstName || ''} ${selectedAgent.lastName || ''} (${selectedAgent.agentCode || selectedAgent.employeeCode || selectedAgent.email})`
-                    : 'Select an agent from the dropdown to assign, or leave as default to self-assign.'}
+                    : 'Select a registered Agent or enter an external code and namespace. Leave blank to use the authenticated Agent where applicable.'}
                 </span>
               </div>
             </div>

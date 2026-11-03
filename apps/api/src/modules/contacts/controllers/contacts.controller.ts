@@ -5,6 +5,7 @@ import {
   Get,
   HttpCode,
   HttpStatus,
+  Headers,
   Param,
   Patch,
   Post,
@@ -33,8 +34,12 @@ export class ContactsController {
 
   @Post()
   @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT)
-  create(@Body() dto: CreateContactDto, @CurrentUser() user: RequestUser) {
-    return this.contactsService.create(dto, user.id, user);
+  create(
+    @Body() dto: CreateContactDto,
+    @CurrentUser() user: RequestUser,
+    @Headers('x-correlation-id') correlationId?: string,
+  ) {
+    return this.contactsService.create(dto, user.id, user, correlationId);
   }
 
   @Get()

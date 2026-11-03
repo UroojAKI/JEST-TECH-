@@ -8,6 +8,7 @@ const makeService = (prisma: any, tenantAuth: any = {}) =>
     { generateNext: jest.fn() } as any,
     { calculate: jest.fn() } as any,
     { validatePlanDetails: jest.fn(), validateRenewal: jest.fn() } as any,
+    { validateAgentOwnership: jest.fn(async (id) => ({ id })) } as any,
   );
 
 describe('HealthQuotationCaseService access and integrity', () => {

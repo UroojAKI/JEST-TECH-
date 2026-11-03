@@ -5,6 +5,21 @@ import { PrismaService } from '../../../database/prisma.service';
 const contactOwnerInclude = {
   branch: true,
   company: true,
+  assignedAgent: {
+    select: {
+      id: true,
+      agentCode: true,
+      user: { select: { firstName: true, lastName: true } },
+    },
+  },
+  assignedExternalCode: {
+    select: {
+      id: true,
+      externalCode: true,
+      codeSystem: true,
+      verificationStatus: true,
+    },
+  },
   createdBy: {
     include: {
       branch: {
@@ -41,8 +56,11 @@ export class ContactRepository {
     }
   }
 
-  async create(data: Prisma.ContactCreateInput): Promise<ContactWithOwner> {
-    return this.prisma.contact.create({ data, include: contactOwnerInclude });
+  async create(
+    data: Prisma.ContactCreateInput,
+    tx?: Prisma.TransactionClient,
+  ): Promise<ContactWithOwner> {
+    return (tx || this.prisma).contact.create({ data, include: contactOwnerInclude });
   }
 
   async findAll(

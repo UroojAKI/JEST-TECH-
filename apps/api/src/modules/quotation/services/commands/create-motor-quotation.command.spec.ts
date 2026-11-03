@@ -7,6 +7,7 @@ import { ContactsService } from '../../../contacts/services/contacts.service';
 import { VehicleDataService } from '../../../motor/services/vehicle-data.service';
 import { NumberingEngineService } from '../../../administration/services/numbering-engine/numbering-engine.service';
 import { TenantResourceAuthorizationService } from '../../../auth/services/tenant-resource-authorization.service';
+import { AgentIdentityResolverService } from '../../../agents/agent-identity-resolver.service';
 import { RoleType } from '@prisma/client';
 import {
   BadRequestException,
@@ -23,6 +24,7 @@ describe('CreateMotorQuotationCommand (Authoritative Command)', () => {
   let vehicleService: any;
   let numberingEngine: any;
   let tenantAuthService: any;
+  let agentIdentityResolver: any;
 
   const mockUser: any = {
     id: 'user-agent-1',
@@ -141,6 +143,10 @@ describe('CreateMotorQuotationCommand (Authoritative Command)', () => {
       }),
     };
 
+    agentIdentityResolver = {
+      validateAgentOwnership: jest.fn().mockImplementation(async (id) => ({ id })),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         CreateMotorQuotationCommand,
@@ -151,6 +157,7 @@ describe('CreateMotorQuotationCommand (Authoritative Command)', () => {
         { provide: VehicleDataService, useValue: vehicleService },
         { provide: NumberingEngineService, useValue: numberingEngine },
         { provide: TenantResourceAuthorizationService, useValue: tenantAuthService },
+        { provide: AgentIdentityResolverService, useValue: agentIdentityResolver },
       ],
     }).compile();
 

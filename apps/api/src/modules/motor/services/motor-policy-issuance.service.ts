@@ -618,6 +618,8 @@ export class MotorPolicyIssuanceService {
             policyNumber,
             actualPolicyNumber: policyNumber,
             quotationId: quote.id,
+            agentId: quote.agentId || null,
+            agentExternalCodeId: quote.agentExternalCodeId || null,
             contactId: quote.contactId,
             customerId: customerId || undefined,
             accountId: quote.accountId || undefined,

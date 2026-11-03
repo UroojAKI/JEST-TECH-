@@ -6,7 +6,13 @@ import {
   ConflictException,
   Optional,
 } from '@nestjs/common';
-import { Prisma, LeadStatus, LeadSource } from '@prisma/client';
+import {
+  AgentAssignmentEntityType,
+  AuditAction,
+  Prisma,
+  LeadStatus,
+  LeadSource,
+} from '@prisma/client';
 
 import { LeadMapper } from '../mappers/lead.mapper';
 import { LeadRepository } from '../repositories/lead.repository';
@@ -280,16 +286,84 @@ export class LeadsService {
       leadData.assignedTo = { connect: { id: effectiveAssignedToId } };
     }
 
+    const leadAgent =
+      effectiveAssignedToId && this.prisma.agent?.findFirst
+        ? await this.prisma.agent.findFirst({
+            where: {
+              userId: effectiveAssignedToId,
+              companyId,
+              isActive: true,
+              deletedAt: null,
+            },
+            select: { id: true },
+          })
+        : null;
+    let assignedExternalCodeId: string | null = null;
+    if (leadAgent) {
+      leadData.agent = { connect: { id: leadAgent.id } };
+      const contactAssignment = this.prisma.contact?.findFirst
+        ? await this.prisma.contact.findFirst({
+            where: { id: targetContactId, companyId },
+            select: { assignedAgentId: true, assignedExternalCodeId: true },
+          })
+        : null;
+      if (contactAssignment?.assignedAgentId === leadAgent.id) {
+        assignedExternalCodeId = contactAssignment.assignedExternalCodeId || null;
+        if (assignedExternalCodeId) {
+          leadData.agentExternalCode = {
+            connect: { id: assignedExternalCodeId },
+          };
+        }
+      }
+    }
+
+    const createInTransaction = async (tx: Prisma.TransactionClient) => {
+      if (linkedCustomer && !linkedCustomer.contactId) {
+        await tx.customer.update({
+          where: { id: linkedCustomer.id },
+          data: { contactId: targetContactId },
+        });
+      }
+      const createdLead = await this.leadRepository.create(leadData, tx);
+      if (leadAgent && tx.agentAssignmentHistory?.create) {
+        const assignment = await tx.agentAssignmentHistory.create({
+          data: {
+            companyId,
+            entityType: AgentAssignmentEntityType.LEAD,
+            entityId: createdLead.id,
+            newAgentId: leadAgent.id,
+            newExternalCodeId: assignedExternalCodeId,
+            changedById: createdById,
+            reason: 'Initial lead Agent attribution',
+          },
+        });
+        await tx.auditLog.create({
+          data: {
+            action: AuditAction.CREATE,
+            entity: 'AgentAssignment',
+            entityId: assignment.id,
+            entityType: 'AGENT_ASSIGNMENT',
+            userId: createdById,
+            performedById: createdById,
+            module: 'AGENTS',
+            newValue: {
+              entityType: 'LEAD',
+              entityId: createdLead.id,
+              newAgentId: leadAgent.id,
+              newExternalCodeId: assignedExternalCodeId,
+            },
+          },
+        });
+      }
+      return createdLead;
+    };
+
     const lead =
       linkedCustomer && !linkedCustomer.contactId
-        ? await this.prisma.$transaction(async (tx) => {
-            await tx.customer.update({
-              where: { id: linkedCustomer.id },
-              data: { contactId: targetContactId },
-            });
-            return this.leadRepository.create(leadData, tx);
-          })
-        : await this.leadRepository.create(leadData);
+        ? await this.prisma.$transaction(createInTransaction)
+        : leadAgent
+          ? await this.prisma.$transaction(createInTransaction)
+          : await this.leadRepository.create(leadData);
     return LeadMapper.toResponse(lead);
   }
 
@@ -499,7 +573,81 @@ export class LeadsService {
       }
     }
 
-    const updated = await this.leadRepository.update(id, leadData, dto.version);
+    const assignmentChanged =
+      assignedToId !== undefined && assignedToId !== existing.assignedToId;
+    let updated;
+    if (assignmentChanged) {
+      const targetAgent =
+        assignedToId && this.prisma.agent?.findFirst
+          ? await this.prisma.agent.findFirst({
+              where: {
+                userId: assignedToId,
+                companyId: existing.companyId,
+                isActive: true,
+                deletedAt: null,
+              },
+              select: { id: true },
+            })
+          : null;
+      const previousAgentId = (existing as any).agentId || null;
+      const newAgentId = targetAgent?.id || null;
+      const previousExternalCodeId =
+        (existing as any).agentExternalCodeId || null;
+      const newExternalCodeId =
+        previousAgentId && previousAgentId === newAgentId
+          ? previousExternalCodeId
+          : null;
+      leadData.agent = targetAgent
+        ? { connect: { id: targetAgent.id } }
+        : { disconnect: true };
+      leadData.agentExternalCode = newExternalCodeId
+        ? { connect: { id: newExternalCodeId } }
+        : { disconnect: true };
+
+      updated = await this.prisma.$transaction(async (tx) => {
+        const saved = await this.leadRepository.update(
+          id,
+          leadData,
+          dto.version,
+          tx,
+        );
+        if (
+          (previousAgentId !== newAgentId ||
+            previousExternalCodeId !== newExternalCodeId) &&
+          tx.agentAssignmentHistory?.create
+        ) {
+          const assignment = await tx.agentAssignmentHistory.create({
+            data: {
+              companyId: existing.companyId,
+              entityType: AgentAssignmentEntityType.LEAD,
+              entityId: id,
+              previousAgentId,
+              newAgentId,
+              previousExternalCodeId,
+              newExternalCodeId,
+              changedById: actorId,
+              reason: 'Lead reassigned from lead update',
+            },
+          });
+          await tx.auditLog.create({
+            data: {
+              action: AuditAction.UPDATE,
+              entity: 'AgentAssignment',
+              entityId: assignment.id,
+              entityType: 'AGENT_ASSIGNMENT',
+              userId: actorId,
+              performedById: actorId,
+              module: 'AGENTS',
+              oldValue: { previousAgentId, previousExternalCodeId },
+              newValue: { newAgentId, newExternalCodeId },
+            },
+          });
+        }
+        return saved;
+      });
+    } else {
+      updated = await this.leadRepository.update(id, leadData, dto.version);
+    }
     return LeadMapper.toResponse(updated);
   }
 

@@ -9,6 +9,7 @@ import { StatusBadge } from '../../../../components/ui/status-badge';
 import { adminRepository, UserWorkspaceData } from '../../../../repositories/admin.repository';
 import { apiClient } from '../../../../lib/api-client';
 import { toast } from 'sonner';
+import { useAuthStore } from '../../../../store/auth-store';
 import {
   ArrowLeft,
   User,
@@ -32,15 +33,29 @@ import {
   Award,
   RefreshCw,
   Copy,
+  Fingerprint,
+  Plus,
 } from 'lucide-react';
 
 export default function User360Page() {
   const params = useParams();
   const router = useRouter();
   const queryClient = useQueryClient();
+  const currentUser = useAuthStore((state) => state.user);
+  const currentRole = currentUser?.role || currentUser?.roles?.[0];
+  const canManageExternalCodes = currentRole === 'ADMIN' || currentRole === 'BACK_OFFICE';
+  const canVerifyExternalCodes = currentRole === 'ADMIN';
   const userId = params?.id as string;
 
-  const [activeTab, setActiveTab] = useState<'overview' | 'portfolio' | 'activities' | 'tasks' | 'organization' | 'security' | 'finance'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'portfolio' | 'activities' | 'tasks' | 'organization' | 'security' | 'finance' | 'identifiers'>('overview');
+  const [externalCodeSearch, setExternalCodeSearch] = useState('');
+  const [externalCodeStatusFilter, setExternalCodeStatusFilter] = useState('');
+  const [externalCodeVerificationFilter, setExternalCodeVerificationFilter] = useState('');
+  const [externalCodeHistoryId, setExternalCodeHistoryId] = useState<string | null>(null);
+  const [externalCodeForm, setExternalCodeForm] = useState({
+    externalCode: '', codeSystem: '', sourceName: '', isPrimary: false,
+    effectiveFrom: '', effectiveTo: '', verificationNotes: '',
+  });
   const [resetModalOpen, setResetModalOpen] = useState(false);
   const [customPassword, setCustomPassword] = useState('');
   const [resetResult, setResetResult] = useState<string | null>(null);
@@ -62,6 +77,74 @@ export default function User360Page() {
       return adminRepository.getUserCommissions(userId);
     },
     enabled: !!userId,
+  });
+
+  const agentId = workspace?.profile.agentProfile?.id;
+  const externalCodesQuery = useQuery({
+    queryKey: ['agent-external-codes', agentId, externalCodeSearch, externalCodeStatusFilter, externalCodeVerificationFilter],
+    queryFn: async () => (await apiClient.get(`/agents/${agentId}/external-codes`, {
+      params: {
+        limit: 100,
+        search: externalCodeSearch.trim() || undefined,
+        status: externalCodeStatusFilter || undefined,
+        verificationStatus: externalCodeVerificationFilter || undefined,
+      },
+    })).data,
+    enabled: activeTab === 'identifiers' && !!agentId,
+  });
+
+  const externalCodeHistoryQuery = useQuery({
+    queryKey: ['agent-external-code-history', agentId, externalCodeHistoryId],
+    queryFn: async () => (await apiClient.get(
+      `/agents/${agentId}/external-codes/${externalCodeHistoryId}/history`,
+      { params: { limit: 10 } },
+    )).data,
+    enabled: activeTab === 'identifiers' && !!agentId && !!externalCodeHistoryId,
+  });
+
+  const refreshExternalCodes = () => queryClient.invalidateQueries({
+    queryKey: ['agent-external-codes', agentId],
+  });
+
+  const registerExternalCodeMutation = useMutation({
+    mutationFn: async () => {
+      if (!agentId) throw new Error('Agent profile is not available');
+      return apiClient.post(`/agents/${agentId}/external-codes`, {
+        ...externalCodeForm,
+        externalCode: externalCodeForm.externalCode.trim(),
+        codeSystem: externalCodeForm.codeSystem.trim(),
+        sourceName: externalCodeForm.sourceName.trim() || undefined,
+        verificationNotes: externalCodeForm.verificationNotes.trim() || undefined,
+        effectiveFrom: externalCodeForm.effectiveFrom || undefined,
+        effectiveTo: externalCodeForm.effectiveTo || undefined,
+      });
+    },
+    onSuccess: () => {
+      toast.success('External identifier registered as pending verification');
+      setExternalCodeForm({ externalCode: '', codeSystem: '', sourceName: '', isPrimary: false, effectiveFrom: '', effectiveTo: '', verificationNotes: '' });
+      refreshExternalCodes();
+    },
+    onError: (err: any) => toast.error(err.response?.data?.message || 'Failed to register identifier'),
+  });
+
+  const updateExternalCodeMutation = useMutation({
+    mutationFn: async ({ codeId, data }: { codeId: string; data: Record<string, unknown> }) => {
+      if (!agentId) throw new Error('Agent profile is not available');
+      return apiClient.patch(`/agents/${agentId}/external-codes/${codeId}`, data);
+    },
+    onSuccess: () => { toast.success('Identifier updated'); refreshExternalCodes(); },
+    onError: (err: any) => toast.error(err.response?.data?.message || 'Failed to update identifier'),
+  });
+
+  const toggleExternalCodeMutation = useMutation({
+    mutationFn: async ({ codeId, action }: { codeId: string; action: 'deactivate' | 'reactivate' }) => {
+      if (!agentId) throw new Error('Agent profile is not available');
+      return apiClient.post(`/agents/${agentId}/external-codes/${codeId}/${action}`, {
+        reason: `Updated from Agent profile for ${workspace?.profile.name || 'Agent'}`,
+      });
+    },
+    onSuccess: () => { toast.success('Identifier status updated'); refreshExternalCodes(); },
+    onError: (err: any) => toast.error(err.response?.data?.message || 'Failed to update identifier status'),
   });
 
   const {
@@ -343,6 +426,7 @@ export default function User360Page() {
             { id: 'organization', label: 'Organization & Role', icon: Shield },
             { id: 'security', label: 'Security & Access', icon: Key },
             { id: 'finance', label: 'Commissions & Incentives', icon: Award },
+            ...(profile.agentProfile ? [{ id: 'identifiers', label: 'External IDs', icon: Fingerprint }] : []),
           ].map((tab) => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.id;
@@ -362,6 +446,135 @@ export default function User360Page() {
             );
           })}
         </div>
+
+        {activeTab === 'identifiers' && profile.agentProfile && (
+          <section className="space-y-5">
+            <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_minmax(320px,0.85fr)] gap-5">
+              <div className="rounded-2xl border bg-card p-5 space-y-4">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <h2 className="font-bold flex items-center gap-2"><Fingerprint className="h-4 w-4 text-primary" /> Registered Agent identifiers</h2>
+                    <p className="text-xs text-muted-foreground mt-1">JEST Agent code: <span className="font-mono">{profile.agentProfile.agentCode}</span>. External codes remain separate and require verification before assignment.</p>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <select
+                      value={externalCodeStatusFilter}
+                      onChange={(event) => setExternalCodeStatusFilter(event.target.value)}
+                      className="rounded-lg border bg-background px-2.5 py-2 text-xs"
+                      aria-label="Filter by identifier status"
+                    >
+                      <option value="">All statuses</option>
+                      <option value="ACTIVE">Active</option>
+                      <option value="INACTIVE">Inactive</option>
+                    </select>
+                    <select
+                      value={externalCodeVerificationFilter}
+                      onChange={(event) => setExternalCodeVerificationFilter(event.target.value)}
+                      className="rounded-lg border bg-background px-2.5 py-2 text-xs"
+                      aria-label="Filter by verification status"
+                    >
+                      <option value="">All verification states</option>
+                      <option value="PENDING">Pending</option>
+                      <option value="VERIFIED">Verified</option>
+                      <option value="REJECTED">Rejected</option>
+                    </select>
+                  </div>
+                </div>
+                <input
+                  value={externalCodeSearch}
+                  onChange={(event) => setExternalCodeSearch(event.target.value)}
+                  placeholder="Search code, namespace, or source"
+                  className="w-full rounded-lg border bg-background px-3 py-2 text-sm"
+                />
+                {externalCodesQuery.isLoading ? (
+                  <div className="py-8 text-center text-sm text-muted-foreground">Loading identifiers…</div>
+                ) : externalCodesQuery.isError ? (
+                  <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">Unable to load identifiers. Refresh or check access.</div>
+                ) : (externalCodesQuery.data?.data || externalCodesQuery.data?.items || []).length === 0 ? (
+                  <div className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">No external identifiers registered.</div>
+                ) : (
+                  <div className="space-y-3">
+                    {(externalCodesQuery.data?.data || externalCodesQuery.data?.items || []).map((code: any) => (
+                      <article key={code.id} className="rounded-xl border p-4 space-y-3">
+                        <div className="flex flex-wrap items-start justify-between gap-3">
+                          <div>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="font-mono font-bold">{code.externalCode}</span>
+                              {code.isPrimary && <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">PRIMARY</span>}
+                            </div>
+                            <div className="text-xs text-muted-foreground mt-1">{code.codeSystem}{code.sourceName ? ` · ${code.sourceName}` : ''}</div>
+                          </div>
+                          <div className="flex flex-wrap gap-1.5 text-[10px]">
+                            <span className="rounded-full border px-2 py-1">{code.status}</span>
+                            <span className={`rounded-full border px-2 py-1 ${code.verificationStatus === 'VERIFIED' ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700' : ''}`}>{code.verificationStatus}</span>
+                          </div>
+                        </div>
+                        {code.verificationNotes && <p className="text-xs text-muted-foreground">{code.verificationNotes}</p>}
+                        {(code.effectiveFrom || code.effectiveTo) && <p className="text-[11px] text-muted-foreground">Effective {code.effectiveFrom ? new Date(code.effectiveFrom).toLocaleDateString() : 'from any date'} – {code.effectiveTo ? new Date(code.effectiveTo).toLocaleDateString() : 'open ended'}</p>}
+                        <div className="flex flex-wrap gap-2 border-t pt-3">
+                          {canVerifyExternalCodes && code.status === 'ACTIVE' && code.verificationStatus !== 'VERIFIED' && (
+                            <button type="button" onClick={() => updateExternalCodeMutation.mutate({ codeId: code.id, data: { verificationStatus: 'VERIFIED', reason: 'Verified by Admin in Agent profile' } })} className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50" disabled={updateExternalCodeMutation.isPending}>Verify</button>
+                          )}
+                          {canVerifyExternalCodes && code.status === 'ACTIVE' && code.verificationStatus !== 'REJECTED' && (
+                            <button type="button" onClick={() => updateExternalCodeMutation.mutate({ codeId: code.id, data: { verificationStatus: 'REJECTED', reason: 'Rejected by Admin in Agent profile' } })} className="rounded-lg border px-3 py-1.5 text-xs font-semibold hover:bg-accent disabled:opacity-50" disabled={updateExternalCodeMutation.isPending}>Reject</button>
+                          )}
+                          {canManageExternalCodes && <button type="button" onClick={() => toggleExternalCodeMutation.mutate({ codeId: code.id, action: code.status === 'ACTIVE' ? 'deactivate' : 'reactivate' })} className="rounded-lg border px-3 py-1.5 text-xs font-semibold hover:bg-accent disabled:opacity-50" disabled={toggleExternalCodeMutation.isPending}>{code.status === 'ACTIVE' ? 'Deactivate' : 'Reactivate'}</button>}
+                          <button type="button" onClick={() => setExternalCodeHistoryId(externalCodeHistoryId === code.id ? null : code.id)} className="rounded-lg border px-3 py-1.5 text-xs font-semibold hover:bg-accent">{externalCodeHistoryId === code.id ? 'Hide history' : 'View history'}</button>
+                        </div>
+                        {externalCodeHistoryId === code.id && (
+                          <div className="rounded-lg bg-muted/30 p-3 space-y-2">
+                            {externalCodeHistoryQuery.isLoading ? <p className="text-xs text-muted-foreground">Loading history…</p> : null}
+                            {(externalCodeHistoryQuery.data?.data || externalCodeHistoryQuery.data?.items || []).map((event: any) => (
+                              <div key={event.id} className="flex flex-wrap justify-between gap-2 text-xs">
+                                <span className="font-semibold">{event.action} · {event.changedBy?.firstName} {event.changedBy?.lastName}</span>
+                                <span className="text-muted-foreground">{new Date(event.createdAt).toLocaleString()}</span>
+                                {event.reason && <span className="w-full text-muted-foreground">{event.reason}</span>}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </article>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {canManageExternalCodes ? <form onSubmit={(event) => { event.preventDefault(); registerExternalCodeMutation.mutate(); }} className="h-fit rounded-2xl border bg-card p-5 space-y-4">
+                <div>
+                  <h2 className="font-bold flex items-center gap-2"><Plus className="h-4 w-4 text-primary" /> Add external identifier</h2>
+                  <p className="text-xs text-muted-foreground mt-1">Code casing and punctuation are preserved. Deactivated codes remain reserved.</p>
+                </div>
+                <label className="block space-y-1.5 text-xs font-semibold">External Agent Code
+                  <input required maxLength={100} value={externalCodeForm.externalCode} onChange={(event) => setExternalCodeForm({ ...externalCodeForm, externalCode: event.target.value })} placeholder="IGSK001" className="w-full rounded-lg border bg-background px-3 py-2 text-sm font-normal" />
+                </label>
+                <label className="block space-y-1.5 text-xs font-semibold">Code System / Namespace
+                  <input required maxLength={50} value={externalCodeForm.codeSystem} onChange={(event) => setExternalCodeForm({ ...externalCodeForm, codeSystem: event.target.value.toUpperCase() })} placeholder="CLIENT_A" className="w-full rounded-lg border bg-background px-3 py-2 text-sm font-normal" />
+                </label>
+                <label className="block space-y-1.5 text-xs font-semibold">Source
+                  <input maxLength={100} value={externalCodeForm.sourceName} onChange={(event) => setExternalCodeForm({ ...externalCodeForm, sourceName: event.target.value })} placeholder="Client agent master" className="w-full rounded-lg border bg-background px-3 py-2 text-sm font-normal" />
+                </label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <label className="block space-y-1.5 text-xs font-semibold">Effective From
+                    <input type="date" value={externalCodeForm.effectiveFrom} onChange={(event) => setExternalCodeForm({ ...externalCodeForm, effectiveFrom: event.target.value ? `${event.target.value}T00:00:00.000Z` : '' })} className="w-full rounded-lg border bg-background px-3 py-2 text-sm font-normal" />
+                  </label>
+                  <label className="block space-y-1.5 text-xs font-semibold">Effective To
+                    <input type="date" value={externalCodeForm.effectiveTo.slice(0, 10)} onChange={(event) => setExternalCodeForm({ ...externalCodeForm, effectiveTo: event.target.value ? `${event.target.value}T23:59:59.999Z` : '' })} className="w-full rounded-lg border bg-background px-3 py-2 text-sm font-normal" />
+                  </label>
+                </div>
+                <label className="block space-y-1.5 text-xs font-semibold">Verification Notes
+                  <textarea maxLength={500} value={externalCodeForm.verificationNotes} onChange={(event) => setExternalCodeForm({ ...externalCodeForm, verificationNotes: event.target.value })} placeholder="Optional source or verification context" className="w-full rounded-lg border bg-background px-3 py-2 text-sm font-normal" rows={2} />
+                </label>
+                <label className="flex items-center gap-2 text-xs">
+                  <input type="checkbox" checked={externalCodeForm.isPrimary} onChange={(event) => setExternalCodeForm({ ...externalCodeForm, isPrimary: event.target.checked })} />
+                  Primary code within this namespace
+                </label>
+                <button type="submit" disabled={registerExternalCodeMutation.isPending || !externalCodeForm.externalCode.trim() || !externalCodeForm.codeSystem.trim()} className="w-full rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground disabled:opacity-50">
+                  {registerExternalCodeMutation.isPending ? 'Registering…' : 'Register as Pending'}
+                </button>
+              </form> : <div className="h-fit rounded-2xl border bg-card p-5 text-sm text-muted-foreground">Identifier management is available to Admin and Back Office users.</div>}
+            </div>
+          </section>
+        )}
 
         {/* Tab Content: OVERVIEW */}
         {activeTab === 'overview' && (

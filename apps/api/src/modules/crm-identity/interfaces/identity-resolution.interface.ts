@@ -27,6 +27,7 @@ export interface EnsureIdentityParams extends ResolveIdentityParams {
   aadhaarNumber?: string | null;
   createdById?: string | null;
   primaryAgentId?: string | null;
+  primaryAgentExternalCodeId?: string | null;
   addressLine1?: string | null;
   addressLine2?: string | null;
   city?: string | null;

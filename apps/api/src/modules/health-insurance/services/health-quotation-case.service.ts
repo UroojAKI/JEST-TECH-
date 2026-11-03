@@ -22,6 +22,7 @@ import {
 } from '../dto/health-quotation-case.dto';
 import { HealthPremiumService } from './health-premium.service';
 import { HealthPlanValidationService } from './health-plan-validation.service';
+import { AgentIdentityResolverService } from '../../agents/agent-identity-resolver.service';
 
 /** Free-look period, Policy Form (i) field 12: 15 days (30 for electronic / distance marketing). */
 const FREE_LOOK_DAYS = 15;
@@ -68,6 +69,7 @@ export class HealthQuotationCaseService {
     private readonly numberingEngine: NumberingEngineService,
     private readonly premiumService: HealthPremiumService,
     private readonly planValidation: HealthPlanValidationService,
+    private readonly agentIdentityResolver: AgentIdentityResolverService,
   ) {}
 
   private caseWhereFor(user: RequestUser): Prisma.HealthQuotationCaseWhereInput {
@@ -232,7 +234,15 @@ export class HealthQuotationCaseService {
     }
     const proposerContact = await this.prisma.contact.findFirst({
       where: { id: contact.id, companyId: user.companyId, deletedAt: null },
-      include: { customer: { select: { companyId: true, primaryAgentId: true } } },
+      include: {
+        customer: {
+          select: {
+            companyId: true,
+            primaryAgentId: true,
+            primaryAgentExternalCodeId: true,
+          },
+        },
+      },
     });
     if (!proposerContact) throw new NotFoundException('Proposer contact not found or access denied');
     contact = proposerContact;
@@ -260,13 +270,25 @@ export class HealthQuotationCaseService {
       }
     }
 
-    const assignedAgentId =
+    let assignedAgentId =
       user.role === RoleType.AGENT
         ? user.agentId!
         : dto.agentId || lead?.agentId || contact.customer?.primaryAgentId || null;
     if (assignedAgentId) {
       await this.tenantAuthService.assertAssignableAgent(assignedAgentId, user);
+      const canonical = await this.agentIdentityResolver.validateAgentOwnership(
+        assignedAgentId,
+        user.companyId,
+      );
+      assignedAgentId = canonical.id;
     }
+    const assignedExternalCodeId = assignedAgentId
+      ? contact.assignedAgentId === assignedAgentId
+        ? contact.assignedExternalCodeId
+        : contact.customer?.primaryAgentId === assignedAgentId
+          ? contact.customer.primaryAgentExternalCodeId
+          : null
+      : null;
 
     await this.assertFamilyMembersBelongToContact(contact.id, dto.members, user.companyId);
 
@@ -312,6 +334,7 @@ export class HealthQuotationCaseService {
         policyForm: dto.policyForm,
         contactId: dto.contactId,
         agentId: assignedAgentId,
+        agentExternalCodeId: assignedExternalCodeId,
         leadId: dto.leadId ?? null,
         occupation: dto.occupation,
         annualIncome: dto.annualIncome ?? null,
@@ -421,6 +444,8 @@ export class HealthQuotationCaseService {
           companyId: user.companyId,
           contactId: healthCase.contactId,
           leadId: healthCase.leadId,
+          agentId: healthCase.agentId,
+          agentExternalCodeId: healthCase.agentExternalCodeId,
           insurerName: dto.insurerName,
           productCode: dto.uin,
           productType: 'HEALTH',

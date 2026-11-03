@@ -3,6 +3,7 @@ import {
   Controller,
   Delete,
   Get,
+  Headers,
   HttpCode,
   HttpStatus,
   Param,
@@ -278,8 +279,9 @@ export class LeadsController {
     @Param('id', ParseUUIDPipe) id: string,
     @Body('assignedToId') assignedToId: string,
     @CurrentUser() actor: ActorContext,
+    @Headers('x-correlation-id') correlationId?: string,
   ) {
-    return this.leadAssignmentService.assignLead(id, assignedToId, actor);
+    return this.leadAssignmentService.assignLead(id, assignedToId, actor, correlationId);
   }
 
   @Post(':id/auto-assign')
@@ -290,8 +292,9 @@ export class LeadsController {
   autoAssign(
     @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser() actor: ActorContext,
+    @Headers('x-correlation-id') correlationId?: string,
   ) {
-    return this.leadAssignmentService.autoAssignRoundRobin(id, actor);
+    return this.leadAssignmentService.autoAssignRoundRobin(id, actor, correlationId);
   }
 
   @Post('bulk-assign')
@@ -302,11 +305,13 @@ export class LeadsController {
   bulkAssign(
     @Body() body: BulkAssignLeadsDto,
     @CurrentUser() actor: ActorContext,
+    @Headers('x-correlation-id') correlationId?: string,
   ) {
     return this.leadAssignmentService.bulkAssign(
       body.leadIds,
       body.targetAgentId,
       actor,
+      correlationId,
     );
   }
 

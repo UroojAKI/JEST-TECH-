@@ -88,6 +88,17 @@ export class CreateCustomerDto {
   @IsUUID()
   agentId?: string;
 
+  @ApiPropertyOptional({ description: 'Namespaced external Agent code' })
+  @IsOptional()
+  @IsString()
+  externalAgentCode?: string;
+
+  @ApiPropertyOptional({ description: 'Required with externalAgentCode, for example CLIENT_A' })
+  @IsOptional()
+  @IsString()
+  @Matches(/^[A-Za-z0-9][A-Za-z0-9._-]*$/)
+  agentCodeSystem?: string;
+
   @ApiPropertyOptional({
     description: 'Acknowledge soft duplicate warning and proceed',
   })

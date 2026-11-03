@@ -27,10 +27,99 @@ export class LeadAssignmentService {
     private readonly authzService: ResourceAuthorizationService,
   ) {}
 
+  private async updateLeadAssignment(
+    tx: any,
+    lead: any,
+    assignedToId: string,
+    actorId: string | null,
+    correlationId: string | undefined,
+    reason: string,
+  ) {
+    const targetAgent = await tx.agent.findFirst({
+      where: {
+        userId: assignedToId,
+        companyId: lead.companyId,
+        isActive: true,
+        deletedAt: null,
+      },
+      select: { id: true },
+    });
+    const previousAgentId = lead.agentId || null;
+    const newAgentId = targetAgent?.id || null;
+    const previousExternalCodeId = lead.agentExternalCodeId || null;
+    const newExternalCodeId =
+      previousAgentId && previousAgentId === newAgentId
+        ? previousExternalCodeId
+        : null;
+
+    const updated = await tx.lead.update({
+      where: { id: lead.id },
+      data: {
+        assignedToId,
+        agentId: newAgentId,
+        agentExternalCodeId: newExternalCodeId,
+        updatedById: actorId,
+      },
+    });
+
+    if (
+      (previousAgentId !== newAgentId ||
+        previousExternalCodeId !== newExternalCodeId) &&
+      tx.agentAssignmentHistory?.create
+    ) {
+      const changedById = actorId || assignedToId;
+      const history = await tx.agentAssignmentHistory.create({
+        data: {
+          companyId: lead.companyId,
+          entityType: 'LEAD',
+          entityId: lead.id,
+          previousAgentId,
+          newAgentId,
+          previousExternalCodeId,
+          newExternalCodeId,
+          changedById,
+          reason,
+          correlationId: correlationId || null,
+        },
+      });
+      await tx.auditLog.create({
+        data: {
+          action: AuditAction.UPDATE,
+          entity: 'AgentAssignment',
+          entityId: history.id,
+          entityType: 'AGENT_ASSIGNMENT',
+          userId: changedById,
+          performedById: changedById,
+          module: 'AGENTS',
+          correlationId: correlationId || null,
+          oldValue: {
+            entityType: 'LEAD',
+            entityId: lead.id,
+            previousAgentId,
+            previousExternalCodeId,
+          },
+          newValue: {
+            entityType: 'LEAD',
+            entityId: lead.id,
+            newAgentId,
+            newExternalCodeId,
+            reason,
+          },
+        },
+      });
+    }
+    return updated;
+  }
+
   /**
    * Assigns or reassigns a lead to a target agent enforcing team/branch boundaries.
    */
-  async assignLead(leadId: string, targetAgentId: string, actor: ActorContext) {
+  async assignLead(
+    leadId: string,
+    targetAgentId: string,
+    actor: ActorContext,
+    correlationId?: string,
+  ) {
     this.authzService.authorize(actor, 'LEAD', 'ASSIGN');
 
     const lead = await this.prisma.lead.findUnique({
@@ -77,15 +166,14 @@ export class LeadAssignmentService {
     this.validateHierarchyBoundary(actor, targetAgent);
 
     return this.prisma.$transaction(async (tx) => {
-      const fromAgentId = lead.assignedToId;
-
-      const updated = await tx.lead.update({
-        where: { id: leadId },
-        data: {
-          assignedToId: targetAgentId,
-          updatedById: actor.userId,
-        },
-      });
+      const updated = await this.updateLeadAssignment(
+        tx,
+        lead,
+        targetAgentId,
+        actor.userId,
+        correlationId,
+        'Lead assigned or reassigned',
+      );
 
       // Log Lead Activity
       await tx.activity.create({
@@ -99,7 +187,6 @@ export class LeadAssignmentService {
         },
       });
 
-      // Log Audit Trail
       await tx.auditLog.create({
         data: {
           action: AuditAction.UPDATE,
@@ -109,9 +196,10 @@ export class LeadAssignmentService {
           performedById: actor.userId,
           userId: actor.userId,
           module: 'LEADS',
+          correlationId: correlationId || null,
           metadata: {
             leadCode: lead.leadCode,
-            fromAgentId,
+            fromAgentId: lead.agentId || null,
             toAgentId: targetAgentId,
             assignedByRole: actor.role,
           },
@@ -125,7 +213,11 @@ export class LeadAssignmentService {
   /**
    * Distributes an unassigned lead to the agent with lowest active workload (Round-Robin).
    */
-  async autoAssignRoundRobin(leadId: string, actor?: ActorContext) {
+  async autoAssignRoundRobin(
+    leadId: string,
+    actor?: ActorContext,
+    correlationId?: string,
+  ) {
     const lead = await this.prisma.lead.findUnique({
       where: { id: leadId },
     });
@@ -193,13 +285,14 @@ export class LeadAssignmentService {
     const selectedAgent = agents[0];
 
     return this.prisma.$transaction(async (tx) => {
-      const updated = await tx.lead.update({
-        where: { id: leadId },
-        data: {
-          assignedToId: selectedAgent.id,
-          updatedById: actor?.userId || null,
-        },
-      });
+      const updated = await this.updateLeadAssignment(
+        tx,
+        lead,
+        selectedAgent.id,
+        actor?.userId || null,
+        correlationId,
+        'Lead auto-assigned by round-robin routing',
+      );
 
       await tx.activity.create({
         data: {
@@ -223,6 +316,7 @@ export class LeadAssignmentService {
     leadIds: string[],
     targetAgentId: string,
     actor: ActorContext,
+    correlationId?: string,
   ) {
     this.authzService.authorize(actor, 'LEAD', 'ASSIGN');
 
@@ -256,17 +350,23 @@ export class LeadAssignmentService {
     this.validateHierarchyBoundary(actor, targetAgent);
 
     return this.prisma.$transaction(async (tx) => {
-      const updateResult = await tx.lead.updateMany({
+      const leads = await tx.lead.findMany({
         where: {
           id: { in: leadIds },
           companyId: actor.companyId,
           deletedAt: null,
         },
-        data: {
-          assignedToId: targetAgentId,
-          updatedById: actor.userId,
-        },
       });
+      for (const lead of leads) {
+        await this.updateLeadAssignment(
+          tx,
+          lead,
+          targetAgentId,
+          actor.userId,
+          correlationId,
+          'Lead assigned through bulk assignment',
+        );
+      }
 
       await tx.auditLog.create({
         data: {
@@ -278,7 +378,7 @@ export class LeadAssignmentService {
           userId: actor.userId,
           module: 'LEADS',
           metadata: {
-            leadCount: updateResult.count,
+            leadCount: leads.length,
             leadIds,
             toAgentId: targetAgentId,
           },
@@ -286,7 +386,7 @@ export class LeadAssignmentService {
       });
 
       return {
-        reassignedCount: updateResult.count,
+        reassignedCount: leads.length,
         targetAgentId,
         targetAgentName: `${targetAgent.firstName} ${targetAgent.lastName}`,
       };

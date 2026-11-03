@@ -81,6 +81,8 @@ export class ProposalWorkflowAdapter implements WorkflowEntityAdapter {
           policyNumber,
           status: PolicyStatus.ACTIVE,
           quotationId: prop.quotationId,
+          agentId: prop.quotation.agentId || null,
+          agentExternalCodeId: prop.quotation.agentExternalCodeId || null,
           contactId: prop.contactId,
           companyId: prop.quotation.companyId,
           premiumAmount: prop.quotation.totalPremium,

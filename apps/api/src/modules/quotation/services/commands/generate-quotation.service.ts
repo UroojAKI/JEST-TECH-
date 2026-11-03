@@ -20,6 +20,8 @@ import { PdfService } from '../../engine/pdf.service';
 import { ContactsService } from '../../../contacts/services/contacts.service';
 import { AccountsService } from '../../../accounts/services/accounts.service';
 import { PrismaService } from '../../../../database/prisma.service';
+import { AgentIdentityResolverService } from '../../../agents/agent-identity-resolver.service';
+import type { RequestUser } from '../../../auth/decorators/current-user.decorator';
 
 @Injectable()
 export class GenerateQuotationService {
@@ -33,9 +35,10 @@ export class GenerateQuotationService {
     private readonly contactsService: ContactsService,
     private readonly accountsService: AccountsService,
     private readonly prisma: PrismaService,
+    private readonly agentIdentityResolver: AgentIdentityResolverService,
   ) {}
 
-  async execute(dto: CreateQuotationDto, createdById: string) {
+  async execute(dto: CreateQuotationDto, createdById: string, actor?: RequestUser) {
     if (!dto.contactId) {
       throw new BadRequestException(
         'contactId is required to generate quotation. Manufacture of unverified customer is forbidden in production.',
@@ -115,7 +118,12 @@ export class GenerateQuotationService {
     // 4. Validate tenant ownership of target entities
     const contact = await this.prisma.contact.findUnique({
       where: { id: targetContactId },
-      select: { id: true, companyId: true },
+      select: {
+        id: true,
+        companyId: true,
+        assignedAgentId: true,
+        assignedExternalCodeId: true,
+      },
     });
     if (!contact) {
       throw new NotFoundException(
@@ -128,10 +136,17 @@ export class GenerateQuotationService {
       );
     }
 
+    let leadAgentId: string | null = null;
+    let leadExternalCodeId: string | null = null;
     if (dto.leadId) {
       const lead = await this.prisma.lead.findUnique({
         where: { id: dto.leadId },
-        select: { id: true, companyId: true },
+        select: {
+          id: true,
+          companyId: true,
+          agentId: true,
+          agentExternalCodeId: true,
+        },
       });
       if (!lead) {
         throw new NotFoundException(`Lead with ID ${dto.leadId} not found`);
@@ -141,7 +156,44 @@ export class GenerateQuotationService {
           'Cross-organization lead binding is strictly prohibited',
         );
       }
+      leadAgentId = lead.agentId;
+      leadExternalCodeId = lead.agentExternalCodeId;
     }
+
+    if (dto.externalAgentCode && !dto.agentCodeSystem) {
+      throw new BadRequestException('agentCodeSystem is required with externalAgentCode');
+    }
+    if (dto.agentCodeSystem && !dto.externalAgentCode) {
+      throw new BadRequestException('externalAgentCode is required with agentCodeSystem');
+    }
+    if (dto.externalAgentCode && dto.agentId) {
+      throw new BadRequestException('Supply either agentId or externalAgentCode, not both');
+    }
+    let resolvedExternalCodeId: string | null = null;
+    let requestedAgentId = dto.agentId || leadAgentId || contact.assignedAgentId;
+    if (dto.externalAgentCode) {
+      if (!actor) {
+        throw new ForbiddenException('Authenticated actor context is required to resolve an external Agent code');
+      }
+      const resolved = await this.agentIdentityResolver.resolveExternalCodeForAssignment(
+        dto.externalAgentCode,
+        dto.agentCodeSystem!,
+        actor,
+      );
+      requestedAgentId = resolved.agentId;
+      resolvedExternalCodeId = resolved.externalCodeId;
+    }
+    const assignedAgent = requestedAgentId
+      ? await this.agentIdentityResolver.validateAgentOwnership(requestedAgentId, companyId)
+      : null;
+    const assignedExternalCodeId =
+      resolvedExternalCodeId ||
+      (assignedAgent && leadAgentId === assignedAgent.id
+        ? leadExternalCodeId
+        : null) ||
+      (assignedAgent && contact.assignedAgentId === assignedAgent.id
+        ? contact.assignedExternalCodeId
+        : null);
 
     if (dto.accountId) {
       const account = await this.prisma.account.findUnique({
@@ -184,6 +236,10 @@ export class GenerateQuotationService {
         ? new Date(dto.expiryDate)
         : new Date(Date.now() + 30 * 86400000),
       contact: { connect: { id: targetContactId } },
+      ...(assignedAgent ? { agent: { connect: { id: assignedAgent.id } } } : {}),
+      ...(assignedExternalCodeId
+        ? { agentExternalCode: { connect: { id: assignedExternalCodeId } } }
+        : {}),
       createdBy: { connect: { id: createdById } },
       updatedBy: { connect: { id: createdById } },
       vehicleCategory: dto.vehicleCategory as any,

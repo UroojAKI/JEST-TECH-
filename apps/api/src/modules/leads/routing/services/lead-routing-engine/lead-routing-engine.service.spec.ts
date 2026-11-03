@@ -17,6 +17,9 @@ describe('LeadRoutingEngineService', () => {
               findUnique: jest.fn(),
               update: jest.fn(),
             },
+          agent: { findFirst: jest.fn().mockResolvedValue(null) },
+          agentAssignmentHistory: { create: jest.fn() },
+          auditLog: { create: jest.fn() },
             assignmentRule: {
               findMany: jest.fn(),
             },
