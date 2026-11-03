@@ -724,7 +724,7 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, customerId, caseId
             params: { registrationNumber: regNo },
           });
           if (res.data?.hasExisting) {
-            toast.error(res.data.message || `Vehicle ${regNo} already has a policy running.`);
+            toast.error(res.data.message || `Vehicle ${regNo} already has an active policy issued.`);
             return;
           }
         } catch (err: any) {
@@ -919,7 +919,7 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, customerId, caseId
             params: { registrationNumber: cleanReg },
           });
           if (checkRes.data?.hasExisting) {
-            toast.error(checkRes.data.message || `Vehicle ${cleanReg} already has a policy running.`);
+            toast.error(checkRes.data.message || `Vehicle ${cleanReg} already has an active policy issued.`);
             return;
           }
         } catch (err: any) {
@@ -1035,9 +1035,11 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, customerId, caseId
         const policyNo = responseData?.error?.policyNumber || responseData?.policyNumber;
         const renewalDate = responseData?.error?.formattedRenewalDate || responseData?.formattedRenewalDate;
         toast.error(
-          policyNo
-            ? 'Vehicle already has an active policy (' + policyNo + (renewalDate ? ', expires ' + renewalDate : '') + '). Cannot issue duplicate quotation.'
-            : (responseData?.error?.message || responseData?.message || 'A policy is already active for this vehicle.'),
+          responseData?.error?.message ||
+          responseData?.message ||
+          (policyNo
+            ? 'Vehicle already has an active policy issued (' + policyNo + (renewalDate ? ', expires ' + renewalDate : '') + '). Cannot issue a duplicate policy.'
+            : 'A policy is already active for this vehicle.'),
         );
         return;
       }

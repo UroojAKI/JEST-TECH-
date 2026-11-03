@@ -511,6 +511,36 @@ export class MotorPolicyIssuanceService {
           ? quote.registrationNumber.toUpperCase().replace(/[\s\-\.]/g, '')
           : undefined;
 
+      // Enforce single active policy issuance invariant per vehicle
+      if (normalizedReg && normalizedReg !== 'NEW') {
+        const existingActivePolicy = await tx.policy.findFirst({
+          where: {
+            deletedAt: null,
+            ...(quote.companyId ? { companyId: quote.companyId } : {}),
+            quotationId: { not: quote.id },
+            status: { in: ['ACTIVE', 'ISSUED', 'PENDING_RENEWAL'] },
+            expiryDate: { gt: new Date() },
+            OR: [
+              { quotation: { registrationNumber: { equals: normalizedReg, mode: 'insensitive' } } },
+              { vehicle: { registrationNumber: { equals: normalizedReg, mode: 'insensitive' } } },
+            ],
+          },
+          select: { policyNumber: true, actualPolicyNumber: true, expiryDate: true },
+        });
+
+        if (existingActivePolicy) {
+          const pNum = existingActivePolicy.actualPolicyNumber || existingActivePolicy.policyNumber;
+          const expDate = new Date(existingActivePolicy.expiryDate);
+          const day = String(expDate.getDate()).padStart(2, '0');
+          const month = String(expDate.getMonth() + 1).padStart(2, '0');
+          const year = expDate.getFullYear();
+          const expStr = `${day}/${month}/${year}`;
+          throw new ConflictException(
+            `Vehicle ${normalizedReg} already has an active policy issued (${pNum}, expires ${expStr}). Cannot issue a duplicate policy.`,
+          );
+        }
+      }
+
       // Handle vehicle details & vehicle code generation
       let vehicleId = quote.vehicleId;
       if (vehicleId) {

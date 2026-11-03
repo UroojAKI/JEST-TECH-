@@ -328,36 +328,36 @@ describe('VehicleDataService (R4 Integrity)', () => {
       expect(res2.hasExisting).toBe(false);
     });
 
-    it('returns running policy details when active policy is found', async () => {
+    it('returns running policy details when active policy is found outside renewal window', async () => {
       (mockPrisma.policy.findFirst as jest.Mock).mockResolvedValue({
         id: 'policy-1',
         policyNumber: 'POL-123456',
-        expiryDate: new Date('2027-10-22T00:00:00.000Z'),
+        expiryDate: new Date(Date.now() + 200 * 86400000), // 200 days away (> 90 days)
       });
 
       const result = await service.checkVehicleRunningPolicy('MH 02 CB 1234', 'comp-1');
       expect(result.hasExisting).toBe(true);
       expect(result.type).toBe('POLICY');
       expect(result.policyNumber).toBe('POL-123456');
-      expect(result.formattedRenewalDate).toBe('22/10/2027');
-      expect(result.message).toContain('already has a policy running (POL-123456). Renewal date is 22/10/2027');
+      expect(result.message).toContain('already has an active policy issued (POL-123456');
     });
 
-    it('returns active quotation details when no policy but active quote exists', async () => {
-      (mockPrisma.policy.findFirst as jest.Mock).mockResolvedValue(null);
-      (mockPrisma.quotation.findFirst as jest.Mock).mockResolvedValue({
-        id: 'quote-1',
-        quotationCode: 'QT-2026-000001',
-        expiryDate: new Date('2027-10-25T00:00:00.000Z'),
-        policy: null,
+    it('returns hasExisting: false when policy is within the 90-day renewal window', async () => {
+      (mockPrisma.policy.findFirst as jest.Mock).mockResolvedValue({
+        id: 'policy-1',
+        policyNumber: 'POL-123456',
+        expiryDate: new Date(Date.now() + 30 * 86400000), // 30 days away (<= 90 days)
       });
 
+      const result = await service.checkVehicleRunningPolicy('MH 02 CB 1234', 'comp-1');
+      expect(result.hasExisting).toBe(false);
+    });
+
+    it('returns hasExisting: false when only active quotations exist (multiple quotations allowed)', async () => {
+      (mockPrisma.policy.findFirst as jest.Mock).mockResolvedValue(null);
+
       const result = await service.checkVehicleRunningPolicy('KA 23 TD 0529', 'comp-1');
-      expect(result.hasExisting).toBe(true);
-      expect(result.type).toBe('QUOTATION');
-      expect(result.quotationCode).toBe('QT-2026-000001');
-      expect(result.formattedRenewalDate).toBe('25/10/2027');
-      expect(result.message).toContain('already has a policy running (QT-2026-000001). Renewal date is 25/10/2027');
+      expect(result.hasExisting).toBe(false);
     });
 
     it('returns hasExisting: false when no policy or active quote is found', async () => {

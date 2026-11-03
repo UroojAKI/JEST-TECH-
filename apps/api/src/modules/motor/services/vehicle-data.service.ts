@@ -690,12 +690,14 @@ export class VehicleDataService {
       return `${day}/${month}/${year}`;
     };
 
-    // 1. Check for running policy
+    // 1. Check for running active policy
+    const now = new Date();
     const runningPolicy = await this.prisma.policy.findFirst({
       where: {
         deletedAt: null,
         ...(companyId ? { companyId } : {}),
-        status: { in: ['ACTIVE', 'ISSUED', 'PENDING_RENEWAL', 'DRAFT'] },
+        status: { in: ['ACTIVE', 'ISSUED', 'PENDING_RENEWAL'] },
+        expiryDate: { gt: now },
         ...(excludeQuotationId ? { quotationId: { not: excludeQuotationId } } : {}),
         OR: [
           { quotation: { registrationNumber: { equals: cleanReg, mode: 'insensitive' } } },
@@ -710,43 +712,15 @@ export class VehicleDataService {
     });
 
     if (runningPolicy) {
-      const policyNumber = runningPolicy.actualPolicyNumber || runningPolicy.policyNumber;
-      const renewalDate = runningPolicy.expiryDate;
-      const formattedRenewalDate = formatDate(renewalDate);
-      const message = `Vehicle ${cleanReg} already has a policy running (${policyNumber}). Renewal date is ${formattedRenewalDate}.`;
+      const diffMs = runningPolicy.expiryDate.getTime() - now.getTime();
+      const daysRemaining = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
 
-      return {
-        hasExisting: true,
-        type: 'POLICY' as const,
-        policyNumber,
-        renewalDate,
-        formattedRenewalDate,
-        quotationCode: runningPolicy.quotation?.quotationCode,
-        message,
-      };
-    }
-
-    // 2. Check for active quotation
-    const existingQuote = await this.prisma.quotation.findFirst({
-      where: {
-        deletedAt: null,
-        ...(companyId ? { companyId } : {}),
-        ...(excludeQuotationId ? { id: { not: excludeQuotationId } } : {}),
-        registrationNumber: { equals: cleanReg, mode: 'insensitive' },
-        status: { in: ['DRAFT', 'PENDING_APPROVAL', 'APPROVED', 'ACCEPTED', 'CONVERTED_TO_POLICY'] },
-      },
-      include: {
-        policy: true,
-      },
-      orderBy: { createdAt: 'desc' },
-    });
-
-    if (existingQuote) {
-      if (existingQuote.policy) {
-        const policyNumber = existingQuote.policy.actualPolicyNumber || existingQuote.policy.policyNumber;
-        const renewalDate = existingQuote.policy.expiryDate;
+      // If the policy expires outside the renewal window (> 90 days), block new quotes
+      if (daysRemaining > 90) {
+        const policyNumber = runningPolicy.actualPolicyNumber || runningPolicy.policyNumber;
+        const renewalDate = runningPolicy.expiryDate;
         const formattedRenewalDate = formatDate(renewalDate);
-        const message = `Vehicle ${cleanReg} already has a policy running (${policyNumber}). Renewal date is ${formattedRenewalDate}.`;
+        const message = `Vehicle ${cleanReg} already has an active policy issued (${policyNumber}, expires ${formattedRenewalDate}). Cannot issue a duplicate policy.`;
 
         return {
           hasExisting: true,
@@ -754,25 +728,13 @@ export class VehicleDataService {
           policyNumber,
           renewalDate,
           formattedRenewalDate,
-          quotationCode: existingQuote.quotationCode,
-          message,
-        };
-      } else {
-        const renewalDate = existingQuote.expiryDate;
-        const formattedRenewalDate = formatDate(renewalDate);
-        const message = `Vehicle ${cleanReg} already has a policy running (${existingQuote.quotationCode}). Renewal date is ${formattedRenewalDate}.`;
-
-        return {
-          hasExisting: true,
-          type: 'QUOTATION' as const,
-          quotationCode: existingQuote.quotationCode,
-          renewalDate,
-          formattedRenewalDate,
+          quotationCode: runningPolicy.quotation?.quotationCode,
           message,
         };
       }
     }
 
+    // 2. Open quotations DO NOT block creating multiple quotations for the same vehicle
     return { hasExisting: false };
   }
 }

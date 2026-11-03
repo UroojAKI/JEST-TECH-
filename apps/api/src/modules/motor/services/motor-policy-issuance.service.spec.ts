@@ -223,6 +223,24 @@ describe('MotorPolicyIssuanceService (Iteration 8)', () => {
       ).rejects.toThrow(ConflictException);
     });
 
+    it('should block policy issuance when an active policy is already running for the vehicle', async () => {
+      const opsActor = createActor(RoleType.BACK_OFFICE);
+      prisma.quotation.findUnique.mockResolvedValue({
+        ...validQuote,
+        registrationNumber: 'MH02CB1234',
+      });
+      // Mock finding an existing active policy for the vehicle
+      prisma.policy.findFirst.mockResolvedValue({
+        id: 'existing-pol',
+        policyNumber: 'POL-EXISTING-99',
+        expiryDate: new Date('2028-05-15T00:00:00.000Z'),
+      });
+
+      await expect(
+        service.issuePolicy('q-100', validDto, opsActor),
+      ).rejects.toThrow(ConflictException);
+    });
+
     it('should reject policy issuance with invalid date range', async () => {
       const opsActor = createActor(RoleType.BACK_OFFICE);
       const invalidDateDto = {
