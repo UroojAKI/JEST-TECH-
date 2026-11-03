@@ -259,6 +259,25 @@ describe('RenewalEngineService (Iteration 10)', () => {
       const result15 = await service.getRenewalQueue(undefined, { urgency: '15_DAYS' });
       expect(result15.data).toHaveLength(2);
       expect(result15.data.map((p: any) => p.policyNumber)).toEqual(['POL-5', 'POL-12']);
+
+      // Filter DUE_TODAY strictly matches today's expiry
+      const mockWithToday = [
+        {
+          id: 'pol-today',
+          policyNumber: 'POL-TODAY',
+          expiryDate: now,
+          contact: { firstName: 'Today' },
+          claims: [],
+          quotation: { ncbPercentage: 20 },
+          renewalTasks: [],
+        },
+        ...mockPolicies,
+      ];
+      prisma.policy.findMany.mockResolvedValue(mockWithToday);
+      const resultToday = await service.getRenewalQueue(undefined, { urgency: 'DUE_TODAY' });
+      expect(resultToday.data).toHaveLength(1);
+      expect(resultToday.data[0].policyNumber).toBe('POL-TODAY');
+      expect(resultToday.summary.dueTodayCount).toBe(1);
     });
 
     it('should not mark fresh policies as escalated unless priority is CRITICAL', async () => {

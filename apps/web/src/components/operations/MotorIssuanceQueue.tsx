@@ -1008,7 +1008,48 @@ export function MotorIssuanceQueue() {
 
                       {/* Action */}
                       <td className="py-3 px-3 align-top text-right space-y-1.5">
-                        <div className="flex items-center justify-end gap-1">
+                        <div className="flex items-center justify-end gap-1 flex-wrap">
+                          {/* Underwriter Approval Controls */}
+                          {!isApproved && item.status !== 'REJECTED' && (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setUnderwriterAction({
+                                    type: 'APPROVE',
+                                    quotationId: item.id,
+                                    quotationCode: item.quotationCode,
+                                    productType: item.productType,
+                                  });
+                                  setActionComments('Approved upon underwriting review.');
+                                }}
+                                className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold transition shadow-xs cursor-pointer"
+                                title="Approve Quotation"
+                              >
+                                <ThumbsUp className="h-3 w-3" />
+                                <span>Approve</span>
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setUnderwriterAction({
+                                    type: 'REJECT',
+                                    quotationId: item.id,
+                                    quotationCode: item.quotationCode,
+                                    productType: item.productType,
+                                  });
+                                  setActionComments('Declined due to risk guidelines.');
+                                }}
+                                className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-rose-600 hover:bg-rose-700 text-white text-[11px] font-bold transition shadow-xs cursor-pointer"
+                                title="Reject Quotation"
+                              >
+                                <ThumbsDown className="h-3 w-3" />
+                                <span>Reject</span>
+                              </button>
+                            </>
+                          )}
+
                           <button
                             type="button"
                             onClick={() => setSelectedQuote({ id: item.id, productType: isHealth ? 'HEALTH' : 'MOTOR' })}

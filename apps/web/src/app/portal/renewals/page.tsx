@@ -95,7 +95,19 @@ export default function RenewalManagementPage() {
     const now = Date.now();
     return renewalsList.filter((r: any) => {
       const days = Math.ceil((r.rawExpiry - now) / 86400000);
-      if (activeTab === 'DUE_TODAY') return days >= 0 && days <= 1;
+      if (activeTab === 'DUE_TODAY') {
+        if (days === 0) return true;
+        if (r.rawExpiry) {
+          const exp = new Date(r.rawExpiry);
+          const today = new Date();
+          return (
+            exp.getFullYear() === today.getFullYear() &&
+            exp.getMonth() === today.getMonth() &&
+            exp.getDate() === today.getDate()
+          );
+        }
+        return false;
+      }
       if (activeTab === '7_DAYS') return days >= 0 && days <= 7;
       if (activeTab === '15_DAYS') return days >= 0 && days <= 15;
       if (activeTab === '30_DAYS') return days >= 0 && days <= 30;
@@ -124,31 +136,56 @@ export default function RenewalManagementPage() {
 
         {/* Renewal KPI Telemetry */}
         <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3 text-xs">
-          <div className="p-3.5 rounded-2xl border bg-card text-card-foreground shadow-xs">
+          <div
+            onClick={() => setActiveTab('DUE_TODAY')}
+            className={`p-3.5 rounded-2xl border bg-card text-card-foreground shadow-xs cursor-pointer transition hover:border-primary/50 ${
+              activeTab === 'DUE_TODAY' ? 'ring-2 ring-primary/40' : ''
+            }`}
+          >
             <div className="text-[10px] font-bold text-muted-foreground uppercase">Due Today</div>
             <div className="text-lg font-black text-rose-600 mt-1">{kpis?.dueToday || 5}</div>
             <div className="text-[9px] text-rose-600 font-bold">Action Required</div>
           </div>
 
-          <div className="p-3.5 rounded-2xl border bg-card text-card-foreground shadow-xs">
+          <div
+            onClick={() => setActiveTab('7_DAYS')}
+            className={`p-3.5 rounded-2xl border bg-card text-card-foreground shadow-xs cursor-pointer transition hover:border-amber-500/50 ${
+              activeTab === '7_DAYS' ? 'ring-2 ring-amber-500/50' : ''
+            }`}
+          >
             <div className="text-[10px] font-bold text-muted-foreground uppercase">In 7 Days</div>
             <div className="text-lg font-black text-amber-600 mt-1">{kpis?.in7Days || 12}</div>
             <div className="text-[9px] text-muted-foreground">Urgent Follow-up</div>
           </div>
 
-          <div className="p-3.5 rounded-2xl border bg-card text-card-foreground shadow-xs">
+          <div
+            onClick={() => setActiveTab('30_DAYS')}
+            className={`p-3.5 rounded-2xl border bg-card text-card-foreground shadow-xs cursor-pointer transition hover:border-sky-500/50 ${
+              activeTab === '30_DAYS' ? 'ring-2 ring-sky-500/50' : ''
+            }`}
+          >
             <div className="text-[10px] font-bold text-muted-foreground uppercase">In 30 Days</div>
             <div className="text-lg font-black text-sky-600 mt-1">{kpis?.in30Days || 24}</div>
             <div className="text-[9px] text-muted-foreground">Quote Prep</div>
           </div>
 
-          <div className="p-3.5 rounded-2xl border bg-card text-card-foreground shadow-xs">
+          <div
+            onClick={() => setActiveTab('OVERDUE')}
+            className={`p-3.5 rounded-2xl border bg-card text-card-foreground shadow-xs cursor-pointer transition hover:border-rose-500/50 ${
+              activeTab === 'OVERDUE' ? 'ring-2 ring-rose-500/50' : ''
+            }`}
+          >
             <div className="text-[10px] font-bold text-muted-foreground uppercase">Overdue</div>
             <div className="text-lg font-black text-rose-600 mt-1">{kpis?.overdue || 3}</div>
             <div className="text-[9px] text-rose-600 font-bold">Lapsed Alert</div>
           </div>
 
-          <div className="p-3.5 rounded-2xl border bg-card text-card-foreground shadow-xs">
+          <div
+            onClick={() => setActiveTab('RENEWED')}
+            className={`p-3.5 rounded-2xl border bg-card text-card-foreground shadow-xs cursor-pointer transition hover:border-emerald-500/50 ${
+              activeTab === 'RENEWED' ? 'ring-2 ring-emerald-500/50' : ''
+            }`}
+          >
             <div className="text-[10px] font-bold text-muted-foreground uppercase">Renewed</div>
             <div className="text-lg font-black text-emerald-600 mt-1">{kpis?.completed || 14}</div>
             <div className="text-[9px] text-emerald-600 font-bold">Success</div>

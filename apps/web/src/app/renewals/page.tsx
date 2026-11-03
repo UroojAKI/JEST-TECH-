@@ -31,7 +31,7 @@ import { buildRenewalUrl, buildHealthRenewalUrl } from '../../lib/renewal-url';
 export default function RenewalsWorkspacePage() {
   const queryClient = useQueryClient();
   const [urgencyFilter, setUrgencyFilter] = useState<
-    'ALL' | '7_DAYS' | '15_DAYS' | '30_DAYS' | 'GT_30' | 'OVERDUE' | 'ESCALATED' | 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW'
+    'ALL' | 'DUE_TODAY' | '7_DAYS' | '15_DAYS' | '30_DAYS' | 'GT_30' | 'OVERDUE' | 'ESCALATED' | 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW'
   >('ALL');
   const [productFilter, setProductFilter] = useState<'ALL' | 'MOTOR' | 'HEALTH'>('ALL');
   const [search, setSearch] = useState('');
@@ -105,6 +105,19 @@ export default function RenewalsWorkspacePage() {
       const u = urgencyFilter;
       list = list.filter((item: any) => {
         const days = item.daysRemaining ?? 0;
+        if (u === 'DUE_TODAY') {
+          if (days === 0) return true;
+          if (item.expiryDate) {
+            const exp = new Date(item.expiryDate);
+            const today = new Date();
+            return (
+              exp.getFullYear() === today.getFullYear() &&
+              exp.getMonth() === today.getMonth() &&
+              exp.getDate() === today.getDate()
+            );
+          }
+          return false;
+        }
         if (u === '7_DAYS' || u === 'CRITICAL') return days >= 0 && days <= 7;
         if (u === '15_DAYS' || u === 'HIGH') return days >= 0 && days <= 15;
         if (u === '30_DAYS' || u === 'MEDIUM') return days >= 0 && days <= 30;
@@ -127,6 +140,26 @@ export default function RenewalsWorkspacePage() {
   }, [queueItems, motorQueueItems, healthQueueItems, productFilter]);
 
   const summary = queueResponse.summary || {};
+
+  const dueTodayTotal = useMemo(() => {
+    if (urgencyFilter === 'DUE_TODAY') return queueItems.length;
+    const rawList = queueResponse.data || [];
+    const fromList = rawList.filter((item: any) => {
+      const days = item.daysRemaining ?? 0;
+      if (days === 0) return true;
+      if (item.expiryDate) {
+        const exp = new Date(item.expiryDate);
+        const today = new Date();
+        return (
+          exp.getFullYear() === today.getFullYear() &&
+          exp.getMonth() === today.getMonth() &&
+          exp.getDate() === today.getDate()
+        );
+      }
+      return false;
+    }).length;
+    return fromList || summary.dueTodayCount || kpis.dueToday || 0;
+  }, [queueResponse.data, queueItems.length, urgencyFilter, summary.dueTodayCount, kpis.dueToday]);
 
   const handleSendReminder = async (policyId: string) => {
     setRemindingId(policyId);
@@ -172,16 +205,16 @@ export default function RenewalsWorkspacePage() {
         {/* Real KPI Cards */}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
           <div
-            onClick={() => setUrgencyFilter('7_DAYS')}
+            onClick={() => setUrgencyFilter(urgencyFilter === 'DUE_TODAY' ? 'ALL' : 'DUE_TODAY')}
             className={`p-4 rounded-2xl border bg-card shadow-xs cursor-pointer transition hover:border-primary/50 ${
-              urgencyFilter === '7_DAYS' || urgencyFilter === 'CRITICAL' ? 'ring-2 ring-primary/40' : ''
+              urgencyFilter === 'DUE_TODAY' ? 'ring-2 ring-primary/40' : ''
             }`}
           >
             <span className="text-[11px] font-bold text-muted-foreground block">Due Today</span>
-            <span className="text-xl font-black text-primary mt-1 block">{kpis.dueToday ?? 0}</span>
+            <span className="text-xl font-black text-primary mt-1 block">{dueTodayTotal}</span>
           </div>
           <div
-            onClick={() => setUrgencyFilter('7_DAYS')}
+            onClick={() => setUrgencyFilter(urgencyFilter === '7_DAYS' ? 'ALL' : '7_DAYS')}
             className={`p-4 rounded-2xl border bg-red-500/5 border-red-500/20 shadow-xs cursor-pointer transition hover:border-red-500/50 ${
               urgencyFilter === '7_DAYS' || urgencyFilter === 'CRITICAL' ? 'ring-2 ring-red-500/50' : ''
             }`}
@@ -190,7 +223,7 @@ export default function RenewalsWorkspacePage() {
             <span className="text-xl font-black text-red-600 mt-1 block">{summary.criticalCount ?? kpis.in7Days ?? 0}</span>
           </div>
           <div
-            onClick={() => setUrgencyFilter('15_DAYS')}
+            onClick={() => setUrgencyFilter(urgencyFilter === '15_DAYS' ? 'ALL' : '15_DAYS')}
             className={`p-4 rounded-2xl border bg-amber-500/5 border-amber-500/20 shadow-xs cursor-pointer transition hover:border-amber-500/50 ${
               urgencyFilter === '15_DAYS' || urgencyFilter === 'HIGH' ? 'ring-2 ring-amber-500/50' : ''
             }`}
@@ -199,7 +232,7 @@ export default function RenewalsWorkspacePage() {
             <span className="text-xl font-black text-amber-600 mt-1 block">{summary.highCount ?? kpis.in15Days ?? 0}</span>
           </div>
           <div
-            onClick={() => setUrgencyFilter('30_DAYS')}
+            onClick={() => setUrgencyFilter(urgencyFilter === '30_DAYS' ? 'ALL' : '30_DAYS')}
             className={`p-4 rounded-2xl border bg-card shadow-xs cursor-pointer transition hover:border-primary/50 ${
               urgencyFilter === '30_DAYS' || urgencyFilter === 'MEDIUM' ? 'ring-2 ring-primary/40' : ''
             }`}
@@ -235,6 +268,7 @@ export default function RenewalsWorkspacePage() {
           <div className="flex items-center gap-1.5 overflow-x-auto w-full sm:w-auto p-1 bg-muted/40 rounded-xl border">
             {[
               { id: 'ALL', label: 'All Expiring' },
+              { id: 'DUE_TODAY', label: 'Due Today' },
               { id: '7_DAYS', label: '< 7 Days' },
               { id: '15_DAYS', label: '< 15 Days' },
               { id: '30_DAYS', label: '< 30 Days' },
@@ -404,7 +438,11 @@ export default function RenewalsWorkspacePage() {
                                       : 'bg-emerald-500/10 text-emerald-600'
                               }`}
                             >
-                              {item.daysRemaining < 0 ? 'EXPIRED' : `${item.daysRemaining} days left`}
+                              {item.daysRemaining < 0
+                                ? 'EXPIRED'
+                                : item.daysRemaining === 0
+                                  ? 'DUE TODAY'
+                                  : `${item.daysRemaining} days left`}
                             </span>
                             {item.escalated && (
                               <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-600 text-white">

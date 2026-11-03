@@ -357,7 +357,9 @@ export class RenewalEngineService {
     });
 
     const now = Date.now();
+    const nowDate = new Date(now);
     const items: any[] = [];
+    let dueTodayCount = 0;
     let criticalCount = 0;
     let highCount = 0;
     let mediumCount = 0;
@@ -368,8 +370,19 @@ export class RenewalEngineService {
       const daysRemaining = Math.ceil(
         (new Date(effectiveExpiry).getTime() - now) / 86400000,
       );
+      const expDate = new Date(effectiveExpiry);
+      const isDueToday =
+        daysRemaining === 0 ||
+        (expDate.getFullYear() === nowDate.getFullYear() &&
+          expDate.getMonth() === nowDate.getMonth() &&
+          expDate.getDate() === nowDate.getDate());
+
+      if (isDueToday) {
+        dueTodayCount++;
+      }
+
       let urgency: 'EXPIRED' | 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW' = 'LOW';
-      if (daysRemaining < 0) urgency = 'EXPIRED';
+      if (daysRemaining < 0 && !isDueToday) urgency = 'EXPIRED';
       else if (daysRemaining <= 7) {
         urgency = 'CRITICAL';
         criticalCount++;
@@ -415,6 +428,12 @@ export class RenewalEngineService {
       if (params?.urgency && params.urgency !== 'ALL') {
         const u = params.urgency.toUpperCase();
         if (
+          u === 'DUE_TODAY' ||
+          u === 'TODAY' ||
+          u === '0_DAYS'
+        ) {
+          if (!isDueToday) continue;
+        } else if (
           u === '7_DAYS' ||
           u === 'CRITICAL' ||
           u === '<7' ||
@@ -446,7 +465,7 @@ export class RenewalEngineService {
         ) {
           if (daysRemaining <= 30) continue;
         } else if (u === 'OVERDUE' || u === 'EXPIRED') {
-          if (daysRemaining >= 0) continue;
+          if (daysRemaining >= 0 || isDueToday) continue;
         } else if (u === 'ESCALATED') {
           if (!item.escalated) continue;
         } else if (item.urgency !== params.urgency) {
@@ -475,6 +494,7 @@ export class RenewalEngineService {
       meta: { page, limit, total, totalPages: Math.ceil(total / limit) || 1 },
       summary: {
         totalExpiring: total,
+        dueTodayCount,
         criticalCount,
         highCount,
         mediumCount,
