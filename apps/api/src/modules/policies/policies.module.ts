@@ -35,6 +35,7 @@ import { BackOfficeQueueService } from './services/queries/back-office-queue.ser
 import { OutboxModule } from '../platform/outbox/outbox.module';
 import { AdministrationModule } from '../administration/administration.module';
 import { MotorModule } from '../motor/motor.module';
+import { EndorsementModule } from '../endorsements/endorsements.module';
 
 @Module({
   imports: [
@@ -45,6 +46,7 @@ import { MotorModule } from '../motor/motor.module';
     OutboxModule,
     AdministrationModule,
     MotorModule,
+    EndorsementModule,
     BullModule.registerQueue({ name: 'renewal-reminders' }),
   ],
   controllers: [PoliciesController, BackOfficeController, RenewalsController],

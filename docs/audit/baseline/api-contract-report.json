@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-19T22:11:55.171Z",
+  "generatedAt": "2026-11-03T19:27:00.327Z",
   "mismatches": [],
   "uncalledBackendRoutes": [
     {
@@ -437,22 +437,8 @@
       "classification": "UNUSED"
     },
     {
-      "method": "GET",
-      "path": "/endorsements/:param",
-      "controller": "EndorsementsController",
-      "file": "apps/api/src/modules/endorsements/controllers/endorsements.controller.ts",
-      "classification": "UNUSED"
-    },
-    {
       "method": "POST",
       "path": "/endorsements/:param/attach",
-      "controller": "EndorsementsController",
-      "file": "apps/api/src/modules/endorsements/controllers/endorsements.controller.ts",
-      "classification": "UNUSED"
-    },
-    {
-      "method": "POST",
-      "path": "/endorsements/:param/reject",
       "controller": "EndorsementsController",
       "file": "apps/api/src/modules/endorsements/controllers/endorsements.controller.ts",
       "classification": "UNUSED"
@@ -609,6 +595,13 @@
       "path": "/motor/calculate/override",
       "controller": "MotorCalculationController",
       "file": "apps/api/src/modules/motor/controllers/motor-calculation.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "POST",
+      "path": "/motor/inspections/:param/photos",
+      "controller": "MotorInspectionController",
+      "file": "apps/api/src/modules/motor/controllers/motor-inspection.controller.ts",
       "classification": "UNUSED"
     },
     {
@@ -1130,13 +1123,6 @@
       "classification": "UNUSED"
     },
     {
-      "method": "GET",
-      "path": "/audit/export",
-      "controller": "AuditController",
-      "file": "apps/api/src/modules/platform/audit/controllers/audit.controller.ts",
-      "classification": "UNUSED"
-    },
-    {
       "method": "POST",
       "path": "/webhooks/:param",
       "controller": "WebhookGatewayController",
@@ -1228,8 +1214,8 @@
       "classification": "UNUSED"
     },
     {
-      "method": "POST",
-      "path": "/reports/:param/preview",
+      "method": "GET",
+      "path": "/reports/:param/export",
       "controller": "ReportsController",
       "file": "apps/api/src/modules/platform/reporting/controllers/reports.controller.ts",
       "classification": "UNUSED"
@@ -1368,6 +1354,13 @@
       "classification": "UNUSED"
     },
     {
+      "method": "GET",
+      "path": "/policies/:param",
+      "controller": "PoliciesController",
+      "file": "apps/api/src/modules/policies/controllers/policies.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
       "method": "PATCH",
       "path": "/policies/:param",
       "controller": "PoliciesController",
@@ -1438,6 +1431,13 @@
       "classification": "UNUSED"
     },
     {
+      "method": "POST",
+      "path": "/admin/users",
+      "controller": "UsersController",
+      "file": "apps/api/src/modules/users/controllers/users.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
       "method": "GET",
       "path": "/users/roles",
       "controller": "UsersController",
@@ -1446,14 +1446,63 @@
     },
     {
       "method": "GET",
+      "path": "/admin/users/roles",
+      "controller": "UsersController",
+      "file": "apps/api/src/modules/users/controllers/users.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "POST",
+      "path": "/admin/users/change-password",
+      "controller": "UsersController",
+      "file": "apps/api/src/modules/users/controllers/users.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "GET",
+      "path": "/admin/users/me",
+      "controller": "UsersController",
+      "file": "apps/api/src/modules/users/controllers/users.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "GET",
+      "path": "/admin/users",
+      "controller": "UsersController",
+      "file": "apps/api/src/modules/users/controllers/users.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "GET",
+      "path": "/admin/users/:param/workspace",
+      "controller": "UsersController",
+      "file": "apps/api/src/modules/users/controllers/users.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "GET",
       "path": "/users/:param",
       "controller": "UsersController",
       "file": "apps/api/src/modules/users/controllers/users.controller.ts",
       "classification": "UNUSED"
     },
     {
+      "method": "GET",
+      "path": "/admin/users/:param",
+      "controller": "UsersController",
+      "file": "apps/api/src/modules/users/controllers/users.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
       "method": "PATCH",
-      "path": "/users/:param",
+      "path": "/admin/users/:param/status",
+      "controller": "UsersController",
+      "file": "apps/api/src/modules/users/controllers/users.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "PATCH",
+      "path": "/admin/users/:param",
       "controller": "UsersController",
       "file": "apps/api/src/modules/users/controllers/users.controller.ts",
       "classification": "UNUSED"
@@ -1461,6 +1510,13 @@
     {
       "method": "DELETE",
       "path": "/users/:param",
+      "controller": "UsersController",
+      "file": "apps/api/src/modules/users/controllers/users.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "DELETE",
+      "path": "/admin/users/:param",
       "controller": "UsersController",
       "file": "apps/api/src/modules/users/controllers/users.controller.ts",
       "classification": "UNUSED"
@@ -1474,22 +1530,57 @@
     },
     {
       "method": "POST",
+      "path": "/admin/users/:param/lock",
+      "controller": "UsersController",
+      "file": "apps/api/src/modules/users/controllers/users.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "POST",
       "path": "/users/:param/unlock",
+      "controller": "UsersController",
+      "file": "apps/api/src/modules/users/controllers/users.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "POST",
+      "path": "/admin/users/:param/unlock",
+      "controller": "UsersController",
+      "file": "apps/api/src/modules/users/controllers/users.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "POST",
+      "path": "/admin/users/:param/reset-password",
+      "controller": "UsersController",
+      "file": "apps/api/src/modules/users/controllers/users.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "GET",
+      "path": "/users/:param/commissions",
+      "controller": "UsersController",
+      "file": "apps/api/src/modules/users/controllers/users.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "GET",
+      "path": "/users/:param/incentives",
       "controller": "UsersController",
       "file": "apps/api/src/modules/users/controllers/users.controller.ts",
       "classification": "UNUSED"
     }
   ],
   "summary": {
-    "totalFrontendCalls": 317,
-    "matched": 317,
+    "totalFrontendCalls": 358,
+    "matched": 358,
     "unmatched": 0,
-    "uncalledBackend": 211,
+    "uncalledBackend": 224,
     "uncalledByClassification": {
       "WEBHOOK": 1,
       "CRON": 3,
       "INTERNAL": 13,
-      "UNUSED": 194
+      "UNUSED": 207
     }
   }
 }

@@ -434,7 +434,7 @@ export class MotorPolicyIssuanceService {
         );
       }
 
-      // Gate 6: Mandatory Documents Gate
+      // Gate 6: Mandatory Documents Gate & Policy PDF Validation (REQ-2)
       if (quote.motorDocuments && quote.motorDocuments.length > 0) {
         const hasUnverifiedDocs = quote.motorDocuments.some(
           (doc) => doc.verificationStatus !== 'VERIFIED',
@@ -444,6 +444,26 @@ export class MotorPolicyIssuanceService {
             'Policy issuance blocked: Vehicle & policy documents pending Back Office verification.',
           );
         }
+      }
+
+      // REQ-2: Policy PDF Validation — Policy PDF is strictly mandatory before completion/issuance
+      const existingPolicyDoc =
+        (quote as any).documents?.find(
+          (d: any) =>
+            (d.documentType === 'POLICY_DOCUMENT' || d.documentType === 'POLICY_SCHEDULE') &&
+            d.fileKey,
+        ) ||
+        ((quote as any).motorDocuments as any[])?.find(
+          (d: any) =>
+            (d.documentType === 'POLICY_DOCUMENT' || d.documentType === 'POLICY_SCHEDULE') &&
+            d.fileKey,
+        );
+
+      const policyPdfKey = dto.documentFileKey?.trim() || existingPolicyDoc?.fileKey;
+      if (!policyPdfKey) {
+        throw new BadRequestException(
+          'Policy issuance blocked: Official policy schedule PDF document is mandatory before policy can be completed or issued. Please upload the policy PDF.',
+        );
       }
 
       // ─── Numbering & Authoritative Premium ─────────────────────────────────
@@ -490,6 +510,36 @@ export class MotorPolicyIssuanceService {
         : quote.registrationNumber
           ? quote.registrationNumber.toUpperCase().replace(/[\s\-\.]/g, '')
           : undefined;
+
+      // Enforce single active policy issuance invariant per vehicle
+      if (normalizedReg && normalizedReg !== 'NEW') {
+        const existingActivePolicy = await tx.policy.findFirst({
+          where: {
+            deletedAt: null,
+            ...(quote.companyId ? { companyId: quote.companyId } : {}),
+            quotationId: { not: quote.id },
+            status: { in: ['ACTIVE', 'ISSUED', 'PENDING_RENEWAL'] },
+            expiryDate: { gt: new Date() },
+            OR: [
+              { quotation: { registrationNumber: { equals: normalizedReg, mode: 'insensitive' } } },
+              { vehicle: { registrationNumber: { equals: normalizedReg, mode: 'insensitive' } } },
+            ],
+          },
+          select: { policyNumber: true, actualPolicyNumber: true, expiryDate: true },
+        });
+
+        if (existingActivePolicy) {
+          const pNum = existingActivePolicy.actualPolicyNumber || existingActivePolicy.policyNumber;
+          const expDate = new Date(existingActivePolicy.expiryDate);
+          const day = String(expDate.getDate()).padStart(2, '0');
+          const month = String(expDate.getMonth() + 1).padStart(2, '0');
+          const year = expDate.getFullYear();
+          const expStr = `${day}/${month}/${year}`;
+          throw new ConflictException(
+            `Vehicle ${normalizedReg} already has an active policy issued (${pNum}, expires ${expStr}). Cannot issue a duplicate policy.`,
+          );
+        }
+      }
 
       // Handle vehicle details & vehicle code generation
       let vehicleId = quote.vehicleId;
@@ -568,6 +618,8 @@ export class MotorPolicyIssuanceService {
             policyNumber,
             actualPolicyNumber: policyNumber,
             quotationId: quote.id,
+            agentId: quote.agentId || null,
+            agentExternalCodeId: quote.agentExternalCodeId || null,
             contactId: quote.contactId,
             customerId: customerId || undefined,
             accountId: quote.accountId || undefined,
@@ -585,6 +637,7 @@ export class MotorPolicyIssuanceService {
             tpExpiryDate: tpExpiry,
             actualPremium,
             paymentStatus: 'SUCCESS',
+            documentComplianceStatus: 'VERIFIED' as any,
             vehicleId: vehicleId || quote.vehicleId || undefined,
             vehicleCategory: quote.vehicleCategory || undefined,
             policyType: policyType || undefined,
@@ -596,6 +649,28 @@ export class MotorPolicyIssuanceService {
             updatedById: actorId,
           },
         });
+
+        // REQ-2: Persist policy PDF document and link issuedPolicyDocumentId
+        if (tx.policyDocument?.create) {
+          const policyDoc = await tx.policyDocument.create({
+            data: {
+              policyId: policy.id,
+              documentType: 'POLICY_DOCUMENT',
+              fileKey: policyPdfKey,
+              fileName: dto.documentFileName || `Policy_${policyNumber}.pdf`,
+              fileSize: dto.documentFileSize || 0,
+            },
+          });
+
+          await tx.policy.update({
+            where: { id: policy.id },
+            data: {
+              issuedPolicyDocumentId: policyDoc.id,
+            },
+          });
+          policy.issuedPolicyDocumentId = policyDoc.id;
+          policy.documentComplianceStatus = 'VERIFIED';
+        }
 
         // Link any pre-issued quotation invoices directly to the new policy
         if (tx.invoice?.updateMany) {

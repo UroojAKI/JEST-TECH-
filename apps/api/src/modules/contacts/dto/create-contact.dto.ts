@@ -102,4 +102,10 @@ export class CreateContactDto {
   @IsOptional()
   @IsString()
   agentCode?: string;
+
+  @IsOptional()
+  @IsString()
+  @Length(1, 50)
+  @Matches(/^[A-Za-z0-9][A-Za-z0-9._-]*$/)
+  agentCodeSystem?: string;
 }

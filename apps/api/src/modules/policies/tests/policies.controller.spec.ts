@@ -18,6 +18,7 @@ import { IssuePolicyService } from '../services/commands/issue-policy.service';
 import { BackOfficeQueueService } from '../services/queries/back-office-queue.service';
 import { PolicyRepository } from '../repositories/policy.repository';
 import { ResourceAuthorizationService } from '../../../common/services/resource-authorization.service';
+import { EndorsementService } from '../../endorsements/services/endorsement.service';
 import { RequestUser } from '../../auth/decorators/current-user.decorator';
 
 describe('PoliciesController', () => {
@@ -28,6 +29,8 @@ describe('PoliciesController', () => {
   let historyService: GetPolicyHistoryService;
   let backOfficeQueueService: BackOfficeQueueService;
   let issuePolicyService: IssuePolicyService;
+  let endorsementService: EndorsementService;
+  let policyRepo: PolicyRepository;
 
   const mockUser: RequestUser = {
     id: 'user-123',
@@ -144,6 +147,16 @@ describe('PoliciesController', () => {
           },
         },
         {
+          provide: EndorsementService,
+          useValue: {
+            createEndorsement: jest.fn().mockResolvedValue({
+              id: 'end-change-1',
+              status: 'REQUESTED',
+              type: 'GENERAL_CHANGE',
+            }),
+          },
+        },
+        {
           provide: ResourceAuthorizationService,
           useValue: {
             authorize: jest.fn(),
@@ -163,6 +176,8 @@ describe('PoliciesController', () => {
       BackOfficeQueueService,
     );
     issuePolicyService = module.get<IssuePolicyService>(IssuePolicyService);
+    endorsementService = module.get<EndorsementService>(EndorsementService);
+    policyRepo = module.get<PolicyRepository>(PolicyRepository);
   });
 
   describe('Happy Path', () => {

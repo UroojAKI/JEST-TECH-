@@ -31,6 +31,7 @@ import { EndorsementRequestDrawer } from '../../../components/policies/drawers/E
 import { useEndorsements } from '../../../hooks/useEndorsements';
 import { useAuthStore } from '../../../store/auth-store';
 import { PolicyDocumentsSection } from '../../../components/policies/PolicyDocumentsSection';
+import { PolicyChangeReviewModal } from '../../../components/policies/PolicyChangeReviewModal';
 
 export default function PolicyWorkspacePage() {
   const params = useParams();
@@ -40,6 +41,7 @@ export default function PolicyWorkspacePage() {
   const [isRenewalOpen, setIsRenewalOpen] = useState(false);
   const [isEndorsementOpen, setIsEndorsementOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<string>('OVERVIEW');
+  const [selectedEndorsementForReview, setSelectedEndorsementForReview] = useState<any | null>(null);
   const { approveEndorsement, isApproving } = useEndorsements();
   const authUser = useAuthStore((s) => s.user);
   const userRoles = [
@@ -104,6 +106,36 @@ export default function PolicyWorkspacePage() {
             </div>
           </div>
 
+          {policyData?.hasPendingApproval && (
+            <div className="w-full p-3.5 rounded-xl border border-amber-500/30 bg-amber-500/10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+              <div className="flex items-center gap-2.5">
+                <Clock className="h-5 w-5 text-amber-600 dark:text-amber-400 shrink-0" />
+                <div>
+                  <h4 className="text-xs font-bold text-amber-900 dark:text-amber-200">
+                    Pending Policy Modification Request
+                  </h4>
+                  <p className="text-[11px] text-amber-800/80 dark:text-amber-300/80">
+                    This official policy has pending changes awaiting review. Official policy fields remain untouched until approved.
+                  </p>
+                </div>
+              </div>
+              {canApproveEndorsement && (
+                <button
+                  onClick={() => {
+                    const pendingEnd = (endorsementsList || []).find((e: any) =>
+                      ['REQUESTED', 'UNDER_REVIEW'].includes(e.status),
+                    );
+                    setSelectedEndorsementForReview(pendingEnd || endorsementsList[0]);
+                  }}
+                  className="px-3.5 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs shadow-xs transition-colors shrink-0 flex items-center gap-1.5"
+                >
+                  <CheckCircle2 className="h-3.5 w-3.5" />
+                  <span>Review Changes</span>
+                </button>
+              )}
+            </div>
+          )}
+
           <div className="flex items-center space-x-2">
             <button
               onClick={() => setIsEndorsementOpen(true)}
@@ -112,12 +144,27 @@ export default function PolicyWorkspacePage() {
               <FileText className="h-4 w-4" />
               <span>+ Endorsement</span>
             </button>
+            {/* REQ-5: Renewal restricted to <= 45 days */}
             <button
               onClick={() => setIsRenewalOpen(true)}
-              className="flex items-center space-x-1 px-4 py-2 text-xs font-bold rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 transition-colors shadow-sm"
+              disabled={daysRemaining !== null && daysRemaining > 45}
+              title={
+                daysRemaining !== null && daysRemaining > 45
+                  ? `Renewal opens 45 days before expiry (${daysRemaining} days remaining)`
+                  : 'Launch renewal wizard'
+              }
+              className={`flex items-center space-x-1 px-4 py-2 text-xs font-bold rounded-lg transition-colors shadow-sm ${
+                daysRemaining !== null && daysRemaining > 45
+                  ? 'bg-muted text-muted-foreground border border-border cursor-not-allowed opacity-60'
+                  : 'bg-emerald-600 text-white hover:bg-emerald-700'
+              }`}
             >
               <RefreshCw className="h-4 w-4" />
-              <span>Launch Renewal Wizard →</span>
+              <span>
+                {daysRemaining !== null && daysRemaining > 45
+                  ? `Renewal in ${daysRemaining - 45}d`
+                  : 'Launch Renewal Wizard →'}
+              </span>
             </button>
           </div>
         </div>
@@ -378,43 +425,67 @@ export default function PolicyWorkspacePage() {
 
               {endorsementsList.length > 0 ? (
                 endorsementsList.map((endorsement: any) => (
-                  <div key={endorsement.id} className="p-4 rounded-xl border bg-card space-y-2.5">
+                  <div key={endorsement.id} className="p-4 rounded-xl border bg-card space-y-3">
                     <div className="flex justify-between items-center">
-                      <div className="font-bold text-sm">
-                        {endorsement.endorsementNumber || endorsement.type || 'POLICY_MODIFICATION'}
+                      <div className="space-y-0.5">
+                        <div className="font-bold text-sm text-foreground flex items-center gap-2">
+                          <span>{endorsement.endorsementNumber || endorsement.type || 'POLICY_MODIFICATION'}</span>
+                          {endorsement.baseVersion && (
+                            <span className="text-[10px] font-mono text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
+                              v{endorsement.baseVersion}
+                            </span>
+                          )}
+                        </div>
+                        <span className="text-[10px] text-muted-foreground block">
+                          Type: {endorsement.type || 'GENERAL_CHANGE'}
+                        </span>
                       </div>
                       <StatusBadge status={endorsement.status || 'PENDING'} />
                     </div>
-                    <p className="text-muted-foreground text-xs">
-                      {endorsement.description || endorsement.reason || 'Endorsement in progress.'}
+
+                    <p className="text-muted-foreground text-xs italic">
+                      &quot;{endorsement.description || endorsement.reason || 'Endorsement in progress.'}&quot;
                     </p>
-                    {endorsement.requestedChanges && typeof endorsement.requestedChanges === 'object' && Object.keys(endorsement.requestedChanges).length > 0 && (
-                      <div className="p-2.5 rounded-lg bg-muted/40 border text-[11px] font-mono space-y-1">
-                        <span className="font-bold text-foreground block text-[10px] uppercase font-sans">Proposed Changes (Pending Approval)</span>
-                        {Object.entries(endorsement.requestedChanges).map(([k, v]) => (
-                          <div key={k} className="flex justify-between text-muted-foreground">
-                            <span className="font-semibold">{k}:</span>
-                            <span className="text-foreground">{typeof v === 'boolean' ? (v ? 'Yes' : 'No') : String(v)}</span>
-                          </div>
-                        ))}
+
+                    {/* Rejection Reason Banner if Rejected */}
+                    {endorsement.status === 'REJECTED' && endorsement.rejectionReason && (
+                      <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-xs space-y-1">
+                        <span className="font-bold text-destructive block text-[10px] uppercase">
+                          Rejection Reason
+                        </span>
+                        <p className="text-destructive font-medium">{endorsement.rejectionReason}</p>
                       </div>
                     )}
+
+                    {endorsement.requestedChanges && (
+                      <div className="p-2.5 rounded-lg bg-muted/40 border text-[11px] font-mono space-y-1">
+                        <span className="font-bold text-foreground block text-[10px] uppercase font-sans">
+                          Proposed Changes
+                        </span>
+                        {typeof endorsement.requestedChanges === 'object' ? (
+                          Object.entries(endorsement.requestedChanges).map(([k, v]) => (
+                            <div key={k} className="flex justify-between text-muted-foreground">
+                              <span className="font-semibold">{k}:</span>
+                              <span className="text-foreground">{typeof v === 'boolean' ? (v ? 'Yes' : 'No') : String(v)}</span>
+                            </div>
+                          ))
+                        ) : (
+                          <pre className="text-[10px] overflow-x-auto whitespace-pre-wrap">{String(endorsement.requestedChanges)}</pre>
+                        )}
+                      </div>
+                    )}
+
                     <div className="flex items-center justify-between pt-2 border-t border-border text-xs">
                       <span className="text-[10px] text-muted-foreground block">
                         Requested: {new Date(endorsement.createdAt).toLocaleDateString('en-IN')}
                       </span>
                       {canApproveEndorsement && ['REQUESTED', 'UNDER_REVIEW'].includes(endorsement.status) && (
                         <button
-                          onClick={() => {
-                            approveEndorsement({
-                              id: endorsement.id,
-                              comments: 'Approved by back-office reviewer',
-                            });
-                          }}
-                          disabled={isApproving}
-                          className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-xs transition-colors"
+                          onClick={() => setSelectedEndorsementForReview(endorsement)}
+                          className="px-3.5 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs shadow-xs transition-colors flex items-center gap-1.5"
                         >
-                          {isApproving ? 'Approving...' : '✓ Review & Approve'}
+                          <CheckCircle2 className="h-3.5 w-3.5" />
+                          <span>Review & Decide</span>
                         </button>
                       )}
                     </div>
@@ -571,6 +642,17 @@ export default function PolicyWorkspacePage() {
         policyId={policyId}
         onClose={() => setIsEndorsementOpen(false)}
       />
+      {selectedEndorsementForReview && (
+        <PolicyChangeReviewModal
+          isOpen={!!selectedEndorsementForReview}
+          policy={policyData}
+          endorsement={selectedEndorsementForReview}
+          onClose={() => setSelectedEndorsementForReview(null)}
+          onSuccess={() => {
+            refetch();
+          }}
+        />
+      )}
     </AppShell>
   );
 }

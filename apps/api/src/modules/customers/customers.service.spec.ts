@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { CustomersService } from './customers.service';
 import { PrismaService } from '../../database/prisma.service';
 import { CrmIdentityService } from '../crm-identity/services/crm-identity.service';
+import { AgentIdentityResolverService } from '../agents/agent-identity-resolver.service';
 import { RoleType } from '@prisma/client';
 import { NotFoundException, ForbiddenException, ConflictException } from '@nestjs/common';
 
@@ -9,6 +10,7 @@ describe('CustomersService', () => {
   let service: CustomersService;
   let prisma: any;
   let crmIdentityService: any;
+  let agentIdentityResolver: any;
 
   const mockCustomer = {
     id: 'customer-uuid-1',
@@ -21,6 +23,10 @@ describe('CustomersService', () => {
     state: 'Maharashtra',
     isVip: false,
     companyId: 'org-1',
+    contactId: 'contact-uuid-1',
+    primaryAgentId: null,
+    primaryAgentExternalCodeId: null,
+    version: 1,
     createdById: 'user-uuid-1',
     createdAt: new Date(),
     _count: {
@@ -51,9 +57,11 @@ describe('CustomersService', () => {
         count: jest.fn(),
         create: jest.fn(),
         update: jest.fn(),
+        updateMany: jest.fn(),
       },
       agent: {
         findUnique: jest.fn(),
+        findFirst: jest.fn(),
       },
       customerAlert: {
         findMany: jest.fn(),
@@ -62,9 +70,17 @@ describe('CustomersService', () => {
       },
       customerAgentHistory: {
         create: jest.fn(),
+        updateMany: jest.fn(),
+      },
+      agentAssignmentHistory: {
+        create: jest.fn().mockResolvedValue({ id: 'assignment-1' }),
+      },
+      auditLog: {
+        create: jest.fn().mockResolvedValue({}),
       },
       contact: {
         findFirst: jest.fn().mockResolvedValue(null),
+        update: jest.fn(),
         count: jest.fn().mockResolvedValue(0),
         create: jest.fn().mockResolvedValue({ id: 'contact-uuid-1' }),
       },
@@ -84,11 +100,23 @@ describe('CustomersService', () => {
       getPhoneVariants: jest.fn((norm) => [norm, `+91${norm}`, `0${norm}`]),
     };
 
+    agentIdentityResolver = {
+      validateAgentOwnership: jest.fn().mockResolvedValue({ id: 'agent-1', agentCode: 'AGT-000001' }),
+      resolveExternalCodeForAssignment: jest.fn().mockResolvedValue({
+        agentId: 'agent-1',
+        agentCode: 'AGT-000001',
+        userId: 'agent-user-1',
+        externalCodeId: 'external-code-1',
+        originalIdentifier: 'IGSK001',
+      }),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         CustomersService,
         { provide: PrismaService, useValue: prisma },
         { provide: CrmIdentityService, useValue: crmIdentityService },
+        { provide: AgentIdentityResolverService, useValue: agentIdentityResolver },
       ],
     }).compile();
 
@@ -121,7 +149,7 @@ describe('CustomersService', () => {
 
       await expect(
         service.create(
-          { firstName: 'Amit', mobile: '9876543210' },
+          { firstName: 'Amit', mobile: '9876543210', addressLine1: '123 MG Road', pincode: '400001' },
           { id: 'user-uuid-1', role: RoleType.AGENT, companyId: 'org-1' } as any,
         ),
       ).rejects.toThrow(ConflictException);
@@ -133,8 +161,8 @@ describe('CustomersService', () => {
       prisma.customer.findMany.mockResolvedValue([]);
 
       const result = await service.create(
-        { firstName: 'Amit', mobile: '9876543210' },
-        { id: 'user-uuid-1', role: RoleType.AGENT, companyId: 'org-1' } as any,
+        { firstName: 'Amit', mobile: '9876543210', addressLine1: '123 MG Road', pincode: '400001' },
+        { id: 'user-uuid-1', role: RoleType.BACK_OFFICE, companyId: 'org-1' } as any,
       );
 
       expect(result.duplicateWarning).toBe(false);
@@ -145,6 +173,124 @@ describe('CustomersService', () => {
           firstName: 'Amit',
           phone: '9876543210',
           createCustomerIfMissing: true,
+        }),
+      );
+    });
+
+    it('stores canonical Agent and external-code attribution on customer creation', async () => {
+      prisma.customer.findMany.mockResolvedValue([]);
+      crmIdentityService.ensureLinkedContactAndCustomer.mockResolvedValue({
+        contact: { id: 'contact-uuid-1' },
+        customer: { ...mockCustomer, primaryAgentId: null, primaryAgentExternalCodeId: null },
+      });
+      prisma.contact.findFirst.mockResolvedValue({
+        id: 'contact-uuid-1',
+        assignedAgentId: null,
+        assignedExternalCodeId: null,
+      });
+      prisma.customer.update.mockResolvedValue({
+        ...mockCustomer,
+        primaryAgentId: 'agent-1',
+        primaryAgentExternalCodeId: 'external-code-1',
+      });
+
+      await service.create(
+        {
+          firstName: 'Amit',
+          mobile: '9876543210',
+          externalAgentCode: 'IGSK001',
+          agentCodeSystem: 'CLIENT_A',
+          addressLine1: '123 MG Road',
+          pincode: '400001',
+        } as any,
+        { id: 'user-uuid-1', role: RoleType.BACK_OFFICE, companyId: 'org-1' } as any,
+        'correlation-1',
+      );
+
+      expect(agentIdentityResolver.resolveExternalCodeForAssignment).toHaveBeenCalledWith(
+        'IGSK001',
+        'CLIENT_A',
+        expect.objectContaining({ id: 'user-uuid-1' }),
+      );
+      expect(crmIdentityService.ensureLinkedContactAndCustomer).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          primaryAgentId: 'agent-1',
+          primaryAgentExternalCodeId: 'external-code-1',
+        }),
+      );
+      expect(prisma.agentAssignmentHistory.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            entityType: 'CUSTOMER',
+            newAgentId: 'agent-1',
+            newExternalCodeId: 'external-code-1',
+            correlationId: 'correlation-1',
+          }),
+        }),
+      );
+    });
+  });
+
+  describe('assignAgent', () => {
+    it('preserves customer and contact assignment lineage when reassigned by external code', async () => {
+      agentIdentityResolver.resolveExternalCodeForAssignment.mockResolvedValue({
+        agentId: 'agent-next',
+        externalCodeId: 'external-code-next',
+      });
+      prisma.agent.findFirst.mockResolvedValue({ id: 'agent-next' });
+      prisma.customer.findFirst.mockResolvedValue({
+        id: 'customer-uuid-1',
+        companyId: 'org-1',
+        contactId: 'contact-uuid-1',
+        primaryAgentId: 'agent-prev',
+        primaryAgentExternalCodeId: 'external-code-prev',
+        version: 3,
+      });
+      prisma.customer.updateMany.mockResolvedValue({ count: 1 });
+      prisma.contact.findFirst.mockResolvedValue({
+        id: 'contact-uuid-1',
+        assignedAgentId: 'agent-prev',
+        assignedExternalCodeId: 'external-code-prev',
+      });
+      prisma.contact.update.mockResolvedValue({});
+      prisma.customer.findUnique.mockResolvedValue({
+        ...mockCustomer,
+        primaryAgentId: 'agent-next',
+        primaryAgentExternalCodeId: 'external-code-next',
+      });
+
+      await service.assignAgent(
+        'customer-uuid-1',
+        {
+          externalAgentCode: 'IGSK002',
+          agentCodeSystem: 'CLIENT_A',
+          reason: 'Approved transfer',
+          expectedVersion: 3,
+        } as any,
+        { id: 'ops-user', userId: 'ops-user', role: RoleType.BACK_OFFICE, companyId: 'org-1' } as any,
+        'correlation-2',
+      );
+
+      expect(prisma.contact.update).toHaveBeenCalledWith({
+        where: { id: 'contact-uuid-1' },
+        data: {
+          assignedAgentId: 'agent-next',
+          assignedExternalCodeId: 'external-code-next',
+        },
+      });
+      expect(prisma.agentAssignmentHistory.create).toHaveBeenCalledTimes(2);
+      expect(prisma.agentAssignmentHistory.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            entityType: 'CUSTOMER',
+            previousAgentId: 'agent-prev',
+            newAgentId: 'agent-next',
+            previousExternalCodeId: 'external-code-prev',
+            newExternalCodeId: 'external-code-next',
+            changedById: 'ops-user',
+            correlationId: 'correlation-2',
+          }),
         }),
       );
     });

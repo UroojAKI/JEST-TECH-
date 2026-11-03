@@ -44,6 +44,8 @@ const FIELD_INPUT_CONFIG: Record<string, { label: string; placeholder: string; t
   email: { label: 'Email Address', placeholder: 'e.g. rajesh@example.com', type: 'email' },
   dateOfBirth: { label: 'Date of Birth', placeholder: 'YYYY-MM-DD', type: 'date' },
   panNumber: { label: 'PAN or Aadhaar KYC', placeholder: 'e.g. ABCDE1234F' },
+  address: { label: 'Customer Address', placeholder: 'Street address, building, locality' },
+  pincode: { label: 'PIN Code', placeholder: '6-digit Indian PIN code', type: 'tel' },
   registrationNumber: { label: 'Registration Plate Number', placeholder: 'e.g. MH02AB1234' },
   makeModel: { label: 'Vehicle Make & Model', placeholder: 'e.g. Maruti Suzuki Swift VXI' },
   make: { label: 'Vehicle Make', placeholder: 'e.g. Maruti Suzuki' },

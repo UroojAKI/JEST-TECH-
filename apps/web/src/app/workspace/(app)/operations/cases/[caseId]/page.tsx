@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { apiClient } from '../../../../../../lib/api-client';
+import { apiClient, showApiErrorToast } from '../../../../../../lib/api-client';
 import { toast } from 'sonner';
 import Link from 'next/link';
 import {
@@ -27,6 +27,9 @@ import {
   PlayCircle,
   CheckSquare,
   Sparkles,
+  Upload,
+  X,
+  AlertCircle,
 } from 'lucide-react';
 
 export default function CaseDetailPage() {
@@ -252,6 +255,10 @@ export default function CaseDetailPage() {
   });
 
   const [issuePolicyModalOpen, setIssuePolicyModalOpen] = useState(false);
+  const [casePolicyPdf, setCasePolicyPdf] = useState<File | null>(null);
+  const [casePdfError, setCasePdfError] = useState<string | null>(null);
+  const [isUploadingCasePdf, setIsUploadingCasePdf] = useState(false);
+  const casePdfInputRef = React.useRef<HTMLInputElement | null>(null);
   const [issuePolicyForm, setIssuePolicyForm] = useState({
     startDate: new Date().toISOString().split('T')[0],
     endDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
@@ -327,6 +334,9 @@ export default function CaseDetailPage() {
       actualPolicyNumber?: string;
       nomineeName?: string;
       nomineeRelation?: string;
+      documentFileKey?: string;
+      documentFileName?: string;
+      documentFileSize?: number;
     }) => {
       const res = await apiClient.post(`/motor/quotes/${quotationId}/issue`, payload);
       return res.data;
@@ -334,12 +344,23 @@ export default function CaseDetailPage() {
     onSuccess: (data) => {
       toast.success(`Policy issued successfully! Policy No: ${data?.policyNumber || 'Active'}`);
       setIssuePolicyModalOpen(false);
+      setCasePolicyPdf(null);
+      setCasePdfError(null);
       void queryClient.invalidateQueries({ queryKey: ['case-workflow-projection', quotationId] });
       void queryClient.invalidateQueries({ queryKey: ['case-detail', caseId] });
       void queryClient.invalidateQueries({ queryKey: ['case-available-commands', caseId] });
     },
     onError: (err: any) => {
-      toast.error(err.response?.data?.message || 'Failed to issue policy');
+      const isPdfError =
+        err?.response?.data?.message?.toString().toLowerCase().includes('pdf') ||
+        err?.message?.toString().toLowerCase().includes('pdf');
+      if (isPdfError) {
+        setCasePdfError('Official Policy PDF Schedule document is mandatory before policy can be issued.');
+      }
+      showApiErrorToast(
+        err,
+        'Policy issuance blocked: Official policy schedule PDF document is mandatory before policy can be issued.'
+      );
     },
   });
 
@@ -1954,30 +1975,184 @@ export default function CaseDetailPage() {
                   </select>
                 </div>
               </div>
+              {/* Section: Mandatory Official Policy Schedule PDF (REQ-2) */}
+              <div
+                className={`p-3 rounded-xl border space-y-2 transition-all ${
+                  casePdfError
+                    ? 'border-rose-500 bg-rose-500/5 ring-2 ring-rose-500/20'
+                    : casePolicyPdf
+                    ? 'border-emerald-500 bg-emerald-500/5'
+                    : 'border-border bg-muted/20'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold flex items-center gap-1.5 text-foreground">
+                    <FileText className={`h-4 w-4 ${casePolicyPdf ? 'text-emerald-600' : 'text-rose-500'}`} />
+                    <span>Official Policy Schedule PDF <span className="text-rose-500 font-bold">* (Mandatory)</span></span>
+                  </label>
+                  <span className="px-2 py-0.5 rounded text-[9px] font-bold bg-rose-500/10 text-rose-600 border border-rose-500/20">
+                    Required by IRDAI
+                  </span>
+                </div>
+                <p className="text-[10px] text-muted-foreground">
+                  Under insurance underwriting rules, a policy cannot be issued without attaching the official policy PDF schedule.
+                </p>
+
+                <div
+                  className={`p-3 rounded-lg border-2 border-dashed flex items-center justify-between cursor-pointer transition ${
+                    casePolicyPdf
+                      ? 'border-emerald-500/60 bg-emerald-500/10'
+                      : casePdfError
+                      ? 'border-rose-500 bg-rose-500/10'
+                      : 'border-border/80 hover:border-primary/80 bg-background'
+                  }`}
+                  onClick={() => casePdfInputRef.current?.click()}
+                >
+                  <input
+                    type="file"
+                    ref={casePdfInputRef}
+                    accept="application/pdf,.pdf"
+                    className="hidden"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (f) {
+                        if (!f.name.toLowerCase().endsWith('.pdf') && f.type !== 'application/pdf') {
+                          toast.error('Only PDF documents are supported for official policy schedules');
+                          setCasePdfError('Only PDF files are accepted');
+                          return;
+                        }
+                        setCasePolicyPdf(f);
+                        setCasePdfError(null);
+                      }
+                    }}
+                  />
+                  <div className="flex items-center gap-2 min-w-0">
+                    {casePolicyPdf ? (
+                      <FileCheck2 className="h-4 w-4 text-emerald-600 shrink-0" />
+                    ) : (
+                      <Upload className={`h-4 w-4 shrink-0 ${casePdfError ? 'text-rose-500' : 'text-muted-foreground'}`} />
+                    )}
+                    <div className="min-w-0">
+                      <div className="text-xs font-bold truncate text-foreground">
+                        {casePolicyPdf ? casePolicyPdf.name : 'Upload Official Policy PDF Schedule *'}
+                      </div>
+                      <div className="text-[10px] text-muted-foreground">
+                        {casePolicyPdf
+                          ? `${(casePolicyPdf.size / 1024).toFixed(1)} KB • Attached`
+                          : 'PDF format only, maximum 15MB'}
+                      </div>
+                    </div>
+                  </div>
+
+                  {casePolicyPdf ? (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setCasePolicyPdf(null);
+                      }}
+                      className="p-1 rounded text-muted-foreground hover:text-rose-600 hover:bg-rose-500/10"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  ) : (
+                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-primary text-primary-foreground shrink-0">
+                      Browse
+                    </span>
+                  )}
+                </div>
+
+                {casePdfError && (
+                  <div className="flex items-center gap-1.5 text-[11px] text-rose-600 font-semibold pt-0.5">
+                    <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+                    <span>{casePdfError}</span>
+                  </div>
+                )}
+              </div>
             </div>
 
             <div className="flex items-center justify-end gap-2 pt-3 border-t border-border">
               <button
-                onClick={() => setIssuePolicyModalOpen(false)}
+                onClick={() => {
+                  setIssuePolicyModalOpen(false);
+                  setCasePdfError(null);
+                }}
                 className="px-4 py-2 rounded-lg border text-xs font-semibold hover:bg-muted"
               >
                 Cancel
               </button>
               <button
-                disabled={issuePolicyMutation.isPending}
-                onClick={() => {
-                  issuePolicyMutation.mutate({
-                    startDate: issuePolicyForm.startDate,
-                    endDate: issuePolicyForm.endDate,
-                    actualPolicyNumber: issuePolicyForm.actualPolicyNumber.trim() || undefined,
-                    nomineeName: issuePolicyForm.nomineeName.trim() || undefined,
-                    nomineeRelation: issuePolicyForm.nomineeRelation,
-                  });
+                disabled={issuePolicyMutation.isPending || isUploadingCasePdf}
+                onClick={async () => {
+                  if (!casePolicyPdf) {
+                    setCasePdfError('Official Policy PDF Schedule document is mandatory before policy can be issued.');
+                    showApiErrorToast(
+                      new Error(
+                        'Policy issuance blocked: Official policy schedule PDF document is mandatory before policy can be completed or issued. Please upload the policy PDF.'
+                      ),
+                      'Policy PDF Required'
+                    );
+                    return;
+                  }
+
+                  try {
+                    setIsUploadingCasePdf(true);
+                    const formData = new FormData();
+                    formData.append('file', casePolicyPdf);
+                    formData.append('name', casePolicyPdf.name);
+                    formData.append('category', 'POLICY_DOCUMENT');
+                    formData.append('entityType', 'POLICY');
+                    formData.append('entityId', quotationId);
+
+                    const uploadRes = await apiClient.post('/documents/upload', formData, {
+                      headers: { 'Content-Type': 'multipart/form-data' },
+                    });
+                    const storageKey = uploadRes.data?.storageKey;
+                    if (!storageKey) {
+                      throw new Error('Failed to obtain document storage key from upload');
+                    }
+
+                    await issuePolicyMutation.mutateAsync({
+                      startDate: issuePolicyForm.startDate,
+                      endDate: issuePolicyForm.endDate,
+                      actualPolicyNumber: issuePolicyForm.actualPolicyNumber.trim() || undefined,
+                      nomineeName: issuePolicyForm.nomineeName.trim() || undefined,
+                      nomineeRelation: issuePolicyForm.nomineeRelation,
+                      documentFileKey: storageKey,
+                      documentFileName: casePolicyPdf.name,
+                      documentFileSize: casePolicyPdf.size,
+                    });
+                  } catch (err: any) {
+                    showApiErrorToast(
+                      err,
+                      'Policy issuance blocked: Official policy schedule PDF document is mandatory before policy can be issued.'
+                    );
+                  } finally {
+                    setIsUploadingCasePdf(false);
+                  }
                 }}
-                className="px-4 py-2 rounded-lg text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 transition disabled:opacity-50 flex items-center gap-1.5"
+                className={`px-4 py-2 rounded-lg text-xs font-bold text-white transition disabled:opacity-50 flex items-center gap-1.5 ${
+                  !casePolicyPdf
+                    ? 'bg-amber-600 hover:bg-amber-700'
+                    : 'bg-emerald-600 hover:bg-emerald-700'
+                }`}
               >
-                <ShieldCheck className="h-4 w-4" />
-                <span>{issuePolicyMutation.isPending ? 'Issuing Policy...' : 'Confirm & Issue Policy'}</span>
+                {issuePolicyMutation.isPending || isUploadingCasePdf ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <span>Issuing Policy...</span>
+                  </>
+                ) : !casePolicyPdf ? (
+                  <>
+                    <Upload className="h-4 w-4" />
+                    <span>Upload Policy PDF to Issue</span>
+                  </>
+                ) : (
+                  <>
+                    <ShieldCheck className="h-4 w-4" />
+                    <span>Confirm & Issue Policy</span>
+                  </>
+                )}
               </button>
             </div>
           </div>

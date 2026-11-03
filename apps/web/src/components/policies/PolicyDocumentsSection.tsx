@@ -27,6 +27,7 @@ interface PolicyDocumentsSectionProps {
   policyId: string;
   quotationId?: string | null;
   documents?: PolicyDocumentItem[];
+  complianceStatus?: string;
   canUpload?: boolean;
   onDocumentUploaded?: () => void;
   className?: string;
@@ -87,6 +88,7 @@ function getFileIcon(fileName?: string, mimeType?: string | null) {
 export function PolicyDocumentsSection({
   policyId,
   documents = [],
+  complianceStatus,
   canUpload = false,
   onDocumentUploaded,
   className = '',
@@ -197,6 +199,18 @@ export function PolicyDocumentsSection({
 
   return (
     <div className={`p-4 rounded-xl border bg-card space-y-4 ${className}`}>
+      {complianceStatus === 'MISSING_LEGACY' && (
+        <div className="p-3.5 rounded-xl border border-amber-500/30 bg-amber-500/10 text-amber-900 dark:text-amber-200 flex items-start gap-3">
+          <AlertTriangle className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
+          <div className="text-xs space-y-1">
+            <div className="font-bold">Missing Official Policy Schedule PDF (Legacy Record)</div>
+            <p className="text-muted-foreground text-[11px]">
+              This policy was issued prior to mandatory PDF schedule verification. Please upload the official policy PDF schedule to bring this policy into regulatory compliance.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Header with Title, Source Filters, and Upload CTA */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b pb-3">
         <div className="flex items-center gap-2.5">
@@ -211,6 +225,23 @@ export function PolicyDocumentsSection({
               <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-muted text-muted-foreground">
                 {documents.length}
               </span>
+              {complianceStatus && (
+                <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${
+                  complianceStatus === 'VERIFIED'
+                    ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20'
+                    : complianceStatus === 'MISSING_LEGACY'
+                    ? 'bg-amber-500/10 text-amber-600 border-amber-500/20'
+                    : complianceStatus === 'REQUIRES_VERIFICATION'
+                    ? 'bg-blue-500/10 text-blue-600 border-blue-500/20'
+                    : 'bg-muted text-muted-foreground border-border'
+                }`}>
+                  {complianceStatus === 'VERIFIED' && 'Verified Schedule'}
+                  {complianceStatus === 'MISSING_LEGACY' && 'Legacy: Missing PDF'}
+                  {complianceStatus === 'REQUIRES_VERIFICATION' && 'Verification Required'}
+                  {complianceStatus === 'PENDING_UPLOAD' && 'Pending Schedule Upload'}
+                  {complianceStatus === 'INVALID' && 'Invalid Schedule'}
+                </span>
+              )}
             </div>
             <p className="text-[11px] text-muted-foreground mt-0.5">
               Verified underwriting documents from quotation creation and policy issuance.

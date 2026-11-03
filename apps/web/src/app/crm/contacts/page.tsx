@@ -9,6 +9,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useCustomers } from '../../../hooks/useCustomer360';
 import { customerRepository } from '../../../repositories/customer.repository';
 import { adminRepository } from '../../../repositories/admin.repository';
+import { apiClient } from '../../../lib/api-client';
 import { useAuthStore } from '../../../store/auth-store';
 import { toast } from 'sonner';
 
@@ -71,29 +72,62 @@ export default function CustomerRegisterPage() {
     email: '',
     branchId: '',
     agentCode: '',
+    agentCodeSystem: '',
   });
 
 
   const { data: currentUser } = useQuery({
     queryKey: ['current-user-contact-preference'],
     queryFn: adminRepository.getCurrentUser,
-    enabled: !isAdminOrBackOffice,
   });
-  const { data: assignedUsers = [] } = useQuery({
-    queryKey: ['contact-assigned-agent-preference', formData.agentCode],
+
+  const { data: availableUsers = [], isLoading: isLoadingAgents } = useQuery({
+    queryKey: ['available-agents-directory'],
     queryFn: async () => {
-      const result = await adminRepository.getUsers({ search: formData.agentCode });
+      const result = await adminRepository.getUsers({ status: 'ACTIVE', limit: 100 });
       return Array.isArray(result) ? result : (result as any)?.data || (result as any)?.items || [];
     },
-    enabled: isAdminOrBackOffice && Boolean(formData.agentCode.trim()),
+    staleTime: 60 * 1000,
   });
-  const assignedAgentPreference = assignedUsers.find((u: any) =>
-    String(u.employeeCode || '').toUpperCase() === formData.agentCode.trim().toUpperCase() ||
-    String(u.id || '').toLowerCase() === formData.agentCode.trim().toLowerCase()
-  );
-  const effectiveContactCollection = isAdminOrBackOffice
-    ? (assignedAgentPreference?.collectContacts ?? false)
-    : Boolean(currentUser?.collectContacts);
+
+  const availableAgents = React.useMemo(() => {
+    if (!Array.isArray(availableUsers)) return [];
+    return availableUsers.filter((u: any) => {
+      const roleCode = typeof u.role === 'string' ? u.role : u.role?.code;
+      return String(roleCode || '').toUpperCase() === 'AGENT';
+    });
+  }, [availableUsers]);
+
+  const selectedAgent = React.useMemo(() => {
+    if (!formData.agentCode) return null;
+    const searchCode = formData.agentCode.trim().toUpperCase();
+    return (
+      availableUsers.find((u: any) => {
+        return (
+          String(u.employeeCode || '').toUpperCase() === searchCode ||
+          String(u.agentCode || '').toUpperCase() === searchCode ||
+          String(u.id || '').toUpperCase() === searchCode
+        );
+      }) || null
+    );
+  }, [availableUsers, formData.agentCode]);
+
+  const externalAgentLookup = useQuery({
+    queryKey: ['external-agent-code-resolution', formData.agentCode.trim(), formData.agentCodeSystem.trim().toUpperCase()],
+    queryFn: async () => (await apiClient.get('/agents/external-codes/resolve', {
+      params: {
+        identifier: formData.agentCode.trim(),
+        identifierType: 'EXTERNAL_CODE',
+        codeSystem: formData.agentCodeSystem.trim().toUpperCase(),
+      },
+    })).data,
+    enabled: false,
+    retry: false,
+  });
+
+  const effectiveContactCollection = selectedAgent
+    ? Boolean(selectedAgent.collectContacts)
+    : Boolean(currentUser?.collectContacts ?? user?.collectContacts);
 
   // Default to primary branch once branches load
   useEffect(() => {
@@ -137,8 +171,16 @@ export default function CustomerRegisterPage() {
       payload.branchId = formData.branchId;
     }
 
-    if (isAdminOrBackOffice && formData.agentCode.trim()) {
-      payload.agentCode = formData.agentCode.trim().toUpperCase();
+    if (formData.agentCode.trim()) {
+      payload.agentCode = formData.agentCode.trim();
+      if (formData.agentCodeSystem.trim()) {
+        if (!externalAgentLookup.data?.agent?.id) {
+          return void toast.error('Resolve this external Agent code before registering the contact');
+        }
+        payload.agentCodeSystem = formData.agentCodeSystem.trim().toUpperCase();
+      }
+    } else if (formData.agentCodeSystem.trim()) {
+      return void toast.error('Enter an external Agent code for the selected code system');
     }
 
     setIsSubmitting(true);
@@ -156,6 +198,7 @@ export default function CustomerRegisterPage() {
         email: '',
         branchId: dbBranches[0]?.id || '',
         agentCode: '',
+        agentCodeSystem: '',
       });
       router.replace('/crm/contacts');
     } catch (err: any) {
@@ -375,32 +418,53 @@ export default function CustomerRegisterPage() {
                   ))}
                 </select>
               </div>
-              {isAdminOrBackOffice ? (
-                <div>
-                  <label className="font-bold text-muted-foreground block mb-1">Assigned Agent Code (Optional)</label>
+              <div>
+                <label className="font-bold text-muted-foreground block mb-1">
+                  Assigned Agent <span className="text-muted-foreground/60 font-normal">(Optional)</span>
+                </label>
+                <input
+                  list="registered-agent-codes"
+                  value={formData.agentCode}
+                  onChange={(e) => setFormData({ ...formData, agentCode: e.target.value })}
+                  disabled={isLoadingAgents}
+                  placeholder="Choose an Agent or enter an external code"
+                  className="w-full p-2.5 rounded-lg border bg-background text-xs"
+                />
+                <datalist id="registered-agent-codes">
+                  {availableAgents.map((ag: any) => {
+                    const code = ag.agentCode || ag.employeeCode || ag.id;
+                    const fullName = `${ag.firstName || ''} ${ag.lastName || ''}`.trim() || ag.email;
+                    return (
+                      <option key={ag.id} value={code}>{fullName}</option>
+                    );
+                  })}
+                </datalist>
+                <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-2 mt-2">
                   <input
-                    value={formData.agentCode}
-                    onChange={(e) => setFormData({ ...formData, agentCode: e.target.value.toUpperCase() })}
-                    placeholder="e.g. EMP-1786251264 (or leave blank to self-assign)"
-                    className="w-full p-2.5 rounded-lg border bg-background text-xs font-mono uppercase"
+                    value={formData.agentCodeSystem}
+                    onChange={(e) => setFormData({ ...formData, agentCodeSystem: e.target.value.toUpperCase() })}
+                    placeholder="External code namespace (e.g. CLIENT_A)"
+                    className="w-full p-2.5 rounded-lg border bg-background text-xs"
                   />
-                  <span className="text-[10px] text-muted-foreground mt-1 block">
-                    Leave blank to automatically assign this customer to yourself.
-                  </span>
+                  <button
+                    type="button"
+                    onClick={() => externalAgentLookup.refetch()}
+                    disabled={!formData.agentCode.trim() || !formData.agentCodeSystem.trim() || externalAgentLookup.isFetching}
+                    className="rounded-lg border px-3 py-2 text-xs font-semibold hover:bg-accent disabled:opacity-50"
+                  >
+                    {externalAgentLookup.isFetching ? 'Resolving…' : 'Resolve code'}
+                  </button>
                 </div>
-              ) : (
-                <div className="p-3 rounded-lg border bg-muted/30 text-xs flex items-center justify-between">
-                  <div>
-                    <span className="text-[10px] uppercase font-bold text-muted-foreground block">Assigned Agent</span>
-                    <span className="font-bold text-foreground">
-                      {user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'You' : 'You (Current Agent)'}
-                    </span>
-                  </div>
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
-                    Auto-Assigned
-                  </span>
-                </div>
-              )}
+                <span className="text-[10px] text-muted-foreground mt-1 block">
+                  {externalAgentLookup.data?.agent
+                    ? `Verified: ${externalAgentLookup.data.agent.name} · ${externalAgentLookup.data.agent.agentCode} · ${externalAgentLookup.data.identifier.value} (${externalAgentLookup.data.identifier.codeSystem})`
+                    : externalAgentLookup.isError
+                      ? 'Code was not found, is inactive, or still needs verification.'
+                      : selectedAgent
+                    ? `Assigned to: ${selectedAgent.firstName || ''} ${selectedAgent.lastName || ''} (${selectedAgent.agentCode || selectedAgent.employeeCode || selectedAgent.email})`
+                    : 'Select a registered Agent or enter an external code and namespace. Leave blank to use the authenticated Agent where applicable.'}
+                </span>
+              </div>
             </div>
 
             <p className="text-[11px] text-muted-foreground border rounded-lg p-3 bg-muted/20">

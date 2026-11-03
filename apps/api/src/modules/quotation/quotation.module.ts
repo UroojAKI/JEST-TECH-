@@ -33,9 +33,10 @@ import { AdministrationModule } from '../administration/administration.module';
 import { AuthModule } from '../auth/auth.module';
 
 import { CreateMotorQuotationCommand } from './services/commands/create-motor-quotation.command';
+import { AgentsModule } from '../agents/agents.module';
 
 @Module({
-  imports: [ContactsModule, AccountsModule, MotorModule, AdministrationModule, AuthModule],
+  imports: [ContactsModule, AccountsModule, MotorModule, AdministrationModule, AuthModule, AgentsModule],
   controllers: [QuotationController],
   providers: [
     QuotationRepository,

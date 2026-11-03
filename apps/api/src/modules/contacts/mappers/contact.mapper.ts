@@ -33,6 +33,8 @@ export class ContactMapper {
       createdById: contact.createdById,
       updatedById: contact.updatedById,
       accountId: contact.accountId,
+      assignedAgentId: contact.assignedAgentId ?? null,
+      assignedExternalCodeId: contact.assignedExternalCodeId ?? null,
       branchId:
         contact.branchId ??
         contact.branch?.id ??
@@ -40,12 +42,10 @@ export class ContactMapper {
         null,
       companyId: contact.companyId ?? contact.company?.id ?? null,
       branch: contact.branch ?? contact.createdBy?.branch ?? null,
-      agentCode: contact.agentCode || contact.createdBy?.employeeCode || null,
-      agent: contact.agentCode
-        ? contact.createdBy
-          ? `${contact.createdBy.firstName || ''} ${contact.createdBy.lastName || ''}`.trim() +
-            ` (${contact.agentCode})`
-          : contact.agentCode
+      agentCode: contact.agentCode || contact.assignedAgent?.agentCode || null,
+      agent: contact.assignedAgent
+        ? `${contact.assignedAgent.user?.firstName || ''} ${contact.assignedAgent.user?.lastName || ''}`.trim() +
+          ` (${contact.agentCode || contact.assignedAgent.agentCode})`
         : contact.createdBy
           ? `${contact.createdBy.firstName || ''} ${contact.createdBy.lastName || ''}`.trim()
           : null,

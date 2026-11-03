@@ -408,6 +408,14 @@ export class AuthService {
           data: { authVersion: { increment: 1 } },
         })
         .catch(() => {});
+      await this.usersService
+        .createAuditLog({
+          userId: resolvedUserId,
+          action: AuditAction.LOGOUT,
+          entity: 'User',
+          entityId: resolvedUserId,
+        })
+        .catch(() => {});
     }
   }
 

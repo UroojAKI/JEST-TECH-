@@ -24,6 +24,8 @@ import {
   Customer,
 } from '../../../repositories/customer.repository';
 import { toast } from 'sonner';
+import { adminRepository } from '../../../repositories/admin.repository';
+import { apiClient } from '../../../lib/api-client';
 
 export default function CustomersPage() {
   const router = useRouter();
@@ -44,6 +46,9 @@ export default function CustomersPage() {
     city: '',
     state: '',
     isVip: false,
+    agentId: '',
+    externalAgentCode: '',
+    agentCodeSystem: '',
   });
 
   // Soft Duplicate Checking
@@ -65,6 +70,32 @@ export default function CustomersPage() {
   const customers = data?.data || [];
   const total = (data as any)?.meta?.total ?? data?.total ?? 0;
   const totalPages = (data as any)?.meta?.totalPages ?? data?.totalPages ?? 1;
+
+  const { data: availableUsers = [] } = useQuery({
+    queryKey: ['customer-agent-options'],
+    queryFn: async () => {
+      const result = await adminRepository.getUsers({ status: 'ACTIVE', limit: 100 });
+      const rows = Array.isArray(result) ? result : (result as any)?.data || (result as any)?.items || [];
+      return rows.filter((row: any) => {
+        const roleCode = typeof row.role === 'string' ? row.role : row.role?.code;
+        return String(roleCode || '').toUpperCase() === 'AGENT' && row.agentProfile?.id;
+      });
+    },
+    staleTime: 60_000,
+  });
+
+  const externalAgentLookup = useQuery({
+    queryKey: ['customer-external-agent-resolution', formData.externalAgentCode.trim(), formData.agentCodeSystem.trim().toUpperCase()],
+    queryFn: async () => (await apiClient.get('/agents/external-codes/resolve', {
+      params: {
+        identifier: formData.externalAgentCode.trim(),
+        identifierType: 'EXTERNAL_CODE',
+        codeSystem: formData.agentCodeSystem.trim().toUpperCase(),
+      },
+    })).data,
+    enabled: false,
+    retry: false,
+  });
 
   // Debounced soft duplicate check
   useEffect(() => {
@@ -102,6 +133,9 @@ export default function CustomersPage() {
         aadhaarNumber: formData.aadhaarNumber.trim() || undefined,
         city: formData.city.trim() || undefined,
         state: formData.state.trim() || undefined,
+        agentId: formData.agentId || undefined,
+        externalAgentCode: formData.externalAgentCode.trim() || undefined,
+        agentCodeSystem: formData.agentCodeSystem.trim().toUpperCase() || undefined,
         acknowledgeDuplicate: acknowledge,
       }),
     onSuccess: (res) => {
@@ -122,6 +156,9 @@ export default function CustomersPage() {
           city: '',
           state: '',
           isVip: false,
+          agentId: '',
+          externalAgentCode: '',
+          agentCodeSystem: '',
         });
         setDuplicateMatches([]);
         queryClient.invalidateQueries({ queryKey: ['customers-list'] });
@@ -139,6 +176,21 @@ export default function CustomersPage() {
     e.preventDefault();
     if (duplicateMatches.length > 0) {
       return toast.error('This entry is already used. A customer with this mobile or email is already registered.');
+    }
+    if (formData.agentId && formData.externalAgentCode.trim()) {
+      return toast.error('Choose a registered Agent or resolve an external code, not both.');
+    }
+    if (formData.agentCodeSystem.trim() && !formData.externalAgentCode.trim()) {
+      return toast.error('External Agent Code is required with a code system.');
+    }
+    if (formData.externalAgentCode.trim()) {
+      const resolved = externalAgentLookup.data;
+      const matchesCurrentInput =
+        resolved?.identifier?.value === formData.externalAgentCode.trim() &&
+        resolved?.identifier?.codeSystem === formData.agentCodeSystem.trim().toUpperCase();
+      if (!matchesCurrentInput) {
+        return toast.error('Resolve the external Agent code before creating this customer.');
+      }
     }
     if (!formData.firstName.trim()) {
       return toast.error('First name is required');
@@ -366,6 +418,71 @@ export default function CustomersPage() {
                     className="mt-1 w-full rounded-lg border bg-background text-foreground text-xs focus:ring-1 focus:ring-primary focus:outline-none p-2.5"
                   />
                 </div>
+              </div>
+
+              <div className="rounded-xl border bg-muted/20 p-3 space-y-3">
+                <label className="block text-xs font-bold text-muted-foreground">
+                  Assigned Agent (optional)
+                  <select
+                    value={formData.agentId}
+                    onChange={(e) => setFormData({ ...formData, agentId: e.target.value })}
+                    className="mt-1 w-full rounded-lg border bg-background p-2.5 text-xs font-normal text-foreground"
+                  >
+                    <option value="">No Agent selected</option>
+                    {availableUsers.map((agent: any) => (
+                      <option key={agent.agentProfile.id} value={agent.agentProfile.id}>
+                        {agent.firstName} {agent.lastName || ''} · {agent.agentProfile.agentCode}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <div className="grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_160px_auto] gap-2">
+                  <label className="block text-xs font-bold text-muted-foreground">
+                    External Agent Code
+                    <input
+                      value={formData.externalAgentCode}
+                      onChange={(e) => setFormData({ ...formData, externalAgentCode: e.target.value })}
+                      placeholder="IGSK001"
+                      maxLength={100}
+                      className="mt-1 w-full rounded-lg border bg-background p-2.5 text-xs font-mono font-normal text-foreground"
+                    />
+                  </label>
+                  <label className="block text-xs font-bold text-muted-foreground">
+                    Code System
+                    <input
+                      value={formData.agentCodeSystem}
+                      onChange={(e) => setFormData({ ...formData, agentCodeSystem: e.target.value.toUpperCase() })}
+                      placeholder="CLIENT_A"
+                      maxLength={50}
+                      className="mt-1 w-full rounded-lg border bg-background p-2.5 text-xs font-mono font-normal text-foreground"
+                    />
+                  </label>
+                  <button
+                    type="button"
+                    disabled={externalAgentLookup.isFetching || !formData.externalAgentCode.trim() || !formData.agentCodeSystem.trim()}
+                    onClick={async () => {
+                      const result = await externalAgentLookup.refetch();
+                      if (result.data?.agent) {
+                        toast.success(`Resolved to ${result.data.agent.name} (${result.data.agent.agentCode})`);
+                      } else if (result.error) {
+                        toast.error((result.error as any).response?.data?.message || 'Agent code could not be resolved');
+                      }
+                    }}
+                    className="self-end rounded-lg border px-3 py-2.5 text-xs font-semibold hover:bg-background disabled:opacity-50"
+                  >
+                    {externalAgentLookup.isFetching ? 'Resolving…' : 'Resolve code'}
+                  </button>
+                </div>
+                {externalAgentLookup.data?.agent && (
+                  <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 px-3 py-2 text-xs">
+                    <span className="font-semibold">{externalAgentLookup.data.agent.name}</span>
+                    <span className="text-muted-foreground"> · JEST Agent {externalAgentLookup.data.agent.agentCode} · {externalAgentLookup.data.identifier.codeSystem}:{externalAgentLookup.data.identifier.value}</span>
+                  </div>
+                )}
+                {externalAgentLookup.isError && (
+                  <p className="text-xs text-destructive">This code is unresolved, inactive, outside its effective dates, or not verified. Resolve a valid identifier before creating an assigned customer.</p>
+                )}
+                <p className="text-[11px] text-muted-foreground">Select a registered Agent or resolve a verified external code. Assignment is stored against the canonical Agent and its source identifier.</p>
               </div>
 
               <div className="grid grid-cols-2 gap-4">

@@ -1,3 +1,11 @@
+import {
+  formatUserFacingError,
+  UserFacingError,
+  getAuthErrorMessage,
+  AuthErrorInfo,
+} from './user-facing-errors';
+export { formatUserFacingError, getAuthErrorMessage };
+export type { UserFacingError, AuthErrorInfo };
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
 import { toast } from 'sonner';
 
@@ -241,56 +249,66 @@ export function getApiCorrelationId(error: unknown): string | null {
 /**
  * Extracts a user-facing error message from an API error.
  */
+/**
+ * Extracts a structured, user-facing error message from an API error (REQ-8).
+ */
 export function getApiErrorMessage(
   error: unknown,
   fallback = 'An unexpected error occurred',
 ): string {
-  if (axios.isAxiosError(error)) {
-    const data = error.response?.data as any;
-    if (data?.error?.message) {
-      return Array.isArray(data.error.message)
-        ? data.error.message.join(' | ')
-        : String(data.error.message);
-    }
-    if (data?.message) {
-      return Array.isArray(data.message)
-        ? data.message.join(' | ')
-        : String(data.message);
-    }
-    if (error.message) {
-      return error.message;
-    }
-  } else if (error instanceof Error) {
-    return error.message;
-  }
-  return fallback;
+  const formatted = formatUserFacingError(error, fallback);
+  return formatted.message || formatted.title || fallback;
 }
 
 /**
- * Displays a Sonner toast notification with a user-friendly error message
- * and a one-click "Copy Trace ID" action if a correlation/request ID is present.
+ * Displays a Sonner toast notification with a user-friendly error message,
+ * clear action instruction, and a one-click "Copy Trace ID" action if correlation ID is present (REQ-8).
  */
 export function showApiErrorToast(
   error: unknown,
   fallbackMessage = 'An unexpected error occurred',
 ) {
-  const message = getApiErrorMessage(error, fallbackMessage);
-  const traceId = getApiCorrelationId(error);
+  const formatted = formatUserFacingError(error, fallbackMessage);
+  const traceId = formatted.correlationId || getApiCorrelationId(error);
 
+  const isSpecificTitle =
+    formatted.title &&
+    formatted.title !== 'Submission Issue' &&
+    formatted.title !== 'Action Conflict' &&
+    formatted.title !== 'Service Temporarily Unavailable';
+
+  const toastTitle = isSpecificTitle
+    ? `${formatted.title}: ${formatted.message}`
+    : formatted.message || formatted.title;
+
+  const descriptionParts: string[] = [];
+  if (formatted.actionHint) {
+    descriptionParts.push(formatted.actionHint);
+  }
   if (traceId) {
-    return toast.error(message, {
-      description: `Trace ID: ${traceId}`,
-      action: {
-        label: 'Copy Trace ID',
-        onClick: () => {
-          if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
-            navigator.clipboard.writeText(traceId);
-            toast.info('Trace ID copied to clipboard');
-          }
-        },
-      },
-    });
+    descriptionParts.push(`Trace ID: ${traceId}`);
   }
 
-  return toast.error(message);
+  const toastOptions: any = {};
+  if (descriptionParts.length > 0) {
+    toastOptions.description = descriptionParts.join(' ');
+  }
+
+  if (traceId) {
+    toastOptions.action = {
+      label: 'Copy Trace ID',
+      onClick: () => {
+        if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+          navigator.clipboard.writeText(traceId);
+          toast.info('Trace ID copied to clipboard');
+        }
+      },
+    };
+  }
+
+  if (Object.keys(toastOptions).length > 0) {
+    return toast.error(toastTitle, toastOptions);
+  }
+
+  return toast.error(toastTitle);
 }

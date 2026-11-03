@@ -4,11 +4,13 @@ import {
   HealthPlanCategory,
   HealthPolicyForm,
   InsuredRelation,
+  PaymentTrackingStatus,
   Prisma,
   QuotationStatus,
   RoleType,
 } from '@prisma/client';
 import { PrismaService } from '../../../database/prisma.service';
+import { EncryptionUtil } from '../../../common/utils/encryption.util';
 import { TenantResourceAuthorizationService } from '../../auth/services/tenant-resource-authorization.service';
 import { NumberingEngineService } from '../../administration/services/numbering-engine/numbering-engine.service';
 import { RequestUser } from '../../auth/decorators/current-user.decorator';
@@ -20,6 +22,7 @@ import {
 } from '../dto/health-quotation-case.dto';
 import { HealthPremiumService } from './health-premium.service';
 import { HealthPlanValidationService } from './health-plan-validation.service';
+import { AgentIdentityResolverService } from '../../agents/agent-identity-resolver.service';
 
 /** Free-look period, Policy Form (i) field 12: 15 days (30 for electronic / distance marketing). */
 const FREE_LOOK_DAYS = 15;
@@ -66,7 +69,124 @@ export class HealthQuotationCaseService {
     private readonly numberingEngine: NumberingEngineService,
     private readonly premiumService: HealthPremiumService,
     private readonly planValidation: HealthPlanValidationService,
+    private readonly agentIdentityResolver: AgentIdentityResolverService,
   ) {}
+
+  private caseWhereFor(user: RequestUser): Prisma.HealthQuotationCaseWhereInput {
+    const where: Prisma.HealthQuotationCaseWhereInput = {
+      companyId: user.companyId,
+      deletedAt: null,
+    };
+    if (user.role !== RoleType.AGENT) return where;
+
+    const ownership: Prisma.HealthQuotationCaseWhereInput[] = [];
+    if (user.agentId) ownership.push({ agentId: user.agentId });
+    ownership.push({ agentId: null, createdById: user.userId || user.id });
+    return { ...where, OR: ownership };
+  }
+
+  private maskPiiData(value: any): any {
+    if (Array.isArray(value)) return value.map((item) => this.maskPiiData(item));
+    if (!value || typeof value !== 'object') return value;
+
+    return Object.fromEntries(
+      Object.entries(value).map(([key, item]) => {
+        if (typeof item === 'string' && /pan(?:number)?$/i.test(key)) {
+          return [key, EncryptionUtil.maskPan(item)];
+        }
+        if (typeof item === 'string' && /aadhaar/i.test(key)) {
+          return [key, EncryptionUtil.maskAadhaar(item)];
+        }
+        return [key, this.maskPiiData(item)];
+      }),
+    );
+  }
+
+  private toSafeCase<T extends Record<string, any>>(healthCase: T): T {
+    const maskQuote = (quote: any) => {
+      if (!quote) return quote;
+      return {
+        ...quote,
+        healthMetadata: this.maskPiiData(quote.healthMetadata),
+        calculationSnapshot: this.maskPiiData(quote.calculationSnapshot),
+      };
+    };
+
+    return {
+      ...healthCase,
+      customerSnapshot: this.maskPiiData(healthCase.customerSnapshot),
+      contact: healthCase.contact
+        ? {
+            ...healthCase.contact,
+            panNumber: EncryptionUtil.maskPan(healthCase.contact.panNumber),
+            aadhaarNumber: EncryptionUtil.maskAadhaar(healthCase.contact.aadhaarNumber),
+          }
+        : healthCase.contact,
+      quotations: Array.isArray(healthCase.quotations)
+        ? healthCase.quotations.map(maskQuote)
+        : healthCase.quotations,
+      selectedQuote: maskQuote(healthCase.selectedQuote),
+    } as T;
+  }
+
+  private async assertLeadAccess(leadId: string, user: RequestUser) {
+    const lead = await this.prisma.lead.findFirst({
+      where: { id: leadId, companyId: user.companyId, deletedAt: null },
+      select: {
+        id: true,
+        contactId: true,
+        agentId: true,
+        assignedToId: true,
+        createdById: true,
+      },
+    });
+    if (!lead) throw new NotFoundException(`Lead '${leadId}' not found or access denied`);
+
+    if (user.role === RoleType.AGENT) {
+      const ownsLead =
+        (Boolean(user.agentId) && lead.agentId === user.agentId) ||
+        (!lead.agentId && lead.assignedToId === (user.userId || user.id)) ||
+        (!lead.agentId && lead.createdById === (user.userId || user.id));
+      if (!ownsLead) throw new NotFoundException(`Lead '${leadId}' not found or access denied`);
+    }
+    return lead;
+  }
+
+  private async assertFamilyMembersBelongToContact(
+    contactId: string,
+    members: CreateHealthQuotationCaseDto['members'],
+    companyId: string,
+  ) {
+    const providedIds = members.map((member) => member.familyMemberId).filter(Boolean) as string[];
+    const familyMemberIds = [...new Set(providedIds)];
+    if (familyMemberIds.length !== providedIds.length) {
+      throw new BadRequestException('A family member can only be selected once per Health case');
+    }
+    if (!familyMemberIds.length) return;
+
+    const ownedMembers = await this.prisma.familyMember.findMany({
+      where: {
+        id: { in: familyMemberIds },
+        contactId,
+        contact: { companyId },
+      },
+      select: { id: true },
+    });
+    if (ownedMembers.length !== familyMemberIds.length) {
+      throw new BadRequestException('Every selected family member must belong to the proposer contact');
+    }
+  }
+
+  async findCaseForActor(caseId: string, user: RequestUser) {
+    const healthCase = await this.prisma.healthQuotationCase.findFirst({
+      where: { id: caseId, ...this.caseWhereFor(user) },
+    });
+    if (!healthCase) {
+      throw new NotFoundException(`HealthQuotationCase '${caseId}' not found or access denied`);
+    }
+    return healthCase;
+  }
+
   async createCase(dto: CreateHealthQuotationCaseDto, user: RequestUser) {
     let contact: any;
     try {
@@ -74,7 +194,7 @@ export class HealthQuotationCaseService {
     } catch (err) {
       // Check if dto.contactId was a customerId
       const customer = await this.prisma.customer.findFirst({
-        where: { id: dto.contactId, companyId: user.companyId },
+        where: { id: dto.contactId, companyId: user.companyId, deletedAt: null },
         include: { contact: true },
       });
       if (customer) {
@@ -112,9 +232,65 @@ export class HealthQuotationCaseService {
         throw err;
       }
     }
-    if (dto.leadId) {
-      await this.tenantAuthService.assertTenantResource('Lead', dto.leadId, user);
+    const proposerContact = await this.prisma.contact.findFirst({
+      where: { id: contact.id, companyId: user.companyId, deletedAt: null },
+      include: {
+        customer: {
+          select: {
+            companyId: true,
+            primaryAgentId: true,
+            primaryAgentExternalCodeId: true,
+          },
+        },
+      },
+    });
+    if (!proposerContact) throw new NotFoundException('Proposer contact not found or access denied');
+    contact = proposerContact;
+
+    const lead = dto.leadId ? await this.assertLeadAccess(dto.leadId, user) : null;
+    if (lead && lead.contactId !== contact.id) {
+      throw new BadRequestException('The selected lead does not belong to the proposer contact');
     }
+
+    if (user.role === RoleType.AGENT) {
+      if (!user.agentId) {
+        throw new ForbiddenException('An active Agent profile is required to create Health cases');
+      }
+      const customerAgentId = contact.customer?.primaryAgentId;
+      const ownsContact = customerAgentId
+        ? customerAgentId === user.agentId
+        : contact.createdById === (user.userId || user.id) ||
+          lead?.agentId === user.agentId ||
+          lead?.assignedToId === (user.userId || user.id);
+      if (!ownsContact) {
+        throw new NotFoundException(`Contact '${contact.id}' not found or access denied`);
+      }
+      if (dto.agentId && dto.agentId !== user.agentId) {
+        throw new ForbiddenException('Agents cannot assign a Health case to another agent');
+      }
+    }
+
+    let assignedAgentId =
+      user.role === RoleType.AGENT
+        ? user.agentId!
+        : dto.agentId || lead?.agentId || contact.customer?.primaryAgentId || null;
+    if (assignedAgentId) {
+      await this.tenantAuthService.assertAssignableAgent(assignedAgentId, user);
+      const canonical = await this.agentIdentityResolver.validateAgentOwnership(
+        assignedAgentId,
+        user.companyId,
+      );
+      assignedAgentId = canonical.id;
+    }
+    const assignedExternalCodeId = assignedAgentId
+      ? contact.assignedAgentId === assignedAgentId
+        ? contact.assignedExternalCodeId
+        : contact.customer?.primaryAgentId === assignedAgentId
+          ? contact.customer.primaryAgentExternalCodeId
+          : null
+      : null;
+
+    await this.assertFamilyMembersBelongToContact(contact.id, dto.members, user.companyId);
 
     this.validateCategoryRules(dto);
     const planDetails = this.planValidation.validatePlanDetails(dto.planCategory, dto.planDetails, dto.members);
@@ -157,6 +333,8 @@ export class HealthQuotationCaseService {
         planCategory: dto.planCategory,
         policyForm: dto.policyForm,
         contactId: dto.contactId,
+        agentId: assignedAgentId,
+        agentExternalCodeId: assignedExternalCodeId,
         leadId: dto.leadId ?? null,
         occupation: dto.occupation,
         annualIncome: dto.annualIncome ?? null,
@@ -183,35 +361,37 @@ export class HealthQuotationCaseService {
         },
       },
       include: caseInclude,
-    });
+    }).then((healthCase) => this.toSafeCase(healthCase));
   }
 
   async getCase(caseId: string, user: RequestUser) {
     const healthCase = await this.prisma.healthQuotationCase.findFirst({
-      where: { id: caseId, companyId: user.companyId },
+      where: { id: caseId, ...this.caseWhereFor(user) },
       include: caseInclude,
     });
     if (!healthCase) {
       throw new NotFoundException(`HealthQuotationCase '${caseId}' not found or access denied`);
     }
-    return healthCase;
+    return this.toSafeCase(healthCase);
   }
 
   async getCasesForLead(leadId: string, user: RequestUser) {
-    await this.tenantAuthService.assertTenantResource('Lead', leadId, user);
-    return this.prisma.healthQuotationCase.findMany({
-      where: { leadId, companyId: user.companyId },
+    await this.assertLeadAccess(leadId, user);
+    const cases = await this.prisma.healthQuotationCase.findMany({
+      where: { leadId, ...this.caseWhereFor(user) },
       include: caseInclude,
       orderBy: { createdAt: 'desc' },
     });
+    return cases.map((healthCase) => this.toSafeCase(healthCase));
   }
 
   async getAllCases(user: RequestUser) {
-    return this.prisma.healthQuotationCase.findMany({
-      where: { companyId: user.companyId },
+    const cases = await this.prisma.healthQuotationCase.findMany({
+      where: this.caseWhereFor(user),
       include: caseInclude,
       orderBy: { createdAt: 'desc' },
     });
+    return cases.map((healthCase) => this.toSafeCase(healthCase));
   }
 
   /**
@@ -264,6 +444,8 @@ export class HealthQuotationCaseService {
           companyId: user.companyId,
           contactId: healthCase.contactId,
           leadId: healthCase.leadId,
+          agentId: healthCase.agentId,
+          agentExternalCodeId: healthCase.agentExternalCodeId,
           insurerName: dto.insurerName,
           productCode: dto.uin,
           productType: 'HEALTH',
@@ -313,7 +495,7 @@ export class HealthQuotationCaseService {
       throw new BadRequestException(`Quotation '${quotationId}' does not belong to case ${healthCase.caseCode}`);
     }
 
-    return this.prisma.$transaction(async (tx) => {
+    const selectedCase = await this.prisma.$transaction(async (tx) => {
       await tx.quotation.update({
         where: { id: quotationId },
         data: { status: QuotationStatus.ACCEPTED },
@@ -324,76 +506,128 @@ export class HealthQuotationCaseService {
         include: caseInclude,
       });
     });
+    return this.toSafeCase(selectedCase);
   }
 
   async recordPayment(caseId: string, dto: RecordHealthPaymentDto, user: RequestUser) {
-    const healthCase = await this.getCase(caseId, user);
-    if (!healthCase.selectedQuoteId) {
-      throw new BadRequestException('Please select a quotation before recording payment');
-    }
-
-    const quotation = await this.prisma.quotation.findUnique({
-      where: { id: healthCase.selectedQuoteId },
-    });
-    if (!quotation) {
-      throw new NotFoundException(`Selected quotation ${healthCase.selectedQuoteId} not found`);
-    }
-
     const isAgent = user.role === RoleType.AGENT;
-    const targetStatus = dto.status || (isAgent ? 'UNDER_PROCESS' : 'PAID');
+    const targetStatus = dto.status || (isAgent ? PaymentTrackingStatus.UNDER_PROCESS : PaymentTrackingStatus.PAID);
     if (isAgent && targetStatus === 'PAID') {
       throw new ForbiddenException(
         'Agents are prohibited from verifying payments as PAID. Only Back Office or Finance may verify payments.',
       );
     }
+    const amount = dto.amount !== undefined ? Number(dto.amount) : undefined;
+    const referenceNumber = dto.referenceNumber.trim();
+    const paymentMethod = dto.paymentMethod.trim();
 
-    const payableAmount = Number(quotation.totalPremium);
-    const amount = dto.amount !== undefined ? Number(dto.amount) : payableAmount;
-
-    if (targetStatus === 'PAID') {
-      if (Math.abs(amount - payableAmount) > 0.01) {
-        throw new BadRequestException(
-          `Payment amount ₹${amount} does not match authoritative quotation premium ₹${payableAmount}`,
-        );
+    await this.prisma.$transaction(async (tx) => {
+      const healthCase = await tx.healthQuotationCase.findFirst({
+        where: { id: caseId, ...this.caseWhereFor(user) },
+        select: { id: true, selectedQuoteId: true },
+      });
+      if (!healthCase) {
+        throw new NotFoundException(`HealthQuotationCase '${caseId}' not found or access denied`);
       }
-      if (!dto.referenceNumber?.trim()) {
-        throw new BadRequestException('Payment reference number / UTR is required before marking as PAID');
+      if (!healthCase.selectedQuoteId) {
+        throw new BadRequestException('Please select a quotation before recording payment');
       }
-    }
 
-    await this.prisma.motorPaymentRecord.upsert({
-      where: { quotationId: quotation.id },
-      create: {
-        companyId: user.companyId,
-        quotationId: quotation.id,
-        status: targetStatus,
-        amount: new Prisma.Decimal(amount),
-        paymentMethod: dto.paymentMethod,
-        referenceNumber: dto.referenceNumber,
-        paidAt: targetStatus === 'PAID' ? (dto.paidAt ? new Date(dto.paidAt) : new Date()) : null,
-        notes: dto.notes,
-        recordedById: user.id,
-      },
-      update: {
-        companyId: user.companyId,
-        status: targetStatus,
-        amount: new Prisma.Decimal(amount),
-        paymentMethod: dto.paymentMethod,
-        referenceNumber: dto.referenceNumber,
-        paidAt: targetStatus === 'PAID' ? (dto.paidAt ? new Date(dto.paidAt) : new Date()) : null,
-        notes: dto.notes,
-        recordedById: user.id,
-      },
-    });
+      const quotation = await tx.quotation.findFirst({
+        where: {
+          id: healthCase.selectedQuoteId,
+          companyId: user.companyId,
+          healthCaseId: healthCase.id,
+        },
+      });
+      if (!quotation) {
+        throw new NotFoundException(`Selected quotation ${healthCase.selectedQuoteId} not found`);
+      }
 
-    const workflowState = targetStatus === 'PAID' ? 'PAYMENT_DONE' : 'PAYMENT_UNDER_PROCESS';
-    await this.prisma.quotation.update({
-      where: { id: quotation.id },
-      data: {
-        status: targetStatus === 'PAID' ? QuotationStatus.ACCEPTED : quotation.status,
-        workflowState: workflowState as any,
-        issuanceStatus: (targetStatus === 'PAID' ? 'ISSUANCE_PENDING' : 'PAYMENT_PENDING') as any,
-      },
+      const payableAmount = Number(quotation.totalPremium);
+      const submittedAmount = amount ?? payableAmount;
+      if (targetStatus === PaymentTrackingStatus.PAID) {
+        if (Math.abs(submittedAmount - payableAmount) > 0.01) {
+          throw new BadRequestException(
+            `Payment amount ₹${submittedAmount} does not match authoritative quotation premium ₹${payableAmount}`,
+          );
+        }
+        if (!referenceNumber) {
+          throw new BadRequestException('Payment reference number / UTR is required before marking as PAID');
+        }
+      }
+
+      const existingPayment = await tx.motorPaymentRecord.findUnique({
+        where: { quotationId: quotation.id },
+      });
+      const samePayment = Boolean(
+        existingPayment &&
+        Number(existingPayment.amount) === submittedAmount &&
+        existingPayment.referenceNumber === referenceNumber &&
+        existingPayment.paymentMethod === paymentMethod,
+      );
+
+      if (existingPayment?.status === PaymentTrackingStatus.PAID) {
+        if (targetStatus !== PaymentTrackingStatus.PAID || !samePayment) {
+          throw new BadRequestException('A verified payment cannot be downgraded or replaced');
+        }
+      } else if (existingPayment?.status === PaymentTrackingStatus.UNDER_PROCESS && !samePayment) {
+        throw new BadRequestException('An in-process payment cannot be replaced; reconcile it before resubmission');
+      } else if (
+        existingPayment?.status === PaymentTrackingStatus.NOT_DONE &&
+        (existingPayment.amount !== null || existingPayment.referenceNumber !== null) &&
+        !samePayment
+      ) {
+        throw new BadRequestException('Existing payment evidence must be reconciled before replacement');
+      }
+
+      if (!samePayment || existingPayment?.status === PaymentTrackingStatus.NOT_DONE) {
+        const paymentData = {
+          companyId: user.companyId,
+          status: targetStatus,
+          amount: new Prisma.Decimal(submittedAmount),
+          paymentMethod,
+          referenceNumber,
+          paidAt:
+            targetStatus === PaymentTrackingStatus.PAID
+              ? (dto.paidAt ? new Date(dto.paidAt) : new Date())
+              : null,
+          notes: dto.notes,
+          recordedById: user.userId || user.id,
+        };
+        if (existingPayment) {
+          await tx.motorPaymentRecord.update({
+            where: { quotationId: quotation.id },
+            data: paymentData,
+          });
+        } else {
+          await tx.motorPaymentRecord.create({
+            data: { ...paymentData, quotationId: quotation.id },
+          });
+        }
+      } else if (
+        existingPayment?.status === PaymentTrackingStatus.UNDER_PROCESS &&
+        targetStatus === PaymentTrackingStatus.PAID
+      ) {
+        await tx.motorPaymentRecord.update({
+          where: { quotationId: quotation.id },
+          data: {
+            status: PaymentTrackingStatus.PAID,
+            paidAt: dto.paidAt ? new Date(dto.paidAt) : new Date(),
+            recordedById: user.userId || user.id,
+          },
+        });
+      }
+
+      const paid = targetStatus === PaymentTrackingStatus.PAID;
+      await tx.quotation.update({
+        where: { id: quotation.id, companyId: user.companyId, healthCaseId: healthCase.id },
+        data: {
+          status: paid ? QuotationStatus.ACCEPTED : quotation.status,
+          workflowState: (paid ? 'PAYMENT_DONE' : 'PAYMENT_UNDER_PROCESS') as any,
+          issuanceStatus: (paid ? 'ISSUANCE_PENDING' : 'PAYMENT_PENDING') as any,
+        },
+      });
     });
 
     return this.getCase(caseId, user);
@@ -457,7 +691,7 @@ export class HealthQuotationCaseService {
    */
   async updateLeftoverDetails(caseId: string, dto: UpdateHealthCaseLeftoverDetailsDto, user: RequestUser) {
     const healthCase = await this.prisma.healthQuotationCase.findFirst({
-      where: { id: caseId, companyId: user.companyId },
+      where: { id: caseId, ...this.caseWhereFor(user) },
       include: { contact: true, quotations: true },
     });
 
@@ -522,8 +756,13 @@ export class HealthQuotationCaseService {
 
     // Update customer snapshot to reflect current KYC presence
     const prevSnapshot = (healthCase.customerSnapshot as Record<string, any>) || {};
+    const snapshotWithoutPii = { ...prevSnapshot };
+    delete snapshotWithoutPii.panNumber;
+    delete snapshotWithoutPii.aadhaarNumber;
+    delete snapshotWithoutPii.proposerPan;
+    delete snapshotWithoutPii.proposerAadhaar;
     const updatedCustomerSnapshot = {
-      ...prevSnapshot,
+      ...snapshotWithoutPii,
       firstName: updatedContact.firstName,
       lastName: updatedContact.lastName,
       phone: updatedContact.phone,
@@ -542,13 +781,14 @@ export class HealthQuotationCaseService {
     if (healthCase.quotations.length > 0) {
       for (const q of healthCase.quotations) {
         const prevMeta = (q.healthMetadata as Record<string, any>) || {};
+        const nextMeta = { ...prevMeta };
+        delete nextMeta.proposerPan;
+        delete nextMeta.proposerAadhaar;
         await this.prisma.quotation.update({
           where: { id: q.id },
           data: {
             healthMetadata: {
-              ...prevMeta,
-              proposerPan: updatedContact.panNumber || prevMeta.proposerPan,
-              proposerAadhaar: updatedContact.aadhaarNumber || prevMeta.proposerAadhaar,
+              ...nextMeta,
               proposerEmail: updatedContact.email || prevMeta.proposerEmail,
               nomineeName: dto.nomineeName?.trim() || prevMeta.nomineeName,
               nomineeRelation: dto.nomineeRelation || prevMeta.nomineeRelation,

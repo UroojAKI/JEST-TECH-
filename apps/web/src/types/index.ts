@@ -47,6 +47,9 @@ export interface UserSession {
   departmentId?: string;
   teamId?: string;
   avatarUrl?: string;
+  employeeCode?: string | null;
+  agentCode?: string | null;
+  collectContacts?: boolean;
 }
 
 export interface AuthState {

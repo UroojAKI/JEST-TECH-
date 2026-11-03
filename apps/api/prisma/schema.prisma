@@ -25,6 +25,32 @@ enum RoleType {
   AGENT
 }
 
+enum AgentExternalCodeStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum AgentIdentifierVerificationStatus {
+  PENDING
+  VERIFIED
+  REJECTED
+}
+
+enum AgentExternalCodeHistoryAction {
+  CREATED
+  UPDATED
+  VERIFIED
+  REJECTED
+  DEACTIVATED
+  REACTIVATED
+}
+
+enum AgentAssignmentEntityType {
+  CONTACT
+  CUSTOMER
+  LEAD
+}
+
 enum AccessScope {
   OWN
   ASSIGNED
@@ -347,7 +373,7 @@ model User {
   workspacePreference WorkspacePreference?
   dashboardPreference String?
   // Per-agent preference: display and collect optional customer contact details in workflows.
-  collectContacts Boolean @default(false)
+  collectContacts     Boolean              @default(false)
 
   agentProfile            Agent?           @relation("UserAgentProfile")
   assignedTasks           Task[]           @relation("TaskAssignedTo")
@@ -358,9 +384,9 @@ model User {
   customersCreated               Customer[]             @relation("CustomerCreatedBy")
   customerAgentHistoriesAssigned CustomerAgentHistory[] @relation("CustomerAgentHistoryAssignedBy")
   tasksCreated                   Task[]                 @relation("TaskCreatedBy")
-  backOfficeTasksCreated  BackOfficeTask[] @relation("BackOfficeTaskCreatedBy")
-  inspectionsCreated      Inspection[]     @relation("InspectionCreatedBy")
-  motorQuotationsCreated  MotorQuotation[] @relation("MotorQuotationCreatedBy")
+  backOfficeTasksCreated         BackOfficeTask[]       @relation("BackOfficeTaskCreatedBy")
+  inspectionsCreated             Inspection[]           @relation("InspectionCreatedBy")
+  motorQuotationsCreated         MotorQuotation[]       @relation("MotorQuotationCreatedBy")
 
   refreshTokens RefreshToken[]
 
@@ -369,6 +395,12 @@ model User {
   contactsCreated Contact[] @relation("ContactCreatedBy")
 
   contactsUpdated Contact[] @relation("ContactUpdatedBy")
+
+  externalAgentCodesCreated  AgentExternalCode[]        @relation("AgentExternalCodeCreatedBy")
+  externalAgentCodesUpdated  AgentExternalCode[]        @relation("AgentExternalCodeUpdatedBy")
+  externalAgentCodesVerified AgentExternalCode[]        @relation("AgentExternalCodeVerifiedBy")
+  externalAgentCodeChanges   AgentExternalCodeHistory[] @relation("AgentExternalCodeChangedBy")
+  agentAssignmentsChanged    AgentAssignmentHistory[]   @relation("AgentAssignmentChangedBy")
 
   accountsCreated Account[] @relation("AccountCreatedBy")
 
@@ -578,6 +610,11 @@ model Contact {
 
   agentCode String?
 
+  assignedAgentId        String?
+  assignedAgent          Agent?             @relation("AgentAssignedContacts", fields: [assignedAgentId], references: [id], onDelete: SetNull)
+  assignedExternalCodeId String?
+  assignedExternalCode   AgentExternalCode? @relation("ContactAssignedExternalCode", fields: [assignedExternalCodeId], references: [id], onDelete: SetNull)
+
   accountId String?
 
   account Account? @relation(fields: [accountId], references: [id])
@@ -590,8 +627,8 @@ model Contact {
 
   leads Lead[]
 
-  quotations Quotation[]
-  motorQuotationCases MotorQuotationCase[]
+  quotations           Quotation[]
+  motorQuotationCases  MotorQuotationCase[]
   healthQuotationCases HealthQuotationCase[]
 
   policies  Policy[]
@@ -617,6 +654,7 @@ model Contact {
   familyMembers  FamilyMember[]
   vehicles       Vehicle[]
 
+  @@unique([companyId, id])
   @@index([phone])
   @@index([email])
   @@index([contactCode])
@@ -626,11 +664,12 @@ model Contact {
   @@index([deletedAt])
   @@index([createdById])
   @@index([updatedById])
+  @@index([assignedAgentId])
+  @@index([assignedExternalCodeId])
   @@index([agentCode])
   @@index([status])
   @@index([companyId, phone])
   @@index([companyId, email])
-  @@unique([companyId, id])
   @@map("contacts")
 }
 
@@ -729,8 +768,10 @@ model Lead {
   customerId String?
   customer   Customer? @relation("CustomerLeads", fields: [customerId], references: [id], onDelete: SetNull)
 
-  agentId    String?
-  agent      Agent?    @relation("AgentLeads", fields: [agentId], references: [id], onDelete: SetNull)
+  agentId             String?
+  agent               Agent?             @relation("AgentLeads", fields: [agentId], references: [id], onDelete: SetNull)
+  agentExternalCodeId String?
+  agentExternalCode   AgentExternalCode? @relation("LeadAgentExternalCode", fields: [agentExternalCodeId], references: [id], onDelete: SetNull)
 
   accountId String?
   account   Account? @relation(fields: [accountId], references: [id])
@@ -764,13 +805,13 @@ model Lead {
   notes      Note[]
   activities Activity[]
 
-  quotations          Quotation[]
-  motorQuotations     MotorQuotation[]     @relation("LeadMotorQuotations")
-  motorQuotationCases MotorQuotationCase[]
+  quotations           Quotation[]
+  motorQuotations      MotorQuotation[]      @relation("LeadMotorQuotations")
+  motorQuotationCases  MotorQuotationCase[]
   healthQuotationCases HealthQuotationCase[]
-  vehicles            Vehicle[]            @relation("LeadVehicles")
-  tasks           Task[]           @relation("LeadTasks")
-  backOfficeTasks BackOfficeTask[] @relation("LeadBackOfficeTasks")
+  vehicles             Vehicle[]             @relation("LeadVehicles")
+  tasks                Task[]                @relation("LeadTasks")
+  backOfficeTasks      BackOfficeTask[]      @relation("LeadBackOfficeTasks")
 
   stageHistory         LeadStageHistory[]
   assignments          LeadAssignment[]
@@ -784,6 +825,7 @@ model Lead {
   deletedAt DateTime?
   version   Int       @default(1)
 
+  @@unique([companyId, id])
   @@index([leadCode])
   @@index([status])
   @@index([currentWorkflowStep])
@@ -798,7 +840,7 @@ model Lead {
   @@index([assignedManagerId])
   @@index([companyId])
   @@index([agentId])
-  @@unique([companyId, id])
+  @@index([agentExternalCodeId])
   @@map("leads")
 }
 
@@ -1140,8 +1182,10 @@ model Quotation {
   companyId String
   company   Company @relation("CompanyQuotations", fields: [companyId], references: [id], onDelete: Restrict)
 
-  agentId String?
-  agent   Agent?   @relation("AgentQuotations", fields: [agentId], references: [id], onDelete: SetNull)
+  agentId             String?
+  agent               Agent?             @relation("AgentQuotations", fields: [agentId], references: [id], onDelete: SetNull)
+  agentExternalCodeId String?
+  agentExternalCode   AgentExternalCode? @relation("QuotationAgentExternalCode", fields: [agentExternalCodeId], references: [id], onDelete: SetNull)
 
   contactId String
   contact   Contact @relation(fields: [contactId], references: [id])
@@ -1227,6 +1271,7 @@ model Quotation {
   deletedAt DateTime?
   version   Int       @default(1)
 
+  @@unique([companyId, id])
   @@index([quotationCode])
   @@index([status])
   @@index([deletedAt])
@@ -1238,9 +1283,9 @@ model Quotation {
   @@index([vehicleId])
   @@index([companyId])
   @@index([agentId])
+  @@index([agentExternalCodeId])
   @@index([caseId])
   @@index([healthCaseId])
-  @@unique([companyId, id])
   @@map("quotations")
 }
 
@@ -1353,8 +1398,10 @@ model Policy {
   companyId String
   company   Company @relation("CompanyPolicies", fields: [companyId], references: [id], onDelete: Restrict)
 
-  agentId String?
-  agent   Agent?   @relation("AgentPolicies", fields: [agentId], references: [id], onDelete: SetNull)
+  agentId             String?
+  agent               Agent?             @relation("AgentPolicies", fields: [agentId], references: [id], onDelete: SetNull)
+  agentExternalCodeId String?
+  agentExternalCode   AgentExternalCode? @relation("PolicyAgentExternalCode", fields: [agentExternalCodeId], references: [id], onDelete: SetNull)
 
   contactId String
   contact   Contact @relation(fields: [contactId], references: [id])
@@ -1371,18 +1418,20 @@ model Policy {
   policyTenure  Int      @default(1)
 
   // Actual Policy Capture
-  actualPolicyNumber     String?
-  issueDate              DateTime?
-  startDate              DateTime?
-  endDate                DateTime?
-  odStartDate            DateTime?
-  odExpiryDate           DateTime?
-  tpStartDate            DateTime?
-  tpExpiryDate           DateTime?
-  actualPremium          Decimal?
-  paymentStatus          PaymentStatus?
-  verificationStatus     DocumentVerificationStatus?
-  issuedPolicyDocumentId String?
+  actualPolicyNumber       String?
+  issueDate                DateTime?
+  startDate                DateTime?
+  endDate                  DateTime?
+  odStartDate              DateTime?
+  odExpiryDate             DateTime?
+  tpStartDate              DateTime?
+  tpExpiryDate             DateTime?
+  actualPremium            Decimal?
+  paymentStatus            PaymentStatus?
+  verificationStatus       DocumentVerificationStatus?
+  issuedPolicyDocumentId   String?
+  documentComplianceStatus DocumentComplianceStatus    @default(PENDING_UPLOAD)
+  hasPendingApproval       Boolean                     @default(false)
 
   // PRD §6.5: Unified Vehicle entity - vehicleId replaces 8 separate MotorDetail FKs
   vehicleId String?
@@ -1401,22 +1450,22 @@ model Policy {
   createdBy   User?   @relation("PolicyCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
   updatedBy   User?   @relation("PolicyUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
 
-  members      PolicyMember[]
-  nominees     PolicyNominee[]
-  renewals     PolicyRenewal[]
-  payments     PolicyPayment[]
-  documents    PolicyDocument[]
-  histories    PolicyHistory[]
+  members        PolicyMember[]
+  nominees       PolicyNominee[]
+  renewals       PolicyRenewal[]
+  payments       PolicyPayment[]
+  documents      PolicyDocument[]
+  histories      PolicyHistory[]
   claims         Claim[]
   renewalTasks   RenewalTask[]
   renewalJobs    RenewalJob[]
-  proposalId     String?          @unique
-  proposal       Proposal?        @relation(fields: [proposalId], references: [id])
+  proposalId     String?              @unique
+  proposal       Proposal?            @relation(fields: [proposalId], references: [id])
   endorsements   Endorsement[]
   insurerDetail  InsurerPolicyDetail?
-  motorQuotation MotorQuotation?  @relation("PolicyMotorQuotation")
-  tasks          Task[]           @relation("PolicyTasks")
-  inspections    Inspection[]     @relation("PolicyInspections")
+  motorQuotation MotorQuotation?      @relation("PolicyMotorQuotation")
+  tasks          Task[]               @relation("PolicyTasks")
+  inspections    Inspection[]         @relation("PolicyInspections")
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
@@ -1438,6 +1487,9 @@ model Policy {
   @@index([vehicleId])
   @@index([companyId])
   @@index([agentId])
+  @@index([agentExternalCodeId])
+  @@index([companyId, documentComplianceStatus])
+  @@index([companyId, hasPendingApproval])
   @@map("policies")
 }
 
@@ -1573,11 +1625,13 @@ model Claim {
   companyId String
   company   Company @relation("CompanyClaims", fields: [companyId], references: [id], onDelete: Restrict)
 
-  agentId String?
-  agent   Agent?   @relation("AgentClaims", fields: [agentId], references: [id], onDelete: SetNull)
+  agentId             String?
+  agent               Agent?             @relation("AgentClaims", fields: [agentId], references: [id], onDelete: SetNull)
+  agentExternalCodeId String?
+  agentExternalCode   AgentExternalCode? @relation("ClaimAgentExternalCode", fields: [agentExternalCodeId], references: [id], onDelete: SetNull)
 
   backOfficeAssigneeId String?
-  backOfficeAssignee   User?    @relation("ClaimBackOfficeAssignee", fields: [backOfficeAssigneeId], references: [id], onDelete: SetNull)
+  backOfficeAssignee   User?   @relation("ClaimBackOfficeAssignee", fields: [backOfficeAssigneeId], references: [id], onDelete: SetNull)
 
   contactId String
   contact   Contact @relation(fields: [contactId], references: [id])
@@ -1625,6 +1679,7 @@ model Claim {
   @@index([updatedById])
   @@index([companyId])
   @@index([agentId])
+  @@index([agentExternalCodeId])
   @@index([backOfficeAssigneeId])
   @@map("claims")
 }
@@ -1837,16 +1892,16 @@ model RenewalJob {
   id             String           @id @default(uuid())
   policyId       String
   policy         Policy           @relation(fields: [policyId], references: [id], onDelete: Cascade)
-  renewalCycle   Int              // Calendar year (e.g. 2026)
-  offsetDays     Int              // 45, 30, 15, 7, 0, -1
-  scheduledFor   DateTime         // Exact dispatch timestamp
+  renewalCycle   Int // Calendar year (e.g. 2026)
+  offsetDays     Int // 45, 30, 15, 7, 0, -1
+  scheduledFor   DateTime // Exact dispatch timestamp
   status         RenewalJobStatus @default(PENDING)
   attempts       Int              @default(0)
   lastAttemptAt  DateTime?
   nextRetryAt    DateTime?
   deadLetteredAt DateTime?
   errorMessage   String?
-  providerJobId  String?          // BullMQ job ID after dispatch
+  providerJobId  String? // BullMQ job ID after dispatch
   createdAt      DateTime         @default(now())
   updatedAt      DateTime         @updatedAt
 
@@ -1859,6 +1914,14 @@ model RenewalJob {
 //////////////////////////////////////////////////////////
 // SECURE DOCUMENT MANAGEMENT
 //////////////////////////////////////////////////////////
+
+enum DocumentComplianceStatus {
+  VERIFIED
+  REQUIRES_VERIFICATION
+  PENDING_UPLOAD
+  INVALID
+  MISSING_LEGACY
+}
 
 enum DocumentVerificationStatus {
   PENDING
@@ -1904,11 +1967,11 @@ model Document {
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
 
-  versions                DocumentVersion[]
-  accessLogs              DocumentAccessLog[]
-  proposalDocuments       ProposalDocument[]
-  endorsementDocuments    EndorsementDocument[]
-  motorQuotationDocuments MotorQuotationDocument[]
+  versions                 DocumentVersion[]
+  accessLogs               DocumentAccessLog[]
+  proposalDocuments        ProposalDocument[]
+  endorsementDocuments     EndorsementDocument[]
+  motorQuotationDocuments  MotorQuotationDocument[]
   healthQuotationDocuments HealthQuotationDocument[]
 
   @@index([entityType, entityId])
@@ -2332,6 +2395,7 @@ enum EndorsementType {
   NOMINEE_CHANGE // Update policy nominee details
   OWNER_TRANSFER // Transfer of ownership
   PREMIUM_CHANGE // General premium correction
+  GENERAL_CHANGE // General policy metadata, dates, or details modification
 }
 
 enum EndorsementStatus {
@@ -2349,11 +2413,14 @@ model Endorsement {
   policy            Policy            @relation(fields: [policyId], references: [id], onDelete: Cascade)
   type              EndorsementType
   status            EndorsementStatus @default(REQUESTED)
+  baseVersion       Int               @default(1)
   requestedById     String
   requestedBy       User              @relation("EndorsementRequestedBy", fields: [requestedById], references: [id])
   approvedById      String?
   approvedBy        User?             @relation("EndorsementApprovedBy", fields: [approvedById], references: [id])
   reason            String
+  rejectionReason   String?
+  beforeSnapshot    Json?
   requestedChanges  Json?
   validatedChanges  Json?
   effectiveDate     DateTime          @default(now())
@@ -2905,29 +2972,32 @@ model Company {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  regions                Region[]
-  contacts               Contact[]
-  users                  User[]
-  agents                 Agent[]                 @relation("CompanyAgents")
-  customers              Customer[]              @relation("CompanyCustomers")
-  leads                  Lead[]                  @relation("CompanyLeads")
-  quotations             Quotation[]             @relation("CompanyQuotations")
-  motorQuotations        MotorQuotation[]        @relation("CompanyMotorQuotations")
-  policies               Policy[]                @relation("CompanyPolicies")
-  claims                 Claim[]                 @relation("CompanyClaims")
-  customerAgentHistories CustomerAgentHistory[] @relation("CompanyAgentHistories")
-  backOfficeTasks        BackOfficeTask[]        @relation("CompanyBackOfficeTasks")
-  motorInspections       MotorInspection[]       @relation("CompanyMotorInspections")
-  journalEntries         JournalEntry[]          @relation("CompanyJournalEntries")
-  reports                Report[]
-  motorJourneys          MotorJourney[]
-  vehicles               Vehicle[]               @relation("CompanyVehicles")
-  motorQuotationCases    MotorQuotationCase[]
-  motorQuotationDocuments MotorQuotationDocument[]
+  regions                  Region[]
+  contacts                 Contact[]
+  users                    User[]
+  agents                   Agent[]                    @relation("CompanyAgents")
+  agentExternalCodes       AgentExternalCode[]
+  agentExternalCodeHistory AgentExternalCodeHistory[]
+  agentAssignmentHistory   AgentAssignmentHistory[]
+  customers                Customer[]                 @relation("CompanyCustomers")
+  leads                    Lead[]                     @relation("CompanyLeads")
+  quotations               Quotation[]                @relation("CompanyQuotations")
+  motorQuotations          MotorQuotation[]           @relation("CompanyMotorQuotations")
+  policies                 Policy[]                   @relation("CompanyPolicies")
+  claims                   Claim[]                    @relation("CompanyClaims")
+  customerAgentHistories   CustomerAgentHistory[]     @relation("CompanyAgentHistories")
+  backOfficeTasks          BackOfficeTask[]           @relation("CompanyBackOfficeTasks")
+  motorInspections         MotorInspection[]          @relation("CompanyMotorInspections")
+  journalEntries           JournalEntry[]             @relation("CompanyJournalEntries")
+  reports                  Report[]
+  motorJourneys            MotorJourney[]
+  vehicles                 Vehicle[]                  @relation("CompanyVehicles")
+  motorQuotationCases      MotorQuotationCase[]
+  motorQuotationDocuments  MotorQuotationDocument[]
   healthQuotationCases     HealthQuotationCase[]
   healthQuotationDocuments HealthQuotationDocument[]
-  commissions             Commission[]              @relation("CompanyCommissions")
-  settlements             Settlement[]              @relation("CompanySettlements")
+  commissions              Commission[]               @relation("CompanyCommissions")
+  settlements              Settlement[]               @relation("CompanySettlements")
 
   @@index([taxId])
 }
@@ -3003,11 +3073,11 @@ model Department {
 }
 
 model JobRole {
-  id              String   @id @default(uuid())
-  code            String   @unique
-  name            String
-  description     String?
-  departmentId    String
+  id           String   @id @default(uuid())
+  code         String   @unique
+  name         String
+  description  String?
+  departmentId String
   parentRoleId String?
   displayOrder Int      @default(0)
   status       String   @default("ACTIVE")
@@ -3406,7 +3476,7 @@ model Commission {
   id        String   @id @default(uuid())
   policyId  String
   userId    String // Agent or Manager getting the commission
-  companyId String?  // Direct tenant key for belt-and-suspenders isolation (post-migration backfill)
+  companyId String? // Direct tenant key for belt-and-suspenders isolation (post-migration backfill)
   roleTier  String // 'AGENT', 'BRANCH_MANAGER', 'ZONAL_MANAGER'
   amount    Decimal  @db.Decimal(19, 4)
   status    String   @default("ACCRUED") // 'ACCRUED', 'APPROVED', 'REALIZED', 'PAID', 'CANCELLED'
@@ -3782,8 +3852,8 @@ model Vehicle {
   customerId String?
   customer   Customer? @relation("CustomerVehicles", fields: [customerId], references: [id], onDelete: SetNull)
 
-  leadId     String?
-  lead       Lead?     @relation("LeadVehicles", fields: [leadId], references: [id], onDelete: SetNull)
+  leadId String?
+  lead   Lead?   @relation("LeadVehicles", fields: [leadId], references: [id], onDelete: SetNull)
 
   make             String?
   model            String?
@@ -3795,8 +3865,8 @@ model Vehicle {
   motorQuotations     MotorQuotation[]     @relation("VehicleMotorQuotations")
   motorQuotationCases MotorQuotationCase[]
   policies            Policy[]
-  inspections     Inspection[]     @relation("VehicleInspections")
-  tasks           Task[]           @relation("VehicleTasks")
+  inspections         Inspection[]         @relation("VehicleInspections")
+  tasks               Task[]               @relation("VehicleTasks")
 
   createdById String?
   createdBy   User?   @relation("VehicleCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
@@ -3985,17 +4055,17 @@ model MotorRuleEvaluation {
 }
 
 model MotorInspection {
-  id             String    @id @default(uuid())
-  inspectionCode String    @unique
+  id             String @id @default(uuid())
+  inspectionCode String @unique
 
-  companyId      String
-  company        Company   @relation("CompanyMotorInspections", fields: [companyId], references: [id], onDelete: Restrict)
+  companyId String
+  company   Company @relation("CompanyMotorInspections", fields: [companyId], references: [id], onDelete: Restrict)
 
-  quotationId    String    @unique
-  quotation      Quotation @relation(fields: [quotationId], references: [id])
+  quotationId String    @unique
+  quotation   Quotation @relation(fields: [quotationId], references: [id])
 
-  caseId         String?
-  case           MotorQuotationCase? @relation(fields: [caseId], references: [id], onDelete: SetNull)
+  caseId String?
+  case   MotorQuotationCase? @relation(fields: [caseId], references: [id], onDelete: SetNull)
 
   status          InspectionStatus       @default(REQUIRED)
   conductedByType InspectionConductedBy?
@@ -4017,10 +4087,10 @@ model MotorInspection {
   rejectionReason String?
 
   // Waiver persistence
-  waivedById     String?
-  waivedBy       User?            @relation("InspectionWaivedBy", fields: [waivedById], references: [id], onDelete: SetNull)
-  waivedAt       DateTime?
-  waiverReason   String?
+  waivedById   String?
+  waivedBy     User?     @relation("InspectionWaivedBy", fields: [waivedById], references: [id], onDelete: SetNull)
+  waivedAt     DateTime?
+  waiverReason String?
 
   // 7 photo evidence slots — each is a storage key/URL
   frontImageKey      String?
@@ -4030,6 +4100,7 @@ model MotorInspection {
   windshieldImageKey String?
   chassisImageKey    String?
   odometerImageKey   String?
+  additionalEvidence Json?
 
   // Generated inspection PDF
   reportPdfKey String?
@@ -4039,7 +4110,7 @@ model MotorInspection {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  history     MotorInspectionHistory[]
+  history MotorInspectionHistory[]
 
   @@index([companyId])
   @@index([companyId, status])
@@ -4083,10 +4154,10 @@ model MotorPaymentRecord {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@unique([companyId, paymentMethod, referenceNumber])
   @@index([quotationId])
   @@index([status])
   @@index([companyId])
-  @@unique([companyId, paymentMethod, referenceNumber])
   @@map("motor_payment_records")
 }
 
@@ -4235,29 +4306,35 @@ enum TaskType {
 }
 
 model Agent {
-  id             String                 @id @default(uuid())
-  userId         String                 @unique
-  user           User                   @relation("UserAgentProfile", fields: [userId], references: [id], onDelete: Cascade)
+  id             String  @id @default(uuid())
+  userId         String  @unique
+  user           User    @relation("UserAgentProfile", fields: [userId], references: [id], onDelete: Cascade)
   agentCode      String
   agencyName     String?
   licenseNumber  String?
-  commissionTier String?                @default("STANDARD")
-  isActive       Boolean                @default(true)
+  commissionTier String? @default("STANDARD")
+  isActive       Boolean @default(true)
 
-  companyId      String
-  company        Company                @relation("CompanyAgents", fields: [companyId], references: [id], onDelete: Restrict)
+  companyId String
+  company   Company @relation("CompanyAgents", fields: [companyId], references: [id], onDelete: Restrict)
 
-  leads          Lead[]                 @relation("AgentLeads")
-  quotations     MotorQuotation[]       @relation("AgentMotorQuotations")
-  customers      Customer[]             @relation("CustomerPrimaryAgent")
-  policies       Policy[]               @relation("AgentPolicies")
-  claims         Claim[]                @relation("AgentClaims")
-  quotationsList Quotation[]            @relation("AgentQuotations")
-  agentHistories CustomerAgentHistory[] @relation("AgentHistories")
+  leads                 Lead[]                     @relation("AgentLeads")
+  quotations            MotorQuotation[]           @relation("AgentMotorQuotations")
+  customers             Customer[]                 @relation("CustomerPrimaryAgent")
+  policies              Policy[]                   @relation("AgentPolicies")
+  claims                Claim[]                    @relation("AgentClaims")
+  quotationsList        Quotation[]                @relation("AgentQuotations")
+  agentHistories        CustomerAgentHistory[]     @relation("AgentHistories")
+  healthQuotationCases  HealthQuotationCase[]      @relation("AgentHealthQuotationCases")
+  externalCodes         AgentExternalCode[]
+  externalCodeHistory   AgentExternalCodeHistory[]
+  assignedContacts      Contact[]                  @relation("AgentAssignedContacts")
+  assignmentHistoryFrom AgentAssignmentHistory[]   @relation("AgentAssignmentPrevious")
+  assignmentHistoryTo   AgentAssignmentHistory[]   @relation("AgentAssignmentNext")
 
-  createdAt      DateTime               @default(now())
-  updatedAt      DateTime               @updatedAt
-  deletedAt      DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
 
   @@unique([companyId, agentCode])
   @@index([companyId])
@@ -4266,9 +4343,103 @@ model Agent {
   @@map("agents")
 }
 
+model AgentExternalCode {
+  id                        String                            @id @default(uuid())
+  companyId                 String
+  company                   Company                           @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  agentId                   String
+  agent                     Agent                             @relation(fields: [agentId], references: [id], onDelete: Restrict)
+  externalCode              String
+  normalizedCode            String
+  codeSystem                String
+  sourceName                String?
+  status                    AgentExternalCodeStatus           @default(ACTIVE)
+  isPrimary                 Boolean                           @default(false)
+  effectiveFrom             DateTime?
+  effectiveTo               DateTime?
+  verificationStatus        AgentIdentifierVerificationStatus @default(PENDING)
+  verificationNotes         String?
+  verifiedAt                DateTime?
+  verifiedById              String?
+  verifiedBy                User?                             @relation("AgentExternalCodeVerifiedBy", fields: [verifiedById], references: [id], onDelete: Restrict)
+  createdById               String
+  createdBy                 User                              @relation("AgentExternalCodeCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  updatedById               String?
+  updatedBy                 User?                             @relation("AgentExternalCodeUpdatedBy", fields: [updatedById], references: [id], onDelete: Restrict)
+  createdAt                 DateTime                          @default(now())
+  updatedAt                 DateTime                          @updatedAt
+  history                   AgentExternalCodeHistory[]
+  assignmentHistoryPrevious AgentAssignmentHistory[]          @relation("AssignmentPreviousExternalCode")
+  assignmentHistoryNext     AgentAssignmentHistory[]          @relation("AssignmentNewExternalCode")
+  assignedContacts          Contact[]                         @relation("ContactAssignedExternalCode")
+  primaryCustomers          Customer[]                        @relation("CustomerPrimaryAgentExternalCode")
+  healthCases               HealthQuotationCase[]             @relation("HealthCaseAgentExternalCode")
+  quotations                Quotation[]                       @relation("QuotationAgentExternalCode")
+  policies                  Policy[]                          @relation("PolicyAgentExternalCode")
+  claims                    Claim[]                           @relation("ClaimAgentExternalCode")
+  legacyMotorQuotations     MotorQuotation[]                  @relation("MotorQuotationAgentExternalCode")
+  leads                     Lead[]                            @relation("LeadAgentExternalCode")
+
+  @@unique([companyId, codeSystem, normalizedCode])
+  @@index([companyId, agentId, status])
+  @@index([companyId, normalizedCode])
+  @@index([agentId, codeSystem, verificationStatus])
+  @@map("agent_external_codes")
+}
+
+model AgentExternalCodeHistory {
+  id             String                         @id @default(uuid())
+  companyId      String
+  company        Company                        @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  externalCodeId String
+  externalCode   AgentExternalCode              @relation(fields: [externalCodeId], references: [id], onDelete: Restrict)
+  agentId        String
+  agent          Agent                          @relation(fields: [agentId], references: [id], onDelete: Restrict)
+  action         AgentExternalCodeHistoryAction
+  oldValue       Json?
+  newValue       Json?
+  reason         String?
+  correlationId  String?
+  changedById    String
+  changedBy      User                           @relation("AgentExternalCodeChangedBy", fields: [changedById], references: [id], onDelete: Restrict)
+  createdAt      DateTime                       @default(now())
+
+  @@index([companyId, externalCodeId, createdAt])
+  @@index([companyId, agentId, createdAt])
+  @@index([correlationId])
+  @@map("agent_external_code_history")
+}
+
+model AgentAssignmentHistory {
+  id                     String                    @id @default(uuid())
+  companyId              String
+  company                Company                   @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  entityType             AgentAssignmentEntityType
+  entityId               String
+  previousAgentId        String?
+  previousAgent          Agent?                    @relation("AgentAssignmentPrevious", fields: [previousAgentId], references: [id], onDelete: Restrict)
+  newAgentId             String?
+  newAgent               Agent?                    @relation("AgentAssignmentNext", fields: [newAgentId], references: [id], onDelete: Restrict)
+  previousExternalCodeId String?
+  previousExternalCode   AgentExternalCode?        @relation("AssignmentPreviousExternalCode", fields: [previousExternalCodeId], references: [id], onDelete: Restrict)
+  newExternalCodeId      String?
+  newExternalCode        AgentExternalCode?        @relation("AssignmentNewExternalCode", fields: [newExternalCodeId], references: [id], onDelete: Restrict)
+  changedById            String
+  changedBy              User                      @relation("AgentAssignmentChangedBy", fields: [changedById], references: [id], onDelete: Restrict)
+  reason                 String?
+  correlationId          String?
+  createdAt              DateTime                  @default(now())
+
+  @@index([companyId, entityType, entityId, createdAt])
+  @@index([companyId, previousAgentId, createdAt])
+  @@index([companyId, newAgentId, createdAt])
+  @@index([correlationId])
+  @@map("agent_assignment_history")
+}
+
 model Customer {
-  id            String           @id @default(uuid())
-  customerCode  String           @unique
+  id            String  @id @default(uuid())
+  customerCode  String  @unique
   firstName     String
   lastName      String?
   mobile        String
@@ -4280,86 +4451,91 @@ model Customer {
   city          String?
   state         String?
   pincode       String?
-  isVip         Boolean          @default(false)
+  isVip         Boolean @default(false)
 
-  companyId      String
-  company        Company                @relation("CompanyCustomers", fields: [companyId], references: [id], onDelete: Restrict)
-  primaryAgentId String?
-  primaryAgent   Agent?                 @relation("CustomerPrimaryAgent", fields: [primaryAgentId], references: [id], onDelete: SetNull)
-  agentHistories CustomerAgentHistory[] @relation("CustomerAgentHistories")
-  version        Int                    @default(1)
+  companyId                  String
+  company                    Company                @relation("CompanyCustomers", fields: [companyId], references: [id], onDelete: Restrict)
+  primaryAgentId             String?
+  primaryAgent               Agent?                 @relation("CustomerPrimaryAgent", fields: [primaryAgentId], references: [id], onDelete: SetNull)
+  primaryAgentExternalCodeId String?
+  primaryAgentExternalCode   AgentExternalCode?     @relation("CustomerPrimaryAgentExternalCode", fields: [primaryAgentExternalCodeId], references: [id], onDelete: SetNull)
+  agentHistories             CustomerAgentHistory[] @relation("CustomerAgentHistories")
+  version                    Int                    @default(1)
 
   // Migration link to Contact
-  contactId     String?          @unique
-  contact       Contact?         @relation("ContactCustomerMigration", fields: [contactId], references: [id], onDelete: SetNull)
+  contactId String?  @unique
+  contact   Contact? @relation("ContactCustomerMigration", fields: [contactId], references: [id], onDelete: SetNull)
 
   // Reverse relations
-  leads         Lead[]           @relation("CustomerLeads")
-  vehicles      Vehicle[]        @relation("CustomerVehicles")
-  quotations    MotorQuotation[] @relation("CustomerMotorQuotations")
-  policies      Policy[]         @relation("CustomerPolicies")
-  claims        Claim[]          @relation("CustomerClaims")
-  tasks         Task[]           @relation("CustomerTasks")
-  alerts        CustomerAlert[]  @relation("CustomerAlerts")
+  leads      Lead[]           @relation("CustomerLeads")
+  vehicles   Vehicle[]        @relation("CustomerVehicles")
+  quotations MotorQuotation[] @relation("CustomerMotorQuotations")
+  policies   Policy[]         @relation("CustomerPolicies")
+  claims     Claim[]          @relation("CustomerClaims")
+  tasks      Task[]           @relation("CustomerTasks")
+  alerts     CustomerAlert[]  @relation("CustomerAlerts")
 
-  createdById   String?
-  createdBy     User?            @relation("CustomerCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  createdById String?
+  createdBy   User?   @relation("CustomerCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
 
-  createdAt     DateTime         @default(now())
-  updatedAt     DateTime         @updatedAt
-  deletedAt     DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
 
   // Soft deduplication: index mobile & email, NO @unique constraint
   @@index([companyId, mobile])
   @@index([companyId, email])
   @@index([companyId])
   @@index([primaryAgentId])
+  @@index([primaryAgentExternalCodeId])
   @@index([customerCode])
   @@index([deletedAt])
   @@map("customers")
 }
 
 model MotorQuotation {
-  id                String               @id @default(uuid())
-  quotationNumber   String               @unique
-  leadId            String
-  lead              Lead                 @relation("LeadMotorQuotations", fields: [leadId], references: [id], onDelete: Cascade)
+  id              String @id @default(uuid())
+  quotationNumber String @unique
+  leadId          String
+  lead            Lead   @relation("LeadMotorQuotations", fields: [leadId], references: [id], onDelete: Cascade)
 
-  companyId         String
-  company           Company              @relation("CompanyMotorQuotations", fields: [companyId], references: [id], onDelete: Restrict)
+  companyId String
+  company   Company @relation("CompanyMotorQuotations", fields: [companyId], references: [id], onDelete: Restrict)
 
-  vehicleId         String
-  vehicle           Vehicle              @relation("VehicleMotorQuotations", fields: [vehicleId], references: [id], onDelete: Cascade)
-  customerId        String?
-  customer          Customer?            @relation("CustomerMotorQuotations", fields: [customerId], references: [id], onDelete: SetNull)
-  agentId           String?
-  agent             Agent?               @relation("AgentMotorQuotations", fields: [agentId], references: [id], onDelete: SetNull)
-  agentCodeSnapshot String?
-  insurerName       String
-  planName          String?
-  policyType        MotorPolicyType      @default(PACKAGE_COMPREHENSIVE)
-  status            MotorQuotationStatus @default(DRAFT)
-  idv               Decimal?             @db.Decimal(12, 2)
-  odPremium         Decimal?             @db.Decimal(12, 2)
-  tpPremium         Decimal?             @db.Decimal(12, 2)
-  addonPremium      Decimal?             @db.Decimal(12, 2)
-  ncbDiscount       Decimal?             @db.Decimal(12, 2)
-  otherDiscounts    Decimal?             @db.Decimal(12, 2)
-  netPremium        Decimal?             @db.Decimal(12, 2)
-  gstAmount         Decimal?             @db.Decimal(12, 2)
-  finalPremium      Decimal              @db.Decimal(12, 2)
-  breakup           Json?
-  addonsSelected    Json?
-  policyId          String?              @unique
-  policy            Policy?              @relation("PolicyMotorQuotation", fields: [policyId], references: [id], onDelete: SetNull)
-  backOfficeTasks   BackOfficeTask[]     @relation("QuotationBackOfficeTasks")
-  inspections       Inspection[]         @relation("QuotationInspections")
-  createdById       String?
-  createdBy         User?                @relation("MotorQuotationCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
-  validUntil        DateTime?
-  createdAt         DateTime             @default(now())
-  updatedAt         DateTime             @updatedAt
-  deletedAt         DateTime?
+  vehicleId           String
+  vehicle             Vehicle              @relation("VehicleMotorQuotations", fields: [vehicleId], references: [id], onDelete: Cascade)
+  customerId          String?
+  customer            Customer?            @relation("CustomerMotorQuotations", fields: [customerId], references: [id], onDelete: SetNull)
+  agentId             String?
+  agent               Agent?               @relation("AgentMotorQuotations", fields: [agentId], references: [id], onDelete: SetNull)
+  agentExternalCodeId String?
+  agentExternalCode   AgentExternalCode?   @relation("MotorQuotationAgentExternalCode", fields: [agentExternalCodeId], references: [id], onDelete: SetNull)
+  agentCodeSnapshot   String?
+  insurerName         String
+  planName            String?
+  policyType          MotorPolicyType      @default(PACKAGE_COMPREHENSIVE)
+  status              MotorQuotationStatus @default(DRAFT)
+  idv                 Decimal?             @db.Decimal(12, 2)
+  odPremium           Decimal?             @db.Decimal(12, 2)
+  tpPremium           Decimal?             @db.Decimal(12, 2)
+  addonPremium        Decimal?             @db.Decimal(12, 2)
+  ncbDiscount         Decimal?             @db.Decimal(12, 2)
+  otherDiscounts      Decimal?             @db.Decimal(12, 2)
+  netPremium          Decimal?             @db.Decimal(12, 2)
+  gstAmount           Decimal?             @db.Decimal(12, 2)
+  finalPremium        Decimal              @db.Decimal(12, 2)
+  breakup             Json?
+  addonsSelected      Json?
+  policyId            String?              @unique
+  policy              Policy?              @relation("PolicyMotorQuotation", fields: [policyId], references: [id], onDelete: SetNull)
+  backOfficeTasks     BackOfficeTask[]     @relation("QuotationBackOfficeTasks")
+  inspections         Inspection[]         @relation("QuotationInspections")
+  createdById         String?
+  createdBy           User?                @relation("MotorQuotationCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  validUntil          DateTime?
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  deletedAt           DateTime?
 
   @@index([leadId])
   @@index([vehicleId])
@@ -4368,45 +4544,46 @@ model MotorQuotation {
   @@index([status])
   @@index([quotationNumber])
   @@index([companyId])
+  @@index([agentExternalCodeId])
   @@index([deletedAt])
   @@map("motor_quotations")
 }
 
 model Task {
-  id           String       @id @default(uuid())
-  taskCode     String       @unique
-  title        String
-  description  String?
-  type         TaskType     @default(FOLLOW_UP)
-  priority     TaskPriority @default(MEDIUM)
-  status       TaskStatus   @default(PENDING)
-  dueDate      DateTime?
-  completedAt  DateTime?
+  id          String       @id @default(uuid())
+  taskCode    String       @unique
+  title       String
+  description String?
+  type        TaskType     @default(FOLLOW_UP)
+  priority    TaskPriority @default(MEDIUM)
+  status      TaskStatus   @default(PENDING)
+  dueDate     DateTime?
+  completedAt DateTime?
 
   assignedToId String?
-  assignedTo   User?        @relation("TaskAssignedTo", fields: [assignedToId], references: [id], onDelete: SetNull)
+  assignedTo   User?   @relation("TaskAssignedTo", fields: [assignedToId], references: [id], onDelete: SetNull)
 
-  customerId   String?
-  customer     Customer?    @relation("CustomerTasks", fields: [customerId], references: [id], onDelete: SetNull)
+  customerId String?
+  customer   Customer? @relation("CustomerTasks", fields: [customerId], references: [id], onDelete: SetNull)
 
-  leadId       String?
-  lead         Lead?        @relation("LeadTasks", fields: [leadId], references: [id], onDelete: SetNull)
+  leadId String?
+  lead   Lead?   @relation("LeadTasks", fields: [leadId], references: [id], onDelete: SetNull)
 
-  vehicleId    String?
-  vehicle      Vehicle?     @relation("VehicleTasks", fields: [vehicleId], references: [id], onDelete: SetNull)
+  vehicleId String?
+  vehicle   Vehicle? @relation("VehicleTasks", fields: [vehicleId], references: [id], onDelete: SetNull)
 
-  policyId     String?
-  policy       Policy?      @relation("PolicyTasks", fields: [policyId], references: [id], onDelete: SetNull)
+  policyId String?
+  policy   Policy? @relation("PolicyTasks", fields: [policyId], references: [id], onDelete: SetNull)
 
-  claimId      String?
-  claim        Claim?       @relation("ClaimTasks", fields: [claimId], references: [id], onDelete: SetNull)
+  claimId String?
+  claim   Claim?  @relation("ClaimTasks", fields: [claimId], references: [id], onDelete: SetNull)
 
-  createdById  String?
-  createdBy    User?        @relation("TaskCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  createdById String?
+  createdBy   User?   @relation("TaskCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
 
-  createdAt    DateTime     @default(now())
-  updatedAt    DateTime     @updatedAt
-  deletedAt    DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
 
   @@index([assignedToId, dueDate, status])
   @@index([status])
@@ -4417,33 +4594,33 @@ model Task {
 }
 
 model BackOfficeTask {
-  id                String               @id @default(uuid())
-  taskCode          String               @unique
-  taskType          String
-  status            BackOfficeTaskStatus @default(PENDING)
-  priority          TaskPriority         @default(MEDIUM)
+  id       String               @id @default(uuid())
+  taskCode String               @unique
+  taskType String
+  status   BackOfficeTaskStatus @default(PENDING)
+  priority TaskPriority         @default(MEDIUM)
 
-  companyId         String
-  company           Company              @relation("CompanyBackOfficeTasks", fields: [companyId], references: [id], onDelete: Restrict)
+  companyId String
+  company   Company @relation("CompanyBackOfficeTasks", fields: [companyId], references: [id], onDelete: Restrict)
 
-  sourceType        String?
-  sourceEntityId    String?
-  idempotencyKey    String?
+  sourceType     String?
+  sourceEntityId String?
+  idempotencyKey String?
 
-  leadId            String?
-  lead              Lead?                @relation("LeadBackOfficeTasks", fields: [leadId], references: [id], onDelete: SetNull)
+  leadId String?
+  lead   Lead?   @relation("LeadBackOfficeTasks", fields: [leadId], references: [id], onDelete: SetNull)
 
-  motorQuotationId  String?
-  motorQuotation    MotorQuotation?      @relation("QuotationBackOfficeTasks", fields: [motorQuotationId], references: [id], onDelete: SetNull)
+  motorQuotationId String?
+  motorQuotation   MotorQuotation? @relation("QuotationBackOfficeTasks", fields: [motorQuotationId], references: [id], onDelete: SetNull)
 
-  quotationId       String?
-  quotation         Quotation?           @relation("CanonicalQuotationBackOfficeTasks", fields: [quotationId], references: [id], onDelete: SetNull)
+  quotationId String?
+  quotation   Quotation? @relation("CanonicalQuotationBackOfficeTasks", fields: [quotationId], references: [id], onDelete: SetNull)
 
-  caseId            String?              @map("case_id")
-  case              MotorQuotationCase?  @relation(fields: [caseId], references: [id], onDelete: SetNull)
+  caseId String?             @map("case_id")
+  case   MotorQuotationCase? @relation(fields: [caseId], references: [id], onDelete: SetNull)
 
-  assignedToId      String?
-  assignedTo        User?                @relation("BackOfficeTaskAssignedTo", fields: [assignedToId], references: [id], onDelete: SetNull)
+  assignedToId String?
+  assignedTo   User?   @relation("BackOfficeTaskAssignedTo", fields: [assignedToId], references: [id], onDelete: SetNull)
 
   missingItems      Json?
   checklistStatus   Json?
@@ -4451,12 +4628,12 @@ model BackOfficeTask {
   rejectedReason    String?
   resolvedAt        DateTime?
 
-  createdById       String?
-  createdBy         User?                @relation("BackOfficeTaskCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  createdById String?
+  createdBy   User?   @relation("BackOfficeTaskCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
 
-  createdAt         DateTime             @default(now())
-  updatedAt         DateTime             @updatedAt
-  deletedAt         DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
 
   @@unique([companyId, idempotencyKey])
   @@index([companyId, status])
@@ -4495,37 +4672,37 @@ model CustomerAgentHistory {
 }
 
 model Inspection {
-  id               String          @id @default(uuid())
-  inspectionCode   String          @unique
-  type             InspectionType  @default(SELF)
-  status           InspectionState @default(INITIATED)
+  id             String          @id @default(uuid())
+  inspectionCode String          @unique
+  type           InspectionType  @default(SELF)
+  status         InspectionState @default(INITIATED)
 
-  vehicleId        String?
-  vehicle          Vehicle?        @relation("VehicleInspections", fields: [vehicleId], references: [id], onDelete: SetNull)
+  vehicleId String?
+  vehicle   Vehicle? @relation("VehicleInspections", fields: [vehicleId], references: [id], onDelete: SetNull)
 
   motorQuotationId String?
   motorQuotation   MotorQuotation? @relation("QuotationInspections", fields: [motorQuotationId], references: [id], onDelete: SetNull)
 
-  policyId         String?
-  policy           Policy?         @relation("PolicyInspections", fields: [policyId], references: [id], onDelete: SetNull)
+  policyId String?
+  policy   Policy? @relation("PolicyInspections", fields: [policyId], references: [id], onDelete: SetNull)
 
-  claimId          String?
-  claim            Claim?          @relation("ClaimInspections", fields: [claimId], references: [id], onDelete: SetNull)
+  claimId String?
+  claim   Claim?  @relation("ClaimInspections", fields: [claimId], references: [id], onDelete: SetNull)
 
-  inspectorId      String?
-  inspector        User?           @relation("InspectionInspector", fields: [inspectorId], references: [id], onDelete: SetNull)
+  inspectorId String?
+  inspector   User?   @relation("InspectionInspector", fields: [inspectorId], references: [id], onDelete: SetNull)
 
-  mediaUrls        Json?
-  breakinReason    String?
-  inspectionDate   DateTime?
-  remarks          String?
+  mediaUrls      Json?
+  breakinReason  String?
+  inspectionDate DateTime?
+  remarks        String?
 
-  createdById      String?
-  createdBy        User?           @relation("InspectionCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  createdById String?
+  createdBy   User?   @relation("InspectionCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
 
-  createdAt        DateTime        @default(now())
-  updatedAt        DateTime        @updatedAt
-  deletedAt        DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
 
   @@index([vehicleId])
   @@index([motorQuotationId])
@@ -4555,17 +4732,17 @@ model CustomerAlert {
 //////////////////////////////////////////////////////////
 
 model MotorJourney {
-  id               String        @id @default(uuid())
-  companyId        String
-  company          Company       @relation(fields: [companyId], references: [id], onDelete: Restrict)
-  actorId          String
-  quotationId      String?       @unique
-  quotation        Quotation?    @relation(fields: [quotationId], references: [id])
-  vehicleCategory  String?
-  status           String        @default("IN_PROGRESS") // IN_PROGRESS | QUOTED | ABANDONED | EXPIRED
-  expiresAt        DateTime
-  createdAt        DateTime      @default(now())
-  updatedAt        DateTime      @updatedAt
+  id              String     @id @default(uuid())
+  companyId       String
+  company         Company    @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  actorId         String
+  quotationId     String?    @unique
+  quotation       Quotation? @relation(fields: [quotationId], references: [id])
+  vehicleCategory String?
+  status          String     @default("IN_PROGRESS") // IN_PROGRESS | QUOTED | ABANDONED | EXPIRED
+  expiresAt       DateTime
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
 
   verificationAttempts VehicleVerificationAttempt[]
 
@@ -4574,19 +4751,19 @@ model MotorJourney {
 }
 
 model VehicleVerificationAttempt {
-  id               String        @id @default(uuid())
+  id               String       @id @default(uuid())
   companyId        String
   actorId          String
   journeyId        String
-  journey          MotorJourney  @relation(fields: [journeyId], references: [id], onDelete: Cascade)
+  journey          MotorJourney @relation(fields: [journeyId], references: [id], onDelete: Cascade)
   registrationHash String
-  attemptCount     Int           @default(1)
-  status           String        @default("ACTIVE") // ACTIVE | LOCKED | EXHAUSTED
+  attemptCount     Int          @default(1)
+  status           String       @default("ACTIVE") // ACTIVE | LOCKED | EXHAUSTED
   lockedAt         DateTime?
   expiresAt        DateTime?
   ipAddress        String?
-  createdAt        DateTime      @default(now())
-  updatedAt        DateTime      @updatedAt
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
 
   @@unique([journeyId, registrationHash])
   @@index([companyId, actorId, registrationHash])
@@ -4630,10 +4807,10 @@ model MotorQuotationCase {
   vehicleSnapshot        Json
   previousPolicySnapshot Json?
 
-  quotations Quotation[]              @relation("CaseQuotations")
+  quotations  Quotation[]              @relation("CaseQuotations")
   inspections MotorInspection[]
-  documents  MotorQuotationDocument[]
-  tasks      BackOfficeTask[]
+  documents   MotorQuotationDocument[]
+  tasks       BackOfficeTask[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -4672,8 +4849,6 @@ model MotorQuotationDocument {
   @@index([documentId])
   @@map("motor_quotation_documents")
 }
-
-
 
 // =============================================================================
 // HEALTH INSURANCE CRM (Health_Insurance_CRM_Forms)
@@ -4769,12 +4944,16 @@ model HealthQuotationCase {
   policyForm   HealthPolicyForm   @default(NEW_POLICY)
   status       HealthCaseStatus   @default(OPEN)
 
-  contactId       String
-  contact         Contact    @relation(fields: [contactId], references: [id], onDelete: Restrict)
-  leadId          String?
-  lead            Lead?      @relation(fields: [leadId], references: [id], onDelete: SetNull)
-  selectedQuoteId String?
-  selectedQuote   Quotation? @relation("SelectedHealthCaseQuote", fields: [selectedQuoteId], references: [id], onDelete: SetNull)
+  contactId           String
+  contact             Contact            @relation(fields: [contactId], references: [id], onDelete: Restrict)
+  agentId             String?
+  agent               Agent?             @relation("AgentHealthQuotationCases", fields: [agentId], references: [id], onDelete: SetNull)
+  agentExternalCodeId String?
+  agentExternalCode   AgentExternalCode? @relation("HealthCaseAgentExternalCode", fields: [agentExternalCodeId], references: [id], onDelete: SetNull)
+  leadId              String?
+  lead                Lead?              @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  selectedQuoteId     String?
+  selectedQuote       Quotation?         @relation("SelectedHealthCaseQuote", fields: [selectedQuoteId], references: [id], onDelete: SetNull)
 
   // Proposer fields not on Contact (common fields 10, 13, 14)
   occupation      ProposerOccupation?
@@ -4803,6 +4982,8 @@ model HealthQuotationCase {
 
   @@index([companyId])
   @@index([contactId])
+  @@index([companyId, agentId])
+  @@index([agentExternalCodeId])
   @@index([leadId])
   @@index([selectedQuoteId])
   @@index([planCategory])
@@ -4862,4 +5043,3 @@ model HealthQuotationDocument {
   @@index([documentId])
   @@map("health_quotation_documents")
 }
-

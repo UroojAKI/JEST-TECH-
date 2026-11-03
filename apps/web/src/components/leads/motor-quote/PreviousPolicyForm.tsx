@@ -163,6 +163,18 @@ export function PreviousPolicyForm({ value, onChange, newPolicyType }: Props) {
                         <CheckCircle2 className="h-3 w-3" /> Policy Active
                       </span>
                     )}
+                    {value.policyExpiryDate && !policyExpired && (() => {
+                      const daysLeft = Math.ceil((new Date(value.policyExpiryDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+                      if (daysLeft > 45) {
+                        return (
+                          <span className="w-full mt-1.5 flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1.5 rounded-lg border bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20">
+                            <AlertTriangle className="h-3.5 w-3.5 text-amber-600 shrink-0" />
+                            <span>Renewal window restriction: Policy expires in {daysLeft} days. New renewal quotations can only be generated from 45 days before expiry.</span>
+                          </span>
+                        );
+                      }
+                      return null;
+                    })()}
                   </div>
                 )}
               </div>

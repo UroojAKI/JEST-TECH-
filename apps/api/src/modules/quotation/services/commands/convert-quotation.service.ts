@@ -65,6 +65,10 @@ export class ConvertQuotationService {
             status: PolicyStatus.ISSUED,
             company: { connect: { id: existing.companyId } },
             quotation: { connect: { id } },
+            ...(existing.agentId ? { agent: { connect: { id: existing.agentId } } } : {}),
+            ...(existing.agentExternalCodeId
+              ? { agentExternalCode: { connect: { id: existing.agentExternalCodeId } } }
+              : {}),
             contact: { connect: { id: existing.contactId } },
             account: existing.accountId
               ? { connect: { id: existing.accountId } }

@@ -53,6 +53,16 @@ export class RenewPolicyService {
         );
       }
 
+      // REQ-5: Renew option must remain unavailable until 45 days before expiry
+      const now = new Date();
+      const expiryTime = new Date(existing.expiryDate).getTime();
+      const daysToExpiry = Math.ceil((expiryTime - now.getTime()) / (1000 * 60 * 60 * 24));
+      if (daysToExpiry > 45) {
+        throw new BadRequestException(
+          `Policy renewal is only permitted within 45 days of policy expiry. Current policy expires in ${daysToExpiry} days.`,
+        );
+      }
+
       if (dto.switchInsurer) {
         throw new BadRequestException(
           'Insurer switching cannot be represented by a history note. Create a new renewal quotation with the target insurer before completing renewal.',

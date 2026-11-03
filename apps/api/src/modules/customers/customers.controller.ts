@@ -9,6 +9,7 @@ import {
   UseGuards,
   HttpCode,
   HttpStatus,
+  Headers,
 } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { RoleType } from '@prisma/client';
@@ -22,6 +23,7 @@ import { CreateCustomerDto } from './dto/create-customer.dto';
 import { UpdateCustomerDto } from './dto/update-customer.dto';
 import { CustomerQueryDto } from './dto/customer-query.dto';
 import { CheckDuplicateDto } from './dto/check-duplicate.dto';
+import { ReassignCustomerAgentDto } from './dto/reassign-customer-agent.dto';
 import { CreateCustomerAlertDto } from './dto/create-alert.dto';
 import { ParseUUIDPipe } from '../../common/utils/parse-uuid.pipe';
 
@@ -82,19 +84,23 @@ export class CustomersController {
   })
   assignAgent(
     @Param('id', ParseUUIDPipe) id: string,
-    @Body()
-    dto: { newAgentId: string; reason?: string; expectedVersion?: number },
+    @Body() dto: ReassignCustomerAgentDto,
     @CurrentUser() user: RequestUser,
+    @Headers('x-correlation-id') correlationId?: string,
   ) {
-    return this.customersService.assignAgent(id, dto, user);
+    return this.customersService.assignAgent(id, dto, user, correlationId);
   }
 
   @Post()
   @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Create customer with soft duplicate warning' })
-  create(@Body() dto: CreateCustomerDto, @CurrentUser() user: RequestUser) {
-    return this.customersService.create(dto, user);
+  create(
+    @Body() dto: CreateCustomerDto,
+    @CurrentUser() user: RequestUser,
+    @Headers('x-correlation-id') correlationId?: string,
+  ) {
+    return this.customersService.create(dto, user, correlationId);
   }
 
   @Patch(':id')

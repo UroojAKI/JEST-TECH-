@@ -15,6 +15,7 @@ import { VehicleDataService } from '../../../motor/services/vehicle-data.service
 import { NumberingEngineService } from '../../../administration/services/numbering-engine/numbering-engine.service';
 import { VehicleCategory } from '@prisma/client';
 import { TenantResourceAuthorizationService } from '../../../auth/services/tenant-resource-authorization.service';
+import { AgentIdentityResolverService } from '../../../agents/agent-identity-resolver.service';
 
 @Injectable()
 export class CreateMotorQuotationCommand {
@@ -26,6 +27,7 @@ export class CreateMotorQuotationCommand {
     private readonly vehicleDataService: VehicleDataService,
     private readonly numberingEngine: NumberingEngineService,
     private readonly tenantAuthService: TenantResourceAuthorizationService,
+    private readonly agentIdentityResolver: AgentIdentityResolverService,
   ) {}
 
   async execute(dto: CreateMotorCaptureDto, user: RequestUser) {
@@ -149,6 +151,23 @@ export class CreateMotorQuotationCommand {
         );
       }
     }
+    // REQ-4: Address and PIN code validation whenever customer details are provided
+    if (proposer['address'] || proposer['communicationAddress']) {
+      const addr = String(proposer['address'] || proposer['communicationAddress']).trim();
+      if (addr.length < 5) {
+        throw new BadRequestException(
+          'Customer address must be at least 5 characters in length',
+        );
+      }
+    }
+    if (proposer['pincode'] || proposer['pinCode']) {
+      const pin = String(proposer['pincode'] || proposer['pinCode']).trim();
+      if (!/^[1-9][0-9]{5}$/.test(pin)) {
+        throw new BadRequestException(
+          `Invalid PIN code format: expected a valid 6-digit Indian postal code, received '${pin}'`,
+        );
+      }
+    }
     // MOTOR-0041: Relationship Manager derived from authenticated user / assignment if missing
     if (!proposer['relationshipManager']) {
       proposer['relationshipManager'] = (user as any).name || (user as any).email || 'Authenticated User';
@@ -180,6 +199,7 @@ export class CreateMotorQuotationCommand {
 
     // ── 3. Agent Assignment (MOTOR-REG-01, MOTOR-REG-02, Phase 26) ──
     let assignedAgentId: string | null = null;
+    let assignedExternalCodeId: string | null = null;
     let manualAgentSnapshot: any = null;
 
     if (dto.manualAgent?.isManual) {
@@ -244,7 +264,11 @@ export class CreateMotorQuotationCommand {
         dto.agentId,
         user,
       );
-      assignedAgentId = agent.id;
+      const canonical = await this.agentIdentityResolver.validateAgentOwnership(
+        agent.id,
+        companyId,
+      );
+      assignedAgentId = canonical.id;
     }
     // Do NOT silently overwrite with lead.agentId!
 
@@ -334,6 +358,16 @@ export class CreateMotorQuotationCommand {
       contactId = newContact.id;
     }
 
+    if (assignedAgentId && contactId) {
+      const contactAssignment = await this.prisma.contact.findFirst({
+        where: { id: contactId, companyId, deletedAt: null },
+        select: { assignedAgentId: true, assignedExternalCodeId: true },
+      });
+      if (contactAssignment?.assignedAgentId === assignedAgentId) {
+        assignedExternalCodeId = contactAssignment.assignedExternalCodeId;
+      }
+    }
+
     // ── 4. Vehicle Details & Canonical Link ──
     const vehicleDetails = (dto.vehicleDetails || {}) as any;
     let vehicleId: string | null = null;
@@ -415,6 +449,24 @@ export class CreateMotorQuotationCommand {
     }
 
     const prevPolicy = dto.previousPolicyDetails || {};
+    // REQ-5: New renewal quotations can only be generated within 45 days of policy expiry
+    const prevExpiryStr =
+      prevPolicy.policyExpiryDate ||
+      (policyDetails as any)?.previousPolicyExpiryDate;
+    if (prevExpiryStr) {
+      const prevExpiry = new Date(prevExpiryStr);
+      if (!isNaN(prevExpiry.getTime())) {
+        const now = new Date();
+        const daysToExpiry = Math.ceil(
+          (prevExpiry.getTime() - now.getTime()) / (1000 * 60 * 60 * 24),
+        );
+        if (daysToExpiry > 45) {
+          throw new BadRequestException(
+            `RENEWAL_RESTRICTION_45_DAYS: New renewal quotations can only be generated within 45 days of policy expiry. Expiring policy has ${daysToExpiry} days remaining.`,
+          );
+        }
+      }
+    }
     const claimInExpiring =
       String(policyDetails.claimInExpiringPolicy || prevPolicy.claimInPreviousYear || '').toLowerCase() === 'yes' ||
       Boolean(prevPolicy.claimInPreviousYear);
@@ -753,6 +805,7 @@ export class CreateMotorQuotationCommand {
             leadId: dto.leadId || null,
             caseId: activeCaseId,
             agentId: assignedAgentId,
+            agentExternalCodeId: assignedExternalCodeId,
             createdById: user.id,
           },
         });

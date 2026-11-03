@@ -97,7 +97,7 @@ export function InspectionDialog({
         setServerInspection(null);
       }
     } catch (e: any) {
-      console.error('Failed to load inspection:', e);
+      console.warn('Failed to load inspection:', e);
       if (isBackOfficeOrAdmin) {
         toast.error(e?.response?.data?.message || 'Failed to load inspection details');
       }
@@ -128,9 +128,17 @@ export function InspectionDialog({
       return;
     }
 
+    const missing = PHOTO_TYPES.filter((type) => !inspection.photos[type]);
+    if (missing.length > 0) {
+      toast.error(`Please assign all 7 mandatory vehicle inspection photos. Missing: ${missing.join(', ')}`);
+      return;
+    }
+
     setIsSaving(true);
     try {
-      // 1. Upload any selected photo files
+      // 1. Upload 7 mandatory photo files
+      const assignments: Array<{ slot: InspectionPhotoType; storageKey: string }> = [];
+
       for (const photoType of PHOTO_TYPES) {
         const file = inspection.photos[photoType];
         if (file) {
@@ -148,14 +156,44 @@ export function InspectionDialog({
           const storageKey = upload.data?.storageKey;
           if (!storageKey) throw new Error(`Storage key missing after ${photoType} upload`);
 
-          await apiClient.post(`/motor/inspections/${inspectionId}/photos`, {
-            photoType,
-            storageKey,
-          });
+          assignments.push({ slot: photoType, storageKey });
         }
       }
 
-      // 2. Submit for review (transitions IN_PROGRESS -> SUBMITTED_FOR_REVIEW)
+      // 2. Upload any additional evidence items
+      const additionalEvidencePayload: Array<{ storageKey: string; label?: string; notes?: string }> = [];
+      if (inspection.additionalEvidence && inspection.additionalEvidence.length > 0) {
+        for (const ev of inspection.additionalEvidence) {
+          if (ev.file) {
+            const formData = new FormData();
+            formData.append('file', ev.file);
+            formData.append('name', `Additional evidence — ${ev.label || 'Detail'}`);
+            formData.append('entityType', 'INSPECTION');
+            formData.append('entityId', inspectionId);
+            formData.append('category', 'MOTOR_INSPECTION_ADDITIONAL');
+
+            const upload = await apiClient.post('/documents/upload', formData, {
+              headers: { 'Content-Type': 'multipart/form-data' },
+            });
+            const storageKey = upload.data?.storageKey;
+            if (storageKey) {
+              additionalEvidencePayload.push({
+                storageKey,
+                label: ev.label,
+                notes: ev.notes,
+              });
+            }
+          }
+        }
+      }
+
+      // 3. Batch assign slots
+      await apiClient.post(`/motor/inspections/${inspectionId}/assign-slots`, {
+        assignments,
+        additionalEvidence: additionalEvidencePayload.length ? additionalEvidencePayload : undefined,
+      });
+
+      // 4. Submit for review (transitions IN_PROGRESS -> SUBMITTED_FOR_REVIEW)
       const res = await apiClient.post(`/motor/inspections/${inspectionId}/submit-for-review`, {
         conductedByType: inspection.conductedByType,
         inspectorName: inspection.inspectorName,
@@ -163,13 +201,14 @@ export function InspectionDialog({
         inspectorCompany: inspection.inspectorCompany,
         inspectionDate: inspection.inspectionDate,
         inspectionTime: inspection.inspectionTime,
+        additionalEvidence: additionalEvidencePayload.length ? additionalEvidencePayload : undefined,
       });
       setServerInspection(res.data);
 
-      toast.success('All 7 photos verified. Inspection submitted for underwriting review!');
+      toast.success('All 7 mandatory photos verified. Inspection submitted for underwriting review!');
       onSuccess();
     } catch (err: any) {
-      console.error(err);
+      console.warn('Inspection submit error:', err);
       toast.error(err?.response?.data?.message || 'Failed to submit inspection for review');
     } finally {
       setIsSaving(false);

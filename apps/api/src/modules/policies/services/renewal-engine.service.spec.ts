@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { BadRequestException } from '@nestjs/common';
 import { RenewalEngineService } from './renewal-engine.service';
 import { PrismaService } from '../../../database/prisma.service';
 import { getQueueToken } from '@nestjs/bullmq';
@@ -258,6 +259,25 @@ describe('RenewalEngineService (Iteration 10)', () => {
       const result15 = await service.getRenewalQueue(undefined, { urgency: '15_DAYS' });
       expect(result15.data).toHaveLength(2);
       expect(result15.data.map((p: any) => p.policyNumber)).toEqual(['POL-5', 'POL-12']);
+
+      // Filter DUE_TODAY strictly matches today's expiry
+      const mockWithToday = [
+        {
+          id: 'pol-today',
+          policyNumber: 'POL-TODAY',
+          expiryDate: now,
+          contact: { firstName: 'Today' },
+          claims: [],
+          quotation: { ncbPercentage: 20 },
+          renewalTasks: [],
+        },
+        ...mockPolicies,
+      ];
+      prisma.policy.findMany.mockResolvedValue(mockWithToday);
+      const resultToday = await service.getRenewalQueue(undefined, { urgency: 'DUE_TODAY' });
+      expect(resultToday.data).toHaveLength(1);
+      expect(resultToday.data[0].policyNumber).toBe('POL-TODAY');
+      expect(resultToday.summary.dueTodayCount).toBe(1);
     });
 
     it('should not mark fresh policies as escalated unless priority is CRITICAL', async () => {
@@ -382,6 +402,20 @@ describe('RenewalEngineService (Iteration 10)', () => {
   });
 
   describe('triggerManualReminder', () => {
+    it('REQ-5: should reject reminder when policy expires in > 90 days with BadRequestException', async () => {
+      const futureExpiry = new Date(Date.now() + 120 * 24 * 60 * 60 * 1000);
+      prisma.policy.findUnique.mockResolvedValue({
+        id: 'pol-distant',
+        policyNumber: 'POL-DISTANT',
+        expiryDate: futureExpiry,
+        contactId: 'c-1',
+      });
+
+      await expect(
+        service.triggerManualReminder('pol-distant', 'agent-1'),
+      ).rejects.toThrow(BadRequestException);
+    });
+
     it('should add immediate reminder job to BullMQ queue', async () => {
       prisma.policy.findUnique.mockResolvedValue({
         id: 'pol-1',

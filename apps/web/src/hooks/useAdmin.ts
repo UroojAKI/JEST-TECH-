@@ -178,6 +178,47 @@ export function useAuditLogs(params?: {
   });
 }
 
+
+export function useAuditSummary(params?: {
+  startDate?: string;
+  endDate?: string;
+}) {
+  return useQuery({
+    queryKey: ['admin-audit-summary', params],
+    queryFn: () => adminRepository.getAuditSummary(params),
+    refetchInterval: 30000,
+  });
+}
+
+export function useAuditSessions(params?: {
+  userId?: string;
+  startDate?: string;
+  endDate?: string;
+  page?: number;
+  limit?: number;
+}) {
+  return useQuery({
+    queryKey: ['admin-audit-sessions', params],
+    queryFn: () => adminRepository.getUserSessions(params),
+    refetchInterval: 30000,
+  });
+}
+
+export function useAuditTimeline(params?: {
+  userId?: string;
+  action?: string;
+  entity?: string;
+  startDate?: string;
+  endDate?: string;
+  page?: number;
+  limit?: number;
+}) {
+  return useQuery({
+    queryKey: ['admin-audit-timeline', params],
+    queryFn: () => adminRepository.getActivityTimeline(params),
+  });
+}
+
 export function useSystemHealth() {
   return useQuery({
     queryKey: ['admin-system-health'],

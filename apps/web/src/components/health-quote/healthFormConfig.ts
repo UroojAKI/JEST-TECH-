@@ -6,6 +6,8 @@
 
 export type Option = { value: string; label: string };
 
+export const isMaskedPii = (value?: string | null) => Boolean(value && /X{2,}/i.test(value));
+
 export type FieldType = 'text' | 'number' | 'select' | 'multiselect' | 'boolean' | 'date';
 
 export interface FieldSpec {

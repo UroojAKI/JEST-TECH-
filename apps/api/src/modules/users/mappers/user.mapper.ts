@@ -10,6 +10,7 @@ export class UserMapper {
       phone: user.phone,
       collectContacts: user.collectContacts ?? false,
       employeeCode: user.employeeCode,
+      agentCode: user.agentProfile?.agentCode || user.employeeCode || null,
       designation: user.designation,
       department: user.legacyDepartment,
       branchId: user.branch?.id,

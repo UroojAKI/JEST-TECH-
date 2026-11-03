@@ -64,11 +64,65 @@ export class LeadRoutingEngineService {
         where: { id: selectedAgent.id },
         data: { currentLoad: { increment: 1 } },
       });
-
-      return tx.lead.update({
-        where: { id: lead.id },
-        data: { assignedToId: selectedAgent.userId },
+      const targetAgent = await tx.agent.findFirst({
+        where: {
+          userId: selectedAgent.userId,
+          companyId: lead.companyId,
+          isActive: true,
+          deletedAt: null,
+        },
+        select: { id: true },
       });
+      const previousAgentId = lead.agentId || null;
+      const newAgentId = targetAgent?.id || null;
+      const previousExternalCodeId = lead.agentExternalCodeId || null;
+      const newExternalCodeId =
+        previousAgentId && previousAgentId === newAgentId
+          ? previousExternalCodeId
+          : null;
+      const updated = await tx.lead.update({
+        where: { id: lead.id },
+        data: {
+          assignedToId: selectedAgent.userId,
+          agentId: newAgentId,
+          agentExternalCodeId: newExternalCodeId,
+        },
+      });
+      if (
+        (previousAgentId !== newAgentId ||
+          previousExternalCodeId !== newExternalCodeId) &&
+        tx.agentAssignmentHistory?.create
+      ) {
+        const changedById =
+          lead.updatedById || lead.createdById || selectedAgent.userId;
+        const history = await tx.agentAssignmentHistory.create({
+          data: {
+            companyId: lead.companyId,
+            entityType: 'LEAD',
+            entityId: lead.id,
+            previousAgentId,
+            newAgentId,
+            previousExternalCodeId,
+            newExternalCodeId,
+            changedById,
+            reason: 'Lead assigned by queue routing',
+          },
+        });
+        await tx.auditLog.create({
+          data: {
+            action: 'UPDATE',
+            entity: 'AgentAssignment',
+            entityId: history.id,
+            entityType: 'AGENT_ASSIGNMENT',
+            userId: changedById,
+            performedById: changedById,
+            module: 'AGENTS',
+            oldValue: { previousAgentId, previousExternalCodeId },
+            newValue: { newAgentId, newExternalCodeId, reason: 'Lead assigned by queue routing' },
+          },
+        });
+      }
+      return updated;
     });
 
     return updatedLead;

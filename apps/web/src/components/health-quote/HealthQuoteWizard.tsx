@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { ArrowLeft, ArrowRight, HeartPulse, Loader2, Plus, Trash2 } from 'lucide-react';
+import { ArrowLeft, ArrowRight, HeartPulse, Loader2 } from 'lucide-react';
 import { healthApiError, healthQuotationRepository } from '../../repositories/health-quotation.repository';
 import { leadsRepository } from '../../repositories/leads.repository';
 import {
@@ -18,6 +18,7 @@ import {
   RENEWAL_FIELDS,
   SECTION_A_FIELDS,
   initialValues,
+  isMaskedPii,
   labelOf,
   missingRequired,
   toPayload,
@@ -176,8 +177,8 @@ export function HealthQuoteWizard({
         lastName: contact.lastName || prev.lastName,
         phone: contact.phone || contact.mobile || prev.phone,
         email: contact.email || prev.email,
-        panNumber: contact.panNumber || prev.panNumber,
-        aadhaarNumber: contact.aadhaarNumber || prev.aadhaarNumber,
+        panNumber: isMaskedPii(contact.panNumber) ? prev.panNumber : contact.panNumber || prev.panNumber,
+        aadhaarNumber: isMaskedPii(contact.aadhaarNumber) ? prev.aadhaarNumber : contact.aadhaarNumber || prev.aadhaarNumber,
         gender: contact.gender || prev.gender,
         dateOfBirth: contact.dateOfBirth ? String(contact.dateOfBirth).slice(0, 10) : prev.dateOfBirth,
       }));
@@ -210,7 +211,7 @@ export function HealthQuoteWizard({
         lastName: prev.lastName || leadContext.contact?.lastName || lNames.join(' ') || '',
         phone: prev.phone || leadContext.contact?.phone || '',
         email: prev.email || leadContext.contact?.email || '',
-        panNumber: prev.panNumber || leadContext.contact?.panNumber || '',
+        panNumber: prev.panNumber || (isMaskedPii(leadContext.contact?.panNumber) ? '' : leadContext.contact?.panNumber) || '',
       }));
     }
   }, [leadContext, contact]);
@@ -443,16 +444,24 @@ export function HealthQuoteWizard({
           lastName: proposer.lastName,
           phone: proposer.phone,
           email: effectiveEmail,
-          panNumber: proposer.panNumber?.trim() || undefined,
-          aadhaarNumber: proposer.aadhaarNumber?.trim() || undefined,
+          panNumber: proposer.panNumber?.trim() && !isMaskedPii(proposer.panNumber) ? proposer.panNumber.trim() : undefined,
+          aadhaarNumber: proposer.aadhaarNumber?.trim() && !isMaskedPii(proposer.aadhaarNumber) ? proposer.aadhaarNumber.trim() : undefined,
         });
         setResolvedContactId(finalContactId);
       }
 
       const proposerKyc: Record<string, string> = {
         ...(effectiveEmail ? { email: effectiveEmail } : {}),
-        ...(proposer.panNumber?.trim() ? { panNumber: proposer.panNumber.trim().toUpperCase() } : contact?.panNumber ? { panNumber: contact.panNumber } : {}),
-        ...(proposer.aadhaarNumber?.trim() ? { aadhaarNumber: proposer.aadhaarNumber.trim() } : contact?.aadhaarNumber ? { aadhaarNumber: contact.aadhaarNumber } : {}),
+        ...(proposer.panNumber?.trim() && !isMaskedPii(proposer.panNumber)
+          ? { panNumber: proposer.panNumber.trim().toUpperCase() }
+          : contact?.panNumber && !isMaskedPii(contact.panNumber)
+            ? { panNumber: contact.panNumber }
+            : {}),
+        ...(proposer.aadhaarNumber?.trim() && !isMaskedPii(proposer.aadhaarNumber)
+          ? { aadhaarNumber: proposer.aadhaarNumber.trim() }
+          : contact?.aadhaarNumber && !isMaskedPii(contact.aadhaarNumber)
+            ? { aadhaarNumber: contact.aadhaarNumber }
+            : {}),
       };
 
       const effectiveAddress = {
@@ -628,7 +637,7 @@ export function HealthQuoteWizard({
                 <input
                   className={`${inputCls} uppercase font-mono`}
                   maxLength={10}
-                  placeholder="ABCDE1234F"
+                  placeholder={contact?.panNumber ? 'On file (masked); leave blank to keep' : 'ABCDE1234F'}
                   value={proposer.panNumber}
                   onChange={(e) => setProposer({ ...proposer, panNumber: e.target.value.toUpperCase() })}
                 />
@@ -637,7 +646,7 @@ export function HealthQuoteWizard({
                 <input
                   className={`${inputCls} font-mono`}
                   maxLength={12}
-                  placeholder="12 digit Aadhaar"
+                  placeholder={contact?.aadhaarNumber ? 'On file (masked); leave blank to keep' : '12 digit Aadhaar'}
                   value={proposer.aadhaarNumber}
                   onChange={(e) => setProposer({ ...proposer, aadhaarNumber: e.target.value.replace(/\D/g, '') })}
                 />

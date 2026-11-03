@@ -1,7 +1,25 @@
 import { QuotationResponseDto } from '../dto/quotation-response.dto';
 import { QuotationWithRelations } from '../repositories/quotation.repository';
+import { EncryptionUtil } from '../../../common/utils/encryption.util';
 
 export class QuotationMapper {
+  private static maskPiiData(value: any): any {
+    if (Array.isArray(value)) return value.map((item) => this.maskPiiData(item));
+    if (!value || typeof value !== 'object') return value;
+
+    return Object.fromEntries(
+      Object.entries(value).map(([key, item]) => {
+        if (typeof item === 'string' && /pan(?:number)?$/i.test(key)) {
+          return [key, EncryptionUtil.maskPan(item)];
+        }
+        if (typeof item === 'string' && /aadhaar/i.test(key)) {
+          return [key, EncryptionUtil.maskAadhaar(item)];
+        }
+        return [key, this.maskPiiData(item)];
+      }),
+    );
+  }
+
   static toResponse(q: QuotationWithRelations): QuotationResponseDto {
     const dto = new QuotationResponseDto();
     dto.id = q.id;
@@ -27,7 +45,7 @@ export class QuotationMapper {
     dto.vehicleCategory = q.vehicleCategory;
     dto.policyType = q.policyType;
     dto.registrationNumber = q.registrationNumber;
-    dto.motorMetadata = q.motorMetadata;
+    dto.motorMetadata = this.maskPiiData(q.motorMetadata);
 
     const quoteNextActions: Record<
       string,
@@ -74,7 +92,7 @@ export class QuotationMapper {
     };
 
     dto.issuanceStatus = q.issuanceStatus;
-    dto.calculationSnapshot = q.calculationSnapshot;
+    dto.calculationSnapshot = this.maskPiiData(q.calculationSnapshot);
 
     if (q.versions)
       dto.versions = q.versions.map((v) => ({
@@ -85,7 +103,7 @@ export class QuotationMapper {
         gstAmount: Number(v.gstAmount),
         totalPremium: Number(v.totalPremium),
         discountAmount: Number(v.discountAmount),
-        metadata: v.metadata,
+        metadata: this.maskPiiData(v.metadata),
         createdById: v.createdById,
         createdAt: v.createdAt,
       }));
@@ -144,8 +162,8 @@ export class QuotationMapper {
         lastName: c.lastName,
         email: c.email,
         phone: c.phone,
-        panNumber: c.panNumber,
-        aadhaarNumber: (c as any).aadhaarNumber,
+        panNumber: EncryptionUtil.maskPan(c.panNumber),
+        aadhaarNumber: EncryptionUtil.maskAadhaar((c as any).aadhaarNumber),
         address: (c as any).address,
       };
     }

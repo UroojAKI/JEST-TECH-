@@ -44,7 +44,8 @@ export interface ProposerDetails {
   customerName: string;          // N — As per RC / KYC
   mobileNumber: string;          // N — OTP verified
   emailId: string;               // Y
-  address: string;               // Y
+  address: string;
+  pincode: string;               // Y
   panNumber: string;             // Y — KYC mandatory
   relationshipManager: string;   // Y — Auto-mapped to logged-in user
 }
@@ -494,6 +495,13 @@ export interface InspectionDetails {
   inspectionDate?: string;
   inspectionTime?: string;
   photos: Record<InspectionPhotoType, File | null>;
+  additionalEvidence?: Array<{
+    file: File;
+    previewUrl?: string;
+    storageKey?: string;
+    label?: string;
+    notes?: string;
+  }>;
 }
 
 // ------------------------------------------------------------------

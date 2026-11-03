@@ -6,10 +6,21 @@ export interface EndorsementItem {
   endorsementNumber?: string;
   policyId: string;
   policyNumber?: string;
-  type: string; // e.g. CONTACT_CHANGE, ADDRESS_CHANGE, VEHICLE_CHANGE, OWNER_TRANSFER, PREMIUM_CHANGE, etc.
+  type: string; // e.g. GENERAL_CHANGE, CONTACT_CHANGE, ADDRESS_CHANGE, VEHICLE_CHANGE, OWNER_TRANSFER, etc.
   reason: string;
-  requestedChanges?: Record<string, any>;
-  status: 'REQUESTED' | 'UNDER_REVIEW' | 'APPROVED' | 'APPLIED' | 'REJECTED';
+  requestedChanges?: Record<string, any> | any;
+  beforeSnapshot?: Record<string, any> | any;
+  validatedChanges?: Record<string, any> | any;
+  baseVersion?: number;
+  rejectionReason?: string | null;
+  requestedById?: string;
+  requestedBy?: {
+    id: string;
+    firstName?: string;
+    lastName?: string;
+    email?: string;
+  } | null;
+  status: 'REQUESTED' | 'UNDER_REVIEW' | 'APPROVED' | 'APPLIED' | 'COMPLETED' | 'REJECTED' | string;
   createdAt: string;
 }
 
@@ -17,6 +28,11 @@ export const endorsementsRepository = {
   async getEndorsements(): Promise<EndorsementItem[]> {
     const response = await apiClient.get('/endorsements');
     return response.data?.data || response.data || [];
+  },
+
+  async getEndorsementDetails(id: string): Promise<EndorsementItem> {
+    const response = await apiClient.get(`/endorsements/${id}`);
+    return response.data;
   },
 
   async createEndorsement(
@@ -36,6 +52,11 @@ export const endorsementsRepository = {
 
   async approveEndorsement(id: string, comments: string): Promise<EndorsementItem> {
     const response = await apiClient.post(`/endorsements/${id}/approve`, { comments });
+    return response.data;
+  },
+
+  async rejectEndorsement(id: string, reason: string): Promise<EndorsementItem> {
+    const response = await apiClient.post(`/endorsements/${id}/reject`, { reason });
     return response.data;
   },
 

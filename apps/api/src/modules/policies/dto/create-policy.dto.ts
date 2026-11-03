@@ -132,4 +132,12 @@ export class CreatePolicyDto {
   @IsOptional()
   @IsString()
   customerAadhaar?: string;
+
+  @IsOptional()
+  @IsString()
+  customerAddress?: string;
+
+  @IsOptional()
+  @IsString()
+  customerPincode?: string;
 }

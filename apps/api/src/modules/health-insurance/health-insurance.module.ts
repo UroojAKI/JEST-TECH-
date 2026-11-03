@@ -8,13 +8,14 @@ import { HealthQuotationDocumentService } from './services/health-quotation-docu
 import { HealthPremiumService } from './services/health-premium.service';
 import { HealthDocumentRuleService } from './services/health-document-rule.service';
 import { HealthPlanValidationService } from './services/health-plan-validation.service';
+import { AgentsModule } from '../agents/agents.module';
 
 /**
  * Health Insurance CRM (Health_Insurance_CRM_Forms).
  * Not to be confused with HealthModule, which is the system health-check endpoint.
  */
 @Module({
-  imports: [AdministrationModule, AuthModule],
+  imports: [AdministrationModule, AuthModule, AgentsModule],
   controllers: [HealthQuotationCaseController, HealthQuotationDocumentController],
   providers: [
     HealthQuotationCaseService,

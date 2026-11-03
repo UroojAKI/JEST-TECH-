@@ -5,7 +5,13 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Prisma, RoleType, AuditAction, ContactStatus } from '@prisma/client';
+import {
+  AgentAssignmentEntityType,
+  AuditAction,
+  Prisma,
+  RoleType,
+  ContactStatus,
+} from '@prisma/client';
 import { ContactMapper } from '../mappers/contact.mapper';
 import { ContactRepository } from '../repositories/contact.repository';
 import { CreateContactDto } from '../dto/create-contact.dto';
@@ -14,6 +20,8 @@ import { PaginationDto } from '../../../common/pagination/pagination.dto';
 import { PaginatedResponseDto } from '../../../common/pagination/paginated-response.dto';
 import { ActorContext } from '../../../common/interfaces/actor-context.interface';
 import { PrismaService } from '../../../database/prisma.service';
+import { AgentIdentityResolverService } from '../../agents/agent-identity-resolver.service';
+import { AgentIdentifierType } from '../../agents/dto/agent-external-code.dto';
 
 const duplicateContactError = (
   existingContactId: string,
@@ -31,6 +39,7 @@ export class ContactsService {
   constructor(
     private readonly contactRepository: ContactRepository,
     private readonly prisma: PrismaService,
+    private readonly agentIdentityResolver: AgentIdentityResolverService,
   ) {}
 
   private assertActor(actor?: ActorContext): void {
@@ -47,6 +56,7 @@ export class ContactsService {
     dto: CreateContactDto,
     createdById: string,
     actor?: ActorContext,
+    correlationId?: string,
   ) {
     if (actor) {
       this.assertActor(actor);
@@ -119,54 +129,93 @@ export class ContactsService {
       }
     }
 
-    // Assigned Agent resolution (CRM-004 / ID-001: authoritative user FK)
-    let effectiveAgentId = createdById;
-    let authoritativeAgentCode: string | undefined = undefined;
+    // Resolve an explicit namespace first; legacy identifiers are accepted only
+    // when they resolve unambiguously to one active Agent in this company.
+    let assignedAgent: {
+      agentId: string;
+      externalCodeId: string | null;
+      originalIdentifier: string | null;
+      agentCode: string;
+      userId: string;
+    } | null = null;
     const requestedCode = (dto.agentCode || '').trim();
+    if (dto.agentCodeSystem && !requestedCode) {
+      throw new BadRequestException('agentCode is required when agentCodeSystem is supplied');
+    }
+    const requestedAgentId = dto.agentId || dto.assignedAgentId;
+    const identityActor = actor || ({
+      userId: createdById,
+      companyId: targetCompanyId,
+      organizationId: targetCompanyId,
+      role: RoleType.BACK_OFFICE,
+      status: 'ACTIVE',
+    } as ActorContext);
+
     if (requestedCode) {
-      const userByCode = await this.prisma.user.findFirst({
-        where: {
-          companyId: targetCompanyId,
-          OR: [
-            { employeeCode: { equals: requestedCode, mode: 'insensitive' } },
-            { id: requestedCode },
-          ],
+      assignedAgent = dto.agentCodeSystem
+        ? await this.agentIdentityResolver.resolveExternalCodeForAssignment(
+            requestedCode,
+            dto.agentCodeSystem,
+            identityActor,
+          )
+        : await this.agentIdentityResolver.resolveLegacyAgentCode(requestedCode, identityActor);
+    } else if (requestedAgentId) {
+      const resolved = await this.agentIdentityResolver.resolveAgentIdentifier(
+        {
+          identifier: requestedAgentId,
+          identifierType: AgentIdentifierType.USER_ID,
         },
-      });
-      if (!userByCode) {
-        throw new BadRequestException(
-          `Invalid agentCode '${requestedCode}': no registered agent exists with this employee code or user ID in this organization.`,
-        );
-      }
-      effectiveAgentId = userByCode.id;
-      authoritativeAgentCode = userByCode.employeeCode || requestedCode;
-      if (!targetBranchId && userByCode.branchId) {
-        targetBranchId = userByCode.branchId;
-      }
-    } else {
-      const requestedAgentId = dto.agentId || dto.assignedAgentId;
-      if (requestedAgentId) {
-        const assignedAgent = await this.prisma.user.findFirst({
-          where: { id: requestedAgentId, companyId: targetCompanyId },
-        });
-        if (!assignedAgent) {
-          throw new BadRequestException(
-            `Assigned agent with ID '${requestedAgentId}' was not found in this organization.`,
-          );
-        }
-        effectiveAgentId = assignedAgent.id;
-        authoritativeAgentCode = assignedAgent.employeeCode || undefined;
-        if (!targetBranchId && assignedAgent.branchId) {
-          targetBranchId = assignedAgent.branchId;
-        }
-      }
+        identityActor,
+      );
+      const canonical = await this.agentIdentityResolver.validateAgentOwnership(
+        resolved.agent.id,
+        targetCompanyId,
+      );
+      assignedAgent = {
+        agentId: canonical.id,
+        agentCode: canonical.agentCode,
+        userId: canonical.userId,
+        externalCodeId: null,
+        originalIdentifier: null,
+      };
+    } else if (actor?.role === RoleType.AGENT) {
+      const identifier = actor.agentId || actor.userId;
+      const identifierType = actor.agentId
+        ? AgentIdentifierType.AGENT_ID
+        : AgentIdentifierType.USER_ID;
+      const resolved = await this.agentIdentityResolver.resolveAgentIdentifier(
+        { identifier, identifierType },
+        identityActor,
+      );
+      const canonical = await this.agentIdentityResolver.validateAgentOwnership(
+        resolved.agent.id,
+        targetCompanyId,
+      );
+      assignedAgent = {
+        agentId: canonical.id,
+        agentCode: canonical.agentCode,
+        userId: canonical.userId,
+        externalCodeId: null,
+        originalIdentifier: null,
+      };
     }
 
-    const { accountId, agentId, assignedAgentId, agentCode, ...restDto } = dto;
+    if (assignedAgent && !targetBranchId) {
+      const assignedUser = await this.prisma.user.findUnique({
+        where: { id: assignedAgent.userId },
+        select: { branchId: true },
+      });
+      targetBranchId = assignedUser?.branchId || null;
+    }
+
+    const { accountId, agentId, assignedAgentId, agentCode, agentCodeSystem, ...restDto } = dto;
+    const storedAgentCode = assignedAgent
+      ? requestedCode || assignedAgent.agentCode
+      : undefined;
     const contactData: Prisma.ContactCreateInput = {
       contactCode,
       company: { connect: { id: targetCompanyId } },
-      agentCode: authoritativeAgentCode,
+      agentCode: storedAgentCode,
       type: restDto.type,
       firstName: restDto.firstName,
       middleName: restDto.middleName,
@@ -184,15 +233,55 @@ export class ContactsService {
       panNumber: restDto.panNumber,
       aadhaarNumber: restDto.aadhaarNumber,
       gstNumber: restDto.gstNumber,
-      createdBy: { connect: { id: effectiveAgentId } },
+      createdBy: { connect: { id: createdById } },
       updatedBy: { connect: { id: createdById } },
+      ...(assignedAgent ? { assignedAgent: { connect: { id: assignedAgent.agentId } } } : {}),
+      ...(assignedAgent?.externalCodeId
+        ? { assignedExternalCode: { connect: { id: assignedAgent.externalCodeId } } }
+        : {}),
     };
-    if (targetBranchId)
-      contactData.branch = { connect: { id: targetBranchId } };
+    if (targetBranchId) contactData.branch = { connect: { id: targetBranchId } };
     if (accountId) contactData.account = { connect: { id: accountId } };
-    return ContactMapper.toResponse(
-      await this.contactRepository.create(contactData),
-    );
+
+    return this.prisma.$transaction(async (tx) => {
+      const contact = await this.contactRepository.create(contactData, tx);
+      if (assignedAgent) {
+        const history = await tx.agentAssignmentHistory.create({
+          data: {
+            companyId: targetCompanyId,
+            entityType: AgentAssignmentEntityType.CONTACT,
+            entityId: contact.id,
+            newAgentId: assignedAgent.agentId,
+            newExternalCodeId: assignedAgent.externalCodeId,
+            changedById: createdById,
+            reason: requestedCode
+              ? `Contact created from Agent identifier ${requestedCode}`
+              : 'Contact created with Agent assignment',
+            correlationId: correlationId || null,
+          },
+        });
+        await tx.auditLog.create({
+          data: {
+            action: AuditAction.CREATE,
+            entity: 'AgentAssignment',
+            entityId: history.id,
+            entityType: 'AGENT_ASSIGNMENT',
+            userId: createdById,
+            performedById: createdById,
+            module: 'AGENTS',
+            correlationId: correlationId || null,
+            newValue: {
+              entityType: 'CONTACT',
+              entityId: contact.id,
+              newAgentId: assignedAgent.agentId,
+              newExternalCodeId: assignedAgent.externalCodeId,
+              originalIdentifier: assignedAgent.originalIdentifier,
+            },
+          },
+        });
+      }
+      return ContactMapper.toResponse(contact);
+    });
   }
 
   async findAll(pagination: PaginationDto, actor: ActorContext) {
@@ -218,10 +307,20 @@ export class ContactsService {
         }
       : {};
     const scopeWhere: Prisma.ContactWhereInput = {};
-    // ADMIN and BACK_OFFICE see all org contacts (org boundary enforced at JWT/scope level)
-    // AGENT only sees contacts they created
+    // Agents see contacts they created or that are currently assigned to them.
     if (actor.role === RoleType.AGENT) {
-      scopeWhere.createdById = actor.userId;
+      const agentId = actor.agentId || (await this.prisma.agent.findFirst({
+        where: {
+          userId: actor.userId,
+          companyId: actor.companyId || actor.organizationId,
+          deletedAt: null,
+        },
+        select: { id: true },
+      }))?.id;
+      scopeWhere.OR = [
+        { createdById: actor.userId },
+        ...(agentId ? [{ assignedAgentId: agentId }] : []),
+      ];
     }
     const where: Prisma.ContactWhereInput = Object.keys(scopeWhere).length
       ? { AND: [searchWhere, scopeWhere] }
@@ -240,7 +339,7 @@ export class ContactsService {
     );
   }
 
-  private assertRecordAccess(contact: any, actor: ActorContext): void {
+  private async assertRecordAccess(contact: any, actor: ActorContext): Promise<void> {
     this.assertActor(actor);
     const actorOrg = actor.companyId || actor.organizationId;
     const contactOrg =
@@ -257,9 +356,19 @@ export class ContactsService {
     if (actor.role === RoleType.ADMIN || actor.role === RoleType.BACK_OFFICE) {
       return;
     }
-    // AGENT can only access their own contacts
-    const owner = contact?.createdBy;
-    if (owner?.id !== actor.userId && contact?.createdById !== actor.userId)
+    const isCreator = contact?.createdBy?.id === actor.userId || contact?.createdById === actor.userId;
+    if (isCreator) return;
+
+    const agentId = actor.agentId || (await this.prisma.agent.findFirst({
+      where: {
+        userId: actor.userId,
+        companyId: actor.companyId || actor.organizationId,
+        deletedAt: null,
+      },
+      select: { id: true },
+    }))?.id;
+    const isAssignedAgent = Boolean(agentId && contact?.assignedAgentId === agentId);
+    if (!isAssignedAgent)
       throw new ForbiddenException('Contact belongs to another owner');
   }
 
@@ -299,7 +408,7 @@ export class ContactsService {
     }
     if (!contact || contact.deletedAt)
       throw new NotFoundException(`Contact ${id} not found`);
-    if (actor) this.assertRecordAccess(contact, actor);
+    if (actor) await this.assertRecordAccess(contact, actor);
     return ContactMapper.toResponse(contact);
   }
 
@@ -307,7 +416,7 @@ export class ContactsService {
     const contact = await this.contactRepository.findById(id);
     if (!contact || contact.deletedAt)
       throw new NotFoundException(`Contact ${id} not found`);
-    this.assertRecordAccess(contact, actor);
+    await this.assertRecordAccess(contact, actor);
 
     await this.prisma.auditLog.create({
       data: {
@@ -338,7 +447,7 @@ export class ContactsService {
     const existing = await this.contactRepository.findById(id);
     if (!existing || existing.deletedAt)
       throw new NotFoundException(`Contact ${id} not found`);
-    this.assertRecordAccess(existing, actor);
+    await this.assertRecordAccess(existing, actor);
     if (updatedById !== actor.userId)
       throw new ForbiddenException(
         'Contact updater must match authenticated user',
@@ -396,7 +505,7 @@ export class ContactsService {
       throw new NotFoundException(`Contact ${id} not found`);
     if (existing.status === ContactStatus.ARCHIVED)
       throw new ForbiddenException('Archived contacts cannot be modified');
-    this.assertRecordAccess(existing, actor);
+    await this.assertRecordAccess(existing, actor);
     if (existing.status !== ContactStatus.ACTIVE)
       throw new ConflictException('Contact is not ACTIVE');
 
@@ -426,7 +535,7 @@ export class ContactsService {
       throw new NotFoundException(`Contact ${id} not found`);
     if (existing.status === ContactStatus.ARCHIVED)
       throw new ForbiddenException('Archived contacts cannot be modified');
-    this.assertRecordAccess(existing, actor);
+    await this.assertRecordAccess(existing, actor);
     if (existing.status !== ContactStatus.INACTIVE)
       throw new ConflictException('Contact is not INACTIVE');
 
@@ -458,7 +567,7 @@ export class ContactsService {
       throw new ForbiddenException(
         'Authenticated actor context is required to delete contacts',
       );
-    this.assertRecordAccess(existing, actor);
+    await this.assertRecordAccess(existing, actor);
     if (deletedById !== actor.userId)
       throw new ForbiddenException(
         'Contact deleter must match authenticated user',

@@ -361,6 +361,19 @@ describe('MotorInspectionService (Production State Machine & Role Segregation)',
       });
     });
 
+
+    it('rejects submission if duplicate photos are assigned to multiple mandatory slots', async () => {
+      mockPrisma.motorInspection.findUnique.mockResolvedValue({
+        ...completePhotosInspection,
+        status: InspectionStatus.IN_PROGRESS,
+        frontImageKey: 'photos/duplicate.jpg',
+        backImageKey: 'photos/duplicate.jpg', // DUPLICATE
+      });
+
+      await expect(service.submitForReview('ins-1', agentActor)).rejects.toThrow(
+        'Each of the 7 mandatory inspection slots must contain a distinct photograph',
+      );
+    });
     it('rejects submission if photos are missing', async () => {
       const incompleteInspection = {
         ...completePhotosInspection,
@@ -707,4 +720,65 @@ describe('MotorInspectionService (Production State Machine & Role Segregation)',
       expect(res?.photoProvenance.chassis).toBeDefined();
     });
   });
+
+  describe('REQ-1: Batch Assign Slots & Evidence', () => {
+    it('allows batch assigning photographs to inspection slots', async () => {
+      mockPrisma.motorInspection.findUnique.mockResolvedValue({
+        ...completePhotosInspection,
+        status: InspectionStatus.IN_PROGRESS,
+      });
+      mockPrisma.motorInspection.update.mockResolvedValue({
+        ...completePhotosInspection,
+        status: InspectionStatus.IN_PROGRESS,
+      });
+
+      const result = await service.assignSlots(
+        'ins-1',
+        {
+          assignments: [
+            { slot: 'front', storageKey: 'photos/front_new.jpg' },
+            { slot: 'back', storageKey: 'photos/back_new.jpg' },
+          ],
+          additionalEvidence: [
+            { storageKey: 'photos/extra_engine.jpg', label: 'Engine Bay' },
+          ],
+        },
+        agentActor,
+      );
+
+      expect(result).toBeDefined();
+      expect(mockPrisma.motorInspection.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            frontImageKey: 'photos/front_new.jpg',
+            backImageKey: 'photos/back_new.jpg',
+            additionalEvidence: expect.arrayContaining([
+              expect.objectContaining({ storageKey: 'photos/extra_engine.jpg' }),
+            ]),
+          }),
+        }),
+      );
+    });
+
+    it('rejects batch assignment when duplicate photo is assigned across slots', async () => {
+      mockPrisma.motorInspection.findUnique.mockResolvedValue({
+        ...completePhotosInspection,
+        status: InspectionStatus.IN_PROGRESS,
+      });
+
+      await expect(
+        service.assignSlots(
+          'ins-1',
+          {
+            assignments: [
+              { slot: 'front', storageKey: 'photos/same.jpg' },
+              { slot: 'back', storageKey: 'photos/same.jpg' },
+            ],
+          },
+          agentActor,
+        ),
+      ).rejects.toThrow('Each inspection slot must be assigned a distinct photograph');
+    });
+  });
+
 });

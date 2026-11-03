@@ -20,8 +20,13 @@ describe('LeadAssignmentService (Iteration 11)', () => {
     prisma = {
       lead: {
         findUnique: jest.fn(),
+        findMany: jest.fn().mockResolvedValue([]),
         update: jest.fn(),
         updateMany: jest.fn(),
+      },
+      agent: { findFirst: jest.fn().mockResolvedValue(null) },
+      agentAssignmentHistory: {
+        create: jest.fn().mockResolvedValue({ id: 'assignment-history-1' }),
       },
       user: {
         findUnique: jest.fn(),
@@ -98,6 +103,52 @@ describe('LeadAssignmentService (Iteration 11)', () => {
       expect(result.assignedToId).toBe('agent-1');
       expect(prisma.activity.create).toHaveBeenCalled();
       expect(prisma.auditLog.create).toHaveBeenCalled();
+    });
+
+    it('stores canonical Agent identity and immutable assignment history', async () => {
+      const actor = createActor(RoleType.BACK_OFFICE);
+      prisma.lead.findUnique.mockResolvedValue({
+        ...mockLead,
+        companyId: actor.companyId,
+        agentId: null,
+      });
+      prisma.user.findUnique.mockResolvedValue({
+        id: 'user-agent-1',
+        firstName: 'John',
+        lastName: 'Agent',
+        companyId: actor.companyId,
+        branchId: 'branch-1',
+        teamId: 'team-1',
+        status: UserStatus.ACTIVE,
+      });
+      prisma.agent.findFirst.mockResolvedValue({ id: 'canonical-agent-1' });
+      prisma.lead.update.mockResolvedValue({
+        ...mockLead,
+        assignedToId: 'user-agent-1',
+        agentId: 'canonical-agent-1',
+      });
+
+      await service.assignLead('lead-1', 'user-agent-1', actor, 'corr-123');
+
+      expect(prisma.lead.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            assignedToId: 'user-agent-1',
+            agentId: 'canonical-agent-1',
+            agentExternalCodeId: null,
+          }),
+        }),
+      );
+      expect(prisma.agentAssignmentHistory.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            entityType: 'LEAD',
+            entityId: 'lead-1',
+            newAgentId: 'canonical-agent-1',
+            correlationId: 'corr-123',
+          }),
+        }),
+      );
     });
 
     it('should reject assignment when Agent attempts to assign lead', async () => {
@@ -219,7 +270,15 @@ describe('LeadAssignmentService (Iteration 11)', () => {
       };
 
       prisma.user.findUnique.mockResolvedValue(targetAgent);
-      prisma.lead.updateMany.mockResolvedValue({ count: 5 });
+      prisma.lead.findMany.mockResolvedValue(
+        ['l1', 'l2', 'l3', 'l4', 'l5'].map((id) => ({
+          ...mockLead,
+          id,
+          companyId: actor.companyId,
+          agentId: null,
+          agentExternalCodeId: null,
+        })),
+      );
 
       const result = await service.bulkAssign(
         ['l1', 'l2', 'l3', 'l4', 'l5'],
@@ -228,14 +287,17 @@ describe('LeadAssignmentService (Iteration 11)', () => {
       );
 
       expect(result.reassignedCount).toBe(5);
-      expect(prisma.lead.updateMany).toHaveBeenCalledWith({
-        where: {
-          id: { in: ['l1', 'l2', 'l3', 'l4', 'l5'] },
-          companyId: actor.companyId,
-          deletedAt: null,
-        },
-        data: { assignedToId: 'agent-bulk', updatedById: actor.userId },
-      });
+      expect(prisma.lead.update).toHaveBeenCalledTimes(5);
+      expect(prisma.lead.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'l1' },
+          data: expect.objectContaining({
+            assignedToId: 'agent-bulk',
+            agentId: null,
+            agentExternalCodeId: null,
+          }),
+        }),
+      );
       expect(prisma.auditLog.create).toHaveBeenCalled();
     });
   });

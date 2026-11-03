@@ -168,11 +168,22 @@ describe('Phase 9: 24-Flow Comprehensive Matrix Suite (8 Categories × 3 Policy 
           const ruleResult = ruleEngine.evaluateQuotation({
             vehicleStatus: 'EXISTING',
             newPolicyType: 'PACKAGE',
+            policyExpiryDate: dateService.getBusinessToday(),
+            previousPolicyType: 'COMPREHENSIVE',
             eligibleNcbPercentage: 35,
           });
 
           expect(ruleResult.ncb).toBe(35);
           expect(ruleResult.inspectionRequired).toBe(false);
+
+          // Assert that missing previous policy details triggers mandatory inspection
+          const unverifiedResult = ruleEngine.evaluateQuotation({
+            vehicleStatus: 'EXISTING',
+            newPolicyType: 'PACKAGE',
+            eligibleNcbPercentage: 35,
+          });
+          expect(unverifiedResult.inspectionRequired).toBe(true);
+          expect(unverifiedResult.inspectionReasons).toContain('PREVIOUS_POLICY_DETAILS_UNAVAILABLE');
 
           const calcResult = await calcService.calculate({
             vehicleCategory: category,

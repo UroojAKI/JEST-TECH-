@@ -102,7 +102,7 @@ export class QuotationCompletionService {
 
     // ── SECTION 1: Customer KYC & Identity ──────────────────────────────
     const customerMissing: MissingFieldItem[] = [];
-    const customerApplicable = 4;
+    const customerApplicable = 6;
     let customerCompleted = 0;
 
     if (contact.firstName && contact.lastName) customerCompleted++;
@@ -134,6 +134,27 @@ export class QuotationCompletionService {
       customerMissing.push({
         field: 'dateOfBirth',
         label: 'Date of Birth',
+        requiredFor: 'POLICY_ISSUANCE',
+      });
+
+    // REQ-4: Mandatory Customer Address & PIN code validation
+    const proposer = (quotation.motorMetadata as any)?.proposerDetails || {};
+    const customer = (quotation as any).customer || {};
+    const address = contact.address || proposer.address || proposer.communicationAddress || customer.addressLine1;
+    if (address && String(address).trim().length >= 5) customerCompleted++;
+    else
+      customerMissing.push({
+        field: 'address',
+        label: 'Customer Communication Address',
+        requiredFor: 'POLICY_ISSUANCE',
+      });
+
+    const pincode = contact.pincode || proposer.pincode || proposer.pinCode || customer.pincode;
+    if (pincode && /^[1-9][0-9]{5}$/.test(String(pincode).trim())) customerCompleted++;
+    else
+      customerMissing.push({
+        field: 'pincode',
+        label: 'PIN Code (6 digits)',
         requiredFor: 'POLICY_ISSUANCE',
       });
 

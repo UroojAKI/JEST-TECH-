@@ -7,7 +7,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
-import { RoleType, Prisma } from '@prisma/client';
+import { AgentAssignmentEntityType, AuditAction, RoleType, Prisma } from '@prisma/client';
 import { CreateCustomerDto } from './dto/create-customer.dto';
 import { UpdateCustomerDto } from './dto/update-customer.dto';
 import { CustomerQueryDto } from './dto/customer-query.dto';
@@ -15,6 +15,8 @@ import { CheckDuplicateDto } from './dto/check-duplicate.dto';
 import { CreateCustomerAlertDto } from './dto/create-alert.dto';
 import type { RequestUser } from '../auth/decorators/current-user.decorator';
 import { CrmIdentityService } from '../crm-identity/services/crm-identity.service';
+import { AgentIdentityResolverService } from '../agents/agent-identity-resolver.service';
+import { ReassignCustomerAgentDto } from './dto/reassign-customer-agent.dto';
 
 @Injectable()
 export class CustomersService {
@@ -23,6 +25,7 @@ export class CustomersService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly crmIdentityService: CrmIdentityService,
+    private readonly agentIdentityResolver: AgentIdentityResolverService,
   ) {}
 
   private normalizePhone(phone?: string): string | undefined {
@@ -107,7 +110,7 @@ export class CustomersService {
     };
   }
 
-  async create(dto: CreateCustomerDto, user: RequestUser) {
+  async create(dto: CreateCustomerDto, user: RequestUser, correlationId?: string) {
     // Strict deduplication check
     const duplicates = await this.checkDuplicate(
       {
@@ -157,23 +160,39 @@ export class CustomersService {
       throw new ForbiddenException('Tenant organizational context is required');
     }
 
-    // Resolve primary agent
-    let primaryAgentId = dto.agentId;
-    if (!primaryAgentId && user.role === RoleType.AGENT) {
-      const agent = await this.prisma.agent.findUnique({
-        where: { userId: user.id },
-      });
-      if (agent) primaryAgentId = agent.id;
-    }
-    if (!primaryAgentId && this.prisma.agent?.findFirst) {
-      const defaultAgent = await this.prisma.agent.findFirst({
-        where: { companyId },
-      });
-      primaryAgentId = defaultAgent?.id;
+    // External identifiers are resolved only in their explicit code system.
+    let primaryAgentId: string | null = null;
+    let primaryAgentExternalCodeId: string | null = null;
+    if (dto.externalAgentCode) {
+      if (!dto.agentCodeSystem) {
+        throw new BadRequestException('agentCodeSystem is required with externalAgentCode');
+      }
+      if (dto.agentId) {
+        throw new BadRequestException('Supply either agentId or externalAgentCode, not both');
+      }
+      const resolved = await this.agentIdentityResolver.resolveExternalCodeForAssignment(
+        dto.externalAgentCode,
+        dto.agentCodeSystem,
+        user,
+      );
+      primaryAgentId = resolved.agentId;
+      primaryAgentExternalCodeId = resolved.externalCodeId;
+    } else if (dto.agentCodeSystem) {
+      throw new BadRequestException('externalAgentCode is required with agentCodeSystem');
+    } else if (dto.agentId) {
+      const agent = await this.agentIdentityResolver.validateAgentOwnership(dto.agentId, companyId);
+      primaryAgentId = agent.id;
+    } else if (user.role === RoleType.AGENT) {
+      const ownAgentId = user.agentId || (await this.prisma.agent.findFirst({
+        where: { userId: user.id, companyId, deletedAt: null },
+        select: { id: true },
+      }))?.id;
+      if (!ownAgentId) throw new ForbiddenException('An active Agent profile is required to create an assigned customer');
+      primaryAgentId = (await this.agentIdentityResolver.validateAgentOwnership(ownAgentId, companyId)).id;
     }
 
     const result = await this.prisma.$transaction(async (tx) => {
-      const { customer } =
+      let { customer } =
         await this.crmIdentityService.ensureLinkedContactAndCustomer(tx, {
           companyId,
           contactId: dto.contactId,
@@ -190,11 +209,81 @@ export class CustomersService {
           pincode: dto.pincode,
           isVip: dto.isVip || false,
           primaryAgentId: primaryAgentId || null,
+          primaryAgentExternalCodeId,
           createdById: user.id,
           createCustomerIfMissing: true,
         });
 
-      if (primaryAgentId && tx.customerAgentHistory?.create) {
+      if (primaryAgentId) {
+        if (customer.primaryAgentId && customer.primaryAgentId !== primaryAgentId) {
+          throw new ConflictException('Customer is already assigned to a different Agent; use the reassignment endpoint');
+        }
+        if (!customer.primaryAgentId || customer.primaryAgentExternalCodeId !== primaryAgentExternalCodeId) {
+          customer = await tx.customer.update({
+            where: { id: customer.id },
+            data: {
+              primaryAgentId,
+              primaryAgentExternalCodeId,
+            },
+          });
+        }
+        if (customer.contactId) {
+          const contact = await tx.contact.findFirst({
+            where: { id: customer.contactId, companyId },
+            select: { id: true, assignedAgentId: true, assignedExternalCodeId: true },
+          });
+          if (contact?.assignedAgentId && contact.assignedAgentId !== primaryAgentId) {
+            throw new ConflictException('Contact is already assigned to a different Agent; resolve the assignment before creating the customer');
+          }
+          if (contact && (
+            !contact.assignedAgentId ||
+            contact.assignedExternalCodeId !== primaryAgentExternalCodeId
+          )) {
+            await tx.contact.update({
+              where: { id: contact.id },
+              data: {
+                assignedAgentId: primaryAgentId,
+                assignedExternalCodeId: primaryAgentExternalCodeId,
+              },
+            });
+            const contactAssignment = await tx.agentAssignmentHistory.create({
+              data: {
+                companyId,
+                entityType: AgentAssignmentEntityType.CONTACT,
+                entityId: contact.id,
+                previousAgentId: contact.assignedAgentId,
+                newAgentId: primaryAgentId,
+                previousExternalCodeId: contact.assignedExternalCodeId,
+                newExternalCodeId: primaryAgentExternalCodeId,
+                changedById: user.id,
+                reason: 'Contact assigned during customer registration',
+                correlationId: correlationId || null,
+              },
+            });
+            await tx.auditLog.create({
+              data: {
+                action: AuditAction.UPDATE,
+                entity: 'AgentAssignment',
+                entityId: contactAssignment.id,
+                entityType: 'AGENT_ASSIGNMENT',
+                userId: user.id,
+                performedById: user.id,
+                module: 'AGENTS',
+                correlationId: correlationId || null,
+                newValue: {
+                  entityType: 'CONTACT',
+                  entityId: contact.id,
+                  previousAgentId: contact.assignedAgentId,
+                  newAgentId: primaryAgentId,
+                  previousExternalCodeId: contact.assignedExternalCodeId,
+                  newExternalCodeId: primaryAgentExternalCodeId,
+                },
+              },
+            });
+          }
+        }
+
+        if (tx.customerAgentHistory?.create) {
         await tx.customerAgentHistory.create({
           data: {
             customerId: customer.id,
@@ -203,6 +292,37 @@ export class CustomersService {
             assignedById: user.id,
             reason: 'Initial customer creation assignment',
             assignedAt: new Date(),
+          },
+        });
+        }
+        const assignment = await tx.agentAssignmentHistory.create({
+          data: {
+            companyId,
+            entityType: AgentAssignmentEntityType.CUSTOMER,
+            entityId: customer.id,
+            newAgentId: primaryAgentId,
+            newExternalCodeId: primaryAgentExternalCodeId,
+            changedById: user.id,
+            reason: 'Initial customer creation assignment',
+            correlationId: correlationId || null,
+          },
+        });
+        await tx.auditLog.create({
+          data: {
+            action: AuditAction.CREATE,
+            entity: 'AgentAssignment',
+            entityId: assignment.id,
+            entityType: 'AGENT_ASSIGNMENT',
+            userId: user.id,
+            performedById: user.id,
+            module: 'AGENTS',
+            correlationId: correlationId || null,
+            newValue: {
+              entityType: 'CUSTOMER',
+              entityId: customer.id,
+              newAgentId: primaryAgentId,
+              newExternalCodeId: primaryAgentExternalCodeId,
+            },
           },
         });
       }
@@ -218,19 +338,43 @@ export class CustomersService {
 
   async assignAgent(
     customerId: string,
-    dto: { newAgentId: string; reason?: string; expectedVersion?: number },
+    dto: ReassignCustomerAgentDto,
     actor: RequestUser,
+    correlationId?: string,
   ) {
     const companyId = actor.companyId || (actor as any).organizationId;
     if (!companyId) {
       throw new ForbiddenException('Tenant company context is required');
     }
 
+    if (Boolean(dto.newAgentId) === Boolean(dto.externalAgentCode)) {
+      throw new BadRequestException('Supply either newAgentId or externalAgentCode');
+    }
+    if (dto.externalAgentCode && !dto.agentCodeSystem) {
+      throw new BadRequestException('agentCodeSystem is required with externalAgentCode');
+    }
+    if (dto.agentCodeSystem && !dto.externalAgentCode) {
+      throw new BadRequestException('externalAgentCode is required with agentCodeSystem');
+    }
+
+    const resolvedExternal = dto.externalAgentCode
+      ? await this.agentIdentityResolver.resolveExternalCodeForAssignment(
+          dto.externalAgentCode,
+          dto.agentCodeSystem!,
+          actor,
+        )
+      : null;
+    const newAgentId = resolvedExternal?.agentId || dto.newAgentId!;
+    const newExternalCodeId = resolvedExternal?.externalCodeId || null;
+    if (!resolvedExternal) {
+      await this.agentIdentityResolver.validateAgentOwnership(newAgentId, companyId);
+    }
+
     try {
       return await this.prisma.$transaction(async (tx) => {
         // 1. Validate company match & active status
         const targetAgent = await tx.agent.findFirst({
-          where: { id: dto.newAgentId, companyId, isActive: true },
+          where: { id: newAgentId, companyId, isActive: true, deletedAt: null },
         });
         if (!targetAgent) {
           throw new BadRequestException(
@@ -238,8 +382,8 @@ export class CustomersService {
           );
         }
 
-        const currentCustomer = await tx.customer.findUnique({
-          where: { id: customerId },
+        const currentCustomer = await tx.customer.findFirst({
+          where: { id: customerId, companyId, deletedAt: null },
         });
         if (!currentCustomer) {
           throw new NotFoundException('Customer not found');
@@ -255,7 +399,8 @@ export class CustomersService {
             companyId,
           },
           data: {
-            primaryAgentId: dto.newAgentId,
+            primaryAgentId: newAgentId,
+            primaryAgentExternalCodeId: newExternalCodeId,
             version: { increment: 1 },
           },
         });
@@ -268,6 +413,60 @@ export class CustomersService {
           });
         }
 
+        if (currentCustomer.contactId) {
+          const currentContact = await tx.contact.findFirst({
+            where: { id: currentCustomer.contactId, companyId },
+            select: { id: true, assignedAgentId: true, assignedExternalCodeId: true },
+          });
+          if (currentContact && (
+            currentContact.assignedAgentId !== newAgentId ||
+            currentContact.assignedExternalCodeId !== newExternalCodeId
+          )) {
+            await tx.contact.update({
+              where: { id: currentContact.id },
+              data: {
+                assignedAgentId: newAgentId,
+                assignedExternalCodeId: newExternalCodeId,
+              },
+            });
+            const contactAssignment = await tx.agentAssignmentHistory.create({
+              data: {
+                companyId,
+                entityType: AgentAssignmentEntityType.CONTACT,
+                entityId: currentContact.id,
+                previousAgentId: currentContact.assignedAgentId,
+                newAgentId,
+                previousExternalCodeId: currentContact.assignedExternalCodeId,
+                newExternalCodeId,
+                changedById: actor.id,
+                reason: dto.reason || 'Contact assignment synchronized with customer reassignment',
+                correlationId: correlationId || null,
+              },
+            });
+            await tx.auditLog.create({
+              data: {
+                action: AuditAction.UPDATE,
+                entity: 'AgentAssignment',
+                entityId: contactAssignment.id,
+                entityType: 'AGENT_ASSIGNMENT',
+                userId: actor.id,
+                performedById: actor.id,
+                module: 'AGENTS',
+                correlationId: correlationId || null,
+                newValue: {
+                  entityType: 'CONTACT',
+                  entityId: currentContact.id,
+                  previousAgentId: currentContact.assignedAgentId,
+                  newAgentId,
+                  previousExternalCodeId: currentContact.assignedExternalCodeId,
+                  newExternalCodeId,
+                  reason: dto.reason || 'Contact assignment synchronized with customer reassignment',
+                },
+              },
+            });
+          }
+        }
+
         // 3. Close previous active assignment
         await tx.customerAgentHistory.updateMany({
           where: { customerId, unassignedAt: null },
@@ -278,11 +477,47 @@ export class CustomersService {
         await tx.customerAgentHistory.create({
           data: {
             customerId,
-            agentId: dto.newAgentId,
+            agentId: newAgentId,
             companyId,
             assignedById: actor.id,
             reason: dto.reason || 'Reassigned via Back Office',
             assignedAt: new Date(),
+          },
+        });
+
+        const assignment = await tx.agentAssignmentHistory.create({
+          data: {
+            companyId,
+            entityType: AgentAssignmentEntityType.CUSTOMER,
+            entityId: customerId,
+            previousAgentId: currentCustomer.primaryAgentId,
+            newAgentId,
+            previousExternalCodeId: currentCustomer.primaryAgentExternalCodeId,
+            newExternalCodeId,
+            changedById: actor.id,
+            reason: dto.reason || 'Reassigned via Back Office',
+            correlationId: correlationId || null,
+          },
+        });
+        await tx.auditLog.create({
+          data: {
+            action: AuditAction.UPDATE,
+            entity: 'AgentAssignment',
+            entityId: assignment.id,
+            entityType: 'AGENT_ASSIGNMENT',
+            userId: actor.id,
+            performedById: actor.id,
+            module: 'AGENTS',
+            correlationId: correlationId || null,
+            newValue: {
+              entityType: 'CUSTOMER',
+              entityId: customerId,
+              previousAgentId: currentCustomer.primaryAgentId,
+              newAgentId,
+              previousExternalCodeId: currentCustomer.primaryAgentExternalCodeId,
+              newExternalCodeId,
+              reason: dto.reason || 'Reassigned via Back Office',
+            },
           },
         });
 
@@ -296,6 +531,7 @@ export class CustomersService {
                 },
               },
             },
+            primaryAgentExternalCode: true,
             agentHistories: {
               orderBy: { assignedAt: 'desc' },
               take: 10,

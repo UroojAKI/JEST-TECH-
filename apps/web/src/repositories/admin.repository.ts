@@ -16,11 +16,12 @@ export interface AdminDashboardMetrics {
 export interface UserItem {
   id: string;
   employeeCode: string;
+  agentCode?: string;
   firstName: string;
   lastName: string;
   email: string;
   password?: string;
-  role: string;
+  role: string | { id?: string; name?: string; code?: string };
   status: 'ACTIVE' | 'LOCKED' | 'DISABLED';
   collectContacts?: boolean;
   branchName?: string;
@@ -93,6 +94,11 @@ export interface UserWorkspaceData {
     renewalsPending: number;
     pendingTasks: number;
     overdueTasks: number;
+    quotationsCreated?: number;
+    quotationsIssued?: number;
+    quotationsApproved?: number;
+    totalQuotationValue?: number;
+    totalIssuedPremium?: number;
   };
   recentActivities: {
     id: string;
@@ -102,6 +108,7 @@ export interface UserWorkspaceData {
     ipAddress?: string | null;
     createdAt: string;
     details?: any;
+    source?: string;
   }[];
   recentTasks: {
     id: string;
@@ -109,6 +116,44 @@ export interface UserWorkspaceData {
     status: string;
     priority: string;
     dueDate?: string | null;
+    createdAt: string;
+  }[];
+  recentQuotations?: {
+    id: string;
+    quotationCode: string;
+    title?: string;
+    customerName: string;
+    customerPhone?: string | null;
+    insurerName: string;
+    productType: string;
+    totalPremium: number;
+    basePremium?: number;
+    status: string;
+    issuanceStatus: string;
+    policyNumber?: string | null;
+    createdAt: string;
+  }[];
+  recentPolicies?: {
+    id: string;
+    policyNumber: string;
+    customerName: string;
+    customerPhone?: string | null;
+    insurerName: string;
+    productType?: string;
+    premiumAmount: number;
+    status: string;
+    effectiveDate: string;
+    expiryDate: string;
+    createdAt: string;
+  }[];
+  recentLeads?: {
+    id: string;
+    leadCode?: string;
+    title?: string;
+    customerName: string;
+    status: string;
+    currentWorkflowStep?: string;
+    estimatedPremium?: number;
     createdAt: string;
   }[];
 }
@@ -257,6 +302,99 @@ export interface HealthStatusItem {
   details?: Record<string, any>;
 }
 
+
+export interface UserActivityMetrics {
+  userId: string;
+  userName: string;
+  email: string;
+  role: string;
+  creates: number;
+  updates: number;
+  deletes: number;
+  approvals: number;
+  rejections: number;
+  logins: number;
+  logouts: number;
+  totalActions: number;
+  lastActive: string | null;
+}
+
+export interface AuditSummaryResponse {
+  totals: {
+    totalEvents: number;
+    creates: number;
+    updates: number;
+    deletes: number;
+    approvals: number;
+    rejections: number;
+    logins: number;
+    logouts: number;
+  };
+  userBreakdown: UserActivityMetrics[];
+}
+
+export interface UserSessionItem {
+  sessionId: string;
+  userId: string;
+  user: {
+    id: string;
+    name: string;
+    email: string;
+    role: string;
+  };
+  loginTime: string;
+  logoutTime: string | null;
+  durationMinutes: number | null;
+  durationFormatted: string;
+  status: 'ENDED' | 'ACTIVE' | 'EXPIRED';
+  ipAddress: string | null;
+  userAgent: string | null;
+}
+
+export interface PaginatedSessionsResponse {
+  data: UserSessionItem[];
+  meta: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
+  disclaimer: string;
+}
+
+export interface UserTimelineItem {
+  id: string;
+  timestamp: string;
+  action: string;
+  entity: string;
+  entityId: string;
+  module?: string;
+  correlationId?: string;
+  ipAddress?: string;
+  userAgent?: string;
+  description: string;
+  user: {
+    id: string;
+    name: string;
+    email: string;
+    role: string;
+  };
+  hasDiff: boolean;
+  oldValue?: any;
+  newValue?: any;
+  metadata?: any;
+}
+
+export interface PaginatedTimelineResponse {
+  data: UserTimelineItem[];
+  meta: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
+}
+
 export const adminRepository = {
   async getDashboardMetrics(): Promise<AdminDashboardMetrics> {
     const response = await apiClient.get('/admin/config/metrics');
@@ -284,7 +422,7 @@ export const adminRepository = {
     return response.data;
   },
 
-  async getUsers(params?: { status?: string; role?: string; search?: string }): Promise<UserItem[]> {
+  async getUsers(params?: { status?: string; role?: string; search?: string; limit?: number; page?: number }): Promise<UserItem[]> {
     const response = await apiClient.get('/users', { params });
     // Handle both flat array and paginated { items/data: [], total, page } responses
     const raw = response.data;
@@ -444,6 +582,38 @@ export const adminRepository = {
       params: { ...params, format: params?.format || 'csv' },
       responseType: 'blob',
     });
+    return response.data;
+  },
+
+  async getAuditSummary(params?: {
+    startDate?: string;
+    endDate?: string;
+  }): Promise<AuditSummaryResponse> {
+    const response = await apiClient.get('/audit/summary', { params });
+    return response.data;
+  },
+
+  async getUserSessions(params?: {
+    userId?: string;
+    startDate?: string;
+    endDate?: string;
+    page?: number;
+    limit?: number;
+  }): Promise<PaginatedSessionsResponse> {
+    const response = await apiClient.get('/audit/sessions', { params });
+    return response.data;
+  },
+
+  async getActivityTimeline(params?: {
+    userId?: string;
+    action?: string;
+    entity?: string;
+    startDate?: string;
+    endDate?: string;
+    page?: number;
+    limit?: number;
+  }): Promise<PaginatedTimelineResponse> {
+    const response = await apiClient.get('/audit/timeline', { params });
     return response.data;
   },
 

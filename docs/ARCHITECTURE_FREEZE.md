@@ -7,12 +7,19 @@
 ## WHAT IS NOW LOCKED (do not redesign)
 
 ### Domain Entities
-Defined in DATA_OWNERSHIP_MODEL.md. The following 18 entities are canonical:
+Defined in DATA_OWNERSHIP_MODEL.md. The following 21 entities are canonical:
 Lead, Contact, Customer, Vehicle, QuotationGroup, QuotationVersion, Proposal,
 Document, Inspection, PaymentRecord, PaymentReconciliation, Policy,
-InsurerPolicyDetail, RenewalTask, Claim, Task, Communication, AuditLog
+InsurerPolicyDetail, RenewalTask, Claim, Task, Communication, AuditLog,
+AgentExternalCode, AgentExternalCodeHistory, AgentAssignmentHistory
 
 No new entity may be introduced without updating DATA_OWNERSHIP_MODEL.md.
+
+The `feature/health-insurance-crm` identity milestone adds the three listed
+identity/audit entities, canonical Contact and Customer assignments, and
+optional external-code references on Health cases, quotations, policies, and
+claims. The feature retains `companyId` tenant scoping, legacy code snapshots,
+and append-only history; it does not transfer external codes between Agents.
 
 ### State Machines
 Defined in STATE_MACHINES.md. All 11 state machines are canonical.

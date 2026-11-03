@@ -213,7 +213,11 @@ describe('QuotationController', () => {
 
       const result = await controller.create(dto, mockUser);
       expect(result).toEqual(mockQuotationResponse);
-      expect(generateService.execute).toHaveBeenCalledWith(dto, mockUser.id);
+      expect(generateService.execute).toHaveBeenCalledWith(
+        dto,
+        mockUser.id,
+        mockUser,
+      );
     });
 
     it('should find one quotation', async () => {

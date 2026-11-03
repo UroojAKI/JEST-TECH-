@@ -248,13 +248,14 @@ describe('Forensic Security Abuse & BOLA Suite (Iteration 17)', () => {
         auditLog: {
           create: auditCreateMock,
         },
+        agent: { findFirst: jest.fn().mockResolvedValue({ id: 'agent-profile-a' }) },
       };
 
       const mockRepo: any = {
         findById: jest.fn().mockResolvedValue(rawContact),
       };
 
-      const contactsService = new ContactsService(mockRepo, mockPrisma);
+      const contactsService = new ContactsService(mockRepo, mockPrisma, {} as any);
 
       const authorizedActor = createActor({
         userId: 'usr-agent-a',
@@ -292,13 +293,14 @@ describe('Forensic Security Abuse & BOLA Suite (Iteration 17)', () => {
     it('should block unauthorized actor from another branch from unmasking contact PII', async () => {
       const mockPrisma: any = {
         auditLog: { create: jest.fn() },
+        agent: { findFirst: jest.fn().mockResolvedValue({ id: 'agent-profile-a' }) },
       };
 
       const mockRepo: any = {
         findById: jest.fn().mockResolvedValue(rawContact),
       };
 
-      const contactsService = new ContactsService(mockRepo, mockPrisma);
+      const contactsService = new ContactsService(mockRepo, mockPrisma, {} as any);
 
       const rogueActor = createActor({
         userId: 'usr-agent-other',

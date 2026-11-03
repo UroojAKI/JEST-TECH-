@@ -13,6 +13,9 @@ describe('AuditController (Phase 1 / DEF-024 Tenant Isolation)', () => {
     mockAuditService = {
       getAuditLogs: jest.fn().mockResolvedValue({ data: [], meta: {} }),
       exportAuditLogs: jest.fn().mockResolvedValue('ID,Timestamp'),
+      getUserActivitySummary: jest.fn().mockResolvedValue({ totals: {}, userBreakdown: [] }),
+      getUserSessions: jest.fn().mockResolvedValue({ data: [], meta: {} }),
+      getActivityTimeline: jest.fn().mockResolvedValue({ data: [], meta: {} }),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -140,6 +143,78 @@ describe('AuditController (Phase 1 / DEF-024 Tenant Isolation)', () => {
       expect(mockAuditService.exportAuditLogs).toHaveBeenCalledWith(
         { scope: 'TENANT', companyId: 'tenant-a-company' },
         expect.objectContaining({ format: 'csv', entity: 'Policy' }),
+      );
+    });
+
+    it('scopes getUserActivitySummary to tenant companyId (REQ-6)', async () => {
+      const tenantUser: RequestUser = {
+        id: 'u-admin-1',
+        userId: 'u-admin-1',
+        email: 'admin@tenant-a.com',
+        firstName: 'Tenant',
+        lastName: 'Admin',
+        organizationId: 'tenant-a-org',
+        companyId: 'tenant-a-company',
+        role: RoleType.ADMIN,
+        roles: [RoleType.ADMIN],
+        permissions: ['AUDIT_READ'],
+        workspaces: ['Admin'],
+        status: 'ACTIVE' as any,
+      };
+
+      await controller.getUserActivitySummary(tenantUser, '2026-01-01', '2026-12-31');
+
+      expect(mockAuditService.getUserActivitySummary).toHaveBeenCalledWith(
+        { scope: 'TENANT', companyId: 'tenant-a-company' },
+        { startDate: '2026-01-01', endDate: '2026-12-31' },
+      );
+    });
+
+    it('scopes getUserSessions to tenant companyId with pagination and user filter (REQ-6)', async () => {
+      const tenantUser: RequestUser = {
+        id: 'u-admin-1',
+        userId: 'u-admin-1',
+        email: 'admin@tenant-a.com',
+        firstName: 'Tenant',
+        lastName: 'Admin',
+        organizationId: 'tenant-a-org',
+        companyId: 'tenant-a-company',
+        role: RoleType.ADMIN,
+        roles: [RoleType.ADMIN],
+        permissions: ['AUDIT_READ'],
+        workspaces: ['Admin'],
+        status: 'ACTIVE' as any,
+      };
+
+      await controller.getUserSessions(tenantUser, 'u-target-1', undefined, undefined, '2', '25');
+
+      expect(mockAuditService.getUserSessions).toHaveBeenCalledWith(
+        { scope: 'TENANT', companyId: 'tenant-a-company' },
+        { userId: 'u-target-1', startDate: undefined, endDate: undefined, page: 2, limit: 25 },
+      );
+    });
+
+    it('scopes getActivityTimeline to tenant companyId with action and entity filters (REQ-6)', async () => {
+      const tenantUser: RequestUser = {
+        id: 'u-admin-1',
+        userId: 'u-admin-1',
+        email: 'admin@tenant-a.com',
+        firstName: 'Tenant',
+        lastName: 'Admin',
+        organizationId: 'tenant-a-org',
+        companyId: 'tenant-a-company',
+        role: RoleType.ADMIN,
+        roles: [RoleType.ADMIN],
+        permissions: ['AUDIT_READ'],
+        workspaces: ['Admin'],
+        status: 'ACTIVE' as any,
+      };
+
+      await controller.getActivityTimeline(tenantUser, 'u-target-1', 'APPROVE', 'Policy', undefined, undefined, '1', '30');
+
+      expect(mockAuditService.getActivityTimeline).toHaveBeenCalledWith(
+        { scope: 'TENANT', companyId: 'tenant-a-company' },
+        { userId: 'u-target-1', action: 'APPROVE', entity: 'Policy', startDate: undefined, endDate: undefined, page: 1, limit: 30 },
       );
     });
   });

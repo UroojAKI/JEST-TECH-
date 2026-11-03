@@ -4,6 +4,7 @@ import { PrismaService } from '../../../database/prisma.service';
 import { RequestUser } from '../../auth/decorators/current-user.decorator';
 import { AttachHealthDocumentDto, VerifyHealthDocumentDto } from '../dto/health-quotation-case.dto';
 import { HealthDocumentRuleService } from './health-document-rule.service';
+import { HealthQuotationCaseService } from './health-quotation-case.service';
 
 const documentSelect = {
   id: true,
@@ -24,6 +25,7 @@ export class HealthQuotationDocumentService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly ruleService: HealthDocumentRuleService,
+    private readonly caseService: HealthQuotationCaseService,
   ) {}
 
   async attachDocument(caseId: string, dto: AttachHealthDocumentDto, user: RequestUser) {
@@ -129,17 +131,25 @@ export class HealthQuotationDocumentService {
     if (!record) {
       throw new NotFoundException(`HealthQuotationDocument '${id}' not found or access denied`);
     }
+    if (record.caseId) {
+      await this.caseService.findCaseForActor(record.caseId, user);
+    } else if (record.quotationId) {
+      const quotation = await this.prisma.quotation.findFirst({
+        where: { id: record.quotationId, companyId: user.companyId },
+        select: { healthCaseId: true },
+      });
+      if (!quotation?.healthCaseId) {
+        throw new NotFoundException(`HealthQuotationDocument '${id}' not found or access denied`);
+      }
+      await this.caseService.findCaseForActor(quotation.healthCaseId, user);
+    } else {
+      throw new NotFoundException(`HealthQuotationDocument '${id}' not found or access denied`);
+    }
     await this.prisma.healthQuotationDocument.delete({ where: { id } });
     return { id, removed: true };
   }
 
   private async findCase(caseId: string, user: RequestUser) {
-    const healthCase = await this.prisma.healthQuotationCase.findFirst({
-      where: { id: caseId, companyId: user.companyId, deletedAt: null },
-    });
-    if (!healthCase) {
-      throw new NotFoundException(`HealthQuotationCase '${caseId}' not found or access denied`);
-    }
-    return healthCase;
+    return this.caseService.findCaseForActor(caseId, user);
   }
 }

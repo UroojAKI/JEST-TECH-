@@ -34,6 +34,7 @@ import { toast } from 'sonner';
 import { policiesRepository } from '../../repositories/policies.repository';
 import { quotationsRepository } from '../../repositories/quotations.repository';
 import { UpdatePolicyDetailsDialog } from '../leads/motor-quote/UpdatePolicyDetailsDialog';
+import { showApiErrorToast } from '../../lib/api-client';
 
 export interface GateStatus {
   passed: boolean;
@@ -184,11 +185,25 @@ export function MotorIssuanceQueue() {
       toast.success(res.message || 'Policy issued successfully!');
       await loadQueue();
     } catch (error: any) {
-      const errMsg =
-        error.response?.data?.message ||
-        error.message ||
-        'Failed to issue policy';
-      toast.error(errMsg);
+      console.warn('Queue issuance error:', error);
+      const isPdfError =
+        error?.response?.data?.message?.toString().toLowerCase().includes('pdf') ||
+        error?.message?.toString().toLowerCase().includes('pdf') ||
+        error?.response?.status === 400;
+
+      showApiErrorToast(
+        error,
+        'Policy issuance blocked: Official policy schedule PDF document is mandatory before policy can be issued.'
+      );
+
+      // Automatically open the Manual Entry dialog so user can immediately upload the PDF
+      if (isPdfError && item) {
+        toast.info('Opening Manual Entry to upload the mandatory policy PDF schedule...');
+        setSelectedQuote({
+          id: item.id,
+          productType: item.productType === 'HEALTH' ? 'HEALTH' : 'MOTOR',
+        });
+      }
     } finally {
       setIssuingId(null);
     }
@@ -993,7 +1008,48 @@ export function MotorIssuanceQueue() {
 
                       {/* Action */}
                       <td className="py-3 px-3 align-top text-right space-y-1.5">
-                        <div className="flex items-center justify-end gap-1">
+                        <div className="flex items-center justify-end gap-1 flex-wrap">
+                          {/* Underwriter Approval Controls */}
+                          {!isApproved && item.status !== 'REJECTED' && (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setUnderwriterAction({
+                                    type: 'APPROVE',
+                                    quotationId: item.id,
+                                    quotationCode: item.quotationCode,
+                                    productType: item.productType,
+                                  });
+                                  setActionComments('Approved upon underwriting review.');
+                                }}
+                                className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold transition shadow-xs cursor-pointer"
+                                title="Approve Quotation"
+                              >
+                                <ThumbsUp className="h-3 w-3" />
+                                <span>Approve</span>
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setUnderwriterAction({
+                                    type: 'REJECT',
+                                    quotationId: item.id,
+                                    quotationCode: item.quotationCode,
+                                    productType: item.productType,
+                                  });
+                                  setActionComments('Declined due to risk guidelines.');
+                                }}
+                                className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-rose-600 hover:bg-rose-700 text-white text-[11px] font-bold transition shadow-xs cursor-pointer"
+                                title="Reject Quotation"
+                              >
+                                <ThumbsDown className="h-3 w-3" />
+                                <span>Reject</span>
+                              </button>
+                            </>
+                          )}
+
                           <button
                             type="button"
                             onClick={() => setSelectedQuote({ id: item.id, productType: isHealth ? 'HEALTH' : 'MOTOR' })}

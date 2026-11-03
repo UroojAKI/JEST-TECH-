@@ -21,6 +21,8 @@ export class ContactResponseDto {
   createdById: string | null;
   updatedById: string | null;
   accountId: string | null;
+  assignedAgentId?: string | null;
+  assignedExternalCodeId?: string | null;
   branchId?: string | null;
   companyId?: string | null;
   branch?: { id: string; name: string; code: string } | null;

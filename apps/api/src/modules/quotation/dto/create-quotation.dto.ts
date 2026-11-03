@@ -57,6 +57,19 @@ export class CreateQuotationDto {
   @IsString()
   leadId?: string;
 
+  /** Canonical Agent.id when assignment is explicitly supplied. */
+  @IsOptional()
+  @IsString()
+  agentId?: string;
+
+  @IsOptional()
+  @IsString()
+  externalAgentCode?: string;
+
+  @IsOptional()
+  @IsString()
+  agentCodeSystem?: string;
+
   @IsString()
   @IsNotEmpty()
   contactId: string;

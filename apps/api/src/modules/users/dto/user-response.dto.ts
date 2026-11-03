@@ -13,6 +13,8 @@ export class UserResponseDto {
 
   employeeCode?: string | null;
 
+  agentCode?: string | null;
+
   designation?: string | null;
 
   department?: string | null;

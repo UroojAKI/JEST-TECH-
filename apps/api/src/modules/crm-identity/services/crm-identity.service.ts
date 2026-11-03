@@ -528,6 +528,7 @@ export class CrmIdentityService {
               pincode: params.pincode || null,
               isVip: params.isVip || false,
               primaryAgentId: params.primaryAgentId || null,
+              primaryAgentExternalCodeId: params.primaryAgentExternalCodeId || null,
               contactId: contact.id,
               createdById: params.createdById || null,
             },
