@@ -130,8 +130,14 @@ export class ContactsService {
           OR: [
             { employeeCode: { equals: requestedCode, mode: 'insensitive' } },
             { id: requestedCode },
+            {
+              agentProfile: {
+                agentCode: { equals: requestedCode, mode: 'insensitive' },
+              },
+            },
           ],
         },
+        include: { agentProfile: true, branch: true },
       });
       if (!userByCode) {
         throw new BadRequestException(
@@ -139,7 +145,10 @@ export class ContactsService {
         );
       }
       effectiveAgentId = userByCode.id;
-      authoritativeAgentCode = userByCode.employeeCode || requestedCode;
+      authoritativeAgentCode =
+        userByCode.agentProfile?.agentCode ||
+        userByCode.employeeCode ||
+        requestedCode;
       if (!targetBranchId && userByCode.branchId) {
         targetBranchId = userByCode.branchId;
       }

@@ -87,13 +87,14 @@ export class UsersController {
   }
 
   @Get()
-  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE)
+  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT)
   findAll(
     @Query() pagination: PaginationDto,
     @Query('status') status?: string,
+    @Query('role') role?: string,
     @CurrentUser() actor?: RequestUser,
   ) {
-    return this.usersService.findAll(pagination, status, actor);
+    return this.usersService.findAll(pagination, status, actor, role);
   }
 
   @Get(':id/workspace')

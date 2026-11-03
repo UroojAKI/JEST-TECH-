@@ -77,23 +77,44 @@ export default function CustomerRegisterPage() {
   const { data: currentUser } = useQuery({
     queryKey: ['current-user-contact-preference'],
     queryFn: adminRepository.getCurrentUser,
-    enabled: !isAdminOrBackOffice,
   });
-  const { data: assignedUsers = [] } = useQuery({
-    queryKey: ['contact-assigned-agent-preference', formData.agentCode],
+
+  const { data: availableUsers = [], isLoading: isLoadingAgents } = useQuery({
+    queryKey: ['available-agents-directory'],
     queryFn: async () => {
-      const result = await adminRepository.getUsers({ search: formData.agentCode });
+      const result = await adminRepository.getUsers({ status: 'ACTIVE', limit: 100 });
       return Array.isArray(result) ? result : (result as any)?.data || (result as any)?.items || [];
     },
-    enabled: isAdminOrBackOffice && Boolean(formData.agentCode.trim()),
+    staleTime: 60 * 1000,
   });
-  const assignedAgentPreference = assignedUsers.find((u: any) =>
-    String(u.employeeCode || '').toUpperCase() === formData.agentCode.trim().toUpperCase() ||
-    String(u.id || '').toLowerCase() === formData.agentCode.trim().toLowerCase()
-  );
-  const effectiveContactCollection = isAdminOrBackOffice
-    ? (assignedAgentPreference?.collectContacts ?? false)
-    : Boolean(currentUser?.collectContacts);
+
+  const availableAgents = React.useMemo(() => {
+    if (!Array.isArray(availableUsers)) return [];
+    const agents = availableUsers.filter((u: any) => {
+      const roleCode = typeof u.role === 'string' ? u.role : u.role?.code;
+      return String(roleCode || '').toUpperCase() === 'AGENT';
+    });
+    // If registered agents exist, return agents; otherwise fallback to active users
+    return agents.length > 0 ? agents : availableUsers;
+  }, [availableUsers]);
+
+  const selectedAgent = React.useMemo(() => {
+    if (!formData.agentCode) return null;
+    const searchCode = formData.agentCode.trim().toUpperCase();
+    return (
+      availableUsers.find((u: any) => {
+        return (
+          String(u.employeeCode || '').toUpperCase() === searchCode ||
+          String(u.agentCode || '').toUpperCase() === searchCode ||
+          String(u.id || '').toUpperCase() === searchCode
+        );
+      }) || null
+    );
+  }, [availableUsers, formData.agentCode]);
+
+  const effectiveContactCollection = selectedAgent
+    ? Boolean(selectedAgent.collectContacts)
+    : Boolean(currentUser?.collectContacts ?? user?.collectContacts);
 
   // Default to primary branch once branches load
   useEffect(() => {
@@ -137,7 +158,7 @@ export default function CustomerRegisterPage() {
       payload.branchId = formData.branchId;
     }
 
-    if (isAdminOrBackOffice && formData.agentCode.trim()) {
+    if (formData.agentCode.trim()) {
       payload.agentCode = formData.agentCode.trim().toUpperCase();
     }
 
@@ -375,32 +396,39 @@ export default function CustomerRegisterPage() {
                   ))}
                 </select>
               </div>
-              {isAdminOrBackOffice ? (
-                <div>
-                  <label className="font-bold text-muted-foreground block mb-1">Assigned Agent Code (Optional)</label>
-                  <input
-                    value={formData.agentCode}
-                    onChange={(e) => setFormData({ ...formData, agentCode: e.target.value.toUpperCase() })}
-                    placeholder="e.g. EMP-1786251264 (or leave blank to self-assign)"
-                    className="w-full p-2.5 rounded-lg border bg-background text-xs font-mono uppercase"
-                  />
-                  <span className="text-[10px] text-muted-foreground mt-1 block">
-                    Leave blank to automatically assign this customer to yourself.
-                  </span>
-                </div>
-              ) : (
-                <div className="p-3 rounded-lg border bg-muted/30 text-xs flex items-center justify-between">
-                  <div>
-                    <span className="text-[10px] uppercase font-bold text-muted-foreground block">Assigned Agent</span>
-                    <span className="font-bold text-foreground">
-                      {user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'You' : 'You (Current Agent)'}
-                    </span>
-                  </div>
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
-                    Auto-Assigned
-                  </span>
-                </div>
-              )}
+              <div>
+                <label className="font-bold text-muted-foreground block mb-1">
+                  Assigned Agent <span className="text-muted-foreground/60 font-normal">(Optional)</span>
+                </label>
+                <select
+                  value={formData.agentCode}
+                  onChange={(e) => setFormData({ ...formData, agentCode: e.target.value })}
+                  disabled={isLoadingAgents}
+                  className="w-full p-2.5 rounded-lg border bg-background text-xs cursor-pointer"
+                >
+                  <option value="">
+                    {user
+                      ? `Default (Assign to ${user.firstName || ''} ${user.lastName || ''} - ${user.employeeCode || 'Self'})`
+                      : 'Select an Agent...'}
+                  </option>
+                  {availableAgents.map((ag: any) => {
+                    const code = ag.agentCode || ag.employeeCode || ag.id;
+                    const roleName = typeof ag.role === 'string' ? ag.role : ag.role?.name || ag.role?.code || 'Agent';
+                    const fullName = `${ag.firstName || ''} ${ag.lastName || ''}`.trim() || ag.email;
+                    const isMe = user?.id === ag.id || (user?.email && ag.email === user.email);
+                    return (
+                      <option key={ag.id} value={code}>
+                        {fullName} — {code} ({roleName}){isMe ? ' [You]' : ''}
+                      </option>
+                    );
+                  })}
+                </select>
+                <span className="text-[10px] text-muted-foreground mt-1 block">
+                  {selectedAgent
+                    ? `Assigned to: ${selectedAgent.firstName || ''} ${selectedAgent.lastName || ''} (${selectedAgent.agentCode || selectedAgent.employeeCode || selectedAgent.email})`
+                    : 'Select an agent from the dropdown to assign, or leave as default to self-assign.'}
+                </span>
+              </div>
             </div>
 
             <p className="text-[11px] text-muted-foreground border rounded-lg p-3 bg-muted/20">

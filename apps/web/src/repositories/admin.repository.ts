@@ -16,11 +16,12 @@ export interface AdminDashboardMetrics {
 export interface UserItem {
   id: string;
   employeeCode: string;
+  agentCode?: string;
   firstName: string;
   lastName: string;
   email: string;
   password?: string;
-  role: string;
+  role: string | { id?: string; name?: string; code?: string };
   status: 'ACTIVE' | 'LOCKED' | 'DISABLED';
   collectContacts?: boolean;
   branchName?: string;
@@ -377,7 +378,7 @@ export const adminRepository = {
     return response.data;
   },
 
-  async getUsers(params?: { status?: string; role?: string; search?: string }): Promise<UserItem[]> {
+  async getUsers(params?: { status?: string; role?: string; search?: string; limit?: number; page?: number }): Promise<UserItem[]> {
     const response = await apiClient.get('/users', { params });
     // Handle both flat array and paginated { items/data: [], total, page } responses
     const raw = response.data;

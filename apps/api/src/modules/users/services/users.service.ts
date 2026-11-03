@@ -233,7 +233,12 @@ export class UsersService {
     return { success: true, message: 'Password changed successfully' };
   }
 
-  async findAll(pagination: PaginationDto, status?: string, actor?: any) {
+  async findAll(
+    pagination: PaginationDto,
+    status?: string,
+    actor?: any,
+    role?: string,
+  ) {
     const page = pagination.page || 1;
     const limit = pagination.limit || 25;
     const skip = (page - 1) * limit;
@@ -249,7 +254,14 @@ export class UsersService {
         { firstName: { contains: pagination.search, mode: 'insensitive' } },
         { lastName: { contains: pagination.search, mode: 'insensitive' } },
         { email: { contains: pagination.search, mode: 'insensitive' } },
+        { employeeCode: { contains: pagination.search, mode: 'insensitive' } },
       ];
+    }
+
+    if (role && role !== 'ALL') {
+      where.role = {
+        code: { equals: role, mode: 'insensitive' },
+      };
     }
 
     if (status && status !== 'ALL') {
@@ -272,7 +284,7 @@ export class UsersService {
         skip,
         take: limit,
         orderBy,
-        include: { role: true, branch: true, team: true },
+        include: { role: true, branch: true, team: true, agentProfile: true },
       }),
       this.prisma.user.count({ where }),
     ]);
