@@ -156,7 +156,15 @@ export default function User360Page() {
     );
   }
 
-  const { profile, portfolio, recentActivities, recentTasks } = workspace;
+  const {
+    profile,
+    portfolio,
+    recentActivities = [],
+    recentTasks = [],
+    recentQuotations = [],
+    recentPolicies = [],
+    recentLeads = [],
+  } = workspace;
   const isLocked = profile.status === 'LOCKED' || profile.status === 'SUSPENDED';
 
   const conversionRate = portfolio.leadsAssigned > 0
@@ -276,26 +284,47 @@ export default function User360Page() {
           </div>
 
           {/* Quick Stats Strip */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3 pt-3 border-t">
+          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3 pt-3 border-t">
             <div className="p-3 bg-muted/40 rounded-xl">
               <div className="text-[11px] text-muted-foreground font-medium">Assigned Leads</div>
               <div className="text-xl font-bold font-mono mt-0.5">{portfolio.leadsAssigned}</div>
             </div>
             <div className="p-3 bg-muted/40 rounded-xl">
               <div className="text-[11px] text-muted-foreground font-medium">Converted Leads</div>
-              <div className="text-xl font-bold font-mono mt-0.5 text-emerald-600">{portfolio.leadsConverted}</div>
+              <div className="text-xl font-bold font-mono mt-0.5 text-emerald-600 flex items-baseline gap-1">
+                {portfolio.leadsConverted}
+                <span className="text-[10px] text-muted-foreground font-normal font-sans">({conversionRate}%)</span>
+              </div>
             </div>
             <div className="p-3 bg-muted/40 rounded-xl">
-              <div className="text-[11px] text-muted-foreground font-medium">Conversion Rate</div>
-              <div className="text-xl font-bold font-mono mt-0.5 text-primary">{conversionRate}%</div>
-            </div>
-            <div className="p-3 bg-muted/40 rounded-xl">
-              <div className="text-[11px] text-muted-foreground font-medium">Managed Customers</div>
-              <div className="text-xl font-bold font-mono mt-0.5">{portfolio.customersManaged}</div>
+              <div className="text-[11px] text-muted-foreground font-medium">Quotes Created</div>
+              <div className="text-xl font-bold font-mono mt-0.5 text-primary">{portfolio.quotationsCreated ?? 0}</div>
             </div>
             <div className="p-3 bg-muted/40 rounded-xl">
               <div className="text-[11px] text-muted-foreground font-medium">Policies Issued</div>
-              <div className="text-xl font-bold font-mono mt-0.5 text-indigo-600">{portfolio.policiesIssued}</div>
+              <div className="text-xl font-bold font-mono mt-0.5 text-indigo-600">{portfolio.policiesIssued ?? 0}</div>
+            </div>
+            <div className="p-3 bg-muted/40 rounded-xl">
+              <div className="text-[11px] text-muted-foreground font-medium">Quote Pipeline</div>
+              <div
+                className="text-lg font-bold font-mono mt-0.5 text-emerald-600 truncate"
+                title={`₹${Number(portfolio.totalQuotationValue || 0).toLocaleString('en-IN')}`}
+              >
+                ₹{Number(portfolio.totalQuotationValue || 0).toLocaleString('en-IN')}
+              </div>
+            </div>
+            <div className="p-3 bg-muted/40 rounded-xl">
+              <div className="text-[11px] text-muted-foreground font-medium">Issued Premium</div>
+              <div
+                className="text-lg font-bold font-mono mt-0.5 text-indigo-600 truncate"
+                title={`₹${Number(portfolio.totalIssuedPremium || 0).toLocaleString('en-IN')}`}
+              >
+                ₹{Number(portfolio.totalIssuedPremium || 0).toLocaleString('en-IN')}
+              </div>
+            </div>
+            <div className="p-3 bg-muted/40 rounded-xl">
+              <div className="text-[11px] text-muted-foreground font-medium">Managed Clients</div>
+              <div className="text-xl font-bold font-mono mt-0.5">{portfolio.customersManaged}</div>
             </div>
             <div className="p-3 bg-muted/40 rounded-xl">
               <div className="text-[11px] text-muted-foreground font-medium">Pending Tasks</div>
@@ -420,20 +449,80 @@ export default function User360Page() {
         {/* Tab Content: WORK PORTFOLIO */}
         {activeTab === 'portfolio' && (
           <div className="space-y-6">
+            {/* Top Portfolio Summary Cards */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {/* Quotations & Pipeline */}
+              <div className="border rounded-2xl p-5 bg-card shadow-sm space-y-2">
+                <div className="flex items-center justify-between text-muted-foreground">
+                  <span className="text-xs font-semibold uppercase tracking-wider">Quotations & Pipeline</span>
+                  <FileText className="h-4 w-4 text-primary" />
+                </div>
+                <div className="text-3xl font-bold font-mono text-primary">
+                  {portfolio.quotationsCreated ?? 0}
+                </div>
+                <div className="text-xs text-muted-foreground space-y-1 pt-2 border-t">
+                  <div className="flex justify-between">
+                    <span>Approved Quotes:</span>
+                    <span className="font-mono font-semibold text-emerald-600">
+                      {portfolio.quotationsApproved ?? 0}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Issued / Converted:</span>
+                    <span className="font-mono font-semibold text-indigo-600">
+                      {portfolio.quotationsIssued ?? 0}
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-foreground font-semibold pt-1 border-t">
+                    <span>Total Pipeline Value:</span>
+                    <span className="font-mono text-emerald-600">
+                      ₹{Number(portfolio.totalQuotationValue || 0).toLocaleString('en-IN')}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Policies & Written Premium */}
+              <div className="border rounded-2xl p-5 bg-card shadow-sm space-y-2">
+                <div className="flex items-center justify-between text-muted-foreground">
+                  <span className="text-xs font-semibold uppercase tracking-wider">Policies & Premium</span>
+                  <Award className="h-4 w-4 text-indigo-600" />
+                </div>
+                <div className="text-3xl font-bold font-mono text-indigo-600">
+                  {portfolio.policiesIssued ?? 0}
+                </div>
+                <div className="text-xs text-muted-foreground space-y-1 pt-2 border-t">
+                  <div className="flex justify-between">
+                    <span>Active Policies:</span>
+                    <span className="font-mono font-semibold">{portfolio.policiesIssued ?? 0}</span>
+                  </div>
+                  <div className="flex justify-between text-amber-600 font-semibold">
+                    <span>Upcoming Renewals (30d):</span>
+                    <span className="font-mono">{portfolio.renewalsPending ?? 0}</span>
+                  </div>
+                  <div className="flex justify-between text-foreground font-semibold pt-1 border-t">
+                    <span>Gross Issued Premium:</span>
+                    <span className="font-mono text-indigo-600">
+                      ₹{Number(portfolio.totalIssuedPremium || 0).toLocaleString('en-IN')}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Leads Lifecycle */}
               <div className="border rounded-2xl p-5 bg-card shadow-sm space-y-2">
                 <div className="flex items-center justify-between text-muted-foreground">
                   <span className="text-xs font-semibold uppercase tracking-wider">Leads Lifecycle</span>
-                  <TrendingUp className="h-4 w-4 text-primary" />
+                  <TrendingUp className="h-4 w-4 text-emerald-600" />
                 </div>
                 <div className="text-3xl font-bold font-mono">{portfolio.leadsAssigned}</div>
                 <div className="text-xs text-muted-foreground space-y-1 pt-2 border-t">
                   <div className="flex justify-between">
-                    <span>Created by user:</span>
+                    <span>Created by User:</span>
                     <span className="font-mono font-semibold">{portfolio.leadsCreated}</span>
                   </div>
                   <div className="flex justify-between text-emerald-600 font-semibold">
-                    <span>Converted:</span>
+                    <span>Converted ({conversionRate}%):</span>
                     <span className="font-mono">{portfolio.leadsConverted}</span>
                   </div>
                   <div className="flex justify-between text-rose-500 font-semibold">
@@ -443,12 +532,15 @@ export default function User360Page() {
                 </div>
               </div>
 
+              {/* Client Base & Workload */}
               <div className="border rounded-2xl p-5 bg-card shadow-sm space-y-2">
                 <div className="flex items-center justify-between text-muted-foreground">
-                  <span className="text-xs font-semibold uppercase tracking-wider">Client Base</span>
-                  <Users className="h-4 w-4 text-emerald-600" />
+                  <span className="text-xs font-semibold uppercase tracking-wider">Client Base & Tasks</span>
+                  <Users className="h-4 w-4 text-amber-600" />
                 </div>
-                <div className="text-3xl font-bold font-mono text-emerald-600">{portfolio.customersManaged}</div>
+                <div className="text-3xl font-bold font-mono text-emerald-600">
+                  {portfolio.customersManaged}
+                </div>
                 <div className="text-xs text-muted-foreground space-y-1 pt-2 border-t">
                   <div className="flex justify-between">
                     <span>Customers Created:</span>
@@ -458,94 +550,375 @@ export default function User360Page() {
                     <span>Contacts Authored:</span>
                     <span className="font-mono font-semibold">{portfolio.contactsCreated}</span>
                   </div>
+                  <div className="flex justify-between text-amber-600 font-semibold pt-1 border-t">
+                    <span>Pending Tasks ({portfolio.overdueTasks} Overdue):</span>
+                    <span className="font-mono">{portfolio.pendingTasks}</span>
+                  </div>
                 </div>
               </div>
+            </div>
 
-              <div className="border rounded-2xl p-5 bg-card shadow-sm space-y-2">
-                <div className="flex items-center justify-between text-muted-foreground">
-                  <span className="text-xs font-semibold uppercase tracking-wider">Policies & Issuance</span>
-                  <Award className="h-4 w-4 text-indigo-600" />
+            {/* Quotations Register Table */}
+            <div className="border rounded-2xl overflow-hidden bg-card shadow-sm space-y-0">
+              <div className="p-4 border-b flex items-center justify-between bg-muted/20">
+                <div className="space-y-0.5">
+                  <h3 className="text-sm font-bold flex items-center gap-2">
+                    <FileText className="h-4 w-4 text-primary" />
+                    Quotations Created & Managed ({recentQuotations.length})
+                  </h3>
+                  <p className="text-xs text-muted-foreground">
+                    Quotes prepared by this user, including pricing, insurer selection, and issuance progression
+                  </p>
                 </div>
-                <div className="text-3xl font-bold font-mono text-indigo-600">{portfolio.policiesIssued}</div>
-                <div className="text-xs text-muted-foreground space-y-1 pt-2 border-t">
-                  <div className="flex justify-between">
-                    <span>Active Policies:</span>
-                    <span className="font-mono font-semibold">{portfolio.policiesIssued}</span>
-                  </div>
-                  <div className="flex justify-between text-amber-600 font-semibold">
-                    <span>Upcoming Renewals (30d):</span>
-                    <span className="font-mono">{portfolio.renewalsPending}</span>
-                  </div>
-                </div>
+                <span className="text-xs font-mono font-bold text-emerald-600 px-2.5 py-1 rounded-lg bg-emerald-500/10 border border-emerald-300">
+                  Pipeline: ₹{Number(portfolio.totalQuotationValue || 0).toLocaleString('en-IN')}
+                </span>
               </div>
+              {recentQuotations.length === 0 ? (
+                <div className="p-8 text-center text-sm text-muted-foreground">
+                  No quotations have been created by or assigned to this user.
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead>
+                      <tr className="bg-muted/40 text-[10px] uppercase font-bold text-muted-foreground border-b">
+                        <th className="p-3">Quotation Code</th>
+                        <th className="p-3">Customer</th>
+                        <th className="p-3">Insurer & Product</th>
+                        <th className="p-3">Total Premium (Price)</th>
+                        <th className="p-3">Quote Status</th>
+                        <th className="p-3">Issuance Status</th>
+                        <th className="p-3">Issued Policy</th>
+                        <th className="p-3">Created</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y font-mono">
+                      {recentQuotations.map((q) => (
+                        <tr key={q.id} className="hover:bg-accent/40 font-sans">
+                          <td className="p-3 font-mono font-bold text-primary">
+                            {q.quotationCode}
+                          </td>
+                          <td className="p-3">
+                            <div className="font-semibold text-foreground">{q.customerName}</div>
+                            {q.customerPhone && (
+                              <div className="text-[11px] text-muted-foreground font-mono">{q.customerPhone}</div>
+                            )}
+                          </td>
+                          <td className="p-3">
+                            <div className="font-semibold">{q.insurerName}</div>
+                            <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
+                              {q.productType}
+                            </span>
+                          </td>
+                          <td className="p-3 font-mono text-sm font-bold text-emerald-600">
+                            ₹{Number(q.totalPremium || 0).toLocaleString('en-IN')}
+                          </td>
+                          <td className="p-3">
+                            <StatusBadge status={q.status} />
+                          </td>
+                          <td className="p-3">
+                            <span
+                              className={`px-2 py-0.5 rounded text-[10px] font-bold border ${
+                                q.issuanceStatus === 'ISSUED'
+                                  ? 'bg-emerald-500/10 text-emerald-700 border-emerald-300'
+                                  : q.issuanceStatus === 'PAYMENT_PENDING' || q.issuanceStatus === 'ISSUANCE_PENDING'
+                                  ? 'bg-amber-500/10 text-amber-700 border-amber-300'
+                                  : 'bg-muted text-muted-foreground border-border'
+                              }`}
+                            >
+                              {q.issuanceStatus || 'DRAFT'}
+                            </span>
+                          </td>
+                          <td className="p-3 font-mono">
+                            {q.policyNumber ? (
+                              <span className="text-indigo-600 font-bold">{q.policyNumber}</span>
+                            ) : (
+                              <span className="text-muted-foreground">-</span>
+                            )}
+                          </td>
+                          <td className="p-3 font-mono text-[11px] text-muted-foreground">
+                            {new Date(q.createdAt).toLocaleDateString()}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
 
-              <div className="border rounded-2xl p-5 bg-card shadow-sm space-y-2">
-                <div className="flex items-center justify-between text-muted-foreground">
-                  <span className="text-xs font-semibold uppercase tracking-wider">Workload Tasks</span>
-                  <CheckSquare className="h-4 w-4 text-amber-600" />
+            {/* Issued Policies Register Table */}
+            <div className="border rounded-2xl overflow-hidden bg-card shadow-sm space-y-0">
+              <div className="p-4 border-b flex items-center justify-between bg-muted/20">
+                <div className="space-y-0.5">
+                  <h3 className="text-sm font-bold flex items-center gap-2">
+                    <Award className="h-4 w-4 text-indigo-600" />
+                    Issued Policies & Premium ({recentPolicies.length})
+                  </h3>
+                  <p className="text-xs text-muted-foreground">
+                    Active and issued policies credited to this agent with gross premium figures
+                  </p>
                 </div>
-                <div className="text-3xl font-bold font-mono text-amber-600">{portfolio.pendingTasks}</div>
-                <div className="text-xs text-muted-foreground space-y-1 pt-2 border-t">
-                  <div className="flex justify-between text-rose-500 font-semibold">
-                    <span>Overdue Tasks:</span>
-                    <span className="font-mono">{portfolio.overdueTasks}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Pending Queue:</span>
-                    <span className="font-mono font-semibold">{portfolio.pendingTasks}</span>
-                  </div>
-                </div>
+                <span className="text-xs font-mono font-bold text-indigo-600 px-2.5 py-1 rounded-lg bg-indigo-500/10 border border-indigo-300">
+                  Gross Premium: ₹{Number(portfolio.totalIssuedPremium || 0).toLocaleString('en-IN')}
+                </span>
               </div>
+              {recentPolicies.length === 0 ? (
+                <div className="p-8 text-center text-sm text-muted-foreground">
+                  No policies have been issued under this user yet.
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead>
+                      <tr className="bg-muted/40 text-[10px] uppercase font-bold text-muted-foreground border-b">
+                        <th className="p-3">Policy Number</th>
+                        <th className="p-3">Customer</th>
+                        <th className="p-3">Insurer & Product</th>
+                        <th className="p-3">Gross Premium</th>
+                        <th className="p-3">Status</th>
+                        <th className="p-3">Validity</th>
+                        <th className="p-3">Issued Date</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y font-mono">
+                      {recentPolicies.map((p) => (
+                        <tr key={p.id} className="hover:bg-accent/40 font-sans">
+                          <td className="p-3 font-mono font-bold text-indigo-600">
+                            {p.policyNumber}
+                          </td>
+                          <td className="p-3">
+                            <div className="font-semibold text-foreground">{p.customerName}</div>
+                            {p.customerPhone && (
+                              <div className="text-[11px] text-muted-foreground font-mono">{p.customerPhone}</div>
+                            )}
+                          </td>
+                          <td className="p-3">
+                            <div className="font-semibold">{p.insurerName}</div>
+                            {p.productType && (
+                              <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
+                                {p.productType}
+                              </span>
+                            )}
+                          </td>
+                          <td className="p-3 font-mono text-sm font-bold text-indigo-600">
+                            ₹{Number(p.premiumAmount || 0).toLocaleString('en-IN')}
+                          </td>
+                          <td className="p-3">
+                            <StatusBadge status={p.status} />
+                          </td>
+                          <td className="p-3 font-mono text-[11px] text-muted-foreground">
+                            {p.effectiveDate ? new Date(p.effectiveDate).toLocaleDateString() : 'N/A'} -{' '}
+                            {p.expiryDate ? new Date(p.expiryDate).toLocaleDateString() : 'N/A'}
+                          </td>
+                          <td className="p-3 font-mono text-[11px] text-muted-foreground">
+                            {new Date(p.createdAt).toLocaleDateString()}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            {/* Leads Pipeline Table */}
+            <div className="border rounded-2xl overflow-hidden bg-card shadow-sm space-y-0">
+              <div className="p-4 border-b flex items-center justify-between bg-muted/20">
+                <div className="space-y-0.5">
+                  <h3 className="text-sm font-bold flex items-center gap-2">
+                    <TrendingUp className="h-4 w-4 text-emerald-600" />
+                    Assigned & Converted Leads ({recentLeads.length})
+                  </h3>
+                  <p className="text-xs text-muted-foreground">
+                    Leads assigned to this user and current conversion progression
+                  </p>
+                </div>
+                <span className="text-xs font-semibold text-muted-foreground">
+                  Conversion Rate: {conversionRate}% ({portfolio.leadsConverted}/{portfolio.leadsAssigned || 1})
+                </span>
+              </div>
+              {recentLeads.length === 0 ? (
+                <div className="p-8 text-center text-sm text-muted-foreground">
+                  No active or historical leads assigned to this user.
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead>
+                      <tr className="bg-muted/40 text-[10px] uppercase font-bold text-muted-foreground border-b">
+                        <th className="p-3">Lead Code</th>
+                        <th className="p-3">Customer / Contact</th>
+                        <th className="p-3">Workflow Stage</th>
+                        <th className="p-3">Est. Premium</th>
+                        <th className="p-3">Status</th>
+                        <th className="p-3">Created Date</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y font-mono">
+                      {recentLeads.map((l) => (
+                        <tr key={l.id} className="hover:bg-accent/40 font-sans">
+                          <td className="p-3 font-mono font-bold text-primary">
+                            {l.leadCode || 'LEAD'}
+                          </td>
+                          <td className="p-3 font-semibold text-foreground">
+                            {l.customerName}
+                          </td>
+                          <td className="p-3">
+                            <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-muted text-muted-foreground">
+                              {l.currentWorkflowStep || 'INITIAL_CONTACT'}
+                            </span>
+                          </td>
+                          <td className="p-3 font-mono text-sm font-bold text-emerald-600">
+                            {l.estimatedPremium ? `₹${Number(l.estimatedPremium).toLocaleString('en-IN')}` : '-'}
+                          </td>
+                          <td className="p-3">
+                            <StatusBadge status={l.status} />
+                          </td>
+                          <td className="p-3 font-mono text-[11px] text-muted-foreground">
+                            {new Date(l.createdAt).toLocaleDateString()}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           </div>
         )}
 
         {/* Tab Content: ACTIVITIES & AUDIT */}
         {activeTab === 'activities' && (
-          <div className="border rounded-2xl overflow-hidden bg-card">
-            <div className="p-4 border-b flex items-center justify-between">
-              <h2 className="text-sm font-bold flex items-center gap-2">
-                <Activity className="h-4 w-4 text-primary" />
-                Recent User Audit Trail ({recentActivities.length} Events)
-              </h2>
+          <div className="border rounded-2xl overflow-hidden bg-card shadow-sm space-y-0">
+            <div className="p-4 border-b flex items-center justify-between bg-muted/20">
+              <div className="space-y-0.5">
+                <h2 className="text-sm font-bold flex items-center gap-2">
+                  <Activity className="h-4 w-4 text-primary" />
+                  User Activity & Audit Trail ({recentActivities.length} Events)
+                </h2>
+                <p className="text-xs text-muted-foreground">
+                  Comprehensive chronological feed of business operations (quotes created, policies issued) and security events
+                </p>
+              </div>
+              <span className="text-xs font-semibold px-2.5 py-1 rounded-md bg-muted text-muted-foreground">
+                All Recorded Events
+              </span>
             </div>
             {recentActivities.length === 0 ? (
               <div className="p-8 text-center text-sm text-muted-foreground">
-                No recent activity logs recorded for this user account.
+                No activity logs or business transactions recorded for this user account.
               </div>
             ) : (
-              <table className="w-full text-left text-xs border-collapse">
-                <thead>
-                  <tr className="bg-muted/40 text-[10px] uppercase font-bold text-muted-foreground border-b">
-                    <th className="p-3">Action</th>
-                    <th className="p-3">Entity</th>
-                    <th className="p-3">Entity ID</th>
-                    <th className="p-3">IP Address</th>
-                    <th className="p-3">Timestamp</th>
-                    <th className="p-3">Metadata</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y font-mono">
-                  {recentActivities.map((act) => (
-                    <tr key={act.id} className="hover:bg-accent/40">
-                      <td className="p-3">
-                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-primary/10 text-primary border border-primary/20">
-                          {act.action}
-                        </span>
-                      </td>
-                      <td className="p-3 font-semibold text-foreground">{act.entity}</td>
-                      <td className="p-3 text-muted-foreground truncate max-w-[120px]">{act.entityId}</td>
-                      <td className="p-3 text-muted-foreground">{act.ipAddress || '127.0.0.1'}</td>
-                      <td className="p-3 text-muted-foreground text-[11px]">
-                        {new Date(act.createdAt).toLocaleString()}
-                      </td>
-                      <td className="p-3 text-[10px] text-muted-foreground max-w-[200px] truncate">
-                        {act.details ? JSON.stringify(act.details) : '-'}
-                      </td>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead>
+                    <tr className="bg-muted/40 text-[10px] uppercase font-bold text-muted-foreground border-b">
+                      <th className="p-3">Type</th>
+                      <th className="p-3">Action</th>
+                      <th className="p-3">Entity</th>
+                      <th className="p-3">Reference / Code</th>
+                      <th className="p-3">Details & Pricing</th>
+                      <th className="p-3">Source / IP</th>
+                      <th className="p-3">Timestamp</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody className="divide-y">
+                    {recentActivities.map((act) => {
+                      const isOperational = act.source === 'OPERATIONAL';
+                      return (
+                        <tr key={act.id} className="hover:bg-accent/40">
+                          <td className="p-3">
+                            <span
+                              className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                                isOperational
+                                  ? 'bg-emerald-500/10 text-emerald-700 border border-emerald-300'
+                                  : 'bg-muted text-muted-foreground border border-border'
+                              }`}
+                            >
+                              {isOperational ? 'BUSINESS' : 'SECURITY'}
+                            </span>
+                          </td>
+                          <td className="p-3">
+                            <span
+                              className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                                act.action === 'ISSUE'
+                                  ? 'bg-indigo-500/10 text-indigo-700 border border-indigo-300'
+                                  : act.action === 'CONVERT'
+                                  ? 'bg-emerald-500/10 text-emerald-700 border border-emerald-300'
+                                  : act.action === 'CREATE'
+                                  ? 'bg-blue-500/10 text-blue-700 border border-blue-300'
+                                  : act.action === 'UPDATE'
+                                  ? 'bg-amber-500/10 text-amber-700 border border-amber-300'
+                                  : act.action === 'DELETE' || act.action === 'LOCK'
+                                  ? 'bg-rose-500/10 text-rose-700 border border-rose-300'
+                                  : 'bg-primary/10 text-primary border border-primary/20'
+                              }`}
+                            >
+                              {act.action}
+                            </span>
+                          </td>
+                          <td className="p-3 font-semibold text-foreground">
+                            {act.entity}
+                          </td>
+                          <td className="p-3 font-mono font-bold text-primary">
+                            {act.entityId}
+                          </td>
+                          <td className="p-3 text-xs">
+                            {typeof act.details === 'object' && act.details !== null ? (
+                              <div className="space-y-0.5">
+                                {act.details.customer && (
+                                  <div>
+                                    <span className="text-muted-foreground">Client: </span>
+                                    <span className="font-semibold">{act.details.customer}</span>
+                                  </div>
+                                )}
+                                {act.details.insurer && (
+                                  <div>
+                                    <span className="text-muted-foreground">Insurer: </span>
+                                    <span>{act.details.insurer}</span>
+                                  </div>
+                                )}
+                                {act.details.premium && (
+                                  <div>
+                                    <span className="text-muted-foreground">Premium: </span>
+                                    <span className="font-mono font-bold text-emerald-600">{act.details.premium}</span>
+                                  </div>
+                                )}
+                                {act.details.status && (
+                                  <div>
+                                    <span className="text-muted-foreground">Status: </span>
+                                    <span className="font-semibold">{act.details.status}</span>
+                                    {act.details.issuanceStatus && (
+                                      <span className="ml-1 text-[10px] px-1 py-0.2 bg-muted rounded">
+                                        ({act.details.issuanceStatus})
+                                      </span>
+                                    )}
+                                  </div>
+                                )}
+                                {!act.details.customer && !act.details.premium && (
+                                  <span className="font-mono text-[10px] text-muted-foreground truncate max-w-[280px] block">
+                                    {JSON.stringify(act.details)}
+                                  </span>
+                                )}
+                              </div>
+                            ) : (
+                              <span className="text-muted-foreground">{act.details || '-'}</span>
+                            )}
+                          </td>
+                          <td className="p-3 font-mono text-[11px] text-muted-foreground">
+                            {act.ipAddress || '127.0.0.1'}
+                          </td>
+                          <td className="p-3 font-mono text-[11px] text-muted-foreground whitespace-nowrap">
+                            {new Date(act.createdAt).toLocaleString()}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
             )}
           </div>
         )}

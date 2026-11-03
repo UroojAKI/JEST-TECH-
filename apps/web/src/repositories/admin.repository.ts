@@ -94,6 +94,11 @@ export interface UserWorkspaceData {
     renewalsPending: number;
     pendingTasks: number;
     overdueTasks: number;
+    quotationsCreated?: number;
+    quotationsIssued?: number;
+    quotationsApproved?: number;
+    totalQuotationValue?: number;
+    totalIssuedPremium?: number;
   };
   recentActivities: {
     id: string;
@@ -103,6 +108,7 @@ export interface UserWorkspaceData {
     ipAddress?: string | null;
     createdAt: string;
     details?: any;
+    source?: string;
   }[];
   recentTasks: {
     id: string;
@@ -110,6 +116,44 @@ export interface UserWorkspaceData {
     status: string;
     priority: string;
     dueDate?: string | null;
+    createdAt: string;
+  }[];
+  recentQuotations?: {
+    id: string;
+    quotationCode: string;
+    title?: string;
+    customerName: string;
+    customerPhone?: string | null;
+    insurerName: string;
+    productType: string;
+    totalPremium: number;
+    basePremium?: number;
+    status: string;
+    issuanceStatus: string;
+    policyNumber?: string | null;
+    createdAt: string;
+  }[];
+  recentPolicies?: {
+    id: string;
+    policyNumber: string;
+    customerName: string;
+    customerPhone?: string | null;
+    insurerName: string;
+    productType?: string;
+    premiumAmount: number;
+    status: string;
+    effectiveDate: string;
+    expiryDate: string;
+    createdAt: string;
+  }[];
+  recentLeads?: {
+    id: string;
+    leadCode?: string;
+    title?: string;
+    customerName: string;
+    status: string;
+    currentWorkflowStep?: string;
+    estimatedPremium?: number;
     createdAt: string;
   }[];
 }
