@@ -4271,6 +4271,7 @@ model Agent {
   claims         Claim[]                @relation("AgentClaims")
   quotationsList Quotation[]            @relation("AgentQuotations")
   agentHistories CustomerAgentHistory[] @relation("AgentHistories")
+  healthQuotationCases HealthQuotationCase[] @relation("AgentHealthQuotationCases")
 
   createdAt      DateTime               @default(now())
   updatedAt      DateTime               @updatedAt
@@ -4788,6 +4789,8 @@ model HealthQuotationCase {
 
   contactId       String
   contact         Contact    @relation(fields: [contactId], references: [id], onDelete: Restrict)
+  agentId         String?
+  agent           Agent?     @relation("AgentHealthQuotationCases", fields: [agentId], references: [id], onDelete: SetNull)
   leadId          String?
   lead            Lead?      @relation(fields: [leadId], references: [id], onDelete: SetNull)
   selectedQuoteId String?
@@ -4820,6 +4823,7 @@ model HealthQuotationCase {
 
   @@index([companyId])
   @@index([contactId])
+  @@index([companyId, agentId])
   @@index([leadId])
   @@index([selectedQuoteId])
   @@index([planCategory])

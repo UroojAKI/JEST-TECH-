@@ -6,14 +6,12 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import {
   AlertCircle,
-  Briefcase,
   CheckCircle2,
   Clock,
   Edit3,
   FileText,
   HeartPulse,
   Loader2,
-  MapPin,
   Plus,
   ShieldCheck,
   Trash2,
@@ -34,6 +32,7 @@ import {
   TENURES,
   WAITING_PERIODS,
   inr,
+  isMaskedPii,
   labelOf,
   previewPremium,
 } from './healthFormConfig';
@@ -1024,8 +1023,8 @@ function EditLeftoverDetailsModal({
   const addr = (healthCase.addressSnapshot as any) || {};
 
   const [form, setForm] = useState({
-    panNumber: c.panNumber || '',
-    aadhaarNumber: c.aadhaarNumber || '',
+    panNumber: isMaskedPii(c.panNumber) ? '' : c.panNumber || '',
+    aadhaarNumber: isMaskedPii(c.aadhaarNumber) ? '' : c.aadhaarNumber || '',
     email: c.email || '',
     phone: c.phone || '',
     nomineeName: healthCase.nomineeName || '',
@@ -1044,8 +1043,8 @@ function EditLeftoverDetailsModal({
       const contactObj = healthCase.contact || {};
       const addrObj = (healthCase.addressSnapshot as any) || {};
       setForm({
-        panNumber: contactObj.panNumber || (healthCase.customerSnapshot as any)?.panNumber || '',
-        aadhaarNumber: contactObj.aadhaarNumber || (healthCase.customerSnapshot as any)?.aadhaarNumber || '',
+        panNumber: isMaskedPii(contactObj.panNumber) ? '' : contactObj.panNumber || '',
+        aadhaarNumber: isMaskedPii(contactObj.aadhaarNumber) ? '' : contactObj.aadhaarNumber || '',
         email: contactObj.email || '',
         phone: contactObj.phone || '',
         nomineeName: healthCase.nomineeName || '',
@@ -1143,7 +1142,7 @@ function EditLeftoverDetailsModal({
                   value={form.panNumber}
                   onChange={(e) => setForm({ ...form, panNumber: e.target.value.toUpperCase().slice(0, 10) })}
                   className={`${inputCls} font-mono`}
-                  placeholder="e.g. ABCDE1234F"
+                  placeholder={healthCase.contact?.panNumber || (healthCase.customerSnapshot as any)?.hasPan ? 'On file (masked); leave blank to keep' : 'e.g. ABCDE1234F'}
                 />
                 <span className="text-[10px] text-muted-foreground">10-character alphanumeric PAN</span>
               </div>
@@ -1158,7 +1157,7 @@ function EditLeftoverDetailsModal({
                   value={form.aadhaarNumber}
                   onChange={(e) => setForm({ ...form, aadhaarNumber: e.target.value.replace(/\D/g, '').slice(0, 12) })}
                   className={`${inputCls} font-mono`}
-                  placeholder="e.g. 123456789012"
+                  placeholder={healthCase.contact?.aadhaarNumber || (healthCase.customerSnapshot as any)?.hasAadhaar ? 'On file (masked); leave blank to keep' : 'e.g. 123456789012'}
                 />
                 <span className="text-[10px] text-muted-foreground">12-digit numeric Aadhaar</span>
               </div>

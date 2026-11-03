@@ -187,6 +187,11 @@ export class CreateHealthQuotationCaseDto {
   @IsUUID()
   leadId?: string;
 
+  @ApiPropertyOptional({ description: 'Assigned Agent profile ID; Back Office/Admin only' })
+  @IsOptional()
+  @IsUUID()
+  agentId?: string;
+
   @ApiProperty({ enum: ProposerOccupation, example: ProposerOccupation.SALARIED })
   @IsEnum(ProposerOccupation)
   occupation: ProposerOccupation;
