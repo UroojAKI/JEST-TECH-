@@ -423,57 +423,113 @@ export class AgentsService {
   async getAgentStats(id: string, user: RequestUser) {
     const agent = await this.findById(id, user);
 
-    const [totalLeads, convertedLeads, lostLeads, inProgressLeads, quotes] =
-      await Promise.all([
-        this.prisma.lead.count({
-          where: {
-            companyId: agent.companyId,
-            agentId: agent.id,
-            deletedAt: null,
-          },
-        }),
-        this.prisma.lead.count({
-          where: {
-            companyId: agent.companyId,
-            agentId: agent.id,
-            status: 'CONVERTED',
-            deletedAt: null,
-          },
-        }),
-        this.prisma.lead.count({
-          where: {
-            companyId: agent.companyId,
-            agentId: agent.id,
-            status: 'LOST',
-            deletedAt: null,
-          },
-        }),
-        this.prisma.lead.count({
-          where: {
-            companyId: agent.companyId,
-            agentId: agent.id,
-            status: { notIn: ['CONVERTED', 'LOST'] },
-            deletedAt: null,
-          },
-        }),
-        this.prisma.motorQuotation.findMany({
-          where: {
-            companyId: agent.companyId,
-            agentId: agent.id,
-            deletedAt: null,
-          },
-          select: {
-            status: true,
-            finalPremium: true,
-          },
-        }),
-      ]);
+    const [
+      totalLeads,
+      convertedLeads,
+      lostLeads,
+      inProgressLeads,
+      motorQuotes,
+      sharedQuotes,
+      policies,
+    ] = await Promise.all([
+      this.prisma.lead.count({
+        where: {
+          companyId: agent.companyId,
+          agentId: agent.id,
+          deletedAt: null,
+        },
+      }),
+      this.prisma.lead.count({
+        where: {
+          companyId: agent.companyId,
+          agentId: agent.id,
+          status: 'CONVERTED',
+          deletedAt: null,
+        },
+      }),
+      this.prisma.lead.count({
+        where: {
+          companyId: agent.companyId,
+          agentId: agent.id,
+          status: 'LOST',
+          deletedAt: null,
+        },
+      }),
+      this.prisma.lead.count({
+        where: {
+          companyId: agent.companyId,
+          agentId: agent.id,
+          status: { notIn: ['CONVERTED', 'LOST'] },
+          deletedAt: null,
+        },
+      }),
+      this.prisma.motorQuotation.findMany({
+        where: {
+          companyId: agent.companyId,
+          agentId: agent.id,
+          deletedAt: null,
+        },
+        select: {
+          status: true,
+          finalPremium: true,
+        },
+      }),
+      this.prisma.quotation?.findMany
+        ? this.prisma.quotation.findMany({
+            where: {
+              companyId: agent.companyId,
+              agentId: agent.id,
+              deletedAt: null,
+            },
+            select: {
+              status: true,
+              totalPremium: true,
+            },
+          })
+        : Promise.resolve<any[]>([]),
+      this.prisma.policy?.findMany
+        ? this.prisma.policy.findMany({
+            where: {
+              companyId: agent.companyId,
+              agentId: agent.id,
+              status: { in: ['ACTIVE', 'ISSUED'] },
+              deletedAt: null,
+            },
+            select: {
+              actualPremium: true,
+              premiumAmount: true,
+            },
+          })
+        : Promise.resolve<any[]>([]),
+    ]);
 
-    const totalQuotes = quotes.length;
-    const acceptedQuotes = quotes.filter((q) => q.status === 'ACCEPTED').length;
-    const totalPremium = quotes
-      .filter((q) => q.status === 'ACCEPTED')
-      .reduce((sum, q) => sum + Number(q.finalPremium), 0);
+    const acceptedMotorPremium = motorQuotes
+      .filter((q: any) => q.status === 'ACCEPTED')
+      .reduce((sum: number, q: any) => sum + Number(q.finalPremium || 0), 0);
+    const acceptedSharedPremium = ((sharedQuotes as any[]) || [])
+      .filter(
+        (q: any) =>
+          q.status === 'ACCEPTED' ||
+          q.status === 'CONVERTED_TO_POLICY' ||
+          q.status === 'APPROVED',
+      )
+      .reduce((sum: number, q: any) => sum + Number(q.totalPremium || 0), 0);
+
+    const totalQuotes = motorQuotes.length + ((sharedQuotes as any[]) || []).length;
+    const acceptedQuotes =
+      motorQuotes.filter((q: any) => q.status === 'ACCEPTED').length +
+      ((sharedQuotes as any[]) || []).filter(
+        (q: any) =>
+          q.status === 'ACCEPTED' ||
+          q.status === 'CONVERTED_TO_POLICY' ||
+          q.status === 'APPROVED',
+      ).length;
+    const totalPremium = acceptedMotorPremium + acceptedSharedPremium;
+
+    const totalIssuedGwp = ((policies as any[]) || []).reduce(
+      (sum: number, p: any) => sum + Number(p.actualPremium ?? p.premiumAmount ?? 0),
+      0,
+    );
 
     return {
       agentId: agent.id,
@@ -498,6 +554,10 @@ export class AgentsService {
         totalQuotes,
         acceptedQuotes,
         totalPremium,
+      },
+      policies: {
+        activePoliciesCount: (policies || []).length,
+        totalGwp: totalIssuedGwp,
       },
     };
   }

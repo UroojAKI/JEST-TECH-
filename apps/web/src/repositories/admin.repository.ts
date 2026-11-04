@@ -170,6 +170,39 @@ export interface UserWorkspaceData {
     estimatedPremium?: number;
     createdAt: string;
   }[];
+  recentCustomers?: {
+    id: string;
+    customerCode: string;
+    name: string;
+    phone?: string | null;
+    email?: string | null;
+    activePoliciesCount: number;
+    totalGwp: number;
+    createdAt: string;
+  }[];
+  recentRenewals?: {
+    id: string;
+    policyNumber: string;
+    customerName: string;
+    customerPhone?: string | null;
+    insurerName: string;
+    premiumAmount: number;
+    expiryDate: string;
+    daysToExpiry: number;
+    status: string;
+  }[];
+  recentClaims?: {
+    id: string;
+    claimNumber: string;
+    policyNumber: string;
+    customerName: string;
+    customerPhone?: string | null;
+    claimAmount: number;
+    settledAmount?: number | null;
+    status: string;
+    incidentDate?: string | null;
+    createdAt: string;
+  }[];
 }
 
 export interface RolePermissionItem {

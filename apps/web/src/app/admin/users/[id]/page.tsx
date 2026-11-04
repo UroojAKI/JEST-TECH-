@@ -247,6 +247,9 @@ export default function User360Page() {
     recentQuotations = [],
     recentPolicies = [],
     recentLeads = [],
+    recentCustomers = [],
+    recentRenewals = [],
+    recentClaims = [],
   } = workspace;
   const isLocked = profile.status === 'LOCKED' || profile.status === 'SUSPENDED';
 
@@ -1169,6 +1172,210 @@ export default function User360Page() {
                           </td>
                           <td className="p-3 font-mono text-[11px] text-muted-foreground">
                             {new Date(l.createdAt).toLocaleDateString()}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            {/* Customer Portfolio Table */}
+            <div className="border rounded-2xl overflow-hidden bg-card shadow-sm space-y-0">
+              <div className="p-4 border-b flex items-center justify-between bg-muted/20">
+                <div className="space-y-0.5">
+                  <h3 className="text-sm font-bold flex items-center gap-2">
+                    <Users className="h-4 w-4 text-primary" />
+                    Assigned Customer Portfolio ({recentCustomers.length})
+                  </h3>
+                  <p className="text-xs text-muted-foreground">
+                    Directly managed customers, account relationships, and total gross written premium
+                  </p>
+                </div>
+                <span className="text-xs font-mono font-bold text-emerald-600 px-2.5 py-1 rounded-lg bg-emerald-500/10 border border-emerald-300">
+                  {recentCustomers.length} Accounts
+                </span>
+              </div>
+              {recentCustomers.length === 0 ? (
+                <div className="p-8 text-center text-sm text-muted-foreground">
+                  No customers are currently assigned to this agent.
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead>
+                      <tr className="bg-muted/40 text-[10px] uppercase font-bold text-muted-foreground border-b">
+                        <th className="p-3">Customer Code</th>
+                        <th className="p-3">Customer Name</th>
+                        <th className="p-3">Phone</th>
+                        <th className="p-3">Email</th>
+                        <th className="p-3">Active Policies</th>
+                        <th className="p-3">Total GWP</th>
+                        <th className="p-3">Joined Date</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y font-mono">
+                      {recentCustomers.map((c: any) => (
+                        <tr key={c.id} className="hover:bg-accent/40 font-sans">
+                          <td className="p-3 font-mono font-bold text-primary">
+                            <Link href={`/crm/customers/${c.id}`} className="hover:underline">
+                              {c.customerCode}
+                            </Link>
+                          </td>
+                          <td className="p-3 font-semibold text-foreground">{c.name}</td>
+                          <td className="p-3 font-mono text-muted-foreground">{c.phone || '-'}</td>
+                          <td className="p-3 text-muted-foreground">{c.email || '-'}</td>
+                          <td className="p-3">
+                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-primary/10 text-primary">
+                              {c.activePoliciesCount} {c.activePoliciesCount === 1 ? 'Policy' : 'Policies'}
+                            </span>
+                          </td>
+                          <td className="p-3 font-mono text-sm font-bold text-emerald-600">
+                            ₹{Number(c.totalGwp || 0).toLocaleString('en-IN')}
+                          </td>
+                          <td className="p-3 font-mono text-[11px] text-muted-foreground">
+                            {new Date(c.createdAt).toLocaleDateString()}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            {/* Upcoming Renewals Pipeline */}
+            <div className="border rounded-2xl overflow-hidden bg-card shadow-sm space-y-0">
+              <div className="p-4 border-b flex items-center justify-between bg-muted/20">
+                <div className="space-y-0.5">
+                  <h3 className="text-sm font-bold flex items-center gap-2">
+                    <RefreshCw className="h-4 w-4 text-primary" />
+                    Renewals Pipeline & Expiries ({recentRenewals.length})
+                  </h3>
+                  <p className="text-xs text-muted-foreground">
+                    Policies approaching expiry requiring agent renewal follow-up and retention actions
+                  </p>
+                </div>
+                <span className="text-xs font-mono font-bold text-amber-600 px-2.5 py-1 rounded-lg bg-amber-500/10 border border-amber-300">
+                  {recentRenewals.filter((r: any) => r.daysToExpiry <= 30 && r.daysToExpiry >= 0).length} Due in 30 Days
+                </span>
+              </div>
+              {recentRenewals.length === 0 ? (
+                <div className="p-8 text-center text-sm text-muted-foreground">
+                  No upcoming policy renewals within the next 60 days.
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead>
+                      <tr className="bg-muted/40 text-[10px] uppercase font-bold text-muted-foreground border-b">
+                        <th className="p-3">Policy Number</th>
+                        <th className="p-3">Customer</th>
+                        <th className="p-3">Insurer</th>
+                        <th className="p-3">Premium</th>
+                        <th className="p-3">Expiry Date</th>
+                        <th className="p-3">Days Remaining</th>
+                        <th className="p-3">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y font-mono">
+                      {recentRenewals.map((r: any) => (
+                        <tr key={r.id} className="hover:bg-accent/40 font-sans">
+                          <td className="p-3 font-mono font-bold text-primary">
+                            <Link href={`/policies/${r.id}`} className="hover:underline">
+                              {r.policyNumber}
+                            </Link>
+                          </td>
+                          <td className="p-3 font-semibold text-foreground">{r.customerName}</td>
+                          <td className="p-3">{r.insurerName}</td>
+                          <td className="p-3 font-mono text-sm font-bold text-foreground">
+                            ₹{Number(r.premiumAmount || 0).toLocaleString('en-IN')}
+                          </td>
+                          <td className="p-3 font-mono text-[11px] text-muted-foreground">
+                            {new Date(r.expiryDate).toLocaleDateString()}
+                          </td>
+                          <td className="p-3 font-mono font-bold">
+                            <span className={
+                              r.daysToExpiry < 0
+                                ? 'text-rose-600'
+                                : r.daysToExpiry <= 15
+                                ? 'text-amber-600'
+                                : 'text-emerald-600'
+                            }>
+                              {r.daysToExpiry < 0 ? `Lapsed (${Math.abs(r.daysToExpiry)}d ago)` : `${r.daysToExpiry} days`}
+                            </span>
+                          </td>
+                          <td className="p-3">
+                            <span className={
+                              r.status === 'LAPSED'
+                                ? 'px-2 py-0.5 rounded text-[10px] font-bold bg-rose-500/10 text-rose-600'
+                                : r.status === 'CRITICAL'
+                                ? 'px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/10 text-amber-600'
+                                : 'px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/10 text-emerald-600'
+                            }>
+                              {r.status}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            {/* Claims Visibility Table */}
+            <div className="border rounded-2xl overflow-hidden bg-card shadow-sm space-y-0">
+              <div className="p-4 border-b flex items-center justify-between bg-muted/20">
+                <div className="space-y-0.5">
+                  <h3 className="text-sm font-bold flex items-center gap-2">
+                    <AlertTriangle className="h-4 w-4 text-primary" />
+                    Claims Visibility ({recentClaims.length})
+                  </h3>
+                  <p className="text-xs text-muted-foreground">
+                    Claims registered on policies written by or attributed to this agent
+                  </p>
+                </div>
+                <span className="text-xs font-mono font-bold text-foreground px-2.5 py-1 rounded-lg bg-muted border">
+                  Total Claims: {recentClaims.length}
+                </span>
+              </div>
+              {recentClaims.length === 0 ? (
+                <div className="p-8 text-center text-sm text-muted-foreground">
+                  No claims have been registered on this agent's policies.
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead>
+                      <tr className="bg-muted/40 text-[10px] uppercase font-bold text-muted-foreground border-b">
+                        <th className="p-3">Claim Number</th>
+                        <th className="p-3">Policy Number</th>
+                        <th className="p-3">Customer</th>
+                        <th className="p-3">Claim Amount</th>
+                        <th className="p-3">Settled Amount</th>
+                        <th className="p-3">Status</th>
+                        <th className="p-3">Reported Date</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y font-mono">
+                      {recentClaims.map((cl: any) => (
+                        <tr key={cl.id} className="hover:bg-accent/40 font-sans">
+                          <td className="p-3 font-mono font-bold text-primary">{cl.claimNumber}</td>
+                          <td className="p-3 font-mono text-foreground">{cl.policyNumber}</td>
+                          <td className="p-3 font-semibold text-foreground">{cl.customerName}</td>
+                          <td className="p-3 font-mono text-sm font-bold text-foreground">
+                            ₹{Number(cl.claimAmount || 0).toLocaleString('en-IN')}
+                          </td>
+                          <td className="p-3 font-mono text-sm font-bold text-emerald-600">
+                            {cl.settledAmount ? `₹${Number(cl.settledAmount).toLocaleString('en-IN')}` : '-'}
+                          </td>
+                          <td className="p-3">
+                            <StatusBadge status={cl.status} />
+                          </td>
+                          <td className="p-3 font-mono text-[11px] text-muted-foreground">
+                            {new Date(cl.createdAt).toLocaleDateString()}
                           </td>
                         </tr>
                       ))}

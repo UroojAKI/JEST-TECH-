@@ -432,6 +432,9 @@ export class UsersService {
       recentLeadsRaw,
       recentActivities,
       recentTasks,
+      recentCustomersRaw,
+      recentClaimsRaw,
+      recentRenewalsRaw,
     ] = await Promise.all([
       this.prisma.lead.count({
         where: { createdById: id, companyId, deletedAt: null },
@@ -599,6 +602,94 @@ export class UsersService {
         orderBy: { dueDate: 'asc' },
         take: 10,
       }),
+      this.prisma?.customer?.findMany
+        ? this.prisma.customer.findMany({
+            where: {
+              OR: [
+                { createdById: id },
+                ...(agentId ? [{ primaryAgentId: agentId }] : []),
+              ],
+              ...(companyId ? { companyId } : {}),
+              deletedAt: null,
+            },
+            include: {
+              contact: {
+                select: {
+                  firstName: true,
+                  lastName: true,
+                  phone: true,
+                  email: true,
+                },
+              },
+              policies: {
+                where: {
+                  status: { in: ['ACTIVE', 'ISSUED'] },
+                  deletedAt: null,
+                },
+                select: {
+                  id: true,
+                  premiumAmount: true,
+                  actualPremium: true,
+                },
+              },
+            },
+            orderBy: { createdAt: 'desc' },
+            take: 50,
+          })
+        : Promise.resolve([]),
+      this.prisma?.claim?.findMany
+        ? this.prisma.claim.findMany({
+            where: {
+              OR: [
+                ...(agentId ? [{ agentId }] : []),
+                { policy: policyUserFilter },
+              ],
+              ...(companyId ? { companyId } : {}),
+            },
+            include: {
+              policy: {
+                select: {
+                  policyNumber: true,
+                  actualPolicyNumber: true,
+                },
+              },
+              contact: {
+                select: {
+                  firstName: true,
+                  lastName: true,
+                  phone: true,
+                },
+              },
+            },
+            orderBy: { createdAt: 'desc' },
+            take: 50,
+          })
+        : Promise.resolve([]),
+      this.prisma?.policy?.findMany
+        ? this.prisma.policy.findMany({
+            where: {
+              ...policyUserFilter,
+              status: 'ACTIVE',
+              expiryDate: {
+                lte: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000),
+                gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
+              },
+            },
+            include: {
+              contact: {
+                select: {
+                  firstName: true,
+                  lastName: true,
+                  phone: true,
+                  email: true,
+                },
+              },
+              quotation: { select: { insurerName: true } },
+            },
+            orderBy: { expiryDate: 'asc' },
+            take: 50,
+          })
+        : Promise.resolve([]),
     ]);
 
     const totalQuotationValue = Number(quotationAggregate?._sum?.totalPremium || 0);
@@ -735,6 +826,75 @@ export class UsersService {
       });
     }
 
+    for (const cl of recentClaimsRaw || []) {
+      operationalActivities.push({
+        id: `claim-${cl.id}`,
+        action: 'CLAIM',
+        entity: 'Claim',
+        entityId: cl.claimNumber || 'CLM',
+        ipAddress: 'System',
+        createdAt: cl.createdAt,
+        details: {
+          customer: cl.contact ? `${cl.contact.firstName || ''} ${cl.contact.lastName || ''}`.trim() : 'Customer',
+          amount: `₹${Number(cl.claimAmount || 0).toLocaleString('en-IN')}`,
+          status: cl.status,
+          policy: cl.policy?.actualPolicyNumber || cl.policy?.policyNumber,
+        },
+        source: 'OPERATIONAL',
+      });
+    }
+
+    const recentCustomers = (recentCustomersRaw || []).map((c: any) => {
+      const activePolicies = c.policies || [];
+      const totalGwp = activePolicies.reduce(
+        (sum: number, p: any) => sum + Number(p.actualPremium ?? p.premiumAmount ?? 0),
+        0,
+      );
+      const name = c.name || (c.contact ? `${c.contact.firstName || ''} ${c.contact.lastName || ''}`.trim() : 'Customer');
+      const phone = c.phone || c.contact?.phone || null;
+      const email = c.email || c.contact?.email || null;
+      return {
+        id: c.id,
+        customerCode: c.customerCode || 'CUST',
+        name,
+        phone,
+        email,
+        activePoliciesCount: activePolicies.length,
+        totalGwp,
+        createdAt: c.createdAt,
+      };
+    });
+
+    const recentClaims = (recentClaimsRaw || []).map((cl: any) => ({
+      id: cl.id,
+      claimNumber: cl.claimNumber || 'CLM',
+      policyNumber: cl.policy?.actualPolicyNumber || cl.policy?.policyNumber || 'N/A',
+      customerName: cl.contact ? `${cl.contact.firstName || ''} ${cl.contact.lastName || ''}`.trim() : 'Customer',
+      customerPhone: cl.contact?.phone || null,
+      claimAmount: Number(cl.claimAmount || 0),
+      settledAmount: cl.settledAmount ? Number(cl.settledAmount) : null,
+      status: cl.status,
+      incidentDate: cl.incidentDate || null,
+      createdAt: cl.createdAt,
+    }));
+
+    const recentRenewals = (recentRenewalsRaw || []).map((rn: any) => {
+      const now = new Date();
+      const expiry = new Date(rn.expiryDate);
+      const daysToExpiry = Math.ceil((expiry.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+      return {
+        id: rn.id,
+        policyNumber: rn.actualPolicyNumber || rn.policyNumber,
+        customerName: rn.contact ? `${rn.contact.firstName || ''} ${rn.contact.lastName || ''}`.trim() : 'Customer',
+        customerPhone: rn.contact?.phone || null,
+        insurerName: rn.quotation?.insurerName || 'Insurer',
+        premiumAmount: Number(rn.actualPremium || rn.premiumAmount || 0),
+        expiryDate: rn.expiryDate,
+        daysToExpiry,
+        status: daysToExpiry < 0 ? 'LAPSED' : daysToExpiry <= 15 ? 'CRITICAL' : 'UPCOMING',
+      };
+    });
+
     const mergedActivities = [...auditActivities, ...operationalActivities]
       .sort(
         (a, b) =>
@@ -793,7 +953,7 @@ export class UsersService {
         agentProfile: user.agentProfile
           ? {
               id: user.agentProfile.id,
-              clientCodes: user.agentProfile.externalCodes.map((code) => ({
+              clientCodes: (user.agentProfile.externalCodes || []).map((code) => ({
                 id: code.id,
                 value: code.externalCode,
                 codeSystem: code.codeSystem,
@@ -837,6 +997,9 @@ export class UsersService {
       recentQuotations,
       recentPolicies,
       recentLeads,
+      recentCustomers,
+      recentClaims,
+      recentRenewals,
     };
   }
 
