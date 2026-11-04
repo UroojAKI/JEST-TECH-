@@ -330,13 +330,43 @@ export class DashboardAnalyticsService {
 
   /**
    * Aggregates Gross Written Premium (GWP) by Branch scoped by company.
+   * Incorporates both direct branch contacts attribution and creator attribution,
+   * avoiding double-counting and honoring actual captured premiums and period boundaries.
    */
-  async getBranchGwpBreakdown(companyId?: string) {
+  async getBranchGwpBreakdown(companyId?: string, period?: string) {
     if (!companyId) {
       throw new ForbiddenException(
         'Tenant company context is required for branch performance',
       );
     }
+
+    let dateWhere: any = {};
+    if (period) {
+      const now = new Date();
+      let startDate: Date | null = null;
+      if (period === 'mtd') {
+        startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+      } else if (period === 'ytd') {
+        startDate = new Date(now.getFullYear(), 0, 1);
+      } else if (period === 'today') {
+        startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      }
+      if (startDate) {
+        dateWhere = {
+          OR: [
+            { issueDate: { gte: startDate } },
+            { issueDate: null, createdAt: { gte: startDate } },
+          ],
+        };
+      }
+    }
+
+    const policyWhere = {
+      status: { in: [PolicyStatus.ACTIVE, PolicyStatus.ISSUED] },
+      deletedAt: null,
+      companyId,
+      ...dateWhere,
+    };
 
     const branches = await this.prisma.branch.findMany({
       where: { zone: { region: { companyId } } },
@@ -344,39 +374,93 @@ export class DashboardAnalyticsService {
         id: true,
         name: true,
         code: true,
+        contacts: {
+          select: {
+            policies: {
+              where: policyWhere,
+              select: {
+                id: true,
+                premiumAmount: true,
+                actualPremium: true,
+              },
+            },
+          },
+        },
         users: {
           select: {
             policiesCreated: {
-              where: {
-                status: { in: [PolicyStatus.ACTIVE, PolicyStatus.ISSUED] },
-                deletedAt: null,
-                companyId,
+              where: policyWhere,
+              select: {
+                id: true,
+                premiumAmount: true,
+                actualPremium: true,
               },
-              select: { premiumAmount: true },
             },
           },
         },
       },
+      orderBy: { name: 'asc' },
     });
 
     return branches.map((b: any) => {
-      const usersList = b.users || [];
-      const gwp = usersList.reduce(
-        (sum: number, u: any) =>
-          sum +
-          (u.policiesCreated || []).reduce(
-            (pSum: number, p: any) => pSum + Number(p.premiumAmount || 0),
-            0,
-          ),
-        0,
-      );
-      return {
-        branchId: b.id,
-        branchName: b.name,
-        branchCode: b.code,
-        gwp,
-        formattedGwp: `₹${gwp.toLocaleString('en-IN')}`,
-      };
+      try {
+        const policyMap = new Map<string, number>();
+        let unkeyedSum = 0;
+        let unkeyedCount = 0;
+
+        const contacts = b.contacts || [];
+        for (const c of contacts) {
+          for (const p of c.policies || []) {
+            const premium = Number(p.actualPremium ?? p.premiumAmount ?? 0);
+            if (p.id) {
+              policyMap.set(p.id, premium);
+            } else {
+              unkeyedSum += premium;
+              unkeyedCount++;
+            }
+          }
+        }
+
+        const usersList = b.users || [];
+        for (const u of usersList) {
+          for (const p of u.policiesCreated || []) {
+            const premium = Number(p.actualPremium ?? p.premiumAmount ?? 0);
+            if (p.id) {
+              if (!policyMap.has(p.id)) {
+                policyMap.set(p.id, premium);
+              }
+            } else {
+              unkeyedSum += premium;
+              unkeyedCount++;
+            }
+          }
+        }
+
+        const totalPolicies = policyMap.size + unkeyedCount;
+        const gwp =
+          Array.from(policyMap.values()).reduce((sum, p) => sum + p, 0) +
+          unkeyedSum;
+
+        return {
+          branchId: b.id,
+          branchName: b.name,
+          branchCode: b.code,
+          gwp,
+          formattedGwp: `₹${gwp.toLocaleString('en-IN')}`,
+          policyCount: totalPolicies,
+          hasData: true,
+        };
+      } catch {
+        return {
+          branchId: b.id,
+          branchName: b.name,
+          branchCode: b.code,
+          gwp: null,
+          formattedGwp: null,
+          policyCount: 0,
+          hasData: false,
+        };
+      }
     });
   }
 

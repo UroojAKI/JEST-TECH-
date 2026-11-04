@@ -14,8 +14,13 @@ import {
 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient, getApiErrorMessage } from '../../../lib/api-client';
+import { useAuthStore } from '../../../store/auth-store';
 
 export default function ManagingDirectorDashboard() {
+  const user = useAuthStore((s) => s.user);
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const hasHydrated = useAuthStore((s) => s._hasHydrated);
+  const canFetch = hasHydrated && isAuthenticated && !!user?.id;
   const {
     data: dashboard,
     isLoading: isDashboardLoading,
@@ -24,6 +29,7 @@ export default function ManagingDirectorDashboard() {
     refetch: refetchDashboard,
   } = useQuery({
     queryKey: ['admin-executive-dashboard'],
+    enabled: canFetch,
     queryFn: async () => {
       const res = await apiClient.get('/dashboard');
       return res.data;
@@ -38,6 +44,7 @@ export default function ManagingDirectorDashboard() {
     refetch: refetchBranches,
   } = useQuery({
     queryKey: ['admin-branch-gwp'],
+    enabled: canFetch,
     queryFn: async () => {
       const res = await apiClient.get('/dashboard/management/branch-gwp');
       return Array.isArray(res.data) ? res.data : [];
@@ -175,22 +182,42 @@ export default function ManagingDirectorDashboard() {
             </div>
           ) : (
             <div className="space-y-3">
-              {branches.map((b: any, i: number) => (
-                <div
-                  key={b.branchId || i}
-                  className="flex justify-between items-center py-2 border-b last:border-0 border-muted/30"
-                >
-                  <div>
-                    <span className="text-sm font-semibold">{b.branchName}</span>
-                    <span className="text-[10px] text-muted-foreground font-mono ml-2">({b.branchCode})</span>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-sm font-bold font-mono">
-                      {b.formattedGwp || `₹${(b.gwp || 0).toLocaleString('en-IN')}`}
+              {branches.map((b: any, i: number) => {
+                const isUnavailable = b.gwp === null || b.gwp === undefined || b.hasData === false;
+                const isZero = !isUnavailable && (b.gwp === 0 || b.policyCount === 0);
+
+                return (
+                  <div
+                    key={b.branchId || i}
+                    className="flex justify-between items-center py-2 border-b last:border-0 border-muted/30"
+                  >
+                    <div>
+                      <span className="text-sm font-semibold">{b.branchName}</span>
+                      <span className="text-[10px] text-muted-foreground font-mono ml-2">({b.branchCode})</span>
+                      {b.policyCount !== undefined && b.hasData && (
+                        <span className="text-[10px] text-muted-foreground ml-2">
+                          · {b.policyCount} {b.policyCount === 1 ? 'policy' : 'policies'}
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-right">
+                      {isUnavailable ? (
+                        <span className="text-xs text-amber-500 font-medium px-2 py-0.5 rounded bg-amber-500/10 border border-amber-500/20">
+                          Data Unavailable
+                        </span>
+                      ) : isZero ? (
+                        <div className="text-sm font-bold font-mono text-muted-foreground">
+                          ₹0 <span className="text-[10px] font-normal">(No sales)</span>
+                        </div>
+                      ) : (
+                        <div className="text-sm font-bold font-mono">
+                          {b.formattedGwp || `₹${Number(b.gwp).toLocaleString('en-IN')}`}
+                        </div>
+                      )}
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>

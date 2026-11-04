@@ -78,9 +78,12 @@ export class DashboardController {
 
   @Get('management/branch-gwp')
   @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE)
-  getBranchGwpBreakdown(@CurrentUser() user: RequestUser) {
+  getBranchGwpBreakdown(
+    @CurrentUser() user: RequestUser,
+    @Query('period') period?: string,
+  ) {
     const companyId = user.companyId || user.organizationId;
-    return this.dashboardService.getBranchGwpBreakdown(companyId);
+    return this.dashboardService.getBranchGwpBreakdown(companyId, period);
   }
 
   @Get('management/insurers')

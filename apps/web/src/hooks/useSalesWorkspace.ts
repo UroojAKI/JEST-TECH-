@@ -2,29 +2,38 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { salesWorkspaceRepository } from '../repositories/sales-workspace.repository';
+import { useAuthStore } from '../store/auth-store';
 import { toast } from 'sonner';
 
 export function useSalesWorkspace() {
   const queryClient = useQueryClient();
+  const user = useAuthStore((s) => s.user);
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const hasHydrated = useAuthStore((s) => s._hasHydrated);
+  const isAuthReady = hasHydrated && isAuthenticated && !!user?.id;
 
   const dashboardQuery = useQuery({
     queryKey: ['sales-workspace-dashboard'],
     queryFn: () => salesWorkspaceRepository.getDashboard(),
+    enabled: isAuthReady,
   });
 
   const kpisQuery = useQuery({
     queryKey: ['sales-workspace-kpis'],
     queryFn: () => salesWorkspaceRepository.getKpis(),
+    enabled: isAuthReady,
   });
 
   const pipelineQuery = useQuery({
     queryKey: ['sales-workspace-pipeline'],
     queryFn: () => salesWorkspaceRepository.getPipeline(),
+    enabled: isAuthReady,
   });
 
   const analyticsQuery = useQuery({
     queryKey: ['sales-workspace-analytics'],
     queryFn: () => salesWorkspaceRepository.getAnalytics(),
+    enabled: isAuthReady,
   });
 
   const moveStageMutation = useMutation({
@@ -59,7 +68,8 @@ export function useSalesWorkspace() {
 
   return {
     dashboard: dashboardQuery.data,
-    isDashboardLoading: dashboardQuery.isLoading || analyticsQuery.isLoading,
+    isDashboardLoading: !isAuthReady || dashboardQuery.isLoading || analyticsQuery.isLoading,
+    isAuthReady,
     kpis: kpisQuery.data,
     analytics: analyticsQuery.data,
     pipeline: pipelineQuery.data,

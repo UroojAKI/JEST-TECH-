@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { CustomThrottlerGuard } from './custom-throttler.guard';
 import { Reflector } from '@nestjs/core';
-import { ThrottlerStorage } from '@nestjs/throttler';
+import { ThrottlerStorage, ThrottlerException } from '@nestjs/throttler';
 import { ExecutionContext } from '@nestjs/common';
 import { THROTTLER_LIMIT } from '@nestjs/throttler/dist/throttler.constants';
 
@@ -45,10 +45,11 @@ describe('CustomThrottlerGuard', () => {
     await guard.onModuleInit();
   });
 
-  const createMockContext = () => {
+  const createMockContext = (customReq?: any) => {
     const req = {
       headers: {},
       ip: '127.0.0.1',
+      ...customReq,
     };
     const res = {
       header: jest.fn(),
@@ -66,11 +67,7 @@ describe('CustomThrottlerGuard', () => {
 
   it('skips narrow login throttler for general routes without @Throttle decorator', async () => {
     const context = createMockContext();
-    // Simulate no route-level limit for 'login'
     jest.spyOn(reflector, 'getAllAndOverride').mockReturnValue(undefined);
-
-    const superHandleRequestSpy = jest
-      .spyOn(guard as any, 'handleRequest');
 
     const result = await (guard as any).handleRequest({
       context,
@@ -82,7 +79,6 @@ describe('CustomThrottlerGuard', () => {
       generateKey: jest.fn().mockReturnValue('throttle:login:127.0.0.1'),
     });
 
-    // Should return true immediately without incrementing storage
     expect(result).toBe(true);
     expect(storage.increment).not.toHaveBeenCalled();
   });
@@ -107,7 +103,6 @@ describe('CustomThrottlerGuard', () => {
 
   it('evaluates login throttler when route explicitly declares it', async () => {
     const context = createMockContext();
-    // Route explicitly declared limit for 'login'
     jest.spyOn(reflector, 'getAllAndOverride').mockImplementation((key: string) => {
       if (key === THROTTLER_LIMIT + 'login') return 20;
       return undefined;
@@ -125,5 +120,50 @@ describe('CustomThrottlerGuard', () => {
 
     expect(result).toBe(true);
     expect(storage.increment).toHaveBeenCalled();
+  });
+
+  describe('getTracker', () => {
+    it('tracks by user ID if request is authenticated', async () => {
+      const tracker = await (guard as any).getTracker({
+        user: { id: 'usr-123' },
+        ip: '192.168.1.1',
+      });
+      expect(tracker).toBe('user_usr-123');
+    });
+
+    it('tracks by first X-Forwarded-For IP if unauthenticated', async () => {
+      const tracker = await (guard as any).getTracker({
+        headers: { 'x-forwarded-for': '203.0.113.195, 70.41.3.18' },
+        ip: '127.0.0.1',
+      });
+      expect(tracker).toBe('ip_203.0.113.195');
+    });
+
+    it('falls back to req.ip when unauthenticated and no forwarded header', async () => {
+      const tracker = await (guard as any).getTracker({
+        headers: {},
+        ip: '10.0.0.5',
+      });
+      expect(tracker).toBe('ip_10.0.0.5');
+    });
+  });
+
+  describe('throwThrottlingException', () => {
+    it('sets Retry-After header and throws ThrottlerException', async () => {
+      const context = createMockContext();
+      const res = context.switchToHttp().getResponse();
+
+      await expect(
+        (guard as any).throwThrottlingException(context, {
+          timeToBlockExpire: 45000,
+          limit: 100,
+          ttl: 60000,
+          totalHits: 101,
+          timeToExpire: 45,
+        }),
+      ).rejects.toThrow(ThrottlerException);
+
+      expect(res.header).toHaveBeenCalledWith('Retry-After', '45');
+    });
   });
 });

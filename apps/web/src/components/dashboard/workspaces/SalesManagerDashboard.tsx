@@ -3,10 +3,16 @@ import React from 'react';
 import { Target, Users, Calendar, Clock, CheckCircle, Loader2 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../../../lib/api-client';
+import { useAuthStore } from '../../../store/auth-store';
 
 export default function SalesManagerDashboard() {
+  const user = useAuthStore((s) => s.user);
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const hasHydrated = useAuthStore((s) => s._hasHydrated);
+  const canFetch = hasHydrated && isAuthenticated && !!user?.id;
   const { data: dashboard, isLoading: isDashboardLoading } = useQuery({
     queryKey: ['sales-manager-dashboard'],
+    enabled: canFetch,
     queryFn: async () => {
       try {
         const res = await apiClient.get('/workspace/sales/dashboard');
@@ -19,6 +25,7 @@ export default function SalesManagerDashboard() {
 
   const { data: leaderboard = [], isLoading: isLeaderboardLoading } = useQuery({
     queryKey: ['sales-leaderboard'],
+    enabled: canFetch,
     queryFn: async () => {
       try {
         const res = await apiClient.get('/dashboard/management/leaderboard');

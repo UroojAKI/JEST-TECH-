@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-03T19:27:00.327Z",
+  "generatedAt": "2026-11-04T10:33:50.955Z",
   "mismatches": [],
   "uncalledBackendRoutes": [
     {
@@ -91,6 +91,20 @@
       "path": "/admin/config/:param",
       "controller": "UpdateConfigDto",
       "file": "apps/api/src/modules/administration/controllers/system-config/system-config.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "POST",
+      "path": "/agents/:param/external-codes/:param/reactivate",
+      "controller": "AgentsController",
+      "file": "apps/api/src/modules/agents/agents.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "GET",
+      "path": "/agents/:param/external-codes/:param/history",
+      "controller": "AgentsController",
+      "file": "apps/api/src/modules/agents/agents.controller.ts",
       "classification": "UNUSED"
     },
     {
@@ -1572,15 +1586,15 @@
     }
   ],
   "summary": {
-    "totalFrontendCalls": 358,
-    "matched": 358,
+    "totalFrontendCalls": 364,
+    "matched": 364,
     "unmatched": 0,
-    "uncalledBackend": 224,
+    "uncalledBackend": 226,
     "uncalledByClassification": {
       "WEBHOOK": 1,
       "CRON": 3,
       "INTERNAL": 13,
-      "UNUSED": 207
+      "UNUSED": 209
     }
   }
 }
