@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-04T10:33:50.955Z",
+  "generatedAt": "2026-11-04T11:30:08.875Z",
   "mismatches": [],
   "uncalledBackendRoutes": [
     {
@@ -207,28 +207,7 @@
     },
     {
       "method": "GET",
-      "path": "/bi/conversion",
-      "controller": "BiController",
-      "file": "apps/api/src/modules/business-intelligence/controllers/bi.controller.ts",
-      "classification": "UNUSED"
-    },
-    {
-      "method": "GET",
-      "path": "/bi/revenue",
-      "controller": "BiController",
-      "file": "apps/api/src/modules/business-intelligence/controllers/bi.controller.ts",
-      "classification": "UNUSED"
-    },
-    {
-      "method": "GET",
       "path": "/bi/loss-ratio",
-      "controller": "BiController",
-      "file": "apps/api/src/modules/business-intelligence/controllers/bi.controller.ts",
-      "classification": "UNUSED"
-    },
-    {
-      "method": "GET",
-      "path": "/bi/renewal",
       "controller": "BiController",
       "file": "apps/api/src/modules/business-intelligence/controllers/bi.controller.ts",
       "classification": "UNUSED"
@@ -1586,15 +1565,15 @@
     }
   ],
   "summary": {
-    "totalFrontendCalls": 364,
-    "matched": 364,
+    "totalFrontendCalls": 371,
+    "matched": 371,
     "unmatched": 0,
-    "uncalledBackend": 226,
+    "uncalledBackend": 223,
     "uncalledByClassification": {
       "WEBHOOK": 1,
       "CRON": 3,
       "INTERNAL": 13,
-      "UNUSED": 209
+      "UNUSED": 206
     }
   }
 }
