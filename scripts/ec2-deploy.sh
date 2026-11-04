@@ -67,15 +67,15 @@ sudo nginx -t && sudo systemctl reload nginx
 
 sleep 5  # Give PM2 processes a moment to stabilize
 
-API_STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:4000/api/v1/health)
-if [ "${API_STATUS}" == "200" ]; then
+API_STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:4000/api/v1/health || true)
+if [ "${API_STATUS}" = "200" ]; then
   echo "      ✅ API is healthy (HTTP 200)"
 else
   echo "      ⚠️  API returned HTTP ${API_STATUS} — check 'pm2 logs jest-api'"
 fi
 
-WEB_STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:3000/)
-if [ "${WEB_STATUS}" == "200" ] || [ "${WEB_STATUS}" == "307" ] || [ "${WEB_STATUS}" == "308" ]; then
+WEB_STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:3000/ || true)
+if [ "${WEB_STATUS}" = "200" ] || [ "${WEB_STATUS}" = "307" ] || [ "${WEB_STATUS}" = "308" ]; then
   echo "      ✅ Frontend is healthy (HTTP ${WEB_STATUS})"
 else
   echo "      ⚠️  Frontend returned HTTP ${WEB_STATUS} — check 'pm2 logs jest-web'"
