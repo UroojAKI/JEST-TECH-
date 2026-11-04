@@ -106,6 +106,7 @@ export default function CustomerRegisterPage() {
         return (
           String(u.employeeCode || '').toUpperCase() === searchCode ||
           String(u.agentCode || '').toUpperCase() === searchCode ||
+          (u.clientCodes || []).some((code: any) => String(code.value || '').toUpperCase() === searchCode) ||
           String(u.id || '').toUpperCase() === searchCode
         );
       }) || null
@@ -420,22 +421,35 @@ export default function CustomerRegisterPage() {
               </div>
               <div>
                 <label className="font-bold text-muted-foreground block mb-1">
-                  Assigned Agent <span className="text-muted-foreground/60 font-normal">(Optional)</span>
+                  Client Agent Code <span className="text-muted-foreground/60 font-normal">(Optional)</span>
                 </label>
                 <input
                   list="registered-agent-codes"
                   value={formData.agentCode}
-                  onChange={(e) => setFormData({ ...formData, agentCode: e.target.value })}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    const matches = availableAgents.flatMap((agent: any) => agent.clientCodes || [])
+                      .filter((code: any) => code.value === value);
+                    setFormData({
+                      ...formData,
+                      agentCode: value,
+                      agentCodeSystem: matches.length === 1 ? matches[0].codeSystem : '',
+                    });
+                  }}
                   disabled={isLoadingAgents}
                   placeholder="Choose an Agent or enter an external code"
                   className="w-full p-2.5 rounded-lg border bg-background text-xs"
                 />
                 <datalist id="registered-agent-codes">
                   {availableAgents.map((ag: any) => {
-                    const code = ag.agentCode || ag.employeeCode || ag.id;
                     const fullName = `${ag.firstName || ''} ${ag.lastName || ''}`.trim() || ag.email;
                     return (
-                      <option key={ag.id} value={code}>{fullName}</option>
+                      <React.Fragment key={ag.id}>
+                        {(ag.clientCodes || []).filter((code: any) => code.verificationStatus === 'VERIFIED').map((code: any) => (
+                          <option key={`${ag.id}:${code.id}`} value={code.value} label={`${fullName} (${code.codeSystem})`} />
+                        ))}
+                        {!ag.clientCodes?.length && <option value={ag.agentCode || ''} label={`${fullName} (client code not registered)`} />}
+                      </React.Fragment>
                     );
                   })}
                 </datalist>
@@ -443,7 +457,7 @@ export default function CustomerRegisterPage() {
                   <input
                     value={formData.agentCodeSystem}
                     onChange={(e) => setFormData({ ...formData, agentCodeSystem: e.target.value.toUpperCase() })}
-                    placeholder="External code namespace (e.g. CLIENT_A)"
+                    placeholder="Client code system"
                     className="w-full p-2.5 rounded-lg border bg-background text-xs"
                   />
                   <button
@@ -457,11 +471,11 @@ export default function CustomerRegisterPage() {
                 </div>
                 <span className="text-[10px] text-muted-foreground mt-1 block">
                   {externalAgentLookup.data?.agent
-                    ? `Verified: ${externalAgentLookup.data.agent.name} · ${externalAgentLookup.data.agent.agentCode} · ${externalAgentLookup.data.identifier.value} (${externalAgentLookup.data.identifier.codeSystem})`
+                    ? `Verified client code: ${externalAgentLookup.data.agent.name} · ${externalAgentLookup.data.identifier.value} (${externalAgentLookup.data.identifier.codeSystem})`
                     : externalAgentLookup.isError
                       ? 'Code was not found, is inactive, or still needs verification.'
                       : selectedAgent
-                    ? `Assigned to: ${selectedAgent.firstName || ''} ${selectedAgent.lastName || ''} (${selectedAgent.agentCode || selectedAgent.employeeCode || selectedAgent.email})`
+                    ? `Assigned to: ${selectedAgent.firstName || ''} ${selectedAgent.lastName || ''} (${selectedAgent.agentCode || 'client code not registered'})`
                     : 'Select a registered Agent or enter an external code and namespace. Leave blank to use the authenticated Agent where applicable.'}
                 </span>
               </div>

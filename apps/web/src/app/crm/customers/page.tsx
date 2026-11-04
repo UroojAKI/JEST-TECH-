@@ -425,24 +425,24 @@ export default function CustomersPage() {
                   Assigned Agent (optional)
                   <select
                     value={formData.agentId}
-                    onChange={(e) => setFormData({ ...formData, agentId: e.target.value })}
+                    onChange={(e) => setFormData({ ...formData, agentId: e.target.value, externalAgentCode: '', agentCodeSystem: '' })}
                     className="mt-1 w-full rounded-lg border bg-background p-2.5 text-xs font-normal text-foreground"
                   >
                     <option value="">No Agent selected</option>
                     {availableUsers.map((agent: any) => (
                       <option key={agent.agentProfile.id} value={agent.agentProfile.id}>
-                        {agent.firstName} {agent.lastName || ''} · {agent.agentProfile.agentCode}
+                        {agent.firstName} {agent.lastName || ''} · {agent.agentCode || 'Client code not registered'}
                       </option>
                     ))}
                   </select>
                 </label>
                 <div className="grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_160px_auto] gap-2">
                   <label className="block text-xs font-bold text-muted-foreground">
-                    External Agent Code
+                    Client Agent Code
                     <input
                       value={formData.externalAgentCode}
-                      onChange={(e) => setFormData({ ...formData, externalAgentCode: e.target.value })}
-                      placeholder="IGSK001"
+                      onChange={(e) => setFormData({ ...formData, externalAgentCode: e.target.value, agentId: '' })}
+                      placeholder="Enter the client's code"
                       maxLength={100}
                       className="mt-1 w-full rounded-lg border bg-background p-2.5 text-xs font-mono font-normal text-foreground"
                     />
@@ -452,7 +452,7 @@ export default function CustomersPage() {
                     <input
                       value={formData.agentCodeSystem}
                       onChange={(e) => setFormData({ ...formData, agentCodeSystem: e.target.value.toUpperCase() })}
-                      placeholder="CLIENT_A"
+                      placeholder="Client code system"
                       maxLength={50}
                       className="mt-1 w-full rounded-lg border bg-background p-2.5 text-xs font-mono font-normal text-foreground"
                     />
@@ -463,7 +463,7 @@ export default function CustomersPage() {
                     onClick={async () => {
                       const result = await externalAgentLookup.refetch();
                       if (result.data?.agent) {
-                        toast.success(`Resolved to ${result.data.agent.name} (${result.data.agent.agentCode})`);
+                        toast.success(`Resolved to ${result.data.agent.name} (${result.data.agent.clientCode || result.data.identifier.value})`);
                       } else if (result.error) {
                         toast.error((result.error as any).response?.data?.message || 'Agent code could not be resolved');
                       }
@@ -476,7 +476,7 @@ export default function CustomersPage() {
                 {externalAgentLookup.data?.agent && (
                   <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 px-3 py-2 text-xs">
                     <span className="font-semibold">{externalAgentLookup.data.agent.name}</span>
-                    <span className="text-muted-foreground"> · JEST Agent {externalAgentLookup.data.agent.agentCode} · {externalAgentLookup.data.identifier.codeSystem}:{externalAgentLookup.data.identifier.value}</span>
+                    <span className="text-muted-foreground"> · Client code {externalAgentLookup.data.identifier.codeSystem}:{externalAgentLookup.data.identifier.value}</span>
                   </div>
                 )}
                 {externalAgentLookup.isError && (

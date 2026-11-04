@@ -2,6 +2,16 @@ import { UserResponseDto } from '../dto/user-response.dto';
 
 export class UserMapper {
   static toResponse(user: any): UserResponseDto {
+    const clientCodes = user.agentProfile?.externalCodes?.map((code: any) => ({
+      id: code.id,
+      value: code.externalCode,
+      codeSystem: code.codeSystem,
+      verificationStatus: code.verificationStatus,
+      isPrimary: code.isPrimary,
+    })) || [];
+    const primaryVerifiedCode = clientCodes.find(
+      (code) => code.isPrimary && code.verificationStatus === 'VERIFIED',
+    ) || clientCodes.find((code) => code.verificationStatus === 'VERIFIED');
     return {
       id: user.id,
       firstName: user.firstName,
@@ -10,7 +20,9 @@ export class UserMapper {
       phone: user.phone,
       collectContacts: user.collectContacts ?? false,
       employeeCode: user.employeeCode,
-      agentCode: user.agentProfile?.agentCode || user.employeeCode || null,
+      agentCode: primaryVerifiedCode?.value || null,
+      clientCodes,
+      agentProfile: user.agentProfile ? { id: user.agentProfile.id } : null,
       designation: user.designation,
       department: user.legacyDepartment,
       branchId: user.branch?.id,

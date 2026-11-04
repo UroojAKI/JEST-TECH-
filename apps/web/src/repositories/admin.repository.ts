@@ -16,7 +16,15 @@ export interface AdminDashboardMetrics {
 export interface UserItem {
   id: string;
   employeeCode: string;
-  agentCode?: string;
+  agentCode?: string | null;
+  clientCodes?: Array<{
+    id: string;
+    value: string;
+    codeSystem: string;
+    verificationStatus: string;
+    isPrimary: boolean;
+  }>;
+  agentProfile?: { id: string } | null;
   firstName: string;
   lastName: string;
   email: string;
@@ -75,7 +83,13 @@ export interface UserWorkspaceData {
     } | null;
     agentProfile?: {
       id: string;
-      agentCode: string;
+      clientCodes: Array<{
+        id: string;
+        value: string;
+        codeSystem: string;
+        verificationStatus: string;
+        isPrimary: boolean;
+      }>;
       agencyName?: string | null;
       licenseNumber?: string | null;
       commissionTier?: string | null;

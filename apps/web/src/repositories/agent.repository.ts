@@ -3,7 +3,15 @@ import { PaginatedResult, PaginationParams } from '../types';
 
 export interface AgentProfile {
   id: string;
-  agentCode: string;
+  agentCode: string | null;
+  agentCodeSystem?: string | null;
+  externalCodes?: Array<{
+    id: string;
+    externalCode: string;
+    codeSystem: string;
+    verificationStatus: string;
+    isPrimary: boolean;
+  }>;
   agencyName?: string | null;
   licenseNumber?: string | null;
   commissionTier: string;
@@ -24,7 +32,13 @@ export interface AgentProfile {
 
 export interface AgentStats {
   agentId: string;
-  agentCode: string;
+  agentCode: string | null;
+  clientCodes?: Array<{
+    value: string;
+    codeSystem: string;
+    verificationStatus: string;
+    isPrimary: boolean;
+  }>;
   pipeline: {
     totalLeads: number;
     inProgressLeads: number;

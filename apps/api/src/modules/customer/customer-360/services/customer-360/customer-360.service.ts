@@ -82,6 +82,8 @@ export class Customer360Service {
         analytics: true,
         familyMembers: true,
         createdBy: true,
+        assignedAgent: { include: { user: { select: { firstName: true, lastName: true } } } },
+        assignedExternalCode: { select: { externalCode: true } },
         branch: true,
         customer: { select: { id: true, companyId: true } },
       },
@@ -106,6 +108,8 @@ export class Customer360Service {
             analytics: true,
             familyMembers: true,
             createdBy: true,
+            assignedAgent: { include: { user: { select: { firstName: true, lastName: true } } } },
+            assignedExternalCode: { select: { externalCode: true } },
             branch: true,
             customer: { select: { id: true, companyId: true } },
           },
@@ -436,6 +440,9 @@ export class Customer360Service {
       actor?.permissions?.includes('CONTACT_UNMASK') ||
       actor?.permissions?.includes('CUSTOMER_UNMASK') ||
       actor?.permissions?.includes('*');
+    const displayAgentCode =
+      contact.assignedExternalCode?.externalCode ||
+      (contact.agentCode && !/^AGT-/i.test(contact.agentCode) ? contact.agentCode : null);
 
     return {
       profile: {
@@ -461,12 +468,10 @@ export class Customer360Service {
             ? contact.aadhaarNumber
             : EncryptionUtil.maskAadhaar(contact.aadhaarNumber)
           : 'NOT_PROVIDED',
-        agentCode: contact.agentCode || contact.createdBy?.employeeCode || null,
-        agent: contact.agentCode
-          ? contact.createdBy
-            ? `${contact.createdBy.firstName || ''} ${contact.createdBy.lastName || ''}`.trim() +
-              ` (${contact.agentCode})`
-            : contact.agentCode
+        agentCode: displayAgentCode,
+        agent: contact.assignedAgent
+          ? `${contact.assignedAgent.user?.firstName || ''} ${contact.assignedAgent.user?.lastName || ''}`.trim() +
+            (displayAgentCode ? ` (${displayAgentCode})` : '')
           : contact.createdBy
             ? `${contact.createdBy.firstName || ''} ${contact.createdBy.lastName || ''}`.trim()
             : 'Unassigned',

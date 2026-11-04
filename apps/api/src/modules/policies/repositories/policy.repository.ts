@@ -53,7 +53,19 @@ export const policyWithRelations = Prisma.validator<Prisma.PolicyDefaultArgs>()(
         },
       },
       vehicle: true,
-      agent: { include: { user: true } },
+      agent: {
+        select: {
+          id: true,
+          agencyName: true,
+          isActive: true,
+          user: { select: { firstName: true, lastName: true } },
+          externalCodes: {
+            where: { status: 'ACTIVE', verificationStatus: 'VERIFIED' },
+            orderBy: [{ isPrimary: 'desc' }, { codeSystem: 'asc' }],
+            select: { id: true, externalCode: true, codeSystem: true, isPrimary: true },
+          },
+        },
+      },
       members: true,
       nominees: true,
       renewals: { orderBy: { renewalNumber: 'desc' } },

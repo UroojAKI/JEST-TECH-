@@ -154,27 +154,12 @@ export class UsersService {
 
     if (canonicalRole === RoleType.AGENT && targetCompanyId) {
       try {
-        const count = await this.prisma.agent.count({
-          where: { companyId: targetCompanyId },
-        });
-        let nextNum = count + 1;
-        let agentCode = `AGT-${String(nextNum).padStart(6, '0')}`;
-        while (
-          await this.prisma.agent.findFirst({
-            where: { companyId: targetCompanyId, agentCode },
-          })
-        ) {
-          nextNum++;
-          agentCode = `AGT-${String(nextNum).padStart(6, '0')}`;
-        }
-
         const name = `${user.firstName || ''} ${user.lastName || ''}`.trim();
         await this.prisma.agent.create({
           data: {
             companyId: targetCompanyId,
             userId: user.id,
-            agentCode,
-            agencyName: name ? `${name} Agency` : `Agency ${agentCode}`,
+            agencyName: name ? `${name} Agency` : 'Agency',
             commissionTier: 'STANDARD',
             isActive: true,
           },
@@ -291,7 +276,26 @@ export class UsersService {
         skip,
         take: limit,
         orderBy,
-        include: { role: true, branch: true, team: true, agentProfile: true },
+        include: {
+          role: true,
+          branch: true,
+          team: true,
+          agentProfile: {
+            include: {
+              externalCodes: {
+                where: { status: 'ACTIVE' },
+                orderBy: [{ isPrimary: 'desc' }, { codeSystem: 'asc' }],
+                select: {
+                  id: true,
+                  externalCode: true,
+                  codeSystem: true,
+                  verificationStatus: true,
+                  isPrimary: true,
+                },
+              },
+            },
+          },
+        },
       }),
       this.prisma.user.count({ where }),
     ]);
@@ -332,7 +336,21 @@ export class UsersService {
         branch: true,
         team: true,
         department: true,
-        agentProfile: true,
+        agentProfile: {
+          include: {
+            externalCodes: {
+              where: { status: 'ACTIVE' },
+              orderBy: [{ isPrimary: 'desc' }, { codeSystem: 'asc' }],
+              select: {
+                id: true,
+                externalCode: true,
+                codeSystem: true,
+                verificationStatus: true,
+                isPrimary: true,
+              },
+            },
+          },
+        },
       },
     });
 
@@ -775,7 +793,13 @@ export class UsersService {
         agentProfile: user.agentProfile
           ? {
               id: user.agentProfile.id,
-              agentCode: user.agentProfile.agentCode,
+              clientCodes: user.agentProfile.externalCodes.map((code) => ({
+                id: code.id,
+                value: code.externalCode,
+                codeSystem: code.codeSystem,
+                verificationStatus: code.verificationStatus,
+                isPrimary: code.isPrimary,
+              })),
               agencyName: user.agentProfile.agencyName,
               licenseNumber: user.agentProfile.licenseNumber,
               commissionTier: user.agentProfile.commissionTier,

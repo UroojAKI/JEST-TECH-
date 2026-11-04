@@ -135,7 +135,7 @@ export class ContactsService {
       agentId: string;
       externalCodeId: string | null;
       originalIdentifier: string | null;
-      agentCode: string;
+      agentCode: string | null;
       userId: string;
     } | null = null;
     const requestedCode = (dto.agentCode || '').trim();
@@ -209,9 +209,7 @@ export class ContactsService {
     }
 
     const { accountId, agentId, assignedAgentId, agentCode, agentCodeSystem, ...restDto } = dto;
-    const storedAgentCode = assignedAgent
-      ? requestedCode || assignedAgent.agentCode
-      : undefined;
+    const storedAgentCode = requestedCode || undefined;
     const contactData: Prisma.ContactCreateInput = {
       contactCode,
       company: { connect: { id: targetCompanyId } },
@@ -302,6 +300,8 @@ export class ContactsService {
             { email: { contains: search, mode: 'insensitive' } },
             { phone: { contains: search, mode: 'insensitive' } },
             { agentCode: { contains: search, mode: 'insensitive' } },
+            { assignedExternalCode: { is: { externalCode: { contains: search, mode: 'insensitive' } } } },
+            { assignedExternalCode: { is: { codeSystem: { contains: search, mode: 'insensitive' } } } },
             { contactCode: { contains: search, mode: 'insensitive' } },
           ],
         }

@@ -426,7 +426,7 @@ export default function User360Page() {
             { id: 'organization', label: 'Organization & Role', icon: Shield },
             { id: 'security', label: 'Security & Access', icon: Key },
             { id: 'finance', label: 'Commissions & Incentives', icon: Award },
-            ...(profile.agentProfile ? [{ id: 'identifiers', label: 'External IDs', icon: Fingerprint }] : []),
+            ...(profile.agentProfile ? [{ id: 'identifiers', label: 'Client codes', icon: Fingerprint }] : []),
           ].map((tab) => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.id;
@@ -453,8 +453,8 @@ export default function User360Page() {
               <div className="rounded-2xl border bg-card p-5 space-y-4">
                 <div className="flex items-start justify-between gap-4">
                   <div>
-                    <h2 className="font-bold flex items-center gap-2"><Fingerprint className="h-4 w-4 text-primary" /> Registered Agent identifiers</h2>
-                    <p className="text-xs text-muted-foreground mt-1">JEST Agent code: <span className="font-mono">{profile.agentProfile.agentCode}</span>. External codes remain separate and require verification before assignment.</p>
+                    <h2 className="font-bold flex items-center gap-2"><Fingerprint className="h-4 w-4 text-primary" /> Client Agent codes</h2>
+                    <p className="text-xs text-muted-foreground mt-1">Client-owned codes identify this Agent in your business records. A verified code is used for assignments; the database links records through the Agent profile.</p>
                   </div>
                   <div className="flex flex-wrap gap-2">
                     <select
@@ -541,10 +541,10 @@ export default function User360Page() {
 
               {canManageExternalCodes ? <form onSubmit={(event) => { event.preventDefault(); registerExternalCodeMutation.mutate(); }} className="h-fit rounded-2xl border bg-card p-5 space-y-4">
                 <div>
-                  <h2 className="font-bold flex items-center gap-2"><Plus className="h-4 w-4 text-primary" /> Add external identifier</h2>
+                  <h2 className="font-bold flex items-center gap-2"><Plus className="h-4 w-4 text-primary" /> Add a client code</h2>
                   <p className="text-xs text-muted-foreground mt-1">Code casing and punctuation are preserved. Deactivated codes remain reserved.</p>
                 </div>
-                <label className="block space-y-1.5 text-xs font-semibold">External Agent Code
+                <label className="block space-y-1.5 text-xs font-semibold">Client Agent Code
                   <input required maxLength={100} value={externalCodeForm.externalCode} onChange={(event) => setExternalCodeForm({ ...externalCodeForm, externalCode: event.target.value })} placeholder="IGSK001" className="w-full rounded-lg border bg-background px-3 py-2 text-sm font-normal" />
                 </label>
                 <label className="block space-y-1.5 text-xs font-semibold">Code System / Namespace
@@ -569,7 +569,7 @@ export default function User360Page() {
                   Primary code within this namespace
                 </label>
                 <button type="submit" disabled={registerExternalCodeMutation.isPending || !externalCodeForm.externalCode.trim() || !externalCodeForm.codeSystem.trim()} className="w-full rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground disabled:opacity-50">
-                  {registerExternalCodeMutation.isPending ? 'Registering…' : 'Register as Pending'}
+                  {registerExternalCodeMutation.isPending ? 'Registering…' : 'Add code for verification'}
                 </button>
               </form> : <div className="h-fit rounded-2xl border bg-card p-5 text-sm text-muted-foreground">Identifier management is available to Admin and Back Office users.</div>}
             </div>
@@ -637,7 +637,7 @@ export default function User360Page() {
                   <span>
                     {profile.agentProfile ? (
                       <span className="font-mono text-xs px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-700 border border-emerald-300">
-                        {profile.agentProfile.agentCode} ({profile.agentProfile.commissionTier || 'STANDARD'})
+                        {(profile.agentProfile.clientCodes.find((code) => code.isPrimary && code.verificationStatus === 'VERIFIED') || profile.agentProfile.clientCodes.find((code) => code.verificationStatus === 'VERIFIED'))?.value || 'Client code not registered'} ({profile.agentProfile.commissionTier || 'STANDARD'})
                       </span>
                     ) : (
                       'Non-Agent User'

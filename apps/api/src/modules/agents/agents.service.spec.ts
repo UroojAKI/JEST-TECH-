@@ -33,6 +33,14 @@ describe('AgentsService', () => {
       leads: 5,
       quotations: 10,
     },
+    externalCodes: [{
+      id: 'client-code-1',
+      externalCode: 'CLIENT-001',
+      codeSystem: 'CLIENT_A',
+      status: 'ACTIVE',
+      verificationStatus: 'VERIFIED',
+      isPrimary: true,
+    }],
   };
 
   beforeEach(async () => {
@@ -71,7 +79,7 @@ describe('AgentsService', () => {
         id: 'user-uuid-1',
         role: RoleType.AGENT,
       } as any);
-      expect(result.agentCode).toBe('AGT-0001');
+      expect(result.agentCode).toBe('CLIENT-001');
       expect(prisma.agent.findUnique).toHaveBeenCalledWith({
         where: { userId: 'user-uuid-1' },
         include: expect.any(Object),
@@ -132,7 +140,7 @@ describe('AgentsService', () => {
         id: 'admin-1',
         role: RoleType.ADMIN,
       } as any);
-      expect(result.agentCode).toBe('AGT-0001');
+      expect(result.agentCode).toBe('CLIENT-001');
     });
 
     it('should throw ForbiddenException if agent tries to view another agent', async () => {
@@ -148,10 +156,9 @@ describe('AgentsService', () => {
   });
 
   describe('create', () => {
-    it('should create new agent with auto-generated AGT-XXXX code', async () => {
+    it('should create new agent without generating a client code', async () => {
       prisma.agent.findUnique
-        .mockResolvedValueOnce(null) // no profile for user
-        .mockResolvedValueOnce(null); // no code collision
+        .mockResolvedValueOnce(null); // no profile for user
       prisma.user.findUnique.mockResolvedValue({
         id: 'user-uuid-1',
         firstName: 'Rajesh',
@@ -159,7 +166,7 @@ describe('AgentsService', () => {
         companyId: 'org-1',
       });
       prisma.agent.count.mockResolvedValue(0);
-      prisma.agent.create.mockResolvedValue(mockAgent);
+      prisma.agent.create.mockResolvedValue({ ...mockAgent, agentCode: null, externalCodes: [] });
 
       const result = await service.create({ agencyName: 'Sharma Agency' }, {
         id: 'user-uuid-1',
@@ -167,15 +174,10 @@ describe('AgentsService', () => {
         companyId: 'org-1',
       } as any);
 
-      expect(prisma.agent.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({
-            agentCode: 'AGT-000001',
-            userId: 'user-uuid-1',
-          }),
-        }),
-      );
-      expect(result).toEqual(mockAgent);
+      expect(prisma.agent.create.mock.calls[0][0].data).not.toHaveProperty('agentCode');
+      expect(prisma.agent.create.mock.calls[0][0].data.userId).toBe('user-uuid-1');
+      expect(result.agentCode).toBeNull();
+      expect(result.clientCodes).toEqual([]);
     });
 
     it('should throw ConflictException if agent profile already exists', async () => {

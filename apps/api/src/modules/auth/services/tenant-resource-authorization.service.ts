@@ -178,14 +178,14 @@ export class TenantResourceAuthorizationService {
     if (!agent.isActive) {
       throw new BadRequestException({
         code: 'AGENT_INACTIVE',
-        message: `Agent ${agent.agentCode} is inactive and cannot be assigned to new quotations or policies.`,
+        message: 'This Agent is inactive and cannot be assigned to new quotations or policies.',
       });
     }
 
     if (agent.deletedAt) {
       throw new BadRequestException({
         code: 'AGENT_DELETED',
-        message: `Agent ${agent.agentCode} has been deleted.`,
+        message: 'This Agent has been deleted.',
       });
     }
 

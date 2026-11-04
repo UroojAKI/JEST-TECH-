@@ -241,6 +241,7 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, customerId, caseId
   const [savedQuotationId, setSavedQuotationId] = useState<string | null>(null);
   const [selectedAgentId, setSelectedAgentId] = useState<string>('');
   const [selectedAgentCode, setSelectedAgentCode] = useState<string>('');
+  const [selectedAgentCodeSystem, setSelectedAgentCodeSystem] = useState<string>('');
   const selectedAgentPreferenceQuery = useQuery({
     queryKey: ['agent-contact-preference', selectedAgentId],
     queryFn: async () => (await apiClient.get(`/agents/${selectedAgentId}`)).data,
@@ -942,6 +943,8 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, customerId, caseId
         contactId: contactId || undefined,
         customerId: customerId || undefined,
         agentId: isManualAgent ? undefined : (selectedAgentId || undefined),
+        externalAgentCode: !isManualAgent ? selectedAgentCode || undefined : undefined,
+        agentCodeSystem: !isManualAgent ? selectedAgentCodeSystem || undefined : undefined,
         manualAgent: isManualAgent ? {
           isManual: true,
           name: manualAgentDetails?.name,
@@ -1227,9 +1230,10 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, customerId, caseId
                   <div className="space-y-1.5 md:col-span-2 pt-2 border-t border-border">
                     <AgentSelector
                       value={selectedAgentId}
-                      onChange={(agentId, agentCode) => {
+                      onChange={(agentId, agentCode, codeSystem) => {
                         setSelectedAgentId(agentId);
                         setSelectedAgentCode(agentCode);
+                        setSelectedAgentCodeSystem(codeSystem || '');
                       }}
                       isManualAgent={isManualAgent}
                       manualAgentName={manualAgentDetails?.name}

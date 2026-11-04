@@ -6,7 +6,14 @@ import { apiClient } from '../../lib/api-client';
 
 export interface AgentOption {
   id: string;
-  agentCode: string;
+  agentCode?: string | null;
+  agentCodeSystem?: string | null;
+  externalCodes?: Array<{
+    externalCode: string;
+    codeSystem: string;
+    verificationStatus: string;
+    isPrimary: boolean;
+  }>;
   isActive: boolean;
   user?: {
     id: string;
@@ -21,7 +28,7 @@ export interface AgentOption {
 
 interface Props {
   value?: string | null;
-  onChange?: (agentId: string, agentCode: string) => void;
+  onChange?: (agentId: string, agentCode: string, codeSystem?: string) => void;
   onManualAgentChange?: (isManual: boolean, details?: { name: string; code?: string; phone?: string }) => void;
   isManualAgent?: boolean;
   manualAgentName?: string;
@@ -61,7 +68,7 @@ export function AgentSelector({
           setAgents(data);
           setError(null);
           if (!value && data.length === 1 && onChange) {
-            onChange(data[0].id, data[0].agentCode);
+            onChange(data[0].id, data[0].agentCode || '', data[0].agentCodeSystem || undefined);
           }
         }
       } catch (err: any) {
@@ -92,7 +99,7 @@ export function AgentSelector({
         <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-border bg-muted/30 text-sm">
           <Shield className="h-4 w-4 text-primary shrink-0" />
           <span className="font-mono font-bold text-xs bg-primary/10 text-primary px-2 py-0.5 rounded">
-            {selectedAgent?.agentCode || 'AGT-SYSTEM'}
+            {selectedAgent?.agentCode || 'Client code not registered'}
           </span>
           <span className="text-foreground font-medium truncate">
             {selectedAgent?.user
@@ -113,7 +120,9 @@ export function AgentSelector({
           </span>
           {selectedAgent && (
             <span className="text-[10px] font-mono text-muted-foreground">
-              Code: {selectedAgent.agentCode}
+              Client code: {selectedAgent.agentCode
+                ? `${selectedAgent.agentCodeSystem ? `${selectedAgent.agentCodeSystem}:` : ''}${selectedAgent.agentCode}`
+                : 'not registered'}
             </span>
           )}
         </label>
@@ -171,7 +180,11 @@ export function AgentSelector({
                 onChange={(e) => {
                   const chosen = agents.find((a) => a.id === e.target.value);
                   if (chosen && onChange) {
-                    onChange(chosen.id, chosen.agentCode);
+                    onChange(
+                      chosen.id,
+                      chosen.agentCode || '',
+                      chosen.agentCodeSystem || undefined,
+                    );
                   } else if (!e.target.value && onChange) {
                     onChange('', '');
                   }
@@ -185,9 +198,11 @@ export function AgentSelector({
                     const name = agent.user
                       ? `${agent.user.firstName} ${agent.user.lastName}`
                       : 'Agent';
+                    const code = agent.agentCode || 'Client code not registered';
+                    const codeSystem = agent.agentCodeSystem;
                     return (
                       <option key={agent.id} value={agent.id}>
-                        [{agent.agentCode}] {name} {agent.user?.phone ? `• ${agent.user.phone}` : ''}
+                        [{codeSystem ? `${codeSystem}:${code}` : code}] {name} {agent.user?.phone ? `• ${agent.user.phone}` : ''}
                       </option>
                     );
                   })}
@@ -215,11 +230,11 @@ export function AgentSelector({
               </div>
               <div>
                 <label className="block text-[9px] font-bold text-muted-foreground uppercase mb-0.5">
-                  Agent Code
+                  Client Agent Code
                 </label>
                 <input
                   type="text"
-                  placeholder="e.g. AGT-1234"
+                  placeholder="Enter the client's agent code"
                   value={manualCode}
                   onChange={(e) => {
                     setManualCode(e.target.value);

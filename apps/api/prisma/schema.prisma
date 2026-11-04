@@ -4309,7 +4309,7 @@ model Agent {
   id             String  @id @default(uuid())
   userId         String  @unique
   user           User    @relation("UserAgentProfile", fields: [userId], references: [id], onDelete: Cascade)
-  agentCode      String
+  agentCode      String?
   agencyName     String?
   licenseNumber  String?
   commissionTier String? @default("STANDARD")

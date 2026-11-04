@@ -22,7 +22,11 @@ describe('MotorQuotationsService', () => {
     status: LeadStatus.QUOTATION,
     customerId: 'cust-1',
     agentId: 'agent-1',
-    agent: { id: 'agent-1', agentCode: 'AGT-0001' },
+    agent: {
+      id: 'agent-1',
+      agentCode: 'AGT-0001',
+      externalCodes: [{ externalCode: 'CLIENT-001', verificationStatus: 'VERIFIED', isPrimary: true }],
+    },
     deletedAt: null,
   };
 
@@ -42,7 +46,7 @@ describe('MotorQuotationsService', () => {
     vehicleId: 'veh-1',
     customerId: 'cust-1',
     agentId: 'agent-1',
-    agentCodeSnapshot: 'AGT-0001',
+    agentCodeSnapshot: 'CLIENT-001',
     insurerName: 'HDFC ERGO',
     planName: 'Optima Secure Motor',
     status: MotorQuotationStatus.DRAFT,
@@ -108,7 +112,7 @@ describe('MotorQuotationsService', () => {
         expect.objectContaining({
           data: expect.objectContaining({
             quotationNumber: 'MQT-000001',
-            agentCodeSnapshot: 'AGT-0001',
+            agentCodeSnapshot: 'CLIENT-001',
             insurerName: 'HDFC ERGO',
           }),
         }),

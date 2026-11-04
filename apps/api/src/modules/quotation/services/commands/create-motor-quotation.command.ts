@@ -202,7 +202,16 @@ export class CreateMotorQuotationCommand {
     let assignedExternalCodeId: string | null = null;
     let manualAgentSnapshot: any = null;
 
+    const hasExternalAgentCode = Boolean(dto.externalAgentCode?.trim());
+    const hasAgentCodeSystem = Boolean(dto.agentCodeSystem?.trim());
+    if (hasExternalAgentCode !== hasAgentCodeSystem) {
+      throw new BadRequestException('agentCodeSystem is required with externalAgentCode');
+    }
+
     if (dto.manualAgent?.isManual) {
+      if (dto.agentId || hasExternalAgentCode) {
+        throw new BadRequestException('Manual Agent details cannot be combined with a registered Agent');
+      }
       // Phase 26 & MOTOR-REG-02: Strict validation for manual agent
       const name = (
         dto.manualAgent.manualAgentName ||
@@ -258,10 +267,21 @@ export class CreateMotorQuotationCommand {
         manualAgentContact: contact,
         manualAgentSource: rawSource,
       };
-    } else if (dto.agentId) {
+    } else if (dto.agentId || hasExternalAgentCode) {
+      const resolvedCode = hasExternalAgentCode
+        ? await this.agentIdentityResolver.resolveExternalCodeForAssignment(
+            dto.externalAgentCode!,
+            dto.agentCodeSystem!,
+            user,
+          )
+        : null;
+      if (dto.agentId && resolvedCode && dto.agentId !== resolvedCode.agentId) {
+        throw new BadRequestException('Agent ID does not match the supplied client Agent code');
+      }
+      const requestedAgentId = dto.agentId || resolvedCode?.agentId;
       // Phase 1.2 & MOTOR-REG-01: Validates tenant match and active status
       const agent = await this.tenantAuthService.assertAssignableAgent(
-        dto.agentId,
+        requestedAgentId!,
         user,
       );
       const canonical = await this.agentIdentityResolver.validateAgentOwnership(
@@ -269,6 +289,7 @@ export class CreateMotorQuotationCommand {
         companyId,
       );
       assignedAgentId = canonical.id;
+      assignedExternalCodeId = resolvedCode?.externalCodeId || null;
     }
     // Do NOT silently overwrite with lead.agentId!
 
@@ -363,7 +384,7 @@ export class CreateMotorQuotationCommand {
         where: { id: contactId, companyId, deletedAt: null },
         select: { assignedAgentId: true, assignedExternalCodeId: true },
       });
-      if (contactAssignment?.assignedAgentId === assignedAgentId) {
+      if (!assignedExternalCodeId && contactAssignment?.assignedAgentId === assignedAgentId) {
         assignedExternalCodeId = contactAssignment.assignedExternalCodeId;
       }
     }

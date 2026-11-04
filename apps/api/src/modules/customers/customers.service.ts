@@ -69,6 +69,11 @@ export class CustomersService {
             user: {
               select: { firstName: true, lastName: true, email: true },
             },
+            externalCodes: {
+              where: { status: 'ACTIVE', verificationStatus: 'VERIFIED' },
+              orderBy: [{ isPrimary: 'desc' }, { codeSystem: 'asc' }],
+              select: { externalCode: true },
+            },
           },
         },
         _count: {
@@ -98,7 +103,7 @@ export class CustomersService {
         primaryAgent: m.primaryAgent
           ? {
               id: m.primaryAgent.id,
-              agentCode: m.primaryAgent.agentCode,
+              agentCode: m.primaryAgent.externalCodes[0]?.externalCode || null,
               name: `${m.primaryAgent.user?.firstName || ''} ${m.primaryAgent.user?.lastName || ''}`.trim(),
             }
           : null,
