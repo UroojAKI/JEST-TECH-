@@ -109,7 +109,7 @@ CREATE INDEX "leads_agentExternalCodeId_idx" ON "leads"("agentExternalCodeId");
 
 ALTER TABLE "agent_external_codes"
 ADD CONSTRAINT "agent_external_codes_companyId_fkey"
-FOREIGN KEY ("companyId") REFERENCES "companies"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+FOREIGN KEY ("companyId") REFERENCES "Company"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 ALTER TABLE "agent_external_codes"
 ADD CONSTRAINT "agent_external_codes_agentId_fkey"
 FOREIGN KEY ("agentId") REFERENCES "agents"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
@@ -125,7 +125,7 @@ FOREIGN KEY ("updatedById") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDAT
 
 ALTER TABLE "agent_external_code_history"
 ADD CONSTRAINT "agent_external_code_history_companyId_fkey"
-FOREIGN KEY ("companyId") REFERENCES "companies"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+FOREIGN KEY ("companyId") REFERENCES "Company"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 ALTER TABLE "agent_external_code_history"
 ADD CONSTRAINT "agent_external_code_history_externalCodeId_fkey"
 FOREIGN KEY ("externalCodeId") REFERENCES "agent_external_codes"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
@@ -138,7 +138,7 @@ FOREIGN KEY ("changedById") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDAT
 
 ALTER TABLE "agent_assignment_history"
 ADD CONSTRAINT "agent_assignment_history_companyId_fkey"
-FOREIGN KEY ("companyId") REFERENCES "companies"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+FOREIGN KEY ("companyId") REFERENCES "Company"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 ALTER TABLE "agent_assignment_history"
 ADD CONSTRAINT "agent_assignment_history_previousAgentId_fkey"
 FOREIGN KEY ("previousAgentId") REFERENCES "agents"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
