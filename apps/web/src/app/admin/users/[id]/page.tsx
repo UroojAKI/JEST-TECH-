@@ -656,6 +656,184 @@ export default function User360Page() {
                 </div>
               </div>
             </div>
+
+            {/* Quick Overview Operational KPI Cards */}
+            <div className="md:col-span-2 grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2">
+              <div className="p-4 bg-primary/5 border border-primary/20 rounded-xl space-y-1">
+                <div className="text-xs text-muted-foreground font-medium flex items-center justify-between">
+                  <span>Quotes Created</span>
+                  <FileText className="h-4 w-4 text-primary" />
+                </div>
+                <div className="text-2xl font-bold font-mono text-primary">{portfolio.quotationsCreated ?? 0}</div>
+                <div className="text-[11px] text-muted-foreground">Pipeline: <span className="font-mono font-bold text-emerald-600">₹{Number(portfolio.totalQuotationValue || 0).toLocaleString('en-IN')}</span></div>
+              </div>
+              <div className="p-4 bg-indigo-500/5 border border-indigo-500/20 rounded-xl space-y-1">
+                <div className="text-xs text-muted-foreground font-medium flex items-center justify-between">
+                  <span>Policies Issued</span>
+                  <Award className="h-4 w-4 text-indigo-600" />
+                </div>
+                <div className="text-2xl font-bold font-mono text-indigo-600">{portfolio.policiesIssued ?? 0}</div>
+                <div className="text-[11px] text-muted-foreground">Gross Premium: <span className="font-mono font-bold text-indigo-600">₹{Number(portfolio.totalIssuedPremium || 0).toLocaleString('en-IN')}</span></div>
+              </div>
+              <div className="p-4 bg-emerald-500/5 border border-emerald-500/20 rounded-xl space-y-1">
+                <div className="text-xs text-muted-foreground font-medium flex items-center justify-between">
+                  <span>Converted Leads</span>
+                  <TrendingUp className="h-4 w-4 text-emerald-600" />
+                </div>
+                <div className="text-2xl font-bold font-mono text-emerald-600">{portfolio.leadsConverted}</div>
+                <div className="text-[11px] text-muted-foreground">Rate: <span className="font-mono font-bold">{conversionRate}%</span> of {portfolio.leadsAssigned} assigned</div>
+              </div>
+              <div className="p-4 bg-amber-500/5 border border-amber-500/20 rounded-xl space-y-1">
+                <div className="text-xs text-muted-foreground font-medium flex items-center justify-between">
+                  <span>Managed Clients</span>
+                  <Users className="h-4 w-4 text-amber-600" />
+                </div>
+                <div className="text-2xl font-bold font-mono text-amber-600">{portfolio.customersManaged}</div>
+                <div className="text-[11px] text-muted-foreground">Pending Tasks: <span className="font-mono font-bold text-amber-600">{portfolio.pendingTasks}</span></div>
+              </div>
+            </div>
+
+            {/* Overview Quotations & Activity Strip */}
+            <div className="md:col-span-2 space-y-6 pt-2">
+              {/* Recent Quotations Table */}
+              <div className="border rounded-2xl overflow-hidden bg-card shadow-sm">
+                <div className="p-4 border-b flex items-center justify-between bg-muted/20">
+                  <div className="space-y-0.5">
+                    <h3 className="text-sm font-bold flex items-center gap-2">
+                      <FileText className="h-4 w-4 text-primary" />
+                      User Quotations & Prices ({recentQuotations.length})
+                    </h3>
+                    <p className="text-xs text-muted-foreground">All quotations created, pricing breakdown, and issuance progression</p>
+                  </div>
+                  <button
+                    onClick={() => setActiveTab('portfolio')}
+                    className="text-xs font-semibold text-primary hover:underline flex items-center gap-1"
+                  >
+                    View All in Portfolio →
+                  </button>
+                </div>
+                {recentQuotations.length === 0 ? (
+                  <div className="p-8 text-center text-sm text-muted-foreground">
+                    No quotations recorded for this user yet.
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs border-collapse">
+                      <thead>
+                        <tr className="bg-muted/40 text-[10px] uppercase font-bold text-muted-foreground border-b">
+                          <th className="p-3">Quotation Code</th>
+                          <th className="p-3">Customer</th>
+                          <th className="p-3">Insurer & Product</th>
+                          <th className="p-3">Total Premium (Price)</th>
+                          <th className="p-3">Quote Status</th>
+                          <th className="p-3">Issuance Status</th>
+                          <th className="p-3">Policy Number</th>
+                          <th className="p-3">Created</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y font-mono">
+                        {recentQuotations.slice(0, 10).map((q) => (
+                          <tr key={q.id} className="hover:bg-accent/40 font-sans">
+                            <td className="p-3 font-mono font-bold text-primary">{q.quotationCode}</td>
+                            <td className="p-3">
+                              <div className="font-semibold text-foreground">{q.customerName}</div>
+                              {q.customerPhone && <div className="text-[11px] text-muted-foreground font-mono">{q.customerPhone}</div>}
+                            </td>
+                            <td className="p-3">
+                              <div className="font-semibold">{q.insurerName}</div>
+                              <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-muted text-muted-foreground">{q.productType}</span>
+                            </td>
+                            <td className="p-3 font-mono text-sm font-bold text-emerald-600">
+                              ₹{Number(q.totalPremium || 0).toLocaleString('en-IN')}
+                            </td>
+                            <td className="p-3"><StatusBadge status={q.status} /></td>
+                            <td className="p-3">
+                              <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${
+                                q.issuanceStatus === 'ISSUED'
+                                  ? 'bg-emerald-500/10 text-emerald-700 border-emerald-300'
+                                  : q.issuanceStatus === 'PAYMENT_PENDING' || q.issuanceStatus === 'ISSUANCE_PENDING'
+                                  ? 'bg-amber-500/10 text-amber-700 border-amber-300'
+                                  : 'bg-muted text-muted-foreground border-border'
+                              }`}>
+                                {q.issuanceStatus || 'DRAFT'}
+                              </span>
+                            </td>
+                            <td className="p-3 font-mono">
+                              {q.policyNumber ? <span className="text-indigo-600 font-bold">{q.policyNumber}</span> : <span className="text-muted-foreground">-</span>}
+                            </td>
+                            <td className="p-3 font-mono text-[11px] text-muted-foreground">{new Date(q.createdAt).toLocaleDateString()}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+
+              {/* User Activity & Audit Timeline */}
+              <div className="border rounded-2xl overflow-hidden bg-card shadow-sm">
+                <div className="p-4 border-b flex items-center justify-between bg-muted/20">
+                  <div className="space-y-0.5">
+                    <h3 className="text-sm font-bold flex items-center gap-2">
+                      <Activity className="h-4 w-4 text-primary" />
+                      Recent User Activity & Operations ({recentActivities.length})
+                    </h3>
+                    <p className="text-xs text-muted-foreground">Live operational stream of quotations, policy issuances, and user events</p>
+                  </div>
+                  <button
+                    onClick={() => setActiveTab('activities')}
+                    className="text-xs font-semibold text-primary hover:underline flex items-center gap-1"
+                  >
+                    View All Audit Logs →
+                  </button>
+                </div>
+                {recentActivities.length === 0 ? (
+                  <div className="p-8 text-center text-sm text-muted-foreground">
+                    No recent activity recorded for this user.
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs border-collapse">
+                      <thead>
+                        <tr className="bg-muted/40 text-[10px] uppercase font-bold text-muted-foreground border-b">
+                          <th className="p-3">Type</th>
+                          <th className="p-3">Action</th>
+                          <th className="p-3">Entity</th>
+                          <th className="p-3">Reference / Code</th>
+                          <th className="p-3">Details & Pricing</th>
+                          <th className="p-3">Timestamp</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y">
+                        {recentActivities.slice(0, 10).map((act) => {
+                          const isOperational = act.source === 'OPERATIONAL';
+                          return (
+                            <tr key={act.id} className="hover:bg-accent/40">
+                              <td className="p-3">
+                                <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                                  isOperational
+                                    ? 'bg-emerald-500/10 text-emerald-700 border border-emerald-300'
+                                    : 'bg-muted text-muted-foreground border border-border'
+                                }`}>
+                                  {act.source}
+                                </span>
+                              </td>
+                              <td className="p-3 font-semibold">{act.action}</td>
+                              <td className="p-3 font-mono text-[11px]">{act.entity}</td>
+                              <td className="p-3 font-mono font-bold text-primary">{act.entityId || '-'}</td>
+                              <td className="p-3 max-w-xs truncate text-[11px] text-muted-foreground">
+                                {typeof act.details === 'object' ? JSON.stringify(act.details) : act.details || '-'}
+                              </td>
+                              <td className="p-3 font-mono text-[11px] text-muted-foreground">{new Date(act.createdAt).toLocaleString()}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         )}
 

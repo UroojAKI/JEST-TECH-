@@ -94,7 +94,7 @@ export class EncryptionUtil {
    */
   static maskPan(pan: string | null | undefined): string | null {
     if (!pan) return null;
-    const clean = pan.trim().toUpperCase();
+    const clean = String(pan).trim().toUpperCase();
     if (clean.length < 10) return 'XXXXX-XXXX';
     const first5Masked = 'XXXXX';
     const middle4 = clean.slice(5, 9);

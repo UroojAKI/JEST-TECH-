@@ -203,6 +203,13 @@ export class MotorCalculationInputDto {
   @Max(100)
   tpDiscountPercent?: number;
 
+  /** Compulsory PA discount percentage applied on PA premium. */
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Max(100)
+  paDiscountPercent?: number;
+
   @IsOptional()
   @IsString()
   activeTpPolicyNumber?: string;
@@ -457,6 +464,8 @@ export interface PayableSummary {
   odDiscount?: number;
   tpDiscountAmount?: number;
   tpDiscount?: number;
+  paDiscountAmount?: number;
+  paDiscount?: number;
   commercialDiscountAmount?: number;
   commercialAdjustment?: number;
   /** Fixed ₹ commercial adjustment (Phase 3 canonical path). Mirrors commercialDiscountAmount when set. */

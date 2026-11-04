@@ -646,36 +646,58 @@ export class CustomersService {
       }
     }
 
-    const [customers, total] = await Promise.all([
-      this.prisma.customer.findMany({
-        where,
-        skip,
-        take: limit,
-        orderBy: { [sortBy]: sortOrder },
-        include: {
-          _count: {
-            select: {
-              leads: true,
-              policies: true,
-              vehicles: true,
-              quotations: true,
-              claims: true,
+    try {
+      const [customers, total] = await Promise.all([
+        this.prisma.customer.findMany({
+          where,
+          skip,
+          take: limit,
+          orderBy: { [sortBy]: sortOrder },
+          include: {
+            _count: {
+              select: {
+                leads: true,
+                policies: true,
+                vehicles: true,
+                quotations: true,
+                claims: true,
+              },
             },
           },
-        },
-      }),
-      this.prisma.customer.count({ where }),
-    ]);
+        }),
+        this.prisma.customer.count({ where }),
+      ]);
 
-    return {
-      data: customers,
-      meta: {
-        page,
-        limit,
-        total,
-        totalPages: Math.ceil(total / limit),
-      },
-    };
+      return {
+        data: customers,
+        meta: {
+          page,
+          limit,
+          total,
+          totalPages: Math.ceil(total / limit),
+        },
+      };
+    } catch (err: any) {
+      this.logger.warn('Failed full customer query, falling back');
+      const [customers, total] = await Promise.all([
+        this.prisma.customer.findMany({
+          where,
+          skip,
+          take: limit,
+          orderBy: { [sortBy]: sortOrder },
+        }),
+        this.prisma.customer.count({ where }).catch(() => 0),
+      ]);
+      return {
+        data: customers,
+        meta: {
+          page,
+          limit,
+          total,
+          totalPages: Math.ceil(total / limit),
+        },
+      };
+    }
   }
 
   async findById(id: string, user: RequestUser) {

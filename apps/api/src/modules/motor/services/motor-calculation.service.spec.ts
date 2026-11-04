@@ -489,6 +489,35 @@ describe('MotorCalculationService (Iteration 5 Financial Math)', () => {
       expect(result.outputs.finalPayableAmount).toBe(20916.68);
     });
 
+    it('MOTOR-REG-PA-DISC: should calculate PA discount and deduct from PA net and final payable while preserving GST on statutory gross base', async () => {
+      const result: any = await service.calculate({
+        vehicleCategory: 'PRIVATE_CAR',
+        vehicleStatus: 'EXISTING',
+        policyType: 'PACKAGE_COMPREHENSIVE',
+        idv: 500000,
+        odDiscountPercent: 0,
+        tpDiscountPercent: 0,
+        paCover: true,
+        paDiscountPercent: 10,
+      });
+
+      // Base PA = 275, 10% discount = 27.5
+      expect(result.outputs.paPremium).toBe(275);
+      expect(result.outputs.paDiscountAmount).toBe(27.5);
+      expect(result.outputs.netPaComponent).toBe(247.5);
+      expect(result.outputs.pa.discount).toBe(27.5);
+      expect(result.outputs.pa.net).toBe(247.5);
+
+      // Statutory GST on gross PA: 275 * 0.18 = 49.5
+      expect(result.outputs.pa.gst).toBe(49.5);
+      expect(result.outputs.gstOnPa).toBe(49.5);
+
+      // Total discount includes PA discount
+      expect(result.outputs.payableSummary.paDiscountAmount).toBe(27.5);
+      expect(result.outputs.discounts.pa.amount).toBe(27.5);
+      expect(result.outputs.discounts.pa.percent).toBe(10);
+    });
+
     it('MOTOR-REG-28: should calculate OD discount in standalone OD (SAOD) and apply GST to gross OD base', async () => {
       const futureDate = new Date();
       futureDate.setFullYear(futureDate.getFullYear() + 1);

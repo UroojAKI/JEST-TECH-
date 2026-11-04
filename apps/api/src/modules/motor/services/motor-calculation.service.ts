@@ -329,6 +329,7 @@ export class MotorCalculationService {
     let paPremium = 0; // Compulsory PA for Owner-Driver (₹15L cover)
     let paidDriverPremium = 0; // Legal Liability to Paid Driver
     let tpDiscountAmount = 0;
+    let paDiscountAmount = 0;
 
     const effectiveTpDiscountPercent = Number(
       input.tpDiscountPercent ||
@@ -348,6 +349,10 @@ export class MotorCalculationService {
       tpDiscountAmount = round2(
         baseTpPremium * (effectiveTpDiscountPercent / 100),
       );
+      const effectivePaDiscountPercent = Math.max(0, Math.min(100, Number(input.paDiscountPercent || 0)));
+      if (paPremium > 0 && effectivePaDiscountPercent > 0) {
+        paDiscountAmount = round2(paPremium * (effectivePaDiscountPercent / 100));
+      }
     }
 
     // ── 8. Add-on Premiums with Independent Discounts & GST (Phase 3) ───
@@ -556,7 +561,7 @@ export class MotorCalculationService {
     const netTpComponent = round2(
       Math.max(0, baseTpPremium - tpDiscountAmount),
     );
-    const netPaComponent = paPremium; // PA is fixed
+    const netPaComponent = round2(Math.max(0, paPremium - paDiscountAmount));
     const netPaidDriverComponent = paidDriverPremium; // Fixed
 
     // Step 1: Gross Premium Before Discount (undiscounted reference total)
@@ -690,7 +695,7 @@ export class MotorCalculationService {
 
     // Deductions before commercial adjustment: OD discount + TP discount + Addon discounts
     const componentDiscountsTotal = round2(
-      odDiscountAmount + tpDiscountAmount + totalAddonDiscountAmount,
+      odDiscountAmount + tpDiscountAmount + paDiscountAmount + totalAddonDiscountAmount,
     );
 
     if (componentDiscountsTotal > payableBase) {
@@ -780,6 +785,8 @@ export class MotorCalculationService {
       odDiscount: odDiscountAmount,
       tpDiscountAmount,
       tpDiscount: tpDiscountAmount,
+      paDiscountAmount,
+      paDiscount: paDiscountAmount,
       addonDiscountAmount: totalAddonDiscountAmount,
       addonDiscount: totalAddonDiscountAmount,
       addonGstTotal: totalAddonGstAmount,
@@ -905,6 +912,16 @@ export class MotorCalculationService {
           premium: paPremium,
           gst: gstOnPa,
           isEdited: isPaEdited,
+          ...(paDiscountAmount > 0
+            ? {
+                discount: paDiscountAmount,
+                discountPercent: Math.max(
+                  0,
+                  Math.min(100, Number(input.paDiscountPercent || 0)),
+                ),
+                net: netPaComponent,
+              }
+            : {}),
         },
         paidDriver: {
           premium: paidDriverPremium,
@@ -921,6 +938,11 @@ export class MotorCalculationService {
             percent: effectiveTpDiscountPercent,
             base: baseTpPremium,
             amount: tpDiscountAmount,
+          },
+          pa: {
+            percent: Math.max(0, Math.min(100, Number(input.paDiscountPercent || 0))),
+            base: paPremium,
+            amount: paDiscountAmount,
           },
           commercial: {
             percent: commercialDiscountPercent,
@@ -951,6 +973,8 @@ export class MotorCalculationService {
         // Third Party (including PA and Paid Driver as sub-components)
         baseTpPremium,
         paPremium, // Compulsory Owner-Driver PA
+        paDiscountAmount,
+        paDiscount: paDiscountAmount,
         paidDriverPremium, // Legal Liability to Paid Driver
         netTpComponent,
         netTpPremium: round2(

@@ -106,15 +106,33 @@ export class QuotationRepository extends BaseRepository<
       ...(companyId ? { companyId } : {}),
       deletedAt: null,
     };
-    const data = await this.prisma.quotation.findMany({
-      skip,
-      take,
-      where: finalWhere,
-      orderBy,
-      include: quotationWithRelations.include,
-    });
-    const total = await this.prisma.quotation.count({ where: finalWhere });
-    return [data, total];
+    try {
+      const data = await this.prisma.quotation.findMany({
+        skip,
+        take,
+        where: finalWhere,
+        orderBy,
+        include: quotationWithRelations.include,
+      });
+      const total = await this.prisma.quotation.count({ where: finalWhere });
+      return [data, total];
+    } catch (err: any) {
+      const fallbackData = await this.prisma.quotation.findMany({
+        skip,
+        take,
+        where: finalWhere,
+        orderBy,
+        include: {
+          contact: true,
+          lead: true,
+          vehicle: true,
+          policy: { select: { id: true, policyNumber: true, status: true } },
+          versions: { orderBy: { versionNumber: 'desc' } },
+        },
+      });
+      const total = await this.prisma.quotation.count({ where: finalWhere }).catch(() => fallbackData.length);
+      return [fallbackData as any, total];
+    }
   }
 
   async findByQuotationCode(

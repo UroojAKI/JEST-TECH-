@@ -586,6 +586,9 @@ export class CreateMotorQuotationCommand {
       tpDiscountPercent: policyDetails.tpDiscountPercent !== undefined && policyDetails.tpDiscountPercent !== ''
         ? Number(policyDetails.tpDiscountPercent)
         : 0,
+      paDiscountPercent: policyDetails.paDiscountPercent !== undefined && policyDetails.paDiscountPercent !== ''
+        ? Number(policyDetails.paDiscountPercent)
+        : 0,
       discountPercent: policyDetails.discountPercent !== undefined && policyDetails.discountPercent !== ''
         ? Number(policyDetails.discountPercent)
         : (policyDetails.commercialDiscountPercent !== undefined && policyDetails.commercialDiscountPercent !== ''
@@ -723,6 +726,8 @@ export class CreateMotorQuotationCommand {
         odDiscountAmount: calcResult.outputs.odDiscountAmount ?? 0,
         tpDiscountPercent: calcResult.outputs.discounts?.tp?.percent ?? 0,
         tpDiscountAmount: calcResult.outputs.tpDiscountAmount ?? 0,
+        paDiscountPercent: calcResult.outputs.discounts?.pa?.percent ?? 0,
+        paDiscountAmount: calcResult.outputs.paDiscountAmount ?? 0,
         addonDiscountAmount: calcResult.outputs.payableSummary?.addonDiscountAmount ?? 0,
         commercialDiscountPercent: calcResult.outputs.discounts?.commercial?.percent ?? 0,
         commercialDiscountAmount: calcResult.outputs.commercialDiscountAmount ?? 0,

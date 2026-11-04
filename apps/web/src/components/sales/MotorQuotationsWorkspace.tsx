@@ -269,10 +269,8 @@ export function MotorQuotationsWorkspace() {
         } as SavedMotorQuote));
         return { quotes, total };
       } catch (error: any) {
-        if (error?.response?.status === 401) {
-          return { quotes: [], total: 0 };
-        }
-        throw error;
+        console.warn('Failed to load quotations:', error?.message);
+        return { quotes: [], total: 0 };
       }
     },
     refetchInterval: 10_000,
