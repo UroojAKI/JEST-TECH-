@@ -16,6 +16,8 @@ import { NumberingEngineService } from '../../../administration/services/numberi
 import { VehicleCategory } from '@prisma/client';
 import { TenantResourceAuthorizationService } from '../../../auth/services/tenant-resource-authorization.service';
 import { AgentIdentityResolverService } from '../../../agents/agent-identity-resolver.service';
+import { CrmIdentityService } from '../../../crm-identity/services/crm-identity.service';
+import { Optional } from '@nestjs/common';
 
 @Injectable()
 export class CreateMotorQuotationCommand {
@@ -28,6 +30,7 @@ export class CreateMotorQuotationCommand {
     private readonly numberingEngine: NumberingEngineService,
     private readonly tenantAuthService: TenantResourceAuthorizationService,
     private readonly agentIdentityResolver: AgentIdentityResolverService,
+    @Optional() private readonly crmIdentityService?: CrmIdentityService,
   ) {}
 
   async execute(dto: CreateMotorCaptureDto, user: RequestUser) {
@@ -356,27 +359,53 @@ export class CreateMotorQuotationCommand {
       }
     }
 
-    if (!contactId) {
-      // Contact collection OFF or existing contact found; create provisional record with available details.
-      const mobileNumber = String(proposer['mobileNumber'] || '').trim();
-      const rawName = String(proposer['customerName'] || '').trim();
-      const [firstName, ...rest] = (rawName || 'Provisional Customer').split(/\s+/);
+    let customerId = dto.customerId;
+    const mobileNumber = String(proposer['mobileNumber'] || '').trim();
+    const rawName = String(proposer['customerName'] || '').trim();
+    const [firstName, ...rest] = (rawName || 'Provisional Customer').split(/\s+/);
+    const lastName = rest.join(' ') || (rawName ? '' : 'Customer');
+    const emailId = String(proposer['emailId'] || proposer['email'] || '').trim();
+    const panNumber = String(proposer['panNumber'] || '').trim().toUpperCase();
+
+    if (this.crmIdentityService) {
+      const identityResult = await this.crmIdentityService.ensureLinkedContactAndCustomer(
+        this.prisma,
+        {
+          companyId,
+          contactId: contactId || undefined,
+          customerId: customerId || undefined,
+          phone: mobileNumber || undefined,
+          email: emailId || undefined,
+          firstName: firstName || 'Provisional',
+          lastName: lastName,
+          panNumber: panNumber || undefined,
+          addressLine1: String(proposer['address'] || proposer['communicationAddress'] || '').trim() || undefined,
+          pincode: String(proposer['pincode'] || proposer['pinCode'] || '').trim() || undefined,
+          createdById: user.id,
+          primaryAgentId: assignedAgentId || undefined,
+          primaryAgentExternalCodeId: assignedExternalCodeId || undefined,
+          createCustomerIfMissing: true,
+        },
+      );
+      contactId = identityResult.contact.id;
+      customerId = identityResult.customer?.id;
+    } else if (!contactId) {
       const newContact = await this.contactsService.create(
         {
           firstName: firstName || 'Provisional',
-          lastName: rest.join(' ') || (rawName ? '' : 'Customer'),
-          email: proposer['emailId']
-            ? String(proposer['emailId']).trim()
-            : undefined,
+          lastName: lastName,
+          email: emailId || undefined,
           phone: mobileNumber || undefined,
-          panNumber: proposer['panNumber']
-            ? String(proposer['panNumber']).trim()
-            : undefined,
+          panNumber: panNumber || undefined,
           type: 'INDIVIDUAL',
         },
         user.id,
       );
       contactId = newContact.id;
+    }
+
+    if (!contactId) {
+      throw new BadRequestException('Contact could not be resolved or created for this quotation');
     }
 
     if (assignedAgentId && contactId) {
@@ -391,13 +420,14 @@ export class CreateMotorQuotationCommand {
 
     // ── 4. Vehicle Details & Canonical Link ──
     const vehicleDetails = (dto.vehicleDetails || {}) as any;
-    let vehicleId: string | null = null;
+    let vehicleId: string | null = dto.vehicleId || null;
 
-    if (contactId) {
+    if (!vehicleId && contactId) {
       const vehicleCategoryEnum = dto.vehicleCategory as VehicleCategory;
       const upserted = await this.vehicleDataService.upsertVehicle(
         {
           contactId,
+          customerId,
           category: vehicleCategoryEnum,
           registrationNumber: dto.registrationNumber,
           makeModel: vehicleDetails.makeModel,
@@ -782,7 +812,7 @@ export class CreateMotorQuotationCommand {
               category: dto.vehicleCategory as any,
               vehicleStatus: isVehicleNew ? 'NEW' : 'EXISTING',
               registrationNumber: dto.registrationNumber || null,
-              contactId,
+              contactId: contactId as string,
               vehicleId,
               leadId: dto.leadId || null,
               journeyId: journey?.id || null,
@@ -826,7 +856,7 @@ export class CreateMotorQuotationCommand {
               : 'READY_FOR_PROPOSAL',
             motorMetadata: motorMetadata as any,
             expiryDate: new Date(Date.now() + 30 * 86400000),
-            contactId,
+            contactId: contactId as string,
             vehicleId,
             leadId: dto.leadId || null,
             caseId: activeCaseId,

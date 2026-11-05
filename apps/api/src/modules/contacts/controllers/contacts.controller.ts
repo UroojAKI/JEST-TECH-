@@ -20,6 +20,7 @@ import { Roles } from '../../auth/decorators/roles.decorator';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import type { RequestUser } from '../../auth/decorators/current-user.decorator';
 import { CreateContactDto } from '../dto/create-contact.dto';
+import { ResolveIdentityDto } from '../dto/resolve-identity.dto';
 import { UpdateContactDto } from '../dto/update-contact.dto';
 import { ContactsService } from '../services/contacts.service';
 import { ParseUUIDPipe } from '../../../common/utils/parse-uuid.pipe';
@@ -31,6 +32,25 @@ import { PaginationDto } from '../../../common/pagination/pagination.dto';
 @Controller('contacts')
 export class ContactsController {
   constructor(private readonly contactsService: ContactsService) {}
+
+  @Post('resolve-identity')
+  @HttpCode(HttpStatus.OK)
+  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT)
+  resolveIdentity(
+    @Body() dto: ResolveIdentityDto,
+    @CurrentUser() user: RequestUser,
+  ) {
+    const companyId = user.companyId || (user as any).organizationId;
+    return this.contactsService.resolveIdentity({
+      companyId,
+      phone: dto.phone || dto.mobile,
+      email: dto.email,
+      contactId: dto.contactId,
+      customerId: dto.customerId,
+      firstName: dto.firstName,
+      lastName: dto.lastName,
+    });
+  }
 
   @Post()
   @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT)

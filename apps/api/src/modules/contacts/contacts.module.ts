@@ -5,9 +5,10 @@ import { ContactsController } from './controllers/contacts.controller';
 import { ContactsService } from './services/contacts.service';
 import { AgentsModule } from '../agents/agents.module';
 import { DatabaseModule } from '../../database/database.module';
+import { CrmIdentityModule } from '../crm-identity/crm-identity.module';
 
 @Module({
-  imports: [DatabaseModule, AgentsModule],
+  imports: [DatabaseModule, AgentsModule, CrmIdentityModule],
   controllers: [ContactsController],
   providers: [ContactsService, ContactRepository],
   exports: [ContactsService],

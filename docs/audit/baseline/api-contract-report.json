@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-04T11:30:08.875Z",
+  "generatedAt": "2026-11-05T21:07:04.870Z",
   "mismatches": [],
   "uncalledBackendRoutes": [
     {
@@ -355,6 +355,13 @@
     {
       "method": "POST",
       "path": "/customers/:param/alerts",
+      "controller": "CustomersController",
+      "file": "apps/api/src/modules/customers/customers.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "GET",
+      "path": "/customers/:param/vehicles",
       "controller": "CustomersController",
       "file": "apps/api/src/modules/customers/customers.controller.ts",
       "classification": "UNUSED"
@@ -1565,15 +1572,15 @@
     }
   ],
   "summary": {
-    "totalFrontendCalls": 371,
-    "matched": 371,
+    "totalFrontendCalls": 375,
+    "matched": 375,
     "unmatched": 0,
-    "uncalledBackend": 223,
+    "uncalledBackend": 224,
     "uncalledByClassification": {
       "WEBHOOK": 1,
       "CRON": 3,
       "INTERNAL": 13,
-      "UNUSED": 206
+      "UNUSED": 207
     }
   }
 }

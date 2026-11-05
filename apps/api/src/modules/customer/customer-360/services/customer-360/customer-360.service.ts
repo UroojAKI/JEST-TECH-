@@ -290,37 +290,113 @@ export class Customer360Service {
         }),
       ]);
 
-    // 2. Extract Real Vehicles
-    const vehicleMap = new Map<string, any>();
-    for (const p of policies) {
-      if (p.vehicleId || p.policyNumber) {
-        const meta = (p.motorMetadata as any) || {};
-        const reg = meta.registrationNumber || p.policyNumber;
-        if (!vehicleMap.has(reg)) {
-          vehicleMap.set(reg, {
-            registrationNumber: reg,
-            make: meta.make || 'Vehicle',
-            model: meta.model || p.policyType || 'Motor Policy',
-            policyNumber: p.policyNumber,
-            status: p.status,
-            expiryDate: p.expiryDate,
+    // 2. Fetch Authoritative Customer Vehicles
+    const rawVehicles = this.prisma.vehicle?.findMany
+      ? await this.prisma.vehicle.findMany({
+          where: {
+            ...(companyId ? { companyId } : {}),
+            deletedAt: null,
+            OR: [
+              { contactId: contact.id },
+              ...(contact.customer ? [{ customerId: contact.customer.id }] : []),
+            ],
+          },
+          include: {
+            policies: {
+              where: { ...(companyId ? { companyId } : {}), deletedAt: null },
+              select: {
+                id: true,
+                policyNumber: true,
+                actualPolicyNumber: true,
+                quotation: { select: { insurerName: true } },
+                status: true,
+                expiryDate: true,
+                premiumAmount: true,
+              },
+              orderBy: { expiryDate: 'desc' },
+            },
+            quotations: {
+              where: { ...(companyId ? { companyId } : {}), deletedAt: null },
+              select: {
+                id: true,
+                quotationCode: true,
+                status: true,
+                totalPremium: true,
+                createdAt: true,
+              },
+              orderBy: { createdAt: 'desc' },
+            },
+          },
+          orderBy: { createdAt: 'desc' },
+        })
+      : [];
+    const realVehicles = (rawVehicles || []) as any[];
+
+    const formattedVehicles = realVehicles.map((v) => {
+      const activePolicy =
+        v.policies.find((p) => p.status === PolicyStatus.ACTIVE || p.status === PolicyStatus.ISSUED) ||
+        v.policies[0];
+      return {
+        id: v.id,
+        vehicleCode: v.vehicleCode,
+        category: v.category,
+        registrationNumber: v.registrationNumber || 'Unregistered / New',
+        makeModel: v.makeModel || '—',
+        make: v.makeModel ? v.makeModel.split(' ')[0] : '—',
+        model: v.makeModel ? v.makeModel.split(' ').slice(1).join(' ') || v.category : v.category,
+        fuelType: v.fuelType || '—',
+        manufactureYearMonth: v.manufactureYearMonth || '—',
+        dateOfRegistration: v.dateOfRegistration,
+        engineNumber: v.engineNumber,
+        chassisNumber: v.chassisNumber,
+        rtoLocation: v.rtoLocation,
+        categorySpecificData: v.categorySpecificData,
+        status: v.status,
+        policyNumber: activePolicy?.actualPolicyNumber || activePolicy?.policyNumber || null,
+        policyStatus: activePolicy?.status || null,
+        insurerName: (activePolicy as any)?.quotation?.insurerName || null,
+        expiryDate: activePolicy?.expiryDate || null,
+        quotationsCount: v.quotations.length,
+        policiesCount: v.policies.length,
+        quotations: v.quotations,
+        policies: v.policies,
+      };
+    });
+
+
+    let vehiclesResult = formattedVehicles;
+    if (vehiclesResult.length === 0) {
+      const vehicleMap = new Map<string, any>();
+      for (const p of policies) {
+        if (p.vehicleId || p.policyNumber) {
+          const meta = (p.motorMetadata as any) || {};
+          const reg = meta.registrationNumber || p.policyNumber;
+          if (!vehicleMap.has(reg)) {
+            vehicleMap.set(reg, {
+              registrationNumber: reg,
+              make: meta.make || 'Vehicle',
+              model: meta.model || p.policyType || 'Motor Policy',
+              policyNumber: p.policyNumber,
+              status: p.status,
+              expiryDate: p.expiryDate,
+            });
+          }
+        }
+      }
+      for (const q of quotations) {
+        if (q.registrationNumber && !vehicleMap.has(q.registrationNumber)) {
+          vehicleMap.set(q.registrationNumber, {
+            registrationNumber: q.registrationNumber,
+            make: 'Prospect Vehicle',
+            model: q.title || 'Motor Quotation',
+            quotationCode: q.quotationCode,
+            status: 'PROSPECT',
+            expiryDate: q.expiryDate,
           });
         }
       }
+      vehiclesResult = Array.from(vehicleMap.values());
     }
-    for (const q of quotations) {
-      if (q.registrationNumber && !vehicleMap.has(q.registrationNumber)) {
-        vehicleMap.set(q.registrationNumber, {
-          registrationNumber: q.registrationNumber,
-          make: 'Prospect Vehicle',
-          model: q.title || 'Motor Quotation',
-          quotationCode: q.quotationCode,
-          status: 'PROSPECT',
-          expiryDate: q.expiryDate,
-        });
-      }
-    }
-
     // 3. Compute Real Financial Metrics
     const activePolicies = policies.filter(
       (p) => p.status === PolicyStatus.ACTIVE,
@@ -487,7 +563,7 @@ export class Customer360Service {
         healthScore: contact.analytics?.healthScore || 100,
         renewalProbability: contact.analytics?.renewalProbability || 95,
       },
-      vehicles: Array.from(vehicleMap.values()),
+      vehicles: vehiclesResult,
       policies,
       quotations,
       claims,
