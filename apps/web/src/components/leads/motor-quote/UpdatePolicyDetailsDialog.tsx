@@ -24,7 +24,7 @@ interface Props {
   isOpen: boolean;
   onClose: () => void;
   quotationId: string;
-  productType?: 'MOTOR' | 'HEALTH';
+  productType?: 'MOTOR' | 'HEALTH' | 'LIFE';
   onSaved: () => void;
 }
 
@@ -66,12 +66,20 @@ export function UpdatePolicyDetailsDialog({
   const [medicalUnderwritingVerified, setMedicalUnderwritingVerified] = useState(true);
   const [membersList, setMembersList] = useState<any[]>([]);
 
-  // Determine whether this dialog is handling a Health quotation
+  // Determine whether this dialog is handling a Life or Health quotation
+  const isLife =
+    productType === 'LIFE' ||
+    quoteDetails?.productType === 'LIFE' ||
+    Boolean(quoteDetails?.lifeCaseId) ||
+    Boolean(quoteDetails?.lifeCase) ||
+    Boolean(quoteDetails?.lifeMetadata);
+
   const isHealth =
-    productType === 'HEALTH' ||
-    quoteDetails?.productType === 'HEALTH' ||
-    Boolean(quoteDetails?.healthCaseId) ||
-    Boolean(quoteDetails?.healthMetadata);
+    !isLife &&
+    (productType === 'HEALTH' ||
+      quoteDetails?.productType === 'HEALTH' ||
+      Boolean(quoteDetails?.healthCaseId) ||
+      Boolean(quoteDetails?.healthMetadata));
 
   useEffect(() => {
     if (!isOpen || !quotationId) return;
@@ -140,12 +148,41 @@ export function UpdatePolicyDetailsDialog({
           setEndDate(nextYear.toISOString().split('T')[0]);
         }
 
+        // Life-specific pre-population
+        const isLifeItem =
+          productType === 'LIFE' ||
+          q.productType === 'LIFE' ||
+          Boolean(q.lifeCaseId) ||
+          Boolean(q.lifeCase) ||
+          Boolean(q.lifeMetadata);
+
+        if (isLifeItem) {
+          const lifeMeta = (q.lifeMetadata as Record<string, any>) || {};
+          const lifeCase = q.lifeCase || {};
+
+          if (lifeMeta.planCategory || lifeCase.planCategory || q.title) {
+            setPlanName(lifeMeta.planCategory || lifeCase.planCategory || q.title);
+          }
+          if (lifeMeta.sumAssured || lifeCase.sumAssured) {
+            setSumInsured(String(lifeMeta.sumAssured || lifeCase.sumAssured));
+          }
+          if (lifeCase.nomineeName || lifeMeta.nomineeName) {
+            setNomineeName(lifeCase.nomineeName || lifeMeta.nomineeName);
+          } else if (q.contact) {
+            setNomineeName(`${q.contact.firstName} ${q.contact.lastName || ''}`.trim());
+          }
+          if (lifeCase.nomineeRelation || lifeMeta.nomineeRelation) {
+            setNomineeRelation(lifeCase.nomineeRelation || lifeMeta.nomineeRelation);
+          }
+        }
+
         // Health-specific pre-population
         const isHealthItem =
-          productType === 'HEALTH' ||
-          q.productType === 'HEALTH' ||
-          Boolean(q.healthCaseId) ||
-          Boolean(q.healthMetadata);
+          !isLifeItem &&
+          (productType === 'HEALTH' ||
+            q.productType === 'HEALTH' ||
+            Boolean(q.healthCaseId) ||
+            Boolean(q.healthMetadata));
 
         if (isHealthItem) {
           const healthMeta = (q.healthMetadata as Record<string, any>) || {};
@@ -228,19 +265,19 @@ export function UpdatePolicyDetailsDialog({
     setLoading(true);
 
     try {
-      if (isHealth) {
+      if (isHealth || isLife) {
         // =========================================================================
-        // HEALTH POLICY MANUAL ISSUANCE
+        // HEALTH / LIFE POLICY MANUAL ISSUANCE
         // =========================================================================
         let documentFields: Record<string, unknown> = {};
         if (policyPdf) {
           const formData = new FormData();
           formData.append('file', policyPdf);
-          formData.append('name', `Issued Health Policy - ${actualPolicyNumber.trim()}`);
+          formData.append('name', `Issued ${isLife ? 'Life' : 'Health'} Policy - ${actualPolicyNumber.trim()}`);
           formData.append('entityType', 'QUOTATION');
           formData.append('entityId', quotationId);
-          formData.append('category', 'HEALTH_POLICY_SCHEDULE');
-          formData.append('tags', 'health,policy,issued');
+          formData.append('category', isLife ? 'LIFE_POLICY_SCHEDULE' : 'HEALTH_POLICY_SCHEDULE');
+          formData.append('tags', `${isLife ? 'life' : 'health'},policy,issued`);
 
           const upload = await apiClient.post('/documents/upload', formData, {
             headers: { 'Content-Type': 'multipart/form-data' },
@@ -281,7 +318,7 @@ export function UpdatePolicyDetailsDialog({
           ...documentFields,
         });
 
-        toast.success(`Health Policy ${actualPolicyNumber.trim()} successfully issued!`);
+        toast.success(`${isLife ? 'Life' : 'Health'} Policy ${actualPolicyNumber.trim()} successfully issued!`);
       } else {
         // =========================================================================
         // MOTOR POLICY MANUAL ISSUANCE
@@ -352,26 +389,30 @@ export function UpdatePolicyDetailsDialog({
           <div className="flex items-center gap-2.5">
             <div
               className={`p-2 rounded-xl border ${
-                isHealth
-                  ? 'bg-rose-500/10 text-rose-600 border-rose-500/20'
-                  : 'bg-blue-500/10 text-blue-600 border-blue-500/20'
+                isLife
+                  ? 'bg-amber-500/10 text-amber-600 border-amber-500/20'
+                  : isHealth
+                    ? 'bg-rose-500/10 text-rose-600 border-rose-500/20'
+                    : 'bg-blue-500/10 text-blue-600 border-blue-500/20'
               }`}
             >
-              {isHealth ? <HeartPulse className="h-5 w-5" /> : <Car className="h-5 w-5" />}
+              {isLife ? <ShieldCheck className="h-5 w-5" /> : isHealth ? <HeartPulse className="h-5 w-5" /> : <Car className="h-5 w-5" />}
             </div>
             <div>
               <div className="flex items-center gap-2">
                 <h3 className="font-bold text-base text-foreground">
-                  {isHealth ? 'Manual Health Policy Issuance' : 'Manual Motor Policy Issuance'}
+                  {isLife ? 'Manual Life Policy Issuance' : isHealth ? 'Manual Health Policy Issuance' : 'Manual Motor Policy Issuance'}
                 </h3>
                 <span
                   className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase ${
-                    isHealth
-                      ? 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300'
-                      : 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300'
+                    isLife
+                      ? 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
+                      : isHealth
+                        ? 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300'
+                        : 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300'
                   }`}
                 >
-                  {isHealth ? 'Health Insurance' : 'Motor Insurance'}
+                  {isLife ? 'Life Insurance' : isHealth ? 'Health Insurance' : 'Motor Insurance'}
                 </span>
               </div>
               <p className="text-xs text-muted-foreground mt-0.5">
@@ -425,7 +466,7 @@ export function UpdatePolicyDetailsDialog({
                 value={actualPolicyNumber}
                 onChange={(e) => setActualPolicyNumber(e.target.value)}
                 className="w-full px-3 py-2 border rounded-lg text-xs bg-background font-mono focus:ring-1 focus:ring-primary focus:outline-none"
-                placeholder={isHealth ? 'e.g. HDFC-HLT-2026-000123' : 'e.g. POL-MOT-2026-000123'}
+                placeholder={isLife ? 'e.g. LIC-TRM-2026-000123' : isHealth ? 'e.g. HDFC-HLT-2026-000123' : 'e.g. POL-MOT-2026-000123'}
               />
             </div>
 
@@ -555,9 +596,103 @@ export function UpdatePolicyDetailsDialog({
           </div>
 
           {/* ========================================================================= */}
-          {/* PRODUCT SPECIFIC SECTIONS: HEALTH vs MOTOR                                */}
+          {/* PRODUCT SPECIFIC SECTIONS: LIFE vs HEALTH vs MOTOR                        */}
           {/* ========================================================================= */}
-          {isHealth ? (
+          {isLife ? (
+            /* LIFE SPECIFIC UNDERWRITING & NOMINEE DETAILS */
+            <div className="space-y-3.5 pt-1">
+              <div className="rounded-xl border border-amber-500/20 bg-amber-500/[0.03] p-3.5 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                    <ShieldCheck className="h-4 w-4 text-amber-500" />
+                    <span>Life Coverage & Nominee Specifications</span>
+                  </div>
+                  <span className="text-[10px] uppercase font-bold text-amber-700 dark:text-amber-300 bg-amber-500/10 px-2 py-0.5 rounded">
+                    Life Only
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-bold mb-1 text-muted-foreground">
+                      Plan Category / Title
+                    </label>
+                    <input
+                      type="text"
+                      value={planName}
+                      onChange={(e) => setPlanName(e.target.value)}
+                      placeholder="e.g. TERM LIFE / Pure Protection"
+                      className="w-full px-3 py-1.5 border rounded-lg text-xs bg-background focus:ring-1 focus:ring-primary focus:outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold mb-1 text-muted-foreground">
+                      Sum Assured (₹)
+                    </label>
+                    <input
+                      type="text"
+                      value={sumInsured}
+                      onChange={(e) => setSumInsured(e.target.value)}
+                      placeholder="e.g. 5000000, 10000000"
+                      className="w-full px-3 py-1.5 border rounded-lg text-xs bg-background font-mono focus:ring-1 focus:ring-primary focus:outline-none"
+                    />
+                  </div>
+                </div>
+
+                {/* Nominee Details */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                  <div>
+                    <label className="block text-[11px] font-bold mb-1 text-muted-foreground">
+                      Nominee Full Name <span className="text-rose-500">*</span>
+                    </label>
+                    <input
+                      required
+                      type="text"
+                      value={nomineeName}
+                      onChange={(e) => setNomineeName(e.target.value)}
+                      placeholder="e.g. Priya Sharma"
+                      className="w-full px-3 py-1.5 border rounded-lg text-xs bg-background focus:ring-1 focus:ring-primary focus:outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold mb-1 text-muted-foreground">
+                      Nominee Relationship
+                    </label>
+                    <select
+                      value={nomineeRelation}
+                      onChange={(e) => setNomineeRelation(e.target.value)}
+                      className="w-full px-3 py-1.5 border rounded-lg text-xs bg-background focus:ring-1 focus:ring-primary focus:outline-none"
+                    >
+                      <option value="Spouse">Spouse</option>
+                      <option value="Father">Father</option>
+                      <option value="Mother">Mother</option>
+                      <option value="Son">Son</option>
+                      <option value="Daughter">Daughter</option>
+                      <option value="Brother">Brother</option>
+                      <option value="Sister">Sister</option>
+                      <option value="Other">Other</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Medical & Underwriting Affirmation */}
+                <div className="flex items-center gap-2 pt-1 border-t text-xs">
+                  <input
+                    type="checkbox"
+                    id="lifeUwVerified"
+                    checked={medicalUnderwritingVerified}
+                    onChange={(e) => setMedicalUnderwritingVerified(e.target.checked)}
+                    className="rounded text-amber-600 focus:ring-amber-500 h-3.5 w-3.5"
+                  />
+                  <label htmlFor="lifeUwVerified" className="text-muted-foreground cursor-pointer font-medium">
+                    Life Assured underwriting, medical declination check & Section 45 affirmations verified
+                  </label>
+                </div>
+              </div>
+            </div>
+          ) : isHealth ? (
             /* HEALTH SPECIFIC UNDERWRITING & NOMINEE DETAILS (NO MOTOR OD/TP) */
             <div className="space-y-3.5 pt-1">
               <div className="rounded-xl border border-rose-500/20 bg-rose-500/[0.03] p-3.5 space-y-3">
@@ -861,6 +996,8 @@ export function UpdatePolicyDetailsDialog({
               className={`px-5 py-2 text-white rounded-xl text-xs font-bold flex items-center gap-2 disabled:opacity-50 transition shadow-xs ${
                 !policyPdf
                   ? 'bg-amber-600 hover:bg-amber-700'
+                  : isLife
+                  ? 'bg-amber-600 hover:bg-amber-700'
                   : isHealth
                   ? 'bg-rose-600 hover:bg-rose-700'
                   : 'bg-emerald-600 hover:bg-emerald-700'
@@ -879,7 +1016,7 @@ export function UpdatePolicyDetailsDialog({
               ) : (
                 <>
                   <CheckCircle className="h-4 w-4" />
-                  <span>{isHealth ? 'Issue Health Policy' : 'Issue Motor Policy'}</span>
+                  <span>{isLife ? 'Issue Life Policy' : isHealth ? 'Issue Health Policy' : 'Issue Motor Policy'}</span>
                 </>
               )}
             </button>

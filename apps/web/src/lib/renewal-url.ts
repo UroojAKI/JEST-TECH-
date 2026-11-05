@@ -18,3 +18,14 @@ export function buildHealthRenewalUrl(
   return `/sales/health-quotations/new?${params.toString()}`;
 }
 
+export function buildLifeRenewalUrl(
+  policyId: string,
+  extra?: { contactId?: string; leadId?: string; planCategory?: string }
+): string {
+  const params = new URLSearchParams();
+  params.set('renewPolicyId', policyId);
+  if (extra?.contactId) params.set('contactId', extra.contactId);
+  if (extra?.leadId) params.set('leadId', extra.leadId);
+  if (extra?.planCategory) params.set('planCategory', extra.planCategory);
+  return `/sales/life-quotations/new?${params.toString()}`;
+}

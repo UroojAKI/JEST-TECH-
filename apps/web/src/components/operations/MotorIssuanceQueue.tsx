@@ -28,6 +28,7 @@ import {
   ArrowRight,
   Sparkles,
   Layers,
+  Shield,
 } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
@@ -80,10 +81,10 @@ export function MotorIssuanceQueue() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
-  const [productFilter, setProductFilter] = useState<'ALL' | 'MOTOR' | 'HEALTH'>('ALL');
+  const [productFilter, setProductFilter] = useState<'ALL' | 'MOTOR' | 'HEALTH' | 'LIFE'>('ALL');
   const [viewMode, setViewMode] = useState<'TABLE' | 'CARDS'>('TABLE');
   const [issuingId, setIssuingId] = useState<string | null>(null);
-  const [selectedQuote, setSelectedQuote] = useState<{ id: string; productType: 'MOTOR' | 'HEALTH' } | null>(null);
+  const [selectedQuote, setSelectedQuote] = useState<{ id: string; productType: 'MOTOR' | 'HEALTH' | 'LIFE' } | null>(null);
 
   // Underwriter action modal state
   const [underwriterAction, setUnderwriterAction] = useState<{
@@ -143,7 +144,7 @@ export function MotorIssuanceQueue() {
   }, [queue, search]);
 
   const motorQueue = useMemo(
-    () => filteredQueue.filter((item) => item.productType !== 'HEALTH'),
+    () => filteredQueue.filter((item) => item.productType !== 'HEALTH' && item.productType !== 'LIFE'),
     [filteredQueue],
   );
 
@@ -152,22 +153,29 @@ export function MotorIssuanceQueue() {
     [filteredQueue],
   );
 
+  const lifeQueue = useMemo(
+    () => filteredQueue.filter((item) => item.productType === 'LIFE'),
+    [filteredQueue],
+  );
+
   const displayedQueue = useMemo(() => {
     if (productFilter === 'MOTOR') return motorQueue;
     if (productFilter === 'HEALTH') return healthQueue;
+    if (productFilter === 'LIFE') return lifeQueue;
     return filteredQueue;
-  }, [productFilter, motorQueue, healthQueue, filteredQueue]);
+  }, [productFilter, motorQueue, healthQueue, lifeQueue, filteredQueue]);
 
   const handleDirectIssue = async (quotationId: string, item?: BackOfficeQueueItem) => {
     if (item) {
       const isApproved = item.status === 'APPROVED' || item.status === 'ACCEPTED';
       const isHealth = item.productType === 'HEALTH';
+      const isLife = item.productType === 'LIFE';
       const gatesOk = Boolean(
         item.allGatesPassed &&
         item.gates?.customer?.passed &&
         item.gates?.payment?.passed &&
         item.gates?.documents?.passed &&
-        (isHealth ? true : item.gates?.vehicle?.passed && item.gates?.inspection?.passed)
+        (isHealth || isLife ? true : item.gates?.vehicle?.passed && item.gates?.inspection?.passed)
       );
       if (!isApproved || !gatesOk) {
         toast.error(
@@ -201,7 +209,7 @@ export function MotorIssuanceQueue() {
         toast.info('Opening Manual Entry to upload the mandatory policy PDF schedule...');
         setSelectedQuote({
           id: item.id,
-          productType: item.productType === 'HEALTH' ? 'HEALTH' : 'MOTOR',
+          productType: item.productType === 'LIFE' ? 'LIFE' : item.productType === 'HEALTH' ? 'HEALTH' : 'MOTOR',
         });
       }
     } finally {
@@ -239,15 +247,17 @@ export function MotorIssuanceQueue() {
   /**
    * Card Component for a single case item
    */
-  const renderCaseCard = (item: BackOfficeQueueItem, domain: 'MOTOR' | 'HEALTH') => {
+  const renderCaseCard = (item: BackOfficeQueueItem, domain: 'MOTOR' | 'HEALTH' | 'LIFE') => {
+    const isLife = domain === 'LIFE';
     const isHealth = domain === 'HEALTH';
+    const isMotor = !isLife && !isHealth;
     const isApprovedOrAccepted = item.status === 'APPROVED' || item.status === 'ACCEPTED';
     const allGatesCleared = Boolean(
       item.allGatesPassed &&
       item.gates?.customer?.passed &&
       item.gates?.payment?.passed &&
       item.gates?.documents?.passed &&
-      (isHealth ? true : item.gates?.vehicle?.passed && item.gates?.inspection?.passed)
+      (isHealth || isLife ? true : item.gates?.vehicle?.passed && item.gates?.inspection?.passed)
     );
     const canIssue = Boolean(isApprovedOrAccepted && allGatesCleared);
 
@@ -262,12 +272,14 @@ export function MotorIssuanceQueue() {
             <div className="flex items-center gap-2 flex-wrap">
               <span
                 className={`inline-flex items-center px-2.5 py-0.5 rounded-lg text-xs font-black uppercase tracking-wide border shadow-2xs ${
-                  isHealth
-                    ? 'bg-rose-500/15 text-rose-700 dark:text-rose-300 border-rose-500/30'
-                    : 'bg-blue-500/15 text-blue-700 dark:text-blue-300 border-blue-500/30'
+                  isLife
+                    ? 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30'
+                    : isHealth
+                      ? 'bg-rose-500/15 text-rose-700 dark:text-rose-300 border-rose-500/30'
+                      : 'bg-blue-500/15 text-blue-700 dark:text-blue-300 border-blue-500/30'
                 }`}
               >
-                {isHealth ? 'Health Insurance' : 'Motor Insurance'}
+                {isLife ? 'Life Insurance' : isHealth ? 'Health Insurance' : 'Motor Insurance'}
               </span>
               <span className="font-mono text-xs font-bold text-foreground">#{item.quotationCode}</span>
 
@@ -312,7 +324,15 @@ export function MotorIssuanceQueue() {
 
           {/* Right Corner: Centered Symbol + SLA Badge */}
           <div className="shrink-0 flex flex-col items-center justify-center gap-1.5 self-center">
-            {isHealth ? (
+            {isLife ? (
+              <span
+                className="inline-flex items-center justify-center gap-1.5 px-3 py-1 rounded-md text-xs font-bold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 shadow-2xs"
+                title="Life Insurance Policy"
+              >
+                <Shield className="h-4 w-4 text-amber-500" />
+                <span>Life</span>
+              </span>
+            ) : isHealth ? (
               <span
                 className="inline-flex items-center justify-center gap-1.5 px-3 py-1 rounded-md text-xs font-bold bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20 shadow-2xs"
                 title="Health Insurance Policy"
@@ -362,7 +382,7 @@ export function MotorIssuanceQueue() {
         {/* Domain-Specific Underwriting & Compliance Gates */}
         <div className="space-y-1.5">
           <div className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">
-            {isHealth ? '❤️ Health Verification Gates' : '🚗 Motor Verification Gates'}
+            {isLife ? '🛡️ Life Verification Gates' : isHealth ? '❤️ Health Verification Gates' : '🚗 Motor Verification Gates'}
           </div>
 
           <div className="flex items-center gap-1.5 flex-wrap text-xs">
@@ -378,8 +398,16 @@ export function MotorIssuanceQueue() {
               <span>KYC: {item.gates.customer.status}</span>
             </div>
 
-            {/* Vehicle Gate vs Health Plan Gate */}
-            {isHealth ? (
+            {/* Vehicle Gate vs Health Plan Gate vs Life Plan Gate */}
+            {isLife ? (
+              <div
+                className="flex items-center gap-1 px-2 py-0.5 rounded-md border text-[11px] bg-emerald-500/10 border-emerald-500/30 text-emerald-700 dark:text-emerald-300"
+                title="Life assured underwriting profile verified"
+              >
+                <Shield className="h-3.5 w-3.5 text-amber-500" />
+                <span>Life Plan: READY</span>
+              </div>
+            ) : isHealth ? (
               <div
                 className="flex items-center gap-1 px-2 py-0.5 rounded-md border text-[11px] bg-emerald-500/10 border-emerald-500/30 text-emerald-700 dark:text-emerald-300"
                 title="Comprehensive health plan coverage verified"
@@ -400,8 +428,16 @@ export function MotorIssuanceQueue() {
               </div>
             )}
 
-            {/* Inspection Gate vs Health Underwriting Gate */}
-            {isHealth ? (
+            {/* Inspection Gate vs Health Underwriting Gate vs Life UW Gate */}
+            {isLife ? (
+              <div
+                className="flex items-center gap-1 px-2 py-0.5 rounded-md border text-[11px] bg-emerald-500/10 border-emerald-500/30 text-emerald-700 dark:text-emerald-300"
+                title="Medical checkup clean / pre-underwriting passed"
+              >
+                <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />
+                <span>UW Review: PASSED</span>
+              </div>
+            ) : isHealth ? (
               <div
                 className="flex items-center gap-1 px-2 py-0.5 rounded-md border text-[11px] bg-emerald-500/10 border-emerald-500/30 text-emerald-700 dark:text-emerald-300"
                 title="Medical checkup waived / pre-underwriting passed"
@@ -448,9 +484,14 @@ export function MotorIssuanceQueue() {
           </div>
 
           {/* Details string */}
-          {!isHealth && item.gates.vehicle.detail && (
+          {isMotor && item.gates.vehicle.detail && (
             <div className="text-[11px] text-muted-foreground">
               <span className="font-medium text-foreground">Specs:</span> {item.gates.vehicle.detail}
+            </div>
+          )}
+          {isLife && item.gates.vehicle?.detail && (
+            <div className="text-[11px] text-muted-foreground">
+              <span className="font-medium text-foreground">Underwriting:</span> {item.gates.vehicle.detail}
             </div>
           )}
         </div>
@@ -504,7 +545,7 @@ export function MotorIssuanceQueue() {
             )}
 
             {/* Inspection Link for Motor */}
-            {!isHealth && !item.gates.inspection.passed && (
+            {isMotor && !item.gates.inspection.passed && (
               <Link
                 href={`/workspace/operations/inspections/${item.id}`}
                 className="inline-flex items-center gap-1 px-2 py-1 rounded-md border border-purple-500/30 bg-purple-500/10 text-purple-700 dark:text-purple-400 text-[11px] font-bold hover:bg-purple-500/20 transition"
@@ -519,9 +560,9 @@ export function MotorIssuanceQueue() {
           <div className="flex items-center gap-1.5">
             <button
               type="button"
-              onClick={() => setSelectedQuote({ id: item.id, productType: isHealth ? 'HEALTH' : 'MOTOR' })}
+              onClick={() => setSelectedQuote({ id: item.id, productType: isLife ? 'LIFE' : isHealth ? 'HEALTH' : 'MOTOR' })}
               className="px-2.5 py-1 rounded-md border bg-card hover:bg-accent text-[11px] font-medium transition"
-              title={isHealth ? 'Manual Health policy number & date entry' : 'Manual Motor policy number & date entry'}
+              title={isLife ? 'Manual Life policy number & date entry' : isHealth ? 'Manual Health policy number & date entry' : 'Manual Motor policy number & date entry'}
             >
               Manual Entry
             </button>
@@ -534,21 +575,27 @@ export function MotorIssuanceQueue() {
                   ? `Blocked: ${item.nextAction || 'All compliance & payment gates must be cleared'}`
                   : !isApprovedOrAccepted
                     ? `Quotation must be approved before issuance (currently ${item.status})`
-                    : isHealth
-                      ? 'Issue official Health Policy'
-                      : 'Issue official Motor Policy'
+                    : isLife
+                      ? 'Issue official Life Policy'
+                      : isHealth
+                        ? 'Issue official Health Policy'
+                        : 'Issue official Motor Policy'
               }
               onClick={() => handleDirectIssue(item.id, item)}
               className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold shadow-xs transition ${
                 canIssue
-                  ? isHealth
-                    ? 'bg-rose-600 hover:bg-rose-700 text-white cursor-pointer'
-                    : 'bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer'
+                  ? isLife
+                    ? 'bg-amber-600 hover:bg-amber-700 text-white cursor-pointer'
+                    : isHealth
+                      ? 'bg-rose-600 hover:bg-rose-700 text-white cursor-pointer'
+                      : 'bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer'
                   : 'bg-muted/80 text-muted-foreground border border-border/80 cursor-not-allowed opacity-60'
               }`}
             >
               {issuingId === item.id ? (
                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : isLife ? (
+                <Shield className="h-3.5 w-3.5" />
               ) : isHealth ? (
                 <HeartPulse className="h-3.5 w-3.5" />
               ) : (
@@ -558,12 +605,16 @@ export function MotorIssuanceQueue() {
                 {issuingId === item.id
                   ? 'Issuing...'
                   : canIssue
-                    ? isHealth
-                      ? 'Issue Health Policy'
-                      : 'Issue Motor Policy'
-                    : isHealth
-                      ? 'Issue Health (Gates Pending)'
-                      : 'Issue Motor (Gates Pending)'}
+                    ? isLife
+                      ? 'Issue Life Policy'
+                      : isHealth
+                        ? 'Issue Health Policy'
+                        : 'Issue Motor Policy'
+                    : isLife
+                      ? 'Issue Life (Gates Pending)'
+                      : isHealth
+                        ? 'Issue Health (Gates Pending)'
+                        : 'Issue Motor (Gates Pending)'}
               </span>
             </button>
           </div>
@@ -584,7 +635,7 @@ export function MotorIssuanceQueue() {
             </span>
           </div>
           <p className="text-xs text-muted-foreground">
-            Authoritative gate verification and official policy issuance for Motor & Health insurance lines.
+            Authoritative gate verification and official policy issuance for Motor, Health & Life insurance lines.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -599,7 +650,7 @@ export function MotorIssuanceQueue() {
         </div>
       </div>
 
-      {/* Summary Metrics with Motor vs Health Breakdown */}
+      {/* Summary Metrics with Motor vs Health vs Life Breakdown */}
       <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
         <div
           onClick={() => setStatusFilter('READY')}
@@ -613,13 +664,17 @@ export function MotorIssuanceQueue() {
             <Check className="h-3.5 w-3.5 text-emerald-600" />
           </div>
           <div className="text-2xl font-black text-emerald-700">{summary.readyCount}</div>
-          <div className="text-[11px] text-muted-foreground flex items-center gap-1.5 pt-0.5">
+          <div className="text-[11px] text-muted-foreground flex items-center gap-1.5 pt-0.5 flex-wrap">
             <span className="text-blue-600 dark:text-blue-400 font-semibold">
               🚗 {motorQueue.filter((q) => q.allGatesPassed).length} Motor
             </span>
             <span>•</span>
             <span className="text-rose-600 dark:text-rose-400 font-semibold">
               ❤️ {healthQueue.filter((q) => q.allGatesPassed).length} Health
+            </span>
+            <span>•</span>
+            <span className="text-amber-600 dark:text-amber-400 font-semibold">
+              🛡️ {lifeQueue.filter((q) => q.allGatesPassed).length} Life
             </span>
           </div>
         </div>
@@ -636,13 +691,17 @@ export function MotorIssuanceQueue() {
             <AlertTriangle className="h-3.5 w-3.5 text-amber-600" />
           </div>
           <div className="text-2xl font-black text-amber-700">{summary.blockedCount}</div>
-          <div className="text-[11px] text-muted-foreground flex items-center gap-1.5 pt-0.5">
+          <div className="text-[11px] text-muted-foreground flex items-center gap-1.5 pt-0.5 flex-wrap">
             <span className="text-amber-700 dark:text-amber-300 font-semibold">
               🚗 {motorQueue.filter((q) => !q.allGatesPassed).length} Motor
             </span>
             <span>•</span>
             <span className="text-rose-700 dark:text-rose-300 font-semibold">
               ❤️ {healthQueue.filter((q) => !q.allGatesPassed).length} Health
+            </span>
+            <span>•</span>
+            <span className="text-amber-700 dark:text-amber-300 font-semibold">
+              🛡️ {lifeQueue.filter((q) => !q.allGatesPassed).length} Life
             </span>
           </div>
         </div>
@@ -678,13 +737,17 @@ export function MotorIssuanceQueue() {
             <Layers className="h-3.5 w-3.5 text-primary" />
           </div>
           <div className="text-2xl font-black text-primary">{queue.length}</div>
-          <div className="text-[11px] text-muted-foreground flex items-center gap-1.5 pt-0.5">
+          <div className="text-[11px] text-muted-foreground flex items-center gap-1.5 pt-0.5 flex-wrap">
             <span className="text-blue-600 dark:text-blue-400 font-semibold">
               🚗 {motorQueue.length} Motor
             </span>
             <span>•</span>
             <span className="text-rose-600 dark:text-rose-400 font-semibold">
               ❤️ {healthQueue.length} Health
+            </span>
+            <span>•</span>
+            <span className="text-amber-600 dark:text-amber-400 font-semibold">
+              🛡️ {lifeQueue.length} Life
             </span>
           </div>
         </div>
@@ -759,6 +822,21 @@ export function MotorIssuanceQueue() {
             <span>❤️ Health Cases</span>
             <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-white/20 font-mono">
               {healthQueue.length}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setProductFilter('LIFE')}
+            className={`px-2.5 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${productFilter === 'LIFE'
+                ? 'bg-amber-600 text-white shadow-xs'
+                : 'bg-amber-500/10 text-amber-700 dark:text-amber-300 hover:bg-amber-500/20'
+              }`}
+          >
+            <Shield className="h-3.5 w-3.5" />
+            <span>🛡️ Life Cases</span>
+            <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-white/20 font-mono">
+              {lifeQueue.length}
             </span>
           </button>
         </div>
@@ -856,6 +934,9 @@ export function MotorIssuanceQueue() {
                   <th className="py-2.5 px-3 text-left font-bold bg-rose-500/5 text-rose-700 dark:text-rose-300">
                     ❤️ Health Details (Plan / UW)
                   </th>
+                  <th className="py-2.5 px-3 text-left font-bold bg-amber-500/5 text-amber-700 dark:text-amber-300">
+                    🛡️ Life Details (Plan / Life Assured)
+                  </th>
                   <th className="py-2.5 px-3 text-left font-bold">Status & Gates</th>
                   <th className="py-2.5 px-3 text-right font-bold">Action</th>
                 </tr>
@@ -863,13 +944,15 @@ export function MotorIssuanceQueue() {
               <tbody className="divide-y divide-border">
                 {displayedQueue.map((item) => {
                   const isHealth = item.productType === 'HEALTH';
+                  const isLife = item.productType === 'LIFE';
+                  const isMotor = !isHealth && !isLife;
                   const isApproved = item.status === 'APPROVED' || item.status === 'ACCEPTED';
                   const allGatesCleared = Boolean(
                     item.allGatesPassed &&
                     item.gates?.customer?.passed &&
                     item.gates?.payment?.passed &&
                     item.gates?.documents?.passed &&
-                    (isHealth ? true : item.gates?.vehicle?.passed && item.gates?.inspection?.passed)
+                    (isHealth || isLife ? true : item.gates?.vehicle?.passed && item.gates?.inspection?.passed)
                   );
                   const canIssue = Boolean(isApproved && allGatesCleared);
 
@@ -883,7 +966,12 @@ export function MotorIssuanceQueue() {
                       <td className="py-3 px-3 align-top space-y-1">
                         <div className="font-mono font-bold text-foreground">{item.quotationCode}</div>
                         <div className="flex items-center gap-1">
-                          {isHealth ? (
+                          {isLife ? (
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-500/10 text-amber-700 dark:text-amber-300">
+                              <Shield className="h-3 w-3" />
+                              Life
+                            </span>
+                          ) : isHealth ? (
                             <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-rose-500/10 text-rose-700 dark:text-rose-300">
                               <HeartPulse className="h-3 w-3" />
                               Health
@@ -929,7 +1017,7 @@ export function MotorIssuanceQueue() {
 
                       {/* DEDICATED COLUMN: MOTOR DETAILS */}
                       <td className="py-3 px-3 align-top space-y-1 bg-blue-500/[0.02]">
-                        {!isHealth ? (
+                        {isMotor ? (
                           <>
                             <div className="font-mono font-bold text-[11px] text-blue-700 dark:text-blue-300">
                               {item.gates.vehicle.detail || 'Plate Verified'}
@@ -955,7 +1043,7 @@ export function MotorIssuanceQueue() {
                           </>
                         ) : (
                           <span className="text-muted-foreground text-[11px] italic">
-                            — N/A (Health Case) —
+                            — N/A ({isLife ? 'Life' : 'Health'} Case) —
                           </span>
                         )}
                       </td>
@@ -974,7 +1062,29 @@ export function MotorIssuanceQueue() {
                           </>
                         ) : (
                           <span className="text-muted-foreground text-[11px] italic">
-                            — N/A (Motor Case) —
+                            — N/A ({isLife ? 'Life' : 'Motor'} Case) —
+                          </span>
+                        )}
+                      </td>
+
+                      {/* DEDICATED COLUMN: LIFE DETAILS */}
+                      <td className="py-3 px-3 align-top space-y-1 bg-amber-500/[0.02]">
+                        {isLife ? (
+                          <>
+                            <div className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-500/10 text-amber-700 dark:text-amber-300">
+                              <Shield className="h-3 w-3" />
+                              Life Plan Verified
+                            </div>
+                            <div className="text-[11px] text-amber-800 dark:text-amber-200 font-semibold">
+                              {item.gates.vehicle?.detail || 'Life Assured & Nominee Clean'}
+                            </div>
+                            <div className="text-[10px] text-emerald-600 font-medium">
+                              Medical UW: PASSED
+                            </div>
+                          </>
+                        ) : (
+                          <span className="text-muted-foreground text-[11px] italic">
+                            — N/A ({isHealth ? 'Health' : 'Motor'} Case) —
                           </span>
                         )}
                       </td>
@@ -1052,9 +1162,9 @@ export function MotorIssuanceQueue() {
 
                           <button
                             type="button"
-                            onClick={() => setSelectedQuote({ id: item.id, productType: isHealth ? 'HEALTH' : 'MOTOR' })}
+                            onClick={() => setSelectedQuote({ id: item.id, productType: isLife ? 'LIFE' : isHealth ? 'HEALTH' : 'MOTOR' })}
                             className="px-2 py-1 rounded border bg-card hover:bg-accent text-[11px] font-medium transition"
-                            title={isHealth ? 'Manual Health policy entry' : 'Manual Motor policy entry'}
+                            title={isLife ? 'Manual Life policy entry' : isHealth ? 'Manual Health policy entry' : 'Manual Motor policy entry'}
                           >
                             Manual
                           </button>
@@ -1067,22 +1177,26 @@ export function MotorIssuanceQueue() {
                                 ? `Blocked: ${item.nextAction || 'All gates must be cleared'}`
                                 : !isApproved
                                   ? `Quotation must be approved before issuance (currently ${item.status})`
-                                  : isHealth
-                                    ? 'Issue Health Policy'
-                                    : 'Issue Motor Policy'
+                                  : isLife
+                                    ? 'Issue Life Policy'
+                                    : isHealth
+                                      ? 'Issue Health Policy'
+                                      : 'Issue Motor Policy'
                             }
                             className={`px-2.5 py-1 rounded text-[11px] font-bold shadow-xs transition ${
                               canIssue
-                                ? isHealth
-                                  ? 'bg-rose-600 hover:bg-rose-700 text-white cursor-pointer'
-                                  : 'bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer'
+                                ? isLife
+                                  ? 'bg-amber-600 hover:bg-amber-700 text-white cursor-pointer'
+                                  : isHealth
+                                    ? 'bg-rose-600 hover:bg-rose-700 text-white cursor-pointer'
+                                    : 'bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer'
                                 : 'bg-muted/80 text-muted-foreground border border-border/80 cursor-not-allowed opacity-60'
                             }`}
                           >
                             {issuingId === item.id ? (
                               <Loader2 className="h-3 w-3 animate-spin inline" />
                             ) : canIssue ? (
-                              isHealth ? 'Issue Health' : 'Issue Motor'
+                              isLife ? 'Issue Life' : isHealth ? 'Issue Health' : 'Issue Motor'
                             ) : (
                               'Pending Gates'
                             )}
@@ -1102,7 +1216,7 @@ export function MotorIssuanceQueue() {
         /* ========================================================================= */
         <div className="space-y-3">
           {displayedQueue.map((item) =>
-            renderCaseCard(item, item.productType === 'HEALTH' ? 'HEALTH' : 'MOTOR'),
+            renderCaseCard(item, item.productType === 'LIFE' ? 'LIFE' : item.productType === 'HEALTH' ? 'HEALTH' : 'MOTOR'),
           )}
         </div>
       )}
@@ -1119,7 +1233,11 @@ export function MotorIssuanceQueue() {
                     : 'Underwriter Quotation Rejection'}
                 </h3>
                 <span className="text-[11px] text-muted-foreground">
-                  {underwriterAction.productType === 'HEALTH' ? '❤️ Health Insurance' : '🚗 Motor Insurance'}
+                  {underwriterAction.productType === 'LIFE'
+                    ? '🛡️ Life Insurance'
+                    : underwriterAction.productType === 'HEALTH'
+                      ? '❤️ Health Insurance'
+                      : '🚗 Motor Insurance'}
                 </span>
               </div>
               <span className="font-mono text-xs font-bold text-muted-foreground">

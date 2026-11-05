@@ -22,7 +22,7 @@ import { MotorProposalWizard } from '../leads/motor-quote/MotorProposalWizard';
 import { PolicyCompletionDialog } from '../leads/motor-quote/PolicyCompletionDialog';
 import type { VehicleCategory, SavedMotorQuote } from '../leads/motor-quote/motorFormTypes';
 import { useAuthStore } from '../../store/auth-store';
-import { buildRenewalUrl, buildHealthRenewalUrl } from '../../lib/renewal-url';
+import { buildRenewalUrl, buildHealthRenewalUrl, buildLifeRenewalUrl } from '../../lib/renewal-url';
 
 interface DynamicWorkspaceProps {
   roleLabel: string;
@@ -91,12 +91,12 @@ export function DynamicWorkspace({ roleLabel, roleIcon, fallbackRole, customCont
   const [quoteFilter, setQuoteFilter] = useState<'ALL' | 'PENDING_INSPECTION' | 'PAYMENT_PENDING' | 'READY_TO_ISSUE' | 'ISSUED'>('ALL');
 
   // Multi-line domain filters for Policies & Renewals on the same page
-  const [policyProductFilter, setPolicyProductFilter] = useState<'ALL' | 'MOTOR' | 'HEALTH'>('ALL');
+  const [policyProductFilter, setPolicyProductFilter] = useState<'ALL' | 'MOTOR' | 'HEALTH' | 'LIFE'>('ALL');
   const [policySearch, setPolicySearch] = useState('');
-  const [renewalProductFilter, setRenewalProductFilter] = useState<'ALL' | 'MOTOR' | 'HEALTH'>('ALL');
+  const [renewalProductFilter, setRenewalProductFilter] = useState<'ALL' | 'MOTOR' | 'HEALTH' | 'LIFE'>('ALL');
   const [renewalSearch, setRenewalSearch] = useState('');
   const [renewalUrgencyFilter, setRenewalUrgencyFilter] = useState<'ALL' | '7_DAYS' | '15_DAYS' | '30_DAYS' | 'EXPIRED'>('ALL');
-  const [overviewPolicyFilter, setOverviewPolicyFilter] = useState<'ALL' | 'MOTOR' | 'HEALTH'>('ALL');
+  const [overviewPolicyFilter, setOverviewPolicyFilter] = useState<'ALL' | 'MOTOR' | 'HEALTH' | 'LIFE'>('ALL');
 
   // Modals state
   const [isWizardOpen, setIsWizardOpen] = useState(false);
@@ -162,8 +162,18 @@ export function DynamicWorkspace({ roleLabel, roleIcon, fallbackRole, customCont
   }, [policies]);
 
   // Robust Multi-line Categorization
-  const isHealthPolicy = (p: any): boolean => {
+  const isLifePolicy = (p: any): boolean => {
     if (!p) return false;
+    const policyType = String(p.policyType || '').toUpperCase();
+    const productLine = String(p.productLine || '').toUpperCase();
+    const productType = String(p.quotation?.productType || '').toUpperCase();
+    if (policyType === 'LIFE' || productLine.includes('LIFE') || productType === 'LIFE') return true;
+    if (p.lifeCaseId || p.lifeMetadata || p.quotation?.lifeCaseId || p.quotation?.lifeCase) return true;
+    return false;
+  };
+
+  const isHealthPolicy = (p: any): boolean => {
+    if (!p || isLifePolicy(p)) return false;
     const policyType = String(p.policyType || '').toUpperCase();
     const productLine = String(p.productLine || '').toUpperCase();
     const productType = String(p.quotation?.productType || '').toUpperCase();
@@ -173,8 +183,13 @@ export function DynamicWorkspace({ roleLabel, roleIcon, fallbackRole, customCont
     return false;
   };
 
-  const motorPolicies = useMemo(() => policies.filter((p: any) => !isHealthPolicy(p)), [policies]);
+  const lifePolicies = useMemo(() => policies.filter((p: any) => isLifePolicy(p)), [policies]);
   const healthPolicies = useMemo(() => policies.filter((p: any) => isHealthPolicy(p)), [policies]);
+  const motorPolicies = useMemo(() => policies.filter((p: any) => !isHealthPolicy(p) && !isLifePolicy(p)), [policies]);
+
+  const totalLifePremium = useMemo(() => {
+    return lifePolicies.reduce((acc, p) => acc + Number(p.premiumAmount || p.totalPremium || 0), 0);
+  }, [lifePolicies]);
 
   const totalMotorPremium = useMemo(() => {
     return motorPolicies.reduce((acc, p) => acc + Number(p.premiumAmount || p.totalPremium || 0), 0);
@@ -215,8 +230,18 @@ export function DynamicWorkspace({ roleLabel, roleIcon, fallbackRole, customCont
     return list.sort((a: any, b: any) => (a.daysRemaining ?? 0) - (b.daysRemaining ?? 0));
   }, [renewalsData]);
 
-  const isHealthRenewal = (r: any): boolean => {
+  const isLifeRenewal = (r: any): boolean => {
     if (!r) return false;
+    const productType = String(r.productType || '').toUpperCase();
+    const policyType = String(r.policyType || '').toUpperCase();
+    if (productType === 'LIFE' || policyType === 'LIFE') return true;
+    const matched = policyMap.get(r.id) || policyMap.get(r.policyNumber) || policyMap.get(r.policyId);
+    if (matched && isLifePolicy(matched)) return true;
+    return false;
+  };
+
+  const isHealthRenewal = (r: any): boolean => {
+    if (!r || isLifeRenewal(r)) return false;
     const productType = String(r.productType || '').toUpperCase();
     const policyType = String(r.policyType || '').toUpperCase();
     if (productType === 'HEALTH' || policyType === 'HEALTH') return true;
@@ -229,8 +254,13 @@ export function DynamicWorkspace({ roleLabel, roleIcon, fallbackRole, customCont
     return false;
   };
 
-  const motorRenewals = useMemo(() => renewals.filter((r: any) => !isHealthRenewal(r)), [renewals, policyMap]);
+  const lifeRenewals = useMemo(() => renewals.filter((r: any) => isLifeRenewal(r)), [renewals, policyMap]);
   const healthRenewals = useMemo(() => renewals.filter((r: any) => isHealthRenewal(r)), [renewals, policyMap]);
+  const motorRenewals = useMemo(() => renewals.filter((r: any) => !isHealthRenewal(r) && !isLifeRenewal(r)), [renewals, policyMap]);
+
+  const totalLifeRenewalPremium = useMemo(() => {
+    return lifeRenewals.reduce((acc, r) => acc + Number(r.estimatedRenewalPremium || r.lastPremium || 0), 0);
+  }, [lifeRenewals]);
 
   const totalMotorRenewalPremium = useMemo(() => {
     return motorRenewals.reduce((acc, r) => acc + Number(r.estimatedRenewalPremium || r.lastPremium || 0), 0);
@@ -241,6 +271,19 @@ export function DynamicWorkspace({ roleLabel, roleIcon, fallbackRole, customCont
   }, [healthRenewals]);
 
   // Search-filtered policies
+  const filteredLifePolicies = useMemo(() => {
+    if (!policySearch.trim()) return lifePolicies;
+    const q = policySearch.toLowerCase().trim();
+    return lifePolicies.filter((p: any) =>
+      p.policyNumber?.toLowerCase().includes(q) ||
+      (p.contact?.firstName || p.contactName || '').toLowerCase().includes(q) ||
+      p.insurerName?.toLowerCase().includes(q) ||
+      p.productLine?.toLowerCase().includes(q) ||
+      p.quotation?.title?.toLowerCase().includes(q) ||
+      p.quotation?.lifeCase?.planCategory?.toLowerCase().includes(q)
+    );
+  }, [lifePolicies, policySearch]);
+
   const filteredMotorPolicies = useMemo(() => {
     if (!policySearch.trim()) return motorPolicies;
     const q = policySearch.toLowerCase().trim();
@@ -265,6 +308,29 @@ export function DynamicWorkspace({ roleLabel, roleIcon, fallbackRole, customCont
   }, [healthPolicies, policySearch]);
 
   // Search- & Urgency-filtered renewals
+  const filteredLifeRenewals = useMemo(() => {
+    let list = lifeRenewals;
+    if (renewalUrgencyFilter !== 'ALL') {
+      list = list.filter((r: any) => {
+        const d = r.daysRemaining ?? 0;
+        if (renewalUrgencyFilter === '7_DAYS') return d >= 0 && d <= 7;
+        if (renewalUrgencyFilter === '15_DAYS') return d >= 0 && d <= 15;
+        if (renewalUrgencyFilter === '30_DAYS') return d >= 0 && d <= 30;
+        if (renewalUrgencyFilter === 'EXPIRED') return d < 0;
+        return true;
+      });
+    }
+    if (renewalSearch.trim()) {
+      const q = renewalSearch.toLowerCase().trim();
+      list = list.filter((r: any) =>
+        r.policyNumber?.toLowerCase().includes(q) ||
+        (r.customerName || r.proposerName || '').toLowerCase().includes(q) ||
+        r.insurerName?.toLowerCase().includes(q)
+      );
+    }
+    return list;
+  }, [lifeRenewals, renewalUrgencyFilter, renewalSearch]);
+
   const filteredMotorRenewals = useMemo(() => {
     let list = motorRenewals;
     if (renewalUrgencyFilter !== 'ALL') {
@@ -1061,6 +1127,97 @@ export function DynamicWorkspace({ roleLabel, roleIcon, fallbackRole, customCont
               </div>
             </div>
           )}
+
+          {/* SECTION C: LIFE POLICIES TABLE */}
+          {(policyProductFilter === 'LIFE' || policyProductFilter === 'ALL') && (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between px-1">
+                <div className="flex items-center gap-2">
+                  <span className="p-1.5 rounded-lg bg-amber-500/10 text-amber-600">
+                    <Shield className="h-4 w-4" />
+                  </span>
+                  <div>
+                    <h4 className="text-sm font-black text-foreground">Life Insurance Portfolio</h4>
+                    <p className="text-[11px] text-muted-foreground">Life assured, plan category, sum assured, term & PPT</p>
+                  </div>
+                </div>
+                <span className="text-[11px] font-bold text-muted-foreground">{filteredLifePolicies.length} Life Policies</span>
+              </div>
+
+              <div className="rounded-2xl border bg-card overflow-hidden shadow-xs">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-muted/40 text-[10px] font-bold uppercase text-muted-foreground border-b">
+                      <tr>
+                        <th className="p-3.5">Policy Number</th>
+                        <th className="p-3.5">Life Assured & Proposer</th>
+                        <th className="p-3.5">Plan Category & Sum Assured</th>
+                        <th className="p-3.5">Insurer</th>
+                        <th className="p-3.5">Term / PPT</th>
+                        <th className="p-3.5 text-right">Premium</th>
+                        <th className="p-3.5 text-center">Status</th>
+                        <th className="p-3.5 text-right">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border/50">
+                      {filteredLifePolicies.length > 0 ? filteredLifePolicies.map((p: any) => {
+                        const sumAssured = p.idvValue || p.quotation?.sumInsured || 1000000;
+                        const planCat = p.quotation?.lifeCase?.planCategory || p.quotation?.metadata?.planCategory || p.productLine || 'TERM_LIFE';
+                        const policyTerm = p.quotation?.lifeCase?.policyTerm || p.quotation?.metadata?.policyTerm || 20;
+                        const ppt = p.quotation?.lifeCase?.premiumPaymentTerm || p.quotation?.metadata?.premiumPaymentTerm || policyTerm;
+                        return (
+                          <tr key={p.id} className="hover:bg-muted/20 transition-colors">
+                            <td className="p-3.5">
+                              <Link href={`/policies/${p.id}`} className="font-mono font-bold text-amber-600 hover:underline block">
+                                {p.policyNumber}
+                              </Link>
+                              <span className="inline-block mt-0.5 px-1.5 py-0.2 rounded text-[9px] font-bold bg-amber-500/10 text-amber-600 border border-amber-500/20">
+                                LIFE
+                              </span>
+                            </td>
+                            <td className="p-3.5">
+                              <div className="font-semibold text-foreground">{p.contact?.firstName || p.contactName || 'Life Assured'}</div>
+                              <div className="text-[10px] text-muted-foreground font-mono">{p.contactPhone || p.contact?.phone || 'Direct'}</div>
+                            </td>
+                            <td className="p-3.5">
+                              <div className="font-bold text-foreground truncate max-w-xs">{planCat.replace(/_/g, ' ')}</div>
+                              <div className="text-[10px] text-muted-foreground font-mono font-bold text-emerald-600">
+                                SA: ₹{Number(sumAssured).toLocaleString('en-IN')}
+                              </div>
+                            </td>
+                            <td className="p-3.5 text-muted-foreground">{p.insurerName || 'Life Insurer'}</td>
+                            <td className="p-3.5 text-muted-foreground font-mono text-[11px]">
+                              PT: {policyTerm}y / PPT: {ppt}y
+                            </td>
+                            <td className="p-3.5 text-right font-bold text-primary">₹{Number(p.premiumAmount || p.totalPremium || 0).toLocaleString('en-IN')}</td>
+                            <td className="p-3.5 text-center">
+                              <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 uppercase">
+                                {p.status || 'ACTIVE'}
+                              </span>
+                            </td>
+                            <td className="p-3.5 text-right">
+                              <Link
+                                href={`/policies/${p.id}`}
+                                className="px-2.5 py-1 rounded-lg border bg-card hover:bg-muted text-xs font-semibold text-foreground transition inline-block"
+                              >
+                                View Policy
+                              </Link>
+                            </td>
+                          </tr>
+                        );
+                      }) : (
+                        <tr>
+                          <td colSpan={8} className="text-center py-8 text-muted-foreground text-xs">
+                            No life policies found matching filter. Complete a life quotation to issue policy.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -1085,6 +1242,9 @@ export function DynamicWorkspace({ roleLabel, roleIcon, fallbackRole, customCont
               </span>
               <span className="text-xs font-bold text-rose-600 bg-rose-500/10 px-3 py-1 rounded-lg border border-rose-500/20">
                 ❤️ {healthRenewals.length} Health Due
+              </span>
+              <span className="text-xs font-bold text-amber-600 bg-amber-500/10 px-3 py-1 rounded-lg border border-amber-500/20">
+                🛡️ {lifeRenewals.length} Life Due
               </span>
             </div>
           </div>
@@ -1127,6 +1287,17 @@ export function DynamicWorkspace({ roleLabel, roleIcon, fallbackRole, customCont
                   <HeartPulse className="h-3.5 w-3.5" />
                   <span>Health Renewals ({healthRenewals.length})</span>
                 </button>
+                <button
+                  onClick={() => setRenewalProductFilter('LIFE')}
+                  className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl transition-all ${
+                    renewalProductFilter === 'LIFE'
+                      ? 'bg-amber-600 text-white font-black shadow-xs'
+                      : 'bg-muted/40 hover:bg-muted text-muted-foreground'
+                  }`}
+                >
+                  <Shield className="h-3.5 w-3.5" />
+                  <span>Life Renewals ({lifeRenewals.length})</span>
+                </button>
               </div>
 
               {/* Search */}
@@ -1168,7 +1339,7 @@ export function DynamicWorkspace({ roleLabel, roleIcon, fallbackRole, customCont
           </div>
 
           {/* Retention Target Overview Strips */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {/* Motor Retention Card */}
             <div className="p-4 rounded-2xl border bg-gradient-to-br from-blue-500/5 via-card to-card flex items-center justify-between">
               <div className="flex items-center gap-3">
@@ -1203,7 +1374,7 @@ export function DynamicWorkspace({ roleLabel, roleIcon, fallbackRole, customCont
                   <div className="text-[10px] uppercase font-bold text-muted-foreground">Health Retention & Portability</div>
                   <div className="text-lg font-black text-foreground mt-0.5">{healthRenewals.length} Expiring Health Policies</div>
                   <div className="text-xs text-muted-foreground font-medium">
-                    Est. GWP: ₹{totalHealthRenewalPremium.toLocaleString('en-IN')} • Waiting Period & Continuity Protection
+                    Est. GWP: ₹{totalHealthRenewalPremium.toLocaleString('en-IN')} • Waiting Period Continuity
                   </div>
                 </div>
               </div>
@@ -1214,6 +1385,30 @@ export function DynamicWorkspace({ roleLabel, roleIcon, fallbackRole, customCont
                 }`}
               >
                 {renewalProductFilter === 'HEALTH' ? 'Viewing' : 'Focus Health'}
+              </button>
+            </div>
+
+            {/* Life Retention Card */}
+            <div className="p-4 rounded-2xl border bg-gradient-to-br from-amber-500/5 via-card to-card flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-xl bg-amber-500/10 text-amber-600 border border-amber-500/20">
+                  <Shield className="h-5 w-5" />
+                </div>
+                <div>
+                  <div className="text-[10px] uppercase font-bold text-muted-foreground">Life Renewal & Continuity</div>
+                  <div className="text-lg font-black text-foreground mt-0.5">{lifeRenewals.length} Expiring Life Policies</div>
+                  <div className="text-xs text-muted-foreground font-medium">
+                    Est. GWP: ₹{totalLifeRenewalPremium.toLocaleString('en-IN')} • 30-Day Grace Protection
+                  </div>
+                </div>
+              </div>
+              <button
+                onClick={() => setRenewalProductFilter('LIFE')}
+                className={`text-xs font-bold px-3 py-1.5 rounded-lg border transition ${
+                  renewalProductFilter === 'LIFE' ? 'bg-amber-600 text-white border-amber-600' : 'bg-card hover:bg-muted text-muted-foreground'
+                }`}
+              >
+                {renewalProductFilter === 'LIFE' ? 'Viewing' : 'Focus Life'}
               </button>
             </div>
           </div>
@@ -1409,6 +1604,115 @@ export function DynamicWorkspace({ roleLabel, roleIcon, fallbackRole, customCont
                         <tr>
                           <td colSpan={7} className="text-center py-8 text-muted-foreground text-xs">
                             No health renewals found matching criteria.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* SECTION C: LIFE RENEWALS TABLE */}
+          {(renewalProductFilter === 'LIFE' || renewalProductFilter === 'ALL') && (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between px-1">
+                <div className="flex items-center gap-2">
+                  <span className="p-1.5 rounded-lg bg-amber-500/10 text-amber-600">
+                    <Shield className="h-4 w-4" />
+                  </span>
+                  <div>
+                    <h4 className="text-sm font-black text-foreground">Life Policy Renewals & Grace Period Queue</h4>
+                    <p className="text-[11px] text-muted-foreground">Expiring life policies with policy term continuity, sum assured retention, and 30-day grace period tracking</p>
+                  </div>
+                </div>
+                <span className="text-[11px] font-bold text-muted-foreground">{filteredLifeRenewals.length} Life Renewals</span>
+              </div>
+
+              <div className="rounded-2xl border bg-card overflow-hidden shadow-xs">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-muted/40 text-[10px] font-bold uppercase text-muted-foreground border-b">
+                      <tr>
+                        <th className="p-3.5">Policy Number</th>
+                        <th className="p-3.5">Life Assured & Nominee</th>
+                        <th className="p-3.5">Plan Category & Sum Assured</th>
+                        <th className="p-3.5">Expiry Date & SLA</th>
+                        <th className="p-3.5">Term Continuity / Grace</th>
+                        <th className="p-3.5 text-right">Renewal Premium</th>
+                        <th className="p-3.5 text-center">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border/50">
+                      {filteredLifeRenewals.length > 0 ? filteredLifeRenewals.map((r: any) => {
+                        const matchedPolicy = policyMap.get(r.id) || policyMap.get(r.policyNumber);
+                        const sumAssured = matchedPolicy?.idvValue || matchedPolicy?.quotation?.sumInsured || 1000000;
+                        const planCat = matchedPolicy?.quotation?.lifeCase?.planCategory || matchedPolicy?.quotation?.metadata?.planCategory || matchedPolicy?.productLine || 'TERM_LIFE';
+                        return (
+                          <tr key={r.id || r.policyId} className="hover:bg-muted/20 transition-colors">
+                            <td className="p-3.5">
+                              <div className="font-mono font-bold text-amber-600">{r.policyNumber}</div>
+                              <div className="text-[10px] text-muted-foreground">{r.insurerName || matchedPolicy?.insurerName || 'Life Insurer'}</div>
+                            </td>
+                            <td className="p-3.5">
+                              <div className="font-bold text-foreground">{r.customerName || r.proposerName || matchedPolicy?.contactName || 'Life Assured'}</div>
+                              <div className="text-[10px] text-amber-600 font-semibold flex items-center gap-1.5 mt-0.5">
+                                <span className="px-1.5 py-0.2 rounded bg-amber-500/10 border border-amber-500/20">
+                                  {matchedPolicy?.quotation?.lifeCase?.nomineeName ? `Nominee: ${matchedPolicy.quotation.lifeCase.nomineeName}` : 'Individual Life'}
+                                </span>
+                              </div>
+                            </td>
+                            <td className="p-3.5">
+                              <div className="font-bold text-foreground">{planCat.replace(/_/g, ' ')}</div>
+                              <div className="text-[10px] text-muted-foreground font-mono font-bold text-emerald-600">
+                                SA: ₹{Number(sumAssured).toLocaleString('en-IN')}
+                              </div>
+                            </td>
+                            <td className="p-3.5">
+                              <div className="font-mono text-[11px] font-bold text-foreground">
+                                {r.expiryDate ? new Date(r.expiryDate).toLocaleDateString('en-IN') : 'Soon'}
+                              </div>
+                              <span
+                                className={`inline-block mt-0.5 px-2 py-0.5 rounded-md text-[10px] font-bold ${
+                                  (r.daysRemaining ?? 0) <= 7
+                                    ? 'bg-rose-500/10 text-rose-600 border border-rose-500/20'
+                                    : (r.daysRemaining ?? 0) <= 30
+                                      ? 'bg-amber-500/10 text-amber-600 border border-amber-500/20'
+                                      : 'bg-emerald-500/10 text-emerald-600 border border-emerald-500/20'
+                                }`}
+                              >
+                                {(r.daysRemaining ?? 0) < 0 ? 'EXPIRED' : `${r.daysRemaining ?? 0} days left`}
+                              </span>
+                            </td>
+                            <td className="p-3.5">
+                              <div className="text-xs font-semibold text-emerald-600 flex items-center gap-1">
+                                <ShieldCheck className="h-3.5 w-3.5 shrink-0" />
+                                <span>30-Day Grace Protection</span>
+                              </div>
+                              <div className="text-[10px] text-muted-foreground">Section 45 Continuity Active</div>
+                            </td>
+                            <td className="p-3.5 text-right font-bold text-primary">
+                              ₹{Number(r.estimatedRenewalPremium || r.lastPremium || r.premiumAmount || 0).toLocaleString('en-IN')}
+                            </td>
+                            <td className="p-3.5 text-center">
+                              <Link
+                                href={buildLifeRenewalUrl(r.id, {
+                                  contactId: r.contactId || matchedPolicy?.contactId,
+                                  leadId: r.leadId || matchedPolicy?.leadId || matchedPolicy?.quotation?.leadId,
+                                  planCategory: 'TERM_LIFE',
+                                })}
+                                className="px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs transition-colors inline-block whitespace-nowrap shadow-xs"
+                              >
+                                Generate Life Renewal
+                              </Link>
+                            </td>
+                          </tr>
+                        );
+                      }) : (
+                        <tr>
+                          <td colSpan={7} className="text-center py-8 text-muted-foreground text-xs">
+                            No life renewals found matching criteria.
                           </td>
                         </tr>
                       )}

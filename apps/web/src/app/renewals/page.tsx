@@ -21,19 +21,20 @@ import {
   Car,
   HeartPulse,
   ShieldCheck,
+  Shield,
   Layers,
 } from 'lucide-react';
 import Link from 'next/link';
 import { policiesRepository } from '../../repositories/policies.repository';
 import { apiClient } from '../../lib/api-client';
-import { buildRenewalUrl, buildHealthRenewalUrl } from '../../lib/renewal-url';
+import { buildRenewalUrl, buildHealthRenewalUrl, buildLifeRenewalUrl } from '../../lib/renewal-url';
 
 export default function RenewalsWorkspacePage() {
   const queryClient = useQueryClient();
   const [urgencyFilter, setUrgencyFilter] = useState<
     'ALL' | 'DUE_TODAY' | '7_DAYS' | '15_DAYS' | '30_DAYS' | 'GT_30' | 'OVERDUE' | 'ESCALATED' | 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW'
   >('ALL');
-  const [productFilter, setProductFilter] = useState<'ALL' | 'MOTOR' | 'HEALTH'>('ALL');
+  const [productFilter, setProductFilter] = useState<'ALL' | 'MOTOR' | 'HEALTH' | 'LIFE'>('ALL');
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [remindingId, setRemindingId] = useState<string | null>(null);
@@ -70,8 +71,23 @@ export default function RenewalsWorkspacePage() {
     return map;
   }, [policiesData]);
 
-  const isHealthItem = (item: any): boolean => {
+  const isLifeItem = (item: any): boolean => {
     if (!item) return false;
+    const pt = String(item.productType || '').toUpperCase();
+    if (pt === 'LIFE') return true;
+    const matched = policyMap.get(item.id) || policyMap.get(item.policyNumber);
+    if (matched) {
+      const policyType = String(matched.policyType || '').toUpperCase();
+      const productLine = String(matched.productLine || '').toUpperCase();
+      const productType = String(matched.quotation?.productType || '').toUpperCase();
+      if (policyType === 'LIFE' || productLine.includes('LIFE') || productType === 'LIFE') return true;
+      if (matched.lifeCaseId || matched.lifeMetadata || matched.quotation?.lifeCaseId || matched.quotation?.lifeCase) return true;
+    }
+    return false;
+  };
+
+  const isHealthItem = (item: any): boolean => {
+    if (!item || isLifeItem(item)) return false;
     const pt = String(item.productType || '').toUpperCase();
     if (pt === 'HEALTH') return true;
     const matched = policyMap.get(item.id) || policyMap.get(item.policyNumber);
@@ -130,14 +146,16 @@ export default function RenewalsWorkspacePage() {
     return [...list].sort((a: any, b: any) => (a.daysRemaining ?? 0) - (b.daysRemaining ?? 0));
   }, [queueResponse.data, urgencyFilter]);
 
-  const motorQueueItems = useMemo(() => queueItems.filter((item: any) => !isHealthItem(item)), [queueItems, policyMap]);
+  const lifeQueueItems = useMemo(() => queueItems.filter((item: any) => isLifeItem(item)), [queueItems, policyMap]);
   const healthQueueItems = useMemo(() => queueItems.filter((item: any) => isHealthItem(item)), [queueItems, policyMap]);
+  const motorQueueItems = useMemo(() => queueItems.filter((item: any) => !isHealthItem(item) && !isLifeItem(item)), [queueItems, policyMap]);
 
   const displayedItems = useMemo(() => {
     if (productFilter === 'MOTOR') return motorQueueItems;
     if (productFilter === 'HEALTH') return healthQueueItems;
+    if (productFilter === 'LIFE') return lifeQueueItems;
     return queueItems;
-  }, [queueItems, motorQueueItems, healthQueueItems, productFilter]);
+  }, [queueItems, motorQueueItems, healthQueueItems, lifeQueueItems, productFilter]);
 
   const summary = queueResponse.summary || {};
 
@@ -335,6 +353,17 @@ export default function RenewalsWorkspacePage() {
               <HeartPulse className="h-3.5 w-3.5" />
               <span>Health Renewals ({healthQueueItems.length})</span>
             </button>
+            <button
+              onClick={() => setProductFilter('LIFE')}
+              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg transition-all ${
+                productFilter === 'LIFE'
+                  ? 'bg-amber-600 text-white font-black shadow-xs'
+                  : 'bg-muted/40 hover:bg-muted text-muted-foreground'
+              }`}
+            >
+              <Shield className="h-3.5 w-3.5" />
+              <span>Life Renewals ({lifeQueueItems.length})</span>
+            </button>
           </div>
           <span className="text-xs font-bold text-muted-foreground">{displayedItems.length} Policies</span>
         </div>
@@ -343,11 +372,13 @@ export default function RenewalsWorkspacePage() {
         <div className="rounded-2xl border bg-card shadow-xs overflow-hidden">
           <div className="p-4 border-b bg-muted/20 flex items-center justify-between">
             <span className="text-xs font-extrabold text-foreground">
-              {productFilter === 'MOTOR'
-                ? 'Expiring Motor Policies Queue (NCB Roll-over & Reminders)'
-                : productFilter === 'HEALTH'
-                  ? 'Expiring Health Policies Queue (Portability & Waiting Period Continuity)'
-                  : 'Expiring Policies Queue (Multi-line Motor & Health)'}
+              {productFilter === 'LIFE'
+                ? 'Expiring Life Policies Queue (Premium Continuity & Grace Period Protection)'
+                : productFilter === 'MOTOR'
+                  ? 'Expiring Motor Policies Queue (NCB Roll-over & Reminders)'
+                  : productFilter === 'HEALTH'
+                    ? 'Expiring Health Policies Queue (Portability & Waiting Period Continuity)'
+                    : 'Expiring Policies Queue (Multi-line Motor, Health & Life)'}
             </span>
             <span className="text-[11px] text-muted-foreground font-semibold">{displayedItems.length} Policies</span>
           </div>
@@ -359,11 +390,21 @@ export default function RenewalsWorkspacePage() {
                 <tr>
                   <th className="px-5 py-3">Policy Number</th>
                   <th className="px-5 py-3">
-                    {productFilter === 'HEALTH' ? 'Proposer & Family' : productFilter === 'MOTOR' ? 'Customer & Vehicle' : 'Customer / Asset'}
+                    {productFilter === 'LIFE'
+                      ? 'Life Assured & Nominee'
+                      : productFilter === 'HEALTH'
+                        ? 'Proposer & Family'
+                        : productFilter === 'MOTOR'
+                          ? 'Customer & Vehicle'
+                          : 'Customer / Asset'}
                   </th>
                   <th className="px-5 py-3">Expiry Date & SLA</th>
                   <th className="px-5 py-3">
-                    {productFilter === 'HEALTH' ? 'Continuity & Bonus' : 'NCB Roll-over / Continuity'}
+                    {productFilter === 'LIFE'
+                      ? 'Policy & Premium Continuity'
+                      : productFilter === 'HEALTH'
+                        ? 'Continuity & Bonus'
+                        : 'NCB Roll-over / Continuity'}
                   </th>
                   <th className="px-5 py-3">Est. Renewal Premium</th>
                   <th className="px-5 py-3 text-right">Actions</th>
@@ -387,6 +428,7 @@ export default function RenewalsWorkspacePage() {
                   </tr>
                 ) : (
                   displayedItems.map((item: any) => {
+                    const isLife = isLifeItem(item);
                     const isHealth = isHealthItem(item);
                     const matchedPolicy = policyMap.get(item.id) || policyMap.get(item.policyNumber);
                     const membersCount = matchedPolicy?.members?.length || 1;
@@ -394,21 +436,31 @@ export default function RenewalsWorkspacePage() {
                     return (
                       <tr key={item.id} className="hover:bg-muted/20 transition">
                         <td className="px-5 py-3.5">
-                          <div className={`font-mono font-bold ${isHealth ? 'text-rose-600' : 'text-primary'}`}>
+                          <div className={`font-mono font-bold ${isLife ? 'text-amber-600' : isHealth ? 'text-rose-600' : 'text-primary'}`}>
                             {item.policyNumber}
                           </div>
                           <div className="flex items-center gap-1.5 mt-0.5">
                             <span className={`px-1.5 py-0.2 rounded text-[9px] font-bold uppercase ${
-                              isHealth ? 'bg-rose-500/10 text-rose-600 border border-rose-500/20' : 'bg-blue-500/10 text-blue-600 border border-blue-500/20'
+                              isLife
+                                ? 'bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/20'
+                                : isHealth
+                                  ? 'bg-rose-500/10 text-rose-600 border border-rose-500/20'
+                                  : 'bg-blue-500/10 text-blue-600 border border-blue-500/20'
                             }`}>
-                              {isHealth ? 'Health' : 'Motor'}
+                              {isLife ? 'Life' : isHealth ? 'Health' : 'Motor'}
                             </span>
                             <span className="text-[10px] text-muted-foreground">{item.insurerName}</span>
                           </div>
                         </td>
                         <td className="px-5 py-3.5">
                           <div className="font-bold text-foreground">{item.customerName}</div>
-                          {isHealth ? (
+                          {isLife ? (
+                            <div className="text-[11px] text-amber-700 dark:text-amber-400 flex items-center gap-2 mt-0.5">
+                              <span className="font-semibold">{matchedPolicy?.quotation?.lifeCase?.planCategory || 'Life Assured Cover'}</span>
+                              <span>•</span>
+                              <span className="text-muted-foreground font-mono text-[10px]">{item.customerPhone || 'Direct'}</span>
+                            </div>
+                          ) : isHealth ? (
                             <div className="text-[11px] text-rose-600 flex items-center gap-2 mt-0.5">
                               <span className="font-semibold">{membersCount} {membersCount === 1 ? 'Live' : 'Lives'} Covered</span>
                               <span>•</span>
@@ -452,7 +504,15 @@ export default function RenewalsWorkspacePage() {
                           </div>
                         </td>
                         <td className="px-5 py-3.5">
-                          {isHealth ? (
+                          {isLife ? (
+                            <div>
+                              <div className="flex items-center gap-1.5 text-amber-600 font-semibold text-xs">
+                                <ShieldCheck className="h-3.5 w-3.5" />
+                                <span>Term & Premium Continuity</span>
+                              </div>
+                              <div className="text-[10px] text-muted-foreground">Grace Period Protection (30 Days)</div>
+                            </div>
+                          ) : isHealth ? (
                             <div>
                               <div className="flex items-center gap-1.5 text-emerald-600 font-semibold text-xs">
                                 <ShieldCheck className="h-3.5 w-3.5" />
@@ -535,6 +595,17 @@ export default function RenewalsWorkspacePage() {
                             >
                               <span>Renew (in {item.daysRemaining - 45}d)</span>
                             </button>
+                          ) : isLife ? (
+                            <Link
+                              href={buildLifeRenewalUrl(item.id, {
+                                contactId: item.contactId || matchedPolicy?.contactId,
+                                leadId: item.leadId || matchedPolicy?.leadId,
+                              })}
+                              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-amber-600 text-white font-bold text-xs hover:bg-amber-700 transition shadow-xs"
+                            >
+                              <span>Renew Life</span>
+                              <ArrowRight className="h-3 w-3" />
+                            </Link>
                           ) : isHealth ? (
                             <Link
                               href={buildHealthRenewalUrl(item.id, {

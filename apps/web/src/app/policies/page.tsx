@@ -20,6 +20,7 @@ import {
   Clock,
   HeartPulse,
   Layers,
+  Shield,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { usePolicies, usePolicyWorkspace } from '../../hooks/usePolicies';
@@ -31,7 +32,7 @@ import { formatCurrency } from '../../lib/formatters';
 export default function PolicyRegisterPage() {
   const router = useRouter();
   const [savedView, setSavedView] = useState<string>('ALL');
-  const [productFilter, setProductFilter] = useState<'ALL' | 'MOTOR' | 'HEALTH'>('ALL');
+  const [productFilter, setProductFilter] = useState<'ALL' | 'MOTOR' | 'HEALTH' | 'LIFE'>('ALL');
   const [selectedPolicy, setSelectedPolicy] = useState<any | null>(null);
   const [reviewingPolicy, setReviewingPolicy] = useState<any | null>(null);
 
@@ -54,8 +55,18 @@ export default function PolicyRegisterPage() {
   const { policy: activePolicyDetail, refetch: refetchPolicyDetail } = usePolicyWorkspace(selectedPolicy?.id || '');
   const modalDocuments = activePolicyDetail?.documents || selectedPolicy?.documents || [];
 
-  const isHealthPolicy = (p: any): boolean => {
+  const isLifePolicy = (p: any): boolean => {
     if (!p) return false;
+    const policyType = String(p.policyType || '').toUpperCase();
+    const productLine = String(p.productLine || '').toUpperCase();
+    const productType = String(p.quotation?.productType || '').toUpperCase();
+    if (policyType === 'LIFE' || productLine.includes('LIFE') || productType === 'LIFE') return true;
+    if (p.lifeCaseId || p.lifeMetadata || p.quotation?.lifeCaseId || p.quotation?.lifeCase) return true;
+    return false;
+  };
+
+  const isHealthPolicy = (p: any): boolean => {
+    if (!p || isLifePolicy(p)) return false;
     const policyType = String(p.policyType || '').toUpperCase();
     const productLine = String(p.productLine || '').toUpperCase();
     const productType = String(p.quotation?.productType || '').toUpperCase();
@@ -66,14 +77,16 @@ export default function PolicyRegisterPage() {
   };
 
   const rawList = Array.isArray(policies) ? policies : ((policies as any)?.items || (policies as any)?.data || []);
-  const motorList = useMemo(() => rawList.filter((p: any) => !isHealthPolicy(p)), [rawList]);
+  const lifeList = useMemo(() => rawList.filter((p: any) => isLifePolicy(p)), [rawList]);
   const healthList = useMemo(() => rawList.filter((p: any) => isHealthPolicy(p)), [rawList]);
+  const motorList = useMemo(() => rawList.filter((p: any) => !isHealthPolicy(p) && !isLifePolicy(p)), [rawList]);
 
   const displayedPolicies = useMemo(() => {
     if (productFilter === 'MOTOR') return motorList;
     if (productFilter === 'HEALTH') return healthList;
+    if (productFilter === 'LIFE') return lifeList;
     return rawList;
-  }, [rawList, motorList, healthList, productFilter]);
+  }, [rawList, motorList, healthList, lifeList, productFilter]);
 
   const getPolicyPremium = (p: any): number => {
     if (!p) return 0;
@@ -153,12 +166,13 @@ export default function PolicyRegisterPage() {
       accessorKey: 'policyNumber',
       header: 'Policy No',
       cell: ({ row }: any) => {
+        const isLife = isLifePolicy(row.original);
         const isHealth = isHealthPolicy(row.original);
         return (
           <span
             onClick={() => router.push(`/policies/${row.original.id}`)}
             className={`cursor-pointer font-bold font-mono hover:underline ${
-              isHealth ? 'text-rose-600' : 'text-primary'
+              isLife ? 'text-amber-600' : isHealth ? 'text-rose-600' : 'text-primary'
             }`}
           >
             {row.original.policyNumber}
@@ -200,20 +214,25 @@ export default function PolicyRegisterPage() {
       accessorKey: 'productLine',
       header: 'Product / Line',
       cell: ({ row }: any) => {
+        const isLife = isLifePolicy(row.original);
         const isHealth = isHealthPolicy(row.original);
         return (
           <div className="flex items-center gap-1.5">
             <span
               className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase shrink-0 ${
-                isHealth
-                  ? 'bg-rose-500/10 text-rose-600 border border-rose-500/20'
-                  : 'bg-blue-500/10 text-blue-600 border border-blue-500/20'
+                isLife
+                  ? 'bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/20'
+                  : isHealth
+                    ? 'bg-rose-500/10 text-rose-600 border border-rose-500/20'
+                    : 'bg-blue-500/10 text-blue-600 border border-blue-500/20'
               }`}
             >
-              {isHealth ? 'Health' : 'Motor'}
+              {isLife ? 'Life' : isHealth ? 'Health' : 'Motor'}
             </span>
             <span className="text-xs font-medium text-foreground truncate max-w-[160px]">
-              {isHealth
+              {isLife
+                ? (row.original.quotation?.lifeCase?.planCategory || row.original.quotation?.title || row.original.productLine || 'Term Life Plan')
+                : isHealth
                 ? (row.original.quotation?.title || row.original.productLine || 'Comprehensive Health')
                 : (row.original.vehicle?.registrationNumber || row.original.registrationNumber || row.original.productLine || 'Motor')}
             </span>
@@ -326,7 +345,7 @@ export default function PolicyRegisterPage() {
           <h1 className="text-xl font-bold tracking-tight flex items-center gap-2">
             <ShieldCheck className="h-5 w-5 text-primary" /> Active Policy Register
           </h1>
-          <p className="text-xs text-muted-foreground">Book of business, active policies, and renewal pipeline across Motor & Health</p>
+          <p className="text-xs text-muted-foreground">Book of business, active policies, and renewal pipeline across Motor, Health & Life</p>
         </div>
 
         <button
@@ -368,6 +387,15 @@ export default function PolicyRegisterPage() {
           >
             <HeartPulse className="h-3.5 w-3.5" />
             <span>Health ({healthList.length})</span>
+          </button>
+          <button
+            onClick={() => setProductFilter('LIFE')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-bold transition-all ${
+              productFilter === 'LIFE' ? 'bg-amber-600 text-white shadow' : 'text-muted-foreground hover:bg-muted'
+            }`}
+          >
+            <Shield className="h-3.5 w-3.5" />
+            <span>Life ({lifeList.length})</span>
           </button>
         </div>
 

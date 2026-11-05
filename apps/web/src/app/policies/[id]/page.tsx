@@ -67,6 +67,17 @@ export default function PolicyWorkspacePage() {
   const displayExecutive = policyData?.renewalExecutive || 'Assigned Officer';
   const displayProductLine = policyData?.productLine || 'MOTOR COMPREHENSIVE';
 
+  const pData = (policyData || {}) as any;
+
+  const isLife =
+    String(policyData?.policyType || '').toUpperCase() === 'LIFE' ||
+    String(policyData?.productLine || '').toUpperCase().includes('LIFE') ||
+    String(pData?.quotation?.productType || '').toUpperCase() === 'LIFE' ||
+    Boolean(pData?.lifeCaseId) ||
+    Boolean(pData?.lifeCase) ||
+    Boolean(pData?.quotation?.lifeCase) ||
+    Boolean(pData?.lifeMetadata);
+
   const totalPrem = Number(policyData?.totalPremium ?? policyData?.premiumAmount ?? 0);
   const paidAmount = Number(policyData?.paidAmount ?? (policyData?.paymentStatus === 'PAID' ? totalPrem : 0));
   const outstandingBal = Number(policyData?.outstandingBalance ?? Math.max(0, totalPrem - paidAmount));
@@ -95,8 +106,12 @@ export default function PolicyWorkspacePage() {
                 {displayPolicyNumber}
               </h1>
               <StatusBadge status={displayStatus} />
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-primary/10 text-primary border border-primary/20 uppercase">
-                {displayProductLine}
+              <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border uppercase ${
+                isLife
+                  ? 'bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/20'
+                  : 'bg-primary/10 text-primary border border-primary/20'
+              }`}>
+                {isLife ? (pData?.quotation?.lifeCase?.planCategory || displayProductLine) : displayProductLine}
               </span>
             </div>
             <div className="flex items-center space-x-4 text-xs text-muted-foreground flex-wrap gap-y-1 pt-1">
@@ -234,87 +249,173 @@ export default function PolicyWorkspacePage() {
               </div>
             </div>
             <div className="p-2.5 rounded-lg bg-muted/20 border">
-              <span className="text-[10px] text-muted-foreground block">Insured Value (IDV)</span>
+              <span className="text-[10px] text-muted-foreground block">
+                {isLife ? 'Sum Assured' : 'Insured Value (IDV)'}
+              </span>
               <div className="font-bold text-foreground text-sm">
-                {policyData?.idvValue ? `₹${policyData.idvValue.toLocaleString('en-IN')}` : '—'}
+                {isLife
+                  ? pData?.quotation?.lifeCase?.sumAssured
+                    ? `₹${Number(pData.quotation.lifeCase.sumAssured).toLocaleString('en-IN')}`
+                    : policyData?.idvValue ? `₹${Number(policyData.idvValue).toLocaleString('en-IN')}` : '—'
+                  : policyData?.idvValue ? `₹${Number(policyData.idvValue).toLocaleString('en-IN')}` : '—'}
               </div>
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-2 text-xs pt-1">
-            <div className="p-2 rounded-lg border bg-card">
-              <span className="text-[10px] text-muted-foreground uppercase font-bold block">Own Damage (OD) Cover</span>
-              <span className="font-medium text-foreground">
-                {policyData?.odStartDate
-                  ? `${new Date(policyData.odStartDate).toLocaleDateString('en-IN')} to ${new Date(policyData.odExpiryDate || policyData.endDate || policyData.expiryDate || '').toLocaleDateString('en-IN')}`
-                  : policyData?.startDate
-                  ? `${new Date(policyData.startDate).toLocaleDateString('en-IN')} to ${new Date(policyData.expiryDate || policyData.endDate || '').toLocaleDateString('en-IN')}`
-                  : 'Not Recorded'}
-              </span>
-            </div>
-            <div className="p-2 rounded-lg border bg-card">
-              <span className="text-[10px] text-muted-foreground uppercase font-bold block">Third Party (TP) Cover</span>
-              <span className="font-medium text-foreground">
-                {policyData?.tpStartDate
-                  ? `${new Date(policyData.tpStartDate).toLocaleDateString('en-IN')} to ${new Date(policyData.tpExpiryDate || policyData.endDate || policyData.expiryDate || '').toLocaleDateString('en-IN')}`
-                  : 'Not Recorded'}
-              </span>
-            </div>
+            {isLife ? (
+              <>
+                <div className="p-2 rounded-lg border bg-card">
+                  <span className="text-[10px] text-muted-foreground uppercase font-bold block">Policy Term & Coverage</span>
+                  <span className="font-medium text-foreground">
+                    {policyData?.startDate
+                      ? `${new Date(policyData.startDate).toLocaleDateString('en-IN')} to ${new Date(policyData.expiryDate || policyData.endDate || '').toLocaleDateString('en-IN')}`
+                      : 'Not Recorded'}
+                  </span>
+                </div>
+                <div className="p-2 rounded-lg border bg-card">
+                  <span className="text-[10px] text-muted-foreground uppercase font-bold block">Premium Payment Term</span>
+                  <span className="font-medium text-foreground">
+                    {pData?.quotation?.lifeCase?.premiumPaymentTerm
+                      ? `${pData.quotation.lifeCase.premiumPaymentTerm} Years (${pData.quotation.lifeCase.premiumPaymentType || 'REGULAR'})`
+                      : 'Annual / Regular PPT'}
+                  </span>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="p-2 rounded-lg border bg-card">
+                  <span className="text-[10px] text-muted-foreground uppercase font-bold block">Own Damage (OD) Cover</span>
+                  <span className="font-medium text-foreground">
+                    {policyData?.odStartDate
+                      ? `${new Date(policyData.odStartDate).toLocaleDateString('en-IN')} to ${new Date(policyData.odExpiryDate || policyData.endDate || policyData.expiryDate || '').toLocaleDateString('en-IN')}`
+                      : policyData?.startDate
+                      ? `${new Date(policyData.startDate).toLocaleDateString('en-IN')} to ${new Date(policyData.expiryDate || policyData.endDate || '').toLocaleDateString('en-IN')}`
+                      : 'Not Recorded'}
+                  </span>
+                </div>
+                <div className="p-2 rounded-lg border bg-card">
+                  <span className="text-[10px] text-muted-foreground uppercase font-bold block">Third Party (TP) Cover</span>
+                  <span className="font-medium text-foreground">
+                    {policyData?.tpStartDate
+                      ? `${new Date(policyData.tpStartDate).toLocaleDateString('en-IN')} to ${new Date(policyData.tpExpiryDate || policyData.endDate || policyData.expiryDate || '').toLocaleDateString('en-IN')}`
+                      : 'Not Recorded'}
+                  </span>
+                </div>
+              </>
+            )}
           </div>
         </div>
 
-        {/* Vehicle & Risk Profile Card */}
-        <div className="lg:col-span-6 rounded-2xl border bg-card p-4 shadow-sm space-y-3">
-          <div className="flex justify-between items-center border-b pb-2">
-            <div className="flex items-center space-x-2">
-              <Car className="h-4 w-4 text-primary" />
-              <h3 className="text-xs font-bold uppercase tracking-wider">Vehicle & Policy Risk Profile</h3>
+        {/* Vehicle & Risk Profile Card vs Life Assured Profile Card */}
+        {isLife ? (
+          <div className="lg:col-span-6 rounded-2xl border bg-card p-4 shadow-sm space-y-3">
+            <div className="flex justify-between items-center border-b pb-2">
+              <div className="flex items-center space-x-2">
+                <ShieldCheck className="h-4 w-4 text-amber-600" />
+                <h3 className="text-xs font-bold uppercase tracking-wider text-amber-700 dark:text-amber-400">
+                  Life Assured & Underwriting Profile
+                </h3>
+              </div>
+              <span className="text-xs font-bold text-amber-700 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20 font-mono">
+                {pData?.quotation?.lifeCase?.planCategory || 'LIFE ASSURED'}
+              </span>
             </div>
-            <span className="text-xs font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-full border border-primary/20 font-mono">
-              {policyData?.vehicle?.registrationNumber || 'NO PLATE RECORDED'}
-            </span>
-          </div>
 
-          <div className="grid grid-cols-2 gap-2 text-xs pt-1">
-            <div className="p-2.5 rounded-lg bg-muted/20 border">
-              <span className="text-[10px] text-muted-foreground block">Make / Model</span>
-              <div className="font-bold text-foreground truncate">
-                {policyData?.vehicle?.makeModel || 'Motor Vehicle'}
+            <div className="grid grid-cols-2 gap-2 text-xs pt-1">
+              <div className="p-2.5 rounded-lg bg-muted/20 border">
+                <span className="text-[10px] text-muted-foreground block">Life Assured Name</span>
+                <div className="font-bold text-foreground truncate">
+                  {pData?.quotation?.lifeCase?.lifeAssuredName || displayCustomer}
+                </div>
+              </div>
+              <div className="p-2.5 rounded-lg bg-muted/20 border">
+                <span className="text-[10px] text-muted-foreground block">Age / Smoker Status</span>
+                <div className="font-semibold text-foreground">
+                  {[
+                    pData?.quotation?.lifeCase?.lifeAssuredAge ? `${pData.quotation.lifeCase.lifeAssuredAge} yrs` : null,
+                    pData?.quotation?.lifeCase?.smokerStatus ? (pData.quotation.lifeCase.smokerStatus === 'SMOKER' ? '🚬 Smoker' : '🚭 Non-Smoker') : 'Non-Smoker'
+                  ].filter(Boolean).join(' • ')}
+                </div>
+              </div>
+              <div className="p-2.5 rounded-lg bg-muted/20 border">
+                <span className="text-[10px] text-muted-foreground block">Nominee & Relationship</span>
+                <div className="font-semibold text-foreground truncate">
+                  {[
+                    pData?.nomineeName || pData?.quotation?.lifeCase?.nomineeName,
+                    pData?.nomineeRelation || pData?.quotation?.lifeCase?.nomineeRelation
+                  ].filter(Boolean).join(' (') + (pData?.nomineeRelation || pData?.quotation?.lifeCase?.nomineeRelation ? ')' : '') || 'Nominee on Schedule'}
+                </div>
+              </div>
+              <div className="p-2.5 rounded-lg bg-muted/20 border">
+                <span className="text-[10px] text-muted-foreground block">Policy Term (PT) / PPT</span>
+                <div className="font-mono text-[11px] text-foreground truncate">
+                  {pData?.quotation?.lifeCase?.policyTerm ? `${pData.quotation.lifeCase.policyTerm} Yrs Term` : 'Full Term'}
+                  {pData?.quotation?.lifeCase?.premiumPaymentTerm ? ` / ${pData.quotation.lifeCase.premiumPaymentTerm} Yrs Pay` : ''}
+                </div>
               </div>
             </div>
-            <div className="p-2.5 rounded-lg bg-muted/20 border">
-              <span className="text-[10px] text-muted-foreground block">Fuel / Category</span>
-              <div className="font-semibold text-foreground">
-                {[policyData?.vehicle?.fuelType, policyData?.vehicle?.category].filter(Boolean).join(' • ') || '—'}
-              </div>
-            </div>
-            <div className="p-2.5 rounded-lg bg-muted/20 border">
-              <span className="text-[10px] text-muted-foreground block">Engine / Chassis</span>
-              <div className="font-mono text-[11px] text-foreground truncate">
-                {[policyData?.vehicle?.engineNumber, policyData?.vehicle?.chassisNumber].filter(Boolean).join(' / ') || '—'}
-              </div>
-            </div>
-            <div className="p-2.5 rounded-lg bg-muted/20 border">
-              <span className="text-[10px] text-muted-foreground block">RTO Jurisdiction</span>
-              <div className="font-semibold text-foreground">
-                {policyData?.vehicle?.rtoLocation || '—'}
-              </div>
-            </div>
-          </div>
 
-          <div className="flex items-center justify-between text-xs text-muted-foreground pt-1 border-t">
-            <span>Historical Claims: <strong className="text-foreground">{claimsCount} Claim(s)</strong></span>
-            <span>
-              Renewal Window: <strong className="text-foreground">
-                {daysRemaining !== null
-                  ? daysRemaining > 0
-                    ? `${daysRemaining} Days Remaining`
-                    : 'Expired'
-                  : '—'}
-              </strong>
-            </span>
+            <div className="flex items-center justify-between text-xs text-muted-foreground pt-1 border-t">
+              <span>Section 45 Affirmation: <strong className="text-emerald-600 font-semibold">Incontestable / In-Force</strong></span>
+              <span>
+                Grace Period: <strong className="text-foreground">30 Days Standard</strong>
+              </span>
+            </div>
           </div>
-        </div>
+        ) : (
+          <div className="lg:col-span-6 rounded-2xl border bg-card p-4 shadow-sm space-y-3">
+            <div className="flex justify-between items-center border-b pb-2">
+              <div className="flex items-center space-x-2">
+                <Car className="h-4 w-4 text-primary" />
+                <h3 className="text-xs font-bold uppercase tracking-wider">Vehicle & Policy Risk Profile</h3>
+              </div>
+              <span className="text-xs font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-full border border-primary/20 font-mono">
+                {policyData?.vehicle?.registrationNumber || 'NO PLATE RECORDED'}
+              </span>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2 text-xs pt-1">
+              <div className="p-2.5 rounded-lg bg-muted/20 border">
+                <span className="text-[10px] text-muted-foreground block">Make / Model</span>
+                <div className="font-bold text-foreground truncate">
+                  {policyData?.vehicle?.makeModel || 'Motor Vehicle'}
+                </div>
+              </div>
+              <div className="p-2.5 rounded-lg bg-muted/20 border">
+                <span className="text-[10px] text-muted-foreground block">Fuel / Category</span>
+                <div className="font-semibold text-foreground">
+                  {[policyData?.vehicle?.fuelType, policyData?.vehicle?.category].filter(Boolean).join(' • ') || '—'}
+                </div>
+              </div>
+              <div className="p-2.5 rounded-lg bg-muted/20 border">
+                <span className="text-[10px] text-muted-foreground block">Engine / Chassis</span>
+                <div className="font-mono text-[11px] text-foreground truncate">
+                  {[policyData?.vehicle?.engineNumber, policyData?.vehicle?.chassisNumber].filter(Boolean).join(' / ') || '—'}
+                </div>
+              </div>
+              <div className="p-2.5 rounded-lg bg-muted/20 border">
+                <span className="text-[10px] text-muted-foreground block">RTO Jurisdiction</span>
+                <div className="font-semibold text-foreground">
+                  {policyData?.vehicle?.rtoLocation || '—'}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between text-xs text-muted-foreground pt-1 border-t">
+              <span>Historical Claims: <strong className="text-foreground">{claimsCount} Claim(s)</strong></span>
+              <span>
+                Renewal Window: <strong className="text-foreground">
+                  {daysRemaining !== null
+                    ? daysRemaining > 0
+                      ? `${daysRemaining} Days Remaining`
+                      : 'Expired'
+                    : '—'}
+                </strong>
+              </span>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* 3. Authoritative Workspace Tabs Container */}

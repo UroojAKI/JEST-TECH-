@@ -102,7 +102,12 @@ export class BackOfficeController {
       policy = await this.issuePolicyService.execute(
         {
           quotationId,
-          productLine: quotation.productType === 'HEALTH' ? 'Health Insurance' : 'General Policy',
+          productLine:
+            quotation.productType === 'HEALTH'
+              ? 'Health Insurance'
+              : quotation.productType === 'LIFE'
+                ? 'Life Insurance'
+                : 'General Policy',
           ...dto,
         },
         user.id,
