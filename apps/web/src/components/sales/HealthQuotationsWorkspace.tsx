@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../../lib/api-client';
-import { HeartPulse, Plus, Search, RefreshCw, Users, FileText, CheckCircle2, AlertCircle, X, Loader2, Car } from 'lucide-react';
+import { HeartPulse, Plus, Search, RefreshCw, Users, FileText, CheckCircle2, AlertCircle, X, Loader2, Car, Shield } from 'lucide-react';
 import { labelOf, PLAN_CATEGORIES, POLICY_FORMS } from '../health-quote/healthFormConfig';
 
 export function HealthQuotationsWorkspace() {

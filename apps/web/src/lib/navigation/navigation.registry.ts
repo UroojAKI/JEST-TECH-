@@ -26,6 +26,12 @@ export const AGENT_NAVIGATION: NavigationItem[] = [
     icon: 'FileSpreadsheet',
   },
   {
+    id: 'my-life-quotations',
+    title: 'Life Proposals',
+    href: '/sales/life-quotations',
+    icon: 'Shield',
+  },
+  {
     id: 'my-customers',
     title: 'My Customers',
     href: '/crm/customers',
@@ -100,6 +106,12 @@ export const BACK_OFFICE_NAVIGATION: NavigationItem[] = [
     title: 'Health Quotations',
     href: '/sales/health-quotations',
     icon: 'FileSpreadsheet',
+  },
+  {
+    id: 'bo-life-quotations',
+    title: 'Life Proposals',
+    href: '/sales/life-quotations',
+    icon: 'Shield',
   },
   {
     id: 'bo-policies',
