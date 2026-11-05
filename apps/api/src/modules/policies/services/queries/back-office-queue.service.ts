@@ -166,6 +166,12 @@ export class BackOfficeQueueService {
             motorPaymentRecord: true,
             motorDocuments: true,
             healthDocuments: true,
+            lifeDocuments: true,
+            lifeCase: {
+              include: {
+                documents: true,
+              },
+            },
             motorPreviousPolicy: {
               include: {
                 ruleEvaluation: true,
@@ -238,7 +244,8 @@ export class BackOfficeQueueService {
         }
 
         const isHealth = q.productType === 'HEALTH' || !!(q as any).healthCaseId;
-        const isMotor = !isHealth && (q.productType === 'MOTOR' || (q as any).lineOfBusiness === 'MOTOR');
+        const isLife = q.productType === 'LIFE' || !!(q as any).lifeCaseId;
+        const isMotor = !isHealth && !isLife && (q.productType === 'MOTOR' || (q as any).lineOfBusiness === 'MOTOR');
 
         // 1. Customer Gate (PAN details are optional for motor, mandatory for health)
         const hasCustomer = !!q.contact || !!(q as any).account;
@@ -249,7 +256,7 @@ export class BackOfficeQueueService {
 
         // For Health, policy issuance strictly requires both PAN and Aadhaar on file and KYC not rejected
         // For Motor, PAN details are optional in issuance as long as KYC is not rejected
-        const hasKyc = isHealth
+        const hasKyc = (isHealth || isLife)
           ? hasPan && hasAadhaar && !isKycRejected
           : !isKycRejected;
         const customerPassed = hasCustomer && hasContactDetails && hasKyc;
@@ -268,7 +275,7 @@ export class BackOfficeQueueService {
                       : !hasPan
                         ? 'Customer PAN required for Health policy issuance'
                         : 'Customer Aadhaar required for Health policy issuance')
-                  : isHealth
+                  : (isHealth || isLife)
                     ? 'Customer KYC verified (PAN & Aadhaar on file)'
                     : 'Customer verified (PAN optional)',
         };
@@ -279,7 +286,7 @@ export class BackOfficeQueueService {
           vehicleGate = {
             passed: true,
             status: 'PASSED',
-            detail: 'Not applicable for Health insurance',
+            detail: isLife ? 'Not applicable for Life insurance' : 'Not applicable for Health insurance',
           };
         } else {
           const vehicleMetadata = (q.motorMetadata as Record<string, any>) || {};
@@ -303,7 +310,7 @@ export class BackOfficeQueueService {
           inspectionGate = {
             passed: true,
             status: 'PASSED',
-            detail: 'Not applicable for Health insurance',
+            detail: isLife ? 'Not applicable for Life insurance' : 'Not applicable for Health insurance',
           };
         } else {
           const vehicleMetadata = (q.motorMetadata as Record<string, any>) || {};
@@ -371,6 +378,17 @@ export class BackOfficeQueueService {
 
         const motorDocs = (q as any).motorDocuments || [];
         const healthDocs = (q as any).healthDocuments || [];
+        const rawLifeDocs = [
+          ...((q as any).lifeDocuments || []),
+          ...(((q as any).lifeCase?.documents) || []),
+        ];
+        const lifeDocMap = new Map<string, any>();
+        for (const doc of rawLifeDocs) {
+          if (doc?.id) {
+            lifeDocMap.set(doc.id, doc);
+          }
+        }
+        const lifeDocs = Array.from(lifeDocMap.values());
 
         let documentsPassed = true;
         let documentsDetail = 'All mandatory documents verified';
@@ -385,14 +403,17 @@ export class BackOfficeQueueService {
           ...healthDocs.filter(
             (d: any) => d.verificationStatus !== 'VERIFIED',
           ),
+          ...lifeDocs.filter(
+            (d: any) => d.verificationStatus !== 'VERIFIED',
+          ),
         ];
 
-        if (isHealth && (q.status === QuotationStatus.ACCEPTED || q.status === QuotationStatus.APPROVED)) {
-          documentsPassed = true;
-          documentsDetail = 'All mandatory health documents verified';
-        } else if (unverified.length > 0) {
+        if (unverified.length > 0) {
           documentsPassed = false;
-          documentsDetail = `${unverified.length} document(s) pending underwriter verification`;
+          documentsDetail = `${unverified.length} document(s) pending or rejected underwriter verification`;
+        } else if ((isHealth || isLife) && (q.status === QuotationStatus.ACCEPTED || q.status === QuotationStatus.APPROVED)) {
+          documentsPassed = true;
+          documentsDetail = isLife ? 'All mandatory life documents verified' : 'All mandatory health documents verified';
         } else if (isMotor && documents.length === 0 && motorDocs.length === 0 && (q.motorPreviousPolicy?.ruleEvaluation?.inspectionRequired || q.workflowState === 'INSPECTION_REQUIRED')) {
           documentsPassed = false;
           documentsDetail = 'Inspection/Break-in documents required';
@@ -465,7 +486,7 @@ export class BackOfficeQueueService {
           customerPhone: q.contact?.phone || undefined,
           customerEmail: q.contact?.email || undefined,
           salesAgentName,
-          productType: isHealth ? 'HEALTH' : (q.productType || 'MOTOR'),
+          productType: isHealth ? 'HEALTH' : isLife ? 'LIFE' : (q.productType || 'MOTOR'),
           insurerName: q.insurerName || 'HDFC ERGO',
           totalPremium: payableAmt,
           paymentAmount: paidAmt,

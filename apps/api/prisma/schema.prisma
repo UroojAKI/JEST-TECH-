@@ -630,6 +630,7 @@ model Contact {
   quotations           Quotation[]
   motorQuotationCases  MotorQuotationCase[]
   healthQuotationCases HealthQuotationCase[]
+  lifeQuotationCases   LifeQuotationCase[]
 
   policies  Policy[]
   claims    Claim[]
@@ -820,10 +821,11 @@ model Lead {
   callLogs             CallLog[]
   meetingLogs          MeetingLog[]
 
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  deletedAt DateTime?
-  version   Int       @default(1)
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+  deletedAt         DateTime?
+  version           Int                 @default(1)
+  LifeQuotationCase LifeQuotationCase[]
 
   @@unique([companyId, id])
   @@index([leadCode])
@@ -1260,6 +1262,20 @@ model Quotation {
   healthPlanCategory    HealthPlanCategory?
   healthMetadata        Json? // Health premium / rider / commission data (Forms i, ii, iii)
 
+  // Life Quotation Case & Rider relations
+  lifeCaseId             String?
+  lifeCase               LifeQuotationCase?       @relation("LifeCaseQuotations", fields: [lifeCaseId], references: [id], onDelete: SetNull)
+  selectedInLifeCases    LifeQuotationCase[]      @relation("SelectedLifeCaseQuote")
+  lifeDocuments          LifeQuotationDocument[]
+  lifeRiders             LifeQuotationRider[]
+  lifePlanCategory       LifePlanCategory?
+  lifePolicyType         LifePolicyType?
+  premiumPaymentType     PremiumPaymentType?
+  premiumFrequency       PremiumPaymentFrequency?
+  policyTermYears        Int?
+  premiumPayingTermYears Int?
+  lifeMetadata           Json?
+
   // Motor module relations
   motorJourney        MotorJourney?
   motorPreviousPolicy MotorPreviousPolicy?
@@ -1286,6 +1302,7 @@ model Quotation {
   @@index([agentExternalCodeId])
   @@index([caseId])
   @@index([healthCaseId])
+  @@index([lifeCaseId])
   @@map("quotations")
 }
 
@@ -1973,6 +1990,7 @@ model Document {
   endorsementDocuments     EndorsementDocument[]
   motorQuotationDocuments  MotorQuotationDocument[]
   healthQuotationDocuments HealthQuotationDocument[]
+  lifeQuotationDocuments   LifeQuotationDocument[]
 
   @@index([entityType, entityId])
   @@index([uploadedById])
@@ -2996,6 +3014,8 @@ model Company {
   motorQuotationDocuments  MotorQuotationDocument[]
   healthQuotationCases     HealthQuotationCase[]
   healthQuotationDocuments HealthQuotationDocument[]
+  lifeQuotationCases       LifeQuotationCase[]
+  lifeQuotationDocuments   LifeQuotationDocument[]
   commissions              Commission[]               @relation("CompanyCommissions")
   settlements              Settlement[]               @relation("CompanySettlements")
 
@@ -4326,6 +4346,7 @@ model Agent {
   quotationsList        Quotation[]                @relation("AgentQuotations")
   agentHistories        CustomerAgentHistory[]     @relation("AgentHistories")
   healthQuotationCases  HealthQuotationCase[]      @relation("AgentHealthQuotationCases")
+  lifeQuotationCases    LifeQuotationCase[]        @relation("AgentLifeQuotationCases")
   externalCodes         AgentExternalCode[]
   externalCodeHistory   AgentExternalCodeHistory[]
   assignedContacts      Contact[]                  @relation("AgentAssignedContacts")
@@ -4374,6 +4395,7 @@ model AgentExternalCode {
   assignedContacts          Contact[]                         @relation("ContactAssignedExternalCode")
   primaryCustomers          Customer[]                        @relation("CustomerPrimaryAgentExternalCode")
   healthCases               HealthQuotationCase[]             @relation("HealthCaseAgentExternalCode")
+  lifeCases                 LifeQuotationCase[]               @relation("LifeCaseAgentExternalCode")
   quotations                Quotation[]                       @relation("QuotationAgentExternalCode")
   policies                  Policy[]                          @relation("PolicyAgentExternalCode")
   claims                    Claim[]                           @relation("ClaimAgentExternalCode")
@@ -5042,4 +5064,250 @@ model HealthQuotationDocument {
   @@index([quotationId])
   @@index([documentId])
   @@map("health_quotation_documents")
+}
+
+// ==========================================
+// LIFE INSURANCE MODULE ENUMS & MODELS
+// ==========================================
+
+enum LifePlanCategory {
+  TERM_INSURANCE
+  SAVINGS_PLANS
+  INVESTMENT_PLANS
+  RETIREMENT_PENSION
+  CHILD_FUTURE
+  WHOLE_LIFE
+  ANNUITY
+  GROUP_INSURANCE
+}
+
+enum LifePolicyType {
+  INDIVIDUAL_PURE_RISK
+  JOINT_LIFE_ANNUITY
+  GROUP_LIFE
+}
+
+enum PremiumPaymentType {
+  REGULAR_PAY
+  LIMITED_PAY
+  SINGLE_PAY
+}
+
+enum PremiumPaymentFrequency {
+  ANNUAL
+  SEMI_ANNUAL
+  QUARTERLY
+  MONTHLY
+  SINGLE
+}
+
+enum LifePolicyForm {
+  NEW_POLICY
+  RENEWAL
+  RIDERS_ADDON
+}
+
+enum LifeCaseStatus {
+  DRAFT
+  PROPOSAL_CREATED
+  QUOTED
+  UNDERWRITING_REVIEW
+  MEDICAL_SCHEDULED
+  APPROVED
+  REJECTED
+  CONVERTED
+  CANCELLED
+}
+
+enum ProposerRelation {
+  SELF
+  SPOUSE
+  CHILD
+  PARENT
+  EMPLOYER
+  BUSINESS_PARTNER
+  OTHER
+}
+
+enum AppointeeRelation {
+  FATHER
+  MOTHER
+  LEGAL_GUARDIAN
+  GRANDPARENT
+  SPOUSE
+  SIBLING
+  OTHER
+}
+
+enum SmokerStatus {
+  SMOKER
+  NON_SMOKER
+  FORMER_SMOKER
+  OCCASIONAL_SMOKER
+  UNKNOWN
+}
+
+enum LifeRiderType {
+  ACCIDENTAL_DEATH_BENEFIT
+  ACCIDENTAL_TOTAL_PERMANENT_DISABILITY
+  CRITICAL_ILLNESS_RIDER
+  WOP_CRITICAL_ILLNESS
+  WOP_DISABILITY
+  TERM_RIDER
+  HOSPITAL_CASH_RIDER
+  INCOME_BENEFIT_RIDER
+  CANCER_COVER_RIDER
+  COVID_COVER_RIDER
+  OTHER
+}
+
+enum LifeDocumentType {
+  PROPOSER_PAN
+  PROPOSER_AADHAAR
+  LIFE_ASSURED_AGE_PROOF
+  LIFE_ASSURED_PHOTO
+  INCOME_PROOF_ITR
+  SALARY_SLIPS_3M
+  BANK_STATEMENT_6M
+  MEDICAL_REPORT
+  INVESTMENT_RISK_PROFILE
+  GROUP_EMPLOYEE_LIST
+  PREVIOUS_POLICY_COPY
+  GUARDIAN_APPOINTEE_KYC
+  OTHER
+}
+
+model LifeQuotationCase {
+  id           String           @id @default(uuid())
+  companyId    String
+  company      Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  caseCode     String           @unique
+  planCategory LifePlanCategory
+  policyForm   LifePolicyForm   @default(NEW_POLICY)
+  status       LifeCaseStatus   @default(DRAFT)
+
+  // CRM & Agency Relations
+  contactId           String
+  contact             Contact            @relation(fields: [contactId], references: [id], onDelete: Restrict)
+  agentId             String?
+  agent               Agent?             @relation("AgentLifeQuotationCases", fields: [agentId], references: [id], onDelete: SetNull)
+  agentExternalCodeId String?
+  agentExternalCode   AgentExternalCode? @relation("LifeCaseAgentExternalCode", fields: [agentExternalCodeId], references: [id], onDelete: SetNull)
+  leadId              String?
+  lead                Lead?              @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  selectedQuoteId     String?
+  selectedQuote       Quotation?         @relation("SelectedLifeCaseQuote", fields: [selectedQuoteId], references: [id], onDelete: SetNull)
+
+  // Proposer Underwriting & Financial Details
+  proposerOccupation ProposerOccupation?
+  annualIncome       Decimal?            @db.Decimal(14, 2)
+  addressSnapshot    Json?
+  customerSnapshot   Json
+
+  // Life Assured Underwriting Details
+  isLifeAssuredDifferent Boolean          @default(false)
+  proposerRelation       ProposerRelation @default(SELF)
+  lifeAssuredName        String?
+  lifeAssuredDob         DateTime?
+  lifeAssuredGender      Gender?
+
+  // Medical & Underwriting Risk Rating
+  smokerStatus           SmokerStatus @default(UNKNOWN)
+  heightCm               Decimal?     @db.Decimal(5, 1)
+  weightKg               Decimal?     @db.Decimal(5, 1)
+  bmi                    Decimal?     @db.Decimal(4, 1)
+  occupationRiskCategory String?
+  hasPreExistingIllness  Boolean      @default(false)
+  medicalHistoryDetails  String?
+
+  // Joint-Life Annuity Underwriting (Category 1.7)
+  secondaryLifeAssured Json?
+
+  // Nominee & Minor Appointee
+  nomineeName       String?
+  nomineeDob        DateTime?
+  nomineeRelation   NomineeRelation?
+  isNomineeMinor    Boolean            @default(false)
+  appointeeName     String?
+  appointeeDob      DateTime?
+  appointeeRelation AppointeeRelation?
+
+  // Category-Specific Data & Renewal History
+  categoryData           Json?
+  previousPolicySnapshot Json?
+
+  // Child Relations
+  quotations Quotation[]             @relation("LifeCaseQuotations")
+  documents  LifeQuotationDocument[]
+
+  // Audit
+  createdById String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+
+  @@index([companyId])
+  @@index([contactId])
+  @@index([companyId, agentId])
+  @@index([agentExternalCodeId])
+  @@index([leadId])
+  @@index([selectedQuoteId])
+  @@index([planCategory])
+  @@index([status])
+  @@index([deletedAt])
+  @@map("life_quotation_cases")
+}
+
+model LifeQuotationRider {
+  id          String        @id @default(uuid())
+  quotationId String
+  quotation   Quotation     @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+  riderType   LifeRiderType
+  riderName   String
+  sumAssured  Decimal       @db.Decimal(14, 2)
+  termYears   Int?
+  pptYears    Int?
+
+  // Financial Breakdown
+  basePremium         Decimal @db.Decimal(12, 2)
+  gstRate             Decimal @default(18.0) @db.Decimal(5, 2)
+  gstAmount           Decimal @db.Decimal(12, 2)
+  totalPremium        Decimal @db.Decimal(12, 2)
+  brokeragePercent    Decimal @default(0.0) @db.Decimal(5, 2)
+  brokerageAmount     Decimal @default(0.0) @db.Decimal(12, 2)
+  discountAmount      Decimal @default(0.0) @db.Decimal(12, 2)
+  calculationSnapshot Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([quotationId])
+  @@index([riderType])
+  @@map("life_quotation_riders")
+}
+
+model LifeQuotationDocument {
+  id                 String                     @id @default(uuid())
+  companyId          String
+  company            Company                    @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  caseId             String
+  case               LifeQuotationCase          @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  quotationId        String?
+  quotation          Quotation?                 @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+  documentId         String
+  document           Document                   @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  documentType       LifeDocumentType
+  verificationStatus DocumentVerificationStatus @default(PENDING)
+  rejectionReason    String?
+  verifiedById       String?
+  verifiedAt         DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId])
+  @@index([caseId])
+  @@index([quotationId])
+  @@index([documentId])
+  @@map("life_quotation_documents")
 }

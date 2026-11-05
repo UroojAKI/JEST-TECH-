@@ -173,17 +173,25 @@ export class IssuePolicyService {
       });
     }
 
+    let lifeCase: any = null;
+    if ((quotation as any).lifeCaseId) {
+      lifeCase = await this.prisma.lifeQuotationCase.findUnique({
+        where: { id: (quotation as any).lifeCaseId },
+      });
+    }
+
     // Nominees are business data, not presentation defaults. Missing nominees block issuance.
     if (!dto.nominees || dto.nominees.length === 0) {
-      if (healthCase?.nomineeName) {
-        const parts = healthCase.nomineeName.trim().split(' ');
+      const activeCase = lifeCase || healthCase;
+      if (activeCase?.nomineeName) {
+        const parts = activeCase.nomineeName.trim().split(' ');
         const fName = parts[0] || 'Nominee';
         const lName = parts.slice(1).join(' ') || '';
         dto.nominees = [
           {
             firstName: fName,
             lastName: lName,
-            relation: healthCase.nomineeRelation || 'OTHER',
+            relation: activeCase.nomineeRelation || 'OTHER',
             percentage: 100,
           },
         ];
@@ -435,6 +443,28 @@ export class IssuePolicyService {
             OR: [
               { quotationId: quotation.id },
               { caseId: (quotation as any).healthCaseId },
+            ],
+            verificationStatus: { not: DocumentVerificationStatus.VERIFIED },
+          },
+          data: {
+            verificationStatus: DocumentVerificationStatus.VERIFIED,
+            verifiedById: createdById,
+            verifiedAt: new Date(),
+          },
+        });
+      }
+
+      if ((quotation as any).lifeCaseId) {
+        await (tx as any).lifeQuotationCase.update({
+          where: { id: (quotation as any).lifeCaseId },
+          data: { status: 'CONVERTED' },
+        });
+
+        await (tx as any).lifeQuotationDocument.updateMany({
+          where: {
+            OR: [
+              { quotationId: quotation.id },
+              { caseId: (quotation as any).lifeCaseId },
             ],
             verificationStatus: { not: DocumentVerificationStatus.VERIFIED },
           },
