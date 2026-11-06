@@ -314,11 +314,12 @@ export class PolicyMapper {
           seenIds.add(doc.id);
           unifiedDocs.push({
             id: doc.id,
-            documentId: null,
+            documentId: doc.id,
             documentType: doc.documentType || 'POLICY_DOCUMENT',
             fileKey: doc.fileKey,
             fileName: doc.fileName || doc.documentType || 'Policy Document',
             fileSize: doc.fileSize || 0,
+            mimeType: 'application/pdf',
             createdAt: doc.createdAt,
             source: 'POLICY',
             verificationStatus: 'VERIFIED',
@@ -336,7 +337,7 @@ export class PolicyMapper {
           const coreDoc = mDoc.document;
           unifiedDocs.push({
             id: mDoc.id,
-            documentId: mDoc.documentId || null,
+            documentId: mDoc.documentId || mDoc.id,
             documentType: mDoc.documentType || 'MOTOR_DOCUMENT',
             fileKey: coreDoc?.fileKey || coreDoc?.fileUrl || '',
             fileName: coreDoc?.originalFileName || coreDoc?.fileName || coreDoc?.name || mDoc.documentType || 'Quotation Document',
@@ -358,7 +359,7 @@ export class PolicyMapper {
           const coreDoc = hDoc.document;
           unifiedDocs.push({
             id: hDoc.id,
-            documentId: hDoc.documentId || null,
+            documentId: hDoc.documentId || hDoc.id,
             documentType: hDoc.documentType || 'HEALTH_DOCUMENT',
             fileKey: coreDoc?.fileKey || coreDoc?.fileUrl || '',
             fileName: coreDoc?.originalFileName || coreDoc?.fileName || coreDoc?.name || hDoc.documentType || 'Health Document',
@@ -372,9 +373,32 @@ export class PolicyMapper {
       }
     }
 
+    if (quote?.lifeDocuments && Array.isArray(quote.lifeDocuments)) {
+      for (const lDoc of quote.lifeDocuments) {
+        const idKey = lDoc.documentId || lDoc.id;
+        if (!seenIds.has(idKey)) {
+          seenIds.add(idKey);
+          const coreDoc = lDoc.document;
+          unifiedDocs.push({
+            id: lDoc.id,
+            documentId: lDoc.documentId || lDoc.id,
+            documentType: lDoc.documentType || 'LIFE_DOCUMENT',
+            fileKey: coreDoc?.fileKey || coreDoc?.fileUrl || '',
+            fileName: coreDoc?.originalFileName || coreDoc?.fileName || coreDoc?.name || lDoc.documentType || 'Life Document',
+            fileSize: coreDoc?.fileSize || coreDoc?.size || 0,
+            mimeType: coreDoc?.mimeType || 'application/pdf',
+            createdAt: lDoc.createdAt || coreDoc?.createdAt || p.createdAt,
+            source: 'QUOTATION',
+            verificationStatus: lDoc.verificationStatus || 'PENDING',
+          });
+        }
+      }
+    }
+
     const caseDocs = [
       ...(Array.isArray(quote?.case?.documents) ? quote.case.documents : []),
       ...(Array.isArray(quote?.healthCase?.documents) ? quote.healthCase.documents : []),
+      ...(Array.isArray(quote?.lifeCase?.documents) ? quote.lifeCase.documents : []),
     ];
     for (const cDoc of caseDocs) {
       const idKey = cDoc.documentId || cDoc.id;
@@ -383,7 +407,7 @@ export class PolicyMapper {
         const coreDoc = cDoc.document;
         unifiedDocs.push({
           id: cDoc.id,
-          documentId: cDoc.documentId || null,
+          documentId: cDoc.documentId || cDoc.id,
           documentType: cDoc.documentType || 'CASE_DOCUMENT',
           fileKey: coreDoc?.fileKey || coreDoc?.fileUrl || '',
           fileName: coreDoc?.originalFileName || coreDoc?.fileName || coreDoc?.name || cDoc.documentType || 'Case Document',
@@ -402,11 +426,12 @@ export class PolicyMapper {
           seenIds.add(qDoc.id);
           unifiedDocs.push({
             id: qDoc.id,
-            documentId: null,
+            documentId: qDoc.id,
             documentType: qDoc.documentType || 'QUOTATION_DOCUMENT',
             fileKey: qDoc.fileKey || '',
-            fileName: qDoc.fileKey ? qDoc.fileKey.split('/').pop() || qDoc.documentType : 'Quotation Document',
-            fileSize: 0,
+            fileName: qDoc.fileName || (qDoc.fileKey ? qDoc.fileKey.split('/').pop() || qDoc.documentType : 'Quotation Document'),
+            fileSize: qDoc.fileSize || 0,
+            mimeType: 'application/pdf',
             createdAt: qDoc.createdAt || p.createdAt,
             source: 'QUOTATION',
             verificationStatus: 'VERIFIED',

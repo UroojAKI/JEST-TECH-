@@ -29,6 +29,9 @@ export class GetPolicyService {
 
     const quoteId = policy.quotationId;
     const inspectionId = (policy.quotation as any)?.motorInspection?.id;
+    const caseId = (policy.quotation as any)?.case?.id;
+    const healthCaseId = (policy.quotation as any)?.healthCase?.id;
+    const lifeCaseId = (policy.quotation as any)?.lifeCase?.id;
 
     let directDocs: any[] = [];
     if (this.prisma) {
@@ -39,6 +42,9 @@ export class GetPolicyService {
             { entityType: 'POLICY', entityId: policy.id },
             ...(quoteId ? [{ entityType: 'QUOTATION', entityId: quoteId }] : []),
             ...(inspectionId ? [{ entityType: 'INSPECTION', entityId: inspectionId }] : []),
+            ...(caseId ? [{ entityType: 'QUOTATION_CASE', entityId: caseId }] : []),
+            ...(healthCaseId ? [{ entityType: 'HEALTH_QUOTATION_CASE', entityId: healthCaseId }] : []),
+            ...(lifeCaseId ? [{ entityType: 'LIFE_QUOTATION_CASE', entityId: lifeCaseId }] : []),
           ],
         },
         orderBy: { createdAt: 'desc' },

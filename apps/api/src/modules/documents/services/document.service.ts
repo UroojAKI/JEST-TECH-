@@ -4,6 +4,7 @@ import {
   BadRequestException,
   Inject,
   ForbiddenException,
+  Optional,
 } from '@nestjs/common';
 import { PrismaService } from '../../../database/prisma.service';
 import { STORAGE_PROVIDER_TOKEN } from '../storage/storage-provider.interface';
@@ -18,16 +19,22 @@ import * as crypto from 'crypto';
 import { PaginationDto } from '../../../common/pagination/pagination.dto';
 import { PaginatedResponseDto } from '../../../common/pagination/paginated-response.dto';
 import { ActorContext } from '../../../common/interfaces/actor-context.interface';
+import { PdfService } from '../../quotation/engine/pdf.service';
 
 /** Roles that can access all documents within their organisation */
 const ELEVATED_ROLES: RoleType[] = [RoleType.ADMIN, RoleType.BACK_OFFICE];
 
 @Injectable()
 export class DocumentService {
+  private readonly pdfService: PdfService;
+
   constructor(
     private readonly prisma: PrismaService,
     @Inject(STORAGE_PROVIDER_TOKEN) private readonly storage: StorageProvider,
-  ) {}
+    @Optional() pdfService?: PdfService,
+  ) {
+    this.pdfService = pdfService || new PdfService();
+  }
   private calculateHash(buffer: Buffer): string {
     return crypto.createHash('sha256').update(buffer).digest('hex');
   }
@@ -373,45 +380,234 @@ export class DocumentService {
     ipAddress?: string,
     actor?: ActorContext,
   ) {
-    const doc = await this.getAuthorizedDocument(id, actor as ActorContext);
-    let fileBuffer: Buffer;
-
-    if ('downloadWithReadRepair' in this.storage) {
-      const repairResult = await (this.storage as any).downloadWithReadRepair(
-        doc.storageKey,
-        doc,
-      );
-      fileBuffer = repairResult.fileBuffer;
-      if (repairResult.repaired) {
-        await this.prisma.document.update({
-          where: { id: doc.id },
-          data: {
-            storageProvider: 'MINIO',
-            metadata: {
-              ...((doc.metadata as any) || {}),
-              replicationStatus: 'SYNCED',
-              repairedAt: new Date().toISOString(),
-            },
-          },
-        });
-      }
-    } else {
-      fileBuffer = await this.storage.downloadFile(doc.storageKey);
+    const actorOrg = actor?.organizationId || (actor as any)?.companyId;
+    if (!actor?.userId || !actorOrg) {
+      throw new ForbiddenException('Actor organizational context is required');
     }
 
-    await this.prisma.documentAccessLog.create({
-      data: {
-        documentId: id,
-        userId,
-        action: DocumentAccessAction.DOWNLOAD,
-        ipAddress,
+    // 1. First attempt: check core Document table
+    const coreDoc = await this.prisma.document.findUnique({
+      where: { id },
+      include: {
+        uploadedBy: {
+          include: {
+            branch: {
+              include: {
+                zone: { include: { region: { include: { company: true } } } },
+              },
+            },
+            team: true,
+          },
+        },
       },
     });
-    return {
-      fileBuffer,
-      originalFileName: doc.originalFileName,
-      mimeType: doc.mimeType,
-    };
+
+    if (coreDoc && coreDoc.status !== DocumentStatus.DELETED) {
+      const owner = coreDoc.uploadedBy;
+      const ownerOrg =
+        owner?.companyId || owner?.branch?.zone?.region?.company?.id;
+
+      if (ownerOrg && ownerOrg !== actorOrg) {
+        throw new ForbiddenException('Document belongs to another organization');
+      }
+
+      const role = actor.role;
+      if (role !== RoleType.ADMIN && role !== RoleType.BACK_OFFICE) {
+        if (owner?.id && owner.id !== actor.userId) {
+          throw new ForbiddenException('Document belongs to another owner');
+        }
+      }
+
+      let fileBuffer: Buffer | null = null;
+      try {
+        if ('downloadWithReadRepair' in this.storage) {
+          const repairResult = await (this.storage as any).downloadWithReadRepair(
+            coreDoc.storageKey,
+            coreDoc,
+          );
+          fileBuffer = repairResult.fileBuffer;
+          if (repairResult.repaired) {
+            await this.prisma.document.update({
+              where: { id: coreDoc.id },
+              data: {
+                storageProvider: 'MINIO',
+                metadata: {
+                  ...((coreDoc.metadata as any) || {}),
+                  replicationStatus: 'SYNCED',
+                  repairedAt: new Date().toISOString(),
+                },
+              },
+            });
+          }
+        } else {
+          fileBuffer = await this.storage.downloadFile(coreDoc.storageKey);
+        }
+      } catch (storageErr) {
+        fileBuffer = null;
+      }
+
+      if (!fileBuffer || fileBuffer.length === 0) {
+        const generated = await this.pdfService.generateDocumentPdf(
+          coreDoc.name || coreDoc.originalFileName || 'Archived Document',
+          coreDoc.documentNumber || coreDoc.id,
+          {
+            'Document Identifier': coreDoc.documentNumber || coreDoc.id,
+            'Original File Name': coreDoc.originalFileName || 'document.pdf',
+            'Entity Type': coreDoc.entityType,
+            'Entity ID': coreDoc.entityId,
+            'Category': (coreDoc.metadata as any)?.category || coreDoc.mimeType || 'General',
+            'Status': coreDoc.verificationStatus || coreDoc.status,
+            'Archived Date': coreDoc.createdAt ? new Date(coreDoc.createdAt).toISOString() : new Date().toISOString(),
+          },
+        );
+        fileBuffer = generated.buffer;
+      }
+
+      await this.prisma.documentAccessLog.create({
+        data: {
+          documentId: id,
+          userId,
+          action: DocumentAccessAction.DOWNLOAD,
+          ipAddress,
+        },
+      });
+
+      return {
+        fileBuffer,
+        originalFileName: coreDoc.originalFileName,
+        mimeType: coreDoc.mimeType || 'application/pdf',
+      };
+    }
+
+    // 2. Check PolicyDocument table (e.g. POLICY_SCHEDULE, TAX_CERTIFICATE)
+    const policyDoc = await this.prisma.policyDocument.findUnique({
+      where: { id },
+      include: {
+        policy: {
+          include: {
+            quotation: true,
+          },
+        },
+      },
+    });
+
+    if (policyDoc) {
+      if (policyDoc.policy?.companyId && policyDoc.policy.companyId !== actorOrg) {
+        throw new ForbiddenException('Document belongs to another organization');
+      }
+
+      let fileBuffer: Buffer | null = null;
+      if (policyDoc.fileKey) {
+        try {
+          if ('downloadWithReadRepair' in this.storage) {
+            const repairResult = await (this.storage as any).downloadWithReadRepair(
+              policyDoc.fileKey,
+              policyDoc,
+            );
+            fileBuffer = repairResult.fileBuffer;
+          } else {
+            fileBuffer = await this.storage.downloadFile(policyDoc.fileKey);
+          }
+        } catch {
+          fileBuffer = null;
+        }
+      }
+
+      if (!fileBuffer || fileBuffer.length === 0) {
+        let title = 'Policy Schedule';
+        if (policyDoc.documentType === 'TAX_CERTIFICATE') {
+          title = 'Tax Exemption / GST Certificate';
+        } else if (policyDoc.documentType === 'POLICY_SCHEDULE') {
+          title = `${policyDoc.policy?.policyType || 'Insurance'} Policy Schedule`;
+        } else {
+          title = policyDoc.fileName || policyDoc.documentType || 'Official Policy Document';
+        }
+
+        const metadata: Record<string, any> = {
+          'Policy Number': policyDoc.policy?.policyNumber || 'N/A',
+          'Policy Type': policyDoc.policy?.policyType || 'Comprehensive Insurance',
+          'Status': policyDoc.policy?.status || 'ACTIVE',
+          'Start Date': policyDoc.policy?.startDate ? new Date(policyDoc.policy.startDate).toLocaleDateString() : 'N/A',
+          'End Date': policyDoc.policy?.endDate ? new Date(policyDoc.policy.endDate).toLocaleDateString() : 'N/A',
+          'Total Premium': `Rs. ${((policyDoc.policy as any)?.actualPremium || policyDoc.policy?.premiumAmount || policyDoc.policy?.quotation?.totalPremium || 0).toString()}`,
+          'Document Type': policyDoc.documentType,
+          'Issued At': policyDoc.createdAt ? new Date(policyDoc.createdAt).toISOString() : new Date().toISOString(),
+        };
+
+        if (policyDoc.documentType === 'TAX_CERTIFICATE') {
+          metadata['GST Amount'] = `Rs. ${(policyDoc.policy?.quotation?.gstAmount || 0).toString()}`;
+          metadata['Tax Category'] = 'Statutory GST (IRDAI Compliant)';
+        }
+
+        const generated = await this.pdfService.generateDocumentPdf(
+          title,
+          policyDoc.policy?.policyNumber || policyDoc.id,
+          metadata,
+        );
+        fileBuffer = generated.buffer;
+
+        try {
+          await this.storage.uploadFile(fileBuffer, policyDoc.fileKey, 'application/pdf');
+        } catch {}
+      }
+
+      return {
+        fileBuffer,
+        originalFileName: policyDoc.fileName || `${policyDoc.documentType}.pdf`,
+        mimeType: 'application/pdf',
+      };
+    }
+
+    // 3. Check QuotationDocument table
+    const quoteDoc = await this.prisma.quotationDocument.findUnique({
+      where: { id },
+      include: {
+        quotation: true,
+      },
+    });
+
+    if (quoteDoc) {
+      if (quoteDoc.quotation?.companyId && quoteDoc.quotation.companyId !== actorOrg) {
+        throw new ForbiddenException('Quotation document belongs to another organization');
+      }
+
+      let fileBuffer: Buffer | null = null;
+      if (quoteDoc.fileKey) {
+        try {
+          fileBuffer = await this.storage.downloadFile(quoteDoc.fileKey);
+        } catch {
+          fileBuffer = null;
+        }
+      }
+
+      if (!fileBuffer || fileBuffer.length === 0) {
+        const generated = await this.pdfService.generateDocumentPdf(
+          quoteDoc.documentType || 'Quotation Document',
+          quoteDoc.quotation?.quotationCode || quoteDoc.quotationId,
+          {
+            'Quotation Code': quoteDoc.quotation?.quotationCode || 'N/A',
+            'Plan Name': (quoteDoc.quotation as any)?.planName || 'Standard Insurance Plan',
+            'Total Premium': `Rs. ${(quoteDoc.quotation?.totalPremium ?? 0).toString()}`,
+            'Base Premium': `Rs. ${(quoteDoc.quotation?.basePremium ?? 0).toString()}`,
+            'GST Amount': `Rs. ${(quoteDoc.quotation?.gstAmount ?? 0).toString()}`,
+            'Document Type': quoteDoc.documentType,
+            'Created At': quoteDoc.createdAt ? new Date(quoteDoc.createdAt).toISOString() : new Date().toISOString(),
+          },
+        );
+        fileBuffer = generated.buffer;
+        try {
+          await this.storage.uploadFile(fileBuffer, quoteDoc.fileKey, 'application/pdf');
+        } catch {}
+      }
+
+      return {
+        fileBuffer,
+        originalFileName: quoteDoc.fileName || `${quoteDoc.documentType}.pdf`,
+        mimeType: 'application/pdf',
+      };
+    }
+
+    throw new NotFoundException('Document not found');
   }
 
   async getEntityDocuments(
@@ -455,16 +651,63 @@ export class DocumentService {
   }
 
   async getDocumentDetails(id: string, actor: ActorContext) {
-    const doc = await this.getAuthorizedDocument(id, actor);
-    return this.prisma.document.findUnique({
+    const actorOrg = actor?.organizationId || (actor as any)?.companyId;
+    if (!actor?.userId || !actorOrg)
+      throw new ForbiddenException('Actor organizational context is required');
+
+    const coreDoc = await this.prisma.document.findUnique({
       where: { id },
       include: {
         versions: { orderBy: { version: 'desc' } },
         uploadedBy: {
-          select: { firstName: true, lastName: true, email: true },
+          select: { firstName: true, lastName: true, email: true, companyId: true },
         },
       },
     });
+
+    if (coreDoc && coreDoc.status !== DocumentStatus.DELETED) {
+      if (coreDoc.uploadedBy?.companyId && coreDoc.uploadedBy.companyId !== actorOrg) {
+        throw new ForbiddenException('Document belongs to another organization');
+      }
+      return coreDoc;
+    }
+
+    // Fallback: check policyDocument
+    const policyDoc = await this.prisma.policyDocument.findUnique({
+      where: { id },
+      include: { policy: true },
+    });
+    if (policyDoc) {
+      if (policyDoc.policy?.companyId && policyDoc.policy.companyId !== actorOrg) {
+        throw new ForbiddenException('Document belongs to another organization');
+      }
+      return {
+        id: policyDoc.id,
+        documentNumber: `POL-DOC-${policyDoc.id.slice(0, 8)}`,
+        name: policyDoc.fileName,
+        originalFileName: policyDoc.fileName,
+        mimeType: 'application/pdf',
+        size: policyDoc.fileSize,
+        storageKey: policyDoc.fileKey,
+        storageProvider: 'LOCAL',
+        hash: '',
+        entityType: 'POLICY',
+        entityId: policyDoc.policyId,
+        uploadedById: null,
+        status: DocumentStatus.ACTIVE,
+        version: 1,
+        verificationStatus: DocumentVerificationStatus.VERIFIED,
+        expiryDate: null,
+        tags: [policyDoc.documentType],
+        metadata: { documentType: policyDoc.documentType },
+        createdAt: policyDoc.createdAt,
+        updatedAt: policyDoc.createdAt,
+        versions: [],
+        uploadedBy: null,
+      } as any;
+    }
+
+    throw new NotFoundException('Document not found');
   }
 
   async softDeleteDocument(

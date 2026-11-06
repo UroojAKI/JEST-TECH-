@@ -31,6 +31,11 @@ export const policyWithRelations = Prisma.validator<Prisma.PolicyDefaultArgs>()(
               document: true,
             },
           },
+          lifeDocuments: {
+            include: {
+              document: true,
+            },
+          },
           documents: true,
           case: {
             include: {
@@ -42,6 +47,15 @@ export const policyWithRelations = Prisma.validator<Prisma.PolicyDefaultArgs>()(
             },
           },
           healthCase: {
+            include: {
+              documents: {
+                include: {
+                  document: true,
+                },
+              },
+            },
+          },
+          lifeCase: {
             include: {
               documents: {
                 include: {

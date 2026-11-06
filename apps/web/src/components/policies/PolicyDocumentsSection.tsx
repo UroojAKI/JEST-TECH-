@@ -123,14 +123,58 @@ export function PolicyDocumentsSection({
       return;
     }
 
+    // Open placeholder tab immediately to bypass popup blockers
+    let previewTab: Window | null = null;
+    try {
+      previewTab = window.open('', '_blank');
+      if (previewTab) {
+        previewTab.document.write(
+          '<html><head><title>Loading Document...</title><style>body{font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;background:#0f172a;color:#f8fafc;}</style></head><body><div style="text-align:center;"><h2>Loading Preview...</h2><p style="color:#94a3b8;">Please wait while your document is being prepared.</p></div></body></html>'
+        );
+      }
+    } catch {
+      previewTab = null;
+    }
+
     try {
       setIsPreviewing(doc.id);
       const blob = await documentsRepository.downloadDocument(targetId);
-      const objectUrl = URL.createObjectURL(blob);
-      window.open(objectUrl, '_blank');
-      setTimeout(() => URL.revokeObjectURL(objectUrl), 60000);
+      const typedBlob = new Blob([blob], {
+        type: doc.mimeType || (doc.fileName?.endsWith('.pdf') ? 'application/pdf' : 'application/pdf'),
+      });
+      const objectUrl = URL.createObjectURL(typedBlob);
+      if (previewTab && !previewTab.closed) {
+        previewTab.location.href = objectUrl;
+      } else {
+        const opened = window.open(objectUrl, '_blank');
+        if (!opened) {
+          const a = document.createElement('a');
+          a.href = objectUrl;
+          a.download = doc.fileName || `document-${doc.documentType || 'preview'}.pdf`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          toast.info('Popup was blocked by your browser. The document was downloaded instead.');
+        }
+      }
+      setTimeout(() => URL.revokeObjectURL(objectUrl), 120000);
     } catch (err: any) {
-      toast.error(err?.response?.data?.message || 'Failed to preview document. You may try downloading directly.');
+      if (previewTab && !previewTab.closed) {
+        previewTab.close();
+      }
+      let errorMsg = 'Failed to preview document. You may try downloading directly.';
+      if (err?.response?.data instanceof Blob) {
+        try {
+          const text = await err.response.data.text();
+          const json = JSON.parse(text);
+          errorMsg = json.message || errorMsg;
+        } catch {}
+      } else if (err?.response?.data?.message) {
+        errorMsg = err.response.data.message;
+      } else if (err?.message) {
+        errorMsg = err.message;
+      }
+      toast.error(errorMsg);
     } finally {
       setIsPreviewing(null);
     }
@@ -150,17 +194,36 @@ export function PolicyDocumentsSection({
     try {
       setIsDownloading(doc.id);
       const blob = await documentsRepository.downloadDocument(targetId);
-      const url = URL.createObjectURL(blob);
+      const typedBlob = new Blob([blob], {
+        type: doc.mimeType || (doc.fileName?.endsWith('.pdf') ? 'application/pdf' : 'application/pdf'),
+      });
+      const url = URL.createObjectURL(typedBlob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = doc.fileName || `document-${doc.documentType || 'file'}`;
+      let filename = doc.fileName || `document-${doc.documentType || 'file'}`;
+      if (!filename.includes('.') && (doc.mimeType === 'application/pdf' || !doc.mimeType)) {
+        filename += '.pdf';
+      }
+      a.download = filename;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
       toast.success('Document downloaded successfully');
     } catch (err: any) {
-      toast.error(err?.response?.data?.message || 'Failed to download document');
+      let errorMsg = 'Failed to download document';
+      if (err?.response?.data instanceof Blob) {
+        try {
+          const text = await err.response.data.text();
+          const json = JSON.parse(text);
+          errorMsg = json.message || errorMsg;
+        } catch {}
+      } else if (err?.response?.data?.message) {
+        errorMsg = err.response.data.message;
+      } else if (err?.message) {
+        errorMsg = err.message;
+      }
+      toast.error(errorMsg);
     } finally {
       setIsDownloading(null);
     }

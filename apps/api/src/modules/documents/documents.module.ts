@@ -9,6 +9,7 @@ import { MinioStorageProvider } from './storage/minio-storage.provider';
 import { DualStorageProvider } from './storage/dual-storage.provider';
 import { STORAGE_PROVIDER_TOKEN } from './storage/storage-provider.interface';
 import { DatabaseModule } from '../../database/database.module';
+import { PdfService } from '../quotation/engine/pdf.service';
 
 @Module({
   imports: [DatabaseModule],
@@ -16,6 +17,7 @@ import { DatabaseModule } from '../../database/database.module';
   providers: [
     DocumentService,
     DocumentVerificationService,
+    PdfService,
     LocalStorageProvider,
     S3StorageProvider,
     MinioStorageProvider,
