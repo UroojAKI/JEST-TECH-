@@ -94,6 +94,50 @@ export const OCCUPATIONS: Option[] = opts(
   ['RETIRED', 'Retired Pensioner'],
 );
 
+export const LEAD_SOURCES: Option[] = opts(
+  ['WALK_IN', 'Walk-in Customer'],
+  ['REFERRAL', 'Client / Associate Referral'],
+  ['ADVISOR', 'Advisor / Direct Agent'],
+  ['DIGITAL', 'Digital / Web Portal'],
+  ['RENEWAL', 'Renewal Portability'],
+  ['CROSS_SELL', 'Cross-sell (Motor / Health Client)'],
+);
+
+export const MEDICAL_TEST_REQUIREMENTS: Option[] = opts(
+  ['NON_MEDICAL', 'Non-Medical (Standard Underwriting)'],
+  ['TELE_MER', 'Tele-Medical Examination (Tele-MER)'],
+  ['PHYSICAL_MEDICAL', 'Full Physical Medical & Pathology Tests'],
+);
+
+export const PLAN_VARIANTS: Option[] = opts(
+  ['WITH_PROFIT', 'With-Profit (Participating / Bonus Earning)'],
+  ['NON_PAR_GUARANTEED', 'Non-Participating (Guaranteed Returns)'],
+);
+
+export const BONUS_TYPES: Option[] = opts(
+  ['SIMPLE_REVERSIONARY', 'Simple Reversionary Bonus'],
+  ['COMPOUND_REVERSIONARY', 'Compound Reversionary Bonus'],
+  ['CASH_BONUS', 'Annual Cash Bonus Payout'],
+  ['PAID_UP_ADDITIONS', 'Paid-up Additions'],
+);
+
+export const CHILD_PAYOUT_STRUCTURES: Option[] = opts(
+  ['LUMP_SUM_MATURITY', '100% Lump Sum at Maturity (Age 18 / 21)'],
+  ['STAGGERED_MILESTONES', 'Staggered Milestones (School / Graduation / Post-Grad)'],
+);
+
+export const FREE_LOOK_PERIODS: Option[] = opts(
+  ['15_DAYS', '15 Days (Physical Policy Contract)'],
+  ['30_DAYS', '30 Days (Distance Marketing / Electronic Policy)'],
+);
+
+export const GROUP_SCHEME_TYPES: Option[] = opts(
+  ['GROUP_TERM_LIFE', 'Group Term Life (GTL)'],
+  ['GROUP_CREDIT_LIFE', 'Group Credit Life (Loan Linked)'],
+  ['GROUP_GRATUITY', 'Group Gratuity Scheme'],
+  ['GROUP_SUPERANNUATION', 'Group Superannuation Scheme'],
+);
+
 export const SMOKER_STATUSES: Option[] = opts(
   ['NON_SMOKER', 'Non-Smoker (Standard Rates)'],
   ['SMOKER', 'Smoker (Tobacco / Cigarettes / Vaping)'],
@@ -202,70 +246,104 @@ export function isMinor(dobString?: string | null): boolean {
 }
 
 // ---------------------------------------------------------------------------------
-// Section A Field Specifications per Plan Category
+// Section A Field Specifications per Plan Category (IRDAI Compliant)
 // ---------------------------------------------------------------------------------
 
 const TERM_FIELDS: FieldSpec[] = [
+  { key: 'planNameAndUin', label: 'Plan Name & IRDAI UIN', type: 'text', required: true, hint: 'e.g. Product Name with IRDAI Unique Identification Number', placeholder: 'e.g. HDFC Life Click 2 Protect Super (UIN: 101N145V01)' },
   { key: 'sumAssured', label: 'Sum Assured (Death Benefit)', type: 'number', required: true, hint: 'Minimum ₹10,00,000', placeholder: 'e.g. 10000000' },
   { key: 'termYears', label: 'Policy Term (Years)', type: 'number', required: true, hint: 'Duration of coverage (5 to 50 years)', placeholder: 'e.g. 30' },
   { key: 'pptYears', label: 'Premium Paying Term (PPT)', type: 'number', required: true, hint: 'Years to pay premium (1 to term years)', placeholder: 'e.g. 10' },
+  { key: 'coverUpToAge', label: 'Cover Up To Age (Years)', type: 'number', required: false, hint: 'Coverage age limit (e.g. 60, 65, 75, 85, 99)', placeholder: 'e.g. 75' },
   { key: 'deathBenefitPayoutOption', label: 'Death Benefit Settlement Option', type: 'select', required: true, options: DEATH_BENEFIT_PAYOUTS, defaultValue: 'LUMP_SUM' },
-  { key: 'terminalIllnessBenefitIncluded', label: 'Terminal Illness Acceleration Included', type: 'boolean', required: false, defaultValue: true },
+  { key: 'medicalTestRequired', label: 'Underwriting Medical Requirement', type: 'select', required: true, options: MEDICAL_TEST_REQUIREMENTS, defaultValue: 'NON_MEDICAL' },
+  { key: 'terminalIllnessBenefitIncluded', label: 'Terminal Illness Acceleration Benefit Included', type: 'boolean', required: false, defaultValue: true },
 ];
 
 const TERM_ROP_FIELDS: FieldSpec[] = [
+  { key: 'planNameAndUin', label: 'Plan Name & IRDAI UIN', type: 'text', required: true, placeholder: 'e.g. ICICI Pru iProtect Return of Premium (UIN: 105N181V01)' },
   { key: 'sumAssured', label: 'Sum Assured (Death Benefit)', type: 'number', required: true, hint: 'Minimum ₹5,00,000', placeholder: 'e.g. 5000000' },
   { key: 'termYears', label: 'Policy Term (Years)', type: 'number', required: true, placeholder: 'e.g. 25' },
   { key: 'pptYears', label: 'Premium Paying Term (PPT)', type: 'number', required: true, placeholder: 'e.g. 10' },
-  { key: 'deathBenefitPayoutOption', label: 'Death Benefit Settlement Option', type: 'select', required: true, options: DEATH_BENEFIT_PAYOUTS, defaultValue: 'LUMP_SUM' },
+  { key: 'coverUpToAge', label: 'Cover Up To Age (Years)', type: 'number', required: false, placeholder: 'e.g. 70' },
   { key: 'ropPercentage', label: 'Return of Premium % on Maturity', type: 'number', required: true, hint: 'Typically 100% of basic premiums paid', placeholder: 'e.g. 100' },
+  { key: 'deathBenefitPayoutOption', label: 'Death Benefit Settlement Option', type: 'select', required: true, options: DEATH_BENEFIT_PAYOUTS, defaultValue: 'LUMP_SUM' },
+  { key: 'medicalTestRequired', label: 'Underwriting Medical Requirement', type: 'select', required: true, options: MEDICAL_TEST_REQUIREMENTS, defaultValue: 'NON_MEDICAL' },
 ];
 
 const ULIP_FIELDS: FieldSpec[] = [
+  { key: 'planNameAndUin', label: 'Plan Name & IRDAI UIN', type: 'text', required: true, placeholder: 'e.g. SBI Life eShield Next (UIN: 111L134V02)' },
   { key: 'annualInvestmentAmount', label: 'Target Annual Investment Premium', type: 'number', required: true, hint: 'Minimum ₹12,000 p.a.', placeholder: 'e.g. 120000' },
   { key: 'policyTermYears', label: 'Policy Term (Years)', type: 'number', required: true, hint: 'Typically 10, 15, or 20 years', placeholder: 'e.g. 15' },
   { key: 'pptYears', label: 'Premium Paying Term (PPT)', type: 'number', required: true, hint: 'Typically 5, 7, 10 years or equal to term', placeholder: 'e.g. 10' },
   { key: 'fundChoice', label: 'Initial Fund Allocation Choice', type: 'select', required: true, options: ULIP_FUNDS, defaultValue: 'BALANCED' },
   { key: 'riskProfile', label: 'Investor Risk Tolerance Profile', type: 'select', required: true, options: RISK_PROFILES, defaultValue: 'MODERATE' },
+  { key: 'premiumAllocationChargeStructure', label: 'Premium Allocation Charge Structure', type: 'text', required: false, placeholder: 'e.g. Nil allocation charges from Year 1' },
+  { key: 'fundSwitchOption', label: 'Free Unlimited Fund Switches Allowed', type: 'boolean', required: false, defaultValue: true },
   { key: 'topUpAllowed', label: 'Enable Top-up Premium Facility', type: 'boolean', required: false, defaultValue: false },
 ];
 
 const ENDOWMENT_FIELDS: FieldSpec[] = [
+  { key: 'planNameAndUin', label: 'Plan Name & IRDAI UIN', type: 'text', required: true, placeholder: 'e.g. LIC Jeevan Labh (UIN: 512N304V02)' },
   { key: 'sumAssured', label: 'Guaranteed Maturity Sum Assured', type: 'number', required: true, hint: 'Minimum ₹50,000', placeholder: 'e.g. 2500000' },
   { key: 'policyTermYears', label: 'Policy Term (Years)', type: 'number', required: true, placeholder: 'e.g. 20' },
   { key: 'pptYears', label: 'Premium Paying Term (PPT)', type: 'number', required: true, placeholder: 'e.g. 10' },
+  { key: 'planVariant', label: 'Plan Variant / Participation Type', type: 'select', required: true, options: PLAN_VARIANTS, defaultValue: 'WITH_PROFIT' },
   { key: 'guaranteedAdditionPercent', label: 'Guaranteed Addition / Simple Reversionary Bonus (%)', type: 'number', required: false, hint: 'e.g. 5.5% p.a.', placeholder: 'e.g. 5.5' },
+  { key: 'survivalBenefitOption', label: 'Survival Benefit / Money Back Option', type: 'boolean', required: false, defaultValue: false },
+  { key: 'loanFacilityAvailable', label: 'Loan Facility Against Policy Available', type: 'boolean', required: false, defaultValue: true },
   { key: 'maturityPayoutOption', label: 'Maturity Payout Choice', type: 'select', required: true, options: opts(['LUMP_SUM', 'Lump Sum at Maturity'], ['REGULAR_ANNUAL_INCOME', 'Annual Structured Payout']), defaultValue: 'LUMP_SUM' },
 ];
 
 const MONEY_BACK_FIELDS: FieldSpec[] = [
+  { key: 'planNameAndUin', label: 'Plan Name & IRDAI UIN', type: 'text', required: true, placeholder: 'e.g. LIC New Money Back Plan (UIN: 512N293V02)' },
   { key: 'sumAssured', label: 'Base Sum Assured', type: 'number', required: true, placeholder: 'e.g. 2000000' },
   { key: 'policyTermYears', label: 'Policy Term (Years)', type: 'number', required: true, hint: 'Common terms: 15, 20, 25 years', placeholder: 'e.g. 20' },
-  { key: 'pptYears', label: 'Premium Paying Term (PPT)', type: 'number', required: true, placeholder: 'e.g. 10' },
+  { key: 'pptYears', label: 'Premium Paying Term (PPT)', type: 'number', required: true, placeholder: 'e.g. 15' },
   { key: 'survivalBenefitIntervalYears', label: 'Survival Benefit Payout Interval (Every N Years)', type: 'number', required: true, hint: 'e.g. Every 5th year 20% of Sum Assured', placeholder: 'e.g. 5' },
-  { key: 'guaranteedAdditionPercent', label: 'Guaranteed Addition (%)', type: 'number', required: false, placeholder: 'e.g. 5.0' },
+  { key: 'guaranteedAdditionPercent', label: 'Guaranteed Addition / Bonus (%)', type: 'number', required: false, placeholder: 'e.g. 4.5' },
+  { key: 'maturityPayoutPercentage', label: 'Maturity Payout % (Remaining Balance + Bonus)', type: 'number', required: false, placeholder: 'e.g. 40' },
 ];
 
 const WHOLE_LIFE_FIELDS: FieldSpec[] = [
+  { key: 'planNameAndUin', label: 'Plan Name & IRDAI UIN', type: 'text', required: true, placeholder: 'e.g. Tata AIA MahaLife Gold (UIN: 110N104V03)' },
   { key: 'sumAssured', label: 'Sum Assured', type: 'number', required: true, hint: 'Minimum ₹5,00,000', placeholder: 'e.g. 5000000' },
-  { key: 'coverageUptoAge', label: 'Coverage Duration Limit (Age)', type: 'number', required: true, hint: '99 or 100 years of age', placeholder: 'e.g. 99' },
+  { key: 'coverageUptoAge', label: 'Coverage Duration Limit (Age)', type: 'number', required: true, hint: '99 or 100 years of age', placeholder: 'e.g. 100' },
   { key: 'pptYears', label: 'Premium Paying Term (PPT)', type: 'number', required: true, hint: 'e.g. 10, 15, or up to age 60', placeholder: 'e.g. 15' },
+  { key: 'bonusType', label: 'Bonus Distribution Structure', type: 'select', required: true, options: BONUS_TYPES, defaultValue: 'SIMPLE_REVERSIONARY' },
   { key: 'survivalBenefitStartAge', label: 'Survival Income Benefit Start Age', type: 'number', required: false, placeholder: 'e.g. 60' },
+  { key: 'loanFacilityAvailable', label: 'Loan Facility Against Policy Available', type: 'boolean', required: false, defaultValue: true },
 ];
 
 const CHILD_FIELDS: FieldSpec[] = [
+  { key: 'planNameAndUin', label: 'Plan Name & IRDAI UIN', type: 'text', required: true, placeholder: 'e.g. HDFC Life Youngstar Super Premium (UIN: 101L069V02)' },
   { key: 'childName', label: 'Child Full Legal Name', type: 'text', required: true, placeholder: 'e.g. Aarav Sharma' },
   { key: 'childDob', label: 'Child Date of Birth', type: 'date', required: true },
+  { key: 'childAgeAtEntry', label: "Child's Age at Entry (Years)", type: 'number', required: false, placeholder: 'e.g. 5' },
   { key: 'childGender', label: 'Child Gender', type: 'select', required: true, options: GENDERS, defaultValue: 'MALE' },
   { key: 'targetCorpus', label: 'Target Education / Marriage Corpus', type: 'number', required: true, hint: 'Projected financial goal in INR', placeholder: 'e.g. 5000000' },
+  { key: 'policyTermYears', label: 'Policy Term (Years)', type: 'number', required: true, hint: 'Duration aligned with child reaching age 18 / 21', placeholder: 'e.g. 15' },
+  { key: 'pptYears', label: 'Premium Paying Term (PPT)', type: 'number', required: true, placeholder: 'e.g. 10' },
+  { key: 'payoutStructure', label: 'Payout Structure at Maturity / Milestones', type: 'select', required: true, options: CHILD_PAYOUT_STRUCTURES, defaultValue: 'LUMP_SUM_MATURITY' },
   { key: 'waiverOfPremiumOnParentDeath', label: 'Waiver of Premium (WOP) on Proposer Death', type: 'boolean', required: true, defaultValue: true, hint: 'Ensures future premiums are paid by insurer if parent passes away' },
 ];
 
 const ANNUITY_FIELDS: FieldSpec[] = [
+  { key: 'planNameAndUin', label: 'Plan Name & IRDAI UIN', type: 'text', required: true, placeholder: 'e.g. ICICI Pru Guaranteed Pension Plan (UIN: 105N180V01)' },
   { key: 'purchasePrice', label: 'Purchase Price / Investment Corpus', type: 'number', required: true, hint: 'Minimum ₹1,00,000 single lump-sum', placeholder: 'e.g. 5000000' },
   { key: 'annuityOption', label: 'Annuity Structure Option', type: 'select', required: true, options: ANNUITY_OPTIONS, defaultValue: 'LIFE_ANNUITY_RETURN_OF_PURCHASE_PRICE' },
   { key: 'payoutFrequency', label: 'Pension Annuity Payout Frequency', type: 'select', required: true, options: PREMIUM_FREQUENCIES, defaultValue: 'MONTHLY' },
   { key: 'defermentPeriodYears', label: 'Deferment Period (Years - 0 for Immediate Annuity)', type: 'number', required: false, placeholder: 'e.g. 0' },
+  { key: 'commutationPercentAtVesting', label: 'Commutation % at Vesting (up to 60% tax-free)', type: 'number', required: false, placeholder: 'e.g. 33.3' },
+];
+
+const GROUP_FIELDS: FieldSpec[] = [
+  { key: 'schemeType', label: 'Scheme Type / Master Policy Category', type: 'select', required: true, options: GROUP_SCHEME_TYPES, defaultValue: 'GROUP_TERM_LIFE' },
+  { key: 'corporateName', label: 'Master Policyholder / Corporate Legal Name', type: 'text', required: true, placeholder: 'e.g. Acme Tech Solutions Pvt Ltd' },
+  { key: 'totalMemberCount', label: 'Total Number of Lives Covered (Census Count)', type: 'number', required: true, placeholder: 'e.g. 250' },
+  { key: 'sumAssuredPerMember', label: 'Sum Assured Per Member / Scheme Payout', type: 'number', required: true, placeholder: 'e.g. 1000000' },
+  { key: 'loanAccountLinked', label: 'Loan Account Linked (Group Credit Life)', type: 'boolean', required: false, defaultValue: false },
+  { key: 'schemeTenure', label: 'Scheme Tenure', type: 'text', required: false, placeholder: 'e.g. 1 Year Annually Renewable' },
 ];
 
 export const SECTION_A_FIELDS: Record<string, FieldSpec[]> = {
@@ -285,9 +363,5 @@ export const SECTION_A_FIELDS: Record<string, FieldSpec[]> = {
   RETIREMENT_PENSION: ANNUITY_FIELDS,
   CHILD_FUTURE: CHILD_FIELDS,
   ANNUITY: ANNUITY_FIELDS,
-  GROUP_INSURANCE: [
-    { key: 'corporateName', label: 'Corporate Entity Name', type: 'text', required: true, placeholder: 'e.g. Acme Tech Pvt Ltd' },
-    { key: 'totalMemberCount', label: 'Total Number of Lives Covered', type: 'number', required: true, placeholder: 'e.g. 250' },
-    { key: 'sumAssuredPerMember', label: 'Sum Assured Per Member', type: 'number', required: true, placeholder: 'e.g. 1000000' },
-  ],
+  GROUP_INSURANCE: GROUP_FIELDS,
 };

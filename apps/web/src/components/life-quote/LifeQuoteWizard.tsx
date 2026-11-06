@@ -26,6 +26,7 @@ import {
   APPOINTEE_RELATIONS,
   CATEGORY_TO_PRISMA_MAP,
   GENDERS,
+  LEAD_SOURCES,
   NOMINEE_RELATIONS,
   OCCUPATIONS,
   PLAN_CATEGORIES,
@@ -61,6 +62,8 @@ export function LifeQuoteWizard({
 
   // Step 0: Proposer & Contact State
   const [proposer, setProposer] = useState({
+    proposalDate: new Date().toISOString().slice(0, 10),
+    leadSource: 'WALK_IN',
     firstName: '',
     lastName: '',
     phone: '',
@@ -71,6 +74,7 @@ export function LifeQuoteWizard({
     gender: 'MALE',
     occupation: 'SALARIED',
     annualIncome: '' as number | '',
+    existingLifeCoverAmount: '' as number | '',
     addressLine1: '',
     city: '',
     state: '',
@@ -331,8 +335,13 @@ export function LifeQuoteWizard({
         appointeeDob: nomineeIsMinor && appointee.dateOfBirth ? appointee.dateOfBirth : undefined,
         appointeeRelation: nomineeIsMinor && appointee.relation ? appointee.relation : undefined,
 
-        // Category-Specific Parameters
-        categoryData,
+        // Category-Specific Parameters & Proposal Metadata
+        categoryData: {
+          ...categoryData,
+          proposalDate: proposer.proposalDate,
+          leadSource: proposer.leadSource,
+          existingLifeCoverAmount: proposer.existingLifeCoverAmount !== '' ? Number(proposer.existingLifeCoverAmount) : undefined,
+        },
       };
 
       // Secondary Life Assured for Joint Life
@@ -431,12 +440,43 @@ export function LifeQuoteWizard({
         {/* ========================================================================= */}
         {step === 0 && (
           <div className="space-y-6">
-            <div className="flex items-center gap-2 border-b border-border pb-3">
-              <User className="h-5 w-5 text-primary" />
-              <div>
-                <h2 className="text-base font-bold text-foreground">Proposer (Policyholder) Information</h2>
-                <p className="text-xs text-muted-foreground">The legal entity or individual entering into the insurance contract.</p>
+            <div className="flex items-center justify-between border-b border-border pb-3">
+              <div className="flex items-center gap-2">
+                <User className="h-5 w-5 text-primary" />
+                <div>
+                  <h2 className="text-base font-bold text-foreground">Proposer (Policyholder) Information</h2>
+                  <p className="text-xs text-muted-foreground">The legal entity or individual entering into the insurance contract.</p>
+                </div>
               </div>
+              <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-muted/40 border border-border text-[11px] text-muted-foreground">
+                <span className="font-semibold text-foreground">Brokerage:</span> JestPolizy Insurance Brokers
+              </div>
+            </div>
+
+            {/* Proposal Metadata Header (PDF Requirements 1 & 2) */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 rounded-xl bg-muted/20 border border-border">
+              <FieldLabel label="Proposal / Enquiry Date" required hint="Date of proposal generation">
+                <input
+                  className={inputCls}
+                  type="date"
+                  value={proposer.proposalDate}
+                  onChange={(e) => setProposer({ ...proposer, proposalDate: e.target.value })}
+                />
+              </FieldLabel>
+
+              <FieldLabel label="Lead / Enquiry Source" required hint="Channel through which enquiry was received">
+                <select
+                  className={inputCls}
+                  value={proposer.leadSource}
+                  onChange={(e) => setProposer({ ...proposer, leadSource: e.target.value })}
+                >
+                  {LEAD_SOURCES.map((ls) => (
+                    <option key={ls.value} value={ls.value}>
+                      {ls.label}
+                    </option>
+                  ))}
+                </select>
+              </FieldLabel>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -551,6 +591,25 @@ export function LifeQuoteWizard({
                   }
                 />
               </FieldLabel>
+
+              <div className="sm:col-span-2">
+                <FieldLabel label="Existing Life Insurance Covers (Total Sum Assured in INR)" hint="Sum assured of all active policies held across insurers for underwriting limit justification">
+                  <input
+                    className={inputCls}
+                    type="number"
+                    step="500000"
+                    min="0"
+                    placeholder="e.g. 5000000 (Leave blank if no existing life covers)"
+                    value={proposer.existingLifeCoverAmount !== undefined ? proposer.existingLifeCoverAmount : ''}
+                    onChange={(e) =>
+                      setProposer({
+                        ...proposer,
+                        existingLifeCoverAmount: e.target.value === '' ? '' : Number(e.target.value),
+                      })
+                    }
+                  />
+                </FieldLabel>
+              </div>
             </div>
 
             {/* Address Details */}

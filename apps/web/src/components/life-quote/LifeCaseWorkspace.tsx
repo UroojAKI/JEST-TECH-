@@ -31,6 +31,7 @@ import {
 } from 'lucide-react';
 import { lifeQuotationRepository } from '../../repositories/life-quotation.repository';
 import {
+  FREE_LOOK_PERIODS,
   PLAN_CATEGORIES,
   POLICY_FORMS,
   POLICY_TYPES,
@@ -58,25 +59,29 @@ export function LifeCaseWorkspace({ caseId }: { caseId: string }) {
   const [isUploadingDoc, setIsUploadingDoc] = useState(false);
   const [isIssuingPolicy, setIsIssuingPolicy] = useState(false);
 
-  // New Quote Form State
+  // New Quote Form State (Clean placeholders without hardcoded defaults)
   const [newQuote, setNewQuote] = useState({
-    insurerName: 'HDFC Life Insurance Co.',
-    productCode: 'CLICK2PROTECT_SUPER',
-    sumInsured: 10000000,
-    basePremium: 18000,
-    discountAmount: 0,
-    policyTermYears: 30,
-    premiumPayingTermYears: 10,
+    insurerName: '',
+    productCode: '',
+    planNameAndUin: '',
+    sumInsured: '' as number | '',
+    basePremium: '' as number | '',
+    topUpPremium: '' as number | '',
+    discountAmount: '' as number | '',
+    policyTermYears: '' as number | '',
+    premiumPayingTermYears: '' as number | '',
     lifePolicyType: 'INDIVIDUAL_PURE_RISK',
-    premiumPaymentType: 'LIMITED_PAY',
+    premiumPaymentType: 'REGULAR_PAY',
     premiumFrequency: 'ANNUAL',
-    brokeragePercent: 25.0,
+    riskCommencementDate: new Date().toISOString().slice(0, 10),
+    freeLookPeriodDays: 15,
+    brokeragePercent: '' as number | '',
     riders: [] as Array<{
       riderType: string;
-      sumAssured: number;
-      termYears: number;
-      pptYears: number;
-      premium: number;
+      sumAssured: number | '';
+      termYears?: number | '';
+      pptYears?: number | '';
+      premium: number | '';
       description?: string;
     }>,
   });
@@ -126,26 +131,37 @@ export function LifeCaseWorkspace({ caseId }: { caseId: string }) {
 
   // Quote Live Calculation
   const quoteCalculation = useMemo(() => {
+    const isSinglePay = newQuote.premiumPaymentType === 'SINGLE_PAY';
     const base = Number(newQuote.basePremium || 0);
+    const topUp = isSinglePay ? Number(newQuote.topUpPremium || 0) : 0;
+    const effectiveGrossBase = base + topUp;
     const disc = Number(newQuote.discountAmount || 0);
-    const netBase = Math.max(0, base - disc);
+    const netBase = Math.max(0, effectiveGrossBase - disc);
     const riderSum = newQuote.riders.reduce((s, r) => s + Number(r.premium || 0), 0);
     const subtotal = netBase + riderSum;
 
     // GST rate: 1.8% for Single Premium Annuity purchase price, 18.0% for risk
     const isSingleAnnuity =
-      lifeCase?.planCategory === 'ANNUITY_PENSION' && newQuote.premiumPaymentType === 'SINGLE_PAY';
+      (lifeCase?.planCategory === 'ANNUITY_PENSION' || lifeCase?.planCategory === 'ANNUITY') &&
+      isSinglePay;
     const gstRate = isSingleAnnuity ? 0.018 : 0.18;
     const gstAmount = Math.round(subtotal * gstRate * 100) / 100;
     const total = subtotal + gstAmount;
 
+    const bPercent = Number(newQuote.brokeragePercent || 0);
+    const brokerageAmount = Math.round((((effectiveGrossBase + riderSum) * bPercent) / 100) * 100) / 100;
+
     return {
+      isSinglePay,
+      effectiveGrossBase,
       netBase,
       riderSum,
       subtotal,
       gstRatePercent: (gstRate * 100).toFixed(1),
       gstAmount,
       total,
+      bPercent,
+      brokerageAmount,
     };
   }, [newQuote, lifeCase]);
 
@@ -924,15 +940,22 @@ export function LifeCaseWorkspace({ caseId }: { caseId: string }) {
       )}
 
       {/* ========================================================================= */}
-      {/* MODAL: ADD INSURER QUOTATION                                             */}
+      {/* MODAL: ADD INSURER QUOTATION (FORMS i, ii, iii COMPLIANT)                 */}
       {/* ========================================================================= */}
       {isAddQuoteModalOpen && (
         <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-card w-full max-w-2xl rounded-2xl border shadow-xl overflow-hidden flex flex-col max-h-[90vh]">
+          <div className="bg-card w-full max-w-2xl rounded-2xl border shadow-xl overflow-hidden flex flex-col max-h-[92vh]">
             <div className="flex items-center justify-between p-5 border-b border-border">
               <div>
-                <h2 className="text-base font-bold text-foreground">Add Insurer Quotation</h2>
-                <p className="text-xs text-muted-foreground">Attach a new pricing option to proposal {lifeCase.caseCode}</p>
+                <div className="flex items-center gap-2 mb-1">
+                  <h2 className="text-base font-bold text-foreground">Add Insurer Quotation</h2>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-primary/10 text-primary border border-primary/20">
+                    {newQuote.premiumPaymentType === 'SINGLE_PAY'
+                      ? 'Form (ii): Single Premium'
+                      : 'Form (i): Regular / Limited Pay'}
+                  </span>
+                </div>
+                <p className="text-xs text-muted-foreground">Attach a pricing option to proposal {lifeCase.caseCode}</p>
               </div>
               <button onClick={() => setIsAddQuoteModalOpen(false)} className="p-1 rounded-md hover:bg-muted">
                 <X className="h-5 w-5" />
@@ -944,61 +967,27 @@ export function LifeCaseWorkspace({ caseId }: { caseId: string }) {
                 <FieldLabel label="Insurer Name" required>
                   <input
                     className={inputCls}
+                    placeholder="e.g. HDFC Life Insurance Co."
                     value={newQuote.insurerName}
                     onChange={(e) => setNewQuote({ ...newQuote, insurerName: e.target.value })}
+                  />
+                </FieldLabel>
+
+                <FieldLabel label="Plan Name & IRDAI UIN">
+                  <input
+                    className={inputCls}
+                    placeholder="e.g. Click 2 Protect Super (UIN: 101N145V01)"
+                    value={newQuote.planNameAndUin}
+                    onChange={(e) => setNewQuote({ ...newQuote, planNameAndUin: e.target.value })}
                   />
                 </FieldLabel>
 
                 <FieldLabel label="Product Plan Code">
                   <input
                     className={inputCls}
+                    placeholder="e.g. C2P_SUPER_01"
                     value={newQuote.productCode}
                     onChange={(e) => setNewQuote({ ...newQuote, productCode: e.target.value })}
-                  />
-                </FieldLabel>
-
-                <FieldLabel label="Sum Assured (Death Benefit)" required>
-                  <input
-                    className={inputCls}
-                    type="number"
-                    value={newQuote.sumInsured}
-                    onChange={(e) => setNewQuote({ ...newQuote, sumInsured: Number(e.target.value) })}
-                  />
-                </FieldLabel>
-
-                <FieldLabel label="Base Premium (before GST)" required>
-                  <input
-                    className={inputCls}
-                    type="number"
-                    value={newQuote.basePremium}
-                    onChange={(e) => setNewQuote({ ...newQuote, basePremium: Number(e.target.value) })}
-                  />
-                </FieldLabel>
-
-                <FieldLabel label="Customer Discount (INR)">
-                  <input
-                    className={inputCls}
-                    type="number"
-                    value={newQuote.discountAmount}
-                    onChange={(e) => setNewQuote({ ...newQuote, discountAmount: Number(e.target.value) })}
-                  />
-                </FieldLabel>
-
-                <FieldLabel label="Policy Term (Years)" required>
-                  <input
-                    className={inputCls}
-                    type="number"
-                    value={newQuote.policyTermYears}
-                    onChange={(e) => setNewQuote({ ...newQuote, policyTermYears: Number(e.target.value) })}
-                  />
-                </FieldLabel>
-
-                <FieldLabel label="Premium Paying Term (PPT)" required>
-                  <input
-                    className={inputCls}
-                    type="number"
-                    value={newQuote.premiumPayingTermYears}
-                    onChange={(e) => setNewQuote({ ...newQuote, premiumPayingTermYears: Number(e.target.value) })}
                   />
                 </FieldLabel>
 
@@ -1030,25 +1019,205 @@ export function LifeCaseWorkspace({ caseId }: { caseId: string }) {
                   </select>
                 </FieldLabel>
 
-                <FieldLabel label="Installment Frequency" required>
+                <FieldLabel label="Sum Assured (Death Benefit)" required>
+                  <input
+                    className={inputCls}
+                    type="number"
+                    step="500000"
+                    min="0"
+                    placeholder="e.g. 10000000"
+                    value={newQuote.sumInsured !== undefined ? newQuote.sumInsured : ''}
+                    onChange={(e) =>
+                      setNewQuote({
+                        ...newQuote,
+                        sumInsured: e.target.value === '' ? '' : Number(e.target.value),
+                      })
+                    }
+                  />
+                </FieldLabel>
+
+                {/* Conditional: Form (ii) Single Premium vs Form (i) Regular/Limited Pay */}
+                {newQuote.premiumPaymentType === 'SINGLE_PAY' ? (
+                  <>
+                    <FieldLabel label="Single Premium Amount (₹)" required hint="One-time upfront purchase premium">
+                      <input
+                        className={inputCls}
+                        type="number"
+                        step="10000"
+                        min="0"
+                        placeholder="e.g. 5000000"
+                        value={newQuote.basePremium !== undefined ? newQuote.basePremium : ''}
+                        onChange={(e) =>
+                          setNewQuote({
+                            ...newQuote,
+                            basePremium: e.target.value === '' ? '' : Number(e.target.value),
+                          })
+                        }
+                      />
+                    </FieldLabel>
+
+                    <FieldLabel label="Top-up Premium (₹)" hint="Optional lump-sum top up">
+                      <input
+                        className={inputCls}
+                        type="number"
+                        step="10000"
+                        min="0"
+                        placeholder="e.g. 100000"
+                        value={newQuote.topUpPremium !== undefined ? newQuote.topUpPremium : ''}
+                        onChange={(e) =>
+                          setNewQuote({
+                            ...newQuote,
+                            topUpPremium: e.target.value === '' ? '' : Number(e.target.value),
+                          })
+                        }
+                      />
+                    </FieldLabel>
+
+                    <FieldLabel label="Policy Term (Years)" required>
+                      <input
+                        className={inputCls}
+                        type="number"
+                        min="1"
+                        placeholder="e.g. 10"
+                        value={newQuote.policyTermYears !== undefined ? newQuote.policyTermYears : ''}
+                        onChange={(e) =>
+                          setNewQuote({
+                            ...newQuote,
+                            policyTermYears: e.target.value === '' ? '' : Number(e.target.value),
+                          })
+                        }
+                      />
+                    </FieldLabel>
+                  </>
+                ) : (
+                  <>
+                    <FieldLabel label="Base Premium (per installment before GST)" required>
+                      <input
+                        className={inputCls}
+                        type="number"
+                        step="1000"
+                        min="0"
+                        placeholder="e.g. 25000"
+                        value={newQuote.basePremium !== undefined ? newQuote.basePremium : ''}
+                        onChange={(e) =>
+                          setNewQuote({
+                            ...newQuote,
+                            basePremium: e.target.value === '' ? '' : Number(e.target.value),
+                          })
+                        }
+                      />
+                    </FieldLabel>
+
+                    <FieldLabel label="Installment Frequency" required>
+                      <select
+                        className={inputCls}
+                        value={newQuote.premiumFrequency}
+                        onChange={(e) => setNewQuote({ ...newQuote, premiumFrequency: e.target.value })}
+                      >
+                        {PREMIUM_FREQUENCIES.map((pf) => (
+                          <option key={pf.value} value={pf.value}>
+                            {pf.label}
+                          </option>
+                        ))}
+                      </select>
+                    </FieldLabel>
+
+                    <FieldLabel label="Policy Term (Years)" required>
+                      <input
+                        className={inputCls}
+                        type="number"
+                        min="1"
+                        placeholder="e.g. 30"
+                        value={newQuote.policyTermYears !== undefined ? newQuote.policyTermYears : ''}
+                        onChange={(e) =>
+                          setNewQuote({
+                            ...newQuote,
+                            policyTermYears: e.target.value === '' ? '' : Number(e.target.value),
+                          })
+                        }
+                      />
+                    </FieldLabel>
+
+                    <FieldLabel label="Premium Paying Term (PPT in Years)" required>
+                      <input
+                        className={inputCls}
+                        type="number"
+                        min="1"
+                        placeholder="e.g. 10"
+                        value={newQuote.premiumPayingTermYears !== undefined ? newQuote.premiumPayingTermYears : ''}
+                        onChange={(e) =>
+                          setNewQuote({
+                            ...newQuote,
+                            premiumPayingTermYears: e.target.value === '' ? '' : Number(e.target.value),
+                          })
+                        }
+                      />
+                    </FieldLabel>
+                  </>
+                )}
+
+                <FieldLabel label="Customer Discount (INR)" hint="Subtracted from customer payable">
+                  <input
+                    className={inputCls}
+                    type="number"
+                    min="0"
+                    placeholder="e.g. 0"
+                    value={newQuote.discountAmount !== undefined ? newQuote.discountAmount : ''}
+                    onChange={(e) =>
+                      setNewQuote({
+                        ...newQuote,
+                        discountAmount: e.target.value === '' ? '' : Number(e.target.value),
+                      })
+                    }
+                  />
+                </FieldLabel>
+
+                <FieldLabel label="Agency Brokerage Rate (%)" hint="Commission earned from insurer (Never deducted from customer)">
+                  <input
+                    className={inputCls}
+                    type="number"
+                    step="0.5"
+                    min="0"
+                    max="100"
+                    placeholder="e.g. 25.0"
+                    value={newQuote.brokeragePercent !== undefined ? newQuote.brokeragePercent : ''}
+                    onChange={(e) =>
+                      setNewQuote({
+                        ...newQuote,
+                        brokeragePercent: e.target.value === '' ? '' : Number(e.target.value),
+                      })
+                    }
+                  />
+                </FieldLabel>
+
+                <FieldLabel label="Risk Commencement Date" hint="Policy start date">
+                  <input
+                    className={inputCls}
+                    type="date"
+                    value={newQuote.riskCommencementDate}
+                    onChange={(e) => setNewQuote({ ...newQuote, riskCommencementDate: e.target.value })}
+                  />
+                </FieldLabel>
+
+                <FieldLabel label="Free-Look Period" hint="Statutory free-look cancellation window">
                   <select
                     className={inputCls}
-                    value={newQuote.premiumFrequency}
-                    onChange={(e) => setNewQuote({ ...newQuote, premiumFrequency: e.target.value })}
+                    value={newQuote.freeLookPeriodDays}
+                    onChange={(e) => setNewQuote({ ...newQuote, freeLookPeriodDays: Number(e.target.value) })}
                   >
-                    {PREMIUM_FREQUENCIES.map((pf) => (
-                      <option key={pf.value} value={pf.value}>
-                        {pf.label}
-                      </option>
-                    ))}
+                    <option value={15}>15 Days (Physical Policy Contract)</option>
+                    <option value={30}>30 Days (Distance Marketing / Electronic Policy)</option>
                   </select>
                 </FieldLabel>
               </div>
 
-              {/* Line-item Riders Section */}
+              {/* Form (iii): Line-item Riders Section */}
               <div className="pt-3 border-t border-border">
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs font-bold text-foreground">Add Line-Item Riders (Optional)</span>
+                  <div>
+                    <span className="text-xs font-bold text-foreground">Form (iii): Riders & Add-on Covers</span>
+                    <p className="text-[10px] text-muted-foreground">Optional supplementary risk benefits (18% GST auto-applied)</p>
+                  </div>
                   <button
                     type="button"
                     onClick={() =>
@@ -1058,10 +1227,8 @@ export function LifeCaseWorkspace({ caseId }: { caseId: string }) {
                           ...newQuote.riders,
                           {
                             riderType: 'CRITICAL_ILLNESS',
-                            sumAssured: 2500000,
-                            termYears: newQuote.policyTermYears,
-                            pptYears: newQuote.premiumPayingTermYears,
-                            premium: 2500,
+                            sumAssured: '' as number | '',
+                            premium: '' as number | '',
                           },
                         ],
                       })
@@ -1073,71 +1240,85 @@ export function LifeCaseWorkspace({ caseId }: { caseId: string }) {
                   </button>
                 </div>
 
-                {newQuote.riders.map((r, rIdx) => (
-                  <div key={rIdx} className="grid grid-cols-4 gap-2 p-2.5 rounded-xl border border-border bg-muted/20 mb-2 items-center">
-                    <select
-                      className={`${inputCls} text-[11px]`}
-                      value={r.riderType}
-                      onChange={(e) => {
-                        const updated = [...newQuote.riders];
-                        updated[rIdx].riderType = e.target.value;
-                        setNewQuote({ ...newQuote, riders: updated });
-                      }}
-                    >
-                      {STANDARD_RIDERS.map((sr) => (
-                        <option key={sr.value} value={sr.value}>
-                          {sr.label}
-                        </option>
-                      ))}
-                    </select>
+                {newQuote.riders.length === 0 ? (
+                  <p className="text-[11px] text-muted-foreground italic py-1">No riders added to this quotation.</p>
+                ) : (
+                  newQuote.riders.map((r, rIdx) => (
+                    <div key={rIdx} className="grid grid-cols-4 gap-2 p-2.5 rounded-xl border border-border bg-muted/20 mb-2 items-center">
+                      <select
+                        className={`${inputCls} text-[11px]`}
+                        value={r.riderType}
+                        onChange={(e) => {
+                          const updated = [...newQuote.riders];
+                          updated[rIdx].riderType = e.target.value;
+                          setNewQuote({ ...newQuote, riders: updated });
+                        }}
+                      >
+                        {STANDARD_RIDERS.map((sr) => (
+                          <option key={sr.value} value={sr.value}>
+                            {sr.label}
+                          </option>
+                        ))}
+                      </select>
 
-                    <input
-                      className={`${inputCls} text-[11px]`}
-                      type="number"
-                      placeholder="Sum Assured"
-                      value={r.sumAssured}
-                      onChange={(e) => {
-                        const updated = [...newQuote.riders];
-                        updated[rIdx].sumAssured = Number(e.target.value);
-                        setNewQuote({ ...newQuote, riders: updated });
-                      }}
-                    />
+                      <input
+                        className={`${inputCls} text-[11px]`}
+                        type="number"
+                        step="100000"
+                        min="0"
+                        placeholder="Rider Sum Assured (e.g. 2500000)"
+                        value={r.sumAssured !== undefined ? r.sumAssured : ''}
+                        onChange={(e) => {
+                          const updated = [...newQuote.riders];
+                          updated[rIdx].sumAssured = e.target.value === '' ? '' : Number(e.target.value);
+                          setNewQuote({ ...newQuote, riders: updated });
+                        }}
+                      />
 
-                    <input
-                      className={`${inputCls} text-[11px]`}
-                      type="number"
-                      placeholder="Rider Premium"
-                      value={r.premium}
-                      onChange={(e) => {
-                        const updated = [...newQuote.riders];
-                        updated[rIdx].premium = Number(e.target.value);
-                        setNewQuote({ ...newQuote, riders: updated });
-                      }}
-                    />
+                      <input
+                        className={`${inputCls} text-[11px]`}
+                        type="number"
+                        step="500"
+                        min="0"
+                        placeholder="Rider Premium (e.g. 2500)"
+                        value={r.premium !== undefined ? r.premium : ''}
+                        onChange={(e) => {
+                          const updated = [...newQuote.riders];
+                          updated[rIdx].premium = e.target.value === '' ? '' : Number(e.target.value);
+                          setNewQuote({ ...newQuote, riders: updated });
+                        }}
+                      />
 
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const updated = newQuote.riders.filter((_, idx) => idx !== rIdx);
-                        setNewQuote({ ...newQuote, riders: updated });
-                      }}
-                      className="p-1.5 text-rose-500 hover:bg-rose-500/10 rounded-lg justify-self-center"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  </div>
-                ))}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const updated = newQuote.riders.filter((_, idx) => idx !== rIdx);
+                          setNewQuote({ ...newQuote, riders: updated });
+                        }}
+                        className="p-1.5 text-rose-500 hover:bg-rose-500/10 rounded-lg justify-self-center"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  ))
+                )}
               </div>
 
-              {/* Calculation Preview Box */}
+              {/* Authoritative Financial Calculation Preview Box */}
               <div className="p-4 rounded-xl border border-primary/30 bg-primary/5 space-y-1.5">
                 <div className="flex justify-between text-xs">
-                  <span className="text-muted-foreground">Net Base Premium</span>
-                  <span className="font-mono">₹{quoteCalculation.netBase.toLocaleString('en-IN')}</span>
+                  <span className="text-muted-foreground">Gross Base Premium</span>
+                  <span className="font-mono">₹{quoteCalculation.effectiveGrossBase.toLocaleString('en-IN')}</span>
                 </div>
+                {Number(newQuote.discountAmount || 0) > 0 && (
+                  <div className="flex justify-between text-xs text-emerald-600">
+                    <span>Customer Discount</span>
+                    <span className="font-mono">-₹{Number(newQuote.discountAmount).toLocaleString('en-IN')}</span>
+                  </div>
+                )}
                 {quoteCalculation.riderSum > 0 && (
                   <div className="flex justify-between text-xs">
-                    <span className="text-muted-foreground">Total Rider Premium</span>
+                    <span className="text-muted-foreground">Total Riders Premium</span>
                     <span className="font-mono">+₹{quoteCalculation.riderSum.toLocaleString('en-IN')}</span>
                   </div>
                 )}
@@ -1146,9 +1327,18 @@ export function LifeCaseWorkspace({ caseId }: { caseId: string }) {
                   <span className="font-mono">₹{quoteCalculation.gstAmount.toLocaleString('en-IN')}</span>
                 </div>
                 <div className="flex justify-between text-sm font-black text-foreground pt-1.5 border-t border-primary/20">
-                  <span>Authoritative Total Payable</span>
+                  <span>Authoritative Customer Payable</span>
                   <span className="font-mono text-primary text-base">₹{quoteCalculation.total.toLocaleString('en-IN')}</span>
                 </div>
+                {quoteCalculation.brokerageAmount > 0 && (
+                  <div className="flex justify-between text-[11px] text-muted-foreground pt-1 border-t border-dashed border-border">
+                    <span>Agency Brokerage Revenue ({quoteCalculation.bPercent}%)</span>
+                    <span className="font-mono font-bold text-foreground">₹{quoteCalculation.brokerageAmount.toLocaleString('en-IN')}</span>
+                  </div>
+                )}
+                <p className="text-[10px] text-muted-foreground italic pt-1">
+                  * Brokerage is paid by the insurer directly to JestPolizy and is never deducted from the customer payable premium.
+                </p>
               </div>
             </div>
 
@@ -1162,7 +1352,65 @@ export function LifeCaseWorkspace({ caseId }: { caseId: string }) {
               </button>
               <button
                 type="button"
-                onClick={() => addQuoteMutation.mutate(newQuote)}
+                onClick={() => {
+                  if (!newQuote.insurerName.trim()) {
+                    toast.error('Insurer Name is required.');
+                    return;
+                  }
+                  if (!newQuote.sumInsured || Number(newQuote.sumInsured) <= 0) {
+                    toast.error('Sum Assured is required.');
+                    return;
+                  }
+                  if (!newQuote.basePremium || Number(newQuote.basePremium) <= 0) {
+                    toast.error(
+                      newQuote.premiumPaymentType === 'SINGLE_PAY'
+                        ? 'Single Premium Amount is required.'
+                        : 'Base Premium is required.',
+                    );
+                    return;
+                  }
+
+                  const payload = {
+                    insurerName: newQuote.insurerName.trim(),
+                    productCode: newQuote.productCode.trim() || undefined,
+                    sumInsured: Number(newQuote.sumInsured),
+                    basePremium: Number(newQuote.basePremium),
+                    discountAmount: newQuote.discountAmount !== '' ? Number(newQuote.discountAmount) : 0,
+                    policyTermYears: newQuote.policyTermYears !== '' ? Number(newQuote.policyTermYears) : 10,
+                    premiumPayingTermYears:
+                      newQuote.premiumPaymentType === 'SINGLE_PAY'
+                        ? 1
+                        : newQuote.premiumPayingTermYears !== ''
+                          ? Number(newQuote.premiumPayingTermYears)
+                          : 10,
+                    lifePolicyType: newQuote.lifePolicyType,
+                    premiumPaymentType: newQuote.premiumPaymentType,
+                    premiumFrequency:
+                      newQuote.premiumPaymentType === 'SINGLE_PAY' ? 'ANNUAL' : newQuote.premiumFrequency,
+                    brokeragePercent: newQuote.brokeragePercent !== '' ? Number(newQuote.brokeragePercent) : 0,
+                    riders: newQuote.riders
+                      .filter((r) => r.premium !== '' && Number(r.premium) > 0)
+                      .map((r) => ({
+                        riderType: r.riderType,
+                        riderName: labelOf(STANDARD_RIDERS, r.riderType),
+                        sumAssured: Number(r.sumAssured || 0),
+                        basePremium: Number(r.premium || 0),
+                        termYears: r.termYears ? Number(r.termYears) : undefined,
+                        pptYears: r.pptYears ? Number(r.pptYears) : undefined,
+                      })),
+                    metadata: {
+                      planNameAndUin: newQuote.planNameAndUin.trim() || undefined,
+                      riskCommencementDate: newQuote.riskCommencementDate,
+                      freeLookPeriodDays: newQuote.freeLookPeriodDays,
+                      topUpPremium:
+                        newQuote.premiumPaymentType === 'SINGLE_PAY' && newQuote.topUpPremium !== ''
+                          ? Number(newQuote.topUpPremium)
+                          : 0,
+                    },
+                  };
+
+                  addQuoteMutation.mutate(payload);
+                }}
                 disabled={addQuoteMutation.isPending}
                 className="px-5 py-2 rounded-xl bg-primary text-primary-foreground text-xs font-bold hover:opacity-95 disabled:opacity-50"
               >

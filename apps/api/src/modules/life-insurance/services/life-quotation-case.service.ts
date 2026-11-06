@@ -598,6 +598,7 @@ export class LifeQuotationCaseService {
             lifePolicyType: dto.lifePolicyType,
             premiumPaymentType: dto.premiumPaymentType,
             premiumFrequency: dto.premiumFrequency,
+            ...(dto.metadata || {}),
           },
         },
       });
