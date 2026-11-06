@@ -216,7 +216,9 @@ export function LifeCaseWorkspace({ caseId }: { caseId: string }) {
       });
 
       // 2. Attach to Life Proposal Case
+      const docId = uploaded.id || uploaded.document?.id || uploaded.data?.id;
       await lifeQuotationRepository.attachDocument(caseId, {
+        documentId: docId,
         documentType: docType,
         fileName: file.name,
         fileKey: uploaded.fileKey || uploaded.id || `life-${Date.now()}`,

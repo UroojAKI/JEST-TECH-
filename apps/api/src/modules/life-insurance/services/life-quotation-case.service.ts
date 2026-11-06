@@ -227,6 +227,7 @@ export class LifeQuotationCaseService {
       const ownsContact = customerAgentId
         ? customerAgentId === user.agentId
         : proposerContact.createdById === (user.userId || user.id) ||
+          proposerContact.assignedAgentId === user.agentId ||
           lead?.agentId === user.agentId ||
           lead?.assignedToId === (user.userId || user.id);
       if (!ownsContact) {
@@ -267,8 +268,8 @@ export class LifeQuotationCaseService {
 
     if (!isLifeAssuredDifferent) {
       lifeAssuredName = `${proposerContact.firstName} ${proposerContact.lastName || ''}`.trim();
-      lifeAssuredDob = proposerContact.dateOfBirth;
-      lifeAssuredGender = proposerContact.gender;
+      lifeAssuredDob = proposerContact.dateOfBirth || (dto.lifeAssuredDob ? new Date(dto.lifeAssuredDob) : null);
+      lifeAssuredGender = proposerContact.gender || dto.lifeAssuredGender || null;
     } else {
       if (!lifeAssuredName) {
         throw new BadRequestException('Life Assured full name is required when different from proposer');
@@ -346,10 +347,12 @@ export class LifeQuotationCaseService {
     const effectiveAadhaar = dto.proposerKyc?.aadhaarNumber?.trim() || proposerContact.aadhaarNumber;
     const effectiveEmail = dto.proposerKyc?.email?.trim() || proposerContact.email;
 
-    const contactUpdates: Record<string, string> = {};
+    const contactUpdates: Record<string, any> = {};
     if (effectivePan && effectivePan !== proposerContact.panNumber) contactUpdates.panNumber = effectivePan;
     if (effectiveAadhaar && effectiveAadhaar !== proposerContact.aadhaarNumber) contactUpdates.aadhaarNumber = effectiveAadhaar;
     if (effectiveEmail && effectiveEmail !== proposerContact.email) contactUpdates.email = effectiveEmail;
+    if (lifeAssuredDob && !proposerContact.dateOfBirth) contactUpdates.dateOfBirth = lifeAssuredDob;
+    if (lifeAssuredGender && !proposerContact.gender) contactUpdates.gender = lifeAssuredGender;
 
     if (Object.keys(contactUpdates).length) {
       await this.prisma.contact.update({

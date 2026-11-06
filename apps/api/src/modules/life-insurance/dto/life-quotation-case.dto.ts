@@ -14,7 +14,7 @@ import {
   ProposerRelation,
   SmokerStatus,
 } from '@prisma/client';
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import {
   IsArray,
   IsBoolean,
@@ -65,16 +65,42 @@ export class CreateLifeQuotationCaseDto {
   agentId?: string;
 
   @ApiProperty({ enum: LifePlanCategory, description: 'One of the 8 IRDAI life plan categories' })
+  @Transform(({ value }) => {
+    if (!value) return value;
+    const map: Record<string, LifePlanCategory> = {
+      TERM_LIFE: LifePlanCategory.TERM_INSURANCE,
+      TERM_WITH_ROP: LifePlanCategory.TERM_INSURANCE,
+      ULIP: LifePlanCategory.INVESTMENT_PLANS,
+      ENDOWMENT: LifePlanCategory.SAVINGS_PLANS,
+      MONEY_BACK: LifePlanCategory.SAVINGS_PLANS,
+      CHILD_PLAN: LifePlanCategory.CHILD_FUTURE,
+      ANNUITY_PENSION: LifePlanCategory.ANNUITY,
+    };
+    return map[value] || value;
+  })
   @IsEnum(LifePlanCategory)
   planCategory: LifePlanCategory;
 
   @ApiPropertyOptional({ enum: LifePolicyForm, default: LifePolicyForm.NEW_POLICY })
   @IsOptional()
+  @Transform(({ value }) => {
+    if (value === 'RENEWAL_PORTABILITY') return LifePolicyForm.RENEWAL;
+    return value;
+  })
   @IsEnum(LifePolicyForm)
   policyForm?: LifePolicyForm;
 
   @ApiPropertyOptional({ enum: ProposerOccupation, description: 'Proposer occupation type' })
   @IsOptional()
+  @Transform(({ value }) => {
+    if (!value) return value;
+    const map: Record<string, ProposerOccupation> = {
+      SELF_EMPLOYED_PROFESSIONAL: ProposerOccupation.SELF_EMPLOYED,
+      BUSINESS_OWNER: ProposerOccupation.BUSINESS,
+      AGRICULTURE: ProposerOccupation.SELF_EMPLOYED,
+    };
+    return map[value] || value;
+  })
   @IsEnum(ProposerOccupation)
   occupation?: ProposerOccupation;
 
@@ -103,6 +129,10 @@ export class CreateLifeQuotationCaseDto {
 
   @ApiPropertyOptional({ enum: ProposerRelation, default: ProposerRelation.SELF })
   @IsOptional()
+  @Transform(({ value }) => {
+    if (value === 'SIBLING') return ProposerRelation.OTHER;
+    return value;
+  })
   @IsEnum(ProposerRelation)
   proposerRelation?: ProposerRelation;
 
@@ -189,6 +219,11 @@ export class CreateLifeQuotationCaseDto {
 
   @ApiPropertyOptional({ enum: AppointeeRelation, description: 'Appointee relation to minor nominee' })
   @IsOptional()
+  @Transform(({ value }) => {
+    if (value === 'PARENT') return AppointeeRelation.FATHER;
+    if (value === 'UNCLE_AUNT') return AppointeeRelation.OTHER;
+    return value;
+  })
   @IsEnum(AppointeeRelation)
   appointeeRelation?: AppointeeRelation;
 

@@ -59,10 +59,14 @@ export const lifeQuotationRepository = {
     email?: string;
     panNumber?: string;
     aadhaarNumber?: string;
+    dateOfBirth?: string;
+    gender?: string;
   }): Promise<string> {
-    const cleanPhone = proposer.phone.replace(/\D/g, '');
+    const cleanPhone = (proposer.phone || '').replace(/\D/g, '');
+    const cleanPan = (proposer.panNumber || '').trim().toUpperCase();
+    const cleanAadhaar = (proposer.aadhaarNumber || '').replace(/\D/g, '');
 
-    if (cleanPhone) {
+    if (cleanPhone && cleanPhone.length === 10) {
       try {
         const searchRes = await apiClient.get('/contacts', { params: { search: cleanPhone, limit: 10 } });
         const items = Array.isArray(searchRes.data?.data) ? searchRes.data.data : Array.isArray(searchRes.data) ? searchRes.data : [];
@@ -73,7 +77,7 @@ export const lifeQuotationRepository = {
       }
     }
 
-    if (cleanPhone) {
+    if (cleanPhone && cleanPhone.length === 10) {
       try {
         const custSearchRes = await apiClient.get('/customers', { params: { search: cleanPhone, limit: 10 } });
         const custItems = Array.isArray(custSearchRes.data?.data) ? custSearchRes.data.data : Array.isArray(custSearchRes.data) ? custSearchRes.data : [];
@@ -84,15 +88,36 @@ export const lifeQuotationRepository = {
       }
     }
 
-    const created = await apiClient.post('/contacts', {
+    const payload: Record<string, any> = {
       type: 'INDIVIDUAL',
-      firstName: proposer.firstName.trim() || 'Quotation',
+      firstName: proposer.firstName?.trim() || 'Quotation',
       lastName: (proposer.lastName || '').trim() || 'Customer',
-      ...(cleanPhone ? { phone: cleanPhone } : {}),
-      email: proposer.email?.trim() || undefined,
-      panNumber: proposer.panNumber?.trim() || undefined,
-    });
-    return created.data?.id;
+    };
+    if (cleanPhone && cleanPhone.length === 10 && /^[6-9]/.test(cleanPhone)) {
+      payload.phone = cleanPhone;
+    }
+    if (proposer.email?.trim() && proposer.email.includes('@')) {
+      payload.email = proposer.email.trim();
+    }
+    if (cleanPan && cleanPan.length === 10) {
+      payload.panNumber = cleanPan;
+    }
+    if (cleanAadhaar && cleanAadhaar.length === 12) {
+      payload.aadhaarNumber = cleanAadhaar;
+    }
+    if (proposer.dateOfBirth) {
+      payload.dateOfBirth = proposer.dateOfBirth;
+    }
+    if (proposer.gender) {
+      payload.gender = proposer.gender;
+    }
+
+    const created = await apiClient.post('/contacts', payload);
+    const createdId = created.data?.id || (created.data as any)?.data?.id || (created as any)?.id;
+    if (!createdId) {
+      throw new Error('Failed to create or resolve customer contact record.');
+    }
+    return createdId;
   },
 
   async createCase(payload: Record<string, any>): Promise<any> {
@@ -121,8 +146,16 @@ export const lifeQuotationRepository = {
   },
 
   async selectQuote(caseId: string, quoteId: string): Promise<any> {
-    const response = await apiClient.post(`/life/quotation-cases/${caseId}/quotes/${quoteId}/select`);
-    return response.data;
+    try {
+      const response = await apiClient.post(`/life/quotation-cases/${caseId}/quotes/${quoteId}/select`);
+      return response.data;
+    } catch (err: any) {
+      if (err?.response?.status === 404) {
+        const response = await apiClient.post(`/life/quotation-cases/${caseId}/select`, { quotationId: quoteId });
+        return response.data;
+      }
+      throw err;
+    }
   },
 
   async compareQuotes(caseId: string): Promise<any> {
@@ -159,8 +192,16 @@ export const lifeQuotationRepository = {
   },
 
   async recordPayment(caseId: string, quoteId: string, payload: Record<string, any>): Promise<any> {
-    const response = await apiClient.post(`/life/quotation-cases/${caseId}/quotes/${quoteId}/payment`, payload);
-    return response.data;
+    try {
+      const response = await apiClient.post(`/life/quotation-cases/${caseId}/quotes/${quoteId}/payment`, payload);
+      return response.data;
+    } catch (err: any) {
+      if (err?.response?.status === 404) {
+        const response = await apiClient.post(`/life/quotation-cases/${caseId}/payment`, { quotationId: quoteId, ...payload });
+        return response.data;
+      }
+      throw err;
+    }
   },
 
   async issuePolicy(payload: Record<string, any>): Promise<any> {

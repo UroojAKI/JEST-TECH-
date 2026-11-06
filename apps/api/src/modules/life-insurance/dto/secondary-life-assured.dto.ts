@@ -1,5 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Gender, SmokerStatus } from '@prisma/client';
+import { Transform } from 'class-transformer';
 import {
   IsBoolean,
   IsDateString,
@@ -17,6 +18,7 @@ import {
  */
 export class SecondaryLifeAssuredDto {
   @ApiProperty({ description: 'Full legal name of the secondary life assured', example: 'Pooja Sharma' })
+  @Transform(({ value, obj }) => value || obj?.fullName || '')
   @IsString()
   @IsNotEmpty()
   name: string;
@@ -30,6 +32,7 @@ export class SecondaryLifeAssuredDto {
   gender: Gender;
 
   @ApiProperty({ description: 'Relationship to Primary Life Assured', example: 'SPOUSE' })
+  @Transform(({ value, obj }) => value || obj?.relationToPrimary || 'SPOUSE')
   @IsString()
   @IsNotEmpty()
   relationship: string;
@@ -39,6 +42,7 @@ export class SecondaryLifeAssuredDto {
     description: 'Tobacco/smoking risk status',
     default: SmokerStatus.UNKNOWN,
   })
+  @Transform(({ value }) => value || SmokerStatus.NON_SMOKER)
   @IsEnum(SmokerStatus)
   smokerStatus: SmokerStatus;
 
@@ -59,9 +63,8 @@ export class SecondaryLifeAssuredDto {
   @IsBoolean()
   hasPreExistingIllness?: boolean;
 
-  @ApiPropertyOptional({ description: 'Medical history notes if pre-existing illness is declared' })
+  @ApiPropertyOptional({ description: 'Medical notes regarding pre-existing conditions' })
   @IsOptional()
   @IsString()
-  medicalHistoryDetails?: string;
+  medicalNotes?: string;
 }
-

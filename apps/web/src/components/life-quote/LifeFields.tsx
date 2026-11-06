@@ -103,8 +103,18 @@ export function LifeFields({
                   className={inputCls}
                   type={f.type === 'number' ? 'number' : f.type === 'date' ? 'date' : 'text'}
                   min={f.type === 'number' ? 0 : undefined}
-                  value={values[f.key] ?? f.defaultValue ?? ''}
-                  onChange={(e) => set(f.key, f.type === 'number' ? (e.target.value === '' ? '' : Number(e.target.value)) : e.target.value)}
+                  placeholder={f.placeholder || (f.hint ? f.hint : '')}
+                  value={values[f.key] !== undefined && values[f.key] !== null ? values[f.key] : ''}
+                  onChange={(e) =>
+                    set(
+                      f.key,
+                      f.type === 'number'
+                        ? e.target.value === ''
+                          ? ''
+                          : Number(e.target.value)
+                        : e.target.value,
+                    )
+                  }
                 />
               )}
             </FieldLabel>

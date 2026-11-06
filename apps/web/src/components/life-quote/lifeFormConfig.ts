@@ -17,6 +17,7 @@ export interface FieldSpec {
   required: boolean;
   options?: Option[];
   hint?: string;
+  placeholder?: string;
   defaultValue?: any;
   showIf?: (values: Record<string, any>) => boolean;
 }
@@ -28,6 +29,24 @@ export function labelOf(options: Option[] | { value: string; label: string }[], 
   const found = options.find((o) => o.value === value);
   return found ? found.label : value;
 }
+
+export const CATEGORY_TO_PRISMA_MAP: Record<string, string> = {
+  TERM_LIFE: 'TERM_INSURANCE',
+  TERM_WITH_ROP: 'TERM_INSURANCE',
+  ULIP: 'INVESTMENT_PLANS',
+  ENDOWMENT: 'SAVINGS_PLANS',
+  MONEY_BACK: 'SAVINGS_PLANS',
+  WHOLE_LIFE: 'WHOLE_LIFE',
+  CHILD_PLAN: 'CHILD_FUTURE',
+  ANNUITY_PENSION: 'ANNUITY',
+  TERM_INSURANCE: 'TERM_INSURANCE',
+  SAVINGS_PLANS: 'SAVINGS_PLANS',
+  INVESTMENT_PLANS: 'INVESTMENT_PLANS',
+  RETIREMENT_PENSION: 'RETIREMENT_PENSION',
+  CHILD_FUTURE: 'CHILD_FUTURE',
+  ANNUITY: 'ANNUITY',
+  GROUP_INSURANCE: 'GROUP_INSURANCE',
+};
 
 export const PLAN_CATEGORIES: Option[] = [
   { value: 'TERM_LIFE', label: 'Term Life Insurance', hint: 'Pure risk death benefit protection for specified term' },
@@ -42,7 +61,8 @@ export const PLAN_CATEGORIES: Option[] = [
 
 export const POLICY_FORMS: Option[] = opts(
   ['NEW_POLICY', 'New Business Proposal'],
-  ['RENEWAL_PORTABILITY', 'Policy Renewal / Portability'],
+  ['RENEWAL', 'Policy Renewal / Portability'],
+  ['RIDERS_ADDON', 'Riders / Add-on Endorsement'],
 );
 
 export const POLICY_TYPES: Option[] = opts(
@@ -66,9 +86,9 @@ export const PREMIUM_FREQUENCIES: Option[] = opts(
 
 export const OCCUPATIONS: Option[] = opts(
   ['SALARIED', 'Salaried Employee (MNC / Corporate / Govt)'],
-  ['SELF_EMPLOYED_PROFESSIONAL', 'Self-Employed Professional (Doctor / CA / Lawyer / Tech)'],
-  ['BUSINESS_OWNER', 'Business Owner / Trader / Proprietor'],
-  ['AGRICULTURE', 'Agriculture / Primary Producer'],
+  ['SELF_EMPLOYED', 'Self-Employed (Doctor / CA / Lawyer / Consultant)'],
+  ['BUSINESS', 'Business Owner / Trader / Entrepreneur'],
+  ['PROFESSIONAL', 'Corporate Professional'],
   ['STUDENT', 'Student'],
   ['HOMEMAKER', 'Homemaker'],
   ['RETIRED', 'Retired Pensioner'],
@@ -91,7 +111,8 @@ export const PROPOSER_RELATIONS: Option[] = opts(
   ['SPOUSE', 'Spouse'],
   ['CHILD', 'Child (Son / Daughter)'],
   ['PARENT', 'Parent (Mother / Father)'],
-  ['SIBLING', 'Sibling (Brother / Sister)'],
+  ['EMPLOYER', 'Employer'],
+  ['BUSINESS_PARTNER', 'Business Partner'],
   ['OTHER', 'Other Legal Relationship'],
 );
 
@@ -104,11 +125,12 @@ export const NOMINEE_RELATIONS: Option[] = opts(
 );
 
 export const APPOINTEE_RELATIONS: Option[] = opts(
-  ['PARENT', 'Parent (Mother / Father)'],
-  ['SPOUSE', 'Spouse'],
-  ['GRANDPARENT', 'Grandparent'],
-  ['UNCLE_AUNT', 'Uncle / Aunt'],
+  ['FATHER', 'Father'],
+  ['MOTHER', 'Mother'],
   ['LEGAL_GUARDIAN', 'Court-Appointed Legal Guardian'],
+  ['GRANDPARENT', 'Grandparent'],
+  ['SPOUSE', 'Spouse'],
+  ['SIBLING', 'Sibling (Brother / Sister)'],
   ['OTHER', 'Other Adult Appointee'],
 );
 
@@ -183,68 +205,89 @@ export function isMinor(dobString?: string | null): boolean {
 // Section A Field Specifications per Plan Category
 // ---------------------------------------------------------------------------------
 
+const TERM_FIELDS: FieldSpec[] = [
+  { key: 'sumAssured', label: 'Sum Assured (Death Benefit)', type: 'number', required: true, hint: 'Minimum ₹10,00,000', placeholder: 'e.g. 10000000' },
+  { key: 'termYears', label: 'Policy Term (Years)', type: 'number', required: true, hint: 'Duration of coverage (5 to 50 years)', placeholder: 'e.g. 30' },
+  { key: 'pptYears', label: 'Premium Paying Term (PPT)', type: 'number', required: true, hint: 'Years to pay premium (1 to term years)', placeholder: 'e.g. 10' },
+  { key: 'deathBenefitPayoutOption', label: 'Death Benefit Settlement Option', type: 'select', required: true, options: DEATH_BENEFIT_PAYOUTS, defaultValue: 'LUMP_SUM' },
+  { key: 'terminalIllnessBenefitIncluded', label: 'Terminal Illness Acceleration Included', type: 'boolean', required: false, defaultValue: true },
+];
+
+const TERM_ROP_FIELDS: FieldSpec[] = [
+  { key: 'sumAssured', label: 'Sum Assured (Death Benefit)', type: 'number', required: true, hint: 'Minimum ₹5,00,000', placeholder: 'e.g. 5000000' },
+  { key: 'termYears', label: 'Policy Term (Years)', type: 'number', required: true, placeholder: 'e.g. 25' },
+  { key: 'pptYears', label: 'Premium Paying Term (PPT)', type: 'number', required: true, placeholder: 'e.g. 10' },
+  { key: 'deathBenefitPayoutOption', label: 'Death Benefit Settlement Option', type: 'select', required: true, options: DEATH_BENEFIT_PAYOUTS, defaultValue: 'LUMP_SUM' },
+  { key: 'ropPercentage', label: 'Return of Premium % on Maturity', type: 'number', required: true, hint: 'Typically 100% of basic premiums paid', placeholder: 'e.g. 100' },
+];
+
+const ULIP_FIELDS: FieldSpec[] = [
+  { key: 'annualInvestmentAmount', label: 'Target Annual Investment Premium', type: 'number', required: true, hint: 'Minimum ₹12,000 p.a.', placeholder: 'e.g. 120000' },
+  { key: 'policyTermYears', label: 'Policy Term (Years)', type: 'number', required: true, hint: 'Typically 10, 15, or 20 years', placeholder: 'e.g. 15' },
+  { key: 'pptYears', label: 'Premium Paying Term (PPT)', type: 'number', required: true, hint: 'Typically 5, 7, 10 years or equal to term', placeholder: 'e.g. 10' },
+  { key: 'fundChoice', label: 'Initial Fund Allocation Choice', type: 'select', required: true, options: ULIP_FUNDS, defaultValue: 'BALANCED' },
+  { key: 'riskProfile', label: 'Investor Risk Tolerance Profile', type: 'select', required: true, options: RISK_PROFILES, defaultValue: 'MODERATE' },
+  { key: 'topUpAllowed', label: 'Enable Top-up Premium Facility', type: 'boolean', required: false, defaultValue: false },
+];
+
+const ENDOWMENT_FIELDS: FieldSpec[] = [
+  { key: 'sumAssured', label: 'Guaranteed Maturity Sum Assured', type: 'number', required: true, hint: 'Minimum ₹50,000', placeholder: 'e.g. 2500000' },
+  { key: 'policyTermYears', label: 'Policy Term (Years)', type: 'number', required: true, placeholder: 'e.g. 20' },
+  { key: 'pptYears', label: 'Premium Paying Term (PPT)', type: 'number', required: true, placeholder: 'e.g. 10' },
+  { key: 'guaranteedAdditionPercent', label: 'Guaranteed Addition / Simple Reversionary Bonus (%)', type: 'number', required: false, hint: 'e.g. 5.5% p.a.', placeholder: 'e.g. 5.5' },
+  { key: 'maturityPayoutOption', label: 'Maturity Payout Choice', type: 'select', required: true, options: opts(['LUMP_SUM', 'Lump Sum at Maturity'], ['REGULAR_ANNUAL_INCOME', 'Annual Structured Payout']), defaultValue: 'LUMP_SUM' },
+];
+
+const MONEY_BACK_FIELDS: FieldSpec[] = [
+  { key: 'sumAssured', label: 'Base Sum Assured', type: 'number', required: true, placeholder: 'e.g. 2000000' },
+  { key: 'policyTermYears', label: 'Policy Term (Years)', type: 'number', required: true, hint: 'Common terms: 15, 20, 25 years', placeholder: 'e.g. 20' },
+  { key: 'pptYears', label: 'Premium Paying Term (PPT)', type: 'number', required: true, placeholder: 'e.g. 10' },
+  { key: 'survivalBenefitIntervalYears', label: 'Survival Benefit Payout Interval (Every N Years)', type: 'number', required: true, hint: 'e.g. Every 5th year 20% of Sum Assured', placeholder: 'e.g. 5' },
+  { key: 'guaranteedAdditionPercent', label: 'Guaranteed Addition (%)', type: 'number', required: false, placeholder: 'e.g. 5.0' },
+];
+
+const WHOLE_LIFE_FIELDS: FieldSpec[] = [
+  { key: 'sumAssured', label: 'Sum Assured', type: 'number', required: true, hint: 'Minimum ₹5,00,000', placeholder: 'e.g. 5000000' },
+  { key: 'coverageUptoAge', label: 'Coverage Duration Limit (Age)', type: 'number', required: true, hint: '99 or 100 years of age', placeholder: 'e.g. 99' },
+  { key: 'pptYears', label: 'Premium Paying Term (PPT)', type: 'number', required: true, hint: 'e.g. 10, 15, or up to age 60', placeholder: 'e.g. 15' },
+  { key: 'survivalBenefitStartAge', label: 'Survival Income Benefit Start Age', type: 'number', required: false, placeholder: 'e.g. 60' },
+];
+
+const CHILD_FIELDS: FieldSpec[] = [
+  { key: 'childName', label: 'Child Full Legal Name', type: 'text', required: true, placeholder: 'e.g. Aarav Sharma' },
+  { key: 'childDob', label: 'Child Date of Birth', type: 'date', required: true },
+  { key: 'childGender', label: 'Child Gender', type: 'select', required: true, options: GENDERS, defaultValue: 'MALE' },
+  { key: 'targetCorpus', label: 'Target Education / Marriage Corpus', type: 'number', required: true, hint: 'Projected financial goal in INR', placeholder: 'e.g. 5000000' },
+  { key: 'waiverOfPremiumOnParentDeath', label: 'Waiver of Premium (WOP) on Proposer Death', type: 'boolean', required: true, defaultValue: true, hint: 'Ensures future premiums are paid by insurer if parent passes away' },
+];
+
+const ANNUITY_FIELDS: FieldSpec[] = [
+  { key: 'purchasePrice', label: 'Purchase Price / Investment Corpus', type: 'number', required: true, hint: 'Minimum ₹1,00,000 single lump-sum', placeholder: 'e.g. 5000000' },
+  { key: 'annuityOption', label: 'Annuity Structure Option', type: 'select', required: true, options: ANNUITY_OPTIONS, defaultValue: 'LIFE_ANNUITY_RETURN_OF_PURCHASE_PRICE' },
+  { key: 'payoutFrequency', label: 'Pension Annuity Payout Frequency', type: 'select', required: true, options: PREMIUM_FREQUENCIES, defaultValue: 'MONTHLY' },
+  { key: 'defermentPeriodYears', label: 'Deferment Period (Years - 0 for Immediate Annuity)', type: 'number', required: false, placeholder: 'e.g. 0' },
+];
+
 export const SECTION_A_FIELDS: Record<string, FieldSpec[]> = {
-  TERM_LIFE: [
-    { key: 'sumAssured', label: 'Sum Assured (Death Benefit)', type: 'number', required: true, hint: 'Minimum ₹10,00,000' },
-    { key: 'termYears', label: 'Policy Term (Years)', type: 'number', required: true, hint: 'Duration of coverage (5 to 50 years)' },
-    { key: 'pptYears', label: 'Premium Paying Term (PPT)', type: 'number', required: true, hint: 'Years to pay premium (1 to term years)' },
-    { key: 'deathBenefitPayoutOption', label: 'Death Benefit Settlement Option', type: 'select', required: true, options: DEATH_BENEFIT_PAYOUTS, defaultValue: 'LUMP_SUM' },
-    { key: 'terminalIllnessBenefitIncluded', label: 'Terminal Illness Acceleration Included', type: 'boolean', required: false, defaultValue: true },
-  ],
+  TERM_LIFE: TERM_FIELDS,
+  TERM_WITH_ROP: TERM_ROP_FIELDS,
+  ULIP: ULIP_FIELDS,
+  ENDOWMENT: ENDOWMENT_FIELDS,
+  MONEY_BACK: MONEY_BACK_FIELDS,
+  WHOLE_LIFE: WHOLE_LIFE_FIELDS,
+  CHILD_PLAN: CHILD_FIELDS,
+  ANNUITY_PENSION: ANNUITY_FIELDS,
 
-  TERM_WITH_ROP: [
-    { key: 'sumAssured', label: 'Sum Assured (Death Benefit)', type: 'number', required: true, hint: 'Minimum ₹5,00,000' },
-    { key: 'termYears', label: 'Policy Term (Years)', type: 'number', required: true },
-    { key: 'pptYears', label: 'Premium Paying Term (PPT)', type: 'number', required: true },
-    { key: 'deathBenefitPayoutOption', label: 'Death Benefit Settlement Option', type: 'select', required: true, options: DEATH_BENEFIT_PAYOUTS, defaultValue: 'LUMP_SUM' },
-    { key: 'ropPercentage', label: 'Return of Premium % on Maturity', type: 'number', required: true, defaultValue: 100, hint: 'Typically 100% of basic premiums paid' },
-  ],
-
-  ULIP: [
-    { key: 'annualInvestmentAmount', label: 'Target Annual Investment Premium', type: 'number', required: true, hint: 'Minimum ₹12,000 p.a.' },
-    { key: 'policyTermYears', label: 'Policy Term (Years)', type: 'number', required: true, hint: 'Typically 10, 15, or 20 years' },
-    { key: 'pptYears', label: 'Premium Paying Term (PPT)', type: 'number', required: true, hint: 'Typically 5, 7, 10 years or equal to term' },
-    { key: 'fundChoice', label: 'Initial Fund Allocation Choice', type: 'select', required: true, options: ULIP_FUNDS, defaultValue: 'BALANCED' },
-    { key: 'riskProfile', label: 'Investor Risk Tolerance Profile', type: 'select', required: true, options: RISK_PROFILES, defaultValue: 'MODERATE' },
-    { key: 'topUpAllowed', label: 'Enable Top-up Premium Facility', type: 'boolean', required: false, defaultValue: false },
-  ],
-
-  ENDOWMENT: [
-    { key: 'sumAssured', label: 'Guaranteed Maturity Sum Assured', type: 'number', required: true, hint: 'Minimum ₹50,000' },
-    { key: 'policyTermYears', label: 'Policy Term (Years)', type: 'number', required: true },
-    { key: 'pptYears', label: 'Premium Paying Term (PPT)', type: 'number', required: true },
-    { key: 'guaranteedAdditionPercent', label: 'Guaranteed Addition / Simple Reversionary Bonus (%)', type: 'number', required: false, hint: 'e.g. 5.5% p.a.' },
-    { key: 'maturityPayoutOption', label: 'Maturity Payout Choice', type: 'select', required: true, options: opts(['LUMP_SUM', 'Lump Sum at Maturity'], ['REGULAR_ANNUAL_INCOME', 'Annual Structured Payout']), defaultValue: 'LUMP_SUM' },
-  ],
-
-  MONEY_BACK: [
-    { key: 'sumAssured', label: 'Base Sum Assured', type: 'number', required: true },
-    { key: 'policyTermYears', label: 'Policy Term (Years)', type: 'number', required: true, hint: 'Common terms: 15, 20, 25 years' },
-    { key: 'pptYears', label: 'Premium Paying Term (PPT)', type: 'number', required: true },
-    { key: 'survivalBenefitIntervalYears', label: 'Survival Benefit Payout Interval (Every N Years)', type: 'number', required: true, defaultValue: 5, hint: 'e.g. Every 5th year 20% of Sum Assured' },
-    { key: 'guaranteedAdditionPercent', label: 'Guaranteed Addition (%)', type: 'number', required: false },
-  ],
-
-  WHOLE_LIFE: [
-    { key: 'sumAssured', label: 'Sum Assured', type: 'number', required: true, hint: 'Minimum ₹5,00,000' },
-    { key: 'coverageUptoAge', label: 'Coverage Duration Limit (Age)', type: 'number', required: true, defaultValue: 99, hint: '99 or 100 years of age' },
-    { key: 'pptYears', label: 'Premium Paying Term (PPT)', type: 'number', required: true, hint: 'e.g. 10, 15, or up to age 60' },
-    { key: 'survivalBenefitStartAge', label: 'Survival Income Benefit Start Age', type: 'number', required: false, defaultValue: 60 },
-  ],
-
-  CHILD_PLAN: [
-    { key: 'childName', label: 'Child Full Legal Name', type: 'text', required: true },
-    { key: 'childDob', label: 'Child Date of Birth', type: 'date', required: true },
-    { key: 'childGender', label: 'Child Gender', type: 'select', required: true, options: GENDERS, defaultValue: 'MALE' },
-    { key: 'targetCorpus', label: 'Target Education / Marriage Corpus', type: 'number', required: true, hint: 'Projected financial goal in INR' },
-    { key: 'waiverOfPremiumOnParentDeath', label: 'Waiver of Premium (WOP) on Proposer Death', type: 'boolean', required: true, defaultValue: true, hint: 'Ensures future premiums are paid by insurer if parent passes away' },
-  ],
-
-  ANNUITY_PENSION: [
-    { key: 'purchasePrice', label: 'Purchase Price / Investment Corpus', type: 'number', required: true, hint: 'Minimum ₹1,00,000 single lump-sum' },
-    { key: 'annuityOption', label: 'Annuity Annuity Structure Option', type: 'select', required: true, options: ANNUITY_OPTIONS, defaultValue: 'LIFE_ANNUITY_RETURN_OF_PURCHASE_PRICE' },
-    { key: 'payoutFrequency', label: 'Pension Annuity Payout Frequency', type: 'select', required: true, options: PREMIUM_FREQUENCIES, defaultValue: 'MONTHLY' },
-    { key: 'defermentPeriodYears', label: 'Deferment Period (Years - 0 for Immediate Annuity)', type: 'number', required: false, defaultValue: 0 },
+  // Canonical Prisma Enum Aliases
+  TERM_INSURANCE: TERM_FIELDS,
+  SAVINGS_PLANS: ENDOWMENT_FIELDS,
+  INVESTMENT_PLANS: ULIP_FIELDS,
+  RETIREMENT_PENSION: ANNUITY_FIELDS,
+  CHILD_FUTURE: CHILD_FIELDS,
+  ANNUITY: ANNUITY_FIELDS,
+  GROUP_INSURANCE: [
+    { key: 'corporateName', label: 'Corporate Entity Name', type: 'text', required: true, placeholder: 'e.g. Acme Tech Pvt Ltd' },
+    { key: 'totalMemberCount', label: 'Total Number of Lives Covered', type: 'number', required: true, placeholder: 'e.g. 250' },
+    { key: 'sumAssuredPerMember', label: 'Sum Assured Per Member', type: 'number', required: true, placeholder: 'e.g. 1000000' },
   ],
 };
-

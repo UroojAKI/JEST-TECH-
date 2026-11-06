@@ -24,6 +24,7 @@ import { lifeQuotationRepository } from '../../repositories/life-quotation.repos
 import {
   ANNUITY_OPTIONS,
   APPOINTEE_RELATIONS,
+  CATEGORY_TO_PRISMA_MAP,
   GENDERS,
   NOMINEE_RELATIONS,
   OCCUPATIONS,
@@ -69,7 +70,7 @@ export function LifeQuoteWizard({
     dateOfBirth: '',
     gender: 'MALE',
     occupation: 'SALARIED',
-    annualIncome: 1200000,
+    annualIncome: '' as number | '',
     addressLine1: '',
     city: '',
     state: '',
@@ -80,9 +81,6 @@ export function LifeQuoteWizard({
   const [planCategory, setPlanCategory] = useState<string>('TERM_LIFE');
   const [policyForm, setPolicyForm] = useState<string>('NEW_POLICY');
   const [categoryData, setCategoryData] = useState<Record<string, any>>({
-    sumAssured: 10000000,
-    termYears: 30,
-    pptYears: 10,
     deathBenefitPayoutOption: 'LUMP_SUM',
     terminalIllnessBenefitIncluded: true,
   });
@@ -95,8 +93,8 @@ export function LifeQuoteWizard({
   const [lifeAssuredGender, setLifeAssuredGender] = useState('MALE');
 
   const [smokerStatus, setSmokerStatus] = useState('NON_SMOKER');
-  const [heightCm, setHeightCm] = useState<number | ''>(175);
-  const [weightKg, setWeightKg] = useState<number | ''>(70);
+  const [heightCm, setHeightCm] = useState<number | ''>('');
+  const [weightKg, setWeightKg] = useState<number | ''>('');
   const [occupationRiskCategory, setOccupationRiskCategory] = useState('CLASS_1_STANDARD');
   const [hasPreExistingIllness, setHasPreExistingIllness] = useState(false);
   const [medicalHistoryDetails, setMedicalHistoryDetails] = useState('');
@@ -121,7 +119,7 @@ export function LifeQuoteWizard({
   const [appointee, setAppointee] = useState({
     name: '',
     dateOfBirth: '',
-    relation: 'PARENT',
+    relation: 'FATHER',
   });
 
   // Preload contact if ID passed
@@ -155,22 +153,9 @@ export function LifeQuoteWizard({
     const fields = SECTION_A_FIELDS[newCat] || [];
     const defaults: Record<string, any> = {};
     for (const f of fields) {
-      if (f.defaultValue !== undefined) {
+      if (f.defaultValue !== undefined && f.type !== 'number') {
         defaults[f.key] = f.defaultValue;
       }
-    }
-    // Set sensible insurance defaults
-    if (newCat === 'TERM_LIFE' || newCat === 'TERM_WITH_ROP') {
-      defaults.sumAssured = defaults.sumAssured || 10000000;
-      defaults.termYears = defaults.termYears || 30;
-      defaults.pptYears = defaults.pptYears || 10;
-    } else if (newCat === 'ANNUITY_PENSION') {
-      defaults.purchasePrice = defaults.purchasePrice || 5000000;
-      defaults.annuityOption = defaults.annuityOption || 'LIFE_ANNUITY_RETURN_OF_PURCHASE_PRICE';
-    } else if (newCat === 'ULIP') {
-      defaults.annualInvestmentAmount = defaults.annualInvestmentAmount || 120000;
-      defaults.policyTermYears = defaults.policyTermYears || 15;
-      defaults.pptYears = defaults.pptYears || 10;
     }
     setCategoryData(defaults);
   };
@@ -296,62 +281,68 @@ export function LifeQuoteWizard({
           email: proposer.email,
           panNumber: proposer.panNumber,
           aadhaarNumber: proposer.aadhaarNumber,
+          dateOfBirth: proposer.dateOfBirth,
+          gender: proposer.gender,
         }));
 
       // 2. Prepare Proposal Case Payload matching CreateLifeQuotationCaseDto
+      const canonicalPlanCategory = CATEGORY_TO_PRISMA_MAP[planCategory] || planCategory;
+      const canonicalPolicyForm = policyForm === 'RENEWAL_PORTABILITY' ? 'RENEWAL' : policyForm;
+
       const payload: Record<string, any> = {
         contactId,
         leadId: leadId || undefined,
-        planCategory,
-        policyForm,
+        planCategory: canonicalPlanCategory,
+        policyForm: canonicalPolicyForm,
         occupation: proposer.occupation,
-        annualIncome: Number(proposer.annualIncome || 0),
-        address: {
+        annualIncome: proposer.annualIncome !== '' ? Number(proposer.annualIncome) : undefined,
+        address: proposer.addressLine1 ? {
           addressLine1: proposer.addressLine1,
           city: proposer.city,
           state: proposer.state,
           pincode: proposer.pincode,
-        },
+        } : undefined,
         proposerKyc: {
-          panNumber: proposer.panNumber || undefined,
-          aadhaarNumber: proposer.aadhaarNumber || undefined,
-          email: proposer.email || undefined,
+          panNumber: proposer.panNumber?.trim() ? proposer.panNumber.trim().toUpperCase() : undefined,
+          aadhaarNumber: proposer.aadhaarNumber?.trim() ? proposer.aadhaarNumber.trim() : undefined,
+          email: proposer.email?.trim() ? proposer.email.trim() : undefined,
         },
         isLifeAssuredDifferent,
         proposerRelation: isLifeAssuredDifferent ? proposerRelation : 'SELF',
         lifeAssuredName: isLifeAssuredDifferent ? lifeAssuredName.trim() : `${proposer.firstName} ${proposer.lastName}`.trim(),
-        lifeAssuredDob: isLifeAssuredDifferent ? lifeAssuredDob : proposer.dateOfBirth || undefined,
+        lifeAssuredDob: (isLifeAssuredDifferent ? lifeAssuredDob : proposer.dateOfBirth) || undefined,
         lifeAssuredGender: isLifeAssuredDifferent ? lifeAssuredGender : proposer.gender,
 
         // Underwriting Mortality
         smokerStatus,
-        heightCm: Number(heightCm),
-        weightKg: Number(weightKg),
+        heightCm: heightCm !== '' ? Number(heightCm) : undefined,
+        weightKg: weightKg !== '' ? Number(weightKg) : undefined,
         occupationRiskCategory,
         hasPreExistingIllness,
         medicalHistoryDetails: hasPreExistingIllness ? medicalHistoryDetails : undefined,
 
         // Nominee
-        nomineeName: nominee.name.trim(),
-        nomineeDob: nominee.dateOfBirth,
-        nomineeRelation: nominee.relation,
+        nomineeName: nominee.name.trim() || undefined,
+        nomineeDob: nominee.dateOfBirth || undefined,
+        nomineeRelation: nominee.relation || undefined,
 
         // Appointee (if minor)
-        appointeeName: nomineeIsMinor ? appointee.name.trim() : undefined,
-        appointeeDob: nomineeIsMinor ? appointee.dateOfBirth : undefined,
-        appointeeRelation: nomineeIsMinor ? appointee.relation : undefined,
+        appointeeName: nomineeIsMinor && appointee.name.trim() ? appointee.name.trim() : undefined,
+        appointeeDob: nomineeIsMinor && appointee.dateOfBirth ? appointee.dateOfBirth : undefined,
+        appointeeRelation: nomineeIsMinor && appointee.relation ? appointee.relation : undefined,
 
         // Category-Specific Parameters
         categoryData,
       };
 
       // Secondary Life Assured for Joint Life
-      if (isJointAnnuity) {
+      if (isJointAnnuity && secondaryLife.fullName.trim()) {
         payload.secondaryLifeAssured = {
-          fullName: secondaryLife.fullName.trim(),
+          name: secondaryLife.fullName.trim(),
           dateOfBirth: secondaryLife.dateOfBirth,
           gender: secondaryLife.gender,
-          relationToPrimary: secondaryLife.relationToPrimary,
+          relationship: secondaryLife.relationToPrimary || 'SPOUSE',
+          smokerStatus: 'NON_SMOKER',
           hasPreExistingIllness: secondaryLife.hasPreExistingIllness,
           medicalNotes: secondaryLife.medicalNotes || undefined,
         };
@@ -549,8 +540,15 @@ export function LifeQuoteWizard({
                   className={inputCls}
                   type="number"
                   step="50000"
-                  value={proposer.annualIncome}
-                  onChange={(e) => setProposer({ ...proposer, annualIncome: Number(e.target.value) })}
+                  min="0"
+                  placeholder="e.g. 1200000"
+                  value={proposer.annualIncome !== undefined ? proposer.annualIncome : ''}
+                  onChange={(e) =>
+                    setProposer({
+                      ...proposer,
+                      annualIncome: e.target.value === '' ? '' : Number(e.target.value),
+                    })
+                  }
                 />
               </FieldLabel>
             </div>
@@ -784,7 +782,7 @@ export function LifeQuoteWizard({
                     min={60}
                     max={250}
                     placeholder="e.g. 175"
-                    value={heightCm}
+                    value={heightCm !== undefined ? heightCm : ''}
                     onChange={(e) => setHeightCm(e.target.value === '' ? '' : Number(e.target.value))}
                   />
                 </FieldLabel>
@@ -796,7 +794,7 @@ export function LifeQuoteWizard({
                     min={20}
                     max={200}
                     placeholder="e.g. 70"
-                    value={weightKg}
+                    value={weightKg !== undefined ? weightKg : ''}
                     onChange={(e) => setWeightKg(e.target.value === '' ? '' : Number(e.target.value))}
                   />
                 </FieldLabel>

@@ -90,6 +90,16 @@ export class LifeQuotationCaseController {
     return this.caseService.selectQuote(id, dto.quotationId, user);
   }
 
+  @Post(':id/quotes/:quoteId/select')
+  @ApiOperation({ summary: 'Select the winning quotation for the proposal case (nested route)' })
+  selectQuoteNested(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('quoteId', ParseUUIDPipe) quoteId: string,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.caseService.selectQuote(id, quoteId, user);
+  }
+
   @Post('premium/preview')
   @ApiOperation({ summary: 'Preview Life premium: base + riders + statutory GST and brokerage calculation' })
   previewPremium(@Body() dto: AddLifeQuoteDto) {
@@ -110,6 +120,18 @@ export class LifeQuotationCaseController {
     @CurrentUser() user: RequestUser,
   ) {
     return this.caseService.recordPayment(caseId(id), dto, user);
+  }
+
+  @Post(':id/quotes/:quoteId/payment')
+  @ApiOperation({ summary: 'Record or verify payment for a quote in the Life proposal (nested route)' })
+  recordPaymentNested(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('quoteId', ParseUUIDPipe) quoteId: string,
+    @Body() dto: RecordLifePaymentDto,
+    @CurrentUser() user: RequestUser,
+  ) {
+    const payload = { ...dto, quotationId: quoteId };
+    return this.caseService.recordPayment(caseId(id), payload, user);
   }
 }
 
