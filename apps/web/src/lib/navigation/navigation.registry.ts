@@ -225,6 +225,7 @@ export const ADMIN_NAVIGATION: NavigationItem[] = [
       { id: 'adm-templates', title: 'Notification Templates', href: '/admin/notification-templates' },
       { id: 'adm-products', title: 'Insurance Products', href: '/admin/products' },
       { id: 'adm-insurers', title: 'Partner Insurers', href: '/admin/insurers' },
+      { id: 'adm-pos-partners', title: 'POS Partner Management', href: '/admin/pos-partners' },
       { id: 'adm-lookups', title: 'Lookup Masters', href: '/admin/lookups' },
       { id: 'adm-numbering', title: 'Numbering Series', href: '/admin/numbering' },
     ],

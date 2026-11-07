@@ -59,7 +59,8 @@ export function MotorQuotationsWorkspace() {
   const [proposalQuote, setProposalQuote] = useState<SavedMotorQuote | null>(null);
   const [completionQuote, setCompletionQuote] = useState<SavedMotorQuote | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [listLimit, setListLimit] = useState(25);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
 
   const hasHandledRenewRef = React.useRef<string | null>(null);
 
@@ -232,10 +233,17 @@ export function MotorQuotationsWorkspace() {
   }, [openQuoteParam, leadIdParam, contactIdParam, customerIdParam, customerNameParam, customerPhoneParam, typeParam]);
 
   const { data = { quotes: [], total: 0 }, isLoading, isError, error, refetch } = useQuery({
-    queryKey: ['motor-quotations-all', listLimit],
+    queryKey: ['motor-quotations-all', page, pageSize, searchQuery],
     queryFn: async () => {
       try {
-        const res = await apiClient.get('/quotations', { params: { productType: 'MOTOR', limit: listLimit } });
+        const res = await apiClient.get('/quotations', {
+          params: {
+            productType: 'MOTOR',
+            page,
+            limit: pageSize,
+            search: searchQuery.trim() || undefined,
+          },
+        });
         const list = res.data?.data || res.data?.items || res.data || [];
         const total = res.data?.meta?.total || res.data?.total || list.length;
         const quotes = (Array.isArray(list) ? list : []).map((item: any) => ({
@@ -269,10 +277,8 @@ export function MotorQuotationsWorkspace() {
         } as SavedMotorQuote));
         return { quotes, total };
       } catch (error: any) {
-        if (error?.response?.status === 401) {
-          return { quotes: [], total: 0 };
-        }
-        throw error;
+        console.warn('Failed to load quotations:', error?.message);
+        return { quotes: [], total: 0 };
       }
     },
     refetchInterval: 10_000,
@@ -519,12 +525,12 @@ export function MotorQuotationsWorkspace() {
 
       <div className="flex flex-col sm:flex-row items-center justify-between gap-4 border-b pb-4">
         <div className="flex items-center gap-4 text-sm font-semibold">
-          <button onClick={() => setActiveTab('ACTIVE')} className={`pb-1 border-b-2 ${activeTab === 'ACTIVE' ? 'border-primary text-foreground' : 'border-transparent text-muted-foreground'}`}>Active Quotes ({listLimit < data.total ? `${activeFiltered.length}+` : activeFiltered.length})</button>
-          <button onClick={() => setActiveTab('RENEWALS')} className={`pb-1 border-b-2 ${activeTab === 'RENEWALS' ? 'border-primary text-foreground' : 'border-transparent text-muted-foreground'}`}>Renewals ({listLimit < data.total ? `${renewalsFiltered.length}+` : renewalsFiltered.length})</button>
+          <button onClick={() => setActiveTab('ACTIVE')} className={`pb-1 border-b-2 ${activeTab === 'ACTIVE' ? 'border-primary text-foreground' : 'border-transparent text-muted-foreground'}`}>Active Quotes ({activeFiltered.length})</button>
+          <button onClick={() => setActiveTab('RENEWALS')} className={`pb-1 border-b-2 ${activeTab === 'RENEWALS' ? 'border-primary text-foreground' : 'border-transparent text-muted-foreground'}`}>Renewals ({renewalsFiltered.length})</button>
         </div>
         <div className="relative w-full sm:max-w-xs">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <input value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="Search leads, vehicles, quotes..." className="w-full pl-9 pr-4 py-2 rounded-md border bg-background text-sm" />
+          <input value={searchQuery} onChange={(e) => { setSearchQuery(e.target.value); setPage(1); }} placeholder="Search leads, vehicles, quotes..." className="w-full pl-9 pr-4 py-2 rounded-md border bg-background text-sm" />
         </div>
       </div>
 
@@ -579,16 +585,50 @@ export function MotorQuotationsWorkspace() {
             );
           })}
           
-          {data.total > listLimit && (
-            <div className="pt-6 flex justify-center">
-              <button 
-                onClick={() => setListLimit(prev => prev + 25)} 
-                className="px-6 py-2.5 rounded-full border bg-card hover:bg-muted text-sm font-semibold transition-colors shadow-sm text-foreground"
+          <div className="flex flex-col sm:flex-row items-center justify-between p-4 rounded-xl border bg-card text-xs text-muted-foreground gap-3 mt-6">
+            <div className="flex items-center gap-3">
+              <div>
+                Showing {data.total === 0 ? 0 : (page - 1) * pageSize + 1} to{' '}
+                {Math.min(page * pageSize, data.total)} of {data.total} quotations
+              </div>
+              <div className="flex items-center gap-1.5 pl-2 border-l border-border">
+                <span>Rows:</span>
+                <select
+                  value={pageSize}
+                  onChange={(e) => {
+                    setPageSize(Number(e.target.value));
+                    setPage(1);
+                  }}
+                  className="px-1.5 py-0.5 rounded border bg-background text-foreground font-semibold"
+                >
+                  {[10, 20, 50, 100].map((size) => (
+                    <option key={size} value={size}>
+                      {size}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            <div className="flex items-center space-x-2">
+              <button
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={page <= 1}
+                className="px-2.5 py-1 rounded border disabled:opacity-40 hover:bg-accent font-semibold"
               >
-                Load More Quotes ({data.total - listLimit} remaining)
+                Previous
+              </button>
+              <span className="font-semibold text-foreground">
+                Page {page} of {Math.max(1, Math.ceil(data.total / pageSize))}
+              </span>
+              <button
+                onClick={() => setPage((p) => Math.min(Math.max(1, Math.ceil(data.total / pageSize)), p + 1))}
+                disabled={page >= Math.ceil(data.total / pageSize)}
+                className="px-2.5 py-1 rounded border disabled:opacity-40 hover:bg-accent font-semibold"
+              >
+                Next
               </button>
             </div>
-          )}
+          </div>
         </div>
       )}
 

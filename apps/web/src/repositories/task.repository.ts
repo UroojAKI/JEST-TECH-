@@ -46,7 +46,7 @@ export interface BackOfficeQueueItem {
     title: string;
     status: string;
     customer?: { id: string; customerCode: string; firstName: string; lastName?: string; mobile: string };
-    agent?: { id: string; agentCode: string; agencyName?: string };
+    agent?: { id: string; agentCode: string | null; agencyName?: string };
   };
   motorQuotation?: {
     id: string;

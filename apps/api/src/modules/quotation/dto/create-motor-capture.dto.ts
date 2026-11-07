@@ -73,6 +73,14 @@ export class CreateMotorCaptureDto {
   agentId?: string;
 
   @IsOptional()
+  @IsString()
+  externalAgentCode?: string;
+
+  @IsOptional()
+  @IsString()
+  agentCodeSystem?: string;
+
+  @IsOptional()
   @IsNumber()
   basePremium?: number;
 

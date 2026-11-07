@@ -4,6 +4,7 @@ import {
   ForbiddenException,
   Injectable,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
 import {
   AgentAssignmentEntityType,
@@ -22,6 +23,8 @@ import { ActorContext } from '../../../common/interfaces/actor-context.interface
 import { PrismaService } from '../../../database/prisma.service';
 import { AgentIdentityResolverService } from '../../agents/agent-identity-resolver.service';
 import { AgentIdentifierType } from '../../agents/dto/agent-external-code.dto';
+import { CrmIdentityService } from '../../crm-identity/services/crm-identity.service';
+import { ResolveIdentityParams } from '../../crm-identity/interfaces/identity-resolution.interface';
 
 const duplicateContactError = (
   existingContactId: string,
@@ -40,7 +43,15 @@ export class ContactsService {
     private readonly contactRepository: ContactRepository,
     private readonly prisma: PrismaService,
     private readonly agentIdentityResolver: AgentIdentityResolverService,
+    @Optional() private readonly crmIdentityService?: CrmIdentityService,
   ) {}
+
+  async resolveIdentity(params: ResolveIdentityParams) {
+    if (!this.crmIdentityService) {
+      throw new BadRequestException('CRM Identity Service is unavailable');
+    }
+    return this.crmIdentityService.resolveIdentity(params);
+  }
 
   private assertActor(actor?: ActorContext): void {
     if (!actor) return;
@@ -135,7 +146,7 @@ export class ContactsService {
       agentId: string;
       externalCodeId: string | null;
       originalIdentifier: string | null;
-      agentCode: string;
+      agentCode: string | null;
       userId: string;
     } | null = null;
     const requestedCode = (dto.agentCode || '').trim();
@@ -209,9 +220,7 @@ export class ContactsService {
     }
 
     const { accountId, agentId, assignedAgentId, agentCode, agentCodeSystem, ...restDto } = dto;
-    const storedAgentCode = assignedAgent
-      ? requestedCode || assignedAgent.agentCode
-      : undefined;
+    const storedAgentCode = requestedCode || undefined;
     const contactData: Prisma.ContactCreateInput = {
       contactCode,
       company: { connect: { id: targetCompanyId } },
@@ -302,6 +311,8 @@ export class ContactsService {
             { email: { contains: search, mode: 'insensitive' } },
             { phone: { contains: search, mode: 'insensitive' } },
             { agentCode: { contains: search, mode: 'insensitive' } },
+            { assignedExternalCode: { is: { externalCode: { contains: search, mode: 'insensitive' } } } },
+            { assignedExternalCode: { is: { codeSystem: { contains: search, mode: 'insensitive' } } } },
             { contactCode: { contains: search, mode: 'insensitive' } },
           ],
         }

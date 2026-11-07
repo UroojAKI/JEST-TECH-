@@ -146,4 +146,49 @@ export class CustomersController {
   ) {
     return this.customersService.markAlertRead(id, alertId, user);
   }
+
+  @Get(':id/vehicles')
+  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT)
+  @ApiOperation({ summary: 'Get all vehicle assets owned by customer' })
+  getCustomerVehicles(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.customersService.getCustomerVehicles(id, user);
+  }
+
+  @Post(':id/vehicles')
+  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT)
+  @ApiOperation({ summary: 'Add a new vehicle asset to customer' })
+  addCustomerVehicle(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: any,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.customersService.addCustomerVehicle(id, dto, user);
+  }
+
+  @Patch(':id/vehicles/:vehicleId')
+  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT)
+  @ApiOperation({ summary: 'Update vehicle specifications for customer' })
+  updateCustomerVehicle(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('vehicleId', ParseUUIDPipe) vehicleId: string,
+    @Body() dto: any,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.customersService.updateCustomerVehicle(id, vehicleId, dto, user);
+  }
+
+  @Get(':id/vehicles/:vehicleId/history')
+  @Roles(RoleType.ADMIN, RoleType.BACK_OFFICE, RoleType.AGENT)
+  @ApiOperation({ summary: 'Get vehicle complete asset history across quotes, policies, and claims' })
+  getVehicleHistory(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('vehicleId', ParseUUIDPipe) vehicleId: string,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.customersService.getVehicleHistory(id, vehicleId, user);
+  }
+
 }

@@ -2,7 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { VehicleDataService } from './vehicle-data.service';
 import { PrismaService } from '../../../database/prisma.service';
 import { VehicleCategory } from '@prisma/client';
-import { BadRequestException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 
 describe('VehicleDataService (R4 Integrity)', () => {
   let service: VehicleDataService;
@@ -142,6 +142,7 @@ describe('VehicleDataService (R4 Integrity)', () => {
   describe('upsertVehicle', () => {
     it('creates new vehicle under contact when none exists', async () => {
       mockPrisma.contact.findUnique.mockResolvedValue({ id: 'con-1' });
+      mockPrisma.vehicle.findMany.mockResolvedValue([]);
       mockPrisma.vehicle.findFirst.mockResolvedValue(null);
       mockPrisma.vehicle.count.mockResolvedValue(41);
       mockPrisma.vehicle.create.mockResolvedValue({
@@ -164,6 +165,28 @@ describe('VehicleDataService (R4 Integrity)', () => {
 
       expect(result.id).toBe('veh-new-1');
       expect(mockPrisma.vehicle.create).toHaveBeenCalled();
+    });
+
+    it('throws ConflictException if vehicle plate is already owned by another customer in agency', async () => {
+      mockPrisma.contact.findUnique.mockResolvedValue({ id: 'con-1', companyId: 'comp-1' });
+      mockPrisma.vehicle.findMany.mockResolvedValue([
+        {
+          id: 'veh-existing-1',
+          registrationNumber: 'MH02CB1234',
+          contactId: 'con-other',
+          customerId: 'cust-other',
+          customer: { firstName: 'Suresh', lastName: 'Patil' },
+        },
+      ]);
+
+      await expect(
+        service.upsertVehicle({
+          contactId: 'con-1',
+          category: VehicleCategory.PRIVATE_CAR,
+          registrationNumber: 'MH02CB1234',
+          makeModel: 'Honda City',
+        }),
+      ).rejects.toThrow(ConflictException);
     });
 
     it('throws NotFoundException if contact does not exist', async () => {

@@ -24,6 +24,12 @@ import {
   FileUp,
   ChevronRight,
   Sparkles,
+  Plus,
+  Edit,
+  Eye,
+  X,
+  History,
+  ExternalLink,
 } from 'lucide-react';
 import { StatusBadge } from '../../ui/status-badge';
 import { UnifiedChart } from '../../charts/unified-chart';
@@ -31,6 +37,7 @@ import { useCustomerWorkspace } from '../../../hooks/useCustomer360';
 import { customerRepository } from '../../../repositories/customer.repository';
 import { useMutation } from '@tanstack/react-query';
 import { toast } from 'sonner';
+import { apiClient } from '../../../lib/api-client';
 
 export function CustomerTabsContainer({ customerId }: { customerId: string }) {
   const [activeTab, setActiveTab] = useState<string>('OVERVIEW');
@@ -121,7 +128,7 @@ export function CustomerTabsContainer({ customerId }: { customerId: string }) {
         {activeTab === 'DOCUMENTS' && <DocumentsListView documents={documents} customerId={customerId} refetch={refetch} />}
         {activeTab === 'COMMUNICATION' && <CommunicationStreamView timeline={timeline} />}
         {activeTab === 'ACTIVITIES' && <CommunicationStreamView timeline={timeline} />}
-        {activeTab === 'VEHICLES' && <VehicleCardsView vehicles={vehicles} />}
+        {activeTab === 'VEHICLES' && <VehicleCardsView vehicles={vehicles} customerId={customerId} refetch={refetch} />}
         {activeTab === 'FAMILY' && <FamilyTreePage familyMembers={familyMembers} />}
         {activeTab === 'NOTES' && (
           <NotesView
@@ -667,29 +674,599 @@ function QuotationsListView({ quotations }: { quotations: any[] }) {
   );
 }
 
-function VehicleCardsView({ vehicles }: { vehicles: any[] }) {
-  if (!vehicles || vehicles.length === 0) {
-    return (
-      <div className="p-8 text-center text-muted-foreground border rounded-xl bg-card">
-        No vehicle assets registered under this customer profile.
-      </div>
-    );
-  }
+function VehicleCardsView({
+  vehicles,
+  customerId,
+  refetch,
+}: {
+  vehicles: any[];
+  customerId: string;
+  refetch?: () => void;
+}) {
+  const [isAddOpen, setIsAddOpen] = useState(false);
+  const [editingVehicle, setEditingVehicle] = useState<any | null>(null);
+  const [historyVehicleId, setHistoryVehicleId] = useState<string | null>(null);
+  const [historyData, setHistoryData] = useState<any | null>(null);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyTab, setHistoryTab] = useState<'QUOTES' | 'POLICIES' | 'CLAIMS' | 'RENEWALS'>('QUOTES');
+
+  // Form states for Add Vehicle
+  const [addForm, setAddForm] = useState({
+    category: 'PRIVATE_CAR',
+    registrationNumber: '',
+    makeModel: '',
+    fuelType: 'Petrol',
+    manufactureYearMonth: '',
+    engineNumber: '',
+    chassisNumber: '',
+    rtoLocation: '',
+  });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Form states for Edit Vehicle
+  const [editForm, setEditForm] = useState({
+    makeModel: '',
+    fuelType: '',
+    manufactureYearMonth: '',
+    engineNumber: '',
+    chassisNumber: '',
+    rtoLocation: '',
+  });
+
+  const handleOpenAdd = () => {
+    setAddForm({
+      category: 'PRIVATE_CAR',
+      registrationNumber: '',
+      makeModel: '',
+      fuelType: 'Petrol',
+      manufactureYearMonth: '',
+      engineNumber: '',
+      chassisNumber: '',
+      rtoLocation: '',
+    });
+    setIsAddOpen(true);
+  };
+
+  const handleCreateVehicle = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    try {
+      await apiClient.post(`/customers/${customerId}/vehicles`, addForm);
+      toast.success('Vehicle asset registered successfully');
+      setIsAddOpen(false);
+      if (refetch) refetch();
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'Failed to add vehicle');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleOpenEdit = (v: any) => {
+    setEditingVehicle(v);
+    setEditForm({
+      makeModel: v.makeModel || '',
+      fuelType: v.fuelType || 'Petrol',
+      manufactureYearMonth: v.manufactureYearMonth || '',
+      engineNumber: v.engineNumber || '',
+      chassisNumber: v.chassisNumber || '',
+      rtoLocation: v.rtoLocation || '',
+    });
+  };
+
+  const handleUpdateVehicle = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingVehicle) return;
+    setIsSubmitting(true);
+    try {
+      await apiClient.patch(`/customers/${customerId}/vehicles/${editingVehicle.id}`, editForm);
+      toast.success('Vehicle specifications updated');
+      setEditingVehicle(null);
+      if (refetch) refetch();
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'Failed to update vehicle');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleOpenHistory = async (vId: string) => {
+    setHistoryVehicleId(vId);
+    setHistoryLoading(true);
+    setHistoryTab('QUOTES');
+    try {
+      const res = await apiClient.get(`/customers/${customerId}/vehicles/${vId}/history`);
+      setHistoryData(res.data);
+    } catch (err: any) {
+      toast.error('Failed to load vehicle history');
+      setHistoryVehicleId(null);
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-      {vehicles.map((v: any, idx: number) => (
-        <div key={idx} className="rounded-xl border bg-card p-4 space-y-2">
-          <div className="flex justify-between items-center">
-            <h4 className="font-bold text-sm">{v.registrationNumber} • {v.make} {v.model}</h4>
-            <StatusBadge status={v.status || 'ACTIVE'} />
+    <div className="space-y-4">
+      {/* Header with Title and Add Button */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b pb-3">
+        <div>
+          <h3 className="font-bold text-sm text-foreground flex items-center gap-2">
+            <Car className="h-4 w-4 text-primary" />
+            Customer Vehicle Asset Portfolio ({vehicles.length})
+          </h3>
+          <p className="text-[11px] text-muted-foreground mt-0.5">
+            Registered vehicle assets, policy affiliations, and lifetime lifecycle records
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={handleOpenAdd}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground font-bold text-xs hover:bg-primary/90 transition-colors shadow-xs"
+        >
+          <Plus className="h-3.5 w-3.5" />
+          <span>Add Vehicle</span>
+        </button>
+      </div>
+
+      {vehicles.length === 0 ? (
+        <div className="p-12 text-center text-muted-foreground border rounded-2xl bg-card space-y-3">
+          <Car className="h-10 w-10 mx-auto text-muted-foreground/40" />
+          <div className="space-y-1">
+            <h4 className="font-bold text-foreground text-sm">No Vehicles Registered</h4>
+            <p className="text-xs text-muted-foreground max-w-sm mx-auto">
+              This customer profile has no linked vehicle assets. Register an existing vehicle or start a new quotation.
+            </p>
           </div>
-          <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground">
-            <div>Policy: {v.policyNumber || 'In Quote Pipeline'}</div>
-            <div>Expiry: {v.expiryDate ? new Date(v.expiryDate).toLocaleDateString('en-IN') : 'N/A'}</div>
+          <button
+            type="button"
+            onClick={handleOpenAdd}
+            className="px-4 py-2 rounded-lg bg-primary text-primary-foreground font-bold text-xs hover:bg-primary/90 transition-colors"
+          >
+            + Register First Vehicle
+          </button>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {vehicles.map((v: any, idx: number) => (
+            <div
+              key={v.id || idx}
+              className="rounded-2xl border bg-card p-5 space-y-3.5 shadow-xs hover:shadow-md transition-shadow"
+            >
+              <div className="flex justify-between items-start">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono font-extrabold text-base text-foreground">
+                      {v.registrationNumber || 'Unregistered / New'}
+                    </span>
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-primary/10 text-primary border border-primary/20 uppercase">
+                      {v.category}
+                    </span>
+                  </div>
+                  <p className="text-xs font-semibold text-foreground/80 mt-1">
+                    {v.makeModel || `${v.make || ''} ${v.model || ''}`.trim() || 'Standard Specs'}
+                  </p>
+                </div>
+                <StatusBadge status={v.policyStatus || v.status || 'ACTIVE'} />
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 text-[11px] p-2.5 rounded-xl bg-muted/20 border text-muted-foreground">
+                <div>
+                  <span className="block text-[10px] text-muted-foreground/70">Fuel & Vintage</span>
+                  <span className="font-semibold text-foreground">
+                    {v.fuelType || 'Petrol'} {v.manufactureYearMonth ? `• ${v.manufactureYearMonth}` : ''}
+                  </span>
+                </div>
+                <div>
+                  <span className="block text-[10px] text-muted-foreground/70">Current Policy</span>
+                  <span className="font-semibold text-foreground">
+                    {v.policyNumber || 'In Quote Pipeline'}
+                  </span>
+                </div>
+                <div>
+                  <span className="block text-[10px] text-muted-foreground/70">Insurer</span>
+                  <span className="font-semibold text-foreground">{v.insurerName || '—'}</span>
+                </div>
+                <div>
+                  <span className="block text-[10px] text-muted-foreground/70">Expiry Date</span>
+                  <span className="font-semibold text-foreground">
+                    {v.expiryDate ? new Date(v.expiryDate).toLocaleDateString('en-IN') : 'N/A'}
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between pt-2 border-t text-xs">
+                <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+                  <span>Quotes: <strong className="text-foreground">{v.quotationsCount ?? 0}</strong></span>
+                  <span>•</span>
+                  <span>Policies: <strong className="text-foreground">{v.policiesCount ?? 0}</strong></span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <Link
+                    href={`/sales/quotations?openQuote=true&customerId=${customerId}&vehicleId=${v.id}&regNumber=${v.registrationNumber || ''}`}
+                    className="px-2.5 py-1 text-[11px] font-bold rounded-lg bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
+                  >
+                    + New Quote
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={() => handleOpenEdit(v)}
+                    className="p-1.5 text-muted-foreground hover:text-foreground rounded-lg hover:bg-accent transition-colors"
+                    title="Edit Specifications"
+                  >
+                    <Edit className="h-3.5 w-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleOpenHistory(v.id)}
+                    className="p-1.5 text-muted-foreground hover:text-foreground rounded-lg hover:bg-accent transition-colors"
+                    title="View Asset History"
+                  >
+                    <History className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Add Vehicle Modal */}
+      {isAddOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4 animate-in fade-in">
+          <div className="w-full max-w-lg bg-card border rounded-2xl shadow-2xl overflow-hidden">
+            <div className="flex justify-between items-center p-4 border-b bg-muted/30">
+              <h3 className="font-bold text-sm flex items-center gap-2">
+                <Car className="h-4 w-4 text-primary" />
+                Register Vehicle Asset
+              </h3>
+              <button onClick={() => setIsAddOpen(false)} className="p-1 rounded-lg hover:bg-accent">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <form onSubmit={handleCreateVehicle} className="p-5 space-y-4 text-xs">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="font-semibold block">Vehicle Category *</label>
+                  <select
+                    value={addForm.category}
+                    onChange={(e) => setAddForm({ ...addForm, category: e.target.value })}
+                    className="w-full p-2 rounded-lg border bg-background font-semibold"
+                  >
+                    <option value="PRIVATE_CAR">Private Car</option>
+                    <option value="BIKE">Two Wheeler (Bike)</option>
+                    <option value="GCV">Goods Carrying Vehicle (GCV)</option>
+                    <option value="TRACTOR">Tractor</option>
+                    <option value="AUTO">Three Wheeler / Auto</option>
+                    <option value="TAXI">Taxi / Cab</option>
+                    <option value="BUS_COACH">Bus / Coach</option>
+                    <option value="MISC_CLASS_D">Special Vehicle (Class D)</option>
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <label className="font-semibold block">Registration Number</label>
+                  <input
+                    placeholder="e.g. KA03AB1234 or leave blank"
+                    value={addForm.registrationNumber}
+                    onChange={(e) => setAddForm({ ...addForm, registrationNumber: e.target.value.toUpperCase() })}
+                    className="w-full p-2 rounded-lg border bg-background uppercase font-mono font-bold"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="font-semibold block">Make & Model *</label>
+                <input
+                  required
+                  placeholder="e.g. Hyundai Creta 1.5 SX"
+                  value={addForm.makeModel}
+                  onChange={(e) => setAddForm({ ...addForm, makeModel: e.target.value })}
+                  className="w-full p-2 rounded-lg border bg-background"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="font-semibold block">Fuel Type</label>
+                  <select
+                    value={addForm.fuelType}
+                    onChange={(e) => setAddForm({ ...addForm, fuelType: e.target.value })}
+                    className="w-full p-2 rounded-lg border bg-background"
+                  >
+                    <option value="Petrol">Petrol</option>
+                    <option value="Diesel">Diesel</option>
+                    <option value="CNG">CNG</option>
+                    <option value="Electric">Electric</option>
+                    <option value="Hybrid">Hybrid</option>
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <label className="font-semibold block">Mfg Year / Month</label>
+                  <input
+                    placeholder="MM/YYYY (e.g. 05/2022)"
+                    value={addForm.manufactureYearMonth}
+                    onChange={(e) => setAddForm({ ...addForm, manufactureYearMonth: e.target.value })}
+                    className="w-full p-2 rounded-lg border bg-background"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="font-semibold block">Engine Number</label>
+                  <input
+                    placeholder="Engine #"
+                    value={addForm.engineNumber}
+                    onChange={(e) => setAddForm({ ...addForm, engineNumber: e.target.value })}
+                    className="w-full p-2 rounded-lg border bg-background font-mono"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="font-semibold block">Chassis Number</label>
+                  <input
+                    placeholder="Chassis #"
+                    value={addForm.chassisNumber}
+                    onChange={(e) => setAddForm({ ...addForm, chassisNumber: e.target.value })}
+                    className="w-full p-2 rounded-lg border bg-background font-mono"
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-3 border-t">
+                <button
+                  type="button"
+                  onClick={() => setIsAddOpen(false)}
+                  className="px-4 py-2 rounded-lg border hover:bg-accent"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="px-4 py-2 rounded-lg bg-primary text-primary-foreground font-bold flex items-center gap-1.5"
+                >
+                  {isSubmitting && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                  <span>{isSubmitting ? 'Registering…' : 'Register Vehicle Asset'}</span>
+                </button>
+              </div>
+            </form>
           </div>
         </div>
-      ))}
+      )}
+
+      {/* Edit Vehicle Modal */}
+      {editingVehicle && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4 animate-in fade-in">
+          <div className="w-full max-w-lg bg-card border rounded-2xl shadow-2xl overflow-hidden">
+            <div className="flex justify-between items-center p-4 border-b bg-muted/30">
+              <h3 className="font-bold text-sm flex items-center gap-2">
+                <Edit className="h-4 w-4 text-primary" />
+                Edit Vehicle: {editingVehicle.registrationNumber || editingVehicle.vehicleCode}
+              </h3>
+              <button onClick={() => setEditingVehicle(null)} className="p-1 rounded-lg hover:bg-accent">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <form onSubmit={handleUpdateVehicle} className="p-5 space-y-4 text-xs">
+              <div className="space-y-1">
+                <label className="font-semibold block">Make & Model</label>
+                <input
+                  value={editForm.makeModel}
+                  onChange={(e) => setEditForm({ ...editForm, makeModel: e.target.value })}
+                  className="w-full p-2 rounded-lg border bg-background"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="font-semibold block">Fuel Type</label>
+                  <select
+                    value={editForm.fuelType}
+                    onChange={(e) => setEditForm({ ...editForm, fuelType: e.target.value })}
+                    className="w-full p-2 rounded-lg border bg-background"
+                  >
+                    <option value="Petrol">Petrol</option>
+                    <option value="Diesel">Diesel</option>
+                    <option value="CNG">CNG</option>
+                    <option value="Electric">Electric</option>
+                    <option value="Hybrid">Hybrid</option>
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <label className="font-semibold block">Mfg Year / Month</label>
+                  <input
+                    value={editForm.manufactureYearMonth}
+                    onChange={(e) => setEditForm({ ...editForm, manufactureYearMonth: e.target.value })}
+                    className="w-full p-2 rounded-lg border bg-background"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="font-semibold block">Engine Number</label>
+                  <input
+                    value={editForm.engineNumber}
+                    onChange={(e) => setEditForm({ ...editForm, engineNumber: e.target.value })}
+                    className="w-full p-2 rounded-lg border bg-background font-mono"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="font-semibold block">Chassis Number</label>
+                  <input
+                    value={editForm.chassisNumber}
+                    onChange={(e) => setEditForm({ ...editForm, chassisNumber: e.target.value })}
+                    className="w-full p-2 rounded-lg border bg-background font-mono"
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-3 border-t">
+                <button
+                  type="button"
+                  onClick={() => setEditingVehicle(null)}
+                  className="px-4 py-2 rounded-lg border hover:bg-accent"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="px-4 py-2 rounded-lg bg-primary text-primary-foreground font-bold flex items-center gap-1.5"
+                >
+                  {isSubmitting && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                  <span>{isSubmitting ? 'Saving…' : 'Save Changes'}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Vehicle Asset Complete History Modal */}
+      {historyVehicleId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4 animate-in fade-in">
+          <div className="w-full max-w-2xl bg-card border rounded-2xl shadow-2xl overflow-hidden max-h-[85vh] flex flex-col">
+            <div className="flex justify-between items-center p-4 border-b bg-muted/30">
+              <h3 className="font-bold text-sm flex items-center gap-2">
+                <History className="h-4 w-4 text-primary" />
+                Asset Lifecycle History: {historyData?.vehicle?.registrationNumber || historyData?.vehicle?.vehicleCode || 'Vehicle Asset'}
+              </h3>
+              <button onClick={() => setHistoryVehicleId(null)} className="p-1 rounded-lg hover:bg-accent">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            {historyLoading ? (
+              <div className="p-12 text-center text-muted-foreground flex justify-center items-center gap-2">
+                <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                <span>Loading lifecycle records…</span>
+              </div>
+            ) : historyData ? (
+              <div className="p-5 overflow-y-auto space-y-4 text-xs">
+                {/* History Tabs */}
+                <div className="flex items-center gap-2 border-b pb-2">
+                  <button
+                    onClick={() => setHistoryTab('QUOTES')}
+                    className={`px-3 py-1.5 rounded-lg font-bold transition-all ${
+                      historyTab === 'QUOTES' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-accent'
+                    }`}
+                  >
+                    Quotations ({historyData.quotations?.length || 0})
+                  </button>
+                  <button
+                    onClick={() => setHistoryTab('POLICIES')}
+                    className={`px-3 py-1.5 rounded-lg font-bold transition-all ${
+                      historyTab === 'POLICIES' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-accent'
+                    }`}
+                  >
+                    Policies ({historyData.policies?.length || 0})
+                  </button>
+                  <button
+                    onClick={() => setHistoryTab('CLAIMS')}
+                    className={`px-3 py-1.5 rounded-lg font-bold transition-all ${
+                      historyTab === 'CLAIMS' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-accent'
+                    }`}
+                  >
+                    Claims ({historyData.claims?.length || 0})
+                  </button>
+                  <button
+                    onClick={() => setHistoryTab('RENEWALS')}
+                    className={`px-3 py-1.5 rounded-lg font-bold transition-all ${
+                      historyTab === 'RENEWALS' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-accent'
+                    }`}
+                  >
+                    Renewals ({historyData.renewals?.length || 0})
+                  </button>
+                </div>
+
+                {historyTab === 'QUOTES' && (
+                  <div className="space-y-2">
+                    {(!historyData.quotations || historyData.quotations.length === 0) ? (
+                      <p className="text-muted-foreground py-4 text-center">No quotations generated for this vehicle asset.</p>
+                    ) : (
+                      historyData.quotations.map((q: any) => (
+                        <div key={q.id} className="p-3 rounded-xl border bg-card flex justify-between items-center">
+                          <div>
+                            <span className="font-mono font-bold text-foreground">{q.quotationCode}</span>
+                            <p className="text-[11px] text-muted-foreground">{q.title} • {q.insurerName || 'Insurer'}</p>
+                          </div>
+                          <div className="text-right">
+                            <span className="font-bold text-foreground">₹{Number(q.totalPremium || 0).toLocaleString('en-IN')}</span>
+                            <div className="mt-0.5"><StatusBadge status={q.status} /></div>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                )}
+
+                {historyTab === 'POLICIES' && (
+                  <div className="space-y-2">
+                    {(!historyData.policies || historyData.policies.length === 0) ? (
+                      <p className="text-muted-foreground py-4 text-center">No policies issued for this vehicle asset.</p>
+                    ) : (
+                      historyData.policies.map((p: any) => (
+                        <div key={p.id} className="p-3 rounded-xl border bg-card flex justify-between items-center">
+                          <div>
+                            <span className="font-mono font-bold text-foreground">{p.actualPolicyNumber || p.policyNumber}</span>
+                            <p className="text-[11px] text-muted-foreground">{p.insurerName || 'Partner Insurer'} • Exp: {p.expiryDate ? new Date(p.expiryDate).toLocaleDateString('en-IN') : 'N/A'}</p>
+                          </div>
+                          <div className="text-right">
+                            <span className="font-bold text-foreground">₹{Number(p.premiumAmount || 0).toLocaleString('en-IN')}</span>
+                            <div className="mt-0.5"><StatusBadge status={p.status} /></div>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                )}
+
+                {historyTab === 'CLAIMS' && (
+                  <div className="space-y-2">
+                    {(!historyData.claims || historyData.claims.length === 0) ? (
+                      <p className="text-muted-foreground py-4 text-center">Zero claims registered against this vehicle asset.</p>
+                    ) : (
+                      historyData.claims.map((c: any) => (
+                        <div key={c.id} className="p-3 rounded-xl border bg-card flex justify-between items-center">
+                          <div>
+                            <span className="font-mono font-bold text-foreground">{c.claimNumber}</span>
+                            <p className="text-[11px] text-muted-foreground">Incident: {new Date(c.incidentDate).toLocaleDateString('en-IN')}</p>
+                          </div>
+                          <div className="text-right">
+                            <span className="font-bold text-foreground">₹{Number(c.claimAmount || 0).toLocaleString('en-IN')}</span>
+                            <div className="mt-0.5"><StatusBadge status={c.status} /></div>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                )}
+
+                {historyTab === 'RENEWALS' && (
+                  <div className="space-y-2">
+                    {(!historyData.renewals || historyData.renewals.length === 0) ? (
+                      <p className="text-muted-foreground py-4 text-center">No renewal records found for this vehicle asset.</p>
+                    ) : (
+                      historyData.renewals.map((r: any, rIdx: number) => (
+                        <div key={rIdx} className="p-3 rounded-xl border bg-card flex justify-between items-center">
+                          <div>
+                            <span className="font-bold text-foreground">Renewal Cycle</span>
+                            <p className="text-[11px] text-muted-foreground">Due: {r.renewalDueDate ? new Date(r.renewalDueDate).toLocaleDateString('en-IN') : 'N/A'}</p>
+                          </div>
+                          <div className="text-right">
+                            <span className="font-bold text-foreground">₹{Number(r.renewalPremium || 0).toLocaleString('en-IN')}</span>
+                            <div className="mt-0.5"><StatusBadge status={r.renewalStatus || 'PENDING'} /></div>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                )}
+              </div>
+            ) : null}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -3,21 +3,26 @@ import { QuotationWithRelations } from '../repositories/quotation.repository';
 import { EncryptionUtil } from '../../../common/utils/encryption.util';
 
 export class QuotationMapper {
-  private static maskPiiData(value: any): any {
-    if (Array.isArray(value)) return value.map((item) => this.maskPiiData(item));
-    if (!value || typeof value !== 'object') return value;
+  private static maskPiiData(value: any, depth = 0): any {
+    if (depth > 5 || !value) return value;
+    if (Array.isArray(value)) return value.map((item) => this.maskPiiData(item, depth + 1));
+    if (typeof value !== 'object' || value instanceof Date) return value;
 
-    return Object.fromEntries(
-      Object.entries(value).map(([key, item]) => {
-        if (typeof item === 'string' && /pan(?:number)?$/i.test(key)) {
-          return [key, EncryptionUtil.maskPan(item)];
-        }
-        if (typeof item === 'string' && /aadhaar/i.test(key)) {
-          return [key, EncryptionUtil.maskAadhaar(item)];
-        }
-        return [key, this.maskPiiData(item)];
-      }),
-    );
+    try {
+      return Object.fromEntries(
+        Object.entries(value).map(([key, item]) => {
+          if (typeof item === 'string' && /pan(?:number)?$/i.test(key)) {
+            return [key, EncryptionUtil.maskPan(item)];
+          }
+          if (typeof item === 'string' && /aadhaar/i.test(key)) {
+            return [key, EncryptionUtil.maskAadhaar(item)];
+          }
+          return [key, this.maskPiiData(item, depth + 1)];
+        }),
+      );
+    } catch {
+      return value;
+    }
   }
 
   static toResponse(q: QuotationWithRelations): QuotationResponseDto {
@@ -192,6 +197,20 @@ export class QuotationMapper {
   static toResponseList(
     quotations: QuotationWithRelations[],
   ): QuotationResponseDto[] {
-    return quotations.map((q) => this.toResponse(q));
+    return (quotations || []).map((q) => {
+      try {
+        return this.toResponse(q);
+      } catch (err) {
+        const dto = new QuotationResponseDto();
+        dto.id = q.id;
+        dto.quotationCode = q.quotationCode;
+        dto.title = q.title;
+        dto.status = q.status;
+        dto.productType = q.productType;
+        dto.totalPremium = Number(q.totalPremium || 0);
+        dto.createdAt = q.createdAt;
+        return dto;
+      }
+    });
   }
 }

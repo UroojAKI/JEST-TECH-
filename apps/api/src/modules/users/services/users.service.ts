@@ -154,27 +154,12 @@ export class UsersService {
 
     if (canonicalRole === RoleType.AGENT && targetCompanyId) {
       try {
-        const count = await this.prisma.agent.count({
-          where: { companyId: targetCompanyId },
-        });
-        let nextNum = count + 1;
-        let agentCode = `AGT-${String(nextNum).padStart(6, '0')}`;
-        while (
-          await this.prisma.agent.findFirst({
-            where: { companyId: targetCompanyId, agentCode },
-          })
-        ) {
-          nextNum++;
-          agentCode = `AGT-${String(nextNum).padStart(6, '0')}`;
-        }
-
         const name = `${user.firstName || ''} ${user.lastName || ''}`.trim();
         await this.prisma.agent.create({
           data: {
             companyId: targetCompanyId,
             userId: user.id,
-            agentCode,
-            agencyName: name ? `${name} Agency` : `Agency ${agentCode}`,
+            agencyName: name ? `${name} Agency` : 'Agency',
             commissionTier: 'STANDARD',
             isActive: true,
           },
@@ -291,7 +276,26 @@ export class UsersService {
         skip,
         take: limit,
         orderBy,
-        include: { role: true, branch: true, team: true, agentProfile: true },
+        include: {
+          role: true,
+          branch: true,
+          team: true,
+          agentProfile: {
+            include: {
+              externalCodes: {
+                where: { status: 'ACTIVE' },
+                orderBy: [{ isPrimary: 'desc' }, { codeSystem: 'asc' }],
+                select: {
+                  id: true,
+                  externalCode: true,
+                  codeSystem: true,
+                  verificationStatus: true,
+                  isPrimary: true,
+                },
+              },
+            },
+          },
+        },
       }),
       this.prisma.user.count({ where }),
     ]);
@@ -332,7 +336,21 @@ export class UsersService {
         branch: true,
         team: true,
         department: true,
-        agentProfile: true,
+        agentProfile: {
+          include: {
+            externalCodes: {
+              where: { status: 'ACTIVE' },
+              orderBy: [{ isPrimary: 'desc' }, { codeSystem: 'asc' }],
+              select: {
+                id: true,
+                externalCode: true,
+                codeSystem: true,
+                verificationStatus: true,
+                isPrimary: true,
+              },
+            },
+          },
+        },
       },
     });
 
@@ -347,7 +365,50 @@ export class UsersService {
     }
 
     const companyId = user.companyId;
-    const agentId = user.agentProfile?.id;
+    let agentId = user.agentProfile?.id;
+    if (!agentId) {
+      const directAgent = await this.prisma.agent.findFirst({
+        where: { userId: id },
+      });
+      if (directAgent) {
+        agentId = directAgent.id;
+      }
+    }
+
+    const leadUserFilter: Prisma.LeadWhereInput = {
+      OR: [
+        { assignedToId: id },
+        ...(agentId ? [{ agentId }] : []),
+        { createdById: id },
+      ],
+      deletedAt: null,
+      ...(companyId ? { companyId } : {}),
+    };
+
+    const quoteUserFilter: Prisma.QuotationWhereInput = {
+      OR: [
+        ...(agentId ? [{ agentId }] : []),
+        { agentId: id },
+        { createdById: id },
+        { contact: { OR: [ { createdById: id }, ...(agentId ? [{ assignedAgentId: agentId }] : []) ] } },
+        { lead: { OR: [ { assignedToId: id }, ...(agentId ? [{ agentId }] : []), { createdById: id } ] } },
+        ...(agentId ? [{ healthCase: { agentId } }] : []),
+      ],
+      deletedAt: null,
+      ...(companyId ? { companyId } : {}),
+    };
+
+    const policyUserFilter: Prisma.PolicyWhereInput = {
+      OR: [
+        ...(agentId ? [{ agentId }] : []),
+        { agentId: id },
+        { createdById: id },
+        { quotation: quoteUserFilter },
+        { contact: { OR: [ { createdById: id }, ...(agentId ? [{ assignedAgentId: agentId }] : []) ] } },
+      ],
+      deletedAt: null,
+      ...(companyId ? { companyId } : {}),
+    };
 
     const [
       leadsCreated,
@@ -371,54 +432,66 @@ export class UsersService {
       recentLeadsRaw,
       recentActivities,
       recentTasks,
+      recentCustomersRaw,
+      recentClaimsRaw,
+      recentRenewalsRaw,
     ] = await Promise.all([
       this.prisma.lead.count({
         where: { createdById: id, companyId, deletedAt: null },
       }),
       this.prisma.lead.count({
-        where: { assignedToId: id, companyId, deletedAt: null },
+        where: leadUserFilter,
       }),
       this.prisma.lead.count({
-        where: { assignedToId: id, status: 'CONVERTED', companyId, deletedAt: null },
+        where: { ...leadUserFilter, status: 'CONVERTED' },
       }),
       this.prisma.lead.count({
-        where: { assignedToId: id, status: 'LOST', companyId, deletedAt: null },
+        where: { ...leadUserFilter, status: 'LOST' },
       }),
       this.prisma.contact.count({
-        where: { createdById: id, companyId, deletedAt: null },
-      }),
-      this.prisma.customer.count({
-        where: { createdById: id, companyId, deletedAt: null },
-      }),
-      agentId
-        ? this.prisma.customer.count({
-            where: { primaryAgentId: agentId, companyId, deletedAt: null },
-          })
-        : this.prisma.customer.count({
-            where: { createdById: id, companyId, deletedAt: null },
-          }),
-      this.prisma.policy.count({
         where: {
           OR: [
-            ...(agentId ? [{ agentId }] : []),
             { createdById: id },
-            { quotation: { createdById: id } },
+            ...(agentId ? [{ assignedAgentId: agentId }] : []),
           ],
-          status: 'ISSUED',
+          companyId,
+          deletedAt: null,
+        },
+      }),
+      this.prisma.customer.count({
+        where: {
+          OR: [
+            { createdById: id },
+            ...(agentId ? [{ primaryAgentId: agentId }] : []),
+          ],
+          companyId,
+          deletedAt: null,
+        },
+      }),
+      this.prisma.contact.count({
+        where: {
+          OR: [
+            { createdById: id },
+            ...(agentId ? [{ assignedAgentId: agentId }] : []),
+          ],
           companyId,
           deletedAt: null,
         },
       }),
       this.prisma.policy.count({
         where: {
-          companyId,
-          deletedAt: null,
+          ...policyUserFilter,
+          status: 'ISSUED',
+        },
+      }),
+      this.prisma.policy.count({
+        where: {
+          ...policyUserFilter,
           status: 'ACTIVE',
           expiryDate: {
             lte: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
             gte: new Date(),
           },
-          ...(agentId ? { agentId } : { createdById: id }),
         },
       }),
       this.prisma.task.count({
@@ -438,12 +511,22 @@ export class UsersService {
       }),
       this.prisma?.quotation?.count
         ? this.prisma.quotation.count({
+            where: quoteUserFilter,
+          })
+        : Promise.resolve(0),
+      this.prisma?.quotation?.count
+        ? this.prisma.quotation.count({
             where: {
-              OR: [
-                ...(agentId ? [{ agentId }] : []),
-                { createdById: id },
+              AND: [
+                quoteUserFilter,
+                {
+                  OR: [
+                    { issuanceStatus: IssuanceStatus.ISSUED },
+                    { status: QuotationStatus.CONVERTED_TO_POLICY },
+                    { policy: { isNot: null } },
+                  ],
+                },
               ],
-              companyId,
             },
           })
         : Promise.resolve(0),
@@ -451,110 +534,57 @@ export class UsersService {
         ? this.prisma.quotation.count({
             where: {
               AND: [
-                {
-                  OR: [
-                    ...(agentId ? [{ agentId }] : []),
-                    { createdById: id },
-                  ],
-                },
-                {
-                  OR: [
-                    { issuanceStatus: IssuanceStatus.ISSUED },
-                    { status: QuotationStatus.CONVERTED_TO_POLICY },
-                  ],
-                },
-                { companyId },
+                quoteUserFilter,
+                { status: { in: ['APPROVED', 'ACCEPTED'] as any } },
               ],
-            },
-          })
-        : Promise.resolve(0),
-      this.prisma?.quotation?.count
-        ? this.prisma.quotation.count({
-            where: {
-              OR: [
-                ...(agentId ? [{ agentId }] : []),
-                { createdById: id },
-              ],
-              status: 'APPROVED',
-              companyId,
             },
           })
         : Promise.resolve(0),
       this.prisma?.quotation?.aggregate
         ? this.prisma.quotation.aggregate({
-            where: {
-              OR: [
-                ...(agentId ? [{ agentId }] : []),
-                { createdById: id },
-              ],
-              companyId,
-            },
+            where: quoteUserFilter,
             _sum: { totalPremium: true },
           })
         : Promise.resolve({ _sum: { totalPremium: null } }),
       this.prisma?.policy?.aggregate
         ? this.prisma.policy.aggregate({
             where: {
-              OR: [
-                ...(agentId ? [{ agentId }] : []),
-                { createdById: id },
-                { quotation: { createdById: id } },
-              ],
+              ...policyUserFilter,
               status: 'ISSUED',
-              companyId,
-              deletedAt: null,
             },
             _sum: { premiumAmount: true, actualPremium: true },
           })
         : Promise.resolve({ _sum: { premiumAmount: null, actualPremium: null } }),
       this.prisma?.quotation?.findMany
         ? this.prisma.quotation.findMany({
-            where: {
-              OR: [
-                ...(agentId ? [{ agentId }] : []),
-                { createdById: id },
-              ],
-              companyId,
-            },
+            where: quoteUserFilter,
             include: {
               contact: { select: { firstName: true, lastName: true, companyName: true, phone: true } },
               policy: { select: { policyNumber: true, actualPolicyNumber: true, status: true } },
             },
             orderBy: { createdAt: 'desc' },
-            take: 20,
+            take: 50,
           })
         : Promise.resolve([]),
       this.prisma?.policy?.findMany
         ? this.prisma.policy.findMany({
-            where: {
-              OR: [
-                ...(agentId ? [{ agentId }] : []),
-                { createdById: id },
-                { quotation: { createdById: id } },
-              ],
-              companyId,
-              deletedAt: null,
-            },
+            where: policyUserFilter,
             include: {
               contact: { select: { firstName: true, lastName: true, companyName: true, phone: true } },
               quotation: { select: { quotationCode: true, insurerName: true, productType: true } },
             },
             orderBy: { createdAt: 'desc' },
-            take: 20,
+            take: 50,
           })
         : Promise.resolve([]),
       this.prisma?.lead?.findMany
         ? this.prisma.lead.findMany({
-            where: {
-              OR: [{ assignedToId: id }, { createdById: id }],
-              companyId,
-              deletedAt: null,
-            },
+            where: leadUserFilter,
             include: {
               contact: { select: { firstName: true, lastName: true, companyName: true, phone: true } },
             },
             orderBy: { createdAt: 'desc' },
-            take: 20,
+            take: 50,
           })
         : Promise.resolve([]),
       this.prisma.auditLog.findMany({
@@ -572,6 +602,94 @@ export class UsersService {
         orderBy: { dueDate: 'asc' },
         take: 10,
       }),
+      this.prisma?.customer?.findMany
+        ? this.prisma.customer.findMany({
+            where: {
+              OR: [
+                { createdById: id },
+                ...(agentId ? [{ primaryAgentId: agentId }] : []),
+              ],
+              ...(companyId ? { companyId } : {}),
+              deletedAt: null,
+            },
+            include: {
+              contact: {
+                select: {
+                  firstName: true,
+                  lastName: true,
+                  phone: true,
+                  email: true,
+                },
+              },
+              policies: {
+                where: {
+                  status: { in: ['ACTIVE', 'ISSUED'] },
+                  deletedAt: null,
+                },
+                select: {
+                  id: true,
+                  premiumAmount: true,
+                  actualPremium: true,
+                },
+              },
+            },
+            orderBy: { createdAt: 'desc' },
+            take: 50,
+          })
+        : Promise.resolve([]),
+      this.prisma?.claim?.findMany
+        ? this.prisma.claim.findMany({
+            where: {
+              OR: [
+                ...(agentId ? [{ agentId }] : []),
+                { policy: policyUserFilter },
+              ],
+              ...(companyId ? { companyId } : {}),
+            },
+            include: {
+              policy: {
+                select: {
+                  policyNumber: true,
+                  actualPolicyNumber: true,
+                },
+              },
+              contact: {
+                select: {
+                  firstName: true,
+                  lastName: true,
+                  phone: true,
+                },
+              },
+            },
+            orderBy: { createdAt: 'desc' },
+            take: 50,
+          })
+        : Promise.resolve([]),
+      this.prisma?.policy?.findMany
+        ? this.prisma.policy.findMany({
+            where: {
+              ...policyUserFilter,
+              status: 'ACTIVE',
+              expiryDate: {
+                lte: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000),
+                gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
+              },
+            },
+            include: {
+              contact: {
+                select: {
+                  firstName: true,
+                  lastName: true,
+                  phone: true,
+                  email: true,
+                },
+              },
+              quotation: { select: { insurerName: true } },
+            },
+            orderBy: { expiryDate: 'asc' },
+            take: 50,
+          })
+        : Promise.resolve([]),
     ]);
 
     const totalQuotationValue = Number(quotationAggregate?._sum?.totalPremium || 0);
@@ -689,6 +807,94 @@ export class UsersService {
       });
     }
 
+    for (const l of recentLeadsRaw || []) {
+      operationalActivities.push({
+        id: `lead-${l.id}`,
+        action: l.status === 'CONVERTED' ? 'CONVERT_LEAD' : 'CREATE_LEAD',
+        entity: 'Lead',
+        entityId: l.leadCode || l.title,
+        ipAddress: 'System',
+        createdAt: l.createdAt,
+        details: {
+          customer: l.contact
+            ? `${l.contact.firstName || ''} ${l.contact.lastName || ''}`.trim() || l.contact.companyName
+            : 'Lead Customer',
+          status: l.status,
+          estimatedPremium: l.estimatedPremium ? `₹${Number(l.estimatedPremium).toLocaleString('en-IN')}` : undefined,
+        },
+        source: 'OPERATIONAL',
+      });
+    }
+
+    for (const cl of recentClaimsRaw || []) {
+      operationalActivities.push({
+        id: `claim-${cl.id}`,
+        action: 'CLAIM',
+        entity: 'Claim',
+        entityId: cl.claimNumber || 'CLM',
+        ipAddress: 'System',
+        createdAt: cl.createdAt,
+        details: {
+          customer: cl.contact ? `${cl.contact.firstName || ''} ${cl.contact.lastName || ''}`.trim() : 'Customer',
+          amount: `₹${Number(cl.claimAmount || 0).toLocaleString('en-IN')}`,
+          status: cl.status,
+          policy: cl.policy?.actualPolicyNumber || cl.policy?.policyNumber,
+        },
+        source: 'OPERATIONAL',
+      });
+    }
+
+    const recentCustomers = (recentCustomersRaw || []).map((c: any) => {
+      const activePolicies = c.policies || [];
+      const totalGwp = activePolicies.reduce(
+        (sum: number, p: any) => sum + Number(p.actualPremium ?? p.premiumAmount ?? 0),
+        0,
+      );
+      const name = c.name || (c.contact ? `${c.contact.firstName || ''} ${c.contact.lastName || ''}`.trim() : 'Customer');
+      const phone = c.phone || c.contact?.phone || null;
+      const email = c.email || c.contact?.email || null;
+      return {
+        id: c.id,
+        customerCode: c.customerCode || 'CUST',
+        name,
+        phone,
+        email,
+        activePoliciesCount: activePolicies.length,
+        totalGwp,
+        createdAt: c.createdAt,
+      };
+    });
+
+    const recentClaims = (recentClaimsRaw || []).map((cl: any) => ({
+      id: cl.id,
+      claimNumber: cl.claimNumber || 'CLM',
+      policyNumber: cl.policy?.actualPolicyNumber || cl.policy?.policyNumber || 'N/A',
+      customerName: cl.contact ? `${cl.contact.firstName || ''} ${cl.contact.lastName || ''}`.trim() : 'Customer',
+      customerPhone: cl.contact?.phone || null,
+      claimAmount: Number(cl.claimAmount || 0),
+      settledAmount: cl.settledAmount ? Number(cl.settledAmount) : null,
+      status: cl.status,
+      incidentDate: cl.incidentDate || null,
+      createdAt: cl.createdAt,
+    }));
+
+    const recentRenewals = (recentRenewalsRaw || []).map((rn: any) => {
+      const now = new Date();
+      const expiry = new Date(rn.expiryDate);
+      const daysToExpiry = Math.ceil((expiry.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+      return {
+        id: rn.id,
+        policyNumber: rn.actualPolicyNumber || rn.policyNumber,
+        customerName: rn.contact ? `${rn.contact.firstName || ''} ${rn.contact.lastName || ''}`.trim() : 'Customer',
+        customerPhone: rn.contact?.phone || null,
+        insurerName: rn.quotation?.insurerName || 'Insurer',
+        premiumAmount: Number(rn.actualPremium || rn.premiumAmount || 0),
+        expiryDate: rn.expiryDate,
+        daysToExpiry,
+        status: daysToExpiry < 0 ? 'LAPSED' : daysToExpiry <= 15 ? 'CRITICAL' : 'UPCOMING',
+      };
+    });
+
     const mergedActivities = [...auditActivities, ...operationalActivities]
       .sort(
         (a, b) =>
@@ -747,7 +953,13 @@ export class UsersService {
         agentProfile: user.agentProfile
           ? {
               id: user.agentProfile.id,
-              agentCode: user.agentProfile.agentCode,
+              clientCodes: (user.agentProfile.externalCodes || []).map((code) => ({
+                id: code.id,
+                value: code.externalCode,
+                codeSystem: code.codeSystem,
+                verificationStatus: code.verificationStatus,
+                isPrimary: code.isPrimary,
+              })),
               agencyName: user.agentProfile.agencyName,
               licenseNumber: user.agentProfile.licenseNumber,
               commissionTier: user.agentProfile.commissionTier,
@@ -785,6 +997,9 @@ export class UsersService {
       recentQuotations,
       recentPolicies,
       recentLeads,
+      recentCustomers,
+      recentClaims,
+      recentRenewals,
     };
   }
 

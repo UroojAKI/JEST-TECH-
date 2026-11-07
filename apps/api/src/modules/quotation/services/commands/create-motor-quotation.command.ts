@@ -16,6 +16,8 @@ import { NumberingEngineService } from '../../../administration/services/numberi
 import { VehicleCategory } from '@prisma/client';
 import { TenantResourceAuthorizationService } from '../../../auth/services/tenant-resource-authorization.service';
 import { AgentIdentityResolverService } from '../../../agents/agent-identity-resolver.service';
+import { CrmIdentityService } from '../../../crm-identity/services/crm-identity.service';
+import { Optional } from '@nestjs/common';
 
 @Injectable()
 export class CreateMotorQuotationCommand {
@@ -28,6 +30,7 @@ export class CreateMotorQuotationCommand {
     private readonly numberingEngine: NumberingEngineService,
     private readonly tenantAuthService: TenantResourceAuthorizationService,
     private readonly agentIdentityResolver: AgentIdentityResolverService,
+    @Optional() private readonly crmIdentityService?: CrmIdentityService,
   ) {}
 
   async execute(dto: CreateMotorCaptureDto, user: RequestUser) {
@@ -202,7 +205,16 @@ export class CreateMotorQuotationCommand {
     let assignedExternalCodeId: string | null = null;
     let manualAgentSnapshot: any = null;
 
+    const hasExternalAgentCode = Boolean(dto.externalAgentCode?.trim());
+    const hasAgentCodeSystem = Boolean(dto.agentCodeSystem?.trim());
+    if (hasExternalAgentCode !== hasAgentCodeSystem) {
+      throw new BadRequestException('agentCodeSystem is required with externalAgentCode');
+    }
+
     if (dto.manualAgent?.isManual) {
+      if (dto.agentId || hasExternalAgentCode) {
+        throw new BadRequestException('Manual Agent details cannot be combined with a registered Agent');
+      }
       // Phase 26 & MOTOR-REG-02: Strict validation for manual agent
       const name = (
         dto.manualAgent.manualAgentName ||
@@ -258,10 +270,21 @@ export class CreateMotorQuotationCommand {
         manualAgentContact: contact,
         manualAgentSource: rawSource,
       };
-    } else if (dto.agentId) {
+    } else if (dto.agentId || hasExternalAgentCode) {
+      const resolvedCode = hasExternalAgentCode
+        ? await this.agentIdentityResolver.resolveExternalCodeForAssignment(
+            dto.externalAgentCode!,
+            dto.agentCodeSystem!,
+            user,
+          )
+        : null;
+      if (dto.agentId && resolvedCode && dto.agentId !== resolvedCode.agentId) {
+        throw new BadRequestException('Agent ID does not match the supplied client Agent code');
+      }
+      const requestedAgentId = dto.agentId || resolvedCode?.agentId;
       // Phase 1.2 & MOTOR-REG-01: Validates tenant match and active status
       const agent = await this.tenantAuthService.assertAssignableAgent(
-        dto.agentId,
+        requestedAgentId!,
         user,
       );
       const canonical = await this.agentIdentityResolver.validateAgentOwnership(
@@ -269,6 +292,7 @@ export class CreateMotorQuotationCommand {
         companyId,
       );
       assignedAgentId = canonical.id;
+      assignedExternalCodeId = resolvedCode?.externalCodeId || null;
     }
     // Do NOT silently overwrite with lead.agentId!
 
@@ -335,22 +359,44 @@ export class CreateMotorQuotationCommand {
       }
     }
 
-    if (!contactId) {
-      // Contact collection OFF or existing contact found; create provisional record with available details.
-      const mobileNumber = String(proposer['mobileNumber'] || '').trim();
-      const rawName = String(proposer['customerName'] || '').trim();
-      const [firstName, ...rest] = (rawName || 'Provisional Customer').split(/\s+/);
+    let customerId = dto.customerId;
+    const mobileNumber = String(proposer['mobileNumber'] || '').trim();
+    const rawName = String(proposer['customerName'] || '').trim();
+    const [firstName, ...rest] = (rawName || 'Provisional Customer').split(/\s+/);
+    const lastName = rest.join(' ') || (rawName ? '' : 'Customer');
+    const emailId = String(proposer['emailId'] || proposer['email'] || '').trim();
+    const panNumber = String(proposer['panNumber'] || '').trim().toUpperCase();
+
+    if (this.crmIdentityService) {
+      const identityResult = await this.crmIdentityService.ensureLinkedContactAndCustomer(
+        this.prisma,
+        {
+          companyId,
+          contactId: contactId || undefined,
+          customerId: customerId || undefined,
+          phone: mobileNumber || undefined,
+          email: emailId || undefined,
+          firstName: firstName || 'Provisional',
+          lastName: lastName,
+          panNumber: panNumber || undefined,
+          addressLine1: String(proposer['address'] || proposer['communicationAddress'] || '').trim() || undefined,
+          pincode: String(proposer['pincode'] || proposer['pinCode'] || '').trim() || undefined,
+          createdById: user.id,
+          primaryAgentId: assignedAgentId || undefined,
+          primaryAgentExternalCodeId: assignedExternalCodeId || undefined,
+          createCustomerIfMissing: true,
+        },
+      );
+      contactId = identityResult.contact.id;
+      customerId = identityResult.customer?.id;
+    } else if (!contactId) {
       const newContact = await this.contactsService.create(
         {
           firstName: firstName || 'Provisional',
-          lastName: rest.join(' ') || (rawName ? '' : 'Customer'),
-          email: proposer['emailId']
-            ? String(proposer['emailId']).trim()
-            : undefined,
+          lastName: lastName,
+          email: emailId || undefined,
           phone: mobileNumber || undefined,
-          panNumber: proposer['panNumber']
-            ? String(proposer['panNumber']).trim()
-            : undefined,
+          panNumber: panNumber || undefined,
           type: 'INDIVIDUAL',
         },
         user.id,
@@ -358,25 +404,30 @@ export class CreateMotorQuotationCommand {
       contactId = newContact.id;
     }
 
+    if (!contactId) {
+      throw new BadRequestException('Contact could not be resolved or created for this quotation');
+    }
+
     if (assignedAgentId && contactId) {
       const contactAssignment = await this.prisma.contact.findFirst({
         where: { id: contactId, companyId, deletedAt: null },
         select: { assignedAgentId: true, assignedExternalCodeId: true },
       });
-      if (contactAssignment?.assignedAgentId === assignedAgentId) {
+      if (!assignedExternalCodeId && contactAssignment?.assignedAgentId === assignedAgentId) {
         assignedExternalCodeId = contactAssignment.assignedExternalCodeId;
       }
     }
 
     // ── 4. Vehicle Details & Canonical Link ──
     const vehicleDetails = (dto.vehicleDetails || {}) as any;
-    let vehicleId: string | null = null;
+    let vehicleId: string | null = dto.vehicleId || null;
 
-    if (contactId) {
+    if (!vehicleId && contactId) {
       const vehicleCategoryEnum = dto.vehicleCategory as VehicleCategory;
       const upserted = await this.vehicleDataService.upsertVehicle(
         {
           contactId,
+          customerId,
           category: vehicleCategoryEnum,
           registrationNumber: dto.registrationNumber,
           makeModel: vehicleDetails.makeModel,
@@ -586,6 +637,9 @@ export class CreateMotorQuotationCommand {
       tpDiscountPercent: policyDetails.tpDiscountPercent !== undefined && policyDetails.tpDiscountPercent !== ''
         ? Number(policyDetails.tpDiscountPercent)
         : 0,
+      paDiscountPercent: policyDetails.paDiscountPercent !== undefined && policyDetails.paDiscountPercent !== ''
+        ? Number(policyDetails.paDiscountPercent)
+        : 0,
       discountPercent: policyDetails.discountPercent !== undefined && policyDetails.discountPercent !== ''
         ? Number(policyDetails.discountPercent)
         : (policyDetails.commercialDiscountPercent !== undefined && policyDetails.commercialDiscountPercent !== ''
@@ -723,6 +777,8 @@ export class CreateMotorQuotationCommand {
         odDiscountAmount: calcResult.outputs.odDiscountAmount ?? 0,
         tpDiscountPercent: calcResult.outputs.discounts?.tp?.percent ?? 0,
         tpDiscountAmount: calcResult.outputs.tpDiscountAmount ?? 0,
+        paDiscountPercent: calcResult.outputs.discounts?.pa?.percent ?? 0,
+        paDiscountAmount: calcResult.outputs.paDiscountAmount ?? 0,
         addonDiscountAmount: calcResult.outputs.payableSummary?.addonDiscountAmount ?? 0,
         commercialDiscountPercent: calcResult.outputs.discounts?.commercial?.percent ?? 0,
         commercialDiscountAmount: calcResult.outputs.commercialDiscountAmount ?? 0,
@@ -756,7 +812,7 @@ export class CreateMotorQuotationCommand {
               category: dto.vehicleCategory as any,
               vehicleStatus: isVehicleNew ? 'NEW' : 'EXISTING',
               registrationNumber: dto.registrationNumber || null,
-              contactId,
+              contactId: contactId as string,
               vehicleId,
               leadId: dto.leadId || null,
               journeyId: journey?.id || null,
@@ -800,7 +856,7 @@ export class CreateMotorQuotationCommand {
               : 'READY_FOR_PROPOSAL',
             motorMetadata: motorMetadata as any,
             expiryDate: new Date(Date.now() + 30 * 86400000),
-            contactId,
+            contactId: contactId as string,
             vehicleId,
             leadId: dto.leadId || null,
             caseId: activeCaseId,

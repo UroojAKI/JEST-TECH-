@@ -105,7 +105,7 @@ describe('Phase 12 Two-Company Adversarial Tenant Isolation Audit (12.3 & 12.5)'
         }),
       };
       const prismaMock: any = {};
-      const contactsService = new ContactsService(contactRepoMock, prismaMock);
+      const contactsService = new ContactsService(contactRepoMock, prismaMock, {} as any);
 
       await expect(contactsService.findById('contact-b-1', adminA)).rejects.toThrow(
         ForbiddenException,

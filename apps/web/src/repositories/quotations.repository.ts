@@ -23,8 +23,13 @@ export interface QuotationItem {
 
 export const quotationsRepository = {
   async getQuotations(params?: Partial<PaginationParams> & { status?: string }): Promise<PaginatedResult<QuotationItem>> {
-    const response = await apiClient.get('/quotations', { params });
-    return response.data;
+    try {
+      const response = await apiClient.get('/quotations', { params });
+      return response.data;
+    } catch (err) {
+      console.warn('Failed to fetch quotations:', err);
+      return { data: [], items: [], meta: { page: 1, limit: params?.limit || 25, total: 0, totalPages: 0 } } as any;
+    }
   },
 
   async getQuotationById(id: string): Promise<QuotationItem> {

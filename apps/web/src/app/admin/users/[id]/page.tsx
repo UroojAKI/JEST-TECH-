@@ -247,6 +247,9 @@ export default function User360Page() {
     recentQuotations = [],
     recentPolicies = [],
     recentLeads = [],
+    recentCustomers = [],
+    recentRenewals = [],
+    recentClaims = [],
   } = workspace;
   const isLocked = profile.status === 'LOCKED' || profile.status === 'SUSPENDED';
 
@@ -426,7 +429,7 @@ export default function User360Page() {
             { id: 'organization', label: 'Organization & Role', icon: Shield },
             { id: 'security', label: 'Security & Access', icon: Key },
             { id: 'finance', label: 'Commissions & Incentives', icon: Award },
-            ...(profile.agentProfile ? [{ id: 'identifiers', label: 'External IDs', icon: Fingerprint }] : []),
+            ...(profile.agentProfile ? [{ id: 'identifiers', label: 'Client codes', icon: Fingerprint }] : []),
           ].map((tab) => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.id;
@@ -453,8 +456,8 @@ export default function User360Page() {
               <div className="rounded-2xl border bg-card p-5 space-y-4">
                 <div className="flex items-start justify-between gap-4">
                   <div>
-                    <h2 className="font-bold flex items-center gap-2"><Fingerprint className="h-4 w-4 text-primary" /> Registered Agent identifiers</h2>
-                    <p className="text-xs text-muted-foreground mt-1">JEST Agent code: <span className="font-mono">{profile.agentProfile.agentCode}</span>. External codes remain separate and require verification before assignment.</p>
+                    <h2 className="font-bold flex items-center gap-2"><Fingerprint className="h-4 w-4 text-primary" /> Client Agent codes</h2>
+                    <p className="text-xs text-muted-foreground mt-1">Client-owned codes identify this Agent in your business records. A verified code is used for assignments; the database links records through the Agent profile.</p>
                   </div>
                   <div className="flex flex-wrap gap-2">
                     <select
@@ -541,10 +544,10 @@ export default function User360Page() {
 
               {canManageExternalCodes ? <form onSubmit={(event) => { event.preventDefault(); registerExternalCodeMutation.mutate(); }} className="h-fit rounded-2xl border bg-card p-5 space-y-4">
                 <div>
-                  <h2 className="font-bold flex items-center gap-2"><Plus className="h-4 w-4 text-primary" /> Add external identifier</h2>
+                  <h2 className="font-bold flex items-center gap-2"><Plus className="h-4 w-4 text-primary" /> Add a client code</h2>
                   <p className="text-xs text-muted-foreground mt-1">Code casing and punctuation are preserved. Deactivated codes remain reserved.</p>
                 </div>
-                <label className="block space-y-1.5 text-xs font-semibold">External Agent Code
+                <label className="block space-y-1.5 text-xs font-semibold">Client Agent Code
                   <input required maxLength={100} value={externalCodeForm.externalCode} onChange={(event) => setExternalCodeForm({ ...externalCodeForm, externalCode: event.target.value })} placeholder="IGSK001" className="w-full rounded-lg border bg-background px-3 py-2 text-sm font-normal" />
                 </label>
                 <label className="block space-y-1.5 text-xs font-semibold">Code System / Namespace
@@ -569,7 +572,7 @@ export default function User360Page() {
                   Primary code within this namespace
                 </label>
                 <button type="submit" disabled={registerExternalCodeMutation.isPending || !externalCodeForm.externalCode.trim() || !externalCodeForm.codeSystem.trim()} className="w-full rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground disabled:opacity-50">
-                  {registerExternalCodeMutation.isPending ? 'Registering…' : 'Register as Pending'}
+                  {registerExternalCodeMutation.isPending ? 'Registering…' : 'Add code for verification'}
                 </button>
               </form> : <div className="h-fit rounded-2xl border bg-card p-5 text-sm text-muted-foreground">Identifier management is available to Admin and Back Office users.</div>}
             </div>
@@ -637,7 +640,7 @@ export default function User360Page() {
                   <span>
                     {profile.agentProfile ? (
                       <span className="font-mono text-xs px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-700 border border-emerald-300">
-                        {profile.agentProfile.agentCode} ({profile.agentProfile.commissionTier || 'STANDARD'})
+                        {(profile.agentProfile.clientCodes.find((code) => code.isPrimary && code.verificationStatus === 'VERIFIED') || profile.agentProfile.clientCodes.find((code) => code.verificationStatus === 'VERIFIED'))?.value || 'Client code not registered'} ({profile.agentProfile.commissionTier || 'STANDARD'})
                       </span>
                     ) : (
                       'Non-Agent User'
@@ -654,6 +657,184 @@ export default function User360Page() {
                     {profile.lastLoginAt ? new Date(profile.lastLoginAt).toLocaleString() : 'Never logged in'}
                   </span>
                 </div>
+              </div>
+            </div>
+
+            {/* Quick Overview Operational KPI Cards */}
+            <div className="md:col-span-2 grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2">
+              <div className="p-4 bg-primary/5 border border-primary/20 rounded-xl space-y-1">
+                <div className="text-xs text-muted-foreground font-medium flex items-center justify-between">
+                  <span>Quotes Created</span>
+                  <FileText className="h-4 w-4 text-primary" />
+                </div>
+                <div className="text-2xl font-bold font-mono text-primary">{portfolio.quotationsCreated ?? 0}</div>
+                <div className="text-[11px] text-muted-foreground">Pipeline: <span className="font-mono font-bold text-emerald-600">₹{Number(portfolio.totalQuotationValue || 0).toLocaleString('en-IN')}</span></div>
+              </div>
+              <div className="p-4 bg-indigo-500/5 border border-indigo-500/20 rounded-xl space-y-1">
+                <div className="text-xs text-muted-foreground font-medium flex items-center justify-between">
+                  <span>Policies Issued</span>
+                  <Award className="h-4 w-4 text-indigo-600" />
+                </div>
+                <div className="text-2xl font-bold font-mono text-indigo-600">{portfolio.policiesIssued ?? 0}</div>
+                <div className="text-[11px] text-muted-foreground">Gross Premium: <span className="font-mono font-bold text-indigo-600">₹{Number(portfolio.totalIssuedPremium || 0).toLocaleString('en-IN')}</span></div>
+              </div>
+              <div className="p-4 bg-emerald-500/5 border border-emerald-500/20 rounded-xl space-y-1">
+                <div className="text-xs text-muted-foreground font-medium flex items-center justify-between">
+                  <span>Converted Leads</span>
+                  <TrendingUp className="h-4 w-4 text-emerald-600" />
+                </div>
+                <div className="text-2xl font-bold font-mono text-emerald-600">{portfolio.leadsConverted}</div>
+                <div className="text-[11px] text-muted-foreground">Rate: <span className="font-mono font-bold">{conversionRate}%</span> of {portfolio.leadsAssigned} assigned</div>
+              </div>
+              <div className="p-4 bg-amber-500/5 border border-amber-500/20 rounded-xl space-y-1">
+                <div className="text-xs text-muted-foreground font-medium flex items-center justify-between">
+                  <span>Managed Clients</span>
+                  <Users className="h-4 w-4 text-amber-600" />
+                </div>
+                <div className="text-2xl font-bold font-mono text-amber-600">{portfolio.customersManaged}</div>
+                <div className="text-[11px] text-muted-foreground">Pending Tasks: <span className="font-mono font-bold text-amber-600">{portfolio.pendingTasks}</span></div>
+              </div>
+            </div>
+
+            {/* Overview Quotations & Activity Strip */}
+            <div className="md:col-span-2 space-y-6 pt-2">
+              {/* Recent Quotations Table */}
+              <div className="border rounded-2xl overflow-hidden bg-card shadow-sm">
+                <div className="p-4 border-b flex items-center justify-between bg-muted/20">
+                  <div className="space-y-0.5">
+                    <h3 className="text-sm font-bold flex items-center gap-2">
+                      <FileText className="h-4 w-4 text-primary" />
+                      User Quotations & Prices ({recentQuotations.length})
+                    </h3>
+                    <p className="text-xs text-muted-foreground">All quotations created, pricing breakdown, and issuance progression</p>
+                  </div>
+                  <button
+                    onClick={() => setActiveTab('portfolio')}
+                    className="text-xs font-semibold text-primary hover:underline flex items-center gap-1"
+                  >
+                    View All in Portfolio →
+                  </button>
+                </div>
+                {recentQuotations.length === 0 ? (
+                  <div className="p-8 text-center text-sm text-muted-foreground">
+                    No quotations recorded for this user yet.
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs border-collapse">
+                      <thead>
+                        <tr className="bg-muted/40 text-[10px] uppercase font-bold text-muted-foreground border-b">
+                          <th className="p-3">Quotation Code</th>
+                          <th className="p-3">Customer</th>
+                          <th className="p-3">Insurer & Product</th>
+                          <th className="p-3">Total Premium (Price)</th>
+                          <th className="p-3">Quote Status</th>
+                          <th className="p-3">Issuance Status</th>
+                          <th className="p-3">Policy Number</th>
+                          <th className="p-3">Created</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y font-mono">
+                        {recentQuotations.slice(0, 10).map((q) => (
+                          <tr key={q.id} className="hover:bg-accent/40 font-sans">
+                            <td className="p-3 font-mono font-bold text-primary">{q.quotationCode}</td>
+                            <td className="p-3">
+                              <div className="font-semibold text-foreground">{q.customerName}</div>
+                              {q.customerPhone && <div className="text-[11px] text-muted-foreground font-mono">{q.customerPhone}</div>}
+                            </td>
+                            <td className="p-3">
+                              <div className="font-semibold">{q.insurerName}</div>
+                              <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-muted text-muted-foreground">{q.productType}</span>
+                            </td>
+                            <td className="p-3 font-mono text-sm font-bold text-emerald-600">
+                              ₹{Number(q.totalPremium || 0).toLocaleString('en-IN')}
+                            </td>
+                            <td className="p-3"><StatusBadge status={q.status} /></td>
+                            <td className="p-3">
+                              <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${
+                                q.issuanceStatus === 'ISSUED'
+                                  ? 'bg-emerald-500/10 text-emerald-700 border-emerald-300'
+                                  : q.issuanceStatus === 'PAYMENT_PENDING' || q.issuanceStatus === 'ISSUANCE_PENDING'
+                                  ? 'bg-amber-500/10 text-amber-700 border-amber-300'
+                                  : 'bg-muted text-muted-foreground border-border'
+                              }`}>
+                                {q.issuanceStatus || 'DRAFT'}
+                              </span>
+                            </td>
+                            <td className="p-3 font-mono">
+                              {q.policyNumber ? <span className="text-indigo-600 font-bold">{q.policyNumber}</span> : <span className="text-muted-foreground">-</span>}
+                            </td>
+                            <td className="p-3 font-mono text-[11px] text-muted-foreground">{new Date(q.createdAt).toLocaleDateString()}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+
+              {/* User Activity & Audit Timeline */}
+              <div className="border rounded-2xl overflow-hidden bg-card shadow-sm">
+                <div className="p-4 border-b flex items-center justify-between bg-muted/20">
+                  <div className="space-y-0.5">
+                    <h3 className="text-sm font-bold flex items-center gap-2">
+                      <Activity className="h-4 w-4 text-primary" />
+                      Recent User Activity & Operations ({recentActivities.length})
+                    </h3>
+                    <p className="text-xs text-muted-foreground">Live operational stream of quotations, policy issuances, and user events</p>
+                  </div>
+                  <button
+                    onClick={() => setActiveTab('activities')}
+                    className="text-xs font-semibold text-primary hover:underline flex items-center gap-1"
+                  >
+                    View All Audit Logs →
+                  </button>
+                </div>
+                {recentActivities.length === 0 ? (
+                  <div className="p-8 text-center text-sm text-muted-foreground">
+                    No recent activity recorded for this user.
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs border-collapse">
+                      <thead>
+                        <tr className="bg-muted/40 text-[10px] uppercase font-bold text-muted-foreground border-b">
+                          <th className="p-3">Type</th>
+                          <th className="p-3">Action</th>
+                          <th className="p-3">Entity</th>
+                          <th className="p-3">Reference / Code</th>
+                          <th className="p-3">Details & Pricing</th>
+                          <th className="p-3">Timestamp</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y">
+                        {recentActivities.slice(0, 10).map((act) => {
+                          const isOperational = act.source === 'OPERATIONAL';
+                          return (
+                            <tr key={act.id} className="hover:bg-accent/40">
+                              <td className="p-3">
+                                <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                                  isOperational
+                                    ? 'bg-emerald-500/10 text-emerald-700 border border-emerald-300'
+                                    : 'bg-muted text-muted-foreground border border-border'
+                                }`}>
+                                  {act.source}
+                                </span>
+                              </td>
+                              <td className="p-3 font-semibold">{act.action}</td>
+                              <td className="p-3 font-mono text-[11px]">{act.entity}</td>
+                              <td className="p-3 font-mono font-bold text-primary">{act.entityId || '-'}</td>
+                              <td className="p-3 max-w-xs truncate text-[11px] text-muted-foreground">
+                                {typeof act.details === 'object' ? JSON.stringify(act.details) : act.details || '-'}
+                              </td>
+                              <td className="p-3 font-mono text-[11px] text-muted-foreground">{new Date(act.createdAt).toLocaleString()}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -991,6 +1172,210 @@ export default function User360Page() {
                           </td>
                           <td className="p-3 font-mono text-[11px] text-muted-foreground">
                             {new Date(l.createdAt).toLocaleDateString()}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            {/* Customer Portfolio Table */}
+            <div className="border rounded-2xl overflow-hidden bg-card shadow-sm space-y-0">
+              <div className="p-4 border-b flex items-center justify-between bg-muted/20">
+                <div className="space-y-0.5">
+                  <h3 className="text-sm font-bold flex items-center gap-2">
+                    <Users className="h-4 w-4 text-primary" />
+                    Assigned Customer Portfolio ({recentCustomers.length})
+                  </h3>
+                  <p className="text-xs text-muted-foreground">
+                    Directly managed customers, account relationships, and total gross written premium
+                  </p>
+                </div>
+                <span className="text-xs font-mono font-bold text-emerald-600 px-2.5 py-1 rounded-lg bg-emerald-500/10 border border-emerald-300">
+                  {recentCustomers.length} Accounts
+                </span>
+              </div>
+              {recentCustomers.length === 0 ? (
+                <div className="p-8 text-center text-sm text-muted-foreground">
+                  No customers are currently assigned to this agent.
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead>
+                      <tr className="bg-muted/40 text-[10px] uppercase font-bold text-muted-foreground border-b">
+                        <th className="p-3">Customer Code</th>
+                        <th className="p-3">Customer Name</th>
+                        <th className="p-3">Phone</th>
+                        <th className="p-3">Email</th>
+                        <th className="p-3">Active Policies</th>
+                        <th className="p-3">Total GWP</th>
+                        <th className="p-3">Joined Date</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y font-mono">
+                      {recentCustomers.map((c: any) => (
+                        <tr key={c.id} className="hover:bg-accent/40 font-sans">
+                          <td className="p-3 font-mono font-bold text-primary">
+                            <Link href={`/crm/customers/${c.id}`} className="hover:underline">
+                              {c.customerCode}
+                            </Link>
+                          </td>
+                          <td className="p-3 font-semibold text-foreground">{c.name}</td>
+                          <td className="p-3 font-mono text-muted-foreground">{c.phone || '-'}</td>
+                          <td className="p-3 text-muted-foreground">{c.email || '-'}</td>
+                          <td className="p-3">
+                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-primary/10 text-primary">
+                              {c.activePoliciesCount} {c.activePoliciesCount === 1 ? 'Policy' : 'Policies'}
+                            </span>
+                          </td>
+                          <td className="p-3 font-mono text-sm font-bold text-emerald-600">
+                            ₹{Number(c.totalGwp || 0).toLocaleString('en-IN')}
+                          </td>
+                          <td className="p-3 font-mono text-[11px] text-muted-foreground">
+                            {new Date(c.createdAt).toLocaleDateString()}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            {/* Upcoming Renewals Pipeline */}
+            <div className="border rounded-2xl overflow-hidden bg-card shadow-sm space-y-0">
+              <div className="p-4 border-b flex items-center justify-between bg-muted/20">
+                <div className="space-y-0.5">
+                  <h3 className="text-sm font-bold flex items-center gap-2">
+                    <RefreshCw className="h-4 w-4 text-primary" />
+                    Renewals Pipeline & Expiries ({recentRenewals.length})
+                  </h3>
+                  <p className="text-xs text-muted-foreground">
+                    Policies approaching expiry requiring agent renewal follow-up and retention actions
+                  </p>
+                </div>
+                <span className="text-xs font-mono font-bold text-amber-600 px-2.5 py-1 rounded-lg bg-amber-500/10 border border-amber-300">
+                  {recentRenewals.filter((r: any) => r.daysToExpiry <= 30 && r.daysToExpiry >= 0).length} Due in 30 Days
+                </span>
+              </div>
+              {recentRenewals.length === 0 ? (
+                <div className="p-8 text-center text-sm text-muted-foreground">
+                  No upcoming policy renewals within the next 60 days.
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead>
+                      <tr className="bg-muted/40 text-[10px] uppercase font-bold text-muted-foreground border-b">
+                        <th className="p-3">Policy Number</th>
+                        <th className="p-3">Customer</th>
+                        <th className="p-3">Insurer</th>
+                        <th className="p-3">Premium</th>
+                        <th className="p-3">Expiry Date</th>
+                        <th className="p-3">Days Remaining</th>
+                        <th className="p-3">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y font-mono">
+                      {recentRenewals.map((r: any) => (
+                        <tr key={r.id} className="hover:bg-accent/40 font-sans">
+                          <td className="p-3 font-mono font-bold text-primary">
+                            <Link href={`/policies/${r.id}`} className="hover:underline">
+                              {r.policyNumber}
+                            </Link>
+                          </td>
+                          <td className="p-3 font-semibold text-foreground">{r.customerName}</td>
+                          <td className="p-3">{r.insurerName}</td>
+                          <td className="p-3 font-mono text-sm font-bold text-foreground">
+                            ₹{Number(r.premiumAmount || 0).toLocaleString('en-IN')}
+                          </td>
+                          <td className="p-3 font-mono text-[11px] text-muted-foreground">
+                            {new Date(r.expiryDate).toLocaleDateString()}
+                          </td>
+                          <td className="p-3 font-mono font-bold">
+                            <span className={
+                              r.daysToExpiry < 0
+                                ? 'text-rose-600'
+                                : r.daysToExpiry <= 15
+                                ? 'text-amber-600'
+                                : 'text-emerald-600'
+                            }>
+                              {r.daysToExpiry < 0 ? `Lapsed (${Math.abs(r.daysToExpiry)}d ago)` : `${r.daysToExpiry} days`}
+                            </span>
+                          </td>
+                          <td className="p-3">
+                            <span className={
+                              r.status === 'LAPSED'
+                                ? 'px-2 py-0.5 rounded text-[10px] font-bold bg-rose-500/10 text-rose-600'
+                                : r.status === 'CRITICAL'
+                                ? 'px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/10 text-amber-600'
+                                : 'px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/10 text-emerald-600'
+                            }>
+                              {r.status}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            {/* Claims Visibility Table */}
+            <div className="border rounded-2xl overflow-hidden bg-card shadow-sm space-y-0">
+              <div className="p-4 border-b flex items-center justify-between bg-muted/20">
+                <div className="space-y-0.5">
+                  <h3 className="text-sm font-bold flex items-center gap-2">
+                    <AlertTriangle className="h-4 w-4 text-primary" />
+                    Claims Visibility ({recentClaims.length})
+                  </h3>
+                  <p className="text-xs text-muted-foreground">
+                    Claims registered on policies written by or attributed to this agent
+                  </p>
+                </div>
+                <span className="text-xs font-mono font-bold text-foreground px-2.5 py-1 rounded-lg bg-muted border">
+                  Total Claims: {recentClaims.length}
+                </span>
+              </div>
+              {recentClaims.length === 0 ? (
+                <div className="p-8 text-center text-sm text-muted-foreground">
+                  No claims have been registered on this agent's policies.
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead>
+                      <tr className="bg-muted/40 text-[10px] uppercase font-bold text-muted-foreground border-b">
+                        <th className="p-3">Claim Number</th>
+                        <th className="p-3">Policy Number</th>
+                        <th className="p-3">Customer</th>
+                        <th className="p-3">Claim Amount</th>
+                        <th className="p-3">Settled Amount</th>
+                        <th className="p-3">Status</th>
+                        <th className="p-3">Reported Date</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y font-mono">
+                      {recentClaims.map((cl: any) => (
+                        <tr key={cl.id} className="hover:bg-accent/40 font-sans">
+                          <td className="p-3 font-mono font-bold text-primary">{cl.claimNumber}</td>
+                          <td className="p-3 font-mono text-foreground">{cl.policyNumber}</td>
+                          <td className="p-3 font-semibold text-foreground">{cl.customerName}</td>
+                          <td className="p-3 font-mono text-sm font-bold text-foreground">
+                            ₹{Number(cl.claimAmount || 0).toLocaleString('en-IN')}
+                          </td>
+                          <td className="p-3 font-mono text-sm font-bold text-emerald-600">
+                            {cl.settledAmount ? `₹${Number(cl.settledAmount).toLocaleString('en-IN')}` : '-'}
+                          </td>
+                          <td className="p-3">
+                            <StatusBadge status={cl.status} />
+                          </td>
+                          <td className="p-3 font-mono text-[11px] text-muted-foreground">
+                            {new Date(cl.createdAt).toLocaleDateString()}
                           </td>
                         </tr>
                       ))}

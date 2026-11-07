@@ -28,7 +28,7 @@ import {
 type AgentSummary = {
   id: string;
   userId: string;
-  agentCode: string;
+  agentCode: string | null;
   companyId: string;
   isActive: boolean;
   deletedAt: Date | null;
@@ -566,7 +566,9 @@ export class AgentIdentityResolverService {
     return {
       agent: {
         id: agent.id,
-        agentCode: agent.agentCode,
+        agentCode: externalCode?.externalCode || null,
+        clientCode: externalCode?.externalCode || null,
+        codeSystem: externalCode?.codeSystem || null,
         name: `${agent.user?.firstName || ''} ${agent.user?.lastName || ''}`.trim(),
         branch: agent.user?.branch || null,
         isActive: agent.isActive,
@@ -616,7 +618,7 @@ export class AgentIdentityResolverService {
     }
     return {
       agentId: agent.id,
-      agentCode: agent.agentCode,
+      agentCode: null,
       userId: agent.userId,
       externalCodeId: null as string | null,
       originalIdentifier: identifier,
@@ -631,7 +633,7 @@ export class AgentIdentityResolverService {
     const canonical = await this.validateAgentOwnership(result.agent.id, this.companyId(actor));
     return {
       agentId: canonical.id,
-      agentCode: canonical.agentCode,
+      agentCode: result.identifier.value,
       userId: canonical.userId,
       externalCodeId: result.identifier.externalCodeId,
       originalIdentifier: result.identifier.value,

@@ -35,7 +35,22 @@ const userIncludeClause = {
   department: true,
   team: true,
   jobRole: true,
-};
+  agentProfile: {
+    include: {
+      externalCodes: {
+        where: { status: 'ACTIVE' },
+        orderBy: [{ isPrimary: 'desc' }, { codeSystem: 'asc' }],
+        select: {
+          id: true,
+          externalCode: true,
+          codeSystem: true,
+          verificationStatus: true,
+          isPrimary: true,
+        },
+      },
+    },
+  },
+} satisfies Prisma.UserInclude;
 
 const userWithRole = Prisma.validator<Prisma.UserDefaultArgs>()({
   include: userIncludeClause,

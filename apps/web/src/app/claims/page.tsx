@@ -57,6 +57,9 @@ export default function ClaimsPage() {
 
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
+  const [search, setSearch] = useState('');
 
   useEffect(() => {
     const claimId = new URLSearchParams(window.location.search).get('claimId');
@@ -70,11 +73,13 @@ export default function ClaimsPage() {
     user?.role === 'ADMIN';
 
   const { data, isLoading, isError, refetch } = useQuery({
-    queryKey: ['claims-list'],
-    queryFn: () => claimsRepository.getClaims(),
+    queryKey: ['claims-list', page, pageSize, search],
+    queryFn: () => claimsRepository.getClaims({ page, limit: pageSize, search: search.trim() || undefined } as any),
   });
 
-  const claims = Array.isArray(data) ? data : (data as any)?.data || [];
+  const claims = Array.isArray(data) ? data : (data as any)?.data || (data as any)?.items || [];
+  const total = Array.isArray(data) ? claims.length : Number((data as any)?.total ?? claims.length);
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
   const selectedClaim = claims.find((claim: any) => claim.id === selectedClaimId);
 
   const handleSubmitClaim = async (e: React.FormEvent) => {
@@ -318,7 +323,26 @@ export default function ClaimsPage() {
               </p>
             </div>
           ) : (
-            <EnterpriseTable data={claims} columns={columns} />
+            <EnterpriseTable
+              data={claims}
+              columns={columns}
+              totalRows={total}
+              pageSize={pageSize}
+              pageIndex={page - 1}
+              pageCount={totalPages}
+              manualPagination
+              manualFiltering
+              searchValue={search}
+              onSearchChange={(val) => {
+                setSearch(val);
+                setPage(1);
+              }}
+              onPageChange={(nextPage) => setPage(nextPage + 1)}
+              onPageSizeChange={(newSize) => {
+                setPageSize(newSize);
+                setPage(1);
+              }}
+            />
           )}
         </div>
 

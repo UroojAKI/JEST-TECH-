@@ -51,6 +51,18 @@ export function UpdatePolicyDetailsDialog({
   const [policyPdf, setPolicyPdf] = useState<File | null>(null);
   const [pdfError, setPdfError] = useState<string | null>(null);
 
+  // POS Partner Selection (DEC-02: Mandatory at Policy Issuance)
+  const [posPartnerId, setPosPartnerId] = useState('');
+  const [posPartners, setPosPartners] = useState<any[]>([]);
+  const [isLoadingPos, setIsLoadingPos] = useState(false);
+
+  // Structured Address (DEC-06: Mandatory at Policy Issuance)
+  const [addressLine1, setAddressLine1] = useState('');
+  const [addressLine2, setAddressLine2] = useState('');
+  const [city, setCity] = useState('');
+  const [stateName, setStateName] = useState('');
+  const [pincode, setPincode] = useState('');
+
   // Motor-specific fields (Only for Motor policies)
   const [odStartDate, setOdStartDate] = useState('');
   const [odExpiryDate, setOdExpiryDate] = useState('');
@@ -174,6 +186,43 @@ export function UpdatePolicyDetailsDialog({
             setMembersList(healthMeta.members);
           }
         }
+
+        // Pre-populate Structured Address (DEC-06)
+        const proposer = (q.motorMetadata as any)?.proposerDetails || q.proposerDetails || {};
+        const contact = q.contact || {};
+        const hMeta = (q.healthMetadata as Record<string, any>) || {};
+
+        const addr1 = contact.address || contact.addressLine1 || proposer.addressLine1 || proposer.address || proposer.communicationAddress || hMeta.communicationAddress || hMeta.address || '';
+        if (addr1) setAddressLine1((prev) => prev || addr1);
+        const addr2 = contact.addressLine2 || proposer.addressLine2 || '';
+        if (addr2) setAddressLine2((prev) => prev || addr2);
+        const c = contact.city || proposer.city || hMeta.city || '';
+        if (c) setCity((prev) => prev || c);
+        const st = contact.state || proposer.state || hMeta.state || '';
+        if (st) setStateName((prev) => prev || st);
+        const pin = contact.pincode || proposer.pincode || proposer.pinCode || hMeta.pincode || '';
+        if (pin) setPincode((prev) => prev || String(pin).replace(/\D/g, ''));
+
+        // Fetch eligible POS partners (DEC-02 & DEC-03)
+        const insName = q.insurerName || '';
+        const insurerQuery = insName ? `?insurerName=${encodeURIComponent(insName)}` : '';
+        setIsLoadingPos(true);
+        apiClient
+          .get(`/pos-partners/eligible${insurerQuery}`)
+          .then((pRes) => {
+            if (!isMounted) return;
+            const pList = Array.isArray(pRes.data) ? pRes.data : [];
+            setPosPartners(pList);
+            if (pList.length > 0) {
+              setPosPartnerId((prev) => prev || pList[0].id);
+            }
+          })
+          .catch((pErr) => {
+            console.warn('Could not fetch eligible POS partners:', pErr);
+          })
+          .finally(() => {
+            if (isMounted) setIsLoadingPos(false);
+          });
       })
       .catch((err) => {
         console.error('Failed to pre-fetch quotation details', err);
@@ -225,6 +274,21 @@ export function UpdatePolicyDetailsDialog({
       return;
     }
 
+    if (!posPartnerId) {
+      toast.error('POS Partner selection is mandatory for policy issuance (DEC-02).');
+      return;
+    }
+
+    if (!addressLine1.trim() || !city.trim() || !stateName.trim() || !pincode.trim()) {
+      toast.error('Complete structured customer address is mandatory for policy issuance (DEC-06).');
+      return;
+    }
+
+    if (pincode.replace(/\D/g, '').length !== 6) {
+      toast.error('Valid 6-digit Indian PIN code is mandatory.');
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -270,6 +334,15 @@ export function UpdatePolicyDetailsDialog({
           confirmPaymentReceived,
           effectiveDate: startDate,
           expiryDate: endDate,
+          posPartnerId,
+          structuredAddress: {
+            addressLine1: addressLine1.trim(),
+            addressLine2: addressLine2.trim() || undefined,
+            city: city.trim(),
+            state: stateName.trim(),
+            pincode: pincode.trim(),
+            country: 'India',
+          },
           nominees: [
             {
               firstName: nomFirstName,
@@ -320,6 +393,15 @@ export function UpdatePolicyDetailsDialog({
           odExpiryDate: odExpiryDate || undefined,
           tpStartDate: tpStartDate || undefined,
           tpExpiryDate: tpExpiryDate || undefined,
+          posPartnerId,
+          structuredAddress: {
+            addressLine1: addressLine1.trim(),
+            addressLine2: addressLine2.trim() || undefined,
+            city: city.trim(),
+            state: stateName.trim(),
+            pincode: pincode.trim(),
+            country: 'India',
+          },
           ...documentFields,
         });
 
@@ -500,6 +582,136 @@ export function UpdatePolicyDetailsDialog({
                 className="w-full px-3 py-2 border rounded-lg text-xs bg-background font-mono focus:ring-1 focus:ring-primary focus:outline-none"
                 placeholder="UTR / Transaction Ref / Cheque"
               />
+            </div>
+          </div>
+
+          {/* POS Partner Selection (DEC-02 & DEC-03: Mandatory) */}
+          <div className="p-3.5 rounded-xl border bg-card space-y-2">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-bold flex items-center gap-1.5">
+                <Users className="h-3.5 w-3.5 text-emerald-600" />
+                <span>
+                  Attributed POS Partner <span className="text-emerald-600 font-bold">* (Mandatory DEC-02)</span>
+                </span>
+              </label>
+              <span className="text-[9px] font-bold bg-emerald-500/10 text-emerald-600 px-2 py-0.5 rounded">
+                1:1 Insurer Association (DEC-03)
+              </span>
+            </div>
+
+            {isLoadingPos ? (
+              <div className="text-xs text-muted-foreground flex items-center gap-2 py-1">
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                Loading eligible POS partners for {quoteDetails?.insurerName}...
+              </div>
+            ) : posPartners.length > 0 ? (
+              <select
+                value={posPartnerId}
+                onChange={(e) => setPosPartnerId(e.target.value)}
+                className="w-full px-3 py-2 border rounded-lg text-xs bg-background font-medium focus:ring-1 focus:ring-primary focus:outline-none"
+                required
+              >
+                <option value="">Select Eligible POS Partner...</option>
+                {posPartners.map((p: any) => (
+                  <option key={p.id} value={p.id}>
+                    {p.posCode} • {p.name} ({p.partnerType}) — Insurer: {p.insurerMapping?.insurer?.name || quoteDetails?.insurerName}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <div className="p-2.5 rounded-lg border border-amber-500/30 bg-amber-500/5 text-amber-700 dark:text-amber-300 text-xs flex items-center justify-between">
+                <span>No POS partner currently mapped to {quoteDetails?.insurerName}.</span>
+                <a href="/admin/pos-partners" target="_blank" className="font-bold underline text-primary">
+                  Manage POS Partners
+                </a>
+              </div>
+            )}
+          </div>
+
+          {/* Customer Structured Address (DEC-06: Mandatory) */}
+          <div className="p-3.5 rounded-xl border bg-card space-y-2.5">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-bold flex items-center gap-1.5">
+                <UserCheck className="h-3.5 w-3.5 text-primary" />
+                <span>
+                  Customer Structured Address <span className="text-rose-500 font-bold">* (Mandatory DEC-06)</span>
+                </span>
+              </label>
+              <span className="text-[9px] font-bold bg-primary/10 text-primary px-2 py-0.5 rounded">
+                IRDAI Mandatory Address
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs">
+              <div className="sm:col-span-2">
+                <label className="block text-[10px] font-bold text-muted-foreground mb-0.5">Address Line 1 *</label>
+                <input
+                  required
+                  type="text"
+                  placeholder="Plot/Flat, Building Name, Street"
+                  value={addressLine1}
+                  onChange={(e) => setAddressLine1(e.target.value)}
+                  className="w-full px-3 py-1.5 border rounded-lg text-xs bg-background focus:ring-1 focus:ring-primary focus:outline-none"
+                />
+              </div>
+
+              <div className="sm:col-span-2">
+                <label className="block text-[10px] font-bold text-muted-foreground mb-0.5">Address Line 2 (Optional)</label>
+                <input
+                  type="text"
+                  placeholder="Locality, Landmark"
+                  value={addressLine2}
+                  onChange={(e) => setAddressLine2(e.target.value)}
+                  className="w-full px-3 py-1.5 border rounded-lg text-xs bg-background focus:ring-1 focus:ring-primary focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold text-muted-foreground mb-0.5">City *</label>
+                <input
+                  required
+                  type="text"
+                  placeholder="e.g. Mumbai"
+                  value={city}
+                  onChange={(e) => setCity(e.target.value)}
+                  className="w-full px-3 py-1.5 border rounded-lg text-xs bg-background focus:ring-1 focus:ring-primary focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold text-muted-foreground mb-0.5">State *</label>
+                <input
+                  required
+                  type="text"
+                  placeholder="e.g. Maharashtra"
+                  value={stateName}
+                  onChange={(e) => setStateName(e.target.value)}
+                  className="w-full px-3 py-1.5 border rounded-lg text-xs bg-background focus:ring-1 focus:ring-primary focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold text-muted-foreground mb-0.5">PIN Code (6 digits) *</label>
+                <input
+                  required
+                  maxLength={6}
+                  type="text"
+                  placeholder="400001"
+                  value={pincode}
+                  onChange={(e) => setPincode(e.target.value.replace(/\D/g, ''))}
+                  className="w-full px-3 py-1.5 border rounded-lg text-xs font-mono font-bold bg-background focus:ring-1 focus:ring-primary focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold text-muted-foreground mb-0.5">Country</label>
+                <input
+                  disabled
+                  type="text"
+                  value="India"
+                  className="w-full px-3 py-1.5 border rounded-lg text-xs bg-muted text-muted-foreground"
+                />
+              </div>
             </div>
           </div>
 
