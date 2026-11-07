@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-05T21:07:04.870Z",
+  "generatedAt": "2026-11-06T09:58:01.011Z",
   "mismatches": [],
   "uncalledBackendRoutes": [
     {
@@ -1396,6 +1396,69 @@
       "classification": "UNUSED"
     },
     {
+      "method": "GET",
+      "path": "/pos-partners/:param",
+      "controller": "PosPartnersController",
+      "file": "apps/api/src/modules/pos-partners/controllers/pos-partners.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "PATCH",
+      "path": "/pos-partners/:param",
+      "controller": "PosPartnersController",
+      "file": "apps/api/src/modules/pos-partners/controllers/pos-partners.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "GET",
+      "path": "/pos-partners/:param/history",
+      "controller": "PosPartnersController",
+      "file": "apps/api/src/modules/pos-partners/controllers/pos-partners.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "POST",
+      "path": "/pos-partners/:param/insurer-mapping",
+      "controller": "PosPartnersController",
+      "file": "apps/api/src/modules/pos-partners/controllers/pos-partners.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "GET",
+      "path": "/pos-partners/:param/insurer-mapping",
+      "controller": "PosPartnersController",
+      "file": "apps/api/src/modules/pos-partners/controllers/pos-partners.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "POST",
+      "path": "/pos-partners/:param/documents",
+      "controller": "PosPartnersController",
+      "file": "apps/api/src/modules/pos-partners/controllers/pos-partners.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "GET",
+      "path": "/pos-partners/:param/documents",
+      "controller": "PosPartnersController",
+      "file": "apps/api/src/modules/pos-partners/controllers/pos-partners.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "POST",
+      "path": "/pos-partners/:param/commission-agreements",
+      "controller": "PosPartnersController",
+      "file": "apps/api/src/modules/pos-partners/controllers/pos-partners.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
+      "method": "GET",
+      "path": "/pos-partners/:param/commission-agreements",
+      "controller": "PosPartnersController",
+      "file": "apps/api/src/modules/pos-partners/controllers/pos-partners.controller.ts",
+      "classification": "UNUSED"
+    },
+    {
       "method": "POST",
       "path": "/quotations/wizard/issue-policy",
       "controller": "QuotationController",
@@ -1572,15 +1635,15 @@
     }
   ],
   "summary": {
-    "totalFrontendCalls": 375,
-    "matched": 375,
+    "totalFrontendCalls": 382,
+    "matched": 382,
     "unmatched": 0,
-    "uncalledBackend": 224,
+    "uncalledBackend": 233,
     "uncalledByClassification": {
       "WEBHOOK": 1,
       "CRON": 3,
       "INTERNAL": 13,
-      "UNUSED": 207
+      "UNUSED": 216
     }
   }
 }

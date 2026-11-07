@@ -479,10 +479,46 @@ export class QuotationCompletionService {
       contactUpdates.firstName = parts[0];
       contactUpdates.lastName = parts.slice(1).join(' ') || parts[0];
     }
+    if (updates.address !== undefined && String(updates.address).trim()) {
+      contactUpdates.address = String(updates.address).trim();
+    }
+    if (updates.pincode !== undefined && String(updates.pincode).trim()) {
+      contactUpdates.pincode = String(updates.pincode).trim();
+    }
     if (Object.keys(contactUpdates).length > 0 && quotation.contactId) {
       await this.prisma.contact.update({
         where: { id: quotation.contactId },
         data: contactUpdates,
+      });
+    }
+
+    const targetCustomerId = (quotation as any).customerId || (quotation.contact as any)?.customerId;
+    if (targetCustomerId && (updates.address || updates.pincode || updates.city || updates.state)) {
+      const custUpdates: any = {};
+      if (updates.address && String(updates.address).trim()) custUpdates.addressLine1 = String(updates.address).trim();
+      if (updates.city && String(updates.city).trim()) custUpdates.city = String(updates.city).trim();
+      if (updates.state && String(updates.state).trim()) custUpdates.state = String(updates.state).trim();
+      if (updates.pincode && String(updates.pincode).trim()) custUpdates.pincode = String(updates.pincode).trim();
+      if (Object.keys(custUpdates).length > 0) {
+        await this.prisma.customer.update({
+          where: { id: targetCustomerId },
+          data: custUpdates,
+        }).catch(() => null);
+      }
+    }
+
+    if (updates.address || updates.pincode || updates.city || updates.state) {
+      const meta = (quotation.motorMetadata as any) || {};
+      meta.proposerDetails = {
+        ...(meta.proposerDetails || {}),
+        ...(updates.address ? { address: String(updates.address).trim(), communicationAddress: String(updates.address).trim() } : {}),
+        ...(updates.pincode ? { pincode: String(updates.pincode).trim() } : {}),
+        ...(updates.city ? { city: String(updates.city).trim() } : {}),
+        ...(updates.state ? { state: String(updates.state).trim() } : {}),
+      };
+      await this.prisma.quotation.update({
+        where: { id: quotationId },
+        data: { motorMetadata: meta },
       });
     }
 

@@ -926,16 +926,10 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, customerId, caseId
       }
     }
 
-    // REQ-4: Address and PIN code validation
-    if (proposer.customerName || proposer.mobileNumber) {
-      if (!proposer.address || proposer.address.trim().length < 5) {
-        toast.error('Customer communication address is mandatory (minimum 5 characters)');
-        return;
-      }
-      if (!proposer.pincode || !/^[1-9][0-9]{5}$/.test(proposer.pincode.trim())) {
-        toast.error('Customer PIN code must be a valid 6-digit postal code');
-        return;
-      }
+    // Address and PIN code: Optional at quotation stage (DEC-06); validate format only if provided
+    if (proposer.pincode && proposer.pincode.trim() && !/^[1-9][0-9]{5}$/.test(proposer.pincode.trim())) {
+      toast.error('Customer PIN code must be a valid 6-digit postal code');
+      return;
     }
 
     // REQ-5: Renewal quotations allowed only from 45 days before expiry
@@ -1319,7 +1313,7 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, customerId, caseId
                   </div>
                   <div className="space-y-1.5">
                     <label className="text-xs font-semibold text-muted-foreground">
-                      PIN Code <span className="text-red-500 ml-0.5">*</span>
+                      PIN Code <span className="text-muted-foreground/60">(Optional)</span>
                     </label>
                     <input
                       type="text"
@@ -1335,14 +1329,14 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, customerId, caseId
                   </div>
                   <div className="space-y-1.5 md:col-span-2">
                     <label className="text-xs font-semibold text-muted-foreground">
-                      Communication Address <span className="text-red-500 ml-0.5">*</span>
+                      Communication Address <span className="text-muted-foreground/60">(Optional)</span>
                     </label>
                     <textarea
                       rows={2}
                       value={proposer.address || ''}
                       onChange={(e) => setProposer({...proposer, address: e.target.value})}
-                      className={`w-full px-3 py-2 rounded-md border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none ${proposer.address && proposer.address.trim().length < 5 ? 'border-red-400' : ''}`}
-                      placeholder="Full communication street address, building, locality (minimum 5 characters)"
+                      className="w-full px-3 py-2 rounded-md border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none"
+                      placeholder="Full communication street address, building, locality (Optional for quotation; required at policy issuance)"
                     />
                     {proposer.address && proposer.address.trim().length > 0 && proposer.address.trim().length < 5 && (
                       <p className="text-[10px] text-red-500">Address must be at least 5 characters in length</p>
@@ -1427,7 +1421,7 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, customerId, caseId
                               if (v.activePolicyNumber || v.activeInsurerName) {
                                 setPreviousPolicy((prev) => ({
                                   ...prev,
-                                  previousPolicyType: 'AVAILABLE',
+                                  previousPolicyType: ((v.activePolicyType as any) || 'COMPREHENSIVE') as any,
                                   previousInsurerName: v.activeInsurerName || '',
                                   previousPolicyNumber: v.activePolicyNumber || '',
                                   policyExpiryDate: v.expiryDate ? v.expiryDate.slice(0, 10) : '',

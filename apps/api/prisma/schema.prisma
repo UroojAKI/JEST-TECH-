@@ -19,6 +19,24 @@ enum UserStatus {
   PENDING_VERIFICATION
 }
 
+
+enum PosPartnerType {
+  INDIVIDUAL
+  CORPORATE
+}
+
+enum PosPartnerStatus {
+  ACTIVE
+  SUSPENDED
+  INACTIVE
+}
+
+enum PosVerificationStatus {
+  PENDING
+  VERIFIED
+  REJECTED
+}
+
 enum RoleType {
   ADMIN
   BACK_OFFICE
@@ -487,6 +505,9 @@ model User {
   @@index([companyId])
   @@index([jobRoleId])
   @@index([managerId])
+  posPartnersCreated PosPartner[] @relation("PosPartnerCreatedBy")
+  posPartnersUpdated PosPartner[] @relation("PosPartnerUpdatedBy")
+
   @@map("users")
 }
 
@@ -1467,12 +1488,38 @@ model Policy {
   tasks          Task[]               @relation("PolicyTasks")
   inspections    Inspection[]         @relation("PolicyInspections")
 
+  // ── POS Partner Attribution ──
+  posPartnerId        String?
+  posPartner          PosPartner?         @relation(fields: [posPartnerId], references: [id], onDelete: SetNull)
+  posInsurerMappingId String?
+  distributionChannel String?             @default("POS")
+  posCodeSnapshot     String?
+  posNameSnapshot     String?
+  insurerCodeSnapshot String?
+  insurerNameSnapshot String?
+
+  // ── Structured Address Snapshot at Issuance ──
+  addressLine1        String?
+  addressLine2        String?
+  landmark            String?
+  locality            String?
+  city                String?
+  district            String?
+  state               String?
+  stateCode           String?
+  pincode             String?
+  country             String?             @default("India")
+  addressSource       String?
+  addressCapturedAt   DateTime?
+  addressSnapshot     Json?
+
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
   version   Int       @default(1)
 
   @@index([policyNumber])
+  @@index([posPartnerId])
   @@index([status])
   @@index([contactId])
   @@index([customerId])
@@ -2178,6 +2225,9 @@ model Insurer {
   commissionMatrices    CommissionMatrix[]
   underwritingQuestions UnderwritingQuestion[]
   addonRules            AddOnRule[]
+
+  posMappings             PosInsurerMapping[]       @relation("InsurerPosMappings")
+  posCommissionAgreements PosCommissionAgreement[] @relation("InsurerPosCommissionAgreements")
 
   @@map("insurers")
 }
@@ -2998,6 +3048,7 @@ model Company {
   healthQuotationDocuments HealthQuotationDocument[]
   commissions              Commission[]               @relation("CompanyCommissions")
   settlements              Settlement[]               @relation("CompanySettlements")
+  posPartners              PosPartner[]               @relation("CompanyPosPartners")
 
   @@index([taxId])
 }
@@ -5042,4 +5093,112 @@ model HealthQuotationDocument {
   @@index([quotationId])
   @@index([documentId])
   @@map("health_quotation_documents")
+}
+
+//////////////////////////////////////////////////////////
+// POS PARTNER MANAGEMENT (DEC-01 to DEC-06)
+//////////////////////////////////////////////////////////
+
+model PosPartner {
+  id                 String                @id @default(uuid())
+  companyId          String
+  company            Company               @relation("CompanyPosPartners", fields: [companyId], references: [id], onDelete: Restrict)
+  posCode            String
+  partnerType        PosPartnerType
+  name               String
+  displayName        String?
+  mobile             String
+  email              String?
+  registrationNumber String?
+  panNumberEncrypted String?
+  status             PosPartnerStatus      @default(ACTIVE)
+  verificationStatus PosVerificationStatus @default(PENDING)
+
+  effectiveFrom  DateTime?
+  effectiveUntil DateTime?
+
+  address     Json?
+  createdById String
+  createdBy   User?     @relation("PosPartnerCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedById String?
+  updatedBy   User?     @relation("PosPartnerUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+
+  insurerMapping       PosInsurerMapping?
+  documents            PosPartnerDocument[]
+  commissionAgreements PosCommissionAgreement[]
+  policies             Policy[]
+
+  @@unique([companyId, posCode])
+  @@index([companyId, status])
+  @@index([companyId, name])
+  @@map("pos_partners")
+}
+
+model PosInsurerMapping {
+  id                 String    @id @default(uuid())
+  companyId          String
+  posPartnerId       String    @unique
+  insurerId          String
+  insurerPartnerCode String?
+  insurerPospId      String?
+  effectiveFrom      DateTime  @default(now())
+  effectiveUntil     DateTime?
+  isActive           Boolean   @default(true)
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  posPartner PosPartner @relation(fields: [posPartnerId], references: [id], onDelete: Restrict)
+  insurer    Insurer    @relation("InsurerPosMappings", fields: [insurerId], references: [id], onDelete: Restrict)
+
+  @@index([companyId, insurerId, isActive])
+  @@map("pos_insurer_mappings")
+}
+
+model PosPartnerDocument {
+  id                 String                @id @default(uuid())
+  posPartnerId       String
+  documentType       String
+  storageKey         String
+  fileName           String
+  mimeType           String?
+  fileSize           Int?
+  verificationStatus PosVerificationStatus @default(PENDING)
+  verifiedById       String?
+  verifiedAt         DateTime?
+  rejectionReason    String?
+  expiryDate         DateTime?
+  createdAt          DateTime              @default(now())
+
+  posPartner PosPartner @relation(fields: [posPartnerId], references: [id], onDelete: Cascade)
+
+  @@index([posPartnerId])
+  @@map("pos_partner_documents")
+}
+
+model PosCommissionAgreement {
+  id                  String    @id @default(uuid())
+  companyId           String
+  posPartnerId        String
+  insurerId           String
+  productType         String
+  insuranceProductId  String?
+  commissionType      String    @default("PERCENTAGE")
+  commissionRate      Decimal?
+  fixedAmount         Decimal?
+  effectiveFrom       DateTime  @default(now())
+  effectiveUntil      DateTime?
+  approvalStatus      String    @default("APPROVED")
+  approvedById        String?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  posPartner PosPartner @relation(fields: [posPartnerId], references: [id], onDelete: Restrict)
+  insurer    Insurer    @relation("InsurerPosCommissionAgreements", fields: [insurerId], references: [id], onDelete: Restrict)
+
+  @@index([companyId, posPartnerId])
+  @@index([companyId, insurerId])
+  @@map("pos_commission_agreements")
 }

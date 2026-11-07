@@ -1,3 +1,4 @@
+import { PolicyAddressDto } from './policy-address.dto';
 import {
   IsArray,
   IsDateString,
@@ -140,4 +141,18 @@ export class CreatePolicyDto {
   @IsOptional()
   @IsString()
   customerPincode?: string;
+
+  @IsOptional()
+  @IsString()
+  posPartnerId?: string;
+
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => PolicyAddressDto)
+  address?: PolicyAddressDto;
+
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => PolicyAddressDto)
+  structuredAddress?: PolicyAddressDto;
 }

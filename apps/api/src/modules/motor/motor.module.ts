@@ -1,3 +1,4 @@
+import { PosPartnersModule } from '../pos-partners/pos-partners.module';
 import { Module } from '@nestjs/common';
 
 import { MotorController } from './motor.controller';
@@ -30,7 +31,7 @@ import { AdministrationModule } from '../administration/administration.module';
 import { AuthModule } from '../auth/auth.module';
 
 @Module({
-  imports: [AdministrationModule, AuthModule],
+  imports: [AdministrationModule, AuthModule, PosPartnersModule],
   controllers: [
     MotorController,
     MotorWorkflowController,
