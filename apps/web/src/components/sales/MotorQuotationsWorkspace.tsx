@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../../lib/api-client';
 import { toast } from 'sonner';
-import { Car, Plus, Search, RefreshCw, FileSpreadsheet, Award, AlertTriangle, History, ArrowLeft, CheckCircle2, HeartPulse } from 'lucide-react';
+import { Car, Plus, Search, RefreshCw, FileSpreadsheet, Award, AlertTriangle, History, ArrowLeft, CheckCircle2, HeartPulse, Shield, Landmark } from 'lucide-react';
 
 import { MotorQuoteWizard } from '../leads/motor-quote/MotorQuoteWizard';
 import { QuoteCard } from '../leads/motor-quote/QuoteCard';
@@ -407,6 +407,20 @@ export function MotorQuotationsWorkspace() {
         >
           <HeartPulse className="h-4 w-4 text-emerald-600" />
           <span>Health Insurance Proposals</span>
+        </Link>
+        <Link
+          href="/sales/life-quotations"
+          className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition bg-muted/60 hover:bg-muted text-muted-foreground hover:text-foreground"
+        >
+          <Shield className="h-4 w-4 text-amber-500" />
+          <span>Life Insurance Proposals</span>
+        </Link>
+        <Link
+          href="/sales/loans"
+          className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition bg-muted/60 hover:bg-muted text-muted-foreground hover:text-foreground"
+        >
+          <Landmark className="h-4 w-4 text-sky-500" />
+          <span>Loans & Financing</span>
         </Link>
       </div>
 

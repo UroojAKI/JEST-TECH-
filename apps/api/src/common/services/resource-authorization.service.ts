@@ -14,6 +14,7 @@ export type ResourceType =
   | 'ACCOUNT'
   | 'CUSTOMER'
   | 'CUSTOMER_360'
+  | 'LOAN_APPLICATION_CASE'
   | 'REPORT';
 
 export type ResourceAction =
@@ -180,6 +181,7 @@ export class ResourceAuthorizationService {
       case 'LEAD':
       case 'CONTACT':
       case 'CLAIM':
+      case 'LOAN_APPLICATION_CASE':
         return (
           roles.includes(RoleType.BACK_OFFICE) || roles.includes(RoleType.AGENT)
         );

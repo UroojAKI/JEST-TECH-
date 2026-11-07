@@ -20,6 +20,7 @@ import {
   Award,
   Loader2,
   X,
+  Landmark,
 } from 'lucide-react';
 import { lifeQuotationRepository } from '../../repositories/life-quotation.repository';
 import { apiClient } from '../../lib/api-client';
@@ -117,6 +118,13 @@ export function LifeQuotationsWorkspace() {
         >
           <Shield className="h-4 w-4 text-amber-300" />
           <span>Life Insurance Proposals</span>
+        </Link>
+        <Link
+          href="/sales/loans"
+          className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition bg-muted/60 hover:bg-muted text-muted-foreground hover:text-foreground"
+        >
+          <Landmark className="h-4 w-4 text-sky-500" />
+          <span>Loans & Financing</span>
         </Link>
       </div>
 

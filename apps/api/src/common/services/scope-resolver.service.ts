@@ -122,6 +122,14 @@ const agentScope = (
           { policy: { createdById: actor.userId } },
         ],
       };
+    case 'LOAN_APPLICATION_CASE':
+      return {
+        companyId: actor.companyId || actor.organizationId,
+        OR: [
+          ...(agentId ? [{ agentId }] : []),
+          { createdById: actor.userId },
+        ],
+      };
     case 'ACCOUNT':
     case 'CONTACT':
     case 'DOCUMENT':

@@ -38,6 +38,7 @@ import {
   User,
   PlusCircle,
   Briefcase,
+  Landmark,
 } from 'lucide-react';
 import { getRoleNavigation } from '../../lib/navigation/navigation.registry';
 import { usePermissions } from '../providers/permission-provider';
@@ -57,6 +58,7 @@ const ICON_MAP: Record<string, React.ReactNode> = {
   Settings: <Settings className="h-4 w-4" />,
   Sliders: <Sliders className="h-4 w-4" />,
   Building2: <Building2 className="h-4 w-4" />,
+  Landmark: <Landmark className="h-4 w-4" />,
   Shield: <Shield className="h-4 w-4" />,
   GitMerge: <GitMerge className="h-4 w-4" />,
   Activity: <Activity className="h-4 w-4" />,

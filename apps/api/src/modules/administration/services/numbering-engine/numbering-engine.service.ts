@@ -89,6 +89,11 @@ export class NumberingEngineService {
           format: '{PREFIX}-{YYYY}-{SEQUENCE}',
           padding: 5,
         },
+        LOAN_CASE: {
+          prefix: 'LN',
+          format: '{PREFIX}-{YYYY}-{SEQUENCE}',
+          padding: 5,
+        },
       };
 
       const defaultCfg = DEFAULT_FORMATS[entityType.toUpperCase()] || {

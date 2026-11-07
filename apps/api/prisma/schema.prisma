@@ -440,6 +440,8 @@ model User {
 
   policiesUpdated Policy[] @relation("PolicyUpdatedBy")
 
+  loanCasesCreated          LoanApplicationCase[]   @relation("LoanCaseCreatedBy")
+
   policyHistoriesCreated    PolicyHistory[]         @relation("PolicyHistoryCreatedBy")
   claimsCreated             Claim[]                 @relation("ClaimCreatedBy")
   claimsUpdated             Claim[]                 @relation("ClaimUpdatedBy")
@@ -631,6 +633,7 @@ model Contact {
   motorQuotationCases  MotorQuotationCase[]
   healthQuotationCases HealthQuotationCase[]
   lifeQuotationCases   LifeQuotationCase[]
+  loanCases            LoanApplicationCase[]   @relation("ContactLoanCases")
 
   policies  Policy[]
   claims    Claim[]
@@ -826,6 +829,7 @@ model Lead {
   deletedAt         DateTime?
   version           Int                 @default(1)
   LifeQuotationCase LifeQuotationCase[]
+  loanCases         LoanApplicationCase[] @relation("LeadLoanCases")
 
   @@unique([companyId, id])
   @@index([leadCode])
@@ -1991,6 +1995,7 @@ model Document {
   motorQuotationDocuments  MotorQuotationDocument[]
   healthQuotationDocuments HealthQuotationDocument[]
   lifeQuotationDocuments   LifeQuotationDocument[]
+  loanDocuments            LoanDocument[]           @relation("DocumentLoanDocuments")
 
   @@index([entityType, entityId])
   @@index([uploadedById])
@@ -3016,6 +3021,8 @@ model Company {
   healthQuotationDocuments HealthQuotationDocument[]
   lifeQuotationCases       LifeQuotationCase[]
   lifeQuotationDocuments   LifeQuotationDocument[]
+  loanCases                LoanApplicationCase[]      @relation("CompanyLoanCases")
+  loanDocuments            LoanDocument[]             @relation("CompanyLoanDocuments")
   commissions              Commission[]               @relation("CompanyCommissions")
   settlements              Settlement[]               @relation("CompanySettlements")
 
@@ -4347,6 +4354,7 @@ model Agent {
   agentHistories        CustomerAgentHistory[]     @relation("AgentHistories")
   healthQuotationCases  HealthQuotationCase[]      @relation("AgentHealthQuotationCases")
   lifeQuotationCases    LifeQuotationCase[]        @relation("AgentLifeQuotationCases")
+  loanCases             LoanApplicationCase[]      @relation("AgentLoanCases")
   externalCodes         AgentExternalCode[]
   externalCodeHistory   AgentExternalCodeHistory[]
   assignedContacts      Contact[]                  @relation("AgentAssignedContacts")
@@ -4396,6 +4404,7 @@ model AgentExternalCode {
   primaryCustomers          Customer[]                        @relation("CustomerPrimaryAgentExternalCode")
   healthCases               HealthQuotationCase[]             @relation("HealthCaseAgentExternalCode")
   lifeCases                 LifeQuotationCase[]               @relation("LifeCaseAgentExternalCode")
+  loanCases                 LoanApplicationCase[]             @relation("LoanCaseAgentExternalCode")
   quotations                Quotation[]                       @relation("QuotationAgentExternalCode")
   policies                  Policy[]                          @relation("PolicyAgentExternalCode")
   claims                    Claim[]                           @relation("ClaimAgentExternalCode")
@@ -5310,4 +5319,277 @@ model LifeQuotationDocument {
   @@index([quotationId])
   @@index([documentId])
   @@map("life_quotation_documents")
+}
+
+//////////////////////////////////////////////////////////
+// LOANS & LENDING FACILITIES MODULE
+//////////////////////////////////////////////////////////
+
+enum LoanCategory {
+  HOME_LOAN
+  LOAN_AGAINST_PROPERTY
+  PERSONAL_LOAN
+  BUSINESS_LOAN
+  VEHICLE_LOAN
+  EDUCATION_LOAN
+  GOLD_LOAN
+  SECURITIES_OVERDRAFT
+}
+
+enum LoanEnquiryStatus {
+  DRAFT
+  DOCUMENTS_PENDING
+  SUBMITTED_FOR_REVIEW
+  UNDERWRITING_IN_PROGRESS
+  OFFERS_RECEIVED
+  OFFER_SELECTED
+  SANCTIONED
+  DISBURSED
+  REJECTED
+  CANCELLED
+}
+
+enum LoanPartyRole {
+  APPLICANT
+  CO_APPLICANT
+  GUARANTOR
+}
+
+enum LoanFacilityType {
+  NEW_TERM_LOAN
+  BALANCE_TRANSFER
+  TOP_UP
+  OVERDRAFT_CASH_CREDIT
+}
+
+enum LoanInterestRateType {
+  FIXED
+  FLOATING
+  HYBRID
+}
+
+enum LoanDisbursementMode {
+  SINGLE_DISBURSEMENT
+  STAGED_CONSTRUCTION_LINKED
+}
+
+enum LenderOfferStatus {
+  RECEIVED
+  SHORTLISTED
+  SELECTED
+  REJECTED
+  EXPIRED
+}
+
+model LoanApplicationCase {
+  id           String            @id @default(uuid())
+  companyId    String
+  company      Company           @relation("CompanyLoanCases", fields: [companyId], references: [id], onDelete: Cascade)
+  caseCode     String            @unique
+  category     LoanCategory
+  status       LoanEnquiryStatus @default(DRAFT)
+
+  // CRM & Agency Relations
+  contactId           String
+  contact             Contact            @relation("ContactLoanCases", fields: [contactId], references: [id], onDelete: Restrict)
+  agentId             String?
+  agent               Agent?             @relation("AgentLoanCases", fields: [agentId], references: [id], onDelete: SetNull)
+  agentExternalCodeId String?
+  agentExternalCode   AgentExternalCode? @relation("LoanCaseAgentExternalCode", fields: [agentExternalCodeId], references: [id], onDelete: SetNull)
+  leadId              String?
+  lead                Lead?              @relation("LeadLoanCases", fields: [leadId], references: [id], onDelete: SetNull)
+  leadSource          String?
+
+  // Primary Applicant Financial Profile (Common Fields)
+  occupationType         String
+  employerBusinessName   String
+  monthlyIncome          Decimal            @db.Decimal(14, 2)
+  annualIncome           Decimal            @db.Decimal(14, 2)
+  existingEmiObligations Decimal            @default(0) @db.Decimal(14, 2)
+  cibilScore             Int?
+  bankAccountDetails     Json?
+  residentialAddress     Json?
+  permanentAddress       Json?
+  customerSnapshot       Json
+
+  // Category-Specific Asset / Property Details
+  categoryData Json?
+
+  // Relations
+  parties    LoanParty[]
+  facilities LoanFacility[]
+  documents  LoanDocument[]
+
+  // Audit
+  createdById String?
+  createdBy   User?     @relation("LoanCaseCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+
+  @@index([companyId])
+  @@index([contactId])
+  @@index([companyId, agentId])
+  @@index([agentExternalCodeId])
+  @@index([leadId])
+  @@index([category])
+  @@index([status])
+  @@index([deletedAt])
+  @@map("loan_application_cases")
+}
+
+model LoanParty {
+  id           String              @id @default(uuid())
+  loanCaseId   String
+  loanCase     LoanApplicationCase @relation(fields: [loanCaseId], references: [id], onDelete: Cascade)
+  role         LoanPartyRole       @default(CO_APPLICANT)
+  name         String
+  relationship String?
+  dateOfBirth  DateTime?
+  gender       String?
+  mobileNumber String?
+  email        String?
+  panNumber    String?
+  aadhaarNumber String?
+  occupation   String?
+  employerBusinessName String?
+  monthlyIncome Decimal?           @db.Decimal(14, 2)
+  cibilScore   Int?
+  address      Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([loanCaseId])
+  @@index([role])
+  @@map("loan_parties")
+}
+
+model LoanFacility {
+  id           String              @id @default(uuid())
+  loanCaseId   String
+  loanCase     LoanApplicationCase @relation(fields: [loanCaseId], references: [id], onDelete: Cascade)
+  facilityType LoanFacilityType    @default(NEW_TERM_LOAN)
+  status       String              @default("ACTIVE")
+
+  // Term Loan Requirements
+  requestedAmount     Decimal              @db.Decimal(14, 2)
+  tenureMonths        Int
+  interestRateType    LoanInterestRateType @default(FLOATING)
+  targetRoiPercentage Decimal?             @db.Decimal(5, 2)
+  disbursementMode    LoanDisbursementMode @default(SINGLE_DISBURSEMENT)
+  marginPercentage    Decimal?             @db.Decimal(5, 2)
+  ltvRatioPercentage  Decimal?             @db.Decimal(5, 2)
+
+  // Balance Transfer Specifics
+  existingLenderName    String?
+  existingLoanAccountNo String?
+  outstandingAmount     Decimal?    @db.Decimal(14, 2)
+  existingRoiPercentage Decimal?    @db.Decimal(5, 2)
+  topUpAmountRequested  Decimal?    @db.Decimal(14, 2)
+  foreclosureCharges    Decimal?    @db.Decimal(14, 2)
+
+  // Selected Offer Pointer
+  selectedOfferId String?
+  selectedOffer   LoanLenderOffer? @relation("SelectedFacilityOffer", fields: [selectedOfferId], references: [id], onDelete: SetNull)
+
+  // Children
+  lenderOffers LoanLenderOffer[] @relation("FacilityLenderOffers")
+  addOns       LoanAddOn[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([loanCaseId])
+  @@index([selectedOfferId])
+  @@map("loan_facilities")
+}
+
+model LoanLenderOffer {
+  id           String            @id @default(uuid())
+  facilityId   String
+  facility     LoanFacility      @relation("FacilityLenderOffers", fields: [facilityId], references: [id], onDelete: Cascade)
+  lenderName   String
+  status       LenderOfferStatus @default(RECEIVED)
+
+  // Sanctioned Terms
+  offeredAmount       Decimal              @db.Decimal(14, 2)
+  offeredTenureMonths Int
+  interestRateType    LoanInterestRateType @default(FLOATING)
+  rateOfInterest      Decimal              @db.Decimal(5, 2)
+  emiAmount           Decimal              @db.Decimal(14, 2)
+  processingFee       Decimal              @db.Decimal(14, 2)
+  otherCharges        Decimal              @default(0) @db.Decimal(14, 2)
+  gstAmount           Decimal              @db.Decimal(14, 2)
+  totalChargesInclGst Decimal              @db.Decimal(14, 2)
+
+  // Commission & Brokerage
+  commissionRatePercentage Decimal? @db.Decimal(5, 2)
+  grossCommissionAmount    Decimal? @db.Decimal(14, 2)
+  customerDiscountAmount   Decimal? @db.Decimal(14, 2)
+  netCommissionPayable     Decimal? @db.Decimal(14, 2)
+
+  // Sanction Milestone
+  sanctionLetterDocId String?
+  sanctionDate        DateTime?
+  expiryDate          DateTime?
+  remarks             String?
+
+  selectedInFacilities LoanFacility[] @relation("SelectedFacilityOffer")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([facilityId])
+  @@map("loan_lender_offers")
+}
+
+model LoanAddOn {
+  id           String       @id @default(uuid())
+  facilityId   String
+  facility     LoanFacility @relation(fields: [facilityId], references: [id], onDelete: Cascade)
+
+  // Credit Protection / Group Term Life
+  creditLifeOpted      Boolean  @default(false)
+  creditLifeSumAssured Decimal? @db.Decimal(14, 2)
+  creditLifePremium    Decimal? @db.Decimal(14, 2)
+
+  // Asset / Property Insurance (Fire & Perils)
+  assetInsuranceOpted Boolean  @default(false)
+  assetSumAssured     Decimal? @db.Decimal(14, 2)
+  assetPremium        Decimal? @db.Decimal(14, 2)
+
+  // Aggregated
+  gstAmount           Decimal  @db.Decimal(14, 2)
+  totalPremiumInclGst Decimal  @db.Decimal(14, 2)
+  brokerageAmount     Decimal? @db.Decimal(14, 2)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([facilityId])
+  @@map("loan_add_ons")
+}
+
+model LoanDocument {
+  id                 String                     @id @default(uuid())
+  companyId          String
+  company            Company                    @relation("CompanyLoanDocuments", fields: [companyId], references: [id], onDelete: Cascade)
+  loanCaseId         String
+  loanCase           LoanApplicationCase        @relation(fields: [loanCaseId], references: [id], onDelete: Cascade)
+  documentId         String
+  document           Document                   @relation("DocumentLoanDocuments", fields: [documentId], references: [id], onDelete: Cascade)
+  documentType       String
+  verificationStatus DocumentVerificationStatus @default(PENDING)
+  rejectionReason    String?
+  verifiedById       String?
+  verifiedAt         DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId])
+  @@index([loanCaseId])
+  @@index([documentId])
+  @@map("loan_documents")
 }

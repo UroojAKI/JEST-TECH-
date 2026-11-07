@@ -32,6 +32,12 @@ export const AGENT_NAVIGATION: NavigationItem[] = [
     icon: 'Shield',
   },
   {
+    id: 'my-loans',
+    title: 'Loans Pipeline',
+    href: '/sales/loans',
+    icon: 'Landmark',
+  },
+  {
     id: 'my-customers',
     title: 'My Customers',
     href: '/crm/customers',
@@ -112,6 +118,12 @@ export const BACK_OFFICE_NAVIGATION: NavigationItem[] = [
     title: 'Life Proposals',
     href: '/sales/life-quotations',
     icon: 'Shield',
+  },
+  {
+    id: 'bo-loans',
+    title: 'Loans Underwriting',
+    href: '/sales/loans',
+    icon: 'Landmark',
   },
   {
     id: 'bo-policies',
@@ -208,6 +220,12 @@ export const ADMIN_NAVIGATION: NavigationItem[] = [
     title: 'Policies & Issuance',
     href: '/policies',
     icon: 'ShieldCheck',
+  },
+  {
+    id: 'adm-loans',
+    title: 'Loans Pipeline',
+    href: '/sales/loans',
+    icon: 'Landmark',
   },
   {
     id: 'adm-claims',
