@@ -32,6 +32,7 @@ describe('End-to-End Agent Journey: Lead -> Contact -> Quote -> Payment -> Polic
   let createdVehicleId: string;
   let createdQuotationId: string;
   let createdPolicyId: string;
+  let createdPosPartnerId: string;
 
   // E2E test-only tariff fixture ID - deleted in afterAll.
   // This is NOT a production tariff and must never be seeded to any production database.
@@ -192,6 +193,10 @@ describe('End-to-End Agent Journey: Lead -> Contact -> Quote -> Payment -> Polic
         where: { policyId: createdPolicyId },
       });
       await prisma.policy.deleteMany({ where: { id: createdPolicyId } });
+    }
+    if (createdPosPartnerId) {
+      await prisma.posInsurerMapping.deleteMany({ where: { posPartnerId: createdPosPartnerId } });
+      await prisma.posPartner.deleteMany({ where: { id: createdPosPartnerId } });
     }
     if (createdQuotationId) {
       await prisma.proposal.deleteMany({
@@ -366,6 +371,38 @@ describe('End-to-End Agent Journey: Lead -> Contact -> Quote -> Payment -> Polic
     });
     expect(paymentRecord.status).toBe('PAID');
 
+    // DEC-02/DEC-03: policy issuance requires an active POS partner mapped to
+    // the same insurer. This is a test-only partner, not production data.
+    const insurerName = 'HDFC ERGO General Insurance Co.';
+    const insurer = await prisma.insurer.findUnique({ where: { name: insurerName } })
+      || await prisma.insurer.create({
+        data: {
+          name: insurerName,
+          code: `E2E-HDFC-${timestamp}`,
+          isActive: true,
+        },
+      });
+    const posPartner = await prisma.posPartner.create({
+      data: {
+        companyId: testCompanyId,
+        posCode: `E2E-POS-${timestamp}`,
+        partnerType: 'INDIVIDUAL',
+        name: 'E2E POS Partner',
+        mobile: '9876543210',
+        status: 'ACTIVE',
+        verificationStatus: 'VERIFIED',
+        createdById: testUserId,
+        insurerMapping: {
+          create: {
+            companyId: testCompanyId,
+            insurerId: insurer.id,
+            isActive: true,
+          },
+        },
+      },
+    });
+    createdPosPartnerId = posPartner.id;
+
     // ── STEP 7: Authoritative Policy Issuance via MotorPolicyIssuanceService with Maker-Checker SoD (§26, §30) ──
     const backOfficeActor: ActorContext = {
       userId: backOfficeUserId,
@@ -391,6 +428,7 @@ describe('End-to-End Agent Journey: Lead -> Contact -> Quote -> Payment -> Polic
         // The issuance contract requires an uploaded official policy schedule PDF.
         // This E2E fixture supplies the storage key produced by the upload workflow.
         documentFileKey: `e2e/policies/${quotation.id}/policy-schedule.pdf`,
+        posPartnerId: createdPosPartnerId,
       },
       backOfficeActor,
     );
