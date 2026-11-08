@@ -17,6 +17,7 @@ import type { VehicleCategory, SavedMotorQuote } from '../leads/motor-quote/moto
 import { MotorProductCards } from '../workspaces/sales/MotorProductCards';
 import { useAuthStore } from '../../store/auth-store';
 import { policiesRepository } from '../../repositories/policies.repository';
+import { quotationsRepository } from '../../repositories/quotations.repository';
 
 export function MotorQuotationsWorkspace() {
   const authUser = useAuthStore((s) => s.user);
@@ -566,7 +567,12 @@ export function MotorQuotationsWorkspace() {
               <div key={groupId} className="rounded-xl border bg-card p-5 space-y-4">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between pb-3 border-b gap-3">
                   <div><div className="text-sm font-bold">{customerName} <span className="text-muted-foreground">|</span> {vehicle}</div><div className="text-xs text-muted-foreground">{mobile} · {quotes.length} version{quotes.length === 1 ? '' : 's'}</div></div>
-                  <button onClick={() => handleOpenWizard(first?.vehicleCategory, { vehicleDetails: first?.vehicleDetails, proposerDetails: first?.proposerDetails })} className="px-3 py-1.5 rounded-md border bg-background hover:bg-muted text-xs font-semibold">{activeTab === 'RENEWALS' ? 'Generate Renewal Quote' : 'New Quote Version'}</button>
+                  <button onClick={() => handleOpenWizard(first?.vehicleCategory, {
+                    vehicleDetails: first?.vehicleDetails,
+                    proposerDetails: first?.proposerDetails,
+                    previousPolicyDetails: (first as any)?.previousPolicyDetails,
+                    caseId: (first as any)?.caseId,
+                  })} className="px-3 py-1.5 rounded-md border bg-background hover:bg-muted text-xs font-semibold">{activeTab === 'RENEWALS' ? 'Generate Renewal Quote' : 'New Quote Version'}</button>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {quotes.map((quote, idx) => (
@@ -577,7 +583,17 @@ export function MotorQuotationsWorkspace() {
                       onConductInspection={setInspectionQuoteId}
                       onCompleteProposal={setProposalQuote}
                       onIssuePolicy={isBackOfficeOrAdmin ? setCompletionQuote : undefined}
-                      onAddComparisonQuote={(q) => handleOpenWizard(q.vehicleCategory, { vehicleDetails: q.vehicleDetails, proposerDetails: q.proposerDetails })}
+                      onSubmitToBackOffice={async (quotationId) => {
+                        await quotationsRepository.submitToBackOffice(quotationId);
+                        toast.success('Selected quotation sent to back office');
+                        await refetch();
+                      }}
+                      onAddComparisonQuote={(q) => handleOpenWizard(q.vehicleCategory, {
+                        vehicleDetails: q.vehicleDetails,
+                        proposerDetails: q.proposerDetails,
+                        previousPolicyDetails: (q as any).previousPolicyDetails,
+                        caseId: (q as any).caseId,
+                      })}
                     />
                   ))}
                 </div>
