@@ -164,6 +164,10 @@ export class AuthService {
       ?.catch?.(() => {});
   }
 
+  async activateInvitation(token: string, password: string) {
+    return this.usersService.activateInvitation(token, password);
+  }
+
   async login(dto: LoginDto) {
     // Use a single constant-time error message for all authentication failures.
     // This prevents account-status enumeration (distinguishing between
