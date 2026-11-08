@@ -1,4 +1,4 @@
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, ConflictException } from '@nestjs/common';
 import { HealthQuotationCaseService } from './health-quotation-case.service';
 
 const makeService = (prisma: any, tenantAuth: any = {}) =>
@@ -140,6 +140,85 @@ describe('HealthQuotationCaseService access and integrity', () => {
     expect(safeResponse.customerSnapshot.legacy.proposerPan).toBe('XXXXX1234F');
     expect(safeResponse.quotations[0].healthMetadata.insured.proposerPan).toBe('XXXXX1234F');
     expect(safeResponse.selectedQuote.healthMetadata.proposerAadhaar).toBe('XXXX-XXXX-9012');
+  });
+
+  it('selects a health quotation using an atomic compare-and-set transition', async () => {
+    const healthCase = {
+      id: 'case-1',
+      caseCode: 'HC-001',
+      companyId: 'company-1',
+      status: 'QUOTED',
+      selectedQuoteId: null,
+      quotations: [{ id: 'quote-1' }],
+    };
+    const tx = {
+      healthQuotationCase: {
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+        findFirst: jest.fn().mockResolvedValue({ ...healthCase, status: 'SELECTED', selectedQuoteId: 'quote-1' }),
+      },
+      quotation: {
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+      },
+    };
+    const prisma = { $transaction: jest.fn((work: (client: any) => Promise<any>) => work(tx)) };
+    const service = makeService(prisma);
+    jest.spyOn(service, 'getCase').mockResolvedValue(healthCase as any);
+
+    await service.selectQuote('case-1', 'quote-1', {
+      id: 'ops-1',
+      userId: 'ops-1',
+      companyId: 'company-1',
+      role: 'BACK_OFFICE',
+    } as any);
+
+    expect(tx.healthQuotationCase.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          id: 'case-1',
+          status: 'QUOTED',
+          selectedQuoteId: null,
+        }),
+      }),
+    );
+    expect(tx.quotation.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 'quote-1', companyId: 'company-1', healthCaseId: 'case-1' },
+      }),
+    );
+  });
+
+  it('rejects a second concurrent quote selection without changing the quotation', async () => {
+    const healthCase = {
+      id: 'case-1',
+      caseCode: 'HC-001',
+      companyId: 'company-1',
+      status: 'QUOTED',
+      selectedQuoteId: null,
+      quotations: [{ id: 'quote-1' }],
+    };
+    const tx = {
+      healthQuotationCase: {
+        updateMany: jest.fn().mockResolvedValue({ count: 0 }),
+        findFirst: jest.fn(),
+      },
+      quotation: {
+        updateMany: jest.fn(),
+      },
+    };
+    const prisma = { $transaction: jest.fn((work: (client: any) => Promise<any>) => work(tx)) };
+    const service = makeService(prisma);
+    jest.spyOn(service, 'getCase').mockResolvedValue(healthCase as any);
+
+    await expect(
+      service.selectQuote('case-1', 'quote-1', {
+        id: 'ops-1',
+        userId: 'ops-1',
+        companyId: 'company-1',
+        role: 'BACK_OFFICE',
+      } as any),
+    ).rejects.toBeInstanceOf(ConflictException);
+
+    expect(tx.quotation.updateMany).not.toHaveBeenCalled();
   });
 
   it('writes payment evidence and quotation workflow inside one transaction', async () => {

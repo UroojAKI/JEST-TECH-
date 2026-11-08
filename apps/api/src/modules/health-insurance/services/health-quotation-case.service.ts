@@ -1,4 +1,4 @@
-import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import {
   HealthCaseStatus,
   HealthPlanCategory,
@@ -496,15 +496,44 @@ export class HealthQuotationCaseService {
     }
 
     const selectedCase = await this.prisma.$transaction(async (tx) => {
-      await tx.quotation.update({
-        where: { id: quotationId },
+      // Compare-and-set the case first. Only one concurrent request can move
+      // QUOTED + unselected to SELECTED.
+      const caseClaim = await tx.healthQuotationCase.updateMany({
+        where: {
+          ...this.caseWhereFor(user),
+          id: healthCase.id,
+          status: HealthCaseStatus.QUOTED,
+          selectedQuoteId: null,
+        },
+        data: {
+          status: HealthCaseStatus.SELECTED,
+          selectedQuoteId: quotationId,
+        },
+      });
+      if (caseClaim.count !== 1) {
+        throw new ConflictException('This health quotation case has already been selected or changed. Refresh and try again.');
+      }
+
+      const quoteClaim = await tx.quotation.updateMany({
+        where: {
+          id: quotationId,
+          companyId: user.companyId,
+          healthCaseId: healthCase.id,
+        },
         data: { status: QuotationStatus.ACCEPTED },
       });
-      return tx.healthQuotationCase.update({
-        where: { id: healthCase.id },
-        data: { status: HealthCaseStatus.SELECTED, selectedQuoteId: quotationId },
+      if (quoteClaim.count !== 1) {
+        throw new BadRequestException('The selected quotation is no longer available for this health case.');
+      }
+
+      const updatedCase = await tx.healthQuotationCase.findFirst({
+        where: { ...this.caseWhereFor(user), id: healthCase.id },
         include: caseInclude,
       });
+      if (!updatedCase) {
+        throw new NotFoundException('Health quotation case was not found after selection.');
+      }
+      return updatedCase;
     });
     return this.toSafeCase(selectedCase);
   }
