@@ -120,7 +120,7 @@ describe('ConvertQuotationService (Phase 11 Motor Generic Conversion Gate)', () 
     expect(mockTx.policy.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
-          renewedFromPolicyId: 'pol-predecessor-1',
+          renewedFromPolicy: { connect: { id: 'pol-predecessor-1' } },
         }),
       }),
     );
