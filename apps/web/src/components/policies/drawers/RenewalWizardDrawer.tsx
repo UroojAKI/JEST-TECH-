@@ -78,7 +78,7 @@ export function RenewalWizardDrawer({ isOpen, policyId, onClose }: RenewalWizard
                   Policy being renewed
                 </div>
                 <dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-xs">
-                  <div><dt className="text-muted-foreground">Policy number</dt><dd className="mt-0.5 break-all font-semibold">{policy.actualPolicyNumber || policy.policyNumber}</dd></div>
+                  <div><dt className="text-muted-foreground">Policy number</dt><dd className="mt-0.5 break-all font-semibold">{policyData?.actualPolicyNumber || policy.policyNumber}</dd></div>
                   <div><dt className="text-muted-foreground">Product</dt><dd className="mt-0.5 font-semibold">{policy.productLine || policy.policyType || 'Unclassified'}</dd></div>
                   <div><dt className="text-muted-foreground">Customer</dt><dd className="mt-0.5 font-semibold">{policy.contactName || policy.customerName || 'Customer record'}</dd></div>
                   <div><dt className="text-muted-foreground">Insurer</dt><dd className="mt-0.5 font-semibold">{policy.insurerName || 'Not recorded'}</dd></div>
