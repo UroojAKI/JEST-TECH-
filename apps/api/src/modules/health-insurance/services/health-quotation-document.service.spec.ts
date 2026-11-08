@@ -31,7 +31,7 @@ describe('HealthQuotationDocumentService checklist', () => {
     const result = await service.getChecklist('case-1', user);
     const proposal = result.checklist.find((item) => item.documentType === HealthDocumentType.PROPOSAL_FORM);
 
-    expect(proposal.status).toBe('REJECTED');
+    expect(proposal?.status).toBe('REJECTED');
     expect(result.missingRequired).toContain(HealthDocumentType.PROPOSAL_FORM);
     expect(result.rejectedRequired).toContain(HealthDocumentType.PROPOSAL_FORM);
     expect(result.complete).toBe(false);
@@ -49,7 +49,7 @@ describe('HealthQuotationDocumentService checklist', () => {
     const result = await service.getChecklist('case-1', user);
     const proposal = result.checklist.find((item) => item.documentType === HealthDocumentType.PROPOSAL_FORM);
 
-    expect(proposal.status).toBe('UPLOADED');
+    expect(proposal?.status).toBe('UPLOADED');
     expect(result.complete).toBe(true);
     expect(result.verificationComplete).toBe(false);
   });
