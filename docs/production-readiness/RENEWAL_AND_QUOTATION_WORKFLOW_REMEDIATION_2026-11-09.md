@@ -66,6 +66,10 @@ The reported UI message “A conflicting update or submission is already registe
 7. The Motor Quotations workspace passes the existing case ID and saved context into the alternative-quote wizard.
 8. `MotorQuoteWizard` now hydrates proposer, vehicle, previous-policy and applicable policy form state from `cloneQuoteData`; insurer selection and insurer-specific calculation remain a fresh decision.
 9. The renewal drawer's final action now routes into the comparative renewal quotation journey instead of directly extending the existing policy. Removed obsolete direct-issuance state from the drawer.
+10. Replaced the hardcoded demonstration comparison screen with a saved-quotation picker. It calls the read-only compare endpoint with existing quotation IDs and renders the returned saved quotations; no quotation is created by comparing.
+11. Backend comparison now rejects mixed customer/case contexts: case-backed quotations must belong to the same MotorQuotationCase or HealthQuotationCase; non-case quotations must share contact and product category.
+12. Added explicit handoff UI for the selected health quotation in HealthCaseWorkspace.
+13. Motor workspace mapping now preserves case ID, previous-policy details and handoff state so the alternative quote flow can hydrate the existing case.
 
 ## 4. Intended user journeys
 
