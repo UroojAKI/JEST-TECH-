@@ -20,3 +20,8 @@ CREATE INDEX "user_invitations_expiresAt_consumedAt_idx" ON "user_invitations"("
 ALTER TABLE "user_invitations"
   ADD CONSTRAINT "user_invitations_userId_fkey"
   FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- Enforce one outstanding invitation per tenant/email even under concurrent admin requests.
+CREATE UNIQUE INDEX "user_invitations_one_active_per_email_idx"
+  ON "user_invitations"("companyId", "email")
+  WHERE "consumedAt" IS NULL AND "revokedAt" IS NULL;
