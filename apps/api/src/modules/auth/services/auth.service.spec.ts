@@ -28,6 +28,9 @@ describe('AuthService', () => {
     companyId: 'org-test-123',
     authVersion: 1,
     status: 'ACTIVE',
+    failedLoginAttempts: 0,
+    failedLoginWindowStartedAt: null,
+    lockedUntil: null,
   };
 
   beforeEach(async () => {
@@ -57,10 +60,15 @@ describe('AuthService', () => {
         {
           provide: PrismaService,
           useValue: {
-            $transaction: jest.fn(),
-            user: { update: jest.fn() },
+            $transaction: jest.fn(async (operation: any) => operation({
+              user: {
+                updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+                update: jest.fn().mockResolvedValue({ failedLoginAttempts: 1 }),
+              },
+            })),
+            user: { update: jest.fn().mockResolvedValue({}) },
             refreshToken: { updateMany: jest.fn() },
-            auditLog: { create: jest.fn() },
+            auditLog: { create: jest.fn().mockResolvedValue({}) },
           },
         },
         {
@@ -96,6 +104,18 @@ describe('AuthService', () => {
 
       await expect(
         service.login({ email: 'test@jest.com', password: 'wrongpassword' }),
+      ).rejects.toThrow(UnauthorizedException);
+    });
+
+    it('rejects a valid password while the account lockout window is active', async () => {
+      usersService.findByEmailForAuth.mockResolvedValue({
+        ...mockUser,
+        lockedUntil: new Date(Date.now() + 60_000),
+      });
+      (argon2.verify as jest.Mock).mockResolvedValue(true);
+
+      await expect(
+        service.login({ email: 'test@jest.com', password: 'password' }),
       ).rejects.toThrow(UnauthorizedException);
     });
 
