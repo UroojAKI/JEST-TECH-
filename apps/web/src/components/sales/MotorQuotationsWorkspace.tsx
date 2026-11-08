@@ -275,6 +275,9 @@ export function MotorQuotationsWorkspace() {
           vehicleDetails: item.motorMetadata?.vehicleDetails,
           policyDetails: item.motorMetadata?.policyDetails,
           leadId: item.leadId,
+          caseId: item.caseId,
+          backOfficeSubmittedAt: item.backOfficeSubmittedAt,
+          previousPolicyDetails: item.motorMetadata?.previousPolicyDetails,
         } as SavedMotorQuote));
         return { quotes, total };
       } catch (error: any) {
