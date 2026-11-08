@@ -70,15 +70,11 @@ export function PolicyFormSAODForm({ category, vehicleStatus, data, onChange, el
 
   const effectiveCategory = category || 'PRIVATE_CAR';
   const effectiveStatus = eligibility ? eligibility.vehicleStatus : (vehicleStatus || 'EXISTING');
-  const activeTpIsVerified = Boolean(
-    data.tpVerification?.tpInsurer &&
-    data.tpVerification?.tpPolicyNumber &&
-    data.tpVerification?.tpStartDate &&
-    data.tpVerification?.tpExpiryDate &&
-    data.tpVerification?.verificationMethod &&
-    data.tpVerification?.verificationStatus === 'VERIFIED' &&
-    data.tpVerification?.verifiedByUserConfirmed
-  );
+  const tpToday = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+  const tpStart = data.tpVerification?.tpStartDate || '';
+  const tpExpiry = data.tpVerification?.tpExpiryDate || '';
+  const tpDatesValid = Boolean(tpStart && tpExpiry && /^\d{4}-\d{2}-\d{2}$/.test(tpStart) && /^\d{4}-\d{2}-\d{2}$/.test(tpExpiry) && tpExpiry >= tpStart && tpStart <= tpToday && tpExpiry >= tpToday);
+  const activeTpIsVerified = Boolean(data.tpVerification?.tpInsurer?.trim() && data.tpVerification?.tpPolicyNumber?.trim() && tpDatesValid && data.tpVerification?.verificationMethod && data.tpVerification?.verificationStatus === 'VERIFIED' && data.tpVerification?.verifiedByUserConfirmed);
 
   useEffect(() => {
     if (data.odCommissionPercent || data.commissionAmount || data.ncbDiscountOverride !== undefined) {
@@ -232,8 +228,11 @@ export function PolicyFormSAODForm({ category, vehicleStatus, data, onChange, el
   };
 
   const verification = data.tpVerification;
-  const isVerified = verification?.verificationStatus === 'VERIFIED' && verification?.verifiedByUserConfirmed;
-  const tpExpired = verification?.tpExpiryDate ? new Date(verification.tpExpiryDate) <= new Date() : false;
+  const documentVerified = verification?.verificationStatus === 'VERIFIED' && verification?.verifiedByUserConfirmed;
+  const tpToday = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+  const tpDatesValid = Boolean(verification?.tpStartDate && verification?.tpExpiryDate && /^\d{4}-\d{2}-\d{2}$/.test(verification.tpStartDate) && /^\d{4}-\d{2}-\d{2}$/.test(verification.tpExpiryDate) && verification.tpExpiryDate >= verification.tpStartDate && verification.tpStartDate <= tpToday && verification.tpExpiryDate >= tpToday);
+  const tpExpired = Boolean(verification?.tpExpiryDate && verification.tpExpiryDate < tpToday);
+  const isVerified = documentVerified && tpDatesValid && !tpExpired;
   const effectiveResult = result || data.calculatedResult;
   const hasValidCalculation = Boolean(effectiveResult?.outputs);
   const outputs = effectiveResult?.outputs || {};

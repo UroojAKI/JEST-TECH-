@@ -497,7 +497,6 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, customerId, caseId
       apiClient
         .post('/motor/journeys', {
           leadId: leadId && leadId !== 'new' ? leadId : undefined,
-          contactId: contactId || undefined,
           vehicleCategory: initialCategory || undefined,
         })
         .then((res) => {

@@ -92,6 +92,20 @@ export class MotorCalculationInputDto {
   @IsString()
   policyType: 'THIRD_PARTY_ONLY' | 'STANDALONE_OD' | 'PACKAGE_COMPREHENSIVE';
 
+  /** Component-level policy durations; OD is one year, TP is independently validated. */
+  @IsOptional()
+  @IsNumber()
+  @Min(1)
+  @Max(1)
+  odTenureYears?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(1)
+  @Max(5)
+  tpTenureYears?: number;
+
+  /** Legacy TP tenure alias; prefer tpTenureYears. */
   @IsOptional()
   @IsNumber()
   policyTenure?: number;

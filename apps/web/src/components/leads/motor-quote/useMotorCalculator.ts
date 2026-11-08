@@ -18,9 +18,10 @@ export function useMotorCalculator(inputData: any) {
     }
 
     if (['STANDALONE_OD', 'PACKAGE_COMPREHENSIVE'].includes(inputData.policyType)) {
-      if (!inputData.idv || inputData.idv <= 0) {
+      const idv = Number(inputData.idv);
+      if (!Number.isFinite(idv) || idv < 10000 || idv > 50000000) {
         setResult(null);
-        setError(null);
+        setError(idv < 10000 || idv > 50000000 ? 'IDV must be between ₹10,000 and ₹5,00,00,000.' : 'Enter a valid IDV before calculating premium.');
         setLoading(false);
         return;
       }
@@ -43,6 +44,7 @@ export function useMotorCalculator(inputData: any) {
     abortControllerRef.current = abortController;
 
     setLoading(true);
+    setResult(null);
     setError(null);
 
     const calculate = async () => {
