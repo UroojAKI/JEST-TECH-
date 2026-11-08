@@ -70,6 +70,12 @@ The reported UI message “A conflicting update or submission is already registe
 11. Backend comparison now rejects mixed customer/case contexts: case-backed quotations must belong to the same MotorQuotationCase or HealthQuotationCase; non-case quotations must share contact and product category.
 12. Added explicit handoff UI for the selected health quotation in HealthCaseWorkspace.
 13. Motor workspace mapping now preserves case ID, previous-policy details and handoff state so the alternative quote flow can hydrate the existing case.
+14. Added explicit renewal lineage to the data model: renewal quotations reference their predecessor policy, and newly issued policies reference the policy they renew. Both motor issuance and generic non-motor conversion persist this link.
+15. Motor renewal prefill now maps into the canonical PreviousPolicyDetails form fields and carries the predecessor policy ID through alternative insurer quotations. Backend validates tenant, customer and vehicle consistency before creating a renewal quote.
+16. Health renewal URL now passes the predecessor policy ID into the health wizard. The wizard loads the existing policy, preloads customer/member/previous-insurer data, marks the proposal as Renewal / Portability and persists the predecessor ID in the health case snapshot. Health insurer quotations validate and persist the predecessor link.
+17. Replaced the misleading six-step renewal drawer (which showed a prefilled payment mode and simulated issue step) with a truthful policy review and explicit route into supported Motor/Health quotation journeys. Unsupported product types are blocked rather than routed to a non-functional placeholder.
+18. Fixed CI typecheck failures in user task tenant scoping, SAOD date validation declarations and renewal drawer typing. Added the missing associated-vehicle Prisma mock to CRM identity unit tests.
+19. EmailProvider no longer reports a fake successful send based on SMTP/SES environment variables. It performs a real SendGrid API request only when SENDGRID_API_KEY and MAIL_FROM are configured; otherwise it fails closed with NOT_CONFIGURED.
 
 ## 4. Intended user journeys
 
@@ -131,7 +137,7 @@ The reported UI message “A conflicting update or submission is already registe
 
 - Inspect and implement a persistent renewal case for all supported product categories, reusing existing MotorQuotationCase/HealthQuotationCase where appropriate.
 - Link renewal case to previous policy and new policy lineage.
-- Ensure expiry/lapse rules are product- and insurer-specific.
+- Motor renewal uses the existing motor underwriting/rule engine, including >90-day expiry inspection/NCB treatment. Health lapse/portability eligibility must be confirmed by product/insurer rules before enabling issue.
 - Remove/retire unsafe direct expiry-extension paths from user-facing workflows; preserve compatibility only where explicitly required and guarded.
 - Implement renewal case resume, duplicate-cycle protection and historical snapshots.
 - Ensure policy prefill works for motor, health, life and configured other products.
