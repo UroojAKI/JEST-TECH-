@@ -28,6 +28,7 @@ import { ChangePasswordDto } from '../dto/change-password.dto';
 import { UpdateUserStatusDto } from '../dto/update-user-status.dto';
 import { AdminResetPasswordDto } from '../dto/admin-reset-password.dto';
 import { UsersService } from '../services/users.service';
+import { InviteUserDto } from '../dto/invite-user.dto';
 
 @ApiTags('Users')
 @ApiBearerAuth()
@@ -35,6 +36,13 @@ import { UsersService } from '../services/users.service';
 @Controller(['users', 'admin/users'])
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
+
+  @Post('invitations')
+  @Roles(RoleType.ADMIN)
+  @ApiOperation({ summary: 'Invite a user with a single-use 72-hour activation link' })
+  inviteUser(@Body() dto: InviteUserDto, @CurrentUser() actor: RequestUser) {
+    return this.usersService.inviteUser(dto, actor);
+  }
 
   @Post()
   @Roles(RoleType.ADMIN)
