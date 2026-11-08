@@ -280,6 +280,7 @@ export function MotorQuotationsWorkspace() {
           policyDetails: item.motorMetadata?.policyDetails,
           leadId: item.leadId,
           caseId: item.caseId,
+          renewalOfPolicyId: item.renewalOfPolicyId,
           backOfficeSubmittedAt: item.backOfficeSubmittedAt,
           previousPolicyDetails: item.motorMetadata?.previousPolicyDetails,
         } as SavedMotorQuote));
@@ -601,6 +602,7 @@ export function MotorQuotationsWorkspace() {
                         previousPolicyDetails: (q as any).previousPolicyDetails,
                         policyDetails: (q as any).policyDetails,
                         caseId: (q as any).caseId,
+                        renewalOfPolicyId: (q as any).renewalOfPolicyId,
                       })}
                     />
                   ))}
