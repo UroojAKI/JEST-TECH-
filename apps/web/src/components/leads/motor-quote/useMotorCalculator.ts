@@ -11,6 +11,8 @@ export function useMotorCalculator(inputData: any) {
   useEffect(() => {
     // Basic validation to avoid empty calls
     if (!inputData.vehicleCategory || !inputData.policyType || !inputData.vehicleStatus) {
+      requestIdRef.current += 1;
+      abortControllerRef.current?.abort();
       setResult(null);
       setError(null);
       setLoading(false);
@@ -20,6 +22,8 @@ export function useMotorCalculator(inputData: any) {
     if (['STANDALONE_OD', 'PACKAGE_COMPREHENSIVE'].includes(inputData.policyType)) {
       const idv = Number(inputData.idv);
       if (!Number.isFinite(idv) || idv < 10000 || idv > 50000000) {
+        requestIdRef.current += 1;
+        abortControllerRef.current?.abort();
         setResult(null);
         setError(idv < 10000 || idv > 50000000 ? 'IDV must be between ₹10,000 and ₹5,00,00,000.' : 'Enter a valid IDV before calculating premium.');
         setLoading(false);
