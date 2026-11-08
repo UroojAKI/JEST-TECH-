@@ -136,6 +136,57 @@ export class UsersService {
       companyConnect = { connect: { id: targetCompanyId } };
     }
 
+    // Resolve branch by ID or code, but always prove it belongs to the user's tenant.
+    let resolvedBranchId: string | undefined;
+    if (targetBranchId) {
+      const branch = await this.prisma.branch.findFirst({
+        where: {
+          OR: [{ id: targetBranchId }, { code: targetBranchId }],
+          zone: { region: { company: { id: targetCompanyId } } },
+        },
+        select: { id: true },
+      });
+      if (!branch) {
+        throw new ForbiddenException('Selected branch does not belong to the target organization');
+      }
+      resolvedBranchId = branch.id;
+      branchConnect = { connect: { id: branch.id } };
+    }
+
+    // Department is branch-owned in the schema. Validate its branch ancestry
+    // when present, while retaining support for explicitly shared branchless departments.
+    if (targetDepartmentId) {
+      const department = await this.prisma.department.findFirst({
+        where: { OR: [{ id: targetDepartmentId }, { code: targetDepartmentId }] },
+        select: {
+          id: true,
+          branchId: true,
+          branch: {
+            select: {
+              zone: {
+                select: {
+                  region: {
+                    select: { company: { select: { id: true } } },
+                  },
+                },
+              },
+            },
+          },
+        },
+      });
+      if (!department) {
+        throw new BadRequestException('Selected department does not exist');
+      }
+      const departmentCompanyId = department.branch?.zone?.region?.company?.id;
+      if (departmentCompanyId && departmentCompanyId !== targetCompanyId) {
+        throw new ForbiddenException('Selected department does not belong to the target organization');
+      }
+      if (resolvedBranchId && department.branchId && department.branchId !== resolvedBranchId) {
+        throw new BadRequestException('Selected department does not belong to the selected branch');
+      }
+      departmentConnect = { connect: { id: department.id } };
+    }
+
     const user = await this.userRepository.create({
       email: dto.email,
       passwordHash,

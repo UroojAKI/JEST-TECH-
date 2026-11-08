@@ -69,6 +69,22 @@ describe('UsersService', () => {
       user: {
         findUnique: jest.fn(),
       },
+      company: {
+        findFirst: jest.fn().mockResolvedValue({ id: 'company-uuid-1' }),
+      },
+      role: {
+        findFirst: jest.fn(),
+        create: jest.fn(),
+      },
+      branch: {
+        findFirst: jest.fn(),
+      },
+      department: {
+        findFirst: jest.fn(),
+      },
+      agent: {
+        create: jest.fn(),
+      },
       lead: {
         count: jest.fn().mockResolvedValue(5),
       },
@@ -151,6 +167,8 @@ describe('UsersService', () => {
 
     userRepository = {
       findById: jest.fn(),
+      findRoleByType: jest.fn().mockResolvedValue({ id: 'role-agent' }),
+      create: jest.fn().mockResolvedValue(mockUser),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -162,6 +180,36 @@ describe('UsersService', () => {
     }).compile();
 
     service = module.get<UsersService>(UsersService);
+  });
+
+  describe('create tenant hierarchy validation', () => {
+    it('rejects a branch that does not belong to the actor company before creating a user', async () => {
+      prisma.branch.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.create(
+          {
+            firstName: 'New',
+            lastName: 'Agent',
+            email: 'new.agent@example.com',
+            password: 'SafePassword123!',
+            role: 'AGENT',
+            employeeCode: 'EMP-009999',
+            branchId: '11111111-1111-4111-8111-111111111111',
+          } as any,
+          { userId: 'admin-1', companyId: 'company-uuid-1', role: 'ADMIN' },
+        ),
+      ).rejects.toThrow(ForbiddenException);
+
+      expect(prisma.branch.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            zone: { region: { company: { id: 'company-uuid-1' } } },
+          }),
+        }),
+      );
+      expect(userRepository.create).not.toHaveBeenCalled();
+    });
   });
 
   describe('getUserWorkspace', () => {
