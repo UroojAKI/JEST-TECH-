@@ -3,6 +3,7 @@ import {
   NotFoundException,
   BadRequestException,
   Logger,
+  Optional,
 } from '@nestjs/common';
 import { PrismaService } from '../../../../database/prisma.service';
 import {
@@ -13,6 +14,7 @@ import {
   RoleType,
 } from '@prisma/client';
 import { ActorContext } from '../../../../common/interfaces/actor-context.interface';
+import { HealthDocumentRuleService } from '../../../health-insurance/services/health-document-rule.service';
 
 export interface GateStatus {
   passed: boolean;
@@ -51,7 +53,10 @@ export interface BackOfficeQueueItem {
 export class BackOfficeQueueService {
   private readonly logger = new Logger(BackOfficeQueueService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Optional() private readonly healthDocumentRuleService?: HealthDocumentRuleService,
+  ) {}
 
   /**
    * Retrieves the Back-Office Policy Issuance Queue with multi-gate validation (G021).
@@ -166,6 +171,7 @@ export class BackOfficeQueueService {
             motorPaymentRecord: true,
             motorDocuments: true,
             healthDocuments: true,
+            healthCase: { include: { documents: true } },
             motorPreviousPolicy: {
               include: {
                 ruleEvaluation: true,
@@ -189,6 +195,7 @@ export class BackOfficeQueueService {
                 select: { id: true, firstName: true, lastName: true, email: true },
               },
               policy: true,
+              healthCase: { include: { documents: true } },
             },
             orderBy: { createdAt: 'asc' },
           });
@@ -371,6 +378,13 @@ export class BackOfficeQueueService {
 
         const motorDocs = (q as any).motorDocuments || [];
         const healthDocs = (q as any).healthDocuments || [];
+        const healthCase = (q as any).healthCase;
+        const healthCaseDocs = healthCase?.documents || [];
+        const allHealthDocs = Array.from(
+          new Map(
+            [...healthDocs, ...healthCaseDocs].map((doc: any) => [doc.id, doc]),
+          ).values(),
+        ) as any[];
 
         let documentsPassed = true;
         let documentsDetail = 'All mandatory documents verified';
@@ -382,15 +396,38 @@ export class BackOfficeQueueService {
           ...motorDocs.filter(
             (d: any) => d.verificationStatus !== 'VERIFIED',
           ),
-          ...healthDocs.filter(
-            (d: any) => d.verificationStatus !== 'VERIFIED',
+          ...allHealthDocs.filter(
+            (d: any) => d.verificationStatus !== DocumentVerificationStatus.VERIFIED,
           ),
         ];
 
+        // Health requirements are driven by the configured category and policy form.
+        // A missing case/rule context fails closed instead of silently passing issuance.
+        const missingRequiredHealthDocuments =
+          isHealth && healthCase && this.healthDocumentRuleService
+            ? this.healthDocumentRuleService
+                .getRequirements(healthCase.planCategory, healthCase.policyForm)
+                .filter(
+                  (requirement) =>
+                    requirement.required &&
+                    !allHealthDocs.some(
+                      (doc: any) =>
+                        doc.documentType === requirement.documentType &&
+                        doc.verificationStatus === DocumentVerificationStatus.VERIFIED,
+                    ),
+                )
+                .map((requirement) => requirement.label)
+            : isHealth
+              ? ['Health document requirements could not be evaluated']
+              : [];
+
         // Approval/acceptance of a quotation is not evidence that its supporting
-        // documents were independently verified. Keep the document gate authoritative
-        // for every product line, including health.
-        if (unverified.length > 0) {
+        // documents were independently verified. Required documents must be present
+        // and individually verified by a reviewer before policy issuance.
+        if (missingRequiredHealthDocuments.length > 0) {
+          documentsPassed = false;
+          documentsDetail = `Required health documents not verified: ${missingRequiredHealthDocuments.join(', ')}`;
+        } else if (unverified.length > 0) {
           documentsPassed = false;
           documentsDetail = `${unverified.length} document(s) pending underwriter verification`;
         } else if (isMotor && documents.length === 0 && motorDocs.length === 0 && (q.motorPreviousPolicy?.ruleEvaluation?.inspectionRequired || q.workflowState === 'INSPECTION_REQUIRED')) {
