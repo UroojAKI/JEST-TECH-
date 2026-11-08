@@ -35,12 +35,12 @@ export function RenewalWizardDrawer({ isOpen, policyId, onClose }: RenewalWizard
   const handleRenewPolicy = () => {
     // Renewal must enter the product's quotation journey; never extend the old
     // policy directly from this drawer.
-    const product = String(policy?.productLine || policy?.productType || '').toUpperCase();
+    const product = String(policy?.productLine || (policy as any)?.productType || '').toUpperCase();
     onClose();
     if (product.includes('HEALTH')) {
       router.push(buildHealthRenewalUrl(policyId, {
-        contactId: policy?.contactId,
-        planCategory: policy?.planCategory,
+        contactId: (policy as any)?.contactId,
+        planCategory: (policy as any)?.planCategory,
       }));
       return;
     }
@@ -237,7 +237,6 @@ export function RenewalWizardDrawer({ isOpen, policyId, onClose }: RenewalWizard
               onClick={handleRenewPolicy}
               className="px-4 py-2 rounded-lg bg-emerald-600 text-white font-bold hover:bg-emerald-700 shadow-sm flex items-center space-x-1 disabled:opacity-40"
             >
-              {isSubmitting && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
               <span>Continue to Renewal Quotations</span>
             </button>
           )}
