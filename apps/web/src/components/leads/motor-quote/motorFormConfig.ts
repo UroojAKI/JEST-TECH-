@@ -233,13 +233,26 @@ export const DOCUMENT_CHECKLISTS: Record<VehicleCategory, string[]> = {
 // ------------------------------------------------------------------
 // POLICY TENURE OPTIONS per category + policy type
 // ------------------------------------------------------------------
-export function getPolicyTenureOptions(category: VehicleCategory, policyType: string): string[] {
+export function getPolicyTenureOptions(
+  category: VehicleCategory,
+  policyType: string,
+  vehicleStatus?: 'NEW' | 'EXISTING',
+): string[] {
   if (policyType === 'SAOD') return []; // SAOD has no tenure dropdown
+  if (vehicleStatus === 'NEW') {
+    if (category === 'BIKE') {
+      return ['5-Year Long Term TP (IRDAI Mandatory for New Two-Wheelers)'];
+    }
+    if (category === 'PRIVATE_CAR') {
+      return ['3-Year Long Term TP (IRDAI Mandatory for New Private Cars)'];
+    }
+    return ['1 Year (Standard)'];
+  }
   if (category === 'BIKE') {
-    return ['1 Year (Standard)', '5-Year Long Term TP (new two-wheelers)'];
+    return ['1 Year (Standard)', '5-Year Long Term TP (Multi-Year)'];
   }
   if (category === 'PRIVATE_CAR') {
-    return ['1 Year (Standard)', '3-Year Long Term TP (new private cars)'];
+    return ['1 Year (Standard)', '3-Year Long Term TP (Multi-Year)'];
   }
   // Commercial vehicles — no long term TP
   return ['1 Year (Standard)'];

@@ -71,6 +71,18 @@ export class IssuePolicyService {
       );
     }
 
+    // BOLA defense: Tenant ownership enforcement (JEST-07: verified before applying KYC updates)
+    const actorCompanyId = actor?.companyId || actor?.organizationId;
+    if (
+      actorCompanyId &&
+      quotation.companyId &&
+      quotation.companyId !== actorCompanyId
+    ) {
+      throw new ForbiddenException(
+        'Cross-tenant policy issuance forbidden: Quotation does not belong to your company.',
+      );
+    }
+
     // Pre-apply supplied customer KYC updates to Contact before gate validation
     const contactUpdates: Record<string, string> = {};
     if (dto.customerPan && dto.customerPan !== quotation.contact?.panNumber) {
@@ -98,9 +110,12 @@ export class IssuePolicyService {
       where: { quotationId: dto.quotationId },
     });
     if (existingPolicy) {
-      throw new ConflictException(
-        `Policy already issued for quotation ${dto.quotationId} (Policy Number: ${existingPolicy.policyNumber}). Duplicate issuance is blocked.`,
-      );
+      throw new ConflictException({
+        code: 'POLICY_ALREADY_EXISTS',
+        policyId: existingPolicy.id,
+        policyNumber: existingPolicy.policyNumber,
+        message: `Policy already issued for quotation ${dto.quotationId} (Policy Number: ${existingPolicy.policyNumber}). Duplicate issuance is blocked.`,
+      });
     }
 
     // Single Authority Invariant: Motor policies must be issued exclusively via MotorPolicyIssuanceService
@@ -114,17 +129,7 @@ export class IssuePolicyService {
       );
     }
 
-    // BOLA defense: Tenant ownership enforcement
-    const actorCompanyId = actor?.companyId || actor?.organizationId;
-    if (
-      actorCompanyId &&
-      quotation.companyId &&
-      quotation.companyId !== actorCompanyId
-    ) {
-      throw new ForbiddenException(
-        'Cross-tenant policy issuance forbidden: Quotation does not belong to your company.',
-      );
-    }
+
 
     if (
       quotation.status !== QuotationStatus.APPROVED &&

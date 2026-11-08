@@ -23,6 +23,28 @@ describe('formatUserFacingError (REQ-8 Plain Language Error Handling)', () => {
     expect(formatted.statusCode).toBe(409);
   });
 
+  it('translates 409 POLICY_ALREADY_EXISTS with policyNumber and policyId into recovery guidance', () => {
+    const error: any = {
+      isAxiosError: true,
+      response: {
+        status: 409,
+        data: {
+          code: 'POLICY_ALREADY_EXISTS',
+          policyId: 'pol-uuid-123',
+          policyNumber: 'POL-2026-9999',
+          message: 'Policy already issued for quotation q-1 (Policy Number: POL-2026-9999).',
+        },
+      },
+    };
+
+    const formatted = formatUserFacingError(error);
+    expect(formatted.title).toBe('Policy Already Issued');
+    expect(formatted.message).toContain('POL-2026-9999');
+    expect(formatted.actionHint).toContain('POL-2026-9999');
+    expect(formatted.policyId).toBe('pol-uuid-123');
+    expect(formatted.policyNumber).toBe('POL-2026-9999');
+  });
+
   it('translates 409 stale version conflict into clear resolution guidance', () => {
     const error: any = {
       isAxiosError: true,
@@ -97,6 +119,7 @@ describe('formatUserFacingError (REQ-8 Plain Language Error Handling)', () => {
     expect(formatted.title).toBe('Renewal Window Not Yet Open');
     expect(formatted.message).toContain('within 45 days of policy expiration');
     expect(formatted.actionHint).toContain('45-day renewal window');
+    expect(formatted.message).toContain('renewal quotations can be prepared and shared in advance');
   });
 
   it('translates 400 renewal reminder 90-day restriction into plain language', () => {

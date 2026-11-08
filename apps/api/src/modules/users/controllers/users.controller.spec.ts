@@ -21,6 +21,10 @@ describe('UsersController — User 360 Financial Authorization (Phase 5)', () =>
       lockUser: jest.fn(),
       unlockUser: jest.fn(),
       adminResetPassword: jest.fn(),
+      getUserPermissions: jest.fn(),
+      updateUserPermissions: jest.fn(),
+      resetUserPermissions: jest.fn(),
+      getAvailablePermissions: jest.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -122,6 +126,43 @@ describe('UsersController — User 360 Financial Authorization (Phase 5)', () =>
       await expect(
         controller.getEmployeeIncentives('user-missing', tenantAdmin),
       ).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('User Permission Endpoints', () => {
+    it('getUserPermissions delegates to service', async () => {
+      mockUsersService.getUserPermissions.mockResolvedValue({
+        userId: 'user-123',
+        basePermissions: ['policy:read'],
+        overrides: { granted: ['policy:issue'], revoked: [] },
+        effectivePermissions: ['policy:read', 'policy:issue'],
+      });
+
+      const res = await controller.getUserPermissions('user-123', tenantAdmin);
+      expect(res.userId).toBe('user-123');
+      expect(mockUsersService.getUserPermissions).toHaveBeenCalledWith('user-123', tenantAdmin);
+    });
+
+    it('updateUserPermissions delegates to service with payload and actor', async () => {
+      const dto = { granted: ['policy:issue'], revoked: ['lead:delete'] };
+      mockUsersService.updateUserPermissions.mockResolvedValue({
+        userId: 'user-123',
+        effectivePermissions: ['policy:issue'],
+      });
+
+      const res = await controller.updateUserPermissions('user-123', dto, tenantAdmin);
+      expect(res.effectivePermissions).toContain('policy:issue');
+      expect(mockUsersService.updateUserPermissions).toHaveBeenCalledWith('user-123', dto, tenantAdmin);
+    });
+
+    it('resetUserPermissions delegates to service', async () => {
+      mockUsersService.resetUserPermissions.mockResolvedValue({
+        userId: 'user-123',
+        effectivePermissions: ['policy:read'],
+      });
+
+      const res = await controller.resetUserPermissions('user-123', tenantAdmin);
+      expect(mockUsersService.resetUserPermissions).toHaveBeenCalledWith('user-123', tenantAdmin);
     });
   });
 });

@@ -4,7 +4,13 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { AuditAction, PosPartnerStatus, PosPartnerType, PosVerificationStatus } from '@prisma/client';
+import {
+  AuditAction,
+  PosPartnerStatus,
+  PosPartnerType,
+  PosVerificationStatus,
+  Prisma,
+} from '@prisma/client';
 import { PrismaService } from '../../../database/prisma.service';
 import { PosPartnerRepository } from '../repositories/pos-partner.repository';
 import { CreatePosPartnerDto } from '../dto/create-pos-partner.dto';
@@ -63,8 +69,17 @@ export class PosPartnerService {
       });
     }
 
-    // 3. Transactional registration of PosPartner + PosInsurerMapping
+    // Validate commercial agreement insurer if explicitly provided
+    if (dto.initialAgreement?.insurerId && dto.initialAgreement.insurerId !== insurer.id) {
+      throw new BadRequestException({
+        code: 'POS_AGREEMENT_INSURER_MISMATCH',
+        message: `Commercial agreement insurer must match the POS partner's associated insurer`,
+      });
+    }
+
+    // 3. Transactional registration of PosPartner + PosInsurerMapping + Optional PosCommissionAgreement
     const partner = await this.prisma.$transaction(async (tx) => {
+      const rawMobile = dto.mobile || dto.phone || '';
       const created = await tx.posPartner.create({
         data: {
           companyId,
@@ -72,7 +87,7 @@ export class PosPartnerService {
           partnerType: dto.partnerType,
           name: dto.name.trim(),
           displayName: dto.displayName?.trim() || dto.name.trim(),
-          mobile: dto.mobile.trim(),
+          mobile: rawMobile.trim(),
           email: dto.email?.trim().toLowerCase() || null,
           registrationNumber: dto.registrationNumber?.trim() || null,
           panNumberEncrypted: dto.panNumber?.trim().toUpperCase() || null,
@@ -101,6 +116,37 @@ export class PosPartnerService {
         },
       });
 
+      if (dto.initialAgreement) {
+        const agreement = await tx.posCommissionAgreement.create({
+          data: {
+            companyId,
+            posPartnerId: created.id,
+            insurerId: insurer.id,
+            productType: dto.initialAgreement.productType.toUpperCase(),
+            insuranceProductId: dto.initialAgreement.insuranceProductId || null,
+            commissionType: dto.initialAgreement.commissionType,
+            commissionRate:
+              dto.initialAgreement.commissionRate !== undefined
+                ? new Prisma.Decimal(dto.initialAgreement.commissionRate)
+                : null,
+            fixedAmount:
+              dto.initialAgreement.fixedAmount !== undefined
+                ? new Prisma.Decimal(dto.initialAgreement.fixedAmount)
+                : null,
+            effectiveFrom: dto.initialAgreement.effectiveFrom
+              ? new Date(dto.initialAgreement.effectiveFrom)
+              : new Date(),
+            effectiveUntil: dto.initialAgreement.effectiveUntil
+              ? new Date(dto.initialAgreement.effectiveUntil)
+              : null,
+            approvalStatus: 'APPROVED',
+            approvedById: user.id,
+          },
+          include: { insurer: true },
+        });
+        (created as any).commissionAgreements = [agreement];
+      }
+
       return created;
     });
 
@@ -125,6 +171,30 @@ export class PosPartnerService {
         },
       },
     }).catch(() => null);
+
+    if (dto.initialAgreement && (partner as any).commissionAgreements?.[0]) {
+      const agreement = (partner as any).commissionAgreements[0];
+      await this.prisma.auditLog.create({
+        data: {
+          action: AuditAction.CREATE,
+          entity: 'POS_COMMISSION_AGREEMENT',
+          entityType: 'PosCommissionAgreement',
+          entityId: agreement.id,
+          userId: user.id,
+          performedById: user.id,
+          module: 'POS_PARTNER',
+          metadata: {
+            companyId,
+            event: 'POS_COMMISSION_AGREEMENT_CREATED',
+            posPartnerId: partner.id,
+            productType: dto.initialAgreement.productType,
+            commissionType: dto.initialAgreement.commissionType,
+            commissionRate: dto.initialAgreement.commissionRate,
+            fixedAmount: dto.initialAgreement.fixedAmount,
+          },
+        },
+      }).catch(() => null);
+    }
 
     return partner;
   }

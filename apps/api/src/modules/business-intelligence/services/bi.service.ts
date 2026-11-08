@@ -2,7 +2,7 @@ import { Injectable, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../../../database/prisma.service';
 import { WarehouseService } from '../../warehouse/services/warehouse.service';
 import { evaluateSafeFormula } from '../../../common/utils/formula-evaluator.util';
-import { RoleType } from '@prisma/client';
+import { RoleType, LeadStatus, PolicyStatus, PaymentStatus } from '@prisma/client';
 
 export interface ConversionMetrics {
   totalLeads: number;
@@ -219,60 +219,66 @@ export class BiService {
     const cleanCompanyId = this.assertCompanyId(companyId);
     const companyWhere = { companyId: cleanCompanyId };
 
+    const quotedLeadStatuses: LeadStatus[] = [
+      LeadStatus.QUOTE_PREPARED,
+      LeadStatus.QUOTATION,
+      LeadStatus.NEGOTIATION,
+      LeadStatus.CUSTOMER_ACCEPTED,
+      LeadStatus.PAYMENT_PENDING,
+      LeadStatus.PAYMENT_RECEIVED,
+      LeadStatus.POST_PAYMENT,
+      LeadStatus.BACK_OFFICE,
+      LeadStatus.POLICY_ISSUED,
+      LeadStatus.CONVERTED,
+    ];
+
     const [
       totalLeads,
       quotedLeads,
       proposalsCreated,
       policiesIssued,
       policyPaymentsCount,
-      motorQuotesCount,
-      standardQuotesCount,
     ] = await Promise.all([
       this.prisma.lead.count({ where: { ...companyWhere, deletedAt: null } }),
       this.prisma.lead.count({
         where: {
           ...companyWhere,
           deletedAt: null,
-          status: { in: ['QUOTE', 'POLICY'] as any[] },
+          OR: [
+            { status: { in: quotedLeadStatuses } },
+            { quotations: { some: { deletedAt: null } } },
+            { motorQuotations: { some: { deletedAt: null } } },
+          ],
         },
       }),
       this.prisma.proposal.count({
         where: { quotation: { companyId: cleanCompanyId } },
       }),
       this.prisma.policy.count({
-        where: { ...companyWhere, status: { in: ['ACTIVE', 'ISSUED'] as any[] } },
+        where: {
+          ...companyWhere,
+          status: { in: [PolicyStatus.ACTIVE, PolicyStatus.ISSUED] },
+        },
       }),
       this.prisma.policyPayment
         ? this.prisma.policyPayment.count({
             where: {
-              status: 'SUCCESS' as any,
+              status: PaymentStatus.SUCCESS,
               policy: { companyId: cleanCompanyId },
             },
           }).catch(() => 0)
         : Promise.resolve(0),
-      this.prisma.motorQuotation
-        ? this.prisma.motorQuotation.count({
-            where: { ...companyWhere, deletedAt: null },
-          }).catch(() => 0)
-        : Promise.resolve(0),
-      this.prisma.quotation
-        ? this.prisma.quotation.count({
-            where: { ...companyWhere, deletedAt: null },
-          }).catch(() => 0)
-        : Promise.resolve(0),
     ]);
 
-    const totalQuotes = motorQuotesCount + standardQuotesCount;
-    const effectiveQuotes = Math.max(quotedLeads, totalQuotes);
     const paymentsCompleted = policyPaymentsCount;
 
     const leadToQuoteRate =
       totalLeads > 0
-        ? Math.min(100, Math.round((effectiveQuotes / totalLeads) * 100 * 10) / 10)
+        ? Math.min(100, Math.round((quotedLeads / totalLeads) * 100 * 10) / 10)
         : 0;
     const quoteToProposalRate =
-      effectiveQuotes > 0
-        ? Math.min(100, Math.round((proposalsCreated / effectiveQuotes) * 100 * 10) / 10)
+      quotedLeads > 0
+        ? Math.min(100, Math.round((proposalsCreated / quotedLeads) * 100 * 10) / 10)
         : 0;
     const proposalToPaymentRate =
       proposalsCreated > 0
@@ -308,7 +314,7 @@ export class BiService {
 
     const funnelJourney = [
       { stage: 'LEAD', count: totalLeads, conversionRate: 100 },
-      { stage: 'QUOTATION', count: effectiveQuotes, conversionRate: leadToQuoteRate },
+      { stage: 'QUOTATION', count: quotedLeads, conversionRate: leadToQuoteRate },
       { stage: 'PROPOSAL', count: proposalsCreated, conversionRate: quoteToProposalRate },
       { stage: 'PAYMENT', count: paymentsCompleted, conversionRate: proposalToPaymentRate },
       { stage: 'POLICY_ISSUED', count: policiesIssued, conversionRate: overallConversionRate },
@@ -346,7 +352,7 @@ export class BiService {
       this.prisma.policyPayment.aggregate({
         _sum: { amount: true },
         where: {
-          status: 'SUCCESS' as any,
+          status: PaymentStatus.SUCCESS,
           paymentDate: { gte: somThisMonth },
           ...policyWhere,
         },
@@ -354,7 +360,7 @@ export class BiService {
       this.prisma.policyPayment.aggregate({
         _sum: { amount: true },
         where: {
-          status: 'SUCCESS' as any,
+          status: PaymentStatus.SUCCESS,
           paymentDate: { gte: somLastMonth, lte: eomLastMonth },
           ...policyWhere,
         },
@@ -362,14 +368,14 @@ export class BiService {
       this.prisma.policyPayment.aggregate({
         _sum: { amount: true },
         where: {
-          status: 'SUCCESS' as any,
+          status: PaymentStatus.SUCCESS,
           paymentDate: { gte: somThisYear },
           ...policyWhere,
         },
       }),
       this.prisma.policyPayment.findMany({
         where: {
-          status: 'SUCCESS' as any,
+          status: PaymentStatus.SUCCESS,
           paymentDate: { gte: somThisYear },
           ...policyWhere,
         },
@@ -389,7 +395,7 @@ export class BiService {
         ? this.prisma.policy.findMany({
             where: {
               companyId: cleanCompanyId,
-              status: { in: ['ACTIVE', 'ISSUED'] as any[] },
+              status: { in: [PolicyStatus.ACTIVE, PolicyStatus.ISSUED] },
               deletedAt: null,
             },
             select: {
@@ -576,7 +582,7 @@ export class BiService {
       this.prisma.policyPayment.aggregate({
         _sum: { amount: true },
         where: {
-          status: 'SUCCESS' as any,
+          status: PaymentStatus.SUCCESS,
           policy: { companyId: cleanCompanyId },
         },
       }),
@@ -663,14 +669,14 @@ export class BiService {
       this.prisma.policy.count({
         where: {
           ...companyWhere,
-          status: 'ACTIVE',
+          status: PolicyStatus.ACTIVE,
           expiryDate: { gte: now, lte: in90 },
         },
       }),
       this.prisma.policy.count({
         where: {
           ...companyWhere,
-          status: { not: 'ACTIVE' as any },
+          status: { not: PolicyStatus.ACTIVE },
           expiryDate: { lt: now },
         },
       }),
@@ -765,7 +771,7 @@ export class BiService {
               policiesCreated: {
                 where: {
                   companyId: cleanCompanyId,
-                  status: { in: ['ACTIVE', 'ISSUED'] as any[] },
+                  status: { in: [PolicyStatus.ACTIVE, PolicyStatus.ISSUED] },
                   deletedAt: null,
                 },
                 select: { actualPremium: true, premiumAmount: true },

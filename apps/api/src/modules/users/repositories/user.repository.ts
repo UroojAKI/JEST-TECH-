@@ -35,6 +35,7 @@ const userIncludeClause = {
   department: true,
   team: true,
   jobRole: true,
+  workspacePreference: true,
   agentProfile: {
     include: {
       externalCodes: {
