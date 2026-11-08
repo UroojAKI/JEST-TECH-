@@ -109,7 +109,7 @@ export function MotorQuotationsWorkspace() {
               expiredMoreThan90Days: Boolean(prefill.expiryDate && (Date.now() - new Date(prefill.expiryDate).getTime()) > 90 * 24 * 60 * 60 * 1000),
               ownershipTransfer: false,
               claimInPreviousYear: Boolean(prefill.pricing.hasClaims),
-              eligibleNcbPercentage: Number(prefill.pricing.renewalNcb ?? 0),
+              eligibleNcbPercentage: Number(prefill.pricing.previousNcb ?? 0),
               previousInsurerName: prefill.insurer?.insurerName || '',
               previousPolicyNumber: prefill.policyNumber || '',
             },
