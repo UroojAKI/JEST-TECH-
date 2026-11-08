@@ -19,9 +19,13 @@ export class RequestLoggerMiddleware implements NestMiddleware {
       const { statusCode } = res;
       const executionTimeMs = Date.now() - start;
 
-      // Ensure req.user is typed or cast to any if unknown
+      // JwtStrategy exposes ActorContext.userId (not necessarily id). The old
+      // id-only lookup therefore labelled authenticated traffic as anonymous.
       const user = (req as any).user;
-      const userId = user?.id || 'anonymous';
+      const userId = user?.userId || user?.id || user?.sub || 'anonymous';
+      const companyId = user?.companyId || user?.organizationId || null;
+      const role = user?.role || user?.roles?.[0] || null;
+      const correlationId = headers['x-correlation-id'] || headers['x-request-id'] || (req as any).correlationId || null;
 
       const logPayload = {
         method,
@@ -31,6 +35,9 @@ export class RequestLoggerMiddleware implements NestMiddleware {
         ip,
         userAgent,
         userId,
+        companyId,
+        role,
+        correlationId,
       };
 
       if (statusCode >= 500) {

@@ -30,6 +30,9 @@ export class DualStorageProvider implements StorageProvider {
 
   async isAvailable(): Promise<boolean> {
     const primaryOk = (await this.primary.isAvailable?.()) ?? false;
+    const allowLocalFallback = process.env.ALLOW_LOCAL_STORAGE_FALLBACK === 'true';
+    const production = process.env.NODE_ENV === 'production';
+    if (production && !allowLocalFallback) return primaryOk;
     const secondaryOk = (await this.secondary.isAvailable?.()) ?? false;
     return primaryOk || secondaryOk;
   }
@@ -80,7 +83,13 @@ export class DualStorageProvider implements StorageProvider {
       );
     }
 
-    // Fallback to local storage
+    // Production must not silently write durable business documents to an
+    // instance-local filesystem. Permit this only through an explicit override.
+    if (process.env.NODE_ENV === 'production' && process.env.ALLOW_LOCAL_STORAGE_FALLBACK !== 'true') {
+      throw new Error('Primary object storage is unavailable; local filesystem fallback is disabled in production.');
+    }
+
+    // Development/staging fallback, or explicitly approved production fallback.
     const localKey = await this.secondary.uploadFile(fileBuffer, key, mimeType);
     return {
       key: localKey,

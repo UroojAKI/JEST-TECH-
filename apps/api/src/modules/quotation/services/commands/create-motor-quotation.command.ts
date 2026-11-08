@@ -567,13 +567,31 @@ export class CreateMotorQuotationCommand {
         }
       : undefined;
 
+    // Resolve TP tenure from a structured value or legacy display label.
+    // Never Number() a label: Number("5-Year Long Term TP...") is NaN and
+    // previously silently fell back to one year.
+    const rawTpTenure = policyDetails.tpTenureYears ?? policyDetails.policyTenure ?? policyDetails.tenure;
+    let selectedTpTenure: number | undefined;
+    if (rawTpTenure !== undefined && rawTpTenure !== null && rawTpTenure !== '') {
+      if (typeof rawTpTenure === 'number' || /^\d+$/.test(String(rawTpTenure).trim())) selectedTpTenure = Number(rawTpTenure);
+      else {
+        const match = String(rawTpTenure).match(/\b(1|3|5)\s*[- ]?Year/i);
+        if (match) selectedTpTenure = Number(match[1]);
+      }
+      if (!Number.isInteger(selectedTpTenure) || selectedTpTenure! < 1) throw new BadRequestException('Selected TP policy tenure is invalid. Choose a supported numeric tenure.');
+    }
+    const defaultTpTenure = isVehicleNew ? (dto.vehicleCategory === VehicleCategory.BIKE ? 5 : dto.vehicleCategory === VehicleCategory.PRIVATE_CAR ? 3 : 1) : 1;
+    const tpTenureYears = selectedTpTenure ?? defaultTpTenure;
+
     // ── 6. Authoritative Pricing via MotorCalculationService ──
     const calculationInput: any = {
       vehicleCategory: dto.vehicleCategory,
       vehicleSubType: vehicleDetails.vehicleSubType || vehicleDetails.vehicleType,
       vehicleStatus: isVehicleNew ? 'NEW' : 'EXISTING',
       policyType,
-      policyTenure: Number(policyDetails.policyTenure || 1) || 1,
+      odTenureYears: 1,
+      tpTenureYears,
+      policyTenure: tpTenureYears,
       idv: dto.idv || Number(policyDetails.insuredDeclaredValue || 0) || undefined,
       ncbPercent: authoritativeNcb,
       claimInExpiringPolicy: claimInExpiring,

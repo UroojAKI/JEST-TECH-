@@ -1263,9 +1263,9 @@ export class MotorCalculationService {
       return 1;
     }
 
-    const explicitTenure = (input as any).tenure !== undefined
-      ? Number((input as any).tenure)
-      : (input.policyTenure !== undefined ? Number(input.policyTenure) : undefined);
+    const explicitTenure = input.tpTenureYears !== undefined
+      ? Number(input.tpTenureYears)
+      : ((input as any).tenure !== undefined ? Number((input as any).tenure) : (input.policyTenure !== undefined ? Number(input.policyTenure) : undefined));
 
     const cat = input.vehicleCategory?.toString() ?? 'PRIVATE_CAR';
     const isNew = input.vehicleStatus === 'NEW';

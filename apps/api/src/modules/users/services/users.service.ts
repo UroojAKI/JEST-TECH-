@@ -422,6 +422,9 @@ export class UsersService {
     }
 
     const companyId = user.companyId;
+    if (!companyId) {
+      throw new ForbiddenException('A company-scoped user context is required to load this workspace.');
+    }
     let agentId = user.agentProfile?.id;
     if (!agentId) {
       const directAgent = await this.prisma.agent.findFirst({
@@ -554,6 +557,7 @@ export class UsersService {
       this.prisma.task.count({
         where: {
           assignedToId: id,
+          companyId,
           status: { in: ['PENDING', 'IN_PROGRESS'] },
           deletedAt: null,
         },
@@ -561,6 +565,7 @@ export class UsersService {
       this.prisma.task.count({
         where: {
           assignedToId: id,
+          companyId,
           status: { in: ['PENDING', 'IN_PROGRESS'] },
           dueDate: { lt: new Date() },
           deletedAt: null,
@@ -568,12 +573,13 @@ export class UsersService {
       }),
       this.prisma?.quotation?.count
         ? this.prisma.quotation.count({
-            where: quoteUserFilter,
+            where: { ...quoteUserFilter, companyId },
           })
         : Promise.resolve(0),
       this.prisma?.quotation?.count
         ? this.prisma.quotation.count({
             where: {
+              companyId,
               AND: [
                 quoteUserFilter,
                 {
@@ -590,6 +596,7 @@ export class UsersService {
       this.prisma?.quotation?.count
         ? this.prisma.quotation.count({
             where: {
+              companyId,
               AND: [
                 quoteUserFilter,
                 { status: { in: ['APPROVED', 'ACCEPTED'] as any } },
@@ -654,6 +661,7 @@ export class UsersService {
       this.prisma.task.findMany({
         where: {
           assignedToId: id,
+          companyId,
           deletedAt: null,
         },
         orderBy: { dueDate: 'asc' },

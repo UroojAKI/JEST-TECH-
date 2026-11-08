@@ -1,5 +1,6 @@
 import {
   Injectable,
+  InternalServerErrorException,
   ConflictException,
   BadRequestException,
   ForbiddenException,
@@ -126,7 +127,7 @@ export class CrmIdentityService {
               id: true,
               policyNumber: true,
               actualPolicyNumber: true,
-              insurerName: true,
+              insurerNameSnapshot: true,
               status: true,
               expiryDate: true,
             },
@@ -155,7 +156,7 @@ export class CrmIdentityService {
           manufactureYearMonth: v.manufactureYearMonth,
           dateOfRegistration: v.dateOfRegistration,
           activePolicyStatus: latestPolicy?.status || undefined,
-          activeInsurerName: latestPolicy?.insurerName || undefined,
+          activeInsurerName: latestPolicy?.insurerNameSnapshot || undefined,
           expiryDate: latestPolicy?.expiryDate ? latestPolicy.expiryDate.toISOString() : undefined,
           activePolicyNumber: latestPolicy?.actualPolicyNumber || latestPolicy?.policyNumber || undefined,
           quotationCount: v._count?.quotations ?? 0,
@@ -163,8 +164,8 @@ export class CrmIdentityService {
         };
       });
     } catch (err: any) {
-      this.logger.warn(`Failed to fetch associated vehicles for identity match: ${err.message}`);
-      return [];
+      this.logger.error(`Associated vehicle/policy history lookup failed for company ${companyId}: ${err?.message || 'unknown error'}`);
+      throw new InternalServerErrorException('Customer identity was matched, but associated vehicle and policy history could not be loaded. Please retry.');
     }
   }
 
