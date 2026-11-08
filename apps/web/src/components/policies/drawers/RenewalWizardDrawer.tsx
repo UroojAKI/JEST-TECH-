@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { X, CheckCircle2, ChevronRight, RefreshCw, Loader2, ShieldCheck, AlertCircle, ExternalLink } from 'lucide-react';
 import { policiesRepository } from '../../../repositories/policies.repository';
-import { toast } from 'sonner';
 
 import { buildRenewalUrl } from '../../../lib/renewal-url';
 
@@ -18,7 +17,6 @@ interface RenewalWizardDrawerProps {
 export function RenewalWizardDrawer({ isOpen, policyId, onClose }: RenewalWizardDrawerProps) {
   const router = useRouter();
   const [step, setStep] = useState<number>(1);
-  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [paymentMode, setPaymentMode] = useState<string>('ONLINE');
 
   const { data: policy, isLoading, isError } = useQuery({
@@ -33,9 +31,6 @@ export function RenewalWizardDrawer({ isOpen, policyId, onClose }: RenewalWizard
   const revisedIdv = currentIdv > 0 ? Math.round(currentIdv * 0.9) : 0;
   const authoritativePremium = Number(policy?.premiumAmount ?? policy?.totalPremium ?? 0);
   const currentExpiry = policy?.expiryDate ? new Date(policy.expiryDate) : new Date();
-  const nextExpiry = new Date(currentExpiry);
-  nextExpiry.setFullYear(nextExpiry.getFullYear() + 1);
-  const nextRenewalNumber = (policy?.renewals?.length || 0) + 1;
 
   const handleRenewPolicy = () => {
     // Renewal must create a linked renewal quotation and pass through the
@@ -210,7 +205,7 @@ export function RenewalWizardDrawer({ isOpen, policyId, onClose }: RenewalWizard
         {/* Footer Navigation */}
         <div className="p-4 border-t flex justify-between items-center bg-card">
           <button
-            disabled={step === 1 || isSubmitting || isLoading}
+            disabled={step === 1 || isLoading}
             onClick={() => setStep(step - 1)}
             className="px-4 py-2 rounded-lg border bg-background font-semibold disabled:opacity-40"
           >
