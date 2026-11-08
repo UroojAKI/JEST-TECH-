@@ -1259,6 +1259,9 @@ model Quotation {
   calculationVersion       String?
   rateConfigurationVersion Int?
   issuanceStatus           IssuanceStatus @default(DRAFT)
+  // Explicit agent-controlled handoff: quotations remain in sales until selected and submitted.
+  backOfficeSubmittedAt   DateTime?
+  backOfficeSubmittedById String?
 
   createdById String?
   updatedById String?
@@ -1319,6 +1322,7 @@ model Quotation {
   @@index([agentExternalCodeId])
   @@index([caseId])
   @@index([healthCaseId])
+  @@index([companyId, backOfficeSubmittedAt])
   @@map("quotations")
 }
 
