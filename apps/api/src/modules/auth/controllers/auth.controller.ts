@@ -3,6 +3,7 @@ import { Throttle } from '@nestjs/throttler';
 import type { Response, Request } from 'express';
 
 import { LoginDto } from '../dto/login.dto';
+import { ActivateInvitationDto } from '../dto/activate-invitation.dto';
 import { AuthService } from '../services/auth.service';
 import { Public } from '../decorators/public.decorator';
 import * as crypto from 'crypto';
@@ -10,6 +11,13 @@ import * as crypto from 'crypto';
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
+
+  @Public()
+  @Post('activate-invitation')
+  @Throttle({ default: { ttl: 60000, limit: 5 } })
+  async activateInvitation(@Body() dto: ActivateInvitationDto) {
+    return this.authService.activateInvitation(dto.token, dto.password);
+  }
 
   @Public()
   @Post('login')
