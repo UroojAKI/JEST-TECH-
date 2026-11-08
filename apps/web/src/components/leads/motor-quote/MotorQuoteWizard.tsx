@@ -263,6 +263,50 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, customerId, caseId
   const [vehicleSelectionMode, setVehicleSelectionMode] = useState<'EXISTING' | 'NEW'>('EXISTING');
   const [selectedVehicleId, setSelectedVehicleId] = useState<string | null>(null);
 
+  // Reuse the saved case snapshot when generating an alternative insurer quote.
+  // This deliberately prefills customer/risk data while leaving insurer selection
+  // and insurer-specific pricing as a fresh, explicit decision.
+  useEffect(() => {
+    if (!isOpen || !cloneQuoteData) return;
+
+    if (cloneQuoteData.proposerDetails) {
+      setProposer((current) => ({
+        ...current,
+        ...cloneQuoteData.proposerDetails,
+      }));
+    }
+    if (cloneQuoteData.vehicleDetails) {
+      setVehicleDetails((current) => ({
+        ...current,
+        ...cloneQuoteData.vehicleDetails,
+      }));
+    }
+    if (cloneQuoteData.previousPolicyDetails) {
+      setPreviousPolicy((current) => ({
+        ...current,
+        ...cloneQuoteData.previousPolicyDetails,
+      }));
+    }
+    if (cloneQuoteData.category || initialCategory) {
+      setVehicleCategory(
+        (cloneQuoteData.category || initialCategory) as VehicleCategory,
+      );
+    }
+    if (cloneQuoteData.policyType) {
+      setPolicyType(cloneQuoteData.policyType);
+    }
+    if (cloneQuoteData.policyDetails) {
+      const details = cloneQuoteData.policyDetails as Record<string, any>;
+      if (details.policyType === 'TP_ONLY' || details.policyType === 'THIRD_PARTY_ONLY') {
+        setTpForm((current) => ({ ...current, ...details }));
+      } else if (details.policyType === 'SAOD' || details.policyType === 'STANDALONE_OD') {
+        setSaodForm((current) => ({ ...current, ...details }));
+      } else {
+        setPackageForm((current) => ({ ...current, ...details }));
+      }
+    }
+  }, [isOpen, cloneQuoteData, initialCategory]);
+
   // Debounced Identity Resolution Lookup
   useEffect(() => {
     const mobile = (proposer.mobileNumber || '').replace(/\D/g, '').trim();
