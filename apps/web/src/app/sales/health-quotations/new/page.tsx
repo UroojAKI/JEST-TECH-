@@ -10,9 +10,10 @@ function NewHealthQuotation() {
   const contactId = params.get('contactId') ?? undefined;
   const customerId = params.get('customerId') ?? undefined;
   const leadId = params.get('leadId') ?? undefined;
+  const renewPolicyId = params.get('renewPolicyId') ?? undefined;
   const targetId = contactId || customerId;
 
-  return <HealthQuoteWizard contactId={targetId} leadId={leadId} />;
+  return <HealthQuoteWizard contactId={targetId} leadId={leadId} renewPolicyId={renewPolicyId} />;
 }
 
 export default function NewHealthQuotationPage() {
