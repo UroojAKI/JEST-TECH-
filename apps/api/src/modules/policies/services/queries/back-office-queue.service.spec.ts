@@ -94,6 +94,31 @@ describe('BackOfficeQueueService (G021 Multi-Gate Policy Issuance Queue)', () =>
     expect(result.summary.readyCount).toBe(1);
   });
 
+  it('blocks approved health quotations while any linked health document is unverified', async () => {
+    const healthQuote = {
+      ...baseQuote,
+      productType: 'HEALTH',
+      healthCaseId: 'health-case-1',
+      healthDocuments: [
+        {
+          id: 'health-doc-pending',
+          verificationStatus: DocumentVerificationStatus.PENDING,
+        },
+      ],
+    };
+
+    mockPrisma.quotation.findMany.mockResolvedValue([healthQuote]);
+    mockPrisma.document.findMany.mockResolvedValue([]);
+
+    const result = await service.getBackOfficeQueue();
+    const item = result.data[0];
+
+    expect(item.gates.documents.passed).toBe(false);
+    expect(item.gates.documents.detail).toContain('pending underwriter verification');
+    expect(item.allGatesPassed).toBe(false);
+    expect(item.nextAction).not.toBe('Ready to Issue Policy');
+  });
+
   it('blocks issuance when vehicle inspection is required but not completed', async () => {
     const quoteWithBreakIn = {
       ...baseQuote,

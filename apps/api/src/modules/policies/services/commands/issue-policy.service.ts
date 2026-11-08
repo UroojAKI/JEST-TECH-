@@ -71,7 +71,19 @@ export class IssuePolicyService {
       );
     }
 
-    // Pre-apply supplied customer KYC updates to Contact before gate validation
+    // Enforce tenant ownership before any mutation, including KYC updates.
+    const actorCompanyId = actor?.companyId || actor?.organizationId;
+    if (
+      actorCompanyId &&
+      quotation.companyId &&
+      quotation.companyId !== actorCompanyId
+    ) {
+      throw new ForbiddenException(
+        'Cross-tenant policy issuance forbidden: Quotation does not belong to your company.',
+      );
+    }
+
+    // Preserve the existing KYC-before-gate workflow, but only after tenant authorization.
     const contactUpdates: Record<string, string> = {};
     if (dto.customerPan && dto.customerPan !== quotation.contact?.panNumber) {
       contactUpdates.panNumber = dto.customerPan.trim().toUpperCase();
@@ -111,18 +123,6 @@ export class IssuePolicyService {
     ) {
       throw new ConflictException(
         'MOTOR_WORKFLOW_REQUIRES_MOTOR_ISSUANCE: Motor policies must be issued exclusively via MotorPolicyIssuanceService (/motor/quotes/:id/issue)',
-      );
-    }
-
-    // BOLA defense: Tenant ownership enforcement
-    const actorCompanyId = actor?.companyId || actor?.organizationId;
-    if (
-      actorCompanyId &&
-      quotation.companyId &&
-      quotation.companyId !== actorCompanyId
-    ) {
-      throw new ForbiddenException(
-        'Cross-tenant policy issuance forbidden: Quotation does not belong to your company.',
       );
     }
 
@@ -500,20 +500,8 @@ export class IssuePolicyService {
           data: { status: 'COMPLETED' },
         });
 
-        await tx.healthQuotationDocument.updateMany({
-          where: {
-            OR: [
-              { quotationId: quotation.id },
-              { caseId: (quotation as any).healthCaseId },
-            ],
-            verificationStatus: { not: DocumentVerificationStatus.VERIFIED },
-          },
-          data: {
-            verificationStatus: DocumentVerificationStatus.VERIFIED,
-            verifiedById: createdById,
-            verifiedAt: new Date(),
-          },
-        });
+        // Document verification is a reviewer decision and must never be
+        // inferred from policy issuance. Preserve each document's actual status.
       }
 
       if (tx.document) {

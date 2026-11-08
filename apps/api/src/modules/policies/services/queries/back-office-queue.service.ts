@@ -387,10 +387,10 @@ export class BackOfficeQueueService {
           ),
         ];
 
-        if (isHealth && (q.status === QuotationStatus.ACCEPTED || q.status === QuotationStatus.APPROVED)) {
-          documentsPassed = true;
-          documentsDetail = 'All mandatory health documents verified';
-        } else if (unverified.length > 0) {
+        // Approval/acceptance of a quotation is not evidence that its supporting
+        // documents were independently verified. Keep the document gate authoritative
+        // for every product line, including health.
+        if (unverified.length > 0) {
           documentsPassed = false;
           documentsDetail = `${unverified.length} document(s) pending underwriter verification`;
         } else if (isMotor && documents.length === 0 && motorDocs.length === 0 && (q.motorPreviousPolicy?.ruleEvaluation?.inspectionRequired || q.workflowState === 'INSPECTION_REQUIRED')) {
