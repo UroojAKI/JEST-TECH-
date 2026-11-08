@@ -6,7 +6,8 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
-import { piiEncryptionMiddleware } from './middleware/pii-encryption.middleware';
+import { installPiiEncryption } from './middleware/pii-encryption.middleware';
+import { Prisma } from '@prisma/client';
 
 @Injectable()
 export class PrismaService extends PrismaClient implements OnModuleInit {
@@ -14,7 +15,7 @@ export class PrismaService extends PrismaClient implements OnModuleInit {
 
   constructor() {
     super();
-    this.$use(piiEncryptionMiddleware as any);
+    installPiiEncryption(this, Prisma.dmmf.datamodel.models.map((model) => model.name));
     // Enforce AuditLog immutability / append-only at the database client level (G023)
     const enforceAuditLogImmutability = () => {
       throw new ForbiddenException(
