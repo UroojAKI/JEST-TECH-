@@ -43,9 +43,17 @@ export class UsersService {
     if (!companyId) throw new ForbiddenException('Company context is required to invite a user');
 
     const requestedRole = String(dto.role || '').toUpperCase();
+    const backOfficeRoleAliases: string[] = [
+      'BACK_OFFICE',
+      'UNDERWRITER',
+      'FINANCE',
+      'CLAIMS_OFFICER',
+      'BRANCH_MANAGER',
+      'OPERATIONS',
+    ];
     const role = requestedRole === 'AGENT' || requestedRole.includes('AGENT') || requestedRole === 'SALES'
       ? RoleType.AGENT
-      : ['BACK_OFFICE', 'UNDERWRITER', 'FINANCE', 'CLAIMS_OFFICER', 'BRANCH_MANAGER', 'OPERATIONS'].includes(requestedRole)
+      : backOfficeRoleAliases.includes(requestedRole)
         ? RoleType.BACK_OFFICE
         : null;
     if (!role) {
