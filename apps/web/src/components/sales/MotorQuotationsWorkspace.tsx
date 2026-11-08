@@ -592,6 +592,14 @@ export function MotorQuotationsWorkspace() {
                       onCompleteProposal={setProposalQuote}
                       onIssuePolicy={isBackOfficeOrAdmin ? setCompletionQuote : undefined}
                       onSubmitToBackOffice={async (quotationId) => {
+                        const selected = allQuotes.find((item) => item.id === quotationId);
+                        if (!selected?.caseId) {
+                          throw new Error('This quotation is not linked to a quotation case and cannot be selected for handoff.');
+                        }
+                        // Select the winning alternative through the case state machine first.
+                        await apiClient.post(`/motor/quotation-cases/${selected.caseId}/select`, {
+                          quotationId,
+                        });
                         await quotationsRepository.submitToBackOffice(quotationId);
                         toast.success('Selected quotation sent to back office');
                         await refetch();
