@@ -57,6 +57,14 @@ The original health-insurance, tenant-integrity, PII, authentication and depende
 9. **Performance and resilience:** Run load/soak, queue/retry, database failover, backup restore and disaster-recovery exercises.
 10. **Final regression:** Run API typecheck, web typecheck/build, unit/integration tests, certification/security tests, full E2E, migration checks, dependency audit, CodeQL and tenant scanner on the exact final head.
 
+## D2. Renewal, quotation and notification increment
+
+- Renewal quotations now retain a direct predecessor-policy reference. Newly issued policies retain a self-referential `renewedFromPolicyId` link. Both motor issuance and generic non-motor conversion persist the lineage.
+- Motor renewal prefill maps into canonical previous-policy fields, carries the predecessor policy ID, and validates tenant/customer/vehicle consistency server-side.
+- Health renewal flow passes the predecessor policy into the health wizard, preloads policy/member/customer context, stores the source policy ID in the health case snapshot, and attaches it to each health quotation after tenant/customer validation.
+- The renewal drawer no longer presents simulated approval/payment/issuance steps. It routes supported Motor/Health products into their quotation journeys and blocks unsupported categories.
+- EmailProvider no longer returns a fabricated SENT response based on SMTP/SES environment variables. It performs a real SendGrid API request and requires `SENDGRID_API_KEY` plus `MAIL_FROM`.
+
 ## E. Release decision
 
 **Decision: NOT READY FOR PRODUCTION / DO NOT MERGE YET.**
