@@ -1,3 +1,4 @@
+import { PERMISSION_CATALOG } from '../../auth/constants/permission-catalog';
 import {
   BadRequestException,
   ForbiddenException,
@@ -1444,5 +1445,145 @@ export class UsersService {
       policyStatus: 'PENDING_APPROVAL',
       note: 'Incentive calculation pending executive business policy approval (INC-B01)',
     }));
+  }
+
+  async getAvailablePermissions() {
+    return PERMISSION_CATALOG;
+  }
+
+  async getUserPermissions(userId: string, actor: any) {
+    const user = await this.userRepository.findById(userId);
+    if (!user) {
+      throw new NotFoundException(`User with ID ${userId} not found`);
+    }
+
+    const actorCompanyId = actor?.companyId || actor?.organizationId;
+    if (actorCompanyId && user.companyId && user.companyId !== actorCompanyId) {
+      throw new ForbiddenException('Cross-organization access forbidden');
+    }
+
+    const pref = await this.prisma.workspacePreference.findUnique({
+      where: { userId },
+    });
+    const widgets = (pref?.favoriteWidgets as any) || {};
+    const overrides = widgets.permissionOverrides || { granted: [], revoked: [], scopes: {} };
+    const granted: string[] = Array.isArray(overrides.granted) ? overrides.granted : [];
+    const revoked: string[] = Array.isArray(overrides.revoked) ? overrides.revoked : [];
+    const scopes: Record<string, string> = overrides.scopes || {};
+
+    const basePermissions: string[] =
+      user.role?.permissions?.map((p: any) => p.permission?.code || p.code).filter(Boolean) || [];
+
+    const effectivePermissions = Array.from(
+      new Set([...basePermissions, ...granted]),
+    ).filter((p) => !revoked.includes(p));
+
+    return {
+      userId,
+      role: {
+        id: user.role?.id,
+        name: user.role?.name,
+        code: user.role?.code,
+        type: user.role?.type,
+      },
+      basePermissions,
+      overrides: {
+        granted,
+        revoked,
+        scopes,
+        updatedAt: overrides.updatedAt,
+        updatedById: overrides.updatedById,
+      },
+      effectivePermissions,
+    };
+  }
+
+  async updateUserPermissions(
+    userId: string,
+    dto: { granted?: string[]; revoked?: string[]; scopes?: Record<string, string> },
+    actor: any,
+  ) {
+    const user = await this.userRepository.findById(userId);
+    if (!user) {
+      throw new NotFoundException(`User with ID ${userId} not found`);
+    }
+
+    const actorCompanyId = actor?.companyId || actor?.organizationId;
+    if (actorCompanyId && user.companyId && user.companyId !== actorCompanyId) {
+      throw new ForbiddenException('Cross-organization access forbidden');
+    }
+
+    const granted = Array.isArray(dto.granted) ? dto.granted : [];
+    const revoked = Array.isArray(dto.revoked) ? dto.revoked : [];
+    const scopes = dto.scopes || {};
+
+    const pref = await this.prisma.workspacePreference.findUnique({
+      where: { userId },
+    });
+
+    const currentWidgets = (pref?.favoriteWidgets as any) || {};
+    const updatedWidgets = {
+      ...currentWidgets,
+      permissionOverrides: {
+        granted,
+        revoked,
+        scopes,
+        updatedAt: new Date().toISOString(),
+        updatedById: actor?.userId || actor?.id,
+      },
+    };
+
+    if (pref) {
+      await this.prisma.workspacePreference.update({
+        where: { id: pref.id },
+        data: { favoriteWidgets: updatedWidgets },
+      });
+    } else {
+      await this.prisma.workspacePreference.create({
+        data: {
+          userId,
+          favoriteWidgets: updatedWidgets,
+        },
+      });
+    }
+
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { authVersion: { increment: 1 } },
+    });
+
+    return this.getUserPermissions(userId, actor);
+  }
+
+  async resetUserPermissions(userId: string, actor: any) {
+    const user = await this.userRepository.findById(userId);
+    if (!user) {
+      throw new NotFoundException(`User with ID ${userId} not found`);
+    }
+
+    const actorCompanyId = actor?.companyId || actor?.organizationId;
+    if (actorCompanyId && user.companyId && user.companyId !== actorCompanyId) {
+      throw new ForbiddenException('Cross-organization access forbidden');
+    }
+
+    const pref = await this.prisma.workspacePreference.findUnique({
+      where: { userId },
+    });
+
+    if (pref) {
+      const currentWidgets = (pref.favoriteWidgets as any) || {};
+      const { permissionOverrides, ...rest } = currentWidgets;
+      await this.prisma.workspacePreference.update({
+        where: { id: pref.id },
+        data: { favoriteWidgets: rest },
+      });
+    }
+
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { authVersion: { increment: 1 } },
+    });
+
+    return this.getUserPermissions(userId, actor);
   }
 }

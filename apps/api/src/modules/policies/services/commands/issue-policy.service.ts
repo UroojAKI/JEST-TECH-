@@ -71,7 +71,7 @@ export class IssuePolicyService {
       );
     }
 
-    // Enforce tenant ownership before any mutation, including KYC updates.
+    // BOLA defense: Tenant ownership enforcement (JEST-07: verified before applying KYC updates)
     const actorCompanyId = actor?.companyId || actor?.organizationId;
     if (
       actorCompanyId &&
@@ -83,7 +83,7 @@ export class IssuePolicyService {
       );
     }
 
-    // Preserve the existing KYC-before-gate workflow, but only after tenant authorization.
+    // Pre-apply supplied customer KYC updates to Contact before gate validation
     const contactUpdates: Record<string, string> = {};
     if (dto.customerPan && dto.customerPan !== quotation.contact?.panNumber) {
       contactUpdates.panNumber = dto.customerPan.trim().toUpperCase();
@@ -110,9 +110,12 @@ export class IssuePolicyService {
       where: { quotationId: dto.quotationId },
     });
     if (existingPolicy) {
-      throw new ConflictException(
-        `Policy already issued for quotation ${dto.quotationId} (Policy Number: ${existingPolicy.policyNumber}). Duplicate issuance is blocked.`,
-      );
+      throw new ConflictException({
+        code: 'POLICY_ALREADY_EXISTS',
+        policyId: existingPolicy.id,
+        policyNumber: existingPolicy.policyNumber,
+        message: `Policy already issued for quotation ${dto.quotationId} (Policy Number: ${existingPolicy.policyNumber}). Duplicate issuance is blocked.`,
+      });
     }
 
     // Single Authority Invariant: Motor policies must be issued exclusively via MotorPolicyIssuanceService

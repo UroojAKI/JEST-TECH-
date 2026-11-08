@@ -136,17 +136,16 @@ export function PolicyCompletionDialog({ isOpen, quote, onClose, onSuccess }: Pr
       });
 
     // 3. Fetch eligible POS partners mapped to the quote's insurer (DEC-02 & DEC-03)
-    const insurerQuery = quote.insurerName ? `?insurerName=${encodeURIComponent(quote.insurerName)}` : '';
+    const posParams = new URLSearchParams();
+    if (quote.insurerName) posParams.set('insurerName', quote.insurerName);
+    posParams.set('productType', 'MOTOR');
     setIsLoadingPos(true);
     apiClient
-      .get(`/pos-partners/eligible${insurerQuery}`)
+      .get(`/pos-partners/eligible?${posParams.toString()}`)
       .then((res) => {
         if (!isMounted) return;
         const list = Array.isArray(res.data) ? res.data : [];
         setPosPartners(list);
-        if (list.length > 0) {
-          setPosPartnerId((prev) => prev || list[0].id);
-        }
       })
       .catch((err) => {
         console.warn('Could not fetch eligible POS partners:', err);
@@ -389,11 +388,18 @@ export function PolicyCompletionDialog({ isOpen, quote, onClose, onSuccess }: Pr
                   ))}
                 </select>
               ) : (
-                <div className="p-3 rounded-lg border border-amber-500/30 bg-amber-500/5 text-amber-700 dark:text-amber-300 text-xs flex items-center justify-between">
-                  <span>No eligible partner mapped to {quote.insurerName}.</span>
-                  <a href="/admin/pos-partners" target="_blank" className="font-bold underline text-primary">
-                    Register Partner
-                  </a>
+                <div className="p-3 rounded-xl border border-amber-500/30 bg-amber-500/10 text-amber-900 dark:text-amber-200 text-xs space-y-1.5">
+                  <div className="font-bold flex items-center gap-1.5">
+                    <span>⚠️ No Eligible POS Partner Found</span>
+                  </div>
+                  <p className="text-[11px] leading-relaxed">
+                    No active POS Partner is currently mapped to <strong>{quote.insurerName}</strong> with an approved commercial agreement for MOTOR insurance. Please map an eligible partner or select an authorized agent before issuing this policy.
+                  </p>
+                  <div className="pt-1">
+                    <a href="/admin/pos-partners" target="_blank" rel="noreferrer" className="inline-flex items-center text-xs font-bold underline text-primary hover:text-primary/80">
+                      Manage POS Partners & Commission Agreements →
+                    </a>
+                  </div>
                 </div>
               )}
             </div>

@@ -213,9 +213,6 @@ export function UpdatePolicyDetailsDialog({
             if (!isMounted) return;
             const pList = Array.isArray(pRes.data) ? pRes.data : [];
             setPosPartners(pList);
-            if (pList.length > 0) {
-              setPosPartnerId((prev) => prev || pList[0].id);
-            }
           })
           .catch((pErr) => {
             console.warn('Could not fetch eligible POS partners:', pErr);

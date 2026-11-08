@@ -531,7 +531,7 @@ export class MotorPolicyIssuanceService {
               { vehicle: { registrationNumber: { equals: normalizedReg, mode: 'insensitive' } } },
             ],
           },
-          select: { policyNumber: true, actualPolicyNumber: true, expiryDate: true },
+          select: { id: true, policyNumber: true, actualPolicyNumber: true, expiryDate: true },
         });
 
         if (existingActivePolicy) {
@@ -541,9 +541,12 @@ export class MotorPolicyIssuanceService {
           const month = String(expDate.getMonth() + 1).padStart(2, '0');
           const year = expDate.getFullYear();
           const expStr = `${day}/${month}/${year}`;
-          throw new ConflictException(
-            `Vehicle ${normalizedReg} already has an active policy issued (${pNum}, expires ${expStr}). Cannot issue a duplicate policy.`,
-          );
+          throw new ConflictException({
+            code: 'VEHICLE_POLICY_ALREADY_RUNNING',
+            policyId: existingActivePolicy.id,
+            policyNumber: pNum,
+            message: `Vehicle ${normalizedReg} already has an active policy issued (${pNum}, expires ${expStr}). Cannot issue a duplicate policy.`,
+          });
         }
       }
 
@@ -755,9 +758,20 @@ export class MotorPolicyIssuanceService {
           err instanceof Prisma.PrismaClientKnownRequestError &&
           err.code === 'P2002'
         ) {
-          throw new ConflictException(
-            `Policy already issued for quotation ${quote.id} or policy number collision: ${policyNumber}`,
-          );
+          const existing = await tx.policy.findFirst({
+            where: {
+              OR: [
+                { quotationId: quote.id },
+                { policyNumber },
+              ],
+            },
+          });
+          throw new ConflictException({
+            code: 'POLICY_ALREADY_EXISTS',
+            policyId: existing?.id,
+            policyNumber: existing?.policyNumber || policyNumber,
+            message: `Policy already issued for quotation ${quote.id} or policy number collision: ${policyNumber}`,
+          });
         }
         throw err;
       }

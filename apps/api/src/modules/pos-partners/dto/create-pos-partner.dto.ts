@@ -1,15 +1,54 @@
 import {
   IsEnum,
+  IsIn,
   IsNotEmpty,
+  IsNumber,
   IsOptional,
   IsString,
   Matches,
+  Min,
   Length,
   ValidateNested,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { PosPartnerType } from '@prisma/client';
 import { PolicyAddressDto } from '../../policies/dto/policy-address.dto';
+
+export class PosInitialAgreementDto {
+  @IsOptional()
+  @IsString()
+  insurerId?: string;
+
+  @IsString()
+  @IsNotEmpty({ message: 'productType is mandatory (e.g. MOTOR, HEALTH)' })
+  productType: string;
+
+  @IsOptional()
+  @IsString()
+  insuranceProductId?: string;
+
+  @IsString()
+  @IsIn(['PERCENTAGE', 'FIXED'], { message: 'commissionType must be PERCENTAGE or FIXED' })
+  commissionType: 'PERCENTAGE' | 'FIXED';
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  commissionRate?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  fixedAmount?: number;
+
+  @IsOptional()
+  @IsString()
+  effectiveFrom?: string;
+
+  @IsOptional()
+  @IsString()
+  effectiveUntil?: string;
+}
 
 export class CreatePosPartnerDto {
   @IsOptional()
@@ -39,6 +78,10 @@ export class CreatePosPartnerDto {
 
   @IsOptional()
   @IsString()
+  phone?: string;
+
+  @IsOptional()
+  @IsString()
   email?: string;
 
   @IsOptional()
@@ -62,7 +105,19 @@ export class CreatePosPartnerDto {
 
   @IsOptional()
   @IsString()
+  gstin?: string;
+
+  @IsOptional()
+  @IsString()
   authorizedPersonName?: string;
+
+  @IsOptional()
+  @IsString()
+  contactPersonName?: string;
+
+  @IsOptional()
+  @IsString()
+  contactPersonPhone?: string;
 
   @IsOptional()
   @ValidateNested()
@@ -89,4 +144,10 @@ export class CreatePosPartnerDto {
   @IsOptional()
   @IsString()
   effectiveUntil?: string;
+
+  // ── Initial Commercial Agreement (DEC-05) ──
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => PosInitialAgreementDto)
+  initialAgreement?: PosInitialAgreementDto;
 }

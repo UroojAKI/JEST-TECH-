@@ -68,6 +68,12 @@ describe('UsersService', () => {
     prisma = {
       user: {
         findUnique: jest.fn(),
+        update: jest.fn().mockResolvedValue({ id: 'user-uuid-1', authVersion: 2 }),
+      },
+      workspacePreference: {
+        findUnique: jest.fn(),
+        update: jest.fn(),
+        create: jest.fn(),
       },
       $transaction: jest.fn(async (operation: any) => operation({ agent: { create: jest.fn() } })),
       company: {
@@ -451,6 +457,156 @@ describe('UsersService', () => {
           }),
         }),
       );
+    });
+  });
+
+  describe('Individual User Permission Overrides & Effective Resolution', () => {
+    const actor = {
+      userId: 'admin-1',
+      companyId: 'company-uuid-1',
+      role: 'ADMIN',
+    };
+
+    it('should return role baseline permissions when no overrides exist', async () => {
+      userRepository.findById.mockResolvedValue({
+        ...mockUser,
+        role: {
+          id: 'role-1',
+          name: 'Agent',
+          code: 'AGENT',
+          type: RoleType.AGENT,
+          permissions: [
+            { permission: { code: 'policy:read' } },
+            { permission: { code: 'quotation:create' } },
+          ],
+        },
+      });
+      prisma.workspacePreference.findUnique.mockResolvedValue(null);
+
+      const result = await service.getUserPermissions('user-uuid-1', actor);
+
+      expect(result.userId).toBe('user-uuid-1');
+      expect(result.basePermissions).toEqual(['policy:read', 'quotation:create']);
+      expect(result.overrides.granted).toEqual([]);
+      expect(result.overrides.revoked).toEqual([]);
+      expect(result.effectivePermissions).toEqual(['policy:read', 'quotation:create']);
+    });
+
+    it('should correctly apply granted and revoked overrides to calculate effective permissions', async () => {
+      userRepository.findById.mockResolvedValue({
+        ...mockUser,
+        role: {
+          id: 'role-1',
+          name: 'Agent',
+          code: 'AGENT',
+          type: RoleType.AGENT,
+          permissions: [
+            { permission: { code: 'policy:read' } },
+            { permission: { code: 'quotation:create' } },
+            { permission: { code: 'lead:delete' } },
+          ],
+        },
+      });
+      prisma.workspacePreference.findUnique.mockResolvedValue({
+        id: 'pref-1',
+        userId: 'user-uuid-1',
+        favoriteWidgets: {
+          permissionOverrides: {
+            granted: ['policy:issue', 'customer:export'],
+            revoked: ['lead:delete'],
+            scopes: { 'policy:issue': 'OWN' },
+          },
+        },
+      });
+
+      const result = await service.getUserPermissions('user-uuid-1', actor);
+
+      expect(result.basePermissions).toEqual(['policy:read', 'quotation:create', 'lead:delete']);
+      expect(result.overrides.granted).toContain('policy:issue');
+      expect(result.overrides.revoked).toContain('lead:delete');
+      expect(result.effectivePermissions).toContain('policy:read');
+      expect(result.effectivePermissions).toContain('quotation:create');
+      expect(result.effectivePermissions).toContain('policy:issue');
+      expect(result.effectivePermissions).toContain('customer:export');
+      expect(result.effectivePermissions).not.toContain('lead:delete');
+    });
+
+    it('should persist permission overrides and increment authVersion upon update', async () => {
+      userRepository.findById.mockResolvedValue(mockUser);
+      prisma.workspacePreference.findUnique.mockResolvedValue({
+        id: 'pref-1',
+        userId: 'user-uuid-1',
+        favoriteWidgets: {},
+      });
+
+      await service.updateUserPermissions(
+        'user-uuid-1',
+        {
+          granted: ['policy:issue'],
+          revoked: ['lead:read'],
+          scopes: { 'policy:issue': 'OWN' },
+        },
+        actor,
+      );
+
+      expect(prisma.workspacePreference.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'pref-1' },
+          data: expect.objectContaining({
+            favoriteWidgets: expect.objectContaining({
+              permissionOverrides: expect.objectContaining({
+                granted: ['policy:issue'],
+                revoked: ['lead:read'],
+                scopes: { 'policy:issue': 'OWN' },
+              }),
+            }),
+          }),
+        }),
+      );
+
+      expect(prisma.user.update).toHaveBeenCalledWith({
+        where: { id: 'user-uuid-1' },
+        data: { authVersion: { increment: 1 } },
+      });
+    });
+
+    it('should reset user permissions to role baseline and increment authVersion', async () => {
+      userRepository.findById.mockResolvedValue(mockUser);
+      prisma.workspacePreference.findUnique.mockResolvedValue({
+        id: 'pref-1',
+        userId: 'user-uuid-1',
+        favoriteWidgets: {
+          permissionOverrides: { granted: ['policy:issue'] },
+          otherSetting: true,
+        },
+      });
+
+      await service.resetUserPermissions('user-uuid-1', actor);
+
+      expect(prisma.workspacePreference.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'pref-1' },
+          data: {
+            favoriteWidgets: { otherSetting: true },
+          },
+        }),
+      );
+
+      expect(prisma.user.update).toHaveBeenCalledWith({
+        where: { id: 'user-uuid-1' },
+        data: { authVersion: { increment: 1 } },
+      });
+    });
+
+    it('should reject cross-organization permission inspection with ForbiddenException', async () => {
+      userRepository.findById.mockResolvedValue({
+        ...mockUser,
+        companyId: 'other-company',
+      });
+
+      await expect(
+        service.getUserPermissions('user-uuid-1', actor),
+      ).rejects.toThrow(ForbiddenException);
     });
   });
 });

@@ -500,24 +500,8 @@ export class CreateMotorQuotationCommand {
     }
 
     const prevPolicy = dto.previousPolicyDetails || {};
-    // REQ-5: New renewal quotations can only be generated within 45 days of policy expiry
-    const prevExpiryStr =
-      prevPolicy.policyExpiryDate ||
-      (policyDetails as any)?.previousPolicyExpiryDate;
-    if (prevExpiryStr) {
-      const prevExpiry = new Date(prevExpiryStr);
-      if (!isNaN(prevExpiry.getTime())) {
-        const now = new Date();
-        const daysToExpiry = Math.ceil(
-          (prevExpiry.getTime() - now.getTime()) / (1000 * 60 * 60 * 24),
-        );
-        if (daysToExpiry > 45) {
-          throw new BadRequestException(
-            `RENEWAL_RESTRICTION_45_DAYS: New renewal quotations can only be generated within 45 days of policy expiry. Expiring policy has ${daysToExpiry} days remaining.`,
-          );
-        }
-      }
-    }
+    // Renewal quotations can be generated and shared in advance (even when >45 days remain).
+    // Note: The 45-day window restriction applies at policy renewal issuance (renew-policy.service.ts).
     const claimInExpiring =
       String(policyDetails.claimInExpiringPolicy || prevPolicy.claimInPreviousYear || '').toLowerCase() === 'yes' ||
       Boolean(prevPolicy.claimInPreviousYear);

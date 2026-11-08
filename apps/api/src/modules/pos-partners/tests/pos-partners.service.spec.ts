@@ -171,6 +171,155 @@ describe('POS Partner & Mandatory Policy Address Specifications', () => {
       );
       expect(result.partnerType).toBe(PosPartnerType.CORPORATE);
     });
+
+    it('should register partner and persist initial commercial agreement transactionally', async () => {
+      mockPrisma.insurer.findUnique.mockResolvedValue({
+        id: 'ins-hdfc',
+        name: 'HDFC ERGO General Insurance',
+        code: 'HDFC_ERGO',
+        isActive: true,
+      });
+
+      mockPrisma.posPartner.create.mockResolvedValue({
+        id: 'pos-1',
+        companyId,
+        posCode: 'POS-IND-999999',
+        name: 'Rajesh Sharma',
+        partnerType: PosPartnerType.INDIVIDUAL,
+        status: PosPartnerStatus.ACTIVE,
+        verificationStatus: PosVerificationStatus.PENDING,
+      });
+
+      mockPrisma.posCommissionAgreement.create.mockResolvedValue({
+        id: 'agr-1',
+        posPartnerId: 'pos-1',
+        insurerId: 'ins-hdfc',
+        productType: 'MOTOR',
+        commissionType: 'PERCENTAGE',
+        commissionRate: 15,
+        approvalStatus: 'APPROVED',
+      });
+
+      const result = await posPartnerService.register(
+        {
+          partnerType: PosPartnerType.INDIVIDUAL,
+          name: 'Rajesh Sharma',
+          mobile: '9876543210',
+          email: 'rajesh@example.com',
+          panNumber: 'ABCDE1234F',
+          address: {
+            addressLine1: 'Flat 101, Galaxy Apts',
+            city: 'Mumbai',
+            state: 'Maharashtra',
+            pincode: '400001',
+          },
+          insurerId: 'ins-hdfc',
+          initialAgreement: {
+            productType: 'MOTOR',
+            commissionType: 'PERCENTAGE',
+            commissionRate: 15,
+          },
+        },
+        mockUser
+      );
+
+      expect(mockPrisma.posPartner.create).toHaveBeenCalledTimes(1);
+      expect(mockPrisma.posCommissionAgreement.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            companyId,
+            posPartnerId: 'pos-1',
+            insurerId: 'ins-hdfc',
+            productType: 'MOTOR',
+            commissionType: 'PERCENTAGE',
+            approvalStatus: 'APPROVED',
+          }),
+        })
+      );
+      expect(result.status).toBe(PosPartnerStatus.ACTIVE);
+      expect((result as any).commissionAgreements).toHaveLength(1);
+    });
+
+    it('should reject registration if insurer ID does not exist', async () => {
+      mockPrisma.insurer.findUnique.mockResolvedValue(null);
+
+      await expect(
+        posPartnerService.register(
+          {
+            partnerType: PosPartnerType.INDIVIDUAL,
+            name: 'Rajesh Sharma',
+            mobile: '9876543210',
+            insurerId: 'ins-nonexistent',
+          },
+          mockUser
+        )
+      ).rejects.toThrow(NotFoundException);
+
+      expect(mockPrisma.posPartner.create).not.toHaveBeenCalled();
+    });
+
+    it('should reject registration if initial agreement insurer mismatches mapped insurer', async () => {
+      mockPrisma.insurer.findUnique.mockResolvedValue({
+        id: 'ins-hdfc',
+        name: 'HDFC ERGO General Insurance',
+        isActive: true,
+      });
+
+      await expect(
+        posPartnerService.register(
+          {
+            partnerType: PosPartnerType.INDIVIDUAL,
+            name: 'Rajesh Sharma',
+            mobile: '9876543210',
+            insurerId: 'ins-hdfc',
+            initialAgreement: {
+              insurerId: 'ins-icici',
+              productType: 'MOTOR',
+              commissionType: 'PERCENTAGE',
+              commissionRate: 10,
+            },
+          },
+          mockUser
+        )
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should abort and roll back transaction if agreement creation fails', async () => {
+      mockPrisma.insurer.findUnique.mockResolvedValue({
+        id: 'ins-hdfc',
+        name: 'HDFC ERGO General Insurance',
+        isActive: true,
+      });
+
+      mockPrisma.posPartner.create.mockResolvedValue({
+        id: 'pos-fail',
+        companyId,
+        posCode: 'POS-IND-999999',
+        name: 'Failed Partner',
+        partnerType: PosPartnerType.INDIVIDUAL,
+      });
+
+      mockPrisma.posCommissionAgreement.create.mockRejectedValue(
+        new Error('Database agreement creation failure')
+      );
+
+      await expect(
+        posPartnerService.register(
+          {
+            partnerType: PosPartnerType.INDIVIDUAL,
+            name: 'Failed Partner',
+            mobile: '9876543210',
+            insurerId: 'ins-hdfc',
+            initialAgreement: {
+              productType: 'MOTOR',
+              commissionType: 'PERCENTAGE',
+              commissionRate: 15,
+            },
+          },
+          mockUser
+        )
+      ).rejects.toThrow('Database agreement creation failure');
+    });
   });
 
   describe('DEC-03: Insurer Association 1:1 Invariant', () => {

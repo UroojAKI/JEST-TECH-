@@ -69,6 +69,11 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         teamId: true,
         departmentId: true,
         branchId: true,
+        workspacePreference: {
+          select: {
+            favoriteWidgets: true,
+          },
+        },
         role: {
           select: {
             type: true,
@@ -145,10 +150,18 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       );
     }
 
-    const permissions =
+    const rawWidgets = (user.workspacePreference?.favoriteWidgets as any) || {};
+    const overrides = rawWidgets.permissionOverrides;
+    const granted: string[] = Array.isArray(overrides?.granted) ? overrides.granted : [];
+    const revoked: string[] = Array.isArray(overrides?.revoked) ? overrides.revoked : [];
+
+    const basePermissions =
       user.role?.permissions
         ?.map((entry) => entry.permission.code)
         .filter(Boolean) || [];
+
+    const permissions = Array.from(new Set([...basePermissions, ...granted]))
+      .filter((p) => !revoked.includes(p));
 
     const isPlatformAdmin =
       permissions.includes('*') ||

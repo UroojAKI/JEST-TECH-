@@ -164,6 +164,21 @@ export class AuthService {
       ?.catch?.(() => {});
   }
 
+  private resolveEffectivePermissions(user: any): string[] {
+    const rawWidgets = (user.workspacePreference?.favoriteWidgets as any) || {};
+    const overrides = rawWidgets.permissionOverrides;
+    const granted: string[] = Array.isArray(overrides?.granted) ? overrides.granted : [];
+    const revoked: string[] = Array.isArray(overrides?.revoked) ? overrides.revoked : [];
+
+    const basePermissions: string[] = user.role?.permissions
+      ? user.role.permissions.map((p: any) => p.permission?.code || p.code).filter(Boolean)
+      : [];
+
+    return Array.from(new Set([...basePermissions, ...granted])).filter(
+      (p) => !revoked.includes(p),
+    );
+  }
+
   async login(dto: LoginDto) {
     // Use a single constant-time error message for all authentication failures.
     // This prevents account-status enumeration (distinguishing between
@@ -212,9 +227,7 @@ export class AuthService {
       updatedAt: updatedUser?.updatedAt || new Date(),
     };
 
-    const permissions = user.role?.permissions
-      ? user.role.permissions.map((p) => p.permission.code)
-      : [];
+    const permissions = this.resolveEffectivePermissions(user);
     const organizationId = this.requireOrganization(user);
     const roleType = (user.role?.type || user.role?.code) as RoleType;
     const payload = this.buildPayload(
@@ -354,9 +367,7 @@ export class AuthService {
 
     // Atomic token rotation: revoke old token AND store new token in a single transaction.
     // This prevents concurrent refresh races from issuing two active tokens.
-    const permissions = user.role?.permissions
-      ? user.role.permissions.map((p: any) => p.permission.code)
-      : [];
+    const permissions = this.resolveEffectivePermissions(user);
     const organizationId = this.requireOrganization(user);
     const roleType = (user.role?.type || user.role?.code) as RoleType;
     const newPayload = this.buildPayload(

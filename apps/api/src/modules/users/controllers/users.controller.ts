@@ -6,6 +6,7 @@ import {
   Param,
   Patch,
   Post,
+  Put,
   UseGuards,
   Query,
 } from '@nestjs/common';
@@ -200,5 +201,43 @@ export class UsersController {
     @CurrentUser() actor: RequestUser,
   ) {
     return this.usersService.getEmployeeIncentives(id, actor);
+  }
+
+  @Get('permissions/catalog')
+  @Roles(RoleType.ADMIN)
+  @ApiOperation({ summary: 'Get full permission catalog for override configuration' })
+  getPermissionCatalog() {
+    return this.usersService.getAvailablePermissions();
+  }
+
+  @Get(':id/permissions')
+  @Roles(RoleType.ADMIN)
+  @ApiOperation({ summary: 'Get effective permissions and individual overrides for a user' })
+  getUserPermissions(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() actor: RequestUser,
+  ) {
+    return this.usersService.getUserPermissions(id, actor);
+  }
+
+  @Put(':id/permissions')
+  @Roles(RoleType.ADMIN)
+  @ApiOperation({ summary: 'Update individual permission overrides for a user' })
+  updateUserPermissions(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: { granted?: string[]; revoked?: string[]; scopes?: Record<string, string> },
+    @CurrentUser() actor: RequestUser,
+  ) {
+    return this.usersService.updateUserPermissions(id, dto, actor);
+  }
+
+  @Delete(':id/permissions')
+  @Roles(RoleType.ADMIN)
+  @ApiOperation({ summary: 'Reset user permissions to role baseline' })
+  resetUserPermissions(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() actor: RequestUser,
+  ) {
+    return this.usersService.resetUserPermissions(id, actor);
   }
 }

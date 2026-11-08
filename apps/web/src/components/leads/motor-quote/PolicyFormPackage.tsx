@@ -48,6 +48,16 @@ function FieldRow({ label, mandatory, conditional, children, hint, formula }: {
   );
 }
 
+function formatCoveragePeriod(startDateStr?: string, tenureYears = 1): string {
+  const start = startDateStr ? new Date(startDateStr) : new Date();
+  if (isNaN(start.getTime())) return '—';
+  const end = new Date(start);
+  end.setFullYear(end.getFullYear() + tenureYears);
+  end.setDate(end.getDate() - 1);
+  const fmt = (d: Date) => d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+  return `${fmt(start)} to ${fmt(end)}`;
+}
+
 export function PolicyFormPackageForm({ category, vehicleStatus, data, onChange, eligibility }: Props) {
   const { insurerOptions } = useInsurers();
   const set = (key: keyof PolicyFormPackage) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
@@ -79,6 +89,17 @@ export function PolicyFormPackageForm({ category, vehicleStatus, data, onChange,
   // Only run when eligibility context changes, not on every data change
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isNew, prevPolicyApplicable, ncbApplicable, claimHistoryApplicable]);
+
+  // Mandatory IRDAI tenure enforcement for new vehicles
+  useEffect(() => {
+    if (isNew) {
+      if (category === 'BIKE' && (!data.policyTenure || !data.policyTenure.startsWith('5'))) {
+        onChange({ ...data, policyTenure: '5-Year Long Term TP (IRDAI Mandatory for New Two-Wheelers)' });
+      } else if (category === 'PRIVATE_CAR' && (!data.policyTenure || !data.policyTenure.startsWith('3'))) {
+        onChange({ ...data, policyTenure: '3-Year Long Term TP (IRDAI Mandatory for New Private Cars)' });
+      }
+    }
+  }, [isNew, category]);
 
   useEffect(() => {
     if (data.odCommissionCalc || data.tpCommissionCalc || data.finalCommissionCalc) {
@@ -230,7 +251,7 @@ export function PolicyFormPackageForm({ category, vehicleStatus, data, onChange,
     onChange({ ...data, addonsSelected: updated });
   };
 
-  const tenureOptions = getPolicyTenureOptions(category, 'PACKAGE');
+  const tenureOptions = getPolicyTenureOptions(category, 'PACKAGE', isNew ? 'NEW' : 'EXISTING');
   const isCommercial = !['BIKE', 'PRIVATE_CAR'].includes(category);
 
   // Authoritative Backend Calculation Outputs (Single Source of Truth)
@@ -269,6 +290,26 @@ export function PolicyFormPackageForm({ category, vehicleStatus, data, onChange,
         {error && <div className="ml-auto text-xs text-destructive">{error}</div>}
       </div>
 
+            {/* IRDAI Statutory Compliance Guidance for New Vehicles */}
+      {isNew && (category === 'BIKE' || category === 'PRIVATE_CAR') && (
+        <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-900 dark:text-amber-200 text-xs flex items-start gap-2.5">
+          <span className="text-base flex-shrink-0">⚖️</span>
+          <div>
+            <div className="font-bold flex items-center gap-1.5">
+              <span>IRDAI Mandatory Statutory Long-Term TP Rule</span>
+              <span className="bg-amber-200 dark:bg-amber-900/60 text-amber-900 dark:text-amber-200 text-[9px] px-1.5 py-0.5 rounded font-mono font-bold">
+                {category === 'BIKE' ? '5-Year TP' : '3-Year TP'}
+              </span>
+            </div>
+            <p className="text-[11px] text-amber-800/90 dark:text-amber-300/90 mt-0.5 leading-relaxed">
+              {category === 'BIKE'
+                ? 'Under Supreme Court guidelines and IRDAI regulations, all brand new Two-Wheelers must be issued with a 5-Year Long-Term Third Party (TP) policy. Own Damage (OD) coverage is issued for 1 Year.'
+                : 'Under Supreme Court guidelines and IRDAI regulations, all brand new Private Cars must be issued with a 3-Year Long-Term Third Party (TP) policy. Own Damage (OD) coverage is issued for 1 Year.'}
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* 1. Policy Tenure & IDV */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {/* Policy Tenure */}
@@ -283,6 +324,34 @@ export function PolicyFormPackageForm({ category, vehicleStatus, data, onChange,
         <FieldRow label="Insured Declared Value (IDV) ₹" mandatory hint="Vehicle market value">
           <input type="number" value={data.insuredDeclaredValue} onChange={set('insuredDeclaredValue')} placeholder="e.g. 850000" className={mandatoryInput(data.insuredDeclaredValue)} />
         </FieldRow>
+      </div>
+
+      {/* Policy Start Date & Separated OD / TP Coverage Periods */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-3 rounded-xl bg-muted/20 border">
+        <FieldRow label="Policy Start Date" hint="Coverage inception date">
+          <input
+            type="date"
+            value={data.policyStartDate || new Date().toISOString().slice(0, 10)}
+            onChange={(e) => onChange({ ...data, policyStartDate: e.target.value })}
+            className={inputBase}
+          />
+        </FieldRow>
+        <div className="p-2.5 rounded-lg bg-background border">
+          <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Own Damage (OD) Period</div>
+          <div className="text-xs font-semibold text-foreground mt-1">1 Year</div>
+          <div className="text-[11px] text-muted-foreground mt-0.5">
+            {formatCoveragePeriod(data.policyStartDate, 1)}
+          </div>
+        </div>
+        <div className="p-2.5 rounded-lg bg-background border">
+          <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Third Party (TP) Period</div>
+          <div className="text-xs font-semibold text-foreground mt-1">
+            {parseInt(data.policyTenure || (isNew ? (category === 'BIKE' ? '5' : category === 'PRIVATE_CAR' ? '3' : '1') : '1')) || 1} Year(s)
+          </div>
+          <div className="text-[11px] text-muted-foreground mt-0.5">
+            {formatCoveragePeriod(data.policyStartDate, parseInt(data.policyTenure || (isNew ? (category === 'BIKE' ? '5' : category === 'PRIVATE_CAR' ? '3' : '1') : '1')) || 1)}
+          </div>
+        </div>
       </div>
 
       {/* 2. Component-Level Tariff & Tax Calculation — Positioned directly under IDV */}

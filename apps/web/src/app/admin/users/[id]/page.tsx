@@ -1,3 +1,4 @@
+import { UserPermissionsManager } from '../../../../components/admin/UserPermissionsManager';
 'use client';
 
 import React, { useState } from 'react';
@@ -1578,51 +1579,7 @@ export default function User360Page() {
         {/* Tab Content: ORGANIZATION & PERMISSIONS */}
         {activeTab === 'organization' && (
           <div className="space-y-6">
-            <div className="border rounded-2xl p-5 bg-card space-y-4">
-              <h2 className="text-base font-bold flex items-center gap-2">
-                <Shield className="h-4 w-4 text-primary" />
-                Assigned Role & Authorization Scope
-              </h2>
-              {profile.role ? (
-                <div className="space-y-4">
-                  <div className="flex items-center gap-3">
-                    <div className="px-3 py-1 rounded-lg bg-primary/10 text-primary font-bold text-sm border border-primary/20">
-                      {profile.role.name} ({profile.role.code})
-                    </div>
-                    <span className="text-xs text-muted-foreground font-mono">
-                      System Type: {profile.role.type}
-                    </span>
-                  </div>
-                  {profile.role.description && (
-                    <p className="text-xs text-muted-foreground">{profile.role.description}</p>
-                  )}
-
-                  <div className="pt-3 border-t">
-                    <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3">
-                      Granted Permissions ({profile.role.permissions.length})
-                    </h3>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
-                      {profile.role.permissions.map((p) => (
-                        <div
-                          key={p.id}
-                          className="p-2.5 rounded-lg border bg-muted/20 flex flex-col gap-1 text-xs"
-                        >
-                          <div className="font-semibold flex items-center justify-between">
-                            <span>{p.name}</span>
-                            <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
-                              {p.scope}
-                            </span>
-                          </div>
-                          <span className="font-mono text-[10px] text-primary">{p.code}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <p className="text-xs text-muted-foreground">No specific role permissions configured.</p>
-              )}
-            </div>
+            <UserPermissionsManager userId={userId} canManage={currentRole === 'ADMIN'} />
           </div>
         )}
 

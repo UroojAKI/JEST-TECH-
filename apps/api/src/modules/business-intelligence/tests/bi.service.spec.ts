@@ -237,6 +237,80 @@ describe('BiService & KpiService (Wave 7 Tenancy Isolation & Workstream 3 BI)', 
         ForbiddenException,
       );
     });
+
+    it('should return correct results when there are zero leads', async () => {
+      mockPrisma.lead.count.mockResolvedValueOnce(0).mockResolvedValueOnce(0);
+      mockPrisma.policy.count.mockResolvedValueOnce(0);
+      mockPrisma.proposal.count.mockResolvedValueOnce(0);
+      mockPrisma.policyPayment.count.mockResolvedValueOnce(0);
+      mockPrisma.lead.groupBy.mockResolvedValueOnce([]);
+
+      const result = await service.getConversionMetrics('org-a');
+      expect(result.totalLeads).toBe(0);
+      expect(result.quotedLeads).toBe(0);
+      expect(result.leadToQuoteRate).toBe(0);
+      expect(result.overallConversionRate).toBe(0);
+      expect(result.quoteToProposalRate).toBe(0);
+      expect(result.proposalToPaymentRate).toBe(0);
+      expect(result.paymentToPolicyRate).toBe(0);
+    });
+
+    it('should query quoted leads using valid LeadStatus enums and quotation relations', async () => {
+      await service.getConversionMetrics('org-a');
+      expect(mockPrisma.lead.count).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            companyId: 'org-a',
+            deletedAt: null,
+            OR: expect.arrayContaining([
+              expect.objectContaining({
+                status: expect.objectContaining({
+                  in: expect.arrayContaining([
+                    'QUOTE_PREPARED',
+                    'QUOTATION',
+                    'CUSTOMER_ACCEPTED',
+                    'POLICY_ISSUED',
+                    'CONVERTED',
+                  ]),
+                }),
+              }),
+              { quotations: { some: { deletedAt: null } } },
+              { motorQuotations: { some: { deletedAt: null } } },
+            ]),
+          }),
+        }),
+      );
+    });
+
+    it('should not inflate conversion when one lead has multiple quotations', async () => {
+      // 10 total leads, 3 distinct leads quoted (each may have 5 quotations, but distinct lead count is 3)
+      mockPrisma.lead.count
+        .mockResolvedValueOnce(10) // totalLeads
+        .mockResolvedValueOnce(3); // quotedLeads (distinct unique leads)
+      mockPrisma.proposal.count.mockResolvedValueOnce(2);
+      mockPrisma.policy.count.mockResolvedValueOnce(1);
+      mockPrisma.policyPayment.count.mockResolvedValueOnce(1);
+
+      const result = await service.getConversionMetrics('org-a');
+      expect(result.totalLeads).toBe(10);
+      expect(result.quotedLeads).toBe(3);
+      expect(result.leadToQuoteRate).toBe(30); // 3/10 * 100 = 30%, not inflated by multiple quotes
+      expect(result.quoteToProposalRate).toBe(66.7); // 2/3 * 100
+      expect(result.quoteToPolicyRate).toBe(33.3); // 1/3 * 100
+      expect(result.overallConversionRate).toBe(10); // 1/10 * 100
+    });
+
+    it('should count policies issued only when status is ACTIVE or ISSUED', async () => {
+      await service.getConversionMetrics('org-a');
+      expect(mockPrisma.policy.count).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            companyId: 'org-a',
+            status: { in: ['ACTIVE', 'ISSUED'] },
+          }),
+        }),
+      );
+    });
   });
 
   describe('getRevenueMetrics', () => {

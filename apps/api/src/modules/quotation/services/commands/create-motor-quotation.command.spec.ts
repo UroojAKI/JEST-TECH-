@@ -847,7 +847,14 @@ describe('CreateMotorQuotationCommand (Authoritative Command)', () => {
       await expect(command.execute(quoteDto as any, mockUser)).rejects.toThrow(BadRequestException);
     });
 
-    it('REQ-5: rejects new renewal quotation when expiring policy has > 45 days remaining', async () => {
+    it('REQ-5: allows new renewal quotation preparation when expiring policy has > 45 days remaining', async () => {
+      prisma.quotation.create.mockResolvedValue({
+        id: 'q-motor-1',
+        quotationCode: 'QTN-2026-000001',
+        totalPremium: 5000,
+        workflowState: 'READY_FOR_PROPOSAL',
+        status: 'DRAFT',
+      });
       const distantExpiry = new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
       const quoteDto = {
         vehicleCategory: 'PRIVATE_CAR',
@@ -860,7 +867,9 @@ describe('CreateMotorQuotationCommand (Authoritative Command)', () => {
         },
       };
 
-      await expect(command.execute(quoteDto as any, mockUser)).rejects.toThrow(BadRequestException);
+      const result = await command.execute(quoteDto as any, mockUser);
+      expect(result).toBeDefined();
+      expect(result.id).toBe('q-motor-1');
     });
   });
 
