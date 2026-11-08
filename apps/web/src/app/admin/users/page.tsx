@@ -8,6 +8,7 @@ import { StatusBadge } from '../../../components/ui/status-badge';
 import { toast } from 'sonner';
 import { useAdminUsers } from '../../../hooks/useAdmin';
 import { adminRepository } from '../../../repositories/admin.repository';
+import { apiClient } from '../../../lib/api-client';
 import { useQueryClient, useQuery } from '@tanstack/react-query';
 
 export default function UserManagementPage() {
@@ -23,6 +24,7 @@ export default function UserManagementPage() {
     return () => clearTimeout(timer);
   }, [searchQuery]);
   const [showCreateForm, setShowCreateForm] = useState(false);
+  const [invitationMode, setInvitationMode] = useState(false);
   const [newFirstName, setNewFirstName] = useState('');
   const [newLastName, setNewLastName] = useState('');
   const [newEmail, setNewEmail] = useState('');
@@ -144,24 +146,34 @@ export default function UserManagementPage() {
 
     setIsSubmitting(true);
     try {
-      const res = await adminRepository.createUser({
-        firstName: cleanFirstName,
-        lastName: cleanLastName,
-        email: cleanEmail,
-        password: cleanPassword || undefined,
-        role: newRole,
-        collectContacts: newRole === 'AGENT' && newCollectContacts,
-        branchId: newBranchId || undefined,
-      });
-
-      toast.success('User created successfully');
-      setCreatedCredentials({
-        email: cleanEmail,
-        password: (res as any)?.initialPassword || cleanPassword,
-      });
+      if (invitationMode) {
+        await apiClient.post('/users/invitations', {
+          firstName: cleanFirstName,
+          lastName: cleanLastName,
+          email: cleanEmail,
+          role: newRole,
+          collectContacts: newRole === 'AGENT' && newCollectContacts,
+          branchId: newBranchId || undefined,
+        });
+        toast.success(`Invitation sent to ${cleanEmail}. The link expires in 72 hours.`);
+      } else {
+        const res = await adminRepository.createUser({
+          firstName: cleanFirstName,
+          lastName: cleanLastName,
+          email: cleanEmail,
+          password: cleanPassword || undefined,
+          role: newRole,
+          collectContacts: newRole === 'AGENT' && newCollectContacts,
+          branchId: newBranchId || undefined,
+        });
+        toast.success('User created successfully');
+        setCreatedCredentials({
+          email: cleanEmail,
+          password: (res as any)?.initialPassword || cleanPassword,
+        });
+      }
 
       queryClient.invalidateQueries({ queryKey: ['admin-users'] });
-
       setShowCreateForm(false);
       setNewFirstName('');
       setNewLastName('');
@@ -202,11 +214,24 @@ export default function UserManagementPage() {
 
         <div className="flex items-center space-x-2">
           <button
-            onClick={() => setShowCreateForm(!showCreateForm)}
-            className="flex items-center space-x-1 px-4 py-2 text-xs font-bold rounded-lg bg-primary text-primary-foreground shadow hover:bg-primary/90 transition-colors"
+            onClick={() => {
+              setInvitationMode(false);
+              setShowCreateForm((open) => !open);
+            }}
+            className="flex items-center space-x-1 px-4 py-2 text-xs font-bold rounded-lg border bg-background hover:bg-muted transition-colors"
           >
             <Plus className="h-4 w-4" />
-            <span>{showCreateForm ? 'Cancel' : '+ Provision New User'}</span>
+            <span>Provision User</span>
+          </button>
+          <button
+            onClick={() => {
+              setInvitationMode(true);
+              if (newRole === 'ADMIN') setNewRole('AGENT');
+              setShowCreateForm(true);
+            }}
+            className="flex items-center space-x-1 px-4 py-2 text-xs font-bold rounded-lg bg-primary text-primary-foreground shadow hover:bg-primary/90 transition-colors"
+          >
+            <span>Invite User</span>
           </button>
         </div>
       </div>
@@ -251,7 +276,7 @@ export default function UserManagementPage() {
       {/* Inline User Creation Form */}
       {showCreateForm && (
         <div className="p-5 border rounded-xl bg-card shadow-sm text-xs mb-4">
-          <h2 className="font-bold mb-3 flex items-center gap-2"><Users className="h-4 w-4" /> Provision New User Account</h2>
+          <h2 className="font-bold mb-3 flex items-center gap-2"><Users className="h-4 w-4" /> {invitationMode ? 'Invite User — 72-hour activation link' : 'Provision New User Account'}</h2>
           <form onSubmit={handleCreateUser} className="space-y-3">
             <div className="grid grid-cols-2 gap-3">
               <div>
@@ -286,7 +311,7 @@ export default function UserManagementPage() {
                   className="w-full p-2.5 rounded-lg border bg-background text-foreground text-xs focus:ring-1 focus:ring-primary"
                 />
               </div>
-              <div>
+              {!invitationMode && <div>
                 <label className="font-bold text-muted-foreground block mb-1">
                   Initial Password <span className="font-normal text-[10px] text-muted-foreground/80">(Min. 6 chars, or leave blank to auto-generate)</span>
                 </label>
@@ -298,7 +323,7 @@ export default function UserManagementPage() {
                   placeholder="Leave blank to auto-generate"
                   className="w-full p-2.5 rounded-lg border bg-background text-foreground text-xs font-mono focus:ring-1 focus:ring-primary"
                 />
-              </div>
+              </div>}
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
@@ -309,7 +334,7 @@ export default function UserManagementPage() {
                   className="w-full p-2.5 rounded-lg border bg-background text-foreground text-xs focus:ring-1 focus:ring-primary"
                 >
                   {roles.length > 0 ? (
-                    roles.map((r: any) => (
+                    roles.filter((r: any) => !invitationMode || ['AGENT', 'BACK_OFFICE'].includes(String(r.code || r.type || r.roleName).toUpperCase())).map((r: any) => (
                       <option key={r.code || r.roleId || r.id} value={r.code || r.type || r.roleName}>
                         {r.name || r.roleName || r.displayName || r.code}
                       </option>
@@ -365,7 +390,7 @@ export default function UserManagementPage() {
                 className="px-4 py-2 rounded-lg bg-primary text-primary-foreground font-bold hover:bg-primary/90 shadow flex items-center space-x-1"
               >
                 {isSubmitting && <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />}
-                <span>{isSubmitting ? 'Provisioning...' : 'Provision User'}</span>
+                <span>{isSubmitting ? (invitationMode ? 'Sending invitation...' : 'Provisioning...') : (invitationMode ? 'Send 72-hour invitation' : 'Provision User')}</span>
               </button>
             </div>
           </form>
