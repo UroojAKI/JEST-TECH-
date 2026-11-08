@@ -33,6 +33,7 @@ describe('End-to-End Agent Journey: Lead -> Contact -> Quote -> Payment -> Polic
   let createdQuotationId: string;
   let createdPolicyId: string;
   let createdPosPartnerId: string;
+  let createdInsurerId: string | undefined;
 
   // E2E test-only tariff fixture ID - deleted in afterAll.
   // This is NOT a production tariff and must never be seeded to any production database.
@@ -197,6 +198,9 @@ describe('End-to-End Agent Journey: Lead -> Contact -> Quote -> Payment -> Polic
     if (createdPosPartnerId) {
       await prisma.posInsurerMapping.deleteMany({ where: { posPartnerId: createdPosPartnerId } });
       await prisma.posPartner.deleteMany({ where: { id: createdPosPartnerId } });
+    }
+    if (createdInsurerId) {
+      await prisma.insurer.delete({ where: { id: createdInsurerId } }).catch(() => {});
     }
     if (createdQuotationId) {
       await prisma.proposal.deleteMany({
@@ -374,14 +378,17 @@ describe('End-to-End Agent Journey: Lead -> Contact -> Quote -> Payment -> Polic
     // DEC-02/DEC-03: policy issuance requires an active POS partner mapped to
     // the same insurer. This is a test-only partner, not production data.
     const insurerName = 'HDFC ERGO General Insurance Co.';
-    const insurer = await prisma.insurer.findUnique({ where: { name: insurerName } })
-      || await prisma.insurer.create({
+    let insurer = await prisma.insurer.findUnique({ where: { name: insurerName } });
+    if (!insurer) {
+      insurer = await prisma.insurer.create({
         data: {
           name: insurerName,
           code: `E2E-HDFC-${timestamp}`,
           isActive: true,
         },
       });
+      createdInsurerId = insurer.id;
+    }
     const posPartner = await prisma.posPartner.create({
       data: {
         companyId: testCompanyId,
