@@ -82,13 +82,23 @@ export class HealthQuotationDocumentService {
         const files = uploaded.filter((u) => u.documentType === requirement.documentType);
         const status = files.some((f) => f.verificationStatus === DocumentVerificationStatus.VERIFIED)
           ? 'VERIFIED'
-          : files.length
-            ? 'UPLOADED'
-            : 'MISSING';
+          : files.some((f) => f.verificationStatus === DocumentVerificationStatus.REJECTED)
+            ? 'REJECTED'
+            : files.length
+              ? 'UPLOADED'
+              : 'MISSING';
         return { ...requirement, status, files };
       });
 
-    const missingRequired = checklist.filter((c) => c.required && c.status === 'MISSING').map((c) => c.documentType);
+    const missingRequired = checklist
+      .filter((c) => c.required && ['MISSING', 'REJECTED'].includes(c.status))
+      .map((c) => c.documentType);
+    const rejectedRequired = checklist
+      .filter((c) => c.required && c.status === 'REJECTED')
+      .map((c) => c.documentType);
+    const verificationComplete = checklist.every(
+      (c) => !c.required || c.status === 'VERIFIED',
+    );
     const quoteDocuments = uploaded.filter((u) => u.documentType === HealthDocumentType.QUOTE_DOCUMENT);
 
     return {
@@ -97,7 +107,9 @@ export class HealthQuotationDocumentService {
       planCategory: healthCase.planCategory,
       policyForm: healthCase.policyForm,
       complete: missingRequired.length === 0,
+      verificationComplete,
       missingRequired,
+      rejectedRequired,
       checklist,
       quoteDocuments,
     };
