@@ -229,8 +229,6 @@ export function PolicyFormSAODForm({ category, vehicleStatus, data, onChange, el
 
   const verification = data.tpVerification;
   const documentVerified = verification?.verificationStatus === 'VERIFIED' && verification?.verifiedByUserConfirmed;
-  const tpToday = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
-  const tpDatesValid = Boolean(verification?.tpStartDate && verification?.tpExpiryDate && /^\d{4}-\d{2}-\d{2}$/.test(verification.tpStartDate) && /^\d{4}-\d{2}-\d{2}$/.test(verification.tpExpiryDate) && verification.tpExpiryDate >= verification.tpStartDate && verification.tpStartDate <= tpToday && verification.tpExpiryDate >= tpToday);
   const tpExpired = Boolean(verification?.tpExpiryDate && verification.tpExpiryDate < tpToday);
   const isVerified = documentVerified && tpDatesValid && !tpExpired;
   const effectiveResult = result || data.calculatedResult;
