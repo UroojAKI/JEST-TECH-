@@ -49,6 +49,7 @@ interface Props {
     policyType?: PolicyType;
     caseId?: string;
     policyDetails?: any;
+    renewalOfPolicyId?: string;
   } | null;
   leadContact?: {
     name?: string;
@@ -1029,6 +1030,7 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, customerId, caseId
       const payload = {
         journeyId: journeyId || undefined,
         caseId: caseId || cloneQuoteData?.caseId || undefined,
+        renewalOfPolicyId: cloneQuoteData?.renewalOfPolicyId || undefined,
         vehicleCategory,
         policyType,
         registrationNumber: registrationNumber || '',
