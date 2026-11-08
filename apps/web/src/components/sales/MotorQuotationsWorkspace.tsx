@@ -55,6 +55,7 @@ export function MotorQuotationsWorkspace() {
     category?: VehicleCategory;
     policyType?: any;
     caseId?: string;
+    renewalOfPolicyId?: string;
   } | null>(null);
   const [inspectionQuoteId, setInspectionQuoteId] = useState<string | null>(null);
   const [proposalQuote, setProposalQuote] = useState<SavedMotorQuote | null>(null);
@@ -101,13 +102,16 @@ export function MotorQuotationsWorkspace() {
               vehicleStatus: 'EXISTING',
               idv: prefill.pricing.suggestedIdv,
             },
+            renewalOfPolicyId: prefill.policyId,
             previousPolicyDetails: {
-              policyNumber: prefill.policyNumber,
-              expiryDate: prefill.expiryDate ? new Date(prefill.expiryDate).toISOString().slice(0, 10) : '',
+              previousPolicyType: prefill.policyType === 'THIRD_PARTY_ONLY' ? 'THIRD_PARTY' : prefill.policyType === 'STANDALONE_OD' ? 'SAOD' : 'COMPREHENSIVE',
+              policyExpiryDate: prefill.expiryDate ? new Date(prefill.expiryDate).toISOString().slice(0, 10) : '',
+              expiredMoreThan90Days: Boolean(prefill.expiryDate && (Date.now() - new Date(prefill.expiryDate).getTime()) > 90 * 24 * 60 * 60 * 1000),
+              ownershipTransfer: false,
+              claimInPreviousYear: Boolean(prefill.pricing.hasClaims),
+              eligibleNcbPercentage: Number(prefill.pricing.renewalNcb ?? 0),
               previousInsurerName: prefill.insurer?.insurerName || '',
-              claimInExpiringPolicy: prefill.pricing.hasClaims,
-              ncbPercentage: prefill.pricing.previousNcb,
-              renewalNcbPercentage: prefill.pricing.renewalNcb,
+              previousPolicyNumber: prefill.policyNumber || '',
             },
           });
           setIsWizardOpen(true);
