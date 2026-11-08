@@ -42,6 +42,28 @@ export class CompareQuotationService {
       );
     }
 
+    // Comparisons must represent alternatives for the same customer requirement.
+    // Case-backed products must stay within the same persisted case; legacy/non-case
+    // quotations are restricted to the same contact and product category.
+    const first = quotationsVerify[0];
+    const allMotorCase = Boolean(first.caseId);
+    const allHealthCase = Boolean(first.healthCaseId);
+    const sameComparisonContext = quotationsVerify.every((quotation) => {
+      if (allMotorCase) return quotation.caseId === first.caseId;
+      if (allHealthCase) return quotation.healthCaseId === first.healthCaseId;
+      return (
+        !quotation.caseId &&
+        !quotation.healthCaseId &&
+        quotation.contactId === first.contactId &&
+        quotation.productType === first.productType
+      );
+    });
+    if (!sameComparisonContext) {
+      throw new BadRequestException(
+        'Only quotations belonging to the same customer and renewal/quotation case can be compared',
+      );
+    }
+
     const quotations = await Promise.all(
       ids.map(async (id) => {
         const q = await this.quotationRepository.findDetail(id);
