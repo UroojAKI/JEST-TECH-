@@ -406,7 +406,7 @@ export class BackOfficeQueueService {
         const missingRequiredHealthDocuments =
           isHealth && healthCase && this.healthDocumentRuleService
             ? this.healthDocumentRuleService
-                .getRequirements(healthCase.planCategory, healthCase.policyForm)
+                .getRequirements(healthCase.planCategory, healthCase.policyForm, (healthCase.previousPolicySnapshot as any)?.renewalType)
                 .filter(
                   (requirement) =>
                     requirement.required &&

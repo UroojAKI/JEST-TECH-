@@ -77,7 +77,7 @@ export class HealthQuotationDocumentService {
     });
 
     const checklist = this.ruleService
-      .getRequirements(healthCase.planCategory, healthCase.policyForm)
+      .getRequirements(healthCase.planCategory, healthCase.policyForm, (healthCase.previousPolicySnapshot as any)?.renewalType)
       .map((requirement) => {
         const files = uploaded.filter((u) => u.documentType === requirement.documentType);
         const status = files.some((f) => f.verificationStatus === DocumentVerificationStatus.VERIFIED)
