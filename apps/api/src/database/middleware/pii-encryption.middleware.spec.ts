@@ -33,6 +33,29 @@ describe('PII Prisma delegate wrappers', () => {
     expect(result.healthMetadata.proposerPan).toBe('ABCDE1234F');
   });
 
+  it('wraps Prisma interactive transaction delegates as well as root delegates', async () => {
+    let persisted: any;
+    const tx: any = {
+      contact: {
+        create: async (args: any) => { persisted = args.data; return args.data; },
+      },
+    };
+    const client: any = {
+      $transaction: async (operation: any) => operation(tx),
+      contact: {
+        create: async (args: any) => args.data,
+      },
+    };
+    const { installPiiEncryption } = await import('./pii-encryption.middleware');
+    installPiiEncryption(client, ['Contact']);
+
+    const result = await client.$transaction(async (transaction: any) =>
+      transaction.contact.create({ data: { panNumber: 'ABCDE1234F' } }),
+    );
+    expect(result.panNumber).toBe('ABCDE1234F');
+    expect(EncryptionUtil.isEncrypted(persisted.panNumber)).toBe(true);
+  });
+
   it('decrypts nested PII returned by read operations', async () => {
     const encryptedPan = EncryptionUtil.encrypt('ABCDE1234F');
     const delegate: any = {

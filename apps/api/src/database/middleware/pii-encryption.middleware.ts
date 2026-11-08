@@ -72,10 +72,36 @@ export function wrapPiiDelegate(delegate: any, model: string): void {
   }
 }
 
-export function installPiiEncryption(client: any, modelNames: string[]): void {
+const WRAPPED_TRANSACTION = Symbol.for('jest.pii.transaction.wrapper');
+
+function wrapModelDelegates(client: any, modelNames: string[]): void {
   for (const model of modelNames) {
     const delegateName = model.charAt(0).toLowerCase() + model.slice(1);
     const delegate = client[delegateName];
     if (delegate) wrapPiiDelegate(delegate, model);
   }
+}
+
+export function installPiiEncryption(client: any, modelNames: string[]): void {
+  if (!client || client[WRAPPED_TRANSACTION]) return;
+  wrapModelDelegates(client, modelNames);
+
+  // Prisma interactive transactions receive a separate transaction client.
+  // Wrap its delegates too; otherwise writes performed through tx.* bypass PII
+  // encryption even though ordinary prisma.* writes are protected.
+  if (typeof client.$transaction === 'function') {
+    const originalTransaction = client.$transaction.bind(client);
+    client.$transaction = (operation: any, ...options: any[]) => {
+      if (typeof operation !== 'function') {
+        // Batch transactions are composed from already-wrapped root delegates.
+        return originalTransaction(operation, ...options);
+      }
+      return originalTransaction(async (tx: any) => {
+        wrapModelDelegates(tx, modelNames);
+        return operation(tx);
+      }, ...options);
+    };
+  }
+
+  Object.defineProperty(client, WRAPPED_TRANSACTION, { value: true });
 }
