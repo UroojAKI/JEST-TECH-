@@ -42,33 +42,47 @@ export class UsersService {
     const companyId = actor?.companyId || actor?.organizationId || actor?.user?.companyId;
     if (!companyId) throw new ForbiddenException('Company context is required to invite a user');
 
-    const role = String(dto.role || '').toUpperCase();
-    if (![RoleType.AGENT, RoleType.BACK_OFFICE].includes(role as RoleType)) {
+    const requestedRole = String(dto.role || '').toUpperCase();
+    const role = requestedRole === 'AGENT' || requestedRole.includes('AGENT') || requestedRole === 'SALES'
+      ? RoleType.AGENT
+      : ['BACK_OFFICE', 'UNDERWRITER', 'FINANCE', 'CLAIMS_OFFICER', 'BRANCH_MANAGER', 'OPERATIONS'].includes(requestedRole)
+        ? RoleType.BACK_OFFICE
+        : null;
+    if (!role) {
       throw new BadRequestException('Invitations may be created only for AGENT or BACK_OFFICE roles');
     }
 
     const email = dto.email.trim().toLowerCase();
-    const existing = await this.prisma.user.findUnique({ where: { email }, select: { id: true } });
-    if (existing) throw new ConflictException('A user with this email already exists');
+    const existing = await this.prisma.user.findUnique({
+      where: { email },
+      select: { id: true, companyId: true, status: true },
+    });
+    if (existing && (existing.companyId !== companyId || existing.status !== UserStatus.PENDING_VERIFICATION)) {
+      throw new ConflictException('A user with this email already exists');
+    }
 
     if (!this.emailProvider || !process.env.FRONTEND_URL) {
       throw new ServiceUnavailableException('User invitation delivery is unavailable: configure the email provider and FRONTEND_URL');
     }
 
-    const temporaryPassword = crypto.randomBytes(48).toString('base64url');
-    const created = await this.create({
-      firstName: dto.firstName.trim(),
-      lastName: dto.lastName.trim(),
-      email,
-      phone: dto.phone,
-      role,
-      branchId: dto.branchId,
-      department: dto.departmentId,
-      employeeCode: dto.employeeCode,
-      collectContacts: dto.collectContacts,
-      password: temporaryPassword,
-      status: UserStatus.PENDING_VERIFICATION,
-    } as any, { companyId, userId: actor?.id, id: actor?.id });
+    let invitedUserId = existing?.id;
+    if (!invitedUserId) {
+      const temporaryPassword = crypto.randomBytes(48).toString('base64url');
+      const created = await this.create({
+        firstName: dto.firstName.trim(),
+        lastName: dto.lastName.trim(),
+        email,
+        phone: dto.phone,
+        role,
+        branchId: dto.branchId,
+        department: dto.departmentId,
+        employeeCode: dto.employeeCode,
+        collectContacts: dto.collectContacts,
+        password: temporaryPassword,
+        status: UserStatus.PENDING_VERIFICATION,
+      } as any, { companyId, userId: actor?.id, id: actor?.id });
+      invitedUserId = created.id;
+    }
 
     const rawToken = crypto.randomBytes(32).toString('base64url');
     const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
@@ -81,7 +95,7 @@ export class UsersService {
 
     const invitation = await this.prisma.userInvitation.create({
       data: {
-        userId: created.id,
+        userId: invitedUserId!,
         email,
         companyId,
         invitedById: actor?.id || actor?.userId || 'system',
@@ -108,7 +122,7 @@ export class UsersService {
           data: { revokedAt: new Date() },
         }),
         this.prisma.user.update({
-          where: { id: created.id },
+          where: { id: invitedUserId! },
           data: { status: UserStatus.INACTIVE },
         }),
       ]);
