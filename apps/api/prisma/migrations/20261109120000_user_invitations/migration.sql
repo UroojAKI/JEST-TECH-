@@ -12,7 +12,7 @@ CREATE TABLE "user_invitations" (
   CONSTRAINT "user_invitations_pkey" PRIMARY KEY ("id")
 );
 
-CREATE UNIQUE INDEX "user_invitations_userId_key" ON "user_invitations"("userId");
+CREATE INDEX "user_invitations_userId_idx" ON "user_invitations"("userId");
 CREATE UNIQUE INDEX "user_invitations_tokenHash_key" ON "user_invitations"("tokenHash");
 CREATE INDEX "user_invitations_companyId_email_idx" ON "user_invitations"("companyId", "email");
 CREATE INDEX "user_invitations_expiresAt_consumedAt_idx" ON "user_invitations"("expiresAt", "consumedAt");
