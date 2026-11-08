@@ -10,13 +10,20 @@ export class MinioStorageProvider implements StorageProvider, OnModuleInit {
   private readonly bucket: string;
 
   constructor(private readonly config: ConfigService) {
+    const production = this.config.get<string>('NODE_ENV') === 'production';
+    const host = this.config.get<string>('MINIO_HOST');
+    const accessKey = this.config.get<string>('MINIO_ROOT_USER');
+    const secretKey = this.config.get<string>('MINIO_ROOT_PASSWORD');
+    if (production && (!host || !accessKey || !secretKey)) {
+      throw new Error('Production object storage requires MINIO_HOST, MINIO_ROOT_USER and MINIO_ROOT_PASSWORD.');
+    }
     this.bucket = this.config.get<string>('MINIO_BUCKET', 'jest-documents');
     this.client = new Minio.Client({
-      endPoint: this.config.get<string>('MINIO_HOST', 'localhost'),
+      endPoint: host || 'localhost',
       port: this.config.get<number>('MINIO_PORT', 9000),
-      useSSL: this.config.get<string>('NODE_ENV') === 'production',
-      accessKey: this.config.get<string>('MINIO_ROOT_USER', 'minioadmin'),
-      secretKey: this.config.get<string>('MINIO_ROOT_PASSWORD', 'minioadmin'),
+      useSSL: production,
+      accessKey: accessKey || 'minioadmin',
+      secretKey: secretKey || 'minioadmin',
     });
   }
 
@@ -40,8 +47,8 @@ export class MinioStorageProvider implements StorageProvider, OnModuleInit {
         this.logger.log(`Created MinIO bucket: ${this.bucket}`);
       }
     } catch (error: any) {
-      this.logger.warn(
-        `MinIO initialization failed: ${error.message}. Falling back to local storage.`,
+      this.logger.error(
+        `MinIO initialization failed: ${error.message}. The configured storage strategy will determine whether upload failover is permitted.`,
       );
     }
   }
