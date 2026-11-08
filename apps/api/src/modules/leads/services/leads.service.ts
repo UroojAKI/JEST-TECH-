@@ -921,7 +921,7 @@ export class LeadsService {
             accountCode: lead.account.accountCode,
             name: lead.account.name,
             gstNumber: lead.account.gstNumber,
-            panNumber: lead.account.panNumber,
+            panNumber: EncryptionUtil.maskPan(lead.account.panNumber),
           }
         : null,
       vehicle: vehicle
