@@ -1262,6 +1262,8 @@ model Quotation {
   // Explicit agent-controlled handoff: quotations remain in sales until selected and submitted.
   backOfficeSubmittedAt   DateTime?
   backOfficeSubmittedById String?
+  renewalOfPolicyId       String?
+  renewalOfPolicy         Policy? @relation("PolicyRenewalQuotes", fields: [renewalOfPolicyId], references: [id], onDelete: SetNull)
 
   createdById String?
   updatedById String?
@@ -1323,6 +1325,7 @@ model Quotation {
   @@index([caseId])
   @@index([healthCaseId])
   @@index([companyId, backOfficeSubmittedAt])
+  @@index([renewalOfPolicyId])
   @@map("quotations")
 }
 
@@ -1490,6 +1493,10 @@ model Policy {
   members        PolicyMember[]
   nominees       PolicyNominee[]
   renewals       PolicyRenewal[]
+  renewalQuotes  Quotation[] @relation("PolicyRenewalQuotes")
+  renewedFromPolicyId String?
+  renewedFromPolicy Policy? @relation("PolicyRenewalLineage", fields: [renewedFromPolicyId], references: [id], onDelete: SetNull)
+  renewedPolicies Policy[] @relation("PolicyRenewalLineage")
   payments       PolicyPayment[]
   documents      PolicyDocument[]
   histories      PolicyHistory[]
