@@ -141,8 +141,12 @@ export class BackOfficeQueueService {
           : {}),
       };
 
+      // A quotation is not a back-office work item merely because it exists or
+      // has a draft/approval status. Sales must explicitly hand off the selected
+      // quotation. This keeps alternative insurer quotes in the agent workspace.
       const where: Prisma.QuotationWhereInput = {
         ...tenantFilter,
+        backOfficeSubmittedAt: { not: null },
         ...(params?.quotationId
           ? { id: params.quotationId }
           : {
@@ -186,6 +190,7 @@ export class BackOfficeQueueService {
           quotations = await this.prisma.quotation.findMany({
             where: {
               ...(actor?.companyId ? { companyId: actor.companyId } : {}),
+              backOfficeSubmittedAt: { not: null },
             },
             include: {
               contact: true,
