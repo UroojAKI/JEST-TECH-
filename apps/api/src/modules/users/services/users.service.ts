@@ -116,16 +116,12 @@ export class UsersService {
     });
 
     if (!sent.success) {
-      await this.prisma.$transaction([
-        this.prisma.userInvitation.update({
-          where: { id: invitation.id },
-          data: { revokedAt: new Date() },
-        }),
-        this.prisma.user.update({
-          where: { id: invitedUserId! },
-          data: { status: UserStatus.INACTIVE },
-        }),
-      ]);
+      await this.prisma.userInvitation.update({
+        where: { id: invitation.id },
+        data: { revokedAt: new Date() },
+      });
+      // Keep the account in PENDING_VERIFICATION so an administrator can safely
+      // resend a fresh invitation without creating a duplicate user record.
       throw new ServiceUnavailableException(sent.failureReason || 'Invitation email could not be delivered');
     }
 
