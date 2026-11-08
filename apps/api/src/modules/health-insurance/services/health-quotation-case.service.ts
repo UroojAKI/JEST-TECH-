@@ -408,6 +408,29 @@ export class HealthQuotationCaseService {
       throw new BadRequestException('waitingPeriod is required for New Policy quotes');
     }
 
+    const previousPolicySnapshot = (healthCase.previousPolicySnapshot || {}) as Record<string, any>;
+    const renewalSourcePolicyId = typeof previousPolicySnapshot.sourcePolicyId === 'string'
+      ? previousPolicySnapshot.sourcePolicyId
+      : null;
+    if (renewalSourcePolicyId && healthCase.policyForm !== HealthPolicyForm.RENEWAL_PORTABILITY) {
+      throw new BadRequestException('A predecessor policy can only be linked to a Renewal / Portability health case');
+    }
+    if (healthCase.policyForm === HealthPolicyForm.RENEWAL_PORTABILITY && renewalSourcePolicyId) {
+      const sourcePolicy = await this.prisma.policy.findFirst({
+        where: {
+          id: renewalSourcePolicyId,
+          companyId: user.companyId,
+          contactId: healthCase.contactId,
+          deletedAt: null,
+          status: { notIn: ['CANCELLED', 'DRAFT'] },
+        },
+        select: { id: true },
+      });
+      if (!sourcePolicy) {
+        throw new NotFoundException('Predecessor health policy was not found for this customer and company');
+      }
+    }
+
     const riders = dto.riders ?? [];
     if (healthCase.policyForm === HealthPolicyForm.RENEWAL_PORTABILITY && riders.length) {
       throw new BadRequestException('Renewal / Portability quotes do not carry riders (Policy Form ii)');
@@ -456,6 +479,7 @@ export class HealthQuotationCaseService {
           expiryDate,
           policyTenure: dto.policyTenureYears,
           healthCaseId: healthCase.id,
+          renewalOfPolicyId: renewalSourcePolicyId,
           healthPlanCategory: healthCase.planCategory,
           healthMetadata: {
             policyForm: healthCase.policyForm,
