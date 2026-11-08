@@ -96,21 +96,22 @@ export class UsersService {
     const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
     const expiresAt = new Date(Date.now() + 72 * 60 * 60 * 1000);
 
-    await this.prisma.userInvitation.updateMany({
-      where: { companyId, email, consumedAt: null, revokedAt: null },
-      data: { revokedAt: new Date() },
-    });
-
-    const invitation = await this.prisma.userInvitation.create({
-      data: {
-        userId: invitedUserId!,
-        email,
-        companyId,
-        invitedById: actor?.id || actor?.userId || 'system',
-        tokenHash,
-        expiresAt,
-      },
-      select: { id: true, expiresAt: true },
+    const invitation = await this.prisma.$transaction(async (tx) => {
+      await tx.userInvitation.updateMany({
+        where: { companyId, email, consumedAt: null, revokedAt: null },
+        data: { revokedAt: new Date() },
+      });
+      return tx.userInvitation.create({
+        data: {
+          userId: invitedUserId!,
+          email,
+          companyId,
+          invitedById: actor?.id || actor?.userId || 'system',
+          tokenHash,
+          expiresAt,
+        },
+        select: { id: true, expiresAt: true },
+      });
     });
 
     const activationUrl = new URL('/activate-invitation', process.env.FRONTEND_URL);
