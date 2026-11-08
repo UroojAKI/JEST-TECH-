@@ -47,6 +47,8 @@ export class QuotationMapper {
     dto.updatedById = q.updatedById;
     dto.createdAt = q.createdAt;
     dto.updatedAt = q.updatedAt;
+    dto.caseId = q.caseId;
+    dto.backOfficeSubmittedAt = q.backOfficeSubmittedAt;
     dto.vehicleCategory = q.vehicleCategory;
     dto.policyType = q.policyType;
     dto.registrationNumber = q.registrationNumber;
