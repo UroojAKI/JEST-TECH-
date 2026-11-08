@@ -37,21 +37,11 @@ export function RenewalWizardDrawer({ isOpen, policyId, onClose }: RenewalWizard
   nextExpiry.setFullYear(nextExpiry.getFullYear() + 1);
   const nextRenewalNumber = (policy?.renewals?.length || 0) + 1;
 
-  const handleRenewPolicy = async () => {
-    try {
-      setIsSubmitting(true);
-      await policiesRepository.renewPolicy(policyId, {
-        renewalNumber: nextRenewalNumber,
-        premiumAmount: authoritativePremium,
-        newExpiry: nextExpiry.toISOString(),
-      });
-      toast.success(`Policy ${policy?.policyNumber || policyId} renewed successfully!`);
-      onClose();
-    } catch (err: any) {
-      toast.error(err?.response?.data?.message || 'Failed to process policy renewal');
-    } finally {
-      setIsSubmitting(false);
-    }
+  const handleRenewPolicy = () => {
+    // Renewal must create a linked renewal quotation and pass through the
+    // existing approval/issuance lifecycle. Never extend the old policy here.
+    onClose();
+    router.push(buildRenewalUrl(policyId));
   };
 
   const steps = [
@@ -236,12 +226,12 @@ export function RenewalWizardDrawer({ isOpen, policyId, onClose }: RenewalWizard
             </button>
           ) : (
             <button
-              disabled={isSubmitting || isLoading || isError || !policy}
+              disabled={isLoading || isError || !policy}
               onClick={handleRenewPolicy}
               className="px-4 py-2 rounded-lg bg-emerald-600 text-white font-bold hover:bg-emerald-700 shadow-sm flex items-center space-x-1 disabled:opacity-40"
             >
               {isSubmitting && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
-              <span>{isSubmitting ? 'Renewing...' : 'Confirm Issue Renewal'}</span>
+              <span>Continue to Renewal Quotations</span>
             </button>
           )}
         </div>
