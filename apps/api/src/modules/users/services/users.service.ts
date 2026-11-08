@@ -557,7 +557,7 @@ export class UsersService {
       this.prisma.task.count({
         where: {
           assignedToId: id,
-          companyId,
+          assignedTo: { companyId },
           status: { in: ['PENDING', 'IN_PROGRESS'] },
           deletedAt: null,
         },
@@ -565,7 +565,7 @@ export class UsersService {
       this.prisma.task.count({
         where: {
           assignedToId: id,
-          companyId,
+          assignedTo: { companyId },
           status: { in: ['PENDING', 'IN_PROGRESS'] },
           dueDate: { lt: new Date() },
           deletedAt: null,
@@ -661,7 +661,7 @@ export class UsersService {
       this.prisma.task.findMany({
         where: {
           assignedToId: id,
-          companyId,
+          assignedTo: { companyId },
           deletedAt: null,
         },
         orderBy: { dueDate: 'asc' },
