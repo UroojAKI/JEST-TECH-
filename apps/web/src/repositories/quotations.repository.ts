@@ -47,6 +47,11 @@ export const quotationsRepository = {
     return response.data;
   },
 
+  async submitToBackOffice(id: string): Promise<any> {
+    const response = await apiClient.post(`/quotations/${id}/submit-to-back-office`);
+    return response.data;
+  },
+
   async createQuotation(data: any): Promise<QuotationItem> {
     const response = await apiClient.post('/quotations', data);
     return response.data;
