@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../../../../database/prisma.service';
+import { EncryptionUtil } from '../../../../../common/utils/encryption.util';
 
 export interface DuplicateMatch {
   entityType: 'CONTACT' | 'ACCOUNT' | 'VEHICLE' | 'LEAD';
@@ -149,7 +150,7 @@ export class DuplicateDetectionService {
     if (data.panNumber) {
       const normalizedPan = data.panNumber.trim().toUpperCase();
       const existingContact = await this.prisma.contact.findFirst({
-        where: { panNumber: normalizedPan, deletedAt: null, ...companyWhere },
+        where: { panNumberHash: EncryptionUtil.hashPan(normalizedPan), deletedAt: null, ...companyWhere },
         select: { id: true, firstName: true, lastName: true, panNumber: true },
       });
       if (existingContact) {

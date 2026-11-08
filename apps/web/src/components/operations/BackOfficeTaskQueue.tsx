@@ -267,7 +267,7 @@ export function BackOfficeTaskQueue() {
                       )}
                       {item.lead?.agent && (
                         <span className="text-[11px]">
-                          Agent: <span className="font-mono font-semibold text-foreground">{item.lead.agent.agentCode}</span>
+                          Client Agent code: <span className="font-mono font-semibold text-foreground">{item.lead.agent.agentCode || 'not registered'}</span>
                         </span>
                       )}
                     </div>

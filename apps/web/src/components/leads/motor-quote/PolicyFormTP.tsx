@@ -98,6 +98,7 @@ export function PolicyFormTPOnlyForm({ category, vehicleStatus, data, onChange, 
     editedPaPremium: data.editedPaPremium !== undefined && data.editedPaPremium !== '' && !isNaN(parseFloat(data.editedPaPremium))
       ? parseFloat(data.editedPaPremium)
       : undefined,
+    paDiscountPercent: parseFloat(data.paDiscountPercent || '0') || 0,
     ...(data.totalPremiumOverride !== undefined && data.totalPremiumOverride !== '' && !isNaN(parseFloat(data.totalPremiumOverride))
       ? { totalPremiumOverride: parseFloat(data.totalPremiumOverride) }
       : {}),
@@ -283,26 +284,43 @@ export function PolicyFormTPOnlyForm({ category, vehicleStatus, data, onChange, 
             </span>
           </label>
           {data.paCoverOwner !== false ? (
-            <div className="flex items-center gap-1.5 shrink-0">
-              <span className="text-[10px] text-muted-foreground font-semibold">PA Premium ₹:</span>
-              <input
-                type="number"
-                step="1"
-                placeholder={result?.rateConfig?.paRate?.toString() || '275'}
-                value={data.editedPaPremium ?? ''}
-                onChange={(e) => onChange({ ...data, editedPaPremium: e.target.value })}
-                className="w-20 p-1 text-xs font-bold rounded border bg-background text-foreground font-mono"
-                title="Edit Owner-Driver PA Premium ₹"
-              />
-              {data.editedPaPremium !== undefined && (
-                <button
-                  type="button"
-                  onClick={() => onChange({ ...data, editedPaPremium: undefined })}
-                  className="text-[10px] font-semibold text-muted-foreground hover:text-foreground underline"
-                >
-                  Reset
-                </button>
-              )}
+            <div className="flex flex-wrap items-center gap-3 shrink-0">
+              <div className="flex items-center gap-1.5">
+                <span className="text-[10px] text-muted-foreground font-semibold">PA Premium ₹:</span>
+                <input
+                  type="number"
+                  step="1"
+                  placeholder={result?.rateConfig?.paRate?.toString() || '275'}
+                  value={data.editedPaPremium ?? ''}
+                  onChange={(e) => onChange({ ...data, editedPaPremium: e.target.value })}
+                  className="w-20 p-1 text-xs font-bold rounded border bg-background text-foreground font-mono"
+                  title="Edit Owner-Driver PA Premium ₹"
+                />
+                {data.editedPaPremium !== undefined && (
+                  <button
+                    type="button"
+                    onClick={() => onChange({ ...data, editedPaPremium: undefined })}
+                    className="text-[10px] font-semibold text-muted-foreground hover:text-foreground underline"
+                  >
+                    Reset
+                  </button>
+                )}
+              </div>
+              <div className="flex items-center gap-1">
+                <span className="text-[10px] text-muted-foreground font-semibold">PA Discount:</span>
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="0.01"
+                  placeholder="PA %"
+                  value={data.paDiscountPercent ?? ''}
+                  onChange={(e) => onChange({ ...data, paDiscountPercent: e.target.value })}
+                  className="w-16 p-1 text-xs font-bold rounded border bg-background text-foreground font-mono"
+                  title="Compulsory PA Discount %"
+                />
+                <span className="text-xs font-bold text-muted-foreground">%</span>
+              </div>
             </div>
           ) : (
             <span className="text-[10px] font-bold text-muted-foreground bg-muted/40 px-2 py-0.5 rounded">
@@ -493,6 +511,8 @@ export function PolicyFormTPOnlyForm({ category, vehicleStatus, data, onChange, 
         const tpGstRateNum = Number(tpGstBreakdown?.tp?.ratePercent ?? (data.tpGstRate || data.gstRate || 18));
         const tpGstAmount = Number(tpGstBreakdown?.tp?.amount ?? tpOutputs?.gstOnTp ?? 0);
         const paAmount = Number(tpOutputs?.pa?.premium ?? tpOutputs?.paPremium ?? 0);
+        const paDiscountAmount = Number(tpOutputs?.pa?.discount ?? tpOutputs?.paDiscountAmount ?? 0);
+        const paNet = Math.max(0, paAmount - paDiscountAmount);
         const paGstAmount = Number(tpGstBreakdown?.pa?.amount ?? tpOutputs?.gstOnPa ?? 0);
         const driverAmount = Number(tpOutputs?.paidDriver?.premium ?? tpOutputs?.paidDriverPremium ?? 0);
         const driverGstAmount = Number(tpGstBreakdown?.paidDriver?.amount ?? tpOutputs?.gstOnPaidDriver ?? 0);
@@ -588,12 +608,12 @@ export function PolicyFormTPOnlyForm({ category, vehicleStatus, data, onChange, 
                   )}
                 </span>
                 <div className="text-base font-extrabold text-foreground font-mono">
-                  ₹{paAmount.toLocaleString('en-IN')}
+                  ₹{paNet.toLocaleString('en-IN')}
                 </div>
                 <div className="text-[10px] text-muted-foreground">
                   {data.paCoverOwner === false
                     ? 'Waived / Opted Out (Valid PA cover held elsewhere)'
-                    : `Statutory PA Rate: ₹${Number(result?.rateConfig?.paRate ?? 275).toLocaleString('en-IN')}${data.editedPaPremium ? ` (Quoted: ₹${data.editedPaPremium})` : ''}`}
+                    : `Statutory PA Rate: ₹${Number(result?.rateConfig?.paRate ?? 275).toLocaleString('en-IN')}${data.editedPaPremium ? ` (Quoted: ₹${data.editedPaPremium})` : ''}${paDiscountAmount > 0 ? ` (Disc: -₹${paDiscountAmount.toLocaleString('en-IN')})` : ''}`}
                 </div>
                 <div className="text-[10px] font-bold text-primary pt-1 border-t">
                   PA Tax: ₹{paGstAmount.toLocaleString('en-IN')}

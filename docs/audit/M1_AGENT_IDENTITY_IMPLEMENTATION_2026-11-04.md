@@ -70,4 +70,8 @@ The script groups legacy Contact and MotorQuotation identifier strings by compan
 4. Resolve the web production-build `EPERM` environment issue and rerun the build.
 5. M4–M5 Agent 360 and subsequent BI/Action Centre work are not included in this checkpoint. The implementation plan requires review of M1–M3 before that gate; no Agent 360 or BI scope has been started here.
 
-**Checkpoint:** M1–M3 source work is ready for review, with database validation and historical mapping explicitly outstanding. No migration has been applied, no backfill has run, and no commit or push has been made.
+## Client-owned Agent codes
+
+New Agent profiles no longer receive generated `AGT-…` values. `Agent.id` remains the internal database key; verified client-owned codes from `AgentExternalCode` are the business-facing values shown and carried with assignments. The legacy `Agent.agentCode` column is nullable and retained only for old-record compatibility. Existing values were not cleared or migrated. The additive migration `20261104140000_client_owned_agent_codes` must be applied in the target database before the nullable schema change can be deployed.
+
+**Checkpoint:** M1–M3 source work was ready for review, with database validation and historical mapping explicitly outstanding. No migration has been applied and no backfill has run. The client-owned code follow-up is recorded above.

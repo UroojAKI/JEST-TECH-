@@ -48,7 +48,18 @@ export class MotorQuotationsService {
     const [lead, vehicle] = await Promise.all([
       this.prisma.lead.findUnique({
         where: { id: dto.leadId },
-        include: { agent: true },
+        include: {
+          agentExternalCode: { select: { id: true, externalCode: true } },
+          agent: {
+            include: {
+              externalCodes: {
+                where: { status: 'ACTIVE', verificationStatus: 'VERIFIED' },
+                orderBy: [{ isPrimary: 'desc' }, { codeSystem: 'asc' }],
+                select: { externalCode: true },
+              },
+            },
+          },
+        },
       }),
       this.prisma.vehicle.findUnique({
         where: { id: dto.vehicleId },
@@ -64,15 +75,25 @@ export class MotorQuotationsService {
 
     // 2. Resolve Agent and Snapshot
     let agentId = lead.agentId;
-    let agentCodeSnapshot: string | null = lead.agent?.agentCode || null;
+    let agentExternalCodeId = lead.agentExternalCodeId;
+    let agentCodeSnapshot: string | null =
+      lead.agentExternalCode?.externalCode || lead.agent?.externalCodes?.[0]?.externalCode || null;
 
     if (user.role === RoleType.AGENT) {
       const agentProfile = await this.prisma.agent.findUnique({
         where: { userId: user.id },
+        include: {
+          externalCodes: {
+            where: { status: 'ACTIVE', verificationStatus: 'VERIFIED' },
+            orderBy: [{ isPrimary: 'desc' }, { codeSystem: 'asc' }],
+            select: { id: true, externalCode: true },
+          },
+        },
       });
       if (agentProfile) {
         agentId = agentProfile.id;
-        agentCodeSnapshot = agentProfile.agentCode;
+        agentCodeSnapshot = agentProfile.externalCodes?.[0]?.externalCode || null;
+        agentExternalCodeId = agentProfile.externalCodes?.[0]?.id || null;
       }
     }
 
@@ -104,6 +125,7 @@ export class MotorQuotationsService {
         vehicleId: dto.vehicleId,
         customerId,
         agentId,
+        agentExternalCodeId,
         agentCodeSnapshot,
         insurerName: dto.insurerName,
         planName: dto.planName || null,
@@ -248,6 +270,7 @@ export class MotorQuotationsService {
               phone: true,
             },
           },
+          agentExternalCode: { select: { externalCode: true } },
         },
       }),
       this.prisma.quotation.count({ where: quotationWhere }),
@@ -255,6 +278,7 @@ export class MotorQuotationsService {
 
     const mapped = canonicalQuotes.map((q) => {
       const snap = (q.calculationSnapshot as any)?.pricing || {};
+      const legacyAgentCode = (q.motorMetadata as any)?.agentCodeSnapshot;
       return {
         id: q.id,
         quotationNumber: q.quotationCode,
@@ -262,7 +286,10 @@ export class MotorQuotationsService {
         vehicleId: q.vehicleId || '',
         customerId: q.contactId,
         agentId: q.agentId,
-        agentCodeSnapshot: (q.motorMetadata as any)?.agentCodeSnapshot || null,
+        agentCodeSnapshot: q.agentExternalCode?.externalCode ||
+          (typeof legacyAgentCode === 'string' && !legacyAgentCode.startsWith('AGT-')
+            ? legacyAgentCode
+            : null),
         insurerName: snap.insurerName || q.insurerName || 'Authoritative Insurer',
         planName: (q.motorMetadata as any)?.planName || null,
         policyType: q.policyType || 'COMPREHENSIVE',
@@ -332,7 +359,16 @@ export class MotorQuotationsService {
         lead: true,
         vehicle: true,
         contact: true,
-        agent: true,
+        agent: {
+          include: {
+            externalCodes: {
+              where: { status: 'ACTIVE', verificationStatus: 'VERIFIED' },
+              orderBy: [{ isPrimary: 'desc' }, { codeSystem: 'asc' }],
+              select: { id: true, externalCode: true, codeSystem: true, isPrimary: true },
+            },
+          },
+        },
+        agentExternalCode: { select: { externalCode: true } },
         policy: true,
         proposal: true,
       },
@@ -374,7 +410,13 @@ export class MotorQuotationsService {
         vehicle: canonicalQuote.vehicle,
         lead: canonicalQuote.lead,
         customer: canonicalQuote.contact,
-        agent: canonicalQuote.agent,
+        agent: canonicalQuote.agent
+          ? {
+              ...canonicalQuote.agent,
+              agentCode: canonicalQuote.agentExternalCode?.externalCode || canonicalQuote.agent.externalCodes[0]?.externalCode || null,
+            }
+          : null,
+        agentCodeSnapshot: canonicalQuote.agentExternalCode?.externalCode || null,
         policy: canonicalQuote.policy,
         categoryConfig,
         createdAt: canonicalQuote.createdAt.toISOString(),
@@ -388,7 +430,16 @@ export class MotorQuotationsService {
         lead: true,
         vehicle: true,
         customer: true,
-        agent: true,
+        agent: {
+          include: {
+            externalCodes: {
+              where: { status: 'ACTIVE', verificationStatus: 'VERIFIED' },
+              orderBy: [{ isPrimary: 'desc' }, { codeSystem: 'asc' }],
+              select: { id: true, externalCode: true, codeSystem: true, isPrimary: true },
+            },
+          },
+        },
+        agentExternalCode: { select: { externalCode: true } },
         policy: true,
         backOfficeTasks: true,
         inspections: true,
@@ -416,6 +467,14 @@ export class MotorQuotationsService {
 
     return {
       ...quotation,
+      agent: quotation.agent
+        ? { ...quotation.agent, agentCode: quotation.agent.externalCodes[0]?.externalCode || null }
+        : null,
+      agentCodeSnapshot:
+        quotation.agentExternalCode?.externalCode ||
+        (typeof quotation.agentCodeSnapshot === 'string' && !quotation.agentCodeSnapshot.startsWith('AGT-')
+          ? quotation.agentCodeSnapshot
+          : null),
       categoryConfig,
     };
   }

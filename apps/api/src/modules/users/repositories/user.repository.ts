@@ -35,7 +35,22 @@ const userIncludeClause = {
   department: true,
   team: true,
   jobRole: true,
-};
+  agentProfile: {
+    include: {
+      externalCodes: {
+        where: { status: 'ACTIVE' },
+        orderBy: [{ isPrimary: 'desc' }, { codeSystem: 'asc' }],
+        select: {
+          id: true,
+          externalCode: true,
+          codeSystem: true,
+          verificationStatus: true,
+          isPrimary: true,
+        },
+      },
+    },
+  },
+} satisfies Prisma.UserInclude;
 
 const userWithRole = Prisma.validator<Prisma.UserDefaultArgs>()({
   include: userIncludeClause,
@@ -47,8 +62,8 @@ export type UserWithRole = Prisma.UserGetPayload<typeof userWithRole>;
 export class UserRepository {
   constructor(private readonly prisma: PrismaService) {}
 
-  create(data: Prisma.UserCreateInput): Promise<UserWithRole> {
-    return this.prisma.user.create({
+  create(data: Prisma.UserCreateInput, client: Prisma.TransactionClient = this.prisma): Promise<UserWithRole> {
+    return client.user.create({
       data,
       include: userIncludeClause,
     });
@@ -74,8 +89,8 @@ export class UserRepository {
     });
   }
 
-  async findById(id: string): Promise<UserWithRole | null> {
-    return this.prisma.user.findUnique({
+  async findById(id: string, client: Prisma.TransactionClient = this.prisma): Promise<UserWithRole | null> {
+    return client.user.findUnique({
       where: { id },
       include: userIncludeClause,
     });

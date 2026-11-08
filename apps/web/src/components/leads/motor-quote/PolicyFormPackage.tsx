@@ -112,6 +112,7 @@ export function PolicyFormPackageForm({ category, vehicleStatus, data, onChange,
     discountReason: data.discountReason || undefined,
     odDiscountPercent: parseFloat(data.odDiscountPercent || '0') || 0,
     tpDiscountPercent: parseFloat(data.tpDiscountPercent || '0') || 0,
+    paDiscountPercent: parseFloat(data.paDiscountPercent || '0') || 0,
     gstRate: data.gstRate ? parseInt(data.gstRate) : 18,
     odGstRate: data.odGstRate ? parseInt(data.odGstRate) : (data.gstRate ? parseInt(data.gstRate) : 18),
     tpGstRate: data.tpGstRate ? parseInt(data.tpGstRate) : (data.gstRate ? parseInt(data.gstRate) : 18),
@@ -243,8 +244,9 @@ export function PolicyFormPackageForm({ category, vehicleStatus, data, onChange,
   const payableBase = outputs.summary?.payableBase ?? payableSummary.payableBase ?? (grossBase + gstAmt);
   const odDiscountAmount = outputs.od?.discount ?? outputs.od?.specialDiscount ?? outputs.odDiscountAmount ?? outputs.specialDiscount ?? 0;
   const tpDiscountAmount = outputs.tp?.discount ?? outputs.tpDiscountAmount ?? 0;
+  const paDiscountAmount = outputs.pa?.discount ?? outputs.paDiscountAmount ?? (data.paDiscountPercent ? Math.round((Number(outputs.pa?.premium ?? data.editedPaPremium ?? 275) * parseFloat(data.paDiscountPercent) / 100) * 100) / 100 : 0);
   const commDiscount = outputs.summary?.commercialDiscountAmount ?? outputs.commercialDiscountAmount ?? payableSummary.commercialDiscount?.amount ?? 0;
-  const totalDiscount = outputs.summary?.totalDiscount ?? outputs.totalDiscount ?? (odDiscountAmount + tpDiscountAmount + commDiscount);
+  const totalDiscount = outputs.summary?.totalDiscount ?? outputs.totalDiscount ?? (odDiscountAmount + tpDiscountAmount + paDiscountAmount + commDiscount);
   const itemizedAddons: any[] = Array.isArray(outputs.itemizedAddons) ? outputs.itemizedAddons : [];
   const finalPayable = hasValidCalculation
     ? Number(outputs.summary?.finalPayable ?? outputs.finalPayableAmount ?? outputs.totalPremium ??
@@ -583,7 +585,7 @@ export function PolicyFormPackageForm({ category, vehicleStatus, data, onChange,
             </div>
 
             {data.paCoverOwner !== false && (
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs pt-1">
+              <div className="grid grid-cols-1 sm:grid-cols-4 gap-2 text-xs pt-1">
                 <div className="p-2.5 rounded-lg bg-card border space-y-1">
                   <span className="text-[9px] text-muted-foreground block font-bold">PA Base Premium</span>
                   <input
@@ -596,6 +598,25 @@ export function PolicyFormPackageForm({ category, vehicleStatus, data, onChange,
                   />
                   <span className="text-[9px] text-muted-foreground block">
                     {hasValidCalculation ? 'Base: ₹' + Number(outputs.pa?.premium ?? 275).toLocaleString('en-IN') : 'Standard: ₹275'}
+                  </span>
+                </div>
+                <div className="p-2.5 rounded-lg bg-card border space-y-1">
+                  <span className="text-[9px] text-muted-foreground block font-bold">PA Discount (%)</span>
+                  <div className="flex items-center gap-1">
+                    <input
+                      type="number"
+                      min="0"
+                      max="100"
+                      step="0.01"
+                      placeholder="0"
+                      value={data.paDiscountPercent ?? ''}
+                      onChange={(e) => onChange({ ...data, paDiscountPercent: e.target.value })}
+                      className="w-full p-1 text-xs font-bold rounded border bg-background text-foreground"
+                    />
+                    <span className="text-xs font-bold text-muted-foreground">%</span>
+                  </div>
+                  <span className="text-[9px] text-amber-600 block font-semibold truncate">
+                    Amount: {hasValidCalculation && paDiscountAmount > 0 ? '-₹' + Number(paDiscountAmount).toLocaleString('en-IN') : '—'}
                   </span>
                 </div>
                 <div className="p-2.5 rounded-lg bg-card border border-primary/20 bg-primary/5 space-y-1">
@@ -617,9 +638,9 @@ export function PolicyFormPackageForm({ category, vehicleStatus, data, onChange,
                 <div className="p-2.5 rounded-lg bg-card border space-y-1">
                   <span className="text-[9px] text-muted-foreground block font-bold">PA Total</span>
                   <span className="text-xs font-bold text-foreground block pt-1">
-                    {hasValidCalculation ? '₹' + Number((outputs.pa?.premium ?? 275) + (outputs.pa?.gst ?? outputs.gstOnPa ?? 0)).toLocaleString('en-IN') : '—'}
+                    {hasValidCalculation ? '₹' + Number((outputs.pa?.premium ?? 275) - paDiscountAmount + (outputs.pa?.gst ?? outputs.gstOnPa ?? 0)).toLocaleString('en-IN') : '—'}
                   </span>
-                  <span className="text-[9px] text-muted-foreground block">Premium + GST</span>
+                  <span className="text-[9px] text-muted-foreground block">Net Premium + GST</span>
                 </div>
               </div>
             )}

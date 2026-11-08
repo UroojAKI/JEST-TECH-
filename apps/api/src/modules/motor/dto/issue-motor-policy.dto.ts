@@ -1,3 +1,6 @@
+import { PolicyAddressDto } from '../../policies/dto/policy-address.dto';
+import { ValidateNested } from 'class-validator';
+import { Type } from 'class-transformer';
 import { IsNumber, IsOptional, IsString, Min } from 'class-validator';
 
 export class IssueMotorPolicyDto {
@@ -95,4 +98,26 @@ export class IssueMotorPolicyDto {
 
   @IsOptional()
   confirmPaymentReceived?: boolean;
+
+  @IsOptional()
+  @IsString()
+  posPartnerId?: string;
+
+  @IsOptional()
+  @IsString()
+  customerAddress?: string;
+
+  @IsOptional()
+  @IsString()
+  customerPincode?: string;
+
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => PolicyAddressDto)
+  address?: PolicyAddressDto;
+
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => PolicyAddressDto)
+  structuredAddress?: PolicyAddressDto;
 }

@@ -7,9 +7,7 @@ function getPiiKey(): string {
   const key = process.env.PII_ENCRYPTION_KEY;
   if (!key || key.length < 32) {
     if (process.env.NODE_ENV === 'production') {
-      throw new Error(
-        '[SECURITY] PII_ENCRYPTION_KEY environment variable is required and must be at least 32 characters in production.',
-      );
+      throw new Error('[SECURITY] PII_ENCRYPTION_KEY environment variable is required and must be at least 32 characters in production.');
     }
     return DEFAULT_TEST_KEY;
   }
@@ -20,10 +18,13 @@ const IV_LENGTH = 12;
 const SALT_LENGTH = 16;
 
 export class EncryptionUtil {
-  /**
-   * Encrypts sensitive PII string using AES-256-GCM with dynamic salt.
-   * Fails closed: throws Error on failure (F-026).
-   */
+  static isEncrypted(value: string | null | undefined): boolean {
+    if (!value) return false;
+    const parts = value.split(':');
+    if (parts.length === 4) return /^[0-9a-f]{32}$/i.test(parts[0]) && /^[0-9a-f]{24}$/i.test(parts[1]) && /^[0-9a-f]{32}$/i.test(parts[2]) && /^[0-9a-f]*$/i.test(parts[3]);
+    return parts.length === 3 && /^[0-9a-f]{24}$/i.test(parts[0]) && /^[0-9a-f]{32}$/i.test(parts[1]) && /^[0-9a-f]*$/i.test(parts[2]);
+  }
+
   static encrypt(text: string): string {
     if (!text) return text;
     try {
@@ -40,65 +41,54 @@ export class EncryptionUtil {
     }
   }
 
-  /**
-   * Decrypts sensitive PII string with backwards compatibility for 4-part
-   * dynamic-salt and legacy 3-part ciphertexts.
-   */
-  static decrypt(encryptedText: string): string {
-    if (!encryptedText || !encryptedText.includes(':')) return encryptedText;
-    const parts = encryptedText.split(':');
+  static encryptIfNeeded(value: string | null | undefined): string | null | undefined {
+    if (value === null || value === undefined || value === '') return value;
+    return this.isEncrypted(value) ? value : this.encrypt(value);
+  }
+
+  static decrypt(value: string): string {
+    if (!value || !this.isEncrypted(value)) return value;
+    const parts = value.split(':');
     try {
-      let salt: Buffer;
-      let iv: Buffer;
-      let authTag: Buffer;
-      let encrypted: string;
-
-      if (parts.length === 4) {
-        salt = Buffer.from(parts[0], 'hex');
-        iv = Buffer.from(parts[1], 'hex');
-        authTag = Buffer.from(parts[2], 'hex');
-        encrypted = parts[3];
-      } else if (parts.length === 3) {
-        salt = Buffer.from('salt');
-        iv = Buffer.from(parts[0], 'hex');
-        authTag = Buffer.from(parts[1], 'hex');
-        encrypted = parts[2];
-      } else {
-        return encryptedText;
-      }
-
+      const legacy = parts.length === 3;
+      const salt = legacy ? Buffer.from('salt') : Buffer.from(parts[0], 'hex');
+      const iv = Buffer.from(legacy ? parts[0] : parts[1], 'hex');
+      const authTag = Buffer.from(legacy ? parts[1] : parts[2], 'hex');
+      const encrypted = legacy ? parts[2] : parts[3];
       const key = crypto.scryptSync(getPiiKey(), salt, 32);
       const decipher = crypto.createDecipheriv(ALGORITHM, key, iv);
       decipher.setAuthTag(authTag);
-      let decrypted = decipher.update(encrypted, 'hex', 'utf8');
-      decrypted += decipher.final('utf8');
-      return decrypted;
-    } catch {
-      return encryptedText;
+      let plain = decipher.update(encrypted, 'hex', 'utf8');
+      plain += decipher.final('utf8');
+      return plain;
+    } catch (e: any) {
+      throw new Error(`[SECURITY] PII decryption failed; verify PII_ENCRYPTION_KEY and ciphertext integrity: ${e.message}`);
     }
   }
 
-  /**
-   * Masks Aadhaar number to expose only last 4 digits (e.g. XXXX-XXXX-9012)
-   */
-  static maskAadhaar(aadhaar: string | null | undefined): string | null {
-    if (!aadhaar) return null;
-    const clean = aadhaar.replace(/\D/g, '');
-    if (clean.length < 4) return 'XXXX-XXXX-XXXX';
-    const last4 = clean.slice(-4);
-    return `XXXX-XXXX-${last4}`;
+  static decryptIfEncrypted(value: string | null | undefined): string | null | undefined {
+    if (value === null || value === undefined || value === '') return value;
+    return this.isEncrypted(value) ? this.decrypt(value) : value;
   }
 
-  /**
-   * Masks PAN number to expose only last 4 chars (e.g. XXXXX1234F)
-   */
-  static maskPan(pan: string | null | undefined): string | null {
-    if (!pan) return null;
-    const clean = pan.trim().toUpperCase();
+  static hashPan(value: string | null | undefined): string | null {
+    if (!value) return null;
+    const normalized = String(this.decryptIfEncrypted(value)).trim().toUpperCase();
+    const key = crypto.createHmac('sha256', getPiiKey()).update('jest:pan-index:v1').digest();
+    return crypto.createHmac('sha256', key).update(normalized).digest('hex');
+  }
+
+  static maskAadhaar(value: string | null | undefined): string | null {
+    if (!value) return null;
+    const clean = String(this.decryptIfEncrypted(value)).replace(/\\D/g, '');
+    if (clean.length < 4) return 'XXXX-XXXX-XXXX';
+    return `XXXX-XXXX-${clean.slice(-4)}`;
+  }
+
+  static maskPan(value: string | null | undefined): string | null {
+    if (!value) return null;
+    const clean = String(this.decryptIfEncrypted(value)).trim().toUpperCase();
     if (clean.length < 10) return 'XXXXX-XXXX';
-    const first5Masked = 'XXXXX';
-    const middle4 = clean.slice(5, 9);
-    const lastChar = clean.slice(9);
-    return `${first5Masked}${middle4}${lastChar}`;
+    return `XXXXX${clean.slice(5, 9)}${clean.slice(9)}`;
   }
 }

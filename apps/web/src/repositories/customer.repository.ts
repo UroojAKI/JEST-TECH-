@@ -86,8 +86,13 @@ export interface DuplicateCheckResult {
 export const customerRepository = {
   // ── First-Class Customer Entity APIs ──
   async getCustomers(params?: PaginationParams & { isVip?: boolean; mobile?: string; email?: string }): Promise<PaginatedResult<Customer>> {
-    const response = await apiClient.get('/customers', { params });
-    return response.data;
+    try {
+      const response = await apiClient.get('/customers', { params });
+      return response.data;
+    } catch (err) {
+      console.warn('Failed to fetch customers:', err);
+      return { data: [], items: [], meta: { page: 1, limit: params?.limit || 25, total: 0, totalPages: 0 } } as any;
+    }
   },
 
   async getCustomerById(id: string): Promise<Customer> {

@@ -136,8 +136,24 @@ export const policiesRepository = {
   },
 
   async getBackOfficeQueue(params?: { search?: string; status?: string }): Promise<any> {
-    const response = await apiClient.get('/back-office/queue', { params });
-    return response.data;
+    try {
+      const response = await apiClient.get('/back-office/queue', { params });
+      return response.data;
+    } catch (err: any) {
+      console.warn('policiesRepository.getBackOfficeQueue request failed:', err?.message || err);
+      if (err?.response?.status === 500) {
+        return {
+          data: [],
+          summary: {
+            totalPending: 0,
+            readyCount: 0,
+            blockedCount: 0,
+            issuedCount: 0,
+          },
+        };
+      }
+      throw err;
+    }
   },
 
   async issueFromQueue(quotationId: string, data?: any): Promise<any> {

@@ -83,7 +83,11 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         agentProfile: {
           select: {
             id: true,
-            agentCode: true,
+            externalCodes: {
+              where: { status: 'ACTIVE', verificationStatus: 'VERIFIED' },
+              orderBy: [{ isPrimary: 'desc' }, { codeSystem: 'asc' }],
+              select: { externalCode: true },
+            },
           },
         },
         branch: {
@@ -161,7 +165,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       organizationId: companyId,
       companyId,
       agentId: user.agentProfile?.id || undefined,
-      agentCode: user.agentProfile?.agentCode || undefined,
+      agentCode: user.agentProfile?.externalCodes[0]?.externalCode || undefined,
       branchId: user.branchId || undefined,
       branchCode: user.branch?.code || undefined,
       departmentId: user.departmentId || undefined,

@@ -69,6 +69,23 @@ describe('UsersService', () => {
       user: {
         findUnique: jest.fn(),
       },
+      $transaction: jest.fn(async (operation: any) => operation({ agent: { create: jest.fn() } })),
+      company: {
+        findFirst: jest.fn().mockResolvedValue({ id: 'company-uuid-1' }),
+      },
+      role: {
+        findFirst: jest.fn(),
+        create: jest.fn(),
+      },
+      branch: {
+        findFirst: jest.fn(),
+      },
+      department: {
+        findFirst: jest.fn(),
+      },
+      agent: {
+        create: jest.fn(),
+      },
       lead: {
         count: jest.fn().mockResolvedValue(5),
       },
@@ -77,9 +94,49 @@ describe('UsersService', () => {
       },
       customer: {
         count: jest.fn().mockResolvedValue(8),
+        findMany: jest.fn().mockResolvedValue([
+          {
+            id: 'cust-1',
+            customerCode: 'CUST-001',
+            name: 'Acme Corp',
+            phone: '9876543210',
+            email: 'info@acme.com',
+            policies: [{ id: 'pol-1', premiumAmount: 50000, actualPremium: 50000 }],
+            createdAt: new Date(),
+          },
+        ]),
+      },
+      claim: {
+        findMany: jest.fn().mockResolvedValue([
+          {
+            id: 'claim-1',
+            claimNumber: 'CLM-001',
+            claimAmount: 15000,
+            settledAmount: 12000,
+            status: 'APPROVED',
+            policy: { policyNumber: 'POL-001' },
+            contact: { firstName: 'Alice', lastName: 'Smith', phone: '9876543211' },
+            createdAt: new Date(),
+          },
+        ]),
       },
       policy: {
         count: jest.fn().mockResolvedValue(12),
+        findMany: jest.fn().mockResolvedValue([
+          {
+            id: 'pol-1',
+            policyNumber: 'POL-001',
+            actualPolicyNumber: 'POL-001',
+            premiumAmount: 50000,
+            actualPremium: 50000,
+            status: 'ACTIVE',
+            effectiveDate: new Date(),
+            expiryDate: new Date(Date.now() + 20 * 24 * 60 * 60 * 1000),
+            createdAt: new Date(),
+            contact: { firstName: 'Alice', lastName: 'Smith', phone: '9876543211' },
+            quotation: { insurerName: 'HDFC ERGO', productType: 'MOTOR' },
+          },
+        ]),
       },
       task: {
         count: jest.fn().mockResolvedValue(3),
@@ -110,7 +167,9 @@ describe('UsersService', () => {
     };
 
     userRepository = {
-      findById: jest.fn(),
+      findById: jest.fn().mockResolvedValue(mockUser),
+      findRoleByType: jest.fn().mockResolvedValue({ id: 'role-agent' }),
+      create: jest.fn().mockResolvedValue(mockUser),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -122,6 +181,62 @@ describe('UsersService', () => {
     }).compile();
 
     service = module.get<UsersService>(UsersService);
+  });
+
+  describe('create tenant hierarchy validation', () => {
+    it('rolls back Agent user creation when Agent profile provisioning fails', async () => {
+      prisma.branch.findFirst.mockResolvedValue({ id: '11111111-1111-4111-8111-111111111111' });
+      const profileError = new Error('Agent profile insert failed');
+      const tx = { agent: { create: jest.fn().mockRejectedValue(profileError) } };
+      prisma.$transaction.mockImplementation(async (operation: any) => operation(tx));
+
+      await expect(
+        service.create(
+          {
+            firstName: 'New',
+            lastName: 'Agent',
+            email: 'new.agent@example.com',
+            password: 'SafePassword123!',
+            role: 'AGENT',
+            employeeCode: 'EMP-009998',
+            branchId: '11111111-1111-4111-8111-111111111111',
+          } as any,
+          { userId: 'admin-1', companyId: 'company-uuid-1', role: 'ADMIN' },
+        ),
+      ).rejects.toThrow('Agent profile insert failed');
+
+      expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+      expect(userRepository.create).toHaveBeenCalled();
+      expect(tx.agent.create).toHaveBeenCalled();
+    });
+
+    it('rejects a branch that does not belong to the actor company before creating a user', async () => {
+      prisma.branch.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.create(
+          {
+            firstName: 'New',
+            lastName: 'Agent',
+            email: 'new.agent@example.com',
+            password: 'SafePassword123!',
+            role: 'AGENT',
+            employeeCode: 'EMP-009999',
+            branchId: '11111111-1111-4111-8111-111111111111',
+          } as any,
+          { userId: 'admin-1', companyId: 'company-uuid-1', role: 'ADMIN' },
+        ),
+      ).rejects.toThrow(ForbiddenException);
+
+      expect(prisma.branch.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            zone: { region: { company: { id: 'company-uuid-1' } } },
+          }),
+        }),
+      );
+      expect(userRepository.create).not.toHaveBeenCalled();
+    });
   });
 
   describe('getUserWorkspace', () => {
@@ -156,11 +271,18 @@ describe('UsersService', () => {
       expect(workspace.profile.role?.name).toBe('Agent');
       expect(workspace.profile.branch?.name).toBe('Mumbai Central');
       expect(workspace.portfolio.leadsCreated).toBe(5);
-      expect(workspace.portfolio.customersManaged).toBe(8);
+      expect(workspace.portfolio.customersManaged).toBe(10);
       expect(workspace.portfolio.policiesIssued).toBe(12);
       expect(workspace.portfolio.pendingTasks).toBe(3);
-      expect(workspace.recentActivities).toHaveLength(1);
+      expect(workspace.recentActivities).toHaveLength(3); // 1 audit + 1 policy + 1 claim operational events
       expect(workspace.recentTasks).toHaveLength(1);
+      expect(workspace.recentCustomers).toHaveLength(1);
+      expect(workspace.recentCustomers[0].name).toBe('Acme Corp');
+      expect(workspace.recentCustomers[0].totalGwp).toBe(50000);
+      expect(workspace.recentClaims).toHaveLength(1);
+      expect(workspace.recentClaims[0].claimNumber).toBe('CLM-001');
+      expect(workspace.recentRenewals).toHaveLength(1);
+      expect(workspace.recentRenewals[0].daysToExpiry).toBeGreaterThan(0);
     });
   });
   describe('getEmployeeCommissions & getEmployeeIncentives', () => {

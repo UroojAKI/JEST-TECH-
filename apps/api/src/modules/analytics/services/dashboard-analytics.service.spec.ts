@@ -197,6 +197,57 @@ describe('DashboardAnalyticsService (Iteration 13)', () => {
       expect(result[0].formattedGwp).toBe('₹60,000');
       expect(result[1].gwp).toBe(40000);
       expect(result[1].formattedGwp).toBe('₹40,000');
+      expect(result[0].policyCount).toBe(2);
+      expect(result[0].hasData).toBe(true);
+    });
+
+    it('should attribute GWP from branch contacts policies, honor actualPremium, and deduplicate', async () => {
+      const mockBranches = [
+        {
+          id: 'b1',
+          name: 'Pune West',
+          code: 'B-PUN',
+          contacts: [
+            {
+              policies: [
+                { id: 'pol-1', premiumAmount: 20000, actualPremium: 22000 },
+                { id: 'pol-2', premiumAmount: 15000, actualPremium: null },
+              ],
+            },
+          ],
+          users: [
+            {
+              policiesCreated: [
+                { id: 'pol-1', premiumAmount: 20000, actualPremium: 22000 }, // Duplicate of pol-1
+                { id: 'pol-3', premiumAmount: 10000, actualPremium: 10000 },
+              ],
+            },
+          ],
+        },
+        {
+          id: 'b2',
+          name: 'Nashik',
+          code: 'B-NSK',
+          contacts: [],
+          users: [],
+        },
+      ];
+      prisma.branch.findMany.mockResolvedValue(mockBranches);
+
+      const result = await service.getBranchGwpBreakdown('tenant-123');
+
+      expect(result).toHaveLength(2);
+      // Pune West: pol-1 (22000) + pol-2 (15000) + pol-3 (10000) = 47000 (pol-1 counted once)
+      expect(result[0].gwp).toBe(47000);
+      expect(result[0].formattedGwp).toBe('₹47,000');
+      expect(result[0].policyCount).toBe(3);
+      expect(result[0].hasData).toBe(true);
+
+      // Nashik: zero policies
+      expect(result[1].gwp).toBe(0);
+      expect(result[1].formattedGwp).toBe('₹0');
+      expect(result[1].policyCount).toBe(0);
+      expect(result[1].hasData).toBe(true);
     });
   });
 

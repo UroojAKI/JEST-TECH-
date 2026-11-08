@@ -16,7 +16,15 @@ export interface AdminDashboardMetrics {
 export interface UserItem {
   id: string;
   employeeCode: string;
-  agentCode?: string;
+  agentCode?: string | null;
+  clientCodes?: Array<{
+    id: string;
+    value: string;
+    codeSystem: string;
+    verificationStatus: string;
+    isPrimary: boolean;
+  }>;
+  agentProfile?: { id: string } | null;
   firstName: string;
   lastName: string;
   email: string;
@@ -75,7 +83,13 @@ export interface UserWorkspaceData {
     } | null;
     agentProfile?: {
       id: string;
-      agentCode: string;
+      clientCodes: Array<{
+        id: string;
+        value: string;
+        codeSystem: string;
+        verificationStatus: string;
+        isPrimary: boolean;
+      }>;
       agencyName?: string | null;
       licenseNumber?: string | null;
       commissionTier?: string | null;
@@ -154,6 +168,39 @@ export interface UserWorkspaceData {
     status: string;
     currentWorkflowStep?: string;
     estimatedPremium?: number;
+    createdAt: string;
+  }[];
+  recentCustomers?: {
+    id: string;
+    customerCode: string;
+    name: string;
+    phone?: string | null;
+    email?: string | null;
+    activePoliciesCount: number;
+    totalGwp: number;
+    createdAt: string;
+  }[];
+  recentRenewals?: {
+    id: string;
+    policyNumber: string;
+    customerName: string;
+    customerPhone?: string | null;
+    insurerName: string;
+    premiumAmount: number;
+    expiryDate: string;
+    daysToExpiry: number;
+    status: string;
+  }[];
+  recentClaims?: {
+    id: string;
+    claimNumber: string;
+    policyNumber: string;
+    customerName: string;
+    customerPhone?: string | null;
+    claimAmount: number;
+    settledAmount?: number | null;
+    status: string;
+    incidentDate?: string | null;
     createdAt: string;
   }[];
 }

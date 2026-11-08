@@ -8,6 +8,7 @@ import {
   Prisma,
 } from '@prisma/client';
 import { BadRequestException } from '@nestjs/common';
+import { HealthDocumentRuleService } from '../../../health-insurance/services/health-document-rule.service';
 
 describe('BackOfficeQueueService (G021 Multi-Gate Policy Issuance Queue)', () => {
   let service: BackOfficeQueueService;
@@ -29,6 +30,7 @@ describe('BackOfficeQueueService (G021 Multi-Gate Policy Issuance Queue)', () =>
       providers: [
         BackOfficeQueueService,
         { provide: PrismaService, useValue: mockPrisma },
+        { provide: HealthDocumentRuleService, useValue: new HealthDocumentRuleService() },
       ],
     }).compile();
 
@@ -92,6 +94,82 @@ describe('BackOfficeQueueService (G021 Multi-Gate Policy Issuance Queue)', () =>
     expect(item.gates.documents.passed).toBe(true);
     expect(item.nextAction).toBe('Ready to Issue Policy');
     expect(result.summary.readyCount).toBe(1);
+  });
+
+  it('blocks approved health quotations while any linked health document is unverified', async () => {
+    const healthQuote = {
+      ...baseQuote,
+      productType: 'HEALTH',
+      healthCaseId: 'health-case-1',
+      healthCase: {
+        planCategory: 'INDIVIDUAL',
+        policyForm: 'NEW_POLICY',
+        documents: [
+          {
+            id: 'health-doc-pending',
+            documentType: 'PROPOSAL_FORM',
+            verificationStatus: DocumentVerificationStatus.PENDING,
+          },
+          {
+            id: 'health-kyc-verified',
+            documentType: 'KYC_DOCUMENTS',
+            verificationStatus: DocumentVerificationStatus.VERIFIED,
+          },
+          {
+            id: 'health-age-verified',
+            documentType: 'AGE_PROOF',
+            verificationStatus: DocumentVerificationStatus.VERIFIED,
+          },
+          {
+            id: 'health-declaration-verified',
+            documentType: 'GOOD_HEALTH_DECLARATION',
+            verificationStatus: DocumentVerificationStatus.VERIFIED,
+          },
+        ],
+      },
+      healthDocuments: [],
+    };
+
+    mockPrisma.quotation.findMany.mockResolvedValue([healthQuote]);
+    mockPrisma.document.findMany.mockResolvedValue([]);
+
+    const result = await service.getBackOfficeQueue();
+    const item = result.data[0];
+
+    expect(item.gates.documents.passed).toBe(false);
+    expect(item.gates.documents.detail).toContain('Required health documents not verified');
+    expect(item.allGatesPassed).toBe(false);
+    expect(item.nextAction).not.toBe('Ready to Issue Policy');
+  });
+
+  it('blocks approved health quotations when a mandatory case document is missing or pending', async () => {
+    const healthQuote = {
+      ...baseQuote,
+      productType: 'HEALTH',
+      healthCaseId: 'health-case-1',
+      healthCase: {
+        planCategory: 'INDIVIDUAL',
+        policyForm: 'NEW_POLICY',
+        documents: [
+          {
+            id: 'proposal-pending',
+            documentType: 'PROPOSAL_FORM',
+            verificationStatus: DocumentVerificationStatus.PENDING,
+          },
+        ],
+      },
+      healthDocuments: [],
+    };
+
+    mockPrisma.quotation.findMany.mockResolvedValue([healthQuote]);
+    mockPrisma.document.findMany.mockResolvedValue([]);
+
+    const result = await service.getBackOfficeQueue();
+    const item = result.data[0];
+
+    expect(item.gates.documents.passed).toBe(false);
+    expect(item.gates.documents.detail).toContain('Required health documents not verified');
+    expect(item.allGatesPassed).toBe(false);
   });
 
   it('blocks issuance when vehicle inspection is required but not completed', async () => {

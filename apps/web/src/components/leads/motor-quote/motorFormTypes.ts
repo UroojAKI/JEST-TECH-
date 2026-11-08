@@ -203,6 +203,7 @@ export interface PolicyFormTPOnly {
   gstRate?: string;               // 5% vs 18% selectable GST
   editedTpPremium?: string;       // Agent editable TP premium within bounds
   editedPaPremium?: string;       // Agent editable PA premium within bounds
+  paDiscountPercent?: string;     // Compulsory PA discount percentage
   tpGstRate?: string;             // Component-specific GST rate
   paGstRate?: string;             // Component-specific GST rate
   tpPremiumOverride?: string;
@@ -331,6 +332,7 @@ export interface PolicyFormPackage {
   odPremiumAmount?: string;
   editedTpPremium?: string;       // Agent editable TP premium ₹
   editedPaPremium?: string;       // Agent editable PA premium ₹
+  paDiscountPercent?: string;     // Compulsory PA discount percentage
   editedPaidDriverPremium?: string; // Agent editable Paid Driver liability ₹
   odGstRate?: string;             // Component-specific GST rate
   tpGstRate?: string;             // Component-specific GST rate

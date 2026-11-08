@@ -11,6 +11,22 @@ import { UpdateAgentDto } from './dto/update-agent.dto';
 import { AgentQueryDto } from './dto/agent-query.dto';
 import type { RequestUser } from '../auth/decorators/current-user.decorator';
 
+const toClientIdentity = (agent: any) => {
+  const clientCodes = agent.externalCodes || [];
+  const primaryVerifiedCode = clientCodes.find(
+    (code: any) => code.isPrimary && code.verificationStatus === 'VERIFIED',
+  );
+  const verifiedCode = primaryVerifiedCode || clientCodes.find(
+    (code: any) => code.verificationStatus === 'VERIFIED',
+  );
+  return {
+    ...agent,
+    agentCode: verifiedCode?.externalCode || null,
+    agentCodeSystem: verifiedCode?.codeSystem || null,
+    clientCodes,
+  };
+};
+
 @Injectable()
 export class AgentsService {
   constructor(private readonly prisma: PrismaService) {}
@@ -34,6 +50,18 @@ export class AgentsService {
           select: {
             leads: true,
             quotations: true,
+          },
+        },
+        externalCodes: {
+          where: { status: 'ACTIVE' },
+          orderBy: [{ isPrimary: 'desc' }, { codeSystem: 'asc' }],
+          select: {
+            id: true,
+            externalCode: true,
+            codeSystem: true,
+            status: true,
+            verificationStatus: true,
+            isPrimary: true,
           },
         },
       },
@@ -66,6 +94,18 @@ export class AgentsService {
                 quotations: true,
               },
             },
+            externalCodes: {
+              where: { status: 'ACTIVE' },
+              orderBy: [{ isPrimary: 'desc' }, { codeSystem: 'asc' }],
+              select: {
+                id: true,
+                externalCode: true,
+                codeSystem: true,
+                status: true,
+                verificationStatus: true,
+                isPrimary: true,
+              },
+            },
           },
         });
       }
@@ -75,7 +115,7 @@ export class AgentsService {
       throw new NotFoundException('No agent profile found for current user');
     }
 
-    return agent;
+    return toClientIdentity(agent);
   }
 
   async autoProvisionAgent(userId: string, companyId: string) {
@@ -90,29 +130,19 @@ export class AgentsService {
     });
     if (!targetUser) return null;
 
-    const count = await this.prisma.agent.count({ where: { companyId } }).catch(() => 0);
-    let nextNum = count + 1;
-    let agentCode = `AGT-${String(nextNum).padStart(6, '0')}`;
-    while (
-      await this.prisma.agent.findFirst({ where: { companyId, agentCode } }).catch(() => null)
-    ) {
-      nextNum++;
-      agentCode = `AGT-${String(nextNum).padStart(6, '0')}`;
-    }
-
     const name =
       `${targetUser.firstName || ''} ${targetUser.lastName || ''}`.trim();
 
-    return this.prisma.agent.create({
+    const created = await this.prisma.agent.create({
       data: {
         companyId,
         userId,
-        agentCode,
-        agencyName: name ? `${name} Agency` : `Agency ${agentCode}`,
+        agencyName: name ? `${name} Agency` : 'Agency',
         commissionTier: 'STANDARD',
         isActive: true,
       },
     });
+    return toClientIdentity(created);
   }
 
   async findAll(query: AgentQueryDto, user: RequestUser) {
@@ -159,6 +189,8 @@ export class AgentsService {
     if (search) {
       where.OR = [
         { agentCode: { contains: search, mode: 'insensitive' } },
+        { externalCodes: { some: { status: 'ACTIVE', externalCode: { contains: search, mode: 'insensitive' } } } },
+        { externalCodes: { some: { status: 'ACTIVE', codeSystem: { contains: search, mode: 'insensitive' } } } },
         { agencyName: { contains: search, mode: 'insensitive' } },
         { licenseNumber: { contains: search, mode: 'insensitive' } },
         { user: { firstName: { contains: search, mode: 'insensitive' } } },
@@ -189,13 +221,25 @@ export class AgentsService {
               quotations: true,
             },
           },
+          externalCodes: {
+            where: { status: 'ACTIVE' },
+            orderBy: [{ isPrimary: 'desc' }, { codeSystem: 'asc' }],
+            select: {
+              id: true,
+              externalCode: true,
+              codeSystem: true,
+              status: true,
+              verificationStatus: true,
+              isPrimary: true,
+            },
+          },
         },
       }),
       this.prisma.agent.count({ where }),
     ]);
 
     return {
-      data: agents,
+      data: agents.map(toClientIdentity),
       meta: {
         page,
         limit,
@@ -234,6 +278,18 @@ export class AgentsService {
             quotations: true,
           },
         },
+        externalCodes: {
+          where: { status: 'ACTIVE' },
+          orderBy: [{ isPrimary: 'desc' }, { codeSystem: 'asc' }],
+          select: {
+            id: true,
+            externalCode: true,
+            codeSystem: true,
+            status: true,
+            verificationStatus: true,
+            isPrimary: true,
+          },
+        },
       },
     });
 
@@ -247,7 +303,7 @@ export class AgentsService {
       );
     }
 
-    return agent;
+    return toClientIdentity(agent);
   }
 
   async create(dto: CreateAgentDto, user: RequestUser) {
@@ -286,28 +342,15 @@ export class AgentsService {
     }
     const companyId = actorCompanyId;
 
-    // Generate company-scoped sequential agent code AGT-XXXXXX
-    const count = await this.prisma.agent.count({ where: { companyId } });
-    let nextNum = count + 1;
-    let agentCode = `AGT-${String(nextNum).padStart(6, '0')}`;
-
-    while (
-      await this.prisma.agent.findFirst({ where: { companyId, agentCode } })
-    ) {
-      nextNum++;
-      agentCode = `AGT-${String(nextNum).padStart(6, '0')}`;
-    }
-
     const name =
       `${targetUser.firstName || ''} ${targetUser.lastName || ''}`.trim();
 
-    return this.prisma.agent.create({
+    const created = await this.prisma.agent.create({
       data: {
         companyId,
         userId: targetUserId,
-        agentCode,
         agencyName:
-          dto.agencyName || (name ? `${name} Agency` : `Agency ${agentCode}`),
+          dto.agencyName || (name ? `${name} Agency` : 'Agency'),
         licenseNumber: dto.licenseNumber || null,
         commissionTier: dto.commissionTier || 'STANDARD',
         isActive: true,
@@ -324,6 +367,7 @@ export class AgentsService {
         },
       },
     });
+    return toClientIdentity(created);
   }
 
   async update(id: string, dto: UpdateAgentDto, user: RequestUser) {
@@ -346,7 +390,7 @@ export class AgentsService {
         data.commissionTier = dto.commissionTier;
     }
 
-    return this.prisma.agent.update({
+    const updated = await this.prisma.agent.update({
       where: { id },
       data,
       include: {
@@ -359,68 +403,143 @@ export class AgentsService {
             phone: true,
           },
         },
+        externalCodes: {
+          where: { status: 'ACTIVE' },
+          orderBy: [{ isPrimary: 'desc' }, { codeSystem: 'asc' }],
+          select: {
+            id: true,
+            externalCode: true,
+            codeSystem: true,
+            status: true,
+            verificationStatus: true,
+            isPrimary: true,
+          },
+        },
       },
     });
+    return toClientIdentity(updated);
   }
 
   async getAgentStats(id: string, user: RequestUser) {
     const agent = await this.findById(id, user);
 
-    const [totalLeads, convertedLeads, lostLeads, inProgressLeads, quotes] =
-      await Promise.all([
-        this.prisma.lead.count({
-          where: {
-            companyId: agent.companyId,
-            agentId: agent.id,
-            deletedAt: null,
-          },
-        }),
-        this.prisma.lead.count({
-          where: {
-            companyId: agent.companyId,
-            agentId: agent.id,
-            status: 'CONVERTED',
-            deletedAt: null,
-          },
-        }),
-        this.prisma.lead.count({
-          where: {
-            companyId: agent.companyId,
-            agentId: agent.id,
-            status: 'LOST',
-            deletedAt: null,
-          },
-        }),
-        this.prisma.lead.count({
-          where: {
-            companyId: agent.companyId,
-            agentId: agent.id,
-            status: { notIn: ['CONVERTED', 'LOST'] },
-            deletedAt: null,
-          },
-        }),
-        this.prisma.motorQuotation.findMany({
-          where: {
-            companyId: agent.companyId,
-            agentId: agent.id,
-            deletedAt: null,
-          },
-          select: {
-            status: true,
-            finalPremium: true,
-          },
-        }),
-      ]);
+    const [
+      totalLeads,
+      convertedLeads,
+      lostLeads,
+      inProgressLeads,
+      motorQuotes,
+      sharedQuotes,
+      policies,
+    ] = await Promise.all([
+      this.prisma.lead.count({
+        where: {
+          companyId: agent.companyId,
+          agentId: agent.id,
+          deletedAt: null,
+        },
+      }),
+      this.prisma.lead.count({
+        where: {
+          companyId: agent.companyId,
+          agentId: agent.id,
+          status: 'CONVERTED',
+          deletedAt: null,
+        },
+      }),
+      this.prisma.lead.count({
+        where: {
+          companyId: agent.companyId,
+          agentId: agent.id,
+          status: 'LOST',
+          deletedAt: null,
+        },
+      }),
+      this.prisma.lead.count({
+        where: {
+          companyId: agent.companyId,
+          agentId: agent.id,
+          status: { notIn: ['CONVERTED', 'LOST'] },
+          deletedAt: null,
+        },
+      }),
+      this.prisma.motorQuotation.findMany({
+        where: {
+          companyId: agent.companyId,
+          agentId: agent.id,
+          deletedAt: null,
+        },
+        select: {
+          status: true,
+          finalPremium: true,
+        },
+      }),
+      this.prisma.quotation?.findMany
+        ? this.prisma.quotation.findMany({
+            where: {
+              companyId: agent.companyId,
+              agentId: agent.id,
+              deletedAt: null,
+            },
+            select: {
+              status: true,
+              totalPremium: true,
+            },
+          })
+        : Promise.resolve<any[]>([]),
+      this.prisma.policy?.findMany
+        ? this.prisma.policy.findMany({
+            where: {
+              companyId: agent.companyId,
+              agentId: agent.id,
+              status: { in: ['ACTIVE', 'ISSUED'] },
+              deletedAt: null,
+            },
+            select: {
+              actualPremium: true,
+              premiumAmount: true,
+            },
+          })
+        : Promise.resolve<any[]>([]),
+    ]);
 
-    const totalQuotes = quotes.length;
-    const acceptedQuotes = quotes.filter((q) => q.status === 'ACCEPTED').length;
-    const totalPremium = quotes
-      .filter((q) => q.status === 'ACCEPTED')
-      .reduce((sum, q) => sum + Number(q.finalPremium), 0);
+    const acceptedMotorPremium = motorQuotes
+      .filter((q: any) => q.status === 'ACCEPTED')
+      .reduce((sum: number, q: any) => sum + Number(q.finalPremium || 0), 0);
+    const acceptedSharedPremium = ((sharedQuotes as any[]) || [])
+      .filter(
+        (q: any) =>
+          q.status === 'ACCEPTED' ||
+          q.status === 'CONVERTED_TO_POLICY' ||
+          q.status === 'APPROVED',
+      )
+      .reduce((sum: number, q: any) => sum + Number(q.totalPremium || 0), 0);
+
+    const totalQuotes = motorQuotes.length + ((sharedQuotes as any[]) || []).length;
+    const acceptedQuotes =
+      motorQuotes.filter((q: any) => q.status === 'ACCEPTED').length +
+      ((sharedQuotes as any[]) || []).filter(
+        (q: any) =>
+          q.status === 'ACCEPTED' ||
+          q.status === 'CONVERTED_TO_POLICY' ||
+          q.status === 'APPROVED',
+      ).length;
+    const totalPremium = acceptedMotorPremium + acceptedSharedPremium;
+
+    const totalIssuedGwp = ((policies as any[]) || []).reduce(
+      (sum: number, p: any) => sum + Number(p.actualPremium ?? p.premiumAmount ?? 0),
+      0,
+    );
 
     return {
       agentId: agent.id,
       agentCode: agent.agentCode,
+      clientCodes: (agent.externalCodes || []).map((code) => ({
+        value: code.externalCode,
+        codeSystem: code.codeSystem,
+        verificationStatus: code.verificationStatus,
+        isPrimary: code.isPrimary,
+      })),
       pipeline: {
         totalLeads,
         inProgressLeads,
@@ -435,6 +554,10 @@ export class AgentsService {
         totalQuotes,
         acceptedQuotes,
         totalPremium,
+      },
+      policies: {
+        activePoliciesCount: (policies || []).length,
+        totalGwp: totalIssuedGwp,
       },
     };
   }

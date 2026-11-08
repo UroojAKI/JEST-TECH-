@@ -50,8 +50,13 @@ const CATEGORY_DOCUMENTS: Record<HealthPlanCategory, HealthDocumentRequirement[]
  */
 @Injectable()
 export class HealthDocumentRuleService {
-  getRequirements(category: HealthPlanCategory, policyForm: HealthPolicyForm): HealthDocumentRequirement[] {
+  getRequirements(
+    category: HealthPlanCategory,
+    policyForm: HealthPolicyForm,
+    renewalType?: 'RENEWAL' | 'PORTABILITY',
+  ): HealthDocumentRequirement[] {
     const isRenewalOrPort = policyForm === HealthPolicyForm.RENEWAL_PORTABILITY;
+    const isPortability = isRenewalOrPort && renewalType === 'PORTABILITY';
 
     const common: HealthDocumentRequirement[] = [
       doc('PROPOSAL_FORM', 'Proposal Form (signed)'),
@@ -59,7 +64,7 @@ export class HealthDocumentRuleService {
       doc('AGE_PROOF', 'Age Proof of all Insured Members'),
       doc('MEDICAL_TEST_REPORTS', 'Pre-Policy Medical Test Reports', false, 'If pre-policy medical check-up is required'),
       doc('PREVIOUS_POLICY', 'Previous Policy Copy', isRenewalOrPort, isRenewalOrPort ? undefined : 'Renewal / portability only'),
-      doc('PORTABILITY_FORM', 'Portability Form', false, 'Port-in cases'),
+      doc('PORTABILITY_FORM', 'Portability Form', isPortability, isPortability ? undefined : 'Port-in cases only'),
       doc('GOOD_HEALTH_DECLARATION', 'Declaration of Good Health / Pre-Existing Disease Disclosure'),
     ];
 

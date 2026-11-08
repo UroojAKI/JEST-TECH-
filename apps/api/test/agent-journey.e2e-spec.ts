@@ -388,6 +388,9 @@ describe('End-to-End Agent Journey: Lead -> Contact -> Quote -> Payment -> Polic
         endDate: nextYear.toISOString(),
         nomineeName: 'Pooja Singhania',
         nomineeRelation: 'SPOUSE',
+        // The issuance contract requires an uploaded official policy schedule PDF.
+        // This E2E fixture supplies the storage key produced by the upload workflow.
+        documentFileKey: `e2e/policies/${quotation.id}/policy-schedule.pdf`,
       },
       backOfficeActor,
     );

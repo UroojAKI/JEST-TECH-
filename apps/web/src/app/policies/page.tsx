@@ -34,6 +34,9 @@ export default function PolicyRegisterPage() {
   const [productFilter, setProductFilter] = useState<'ALL' | 'MOTOR' | 'HEALTH'>('ALL');
   const [selectedPolicy, setSelectedPolicy] = useState<any | null>(null);
   const [reviewingPolicy, setReviewingPolicy] = useState<any | null>(null);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
+  const [search, setSearch] = useState('');
 
   const authUser = useAuthStore((s) => s.user);
   const userRoles = [
@@ -47,9 +50,12 @@ export default function PolicyRegisterPage() {
     ['ADMIN', 'SUPER_ADMIN', 'SYSTEM_ADMINISTRATOR', 'BACK_OFFICE', 'OPERATIONS', 'UNDERWRITER'].includes(r),
   );
 
-  const { policies, isLoading, isError, refetch } = usePolicies({
+  const { policies, total, isLoading, isError, refetch } = usePolicies({
+    page,
+    limit: pageSize,
     status: savedView !== 'ALL' ? savedView : undefined,
-  });
+    search: search.trim() || undefined,
+  } as any);
 
   const { policy: activePolicyDetail, refetch: refetchPolicyDetail } = usePolicyWorkspace(selectedPolicy?.id || '');
   const modalDocuments = activePolicyDetail?.documents || selectedPolicy?.documents || [];
@@ -396,7 +402,26 @@ export default function PolicyRegisterPage() {
       ) : isError ? (
         <div className="p-8 text-center text-xs text-red-500">Failed to load policy register from API.</div>
       ) : (
-        <EnterpriseTable data={displayedPolicies} columns={columns} />
+        <EnterpriseTable
+          data={displayedPolicies}
+          columns={columns}
+          totalRows={total}
+          pageSize={pageSize}
+          pageIndex={page - 1}
+          pageCount={Math.max(1, Math.ceil(total / pageSize))}
+          manualPagination
+          manualFiltering
+          searchValue={search}
+          onSearchChange={(val) => {
+            setSearch(val);
+            setPage(1);
+          }}
+          onPageChange={(nextPage) => setPage(nextPage + 1)}
+          onPageSizeChange={(newSize) => {
+            setPageSize(newSize);
+            setPage(1);
+          }}
+        />
       )}
 
       {/* Policy Details Modal */}

@@ -5,7 +5,7 @@ import { PrismaService } from '../../../database/prisma.service';
 import { WarehouseService } from '../../warehouse/services/warehouse.service';
 import { ForbiddenException, NotFoundException } from '@nestjs/common';
 
-describe('BiService & KpiService (Wave 7 Tenancy Isolation)', () => {
+describe('BiService & KpiService (Wave 7 Tenancy Isolation & Workstream 3 BI)', () => {
   let service: BiService;
   let kpiService: KpiService;
 
@@ -20,20 +20,161 @@ describe('BiService & KpiService (Wave 7 Tenancy Isolation)', () => {
     contact: {
       count: jest.fn().mockResolvedValue(40),
     },
-    proposal: { count: jest.fn().mockResolvedValue(15) },
+    proposal: {
+      count: jest.fn().mockResolvedValue(15),
+      findMany: jest.fn().mockResolvedValue([
+        {
+          id: 'prop-1',
+          proposalNumber: 'PROP-001',
+          status: 'PAYMENT_PENDING',
+          createdAt: new Date(),
+          quotation: { customerName: 'Rajesh Sharma', totalPremium: 25000 },
+        },
+        {
+          id: 'prop-2',
+          proposalNumber: 'PROP-002',
+          status: 'UNDERWRITING_REVIEW',
+          createdAt: new Date(),
+          quotation: { customerName: 'Anita Gupta', totalPremium: 40000 },
+        },
+      ]),
+    },
     policy: {
       count: jest.fn().mockResolvedValue(20),
+      findMany: jest.fn().mockResolvedValue([
+        {
+          productType: 'MOTOR',
+          actualPremium: 30000,
+          premiumAmount: 30000,
+          expiryDate: new Date(Date.now() + 15 * 86400000),
+        },
+        {
+          productType: 'HEALTH',
+          actualPremium: 20000,
+          premiumAmount: 20000,
+          expiryDate: new Date(Date.now() + 35 * 86400000),
+        },
+      ]),
     },
     policyPayment: {
+      count: jest.fn().mockResolvedValue(18),
       aggregate: jest.fn().mockResolvedValue({ _sum: { amount: 500000 } }),
+      findMany: jest.fn().mockResolvedValue([
+        {
+          amount: 50000,
+          paymentDate: new Date(),
+          policy: {
+            quotation: { insurerName: 'HDFC ERGO', productType: 'MOTOR' },
+            productType: 'MOTOR',
+          },
+        },
+      ]),
+    },
+    motorQuotation: {
+      count: jest.fn().mockResolvedValue(12),
+      findMany: jest.fn().mockResolvedValue([
+        {
+          id: 'mq-1',
+          quotationCode: 'MQ-001',
+          status: 'INSPECTION_PENDING',
+          customerName: 'Sanjay Verma',
+          createdAt: new Date(),
+        },
+      ]),
+    },
+    quotation: {
+      count: jest.fn().mockResolvedValue(15),
       findMany: jest.fn().mockResolvedValue([]),
     },
     claim: {
       aggregate: jest
         .fn()
         .mockResolvedValue({ _sum: { approvedAmount: 50000 } }),
+      findMany: jest.fn().mockResolvedValue([
+        {
+          approvedAmount: 50000,
+          policy: { productType: 'MOTOR' },
+        },
+      ]),
     },
     policyRenewal: { count: jest.fn().mockResolvedValue(10) },
+    user: {
+      findMany: jest.fn().mockResolvedValue([
+        {
+          id: 'user-agent-1',
+          firstName: 'Vikram',
+          lastName: 'Patel',
+          email: 'vikram.patel@test.com',
+          phone: '9876543210',
+          branch: { name: 'Mumbai South' },
+          agentProfile: { agentCode: 'AGT-MUM-001', agencyName: 'Patel Associates' },
+          policiesCreated: [
+            { id: 'pol-1', status: 'ACTIVE', actualPremium: 75000, premiumAmount: 75000 },
+            { id: 'pol-2', status: 'ISSUED', actualPremium: 45000, premiumAmount: 45000 },
+          ],
+          leadsAssigned: [
+            { id: 'lead-1', status: 'CONVERTED' },
+            { id: 'lead-2', status: 'IN_PROGRESS' },
+            { id: 'lead-3', status: 'CONVERTED' },
+          ],
+        },
+        {
+          id: 'user-agent-2',
+          firstName: 'Pooja',
+          lastName: 'Mehta',
+          email: 'pooja.mehta@test.com',
+          branch: { name: 'Pune Central' },
+          agentProfile: { agentCode: 'AGT-PUN-002', agencyName: 'Mehta Fin' },
+          policiesCreated: [
+            { id: 'pol-3', status: 'EXPIRED', actualPremium: 20000, premiumAmount: 20000 },
+          ],
+          leadsAssigned: [
+            { id: 'lead-4', status: 'LOST' },
+          ],
+        },
+      ]),
+    },
+    commission: {
+      findMany: jest.fn().mockResolvedValue([
+        {
+          userId: 'user-agent-1',
+          amount: 12000,
+          status: 'PAID',
+          user: {
+            id: 'user-agent-1',
+            firstName: 'Vikram',
+            lastName: 'Patel',
+            agentProfile: { agentCode: 'AGT-MUM-001' },
+          },
+        },
+        {
+          userId: 'user-agent-1',
+          amount: 8000,
+          status: 'ACCRUED',
+          user: {
+            id: 'user-agent-1',
+            firstName: 'Vikram',
+            lastName: 'Patel',
+            agentProfile: { agentCode: 'AGT-MUM-001' },
+          },
+        },
+      ]),
+    },
+    task: {
+      findMany: jest.fn().mockResolvedValue([
+        {
+          id: 'task-1',
+          title: 'Client KYC Verification Overdue',
+          dueDate: new Date(Date.now() - 2 * 86400000), // 2 days ago
+          priority: 'HIGH',
+          assignedTo: { firstName: 'Ramesh', lastName: 'Kumar' },
+          createdAt: new Date(Date.now() - 5 * 86400000),
+        },
+      ]),
+    },
+    backOfficeTask: {
+      findMany: jest.fn().mockResolvedValue([]),
+    },
     kpiDefinition: {
       findMany: jest.fn().mockResolvedValue([
         {
@@ -79,6 +220,8 @@ describe('BiService & KpiService (Wave 7 Tenancy Isolation)', () => {
       expect(result.policiesIssued).toBe(20);
       expect(result.overallConversionRate).toBe(20);
       expect(result.stageFunnel).toHaveLength(2);
+      expect(result.funnelJourney).toHaveLength(5);
+      expect(result.funnelJourney[0].stage).toBe('LEAD');
       expect(mockPrisma.lead.count).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({ companyId: 'org-a' }),
@@ -100,6 +243,9 @@ describe('BiService & KpiService (Wave 7 Tenancy Isolation)', () => {
     it('should aggregate revenue for the specified tenant', async () => {
       const result = await service.getRevenueMetrics('org-a');
       expect(result).toHaveProperty('totalPremium');
+      expect(result).toHaveProperty('byProductType');
+      expect(result).toHaveProperty('quarterlyBreakdown');
+      expect(result).toHaveProperty('insurerMarketShare');
       expect(mockPrisma.policyPayment.aggregate).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({
@@ -120,6 +266,7 @@ describe('BiService & KpiService (Wave 7 Tenancy Isolation)', () => {
     it('should calculate loss ratio scoped to tenant', async () => {
       const result = await service.getLossRatioMetrics('org-a');
       expect(result).toHaveProperty('lossRatio');
+      expect(result).toHaveProperty('byProduct');
       expect(mockPrisma.claim.aggregate).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { companyId: 'org-a' },
@@ -138,6 +285,8 @@ describe('BiService & KpiService (Wave 7 Tenancy Isolation)', () => {
     it('should return renewal pipeline scoped to tenant', async () => {
       const result = await service.getRenewalMetrics('org-a');
       expect(result).toHaveProperty('conversionRate');
+      expect(result).toHaveProperty('retentionRate');
+      expect(result.pipeline.length).toBeGreaterThanOrEqual(3);
       expect(mockPrisma.policy.count).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({ companyId: 'org-a' }),
@@ -153,10 +302,11 @@ describe('BiService & KpiService (Wave 7 Tenancy Isolation)', () => {
   });
 
   describe('getSalesMetrics', () => {
-    it('should return policies issued this month for tenant', async () => {
+    it('should return policies issued this month and agent breakdown for tenant', async () => {
       const result = await service.getSalesMetrics('org-a');
       expect(result).toHaveProperty('policiesIssuedThisMonth');
       expect(result).toHaveProperty('monthOverMonthGrowth');
+      expect(result).toHaveProperty('byAgent');
       expect(mockPrisma.policy.count).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({ companyId: 'org-a' }),
@@ -171,10 +321,110 @@ describe('BiService & KpiService (Wave 7 Tenancy Isolation)', () => {
     });
   });
 
+  describe('getAgentPerformanceAnalytics (Workstream 3)', () => {
+    it('should return comprehensive agent performance scoped to tenant', async () => {
+      const result = await service.getAgentPerformanceAnalytics('org-a');
+      expect(result).toHaveProperty('totalAgents');
+      expect(result).toHaveProperty('activeAgents');
+      expect(result).toHaveProperty('totalGwp');
+      expect(result.topPerformers.length).toBeGreaterThanOrEqual(1);
+      expect(result.topPerformers[0].agentName).toBe('Vikram Patel');
+      expect(result.topPerformers[0].gwp).toBe(120000);
+      expect(result.topPerformers[0].conversionRate).toBe(66.7);
+      expect(result.topPerformers[0].commissionEarned).toBe(20000);
+      expect(result.topPerformers[0].commissionPaid).toBe(12000);
+      expect(mockPrisma.user.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ companyId: 'org-a' }),
+        }),
+      );
+    });
+
+    it('should reject missing companyId with ForbiddenException', async () => {
+      await expect(service.getAgentPerformanceAnalytics()).rejects.toThrow(
+        ForbiddenException,
+      );
+    });
+  });
+
+  describe('getOperationalActionCentre (Workstream 3)', () => {
+    it('should return action centre queue partitioned by category scoped to tenant', async () => {
+      const result = await service.getOperationalActionCentre('org-a');
+      expect(result).toHaveProperty('summary');
+      expect(result).toHaveProperty('criticalItems');
+      expect(result).toHaveProperty('itemsByCategory');
+      expect(result.summary.overdueTasksCount).toBe(1);
+      expect(result.summary.pendingInspectionsCount).toBe(1);
+      expect(result.summary.pendingPaymentsCount).toBe(1);
+      expect(result.summary.complianceBlocksCount).toBe(1);
+      expect(result.summary.totalActionItems).toBe(4);
+    });
+
+    it('should reject missing companyId with ForbiddenException', async () => {
+      await expect(service.getOperationalActionCentre()).rejects.toThrow(
+        ForbiddenException,
+      );
+    });
+  });
+
+  describe('getCommissionIntelligence (Workstream 3)', () => {
+    it('should return earned vs paid reconciliation intelligence scoped to tenant', async () => {
+      const result = await service.getCommissionIntelligence('org-a');
+      expect(result.totalEarned).toBe(20000);
+      expect(result.totalPaid).toBe(12000);
+      expect(result.totalPending).toBe(8000);
+      expect(result.reconciliationRate).toBe(60);
+      expect(result.byAgent).toHaveLength(1);
+      expect(result.byAgent[0].agentName).toBe('Vikram Patel');
+      expect(result.byAgent[0].totalPaid).toBe(12000);
+      expect(mockPrisma.commission.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ companyId: 'org-a' }),
+        }),
+      );
+    });
+
+    it('should reject missing companyId with ForbiddenException', async () => {
+      await expect(service.getCommissionIntelligence()).rejects.toThrow(
+        ForbiddenException,
+      );
+    });
+  });
+
+  describe('exportBiReport (Workstream 3)', () => {
+    it('should export agent-performance CSV correctly', async () => {
+      const result = await service.exportBiReport('agent-performance', 'org-a');
+      expect(result.filename).toMatch(/agent-performance-.*\.csv/);
+      expect(result.contentType).toBe('text/csv');
+      expect(result.data).toContain('Agent Code,Agent Name');
+      expect(result.data).toContain('Vikram Patel');
+    });
+
+    it('should export commission-intelligence CSV correctly', async () => {
+      const result = await service.exportBiReport('commission-intelligence', 'org-a');
+      expect(result.filename).toMatch(/commission-intelligence-.*\.csv/);
+      expect(result.data).toContain('Earned Commission,Paid Commission');
+      expect(result.data).toContain('Vikram Patel');
+    });
+
+    it('should export action-centre CSV correctly', async () => {
+      const result = await service.exportBiReport('action-centre', 'org-a');
+      expect(result.filename).toMatch(/operational-action-centre-.*\.csv/);
+      expect(result.data).toContain('Category,Severity,Title');
+    });
+
+    it('should reject missing companyId with ForbiddenException', async () => {
+      await expect(service.exportBiReport('agent-performance')).rejects.toThrow(
+        ForbiddenException,
+      );
+    });
+  });
+
   describe('getGrowthMetrics', () => {
     it('should return growth metrics for tenant', async () => {
       const result = await service.getGrowthMetrics('org-a');
       expect(result).toHaveProperty('portfolioSize');
+      expect(result).toHaveProperty('trendByMonth');
       expect(mockPrisma.policy.count).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({ companyId: 'org-a' }),

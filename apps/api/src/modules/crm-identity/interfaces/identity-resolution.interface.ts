@@ -8,6 +8,7 @@ export interface IdentityMatch {
   conflictReason?: string;
   normalizedPhone?: string | null;
   normalizedEmail?: string | null;
+  vehicles?: any[];
 }
 
 export interface ResolveIdentityParams {
