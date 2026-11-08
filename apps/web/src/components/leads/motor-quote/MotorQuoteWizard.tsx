@@ -958,7 +958,7 @@ export function MotorQuoteWizard({ isOpen, leadId, contactId, customerId, caseId
       !Number.isFinite(authoritativeTotal) ||
       authoritativeTotal <= 0
     ) {
-      toast.error('Cannot save this quotation: a successful current server-side premium calculation is required. Resolve tariff, add-on, or discount errors and retry.');
+      toast.error('Quotation not saved: there is no successful calculation for the current form values. Review the specific calculation error shown in the Premium section, correct it, and wait for recalculation.');
       return;
     }
 

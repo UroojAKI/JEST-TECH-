@@ -262,6 +262,12 @@ export function PolicyFormSAODForm({ category, vehicleStatus, data, onChange, el
       </div>
 
       {/* SAOD TP VERIFICATION PANEL */}
+      {!tpDatesValid && (
+        <div role="alert" className="rounded-lg border border-rose-400/50 bg-rose-50 p-3 text-xs text-rose-700 dark:bg-rose-950/20 dark:text-rose-300">
+          {!tpStart || !tpExpiry ? 'Enter both TP coverage dates.' : tpExpiry < tpStart ? 'TP expiry date cannot precede the start date.' : tpStart > tpToday ? 'TP coverage has not started yet.' : 'TP coverage has expired.'}
+          SAOD premium calculation is blocked until the TP coverage is active today.
+        </div>
+      )}
       <SaodTpVerificationCard
         value={data.tpVerification}
         onChange={(updated) => {
