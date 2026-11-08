@@ -21,6 +21,7 @@ import {
   X,
 } from 'lucide-react';
 import { useAuthStore } from '../../store/auth-store';
+import { Address } from '../../types';
 import { apiClient } from '../../lib/api-client';
 import { healthApiError, healthQuotationRepository } from '../../repositories/health-quotation.repository';
 import {
@@ -1098,6 +1099,47 @@ function EditLeftoverDetailsModal({
       return;
     }
 
+    const hasAnyAddressField = Boolean(
+      form.addressLine1.trim() ||
+      form.addressLine2.trim() ||
+      form.city.trim() ||
+      form.state.trim() ||
+      form.pincode.trim()
+    );
+
+    if (hasAnyAddressField) {
+      if (!form.addressLine1.trim()) {
+        toast.error('Address Line 1 is required when providing address');
+        return;
+      }
+      if (!form.city.trim()) {
+        toast.error('City is required when providing address');
+        return;
+      }
+      if (!form.state.trim()) {
+        toast.error('State is required when providing address');
+        return;
+      }
+      if (!form.pincode.trim()) {
+        toast.error('Pincode is required when providing address');
+        return;
+      }
+      if (!/^\d{6}$/.test(form.pincode.trim())) {
+        toast.error('Pincode must be a 6-digit number');
+        return;
+      }
+    }
+
+    const addressPayload: Address | undefined = hasAnyAddressField
+      ? {
+          line1: form.addressLine1.trim(),
+          line2: form.addressLine2.trim() || undefined,
+          city: form.city.trim(),
+          state: form.state.trim(),
+          pincode: form.pincode.trim(),
+        }
+      : undefined;
+
     const payload: any = {
       panNumber: panClean || undefined,
       aadhaarNumber: aadhaarClean || undefined,
@@ -1107,13 +1149,7 @@ function EditLeftoverDetailsModal({
       nomineeRelation: form.nomineeRelation || undefined,
       occupation: form.occupation.trim() || undefined,
       annualIncome: form.annualIncome ? Number(form.annualIncome) : undefined,
-      address: {
-        addressLine1: form.addressLine1.trim() || undefined,
-        addressLine2: form.addressLine2.trim() || undefined,
-        city: form.city.trim() || undefined,
-        state: form.state.trim() || undefined,
-        pincode: form.pincode.trim() || undefined,
-      },
+      ...(addressPayload ? { address: addressPayload } : {}),
     };
 
     onSubmit(payload);

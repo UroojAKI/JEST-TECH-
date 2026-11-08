@@ -165,6 +165,37 @@ export class HealthAddressDto {
   @IsNotEmpty()
   pincode: string;
 }
+export class UpdateHealthAddressDto {
+  @ApiPropertyOptional({ example: '12, MG Road' })
+  @IsOptional()
+  @IsString()
+  @IsNotEmpty({ message: 'line1 cannot be empty' })
+  line1?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  line2?: string;
+
+  @ApiPropertyOptional({ example: 'Bengaluru' })
+  @IsOptional()
+  @IsString()
+  @IsNotEmpty({ message: 'city cannot be empty' })
+  city?: string;
+
+  @ApiPropertyOptional({ example: 'Karnataka' })
+  @IsOptional()
+  @IsString()
+  @IsNotEmpty({ message: 'state cannot be empty' })
+  state?: string;
+
+  @ApiPropertyOptional({ example: '560001' })
+  @IsOptional()
+  @IsString()
+  @IsNotEmpty({ message: 'pincode cannot be empty' })
+  pincode?: string;
+}
+
 
 /**
  * Creates one Health proposal (case). Quotes are added to it afterwards.
@@ -437,11 +468,11 @@ export class UpdateHealthCaseLeftoverDetailsDto {
   @Matches(/^[6-9]\d{9}$/, { message: 'Phone number must be a valid 10-digit Indian mobile number' })
   phone?: string;
 
-  @ApiPropertyOptional({ type: HealthAddressDto })
+  @ApiPropertyOptional({ type: UpdateHealthAddressDto })
   @IsOptional()
   @ValidateNested()
-  @Type(() => HealthAddressDto)
-  address?: HealthAddressDto;
+  @Type(() => UpdateHealthAddressDto)
+  address?: UpdateHealthAddressDto;
 
   @ApiPropertyOptional({ example: 'Ravi B' })
   @IsOptional()

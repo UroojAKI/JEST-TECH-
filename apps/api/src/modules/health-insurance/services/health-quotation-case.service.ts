@@ -805,7 +805,23 @@ export class HealthQuotationCaseService {
     if (dto.nomineeRelation) caseUpdates.nomineeRelation = dto.nomineeRelation;
     if (dto.occupation) caseUpdates.occupation = dto.occupation;
     if (dto.annualIncome !== undefined) caseUpdates.annualIncome = new Prisma.Decimal(dto.annualIncome);
-    if (dto.address) caseUpdates.addressSnapshot = { ...((healthCase.addressSnapshot as object) || {}), ...dto.address };
+    if (dto.address) {
+      const prevAddr = ((healthCase.addressSnapshot as object) || {}) as Record<string, any>;
+      const normalizedPrev: Record<string, any> = {
+        line1: prevAddr.line1 || prevAddr.addressLine1 || undefined,
+        line2: prevAddr.line2 || prevAddr.addressLine2 || undefined,
+        city: prevAddr.city || undefined,
+        state: prevAddr.state || undefined,
+        pincode: prevAddr.pincode || undefined,
+      };
+      const mergedAddress: Record<string, any> = { ...normalizedPrev };
+      for (const [key, val] of Object.entries(dto.address)) {
+        if (val !== undefined && val !== null) {
+          mergedAddress[key] = typeof val === 'string' ? val.trim() : val;
+        }
+      }
+      caseUpdates.addressSnapshot = mergedAddress;
+    }
 
     // Update customer snapshot to reflect current KYC presence
     const prevSnapshot = (healthCase.customerSnapshot as Record<string, any>) || {};
