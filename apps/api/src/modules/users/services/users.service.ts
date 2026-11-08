@@ -3,9 +3,14 @@ import {
   ForbiddenException,
   Injectable,
   NotFoundException,
+  ConflictException,
+  ServiceUnavailableException,
+  Optional,
 } from '@nestjs/common';
 import * as argon2 from 'argon2';
 import * as crypto from 'crypto';
+import { EmailProvider } from '../../platform/notifications/providers/email.provider';
+import { InviteUserDto } from '../dto/invite-user.dto';
 
 import {
   AuditAction,
@@ -30,7 +35,155 @@ export class UsersService {
   constructor(
     private readonly userRepository: UserRepository,
     private readonly prisma: PrismaService,
+    @Optional() private readonly emailProvider?: EmailProvider,
   ) {}
+
+  async inviteUser(dto: InviteUserDto, actor: any) {
+    const companyId = actor?.companyId || actor?.organizationId || actor?.user?.companyId;
+    if (!companyId) throw new ForbiddenException('Company context is required to invite a user');
+
+    const role = String(dto.role || '').toUpperCase();
+    if (![RoleType.AGENT, RoleType.BACK_OFFICE].includes(role as RoleType)) {
+      throw new BadRequestException('Invitations may be created only for AGENT or BACK_OFFICE roles');
+    }
+
+    const email = dto.email.trim().toLowerCase();
+    const existing = await this.prisma.user.findUnique({ where: { email }, select: { id: true } });
+    if (existing) throw new ConflictException('A user with this email already exists');
+
+    if (!this.emailProvider || !process.env.FRONTEND_URL) {
+      throw new ServiceUnavailableException('User invitation delivery is unavailable: configure the email provider and FRONTEND_URL');
+    }
+
+    const temporaryPassword = crypto.randomBytes(48).toString('base64url');
+    const created = await this.create({
+      firstName: dto.firstName.trim(),
+      lastName: dto.lastName.trim(),
+      email,
+      phone: dto.phone,
+      role,
+      branchId: dto.branchId,
+      department: dto.departmentId,
+      employeeCode: dto.employeeCode,
+      collectContacts: dto.collectContacts,
+      password: temporaryPassword,
+      status: UserStatus.PENDING_VERIFICATION,
+    } as any, { companyId, userId: actor?.id, id: actor?.id });
+
+    const rawToken = crypto.randomBytes(32).toString('base64url');
+    const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
+    const expiresAt = new Date(Date.now() + 72 * 60 * 60 * 1000);
+
+    await this.prisma.userInvitation.updateMany({
+      where: { companyId, email, consumedAt: null, revokedAt: null },
+      data: { revokedAt: new Date() },
+    });
+
+    const invitation = await this.prisma.userInvitation.create({
+      data: {
+        userId: created.id,
+        email,
+        companyId,
+        invitedById: actor?.id || actor?.userId || 'system',
+        tokenHash,
+        expiresAt,
+      },
+      select: { id: true, expiresAt: true },
+    });
+
+    const activationUrl = new URL('/activate-invitation', process.env.FRONTEND_URL);
+    activationUrl.searchParams.set('token', rawToken);
+    const sent = await this.emailProvider.send({
+      to: email,
+      recipientName: `${dto.firstName} ${dto.lastName}`.trim(),
+      title: 'Activate your JEST Policy CRM account',
+      message: `An administrator invited you to JEST Policy CRM. This single-use activation link expires in 72 hours. If you were not expecting this invitation, ignore this email.`,
+      actionUrl: activationUrl.toString(),
+    });
+
+    if (!sent.success) {
+      await this.prisma.$transaction([
+        this.prisma.userInvitation.update({
+          where: { id: invitation.id },
+          data: { revokedAt: new Date() },
+        }),
+        this.prisma.user.update({
+          where: { id: created.id },
+          data: { status: UserStatus.INACTIVE },
+        }),
+      ]);
+      throw new ServiceUnavailableException(sent.failureReason || 'Invitation email could not be delivered');
+    }
+
+    return {
+      success: true,
+      invitationId: invitation.id,
+      email,
+      expiresAt: invitation.expiresAt,
+      message: 'Invitation sent. The user must activate the account within 72 hours.',
+    };
+  }
+
+  async activateInvitation(token: string, password: string) {
+    if (!token || token.length < 32) throw new BadRequestException('A valid invitation token is required');
+    if (!password || password.length < 12) throw new BadRequestException('Password must be at least 12 characters');
+    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+    const now = new Date();
+    const passwordHash = await argon2.hash(password);
+
+    return this.prisma.$transaction(async (tx) => {
+      const invitation = await tx.userInvitation.findFirst({
+        where: {
+          tokenHash,
+          consumedAt: null,
+          revokedAt: null,
+          expiresAt: { gt: now },
+        },
+      });
+      if (!invitation) {
+        throw new BadRequestException('Invitation is invalid, expired, revoked or already used');
+      }
+
+      const claim = await tx.userInvitation.updateMany({
+        where: {
+          id: invitation.id,
+          tokenHash,
+          consumedAt: null,
+          revokedAt: null,
+          expiresAt: { gt: now },
+        },
+        data: { consumedAt: now },
+      });
+      if (claim.count !== 1) throw new ConflictException('Invitation has already been consumed');
+
+      const activated = await tx.user.updateMany({
+        where: {
+          id: invitation.userId,
+          email: invitation.email,
+          companyId: invitation.companyId,
+          status: UserStatus.PENDING_VERIFICATION,
+          deletedAt: null,
+        },
+        data: {
+          passwordHash,
+          status: UserStatus.ACTIVE,
+          authVersion: { increment: 1 },
+          failedLoginAttempts: 0,
+          failedLoginWindowStartedAt: null,
+          lockedUntil: null,
+        },
+      });
+      if (activated.count !== 1) {
+        throw new ConflictException('The invited account is no longer eligible for activation');
+      }
+
+      return {
+        success: true,
+        email: invitation.email,
+        message: 'Account activated. You can now sign in.',
+      };
+    });
+  }
 
   async getPrimaryOrganizationId(): Promise<string | null> {
     const company = await this.prisma.company.findFirst({
