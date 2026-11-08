@@ -46,7 +46,7 @@ The original health-insurance, tenant-integrity, PII, authentication and depende
 
 ## D. Outstanding blockers before production approval
 
-1. **Invitation lifecycle:** Implement the SRS-aligned single-use, 72-hour user activation flow with verified outbound email delivery. Current active-user/initial-password flow remains.
+1. **Invitation operations:** Configure and verify SendGrid `SENDGRID_API_KEY`, verified `MAIL_FROM` and `FRONTEND_URL` in each environment; run admin invite/activation/resend smoke tests. No real email delivery has been exercised from this repository session.
 2. **PII migration:** Take and verify backup; confirm production key custody; run the backfill in an approved window; verify encrypted records, blind indexes, read/write compatibility, restore and key recovery. This has not been executed.
 3. **Tenant isolation:** Rerun AST scanner on latest head; manually review all warnings; add cross-tenant negative tests for BI, policy, quotation, task, customer, contact, documents, exports, jobs and webhooks.
 4. **Motor journey acceptance:** Test new bike Package (OD 1 + TP 5), new bike TP-only (TP 5), new private car (TP 3), existing renewal, and commercial cases; assert premium, stored component dates and policy output.
@@ -64,6 +64,15 @@ The original health-insurance, tenant-integrity, PII, authentication and depende
 - Health renewal flow passes the predecessor policy into the health wizard, preloads policy/member/customer context, stores the source policy ID in the health case snapshot, and attaches it to each health quotation after tenant/customer validation.
 - The renewal drawer no longer presents simulated approval/payment/issuance steps. It routes supported Motor/Health products into their quotation journeys and blocks unsupported categories.
 - EmailProvider no longer returns a fabricated SENT response based on SMTP/SES environment variables. It performs a real SendGrid API request and requires `SENDGRID_API_KEY` plus `MAIL_FROM`.
+
+## D3. User invitation lifecycle
+
+- Added tenant-scoped invitation records with a hashed, single-use token and 72-hour expiry.
+- Admin user-management now exposes an invitation action; invited users are created in `PENDING_VERIFICATION` and cannot log in before activation.
+- Activation endpoint is public but rate-limited, validates the token and minimum password length, and atomically consumes the invitation while activating the pending account.
+- Re-invitation revokes prior unused tokens; email delivery failure revokes the failed token while leaving the pending account eligible for a safe retry.
+- Added an account activation page and focused tests for successful activation, invalid/expired tokens, concurrent token consumption and account-state mismatch.
+- Email transport now sends through SendGrid only when `SENDGRID_API_KEY` and `MAIL_FROM` are configured. A configured-but-unimplemented SMTP/SES variable can no longer produce a fake success.
 
 ## E. Release decision
 
