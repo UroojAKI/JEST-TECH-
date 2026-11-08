@@ -101,12 +101,33 @@ describe('BackOfficeQueueService (G021 Multi-Gate Policy Issuance Queue)', () =>
       ...baseQuote,
       productType: 'HEALTH',
       healthCaseId: 'health-case-1',
-      healthDocuments: [
-        {
-          id: 'health-doc-pending',
-          verificationStatus: DocumentVerificationStatus.PENDING,
-        },
-      ],
+      healthCase: {
+        planCategory: 'INDIVIDUAL',
+        policyForm: 'NEW_POLICY',
+        documents: [
+          {
+            id: 'health-doc-pending',
+            documentType: 'PROPOSAL_FORM',
+            verificationStatus: DocumentVerificationStatus.PENDING,
+          },
+          {
+            id: 'health-kyc-verified',
+            documentType: 'KYC_DOCUMENTS',
+            verificationStatus: DocumentVerificationStatus.VERIFIED,
+          },
+          {
+            id: 'health-age-verified',
+            documentType: 'AGE_PROOF',
+            verificationStatus: DocumentVerificationStatus.VERIFIED,
+          },
+          {
+            id: 'health-declaration-verified',
+            documentType: 'GOOD_HEALTH_DECLARATION',
+            verificationStatus: DocumentVerificationStatus.VERIFIED,
+          },
+        ],
+      },
+      healthDocuments: [],
     };
 
     mockPrisma.quotation.findMany.mockResolvedValue([healthQuote]);
@@ -116,7 +137,7 @@ describe('BackOfficeQueueService (G021 Multi-Gate Policy Issuance Queue)', () =>
     const item = result.data[0];
 
     expect(item.gates.documents.passed).toBe(false);
-    expect(item.gates.documents.detail).toContain('pending underwriter verification');
+    expect(item.gates.documents.detail).toContain('Required health documents not verified');
     expect(item.allGatesPassed).toBe(false);
     expect(item.nextAction).not.toBe('Ready to Issue Policy');
   });
