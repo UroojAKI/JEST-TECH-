@@ -595,6 +595,7 @@ export function MotorQuotationsWorkspace() {
                         vehicleDetails: q.vehicleDetails,
                         proposerDetails: q.proposerDetails,
                         previousPolicyDetails: (q as any).previousPolicyDetails,
+                        policyDetails: (q as any).policyDetails,
                         caseId: (q as any).caseId,
                       })}
                     />
