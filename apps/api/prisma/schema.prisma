@@ -330,6 +330,23 @@ model RolePermission {
 // USERS
 //////////////////////////////////////////////////////////
 
+model UserInvitation {
+  id          String   @id @default(uuid())
+  userId      String   @unique
+  email       String
+  companyId   String
+  invitedById String
+  tokenHash   String   @unique
+  expiresAt   DateTime
+  consumedAt  DateTime?
+  revokedAt   DateTime?
+  createdAt   DateTime @default(now())
+
+  @@index([companyId, email])
+  @@index([expiresAt, consumedAt])
+  @@map("user_invitations")
+}
+
 model User {
   id String @id @default(uuid())
 
