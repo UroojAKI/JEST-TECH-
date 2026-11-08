@@ -1,3 +1,4 @@
+import { EncryptionUtil } from '../../../common/utils/encryption.util';
 import {
   BadRequestException,
   ForbiddenException,
@@ -909,7 +910,7 @@ export class LeadsService {
               `${lead.contact.firstName || ''} ${lead.contact.lastName || ''}`.trim(),
             email: lead.contact.email,
             phone: lead.contact.phone,
-            panNumber: lead.contact.panNumber,
+            panNumber: EncryptionUtil.maskPan(lead.contact.panNumber),
             gender: lead.contact.gender,
             dateOfBirth: lead.contact.dateOfBirth,
           }

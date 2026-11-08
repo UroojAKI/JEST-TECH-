@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../../database/prisma.service';
+import { EncryptionUtil } from '../../../common/utils/encryption.util';
 import {
   BaseRepository,
   TransactionClient,
@@ -177,7 +178,7 @@ export class AccountRepository extends BaseRepository<
     tx?: TransactionClient,
   ): Promise<AccountDetail | null> {
     return this.getClient(tx).findFirst({
-      where: { panNumber, deletedAt: null },
+      where: { panNumberHash: EncryptionUtil.hashPan(panNumber), deletedAt: null },
       ...this.detailArgs,
     });
   }

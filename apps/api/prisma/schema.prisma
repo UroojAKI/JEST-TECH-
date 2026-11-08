@@ -625,6 +625,8 @@ model Contact {
 
   panNumber String?
 
+  panNumberHash String? @db.VarChar(64)
+
   aadhaarNumber String?
 
   gstNumber String?
@@ -691,6 +693,7 @@ model Contact {
   @@index([status])
   @@index([companyId, phone])
   @@index([companyId, email])
+  @@index([companyId, panNumberHash])
   @@map("contacts")
 }
 
@@ -718,6 +721,8 @@ model Account {
   gstNumber String?
 
   panNumber String?
+
+  panNumberHash String? @db.VarChar(64)
 
   annualRevenue Decimal?
 
@@ -761,6 +766,7 @@ model Account {
   @@index([name])
   @@index([phone])
   @@index([email])
+  @@index([panNumberHash])
   @@index([accountCode])
   @@index([deletedAt])
   @@index([createdById])
@@ -4496,6 +4502,7 @@ model Customer {
   mobile        String
   email         String?
   panNumber     String?
+  panNumberHash String? @db.VarChar(64)
   aadhaarNumber String?
   addressLine1  String?
   addressLine2  String?
@@ -4536,6 +4543,7 @@ model Customer {
   // Soft deduplication: index mobile & email, NO @unique constraint
   @@index([companyId, mobile])
   @@index([companyId, email])
+  @@index([companyId, panNumberHash])
   @@index([companyId])
   @@index([primaryAgentId])
   @@index([primaryAgentExternalCodeId])
