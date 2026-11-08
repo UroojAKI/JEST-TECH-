@@ -333,6 +333,7 @@ model RolePermission {
 model UserInvitation {
   id          String   @id @default(uuid())
   userId      String   @unique
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   email       String
   companyId   String
   invitedById String
@@ -373,6 +374,8 @@ model User {
   isEmailVerified Boolean @default(false)
 
   isPhoneVerified Boolean @default(false)
+
+  invitations UserInvitation[]
 
   failedLoginAttempts Int @default(0)
 
